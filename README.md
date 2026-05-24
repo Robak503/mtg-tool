@@ -14,7 +14,7 @@ A local-first, multi-agent Magic: The Gathering Commander assistant. Built for p
 
 ## Architecture
 
-Local-first. All card data, rules data, deck data, and chat history live on your machine. Local Ollama model for generation. External APIs (Anthropic, Scryfall) are fallbacks for missing data only.
+Local-first. All card data, rules data, deck data, and chat history live on your machine. Local Ollama model for generation. External APIs (Anthropic, Scryfall) are deliberate fallbacks for missing data or user-selected API mode only.
 
 ```
 Agents → Arbiter (rules engine) → Local Knowledge Layer
@@ -36,10 +36,10 @@ Requirements:
 Setup:
 1. Clone or copy this project to your local machine
 2. `cd app && npm install`
-3. Pull a local model: `ollama pull qwen2.5:32b` (or similar — see CLAUDE.md for recommendations)
+3. Pull a local model: `ollama pull qwen2.5:14b` (or similar — see CLAUDE.md for recommendations)
 4. Run sync to populate local data: `npm run sync:scryfall && npm run sync:rulesguru`
-5. Start the app: `npm run dev`
-6. Open http://localhost:3000
+5. Start the app: `./start-local.ps1`
+6. Open http://localhost:3001
 
 For Claude Code users:
 - Read `CLAUDE.md` for the full operating manual
@@ -52,3 +52,4 @@ In active development. See `ROADMAP.md` for current phase and upcoming work.
 ## License
 
 Personal project. Not for redistribution.
+

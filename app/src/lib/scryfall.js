@@ -27,14 +27,42 @@ async function fetchLocalCards(names, options = {}) {
   }
 }
 
-export async function fetchCard(name) {
-  if (name in CARD_CACHE) return CARD_CACHE[name];
+async function searchLocalCards(query, options = {}) {
+  const params = new URLSearchParams({
+    search: query,
+    limit: String(options.limit || 12),
+    legal: options.legal || "commander",
+  });
+  if (options.colorIdentity?.length) params.set("colorIdentity", options.colorIdentity.join(""));
+
+  try {
+    const response = await fetch(`/api/cards?${params.toString()}`, { cache: "no-store" });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.cards || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchCard(name, options = {}) {
+  const allowLiveFallback = options.allowLiveFallback !== false;
+  const cacheKey = `${allowLiveFallback ? "live" : "local"}:${name}`;
+  if (cacheKey in CARD_CACHE) return CARD_CACHE[cacheKey];
+  if (CARD_CACHE[name]) return CARD_CACHE[name];
+
   const local = await fetchLocalCard(name);
-  if (local) return (CARD_CACHE[name] = local);
+  if (local) {
+    CARD_CACHE[name] = local;
+    CARD_CACHE[cacheKey] = local;
+    return local;
+  }
+
+  if (!allowLiveFallback) return (CARD_CACHE[cacheKey] = null);
 
   try {
     const r = await fetch(`https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`);
-    if (!r.ok) return (CARD_CACHE[name] = null);
+    if (!r.ok) return (CARD_CACHE[cacheKey] = null);
     const d = await r.json();
     // Build oracle text — for DFCs/split, concatenate both faces with a separator
     let oracle = d.oracle_text || "";
@@ -43,7 +71,9 @@ export async function fetchCard(name) {
         .map(f => `${f.name} — ${f.type_line || ""} ${f.mana_cost || ""}\n${f.oracle_text || ""}`)
         .join("\n//\n");
     }
-    return (CARD_CACHE[name] = {
+    const card = {
+      source: "live",
+      rulingsSource: "not_requested",
       id: d.id,
       rulings_uri: d.rulings_uri,
       name: d.name,
@@ -60,8 +90,11 @@ export async function fetchCard(name) {
       prices: d.prices || {},
       legalities: d.legalities || {},
       oracleId: d.oracle_id,
-    });
-  } catch { return (CARD_CACHE[name] = null); }
+    };
+    CARD_CACHE[name] = card;
+    CARD_CACHE[cacheKey] = card;
+    return card;
+  } catch { return (CARD_CACHE[cacheKey] = null); }
 }
 
 /* ── Scryfall rulings (WOTC Gatherer clarifications) ── */
@@ -88,6 +121,14 @@ async function fetchCardRulings(cardId, rulingsUri, oracleId) {
     const wotc = (d.data || []).filter(r => r.source === "wotc");
     return (_R[cardId] = wotc.length ? wotc : (d.data || []));
   } catch { return (_R[cardId] = []); }
+}
+
+async function promptRulingsForCard(card, options = {}) {
+  if (!card) return [];
+  if (Array.isArray(card.rulings) && card.rulingsSource === "local") return card.rulings;
+  if (Array.isArray(card.rulings) && card.rulings.length) return card.rulings;
+  if (!options.allowLiveRulingsFallback) return [];
+  return fetchCardRulings(card.id, card.rulings_uri, card.oracleId);
 }
 
 /* ── Scryfall card-name catalog (loaded once per session) ── */
@@ -176,8 +217,11 @@ function detectCardNamesInText(text, catalog) {
 /* ── Card context builder for API prompts ── */
 export async function buildCardContextForNames(names, options = {}) {
   const {
+    allowLiveFallback = false,
+    allowLiveRulingsFallback = allowLiveFallback,
     includeRulings = true,
     maxRulingsPerCard = 4,
+    includeSourceReceipt = true,
     heading = "## CARDS REFERENCED (authoritative - use ONLY this text for card behavior)",
   } = options;
 
@@ -190,25 +234,26 @@ export async function buildCardContextForNames(names, options = {}) {
   if (!uniqueNames.length) return "";
 
   const localCards = await fetchLocalCards(uniqueNames, { includeRulings });
-  const cards = await Promise.all(uniqueNames.map(async name => {
+  const pairs = await Promise.all(uniqueNames.map(async name => {
     if (localCards?.[name]) {
       CARD_CACHE[name] = localCards[name];
-      return localCards[name];
+      return { requested: name, card: localCards[name] };
     }
-    return fetchCard(name);
+    const card = allowLiveFallback ? await fetchCard(name, { allowLiveFallback: true }) : null;
+    return { requested: name, card };
   }));
-  const valid = cards.filter(Boolean);
-  if (!valid.length) return "";
+  const validPairs = pairs.filter(pair => pair.card);
+  if (!validPairs.length) return "";
 
   let rulingsByCard = {};
   if (includeRulings) {
     const results = await Promise.all(
-      valid.map(card => card.rulings?.length ? card.rulings : fetchCardRulings(card.id, card.rulings_uri, card.oracleId))
+      validPairs.map(({ card }) => promptRulingsForCard(card, { allowLiveRulingsFallback }))
     );
-    valid.forEach((card, index) => { rulingsByCard[card.id] = results[index] || []; });
+    validPairs.forEach(({ card }, index) => { rulingsByCard[card.id] = results[index] || []; });
   }
 
-  const blocks = valid.map(card => {
+  const blocks = validPairs.map(({ card }) => {
     const stat = card.power !== null ? ` | ${card.power}/${card.toughness}`
                : card.loyalty !== null ? ` | Loyalty ${card.loyalty}`
                : "";
@@ -224,11 +269,110 @@ export async function buildCardContextForNames(names, options = {}) {
     return block;
   });
 
-  return `${heading}\n\n${blocks.join("\n\n---\n\n")}\n\n`;
+  const localCount = validPairs.filter(({ card }) => card.source !== "live").length;
+  const liveNames = validPairs
+    .filter(({ card }) => card.source === "live")
+    .map(({ requested, card }) => card.name || requested);
+  const missingNames = pairs
+    .filter(pair => !pair.card)
+    .map(pair => pair.requested);
+
+  const receipt = includeSourceReceipt ? [
+    `Source receipt: ${localCount} local card(s), ${liveNames.length} live Scryfall fallback card(s), ${missingNames.length} unresolved card(s).`,
+    liveNames.length ? `Live fallback used for: ${liveNames.map(name => `[[${name}]]`).join(", ")}` : "",
+    missingNames.length ? `Unresolved cards: ${missingNames.map(name => `[[${name}]]`).join(", ")}` : "",
+  ].filter(Boolean).join("\n") : "";
+
+  return `${heading}\n${receipt ? `\n${receipt}\n` : ""}\n${blocks.join("\n\n---\n\n")}\n\n`;
+}
+
+function compactOracle(text, limit = 190) {
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  return clean.length <= limit ? clean : `${clean.slice(0, limit - 3).trim()}...`;
+}
+
+function colorIdentityFromCards(cards) {
+  return [...new Set((cards || []).flatMap(card => card?.colorIdentity || []))].sort();
+}
+
+function shouldAttachKarnSearchContext(prompt) {
+  return /\b(add|adds|upgrade|upgrades|improve|improvement|suggest|recommend|replace|swap|cut|cuts|card|cards|package|ramp|draw|removal|interaction|protection|wincon|win condition|mana base|fix|build|optimize|tune)\b/i.test(prompt);
+}
+
+function karnSearchQueries(prompt, deckOracleText = "") {
+  const text = `${prompt}\n${deckOracleText}`.toLowerCase();
+  const queries = [];
+  const add = (role, query) => {
+    if (!queries.some(entry => entry.query === query)) queries.push({ role, query });
+  };
+
+  if (/\b(ramp|mana|fix|fixing|rock|treasure)\b/.test(text)) add("Ramp / Fixing", "add mana");
+  if (/\b(draw|card advantage|refill|hand)\b/.test(text)) add("Card Advantage", "draw a card");
+  if (/\b(removal|interaction|kill|destroy|exile|answer)\b/.test(text)) add("Interaction", "destroy target");
+  if (/\b(protection|protect|hexproof|indestructible|safe|boots)\b/.test(text)) add("Protection", "hexproof indestructible");
+  if (/\b(token|tokens|treasure|treasures|artifact)\b/.test(text)) add("Token / Artifact Synergy", "create treasure token");
+  if (/\b(sacrifice|aristocrat|dies|death|graveyard)\b/.test(text)) add("Aristocrats / Sacrifice", "whenever a creature dies");
+  if (/\b(equipment|equip|aura|voltron)\b/.test(text)) add("Voltron / Equipment", "attach equipment");
+  if (/\b(counter|counters|\+1\/\+1|proliferate)\b/.test(text)) add("Counters", "proliferate counter");
+  if (/\b(tribal|kindred|sliver|dragon|dinosaur|ninja|hydra)\b/.test(text)) add("Kindred Support", "choose a creature type");
+
+  if (!queries.length) {
+    add("Ramp / Fixing", "add mana");
+    add("Card Advantage", "draw a card");
+    add("Interaction", "destroy target");
+    add("Protection", "hexproof indestructible");
+  }
+
+  return queries.slice(0, 6);
+}
+
+function formatCandidate(card) {
+  const ci = card.colorIdentity?.length ? card.colorIdentity.join("") : "C";
+  const rank = card.edhrecRank ? ` | EDHREC #${card.edhrecRank}` : "";
+  return `- [[${card.name}]] | ${card.mana || "-"} | ${card.type || "Card"} | CI: ${ci}${rank}\n  ${compactOracle(card.oracle) || "(no Oracle text)"}`;
+}
+
+export async function buildKarnScryfallSearchContext(prompt, options = {}) {
+  if (!shouldAttachKarnSearchContext(prompt)) return "";
+
+  const commanderNames = (options.commanderNames || []).filter(Boolean);
+  const commanderCards = commanderNames.length
+    ? Object.values(await fetchLocalCards(commanderNames, { includeRulings: false }) || {}).filter(Boolean)
+    : [];
+  const colorIdentity = colorIdentityFromCards(commanderCards);
+  const queries = karnSearchQueries(prompt, options.deckOracleText || "");
+  const sections = [];
+
+  for (const { role, query } of queries) {
+    const cards = await searchLocalCards(query, {
+      colorIdentity,
+      limit: options.limitPerRole || 5,
+      legal: "commander",
+    });
+    if (!cards.length) continue;
+    sections.push(`### ${role}\nLocal query: ${query}\n${cards.map(formatCandidate).join("\n")}`);
+  }
+
+  if (!sections.length) return "";
+
+  const colorLine = colorIdentity.length ? `Color identity filter: ${colorIdentity.join("")}` : "Color identity filter: unavailable; results may need manual color-identity review.";
+  return [
+    "## LOCAL SCRYFALL SEARCH RESULTS FOR KARN",
+    "These candidates came from the local Scryfall Oracle repository. Treat them as searchable card facts, not mandatory recommendations. Use only legal, color-identity-appropriate cards for final add suggestions.",
+    colorLine,
+    "",
+    sections.join("\n\n"),
+    "",
+  ].join("\n");
 }
 
 export async function buildCardContext(text, options = {}) {
-  const { includeRulings = true, maxRulingsPerCard = 4 } = options;
+  const {
+    allowLiveFallback = false,
+    allowLiveRulingsFallback = allowLiveFallback,
+    includeRulings = true,
+    maxRulingsPerCard = 4,
+  } = options;
 
   // Extract [[Card Name]] mentions — always trusted
   const mentioned = [...text.matchAll(/\[\[([^\]]+)\]\]/g)].map(m => m[1].trim());
@@ -241,29 +385,30 @@ export async function buildCardContext(text, options = {}) {
 
   if (!names.length) return "";
 
-  // Fetch all cards from the local repository first, then fall back to live Scryfall.
+  // Fetch all cards from the local repository. Live fallback is opt-in.
   const localCards = await fetchLocalCards(names, { includeRulings });
-  const cards = await Promise.all(names.map(async n => {
+  const pairs = await Promise.all(names.map(async n => {
     if (localCards?.[n]) {
       CARD_CACHE[n] = localCards[n];
-      return localCards[n];
+      return { requested: n, card: localCards[n] };
     }
-    return fetchCard(n);
+    const card = allowLiveFallback ? await fetchCard(n, { allowLiveFallback: true }) : null;
+    return { requested: n, card };
   }));
-  const valid = cards.filter(Boolean);
-  if (!valid.length) return "";
+  const validPairs = pairs.filter(pair => pair.card);
+  if (!validPairs.length) return "";
 
   // Fetch rulings in parallel if enabled
   let rulingsByCard = {};
   if (includeRulings) {
     const results = await Promise.all(
-      valid.map(c => c.rulings?.length ? c.rulings : fetchCardRulings(c.id, c.rulings_uri, c.oracleId))
+      validPairs.map(({ card }) => promptRulingsForCard(card, { allowLiveRulingsFallback }))
     );
-    valid.forEach((c, i) => { rulingsByCard[c.id] = results[i] || []; });
+    validPairs.forEach(({ card }, i) => { rulingsByCard[card.id] = results[i] || []; });
   }
 
   // Format each card's block
-  const blocks = valid.map(c => {
+  const blocks = validPairs.map(({ card: c }) => {
     const stat = c.power !== null ? ` | ${c.power}/${c.toughness}`
                : c.loyalty !== null ? ` | Loyalty ${c.loyalty}`
                : "";
@@ -279,7 +424,20 @@ export async function buildCardContext(text, options = {}) {
     return block;
   });
 
-  return `## CARDS REFERENCED (authoritative — use ONLY this text for card behavior)\n\n${blocks.join("\n\n---\n\n")}\n\n`;
+  const localCount = validPairs.filter(({ card }) => card.source !== "live").length;
+  const liveNames = validPairs
+    .filter(({ card }) => card.source === "live")
+    .map(({ requested, card }) => card.name || requested);
+  const missingNames = pairs
+    .filter(pair => !pair.card)
+    .map(pair => pair.requested);
+  const receipt = [
+    `Source receipt: ${localCount} local card(s), ${liveNames.length} live Scryfall fallback card(s), ${missingNames.length} unresolved card(s).`,
+    liveNames.length ? `Live fallback used for: ${liveNames.map(name => `[[${name}]]`).join(", ")}` : "",
+    missingNames.length ? `Unresolved cards: ${missingNames.map(name => `[[${name}]]`).join(", ")}` : "",
+  ].filter(Boolean).join("\n");
+
+  return `## CARDS REFERENCED (authoritative — use ONLY this text for card behavior)\n\n${receipt}\n\n${blocks.join("\n\n---\n\n")}\n\n`;
 }
 
 /* ── Banlist post-processor: scans Karn responses for banned cards and flags them ── */
@@ -291,7 +449,7 @@ export async function postProcessKarnResponse(text) {
   if (!mentioned.length) return { text, bannedFlags: [] };
 
   // Fetch each card (cached) and check Commander legality
-  const cards = await Promise.all(mentioned.map(n => fetchCard(n)));
+  const cards = await Promise.all(mentioned.map(n => fetchCard(n, { allowLiveFallback: false })));
   const banned = [];
   cards.forEach((c, i) => {
     if (!c) return;
@@ -310,15 +468,17 @@ export async function postProcessKarnResponse(text) {
 export async function searchCards(q) {
   if (!q.trim()) return [];
   try {
-    const r = await fetch(`https://api.scryfall.com/cards/search?q=${encodeURIComponent(q)}&order=edhrec&unique=cards`);
-    if (!r.ok) return [];
-    const d = await r.json();
-    return (d.data || []).slice(0, 16).map(c => ({
-      name: c.name,
-      normal: c.image_uris?.normal || c.card_faces?.[0]?.image_uris?.normal,
-      type: c.type_line || "",
-      price: c.prices?.usd ? `$${parseFloat(c.prices.usd).toFixed(2)}` : "—",
-    }));
+    const local = await searchLocalCards(q, { limit: 16, legal: "commander" });
+    if (local.length) {
+      return local.map(c => ({
+        name: c.name,
+        normal: c.image,
+        type: c.type || "",
+        price: c.prices?.usd ? `$${parseFloat(c.prices.usd).toFixed(2)}` : "-",
+      }));
+    }
+
+    return [];
   } catch { return []; }
 }
 
@@ -338,7 +498,7 @@ export async function fetchDeckData(cards) {
   for (let i = 0; i < unique.length; i += 12) {
     const missing = unique.slice(i, i + 12).filter(n => !out[n]);
     await Promise.all(missing.map(async n => {
-      const d = await fetchCard(n);
+      const d = await fetchCard(n, { allowLiveFallback: false });
       if (d) out[n] = d;
     }));
     if (i + 12 < unique.length) await new Promise(r => setTimeout(r, 110));

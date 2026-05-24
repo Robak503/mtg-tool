@@ -49,9 +49,11 @@ function setBestCard(byName, alias, card) {
   }
 }
 
-function publicCard(card, rulings = []) {
+function publicCard(card, rulings = [], options = {}) {
   if (!card) return null;
   return {
+    source: options.source || "local",
+    rulingsSource: options.rulingsSource || "not_requested",
     id: card.id,
     oracleId: card.oracle_id,
     rulings_uri: card.rulings_uri,
@@ -61,6 +63,13 @@ function publicCard(card, rulings = []) {
     mana: card.mana_cost || card.card_faces?.[0]?.mana_cost || "",
     type: card.type_line || "",
     cmc: card.cmc ?? 0,
+    colors: card.colors || card.card_faces?.flatMap(face => face.colors || []) || [],
+    colorIdentity: card.color_identity || [],
+    edhrecRank: card.edhrec_rank ?? null,
+    rarity: card.rarity || "",
+    set: card.set || "",
+    setName: card.set_name || "",
+    producedMana: card.produced_mana || [],
     oracle: oracleText(card),
     power: card.power ?? card.card_faces?.[0]?.power ?? null,
     toughness: card.toughness ?? card.card_faces?.[0]?.toughness ?? null,
@@ -71,6 +80,84 @@ function publicCard(card, rulings = []) {
     card_faces: card.card_faces || [],
     rulings,
   };
+}
+
+function uniqueCards(cards) {
+  const seen = new Set();
+  const unique = [];
+  for (const card of cards) {
+    const key = card.oracle_id || card.name;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(card);
+  }
+  return unique;
+}
+
+function parseColorIdentity(value) {
+  return new Set(
+    String(value || "")
+      .toUpperCase()
+      .split(/[^WUBRG]+/)
+      .filter(Boolean)
+  );
+}
+
+function commanderLegal(card) {
+  return card.legalities?.commander === "legal";
+}
+
+function withinColorIdentity(card, allowedColors) {
+  if (!allowedColors?.size) return true;
+  return (card.color_identity || []).every(color => allowedColors.has(color));
+}
+
+function searchHaystack(card) {
+  return normalizeName([
+    card.name,
+    card.type_line,
+    oracleText(card),
+    ...(card.keywords || []),
+  ].filter(Boolean).join(" "));
+}
+
+function localSearch(repo, query, options = {}) {
+  const normalized = normalizeName(query);
+  if (!normalized) return [];
+
+  const terms = normalized.split(" ").filter(term => term.length > 1);
+  const allowedColors = parseColorIdentity(options.colorIdentity);
+  const legal = options.legal || "commander";
+  const limit = Math.min(Math.max(Number(options.limit) || 16, 1), 80);
+
+  const scored = uniqueCards(repo.cards)
+    .filter(card => card.layout !== "art_series")
+    .filter(card => legal !== "commander" || commanderLegal(card))
+    .filter(card => withinColorIdentity(card, allowedColors))
+    .map(card => {
+      const name = normalizeName(card.name);
+      const haystack = searchHaystack(card);
+      let score = 0;
+
+      if (name === normalized) score += 1000;
+      if (name.startsWith(normalized)) score += 450;
+      if (name.includes(normalized)) score += 220;
+      if (haystack.includes(normalized)) score += 140;
+
+      const matchedTerms = terms.filter(term => haystack.includes(term));
+      if (!matchedTerms.length) return null;
+      score += matchedTerms.length * 55;
+      if (matchedTerms.length === terms.length) score += 80;
+      if (card.edhrec_rank) score += Math.max(0, 90 - Math.log10(card.edhrec_rank) * 18);
+      score += cardRank(card);
+
+      return { card, score };
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score || (a.card.edhrec_rank || 999999) - (b.card.edhrec_rank || 999999))
+    .slice(0, limit);
+
+  return scored.map(result => result.card);
 }
 
 async function loadOracle() {
@@ -176,6 +263,22 @@ export async function GET(request) {
     });
   }
 
+  const search = url.searchParams.get("search");
+  if (search) {
+    const cards = localSearch(repo, search, {
+      colorIdentity: url.searchParams.get("colorIdentity"),
+      legal: url.searchParams.get("legal") || "commander",
+      limit: url.searchParams.get("limit"),
+    });
+    return Response.json({
+      query: search,
+      count: cards.length,
+      cards: cards.map(card => publicCard(card, [], { source: "local", rulingsSource: "not_requested" })),
+      source: "local",
+      scryfallUpdatedAt: repo.scryfallUpdatedAt,
+    });
+  }
+
   const rulingsFor = url.searchParams.get("rulingsFor");
   if (rulingsFor) {
     const rulings = await loadRulings();
@@ -193,7 +296,11 @@ export async function GET(request) {
   const card = findCard(repo, name);
   if (!card) return Response.json({ error: `Card not found in local Oracle repository: ${name}` }, { status: 404 });
 
-  return Response.json({ card: publicCard(card), source: "local", scryfallUpdatedAt: repo.scryfallUpdatedAt });
+  return Response.json({
+    card: publicCard(card, [], { source: "local", rulingsSource: "not_requested" }),
+    source: "local",
+    scryfallUpdatedAt: repo.scryfallUpdatedAt,
+  });
 }
 
 export async function POST(request) {
@@ -228,7 +335,10 @@ export async function POST(request) {
     }
 
     const cardRulings = includeRulings ? rulings.byOracleId.get(card.oracle_id) || [] : [];
-    cards[name] = publicCard(card, cardRulings);
+    cards[name] = publicCard(card, cardRulings, {
+      source: "local",
+      rulingsSource: includeRulings ? "local" : "not_requested",
+    });
   }
 
   return Response.json({

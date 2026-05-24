@@ -4,6 +4,8 @@
 
 The first-run audit and simulated planning docs are complete. Codex also implemented a focused deck-lock/local-Oracle fix before full Phase 1 rollout: loaded decks can now lock per-agent and attach local Oracle text to the conversation context.
 
+Karn also now has a V0 local Scryfall search bridge: `/api/cards?search=...` searches local Oracle data, filters Commander legality/color identity, and can attach compact local candidate pools to Karn deck-building prompts.
+
 Next full sprint remains the Local-First Trust Foundation: provider routing, manual Anthropic fallback, cost visibility, and a unified knowledge service.
 
 This is the working roadmap. Claude Code updates this as phases complete.
@@ -70,16 +72,29 @@ The big architectural shift. All data sources local and queryable through Arbite
 
 Stop bleeding API credits.
 
-- [ ] Install Ollama (verify the owner has it; recommend models for the RTX 5080)
-- [ ] Pull recommended models (Qwen 2.5 32B primary, Qwen 2.5 7B fast)
-- [ ] Add Ollama as a provider in the chat infrastructure
-- [ ] Default routing: Ollama for all agents
+- [x] Install Ollama (verified v0.24.0 on Windows)
+- [x] Pull first recommended model (`qwen2.5:14b`, 9.0 GB, Q4_K_M)
+- [ ] Pull optional fast model for table-side use
+- [ ] Pull optional deep model for offline deck analysis
+- [x] Add Ollama as a provider in the chat infrastructure
+  - [x] V0 provider abstraction shared by `/api/anthropic` and `/api/arbiter`
+  - [x] V0 Ollama HTTP adapter for `localhost:11434`
+  - [x] V0 no-cost failure response when Ollama is unavailable
+- [x] Default routing: Ollama for all agents
 - [ ] Fallback routing: Anthropic if Ollama fails
 - [ ] UI toggle: "Local" / "Anthropic" / "Auto"
+  - [x] V0 Local/API manual switch in app header
+  - [ ] Auto mode UI
 - [ ] Tune prompts for local model (smaller models need more explicit instructions)
 - [ ] Verify each agent gives coherent answers through Ollama
+  - [x] Arbiter route verified through Ollama with local Oracle auto-context for named cards
 - [ ] Add a cost dashboard showing local vs API calls
+  - [x] V0 private provider-call metadata log
+  - [x] V0 header badge with local/API call counts
+  - [ ] Full visible dashboard UI
 - [ ] Track API spend over time so it's visible
+  - [x] V0 route-level provider/status/count logging
+  - [ ] Dollar estimate and daily/session rollups
 
 ---
 
@@ -88,11 +103,17 @@ Stop bleeding API credits.
 Fix the things the previous AI half-built.
 
 - [ ] Karn → Arbiter → unified knowledge layer (Karn can finally see Scryfall data)
+  - [x] V0 local Scryfall deck Oracle attachment
+  - [x] V0 local Scryfall rulings attachment for locked decks
+  - [x] V0 local Scryfall search candidate context for Karn
+  - [x] V0 source receipt for locked-deck card data
+  - [ ] Route through final KnowledgeService/Arbiter abstraction
 - [ ] Jace → Arbiter wrapping (Jace silently calls Arbiter for rules-sensitive questions)
 - [ ] Tibalt → Arbiter → unified knowledge layer (rules-aware roasts)
 - [ ] Deck context hard lock per conversation
   - [x] V0 per-agent lock snapshot for Jace/Karn/Tibalt/Arbiter
-  - [x] Locked deck triggers local Oracle context attachment
+  - [x] Locked deck triggers local Oracle/rulings context attachment
+  - [x] Locked deck triggers local engine/rules fringe-context retrieval
   - [x] Unlock Deck and Unload Deck controls
   - [ ] Full chat session manager with multiple active/archived conversations
 - [ ] Chat session manager UI
@@ -152,6 +173,15 @@ Major separate roadmap. Do not start until Phases 1-5 are solid.
 Significant architectural decisions get logged here as they're made.
 
 - 2026-05-23: Deck context is now split into two UX concepts: **loaded deck** (sidebar selection) and **locked deck** (immutable per-agent conversation snapshot). `Unlock` removes the current agent's snapshot while keeping chat history. `Unload` clears the sidebar deck selection. A locked deck triggers local Scryfall Oracle text attachment for the deck's non-token cards.
+- 2026-05-23: Local Scryfall is the source of truth for normal chat card data. The owner will update local Scryfall data when cards change. Karn now receives local Scryfall search candidate pools for deck-building prompts, but model generation is still Anthropic until Ollama/provider routing is implemented.
+- 2026-05-23: Locked deck context now attaches a local-first fact bundle: Oracle text, local rulings capped per card, source receipt, and local `/api/engine` rules/fringe context. Live Scryfall fallback is allowed only for missing card facts, not normal search.
+- 2026-05-23: ModelProvider V0 added. `/api/anthropic` remains backward-compatible but can route to Ollama via provider settings. `/api/arbiter` now uses the same provider layer. Automatic paid fallback is off by default; Ollama failures return a visible error instead of silently spending Anthropic credits.
+- 2026-05-23: Provider/cost telemetry V0 added at `app/data/model-calls.local.json`. It logs provider/model/status/count metadata only, not prompt text, and is ignored by git.
+- 2026-05-23: Provider status is now visible in the app header as `Local N | API N`, fed by `GET /api/model-calls`.
+- 2026-05-23: Manual Local/API provider switch added to the app header. Chat messages and silent Arbiter trace calls pass the selected provider. The choice is saved in browser local storage as `mtg-model-provider`.
+- 2026-05-23: Provider default is now Local/Ollama for cost safety. Anthropic is only used when the user selects `API` or explicitly configures the provider to `anthropic`.
+- 2026-05-24: Ollama installed and verified on Windows. `qwen2.5:14b` is pulled, configured as the app default, and verified through `/api/anthropic` and `/api/arbiter`. Ollama context default raised to 32K for locked-deck Oracle/rulings prompts.
+- 2026-05-24: `/api/arbiter` now auto-attaches local Scryfall Oracle/rulings context for card names in direct Arbiter questions when the caller did not already provide a card context block. This fixes direct local-model rules calls that mention cards outside the chat UI's client-side context builder.
 - 2026-05-23: The canonical project is `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL`. The older Codex project may still run on port 3000; use `http://localhost:3001` for the canonical project when port 3000 is occupied.
 
 ---

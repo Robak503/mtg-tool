@@ -9,14 +9,14 @@ Later goal: move the finished app to a private Mac mini server for personal use 
 ## What Is Connected
 
 - `src/components/MTGAssistant.jsx` is the main browser UI shell.
-- `src/app/api/anthropic/route.js` is the private backend endpoint that talks to Anthropic.
-- `src/app/api/arbiter/route.js` is the backend rules-engine endpoint Jace can consult for formal traces.
+- `src/app/api/anthropic/route.js` is the private backend endpoint the UI calls for model responses. It now routes to Ollama by default and Anthropic only when API mode is selected/configured.
+- `src/app/api/arbiter/route.js` is the backend rules-engine endpoint Jace can consult for formal traces. Direct Arbiter calls also auto-attach local Oracle/rulings context for card names in the question when no explicit card context block was sent.
 - `src/app/api/cards/route.js` reads the local Scryfall Oracle/rulings repository.
 - `src/app/api/chats/route.js` mirrors chat history to a local JSON file.
 - `src/app/api/decks/route.js` mirrors saved deck memory to a local JSON file.
 - `src/app/api/engine/route.js` does rule-aware retrieval over local `MTG ENGINE` markdown, `META_query_router.md`, `META_layer_index.md`, and `mtg-judge` CR JSON.
 - `src/app/api/symbolic-engine/route.js` runs the first deterministic local rules executor without AI calls.
-- The browser calls `/api/anthropic`, so the Anthropic API key stays on the server and is not exposed in frontend code.
+- The browser calls `/api/anthropic`, so provider secrets stay on the server and are not exposed in frontend code.
 - Card lookup prefers the local Scryfall Oracle repository, then falls back to Scryfall's public API if the local repository is missing or stale.
 - `src/data/deckSeeds.js` is the built-in deck memory seed list for Colton's and Joe's saved Commander decks.
 - `src/lib/agents.js` holds Jace, Karn, Tibalt, and Arbiter prompts/config.
@@ -29,7 +29,7 @@ Later goal: move the finished app to a private Mac mini server for personal use 
 Saved decks are mirrored to:
 
 ```text
-C:\Users\colto\Documents\Codex\MTG TOOL\app\data\decks.local.json
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app\data\decks.local.json
 ```
 
 The browser also keeps a backup under `mtg-decks-v3`. On startup, the app loads the local file first, then browser storage, then merges decks from `src/data/deckSeeds.js` by owner plus deck name, so seeded personal decks survive resets without overwriting edited local copies.
@@ -45,7 +45,7 @@ Typing in deck notes, board snapshots, and saved agent notes updates browser sto
 Chat history is mirrored to:
 
 ```text
-C:\Users\colto\Documents\Codex\MTG TOOL\app\data\chats.local.json
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app\data\chats.local.json
 ```
 
 The browser still keeps a quick copy, but the file-backed chat history is the crash-resistant source after it exists.
@@ -57,8 +57,8 @@ Known Scryfall token names are kept in `public/token-names.json`. When a deck im
 The app keeps local Scryfall Oracle and ruling data here:
 
 ```text
-C:\Users\colto\Documents\Codex\MTG TOOL\app\data\scryfall.oracle.local.json
-C:\Users\colto\Documents\Codex\MTG TOOL\app\data\scryfall.rulings.local.json
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app\data\scryfall.oracle.local.json
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app\data\scryfall.rulings.local.json
 ```
 
 Refresh the local card repository:
@@ -84,7 +84,7 @@ npm.cmd run sync:scryfall-bulk
 This writes every Scryfall bulk dataset to:
 
 ```text
-C:\Users\colto\Documents\Codex\MTG TOOL\app\data\scryfall-bulk
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app\data\scryfall-bulk
 ```
 
 The compact Oracle/ruling repository is what the app reads at runtime. The full bulk folder is the raw archive for future indexing, search, and server/vector-store migration.
@@ -94,8 +94,8 @@ The compact Oracle/ruling repository is what the app reads at runtime. The full 
 The app has a first local retrieval bridge over:
 
 ```text
-C:\Users\colto\Documents\Codex\MTG TOOL\MTG ENGINE
-C:\Users\colto\Documents\Codex\MTG TOOL\mtg-judge
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\MTG ENGINE
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\mtg-judge
 ```
 
 `/api/engine` now performs direct Comprehensive Rules JSON lookup first, then ranks local engine layer files with query-router/layer hints. That means rules questions like commander tax, replacement effects, layers, priority, triggers, SBAs, and copy effects can pull exact CR entries plus the relevant MTG ENGINE execution snippets instead of only nearby keyword matches.
@@ -103,7 +103,7 @@ C:\Users\colto\Documents\Codex\MTG TOOL\mtg-judge
 The first symbolic executor lives in:
 
 ```text
-C:\Users\colto\Documents\Codex\MTG TOOL\app\src\lib\symbolicEngine.cjs
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app\src\lib\symbolicEngine.cjs
 ```
 
 It implements the local L00-style pipeline as executable code: would-event, replacement effects, final event, trigger detection, SBA checkpoint, trigger insertion, and priority. Current covered primitives include commander tax, commander zone movement, Rest in Peace/Leyline-style graveyard replacement, shield counters, simple dies/ETB triggers, lethal damage SBAs, token cleanup, APNAP trigger insertion, and custom action payloads.
@@ -111,7 +111,7 @@ It implements the local L00-style pipeline as executable code: would-event, repl
 The first card adapter lives in:
 
 ```text
-C:\Users\colto\Documents\Codex\MTG TOOL\app\src\lib\symbolicCardAdapter.cjs
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app\src\lib\symbolicCardAdapter.cjs
 ```
 
 It reads the local Scryfall Oracle repository and turns real card names into symbolic objects with types, mana value, power/toughness, keywords, Oracle text metadata, and supported executable abilities. Current adapter-backed abilities include Rest in Peace/Leyline graveyard replacement patterns, Anafenza-style opponent nontoken creature replacement, Blood Artist/Zulaport/Cruel Celebrant life-drain dies triggers, Soul Warden-style creature ETB life gain, Impact Tremors/Purphoros creature ETB damage, Koma upkeep token creation, Swords/Path target creature exile, Murder target creature destroy, Lightning Bolt damage, shield-counter damage prevention, indestructible lethal-damage survival, Counterspell target spell countering, can't-be-countered protection, ETB trigger marking, and keyword tags.
@@ -125,21 +125,21 @@ npm.cmd run check:symbolic-engine
 Inspect the symbolic API:
 
 ```powershell
-Invoke-WebRequest -Uri http://localhost:3000/api/symbolic-engine -UseBasicParsing
+Invoke-WebRequest -Uri http://localhost:3001/api/symbolic-engine -UseBasicParsing
 ```
 
 Run a fixture:
 
 ```powershell
 $body = @{ scenario = "rest-in-peace-dies" } | ConvertTo-Json
-Invoke-WebRequest -Uri http://localhost:3000/api/symbolic-engine -Method POST -Body $body -ContentType "application/json" -UseBasicParsing
+Invoke-WebRequest -Uri http://localhost:3001/api/symbolic-engine -Method POST -Body $body -ContentType "application/json" -UseBasicParsing
 ```
 
 Inspect how a real card hydrates:
 
 ```powershell
 $body = @{ card = "Blood Artist" } | ConvertTo-Json
-Invoke-WebRequest -Uri http://localhost:3000/api/symbolic-engine -Method POST -Body $body -ContentType "application/json" -UseBasicParsing
+Invoke-WebRequest -Uri http://localhost:3001/api/symbolic-engine -Method POST -Body $body -ContentType "application/json" -UseBasicParsing
 ```
 
 Run an adapter-backed state from card names:
@@ -162,7 +162,7 @@ $body = @{
     @{ type = "CHECKPOINT" }
   )
 } | ConvertTo-Json -Depth 6
-Invoke-WebRequest -Uri http://localhost:3000/api/symbolic-engine -Method POST -Body $body -ContentType "application/json" -UseBasicParsing
+Invoke-WebRequest -Uri http://localhost:3001/api/symbolic-engine -Method POST -Body $body -ContentType "application/json" -UseBasicParsing
 ```
 
 `mtg-judge` is not empty on disk; it currently contains the core suite, expanded suite, RulesGuru suite, CR JSON, validation scripts, and imported rules data. If it looks empty from inside the app, that means a runtime bridge is incomplete, not that the folder has no files.
@@ -183,7 +183,7 @@ When Jace uses Arbiter, the chat response includes a collapsed `View Arbiter Tra
 
 The deck command center also has a Board / Rules Snapshot field. Use it for battlefield, graveyard, exile, stack, active player, phase, counters, commander tax, and other state that Jace-Arbiter should consider.
 
-Important current limit: Arbiter is connected to the app and Jace/Karn/Arbiter can receive routed local engine context, including direct CR JSON entries. A first symbolic executor now exists locally, but the live chat answer path still uses Anthropic for language generation and does not yet translate arbitrary Oracle text into executable symbolic card adapters. Treat `/api/engine` as grounded retrieval and `/api/symbolic-engine` as the growing deterministic execution core.
+Important current limit: Arbiter is connected to the app and Jace/Karn/Arbiter can receive routed local engine context, including direct CR JSON entries. A first symbolic executor now exists locally, and the live chat answer path can use local Ollama generation. It still does not translate arbitrary Oracle text into executable symbolic card adapters. Treat `/api/engine` as grounded retrieval and `/api/symbolic-engine` as the growing deterministic execution core.
 
 The judge engine should not be described as finite or exhaustive yet. The written rules corpus is finite, and the app has finite validation suites, but real Magic board states and card combinations are too large to exhaustively prove. The target behavior is bounded, versioned, testable, and willing to return `UNRESOLVED` when facts are missing.
 
@@ -254,14 +254,14 @@ npm.cmd run check:engine
 The app includes a local validation harness for the Arbiter rules engine. It reads:
 
 ```text
-C:\Users\colto\Documents\Codex\MTG TOOL\mtg-judge\META_test_cases.md
-C:\Users\colto\Documents\Codex\MTG TOOL\mtg-judge\META_test_cases_expanded.md
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\mtg-judge\META_test_cases.md
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\mtg-judge\META_test_cases_expanded.md
 ```
 
 The combined suite has 500 cases: 76 handcrafted core scenarios plus 424 generated rule-anchor scenarios connected to the MTG ENGINE layer docs. Coverage notes live in:
 
 ```text
-C:\Users\colto\Documents\Codex\MTG TOOL\mtg-judge\META_test_suite_coverage.md
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\mtg-judge\META_test_suite_coverage.md
 ```
 
 Regenerate the expanded suite from local CR data:
@@ -303,7 +303,7 @@ npm.cmd run import:rulesguru
 That writes:
 
 ```text
-C:\Users\colto\Documents\Codex\MTG TOOL\mtg-judge\META_test_cases_rulesguru.md
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\mtg-judge\META_test_cases_rulesguru.md
 ```
 
 Dry-run the imported RulesGuru questions:
@@ -337,7 +337,7 @@ Install Desktop Shortcut.cmd
 That opens the app at:
 
 ```text
-http://localhost:3000
+http://localhost:3001
 ```
 
 Leave the launcher window open while using the app. Press Enter in that window when you want to stop the local server.
@@ -347,14 +347,14 @@ Developer option:
 From PowerShell:
 
 ```powershell
-cd "C:\Users\colto\Documents\Codex\MTG TOOL\app"
+cd "C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app"
 .\start-local.ps1
 ```
 
 Then open:
 
 ```text
-http://localhost:3000
+http://localhost:3001
 ```
 
 Leave the PowerShell window open while using the app.
@@ -368,28 +368,30 @@ npm.cmd install
 Copy-Item .env.local.example .env.local
 ```
 
-Edit `.env.local` and set:
+Edit `.env.local` and set or verify:
 
 ```text
-ANTHROPIC_API_KEY=sk-ant-your-key-here
-ANTHROPIC_MODEL=claude-sonnet-4-20250514
+MTG_MODEL_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:14b
+OLLAMA_NUM_CTX=32768
 ```
 
 Then run:
 
 ```powershell
-npm.cmd run dev
+.\start-local.ps1
 ```
 
 Open:
 
 ```text
-http://localhost:3000
+http://localhost:3001
 ```
 
 ## API Key
 
-The app can load without an API key, but judge/chat answers need Anthropic.
+The app can load and answer through local Ollama without an Anthropic API key. Anthropic is only needed if you intentionally use API mode.
 
 Create `.env.local` from `.env.local.example`, then set:
 
@@ -418,3 +420,4 @@ For a private home setup, the simplest options are:
 - Add a lightweight login gate before sharing it with anyone else.
 
 Because this app calls a paid AI API, do not expose it openly to the internet without authentication and rate limiting.
+

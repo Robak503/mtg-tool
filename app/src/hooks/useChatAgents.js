@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { AGENTS, ARBITER_PROMPT_FAST } from "../lib/agents";
 import { flushChatFileSave, loadChatState, saveChatFile, scheduleChatFileSave } from "../lib/chatPersistence";
 import { serializeDeck, serializeDeckMemory } from "../lib/deckMemory";
-import { buildCardContext, buildCardContextForNames, loadCardCatalog, postProcessKarnResponse } from "../lib/scryfall";
+import { buildCardContext, buildCardContextForNames, buildKarnScryfallSearchContext, loadCardCatalog, postProcessKarnResponse } from "../lib/scryfall";
 import { loadJson, saveJson } from "../lib/storage";
 
 const CHAT_STORAGE_KEYS = {
@@ -41,6 +41,13 @@ function deckTokenCount(deck) {
   return (deck?.cards || [])
     .filter(card => card.section === "Tokens")
     .reduce((sum, card) => sum + card.qty, 0);
+}
+
+function deckCommanderNames(deck) {
+  return (deck?.cards || [])
+    .filter(card => card.section === "Commander")
+    .map(card => card.name)
+    .filter(Boolean);
 }
 
 function deckOracleCardNamesFromCards(cards = []) {
@@ -157,7 +164,7 @@ function shouldUseArbiterTrace(targetAgent, prompt) {
   return /\b(arbiter|rule|rules|ruling|judge|trigger|triggers|stack|priority|state based|sba|replacement|prevention|layer|timestamp|dies|died|death|exile|graveyard|copy|token|combat damage|commander damage|commander tax|deathtouch|trample|lifelink|first strike|double strike|resolve|resolves|cast|activate|etb|leave the battlefield|enter the battlefield|can i|can they|what happens|who has priority|does this|does it)\b/.test(text);
 }
 
-async function fetchArbiterTrace({ question, cardContext, context, fast }) {
+async function fetchArbiterTrace({ question, cardContext, context, fast, provider }) {
   try {
     const response = await fetch("/api/arbiter", {
       method: "POST",
@@ -167,6 +174,7 @@ async function fetchArbiterTrace({ question, cardContext, context, fast }) {
         cardContext,
         context,
         fast,
+        provider,
       }),
     });
     const data = await response.json().catch(() => ({}));
@@ -203,6 +211,7 @@ function createDeckLock(deck) {
     name: deck.name || "Unnamed deck",
     owner: deck.memory?.owner || "Colton",
     commander: deckCommander(deck),
+    commanderNames: deckCommanderNames(deck),
     mainCount: deckMainCount(deck),
     tokenCount: deckTokenCount(deck),
     lockedAt: new Date().toISOString(),
@@ -218,7 +227,7 @@ function lockContext(lock, agentId = "karn", confirmLock = false) {
   return [
     `## LOCKED ${agentName.toUpperCase()} DECK CONTEXT`,
     `${agentName}'s current conversation is locked to this deck snapshot. Do not silently switch to another active deck unless the user clears ${agentName}'s chat or explicitly asks to start a new deck conversation.`,
-    confirmLock ? `On your next reply, briefly confirm that ${lock.name} is locked for this conversation before answering the user's request.` : "",
+    confirmLock ? `On your next reply, briefly confirm that ${lock.name} is locked for this conversation and that local card/rules context has been loaded before answering the user's request.` : "",
     `Deck: ${lock.name}`,
     `Owner: ${lock.owner}`,
     `Commander: ${lock.commander}`,
@@ -255,6 +264,7 @@ export default function useChatAgents({
   agent,
   deckCards,
   fastMode,
+  modelProvider = "ollama",
   savedDecks,
   setAgent,
   tokenEntries,
@@ -373,12 +383,18 @@ export default function useChatAgents({
       let augmentedContent = prompt;
       let cardContext = "";
       let deckOracleContext = "";
+      let karnScryfallContext = "";
       let engineContext = "";
       let responseMeta = {};
 
       const rulingsForAgent = targetAgent === "karn"
-        ? { includeRulings: false }
-        : { includeRulings: true, maxRulingsPerCard: targetAgent === "arbiter" ? 5 : 3 };
+        ? { includeRulings: false, allowLiveFallback: true }
+        : {
+            includeRulings: true,
+            allowLiveFallback: true,
+            allowLiveRulingsFallback: true,
+            maxRulingsPerCard: targetAgent === "arbiter" ? 5 : 3,
+          };
 
       const deckOracleNames = locksDeckContext && deckLock
         ? (deckLock.cardNames?.length ? deckLock.cardNames : deckOracleCardNamesFromText(deckLock.deckText))
@@ -387,9 +403,11 @@ export default function useChatAgents({
       try {
         if (deckOracleNames.length) {
           deckOracleContext = await buildCardContextForNames(deckOracleNames, {
-            includeRulings: false,
-            maxRulingsPerCard: 0,
-            heading: "## CARDS REFERENCED (loaded deck Oracle text - authoritative; use ONLY this text for card behavior)",
+            allowLiveFallback: true,
+            allowLiveRulingsFallback: true,
+            includeRulings: true,
+            maxRulingsPerCard: 2,
+            heading: "## CARDS REFERENCED - LOCKED DECK CARD DATA (local Oracle text + local rulings first; use ONLY this text for card behavior)",
           });
         }
       } catch {
@@ -402,13 +420,40 @@ export default function useChatAgents({
         // Fall back to the original user prompt if context building fails.
       }
 
-      if (deckOracleContext || cardContext) {
-        augmentedContent = `${deckOracleContext || ""}${cardContext || ""}## USER QUESTION\n\n${prompt}`;
+      try {
+        if (targetAgent === "karn") {
+          const commanderNames = deckLock?.commanderNames?.length
+            ? deckLock.commanderNames
+            : deckLock?.commander
+              ? deckLock.commander.split(" / ").map(name => name.trim()).filter(Boolean)
+            : (activeDeck ? deckCommanderNames(activeDeck) : []);
+          karnScryfallContext = await buildKarnScryfallSearchContext(prompt, {
+            commanderNames,
+            deckOracleText: deckOracleContext,
+            limitPerRole: 5,
+          });
+        }
+      } catch {
+        // Karn can still answer from the loaded deck Oracle context if local search context fails.
       }
 
-      if (shouldUseEngineContext(targetAgent, prompt)) {
-        const engineQuery = `${prompt}\n${deckLock ? `Deck: ${deckLock.name}\nCommander: ${deckLock.commander}` : ""}`;
-        engineContext = await fetchEngineContext({ query: engineQuery, limit: targetAgent === "karn" ? 5 : 4 });
+      if (deckOracleContext || karnScryfallContext || cardContext) {
+        augmentedContent = `${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## USER QUESTION\n\n${prompt}`;
+      }
+
+      const lockedDeckNeedsEngineContext = Boolean(
+        deckLock && locksDeckContext && ["jace", "karn", "tibalt", "arbiter"].includes(targetAgent)
+      );
+
+      if (shouldUseEngineContext(targetAgent, prompt) || lockedDeckNeedsEngineContext) {
+        const deckFacts = deckLock ? [
+          `Deck: ${deckLock.name}`,
+          `Commander: ${deckLock.commander}`,
+          deckOracleNames.length ? `Deck cards: ${deckOracleNames.slice(0, 60).join(", ")}` : "",
+          "Retrieve local rules, RulesGuru examples, and edge-case/fringe interaction notes relevant to this locked deck.",
+        ].filter(Boolean).join("\n") : "";
+        const engineQuery = `${prompt}\n${deckFacts}`;
+        engineContext = await fetchEngineContext({ query: engineQuery, limit: targetAgent === "karn" ? 6 : 5 });
         if (engineContext) {
           augmentedContent = `${engineContext}\n${augmentedContent}`;
         }
@@ -425,11 +470,12 @@ export default function useChatAgents({
           cardContext: `${deckOracleContext || ""}${cardContext || ""}`,
           context: `${engineContext || ""}${activeDeckContext}`,
           fast: fastMode,
+          provider: modelProvider,
         });
 
         if (arbiterTrace) {
           responseMeta.arbiterTrace = arbiterTrace;
-          augmentedContent = `${engineContext || ""}${deckOracleContext || ""}${cardContext || ""}## ARBITER TRACE\nThis trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language.\n\n${arbiterTrace}\n\n## USER QUESTION\n\n${prompt}`;
+          augmentedContent = `${engineContext || ""}${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## ARBITER TRACE\nThis trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language.\n\n${arbiterTrace}\n\n## USER QUESTION\n\n${prompt}`;
         }
       }
 
@@ -442,6 +488,7 @@ export default function useChatAgents({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
+          provider: modelProvider,
           max_tokens: 2500,
           system: systemPrompt,
           messages: apiMessages,

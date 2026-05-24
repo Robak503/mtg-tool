@@ -551,9 +551,522 @@ Do not discard these changes unless the owner explicitly asks.
 
 ### Still not done
 
-- Ollama/local provider routing is not implemented yet.
+- Ollama/local provider routing has a V0 server-side adapter, Ollama is now installed/running, and the app has a Local/API manual provider switch.
 - Manual Anthropic fallback is not implemented yet.
 - `/api/chat` unified endpoint is not implemented yet.
 - Fact Receipt / Trust Strip UI is not implemented yet.
 - Full KnowledgeService V0 is not implemented yet.
 - Chat session manager with multiple archived/read-only conversations is not implemented yet.
+
+---
+
+## Karn Local Scryfall Addendum - 2026-05-23
+
+The user clarified:
+
+```text
+ok lets get karn connected to scryfall so i can use it functionaly
+also since we have all the scryfall data stored locally make sure to use it free convos
+i will always upgrade the local scryfall data when things change
+```
+
+Codex implemented a local-first Scryfall search bridge for Karn.
+
+### Implemented behavior
+
+1. `/api/cards` now supports local search:
+
+```text
+GET /api/cards?search=draw%20a%20card&colorIdentity=RWB&limit=5
+```
+
+2. Search results come from `app/data/scryfall.oracle.local.json`.
+3. Search defaults to Commander-legal cards.
+4. Search can filter by Commander color identity.
+5. Returned card payloads now include:
+   - `colors`
+   - `colorIdentity`
+   - `edhrecRank`
+   - `rarity`
+   - `set`
+   - `setName`
+   - `producedMana`
+6. The app's card search UI now searches local Scryfall first and no longer falls through to live Scryfall in normal search.
+7. Karn now receives a compact `## LOCAL SCRYFALL SEARCH RESULTS FOR KARN` context block when the prompt asks for deck-building work such as upgrades, adds/cuts, ramp, draw, removal, protection, mana base, or tuning.
+8. Karn's local search context is filtered by the locked commander's color identity when that color identity can be read from local Scryfall.
+9. Chat prompt card-context builders now default to local-only lookup. Live fallback is opt-in, not normal conversation behavior.
+10. Karn's banlist post-processor now checks local Scryfall only.
+
+### Files changed by this addendum
+
+```text
+app/src/app/api/cards/route.js
+app/src/lib/scryfall.js
+app/src/hooks/useChatAgents.js
+app/src/lib/agents.js
+```
+
+### Important current limitation
+
+This makes Scryfall/card facts local and free. The model response is only free after Ollama is installed/running and `MTG_MODEL_PROVIDER=ollama` is set; the UI still posts to `/api/anthropic`, but that endpoint now has provider routing behind it.
+
+### Verification performed
+
+```powershell
+cd "C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app"
+npm.cmd run check
+```
+
+Result:
+
+```text
+Next.js build passed.
+```
+
+Runtime smoke checks:
+
+```powershell
+Invoke-WebRequest http://localhost:3001/
+Invoke-RestMethod "http://localhost:3001/api/cards?search=draw%20a%20card&colorIdentity=RWB&limit=5"
+Invoke-RestMethod "http://localhost:3001/api/cards?search=create%20treasure%20token&colorIdentity=RWB&limit=5"
+POST /api/cards with Vihaan, Goldwaker
+```
+
+Results:
+
+- App returned HTTP `200`.
+- Local search returned Commander-legal cards from local Scryfall.
+- `Vihaan, Goldwaker` returned local Oracle text, color identity `{B, R, W}`, and EDHREC rank.
+
+### Recommended next validation
+
+Use Karn in the app with a loaded Mardu deck such as Vihaan:
+
+```text
+What are 10 adds and 10 cuts for this deck? Use local Scryfall card data.
+```
+
+Expected:
+
+- Karn should confirm the locked deck.
+- Karn should no longer say it lacks Scryfall access.
+- Karn should produce concrete suggestions from the local search context where possible.
+- If Anthropic returns 401, the issue is API key validity, not Scryfall connectivity.
+
+---
+
+## Locked Deck Fact Bundle Addendum - 2026-05-23
+
+The user clarified the desired behavior:
+
+```text
+so basically what happens then is the deck is locked in and confirm it then pulls all the oracle text, ruling and fringe case data we have for the cards within the deck list from local sources and then if it cant find some it then will fall back on some sort of call.
+```
+
+Codex implemented the V0 version of that behavior.
+
+### Implemented behavior
+
+1. When Jace, Karn, Tibalt, or Arbiter locks a deck, the prompt now attaches a `## CARDS REFERENCED - LOCKED DECK CARD DATA` block.
+2. That locked-deck card block includes:
+   - Local Scryfall Oracle text for every non-token, non-sideboard card in the locked deck.
+   - Local Scryfall rulings where available.
+   - Up to 2 rulings per card to keep prompt size bounded.
+   - A source receipt showing local card count, live fallback card count, and unresolved card count.
+3. `/api/cards` now tags card payloads with:
+   - `source`
+   - `rulingsSource`
+4. The prompt context builder now distinguishes:
+   - local rulings were checked and there are no rulings, versus
+   - rulings were not requested or not present.
+5. Live Scryfall fallback is now narrow and explicit:
+   - It is allowed for missing locked-deck card facts.
+   - It is allowed for missing directly-mentioned card facts.
+   - Normal local search still stays local-only.
+   - Karn's banlist post-processor still stays local-only.
+6. Locked deck chats now also request local engine/rules context from `/api/engine` even when the user asks a broad deck question.
+   - This gives Karn/Jace/Tibalt/Arbiter local MTG ENGINE, RulesGuru, and CR snippets for edge cases and fringe interactions around the locked deck.
+7. On first lock, the agent is instructed to briefly confirm:
+   - the deck is locked for the conversation, and
+   - local card/rules context has been loaded.
+
+### Files changed by this addendum
+
+```text
+app/src/app/api/cards/route.js
+app/src/lib/scryfall.js
+app/src/hooks/useChatAgents.js
+app/src/lib/agents.js
+```
+
+### Verification performed
+
+```powershell
+cd "C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app"
+npm.cmd run check
+```
+
+Result:
+
+```text
+Next.js production build passed.
+```
+
+Runtime checks:
+
+```powershell
+POST /api/cards with Vihaan, Goldwaker, Blood Artist, Revel in Riches and includeRulings=true
+GET /api/cards?search=create%20treasure%20token&colorIdentity=RWB&limit=3
+POST /api/engine with a Vihaan treasure/combat edge-case query
+```
+
+Results:
+
+- `Vihaan, Goldwaker` returned `source: local`.
+- `Vihaan, Goldwaker` returned `rulingsSource: local`.
+- `Vihaan, Goldwaker` returned color identity `{B,R,W}` and 5 local rulings.
+- Local Scryfall search returned Commander-legal local cards.
+- `/api/engine` returned local MTG ENGINE / judge context, including direct CR lookup text.
+
+### Dev server recovery during verification
+
+The in-app browser exposed the known stale `.next` cache issue:
+
+```text
+Cannot find module './873.js'
+```
+
+Codex recovered it by:
+
+1. Stopping the process listening on port `3001`.
+2. Deleting only the canonical app build cache:
+
+```text
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app\.next
+```
+
+3. Restarting the canonical dev server:
+
+```powershell
+npm.cmd run dev -- --port 3001
+```
+
+The canonical app then returned HTTP `200` on `http://localhost:3001/`, and the browser DOM loaded the MTG Assistant UI.
+
+### Important limitation
+
+This does not install or run Ollama. Scryfall/rules context is local-first now, and provider routing exists server-side. The app now defaults to the local provider path; Anthropic is used only when the user selects `API` or the provider is explicitly configured to `anthropic`.
+
+---
+
+## Model Provider V0 Addendum - 2026-05-23
+
+Codex implemented a minimal provider abstraction after the local Scryfall/Karn work.
+
+### Implemented behavior
+
+1. Added shared provider code:
+
+```text
+app/src/lib/server/modelProvider.js
+```
+
+2. `/api/anthropic` remains backward-compatible with the current chat UI.
+3. `/api/anthropic` can now route by `body.provider` or env:
+   - `anthropic`
+   - `ollama`
+   - `local` (alias for Ollama)
+   - `auto`
+4. `/api/arbiter` now uses the same provider layer.
+5. Added Ollama HTTP adapter for:
+
+```text
+http://127.0.0.1:11434/api/chat
+```
+
+6. Ollama responses are normalized into the existing Anthropic-style response shape:
+
+```json
+{ "content": [{ "type": "text", "text": "..." }] }
+```
+
+7. Automatic paid fallback is off by default.
+   - `provider: "ollama"` returns a visible `502` if Ollama is unavailable.
+   - It does not silently call Anthropic.
+   - `provider: "auto"` only falls back to Anthropic if `ALLOW_ANTHROPIC_AUTO_FALLBACK=true`.
+8. Added a privacy-safe local model-call log:
+
+```text
+app/data/model-calls.local.json
+```
+
+The log stores provider/model/status/count metadata only. It does not store prompt text or chat content. The file is ignored by git.
+9. Added a read-only model-call summary endpoint:
+
+```text
+GET /api/model-calls
+```
+
+10. Added a small header badge:
+
+```text
+Local N | API N
+```
+
+This gives immediate visibility into local vs paid-provider call counts.
+11. Added a manual provider switch in the header:
+
+```text
+Local | API
+```
+
+The selected provider is stored in browser local storage under:
+
+```text
+mtg-model-provider
+```
+
+Chat messages and Jace's silent Arbiter trace calls now pass the selected provider. This is the manual fallback control: use `Local` for Ollama, switch to `API` only when the user wants an Anthropic call.
+
+### Env example updated
+
+```text
+app/.env.local.example
+```
+
+Added:
+
+```text
+MTG_MODEL_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:14b
+OLLAMA_NUM_CTX=32768
+ALLOW_ANTHROPIC_AUTO_FALLBACK=false
+```
+
+### Verification performed
+
+```powershell
+cd "C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app"
+npm.cmd run check
+```
+
+Result:
+
+```text
+Next.js production build passed.
+```
+
+No-cost provider failure checks:
+
+```text
+POST /api/anthropic with provider=ollama
+POST /api/arbiter with provider=ollama
+```
+
+Both returned:
+
+```json
+{
+  "error": "Could not reach Ollama at localhost:11434.",
+  "provider": "ollama",
+  "fallbackAvailable": true
+}
+```
+
+This confirms the local provider path fails visibly when Ollama is not running and does not silently spend Anthropic credits.
+
+Model-call log verification:
+
+```text
+app/data/model-calls.local.json
+```
+
+was created and the last entry contained:
+
+```text
+provider=ollama
+model=qwen2.5:14b
+ok=false
+status=502
+messageCount=1
+totalInputChars=5
+outputChars=0
+```
+
+`git status --ignored app/data/model-calls.local.json` shows the file as ignored.
+
+Visible status verification:
+
+- `GET /api/model-calls` returned one logged Ollama failure and zero Anthropic calls.
+- The in-app browser DOM contained `Local 1 | API 0`.
+- The in-app browser DOM contained `Local` and `API` provider buttons.
+
+### Superseded limitation
+
+At this point in the timeline, Ollama had not been installed yet. That was fixed in the next addendum below. The app now defaults to Local/Ollama and uses Anthropic only when the user intentionally selects `API`.
+
+---
+
+## Ollama Install + Local Model Addendum - 2026-05-24
+
+The user asked to move forward with Ollama.
+
+### Machine setup completed
+
+Installed Ollama through winget. The winget command timed out after several minutes, but the installer completed successfully in the background.
+
+Verified:
+
+```text
+Ollama version: 0.24.0
+Executable: C:\Users\colto\AppData\Local\Programs\Ollama\ollama.exe
+Server: http://127.0.0.1:11434
+```
+
+Pulled and verified the first practical local model:
+
+```powershell
+ollama pull qwen2.5:14b
+```
+
+Model details from `ollama list` / `/api/tags`:
+
+```text
+Name: qwen2.5:14b
+Size: 9.0 GB
+Parameter size: 14.8B
+Quantization: Q4_K_M
+```
+
+Direct Ollama test:
+
+```text
+Prompt: Reply with exactly: local ok
+Response: local ok
+```
+
+The first cold response took about 82 seconds. Once warm, the app route returned a tiny test response in about 14 seconds. Arbiter fast-path returned a local trace in about 6 seconds.
+
+### App configuration changed
+
+`app/.env.local` was updated without printing secrets:
+
+```text
+MTG_MODEL_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:14b
+OLLAMA_NUM_CTX=32768
+ALLOW_ANTHROPIC_AUTO_FALLBACK=false
+```
+
+`app/.env.local.example` now matches those local defaults.
+
+`app/src/lib/server/modelProvider.js` now defaults to:
+
+```text
+qwen2.5:14b
+num_ctx=32768
+```
+
+The 32K context matters because locked deck Oracle/rulings context can exceed Ollama's default 4096-token context once full deck Oracle text, local rulings, agent prompt, engine context, and chat history are attached. After an app request, `ollama ps` should show:
+
+```text
+qwen2.5:14b | ... | CONTEXT 32768
+```
+
+So the larger context works, but may spill slightly to CPU.
+
+### App route verification
+
+Default `/api/anthropic` route now used Ollama without specifying provider:
+
+```text
+status=200
+provider=ollama
+model=qwen2.5:14b
+content: app local ok
+```
+
+Arbiter route verification:
+
+```text
+POST /api/arbiter provider=ollama fast=true
+status=200
+provider=ollama
+trace returned structured STATE / RESOLUTION / RULE TRACE / VERDICT
+```
+
+Model-call summary after local testing:
+
+```text
+Ollama total: 2
+Ollama ok: 1
+Ollama failed: 1
+Anthropic total: 0
+```
+
+Later tests add more Ollama successes; no Anthropic calls were required.
+
+### Launcher update
+
+`app/start-local.ps1` now:
+
+- Finds Ollama from PATH or `C:\Users\colto\AppData\Local\Programs\Ollama\ollama.exe`.
+- Checks `http://127.0.0.1:11434/api/tags`.
+- Starts `ollama serve` in a hidden window if Ollama is not responding.
+- Warns if Ollama is unavailable.
+- Starts the canonical app explicitly on `http://localhost:3001`.
+
+Syntax check passed:
+
+```text
+start-local.ps1 parse ok
+```
+
+### Important performance note
+
+`qwen2.5:14b` works and runs on the GPU, but it is not instant. It is a good correctness-first local default. If the user wants faster table-side Jace answers, consider pulling a smaller model such as a 7B Qwen model later and adding a Fast Local / Deep Local split.
+
+### Arbiter local Oracle regression fix
+
+While verifying Ollama, a direct `/api/arbiter` test exposed a bad local-model answer:
+
+```text
+Question: Can Sol Ring tap for colored mana?
+Bad behavior: Arbiter did not have Sol Ring Oracle text and answered as if colored mana was possible.
+```
+
+Fix applied:
+
+- Added `app/src/lib/server/cardContext.js`.
+- Updated `app/src/app/api/arbiter/route.js`.
+- Direct Arbiter calls now auto-attach local Scryfall Oracle/rulings context for card names in the question when the caller did not already provide an explicit card-context block.
+
+Regression result after the fix:
+
+```text
+POST /api/arbiter fast=true
+provider=ollama
+question="Can Sol Ring tap for colored mana?"
+verdict says Sol Ring only adds colorless mana unless another effect changes its ability.
+```
+
+Current model-call summary after verification:
+
+```text
+Anthropic total: 0
+Ollama total: 7
+Ollama ok: 6
+Ollama failed: 1
+```
+
+Full locked-deck-sized context check:
+
+```text
+Route: POST /api/anthropic
+Provider: ollama
+Deck context: Vihaan, Goldwaker local Oracle context
+Elapsed: about 11 seconds
+Result: Karn-style test correctly identified the locked commander as Vihaan, Goldwaker.
+```

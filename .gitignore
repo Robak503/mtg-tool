@@ -40,6 +40,9 @@ app/data/scryfall.rulings.local.json
 !app/data/decks.local.json
 !app/data/chats.local.json
 
+# Local provider/cost telemetry (regenerable and private)
+app/data/model-calls.local.json
+
 # Legacy ENGINE scryfall fragments (large — already in bulk)
 MTG ENGINE/scryfall_AH.json
 MTG ENGINE/scryfall_IP.json

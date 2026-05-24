@@ -36,6 +36,14 @@ export default function MTGAssistant() {
   const [mobileTab, setMobileTab] = useState("chat");
   const [mobile, setMobile] = useState(window.innerWidth < 660);
   const [fastMode, setFastMode] = useState(false); // Arbiter Fast vs Full prompt
+  const [modelStatus, setModelStatus] = useState(null);
+  const [modelProvider, setModelProvider] = useState(() => {
+    try {
+      return localStorage.getItem("mtg-model-provider") || "ollama";
+    } catch {
+      return "ollama";
+    }
+  });
 
   const bodyRef  = useRef(null);
   const bottomRef= useRef(null);
@@ -108,6 +116,7 @@ export default function MTGAssistant() {
     agent,
     deckCards,
     fastMode,
+    modelProvider,
     savedDecks,
     setAgent,
     tokenEntries,
@@ -123,6 +132,28 @@ export default function MTGAssistant() {
 
   useEffect(()=>{ const h=()=>setMobile(window.innerWidth<660); window.addEventListener("resize",h); return()=>window.removeEventListener("resize",h); },[]);
   useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:"smooth"}); },[histories,sending]);
+  useEffect(()=>{
+    try {
+      localStorage.setItem("mtg-model-provider", modelProvider);
+    } catch {}
+  },[modelProvider]);
+  useEffect(()=>{
+    let active = true;
+    const loadModelStatus = async () => {
+      try {
+        const response = await fetch("/api/model-calls", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (active) setModelStatus(data);
+      } catch {}
+    };
+    loadModelStatus();
+    const timer = window.setInterval(loadModelStatus, 30000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  },[]);
 
   const cfg       = AGENTS[agent];
 
@@ -274,6 +305,9 @@ export default function MTGAssistant() {
         exportChat={exportChat}
         clearChat={clearChat}
         deckLock={deckLocks?.[agent]}
+        modelStatus={modelStatus}
+        modelProvider={modelProvider}
+        setModelProvider={setModelProvider}
         unlockDeck={() => unlockDeck(agent)}
         pb={pb}
         colors={{BG2, LINE, GOLD}}
