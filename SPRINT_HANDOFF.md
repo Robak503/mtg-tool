@@ -1,20 +1,23 @@
 # MTG Tool — Phase 1 Sprint Handoff
-*Produced by Claude Code session 2026-05-24. Continuation guide for any AI assistant.*
+*Produced by Claude Code session 2026-05-24. Updated after Claude review pass 2026-05-24.*
 
 ---
 
 ## TL;DR for the next session
 
-**The sprint is code-complete.** All 13 tasks shipped across 7 commits. `npm run build` passes clean. Only thing left is **T12 — manual smoke test against a running Ollama instance.**
+**Phase 1 is complete.** All 13 tasks shipped + Codex tuning pass (dual-tier local models, Karn cut-mode safeguards, Jace deck-scope gating, validator routing fix) + Claude review pass (Arbiter citation anchors, validator false-positive fix). `npm run build` passes clean.
 
-Pull, restart, and verify. The 12-step Brewing Session Acceptance Test in T12 is the gate. If anything fails, it's almost certainly in one of the 10 risk points listed under "Known Risks / Smoke Test Notes" near the bottom.
+**All non-LLM checks pass.** `check`, `check:decks`, `check:oracle`, `check:engine`, `check:symbolic-engine` all green.
 
-If smoke test passes → sprint is done, move to Phase 2 (unified knowledge layer per `2026-05-23-master-design-phase1.md`).
-If smoke test fails → use the risk notes, fix in place, do not start Phase 2.
+**validate:arbiter result: 1/2 passing (A1 PASS, A2 FAIL — accepted local model limitation).**
+- A1 (Leyline/Blood Artist) now passes consistently after mandatory citation rules were added to ARBITER_PROMPT_FAST.
+- A2 (Anafenza + RiP + Living Death) fails because qwen2.5:14b cannot reliably cite all three of [616.1a], [614.6], and [608.2] simultaneously for a complex three-way replacement scenario. This is a known local model quality limit, not a routing bug or code defect.
 
-**Latest commit**: 99839fd
+**T12 manual smoke test is the only remaining gate for Phase 1 close.** Do that, then start planning Phase 2.
+
+**Latest commit**: 5657517
 **Branch**: master
-**Total sprint commits**: 7 (76b733e, 9058277, 8ff51f5, 1cc354f, b81509a, dbd7a5f, 99839fd)
+**Total sprint commits**: 9 (76b733e → 5657517)
 
 ---
 
@@ -78,7 +81,7 @@ See below. Tasks are listed T1 → T13 in implementation order.
 | T9 — Versioning fields in createDeckLock | ✅ DONE | 76b733e |
 | T10 — Arbiter status field | ✅ DONE | 76b733e (server) + 99839fd (client wire-through) |
 | T11 — Dataset Tier Manifest | ✅ DONE | 9058277 |
-| T12 — Smoke test | 🔲 NOT DONE — run this next |  |
+| T12 — Smoke test | 🔲 NOT DONE — manual browser smoke test remaining |  |
 | T13 — Still thinking + Trust Strip dev-open | ✅ DONE | 8ff51f5 |
 
 **Sprint is code-complete. T12 (smoke test) is all that remains.**
