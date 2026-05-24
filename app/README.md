@@ -373,9 +373,12 @@ Edit `.env.local` and set or verify:
 ```text
 MTG_MODEL_PROVIDER=ollama
 OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_MODEL=qwen2.5:14b
+OLLAMA_MODEL=qwen2.5:32b
+OLLAMA_FAST_MODEL=qwen2.5:7b
 OLLAMA_NUM_CTX=32768
 ```
+
+`OLLAMA_MODEL` is the deep local model. `OLLAMA_FAST_MODEL` is used automatically for deck-heavy Karn/Tibalt chats so loaded-deck conversations stay usable on a 16GB VRAM machine. If you want slower but stronger deck answers, set `OLLAMA_FAST_MODEL=qwen2.5:14b`.
 
 Then run:
 

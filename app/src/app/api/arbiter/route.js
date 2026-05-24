@@ -56,7 +56,9 @@ export async function POST(request) {
   const userContent = `${explicitCardContext}${autoCardContext}${autoEngineContext}${explicitEngineContext}## USER QUESTION\n\n${question}`;
   const payload = {
     model: body.model,
+    ollamaModel: body.ollamaModel,
     provider: body.provider,
+    fastLocal: body.fastLocal,
     max_tokens: body.max_tokens,
     system: body.fast ? ARBITER_PROMPT_FAST : ARBITER_PROMPT,
     messages: [{ role: "user", content: userContent }],

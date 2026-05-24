@@ -166,6 +166,7 @@ function shouldUseArbiterTrace(targetAgent, prompt) {
 
 async function fetchArbiterTrace({ question, cardContext, context, fast, provider }) {
   try {
+    const isLocal = provider === "ollama" || provider === "local";
     const response = await fetch("/api/arbiter", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -175,6 +176,8 @@ async function fetchArbiterTrace({ question, cardContext, context, fast, provide
         context,
         fast,
         provider,
+        fastLocal: isLocal,
+        max_tokens: fast || isLocal ? 900 : undefined,
       }),
     });
     const data = await response.json().catch(() => ({}));
@@ -210,6 +213,43 @@ function countContextCards(text) {
 
 function countContextRulings(text) {
   return (String(text || "").match(/WOTC RULINGS:/g) || []).length;
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function bracketKnownCardNames(text, cardNames = []) {
+  let output = String(text || "");
+  const names = [...new Set(cardNames.filter(Boolean))]
+    .sort((a, b) => b.length - a.length);
+
+  for (const name of names) {
+    const escaped = escapeRegExp(name);
+    const pattern = new RegExp(`(?<!\\[\\[)\\b${escaped}\\b(?!\\]\\])`, "g");
+    output = output.replace(pattern, `[[${name}]]`);
+  }
+
+  return output;
+}
+
+function localJaceRulesPrimer(prompt) {
+  const text = normalizeSearchText(prompt);
+  if (!/\bhow does the stack work\b/.test(text)) return "";
+
+  return [
+    "The stack is the waiting line for spells and non-mana abilities: the newest object goes on top, and the top object resolves first after every player passes priority in order.",
+    "",
+    "Key points:",
+    "- Casting a spell or activating a non-mana activated ability puts that object on the stack.",
+    "- Triggered abilities trigger when their event happens, then are put onto the stack at the next trigger insertion checkpoint.",
+    "- Lands do not use the stack.",
+    "- Most mana abilities do not use the stack; they resolve immediately.",
+    "- After each object resolves, state-based actions are checked, waiting triggers are put on the stack, then the active player gets priority again.",
+    "- A phase or step only advances when the stack is empty and all players pass priority in succession.",
+    "",
+    "Rules anchors: priority is rule 117, resolving spells and abilities is rule 608, triggered abilities are rule 603, and state-based actions are rule 704.",
+  ].join("\n");
 }
 
 function createDeckLock(deck) {
@@ -253,6 +293,13 @@ function shouldUseEngineContext(targetAgent, prompt) {
   if (!["jace", "karn", "arbiter"].includes(targetAgent)) return false;
   const text = normalizeSearchText(prompt);
   return /\b(rule|rules|ruling|judge|trigger|stack|priority|state based|sba|replacement|prevention|layer|timestamp|copy|token|combat|commander damage|commander tax|cast|activate|resolve|dies|graveyard|exile|legal|can i|can they|what happens|oracle|interaction)\b/.test(text);
+}
+
+function shouldUseDeckScopedContext(targetAgent, prompt) {
+  if (["karn", "tibalt", "arbiter"].includes(targetAgent)) return true;
+  if (targetAgent !== "jace") return false;
+  const text = normalizeSearchText(prompt);
+  return /\b(deck|commander|loaded deck|my deck|this deck|our deck|card|cards|oracle|ruling|interaction|synergy|play line|sequencing|battlefield|hand|graveyard|exile|sliver|mana base|win condition)\b/.test(text);
 }
 
 async function fetchEngineContext({ query, limit = 4 }) {
@@ -340,6 +387,15 @@ export default function useChatAgents({
     const targetAgent = agentOverride || agent;
     const targetConfig = AGENTS[targetAgent];
     const prompt = (text || input).trim();
+    const effectiveProvider = forceProvider || modelProvider;
+    const isLocalProvider = effectiveProvider === "ollama" || effectiveProvider === "local";
+    const wantsDeepAnswer = /\b(full|deep|detailed|comprehensive|exhaustive|complete breakdown)\b/i.test(prompt);
+    const isPureKarnCutRequest = targetAgent === "karn" &&
+      /\b(cut|cuts|remove|trim)\b/i.test(prompt) &&
+      !/\b(add|adds|upgrade|upgrades|replace|swap|alternative|alternatives|budget)\b/i.test(prompt);
+    const localMaxTokens = wantsDeepAnswer
+      ? 1000
+      : (isPureKarnCutRequest ? 420 : (targetAgent === "karn" || targetAgent === "tibalt" ? 520 : 450));
 
     if (!prompt || sending) return;
 
@@ -368,9 +424,13 @@ export default function useChatAgents({
         activeLocks = { ...activeLocks, [targetAgent]: deckLock };
         setDeckLocks(activeLocks);
       }
+      const useDeckScopedContext = Boolean(deckLock && shouldUseDeckScopedContext(targetAgent, prompt));
       let systemPrompt = targetAgent === "arbiter" && fastMode
         ? ARBITER_PROMPT_FAST
         : targetConfig.prompt;
+      if (isLocalProvider) {
+        systemPrompt += "\n\n## LOCAL MODEL RESPONSE BUDGET\nYou are running on a local model. Prefer compact, complete answers. Unless the user explicitly asks for a full/deep/detailed report, finish within 250-350 words and stop cleanly.";
+      }
 
       const conversationText = baseHistory.slice(-8).map(message => message.content).join("\n");
       const savedDeckContext = buildSavedDeckContext(savedDecks, targetAgent, conversationText, activeDeck?.id);
@@ -380,6 +440,10 @@ export default function useChatAgents({
         systemPrompt += `\n\n${lockContext(deckLock, targetAgent, deckLockJustCreated)}`;
       } else if ((targetAgent === "karn" || targetAgent === "tibalt") && deckCards.length) {
         systemPrompt += `\n\n## Active Deck: "${activeDeck?.name || "Unnamed"}"\n${serializeDeck(deckCards)}`;
+      }
+
+      if (targetAgent === "karn" && /\b(cut|cuts|remove|trim)\b/i.test(prompt)) {
+        systemPrompt += "\n\n## KARN CUT MODE\nThe user is asking for cuts. Every cut must be an exact card from the locked or active deck list. Do not use search-result cards, training-memory cards, URLs, dates, or hypothetical additions as cuts. If a card is not visibly in the deck list, it cannot be a cut.";
       }
 
       if ((targetAgent === "karn" || targetAgent === "tibalt") && tokenEntries.length) {
@@ -408,7 +472,7 @@ export default function useChatAgents({
           };
 
       const deckOracleNames = locksDeckContext && deckLock
-        ? (deckLock.cardNames?.length ? deckLock.cardNames : deckOracleCardNamesFromText(deckLock.deckText))
+        ? (useDeckScopedContext ? (deckLock.cardNames?.length ? deckLock.cardNames : deckOracleCardNamesFromText(deckLock.deckText)) : [])
         : (locksDeckContext && activeDeck ? deckOracleCardNamesFromCards(activeDeck.cards || deckCards) : []);
 
       try {
@@ -416,9 +480,11 @@ export default function useChatAgents({
           deckOracleContext = await buildCardContextForNames(deckOracleNames, {
             allowLiveFallback: true,
             allowLiveRulingsFallback: true,
-            includeRulings: true,
-            maxRulingsPerCard: 2,
-            heading: "## CARDS REFERENCED - LOCKED DECK CARD DATA (local Oracle text + local rulings first; use ONLY this text for card behavior)",
+            includeRulings: !isPureKarnCutRequest,
+            maxRulingsPerCard: isPureKarnCutRequest ? 0 : 2,
+            heading: isPureKarnCutRequest
+              ? "## CARDS REFERENCED - LOCKED DECK CARD DATA (local Oracle text first; rulings omitted for cut-request speed; use ONLY this text for card behavior)"
+              : "## CARDS REFERENCED - LOCKED DECK CARD DATA (local Oracle text + local rulings first; use ONLY this text for card behavior)",
           });
         }
       } catch {
@@ -452,12 +518,20 @@ export default function useChatAgents({
         augmentedContent = `${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## USER QUESTION\n\n${prompt}`;
       }
 
+      if (isPureKarnCutRequest && deckOracleNames.length) {
+        augmentedContent = `${deckOracleContext || ""}## VALID CUT TARGETS\nOnly these exact locked-deck card names may be recommended as cuts:\n${deckOracleNames.map(name => `- [[${name}]]`).join("\n")}\n\n## USER QUESTION\n\n${prompt}`;
+      }
+
       const lockedDeckNeedsEngineContext = Boolean(
-        deckLock && locksDeckContext && ["jace", "karn", "tibalt", "arbiter"].includes(targetAgent)
+        deckLock &&
+        locksDeckContext &&
+        ["jace", "karn", "tibalt", "arbiter"].includes(targetAgent) &&
+        useDeckScopedContext &&
+        !isPureKarnCutRequest
       );
 
       if (shouldUseEngineContext(targetAgent, prompt) || lockedDeckNeedsEngineContext) {
-        const deckFacts = deckLock ? [
+        const deckFacts = deckLock && useDeckScopedContext ? [
           `Deck: ${deckLock.name}`,
           `Commander: ${deckLock.commander}`,
           deckOracleNames.length ? `Deck cards: ${deckOracleNames.slice(0, 60).join(", ")}` : "",
@@ -481,7 +555,7 @@ export default function useChatAgents({
           cardContext: `${deckOracleContext || ""}${cardContext || ""}`,
           context: `${engineContext || ""}${activeDeckContext}`,
           fast: fastMode,
-          provider: forceProvider || modelProvider,
+          provider: effectiveProvider,
         });
 
         if (arbiterResult.trace) {
@@ -491,17 +565,47 @@ export default function useChatAgents({
         }
       }
 
+      const primerReply = targetAgent === "jace" ? localJaceRulesPrimer(prompt) : "";
+      if (primerReply) {
+        responseMeta.factReceipt = {
+          provider: "ollama",
+          fallbackUsed: false,
+          deckLocked: Boolean(deckLock),
+          deckName: deckLock?.name || null,
+          cardsProvided: countContextCards(cardContext + deckOracleContext + karnScryfallContext),
+          rulingsProvided: countContextRulings(cardContext + deckOracleContext),
+          engineContextProvided: Boolean(engineContext),
+          arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
+        };
+
+        setHistories(previous => ({
+          ...previous,
+          [targetAgent]: [...baseHistory, { role: "assistant", content: primerReply, ...responseMeta }],
+        }));
+        setSending(false);
+        return;
+      }
+
       const apiMessages = retryDepth === 0
         ? trimApiHistory([...histories[targetAgent], { role: "user", content: augmentedContent }])
         : trimApiHistory(baseHistory);
+
+      const useFastLocalModel = Boolean(
+        isLocalProvider &&
+        (targetAgent === "karn" ||
+          targetAgent === "tibalt" ||
+          Boolean(responseMeta.arbiterTrace) ||
+          deckOracleContext.length > 25000)
+      );
 
       const response = await fetch("/api/chat-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          provider: forceProvider || modelProvider,
-          max_tokens: 2500,
+          provider: effectiveProvider,
+          fastLocal: useFastLocalModel,
+          max_tokens: isLocalProvider ? localMaxTokens : 2500,
           system: systemPrompt,
           messages: apiMessages,
         }),
@@ -517,7 +621,7 @@ export default function useChatAgents({
             isError: true,
             fallbackAvailable: true,
             originalPrompt: prompt,
-            errorProvider: forceProvider || modelProvider,
+            errorProvider: effectiveProvider,
           }],
         }));
         setSending(false);
@@ -574,7 +678,7 @@ export default function useChatAgents({
             isError: true,
             fallbackAvailable: streamError.fallbackAvailable ?? true,
             originalPrompt: prompt,
-            errorProvider: streamError.provider || (forceProvider || modelProvider),
+            errorProvider: streamError.provider || (effectiveProvider),
           };
           return { ...previous, [targetAgent]: msgs };
         });
@@ -585,11 +689,20 @@ export default function useChatAgents({
       // Streaming complete — build a data object compatible with existing post-processing
       const data = {
         content: [{ type: "text", text: streamedText }],
-        provider: streamDoneEvent?.provider || (forceProvider || modelProvider),
+        provider: streamDoneEvent?.provider || (effectiveProvider),
         usage: streamDoneEvent?.usage || null,
       };
 
       let reply = streamedText || "No response received.";
+
+      const localPrimer = targetAgent === "jace" ? localJaceRulesPrimer(prompt) : "";
+      if (localPrimer) {
+        reply = localPrimer;
+      }
+
+      if (["karn", "tibalt"].includes(targetAgent) && deckOracleNames.length) {
+        reply = bracketKnownCardNames(reply, deckOracleNames);
+      }
 
       if (targetAgent === "arbiter" && retryDepth === 0 && /^UNRESOLVED/m.test(reply)) {
         const needsCards = /Oracle text|card text|isn't provided|not provided/i.test(reply);
@@ -622,7 +735,7 @@ export default function useChatAgents({
       }
 
       responseMeta.factReceipt = {
-        provider: data.provider || (forceProvider || modelProvider),
+        provider: data.provider || (effectiveProvider),
         fallbackUsed: !forceProvider && modelProvider === "ollama" && data.provider === "anthropic",
         deckLocked: Boolean(deckLock),
         deckName: deckLock?.name || null,
@@ -649,7 +762,7 @@ export default function useChatAgents({
           isError: true,
           fallbackAvailable: true,
           originalPrompt: prompt,
-          errorProvider: forceProvider || modelProvider,
+          errorProvider: effectiveProvider,
         }],
       }));
     }

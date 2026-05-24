@@ -5,6 +5,7 @@ import path from "node:path";
 
 // Mirrors constants from modelProvider.js — kept local to avoid side effects from imports
 const DEFAULT_OLLAMA_MODEL = "qwen2.5:32b";
+const DEFAULT_OLLAMA_FAST_MODEL = "qwen2.5:7b";
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_OLLAMA_CONTEXT = 32768;
@@ -23,6 +24,12 @@ function maxTokens(value) {
 function ollamaCtx(value) {
   const n = Number(value || process.env.OLLAMA_NUM_CTX);
   return Number.isFinite(n) && n > 0 ? Math.min(n, 32768) : DEFAULT_OLLAMA_CONTEXT;
+}
+
+function inputCharCount(body = {}) {
+  const systemChars = String(body.system || "").length;
+  const messageChars = (body.messages || []).reduce((sum, message) => sum + String(message.content || "").length, 0);
+  return { systemChars, messageChars, totalChars: systemChars + messageChars };
 }
 
 function anthropicKey() {
@@ -66,6 +73,7 @@ export async function POST(request) {
   const provider = resolveProvider(body.provider);
   const isOllama = provider === "ollama" || provider === "local";
   const callStart = Date.now();
+  let resolvedModel = null;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -76,7 +84,11 @@ export async function POST(request) {
       try {
         if (isOllama) {
           // ── Ollama NDJSON streaming ────────────────────────────────────────
-          const model = process.env.OLLAMA_MODEL || body.ollamaModel || DEFAULT_OLLAMA_MODEL;
+          const model = body.ollamaModel ||
+            (body.fastLocal ? (process.env.OLLAMA_FAST_MODEL || DEFAULT_OLLAMA_FAST_MODEL) : null) ||
+            process.env.OLLAMA_MODEL ||
+            DEFAULT_OLLAMA_MODEL;
+          resolvedModel = model;
           const baseUrl = (process.env.OLLAMA_BASE_URL || DEFAULT_OLLAMA_BASE_URL).replace(/\/$/, "");
           const system = body.system ? [{ role: "system", content: body.system }] : [];
           const messages = [...system, ...(body.messages || [])].map(m => ({
@@ -186,6 +198,7 @@ export async function POST(request) {
           }
 
           const model = process.env.ANTHROPIC_MODEL || body.model || DEFAULT_ANTHROPIC_MODEL;
+          resolvedModel = model;
           const anthropicResp = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
@@ -268,20 +281,25 @@ export async function POST(request) {
         errorOccurred = errMsg;
       } finally {
         controller.close();
+        const chars = inputCharCount(body);
         // Log the call (best-effort, after stream is closed)
         await logCall({
           id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
           timestamp: new Date().toISOString(),
           provider: isOllama ? "ollama" : "anthropic",
           model: isOllama
-            ? (process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL)
-            : (process.env.ANTHROPIC_MODEL || DEFAULT_ANTHROPIC_MODEL),
+            ? (resolvedModel || process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL)
+            : (resolvedModel || process.env.ANTHROPIC_MODEL || DEFAULT_ANTHROPIC_MODEL),
           ok: !errorOccurred,
           status: errorOccurred ? 500 : 200,
           messageCount: Array.isArray(body.messages) ? body.messages.length : 0,
+          systemChars: chars.systemChars,
+          inputChars: chars.messageChars,
+          totalInputChars: chars.totalChars,
           outputChars,
           error: errorOccurred,
           streaming: true,
+          fastLocal: Boolean(body.fastLocal),
           durationMs: Date.now() - callStart,
         }).catch(() => {});
       }

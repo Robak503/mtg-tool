@@ -3,6 +3,7 @@ import path from "node:path";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OLLAMA_MODEL = "qwen2.5:32b";
+const DEFAULT_OLLAMA_FAST_MODEL = "qwen2.5:7b";
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_OLLAMA_CONTEXT = 32768;
 const MODEL_CALL_LOG = path.join(process.cwd(), "data", "model-calls.local.json");
@@ -155,7 +156,10 @@ export async function callAnthropicMessages(body = {}) {
 
 export async function callOllamaMessages(body = {}) {
   const baseUrl = process.env.OLLAMA_BASE_URL || DEFAULT_OLLAMA_BASE_URL;
-  const model = process.env.OLLAMA_MODEL || body.ollamaModel || DEFAULT_OLLAMA_MODEL;
+  const model = body.ollamaModel ||
+    (body.fastLocal ? (process.env.OLLAMA_FAST_MODEL || DEFAULT_OLLAMA_FAST_MODEL) : null) ||
+    process.env.OLLAMA_MODEL ||
+    DEFAULT_OLLAMA_MODEL;
   const system = body.system ? [{ role: "system", content: body.system }] : [];
   const messages = [...system, ...(body.messages || [])].map(message => ({
     role: message.role === "assistant" ? "assistant" : message.role === "system" ? "system" : "user",

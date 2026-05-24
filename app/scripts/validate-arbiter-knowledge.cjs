@@ -9,8 +9,9 @@ const CORE_TEST_FILE = path.resolve(JUDGE_ROOT, "META_test_cases.md");
 const EXPANDED_TEST_FILE = path.resolve(JUDGE_ROOT, "META_test_cases_expanded.md");
 const RULESGURU_TEST_FILE = path.resolve(JUDGE_ROOT, "META_test_cases_rulesguru.md");
 const AGENTS_FILE = path.resolve(APP_ROOT, "src", "lib", "agents.js");
-const DEFAULT_ENDPOINT = "http://localhost:3000/api/anthropic";
+const DEFAULT_ENDPOINT = "http://localhost:3000/api/arbiter";
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
+const DEFAULT_LOCAL_ARBITER_MODEL = "qwen2.5:14b";
 
 function parseArgs(argv) {
   const args = {
@@ -59,7 +60,7 @@ function printHelp() {
   console.log(`
 MTG Tool Arbiter knowledge validator
 
-Runs local knowledge-base scenarios through the app's /api/anthropic endpoint.
+Runs local knowledge-base scenarios through the app's /api/arbiter endpoint.
 
 Usage:
   npm run validate:arbiter -- --dry-run
@@ -226,7 +227,7 @@ async function buildCardContext(scenario) {
 }
 
 async function ensureEndpoint(endpoint) {
-  const root = endpoint.replace(/\/api\/anthropic\/?$/, "");
+  const root = endpoint.replace(/\/api\/(anthropic|arbiter)\/?$/, "");
   try {
     const response = await fetch(root);
     if (response.status >= 200 && response.status < 500) return;
@@ -238,11 +239,35 @@ async function ensureEndpoint(endpoint) {
 
 async function callAppEndpoint({ endpoint, systemPrompt, scenario, cardContext }) {
   const userContent = `${cardContext || ""}## USER QUESTION\n\n${scenario}`;
+  if (/\/api\/arbiter\/?$/.test(endpoint)) {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: scenario,
+        cardContext,
+        provider: "ollama",
+        ollamaModel: process.env.OLLAMA_ARBITER_MODEL || DEFAULT_LOCAL_ARBITER_MODEL,
+        fast: true,
+        fastLocal: true,
+        max_tokens: 1600,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = typeof data.error === "string" ? data.error : data.error?.message || JSON.stringify(data.error || data);
+      throw new Error(`App endpoint returned ${response.status}: ${message}`);
+    }
+    return data.trace || data.content?.[0]?.text || data.error?.message || data.error || "";
+  }
+
   const response = await fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model: DEFAULT_MODEL,
+      provider: "ollama",
+      fastLocal: true,
       max_tokens: 2500,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],
@@ -449,7 +474,9 @@ async function main() {
     process.stdout.write(`[${i + 1}/${selectedTests.length}] ${test.id} ${test.title} ... `);
 
     try {
-      const cardContext = args.noCards ? "" : await buildCardContext(test.scenario);
+      const cardContext = args.noCards || /\/api\/arbiter\/?$/.test(args.endpoint)
+        ? ""
+        : await buildCardContext(test.scenario);
       const response = await callAppEndpoint({
         endpoint: args.endpoint,
         systemPrompt,

@@ -296,7 +296,11 @@ function colorIdentityFromCards(cards) {
 }
 
 function shouldAttachKarnSearchContext(prompt) {
-  return /\b(add|adds|upgrade|upgrades|improve|improvement|suggest|recommend|replace|swap|cut|cuts|card|cards|package|ramp|draw|removal|interaction|protection|wincon|win condition|mana base|fix|build|optimize|tune)\b/i.test(prompt);
+  const text = String(prompt || "");
+  const asksForCuts = /\b(cut|cuts|remove|trim)\b/i.test(text);
+  const asksForExternalCards = /\b(add|adds|upgrade|upgrades|improve|improvement|recommend|replace|swap|alternative|alternatives|budget|package|ramp|draw|removal|interaction|protection|wincon|win condition|mana base|fix|build|optimize|tune)\b/i.test(text);
+  if (asksForCuts && !asksForExternalCards) return false;
+  return asksForExternalCards;
 }
 
 function karnSearchQueries(prompt, deckOracleText = "") {
