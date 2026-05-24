@@ -55,6 +55,10 @@ app/data/backups/*.json
 mtg-judge/data/forge/
 mtg-judge/data/rulesguru-repo/
 
+# Sensitive plaintext files
+"MTG ENGINE/THE KEY.txt"
+MTG ENGINE/THE KEY.txt
+
 # Python artifacts
 __pycache__/
 *.pyc
