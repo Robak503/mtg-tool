@@ -494,7 +494,7 @@ export default function useChatAgents({
         ? trimApiHistory([...histories[targetAgent], { role: "user", content: augmentedContent }])
         : trimApiHistory(baseHistory);
 
-      const response = await fetch("/api/anthropic", {
+      const response = await fetch("/api/chat-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -506,28 +506,89 @@ export default function useChatAgents({
         }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        const errorMsg = typeof data.error === "string"
-          ? data.error
-          : (data.error?.message || data.message || "No response from the model.");
+      if (!response.ok || !response.body) {
+        const errorMsg = "Could not connect to the model endpoint.";
         setHistories(previous => ({
           ...previous,
           [targetAgent]: [...baseHistory, {
             role: "assistant",
             content: errorMsg,
             isError: true,
-            fallbackAvailable: data.fallbackAvailable ?? true,
+            fallbackAvailable: true,
             originalPrompt: prompt,
-            errorProvider: data.provider || (forceProvider || modelProvider),
+            errorProvider: forceProvider || modelProvider,
           }],
         }));
         setSending(false);
         return;
       }
 
-      let reply = data.content?.[0]?.text || data.error?.message || data.error || "No response received.";
+      // Streaming: add a placeholder that updates token-by-token
+      const streamingIdx = baseHistory.length;
+      setHistories(previous => ({
+        ...previous,
+        [targetAgent]: [...baseHistory, { role: "assistant", content: "", streaming: true }],
+      }));
+
+      const reader = response.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      let streamedText = "";
+      let streamDoneEvent = null;
+      let streamError = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === "text_delta") {
+              streamedText += event.text;
+              setHistories(previous => {
+                const msgs = [...(previous[targetAgent] || [])];
+                msgs[streamingIdx] = { ...msgs[streamingIdx], content: streamedText };
+                return { ...previous, [targetAgent]: msgs };
+              });
+            } else if (event.type === "done") {
+              streamDoneEvent = event;
+            } else if (event.type === "error") {
+              streamError = event;
+            }
+          } catch { /* skip malformed line */ }
+        }
+      }
+
+      // Handle streaming error
+      if (streamError) {
+        setHistories(previous => {
+          const msgs = [...(previous[targetAgent] || [])];
+          msgs[streamingIdx] = {
+            role: "assistant",
+            content: streamError.error || "Model returned an error.",
+            isError: true,
+            fallbackAvailable: streamError.fallbackAvailable ?? true,
+            originalPrompt: prompt,
+            errorProvider: streamError.provider || (forceProvider || modelProvider),
+          };
+          return { ...previous, [targetAgent]: msgs };
+        });
+        setSending(false);
+        return;
+      }
+
+      // Streaming complete — build a data object compatible with existing post-processing
+      const data = {
+        content: [{ type: "text", text: streamedText }],
+        provider: streamDoneEvent?.provider || (forceProvider || modelProvider),
+        usage: streamDoneEvent?.usage || null,
+      };
+
+      let reply = streamedText || "No response received.";
 
       if (targetAgent === "arbiter" && retryDepth === 0 && /^UNRESOLVED/m.test(reply)) {
         const needsCards = /Oracle text|card text|isn't provided|not provided/i.test(reply);
@@ -570,10 +631,11 @@ export default function useChatAgents({
         arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
       };
 
-      setHistories(previous => ({
-        ...previous,
-        [targetAgent]: [...baseHistory, { role: "assistant", content: reply, ...responseMeta }],
-      }));
+      setHistories(previous => {
+        const msgs = [...(previous[targetAgent] || [])];
+        msgs[streamingIdx] = { role: "assistant", content: reply, ...responseMeta };
+        return { ...previous, [targetAgent]: msgs };
+      });
     } catch (error) {
       const isTimeout = error?.name === "AbortError";
       setHistories(previous => ({
