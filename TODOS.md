@@ -1,20 +1,14 @@
 # MTG Tool — TODOS
 
-Items deferred from Phase 1 CEO review (2026-05-23). Ordered by priority.
+Items deferred from Phase 1 sprint reviews. Ordered by priority.
 
 ---
 
 ## P2
 
-### Wire Arbiter to Ollama
+### ~~Wire Arbiter to Ollama~~ ✅ DONE (568554a, 2026-05-24)
 
-**What:** Route `/api/arbiter` through Ollama (using the Arbiter prompt) instead of hardcoding Anthropic.
-
-**Why:** Currently, even with the global provider set to Local, Jace silently calls `/api/arbiter` which hits Anthropic. This means "Local = $0" is false for any rules-sensitive Jace question. Until this is done, Local mode skips Arbiter entirely.
-
-**How to apply:** After Day 1-2 Ollama wiring is complete, add Ollama as a provider option in `/api/arbiter/route.js`. Use the same provider-toggle pattern as the main chat. The Arbiter prompt is in `app/src/lib/agents.js` as `ARBITER_PROMPT`. Phase 2 goal is to replace the thin proxy with a real retrieval service — this TODO is the intermediate step.
-
-**Depends on:** Day 1-2 Ollama wiring complete.
+`/api/arbiter/route.js` now calls `callModelMessages(payload)` where `payload.provider` comes from the client. Arbiter routes to Ollama when Local mode is active. No action needed.
 
 ---
 
@@ -22,22 +16,46 @@ Items deferred from Phase 1 CEO review (2026-05-23). Ordered by priority.
 
 **What:** On app load, ping `localhost:11434/api/tags` to verify Ollama is running and the configured model is pulled. Show a one-time banner if not ready: "Ollama not running — start with: `ollama serve`" or "Model not found — run: `ollama pull qwen2.5:32b`".
 
-**Why:** Without this, the first rules question in a new session hangs or returns a confusing error. The actionable error messages in `/api/ollama` handle the failure case reactively — this handles it proactively on load.
+**Why:** Without this, the first rules question in a new session hangs or returns a confusing error. The actionable error messages in `callOllamaMessages` handle the failure case reactively — this handles it proactively on load.
 
-**How to apply:** Add a startup effect in `app/src/app/page.js` or a top-level component. Call `/api/ollama` with a lightweight health-check request (or check `localhost:11434/api/tags` directly from a new `/api/ollama-health` route). Display inline banner, auto-dismiss after Ollama comes online.
+**How to apply:** Add a startup `useEffect` in `MTGAssistant.jsx` (or `page.jsx`). Hit `localhost:11434/api/tags` directly (or a new `/api/ollama-health` route that proxies it). Display inline banner in the chat area, auto-dismiss after Ollama comes online.
 
-**Depends on:** Day 1-2 Ollama wiring complete.
+**Depends on:** Day 1-2 Ollama wiring complete. ✅
 
 ---
 
 ## P3
 
+### Rename `/api/anthropic` to `/api/chat`
+
+**What:** The `/api/anthropic` route now dispatches to both Ollama and Anthropic based on `provider` field. The name is misleading — calling it with `provider: "ollama"` routes to Ollama. Rename the route to `/api/chat` and update the single call site in `useChatAgents.js` line 486.
+
+**Why:** The name will cause confusion in Phase 2 when the knowledge layer is built and more routes are added. "I'm calling /api/anthropic with provider=ollama" is confusing to read.
+
+**How to apply:** Create `app/src/app/api/chat/route.js` that re-exports the handler from the current `anthropic/route.js`. Update `useChatAgents.js` line 486: `fetch("/api/anthropic"` → `fetch("/api/chat"`. Delete the old `anthropic/route.js`. One redirect approach or a simple move.
+
+**Depends on:** Nothing.
+
+---
+
 ### Pre-build oracle name index for faster cold starts
 
 **What:** A build script (`npm run build:oracle-index`) that reads `oracle_cards.json` (165MB) and writes a pre-computed name→card lookup table to `data/scryfall-bulk/oracle-index.json`. The `/api/cards` route loads the index file on cold start instead of parsing 165MB of JSON.
 
-**Why:** Parsing 165MB on every dev server restart takes ~3-5 seconds. The in-memory cache (`oracleCache`) persists for the server process lifetime but resets on restart. During active development (Day 3 and after), restarts are frequent and the cold-start delay is noticeable.
+**Why:** Parsing 165MB on every dev server restart takes ~3-5 seconds. The in-memory cache (`oracleCache`) persists for the server process lifetime but resets on restart. During active development, restarts are frequent and the cold-start delay is noticeable.
 
-**How to apply:** Add `scripts/build-oracle-index.ts` (or .js). Add `"build:oracle-index": "node scripts/build-oracle-index.js"` to `app/package.json`. Run it once after Day 3 bulk wiring. The index format: `{ "name_normalized": { card object } }`. Persist the JSON with `JSON.stringify`. `/api/cards` prefers the index file if present, falls back to raw parse.
+**How to apply:** Add `scripts/build-oracle-index.js`. Add `"build:oracle-index": "node scripts/build-oracle-index.js"` to `app/package.json`. Run it once after Day 3 bulk wiring. The index format: `{ "name_normalized": { card object } }`. `/api/cards` prefers the index file if present, falls back to raw parse.
 
-**Depends on:** Day 3 bulk oracle wiring complete.
+**Depends on:** Day 3 bulk oracle wiring complete. ✅
+
+---
+
+### Consolidate duplicate oracle caches
+
+**What:** `app/src/app/api/cards/route.js` and `app/src/lib/server/cardContext.js` each independently parse and cache `oracle_cards.json` and `rulings.json`. Two separate `oracleCache` variables in the same server process.
+
+**Why:** After Day 3, both files load 165MB + 24MB independently on first request. ~900MB of duplicate parsed data in V8. With 32GB RAM this is tolerable but wasteful, and it doubles cold-start time if both routes are hit simultaneously.
+
+**How to apply:** Extract oracle/rulings loading to `app/src/lib/server/oracleStore.js` with a single `loadOracle()` and `loadRulings()` export. Both `cards/route.js` and `cardContext.js` import from there. Single cache, single parse.
+
+**Depends on:** Day 3 bulk oracle wiring complete. ✅
