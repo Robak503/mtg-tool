@@ -240,10 +240,23 @@ export default function ChatPanel({
                       ? <span style={{ display: "block" }}>⚠ {msg.content}</span>
                       : renderText(msg.content)
                     }
+                    {msg.arbiterStatus === "citation_failed" && (
+                      <div style={{
+                        marginTop: 8,
+                        padding: "6px 10px",
+                        borderRadius: 6,
+                        border: "1px solid #6b5a3a",
+                        background: "#1a1409",
+                        color: "#c89e6f",
+                        fontSize: 11,
+                      }}>
+                        ⚠ Arbiter could not produce a verified rule citation for this answer. Verify independently before relying on it.
+                      </div>
+                    )}
                     {msg.arbiterTrace && (
                       <details style={{ marginTop: 10, borderTop: `1px solid ${LINE}`, paddingTop: 8 }}>
                         <summary style={{ color: cfg.color, cursor: "pointer", fontSize: 11 }}>
-                          View Arbiter Trace
+                          View Arbiter Trace{msg.arbiterStatus ? ` (${msg.arbiterStatus})` : ""}
                         </summary>
                         <pre style={{
                           marginTop: 8,

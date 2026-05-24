@@ -178,10 +178,10 @@ async function fetchArbiterTrace({ question, cardContext, context, fast, provide
       }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return "";
-    return data.trace || "";
+    if (!response.ok) return { trace: "", status: "unresolved" };
+    return { trace: data.trace || "", status: data.status || "unresolved" };
   } catch {
-    return "";
+    return { trace: "", status: "unresolved" };
   }
 }
 
@@ -476,17 +476,18 @@ export default function useChatAgents({
           : activeDeck
             ? `## ACTIVE DECK CONTEXT\nDeck: ${activeDeck.name || "Unnamed"}\nCommander: ${deckCommander(activeDeck)}\n\n`
           : "";
-        const arbiterTrace = await fetchArbiterTrace({
+        const arbiterResult = await fetchArbiterTrace({
           question: prompt,
           cardContext: `${deckOracleContext || ""}${cardContext || ""}`,
           context: `${engineContext || ""}${activeDeckContext}`,
           fast: fastMode,
-          provider: modelProvider,
+          provider: forceProvider || modelProvider,
         });
 
-        if (arbiterTrace) {
-          responseMeta.arbiterTrace = arbiterTrace;
-          augmentedContent = `${engineContext || ""}${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## ARBITER TRACE\nThis trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language.\n\n${arbiterTrace}\n\n## USER QUESTION\n\n${prompt}`;
+        if (arbiterResult.trace) {
+          responseMeta.arbiterTrace = arbiterResult.trace;
+          responseMeta.arbiterStatus = arbiterResult.status;
+          augmentedContent = `${engineContext || ""}${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## ARBITER TRACE\nThis trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language.\n\n${arbiterResult.trace}\n\n## USER QUESTION\n\n${prompt}`;
         }
       }
 
