@@ -1,10 +1,65 @@
 # MTG Tool — Initial Audit
+
+## Codex Verification Addendum - 2026-05-23
+
+Codex reran the first-run protocol against the corrected project root:
+
+```text
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL
+```
+
+This matters because the older working copy still exists at:
+
+```text
+C:\Users\colto\Documents\Codex\MTG TOOL
+```
+
+and that older copy is still running a dev server on port 3000. The Claude project booted successfully on port 3001 because port 3000 was occupied by the older Codex copy.
+
+### Protocol verification
+
+- Read: `CLAUDE.md`, `README.md`, `ROADMAP.md`, `app/README.md`, `app/docs/APP_ROADMAP.md`, `MTG ENGINE/META_layer_index.md`, `MTG ENGINE/META_query_router.md`, and `mtg-judge/META_test_cases.md`.
+- Note: `mtg-judge/META_layer_index.md` and `mtg-judge/META_query_router.md` do not exist; the actual files are in `MTG ENGINE/`.
+- Node verified: `v24.16.0`.
+- npm verified via `npm.cmd`: `11.13.0`. Plain `npm` is blocked by the Windows PowerShell execution policy because it resolves to `npm.ps1`.
+- git verified: `2.51.0.windows.2`.
+- gstack verified on disk: `~/.claude/skills/gstack/` exists and the top-level skill directories such as `office-hours`, `plan-ceo-review`, and `plan-eng-review` exist.
+- GBrain is not fully callable from this environment: `gbrain` is not on PATH and `.claude.json` does not show an active `mcpServers.gbrain` entry. gstack has `.gbrain` skill artifacts, but the project should treat GBrain MCP/search as not configured until `/setup-gbrain` or equivalent verification succeeds.
+
+### Cleanup and reinstall performed
+
+- Deleted ignored stale artifacts in this project copy only: `app/node_modules`, `app/.next`, `app/local-dev.out.log`, and `app/local-dev.err.log`.
+- Reinstalled dependencies with `npm.cmd install`.
+- Install result: 20 packages installed, 2 moderate vulnerabilities reported by npm audit. No forced audit fix was run because that is Phase 1 work, not first-run audit work.
+- Verified the app boots with `npm.cmd run dev`. Next.js `15.5.18` reported ready on `http://localhost:3001`.
+- Stopped the Claude-project dev server child processes after the boot check.
+
+### Git and security verification
+
+- Git repo exists and was clean after cleanup because removed files are ignored.
+- History scrub verification passed:
+  - `git log --all --full-history -- "MTG ENGINE/THE KEY.txt"` returned nothing.
+  - `git log -p --all -S "JLjShFSC9ZCSkFHr"` returned nothing.
+- `.gitignore` covers `app/node_modules`, `app/.next`, app logs, Scryfall bulk JSON, local env files, embedded Forge/RulesGuru repos, and `MTG ENGINE/THE KEY.txt`.
+
+### Current deltas from the original audit
+
+- Deck library contains 15 saved decks: 6 owned by Colton and 9 owned by Joe.
+- Largest current source files now include `app/src/lib/symbolicEngine.cjs` at 1019 lines and `app/src/lib/symbolicCardAdapter.cjs` at 272 lines. The symbolic engine is now the largest refactor candidate after `deckSeeds.js`.
+- `app/README.md` and `app/docs/APP_ROADMAP.md` still contain hard-coded paths pointing to `C:\Users\colto\Documents\Codex\MTG TOOL`. These should be rewritten to the Claude project path or, better, relative paths during Phase 1 docs cleanup.
+- The older Codex app copy is still running on port 3000. This is useful for comparison, but it can cause port confusion until one canonical project copy is chosen.
+
+No Phase 1 implementation has been started in this verification pass.
+
+---
 ## Produced by Claude Code on first session: 2026-05-23
 ## Status: Phase 0 → awaiting owner review before Phase 1 begins
 
 ---
 
 ## Security Note — Act First
+
+Codex verification update: the owner reported the key was rotated, and the local git history scrub now verifies clean. The original note below is retained as historical context for why the scrub mattered.
 
 **THE KEY.txt** in `MTG ENGINE/` contained a plaintext `ANTHROPIC_API_KEY`. It was committed in the initial git commit (commit `55f826b`) and has been removed in the follow-up commit (`c9d7600`). Because the key exists in local git history, you should rotate the key in your Anthropic console as a precaution, even though no remote has been pushed. Steps:
 1. Go to console.anthropic.com → API Keys → revoke the key that was in that file
