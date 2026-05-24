@@ -13,6 +13,23 @@ function detectArbiterStatus(trace) {
   return "unresolved";
 }
 
+async function buildServerEngineContext(request, question, existingContext) {
+  if (String(existingContext || "").includes("## LOCAL MTG ENGINE / JUDGE CONTEXT")) return "";
+
+  try {
+    const response = await fetch(new URL("/api/engine", request.url), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: question, limit: 5 }),
+    });
+    if (!response.ok) return "";
+    const data = await response.json();
+    return data.context || "";
+  } catch {
+    return "";
+  }
+}
+
 export async function POST(request) {
   let body;
   try {
@@ -34,7 +51,9 @@ export async function POST(request) {
         maxCardNames: 8,
         maxRulingsPerCard: 3,
       });
-  const userContent = `${explicitCardContext}${autoCardContext}${body.context || ""}## USER QUESTION\n\n${question}`;
+  const explicitEngineContext = String(body.context || "");
+  const autoEngineContext = await buildServerEngineContext(request, question, explicitEngineContext);
+  const userContent = `${explicitCardContext}${autoCardContext}${autoEngineContext}${explicitEngineContext}## USER QUESTION\n\n${question}`;
   const payload = {
     model: body.model,
     provider: body.provider,
