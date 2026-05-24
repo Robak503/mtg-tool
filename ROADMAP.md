@@ -1,5 +1,11 @@
 # MTG Tool Roadmap
 
+## Current Addendum - 2026-05-23
+
+The first-run audit and simulated planning docs are complete. Codex also implemented a focused deck-lock/local-Oracle fix before full Phase 1 rollout: loaded decks can now lock per-agent and attach local Oracle text to the conversation context.
+
+Next full sprint remains the Local-First Trust Foundation: provider routing, manual Anthropic fallback, cost visibility, and a unified knowledge service.
+
 This is the working roadmap. Claude Code updates this as phases complete.
 
 ## Status: Phase 0 — Initial Setup
@@ -85,6 +91,10 @@ Fix the things the previous AI half-built.
 - [ ] Jace → Arbiter wrapping (Jace silently calls Arbiter for rules-sensitive questions)
 - [ ] Tibalt → Arbiter → unified knowledge layer (rules-aware roasts)
 - [ ] Deck context hard lock per conversation
+  - [x] V0 per-agent lock snapshot for Jace/Karn/Tibalt/Arbiter
+  - [x] Locked deck triggers local Oracle context attachment
+  - [x] Unlock Deck and Unload Deck controls
+  - [ ] Full chat session manager with multiple active/archived conversations
 - [ ] Chat session manager UI
   - [ ] List of active chats grouped by agent
   - [ ] Show locked deck per chat
@@ -141,7 +151,8 @@ Major separate roadmap. Do not start until Phases 1-5 are solid.
 
 Significant architectural decisions get logged here as they're made.
 
-*(empty — Claude Code populates this)*
+- 2026-05-23: Deck context is now split into two UX concepts: **loaded deck** (sidebar selection) and **locked deck** (immutable per-agent conversation snapshot). `Unlock` removes the current agent's snapshot while keeping chat history. `Unload` clears the sidebar deck selection. A locked deck triggers local Scryfall Oracle text attachment for the deck's non-token cards.
+- 2026-05-23: The canonical project is `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL`. The older Codex project may still run on port 3000; use `http://localhost:3001` for the canonical project when port 3000 is occupied.
 
 ---
 

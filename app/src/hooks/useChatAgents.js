@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { AGENTS, ARBITER_PROMPT_FAST } from "../lib/agents";
 import { flushChatFileSave, loadChatState, saveChatFile, scheduleChatFileSave } from "../lib/chatPersistence";
 import { serializeDeck, serializeDeckMemory } from "../lib/deckMemory";
-import { buildCardContext, loadCardCatalog, postProcessKarnResponse } from "../lib/scryfall";
+import { buildCardContext, buildCardContextForNames, loadCardCatalog, postProcessKarnResponse } from "../lib/scryfall";
 import { loadJson, saveJson } from "../lib/storage";
 
 const CHAT_STORAGE_KEYS = {
@@ -17,6 +17,7 @@ const CHAT_STORAGE_KEYS = {
 
 const DECK_CONTEXT_FULL_LIMIT = 10;
 const API_HISTORY_LIMIT = 8;
+const DECK_LOCK_AGENTS = new Set(["jace", "karn", "tibalt", "arbiter"]);
 
 function compact(text, limit = 420) {
   const clean = String(text || "").replace(/\s+/g, " ").trim();
@@ -40,6 +41,26 @@ function deckTokenCount(deck) {
   return (deck?.cards || [])
     .filter(card => card.section === "Tokens")
     .reduce((sum, card) => sum + card.qty, 0);
+}
+
+function deckOracleCardNamesFromCards(cards = []) {
+  return [...new Set(
+    (cards || [])
+      .filter(card => card.section !== "Sideboard" && card.section !== "Tokens")
+      .map(card => card.name)
+      .filter(Boolean)
+  )];
+}
+
+function deckOracleCardNamesFromText(deckText = "") {
+  return [...new Set(
+    String(deckText || "")
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith("#"))
+      .map(line => line.replace(/^\d+\s+/, "").trim())
+      .filter(line => line && !/^(commander|mainboard|sideboard|tokens)$/i.test(line))
+  )];
 }
 
 function normalizeSearchText(text) {
@@ -185,16 +206,19 @@ function createDeckLock(deck) {
     mainCount: deckMainCount(deck),
     tokenCount: deckTokenCount(deck),
     lockedAt: new Date().toISOString(),
+    cardNames: deckOracleCardNamesFromCards(deck.cards || []),
     deckText: serializeDeck(deck.cards || []),
     memoryText: serializeDeckMemory(deck),
   };
 }
 
-function lockContext(lock) {
+function lockContext(lock, agentId = "karn", confirmLock = false) {
   if (!lock) return "";
+  const agentName = AGENTS[agentId]?.name || "This agent";
   return [
-    `## LOCKED KARN DECK CONTEXT`,
-    `Karn's current conversation is locked to this deck snapshot. Do not silently switch to another active deck unless the user clears Karn's chat or explicitly asks to start a new deck conversation.`,
+    `## LOCKED ${agentName.toUpperCase()} DECK CONTEXT`,
+    `${agentName}'s current conversation is locked to this deck snapshot. Do not silently switch to another active deck unless the user clears ${agentName}'s chat or explicitly asks to start a new deck conversation.`,
+    confirmLock ? `On your next reply, briefly confirm that ${lock.name} is locked for this conversation before answering the user's request.` : "",
     `Deck: ${lock.name}`,
     `Owner: ${lock.owner}`,
     `Commander: ${lock.commander}`,
@@ -313,14 +337,16 @@ export default function useChatAgents({
 
     try {
       let activeLocks = deckLocks;
-      let karnLock = targetAgent === "karn" ? activeLocks.karn : null;
+      const locksDeckContext = DECK_LOCK_AGENTS.has(targetAgent);
+      let deckLock = locksDeckContext ? activeLocks[targetAgent] : null;
+      let deckLockJustCreated = false;
 
-      if (targetAgent === "karn" && !karnLock && activeDeck) {
-        karnLock = createDeckLock(activeDeck);
-        activeLocks = { ...activeLocks, karn: karnLock };
+      if (locksDeckContext && !deckLock && activeDeck) {
+        deckLock = createDeckLock(activeDeck);
+        deckLockJustCreated = true;
+        activeLocks = { ...activeLocks, [targetAgent]: deckLock };
         setDeckLocks(activeLocks);
       }
-
       let systemPrompt = targetAgent === "arbiter" && fastMode
         ? ARBITER_PROMPT_FAST
         : targetConfig.prompt;
@@ -329,8 +355,8 @@ export default function useChatAgents({
       const savedDeckContext = buildSavedDeckContext(savedDecks, targetAgent, conversationText, activeDeck?.id);
       if (savedDeckContext.context) systemPrompt += `\n\n${savedDeckContext.context}`;
 
-      if (targetAgent === "karn" && karnLock) {
-        systemPrompt += `\n\n${lockContext(karnLock)}`;
+      if (locksDeckContext && deckLock) {
+        systemPrompt += `\n\n${lockContext(deckLock, targetAgent, deckLockJustCreated)}`;
       } else if ((targetAgent === "karn" || targetAgent === "tibalt") && deckCards.length) {
         systemPrompt += `\n\n## Active Deck: "${activeDeck?.name || "Unnamed"}"\n${serializeDeck(deckCards)}`;
       }
@@ -339,13 +365,14 @@ export default function useChatAgents({
         systemPrompt += `\n\n## Token Section\nThese entries are saved in the deck's Tokens section and should not be counted as normal Commander deck slots: ${tokenEntries.join(", ")}. You may mention them only when token production or token support matters.`;
       }
 
-      if (activeDeck && ["jace", "tibalt"].includes(targetAgent)) {
+      if (activeDeck && !deckLock && ["jace", "tibalt"].includes(targetAgent)) {
         const memoryContext = serializeDeckMemory(activeDeck);
         if (memoryContext) systemPrompt += `\n\n## Active Deck Memory\n${memoryContext}`;
       }
 
       let augmentedContent = prompt;
       let cardContext = "";
+      let deckOracleContext = "";
       let engineContext = "";
       let responseMeta = {};
 
@@ -353,15 +380,34 @@ export default function useChatAgents({
         ? { includeRulings: false }
         : { includeRulings: true, maxRulingsPerCard: targetAgent === "arbiter" ? 5 : 3 };
 
+      const deckOracleNames = locksDeckContext && deckLock
+        ? (deckLock.cardNames?.length ? deckLock.cardNames : deckOracleCardNamesFromText(deckLock.deckText))
+        : (locksDeckContext && activeDeck ? deckOracleCardNamesFromCards(activeDeck.cards || deckCards) : []);
+
+      try {
+        if (deckOracleNames.length) {
+          deckOracleContext = await buildCardContextForNames(deckOracleNames, {
+            includeRulings: false,
+            maxRulingsPerCard: 0,
+            heading: "## CARDS REFERENCED (loaded deck Oracle text - authoritative; use ONLY this text for card behavior)",
+          });
+        }
+      } catch {
+        // Deck Oracle attachment should never block the chat request.
+      }
+
       try {
         cardContext = await buildCardContext(prompt, rulingsForAgent);
-        if (cardContext) augmentedContent = cardContext + "## USER QUESTION\n\n" + prompt;
       } catch {
         // Fall back to the original user prompt if context building fails.
       }
 
+      if (deckOracleContext || cardContext) {
+        augmentedContent = `${deckOracleContext || ""}${cardContext || ""}## USER QUESTION\n\n${prompt}`;
+      }
+
       if (shouldUseEngineContext(targetAgent, prompt)) {
-        const engineQuery = `${prompt}\n${targetAgent === "karn" && karnLock ? `Deck: ${karnLock.name}\nCommander: ${karnLock.commander}` : ""}`;
+        const engineQuery = `${prompt}\n${deckLock ? `Deck: ${deckLock.name}\nCommander: ${deckLock.commander}` : ""}`;
         engineContext = await fetchEngineContext({ query: engineQuery, limit: targetAgent === "karn" ? 5 : 4 });
         if (engineContext) {
           augmentedContent = `${engineContext}\n${augmentedContent}`;
@@ -369,19 +415,21 @@ export default function useChatAgents({
       }
 
       if (retryDepth === 0 && shouldUseArbiterTrace(targetAgent, prompt)) {
-        const activeDeckContext = activeDeck
-          ? `## ACTIVE DECK CONTEXT\nDeck: ${activeDeck.name || "Unnamed"}\nCommander: ${deckCommander(activeDeck)}\n\n`
+        const activeDeckContext = deckLock
+          ? `## LOCKED DECK CONTEXT\nDeck: ${deckLock.name}\nCommander: ${deckLock.commander}\n\n`
+          : activeDeck
+            ? `## ACTIVE DECK CONTEXT\nDeck: ${activeDeck.name || "Unnamed"}\nCommander: ${deckCommander(activeDeck)}\n\n`
           : "";
         const arbiterTrace = await fetchArbiterTrace({
           question: prompt,
-          cardContext,
+          cardContext: `${deckOracleContext || ""}${cardContext || ""}`,
           context: `${engineContext || ""}${activeDeckContext}`,
           fast: fastMode,
         });
 
         if (arbiterTrace) {
           responseMeta.arbiterTrace = arbiterTrace;
-          augmentedContent = `${engineContext || ""}${cardContext || ""}## ARBITER TRACE\nThis trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language.\n\n${arbiterTrace}\n\n## USER QUESTION\n\n${prompt}`;
+          augmentedContent = `${engineContext || ""}${deckOracleContext || ""}${cardContext || ""}## ARBITER TRACE\nThis trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language.\n\n${arbiterTrace}\n\n## USER QUESTION\n\n${prompt}`;
         }
       }
 
@@ -472,6 +520,18 @@ export default function useChatAgents({
     saveChatFile(nextHistories, nextLocks);
   };
 
+  const unlockDeck = (agentOverride = agent) => {
+    const nextLocks = { ...deckLocks, [agentOverride]: null };
+    setDeckLocks(nextLocks);
+    saveChatFile(histories, nextLocks);
+  };
+
+  const unlockAllDecks = () => {
+    const nextLocks = emptyLocks();
+    setDeckLocks(nextLocks);
+    saveChatFile(histories, nextLocks);
+  };
+
   return {
     clearChat,
     exportChat,
@@ -481,5 +541,7 @@ export default function useChatAgents({
     send,
     sending,
     setInput,
+    unlockAllDecks,
+    unlockDeck,
   };
 }

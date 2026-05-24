@@ -8,6 +8,8 @@ export default function AppHeader({
   setRightOpen,
   exportChat,
   clearChat,
+  deckLock,
+  unlockDeck,
   pb,
   colors,
   fontFamily,
@@ -30,6 +32,7 @@ export default function AppHeader({
         )}
         {!mobile&&(
           <>
+            {deckLock&&<button onClick={unlockDeck} style={pb(false,true)}>Unlock Deck</button>}
             <button onClick={exportChat} style={pb(false,true)}>Export Chat</button>
             <button onClick={clearChat} style={pb(false,true)}>Clear Chat</button>
           </>

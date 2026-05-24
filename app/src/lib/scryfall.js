@@ -174,6 +174,59 @@ function detectCardNamesInText(text, catalog) {
 }
 
 /* ── Card context builder for API prompts ── */
+export async function buildCardContextForNames(names, options = {}) {
+  const {
+    includeRulings = true,
+    maxRulingsPerCard = 4,
+    heading = "## CARDS REFERENCED (authoritative - use ONLY this text for card behavior)",
+  } = options;
+
+  const uniqueNames = [...new Set(
+    (names || [])
+      .map(name => String(name || "").trim())
+      .filter(Boolean)
+  )];
+
+  if (!uniqueNames.length) return "";
+
+  const localCards = await fetchLocalCards(uniqueNames, { includeRulings });
+  const cards = await Promise.all(uniqueNames.map(async name => {
+    if (localCards?.[name]) {
+      CARD_CACHE[name] = localCards[name];
+      return localCards[name];
+    }
+    return fetchCard(name);
+  }));
+  const valid = cards.filter(Boolean);
+  if (!valid.length) return "";
+
+  let rulingsByCard = {};
+  if (includeRulings) {
+    const results = await Promise.all(
+      valid.map(card => card.rulings?.length ? card.rulings : fetchCardRulings(card.id, card.rulings_uri, card.oracleId))
+    );
+    valid.forEach((card, index) => { rulingsByCard[card.id] = results[index] || []; });
+  }
+
+  const blocks = valid.map(card => {
+    const stat = card.power !== null ? ` | ${card.power}/${card.toughness}`
+               : card.loyalty !== null ? ` | Loyalty ${card.loyalty}`
+               : "";
+    const keywords = card.keywords?.length ? `\nKeywords: ${card.keywords.join(", ")}` : "";
+    let block = `[${card.name}] | ${card.mana || "-"} | ${card.type}${stat}${keywords}\n${card.oracle || "(no Oracle text)"}`;
+
+    const rulings = rulingsByCard[card.id] || [];
+    if (rulings.length && maxRulingsPerCard > 0) {
+      const top = rulings.slice(0, maxRulingsPerCard);
+      const rulingsText = top.map(ruling => `- (${ruling.published_at}) ${ruling.comment}`).join("\n");
+      block += `\n\nWOTC RULINGS:\n${rulingsText}`;
+    }
+    return block;
+  });
+
+  return `${heading}\n\n${blocks.join("\n\n---\n\n")}\n\n`;
+}
+
 export async function buildCardContext(text, options = {}) {
   const { includeRulings = true, maxRulingsPerCard = 4 } = options;
 

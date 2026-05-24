@@ -37,6 +37,8 @@ export default function ChatPanel({
   sending,
   setCenterView,
   setInput,
+  unloadDeck,
+  unlockDeck,
 }) {
   const { BG2, BG3, LINE, TEXT } = colors;
   const quickPrompts = QUICK[agent] || [];
@@ -57,37 +59,74 @@ export default function ChatPanel({
           }}
         >
           <span style={{ fontSize: 11, color: cfg.color }}>
-            Deck: {activeDeck.name} - {mainCount} cards
+            Loaded deck: {activeDeck.name} - {mainCount} cards
           </span>
-          <button
-            onClick={() => setCenterView("deck")}
-            style={{
-              background: "none",
-              border: "none",
-              color: cfg.color,
-              cursor: "pointer",
-              fontSize: 11,
-              fontFamily,
-            }}
-          >
-            View
-          </button>
+          <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              onClick={() => setCenterView("deck")}
+              style={{
+                background: "none",
+                border: "none",
+                color: cfg.color,
+                cursor: "pointer",
+                fontSize: 11,
+                fontFamily,
+              }}
+            >
+              View
+            </button>
+            <button
+              onClick={unloadDeck}
+              style={{
+                background: "none",
+                border: "none",
+                color: cfg.color,
+                cursor: "pointer",
+                fontSize: 11,
+                fontFamily,
+              }}
+            >
+              Unload
+            </button>
+          </span>
         </div>
       )}
 
-      {agent === "karn" && deckLock && (
+      {deckLock && (
         <div
           style={{
             padding: "6px 14px",
-            background: "rgba(123,159,212,0.12)",
-            borderBottom: "1px solid rgba(123,159,212,0.30)",
-            color: "#7b9fd4",
+            background: cfg.dim,
+            borderBottom: `1px solid ${cfg.border}`,
+            color: cfg.color,
             fontSize: 11,
             lineHeight: 1.35,
             flexShrink: 0,
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            alignItems: "center",
           }}
         >
-          Karn locked to: {deckLock.name} / {deckLock.commander} ({deckLock.mainCount} cards). Clear Karn chat to unlock.
+          <span>
+            {cfg.name} locked to: {deckLock.name} / {deckLock.commander} ({deckLock.mainCount} cards). Sidebar deck changes will not alter this chat.
+          </span>
+          <button
+            onClick={() => unlockDeck(agent)}
+            style={{
+              background: "transparent",
+              border: `1px solid ${cfg.border}`,
+              borderRadius: 5,
+              color: cfg.color,
+              cursor: "pointer",
+              fontSize: 11,
+              padding: "3px 8px",
+              fontFamily,
+              flexShrink: 0,
+            }}
+          >
+            Unlock
+          </button>
         </div>
       )}
 

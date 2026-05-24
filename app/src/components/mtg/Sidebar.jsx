@@ -19,6 +19,7 @@ export default function Sidebar({
   importDeckLibrary,
   exportChat,
   clearChat,
+  unloadActiveDeck,
   sb,
   colors,
   fontFamily,
@@ -131,6 +132,7 @@ export default function Sidebar({
           <>
             <button style={sb(true)} onClick={()=>{setCenterView("deck");if(mobile)setMobileTab("chat");}}>View Deck</button>
             <button style={sb(true)} onClick={exportDeck}>Export .txt</button>
+            <button style={sb(true)} onClick={unloadActiveDeck}>Unload Deck</button>
           </>
         )}
       </div>

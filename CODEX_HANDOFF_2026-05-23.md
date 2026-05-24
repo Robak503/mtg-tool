@@ -6,7 +6,7 @@ This handoff summarizes what Codex did after the project root was corrected to:
 C:\Users\colto\Documents\Claude\Projects\MTG-TOOL
 ```
 
-No Phase 1 implementation work was started. Everything below is audit, verification, planning, and preflight documentation.
+Initial note: at the time this handoff was first written, no Phase 1 implementation work had been started. Later Codex work on the same date did add a small but important deck-lock and local Oracle-context implementation. See the addendum at the end of this file.
 
 ## Corrected Project Root
 
@@ -374,5 +374,186 @@ Fallback policy: Manual Anthropic only
 Ollama status: installed/running or accepted as a temporary verification blocker
 ```
 
-No Phase 1 code was implemented by Codex after switching to the Claude directory.
+Historical note: at the time this original handoff section was produced, no Phase 1 code had been implemented by Codex after switching to the Claude directory. This is now superseded by the implementation addendum below.
 
+---
+
+## Implementation Addendum - 2026-05-23
+
+Codex did implement a focused pre-Phase/early-Phase fix after the planning handoff: loaded deck context now drives local Oracle attachment and agent deck locking.
+
+### User problem that triggered the work
+
+Karn responded to a loaded Vihaan deck with:
+
+```text
+I don't see any "## CARDS REFERENCED" block attached to your message...
+```
+
+The user correctly identified that a loaded deck conversation should automatically attach Oracle text for the loaded deck, not require the user to name every card in the prompt.
+
+### Implemented behavior
+
+1. When an agent locks onto a deck, the deck snapshot becomes the trigger point for Oracle context.
+2. The app builds a `## CARDS REFERENCED` block from the locked deck's non-token, non-sideboard card names.
+3. The block is attached to the model request so Karn/Tibalt/Jace/Arbiter can reason from local Scryfall Oracle text instead of memory.
+4. The agent is instructed to briefly confirm when a deck is newly locked.
+5. Deck locks now exist for all agents, not only Karn.
+6. Sidebar deck changes do not mutate an existing locked conversation.
+7. The user now has explicit controls:
+   - `Unlock Deck`: removes the current agent's locked deck snapshot while keeping the chat.
+   - `Unload`: clears the active deck selection.
+   - `Clear Chat`: still clears chat and removes that agent's lock.
+
+### Files changed
+
+```text
+app/src/lib/scryfall.js
+app/src/hooks/useChatAgents.js
+app/src/lib/agents.js
+app/src/components/MTGAssistant.jsx
+app/src/components/mtg/ChatPanel.jsx
+app/src/components/mtg/AppHeader.jsx
+app/src/components/mtg/Sidebar.jsx
+```
+
+### Important code changes
+
+`app/src/lib/scryfall.js`
+
+- Added `buildCardContextForNames(names, options)`.
+- This function fetches a batch of card names through the existing local `/api/cards` route and formats a `## CARDS REFERENCED` prompt block.
+- It is used for deck-level Oracle attachment, while the older `buildCardContext(text, options)` still handles card names mentioned in a user's message.
+
+`app/src/hooks/useChatAgents.js`
+
+- Added deck card-name extraction helpers.
+- `createDeckLock()` now stores `cardNames`.
+- Deck locking now uses a shared lock path for Jace, Karn, Tibalt, and Arbiter.
+- When a deck lock exists, `buildCardContextForNames()` attaches Oracle text for the locked deck.
+- If a persisted older lock lacks `cardNames`, the hook falls back to parsing card names from `lock.deckText`.
+- Added `unlockDeck(agentOverride)` and `unlockAllDecks()`.
+- Arbiter trace requests now receive locked-deck Oracle context when available.
+
+`app/src/lib/agents.js`
+
+- Jace, Karn, and Tibalt prompts now explicitly respect locked deck snapshots until the deck is unlocked, the chat is cleared, or the user explicitly starts a new deck conversation.
+
+`app/src/components/mtg/ChatPanel.jsx`
+
+- Shows the loaded deck banner with `View` and `Unload`.
+- Shows the current agent's deck lock banner with `Unlock`.
+- Lock banner explains that sidebar deck changes will not alter the current chat.
+
+`app/src/components/mtg/AppHeader.jsx`
+
+- Adds `Unlock Deck` in the header when the active agent has a locked deck.
+
+`app/src/components/mtg/Sidebar.jsx`
+
+- Adds `Unload Deck` when an active deck is selected.
+
+`app/src/components/MTGAssistant.jsx`
+
+- Wires unlock/unload controls into the app shell.
+
+### Current semantics
+
+```text
+Loaded deck = what the sidebar currently has selected.
+Locked deck = immutable per-agent conversation snapshot.
+Unlock = remove the current agent's locked snapshot, keep the chat.
+Unload = clear the sidebar's active deck selection.
+Clear Chat = clear current agent chat and remove that agent's lock.
+```
+
+Important nuance:
+
+```text
+If the user clicks Unlock while a deck remains loaded, the next message can lock the agent to that currently loaded deck again.
+For no deck context at all, use Unload.
+```
+
+### Verification performed
+
+```powershell
+cd "C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app"
+npm.cmd run check
+```
+
+Result:
+
+```text
+Next.js build passed.
+```
+
+Runtime checks:
+
+- `http://localhost:3001/` returned `200`.
+- `/api/cards` successfully returned local Oracle data for `Vihaan, Goldwaker`.
+- In-app browser reloaded `http://localhost:3001/`.
+- Browser console showed no app errors after reload.
+
+### Current server/port state
+
+At the last check:
+
+```text
+Old Codex copy:
+C:\Users\colto\Documents\Codex\MTG TOOL\app
+listening on http://localhost:3000
+
+Canonical Claude project:
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app
+listening on http://localhost:3001
+```
+
+Use `http://localhost:3001` for the canonical project.
+
+### Environment note
+
+The user's `app/.env.local` has an `ANTHROPIC_API_KEY=` line present and it is not the placeholder. The key value was not copied into docs.
+
+The user saw one `POST /api/anthropic 401` before Next logged:
+
+```text
+Reload env: .env.local
+```
+
+Interpretation:
+
+```text
+That 401 likely occurred before or during env reload. If new chat requests still 401, verify the Anthropic key itself in the Anthropic console.
+```
+
+### Current worktree state
+
+This addendum was written while the code changes were still uncommitted. Claude should begin by running:
+
+```powershell
+git status --short
+git diff -- app/src/hooks/useChatAgents.js app/src/lib/scryfall.js app/src/lib/agents.js app/src/components/MTGAssistant.jsx app/src/components/mtg/ChatPanel.jsx app/src/components/mtg/AppHeader.jsx app/src/components/mtg/Sidebar.jsx
+```
+
+Do not discard these changes unless the owner explicitly asks.
+
+### Next recommended checks
+
+1. Open `http://localhost:3001`.
+2. Load `Vihaan, Goldwaker`.
+3. Start or clear Karn chat so a fresh lock is created.
+4. Ask: `What is weak about this deck?`
+5. Confirm Karn says the deck is locked and no longer claims local Oracle context is missing.
+6. Switch sidebar to another deck.
+7. Continue the Karn chat and confirm it still answers around Vihaan.
+8. Click `Unlock Deck`, then send a message and confirm it relocks only if a deck is still loaded.
+9. Click `Unload`, then send a general question and confirm no deck frame is assumed.
+
+### Still not done
+
+- Ollama/local provider routing is not implemented yet.
+- Manual Anthropic fallback is not implemented yet.
+- `/api/chat` unified endpoint is not implemented yet.
+- Fact Receipt / Trust Strip UI is not implemented yet.
+- Full KnowledgeService V0 is not implemented yet.
+- Chat session manager with multiple archived/read-only conversations is not implemented yet.

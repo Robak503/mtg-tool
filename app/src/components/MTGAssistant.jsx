@@ -102,6 +102,7 @@ export default function MTGAssistant() {
     send,
     sending,
     setInput,
+    unlockDeck,
   } = useChatAgents({
     activeDeck,
     agent,
@@ -231,6 +232,11 @@ export default function MTGAssistant() {
     setCenterView("chat");
   };
 
+  const unloadActiveDeck = () => {
+    setActiveDeckId(null);
+    setDeckData({});
+  };
+
   useEffect(()=>{ if(mobileTab==="search") setRightTab("search"); if(mobileTab==="stats") setRightTab("stats"); },[mobileTab]);
 
   /* Theme */
@@ -267,6 +273,8 @@ export default function MTGAssistant() {
         setRightOpen={setRightOpen}
         exportChat={exportChat}
         clearChat={clearChat}
+        deckLock={deckLocks?.[agent]}
+        unlockDeck={() => unlockDeck(agent)}
         pb={pb}
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}
@@ -294,6 +302,7 @@ export default function MTGAssistant() {
             importDeckLibrary={importDeckLibrary}
             exportChat={exportChat}
             clearChat={clearChat}
+            unloadActiveDeck={unloadActiveDeck}
             sb={sb}
             colors={{BG2, LINE, MUTED, TEXT}}
             fontFamily={F}
@@ -387,6 +396,8 @@ export default function MTGAssistant() {
                 sending={sending}
                 setCenterView={setCenterView}
                 setInput={setInput}
+                unloadDeck={unloadActiveDeck}
+                unlockDeck={unlockDeck}
               />
             )}
           </div>
