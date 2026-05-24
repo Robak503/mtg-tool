@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+app/.next/
+app/out/
+
+# Production
+build/
+dist/
+
+# Environment — NEVER commit these
+.env
+.env.local
+.env.production.local
+.env*.local
+
+# Logs
+*.log
+local-dev.*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Scryfall bulk data (huge — regenerable from sync)
+app/data/scryfall-bulk/*.json
+app/data/scryfall-bulk/indexes/
+app/data/scryfall.oracle.local.json
+app/data/scryfall.rulings.local.json
+
+# But DO commit these local data files:
+!app/data/decks.local.json
+!app/data/chats.local.json
+
+# Legacy ENGINE scryfall fragments (large — already in bulk)
+MTG ENGINE/scryfall_AH.json
+MTG ENGINE/scryfall_IP.json
+MTG ENGINE/scryfall_QZ.json
+MTG ENGINE/scryfall_rulings_1.json
+MTG ENGINE/scryfall_rulings_2.json
+MTG ENGINE/scryfall_rulings_3.json
+
+# Backups
+app/data/backups/*.json
+
+# Embedded repos (Forge clone and RulesGuru repo — not submodules)
+mtg-judge/data/forge/
+mtg-judge/data/rulesguru-repo/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
