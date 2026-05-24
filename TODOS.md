@@ -50,6 +50,30 @@ Items deferred from Phase 1 sprint reviews. Ordered by priority.
 
 ---
 
+### Extract streaming logic to modelProvider.js
+
+**What:** `/api/chat-stream/route.js` (added in T5, commit 1cc354f) contains inline streaming implementations for both Ollama (NDJSON) and Anthropic (SSE). Meanwhile, `modelProvider.js` still has the non-streaming `callOllamaMessages` and `callAnthropicMessages` used by `/api/arbiter`. Duplicated Ollama URL, model resolution, auth header, and error message logic across both.
+
+**Why:** Right now if you change OLLAMA_BASE_URL handling in modelProvider.js, you have to remember to also change it in chat-stream/route.js. Cold path for bugs.
+
+**How to apply:** Add `streamOllamaMessages()` and `streamAnthropicMessages()` to `modelProvider.js` that return a Web `ReadableStream` of normalized SSE events. The chat-stream route becomes ~30 lines (just pick provider, return stream). Arbiter can stay non-streaming since it's silent.
+
+**Depends on:** Nothing. P3 refactor.
+
+---
+
+### Remove dead /api/anthropic route
+
+**What:** After T5, `/api/chat-stream` handles all chat traffic. `/api/anthropic` is no longer called from anywhere in the codebase (`grep -r "/api/anthropic" app/src` returns nothing).
+
+**Why:** Dead route. Confuses future readers ("which one do I call?"). When P3 rename happens, this disappears anyway.
+
+**How to apply:** Delete `app/src/app/api/anthropic/route.js`. Verify build still passes.
+
+**Depends on:** Nothing.
+
+---
+
 ### Consolidate duplicate oracle caches
 
 **What:** `app/src/app/api/cards/route.js` and `app/src/lib/server/cardContext.js` each independently parse and cache `oracle_cards.json` and `rulings.json`. Two separate `oracleCache` variables in the same server process.

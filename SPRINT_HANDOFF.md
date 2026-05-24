@@ -3,6 +3,21 @@
 
 ---
 
+## TL;DR for the next session
+
+**The sprint is code-complete.** All 13 tasks shipped across 7 commits. `npm run build` passes clean. Only thing left is **T12 — manual smoke test against a running Ollama instance.**
+
+Pull, restart, and verify. The 12-step Brewing Session Acceptance Test in T12 is the gate. If anything fails, it's almost certainly in one of the 10 risk points listed under "Known Risks / Smoke Test Notes" near the bottom.
+
+If smoke test passes → sprint is done, move to Phase 2 (unified knowledge layer per `2026-05-23-master-design-phase1.md`).
+If smoke test fails → use the risk notes, fix in place, do not start Phase 2.
+
+**Latest commit**: 99839fd
+**Branch**: master
+**Total sprint commits**: 7 (76b733e, 9058277, 8ff51f5, 1cc354f, b81509a, dbd7a5f, 99839fd)
+
+---
+
 ## Context Snapshot
 
 This document is a cold-start handoff. Read it fully before touching any code.
@@ -61,12 +76,18 @@ See below. Tasks are listed T1 → T13 in implementation order.
 | T7 — Fact Receipt metadata | ✅ DONE | 8ff51f5 |
 | T8 — Trust Strip | ✅ DONE | 8ff51f5 |
 | T9 — Versioning fields in createDeckLock | ✅ DONE | 76b733e |
-| T10 — Arbiter status field | ✅ DONE | 76b733e |
+| T10 — Arbiter status field | ✅ DONE | 76b733e (server) + 99839fd (client wire-through) |
 | T11 — Dataset Tier Manifest | ✅ DONE | 9058277 |
 | T12 — Smoke test | 🔲 NOT DONE — run this next |  |
 | T13 — Still thinking + Trust Strip dev-open | ✅ DONE | 8ff51f5 |
 
 **Sprint is code-complete. T12 (smoke test) is all that remains.**
+
+### Late-session bug fixes (commit 99839fd)
+
+Once-over review caught two issues with T6+T10 wire-through:
+1. **fetchArbiterTrace** was called with `provider: modelProvider` instead of `provider: forceProvider || modelProvider`. When user clicks "Retry with Anthropic ↗" after an Ollama failure, the main response correctly routes to Anthropic — but the Arbiter trace would still try Ollama and fail with the same error. Fixed: now passes `forceProvider || modelProvider`.
+2. **T10 client wire-through** was missing. The Arbiter route returns `status` per T10, but `fetchArbiterTrace()` was only extracting `data.trace`. Fixed: now returns `{trace, status}`. `responseMeta.arbiterStatus` is attached to messages. ChatPanel surfaces a visible warning banner above the trace when status is `citation_failed`. The status also shows in parentheses next to "View Arbiter Trace".
 
 ---
 
@@ -743,6 +764,18 @@ These are implementation details to verify during T12. All are expected to work 
 9. **First card lookup after restart**: After deleting `.next/` and restarting `npm run dev`, the first `/api/cards` request will parse the 165MB `oracle_cards.json`. This takes 3-5 seconds. Subsequent requests are cached. This is expected and documented in TODOS.md (P3: pre-build oracle name index).
 
 10. **Both oracle caches still separate**: `cardContext.js` and `api/cards/route.js` each load oracle independently on cold start. ~900MB peak. Tolerable at 32GB RAM. Fix is P3 in TODOS.md (`oracleStore.js`).
+
+11. **T10 Arbiter status visible**: When asking Jace a rules question that the local model can answer but doesn't cite a rule for, the Arbiter trace should show `(citation_failed)` and an inline warning banner. Test prompt: ask Jace "what's the rule about hexproof?" — if Ollama answers without citing rule 702.11, you should see the warning.
+
+12. **Arbiter retry with Anthropic**: Stop Ollama, ask Jace a rules question, click "Retry with Anthropic ↗" on the error. Both the main response AND the Arbiter trace should now route to Anthropic. Previously (before commit 99839fd) the trace would still try Ollama and silently fail.
+
+### API surface changes this sprint
+
+- **NEW**: `/api/chat-stream` (SSE) — all chat traffic routes here
+- **DEAD**: `/api/anthropic` (JSON) — no longer called from anywhere; left in place to avoid scope creep. Removal queued in TODOS.md P3.
+- **MODIFIED**: `/api/arbiter` returns `{provider, trace, status}` (added status field)
+- **MODIFIED**: `/api/cards` reads from `scryfall-bulk/oracle_cards.json` (was `scryfall.oracle.local.json`)
+- **UNCHANGED**: `/api/model-calls`, `/api/decks`, `/api/chats`, `/api/engine`, `/api/symbolic-engine`
 
 ---
 
