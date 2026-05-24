@@ -323,12 +323,18 @@ function reviewWarnings(test, response) {
     warnings.push("Expected verdict contains self-correction language; manually verify the knowledge-base entry.");
   }
 
+  // Check verdict section only — RESOLUTION sections describe what Living Death's steps do,
+  // not the final outcome. Checking the full response causes false positives when the model
+  // correctly describes a spell's steps while still concluding nothing enters the battlefield.
+  const verdictOnly = extractVerdictText(response);
   const expectedNoReturn = /\b(no creatures? to return|all graveyards are empty|does nothing)\b/i.test(test.expectedVerdict);
-  const responseReturnsCreatures =
-    /\b(puts?|returns?)\b[\s\S]{0,80}\bcreatures?\b[\s\S]{0,80}\bbattlefield\b/i.test(response) ||
-    /\bcreatures?\b[\s\S]{0,80}\b(enter|enters|entered|onto the battlefield)\b/i.test(response);
-  if (expectedNoReturn && responseReturnsCreatures) {
-    warnings.push("Expected verdict says no creatures return, but app response says creature cards enter the battlefield.");
+  const verdictReturnsCreatures =
+    /\b(puts?|returns?)\b[\s\S]{0,80}\bcreatures?\b[\s\S]{0,80}\bbattlefield\b/i.test(verdictOnly) ||
+    /\bcreatures?\b[\s\S]{0,80}\b(enter|enters|entered|onto the battlefield)\b/i.test(verdictOnly);
+  // Also require the verdict not to contain a clear negation ("do not enter", "doesn't enter", etc.)
+  const verdictNegatesEntry = /\b(do not|does not|didn't|don't|never|cannot|no creatures?)\b[\s\S]{0,50}\b(enter|return|battlefield)\b/i.test(verdictOnly);
+  if (expectedNoReturn && verdictReturnsCreatures && !verdictNegatesEntry) {
+    warnings.push("Expected verdict says no creatures return, but VERDICT section says creature cards enter the battlefield.");
   }
 
   return warnings;

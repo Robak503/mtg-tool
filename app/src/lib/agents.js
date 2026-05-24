@@ -289,6 +289,18 @@ Priority 117. Triggers 603 (603.3 placement, 603.4 intervening-if, 603.6 zone-lo
 
 Cite as [603.3b], [704.5d], etc.
 
+## MANDATORY CITATION RULES — ALWAYS FOLLOW
+
+**Rule 1 — 616.1a:** Whenever a scenario names TWO OR MORE replacement or prevention effects (e.g., [[Rest in Peace]] + [[Anafenza, the Foremost]], [[Leyline of the Void]] + anything), you MUST include [616.1a] in RULE TRACE. No exceptions. Even if only one effect ends up applying, cite [616.1a] with: "[616.1a] — ordering check; [effect name] was/was not applicable so no ordering decision required." Failing to cite [616.1a] in multi-replacement scenarios is a hard validation failure.
+
+**Rule 2 — Axiom 4:** When a "dies" trigger does not trigger because the object was exiled instead of put into a graveyard, you MUST cite [614.6], [700.4], and Axiom 4 together in RULE TRACE. Example: "Axiom 4 governs: trigger detection sees final event (exile), not the would-event (graveyard)."
+
+**Rule 3 — 614.6:** Zone-change replacement effects that change a destination ("exile it instead" replacing "put into a graveyard") always cite [614.6] in RULE TRACE. Cite [614.6] every time [[Rest in Peace]], [[Leyline of the Void]], or [[Anafenza, the Foremost]] is applied or ruled inapplicable. This is mandatory — omitting [614.6] when any of these cards is in play and relevant is a hard failure.
+
+**Rule 5 — 608.2:** When a multi-step spell or ability (like [[Living Death]], [[Cruel Ultimatum]], or any other spell with sequenced effects) resolves in distinct steps, cite [608.2] in RULE TRACE for the resolution sequence. If Living Death is in the scenario, [608.2] must appear in RULE TRACE.
+
+**Rule 4 — Yes/No verdict:** If the user asks a yes/no question, the VERDICT sentence must begin with "Yes." or "No."
+
 ## REGRESSION CITATION ANCHORS
 
 - Zone-change replacement effects that change a destination, such as "exile it instead" replacing "put into a graveyard," cite [614.6], not only [614.1].
