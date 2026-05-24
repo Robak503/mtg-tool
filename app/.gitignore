@@ -4,4 +4,7 @@ out
 .env.local
 *.log
 data/*.local.json
-data/scryfall-bulk/
+# Scryfall bulk data files (large, regenerable via npm run sync:scryfall-bulk)
+# tier-manifest.json is a small metadata file and is committed
+data/scryfall-bulk/*.json
+!data/scryfall-bulk/tier-manifest.json

@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-24",
+  "description": "Classifies local data sources by tier. Agents read this to know which data is authoritative vs supplementary vs future.",
+  "sourcePrecedence": [
+    "CR verbatim (mtg-judge _v files)",
+    "Oracle text (scryfall oracle_cards.json)",
+    "Official rulings (scryfall rulings.json)",
+    "Operational notes (mtg-judge _t files)",
+    "RulesGuru examples (META_test_cases_rulesguru.md)",
+    "Forge card scripts (future)"
+  ],
+  "tiers": {
+    "required": {
+      "description": "Must be present for the app to function. Missing files cause 404/500 errors.",
+      "sources": [
+        {
+          "id": "scryfall_oracle",
+          "path": "data/scryfall-bulk/oracle_cards.json",
+          "description": "Oracle card text — canonical source for all card behavior. Used by /api/cards and all agents via cardContext.js.",
+          "format": "flat JSON array of card objects",
+          "sizeApprox": "165MB",
+          "wiredIn": true
+        },
+        {
+          "id": "scryfall_rulings",
+          "path": "data/scryfall-bulk/rulings.json",
+          "description": "Official WotC rulings indexed by oracle_id. Used by /api/cards?rulingsFor and Arbiter.",
+          "format": "flat JSON array of ruling objects",
+          "sizeApprox": "24MB",
+          "wiredIn": true
+        }
+      ]
+    },
+    "validation": {
+      "description": "Improves Arbiter accuracy and grounds agent responses. Not required for basic function.",
+      "sources": [
+        {
+          "id": "rulesguru",
+          "path": "mtg-judge/META_test_cases_rulesguru.md",
+          "description": "500 human-verified rules scenarios used as Arbiter grounding examples.",
+          "count": 500,
+          "wiredIn": true
+        },
+        {
+          "id": "mtg_judge_codex",
+          "path": "mtg-judge/",
+          "description": "L00-L10 Comprehensive Rules verbatim codex. Arbiter uses this for CR citations.",
+          "format": "Markdown files: _v (verbatim), _t (test), META_ (orchestration)",
+          "wiredIn": true
+        }
+      ]
+    },
+    "future": {
+      "description": "Phase 3+ data sources. Present on disk but not wired into any runtime route yet.",
+      "sources": [
+        {
+          "id": "scryfall_default_cards",
+          "path": "data/scryfall-bulk/default_cards.json",
+          "description": "All printings with set/collector info. Needed for artwork, price, set-specific lookup.",
+          "sizeApprox": "400MB",
+          "note": "Not loaded anywhere. P3 work — build a printings index with lazy load.",
+          "wiredIn": false
+        },
+        {
+          "id": "scryfall_all_cards",
+          "path": "data/scryfall-bulk/all_cards.json",
+          "description": "Every single printing with complete metadata including tokens, emblems, etc.",
+          "sizeApprox": "2GB",
+          "note": "Unlikely to be needed. Superset of default_cards. Only load specific fields if required.",
+          "wiredIn": false
+        },
+        {
+          "id": "scryfall_unique_artwork",
+          "path": "data/scryfall-bulk/unique_artwork.json",
+          "description": "One card per unique illustration. For art browsing only — out of scope for this tool.",
+          "note": "Not needed. Skip.",
+          "wiredIn": false
+        }
+      ]
+    }
+  }
+}
