@@ -54,20 +54,19 @@ See below. Tasks are listed T1 → T13 in implementation order.
 |------|--------|--------|
 | T1 — AbortController + model-not-found | ✅ DONE | 76b733e |
 | T2 — Path swap to scryfall-bulk/ | ✅ DONE | 76b733e |
-| T3 — modelStatus post-send refresh | 🔲 Partial (30s polling done, post-send missing) | — |
+| T3 — modelStatus post-send refresh | ✅ DONE | 8ff51f5 |
 | T4 — Fix OLLAMA_MODEL to 32b + README | ✅ DONE | 76b733e |
-| T5 — SSE streaming | 🔲 NOT DONE | — |
-| T6 — Error bubble + fallback chip | 🔲 NOT DONE | — |
-| T7 — Fact Receipt metadata | 🔲 NOT DONE | — |
-| T8 — Trust Strip | 🔲 NOT DONE | — |
+| T5 — SSE streaming | ✅ DONE | 1cc354f |
+| T6 — Error bubble + fallback chip | ✅ DONE | 8ff51f5 |
+| T7 — Fact Receipt metadata | ✅ DONE | 8ff51f5 |
+| T8 — Trust Strip | ✅ DONE | 8ff51f5 |
 | T9 — Versioning fields in createDeckLock | ✅ DONE | 76b733e |
 | T10 — Arbiter status field | ✅ DONE | 76b733e |
 | T11 — Dataset Tier Manifest | ✅ DONE | 9058277 |
-| T12 — Smoke test | 🔲 NOT DONE (needs T1-T11 first) | — |
-| T13 — Still thinking + Trust Strip dev-open | 🔲 NOT DONE | — |
+| T12 — Smoke test | 🔲 NOT DONE — run this next |  |
+| T13 — Still thinking + Trust Strip dev-open | ✅ DONE | 8ff51f5 |
 
-**Next task: T5 (SSE streaming) — highest remaining impact.**  
-T3 partial is fine as-is; T6 depends on T1 being done (which it is). If T5 feels risky, do T6 first.
+**Sprint is code-complete. T12 (smoke test) is all that remains.**
 
 ---
 
@@ -712,6 +711,38 @@ These are in `TODOS.md` in the project root. Do not work on them during this spr
 - [ ] Arbiter trace shows a citation-fail warning when local model answer has no codex citation
 - [ ] T12 cases 5 and 6 pass (deck lock survives reload; Ollama kill gives clean error)
 - [ ] [[Æther Vial]] resolves correctly
+
+---
+
+## Known Risks / Smoke Test Notes
+
+These are implementation details to verify during T12. All are expected to work but haven't been live-tested against a running Ollama instance.
+
+### T5 Streaming — things to verify
+
+1. **Streaming placeholder replaces correctly**: The placeholder message (content: "", streaming: true) should be replaced by the final message (content: full reply, streaming removed) when done. If it stays as streaming or content is empty, there's a state index bug in `useChatAgents.js` around `streamingIdx`.
+
+2. **Arbiter retry path**: The Arbiter auto-retry logic in `send()` (line ~501) still calls `send()` recursively with `retryDepth = 1`. The streaming flow handles this correctly because `baseHistory` is passed through, but verify the retry case produces a visible response.
+
+3. **Ollama NDJSON format**: Verified against Ollama docs — `event.message.content` is the token field. Some older Ollama versions use `event.response` instead. The parser handles both: `event.message?.content || event.response || ""`.
+
+4. **Anthropic SSE format**: Verified against Anthropic docs. The `message_delta` event with `usage` field comes before `message_stop`. Both are handled. Input tokens aren't always in message_delta; that's OK — we log what we have.
+
+5. **Model call log with streaming**: The streaming route logs after `controller.close()` using `.catch()` — it's fire-and-forget from the stream. Verify `data/model-calls.local.json` gets a new entry after each streamed message.
+
+6. **factReceipt with streaming**: `data.provider` is now set from `streamDoneEvent?.provider`. If `streamDoneEvent` is null (stream ended without a done event), `data.provider` falls back to `forceProvider || modelProvider`. This is correct behavior.
+
+### T6 Error chip — things to verify
+
+7. **Retry with Anthropic chip**: When Ollama is stopped mid-request or before the request, the error message should appear with a "Retry with Anthropic ↗" chip. Clicking it should call `retryWithFallback(msg.originalPrompt, agent)`, which pops the error message and resends with `forceProvider="anthropic"`. Verify the error message is gone and the Anthropic response appears.
+
+8. **fallbackAvailable flag**: The streaming error events include `fallbackAvailable: Boolean(anthropicKey())`. If `ANTHROPIC_API_KEY` is not set in `.env.local`, `fallbackAvailable` will be `false` and the chip won't appear. This is correct — can't retry with Anthropic if no key.
+
+### T2 Path swap — cold start
+
+9. **First card lookup after restart**: After deleting `.next/` and restarting `npm run dev`, the first `/api/cards` request will parse the 165MB `oracle_cards.json`. This takes 3-5 seconds. Subsequent requests are cached. This is expected and documented in TODOS.md (P3: pre-build oracle name index).
+
+10. **Both oracle caches still separate**: `cardContext.js` and `api/cards/route.js` each load oracle independently on cold start. ~900MB peak. Tolerable at 32GB RAM. Fix is P3 in TODOS.md (`oracleStore.js`).
 
 ---
 
