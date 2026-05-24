@@ -107,6 +107,7 @@ export default function MTGAssistant() {
     exportChat,
     histories,
     input,
+    retryWithFallback,
     send,
     sending,
     setInput,
@@ -137,6 +138,7 @@ export default function MTGAssistant() {
       localStorage.setItem("mtg-model-provider", modelProvider);
     } catch {}
   },[modelProvider]);
+  const refreshModelStatusRef = useRef(null);
   useEffect(()=>{
     let active = true;
     const loadModelStatus = async () => {
@@ -147,6 +149,7 @@ export default function MTGAssistant() {
         if (active) setModelStatus(data);
       } catch {}
     };
+    refreshModelStatusRef.current = loadModelStatus;
     loadModelStatus();
     const timer = window.setInterval(loadModelStatus, 30000);
     return () => {
@@ -154,6 +157,11 @@ export default function MTGAssistant() {
       window.clearInterval(timer);
     };
   },[]);
+
+  // T3 — refresh cost counter after each send completes
+  useEffect(()=>{
+    if (!sending) refreshModelStatusRef.current?.();
+  },[sending]);
 
   const cfg       = AGENTS[agent];
 
@@ -426,6 +434,7 @@ export default function MTGAssistant() {
                 input={input}
                 mainCount={mainCount}
                 renderText={renderText}
+                retryWithFallback={retryWithFallback}
                 send={send}
                 sending={sending}
                 setCenterView={setCenterView}

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { QUICK } from "../../lib/agents";
 
 function Dots({ color }) {
@@ -21,6 +22,40 @@ function Dots({ color }) {
   );
 }
 
+function ProviderLabel({ provider, style }) {
+  if (!provider || provider === "ollama") return null;
+  return (
+    <span style={{ fontSize: 10, color: "#7f8aa3", marginLeft: 6, ...style }}>
+      [via Anthropic]
+    </span>
+  );
+}
+
+function TrustStrip({ msg, LINE }) {
+  const r = msg.factReceipt;
+  if (!r) return null;
+  const cloudUsed = r.provider === "anthropic" || r.fallbackUsed;
+  return (
+    <details
+      open={typeof process !== "undefined" && process.env?.NODE_ENV === "development"}
+      style={{ marginTop: 8, fontSize: 10, color: "#7f8aa3" }}
+    >
+      <summary style={{ cursor: "pointer", userSelect: "none", listStyle: "none", outline: "none" }}>
+        ▸ Response metadata
+      </summary>
+      <div style={{ paddingTop: 4, lineHeight: 1.7, borderTop: `1px solid ${LINE}`, marginTop: 4 }}>
+        <span>Provider: {r.provider === "ollama" ? "Local (Ollama)" : "Anthropic API"}</span>
+        {r.deckLocked && r.deckName && <span> · Deck: {r.deckName}</span>}
+        {r.cardsProvided > 0 && <span> · Cards: {r.cardsProvided}</span>}
+        {r.rulingsProvided > 0 && <span> · Rulings: {r.rulingsProvided}</span>}
+        {r.engineContextProvided && <span> · Rules context: yes</span>}
+        {r.arbiterTraceProvided && <span> · Arbiter: yes</span>}
+        <span> · Cloud: {cloudUsed ? "used" : "not used"}</span>
+      </div>
+    </details>
+  );
+}
+
 export default function ChatPanel({
   activeDeck,
   agent,
@@ -33,6 +68,7 @@ export default function ChatPanel({
   input,
   mainCount,
   renderText,
+  retryWithFallback,
   send,
   sending,
   setCenterView,
@@ -43,6 +79,15 @@ export default function ChatPanel({
   const { BG2, BG3, LINE, TEXT } = colors;
   const quickPrompts = QUICK[agent] || [];
   const deckLock = deckLocks?.[agent];
+
+  // T13 — "Still thinking..." counter while waiting for response
+  const [waitSeconds, setWaitSeconds] = useState(0);
+  useEffect(() => {
+    if (!sending) { setWaitSeconds(0); return; }
+    setWaitSeconds(0);
+    const timer = setInterval(() => setWaitSeconds(s => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [sending]);
 
   return (
     <>
@@ -158,36 +203,44 @@ export default function ChatPanel({
           </div>
         </div>
 
-        {histories[agent].map((message, index) => (
+        {histories[agent].map((msg, index) => (
           <div
-            key={`${message.role}-${index}`}
+            key={`${msg.role}-${index}`}
             style={{
               display: "flex",
               flexDirection: "column",
-              alignItems: message.role === "user" ? "flex-end" : "flex-start",
+              alignItems: msg.role === "user" ? "flex-end" : "flex-start",
               gap: 3,
             }}
           >
-            {message.role === "assistant" && (
-              <span style={{ fontSize: 10, color: cfg.color, marginLeft: 2 }}>{cfg.name}</span>
+            {msg.role === "assistant" && (
+              <span style={{ fontSize: 10, color: cfg.color, marginLeft: 2 }}>
+                {cfg.name}
+                <ProviderLabel provider={msg.factReceipt?.provider} />
+              </span>
             )}
             <div
               style={{
                 maxWidth: "82%",
                 padding: "11px 15px",
-                borderRadius: message.role === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
-                background: message.role === "user" ? "#101530" : BG3,
-                border: `1px solid ${message.role === "user" ? "#1e2445" : cfg.border}`,
+                borderRadius: msg.role === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
+                background: msg.role === "user" ? "#101530" : BG3,
+                border: msg.isError
+                  ? "1px solid #6b3a3a"
+                  : `1px solid ${msg.role === "user" ? "#1e2445" : cfg.border}`,
                 fontSize: 14,
-                color: TEXT,
+                color: msg.isError ? "#c2786f" : TEXT,
                 lineHeight: 1.72,
               }}
             >
-              {message.role === "assistant"
+              {msg.role === "assistant"
                 ? (
                   <>
-                    {renderText(message.content)}
-                    {message.arbiterTrace && (
+                    {msg.isError
+                      ? <span style={{ display: "block" }}>⚠ {msg.content}</span>
+                      : renderText(msg.content)
+                    }
+                    {msg.arbiterTrace && (
                       <details style={{ marginTop: 10, borderTop: `1px solid ${LINE}`, paddingTop: 8 }}>
                         <summary style={{ color: cfg.color, cursor: "pointer", fontSize: 11 }}>
                           View Arbiter Trace
@@ -205,14 +258,37 @@ export default function ChatPanel({
                           overflowX: "auto",
                           fontFamily,
                         }}>
-                          {message.arbiterTrace}
+                          {msg.arbiterTrace}
                         </pre>
                       </details>
                     )}
+                    {/* T8 — Trust Strip */}
+                    {!msg.isError && <TrustStrip msg={msg} LINE={LINE} />}
                   </>
                 )
-                : <span style={{ whiteSpace: "pre-wrap" }}>{message.content}</span>}
+                : <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>}
             </div>
+
+            {/* T6 — Fallback chip on error messages */}
+            {msg.isError && msg.fallbackAvailable && retryWithFallback && (
+              <button
+                onClick={() => retryWithFallback(msg.originalPrompt, agent)}
+                style={{
+                  alignSelf: "flex-start",
+                  marginTop: 2,
+                  padding: "4px 11px",
+                  borderRadius: 12,
+                  border: "1px solid #3a4a6b",
+                  background: "#0d1428",
+                  color: "#7fa0c8",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontFamily,
+                }}
+              >
+                Retry with Anthropic ↗
+              </button>
+            )}
           </div>
         ))}
 
@@ -228,6 +304,12 @@ export default function ChatPanel({
               }}
             >
               <Dots color={cfg.color} />
+              {/* T13 — Still thinking... */}
+              {waitSeconds >= 10 && (
+                <div style={{ fontSize: 11, color: "#7f8aa3", marginTop: 6 }}>
+                  Still thinking… (local models can take 20–60s for long responses)
+                </div>
+              )}
             </div>
           </div>
         )}

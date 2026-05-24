@@ -204,6 +204,14 @@ function emptyLocks() {
   return { jace: null, karn: null, tibalt: null, arbiter: null };
 }
 
+function countContextCards(text) {
+  return (String(text || "").match(/^\[/gm) || []).length;
+}
+
+function countContextRulings(text) {
+  return (String(text || "").match(/WOTC RULINGS:/g) || []).length;
+}
+
 function createDeckLock(deck) {
   if (!deck) return null;
   return {
@@ -328,7 +336,7 @@ export default function useChatAgents({
     scheduleChatFileSave(histories, deckLocks);
   }, [chatLoaded, histories, deckLocks]);
 
-  const send = async (text, agentOverride, retryDepth = 0) => {
+  const send = async (text, agentOverride, retryDepth = 0, forceProvider = null) => {
     const targetAgent = agentOverride || agent;
     const targetConfig = AGENTS[targetAgent];
     const prompt = (text || input).trim();
@@ -491,7 +499,7 @@ export default function useChatAgents({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
-          provider: modelProvider,
+          provider: forceProvider || modelProvider,
           max_tokens: 2500,
           system: systemPrompt,
           messages: apiMessages,
@@ -499,6 +507,26 @@ export default function useChatAgents({
       });
 
       const data = await response.json();
+
+      if (!response.ok) {
+        const errorMsg = typeof data.error === "string"
+          ? data.error
+          : (data.error?.message || data.message || "No response from the model.");
+        setHistories(previous => ({
+          ...previous,
+          [targetAgent]: [...baseHistory, {
+            role: "assistant",
+            content: errorMsg,
+            isError: true,
+            fallbackAvailable: data.fallbackAvailable ?? true,
+            originalPrompt: prompt,
+            errorProvider: data.provider || (forceProvider || modelProvider),
+          }],
+        }));
+        setSending(false);
+        return;
+      }
+
       let reply = data.content?.[0]?.text || data.error?.message || data.error || "No response received.";
 
       if (targetAgent === "arbiter" && retryDepth === 0 && /^UNRESOLVED/m.test(reply)) {
@@ -531,18 +559,48 @@ export default function useChatAgents({
         }
       }
 
+      responseMeta.factReceipt = {
+        provider: data.provider || (forceProvider || modelProvider),
+        fallbackUsed: !forceProvider && modelProvider === "ollama" && data.provider === "anthropic",
+        deckLocked: Boolean(deckLock),
+        deckName: deckLock?.name || null,
+        cardsProvided: countContextCards(cardContext + deckOracleContext + karnScryfallContext),
+        rulingsProvided: countContextRulings(cardContext + deckOracleContext),
+        engineContextProvided: Boolean(engineContext),
+        arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
+      };
+
       setHistories(previous => ({
         ...previous,
         [targetAgent]: [...baseHistory, { role: "assistant", content: reply, ...responseMeta }],
       }));
-    } catch {
+    } catch (error) {
+      const isTimeout = error?.name === "AbortError";
       setHistories(previous => ({
         ...previous,
-        [targetAgent]: [...baseHistory, { role: "assistant", content: "Connection error. Please try again." }],
+        [targetAgent]: [...baseHistory, {
+          role: "assistant",
+          content: isTimeout
+            ? "Request timed out. The local model may be overloaded."
+            : "Connection error. Could not reach the model.",
+          isError: true,
+          fallbackAvailable: true,
+          originalPrompt: prompt,
+          errorProvider: forceProvider || modelProvider,
+        }],
       }));
     }
 
     setSending(false);
+  };
+
+  const retryWithFallback = (originalPrompt, targetAgentKey = null) => {
+    const key = targetAgentKey || agent;
+    setHistories(previous => ({
+      ...previous,
+      [key]: previous[key].slice(0, -1),
+    }));
+    send(originalPrompt, key, 0, "anthropic");
   };
 
   const exportChat = () => {
@@ -588,6 +646,7 @@ export default function useChatAgents({
     deckLocks,
     histories,
     input,
+    retryWithFallback,
     send,
     sending,
     setInput,
