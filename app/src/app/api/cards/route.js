@@ -4,8 +4,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const ORACLE_FILE = path.join(DATA_DIR, "scryfall.oracle.local.json");
-const RULINGS_FILE = path.join(DATA_DIR, "scryfall.rulings.local.json");
+const ORACLE_FILE = path.join(DATA_DIR, "scryfall-bulk", "oracle_cards.json");
+const RULINGS_FILE = path.join(DATA_DIR, "scryfall-bulk", "rulings.json");
 
 let oracleCache = null;
 let rulingsCache = null;

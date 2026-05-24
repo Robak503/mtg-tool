@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
-const DEFAULT_OLLAMA_MODEL = "qwen2.5:14b";
+const DEFAULT_OLLAMA_MODEL = "qwen2.5:32b";
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_OLLAMA_CONTEXT = 32768;
 const MODEL_CALL_LOG = path.join(process.cwd(), "data", "model-calls.local.json");
@@ -162,10 +162,14 @@ export async function callOllamaMessages(body = {}) {
     content: String(message.content || ""),
   }));
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120_000);
+
   try {
     const response = await fetch(`${baseUrl.replace(/\/$/, "")}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: controller.signal,
       body: JSON.stringify({
         model,
         messages,
@@ -177,10 +181,17 @@ export async function callOllamaMessages(body = {}) {
       }),
     });
 
+    clearTimeout(timeoutId);
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const errorResult = providerError(data.error || data.message || "Ollama request failed.", response.status, "ollama", {
+      const errorText = String(data.error || data.message || "");
+      const isModelMissing = /model.{0,40}not found|pull/i.test(errorText);
+      const errorMsg = isModelMissing
+        ? `Ollama model "${model}" is not pulled. Run: ollama pull ${model}`
+        : (errorText || "Ollama request failed.");
+      const errorResult = providerError(errorMsg, response.status, "ollama", {
         fallbackAvailable: Boolean(anthropicKey()),
+        modelMissing: isModelMissing,
         raw: data,
       });
       await recordModelCall({ body, provider: "ollama", model, result: errorResult });
@@ -208,9 +219,15 @@ export async function callOllamaMessages(body = {}) {
     };
     await recordModelCall({ body, provider: "ollama", model, result });
     return result;
-  } catch {
-    const result = providerError("Could not reach Ollama at localhost:11434.", 502, "ollama", {
+  } catch (error) {
+    clearTimeout(timeoutId);
+    const isTimeout = error?.name === "AbortError";
+    const errorMsg = isTimeout
+      ? "Ollama request timed out after 120s. The model may be overloaded or out of VRAM."
+      : "Could not reach Ollama at localhost:11434. Is Ollama running? Start with: ollama serve";
+    const result = providerError(errorMsg, isTimeout ? 504 : 502, "ollama", {
       fallbackAvailable: Boolean(anthropicKey()),
+      timeout: isTimeout,
     });
     await recordModelCall({ body, provider: "ollama", model, result });
     return result;

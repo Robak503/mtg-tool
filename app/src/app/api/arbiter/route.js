@@ -4,6 +4,15 @@ import { ARBITER_PROMPT, ARBITER_PROMPT_FAST } from "../../../lib/agents";
 import { buildServerCardContext } from "../../../lib/server/cardContext";
 import { callModelMessages } from "../../../lib/server/modelProvider";
 
+function detectArbiterStatus(trace) {
+  if (!trace) return "unresolved";
+  if (/^UNRESOLVED/m.test(trace)) return "unresolved";
+  if (/needs.{0,20}clarification/i.test(trace)) return "needs_clarification";
+  if (/no.{0,30}(citation|rule number|codex)/i.test(trace) || /citation.{0,30}not found/i.test(trace)) return "citation_failed";
+  if (/RESOLUTION/m.test(trace) && /RULE TRACE/m.test(trace)) return "resolved";
+  return "unresolved";
+}
+
 export async function POST(request) {
   let body;
   try {
@@ -39,8 +48,10 @@ export async function POST(request) {
     return Response.json(result.data, { status: result.status });
   }
 
+  const trace = result.data.content?.[0]?.text || "";
   return Response.json({
     provider: result.provider,
-    trace: result.data.content?.[0]?.text || "",
+    trace,
+    status: detectArbiterStatus(trace),
   }, { status: result.status });
 }

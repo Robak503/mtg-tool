@@ -215,6 +215,9 @@ function createDeckLock(deck) {
     mainCount: deckMainCount(deck),
     tokenCount: deckTokenCount(deck),
     lockedAt: new Date().toISOString(),
+    schemaVersion: 1,
+    cardDataVersion: null,   // TODO P3: populate from oracle manifest scryfallUpdatedAt
+    rulesVersion: null,      // TODO P3: populate from mtg-judge META file
     cardNames: deckOracleCardNamesFromCards(deck.cards || []),
     deckText: serializeDeck(deck.cards || []),
     memoryText: serializeDeckMemory(deck),

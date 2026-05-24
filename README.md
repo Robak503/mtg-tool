@@ -36,10 +36,22 @@ Requirements:
 Setup:
 1. Clone or copy this project to your local machine
 2. `cd app && npm install`
-3. Pull a local model: `ollama pull qwen2.5:14b` (or similar — see CLAUDE.md for recommendations)
-4. Run sync to populate local data: `npm run sync:scryfall && npm run sync:rulesguru`
-5. Start the app: `./start-local.ps1`
-6. Open http://localhost:3001
+3. Copy `.env.local.example` to `.env.local` and fill in your keys
+4. Set up Ollama (see below)
+5. Run sync to populate local data: `npm run sync:scryfall && npm run sync:rulesguru`
+6. Start the app: `./start-local.ps1`
+7. Open http://localhost:3001
+
+## Local model setup (Ollama)
+
+The app uses a local Ollama model by default — no API costs.
+
+1. Install Ollama: https://ollama.com
+2. Start the server: `ollama serve`
+3. Pull the model: `ollama pull qwen2.5:32b`
+4. Confirm it shows up: `ollama list`
+
+The model must be running before you start the app. If Ollama is not running, you'll see a "Could not reach Ollama" error with a start command. You can use the Local/API toggle in the app header to switch to Anthropic API mode if needed.
 
 For Claude Code users:
 - Read `CLAUDE.md` for the full operating manual
