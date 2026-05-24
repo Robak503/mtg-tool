@@ -48,13 +48,36 @@ See below. Tasks are listed T1 → T13 in implementation order.
 
 ---
 
+## Task Status
+
+| Task | Status | Commit |
+|------|--------|--------|
+| T1 — AbortController + model-not-found | ✅ DONE | 76b733e |
+| T2 — Path swap to scryfall-bulk/ | ✅ DONE | 76b733e |
+| T3 — modelStatus post-send refresh | 🔲 Partial (30s polling done, post-send missing) | — |
+| T4 — Fix OLLAMA_MODEL to 32b + README | ✅ DONE | 76b733e |
+| T5 — SSE streaming | 🔲 NOT DONE | — |
+| T6 — Error bubble + fallback chip | 🔲 NOT DONE | — |
+| T7 — Fact Receipt metadata | 🔲 NOT DONE | — |
+| T8 — Trust Strip | 🔲 NOT DONE | — |
+| T9 — Versioning fields in createDeckLock | ✅ DONE | 76b733e |
+| T10 — Arbiter status field | ✅ DONE | 76b733e |
+| T11 — Dataset Tier Manifest | ✅ DONE | 9058277 |
+| T12 — Smoke test | 🔲 NOT DONE (needs T1-T11 first) | — |
+| T13 — Still thinking + Trust Strip dev-open | 🔲 NOT DONE | — |
+
+**Next task: T5 (SSE streaming) — highest remaining impact.**  
+T3 partial is fine as-is; T6 depends on T1 being done (which it is). If T5 feels risky, do T6 first.
+
+---
+
 ## Task List — Priority Order
 
 ### T1 — AbortController 120s timeout + model-not-found error  
 **Priority**: P0  
 **Estimated time**: 10 min  
 **File**: `app/src/lib/server/modelProvider.js`  
-**Status**: NOT DONE
+**Status**: ✅ DONE (commit 76b733e)
 
 **Problem**: `callOllamaMessages()` calls `fetch()` with no timeout and no `signal`. If Ollama runs out of VRAM (OOM), the request hangs forever → infinite spinner in UI with no recovery path.
 
@@ -137,7 +160,7 @@ export async function callOllamaMessages(body = {}) {
 **Priority**: P0  
 **Estimated time**: 5 min  
 **Files**: `app/src/app/api/cards/route.js` AND `app/src/lib/server/cardContext.js`  
-**Status**: NOT DONE
+**Status**: ✅ DONE (commit 76b733e)
 
 **Problem**: Both files still load from `data/scryfall.oracle.local.json` (the old 76MB partial cache). The full 165MB oracle file is at `data/scryfall-bulk/oracle_cards.json` and the rulings are at `data/scryfall-bulk/rulings.json`. The bulk files exist on disk — confirmed.
 
@@ -228,7 +251,7 @@ Then pass `refreshModelStatus` to `useChatAgents` and call `refreshModelStatus.c
 **Priority**: P1  
 **Estimated time**: 5 min  
 **File**: `app/.env.local.example`  
-**Status**: NOT DONE
+**Status**: ✅ DONE (commit 76b733e)
 
 **Problem**: `.env.local.example` has `OLLAMA_MODEL=qwen2.5:14b`. The plan specifies `qwen2.5:32b` as the target model. The 14B model produces notably lower-quality outputs.
 
@@ -414,7 +437,7 @@ Also: if `msg.provider === "anthropic"` (from the fallback chip T6), add a small
 **Priority**: NEW (Codex addition)  
 **Estimated time**: 5 min  
 **File**: `app/src/hooks/useChatAgents.js`  
-**Status**: NOT DONE
+**Status**: ✅ DONE (commit 76b733e)
 
 **What**: `createDeckLock()` currently snapshots the deck but doesn't record which version of card data or rules was used. If Scryfall data is refreshed mid-conversation, the locked deck context becomes stale relative to the new data.
 
@@ -452,7 +475,7 @@ Phase 3 will wire in the actual version values. `null` is correct for now — it
 **Priority**: NEW (Codex addition)  
 **Estimated time**: 10 min  
 **File**: `app/src/app/api/arbiter/route.js`  
-**Status**: NOT DONE
+**Status**: ✅ DONE (commit 76b733e)
 
 **What**: The Arbiter route currently returns `{ provider, trace }`. Add a `status` field from a controlled vocabulary: `resolved | unresolved | needs_clarification | citation_failed`.
 
@@ -491,7 +514,7 @@ When `arbiterStatus === "citation_failed"`, surface a small warning: "⚠ Arbite
 **Priority**: NEW (Codex addition)  
 **Estimated time**: 10 min  
 **File**: `app/data/scryfall-bulk/tier-manifest.json` (new file)  
-**Status**: NOT DONE
+**Status**: ✅ DONE (commit 9058277)
 
 **What**: A JSON document that classifies each local data source by tier, so agents and the app know which data is authoritative vs supplementary.
 
