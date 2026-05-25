@@ -20,6 +20,7 @@ function parseArgs(argv) {
     noCards: false,
     dryRun: false,
     liveModel: false,
+    mutate: false,
     verbose: false,
     limit: 5,
     offset: 0,
@@ -38,6 +39,7 @@ function parseArgs(argv) {
     else if (arg === "--no-cards") args.noCards = true;
     else if (arg === "--dry-run") args.dryRun = true;
     else if (arg === "--live-model") args.liveModel = true;
+    else if (arg === "--mutate") args.mutate = true;
     else if (arg === "--verbose" || arg === "-v") args.verbose = true;
     else if (arg === "--limit") args.limit = Number(next());
     else if (arg === "--all") args.limit = Infinity;
@@ -81,6 +83,7 @@ Options:
   --no-cards        Do not inject Scryfall Oracle/rulings context
   --dry-run         Parse and list tests without API calls
   --live-model      Let /api/arbiter call the local model instead of deterministic validation mode
+  --mutate          Send a paraphrase-lite version of each scenario to test retrieval generalization
   --report PATH     Write markdown report
 `);
 }
@@ -170,6 +173,38 @@ function filterTests(tests, args) {
 
 function cardNamesFromScenario(scenario) {
   return [...new Set([...scenario.matchAll(/\[\[([^\]]+)\]\]/g)].map(match => match[1].trim()))];
+}
+
+function mutateScenario(scenario) {
+  const cards = cardNamesFromScenario(scenario);
+  const cardLine = cards.length ? `Relevant cards: ${cards.map(name => `[[${name}]]`).join(", ")}.` : "";
+  const body = String(scenario || "")
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line =>
+      line &&
+      !/^Cards involved:/i.test(line) &&
+      !/^RulesGuru source:/i.test(line)
+    )
+    .join(" ")
+    .replace(/\bcontrols\b/gi, "has on the battlefield")
+    .replace(/\bcasts\b/gi, "plays")
+    .replace(/\bcast\b/gi, "play")
+    .replace(/\btargeting\b/gi, "choosing")
+    .replace(/\bafter it resolves\b/gi, "once that spell finishes resolving")
+    .replace(/\bafter that resolves\b/gi, "once that finishes resolving")
+    .replace(/\bwhat happens to\b/gi, "what is the result for")
+    .replace(/\bwhat happens\b/gi, "what is the result")
+    .replace(/\bcan they\b/gi, "is it legal for that player to")
+    .replace(/\bdoes ([^?]+) happen\b/gi, "will $1 happen")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return [
+    "Paraphrased validation prompt. Answer from the local rules and card text, not from an exact imported question.",
+    cardLine,
+    `Situation: ${body}`,
+  ].filter(Boolean).join("\n");
 }
 
 async function fetchScryfallCard(name) {
@@ -509,6 +544,7 @@ function writeReport(reportPath, results, tests, options) {
   lines.push(`Prompt: \`${options.fast ? "ARBITER_PROMPT_FAST" : "ARBITER_PROMPT"}\``);
   lines.push(`Suite: \`${options.testFile ? options.testFile : options.suite}\``);
   lines.push(`Card context: \`${options.noCards ? "off" : "Scryfall Oracle + WOTC rulings"}\``);
+  lines.push(`Mutation mode: \`${options.mutate ? "on" : "off"}\``);
   lines.push(`Result: **${passed}/${results.length} passed**`);
   lines.push("");
   lines.push("| Test | Source | Title | Result | Missing citations | Failures |");
@@ -540,9 +576,9 @@ function writeReport(reportPath, results, tests, options) {
       for (const warning of result.warnings) lines.push(`- ${warning}`);
     }
     lines.push("");
-    lines.push("Scenario:");
+    lines.push(options.mutate ? "Scenario sent (mutated):" : "Scenario:");
     lines.push("```text");
-    lines.push(test.scenario);
+    lines.push(result.scenario || test.scenario);
     lines.push("```");
     lines.push("");
     lines.push("Expected verdict:");
@@ -589,17 +625,19 @@ async function main() {
     process.stdout.write(`[${i + 1}/${selectedTests.length}] ${test.id} ${test.title} ... `);
 
     try {
+      const scenario = args.mutate ? mutateScenario(test.scenario) : test.scenario;
       const cardContext = args.noCards || /\/api\/arbiter\/?$/.test(args.endpoint)
         ? ""
-        : await buildCardContext(test.scenario);
+        : await buildCardContext(scenario);
       const response = await callAppEndpoint({
         endpoint: args.endpoint,
         systemPrompt,
-        scenario: test.scenario,
+        scenario,
         cardContext,
         liveModel: args.liveModel,
       });
       const result = validateResponse(test, response);
+      result.scenario = scenario;
       result.durationMs = Date.now() - started;
       results.push(result);
       console.log(`${result.passed ? "PASS" : "FAIL"} (${Math.round(result.durationMs / 1000)}s)`);
@@ -620,6 +658,7 @@ async function main() {
         polarity: "",
         verdictText: "",
         response: String(error.stack || error),
+        scenario: args.mutate ? mutateScenario(test.scenario) : test.scenario,
         warnings: [],
         durationMs: Date.now() - started,
       };

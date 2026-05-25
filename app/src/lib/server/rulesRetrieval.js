@@ -440,7 +440,7 @@ export function retrieveRules(query, cardNames = [], options = {}) {
   }
 
   for (const precedent of rulesGuruPrecedents) {
-    const amount = precedent.reasons.includes("exact-scenario") ? 90000 : 18000;
+    const amount = precedent.reasons.includes("exact-scenario") ? 120000 : 80000;
     for (const ruleNumber of precedent.requiredCitations) {
       addRuleScore(scores, ruleNumber, amount, `rulesguru-precedent:${precedent.id}`, byNumber);
     }
