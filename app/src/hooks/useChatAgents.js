@@ -394,8 +394,8 @@ export default function useChatAgents({
       /\b(cut|cuts|remove|trim)\b/i.test(prompt) &&
       !/\b(add|adds|upgrade|upgrades|replace|swap|alternative|alternatives|budget)\b/i.test(prompt);
     const localMaxTokens = wantsDeepAnswer
-      ? 1000
-      : (isPureKarnCutRequest ? 420 : (targetAgent === "karn" || targetAgent === "tibalt" ? 520 : 450));
+      ? 2500
+      : (isPureKarnCutRequest ? 1400 : (targetAgent === "tibalt" ? 2000 : targetAgent === "karn" ? 1200 : 800));
 
     if (!prompt || sending) return;
 
@@ -429,7 +429,17 @@ export default function useChatAgents({
         ? ARBITER_PROMPT_FAST
         : targetConfig.prompt;
       if (isLocalProvider) {
-        systemPrompt += "\n\n## LOCAL MODEL RESPONSE BUDGET\nYou are running on a local model. Prefer compact, complete answers. Unless the user explicitly asks for a full/deep/detailed report, finish within 250-350 words and stop cleanly.";
+        let budgetHint;
+        if (isPureKarnCutRequest) {
+          budgetHint = "You are in CUT MODE. Provide the requested number of cuts — one per bullet, card name in [[brackets]], one-line reason. Do NOT include an Additions or Recommendations section. Stop after the last cut bullet.";
+        } else if (targetAgent === "tibalt") {
+          budgetHint = "You are writing a deck roast. Complete every section you start. Do not truncate mid-section.";
+        } else if (targetAgent === "karn") {
+          budgetHint = "Prefer compact, complete answers. Finish within 400-500 words unless the user asked for a full report.";
+        } else {
+          budgetHint = "Prefer compact, complete answers. Finish within 300-400 words and stop cleanly.";
+        }
+        systemPrompt += `\n\n## LOCAL MODEL RESPONSE BUDGET\nYou are running on a local model. ${budgetHint}`;
       }
 
       const conversationText = baseHistory.slice(-8).map(message => message.content).join("\n");
@@ -443,7 +453,7 @@ export default function useChatAgents({
       }
 
       if (targetAgent === "karn" && /\b(cut|cuts|remove|trim)\b/i.test(prompt)) {
-        systemPrompt += "\n\n## KARN CUT MODE\nThe user is asking for cuts. Every cut must be an exact card from the locked or active deck list. Do not use search-result cards, training-memory cards, URLs, dates, or hypothetical additions as cuts. If a card is not visibly in the deck list, it cannot be a cut.";
+        systemPrompt += "\n\n## KARN CUT MODE\nThe user is asking for cuts only. Rules:\n1. Every cut MUST be an exact card name from the locked or active deck list — no invented cards, no search results, no training-memory cards.\n2. Do NOT include an Additions section, Recommendations section, or any suggested replacements. Cuts only.\n3. Format: bullet list, [[Card Name]] — one-line reason.\n4. If a card name is not visible in the deck list, it cannot be a cut.";
       }
 
       if ((targetAgent === "karn" || targetAgent === "tibalt") && tokenEntries.length) {
