@@ -181,10 +181,14 @@ async function fetchArbiterTrace({ question, cardContext, context, fast, provide
       }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return { trace: "", status: "unresolved" };
-    return { trace: data.trace || "", status: data.status || "unresolved" };
+    if (!response.ok) return { trace: "", status: "unresolved", retrievalMetadata: null };
+    return {
+      trace: data.trace || "",
+      status: data.status || "unresolved",
+      retrievalMetadata: data.retrievalMetadata || null,
+    };
   } catch {
-    return { trace: "", status: "unresolved" };
+    return { trace: "", status: "unresolved", retrievalMetadata: null };
   }
 }
 
@@ -582,6 +586,7 @@ export default function useChatAgents({
         if (arbiterResult.trace) {
           responseMeta.arbiterTrace = arbiterResult.trace;
           responseMeta.arbiterStatus = arbiterResult.status;
+          responseMeta.arbiterMetadata = arbiterResult.retrievalMetadata || null;
           augmentedContent = `${engineContext || ""}${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## ARBITER TRACE\nThis trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language.\n\n${arbiterResult.trace}\n\n## USER QUESTION\n\n${prompt}`;
         }
       }
@@ -599,6 +604,12 @@ export default function useChatAgents({
           rulingsProvided: countContextRulings(cardContext + deckOracleContext),
           engineContextProvided: Boolean(engineContext),
           arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
+          arbiterStatus: responseMeta.arbiterStatus || null,
+          arbiterRulesRetrieved: responseMeta.arbiterMetadata?.rulesRetrieved?.length || 0,
+          arbiterCardsRetrieved: responseMeta.arbiterMetadata?.cardsRetrieved?.length || 0,
+          arbiterRulesGuruPrecedents: responseMeta.arbiterMetadata?.rulesGuruPrecedents?.length || 0,
+          arbiterHallucinations: responseMeta.arbiterMetadata?.hallucinations?.length || 0,
+          arbiterConfidence: responseMeta.arbiterMetadata?.confidence || null,
         };
 
         setHistories(previous => ({
@@ -765,6 +776,12 @@ export default function useChatAgents({
         rulingsProvided: countContextRulings(cardContext + deckOracleContext),
         engineContextProvided: Boolean(engineContext),
         arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
+        arbiterStatus: responseMeta.arbiterStatus || null,
+        arbiterRulesRetrieved: responseMeta.arbiterMetadata?.rulesRetrieved?.length || 0,
+        arbiterCardsRetrieved: responseMeta.arbiterMetadata?.cardsRetrieved?.length || 0,
+        arbiterRulesGuruPrecedents: responseMeta.arbiterMetadata?.rulesGuruPrecedents?.length || 0,
+        arbiterHallucinations: responseMeta.arbiterMetadata?.hallucinations?.length || 0,
+        arbiterConfidence: responseMeta.arbiterMetadata?.confidence || null,
       };
 
       setHistories(previous => {

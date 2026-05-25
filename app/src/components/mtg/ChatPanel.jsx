@@ -44,6 +44,22 @@ function TrustStrip({ msg, LINE }) {
         : r.modelTier === "local-primer"
           ? "Primer"
           : null;
+  const parts = [
+    `Provider: ${r.provider === "ollama" ? "Local (Ollama)" : "Anthropic API"}`,
+    tierLabel ? `Tier: ${tierLabel}` : "",
+    r.model ? `Model: ${r.model}` : "",
+    r.deckLocked && r.deckName ? `Deck: ${r.deckName}` : "",
+    r.cardsProvided > 0 ? `Cards: ${r.cardsProvided}` : "",
+    r.rulingsProvided > 0 ? `Rulings: ${r.rulingsProvided}` : "",
+    r.engineContextProvided ? "Rules context: yes" : "",
+    r.arbiterTraceProvided ? `Arbiter: ${r.arbiterStatus || "yes"}` : "",
+    r.arbiterRulesRetrieved > 0 ? `CR rules: ${r.arbiterRulesRetrieved}` : "",
+    r.arbiterCardsRetrieved > 0 ? `Arbiter cards: ${r.arbiterCardsRetrieved}` : "",
+    r.arbiterRulesGuruPrecedents > 0 ? `RulesGuru: ${r.arbiterRulesGuruPrecedents}` : "",
+    r.arbiterHallucinations > 0 ? `Citation warnings: ${r.arbiterHallucinations}` : "",
+    r.arbiterConfidence ? `Confidence: ${r.arbiterConfidence}` : "",
+    `Cloud: ${cloudUsed ? "used" : "not used"}`,
+  ].filter(Boolean);
   return (
     <details
       open={typeof process !== "undefined" && process.env?.NODE_ENV === "development"}
@@ -53,15 +69,7 @@ function TrustStrip({ msg, LINE }) {
         ▸ Response metadata
       </summary>
       <div style={{ paddingTop: 4, lineHeight: 1.7, borderTop: `1px solid ${LINE}`, marginTop: 4 }}>
-        <span>Provider: {r.provider === "ollama" ? "Local (Ollama)" : "Anthropic API"}</span>
-        {tierLabel && <span> Â· Tier: {tierLabel}</span>}
-        {r.model && <span> Â· Model: {r.model}</span>}
-        {r.deckLocked && r.deckName && <span> · Deck: {r.deckName}</span>}
-        {r.cardsProvided > 0 && <span> · Cards: {r.cardsProvided}</span>}
-        {r.rulingsProvided > 0 && <span> · Rulings: {r.rulingsProvided}</span>}
-        {r.engineContextProvided && <span> · Rules context: yes</span>}
-        {r.arbiterTraceProvided && <span> · Arbiter: yes</span>}
-        <span> · Cloud: {cloudUsed ? "used" : "not used"}</span>
+        {parts.join(" - ")}
       </div>
     </details>
   );
