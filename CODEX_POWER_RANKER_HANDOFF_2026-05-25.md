@@ -228,9 +228,9 @@ Scripts:
 
 Current local salt snapshot:
 
-- 3,500 entries synced
+- 14,000 entries synced
 - `complete: false`
-- next path: `top/salt--35.json`
+- next path: `top/salt--140.json`
 
 This is intentionally resumable because the EDHREC feed is much larger than the first "Top 100" page.
 
@@ -318,7 +318,7 @@ No Anthropic call was required for this work.
 4. Add persisted rank snapshots to deck memory.
 5. Continue the resumable EDHREC salt sync over time:
    - `npm.cmd run sync:edhrec-salt`
-   - current snapshot is partial and intentionally safe to resume.
+   - current snapshot is 14,000 entries, incomplete, and intentionally safe to resume from `top/salt--140.json`.
 6. Consider a local "power explanation" UI that shows why each axis scored what it scored.
 
 ## Files Changed In This Pass

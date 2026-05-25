@@ -23,7 +23,7 @@ Current state:
 - Local Commander Spellbook data is fully synced.
 - Local Spellbook has 89,362 combo variants and 7,134 indexed card flag records.
 - A deterministic local power-ranking engine has been added.
-- A resumable local EDHREC salt sync has been added.
+- A resumable local EDHREC salt sync has been added; current local snapshot is 14,000 entries, incomplete, next cursor `top/salt--140.json`.
 - Karn now receives a local power/bracket block in locked-deck conversations.
 - Karn's prompt now explicitly understands the `## LOCAL POWER RANKING` block.
 - The ranker now includes DeckCheck-style attribute ratings and EDHPowerLevel-style diagnostics:
@@ -56,7 +56,7 @@ Optional data continuation:
 npm.cmd run sync:edhrec-salt
 ```
 
-This downloads the next 35-page EDHREC salt chunk and resumes from `data/edhrec-salt-meta.local.json`. Do not run the all-at-once variant unless the user wants to wait.
+This downloads the next 35-page EDHREC salt chunk and resumes from `data/edhrec-salt-meta.local.json`. Do not run the all-at-once variant unless the user wants to wait. Current resume point: `top/salt--140.json`.
 
 Core algorithm principles to preserve:
 
