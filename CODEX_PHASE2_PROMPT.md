@@ -12,7 +12,9 @@ You are implementing Phase 2 of the MTG Tool — making Arbiter a real
 retrieval+reasoning service backed by the local Comprehensive Rules corpus
 (mtg-judge/data/cr/cr_current.json, 3138 rules).
 
-Phase 1 is complete. Working tree is clean on commit 2a32fe9.
+Phase 1 is complete. The post-token-fix browser smoke test passed:
+Karn cut mode, Jace stack primer with Arbiter trace, Tibalt full roast, reload
+persistence, and `anthropic.total = 0`.
 The design doc is at:
 C:\Users\colto\.gstack\projects\MTG-TOOL\colto-master-design-phase2-20260524-172023.md
 

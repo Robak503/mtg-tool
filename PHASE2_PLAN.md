@@ -13,7 +13,7 @@ Read this cold and you have everything you need to continue.
 
 Project root: `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL`
 App root: `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app`
-Latest commit: `b8770c9`
+Latest verified commit before this smoke closeout: `9a76183`
 
 ---
 
@@ -23,7 +23,7 @@ Latest commit: `b8770c9`
 Picked up from Codex Phase 1 handoff (`ce362f2`). Phase 1 was declared complete by
 Codex. T12 manual browser smoke test was the only remaining gate.
 
-### T12 Browser Smoke Test — Partial Results
+### T12 Browser Smoke Test — Final Results
 
 The user ran T12 in the browser and found two issues:
 
@@ -55,21 +55,25 @@ The user ran T12 in the browser and found two issues:
   "Do NOT include an Additions section, Recommendations section, or any suggested
   replacements. Cuts only. Format: bullet list, [[Card Name]] — one-line reason."
 
-**T12 status after fixes:**
-The truncation fixes were applied and committed. The user did not re-run T12 in the browser
-after the fix — moved on to Phase 2 planning. **T12 should be re-run before starting Phase 2
-implementation** to confirm the fixes work.
+**T12 status after fixes: PASSED.**
+Codex re-ran the browser smoke test on 2026-05-24 after the 2500-token cap fix:
 
-T12 checklist (takes ~5 min):
-1. Load Sliver Hivelord deck
+1. Sliver Hivelord loaded successfully.
 2. Karn → clear chat → `Suggest 10 cards to cut`
-   - Expect: 10 complete bullets, all from locked deck, NO Additions section
+   - Result: 10 complete cut bullets, all from the locked deck, NO Additions section.
 3. Jace → clear chat → `How does the stack work?`
-   - Expect: deterministic primer fires (~6s), land/mana notes, Arbiter trace attached
+   - Result: deterministic stack primer fired, deck lock visible, Arbiter trace attached,
+     TrustStrip showed local provider and Arbiter context.
 4. Tibalt → clear chat → `Roast my active deck`
-   - Expect: full roast including Verdict section, no mid-section truncation
-5. Reload → verify agent locks and chat history persist
-6. `http://localhost:3000/api/model-calls` → `providers.anthropic.total = 0`
+   - Result: full roast reached `Final Verdict`; no mid-section truncation.
+5. Reload → switch back to Tibalt
+   - Result: loaded deck, Tibalt lock, chat history, and Final Verdict persisted.
+6. `http://localhost:3000/api/model-calls`
+   - Result: `providers.anthropic.total = 0`; all smoke calls stayed local through Ollama.
+
+Quality note: the 7B local model is usable but still softer and less precise than the
+target Tibalt/Karn voice. That is a model-quality/prompt-routing issue, not a Phase 1
+plumbing failure. Phase 2 should proceed.
 
 ### Phase 2 Planning
 
@@ -106,7 +110,7 @@ build plan below.
 
 ## Phase 1 Final State
 
-All Phase 1 work complete. Working tree clean on `b8770c9`.
+All Phase 1 work complete. Working tree clean after the post-fix smoke rerun.
 
 | What | Status |
 |------|--------|
@@ -122,7 +126,7 @@ All Phase 1 work complete. Working tree clean on `b8770c9`.
 | validate:arbiter A1 (Axiom 4 / dies trigger) | ✅ Passing |
 | validate:arbiter A2 (3-way replacement scenario) | ❌ Known 14B limit — Phase 2 fixes |
 | UI model-tier toggle | ❌ Not built — Phase 2 Step 1 |
-| T12 browser smoke test (post-fix) | ⚠️ Not re-run after token fix — do before Phase 2 |
+| T12 browser smoke test (post-fix) | ✅ Passed through browser on 2026-05-24 |
 
 ---
 
@@ -352,7 +356,7 @@ Expected result: **`validate:arbiter --limit 2` passes 2/2**
 
 ## Success Criteria
 
-- [ ] T12 browser smoke test re-run after token fix (Karn cuts, Jace stack, Tibalt roast)
+- [x] T12 browser smoke test re-run after token fix (Karn cuts, Jace stack, Tibalt roast)
 - [ ] `validate:arbiter --limit 2` passes **2/2**
 - [ ] UI tier toggle persists per-conversation, shows in TrustStrip
 - [ ] "How does Rest in Peace interact with Reanimate?" → 614.6 in `rulesRetrieved`

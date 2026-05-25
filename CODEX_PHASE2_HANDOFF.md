@@ -2,8 +2,9 @@
 
 ## Read This First
 
-This is the Phase 2 implementation brief. Phase 1 is complete and committed. You are
-picking up a clean working tree on commit `2a32fe9`.
+This is the Phase 2 implementation brief. Phase 1 is complete, committed, and the
+post-token-fix browser smoke test has passed. You are picking up after commit
+`9a76183` plus the Phase 1 smoke closeout doc update.
 
 Project root: `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL`
 App root: `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app`
@@ -33,6 +34,11 @@ Before writing a single line of code, read these files in order:
 - `validate:arbiter --limit 2` passes 1/2 (A1 ✓, A2 ✗ — A2 is what Phase 2 fixes)
 - All non-LLM checks pass: `check`, `check:decks`, `check:oracle`, `check:engine`
 - 0 Anthropic calls in normal use
+- T12 browser smoke passed after the 2500-token fix:
+  - Karn cut mode returned 10 complete bullets and no Additions section
+  - Jace stack primer attached Arbiter trace and stayed local
+  - Tibalt roast reached Final Verdict and persisted after reload
+  - `/api/model-calls` stayed at `anthropic.total = 0`
 
 ### What Phase 2 fixes
 Arbiter is currently a thin LLM proxy. It uses prompting to ask the model to cite
