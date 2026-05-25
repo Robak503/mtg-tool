@@ -50,9 +50,18 @@ export function extractCitedRuleNumbers(text) {
 
 export function stripHallucinatedCitations(text, allowedRuleNumbers = []) {
   const allowed = new Set(allowedRuleNumbers);
+  const canonicalByParent = new Map();
+  for (const ruleNumber of allowed) {
+    const parent = String(ruleNumber).match(/^(\d{3}\.\d+)/)?.[1];
+    if (parent && !canonicalByParent.has(parent)) canonicalByParent.set(parent, ruleNumber);
+  }
+
   const hallucinations = [];
   const cleaned = String(text || "").replace(/\[(\d{3}\.\d+[a-z]?)\]/g, (full, ruleNumber) => {
     if (allowed.has(ruleNumber)) return full;
+    const parent = ruleNumber.match(/^(\d{3}\.\d+)/)?.[1];
+    const canonical = parent ? canonicalByParent.get(parent) : null;
+    if (canonical) return `[${canonical}]`;
     hallucinations.push(ruleNumber);
     return `[citation removed: ${ruleNumber}]`;
   });

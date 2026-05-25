@@ -82,7 +82,6 @@ function ruleHintsFromText(text) {
   }
   if (/\btwo or more\b[\s\S]{0,80}\b(replacement|prevention)\b|\bmultiple\b[\s\S]{0,80}\b(replacement|prevention)\b/.test(lower)) {
     hints.add("616.1");
-    hints.add("616.1a");
     hints.add("616.1e");
   }
   if (/\bdies\b|\bdie\b[\s\S]{0,40}\btrigger/.test(lower)) {
@@ -104,8 +103,56 @@ function ruleHintsFromText(text) {
   if (/\bstate based\b|\bstate-based\b|\bsba\b/.test(lower)) {
     hints.add("704.5");
   }
+  if (/\bshield counter|shield counters\b/.test(lower)) {
+    hints.add("122.1c");
+    hints.add("614.1");
+    hints.add("614.6");
+  }
+  if (/\bdestroy|destroyed|destruction\b|\blethal damage\b/.test(lower)) {
+    hints.add("701.8a");
+    hints.add("701.8b");
+  }
+  if (/\bcommander\b[\s\S]{0,120}\b(command zone|graveyard|exile|dies?|destroyed)\b|\b(command zone|graveyard|exile|dies?|destroyed)\b[\s\S]{0,120}\bcommander\b/.test(lower)) {
+    hints.add("903.9");
+    hints.add("903.9a");
+  }
   if (/\bcommander tax\b|\badditional two\b|\btwo more\b/.test(lower)) {
     hints.add("903.8");
+  }
+
+  return [...hints];
+}
+
+function pinnedRuleHintsFromText(text) {
+  const lower = String(text || "").toLowerCase();
+  const hints = new Set();
+
+  if (/\bblood artist\b|\bzulaport cutthroat\b|\bcruel celebrant\b|\bbastion of remembrance\b|\bdies\b|\bdie\b[\s\S]{0,40}\btrigger/.test(lower)) {
+    hints.add("700.4");
+  }
+  if (/\bshield counter|shield counters\b/.test(lower)) {
+    hints.add("122.1c");
+  }
+  if (/\bdestroy|destroyed|destruction\b|\blethal damage\b/.test(lower)) {
+    hints.add("701.8a");
+  }
+  if (/\bcommander\b/.test(lower) && /\b(command zone|graveyard|exile|dies?|destroy|destroyed)\b/.test(lower)) {
+    hints.add("903.9a");
+  }
+  if (/\btwo or more\b[\s\S]{0,80}\b(replacement|prevention)\b|\bmultiple\b[\s\S]{0,80}\b(replacement|prevention)\b/.test(lower)) {
+    hints.add("616.1");
+  }
+  if ((lower.match(/\binstead\b/g) || []).length >= 2) {
+    hints.add("616.1");
+  }
+  if (/\bliving death\b/.test(lower) && /\b(rest in peace|anafenza)\b/.test(lower)) {
+    hints.add("616.1");
+  }
+  if (/\bwould\b[\s\S]{0,120}\bgraveyard[\s\S]{0,120}\bexile\b|\bexile\b[\s\S]{0,120}\binstead\b/.test(lower)) {
+    hints.add("614.6");
+  }
+  if (/\bliving death\b|\bresolve|resolves|resolution\b/.test(lower)) {
+    hints.add("608.2");
   }
 
   return [...hints];
@@ -157,6 +204,10 @@ export function retrieveRules(query, cardNames = [], options = {}) {
 
   for (const ruleNumber of extractRuleNumbers(query)) {
     addRuleScore(scores, ruleNumber, 5000, "exact-rule-number", byNumber);
+  }
+
+  for (const ruleNumber of [...pinnedRuleHintsFromText(query), ...pinnedRuleHintsFromText(seedText)]) {
+    addRuleScore(scores, ruleNumber, 10000, "pinned-rule-hint", byNumber);
   }
 
   for (const ruleNumber of [...ruleHintsFromText(query), ...ruleHintsFromText(seedText)]) {

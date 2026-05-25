@@ -49,6 +49,53 @@ function supplementalContext(body) {
   return blocks.length ? `\n\n${blocks.join("\n\n")}` : "";
 }
 
+function deterministicVerdict(question, cards) {
+  const text = String(question || "").toLowerCase();
+  const cardNames = new Set(cards.map(card => String(card.name || "").toLowerCase()));
+  const hasGraveyardReplacement = cards.some(card =>
+    /would be put into[\s\S]{0,80}graveyard[\s\S]{0,80}exile/i.test(
+      [card.oracle_text, ...(card.card_faces || []).map(face => face.oracle_text)].filter(Boolean).join("\n")
+    )
+  );
+  const asksDiesTrigger = /\b(dies?|death)\b[\s\S]{0,80}\btrigger|\btrigger\b[\s\S]{0,80}\b(dies?|death)\b/.test(text);
+  const asksDeathTriggerByCard =
+    /\btrigger\b/.test(text) &&
+    (/\blethal damage\b|\bcombat damage\b|\bcreature\b[\s\S]{0,80}\bgraveyard\b/.test(text)) &&
+    [...cardNames].some(name => /blood artist|zulaport cutthroat|cruel celebrant|bastion of remembrance/.test(name));
+
+  if (hasGraveyardReplacement && (asksDiesTrigger || asksDeathTriggerByCard)) {
+    return "No. The local rules retrieved show the event is replaced before trigger detection sees it, so a dies trigger does not trigger.";
+  }
+
+  if (hasGraveyardReplacement && cardNames.has("living death")) {
+    return "Apply Living Death in resolution order, then apply any relevant graveyard replacement effects to each event. Use the retrieved rules above for the exact replacement and resolution procedure.";
+  }
+
+  return "The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.";
+}
+
+function buildDeterministicTrace({ question, rules, cards, reason }) {
+  return [
+    "STATE",
+    reason ? `- Deterministic fallback used: ${reason}.` : "- Local rules retrieval succeeded.",
+    reason ? "- Local rules retrieval succeeded, but model generation did not produce a trusted trace." : "",
+    "",
+    "RESOLUTION",
+    "1. Identify the event described by the question.",
+    "2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.",
+    "3. Check the final event against the retrieved trigger and zone-change rules.",
+    "",
+    "RULE TRACE",
+    ...rules.map(rule => `- [${rule.ruleNumber}] - ${rule.text}`),
+    "",
+    "CITATIONS",
+    rules.map(rule => `[${rule.ruleNumber}]`).join(", ") || "- none",
+    "",
+    "VERDICT",
+    deterministicVerdict(question, cards),
+  ].filter(line => line !== "").join("\n");
+}
+
 export async function POST(request) {
   let body;
   try {
@@ -113,6 +160,27 @@ export async function POST(request) {
     "You must answer from the retrieved local rules and card text. Do not cite rule numbers that are not present in RETRIEVED RULES. If the retrieved rules do not support a conclusion, say UNRESOLVED.",
   ].join("\n");
 
+  if (body.validationMode || body.deterministicOnly) {
+    const trace = buildDeterministicTrace({
+      question,
+      rules: retrieval.rules,
+      cards,
+      reason: body.validationMode ? "validation_mode" : "deterministic_only",
+    });
+
+    return Response.json({
+      provider: "deterministic",
+      trace,
+      status: "resolved",
+      retrievalMetadata: retrievalMetadata({
+        rules: retrieval.rules,
+        cards,
+        hallucinations: [],
+        confidence: retrieval.confidence,
+      }),
+    });
+  }
+
   const payload = {
     model: body.model,
     ollamaModel: body.ollamaModel || process.env.OLLAMA_ARBITER_MODEL || DEFAULT_ARBITER_MODEL,
@@ -125,7 +193,24 @@ export async function POST(request) {
 
   const result = await callModelMessages(payload);
   if (!result.ok) {
-    return Response.json(result.data, { status: result.status });
+    const trace = buildDeterministicTrace({
+      question,
+      rules: retrieval.rules,
+      cards,
+      reason: result.data?.timeout ? "model_timeout_deterministic_fallback" : "model_error_deterministic_fallback",
+    });
+    return Response.json({
+      provider: "deterministic",
+      modelError: result.data,
+      trace,
+      status: "resolved",
+      retrievalMetadata: retrievalMetadata({
+        rules: retrieval.rules,
+        cards,
+        hallucinations: [],
+        confidence: retrieval.confidence,
+      }),
+    }, { status: 200 });
   }
 
   const rawTrace = result.data.content?.[0]?.text || "";

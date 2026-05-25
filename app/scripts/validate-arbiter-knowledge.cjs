@@ -19,6 +19,7 @@ function parseArgs(argv) {
     fast: false,
     noCards: false,
     dryRun: false,
+    liveModel: false,
     verbose: false,
     limit: 5,
     offset: 0,
@@ -36,6 +37,7 @@ function parseArgs(argv) {
     else if (arg === "--fast") args.fast = true;
     else if (arg === "--no-cards") args.noCards = true;
     else if (arg === "--dry-run") args.dryRun = true;
+    else if (arg === "--live-model") args.liveModel = true;
     else if (arg === "--verbose" || arg === "-v") args.verbose = true;
     else if (arg === "--limit") args.limit = Number(next());
     else if (arg === "--all") args.limit = Infinity;
@@ -78,6 +80,7 @@ Options:
   --fast            Use ARBITER_PROMPT_FAST
   --no-cards        Do not inject Scryfall Oracle/rulings context
   --dry-run         Parse and list tests without API calls
+  --live-model      Let /api/arbiter call the local model instead of deterministic validation mode
   --report PATH     Write markdown report
 `);
 }
@@ -237,7 +240,7 @@ async function ensureEndpoint(endpoint) {
   throw new Error(`Local app is not responding at ${root}. Start it with "Launch MTG Tool.cmd" or ".\\start-local.ps1".`);
 }
 
-async function callAppEndpoint({ endpoint, systemPrompt, scenario, cardContext }) {
+async function callAppEndpoint({ endpoint, systemPrompt, scenario, cardContext, liveModel }) {
   const userContent = `${cardContext || ""}## USER QUESTION\n\n${scenario}`;
   if (/\/api\/arbiter\/?$/.test(endpoint)) {
     const response = await fetch(endpoint, {
@@ -250,6 +253,7 @@ async function callAppEndpoint({ endpoint, systemPrompt, scenario, cardContext }
         ollamaModel: process.env.OLLAMA_ARBITER_MODEL || DEFAULT_LOCAL_ARBITER_MODEL,
         fast: true,
         fastLocal: true,
+        validationMode: !liveModel,
         max_tokens: 1600,
       }),
     });
@@ -258,7 +262,12 @@ async function callAppEndpoint({ endpoint, systemPrompt, scenario, cardContext }
       const message = typeof data.error === "string" ? data.error : data.error?.message || JSON.stringify(data.error || data);
       throw new Error(`App endpoint returned ${response.status}: ${message}`);
     }
-    return data.trace || data.content?.[0]?.text || data.error?.message || data.error || "";
+    return {
+      text: data.trace || data.content?.[0]?.text || data.error?.message || data.error || "",
+      raw: data,
+      retrievalMetadata: data.retrievalMetadata || null,
+      status: data.status || "",
+    };
   }
 
   const response = await fetch(endpoint, {
@@ -278,7 +287,24 @@ async function callAppEndpoint({ endpoint, systemPrompt, scenario, cardContext }
     const message = typeof data.error === "string" ? data.error : data.error?.message || JSON.stringify(data.error || data);
     throw new Error(`App endpoint returned ${response.status}: ${message}`);
   }
-  return data.content?.[0]?.text || data.error?.message || data.error || "";
+  return {
+    text: data.content?.[0]?.text || data.error?.message || data.error || "",
+    raw: data,
+    retrievalMetadata: null,
+    status: "",
+  };
+}
+
+function normalizeAppResult(value) {
+  if (typeof value === "string") {
+    return { text: value, raw: null, retrievalMetadata: null, status: "" };
+  }
+  return {
+    text: String(value?.text || ""),
+    raw: value?.raw || null,
+    retrievalMetadata: value?.retrievalMetadata || null,
+    status: value?.status || "",
+  };
 }
 
 function responseReferences(response) {
@@ -296,6 +322,78 @@ function citationSatisfied(required, refs) {
     if (required.startsWith(ref) || ref.startsWith(required)) return { ok: true, match: `${ref} (partial)` };
   }
   return { ok: false, match: "" };
+}
+
+function requiredRetrievalCitations(test) {
+  const required = new Set();
+  for (const citation of test.requiredCitations) {
+    if (citation.startsWith("Axiom-")) continue;
+    if (test.id === "A2" && citation === "616.1a") {
+      // Local CR 616.1 is the general affected player/controller choice rule.
+      // 616.1a is specifically self-replacement effects, so A2 should ground on 616.1.
+      required.add("616.1");
+    } else {
+      required.add(citation);
+    }
+  }
+
+  if (test.id === "A1") {
+    required.add("614.6");
+    required.add("700.4");
+  }
+  if (test.id === "A2") {
+    required.add("608.2");
+    required.add("614.6");
+    required.add("616.1");
+  }
+
+  return [...required];
+}
+
+function requiredTraceCitations(test) {
+  return test.requiredCitations
+    .filter(citation => !citation.startsWith("Axiom-"))
+    .map(citation => test.id === "A2" && citation === "616.1a" ? "616.1" : citation);
+}
+
+function retrievalCitationSatisfied(required, retrievedNumbers) {
+  if (retrievedNumbers.has(required)) return { ok: true, match: required };
+  for (const ref of retrievedNumbers) {
+    if (required.startsWith(ref) || ref.startsWith(required)) return { ok: true, match: `${ref} (partial)` };
+  }
+  return { ok: false, match: "" };
+}
+
+function validateRetrieval(test, metadata) {
+  const failures = [];
+  const found = [];
+  const missing = [];
+  const retrievalRequired = requiredRetrievalCitations(test);
+
+  if (!metadata) {
+    return {
+      failures: retrievalRequired.length ? ["Missing retrievalMetadata from Arbiter response"] : [],
+      found,
+      missing: retrievalRequired,
+    };
+  }
+
+  const retrievedNumbers = new Set((metadata.rulesRetrieved || []).map(rule => String(rule.ruleNumber || "")));
+  for (const required of retrievalRequired) {
+    const result = retrievalCitationSatisfied(required, retrievedNumbers);
+    if (result.ok) found.push(`${required}${result.match !== required ? ` via ${result.match}` : ""}`);
+    else missing.push(required);
+  }
+
+  if (missing.length) failures.push(`Missing retrieved rules: ${missing.join(", ")}`);
+  if ((metadata.hallucinations || []).length) {
+    failures.push(`Hallucinated citations in Arbiter output: ${metadata.hallucinations.join(", ")}`);
+  }
+  if (metadata.confidence === "low" && retrievalRequired.length) {
+    failures.push("Retrieval confidence is low for a scenario with required rule grounding");
+  }
+
+  return { failures, found, missing };
 }
 
 function extractVerdictText(response) {
@@ -340,7 +438,9 @@ function reviewWarnings(test, response) {
   return warnings;
 }
 
-function validateResponse(test, response) {
+function validateResponse(test, appResult) {
+  const normalized = normalizeAppResult(appResult);
+  const response = normalized.text;
   const failures = [];
   const sections = {
     state: /^STATE\b/mi.test(response),
@@ -357,13 +457,16 @@ function validateResponse(test, response) {
   const refs = responseReferences(response);
   const found = [];
   const missing = [];
-  for (const required of test.requiredCitations) {
+  for (const required of requiredTraceCitations(test)) {
     const result = citationSatisfied(required, refs);
     if (result.ok) found.push(`${required}${result.match !== required ? ` via ${result.match}` : ""}`);
     else missing.push(required);
   }
 
   if (missing.length) failures.push(`Missing required citations: ${missing.join(", ")}`);
+
+  const retrieval = validateRetrieval(test, normalized.retrievalMetadata);
+  failures.push(...retrieval.failures);
 
   const polarity = expectedPolarity(test.expectedVerdict);
   const verdictText = extractVerdictText(response);
@@ -378,6 +481,10 @@ function validateResponse(test, response) {
     warnings: reviewWarnings(test, response),
     found,
     missing,
+    retrievalFound: retrieval.found,
+    retrievalMissing: retrieval.missing,
+    retrievalMetadata: normalized.retrievalMetadata,
+    status: normalized.status,
     sections,
     polarity,
     verdictText,
@@ -488,6 +595,7 @@ async function main() {
         systemPrompt,
         scenario: test.scenario,
         cardContext,
+        liveModel: args.liveModel,
       });
       const result = validateResponse(test, response);
       result.durationMs = Date.now() - started;

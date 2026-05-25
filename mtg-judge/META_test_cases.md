@@ -47,17 +47,19 @@ The **Why this test matters** field on each one explains what specifically the e
 > Three players are in the game. Player A controls [[Anafenza, the Foremost]]. Player B controls [[Rest in Peace]]. Player C casts [[Living Death]]. Player A's graveyard contains [[Phyrexian Arena]] and three creature cards. When Living Death resolves, what happens?
 
 **Expected verdict:**
-- Rest in Peace exiles all graveyards as part of its static replacement *before* Living Death attempts to resolve — but only for cards as they would enter graveyards going forward, not retroactively. Wait — Rest in Peace's continuous effect ("If a card or token would be put into a graveyard from anywhere, exile it instead") applies to events occurring while it's in play. Cards already in graveyards when Rest in Peace entered the battlefield were exiled at that ETB time per the replacement loop.
-- Therefore, when Living Death resolves, all graveyards are empty — no creatures to return, no creatures sacrificed (since no players have creatures on the battlefield except Anafenza and what was already there). Living Death resolves but does nothing.
+- First note the state issue: if Rest in Peace is already on the battlefield and its enter-the-battlefield trigger has resolved, Player A's graveyard should already be empty.
+- Living Death resolves in instruction order. It exiles creature cards currently in graveyards, then each player sacrifices all creatures, then returns only the cards exiled by Living Death's first instruction.
+- As sacrificed creatures would be put into graveyards, Rest in Peace and Anafenza can both apply to applicable nontoken creature cards. If multiple replacement effects apply to the same object, the affected controller/owner/player chooses the order under 616.1; in this case the result is exile either way.
+- Creatures sacrificed during Living Death are not returned, because they were not exiled by Living Death's first instruction.
 
 **Required reasoning:**
-- Identify each replacement effect that could apply: Rest in Peace [614.6c], Anafenza's static for opponents' nontoken creatures [614.6].
-- Identify the affected player for each event — under 616.1a, the affected player chooses the order of multiple replacements applying to the same event.
+- Identify each replacement effect that could apply: Rest in Peace and Anafenza's static for opponents' nontoken creatures [614.6].
+- Identify the affected player for each event — under 616.1, the affected object’s controller, owner, or affected player chooses the order of multiple replacements applying to the same event.
 - Walk through Living Death's resolution step by step (sacrifice all creatures, then return all creature cards from graveyards).
 
-**Required citations:** `[614.6]`, `[616.1a]`, `[608.2]` (resolution sequence).
+**Required citations:** `[614.6]`, `[616.1]`, `[608.2]` (resolution sequence).
 
-**Why this test matters:** Three-way replacement is exactly where pre-engine reasoning fails. The Arbiter must apply 616.1a (controller of affected object/player chooses order) for each individual event during Living Death's resolution. If it gives a blanket answer without acknowledging that the *order* matters and is chosen by the affected player, it's collapsing the formal procedure.
+**Why this test matters:** Three-way replacement is exactly where pre-engine reasoning fails. The Arbiter must apply 616.1 (controller/owner/affected player chooses order) for each individual event during Living Death's resolution. If it gives a blanket answer without acknowledging that the *order* matters and is chosen by the affected player, it's collapsing the formal procedure.
 
 ---
 
@@ -66,17 +68,17 @@ The **Why this test matters** field on each one explains what specifically the e
 **Scenario:**
 > I control my commander [[Atraxa, Praetors' Voice]]. It has one shield counter on it (from [[Shielded by Faith]] or similar). An opponent casts [[Murder]] targeting Atraxa. Atraxa would be destroyed. What happens?
 
-**Expected verdict:** The shield counter is removed; Atraxa is not destroyed; Atraxa remains on the battlefield with no shield counters. The Command Zone replacement (903.9a) never triggers because Atraxa never went to a graveyard.
+**Expected verdict:** The shield counter is removed; Atraxa is not destroyed; Atraxa remains on the battlefield with no shield counters. The Commander command-zone state-based action (903.9a) never applies because Atraxa never went to a graveyard or exile.
 
 **Required reasoning:**
-- Murder's effect: "Destroy target creature." Destruction is a would-event that puts the creature into the graveyard [701.7].
-- Shield counter replacement [122.1g]: "If a permanent with a shield counter would be destroyed, instead remove a shield counter from it and it isn't destroyed."
+- Murder's effect: "Destroy target creature." To destroy a permanent means moving it from the battlefield to its owner's graveyard [701.8a].
+- Shield counter replacement/prevention [122.1c]: one or more shield counters create replacement/prevention effects that remove a shield counter instead of destruction from an effect, or prevent damage and remove a shield counter.
 - Since shield counter is a self-replacing effect on the permanent, it applies. Atraxa is not destroyed.
-- The Command Zone replacement [903.9a] only triggers when a commander *would be put into a graveyard, exile, hand, or library* from anywhere. Since destruction was prevented, no zone-change would-event reaches the replacement stack.
+- The Commander command-zone state-based action [903.9a] only applies after a commander is in a graveyard or exile and was put there since the last time state-based actions were checked. Since destruction was replaced, Atraxa never reaches that zone.
 
-**Required citations:** `[122.1g]`, `[701.7]`, `[903.9a]`.
+**Required citations:** `[122.1c]`, `[701.8a]`, `[903.9a]`.
 
-**Why this test matters:** Commander zone replacement is one of the most-confused rules. The shield counter resolves the destruction before the zone change is ever attempted — Command Zone never comes up. If the Arbiter walks through the Command Zone replacement at all, it's wrong.
+**Why this test matters:** Commander zone movement is one of the most-confused rules. The shield counter replaces the destruction before the zone change is ever attempted — the command-zone state-based action never comes up. If the Arbiter walks through command-zone movement at all, it's wrong.
 
 ---
 
@@ -837,7 +839,7 @@ When multiple replacement effects could apply to the same event, rule 616.1 gove
 **Scenario:**
 > [[Doubling Season]] is on the battlefield (my permanent: doubles tokens and counters my permanents enter with). [[Hardened Scales]] is also mine ("If one or more +1/+1 counters would be put on an artifact or creature you control, that many plus one +1/+1 counters are put on it instead"). I cast [[Walking Ballista]] with X=2. How many +1/+1 counters does it enter with?
 
-**Expected verdict:** 6 counters. Walking Ballista enters with 2 (X). Two replacements modify "would put 2 counters": Doubling Season (doubles → 4) or Hardened Scales (+1 → 3). The affected player (me, controller of Walking Ballista) chooses the order [616.1a].
+**Expected verdict:** 6 counters. Walking Ballista enters with 2 (X). Two replacements modify "would put 2 counters": Doubling Season (doubles → 4) or Hardened Scales (+1 → 3). The affected player (me, controller of Walking Ballista) chooses the order [616.1].
 
 - Order 1: Doubling Season first (2→4), then Hardened Scales (+1 → 5). Result: 5.
 - Order 2: Hardened Scales first (2→3), then Doubling Season (3→6). Result: 6.
@@ -845,11 +847,11 @@ When multiple replacement effects could apply to the same event, rule 616.1 gove
 Optimal: apply Hardened Scales first → 6.
 
 **Required reasoning:**
-- 616.1a: when multiple replacements apply to the same event, the affected player or controller chooses order.
+- 616.1: when multiple replacements apply to the same event, the affected object’s controller, owner, or affected player chooses order.
 - "Affected" object here is Walking Ballista; controller is me; I choose.
 - I will choose the order that produces the most counters.
 
-**Required citations:** `[616.1a]`.
+**Required citations:** `[616.1]`.
 
 **Why this test matters:** Tests the 616 ordering procedure AND that the choosing player optimizes. Common confusion: which replacement applies "first" by default — neither, the player picks.
 
@@ -942,11 +944,11 @@ For X=1: optimal is HS, Pir, DS: 1+1=2+1=3×2=6. Or Pir, HS, DS: 1+1=2+1=3×2=6.
 **Verdict:** 6 counters.
 
 **Required reasoning:**
-- 616.1a: I (controller) choose order of these three replacements.
+- 616.1: I (controller) choose order of these three replacements.
 - Multiplication should come last for maximum.
 - Apply both +1s first, then double.
 
-**Required citations:** `[616.1a]`, `[614.6]`.
+**Required citations:** `[616.1]`, `[614.6]`.
 
 **Why this test matters:** Tests optimization of replacement ordering, a competitive deck-building concern. Engine should walk through the math.
 
