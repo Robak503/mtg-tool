@@ -89,19 +89,17 @@ The **Why this test matters** field on each one explains what specifically the e
 **Scenario:**
 > I have [[Edgar Markov]] in the Command Zone (not cast yet). Eminence says "Whenever you cast another Vampire spell, create a 1/1 black Vampire creature token." I cast [[Bloodghast]]. Does Eminence trigger?
 
-**Expected verdict:** No. Bloodghast is not a Vampire (it's a Vampire Spirit — wait, actually it is a Vampire). Let me reconsider. Bloodghast IS a Vampire Spirit. So Eminence does trigger because Bloodghast is a Vampire spell.
-
-Corrected verdict: **Yes**, Eminence triggers. A 1/1 black Vampire creature token is created when Bloodghast resolves (Eminence is a triggered ability that fires when the spell is cast, and resolves through normal stack procedure).
+**Expected verdict:** Yes. Bloodghast has the type line "Vampire Spirit," so Edgar Markov's Eminence ability triggers when Bloodghast is cast. The 1/1 black Vampire creature token is created when the Eminence trigger resolves.
 
 **Required reasoning:**
-- Eminence is defined as functioning while the commander is in the command zone or on the battlefield [702.106a].
-- Triggered abilities trigger from the zone they currently inhabit — for Eminence, that includes the command zone [603.6 / 702.106].
+- Eminence is an ability word with no dedicated rules meaning; the card's Oracle text states that the ability functions from the command zone or battlefield. Abilities that state which zones they function in function only from those zones [113.6b].
+- Zone-change triggers use 603.6, but this Eminence ability is a cast trigger from a permitted zone, not a zone-change trigger.
 - Bloodghast's type line includes "Vampire Spirit" — it is a Vampire.
 - The trigger fires when the spell is cast. The 1/1 token ETBs after the trigger resolves on the stack.
 
-**Required citations:** `[603.6]`, `[702.106]`.
+**Required citations:** `[113.6b]`.
 
-**Why this test matters:** Commander-specific zone-of-origin tracking for triggers. Pre-engine reasoning sometimes misses that some abilities function in the command zone. The Arbiter must explicitly check the ability's zone permissions (702.106 for Eminence).
+**Why this test matters:** Commander-specific zone-of-origin tracking for triggers. Pre-engine reasoning sometimes misses that some abilities function in the command zone. The Arbiter must explicitly check the ability's zone permissions from card text and 113.6b, not treat Eminence as a keyword rule.
 
 ---
 
@@ -194,7 +192,7 @@ For a state trigger like the planeswalker chapter trigger pattern: once a state 
 - The tax is a cost increase applied to whatever base cost was chosen.
 - So: {WUBRG} (alternative base) + {4} (two previous casts) = {WUBRG} + {4} = total cost.
 
-**Required citations:** `[601.2f]`, `[903.7]`.
+**Required citations:** `[601.2f]`, `[903.8]`.
 
 **Why this test matters:** Commander tax interaction with alternative costs is asked often. The Arbiter must walk through 601.2f's order: choose base cost → apply additional costs (tax) → apply reductions.
 
@@ -228,14 +226,14 @@ For a state trigger like the planeswalker chapter trigger pattern: once a state 
 - Brokkos, as a commander, has the choice (per 903.9a) to be sent to the command zone instead of the graveyard.
 - Auspicious Starrix has no such option — it goes to the graveyard.
 - If the player chooses to send Brokkos to the command zone, only Brokkos moves to the command zone; Starrix goes to the graveyard.
-- Merged permanents separate when leaving the battlefield [729.6].
+- Merged permanents separate when leaving the battlefield [730.3].
 
 **Required reasoning:**
-- Merged permanents are a single permanent on the battlefield but separate cards upon zone change [729.6].
+- Merged permanents are a single permanent on the battlefield but separate cards upon zone change [730.3].
 - Commander replacement effect [903.9a] applies to the commander card individually as it would change zones.
 - The player chooses whether to apply 903.9a for the commander.
 
-**Required citations:** `[729.6]`, `[903.9a]`.
+**Required citations:** `[730.3]`, `[903.9a]`.
 
 **Why this test matters:** Merged permanent + Commander zone replacement is a recent and underexplored interaction. The Arbiter must correctly apply the merge-separation rule and the per-card commander replacement.
 
@@ -246,13 +244,9 @@ For a state trigger like the planeswalker chapter trigger pattern: once a state 
 ## D1. Sacrifice-as-cost with cost reducer
 
 **Scenario:**
-> I control [[Heartless Summoning]] (creatures cost {2} less to cast, enter with -1/-1). I want to cast [[Massacre Wurm]] (6-cost) by sacrificing [[Diligent Excavator]] using [[High Market]]'s ability — wait, that's not relevant. Better example: I want to cast [[Eldritch Evolution]] (cost {2}{G}) by sacrificing a creature. Does Heartless Summoning reduce the cost?
+> I control [[Heartless Summoning]] ("Creature spells you cast cost {2} less to cast"). I want to cast [[Massacre Wurm]] ({4}{B}{B}). Does Heartless Summoning reduce the cost?
 
-**Expected verdict:** No. Heartless Summoning reduces the cost of *creature spells*. Eldritch Evolution is a sorcery, not a creature. No reduction.
-
-For a true sacrifice-as-cost-with-reducer test:
-
-> I want to cast [[Massacre Wurm]] under Heartless Summoning. Does Heartless Summoning reduce the cost? Yes — Massacre Wurm is a creature spell. Cost becomes {2}{B}{B} instead of {2}{2}{B}{B} — wait, original cost is {4}{B}{B}, so reduced to {2}{B}{B}.
+**Expected verdict:** Yes. Massacre Wurm is a creature spell, so Heartless Summoning reduces only the generic portion of its total cost. The cost becomes {2}{B}{B}.
 
 **Required reasoning:**
 - Cost lock-in [601.2f]: total cost is determined by base cost + additional costs + reductions, in that order.
@@ -299,7 +293,7 @@ For a true sacrifice-as-cost-with-reducer test:
 - Glorious Anthem also applies in layer 7c but only to creatures Player B controls.
 - The 2/2 is controlled by Player A, so only Crusade applies. Result: 3/3.
 
-**Required citations:** `[613.3c]`.
+**Required citations:** `[613.4c]`.
 
 **Why this test matters:** Layer 7c with multiple buff effects from different controllers tests whether the engine correctly identifies which effects apply to which creature based on the effect's own qualifiers.
 
@@ -312,16 +306,16 @@ For a true sacrifice-as-cost-with-reducer test:
 **Scenario:**
 > It is currently day. The most recent player (Player A) cast 0 spells last turn. Player B cast 2 spells last turn. Player C cast 1 spell last turn. Player D (the active player) is about to begin their turn. Does it become night?
 
-**Expected verdict:** No. Day/Night transitions check the *previous player's* turn, not the current player's incoming turn. The check happens at the start of the active player's precombat main phase. Day becomes night if the previous player cast no spells during their turn.
+**Expected verdict:** No. Day/Night transitions check the previous turn's active player, not the current player's incoming turn. The check happens during the untap step, immediately after phasing. Day becomes night if the previous turn's active player cast no spells during that turn.
 
-In a 4-player game, "previous player" means the player whose turn just ended — Player C, who cast 1 spell. So day does NOT transition to night [730.3].
+In a 4-player game, the previous turn's active player is the player whose turn just ended — Player C, who cast 1 spell. So day does NOT transition to night [731.2], [731.2a].
 
 **Required reasoning:**
-- Day/Night check [730.3]: at the start of the active player's precombat main phase, the game checks the previous player's spell count.
+- Day/Night check [731.2]: during the untap step, the game checks the previous turn's active player's spell count.
 - "Previous player" is the player whose turn was the immediately prior turn — Player C (cast 1 spell).
 - Day → Night requires the previous player to have cast 0 spells. Player C cast 1, so no transition.
 
-**Required citations:** `[730.3]`.
+**Required citations:** `[731.2]`, `[731.2a]`.
 
 **Why this test matters:** Day/Night in multiplayer is regularly miscounted. The Arbiter must identify the correct "previous player" in 4-player rotation and apply the spell-count check from that player's turn only.
 
@@ -384,7 +378,7 @@ These are the tests most likely to expose engine failure if the prompt isn't tig
 
 **Expected verdict:** No. The replacement effect substitutes "to exile" for "to graveyard." The final event is exile, not death. No "dies" trigger fires. [Axiom 4]
 
-**Required citations:** `[614.6c]`, `[700.4]`, `Axiom 4`.
+**Required citations:** `[614.6]`, `[700.4]`, `Axiom 4`.
 
 **Required output structure:** The Arbiter MUST cite Axiom 4 explicitly. If it answers "the creature is exiled instead of dying" without invoking Axiom 4, it's giving Nissa's answer in the Arbiter's voice — failure.
 
@@ -490,7 +484,7 @@ The cost calculation procedure in 601.2f is one of the most precisely-specified 
 - Commander tax (903.7) is an additional cost: {2} per previous cast from command zone, currently {4} for two prior casts.
 - Total cost (601.2f): base {2}{R}{R} + additional {4} = {6}{R}{R}.
 
-**Required citations:** `[601.2f]`, `[903.7]`.
+**Required citations:** `[601.2f]`, `[903.8]`.
 
 **Why this test matters:** Tests recognition of spell-type-conditional cost increases. A model that confuses Thalia as affecting all spells would tax noncreatures incorrectly.
 
@@ -625,10 +619,10 @@ The layer system (613) is where Magic's rules get genuinely intricate. These tes
 **Required reasoning:**
 - Layer 1 (copy effects): Phyrexian Metamorph becomes a copy of Birds of Paradise, taking its copyable characteristics including base P/T 1/1 [613.1a].
 - Layer 7b would apply if there were a base P/T setting effect — no other applies.
-- Layer 7c (modifiers like +N/+N from anthems): Glorious Anthem applies, +1/+1 [613.3c].
+- Layer 7c (modifiers like +N/+N from anthems): Glorious Anthem applies, +1/+1 [613.4c].
 - Final: 1+1 / 1+1 = 2/2.
 
-**Required citations:** `[613.1a]`, `[613.3c]`.
+**Required citations:** `[613.1a]`, `[613.4c]`.
 
 **Why this test matters:** Verifies the engine applies layers in the documented order rather than just summing modifiers.
 
@@ -647,7 +641,7 @@ The layer system (613) is where Magic's rules get genuinely intricate. These tes
 - This applies in layer 7c.
 - Player A's creatures: +1/+1. Player B's: unaffected by Honor of the Pure (their controller is not Honor's controller).
 
-**Required citations:** `[613.1b]`, `[613.3c]`.
+**Required citations:** `[613.1b]`, `[613.4c]`.
 
 **Why this test matters:** Tests that the engine correctly resolves "you" in static abilities by looking at the ability source's current controller, not its owner.
 
@@ -708,7 +702,7 @@ The layer system (613) is where Magic's rules get genuinely intricate. These tes
 - Both are layer 7c modifiers; both apply. By timestamp or by application of all effects, net is +1-3 = -2.
 - Result: 4-2 / 4-2 = 2/2.
 
-**Required citations:** `[613.3a]`, `[613.3c]`.
+**Required citations:** `[613.4a]`, `[613.4c]`.
 
 **Why this test matters:** Tests proper layer 7 sub-layer ordering (CDAs first, then modifiers) and the additive nature of layer 7c.
 
@@ -727,7 +721,7 @@ The layer system (613) is where Magic's rules get genuinely intricate. These tes
 - Layer 7c (modifiers): Glorious Anthem +1/+1. Result: 2/2.
 - Layer 7d (counters): one +1/+1 counter applies. Result: 3/3.
 
-**Required citations:** `[613.3c]`, `[613.3d]`.
+**Required citations:** `[613.4c]`.
 
 **Why this test matters:** Tests that counters apply in 7d, AFTER static modifiers in 7c. A common error is summing everything without ordering.
 
@@ -746,7 +740,7 @@ The layer system (613) is where Magic's rules get genuinely intricate. These tes
 - Glorious Anthem's controller is opponent; "you control" refers to opponent → my creature is not affected.
 - Only Crusade applies → +1/+1.
 
-**Required citations:** `[613.3c]`, `[613.7]`.
+**Required citations:** `[613.4c]`, `[613.7]`.
 
 **Why this test matters:** Tests that layer 7c effects only apply when their conditions match, and that "you" in static abilities refers to the source's controller.
 
@@ -757,26 +751,14 @@ The layer system (613) is where Magic's rules get genuinely intricate. These tes
 **Scenario:**
 > [[Humility]] (timestamp T1, "all creatures lose abilities and are base 1/1") and [[Opalescence]] (timestamp T2, "non-Aura enchantments become 4/4 creatures") are both on the battlefield. After all effects, what are Humility and Opalescence?
 
-**Expected verdict:** Both are 4/4 creatures with no abilities (1/1 from Humility doesn't apply because Opalescence's later timestamp makes them 4/4 in layer 7b). Wait — let me re-derive carefully.
-
-Actually: **Both are 4/4 with no abilities.** Opalescence applies first (it makes Humility a creature). Then Humility, being a creature, has its ability... but Humility has no abilities of its own that remove other abilities? Yes it does — "all creatures lose abilities."
-
-Let me trace dependencies. Opalescence depends on Humility's layer 4 (whether non-Aura enchantments are creatures depends on whether Humility removed Opalescence's ability). Actually Opalescence's ability adds creature type — that's layer 4. Humility removes abilities in layer 6. They're in different layers, no dependency.
-
-Layer 4 (type-changing): Opalescence makes both Opalescence and Humility (non-Aura enchantments) into creatures.
-Layer 6 (ability removing): Humility removes all abilities from all creatures. Now Opalescence has no abilities — but it already applied in layer 4 (its effect persists).
-Layer 7b (set base P/T): Opalescence sets non-Aura enchantments to 4/4 base. Humility sets all creatures to base 1/1.
-
-**Within layer 7b**, Humility (T1) applies first, then Opalescence (T2). Final: both become 4/4 (Opalescence wins by timestamp).
-
-**Required verdict:** Both Humility and Opalescence are 4/4 creatures with no abilities.
+**Expected verdict:** Both Humility and Opalescence are 4/4 creatures with no abilities. Opalescence applies in layer 4 to make both non-Aura enchantments creatures. Humility applies in layer 6 to remove abilities. In layer 7b, Humility's timestamp applies first, then Opalescence's later timestamp sets the creatures to 4/4.
 
 **Required reasoning:**
 - Layer 4: Opalescence makes Humility and itself into creatures.
 - Layer 6: Humility removes their abilities (Opalescence's ability has already applied in layer 4 — removal in layer 6 doesn't retroact).
 - Layer 7b: both effects set base P/T. Timestamp order: Humility (T1) then Opalescence (T2). Later timestamp wins. Both end up 4/4.
 
-**Required citations:** `[613.3b]`, `[613.7]`, `[613.1d]`, `[613.1f]`.
+**Required citations:** `[613.4b]`, `[613.7]`, `[613.1d]`, `[613.1f]`.
 
 **Why this test matters:** The Humility+Opalescence interaction is the canonical "layer ordering matters" puzzle in Magic. If the engine gets this wrong, layer logic is unreliable.
 
@@ -824,7 +806,7 @@ Use the non-symmetrical version for clearer test. Let me restate:
 - Layer 7c (modifiers): Anthem +1/+1 → 2/4.
 - Layer 7e (switch): switching applies last → 4/2.
 
-**Required citations:** `[613.3c]`, `[613.3e]`.
+**Required citations:** `[613.4c]`, `[613.4d]`.
 
 **Why this test matters:** Switch effects are 7e — the very last sublayer. A naive answer might apply switch before the buff (giving 3/2 instead of 4/2).
 
@@ -860,18 +842,6 @@ Optimal: apply Hardened Scales first → 6.
 ## L2. Self-replacing effects bypass the 616 choice
 
 **Scenario:**
-> [[Lifelink]] grants "the source's controller gains that much life when this deals damage." A creature with lifelink deals 4 damage and the controller has [[Sanguine Bond]] also out ("Whenever you gain life, target opponent loses that much life"). Wait — Sanguine Bond is a trigger, not a replacement. Let me redo.
-
-**Better:** I control [[Aetherflux Reservoir]] (gain 1 life for each spell cast this turn) and [[Sphinx's Tutelage]] (whenever I draw a card, target opponent mills 2). I cast [[Blue Sun's Zenith]] with X=3 targeting myself ("Draw X cards"). What happens during resolution?
-
-Actually this isn't a 616 question either. Let me reformulate L2:
-
-**Scenario (correct):**
-> [[Leyline of Punishment]] ("Damage can't be prevented") is on the battlefield. My opponent attempts to cast [[Prevent the Tide]] — wait, doesn't exist. Use: My opponent casts [[Healing Salve]] choosing "prevent 3 damage" mode. Does prevention work?
-
-Hmm. Let me try once more with a clearer self-replacing case:
-
-**Scenario (final):**
 > I control [[Vexing Shusher]] ("Spells you cast can't be countered"). I cast [[Lightning Bolt]] targeting an opponent's creature. Opponent casts [[Counterspell]] targeting Lightning Bolt. Does it counter?
 
 **Expected verdict:** No, Lightning Bolt cannot be countered due to Vexing Shusher's static ability. Counterspell will resolve but its "counter target spell" effect cannot apply to Lightning Bolt. Per 608.2b, if all targets become illegal during resolution, the spell is countered by the rules; here, the target was legal at cast time but the effect "counter target spell" cannot execute on an uncounterable target. Counterspell does nothing; Lightning Bolt continues to resolve.
@@ -1153,9 +1123,7 @@ These tests probe combat damage assignment, the first-strike step, and how multi
 **Scenario:**
 > A 4/4 creature with lifelink attacks me. I block with a 2/2. Both deal combat damage. How much life does the attacker's controller gain?
 
-**Expected verdict:** 4 life. Lifelink causes the controller of a source with lifelink to gain life equal to the damage the source deals [702.15b]. The attacker deals 4 damage total: 2 to my blocker (the 2/2 dies), and trample? No, no trample. With no trample and a 2/2 blocker, the attacker assigns at least 2 to the blocker. With only 1 blocker, the attacker can assign... wait, if there's only one blocker, all damage to the blocker (no trample). So 4 damage to the 2/2 (overkill), 0 to player. Lifelink: 4 life gained.
-
-Actually corrected: with 1 blocker and no trample, all 4 damage goes to the blocker. The 2/2 dies and only 2 of the damage was needed; the other 2 is wasted. Lifelink works on damage dealt, not lethal — so 4 life.
+**Expected verdict:** 4 life. With one blocker and no trample, all 4 combat damage is assigned to the blocker. Lifelink cares about damage actually dealt by the source, not only the amount needed for lethal damage, so the attacking creature's controller gains 4 life.
 
 **Required reasoning:**
 - 702.15b: lifelink — damage dealt by source with lifelink causes its controller to gain life equal to that damage.
@@ -1173,14 +1141,12 @@ Actually corrected: with 1 blocker and no trample, all 4 damage goes to the bloc
 **Scenario:**
 > I attack with a 5/5 with deathtouch. Opponent blocks with three 2/2 creatures. How much damage do I need to assign to each blocker?
 
-**Expected verdict:** 1 damage each for deathtouch is enough (deathtouch makes any damage from a creature with deathtouch "lethal"). So 1+1+1 = 3 damage, all three blockers die. 2 damage left over — wait, with no trample, the remaining 2 doesn't go to the player. The remaining 2 is wasted on... actually, by 702.2c, "with deathtouch, 1 damage is considered lethal" for assignment purposes.
+**Expected verdict:** At least 1 damage must be assigned to each blocker before the attacker can assign additional damage later in the damage assignment order. Because the attacker has deathtouch, 1 damage is considered lethal for assignment purposes. With no trample, no damage is assigned to the defending player.
 
 **Required reasoning:**
 - 702.2c: deathtouch — any nonzero damage to a creature is enough to satisfy the "assign at least lethal" requirement.
 - 1 damage to each of 3 blockers = 3 damage assigned.
-- Remaining 2 damage: if no trample, the attacker must assign it in order... actually the rule says they CAN assign more, but the assignment order has been satisfied. The leftover is assigned at the attacker's discretion to a blocker still in the order (or wasted).
-
-Actually corrected: After meeting "at least lethal" with deathtouch's 1-damage rule, the attacker can assign remaining damage to blockers in order. The 2 leftover goes to one of them (or distributed). All blockers die regardless.
+- After meeting "at least lethal" with deathtouch's 1-damage rule, the attacker assigns the remaining 2 damage among blockers according to the damage assignment order. All three blockers die regardless.
 
 **Required citations:** `[702.2c]`, `[510.1c]`.
 
@@ -1193,14 +1159,14 @@ Actually corrected: After meeting "at least lethal" with deathtouch's 1-damage r
 **Scenario:**
 > An opponent's 3/3 attacks. I declare a 2/2 as blocker. Before damage is dealt, the attacker's controller casts [[Smite the Monstrous]] killing my blocker. What happens in the damage step?
 
-**Expected verdict:** The blocker is dead before damage. The 3/3 attacker is still attacking (it's not blocked anymore? actually it was blocked at declare-blockers, that doesn't change). Per 510.1d: if a blocker leaves the battlefield, the attacker is treated as if not blocked for damage UNLESS another blocker remains. With my only blocker dead, the 3/3 is effectively unblocked — it deals 3 to me.
+**Expected verdict:** The blocker is gone before combat damage. The attacker remains a blocked creature because it was blocked during the declare blockers step. With no blocker still present and no trample, the attacker assigns no combat damage to the defending player.
 
 **Required reasoning:**
 - 509.1: blocker is declared at declare-blockers step.
-- 510.1d: if all blockers are destroyed/removed before damage, the attacker deals combat damage as if unblocked.
-- 3 damage to me.
+- 510.1c: if the attacking creature is blocked but no creatures are currently blocking it, it assigns no combat damage unless an effect such as trample allows assignment to the defending player.
+- No damage is dealt to me.
 
-**Required citations:** `[509.1]`, `[510.1d]`.
+**Required citations:** `[509.1]`, `[510.1c]`.
 
 **Why this test matters:** Mid-combat removal is common. The exact rule "as if unblocked" is what determines damage destination. Common mistake: "it's still blocked, damage is wasted."
 
@@ -1289,14 +1255,10 @@ Actually: 704.5d says "if a token is in a zone other than the battlefield, that 
 
 ---
 
-## O3. Token copy of a card with kicker
+## O3. Copy of a card with evoke
 
 **Scenario:**
-> I cast [[Verdurous Gearhulk]] WITHOUT kicker. Then I cast [[Saheeli's Artistry]] copying Verdurous Gearhulk. Does the token copy have counters as if kicker had been paid?
-
-Wait, Verdurous Gearhulk doesn't have kicker. Better example: I cast [[Aether Vial]]'s ability putting a creature directly into play (no kicker option for Vial). Bad example.
-
-**Real example:** I cast [[Spitebellows]] (4/1, has evoke). I evoke it (paying alternative cost), it deals 6 damage to a creature, then it dies due to evoke's "when this enters, sacrifice it." Now I cast [[Mirror Image]] copying Spitebellows. Does the Mirror Image also have the evoke trigger?
+> I cast [[Spitebellows]] for its evoke cost. Later, I cast [[Mirror Image]] copying Spitebellows. Does Mirror Image also get sacrificed as though it was evoked?
 
 **Expected verdict:** Mirror Image becomes a copy of Spitebellows, copying its printed characteristics including the evoke trigger. However, Mirror Image was not cast by paying evoke's alternative cost (it was cast normally). The "if you evoked it, sacrifice" trigger only fires when the creature was evoked — Mirror Image was not. So the sacrifice doesn't happen.
 
@@ -1340,14 +1302,14 @@ Wait, Verdurous Gearhulk doesn't have kicker. Better example: I cast [[Aether Vi
 **Scenario:**
 > It is my opponent's end step. I have [[Jace, the Mind Sculptor]] on the battlefield. Can I activate one of his loyalty abilities right now?
 
-**Expected verdict:** No. Loyalty abilities can be activated only as sorceries [606.5] — only during one of your main phases when the stack is empty.
+**Expected verdict:** No. Loyalty abilities can be activated only at sorcery speed [606.3] — only during one of your main phases when the stack is empty.
 
 **Required reasoning:**
-- 606.5: loyalty abilities follow sorcery-speed timing restriction.
+- 606.3: loyalty abilities follow sorcery-speed timing restriction.
 - "Sorcery speed" = your main phase, stack empty.
 - It's opponent's end step → not my main phase → cannot activate.
 
-**Required citations:** `[606.5]`, `[307.1]`.
+**Required citations:** `[606.3]`, `[307.1]`.
 
 **Why this test matters:** Basic timing restriction. If the engine doesn't enforce sorcery-speed for loyalty, planeswalker rules are broken.
 
@@ -1358,13 +1320,13 @@ Wait, Verdurous Gearhulk doesn't have kicker. Better example: I cast [[Aether Vi
 **Scenario:**
 > I control [[Liliana, the Last Hope]] on my main phase. I activate her -2 ability targeting a creature. Can I activate her +1 ability in the same turn?
 
-**Expected verdict:** No. A player may activate only one loyalty ability of each planeswalker each turn [606.5b].
+**Expected verdict:** No. A player may activate only one loyalty ability of each permanent each turn, at sorcery speed [606.3].
 
 **Required reasoning:**
 - 606.5b: "A planeswalker's loyalty ability may be activated only any time its controller could cast a sorcery, and only if no loyalty ability of that planeswalker has been activated this turn."
 - One loyalty ability per turn per planeswalker.
 
-**Required citations:** `[606.5b]`.
+**Required citations:** `[606.3]`.
 
 **Why this test matters:** Common rule. Easy to verify; if the engine misses this, planeswalker rules are broken.
 
@@ -1375,11 +1337,7 @@ Wait, Verdurous Gearhulk doesn't have kicker. Better example: I cast [[Aether Vi
 **Scenario:**
 > Opponent's [[Wrath of God]] is resolving. My creatures are being destroyed. Before they die (during resolution), can I tap one of them for mana to cast something?
 
-**Expected verdict:** No. During resolution, no player has priority [608.2]. Mana abilities CAN be activated without priority, BUT only when a player is in the middle of casting a spell or activating an ability — not during another spell's resolution.
-
-Wait — let me reread. 605.3a: mana abilities can be activated "whenever a player has priority" or "when a player is in the process of casting a spell or activating an ability requiring a mana payment."
-
-So during another spell's resolution, neither condition is met. Can't activate.
+**Expected verdict:** No. During another spell's resolution, no player has priority [608.2]. Mana abilities can be activated without using the stack, but 605.3a permits that only when a player has priority or is in the process of casting a spell or activating an ability that requires a mana payment. Neither condition is true during Wrath of God's resolution.
 
 **Required reasoning:**
 - 605.3a defines when mana abilities can be activated.
@@ -1494,13 +1452,7 @@ But: there's no "once per turn" restriction. If Mind Stone is untapped at some p
 **Scenario:**
 > I cast [[Master of Etherium]] (an artifact creature) — wait, no as-enters. Use [[Engineered Explosives]] (X is chosen as it enters): I cast it with X=2. While it's resolving, can opponent's [[Force of Will]] counter it?
 
-**Expected verdict:** No. Once the spell is resolving, it cannot be countered (counterspells target spells on the stack). During resolution, no priority [608.2]. The X choice happens at casting (601.2b), not during resolution.
-
-But wait — [[Engineered Explosives]] is "with X charge counters." Is X chosen at casting or as it enters?
-
-Looking at Oracle text: "Engineered Explosives enters with X charge counters on it." The X here is in the casting cost (Engineered Explosives is {X}), and X for the counter count equals the X paid in the cost. X is chosen at 601.2b during casting.
-
-**Expected verdict:** X is locked at casting. Force of Will targets a spell ON THE STACK. Force of Will could be cast while Engineered Explosives is on the stack (before resolution) and counter it. After EE begins resolving, no — too late.
+**Expected verdict:** X is locked at casting under 601.2b. Force of Will targets a spell on the stack, so it can counter Engineered Explosives before it begins resolving. Once Engineered Explosives is resolving, no player has priority and it is too late to cast Force of Will.
 
 **Required reasoning:**
 - X chosen at 601.2b.
@@ -1601,7 +1553,7 @@ These tests cover keyword mechanics with non-obvious rule interactions: cascade,
 - The merged permanent has the top card's name, mana cost, type line, and P/T.
 - It has the abilities of every card in the merged stack.
 
-**Required citations:** `[702.139]`, `[729.6]` (merged permanents).
+**Required citations:** `[702.140]`, `[730.3]` (merged permanents).
 
 **Why this test matters:** Mutate is uncommon but the merge rules are specific. Tests engine understanding of merged permanent identity.
 

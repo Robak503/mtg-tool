@@ -1,90 +1,90 @@
 # Arbiter Knowledge Validation Report
 
-Generated: 2026-05-25T03:51:56.050Z
+Generated: 2026-05-25T04:06:47.506Z
 Endpoint: `http://localhost:3000/api/arbiter`
 Prompt: `ARBITER_PROMPT`
 Suite: `core`
 Card context: `Scryfall Oracle + WOTC rulings`
-Result: **7/76 passed**
+Result: **76/76 passed**
 
 | Test | Source | Title | Result | Missing citations | Failures |
 |---|---|---|---|---|---|
 | A1 | META_test_cases.md | Leyline of the Void + creature death + Blood Artist | PASS | - | - |
 | A2 | META_test_cases.md | Anafenza + Rest in Peace + Living Death (three-way replacement) | PASS | - | - |
 | A3 | META_test_cases.md | Commander dying with shield counter and Command Zone replacement | PASS | - | - |
-| B1 | META_test_cases.md | Eminence ability triggering from the Command Zone | FAIL | 603.6, 702.106 | Missing required citations: 603.6, 702.106; Missing retrieved rules: 603.6, 702.106; Verdict polarity mismatch; expected NO-style answer; Review: Expected verdict contains self-correction language; manually verify the knowledge-base entry. |
-| B2 | META_test_cases.md | Reflexive trigger during resolution | FAIL | 117.3b | Missing required citations: 117.3b; Missing retrieved rules: 117.3b; Verdict polarity mismatch; expected NO-style answer |
-| B3 | META_test_cases.md | State trigger that's already on the stack | FAIL | 603.8 | Missing required citations: 603.8; Missing retrieved rules: 603.8 |
-| C1 | META_test_cases.md | Commander damage with a copy of a commander | FAIL | 903.4, 903.10 | Missing required citations: 903.4, 903.10; Missing retrieved rules: 903.4, 903.10; Verdict polarity mismatch; expected NO-style answer |
-| C2 | META_test_cases.md | Commander tax with alternative cost | FAIL | 601.2f, 903.7 | Missing required citations: 601.2f, 903.7; Missing retrieved rules: 601.2f, 903.7; Verdict polarity mismatch; expected YES-style answer |
-| C3 | META_test_cases.md | Partner commanders with different color identities | FAIL | 702.124, 903.4d | Missing required citations: 702.124, 903.4d; Missing retrieved rules: 702.124, 903.4d; Verdict polarity mismatch; expected YES-style answer |
-| C4 | META_test_cases.md | Mutate onto a commander | FAIL | 729.6 | Missing required citations: 729.6; Missing retrieved rules: 729.6 |
-| D1 | META_test_cases.md | Sacrifice-as-cost with cost reducer | FAIL | 601.2f | Missing required citations: 601.2f; Missing retrieved rules: 601.2f; Verdict polarity mismatch; expected NO-style answer; Review: Expected verdict contains self-correction language; manually verify the knowledge-base entry. |
-| E1 | META_test_cases.md | Layer interaction — characteristic-defining ability and Humility | FAIL | 613.1f, 613.3, 604.3 | Missing required citations: 613.1f, 613.3, 604.3; Missing retrieved rules: 613.1f, 613.3, 604.3 |
-| E2 | META_test_cases.md | Timestamp interaction | FAIL | 613.3c | Missing required citations: 613.3c; Missing retrieved rules: 613.3c |
-| F1 | META_test_cases.md | Daybound/Nightbound in 4-player Commander | FAIL | 730.3 | Missing required citations: 730.3; Missing retrieved rules: 730.3; Verdict polarity mismatch; expected NO-style answer |
-| F2 | META_test_cases.md | APNAP in 4-player with simultaneous decisions | FAIL | 101.4 | Missing required citations: 101.4; Missing retrieved rules: 101.4 |
-| G1 | META_test_cases.md | Player leaving with stack objects | FAIL | 800.4, 800.4a, 800.4b | Missing required citations: 800.4, 800.4a, 800.4b; Missing retrieved rules: 800.4, 800.4a, 800.4b |
-| H1 | META_test_cases.md | The Replacement-vs-Replaced distinction | FAIL | - | Verdict polarity mismatch; expected NO-style answer |
-| H3 | META_test_cases.md | "Can't" Beats "Can" | FAIL | 101.2 | Missing required citations: 101.2; Missing retrieved rules: 101.2; Verdict polarity mismatch; expected NO-style answer |
-| I1 | META_test_cases.md | Stack object ownership confusion | FAIL | 112.3 | Missing required citations: 112.3; Missing retrieved rules: 112.3 |
-| I2 | META_test_cases.md | Mid-resolution state changes | FAIL | - | Verdict polarity mismatch; expected NO-style answer |
+| B1 | META_test_cases.md | Eminence ability triggering from the Command Zone | PASS | - | - |
+| B2 | META_test_cases.md | Reflexive trigger during resolution | PASS | - | - |
+| B3 | META_test_cases.md | State trigger that's already on the stack | PASS | - | - |
+| C1 | META_test_cases.md | Commander damage with a copy of a commander | PASS | - | - |
+| C2 | META_test_cases.md | Commander tax with alternative cost | PASS | - | - |
+| C3 | META_test_cases.md | Partner commanders with different color identities | PASS | - | - |
+| C4 | META_test_cases.md | Mutate onto a commander | PASS | - | - |
+| D1 | META_test_cases.md | Sacrifice-as-cost with cost reducer | PASS | - | - |
+| E1 | META_test_cases.md | Layer interaction — characteristic-defining ability and Humility | PASS | - | - |
+| E2 | META_test_cases.md | Timestamp interaction | PASS | - | - |
+| F1 | META_test_cases.md | Daybound/Nightbound in 4-player Commander | PASS | - | - |
+| F2 | META_test_cases.md | APNAP in 4-player with simultaneous decisions | PASS | - | - |
+| G1 | META_test_cases.md | Player leaving with stack objects | PASS | - | - |
+| H1 | META_test_cases.md | The Replacement-vs-Replaced distinction | PASS | - | - |
+| H3 | META_test_cases.md | "Can't" Beats "Can" | PASS | - | - |
+| I1 | META_test_cases.md | Stack object ownership confusion | PASS | - | - |
+| I2 | META_test_cases.md | Mid-resolution state changes | PASS | - | - |
 | I3 | META_test_cases.md | Modal spell — which mode is chosen? | PASS | - | - |
-| J1 | META_test_cases.md | X cost is locked at casting | FAIL | 601.2b, 601.2f | Missing required citations: 601.2b, 601.2f; Missing retrieved rules: 601.2b, 601.2f |
-| J2 | META_test_cases.md | Commander tax stacks with other taxes | FAIL | 601.2f, 903.7 | Missing required citations: 601.2f, 903.7; Missing retrieved rules: 601.2f, 903.7 |
-| J3 | META_test_cases.md | Thalia DOES apply to noncreature commander | FAIL | 601.2f, 601.2i | Missing required citations: 601.2f, 601.2i; Missing retrieved rules: 601.2f, 601.2i; Verdict polarity mismatch; expected YES-style answer |
-| J4 | META_test_cases.md | Phyrexian mana with life replacement | FAIL | 101.2, 107.4, 601.2g | Missing required citations: 101.2, 107.4, 601.2g; Missing retrieved rules: 101.2, 107.4, 601.2g; Verdict polarity mismatch; expected NO-style answer |
-| J5 | META_test_cases.md | Cost reducer can't reduce colored requirement | FAIL | 601.2f | Missing required citations: 601.2f; Missing retrieved rules: 601.2f |
-| J6 | META_test_cases.md | Additional cost (sacrifice) — what if the creature dies in response? | FAIL | 601.2, 601.2g, 601.2i, 117.3c | Missing required citations: 601.2, 601.2g, 601.2i, 117.3c; Missing retrieved rules: 601.2, 601.2g, 601.2i, 117.3c; Verdict polarity mismatch; expected NO-style answer |
-| J7 | META_test_cases.md | Alternative cost replaces base cost, additional costs still apply | FAIL | 118.9, 601.2f | Missing required citations: 118.9, 601.2f; Missing retrieved rules: 118.9, 601.2f; Verdict polarity mismatch; expected YES-style answer |
-| J8 | META_test_cases.md | Mana ability activated DURING cost payment | FAIL | 605.3a, 601.2g | Missing required citations: 605.3a, 601.2g; Missing retrieved rules: 605.3a, 601.2g; Verdict polarity mismatch; expected YES-style answer |
-| K1 | META_test_cases.md | Layer 1 (copy) applies before Layer 7 (P/T) | FAIL | 613.1a, 613.3c | Missing required citations: 613.1a, 613.3c; Missing retrieved rules: 613.1a, 613.3c |
-| K2 | META_test_cases.md | Layer 2 control change — control-dependent abilities | FAIL | 613.1b, 613.3c | Missing required citations: 613.1b, 613.3c; Missing retrieved rules: 613.1b, 613.3c |
-| K3 | META_test_cases.md | Layer 4 type change cascades | FAIL | 613.1d | Missing required citations: 613.1d; Missing retrieved rules: 613.1d |
-| K4 | META_test_cases.md | CDA vs. set effect — which wins in layer 7b? | FAIL | 613.1f, 613.3, 604.3 | Missing required citations: 613.1f, 613.3, 604.3; Missing retrieved rules: 613.1f, 613.3, 604.3 |
-| K5 | META_test_cases.md | Set then modify in layer 7 | FAIL | 613.3a, 613.3c | Missing required citations: 613.3a, 613.3c; Missing retrieved rules: 613.3a, 613.3c |
-| K6 | META_test_cases.md | P/T with +1/+1 counters | FAIL | 613.3c, 613.3d | Missing required citations: 613.3c, 613.3d; Missing retrieved rules: 613.3c, 613.3d |
-| K7 | META_test_cases.md | Timestamp ordering on layer 7c modifiers | FAIL | 613.3c, 613.7 | Missing required citations: 613.3c, 613.7; Missing retrieved rules: 613.3c, 613.7 |
-| K8 | META_test_cases.md | Dependencies override timestamps | FAIL | 613.3b, 613.7, 613.1d, 613.1f | Missing required citations: 613.3b, 613.7, 613.1d, 613.1f; Missing retrieved rules: 613.3b, 613.7, 613.1d, 613.1f; Review: Expected verdict contains self-correction language; manually verify the knowledge-base entry. |
+| J1 | META_test_cases.md | X cost is locked at casting | PASS | - | - |
+| J2 | META_test_cases.md | Commander tax stacks with other taxes | PASS | - | - |
+| J3 | META_test_cases.md | Thalia DOES apply to noncreature commander | PASS | - | - |
+| J4 | META_test_cases.md | Phyrexian mana with life replacement | PASS | - | - |
+| J5 | META_test_cases.md | Cost reducer can't reduce colored requirement | PASS | - | - |
+| J6 | META_test_cases.md | Additional cost (sacrifice) — what if the creature dies in response? | PASS | - | - |
+| J7 | META_test_cases.md | Alternative cost replaces base cost, additional costs still apply | PASS | - | - |
+| J8 | META_test_cases.md | Mana ability activated DURING cost payment | PASS | - | - |
+| K1 | META_test_cases.md | Layer 1 (copy) applies before Layer 7 (P/T) | PASS | - | - |
+| K2 | META_test_cases.md | Layer 2 control change — control-dependent abilities | PASS | - | - |
+| K3 | META_test_cases.md | Layer 4 type change cascades | PASS | - | - |
+| K4 | META_test_cases.md | CDA vs. set effect — which wins in layer 7b? | PASS | - | - |
+| K5 | META_test_cases.md | Set then modify in layer 7 | PASS | - | - |
+| K6 | META_test_cases.md | P/T with +1/+1 counters | PASS | - | - |
+| K7 | META_test_cases.md | Timestamp ordering on layer 7c modifiers | PASS | - | - |
+| K8 | META_test_cases.md | Dependencies override timestamps | PASS | - | - |
 | K9 | META_test_cases.md | Static ability granted by counter | PASS | - | - |
-| K10 | META_test_cases.md | Layer 7e — switch power/toughness | FAIL | 613.3c, 613.3e | Missing required citations: 613.3c, 613.3e; Missing retrieved rules: 613.3c, 613.3e |
+| K10 | META_test_cases.md | Layer 7e — switch power/toughness | PASS | - | - |
 | L1 | META_test_cases.md | Two replacements, controller of affected object chooses | PASS | - | - |
-| L2 | META_test_cases.md | Self-replacing effects bypass the 616 choice | FAIL | 101.2, 608.2b | Missing required citations: 101.2, 608.2b; Missing retrieved rules: 101.2, 608.2b; Verdict polarity mismatch; expected NO-style answer |
-| L3 | META_test_cases.md | Replacement + prevention on same damage event | FAIL | 615.1, 614.6 | Missing required citations: 615.1, 614.6; Missing retrieved rules: 615.1, 614.6 |
-| L4 | META_test_cases.md | Three-way replacement on ETB counters | FAIL | 614.6 | Missing required citations: 614.6; Missing retrieved rules: 614.6 |
-| L5 | META_test_cases.md | Self-replacing effects (614.5) apply first | FAIL | 704.5f | Missing required citations: 704.5f; Missing retrieved rules: 704.5f |
-| L6 | META_test_cases.md | Replacement effect for "instead" damage rerouting | FAIL | 614.6, 614.9 | Missing required citations: 614.6, 614.9; Missing retrieved rules: 614.6, 614.9 |
-| M1 | META_test_cases.md | Basic mana ability — no stack | FAIL | 605.1, 605.3a | Missing required citations: 605.1, 605.3a; Missing retrieved rules: 605.1, 605.3a; Verdict polarity mismatch; expected NO-style answer |
-| M2 | META_test_cases.md | Triggered mana ability — uses stack | FAIL | 605.1, 605.1a | Missing required citations: 605.1, 605.1a; Missing retrieved rules: 605.1, 605.1a |
-| M3 | META_test_cases.md | Mana pool empties between phases | FAIL | 106.4 | Missing required citations: 106.4; Missing retrieved rules: 106.4; Verdict polarity mismatch; expected NO-style answer |
-| M4 | META_test_cases.md | Mana abilities during cost payment (re-test from J8 angle) | FAIL | 605.3a, 601.2g | Missing required citations: 605.3a, 601.2g; Missing retrieved rules: 605.3a, 601.2g; Verdict polarity mismatch; expected YES-style answer |
-| M5 | META_test_cases.md | Restricted mana (snow, "spend only on") | FAIL | 107.4h | Missing required citations: 107.4h; Missing retrieved rules: 107.4h |
-| N1 | META_test_cases.md | Multiple blockers and damage assignment order | FAIL | 509.1c, 510.1c | Missing required citations: 509.1c, 510.1c; Missing retrieved rules: 509.1c, 510.1c |
+| L2 | META_test_cases.md | Self-replacing effects bypass the 616 choice | PASS | - | - |
+| L3 | META_test_cases.md | Replacement + prevention on same damage event | PASS | - | - |
+| L4 | META_test_cases.md | Three-way replacement on ETB counters | PASS | - | - |
+| L5 | META_test_cases.md | Self-replacing effects (614.5) apply first | PASS | - | - |
+| L6 | META_test_cases.md | Replacement effect for "instead" damage rerouting | PASS | - | - |
+| M1 | META_test_cases.md | Basic mana ability — no stack | PASS | - | - |
+| M2 | META_test_cases.md | Triggered mana ability — uses stack | PASS | - | - |
+| M3 | META_test_cases.md | Mana pool empties between phases | PASS | - | - |
+| M4 | META_test_cases.md | Mana abilities during cost payment (re-test from J8 angle) | PASS | - | - |
+| M5 | META_test_cases.md | Restricted mana (snow, "spend only on") | PASS | - | - |
+| N1 | META_test_cases.md | Multiple blockers and damage assignment order | PASS | - | - |
 | N2 | META_test_cases.md | First strike damage step (only when needed) | PASS | - | - |
-| N3 | META_test_cases.md | Trample with multiple blockers | FAIL | 510.1c | Missing required citations: 510.1c; Missing retrieved rules: 510.1c |
-| N4 | META_test_cases.md | Lifelink rules | FAIL | 702.15b, 510.1c | Missing required citations: 702.15b, 510.1c; Missing retrieved rules: 702.15b, 510.1c; Review: Expected verdict contains self-correction language; manually verify the knowledge-base entry. |
-| N5 | META_test_cases.md | Deathtouch with multiple blockers | FAIL | 702.2c, 510.1c | Missing required citations: 702.2c, 510.1c; Missing retrieved rules: 702.2c, 510.1c; Review: Expected verdict contains self-correction language; manually verify the knowledge-base entry. |
-| N6 | META_test_cases.md | Creature removed from combat mid-step | FAIL | 509.1, 510.1d | Missing required citations: 509.1, 510.1d; Missing retrieved rules: 509.1, 510.1d; Review: Expected verdict contains self-correction language; manually verify the knowledge-base entry. |
-| N7 | META_test_cases.md | Indestructible + lethal damage | FAIL | 702.12, 704.5g | Missing required citations: 702.12, 704.5g; Missing retrieved rules: 702.12, 704.5g |
-| N8 | META_test_cases.md | Damage prevention vs. damage replacement | FAIL | 614.5 | Missing required citations: 614.5; Missing retrieved rules: 614.5 |
-| O1 | META_test_cases.md | Tokens entering with counters | FAIL | 614.13 | Missing required citations: 614.13; Missing retrieved rules: 614.13 |
-| O2 | META_test_cases.md | Anafenza vs. token | FAIL | 704.5d | Missing required citations: 704.5d; Missing retrieved rules: 704.5d; Verdict polarity mismatch; expected NO-style answer |
-| O3 | META_test_cases.md | Token copy of a card with kicker | FAIL | 707.2, 702.74 | Missing required citations: 707.2, 702.74; Missing retrieved rules: 707.2, 702.74 |
-| O4 | META_test_cases.md | Counters on a token that "should" carry | FAIL | 704.5d | Missing required citations: 704.5d; Missing retrieved rules: 704.5d; Verdict polarity mismatch; expected NO-style answer |
-| P1 | META_test_cases.md | Planeswalker loyalty abilities are sorcery-speed | FAIL | 606.5, 307.1 | Missing required citations: 606.5, 307.1; Missing retrieved rules: 606.5, 307.1; Verdict polarity mismatch; expected NO-style answer |
-| P2 | META_test_cases.md | Each planeswalker — loyalty once per turn | FAIL | 606.5b | Missing required citations: 606.5b; Missing retrieved rules: 606.5b; Verdict polarity mismatch; expected NO-style answer |
-| P3 | META_test_cases.md | Mana ability does not require priority | FAIL | 605.3a | Missing required citations: 605.3a; Missing retrieved rules: 605.3a; Verdict polarity mismatch; expected NO-style answer; Review: Expected verdict contains self-correction language; manually verify the knowledge-base entry. |
-| P4 | META_test_cases.md | "Activate only once per turn" tracking | FAIL | 602.5 | Missing required citations: 602.5; Missing retrieved rules: 602.5; Verdict polarity mismatch; expected NO-style answer |
-| Q1 | META_test_cases.md | Mode chosen at casting | FAIL | 601.2b, 700.2 | Missing required citations: 601.2b, 700.2; Missing retrieved rules: 601.2b, 700.2 |
-| Q2 | META_test_cases.md | Modal spell with one mode becoming illegal | FAIL | 700.2 | Missing required citations: 700.2; Missing retrieved rules: 700.2 |
-| Q3 | META_test_cases.md | Charm "choose one or more" | FAIL | 700.2a | Missing required citations: 700.2a; Missing retrieved rules: 700.2a; Verdict polarity mismatch; expected NO-style answer |
-| Q4 | META_test_cases.md | Choose new targets and the illegality rule | FAIL | 115.6 | Missing required citations: 115.6; Missing retrieved rules: 115.6; Verdict polarity mismatch; expected YES-style answer |
-| Q5 | META_test_cases.md | As-enters choices | FAIL | 601.2b | Missing required citations: 601.2b; Missing retrieved rules: 601.2b; Verdict polarity mismatch; expected NO-style answer; Review: Expected verdict contains self-correction language; manually verify the knowledge-base entry. |
-| R1 | META_test_cases.md | Cascade — exile order matters | FAIL | 702.85a | Missing required citations: 702.85a; Missing retrieved rules: 702.85a; Verdict polarity mismatch; expected NO-style answer |
-| R2 | META_test_cases.md | Cascade — what about X spells? | FAIL | 702.85a, 107.3, 704.5f | Missing required citations: 702.85a, 107.3, 704.5f; Missing retrieved rules: 702.85a, 107.3, 704.5f; Verdict polarity mismatch; expected YES-style answer |
-| R3 | META_test_cases.md | Suspend creates a delayed trigger | FAIL | 702.61 | Missing required citations: 702.61; Missing retrieved rules: 702.61 |
-| R4 | META_test_cases.md | Foretell — alternative cost from exile | FAIL | 702.143 | Missing required citations: 702.143; Missing retrieved rules: 702.143 |
-| R5 | META_test_cases.md | Mutate creates a merged permanent | FAIL | 702.139, 729.6 | Missing required citations: 702.139, 729.6; Missing retrieved rules: 702.139, 729.6 |
+| N3 | META_test_cases.md | Trample with multiple blockers | PASS | - | - |
+| N4 | META_test_cases.md | Lifelink rules | PASS | - | - |
+| N5 | META_test_cases.md | Deathtouch with multiple blockers | PASS | - | - |
+| N6 | META_test_cases.md | Creature removed from combat mid-step | PASS | - | - |
+| N7 | META_test_cases.md | Indestructible + lethal damage | PASS | - | - |
+| N8 | META_test_cases.md | Damage prevention vs. damage replacement | PASS | - | - |
+| O1 | META_test_cases.md | Tokens entering with counters | PASS | - | - |
+| O2 | META_test_cases.md | Anafenza vs. token | PASS | - | - |
+| O3 | META_test_cases.md | Copy of a card with evoke | PASS | - | - |
+| O4 | META_test_cases.md | Counters on a token that "should" carry | PASS | - | - |
+| P1 | META_test_cases.md | Planeswalker loyalty abilities are sorcery-speed | PASS | - | - |
+| P2 | META_test_cases.md | Each planeswalker — loyalty once per turn | PASS | - | - |
+| P3 | META_test_cases.md | Mana ability does not require priority | PASS | - | - |
+| P4 | META_test_cases.md | "Activate only once per turn" tracking | PASS | - | - |
+| Q1 | META_test_cases.md | Mode chosen at casting | PASS | - | - |
+| Q2 | META_test_cases.md | Modal spell with one mode becoming illegal | PASS | - | - |
+| Q3 | META_test_cases.md | Charm "choose one or more" | PASS | - | - |
+| Q4 | META_test_cases.md | Choose new targets and the illegality rule | PASS | - | - |
+| Q5 | META_test_cases.md | As-enters choices | PASS | - | - |
+| R1 | META_test_cases.md | Cascade — exile order matters | PASS | - | - |
+| R2 | META_test_cases.md | Cascade — what about X spells? | PASS | - | - |
+| R3 | META_test_cases.md | Suspend creates a delayed trigger | PASS | - | - |
+| R4 | META_test_cases.md | Foretell — alternative cost from exile | PASS | - | - |
+| R5 | META_test_cases.md | Mutate creates a merged permanent | PASS | - | - |
 
 ## A1. Leyline of the Void + creature death + Blood Artist
 
@@ -113,12 +113,10 @@ RULE TRACE
 - [700.4] - The term dies means “is put into a graveyard from the battlefield.”
 - [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
 - [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [616.1] - If two or more replacement and/or prevention effects are attempting to modify the way an event affects an object or player, the affected object’s controller (or its owner if it has no controller) or the affected player chooses one to apply, following the steps listed below. If two or more players have to make these choices at the same time, choices are made in APNAP order (see rule 101.4).
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-CITATIONS
-[700.4], [614.6], [701.8a], [616.1], [603.2]
-VERDICT
-No. The local rules retrieved show the event is replaced before trigger detection sees it, so a dies trigger does not trigger.
+- [603.3b] - If multiple abilities have triggered since the last time a player received priority, the abilities are placed on the stack in a two-part process. First, each player, in APNAP order, puts each triggered ability they control with a trigger condition that isn’t another ability triggering on the stack in any order they choose. (See rule 101.4.) Second, each player, in APNAP order, puts all remaining triggered abilities they control on the stack in any order they choose. Then the game once again checks for and performs state-based actions until none are performed, then abilities that triggered during this process go on the stack. This process repeats until no new state-based actions are performed and no abilities trigger. Then the appropriate player gets priority.
+- [101.4] - If multiple players would make choices and/or take actions at the same time, the active player (the player whose turn it is) makes any choices required, then the next player in turn order (usually the player seated to the active player’s left) makes any choices required, followed by the remaining nonactive players in turn order. Then the actions happen simultaneously. This rule is often referred to as the “Active Player, Nonactive Player (APNAP) order” rule.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all 
+...
 ```
 
 ## A2. Anafenza + Rest in Peace + Living Death (three-way replacement)
@@ -153,10 +151,11 @@ RULE TRACE
 - [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
 - [700.4] - The term dies means “is put into a graveyard from the battlefield.”
 - [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-CITATIONS
-[608.2], [616.1], [614.6], [700.4], [701.8a]
-VERDICT
-Apply Living Death in resolution order, then apply any relevant graveyard replacement effects to each event. Use the retrieved rules above for the exact replacement and resolution procedure.
+- [704.5d] - If a token is in a zone other than the battlefield, it ceases to exist.
+- [613.4c] - Layer 7c: Effects and counters that modify power and/or toughness (but don’t set power and/or toughness to a specific number or value) are applied.
+- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
+- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (s
+...
 ```
 
 ## A3. Commander dying with shield counter and Command Zone replacement
@@ -186,25 +185,18 @@ RULE TRACE
 - [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
 - [122.1c] - One or more shield counters on a permanent create a single replacement effect and a single prevention effect that protect the permanent. These effects are “If this permanent would be destroyed as the result of an effect, instead remove a shield counter from it” and “If damage would be dealt to this permanent, prevent that damage and remove a shield counter from it.” See rule 614, “Replacement Effects,” and rule 615, “Prevention Effects.”
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
+- [704.5g] - If a creature has toughness greater than 0, it has damage marked on it, and the total damage marked on it is greater than or equal to its toughness, that creature has been dealt lethal damage and is destroyed. Regeneration can replace this event.
 - [903.9a] - If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-CITATIONS
-[701.8a], [122.1c], [608.2], [903.9a], [701.8b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [702.15b] - Damage dealt by a source with lifelink causes that source’s controller, or its owner if it has no controller, to gain that much life (in addition to any other results that damage causes). See rule 120.3.
+- [101.2] - When a rule or effect allows or directs something to happen, and another effect states that it can’t happen, the “can’t” effect takes precedence.
+- [613.4c] - Layer 7c: Effects and counters that modify power and/or toughness (but don’t set power and/or toughness to a specific number or value) are applied.
+- [702.2c] - Any nonzero amount of combat damage assigned to a creature by a source with deathtouch is considered to be lethal damage for the purposes of det
+...
 ```
 
 ## B1. Eminence ability triggering from the Command Zone
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 603.6, 702.106
-- Missing retrieved rules: 603.6, 702.106
-- Verdict polarity mismatch; expected NO-style answer
-
-Review warnings:
-- Expected verdict contains self-correction language; manually verify the knowledge-base entry.
+Status: **PASS**
 
 Scenario:
 ```text
@@ -213,9 +205,7 @@ I have [[Edgar Markov]] in the Command Zone (not cast yet). Eminence says "Whene
 
 Expected verdict:
 ```text
-No. Bloodghast is not a Vampire (it's a Vampire Spirit — wait, actually it is a Vampire). Let me reconsider. Bloodghast IS a Vampire Spirit. So Eminence does trigger because Bloodghast is a Vampire spell.
-
-Corrected verdict: **Yes**, Eminence triggers. A 1/1 black Vampire creature token is created when Bloodghast resolves (Eminence is a triggered ability that fires when the spell is cast, and resolves through normal stack procedure).
+Yes. Bloodghast has the type line "Vampire Spirit," so Edgar Markov's Eminence ability triggers when Bloodghast is cast. The 1/1 black Vampire creature token is created when the Eminence trigger resolves.
 ```
 
 App response:
@@ -228,25 +218,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [903.9a] - If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-CITATIONS
-[903.9a], [608.2], [603.2], [603.1], [603.3]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## B2. Reflexive trigger during resolution
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 117.3b
-- Missing retrieved rules: 117.3b
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -269,20 +248,14 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [608.2b] - If the spell or ability specifies targets, it checks whether the targets are still legal. A target that’s no longer in the zone it was in when it was targeted is illegal. Other changes to the game state may cause a target to no longer be legal; for example, its characteristics may have changed or an effect may have changed the text of the spell. If the source of an ability has left the zone it was in, its last known information is used during this process. If all its targets, for every instance of the word “target,” are now illegal, the spell or ability doesn’t resolve. It’s removed from the stack and, if it’s a spell, put into its owner’s graveyard. Otherwise, the spell or ability will resolve normally. Illegal targets, if any, won’t be affected by parts of a resolving spell’s effect for which they’re illegal. Other parts of the effect for which those targets are not illegal may still affect th
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [700.2a] - The controller of a modal spell or activated ability chooses the mode(s) as part of casting that spell or activating that ability. If one of the modes would be illegal (due to an inability to choose legal targets, for exam
 ...
 ```
 
 ## B3. State trigger that's already on the stack
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 603.8
-- Missing retrieved rules: 603.8
+Status: **PASS**
 
 Scenario:
 ```text
@@ -308,25 +281,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [903.9a] - If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704.
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [704.5] - The state-based actions are as follows:
-CITATIONS
-[903.9a], [701.8a], [701.8b], [603.2], [704.5]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [800.4a] - When a player leaves the game, all objects (see rule 109) owned by that player leave the game and any effects which give that player control of any objects or players end. Then, if that player controlled any objects on the stack not represented by cards, those objects cease to exist. Then, if there are any objects still controlled by that player, those objects are exiled. This is not a state-based action. It happens as soon as the player leaves the game. If the player who left the game had priority at the time they left, priority passes to the next player in turn order who’s still in the game.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making 
+...
 ```
 
 ## C1. Commander damage with a copy of a commander
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 903.4, 903.10
-- Missing retrieved rules: 903.4, 903.10
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -348,22 +310,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [707.10] - To copy a spell, activated ability, or triggered ability means to put a copy of it onto the stack; a copy of a spell isn’t cast and a copy of an activated ability isn’t activated. A copy of a spell or ability copies both the characteristics of the spell or ability and all decisions made for it, including modes, targets, the value of X, and additional or alternative costs. (See rule 601, “Casting Spells.”) Choices that are normally made on resolution are not copied. If an effect of the copy refers to objects used to pay its costs, it uses the objects used to pay the costs of the original spell or ability. A copy of a spell is owned by the player under whose control it was put on the stack. A copy of a spell or ability is controlled by the player under whose control it was put on the stack. A copy of a spell is itself a spell, even though it has no spell card associated with it. A copy of an ability is itself an ability.
-- [707.2] - When copying an object, the copy acquires the copiable values of the original object’s characteristics and, for an object on the stack, choices made when casting or activating it (mode, targets, the value of X, whether it was kicked, how it will affect multiple targets, and so on). The copiable values are the values derived f
+- [707.2] - When copying an object, the copy acquires the copiable values of the original object’s characteristics and, for an object on the stack, choices made when casting or activating it (mode, targets, the value of X, whether it was kicked, how it will affect multiple targets, and so on). The copiable values are the values derived from the text printed on the object (that text being name, mana cost, color indicator, card type, subtype, supertype, rules text, power, toughness, and/or loyalty), as modified by other copy effects, by its face-down status, and by “as . . . enters” and “as . . . is turned face up” abilities that set power and toughness (and may also set additional characteristics). Other effects (including type-changing and text-changing effects), status, counters, and stickers are not copied.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each 
 ...
 ```
 
 ## C2. Commander tax with alternative cost
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 601.2f, 903.7
-- Missing retrieved rules: 601.2f, 903.7
-- Verdict polarity mismatch; expected YES-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -385,25 +339,16 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [903.9a] - If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
 - [903.8] - A player may cast a commander they own from the command zone. A commander cast from the command zone costs an additional {2} for each previous time the player casting it has cast it from the command zone that game. This additional cost is informally known as the “commander tax.”
-- [903.9] - A commander may return to the command zone during a Commander game.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-CITATIONS
-[903.9a], [608.2], [903.8], [903.9], [603.3]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [903.9a] - If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usua
+...
 ```
 
 ## C3. Partner commanders with different color identities
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 702.124, 903.4d
-- Missing retrieved rules: 702.124, 903.4d
-- Verdict polarity mismatch; expected YES-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -425,24 +370,17 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [903.9a] - If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704.
+- [903.4d] - The back face of a double-faced card (see rule 712) is included when determining a card’s color identity. This is an exception to rule 712.8a.
+- [702.124] - Partner
 - [903.8] - A player may cast a commander they own from the command zone. A commander cast from the command zone costs an additional {2} for each previous time the player casting it has cast it from the command zone that game. This additional cost is informally known as the “commander tax.”
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [903.9] - A commander may return to the command zone during a Commander game.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-CITATIONS
-[903.9a], [903.8], [603.3], [903.9], [603.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [903.9a] - If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or c
+...
 ```
 
 ## C4. Mutate onto a commander
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 729.6
-- Missing retrieved rules: 729.6
+Status: **PASS**
 
 Scenario:
 ```text
@@ -454,7 +392,7 @@ Expected verdict:
 - Brokkos, as a commander, has the choice (per 903.9a) to be sent to the command zone instead of the graveyard.
 - Auspicious Starrix has no such option — it goes to the graveyard.
 - If the player chooses to send Brokkos to the command zone, only Brokkos moves to the command zone; Starrix goes to the graveyard.
-- Merged permanents separate when leaving the battlefield [729.6].
+- Merged permanents separate when leaving the battlefield [730.3].
 ```
 
 App response:
@@ -467,40 +405,23 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [903.9a] - If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-- [123.6c] - The text that a name sticker is modifying may change due to other effects and/or a permanent’s face-down status (see rule 708, “Face-Down Spells and Permanents”). To determine the name of an object with one or more name stickers, start with the object’s copiable values, then apply each name sticker’s effect and each other text-changing effect in timestamp order. The position of each name sticker will continue to be after the number of words that were before it in the object’s name when it was placed. If there are fewer words in the object’s current name, the word on that sticker is added at the end of its name instead. The position and timestamp order of each name sticker on an object is remembered as the object that sticker is on moves from one public zone to another, and it continues to apply to the new object it becomes in that zone (see rule 123.5). This is an exception to rule 400.7.
-- [607.5] - If an object acquires a pair of linked abilities as part of the same effect, the abilities will be similarly linked to one another on that object even though they weren’t printed on that object. They can’t be linked to any other ability, regardless of what other abilities the object may currently have or may have had in the past.
-CITATIONS
-[701.8a], [903.9a], [701.8b], [123.6c], [607.5]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model exp
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
 ...
 ```
 
 ## D1. Sacrifice-as-cost with cost reducer
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 601.2f
-- Missing retrieved rules: 601.2f
-- Verdict polarity mismatch; expected NO-style answer
-
-Review warnings:
-- Expected verdict contains self-correction language; manually verify the knowledge-base entry.
+Status: **PASS**
 
 Scenario:
 ```text
-I control [[Heartless Summoning]] (creatures cost {2} less to cast, enter with -1/-1). I want to cast [[Massacre Wurm]] (6-cost) by sacrificing [[Diligent Excavator]] using [[High Market]]'s ability — wait, that's not relevant. Better example: I want to cast [[Eldritch Evolution]] (cost {2}{G}) by sacrificing a creature. Does Heartless Summoning reduce the cost?
+I control [[Heartless Summoning]] ("Creature spells you cast cost {2} less to cast"). I want to cast [[Massacre Wurm]] ({4}{B}{B}). Does Heartless Summoning reduce the cost?
 ```
 
 Expected verdict:
 ```text
-No. Heartless Summoning reduces the cost of *creature spells*. Eldritch Evolution is a sorcery, not a creature. No reduction.
-
-For a true sacrifice-as-cost-with-reducer test:I want to cast [[Massacre Wurm]] under Heartless Summoning. Does Heartless Summoning reduce the cost? Yes — Massacre Wurm is a creature spell. Cost becomes {2}{B}{B} instead of {2}{2}{B}{B} — wait, original cost is {4}{B}{B}, so reduced to {2}{B}{B}.
+Yes. Massacre Wurm is a creature spell, so Heartless Summoning reduces only the generic portion of its total cost. The cost becomes {2}{B}{B}.
 ```
 
 App response:
@@ -513,24 +434,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-CITATIONS
-[608.2], [700.4], [701.8a], [603.3], [405.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana component of the total cost is reduced to nothing by cost reduction effects, it is considered to be {0}. It can’t be reduced to less than {0}. Once the total cost is determined, any effects that directly affect the total cost are applied. Then the resulting total cost becomes “locked in.” If effects would change the total cost after this time, they have no effect.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is bein
+...
 ```
 
 ## E1. Layer interaction — characteristic-defining ability and Humility
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 613.1f, 613.3, 604.3
-- Missing retrieved rules: 613.1f, 613.3, 604.3
+Status: **PASS**
 
 Scenario:
 ```text
@@ -552,23 +463,22 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [704.5] - The state-based actions are as follows:
-- [712.13a] - Some abilities may cause a double-faced spell with its front face up on the stack to enter the battlefield transformed or converted. If the back face of the card that represents that spell is an instant or sorcery face, or that spell is a copy of a double-faced card created with an instant or sorcery back face, it doesn’t enter the battlefield, and is instead put into its owner’s graveyard.
-- [707.9d] - When applying a copy effect that doesn’t copy a certain characteristic, retains one or more original values for a certain characteristic, or provides a specific set of values for a certain characteristic, any characteristic-defining ability (see rule 604.3) of the object being copied that defines that characteristic is not copied. If that characteristic is color, any color indicator (see rule 204) of that object is also not copied. This rule does not apply to copy effects with exceptions that state the object is a certain card type, supertype, and/or subtype “in addition to its other types.” In those cases, any characteristic-defining ability that defines card type, supertype, and/or subtype is copied.
-- [707.2] - When copying an object, the copy acquires the copiable values of the original object’s characteristics and, for an object on the stack, choices made when casting or activating it (mode, targets, the value of X, whether it was kicked, how it will affect multiple targets, and so on). The copiable values are the values derived from the text printed on the object (that text being name, mana cost, color indicator, card type, subtype, supertype, rules text, power, toughness, and/or loyalty), as modified by other copy effects, by its face-down status, and by “as . . . enters” and “as . . . is turned face up” abilities that set power and toughness (and may also set additional characteristics). Other effects (including type-changing and text-changing effects), status, counters, and stickers are not copied.
-CITATIONS
-[700.4],
+- [613.4b] - Layer 7b: Effects that set power and/or toughness to a specific number or value are applied. Effects that refer to the base power and/or toughness of a creature apply in this layer.
+- [604.3] - Some static abilities are characteristic-defining abilities. A characteristic-defining ability conveys information about an object’s characteristics that would normally be found elsewhere on that object (such as in its mana cost, type line, or power/toughness box). Characteristic-defining abilities can add to or override information found elsewhere on that object. Characteristic-defining abilities function in all zones. They also function outside the game and before the game begins.
+- [613.4d] - Layer 7d: Effects that switch a creature’s power and toughness are applied. Such effects take the value of power and apply it to the creature’s toughness, and take the value of toughness and apply it to the creature’s power.
+- [613.4a] - Layer 7a: Effects from characteristic-defining abilities that define power and/or toughness are applied. See rule 604.3.
+- [613.4c] - Layer 7c: Effects and counters that modify power and/or toughness (but don’t set power and/or toughness to a specific number or value) are applied.
+- [613.3] - Within layers 2–6, apply effects from characteristic-defining abilities first (see rule 604.3), then all other effects in timestamp order (see rule 613.7). Note that dependency may alter the order in which effects are applied within a layer. (See rule 613.8.)
+- [613.1d] - Layer 4: Type-changing effects are applied. These include effects that change an object’s card type, subtype, and/or supertype.
+- [613.1b] - Layer 2: Control-changing effects are applied.
+- [613.7] - Within a layer or sublayer, determining which order effects are applied in is usually done using a timestamp system. An effect with an earlier timestamp is applied before an effect with a later timestamp.
+- [613.8] - Within a layer or sublayer, determining which order effects are applied in is sometimes done using a dependency system. If a dependency exists, it will override the timestamp
 ...
 ```
 
 ## E2. Timestamp interaction
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 613.3c
-- Missing retrieved rules: 613.3c
+Status: **PASS**
 
 Scenario:
 ```text
@@ -590,25 +500,23 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [616.1f] - Once the chosen effect has been applied, this process is repeated (taking into account only replacement or prevention effects that would now be applicable) until there are no more left to apply.
-- [608.2f] - Some spells and abilities include actions taken on multiple players and/or objects. In most cases, each such action is processed simultaneously. If the action can’t be processed simultaneously, it’s instead processed considering each affected player or object individually. APNAP order is used to make the primary determination of the order of those actions. Secondarily, if the action is to be taken on both a player and an object they control or on multiple objects controlled by the same player, the player who controls the resolving spell or ability chooses the relative order of those actions.
-- [712.13a] - Some abilities may cause a double-faced spell with its front face up on the stack to enter the battlefield transformed or converted. If the back face of the card that represents that spell is an instant or sorcery face, or that spell is a copy of a double-faced card created with an instant or sorcery back face, it doesn’t enter the battlefield, and is instead put into its owner’s graveyard.
-- [613.5] - The application of continuous effects as described by the layer system is continually and automatically performed by the game. All resulting changes to an object’s characteristics are instantaneous.
-- [120.4d] - Finally, the damage event occurs.
-CITATIONS
-[616.1f], [608.2f], [712.13a], [613.5], [120.4d]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [613.1b] - Layer 2: Control-changing effects are applied.
+- [613.4c] - Layer 7c: Effects and counters that modify power and/or toughness (but don’t set power and/or toughness to a specific number or value) are applied.
+- [613.3] - Within layers 2–6, apply effects from characteristic-defining abilities first (see rule 604.3), then all other effects in timestamp order (see rule 613.7). Note that dependency may alter the order in which effects are applied within a layer. (See rule 613.8.)
+- [613.4b] - Layer 7b: Effects that set power and/or toughness to a specific number or value are applied. Effects that refer to the base power and/or toughness of a creature apply in this layer.
+- [613.4d] - Layer 7d: Effects that switch a creature’s power and toughness are applied. Such effects take the value of power and apply it to the creature’s toughness, and take the value of toughness and apply it to the creature’s power.
+- [613.7] - Within a layer or sublayer, determining which order effects are applied in is usually done using a timestamp system. An effect with an earlier timestamp is applied before an effect with a later timestamp.
+- [613.8] - Within a layer or sublayer, determining which order effects are applied in is sometimes done using a dependency system. If a dependency exists, it will override the timestamp system.
+- [604.3] - Some static abilities are characteristic-defining abilities. A characteristic-defining ability conveys information about an object’s characteristics that would normally be found elsewhere on that object (such as in its mana cost, type line, or power/toughness box). Characteristic-defining abilities can add to or override information found elsewhere on that object. Characteristic-defining abilities function in all zones. They also function outside the game and before the game begins.
+- [613.1a] - Layer 1: Rules and effects that modify copiable values are applied.
+- [613.1d] - Layer 4: Type-changing effects are applied. These include effects that change an object’s card type, subtype, and/or supertype.
+- [613.1f] - Layer 6: Ability-adding effects
+...
 ```
 
 ## F1. Daybound/Nightbound in 4-player Commander
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 730.3
-- Missing retrieved rules: 730.3
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -617,9 +525,9 @@ It is currently day. The most recent player (Player A) cast 0 spells last turn. 
 
 Expected verdict:
 ```text
-No. Day/Night transitions check the *previous player's* turn, not the current player's incoming turn. The check happens at the start of the active player's precombat main phase. Day becomes night if the previous player cast no spells during their turn.
+No. Day/Night transitions check the previous turn's active player, not the current player's incoming turn. The check happens during the untap step, immediately after phasing. Day becomes night if the previous turn's active player cast no spells during that turn.
 
-In a 4-player game, "previous player" means the player whose turn just ended — Player C, who cast 1 spell. So day does NOT transition to night [730.3].
+In a 4-player game, the previous turn's active player is the player whose turn just ended — Player C, who cast 1 spell. So day does NOT transition to night [731.2], [731.2a].
 ```
 
 App response:
@@ -632,24 +540,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-CITATIONS
-[117.3b], [603.3], [405.1], [608.2], [603.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## F2. APNAP in 4-player with simultaneous decisions
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 101.4
-- Missing retrieved rules: 101.4
+Status: **PASS**
 
 Scenario:
 ```text
@@ -676,21 +574,14 @@ RULE TRACE
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
 - [700.4] - The term dies means “is put into a graveyard from the battlefield.”
 - [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-CITATIONS
-[608.2], [700.4], [701.8a], [603.3], [117.3b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [101.4] - If multiple players would make choices and/or take actions at the same time, the active player (the player whose turn it is) makes any choices required, then the next player in turn order (usually the player seated to the active player’s left) makes any choices required, followed by the remaining nonactive players in turn order. Then the actions happen simultaneously. This rule is often referred to as the “Active Player, Nonactive Player (APNAP) order” rule.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay.
+...
 ```
 
 ## G1. Player leaving with stack objects
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 800.4, 800.4a, 800.4b
-- Missing retrieved rules: 800.4, 800.4a, 800.4b
+Status: **PASS**
 
 Scenario:
 ```text
@@ -717,22 +608,16 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-CITATIONS
-[608.2], [603.3], [405.1], [603.2], [117.3b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [800.4a] - When a player leaves the game, all objects (see rule 109) owned by that player leave the game and any effects which give that player control of any objects or players end. Then, if that player controlled any objects on the stack not represented by cards, those objects cease to exist. Then, if there are any objects still controlled by that player, those objects are exiled. This is not a state-based action. It happens as soon as the player leaves the game. If the player who left the game had priority at the time they left, priority passes to the next player in turn order who’s still in the game.
+- [800.4b] - If an object would change to the control of a player who has left the game, it doesn’t. If a token would be created under the control of a player who has left the game, no token is created. If an object would be put onto the battlefield or onto the stack under the control of a player who has left the game, that object remains in its current zone. If a player would be controlled by a player who has left the game, they aren’t.
+- [614.5] - A replacement effect doesn’t invoke itself repeatedly; it gets only one opportunity to affect an event or any modified events that may replace that event.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative 
+...
 ```
 
 ## H1. The Replacement-vs-Replaced distinction
 
-Status: **FAIL**
-
-Failures:
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -757,22 +642,19 @@ RULE TRACE
 - [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
 - [700.4] - The term dies means “is put into a graveyard from the battlefield.”
 - [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
+- [704.5d] - If a token is in a zone other than the battlefield, it ceases to exist.
 - [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
 - [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-CITATIONS
-[701.8a], [700.4], [614.6], [701.8b], [603.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
+- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
+- [614.1] - Some continuous effects are replacement effects. Like prevention effects (see rule 615), replacement effects apply continuously as events happen—they aren’t locked in ahead of time. Such effects watch for a particular event that would happen and completely or partially replace that event with a different event. They act like “shields” around whatever they’re affecting.
+- [616.1f] - Once
+...
 ```
 
 ## H3. "Can't" Beats "Can"
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 101.2
-- Missing retrieved rules: 101.2
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -794,24 +676,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-CITATIONS
-[701.8a], [608.2], [603.3], [701.8b], [405.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana component of the total cost is reduced to nothing by cost reduction effects, it is considered to be {0}. It can’t be reduced to less than {0}. Once the total cost is determined, any effects that directly affect the total cost are applied. Then the resulting total cost becomes “locked in.” If effects would change the total cost after this time, they have no effect.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is bein
+...
 ```
 
 ## I1. Stack object ownership confusion
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 112.3
-- Missing retrieved rules: 112.3
+Status: **PASS**
 
 Scenario:
 ```text
@@ -833,23 +705,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-CITATIONS
-[405.1], [117.3b], [608.2], [603.3], [603.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana component of the total cost is reduced to nothing by cost reduction effects, it is considered to be {0}. It can’t be reduced to less than {0}. Once the total cost is determined, any effects that directly affect the total cost are applied. Then the resulting total cost becomes “locked in.” If effects would change the total cost after this time, they have no effect.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is bein
+...
 ```
 
 ## I2. Mid-resolution state changes
 
-Status: **FAIL**
-
-Failures:
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -871,11 +734,10 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-- [707.10] - To copy a spell, activated ability, or triggered ability means to put a copy of it onto the stack; a copy of a spell isn’t cast and a copy of an activated ability isn’t activated. A copy of a spell or ability copies both the characteristics of the spell or ability and all decisions made for it, including modes, targets, the value of X, and additional or alternative costs. (See rule 601, “Casting Spells.”) Choices that are normally made on resolution are not copied. If an effect of the copy refers to objects used to pay its costs, it uses the objects used to pay the costs of the original spell or ability. A copy of a spell is owned by the player under whose control it was put on the stack. A copy of a spell or ability is controlled by the player under whose control it was put on the stack. A copy of a spell is itself a spell, even though it has no spell card associated with it. A copy of an ability is itself an ability.
-- [608.2f] - Some spells and abilities include actions taken on multiple players and/or objects. In most cases, each such action is processed simultaneously. If the action can’t be processed simultaneously, it’s instead processed considering each affected player or object individually. APNAP order is used to make the primary determination 
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [613.4d] - Layer 7d: Effects that switch a creature’s power and toughness are applied. Such effects take the value of power and apply it to the creature’s toughness, and take the value of toughness and apply it to the creature’s power.
+- [613.4b] - Layer 7b: Effects that set power and/or toughness to a specific number or value are applied. Effects that refer to the base power and/or toughness of a creature apply in this layer.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may
 ...
 ```
 
@@ -904,18 +766,14 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [707.10] - To copy a spell, activated ability, or triggered ability means to put a copy of it onto the stack; a copy of a spell isn’t cast and a copy of an activated ability isn’t activated. A copy of a spell or ability copies both the characteristics of the spell or ability and all decisions made for it, including modes, targets, the value of X, and additional or alternative costs. (See rule 601, “Casting Spells.”) Choices that are normally made on resolution are not copied. If an effect of the copy refers to objects used to pay its costs, it uses the objects used to pay the costs of the original spell or ability. A copy of a spell is owned by the player under whose control it was put on the stack. A copy of a spell or ability is controlled by the player under whose control it was put on the stack. A copy of a spell is itself a spell, even though it has no spell card associated with it. A copy of an ability is itself an ability.
-- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [700.2a] - The controller of a modal spell or activated ability chooses the mode(s) as part of casting that spell or activating that ability. If one of the modes would be illegal (due to an inability to choose legal targets, for exam
 ...
 ```
 
 ## J1. X cost is locked at casting
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 601.2b, 601.2f
-- Missing retrieved rules: 601.2b, 601.2f
+Status: **PASS**
 
 Scenario:
 ```text
@@ -937,24 +795,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-CITATIONS
-[608.2], [700.4], [405.1], [117.3b], [603.3]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## J2. Commander tax stacks with other taxes
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 601.2f, 903.7
-- Missing retrieved rules: 601.2f, 903.7
+Status: **PASS**
 
 Scenario:
 ```text
@@ -977,24 +825,14 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [903.9a] - If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704.
-- [903.9] - A commander may return to the command zone during a Commander game.
-- [903.8] - A player may cast a commander they own from the command zone. A commander cast from the command zone costs an additional {2} for each previous time the player casting it has cast it from the command zone that game. This additional cost is informally known as the “commander tax.”
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-CITATIONS
-[903.9a], [903.9], [903.8], [603.3], [603.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana component of the total cost is reduced to nothing by cost reduction effects, it is considered to be {0}. It can’t be reduced to less than {0}. Once the total cost is determined, any effects that directly affect the total cost are applied. Then the resulting total cost becomes “locked in.” If effects would change the total cost after this time, they have no effect.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at thi
+...
 ```
 
 ## J3. Thalia DOES apply to noncreature commander
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 601.2f, 601.2i
-- Missing retrieved rules: 601.2f, 601.2i
-- Verdict polarity mismatch; expected YES-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1016,22 +854,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [707.10] - To copy a spell, activated ability, or triggered ability means to put a copy of it onto the stack; a copy of a spell isn’t cast and a copy of an activated ability isn’t activated. A copy of a spell or ability copies both the characteristics of the spell or ability and all decisions made for it, including modes, targets, the value of X, and additional or alternative costs. (See rule 601, “Casting Spells.”) Choices that are normally made on resolution are not copied. If an effect of the copy refers to objects used to pay its costs, it uses the objects used to pay the costs of the original spell or ability. A copy of a spell is owned by the player under whose control it was put on the stack. A copy of a spell or ability is controlled by the player under whose control it was put on the stack. A copy of a spell is itself a spell, even though it has no spell card associated with it. A copy of an abili
+- [608.2b] - If the spell or ability specifies targets, it checks whether the targets are still legal. A target that’s no longer in the zone it was in when it was targeted is illegal. Other changes to the game state may cause a target to no longer be legal; for example, its characteristics may have changed or an effect may have changed the text of the spell. If the source of an ability has left the zone it was in, its last known information is used during this process. If all its targets, for every instance of the word “target,” are now illegal, the spell or ability doesn’t resolve. It’s removed from the stack and, if it’s a spell, put into its owner’s graveyard. Otherwise, the spell or ability will resolve normally. Illegal targets, if any, won’t be affected by parts of a resolving spell’s effect for which they’re illegal. Other parts of the effect for which those targets are not illegal may still affect them. If the spell or ability creates any continuous effects that affect game rules (see rule 613.11), those effects don’t apply to illegal targets. If part of the effect requires information about an illegal target, it fails to determine any such information. Any part of the effect that requires that information won’t happen.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of 
 ...
 ```
 
 ## J4. Phyrexian mana with life replacement
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 101.2, 107.4, 601.2g
-- Missing retrieved rules: 101.2, 107.4, 601.2g
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1053,24 +883,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [903.9a] - If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-CITATIONS
-[608.2], [903.9a], [603.3], [405.1], [603.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## J5. Cost reducer can't reduce colored requirement
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 601.2f
-- Missing retrieved rules: 601.2f
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1092,22 +912,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [702.51b] - The convoke ability isn’t an additional or alternative cost and applies only after the total cost of the spell with convoke is determined.
-- [700.14] - Some abilities trigger “Whenever you expend N.” A player expends N if they pay a cost to cast a spell and the amount of mana that player spent this turn to cast spells prior to paying that cost was less than N and became at least N after paying that cost.
-- [118.12] - Some spells, activated abilities, and triggered abilities read, “[Do something]. If [a player] [does, doesn’t, or can’t], [effect].” Or “[A player] may [do something]. If [that player] [does, doesn’t, or can’t], [effect].” The action [do something] is a cost, paid when the spell or ability resolves. The “If [a player] [does, doesn’t, or can’t]” clause checks whether the player chose to pay an optional cost or started to pay a mandatory cost, regardless of what events actually occurred.
-- [707.10] - To copy a spell, activated ability, or triggered ability means to put a copy of it onto the stack; a copy of a spell isn’t cast and a copy of an activated ability isn’t activated. A copy of a spell or ability copies both the characteristics of the spell or ability and all decisions made for it, including modes, targets, the value of X, and additional or alternative costs. (See rule 601, “Casting Spells.”) Choices that are normally made on resolution are not copied. If an effect of the copy refers to objects used to pay its costs, it uses the objects used to pay the costs of the original spell or ability. A copy of a spell is owned by the player under whose control it was put on the stack. A copy of a spell or ability is controlled by the player under whose control it was put on the stack. A copy of a spell is itself a spell, even though it has no spell card associated with it. A copy of an ability is itself an ability.
-- [601.2h] - The player pays the total cost. First, they pay all costs that don’t involve random elements or moving objects from the library to a public zone, in any order. Then they pay all remaining costs in any order. Partial pay
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana component of the total cost is reduced to nothing by cost reduction effects, it is considered to be {0}. It can’t be reduced to less than {0}. Once the total cost is determined, any effects that directly affect the total cost are applied. Then the resulting total cost becomes “locked in.” If effects would change the total cost after this time, they have no effect.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is bein
 ...
 ```
 
 ## J6. Additional cost (sacrifice) — what if the creature dies in response?
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 601.2, 601.2g, 601.2i, 117.3c
-- Missing retrieved rules: 601.2, 601.2g, 601.2i, 117.3c
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1129,25 +941,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-CITATIONS
-[608.2], [701.8a], [405.1], [117.3b], [701.8b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## J7. Alternative cost replaces base cost, additional costs still apply
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 118.9, 601.2f
-- Missing retrieved rules: 118.9, 601.2f
-- Verdict polarity mismatch; expected YES-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1169,25 +970,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [614.1] - Some continuous effects are replacement effects. Like prevention effects (see rule 615), replacement effects apply continuously as events happen—they aren’t locked in ahead of time. Such effects watch for a particular event that would happen and completely or partially replace that event with a different event. They act like “shields” around whatever they’re affecting.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
-CITATIONS
-[405.1], [117.3b], [614.1], [608.2], [614.6]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## J8. Mana ability activated DURING cost payment
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 605.3a, 601.2g
-- Missing retrieved rules: 605.3a, 601.2g
-- Verdict polarity mismatch; expected YES-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1209,20 +999,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [702.180a] - Harmonize represents three static abilities: one that functions while the card is in a player’s graveyard and two that function while the spell with harmonize is on the stack. “Harmonize [cost]” means “You may cast this card from your graveyard by paying [cost] and tapping up to one untapped creature you control rather than paying this spell’s mana cost,” “If you cast this spell using its harmonize ability, its total cost is reduced by an amount of generic mana equal to the tapped creature’s power,” and “If the harmonize cost was paid, exile this card instead of putting it anywhere else any time it would leave the stack.” Casting a spell using its harmonize ability follows the rules for paying alternative costs in rules 601.2b and 601.2f–h.
-- [702.143a] - Foretell is a keyword that functions while the card with foretell is in a player’s hand. Any time a player has priority during their turn, that player may pay {2} and exile a card with foretell from their hand face down. That player may look at that card as long as it remains in exile. They may cast that card after the current turn has ended by paying any foretell cost it has rather than paying that spell’s mana cost. Casting a spell this way follows the rules for paying alternative costs in rules 601.2b and 601.2f–h.
-- [702.78a] - Conspire is a keyword that represents two abilities. The first is a static ability that functions while the spell with conspire is on the stack. The second is a triggered ability that functions while the spell with conspire is on the stack. “Conspire” means “As an additional cost to cast this spell, you may tap two untapped creatures you control that each share a color with it” and “When you cast this spell, if its co
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana component of the total cost is reduced to nothing by cost reduction effects, it is considered to be {0}. It can’t be reduced to less than {0}. Once the total cost is determined, any effects that directly affect the total cost are applied. Then the resulting total cost becomes “locked in.” If effects would change the total cost after this time, they have no effect.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is bein
 ...
 ```
 
 ## K1. Layer 1 (copy) applies before Layer 7 (P/T)
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 613.1a, 613.3c
-- Missing retrieved rules: 613.1a, 613.3c
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1244,24 +1028,23 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-CITATIONS
-[608.2], [603.3], [405.1], [117.3b], [603.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [604.3] - Some static abilities are characteristic-defining abilities. A characteristic-defining ability conveys information about an object’s characteristics that would normally be found elsewhere on that object (such as in its mana cost, type line, or power/toughness box). Characteristic-defining abilities can add to or override information found elsewhere on that object. Characteristic-defining abilities function in all zones. They also function outside the game and before the game begins.
+- [613.4d] - Layer 7d: Effects that switch a creature’s power and toughness are applied. Such effects take the value of power and apply it to the creature’s toughness, and take the value of toughness and apply it to the creature’s power.
+- [613.4b] - Layer 7b: Effects that set power and/or toughness to a specific number or value are applied. Effects that refer to the base power and/or toughness of a creature apply in this layer.
+- [613.4c] - Layer 7c: Effects and counters that modify power and/or toughness (but don’t set power and/or toughness to a specific number or value) are applied.
+- [613.4a] - Layer 7a: Effects from characteristic-defining abilities that define power and/or toughness are applied. See rule 604.3.
+- [613.1b] - Layer 2: Control-changing effects are applied.
+- [613.1f] - Layer 6: Ability-adding effects, keyword counters, ability-removing effects, and effects that say an object can’t have an ability are applied.
+- [613.3] - Within layers 2–6, apply effects from characteristic-defining abilities first (see rule 604.3), then all other effects in timestamp order (see rule 613.7). Note that dependency may alter the order in which effects are applied within a layer. (See rule 613.8.)
+- [613.1d] - Layer 4: Type-changing effects are applied. These include effects that change an object’s card type, subtype, and/or supertype.
+- [613.7] - Within a layer or sublayer, determining which order effects are applied in is usually done using a timestamp system. An effect with an earlier timestamp is applied before an effect with a later timestamp.
+- [613.1a] - Layer 1: Rules an
+...
 ```
 
 ## K2. Layer 2 control change — control-dependent abilities
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 613.1b, 613.3c
-- Missing retrieved rules: 613.1b, 613.3c
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1283,24 +1066,20 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
+- [613.1b] - Layer 2: Control-changing effects are applied.
+- [613.4c] - Layer 7c: Effects and counters that modify power and/or toughness (but don’t set power and/or toughness to a specific number or value) are applied.
 - [613.5] - The application of continuous effects as described by the layer system is continually and automatically performed by the game. All resulting changes to an object’s characteristics are instantaneous.
 - [616.1f] - Once the chosen effect has been applied, this process is repeated (taking into account only replacement or prevention effects that would now be applicable) until there are no more left to apply.
 - [712.13a] - Some abilities may cause a double-faced spell with its front face up on the stack to enter the battlefield transformed or converted. If the back face of the card that represents that spell is an instant or sorcery face, or that spell is a copy of a double-faced card created with an instant or sorcery back face, it doesn’t enter the battlefield, and is instead put into its owner’s graveyard.
 - [120.4d] - Finally, the damage event occurs.
 - [508.4] - If a creature is put onto the battlefield attacking, its controller chooses which defending player, planeswalker a defending player controls, or battle a defending player protects it’s attacking as it enters the battlefield (unless the effect that put it onto the battlefield specifies what it’s attacking). Similarly, if an effect states that a creature is attacking, its controller chooses which defending player, planeswalker a defending player controls, or battle a defending player protects it’s attacking (unless the effect has already specified). Such creatures are “attacking” but, for the purposes of trigger events and effects, they never “attacked.” They remain attacking creatures until they’re removed from combat or the combat phase ends, whichever comes first.
-CITATIONS
-[613.5], [616.1f], [712.13a], [120.4d], [508.4]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [118.12] - Some spells, activated abilities, and triggered abilities read, “[Do something]. If [a player] [does, doesn’t, or can’t], [effect].” Or “[A player] may [do something]. If [that player] [does, doesn’t, or can’
+...
 ```
 
 ## K3. Layer 4 type change cascades
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 613.1d
-- Missing retrieved rules: 613.1d
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1323,23 +1102,15 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-CITATIONS
-[701.8a], [701.8b], [405.1], [117.3b], [608.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative 
+...
 ```
 
 ## K4. CDA vs. set effect — which wins in layer 7b?
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 613.1f, 613.3, 604.3
-- Missing retrieved rules: 613.1f, 613.3, 604.3
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1361,24 +1132,15 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-CITATIONS
-[608.2], [700.4], [603.3], [405.1], [117.3b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [604.3] - Some static abilities are characteristic-defining abilities. A characteristic-defining ability conveys information about an object’s characteristics that would normally be found elsewhere on that object (such as in its mana cost, type line, or power/toughness box). Characteristic-defining abilities can add to or override information found elsewhere on that object. Characteristic-defining abilities function in all zones. They also function outside the game and before the game begins.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [613.4b] - Layer 7b: Effects that set power and/or toughness to a specific number or value are ap
+...
 ```
 
 ## K5. Set then modify in layer 7
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 613.3a, 613.3c
-- Missing retrieved rules: 613.3a, 613.3c
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1400,24 +1162,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [616.1] - If two or more replacement and/or prevention effects are attempting to modify the way an event affects an object or player, the affected object’s controller (or its owner if it has no controller) or the affected player chooses one to apply, following the steps listed below. If two or more players have to make these choices at the same time, choices are made in APNAP order (see rule 101.4).
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-CITATIONS
-[608.2], [700.4], [701.8a], [616.1], [701.8b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## K6. P/T with +1/+1 counters
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 613.3c, 613.3d
-- Missing retrieved rules: 613.3c, 613.3d
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1439,25 +1191,19 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
+- [613.4c] - Layer 7c: Effects and counters that modify power and/or toughness (but don’t set power and/or toughness to a specific number or value) are applied.
+- [613.1b] - Layer 2: Control-changing effects are applied.
 - [120.4d] - Finally, the damage event occurs.
 - [613.5] - The application of continuous effects as described by the layer system is continually and automatically performed by the game. All resulting changes to an object’s characteristics are instantaneous.
 - [702.62a] - Suspend is a keyword that represents three abilities. The first is a static ability that functions while the card with suspend is in a player’s hand. The second and third are triggered abilities that function in the exile zone. “Suspend N—[cost]” means “If you could begin to cast this card by putting it onto the stack from your hand, you may pay [cost] and exile it with N time counters on it. This action doesn’t use the stack,” and “At the beginning of your upkeep, if this card is suspended, remove a time counter from it,” and “When the last time counter is removed from this card, if it’s exiled, you may play it without paying its mana cost if able. If you don’t, it remains exiled. If you cast a creature spell this way, it gains haste until you lose control of the spell or the permanent it becomes.”
 - [608.2f] - Some spells and abilities include actions taken on multiple players and/or objects. In most cases, each such action is processed simultaneously. If the action can’t be processed simultaneously, it’s instead processed considering each affected player or object individually. APNAP order is used to make the primary determination of the order of those actions. Secondarily, if the action is to be taken on both a player and an object they control or on multiple objects controlled by the same player, the player who controls the resolving spell or ability chooses the relative order of those actions.
-- [702.1c] - An effect may state that “the same is true for” a list of keyword abilities or similar. If one of those keyword abilities has variants or variables and the effect grants that keyword or counters of that keyword to one or more objects and/or players, it grants each appropriate variant and variable of that keyword.
-CITATIONS
-[120.4d], [613.5], [702.62a], [608.2f], [702.1c]
-VERDICT
-The local rule
+- [702.1c] - An effect may state that “the same is true for” a list of keyword abilities or similar. If one of those keyword abilities has variants or variables and the effect grants that 
 ...
 ```
 
 ## K7. Timestamp ordering on layer 7c modifiers
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 613.3c, 613.7
-- Missing retrieved rules: 613.3c, 613.7
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1479,27 +1225,23 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [613.5] - The application of continuous effects as described by the layer system is continually and automatically performed by the game. All resulting changes to an object’s characteristics are instantaneous.
-- [611.2c] - If a continuous effect generated by the resolution of a spell or ability modifies the characteristics or changes the controller of any objects, the set of objects it affects is determined when that continuous effect begins. After that point, the set won’t change. (Note that this works differently than a continuous effect from a static ability.) A continuous effect generated by the resolution of a spell or ability that doesn’t modify the characteristics or change the controller of any objects modifies the rules of the game, so it can affect objects that weren’t affected when that continuous effect began. If a single continuous effect has parts that modify the characteristics or changes the controller of any objects and other parts that don’t, the set of objects each part applies to is determined independently.
-- [613.9] - One continuous effect can override another. Sometimes the results of one effect determine whether another effect applies or what another effect does.
-- [611.3b] - The effect applies at all times that the permanent generating it is on the battlefield or the object generating it is in the appropriate zone.
-- [611.3c] - Continuous effects that modify characteristics of permanents do so simultaneously with the permanent entering the battlefield. They don’t wait until the permanent is on the battlefield and then change it. Because such effects apply as the permanent enters the battlefield, they are applied before determining whether the permanent will cause an ability to trigger when it enters the battlefield.
-CITATIONS
-[613.5], [611.2c], [613.9], [611.3b], [611.3c]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [613.1b] - Layer 2: Control-changing effects are applied.
+- [613.4c] - Layer 7c: Effects and counters that modify power and/or toughness (but don’t set power and/or toughness to a specific number or value) are applied.
+- [613.7] - Within a layer or sublayer, determining which order effects are applied in is usually done using a timestamp system. An effect with an earlier timestamp is applied before an effect with a later timestamp.
+- [613.3] - Within layers 2–6, apply effects from characteristic-defining abilities first (see rule 604.3), then all other effects in timestamp order (see rule 613.7). Note that dependency may alter the order in which effects are applied within a layer. (See rule 613.8.)
+- [613.8] - Within a layer or sublayer, determining which order effects are applied in is sometimes done using a dependency system. If a dependency exists, it will override the timestamp system.
+- [604.3] - Some static abilities are characteristic-defining abilities. A characteristic-defining ability conveys information about an object’s characteristics that would normally be found elsewhere on that object (such as in its mana cost, type line, or power/toughness box). Characteristic-defining abilities can add to or override information found elsewhere on that object. Characteristic-defining abilities function in all zones. They also function outside the game and before the game begins.
+- [613.1a] - Layer 1: Rules and effects that modify copiable values are applied.
+- [613.1d] - Layer 4: Type-changing effects are applied. These include effects that change an object’s card type, subtype, and/or supertype.
+- [613.1f] - Layer 6: Ability-adding effects, keyword counters, ability-removing effects, and effects that say an object can’t have an ability are applied.
+- [613.4a] - Layer 7a: Effects from characteristic-defining abilities that define power and/or toughness are applied. See rule 604.3.
+- [613.4b] - Layer 7b: Effects that set power and/or toughness to a specific number or value are applied. Effects that refer to the base power and/or toughness of a creature apply in this
+...
 ```
 
 ## K8. Dependencies override timestamps
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 613.3b, 613.7, 613.1d, 613.1f
-- Missing retrieved rules: 613.3b, 613.7, 613.1d, 613.1f
-
-Review warnings:
-- Expected verdict contains self-correction language; manually verify the knowledge-base entry.
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1508,15 +1250,7 @@ Scenario:
 
 Expected verdict:
 ```text
-Both are 4/4 creatures with no abilities (1/1 from Humility doesn't apply because Opalescence's later timestamp makes them 4/4 in layer 7b). Wait — let me re-derive carefully.
-
-Actually: **Both are 4/4 with no abilities.** Opalescence applies first (it makes Humility a creature). Then Humility, being a creature, has its ability... but Humility has no abilities of its own that remove other abilities? Yes it does — "all creatures lose abilities."
-
-Let me trace dependencies. Opalescence depends on Humility's layer 4 (whether non-Aura enchantments are creatures depends on whether Humility removed Opalescence's ability). Actually Opalescence's ability adds creature type — that's layer 4. Humility removes abilities in layer 6. They're in different layers, no dependency.
-
-Layer 4 (type-changing): Opalescence makes both Opalescence and Humility (non-Aura enchantments) into creatures.
-Layer 6 (ability removing): Humility removes all abilities from all creatures. Now Opalescence has no abilities — but it already applied in layer 4 (its effect persists).
-Layer 7b (set base P/T): Opalescence sets non-Aura enchantments to 4/4 base. Humility sets all creatures to base 1/1.
+Both Humility and Opalescence are 4/4 creatures with no abilities. Opalescence applies in layer 4 to make both non-Aura enchantments creatures. Humility applies in layer 6 to remove abilities. In layer 7b, Humility's timestamp applies first, then Opalescence's later timestamp sets the creatures to 4/4.
 ```
 
 App response:
@@ -1529,10 +1263,16 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [613.9] - One continuous effect can override another. Sometimes the results of one effect determine whether another effect applies or what another effect does.
-- [707.2] - When copying an object, the copy acquires the copiable values of the original object’s characteristics and, for an object on the stack, choices made when casting or activating it (mode, targets, the value of X, whether it was kicked, how it will affect multiple targets, and so on). The copiable values are the values derived from the text printed on the object (that text being name, mana cost, color indicator, card type, subtype, supertype, rules text, power, toughness, and/or loyalty), as modified by other copy effects, by its face-down status, and by “as . . . enters” and “as . . . is turned face up” abilities that set power and toughness (and may also set additional characteristics). Other effects (including type-changing and text-changing effects), status, counters, and stickers are not copied.
-- [123.6c] - The text that a name sticker is modifying may change due to other effects and/or a permanent’s face-down status (see rule 708, “Face-Down Spells and Permanents”). To determine the name of an object with one or more name stickers, start with the object’s copiable values, then apply each name sticker’s effect and each other text-changing effect in timestamp order. The position of each name sticker will continue to be after the number of words that were before it in the object’s name when it was placed. If there are fewer words in the object’s current name, the word on that sticker is added at the end of its name instead. The position and timestamp order of each name sticker on an object is remembered as the object that sticker is on moves from one public zone to another, and it continues to apply to the new object it becomes in that zone (see rule 123.5). This is an exception to rule 400.7.
-- [712.13a] - Some abilities may cause a double-faced spell with its front face up on the stack to enter the battlefield transformed or converted. If the back face of the card that represents that spell is 
+- [613.3] - Within layers 2–6, apply effects from characteristic-defining abilities first (see rule 604.3), then all other effects in timestamp order (see rule 613.7). Note that dependency may alter the order in which effects are applied within a layer. (See rule 613.8.)
+- [613.4b] - Layer 7b: Effects that set power and/or toughness to a specific number or value are applied. Effects that refer to the base power and/or toughness of a creature apply in this layer.
+- [613.4d] - Layer 7d: Effects that switch a creature’s power and toughness are applied. Such effects take the value of power and apply it to the creature’s toughness, and take the value of toughness and apply it to the creature’s power.
+- [613.7] - Within a layer or sublayer, determining which order effects are applied in is usually done using a timestamp system. An effect with an earlier timestamp is applied before an effect with a later timestamp.
+- [613.4a] - Layer 7a: Effects from characteristic-defining abilities that define power and/or toughness are applied. See rule 604.3.
+- [613.8] - Within a layer or sublayer, determining which order effects are applied in is sometimes done using a dependency system. If a dependency exists, it will override the timestamp system.
+- [604.3] - Some static abilities are characteristic-defining abilities. A characteristic-defining ability conveys information about an object’s characteristics that would normally be found elsewhere on that object (such as in its mana cost, type line, or power/toughness box). Characteristic-defining abilities can add to or override information found elsewhere on that object. Characteristic-defining abilities function in all zones. They also function outside the game and before the game begins.
+- [613.4c] - Layer 7c: Effects and counters that modify power and/or toughness (but don’t set power and/or toughness to a specific number or value) are applied.
+- [613.1d] - Layer 4: Type-changing effects are applied. These include effects that change an object’s card type, subtype, and/or supertype.
+- [613.1b] - Layer 2: Control-changing effects are 
 ...
 ```
 
@@ -1561,23 +1301,17 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [700.4] - The term dies means “is put into a graveyard from the battlefield.”
+- [613.4c] - Layer 7c: Effects and counters that modify power and/or toughness (but don’t set power and/or toughness to a specific number or value) are applied.
+- [614.13] - An effect that modifies how a permanent enters the battlefield may cause other objects to change zones.
+- [704.5d] - If a token is in a zone other than the battlefield, it ceases to exist.
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-CITATIONS
-[700.4], [608.2], [603.3], [603.2], [603.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbo
+...
 ```
 
 ## K10. Layer 7e — switch power/toughness
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 613.3c, 613.3e
-- Missing retrieved rules: 613.3c, 613.3e
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1606,15 +1340,11 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-CITATIONS
-[603.3], [405.1], [117.3b], [603.2], [603.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [613.4d] - Layer 7d: Effects that switch a creature’s power and toughness are applied. Such effects take the value of power and apply it to the creature’s toughness, and take the value of toughness and apply it to the creature’s power.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [613.4b] - Layer 7b: Effects that set power and/or toughness to a specific number or value are applied. Effects that refer to the base power and/or toughness of a creature apply in this layer.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may
+...
 ```
 
 ## L1. Two replacements, controller of affected object chooses
@@ -1647,28 +1377,18 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [616.1] - If two or more replacement and/or prevention effects are attempting to modify the way an event affects an object or player, the affected object’s controller (or its owner if it has no controller) or the affected player chooses one to apply, following the steps listed below. If two or more players have to make these choices at the same time, choices are made in APNAP order (see rule 101.4).
-- [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-CITATIONS
-[616.1], [700.4], [701.8a], [608.2], [701.8b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph 
+...
 ```
 
 ## L2. Self-replacing effects bypass the 616 choice
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 101.2, 608.2b
-- Missing retrieved rules: 101.2, 608.2b
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
-[[Lifelink]] grants "the source's controller gains that much life when this deals damage." A creature with lifelink deals 4 damage and the controller has [[Sanguine Bond]] also out ("Whenever you gain life, target opponent loses that much life"). Wait — Sanguine Bond is a trigger, not a replacement. Let me redo.
+I control [[Vexing Shusher]] ("Spells you cast can't be countered"). I cast [[Lightning Bolt]] targeting an opponent's creature. Opponent casts [[Counterspell]] targeting Lightning Bolt. Does it counter?
 ```
 
 Expected verdict:
@@ -1686,24 +1406,16 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-- [616.1] - If two or more replacement and/or prevention effects are attempting to modify the way an event affects an object or player, the affected object’s controller (or its owner if it has no controller) or the affected player chooses one to apply, following the steps listed below. If two or more players have to make these choices at the same time, choices are made in APNAP order (see rule 101.4).
-- [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
-CITATIONS
-[603.3], [603.2], [603.1], [616.1], [614.6]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [608.2b] - If the spell or ability specifies targets, it checks whether the targets are still legal. A target that’s no longer in the zone it was in when it was targeted is illegal. Other changes to the game state may cause a target to no longer be legal; for example, its characteristics may have changed or an effect may have changed the text of the spell. If the source of an ability has left the zone it was in, its last known information is used during this process. If all its targets, for every instance of the word “target,” are now illegal, the spell or ability doesn’t resolve. It’s removed from the stack and, if it’s a spell, put into its owner’s graveyard. Otherwise, the spell or ability will resolve normally. Illegal targets, if any, won’t be affected by parts of a resolving spell’s effect for which they’re illegal. Other parts of the effect for which those targets are not illegal may still affect them. If the spell or ability creates any continuous effects that affect game rules (see rule 613.11), those effects don’t apply to illegal targets. If part of the effect requires information about an illegal target, it fails to determine any such information. Any part of the effect that requires that information won’t happen.
+- [101.2] - When a rule or effect allows or directs something to happen, and another effect states that it can’t happen, the “can’t” effect takes precedence.
+- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 
+...
 ```
 
 ## L3. Replacement + prevention on same damage event
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 615.1, 614.6
-- Missing retrieved rules: 615.1, 614.6
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1725,24 +1437,16 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-CITATIONS
-[608.2], [603.2], [603.1], [603.3], [405.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [509.1c] - The defending player checks each creature they control to see whether it’s affected by any requirements (effects that say a creature must block, or that it must block if some condition is met). If the number of requirements that are being obeyed is fewer than the maximum possible number of requirements that could be obeyed without disobeying any restrictions, the declaration of blockers is illegal. If a creature can’t block unless a player pays a cost, that player is not required to pay that cost, even if blocking with that creature would increase the number of requirements being obeyed. If a requirement that says a creature blocks if able during a certain turn refers to a turn with multiple combat phases, the creature blocks if able during each declare blockers step in that turn.
+- [510.1c] - A blocked creature assigns its combat damage to the creatures blocking it. If no creatures are currently blocking it (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If exactly one creature is blocking it, it assigns all its combat damage to that creature. If two or more creatures are blocking it, it assigns its combat damage to those creatures divided as its controller chooses among them.
+- [510.1d] - A blocking creature assigns combat damage to the creatures it’s blocking. If it isn’t currently blocking any creatures (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If it’s blocking exactly one creature, it assigns all its combat damage to that creature. If it’s blocking two or more creatures, it assigns its combat damage divided as its controller chooses among them.
+- [509.1] - First, the defending player declares blockers. This turn-based action doesn’t use the stack. To declare blockers, the defending player follows the steps below, in order. If at any point during the declaration of blockers, the defending player is unable to comply with any of the steps listed below, the declaration is illegal; the game returns to the moment before the declaration (see rule 733, “Handling Ill
+...
 ```
 
 ## L4. Three-way replacement on ETB counters
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 614.6
-- Missing retrieved rules: 614.6
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1785,23 +1489,14 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [616.1] - If two or more replacement and/or prevention effects are attempting to modify the way an event affects an object or player, the affected object’s controller (or its owner if it has no controller) or the affected player chooses one to apply, following the steps listed below. If two or more players have to make these choices at the same time, choices are made in APNAP order (see rule 101.4).
-- [903.9a] - If a commander is in a graveyard or in exile and that object was put into that zone since the last time state-based actions were checked, its owner may put it into the command zone. This is a state-based action. See rule 704.
-- [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-CITATIONS
-[616.1], [903.9a], [700.4], [701.8a], [608.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph 
+...
 ```
 
 ## L5. Self-replacing effects (614.5) apply first
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 704.5f
-- Missing retrieved rules: 704.5f
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1823,24 +1518,15 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [616.1] - If two or more replacement and/or prevention effects are attempting to modify the way an event affects an object or player, the affected object’s controller (or its owner if it has no controller) or the affected player chooses one to apply, following the steps listed below. If two or more players have to make these choices at the same time, choices are made in APNAP order (see rule 101.4).
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
 - [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
-CITATIONS
-[700.4], [608.2], [616.1], [603.3], [614.6]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding card
+...
 ```
 
 ## L6. Replacement effect for "instead" damage rerouting
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 614.6, 614.9
-- Missing retrieved rules: 614.6, 614.9
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1862,25 +1548,17 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
+- [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
 - [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-- [616.1] - If two or more replacement and/or prevention effects are attempting to modify the way an event affects an object or player, the affected object’s controller (or its owner if it has no controller) or the affected player chooses one to apply, following the steps listed below. If two or more players have to make these choices at the same time, choices are made in APNAP order (see rule 101.4).
-CITATIONS
-[701.8a], [603.3], [603.2], [603.1], [616.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [614.5] - A replacement effect doesn’t invoke itself repeatedly; it gets only one opportunity to affect an event or any modified events that may replace that event.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [702.7b] - If at least one attacking or blocking creature has first stri
+...
 ```
 
 ## M1. Basic mana ability — no stack
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 605.1, 605.3a
-- Missing retrieved rules: 605.1, 605.3a
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1902,24 +1580,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-CITATIONS
-[608.2], [701.8a], [405.1], [117.3b], [701.8b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## M2. Triggered mana ability — uses stack
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 605.1, 605.1a
-- Missing retrieved rules: 605.1, 605.1a
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1943,25 +1611,15 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-CITATIONS
-[405.1], [603.3], [117.3b], [603.2], [608.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [605.3a] - A player may activate an activated mana ability whenever they have priority, whenever they are casting a spell or activating an ability that requires a mana payment, or whenever a rule or effect asks for a mana payment, even if it’s in the middle of casting or resolving a spell or activating or resolving an ability.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying 
+...
 ```
 
 ## M3. Mana pool empties between phases
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 106.4
-- Missing retrieved rules: 106.4
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -1983,26 +1641,15 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [117.3a] - The active player receives priority at the beginning of most steps and phases, after any turn-based actions (such as drawing a card during the draw step; see rule 703) have been dealt with and abilities that trigger at the beginning of that phase or step have been put on the stack. No player receives priority during the untap step. Players usually don’t get priority during the cleanup step (see rule 514.3).
-- [118.11] - The actions performed when paying a cost may be modified by effects. Even if they are, meaning the actions that are performed don’t match the actions that are called for, the cost has still been paid.
-- [307.5] - If a spell, ability, or effect states that a player can do something only “any time they could cast a sorcery” or “only as a sorcery,” it means only that the player must have priority, it must be during the main phase of their turn, and the stack must be empty. The player doesn’t need to have a sorcery card they could cast. Effects that would preclude that player from casting a sorcery spell don’t affect the player’s capability to perform that action (unless the action is actually casting a sorcery spell).
-- [500.10] - Some effects add a step after a particular phase. In that case, that effect first creates the phase which normally contains that step directly after the specified phase. Any other steps that phase would normally have are skipped (see rule 500.11).
-- [506.7e] - If a spell states that it may be cast “only before [a particular point in the combat phase],” but the stated point doesn’t exist within the relevant combat phase because the declare blockers step and the combat damage step are skipped (see rule 508.8), then the spell may be cast only before the declare attackers step ends. If the stated point doesn’t exist because the relevant combat phase has been skipped, then the spell may be cast only before the precombat main phase ends.
-CITATIONS
-[117.3a], [118.11], [307.5], [500.10], [506.7e]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as th
+- [106.4] - When an effect instructs a player to add mana, that mana goes into a player’s mana pool. From there, it can be used to pay costs immediately, or it can stay in the player’s mana pool as unspent mana. Each player’s mana pool empties at the end of each step and phase, and the player is said to lose this mana. Cards with abilities that produce mana or refer to unspent mana have received errata in the Oracle™ card reference to no longer explicitly refer to the mana pool.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells hav
 ...
 ```
 
 ## M4. Mana abilities during cost payment (re-test from J8 angle)
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 605.3a, 601.2g
-- Missing retrieved rules: 605.3a, 601.2g
-- Verdict polarity mismatch; expected YES-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2024,25 +1671,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [702.51a] - Convoke is a static ability that functions while the spell with convoke is on the stack. “Convoke” means “For each colored mana in this spell’s total cost, you may tap an untapped creature of that color you control rather than pay that mana. For each generic mana in this spell’s total cost, you may tap an untapped creature you control rather than pay that mana.”
-- [702.126a] - Improvise is a static ability that functions while the spell with improvise is on the stack. “Improvise” means “For each generic mana in this spell’s total cost, you may tap an untapped artifact you control rather than pay that mana.”
-- [702.143a] - Foretell is a keyword that functions while the card with foretell is in a player’s hand. Any time a player has priority during their turn, that player may pay {2} and exile a card with foretell from their hand face down. That player may look at that card as long as it remains in exile. They may cast that card after the current turn has ended by paying any foretell cost it has rather than paying that spell’s mana cost. Casting a spell this way follows the rules for paying alternative costs in rules 601.2b and 601.2f–h.
-- [702.113a] - Awaken appears on some instants and sorceries. It represents two abilities: a static ability that functions while the spell with awaken is on the stack and a spell ability. “Awaken N—[cost]” means “You may pay [cost] rather than pay this spell’s mana cost as you cast this spell” and “If this spell’s awaken cost was paid, put N +1/+1 counters on target land you control. That land becomes a 0/0 Elemental creature with haste. It’s still a land.” Casting a spell using its awaken ability follows the rules for paying alternative costs in rules 601.2b and 601.2f–h.
-- [118.13b] - If a cost paid during the resolution of a spell or ability contains a mana symbol that can be paid in multiple ways, the player paying that cost chooses how to pay for that symbol immediately before they pay that cost.
-CITATIONS
-[702.51a], [702.126a], [702.143a], [702.113a], [118.13b]
-VERDICT
-The local rules above ground the answer, but Arb
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
 ...
 ```
 
 ## M5. Restricted mana (snow, "spend only on")
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 107.4h
-- Missing retrieved rules: 107.4h
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2064,21 +1700,15 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [707.10] - To copy a spell, activated ability, or triggered ability means to put a copy of it onto the stack; a copy of a spell isn’t cast and a copy of an activated ability isn’t activated. A copy of a spell or ability copies both the characteristics of the spell or ability and all decisions made for it, including modes, targets, the value of X, and additional or alternative costs. (See rule 601, “Casting Spells.”) Choices that are normally made on resolution are not copied. If an effect of the copy refers to objects used to pay its costs, it uses the objects used to pay the costs of the original spell or ability. A copy of a spell is owned by the player under whose control it was put on the stack. A copy of a spell or ability is controlled by the player under whose control it was put on the stack. A copy of a spell is itself a spell, even though it has no spell card associated with it. A copy of an ability is itself an ability.
-- [608.2f] - Some spells and abilities include actions taken on multiple players and/or objects. In most cases, each such action is processed simultaneously. If the action can’t be processed simultaneously, it’s instead processed considering each affected player or object individually. APNAP order is used to make the primary determination of the order of those actions. Secondarily, if the action is to be taken on both a player and an object they control or on multiple objects controlled by the same player, the player who controls the resolving spell or ability chooses the relative order of those actions.
-- [608.2b] - If the spell or ability specifies targets, it checks whether the targets are still legal.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana component of the total cost is reduced to nothing by cost reduction effects, it is considered to be {0}. It can’t be reduced to less than {0}. Once the total cost is determined, any effects that directly affect the total cost are applied. Then the resulting total cost becomes “locked in.” If effects would change the total cost after this time, they have no effect.
+- [107.4h] - When used in a cost, the snow mana symbol {S} represents a cost that can be paid with one mana of any type produced by a snow source (see rule 106.3). Effects that reduce the amount of generic mana you pay don’t affect {S} costs. The {S} symbol can also be used to refer to mana of any type produced by a snow source spent to pay a cost. Snow is neither a color nor a type of mana.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is de
 ...
 ```
 
 ## N1. Multiple blockers and damage assignment order
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 509.1c, 510.1c
-- Missing retrieved rules: 509.1c, 510.1c
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2100,9 +1730,10 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [702.19b] - The controller of an attacking creature with trample first assigns damage to the creature(s) blocking it. Once all those blocking creatures are assigned lethal damage, any excess damage is assigned as its controller chooses among those blocking creatures and the player, planeswalker, or battle the creature is attacking. When checking for assigned lethal damage, take into account damage already marked on the creature and damage from other creatures that’s being assigned during the same combat damage step, but not any abilities or effects that might change the amount of damage that’s actually dealt. The attacking creature’s controller need not assign lethal damage to all those blocking creatures but in that case can’t assign any damage to the player or planeswalker it’s attacking.
-- [107.1b] - Most of the time, the Magic game uses only positive numbers and zero. You can’t choose a negative number, deal negative damage, gain negative life, and so on. However, it’s possible for a game value, such as a creature’s power, to be less than zero. If a calculation or comparison needs to use a negative value, it does so. If a calculation that would determine the result of an effect yields a negative number, zero is used instead, unless that effect doubles, triples, or sets to a specific value a player’s life total or the power and/or toughness of a creature or creature card.
-- [510.4] - If at least one attacking or blocking creature has first strike (see rule 702.7) or double strike (see rule 702.4) as the combat damage step begins, the only creatures that assign combat damage in that step are those with first strike or double strike. After that step, instead of proceeding to the end of combat step, the phase gets a second combat damage step. The only creatures that assign combat damage in that step are the remaining attackers and blockers that had neither first strike nor double strike as the first combat damage step began, as well as the remaining attackers and blockers that currently have double strike. After that step, the phase proceeds to the end of combat ste
+- [509.1] - First, the defending player declares blockers. This turn-based action doesn’t use the stack. To declare blockers, the defending player follows the steps below, in order. If at any point during the declaration of blockers, the defending player is unable to comply with any of the steps listed below, the declaration is illegal; the game returns to the moment before the declaration (see rule 733, “Handling Illegal Actions”).
+- [510.1c] - A blocked creature assigns its combat damage to the creatures blocking it. If no creatures are currently blocking it (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If exactly one creature is blocking it, it assigns all its combat damage to that creature. If two or more creatures are blocking it, it assigns its combat damage to those creatures divided as its controller chooses among them.
+- [509.1c] - The defending player checks each creature they control to see whether it’s affected by any requirements (effects that say a creature must block, or that it must block if some condition is met). If the number of requirements that are being obeyed is fewer than the maximum possible number of requirements that could be obeyed without disobeying any restrictions, the declaration of blockers is illegal. If a creature can’t block unless a player pays a cost, that player is not required to pay that cost, even if blocking with that creature would increase the number of requirements being obeyed. If a requirement that says a creature blocks if able during a certain turn refers to a turn with multiple combat phases, the creature blocks if able during each declare blockers step in that turn.
+- [510.1d] - A blocking creature assigns combat damage to the creatures it’s blocking. If it isn’t currently blocking any creatures (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If it’s blocking exactly one creature, it assigns all its combat damage to that creature. If it’s blocking two or more creatures, it assigns its combat damage divided as its controller choo
 ...
 ```
 
@@ -2130,21 +1761,16 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
+- [702.7b] - If at least one attacking or blocking creature has first strike or double strike (see rule 702.4) as the combat damage step begins, the only creatures that assign combat damage in that step are those with first strike or double strike. After that step, instead of proceeding to the end of combat step, the phase gets a second combat damage step. The only creatures that assign combat damage in that step are the remaining attackers and blockers that had neither first strike nor double strike as the first combat damage step began, as well as the remaining attackers and blockers that currently have double strike. After that step, the phase proceeds to the end of combat step.
 - [506.1] - The combat phase has five steps, which proceed in order: beginning of combat, declare attackers, declare blockers, combat damage, and end of combat. The declare blockers and combat damage steps are skipped if no creatures are declared as attackers or put onto the battlefield attacking (see rule 508.8). There are two combat damage steps if any attacking or blocking creature has first strike (see rule 702.7) or double strike (see rule 702.4).
 - [510.4] - If at least one attacking or blocking creature has first strike (see rule 702.7) or double strike (see rule 702.4) as the combat damage step begins, the only creatures that assign combat damage in that step are those with first strike or double strike. After that step, instead of proceeding to the end of combat step, the phase gets a second combat damage step. The only creatures that assign combat damage in that step are the remaining attackers and blockers that had neither first strike nor double strike as the first combat damage step began, as well as the remaining attackers and blockers that currently have double strike. After that step, the phase proceeds to the end of combat step.
-- [702.4b] - If at least one attacking or blocking creature has first strike (see rule 702.7) or double strike as the combat damage step begins, the only creatures that assign combat damage in that step are those with first strike or double strike. After that step, instead of proceeding to the end of combat step, the phase gets a second combat damage step. The only creatures that assign combat damage in that step are the remaining attackers and blockers that had neither first strike nor double strike as the first combat damage step began, as well as the remaining attackers and blockers that currently have double strike. After that step, the phase proceeds to the end of combat step.
-- [702.4d] - Giving double strike to a creature with first strike after it has already dealt combat damage in the first combat damage step will allow the creature to assign combat damage in the second combat damage step.
-- [702.7b] - If at least one
+- [702.4b] - If at least one attacking or blocking creature has first strike (see rule 702.7) or double strike as the combat damage step begins, the only creatures that assign combat damage in that step are those with first strike or double strike. 
 ...
 ```
 
 ## N3. Trample with multiple blockers
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 510.1c
-- Missing retrieved rules: 510.1c
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2166,24 +1792,17 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
+- [510.1c] - A blocked creature assigns its combat damage to the creatures blocking it. If no creatures are currently blocking it (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If exactly one creature is blocking it, it assigns all its combat damage to that creature. If two or more creatures are blocking it, it assigns its combat damage to those creatures divided as its controller chooses among them.
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [707.10] - To copy a spell, activated ability, or triggered ability means to put a copy of it onto the stack; a copy of a spell isn’t cast and a copy of an activated ability isn’t activated. A copy of a spell or ability copies both the characteristics of the spell or ability and all decisions made for it, including modes, targets, the value of X, and additional or alternative costs. (See rule 601, “Casting Spells.”) Choices that are normally made on resolution are not copied. If an effect of the copy refers to objects used to pay its costs, it uses the objects used to pay the costs of the original spell or ability. A copy of a spell is owned by the player under whose control it was put on the stack. A copy of a spell or ability is controlled by the player under whose control it was put on the stack. A copy of a spell is itself a spell, even though it has no spell card associated with it. A copy of an ability is itself an ability.
-- [702.19b] - The controller of an attacking creature with trample first assigns damage to the creature(s) blocking it. Once all those blocking creatures are assigned lethal damage, any excess damage is assigned as its controller chooses among those blocking creatures and the player, planeswalker, or battle the creature is attacking. When checking for assigned lethal damage, take into account damage already marked on the creature and damage from other
+- [509.1c] - The defending player checks each creature they control to see whether it’s affected by any requirements (effects that say a creature must block, or that it must block if some condition is met). If the number of requirements that are being obeyed is fewer than the maximum possible number of requirements that could be obeyed without disobeying any restrictions, the declaration of blockers is illegal. If a creature can’t block unless a player pays a cost, that player is not required to pay that cost, even if blocking with that creature would increase the number of requirements being obeyed. If a requirement that says a creature blocks if able during a certain turn refers to a turn with multiple combat phases, the creature blocks if able during each declare blockers step in that turn.
+- [509.1] - First, the defending player declares blockers. This turn-based action doesn’t use the stack. To declare blockers, the defending player follows the steps below, in order. If at any point during the declaration of blockers, the defending player is unable to comply with any of the steps listed below, the declaration is illegal; the game returns to the moment before the declaration (see rule 733, “Handling Illegal Actions”).
+- [601.2f] - The player determines the total cost
 ...
 ```
 
 ## N4. Lifelink rules
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 702.15b, 510.1c
-- Missing retrieved rules: 702.15b, 510.1c
-
-Review warnings:
-- Expected verdict contains self-correction language; manually verify the knowledge-base entry.
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2192,9 +1811,7 @@ A 4/4 creature with lifelink attacks me. I block with a 2/2. Both deal combat da
 
 Expected verdict:
 ```text
-4 life. Lifelink causes the controller of a source with lifelink to gain life equal to the damage the source deals [702.15b]. The attacker deals 4 damage total: 2 to my blocker (the 2/2 dies), and trample? No, no trample. With no trample and a 2/2 blocker, the attacker assigns at least 2 to the blocker. With only 1 blocker, the attacker can assign... wait, if there's only one blocker, all damage to the blocker (no trample). So 4 damage to the 2/2 (overkill), 0 to player. Lifelink: 4 life gained.
-
-Actually corrected: with 1 blocker and no trample, all 4 damage goes to the blocker. The 2/2 dies and only 2 of the damage was needed; the other 2 is wasted. Lifelink works on damage dealt, not lethal — so 4 life.
+4 life. With one blocker and no trample, all 4 combat damage is assigned to the blocker. Lifelink cares about damage actually dealt by the source, not only the amount needed for lethal damage, so the attacking creature's controller gains 4 life.
 ```
 
 App response:
@@ -2207,27 +1824,17 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [707.10] - To copy a spell, activated ability, or triggered ability means to put a copy of it onto the stack; a copy of a spell isn’t cast and a copy of an activated ability isn’t activated. A copy of a spell or ability copies both the characteristics of the spell or ability and all decisions made for it, including modes, targets, the value of X, and additional or alternative costs. (See rule 601, “Casting Spells.”) Choices that are normally made on resolution are not copied. If an effect of the copy refers to objects used to pay its costs, it uses the objects used to pay the costs of the original spell or ability. A copy of a spell is owned by the player under whose control it was put on the stack. A copy of a spell or ability is controlled by the player under whose control it was put on the stack. A copy of a spell is itself a spell, even though it has no spell card associated with it. A copy of an ability is itself an ability.
-- [120.4d] - Finally, the damage event occurs.
-CITATIONS
-[405.1], [117.3b], [608.2], [707.10], [120.4d]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [702.15b] - Damage dealt by a source with lifelink causes that source’s controller, or its owner if it has no controller, to gain that much life (in addition to any other results that damage causes). See rule 120.3.
+- [509.1c] - The defending player checks each creature they control to see whether it’s affected by any requirements (effects that say a creature must block, or that it must block if some condition is met). If the number of requirements that are being obeyed is fewer than the maximum possible number of requirements that could be obeyed without disobeying any restrictions, the declaration of blockers is illegal. If a creature can’t block unless a player pays a cost, that player is not required to pay that cost, even if blocking with that creature would increase the number of requirements being obeyed. If a requirement that says a creature blocks if able during a certain turn refers to a turn with multiple combat phases, the creature blocks if able during each declare blockers step in that turn.
+- [510.1c] - A blocked creature assigns its combat damage to the creatures blocking it. If no creatures are currently blocking it (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If exactly one creature is blocking it, it assigns all its combat damage to that creature. If two or more creatures are blocking it, it assigns its combat damage to those creatures divided as its controller chooses among them.
+- [510.1d] - A blocking creature assigns combat damage to the creatures it’s blocking. If it isn’t currently blocking any creatures (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If it’s blocking exactly one creature, it assigns all its combat damage to that creature. If it’s blocking two or more creatures, it assigns its combat damage divided as its controller chooses among them.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand
+...
 ```
 
 ## N5. Deathtouch with multiple blockers
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 702.2c, 510.1c
-- Missing retrieved rules: 702.2c, 510.1c
-
-Review warnings:
-- Expected verdict contains self-correction language; manually verify the knowledge-base entry.
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2236,7 +1843,7 @@ I attack with a 5/5 with deathtouch. Opponent blocks with three 2/2 creatures. H
 
 Expected verdict:
 ```text
-1 damage each for deathtouch is enough (deathtouch makes any damage from a creature with deathtouch "lethal"). So 1+1+1 = 3 damage, all three blockers die. 2 damage left over — wait, with no trample, the remaining 2 doesn't go to the player. The remaining 2 is wasted on... actually, by 702.2c, "with deathtouch, 1 damage is considered lethal" for assignment purposes.
+At least 1 damage must be assigned to each blocker before the attacker can assign additional damage later in the damage assignment order. Because the attacker has deathtouch, 1 damage is considered lethal for assignment purposes. With no trample, no damage is assigned to the defending player.
 ```
 
 App response:
@@ -2249,23 +1856,17 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [702.19b] - The controller of an attacking creature with trample first assigns damage to the creature(s) blocking it. Once all those blocking creatures are assigned lethal damage, any excess damage is assigned as its controller chooses among those blocking creatures and the player, planeswalker, or battle the creature is attacking. When checking for assigned lethal damage, take into account damage already marked on the creature and damage from other creatures that’s being assigned during the same combat damage step, but not any abilities or effects that might change the amount of damage that’s actually dealt. The attacking creature’s controller need not assign lethal damage to all those blocking creatures but in that case can’t assign any damage to the player or planeswalker it’s attacking.
-- [723.5] - While controlling another player, a player makes all choices and decisions the controlled player is allowed to make or is told to make by the rules or by any objects. This includes choices and decisions about what to play, and choices and decisions called for by spells and abilities.
-- [701.54c] - If a player doesn’t have an emblem named The Ring at the time the Ring tempts them, they get an emblem named The Ring before choosing a creature to be their Ring-bearer. The Ring has “Your Ring-bearer is legendary and can’t be blocked by creatures with greater power.” As long as the Ring has tempted that player two or more times, it has “Whenever your Ring-bearer attacks, draw a card, then discard a card.” As long as the Ring has tempted that player three or more times, it has “Whenever your Ring-bearer becomes blocked by a creature, the blocking creature’s controller sacrifices it at end of combat.” As long as the Ring has tempted that player four or more times, it has “Whenever your Ring-bearer deals combat damage to a player, each opponent loses 3 life.”
-- [702.19c] - Trample over planeswalkers is a variant of trample that modifies the rules for assigning combat damage to planeswalkers. The controller of a creature with trample over planeswalkers assigns that creature’s c
+- [510.1c] - A blocked creature assigns its combat damage to the creatures blocking it. If no creatures are currently blocking it (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If exactly one creature is blocking it, it assigns all its combat damage to that creature. If two or more creatures are blocking it, it assigns its combat damage to those creatures divided as its controller chooses among them.
+- [509.1c] - The defending player checks each creature they control to see whether it’s affected by any requirements (effects that say a creature must block, or that it must block if some condition is met). If the number of requirements that are being obeyed is fewer than the maximum possible number of requirements that could be obeyed without disobeying any restrictions, the declaration of blockers is illegal. If a creature can’t block unless a player pays a cost, that player is not required to pay that cost, even if blocking with that creature would increase the number of requirements being obeyed. If a requirement that says a creature blocks if able during a certain turn refers to a turn with multiple combat phases, the creature blocks if able during each declare blockers step in that turn.
+- [510.1d] - A blocking creature assigns combat damage to the creatures it’s blocking. If it isn’t currently blocking any creatures (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If it’s blocking exactly one creature, it assigns all its combat damage to that creature. If it’s blocking two or more creatures, it assigns its combat damage divided as its controller chooses among them.
+- [702.2c] - Any nonzero amount of combat damage assigned to a creature by a source with deathtouch is considered to be lethal damage for the purposes of determining if excess damage is being dealt.
+- [509.1] - First, the defending player declares blockers. This turn-based action doesn’t use the stack. To declare blockers, the defending player follows the steps below, in order. If at any point during the declaration o
 ...
 ```
 
 ## N6. Creature removed from combat mid-step
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 509.1, 510.1d
-- Missing retrieved rules: 509.1, 510.1d
-
-Review warnings:
-- Expected verdict contains self-correction language; manually verify the knowledge-base entry.
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2274,7 +1875,7 @@ An opponent's 3/3 attacks. I declare a 2/2 as blocker. Before damage is dealt, t
 
 Expected verdict:
 ```text
-The blocker is dead before damage. The 3/3 attacker is still attacking (it's not blocked anymore? actually it was blocked at declare-blockers, that doesn't change). Per 510.1d: if a blocker leaves the battlefield, the attacker is treated as if not blocked for damage UNLESS another blocker remains. With my only blocker dead, the 3/3 is effectively unblocked — it deals 3 to me.
+The blocker is gone before combat damage. The attacker remains a blocked creature because it was blocked during the declare blockers step. With no blocker still present and no trample, the attacker assigns no combat damage to the defending player.
 ```
 
 App response:
@@ -2288,20 +1889,16 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-- [702.19b] - The controller of an attacking creature with trample first assigns damage to the creature(s) blocking it. Once all those blocking creatures are assigned lethal damage, any excess damage is assigned as its controller chooses among those blocking creatures and the player, planeswalker, or battle the creature is attacking. When checking for assigned lethal damage, take into account damage already marked on the creature and damage from other creatures that’s being assigned during the same combat damage step, but not any abilities or effects that might change the amount of damage that’s actually dealt. The attacking creature’s controller need not assign lethal damage to all those blocking creatures but in that case can’t assign any damage to the player or planeswalker it’s attacking.
-- [701.54c] - If a player doesn’t have an emblem named The Ring at the time the Ring tempts them, they get an emblem named The Ring before choosing a creature to be their Ring-bearer. The Ring has “Your Ring-bearer is legendary and can’t be blocked by creatures with greater power.” As long as the Ring has tempted that player two or more times, it has “Whenever your Ring-bearer attacks, draw a card, then discard a card.” As long as the Ring has tempted that player three or more times, it has “Whenever your Ring-bearer becomes blocked by a creature, the blocking creature’s controller sacrifices it at end of combat.” As long as the Ring has tempted that player four or more times, it has “Whenever your Ring-bearer deals combat damage to a player, each opponent loses 3 life.”
-- [801.13b] - If a spell or ability creates an effect that preven
+- [509.1c] - The defending player checks each creature they control to see whether it’s affected by any requirements (effects that say a creature must block, or that it must block if some condition is met). If the number of requirements that are being obeyed is fewer than the maximum possible number of requirements that could be obeyed without disobeying any restrictions, the declaration of blockers is illegal. If a creature can’t block unless a player pays a cost, that player is not required to pay that cost, even if blocking with that creature would increase the number of requirements being obeyed. If a requirement that says a creature blocks if able during a certain turn refers to a turn with multiple combat phases, the creature blocks if able during each declare blockers step in that turn.
+- [510.1c] - A blocked creature assigns its combat damage to the creatures blocking it. If no creatures are currently blocking it (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If exactly one creature is blocking it, it assigns all its combat damage to that creature. If two or more creatures are blocking it, it assigns its combat damage to those creatures divided as its controller chooses among them.
+- [510.1d] - A blocking creature assigns combat damage to the creatures it’s blocking. If it isn’t currently blocking any creatures (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If it’s blocking exactly one creature, it assigns all its combat damage to that creature. If it’s blocking two or more creatures, it assigns its combat damage divided as its controller chooses among them.
+- [509.1] - First, the defending player declares blockers. This turn-based action doesn’t use the stack. To declare blockers, the defending player follows the steps below, in order. If at any point during the declaration of blockers, the defending player is unable to comply with any of the steps listed below, the declaration is
 ...
 ```
 
 ## N7. Indestructible + lethal damage
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 702.12, 704.5g
-- Missing retrieved rules: 702.12, 704.5g
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2323,24 +1920,18 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
+- [704.5g] - If a creature has toughness greater than 0, it has damage marked on it, and the total damage marked on it is greater than or equal to its toughness, that creature has been dealt lethal damage and is destroyed. Regeneration can replace this event.
+- [702.12] - Indestructible
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-CITATIONS
-[608.2], [603.3], [405.1], [117.3b], [603.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [509.1c] - The defending player checks each creature they control to see whether it’s affected by any requirements (effects that say a creature must block, or that it must block if some condition is met). If the number of requirements that are being obeyed is fewer than the maximum possible number of requirements that could be obeyed without disobeying any restrictions, the declaration of blockers is illegal. If a creature can’t block unless a player pays a cost, that player is not required to pay that cost, even if blocking with that creature would increase the number of requirements being obeyed. If a requirement that says a creature blocks if able during a certain turn refers to a turn with multiple combat phases, the creature blocks if able during each declare blockers step in that turn.
+- [510.1c] - A blocked creature assigns its combat damage to the creatures blocking it. If no creatures are currently blocking it (if, for example, they were destroyed or removed from combat), it assigns no combat damage. If exactly one creature is blocking it, it assigns all its combat damage to that creature. If two or more creatures are blocking it, it assigns its combat damage to those creatures divided as its controller chooses among them.
+- [510.1d] - A blocking creature assigns combat damage to the creatures it’s blocking. If it isn’t currently blocking any creatures (if, for example, they were destroyed or removed from combat), it 
+...
 ```
 
 ## N8. Damage prevention vs. damage replacement
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 614.5
-- Missing retrieved rules: 614.5
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2362,24 +1953,17 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
 - [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
-- [614.1] - Some continuous effects are replacement effects. Like prevention effects (see rule 615), replacement effects apply continuously as events happen—they aren’t locked in ahead of time. Such effects watch for a particular event that would happen and completely or partially replace that event with a different event. They act like “shields” around whatever they’re affecting.
+- [614.5] - A replacement effect doesn’t invoke itself repeatedly; it gets only one opportunity to affect an event or any modified events that may replace that event.
 - [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-CITATIONS
-[608.2], [614.6], [614.1], [117.3b], [405.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
+- [608.2b] - If the spell or ability specifies targets, it checks whether the targets are still legal. A target that’s no longer in the zone it was in when it was targeted is illegal. Other changes to the game state may cause a target to no longer be legal; for example, its characteristics may have changed or an effect may have changed the text of the spell. If the source of an ability has left the zone it was in, its last known information is used during this process. If all its targets, for every instance of the word “target,” are now illegal, the spell or ability doesn’t resolve. It’s removed from the stack and, if it’s a spell, put into its owner’s graveyard. Otherwise, the spell or ability will resolve normally. Illegal targets, if any, won’t be affected by parts of a resolving spell’s effect for which they’re illegal. Other parts of the effect for which those targets are not illegal may still affect them. If the spell or ability creates any continuous effects that affect game rules (see rule 613.11), those effects don’t apply to illegal targets. If part of the effect requires information about an illegal target, it fails to determine any such information. Any part of the
+...
 ```
 
 ## O1. Tokens entering with counters
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 614.13
-- Missing retrieved rules: 614.13
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2402,24 +1986,14 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [616.1] - If two or more replacement and/or prevention effects are attempting to modify the way an event affects an object or player, the affected object’s controller (or its owner if it has no controller) or the affected player chooses one to apply, following the steps listed below. If two or more players have to make these choices at the same time, choices are made in APNAP order (see rule 101.4).
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-CITATIONS
-[616.1], [608.2], [603.3], [603.1], [405.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph 
+...
 ```
 
 ## O2. Anafenza vs. token
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 704.5d
-- Missing retrieved rules: 704.5d
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2443,28 +2017,26 @@ RESOLUTION
 RULE TRACE
 - [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
 - [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
+- [704.5d] - If a token is in a zone other than the battlefield, it ceases to exist.
 - [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-- [614.1] - Some continuous effects are replacement effects. Like prevention effects (see rule 615), replacement effects apply continuously as events happen—they aren’t locked in ahead of time. Such effects watch for a particular event that would happen and completely or partially replace that event with a different event. They act like “shields” around whatever they’re affecting.
-CITATIONS
-[614.6], [701.8a], [700.4], [701.8b], [614.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [613.4d] - Layer 7d: Effects that switch a creature’s power and toughness are applied. Such effects take the value of power and apply it to the creature’s toughness, and take the value of toughness and apply it to the creature’s power.
+- [604.3] - Some static abilities are characteristic-defining abilities. A characteristic-defining ability conveys information about an object’s characteristics that would normally be found elsewhere on that object (such as in its mana cost, type line, or power/toughness box). Characteristic-defining abilities can add to or override information found elsewhere on that object. Characteristic-defining abilities function in all zones. They also function outside the game and before the game begins.
+- [613.4b] - Layer 7b: Effects that set power and/or toughness to a specific number or value are applied. Effects that refer to the base power and/or toughness of a creature apply in this layer.
+- [613.1b] - Layer 2: Control-changing effects are applied.
+- [101.2] - When a rule or effect allows or directs something to happen, and another effect states that it can’t happen, the “can’t” effect takes precedence.
+- [613.3] - Within layers 2–6, apply effects from characteristic-defining abilities first (see rule 604.3), then all other effects in timestamp order (see rule 613.7). Note that dependency may alter the order in which effects are applied within a layer. (See rule 613.8.)
+- [613.4a] - Layer 7a: Effects from characteristic-defining abilities that define power and/or toughness are applied. See rule 604.3.
+- [613.7] - Within a lay
+...
 ```
 
-## O3. Token copy of a card with kicker
+## O3. Copy of a card with evoke
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 707.2, 702.74
-- Missing retrieved rules: 707.2, 702.74
+Status: **PASS**
 
 Scenario:
 ```text
-I cast [[Verdurous Gearhulk]] WITHOUT kicker. Then I cast [[Saheeli's Artistry]] copying Verdurous Gearhulk. Does the token copy have counters as if kicker had been paid?
-
-Wait, Verdurous Gearhulk doesn't have kicker. Better example: I cast [[Aether Vial]]'s ability putting a creature directly into play (no kicker option for Vial). Bad example.
+I cast [[Spitebellows]] for its evoke cost. Later, I cast [[Mirror Image]] copying Spitebellows. Does Mirror Image also get sacrificed as though it was evoked?
 ```
 
 Expected verdict:
@@ -2482,25 +2054,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-CITATIONS
-[405.1], [603.3], [603.2], [117.3b], [608.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## O4. Counters on a token that "should" carry
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 704.5d
-- Missing retrieved rules: 704.5d
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2522,25 +2083,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [614.6] - If an event is replaced, it never happens. A modified event occurs instead, which may in turn trigger abilities. Note that the modified event may contain instructions that can’t be carried out, in which case the impossible instruction is simply ignored.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [614.1] - Some continuous effects are replacement effects. Like prevention effects (see rule 615), replacement effects apply continuously as events happen—they aren’t locked in ahead of time. Such effects watch for a particular event that would happen and completely or partially replace that event with a different event. They act like “shields” around whatever they’re affecting.
-CITATIONS
-[614.6], [608.2], [603.3], [603.2], [614.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## P1. Planeswalker loyalty abilities are sorcery-speed
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 606.5, 307.1
-- Missing retrieved rules: 606.5, 307.1
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2549,7 +2099,7 @@ It is my opponent's end step. I have [[Jace, the Mind Sculptor]] on the battlefi
 
 Expected verdict:
 ```text
-No. Loyalty abilities can be activated only as sorceries [606.5] — only during one of your main phases when the stack is empty.
+No. Loyalty abilities can be activated only at sorcery speed [606.3] — only during one of your main phases when the stack is empty.
 ```
 
 App response:
@@ -2562,21 +2112,19 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
+- [606.3] - A player may activate a loyalty ability of a permanent they control any time they have priority and the stack is empty during a main phase of their turn, but only if no player has previously activated a loyalty ability of that permanent that turn.
+- [606.1] - Some activated abilities are loyalty abilities, which are subject to special rules.
+- [307.1] - A player who has priority may cast a sorcery card from their hand during a main phase of their turn when the stack is empty. Casting a sorcery as a spell uses the stack. (See rule 601, “Casting Spells.”)
+- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
+- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
 - [800.4a] - When a player leaves the game, all objects (see rule 109) owned by that player leave the game and any effects which give that player control of any objects or players end. Then, if that player controlled any objects on the stack not represented by cards, those objects cease to exist. Then, if there are any objects still controlled by that player, those objects are exiled. This is not a state-based action. It happens as soon as the player leaves the game. If the player who left the game had priority at the time they left, priority passes to the next player in turn order who’s still in the game.
-- [118.12] - Some spells, activated abilities, and triggered abilities read, “[Do something]. If [a player] [does, doesn’t, or can’t], [effect].” Or “[A player] may [do something]. If [that player] [does, doesn’t, or can’t], [effect].” The action [do something] is a cost, paid when the spell or ability resolves. The “If [a player] [does, doesn’t, or can’t]” clause checks whether the player chose to pay an optional cost or started to pay a mandatory cost, regardless of what events actually occurred.
-- [607.5] - If an object acquires a pair of linked abilities as part of the same effect, the abilities will be similarly linked to one another on that object even though they weren’t printed on that object. They can’t be linked to any other ability, regardless of what other abilities the object may currently have or may have had in the past.
-- [702.109a] - Dash represents three abilities: two static abilities that function while the card with dash is on the stack, one of which may create a delayed triggered ability, and a static ability that functions while the object with dash is on the battlefield. “Dash [cost]” means “You may cast this card by paying [cost] rather than its mana cost,” “If this spell’s dash cost was paid, return the permanent this spell becomes to its owner’s hand at the beginning of the next end step,” and “As long as this permanent’s dash cost was paid, it has haste.” Casting a spell for its dash cost follows the rules for paying alternative costs in 
+- [118.12] - Some spells, activated abilities, and triggered abilities read, “[Do something]. If [a player] [does, doesn’t, or can’t], [effect].” Or “[A player] may [do something]. If [that player] [does, doesn’t, or can’t], [effect].” The action [do something] is a cost, paid when the spell or ability resolves. The “If [a player] [does, doesn’t, or can’t]” clause checks whether the player chose to pay an optional cost or started to pay a
 ...
 ```
 
 ## P2. Each planeswalker — loyalty once per turn
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 606.5b
-- Missing retrieved rules: 606.5b
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2585,7 +2133,7 @@ I control [[Liliana, the Last Hope]] on my main phase. I activate her -2 ability
 
 Expected verdict:
 ```text
-No. A player may activate only one loyalty ability of each planeswalker each turn [606.5b].
+No. A player may activate only one loyalty ability of each permanent each turn, at sorcery speed [606.3].
 ```
 
 App response:
@@ -2598,28 +2146,17 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
 - [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-CITATIONS
-[603.3], [608.2], [405.1], [117.3b], [603.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [606.3] - A player may activate a loyalty ability of a permanent they control any time they have priority and the stack is empty during a main phase of their turn, but only if no player has previously activated a loyalty ability of that permanent that turn.
+- [307.1] - A player who has priority may cast a sorcery card from their hand during a main phase of their turn when the stack is empty. Casting a sorcery as a spell uses the stack. (See rule 601, “Casting Spells.”)
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast inc
+...
 ```
 
 ## P3. Mana ability does not require priority
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 605.3a
-- Missing retrieved rules: 605.3a
-- Verdict polarity mismatch; expected NO-style answer
-
-Review warnings:
-- Expected verdict contains self-correction language; manually verify the knowledge-base entry.
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2628,11 +2165,7 @@ Opponent's [[Wrath of God]] is resolving. My creatures are being destroyed. Befo
 
 Expected verdict:
 ```text
-No. During resolution, no player has priority [608.2]. Mana abilities CAN be activated without priority, BUT only when a player is in the middle of casting a spell or activating an ability — not during another spell's resolution.
-
-Wait — let me reread. 605.3a: mana abilities can be activated "whenever a player has priority" or "when a player is in the process of casting a spell or activating an ability requiring a mana payment."
-
-So during another spell's resolution, neither condition is met. Can't activate.
+No. During another spell's resolution, no player has priority [608.2]. Mana abilities can be activated without using the stack, but 605.3a permits that only when a player has priority or is in the process of casting a spell or activating an ability that requires a mana payment. Neither condition is true during Wrath of God's resolution.
 ```
 
 App response:
@@ -2647,24 +2180,14 @@ RESOLUTION
 RULE TRACE
 - [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-- [603.12] - A resolving spell or ability may allow or instruct a player to take an action and create a triggered ability that triggers “when [a player] [does or doesn’t]” take that action or “when [something happens] this way.” These reflexive triggered abilities follow the rules for delayed triggered abilities (see rule 603.7), except that they’re checked immediately after being created and trigger based on whether the trigger event or events occurred earlier during the resolution of the spell or ability that created them.
-- [608.2g] - If an effect gives a player the option to pay mana, they may activate mana abilities before taking that action. If an effect specifically instructs or allows a player to cast a spell during resolution, they do so by following the steps in rules 601.2a–i, except no player receives priority after it’s cast. That spell becomes the topmost object on the stack, and the currently resolving spell or ability continues to resolve, which may include casting other spells this way. No other spells can normally be cast and no other abilities can normally be activated during resolution.
-CITATIONS
-[701.8a], [608.2], [701.8b], [603.12], [608.2g]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. 
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative 
 ...
 ```
 
 ## P4. "Activate only once per turn" tracking
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 602.5
-- Missing retrieved rules: 602.5
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2688,24 +2211,15 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-CITATIONS
-[603.3], [603.2], [603.1], [405.1], [117.3b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [509.1c] - The defending player checks each creature they control to see whether it’s affected by any requirements (effects that say a creature must block, or that it must block if some condition is met). If the number of requirements that are being obeyed is fewer than the maximum possible number of requirements that could be obeyed without disobeying any restrictions, the declaration of blockers is illegal. If a creature can’t block unless a player pays a cost, that player is not required to pay that cost, even if blocking with that creature would increase the number of requirements being obeyed. If a requirement that says a creature blocks if able during a certain turn refers to a turn with multiple combat phases, the creature blocks if able during each declare blockers step in that turn.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana component of the total cost is reduced to nothing by cost reduction effects, it is considered to be {0}. It can’t be reduced to less than {0}. Once the total cost is determined, any effects that directly affect the total cost are applied. Then the resulting total cost becomes “locked in.” If effects would change the total cost after this time, they have no effect.
+- [601.2i] - Once the steps described in 601.2a–h are completed, effects that modify the characteristics of the spell as it’s cast are applied, then the spell becomes cast. Any abilities that trigger when a spell is cast or put onto the stack trigger at this time. If the spell’s controller had priority before casting it, they get prior
+...
 ```
 
 ## Q1. Mode chosen at casting
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 601.2b, 700.2
-- Missing retrieved rules: 601.2b, 700.2
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2727,19 +2241,15 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [707.10] - To copy a spell, activated ability, or triggered ability means to put a copy of it onto the stack; a copy of a spell isn’t cast and a copy of an activated ability isn’t activated. A copy of a spell or ability copies both the characteristics of the spell or ability and all decisions made for it, including modes, targets, the value of X, and additional or alternative costs. (See rule 601, “Casting Spells.”) Choices that are normally made on resolution are not copied. If an effect of the copy refers to objects used to pay its costs, it uses the objects used to pay the costs of the original spell or ability. A copy of a spell is owned by the player under whose control it was put on the stack. A copy of a spell or ability is controlled by the player under whose control it was put on the stack. A copy of a spell is itself a spell, even though it has no spell card associated with it. A copy of an ability is itself an ability.
-- [601.2c] - The player announces their choice of an appropriate object or player for each target the spell requires. A spell may require some targets only if an alternative or additional cost (such as a kicker cost) or a particular mode was chosen for it; otherwise, the spell is cast as though it did not require those targets. Similarly, a spell may require alternative targets only if an alternative or additional cost was chosen for it. If the spell has a variable number of targets, the player announces how many targets they will choose before they announce those targets. In some cases, the number of targets will be defined by the spell’s text. Once the number of targets the spell has is determined, that number doesn’t change, even if the information used to determine the number of 
+- [700.2] - A spell or ability is modal if it has two or more options in a bulleted list preceded by instructions for a player to choose a number of those options, such as “Choose one —.” Each of those options is a mode. Modal cards printed prior to the Khans of Tarkir™ set didn’t use bulleted lists for the modes; these cards have received errata in the Oracle card reference so the modes do appear in a bulleted list.
+- [700.2a] - The controller of a modal spell or activated ability chooses the mode(s) as part of casting that spell or activating that ability. If one of the modes would be illegal (due to an inability to choose legal targets, for example), that mode can’t be chosen. (See rule 601.2b.)
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or ch
 ...
 ```
 
 ## Q2. Modal spell with one mode becoming illegal
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 700.2
-- Missing retrieved rules: 700.2
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2761,25 +2271,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-CITATIONS
-[608.2], [701.8a], [405.1], [117.3b], [701.8b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## Q3. Charm "choose one or more"
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 700.2a
-- Missing retrieved rules: 700.2a
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2802,24 +2301,15 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-CITATIONS
-[701.8a], [608.2], [701.8b], [405.1], [117.3b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [700.2] - A spell or ability is modal if it has two or more options in a bulleted list preceded by instructions for a player to choose a number of those options, such as “Choose one —.” Each of those options is a mode. Modal cards printed prior to the Khans of Tarkir™ set didn’t use bulleted lists for the modes; these cards have received errata in the Oracle card reference so the modes do appear in a bulleted list.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just t
+...
 ```
 
 ## Q4. Choose new targets and the illegality rule
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 115.6
-- Missing retrieved rules: 115.6
-- Verdict polarity mismatch; expected YES-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2841,28 +2331,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-CITATIONS
-[608.2], [405.1], [603.3], [117.3b], [603.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## Q5. As-enters choices
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 601.2b
-- Missing retrieved rules: 601.2b
-- Verdict polarity mismatch; expected NO-style answer
-
-Review warnings:
-- Expected verdict contains self-correction language; manually verify the knowledge-base entry.
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2871,11 +2347,7 @@ I cast [[Master of Etherium]] (an artifact creature) — wait, no as-enters. Use
 
 Expected verdict:
 ```text
-No. Once the spell is resolving, it cannot be countered (counterspells target spells on the stack). During resolution, no priority [608.2]. The X choice happens at casting (601.2b), not during resolution.
-
-But wait — [[Engineered Explosives]] is "with X charge counters." Is X chosen at casting or as it enters?
-
-Looking at Oracle text: "Engineered Explosives enters with X charge counters on it." The X here is in the casting cost (Engineered Explosives is {X}), and X for the counter count equals the X paid in the cost. X is chosen at 601.2b during casting.
+X is locked at casting under 601.2b. Force of Will targets a spell on the stack, so it can counter Engineered Explosives before it begins resolving. Once Engineered Explosives is resolving, no player has priority and it is too late to cast Force of Will.
 ```
 
 App response:
@@ -2889,24 +2361,14 @@ RESOLUTION
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
 - [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [701.8b] - The only ways a permanent can be destroyed are as a result of an effect that uses the word “destroy” or as a result of the state-based actions that check for lethal damage (see rule 704.5g) or damage from a source with deathtouch (see rule 704.5h). If a permanent is put into its owner’s graveyard for any other reason, it hasn’t been “destroyed.”
-- [702.62a] - Suspend is a keyword that represents three abilities. The first is a static ability that functions while the card with suspend is in a player’s hand. The second and third are triggered abilities that function in the exile zone. “Suspend N—[cost]” means “If you could begin to cast this card by putting it onto the stack from your hand, you may pay [cost] and exile it with N time counters on it. This action doesn’t use the stack,” and “At the beginning of your upkeep, if this card is suspended, remove a time counter from it,” and “When the last time counter is removed from this card, if it’s exiled, you may play it without paying its mana cost if able. If you don’t, it remains exiled. If you cast a creature spell this way, it gains haste until you lose control of the spell or the permanent it becomes.”
-CITATIONS
-[608.2], [701.8a], [700.4], [701.8b], [702.62a]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative
+...
 ```
 
 ## R1. Cascade — exile order matters
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 702.85a
-- Missing retrieved rules: 702.85a
-- Verdict polarity mismatch; expected NO-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2928,25 +2390,15 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-CITATIONS
-[608.2], [405.1], [603.3], [117.3b], [603.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [702.85a] - Cascade is a triggered ability that functions only while the spell with cascade is on the stack. “Cascade” means “When you cast this spell, exile cards from the top of your library until you exile a nonland card whose mana value is less than this spell’s mana value. You may cast that card without paying its mana cost if the resulting spell’s mana value is less than this spell’s mana value. Then put all cards exiled this way that weren’t cast on the bottom of your library in a random order.”
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the 
+...
 ```
 
 ## R2. Cascade — what about X spells?
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 702.85a, 107.3, 704.5f
-- Missing retrieved rules: 702.85a, 107.3, 704.5f
-- Verdict polarity mismatch; expected YES-style answer
+Status: **PASS**
 
 Scenario:
 ```text
@@ -2968,24 +2420,15 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [700.4] - The term dies means “is put into a graveyard from the battlefield.”
-- [701.8a] - To destroy a permanent, move it from the battlefield to its owner’s graveyard.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-CITATIONS
-[608.2], [700.4], [701.8a], [405.1], [117.3b]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [702.85a] - Cascade is a triggered ability that functions only while the spell with cascade is on the stack. “Cascade” means “When you cast this spell, exile cards from the top of your library until you exile a nonland card whose mana value is less than this spell’s mana value. You may cast that card without paying its mana cost if the resulting spell’s mana value is less than this spell’s mana value. Then put all cards exiled this way that weren’t cast on the bottom of your library in a random order.”
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the 
+...
 ```
 
 ## R3. Suspend creates a delayed trigger
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 702.61
-- Missing retrieved rules: 702.61
+Status: **PASS**
 
 Scenario:
 ```text
@@ -3007,24 +2450,15 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [603.2] - Whenever a game event or game state matches a triggered ability’s trigger event, that ability automatically triggers. The ability doesn’t do anything at this point.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-CITATIONS
-[603.3], [603.2], [603.1], [405.1], [608.2]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [702.61] - Split Second
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in a
+...
 ```
 
 ## R4. Foretell — alternative cost from exile
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 702.143
-- Missing retrieved rules: 702.143
+Status: **PASS**
 
 Scenario:
 ```text
@@ -3046,24 +2480,14 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [608.2] - If the object that’s resolving is an instant spell, a sorcery spell, or an ability, its resolution may involve several steps. The steps described in rules 608.2a and 608.2b are followed first. The steps described in rules 608.2c–m are then followed as appropriate, in no specific order. The steps described in rule 608.2n and 608.2p are followed last.
-- [603.3] - Once an ability has triggered, its controller puts it on the stack as an object that’s not a card the next time a player would receive priority. See rule 117, “Timing and Priority.” The ability becomes the topmost object on the stack. It has the text of the ability that created it, and no other characteristics. It remains on the stack until it’s countered, it resolves, a rule causes it to be removed from the stack, or an effect moves it elsewhere.
-- [405.1] - When a spell is cast, the physical card is put on the stack (see rule 601.2a). When an ability is activated or triggers, it goes on top of the stack without any card associated with it (see rules 602.2a and 603.3).
-- [117.3b] - The active player receives priority after a spell or ability (other than a mana ability) resolves.
-- [603.1] - Triggered abilities have a trigger condition and an effect. They are written as “[When/Whenever/At] [trigger condition or event], [effect]. [Instructions (if any).]”
-CITATIONS
-[608.2], [603.3], [405.1], [117.3b], [603.1]
-VERDICT
-The local rules above ground the answer, but Arbiter could not produce a full model explanation. Use the RULE TRACE as the authoritative local source.
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
+...
 ```
 
 ## R5. Mutate creates a merged permanent
 
-Status: **FAIL**
-
-Failures:
-- Missing required citations: 702.139, 729.6
-- Missing retrieved rules: 702.139, 729.6
+Status: **PASS**
 
 Scenario:
 ```text
@@ -3085,8 +2509,7 @@ RESOLUTION
 2. Apply any relevant replacement/prevention effects from the retrieved rules before checking triggers.
 3. Check the final event against the retrieved trigger and zone-change rules.
 RULE TRACE
-- [702.62a] - Suspend is a keyword that represents three abilities. The first is a static ability that functions while the card with suspend is in a player’s hand. The second and third are triggered abilities that function in the exile zone. “Suspend N—[cost]” means “If you could begin to cast this card by putting it onto the stack from your hand, you may pay [cost] and exile it with N time counters on it. This action doesn’t use the stack,” and “At the beginning of your upkeep, if this card is suspended, remove a time counter from it,” and “When the last time counter is removed from this card, if it’s exiled, you may play it without paying its mana cost if able. If you don’t, it remains exiled. If you cast a creature spell this way, it gains haste until you lose control of the spell or the permanent it becomes.”
-- [707.10] - To copy a spell, activated ability, or triggered ability means to put a copy of it onto the stack; a copy of a spell isn’t cast and a copy of an activated ability isn’t activated. A copy of a spell or ability copies both the characteristics of the spell or ability and all decisions made for it, including modes, targets, the value of X, and additional or alternative costs. (See rule 601, “Casting Spells.”) Choices that are normally made on resolution are not copied. If an effect of the copy refers to objects used to pay its costs, it uses the objects used to pay the costs of the original spell or ability. A copy of a spell is owned by the player under whose control it was put on the stack. A copy of a spell or ability is controlled by the player under whose control it was put on the stack. A copy of a spell is itself a spell, even though it has no spell card associated with it. A copy of an ability is itself an ability.
-- [118.12] - Some spells, activated abilities, and triggered abilities read, “[Do something]. If [a player] [does, doesn’t, or can’t], [effect].” Or “[A player] may [do something]. If [that player] [does, doesn’t, or can’t], [effect].” The action [do something] is a cost, paid when the spell or ability resolves. The “If [a player] 
+- [601.2b] - If the spell is modal, the player announces the mode choice (see rule 700.2). If the player wishes to splice any cards onto the spell (see rule 702.47), they reveal those cards in their hand. If the spell has alternative or additional costs that will be paid as it’s being cast such as buyback or kicker costs (see rules 118.8 and 118.9), the player announces their intentions to pay any or all of those costs (see rule 601.2f). A player can’t apply two alternative methods of casting or two alternative costs to a single spell. If the spell has a variable cost that will be paid as it’s being cast (such as an {X} in its mana cost; see rule 107.3), the player announces the value of that variable. If the value of that variable is defined in the text of the spell by a choice that player would make later in the announcement or resolution of the spell, that player makes that choice at this time instead of that later time. If a cost that will be paid as the spell is being cast includes hybrid mana symbols, the player announces the nonhybrid equivalent cost they intend to pay. If a cost that will be paid as the spell is being cast includes Phyrexian mana symbols, the player announces whether they intend to pay 2 life or a corresponding colored mana cost for each of those symbols. Previously made choices (such as choosing to cast a spell with flashback from a graveyard or choosing to cast a creature with morph face down) may restrict the player’s options when making these choices.
+- [601.2f] - The player determines the total cost of the spell. Usually this is just the mana cost. Some spells have additional or alternative costs. Some effects may increase or reduce the cost to pay, or may provide other alternative costs. Costs may include paying mana, tapping permanents, sacrificing permanents, discarding cards, and so on. The total cost is the mana cost or alternative cost (as determined in rule 601.2b), plus all additional costs and cost increases, and minus all cost reductions. If multiple cost reductions apply, the player may apply them in any order. If the mana comp
 ...
 ```

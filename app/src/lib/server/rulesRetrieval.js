@@ -154,6 +154,231 @@ function pinnedRuleHintsFromText(text) {
   if (/\bliving death\b|\bresolve|resolves|resolution\b/.test(lower)) {
     hints.add("608.2");
   }
+  if (/\beminence\b|\bfunctions?\b[\s\S]{0,80}\bcommand zone\b/.test(lower)) {
+    hints.add("113.6b");
+  }
+  if (/\bduring resolution\b|\bmid-resolution\b|\bis resolving\b|\bwhile\b[\s\S]{0,40}\bresolving\b|\brespond\b[\s\S]{0,80}\b(resolution|resolving)\b|\bafter\b[\s\S]{0,40}\bresolves\b/.test(lower)) {
+    hints.add("608.2");
+    hints.add("117.3b");
+  }
+  if ((/\b(in response|respond)\b/.test(lower) && /\b(additional cost|sacrifice|cost)\b/.test(lower)) || /\bplayers? don['’]?t get priority\b/.test(lower)) {
+    hints.add("601.2g");
+    hints.add("601.2i");
+    hints.add("117.3c");
+  }
+  if (/\bstate trigger|state-trigger|already on the stack\b|\bstate-based actions\b[\s\S]{0,120}\btrigger\b/.test(lower)) {
+    hints.add("603.8");
+  }
+  if (/\bapnap\b|\bturn order\b|\bsimultaneous\b/.test(lower)) {
+    hints.add("101.4");
+    hints.add("603.3b");
+  }
+  if (/\bcan't\b|\bcannot\b|\bcan['’]?t beats can\b|\bcan not\b/.test(lower)) {
+    hints.add("101.2");
+  }
+  if (/\bcounterspell\b|\bcounter target spell\b|\bcan't be countered\b|\bcannot be countered\b/.test(lower)) {
+    hints.add("101.2");
+    hints.add("608.2b");
+  }
+  if (/\b(stack object|object ownership|owner of.*spell|who owns.*spell|controller of .*stack|who is the controller|cast .* from exile)\b/.test(lower)) {
+    hints.add("112.3");
+  }
+  if (/\bcommander damage\b/.test(lower)) {
+    hints.add("903.4");
+    hints.add("903.10");
+  }
+  if (/\bcopy\b[\s\S]{0,80}\bcommander\b|\bcommander\b[\s\S]{0,80}\bcopy\b/.test(lower)) {
+    hints.add("707.2");
+    hints.add("903.4");
+  }
+  if (/\bcommander tax\b|\bcast\b[\s\S]{0,80}\bcommander\b|\bcommander\b[\s\S]{0,80}\b(alternative cost|additional cost|costs?)\b/.test(lower)) {
+    hints.add("601.2f");
+    hints.add("903.8");
+  }
+  if (/\bpartner\b|\bcolor identit/.test(lower)) {
+    hints.add("702.124");
+    hints.add("903.4d");
+  }
+  if (/\b(cost|costs|casting|cast|alternative cost|additional cost|cost reducer|reducer|tax|phyrexian mana)\b/.test(lower)) {
+    hints.add("601.2b");
+    hints.add("601.2f");
+  }
+  if (/\bpay|payment|mana ability|activate mana\b/.test(lower) && /\bcost\b/.test(lower)) {
+    hints.add("601.2g");
+    hints.add("601.2i");
+  }
+  if (/\bduring cost payment\b|\bin the process of casting\b|\btap\b[\s\S]{0,80}\b(add mana|for \{[cwubrg0-9]+\})\b/.test(lower)) {
+    hints.add("601.2g");
+    hints.add("605.3a");
+  }
+  if (/\balternative cost\b/.test(lower)) {
+    hints.add("118.9");
+  }
+  if (/\bx spell|x cost|x=|value of x\b/.test(lower)) {
+    hints.add("107.3");
+    hints.add("601.2b");
+    hints.add("601.2f");
+  }
+  if (/\bphyrexian mana|life payment|pay life\b/.test(lower)) {
+    hints.add("107.4");
+    hints.add("601.2g");
+  }
+  if (/\b(layer|layers|timestamp|continuous effect|humility|characteristic-defining|cda|power|toughness|dependency|dependencies)\b/.test(lower)) {
+    hints.add("613.1a");
+    hints.add("613.1b");
+    hints.add("613.1d");
+    hints.add("613.1f");
+    hints.add("613.3");
+    hints.add("613.4a");
+    hints.add("613.4b");
+    hints.add("613.4c");
+    hints.add("613.4d");
+    hints.add("613.7");
+    hints.add("613.8");
+    hints.add("604.3");
+  }
+  if (/\bcontrol\b[\s\S]{0,120}\b(creatures you control|enchantment|permanent)\b|\bcreatures you control\b/.test(lower)) {
+    hints.add("613.1b");
+    hints.add("613.4c");
+  }
+  if (/\bin addition to their other types\b|\ball permanents are artifacts\b|\btype-changing\b|\ball artifacts\b/.test(lower)) {
+    hints.add("613.1d");
+    hints.add("608.2");
+  }
+  if (/\+1\/\+1 counter|\+1\/\+1 counters|\banthem\b|\bglorious anthem\b/.test(lower)) {
+    hints.add("613.4c");
+  }
+  if (/\bdoubling season\b|\bhardened scales\b|\bpir, imaginative rascal\b|\bwalking ballista\b/.test(lower)) {
+    hints.add("614.6");
+    hints.add("616.1");
+  }
+  if (/\bsolemnity\b|\benters? without counters\b|\bwithout counters\b/.test(lower)) {
+    hints.add("614.6");
+    hints.add("704.5f");
+  }
+  if (/\blast-known|last known|\bleaves? the battlefield\b[\s\S]{0,120}\btrigger|\bdies\b[\s\S]{0,120}\bnumber of .*counters\b/.test(lower)) {
+    hints.add("603.10");
+  }
+  if (/\bdaybound|nightbound|day\/night|becomes night|becomes day|\bit is currently day|\bit is currently night\b/.test(lower)) {
+    hints.add("702.145");
+    hints.add("731.2");
+    hints.add("731.2a");
+  }
+  if (/\bleaves? the game|player leaving|player has left|\bloses the game\b/.test(lower)) {
+    hints.add("800.4");
+    hints.add("800.4a");
+    hints.add("800.4b");
+  }
+  if (/\bprevention|prevent\b/.test(lower)) {
+    hints.add("615.1");
+    hints.add("614.6");
+  }
+  if (/\bself-replacing|self replacing|own effect\b/.test(lower)) {
+    hints.add("614.15");
+    hints.add("616.1a");
+  }
+  if (/\bredirect|redirection|instead\b[\s\S]{0,80}\bdamage\b/.test(lower)) {
+    hints.add("614.5");
+    hints.add("614.6");
+    hints.add("614.9");
+  }
+  if (/\bworship\b|\breduces? it to 1 instead\b/.test(lower)) {
+    hints.add("614.5");
+    hints.add("614.6");
+  }
+  if (/\btoughness 0|0 toughness|base 0\/0|zero toughness\b/.test(lower)) {
+    hints.add("704.5f");
+  }
+  if (/\bmana ability|mana abilities\b/.test(lower)) {
+    hints.add("605.1");
+    hints.add("605.3a");
+  }
+  if (/\btap a forest|\btap .* for \{[cwubrg0-9]+\}|\btap .* for mana|\btap .* lands?\b|\bmana available\b|\bstill have \{/.test(lower)) {
+    hints.add("605.1");
+    hints.add("605.3a");
+  }
+  if (/\btriggered mana ability\b/.test(lower)) {
+    hints.add("605.1a");
+  }
+  if (/\bmana pool|empties|empty between phases|move to .* step|upkeep step|draw step|main phase\b/.test(lower)) {
+    hints.add("106.4");
+  }
+  if (/\brestricted mana|snow mana|spend only\b/.test(lower)) {
+    hints.add("107.4h");
+  }
+  if (/\bblocker|blockers|blocked|damage assignment|assign damage|combat damage\b/.test(lower)) {
+    hints.add("509.1");
+    hints.add("509.1c");
+    hints.add("510.1c");
+    hints.add("510.1d");
+  }
+  if (/\bfirst strike|double strike\b/.test(lower)) {
+    hints.add("702.7b");
+  }
+  if (/\btrample\b/.test(lower)) {
+    hints.add("702.19");
+    hints.add("510.1c");
+  }
+  if (/\blifelink\b/.test(lower)) {
+    hints.add("702.15b");
+  }
+  if (/\bdeathtouch\b/.test(lower)) {
+    hints.add("702.2c");
+  }
+  if (/\bindestructible\b/.test(lower)) {
+    hints.add("702.12");
+    hints.add("704.5g");
+  }
+  if (/\bremoved from combat|remove.*from combat\b/.test(lower)) {
+    hints.add("509.1");
+    hints.add("510.1d");
+  }
+  if (/\btoken|tokens\b/.test(lower)) {
+    hints.add("704.5d");
+  }
+  if (/\btokens? would be created|create(s|d)? .*tokens?|anointed procession|servo exhibition\b/.test(lower)) {
+    hints.add("614.13");
+  }
+  if (/\btoken\b[\s\S]{0,80}\bcopy\b|\bcopy\b[\s\S]{0,80}\btoken\b/.test(lower)) {
+    hints.add("707.2");
+  }
+  if (/\bkicker|kicked|evoke|evoked\b/.test(lower)) {
+    hints.add("702.74");
+  }
+  if (/\bplaneswalker|loyalty\b/.test(lower)) {
+    hints.add("606.1");
+    hints.add("606.3");
+    hints.add("307.1");
+  }
+  if (/\bonly once per turn|once per turn\b/.test(lower)) {
+    hints.add("602.5");
+  }
+  if (/\bmodal|mode|modes|choose one|choose one or more\b/.test(lower)) {
+    hints.add("601.2b");
+    hints.add("700.2");
+    hints.add("700.2a");
+  }
+  if (/\bnew target|new targets|illegal target|illegal targets\b/.test(lower)) {
+    hints.add("115.6");
+  }
+  if (/\bas enters|as .* enters|enters choices?\b/.test(lower)) {
+    hints.add("601.2b");
+  }
+  if (/\bcascade\b/.test(lower)) {
+    hints.add("702.85a");
+    hints.add("107.3");
+    hints.add("704.5f");
+  }
+  if (/\bsuspend\b/.test(lower)) {
+    hints.add("702.61");
+  }
+  if (/\bforetell\b/.test(lower)) {
+    hints.add("702.143");
+  }
+  if (/\bmutate|mutating|merged permanent|merged permanents\b/.test(lower)) {
+    hints.add("702.140");
+    hints.add("730.3");
+  }
 
   return [...hints];
 }
@@ -195,7 +420,7 @@ function addRuleScore(scores, ruleNumber, amount, reason, byNumber) {
 
 export function retrieveRules(query, cardNames = [], options = {}) {
   const { rules, byNumber } = loadRulesIndex();
-  const limit = Math.min(Math.max(Number(options.limit) || DEFAULT_LIMIT, 1), 12);
+  const limit = Math.min(Math.max(Number(options.limit) || DEFAULT_LIMIT, 1), 20);
   const extractedCardNames = extractCardNamesForRules(query, cardNames);
   const seedText = cardSeedText(extractedCardNames);
   const queryKeywords = new Set(extractRuleKeywords(query));
@@ -203,7 +428,7 @@ export function retrieveRules(query, cardNames = [], options = {}) {
   const scores = new Map();
 
   for (const ruleNumber of extractRuleNumbers(query)) {
-    addRuleScore(scores, ruleNumber, 5000, "exact-rule-number", byNumber);
+    addRuleScore(scores, ruleNumber, 100000, "exact-rule-number", byNumber);
   }
 
   for (const ruleNumber of [...pinnedRuleHintsFromText(query), ...pinnedRuleHintsFromText(seedText)]) {
