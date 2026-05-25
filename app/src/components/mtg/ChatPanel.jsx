@@ -75,6 +75,40 @@ function TrustStrip({ msg, LINE }) {
   );
 }
 
+function ArbiterSources({ sources, LINE, TEXT, fontFamily }) {
+  if (!sources) return null;
+  const rules = sources.ruleNumbers || [];
+  const cards = sources.cards || [];
+  const precedents = sources.rulesGuruPrecedents || [];
+  const warnings = sources.hallucinations || [];
+  if (!rules.length && !cards.length && !precedents.length && !warnings.length) return null;
+
+  return (
+    <details style={{ marginTop: 8, borderTop: `1px solid ${LINE}`, paddingTop: 8 }}>
+      <summary style={{ cursor: "pointer", fontSize: 11, color: "#7f8aa3" }}>
+        View Arbiter Sources
+      </summary>
+      <div style={{
+        marginTop: 8,
+        whiteSpace: "pre-wrap",
+        color: TEXT,
+        background: "#070a12",
+        border: `1px solid ${LINE}`,
+        borderRadius: 6,
+        padding: 10,
+        fontSize: 11,
+        lineHeight: 1.45,
+        fontFamily,
+      }}>
+        {rules.length > 0 && <div>CR rules: {rules.join(", ")}</div>}
+        {cards.length > 0 && <div>Cards: {cards.join(", ")}</div>}
+        {precedents.length > 0 && <div>RulesGuru precedents: {precedents.map(precedent => precedent.id).join(", ")}</div>}
+        {warnings.length > 0 && <div>Citation warnings: {warnings.join(", ")}</div>}
+      </div>
+    </details>
+  );
+}
+
 export default function ChatPanel({
   activeDeck,
   agent,
@@ -298,6 +332,12 @@ export default function ChatPanel({
                         </pre>
                       </details>
                     )}
+                    <ArbiterSources
+                      sources={msg.arbiterSources}
+                      LINE={LINE}
+                      TEXT={TEXT}
+                      fontFamily={fontFamily}
+                    />
                     {/* T8 — Trust Strip */}
                     {!msg.isError && <TrustStrip msg={msg} LINE={LINE} />}
                   </>

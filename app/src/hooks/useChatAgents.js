@@ -231,6 +231,26 @@ function providerForModelTier(tier) {
   return tier === "anthropic" ? "anthropic" : "ollama";
 }
 
+function summarizeArbiterMetadata(metadata) {
+  if (!metadata) return null;
+  return {
+    ruleNumbers: (metadata.rulesRetrieved || [])
+      .map(rule => String(rule.ruleNumber || "").trim())
+      .filter(Boolean),
+    cards: (metadata.cardsRetrieved || [])
+      .map(card => String(card || "").trim())
+      .filter(Boolean),
+    rulesGuruPrecedents: (metadata.rulesGuruPrecedents || [])
+      .map(precedent => ({
+        id: precedent.id,
+        title: precedent.title,
+        requiredCitations: precedent.requiredCitations || [],
+      })),
+    hallucinations: metadata.hallucinations || [],
+    confidence: metadata.confidence || null,
+  };
+}
+
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -606,7 +626,7 @@ export default function useChatAgents({
         if (arbiterResult.trace) {
           responseMeta.arbiterTrace = arbiterResult.trace;
           responseMeta.arbiterStatus = arbiterResult.status;
-          responseMeta.arbiterMetadata = arbiterResult.retrievalMetadata || null;
+          responseMeta.arbiterSources = summarizeArbiterMetadata(arbiterResult.retrievalMetadata);
           const arbiterInstruction = arbiterResult.status === "resolved"
             ? "This trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language."
             : "This Arbiter trace did not resolve cleanly from local rules retrieval. Do not present a confident ruling. Explain what is unresolved and ask for a narrower board state or exact card names if needed.";
@@ -628,11 +648,11 @@ export default function useChatAgents({
           engineContextProvided: Boolean(engineContext),
           arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
           arbiterStatus: responseMeta.arbiterStatus || null,
-          arbiterRulesRetrieved: responseMeta.arbiterMetadata?.rulesRetrieved?.length || 0,
-          arbiterCardsRetrieved: responseMeta.arbiterMetadata?.cardsRetrieved?.length || 0,
-          arbiterRulesGuruPrecedents: responseMeta.arbiterMetadata?.rulesGuruPrecedents?.length || 0,
-          arbiterHallucinations: responseMeta.arbiterMetadata?.hallucinations?.length || 0,
-          arbiterConfidence: responseMeta.arbiterMetadata?.confidence || null,
+          arbiterRulesRetrieved: responseMeta.arbiterSources?.ruleNumbers?.length || 0,
+          arbiterCardsRetrieved: responseMeta.arbiterSources?.cards?.length || 0,
+          arbiterRulesGuruPrecedents: responseMeta.arbiterSources?.rulesGuruPrecedents?.length || 0,
+          arbiterHallucinations: responseMeta.arbiterSources?.hallucinations?.length || 0,
+          arbiterConfidence: responseMeta.arbiterSources?.confidence || null,
         };
 
         setHistories(previous => ({
@@ -800,11 +820,11 @@ export default function useChatAgents({
         engineContextProvided: Boolean(engineContext),
         arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
         arbiterStatus: responseMeta.arbiterStatus || null,
-        arbiterRulesRetrieved: responseMeta.arbiterMetadata?.rulesRetrieved?.length || 0,
-        arbiterCardsRetrieved: responseMeta.arbiterMetadata?.cardsRetrieved?.length || 0,
-        arbiterRulesGuruPrecedents: responseMeta.arbiterMetadata?.rulesGuruPrecedents?.length || 0,
-        arbiterHallucinations: responseMeta.arbiterMetadata?.hallucinations?.length || 0,
-        arbiterConfidence: responseMeta.arbiterMetadata?.confidence || null,
+        arbiterRulesRetrieved: responseMeta.arbiterSources?.ruleNumbers?.length || 0,
+        arbiterCardsRetrieved: responseMeta.arbiterSources?.cards?.length || 0,
+        arbiterRulesGuruPrecedents: responseMeta.arbiterSources?.rulesGuruPrecedents?.length || 0,
+        arbiterHallucinations: responseMeta.arbiterSources?.hallucinations?.length || 0,
+        arbiterConfidence: responseMeta.arbiterSources?.confidence || null,
       };
 
       setHistories(previous => {
