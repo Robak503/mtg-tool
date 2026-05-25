@@ -677,6 +677,7 @@ export default function useChatAgents({
           provider: effectiveProvider,
           modelTier: requestedTier,
           fastLocal: useFastLocalModel,
+          agentName: targetAgent,
           max_tokens: isLocalProvider ? localMaxTokens : 2500,
           system: systemPrompt,
           messages: apiMessages,
