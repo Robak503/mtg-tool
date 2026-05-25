@@ -579,8 +579,44 @@ export default function useChatAgents({
         // Karn can still answer from the loaded deck Oracle context if local search context fails.
       }
 
-      if (deckOracleContext || karnScryfallContext || cardContext) {
-        augmentedContent = `${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## USER QUESTION\n\n${prompt}`;
+      // ── Commander Spellbook local combo lookup (Karn only) ─────────────────
+      let spellbookContext = "";
+      try {
+        if (targetAgent === "karn" && deckOracleNames.length >= 2 && !isPureKarnCutRequest) {
+          const commanderNames = deckLock?.commanderNames?.length
+            ? deckLock.commanderNames
+            : deckLock?.commander
+              ? deckLock.commander.split(" / ").map(n => n.trim()).filter(Boolean)
+              : (activeDeck ? deckCommanderNames(activeDeck) : []);
+          const sbRes = await fetch("/api/spellbook", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              cardNames: deckOracleNames,
+              commanderNames,
+              type: "full",
+              maxIncluded: 6,
+              maxAlmost: 10,
+            }),
+          });
+          if (sbRes.ok) {
+            const sbData = await sbRes.json();
+            if (sbData.ready) {
+              const parts = [];
+              if (sbData.combos?.formatted) parts.push(sbData.combos.formatted);
+              if (sbData.bracket?.formatted) parts.push(sbData.bracket.formatted);
+              if (parts.length) {
+                spellbookContext = `## COMMANDER SPELLBOOK DATA (local — zero network calls)\n${parts.join("\n\n")}\n\n`;
+              }
+            }
+          }
+        }
+      } catch {
+        // Spellbook context is supplemental — never block the request.
+      }
+
+      if (deckOracleContext || karnScryfallContext || spellbookContext || cardContext) {
+        augmentedContent = `${deckOracleContext || ""}${karnScryfallContext || ""}${spellbookContext}${cardContext || ""}## USER QUESTION\n\n${prompt}`;
       }
 
       if (isPureKarnCutRequest && deckOracleNames.length) {

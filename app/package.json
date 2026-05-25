@@ -20,7 +20,9 @@
     "clean:next": "node scripts/clean-next-cache.cjs",
     "check": "npm run clean:next && next build",
     "build": "npm run clean:next && next build",
-    "start": "next start"
+    "start": "next start",
+    "sync:spellbook": "node scripts/sync-spellbook.cjs",
+    "sync:spellbook-cards": "node scripts/sync-spellbook.cjs --cards-only"
   },
   "dependencies": {
     "next": "^15.3.3",

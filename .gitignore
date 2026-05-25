@@ -67,3 +67,4 @@ MTG ENGINE/THE KEY.txt
 __pycache__/
 *.pyc
 *.pyo
+.gstack/
