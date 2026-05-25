@@ -2,7 +2,7 @@
 
 Project root: `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL`
 Branch: `feat/phase2-arbiter-retrieval`
-Latest commit after this update: `d2438ba`
+Latest commit after this update: `da67fc7`
 
 This document supersedes the older "start Phase 2" assumptions in `PHASE2_PLAN.md`,
 `CODEX_PHASE2_HANDOFF.md`, and `CODEX_PHASE2_PROMPT.md`. Those files are still useful
@@ -33,6 +33,8 @@ Phase 2 backend retrieval is implemented and validated:
 - New deck locks snapshot `cardDataVersion` and `rulesVersion`.
 - Unresolved, retrieval-miss, and citation-failed Arbiter statuses are visible in the chat UI.
 - `validate:arbiter --mutate` adds a paraphrase-lite RulesGuru validation mode.
+- Chat history stores compact Arbiter source lists instead of full retrieved rule text.
+- Chat UI includes `View Arbiter Sources` for rule numbers, card names, RulesGuru precedent IDs, and citation warnings.
 
 ## Validation Results
 
@@ -63,6 +65,7 @@ scenario wording while preserving card names and required citations.
 ## Recent Commit Timeline
 
 ```text
+da67fc7 refactor: persist compact Arbiter sources
 d2438ba test: add mutated RulesGuru validation
 7eb53bf fix: make unresolved Arbiter answers visible
 2c848cf feat: snapshot knowledge versions in deck locks
@@ -112,10 +115,9 @@ The code builds. The remaining check is a short manual UI smoke pass:
 
 Do not expand into Forge or Garfield yet. The best next slice is polish and trust:
 
-1. Run the manual UI smoke test for Fast / Deep / API and TrustStrip metadata.
-2. Add a small "sources" details view for Arbiter metadata if TrustStrip counts are not enough.
-3. Consider a harder true-paraphrase validation mode later, but do not block current Phase 2 on it.
-4. Review whether storing full `arbiterMetadata` in chat history is useful enough to keep, or whether counts plus trace are sufficient.
+1. Run the manual UI smoke test for Fast / Deep / API, TrustStrip metadata, and `View Arbiter Sources`.
+2. Consider a harder true-paraphrase validation mode later, but do not block current Phase 2 on it.
+3. Decide whether Phase 2 is ready for user testing or whether one more UI pass is needed.
 
 ## What Not To Do Next
 

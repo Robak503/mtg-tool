@@ -6,7 +6,7 @@
 This plan now has a newer companion progress file:
 `CODEX_PHASE2_PROGRESS_2026-05-24.md`.
 
-As of commit `d2438ba`, the major Phase 2 backend work has been implemented and
+As of commit `da67fc7`, the major Phase 2 backend work has been implemented and
 validated:
 
 - Arbiter local retrieval is wired at runtime.
@@ -15,6 +15,7 @@ validated:
 - The Fast / Deep / API model tier selector is built.
 - Arbiter grounding metadata, retrieval-miss UX, knowledge version snapshots, and
   mutated RulesGuru validation are built.
+- Chat history stores compact Arbiter sources, with a UI details panel for rule/card/source lists.
 - Build passes after stopping dev and cleaning `.next`.
 
 The remaining live work is polish and trust UX, not the original backend scaffold.
@@ -33,7 +34,7 @@ Read this cold and you have everything you need to continue.
 
 Project root: `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL`
 App root: `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app`
-Latest verified commit for current Phase 2 progress: `d2438ba`
+Latest verified commit for current Phase 2 progress: `da67fc7`
 
 ---
 

@@ -25,7 +25,7 @@ Current branch:
 feat/phase2-arbiter-retrieval
 
 Current latest commit:
-d2438ba test: add mutated RulesGuru validation
+da67fc7 refactor: persist compact Arbiter sources
 
 What is already done:
 - Phase 1 is complete.
@@ -39,6 +39,7 @@ What is already done:
 - UI has Fast / Deep / API model tier selector.
 - TrustStrip records provider, tier, model, deck lock, cards, rulings, engine context, and Arbiter trace.
 - TrustStrip also records Arbiter CR rule/card/RulesGuru grounding counts.
+- `View Arbiter Sources` shows compact source lists without storing full retrieved rule text in chat history.
 - Deck locks snapshot local Scryfall/rules version strings from /api/knowledge-status.
 - Retrieval misses/unresolved Arbiter answers are visibly marked.
 - RulesGuru has an additional paraphrase-lite `--mutate` validation mode passing 500/500.
@@ -51,12 +52,13 @@ Run a careful resume audit, then do the manual UI smoke test for the new model t
 3. Confirm header shows Fast, Deep, API
 4. In Fast, send a short local question and confirm TrustStrip shows tier Fast and local model
 5. In Deep, send a short local question and confirm TrustStrip shows tier Deep and local model
-6. Confirm /api/model-calls still shows anthropic.total = 0 unless API was explicitly clicked
+6. Ask a Jace rules question and confirm `View Arbiter Sources` appears with rule/card/source counts
+7. Confirm /api/model-calls still shows anthropic.total = 0 unless API was explicitly clicked
 
 After the smoke test, continue with the recommended next engineering slice from CODEX_PHASE2_PROGRESS_2026-05-24.md:
-1. Decide whether TrustStrip counts are enough or whether Arbiter needs a richer Sources details view
-2. Review whether full arbiterMetadata should remain persisted in chat history or be reduced to counts
-3. Consider a harder true-paraphrase validation mode later
+1. Decide whether Phase 2 is ready for user testing
+2. Consider a harder true-paraphrase validation mode later
+3. Start the next Phase 2 polish item only if the smoke test exposes a real issue
 
 Do not start Forge, Garfield learn-to-play, embeddings, or automatic Anthropic fallback.
 Do not spend Anthropic credits unless the user explicitly tells you to use API mode.

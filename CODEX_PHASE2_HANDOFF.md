@@ -19,6 +19,7 @@ Additional Codex progress after the original Phase 2 backend build:
 - Deck locks snapshot local card/rules data versions.
 - Retrieval misses and unresolved Arbiter statuses are visibly marked.
 - Mutated RulesGuru validation passes `500/500`.
+- Chat history stores compact Arbiter source lists and the UI exposes `View Arbiter Sources`.
 
 Treat the older step-by-step sections below as design rationale and historical context,
 not as the live task list. The live next tasks are in
