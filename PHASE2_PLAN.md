@@ -1,6 +1,24 @@
 # MTG Tool — Phase 2 Plan & Session Handoff
 *2026-05-24 — covers this Claude session in full + Phase 2 build plan*
 
+## Current Implementation Status
+
+This plan now has a newer companion progress file:
+`CODEX_PHASE2_PROGRESS_2026-05-24.md`.
+
+As of commit `7350452`, the major Phase 2 backend work has been implemented and
+validated:
+
+- Arbiter local retrieval is wired at runtime.
+- Rules index, card index, citation injection, and RulesGuru precedent retrieval are built.
+- Deterministic validation passes core `76/76`, expanded `424/424`, and RulesGuru `500/500`.
+- The Fast / Deep / API model tier selector is built.
+- Build passes after stopping dev and cleaning `.next`.
+
+The remaining live work is polish and trust UX, not the original backend scaffold.
+Use `CODEX_PHASE2_PROGRESS_2026-05-24.md` as the current handoff, and use this file
+for design rationale.
+
 ---
 
 ## How to Use This Document
@@ -13,7 +31,7 @@ Read this cold and you have everything you need to continue.
 
 Project root: `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL`
 App root: `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app`
-Latest verified commit before this smoke closeout: `9a76183`
+Latest verified commit for current Phase 2 progress: `7350452`
 
 ---
 
@@ -111,6 +129,9 @@ build plan below.
 ## Phase 1 Final State
 
 All Phase 1 work complete. Working tree clean after the post-fix smoke rerun.
+Historical table below reflects the original Phase 2 planning moment; current
+implementation status is summarized at the top of this file and in
+`CODEX_PHASE2_PROGRESS_2026-05-24.md`.
 
 | What | Status |
 |------|--------|
