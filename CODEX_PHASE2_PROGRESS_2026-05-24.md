@@ -2,7 +2,7 @@
 
 Project root: `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL`
 Branch: `feat/phase2-arbiter-retrieval`
-Latest commit after this update: `7350452`
+Latest commit after this update: `d2438ba`
 
 This document supersedes the older "start Phase 2" assumptions in `PHASE2_PLAN.md`,
 `CODEX_PHASE2_HANDOFF.md`, and `CODEX_PHASE2_PROMPT.md`. Those files are still useful
@@ -28,6 +28,11 @@ Phase 2 backend retrieval is implemented and validated:
   - API -> Anthropic
 - TrustStrip/message metadata now records provider, tier, model, deck lock, cards, rulings, engine context, and Arbiter trace presence.
 - `/api/model-calls` now exposes the last call's `modelTier` and `fastLocal`.
+- Arbiter grounding metadata now flows into chat history and TrustStrip.
+- `/api/knowledge-status` reports compact local Scryfall/rules version strings.
+- New deck locks snapshot `cardDataVersion` and `rulesVersion`.
+- Unresolved, retrieval-miss, and citation-failed Arbiter statuses are visible in the chat UI.
+- `validate:arbiter --mutate` adds a paraphrase-lite RulesGuru validation mode.
 
 ## Validation Results
 
@@ -37,6 +42,7 @@ Last verified commands from `app/`:
 npm.cmd run validate:arbiter -- --all --report reports/phase2-arbiter-core-full.md
 npm.cmd run validate:arbiter -- --suite expanded --all --report reports/phase2-arbiter-expanded-full.md
 npm.cmd run validate:arbiter -- --suite rulesguru --all --report reports/phase2-arbiter-rulesguru-full.md
+npm.cmd run validate:arbiter -- --suite rulesguru --all --mutate --report reports/phase2-arbiter-rulesguru-mutated-full.md
 npm.cmd run build
 ```
 
@@ -45,18 +51,23 @@ Results:
 - Core suite: `76/76 passed`
 - Expanded suite: `424/424 passed`
 - RulesGuru suite: `500/500 passed`
+- Mutated RulesGuru suite: `500/500 passed`
 - Combined deterministic retrieval coverage: `1000/1000 passed`
 - Build: passed after stopping the dev server and letting `clean:next` remove `.next`
 - Anthropic call count during validation/smoke remained `0`
 
-Important caveat: RulesGuru validation currently benefits from exact local precedent
-matching. That is valuable for a local precedent layer, but it is not the same as proving
-the system can answer paraphrased versions. Add a mutated/paraphrase validator later if
-we want a harder generalization test.
+Important caveat: `--mutate` is paraphrase-lite, not true semantic paraphrasing. It is
+still a stronger gate than exact local precedent matching because it rewrites common
+scenario wording while preserving card names and required citations.
 
 ## Recent Commit Timeline
 
 ```text
+d2438ba test: add mutated RulesGuru validation
+7eb53bf fix: make unresolved Arbiter answers visible
+2c848cf feat: snapshot knowledge versions in deck locks
+028114d feat: show Arbiter grounding metadata
+b5871f6 docs: update Phase 2 progress handoff
 7350452 feat: add model tier selector
 aa8c4d8 chore: clean Next cache before builds
 8186416 feat: add RulesGuru precedent retrieval
@@ -101,16 +112,10 @@ The code builds. The remaining check is a short manual UI smoke pass:
 
 Do not expand into Forge or Garfield yet. The best next slice is polish and trust:
 
-1. Surface Arbiter retrieval sources in the UI more clearly.
-   - Show retrieved rule numbers and RulesGuru precedent count in the Arbiter trace or TrustStrip.
-   - Keep full rule text hidden behind details so it is table-readable but not noisy.
-2. Populate deck lock version fields.
-   - `cardDataVersion`: from `app/data/scryfall-bulk/tier-manifest.json` or Scryfall bulk metadata.
-   - `rulesVersion`: from `mtg-judge` metadata or CR file timestamp/hash.
-3. Add a stricter validation mode.
-   - Mutate/paraphrase RulesGuru prompts or disable exact scenario matching to test generalization.
-4. Add one small UI status for retrieval misses.
-   - If Arbiter returns `retrieval_miss`, Jace should say the local rules layer could not ground the answer instead of guessing.
+1. Run the manual UI smoke test for Fast / Deep / API and TrustStrip metadata.
+2. Add a small "sources" details view for Arbiter metadata if TrustStrip counts are not enough.
+3. Consider a harder true-paraphrase validation mode later, but do not block current Phase 2 on it.
+4. Review whether storing full `arbiterMetadata` in chat history is useful enough to keep, or whether counts plus trace are sufficient.
 
 ## What Not To Do Next
 

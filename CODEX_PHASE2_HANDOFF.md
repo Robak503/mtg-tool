@@ -12,6 +12,14 @@ This file was originally written before Phase 2 implementation began. Read
 - The UI Fast / Deep / API model tier selector is built and committed.
 - `.next` cache cleanup is wired into `npm run build` and `npm run check`.
 
+Additional Codex progress after the original Phase 2 backend build:
+
+- Fast / Deep / API selector is committed.
+- Arbiter grounding counts are visible in TrustStrip.
+- Deck locks snapshot local card/rules data versions.
+- Retrieval misses and unresolved Arbiter statuses are visibly marked.
+- Mutated RulesGuru validation passes `500/500`.
+
 Treat the older step-by-step sections below as design rationale and historical context,
 not as the live task list. The live next tasks are in
 `CODEX_PHASE2_PROGRESS_2026-05-24.md`.

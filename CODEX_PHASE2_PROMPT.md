@@ -25,7 +25,7 @@ Current branch:
 feat/phase2-arbiter-retrieval
 
 Current latest commit:
-7350452 feat: add model tier selector
+d2438ba test: add mutated RulesGuru validation
 
 What is already done:
 - Phase 1 is complete.
@@ -38,6 +38,10 @@ What is already done:
 - Build passes after stopping any dev server and allowing clean:next to delete .next.
 - UI has Fast / Deep / API model tier selector.
 - TrustStrip records provider, tier, model, deck lock, cards, rulings, engine context, and Arbiter trace.
+- TrustStrip also records Arbiter CR rule/card/RulesGuru grounding counts.
+- Deck locks snapshot local Scryfall/rules version strings from /api/knowledge-status.
+- Retrieval misses/unresolved Arbiter answers are visibly marked.
+- RulesGuru has an additional paraphrase-lite `--mutate` validation mode passing 500/500.
 - Anthropic should remain at 0 calls unless API is deliberately selected.
 
 First task:
@@ -50,10 +54,9 @@ Run a careful resume audit, then do the manual UI smoke test for the new model t
 6. Confirm /api/model-calls still shows anthropic.total = 0 unless API was explicitly clicked
 
 After the smoke test, continue with the recommended next engineering slice from CODEX_PHASE2_PROGRESS_2026-05-24.md:
-1. Surface Arbiter retrieval sources more clearly in the UI
-2. Populate deck lock version fields
-3. Add stricter mutated/paraphrased validation for RulesGuru-style questions
-4. Add clear retrieval_miss UX
+1. Decide whether TrustStrip counts are enough or whether Arbiter needs a richer Sources details view
+2. Review whether full arbiterMetadata should remain persisted in chat history or be reduced to counts
+3. Consider a harder true-paraphrase validation mode later
 
 Do not start Forge, Garfield learn-to-play, embeddings, or automatic Anthropic fallback.
 Do not spend Anthropic credits unless the user explicitly tells you to use API mode.
