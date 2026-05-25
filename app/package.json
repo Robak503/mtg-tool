@@ -24,7 +24,9 @@
     "build": "npm run clean:next && next build",
     "start": "next start",
     "sync:spellbook": "node scripts/sync-spellbook.cjs",
-    "sync:spellbook-cards": "node scripts/sync-spellbook.cjs --cards-only"
+    "sync:spellbook-cards": "node scripts/sync-spellbook.cjs --cards-only",
+    "sync:edhrec-salt": "node scripts/sync-edhrec-salt.cjs",
+    "sync:edhrec-salt-all": "node scripts/sync-edhrec-salt.cjs --all"
   },
   "dependencies": {
     "next": "^15.3.3",

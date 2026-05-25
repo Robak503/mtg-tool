@@ -1,4 +1,5 @@
 import { lookupCard, oracleText, normalizeName } from "./cardIndex.js";
+import { evaluateDeckSalt } from "./edhrecSalt.js";
 import { estimateBracket, findCombos } from "./spellbook.js";
 
 const FAST_MANA = new Set([
@@ -639,14 +640,18 @@ function landAssessment(counts, vlc, commanderColors = []) {
   return { strengths, issues };
 }
 
-function frictionScore(counts, bracket) {
+function frictionScore(counts, bracket, salt) {
   let score = 0;
   score += Math.min(4, Math.max(bracket.gameChangers.length, counts.gameChangers));
   score += counts.massLandDenial * 3;
   score += counts.extraTurns >= 2 ? 3 : counts.extraTurns;
   score += Math.min(3, counts.stax);
   score += counts.freeInteraction >= 3 ? 2 : counts.freeInteraction >= 1 ? 1 : 0;
-  return clamp(score, 0, 10);
+  if (salt?.ready) {
+    score += Math.min(2, salt.sum / 18);
+    if (salt.topCards?.some(card => card.salt >= 2.4)) score += 1;
+  }
+  return round1(clamp(score, 0, 10));
 }
 
 function cedhMarkers(power, counts, spellbook, commander, commanderColors = []) {
@@ -715,7 +720,8 @@ function bracketFromScore(power, counts, spellbook, friction, markers) {
   if (power >= 9.2 && markers.count >= 4) {
     return { bracket: 5, label: "cEDH / Ruthless", reason: `Multiple cEDH markers: ${markers.markers.slice(0, 5).join("; ")}.` };
   }
-  if (gameChangers >= 4 || counts.massLandDenial > 0 || earlyCombos > 0 || power >= 8.1 || friction >= 7) {
+  const oppressiveFriction = friction >= 7 && (counts.massLandDenial > 0 || counts.extraTurns >= 2 || counts.stax >= 4);
+  if (gameChangers >= 4 || counts.massLandDenial > 0 || earlyCombos > 0 || power >= 8.1 || oppressiveFriction) {
     return { bracket: 4, label: "Optimized", reason: "Crosses Bracket 3 limits through game changers, early combos, oppressive effects, or raw speed." };
   }
   if (gameChangers > 0 || combosFound > 0 || power >= 6.0) {
@@ -783,7 +789,8 @@ export function rankDeckPower(input = {}) {
   const archetype = inferDeckArchetype(infos, commanderNames, counts, comboAnalysis);
   const axes = scoreAxes(counts, { comboAnalysis, bracket }, commanderColors);
   const land = landAssessment(counts, vlc, commanderColors);
-  const friction = frictionScore(counts, bracket);
+  const salt = evaluateDeckSalt([...uniqueMainNames, ...commanderNames]);
+  const friction = frictionScore(counts, bracket, salt);
   const rawAxes = axes.speed + axes.consistency + axes.interaction + axes.resilience + axes.manaQuality;
 
   let power = 2.6 +
@@ -841,6 +848,7 @@ export function rankDeckPower(input = {}) {
       score: friction,
       label: friction >= 7 ? "high" : friction >= 4 ? "medium" : "low",
     },
+    salt,
     spellbook: {
       completeCombos: comboAnalysis.complete,
       oneCardAway: combos.almostIncluded,
@@ -890,6 +898,7 @@ export function formatPowerRankingForPrompt(result) {
     `Game Changers: ${spellbook.gameChangers.length ? spellbook.gameChangers.join(", ") : "none"}`,
     `cEDH Markers: ${result.cEDHMarkers.markers.length ? result.cEDHMarkers.markers.join("; ") : "none"}`,
     result.powerCap?.reasons?.length ? `Power Cap Applied: ${result.powerCap.reasons.join("; ")}` : "",
+    result.salt?.ready ? `EDHREC Salt: ${result.salt.sum} total across ${result.salt.count} matched salty card(s); top ${result.salt.topCards.slice(0, 5).map(card => `${card.name} ${card.salt}`).join(", ") || "none"}` : "EDHREC Salt: local salt data not synced",
     `Salt/Friction: ${result.friction.label} (${result.friction.score}/10)`,
     `Drivers: ${result.drivers.join("; ")}`,
     `Limits: ${result.constraints.join("; ")}`,

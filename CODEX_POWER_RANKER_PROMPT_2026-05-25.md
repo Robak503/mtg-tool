@@ -23,6 +23,7 @@ Current state:
 - Local Commander Spellbook data is fully synced.
 - Local Spellbook has 89,362 combo variants and 7,639 card flag records.
 - A deterministic local power-ranking engine has been added.
+- A resumable local EDHREC salt sync has been added.
 - Karn now receives a local power/bracket block in locked-deck conversations.
 - `/api/power-rank` exists and was smoke-tested.
 - `npm.cmd run check:power-ranker` passes.
@@ -39,6 +40,14 @@ npm.cmd run build
 
 Then inspect the ranked outputs for the 15 saved decks and decide whether calibration needs tuning.
 
+Optional data continuation:
+
+```powershell
+npm.cmd run sync:edhrec-salt
+```
+
+This downloads the next 35-page EDHREC salt chunk and resumes from `data/edhrec-salt-meta.local.json`. Do not run the all-at-once variant unless the user wants to wait.
+
 Core algorithm principles to preserve:
 
 - Power level is a deterministic estimate, not objective truth.
@@ -47,6 +56,7 @@ Core algorithm principles to preserve:
 - Kinnan, Yuriko, Rograkh/Thrasios should stay Bracket 5 with the current saved lists.
 - Meren EDHPowerLevel sample should stay near 7.5 and Bracket 3.
 - Land quality uses weighted slow-land math, not simple tapland counting.
+- EDHREC salt affects table-friction, not raw power.
 - Karn should receive local facts and explain them, not hallucinate power ranks.
 
 Recommended next tasks:

@@ -33,6 +33,7 @@ Inputs:
 - Local Scryfall `game_changer` and `edhrec_rank` fields
 - Local Commander Spellbook combo data
 - Local Commander Spellbook card flags
+- Local EDHREC salt data when synced
 
 Outputs:
 
@@ -53,6 +54,7 @@ Outputs:
 - Complete combos
 - One-card-away combo upgrade paths
 - cEDH marker list
+- EDHREC salt/friction summary
 - Power cap reasons
 - Human-readable formatted block for Karn
 
@@ -157,6 +159,28 @@ Example:
 - Zaxara has compact early combo lines, but only 1 game changer, no free interaction, and low tutor density.
 - It is now Bracket 4 / 8.3 instead of a false Bracket 5 / 10.
 
+### EDHREC salt
+
+EDHREC salt is now treated as table-friction data, not raw power.
+
+Files:
+
+- `app/scripts/sync-edhrec-salt.cjs`
+- `app/src/lib/server/edhrecSalt.js`
+
+Scripts:
+
+- `npm.cmd run sync:edhrec-salt` downloads the next 35-page chunk.
+- `npm.cmd run sync:edhrec-salt-all` attempts the full run.
+
+Current local salt snapshot:
+
+- 3,500 entries synced
+- `complete: false`
+- next path: `top/salt--35.json`
+
+This is intentionally resumable because the EDHREC feed is much larger than the first "Top 100" page.
+
 ### Land math
 
 The old heuristic punished too many good lands as taplands.
@@ -241,8 +265,10 @@ ollama.total: 56
 
 - `app/package.json`
 - `app/scripts/check-power-ranker.cjs`
+- `app/scripts/sync-edhrec-salt.cjs`
 - `app/src/app/api/power-rank/route.js`
 - `app/src/hooks/useChatAgents.js`
+- `app/src/lib/server/edhrecSalt.js`
 - `app/src/lib/server/powerRanker.js`
 - `app/src/lib/server/spellbook.js`
 
