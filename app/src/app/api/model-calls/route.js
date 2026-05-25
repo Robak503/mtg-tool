@@ -27,6 +27,8 @@ function summarize(calls) {
       timestamp: last.timestamp,
       provider: last.provider,
       model: last.model,
+      modelTier: last.modelTier || null,
+      fastLocal: Boolean(last.fastLocal),
       ok: last.ok,
       status: last.status,
       error: last.error,
@@ -47,4 +49,3 @@ export async function GET() {
     return Response.json({ error: "Could not read local model-call log." }, { status: 500 });
   }
 }
-

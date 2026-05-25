@@ -215,6 +215,18 @@ function countContextRulings(text) {
   return (String(text || "").match(/WOTC RULINGS:/g) || []).length;
 }
 
+function normalizeModelTier(value) {
+  const tier = String(value || "fast").trim().toLowerCase();
+  if (["anthropic", "api", "cloud"].includes(tier)) return "anthropic";
+  if (["deep", "local-deep", "ollama-deep"].includes(tier)) return "deep";
+  if (["fast", "local-fast", "ollama-fast", "ollama", "local"].includes(tier)) return "fast";
+  return "fast";
+}
+
+function providerForModelTier(tier) {
+  return tier === "anthropic" ? "anthropic" : "ollama";
+}
+
 function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -322,7 +334,7 @@ export default function useChatAgents({
   agent,
   deckCards,
   fastMode,
-  modelProvider = "ollama",
+  modelProvider = "fast",
   savedDecks,
   setAgent,
   tokenEntries,
@@ -387,8 +399,9 @@ export default function useChatAgents({
     const targetAgent = agentOverride || agent;
     const targetConfig = AGENTS[targetAgent];
     const prompt = (text || input).trim();
-    const effectiveProvider = forceProvider || modelProvider;
-    const isLocalProvider = effectiveProvider === "ollama" || effectiveProvider === "local";
+    const requestedTier = normalizeModelTier(forceProvider || modelProvider);
+    const effectiveProvider = providerForModelTier(requestedTier);
+    const isLocalProvider = effectiveProvider === "ollama";
     const wantsDeepAnswer = /\b(full|deep|detailed|comprehensive|exhaustive|complete breakdown)\b/i.test(prompt);
     const isPureKarnCutRequest = targetAgent === "karn" &&
       /\b(cut|cuts|remove|trim)\b/i.test(prompt) &&
@@ -578,6 +591,8 @@ export default function useChatAgents({
         responseMeta.factReceipt = {
           provider: "ollama",
           fallbackUsed: false,
+          modelTier: "local-primer",
+          model: "local-primer",
           deckLocked: Boolean(deckLock),
           deckName: deckLock?.name || null,
           cardsProvided: countContextCards(cardContext + deckOracleContext + karnScryfallContext),
@@ -598,13 +613,7 @@ export default function useChatAgents({
         ? trimApiHistory([...histories[targetAgent], { role: "user", content: augmentedContent }])
         : trimApiHistory(baseHistory);
 
-      const useFastLocalModel = Boolean(
-        isLocalProvider &&
-        (targetAgent === "karn" ||
-          targetAgent === "tibalt" ||
-          Boolean(responseMeta.arbiterTrace) ||
-          deckOracleContext.length > 25000)
-      );
+      const useFastLocalModel = Boolean(isLocalProvider && requestedTier === "fast");
 
       const response = await fetch("/api/chat-stream", {
         method: "POST",
@@ -612,6 +621,7 @@ export default function useChatAgents({
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           provider: effectiveProvider,
+          modelTier: requestedTier,
           fastLocal: useFastLocalModel,
           max_tokens: isLocalProvider ? localMaxTokens : 2500,
           system: systemPrompt,
@@ -698,6 +708,8 @@ export default function useChatAgents({
       const data = {
         content: [{ type: "text", text: streamedText }],
         provider: streamDoneEvent?.provider || (effectiveProvider),
+        model: streamDoneEvent?.model || null,
+        modelTier: streamDoneEvent?.modelTier || requestedTier,
         usage: streamDoneEvent?.usage || null,
       };
 
@@ -744,7 +756,9 @@ export default function useChatAgents({
 
       responseMeta.factReceipt = {
         provider: data.provider || (effectiveProvider),
-        fallbackUsed: !forceProvider && modelProvider === "ollama" && data.provider === "anthropic",
+        fallbackUsed: !forceProvider && requestedTier !== "anthropic" && data.provider === "anthropic",
+        modelTier: data.modelTier || requestedTier,
+        model: data.model,
         deckLocked: Boolean(deckLock),
         deckName: deckLock?.name || null,
         cardsProvided: countContextCards(cardContext + deckOracleContext + karnScryfallContext),

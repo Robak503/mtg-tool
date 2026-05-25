@@ -35,6 +35,15 @@ function TrustStrip({ msg, LINE }) {
   const r = msg.factReceipt;
   if (!r) return null;
   const cloudUsed = r.provider === "anthropic" || r.fallbackUsed;
+  const tierLabel = r.modelTier === "fast"
+    ? "Fast"
+    : r.modelTier === "deep"
+      ? "Deep"
+      : r.modelTier === "anthropic"
+        ? "API"
+        : r.modelTier === "local-primer"
+          ? "Primer"
+          : null;
   return (
     <details
       open={typeof process !== "undefined" && process.env?.NODE_ENV === "development"}
@@ -45,6 +54,8 @@ function TrustStrip({ msg, LINE }) {
       </summary>
       <div style={{ paddingTop: 4, lineHeight: 1.7, borderTop: `1px solid ${LINE}`, marginTop: 4 }}>
         <span>Provider: {r.provider === "ollama" ? "Local (Ollama)" : "Anthropic API"}</span>
+        {tierLabel && <span> Â· Tier: {tierLabel}</span>}
+        {r.model && <span> Â· Model: {r.model}</span>}
         {r.deckLocked && r.deckName && <span> · Deck: {r.deckName}</span>}
         {r.cardsProvided > 0 && <span> · Cards: {r.cardsProvided}</span>}
         {r.rulingsProvided > 0 && <span> · Rulings: {r.rulingsProvided}</span>}

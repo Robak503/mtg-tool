@@ -22,9 +22,13 @@ export default function AppHeader({
   const apiCalls = modelStatus?.providers?.anthropic?.total || 0;
   const failedCalls = (modelStatus?.providers?.ollama?.failed || 0) + (modelStatus?.providers?.anthropic?.failed || 0);
   const lastProvider = modelStatus?.last?.provider || "none";
+  const lastModel = modelStatus?.last?.model || "unknown";
+  const lastTier = modelStatus?.last?.modelTier || (modelStatus?.last?.fastLocal ? "fast" : "unknown");
+  const activeModelTier = modelProvider === "ollama" || modelProvider === "local" ? "fast" : modelProvider;
   const providerOptions = [
-    { id: "ollama", label: "Local" },
-    { id: "anthropic", label: "API" },
+    { id: "fast", label: "Fast", title: "Use the fast local Ollama model for the next messages." },
+    { id: "deep", label: "Deep", title: "Use the deeper local Ollama model for the next messages." },
+    { id: "anthropic", label: "API", title: "Use Anthropic API for the next messages." },
   ];
 
   return (
@@ -33,7 +37,7 @@ export default function AppHeader({
       <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
         {modelStatus&&(
           <span
-            title={`Last provider: ${lastProvider}${failedCalls ? ` | failed calls: ${failedCalls}` : ""}`}
+            title={`Last provider: ${lastProvider} | tier: ${lastTier} | model: ${lastModel}${failedCalls ? ` | failed calls: ${failedCalls}` : ""}`}
             style={{
               border:`1px solid ${LINE}`,
               borderRadius:5,
@@ -50,15 +54,15 @@ export default function AppHeader({
         {!mobile&&(
           <div style={{display:"flex",border:`1px solid ${LINE}`,borderRadius:5,overflow:"hidden"}}>
             {providerOptions.map(option => {
-              const active = modelProvider === option.id || (modelProvider === "local" && option.id === "ollama");
+              const active = activeModelTier === option.id;
               return (
                 <button
                   key={option.id}
                   onClick={()=>setModelProvider(option.id)}
-                  title={option.id === "ollama" ? "Use local Ollama for the next messages." : "Use Anthropic API for the next messages."}
+                  title={option.title}
                   style={{
                     border:0,
-                    borderRight:option.id === "ollama" ? `1px solid ${LINE}` : 0,
+                    borderRight:option.id !== providerOptions[providerOptions.length - 1].id ? `1px solid ${LINE}` : 0,
                     background:active?cfg.dim:"transparent",
                     color:active?cfg.color:"#7f8aa3",
                     cursor:"pointer",

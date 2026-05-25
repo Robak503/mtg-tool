@@ -178,6 +178,7 @@ export async function POST(request) {
                     type: "done",
                     provider: "ollama",
                     model,
+                    modelTier: body.modelTier || (body.fastLocal ? "fast" : "deep"),
                     usage: { output_tokens: outputTokens },
                   }));
                 }
@@ -256,6 +257,7 @@ export async function POST(request) {
                     type: "done",
                     provider: "anthropic",
                     model,
+                    modelTier: body.modelTier || "anthropic",
                     usage: { input_tokens: inputTokens, output_tokens: outputTokens },
                   }));
                 } else if (event.type === "error") {
@@ -300,6 +302,7 @@ export async function POST(request) {
           error: errorOccurred,
           streaming: true,
           fastLocal: Boolean(body.fastLocal),
+          modelTier: body.modelTier || null,
           durationMs: Date.now() - callStart,
         }).catch(() => {});
       }
