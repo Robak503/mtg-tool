@@ -678,9 +678,10 @@ function analyzeCombos(combos, commanderNames = []) {
     const auraUntap = comboInfos.some(info => /\bAura\b/i.test(info.typeLine) && /\buntap enchanted creature\b/i.test(info.search));
     const tapCreatureInvolved = comboInfos.some(info => info.isCreature && /\{T\}: Add|tap.*add/i.test(info.search));
     const nearInfinite = producesText.includes("near-infinite");
+    const drawTheGame = producesText.includes("draw the game");
     const hasInfinite = /\b(infinite|win|lock)\b/.test(producesText);
     const hasPayoff = /\b(mana|damage|mill|draw|token|lifegain|life loss|lose the game|wins? the game|storm|combat|death trigger)\b/.test(producesText);
-    const deterministic = !nearInfinite && hasInfinite && hasPayoff;
+    const deterministic = !nearInfinite && !drawTheGame && hasInfinite && hasPayoff;
     const fragile = commanderInvolved || auraUntap || tapCreatureInvolved;
     const early = deterministic && combo.cardCount <= 2 && totalManaValue <= 7;
     return {
@@ -689,6 +690,7 @@ function analyzeCombos(combos, commanderNames = []) {
       compactness,
       deterministic,
       nearInfinite,
+      drawTheGame,
       valueLoop: hasInfinite && !hasPayoff,
       fragile,
       commanderInvolved,
@@ -705,6 +707,7 @@ function analyzeCombos(combos, commanderNames = []) {
     robustEarly: complete.filter(combo => combo.early && !combo.fragile),
     compact: complete.filter(combo => combo.deterministic && combo.cardCount <= 2),
     deterministic: complete.filter(combo => combo.deterministic),
+    drawTheGame: complete.filter(combo => combo.drawTheGame),
     oneCardAway: combos.almostIncluded,
   };
 }
@@ -981,6 +984,9 @@ function summarizeDrivers({ counts, axes, spellbook, land, archetype }) {
   if (counts.interactionTotal < 6) constraints.push("low interaction density");
   if (!spellbook.comboAnalysis.complete.length && spellbook.comboAnalysis.oneCardAway.length) {
     constraints.push(`${spellbook.comboAnalysis.oneCardAway.length} one-card-away combo(s) are upgrade paths, not current wins`);
+  }
+  if (spellbook.comboAnalysis.drawTheGame?.length) {
+    constraints.push(`${spellbook.comboAnalysis.drawTheGame.length} combo loop(s) can draw the game without a break/payoff`);
   }
 
   return {

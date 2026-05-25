@@ -80,6 +80,13 @@ function assertEqual(label, actual, expected) {
     assertRange("Ur-Dragon power", result.powerLevel, 6.0, 7.4);
   });
 
+  checkSavedDeck("Pantlaza, Sun-Favored", result => {
+    assertEqual("Pantlaza bracket", result.bracket, 3);
+    assertRange("Pantlaza power", result.powerLevel, 5.0, 6.4);
+    assertRange("Pantlaza draw-the-game loops", result.spellbook.completeCombos.filter(combo => combo.drawTheGame).length, 1, 1);
+    assertRange("Pantlaza deterministic wins", result.spellbook.completeCombos.filter(combo => combo.deterministic).length, 0, 0);
+  });
+
   const merenCards = parseEdhPowerLevelUrl(MEREN_EDHPOWERLEVEL_URL);
   const meren = rankDeckPower({ cards: merenCards, commanderNames: ["Meren of Clan Nel Toth"], maxAlmost: 8 });
   assertEqual("Meren bracket", meren.bracket, 3);
