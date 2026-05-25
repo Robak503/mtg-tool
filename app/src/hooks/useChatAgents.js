@@ -579,8 +579,8 @@ export default function useChatAgents({
         // Karn can still answer from the loaded deck Oracle context if local search context fails.
       }
 
-      // ── Commander Spellbook local combo lookup (Karn only) ─────────────────
-      let spellbookContext = "";
+      // Local deterministic deck power/combo ranking (Karn only).
+      let powerRankContext = "";
       try {
         if (targetAgent === "karn" && deckOracleNames.length >= 2 && !isPureKarnCutRequest) {
           const commanderNames = deckLock?.commanderNames?.length
@@ -588,35 +588,29 @@ export default function useChatAgents({
             : deckLock?.commander
               ? deckLock.commander.split(" / ").map(n => n.trim()).filter(Boolean)
               : (activeDeck ? deckCommanderNames(activeDeck) : []);
-          const sbRes = await fetch("/api/spellbook", {
+          const powerRes = await fetch("/api/power-rank", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              deckText: deckLock?.deckText || (activeDeck ? serializeDeck(activeDeck.cards || deckCards) : ""),
               cardNames: deckOracleNames,
               commanderNames,
-              type: "full",
-              maxIncluded: 6,
               maxAlmost: 10,
             }),
           });
-          if (sbRes.ok) {
-            const sbData = await sbRes.json();
-            if (sbData.ready) {
-              const parts = [];
-              if (sbData.combos?.formatted) parts.push(sbData.combos.formatted);
-              if (sbData.bracket?.formatted) parts.push(sbData.bracket.formatted);
-              if (parts.length) {
-                spellbookContext = `## COMMANDER SPELLBOOK DATA (local — zero network calls)\n${parts.join("\n\n")}\n\n`;
-              }
+          if (powerRes.ok) {
+            const powerData = await powerRes.json();
+            if (powerData.ready && powerData.formatted) {
+              powerRankContext = `${powerData.formatted}\n\n`;
             }
           }
         }
       } catch {
-        // Spellbook context is supplemental — never block the request.
+        // Power ranking is supplemental; never block the request.
       }
 
-      if (deckOracleContext || karnScryfallContext || spellbookContext || cardContext) {
-        augmentedContent = `${deckOracleContext || ""}${karnScryfallContext || ""}${spellbookContext}${cardContext || ""}## USER QUESTION\n\n${prompt}`;
+      if (deckOracleContext || karnScryfallContext || powerRankContext || cardContext) {
+        augmentedContent = `${deckOracleContext || ""}${karnScryfallContext || ""}${powerRankContext}${cardContext || ""}## USER QUESTION\n\n${prompt}`;
       }
 
       if (isPureKarnCutRequest && deckOracleNames.length) {

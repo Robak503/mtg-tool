@@ -108,7 +108,7 @@ export function getSpellbookMeta() {
  * }}
  */
 export function findCombos(cardNames, opts = {}) {
-  const { includeAlmost = true, maxAlmost = 20 } = opts;
+  const { includeAlmost = true, maxAlmost = 20, minCardCount = 2 } = opts;
 
   if (!loadData()) {
     return { included: [], almostIncluded: [], ready: false };
@@ -129,6 +129,7 @@ export function findCombos(cardNames, opts = {}) {
   for (const id of candidateIds) {
     const combo = _combos[id];
     if (!combo) continue;
+    if ((combo.cards || []).length < minCardCount) continue;
 
     const required = combo.cards.map(cardName => ({
       name: cardName,
@@ -143,17 +144,35 @@ export function findCombos(cardNames, opts = {}) {
     }
   }
 
+  const uniqueIncluded = dedupeComboResults(included);
+  const uniqueAlmost = dedupeComboResults(almostIncluded, true);
+
   // Sort included by number of cards (smaller combos first), then popularity desc
-  included.sort((a, b) => a.cardCount - b.cardCount || (b.popularity ?? 0) - (a.popularity ?? 0));
+  uniqueIncluded.sort((a, b) => a.cardCount - b.cardCount || (b.popularity ?? 0) - (a.popularity ?? 0));
 
   // Sort almost by popularity desc
-  almostIncluded.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+  uniqueAlmost.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
 
   return {
-    included,
-    almostIncluded: almostIncluded.slice(0, maxAlmost),
+    included: uniqueIncluded,
+    almostIncluded: uniqueAlmost.slice(0, maxAlmost),
     ready: true,
   };
+}
+
+function dedupeComboResults(results, includeMissing = false) {
+  const seen = new Set();
+  const deduped = [];
+  for (const result of results) {
+    const cards = [...(result.cards || [])].map(normalizeName).sort().join("|");
+    const produces = [...(result.produces || [])].map(normalizeName).sort().join("|");
+    const missing = includeMissing ? normalizeName(result.missingCard) : "";
+    const key = `${cards}::${missing}::${produces}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(result);
+  }
+  return deduped;
 }
 
 function formatCombo(combo) {
