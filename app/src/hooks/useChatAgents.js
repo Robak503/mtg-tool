@@ -607,7 +607,10 @@ export default function useChatAgents({
           responseMeta.arbiterTrace = arbiterResult.trace;
           responseMeta.arbiterStatus = arbiterResult.status;
           responseMeta.arbiterMetadata = arbiterResult.retrievalMetadata || null;
-          augmentedContent = `${engineContext || ""}${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## ARBITER TRACE\nThis trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language.\n\n${arbiterResult.trace}\n\n## USER QUESTION\n\n${prompt}`;
+          const arbiterInstruction = arbiterResult.status === "resolved"
+            ? "This trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language."
+            : "This Arbiter trace did not resolve cleanly from local rules retrieval. Do not present a confident ruling. Explain what is unresolved and ask for a narrower board state or exact card names if needed.";
+          augmentedContent = `${engineContext || ""}${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## ARBITER TRACE\n${arbiterInstruction}\n\n${arbiterResult.trace}\n\n## USER QUESTION\n\n${prompt}`;
         }
       }
 

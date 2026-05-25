@@ -259,7 +259,7 @@ export default function ChatPanel({
                       ? <span style={{ display: "block" }}>⚠ {msg.content}</span>
                       : renderText(msg.content)
                     }
-                    {msg.arbiterStatus === "citation_failed" && (
+                    {["citation_failed", "retrieval_miss", "unresolved"].includes(msg.arbiterStatus) && (
                       <div style={{
                         marginTop: 8,
                         padding: "6px 10px",
@@ -269,7 +269,11 @@ export default function ChatPanel({
                         color: "#c89e6f",
                         fontSize: 11,
                       }}>
-                        ⚠ Arbiter could not produce a verified rule citation for this answer. Verify independently before relying on it.
+                        {msg.arbiterStatus === "retrieval_miss"
+                          ? "Arbiter could not ground this answer in the local rules index. Treat this as unresolved, not as a ruling."
+                          : msg.arbiterStatus === "unresolved"
+                            ? "Arbiter marked this answer unresolved. Ask a narrower board-state question or include exact card names."
+                            : "Arbiter could not produce a verified rule citation for this answer. Verify independently before relying on it."}
                       </div>
                     )}
                     {msg.arbiterTrace && (
