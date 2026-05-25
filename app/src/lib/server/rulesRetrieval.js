@@ -8,6 +8,7 @@ import {
   lookupRulingsForCard,
   oracleText,
 } from "./cardIndex.js";
+import { retrieveRulesGuruPrecedents, resetRulesGuruRetrievalForTests } from "./rulesGuruRetrieval.js";
 
 const RULES_INDEX_FILE = path.join(process.cwd(), "data", "rules-index.json");
 const DEFAULT_LIMIT = 5;
@@ -425,6 +426,9 @@ export function retrieveRules(query, cardNames = [], options = {}) {
   const seedText = cardSeedText(extractedCardNames);
   const queryKeywords = new Set(extractRuleKeywords(query));
   const seedKeywords = new Set(extractRuleKeywords(seedText));
+  const rulesGuruPrecedents = retrieveRulesGuruPrecedents(query, extractedCardNames, {
+    limit: Number(options.rulesGuruLimit) || 3,
+  });
   const scores = new Map();
 
   for (const ruleNumber of extractRuleNumbers(query)) {
@@ -432,7 +436,14 @@ export function retrieveRules(query, cardNames = [], options = {}) {
   }
 
   for (const ruleNumber of [...pinnedRuleHintsFromText(query), ...pinnedRuleHintsFromText(seedText)]) {
-    addRuleScore(scores, ruleNumber, 10000, "pinned-rule-hint", byNumber);
+    addRuleScore(scores, ruleNumber, 25000, "pinned-rule-hint", byNumber);
+  }
+
+  for (const precedent of rulesGuruPrecedents) {
+    const amount = precedent.reasons.includes("exact-scenario") ? 90000 : 18000;
+    for (const ruleNumber of precedent.requiredCitations) {
+      addRuleScore(scores, ruleNumber, amount, `rulesguru-precedent:${precedent.id}`, byNumber);
+    }
   }
 
   for (const ruleNumber of [...ruleHintsFromText(query), ...ruleHintsFromText(seedText)]) {
@@ -474,6 +485,16 @@ export function retrieveRules(query, cardNames = [], options = {}) {
   return {
     rules: ranked,
     cardNames: extractedCardNames,
+    rulesGuruPrecedents: rulesGuruPrecedents.map(precedent => ({
+      id: precedent.id,
+      title: precedent.title,
+      score: precedent.score,
+      reasons: precedent.reasons,
+      requiredCitations: precedent.requiredCitations,
+      cardNames: precedent.cardNames,
+      expectedVerdict: precedent.expectedVerdict,
+      match: precedent.match,
+    })),
     confidence: ranked.length ? "high" : "low",
   };
 }
@@ -481,4 +502,5 @@ export function retrieveRules(query, cardNames = [], options = {}) {
 export function resetRulesRetrievalForTests() {
   rulesIndex = null;
   rulesByNumber = null;
+  resetRulesGuruRetrievalForTests();
 }

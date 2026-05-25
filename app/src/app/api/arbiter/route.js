@@ -25,10 +25,19 @@ function normalizeBodyCardNames(value) {
   return [];
 }
 
-function retrievalMetadata({ rules, cards, hallucinations, confidence }) {
+function retrievalMetadata({ rules, cards, rulesGuruPrecedents, hallucinations, confidence }) {
   return {
     rulesRetrieved: rules.map(rule => ({ ruleNumber: rule.ruleNumber, text: rule.text })),
     cardsRetrieved: cards.map(card => card.name),
+    rulesGuruPrecedents: (rulesGuruPrecedents || []).map(precedent => ({
+      id: precedent.id,
+      title: precedent.title,
+      score: precedent.score,
+      reasons: precedent.reasons,
+      requiredCitations: precedent.requiredCitations,
+      cardNames: precedent.cardNames,
+      match: precedent.match,
+    })),
     hallucinations,
     confidence,
   };
@@ -145,6 +154,7 @@ export async function POST(request) {
       retrievalMetadata: retrievalMetadata({
         rules: [],
         cards,
+        rulesGuruPrecedents: [],
         hallucinations: [],
         confidence: "low",
       }),
@@ -175,6 +185,7 @@ export async function POST(request) {
       retrievalMetadata: retrievalMetadata({
         rules: retrieval.rules,
         cards,
+        rulesGuruPrecedents: retrieval.rulesGuruPrecedents,
         hallucinations: [],
         confidence: retrieval.confidence,
       }),
@@ -207,6 +218,7 @@ export async function POST(request) {
       retrievalMetadata: retrievalMetadata({
         rules: retrieval.rules,
         cards,
+        rulesGuruPrecedents: retrieval.rulesGuruPrecedents,
         hallucinations: [],
         confidence: retrieval.confidence,
       }),
@@ -227,6 +239,7 @@ export async function POST(request) {
     retrievalMetadata: retrievalMetadata({
       rules: retrieval.rules,
       cards,
+      rulesGuruPrecedents: retrieval.rulesGuruPrecedents,
       hallucinations: citationCheck.hallucinations,
       confidence: retrieval.confidence,
     }),

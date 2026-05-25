@@ -605,7 +605,7 @@ async function main() {
       console.log(`${result.passed ? "PASS" : "FAIL"} (${Math.round(result.durationMs / 1000)}s)`);
       if (args.verbose || !result.passed) {
         for (const failure of result.failures) console.log(`  - ${failure}`);
-        if (args.verbose) console.log(short(response, 1400).split("\n").map(line => `    ${line}`).join("\n"));
+        if (args.verbose) console.log(short(normalizeAppResult(response).text, 1400).split("\n").map(line => `    ${line}`).join("\n"));
       }
       for (const warning of result.warnings || []) console.log(`  ! ${warning}`);
     } catch (error) {
