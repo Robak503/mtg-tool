@@ -228,9 +228,9 @@ Scripts:
 
 Current local salt snapshot:
 
-- 24,500 entries synced
-- `complete: false`
-- next path: `top/salt--245.json`
+- 31,112 entries synced
+- `complete: true`
+- next path: `null`
 
 This is intentionally resumable because the EDHREC feed is much larger than the first "Top 100" page.
 
@@ -316,9 +316,9 @@ No Anthropic call was required for this work.
    - known high-power non-cEDH
    - known cEDH list
 4. Add persisted rank snapshots to deck memory.
-5. Continue the resumable EDHREC salt sync over time:
-   - `npm.cmd run sync:edhrec-salt`
-   - current snapshot is 24,500 entries, incomplete, and intentionally safe to resume from `top/salt--245.json`.
+5. Refresh EDHREC salt when desired:
+   - `npm.cmd run sync:edhrec-salt -- --restart`
+   - current snapshot is complete at 31,112 entries.
 6. Consider a local "power explanation" UI that shows why each axis scored what it scored.
 
 ## Files Changed In This Pass
