@@ -393,9 +393,7 @@ export default function useChatAgents({
     const isPureKarnCutRequest = targetAgent === "karn" &&
       /\b(cut|cuts|remove|trim)\b/i.test(prompt) &&
       !/\b(add|adds|upgrade|upgrades|replace|swap|alternative|alternatives|budget)\b/i.test(prompt);
-    const localMaxTokens = wantsDeepAnswer
-      ? 2500
-      : (isPureKarnCutRequest ? 1400 : (targetAgent === "tibalt" ? 2000 : targetAgent === "karn" ? 1200 : 800));
+    const localMaxTokens = 2500;
 
     if (!prompt || sending) return;
 
