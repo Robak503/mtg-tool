@@ -7,7 +7,7 @@ import {
   lookupRulingsForCard,
   publicCard,
   searchCards,
-} from "../../../lib/server/cardIndex";
+} from "../../../lib/server/cardIndex.js";
 
 function missingRepositoryResponse(error) {
   return Response.json(

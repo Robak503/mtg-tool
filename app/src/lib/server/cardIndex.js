@@ -10,6 +10,13 @@ const LEGACY_RULINGS_FILE = path.join(DATA_DIR, "scryfall.rulings.local.json");
 let cardIndex = null;
 let rulingsIndex = null;
 
+const COMMON_SINGLE_WORDS = new Set([
+  "a", "an", "and", "are", "as", "at", "be", "but", "can", "do", "does",
+  "for", "from", "has", "have", "how", "if", "in", "is", "it", "of", "on",
+  "or", "see", "that", "the", "then", "this", "to", "what", "when", "where",
+  "who", "why", "with", "work",
+]);
+
 export function normalizeName(name) {
   return String(name || "")
     .toLowerCase()
@@ -57,6 +64,7 @@ function cardRank(card) {
 
 function setBestCard(byName, alias, card) {
   const key = normalizeName(alias);
+  if (!key) return;
   const current = byName.get(key);
   if (!current || cardRank(card) > cardRank(current)) {
     byName.set(key, card);
@@ -82,6 +90,7 @@ function buildCardIndex() {
 
     for (const alias of aliases) {
       if (!alias) continue;
+      if (!normalizeName(alias)) continue;
       setBestCard(byName, alias, card);
       names.push(alias);
     }
@@ -151,13 +160,12 @@ export function lookupRulingsForCard(card) {
 export function detectCardNamesInText(text, maxWords = 6) {
   const repo = getCardIndex();
   const found = new Set();
-  const tokens = String(text || "")
-    .split(/(\s+|[.,;!?()[\]{}:"`])/)
-    .filter(token => /\S/.test(token));
+  const tokens = String(text || "").match(/[A-Za-z0-9\u2018\u2019']+/g) || [];
 
   for (let i = 0; i < tokens.length; i++) {
     for (let n = Math.min(maxWords, tokens.length - i); n >= 1; n--) {
       const candidate = tokens.slice(i, i + n).join(" ").replace(/[.,;!?]+$/, "");
+      if (n === 1 && COMMON_SINGLE_WORDS.has(normalizeName(candidate))) continue;
       const card = repo.byName.get(normalizeName(candidate));
       if (card) {
         found.add(card.name);

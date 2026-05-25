@@ -5,7 +5,7 @@ import {
   lookupCard,
   lookupRulingsForCard,
   oracleText,
-} from "./cardIndex";
+} from "./cardIndex.js";
 
 function formatCardBlock(card, rulings = [], maxRulingsPerCard = 3) {
   const stat = card.power != null ? ` | ${card.power}/${card.toughness}`
