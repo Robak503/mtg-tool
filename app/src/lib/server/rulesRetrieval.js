@@ -160,7 +160,7 @@ export function retrieveRules(query, cardNames = [], options = {}) {
   }
 
   for (const ruleNumber of [...ruleHintsFromText(query), ...ruleHintsFromText(seedText)]) {
-    addRuleScore(scores, ruleNumber, 900, "rule-hint", byNumber);
+    addRuleScore(scores, ruleNumber, 2000, "rule-hint", byNumber);
   }
 
   for (const rule of rules) {
