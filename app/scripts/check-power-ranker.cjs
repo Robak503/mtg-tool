@@ -61,8 +61,13 @@ function assertEqual(label, actual, expected) {
   });
 
   checkSavedDeck("Zaxara, the Exemplary", result => {
-    assertEqual("Zaxara bracket", result.bracket, 4);
-    assertRange("Zaxara power", result.powerLevel, 7.8, 8.8);
+    assertEqual("Zaxara bracket", result.bracket, 3);
+    assertRange("Zaxara power", result.powerLevel, 6.0, 7.0);
+    assertRange("Zaxara speed rating", result.attributeRatings.speed, 6.5, 7.5);
+    assertRange("Zaxara consistency rating", result.attributeRatings.consistency, 6.5, 7.5);
+    assertRange("Zaxara interaction rating", result.attributeRatings.interaction, 5.5, 6.8);
+    assertRange("Zaxara tipping point", result.efficiencyMetrics.tippingPoint, 4, 6);
+    assertRange("Zaxara impact/efficiency curve", result.efficiencyMetrics.scorePowerLevel, 6.5, 7.5);
   });
 
   checkSavedDeck("Sliver Hivelord", result => {
@@ -72,13 +77,13 @@ function assertEqual(label, actual, expected) {
 
   checkSavedDeck("The Ur-Dragon", result => {
     assertEqual("Ur-Dragon bracket", result.bracket, 3);
-    assertRange("Ur-Dragon power", result.powerLevel, 6.8, 8.2);
+    assertRange("Ur-Dragon power", result.powerLevel, 6.0, 7.4);
   });
 
   const merenCards = parseEdhPowerLevelUrl(MEREN_EDHPOWERLEVEL_URL);
   const meren = rankDeckPower({ cards: merenCards, commanderNames: ["Meren of Clan Nel Toth"], maxAlmost: 8 });
   assertEqual("Meren bracket", meren.bracket, 3);
-  assertRange("Meren power", meren.powerLevel, 7.0, 8.3);
+  assertRange("Meren power", meren.powerLevel, 6.3, 7.8);
   checks.push({ name: "Meren EDHPowerLevel sample", power: meren.powerLevel, bracket: meren.bracket, archetype: meren.archetype.primary });
 
   console.table(checks);

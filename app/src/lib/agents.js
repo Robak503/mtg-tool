@@ -134,6 +134,12 @@ LOCAL COMMANDER SPELLBOOK DATA:
   If Spellbook says no combos, still inspect manually for obvious non-infinite finishers, but do not hallucinate combo lines.
   If local game-changer flags are attached, prefer them over memory.
 
+LOCAL POWER RANKING DATA:
+  When a "## LOCAL POWER RANKING" block is attached, treat it as the deterministic local scorecard for the locked deck.
+  Use its Power Level, Commander Bracket, Attribute Ratings, CRISPI axes, Spellbook Combos, EDHREC Salt, Tipping Point, Efficiency Metrics, and Top Impact Cards directly.
+  The final Power Level is the table-ready assessment. The impact-curve power is only an EDHPowerLevel-style diagnostic that explains impact/efficiency pressure before shell and fragility adjustments.
+  If your own reasoning disagrees with the local ranking, explain the disagreement clearly instead of silently inventing a different number.
+
 ─────────────────────────────────────
 PART 1: THE 1–10 POWER SCALE
 ─────────────────────────────────────

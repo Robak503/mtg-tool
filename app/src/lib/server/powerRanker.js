@@ -1,5 +1,5 @@
 import { lookupCard, oracleText, normalizeName } from "./cardIndex.js";
-import { evaluateDeckSalt } from "./edhrecSalt.js";
+import { evaluateDeckSalt, lookupSalt } from "./edhrecSalt.js";
 import { estimateBracket, findCombos } from "./spellbook.js";
 
 const FAST_MANA = new Set([
@@ -118,7 +118,7 @@ function commanderProfile(commanderNames = []) {
 }
 
 function subtypeTokens(typeLine = "") {
-  const subtypeText = String(typeLine).split(/[—-]/).slice(1).join(" ");
+  const subtypeText = String(typeLine).split(/[\u2014-]/).slice(1).join(" ");
   return subtypeText
     .split(/\s+/)
     .map(token => token.replace(/[^A-Za-z]/g, ""))
@@ -532,22 +532,177 @@ function virtualLandCount(infos) {
   return round1(vlc);
 }
 
-function analyzeCombos(combos) {
+function manaCostText(card) {
+  if (card?.mana_cost) return card.mana_cost;
+  return (card?.card_faces || []).map(face => face.mana_cost || "").join("");
+}
+
+function effectiveManaValue(info) {
+  const base = Number(info.manaValue || 0);
+  const cost = manaCostText(info.card);
+  const xSymbols = (cost.match(/\{X\}/g) || []).length;
+  if (!xSymbols) return base;
+
+  const text = `${info.name} ${info.typeLine} ${info.search}`;
+  let assumedX = 3;
+  if (/\b(draw X|X cards|X target|X damage|loses X life|lose X life|enters with X|X \+1\/\+1 counters|create an X\/X|mana value X|power is X|toughness is X)\b/i.test(text)) {
+    assumedX = 4;
+  }
+  if (/\b(win the game|each opponent|Torment of Hailfire|Exsanguinate|Walking Ballista|Villainous Wealth|Finale of Devastation)\b/i.test(text)) {
+    assumedX = 5;
+  }
+
+  return round1(base + assumedX * xSymbols);
+}
+
+function requiredColors(info) {
+  const colors = new Set();
+  const cost = manaCostText(info.card);
+  for (const match of cost.matchAll(/\{([WUBRG])(?:\/[WUBRG])?\}/g)) {
+    colors.add(match[1]);
+  }
+  return [...colors];
+}
+
+function cardImpact(info, flags, comboCardSet, saltEntry) {
+  if (info.isLand) return 0;
+
+  const effectiveMv = effectiveManaValue(info);
+  const rank = Number(info.card?.edhrec_rank || 0);
+  const popularity = rank ? clamp(7 - Math.log10(rank) * 1.15, 0.5, 6.5) : 2.2;
+  let impact = 1.8 + popularity;
+
+  if (flags.gameChanger) impact += 3.6;
+  if (flags.fastMana) impact += 2.7;
+  if (flags.freeInteraction) impact += 2.4;
+  if (flags.tutor) impact += 1.8;
+  if (flags.ramp) impact += 0.8;
+  if (flags.draw) impact += 0.65;
+  if (flags.removal || flags.counter || flags.wipe) impact += 0.65;
+  if (flags.protection) impact += 0.45;
+  if (flags.recursion) impact += 0.45;
+  if (comboCardSet.has(info.nameKey)) impact += 1.6;
+  if (saltEntry?.salt) impact += Math.min(1.1, saltEntry.salt * 0.35);
+  if (effectiveMv >= 7 && !flags.gameChanger) impact -= 0.7;
+
+  return round1(clamp(impact, 0.5, 18));
+}
+
+function cardPlayability(info, counts, commanderColors = []) {
+  if (info.isLand) return null;
+  const mv = Math.max(1, effectiveManaValue(info));
+  const required = requiredColors(info);
+  const colorTarget = commanderColors.length >= 4 ? 9 : commanderColors.length === 3 ? 10 : 11;
+  const colorScore = required.length
+    ? required.reduce((sum, color) => sum + clamp((counts.colorSources?.[color] || 0) / colorTarget, 0, 1), 0) / required.length
+    : 1;
+
+  const manaAccess = counts.lands + counts.rampWeight * 0.65 + counts.cheapCantrips * 0.12;
+  const curveTarget = 28 + mv * 3.2;
+  const curveScore = clamp(manaAccess / curveTarget, 0.35, 1);
+  const slowPenalty = clamp(counts.slowLandWeight / 22, 0, 0.22);
+  const score = (curveScore * 0.62 + colorScore * 0.38 - slowPenalty) * 100;
+  return round1(clamp(score, 15, 100));
+}
+
+function deckEfficiencyMetrics(infos, counts, comboAnalysis, salt, commanderColors = []) {
+  const comboCardSet = new Set(
+    comboAnalysis.complete.flatMap(combo => combo.cards || []).map(normalizeName)
+  );
+  const nonlandCards = [];
+
+  for (const info of infos) {
+    if (info.isLand) continue;
+    const flags = roleFlags(info);
+    const saltEntry = salt?.ready ? lookupSalt(info.name) : null;
+    const impact = cardImpact(info, flags, comboCardSet, saltEntry);
+    const playability = cardPlayability(info, counts, commanderColors);
+    for (let i = 0; i < info.qty; i++) {
+      nonlandCards.push({
+        name: info.name,
+        manaValue: info.manaValue,
+        effectiveManaValue: effectiveManaValue(info),
+        impact,
+        playability,
+      });
+    }
+  }
+
+  const totalImpact = round1(nonlandCards.reduce((sum, card) => sum + card.impact, 0));
+  const averageImpact = nonlandCards.length ? round1(totalImpact / nonlandCards.length) : 0;
+  const sortedByCurve = [...nonlandCards].sort((a, b) => a.effectiveManaValue - b.effectiveManaValue || b.impact - a.impact);
+  let cumulative = 0;
+  let tippingPoint = 0;
+  for (const card of sortedByCurve) {
+    cumulative += card.impact;
+    tippingPoint = Math.max(tippingPoint, card.effectiveManaValue);
+    if (totalImpact && cumulative / totalImpact >= 0.65) break;
+  }
+
+  const averageMana = counts.averageManaValue || 0;
+  const efficiency = round1(clamp(
+    10 - Math.max(0, averageMana - 2.2) * 1.1 - Math.max(0, tippingPoint - 4) * 0.85 + Math.min(1.2, counts.rampWeight / 10),
+    1,
+    10
+  ));
+  const playability = nonlandCards.length
+    ? round1(nonlandCards.reduce((sum, card) => sum + (card.playability ?? 0), 0) / nonlandCards.length)
+    : 0;
+  const score = round1(clamp(averageImpact * efficiency * 1.1, 0, 100));
+  const scorePowerLevel = round1(clamp(1 + score / 11, 1, 10));
+  const topImpactCards = [...nonlandCards]
+    .sort((a, b) => b.impact - a.impact || a.effectiveManaValue - b.effectiveManaValue)
+    .filter((card, index, cards) => cards.findIndex(other => other.name === card.name) === index)
+    .slice(0, 10);
+
+  return {
+    tippingPoint,
+    efficiency,
+    impact: totalImpact,
+    averageImpact,
+    score,
+    scorePowerLevel,
+    playability,
+    topImpactCards,
+  };
+}
+
+function analyzeCombos(combos, commanderNames = []) {
+  const commanderSet = new Set(commanderNames.map(normalizeName));
   const complete = combos.included.map(combo => {
     const totalManaValue = round1((combo.cards || []).reduce((sum, name) => sum + cardManaValue(name), 0));
     const compactness = combo.cardCount <= 2 ? "compact" : combo.cardCount === 3 ? "medium" : "large";
     const producesText = (combo.produces || []).join(" ").toLowerCase();
+    const comboInfos = (combo.cards || []).map(name => cardInfo({ name, qty: 1, section: "Mainboard" }));
+    const commanderInvolved = (combo.cards || []).some(name => commanderSet.has(normalizeName(name)));
+    const auraUntap = comboInfos.some(info => /\bAura\b/i.test(info.typeLine) && /\buntap enchanted creature\b/i.test(info.search));
+    const tapCreatureInvolved = comboInfos.some(info => info.isCreature && /\{T\}: Add|tap.*add/i.test(info.search));
     const nearInfinite = producesText.includes("near-infinite");
     const hasInfinite = /\b(infinite|win|lock)\b/.test(producesText);
     const hasPayoff = /\b(mana|damage|mill|draw|token|lifegain|life loss|lose the game|wins? the game|storm|combat|death trigger)\b/.test(producesText);
     const deterministic = !nearInfinite && hasInfinite && hasPayoff;
+    const fragile = commanderInvolved || auraUntap || tapCreatureInvolved;
     const early = deterministic && combo.cardCount <= 2 && totalManaValue <= 7;
-    return { ...combo, totalManaValue, compactness, deterministic, nearInfinite, valueLoop: hasInfinite && !hasPayoff, early };
+    return {
+      ...combo,
+      totalManaValue,
+      compactness,
+      deterministic,
+      nearInfinite,
+      valueLoop: hasInfinite && !hasPayoff,
+      fragile,
+      commanderInvolved,
+      auraUntap,
+      tapCreatureInvolved,
+      early,
+    };
   });
 
   return {
     complete,
     early: complete.filter(combo => combo.early),
+    fragileEarly: complete.filter(combo => combo.early && combo.fragile),
+    robustEarly: complete.filter(combo => combo.early && !combo.fragile),
     compact: complete.filter(combo => combo.deterministic && combo.cardCount <= 2),
     deterministic: complete.filter(combo => combo.deterministic),
     oneCardAway: combos.almostIncluded,
@@ -562,11 +717,13 @@ function colorSourceShortfall(counts, commanderColors = []) {
 
 function scoreAxes(counts, spellbook, commanderColors = []) {
   const earlyCombos = spellbook.comboAnalysis.early.length;
+  const robustEarlyCombos = spellbook.comboAnalysis.robustEarly.length;
   const compactCombos = spellbook.comboAnalysis.compact.length;
   const colorShortfall = colorSourceShortfall(counts, commanderColors);
 
   const speed = clamp(
-    (earlyCombos ? 3 : 0) ||
+    (robustEarlyCombos && (counts.freeInteraction >= 2 || counts.tutors >= 4 || counts.fastMana >= 4) ? 3 : 0) ||
+    (earlyCombos ? 2 : 0) ||
     (compactCombos ? 1 : 0) ||
     (counts.fastMana >= 3 ? 2 : 0) ||
     (counts.rampWeight >= 8 && counts.averageManaValue <= 3.2 ? 2 : 0) ||
@@ -586,7 +743,7 @@ function scoreAxes(counts, spellbook, commanderColors = []) {
   const interactionTotal = counts.removal + counts.counters + counts.wipes;
   const interaction = clamp(
     (counts.freeInteraction >= 3 ? 3 : counts.freeInteraction >= 1 ? 2 : 0) ||
-    (interactionTotal >= 14 ? 3 : interactionTotal >= 9 ? 2 : interactionTotal >= 6 ? 1 : 0),
+    (interactionTotal >= 14 ? 2 : interactionTotal >= 9 ? 2 : interactionTotal >= 6 ? 1 : 0),
     0,
     3
   );
@@ -640,6 +797,67 @@ function landAssessment(counts, vlc, commanderColors = []) {
   return { strengths, issues };
 }
 
+function attributeRatings(counts, comboAnalysis, land, commanderColors = []) {
+  const hasFragileEarly = comboAnalysis.fragileEarly.length > 0;
+  const hasRobustEarly = comboAnalysis.robustEarly.length > 0;
+  const supportDense = counts.fastMana >= 4 || counts.freeInteraction >= 3 || counts.tutors >= 4;
+  const colorShortfall = colorSourceShortfall(counts, commanderColors);
+
+  let speed = 3 + Math.min(3, counts.rampWeight * 0.35) - Math.max(0, counts.averageManaValue - 3) * 0.5;
+  if (comboAnalysis.deterministic.length) speed = Math.max(speed, 6);
+  if (hasFragileEarly) speed = Math.max(speed, supportDense ? 8 : 7);
+  if (hasRobustEarly) speed = Math.max(speed, supportDense ? 9 : 8);
+  if (counts.fastMana >= 5 && counts.averageManaValue <= 2.7) speed = Math.max(speed, 9);
+
+  let consistency = 3;
+  consistency += counts.draw >= 12 ? 2.2 : counts.draw >= 10 ? 1.8 : counts.draw >= 8 ? 1.2 : counts.draw >= 5 ? 0.6 : 0;
+  consistency += counts.tutors >= 8 ? 2.5 : counts.tutors >= 5 ? 2 : counts.tutors >= 3 ? 1.4 : counts.tutors >= 1 ? 0.7 : 0;
+  consistency += comboAnalysis.deterministic.length >= 2 ? 0.7 : comboAnalysis.deterministic.length ? 0.4 : 0;
+  consistency += counts.rampWeight >= 8 ? 0.7 : counts.rampWeight >= 6 ? 0.4 : 0;
+
+  const interactionTotal = counts.removal + counts.counters + counts.wipes;
+  let interaction = interactionTotal >= 14 ? 6.5 : interactionTotal >= 9 ? 6 : interactionTotal >= 6 ? 5 : interactionTotal >= 3 ? 3.5 : 2;
+  interaction += counts.freeInteraction >= 5 ? 3 : counts.freeInteraction >= 3 ? 2.3 : counts.freeInteraction >= 1 ? 1.1 : 0;
+  if (!counts.freeInteraction) interaction = Math.min(interaction, 6.5);
+
+  let resilience = 4;
+  resilience += counts.protection >= 6 ? 1.6 : counts.protection >= 3 ? 1 : counts.protection >= 1 ? 0.4 : 0;
+  resilience += counts.recursion >= 5 ? 1.3 : counts.recursion >= 2 ? 0.7 : 0;
+  resilience += counts.draw >= 12 ? 0.8 : counts.draw >= 9 ? 0.5 : 0;
+  resilience += counts.counters >= 4 ? 0.7 : counts.counters >= 2 ? 0.4 : 0;
+  if (hasFragileEarly) resilience -= 0.5;
+
+  let mana = 4.5;
+  mana += counts.lands >= 34 && counts.lands <= 39 ? 0.7 : 0;
+  mana += counts.rampWeight >= 10 ? 1.5 : counts.rampWeight >= 8 ? 1.2 : counts.rampWeight >= 6 ? 0.8 : 0;
+  mana += counts.premiumLands >= 10 ? 1.3 : counts.premiumLands >= 5 ? 0.8 : counts.premiumLands >= 2 ? 0.3 : 0;
+  mana += counts.fastMana >= 4 ? 1 : counts.fastMana >= 2 ? 0.5 : counts.fastMana >= 1 ? 0.2 : 0;
+  mana -= counts.slowLandWeight >= 8 ? 0.9 : counts.slowLandWeight >= 5 ? 0.4 : 0;
+  mana -= colorShortfall ? 0.8 : 0;
+
+  return {
+    speed: round1(clamp(speed, 1, 10)),
+    consistency: round1(clamp(consistency, 1, 10)),
+    interaction: round1(clamp(interaction, 1, 10)),
+    resilience: round1(clamp(resilience, 1, 10)),
+    mana: round1(clamp(mana, 1, 10)),
+  };
+}
+
+function competitiveSupportScore(counts, comboAnalysis, commander, commanderColors = []) {
+  let score = 0;
+  if (counts.gameChangers >= 6) score += 1;
+  if (counts.fastMana >= 5) score += 1;
+  if (counts.freeInteraction >= 4) score += 1;
+  if (counts.tutors >= 6) score += 1;
+  if (comboAnalysis.robustEarly.length >= 2) score += 1;
+  else if (comboAnalysis.early.length >= 2 && counts.freeInteraction >= 2) score += 0.5;
+  if (commander.bracketFloor >= 4) score += 1;
+  if (counts.averageManaValue <= 2.5 && counts.interactionTotal >= 10 && counts.rampWeight >= 9) score += 1;
+  if (commanderColors.length >= 4 && counts.premiumLands >= 12) score += 1;
+  return score;
+}
+
 function frictionScore(counts, bracket, salt) {
   let score = 0;
   score += Math.min(4, Math.max(bracket.gameChangers.length, counts.gameChangers));
@@ -676,6 +894,8 @@ function cedhMarkers(power, counts, spellbook, commander, commanderColors = []) 
     markers,
     gameChangers,
     earlyCombos,
+    earlyFragileCombos: spellbook.comboAnalysis.fragileEarly.length,
+    earlyRobustCombos: spellbook.comboAnalysis.robustEarly.length,
     compactCombos,
   };
 }
@@ -695,6 +915,10 @@ function capPowerForSupport(power, counts, markers) {
   if (counts.interactionTotal < 6 && markers.gameChangers < 4) {
     cap = Math.min(cap, 7.8);
     reasons.push("low interaction density caps practical power");
+  }
+  if (markers.earlyFragileCombos > 0 && markers.count < 3 && counts.freeInteraction === 0 && counts.tutors < 3) {
+    cap = Math.min(cap, 7.0);
+    reasons.push("early combo is fragile and lacks the free-interaction/tutor shell for higher power");
   }
   if (counts.lands < 30 && counts.rampWeight < 12 && markers.count < 5) {
     cap = Math.min(cap, 8.5);
@@ -720,8 +944,9 @@ function bracketFromScore(power, counts, spellbook, friction, markers) {
   if (power >= 9.2 && markers.count >= 4) {
     return { bracket: 5, label: "cEDH / Ruthless", reason: `Multiple cEDH markers: ${markers.markers.slice(0, 5).join("; ")}.` };
   }
+  const supportedEarlyCombo = earlyCombos > 0 && !(markers.earlyFragileCombos === earlyCombos && counts.freeInteraction === 0 && counts.tutors < 3 && power <= 7.3);
   const oppressiveFriction = friction >= 7 && (counts.massLandDenial > 0 || counts.extraTurns >= 2 || counts.stax >= 4);
-  if (gameChangers >= 4 || counts.massLandDenial > 0 || earlyCombos > 0 || power >= 8.1 || oppressiveFriction) {
+  if (gameChangers >= 4 || counts.massLandDenial > 0 || supportedEarlyCombo || power >= 8.1 || oppressiveFriction) {
     return { bracket: 4, label: "Optimized", reason: "Crosses Bracket 3 limits through game changers, early combos, oppressive effects, or raw speed." };
   }
   if (gameChangers > 0 || combosFound > 0 || power >= 6.0) {
@@ -782,34 +1007,40 @@ export function rankDeckPower(input = {}) {
   counts.interactionTotal = counts.removal + counts.counters + counts.wipes;
   const vlc = virtualLandCount(infos);
 
-  const combos = findCombos(uniqueMainNames, { maxAlmost: input.maxAlmost || 12 });
+  const comboNames = [...new Set([...uniqueMainNames, ...commanderNames])];
+  const combos = findCombos(comboNames, { maxAlmost: input.maxAlmost || 12 });
   const bracket = estimateBracket(uniqueMainNames, commanderNames);
-  const comboAnalysis = analyzeCombos(combos);
+  const comboAnalysis = analyzeCombos(combos, commanderNames);
   const commander = commanderProfile(commanderNames);
   const archetype = inferDeckArchetype(infos, commanderNames, counts, comboAnalysis);
   const axes = scoreAxes(counts, { comboAnalysis, bracket }, commanderColors);
+  const ratings = attributeRatings(counts, comboAnalysis, null, commanderColors);
   const land = landAssessment(counts, vlc, commanderColors);
   const salt = evaluateDeckSalt([...uniqueMainNames, ...commanderNames]);
+  const efficiencyMetrics = deckEfficiencyMetrics(infos, counts, comboAnalysis, salt, commanderColors);
   const friction = frictionScore(counts, bracket, salt);
   const rawAxes = axes.speed + axes.consistency + axes.interaction + axes.resilience + axes.manaQuality;
 
-  let power = 2.6 +
-    axes.speed * 0.65 +
-    axes.consistency * 0.6 +
-    axes.interaction * 0.45 +
-    axes.resilience * 0.35 +
-    axes.manaQuality * 0.45;
+  let power =
+    ratings.speed * 0.28 +
+    ratings.consistency * 0.24 +
+    ratings.interaction * 0.18 +
+    ratings.resilience * 0.16 +
+    ratings.mana * 0.14;
   const gameChangerCount = Math.max(bracket.gameChangers.length, counts.gameChangers);
-  power += Math.min(1.2, gameChangerCount * 0.25);
-  power += comboAnalysis.complete.length ? 0.35 : 0;
-  power += comboAnalysis.compact.length ? 0.35 : 0;
-  power += comboAnalysis.early.length ? 0.55 : 0;
-  power += counts.fastMana >= 4 ? 0.45 : counts.fastMana >= 2 ? 0.25 : 0;
-  power += counts.freeInteraction >= 3 ? 0.35 : 0;
+  const supportScore = competitiveSupportScore(counts, comboAnalysis, commander, commanderColors);
+  power += Math.min(0.6, gameChangerCount * 0.08);
+  power += comboAnalysis.deterministic.length ? 0.15 : 0;
+  power += comboAnalysis.robustEarly.length ? 0.25 : 0;
+  power += counts.fastMana >= 4 ? 0.25 : counts.fastMana >= 2 ? 0.12 : 0;
+  power += counts.freeInteraction >= 3 ? 0.25 : 0;
   power += commander.partnerBoost ? 0.25 : 0;
-  power += archetype.focusScore * 0.75;
-  power += friction >= 7 ? 0.3 : 0;
-  power -= land.issues.length ? Math.min(1.1, land.issues.length * 0.25) : 0;
+  power += archetype.focusScore * 0.3;
+  power += Math.min(1.1, supportScore * 0.2);
+  power += friction >= 7 && (counts.massLandDenial > 0 || counts.extraTurns >= 2 || counts.stax >= 4) ? 0.2 : 0;
+  if (comboAnalysis.fragileEarly.length && counts.freeInteraction === 0) power -= 0.3;
+  if (comboAnalysis.deterministic.length && counts.freeInteraction === 0 && counts.tutors < 3) power -= 0.25;
+  power -= land.issues.length ? Math.min(0.7, land.issues.length * 0.14) : 0;
   if (commander.powerFloor) power = Math.max(power, commander.powerFloor);
   power = round1(clamp(power, 1, 10));
 
@@ -836,6 +1067,9 @@ export function rankDeckPower(input = {}) {
     bracketReason: bracketDecision.reason,
     confidence: confidence(unresolved.length, totalCards, combos.ready && bracket.ready),
     axes,
+    attributeRatings: ratings,
+    efficiencyMetrics,
+    competitiveSupportScore: supportScore,
     cEDHMarkers: markers,
     powerCap: capped,
     rawAxes,
@@ -890,9 +1124,13 @@ export function formatPowerRankingForPrompt(result) {
     `Commander Bracket: ${result.bracket} - ${result.bracketLabel}`,
     `Confidence: ${result.confidence}`,
     `Detected Archetype: ${result.archetype.primary} (focus ${result.archetype.focusScore}/1)`,
+    `Attribute Ratings: Speed ${result.attributeRatings.speed}/10 | Consistency ${result.attributeRatings.consistency}/10 | Resilience ${result.attributeRatings.resilience}/10 | Interaction ${result.attributeRatings.interaction}/10 | Mana ${result.attributeRatings.mana}/10`,
     `CRISPI Axes: Consistency ${result.axes.consistency}/3 | Resilience ${result.axes.resilience}/3 | Interaction ${result.axes.interaction}/3 | Speed ${result.axes.speed}/3 | Mana ${result.axes.manaQuality}/3`,
     `Inventory: ${inv.lands} lands | ${inv.ramp} mana/ramp cards (${inv.rampWeight} weighted) | ${inv.draw} draw | ${inv.removal} removal | ${inv.wipes} wipes | ${inv.counters} counters | ${inv.protection} protection | ${inv.tutors} tutors | ${inv.recursion} recursion | ${inv.fastMana} fast mana`,
     `Mana Math: virtual land count ${result.virtualLandCount}; average nonland MV ${inv.averageManaValue}; slow-land weight ${inv.slowLandWeight}; color sources ${result.commanderColors.map(color => `${color}:${inv.colorSources[color] || 0}`).join(" ") || "n/a"}`,
+    `Tipping Point: ${result.efficiencyMetrics.tippingPoint} mana to access 65% of modeled nonland impact`,
+    `Efficiency Metrics: efficiency ${result.efficiencyMetrics.efficiency}/10 | impact ${result.efficiencyMetrics.impact} | score ${result.efficiencyMetrics.score}/100 | impact-curve power ${result.efficiencyMetrics.scorePowerLevel}/10 | playability ${result.efficiencyMetrics.playability}%`,
+    `Top Impact Cards: ${result.efficiencyMetrics.topImpactCards.slice(0, 5).map(card => `${card.name} ${card.impact}`).join(", ") || "none"}`,
     `Spellbook Combos: ${comboLine}`,
     oneAway ? `One-card-away highlights:\n${oneAway}` : "",
     `Game Changers: ${spellbook.gameChangers.length ? spellbook.gameChangers.join(", ") : "none"}`,

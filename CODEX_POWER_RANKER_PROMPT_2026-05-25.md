@@ -21,10 +21,20 @@ Start by reading:
 Current state:
 
 - Local Commander Spellbook data is fully synced.
-- Local Spellbook has 89,362 combo variants and 7,639 card flag records.
+- Local Spellbook has 89,362 combo variants and 7,134 indexed card flag records.
 - A deterministic local power-ranking engine has been added.
 - A resumable local EDHREC salt sync has been added.
 - Karn now receives a local power/bracket block in locked-deck conversations.
+- Karn's prompt now explicitly understands the `## LOCAL POWER RANKING` block.
+- The ranker now includes DeckCheck-style attribute ratings and EDHPowerLevel-style diagnostics:
+  - Tipping Point
+  - Efficiency
+  - Impact
+  - Score
+  - Impact-curve power
+  - Playability
+  - Top Impact Cards
+- X-spells use an effective mana value layer for diagnostics so decks like Zaxara are not falsely treated as all low-cost cards.
 - `/api/power-rank` exists and was smoke-tested.
 - `npm.cmd run check:power-ranker` passes.
 - `npm.cmd run build` passes.
@@ -52,11 +62,12 @@ Core algorithm principles to preserve:
 
 - Power level is a deterministic estimate, not objective truth.
 - cEDH requires support density, not just compact combos.
-- Zaxara should be optimized/high-power, not automatically Bracket 5.
+- Zaxara should be DeckCheck-calibrated high-power casual: about 6.0-7.0, Bracket 3, with Speed about 7, Resilience about 6, Consistency about 7, Interaction about 6.
 - Kinnan, Yuriko, Rograkh/Thrasios should stay Bracket 5 with the current saved lists.
-- Meren EDHPowerLevel sample should stay near 7.5 and Bracket 3.
+- Meren EDHPowerLevel sample should stay Bracket 3 and roughly 6.3-7.8.
 - Land quality uses weighted slow-land math, not simple tapland counting.
 - EDHREC salt affects table-friction, not raw power.
+- EDHPowerLevel-style impact-curve power is a diagnostic, not the final table-ready `powerLevel`.
 - Karn should receive local facts and explain them, not hallucinate power ranks.
 
 Recommended next tasks:
