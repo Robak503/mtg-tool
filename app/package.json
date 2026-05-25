@@ -17,8 +17,9 @@
     "generate:arbiter-suite": "node scripts/generate-arbiter-expanded-suite.cjs",
     "import:rulesguru": "node scripts/import-rulesguru-suite.cjs",
     "validate:arbiter": "node scripts/validate-arbiter-knowledge.cjs",
-    "check": "next build",
-    "build": "next build",
+    "clean:next": "node scripts/clean-next-cache.cjs",
+    "check": "npm run clean:next && next build",
+    "build": "npm run clean:next && next build",
     "start": "next start"
   },
   "dependencies": {
