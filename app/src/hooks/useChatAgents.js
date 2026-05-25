@@ -268,7 +268,7 @@ function localJaceRulesPrimer(prompt) {
   ].join("\n");
 }
 
-function createDeckLock(deck) {
+function createDeckLock(deck, knowledgeStatus = null) {
   if (!deck) return null;
   return {
     id: deck.id,
@@ -280,8 +280,8 @@ function createDeckLock(deck) {
     tokenCount: deckTokenCount(deck),
     lockedAt: new Date().toISOString(),
     schemaVersion: 1,
-    cardDataVersion: null,   // TODO P3: populate from oracle manifest scryfallUpdatedAt
-    rulesVersion: null,      // TODO P3: populate from mtg-judge META file
+    cardDataVersion: knowledgeStatus?.cardDataVersion || null,
+    rulesVersion: knowledgeStatus?.rulesVersion || null,
     cardNames: deckOracleCardNamesFromCards(deck.cards || []),
     deckText: serializeDeck(deck.cards || []),
     memoryText: serializeDeckMemory(deck),
@@ -299,6 +299,8 @@ function lockContext(lock, agentId = "karn", confirmLock = false) {
     `Owner: ${lock.owner}`,
     `Commander: ${lock.commander}`,
     `Locked At: ${lock.lockedAt}`,
+    lock.cardDataVersion ? `Card Data Version: ${lock.cardDataVersion}` : "",
+    lock.rulesVersion ? `Rules Version: ${lock.rulesVersion}` : "",
     `Cards: ${lock.mainCount} non-token cards, ${lock.tokenCount} token entries saved separately`,
     lock.memoryText ? `\n## LOCKED DECK MEMORY\n${lock.memoryText}` : "",
     `\n## LOCKED DECK LIST\n${lock.deckText}`,
@@ -348,6 +350,7 @@ export default function useChatAgents({
   const [chatLoaded, setChatLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [knowledgeStatus, setKnowledgeStatus] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -373,6 +376,23 @@ export default function useChatAgents({
 
     // Warm the Scryfall card name catalog so first agent call does not pay the latency.
     loadCardCatalog();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const response = await fetch("/api/knowledge-status", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (active) setKnowledgeStatus(data);
+      } catch {
+        // Version metadata should not block chat.
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -434,7 +454,7 @@ export default function useChatAgents({
       let deckLockJustCreated = false;
 
       if (locksDeckContext && !deckLock && activeDeck) {
-        deckLock = createDeckLock(activeDeck);
+        deckLock = createDeckLock(activeDeck, knowledgeStatus);
         deckLockJustCreated = true;
         activeLocks = { ...activeLocks, [targetAgent]: deckLock };
         setDeckLocks(activeLocks);
