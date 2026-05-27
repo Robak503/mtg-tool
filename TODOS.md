@@ -4,6 +4,28 @@ Items deferred from Phase 1 sprint reviews. Ordered by priority.
 
 ---
 
+## P0 — Do first next session
+
+### Set up GitHub remote for the project
+
+**What:** Create a private GitHub repo, install `gh` CLI (or use a personal access token), connect `origin`, push `master` plus existing branches.
+
+**Why:** Every commit currently lives on one SSD. Phase 2 + Phase 3 cleanup + the session manager UI built on 2026-05-26 disappear if the laptop dies or gets stolen. The Mac mini handoff (per CLAUDE.md) becomes `git clone` instead of `scp`. Every gstack skill (`/ship`, `/land-and-deploy`, `/canary`, `/review` PR comments) assumes a remote — without one we keep inventing workarounds (see `PR_SUMMARY.md` from 2026-05-26 as exhibit A).
+
+**How to apply:**
+1. Create a private GitHub repo at github.com/new (don't initialize with a README — we already have one).
+2. Install `gh`: `winget install GitHub.cli` on Windows, or use a personal access token instead.
+3. `git remote add origin git@github.com:<user>/mtg-tool.git` (or HTTPS URL).
+4. `git push -u origin master`
+5. `git push origin feat/phase3-cleanup feat/phase2-arbiter-retrieval` to push the existing branches too (for history).
+6. After remote is up, `/ship` works normally for the next feature.
+
+**Estimated time:** ~5-10 minutes including account creation if needed.
+
+**Source:** Recommended at the end of the 2026-05-26 "finish all TODOs" session before any further feature work.
+
+---
+
 ## P2
 
 ### ~~Wire Arbiter to Ollama~~ ✅ DONE (568554a, 2026-05-24)
