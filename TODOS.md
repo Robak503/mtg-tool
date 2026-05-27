@@ -8,17 +8,13 @@ stays readable.
 
 ## Infra / Workflow
 
-### P1 — Tauri production .exe follow-ups
+### P1 — Auto-updater wiring (needs GitHub remote first)
 
-**What:** Three small follow-ups to the Tauri shell that landed 2026-05-26:
+**What:** Tauri v2 ships with `tauri-plugin-updater`. Add a GitHub Actions workflow that builds the NSIS installer on every `v*` tag and uploads as a release asset. Then wire `tauri-plugin-updater` in `lib.rs` to point at the releases feed.
 
-1. **Refactor `knowledge-status/route.js` to use `paths.js`** — currently uses raw `process.cwd()` joins to find scryfall-bulk and mtg-judge data. In production the cwd is the bundled standalone server dir, not the dev tree, so the route reports things as "missing" that actually live in resources/ or %APPDATA%. Wire it through `dataPath()` / `mtgJudgePath()` and the status banner will be accurate from the .exe.
+**Why:** This is the "UI updates ship automatically" story from `docs/packaging-review.md` — turns the manual rebuild loop into "I commit, GitHub builds, your app picks up the update on next launch."
 
-2. **First-launch data wizard** — right now the .exe seeds %APPDATA%\com.colton.mtg-tool\data\ with only the slim oracle-index. The user's full deck library, chats, and bulk Scryfall data live in the dev tree. Add a one-shot UI prompt on first launch: "Import data from existing install?" with a folder picker defaulting to ...\MTG-TOOL\app\data\. Cleanest path to a usable cold-install.
-
-3. **Auto-updater wiring** — Tauri v2 ships with `tauri-plugin-updater`. Once the GitHub remote exists (existing P0), add a GitHub Actions workflow that builds the NSIS installer on every `v*` tag and uploads as a release asset. Then wire `tauri-plugin-updater` in `lib.rs` to point at the releases feed. This is the "UI updates ship automatically" story from `docs/packaging-review.md`.
-
-**Why:** The .exe boots and serves the app today, but these three rough edges block a clean handoff.
+**Blocked by:** P0 GitHub remote setup.
 
 ---
 
@@ -96,6 +92,16 @@ PR1-PR6 done (Beginner mode end-to-end playable). Open items for PR7+:
 ---
 
 ## Completed
+
+### ~~Tauri production .exe: paths.js refactor + first-launch wizard~~ ✅ DONE (2026-05-27, c2db0fe + 7b09ff0)
+
+`api/knowledge-status/route.js` now uses `paths.js` so paths resolve through `MTG_APP_ROOT`/`MTG_JUDGE_DIR` in the packaged .exe. Added oracle-index fallback so the status banner doesn't scream "missing" when the slim index is present.
+
+First-launch wizard ships as `/api/first-launch` + a banner in `MTGAssistant.jsx`. GET detects fresh installs via a `.first-launch-marker.json` sentinel (not decks.local.json — that's auto-seeded by /api/decks). POST `{ sourcePath }` copies user data; POST `{ action: "dismiss" }` writes the marker without copying. 16 vitest cases cover both branches.
+
+Also fixed a latent ReferenceError in `/api/engine` (ENGINE_ROOT / JUDGE_ROOT got dropped in commit 5f8137e but call sites still referenced them). Added a 3-test smoke suite — would have caught the regression at the time.
+
+End-to-end verified on a clean install: window opens, wizard appears, import copies the full deck library + chats + spellbook data, marker persists across restarts, engine returns rule chunks, all 335 tests pass.
 
 ### ~~Wire Arbiter to Ollama~~ ✅ DONE (568554a, 2026-05-24)
 
