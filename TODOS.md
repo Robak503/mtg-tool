@@ -28,15 +28,15 @@ stays readable.
 
 ## Phase 6 — Learn-to-Play Mode
 
-### P1 — Phase 6 PR3: legalChoices generator
+### P1 — Phase 6 PR4: opponent AI
 
-**What:** Build `app/src/lib/learn/legalChoices.js` per design doc §5 step 3. Given a state and the player who currently has priority, generate the legal actions: play-a-land, cast-spell (with mana cost check), activate-ability, declare-attackers, declare-blockers, pay-cost, pass-priority. Covers ~85% of card oracle patterns; punts the rest to Arbiter via an "unresolved" stub. ~400 LOC + tests.
+**What:** Build `app/src/lib/learn/opponentAI.js` per design doc §5 step 4. Given a state and the legal actions, pick an action for the AI player. Reuses goldfish v2's archetype + classifier for cast priority; uses simple aggression heuristics for attack/block. ~200 LOC.
 
-**Why:** PR2 shipped the turn-structure state machine. PR3 unlocks gameplay — without legal-choice generation, the decisionGate (PR5) has nothing to ask the user about.
+**Why:** PR3 shipped the legal-action generator. PR4 lets the AI actually play. Without it, the engine grinds to a halt every time it's the AI's turn waiting for input that never comes.
 
-**Depends on:** PR2 done (gameEngine.js + 29 tests on master). Reads state via getZone/findPermanent and adds candidate actions; never mutates.
+**Depends on:** PR3 done (legalChoices.js + 40 tests on master). Reads legal actions; doesn't generate them.
 
-**Reference:** `docs/phase6-learn-to-play.md` §5 step 3.
+**Reference:** `docs/phase6-learn-to-play.md` §5 step 4 + reuse of `lib/goldfish.js` archetype detector.
 
 ---
 
@@ -134,3 +134,7 @@ Goldfish v2: London mulligan, type_line/keywords-driven classification, archetyp
 ### ~~Phase 6 PR2: gameEngine state machine + tests~~ ✅ DONE (master, 2026-05-26)
 
 `app/src/lib/learn/gameEngine.js` (~290 LOC) + `gameEngine.test.js` (29 tests). Turn-structure state machine on top of PR1. `advanceStep`/`runStepActions`/`nextStep` for phase/step walking with end-of-turn wrap-around; `passPriority` handles the priority loop with step-end-on-empty-stack and stack-resolution-on-non-empty; `resolveTopOfStack` runs `payload.onResolve` callbacks with error containment; trigger queue via `enqueueTrigger` + `flushTriggers` with APNAP ordering; `startGame` covers opening 7 + first-turn draw-skip per CR 103.7a. Untap and cleanup correctly skip the priority grant per CR 117.3a.
+
+### ~~Phase 6 PR3: legalChoices generator + tests~~ ✅ DONE (master, 2026-05-26)
+
+`app/src/lib/learn/legalChoices.js` (~280 LOC) + `legalChoices.test.js` (40 tests). Mana-cost parser (`parseManaCost`) handles generic/colored/colorless/X/hybrid/phyrexian pips; `canPayManaCost` checks pool affordability with hybrid resolution; `legalActionsForPlayer` surfaces pass-priority + play-land (sorcery-speed + own-turn + stack-empty + once-per-turn checks) + cast-spell (timing + cost-affordable) + declare-attacker (untapped, not summoning-sick unless Haste) + declare-blocker (untapped, defender-only, per-attacker pair). Activate-ability and oracle-text target parsing deferred per design doc.
