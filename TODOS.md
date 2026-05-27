@@ -32,6 +32,30 @@ Route deleted entirely — chat traffic was already on `/api/chat-stream`. The d
 
 ---
 
+### Add per-session message limit to v2 sessions
+
+**What:** Add `MAX_SESSION_MESSAGES = 500` constant to `writeChatFile()` in `app/src/app/api/chats/route.js`. When a session's `messages` array exceeds the limit, trim oldest first (`.slice(-MAX_SESSION_MESSAGES)`).
+
+**Why:** v1's `normalizeHistories()` trimmed each agent history to 200 messages (line 22: `.slice(-200)`). That function becomes dead code in v2. Without an equivalent guard, long-running sessions grow unboundedly.
+
+**How to apply:** Add the constant and a one-line trim inside `writeChatFile()` alongside the existing `normalizeMessage()` call. Also add to the `MAX_SESSION_MESSAGES` constant export for tests.
+
+**Depends on:** PR1 (v2 schema migration in `chats/route.js`). Slot into the same writeChatFile() rewrite — 10 minutes of work.
+
+---
+
+### Add archived session pruning to prevent chats.local.json growth
+
+**What:** Add a `pruneSessions(sessions)` function called from `writeChatFile()`. Keeps the latest N archived sessions and removes those older than D days. Suggested defaults: keep last 50 archived, prune archived older than 90 days. Both limits configurable via env vars (`MAX_ARCHIVED_SESSIONS`, `MAX_ARCHIVED_DAYS`).
+
+**Why:** Full `lockedDeck` snapshots (~80-120KB per session with oracle text) accumulate with no current pruning. At 3 sessions/week, `chats.local.json` reaches 12MB in a year — slow JSON parse, wasted disk. Active sessions (not archived) are never pruned.
+
+**How to apply:** New `pruneSessions(sessions)` function in `app/src/app/api/chats/route.js`. Called before the JSON write in `writeChatFile()`. Separate function to keep `writeChatFile()` readable.
+
+**Depends on:** PR1 (v2 schema migration). Slot into PR1 or a follow-up cleanup PR.
+
+---
+
 ### Pre-build oracle name index for faster cold starts
 
 **What:** A build script (`npm run build:oracle-index`) that reads `oracle_cards.json` (165MB) and writes a pre-computed name→card lookup table to `data/scryfall-bulk/oracle-index.json`. The `/api/cards` route loads the index file on cold start instead of parsing 165MB of JSON.
