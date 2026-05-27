@@ -37,8 +37,102 @@ export default function FeedbackButton({
   const [inboxEntries, setInboxEntries] = useState(null);
   const [inboxError, setInboxError] = useState(null);
   const [inboxLoading, setInboxLoading] = useState(false);
+  const [copyState, setCopyState] = useState(null); // null | "copied" | { error }
+  const [deletingId, setDeletingId] = useState(null);
   const textareaRef = useRef(null);
   const modalRef = useRef(null);
+
+  // Build a URL query string from current context so the popup gets seeded.
+  const contextQueryString = () => {
+    const params = new URLSearchParams();
+    if (agent) params.set("agent", agent);
+    if (currentSession?.id) params.set("sessionId", currentSession.id);
+    if (currentSession?.name) params.set("sessionName", currentSession.name);
+    if (activeDeck?.name) params.set("deckName", activeDeck.name);
+    if (currentSession?.lockedDeck?.commander) params.set("deckCommander", currentSession.lockedDeck.commander);
+    if (page) params.set("page", page);
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  };
+
+  // Open the small popup window. width/height chosen to feel like a
+  // capture tool, not an app.
+  const openPopout = () => {
+    const url = `/feedback-window${contextQueryString()}`;
+    const features = "width=440,height=680,resizable=yes,scrollbars=yes,toolbar=no,location=no,menubar=no,status=no";
+    if (typeof window !== "undefined") {
+      const popup = window.open(url, "mtg-feedback-popup", features);
+      if (popup) {
+        popup.focus();
+        // Close the modal too — the user is committing to the popup workflow.
+        setOpen(false);
+      }
+    }
+  };
+
+  // Copy the consolidated FEEDBACK.md to the clipboard.
+  const copyDigest = async () => {
+    setCopyState(null);
+    try {
+      const response = await fetch("/api/feedback?format=md", { cache: "no-store" });
+      if (!response.ok) {
+        setCopyState({ error: `status ${response.status}` });
+        return;
+      }
+      const text = await response.text();
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        setCopyState("copied");
+        setTimeout(() => setCopyState(null), 2200);
+      } else {
+        setCopyState({ error: "clipboard not available" });
+      }
+    } catch (error) {
+      setCopyState({ error: error.message || "copy failed" });
+    }
+  };
+
+  // Download the consolidated digest as FEEDBACK.md via Blob URL.
+  const downloadDigest = async () => {
+    try {
+      const response = await fetch("/api/feedback?format=md", { cache: "no-store" });
+      if (!response.ok) {
+        setCopyState({ error: `status ${response.status}` });
+        return;
+      }
+      const text = await response.text();
+      const blob = new Blob([text], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 10);
+      anchor.href = url;
+      anchor.download = `FEEDBACK-${stamp}.md`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setCopyState({ error: error.message || "download failed" });
+    }
+  };
+
+  // Delete a single entry. Regenerates the inbox afterwards.
+  const deleteEntry = async (filename) => {
+    if (!filename || deletingId) return;
+    setDeletingId(filename);
+    try {
+      const response = await fetch(`/api/feedback?filename=${encodeURIComponent(filename)}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        setInboxEntries(prev => (prev || []).filter(e => e.filename !== filename));
+      } else {
+        setInboxError(`delete failed (${response.status})`);
+      }
+    } catch (error) {
+      setInboxError(error.message || "delete failed");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   // Load the inbox when switching to that view (and on submit-success so the
   // newly-saved entry shows up immediately if the user toggles to it).
@@ -229,22 +323,40 @@ export default function FeedbackButton({
                   Inbox{inboxEntries ? ` (${inboxEntries.length})` : ""}
                 </button>
               </div>
-              <button
-                onClick={close}
-                disabled={submitting}
-                aria-label="Close"
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: MUTED,
-                  cursor: submitting ? "not-allowed" : "pointer",
-                  fontSize: 18,
-                  lineHeight: 1,
-                  padding: 4,
-                }}
-              >
-                ×
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button
+                  onClick={openPopout}
+                  title="Open in a separate small window (keep it on a second monitor for rapid capture)"
+                  style={{
+                    background: "transparent",
+                    border: `1px solid ${LINE}`,
+                    borderRadius: 4,
+                    color: MUTED,
+                    cursor: "pointer",
+                    fontSize: 11,
+                    padding: "3px 8px",
+                    fontFamily,
+                  }}
+                >
+                  ⧉ Pop out
+                </button>
+                <button
+                  onClick={close}
+                  disabled={submitting}
+                  aria-label="Close"
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: MUTED,
+                    cursor: submitting ? "not-allowed" : "pointer",
+                    fontSize: 18,
+                    lineHeight: 1,
+                    padding: 4,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
             </div>
 
             {view === "compose" && (
@@ -256,56 +368,126 @@ export default function FeedbackButton({
             )}
 
             {view === "inbox" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 200, maxHeight: 480, overflowY: "auto" }}>
-                {inboxLoading && (
-                  <div style={{ fontSize: 12, color: MUTED, padding: 8 }}>Loading inbox...</div>
-                )}
-                {inboxError && (
-                  <div style={{ fontSize: 12, color: "#c2786f", padding: 8 }}>
-                    Could not load: {inboxError}
-                  </div>
-                )}
-                {!inboxLoading && !inboxError && inboxEntries?.length === 0 && (
-                  <div style={{ fontSize: 12, color: MUTED, padding: 8, lineHeight: 1.5 }}>
-                    No feedback captured yet. Submit a note from the Send tab — it lands in
-                    <code style={{ fontFamily: "ui-monospace, monospace", marginLeft: 4 }}>data/feedback/</code>.
-                  </div>
-                )}
-                {inboxEntries?.map((entry) => (
-                  <div
-                    key={entry.filename || entry.id}
+              <>
+                {/* Digest controls — the whole point of this feature: copy/download
+                    the consolidated FEEDBACK.md to paste into a fresh Claude session. */}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  <button
+                    onClick={copyDigest}
+                    disabled={!inboxEntries || inboxEntries.length === 0}
+                    title="Copy the entire FEEDBACK.md to clipboard"
                     style={{
-                      padding: "10px 12px",
-                      background: BG2,
-                      border: `1px solid ${LINE}`,
-                      borderRadius: 6,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 4,
+                      padding: "5px 10px",
+                      background: cfg?.dim || BG2,
+                      border: `1px solid ${cfg?.border || LINE}`,
+                      borderRadius: 4,
+                      color: cfg?.color || GOLD,
+                      cursor: !inboxEntries || inboxEntries.length === 0 ? "not-allowed" : "pointer",
+                      fontSize: 11,
+                      fontFamily,
+                      opacity: !inboxEntries || inboxEntries.length === 0 ? 0.5 : 1,
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-                      <span style={{ fontSize: 10, color: cfg?.color || GOLD, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                        {entry.category || "other"}
-                      </span>
-                      <span style={{ fontSize: 10, color: MUTED }}>
-                        {entry.timestamp ? new Date(entry.timestamp).toLocaleString() : ""}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
-                      {entry.message}
-                    </div>
-                    {(entry.context?.agent || entry.context?.deckName || entry.context?.sessionName) && (
-                      <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>
-                        {entry.context?.agent && <span>{entry.context.agent}</span>}
-                        {entry.context?.sessionName && <span> · {entry.context.sessionName}</span>}
-                        {entry.context?.deckName && <span> · {entry.context.deckName}</span>}
-                        {entry.context?.page && <span> · {entry.context.page}</span>}
-                      </div>
-                    )}
+                    {copyState === "copied" ? "✓ Copied" : "Copy all as markdown"}
+                  </button>
+                  <button
+                    onClick={downloadDigest}
+                    disabled={!inboxEntries || inboxEntries.length === 0}
+                    title="Download FEEDBACK.md"
+                    style={{
+                      padding: "5px 10px",
+                      background: "transparent",
+                      border: `1px solid ${LINE}`,
+                      borderRadius: 4,
+                      color: MUTED,
+                      cursor: !inboxEntries || inboxEntries.length === 0 ? "not-allowed" : "pointer",
+                      fontSize: 11,
+                      fontFamily,
+                      opacity: !inboxEntries || inboxEntries.length === 0 ? 0.5 : 1,
+                    }}
+                  >
+                    Download
+                  </button>
+                  <span style={{ fontSize: 10, color: MUTED, marginLeft: "auto" }}>
+                    {inboxEntries ? `${inboxEntries.length} entr${inboxEntries.length === 1 ? "y" : "ies"}` : ""}
+                  </span>
+                </div>
+                {copyState?.error && (
+                  <div style={{ fontSize: 11, color: "#c2786f" }}>
+                    ⚠ {copyState.error}
                   </div>
-                ))}
-              </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 200, maxHeight: 420, overflowY: "auto" }}>
+                  {inboxLoading && (
+                    <div style={{ fontSize: 12, color: MUTED, padding: 8 }}>Loading inbox...</div>
+                  )}
+                  {inboxError && (
+                    <div style={{ fontSize: 12, color: "#c2786f", padding: 8 }}>
+                      Could not load: {inboxError}
+                    </div>
+                  )}
+                  {!inboxLoading && !inboxError && inboxEntries?.length === 0 && (
+                    <div style={{ fontSize: 12, color: MUTED, padding: 8, lineHeight: 1.5 }}>
+                      No feedback captured yet. Submit a note from the Send tab or open the pop-out window — entries land in
+                      <code style={{ fontFamily: "ui-monospace, monospace", marginLeft: 4 }}>data/feedback/</code>.
+                    </div>
+                  )}
+                  {inboxEntries?.map((entry) => (
+                    <div
+                      key={entry.filename || entry.id}
+                      style={{
+                        padding: "10px 12px",
+                        background: BG2,
+                        border: `1px solid ${LINE}`,
+                        borderRadius: 6,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                        opacity: deletingId === entry.filename ? 0.4 : 1,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                        <span style={{ fontSize: 10, color: cfg?.color || GOLD, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                          {entry.category || "other"}
+                        </span>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                          <span style={{ fontSize: 10, color: MUTED }}>
+                            {entry.timestamp ? new Date(entry.timestamp).toLocaleString() : ""}
+                          </span>
+                          <button
+                            onClick={() => deleteEntry(entry.filename)}
+                            disabled={!entry.filename || deletingId === entry.filename}
+                            title="Delete this entry (also removes it from FEEDBACK.md)"
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: MUTED,
+                              cursor: !entry.filename || deletingId === entry.filename ? "not-allowed" : "pointer",
+                              fontSize: 12,
+                              lineHeight: 1,
+                              padding: 0,
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                        {entry.message}
+                      </div>
+                      {(entry.context?.agent || entry.context?.deckName || entry.context?.sessionName) && (
+                        <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>
+                          {entry.context?.agent && <span>{entry.context.agent}</span>}
+                          {entry.context?.sessionName && <span> · {entry.context.sessionName}</span>}
+                          {entry.context?.deckName && <span> · {entry.context.deckName}</span>}
+                          {entry.context?.page && <span> · {entry.context.page}</span>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {view === "compose" && (
