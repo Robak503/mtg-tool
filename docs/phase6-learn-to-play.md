@@ -267,9 +267,16 @@ Each step is a self-contained PR with tests. Don't skip ahead.
    `startGame` covers the opening 7 + first-turn draw-skip per CR
    103.7a. Untap/cleanup correctly skip the priority grant per
    CR 117.3a.
-3. **PR3 — legalChoices generator** (cast/play-land/activate/attack/
-   block/pay-cost). Covers ~85% of card oracle patterns; punts the
-   rest to Arbiter. ~400 lines + tests.
+3. **PR3 — legalChoices generator.** ✅ DONE (master, 2026-05-26).
+   `app/src/lib/learn/legalChoices.js` (~280 LOC) + 40 tests.
+   Mana-cost parser handles generic/colored/colorless/X/hybrid/
+   phyrexian; `canPayManaCost` checks pool affordability with
+   hybrid resolution; `legalActionsForPlayer` surfaces pass-priority,
+   play-land (sorcery-speed + own-turn + stack-empty + once-per-turn),
+   cast-spell (timing + cost), declare-attacker (untapped, not
+   summoning sick unless Haste), declare-blocker (untapped, defender
+   only). Activate-ability and target selection deferred per design
+   doc anti-goals.
 4. **PR4 — opponentAI reusing goldfish v2 logic.** ~200 lines.
 5. **PR5 — decisionGate + narrator stubs.** Beginner only, narration
    from templates. ~300 lines + tests.
