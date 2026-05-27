@@ -209,8 +209,8 @@ describe("atomic write", () => {
   });
 });
 
-describe("v1 shim on POST", () => {
-  it("converts incoming { histories, locks } into v2 sessions on disk", async () => {
+describe("v1 shim removal (T20)", () => {
+  it("rejects { histories, locks } payload with 400 — sessions-only now", async () => {
     const request = new Request("http://localhost/api/chats", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -219,16 +219,10 @@ describe("v1 shim on POST", () => {
         locks: { jace: { name: "deck" } },
       }),
     });
-
     const response = await route.POST(request);
-    expect(response.status).toBe(200);
-
-    const written = await readChatFile();
-    expect(written.version).toBe(2);
-    expect(written.sessions).toHaveLength(1);
-    expect(written.sessions[0].agent).toBe("jace");
-    expect(written.sessions[0].lockedDeck.name).toBe("deck");
-    expect(written.sessions[0].archived).toBe(false);
+    expect(response.status).toBe(400);
+    const data = await response.json();
+    expect(data.error).toMatch(/sessions array/i);
   });
 });
 

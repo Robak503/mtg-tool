@@ -1,22 +1,20 @@
 /**
  * chatPersistence.js (client-side)
  *
- * v2 schema-aware persistence with a backward-compat shim. The server stores
- * { version: 2, sessions: [...] }; this module exposes BOTH the v1 shape
- * ({ histories, locks }) for the current useChatAgents.js and the v2 shape
- * ({ sessions }) for PR2's session manager UI.
- *
- * After PR2 lands, delete loadChatState's histories/locks projection and the
- * scheduleChatFileSave histories overload (search for "T20" markers).
+ * v2 schema. The server stores { version: 2, sessions: [...] }; this module
+ * loads and saves that shape directly. The v1 backward-compat shim that
+ * shipped in PR1 was removed once PR2's session-manager UI proved stable
+ * and no in-flight tabs were still sending the old { histories, locks }
+ * payload (commit-message reference: T20).
  */
 
 // ─── Loaders ──────────────────────────────────────────────────────────────────
 
 /**
  * Returns the current chat state. Shape:
- *   { version: 2, sessions: [...], histories: {...}, locks: {...} }
- * The histories/locks fields are derived from sessions and are kept for
- * backward compatibility with useChatAgents.js.
+ *   { version: 2, sessions: [...] }
+ * The server also includes a histories/locks projection for legacy callers
+ * (none remain in this codebase, but the projection is harmless).
  */
 export async function loadChatState() {
   try {
@@ -27,23 +25,17 @@ export async function loadChatState() {
     return {
       version: data.version || 2,
       sessions: Array.isArray(data.sessions) ? data.sessions : [],
-      histories: data.histories || null,
-      locks: data.locks || null,
     };
   } catch {
     return null;
   }
 }
 
-export async function loadChatFile() {
-  const state = await loadChatState();
-  return state?.histories || null;
-}
-
-// ─── Savers ───────────────────────────────────────────────────────────────────
+// ─── Save ────────────────────────────────────────────────────────────────────
 
 /**
- * Save the full sessions array directly (v2 client). PR2 callers use this.
+ * Save the full sessions array. POSTs { sessions } to /api/chats which
+ * performs an atomic write to data/chats.local.json.
  */
 export async function saveSessions(sessions) {
   try {
@@ -58,99 +50,51 @@ export async function saveSessions(sessions) {
   }
 }
 
-/**
- * v1 shim: save by histories/locks. Server converts to sessions internally.
- * T20: remove this after PR2 UI ships and useChatAgents.js calls saveSessions.
- */
-export async function saveChatFile(histories, locks = {}) {
-  try {
-    const response = await fetch("/api/chats", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ histories, locks }),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
 // ─── Debounced save ──────────────────────────────────────────────────────────
 
-// Pending state is one of:
-//   { kind: "sessions", sessions }                     ← v2 callers
-//   { kind: "v1-shim", histories, locks }              ← current callers
-let pendingState = null;
+let pendingSessions = null;
 let pendingTimer = null;
 
 /**
- * Schedule a save of sessions (v2). Coalesces with any pending v1 shim save.
+ * Schedule a save of sessions. Coalesces rapid successive calls — only the
+ * most-recent sessions payload is written after `delay` ms of quiet.
  */
 export function scheduleChatSessionsSave(sessions, delay = 500) {
-  pendingState = { kind: "sessions", sessions };
-  armTimer(delay);
-}
-
-/**
- * Schedule a save of v1 histories/locks (current useChatAgents.js path).
- * T20: remove after PR2 UI ships.
- */
-export function scheduleChatFileSave(histories, locks = {}, delay = 500) {
-  pendingState = { kind: "v1-shim", histories, locks };
-  armTimer(delay);
-}
-
-function armTimer(delay) {
+  pendingSessions = sessions;
   if (pendingTimer) clearTimeout(pendingTimer);
   const timerApi = typeof window !== "undefined" ? window : globalThis;
   pendingTimer = timerApi.setTimeout(() => {
-    const stateToSave = pendingState;
-    pendingState = null;
+    const toSave = pendingSessions;
+    pendingSessions = null;
     pendingTimer = null;
-    if (!stateToSave) return;
-    if (stateToSave.kind === "sessions") {
-      saveSessions(stateToSave.sessions);
-    } else {
-      saveChatFile(stateToSave.histories, stateToSave.locks);
-    }
+    if (toSave) saveSessions(toSave);
   }, delay);
 }
 
 /**
  * Flush any pending save synchronously (or via sendBeacon when useBeacon=true
- * — used by the pagehide/beforeunload handlers so the user does not lose the
- * last few keystrokes when they close the tab).
+ * — used by the pagehide/beforeunload handlers so the user does not lose
+ * the last few keystrokes when they close the tab).
  */
 export function flushChatFileSave({ useBeacon = false } = {}) {
-  if (!pendingState) return true;
+  if (!pendingSessions) return true;
 
   if (pendingTimer) clearTimeout(pendingTimer);
-  const stateToSave = pendingState;
-  pendingState = null;
+  const toSave = pendingSessions;
+  pendingSessions = null;
   pendingTimer = null;
-
-  // Build the beacon payload in the same shape the route expects so the
-  // beacon survives the shim removal in T20 without coordinating clients
-  // and server.
-  const beaconBody = stateToSave.kind === "sessions"
-    ? { sessions: stateToSave.sessions }
-    : { histories: stateToSave.histories, locks: stateToSave.locks };
 
   if (
     useBeacon &&
     typeof navigator !== "undefined" &&
     typeof navigator.sendBeacon === "function"
   ) {
-    const payload = new Blob([JSON.stringify(beaconBody)], {
+    const payload = new Blob([JSON.stringify({ sessions: toSave })], {
       type: "application/json",
     });
     return navigator.sendBeacon("/api/chats", payload);
   }
 
-  if (stateToSave.kind === "sessions") {
-    saveSessions(stateToSave.sessions);
-  } else {
-    saveChatFile(stateToSave.histories, stateToSave.locks);
-  }
+  saveSessions(toSave);
   return true;
 }

@@ -40,17 +40,6 @@ stays readable.
 
 ## Persistence
 
-### P3 — Remove v1 backward-compat shim in chatPersistence + chats/route
-
-**What:** PR1 kept the v1 `{ histories, locks }` shim in both `app/src/lib/chatPersistence.js` (look for `T20` markers) and the POST handler in `app/src/app/api/chats/route.js`. Now that PR2 ships and useChatSessions.js calls `saveSessions` directly, the shim is dead code in normal operation but still runs on every POST.
-
-**Why:** Reduces surface area. The shim was insurance against in-flight tabs sending v1 payloads — at this point any such tabs have closed.
-
-**How to apply:** Delete the `histories`/`locks` branch from `chats/route.js` POST. Delete `saveChatFile` and the v1 `scheduleChatFileSave` from `chatPersistence.js`. Update `useChatSessions.js` if anything still imports the dead names. Run npm test to confirm nothing breaks.
-
-**Risk:** Low. The dead path is unused.
-
----
 
 ## UI Polish
 
@@ -131,3 +120,7 @@ Goldfish v2: London mulligan, type_line/keywords-driven classification, archetyp
 ### ~~Phase 6 design doc~~ ✅ DONE (ab4cdae, 2026-05-26)
 
 `docs/phase6-learn-to-play.md` — full design with curriculum specs, architecture sketch, data shapes, 10-PR build sequence, open questions, success criteria.
+
+### ~~Remove v1 backward-compat shim~~ ✅ DONE (master, 2026-05-26)
+
+`saveChatFile` and `scheduleChatFileSave` removed from `chatPersistence.js`. POST handler in `chats/route.js` now rejects `{ histories, locks }` with 400 instead of converting it. Tests updated; net 81/81 still passing.

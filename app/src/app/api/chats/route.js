@@ -273,56 +273,14 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    let sessions;
-    if (Array.isArray(body?.sessions)) {
-      // v2 client (post-PR2): writes sessions directly.
-      sessions = body.sessions;
-    } else {
-      // v1 shim client (current useChatAgents.js): convert histories+locks
-      // into sessions in place. Each agent with history becomes one session.
-      // Existing on-disk sessions are preserved EXCEPT the latest-per-agent
-      // ones, which are replaced with the incoming history (mirrors current
-      // single-conversation semantics until PR2 UI lands).
-      const existing = await readChatFile();
-      const histories = body?.histories && typeof body.histories === "object" ? body.histories : {};
-      const locks = body?.locks && typeof body.locks === "object" ? body.locks : {};
-
-      // Find the latest session per agent (the one the shim was reading from).
-      const replaceableIds = new Set();
-      const latestPerAgent = new Map();
-      for (const session of existing.sessions) {
-        const current = latestPerAgent.get(session.agent);
-        if (!current || String(session.updatedAt) > String(current.updatedAt)) {
-          latestPerAgent.set(session.agent, session);
-        }
-      }
-      for (const session of latestPerAgent.values()) replaceableIds.add(session.id);
-
-      const now = new Date().toISOString();
-      const carried = existing.sessions.filter(s => !replaceableIds.has(s.id));
-
-      const updated = [];
-      for (const agent of AGENT_KEYS) {
-        const messages = Array.isArray(histories[agent]) ? histories[agent] : [];
-        if (messages.length === 0) continue;
-
-        const previous = latestPerAgent.get(agent);
-        updated.push({
-          id: previous?.id || generateSessionId(),
-          agent,
-          name: previous?.name || autoNameFromMessages(messages.map(normalizeMessage), `${agent} chat`),
-          lockedDeck: locks[agent] ?? previous?.lockedDeck ?? null,
-          messages,
-          createdAt: previous?.createdAt || now,
-          updatedAt: now,
-          archived: false,
-        });
-      }
-
-      sessions = [...carried, ...updated];
+    if (!Array.isArray(body?.sessions)) {
+      return Response.json(
+        { error: "POST body must include a sessions array. (The v1 { histories, locks } shim was removed; update your client.)" },
+        { status: 400 }
+      );
     }
 
-    const saved = await writeChatFile({ sessions });
+    const saved = await writeChatFile({ sessions: body.sessions });
     return Response.json({ ...saved, path: CHAT_FILE });
   } catch (error) {
     if (error.code === "ENOSPC") {
