@@ -26,15 +26,33 @@ Items deferred from Phase 1 sprint reviews. Ordered by priority.
 
 ## P3
 
-### Rename `/api/anthropic` to `/api/chat`
+### ~~Rename `/api/anthropic` to `/api/chat`~~ ✅ MOOT (2026-05-26)
 
-**What:** The `/api/anthropic` route now dispatches to both Ollama and Anthropic based on `provider` field. The name is misleading — calling it with `provider: "ollama"` routes to Ollama. Rename the route to `/api/chat` and update the single call site in `useChatAgents.js` line 486.
+Route deleted entirely — chat traffic was already on `/api/chat-stream`. The dead `/api/anthropic` wrapper is gone.
 
-**Why:** The name will cause confusion in Phase 2 when the knowledge layer is built and more routes are added. "I'm calling /api/anthropic with provider=ollama" is confusing to read.
+---
 
-**How to apply:** Create `app/src/app/api/chat/route.js` that re-exports the handler from the current `anthropic/route.js`. Update `useChatAgents.js` line 486: `fetch("/api/anthropic"` → `fetch("/api/chat"`. Delete the old `anthropic/route.js`. One redirect approach or a simple move.
+### Add per-session message limit to v2 sessions
 
-**Depends on:** Nothing.
+**What:** Add `MAX_SESSION_MESSAGES = 500` constant to `writeChatFile()` in `app/src/app/api/chats/route.js`. When a session's `messages` array exceeds the limit, trim oldest first (`.slice(-MAX_SESSION_MESSAGES)`).
+
+**Why:** v1's `normalizeHistories()` trimmed each agent history to 200 messages (line 22: `.slice(-200)`). That function becomes dead code in v2. Without an equivalent guard, long-running sessions grow unboundedly.
+
+**How to apply:** Add the constant and a one-line trim inside `writeChatFile()` alongside the existing `normalizeMessage()` call. Also add to the `MAX_SESSION_MESSAGES` constant export for tests.
+
+**Depends on:** PR1 (v2 schema migration in `chats/route.js`). Slot into the same writeChatFile() rewrite — 10 minutes of work.
+
+---
+
+### Add archived session pruning to prevent chats.local.json growth
+
+**What:** Add a `pruneSessions(sessions)` function called from `writeChatFile()`. Keeps the latest N archived sessions and removes those older than D days. Suggested defaults: keep last 50 archived, prune archived older than 90 days. Both limits configurable via env vars (`MAX_ARCHIVED_SESSIONS`, `MAX_ARCHIVED_DAYS`).
+
+**Why:** Full `lockedDeck` snapshots (~80-120KB per session with oracle text) accumulate with no current pruning. At 3 sessions/week, `chats.local.json` reaches 12MB in a year — slow JSON parse, wasted disk. Active sessions (not archived) are never pruned.
+
+**How to apply:** New `pruneSessions(sessions)` function in `app/src/app/api/chats/route.js`. Called before the JSON write in `writeChatFile()`. Separate function to keep `writeChatFile()` readable.
+
+**Depends on:** PR1 (v2 schema migration). Slot into PR1 or a follow-up cleanup PR.
 
 ---
 
@@ -62,24 +80,30 @@ Items deferred from Phase 1 sprint reviews. Ordered by priority.
 
 ---
 
-### Remove dead /api/anthropic route
+### ~~Remove dead /api/anthropic route~~ ✅ DONE (feat/phase3-cleanup, 2026-05-26)
 
-**What:** After T5, `/api/chat-stream` handles all chat traffic. `/api/anthropic` is no longer called from anywhere in the codebase (`grep -r "/api/anthropic" app/src` returns nothing).
-
-**Why:** Dead route. Confuses future readers ("which one do I call?"). When P3 rename happens, this disappears anyway.
-
-**How to apply:** Delete `app/src/app/api/anthropic/route.js`. Verify build still passes.
-
-**Depends on:** Nothing.
+Deleted `app/src/app/api/anthropic/route.js` — was a 19-line pass-through to `callModelMessages`, not called anywhere.
 
 ---
 
-### Consolidate duplicate oracle caches
+### ~~Consolidate duplicate oracle caches~~ ✅ DONE (Phase 2 — cardIndex.js refactor)
 
-**What:** `app/src/app/api/cards/route.js` and `app/src/lib/server/cardContext.js` each independently parse and cache `oracle_cards.json` and `rulings.json`. Two separate `oracleCache` variables in the same server process.
+Both `cards/route.js` and `cardContext.js` already delegate to `cardIndex.js` singleton. No separate caches exist.
 
-**Why:** After Day 3, both files load 165MB + 24MB independently on first request. ~900MB of duplicate parsed data in V8. With 32GB RAM this is tolerable but wasteful, and it doubles cold-start time if both routes are hit simultaneously.
+---
 
-**How to apply:** Extract oracle/rulings loading to `app/src/lib/server/oracleStore.js` with a single `loadOracle()` and `loadRulings()` export. Both `cards/route.js` and `cardContext.js` import from there. Single cache, single parse.
+### ~~Promote current agent's session group to the top of SessionSidebar~~ ✅ DONE (PR2 polish, 2026-05-26)
 
-**Depends on:** Day 3 bulk oracle wiring complete. ✅
+ISSUE-001 fixed inline before opening the PR. `SessionSidebar.jsx` now builds `ordered = [agent, ...others]` before mapping into groups.
+
+---
+
+### ~~Clear input or move input state per-session in useChatSessions~~ ✅ DONE (PR2 polish, 2026-05-26)
+
+ISSUE-002 fixed inline. Added `useEffect(() => setInput(""), [agent])` in `useChatSessions.js` so typed drafts don't bleed across agent switches.
+
+---
+
+### ~~Hide empty AGENT (0) group header in SessionSidebar~~ ✅ DONE (PR2 polish, 2026-05-26)
+
+ISSUE-003 fixed inline. Group filter changed from `sessions.length > 0 || key === agent` to `sessions.length > 0`, so empty agent groups never render. The "+ New chat with <agent>" button above already communicates the empty state.

@@ -280,11 +280,20 @@ function cardInfo(entry) {
   const text = oracleText(card);
   const nameKey = normalizeName(entry.name);
   const manaValue = Number(card?.cmc ?? 0);
-  const isLand = /\bland\b/i.test(typeLine);
+
+  // For MDFCs (type_line like "Sorcery // Land"), use the front face type for
+  // classification so spell//land cards aren't mistakenly treated as pure lands
+  // and lose all their spell-role flags (ramp, draw, interaction, etc.).
+  // Front face is card_faces[0]; fall back to the part before " // " in type_line.
+  const frontTypeLine = card?.card_faces?.[0]?.type_line
+    || typeLine.split(" // ")[0]
+    || typeLine;
+
+  const isLand = /\bland\b/i.test(frontTypeLine);
   const isCreature = /\bcreature\b/i.test(typeLine);
   const isArtifact = /\bartifact\b/i.test(typeLine);
-  const isInstant = /\binstant\b/i.test(typeLine);
-  const isSorcery = /\bsorcery\b/i.test(typeLine);
+  const isInstant = /\binstant\b/i.test(frontTypeLine);
+  const isSorcery = /\bsorcery\b/i.test(frontTypeLine);
 
   return {
     entry,

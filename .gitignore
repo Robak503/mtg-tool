@@ -55,6 +55,8 @@ MTG ENGINE/scryfall_rulings_3.json
 
 # Backups
 app/data/backups/*.json
+app/data/*.bak
+app/data/*.corrupted
 
 # Embedded repos (Forge clone and RulesGuru repo — not submodules)
 mtg-judge/data/forge/
