@@ -897,9 +897,9 @@ export default function useChatAgents({
           errorProvider: effectiveProvider,
         }],
       }));
+    } finally {
+      setSending(false);
     }
-
-    setSending(false);
   };
 
   const retryWithFallback = (originalPrompt, targetAgentKey = null) => {

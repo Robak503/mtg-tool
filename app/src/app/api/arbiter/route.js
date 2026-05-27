@@ -193,10 +193,13 @@ export async function POST(request) {
     });
   }
 
+  // Arbiter is a local-only service — always use Ollama, never Anthropic.
+  // The client may pass any provider string (including "anthropic" when user has API tier
+  // selected), but Arbiter must not follow it. Pin to "ollama" unconditionally.
   const payload = {
     model: body.model,
     ollamaModel: body.ollamaModel || process.env.OLLAMA_ARBITER_MODEL || DEFAULT_ARBITER_MODEL,
-    provider: body.provider,
+    provider: "ollama",
     fastLocal: false,
     max_tokens: 2500,
     system: systemPrompt,

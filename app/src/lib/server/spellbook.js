@@ -40,14 +40,21 @@ function normalizeName(name) {
 }
 
 function loadData() {
-  if (_loadAttempted) return _loaded;
+  if (_loaded) return true;
+  // If a previous attempt failed with parse errors (not just missing files), don't retry.
+  if (_loadAttempted) return false;
+
+  // Files missing: don't mark attempted so we retry when files are synced.
+  // This lets users run npm run sync:spellbook and get combos without restarting the server.
+  if (!fs.existsSync(COMBOS_FILE) || !fs.existsSync(INDEX_FILE)) {
+    console.warn("[spellbook] Local data not found. Run: node app/scripts/sync-spellbook.cjs");
+    return false;
+  }
+
+  // Files exist — mark attempted so parse failures are not retried.
   _loadAttempted = true;
 
   try {
-    if (!fs.existsSync(COMBOS_FILE) || !fs.existsSync(INDEX_FILE)) {
-      console.warn("[spellbook] Local data not found. Run: node app/scripts/sync-spellbook.cjs");
-      return false;
-    }
 
     const rawCombos = JSON.parse(fs.readFileSync(COMBOS_FILE, "utf8"));
     _combos = {};
