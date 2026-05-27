@@ -582,6 +582,8 @@ export default function useChatAgents({
       // Local deterministic deck power/combo ranking (Karn and Tibalt).
       // Karn uses it for structured analysis; Tibalt uses it to anchor roast accuracy
       // (bracket creep, game changer callouts, combo line awareness, salt scores).
+      // Result is cached in the deck lock after the first fetch (~1.6s) — subsequent
+      // messages in the same conversation reuse the cached value at zero cost.
       let powerRankContext = "";
       try {
         if (
@@ -589,25 +591,36 @@ export default function useChatAgents({
           deckOracleNames.length >= 2 &&
           !isPureKarnCutRequest
         ) {
-          const commanderNames = deckLock?.commanderNames?.length
-            ? deckLock.commanderNames
-            : deckLock?.commander
-              ? deckLock.commander.split(" / ").map(n => n.trim()).filter(Boolean)
-              : (activeDeck ? deckCommanderNames(activeDeck) : []);
-          const powerRes = await fetch("/api/power-rank", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              deckText: deckLock?.deckText || (activeDeck ? serializeDeck(activeDeck.cards || deckCards) : ""),
-              cardNames: deckOracleNames,
-              commanderNames,
-              maxAlmost: 10,
-            }),
-          });
-          if (powerRes.ok) {
-            const powerData = await powerRes.json();
-            if (powerData.ready && powerData.formatted) {
-              powerRankContext = `${powerData.formatted}\n\n`;
+          if (deckLock?.powerRankFormatted) {
+            // Cached: skip the fetch entirely after the first message.
+            powerRankContext = `${deckLock.powerRankFormatted}\n\n`;
+          } else {
+            const commanderNames = deckLock?.commanderNames?.length
+              ? deckLock.commanderNames
+              : deckLock?.commander
+                ? deckLock.commander.split(" / ").map(n => n.trim()).filter(Boolean)
+                : (activeDeck ? deckCommanderNames(activeDeck) : []);
+            const powerRes = await fetch("/api/power-rank", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                deckText: deckLock?.deckText || (activeDeck ? serializeDeck(activeDeck.cards || deckCards) : ""),
+                cardNames: deckOracleNames,
+                commanderNames,
+                maxAlmost: 10,
+              }),
+            });
+            if (powerRes.ok) {
+              const powerData = await powerRes.json();
+              if (powerData.ready && powerData.formatted) {
+                powerRankContext = `${powerData.formatted}\n\n`;
+                // Cache in the deck lock — deck doesn't change during a conversation.
+                if (deckLock) {
+                  const updatedLock = { ...deckLock, powerRankFormatted: powerData.formatted };
+                  activeLocks = { ...activeLocks, [targetAgent]: updatedLock };
+                  setDeckLocks(activeLocks);
+                }
+              }
             }
           }
         }
@@ -941,6 +954,7 @@ export default function useChatAgents({
     deckLocks,
     histories,
     input,
+    knowledgeStatus,
     retryWithFallback,
     send,
     sending,

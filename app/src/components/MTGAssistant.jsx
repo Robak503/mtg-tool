@@ -110,6 +110,7 @@ export default function MTGAssistant() {
     exportChat,
     histories,
     input,
+    knowledgeStatus,
     retryWithFallback,
     send,
     sending,
@@ -317,6 +318,7 @@ export default function MTGAssistant() {
         clearChat={clearChat}
         deckLock={deckLocks?.[agent]}
         modelStatus={modelStatus}
+        knowledgeStatus={knowledgeStatus}
         modelProvider={modelProvider}
         setModelProvider={setModelProvider}
         unlockDeck={() => unlockDeck(agent)}
