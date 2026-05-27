@@ -288,9 +288,18 @@ Each step is a self-contained PR with tests. Don't skip ahead.
    when not supplied.
 5. **PR5 — decisionGate + narrator stubs.** Beginner only, narration
    from templates. ~300 lines + tests.
-6. **PR6 — LearnView + ZoneStack + StackPanel + DecisionModal + initial
-   wiring through `/api/learn/start` and `/api/learn/step`.** Beginner
-   playable end-to-end against a fixed opponent deck.
+6. **PR6 — wiring + UI.** ✅ DONE in 4 sub-PRs (master, 2026-05-26):
+   - **PR6.1** `actionDispatcher.js` + 20 tests — applies a legal
+     action to state with type-aware spell resolution.
+   - **PR6.2** `learnSession.js` + 18 tests — session lifecycle
+     container with advanceUntilDecision driver.
+   - **PR6.3** `/api/learn/start` + `/api/learn/step` + in-memory
+     session store + 19 tests — HTTP boundary.
+   - **PR6.4** `useLearnSession` hook + `LearnView.jsx` — minimal
+     but functional React UI: deck pickers, difficulty radio,
+     decision modal with options + recommended badge, recent-
+     actions feed, abandon button, win/lose screen. No fancy zone
+     graphics — that's PR8 polish.
 7. **PR7 — Intermediate difficulty:** swap narration templates,
    auto-pass on no-decision points, surface trap warnings.
 8. **PR8 — Expert difficulty:** silent run, post-game analysis,
