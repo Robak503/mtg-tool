@@ -2,6 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 const DATA_DIR = path.join(process.cwd(), "data");
+// Slim pre-built index (~10-20MB) — preferred when present. Build via
+// `npm run build:oracle-index` after every oracle_cards.json refresh.
+const ORACLE_INDEX_FILE = path.join(DATA_DIR, "scryfall-bulk", "oracle-index.json");
 const ORACLE_FILE = path.join(DATA_DIR, "scryfall-bulk", "oracle_cards.json");
 const LEGACY_ORACLE_FILE = path.join(DATA_DIR, "scryfall.oracle.local.json");
 const RULINGS_FILE = path.join(DATA_DIR, "scryfall-bulk", "rulings.json");
@@ -71,12 +74,22 @@ function setBestCard(byName, alias, card) {
   }
 }
 
+// Synchronous by design. Two cold-start requests cannot race because Node's
+// event loop blocks until readFileSync + JSON.parse returns. The first caller
+// to enter buildCardIndex() will populate `cardIndex` before any other handler
+// resumes. Do NOT convert to fs.promises without adding a loadPromise guard.
 function buildCardIndex() {
-  const { file, parsed } = readJson(
-    ORACLE_FILE,
-    LEGACY_ORACLE_FILE,
-    "Local Oracle repository missing. Run npm.cmd run sync:oracle from the app folder."
-  );
+  // Prefer the slim pre-built index (~10-20MB) when present. Falls through to
+  // the full 165MB oracle file if the user has not yet run
+  // `npm run build:oracle-index` (or if oracle_cards.json was refreshed but
+  // the index is stale — the script is fast enough to re-run on every sync).
+  const { file, parsed } = fs.existsSync(ORACLE_INDEX_FILE)
+    ? { file: ORACLE_INDEX_FILE, parsed: JSON.parse(fs.readFileSync(ORACLE_INDEX_FILE, "utf8")) }
+    : readJson(
+        ORACLE_FILE,
+        LEGACY_ORACLE_FILE,
+        "Local Oracle repository missing. Run npm.cmd run sync:oracle from the app folder."
+      );
   const cards = Array.isArray(parsed) ? parsed : parsed.cards;
   if (!Array.isArray(cards)) throw new Error("Local Oracle repository does not include a cards array.");
 

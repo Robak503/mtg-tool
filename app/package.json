@@ -22,6 +22,9 @@
     "clean:next": "node scripts/clean-next-cache.cjs",
     "check": "npm run clean:next && next build",
     "build": "npm run clean:next && next build",
+    "build:oracle-index": "node scripts/build-oracle-index.cjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "start": "next start",
     "sync:spellbook": "node scripts/sync-spellbook.cjs",
     "sync:spellbook-cards": "node scripts/sync-spellbook.cjs --cards-only",
@@ -33,5 +36,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "vitest": "^4.1.7"
+  }
 }
