@@ -1,23 +1,36 @@
 # MTG Tool Roadmap
 
-## Current Addendum - 2026-05-26
+## Current Addendum — 2026-05-26 (late)
 
-Phase 2 (`feat/phase2-arbiter-retrieval`, 37 commits) shipped and is in review-gate.
+Phases 1-5 plus the Phase 4 end-of-pass feedback capture are shipped on
+`master`. Everything below is one continuous local trunk; the project has
+no GitHub remote yet (queued as P0 in TODOS.md).
 
-**Phase 2 ships:**
-- Arbiter grounded in local rules retrieval (`rulesRetrieval.js`) — keyword scoring, pinned hints, confidence levels
-- Local card index with singleton cache (`cardIndex.js`) — replaces scattered Scryfall lookups
-- Citation injector — builds context for Arbiter prompts, strips hallucinated citations from output
-- RulesGuru precedent retrieval — scores scenarios against local test-case database
-- Commander Spellbook combo grounding — local combo lookup and bracket estimation (`spellbook.js`)
-- EDHREC salt grounding — local salt scores for deck power context
-- Deck power ranker — 1,152-line deterministic 1–10 scoring engine with CRISPI axes, bracket, combo analysis
-- Model tier selector — Fast/Mid/Deep/API tier picker in the UI header
-- Karn archetype blueprints — Combo, Control, Aggro/Midrange pro frameworks with construction baselines
-- Ollama health checks — startup ping, model-not-pulled detection
-- TrustStrip enrichment — deck trust context displayed in Karn/Tibalt
+**Shipped this session (~17 commits on master):**
+- PR0 `7c53f4d` — split `useChatAgents.js` into focused lib modules
+- PR1 `2e1b947` — v2 session schema + atomic write + slim oracle index +
+  streaming extraction to `modelProvider.js` + Vitest framework (24 tests)
+- PR2 `d05c7f5` — session manager UI (`useChatSessions`, `SessionSidebar`,
+  multi-session per agent, per-session locked-deck snapshots)
+- `afc1948` — three SessionSidebar polish fixes from /qa
+- `e28b527` — `MAX_SESSION_MESSAGES=500` + `pruneSessions()` + Ollama
+  startup health check banner
+- `d4b036d` — in-app feedback capture (Phase 4 end-of-pass per CLAUDE.md)
+- `c3b01f0` — Phase 5 goldfish v2: London mulligan, type_line/keywords-
+  driven classification, archetype detection (aggro/control/combo/ramp/
+  voltron/tokens/aristocrats/midrange), archetype-aware play priorities,
+  game records persisted to `data/games/`
+- This commit — `gameInsights.js` summariser, `/api/games-summary` route,
+  GarfieldPanel archetype badge + pacing bars + signal banners, Karn/
+  Tibalt/Jace receive goldfish-history insights in their system prompt,
+  `npm run backup` snapshots local data
 
-**Next phase:** Phase 3 focus items — chat session manager, Jace → Arbiter silent wiring, TODOS.md cleanups (P3 items).
+**Test suite:** 81 Vitest cases across 9 files; full `npm test` clean.
+
+**Next phase:** Phase 6 (Learn-to-Play Mode) per CLAUDE.md is the
+substantial next build — separate roadmap doc still required. Smaller
+follow-ups queued in TODOS.md include the GitHub remote setup (P0),
+Phase 6 design doc, and any UX polish that comes out of dogfooding.
 
 This is the working roadmap. Claude Code updates this as phases complete.
 

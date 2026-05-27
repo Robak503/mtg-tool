@@ -53,8 +53,8 @@ MTG ENGINE/scryfall_rulings_1.json
 MTG ENGINE/scryfall_rulings_2.json
 MTG ENGINE/scryfall_rulings_3.json
 
-# Backups
-app/data/backups/*.json
+# Backups (local snapshots from npm run backup)
+app/data/backups/
 app/data/*.bak
 app/data/*.corrupted
 

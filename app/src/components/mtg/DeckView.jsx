@@ -261,6 +261,7 @@ export default function DeckView({
                           </div>
                         ))}
                         <GarfieldPanel
+                          activeDeckId={activeDeck?.id}
                           bg={BG}
                           bg3={BG3}
                           colors={{ LINE, TEXT, MUTED, GOLD }}

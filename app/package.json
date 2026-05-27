@@ -23,6 +23,7 @@
     "check": "npm run clean:next && next build",
     "build": "npm run clean:next && next build",
     "build:oracle-index": "node scripts/build-oracle-index.cjs",
+    "backup": "node scripts/backup-data.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "next start",

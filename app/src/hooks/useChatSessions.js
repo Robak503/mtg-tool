@@ -14,6 +14,7 @@ import {
   deckOracleCardNamesFromCards,
   deckOracleCardNamesFromText,
   fetchEngineContext,
+  fetchGoldfishInsightsBlock,
   lockContext,
   shouldUseDeckScopedContext,
   shouldUseEngineContext,
@@ -340,6 +341,19 @@ export default function useChatSessions({
         systemPrompt += `\n\n${lockContext(deckLock, targetAgent, deckLockJustCreated)}`;
       } else if ((targetAgent === "karn" || targetAgent === "tibalt") && deckCards.length) {
         systemPrompt += `\n\n## Active Deck: "${activeDeck?.name || "Unnamed"}"\n${serializeDeck(deckCards)}`;
+      }
+
+      // Pull goldfish-history insights for the locked deck. Karn and Tibalt
+      // benefit most — they're the agents that opine on deck quality. Jace
+      // can use them when answering deck-scoped rules questions about pacing.
+      // Skipped for Arbiter since it focuses on rules, not deck dynamics.
+      if (deckLock?.id && ["jace", "karn", "tibalt"].includes(targetAgent)) {
+        try {
+          const insightsBlock = await fetchGoldfishInsightsBlock(deckLock.id);
+          if (insightsBlock) systemPrompt += `\n\n${insightsBlock}`;
+        } catch {
+          // Insights are advisory; never block the chat request.
+        }
       }
 
       if (targetAgent === "karn" && /\b(cut|cuts|remove|trim)\b/i.test(prompt)) {

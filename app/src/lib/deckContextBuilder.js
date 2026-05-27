@@ -241,3 +241,25 @@ export async function fetchEngineContext({ query, limit = 4 }) {
     return "";
   }
 }
+
+// ─── Goldfish history fetcher ─────────────────────────────────────────────────
+
+/**
+ * Pull goldfish-history insights for the locked deck and format them as a
+ * plain-text block for inclusion in an agent's system prompt. Returns an
+ * empty string when there's no deck id, no history, or the route fails —
+ * the caller can safely concatenate without checking.
+ */
+export async function fetchGoldfishInsightsBlock(deckId) {
+  if (!deckId) return "";
+  try {
+    const response = await fetch(`/api/games-summary?deckId=${encodeURIComponent(deckId)}`, { cache: "no-store" });
+    if (!response.ok) return "";
+    const insights = await response.json();
+    if (!insights || (insights.count || 0) < 2) return "";
+    const { formatInsightsForAgent } = await import("./gameInsights");
+    return formatInsightsForAgent(insights);
+  } catch {
+    return "";
+  }
+}
