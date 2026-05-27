@@ -43,6 +43,16 @@ export default function MTGAssistant() {
   const [modelStatus, setModelStatus] = useState(null);
   const [ollamaHealth, setOllamaHealth] = useState(null);
   const [ollamaHealthDismissed, setOllamaHealthDismissed] = useState(false);
+  // First-launch state — only shows in the packaged .exe when the user
+  // data dir is still empty. In dev (cwd = app/) decks.local.json
+  // already exists so this banner stays hidden.
+  const [firstLaunch, setFirstLaunch] = useState(null);
+  const [firstLaunchDismissed, setFirstLaunchDismissed] = useState(() => {
+    try { return localStorage.getItem("mtg-first-launch-dismissed") === "1"; } catch { return false; }
+  });
+  const [bootstrapSourcePath, setBootstrapSourcePath] = useState("");
+  const [bootstrapBusy, setBootstrapBusy] = useState(false);
+  const [bootstrapResult, setBootstrapResult] = useState(null);
   const [modelProvider, setModelProvider] = useState(() => {
     try {
       const stored = localStorage.getItem("mtg-model-provider") || "fast";
@@ -205,6 +215,53 @@ export default function MTGAssistant() {
       localStorage.setItem("mtg-model-provider", modelProvider);
     } catch {}
   },[modelProvider]);
+
+  // First-launch probe — fires once on mount, picks up the suggested
+  // source path the server detected so the user can confirm or edit it.
+  useEffect(() => {
+    if (firstLaunchDismissed) return;
+    let active = true;
+    (async () => {
+      try {
+        const resp = await fetch("/api/first-launch", { cache: "no-store" });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!active) return;
+        setFirstLaunch(data);
+        if (data.suggestedSource) setBootstrapSourcePath(data.suggestedSource);
+      } catch { /* offline / not available — banner just stays hidden */ }
+    })();
+    return () => { active = false; };
+  }, [firstLaunchDismissed]);
+
+  const runBootstrapImport = async () => {
+    setBootstrapBusy(true);
+    setBootstrapResult(null);
+    try {
+      const resp = await fetch("/api/first-launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourcePath: bootstrapSourcePath }),
+      });
+      const data = await resp.json();
+      setBootstrapResult(data);
+      if (data.ok) {
+        // Reload so deck lists, chats, and feedback all pick up the
+        // freshly-imported files. Without this the user would see an
+        // empty UI even after a successful copy.
+        window.setTimeout(() => window.location.reload(), 600);
+      }
+    } catch (e) {
+      setBootstrapResult({ ok: false, error: String(e?.message || e) });
+    } finally {
+      setBootstrapBusy(false);
+    }
+  };
+
+  const dismissBootstrap = () => {
+    try { localStorage.setItem("mtg-first-launch-dismissed", "1"); } catch {}
+    setFirstLaunchDismissed(true);
+  };
   const refreshModelStatusRef = useRef(null);
   useEffect(()=>{
     let active = true;
@@ -401,6 +458,87 @@ export default function MTGAssistant() {
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}
       />
+
+      {/* First-launch data import — only shown in the packaged .exe when
+          %APPDATA% is still empty. The text input is pre-filled with a
+          detected dev-tree path; the user confirms and clicks Import. */}
+      {firstLaunch?.needsBootstrap && !firstLaunchDismissed && (
+        <div
+          role="status"
+          style={{
+            padding: "10px 16px",
+            background: "#1a2638",
+            borderBottom: "1px solid #34547a",
+            color: "#c8d8ee",
+            fontSize: 12,
+            fontFamily: F,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <span>
+              <strong style={{ marginRight: 8 }}>👋 Welcome to MTG Tool</strong>
+              No saved data here yet. Import your decks, chats, and feedback from an existing install?
+            </span>
+            <button
+              onClick={dismissBootstrap}
+              title="Don't ask again this session"
+              style={{
+                background: "none", border: "none", color: "inherit",
+                cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px",
+              }}
+            >×</button>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              type="text"
+              value={bootstrapSourcePath}
+              onChange={(e) => setBootstrapSourcePath(e.target.value)}
+              placeholder="C:\path\to\MTG-TOOL\app\data"
+              disabled={bootstrapBusy}
+              style={{
+                flex: 1, padding: "6px 10px", borderRadius: 5,
+                border: "1px solid #34547a", background: "#0d1422",
+                color: "#e0eaf6", fontFamily: F, fontSize: 12,
+              }}
+            />
+            <button
+              onClick={runBootstrapImport}
+              disabled={bootstrapBusy || !bootstrapSourcePath.trim()}
+              style={{
+                padding: "6px 14px", borderRadius: 5,
+                border: "1px solid #4a7ac4",
+                background: bootstrapBusy ? "#1a2638" : "#244a7a",
+                color: "#e0eaf6", fontFamily: F, fontSize: 12,
+                cursor: bootstrapBusy ? "default" : "pointer",
+              }}
+            >
+              {bootstrapBusy ? "Importing…" : "Import"}
+            </button>
+          </div>
+          {bootstrapResult && (
+            <div
+              style={{
+                fontSize: 11,
+                color: bootstrapResult.ok ? "#9ec59e" : "#e0a89a",
+                padding: "4px 0",
+              }}
+            >
+              {bootstrapResult.ok ? (
+                <>
+                  ✓ Imported{" "}
+                  {bootstrapResult.copied?.length ? bootstrapResult.copied.join(", ") : "(no files)"}
+                  {bootstrapResult.copied?.length > 0 && " — reloading…"}
+                </>
+              ) : (
+                <>✗ {bootstrapResult.error || "Import failed"}</>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Ollama startup health banner — only shown when local is selected and
           the daemon isn't ready. Self-dismisses when health recovers; the user

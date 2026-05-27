@@ -2,16 +2,18 @@ export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { appRoot, dataPath, mtgJudgePath } from "../../../lib/server/paths";
 
-const APP_ROOT = process.cwd();
-const TOOL_ROOT = path.resolve(APP_ROOT, "..");
-const SCRYFALL_ROOT = path.join(APP_ROOT, "data", "scryfall-bulk");
-const MANIFEST_PATH = path.join(SCRYFALL_ROOT, "tier-manifest.json");
-const ORACLE_PATH = path.join(SCRYFALL_ROOT, "oracle_cards.json");
-const RULINGS_PATH = path.join(SCRYFALL_ROOT, "rulings.json");
-const CR_PATH = path.join(TOOL_ROOT, "mtg-judge", "data", "cr", "cr_current.json");
-const SPELLBOOK_META_PATH = path.join(APP_ROOT, "data", "spellbook-meta.local.json");
-const SALT_META_PATH = path.join(APP_ROOT, "data", "edhrec-salt-meta.local.json");
+// All paths resolve lazily via paths.js so the same code works whether
+// cwd is the dev tree (`app/`) or the bundled Tauri standalone server
+// (with MTG_APP_ROOT and MTG_JUDGE_DIR env vars set).
+const MANIFEST_PATH = () => dataPath("scryfall-bulk", "tier-manifest.json");
+const ORACLE_PATH = () => dataPath("scryfall-bulk", "oracle_cards.json");
+const ORACLE_INDEX_PATH = () => dataPath("scryfall-bulk", "oracle-index.json");
+const RULINGS_PATH = () => dataPath("scryfall-bulk", "rulings.json");
+const CR_PATH = () => mtgJudgePath("data", "cr", "cr_current.json");
+const SPELLBOOK_META_PATH = () => dataPath("spellbook-meta.local.json");
+const SALT_META_PATH = () => dataPath("edhrec-salt-meta.local.json");
 
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 // Models that need to be present for the app to work correctly.
@@ -28,12 +30,20 @@ async function readJson(file) {
   }
 }
 
+function displayPath(file) {
+  // Show the path relative to the app root so the response stays useful
+  // for both dev (cwd = app/) and the packaged .exe (where roots differ).
+  // path.relative still returns an absolute path if `file` lives outside
+  // appRoot — that's fine, it just doesn't get trimmed.
+  return path.relative(appRoot(), file).replace(/\\/g, "/");
+}
+
 async function fileFingerprint(file, label) {
   try {
     const stat = await fs.stat(file);
     return {
       label,
-      path: path.relative(TOOL_ROOT, file).replace(/\\/g, "/"),
+      path: displayPath(file),
       size: stat.size,
       mtime: stat.mtime.toISOString(),
       version: `${label}:${stat.size}:${Math.floor(stat.mtimeMs)}`,
@@ -41,7 +51,7 @@ async function fileFingerprint(file, label) {
   } catch {
     return {
       label,
-      path: path.relative(TOOL_ROOT, file).replace(/\\/g, "/"),
+      path: displayPath(file),
       missing: true,
       version: `${label}:missing`,
     };
@@ -77,15 +87,24 @@ async function checkOllama() {
 
 export async function GET() {
   const [manifest, spellbookMeta, saltMeta] = await Promise.all([
-    readJson(MANIFEST_PATH),
-    readJson(SPELLBOOK_META_PATH),
-    readJson(SALT_META_PATH),
+    readJson(MANIFEST_PATH()),
+    readJson(SPELLBOOK_META_PATH()),
+    readJson(SALT_META_PATH()),
   ]);
 
-  const [oracle, rulings, rules, ollama] = await Promise.all([
-    fileFingerprint(ORACLE_PATH, "scryfall-oracle"),
-    fileFingerprint(RULINGS_PATH, "scryfall-rulings"),
-    fileFingerprint(CR_PATH, "cr-current"),
+  // The bundled .exe ships the slim oracle-index but not the bulk
+  // oracle_cards.json; if the bulk file is missing, fall back to the
+  // slim index for the fingerprint so the status banner doesn't scream
+  // "missing" when the app is actually usable.
+  let oracle = await fileFingerprint(ORACLE_PATH(), "scryfall-oracle");
+  if (oracle.missing) {
+    const slim = await fileFingerprint(ORACLE_INDEX_PATH(), "scryfall-oracle-index");
+    if (!slim.missing) oracle = slim;
+  }
+
+  const [rulings, rules, ollama] = await Promise.all([
+    fileFingerprint(RULINGS_PATH(), "scryfall-rulings"),
+    fileFingerprint(CR_PATH(), "cr-current"),
     checkOllama(),
   ]);
 
