@@ -36,6 +36,7 @@ app/data/scryfall-bulk/indexes/
 app/data/scryfall.oracle.local.json
 app/data/scryfall.rulings.local.json
 app/data/rules-index.json
+app/reports/
 
 # But DO commit these local data files:
 !app/data/decks.local.json

@@ -58,7 +58,12 @@ function tokensFor(text) {
 }
 
 function parseRulesGuruFile() {
-  if (!fs.existsSync(RULESGURU_FILE)) return [];
+  if (!fs.existsSync(RULESGURU_FILE)) {
+    // Diagnostic: log on first miss so silent degradation is visible in the server console.
+    // Expected path when cwd = app/: project_root/mtg-judge/META_test_cases_rulesguru.md
+    console.warn(`[rulesGuruRetrieval] RulesGuru file not found at ${RULESGURU_FILE} — precedent retrieval disabled.`);
+    return [];
+  }
 
   const text = fs.readFileSync(RULESGURU_FILE, "utf8");
   const headerPattern = /^## (RG\d+)\. (.+?)$/gm;

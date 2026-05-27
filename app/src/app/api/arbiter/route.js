@@ -17,10 +17,11 @@ function detectArbiterStatus(trace) {
   return "unresolved";
 }
 
+const MAX_BODY_CARD_NAMES = 50;
 function normalizeBodyCardNames(value) {
-  if (Array.isArray(value)) return value.map(String).map(name => name.trim()).filter(Boolean);
+  if (Array.isArray(value)) return value.map(String).map(name => name.trim()).filter(Boolean).slice(0, MAX_BODY_CARD_NAMES);
   if (typeof value === "string") {
-    return value.split(",").map(name => name.trim()).filter(Boolean);
+    return value.split(",").map(name => name.trim()).filter(Boolean).slice(0, MAX_BODY_CARD_NAMES);
   }
   return [];
 }

@@ -3,7 +3,8 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-// Mirrors constants from modelProvider.js — kept local to avoid side effects from imports
+// Mirrors constants from modelProvider.js — kept local to avoid side effects from imports.
+// IMPORTANT: if you change defaults here, update modelProvider.js too (and vice versa).
 const DEFAULT_OLLAMA_MODEL = "qwen2.5:32b";
 const DEFAULT_OLLAMA_FAST_MODEL = "qwen2.5:7b";
 // Karn and Tibalt use a mid-tier model for better reasoning quality.
