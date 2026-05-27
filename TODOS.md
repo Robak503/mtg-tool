@@ -92,42 +92,18 @@ Both `cards/route.js` and `cardContext.js` already delegate to `cardIndex.js` si
 
 ---
 
-### Promote current agent's session group to the top of SessionSidebar
+### ~~Promote current agent's session group to the top of SessionSidebar~~ ✅ DONE (PR2 polish, 2026-05-26)
 
-**What:** In `SessionSidebar.jsx`, sort the `grouped` array so the current agent's group renders first instead of using the static `AGENTS` dict order (Jace, Karn, Tibalt).
-
-**Why:** When the user is on Karn, they see the JACE group on top. Their own sessions are below sessions for agents they aren't looking at.
-
-**How to apply:** After the `agentKeys.map(...)`, sort: place the entry where `key === agent` first, then preserve the original order for the rest.
-
-**Source:** ISSUE-001 from `/qa` run on 2026-05-26.
-
-**Files:** `app/src/components/mtg/SessionSidebar.jsx:53-66`
+ISSUE-001 fixed inline before opening the PR. `SessionSidebar.jsx` now builds `ordered = [agent, ...others]` before mapping into groups.
 
 ---
 
-### Clear input or move input state per-session in useChatSessions
+### ~~Clear input or move input state per-session in useChatSessions~~ ✅ DONE (PR2 polish, 2026-05-26)
 
-**What:** Either clear `input` when the active agent changes, or store `input` per session (e.g. inside the session object as `draftInput`).
-
-**Why:** Typed-but-unsent text bleeds across agent switches. If a user types a question on Karn then clicks Jace, the same text is still in the input box waiting to be sent to Jace. Pre-existing behavior from the v1 hook, but more visible now that session switching is more frequent.
-
-**How to apply:** Simplest fix is `useEffect` on `agent` that resets `input` to `""`. Cleaner fix is storing `draftInput` on the session object so per-session drafts persist.
-
-**Source:** ISSUE-002 from `/qa` run on 2026-05-26.
-
-**Files:** `app/src/hooks/useChatSessions.js:91`
+ISSUE-002 fixed inline. Added `useEffect(() => setInput(""), [agent])` in `useChatSessions.js` so typed drafts don't bleed across agent switches.
 
 ---
 
-### Hide empty AGENT (0) group header in SessionSidebar
+### ~~Hide empty AGENT (0) group header in SessionSidebar~~ ✅ DONE (PR2 polish, 2026-05-26)
 
-**What:** Don't render the `JACE (0)` / `KARN (0)` group header when the current agent has 0 sessions — the "+ New chat with <agent>" button right above already communicates the empty state.
-
-**Why:** Cosmetic redundancy when an agent has no sessions yet.
-
-**How to apply:** In `SessionSidebar.jsx`, skip the group header `<div>` when `group.sessions.length === 0`. The button above remains.
-
-**Source:** ISSUE-003 from `/qa` run on 2026-05-26.
-
-**Files:** `app/src/components/mtg/SessionSidebar.jsx:99-110`
+ISSUE-003 fixed inline. Group filter changed from `sessions.length > 0 || key === agent` to `sessions.length > 0`, so empty agent groups never render. The "+ New chat with <agent>" button above already communicates the empty state.

@@ -45,7 +45,12 @@ export default function SessionSidebar({
 
   const visible = showArchived ? archivedSessions : activeSessions;
 
-  // Group sessions by agent, ordered: current agent first.
+  // Group sessions by agent. The active agent's group renders first so the
+  // user's own sessions are always at the top; other agents follow in the
+  // AGENTS dict order. Groups with no sessions are dropped EXCEPT the active
+  // agent (we still show that header so the empty state reads correctly when
+  // there's no "+ New chat" button visible above — but only in the archived
+  // view, where the button is hidden).
   const grouped = useMemo(() => {
     const byAgent = new Map();
     for (const session of visible) {
@@ -57,9 +62,10 @@ export default function SessionSidebar({
       list.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
     }
     const agentKeys = Object.keys(AGENTS).filter(key => AGENTS[key].frontFacing !== false);
-    return agentKeys
+    const ordered = [agent, ...agentKeys.filter(key => key !== agent)];
+    return ordered
       .map(key => ({ key, agent: AGENTS[key], sessions: byAgent.get(key) || [] }))
-      .filter(group => group.sessions.length > 0 || group.key === agent);
+      .filter(group => group.sessions.length > 0);
   }, [visible, agent]);
 
   const commitRename = (sessionId) => {

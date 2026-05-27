@@ -162,6 +162,12 @@ export default function useChatSessions({
     persistActiveSessionIds(activeSessionIds);
   }, [activeSessionIds]);
 
+  // Clear typed-but-unsent input when the user switches agents so a draft
+  // intended for one agent doesn't bleed into a different agent's chat.
+  useEffect(() => {
+    setInput("");
+  }, [agent]);
+
   // ─── Session derivations ────────────────────────────────────────────────────
   const activeSessionId = activeSessionIds[agent] || null;
   const activeSessions = sessions.filter(s => !s.archived);
