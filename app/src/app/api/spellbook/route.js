@@ -2,7 +2,7 @@
  * /api/spellbook — Server-side Commander Spellbook lookup endpoint.
  *
  * Client-side hooks cannot import spellbook.js (it uses fs).
- * This route bridges that gap: call it from useChatAgents.js for Karn.
+ * This route bridges that gap: call it from useChatSessions.js for Karn.
  *
  * POST body:
  *   { cardNames: string[], commanderNames?: string[], type?: "combos"|"bracket"|"full" }

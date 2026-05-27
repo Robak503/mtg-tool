@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AGENTS, ARBITER_PROMPT_FAST } from "../lib/agents";
 import { fetchArbiterTrace, shouldUseArbiterTrace, summarizeArbiterMetadata } from "../lib/arbiterUtils";
 import { bracketKnownCardNames, countContextCards, countContextRulings, localJaceRulesPrimer } from "../lib/chatPostProcess";
-import { flushChatFileSave, loadChatState, saveChatFile, scheduleChatFileSave } from "../lib/chatPersistence";
+import { flushChatFileSave, loadChatState, saveSessions, scheduleChatSessionsSave } from "../lib/chatPersistence";
 import {
   buildSavedDeckContext,
   createDeckLock,
-  deckCommanderNames,
   deckCommander,
+  deckCommanderNames,
   deckOracleCardNamesFromCards,
   deckOracleCardNamesFromText,
   fetchEngineContext,
@@ -19,18 +19,34 @@ import {
   shouldUseEngineContext,
 } from "../lib/deckContextBuilder";
 import { serializeDeck, serializeDeckMemory } from "../lib/deckMemory";
-import { buildCardContext, buildCardContextForNames, buildKarnScryfallSearchContext, loadCardCatalog, postProcessKarnResponse } from "../lib/scryfall";
-import { loadJson, saveJson } from "../lib/storage";
-
-const CHAT_STORAGE_KEYS = {
-  jace: "mtg-chat-jace",
-  karn: "mtg-chat-karn",
-  tibalt: "mtg-chat-tibalt",
-  arbiter: "mtg-chat-arbiter",
-};
+import {
+  buildCardContext,
+  buildCardContextForNames,
+  buildKarnScryfallSearchContext,
+  loadCardCatalog,
+  postProcessKarnResponse,
+} from "../lib/scryfall";
 
 const API_HISTORY_LIMIT = 8;
 const DECK_LOCK_AGENTS = new Set(["jace", "karn", "tibalt", "arbiter"]);
+// Last-active session ID per agent — stored in localStorage so the user
+// returns to whichever conversation they last viewed when reopening the app.
+const ACTIVE_SESSION_STORAGE_KEY = "mtg-active-session-ids";
+
+// ─── Pure helpers ────────────────────────────────────────────────────────────
+
+function generateSessionId() {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return `s-${globalThis.crypto.randomUUID()}`;
+  }
+  return `s-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+}
+
+function autoNameFromPrompt(prompt) {
+  const trimmed = String(prompt || "").replace(/\s+/g, " ").trim();
+  if (!trimmed) return "Untitled chat";
+  return trimmed.length > 60 ? trimmed.slice(0, 57) + "…" : trimmed;
+}
 
 function toApiMessages(messages) {
   return messages.map(message => ({
@@ -41,14 +57,6 @@ function toApiMessages(messages) {
 
 function trimApiHistory(messages) {
   return toApiMessages(messages.slice(-API_HISTORY_LIMIT));
-}
-
-function emptyHistories() {
-  return { jace: [], karn: [], tibalt: [], arbiter: [] };
-}
-
-function emptyLocks() {
-  return { jace: null, karn: null, tibalt: null, arbiter: null };
 }
 
 function normalizeModelTier(value) {
@@ -63,7 +71,28 @@ function providerForModelTier(tier) {
   return tier === "anthropic" ? "anthropic" : "ollama";
 }
 
-export default function useChatAgents({
+function loadActiveSessionIds() {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistActiveSessionIds(map) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // localStorage failure must not block chat.
+  }
+}
+
+// ─── Hook ────────────────────────────────────────────────────────────────────
+
+export default function useChatSessions({
   activeDeck,
   agent,
   deckCards,
@@ -73,36 +102,22 @@ export default function useChatAgents({
   setAgent,
   tokenEntries,
 }) {
-  const [histories, setHistories] = useState(emptyHistories());
-  const [deckLocks, setDeckLocks] = useState(emptyLocks());
+  const [sessions, setSessions] = useState([]);
+  const [activeSessionIds, setActiveSessionIds] = useState(() => loadActiveSessionIds());
   const [chatLoaded, setChatLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [knowledgeStatus, setKnowledgeStatus] = useState(null);
 
+  // ─── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      const fileState = await loadChatState();
-      if (fileState?.histories) {
-        setHistories({ ...emptyHistories(), ...fileState.histories });
-        setDeckLocks({ ...emptyLocks(), ...(fileState.locks || {}) });
-      } else {
-        const jace = await loadJson(CHAT_STORAGE_KEYS.jace) || await loadJson("mtg-chat-nissa");
-        const karn = await loadJson(CHAT_STORAGE_KEYS.karn);
-        const tibalt = await loadJson(CHAT_STORAGE_KEYS.tibalt);
-        const arbiter = await loadJson(CHAT_STORAGE_KEYS.arbiter);
-
-        setHistories({
-          jace: jace || [],
-          karn: karn || [],
-          tibalt: tibalt || [],
-          arbiter: arbiter || [],
-        });
+      const state = await loadChatState();
+      if (state?.sessions) {
+        setSessions(state.sessions);
       }
       setChatLoaded(true);
     })();
-
-    // Warm the Scryfall card name catalog so first agent call does not pay the latency.
     loadCardCatalog();
   }, []);
 
@@ -115,46 +130,122 @@ export default function useChatAgents({
         const data = await response.json();
         if (active) setKnowledgeStatus(data);
       } catch {
-        // Version metadata should not block chat.
+        // version metadata should not block chat
       }
     })();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
+  // ─── Persist on changes ────────────────────────────────────────────────────
   useEffect(() => {
-    const flushPendingSave = () => {
-      flushChatFileSave({ useBeacon: true });
-    };
-
-    window.addEventListener("pagehide", flushPendingSave);
-    window.addEventListener("beforeunload", flushPendingSave);
-
+    const flush = () => flushChatFileSave({ useBeacon: true });
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
     return () => {
-      window.removeEventListener("pagehide", flushPendingSave);
-      window.removeEventListener("beforeunload", flushPendingSave);
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
       flushChatFileSave();
     };
   }, []);
 
   useEffect(() => {
     if (!chatLoaded) return;
-    // Skip persistence writes while any agent has an active streaming message.
-    // Streaming messages have { streaming: true }; once the stream completes the
-    // message is replaced with the final message (streaming unset), triggering
-    // one final save of the complete content. Writing on every token is wasteful
-    // and can serialize multi-KB state hundreds of times per response.
-    const isStreaming = Object.values(histories).some(msgs =>
-      Array.isArray(msgs) && msgs.some(m => m.streaming === true)
+    // Skip persistence writes while any session has a streaming message.
+    const isStreaming = sessions.some(session =>
+      session.messages.some(m => m.streaming === true)
     );
     if (isStreaming) return;
-    saveJson(CHAT_STORAGE_KEYS.jace, histories.jace);
-    saveJson(CHAT_STORAGE_KEYS.karn, histories.karn);
-    saveJson(CHAT_STORAGE_KEYS.tibalt, histories.tibalt);
-    saveJson(CHAT_STORAGE_KEYS.arbiter, histories.arbiter);
-    scheduleChatFileSave(histories, deckLocks);
-  }, [chatLoaded, histories, deckLocks]);
+    scheduleChatSessionsSave(sessions);
+  }, [chatLoaded, sessions]);
+
+  useEffect(() => {
+    persistActiveSessionIds(activeSessionIds);
+  }, [activeSessionIds]);
+
+  // ─── Session derivations ────────────────────────────────────────────────────
+  const activeSessionId = activeSessionIds[agent] || null;
+  const activeSessions = sessions.filter(s => !s.archived);
+  const archivedSessions = sessions.filter(s => s.archived);
+
+  // Resolve the currently visible session for the active agent. If the stored
+  // active-id is stale (session was archived/deleted), fall back to the most
+  // recent non-archived session for that agent.
+  const currentSession = (() => {
+    const byId = activeSessionId ? sessions.find(s => s.id === activeSessionId) : null;
+    if (byId && byId.agent === agent && !byId.archived) return byId;
+    const candidates = sessions
+      .filter(s => s.agent === agent && !s.archived)
+      .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+    return candidates[0] || null;
+  })();
+
+  // ─── Session mutators ──────────────────────────────────────────────────────
+
+  const updateSession = (sessionId, updater) => {
+    setSessions(previous => previous.map(s => (s.id === sessionId ? updater(s) : s)));
+  };
+
+  const createSession = (targetAgent = agent, options = {}) => {
+    const now = new Date().toISOString();
+    const lockedDeck = options.lockedDeck !== undefined
+      ? options.lockedDeck
+      : (activeDeck && DECK_LOCK_AGENTS.has(targetAgent)
+          ? createDeckLock(activeDeck, knowledgeStatus)
+          : null);
+    const newSession = {
+      id: generateSessionId(),
+      agent: targetAgent,
+      name: options.name || "New chat",
+      lockedDeck,
+      messages: [],
+      createdAt: now,
+      updatedAt: now,
+      archived: false,
+    };
+    setSessions(previous => [...previous, newSession]);
+    setActiveSessionIds(previous => ({ ...previous, [targetAgent]: newSession.id }));
+    return newSession;
+  };
+
+  const switchSession = (sessionId) => {
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    setActiveSessionIds(previous => ({ ...previous, [session.agent]: session.id }));
+    if (session.agent !== agent && typeof setAgent === "function") {
+      setAgent(session.agent);
+    }
+  };
+
+  const archiveSession = (sessionId) => {
+    const target = sessions.find(s => s.id === sessionId);
+    if (!target) return;
+    updateSession(sessionId, s => ({ ...s, archived: true, updatedAt: new Date().toISOString() }));
+    if (activeSessionIds[target.agent] === sessionId) {
+      // Pick the most recent non-archived session for that agent (if any).
+      const candidates = sessions
+        .filter(s => s.agent === target.agent && !s.archived && s.id !== sessionId)
+        .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+      const next = candidates[0]?.id || null;
+      setActiveSessionIds(previous => ({ ...previous, [target.agent]: next }));
+    }
+  };
+
+  const unarchiveSession = (sessionId) => {
+    updateSession(sessionId, s => ({ ...s, archived: false, updatedAt: new Date().toISOString() }));
+  };
+
+  const renameSession = (sessionId, name) => {
+    const trimmed = String(name || "").trim().slice(0, 200);
+    if (!trimmed) return;
+    updateSession(sessionId, s => ({ ...s, name: trimmed, updatedAt: new Date().toISOString() }));
+  };
+
+  const unlockSessionDeck = (sessionId = currentSession?.id) => {
+    if (!sessionId) return;
+    updateSession(sessionId, s => ({ ...s, lockedDeck: null, updatedAt: new Date().toISOString() }));
+  };
+
+  // ─── Send (the big one) ────────────────────────────────────────────────────
 
   const send = async (text, agentOverride, retryDepth = 0, forceProvider = null) => {
     const targetAgent = agentOverride || agent;
@@ -163,7 +254,6 @@ export default function useChatAgents({
     const requestedTier = normalizeModelTier(forceProvider || modelProvider);
     const effectiveProvider = providerForModelTier(requestedTier);
     const isLocalProvider = effectiveProvider === "ollama";
-    const wantsDeepAnswer = /\b(full|deep|detailed|comprehensive|exhaustive|complete breakdown)\b/i.test(prompt);
     const isPureKarnCutRequest = targetAgent === "karn" &&
       /\b(cut|cuts|remove|trim)\b/i.test(prompt) &&
       !/\b(add|adds|upgrade|upgrades|replace|swap|alternative|alternatives|budget)\b/i.test(prompt);
@@ -171,31 +261,53 @@ export default function useChatAgents({
 
     if (!prompt || sending) return;
 
-    const userMessage = { role: "user", content: prompt };
-    const baseHistory = retryDepth === 0
-      ? [...histories[targetAgent], userMessage]
-      : [...histories[targetAgent]];
+    // Resolve which session this send writes to. Prefer the active session
+    // for the target agent; create one on-demand if none exists. Capture the
+    // id NOW so streaming tokens always land in the originating session even
+    // if the user switches sessions mid-stream.
+    let originSessionId = activeSessionIds[targetAgent]
+      || sessions
+        .filter(s => s.agent === targetAgent && !s.archived)
+        .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0]?.id
+      || null;
+
+    let originSession = originSessionId ? sessions.find(s => s.id === originSessionId) : null;
+    if (!originSession || originSession.archived || originSession.agent !== targetAgent) {
+      originSession = createSession(targetAgent, {
+        name: autoNameFromPrompt(prompt),
+      });
+      originSessionId = originSession.id;
+    }
+
+    const lockingAgent = DECK_LOCK_AGENTS.has(targetAgent);
+    let deckLock = lockingAgent ? originSession.lockedDeck : null;
+    let deckLockJustCreated = false;
+    if (lockingAgent && !deckLock && activeDeck) {
+      deckLock = createDeckLock(activeDeck, knowledgeStatus);
+      deckLockJustCreated = true;
+      updateSession(originSessionId, s => ({ ...s, lockedDeck: deckLock }));
+    }
+
+    const baseMessages = retryDepth === 0
+      ? [...originSession.messages, { role: "user", content: prompt }]
+      : [...originSession.messages];
 
     if (retryDepth === 0) {
-      setHistories(previous => ({ ...previous, [targetAgent]: baseHistory }));
-      if (agentOverride) setAgent(agentOverride);
+      // Name newly-empty sessions from their first user message.
+      const shouldRename = originSession.messages.length === 0 && originSession.name === "New chat";
+      updateSession(originSessionId, s => ({
+        ...s,
+        messages: baseMessages,
+        name: shouldRename ? autoNameFromPrompt(prompt) : s.name,
+        updatedAt: new Date().toISOString(),
+      }));
+      if (agentOverride && typeof setAgent === "function") setAgent(agentOverride);
       setInput("");
     }
 
     setSending(true);
 
     try {
-      let activeLocks = deckLocks;
-      const locksDeckContext = DECK_LOCK_AGENTS.has(targetAgent);
-      let deckLock = locksDeckContext ? activeLocks[targetAgent] : null;
-      let deckLockJustCreated = false;
-
-      if (locksDeckContext && !deckLock && activeDeck) {
-        deckLock = createDeckLock(activeDeck, knowledgeStatus);
-        deckLockJustCreated = true;
-        activeLocks = { ...activeLocks, [targetAgent]: deckLock };
-        setDeckLocks(activeLocks);
-      }
       const useDeckScopedContext = Boolean(deckLock && shouldUseDeckScopedContext(targetAgent, prompt));
       let systemPrompt = targetAgent === "arbiter" && fastMode
         ? ARBITER_PROMPT_FAST
@@ -214,11 +326,11 @@ export default function useChatAgents({
         systemPrompt += `\n\n## LOCAL MODEL RESPONSE BUDGET\nYou are running on a local model. ${budgetHint}`;
       }
 
-      const conversationText = baseHistory.slice(-8).map(message => message.content).join("\n");
+      const conversationText = baseMessages.slice(-8).map(m => m.content).join("\n");
       const savedDeckContext = buildSavedDeckContext(savedDecks, targetAgent, conversationText, activeDeck?.id);
       if (savedDeckContext.context) systemPrompt += `\n\n${savedDeckContext.context}`;
 
-      if (locksDeckContext && deckLock) {
+      if (lockingAgent && deckLock) {
         systemPrompt += `\n\n${lockContext(deckLock, targetAgent, deckLockJustCreated)}`;
       } else if ((targetAgent === "karn" || targetAgent === "tibalt") && deckCards.length) {
         systemPrompt += `\n\n## Active Deck: "${activeDeck?.name || "Unnamed"}"\n${serializeDeck(deckCards)}`;
@@ -253,9 +365,9 @@ export default function useChatAgents({
             maxRulingsPerCard: targetAgent === "arbiter" ? 5 : 3,
           };
 
-      const deckOracleNames = locksDeckContext && deckLock
+      const deckOracleNames = lockingAgent && deckLock
         ? (useDeckScopedContext ? (deckLock.cardNames?.length ? deckLock.cardNames : deckOracleCardNamesFromText(deckLock.deckText)) : [])
-        : (locksDeckContext && activeDeck ? deckOracleCardNamesFromCards(activeDeck.cards || deckCards) : []);
+        : (lockingAgent && activeDeck ? deckOracleCardNamesFromCards(activeDeck.cards || deckCards) : []);
 
       try {
         if (deckOracleNames.length) {
@@ -269,15 +381,10 @@ export default function useChatAgents({
               : "## CARDS REFERENCED - LOCKED DECK CARD DATA (local Oracle text + local rulings first; use ONLY this text for card behavior)",
           });
         }
-      } catch {
-        // Deck Oracle attachment should never block the chat request.
-      }
+      } catch { /* deck oracle attachment never blocks */ }
 
-      try {
-        cardContext = await buildCardContext(prompt, rulingsForAgent);
-      } catch {
-        // Fall back to the original user prompt if context building fails.
-      }
+      try { cardContext = await buildCardContext(prompt, rulingsForAgent); }
+      catch { /* fall back to plain prompt */ }
 
       try {
         if (targetAgent === "karn") {
@@ -292,24 +399,12 @@ export default function useChatAgents({
             limitPerRole: 5,
           });
         }
-      } catch {
-        // Karn can still answer from the loaded deck Oracle context if local search context fails.
-      }
+      } catch { /* karn local search context optional */ }
 
-      // Local deterministic deck power/combo ranking (Karn and Tibalt).
-      // Karn uses it for structured analysis; Tibalt uses it to anchor roast accuracy
-      // (bracket creep, game changer callouts, combo line awareness, salt scores).
-      // Result is cached in the deck lock after the first fetch (~1.6s) — subsequent
-      // messages in the same conversation reuse the cached value at zero cost.
       let powerRankContext = "";
       try {
-        if (
-          (targetAgent === "karn" || targetAgent === "tibalt") &&
-          deckOracleNames.length >= 2 &&
-          !isPureKarnCutRequest
-        ) {
+        if ((targetAgent === "karn" || targetAgent === "tibalt") && deckOracleNames.length >= 2 && !isPureKarnCutRequest) {
           if (deckLock?.powerRankFormatted) {
-            // Cached: skip the fetch entirely after the first message.
             powerRankContext = `${deckLock.powerRankFormatted}\n\n`;
           } else {
             const commanderNames = deckLock?.commanderNames?.length
@@ -331,19 +426,16 @@ export default function useChatAgents({
               const powerData = await powerRes.json();
               if (powerData.ready && powerData.formatted) {
                 powerRankContext = `${powerData.formatted}\n\n`;
-                // Cache in the deck lock — deck doesn't change during a conversation.
                 if (deckLock) {
                   const updatedLock = { ...deckLock, powerRankFormatted: powerData.formatted };
-                  activeLocks = { ...activeLocks, [targetAgent]: updatedLock };
-                  setDeckLocks(activeLocks);
+                  updateSession(originSessionId, s => ({ ...s, lockedDeck: updatedLock }));
+                  deckLock = updatedLock;
                 }
               }
             }
           }
         }
-      } catch {
-        // Power ranking is supplemental; never block the request.
-      }
+      } catch { /* power ranking is supplemental */ }
 
       if (deckOracleContext || karnScryfallContext || powerRankContext || cardContext) {
         augmentedContent = `${deckOracleContext || ""}${karnScryfallContext || ""}${powerRankContext}${cardContext || ""}## USER QUESTION\n\n${prompt}`;
@@ -354,11 +446,7 @@ export default function useChatAgents({
       }
 
       const lockedDeckNeedsEngineContext = Boolean(
-        deckLock &&
-        locksDeckContext &&
-        ["jace", "karn", "tibalt", "arbiter"].includes(targetAgent) &&
-        useDeckScopedContext &&
-        !isPureKarnCutRequest
+        deckLock && lockingAgent && useDeckScopedContext && !isPureKarnCutRequest
       );
 
       if (shouldUseEngineContext(targetAgent, prompt) || lockedDeckNeedsEngineContext) {
@@ -402,37 +490,23 @@ export default function useChatAgents({
 
       const primerReply = targetAgent === "jace" ? localJaceRulesPrimer(prompt) : "";
       if (primerReply) {
-        responseMeta.factReceipt = {
-          provider: "ollama",
-          fallbackUsed: false,
-          modelTier: "local-primer",
-          model: "local-primer",
-          deckLocked: Boolean(deckLock),
-          deckName: deckLock?.name || null,
-          cardsProvided: countContextCards(cardContext + deckOracleContext + karnScryfallContext),
-          rulingsProvided: countContextRulings(cardContext + deckOracleContext),
-          engineContextProvided: Boolean(engineContext),
-          arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
-          arbiterStatus: responseMeta.arbiterStatus || null,
-          arbiterRulesRetrieved: responseMeta.arbiterSources?.ruleNumbers?.length || 0,
-          arbiterCardsRetrieved: responseMeta.arbiterSources?.cards?.length || 0,
-          arbiterRulesGuruPrecedents: responseMeta.arbiterSources?.rulesGuruPrecedents?.length || 0,
-          arbiterHallucinations: responseMeta.arbiterSources?.hallucinations?.length || 0,
-          arbiterConfidence: responseMeta.arbiterSources?.confidence || null,
-        };
+        responseMeta.factReceipt = buildFactReceipt({
+          provider: "ollama", model: "local-primer", modelTier: "local-primer", fallbackUsed: false,
+          deckLock, cardContext, deckOracleContext, karnScryfallContext, engineContext, responseMeta,
+        });
 
-        setHistories(previous => ({
-          ...previous,
-          [targetAgent]: [...baseHistory, { role: "assistant", content: primerReply, ...responseMeta }],
+        updateSession(originSessionId, s => ({
+          ...s,
+          messages: [...baseMessages, { role: "assistant", content: primerReply, ...responseMeta }],
+          updatedAt: new Date().toISOString(),
         }));
         setSending(false);
         return;
       }
 
       const apiMessages = retryDepth === 0
-        ? trimApiHistory([...histories[targetAgent], { role: "user", content: augmentedContent }])
-        : trimApiHistory(baseHistory);
-
+        ? trimApiHistory([...originSession.messages, { role: "user", content: augmentedContent }])
+        : trimApiHistory(baseMessages);
       const useFastLocalModel = Boolean(isLocalProvider && requestedTier === "fast");
 
       const response = await fetch("/api/chat-stream", {
@@ -451,29 +525,26 @@ export default function useChatAgents({
       });
 
       if (!response.ok || !response.body) {
-        const errorMsg = "Could not connect to the model endpoint.";
-        setHistories(previous => ({
-          ...previous,
-          [targetAgent]: [...baseHistory, {
+        updateSession(originSessionId, s => ({
+          ...s,
+          messages: [...baseMessages, {
             role: "assistant",
-            content: errorMsg,
+            content: "Could not connect to the model endpoint.",
             isError: true,
             fallbackAvailable: true,
             originalPrompt: prompt,
             errorProvider: effectiveProvider,
           }],
+          updatedAt: new Date().toISOString(),
         }));
         setSending(false);
         return;
       }
 
-      // Streaming: add a placeholder that updates token-by-token.
-      // Use a stable ID instead of an array index so concurrent state updates
-      // (e.g. from a parallel Arbiter fetch) can't shift the index mid-stream.
       const streamingMsgId = `streaming-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      setHistories(previous => ({
-        ...previous,
-        [targetAgent]: [...baseHistory, { id: streamingMsgId, role: "assistant", content: "", streaming: true }],
+      updateSession(originSessionId, s => ({
+        ...s,
+        messages: [...baseMessages, { id: streamingMsgId, role: "assistant", content: "", streaming: true }],
       }));
 
       const reader = response.body.getReader();
@@ -495,55 +566,57 @@ export default function useChatAgents({
             const event = JSON.parse(line.slice(6));
             if (event.type === "text_delta") {
               streamedText += event.text;
-              setHistories(previous => {
-                const msgs = (previous[targetAgent] || []).map(m =>
-                  m.id === streamingMsgId ? { ...m, content: streamedText } : m
-                );
-                return { ...previous, [targetAgent]: msgs };
-              });
+              setSessions(previous => previous.map(s => {
+                if (s.id !== originSessionId) return s;
+                return {
+                  ...s,
+                  messages: s.messages.map(m =>
+                    m.id === streamingMsgId ? { ...m, content: streamedText } : m
+                  ),
+                };
+              }));
             } else if (event.type === "done") {
               streamDoneEvent = event;
             } else if (event.type === "error") {
               streamError = event;
             }
-          } catch { /* skip malformed line */ }
+          } catch { /* malformed line */ }
         }
       }
 
-      // Handle streaming error
       if (streamError) {
-        setHistories(previous => {
-          const msgs = (previous[targetAgent] || []).map(m =>
-            m.id === streamingMsgId ? {
-              role: "assistant",
-              content: streamError.error || "Model returned an error.",
-              isError: true,
-              fallbackAvailable: streamError.fallbackAvailable ?? true,
-              originalPrompt: prompt,
-              errorProvider: streamError.provider || effectiveProvider,
-            } : m
-          );
-          return { ...previous, [targetAgent]: msgs };
-        });
+        setSessions(previous => previous.map(s => {
+          if (s.id !== originSessionId) return s;
+          return {
+            ...s,
+            messages: s.messages.map(m =>
+              m.id === streamingMsgId ? {
+                role: "assistant",
+                content: streamError.error || "Model returned an error.",
+                isError: true,
+                fallbackAvailable: streamError.fallbackAvailable ?? true,
+                originalPrompt: prompt,
+                errorProvider: streamError.provider || effectiveProvider,
+              } : m
+            ),
+            updatedAt: new Date().toISOString(),
+          };
+        }));
         setSending(false);
         return;
       }
 
-      // Streaming complete — build a data object compatible with existing post-processing
       const data = {
         content: [{ type: "text", text: streamedText }],
-        provider: streamDoneEvent?.provider || (effectiveProvider),
+        provider: streamDoneEvent?.provider || effectiveProvider,
         model: streamDoneEvent?.model || null,
         modelTier: streamDoneEvent?.modelTier || requestedTier,
         usage: streamDoneEvent?.usage || null,
       };
 
       let reply = streamedText || "No response received.";
-
       const localPrimer = targetAgent === "jace" ? localJaceRulesPrimer(prompt) : "";
-      if (localPrimer) {
-        reply = localPrimer;
-      }
+      if (localPrimer) reply = localPrimer;
 
       if (["karn", "tibalt"].includes(targetAgent) && deckOracleNames.length) {
         reply = bracketKnownCardNames(reply, deckOracleNames);
@@ -551,20 +624,18 @@ export default function useChatAgents({
 
       if (targetAgent === "arbiter" && retryDepth === 0 && /^UNRESOLVED/m.test(reply)) {
         const needsCards = /Oracle text|card text|isn't provided|not provided/i.test(reply);
-
         if (needsCards) {
           const replyCards = [...reply.matchAll(/\[\[([^\]]+)\]\]/g)].map(match => match[1]);
-
           if (replyCards.length) {
             const enrichedText = prompt + "\n\n[Auto-retry: include Oracle text for " + replyCards.join(", ") + "]";
-            setHistories(previous => ({
-              ...previous,
-              [targetAgent]: [
-                ...baseHistory,
+            updateSession(originSessionId, s => ({
+              ...s,
+              messages: [
+                ...baseMessages,
                 { role: "assistant", content: reply + "\n\nAuto-retrying with explicit card context." },
               ],
+              updatedAt: new Date().toISOString(),
             }));
-
             return send(enrichedText, targetAgent, 1);
           }
         }
@@ -574,41 +645,32 @@ export default function useChatAgents({
         try {
           const processed = await postProcessKarnResponse(reply);
           reply = processed.text;
-        } catch {
-          // If banlist post-processing fails, deliver the unmodified reply.
-        }
+        } catch { /* deliver unmodified reply */ }
       }
 
-      responseMeta.factReceipt = {
-        provider: data.provider || (effectiveProvider),
-        fallbackUsed: !forceProvider && requestedTier !== "anthropic" && data.provider === "anthropic",
-        modelTier: data.modelTier || requestedTier,
+      responseMeta.factReceipt = buildFactReceipt({
+        provider: data.provider || effectiveProvider,
         model: data.model,
-        deckLocked: Boolean(deckLock),
-        deckName: deckLock?.name || null,
-        cardsProvided: countContextCards(cardContext + deckOracleContext + karnScryfallContext),
-        rulingsProvided: countContextRulings(cardContext + deckOracleContext),
-        engineContextProvided: Boolean(engineContext),
-        arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
-        arbiterStatus: responseMeta.arbiterStatus || null,
-        arbiterRulesRetrieved: responseMeta.arbiterSources?.ruleNumbers?.length || 0,
-        arbiterCardsRetrieved: responseMeta.arbiterSources?.cards?.length || 0,
-        arbiterRulesGuruPrecedents: responseMeta.arbiterSources?.rulesGuruPrecedents?.length || 0,
-        arbiterHallucinations: responseMeta.arbiterSources?.hallucinations?.length || 0,
-        arbiterConfidence: responseMeta.arbiterSources?.confidence || null,
-      };
-
-      setHistories(previous => {
-        const msgs = (previous[targetAgent] || []).map(m =>
-          m.id === streamingMsgId ? { role: "assistant", content: reply, ...responseMeta } : m
-        );
-        return { ...previous, [targetAgent]: msgs };
+        modelTier: data.modelTier || requestedTier,
+        fallbackUsed: !forceProvider && requestedTier !== "anthropic" && data.provider === "anthropic",
+        deckLock, cardContext, deckOracleContext, karnScryfallContext, engineContext, responseMeta,
       });
+
+      setSessions(previous => previous.map(s => {
+        if (s.id !== originSessionId) return s;
+        return {
+          ...s,
+          messages: s.messages.map(m =>
+            m.id === streamingMsgId ? { role: "assistant", content: reply, ...responseMeta } : m
+          ),
+          updatedAt: new Date().toISOString(),
+        };
+      }));
     } catch (error) {
       const isTimeout = error?.name === "AbortError";
-      setHistories(previous => ({
-        ...previous,
-        [targetAgent]: [...baseHistory, {
+      updateSession(originSessionId, s => ({
+        ...s,
+        messages: [...baseMessages, {
           role: "assistant",
           content: isTimeout
             ? "Request timed out. The local model may be overloaded."
@@ -618,24 +680,28 @@ export default function useChatAgents({
           originalPrompt: prompt,
           errorProvider: effectiveProvider,
         }],
+        updatedAt: new Date().toISOString(),
       }));
     } finally {
       setSending(false);
     }
   };
 
+  // ─── Reply utilities ───────────────────────────────────────────────────────
+
   const retryWithFallback = (originalPrompt, targetAgentKey = null) => {
     const key = targetAgentKey || agent;
-    setHistories(previous => ({
-      ...previous,
-      [key]: previous[key].slice(0, -1),
-    }));
+    const targetSession = sessions.find(s => s.agent === key && !s.archived && s.id === activeSessionIds[key]);
+    if (targetSession) {
+      updateSession(targetSession.id, s => ({ ...s, messages: s.messages.slice(0, -1) }));
+    }
     send(originalPrompt, key, 0, "anthropic");
   };
 
   const exportChat = () => {
-    const config = AGENTS[agent];
-    const lines = histories[agent]
+    if (!currentSession) return;
+    const config = AGENTS[currentSession.agent];
+    const lines = currentSession.messages
       .map(message => {
         const trace = message.arbiterTrace ? `\n\n[Arbiter Trace]\n${message.arbiterTrace}` : "";
         return `[${message.role === "user" ? "You" : config.name}]\n${message.content}${trace}`;
@@ -644,44 +710,63 @@ export default function useChatAgents({
     const url = URL.createObjectURL(new Blob([lines], { type: "text/plain" }));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `mtg-chat-${agent}.txt`;
+    anchor.download = `mtg-chat-${currentSession.agent}-${currentSession.id}.txt`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
 
   const clearChat = () => {
-    const nextHistories = { ...histories, [agent]: [] };
-    const nextLocks = { ...deckLocks, [agent]: null };
-    setHistories(nextHistories);
-    setDeckLocks(nextLocks);
-    saveJson(CHAT_STORAGE_KEYS[agent], []);
-    saveChatFile(nextHistories, nextLocks);
-  };
-
-  const unlockDeck = (agentOverride = agent) => {
-    const nextLocks = { ...deckLocks, [agentOverride]: null };
-    setDeckLocks(nextLocks);
-    saveChatFile(histories, nextLocks);
-  };
-
-  const unlockAllDecks = () => {
-    const nextLocks = emptyLocks();
-    setDeckLocks(nextLocks);
-    saveChatFile(histories, nextLocks);
+    // Archives the current session and creates a fresh empty one for the
+    // same agent. Old session remains accessible via the archived toggle.
+    if (currentSession) archiveSession(currentSession.id);
+    createSession(agent);
   };
 
   return {
-    clearChat,
-    exportChat,
-    deckLocks,
-    histories,
-    input,
+    // Session state
+    sessions,
+    activeSessions,
+    archivedSessions,
+    currentSession,
+    activeSessionIds,
+    // Session mutators
+    createSession,
+    switchSession,
+    archiveSession,
+    unarchiveSession,
+    renameSession,
+    unlockSessionDeck,
+    // Chat I/O
+    input, setInput, sending,
+    send, retryWithFallback,
+    exportChat, clearChat,
+    // Knowledge
     knowledgeStatus,
-    retryWithFallback,
-    send,
-    sending,
-    setInput,
-    unlockAllDecks,
-    unlockDeck,
+  };
+}
+
+// ─── Shared helpers ───────────────────────────────────────────────────────────
+
+function buildFactReceipt({
+  provider, model, modelTier, fallbackUsed,
+  deckLock, cardContext, deckOracleContext, karnScryfallContext, engineContext, responseMeta,
+}) {
+  return {
+    provider,
+    fallbackUsed,
+    modelTier,
+    model,
+    deckLocked: Boolean(deckLock),
+    deckName: deckLock?.name || null,
+    cardsProvided: countContextCards((cardContext || "") + (deckOracleContext || "") + (karnScryfallContext || "")),
+    rulingsProvided: countContextRulings((cardContext || "") + (deckOracleContext || "")),
+    engineContextProvided: Boolean(engineContext),
+    arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
+    arbiterStatus: responseMeta.arbiterStatus || null,
+    arbiterRulesRetrieved: responseMeta.arbiterSources?.ruleNumbers?.length || 0,
+    arbiterCardsRetrieved: responseMeta.arbiterSources?.cards?.length || 0,
+    arbiterRulesGuruPrecedents: responseMeta.arbiterSources?.rulesGuruPrecedents?.length || 0,
+    arbiterHallucinations: responseMeta.arbiterSources?.hallucinations?.length || 0,
+    arbiterConfidence: responseMeta.arbiterSources?.confidence || null,
   };
 }

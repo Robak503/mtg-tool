@@ -117,9 +117,8 @@ export default function ChatPanel({
   bottomRef,
   cfg,
   colors,
-  deckLocks,
+  currentSession,
   fontFamily,
-  histories,
   input,
   mainCount,
   renderText,
@@ -129,13 +128,15 @@ export default function ChatPanel({
   setCenterView,
   setInput,
   unloadDeck,
-  unlockDeck,
+  unlockSessionDeck,
+  createSession,
 }) {
   const { BG2, BG3, LINE, TEXT } = colors;
   const quickPrompts = QUICK[agent] || [];
-  const deckLock = deckLocks?.[agent];
+  const sessionMessages = currentSession?.messages || [];
+  const sessionLockedDeck = currentSession?.lockedDeck || null;
 
-  // T13 — "Still thinking..." counter while waiting for response
+  // Wait counter while streaming.
   const [waitSeconds, setWaitSeconds] = useState(0);
   useEffect(() => {
     if (!sending) { setWaitSeconds(0); return; }
@@ -146,6 +147,47 @@ export default function ChatPanel({
 
   return (
     <>
+      {/* Session header — name + new chat button */}
+      <div
+        style={{
+          padding: "6px 14px",
+          background: BG2,
+          borderBottom: `1px solid ${LINE}`,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 10,
+          flexShrink: 0,
+        }}
+      >
+        <span style={{
+          fontSize: 11,
+          color: cfg.color,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          flex: 1,
+        }}>
+          {currentSession ? currentSession.name : `${cfg.name} — no active chat`}
+        </span>
+        <button
+          onClick={() => createSession(agent)}
+          style={{
+            background: "transparent",
+            border: `1px solid ${cfg.border}`,
+            borderRadius: 5,
+            color: cfg.color,
+            cursor: "pointer",
+            fontSize: 11,
+            padding: "3px 10px",
+            fontFamily,
+            flexShrink: 0,
+          }}
+        >
+          + New chat
+        </button>
+      </div>
+
       {activeDeck && (
         <div
           style={{
@@ -164,27 +206,13 @@ export default function ChatPanel({
           <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button
               onClick={() => setCenterView("deck")}
-              style={{
-                background: "none",
-                border: "none",
-                color: cfg.color,
-                cursor: "pointer",
-                fontSize: 11,
-                fontFamily,
-              }}
+              style={{ background: "none", border: "none", color: cfg.color, cursor: "pointer", fontSize: 11, fontFamily }}
             >
               View
             </button>
             <button
               onClick={unloadDeck}
-              style={{
-                background: "none",
-                border: "none",
-                color: cfg.color,
-                cursor: "pointer",
-                fontSize: 11,
-                fontFamily,
-              }}
+              style={{ background: "none", border: "none", color: cfg.color, cursor: "pointer", fontSize: 11, fontFamily }}
             >
               Unload
             </button>
@@ -192,7 +220,7 @@ export default function ChatPanel({
         </div>
       )}
 
-      {deckLock && (
+      {sessionLockedDeck && (
         <div
           style={{
             padding: "6px 14px",
@@ -209,10 +237,10 @@ export default function ChatPanel({
           }}
         >
           <span>
-            {cfg.name} locked to: {deckLock.name} / {deckLock.commander} ({deckLock.mainCount} cards). Sidebar deck changes will not alter this chat.
+            🔒 Locked to: {sessionLockedDeck.name} / {sessionLockedDeck.commander} ({sessionLockedDeck.mainCount} cards). This session stays on this deck.
           </span>
           <button
-            onClick={() => unlockDeck(agent)}
+            onClick={() => unlockSessionDeck(currentSession?.id)}
             style={{
               background: "transparent",
               border: `1px solid ${cfg.border}`,
@@ -258,9 +286,9 @@ export default function ChatPanel({
           </div>
         </div>
 
-        {histories[agent].map((msg, index) => (
+        {sessionMessages.map((msg, index) => (
           <div
-            key={`${msg.role}-${index}`}
+            key={msg.id || `${msg.role}-${index}`}
             style={{
               display: "flex",
               flexDirection: "column",
@@ -334,20 +362,13 @@ export default function ChatPanel({
                         </pre>
                       </details>
                     )}
-                    <ArbiterSources
-                      sources={msg.arbiterSources}
-                      LINE={LINE}
-                      TEXT={TEXT}
-                      fontFamily={fontFamily}
-                    />
-                    {/* T8 — Trust Strip */}
+                    <ArbiterSources sources={msg.arbiterSources} LINE={LINE} TEXT={TEXT} fontFamily={fontFamily} />
                     {!msg.isError && <TrustStrip msg={msg} LINE={LINE} />}
                   </>
                 )
                 : <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>}
             </div>
 
-            {/* T6 — Fallback chip on error messages */}
             {msg.isError && msg.fallbackAvailable && retryWithFallback && (
               <button
                 onClick={() => retryWithFallback(msg.originalPrompt, agent)}
@@ -382,7 +403,6 @@ export default function ChatPanel({
               }}
             >
               <Dots color={cfg.color} />
-              {/* T13 — Still thinking... */}
               {waitSeconds >= 10 && (
                 <div style={{ fontSize: 11, color: "#7f8aa3", marginTop: 6 }}>
                   Still thinking… (local models can take 20–60s for long responses)

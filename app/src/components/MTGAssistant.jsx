@@ -13,7 +13,7 @@ import {
 import { deckSnapshot, parseKarnPlan } from "../lib/agentArtifacts";
 import { CARD_CACHE, fetchCard } from "../lib/scryfall";
 import useDeckStore from "../hooks/useDeckStore";
-import useChatAgents from "../hooks/useChatAgents";
+import useChatSessions from "../hooks/useChatSessions";
 import useCardSearch from "../hooks/useCardSearch";
 import AppHeader from "./mtg/AppHeader";
 import Sidebar from "./mtg/Sidebar";
@@ -22,6 +22,7 @@ import ImportDeckView from "./mtg/ImportDeckView";
 import DeckView from "./mtg/DeckView";
 import RightPanel from "./mtg/RightPanel";
 import ChatPanel from "./mtg/ChatPanel";
+import SessionSidebar from "./mtg/SessionSidebar";
 
 export default function MTGAssistant() {
   const [agent, setAgent]   = useState("karn");
@@ -105,18 +106,26 @@ export default function MTGAssistant() {
   } = useDeckStore();
 
   const {
+    sessions,
+    activeSessions,
+    archivedSessions,
+    currentSession,
+    activeSessionIds,
+    createSession,
+    switchSession,
+    archiveSession,
+    unarchiveSession,
+    renameSession,
+    unlockSessionDeck,
     clearChat,
-    deckLocks,
     exportChat,
-    histories,
     input,
     knowledgeStatus,
     retryWithFallback,
     send,
     sending,
     setInput,
-    unlockDeck,
-  } = useChatAgents({
+  } = useChatSessions({
     activeDeck,
     agent,
     deckCards,
@@ -126,6 +135,20 @@ export default function MTGAssistant() {
     setAgent,
     tokenEntries,
   });
+
+  // Derive a v1-shaped histories map for components that still read by agent
+  // key (DeckView "save latest reply", saveLatestAgentReply, summarize, etc).
+  // Pulls from the most recent non-archived session per agent.
+  const histories = (() => {
+    const out = { jace: [], karn: [], tibalt: [], arbiter: [] };
+    for (const key of Object.keys(out)) {
+      const session = sessions
+        .filter(s => s.agent === key && !s.archived)
+        .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0];
+      out[key] = session?.messages || [];
+    }
+    return out;
+  })();
   const {
     handleSearch,
     previewCard,
@@ -136,7 +159,7 @@ export default function MTGAssistant() {
   } = useCardSearch();
 
   useEffect(()=>{ const h=()=>setMobile(window.innerWidth<660); window.addEventListener("resize",h); return()=>window.removeEventListener("resize",h); },[]);
-  useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:"smooth"}); },[histories,sending]);
+  useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:"smooth"}); },[currentSession?.messages,sending]);
   useEffect(()=>{
     try {
       localStorage.setItem("mtg-model-provider", modelProvider);
@@ -316,12 +339,12 @@ export default function MTGAssistant() {
         setRightOpen={setRightOpen}
         exportChat={exportChat}
         clearChat={clearChat}
-        deckLock={deckLocks?.[agent]}
+        deckLock={currentSession?.lockedDeck}
         modelStatus={modelStatus}
         knowledgeStatus={knowledgeStatus}
         modelProvider={modelProvider}
         setModelProvider={setModelProvider}
-        unlockDeck={() => unlockDeck(agent)}
+        unlockDeck={() => unlockSessionDeck(currentSession?.id)}
         pb={pb}
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}
@@ -351,6 +374,25 @@ export default function MTGAssistant() {
             clearChat={clearChat}
             unloadActiveDeck={unloadActiveDeck}
             sb={sb}
+            colors={{BG2, LINE, MUTED, TEXT}}
+            fontFamily={F}
+          />
+        )}
+
+        {!mobile && centerView === "chat" && (
+          <SessionSidebar
+            sessions={sessions}
+            activeSessions={activeSessions}
+            archivedSessions={archivedSessions}
+            currentSession={currentSession}
+            activeSessionIds={activeSessionIds}
+            agent={agent}
+            setAgent={setAgent}
+            createSession={createSession}
+            switchSession={switchSession}
+            archiveSession={archiveSession}
+            unarchiveSession={unarchiveSession}
+            renameSession={renameSession}
             colors={{BG2, LINE, MUTED, TEXT}}
             fontFamily={F}
           />
@@ -433,9 +475,8 @@ export default function MTGAssistant() {
                 bottomRef={bottomRef}
                 cfg={cfg}
                 colors={{BG2, BG3, LINE, TEXT}}
-                deckLocks={deckLocks}
+                currentSession={currentSession}
                 fontFamily={F}
-                histories={histories}
                 input={input}
                 mainCount={mainCount}
                 renderText={renderText}
@@ -445,7 +486,8 @@ export default function MTGAssistant() {
                 setCenterView={setCenterView}
                 setInput={setInput}
                 unloadDeck={unloadActiveDeck}
-                unlockDeck={unlockDeck}
+                unlockSessionDeck={unlockSessionDeck}
+                createSession={createSession}
               />
             )}
           </div>
