@@ -2,6 +2,7 @@ export default function MobileTabBar({ cfg, mobileTab, setMobileTab, colors, fon
   const { BG2, LINE, MUTED } = colors;
   const tabs = [
     ["chat", "Chat", "Chat"],
+    ["sessions", "Sessions", "Sessions"],
     ["search", "Search", "Search"],
     ["stats", "Stats", "Stats"],
     ["decks", "Decks", "Decks"],

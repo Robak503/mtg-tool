@@ -45,16 +45,6 @@ stays readable.
 
 ## UI Polish
 
-### P3 — Mobile UX for SessionSidebar
-
-**What:** SessionSidebar only renders when `!mobile` in MTGAssistant.jsx. Mobile users have no session manager — they fall back to single-session-per-agent v1 behavior implicitly.
-
-**Why:** Mobile is a real use case (per the existing `MobileTabBar` work). The current state means a phone user can't archive a chat or run multiple Karn chats.
-
-**How to apply:** Two options: (1) make SessionSidebar collapsible into a drawer on mobile; (2) add a session tab to MobileTabBar that routes to a sessions-list view. Option 2 is simpler.
-
----
-
 ### P4 — Tests for new UI components
 
 **What:** Add Vitest + React-testing-library coverage for FeedbackButton (inbox view rendering, submit success path), GarfieldPanel (insights fetch + render, archetype badge), SessionSidebar (active/archived toggle, rename, archive). Currently all 81 tests are server/lib — UI components are untested.

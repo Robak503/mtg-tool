@@ -367,8 +367,9 @@ export default function MTGAssistant() {
   };
 
   const showLeft  =!mobile||mobileTab==="decks";
-  const showCenter=!mobile||mobileTab==="chat";
+  const showCenter=!mobile||mobileTab==="chat"||mobileTab==="sessions";
   const showRight =(!mobile&&rightOpen)||mobileTab==="search"||mobileTab==="stats";
+  const showMobileSessionPicker = mobile && mobileTab === "sessions";
 
   return (
     <div style={{fontFamily:F,background:BG,color:TEXT,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
@@ -509,8 +510,39 @@ export default function MTGAssistant() {
           />
         )}
 
-        {/* Center */}
-        {showCenter&&(
+        {/* Mobile: sessions tab renders the picker full-width in the center
+            area. After the user picks a session we flip back to the chat tab
+            via onAfterSelect so the picker behaves like a modal selector
+            rather than a permanent panel. */}
+        {showMobileSessionPicker && (
+          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
+            <SessionSidebar
+              sessions={sessions}
+              activeSessions={activeSessions}
+              archivedSessions={archivedSessions}
+              currentSession={currentSession}
+              activeSessionIds={activeSessionIds}
+              agent={agent}
+              setAgent={setAgent}
+              createSession={(targetAgent) => {
+                createSession(targetAgent);
+                setMobileTab("chat");
+              }}
+              switchSession={switchSession}
+              archiveSession={archiveSession}
+              unarchiveSession={unarchiveSession}
+              renameSession={renameSession}
+              colors={{BG2, LINE, MUTED, TEXT}}
+              fontFamily={F}
+              mobile
+              onAfterSelect={() => setMobileTab("chat")}
+            />
+          </div>
+        )}
+
+        {/* Center — hidden on mobile when the session picker is active, since
+            the picker takes the center area. */}
+        {showCenter&&!showMobileSessionPicker&&(
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
             {centerView==="import"?(
               <ImportDeckView

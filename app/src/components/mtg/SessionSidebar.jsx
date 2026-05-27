@@ -37,6 +37,8 @@ export default function SessionSidebar({
   renameSession,
   colors,
   fontFamily,
+  mobile = false,
+  onAfterSelect,
 }) {
   const { BG2, LINE, MUTED, TEXT } = colors;
   const [showArchived, setShowArchived] = useState(false);
@@ -75,12 +77,20 @@ export default function SessionSidebar({
     setRenameValue("");
   };
 
+  // When the user picks a session, optionally bounce back to the chat
+  // view — used on mobile so the sessions tab feels like a picker
+  // rather than a permanent panel.
+  const handleSelect = (sessionId) => {
+    switchSession(sessionId);
+    if (typeof onAfterSelect === "function") onAfterSelect(sessionId);
+  };
+
   return (
     <div
       style={{
-        width: 220,
+        width: mobile ? "100%" : 220,
         flexShrink: 0,
-        borderRight: `1px solid ${LINE}`,
+        borderRight: mobile ? "none" : `1px solid ${LINE}`,
         background: BG2,
         padding: 12,
         display: "flex",
@@ -156,7 +166,7 @@ export default function SessionSidebar({
             return (
               <div
                 key={session.id}
-                onClick={() => !isRenaming && switchSession(session.id)}
+                onClick={() => !isRenaming && handleSelect(session.id)}
                 style={{
                   marginBottom: 5,
                   padding: "7px 9px",
