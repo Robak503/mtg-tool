@@ -34,6 +34,20 @@ fn seed_missing(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result
     Ok(())
 }
 
+/// Roll the launch log over when it gets larger than ~1MB. We keep the
+/// most-recent rolled file as `.1`; older history is dropped. Without
+/// this the file would grow unbounded over years of daily launches.
+#[cfg(not(debug_assertions))]
+fn rotate_log_if_large(path: &std::path::Path, max_bytes: u64) {
+    if let Ok(meta) = std::fs::metadata(path) {
+        if meta.len() > max_bytes {
+            let rolled = path.with_extension("log.1");
+            let _ = std::fs::remove_file(&rolled);
+            let _ = std::fs::rename(path, &rolled);
+        }
+    }
+}
+
 /// Poll TCP port until it accepts connections or timeout expires.
 #[cfg(not(debug_assertions))]
 fn wait_for_port(port: u16, timeout_secs: u64) -> bool {
@@ -87,8 +101,11 @@ pub fn run() {
                 // First launch: ensure the writable data directory exists.
                 let _ = std::fs::create_dir_all(&data_dir);
 
-                // Launch log lives in %APPDATA%\com.colton.mtg-tool\launch.log
+                // Launch log lives in %APPDATA%\com.colton.mtg-tool\launch.log.
+                // Roll at ~1MB so it never fills the user's disk after years
+                // of daily launches.
                 let log_path = data_dir.join("launch.log");
+                rotate_log_if_large(&log_path, 1_000_000);
                 let mut log = std::fs::OpenOptions::new()
                     .create(true)
                     .append(true)

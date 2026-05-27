@@ -320,7 +320,39 @@ npm.cmd run validate:arbiter -- --suite rulesguru --limit 5 --report reports/arb
 
 ## Run On This PC
 
-Easiest option:
+### Option 1: Native .exe (recommended)
+
+Build the Tauri desktop binary once:
+
+```powershell
+cd "C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app"
+npm run tauri:build
+```
+
+This produces two artifacts under `app/src-tauri/target/release/`:
+
+```text
+mtg-tool.exe                                 # 8MB raw binary
+bundle/nsis/MTG Tool_0.1.0_x64-setup.exe     # 15MB NSIS installer
+```
+
+Run the raw `.exe` directly (no install needed; the `resources/` folder next to it ships everything), or run the installer for a Start Menu / Programs entry.
+
+On first launch a welcome banner appears asking where to import your existing decks/chats from. The default is auto-detected from your dev tree. Click Import — it copies decks, chats, spellbook/salt data, feedback, and backups. The banner doesn't show again after that.
+
+User data and launch logs live in:
+
+```text
+%APPDATA%\com.colton.mtg-tool\
+  data\                # decks, chats, feedback, games, marker file, slim card index, rules index
+  launch.log           # Rust shell log (auto-rotates at 1MB)
+  server.out.log       # Node stdout (truncated each launch)
+  server.err.log       # Node stderr (truncated each launch)
+```
+
+Requires Node.js on PATH (the .exe spawns `node`) and, for local-model chat, Ollama running with `qwen2.5:14b` or larger pulled.
+
+### Option 2: Browser-tab launcher
 
 Double-click:
 
@@ -342,22 +374,14 @@ http://localhost:3001
 
 Leave the launcher window open while using the app. Press Enter in that window when you want to stop the local server.
 
-Developer option:
-
-From PowerShell:
+### Option 3: PowerShell dev server
 
 ```powershell
 cd "C:\Users\colto\Documents\Claude\Projects\MTG-TOOL\app"
 .\start-local.ps1
 ```
 
-Then open:
-
-```text
-http://localhost:3001
-```
-
-Leave the PowerShell window open while using the app.
+Then open `http://localhost:3001`. Leave the PowerShell window open while using the app.
 
 ## Manual Local Setup
 
