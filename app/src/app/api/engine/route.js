@@ -1,12 +1,22 @@
 export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
+import path from "node:path";
 
-import { mtgJudgePath, mtgEnginePath } from "../../../lib/server/paths";
+import { mtgJudgePath, mtgEnginePath, mtgJudgeDir, mtgEngineDir } from "../../../lib/server/paths";
 
 const CR_FILE = mtgJudgePath("data", "cr", "cr_current.json");
 const ROUTER_FILE = mtgEnginePath("META_query_router.md");
 const LAYER_INDEX_FILE = mtgEnginePath("META_layer_index.md");
+// loadDocs() walks the rules codex roots and labels chunks by which
+// root they came from. The previous refactor (5f8137e) dropped these
+// constants but missed the call sites, leaving /api/engine throwing
+// ReferenceError on every request — kept latent because no test
+// covered the actual endpoint. Re-derived from the paths helpers so
+// they pick up MTG_ENGINE_DIR / MTG_JUDGE_DIR env overrides in the
+// packaged .exe just like the *_FILE constants above.
+const ENGINE_ROOT = mtgEngineDir();
+const JUDGE_ROOT = mtgJudgeDir();
 
 const STOP_TERMS = new Set([
   "the",
