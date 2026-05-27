@@ -38,6 +38,8 @@ export default function MTGAssistant() {
   const [mobile, setMobile] = useState(window.innerWidth < 660);
   const [fastMode, setFastMode] = useState(false); // Arbiter Fast vs Full prompt
   const [modelStatus, setModelStatus] = useState(null);
+  const [ollamaHealth, setOllamaHealth] = useState(null);
+  const [ollamaHealthDismissed, setOllamaHealthDismissed] = useState(false);
   const [modelProvider, setModelProvider] = useState(() => {
     try {
       const stored = localStorage.getItem("mtg-model-provider") || "fast";
@@ -160,6 +162,41 @@ export default function MTGAssistant() {
 
   useEffect(()=>{ const h=()=>setMobile(window.innerWidth<660); window.addEventListener("resize",h); return()=>window.removeEventListener("resize",h); },[]);
   useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:"smooth"}); },[currentSession?.messages,sending]);
+
+  // Ollama startup health probe. Runs once on app load, then again every 30s
+  // while the banner is unresolved so it auto-clears when the user starts the
+  // daemon or pulls the missing model. Skipped entirely when modelProvider
+  // is "anthropic" since Ollama isn't on the hot path then.
+  useEffect(() => {
+    if (modelProvider === "anthropic") {
+      setOllamaHealth(null);
+      return undefined;
+    }
+    let active = true;
+    let timer;
+    const probe = async () => {
+      try {
+        const response = await fetch("/api/ollama-health", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!active) return;
+        setOllamaHealth(data);
+        // If healthy, no need to keep polling. The interval clears below.
+        if (data.ok) {
+          setOllamaHealthDismissed(false);
+        }
+      } catch {
+        // network failure is itself a kind of "server-down" — silently keep
+        // the existing state so we don't thrash the banner
+      }
+    };
+    probe();
+    timer = window.setInterval(probe, 30_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [modelProvider]);
   useEffect(()=>{
     try {
       localStorage.setItem("mtg-model-provider", modelProvider);
@@ -349,6 +386,67 @@ export default function MTGAssistant() {
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}
       />
+
+      {/* Ollama startup health banner — only shown when local is selected and
+          the daemon isn't ready. Self-dismisses when health recovers; the user
+          can also dismiss manually. */}
+      {ollamaHealth && !ollamaHealth.ok && !ollamaHealthDismissed && (
+        <div
+          role="status"
+          style={{
+            padding:"8px 16px",
+            background: ollamaHealth.status === "server-down" ? "#3a1a1a" : "#3a2a14",
+            borderBottom: `1px solid ${ollamaHealth.status === "server-down" ? "#6b3a3a" : "#6b5a3a"}`,
+            color: ollamaHealth.status === "server-down" ? "#e0a89a" : "#e8c285",
+            fontSize:12,
+            display:"flex",
+            justifyContent:"space-between",
+            alignItems:"center",
+            gap:12,
+            fontFamily:F,
+          }}
+        >
+          <span style={{flex:1}}>
+            <strong style={{marginRight:8}}>
+              {ollamaHealth.status === "server-down" ? "⚠ Ollama not running" : "⚠ Ollama model missing"}
+            </strong>
+            {ollamaHealth.message}
+          </span>
+          <span style={{display:"flex", gap:8, alignItems:"center"}}>
+            <button
+              onClick={() => setModelProvider("anthropic")}
+              title="Switch to the Anthropic API for this session"
+              style={{
+                background:"transparent",
+                border:`1px solid ${ollamaHealth.status === "server-down" ? "#6b3a3a" : "#6b5a3a"}`,
+                color:"inherit",
+                cursor:"pointer",
+                fontSize:11,
+                padding:"3px 10px",
+                borderRadius:5,
+                fontFamily:F,
+              }}
+            >
+              Use Anthropic instead
+            </button>
+            <button
+              onClick={() => setOllamaHealthDismissed(true)}
+              title="Dismiss this banner (will not show again this session)"
+              style={{
+                background:"none",
+                border:"none",
+                color:"inherit",
+                cursor:"pointer",
+                fontSize:16,
+                lineHeight:1,
+                padding:"0 4px",
+              }}
+            >
+              ×
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Body */}
       <div ref={bodyRef} style={{flex:1,display:"flex",overflow:"hidden",position:"relative"}}>

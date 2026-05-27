@@ -231,3 +231,141 @@ describe("v1 shim on POST", () => {
     expect(written.sessions[0].archived).toBe(false);
   });
 });
+
+describe("session message cap (MAX_SESSION_MESSAGES)", () => {
+  it("trims sessions with >500 messages to the most recent 500", async () => {
+    // Build a session with 750 user messages — should be trimmed to last 500.
+    const messages = Array.from({ length: 750 }, (_, i) => ({
+      role: i % 2 === 0 ? "user" : "assistant",
+      content: `msg-${i}`,
+    }));
+
+    const request = new Request("http://localhost/api/chats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessions: [{
+          id: "s-big",
+          agent: "jace",
+          name: "Big session",
+          messages,
+          lockedDeck: null,
+        }],
+      }),
+    });
+
+    const response = await route.POST(request);
+    expect(response.status).toBe(200);
+
+    const written = await readChatFile();
+    expect(written.sessions[0].messages).toHaveLength(500);
+    // First retained message should be the (750-500)=250th input message.
+    expect(written.sessions[0].messages[0].content).toBe("msg-250");
+    expect(written.sessions[0].messages[499].content).toBe("msg-749");
+  });
+
+  it("leaves under-limit sessions untouched", async () => {
+    const messages = Array.from({ length: 10 }, (_, i) => ({
+      role: "user", content: `msg-${i}`,
+    }));
+
+    const request = new Request("http://localhost/api/chats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessions: [{ id: "s-small", agent: "karn", name: "Small", messages, lockedDeck: null }],
+      }),
+    });
+    await route.POST(request);
+    const written = await readChatFile();
+    expect(written.sessions[0].messages).toHaveLength(10);
+  });
+});
+
+describe("pruneSessions", () => {
+  it("never prunes active sessions, even when there are many", async () => {
+    // 60 active sessions — exceeds MAX_ARCHIVED_SESSIONS=50 but active is uncapped.
+    const sessions = Array.from({ length: 60 }, (_, i) => ({
+      id: `s-active-${i}`,
+      agent: "karn",
+      name: `Active ${i}`,
+      messages: [],
+      archived: false,
+      lockedDeck: null,
+    }));
+
+    const request = new Request("http://localhost/api/chats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessions }),
+    });
+    await route.POST(request);
+
+    const written = await readChatFile();
+    expect(written.sessions.filter(s => !s.archived)).toHaveLength(60);
+  });
+
+  it("trims archived sessions to the most recent 50 when there are more", async () => {
+    // 80 archived sessions stamped within the past few days so the age cap
+    // doesn't kick in; only the count cap should trigger. Sessions with
+    // higher i are more recent.
+    const now = Date.now();
+    const sessions = Array.from({ length: 80 }, (_, i) => {
+      const stamp = new Date(now - (80 - i) * 1000).toISOString();
+      return {
+        id: `s-arch-${i}`,
+        agent: "jace",
+        name: `Archived ${i}`,
+        messages: [],
+        archived: true,
+        lockedDeck: null,
+        createdAt: stamp,
+        updatedAt: stamp,
+      };
+    });
+
+    const request = new Request("http://localhost/api/chats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessions }),
+    });
+    await route.POST(request);
+
+    const written = await readChatFile();
+    const archived = written.sessions.filter(s => s.archived);
+    expect(archived).toHaveLength(50);
+    // Most recent (id=79) should be kept; oldest (id=0) should be pruned.
+    const keptIds = new Set(archived.map(s => s.id));
+    expect(keptIds.has("s-arch-79")).toBe(true);
+    expect(keptIds.has("s-arch-30")).toBe(true);
+    expect(keptIds.has("s-arch-29")).toBe(false);
+    expect(keptIds.has("s-arch-0")).toBe(false);
+  });
+
+  it("drops archived sessions older than 90 days", async () => {
+    const now = Date.now();
+    const dayMs = 86_400_000;
+    const sessions = [
+      // Recent — keep
+      { id: "s-recent", agent: "jace", name: "Recent", messages: [], archived: true, lockedDeck: null,
+        createdAt: new Date(now - 10 * dayMs).toISOString(),
+        updatedAt: new Date(now - 10 * dayMs).toISOString() },
+      // Old — drop
+      { id: "s-old", agent: "jace", name: "Old", messages: [], archived: true, lockedDeck: null,
+        createdAt: new Date(now - 120 * dayMs).toISOString(),
+        updatedAt: new Date(now - 120 * dayMs).toISOString() },
+    ];
+
+    const request = new Request("http://localhost/api/chats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessions }),
+    });
+    await route.POST(request);
+
+    const written = await readChatFile();
+    const ids = written.sessions.map(s => s.id);
+    expect(ids).toContain("s-recent");
+    expect(ids).not.toContain("s-old");
+  });
+});

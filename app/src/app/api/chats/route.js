@@ -9,6 +9,24 @@ const TMP_FILE = `${CHAT_FILE}.tmp`;
 const V1_BACKUP = `${CHAT_FILE}.v1.bak`;
 const AGENT_KEYS = ["jace", "karn", "tibalt", "arbiter"];
 
+// Per-session and per-file growth caps. v1 trimmed each agent history to 200
+// messages; v2's bigger lockedDeck snapshots (~80-120KB) and multi-session
+// model would otherwise grow chats.local.json without bound.
+//
+// MAX_SESSION_MESSAGES: hard cap per session; oldest messages trimmed.
+// MAX_ARCHIVED_SESSIONS: keep at most this many archived sessions; oldest go.
+// MAX_ARCHIVED_DAYS:    additionally drop archived sessions older than this.
+// Active sessions are NEVER pruned by count or age — the user is using them.
+function envNumber(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || raw === "") return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+const MAX_SESSION_MESSAGES = envNumber("MAX_SESSION_MESSAGES", 500);
+const MAX_ARCHIVED_SESSIONS = envNumber("MAX_ARCHIVED_SESSIONS", 50);
+const MAX_ARCHIVED_DAYS = envNumber("MAX_ARCHIVED_DAYS", 90);
+
 // ─── Normalisation ────────────────────────────────────────────────────────────
 
 function normalizeMessage(message) {
@@ -35,9 +53,14 @@ function generateSessionId() {
 }
 
 function normalizeSession(session) {
-  const messages = Array.isArray(session?.messages)
+  const rawMessages = Array.isArray(session?.messages)
     ? session.messages.map(normalizeMessage)
     : [];
+  // Cap per-session messages to keep chats.local.json bounded. Trim oldest
+  // first so the most recent conversation context is preserved.
+  const messages = MAX_SESSION_MESSAGES > 0 && rawMessages.length > MAX_SESSION_MESSAGES
+    ? rawMessages.slice(-MAX_SESSION_MESSAGES)
+    : rawMessages;
   return {
     id: typeof session?.id === "string" && session.id ? session.id : generateSessionId(),
     agent: AGENT_KEYS.includes(session?.agent) ? session.agent : "jace",
@@ -48,6 +71,34 @@ function normalizeSession(session) {
     updatedAt: typeof session?.updatedAt === "string" ? session.updatedAt : new Date().toISOString(),
     archived: Boolean(session?.archived),
   };
+}
+
+/**
+ * Drop archived sessions that are either too numerous (keep the most recent
+ * MAX_ARCHIVED_SESSIONS) or too old (older than MAX_ARCHIVED_DAYS based on
+ * updatedAt). Active sessions are never touched — the user is actively using
+ * them. Pass MAX_ARCHIVED_SESSIONS=0 or MAX_ARCHIVED_DAYS=0 in the env to
+ * disable either limit.
+ */
+function pruneSessions(sessions) {
+  const active = sessions.filter(s => !s.archived);
+  let archived = sessions.filter(s => s.archived);
+
+  // Newest first so slice(0, N) keeps the most recent.
+  archived.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+
+  if (MAX_ARCHIVED_DAYS > 0) {
+    const cutoff = Date.now() - MAX_ARCHIVED_DAYS * 86_400_000;
+    archived = archived.filter(s => {
+      const t = Date.parse(s.updatedAt);
+      return Number.isFinite(t) ? t >= cutoff : true;
+    });
+  }
+  if (MAX_ARCHIVED_SESSIONS > 0 && archived.length > MAX_ARCHIVED_SESSIONS) {
+    archived = archived.slice(0, MAX_ARCHIVED_SESSIONS);
+  }
+
+  return [...active, ...archived];
 }
 
 function normalizeSessions(sessions = []) {
@@ -158,7 +209,7 @@ async function writeChatFile({ sessions }) {
   const payload = {
     version: 2,
     updatedAt: new Date().toISOString(),
-    sessions: normalizeSessions(sessions),
+    sessions: pruneSessions(normalizeSessions(sessions)),
   };
   await atomicWrite(payload);
   return payload;
