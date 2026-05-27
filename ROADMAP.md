@@ -27,10 +27,50 @@ no GitHub remote yet (queued as P0 in TODOS.md).
 
 **Test suite:** 81 Vitest cases across 9 files; full `npm test` clean.
 
-**Next phase:** Phase 6 (Learn-to-Play Mode) per CLAUDE.md is the
-substantial next build — separate roadmap doc still required. Smaller
-follow-ups queued in TODOS.md include the GitHub remote setup (P0),
-Phase 6 design doc, and any UX polish that comes out of dogfooding.
+---
+
+## Late-2026-05-26 Addendum — Phase 6 PR1-PR6 + paths/Tauri refactor
+
+Phase 6 (Learn-to-Play) is now end-to-end playable in Beginner mode.
+Sub-PRs landed across several commits on master:
+
+- **PR1** `gameState.js` — pure immutable data layer (factories, zones,
+  permanents, mana, life). 56 tests.
+- **PR2** `gameEngine.js` — turn/phase/step state machine with priority
+  loop + trigger queue + APNAP ordering. 29 tests.
+- **PR3** `legalChoices.js` — mana cost parser + can-afford + legal-
+  action enumeration (pass / play-land / cast-spell / declare-attacker /
+  declare-blocker). 40 tests.
+- **PR4** `opponentAI.js` — archetype-aware action picker reusing
+  goldfish v2 internals. 15 tests.
+- **PR5** `decisionGate.js` + `narrator.js` — bridge between engine and
+  player decisions, Jace-voice rule-citing narration per difficulty.
+  27 tests.
+- **Integration smoke** — 5-case end-to-end test driving the full
+  stack through 2+ turn cycles.
+- **PR6.1** `actionDispatcher.js` — pure-function "apply legal action
+  to state" with default type-aware spell resolver. 20 tests.
+- **PR6.2** `learnSession.js` — session lifecycle container with
+  `advanceUntilDecision` driver loop. 18 tests.
+- **PR6.3** `/api/learn/start` + `/api/learn/step` + in-memory session
+  store. 19 tests.
+- **PR6.4** `useLearnSession` hook + `LearnView.jsx` — minimal but
+  functional React UI. Garfield entry in the Sidebar wires the user in.
+
+Also during this stretch: paths refactor (`lib/server/paths.js`)
+centralises `dataPath` / `mtgJudgePath` / `mtgEnginePath` so an
+Electron / Tauri desktop binary can override roots without touching
+route code. Feedback workflow expanded with a popup window
+(`/feedback-window`), Cmd/Ctrl-Shift-F shortcut, FEEDBACK.md digest
+generation, copy/download/delete actions. Tauri scaffolding under
+`app/src-tauri/`.
+
+**Test suite:** 316 Vitest cases across 19 files; `npm test` clean.
+
+**Open queue (TODOS.md):** Phase 6 PR7 (Intermediate refinements),
+PR8 (Expert + post-game analysis), PR9 (disk persistence for resume),
+PR10 (UI polish — zone graphics, keyboard shortcuts, mobile, a11y).
+P0 GitHub remote setup still queued.
 
 This is the working roadmap. Claude Code updates this as phases complete.
 

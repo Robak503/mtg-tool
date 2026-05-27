@@ -28,15 +28,41 @@ stays readable.
 
 ## Phase 6 — Learn-to-Play Mode
 
-### P1 — Phase 6 PR5: decisionGate + narrator stubs (Beginner)
+PR1-PR6 done (Beginner mode end-to-end playable). Open items for PR7+:
 
-**What:** Build `app/src/lib/learn/decisionGate.js` and `narrator.js` per design doc §5 step 5. Beginner-mode bridge: present every legal action to the user, explain via Jace voice, wait for choice. Intermediate/Expert modes are PR7/PR8. ~300 LOC + tests.
+### P2 — Phase 6 PR7: Intermediate difficulty refinements
 
-**Why:** PR4 shipped the AI side. PR5 closes the loop for the user side — without it, the engine has no way to ask the user what they want to do. After PR5, the engine can simulate a full game with both sides making decisions.
+**What:** Refine `decisionGate` Intermediate path. Auto-pick blocks when there's a "must block this with the cheapest creature" pattern. Surface trap warnings ("opponent has untapped mana for a counter") before user attacks into open mana.
 
-**Depends on:** PR3 (legal actions), PR4 (AI policy). No new data shapes.
+**Why:** PR5 shipped a stub Intermediate that auto-passes empty windows and asks on real casts. PR7 makes it actually feel like a coach.
 
-**Reference:** `docs/phase6-learn-to-play.md` §3 (Beginner curriculum table) + §5 step 5.
+**Reference:** `docs/phase6-learn-to-play.md` §3 (Intermediate curriculum) + §5 step 7.
+
+---
+
+### P2 — Phase 6 PR8: Expert mode + post-game analysis
+
+**What:** Expert mode auto-decides everything via opponentAI policy and surfaces a post-game analysis that detects "you held mana for X but never cast it" / "you could have attacked for lethal on turn 7" patterns from the decisionLog.
+
+**Why:** Expert is the "watch the engine run, learn from the post-mortem" mode — high value for advanced users.
+
+**Reference:** `docs/phase6-learn-to-play.md` §3 (Expert curriculum) + §5 step 8.
+
+---
+
+### P3 — Phase 6 PR9: Disk persistence for learn sessions
+
+**What:** Save learn sessions to `data/learn-sessions/{id}.json` so the user can resume across server restarts. Add a "Resume" entry in LearnView's idle screen listing recent sessions.
+
+**Why:** Right now sessions live in process memory and vanish on restart. For a 30-minute Beginner game, that's annoying.
+
+---
+
+### P3 — Phase 6 PR10: UI polish
+
+**What:** Zone graphics (cards in hand as proper rows, battlefield as a grid, stack as a vertical column). Keyboard shortcuts (1-9 to pick options, Enter for recommended). Mobile layout. Accessibility (focus management, ARIA labels on decision buttons).
+
+**Why:** PR6.4 ships a "functional but spare" UI. PR10 makes it pleasant to use for long sessions.
 
 ---
 
@@ -132,3 +158,27 @@ Goldfish v2: London mulligan, type_line/keywords-driven classification, archetyp
 ### ~~Phase 6 PR4: opponentAI + tests~~ ✅ DONE (master, 2026-05-26)
 
 `app/src/lib/learn/opponentAI.js` (~240 LOC) + `opponentAI.test.js` (15 tests). `pickAction` enforces priority order land→cast→pass; cast scoring matches the per-archetype priority tables from goldfish v2's internal `buildCastScorer` (aggro→cheap-creatures-first, control→interaction-first, combo→ramp-and-tutors, voltron→equipment, etc.). `pickAttackPlan` attacks with every legal attacker (v1 policy; bluffing/trap-detection is PR7+). `pickBlockPlan` assigns at most one blocker per attacker preferring smallest power. Archetype resolves lazily via `detectArchetype` over `deriveDeckRepresentation(state, playerId)` when the caller doesn't supply one.
+
+### ~~Phase 6 PR5: decisionGate + narrator (Beginner) + tests~~ ✅ DONE (master, 2026-05-26)
+
+`app/src/lib/learn/decisionGate.js` + `narrator.js` (~300 LOC combined) + `decisionGate.test.js` (27 tests). Bridge between engine and player decisions. Jace-voice templates per step with rule citations at Beginner; one-sentence summary at Intermediate; silent at Expert. `makeDecision` routes user side per difficulty (ask everything / auto-pick lands / silent autopilot) while AI side always auto-decides. `resolveChoice` validates the user's pick against legal options.
+
+### ~~Phase 6 integration smoke test~~ ✅ DONE (master, 2026-05-26)
+
+`app/src/lib/learn/integration.test.js` — 5 cases driving the full lib stack through 2+ turn cycles to prove PR1-PR5 compose without crashing.
+
+### ~~Phase 6 PR6.1: actionDispatcher.js + tests~~ ✅ DONE (master, 2026-05-26)
+
+`app/src/lib/learn/actionDispatcher.js` (~280 LOC) + 20 tests. Pure-function layer that takes a legal action and produces the next state. Handles pass-priority, play-land, cast-spell (with default type-aware resolver that puts creatures/artifacts/enchantments/planeswalkers on the battlefield and treats instants/sorceries as no-op-with-log), declare-attacker, declare-blocker. Mana-deduction arithmetic with hybrid handling and "spend C before colored" generic-cost preference.
+
+### ~~Phase 6 PR6.2: learnSession.js + tests~~ ✅ DONE (master, 2026-05-26)
+
+`app/src/lib/learn/learnSession.js` (~230 LOC) + 18 tests. Session lifecycle container wrapping GameState + difficulty + decisionLog + status. `advanceUntilDecision` driver loop auto-applies AI decisions and trivial user auto-passes until a real user decision OR game-end. `applyChoice` validates against legal options + dispatches + chains advanceUntilDecision so the UI gets the next prompt in one round-trip. Detects life ≤ 0 and commander damage ≥ 21 as state-based actions.
+
+### ~~Phase 6 PR6.3: /api/learn/start + /api/learn/step + store + tests~~ ✅ DONE (master, 2026-05-26)
+
+HTTP boundary: `POST /api/learn/start` creates a session and returns the first decision; `POST /api/learn/step` applies a choice. In-memory session store with 50-session cap + 4-hour TTL. Wire payload strips non-serialisable fields (e.g. `payload.onResolve` on stack objects). 19 tests cover input validation, store round-trip, game-end cleanup, dispatch-error vs 5xx mapping.
+
+### ~~Phase 6 PR6.4: useLearnSession + LearnView UI~~ ✅ DONE (master, 2026-05-26)
+
+`useLearnSession` hook over the HTTP routes plus `LearnView.jsx` (~350 LOC). Three screen states: idle (deck pickers + difficulty radio + Start), active (prompt + numbered options + recent-actions feed + abandon), ended (win/lose + new game). Wired into MTGAssistant as the `centerView==="learn"` branch; Sidebar gets a Garfield Learn-to-Play entry. Phase 6 is now end-to-end playable in the dev server.
