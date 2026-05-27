@@ -8,3 +8,7 @@ data/*.local.json
 # tier-manifest.json is a small metadata file and is committed
 data/scryfall-bulk/*.json
 !data/scryfall-bulk/tier-manifest.json
+
+# Tauri / Rust build artifacts
+src-tauri/target/
+src-tauri/gen/

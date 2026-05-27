@@ -84,6 +84,17 @@ export default function Sidebar({
             <div><div style={{fontSize:13,fontWeight:700}}>{a.name}</div><div style={{fontSize:10,opacity:.65}}>{a.title}</div></div>
           </button>
         ))}
+        {/* Garfield — special-case entry point. He's not a chat agent;
+            he runs the Learn-to-Play simulator. Lives below the chat
+            agents so the visual grouping ("here are your chat
+            personas") stays clean. */}
+        <button
+          style={{width:"100%",padding:"8px 10px",marginBottom:5,borderRadius:6,border:`1px solid ${LINE}`,background:"transparent",color:MUTED,cursor:"pointer",textAlign:"left",fontFamily,display:"flex",alignItems:"center",gap:8}}
+          onClick={()=>{setCenterView("learn");if(mobile)setMobileTab("chat");}}
+        >
+          <span style={{fontSize:16}}>🎓</span>
+          <div><div style={{fontSize:13,fontWeight:700}}>Garfield</div><div style={{fontSize:10,opacity:.65}}>Learn to Play</div></div>
+        </button>
       </div>
 
       <div>

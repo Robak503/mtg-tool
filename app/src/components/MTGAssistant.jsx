@@ -25,6 +25,7 @@ import RightPanel from "./mtg/RightPanel";
 import ChatPanel from "./mtg/ChatPanel";
 import SessionSidebar from "./mtg/SessionSidebar";
 import FeedbackButton from "./mtg/FeedbackButton";
+import LearnView from "./mtg/LearnView";
 
 export default function MTGAssistant() {
   const [agent, setAgent]   = useState("karn");
@@ -611,13 +612,20 @@ export default function MTGAssistant() {
                 updateActiveMemory={updateActiveMemory}
                 updateAgentNote={updateAgentNote}
               />
+            ):centerView==="learn"?(
+              <LearnView
+                savedDecks={savedDecks}
+                cfg={cfg}
+                colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD}}
+                fontFamily={F}
+              />
             ):(
               <ChatPanel
                 activeDeck={activeDeck}
                 agent={agent}
                 bottomRef={bottomRef}
                 cfg={cfg}
-                colors={{BG2, BG3, LINE, TEXT}}
+                colors={{BG2, BG3, LINE, TEXT, MUTED}}
                 currentSession={currentSession}
                 fontFamily={F}
                 input={input}
