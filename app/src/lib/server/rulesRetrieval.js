@@ -10,7 +10,8 @@ import {
 } from "./cardIndex.js";
 import { retrieveRulesGuruPrecedents, resetRulesGuruRetrievalForTests } from "./rulesGuruRetrieval.js";
 
-const RULES_INDEX_FILE = path.join(process.cwd(), "data", "rules-index.json");
+import { dataPath } from "./paths.js";
+const RULES_INDEX_FILE = dataPath("rules-index.json");
 const DEFAULT_LIMIT = 5;
 
 let rulesIndex = null;
