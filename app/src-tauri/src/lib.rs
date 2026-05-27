@@ -1,6 +1,18 @@
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 
+/// Strip the Windows extended-length `\\?\` prefix from a path string.
+///
+/// Tauri's resource_dir() returns paths in extended form (e.g.
+/// `\\?\C:\Users\...`). Node.js v22+ fails to parse these — it ends up
+/// lstat'ing just the drive letter ("C:") and throwing EISDIR. So we
+/// hand Node a plain `C:\Users\...` path instead.
+#[cfg(not(debug_assertions))]
+fn strip_unc(p: &std::path::Path) -> String {
+    let s = p.to_string_lossy().into_owned();
+    s.strip_prefix(r"\\?\").map(|t| t.to_string()).unwrap_or(s)
+}
+
 /// Recursive copy used to seed the user data dir on first launch.
 #[cfg(not(debug_assertions))]
 fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
@@ -55,6 +67,7 @@ pub fn run() {
             // loads http://127.0.0.1:3000 which this server provides.
             #[cfg(not(debug_assertions))]
             {
+                use std::io::Write;
                 use tauri::Manager;
 
                 let resource_dir = app
@@ -70,42 +83,86 @@ pub fn run() {
                 // First launch: ensure the writable data directory exists.
                 let _ = std::fs::create_dir_all(&data_dir);
 
-                // Tauri places `resources/` from tauri.conf.json under
-                // <resource_dir>/resources/ — see prepare-tauri-resources.cjs
-                // for the staging layout.
+                // Launch log lives in %APPDATA%\com.colton.mtg-tool\launch.log
+                let log_path = data_dir.join("launch.log");
+                let mut log = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&log_path)
+                    .ok();
+
+                macro_rules! logln {
+                    ($($arg:tt)*) => {
+                        if let Some(ref mut f) = log {
+                            let _ = writeln!(f, $($arg)*);
+                        }
+                    };
+                }
+
+                logln!(
+                    "--- launch (epoch secs: {}) ---",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0)
+                );
+                logln!("resource_dir = {}", resource_dir.display());
+                logln!("data_dir     = {}", data_dir.display());
+
                 let staged = resource_dir.join("resources");
                 let server_js = staged.join("server").join("server.js");
                 let mtg_judge_dir = staged.join("mtg-judge");
                 let mtg_engine_dir = staged.join("MTG ENGINE");
 
-                // Seed data files (slim oracle index) live alongside server
-                // code at runtime — copy them into the user data dir on
-                // first launch so paths.js's dataPath() resolution works.
+                logln!("staged       = {} (exists={})", staged.display(), staged.exists());
+                logln!("server_js    = {} (exists={})", server_js.display(), server_js.exists());
+
                 let seed_data = staged.join("data");
                 if seed_data.exists() {
                     let user_data = data_dir.join("data");
                     if !user_data.exists() {
-                        let _ = copy_dir_recursive(&seed_data, &user_data);
+                        match copy_dir_recursive(&seed_data, &user_data) {
+                            Ok(_) => logln!("seeded user data dir at {}", user_data.display()),
+                            Err(e) => logln!("seed copy failed: {e}"),
+                        }
                     }
                 }
 
-                match std::process::Command::new("node")
-                    .arg(&server_js)
+                // Redirect server stdout/stderr to log files so we can
+                // diagnose crashes after the fact.
+                let stdout_log = data_dir.join("server.out.log");
+                let stderr_log = data_dir.join("server.err.log");
+                let stdout_file = std::fs::File::create(&stdout_log).ok();
+                let stderr_file = std::fs::File::create(&stderr_log).ok();
+
+                let server_js_str = strip_unc(&server_js);
+                let server_dir_str = strip_unc(server_js.parent().unwrap_or(&staged));
+                let mut cmd = std::process::Command::new("node");
+                cmd.arg(&server_js_str)
                     .env("PORT", "3000")
                     .env("HOSTNAME", "127.0.0.1")
-                    // paths.js reads these; see app/src/lib/server/paths.js
-                    .env("MTG_APP_ROOT", data_dir.to_str().unwrap_or(""))
-                    .env("MTG_JUDGE_DIR", mtg_judge_dir.to_str().unwrap_or(""))
-                    .env("MTG_ENGINE_DIR", mtg_engine_dir.to_str().unwrap_or(""))
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .spawn()
-                {
+                    .env("MTG_APP_ROOT", strip_unc(&data_dir))
+                    .env("MTG_JUDGE_DIR", strip_unc(&mtg_judge_dir))
+                    .env("MTG_ENGINE_DIR", strip_unc(&mtg_engine_dir))
+                    .current_dir(&server_dir_str);
+                if let Some(f) = stdout_file {
+                    cmd.stdout(std::process::Stdio::from(f));
+                }
+                if let Some(f) = stderr_file {
+                    cmd.stderr(std::process::Stdio::from(f));
+                }
+
+                match cmd.spawn() {
                     Ok(child) => {
-                        wait_for_port(3000, 30);
+                        logln!("spawned node, pid={}", child.id());
+                        let ready = wait_for_port(3000, 30);
+                        logln!("port 3000 ready = {ready}");
                         *server_child.lock().unwrap() = Some(child);
                     }
-                    Err(e) => eprintln!("Failed to start Next.js server: {e}"),
+                    Err(e) => {
+                        logln!("Failed to spawn node: {e}");
+                        logln!("(is Node.js on PATH? `where node` should resolve.)");
+                    }
                 }
             }
 
