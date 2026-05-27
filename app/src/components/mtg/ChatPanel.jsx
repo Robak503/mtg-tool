@@ -1,6 +1,127 @@
 import { useState, useEffect } from "react";
 import { QUICK } from "../../lib/agents";
 
+/**
+ * Per-message reactions. Click 👍/👎 to log a structured feedback entry
+ * containing the user prompt + agent response. One-shot — once submitted,
+ * the selection persists for the session but cannot be undone (the JSON
+ * entry already landed in data/feedback/).
+ */
+function MessageReactions({
+  message,
+  userPrompt,
+  agent,
+  activeDeck,
+  currentSession,
+  fontFamily,
+  LINE,
+  MUTED,
+}) {
+  const [reaction, setReaction] = useState(null);
+  const [status, setStatus] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (kind) => {
+    if (submitting || reaction) return;
+    setSubmitting(true);
+    setStatus(null);
+    const glyph = kind === "up" ? "👍" : "👎";
+    const label = kind === "up" ? "Helpful" : "Needs work";
+    const bodyParts = [`${glyph} ${label}`];
+    if (userPrompt) {
+      bodyParts.push("", "User asked:", userPrompt);
+    }
+    bodyParts.push("", `Agent (${agent}) replied:`, message.content || "");
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: bodyParts.join("\n"),
+          category: "agent-quality",
+          context: {
+            agent,
+            sessionId: currentSession?.id || null,
+            sessionName: currentSession?.name || null,
+            deckName: activeDeck?.name || null,
+            deckCommander: currentSession?.lockedDeck?.commander || null,
+            page: "chat",
+          },
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok && data.ok) {
+        setReaction(kind);
+        setStatus("saved");
+        setTimeout(() => setStatus(null), 1800);
+      } else {
+        setStatus("error");
+      }
+    } catch {
+      setStatus("error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const btnStyle = (kind) => {
+    const active = reaction === kind;
+    return {
+      background: active ? "#0d2615" : "transparent",
+      border: `1px solid ${active ? "#2a5a3a" : LINE}`,
+      borderRadius: 999,
+      color: active ? "#85d18a" : MUTED,
+      cursor: submitting || reaction ? "default" : "pointer",
+      fontSize: 12,
+      fontFamily,
+      padding: "2px 9px",
+      lineHeight: 1.2,
+      transition: "color 100ms, border-color 100ms, background 100ms",
+      opacity: reaction && !active ? 0.3 : 1,
+    };
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 6,
+        alignItems: "center",
+        marginTop: 4,
+        opacity: reaction ? 1 : 0.55,
+        transition: "opacity 120ms",
+      }}
+      onMouseEnter={e => { if (!reaction) e.currentTarget.style.opacity = 1; }}
+      onMouseLeave={e => { if (!reaction) e.currentTarget.style.opacity = 0.55; }}
+    >
+      <button
+        onClick={() => submit("up")}
+        disabled={submitting || !!reaction}
+        title={reaction ? "Reaction logged" : "Log positive feedback for this response"}
+        aria-label="Mark helpful"
+        style={btnStyle("up")}
+      >
+        👍
+      </button>
+      <button
+        onClick={() => submit("down")}
+        disabled={submitting || !!reaction}
+        title={reaction ? "Reaction logged" : "Log this response as needing work"}
+        aria-label="Mark needs work"
+        style={btnStyle("down")}
+      >
+        👎
+      </button>
+      {status === "saved" && (
+        <span style={{ fontSize: 10, color: "#85d18a" }}>✓ saved to FEEDBACK.md</span>
+      )}
+      {status === "error" && (
+        <span style={{ fontSize: 10, color: "#c2786f" }}>⚠ not saved</span>
+      )}
+    </div>
+  );
+}
+
 function Dots({ color }) {
   return (
     <span style={{ display: "inline-flex", gap: 5, alignItems: "center" }}>
@@ -131,7 +252,7 @@ export default function ChatPanel({
   unlockSessionDeck,
   createSession,
 }) {
-  const { BG2, BG3, LINE, TEXT } = colors;
+  const { BG2, BG3, LINE, TEXT, MUTED } = colors;
   const quickPrompts = QUICK[agent] || [];
   const sessionMessages = currentSession?.messages || [];
   const sessionLockedDeck = currentSession?.lockedDeck || null;
@@ -387,6 +508,21 @@ export default function ChatPanel({
               >
                 Retry with Anthropic ↗
               </button>
+            )}
+
+            {msg.role === "assistant" && !msg.isError && (
+              <MessageReactions
+                message={msg}
+                userPrompt={sessionMessages[index - 1]?.role === "user"
+                  ? sessionMessages[index - 1].content
+                  : null}
+                agent={agent}
+                activeDeck={activeDeck}
+                currentSession={currentSession}
+                fontFamily={fontFamily}
+                LINE={LINE}
+                MUTED={MUTED}
+              />
             )}
           </div>
         ))}
