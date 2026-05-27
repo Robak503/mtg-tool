@@ -432,6 +432,15 @@ export default function useChatAgents({
 
   useEffect(() => {
     if (!chatLoaded) return;
+    // Skip persistence writes while any agent has an active streaming message.
+    // Streaming messages have { streaming: true }; once the stream completes the
+    // message is replaced with the final message (streaming unset), triggering
+    // one final save of the complete content. Writing on every token is wasteful
+    // and can serialize multi-KB state hundreds of times per response.
+    const isStreaming = Object.values(histories).some(msgs =>
+      Array.isArray(msgs) && msgs.some(m => m.streaming === true)
+    );
+    if (isStreaming) return;
     saveJson(CHAT_STORAGE_KEYS.jace, histories.jace);
     saveJson(CHAT_STORAGE_KEYS.karn, histories.karn);
     saveJson(CHAT_STORAGE_KEYS.tibalt, histories.tibalt);
@@ -750,11 +759,13 @@ export default function useChatAgents({
         return;
       }
 
-      // Streaming: add a placeholder that updates token-by-token
-      const streamingIdx = baseHistory.length;
+      // Streaming: add a placeholder that updates token-by-token.
+      // Use a stable ID instead of an array index so concurrent state updates
+      // (e.g. from a parallel Arbiter fetch) can't shift the index mid-stream.
+      const streamingMsgId = `streaming-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       setHistories(previous => ({
         ...previous,
-        [targetAgent]: [...baseHistory, { role: "assistant", content: "", streaming: true }],
+        [targetAgent]: [...baseHistory, { id: streamingMsgId, role: "assistant", content: "", streaming: true }],
       }));
 
       const reader = response.body.getReader();
@@ -777,8 +788,9 @@ export default function useChatAgents({
             if (event.type === "text_delta") {
               streamedText += event.text;
               setHistories(previous => {
-                const msgs = [...(previous[targetAgent] || [])];
-                msgs[streamingIdx] = { ...msgs[streamingIdx], content: streamedText };
+                const msgs = (previous[targetAgent] || []).map(m =>
+                  m.id === streamingMsgId ? { ...m, content: streamedText } : m
+                );
                 return { ...previous, [targetAgent]: msgs };
               });
             } else if (event.type === "done") {
@@ -793,15 +805,16 @@ export default function useChatAgents({
       // Handle streaming error
       if (streamError) {
         setHistories(previous => {
-          const msgs = [...(previous[targetAgent] || [])];
-          msgs[streamingIdx] = {
-            role: "assistant",
-            content: streamError.error || "Model returned an error.",
-            isError: true,
-            fallbackAvailable: streamError.fallbackAvailable ?? true,
-            originalPrompt: prompt,
-            errorProvider: streamError.provider || (effectiveProvider),
-          };
+          const msgs = (previous[targetAgent] || []).map(m =>
+            m.id === streamingMsgId ? {
+              role: "assistant",
+              content: streamError.error || "Model returned an error.",
+              isError: true,
+              fallbackAvailable: streamError.fallbackAvailable ?? true,
+              originalPrompt: prompt,
+              errorProvider: streamError.provider || effectiveProvider,
+            } : m
+          );
           return { ...previous, [targetAgent]: msgs };
         });
         setSending(false);
@@ -878,8 +891,9 @@ export default function useChatAgents({
       };
 
       setHistories(previous => {
-        const msgs = [...(previous[targetAgent] || [])];
-        msgs[streamingIdx] = { role: "assistant", content: reply, ...responseMeta };
+        const msgs = (previous[targetAgent] || []).map(m =>
+          m.id === streamingMsgId ? { role: "assistant", content: reply, ...responseMeta } : m
+        );
         return { ...previous, [targetAgent]: msgs };
       });
     } catch (error) {
