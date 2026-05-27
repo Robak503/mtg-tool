@@ -1,14 +1,12 @@
 export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
-import path from "node:path";
 
-const TOOL_ROOT = path.resolve(process.cwd(), "..");
-const ENGINE_ROOT = path.join(TOOL_ROOT, "MTG ENGINE");
-const JUDGE_ROOT = path.join(TOOL_ROOT, "mtg-judge");
-const CR_FILE = path.join(JUDGE_ROOT, "data", "cr", "cr_current.json");
-const ROUTER_FILE = path.join(ENGINE_ROOT, "META_query_router.md");
-const LAYER_INDEX_FILE = path.join(ENGINE_ROOT, "META_layer_index.md");
+import { mtgJudgePath, mtgEnginePath } from "../../../lib/server/paths";
+
+const CR_FILE = mtgJudgePath("data", "cr", "cr_current.json");
+const ROUTER_FILE = mtgEnginePath("META_query_router.md");
+const LAYER_INDEX_FILE = mtgEnginePath("META_layer_index.md");
 
 const STOP_TERMS = new Set([
   "the",

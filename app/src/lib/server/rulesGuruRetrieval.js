@@ -1,7 +1,8 @@
 import fs from "node:fs";
-import path from "node:path";
 
-const RULESGURU_FILE = path.join(process.cwd(), "..", "mtg-judge", "META_test_cases_rulesguru.md");
+import { mtgJudgePath } from "./paths.js";
+
+const RULESGURU_FILE = mtgJudgePath("META_test_cases_rulesguru.md");
 const DEFAULT_LIMIT = 3;
 
 let cachedPrecedents = null;
