@@ -3,7 +3,21 @@
 import { useEffect, useState } from "react";
 
 import { AGENTS, ARBITER_PROMPT_FAST } from "../lib/agents";
+import { fetchArbiterTrace, shouldUseArbiterTrace, summarizeArbiterMetadata } from "../lib/arbiterUtils";
+import { bracketKnownCardNames, countContextCards, countContextRulings, localJaceRulesPrimer } from "../lib/chatPostProcess";
 import { flushChatFileSave, loadChatState, saveChatFile, scheduleChatFileSave } from "../lib/chatPersistence";
+import {
+  buildSavedDeckContext,
+  createDeckLock,
+  deckCommanderNames,
+  deckCommander,
+  deckOracleCardNamesFromCards,
+  deckOracleCardNamesFromText,
+  fetchEngineContext,
+  lockContext,
+  shouldUseDeckScopedContext,
+  shouldUseEngineContext,
+} from "../lib/deckContextBuilder";
 import { serializeDeck, serializeDeckMemory } from "../lib/deckMemory";
 import { buildCardContext, buildCardContextForNames, buildKarnScryfallSearchContext, loadCardCatalog, postProcessKarnResponse } from "../lib/scryfall";
 import { loadJson, saveJson } from "../lib/storage";
@@ -15,182 +29,8 @@ const CHAT_STORAGE_KEYS = {
   arbiter: "mtg-chat-arbiter",
 };
 
-const DECK_CONTEXT_FULL_LIMIT = 10;
 const API_HISTORY_LIMIT = 8;
 const DECK_LOCK_AGENTS = new Set(["jace", "karn", "tibalt", "arbiter"]);
-
-function compact(text, limit = 420) {
-  const clean = String(text || "").replace(/\s+/g, " ").trim();
-  return clean.length <= limit ? clean : clean.slice(0, limit - 3).trim() + "...";
-}
-
-function deckCommander(deck) {
-  return (deck?.cards || [])
-    .filter(card => card.section === "Commander")
-    .map(card => card.name)
-    .join(" / ") || deck?.name || "No commander saved";
-}
-
-function deckMainCount(deck) {
-  return (deck?.cards || [])
-    .filter(card => card.section !== "Sideboard" && card.section !== "Tokens")
-    .reduce((sum, card) => sum + card.qty, 0);
-}
-
-function deckTokenCount(deck) {
-  return (deck?.cards || [])
-    .filter(card => card.section === "Tokens")
-    .reduce((sum, card) => sum + card.qty, 0);
-}
-
-function deckCommanderNames(deck) {
-  return (deck?.cards || [])
-    .filter(card => card.section === "Commander")
-    .map(card => card.name)
-    .filter(Boolean);
-}
-
-function deckOracleCardNamesFromCards(cards = []) {
-  return [...new Set(
-    (cards || [])
-      .filter(card => card.section !== "Sideboard" && card.section !== "Tokens")
-      .map(card => card.name)
-      .filter(Boolean)
-  )];
-}
-
-function deckOracleCardNamesFromText(deckText = "") {
-  return [...new Set(
-    String(deckText || "")
-      .split(/\r?\n/)
-      .map(line => line.trim())
-      .filter(line => line && !line.startsWith("#"))
-      .map(line => line.replace(/^\d+\s+/, "").trim())
-      .filter(line => line && !/^(commander|mainboard|sideboard|tokens)$/i.test(line))
-  )];
-}
-
-function normalizeSearchText(text) {
-  return String(text || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
-}
-
-function deckMatchesText(deck, normalizedText) {
-  if (!normalizedText) return false;
-  const names = [
-    deck?.name,
-    deckCommander(deck),
-    ...(deck?.cards || []).filter(card => card.section === "Commander").map(card => card.name),
-  ].filter(Boolean);
-
-  return names.some(name => {
-    const normalizedName = normalizeSearchText(name);
-    if (!normalizedName) return false;
-    return normalizedText.includes(normalizedName) ||
-      normalizedName.split(" ").filter(part => part.length > 3).some(part => normalizedText.includes(part));
-  });
-}
-
-function buildSavedDeckContext(savedDecks, targetAgent, conversationText, activeDeckId) {
-  if (!["jace", "karn", "tibalt"].includes(targetAgent) || !savedDecks?.length) {
-    return { context: "", hasDeckReference: false, hasFullDeckContext: false };
-  }
-
-  const normalizedText = normalizeSearchText(conversationText);
-  const owners = [...new Set(savedDecks.map(deck => deck.memory?.owner || "Colton"))];
-  const mentionedOwners = owners.filter(owner => {
-    const normalizedOwner = normalizeSearchText(owner);
-    if (!normalizedOwner) return false;
-    if (normalizedText.includes(normalizedOwner)) return true;
-    return normalizedOwner === "colton" && /\b(my|mine|personal)\b/.test(normalizedText);
-  });
-
-  const asksForSavedDecks = /\b(saved|database|library|deck file|deck files|all decks|all of the decks|their decks|his decks|her decks)\b/.test(normalizedText);
-  const asksForRoastSet = targetAgent === "tibalt" && /\b(why|explain|roast|suck|bad|terrible|trash|awful|weak)\b/.test(normalizedText);
-
-  const summaryLines = savedDecks.map(deck => {
-    const memory = deck.memory || {};
-    return [
-      `- ${memory.owner || "Colton"} :: ${deck.name || "Unnamed"}`,
-      `Commander: ${deckCommander(deck)}`,
-      `${deckMainCount(deck)} deck cards${deckTokenCount(deck) ? `, ${deckTokenCount(deck)} token entries saved separately` : ""}`,
-      memory.tags ? `Tags: ${memory.tags}` : "",
-      memory.notes ? `Notes: ${compact(memory.notes, targetAgent === "tibalt" ? 520 : 280)}` : "",
-    ].filter(Boolean).join(" | ");
-  });
-
-  let matchedDecks = savedDecks.filter(deck => deckMatchesText(deck, normalizedText));
-  if (mentionedOwners.length) {
-    const ownerSet = new Set(mentionedOwners.map(owner => normalizeSearchText(owner)));
-    matchedDecks = savedDecks.filter(deck => ownerSet.has(normalizeSearchText(deck.memory?.owner || "Colton")));
-  }
-
-  if (!matchedDecks.length && asksForSavedDecks && asksForRoastSet && mentionedOwners.length === 0) {
-    matchedDecks = savedDecks.filter(deck => deck.id !== activeDeckId);
-  }
-
-  const fullDecks = matchedDecks.slice(0, DECK_CONTEXT_FULL_LIMIT);
-  const omitted = matchedDecks.length - fullDecks.length;
-
-  const lines = [
-    "## Saved Deck Library",
-    "These decks are already saved in the local deck database. If the user references an owner, commander, deck name, saved deck, database, or deck file, use this library instead of asking them to paste the list.",
-    ...summaryLines,
-  ];
-
-  if (fullDecks.length) {
-    lines.push("");
-    lines.push("## Referenced Saved Decks");
-    lines.push("Use these full saved deck lists as concrete deck context for this conversation. Token sections are not normal Commander deck slots.");
-    for (const deck of fullDecks) {
-      lines.push("");
-      lines.push(`### ${deck.memory?.owner || "Colton"} :: ${deck.name || "Unnamed"}`);
-      lines.push(serializeDeckMemory(deck));
-      lines.push("");
-      lines.push(serializeDeck(deck.cards || []));
-    }
-    if (omitted > 0) lines.push(`\n${omitted} additional matching saved deck(s) omitted to keep context bounded.`);
-  }
-
-  return {
-    context: lines.join("\n"),
-    hasDeckReference: Boolean(asksForSavedDecks || mentionedOwners.length || matchedDecks.length),
-    hasFullDeckContext: fullDecks.length > 0,
-  };
-}
-
-function shouldUseArbiterTrace(targetAgent, prompt) {
-  if (targetAgent !== "jace") return false;
-  const text = normalizeSearchText(prompt);
-  return /\b(arbiter|rule|rules|ruling|judge|trigger|triggers|stack|priority|state based|sba|replacement|prevention|layer|timestamp|dies|died|death|exile|graveyard|copy|token|combat damage|commander damage|commander tax|deathtouch|trample|lifelink|first strike|double strike|resolve|resolves|cast|activate|etb|leave the battlefield|enter the battlefield|can i|can they|what happens|who has priority|does this|does it)\b/.test(text);
-}
-
-async function fetchArbiterTrace({ question, cardContext, context, fast, provider }) {
-  try {
-    const isLocal = provider === "ollama" || provider === "local";
-    const response = await fetch("/api/arbiter", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        question,
-        cardContext,
-        context,
-        fast,
-        provider,
-        fastLocal: isLocal,
-        max_tokens: fast || isLocal ? 900 : undefined,
-      }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) return { trace: "", status: "unresolved", retrievalMetadata: null };
-    return {
-      trace: data.trace || "",
-      status: data.status || "unresolved",
-      retrievalMetadata: data.retrievalMetadata || null,
-    };
-  } catch {
-    return { trace: "", status: "unresolved", retrievalMetadata: null };
-  }
-}
 
 function toApiMessages(messages) {
   return messages.map(message => ({
@@ -211,14 +51,6 @@ function emptyLocks() {
   return { jace: null, karn: null, tibalt: null, arbiter: null };
 }
 
-function countContextCards(text) {
-  return (String(text || "").match(/^\[/gm) || []).length;
-}
-
-function countContextRulings(text) {
-  return (String(text || "").match(/WOTC RULINGS:/g) || []).length;
-}
-
 function normalizeModelTier(value) {
   const tier = String(value || "fast").trim().toLowerCase();
   if (["anthropic", "api", "cloud"].includes(tier)) return "anthropic";
@@ -229,130 +61,6 @@ function normalizeModelTier(value) {
 
 function providerForModelTier(tier) {
   return tier === "anthropic" ? "anthropic" : "ollama";
-}
-
-function summarizeArbiterMetadata(metadata) {
-  if (!metadata) return null;
-  return {
-    ruleNumbers: (metadata.rulesRetrieved || [])
-      .map(rule => String(rule.ruleNumber || "").trim())
-      .filter(Boolean),
-    cards: (metadata.cardsRetrieved || [])
-      .map(card => String(card || "").trim())
-      .filter(Boolean),
-    rulesGuruPrecedents: (metadata.rulesGuruPrecedents || [])
-      .map(precedent => ({
-        id: precedent.id,
-        title: precedent.title,
-        requiredCitations: precedent.requiredCitations || [],
-      })),
-    hallucinations: metadata.hallucinations || [],
-    confidence: metadata.confidence || null,
-  };
-}
-
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function bracketKnownCardNames(text, cardNames = []) {
-  let output = String(text || "");
-  const names = [...new Set(cardNames.filter(Boolean))]
-    .sort((a, b) => b.length - a.length);
-
-  for (const name of names) {
-    const escaped = escapeRegExp(name);
-    const pattern = new RegExp(`(?<!\\[\\[)\\b${escaped}\\b(?!\\]\\])`, "g");
-    output = output.replace(pattern, `[[${name}]]`);
-  }
-
-  return output;
-}
-
-function localJaceRulesPrimer(prompt) {
-  const text = normalizeSearchText(prompt);
-  if (!/\bhow does the stack work\b/.test(text)) return "";
-
-  return [
-    "The stack is the waiting line for spells and non-mana abilities: the newest object goes on top, and the top object resolves first after every player passes priority in order.",
-    "",
-    "Key points:",
-    "- Casting a spell or activating a non-mana activated ability puts that object on the stack.",
-    "- Triggered abilities trigger when their event happens, then are put onto the stack at the next trigger insertion checkpoint.",
-    "- Lands do not use the stack.",
-    "- Most mana abilities do not use the stack; they resolve immediately.",
-    "- After each object resolves, state-based actions are checked, waiting triggers are put on the stack, then the active player gets priority again.",
-    "- A phase or step only advances when the stack is empty and all players pass priority in succession.",
-    "",
-    "Rules anchors: priority is rule 117, resolving spells and abilities is rule 608, triggered abilities are rule 603, and state-based actions are rule 704.",
-  ].join("\n");
-}
-
-function createDeckLock(deck, knowledgeStatus = null) {
-  if (!deck) return null;
-  return {
-    id: deck.id,
-    name: deck.name || "Unnamed deck",
-    owner: deck.memory?.owner || "Colton",
-    commander: deckCommander(deck),
-    commanderNames: deckCommanderNames(deck),
-    mainCount: deckMainCount(deck),
-    tokenCount: deckTokenCount(deck),
-    lockedAt: new Date().toISOString(),
-    schemaVersion: 1,
-    cardDataVersion: knowledgeStatus?.cardDataVersion || null,
-    rulesVersion: knowledgeStatus?.rulesVersion || null,
-    cardNames: deckOracleCardNamesFromCards(deck.cards || []),
-    deckText: serializeDeck(deck.cards || []),
-    memoryText: serializeDeckMemory(deck),
-  };
-}
-
-function lockContext(lock, agentId = "karn", confirmLock = false) {
-  if (!lock) return "";
-  const agentName = AGENTS[agentId]?.name || "This agent";
-  return [
-    `## LOCKED ${agentName.toUpperCase()} DECK CONTEXT`,
-    `${agentName}'s current conversation is locked to this deck snapshot. Do not silently switch to another active deck unless the user clears ${agentName}'s chat or explicitly asks to start a new deck conversation.`,
-    confirmLock ? `On your next reply, briefly confirm that ${lock.name} is locked for this conversation and that local card/rules context has been loaded before answering the user's request.` : "",
-    `Deck: ${lock.name}`,
-    `Owner: ${lock.owner}`,
-    `Commander: ${lock.commander}`,
-    `Locked At: ${lock.lockedAt}`,
-    lock.cardDataVersion ? `Card Data Version: ${lock.cardDataVersion}` : "",
-    lock.rulesVersion ? `Rules Version: ${lock.rulesVersion}` : "",
-    `Cards: ${lock.mainCount} non-token cards, ${lock.tokenCount} token entries saved separately`,
-    lock.memoryText ? `\n## LOCKED DECK MEMORY\n${lock.memoryText}` : "",
-    `\n## LOCKED DECK LIST\n${lock.deckText}`,
-  ].filter(Boolean).join("\n");
-}
-
-function shouldUseEngineContext(targetAgent, prompt) {
-  if (!["jace", "karn", "arbiter"].includes(targetAgent)) return false;
-  const text = normalizeSearchText(prompt);
-  return /\b(rule|rules|ruling|judge|trigger|stack|priority|state based|sba|replacement|prevention|layer|timestamp|copy|token|combat|commander damage|commander tax|cast|activate|resolve|dies|graveyard|exile|legal|can i|can they|what happens|oracle|interaction)\b/.test(text);
-}
-
-function shouldUseDeckScopedContext(targetAgent, prompt) {
-  if (["karn", "tibalt", "arbiter"].includes(targetAgent)) return true;
-  if (targetAgent !== "jace") return false;
-  const text = normalizeSearchText(prompt);
-  return /\b(deck|commander|loaded deck|my deck|this deck|our deck|card|cards|oracle|ruling|interaction|synergy|play line|sequencing|battlefield|hand|graveyard|exile|sliver|mana base|win condition)\b/.test(text);
-}
-
-async function fetchEngineContext({ query, limit = 4 }) {
-  try {
-    const response = await fetch("/api/engine", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, limit }),
-    });
-    if (!response.ok) return "";
-    const data = await response.json();
-    return data.context || "";
-  } catch {
-    return "";
-  }
 }
 
 export default function useChatAgents({
