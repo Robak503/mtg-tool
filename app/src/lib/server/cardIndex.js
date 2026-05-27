@@ -1,14 +1,14 @@
 import fs from "node:fs";
-import path from "node:path";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+import { dataPath } from "./paths.js";
+
 // Slim pre-built index (~10-20MB) — preferred when present. Build via
 // `npm run build:oracle-index` after every oracle_cards.json refresh.
-const ORACLE_INDEX_FILE = path.join(DATA_DIR, "scryfall-bulk", "oracle-index.json");
-const ORACLE_FILE = path.join(DATA_DIR, "scryfall-bulk", "oracle_cards.json");
-const LEGACY_ORACLE_FILE = path.join(DATA_DIR, "scryfall.oracle.local.json");
-const RULINGS_FILE = path.join(DATA_DIR, "scryfall-bulk", "rulings.json");
-const LEGACY_RULINGS_FILE = path.join(DATA_DIR, "scryfall.rulings.local.json");
+const ORACLE_INDEX_FILE = dataPath("scryfall-bulk", "oracle-index.json");
+const ORACLE_FILE = dataPath("scryfall-bulk", "oracle_cards.json");
+const LEGACY_ORACLE_FILE = dataPath("scryfall.oracle.local.json");
+const RULINGS_FILE = dataPath("scryfall-bulk", "rulings.json");
+const LEGACY_RULINGS_FILE = dataPath("scryfall.rulings.local.json");
 
 let cardIndex = null;
 let rulingsIndex = null;

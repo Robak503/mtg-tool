@@ -12,9 +12,9 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { summariseGameHistory } from "../../../lib/gameInsights";
+import { dataPath } from "../../../lib/server/paths";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const GAMES_DIR = path.join(DATA_DIR, "games");
+const GAMES_DIR = dataPath("games");
 
 function sanitiseId(value) {
   const stripped = String(value || "").replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "");

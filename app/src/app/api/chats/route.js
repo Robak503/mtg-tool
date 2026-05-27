@@ -1,10 +1,10 @@
 export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
-import path from "node:path";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const CHAT_FILE = path.join(DATA_DIR, "chats.local.json");
+import { dataDir, dataPath } from "../../../lib/server/paths";
+
+const CHAT_FILE = dataPath("chats.local.json");
 const TMP_FILE = `${CHAT_FILE}.tmp`;
 const V1_BACKUP = `${CHAT_FILE}.v1.bak`;
 const AGENT_KEYS = ["jace", "karn", "tibalt", "arbiter"];
@@ -196,7 +196,7 @@ async function readChatFile() {
 }
 
 async function atomicWrite(payload) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(dataDir(), { recursive: true });
   // Write to a sibling .tmp file, then atomically rename. fs.rename on the
   // same filesystem is atomic on POSIX and on Windows >= NTFS, so a crash
   // mid-write never leaves a half-written chats.local.json behind.

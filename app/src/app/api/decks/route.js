@@ -5,10 +5,12 @@ import path from "node:path";
 
 import { DECK_SEEDS } from "../../../data/deckSeeds";
 import { buildSeedDeck, normalizeDeck } from "../../../lib/deckMemory";
+import { dataDir, dataPath } from "../../../lib/server/paths";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DECK_FILE = path.join(DATA_DIR, "decks.local.json");
-const BACKUP_DIR = path.join(DATA_DIR, "backups");
+const DECK_FILE = dataPath("decks.local.json");
+const BACKUP_DIR = dataPath("backups");
+// Lazy resolution: dataDir() is re-evaluated per call inside the route
+// so MTG_APP_ROOT changes between calls (tests) are honored.
 
 function mergeSeedDecks(decks, seedDecks) {
   const merged = [...decks];
@@ -37,7 +39,7 @@ async function readDeckFile() {
 }
 
 async function writeDeckFile(decks) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(dataDir(), { recursive: true });
   const payload = {
     version: 1,
     updatedAt: new Date().toISOString(),

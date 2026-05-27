@@ -19,8 +19,9 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const FEEDBACK_DIR = path.join(DATA_DIR, "feedback");
+import { dataPath } from "../../../lib/server/paths";
+
+const FEEDBACK_DIR = dataPath("feedback");
 const DIGEST_FILE = path.join(FEEDBACK_DIR, "FEEDBACK.md");
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_CONTEXT_FIELD_LENGTH = 400;

@@ -1,9 +1,10 @@
 export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
-import path from "node:path";
 
-const MODEL_CALL_LOG = path.join(process.cwd(), "data", "model-calls.local.json");
+import { dataPath } from "../../../lib/server/paths";
+
+const MODEL_CALL_LOG = dataPath("model-calls.local.json");
 
 function summarize(calls) {
   const providers = {
