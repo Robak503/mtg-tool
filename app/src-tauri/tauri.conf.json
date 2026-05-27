@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.colton.mtg-tool",
   "build": {
-    "frontendDist": "../.next/standalone",
+    "frontendDist": "frontend-placeholder",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build:tauri-standalone"

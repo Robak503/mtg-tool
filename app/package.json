@@ -7,7 +7,7 @@
     "dev": "next dev",
     "tauri:dev": "npx tauri dev",
     "tauri:build": "npx tauri build",
-    "build:tauri-standalone": "next build && node scripts/copy-tauri-assets.cjs && node scripts/prepare-tauri-resources.cjs",
+    "build:tauri-standalone": "next build && node scripts/strip-standalone-bloat.cjs && node scripts/copy-tauri-assets.cjs && node scripts/prepare-tauri-resources.cjs",
     "sync:oracle": "node scripts/sync-scryfall-oracle.cjs",
     "sync:scryfall-bulk": "node scripts/sync-scryfall-bulk.cjs",
     "sync:local-data": "npm run sync:oracle && npm run refresh-tokens",
