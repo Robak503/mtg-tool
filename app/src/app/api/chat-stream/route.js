@@ -3,9 +3,13 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-// Mirrors constants from modelProvider.js — kept local to avoid side effects from imports
+// Mirrors constants from modelProvider.js — kept local to avoid side effects from imports.
+// IMPORTANT: if you change defaults here, update modelProvider.js too (and vice versa).
 const DEFAULT_OLLAMA_MODEL = "qwen2.5:32b";
 const DEFAULT_OLLAMA_FAST_MODEL = "qwen2.5:7b";
+// Karn and Tibalt use a mid-tier model for better reasoning quality.
+// Defaults to the same model as Arbiter (14b) — already loaded, no extra RAM cost.
+const DEFAULT_OLLAMA_AGENT_MODEL = "qwen2.5:14b";
 const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_OLLAMA_CONTEXT = 32768;
@@ -84,7 +88,11 @@ export async function POST(request) {
       try {
         if (isOllama) {
           // ── Ollama NDJSON streaming ────────────────────────────────────────
+          // Karn and Tibalt always use the mid-tier model for reasoning quality,
+          // regardless of the user's tier selector. Jace and other agents respect Fast/Deep.
+          const isAgentModel = isOllama && ["karn", "tibalt"].includes(String(body.agentName || "").toLowerCase());
           const model = body.ollamaModel ||
+            (isAgentModel ? (process.env.OLLAMA_AGENT_MODEL || process.env.OLLAMA_ARBITER_MODEL || DEFAULT_OLLAMA_AGENT_MODEL) : null) ||
             (body.fastLocal ? (process.env.OLLAMA_FAST_MODEL || DEFAULT_OLLAMA_FAST_MODEL) : null) ||
             process.env.OLLAMA_MODEL ||
             DEFAULT_OLLAMA_MODEL;
@@ -178,6 +186,7 @@ export async function POST(request) {
                     type: "done",
                     provider: "ollama",
                     model,
+                    modelTier: isAgentModel ? "mid" : (body.modelTier || (body.fastLocal ? "fast" : "deep")),
                     usage: { output_tokens: outputTokens },
                   }));
                 }
@@ -256,6 +265,7 @@ export async function POST(request) {
                     type: "done",
                     provider: "anthropic",
                     model,
+                    modelTier: body.modelTier || "anthropic",
                     usage: { input_tokens: inputTokens, output_tokens: outputTokens },
                   }));
                 } else if (event.type === "error") {
@@ -300,6 +310,7 @@ export async function POST(request) {
           error: errorOccurred,
           streaming: true,
           fastLocal: Boolean(body.fastLocal),
+          modelTier: body.modelTier || null,
           durationMs: Date.now() - callStart,
         }).catch(() => {});
       }

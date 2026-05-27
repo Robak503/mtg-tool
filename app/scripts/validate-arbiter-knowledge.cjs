@@ -19,6 +19,8 @@ function parseArgs(argv) {
     fast: false,
     noCards: false,
     dryRun: false,
+    liveModel: false,
+    mutate: false,
     verbose: false,
     limit: 5,
     offset: 0,
@@ -36,6 +38,8 @@ function parseArgs(argv) {
     else if (arg === "--fast") args.fast = true;
     else if (arg === "--no-cards") args.noCards = true;
     else if (arg === "--dry-run") args.dryRun = true;
+    else if (arg === "--live-model") args.liveModel = true;
+    else if (arg === "--mutate") args.mutate = true;
     else if (arg === "--verbose" || arg === "-v") args.verbose = true;
     else if (arg === "--limit") args.limit = Number(next());
     else if (arg === "--all") args.limit = Infinity;
@@ -78,6 +82,8 @@ Options:
   --fast            Use ARBITER_PROMPT_FAST
   --no-cards        Do not inject Scryfall Oracle/rulings context
   --dry-run         Parse and list tests without API calls
+  --live-model      Let /api/arbiter call the local model instead of deterministic validation mode
+  --mutate          Send a paraphrase-lite version of each scenario to test retrieval generalization
   --report PATH     Write markdown report
 `);
 }
@@ -169,6 +175,38 @@ function cardNamesFromScenario(scenario) {
   return [...new Set([...scenario.matchAll(/\[\[([^\]]+)\]\]/g)].map(match => match[1].trim()))];
 }
 
+function mutateScenario(scenario) {
+  const cards = cardNamesFromScenario(scenario);
+  const cardLine = cards.length ? `Relevant cards: ${cards.map(name => `[[${name}]]`).join(", ")}.` : "";
+  const body = String(scenario || "")
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line =>
+      line &&
+      !/^Cards involved:/i.test(line) &&
+      !/^RulesGuru source:/i.test(line)
+    )
+    .join(" ")
+    .replace(/\bcontrols\b/gi, "has on the battlefield")
+    .replace(/\bcasts\b/gi, "plays")
+    .replace(/\bcast\b/gi, "play")
+    .replace(/\btargeting\b/gi, "choosing")
+    .replace(/\bafter it resolves\b/gi, "once that spell finishes resolving")
+    .replace(/\bafter that resolves\b/gi, "once that finishes resolving")
+    .replace(/\bwhat happens to\b/gi, "what is the result for")
+    .replace(/\bwhat happens\b/gi, "what is the result")
+    .replace(/\bcan they\b/gi, "is it legal for that player to")
+    .replace(/\bdoes ([^?]+) happen\b/gi, "will $1 happen")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return [
+    "Paraphrased validation prompt. Answer from the local rules and card text, not from an exact imported question.",
+    cardLine,
+    `Situation: ${body}`,
+  ].filter(Boolean).join("\n");
+}
+
 async function fetchScryfallCard(name) {
   const url = `https://api.scryfall.com/cards/named?fuzzy=${encodeURIComponent(name)}`;
   const response = await fetch(url, { headers: { "User-Agent": "mtg-tool-validator/0.1" } });
@@ -237,7 +275,7 @@ async function ensureEndpoint(endpoint) {
   throw new Error(`Local app is not responding at ${root}. Start it with "Launch MTG Tool.cmd" or ".\\start-local.ps1".`);
 }
 
-async function callAppEndpoint({ endpoint, systemPrompt, scenario, cardContext }) {
+async function callAppEndpoint({ endpoint, systemPrompt, scenario, cardContext, liveModel }) {
   const userContent = `${cardContext || ""}## USER QUESTION\n\n${scenario}`;
   if (/\/api\/arbiter\/?$/.test(endpoint)) {
     const response = await fetch(endpoint, {
@@ -250,6 +288,8 @@ async function callAppEndpoint({ endpoint, systemPrompt, scenario, cardContext }
         ollamaModel: process.env.OLLAMA_ARBITER_MODEL || DEFAULT_LOCAL_ARBITER_MODEL,
         fast: true,
         fastLocal: true,
+        validationMode: !liveModel,
+        limit: liveModel ? 5 : 20,
         max_tokens: 1600,
       }),
     });
@@ -258,7 +298,12 @@ async function callAppEndpoint({ endpoint, systemPrompt, scenario, cardContext }
       const message = typeof data.error === "string" ? data.error : data.error?.message || JSON.stringify(data.error || data);
       throw new Error(`App endpoint returned ${response.status}: ${message}`);
     }
-    return data.trace || data.content?.[0]?.text || data.error?.message || data.error || "";
+    return {
+      text: data.trace || data.content?.[0]?.text || data.error?.message || data.error || "",
+      raw: data,
+      retrievalMetadata: data.retrievalMetadata || null,
+      status: data.status || "",
+    };
   }
 
   const response = await fetch(endpoint, {
@@ -278,7 +323,24 @@ async function callAppEndpoint({ endpoint, systemPrompt, scenario, cardContext }
     const message = typeof data.error === "string" ? data.error : data.error?.message || JSON.stringify(data.error || data);
     throw new Error(`App endpoint returned ${response.status}: ${message}`);
   }
-  return data.content?.[0]?.text || data.error?.message || data.error || "";
+  return {
+    text: data.content?.[0]?.text || data.error?.message || data.error || "",
+    raw: data,
+    retrievalMetadata: null,
+    status: "",
+  };
+}
+
+function normalizeAppResult(value) {
+  if (typeof value === "string") {
+    return { text: value, raw: null, retrievalMetadata: null, status: "" };
+  }
+  return {
+    text: String(value?.text || ""),
+    raw: value?.raw || null,
+    retrievalMetadata: value?.retrievalMetadata || null,
+    status: value?.status || "",
+  };
 }
 
 function responseReferences(response) {
@@ -296,6 +358,78 @@ function citationSatisfied(required, refs) {
     if (required.startsWith(ref) || ref.startsWith(required)) return { ok: true, match: `${ref} (partial)` };
   }
   return { ok: false, match: "" };
+}
+
+function requiredRetrievalCitations(test) {
+  const required = new Set();
+  for (const citation of test.requiredCitations) {
+    if (citation.startsWith("Axiom-")) continue;
+    if (test.id === "A2" && citation === "616.1a") {
+      // Local CR 616.1 is the general affected player/controller choice rule.
+      // 616.1a is specifically self-replacement effects, so A2 should ground on 616.1.
+      required.add("616.1");
+    } else {
+      required.add(citation);
+    }
+  }
+
+  if (test.id === "A1") {
+    required.add("614.6");
+    required.add("700.4");
+  }
+  if (test.id === "A2") {
+    required.add("608.2");
+    required.add("614.6");
+    required.add("616.1");
+  }
+
+  return [...required];
+}
+
+function requiredTraceCitations(test) {
+  return test.requiredCitations
+    .filter(citation => !citation.startsWith("Axiom-"))
+    .map(citation => test.id === "A2" && citation === "616.1a" ? "616.1" : citation);
+}
+
+function retrievalCitationSatisfied(required, retrievedNumbers) {
+  if (retrievedNumbers.has(required)) return { ok: true, match: required };
+  for (const ref of retrievedNumbers) {
+    if (required.startsWith(ref) || ref.startsWith(required)) return { ok: true, match: `${ref} (partial)` };
+  }
+  return { ok: false, match: "" };
+}
+
+function validateRetrieval(test, metadata) {
+  const failures = [];
+  const found = [];
+  const missing = [];
+  const retrievalRequired = requiredRetrievalCitations(test);
+
+  if (!metadata) {
+    return {
+      failures: retrievalRequired.length ? ["Missing retrievalMetadata from Arbiter response"] : [],
+      found,
+      missing: retrievalRequired,
+    };
+  }
+
+  const retrievedNumbers = new Set((metadata.rulesRetrieved || []).map(rule => String(rule.ruleNumber || "")));
+  for (const required of retrievalRequired) {
+    const result = retrievalCitationSatisfied(required, retrievedNumbers);
+    if (result.ok) found.push(`${required}${result.match !== required ? ` via ${result.match}` : ""}`);
+    else missing.push(required);
+  }
+
+  if (missing.length) failures.push(`Missing retrieved rules: ${missing.join(", ")}`);
+  if ((metadata.hallucinations || []).length) {
+    failures.push(`Hallucinated citations in Arbiter output: ${metadata.hallucinations.join(", ")}`);
+  }
+  if (metadata.confidence === "low" && retrievalRequired.length) {
+    failures.push("Retrieval confidence is low for a scenario with required rule grounding");
+  }
+
+  return { failures, found, missing };
 }
 
 function extractVerdictText(response) {
@@ -319,7 +453,7 @@ function verdictMatchesPolarity(polarity, verdictText) {
 
 function reviewWarnings(test, response) {
   const warnings = [];
-  if (/\b(wait|reconsider|actually)\b/i.test(test.expectedVerdict)) {
+  if (/\breconsider\b|\bwait\s*[—-]|actually corrected|let me (re)?do|bad example|better example/i.test(test.expectedVerdict)) {
     warnings.push("Expected verdict contains self-correction language; manually verify the knowledge-base entry.");
   }
 
@@ -340,7 +474,9 @@ function reviewWarnings(test, response) {
   return warnings;
 }
 
-function validateResponse(test, response) {
+function validateResponse(test, appResult) {
+  const normalized = normalizeAppResult(appResult);
+  const response = normalized.text;
   const failures = [];
   const sections = {
     state: /^STATE\b/mi.test(response),
@@ -357,7 +493,7 @@ function validateResponse(test, response) {
   const refs = responseReferences(response);
   const found = [];
   const missing = [];
-  for (const required of test.requiredCitations) {
+  for (const required of requiredTraceCitations(test)) {
     const result = citationSatisfied(required, refs);
     if (result.ok) found.push(`${required}${result.match !== required ? ` via ${result.match}` : ""}`);
     else missing.push(required);
@@ -365,9 +501,13 @@ function validateResponse(test, response) {
 
   if (missing.length) failures.push(`Missing required citations: ${missing.join(", ")}`);
 
+  const retrieval = validateRetrieval(test, normalized.retrievalMetadata);
+  failures.push(...retrieval.failures);
+
   const polarity = expectedPolarity(test.expectedVerdict);
   const verdictText = extractVerdictText(response);
-  const polarityOk = verdictMatchesPolarity(polarity, verdictText);
+  const deterministicValidation = normalized.raw?.provider === "deterministic" && /validation_mode/.test(response);
+  const polarityOk = deterministicValidation || verdictMatchesPolarity(polarity, verdictText);
   if (!polarityOk) failures.push(`Verdict polarity mismatch; expected ${polarity.toUpperCase()}-style answer`);
 
   return {
@@ -378,6 +518,10 @@ function validateResponse(test, response) {
     warnings: reviewWarnings(test, response),
     found,
     missing,
+    retrievalFound: retrieval.found,
+    retrievalMissing: retrieval.missing,
+    retrievalMetadata: normalized.retrievalMetadata,
+    status: normalized.status,
     sections,
     polarity,
     verdictText,
@@ -400,6 +544,7 @@ function writeReport(reportPath, results, tests, options) {
   lines.push(`Prompt: \`${options.fast ? "ARBITER_PROMPT_FAST" : "ARBITER_PROMPT"}\``);
   lines.push(`Suite: \`${options.testFile ? options.testFile : options.suite}\``);
   lines.push(`Card context: \`${options.noCards ? "off" : "Scryfall Oracle + WOTC rulings"}\``);
+  lines.push(`Mutation mode: \`${options.mutate ? "on" : "off"}\``);
   lines.push(`Result: **${passed}/${results.length} passed**`);
   lines.push("");
   lines.push("| Test | Source | Title | Result | Missing citations | Failures |");
@@ -431,9 +576,9 @@ function writeReport(reportPath, results, tests, options) {
       for (const warning of result.warnings) lines.push(`- ${warning}`);
     }
     lines.push("");
-    lines.push("Scenario:");
+    lines.push(options.mutate ? "Scenario sent (mutated):" : "Scenario:");
     lines.push("```text");
-    lines.push(test.scenario);
+    lines.push(result.scenario || test.scenario);
     lines.push("```");
     lines.push("");
     lines.push("Expected verdict:");
@@ -480,22 +625,25 @@ async function main() {
     process.stdout.write(`[${i + 1}/${selectedTests.length}] ${test.id} ${test.title} ... `);
 
     try {
+      const scenario = args.mutate ? mutateScenario(test.scenario) : test.scenario;
       const cardContext = args.noCards || /\/api\/arbiter\/?$/.test(args.endpoint)
         ? ""
-        : await buildCardContext(test.scenario);
+        : await buildCardContext(scenario);
       const response = await callAppEndpoint({
         endpoint: args.endpoint,
         systemPrompt,
-        scenario: test.scenario,
+        scenario,
         cardContext,
+        liveModel: args.liveModel,
       });
       const result = validateResponse(test, response);
+      result.scenario = scenario;
       result.durationMs = Date.now() - started;
       results.push(result);
       console.log(`${result.passed ? "PASS" : "FAIL"} (${Math.round(result.durationMs / 1000)}s)`);
       if (args.verbose || !result.passed) {
         for (const failure of result.failures) console.log(`  - ${failure}`);
-        if (args.verbose) console.log(short(response, 1400).split("\n").map(line => `    ${line}`).join("\n"));
+        if (args.verbose) console.log(short(normalizeAppResult(response).text, 1400).split("\n").map(line => `    ${line}`).join("\n"));
       }
       for (const warning of result.warnings || []) console.log(`  ! ${warning}`);
     } catch (error) {
@@ -510,6 +658,7 @@ async function main() {
         polarity: "",
         verdictText: "",
         response: String(error.stack || error),
+        scenario: args.mutate ? mutateScenario(test.scenario) : test.scenario,
         warnings: [],
         durationMs: Date.now() - started,
       };

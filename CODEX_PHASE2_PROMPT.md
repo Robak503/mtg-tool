@@ -1,36 +1,67 @@
-# Codex Phase 2 Start Prompt
+# Codex/Claude Phase 2 Resume Prompt
 
-Paste the block below directly into Codex to start the Phase 2 session.
+Paste this into the next assistant session.
 
 ---
 
-```
-Read CODEX_PHASE2_HANDOFF.md in the project root before doing anything else.
-Then read the files listed in the "Read This First" section of that document.
+```text
+You are continuing MTG Tool Phase 2.
 
-You are implementing Phase 2 of the MTG Tool — making Arbiter a real
-retrieval+reasoning service backed by the local Comprehensive Rules corpus
-(mtg-judge/data/cr/cr_current.json, 3138 rules).
+Project root:
+C:\Users\colto\Documents\Claude\Projects\MTG-TOOL
 
-Phase 1 is complete. The post-token-fix browser smoke test passed:
-Karn cut mode, Jace stack primer with Arbiter trace, Tibalt full roast, reload
-persistence, and `anthropic.total = 0`.
-The design doc is at:
-C:\Users\colto\.gstack\projects\MTG-TOOL\colto-master-design-phase2-20260524-172023.md
+Start by reading these files in order:
+1. CLAUDE.md
+2. CODEX_PHASE2_PROGRESS_2026-05-24.md
+3. PHASE2_PLAN.md
+4. CODEX_PHASE2_HANDOFF.md
+5. app/README.md
+6. app/src/app/api/arbiter/route.js
+7. app/src/hooks/useChatAgents.js
+8. app/src/components/mtg/AppHeader.jsx
+9. app/src/components/mtg/ChatPanel.jsx
 
-Build in this order:
-1. Step 0  — verify cr_current.json and oracle file paths (15 min)
-2. Step 2  — build:rules-index script + rules-index.json
-3. Step 3  — Scryfall in-memory lookup singleton (cardIndex.js)
-4. Step 4  — Rules retrieval function (rulesRetrieval.js) with card-name seeding
-5. Step 5  — Citation injector (citationInjector.js) with full rule text
-6. Step 6  — Arbiter route rebuild (remove HTTP loopback, fix 900-token cap, wire retrieval)
-7. Step 7  — Validator update, validate:arbiter --limit 2 must pass 2/2
-8. Step 1  — UI tier toggle (independent, ship at any point)
+Current branch:
+feat/phase2-arbiter-retrieval
 
-Commit after each step. Branch: feat/phase2-arbiter-retrieval
+Current latest commit:
+da67fc7 refactor: persist compact Arbiter sources
 
-The handoff document has all file paths, data shapes, known gotchas, and
-verification commands. Follow it precisely. Do not start Phase 3 work.
-The definition of done is in the "Phase 2 Success Definition" section.
+What is already done:
+- Phase 1 is complete.
+- Arbiter is now grounded in local retrieval modules.
+- Rules index, local card index, citation injector, RulesGuru precedent retrieval, and deterministic validation are built.
+- Validation reports show:
+  - core: 76/76
+  - expanded: 424/424
+  - rulesguru: 500/500
+- Build passes after stopping any dev server and allowing clean:next to delete .next.
+- UI has Fast / Deep / API model tier selector.
+- TrustStrip records provider, tier, model, deck lock, cards, rulings, engine context, and Arbiter trace.
+- TrustStrip also records Arbiter CR rule/card/RulesGuru grounding counts.
+- `View Arbiter Sources` shows compact source lists without storing full retrieved rule text in chat history.
+- Deck locks snapshot local Scryfall/rules version strings from /api/knowledge-status.
+- Retrieval misses/unresolved Arbiter answers are visibly marked.
+- RulesGuru has an additional paraphrase-lite `--mutate` validation mode passing 500/500.
+- Anthropic should remain at 0 calls unless API is deliberately selected.
+
+First task:
+Run a careful resume audit, then do the manual UI smoke test for the new model tier selector:
+1. Start dev server from app/
+2. Open http://localhost:3000
+3. Confirm header shows Fast, Deep, API
+4. In Fast, send a short local question and confirm TrustStrip shows tier Fast and local model
+5. In Deep, send a short local question and confirm TrustStrip shows tier Deep and local model
+6. Ask a Jace rules question and confirm `View Arbiter Sources` appears with rule/card/source counts
+7. Confirm /api/model-calls still shows anthropic.total = 0 unless API was explicitly clicked
+
+After the smoke test, continue with the recommended next engineering slice from CODEX_PHASE2_PROGRESS_2026-05-24.md:
+1. Decide whether Phase 2 is ready for user testing
+2. Consider a harder true-paraphrase validation mode later
+3. Start the next Phase 2 polish item only if the smoke test exposes a real issue
+
+Do not start Forge, Garfield learn-to-play, embeddings, or automatic Anthropic fallback.
+Do not spend Anthropic credits unless the user explicitly tells you to use API mode.
+Use local Scryfall/rules data first.
+Commit after each coherent change.
 ```

@@ -39,9 +39,12 @@ export default function MTGAssistant() {
   const [modelStatus, setModelStatus] = useState(null);
   const [modelProvider, setModelProvider] = useState(() => {
     try {
-      return localStorage.getItem("mtg-model-provider") || "ollama";
+      const stored = localStorage.getItem("mtg-model-provider") || "fast";
+      if (stored === "ollama" || stored === "local") return "fast";
+      if (stored === "api" || stored === "cloud") return "anthropic";
+      return ["fast", "deep", "anthropic"].includes(stored) ? stored : "fast";
     } catch {
-      return "ollama";
+      return "fast";
     }
   });
 
@@ -107,6 +110,7 @@ export default function MTGAssistant() {
     exportChat,
     histories,
     input,
+    knowledgeStatus,
     retryWithFallback,
     send,
     sending,
@@ -314,6 +318,7 @@ export default function MTGAssistant() {
         clearChat={clearChat}
         deckLock={deckLocks?.[agent]}
         modelStatus={modelStatus}
+        knowledgeStatus={knowledgeStatus}
         modelProvider={modelProvider}
         setModelProvider={setModelProvider}
         unlockDeck={() => unlockDeck(agent)}

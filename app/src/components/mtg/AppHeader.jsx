@@ -10,6 +10,7 @@ export default function AppHeader({
   clearChat,
   deckLock,
   modelStatus,
+  knowledgeStatus,
   modelProvider,
   setModelProvider,
   unlockDeck,
@@ -22,18 +23,58 @@ export default function AppHeader({
   const apiCalls = modelStatus?.providers?.anthropic?.total || 0;
   const failedCalls = (modelStatus?.providers?.ollama?.failed || 0) + (modelStatus?.providers?.anthropic?.failed || 0);
   const lastProvider = modelStatus?.last?.provider || "none";
+  const lastModel = modelStatus?.last?.model || "unknown";
+  const lastTier = modelStatus?.last?.modelTier || (modelStatus?.last?.fastLocal ? "fast" : "unknown");
+  const activeModelTier = modelProvider === "ollama" || modelProvider === "local" ? "fast" : modelProvider;
   const providerOptions = [
-    { id: "ollama", label: "Local" },
-    { id: "anthropic", label: "API" },
+    { id: "fast", label: "Fast", title: "Use the fast local Ollama model for the next messages." },
+    { id: "deep", label: "Deep", title: "Use the deeper local Ollama model for the next messages." },
+    { id: "anthropic", label: "API", title: "Use Anthropic API for the next messages." },
   ];
+
+  // Build warning chips from knowledge status.
+  const warnings = [];
+  if (knowledgeStatus) {
+    const { ollama, spellbook, salt } = knowledgeStatus;
+    if (ollama && !ollama.available) {
+      warnings.push({ key: "ollama-down", text: "Ollama offline", detail: "Start with: ollama serve", color: "#c2786f" });
+    } else if (ollama?.missingModels?.length) {
+      const missing = ollama.missingModels.join(", ");
+      warnings.push({ key: "models-missing", text: `Model missing`, detail: `Run: ollama pull ${ollama.missingModels[0]}`, color: "#c2786f" });
+    }
+    if (spellbook?.stale) {
+      warnings.push({ key: "spellbook-stale", text: `Combos ${spellbook.staleDays}d old`, detail: "Run: npm run sync:spellbook", color: "#b08a3e" });
+    }
+    if (salt?.stale) {
+      warnings.push({ key: "salt-stale", text: `Salt ${salt.staleDays}d old`, detail: "Run: npm run sync:edhrec-salt", color: "#b08a3e" });
+    }
+  }
 
   return (
     <div style={{padding:"9px 16px",borderBottom:`1px solid ${LINE}`,background:BG2,display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
       <span style={{fontFamily,fontSize:16,fontWeight:700,color:GOLD,letterSpacing:"0.05em"}}>MTG Assistant</span>
-      <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+      <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
+        {warnings.map(w => (
+          <span
+            key={w.key}
+            title={w.detail}
+            style={{
+              border:`1px solid ${w.color}44`,
+              borderRadius:5,
+              color:w.color,
+              fontFamily,
+              fontSize:11,
+              padding:"5px 8px",
+              whiteSpace:"nowrap",
+              cursor:"default",
+            }}
+          >
+            ⚠ {w.text}
+          </span>
+        ))}
         {modelStatus&&(
           <span
-            title={`Last provider: ${lastProvider}${failedCalls ? ` | failed calls: ${failedCalls}` : ""}`}
+            title={`Last provider: ${lastProvider} | tier: ${lastTier} | model: ${lastModel}${failedCalls ? ` | failed calls: ${failedCalls}` : ""}`}
             style={{
               border:`1px solid ${LINE}`,
               borderRadius:5,
@@ -50,15 +91,15 @@ export default function AppHeader({
         {!mobile&&(
           <div style={{display:"flex",border:`1px solid ${LINE}`,borderRadius:5,overflow:"hidden"}}>
             {providerOptions.map(option => {
-              const active = modelProvider === option.id || (modelProvider === "local" && option.id === "ollama");
+              const active = activeModelTier === option.id;
               return (
                 <button
                   key={option.id}
                   onClick={()=>setModelProvider(option.id)}
-                  title={option.id === "ollama" ? "Use local Ollama for the next messages." : "Use Anthropic API for the next messages."}
+                  title={option.title}
                   style={{
                     border:0,
-                    borderRight:option.id === "ollama" ? `1px solid ${LINE}` : 0,
+                    borderRight:option.id !== providerOptions[providerOptions.length - 1].id ? `1px solid ${LINE}` : 0,
                     background:active?cfg.dim:"transparent",
                     color:active?cfg.color:"#7f8aa3",
                     cursor:"pointer",

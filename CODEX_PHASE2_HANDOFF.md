@@ -1,5 +1,30 @@
 # MTG Tool — Phase 2 Handoff for Codex
 
+## Current Status Update
+
+This file was originally written before Phase 2 implementation began. Read
+`CODEX_PHASE2_PROGRESS_2026-05-24.md` first for the current state. As of commit
+`7350452`, the original Phase 2 checklist is mostly implemented:
+
+- Local rules index, card index, citation injector, and runtime Arbiter retrieval are built.
+- RulesGuru precedent retrieval is built.
+- Deterministic validation passes core `76/76`, expanded `424/424`, and RulesGuru `500/500`.
+- The UI Fast / Deep / API model tier selector is built and committed.
+- `.next` cache cleanup is wired into `npm run build` and `npm run check`.
+
+Additional Codex progress after the original Phase 2 backend build:
+
+- Fast / Deep / API selector is committed.
+- Arbiter grounding counts are visible in TrustStrip.
+- Deck locks snapshot local card/rules data versions.
+- Retrieval misses and unresolved Arbiter statuses are visibly marked.
+- Mutated RulesGuru validation passes `500/500`.
+- Chat history stores compact Arbiter source lists and the UI exposes `View Arbiter Sources`.
+
+Treat the older step-by-step sections below as design rationale and historical context,
+not as the live task list. The live next tasks are in
+`CODEX_PHASE2_PROGRESS_2026-05-24.md`.
+
 ## Read This First
 
 This is the Phase 2 implementation brief. Phase 1 is complete, committed, and the

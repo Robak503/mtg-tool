@@ -35,6 +35,33 @@ function TrustStrip({ msg, LINE }) {
   const r = msg.factReceipt;
   if (!r) return null;
   const cloudUsed = r.provider === "anthropic" || r.fallbackUsed;
+  const tierLabel = r.modelTier === "fast"
+    ? "Fast"
+    : r.modelTier === "mid"
+      ? "Mid"
+      : r.modelTier === "deep"
+        ? "Deep"
+        : r.modelTier === "anthropic"
+          ? "API"
+          : r.modelTier === "local-primer"
+            ? "Primer"
+            : null;
+  const parts = [
+    `Provider: ${r.provider === "ollama" ? "Local (Ollama)" : "Anthropic API"}`,
+    tierLabel ? `Tier: ${tierLabel}` : "",
+    r.model ? `Model: ${r.model}` : "",
+    r.deckLocked && r.deckName ? `Deck: ${r.deckName}` : "",
+    r.cardsProvided > 0 ? `Cards: ${r.cardsProvided}` : "",
+    r.rulingsProvided > 0 ? `Rulings: ${r.rulingsProvided}` : "",
+    r.engineContextProvided ? "Rules context: yes" : "",
+    r.arbiterTraceProvided ? `Arbiter: ${r.arbiterStatus || "yes"}` : "",
+    r.arbiterRulesRetrieved > 0 ? `CR rules: ${r.arbiterRulesRetrieved}` : "",
+    r.arbiterCardsRetrieved > 0 ? `Arbiter cards: ${r.arbiterCardsRetrieved}` : "",
+    r.arbiterRulesGuruPrecedents > 0 ? `RulesGuru: ${r.arbiterRulesGuruPrecedents}` : "",
+    r.arbiterHallucinations > 0 ? `Citation warnings: ${r.arbiterHallucinations}` : "",
+    r.arbiterConfidence ? `Confidence: ${r.arbiterConfidence}` : "",
+    `Cloud: ${cloudUsed ? "used" : "not used"}`,
+  ].filter(Boolean);
   return (
     <details
       open={typeof process !== "undefined" && process.env?.NODE_ENV === "development"}
@@ -44,13 +71,41 @@ function TrustStrip({ msg, LINE }) {
         ▸ Response metadata
       </summary>
       <div style={{ paddingTop: 4, lineHeight: 1.7, borderTop: `1px solid ${LINE}`, marginTop: 4 }}>
-        <span>Provider: {r.provider === "ollama" ? "Local (Ollama)" : "Anthropic API"}</span>
-        {r.deckLocked && r.deckName && <span> · Deck: {r.deckName}</span>}
-        {r.cardsProvided > 0 && <span> · Cards: {r.cardsProvided}</span>}
-        {r.rulingsProvided > 0 && <span> · Rulings: {r.rulingsProvided}</span>}
-        {r.engineContextProvided && <span> · Rules context: yes</span>}
-        {r.arbiterTraceProvided && <span> · Arbiter: yes</span>}
-        <span> · Cloud: {cloudUsed ? "used" : "not used"}</span>
+        {parts.join(" - ")}
+      </div>
+    </details>
+  );
+}
+
+function ArbiterSources({ sources, LINE, TEXT, fontFamily }) {
+  if (!sources) return null;
+  const rules = sources.ruleNumbers || [];
+  const cards = sources.cards || [];
+  const precedents = sources.rulesGuruPrecedents || [];
+  const warnings = sources.hallucinations || [];
+  if (!rules.length && !cards.length && !precedents.length && !warnings.length) return null;
+
+  return (
+    <details style={{ marginTop: 8, borderTop: `1px solid ${LINE}`, paddingTop: 8 }}>
+      <summary style={{ cursor: "pointer", fontSize: 11, color: "#7f8aa3" }}>
+        View Arbiter Sources
+      </summary>
+      <div style={{
+        marginTop: 8,
+        whiteSpace: "pre-wrap",
+        color: TEXT,
+        background: "#070a12",
+        border: `1px solid ${LINE}`,
+        borderRadius: 6,
+        padding: 10,
+        fontSize: 11,
+        lineHeight: 1.45,
+        fontFamily,
+      }}>
+        {rules.length > 0 && <div>CR rules: {rules.join(", ")}</div>}
+        {cards.length > 0 && <div>Cards: {cards.join(", ")}</div>}
+        {precedents.length > 0 && <div>RulesGuru precedents: {precedents.map(precedent => precedent.id).join(", ")}</div>}
+        {warnings.length > 0 && <div>Citation warnings: {warnings.join(", ")}</div>}
       </div>
     </details>
   );
@@ -240,7 +295,7 @@ export default function ChatPanel({
                       ? <span style={{ display: "block" }}>⚠ {msg.content}</span>
                       : renderText(msg.content)
                     }
-                    {msg.arbiterStatus === "citation_failed" && (
+                    {["citation_failed", "retrieval_miss", "unresolved"].includes(msg.arbiterStatus) && (
                       <div style={{
                         marginTop: 8,
                         padding: "6px 10px",
@@ -250,7 +305,11 @@ export default function ChatPanel({
                         color: "#c89e6f",
                         fontSize: 11,
                       }}>
-                        ⚠ Arbiter could not produce a verified rule citation for this answer. Verify independently before relying on it.
+                        {msg.arbiterStatus === "retrieval_miss"
+                          ? "Arbiter could not ground this answer in the local rules index. Treat this as unresolved, not as a ruling."
+                          : msg.arbiterStatus === "unresolved"
+                            ? "Arbiter marked this answer unresolved. Ask a narrower board-state question or include exact card names."
+                            : "Arbiter could not produce a verified rule citation for this answer. Verify independently before relying on it."}
                       </div>
                     )}
                     {msg.arbiterTrace && (
@@ -275,6 +334,12 @@ export default function ChatPanel({
                         </pre>
                       </details>
                     )}
+                    <ArbiterSources
+                      sources={msg.arbiterSources}
+                      LINE={LINE}
+                      TEXT={TEXT}
+                      fontFamily={fontFamily}
+                    />
                     {/* T8 — Trust Strip */}
                     {!msg.isError && <TrustStrip msg={msg} LINE={LINE} />}
                   </>

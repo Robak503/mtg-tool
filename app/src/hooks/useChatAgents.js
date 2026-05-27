@@ -181,10 +181,14 @@ async function fetchArbiterTrace({ question, cardContext, context, fast, provide
       }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) return { trace: "", status: "unresolved" };
-    return { trace: data.trace || "", status: data.status || "unresolved" };
+    if (!response.ok) return { trace: "", status: "unresolved", retrievalMetadata: null };
+    return {
+      trace: data.trace || "",
+      status: data.status || "unresolved",
+      retrievalMetadata: data.retrievalMetadata || null,
+    };
   } catch {
-    return { trace: "", status: "unresolved" };
+    return { trace: "", status: "unresolved", retrievalMetadata: null };
   }
 }
 
@@ -213,6 +217,38 @@ function countContextCards(text) {
 
 function countContextRulings(text) {
   return (String(text || "").match(/WOTC RULINGS:/g) || []).length;
+}
+
+function normalizeModelTier(value) {
+  const tier = String(value || "fast").trim().toLowerCase();
+  if (["anthropic", "api", "cloud"].includes(tier)) return "anthropic";
+  if (["deep", "local-deep", "ollama-deep"].includes(tier)) return "deep";
+  if (["fast", "local-fast", "ollama-fast", "ollama", "local"].includes(tier)) return "fast";
+  return "fast";
+}
+
+function providerForModelTier(tier) {
+  return tier === "anthropic" ? "anthropic" : "ollama";
+}
+
+function summarizeArbiterMetadata(metadata) {
+  if (!metadata) return null;
+  return {
+    ruleNumbers: (metadata.rulesRetrieved || [])
+      .map(rule => String(rule.ruleNumber || "").trim())
+      .filter(Boolean),
+    cards: (metadata.cardsRetrieved || [])
+      .map(card => String(card || "").trim())
+      .filter(Boolean),
+    rulesGuruPrecedents: (metadata.rulesGuruPrecedents || [])
+      .map(precedent => ({
+        id: precedent.id,
+        title: precedent.title,
+        requiredCitations: precedent.requiredCitations || [],
+      })),
+    hallucinations: metadata.hallucinations || [],
+    confidence: metadata.confidence || null,
+  };
 }
 
 function escapeRegExp(value) {
@@ -252,7 +288,7 @@ function localJaceRulesPrimer(prompt) {
   ].join("\n");
 }
 
-function createDeckLock(deck) {
+function createDeckLock(deck, knowledgeStatus = null) {
   if (!deck) return null;
   return {
     id: deck.id,
@@ -264,8 +300,8 @@ function createDeckLock(deck) {
     tokenCount: deckTokenCount(deck),
     lockedAt: new Date().toISOString(),
     schemaVersion: 1,
-    cardDataVersion: null,   // TODO P3: populate from oracle manifest scryfallUpdatedAt
-    rulesVersion: null,      // TODO P3: populate from mtg-judge META file
+    cardDataVersion: knowledgeStatus?.cardDataVersion || null,
+    rulesVersion: knowledgeStatus?.rulesVersion || null,
     cardNames: deckOracleCardNamesFromCards(deck.cards || []),
     deckText: serializeDeck(deck.cards || []),
     memoryText: serializeDeckMemory(deck),
@@ -283,6 +319,8 @@ function lockContext(lock, agentId = "karn", confirmLock = false) {
     `Owner: ${lock.owner}`,
     `Commander: ${lock.commander}`,
     `Locked At: ${lock.lockedAt}`,
+    lock.cardDataVersion ? `Card Data Version: ${lock.cardDataVersion}` : "",
+    lock.rulesVersion ? `Rules Version: ${lock.rulesVersion}` : "",
     `Cards: ${lock.mainCount} non-token cards, ${lock.tokenCount} token entries saved separately`,
     lock.memoryText ? `\n## LOCKED DECK MEMORY\n${lock.memoryText}` : "",
     `\n## LOCKED DECK LIST\n${lock.deckText}`,
@@ -322,7 +360,7 @@ export default function useChatAgents({
   agent,
   deckCards,
   fastMode,
-  modelProvider = "ollama",
+  modelProvider = "fast",
   savedDecks,
   setAgent,
   tokenEntries,
@@ -332,6 +370,7 @@ export default function useChatAgents({
   const [chatLoaded, setChatLoaded] = useState(false);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [knowledgeStatus, setKnowledgeStatus] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -357,6 +396,23 @@ export default function useChatAgents({
 
     // Warm the Scryfall card name catalog so first agent call does not pay the latency.
     loadCardCatalog();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const response = await fetch("/api/knowledge-status", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (active) setKnowledgeStatus(data);
+      } catch {
+        // Version metadata should not block chat.
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -387,8 +443,9 @@ export default function useChatAgents({
     const targetAgent = agentOverride || agent;
     const targetConfig = AGENTS[targetAgent];
     const prompt = (text || input).trim();
-    const effectiveProvider = forceProvider || modelProvider;
-    const isLocalProvider = effectiveProvider === "ollama" || effectiveProvider === "local";
+    const requestedTier = normalizeModelTier(forceProvider || modelProvider);
+    const effectiveProvider = providerForModelTier(requestedTier);
+    const isLocalProvider = effectiveProvider === "ollama";
     const wantsDeepAnswer = /\b(full|deep|detailed|comprehensive|exhaustive|complete breakdown)\b/i.test(prompt);
     const isPureKarnCutRequest = targetAgent === "karn" &&
       /\b(cut|cuts|remove|trim)\b/i.test(prompt) &&
@@ -417,7 +474,7 @@ export default function useChatAgents({
       let deckLockJustCreated = false;
 
       if (locksDeckContext && !deckLock && activeDeck) {
-        deckLock = createDeckLock(activeDeck);
+        deckLock = createDeckLock(activeDeck, knowledgeStatus);
         deckLockJustCreated = true;
         activeLocks = { ...activeLocks, [targetAgent]: deckLock };
         setDeckLocks(activeLocks);
@@ -522,8 +579,57 @@ export default function useChatAgents({
         // Karn can still answer from the loaded deck Oracle context if local search context fails.
       }
 
-      if (deckOracleContext || karnScryfallContext || cardContext) {
-        augmentedContent = `${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## USER QUESTION\n\n${prompt}`;
+      // Local deterministic deck power/combo ranking (Karn and Tibalt).
+      // Karn uses it for structured analysis; Tibalt uses it to anchor roast accuracy
+      // (bracket creep, game changer callouts, combo line awareness, salt scores).
+      // Result is cached in the deck lock after the first fetch (~1.6s) — subsequent
+      // messages in the same conversation reuse the cached value at zero cost.
+      let powerRankContext = "";
+      try {
+        if (
+          (targetAgent === "karn" || targetAgent === "tibalt") &&
+          deckOracleNames.length >= 2 &&
+          !isPureKarnCutRequest
+        ) {
+          if (deckLock?.powerRankFormatted) {
+            // Cached: skip the fetch entirely after the first message.
+            powerRankContext = `${deckLock.powerRankFormatted}\n\n`;
+          } else {
+            const commanderNames = deckLock?.commanderNames?.length
+              ? deckLock.commanderNames
+              : deckLock?.commander
+                ? deckLock.commander.split(" / ").map(n => n.trim()).filter(Boolean)
+                : (activeDeck ? deckCommanderNames(activeDeck) : []);
+            const powerRes = await fetch("/api/power-rank", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                deckText: deckLock?.deckText || (activeDeck ? serializeDeck(activeDeck.cards || deckCards) : ""),
+                cardNames: deckOracleNames,
+                commanderNames,
+                maxAlmost: 10,
+              }),
+            });
+            if (powerRes.ok) {
+              const powerData = await powerRes.json();
+              if (powerData.ready && powerData.formatted) {
+                powerRankContext = `${powerData.formatted}\n\n`;
+                // Cache in the deck lock — deck doesn't change during a conversation.
+                if (deckLock) {
+                  const updatedLock = { ...deckLock, powerRankFormatted: powerData.formatted };
+                  activeLocks = { ...activeLocks, [targetAgent]: updatedLock };
+                  setDeckLocks(activeLocks);
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // Power ranking is supplemental; never block the request.
+      }
+
+      if (deckOracleContext || karnScryfallContext || powerRankContext || cardContext) {
+        augmentedContent = `${deckOracleContext || ""}${karnScryfallContext || ""}${powerRankContext}${cardContext || ""}## USER QUESTION\n\n${prompt}`;
       }
 
       if (isPureKarnCutRequest && deckOracleNames.length) {
@@ -569,7 +675,11 @@ export default function useChatAgents({
         if (arbiterResult.trace) {
           responseMeta.arbiterTrace = arbiterResult.trace;
           responseMeta.arbiterStatus = arbiterResult.status;
-          augmentedContent = `${engineContext || ""}${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## ARBITER TRACE\nThis trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language.\n\n${arbiterResult.trace}\n\n## USER QUESTION\n\n${prompt}`;
+          responseMeta.arbiterSources = summarizeArbiterMetadata(arbiterResult.retrievalMetadata);
+          const arbiterInstruction = arbiterResult.status === "resolved"
+            ? "This trace was produced by the backend Arbiter rules engine. Use it as the formal source of truth, but answer the user as Jace in plain table language."
+            : "This Arbiter trace did not resolve cleanly from local rules retrieval. Do not present a confident ruling. Explain what is unresolved and ask for a narrower board state or exact card names if needed.";
+          augmentedContent = `${engineContext || ""}${deckOracleContext || ""}${karnScryfallContext || ""}${cardContext || ""}## ARBITER TRACE\n${arbiterInstruction}\n\n${arbiterResult.trace}\n\n## USER QUESTION\n\n${prompt}`;
         }
       }
 
@@ -578,12 +688,20 @@ export default function useChatAgents({
         responseMeta.factReceipt = {
           provider: "ollama",
           fallbackUsed: false,
+          modelTier: "local-primer",
+          model: "local-primer",
           deckLocked: Boolean(deckLock),
           deckName: deckLock?.name || null,
           cardsProvided: countContextCards(cardContext + deckOracleContext + karnScryfallContext),
           rulingsProvided: countContextRulings(cardContext + deckOracleContext),
           engineContextProvided: Boolean(engineContext),
           arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
+          arbiterStatus: responseMeta.arbiterStatus || null,
+          arbiterRulesRetrieved: responseMeta.arbiterSources?.ruleNumbers?.length || 0,
+          arbiterCardsRetrieved: responseMeta.arbiterSources?.cards?.length || 0,
+          arbiterRulesGuruPrecedents: responseMeta.arbiterSources?.rulesGuruPrecedents?.length || 0,
+          arbiterHallucinations: responseMeta.arbiterSources?.hallucinations?.length || 0,
+          arbiterConfidence: responseMeta.arbiterSources?.confidence || null,
         };
 
         setHistories(previous => ({
@@ -598,13 +716,7 @@ export default function useChatAgents({
         ? trimApiHistory([...histories[targetAgent], { role: "user", content: augmentedContent }])
         : trimApiHistory(baseHistory);
 
-      const useFastLocalModel = Boolean(
-        isLocalProvider &&
-        (targetAgent === "karn" ||
-          targetAgent === "tibalt" ||
-          Boolean(responseMeta.arbiterTrace) ||
-          deckOracleContext.length > 25000)
-      );
+      const useFastLocalModel = Boolean(isLocalProvider && requestedTier === "fast");
 
       const response = await fetch("/api/chat-stream", {
         method: "POST",
@@ -612,7 +724,9 @@ export default function useChatAgents({
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           provider: effectiveProvider,
+          modelTier: requestedTier,
           fastLocal: useFastLocalModel,
+          agentName: targetAgent,
           max_tokens: isLocalProvider ? localMaxTokens : 2500,
           system: systemPrompt,
           messages: apiMessages,
@@ -698,6 +812,8 @@ export default function useChatAgents({
       const data = {
         content: [{ type: "text", text: streamedText }],
         provider: streamDoneEvent?.provider || (effectiveProvider),
+        model: streamDoneEvent?.model || null,
+        modelTier: streamDoneEvent?.modelTier || requestedTier,
         usage: streamDoneEvent?.usage || null,
       };
 
@@ -744,13 +860,21 @@ export default function useChatAgents({
 
       responseMeta.factReceipt = {
         provider: data.provider || (effectiveProvider),
-        fallbackUsed: !forceProvider && modelProvider === "ollama" && data.provider === "anthropic",
+        fallbackUsed: !forceProvider && requestedTier !== "anthropic" && data.provider === "anthropic",
+        modelTier: data.modelTier || requestedTier,
+        model: data.model,
         deckLocked: Boolean(deckLock),
         deckName: deckLock?.name || null,
         cardsProvided: countContextCards(cardContext + deckOracleContext + karnScryfallContext),
         rulingsProvided: countContextRulings(cardContext + deckOracleContext),
         engineContextProvided: Boolean(engineContext),
         arbiterTraceProvided: Boolean(responseMeta.arbiterTrace),
+        arbiterStatus: responseMeta.arbiterStatus || null,
+        arbiterRulesRetrieved: responseMeta.arbiterSources?.ruleNumbers?.length || 0,
+        arbiterCardsRetrieved: responseMeta.arbiterSources?.cards?.length || 0,
+        arbiterRulesGuruPrecedents: responseMeta.arbiterSources?.rulesGuruPrecedents?.length || 0,
+        arbiterHallucinations: responseMeta.arbiterSources?.hallucinations?.length || 0,
+        arbiterConfidence: responseMeta.arbiterSources?.confidence || null,
       };
 
       setHistories(previous => {
@@ -773,9 +897,9 @@ export default function useChatAgents({
           errorProvider: effectiveProvider,
         }],
       }));
+    } finally {
+      setSending(false);
     }
-
-    setSending(false);
   };
 
   const retryWithFallback = (originalPrompt, targetAgentKey = null) => {
@@ -830,6 +954,7 @@ export default function useChatAgents({
     deckLocks,
     histories,
     input,
+    knowledgeStatus,
     retryWithFallback,
     send,
     sending,

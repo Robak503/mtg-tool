@@ -1,12 +1,23 @@
 # MTG Tool Roadmap
 
-## Current Addendum - 2026-05-23
+## Current Addendum - 2026-05-26
 
-The first-run audit and simulated planning docs are complete. Codex also implemented a focused deck-lock/local-Oracle fix before full Phase 1 rollout: loaded decks can now lock per-agent and attach local Oracle text to the conversation context.
+Phase 2 (`feat/phase2-arbiter-retrieval`, 37 commits) shipped and is in review-gate.
 
-Karn also now has a V0 local Scryfall search bridge: `/api/cards?search=...` searches local Oracle data, filters Commander legality/color identity, and can attach compact local candidate pools to Karn deck-building prompts.
+**Phase 2 ships:**
+- Arbiter grounded in local rules retrieval (`rulesRetrieval.js`) — keyword scoring, pinned hints, confidence levels
+- Local card index with singleton cache (`cardIndex.js`) — replaces scattered Scryfall lookups
+- Citation injector — builds context for Arbiter prompts, strips hallucinated citations from output
+- RulesGuru precedent retrieval — scores scenarios against local test-case database
+- Commander Spellbook combo grounding — local combo lookup and bracket estimation (`spellbook.js`)
+- EDHREC salt grounding — local salt scores for deck power context
+- Deck power ranker — 1,152-line deterministic 1–10 scoring engine with CRISPI axes, bracket, combo analysis
+- Model tier selector — Fast/Mid/Deep/API tier picker in the UI header
+- Karn archetype blueprints — Combo, Control, Aggro/Midrange pro frameworks with construction baselines
+- Ollama health checks — startup ping, model-not-pulled detection
+- TrustStrip enrichment — deck trust context displayed in Karn/Tibalt
 
-Next full sprint remains the Local-First Trust Foundation: provider routing, manual Anthropic fallback, cost visibility, and a unified knowledge service.
+**Next phase:** Phase 3 focus items — chat session manager, Jace → Arbiter silent wiring, TODOS.md cleanups (P3 items).
 
 This is the working roadmap. Claude Code updates this as phases complete.
 
@@ -16,85 +27,70 @@ Awaiting first Claude Code session. Audit document (`AUDIT.md`) will be produced
 
 ---
 
-## Phase 1 — Foundation (audit + git + critical fixes)
+## Phase 1 — Foundation ✅ COMPLETE
 
-- [ ] Read CLAUDE.md and existing docs
-- [ ] Verify Node, git, gstack, GBrain are installed and functional
-- [ ] Delete `node_modules/` and `.next/` from working copy
-- [ ] `git init` and create `.gitignore`
-- [ ] Initial commit
-- [ ] Walk owner through GitHub backup setup
-- [ ] `npm install`
-- [ ] Verify dev server boots
-- [ ] Produce `AUDIT.md` covering current state, broken/half-wired things, recommended Phase 1 actions
-- [ ] Stop and wait for owner review
-- [ ] Execute Phase 1 critical fixes based on audit findings
+- [x] Read CLAUDE.md and existing docs
+- [x] Verify Node, git, gstack, GBrain are installed and functional
+- [x] Delete `node_modules/` and `.next/` from working copy
+- [x] `git init` and create `.gitignore`
+- [x] Initial commit
+- [x] `npm install`
+- [x] Verify dev server boots
+- [x] Produce `AUDIT.md` covering current state
+- [x] Execute Phase 1 critical fixes (deck context lock, Ollama wiring, provider routing, cost telemetry)
 
 ---
 
-## Phase 2 — Unified Knowledge Layer
+## Phase 2 — Unified Knowledge Layer ✅ COMPLETE (feat/phase2-arbiter-retrieval, 37 commits)
 
-The big architectural shift. All data sources local and queryable through Arbiter.
+- [x] Wire mtg-judge codex into runtime retrieval
+  - [x] `rulesRetrieval.js` — keyword scoring retrieval with pinned hints and confidence levels
+  - [x] Expose codex to Jace/Karn/Tibalt via Arbiter
+- [x] Rebuild Arbiter as a real service
+  - [x] `citationInjector.js` — builds grounding context, strips hallucinated citations
+  - [x] Returns structured STATE/RESOLUTION/RULE TRACE/CITATIONS output
+  - [x] Uses local Ollama; Anthropic call leak fixed (provider pinned to "ollama")
+- [x] Centralized local card index (`cardIndex.js`) with singleton cache
+- [x] RulesGuru precedent retrieval — scores scenarios against 200+ verified question corpus
+- [x] Commander Spellbook local integration (`spellbook.js`) — combo lookup, bracket estimation
+- [x] EDHREC salt grounding — local salt scores synced, used in power context
+- [x] Deck power ranker (`powerRanker.js`) — deterministic 1–10 with CRISPI axes, bracket 1–5
+- [x] Karn archetype blueprints — Combo, Control, Aggro/Midrange construction frameworks
+- [x] Model tier selector UI — Fast/Mid/Deep/API tier in header
+- [x] Ollama startup health check — banner if Ollama down or model not pulled
 
-- [ ] Sync all 5 Scryfall bulk datasets to `data/scryfall/`
-  - [ ] oracle-cards.json
-  - [ ] default-cards.json
-  - [ ] all-cards.json
-  - [ ] unique-artwork.json
-  - [ ] rulings.json
-  - [ ] Build indexes (name → card, ID → printings, color → cards, etc.)
-  - [ ] Scheduled refresh logic
-  - [ ] Versioned backups before refresh
-- [ ] RulesGuru full import
-  - [ ] Investigate API limits and coverage strategy
-  - [ ] Build paginating importer with resume logic
-  - [ ] Maximize unique question coverage
-  - [ ] Build synthetic fallback question generator
-  - [ ] Document the strategy chosen
-- [ ] Forge integration
-  - [ ] Audit existing Forge-related files (`mtg_forge_lookup.py`, etc.)
-  - [ ] Determine what's useful (card scripts? rules data?)
-  - [ ] Import to `data/forge/`
-  - [ ] Document what was imported and what was skipped
-- [ ] Wire mtg-judge codex into runtime retrieval
-  - [ ] Build retrieval interface for `_v` and `_t` files
-  - [ ] Add addendums section structure for elaborations
-  - [ ] Expose codex to Karn, Jace, Tibalt via Arbiter
-- [ ] Rebuild Arbiter as a real service
-  - [ ] Accepts structured queries (rule question, card lookup, state assessment)
-  - [ ] Retrieves from codex, Scryfall data, rulings
-  - [ ] Returns structured response with citations
-  - [ ] Uses local model for reasoning
+**Deferred to future phases (not Phase 2 scope):**
+- [ ] Sync remaining Scryfall bulk datasets (default-cards, all-cards, artwork, rulings indexes)
+- [ ] RulesGuru full API import (current: 200+ hand-verified questions via local file)
+- [ ] Forge integration (deprioritized — limited value vs. effort)
+- [ ] Addendums section in mtg-judge codex (nice-to-have, not blocking)
 
 ---
 
-## Phase 3 — Ollama Integration
+## Phase 3 — Ollama Integration (mostly done in Phase 2)
 
 Stop bleeding API credits.
 
-- [x] Install Ollama (verified v0.24.0 on Windows)
-- [x] Pull first recommended model (`qwen2.5:14b`, 9.0 GB, Q4_K_M)
-- [ ] Pull optional fast model for table-side use
-- [ ] Pull optional deep model for offline deck analysis
+- [x] Install Ollama (verified on Windows)
+- [x] Pull primary model (`qwen2.5:32b` deep, `qwen2.5:14b` mid, `qwen2.5:7b` fast)
 - [x] Add Ollama as a provider in the chat infrastructure
-  - [x] V0 provider abstraction shared by `/api/anthropic` and `/api/arbiter`
-  - [x] V0 Ollama HTTP adapter for `localhost:11434`
-  - [x] V0 no-cost failure response when Ollama is unavailable
+  - [x] Provider abstraction in `modelProvider.js` and `chat-stream/route.js`
+  - [x] Ollama NDJSON streaming adapter
+  - [x] Actionable error messages when Ollama is unavailable or model not pulled
 - [x] Default routing: Ollama for all agents
-- [ ] Fallback routing: Anthropic if Ollama fails
-- [ ] UI toggle: "Local" / "Anthropic" / "Auto"
-  - [x] V0 Local/API manual switch in app header
-  - [ ] Auto mode UI
-- [ ] Tune prompts for local model (smaller models need more explicit instructions)
-- [ ] Verify each agent gives coherent answers through Ollama
-  - [x] Arbiter route verified through Ollama with local Oracle auto-context for named cards
-- [ ] Add a cost dashboard showing local vs API calls
-  - [x] V0 private provider-call metadata log
-  - [x] V0 header badge with local/API call counts
-  - [ ] Full visible dashboard UI
-- [ ] Track API spend over time so it's visible
-  - [x] V0 route-level provider/status/count logging
-  - [ ] Dollar estimate and daily/session rollups
+- [x] Arbiter pinned to Ollama — can never call Anthropic regardless of UI tier setting
+- [x] Model tier selector UI — Fast / Mid / Deep / API tiers
+  - [x] Karn and Tibalt always route to mid-tier (14B) for reasoning quality
+  - [x] Fast/Deep for Jace respects tier selector
+- [x] Ollama startup health check — banner on model-not-running or model-not-pulled
+- [x] Cost telemetry V0 — `data/model-calls.local.json`, header badge (Local N | API N)
+
+**Remaining P3 items (now tracked in TODOS.md):**
+- [ ] Rename `/api/anthropic` → `/api/chat` (TODOS P3)
+- [ ] Remove dead `/api/anthropic` route (TODOS P3)
+- [ ] Extract streaming logic to `modelProvider.js` (TODOS P3)
+- [ ] Consolidate duplicate oracle caches (TODOS P3)
+- [ ] Full cost dashboard UI with dollar estimates and daily rollups
 
 ---
 
@@ -183,6 +179,10 @@ Significant architectural decisions get logged here as they're made.
 - 2026-05-24: Ollama installed and verified on Windows. `qwen2.5:14b` is pulled, configured as the app default, and verified through `/api/anthropic` and `/api/arbiter`. Ollama context default raised to 32K for locked-deck Oracle/rulings prompts.
 - 2026-05-24: `/api/arbiter` now auto-attaches local Scryfall Oracle/rulings context for card names in direct Arbiter questions when the caller did not already provide a card context block. This fixes direct local-model rules calls that mention cards outside the chat UI's client-side context builder.
 - 2026-05-23: The canonical project is `C:\Users\colto\Documents\Claude\Projects\MTG-TOOL`. The older Codex project may still run on port 3000; use `http://localhost:3001` for the canonical project when port 3000 is occupied.
+- 2026-05-25: Arbiter's `provider` field was being passed unvalidated from request body to `callModelMessages`. This caused every rules question to hit the Anthropic API when user had "API" tier selected. Fixed by hardcoding `provider: "ollama"` in Arbiter's payload — Arbiter is local-only by design.
+- 2026-05-25: `spellbook.js` singleton `_loadAttempted` flag restructured: previously set before file existence check (permanent miss), now only set after confirming files exist. Users can run `npm run sync:spellbook` without restarting the dev server to load combo data.
+- 2026-05-25: Deck power ranker uses Commander Spellbook combo data for bracket estimation and EDHREC salt scores for "salt context". Scores are cached per deck hash with 24-hour TTL to avoid recomputing on every Karn/Tibalt message.
+- 2026-05-25: Phase 2 /review gstack pass completed. 7 total fixes applied (4 main pass + 3 adversarial). Branch is clean and ready to merge.
 
 ---
 
