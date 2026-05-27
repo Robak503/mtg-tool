@@ -23,6 +23,7 @@ import DeckView from "./mtg/DeckView";
 import RightPanel from "./mtg/RightPanel";
 import ChatPanel from "./mtg/ChatPanel";
 import SessionSidebar from "./mtg/SessionSidebar";
+import FeedbackButton from "./mtg/FeedbackButton";
 
 export default function MTGAssistant() {
   const [agent, setAgent]   = useState("karn");
@@ -635,6 +636,19 @@ export default function MTGAssistant() {
           fontFamily={F}
         />
       )}
+
+      {/* In-app feedback capture. Floats over everything; writes to
+          data/feedback/ via /api/feedback. Per CLAUDE.md "End-of-pass
+          behavior" — the user will accumulate notes during real usage. */}
+      <FeedbackButton
+        agent={agent}
+        currentSession={currentSession}
+        activeDeck={activeDeck}
+        page={centerView}
+        cfg={cfg}
+        colors={{BG2, BG3, LINE, TEXT, MUTED, GOLD}}
+        fontFamily={F}
+      />
     </div>
   );
 }
