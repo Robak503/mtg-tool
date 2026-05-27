@@ -18,11 +18,11 @@
 import { useEffect, useRef, useState } from "react";
 
 const CATEGORY_OPTIONS = [
-  { value: "bug", label: "🐛 Bug" },
-  { value: "feature", label: "💡 Feature idea" },
-  { value: "agent-quality", label: "🧠 Agent quality" },
-  { value: "ui", label: "🎨 UI / UX" },
-  { value: "other", label: "💬 Other" },
+  { value: "bug", label: "Bug", glyph: "🐛" },
+  { value: "feature", label: "Feature", glyph: "💡" },
+  { value: "agent-quality", label: "Agent", glyph: "🧠" },
+  { value: "ui", label: "UI / UX", glyph: "🎨" },
+  { value: "other", label: "Other", glyph: "💬" },
 ];
 
 function readContextFromUrl() {
@@ -158,26 +158,34 @@ export default function FeedbackWindowPage() {
         Cmd/Ctrl-Enter submits. Esc clears. Each entry appends to <code style={{ fontFamily: "ui-monospace, monospace" }}>data/feedback/FEEDBACK.md</code>.
       </p>
 
-      <div style={{ display: "flex", gap: 6 }}>
-        <select
-          value={category}
-          onChange={event => setCategory(event.target.value)}
-          disabled={submitting}
-          style={{
-            flex: 1,
-            padding: "6px 8px",
-            background: BG2,
-            border: `1px solid ${LINE}`,
-            borderRadius: 5,
-            color: TEXT,
-            fontSize: 12,
-            fontFamily: FONT,
-          }}
-        >
-          {CATEGORY_OPTIONS.map(option => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        {CATEGORY_OPTIONS.map(option => {
+          const selected = category === option.value;
+          return (
+            <button
+              key={option.value}
+              onClick={() => setCategory(option.value)}
+              disabled={submitting}
+              style={{
+                padding: "5px 10px",
+                borderRadius: 999,
+                border: `1px solid ${selected ? GOLD : LINE}`,
+                background: selected ? BG2 : "transparent",
+                color: selected ? GOLD : TEXT,
+                cursor: submitting ? "not-allowed" : "pointer",
+                fontSize: 11,
+                fontFamily: FONT,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontWeight: selected ? 600 : 400,
+              }}
+            >
+              <span style={{ fontSize: 12 }}>{option.glyph}</span>
+              <span>{option.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       <textarea

@@ -692,6 +692,7 @@ export default function MTGAssistant() {
         cfg={cfg}
         colors={{BG2, BG3, LINE, TEXT, MUTED, GOLD}}
         fontFamily={F}
+        mobile={mobile}
       />
     </div>
   );
