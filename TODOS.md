@@ -8,6 +8,20 @@ stays readable.
 
 ## Infra / Workflow
 
+### P1 — Tauri production .exe follow-ups
+
+**What:** Three small follow-ups to the Tauri shell that landed 2026-05-26:
+
+1. **Refactor `knowledge-status/route.js` to use `paths.js`** — currently uses raw `process.cwd()` joins to find scryfall-bulk and mtg-judge data. In production the cwd is the bundled standalone server dir, not the dev tree, so the route reports things as "missing" that actually live in resources/ or %APPDATA%. Wire it through `dataPath()` / `mtgJudgePath()` and the status banner will be accurate from the .exe.
+
+2. **First-launch data wizard** — right now the .exe seeds %APPDATA%\com.colton.mtg-tool\data\ with only the slim oracle-index. The user's full deck library, chats, and bulk Scryfall data live in the dev tree. Add a one-shot UI prompt on first launch: "Import data from existing install?" with a folder picker defaulting to ...\MTG-TOOL\app\data\. Cleanest path to a usable cold-install.
+
+3. **Auto-updater wiring** — Tauri v2 ships with `tauri-plugin-updater`. Once the GitHub remote exists (existing P0), add a GitHub Actions workflow that builds the NSIS installer on every `v*` tag and uploads as a release asset. Then wire `tauri-plugin-updater` in `lib.rs` to point at the releases feed. This is the "UI updates ship automatically" story from `docs/packaging-review.md`.
+
+**Why:** The .exe boots and serves the app today, but these three rough edges block a clean handoff.
+
+---
+
 ### P0 — Set up GitHub remote for the project
 
 **What:** Create a private GitHub repo, install `gh` CLI (or use a personal access token), connect `origin`, push `master` plus existing branches.
