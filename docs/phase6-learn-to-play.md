@@ -257,9 +257,16 @@ Each step is a self-contained PR with tests. Don't skip ahead.
    self-damage guard), turn counter reset, findPermanent across
    players, logEvent, and immutability spot checks. All helpers are
    pure — they return new state, never mutate.
-2. **PR2 — gameEngine state machine (turn/phase/step transitions,
-   priority handling, trigger queue) + tests.** Pure logic; surface a
-   step API. ~500 lines + tests.
+2. **PR2 — gameEngine state machine.** ✅ DONE (master, 2026-05-26).
+   `app/src/lib/learn/gameEngine.js` (~290 LOC) + 29 tests.
+   `advanceStep` / `runStepActions` / `nextStep` walk the turn
+   sequence; `passPriority` handles the priority loop including
+   step-end-on-empty-stack and stack-resolution-on-non-empty;
+   `resolveTopOfStack` runs `payload.onResolve` callbacks; trigger
+   queue via `enqueueTrigger` + `flushTriggers` with APNAP ordering;
+   `startGame` covers the opening 7 + first-turn draw-skip per CR
+   103.7a. Untap/cleanup correctly skip the priority grant per
+   CR 117.3a.
 3. **PR3 — legalChoices generator** (cast/play-land/activate/attack/
    block/pay-cost). Covers ~85% of card oracle patterns; punts the
    rest to Arbiter. ~400 lines + tests.

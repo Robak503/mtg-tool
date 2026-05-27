@@ -1,0 +1,381 @@
+/**
+ * Phase 6 — Learn-to-Play: gameEngine.js
+ *
+ * Turn structure state machine. Consumes the immutable helpers from
+ * gameState.js; the engine never mutates state directly. Everything
+ * exported is a pure function that returns a new GameState.
+ *
+ * Scope (per design doc §5 step 2):
+ *   - Phase/step transitions (untap → upkeep → draw → main → combat →
+ *     main → end → cleanup → next turn)
+ *   - Priority handling — passPriority + a tiny "both passed" detector
+ *     that either resolves the top of the stack or advances to the
+ *     next phase
+ *   - Trigger queue — abilities trigger immediately on the event, then
+ *     get placed on the stack at the next priority-grant checkpoint
+ *
+ * Out of scope (deferred to PR3+):
+ *   - Legal-choice generation (PR3)
+ *   - State-based actions beyond a trivial life-loss check (PR2.5 or
+ *     part of the engine when actions land)
+ *   - Cleanup-step "until end of turn" effect removal — placeholder
+ *
+ * Design source: docs/phase6-learn-to-play.md §4
+ */
+
+import {
+  PHASES,
+  STEPS,
+  opponentOf,
+  drawCards,
+  emptyAllManaPools,
+  emptyManaPoolForPlayer,
+  resetTurnCounters,
+  untapAll,
+  logEvent,
+} from "./gameState.js";
+
+// ─── Step ordering ────────────────────────────────────────────────────────────
+
+/**
+ * Flattened (phase, step) sequence — the order they happen in a turn.
+ * The engine walks this list. After the last entry, the turn ends and
+ * the next player gets a turn.
+ */
+const TURN_SEQUENCE = PHASES.flatMap(phase => STEPS[phase].map(step => ({ phase, step })));
+
+function findSequenceIndex(phase, step) {
+  return TURN_SEQUENCE.findIndex(entry => entry.phase === phase && entry.step === step);
+}
+
+// ─── Priority ────────────────────────────────────────────────────────────────
+
+/**
+ * Steps where players do NOT receive priority by default (per CR 117.3a):
+ *   - untap step
+ *   - cleanup step (only if a trigger or instant-speed action happens)
+ *
+ * In v1 we treat both as auto-pass: no priority granted, no priority
+ * holder set. The engine still surfaces them as discrete states so the
+ * UI / narrator can show "Untap step — untapping permanents…"
+ */
+const NO_PRIORITY_STEPS = new Set(["untap", "cleanup"]);
+
+function grantsPriority(step) {
+  return !NO_PRIORITY_STEPS.has(step);
+}
+
+/**
+ * After a state change, restart the priority loop. Active player
+ * receives priority first per CR 117.1.
+ */
+export function grantPriority(state, holder = state.activePlayer) {
+  return {
+    ...state,
+    priorityHolder: holder,
+    consecutivePasses: 0,
+  };
+}
+
+/**
+ * Reset the priority loop without changing the active player (used
+ * when state changes — a spell resolved, a trigger went on the stack —
+ * because rules require restarting priority from the active player).
+ */
+function resetPriorityLoop(state) {
+  if (!grantsPriority(state.step)) return state;
+  return {
+    ...state,
+    priorityHolder: state.activePlayer,
+    consecutivePasses: 0,
+  };
+}
+
+// ─── Step advancement ────────────────────────────────────────────────────────
+
+/**
+ * Advance to the next (phase, step) in the turn sequence. When the
+ * current step is the last in the turn (cleanup), the turn ends and
+ * the next player becomes active.
+ *
+ * Returns a new state, NOT including any priority/trigger handling.
+ * Callers should run runStepActions() afterward to apply the new
+ * step's automatic effects (untap, draw, etc.).
+ */
+export function advanceStep(state) {
+  const index = findSequenceIndex(state.phase, state.step);
+  if (index === -1) {
+    throw new Error(`Invalid (phase=${state.phase}, step=${state.step})`);
+  }
+
+  if (index + 1 < TURN_SEQUENCE.length) {
+    const next = TURN_SEQUENCE[index + 1];
+    return {
+      ...state,
+      phase: next.phase,
+      step: next.step,
+      priorityHolder: null,
+      consecutivePasses: 0,
+    };
+  }
+
+  // End of turn — next player's turn begins at (beginning, untap).
+  const nextActive = opponentOf(state.activePlayer);
+  return {
+    ...state,
+    activePlayer: nextActive,
+    turn: state.turn + 1,
+    phase: "beginning",
+    step: "untap",
+    priorityHolder: null,
+    consecutivePasses: 0,
+  };
+}
+
+/**
+ * Apply the automatic actions for the current step:
+ *   - untap: untap all active player's permanents, reset turn counters,
+ *            empty active player's mana pool (technically end-of-prior-
+ *            turn but practically same moment for v1)
+ *   - draw: active player draws a card
+ *   - cleanup: empties everyone's mana pool; placeholder for discard-
+ *              to-7 (PR3 will handle when the engine knows hand max)
+ *   - others: no automatic action; surface a priority window
+ *
+ * Returns a new state with the step's effects applied and priority
+ * granted if applicable.
+ */
+export function runStepActions(state) {
+  let next = state;
+
+  switch (state.step) {
+    case "untap":
+      next = emptyManaPoolForPlayer(next, { playerId: state.activePlayer });
+      next = resetTurnCounters(next, { playerId: state.activePlayer });
+      next = untapAll(next, { playerId: state.activePlayer });
+      next = logEvent(next, { kind: "step", phase: "beginning", step: "untap", player: state.activePlayer });
+      break;
+
+    case "draw":
+      // Per CR 103.7a, the player whose turn it is the very first turn
+      // skips their draw step. We track that via turn === 1 and the
+      // active player being whoever started.
+      if (next.turn === 1 && state.activePlayer === state.startingPlayer) {
+        next = logEvent(next, { kind: "step", phase: "beginning", step: "draw", player: state.activePlayer, skipped: "first-turn-draw" });
+      } else {
+        next = drawCards(next, { playerId: state.activePlayer, count: 1 });
+        next = logEvent(next, { kind: "step", phase: "beginning", step: "draw", player: state.activePlayer });
+      }
+      break;
+
+    case "cleanup":
+      next = emptyAllManaPools(next);
+      // Discard-to-hand-size + remove-until-end-of-turn effects are
+      // deferred to PR3 (legal choices) and PR4+ (effects engine).
+      next = logEvent(next, { kind: "step", phase: "ending", step: "cleanup", player: state.activePlayer });
+      break;
+
+    default:
+      // upkeep, main, combat steps — no automatic state mutation.
+      next = logEvent(next, { kind: "step", phase: state.phase, step: state.step, player: state.activePlayer });
+      break;
+  }
+
+  if (grantsPriority(next.step)) {
+    next = grantPriority(next);
+  }
+
+  // Flush any pending triggers onto the stack at this priority-grant
+  // checkpoint, per CR 603.3a — triggered abilities go on the stack at
+  // the next time a player would get priority.
+  next = flushTriggers(next);
+
+  return next;
+}
+
+/**
+ * Advance one step and apply its automatic actions. The common
+ * combination. Returns a fresh state at the new step with all
+ * automatic effects applied + priority granted if applicable.
+ */
+export function nextStep(state) {
+  return runStepActions(advanceStep(state));
+}
+
+// ─── Priority pass ────────────────────────────────────────────────────────────
+
+/**
+ * The current priority holder passes without taking an action. If both
+ * players have passed in succession with an empty stack, the step
+ * ends. If both have passed with a non-empty stack, the top object
+ * resolves (via resolveTopOfStack) and priority resets to active.
+ *
+ * Returns a new state. May trigger:
+ *   - step advancement (empty stack, both passed)
+ *   - stack resolution (non-empty stack, both passed)
+ *   - priority handoff to the other player (only one has passed)
+ */
+export function passPriority(state) {
+  if (!state.priorityHolder) {
+    throw new Error("passPriority called when no player holds priority");
+  }
+  const passes = (state.consecutivePasses || 0) + 1;
+  const newHolder = opponentOf(state.priorityHolder);
+
+  if (passes >= 2) {
+    // Both players passed in succession.
+    if (state.stack.length === 0) {
+      // Empty stack — step ends. Advance to the next step + apply
+      // its automatic actions.
+      return nextStep({ ...state, priorityHolder: null, consecutivePasses: 0 });
+    }
+    // Non-empty stack — top resolves. resolveTopOfStack also resets
+    // priority back to the active player.
+    return resolveTopOfStack({ ...state, consecutivePasses: 0 });
+  }
+
+  return {
+    ...state,
+    priorityHolder: newHolder,
+    consecutivePasses: passes,
+  };
+}
+
+// ─── Stack resolution ────────────────────────────────────────────────────────
+
+/**
+ * Resolve the top object on the stack. v1 supports a "payload.onResolve"
+ * function on stack objects — when present, it's called with state and
+ * returns a new state. This is the escape valve for the engine: cards
+ * the rules engine knows about supply onResolve directly; cards it
+ * doesn't surface as an Arbiter-driven manual resolution.
+ *
+ * After resolution, priority resets to the active player.
+ */
+export function resolveTopOfStack(state) {
+  if (state.stack.length === 0) throw new Error("Stack is empty — nothing to resolve");
+  const top = state.stack[state.stack.length - 1];
+  const remainingStack = state.stack.slice(0, -1);
+
+  let next = { ...state, stack: remainingStack };
+
+  if (typeof top.payload?.onResolve === "function") {
+    try {
+      next = top.payload.onResolve(next, top) || next;
+    } catch (error) {
+      next = logEvent(next, {
+        kind: "stack-resolve-error",
+        objectId: top.id,
+        error: String(error?.message || error),
+      });
+    }
+  } else {
+    // No explicit resolver — log that we resolved it and move on. The
+    // Arbiter-driven escape hatch lives in legalChoices (PR3) which
+    // surfaces "unresolved" prompts to the user.
+    next = logEvent(next, {
+      kind: "stack-resolve",
+      objectId: top.id,
+      kindOfObject: top.kind,
+      source: top.source?.name || top.source,
+    });
+  }
+
+  // Flush any triggers that fired as a result of resolution, then
+  // restart the priority loop with the active player.
+  next = flushTriggers(next);
+  if (grantsPriority(next.step)) {
+    next = resetPriorityLoop(next);
+  }
+  return next;
+}
+
+// ─── Triggered abilities ─────────────────────────────────────────────────────
+
+/**
+ * Add a trigger to the pending queue. Triggers are NOT placed on the
+ * stack immediately — per CR 603.3a, they go on the stack at the next
+ * priority-grant checkpoint. The engine flushes the queue inside
+ * runStepActions, resolveTopOfStack, and explicit calls.
+ *
+ * `trigger` shape:
+ *   { id, source, controller, description, payload }
+ * `payload.onResolve` (optional) — same contract as a stack object's
+ * onResolve.
+ */
+export function enqueueTrigger(state, trigger) {
+  return {
+    ...state,
+    pendingTriggers: [...(state.pendingTriggers || []), trigger],
+  };
+}
+
+/**
+ * Move every pending trigger onto the stack. Each trigger's controller
+ * orders their own triggers, then APNAP (active player first) interleaves
+ * — for v1 we just put them on the stack in (active-player triggers,
+ * non-active triggers) order, preserving FIFO within each group. That's
+ * a close-enough approximation for the common case; complex orderings
+ * (Sundial of the Infinite, conflict between multiple "your triggers")
+ * are an Arbiter case.
+ */
+export function flushTriggers(state) {
+  const pending = state.pendingTriggers || [];
+  if (pending.length === 0) return state;
+
+  const active = state.activePlayer;
+  const activeTriggers = pending.filter(t => t.controller === active);
+  const otherTriggers = pending.filter(t => t.controller !== active);
+
+  const newStackObjects = [
+    ...activeTriggers,
+    ...otherTriggers,
+  ].map(trigger => ({
+    id: trigger.id,
+    kind: "triggered-ability",
+    source: trigger.source,
+    controller: trigger.controller,
+    targets: trigger.targets || [],
+    cost: null,
+    payload: trigger.payload || {},
+  }));
+
+  return {
+    ...state,
+    stack: [...state.stack, ...newStackObjects],
+    pendingTriggers: [],
+  };
+}
+
+// ─── Game start helper ───────────────────────────────────────────────────────
+
+/**
+ * Run the start-of-game routine: stamp startingPlayer (needed by
+ * draw-step skip), shuffle libraries (caller-supplied rng), draw 7,
+ * then apply the untap step's automatic effects so the game opens at
+ * the first priority window.
+ *
+ * Caller is expected to handle London mulligan via gameState helpers
+ * before calling startGame — startGame assumes the opening hands are
+ * already locked in.
+ */
+export function startGame(state, { skipMulliganDraw = false } = {}) {
+  let next = { ...state, startingPlayer: state.activePlayer };
+  if (!skipMulliganDraw) {
+    next = drawCards(next, { playerId: "user", count: 7 });
+    next = drawCards(next, { playerId: "ai", count: 7 });
+  }
+  next = logEvent(next, { kind: "game-start", startingPlayer: state.activePlayer });
+  // First step is untap — run its actions (which include skipping the
+  // first draw for the starting player).
+  return runStepActions(next);
+}
+
+// ─── Misc reads ──────────────────────────────────────────────────────────────
+
+/**
+ * Step out of the current state without applying automatic actions or
+ * priority. Lower-level than nextStep; used by tests that want to
+ * snapshot a state at a specific step without triggering its effects.
+ */
+export { advanceStep as _advanceStepRaw };

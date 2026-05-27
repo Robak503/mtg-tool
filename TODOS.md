@@ -28,15 +28,15 @@ stays readable.
 
 ## Phase 6 — Learn-to-Play Mode
 
-### P1 — Phase 6 PR2: gameEngine state machine
+### P1 — Phase 6 PR3: legalChoices generator
 
-**What:** Build `app/src/lib/learn/gameEngine.js` per design doc §4. Turn/phase/step transitions, priority handling, trigger queue. Consumes the gameState helpers from PR1 (already shipped). ~500 LOC + tests.
+**What:** Build `app/src/lib/learn/legalChoices.js` per design doc §5 step 3. Given a state and the player who currently has priority, generate the legal actions: play-a-land, cast-spell (with mana cost check), activate-ability, declare-attackers, declare-blockers, pay-cost, pass-priority. Covers ~85% of card oracle patterns; punts the rest to Arbiter via an "unresolved" stub. ~400 LOC + tests.
 
-**Why:** PR1 shipped the pure data layer. PR2 is the orchestrator — without it the engine can't advance through a turn cycle. After PR2 ships, PR3 (legal choices) can generate valid actions at each priority window.
+**Why:** PR2 shipped the turn-structure state machine. PR3 unlocks gameplay — without legal-choice generation, the decisionGate (PR5) has nothing to ask the user about.
 
-**Depends on:** PR1 done (gameState.js + 56 tests on master). The state machine reads/writes the gameState via the helpers; no new data shapes needed.
+**Depends on:** PR2 done (gameEngine.js + 29 tests on master). Reads state via getZone/findPermanent and adds candidate actions; never mutates.
 
-**Reference:** `docs/phase6-learn-to-play.md` §4 (architecture) and §5 step 2.
+**Reference:** `docs/phase6-learn-to-play.md` §5 step 3.
 
 ---
 
@@ -130,3 +130,7 @@ Goldfish v2: London mulligan, type_line/keywords-driven classification, archetyp
 ### ~~Phase 6 PR1: gameState + zone helpers + tests~~ ✅ DONE (master, 2026-05-26)
 
 `app/src/lib/learn/gameState.js` (~450 LOC) + `gameState.test.js` (56 tests). Pure immutable data layer per design doc §4. Factories for game/player/permanent/stack-object, zone transitions with battlefield-permanent wrapping/unwrapping, per-permanent tap/counter/attachment helpers, mana pool, life and commander damage, turn-counter resets, append-only event log. All helpers return new state — verified by immutability spot checks.
+
+### ~~Phase 6 PR2: gameEngine state machine + tests~~ ✅ DONE (master, 2026-05-26)
+
+`app/src/lib/learn/gameEngine.js` (~290 LOC) + `gameEngine.test.js` (29 tests). Turn-structure state machine on top of PR1. `advanceStep`/`runStepActions`/`nextStep` for phase/step walking with end-of-turn wrap-around; `passPriority` handles the priority loop with step-end-on-empty-stack and stack-resolution-on-non-empty; `resolveTopOfStack` runs `payload.onResolve` callbacks with error containment; trigger queue via `enqueueTrigger` + `flushTriggers` with APNAP ordering; `startGame` covers opening 7 + first-turn draw-skip per CR 103.7a. Untap and cleanup correctly skip the priority grant per CR 117.3a.
