@@ -25,6 +25,12 @@ const CATEGORY_OPTIONS = [
 const PANEL_POS_KEY = "mtg-feedback-panel-pos";
 const PANEL_W = 540;
 
+function truncateMid(text, limit) {
+  const s = String(text || "").replace(/\s+/g, " ").trim();
+  if (s.length <= limit) return s;
+  return `${s.slice(0, limit)}…`;
+}
+
 export default function FeedbackButton({
   agent,
   currentSession,
@@ -66,6 +72,33 @@ export default function FeedbackButton({
     if (page) pills.push({ key: "page", label: page });
     return pills;
   }, [agent, activeDeck?.name, currentSession?.name, page]);
+
+  // Pull the last user→assistant pair out of the active chat session so we
+  // can auto-attach it to freeform feedback. Same plumbing as the in-bubble
+  // 👍/👎 reactions — the difference is the user can opt out per-submit.
+  const lastExchange = useMemo(() => {
+    if (page !== "chat") return null;
+    const msgs = currentSession?.messages;
+    if (!Array.isArray(msgs) || msgs.length === 0) return null;
+    for (let i = msgs.length - 1; i >= 0; i -= 1) {
+      const m = msgs[i];
+      if (m.role === "assistant" && !m.isError && m.content) {
+        const prev = msgs[i - 1];
+        return {
+          user: prev?.role === "user" ? String(prev.content || "").trim() : null,
+          assistant: String(m.content).trim(),
+        };
+      }
+    }
+    return null;
+  }, [page, currentSession?.messages]);
+
+  const [attachExchange, setAttachExchange] = useState(true);
+  // Re-arm the default each time the modal opens (or the exchange changes
+  // because the user kept chatting with the modal closed).
+  useEffect(() => {
+    if (open) setAttachExchange(!!lastExchange);
+  }, [open, lastExchange]);
 
   const contextQueryString = () => {
     const params = new URLSearchParams();
@@ -314,12 +347,21 @@ export default function FeedbackButton({
     if (!trimmed) return;
     setSubmitting(true);
     setStatus(null);
+    const body = (attachExchange && lastExchange)
+      ? [
+          trimmed,
+          "",
+          "— Last exchange —",
+          lastExchange.user ? `User asked:\n${lastExchange.user}` : null,
+          `Agent (${agent}) replied:\n${lastExchange.assistant}`,
+        ].filter(Boolean).join("\n\n")
+      : trimmed;
     try {
       const response = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: trimmed,
+          message: body,
           category,
           context: {
             agent,
@@ -610,6 +652,49 @@ export default function FeedbackButton({
                         {pill.label}
                       </span>
                     ))}
+                  </div>
+                )}
+
+                {/* Auto-attach the last user→assistant pair when filing from
+                    a chat. Click the chip to opt out per-submit. */}
+                {lastExchange && (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 9,
+                      padding: "8px 10px",
+                      borderRadius: 7,
+                      background: attachExchange ? "#0d1a2e" : BG2,
+                      border: `1px solid ${attachExchange ? (cfg?.border || LINE) : LINE}`,
+                      fontSize: 11,
+                      color: attachExchange ? TEXT : MUTED,
+                      transition: "background 120ms, border-color 120ms, color 120ms",
+                    }}
+                  >
+                    <span style={{ fontSize: 13, lineHeight: "16px", marginTop: 1 }}>📎</span>
+                    <span style={{ flex: 1, lineHeight: 1.45 }}>
+                      {attachExchange
+                        ? <>Including last <strong>{agent}</strong> exchange — “{truncateMid(lastExchange.assistant, 70)}”</>
+                        : <>Last exchange not included.</>}
+                    </span>
+                    <button
+                      onClick={() => setAttachExchange(v => !v)}
+                      style={{
+                        background: "transparent",
+                        border: `1px solid ${LINE}`,
+                        borderRadius: 5,
+                        color: MUTED,
+                        cursor: "pointer",
+                        fontSize: 10,
+                        padding: "2px 9px",
+                        fontFamily,
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {attachExchange ? "Remove" : "Attach"}
+                    </button>
                   </div>
                 )}
 
