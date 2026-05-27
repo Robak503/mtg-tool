@@ -11,11 +11,20 @@ const CATEGORY_OPTIONS = [
 ];
 
 /**
- * Floating feedback button (bottom-right) + modal.
+ * Floating feedback button (bottom-right) + draggable panel.
+ *
+ * Desktop: opens as a free-floating panel — no backdrop, drag by the header,
+ * position persists across opens via localStorage. Stays put when you click
+ * back into the app behind it.
+ *
+ * Mobile: opens as a bottom-sheet with backdrop (drag doesn't help on touch).
  *
  * Submission POSTs to /api/feedback which writes one JSON file per entry
- * under data/feedback/. Cmd/Ctrl-Shift-F pops the standalone capture window.
+ * under data/feedback/. Cmd/Ctrl-Shift-F pops the standalone OS window.
  */
+const PANEL_POS_KEY = "mtg-feedback-panel-pos";
+const PANEL_W = 540;
+
 export default function FeedbackButton({
   agent,
   currentSession,
@@ -28,6 +37,8 @@ export default function FeedbackButton({
 }) {
   const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors;
   const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState(null); // {x,y} on desktop; null = use default
+  const dragState = useRef(null);
   const [view, setView] = useState("compose"); // "compose" | "inbox"
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("other");
@@ -212,6 +223,92 @@ export default function FeedbackButton({
     setStatus(null);
   };
 
+  // Restore last position on first desktop open; compute a sensible default
+  // (slightly right of center, near top) if none saved or saved position is
+  // off-screen after a window resize.
+  useEffect(() => {
+    if (!open || mobile) return;
+    if (position) {
+      // Reclamp existing position to current viewport in case the window
+      // shrank since last time.
+      const maxX = Math.max(8, window.innerWidth - PANEL_W - 8);
+      const maxY = Math.max(8, window.innerHeight - 80);
+      if (position.x > maxX || position.y > maxY) {
+        setPosition({ x: Math.min(position.x, maxX), y: Math.min(position.y, maxY) });
+      }
+      return;
+    }
+    let restored = null;
+    try {
+      const raw = localStorage.getItem(PANEL_POS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed?.x === "number" && typeof parsed?.y === "number") {
+          restored = parsed;
+        }
+      }
+    } catch {}
+    const maxX = Math.max(8, window.innerWidth - PANEL_W - 8);
+    const maxY = Math.max(8, window.innerHeight - 80);
+    if (restored && restored.x <= maxX && restored.y <= maxY && restored.x >= 0 && restored.y >= 0) {
+      setPosition(restored);
+    } else {
+      setPosition({
+        x: Math.max(20, window.innerWidth - PANEL_W - 32),
+        y: Math.max(20, Math.round(window.innerHeight * 0.12)),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, mobile]);
+
+  // Persist position whenever it changes.
+  useEffect(() => {
+    if (!position || mobile) return;
+    try {
+      localStorage.setItem(PANEL_POS_KEY, JSON.stringify(position));
+    } catch {}
+  }, [position, mobile]);
+
+  // Window-level drag listeners — only active while the panel is open
+  // on desktop. The mousedown that arms `dragState.current` happens on
+  // the header (see onHeaderMouseDown below).
+  useEffect(() => {
+    if (mobile || !open) return undefined;
+    const onMove = (event) => {
+      const drag = dragState.current;
+      if (!drag) return;
+      const dx = event.clientX - drag.startX;
+      const dy = event.clientY - drag.startY;
+      const w = modalRef.current?.offsetWidth || PANEL_W;
+      const maxX = Math.max(8, window.innerWidth - w - 8);
+      const maxY = Math.max(8, window.innerHeight - 60);
+      setPosition({
+        x: Math.max(8, Math.min(maxX, drag.origX + dx)),
+        y: Math.max(8, Math.min(maxY, drag.origY + dy)),
+      });
+    };
+    const onUp = () => { dragState.current = null; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [mobile, open]);
+
+  const onHeaderMouseDown = (event) => {
+    if (mobile || !position) return;
+    // Allow clicks on buttons inside the header to work normally.
+    if (event.target.closest("button")) return;
+    dragState.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      origX: position.x,
+      origY: position.y,
+    };
+    event.preventDefault();
+  };
+
   const submit = async () => {
     const trimmed = message.trim();
     if (!trimmed) return;
@@ -310,33 +407,36 @@ export default function FeedbackButton({
       </button>
 
       {open && (
-        <div
-          onClick={(event) => {
-            if (event.target === event.currentTarget) close();
-          }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(2,4,10,0.74)",
-            backdropFilter: "blur(2px)",
-            zIndex: 100,
-            display: "flex",
-            alignItems: mobile ? "flex-end" : "center",
-            justifyContent: "center",
-            padding: mobile ? 0 : 24,
-          }}
-        >
+        <PanelWrapper mobile={mobile} onBackdropClose={close}>
           <div
             ref={modalRef}
             role="dialog"
             aria-label="Send feedback"
-            style={{
-              width: mobile ? "100%" : "min(540px, 100%)",
-              maxHeight: mobile ? "92vh" : "calc(100vh - 48px)",
+            style={mobile ? {
+              width: "100%",
+              maxHeight: "92vh",
               background: BG3,
               border: `1px solid ${LINE}`,
-              borderRadius: mobile ? "14px 14px 0 0" : 12,
-              padding: mobile ? "18px 16px 22px" : "20px 22px",
+              borderRadius: "14px 14px 0 0",
+              padding: "18px 16px 22px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+              fontFamily,
+              color: TEXT,
+              boxShadow: "0 -8px 30px rgba(0,0,0,0.55)",
+              overflowY: "auto",
+            } : {
+              position: "fixed",
+              left: position?.x ?? 0,
+              top: position?.y ?? 0,
+              visibility: position ? "visible" : "hidden",
+              width: "min(540px, calc(100vw - 16px))",
+              maxHeight: "min(720px, calc(100vh - 24px))",
+              background: BG3,
+              border: `1px solid ${LINE}`,
+              borderRadius: 12,
+              padding: "18px 22px 20px",
               display: "flex",
               flexDirection: "column",
               gap: 14,
@@ -344,16 +444,22 @@ export default function FeedbackButton({
               color: TEXT,
               boxShadow: "0 24px 60px rgba(0,0,0,0.75)",
               overflowY: "auto",
+              zIndex: 100,
             }}
           >
-            {/* Header: tabs + actions */}
-            <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-end",
-              borderBottom: `1px solid ${LINE}`,
-              paddingBottom: 2,
-            }}>
+            {/* Header: tabs + actions. On desktop, doubles as the drag handle. */}
+            <div
+              onMouseDown={onHeaderMouseDown}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-end",
+                borderBottom: `1px solid ${LINE}`,
+                paddingBottom: 2,
+                cursor: mobile ? "default" : "move",
+                userSelect: "none",
+              }}
+            >
               <div style={{ display: "flex", gap: 18 }}>
                 {tabButton("compose", "Send")}
                 {tabButton("inbox", `Inbox${inboxEntries ? ` (${inboxEntries.length})` : ""}`)}
@@ -792,8 +898,37 @@ export default function FeedbackButton({
               </>
             )}
           </div>
-        </div>
+        </PanelWrapper>
       )}
     </>
+  );
+}
+
+/**
+ * Outer container around the dialog. On mobile it's a backdrop+bottom-sheet
+ * (tap outside to close). On desktop it's a render-only Fragment so the
+ * dialog floats freely with no overlay and clicks pass through to the app.
+ */
+function PanelWrapper({ mobile, onBackdropClose, children }) {
+  if (!mobile) return children;
+  return (
+    <div
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onBackdropClose?.();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(2,4,10,0.74)",
+        backdropFilter: "blur(2px)",
+        zIndex: 100,
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        padding: 0,
+      }}
+    >
+      {children}
+    </div>
   );
 }
