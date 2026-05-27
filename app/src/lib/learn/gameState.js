@@ -1,0 +1,520 @@
+/**
+ * Phase 6 — Learn-to-Play: gameState.js
+ *
+ * Pure data layer. No fetches. No React. No game logic — the engine
+ * (PR2) consumes this; legalChoices (PR3) reads it; LearnView (PR6)
+ * renders it. Everything here is deterministic and immutable: every
+ * helper returns a NEW state object rather than mutating in place. We
+ * pay the GC cost for testability — small game states (~hundreds of
+ * objects max) make the structural copies cheap.
+ *
+ * Design source of truth: `docs/phase6-learn-to-play.md` §4 (Data shapes).
+ *
+ * Coordinate system:
+ *   - Players: "user" | "ai" (solitaire only in v1; multiplayer is
+ *     out of scope, see design doc anti-goals)
+ *   - Zones (per player): library, hand, battlefield, graveyard, exile,
+ *     command. Stack is shared and lives at the top-level state.
+ *   - Permanents have stable IDs (separate from card IDs) so attachments
+ *     and counters survive shuffles within a zone.
+ *
+ * Naming conventions:
+ *   - `create*` — factory, returns fresh data
+ *   - `apply*` / `with*` — pure update, returns a new state
+ *   - Everything else — pure read, returns a value
+ */
+
+// ─── ID generation ────────────────────────────────────────────────────────────
+
+let _idCounter = 0;
+
+function nextId(prefix) {
+  _idCounter += 1;
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return `${prefix}-${globalThis.crypto.randomUUID().slice(0, 8)}-${_idCounter}`;
+  }
+  return `${prefix}-${Date.now().toString(36)}-${_idCounter}`;
+}
+
+/**
+ * Reset the in-process ID counter. ONLY for tests — never call in
+ * production code. Test isolation depends on this.
+ */
+export function _resetIdsForTests() {
+  _idCounter = 0;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+export const PLAYER_IDS = ["user", "ai"];
+
+export const ZONES = [
+  "library", "hand", "battlefield", "graveyard", "exile", "command",
+];
+
+export const MANA_COLORS = ["W", "U", "B", "R", "G", "C"];
+
+export const PHASES = [
+  "beginning", "precombat-main", "combat", "postcombat-main", "ending",
+];
+
+export const STEPS = {
+  beginning: ["untap", "upkeep", "draw"],
+  "precombat-main": ["main"],
+  combat: [
+    "beginning-of-combat",
+    "declare-attackers",
+    "declare-blockers",
+    "first-strike-damage",
+    "combat-damage",
+    "end-of-combat",
+  ],
+  "postcombat-main": ["main"],
+  ending: ["end", "cleanup"],
+};
+
+const STARTING_LIFE_COMMANDER = 40;
+
+// ─── Factories ────────────────────────────────────────────────────────────────
+
+function emptyManaPool() {
+  return { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+}
+
+/**
+ * Create a new permanent (something on the battlefield). The `card` field
+ * is the snapshot of the printed card; everything else is per-permanent
+ * state. Cards leaving the battlefield drop their permanent ID.
+ */
+export function createPermanent({ card, controller, tapped = false, summoningSick = true }) {
+  if (!card) throw new Error("createPermanent requires a card");
+  if (!PLAYER_IDS.includes(controller)) throw new Error(`createPermanent requires a valid controller (${PLAYER_IDS.join(", ")})`);
+  return {
+    id: nextId("perm"),
+    card,
+    controller,
+    tapped,
+    summoningSick,
+    counters: {},
+    attachments: [],     // ids of permanents (equipment/auras) attached to THIS one
+    attachedTo: null,    // id of the permanent THIS is attached to (for equipment/auras)
+    enteredOnTurn: null, // set by the engine when entering the battlefield
+  };
+}
+
+/**
+ * Create a stack object — a spell on the stack or a triggered/activated
+ * ability waiting to resolve. The engine pushes these on, resolves the
+ * top, and pops.
+ */
+export function createStackObject({ kind, source, controller, targets = [], cost = null, payload = {} }) {
+  const validKinds = new Set(["spell", "triggered-ability", "activated-ability"]);
+  if (!validKinds.has(kind)) throw new Error(`createStackObject: invalid kind "${kind}"`);
+  if (!PLAYER_IDS.includes(controller)) throw new Error("createStackObject requires a valid controller");
+  return {
+    id: nextId("stk"),
+    kind,
+    source,        // card reference or permanent id
+    controller,
+    targets: [...targets],
+    cost,
+    payload,       // ability-specific data (counters added, damage dealt, etc.)
+  };
+}
+
+/**
+ * Create a fresh player state. Pass a library (array of card objects)
+ * which becomes the deck; everything else starts empty/zero.
+ */
+export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER, commanderCards = [] } = {}) {
+  return {
+    life,
+    poison: 0,
+    commanderDamageFrom: {},  // { otherPlayerId: number }
+    manaPool: emptyManaPool(),
+    library: [...library],
+    hand: [],
+    battlefield: [],
+    graveyard: [],
+    exile: [],
+    command: [...commanderCards],
+    experience: 0,
+    landsPlayedThisTurn: 0,
+    cardsDrawnThisTurn: 0,
+    hasMulliganed: false,
+  };
+}
+
+/**
+ * Create a fresh game state. Both players seeded with their libraries
+ * and (if Commander) their commanders in the command zone. Game starts
+ * pre-mulligan — call drawCards or applyMulligan to take opening hands.
+ */
+export function createGameState({
+  userDeck,
+  aiDeck,
+  userCommanders = [],
+  aiCommanders = [],
+  startingLife = STARTING_LIFE_COMMANDER,
+  activePlayer = "user",
+} = {}) {
+  return {
+    turn: 1,
+    activePlayer,
+    priorityHolder: null,
+    phase: "beginning",
+    step: "untap",
+    stack: [],
+    pendingTriggers: [],
+    players: {
+      user: createPlayerState({
+        library: userDeck,
+        life: startingLife,
+        commanderCards: userCommanders,
+      }),
+      ai: createPlayerState({
+        library: aiDeck,
+        life: startingLife,
+        commanderCards: aiCommanders,
+      }),
+    },
+    log: [],  // append-only history of events for replay/debugging
+  };
+}
+
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+function assertPlayer(playerId) {
+  if (!PLAYER_IDS.includes(playerId)) {
+    throw new Error(`Invalid playerId "${playerId}" (must be one of ${PLAYER_IDS.join(", ")})`);
+  }
+}
+
+function assertZone(zone) {
+  if (!ZONES.includes(zone)) {
+    throw new Error(`Invalid zone "${zone}" (must be one of ${ZONES.join(", ")})`);
+  }
+}
+
+function withPlayer(state, playerId, updater) {
+  assertPlayer(playerId);
+  const next = updater(state.players[playerId]);
+  return {
+    ...state,
+    players: { ...state.players, [playerId]: next },
+  };
+}
+
+function appendLog(state, entry) {
+  return { ...state, log: [...state.log, { turn: state.turn, ...entry }] };
+}
+
+// ─── Reads ────────────────────────────────────────────────────────────────────
+
+export function getPlayer(state, playerId) {
+  assertPlayer(playerId);
+  return state.players[playerId];
+}
+
+export function getZone(state, playerId, zone) {
+  assertPlayer(playerId);
+  assertZone(zone);
+  return state.players[playerId][zone];
+}
+
+export function findPermanent(state, permanentId) {
+  for (const playerId of PLAYER_IDS) {
+    const found = state.players[playerId].battlefield.find(p => p.id === permanentId);
+    if (found) return { permanent: found, controller: playerId };
+  }
+  return null;
+}
+
+export function totalAvailableMana(state, playerId) {
+  const pool = state.players[playerId].manaPool;
+  return MANA_COLORS.reduce((sum, color) => sum + (pool[color] || 0), 0);
+}
+
+export function opponentOf(playerId) {
+  assertPlayer(playerId);
+  return playerId === "user" ? "ai" : "user";
+}
+
+// ─── Zone transitions ────────────────────────────────────────────────────────
+
+/**
+ * Move a card by ID from one zone to another within the same player.
+ * Returns a new state. The card retains its identity through the move.
+ *
+ * Special cases:
+ *   - Moving TO battlefield: caller should pass `becomePermanent: true`
+ *     to wrap the card in a permanent. Otherwise the raw card is added
+ *     (e.g., for lands going to battlefield via cheat scripts).
+ *   - Moving FROM battlefield: the permanent is unwrapped; only the card
+ *     object travels. Counters, attachments, etc. are discarded.
+ *   - If `cardId` is not found in the source zone, throws.
+ */
+export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, becomePermanent = false }) {
+  assertPlayer(playerId);
+  assertZone(fromZone);
+  assertZone(toZone);
+
+  const player = state.players[playerId];
+  const sourceList = player[fromZone];
+
+  // Battlefield → ? : source list contains permanents, key by permanent.id
+  if (fromZone === "battlefield") {
+    const index = sourceList.findIndex(p => p.id === cardId);
+    if (index === -1) throw new Error(`Permanent ${cardId} not found on ${playerId}'s battlefield`);
+    const permanent = sourceList[index];
+    const card = permanent.card;
+
+    const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
+    let nextDest;
+    if (toZone === "battlefield") {
+      // Permanent moves to battlefield from battlefield — weird but possible (blinks).
+      nextDest = [...player[toZone], permanent];
+    } else {
+      // Unwrapping: drop permanent state, keep the card.
+      nextDest = [...player[toZone], card];
+    }
+    return withPlayer(state, playerId, p => ({
+      ...p,
+      [fromZone]: nextSource,
+      [toZone]: nextDest,
+    }));
+  }
+
+  // Non-battlefield source: cardId is matched against card.id (caller's
+  // convention — Card objects are expected to have a unique id field).
+  const index = sourceList.findIndex(c => c.id === cardId);
+  if (index === -1) throw new Error(`Card ${cardId} not found in ${playerId}.${fromZone}`);
+  const card = sourceList[index];
+  const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
+  let nextDest;
+  if (toZone === "battlefield" && becomePermanent) {
+    nextDest = [...player[toZone], createPermanent({ card, controller: playerId })];
+  } else {
+    nextDest = [...player[toZone], card];
+  }
+
+  return withPlayer(state, playerId, p => ({
+    ...p,
+    [fromZone]: nextSource,
+    [toZone]: nextDest,
+  }));
+}
+
+/**
+ * Draw N cards from the top of library to hand. If the library is empty
+ * mid-draw, draws as many as are available — the engine handles
+ * deck-out as a state-based action.
+ */
+export function drawCards(state, { playerId, count }) {
+  assertPlayer(playerId);
+  if (!Number.isInteger(count) || count < 0) throw new Error(`drawCards: count must be a non-negative integer, got ${count}`);
+
+  return withPlayer(state, playerId, player => {
+    const drawCount = Math.min(count, player.library.length);
+    const drawn = player.library.slice(0, drawCount);
+    const remaining = player.library.slice(drawCount);
+    return {
+      ...player,
+      library: remaining,
+      hand: [...player.hand, ...drawn],
+      cardsDrawnThisTurn: player.cardsDrawnThisTurn + drawCount,
+    };
+  });
+}
+
+/**
+ * Shuffle a player's library. Takes an optional `rng` (() => float 0..1)
+ * so tests can supply a deterministic shuffle.
+ */
+export function shuffleLibrary(state, { playerId, rng = Math.random }) {
+  assertPlayer(playerId);
+  return withPlayer(state, playerId, player => {
+    const copy = [...player.library];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return { ...player, library: copy };
+  });
+}
+
+/**
+ * Move N cards from a player's hand to the bottom of their library —
+ * used by the London mulligan and by effects like "put a card on the
+ * bottom of your library." cardIds is an array of card.id values in
+ * the order they should be appended to the library (so last in =
+ * bottom-most).
+ */
+export function putCardsOnBottom(state, { playerId, cardIds }) {
+  assertPlayer(playerId);
+  return withPlayer(state, playerId, player => {
+    const remaining = [];
+    const moved = [];
+    const lookup = new Map(player.hand.map(c => [c.id, c]));
+    for (const id of cardIds) {
+      const card = lookup.get(id);
+      if (card) moved.push(card);
+    }
+    for (const card of player.hand) {
+      if (!cardIds.includes(card.id)) remaining.push(card);
+    }
+    return {
+      ...player,
+      hand: remaining,
+      library: [...player.library, ...moved],
+    };
+  });
+}
+
+// ─── Permanent helpers ────────────────────────────────────────────────────────
+
+function updatePermanent(state, permanentId, updater) {
+  const lookup = findPermanent(state, permanentId);
+  if (!lookup) throw new Error(`Permanent ${permanentId} not found`);
+  const { controller } = lookup;
+  return withPlayer(state, controller, player => ({
+    ...player,
+    battlefield: player.battlefield.map(p => (p.id === permanentId ? updater(p) : p)),
+  }));
+}
+
+export function tapPermanent(state, permanentId) {
+  return updatePermanent(state, permanentId, p => ({ ...p, tapped: true }));
+}
+
+export function untapPermanent(state, permanentId) {
+  return updatePermanent(state, permanentId, p => ({ ...p, tapped: false }));
+}
+
+/**
+ * Untap every permanent the given player controls AND remove summoning
+ * sickness from creatures that started the turn under their control.
+ * Standard untap step behavior.
+ */
+export function untapAll(state, { playerId }) {
+  assertPlayer(playerId);
+  return withPlayer(state, playerId, player => ({
+    ...player,
+    battlefield: player.battlefield.map(p => ({
+      ...p,
+      tapped: false,
+      summoningSick: false,
+    })),
+  }));
+}
+
+export function addCounter(state, { permanentId, type, amount = 1 }) {
+  if (typeof type !== "string" || !type) throw new Error("addCounter: type required");
+  if (!Number.isInteger(amount)) throw new Error("addCounter: amount must be integer");
+  return updatePermanent(state, permanentId, p => ({
+    ...p,
+    counters: { ...p.counters, [type]: (p.counters[type] || 0) + amount },
+  }));
+}
+
+export function removeCounter(state, { permanentId, type, amount = 1 }) {
+  if (typeof type !== "string" || !type) throw new Error("removeCounter: type required");
+  return updatePermanent(state, permanentId, p => {
+    const current = p.counters[type] || 0;
+    const next = Math.max(0, current - amount);
+    const nextCounters = { ...p.counters };
+    if (next === 0) delete nextCounters[type];
+    else nextCounters[type] = next;
+    return { ...p, counters: nextCounters };
+  });
+}
+
+export function getCounter(state, permanentId, type) {
+  const lookup = findPermanent(state, permanentId);
+  if (!lookup) return 0;
+  return lookup.permanent.counters[type] || 0;
+}
+
+// ─── Mana pool ────────────────────────────────────────────────────────────────
+
+export function addMana(state, { playerId, color, amount = 1 }) {
+  assertPlayer(playerId);
+  if (!MANA_COLORS.includes(color)) throw new Error(`Invalid mana color "${color}"`);
+  if (!Number.isInteger(amount) || amount < 0) throw new Error("addMana: amount must be a non-negative integer");
+  return withPlayer(state, playerId, p => ({
+    ...p,
+    manaPool: { ...p.manaPool, [color]: (p.manaPool[color] || 0) + amount },
+  }));
+}
+
+export function emptyManaPoolForPlayer(state, { playerId }) {
+  assertPlayer(playerId);
+  return withPlayer(state, playerId, p => ({ ...p, manaPool: emptyManaPool() }));
+}
+
+export function emptyAllManaPools(state) {
+  return PLAYER_IDS.reduce(
+    (acc, playerId) => emptyManaPoolForPlayer(acc, { playerId }),
+    state,
+  );
+}
+
+// ─── Life / damage ────────────────────────────────────────────────────────────
+
+export function loseLife(state, { playerId, amount }) {
+  assertPlayer(playerId);
+  if (!Number.isInteger(amount) || amount < 0) throw new Error("loseLife: amount must be non-negative integer");
+  return withPlayer(state, playerId, p => ({ ...p, life: p.life - amount }));
+}
+
+export function gainLife(state, { playerId, amount }) {
+  assertPlayer(playerId);
+  if (!Number.isInteger(amount) || amount < 0) throw new Error("gainLife: amount must be non-negative integer");
+  return withPlayer(state, playerId, p => ({ ...p, life: p.life + amount }));
+}
+
+/**
+ * Track commander damage from one player to another. Used by SBAs
+ * (engine PR) to check the 21-commander-damage rule.
+ */
+export function addCommanderDamage(state, { fromPlayer, toPlayer, amount }) {
+  assertPlayer(fromPlayer);
+  assertPlayer(toPlayer);
+  if (fromPlayer === toPlayer) throw new Error("Commander damage cannot be self-inflicted");
+  return withPlayer(state, toPlayer, p => ({
+    ...p,
+    commanderDamageFrom: {
+      ...p.commanderDamageFrom,
+      [fromPlayer]: (p.commanderDamageFrom[fromPlayer] || 0) + amount,
+    },
+  }));
+}
+
+// ─── Per-turn counter resets ──────────────────────────────────────────────────
+
+/**
+ * Reset per-turn counters for the active player. Called by the engine
+ * on turn start (untap step). Counters reset:
+ *   - landsPlayedThisTurn → 0
+ *   - cardsDrawnThisTurn → 0  (the engine resets BEFORE the draw step,
+ *                              so the actual turn-draw is correctly
+ *                              counted as 1)
+ */
+export function resetTurnCounters(state, { playerId }) {
+  assertPlayer(playerId);
+  return withPlayer(state, playerId, p => ({
+    ...p,
+    landsPlayedThisTurn: 0,
+    cardsDrawnThisTurn: 0,
+  }));
+}
+
+// ─── Logging ──────────────────────────────────────────────────────────────────
+
+/**
+ * Append a log entry. The log is the source of truth for replay and
+ * for the narrator (PR5). Engine + helpers add to it; UI reads from it.
+ */
+export function logEvent(state, event) {
+  return appendLog(state, event);
+}

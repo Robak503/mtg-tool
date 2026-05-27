@@ -28,13 +28,15 @@ stays readable.
 
 ## Phase 6 — Learn-to-Play Mode
 
-### P1 — Start Phase 6 PR1 (gameState + zone helpers)
+### P1 — Phase 6 PR2: gameEngine state machine
 
-**What:** Begin Phase 6 implementation per the design doc at `docs/phase6-learn-to-play.md`. PR1 is `gameState.js` + zone helpers + tests. Pure data, no UI. ~600 lines + tests.
+**What:** Build `app/src/lib/learn/gameEngine.js` per design doc §4. Turn/phase/step transitions, priority handling, trigger queue. Consumes the gameState helpers from PR1 (already shipped). ~500 LOC + tests.
 
-**Why:** Foundation phases 1-5 are done. The CLAUDE.md spec calls for Learn-to-Play next. Design doc has the 10-PR build sequence and architecture sketch ready.
+**Why:** PR1 shipped the pure data layer. PR2 is the orchestrator — without it the engine can't advance through a turn cycle. After PR2 ships, PR3 (legal choices) can generate valid actions at each priority window.
 
-**Depends on:** GitHub remote setup (P0). Then re-read the design doc, confirm/revise the open questions in §6, branch off as `feat/phase6-foundation`.
+**Depends on:** PR1 done (gameState.js + 56 tests on master). The state machine reads/writes the gameState via the helpers; no new data shapes needed.
+
+**Reference:** `docs/phase6-learn-to-play.md` §4 (architecture) and §5 step 2.
 
 ---
 
@@ -124,3 +126,7 @@ Goldfish v2: London mulligan, type_line/keywords-driven classification, archetyp
 ### ~~Remove v1 backward-compat shim~~ ✅ DONE (master, 2026-05-26)
 
 `saveChatFile` and `scheduleChatFileSave` removed from `chatPersistence.js`. POST handler in `chats/route.js` now rejects `{ histories, locks }` with 400 instead of converting it. Tests updated; net 81/81 still passing.
+
+### ~~Phase 6 PR1: gameState + zone helpers + tests~~ ✅ DONE (master, 2026-05-26)
+
+`app/src/lib/learn/gameState.js` (~450 LOC) + `gameState.test.js` (56 tests). Pure immutable data layer per design doc §4. Factories for game/player/permanent/stack-object, zone transitions with battlefield-permanent wrapping/unwrapping, per-permanent tap/counter/attachment helpers, mana pool, life and commander damage, turn-counter resets, append-only event log. All helpers return new state — verified by immutability spot checks.

@@ -245,8 +245,18 @@ LearnSession {
 
 Each step is a self-contained PR with tests. Don't skip ahead.
 
-1. **PR1 — gameState + zone helpers + tests.** Pure data, no UI.
-   Probably ~600 lines + tests.
+1. **PR1 — gameState + zone helpers + tests.** ✅ DONE (master, 2026-05-26).
+   `app/src/lib/learn/gameState.js` + `gameState.test.js`. Pure data,
+   no game logic. 56 tests covering factories (createGameState,
+   createPlayerState, createPermanent, createStackObject), zone
+   transitions (moveCardToZone, drawCards, shuffleLibrary,
+   putCardsOnBottom), permanent mutators (tap/untap, addCounter +
+   getCounter + removeCounter, untapAll), mana pool (addMana,
+   emptyManaPoolForPlayer, emptyAllManaPools, totalAvailableMana),
+   life and damage (loseLife, gainLife, addCommanderDamage with
+   self-damage guard), turn counter reset, findPermanent across
+   players, logEvent, and immutability spot checks. All helpers are
+   pure — they return new state, never mutate.
 2. **PR2 — gameEngine state machine (turn/phase/step transitions,
    priority handling, trigger queue) + tests.** Pure logic; surface a
    step API. ~500 lines + tests.
