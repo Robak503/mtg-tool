@@ -96,6 +96,97 @@ Identify the deck's archetype from the commander and 99, then adjust baselines:
     Flag "random good cards" that don't advance the stated game plan.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PRO-LEVEL ARCHETYPE BLUEPRINTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+These are the concrete card-count targets for a well-built deck at each archetype's power ceiling (Bracket 3 high / Bracket 4 low, power ~7.5–8.5). Use these as the benchmark when evaluating whether a deck is "close to optimal" for its stated style. Decks that fall short in any category should hear about it.
+
+─────────────────────────────────────
+BLUEPRINT A: COMBO (Power 8 target, Bracket 4)
+─────────────────────────────────────
+Goal: assemble a 2-card infinite or game-ending loop reliably by turn 5–7, protected.
+
+  Win conditions: 2–3 distinct combo lines (not just 1 pair; redundancy is the whole point)
+  Combo pieces per line: 2–3 cards. 4+ card combos are too fragile for competitive-casual.
+  Tutors: 8–12 total (6 minimum; below 6 means the combo is cosmetic, not the engine)
+    - At least 4 of those tutors should cost 1–2 mana (Vampiric Tutor, Worldly Tutor, etc.)
+    - 2–4 can cost 3+ mana if they're unconditional (Demonic Tutor, Diabolic Intent)
+  Ramp: 10–13 pieces. At least 4 pieces that cost 1–2 mana. Fast mana (Mana Crypt, Mana Vault)
+    drastically improves the deck; if the budget allows, these are the highest-leverage adds.
+  Protection: 6–9 pieces
+    - 2–4 counterspells (ideally at least 1 free: Force of Will, Fierce Guardianship, etc.)
+    - 2–3 protection pieces for key creatures or artifacts (Lightning Greaves, Swiftfoot Boots)
+    - 1–2 ways to give combo pieces hexproof or indestructible through the combo turn
+  Card draw / selection: 8–12 pieces
+    - Prioritize draw that replaces itself cheaply (cantrips, Night's Whisper, etc.)
+    - 2–4 card selection/filtering pieces (Ponder, Brainstorm, Preordain if in blue)
+  Lands: 34–36. Lower end is acceptable only when ramp count is ≥12 and avg CMC is ≤2.5
+  Interaction: 4–8 targeted pieces. Combo decks trade some interaction for speed and tutors.
+    - They must still answer hate pieces (Drannith Magistrate, Grafdigger's Cage, etc.)
+    - 0 board wipes in fast combo is normal; 1 is fine if the combo survives it asymmetrically
+
+  COMMON FAILURE MODES: Too few tutors (below 6) means the combo is a "sometimes" win, not a
+  plan. Missing redundant win lines means one answer shuts the deck down. No protection on the
+  combo turn means the deck goldfishes well but folds to any interaction.
+
+─────────────────────────────────────
+BLUEPRINT B: CONTROL (Power 7.5 target, Bracket 3 high)
+─────────────────────────────────────
+Goal: answer every threat, accumulate overwhelming card advantage, win with 1–3 high-impact late-game threats.
+
+  Interaction: 14–20 total (this is the deck's core function)
+    - Counterspells: 6–10 (mix of cheap and situational)
+    - Single-target removal: 6–8 (exile > destroy; answers regenerate and indestructible)
+    - Board wipes: 3–5 (asymmetric preferred; 2 is the floor, 3 is better)
+  Card draw: 12–16 pieces (control wins the long game only if it never runs out of answers)
+    - At least 3–4 ongoing draw engines (not just cantrips)
+    - Draw engines that punish opponents (Rhystic Study, Smothering Tithe) are strongest here
+  Win conditions: 3–5 high-impact finishers. Control wins with fewer, better threats.
+    - Winning with 1–2 threats is fine if they're protected (Commander as the win con is ideal)
+    - Avoid investing more than 6 slots in threats; every threat slot is an answer not taken
+  Ramp: 8–12. Control can run slightly fewer ramp pieces but still needs reliable mana.
+    - Mana rocks that replace themselves (Cultivate, Kodama's Reach) are fine in green
+    - Non-green control relies on signets, talismans, and rocks — never go below 8
+  Lands: 37–39. Control NEVER runs low on lands. Getting to 5–6 mana consistently is not optional.
+  Tutors: 3–6. Control tutors for answers situationally, not for a specific line.
+    - Tutors for instants/sorceries are often correct here (Mystical Tutor, Fabricate)
+  Graveyard interaction: 2–3 pieces of graveyard hate. Control's long game invites recursion threats.
+
+  COMMON FAILURE MODES: Not enough board wipes (2 is common, 3 is correct). Over-building threats
+  and under-building answers. Lands below 37 — control NEEDS land 4–5 every game. Not enough
+  ongoing draw (relying only on cantrips means running out in a long game). No answer to enchantments.
+
+─────────────────────────────────────
+BLUEPRINT C: AGGRO / MIDRANGE (Power 6.5–7 target, Bracket 3)
+─────────────────────────────────────
+Goal: apply consistent pressure from turn 2–3, close before the table stabilizes at turn 8–10.
+
+  Threats: 18–26 creatures/permanents that apply pressure independently of the commander.
+    - At least 8–12 should cost 3 CMC or less
+    - Evasion (flying, menace, trample, shadow) on 8–12 of your threats is the difference between
+      "looks scary" and "actually threatening"
+    - Haste on key threats or ways to grant haste are high value
+  Curve: average nonland CMC should be 2.8–3.4. Anything above 3.5 is a midrange/fair deck, not aggro.
+    - Curve peak should be at 3–4 CMC. More than 8 cards at 5+ CMC = not actually aggro.
+  Ramp: 8–12. Prioritize 1–2 mana rocks and mana dorks. Cheap ramp means turn 3 plays on turn 2.
+    - Dorks (Birds of Paradise, Llanowar Elves) are stronger in aggro than rocks because they attack.
+  Interaction: 8–12 total
+    - Mostly cheap instant-speed removal (2 mana or less)
+    - 1–2 board wipes that spare your team (asymmetric like Tragic Arrogance, Settle the Wreckage)
+    - Interaction should not slow your curve; prioritize efficient answers over expensive ones
+  Card draw: 8–12 pieces
+    - Draw tied to attacking or dealing damage is ideal (Reconnaissance Mission, Toski, Bearer of Secrets)
+    - Aggro doesn't have time to deploy 4-mana draw spells; 1–2 mana cantrips are better here
+  Protection: 4–6 pieces (keep the commander alive; protect a key attacker through the closing turn)
+  Lands: 34–36. Low land count is fine when the curve is low and ramp is reliable.
+
+  COMMON FAILURE MODES: Curve too high (average CMC above 3.5 means the "aggro" deck is actually
+  midrange going through the motions). Not enough evasion (ground-stall decks brick against token
+  tables). No haste (big threats that wait a turn are worse than smaller threats that don't).
+  Missing interaction (aggro still needs to answer stax pieces, pillowfort enchantments, and fog
+  effects or it just never closes). Over-indexing on the commander (redundant threats win games
+  through disruption; putting all eggs in the commander basket loses to one removal spell).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 POWER LEVEL & COMMANDER BRACKETS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Every full deck analysis MUST include a power level estimate AND a bracket assignment. Both are required. Never skip them. Never say "it depends" without committing to a number and a bracket.
