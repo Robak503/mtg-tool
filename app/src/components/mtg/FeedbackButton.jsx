@@ -29,12 +29,41 @@ export default function FeedbackButton({
 }) {
   const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors;
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState("compose"); // "compose" | "inbox"
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("other");
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState(null); // null | "success" | { error: string }
+  const [inboxEntries, setInboxEntries] = useState(null);
+  const [inboxError, setInboxError] = useState(null);
+  const [inboxLoading, setInboxLoading] = useState(false);
   const textareaRef = useRef(null);
   const modalRef = useRef(null);
+
+  // Load the inbox when switching to that view (and on submit-success so the
+  // newly-saved entry shows up immediately if the user toggles to it).
+  useEffect(() => {
+    if (view !== "inbox" || !open) return undefined;
+    let active = true;
+    setInboxLoading(true);
+    setInboxError(null);
+    (async () => {
+      try {
+        const response = await fetch("/api/feedback", { cache: "no-store" });
+        if (!response.ok) {
+          if (active) setInboxError(`status ${response.status}`);
+          return;
+        }
+        const data = await response.json();
+        if (active) setInboxEntries(data.entries || []);
+      } catch (error) {
+        if (active) setInboxError(error.message || "network error");
+      } finally {
+        if (active) setInboxLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [view, open, status]);
 
   // Focus textarea when modal opens; close on Esc.
   useEffect(() => {
@@ -168,9 +197,38 @@ export default function FeedbackButton({
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <h2 style={{ fontSize: 16, margin: 0, color: cfg?.color || GOLD }}>
-                Send feedback
-              </h2>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                <button
+                  onClick={() => setView("compose")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    fontSize: 15,
+                    fontWeight: view === "compose" ? 700 : 400,
+                    color: view === "compose" ? (cfg?.color || GOLD) : MUTED,
+                    fontFamily,
+                  }}
+                >
+                  Send
+                </button>
+                <button
+                  onClick={() => setView("inbox")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                    fontSize: 15,
+                    fontWeight: view === "inbox" ? 700 : 400,
+                    color: view === "inbox" ? (cfg?.color || GOLD) : MUTED,
+                    fontFamily,
+                  }}
+                >
+                  Inbox{inboxEntries ? ` (${inboxEntries.length})` : ""}
+                </button>
+              </div>
               <button
                 onClick={close}
                 disabled={submitting}
@@ -189,12 +247,69 @@ export default function FeedbackButton({
               </button>
             </div>
 
+            {view === "compose" && (
             <p style={{ fontSize: 11, color: MUTED, margin: 0, lineHeight: 1.5 }}>
               Captured locally in <code style={{ fontFamily: "ui-monospace, monospace" }}>data/feedback/</code>.
               Nothing leaves your machine. Include what you were doing, what you expected,
               and what actually happened.
             </p>
+            )}
 
+            {view === "inbox" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 200, maxHeight: 480, overflowY: "auto" }}>
+                {inboxLoading && (
+                  <div style={{ fontSize: 12, color: MUTED, padding: 8 }}>Loading inbox...</div>
+                )}
+                {inboxError && (
+                  <div style={{ fontSize: 12, color: "#c2786f", padding: 8 }}>
+                    Could not load: {inboxError}
+                  </div>
+                )}
+                {!inboxLoading && !inboxError && inboxEntries?.length === 0 && (
+                  <div style={{ fontSize: 12, color: MUTED, padding: 8, lineHeight: 1.5 }}>
+                    No feedback captured yet. Submit a note from the Send tab — it lands in
+                    <code style={{ fontFamily: "ui-monospace, monospace", marginLeft: 4 }}>data/feedback/</code>.
+                  </div>
+                )}
+                {inboxEntries?.map((entry) => (
+                  <div
+                    key={entry.filename || entry.id}
+                    style={{
+                      padding: "10px 12px",
+                      background: BG2,
+                      border: `1px solid ${LINE}`,
+                      borderRadius: 6,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 4,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontSize: 10, color: cfg?.color || GOLD, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                        {entry.category || "other"}
+                      </span>
+                      <span style={{ fontSize: 10, color: MUTED }}>
+                        {entry.timestamp ? new Date(entry.timestamp).toLocaleString() : ""}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: TEXT, lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                      {entry.message}
+                    </div>
+                    {(entry.context?.agent || entry.context?.deckName || entry.context?.sessionName) && (
+                      <div style={{ fontSize: 10, color: MUTED, marginTop: 2 }}>
+                        {entry.context?.agent && <span>{entry.context.agent}</span>}
+                        {entry.context?.sessionName && <span> · {entry.context.sessionName}</span>}
+                        {entry.context?.deckName && <span> · {entry.context.deckName}</span>}
+                        {entry.context?.page && <span> · {entry.context.page}</span>}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {view === "compose" && (
+            <>
             <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <span style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                 Category
@@ -265,8 +380,10 @@ export default function FeedbackButton({
                 <div>Page: {page}</div>
               </div>
             </details>
+            </>
+            )}
 
-            {status === "success" && (
+            {view === "compose" && status === "success" && (
               <div style={{
                 padding: "8px 12px",
                 borderRadius: 6,
@@ -278,7 +395,7 @@ export default function FeedbackButton({
                 ✓ Saved. Thanks for the note.
               </div>
             )}
-            {status?.error && (
+            {view === "compose" && status?.error && (
               <div style={{
                 padding: "8px 12px",
                 borderRadius: 6,
@@ -291,6 +408,7 @@ export default function FeedbackButton({
               </div>
             )}
 
+            {view === "compose" && (
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
               <button
                 onClick={close}
@@ -326,6 +444,7 @@ export default function FeedbackButton({
                 {submitting ? "Saving…" : "Send"}
               </button>
             </div>
+            )}
           </div>
         </div>
       )}
