@@ -9,6 +9,7 @@ import {
   formatGoldfishNotes,
   runGoldfish as runGoldfishSimulation,
   runGoldfishBatch,
+  saveGameRecord,
 } from "../lib/goldfish";
 import { deckSnapshot, parseKarnPlan } from "../lib/agentArtifacts";
 import { CARD_CACHE, fetchCard } from "../lib/scryfall";
@@ -315,11 +316,12 @@ export default function MTGAssistant() {
       : runGoldfishSimulation(activeDeck, hydratedData || {});
     setGoldfishResult(result);
     const notes = count > 1 ? formatGoldfishBatchNotes(result) : formatGoldfishNotes(result);
+    const archetypeTag = result.archetype ? ` [${result.archetype}]` : "";
     const gameEntry = {
       id: `goldfish-${result.id}`,
       date: new Date().toLocaleDateString(),
       result: "Goldfish",
-      opponents: count > 1 ? `Garfield v1 ${count}-run batch` : "Garfield v1 solo run",
+      opponents: count > 1 ? `Garfield v2 ${count}-run batch${archetypeTag}` : `Garfield v2 solo run${archetypeTag}`,
       notes,
     };
 
@@ -327,6 +329,16 @@ export default function MTGAssistant() {
       goldfishRuns: [result, ...(deckMemory.goldfishRuns || [])].slice(0, 20),
       games: [gameEntry, ...(deckMemory.games || [])].slice(0, 50),
     });
+
+    // Persist to data/games/ for cross-session trend analysis. Fire-and-forget;
+    // never block the UI on the network round-trip.
+    if (count > 1) {
+      // Save each run in the batch individually so per-run trends are queryable.
+      Promise.all((result.runs || []).map(run => saveGameRecord(run))).catch(() => {});
+    } else {
+      saveGameRecord(result).catch(() => {});
+    }
+
     setGoldfishRunning(false);
   };
 

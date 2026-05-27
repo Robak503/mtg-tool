@@ -61,6 +61,9 @@ app/data/*.corrupted
 # In-app feedback captures (local-only, contain user notes about their own usage)
 app/data/feedback/
 
+# Goldfish game records (local-only, regenerable by re-running Garfield)
+app/data/games/
+
 # Embedded repos (Forge clone and RulesGuru repo — not submodules)
 mtg-judge/data/forge/
 mtg-judge/data/rulesguru-repo/
