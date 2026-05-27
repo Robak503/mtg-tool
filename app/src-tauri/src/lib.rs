@@ -1,6 +1,23 @@
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 
+/// Recursive copy used to seed the user data dir on first launch.
+#[cfg(not(debug_assertions))]
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let s = entry.path();
+        let d = dst.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir_recursive(&s, &d)?;
+        } else {
+            std::fs::copy(&s, &d)?;
+        }
+    }
+    Ok(())
+}
+
 /// Poll TCP port until it accepts connections or timeout expires.
 #[cfg(not(debug_assertions))]
 fn wait_for_port(port: u16, timeout_secs: u64) -> bool {
@@ -53,9 +70,24 @@ pub fn run() {
                 // First launch: ensure the writable data directory exists.
                 let _ = std::fs::create_dir_all(&data_dir);
 
-                let server_js = resource_dir.join("server").join("server.js");
-                let mtg_judge_dir = resource_dir.join("mtg-judge");
-                let mtg_engine_dir = resource_dir.join("MTG ENGINE");
+                // Tauri places `resources/` from tauri.conf.json under
+                // <resource_dir>/resources/ — see prepare-tauri-resources.cjs
+                // for the staging layout.
+                let staged = resource_dir.join("resources");
+                let server_js = staged.join("server").join("server.js");
+                let mtg_judge_dir = staged.join("mtg-judge");
+                let mtg_engine_dir = staged.join("MTG ENGINE");
+
+                // Seed data files (slim oracle index) live alongside server
+                // code at runtime — copy them into the user data dir on
+                // first launch so paths.js's dataPath() resolution works.
+                let seed_data = staged.join("data");
+                if seed_data.exists() {
+                    let user_data = data_dir.join("data");
+                    if !user_data.exists() {
+                        let _ = copy_dir_recursive(&seed_data, &user_data);
+                    }
+                }
 
                 match std::process::Command::new("node")
                     .arg(&server_js)
