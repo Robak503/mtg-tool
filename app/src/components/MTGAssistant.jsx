@@ -43,13 +43,11 @@ export default function MTGAssistant() {
   const [modelStatus, setModelStatus] = useState(null);
   const [ollamaHealth, setOllamaHealth] = useState(null);
   const [ollamaHealthDismissed, setOllamaHealthDismissed] = useState(false);
-  // First-launch state — only shows in the packaged .exe when the user
-  // data dir is still empty. In dev (cwd = app/) decks.local.json
-  // already exists so this banner stays hidden.
+  // First-launch state — only shows when the marker file doesn't exist
+  // yet (true fresh install). The server writes the marker after a
+  // successful import or an explicit dismiss; on subsequent loads
+  // needsBootstrap returns false and the banner stays hidden.
   const [firstLaunch, setFirstLaunch] = useState(null);
-  const [firstLaunchDismissed, setFirstLaunchDismissed] = useState(() => {
-    try { return localStorage.getItem("mtg-first-launch-dismissed") === "1"; } catch { return false; }
-  });
   const [bootstrapSourcePath, setBootstrapSourcePath] = useState("");
   const [bootstrapBusy, setBootstrapBusy] = useState(false);
   const [bootstrapResult, setBootstrapResult] = useState(null);
@@ -219,7 +217,6 @@ export default function MTGAssistant() {
   // First-launch probe — fires once on mount, picks up the suggested
   // source path the server detected so the user can confirm or edit it.
   useEffect(() => {
-    if (firstLaunchDismissed) return;
     let active = true;
     (async () => {
       try {
@@ -232,7 +229,7 @@ export default function MTGAssistant() {
       } catch { /* offline / not available — banner just stays hidden */ }
     })();
     return () => { active = false; };
-  }, [firstLaunchDismissed]);
+  }, []);
 
   const runBootstrapImport = async () => {
     setBootstrapBusy(true);
@@ -258,9 +255,17 @@ export default function MTGAssistant() {
     }
   };
 
-  const dismissBootstrap = () => {
-    try { localStorage.setItem("mtg-first-launch-dismissed", "1"); } catch {}
-    setFirstLaunchDismissed(true);
+  const dismissBootstrap = async () => {
+    // Server-side marker so the banner stays dismissed across browser
+    // storage clears and across machines for the same data dir.
+    try {
+      await fetch("/api/first-launch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "dismiss" }),
+      });
+    } catch { /* offline: just hide locally; server will catch up next load */ }
+    setFirstLaunch((prev) => prev ? { ...prev, needsBootstrap: false } : prev);
   };
   const refreshModelStatusRef = useRef(null);
   useEffect(()=>{
@@ -462,7 +467,7 @@ export default function MTGAssistant() {
       {/* First-launch data import — only shown in the packaged .exe when
           %APPDATA% is still empty. The text input is pre-filled with a
           detected dev-tree path; the user confirms and clicks Import. */}
-      {firstLaunch?.needsBootstrap && !firstLaunchDismissed && (
+      {firstLaunch?.needsBootstrap && (
         <div
           role="status"
           style={{

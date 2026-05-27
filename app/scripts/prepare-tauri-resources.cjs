@@ -69,6 +69,27 @@ console.log(`Preparing ${RESOURCES}`);
 rmRf(RESOURCES);
 mkdirP(RESOURCES);
 
+// Also wipe any previously-built target resources. Tauri's cargo build
+// copies src-tauri/resources/ INTO target/{debug,release}/resources/ but
+// doesn't remove stale files there, so files we no longer stage stick
+// around forever and end up in the raw .exe's working tree. (The NSIS
+// installer reads only from the staging dir so it's already clean, but
+// the raw mtg-tool.exe people run from target/release sees the stale
+// copy unless we nuke it here.)
+for (const profile of ["debug", "release"]) {
+  const targetRes = path.join(
+    APP_ROOT,
+    "src-tauri",
+    "target",
+    profile,
+    "resources",
+  );
+  if (fs.existsSync(targetRes)) {
+    rmRf(targetRes);
+    console.log(`  also wiped ${path.relative(APP_ROOT, targetRes)}`);
+  }
+}
+
 // 1. mtg-judge — only RulesGuru cases + the CR JSON.
 console.log("Copying mtg-judge runtime files...");
 const judgeDst = path.join(RESOURCES, "mtg-judge");
@@ -105,6 +126,17 @@ if (fs.existsSync(oracleIdx)) {
   console.log("  + data/scryfall-bulk/oracle-index.json");
 } else {
   console.warn("  (oracle-index.json missing — run `npm run build:oracle-index` first)");
+}
+
+// 3b. Rules index — rulesRetrieval throws if this is missing, so every
+// rules-aware agent answer needs it. Small enough (~2MB) to always bundle.
+console.log("Copying rules-index...");
+const rulesIdx = path.join(APP_ROOT, "data", "rules-index.json");
+if (fs.existsSync(rulesIdx)) {
+  copyFile(rulesIdx, path.join(RESOURCES, "data", "rules-index.json"));
+  console.log("  + data/rules-index.json");
+} else {
+  console.warn("  (rules-index.json missing — run `npm run build:rules-index` first)");
 }
 
 // 4. Next.js standalone server (populated by copy-tauri-assets.cjs which

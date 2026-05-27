@@ -7,12 +7,18 @@
  * the UI prompt the user to import their existing decks/chats/feedback
  * from a dev-tree install rather than starting from scratch.
  *
- * In dev mode cwd is `app/` and decks.local.json typically exists, so
- * needsBootstrap returns false and the wizard never appears.
+ * "Fresh install" is detected by the absence of a marker file
+ * (.first-launch-marker.json). That marker is written when the user
+ * either imports successfully or explicitly dismisses the prompt.
+ * We don't check for decks.local.json because /api/decks auto-creates
+ * it from a built-in seed on first GET — so any "does decks exist"
+ * check is racy: the wizard may or may not appear depending on which
+ * endpoint the browser calls first.
  *
  * GET:  returns { needsBootstrap, currentDataDir, suggestedSource }
- * POST: { sourcePath } → copies *.local.json + feedback/ + games/ +
- *       agent-notes/ + backups/ into the live data dir.
+ * POST { sourcePath }: copies *.local.json + feedback/ + games/ +
+ *      agent-notes/ + backups/, then writes the marker.
+ * POST { action: "dismiss" }: writes the marker without copying anything.
  */
 
 export const runtime = "nodejs";
@@ -23,6 +29,7 @@ import path from "node:path";
 import { dataPath } from "../../../lib/server/paths";
 
 const KEY_DECK_FILE = "decks.local.json";
+const MARKER_FILE = ".first-launch-marker.json";
 
 // Files we'll copy from the source data dir into the live data dir.
 // Globs aren't used here — we explicitly enumerate to keep the surface
@@ -72,11 +79,22 @@ function suggestSourcePath() {
   return null;
 }
 
+async function writeMarker(reason, extra = {}) {
+  const dir = dataPath();
+  await fs.mkdir(dir, { recursive: true });
+  const payload = {
+    completedAt: new Date().toISOString(),
+    reason, // "import" | "dismiss"
+    ...extra,
+  };
+  await fs.writeFile(path.join(dir, MARKER_FILE), JSON.stringify(payload, null, 2));
+}
+
 export async function GET() {
   const liveDir = dataPath();
-  const hasDecks = await pathExists(path.join(liveDir, KEY_DECK_FILE));
+  const markerExists = await pathExists(path.join(liveDir, MARKER_FILE));
   return Response.json({
-    needsBootstrap: !hasDecks,
+    needsBootstrap: !markerExists,
     currentDataDir: liveDir,
     suggestedSource: suggestSourcePath(),
   });
@@ -120,6 +138,19 @@ export async function POST(req) {
     body = await req.json();
   } catch {
     return Response.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  // Dismiss path — user clicked "× don't ask again" without importing.
+  if (body?.action === "dismiss") {
+    try {
+      await writeMarker("dismiss");
+      return Response.json({ ok: true, dismissed: true });
+    } catch (e) {
+      return Response.json(
+        { ok: false, error: `Could not write marker: ${e.message || e}` },
+        { status: 500 },
+      );
+    }
   }
 
   const sourcePath = String(body?.sourcePath || "").trim();
@@ -175,6 +206,14 @@ export async function POST(req) {
       await copyDirIfExists(path.join(absSource, dir), path.join(dst, dir), report);
     } catch (e) {
       report.errors.push(`${dir}/: ${e.message || e}`);
+    }
+  }
+
+  if (report.errors.length === 0) {
+    try {
+      await writeMarker("import", { sourcePath: absSource });
+    } catch (e) {
+      report.errors.push(`marker: ${e.message || e}`);
     }
   }
 

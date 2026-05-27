@@ -13,17 +13,21 @@ fn strip_unc(p: &std::path::Path) -> String {
     s.strip_prefix(r"\\?\").map(|t| t.to_string()).unwrap_or(s)
 }
 
-/// Recursive copy used to seed the user data dir on first launch.
+/// Seed the user data dir from bundled resources without overwriting
+/// anything the user has already saved. Walks the source tree and only
+/// copies files whose destination path doesn't already exist. This is
+/// idempotent across launches — fresh installs get everything, existing
+/// installs only pick up newly-bundled seed files.
 #[cfg(not(debug_assertions))]
-fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+fn seed_missing(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let s = entry.path();
         let d = dst.join(entry.file_name());
         if entry.file_type()?.is_dir() {
-            copy_dir_recursive(&s, &d)?;
-        } else {
+            seed_missing(&s, &d)?;
+        } else if !d.exists() {
             std::fs::copy(&s, &d)?;
         }
     }
@@ -120,11 +124,9 @@ pub fn run() {
                 let seed_data = staged.join("data");
                 if seed_data.exists() {
                     let user_data = data_dir.join("data");
-                    if !user_data.exists() {
-                        match copy_dir_recursive(&seed_data, &user_data) {
-                            Ok(_) => logln!("seeded user data dir at {}", user_data.display()),
-                            Err(e) => logln!("seed copy failed: {e}"),
-                        }
+                    match seed_missing(&seed_data, &user_data) {
+                        Ok(_) => logln!("seeded missing files into {}", user_data.display()),
+                        Err(e) => logln!("seed copy failed: {e}"),
                     }
                 }
 
