@@ -28,15 +28,15 @@ stays readable.
 
 ## Phase 6 — Learn-to-Play Mode
 
-### P1 — Phase 6 PR4: opponent AI
+### P1 — Phase 6 PR5: decisionGate + narrator stubs (Beginner)
 
-**What:** Build `app/src/lib/learn/opponentAI.js` per design doc §5 step 4. Given a state and the legal actions, pick an action for the AI player. Reuses goldfish v2's archetype + classifier for cast priority; uses simple aggression heuristics for attack/block. ~200 LOC.
+**What:** Build `app/src/lib/learn/decisionGate.js` and `narrator.js` per design doc §5 step 5. Beginner-mode bridge: present every legal action to the user, explain via Jace voice, wait for choice. Intermediate/Expert modes are PR7/PR8. ~300 LOC + tests.
 
-**Why:** PR3 shipped the legal-action generator. PR4 lets the AI actually play. Without it, the engine grinds to a halt every time it's the AI's turn waiting for input that never comes.
+**Why:** PR4 shipped the AI side. PR5 closes the loop for the user side — without it, the engine has no way to ask the user what they want to do. After PR5, the engine can simulate a full game with both sides making decisions.
 
-**Depends on:** PR3 done (legalChoices.js + 40 tests on master). Reads legal actions; doesn't generate them.
+**Depends on:** PR3 (legal actions), PR4 (AI policy). No new data shapes.
 
-**Reference:** `docs/phase6-learn-to-play.md` §5 step 4 + reuse of `lib/goldfish.js` archetype detector.
+**Reference:** `docs/phase6-learn-to-play.md` §3 (Beginner curriculum table) + §5 step 5.
 
 ---
 
@@ -138,3 +138,7 @@ Goldfish v2: London mulligan, type_line/keywords-driven classification, archetyp
 ### ~~Phase 6 PR3: legalChoices generator + tests~~ ✅ DONE (master, 2026-05-26)
 
 `app/src/lib/learn/legalChoices.js` (~280 LOC) + `legalChoices.test.js` (40 tests). Mana-cost parser (`parseManaCost`) handles generic/colored/colorless/X/hybrid/phyrexian pips; `canPayManaCost` checks pool affordability with hybrid resolution; `legalActionsForPlayer` surfaces pass-priority + play-land (sorcery-speed + own-turn + stack-empty + once-per-turn checks) + cast-spell (timing + cost-affordable) + declare-attacker (untapped, not summoning-sick unless Haste) + declare-blocker (untapped, defender-only, per-attacker pair). Activate-ability and oracle-text target parsing deferred per design doc.
+
+### ~~Phase 6 PR4: opponentAI + tests~~ ✅ DONE (master, 2026-05-26)
+
+`app/src/lib/learn/opponentAI.js` (~240 LOC) + `opponentAI.test.js` (15 tests). `pickAction` enforces priority order land→cast→pass; cast scoring matches the per-archetype priority tables from goldfish v2's internal `buildCastScorer` (aggro→cheap-creatures-first, control→interaction-first, combo→ramp-and-tutors, voltron→equipment, etc.). `pickAttackPlan` attacks with every legal attacker (v1 policy; bluffing/trap-detection is PR7+). `pickBlockPlan` assigns at most one blocker per attacker preferring smallest power. Archetype resolves lazily via `detectArchetype` over `deriveDeckRepresentation(state, playerId)` when the caller doesn't supply one.

@@ -277,7 +277,15 @@ Each step is a self-contained PR with tests. Don't skip ahead.
    summoning sick unless Haste), declare-blocker (untapped, defender
    only). Activate-ability and target selection deferred per design
    doc anti-goals.
-4. **PR4 — opponentAI reusing goldfish v2 logic.** ~200 lines.
+4. **PR4 — opponentAI reusing goldfish v2 logic.** ✅ DONE (master,
+   2026-05-26). `app/src/lib/learn/opponentAI.js` (~240 LOC) + 15
+   tests. `pickAction` runs the priority order land → cast → pass
+   with archetype-aware cast scoring matching goldfish v2's internal
+   `buildCastScorer`. `pickAttackPlan` attacks with every legal
+   attacker (v1 policy). `pickBlockPlan` assigns one blocker per
+   attacker preferring smallest power (chump-block). archetype
+   resolves lazily via `detectArchetype` over `deriveDeckRepresentation`
+   when not supplied.
 5. **PR5 — decisionGate + narrator stubs.** Beginner only, narration
    from templates. ~300 lines + tests.
 6. **PR6 — LearnView + ZoneStack + StackPanel + DecisionModal + initial
