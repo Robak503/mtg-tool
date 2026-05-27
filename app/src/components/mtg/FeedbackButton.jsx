@@ -70,6 +70,24 @@ export default function FeedbackButton({
     }
   };
 
+  // Global keyboard shortcut: Cmd/Ctrl-Shift-F opens the popup from
+  // anywhere in the app. Frictionless capture is the whole point —
+  // hands stay on the keyboard.
+  useEffect(() => {
+    const onKey = (event) => {
+      // Skip if any modifier was missed or focus is in a text field that
+      // might legitimately use the same combo.
+      if (!(event.metaKey || event.ctrlKey)) return;
+      if (!event.shiftKey) return;
+      if (event.key !== "F" && event.key !== "f") return;
+      event.preventDefault();
+      openPopout();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent, currentSession?.id, currentSession?.name, activeDeck?.name, page]);
+
   // Copy the consolidated FEEDBACK.md to the clipboard.
   const copyDigest = async () => {
     setCopyState(null);
@@ -232,7 +250,7 @@ export default function FeedbackButton({
       {/* Floating launcher button */}
       <button
         onClick={() => setOpen(true)}
-        title="Send feedback (Cmd/Ctrl-? also opens)"
+        title="Send feedback · Cmd/Ctrl-Shift-F pops out a small capture window"
         style={{
           position: "fixed",
           right: 16,
@@ -362,8 +380,7 @@ export default function FeedbackButton({
             {view === "compose" && (
             <p style={{ fontSize: 11, color: MUTED, margin: 0, lineHeight: 1.5 }}>
               Captured locally in <code style={{ fontFamily: "ui-monospace, monospace" }}>data/feedback/</code>.
-              Nothing leaves your machine. Include what you were doing, what you expected,
-              and what actually happened.
+              Nothing leaves your machine. <strong>Cmd/Ctrl-Shift-F</strong> opens the pop-out window from anywhere.
             </p>
             )}
 
