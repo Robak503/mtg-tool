@@ -2,6 +2,11 @@ import { lookupCard, oracleText, normalizeName } from "./cardIndex.js";
 import { evaluateDeckSalt, lookupSalt } from "./edhrecSalt.js";
 import { estimateBracket, findCombos } from "./spellbook.js";
 
+// True fast mana — pieces that generate mana faster than their mana cost warrants and push
+// toward cEDH-tier speed. Sol Ring and Ancient Tomb are NOT included here: they are ubiquitous
+// staples that the ramp regex already catches, and counting them as "fast mana" would inflate
+// power scores for virtually every deck. The scoring bonus for fastMana >= 2 is reserved for
+// decks that have actual differential fast mana above the universal baseline.
 const FAST_MANA = new Set([
   "mana crypt",
   "jeweled lotus",
@@ -12,8 +17,6 @@ const FAST_MANA = new Set([
   "lotus petal",
   "mana vault",
   "grim monolith",
-  "sol ring",
-  "ancient tomb",
 ]);
 
 const FREE_INTERACTION = new Set([

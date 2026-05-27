@@ -37,13 +37,15 @@ function TrustStrip({ msg, LINE }) {
   const cloudUsed = r.provider === "anthropic" || r.fallbackUsed;
   const tierLabel = r.modelTier === "fast"
     ? "Fast"
-    : r.modelTier === "deep"
-      ? "Deep"
-      : r.modelTier === "anthropic"
-        ? "API"
-        : r.modelTier === "local-primer"
-          ? "Primer"
-          : null;
+    : r.modelTier === "mid"
+      ? "Mid"
+      : r.modelTier === "deep"
+        ? "Deep"
+        : r.modelTier === "anthropic"
+          ? "API"
+          : r.modelTier === "local-primer"
+            ? "Primer"
+            : null;
   const parts = [
     `Provider: ${r.provider === "ollama" ? "Local (Ollama)" : "Anthropic API"}`,
     tierLabel ? `Tier: ${tierLabel}` : "",

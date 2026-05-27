@@ -579,10 +579,16 @@ export default function useChatAgents({
         // Karn can still answer from the loaded deck Oracle context if local search context fails.
       }
 
-      // Local deterministic deck power/combo ranking (Karn only).
+      // Local deterministic deck power/combo ranking (Karn and Tibalt).
+      // Karn uses it for structured analysis; Tibalt uses it to anchor roast accuracy
+      // (bracket creep, game changer callouts, combo line awareness, salt scores).
       let powerRankContext = "";
       try {
-        if (targetAgent === "karn" && deckOracleNames.length >= 2 && !isPureKarnCutRequest) {
+        if (
+          (targetAgent === "karn" || targetAgent === "tibalt") &&
+          deckOracleNames.length >= 2 &&
+          !isPureKarnCutRequest
+        ) {
           const commanderNames = deckLock?.commanderNames?.length
             ? deckLock.commanderNames
             : deckLock?.commander
