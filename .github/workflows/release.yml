@@ -1,29 +1,9 @@
-# Release workflow — runs on every v* tag push.
-#
-# 1. Builds the Tauri .exe on a Windows runner
-# 2. Signs the updater artifact using the secret TAURI_SIGNING_PRIVATE_KEY
-# 3. Creates a GitHub Release with the .exe, the NSIS installer, and the
-#    signature
-# 4. Generates latest.json — the manifest the running app polls via
-#    tauri-plugin-updater. Once this file lands at the configured
-#    endpoint, every running .exe picks up the new version on next
-#    "Check for updates" click (or background poll).
-#
-# Required repo secrets:
-#   TAURI_SIGNING_PRIVATE_KEY           — contents of ~/.tauri/mtg-tool.key
-#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  — contents of ~/.tauri/mtg-tool.password
-#
-# To cut a release locally:
-#   git tag v0.2.0
-#   git push origin v0.2.0
-# CI then takes over.
-
 name: release
 
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -32,6 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,55 +33,45 @@ jobs:
       - name: Setup Node 22
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
 
-      - name: npm install
+      - name: Install npm deps
         working-directory: app
         run: npm ci
 
-      - name: Build with signed updater
+      - name: Build signed Tauri release
         working-directory: app
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri:build:release
 
-      - name: Compute release metadata
-        id: meta
+      - name: Build latest.json
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag -replace "^v", ""
-          $sig = Get-Content "app/src-tauri/target/release/bundle/nsis/MTG Tool_${version}_x64-setup.exe.sig" -Raw
-          $url = "https://github.com/${{ github.repository }}/releases/download/${tag}/MTG.Tool_${version}_x64-setup.exe"
-          $iso = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
-          "version=$version" | Out-File -Append $env:GITHUB_OUTPUT
-          "tag=$tag" | Out-File -Append $env:GITHUB_OUTPUT
-          "sig<<EOF" | Out-File -Append $env:GITHUB_OUTPUT
-          $sig | Out-File -Append $env:GITHUB_OUTPUT
-          "EOF" | Out-File -Append $env:GITHUB_OUTPUT
-          "url=$url" | Out-File -Append $env:GITHUB_OUTPUT
-          "pub_date=$iso" | Out-File -Append $env:GITHUB_OUTPUT
-
-      - name: Write latest.json
-        shell: pwsh
-        run: |
-          $manifest = @{
-            version = "${{ steps.meta.outputs.version }}"
-            notes = "MTG Tool ${{ steps.meta.outputs.tag }}"
-            pub_date = "${{ steps.meta.outputs.pub_date }}"
-            platforms = @{
-              "windows-x86_64" = @{
-                signature = @"
-${{ steps.meta.outputs.sig }}
-"@
-                url = "${{ steps.meta.outputs.url }}"
+          $tag = '${{ github.ref_name }}'
+          $version = $tag -replace '^v', ''
+          $bundleDir = 'app/src-tauri/target/release/bundle/nsis'
+          $sigFile = Get-ChildItem -Path $bundleDir -Filter '*.exe.sig' | Select-Object -First 1
+          $exeFile = Get-ChildItem -Path $bundleDir -Filter '*-setup.exe' | Select-Object -First 1
+          $sig = (Get-Content $sigFile.FullName -Raw).Trim()
+          $exeName = $exeFile.Name -replace ' ', '.'
+          $url = "https://github.com/${{ github.repository }}/releases/download/$tag/$exeName"
+          $iso = (Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ')
+          $manifest = [ordered]@{
+            version = $version
+            notes = "MTG Tool $tag"
+            pub_date = $iso
+            platforms = [ordered]@{
+              'windows-x86_64' = [ordered]@{
+                signature = $sig
+                url = $url
               }
             }
           }
           $manifest | ConvertTo-Json -Depth 5 | Out-File -FilePath latest.json -Encoding utf8
 
-      - name: Create release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
