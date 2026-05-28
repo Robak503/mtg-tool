@@ -62,21 +62,35 @@ console.log("[build-signed-release] Keys loaded — invoking `tauri build` with 
 
 // Override tauri.conf.json's createUpdaterArtifacts via --config flag
 // for this one build only. The on-disk default stays false so unsigned
-// dev builds keep working.
-const overrideConfig = JSON.stringify({
+// dev builds keep working. Writing to a temp file (not passing JSON
+// inline) sidesteps two cross-platform pain points: cmd.exe stripping
+// quotes when shell:true is used to run npx.cmd, and quoting rules
+// differing between pwsh / bash / cmd.
+const overrideConfig = {
   bundle: { createUpdaterArtifacts: true },
-});
+};
+const overridePath = path.join(os.tmpdir(), `tauri-release-config-${process.pid}.json`);
+fs.writeFileSync(overridePath, JSON.stringify(overrideConfig));
 
-const args = ["tauri", "build", "--config", overrideConfig];
+const args = ["tauri", "build", "--config", overridePath];
 // On Windows, npx is a .cmd shim — Node's spawn refuses to run .cmd
 // files without shell:true. Setting shell:true makes spawn invoke
 // cmd.exe under the hood, which handles the .cmd lookup correctly.
+// Because the --config value is now a file path (no spaces, no quotes)
+// the shell doesn't mangle anything.
 const proc = spawn("npx", args, {
   stdio: "inherit",
   shell: process.platform === "win32",
   env: { ...process.env, ...signingEnv },
 });
 
+proc.on("error", (err) => {
+  try { fs.unlinkSync(overridePath); } catch {}
+  console.error(`[build-signed-release] spawn error: ${err.message}`);
+  process.exit(1);
+});
+
 proc.on("exit", (code) => {
+  try { fs.unlinkSync(overridePath); } catch {}
   process.exit(code ?? 1);
 });
