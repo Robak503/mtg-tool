@@ -43,6 +43,13 @@ export default function MTGAssistant() {
   const [modelStatus, setModelStatus] = useState(null);
   const [ollamaHealth, setOllamaHealth] = useState(null);
   const [ollamaHealthDismissed, setOllamaHealthDismissed] = useState(false);
+  // Ollama install/pull wizard state — triggered from the health banner
+  // when status is "not-installed" or "model-missing". The install path
+  // shows a UAC prompt; the pull path streams progress over many minutes.
+  const [ollamaInstallBusy, setOllamaInstallBusy] = useState(false);
+  const [ollamaInstallLog, setOllamaInstallLog] = useState("");
+  const [ollamaPullBusy, setOllamaPullBusy] = useState(false);
+  const [ollamaPullProgress, setOllamaPullProgress] = useState("");
   // First-launch state — only shows when the marker file doesn't exist
   // yet (true fresh install). The server writes the marker after a
   // successful import or an explicit dismiss; on subsequent loads
@@ -178,6 +185,9 @@ export default function MTGAssistant() {
   // while the banner is unresolved so it auto-clears when the user starts the
   // daemon or pulls the missing model. Skipped entirely when modelProvider
   // is "anthropic" since Ollama isn't on the hot path then.
+  // Pulled out of the useEffect so the install/pull wizard can re-probe
+  // explicitly after winget finishes or `ollama pull` exits.
+  const probeOllamaHealth = useRef(null);
   useEffect(() => {
     if (modelProvider === "anthropic") {
       setOllamaHealth(null);
@@ -201,6 +211,7 @@ export default function MTGAssistant() {
         // the existing state so we don't thrash the banner
       }
     };
+    probeOllamaHealth.current = probe;
     probe();
     timer = window.setInterval(probe, 30_000);
     return () => {
@@ -208,6 +219,85 @@ export default function MTGAssistant() {
       window.clearInterval(timer);
     };
   }, [modelProvider]);
+
+  const runOllamaInstall = async () => {
+    setOllamaInstallBusy(true);
+    setOllamaInstallLog("Asking Windows to install Ollama via winget. A UAC prompt will appear — click Yes.");
+    try {
+      const resp = await fetch("/api/install-ollama", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "install" }),
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        setOllamaInstallLog("Ollama installed. Waiting for the service to start...");
+        // Re-probe a few times — Ollama installs a system service that
+        // takes a few seconds to come online.
+        for (let i = 0; i < 10; i++) {
+          await new Promise((r) => setTimeout(r, 1500));
+          if (probeOllamaHealth.current) await probeOllamaHealth.current();
+        }
+        setOllamaInstallLog("Install complete.");
+      } else {
+        setOllamaInstallLog(
+          `Install failed: ${data.error || data.stderr?.split("\n").slice(-3).join(" ") || `exit ${data.exitCode}`}\n` +
+          `Hint: open ollama.com/download and install manually if winget refuses.`,
+        );
+      }
+    } catch (e) {
+      setOllamaInstallLog(`Install request failed: ${e.message || e}`);
+    } finally {
+      setOllamaInstallBusy(false);
+    }
+  };
+
+  const runModelPull = async (model) => {
+    setOllamaPullBusy(true);
+    setOllamaPullProgress(`Pulling ${model} (this can take several minutes for a 9GB model)...\n`);
+    try {
+      const resp = await fetch("/api/install-ollama", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "pull-model", model }),
+      });
+      const reader = resp.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
+        for (const event of events) {
+          if (!event.startsWith("data: ")) continue;
+          try {
+            const data = JSON.parse(event.slice(6));
+            if (data.text) {
+              setOllamaPullProgress((prev) => (prev + data.text).slice(-2000));
+            }
+            if (data.done) {
+              if (data.exitCode === 0) {
+                setOllamaPullProgress((prev) => prev + "\n✓ Pull complete.");
+                if (probeOllamaHealth.current) await probeOllamaHealth.current();
+              } else {
+                setOllamaPullProgress((prev) => prev + `\n✗ Pull failed (exit ${data.exitCode}).`);
+              }
+            }
+            if (data.error) {
+              setOllamaPullProgress((prev) => prev + `\n${data.error}`);
+            }
+          } catch { /* malformed event — skip */ }
+        }
+      }
+    } catch (e) {
+      setOllamaPullProgress((prev) => prev + `\nRequest failed: ${e.message || e}`);
+    } finally {
+      setOllamaPullBusy(false);
+    }
+  };
   useEffect(()=>{
     try {
       localStorage.setItem("mtg-model-provider", modelProvider);
@@ -545,66 +635,108 @@ export default function MTGAssistant() {
         </div>
       )}
 
-      {/* Ollama startup health banner — only shown when local is selected and
-          the daemon isn't ready. Self-dismisses when health recovers; the user
-          can also dismiss manually. */}
-      {ollamaHealth && !ollamaHealth.ok && !ollamaHealthDismissed && (
-        <div
-          role="status"
-          style={{
-            padding:"8px 16px",
-            background: ollamaHealth.status === "server-down" ? "#3a1a1a" : "#3a2a14",
-            borderBottom: `1px solid ${ollamaHealth.status === "server-down" ? "#6b3a3a" : "#6b5a3a"}`,
-            color: ollamaHealth.status === "server-down" ? "#e0a89a" : "#e8c285",
-            fontSize:12,
-            display:"flex",
-            justifyContent:"space-between",
-            alignItems:"center",
-            gap:12,
-            fontFamily:F,
-          }}
-        >
-          <span style={{flex:1}}>
-            <strong style={{marginRight:8}}>
-              {ollamaHealth.status === "server-down" ? "⚠ Ollama not running" : "⚠ Ollama model missing"}
-            </strong>
-            {ollamaHealth.message}
-          </span>
-          <span style={{display:"flex", gap:8, alignItems:"center"}}>
-            <button
-              onClick={() => setModelProvider("anthropic")}
-              title="Switch to the Anthropic API for this session"
-              style={{
-                background:"transparent",
-                border:`1px solid ${ollamaHealth.status === "server-down" ? "#6b3a3a" : "#6b5a3a"}`,
-                color:"inherit",
-                cursor:"pointer",
-                fontSize:11,
-                padding:"3px 10px",
-                borderRadius:5,
-                fontFamily:F,
-              }}
-            >
-              Use Anthropic instead
-            </button>
-            <button
-              onClick={() => setOllamaHealthDismissed(true)}
-              title="Dismiss this banner (will not show again this session)"
-              style={{
-                background:"none",
-                border:"none",
-                color:"inherit",
-                cursor:"pointer",
-                fontSize:16,
-                lineHeight:1,
-                padding:"0 4px",
-              }}
-            >
-              ×
-            </button>
-          </span>
-        </div>
-      )}
+      {/* Ollama startup health banner — three states:
+            not-installed → "Install Ollama" via winget
+            server-down   → tell user to start ollama serve
+            model-missing → "Pull <model>" via ollama pull (streamed) */}
+      {ollamaHealth && !ollamaHealth.ok && !ollamaHealthDismissed && (() => {
+        const palette = ollamaHealth.status === "not-installed"
+          ? { bg: "#1a2638", border: "#34547a", text: "#c8d8ee", accent: "#244a7a", accentBorder: "#4a7ac4" }
+          : ollamaHealth.status === "server-down"
+          ? { bg: "#3a1a1a", border: "#6b3a3a", text: "#e0a89a", accent: "#3a1a1a", accentBorder: "#6b3a3a" }
+          : { bg: "#3a2a14", border: "#6b5a3a", text: "#e8c285", accent: "#3a2a14", accentBorder: "#6b5a3a" };
+        const title =
+          ollamaHealth.status === "not-installed" ? "👋 Ollama not installed" :
+          ollamaHealth.status === "server-down" ? "⚠ Ollama not running" :
+          "⚠ Ollama model missing";
+        const primaryModel = ollamaHealth.missing?.[0] || "qwen2.5:14b";
+        return (
+          <div
+            role="status"
+            style={{
+              padding: "8px 16px",
+              background: palette.bg,
+              borderBottom: `1px solid ${palette.border}`,
+              color: palette.text,
+              fontSize: 12,
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              fontFamily: F,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <span style={{ flex: 1 }}>
+                <strong style={{ marginRight: 8 }}>{title}</strong>
+                {ollamaHealth.message}
+              </span>
+              <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                {ollamaHealth.status === "not-installed" && ollamaHealth.canAutoInstall && (
+                  <button
+                    onClick={runOllamaInstall}
+                    disabled={ollamaInstallBusy}
+                    title="Run `winget install Ollama.Ollama` — Windows will ask for permission"
+                    style={{
+                      background: palette.accent, border: `1px solid ${palette.accentBorder}`,
+                      color: "inherit", cursor: ollamaInstallBusy ? "default" : "pointer",
+                      fontSize: 11, padding: "3px 10px", borderRadius: 5, fontFamily: F,
+                    }}
+                  >
+                    {ollamaInstallBusy ? "Installing…" : "Install Ollama"}
+                  </button>
+                )}
+                {ollamaHealth.status === "model-missing" && (
+                  <button
+                    onClick={() => runModelPull(primaryModel)}
+                    disabled={ollamaPullBusy}
+                    title={`Run: ollama pull ${primaryModel}`}
+                    style={{
+                      background: palette.accent, border: `1px solid ${palette.accentBorder}`,
+                      color: "inherit", cursor: ollamaPullBusy ? "default" : "pointer",
+                      fontSize: 11, padding: "3px 10px", borderRadius: 5, fontFamily: F,
+                    }}
+                  >
+                    {ollamaPullBusy ? "Pulling…" : `Pull ${primaryModel}`}
+                  </button>
+                )}
+                <button
+                  onClick={() => setModelProvider("anthropic")}
+                  title="Switch to the Anthropic API for this session"
+                  style={{
+                    background: "transparent", border: `1px solid ${palette.border}`,
+                    color: "inherit", cursor: "pointer",
+                    fontSize: 11, padding: "3px 10px", borderRadius: 5, fontFamily: F,
+                  }}
+                >
+                  Use Anthropic instead
+                </button>
+                <button
+                  onClick={() => setOllamaHealthDismissed(true)}
+                  title="Dismiss this banner (will not show again this session)"
+                  style={{
+                    background: "none", border: "none", color: "inherit",
+                    cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px",
+                  }}
+                >×</button>
+              </span>
+            </div>
+            {ollamaInstallLog && (
+              <pre style={{
+                margin: 0, padding: "6px 8px", borderRadius: 4,
+                background: "rgba(0,0,0,0.25)", color: palette.text, fontSize: 11,
+                whiteSpace: "pre-wrap", maxHeight: 120, overflowY: "auto",
+              }}>{ollamaInstallLog}</pre>
+            )}
+            {ollamaPullProgress && (
+              <pre style={{
+                margin: 0, padding: "6px 8px", borderRadius: 4,
+                background: "rgba(0,0,0,0.25)", color: palette.text, fontSize: 11,
+                whiteSpace: "pre-wrap", maxHeight: 150, overflowY: "auto",
+              }}>{ollamaPullProgress}</pre>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Body */}
       <div ref={bodyRef} style={{flex:1,display:"flex",overflow:"hidden",position:"relative"}}>
