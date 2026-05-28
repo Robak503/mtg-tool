@@ -115,20 +115,26 @@ const engineCount = copyMatching(engineSrc, engineDst, (name) => {
 });
 console.log(`  + ${engineCount} markdown files`);
 
-// 3. Full reference data bundle. We ship every JSON the runtime actually
-// reads so the .exe is functional on a clean machine without anyone
-// running npm sync scripts. The three giants (all_cards.json,
-// default_cards.json, unique_artwork.json) are deliberately skipped —
-// no code path reads them. If a future feature needs them, add them here.
+// 3. Full reference data bundle. Ships every JSON the app might want
+// at runtime so the .exe is functional on a clean machine — no npm
+// sync scripts required. The only Scryfall file we deliberately skip
+// is all_cards.json (2.4 GB) — it's a per-printing-per-language dump
+// with ~80 duplicate entries per card name. default_cards covers the
+// printing-specific use cases we'd actually build (set codes, alt-art
+// lists, prices), and unique_artwork covers art browsing.
 //
 // User-modifiable files (decks/chats/feedback/games/backups/agent-notes)
 // are NOT bundled — those come from the first-launch import wizard so
 // the user keeps ownership.
 console.log("Copying reference data files...");
 const dataFiles = [
-  // Card data
+  // Card data — oracle_cards is read by every code path today; default_cards
+  // and unique_artwork are bundled for future alt-art / set-info features
+  // (~755 MB combined, but installer LZMA brings it way down)
   ["data/scryfall-bulk/oracle-index.json",     "slim card index — preferred at runtime"],
   ["data/scryfall-bulk/oracle_cards.json",     "full Scryfall bulk Oracle data"],
+  ["data/scryfall-bulk/default_cards.json",    "one printing per card with set codes, prices, alt-art metadata"],
+  ["data/scryfall-bulk/unique_artwork.json",   "every distinct artwork — needed for alt-art browsing"],
   ["data/scryfall-bulk/rulings.json",          "Scryfall card rulings"],
   ["data/scryfall-bulk/tier-manifest.json",    "sync metadata"],
   ["data/scryfall-bulk/manifest.json",         "Scryfall API manifest"],
