@@ -313,15 +313,15 @@ export default function MTGAssistant() {
   },[modelProvider]);
 
   // Background app-update check — runs on every launch (no throttle).
-  // For a pod tool where the developer ships fast, every-launch checks
-  // make sense; the cost is one HTTPS GET to the GitHub release feed
-  // on each page mount, which is cheap. The banner only renders when
-  // an update is actually available.
+  // Default is ZERO TOUCH: if an update is found, downloadAndInstall()
+  // runs immediately and the app relaunches on the new version. Cost
+  // on launches WITH no update is one HTTPS GET; cost with an update
+  // is the silent install + relaunch (~30s).
   //
-  // Opt-in silent install: if the user toggled
-  // localStorage.mtg-auto-install-updates=1 we skip the banner and
-  // call downloadAndInstall() directly, then relaunch. Mostly useful
-  // for the developer's own machine.
+  // Power-user opt-out: setting
+  // localStorage.mtg-show-update-banner-first = "1" flips back to the
+  // banner flow — they'll see "v0.X.Y is available" with a Download
+  // & install button and can review notes before pulling the trigger.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -333,20 +333,34 @@ export default function MTGAssistant() {
         if (cancelled) return;
         if (!update) return;
 
-        const silent = (() => {
-          try { return localStorage.getItem("mtg-auto-install-updates") === "1"; } catch { return false; }
+        // Opt-out for users who want to see what's changing first
+        const wantsBanner = (() => {
+          try { return localStorage.getItem("mtg-show-update-banner-first") === "1"; } catch { return false; }
         })();
-        if (silent) {
-          try { await update.downloadAndInstall(); } catch { /* surface via banner instead */ }
+        if (wantsBanner) {
+          setAppUpdateInfo({
+            version: update.version,
+            current: update.currentVersion,
+            body: update.body || "",
+            update,
+          });
           return;
         }
 
+        // Default: silent install + relaunch
         setAppUpdateInfo({
           version: update.version,
           current: update.currentVersion,
           body: update.body || "",
           update,
+          installing: true,
         });
+        try {
+          await update.downloadAndInstall();
+        } catch {
+          // Install failed — leave the banner up so the user can retry manually
+          setAppUpdateInfo((prev) => prev ? { ...prev, installing: false, installFailed: true } : prev);
+        }
       } catch {
         /* silent — banner just stays hidden */
       }
@@ -612,17 +626,18 @@ export default function MTGAssistant() {
         fontFamily={F}
       />
 
-      {/* App-update available banner — only renders when the background
-          updater check found a newer signed release. Clicking opens the
-          Updates modal where the user can review notes + install. */}
+      {/* App-update banner — three states:
+            installing (default, zero-touch flow): "Installing v0.X.Y, restarting…"
+            installFailed: "Install failed, see details to retry"
+            available (banner-opt-in only): "v0.X.Y available — See details" */}
       {appUpdateInfo && (
         <div
           role="status"
           style={{
             padding: "10px 16px",
-            background: "#1a3826",
-            borderBottom: "1px solid #346b48",
-            color: "#9ec59e",
+            background: appUpdateInfo.installFailed ? "#3a1a1a" : "#1a3826",
+            borderBottom: `1px solid ${appUpdateInfo.installFailed ? "#6b3a3a" : "#346b48"}`,
+            color: appUpdateInfo.installFailed ? "#e0a89a" : "#9ec59e",
             fontSize: 12,
             fontFamily: F,
             display: "flex",
@@ -632,28 +647,47 @@ export default function MTGAssistant() {
           }}
         >
           <span style={{ flex: 1 }}>
-            <strong style={{ marginRight: 8 }}>↑ MTG Tool v{appUpdateInfo.version} is available</strong>
-            (you have v{appUpdateInfo.current}){appUpdateInfo.body ? " — " + appUpdateInfo.body.slice(0, 120) : ""}
+            {appUpdateInfo.installing ? (
+              <>
+                <strong style={{ marginRight: 8 }}>⟳ Installing MTG Tool v{appUpdateInfo.version}…</strong>
+                The app will relaunch when it's done. Keep this window open.
+              </>
+            ) : appUpdateInfo.installFailed ? (
+              <>
+                <strong style={{ marginRight: 8 }}>⚠ Auto-install of v{appUpdateInfo.version} failed</strong>
+                Try again from the Updates panel.
+              </>
+            ) : (
+              <>
+                <strong style={{ marginRight: 8 }}>↑ MTG Tool v{appUpdateInfo.version} is available</strong>
+                (you have v{appUpdateInfo.current}){appUpdateInfo.body ? " — " + appUpdateInfo.body.slice(0, 120) : ""}
+              </>
+            )}
           </span>
           <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button
-              onClick={() => setShowUpdates(true)}
-              style={{
-                background: "#346b48", border: "1px solid #5a9a72",
-                color: "#e0eaf6", cursor: "pointer",
-                fontSize: 11, padding: "4px 12px", borderRadius: 4, fontFamily: F,
-              }}
-            >
-              See details
-            </button>
-            <button
-              onClick={() => setAppUpdateInfo(null)}
-              title="Hide until next launch"
-              style={{
-                background: "none", border: "none", color: "inherit",
-                cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px",
-              }}
-            >×</button>
+            {!appUpdateInfo.installing && (
+              <button
+                onClick={() => setShowUpdates(true)}
+                style={{
+                  background: appUpdateInfo.installFailed ? "#5a3a3a" : "#346b48",
+                  border: `1px solid ${appUpdateInfo.installFailed ? "#8a5a5a" : "#5a9a72"}`,
+                  color: "#e0eaf6", cursor: "pointer",
+                  fontSize: 11, padding: "4px 12px", borderRadius: 4, fontFamily: F,
+                }}
+              >
+                See details
+              </button>
+            )}
+            {!appUpdateInfo.installing && (
+              <button
+                onClick={() => setAppUpdateInfo(null)}
+                title="Hide until next launch"
+                style={{
+                  background: "none", border: "none", color: "inherit",
+                  cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px",
+                }}
+              >×</button>
+            )}
           </span>
         </div>
       )}
