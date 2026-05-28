@@ -65,9 +65,13 @@ jobs:
 
       - name: Sync Commander Spellbook combos
         working-directory: app
-        # Spellbook's API is rate-limited; the script takes ~10-15 min.
-        # Use --combos-only first time, full combos+cards on later runs.
-        run: node scripts/sync-spellbook.cjs
+        # Spellbook's API rate-limits aggressively — HTTP 429 after
+        # ~108 pages of pulls. Marked continue-on-error so a flaky
+        # Spellbook doesn't kill the entire release. If sync fails,
+        # the bundle ships with whatever was cached from the last
+        # successful run, and users can sync in-app on demand.
+        continue-on-error: true
+        run: node scripts/sync-spellbook.cjs --delay-ms 1500
 
       - name: Build signed Tauri release
         working-directory: app

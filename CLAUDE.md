@@ -1,43 +1,76 @@
 # MTG Tool — Claude Code Operating Manual
+
 ## Master instruction set for Claude Code working on this project
 
 ---
 
 ## 0. WHO YOU ARE AND WHAT THIS IS
 
-You are Claude Code. You are working on the MTG Tool — a local-first Magic: The Gathering Commander assistant with five AI agent personas, a rules engine backed by the official Comprehensive Rules, a deck library, a goldfish simulator, and eventually a learn-to-play tutor.
+You are Claude Code. You are working on **MTG Tool** — a local-first
+Magic: The Gathering Commander assistant that ships as a signed
+Windows `.exe` with auto-update.
 
-This project was previously worked on by OpenAI's Codex (a different AI tool). The owner has switched to you because Codex was burning API credits and the architecture had become fragmented. Your job is to finish what Codex started, fix what it broke, and architect this into a genuinely useful, fully-local tool.
+It's a **desktop application**, not a web app. The user installs the
+`.exe`, double-clicks the shortcut, and the app opens. Under the hood
+there's a Tauri shell that spawns a bundled Node.js running a
+bundled Next.js server, but the user never sees any of that. They
+just see a window.
 
-**The owner is a vibe-coder.** They are not a professional developer. They direct, you build. They will not write code. They will tell you what they want and you will figure out how to deliver it.
+The repo lives at **https://github.com/Robak503/mtg-tool** (public,
+MIT). Releases publish at `/releases/latest` with a signed installer
++ `latest.json` manifest that every running instance polls for
+updates.
 
-**This is your time to prove you are the best AI coding tool available.** Compete with what Codex built. Outperform it. The previous AI got the foundation laid; you finish the cathedral.
+The owner is **Colton (GitHub: Robak503)**, a vibe-coder. He directs,
+you build. He will not write code. He will tell you what he wants and
+you figure out how to deliver it. He has granted you full
+architectural authority — see §1.3 below.
 
 ---
 
 ## 1. THE PRIME DIRECTIVES
 
-These override everything else. If anything below contradicts these, the directives win.
+These override everything else. If anything below contradicts these,
+the directives win.
 
 ### 1.1 Local-first is the architectural mandate
-External API calls are a **failure mode**, not a feature. Every external dependency must have:
+
+External API calls are a **failure mode**, not a feature. Every
+external dependency must have:
+
 - A local cache or local data source as the primary path
 - A clear path to zero external calls in normal operation
 
 The only acceptable external calls in steady-state are:
-- **Scryfall API**: only when a specific card is missing from local bulk data (cache miss)
-- **Anthropic API**: only as a last-resort fallback when the local Ollama model cannot answer
 
-If you find yourself adding a new external dependency without a local fallback, stop and reconsider.
+- **Scryfall / Spellbook / EDHREC APIs**: only when the user
+  explicitly triggers a sync via the Updates panel, OR when the
+  bundled snapshot is missing a specific card
+- **Anthropic API**: only as a last-resort fallback when the local
+  Ollama model cannot answer, AND only when the user has explicitly
+  selected "API" tier in the header
+- **GitHub Releases**: the auto-updater polls `latest.json` once per
+  day (24h throttle in localStorage)
+
+If you find yourself adding a new external dependency without a local
+fallback, stop and reconsider.
 
 ### 1.2 Never fabricate
-- Never invent rule numbers. Every CR citation must trace to a real `_v` file in `mtg-judge/`.
-- Never write card behavior from memory. Card text comes from local Scryfall data only.
-- Never invent imports, APIs, function signatures, or data shapes. If you don't know, look it up.
-- Never insert mock data or placeholder logic. If something isn't working, fix it.
-- Never hide errors with `try/catch` that silently swallows. Surface failures.
+
+- Never invent rule numbers. Every CR citation must trace to a real
+  entry in `mtg-judge/data/cr/cr_current.json`.
+- Never write card behavior from memory. Card text comes from
+  bundled Scryfall data only (`scryfall-bulk/oracle_cards.json` or
+  the slim `oracle-index.json`).
+- Never invent imports, APIs, function signatures, or data shapes.
+  If you don't know, look it up.
+- Never insert mock data or placeholder logic. If something isn't
+  working, fix it.
+- Never hide errors with `try/catch` that silently swallows. Surface
+  failures.
 
 ### 1.3 The owner has granted you full architectural authority
+
 You can:
 - Delete files without asking
 - Rename files and folders
@@ -45,300 +78,390 @@ You can:
 - Refactor freely
 - Improve anything you see fit, even if not requested
 - Build new infrastructure where the current structure is inadequate
+- Add new npm or cargo dependencies (prefer few, vet them, document)
+- Cut releases via `git tag vX.Y.Z && git push origin vX.Y.Z`
 
 You must:
-- Document what you change, where, and why (in commits and in updated docs)
+- Document what you change, where, and why (in commits and in
+  updated docs)
 - Use git so changes are recoverable
 - Run verification after significant changes
 - Not break working features in pursuit of architectural purity
+- Never publicly expose new attack surface (repo visibility,
+  exposing secrets, etc.) without explicit user authorization
 
 ### 1.4 Verification cadence
-Run verification after big changes or batches of small changes — not after every edit. Verification means:
-- `npm run build` passes
-- Dev server starts cleanly and returns 200
-- Relevant gstack skills pass (`/review`, `/qa` for UI changes, `/cso` for security-touching changes)
-- The specific feature you built actually works in the browser
 
-If verification fails, **fix it immediately**. Do not move on. Do not work around it.
+Run verification after big changes or batches of small changes — not
+after every edit. Verification means:
+
+- `npm test` in `app/` passes (currently ~350 vitest cases)
+- `cargo check --release` in `app/src-tauri/` passes
+- For UI changes: `npm run dev` in `app/` boots cleanly at
+  http://localhost:3000
+- For shell/Rust/build-pipeline changes: `npm run tauri:build` in
+  `app/` produces a working `.exe` at
+  `app/src-tauri/target/release/mtg-tool.exe`
+- For release-flow changes: a signed build via
+  `npm run tauri:build:release` produces both `.exe` AND `.exe.sig`
+
+If verification fails, **fix it immediately**. Do not move on. Do not
+work around it.
 
 ### 1.5 Fail fast, change approach
-If the same fix fails twice, stop. Use `/investigate` (gstack) to root-cause before trying a third time. Three failed identical retries is the signal you're solving the wrong problem.
 
-### 1.6 The `.next` cache problem is known
-When `next build` is followed by attempting to use the dev server, Next.js often returns 500s due to stale build artifacts. The standard fix:
-1. Stop any running Node processes for this project
-2. Delete the project's `.next/` folder
-3. Restart `npm run dev`
-4. Wait for it to be ready before testing
+If the same fix fails twice, stop. Use `/investigate` (gstack) to
+root-cause before trying a third time. Three failed identical retries
+is the signal you're solving the wrong problem.
 
-This is standard procedure, not a surprise. Build it into your workflow.
+### 1.6 Releases ship via git tags
 
----
+The release workflow at `.github/workflows/release.yml` triggers on
+`v*` tag push. To cut a new release:
 
-## 2. FIRST-RUN PROTOCOL
+```powershell
+git tag v0.2.0 -a -m "Release v0.2.0"
+git push origin v0.2.0
+```
 
-When you start your very first session on this project, do these steps in order. Do not skip steps. Report progress as you go.
-
-### Step 1: Read everything
-- Read this CLAUDE.md fully
-- Read `README.md` if it exists
-- Read `ROADMAP.md` if it exists
-- Read `app/README.md` if it exists
-- Read `app/docs/APP_ROADMAP.md` if it exists
-- Read `mtg-judge/META_layer_index.md` if it exists
-- Read `mtg-judge/META_query_router.md` if it exists
-- Read `mtg-judge/META_test_cases.md` if it exists
-
-### Step 2: Verify tooling
-- Confirm Node.js is installed: `node --version` (owner confirmed v24.16.0 — verify anyway)
-- Confirm git is installed: `git --version`
-- Confirm gstack is installed: check for `~/.claude/skills/gstack/` and try `/gstack-upgrade`
-- Confirm GBrain is set up: check for the gbrain MCP and try a `gbrain search` for a test term
-
-If any of these are missing, **stop and tell the owner exactly what's missing and how to install it**. Do not attempt to install dev tools yourself without explicit confirmation.
-
-### Step 3: Clean the project of stale artifacts
-- Delete `node_modules/` if it exists (will be regenerated)
-- Delete `.next/` if it exists (will be regenerated)
-- Delete any stale log files like `local-dev.out.log`, `local-dev.err.log`
-
-### Step 4: Set up version control
-- Check if `.git/` exists. It should not (this is a fresh copy).
-- Run `git init`
-- Create a comprehensive `.gitignore` (see Section 9 for required entries)
-- Stage all files: `git add .`
-- Initial commit: `git commit -m "chore: initial commit of MTG Tool from Codex working copy"`
-- Ask the owner if they want to push to GitHub for backup. If yes, walk them through creating a private repo and connecting it. If they don't have a GitHub account, walk them through that too.
-
-### Step 5: Install dependencies
-- `cd app && npm install`
-- Note any warnings or errors
-
-### Step 6: Verify the existing app boots
-- Start the dev server: `npm run dev`
-- Confirm it responds at http://localhost:3000
-- Stop it cleanly when done
-
-### Step 7: Full audit
-Produce an audit report. Save it as `AUDIT.md` in the project root. The audit must cover:
-
-- **File inventory**: What exists in the project. Count by folder. Note anything unexpected.
-- **Codebase health**: Lines of code per file in `app/src/`. Flag files over 500 lines as refactor candidates.
-- **mtg-judge corpus state**: How many files. Are they full of rule text or stubs? Spot-check several `_v.md` and `_t.md` files.
-- **Scryfall data state**: What's in `app/data/scryfall.oracle.local.json`, `app/data/scryfall.rulings.local.json`? Are the 5 bulk datasets present? When were they last synced?
-- **RulesGuru state**: Is `mtg-judge/META_test_cases_rulesguru.md` present? How many questions?
-- **Forge state**: What's in any `mtg-forge*` files? Is there a Forge data directory?
-- **Deck library state**: How many decks in `app/data/decks.local.json`? Owners?
-- **API routes**: List all `app/src/app/api/*` routes. Note what each does.
-- **Agents wiring**: For each agent (Jace, Karn, Tibalt, Arbiter, Garfield), report:
-  - What data sources it currently reads from
-  - What it claims to read from but doesn't actually access
-  - Whether deck context is locked or drifts
-  - Current cost per typical interaction
-- **Broken/half-wired things**: Be ruthlessly honest. What looks complete but isn't?
-- **Cost analysis**: Where is the app calling Anthropic? How often? With how much context?
-- **Recommended Phase 1 actions**: Your prioritized list of what to fix first.
-
-**Stop after producing the audit and wait for the owner to review.** Do not begin Phase 1 work until the owner confirms.
+CI does the rest — full data sync, build, sign, publish, all
+running `.exe`s see the update on their next 24h check. See
+`RELEASE.md` for the full flow including key rotation and rollback.
 
 ---
 
-## 3. PROJECT IDENTITY
+## 2. SYSTEM ARCHITECTURE
 
-### What MTG Tool is
+### 2.1 The .exe at runtime
 
-A local-first, multi-agent Magic: The Gathering Commander assistant. The owner plays Commander/EDH. The tool is for:
-- Personal use during games and brewing sessions
-- Deck building, analysis, and critique
-- Rules questions during play
-- Eventually: learning new decks via goldfish simulation and tutored play
+```
+mtg-tool.exe                              ← Rust Tauri shell
+│
+├─ on launch, spawns →
+│      resources/node/node.exe            ← bundled portable Node 22
+│      resources/server/server.js         ← bundled Next.js standalone
+│      (listening on 127.0.0.1:3000)
+│
+├─ Tauri webview loads frontend-placeholder/index.html
+│      → JS redirects to http://127.0.0.1:3000 once the server binds
+│
+├─ env vars set for the spawned Node:
+│      MTG_APP_ROOT       = %APPDATA%\com.colton.mtg-tool\
+│      MTG_JUDGE_DIR      = <resources>/mtg-judge
+│      MTG_ENGINE_DIR     = <resources>/MTG ENGINE
+│      MTG_REFERENCE_DIR  = <resources>/data
+│
+├─ System tray icon + menu (Show / Hide / Quit)
+│      Close button hides to tray; "Quit" is the explicit exit path
+│
+├─ Single-instance enforcement (second launch focuses existing window)
+│
+└─ Background update check (24h throttle) → green banner if newer release
+```
 
-### What MTG Tool is NOT
+### 2.2 Where files live in the installed `.exe`
 
-- Not a tournament tool
-- Not a marketplace or price tracker
-- Not a deck-sharing platform
-- Not multiplayer
-- Not commercial
+| Path | Contents | Writable? |
+|---|---|---|
+| `<install>\mtg-tool.exe` | Tauri shell binary | No |
+| `<install>\resources\node\node.exe` | Bundled Node 22 (~79 MB) | No |
+| `<install>\resources\server\` | Next.js standalone bundle | No |
+| `<install>\resources\mtg-judge\` | Rules codex (CR JSON + RulesGuru cases) | No |
+| `<install>\resources\MTG ENGINE\` | Rule layer markdown (93 files) | No |
+| `<install>\resources\data\` | Bundled reference data snapshot | No |
+| `<install>\resources\scripts\` | Sync scripts (Scryfall, Spellbook, salt) | No |
+| `<install>\resources\frontend-placeholder\` | Loading screen | No |
+| `%APPDATA%\com.colton.mtg-tool\data\` | User decks, chats, feedback, games | **Yes** |
+| `%APPDATA%\com.colton.mtg-tool\data\.first-launch-marker.json` | Wizard completion sentinel | Yes |
+| `%APPDATA%\com.colton.mtg-tool\launch.log` | Rust shell log (rotates at 1MB) | Yes |
+| `%APPDATA%\com.colton.mtg-tool\server.out.log` | Node stdout (truncated each launch) | Yes |
+| `%APPDATA%\com.colton.mtg-tool\server.err.log` | Node stderr (truncated each launch) | Yes |
 
-### The five agents
+### 2.3 paths.js — read-or-write semantics
+
+`app/src/lib/server/paths.js` is the **one place** that knows where
+files live. Routes call `dataPath("rules-index.json")` and get the
+right path automatically.
+
+Resolution order for `dataPath()`:
+
+1. Look in `appRoot()/data/<rel>` first (the writable user dir)
+2. If file is missing AND `MTG_REFERENCE_DIR` is set AND the bundle
+   has it → return the bundled path
+3. Otherwise return the writable path (so writes go to the right
+   place even if the file doesn't exist yet)
+
+This is why bundled reference data doesn't need to be copied into
+AppData at first launch — it's read directly from the resources dir
+until a sync writes a fresher copy. In-app syncs write to the
+writable location, which transparently takes precedence going
+forward.
+
+For `mtgJudgePath()` and `mtgEnginePath()` the lookup uses
+`MTG_JUDGE_DIR` / `MTG_ENGINE_DIR` env vars, falling back to dev-tree
+relative paths when unset (so tests in `process.chdir(tmpDir)` mode
+keep working).
+
+### 2.4 The five agents
 
 | Agent | Persona | Role | Visibility |
 |---|---|---|---|
 | **Jace** | Calm rules expert, plain-English explainer | Front-facing chat, general questions, rule explanations | Visible in agent selector |
-| **Karn** | Methodical deck architect, methodical builder | Front-facing deck assistant and analyst | Visible in agent selector |
+| **Karn** | Methodical deck architect, structured builder | Front-facing deck assistant and analyst | Visible in agent selector |
 | **Tibalt** | Sharp-tongued, deck-literate, mean but useful | Front-facing deck roaster | Visible in agent selector |
 | **Arbiter** | Procedural, terse, formal engine output | Backend rules engine, called by Jace silently | Hidden from main selector |
-| **Garfield** | Tutor and simulator | Goldfish simulator, future learn-to-play | Accessed from deck view |
+| **Garfield** | Tutor and simulator | Goldfish simulator + future learn-to-play | Accessed from deck view |
 
-### Deck context locking (critical UX)
+Each agent runs on Ollama by default. The user can flip to Anthropic
+API tier via the model selector in the header.
 
-When the owner starts a conversation with any front-facing agent (Jace, Karn, Tibalt), the active deck at that moment is **hard-locked** to the conversation. Switching the active deck in the sidebar does NOT change what the agent sees in that conversation. To talk about a different deck, the user starts a new chat.
+### 2.5 Deck context locking
 
-The locked deck context includes:
-- Full deck list
-- Oracle text for every card (from local Scryfall data)
-- Deck memory (notes, tags, power level, owner)
-- Saved Karn/Tibalt/Jace history for this deck
-- Board snapshot if one exists
-- Game log entries
+When the user starts a conversation with any front-facing agent
+(Jace/Karn/Tibalt), the active deck at that moment is **hard-locked**
+to the conversation. Switching the active deck in the sidebar does
+NOT change what the agent sees in that conversation. To talk about a
+different deck, start a new chat.
 
-This snapshot is captured at conversation start and persists for the lifetime of that chat.
+The locked deck snapshot includes: deck list, Oracle text per card
+(from bundled Scryfall data), deck memory, saved agent history,
+board snapshot, game log entries.
 
-### Chat session manager (new UI build)
+### 2.6 Chat session manager
 
-The chat area needs:
-- A list of active chats, grouped by agent
-- Each chat shows: agent, locked deck name, started timestamp, last activity
-- "New chat" button — opens a fresh chat with agent + deck selection
-- "Close chat" / "Archive chat" — marks chat as done, removes from active list, keeps it searchable
-- Chat switcher — easily move between open conversations
-
-This is a Phase 4 task. Don't build it until the foundation work is done.
+Sidebar lists active chats grouped by agent. Each chat shows: agent,
+locked deck name, started timestamp, last activity. "New chat" opens
+a fresh chat with agent + deck selection. "Archive chat" marks done,
+removes from active list, keeps it searchable.
 
 ---
 
-## 4. THE UNIFIED KNOWLEDGE LAYER (THIS IS THE BIG ONE)
+## 3. BUILD AND RELEASE WORKFLOW
 
-The owner's biggest architectural complaint with the previous AI's work: agents are detached from data. Karn says he can't access Scryfall when Scryfall data is sitting right there on disk. Arbiter is only used for validation tests, not for live rule retrieval. The rules codex (mtg-judge) is treated as test fixtures instead of knowledge.
+### 3.1 Local development
 
-You fix this by building a **unified knowledge layer**. All data sources feed into one queryable interface. All agents read through that interface, via Arbiter.
-
-### The architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│  Agents: Jace, Karn, Tibalt, Garfield           │
-│  - Each agent has its persona/prompt            │
-│  - Each calls Arbiter for rules/data queries    │
-│  - Each uses local Ollama for generation        │
-│  - Anthropic only as last-resort fallback       │
-└──────────────────┬──────────────────────────────┘
-                   │
-                   ▼
-        ┌──────────────────────┐
-        │  Arbiter (engine)    │
-        │  - rules retrieval   │
-        │  - state assessment  │
-        │  - card lookup       │
-        │  - ruling lookup     │
-        │  - validation        │
-        └──────────┬───────────┘
-                   │
-                   ▼
-┌─────────────────────────────────────────────────┐
-│  Unified Knowledge Layer (local)                │
-│                                                  │
-│  /data/scryfall/                                 │
-│    oracle-cards.json (Oracle, ~80MB)             │
-│    default-cards.json (every printing, ~400MB)   │
-│    all-cards.json (everything, ~2GB)             │
-│    unique-artwork.json (~200MB)                  │
-│    rulings.json                                  │
-│    indexes/  (lookup tables, normalized)         │
-│                                                  │
-│  /mtg-judge/                                     │
-│    L00-L10 rules codex (existing)                │
-│    Addendums section for elaborations            │
-│    Test suites (existing)                        │
-│                                                  │
-│  /data/rulesguru/                                │
-│    full-import.json (as much as API allows)      │
-│    refresh-state.json (tracking)                 │
-│                                                  │
-│  /data/forge/                                    │
-│    card-scripts/ (imported from Forge)           │
-│    rules-data/ (imported from Forge)             │
-│                                                  │
-│  /data/decks.local.json (existing)               │
-│  /data/chats.local.json (existing)               │
-│  /data/games/ (Garfield run history)             │
-│                                                  │
-│  GBrain (project memory via PGLite)              │
-└─────────────────────────────────────────────────┘
+```powershell
+cd app
+npm install              # once
+npm run dev              # serve at http://localhost:3000
 ```
 
-### Phase 2 build order
+Use this for everything UI / API-route related. Tests run in this
+context too: `npm test` or `npm run test:watch`.
 
-1. **Full Scryfall bulk sync**
-   - Download all 5 bulk datasets to `data/scryfall/`
-   - Build indexes for fast lookup (name → card, ID → printings, color → cards, etc.)
-   - Add scheduled refresh logic (Scryfall updates daily ~9am UTC)
-   - Track sync timestamps per file
-   - Keep last version as `.bak` before each refresh
-   - Replace the existing partial Oracle sync
+### 3.2 Local `.exe` build (unsigned, fast)
 
-2. **RulesGuru maximum import**
-   - Investigate API: pagination support? hard limits? coverage strategy needed?
-   - Build importer that pulls as many unique questions as possible
-   - Store with timestamps and source URLs
-   - If API limits per-day, build resume logic
-   - If API returns random samples, build coverage-maximizing diversification (by category, by rule, by complexity)
-   - Consider reaching out to RulesGuru for a bulk dump request — leave a note in `ROADMAP.md` about this option
-   - Build a fallback synthetic question generator using local rules codex + Scryfall data, for when human-verified questions run out
+```powershell
+npm run tauri:build      # ~10 min cold, ~3 min incremental
+```
 
-3. **Forge integration**
-   - Investigate `mtg_forge_lookup.py` and any Forge-related files in the project
-   - Determine what Forge data is useful (card scripts? rule precedents?)
-   - Import what's useful to `data/forge/`
-   - Document what was imported and what was skipped and why
+Produces `mtg-tool.exe` + `MTG Tool_0.1.0_x64-setup.exe` at
+`app/src-tauri/target/release/`. The raw binary works with
+`resources/` next to it; the installer is for distribution.
 
-4. **Wire mtg-judge codex into runtime retrieval**
-   - The codex is currently only used by validation scripts. It needs to be **the primary source** for rule lookups during chat.
-   - Build a retrieval interface: given a query, return relevant `_v` and `_t` files with rule numbers and text.
-   - Add an addendums section to each rule for elaborations/clarifications when the verbatim text isn't self-explanatory. Keep these clearly separate from the verbatim text.
-   - Karn, Jace, Tibalt all gain access via Arbiter.
+`createUpdaterArtifacts` is **off by default** so unsigned builds
+don't fail without the signing key.
 
-5. **Build Arbiter as a real service**
-   - Currently an API route that calls Anthropic with a different prompt.
-   - It should become a retrieval + reasoning service that:
-     - Accepts a query (rules question or card lookup or state assessment)
-     - Retrieves relevant rules from the codex
-     - Retrieves relevant card text from Scryfall data
-     - Retrieves relevant rulings
-     - Returns a structured response with citations
-   - Local model (Ollama) handles the reasoning. Anthropic only if local fails.
+### 3.3 Local `.exe` build (signed)
+
+```powershell
+npm run tauri:build:release
+```
+
+Loads the key from `~/.tauri/mtg-tool.key` and the password from
+`~/.tauri/mtg-tool.password`, then enables `createUpdaterArtifacts`.
+Produces the same outputs plus `.exe.sig`. **Used for testing the
+release flow locally; CI is the authoritative source for releases.**
+
+### 3.4 CI release flow
+
+`.github/workflows/release.yml` triggers on `v*` tag push. Steps:
+
+1. Checkout, Rust toolchain, Node 22, npm ci
+2. Cache `app/data/` from previous run (`refdata-` key prefix)
+3. Sync Scryfall bulk (oracle, default, artwork, rulings) — ~10 min
+4. Build slim oracle index — ~10 sec
+5. Build rules retrieval index — ~5 sec
+6. Sync EDHREC salt — ~1 min
+7. Sync Commander Spellbook combos (continue-on-error — see below)
+8. `npm run tauri:build:release` with secrets injected
+9. Build `latest.json` manifest with version + sig + URL
+10. Publish GitHub Release with `.exe` + `.exe.sig` + `latest.json`
+
+Total ~30-40 min per release. Subsequent releases reuse the data
+cache so most sync steps short-circuit.
+
+**Spellbook caveat**: their API aggressively rate-limits (HTTP 429
+after ~108 pages of 100-variant pulls). The step is
+`continue-on-error: true` so a Spellbook failure doesn't block the
+release. The bundled snapshot from the previous successful sync
+ships unchanged; users can re-sync via the Updates panel in-app.
+
+### 3.5 Signing keys
+
+| Where | What |
+|---|---|
+| `~/.tauri/mtg-tool.key` | Private minisign key. **Back this up.** Loss == can't ship updates. |
+| `~/.tauri/mtg-tool.password` | Key password. Same. |
+| `app/src-tauri/tauri.conf.json` → `plugins.updater.pubkey` | Public key. Burned into every `.exe`; can't change without rotation. |
+| Repo secret `TAURI_SIGNING_PRIVATE_KEY` | Private key for CI |
+| Repo secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password for CI |
+
+Upload secrets via:
+```powershell
+# IMPORTANT: use cmd /c with < redirect, NOT PowerShell pipe — pipes add UTF-8 BOM
+cmd /c "gh secret set TAURI_SIGNING_PRIVATE_KEY --repo Robak503/mtg-tool < $env:USERPROFILE\.tauri\mtg-tool.key"
+```
+
+See `RELEASE.md` for key rotation procedure.
 
 ---
 
-## 5. LOCAL MODEL INTEGRATION (OLLAMA)
+## 4. REPO STRUCTURE
 
-### Hardware available
-- Current: Windows 11, Core Ultra 9 275HX, 32GB DDR5, RTX 5080 (16GB VRAM), 2TB SSD
-- Future: Mac mini, 48GB unified memory, 4-8TB SSD
+```
+MTG-TOOL/
+├─ .github/workflows/release.yml      ← CI release pipeline (tag-triggered)
+├─ app/                                ← The Next.js + Tauri app
+│  ├─ src/
+│  │  ├─ app/
+│  │  │  ├─ api/                       ← Backend routes (read paths.js!)
+│  │  │  │  ├─ arbiter/                ← Rules engine
+│  │  │  │  ├─ chat-stream/            ← LLM chat streaming
+│  │  │  │  ├─ decks/                  ← Deck library
+│  │  │  │  ├─ engine/                 ← Rule-aware retrieval
+│  │  │  │  ├─ first-launch/           ← Import wizard
+│  │  │  │  ├─ install-ollama/         ← Ollama + model winget install
+│  │  │  │  ├─ sync-data/              ← In-app data refresh
+│  │  │  │  └─ ...                     ← (~16 routes total)
+│  │  ├─ components/
+│  │  │  ├─ MTGAssistant.jsx           ← Main shell (banners, modal wiring)
+│  │  │  ├─ UpdatesModal.jsx           ← Updates panel
+│  │  │  └─ mtg/                       ← Per-feature components
+│  │  ├─ lib/
+│  │  │  ├─ agents.js                  ← Jace/Karn/Tibalt/Arbiter prompts
+│  │  │  ├─ deckMemory.js              ← Deck parsing + storage
+│  │  │  ├─ server/
+│  │  │  │  ├─ paths.js                ← THE path resolution module
+│  │  │  │  ├─ cardIndex.js            ← Scryfall card lookups
+│  │  │  │  ├─ rulesRetrieval.js       ← Rule-aware search
+│  │  │  │  └─ ...
+│  ├─ src-tauri/                       ← Tauri Rust shell
+│  │  ├─ src/lib.rs                    ← Spawn Node, tray, single-instance, autostart, updater
+│  │  ├─ Cargo.toml
+│  │  ├─ tauri.conf.json               ← Bundle config + updater pubkey + endpoint
+│  │  ├─ frontend-placeholder/         ← Loading page (redirects to localhost:3000)
+│  │  ├─ node/                         ← (gitignored) bundled Node binary
+│  │  ├─ resources/                    ← (gitignored) build staging dir
+│  │  └─ target/                       ← (gitignored) cargo build output
+│  ├─ scripts/
+│  │  ├─ download-portable-node.cjs    ← Fetch Node binary for bundling
+│  │  ├─ strip-standalone-bloat.cjs    ← Remove traced bulk data from .next/standalone
+│  │  ├─ copy-tauri-assets.cjs         ← Copy public/ + .next/static into standalone
+│  │  ├─ prepare-tauri-resources.cjs   ← Stage everything into src-tauri/resources
+│  │  ├─ build-signed-release.cjs      ← Wrapper that signs the build
+│  │  ├─ sync-scryfall-bulk.cjs        ← Fetch from Scryfall API
+│  │  ├─ sync-spellbook.cjs            ← Fetch from Commander Spellbook
+│  │  ├─ sync-edhrec-salt.cjs          ← Fetch from EDHREC
+│  │  ├─ build-oracle-index.cjs        ← Build slim index from oracle_cards
+│  │  └─ build-rules-index.cjs         ← Build rules index from CR JSON
+│  ├─ data/                            ← (mostly gitignored) reference data
+│  ├─ package.json
+│  └─ next.config.mjs
+├─ mtg-judge/                          ← Rules codex (17 files in git, rest gitignored)
+│  ├─ META_test_cases_rulesguru.md     ← RulesGuru test cases
+│  └─ data/cr/cr_current.json          ← Comprehensive Rules JSON
+├─ MTG ENGINE/                         ← Rule layer markdown (96 files)
+├─ scripts/finish-p0.ps1               ← One-shot repo+secrets setup (now consumed)
+├─ CLAUDE.md                           ← This file
+├─ README.md
+├─ RELEASE.md                          ← Full release flow + key rotation + rollback
+├─ ROADMAP.md
+├─ TODOS.md
+├─ AUDIT.md                            ← Living audit doc
+└─ docs/                               ← Strategic docs (Phase 6 design, packaging review)
+```
 
-### Model recommendations
+---
 
-For your RTX 5080 with 16GB VRAM:
-- **Primary chat (Jace, Karn, Tibalt)**: Qwen 2.5 32B Q4_K_M (~20GB, fits with some offload to RAM, fast)
-- **Or alternatively**: Llama 3.3 70B Q4_K_M (~40GB, slower but smarter, partial offload)
-- **Fast tasks (autocomplete, classifications)**: Qwen 2.5 7B (~5GB, runs entirely in VRAM, near-instant)
-- **Deep reasoning (Arbiter, complex rules questions)**: Llama 3.3 70B if you can tolerate the speed, or Qwen 2.5 32B otherwise
+## 5. KNOWN GOTCHAS — DO NOT REPEAT
 
-Verify model availability via `ollama list`. Pull missing models via `ollama pull <model>`.
+These cost real time to debug. Read them before touching the build
+pipeline or the Rust shell.
 
-### Integration architecture
+1. **Windows UNC prefix `\\?\`** in `resource_dir()` output must be
+   stripped before passing paths to Node. Node v22+ tries to lstat
+   just `"C:"` and crashes. See `strip_unc()` in `lib.rs`.
 
-- Add Ollama as a provider alongside Anthropic in the existing chat infrastructure
-- Default routing: Ollama for all agents
-- Fallback routing: If Ollama returns an error, timeout, or refuses to answer, try Anthropic
-- Per-agent override: Owner can force a specific agent to use Anthropic if desired
-- Setting in the app UI to toggle: "Use local model" / "Use Anthropic" / "Auto"
+2. **Tauri rejects `frontendDist` containing `node_modules`**.
+   `.next/standalone` has them. Use a tiny placeholder dir
+   (`frontend-placeholder/`) and redirect from there to localhost:3000.
 
-### Implementation notes
+3. **NSIS template caches `installer.nsi`** between builds. Wipe
+   `src-tauri/target/release/{bundle,nsis}/` before re-bundling
+   after config changes.
 
-- Ollama runs as a local HTTP server on port 11434 by default
-- It's OpenAI-API-compatible — you can use any OpenAI client library pointing at `http://localhost:11434/v1`
-- Streaming responses work — keep the existing streaming UX
-- For agent prompts, the local model needs more explicit instructions than Anthropic (it's smaller). Tune prompts accordingly.
+4. **`outputFileTracingExcludes` breaks `@vercel/nft`** — adding it
+   to `next.config.mjs` causes the tracer to skip Next.js's own
+   `dist/lib/metadata/` submodule, breaking the standalone server at
+   startup. Don't use it; `strip-standalone-bloat.cjs` handles
+   cleanup post-build instead.
 
-### Verification
+5. **Next.js standalone tracing pulls ~3.5 GB of `data/`** into the
+   bundle. `strip-standalone-bloat.cjs` is the post-build defense.
 
-After Ollama integration:
-- Each agent must give a coherent answer through Ollama
-- Anthropic fallback must trigger correctly when Ollama is unavailable
-- Cost dashboard must show $0 for Ollama-routed messages
-- User must be able to toggle providers in the UI
+6. **Tauri's `cargo build` doesn't clean
+   `target/release/resources/`** between builds —
+   `prepare-tauri-resources.cjs` wipes it explicitly so stale files
+   from old configs don't end up in the new `.exe`.
+
+7. **`/api/decks` auto-seeds the Sliver Hivelord deck** on first
+   GET. First-launch detection must use an explicit marker file
+   (`.first-launch-marker.json`), NOT `decks.local.json` presence.
+
+8. **`mtg-judge/data/forge/.git/`** causes "Access is denied" if
+   you reference `mtg-judge` directly in `bundle.resources`. Stage
+   to local `src-tauri/resources/` dir instead.
+
+9. **`process.cwd()` in the packaged `.exe`** is the bundled
+   standalone server dir, NOT the dev tree. Always use `paths.js`
+   helpers — never raw `path.join(process.cwd(), ...)`.
+
+10. **`/api/engine` had a latent ReferenceError** from commit
+    5f8137e until 7b09ff0 because no test covered the route.
+    **Always add at least an import smoke test when introducing a
+    new route.** See `app/src/app/api/engine/route.test.js`.
+
+11. **`tauri build --config '<json>'` breaks under `shell:true`**
+    on Windows because cmd.exe strips quotes. Write the override
+    config to a tempfile and pass the path instead. See
+    `scripts/build-signed-release.cjs`.
+
+12. **PowerShell pipes add UTF-8 BOMs** when piping `Get-Content`
+    to `gh secret set`. Use `cmd /c "gh secret set X < file"`
+    instead — cmd.exe redirection passes raw bytes.
+
+13. **Private repo blocks unauthenticated GitHub release downloads**.
+    For auto-update to work without per-user token UX, the repo must
+    be public (it currently is).
+
+14. **YAML em-dashes in workflow comments tripped GitHub's parser**
+    — the workflow ran with empty jobs in 0 seconds, no error
+    surfaced. Keep workflow YAML ASCII-clean.
+
+15. **`createUpdaterArtifacts: true` in tauri.conf.json fails the
+    build without signing keys**. Default it to false; enable via
+    `--config` override only in the signed release wrapper.
+
+16. **CI runners don't have the gitignored data files**, so without
+    sync steps the installer is ~34 MB (no Scryfall/Spellbook/salt
+    data). The release workflow now runs sync scripts before
+    building.
+
+17. **Spellbook API rate-limits aggressively** — HTTP 429 after ~108
+    pages of pulls in a single run. The CI step is
+    `continue-on-error: true` so flaky Spellbook doesn't kill
+    releases; users can sync in-app on demand.
 
 ---
 
@@ -346,20 +469,18 @@ After Ollama integration:
 
 ### Jace — front-facing chat
 
-**Persona**: Calm, precise, plain-English rules expert. Friendly but never sycophantic. Cites rules inline like `(rule 117.3a)`. Wraps card names in `[[double brackets]]`.
+**Persona**: Calm, precise, plain-English rules expert. Friendly but
+never sycophantic. Cites rules inline like `(rule 117.3a)`. Wraps
+card names in `[[double brackets]]`.
 
 **Capabilities**:
 - Answer general MTG questions
 - Explain rules in conversational language
-- For rules-sensitive questions: silently call Arbiter, receive formal ruling, translate to natural language
+- For rules-sensitive questions: silently call Arbiter, receive
+  formal ruling, translate to natural language
 - Access locked deck context if a deck is loaded for the conversation
-- Optionally show "View Arbiter Trace" button on rules answers (collapsed by default)
-
-**Data access via Arbiter**:
-- Rules codex (mtg-judge)
-- Card Oracle text (Scryfall)
-- Rulings (Scryfall rulings + RulesGuru + Forge)
-- Locked deck context
+- Optionally show "View Arbiter Trace" button on rules answers
+  (collapsed by default)
 
 **Forbidden**:
 - Inventing rule numbers
@@ -369,17 +490,19 @@ After Ollama integration:
 
 ### Karn — front-facing deck builder/analyst
 
-**Persona**: Methodical, structured, organized by role. Talks about decks like an architect talks about buildings. Wraps card names in `[[double brackets]]`.
+**Persona**: Methodical, structured, organized by role. Talks about
+decks like an architect talks about buildings. Wraps card names in
+`[[double brackets]]`.
 
 **Capabilities**:
-- Analyze loaded deck for curve, color balance, role coverage (ramp / draw / removal / threats / win conditions / interaction)
+- Analyze loaded deck for curve, color balance, role coverage (ramp /
+  draw / removal / threats / win conditions / interaction)
 - Suggest cuts with reasoning
 - Suggest additions
 - Build decks from scratch around a commander
-- Identify synergies and anti-synergies
-- Save structured plans (cuts, adds, maybe-board, testing plan) to deck memory
-
-**Critical fix**: Karn currently claims he has no Scryfall access. He must read from local Scryfall data through Arbiter. After the unified knowledge layer is built, this is non-negotiable.
+- Identify synergies and anti-synergies via Commander Spellbook combo
+  data
+- Save structured plans to deck memory
 
 **Output structure** (when analyzing decks):
 ```
@@ -407,40 +530,45 @@ SUGGESTED ADDS
 
 ### Tibalt — front-facing deck roaster
 
-**Persona**: Sharp-tongued, deck-literate, funny, mean in a way that diagnoses real problems. Has a defined voice — see the four roast samples in `docs/tibalt-voice-samples.md` (create this from the previous AI's chat samples if it doesn't exist).
+**Persona**: Sharp-tongued, deck-literate, funny, mean in a way that
+diagnoses real problems.
 
 **Capabilities**:
 - Roast the locked deck with surgical precision
 - Hunt for "identity crisis" decks (commander wants X, 99 does Y)
-- Mock manabases, redundant packages, missing protection, random inclusions
+- Mock manabases, redundant packages, missing protection, random
+  inclusions
 - Always end with a "verdict" paragraph that lands the thesis
-- Save roasts to deck memory with timestamps so deck drift can be compared over time
+- Save roasts to deck memory with timestamps so deck drift can be
+  compared over time
 
 **Tone calibration**:
 - Mean, but every joke has a diagnosis attached
 - Never insulting toward the user — only toward the deck
 - Funny grounded in deck-building reality, not generic snark
-- Section titles in roasts should be punchy
 
 **Forbidden**:
 - Generic insults with no rules content
-- Repeating the same critique structure each time (vary the angles of attack)
+- Repeating the same critique structure each time
 - Going easy when a deck genuinely deserves it
 
 ### Arbiter — backend rules engine
 
-**Persona**: Procedural, terse, structured. The owner does not see Arbiter directly except via a "View Arbiter Trace" button on Jace's rules-sensitive answers.
+**Persona**: Procedural, terse, structured. Hidden from the user
+except via "View Arbiter Trace" button on Jace's rules-sensitive
+answers.
 
 **Capabilities**:
 - Accept a structured query (rules question + optional board state)
-- Retrieve relevant rules from codex with verified citations
-- Retrieve relevant cards with Oracle text
-- Retrieve relevant rulings
-- Run state assessment using the 5-question protocol from `mtg-judge/L00_Orchestration_state_assessor.md`
-- Walk the 21-step execution loop from `mtg-judge/L00_Orchestration_game_engine.md` when needed
-- Return structured output: STATE / RESOLUTION / RULE TRACE / CITATIONS
+- Retrieve relevant rules from `mtg-judge` codex with verified
+  citations
+- Retrieve relevant cards with Oracle text from `oracle_cards.json`
+- Retrieve relevant rulings from `rulings.json`
+- Run state assessment using the 5-question protocol
+- Walk the 21-step execution loop when needed
+- Return structured output
 
-**Fixed output format** (when called for a rule question):
+**Fixed output format**:
 ```
 STATE
 [One line per relevant question from state assessor]
@@ -449,94 +577,97 @@ RESOLUTION
 [Numbered steps through the execution loop, max ~10]
 
 RULE TRACE
-[Bullet list of every rule cited, with `_v` file reference]
+[Bullet list of every rule cited, with file reference]
 
 CITATIONS
 [Comma-separated list of codex files consulted]
 ```
 
+**Critical invariant**: Arbiter is **Ollama-only**. It must never
+call Anthropic regardless of UI tier setting. See
+`/api/arbiter/route.js` — the `provider: "ollama"` field is
+hardcoded.
+
 ### Garfield — simulator and tutor
 
-**Current state**: Goldfish v1 exists. Draws opening hand, plays turns 1-6, scores execution.
+**Current state**: Goldfish v2 shipped. Draws opening hand,
+classifies cards by archetype, plays turns 1-6 with
+archetype-specific priorities, saves game records to
+`data/games/`, summarizes insights via `gameInsights.js`.
 
-**Phase 5 expansion**:
-- Smarter mulligan logic per archetype
-- Commander-specific play priorities (lock, ramp, voltron, combo, control, aristocrats, tokens, etc.)
-- Better card classification (using full Scryfall data, not just heuristics)
-- Save game records to `data/games/` for trend analysis
-- Garfield can analyze its own history per deck and surface insights
-
-**Phase 6 — Learn-to-Play Mode** (separate roadmap):
-- Owner uploads or selects a deck to learn
-- Garfield runs against another saved deck
+**Phase 6 Learn-to-Play Mode** (in progress, PRs 1-6 shipped):
 - Three difficulty levels: Beginner, Intermediate, Expert
-- Beginner: explains every step, every priority window, every trigger, every SBA, every legal choice. Slow. Hand-held.
-- Intermediate: explains key decisions and tricky interactions. Mostly plays the game.
-- Expert: plays the game at speed. Only explains on mistakes, missed lines, or rules edge cases.
-- Each difficulty has a curriculum spec — define what knowledge gets parsed and explained at each level
+- Beginner: explains every step, every priority window, every
+  trigger, every SBA
+- Intermediate: explains key decisions and tricky interactions
+- Expert: plays at speed, explains mistakes
 - Uses Arbiter for rules accuracy
 - Uses Jace's voice for explanations
-- Saved learning sessions become memory — "I keep missing this trigger" gets surfaced
 
-The full learn-to-play spec is a future design doc. Do not start building it until the foundation phases are complete.
+See `docs/phase6-learn-to-play.md` for the full spec.
 
 ---
 
 ## 7. WORKFLOW
 
-### Phasing
-The roadmap is loose — no hard gates. You use gstack's review skills as gates. If reviews pass with confidence, keep moving.
+### 7.1 No hard phase gates
 
-**Roughly:**
-1. Audit + git + critical fixes
-2. Unified knowledge layer (Scryfall full bulk, RulesGuru, Forge, mtg-judge wiring, Arbiter as service)
-3. Ollama integration + cost dashboard
-4. Karn/Jace/Tibalt rewiring through Arbiter; deck context hard lock; chat session manager UI
-5. Garfield improvements (better goldfish)
-6. Learn-to-play mode (separate roadmap)
-7. Continuous: in-app feedback capture, refinements based on real usage
+The roadmap is loose — no hard gates. You use gstack's review skills
+as gates. If reviews pass with confidence, keep moving.
 
-### When to check in with the owner
+### 7.2 When to check in with the owner
 
 **Do** check in when:
-- A decision genuinely requires their judgment (which API strategy, which design approach)
+- A decision genuinely requires their judgment (which API strategy,
+  which design approach)
 - Something is failing in a way the gstack agents can't resolve
 - A significant architectural choice has no obvious right answer
 - A phase transition is fundamentally different in scope
+- An action would publicly expose code or surface that they haven't
+  explicitly authorized (repo visibility, exposing secrets, etc.)
 
 **Don't** check in for:
 - Routine verification ("should I proceed to phase 3?")
 - Small technical questions you can answer via `/investigate` or docs
 - Permission to refactor, delete, rename — you have that authority
 - Permission to run gstack commands — you have that authority
+- Permission to ship a release — `git tag vX.Y.Z && git push origin
+  vX.Y.Z` is the entire flow; cut releases freely when work is
+  shippable
 
-### Verification workflow (using gstack)
+### 7.3 Verification workflow (using gstack)
 
 After significant changes:
 - `/review` — staff engineer review for bugs and gaps
 - `/qa <staging-url>` — for UI/UX changes
 - `/cso` — for security-relevant changes
 - `/document-release` — keep docs current after shipping changes
-- `/codex` — second opinion from a different model on complex decisions (note: this is gstack's `/codex` command, not the OpenAI tool — gstack uses Codex CLI for cross-model review)
+- `/codex` — second opinion from a different model on complex
+  decisions
 
 After major phases:
 - All of the above
 - Update `ROADMAP.md` status
-- Update `AUDIT.md` if anything significant changed about the project state
+- Update `AUDIT.md` if anything significant changed
+- Cut a release if user-facing work shipped
 
-### Commit and PR workflow
+### 7.4 Commit and PR workflow
 
-- Feature branches per task (e.g., `feat/karn-codex-integration`, `fix/deck-context-lock`)
-- Conventional Commits format: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `test:`
-- Use `/ship` to open PRs
+- Conventional Commits format: `feat:`, `fix:`, `refactor:`, `docs:`,
+  `chore:`, `test:`, `ci:`, `build:`
+- Use `gh pr create` for non-trivial work
+- Use `/ship` (gstack) to open PRs with proper formatting
 - Use `/land-and-deploy` to merge after CI/review passes
-- Main is protected by review; you should not commit directly to main without review
+- For releases: tag-driven; see `RELEASE.md`
 
-### GBrain usage
+### 7.5 GBrain usage
+
 - Store significant decisions: "We chose Ollama because..."
 - Store project patterns: "Agent prompts live in `app/src/lib/agents.js`"
-- Store known issues and resolutions: "Stale .next cache → clean restart procedure"
-- Use `gbrain search` before solving a problem to see if past sessions hit it
+- Store known issues and resolutions: "Stale .next cache → clean
+  restart procedure"
+- Use `gbrain search` before solving a problem to see if past
+  sessions hit it
 - Run `/learn` periodically to review and prune accumulated learnings
 
 ---
@@ -545,162 +676,112 @@ After major phases:
 
 These are absolute. Violating any of these is a failure mode.
 
-1. **Fabricated imports, APIs, function signatures, or data shapes** — Never write code that references something you haven't verified exists. If unsure, look it up or grep for it.
-
-2. **Hidden errors** — No silent `try/catch` that swallows. If you catch an error, you handle it visibly or you don't catch it. Errors must surface to the developer or user.
-
-3. **Memory-based card text** — Card Oracle text, types, mana costs, etc., come from local Scryfall data. Never from training memory. If the data isn't local, fetch it from Scryfall API and cache it.
-
-4. **Mock interfaces or fake data in production code** — If something is broken, fix it. Do not replace it with a placeholder. Do not add `// TODO: implement this` and move on. Either implement it or remove it.
-
-5. **Inventing rule numbers** — Every CR citation must trace to a verifiable `_v.md` file in `mtg-judge/`. If you can't trace it, don't cite it.
-
-6. **Retrying the same broken approach** — Two failures = stop and use `/investigate`. Three identical retries is forbidden.
-
-7. **Ignoring `.next` cache issues** — The clean restart procedure (kill node, delete `.next`, restart dev) is standard. If you hit a 500 after a build, do the restart, don't guess.
-
-8. **External API calls without a local fallback path** — If you add an external dependency, document the path to making it local-only.
-
-9. **Long-running operations without checkpoints** — If you're about to do something that will take more than a few minutes or many tool calls (full Scryfall sync, full RulesGuru pull), update GBrain or write a progress file so you can resume if interrupted.
-
-10. **"Done!" when it's not actually working** — Verify before claiming completion. Run the thing. Click the button. See the output.
-
----
-
-## 9. PROJECT STRUCTURE AND CONVENTIONS
-
-### Required `.gitignore` entries
-```
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
-
-# Next.js
-.next/
-out/
-
-# Production
-build/
-dist/
-
-# Environment
-.env
-.env.local
-.env.production.local
-
-# Logs
-*.log
-local-dev.*.log
-npm-debug.log*
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# Scryfall bulk data (huge — regenerable from sync)
-data/scryfall/*.json
-data/scryfall/indexes/
-
-# But DO commit:
-!data/decks.local.json
-!data/chats.local.json
-!data/games/
-
-# Backups
-data/backups/*.json
-```
-
-### File organization
-- `app/` — Next.js application
-  - `app/src/app/` — App Router pages and API routes
-  - `app/src/components/` — React components
-  - `app/src/components/mtg/` — MTG-specific UI components
-  - `app/src/hooks/` — React hooks (deck store, chat agents, card search)
-  - `app/src/lib/` — Domain logic (agents, scryfall, deck memory, analytics, goldfish, persistence)
-  - `app/scripts/` — Build scripts, importers, validators
-  - `app/data/` — Local data files
-- `mtg-judge/` — Rules codex (L00-L10 + META files)
-- `MTG ENGINE/` — Legacy engine work and Scryfall scripts (audit and possibly absorb into `app/`)
-- `docs/` — Project-wide documentation
-- `CLAUDE.md` — This file
-- `README.md` — Project overview
-- `ROADMAP.md` — Phased roadmap with current status
-- `AUDIT.md` — Living audit document, updated after major phases
-
-### Naming conventions
-- Components: PascalCase (`ChatPanel.jsx`, `DeckView.jsx`)
-- Hooks: camelCase starting with `use` (`useDeckStore.js`)
-- Libs: camelCase (`deckMemory.js`, `scryfall.js`)
-- API routes: kebab-case in folder names
-- Branches: `feat/`, `fix/`, `refactor/`, `docs/`, `chore/`
-- Commits: Conventional Commits
-
-### Reorganization authority
-
-You can reorganize freely. Some specific permissions:
-- Move `MTG ENGINE/` contents into `app/` or `data/` if useful
-- Consolidate duplicate functionality (e.g., if multiple Scryfall fetchers exist, merge them)
-- Split files that have grown too large (over 500 lines is a smell)
-- Create new top-level folders for new subsystems (e.g., `engine/`, `knowledge/`, `agents/`)
-
-Document any reorganization in commits and update relevant docs.
+1. **Fabricated imports, APIs, function signatures, or data shapes**
+2. **Hidden errors** — no silent `try/catch` that swallows
+3. **Memory-based card text** — comes from bundled Scryfall data
+4. **Mock interfaces or fake data in production code**
+5. **Inventing rule numbers** — every CR citation traces to a real
+   file
+6. **Retrying the same broken approach** — two failures = stop, use
+   `/investigate`
+7. **Raw `process.cwd()` / `path.join(__dirname, ...)` in API
+   routes** — always use `paths.js` helpers so .exe + dev modes
+   both work
+8. **External API calls without a local fallback path**
+9. **Long-running operations without checkpoints** — write progress
+   to disk so sessions can resume
+10. **"Done!" when it's not actually working** — verify before
+    claiming completion
+11. **Committing `~/.tauri/mtg-tool.key`** or its password file —
+    those are local-only secrets that must stay outside the repo
+12. **Force-pushing to master** without explicit user authorization
+13. **Skipping the release tag flow for "just this once" manual
+    builds** — every shipped release goes through CI so the
+    signature chain stays valid
+14. **Changing repo visibility** (public ↔ private) or other
+    public-surface actions without explicit user authorization
 
 ---
 
-## 10. END-OF-PASS BEHAVIOR
+## 9. PROJECT STATUS (LIVING SNAPSHOT)
 
-When you finish a major piece of work and the app is in a known-good state:
+Updated whenever phases complete. Last update: 2026-05-28.
 
-1. Run full verification (build, dev server, gstack reviews as appropriate)
-2. Update `AUDIT.md` if state changed meaningfully
-3. Update `ROADMAP.md` to mark completed items and adjust upcoming ones
-4. Use `/document-release` to update README and other docs
-5. Commit and PR via `/ship`
+### Shipped
 
-**After completing the first big pass** (Phase 1 + Phase 2 + Phase 3 + Phase 4):
+- ✅ Phases 1-5 (Foundation, Knowledge Layer, Ollama, Agent
+  rewiring, Garfield goldfish v2)
+- ✅ Phase 6 PRs 1-6 (gameState, gameEngine, legalChoices,
+  opponentAI, decisionGate, LearnView)
+- ✅ In-app feedback capture
+- ✅ Backup script (`npm run backup`)
+- ✅ Tauri `.exe` shell (production builds work end-to-end)
+- ✅ First-launch import wizard (marker-based detection)
+- ✅ Ollama install + model pull wizard (winget + SSE)
+- ✅ In-app Sync Data UI (Scryfall, Spellbook, EDHREC, indexes)
+- ✅ Bundled portable Node 22 LTS (no external Node dependency)
+- ✅ System tray + minimize-to-tray
+- ✅ Single-instance enforcement
+- ✅ Autostart-with-Windows toggle (opt-in)
+- ✅ Background app-update check + banner
+- ✅ Tauri auto-updater (signed manifest, CI release pipeline)
+- ✅ GitHub remote (Robak503/mtg-tool, public)
+- ✅ Repo signing secrets configured
+- ✅ Reference-dir architecture (read bundled data without copying
+  to AppData first)
 
-Do NOT stop. Build an in-app feedback capture system:
-- Add a "Report Issue" or "Feedback" button in the app
-- Captured feedback writes to `data/feedback/` with timestamp, page/agent context, and message
-- Then keep building. The owner will use the app naturally and accumulate feedback.
-- Periodically review captured feedback and prioritize fixes.
+### Open
 
-You continue working through the roadmap without check-ins as long as gstack reviews pass with confidence.
+- ⏳ Phase 6 PRs 7+ (Intermediate/Expert learn modes, post-game
+  analysis)
+- ⏳ Code signing (Authenticode) — paid cert, optional (eliminates
+  SmartScreen warning on first install)
+- ⏳ File associations (.dec/.txt) — skipped earlier, low priority
+- ⏳ Microsoft Store distribution — deferred until needed
+- ⏳ Spellbook resilience — currently fails on CI rate limits, runs
+  with `continue-on-error: true`; long-term fix is a separate
+  scheduled cache-update workflow
+
+### Test coverage
+
+~350 vitest cases across 24 files. Run with `npm test` in `app/`.
 
 ---
 
-## 11. THE PRIME DIRECTIVE (RESTATED)
+## 10. THE PRIME DIRECTIVE (RESTATED)
 
-**This is a local-first tool. The owner wants to be able to use this on a desert island with no internet, eventually.**
+**This is a local-first tool. The owner wants to be able to use this
+on a desert island with no internet, eventually.**
 
-Every architectural decision should be evaluated against: "Does this make the tool more or less dependent on external services?"
+Every architectural decision should be evaluated against: "Does this
+make the tool more or less dependent on external services?"
 
 If more dependent: reconsider.
 
 If less dependent: probably the right call.
 
-The owner trusts you fully. Don't ask permission for things you have authority over. Don't check in for routine work. Build the thing.
+The owner trusts you fully. Don't ask permission for things you have
+authority over. Don't check in for routine work. Build the thing.
 
-Outperform Codex. Be better than the previous AI tool. The owner switched to you because they believe you can ship harder, smarter, more architecturally sound work.
+Outperform every previous AI tool that touched this project. The
+owner switched to you because they believe you can ship harder,
+smarter, more architecturally sound work.
 
 Now go.
 
 ---
 
 *Project: MTG Tool — Multi-Agent Commander Assistant*
-*Owner: Colton*
+*Owner: Colton (GitHub: Robak503)*
+*Repo: https://github.com/Robak503/mtg-tool*
 *Hardware: Windows 11, Core Ultra 9, RTX 5080, 32GB RAM (future: Mac mini 48GB)*
-*Built with: Next.js 15, Ollama (local), gstack, GBrain, Anthropic Claude (fallback)*
-*Instruction set version: 1.0*
+*Built with: Tauri 2, Next.js 15, Rust, Ollama (local), bundled Node 22 LTS, GitHub Actions, gstack, GBrain, Anthropic Claude (fallback)*
+*Instruction set version: 2.0 (Tauri .exe era — 2026-05-28)*
 
 ## Skill routing
 
-When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
+When the user's request matches an available skill, invoke it via the
+Skill tool. When in doubt, invoke the skill.
 
 Key routing rules:
 - Product ideas/brainstorming → invoke /office-hours
