@@ -28,6 +28,7 @@
  */
 
 import path from "node:path";
+import { existsSync } from "node:fs";
 
 function detectAppRoot() {
   const envOverride = process.env.MTG_APP_ROOT;
@@ -45,6 +46,19 @@ function detectMtgEngineDir() {
   const envOverride = process.env.MTG_ENGINE_DIR;
   if (envOverride && envOverride.trim()) return envOverride;
   return path.join(process.cwd(), "..", "MTG ENGINE");
+}
+
+/**
+ * Reference data dir — read-only bundled snapshot of Scryfall/Spellbook/
+ * EDHREC/etc. data. The Tauri shell sets MTG_REFERENCE_DIR to the
+ * resources/data folder. In dev this stays unset and we just fall back
+ * to the regular dataPath resolution (since dev tree already has the
+ * same files there).
+ */
+function detectReferenceDir() {
+  const envOverride = process.env.MTG_REFERENCE_DIR;
+  if (envOverride && envOverride.trim()) return envOverride;
+  return null;
 }
 
 /**
@@ -70,9 +84,32 @@ export function appPath(...parts) {
   return path.join(detectAppRoot(), ...parts);
 }
 
-/** Resolve a path inside the data directory. */
+/**
+ * Resolve a path inside the data directory.
+ *
+ * Read-or-write semantics:
+ *   - For files that should be written (decks.local.json, chats, feedback,
+ *     telemetry, etc.) the appRoot/data location is always correct.
+ *   - For files that are read-only reference data (Scryfall bulk,
+ *     Spellbook, EDHREC salt, rules-index, oracle-index, legacy *.local
+ *     formats) the caller can let dataPath fall back to the bundled
+ *     MTG_REFERENCE_DIR if the file isn't in appRoot/data yet.
+ *
+ * The fallback only triggers when the appRoot copy is missing AND a
+ * file with the same relative path exists under MTG_REFERENCE_DIR.
+ * That means an in-app data refresh that writes to appRoot/data
+ * transparently takes precedence going forward — no need to delete
+ * the bundled snapshot. In dev (no MTG_REFERENCE_DIR), behavior is
+ * unchanged: it always returns the appRoot/data path.
+ */
 export function dataPath(...parts) {
-  return path.join(detectAppRoot(), "data", ...parts);
+  const live = path.join(detectAppRoot(), "data", ...parts);
+  const refDir = detectReferenceDir();
+  if (refDir && !existsSync(live)) {
+    const bundled = path.join(refDir, ...parts);
+    if (existsSync(bundled)) return bundled;
+  }
+  return live;
 }
 
 /** Resolve a path inside the mtg-judge codex directory. */

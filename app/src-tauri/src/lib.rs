@@ -13,26 +13,9 @@ fn strip_unc(p: &std::path::Path) -> String {
     s.strip_prefix(r"\\?\").map(|t| t.to_string()).unwrap_or(s)
 }
 
-/// Seed the user data dir from bundled resources without overwriting
-/// anything the user has already saved. Walks the source tree and only
-/// copies files whose destination path doesn't already exist. This is
-/// idempotent across launches — fresh installs get everything, existing
-/// installs only pick up newly-bundled seed files.
-#[cfg(not(debug_assertions))]
-fn seed_missing(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
-    std::fs::create_dir_all(dst)?;
-    for entry in std::fs::read_dir(src)? {
-        let entry = entry?;
-        let s = entry.path();
-        let d = dst.join(entry.file_name());
-        if entry.file_type()?.is_dir() {
-            seed_missing(&s, &d)?;
-        } else if !d.exists() {
-            std::fs::copy(&s, &d)?;
-        }
-    }
-    Ok(())
-}
+// (No seed_missing helper anymore — bundled reference data is read
+// straight from MTG_REFERENCE_DIR via paths.js fallback. See
+// app/src/lib/server/paths.js dataPath() for the fallback rule.)
 
 /// Roll the launch log over when it gets larger than ~1MB. We keep the
 /// most-recent rolled file as `.1`; older history is dropped. Without
@@ -134,18 +117,19 @@ pub fn run() {
                 let server_js = staged.join("server").join("server.js");
                 let mtg_judge_dir = staged.join("mtg-judge");
                 let mtg_engine_dir = staged.join("MTG ENGINE");
+                let reference_data_dir = staged.join("data");
 
                 logln!("staged       = {} (exists={})", staged.display(), staged.exists());
                 logln!("server_js    = {} (exists={})", server_js.display(), server_js.exists());
+                logln!("reference    = {} (exists={})", reference_data_dir.display(), reference_data_dir.exists());
 
-                let seed_data = staged.join("data");
-                if seed_data.exists() {
-                    let user_data = data_dir.join("data");
-                    match seed_missing(&seed_data, &user_data) {
-                        Ok(_) => logln!("seeded missing files into {}", user_data.display()),
-                        Err(e) => logln!("seed copy failed: {e}"),
-                    }
-                }
+                // Always make sure the writable data dir exists so the
+                // server can write user files (decks/chats/feedback/etc).
+                // We DON'T copy the bundled reference data here anymore —
+                // paths.js falls back to MTG_REFERENCE_DIR for any file
+                // missing in the writable dir. This saves ~1 GB of disk
+                // and turns first launch from 30-60s into instant.
+                let _ = std::fs::create_dir_all(data_dir.join("data"));
 
                 // Redirect server stdout/stderr to log files so we can
                 // diagnose crashes after the fact.
@@ -163,6 +147,7 @@ pub fn run() {
                     .env("MTG_APP_ROOT", strip_unc(&data_dir))
                     .env("MTG_JUDGE_DIR", strip_unc(&mtg_judge_dir))
                     .env("MTG_ENGINE_DIR", strip_unc(&mtg_engine_dir))
+                    .env("MTG_REFERENCE_DIR", strip_unc(&reference_data_dir))
                     .current_dir(&server_dir_str);
                 if let Some(f) = stdout_file {
                     cmd.stdout(std::process::Stdio::from(f));
