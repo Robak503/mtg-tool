@@ -71,7 +71,16 @@ export default function MTGAssistant() {
         if (!window.__TAURI__ && !window.__TAURI_INTERNALS__) return;
         const app = await import("@tauri-apps/api/app");
         const v = await app.getVersion();
-        if (!cancelled) setAppVersion(v);
+        if (cancelled) return;
+        setAppVersion(v);
+        // Stamp the OS window title bar with the version too. Without
+        // this it stays the static "MTG Tool" from tauri.conf.json, so
+        // the user can't tell at a glance what version is running just
+        // by looking at the title bar / taskbar.
+        try {
+          const winMod = await import("@tauri-apps/api/window");
+          await winMod.getCurrentWindow().setTitle(`MTG Tool v${v}`);
+        } catch { /* setTitle may be unavailable on some Tauri versions */ }
       } catch { /* dev mode */ }
     })();
     return () => { cancelled = true; };
