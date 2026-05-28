@@ -196,7 +196,7 @@ export async function GET() {
       status: 200,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
-        "Content-Disposition": `attachment; filename="mtg-feedback-bundle-${new Date().toISOString().slice(0, 10)}.json"`,
+        "Content-Disposition": `attachment; filename="mtg-feedback-${new Date().toISOString().slice(0, 10)}.json"`,
       },
     });
   } catch (error) {
@@ -216,23 +216,23 @@ export async function POST(request) {
   }
   if (!body || body.kind !== "mtg-tool-feedback-bundle") {
     return Response.json(
-      { error: "Not a feedback bundle (missing kind=\"mtg-tool-feedback-bundle\")." },
+      { error: "This doesn't look like an MTG Tool feedback file." },
       { status: 400 }
     );
   }
   if (body.schemaVersion !== SCHEMA_VERSION) {
     return Response.json(
-      { error: `Unsupported schemaVersion ${body.schemaVersion} (expected ${SCHEMA_VERSION}).` },
+      { error: "This feedback file was made by an incompatible version of MTG Tool." },
       { status: 400 }
     );
   }
   const incoming = Array.isArray(body.entries) ? body.entries : null;
   if (!incoming) {
-    return Response.json({ error: "Bundle.entries must be an array." }, { status: 400 });
+    return Response.json({ error: "Feedback file is missing its entries." }, { status: 400 });
   }
   if (incoming.length > MAX_BUNDLE_ENTRIES) {
     return Response.json(
-      { error: `Bundle too large (>${MAX_BUNDLE_ENTRIES} entries).` },
+      { error: `Feedback file is too large (>${MAX_BUNDLE_ENTRIES} entries).` },
       { status: 413 }
     );
   }
