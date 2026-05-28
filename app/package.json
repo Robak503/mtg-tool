@@ -7,6 +7,7 @@
     "dev": "next dev",
     "tauri:dev": "npx tauri dev",
     "tauri:build": "npx tauri build",
+    "tauri:build:release": "node scripts/build-signed-release.cjs",
     "download:node": "node scripts/download-portable-node.cjs",
     "build:tauri-standalone": "node scripts/download-portable-node.cjs && next build && node scripts/strip-standalone-bloat.cjs && node scripts/copy-tauri-assets.cjs && node scripts/prepare-tauri-resources.cjs",
     "sync:oracle": "node scripts/sync-scryfall-oracle.cjs",

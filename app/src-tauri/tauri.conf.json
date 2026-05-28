@@ -40,7 +40,7 @@
     "resources": [
       "resources/**/*"
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": false
   },
   "plugins": {
     "updater": {
