@@ -46,6 +46,138 @@ fn wait_for_port(port: u16, timeout_secs: u64) -> bool {
     false
 }
 
+/// Pin the spawned Node server to a Windows Job Object configured to kill
+/// every member process when the job's last handle closes.
+///
+/// The only handle is owned by *this* process, so the OS tears Node down
+/// the instant mtg-tool.exe dies — including a force-kill by the NSIS
+/// auto-updater (which replaces the .exe out from under us and never lets
+/// our CloseRequested/Destroyed handlers run), a crash, or Task Manager.
+/// This is what guarantees next-server can never outlive the shell.
+///
+/// The job handle is intentionally leaked on success: it must stay open
+/// for the whole process lifetime, since closing it early is precisely
+/// what would trigger KILL_ON_JOB_CLOSE and take Node down prematurely.
+#[cfg(all(target_os = "windows", not(debug_assertions)))]
+fn pin_child_to_job(child: &std::process::Child) -> bool {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
+        JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    };
+
+    unsafe {
+        let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+        if job.is_null() {
+            return false;
+        }
+        let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        let set_ok = SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            &info as *const _ as *const core::ffi::c_void,
+            std::mem::size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+        );
+        if set_ok == 0 {
+            CloseHandle(job);
+            return false;
+        }
+        let assigned =
+            AssignProcessToJobObject(job, child.as_raw_handle() as *mut core::ffi::c_void);
+        if assigned == 0 {
+            CloseHandle(job);
+            return false;
+        }
+        // Success: deliberately do NOT close `job`. Keeping the handle open
+        // for the life of the process is what arms KILL_ON_JOB_CLOSE on exit.
+        true
+    }
+}
+
+/// Reap any orphaned bundled-Node server left behind by a previous version.
+///
+/// When the auto-updater force-replaces mtg-tool.exe, a node.exe spawned by
+/// the *previous* (pre-Job-Object) build can survive and keep listening on
+/// port 3000, shadowing the fresh server we're about to start. We sweep it
+/// here, BEFORE spawning, so the new server can bind the port cleanly. Once
+/// users are on a build that pins Node to a job this is moot, but it makes
+/// the one-time upgrade to the fixed build seamless instead of needing a
+/// reboot.
+///
+/// SAFETY: we only ever terminate a process named node.exe whose full image
+/// path is byte-for-byte our bundled node.exe. No other application runs
+/// that specific binary, so this can never kill an unrelated user process.
+/// Any uncertainty (can't open the process, path mismatch) means we skip it.
+#[cfg(all(target_os = "windows", not(debug_assertions)))]
+fn reap_orphan_servers(bundled_node: &std::path::Path) -> usize {
+    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
+        TH32CS_SNAPPROCESS,
+    };
+    use windows_sys::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, TerminateProcess,
+        PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
+    };
+
+    let target = strip_unc(bundled_node).to_lowercase();
+    let mut killed = 0usize;
+
+    unsafe {
+        let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if snapshot == INVALID_HANDLE_VALUE {
+            return 0;
+        }
+
+        let mut entry: PROCESSENTRY32W = std::mem::zeroed();
+        entry.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+
+        if Process32FirstW(snapshot, &mut entry) != 0 {
+            loop {
+                let name_len = entry
+                    .szExeFile
+                    .iter()
+                    .position(|&c| c == 0)
+                    .unwrap_or(entry.szExeFile.len());
+                let name = String::from_utf16_lossy(&entry.szExeFile[..name_len]);
+
+                if name.eq_ignore_ascii_case("node.exe") {
+                    let handle = OpenProcess(
+                        PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE,
+                        0,
+                        entry.th32ProcessID,
+                    );
+                    if !handle.is_null() {
+                        let mut buf = [0u16; 512];
+                        let mut size = buf.len() as u32;
+                        let ok =
+                            QueryFullProcessImageNameW(handle, 0, buf.as_mut_ptr(), &mut size);
+                        if ok != 0 {
+                            let full =
+                                String::from_utf16_lossy(&buf[..size as usize]).to_lowercase();
+                            if full == target && TerminateProcess(handle, 1) != 0 {
+                                killed += 1;
+                            }
+                        }
+                        CloseHandle(handle);
+                    }
+                }
+
+                if Process32NextW(snapshot, &mut entry) == 0 {
+                    break;
+                }
+            }
+        }
+
+        CloseHandle(snapshot);
+    }
+
+    killed
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Holds the spawned Next.js process in production so we can kill it on exit.
@@ -260,6 +392,20 @@ pub fn run() {
                 };
                 logln!("node binary  = {} (bundled={})", node_invocation, bundled_node.exists());
 
+                // Reap any orphaned bundled-Node server left running by a
+                // previous version (e.g. one that survived an auto-update
+                // force-replace) so it can't keep port 3000 and shadow the
+                // server we're about to start. Single-instance guarantees
+                // we're the only mtg-tool.exe, so any node.exe running our
+                // bundled binary is by definition a stale orphan.
+                #[cfg(target_os = "windows")]
+                if bundled_node.exists() {
+                    let reaped = reap_orphan_servers(&bundled_node);
+                    if reaped > 0 {
+                        logln!("reaped {reaped} orphaned node server(s) before spawn");
+                    }
+                }
+
                 let mut cmd = std::process::Command::new(&node_invocation);
 
                 // Hide the child Node's console window on Windows.
@@ -291,6 +437,14 @@ pub fn run() {
                 match cmd.spawn() {
                     Ok(child) => {
                         logln!("spawned node, pid={}", child.id());
+                        // Pin Node to a kill-on-close Job Object so it can
+                        // never outlive this shell — even if the auto-updater
+                        // force-kills us without firing our window handlers.
+                        #[cfg(target_os = "windows")]
+                        {
+                            let pinned = pin_child_to_job(&child);
+                            logln!("pinned node to kill-on-close job = {pinned}");
+                        }
                         let ready = wait_for_port(3000, 30);
                         logln!("port 3000 ready = {ready}");
                         *server_child.lock().unwrap() = Some(child);

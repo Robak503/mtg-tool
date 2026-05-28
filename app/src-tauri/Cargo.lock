@@ -2243,7 +2243,7 @@ dependencies = [
 
 [[package]]
 name = "mtg-tool"
-version = "0.1.0"
+version = "0.2.2"
 dependencies = [
  "log",
  "serde",
@@ -2254,6 +2254,7 @@ dependencies = [
  "tauri-plugin-log",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

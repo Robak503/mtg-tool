@@ -463,6 +463,25 @@ pipeline or the Rust shell.
     `continue-on-error: true` so flaky Spellbook doesn't kill
     releases; users can sync in-app on demand.
 
+18. **The spawned Node server (next-server) orphans on auto-update**
+    unless pinned to a Windows Job Object. Windows does NOT kill a
+    child process when its parent dies, and the NSIS auto-updater
+    force-replaces `mtg-tool.exe` without ever firing our
+    `CloseRequested`/`Destroyed` handlers — so the `child.kill()`
+    cleanup path is skipped and the old `node.exe` keeps listening on
+    port 3000 ("next-server staying open"). Fix in `lib.rs`:
+    `pin_child_to_job()` assigns the child to a Job Object with
+    `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` — the OS tears Node down the
+    instant the shell dies for ANY reason (update, crash, Task
+    Manager). The job handle is **leaked on purpose**; closing it
+    early would kill Node. `reap_orphan_servers()` also sweeps any
+    pre-fix orphan on launch (Toolhelp snapshot → only kills a
+    `node.exe` whose full path == our bundled binary, so it can never
+    hit an unrelated process) so the one-time upgrade to the fixed
+    build is seamless. Requires the `windows-sys` Windows-only dep
+    with `Win32_Security` enabled — `CreateJobObjectW`'s signature
+    references `SECURITY_ATTRIBUTES`, so it won't resolve without it.
+
 ---
 
 ## 6. AGENT SPECS
