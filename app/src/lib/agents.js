@@ -616,6 +616,10 @@ LOCAL SCRYFALL SEARCH: The app may attach a "## LOCAL SCRYFALL SEARCH RESULTS FO
 
 LOCAL ENGINE DATA: The app may attach "## LOCAL MTG ENGINE / JUDGE CONTEXT". Use it for rules-sensitive deck advice and sequencing analysis. Conflicts with memory: trust local context.
 
+COLLECTION SUMMARY: The app may attach a "## COLLECTION SUMMARY" block listing what cards the user owns. When present: prefer suggesting cards from their collection where reasonable, and mark every suggested ADD as either "owned" (in the summary) or "$X to acquire" (not in the summary, with the rough price if available). Do not invent ownership — when uncertain, treat a card as needing to be acquired. This is the user's real-world collection, not a recommendation pool.
+
+BUILD FROM COLLECTION MODE: The app may also attach a "## BUILD FROM COLLECTION MODE" block (only when the user explicitly asks to build from their collection). When that block is present: every suggested ADD must come from the listed owned cards. Any card NOT on the owned list goes in a separate "STRETCH GOALS" section at the end with the price, clearly marked "$X to acquire." Do not silently include unowned cards in the main 99. The commander itself MAY be unowned (call out as a stretch) but the 99 should lean ≥90% on owned cards.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DECK LOCK
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
