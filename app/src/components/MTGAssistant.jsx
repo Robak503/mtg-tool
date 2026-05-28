@@ -53,6 +53,11 @@ export default function MTGAssistant() {
   const [ollamaPullProgress, setOllamaPullProgress] = useState("");
   // Updates / data-sync modal
   const [showUpdates, setShowUpdates] = useState(false);
+  // Background app-update check — runs once per session on mount.
+  // Result is just metadata (version + notes); install happens via the
+  // Updates modal. localStorage skip-until lets us throttle to once
+  // per day so we don't ping GitHub on every page reload.
+  const [appUpdateInfo, setAppUpdateInfo] = useState(null);
   // First-launch state — only shows when the marker file doesn't exist
   // yet (true fresh install). The server writes the marker after a
   // successful import or an explicit dismiss; on subsequent loads
@@ -307,6 +312,38 @@ export default function MTGAssistant() {
     } catch {}
   },[modelProvider]);
 
+  // Background app-update check. Skips if a check was performed within
+  // the last 24h to avoid hammering the GitHub release feed on every
+  // page reload. Result populates appUpdateInfo; the banner only shows
+  // when an update is actually available.
+  useEffect(() => {
+    const KEY = "mtg-last-update-check";
+    let cancelled = false;
+    (async () => {
+      try {
+        const last = parseInt(localStorage.getItem(KEY) || "0", 10);
+        if (Date.now() - last < 24 * 60 * 60 * 1000) return;
+        if (typeof window === "undefined") return;
+        if (!window.__TAURI__ && !window.__TAURI_INTERNALS__) return;
+        const updater = await import("@tauri-apps/plugin-updater");
+        const update = await updater.check();
+        localStorage.setItem(KEY, Date.now().toString());
+        if (cancelled) return;
+        if (update) {
+          setAppUpdateInfo({
+            version: update.version,
+            current: update.currentVersion,
+            body: update.body || "",
+            update,
+          });
+        }
+      } catch {
+        /* silent — banner just stays hidden */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // First-launch probe — fires once on mount, picks up the suggested
   // source path the server detected so the user can confirm or edit it.
   useEffect(() => {
@@ -560,9 +597,56 @@ export default function MTGAssistant() {
       <UpdatesModal
         open={showUpdates}
         onClose={() => setShowUpdates(false)}
+        initialUpdate={appUpdateInfo}
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}
       />
+
+      {/* App-update available banner — only renders when the background
+          updater check found a newer signed release. Clicking opens the
+          Updates modal where the user can review notes + install. */}
+      {appUpdateInfo && (
+        <div
+          role="status"
+          style={{
+            padding: "10px 16px",
+            background: "#1a3826",
+            borderBottom: "1px solid #346b48",
+            color: "#9ec59e",
+            fontSize: 12,
+            fontFamily: F,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <span style={{ flex: 1 }}>
+            <strong style={{ marginRight: 8 }}>↑ MTG Tool v{appUpdateInfo.version} is available</strong>
+            (you have v{appUpdateInfo.current}){appUpdateInfo.body ? " — " + appUpdateInfo.body.slice(0, 120) : ""}
+          </span>
+          <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              onClick={() => setShowUpdates(true)}
+              style={{
+                background: "#346b48", border: "1px solid #5a9a72",
+                color: "#e0eaf6", cursor: "pointer",
+                fontSize: 11, padding: "4px 12px", borderRadius: 4, fontFamily: F,
+              }}
+            >
+              See details
+            </button>
+            <button
+              onClick={() => setAppUpdateInfo(null)}
+              title="Hide until next launch"
+              style={{
+                background: "none", border: "none", color: "inherit",
+                cursor: "pointer", fontSize: 16, lineHeight: 1, padding: "0 4px",
+              }}
+            >×</button>
+          </span>
+        </div>
+      )}
 
       {/* First-launch data import — only shown in the packaged .exe when
           %APPDATA% is still empty. The text input is pre-filled with a

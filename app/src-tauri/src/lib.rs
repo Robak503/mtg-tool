@@ -55,8 +55,42 @@ pub fn run() {
     let server_child_tray = server_child.clone();
 
     tauri::Builder::default()
+        // Single-instance: launching mtg-tool.exe while it's already
+        // running focuses the existing window instead of spawning a
+        // second process (which would collide on port 3000 anyway).
+        // The callback receives the second instance's argv — useful
+        // later for "open .dec with MTG Tool" file-association deep links.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            use tauri::Manager;
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_updater::Builder::new().build())
+        // Autostart with Windows is opt-in via the UI — registered here
+        // so the JS plugin can enable/disable it without privilege.
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--autostart"]),
+        ))
         .setup(move |app| {
+            // When launched at Windows startup the autostart plugin
+            // injects --autostart; start hidden in tray so we don't
+            // pop a window in the user's face. Normal double-click
+            // launches don't have this flag and behave as before.
+            #[cfg(desktop)]
+            {
+                use tauri::Manager;
+                let launched_at_startup = std::env::args().any(|a| a == "--autostart");
+                if launched_at_startup {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.hide();
+                    }
+                }
+            }
+
             // System tray: lets the user minimize to tray instead of
             // exiting (Next.js + Ollama warm-up costs are noticeable, so
             // an instant "show window" is worth keeping the server hot).

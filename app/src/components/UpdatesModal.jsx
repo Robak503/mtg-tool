@@ -62,7 +62,17 @@ function fmtBytes(b) {
   return `${b} B`;
 }
 
-export default function UpdatesModal({ open, onClose, colors, fontFamily }) {
+async function loadAutostartPlugin() {
+  try {
+    if (typeof window === "undefined") return null;
+    if (!window.__TAURI__ && !window.__TAURI_INTERNALS__) return null;
+    return await import("@tauri-apps/plugin-autostart");
+  } catch {
+    return null;
+  }
+}
+
+export default function UpdatesModal({ open, onClose, initialUpdate, colors, fontFamily }) {
   const { BG2, LINE, GOLD } = colors || {};
   const F = fontFamily;
   const [status, setStatus] = useState(null);
@@ -71,9 +81,17 @@ export default function UpdatesModal({ open, onClose, colors, fontFamily }) {
   const [logLines, setLogLines] = useState([]);
   const logRef = useRef(null);
   const abortRef = useRef(null);
-  // App-update state — only meaningful inside the Tauri WebView.
-  const [appUpdate, setAppUpdate] = useState({ status: "idle", message: "" });
+  // App-update state — only meaningful inside the Tauri WebView. If
+  // the parent already ran the background check on mount, prepopulate
+  // so the user doesn't have to click "Check for updates" again.
+  const [appUpdate, setAppUpdate] = useState(() => initialUpdate ? {
+    status: "available",
+    message: `v${initialUpdate.version} available (you have v${initialUpdate.current})${initialUpdate.body ? " — " + initialUpdate.body.slice(0, 200) : ""}`,
+    update: initialUpdate.update,
+  } : { status: "idle", message: "" });
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
+  // Autostart toggle state
+  const [autostart, setAutostart] = useState({ available: false, enabled: false, busy: false });
 
   const refreshStatus = async () => {
     setStatusLoading(true);
@@ -92,6 +110,40 @@ export default function UpdatesModal({ open, onClose, colors, fontFamily }) {
     if (!open) return;
     refreshStatus();
   }, [open]);
+
+  // Probe autostart state on open. Tauri plugin not present in browser
+  // tabs → leaves available:false so the toggle stays hidden.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      const mod = await loadAutostartPlugin();
+      if (!mod || cancelled) return;
+      try {
+        const enabled = await mod.isEnabled();
+        if (!cancelled) setAutostart({ available: true, enabled, busy: false });
+      } catch { /* permission denied / not available */ }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
+  const toggleAutostart = async () => {
+    setAutostart((prev) => ({ ...prev, busy: true }));
+    try {
+      const mod = await loadAutostartPlugin();
+      if (!mod) return;
+      if (autostart.enabled) {
+        await mod.disable();
+        setAutostart({ available: true, enabled: false, busy: false });
+      } else {
+        await mod.enable();
+        setAutostart({ available: true, enabled: true, busy: false });
+      }
+    } catch (e) {
+      setAutostart((prev) => ({ ...prev, busy: false }));
+      setLogLines((prev) => [...prev, `autostart toggle failed: ${e.message || e}`]);
+    }
+  };
 
   // Auto-scroll the log to the bottom as new lines arrive.
   useEffect(() => {
@@ -361,6 +413,33 @@ export default function UpdatesModal({ open, onClose, colors, fontFamily }) {
             </div>
           </div>
         </div>
+
+        {/* Autostart toggle — only shown when running inside Tauri */}
+        {autostart.available && (
+          <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, color: "#e0e0e0" }}>Start MTG Tool when Windows starts</div>
+              <div style={{ fontSize: 11, color: "#7a7a7a", marginTop: 2 }}>
+                {autostart.enabled
+                  ? "Enabled — the app launches into the system tray on login."
+                  : "Disabled — you'll need to launch the app manually."}
+              </div>
+            </div>
+            <button
+              onClick={toggleAutostart}
+              disabled={autostart.busy}
+              style={{
+                background: autostart.enabled ? "#244a7a" : "transparent",
+                border: `1px solid ${autostart.enabled ? "#4a7ac4" : (LINE || "#3a3640")}`,
+                color: "#e0e0e0", cursor: autostart.busy ? "default" : "pointer",
+                fontSize: 11, padding: "4px 14px", borderRadius: 4, fontFamily: F,
+                minWidth: 80,
+              }}
+            >
+              {autostart.busy ? "…" : autostart.enabled ? "Enabled" : "Enable"}
+            </button>
+          </div>
+        )}
 
         {/* Dataset rows */}
         <div style={{ padding: "12px 0", overflowY: "auto", maxHeight: "40vh" }}>

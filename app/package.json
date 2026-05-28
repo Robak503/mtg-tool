@@ -38,6 +38,7 @@
     "sync:edhrec-salt-all": "node scripts/sync-edhrec-salt.cjs --all"
   },
   "dependencies": {
+    "@tauri-apps/plugin-autostart": "^2.5.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "next": "^15.3.3",
     "react": "^19.1.0",
