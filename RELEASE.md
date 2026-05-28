@@ -127,4 +127,47 @@ roll back.
 8. `softprops/action-gh-release` creates the GitHub Release and
    uploads the three artifacts as assets
 
-Total runtime: ~12-18 min depending on cache freshness.
+Total runtime: ~30-40 min including the data sync. Subsequent releases
+reuse the cached `app/data/` folder (refdata- cache key), but Spellbook
++ EDHREC syncs still take 10-15 min for fresh combo/salt data.
+
+## Known gap: Windows SmartScreen on first install
+
+We sign the **updater artifact** (the `.sig` file) with our private
+minisign key so Tauri can verify each update is from us. We DON'T sign
+the .exe itself with an Authenticode certificate. That means when a
+brand-new user runs `MTG.Tool_x.y.z_x64-setup.exe`:
+
+```
+Windows protected your PC
+Microsoft Defender SmartScreen prevented an unrecognized app from
+starting. Running this app might put your PC at risk.
+
+App: MTG.Tool_0.1.0_x64-setup.exe
+Publisher: Unknown publisher
+                                          [ Don't run ]  [ More info ]
+```
+
+Click `More info` → `Run anyway`. After install, Windows won't bug
+them again on that machine.
+
+To eliminate this, you'd need a paid code signing certificate:
+
+| Cert type | Cost/yr | What it does |
+|---|---:|---|
+| Standard Authenticode | $80-200 | Builds reputation slowly (~3000 installs); SmartScreen eases off |
+| EV (Extended Validation) | $300-700 | Instant reputation, no SmartScreen warning at all, requires HSM/USB token |
+
+For a personal tool shared with friends, the SmartScreen prompt once
+per install is acceptable. Upgrade to a signed cert if/when
+distribution gets serious.
+
+## Known gap: Microsoft Store distribution
+
+We could also distribute via the Microsoft Store, which would
+eliminate SmartScreen and add auto-updates via the Store. Trade-off:
+- Pro: $19 one-time developer fee, no per-cert annual cost, sandboxed updates
+- Con: Store review process (~1-3 days), sandboxed file access rules
+  may break Ollama spawning, manual approval for each release
+
+Defer until distribution scales beyond personal use.
