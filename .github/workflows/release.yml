@@ -39,6 +39,36 @@ jobs:
         working-directory: app
         run: npm ci
 
+      - name: Cache reference data
+        uses: actions/cache@v4
+        with:
+          path: app/data
+          key: refdata-${{ github.run_id }}
+          restore-keys: |
+            refdata-
+
+      - name: Sync Scryfall bulk (oracle / default / artwork / rulings)
+        working-directory: app
+        run: node scripts/sync-scryfall-bulk.cjs
+
+      - name: Build slim oracle index
+        working-directory: app
+        run: node scripts/build-oracle-index.cjs
+
+      - name: Build rules retrieval index
+        working-directory: app
+        run: node scripts/build-rules-index.cjs
+
+      - name: Sync EDHREC salt scores
+        working-directory: app
+        run: node scripts/sync-edhrec-salt.cjs
+
+      - name: Sync Commander Spellbook combos
+        working-directory: app
+        # Spellbook's API is rate-limited; the script takes ~10-15 min.
+        # Use --combos-only first time, full combos+cards on later runs.
+        run: node scripts/sync-spellbook.cjs
+
       - name: Build signed Tauri release
         working-directory: app
         env:

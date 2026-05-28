@@ -36,19 +36,33 @@ function safeName(item) {
   return `${item.type}.json`.replace(/[^a-z0-9_.-]/gi, "_");
 }
 
+// Bulk types this app actually reads at runtime. all_cards is the 2.4 GB
+// per-printing-per-language giant — no code path touches it, so we skip
+// it to save ~20 min of download time and ~2 GB of disk in CI.
+// Pass --include-all to fetch every type (e.g. for archival).
+const DEFAULT_TYPES = new Set([
+  "oracle_cards",
+  "default_cards",
+  "unique_artwork",
+  "rulings",
+]);
+const INCLUDE_ALL = process.argv.includes("--include-all");
+
 async function main() {
   await fs.mkdir(BULK_DIR, { recursive: true });
 
   const bulk = await fetchJson("https://api.scryfall.com/bulk-data");
   const items = bulk.data || [];
+  const filtered = INCLUDE_ALL ? items : items.filter(item => DEFAULT_TYPES.has(item.type));
   const manifest = {
     generatedAt: new Date().toISOString(),
     source: "Scryfall bulk-data endpoint",
-    count: items.length,
+    count: filtered.length,
     files: [],
   };
 
-  for (const item of items) {
+  console.log(`Downloading ${filtered.length} of ${items.length} bulk files${INCLUDE_ALL ? "" : " (skipping all_cards — pass --include-all to fetch it too)"}`);
+  for (const item of filtered) {
     if (!item.download_uri) continue;
     const fileName = safeName(item);
     const outputFile = path.join(BULK_DIR, fileName);
