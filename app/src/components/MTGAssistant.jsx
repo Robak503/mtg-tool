@@ -312,31 +312,41 @@ export default function MTGAssistant() {
     } catch {}
   },[modelProvider]);
 
-  // Background app-update check. Skips if a check was performed within
-  // the last 24h to avoid hammering the GitHub release feed on every
-  // page reload. Result populates appUpdateInfo; the banner only shows
-  // when an update is actually available.
+  // Background app-update check — runs on every launch (no throttle).
+  // For a pod tool where the developer ships fast, every-launch checks
+  // make sense; the cost is one HTTPS GET to the GitHub release feed
+  // on each page mount, which is cheap. The banner only renders when
+  // an update is actually available.
+  //
+  // Opt-in silent install: if the user toggled
+  // localStorage.mtg-auto-install-updates=1 we skip the banner and
+  // call downloadAndInstall() directly, then relaunch. Mostly useful
+  // for the developer's own machine.
   useEffect(() => {
-    const KEY = "mtg-last-update-check";
     let cancelled = false;
     (async () => {
       try {
-        const last = parseInt(localStorage.getItem(KEY) || "0", 10);
-        if (Date.now() - last < 24 * 60 * 60 * 1000) return;
         if (typeof window === "undefined") return;
         if (!window.__TAURI__ && !window.__TAURI_INTERNALS__) return;
         const updater = await import("@tauri-apps/plugin-updater");
         const update = await updater.check();
-        localStorage.setItem(KEY, Date.now().toString());
         if (cancelled) return;
-        if (update) {
-          setAppUpdateInfo({
-            version: update.version,
-            current: update.currentVersion,
-            body: update.body || "",
-            update,
-          });
+        if (!update) return;
+
+        const silent = (() => {
+          try { return localStorage.getItem("mtg-auto-install-updates") === "1"; } catch { return false; }
+        })();
+        if (silent) {
+          try { await update.downloadAndInstall(); } catch { /* surface via banner instead */ }
+          return;
         }
+
+        setAppUpdateInfo({
+          version: update.version,
+          current: update.currentVersion,
+          body: update.body || "",
+          update,
+        });
       } catch {
         /* silent — banner just stays hidden */
       }

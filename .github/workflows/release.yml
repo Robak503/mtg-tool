@@ -80,7 +80,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri:build:release
 
-      - name: Build latest.json
+      - name: Build latest.json + stable-name installer copy
         shell: pwsh
         run: |
           $tag = '${{ github.ref_name }}'
@@ -105,6 +105,13 @@ jobs:
           }
           $manifest | ConvertTo-Json -Depth 5 | Out-File -FilePath latest.json -Encoding utf8
 
+          # Stable-name copy for pod distribution. The URL
+          #   github.com/Robak503/mtg-tool/releases/latest/download/MTG-Tool-Setup.exe
+          # always 302-redirects to the latest release's copy, so the
+          # pod link never changes across versions.
+          Copy-Item $exeFile.FullName -Destination 'MTG-Tool-Setup.exe'
+          Copy-Item $sigFile.FullName -Destination 'MTG-Tool-Setup.exe.sig'
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -116,3 +123,5 @@ jobs:
             app/src-tauri/target/release/bundle/nsis/*.exe
             app/src-tauri/target/release/bundle/nsis/*.exe.sig
             latest.json
+            MTG-Tool-Setup.exe
+            MTG-Tool-Setup.exe.sig
