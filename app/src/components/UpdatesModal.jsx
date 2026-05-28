@@ -12,6 +12,21 @@
 
 import { useEffect, useRef, useState } from "react";
 
+// Tauri plugin-updater is loaded dynamically — it only resolves inside
+// the Tauri WebView. In a regular browser tab (dev mode) the import
+// fails gracefully and the "Check for app updates" button reports that
+// auto-update is unavailable.
+async function loadTauriUpdater() {
+  try {
+    if (typeof window === "undefined") return null;
+    if (!window.__TAURI__ && !window.__TAURI_INTERNALS__) return null;
+    const mod = await import("@tauri-apps/plugin-updater");
+    return mod;
+  } catch {
+    return null;
+  }
+}
+
 const DATASET_LABELS = {
   "scryfall-bulk": "Scryfall bulk (oracle, rulings, default, artwork)",
   "spellbook":     "Commander Spellbook combos",
@@ -56,6 +71,9 @@ export default function UpdatesModal({ open, onClose, colors, fontFamily }) {
   const [logLines, setLogLines] = useState([]);
   const logRef = useRef(null);
   const abortRef = useRef(null);
+  // App-update state — only meaningful inside the Tauri WebView.
+  const [appUpdate, setAppUpdate] = useState({ status: "idle", message: "" });
+  const [appUpdateBusy, setAppUpdateBusy] = useState(false);
 
   const refreshStatus = async () => {
     setStatusLoading(true);
@@ -156,6 +174,69 @@ export default function UpdatesModal({ open, onClose, colors, fontFamily }) {
     }
   };
 
+  const checkForAppUpdate = async () => {
+    setAppUpdateBusy(true);
+    setAppUpdate({ status: "checking", message: "Checking for updates…" });
+    try {
+      const updater = await loadTauriUpdater();
+      if (!updater) {
+        setAppUpdate({
+          status: "unavailable",
+          message: "Auto-update only works in the desktop .exe (you're in a browser tab).",
+        });
+        return;
+      }
+      const update = await updater.check();
+      if (!update) {
+        setAppUpdate({ status: "current", message: "You're on the latest version." });
+        return;
+      }
+      setAppUpdate({
+        status: "available",
+        message: `v${update.version} available (you have v${update.currentVersion})${update.body ? " — " + update.body.slice(0, 200) : ""}`,
+        update,
+      });
+    } catch (e) {
+      setAppUpdate({
+        status: "error",
+        message: `Update check failed: ${e?.message || e}. The release feed may not exist yet.`,
+      });
+    } finally {
+      setAppUpdateBusy(false);
+    }
+  };
+
+  const downloadAndInstallUpdate = async () => {
+    if (!appUpdate.update) return;
+    setAppUpdateBusy(true);
+    setAppUpdate((prev) => ({ ...prev, status: "downloading", message: "Downloading update…" }));
+    let downloaded = 0;
+    let total = 0;
+    try {
+      await appUpdate.update.downloadAndInstall((event) => {
+        if (event.event === "Started") {
+          total = event.data?.contentLength || 0;
+          setAppUpdate((prev) => ({ ...prev, message: `Downloading ${(total / 1024 / 1024).toFixed(0)} MB…` }));
+        } else if (event.event === "Progress") {
+          downloaded += event.data?.chunkLength || 0;
+          if (total > 0) {
+            const pct = ((downloaded / total) * 100).toFixed(0);
+            setAppUpdate((prev) => ({ ...prev, message: `Downloading… ${pct}% (${(downloaded / 1024 / 1024).toFixed(1)} / ${(total / 1024 / 1024).toFixed(0)} MB)` }));
+          }
+        } else if (event.event === "Finished") {
+          setAppUpdate((prev) => ({ ...prev, message: "Installing… the app will relaunch in a moment." }));
+        }
+      });
+      // downloadAndInstall already triggers relaunch on Windows; this code
+      // is only reached if Tauri's API changes in a future version.
+      setAppUpdate({ status: "done", message: "Update installed. Restart to apply." });
+    } catch (e) {
+      setAppUpdate({ status: "error", message: `Install failed: ${e?.message || e}` });
+    } finally {
+      setAppUpdateBusy(false);
+    }
+  };
+
   if (!open) return null;
 
   const datasets = status?.datasets || [];
@@ -239,6 +320,46 @@ export default function UpdatesModal({ open, onClose, colors, fontFamily }) {
 
         <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}`, fontSize: 11, color: "#9a9a9a" }}>
           Refresh data from official sources. Writes land in <code style={{ color: accent }}>{status?.dataDir || "data/"}</code> — the bundled snapshot stays untouched. Long syncs (Spellbook) can take 10+ minutes; this panel can be closed and reopened, the sync keeps running on the server.
+        </div>
+
+        {/* App self-update section — Tauri auto-updater */}
+        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, color: "#e0e0e0" }}>MTG Tool app version</div>
+              <div style={{ fontSize: 11, color: "#7a7a7a", marginTop: 2 }}>
+                {appUpdate.status === "idle"
+                  ? "Check for newer .exe releases from GitHub."
+                  : appUpdate.message}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {appUpdate.status === "available" && (
+                <button
+                  onClick={downloadAndInstallUpdate}
+                  disabled={appUpdateBusy}
+                  style={{
+                    background: "#244a7a", border: "1px solid #4a7ac4",
+                    color: "#e0eaf6", cursor: appUpdateBusy ? "default" : "pointer",
+                    fontSize: 11, padding: "4px 12px", borderRadius: 4, fontFamily: F,
+                  }}
+                >
+                  {appUpdateBusy ? "Installing…" : "Download & install"}
+                </button>
+              )}
+              <button
+                onClick={checkForAppUpdate}
+                disabled={appUpdateBusy}
+                style={{
+                  background: "transparent", border: `1px solid ${LINE || "#3a3640"}`,
+                  color: "#e0e0e0", cursor: appUpdateBusy ? "default" : "pointer",
+                  fontSize: 11, padding: "4px 10px", borderRadius: 4, fontFamily: F,
+                }}
+              >
+                {appUpdateBusy && appUpdate.status === "checking" ? "Checking…" : "Check for updates"}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Dataset rows */}

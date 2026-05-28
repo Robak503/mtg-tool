@@ -55,6 +55,7 @@ pub fn run() {
     let server_child_tray = server_child.clone();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(move |app| {
             // System tray: lets the user minimize to tray instead of
             // exiting (Next.js + Ollama warm-up costs are noticeable, so
