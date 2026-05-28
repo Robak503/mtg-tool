@@ -1,0 +1,130 @@
+# Releasing MTG Tool
+
+End-to-end recipe for cutting a new `.exe` release that all running
+copies of the app pick up via auto-update.
+
+## TL;DR
+
+```powershell
+# Bump version + push tag
+$next = "v0.2.0"
+git tag $next -a -m "Release $next"
+git push origin $next
+
+# Watch the workflow
+gh run watch --repo Robak503/mtg-tool
+```
+
+That's it. GitHub Actions builds on a Windows runner, signs with the
+keys stored as repo secrets, publishes the `.exe` + `.sig` +
+`latest.json` to a Release. Running `.exe`s see the new version on
+their next "Check for updates" click — or within 24 hours via the
+background check.
+
+## What lives where
+
+| Thing | Location | Notes |
+|---|---|---|
+| Private signing key | `~/.tauri/mtg-tool.key` | Generated once. Loss == can't ship updates. **Back it up.** |
+| Key password | `~/.tauri/mtg-tool.password` | Same as above. |
+| Public key | `app/src-tauri/tauri.conf.json` -> `plugins.updater.pubkey` | Burned into every `.exe`; can't change once shipped. |
+| Workflow | `.github/workflows/release.yml` | Triggered on `v*` tag push. |
+| Repo secret: key | `gh secret list --repo Robak503/mtg-tool` -> `TAURI_SIGNING_PRIVATE_KEY` | Set via `gh secret set`. |
+| Repo secret: password | same -> `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | |
+| Update endpoint | `https://github.com/Robak503/mtg-tool/releases/latest/download/latest.json` | The running app polls this. |
+
+## Local signed build (testing the wrapper, not for shipping)
+
+```powershell
+npm run --prefix app tauri:build:release
+```
+
+Loads the key + password from `~/.tauri/` and produces the same
+artifacts CI does — useful for sanity-checking a build before tagging.
+Skipped for normal dev; `npm run tauri:build` gives an unsigned bundle
+which is faster.
+
+## Local unsigned build (default)
+
+```powershell
+npm run --prefix app tauri:build
+```
+
+Produces `mtg-tool.exe` + the NSIS installer but no `.sig`. Updates
+won't work against this build (the verifier rejects unsigned blobs)
+but everything else does — fine for iterating UI.
+
+## Cutting an actual release
+
+1. Make sure `master` is green and you're on it: `git switch master && git pull`
+2. Bump the `version` field in `app/src-tauri/tauri.conf.json` (or
+   leave it alone — the tag drives the release name; the embedded
+   version only matters for `current.version` comparisons in the
+   updater)
+3. Tag and push:
+   ```powershell
+   git tag v0.2.0 -a -m "Release v0.2.0"
+   git push origin v0.2.0
+   ```
+4. Wait for CI (~15 min for the LZMA on the 1.2 GB bundle)
+5. Verify the release page lists the `.exe`, `.exe.sig`, and `latest.json`
+6. Open MTG Tool, click "⟳ Updates" in the header, click "Check for updates"
+7. The "Download & install" button appears; click it; app restarts on
+   the new version
+
+## Rotating signing keys
+
+If the private key leaks or you need to rotate:
+
+```powershell
+# 1. Generate a new key
+npx tauri signer generate -w $env:USERPROFILE\.tauri\mtg-tool.key -f --password (new password)
+
+# 2. Update the secrets
+Get-Content $env:USERPROFILE\.tauri\mtg-tool.key -Raw | gh secret set TAURI_SIGNING_PRIVATE_KEY --repo Robak503/mtg-tool
+
+# 3. Replace the pubkey in app/src-tauri/tauri.conf.json with the
+#    contents of mtg-tool.key.pub
+
+# 4. Commit + push the new pubkey, then tag a new release
+```
+
+**Important**: Every `.exe` built with the OLD pubkey will refuse to
+auto-update past the rotation point — those users have to manually
+install the new build once. So rotate sparingly.
+
+## Rollback
+
+GitHub release pages don't have a one-click "rollback" button. If a
+bad version ships:
+
+1. Delete the release at https://github.com/Robak503/mtg-tool/releases
+2. Delete the `latest.json` asset from the previous good release (so
+   `releases/latest` resolves to the *previous* good one)
+3. Or: tag a v0.X.Y+1 immediately with the fix
+
+Auto-update is forward-only — there's no "downgrade" mechanism. The
+right answer to a bad release is always "ship the fix faster," not
+roll back.
+
+## What CI is doing under the hood
+
+`.github/workflows/release.yml` on push of `v*`:
+
+1. Checkout
+2. Install Rust stable
+3. Cache cargo registry + `app/src-tauri/target/`
+4. Install Node 22
+5. `npm ci` in `app/`
+6. `npm run tauri:build:release` with secrets piped in
+   - This runs `scripts/build-signed-release.cjs` which calls
+     `npx tauri build --config '{"bundle":{"createUpdaterArtifacts":true}}'`
+     with the signing env vars set
+   - Produces `.exe`, `.exe.sig`, plus the standalone Next.js bundle
+     inside it
+7. PowerShell build step constructs `latest.json` with version, notes,
+   pub_date, and the signature blob from the `.sig` file
+8. `softprops/action-gh-release` creates the GitHub Release and
+   uploads the three artifacts as assets
+
+Total runtime: ~12-18 min depending on cache freshness.
