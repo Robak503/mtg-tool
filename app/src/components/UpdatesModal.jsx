@@ -92,6 +92,8 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   // Autostart toggle state
   const [autostart, setAutostart] = useState({ available: false, enabled: false, busy: false });
+  // Current app version from the Tauri runtime (shows "—" in a browser tab)
+  const [currentVersion, setCurrentVersion] = useState("—");
 
   const refreshStatus = async () => {
     setStatusLoading(true);
@@ -123,6 +125,22 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
         const enabled = await mod.isEnabled();
         if (!cancelled) setAutostart({ available: true, enabled, busy: false });
       } catch { /* permission denied / not available */ }
+    })();
+    return () => { cancelled = true; };
+  }, [open]);
+
+  // Probe current app version from Tauri runtime on open.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        if (typeof window === "undefined") return;
+        if (!window.__TAURI__ && !window.__TAURI_INTERNALS__) return;
+        const app = await import("@tauri-apps/api/app");
+        const v = await app.getVersion();
+        if (!cancelled) setCurrentVersion(v);
+      } catch { /* not in Tauri webview — leave as "—" */ }
     })();
     return () => { cancelled = true; };
   }, [open]);
@@ -378,7 +396,9 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
         <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 13, color: "#e0e0e0" }}>MTG Tool app version</div>
+              <div style={{ fontSize: 13, color: "#e0e0e0" }}>
+                MTG Tool <span style={{ color: accent, fontFamily: "Consolas, monospace" }}>v{currentVersion}</span>
+              </div>
               <div style={{ fontSize: 11, color: "#7a7a7a", marginTop: 2 }}>
                 {appUpdate.status === "idle"
                   ? "Check for newer .exe releases from GitHub."
