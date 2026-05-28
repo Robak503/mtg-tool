@@ -3,7 +3,12 @@ const path = require("node:path");
 const { Readable } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
 
-const APP_ROOT = path.resolve(__dirname, "..");
+// Writes land in the dev tree by default, but the bundled .exe sets
+// MTG_APP_ROOT to %APPDATA%\com.colton.mtg-tool\ so synced files end
+// up in the writable user data dir there instead.
+const APP_ROOT = (process.env.MTG_APP_ROOT && process.env.MTG_APP_ROOT.trim())
+  ? process.env.MTG_APP_ROOT.trim()
+  : path.resolve(__dirname, "..");
 const BULK_DIR = path.join(APP_ROOT, "data", "scryfall-bulk");
 const MANIFEST_FILE = path.join(BULK_DIR, "manifest.json");
 

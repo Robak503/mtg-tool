@@ -1,0 +1,320 @@
+/**
+ * UpdatesModal — single panel for refreshing the bundled reference
+ * datasets from their official sources (Scryfall, Commander Spellbook,
+ * EDHREC). Each row shows last-sync time + age and has its own
+ * Refresh button; "Refresh all" runs them in order.
+ *
+ * Streams progress from /api/sync-data via Server-Sent Events into a
+ * scrolling log panel. Long-running syncs (spellbook can take 10+ min
+ * at the API's rate limit) work fine — the connection stays open and
+ * the panel can be left open in the background.
+ */
+
+import { useEffect, useRef, useState } from "react";
+
+const DATASET_LABELS = {
+  "scryfall-bulk": "Scryfall bulk (oracle, rulings, default, artwork)",
+  "spellbook":     "Commander Spellbook combos",
+  "edhrec-salt":   "EDHREC salt scores",
+  "oracle-index":  "Slim card index (rebuild)",
+  "rules-index":   "Rules retrieval index (rebuild)",
+};
+
+const DATASET_HINTS = {
+  "scryfall-bulk": "~5 minutes; downloads ~950 MB",
+  "spellbook":     "~10-15 minutes (rate-limited API)",
+  "edhrec-salt":   "~1-2 minutes",
+  "oracle-index":  "~10 seconds (runs after scryfall-bulk)",
+  "rules-index":   "~5 seconds (uses bundled rules codex)",
+};
+
+function timeAgo(iso) {
+  if (!iso) return "never";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return "unknown";
+  const days = Math.floor(ms / 86_400_000);
+  if (days >= 1) return `${days}d ago`;
+  const hours = Math.floor(ms / 3_600_000);
+  if (hours >= 1) return `${hours}h ago`;
+  const minutes = Math.floor(ms / 60_000);
+  return `${minutes}m ago`;
+}
+
+function fmtBytes(b) {
+  if (!b) return "—";
+  if (b > 1024 * 1024) return `${(b / 1024 / 1024).toFixed(1)} MB`;
+  if (b > 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${b} B`;
+}
+
+export default function UpdatesModal({ open, onClose, colors, fontFamily }) {
+  const { BG2, LINE, GOLD } = colors || {};
+  const F = fontFamily;
+  const [status, setStatus] = useState(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [busyAction, setBusyAction] = useState(null);
+  const [logLines, setLogLines] = useState([]);
+  const logRef = useRef(null);
+  const abortRef = useRef(null);
+
+  const refreshStatus = async () => {
+    setStatusLoading(true);
+    try {
+      const resp = await fetch("/api/sync-data", { cache: "no-store" });
+      if (resp.ok) setStatus(await resp.json());
+    } catch (e) {
+      // network error — keep prior status, surface in log
+      setLogLines((prev) => [...prev, `(could not load status: ${e.message || e})`]);
+    } finally {
+      setStatusLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    refreshStatus();
+  }, [open]);
+
+  // Auto-scroll the log to the bottom as new lines arrive.
+  useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+  }, [logLines]);
+
+  const cancelRunning = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+      setBusyAction(null);
+      setLogLines((prev) => [...prev, "(cancelled)"]);
+    }
+  };
+
+  const runSync = async (action) => {
+    if (busyAction) return;
+    setBusyAction(action);
+    setLogLines((prev) => [
+      ...prev,
+      "",
+      `═══ ${new Date().toLocaleTimeString()} ${action} ═══`,
+    ]);
+
+    const abort = new AbortController();
+    abortRef.current = abort;
+    try {
+      const resp = await fetch("/api/sync-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+        signal: abort.signal,
+      });
+      const reader = resp.body?.getReader();
+      if (!reader) throw new Error("no response stream");
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || "";
+        for (const evt of events) {
+          if (!evt.startsWith("data: ")) continue;
+          let data;
+          try { data = JSON.parse(evt.slice(6)); } catch { continue; }
+          if (data.text) {
+            // Strip ANSI/control chars; collapse repeated trailing newlines.
+            const cleaned = String(data.text)
+              .replace(/\r/g, "")
+              .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "")
+              .trimEnd();
+            if (cleaned) {
+              setLogLines((prev) => {
+                const next = [...prev, cleaned];
+                // Keep last ~500 lines so the buffer doesn't grow forever.
+                return next.length > 500 ? next.slice(-500) : next;
+              });
+            }
+          }
+          if (data.done) {
+            setLogLines((prev) => [
+              ...prev,
+              data.ok ? `✓ ${data.summary || "done"}` : `✗ ${data.summary || "failed"}`,
+            ]);
+            await refreshStatus();
+          }
+        }
+      }
+    } catch (e) {
+      if (e.name !== "AbortError") {
+        setLogLines((prev) => [...prev, `request failed: ${e.message || e}`]);
+      }
+    } finally {
+      abortRef.current = null;
+      setBusyAction(null);
+    }
+  };
+
+  if (!open) return null;
+
+  const datasets = status?.datasets || [];
+  const accent = GOLD || "#e0b64a";
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => { if (e.target === e.currentTarget && !busyAction) onClose?.(); }}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+        zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: F,
+      }}
+    >
+      <div
+        style={{
+          background: BG2 || "#16151a",
+          border: `1px solid ${LINE || "#3a3640"}`,
+          borderRadius: 8,
+          width: "min(900px, 95vw)",
+          maxHeight: "92vh",
+          display: "flex",
+          flexDirection: "column",
+          gap: 0,
+          color: "#e0e0e0",
+        }}
+      >
+        <div
+          style={{
+            padding: "12px 18px",
+            borderBottom: `1px solid ${LINE || "#3a3640"}`,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ fontSize: 15, fontWeight: 700, color: accent, letterSpacing: "0.05em" }}>
+            UPDATES &amp; DATA SYNC
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => runSync("all")}
+              disabled={!!busyAction}
+              style={{
+                background: busyAction === "all" ? "#2a3a55" : "#244a7a",
+                border: "1px solid #4a7ac4",
+                color: "#e0eaf6",
+                cursor: busyAction ? "default" : "pointer",
+                fontSize: 12, padding: "6px 14px", borderRadius: 5, fontFamily: F,
+              }}
+            >
+              {busyAction === "all" ? "Refreshing all…" : "Refresh all"}
+            </button>
+            {busyAction ? (
+              <button
+                onClick={cancelRunning}
+                style={{
+                  background: "transparent", border: "1px solid #6b3a3a",
+                  color: "#e0a89a", cursor: "pointer",
+                  fontSize: 12, padding: "6px 14px", borderRadius: 5, fontFamily: F,
+                }}
+              >
+                Cancel
+              </button>
+            ) : (
+              <button
+                onClick={onClose}
+                title="Close"
+                style={{
+                  background: "transparent", border: "none", color: "#aaa",
+                  fontSize: 22, lineHeight: 1, padding: "0 6px", cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}`, fontSize: 11, color: "#9a9a9a" }}>
+          Refresh data from official sources. Writes land in <code style={{ color: accent }}>{status?.dataDir || "data/"}</code> — the bundled snapshot stays untouched. Long syncs (Spellbook) can take 10+ minutes; this panel can be closed and reopened, the sync keeps running on the server.
+        </div>
+
+        {/* Dataset rows */}
+        <div style={{ padding: "12px 0", overflowY: "auto", maxHeight: "40vh" }}>
+          {datasets.length === 0 && (
+            <div style={{ padding: "8px 18px", fontSize: 12, color: "#888" }}>
+              {statusLoading ? "Loading status…" : "No dataset status available."}
+            </div>
+          )}
+          {datasets.map((ds) => (
+            <div
+              key={ds.key}
+              style={{
+                padding: "10px 18px",
+                borderBottom: `1px solid ${LINE || "#3a3640"}33`,
+                display: "grid",
+                gridTemplateColumns: "1fr auto auto auto",
+                gap: 12,
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13, color: "#e0e0e0" }}>
+                  {DATASET_LABELS[ds.key] || ds.label}
+                </div>
+                <div style={{ fontSize: 11, color: ds.stale ? "#e8c285" : "#7a7a7a", marginTop: 2 }}>
+                  {ds.present
+                    ? `synced ${timeAgo(ds.syncedAt)} · ${fmtBytes(ds.sizeBytes)}${ds.stale ? " · stale" : ""}`
+                    : "not present locally"}
+                </div>
+              </div>
+              <div style={{ fontSize: 10, color: "#666", whiteSpace: "nowrap" }}>
+                {DATASET_HINTS[ds.key]}
+              </div>
+              <div style={{ fontSize: 10, color: ds.present ? "#9ec59e" : "#888", whiteSpace: "nowrap" }}>
+                {ds.present ? "✓" : "—"}
+              </div>
+              <button
+                onClick={() => runSync(ds.key)}
+                disabled={!!busyAction}
+                style={{
+                  background: busyAction === ds.key ? "#2a3a55" : "transparent",
+                  border: `1px solid ${LINE || "#3a3640"}`,
+                  color: "#e0e0e0", cursor: busyAction ? "default" : "pointer",
+                  fontSize: 11, padding: "4px 10px", borderRadius: 4, fontFamily: F,
+                  minWidth: 70,
+                }}
+              >
+                {busyAction === ds.key ? "…" : "Refresh"}
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Log pane */}
+        <div
+          ref={logRef}
+          style={{
+            flex: 1,
+            minHeight: 200,
+            maxHeight: "35vh",
+            overflowY: "auto",
+            background: "#0a0a0a",
+            color: "#9ec59e",
+            fontFamily: "Consolas, Menlo, monospace",
+            fontSize: 11,
+            padding: "10px 18px",
+            whiteSpace: "pre-wrap",
+            borderTop: `1px solid ${LINE || "#3a3640"}`,
+          }}
+        >
+          {logLines.length === 0
+            ? <span style={{ color: "#555" }}>No activity yet. Click Refresh on any dataset above.</span>
+            : logLines.join("\n")}
+        </div>
+      </div>
+    </div>
+  );
+}

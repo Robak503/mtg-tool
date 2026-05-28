@@ -26,6 +26,7 @@ import ChatPanel from "./mtg/ChatPanel";
 import SessionSidebar from "./mtg/SessionSidebar";
 import FeedbackButton from "./mtg/FeedbackButton";
 import LearnView from "./mtg/LearnView";
+import UpdatesModal from "./UpdatesModal";
 
 export default function MTGAssistant() {
   const [agent, setAgent]   = useState("karn");
@@ -50,6 +51,8 @@ export default function MTGAssistant() {
   const [ollamaInstallLog, setOllamaInstallLog] = useState("");
   const [ollamaPullBusy, setOllamaPullBusy] = useState(false);
   const [ollamaPullProgress, setOllamaPullProgress] = useState("");
+  // Updates / data-sync modal
+  const [showUpdates, setShowUpdates] = useState(false);
   // First-launch state — only shows when the marker file doesn't exist
   // yet (true fresh install). The server writes the marker after a
   // successful import or an explicit dismiss; on subsequent loads
@@ -549,7 +552,14 @@ export default function MTGAssistant() {
         modelProvider={modelProvider}
         setModelProvider={setModelProvider}
         unlockDeck={() => unlockSessionDeck(currentSession?.id)}
+        openUpdates={() => setShowUpdates(true)}
         pb={pb}
+        colors={{BG2, LINE, GOLD}}
+        fontFamily={F}
+      />
+      <UpdatesModal
+        open={showUpdates}
+        onClose={() => setShowUpdates(false)}
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}
       />

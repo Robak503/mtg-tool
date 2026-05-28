@@ -140,7 +140,21 @@ pub fn run() {
 
                 let server_js_str = strip_unc(&server_js);
                 let server_dir_str = strip_unc(server_js.parent().unwrap_or(&staged));
-                let mut cmd = std::process::Command::new("node");
+
+                // Prefer the bundled portable node.exe over whatever's
+                // on PATH. download-portable-node.cjs places it at
+                // <resources>/node/node.exe so the .exe doesn't require
+                // a pre-installed Node. If the bundled binary is missing
+                // (older build / unbundled debug run) fall back to PATH.
+                let bundled_node = staged.join("node").join("node.exe");
+                let node_invocation = if bundled_node.exists() {
+                    strip_unc(&bundled_node)
+                } else {
+                    "node".to_string()
+                };
+                logln!("node binary  = {} (bundled={})", node_invocation, bundled_node.exists());
+
+                let mut cmd = std::process::Command::new(&node_invocation);
                 cmd.arg(&server_js_str)
                     .env("PORT", "3000")
                     .env("HOSTNAME", "127.0.0.1")

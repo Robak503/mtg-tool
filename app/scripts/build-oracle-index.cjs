@@ -33,11 +33,23 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const REPO_ROOT = path.resolve(__dirname, "..");
+// Writes land in app/data by default, but the bundled .exe sets
+// MTG_APP_ROOT so the rebuilt index goes into AppData. For READING the
+// source oracle_cards.json we additionally fall back to MTG_REFERENCE_DIR
+// (the read-only bundled snapshot) if the writable copy doesn't exist —
+// matches the paths.js dataPath() resolution.
+const REPO_ROOT = (process.env.MTG_APP_ROOT && process.env.MTG_APP_ROOT.trim())
+  ? process.env.MTG_APP_ROOT.trim()
+  : path.resolve(__dirname, "..");
 const DATA_DIR = path.join(REPO_ROOT, "data");
-const SOURCE = path.join(DATA_DIR, "scryfall-bulk", "oracle_cards.json");
 const OUTPUT = path.join(DATA_DIR, "scryfall-bulk", "oracle-index.json");
 const TMP_OUTPUT = `${OUTPUT}.tmp`;
+
+const LIVE_SOURCE = path.join(DATA_DIR, "scryfall-bulk", "oracle_cards.json");
+const BUNDLED_SOURCE = (process.env.MTG_REFERENCE_DIR && process.env.MTG_REFERENCE_DIR.trim())
+  ? path.join(process.env.MTG_REFERENCE_DIR.trim(), "scryfall-bulk", "oracle_cards.json")
+  : null;
+const SOURCE = (fs.existsSync(LIVE_SOURCE) || !BUNDLED_SOURCE) ? LIVE_SOURCE : BUNDLED_SOURCE;
 
 function fail(message, exitCode = 1) {
   process.stderr.write(`build-oracle-index: ${message}\n`);

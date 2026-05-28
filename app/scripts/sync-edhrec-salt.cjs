@@ -1,7 +1,13 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const DATA_DIR = path.join(process.cwd(), "data");
+// Writes land in cwd/data by default (which is app/data in dev), but the
+// bundled .exe sets MTG_APP_ROOT to %APPDATA%\com.colton.mtg-tool\ so
+// synced files end up in the writable user data dir there instead.
+const APP_ROOT = (process.env.MTG_APP_ROOT && process.env.MTG_APP_ROOT.trim())
+  ? process.env.MTG_APP_ROOT.trim()
+  : process.cwd();
+const DATA_DIR = path.join(APP_ROOT, "data");
 const OUT_FILE = path.join(DATA_DIR, "edhrec-salt.local.json");
 const META_FILE = path.join(DATA_DIR, "edhrec-salt-meta.local.json");
 const BASE_URL = "https://json.edhrec.com/pages/";

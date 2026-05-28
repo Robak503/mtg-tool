@@ -24,7 +24,13 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 
 const BASE_URL = "https://backend.commanderspellbook.com";
-const DATA_DIR = path.join(__dirname, "../data");
+// Writes land in the dev tree by default, but the bundled .exe sets
+// MTG_APP_ROOT to %APPDATA%\com.colton.mtg-tool\ so synced files end
+// up in the writable user data dir there instead.
+const APP_ROOT = (process.env.MTG_APP_ROOT && process.env.MTG_APP_ROOT.trim())
+  ? process.env.MTG_APP_ROOT.trim()
+  : path.resolve(__dirname, "..");
+const DATA_DIR = path.join(APP_ROOT, "data");
 const COMBOS_FILE = path.join(DATA_DIR, "spellbook-combos.local.json");
 const CARDS_FILE = path.join(DATA_DIR, "spellbook-cards.local.json");
 const INDEX_FILE = path.join(DATA_DIR, "spellbook-index.local.json");

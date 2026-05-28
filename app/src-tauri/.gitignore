@@ -5,3 +5,6 @@
 
 # Staging dir built by scripts/prepare-tauri-resources.cjs
 /resources/
+
+# Portable node.exe downloaded by scripts/download-portable-node.cjs
+/node/

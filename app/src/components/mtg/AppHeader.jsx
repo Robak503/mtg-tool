@@ -14,6 +14,7 @@ export default function AppHeader({
   modelProvider,
   setModelProvider,
   unlockDeck,
+  openUpdates,
   pb,
   colors,
   fontFamily,
@@ -129,6 +130,15 @@ export default function AppHeader({
             {deckLock&&<button onClick={unlockDeck} style={pb(false,true)}>Unlock Deck</button>}
             <button onClick={exportChat} style={pb(false,true)}>Export Chat</button>
             <button onClick={clearChat} style={pb(false,true)}>Clear Chat</button>
+            {openUpdates && (
+              <button
+                onClick={openUpdates}
+                title="Refresh card data, combos, and salt scores from official sources"
+                style={pb(false,true)}
+              >
+                ⟳ Updates
+              </button>
+            )}
           </>
         )}
       </div>

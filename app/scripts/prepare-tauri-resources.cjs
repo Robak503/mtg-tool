@@ -169,7 +169,43 @@ for (const [rel, label] of dataFiles) {
 }
 console.log(`  Total: ${bundledCount} files, ${(bundledBytes / 1024 / 1024).toFixed(1)} MB`);
 
-// 4. Next.js standalone server (populated by copy-tauri-assets.cjs which
+// 4. Bundle the sync + index-rebuild scripts. /api/sync-data spawns
+// these at runtime to refresh card / combo / salt data and rebuild
+// the slim indexes. They honor MTG_APP_ROOT / MTG_JUDGE_DIR /
+// MTG_REFERENCE_DIR env vars (set by the Tauri shell) so writes land
+// in %APPDATA% and reads can fall back to the bundled snapshot.
+console.log("Copying sync/build scripts...");
+const syncScripts = [
+  "sync-scryfall-bulk.cjs",
+  "sync-spellbook.cjs",
+  "sync-edhrec-salt.cjs",
+  "sync-scryfall-oracle.cjs",
+  "build-oracle-index.cjs",
+  "build-rules-index.cjs",
+];
+for (const name of syncScripts) {
+  const src = path.join(APP_ROOT, "scripts", name);
+  if (fs.existsSync(src)) {
+    copyFile(src, path.join(RESOURCES, "scripts", name));
+    console.log(`  + scripts/${name}`);
+  } else {
+    console.warn(`  - scripts/${name} (not found)`);
+  }
+}
+
+// 5. Portable node.exe. Downloaded earlier in the pipeline by
+// scripts/download-portable-node.cjs. Lets the Tauri shell spawn the
+// Next.js server without depending on the user having Node installed.
+const portableNodeSrc = path.join(APP_ROOT, "src-tauri", "node", "node.exe");
+if (fs.existsSync(portableNodeSrc)) {
+  copyFile(portableNodeSrc, path.join(RESOURCES, "node", "node.exe"));
+  const size = fs.statSync(portableNodeSrc).size;
+  console.log(`Bundled portable node.exe (${(size / 1024 / 1024).toFixed(1)} MB)`);
+} else {
+  console.warn("  (no src-tauri/node/node.exe — run `npm run download:node`)");
+}
+
+// 6. Next.js standalone server (populated by copy-tauri-assets.cjs which
 // runs after `next build` in the build:tauri-standalone pipeline).
 const standaloneSrc = path.join(APP_ROOT, ".next", "standalone");
 const standaloneDst = path.join(RESOURCES, "server");
