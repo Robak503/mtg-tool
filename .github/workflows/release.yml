@@ -72,10 +72,6 @@ jobs:
         working-directory: app
         run: node scripts/build-oracle-index.cjs
 
-      - name: Build slim printings index (Collection feature)
-        working-directory: app
-        run: node scripts/build-collection-printings-index.cjs
-
       - name: Build rules retrieval index
         working-directory: app
         run: node scripts/build-rules-index.cjs

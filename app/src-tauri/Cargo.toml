@@ -1,6 +1,6 @@
 [package]
 name = "mtg-tool"
-version = "0.1.2"
+version = "0.1.3"
 description = "MTG Tool — local-first Commander assistant"
 authors = ["Colton"]
 license = "MIT"
