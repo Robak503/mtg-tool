@@ -627,7 +627,7 @@ export default function FeedbackButton({
             >
               <div style={{ display: "flex", gap: 18 }}>
                 {tabButton("compose", "Send")}
-                {tabButton("inbox", `Inbox${inboxEntries ? ` (${inboxEntries.length})` : ""}`)}
+                {tabButton("inbox", `Log${inboxEntries ? ` (${inboxEntries.length})` : ""}`)}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4, paddingBottom: 4 }}>
                 {!mobile && !isTauri && (
@@ -1070,7 +1070,7 @@ export default function FeedbackButton({
                   padding: "0 2px",
                 }}>
                   {inboxLoading && (
-                    <div style={{ fontSize: 12, color: MUTED, padding: 8 }}>Loading inbox…</div>
+                    <div style={{ fontSize: 12, color: MUTED, padding: 8 }}>Loading log…</div>
                   )}
                   {inboxError && (
                     <div style={{ fontSize: 12, color: "#c2786f", padding: 8 }}>
