@@ -62,6 +62,10 @@ function normaliseContext(context = {}) {
   if (typeof context.userAgent === "string" && context.userAgent) {
     out.userAgent = clampString(context.userAgent, MAX_CONTEXT_FIELD_LENGTH);
   }
+  if (typeof context.appVersion === "string" && context.appVersion) {
+    // Short enough that 32 chars is generous; rejects garbage.
+    out.appVersion = clampString(context.appVersion, 32);
+  }
   return out;
 }
 
@@ -115,6 +119,7 @@ function formatEntryAsMarkdown(entry) {
   if (ctx.deckName) ctxBits.push(`deck="${ctx.deckName}"`);
   if (ctx.deckCommander) ctxBits.push(`commander="${ctx.deckCommander}"`);
   if (ctx.page) ctxBits.push(`page=${ctx.page}`);
+  if (ctx.appVersion) ctxBits.push(`v${ctx.appVersion}`);
   const ctxLine = ctxBits.length ? `\n— context: ${ctxBits.join(", ")} · ${ts}` : `\n— ${ts}`;
 
   // Header: "## [date] Category · agent · session · deck"
