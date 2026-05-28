@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { QUICK } from "../../lib/agents";
+import useTauriAppVersion from "../../hooks/useTauriAppVersion";
 
 /**
  * Per-message reactions. Click 👍/👎 to log a structured feedback entry
@@ -20,6 +21,7 @@ function MessageReactions({
   const [reaction, setReaction] = useState(null);
   const [status, setStatus] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const appVersion = useTauriAppVersion();
 
   const submit = async (kind) => {
     if (submitting || reaction) return;
@@ -46,6 +48,7 @@ function MessageReactions({
             deckName: activeDeck?.name || null,
             deckCommander: currentSession?.lockedDeck?.commander || null,
             page: "chat",
+            appVersion: appVersion || null,
           },
         }),
       });

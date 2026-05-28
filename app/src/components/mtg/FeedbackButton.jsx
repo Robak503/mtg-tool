@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import useTauriAppVersion from "../../hooks/useTauriAppVersion";
+
 const CATEGORY_OPTIONS = [
   { value: "bug", label: "Bug", glyph: "🐛" },
   { value: "feature", label: "Feature", glyph: "💡" },
@@ -110,6 +112,10 @@ export default function FeedbackButton({
     setIsTauri(!!(window.__TAURI__ || window.__TAURI_INTERNALS__));
   }, []);
 
+  // App version (Tauri only). Tags every entry with the build that produced
+  // it — essential once the .exe starts cutting releases.
+  const appVersion = useTauriAppVersion();
+
   const contextQueryString = () => {
     const params = new URLSearchParams();
     if (agent) params.set("agent", agent);
@@ -168,6 +174,30 @@ export default function FeedbackButton({
       }
     } catch (error) {
       setCopyState({ error: error.message || "copy failed" });
+    }
+  };
+
+  // Native shell handoff — hand the absolute path to the OS's default
+  // markdown editor (target="digest") or open the folder in Explorer/
+  // Finder (target="dir"). The Node subprocess does the spawn; works
+  // identically in `npm run dev` and inside the Tauri .exe.
+  const openInShell = async (target) => {
+    setCopyState(null);
+    try {
+      const response = await fetch("/api/feedback/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        setCopyState({ error: data.error || `open failed (${response.status})` });
+        return;
+      }
+      setCopyState(target === "dir" ? "opened-dir" : "opened-digest");
+      setTimeout(() => setCopyState(null), 1800);
+    } catch (error) {
+      setCopyState({ error: error.message || "open failed" });
     }
   };
 
@@ -382,6 +412,7 @@ export default function FeedbackButton({
             deckName: activeDeck?.name || null,
             deckCommander: currentSession?.lockedDeck?.commander || null,
             page,
+            appVersion: appVersion || null,
             userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
           },
         }),
@@ -838,6 +869,40 @@ export default function FeedbackButton({
                     }}
                   >
                     Download
+                  </button>
+                  <button
+                    onClick={() => openInShell("digest")}
+                    disabled={!inboxEntries || inboxEntries.length === 0}
+                    title="Open FEEDBACK.md in your default markdown editor"
+                    style={{
+                      padding: "6px 12px",
+                      background: "transparent",
+                      border: `1px solid ${LINE}`,
+                      borderRadius: 6,
+                      color: MUTED,
+                      cursor: !inboxEntries || inboxEntries.length === 0 ? "not-allowed" : "pointer",
+                      fontSize: 12,
+                      fontFamily,
+                      opacity: !inboxEntries || inboxEntries.length === 0 ? 0.5 : 1,
+                    }}
+                  >
+                    {copyState === "opened-digest" ? "✓ Opened" : "Open in editor"}
+                  </button>
+                  <button
+                    onClick={() => openInShell("dir")}
+                    title="Open the feedback folder in your file manager"
+                    style={{
+                      padding: "6px 12px",
+                      background: "transparent",
+                      border: `1px solid ${LINE}`,
+                      borderRadius: 6,
+                      color: MUTED,
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontFamily,
+                    }}
+                  >
+                    {copyState === "opened-dir" ? "✓ Opened" : "Reveal folder"}
                   </button>
                   <span style={{ fontSize: 10, color: MUTED, marginLeft: "auto" }}>
                     {inboxEntries ? `${inboxEntries.length} entr${inboxEntries.length === 1 ? "y" : "ies"}` : ""}
