@@ -1,6 +1,6 @@
 {
   "name": "mtg-tool",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -28,6 +28,7 @@
     "check": "npm run clean:next && next build",
     "build": "npm run clean:next && next build",
     "build:oracle-index": "node scripts/build-oracle-index.cjs",
+    "build:printings-index": "node scripts/build-collection-printings-index.cjs",
     "backup": "node scripts/backup-data.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -38,6 +39,7 @@
     "sync:edhrec-salt-all": "node scripts/sync-edhrec-salt.cjs --all"
   },
   "dependencies": {
+    "@tanstack/react-virtual": "^3.13.26",
     "@tauri-apps/plugin-autostart": "^2.5.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
     "next": "^15.3.3",

@@ -39,6 +39,23 @@ jobs:
         working-directory: app
         run: npm ci
 
+      - name: Sync tauri.conf.json version to tag
+        shell: pwsh
+        # The Tauri build embeds tauri.conf.json's "version" field into
+        # the binary. If we tag v0.1.5 but the source file still says
+        # "0.1.0", the installed .exe reports 0.1.0 forever and the
+        # auto-updater thinks every release is "newer than installed."
+        # Rewrite the file from the tag name before building.
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $version = $tag -replace '^v', ''
+          $confPath = 'app/src-tauri/tauri.conf.json'
+          $conf = Get-Content $confPath -Raw | ConvertFrom-Json
+          Write-Host "Tag=$tag, syncing tauri.conf.json $($conf.version) -> $version"
+          $conf.version = $version
+          $conf | ConvertTo-Json -Depth 10 | Set-Content $confPath -Encoding utf8
+          Write-Host "Wrote $confPath"
+
       - name: Cache reference data
         uses: actions/cache@v4
         with:
@@ -54,6 +71,10 @@ jobs:
       - name: Build slim oracle index
         working-directory: app
         run: node scripts/build-oracle-index.cjs
+
+      - name: Build slim printings index (Collection feature)
+        working-directory: app
+        run: node scripts/build-collection-printings-index.cjs
 
       - name: Build rules retrieval index
         working-directory: app
