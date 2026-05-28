@@ -52,9 +52,80 @@ pub fn run() {
     let server_child: Arc<Mutex<Option<std::process::Child>>> =
         Arc::new(Mutex::new(None));
     let server_child_events = server_child.clone();
+    let server_child_tray = server_child.clone();
 
     tauri::Builder::default()
         .setup(move |app| {
+            // System tray: lets the user minimize to tray instead of
+            // exiting (Next.js + Ollama warm-up costs are noticeable, so
+            // an instant "show window" is worth keeping the server hot).
+            // Right-click menu has Show / Hide / Quit.
+            #[cfg(desktop)]
+            {
+                use tauri::menu::{Menu, MenuItem};
+                use tauri::tray::TrayIconBuilder;
+                use tauri::Manager;
+
+                let show = MenuItem::with_id(app, "tray-show", "Show MTG Tool", true, None::<&str>)?;
+                let hide = MenuItem::with_id(app, "tray-hide", "Hide window", true, None::<&str>)?;
+                let quit = MenuItem::with_id(app, "tray-quit", "Quit", true, None::<&str>)?;
+                let menu = Menu::with_items(app, &[&show, &hide, &quit])?;
+
+                let server_child_for_quit = server_child_tray.clone();
+                let _tray = TrayIconBuilder::with_id("mtg-tool-tray")
+                    .tooltip("MTG Tool")
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .menu(&menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(move |app, event| {
+                        match event.id.as_ref() {
+                            "tray-show" => {
+                                if let Some(w) = app.get_webview_window("main") {
+                                    let _ = w.unminimize();
+                                    let _ = w.show();
+                                    let _ = w.set_focus();
+                                }
+                            }
+                            "tray-hide" => {
+                                if let Some(w) = app.get_webview_window("main") {
+                                    let _ = w.hide();
+                                }
+                            }
+                            "tray-quit" => {
+                                // Kill the Node child before app exits so we
+                                // don't leave an orphan server on port 3000.
+                                if let Ok(mut guard) = server_child_for_quit.lock() {
+                                    if let Some(ref mut child) = *guard {
+                                        let _ = child.kill();
+                                    }
+                                }
+                                app.exit(0);
+                            }
+                            _ => {}
+                        }
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        // Left-click the tray icon to toggle window visibility.
+                        if let tauri::tray::TrayIconEvent::Click {
+                            button: tauri::tray::MouseButton::Left,
+                            button_state: tauri::tray::MouseButtonState::Up,
+                            ..
+                        } = event {
+                            let app = tray.app_handle();
+                            if let Some(w) = app.get_webview_window("main") {
+                                let visible = w.is_visible().unwrap_or(false);
+                                if visible {
+                                    let _ = w.hide();
+                                } else {
+                                    let _ = w.unminimize();
+                                    let _ = w.show();
+                                    let _ = w.set_focus();
+                                }
+                            }
+                        }
+                    })
+                    .build(app)?;
+            }
             // Debug builds: pipe logs to the Tauri log plugin.
             #[cfg(debug_assertions)]
             app.handle().plugin(
@@ -186,8 +257,18 @@ pub fn run() {
 
             Ok(())
         })
-        .on_window_event(move |_window, event| {
-            // Kill the Node process when the last window closes.
+        .on_window_event(move |window, event| {
+            // Minimize-to-tray instead of exit. Tray "Quit" is the
+            // explicit exit path. This keeps the Next.js server warm
+            // so reopening the window is instant instead of a 5-30s
+            // cold start.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
+                return;
+            }
+            // Genuine destroy (e.g. tray-quit called app.exit which
+            // tears down windows) → kill the child server.
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 if let Ok(mut guard) = server_child_events.lock() {
                     if let Some(ref mut child) = *guard {
