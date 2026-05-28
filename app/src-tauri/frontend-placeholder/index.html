@@ -33,27 +33,42 @@
   </style>
 </head>
 <body>
-  <div>MTG Tool starting</div>
+  <div id="status">MTG Tool starting</div>
   <div class="dot"></div>
+  <div id="hint" style="font-size: 12px; color: #6a6a6a; max-width: 480px; text-align: center; padding: 0 24px;">
+    First launch can take a minute while ~1 GB of card &amp; rules data
+    is seeded into AppData.
+  </div>
   <script>
-    // The Tauri shell (lib.rs) has already waited for the bundled Next.js
-    // server to come up on 127.0.0.1:3000 before showing this window, so
-    // a single redirect is enough. If the server somehow isn't ready,
-    // a short retry loop covers that gap.
+    // The Tauri shell (lib.rs) has already waited up to 30s for the
+    // bundled Next.js server to come up on 127.0.0.1:3000. On first
+    // launch the seed step (copying ~1GB of card/rule/combo data from
+    // resources/ to AppData) can take 30-60s on a slow disk before
+    // node even spawns, so this retry loop runs for 2 full minutes
+    // before giving up.
     (function () {
       var target = "http://127.0.0.1:3000/";
       var tries = 0;
+      var maxTries = 240;            // 240 * 500ms = 2 minutes
       function go() {
         fetch(target, { mode: "no-cors" })
           .then(function () { window.location.replace(target); })
           .catch(function () {
-            if (++tries < 30) setTimeout(go, 500);
-            else document.body.innerHTML =
-              "<div style='text-align:center;padding:24px'>" +
-              "Could not reach local server at " + target + ".<br/>" +
-              "Try restarting MTG Tool. If this keeps happening, check that " +
-              "Node.js is installed and on PATH." +
-              "</div>";
+            if (++tries >= maxTries) {
+              document.body.innerHTML =
+                "<div style='text-align:center;padding:24px;max-width:480px'>" +
+                "<strong>Could not reach local server at " + target + ".</strong><br/><br/>" +
+                "Try restarting MTG Tool. If this keeps happening, check the launch.log " +
+                "in %APPDATA%\\com.colton.mtg-tool\\ for spawn errors. Most often this " +
+                "means Node.js isn't installed or isn't on PATH." +
+                "</div>";
+              return;
+            }
+            // After 10s, swap the message to acknowledge it's a longer wait
+            if (tries === 20) {
+              document.getElementById("status").textContent = "Still loading…";
+            }
+            setTimeout(go, 500);
           });
       }
       go();
