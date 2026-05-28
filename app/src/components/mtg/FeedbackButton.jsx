@@ -177,6 +177,86 @@ export default function FeedbackButton({
     }
   };
 
+  // Export the local feedback store as a portable bundle file. Triggers
+  // a browser download — recipient can email the file back, and we import
+  // it via the file picker below.
+  const exportBundle = async () => {
+    setCopyState(null);
+    try {
+      const response = await fetch("/api/feedback/bundle", { cache: "no-store" });
+      if (!response.ok) {
+        setCopyState({ error: `export failed (${response.status})` });
+        return;
+      }
+      const text = await response.text();
+      const blob = new Blob([text], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 10);
+      anchor.href = url;
+      anchor.download = `mtg-feedback-bundle-${stamp}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setCopyState("exported");
+      setTimeout(() => setCopyState(null), 2000);
+    } catch (error) {
+      setCopyState({ error: error.message || "export failed" });
+    }
+  };
+
+  const importFileRef = useRef(null);
+  const [importBusy, setImportBusy] = useState(false);
+
+  const triggerImport = () => {
+    if (importBusy) return;
+    importFileRef.current?.click();
+  };
+
+  const onImportFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    // Reset the input so re-picking the same file fires onChange again.
+    event.target.value = "";
+    if (!file) return;
+    setImportBusy(true);
+    setCopyState(null);
+    try {
+      const text = await file.text();
+      let parsed;
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        setCopyState({ error: "Selected file is not valid JSON." });
+        return;
+      }
+      const response = await fetch("/api/feedback/bundle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        setCopyState({ error: data.error || `import failed (${response.status})` });
+        return;
+      }
+      setCopyState({
+        imported: data.imported,
+        skipped: data.skipped,
+      });
+      // Refresh the inbox list so newly imported entries appear immediately.
+      try {
+        const refresh = await fetch("/api/feedback", { cache: "no-store" });
+        if (refresh.ok) {
+          const refreshData = await refresh.json();
+          setInboxEntries(refreshData.entries || []);
+        }
+      } catch { /* non-fatal */ }
+    } catch (error) {
+      setCopyState({ error: error.message || "import failed" });
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
   // Native shell handoff — hand the absolute path to the OS's default
   // markdown editor (target="digest") or open the folder in Explorer/
   // Finder (target="dir"). The Node subprocess does the spawn; works
@@ -908,9 +988,74 @@ export default function FeedbackButton({
                     {inboxEntries ? `${inboxEntries.length} entr${inboxEntries.length === 1 ? "y" : "ies"}` : ""}
                   </span>
                 </div>
+
+                {/* Share row — export to JSON bundle for emailing, or import
+                    a bundle someone else exported. The bundle format is the
+                    portable share medium between .exe installs. */}
+                <div style={{
+                  display: "flex",
+                  gap: 6,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  paddingTop: 4,
+                  borderTop: `1px solid ${LINE}`,
+                  marginTop: 2,
+                }}>
+                  <span style={{ fontSize: 10, color: MUTED, marginRight: 4 }}>Share:</span>
+                  <button
+                    onClick={exportBundle}
+                    disabled={!inboxEntries || inboxEntries.length === 0}
+                    title="Export every entry as a single JSON file you can email"
+                    style={{
+                      padding: "5px 11px",
+                      background: "transparent",
+                      border: `1px solid ${LINE}`,
+                      borderRadius: 6,
+                      color: MUTED,
+                      cursor: !inboxEntries || inboxEntries.length === 0 ? "not-allowed" : "pointer",
+                      fontSize: 11,
+                      fontFamily,
+                      opacity: !inboxEntries || inboxEntries.length === 0 ? 0.5 : 1,
+                    }}
+                  >
+                    {copyState === "exported" ? "✓ Exported" : "📤 Export bundle"}
+                  </button>
+                  <button
+                    onClick={triggerImport}
+                    disabled={importBusy}
+                    title="Import a bundle someone else exported (dedup'd by entry id)"
+                    style={{
+                      padding: "5px 11px",
+                      background: "transparent",
+                      border: `1px solid ${LINE}`,
+                      borderRadius: 6,
+                      color: MUTED,
+                      cursor: importBusy ? "wait" : "pointer",
+                      fontSize: 11,
+                      fontFamily,
+                      opacity: importBusy ? 0.6 : 1,
+                    }}
+                  >
+                    {importBusy ? "Importing…" : "📥 Import bundle"}
+                  </button>
+                  <input
+                    ref={importFileRef}
+                    type="file"
+                    accept="application/json,.json"
+                    onChange={onImportFileChange}
+                    style={{ display: "none" }}
+                  />
+                </div>
+
                 {copyState?.error && (
                   <div style={{ fontSize: 11, color: "#c2786f" }}>
                     ⚠ {copyState.error}
+                  </div>
+                )}
+                {typeof copyState === "object" && copyState && "imported" in copyState && (
+                  <div style={{ fontSize: 11, color: "#85d18a" }}>
+                    ✓ Imported {copyState.imported} new entr{copyState.imported === 1 ? "y" : "ies"}
+                    {copyState.skipped > 0 ? `, skipped ${copyState.skipped} duplicate${copyState.skipped === 1 ? "" : "s"}` : ""}.
                   </div>
                 )}
 
