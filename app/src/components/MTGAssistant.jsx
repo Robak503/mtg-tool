@@ -58,6 +58,23 @@ export default function MTGAssistant() {
   // Updates modal. localStorage skip-until lets us throttle to once
   // per day so we don't ping GitHub on every page reload.
   const [appUpdateInfo, setAppUpdateInfo] = useState(null);
+  // Current Tauri app version (from tauri.conf.json baked in at build).
+  // Falls back to a placeholder in dev mode where the Tauri runtime
+  // isn't present.
+  const [appVersion, setAppVersion] = useState("dev");
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (typeof window === "undefined") return;
+        if (!window.__TAURI__ && !window.__TAURI_INTERNALS__) return;
+        const app = await import("@tauri-apps/api/app");
+        const v = await app.getVersion();
+        if (!cancelled) setAppVersion(v);
+      } catch { /* dev mode */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
   // First-launch state — only shows when the marker file doesn't exist
   // yet (true fresh install). The server writes the marker after a
   // successful import or an explicit dismiss; on subsequent loads
@@ -614,6 +631,7 @@ export default function MTGAssistant() {
         setModelProvider={setModelProvider}
         unlockDeck={() => unlockSessionDeck(currentSession?.id)}
         openUpdates={() => setShowUpdates(true)}
+        appVersion={appVersion}
         pb={pb}
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}

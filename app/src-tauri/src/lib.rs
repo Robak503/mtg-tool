@@ -261,6 +261,18 @@ pub fn run() {
                 logln!("node binary  = {} (bundled={})", node_invocation, bundled_node.exists());
 
                 let mut cmd = std::process::Command::new(&node_invocation);
+
+                // Hide the child Node's console window on Windows.
+                // Without CREATE_NO_WINDOW, Windows attaches a fresh
+                // cmd.exe to the child and flashes it at the user every
+                // launch — they see a "next-server v15.x.x" banner pop
+                // up briefly. CREATE_NO_WINDOW = 0x08000000 detaches
+                // the child from any console entirely.
+                #[cfg(target_os = "windows")]
+                {
+                    use std::os::windows::process::CommandExt;
+                    cmd.creation_flags(0x08000000);
+                }
                 cmd.arg(&server_js_str)
                     .env("PORT", "3000")
                     .env("HOSTNAME", "127.0.0.1")

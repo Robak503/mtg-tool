@@ -15,6 +15,7 @@ export default function AppHeader({
   setModelProvider,
   unlockDeck,
   openUpdates,
+  appVersion,
   pb,
   colors,
   fontFamily,
@@ -53,7 +54,14 @@ export default function AppHeader({
 
   return (
     <div style={{padding:"9px 16px",borderBottom:`1px solid ${LINE}`,background:BG2,display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-      <span style={{fontFamily,fontSize:16,fontWeight:700,color:GOLD,letterSpacing:"0.05em"}}>MTG Assistant</span>
+      <span style={{fontFamily,fontSize:16,fontWeight:700,color:GOLD,letterSpacing:"0.05em"}}>
+        MTG Assistant
+        {appVersion && (
+          <span style={{
+            marginLeft:8,fontSize:11,fontWeight:400,color:"#7f8aa3",letterSpacing:"normal",fontFamily:"Consolas, Menlo, monospace"
+          }}>v{appVersion}</span>
+        )}
+      </span>
       <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
         {warnings.map(w => (
           <span
