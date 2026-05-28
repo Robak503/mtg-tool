@@ -82,7 +82,7 @@ describe("GET /api/feedback/bundle (export)", () => {
     const response = await bundleRoute.GET();
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Disposition")).toMatch(/^attachment;/);
-    expect(response.headers.get("Content-Disposition")).toMatch(/mtg-feedback-bundle-/);
+    expect(response.headers.get("Content-Disposition")).toMatch(/mtg-feedback-\d{4}-\d{2}-\d{2}/);
 
     const body = await response.json();
     expect(body.entryCount).toBe(2);
@@ -115,7 +115,7 @@ describe("POST /api/feedback/bundle (import)", () => {
     const response = await bundleRoute.POST(bundleRequest({ message: "not a bundle" }));
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toMatch(/Not a feedback bundle/);
+    expect(body.error).toMatch(/doesn't look like an MTG Tool feedback file/);
   });
 
   it("rejects unsupported schemaVersion", async () => {
@@ -126,7 +126,7 @@ describe("POST /api/feedback/bundle (import)", () => {
     }));
     expect(response.status).toBe(400);
     const body = await response.json();
-    expect(body.error).toMatch(/Unsupported schemaVersion/);
+    expect(body.error).toMatch(/incompatible version of MTG Tool/);
   });
 
   it("rejects entries-not-an-array", async () => {

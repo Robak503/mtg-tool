@@ -194,7 +194,7 @@ export default function FeedbackButton({
       const anchor = document.createElement("a");
       const stamp = new Date().toISOString().slice(0, 10);
       anchor.href = url;
-      anchor.download = `mtg-feedback-bundle-${stamp}.json`;
+      anchor.download = `mtg-feedback-${stamp}.json`;
       anchor.click();
       URL.revokeObjectURL(url);
       setCopyState("exported");
@@ -1005,7 +1005,7 @@ export default function FeedbackButton({
                   <button
                     onClick={exportBundle}
                     disabled={!inboxEntries || inboxEntries.length === 0}
-                    title="Export every entry as a single JSON file you can email"
+                    title="Save all your feedback to a single file you can email"
                     style={{
                       padding: "5px 11px",
                       background: "transparent",
@@ -1018,12 +1018,12 @@ export default function FeedbackButton({
                       opacity: !inboxEntries || inboxEntries.length === 0 ? 0.5 : 1,
                     }}
                   >
-                    {copyState === "exported" ? "✓ Exported" : "📤 Export bundle"}
+                    {copyState === "exported" ? "✓ Saved" : "📤 Export feedback"}
                   </button>
                   <button
                     onClick={triggerImport}
                     disabled={importBusy}
-                    title="Import a bundle someone else exported (dedup'd by entry id)"
+                    title="Load a feedback file someone else sent you"
                     style={{
                       padding: "5px 11px",
                       background: "transparent",
@@ -1036,7 +1036,7 @@ export default function FeedbackButton({
                       opacity: importBusy ? 0.6 : 1,
                     }}
                   >
-                    {importBusy ? "Importing…" : "📥 Import bundle"}
+                    {importBusy ? "Importing…" : "📥 Import feedback"}
                   </button>
                   <input
                     ref={importFileRef}
