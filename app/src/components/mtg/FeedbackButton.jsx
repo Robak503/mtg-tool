@@ -100,6 +100,16 @@ export default function FeedbackButton({
     if (open) setAttachExchange(!!lastExchange);
   }, [open, lastExchange]);
 
+  // Detect Tauri runtime. The pop-out button opens a window.open() popup,
+  // which in WebView2 (Tauri's Windows webview) escapes into the system's
+  // default browser — jarring and unnecessary now that the panel itself
+  // is draggable and stays put. Hide the pop-out path entirely in Tauri.
+  const [isTauri, setIsTauri] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsTauri(!!(window.__TAURI__ || window.__TAURI_INTERNALS__));
+  }, []);
+
   const contextQueryString = () => {
     const params = new URLSearchParams();
     if (agent) params.set("agent", agent);
@@ -124,8 +134,10 @@ export default function FeedbackButton({
     }
   };
 
-  // Cmd/Ctrl-Shift-F opens the pop-out window from anywhere.
+  // Cmd/Ctrl-Shift-F opens the pop-out window from anywhere. Skipped in
+  // Tauri where window.open punts to the system browser (see isTauri above).
   useEffect(() => {
+    if (isTauri) return undefined;
     const onKey = (event) => {
       if (!(event.metaKey || event.ctrlKey)) return;
       if (!event.shiftKey) return;
@@ -136,7 +148,7 @@ export default function FeedbackButton({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, currentSession?.id, currentSession?.name, activeDeck?.name, page]);
+  }, [isTauri, agent, currentSession?.id, currentSession?.name, activeDeck?.name, page]);
 
   const copyDigest = async () => {
     setCopyState(null);
@@ -507,7 +519,7 @@ export default function FeedbackButton({
                 {tabButton("inbox", `Inbox${inboxEntries ? ` (${inboxEntries.length})` : ""}`)}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4, paddingBottom: 4 }}>
-                {!mobile && (
+                {!mobile && !isTauri && (
                   <button
                     onClick={openPopout}
                     title="Open the standalone capture window (handy on a second monitor)"
