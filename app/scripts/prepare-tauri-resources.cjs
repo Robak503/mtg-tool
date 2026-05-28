@@ -115,29 +115,53 @@ const engineCount = copyMatching(engineSrc, engineDst, (name) => {
 });
 console.log(`  + ${engineCount} markdown files`);
 
-// 3. Slim Scryfall oracle index — runtime card lookups depend on it.
-console.log("Copying slim oracle index...");
-const oracleIdx = path.join(APP_ROOT, "data", "scryfall-bulk", "oracle-index.json");
-if (fs.existsSync(oracleIdx)) {
-  copyFile(
-    oracleIdx,
-    path.join(RESOURCES, "data", "scryfall-bulk", "oracle-index.json"),
-  );
-  console.log("  + data/scryfall-bulk/oracle-index.json");
-} else {
-  console.warn("  (oracle-index.json missing — run `npm run build:oracle-index` first)");
-}
+// 3. Full reference data bundle. We ship every JSON the runtime actually
+// reads so the .exe is functional on a clean machine without anyone
+// running npm sync scripts. The three giants (all_cards.json,
+// default_cards.json, unique_artwork.json) are deliberately skipped —
+// no code path reads them. If a future feature needs them, add them here.
+//
+// User-modifiable files (decks/chats/feedback/games/backups/agent-notes)
+// are NOT bundled — those come from the first-launch import wizard so
+// the user keeps ownership.
+console.log("Copying reference data files...");
+const dataFiles = [
+  // Card data
+  ["data/scryfall-bulk/oracle-index.json",     "slim card index — preferred at runtime"],
+  ["data/scryfall-bulk/oracle_cards.json",     "full Scryfall bulk Oracle data"],
+  ["data/scryfall-bulk/rulings.json",          "Scryfall card rulings"],
+  ["data/scryfall-bulk/tier-manifest.json",    "sync metadata"],
+  ["data/scryfall-bulk/manifest.json",         "Scryfall API manifest"],
+  ["data/scryfall.oracle.local.json",          "legacy Oracle (cardIndex fallback)"],
+  ["data/scryfall.rulings.local.json",         "legacy rulings (cardIndex fallback)"],
+  // Rules
+  ["data/rules-index.json",                    "rules retrieval index"],
+  // Combo interactions
+  ["data/spellbook-combos.local.json",         "Commander Spellbook combos"],
+  ["data/spellbook-cards.local.json",          "Spellbook card name index"],
+  ["data/spellbook-index.local.json",          "Spellbook lookup index"],
+  ["data/spellbook-meta.local.json",           "Spellbook sync metadata"],
+  // EDHREC power signals
+  ["data/edhrec-salt.local.json",              "EDHREC salt scores"],
+  ["data/edhrec-salt-meta.local.json",         "EDHREC sync metadata"],
+];
 
-// 3b. Rules index — rulesRetrieval throws if this is missing, so every
-// rules-aware agent answer needs it. Small enough (~2MB) to always bundle.
-console.log("Copying rules-index...");
-const rulesIdx = path.join(APP_ROOT, "data", "rules-index.json");
-if (fs.existsSync(rulesIdx)) {
-  copyFile(rulesIdx, path.join(RESOURCES, "data", "rules-index.json"));
-  console.log("  + data/rules-index.json");
-} else {
-  console.warn("  (rules-index.json missing — run `npm run build:rules-index` first)");
+let bundledBytes = 0;
+let bundledCount = 0;
+for (const [rel, label] of dataFiles) {
+  const src = path.join(APP_ROOT, rel);
+  if (!fs.existsSync(src)) {
+    console.warn(`  - ${rel} (missing in dev tree — ${label})`);
+    continue;
+  }
+  const size = fs.statSync(src).size;
+  copyFile(src, path.join(RESOURCES, rel));
+  bundledBytes += size;
+  bundledCount += 1;
+  const mb = (size / 1024 / 1024).toFixed(1);
+  console.log(`  + ${rel} (${mb} MB — ${label})`);
 }
+console.log(`  Total: ${bundledCount} files, ${(bundledBytes / 1024 / 1024).toFixed(1)} MB`);
 
 // 4. Next.js standalone server (populated by copy-tauri-assets.cjs which
 // runs after `next build` in the build:tauri-standalone pipeline).
