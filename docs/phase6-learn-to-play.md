@@ -300,8 +300,19 @@ Each step is a self-contained PR with tests. Don't skip ahead.
      decision modal with options + recommended badge, recent-
      actions feed, abandon button, win/lose screen. No fancy zone
      graphics — that's PR8 polish.
-7. **PR7 — Intermediate difficulty:** swap narration templates,
-   auto-pass on no-decision points, surface trap warnings.
+7. **PR7 — Intermediate difficulty.** ✅ DONE (master, 2026-05-28).
+   `app/src/lib/learn/trapDetector.js` (~210 LOC) + 18 tests, plus
+   wiring in `decisionGate.js` and `narrateAttackTrap` in
+   `narrator.js`. Two combat trap detectors ship:
+   `detectInstantSpeedResponse` (opponent has 2+ untapped lands +
+   1+ in hand → warn; 4+ lands + 2+ hand → danger) and
+   `detectCounterAttackLethal` (opponent's untapped ready creatures
+   have enough power to lethal you on the swing-back after this
+   attack, accounting for blockers staying home). Intermediate
+   gate now auto-attacks when no trap fires; when one does, it
+   asks with a Jace-voice trap-warning prefix on the prompt.
+   Narration template swap (one-line step header at intermediate)
+   and auto-pass on no-decision-points were already shipped in PR5.
 8. **PR8 — Expert difficulty:** silent run, post-game analysis,
    missed-line detection via game-tree replay.
 9. **PR9 — Learn session persistence** (`data/learn-sessions/`) +

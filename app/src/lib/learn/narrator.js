@@ -202,3 +202,29 @@ export function narrateDecision(state, actions, { difficulty = "beginner", cardL
 
   return `${header}\n\n${lines.join("\n")}`;
 }
+
+// ─── Trap warnings (Intermediate mode, PR 7) ─────────────────────────────────
+
+/**
+ * Format a list of TrapWarnings (from trapDetector.js) as a Jace-voice
+ * paragraph for prefixing the decision prompt. The intermediate gate
+ * uses this to convert "you might want to think about this" into prose
+ * the user actually reads.
+ *
+ * Returns "" when no traps — callers can safely concatenate.
+ *
+ * Format:
+ *   "Heads up before you commit:
+ *    • [danger trap message]
+ *    • [warn trap message]
+ *
+ *    Press a button to choose, or pass priority to hold."
+ */
+export function narrateAttackTrap(traps) {
+  if (!Array.isArray(traps) || traps.length === 0) return "";
+  const lead = traps.some(t => t.severity === "danger")
+    ? "Stop. This attack has a problem:"
+    : "Heads up before you commit:";
+  const bullets = traps.map(t => `• ${t.message}`).join("\n");
+  return `${lead}\n${bullets}`;
+}

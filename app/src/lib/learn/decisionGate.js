@@ -28,7 +28,8 @@
 
 import { filterActions } from "./legalChoices.js";
 import { pickAction } from "./opponentAI.js";
-import { narrateDecision } from "./narrator.js";
+import { narrateDecision, narrateAttackTrap } from "./narrator.js";
+import { detectAttackTraps } from "./trapDetector.js";
 
 const VALID_DIFFICULTIES = new Set(["beginner", "intermediate", "expert"]);
 
@@ -139,7 +140,9 @@ export function makeDecision(state, playerId, actions, options = {}) {
   if (difficulty === "intermediate") {
     // Intermediate: auto-pick lands (never a wrong choice on the
     // happy path) and auto-pass when the only options are passes +
-    // unaffordable spells. ASK on combat or castable spells.
+    // unaffordable spells. ASK on castable spells (suggestion + confirm).
+    // Combat: auto-attack unless a trap detector fires — then ASK with
+    // the trap warning prefixed so the user understands why we paused.
     const lands = filterActions(actions, "play-land");
     if (lands.length > 0) {
       // Auto-pick the same land opponentAI would (alphabetical for
@@ -155,6 +158,42 @@ export function makeDecision(state, playerId, actions, options = {}) {
     const casts = filterActions(actions, "cast-spell");
     const attacks = filterActions(actions, "declare-attacker");
     const blocks = filterActions(actions, "declare-blocker");
+
+    // Combat: auto-attack when no trap. Each declare-attacker action
+    // gets committed one at a time; the engine re-prompts for the
+    // next attacker after each pick, so this branch returns ONE
+    // attacker per call and lets the loop drain naturally. When a
+    // trap fires, fall through to ASK so the user sees the warning.
+    if (attacks.length > 0) {
+      const traps = detectAttackTraps(state, playerId, attacks);
+      if (traps.length === 0) {
+        return {
+          kind: "auto-decided",
+          action: attacks[0],
+          metadata: { reasoning: "intermediate-auto-attack", difficulty },
+        };
+      }
+      // Trap detected — surface as an ASK with the trap prefix on the prompt.
+      const suggested = autoPick(state, playerId, actions, { archetype });
+      const baseNarration = narrateDecision(state, actions, { difficulty, cardLookup });
+      const trapPrefix = narrateAttackTrap(traps);
+      const prompt = trapPrefix
+        ? `${trapPrefix}\n\n${baseNarration}`
+        : baseNarration;
+      return {
+        kind: "ask",
+        prompt,
+        options: actions,
+        metadata: {
+          reasoning: "intermediate-attack-trap",
+          difficulty,
+          defaultIndex: findDefaultIndex(actions, suggested),
+          suggestion: suggested,
+          traps,
+        },
+      };
+    }
+
     if (casts.length === 0 && attacks.length === 0 && blocks.length === 0) {
       // No interesting options — auto-pass.
       const passAction = actions.find(a => a.kind === "pass-priority");
@@ -166,7 +205,7 @@ export function makeDecision(state, playerId, actions, options = {}) {
         };
       }
     }
-    // Otherwise fall through to ASK below.
+    // Otherwise fall through to ASK below (casts, blocks).
   }
 
   // Beginner (default), or Intermediate with interesting choices.

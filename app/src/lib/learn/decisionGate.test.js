@@ -8,9 +8,9 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { _resetIdsForTests, createGameState } from "./gameState.js";
+import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
-import { narrateStep, narrateAction, narrateDecision } from "./narrator.js";
+import { narrateStep, narrateAction, narrateDecision, narrateAttackTrap } from "./narrator.js";
 
 function makeCard({ id, name, type, mana = "", oracle = "", power, toughness, keywords = [] }) {
   return {
@@ -164,6 +164,52 @@ describe("makeDecision — Intermediate mode", () => {
     expect(decision.kind).toBe("ask");
     expect(decision.metadata.reasoning).toContain("intermediate");
   });
+
+  it("auto-attacks when no trap fires", () => {
+    // User has an attacker, opponent has nothing scary.
+    const bear = createPermanent({
+      card: makeCard({ name: "Llanowar Elves", type: "Creature — Elf", power: 1, toughness: 1 }),
+      controller: "user",
+      summoningSick: false,
+    });
+    let state = makeState({ phase: "combat", step: "declare-attackers", activePlayer: "user" });
+    state.players.user.battlefield = [bear];
+    const actions = [
+      { kind: "declare-attacker", playerId: "user", permanentId: bear.id, name: "Llanowar Elves" },
+      { kind: "pass-priority", playerId: "user" },
+    ];
+    const decision = makeDecision(state, "user", actions, { difficulty: "intermediate" });
+    expect(decision.kind).toBe("auto-decided");
+    expect(decision.action.kind).toBe("declare-attacker");
+    expect(decision.metadata.reasoning).toBe("intermediate-auto-attack");
+  });
+
+  it("asks with trap warning when opponent has lethal counter-swing", () => {
+    const userBear = createPermanent({
+      card: makeCard({ name: "Llanowar Elves", type: "Creature — Elf", power: 1, toughness: 1 }),
+      controller: "user",
+      summoningSick: false,
+    });
+    const fattie = createPermanent({
+      card: makeCard({ name: "Skyship", type: "Creature — Beast", power: 20, toughness: 4 }),
+      controller: "ai",
+      summoningSick: false,
+    });
+    let state = makeState({ phase: "combat", step: "declare-attackers", activePlayer: "user" });
+    state.players.user.battlefield = [userBear];
+    state.players.user.life = 5;
+    state.players.ai.battlefield = [fattie];
+    const actions = [
+      { kind: "declare-attacker", playerId: "user", permanentId: userBear.id, name: "Llanowar Elves" },
+      { kind: "pass-priority", playerId: "user" },
+    ];
+    const decision = makeDecision(state, "user", actions, { difficulty: "intermediate" });
+    expect(decision.kind).toBe("ask");
+    expect(decision.metadata.reasoning).toBe("intermediate-attack-trap");
+    expect(decision.metadata.traps.length).toBeGreaterThan(0);
+    expect(decision.prompt).toContain("Stop");
+    expect(decision.prompt).toContain("lethal");
+  });
 });
 
 describe("makeDecision — Expert mode", () => {
@@ -278,6 +324,39 @@ describe("narrator — narrateAction", () => {
     const action = { kind: "weird-action", name: "Something" };
     const text = narrateAction(action, makeState());
     expect(text).toContain("Something");
+  });
+});
+
+describe("narrator — narrateAttackTrap", () => {
+  it("returns empty string for empty trap list", () => {
+    expect(narrateAttackTrap([])).toBe("");
+    expect(narrateAttackTrap(null)).toBe("");
+    expect(narrateAttackTrap(undefined)).toBe("");
+  });
+
+  it("uses 'Stop.' lead when any trap is danger severity", () => {
+    const text = narrateAttackTrap([
+      { type: "counter-attack-lethal", severity: "danger", message: "Lethal swing-back." },
+    ]);
+    expect(text.startsWith("Stop")).toBe(true);
+    expect(text).toContain("Lethal swing-back.");
+  });
+
+  it("uses 'Heads up' lead when only warn-level traps", () => {
+    const text = narrateAttackTrap([
+      { type: "instant-speed-response", severity: "warn", message: "Open mana." },
+    ]);
+    expect(text.startsWith("Heads up")).toBe(true);
+    expect(text).toContain("Open mana.");
+  });
+
+  it("renders each trap as a bullet line", () => {
+    const text = narrateAttackTrap([
+      { type: "counter-attack-lethal", severity: "danger", message: "Trap A." },
+      { type: "instant-speed-response", severity: "warn", message: "Trap B." },
+    ]);
+    expect(text).toContain("• Trap A.");
+    expect(text).toContain("• Trap B.");
   });
 });
 
