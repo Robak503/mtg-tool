@@ -1,0 +1,389 @@
+"use client";
+
+/**
+ * CollectionImportModal — Deckbox / Moxfield CSV bulk import.
+ *
+ * Flow: pick a CSV file → preview (POST { csv }) → review matched +
+ * unmatched + errors → click Import → commit (POST { rows }) → close +
+ * onAdded(updated collection).
+ *
+ * v1 unmatched UX: list of unresolved entries with their source line +
+ * name. No inline resolution picker yet (Step 9.1 follow-up). Users
+ * can re-import after fixing the source CSV, or add unmatched cards
+ * manually via the search modal.
+ */
+
+import { useRef, useState } from "react";
+
+export default function CollectionImportModal({ onClose, onAdded, colors }) {
+  const fileRef = useRef(null);
+  const [phase, setPhase] = useState("pick"); // pick | preview | committing | done
+  const [filename, setFilename] = useState("");
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState(null);
+
+  const pickFile = () => fileRef.current?.click();
+
+  const onFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFilename(file.name);
+    setError(null);
+    setPhase("preview");
+    try {
+      const csv = await file.text();
+      const resp = await fetch("/api/collection/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv }),
+      });
+      const body = await resp.json();
+      if (!resp.ok) {
+        setError(body.error || `Preview failed (${resp.status})`);
+        setPhase("pick");
+        return;
+      }
+      setPreview(body);
+    } catch (e) {
+      setError(e.message);
+      setPhase("pick");
+    } finally {
+      // Allow re-picking the same file (browsers swallow change events for same value).
+      e.target.value = "";
+    }
+  };
+
+  const commit = async () => {
+    if (!preview?.matched?.length) return;
+    setPhase("committing");
+    setError(null);
+    try {
+      const rows = preview.matched.map(m => m.row);
+      const resp = await fetch("/api/collection/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      });
+      const body = await resp.json();
+      if (!resp.ok) {
+        setError(body.error || `Import failed (${resp.status})`);
+        setPhase("preview");
+        return;
+      }
+      onAdded?.(body.collection);
+      setPhase("done");
+      // Close shortly after showing the success summary
+      setTimeout(() => onClose?.(), 800);
+    } catch (e) {
+      setError(e.message);
+      setPhase("preview");
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.7)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 100,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: 560,
+          maxWidth: "calc(100vw - 40px)",
+          maxHeight: "calc(100vh - 80px)",
+          background: colors.BG2,
+          border: `1px solid ${colors.LINE}`,
+          borderRadius: 8,
+          display: "flex",
+          flexDirection: "column",
+          color: colors.TEXT,
+          fontFamily: "inherit",
+        }}
+      >
+        <header style={{
+          padding: "14px 18px",
+          borderBottom: `1px solid ${colors.LINE}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}>
+          <div style={{ fontSize: 14, color: colors.TEXT, fontWeight: 500 }}>
+            Import collection
+          </div>
+          <button onClick={onClose} style={iconBtn(colors)} aria-label="Close">×</button>
+        </header>
+
+        <div style={{ padding: 18, overflowY: "auto", flex: 1 }}>
+          {phase === "pick" && (
+            <PickPanel onPickFile={pickFile} colors={colors} />
+          )}
+
+          {phase === "preview" && !preview && (
+            <div style={{ padding: "16px 0", color: colors.MUTED, fontSize: 13, textAlign: "center" }}>
+              Parsing {filename}...
+            </div>
+          )}
+
+          {phase === "preview" && preview && (
+            <PreviewPanel
+              preview={preview}
+              filename={filename}
+              colors={colors}
+            />
+          )}
+
+          {phase === "committing" && (
+            <div style={{ padding: "16px 0", color: colors.MUTED, fontSize: 13, textAlign: "center" }}>
+              Importing {preview?.matched?.length || 0} cards...
+            </div>
+          )}
+
+          {phase === "done" && (
+            <div style={{ padding: "16px 0", color: colors.GOLD, fontSize: 14, textAlign: "center" }}>
+              ✓ Imported {preview?.matched?.length || 0} cards.
+            </div>
+          )}
+
+          {error && (
+            <div style={errorBox(colors)}>{error}</div>
+          )}
+        </div>
+
+        <footer style={{
+          padding: "12px 16px",
+          borderTop: `1px solid ${colors.LINE}`,
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+        }}>
+          <button onClick={onClose} style={btn(colors)}>
+            {phase === "done" ? "Close" : "Cancel"}
+          </button>
+          {phase === "preview" && preview?.matched?.length > 0 && (
+            <button onClick={commit} style={primary(colors)}>
+              Import {preview.matched.length} matched cards
+            </button>
+          )}
+        </footer>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={onFileChange}
+          style={{ display: "none" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PickPanel({ onPickFile, colors }) {
+  return (
+    <div style={{ textAlign: "center", padding: "20px 0" }}>
+      <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.4 }}>📥</div>
+      <div style={{ fontSize: 14, color: colors.TEXT, marginBottom: 8 }}>
+        Import a CSV from Deckbox or Moxfield
+      </div>
+      <div style={{ fontSize: 12, color: colors.MUTED, marginBottom: 16, lineHeight: 1.5, maxWidth: 400, margin: "0 auto 16px" }}>
+        Both export formats are auto-detected. Cards matched to the bundled
+        Scryfall data import directly; unmatched cards are listed for review.
+      </div>
+      <button onClick={onPickFile} style={{
+        background: colors.GOLD,
+        color: colors.BG,
+        border: "none",
+        padding: "10px 20px",
+        borderRadius: 4,
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: "pointer",
+        fontFamily: "inherit",
+      }}>
+        Choose CSV file
+      </button>
+    </div>
+  );
+}
+
+function PreviewPanel({ preview, filename, colors }) {
+  const matched = preview.matched || [];
+  const unmatched = preview.unmatched || [];
+  const errors = preview.errors || [];
+  const formatLabel = preview.format === "unknown"
+    ? "Unknown format"
+    : preview.format.charAt(0).toUpperCase() + preview.format.slice(1);
+
+  return (
+    <div>
+      <div style={{
+        background: colors.BG3,
+        border: `1px solid ${colors.LINE}`,
+        borderRadius: 4,
+        padding: "10px 14px",
+        marginBottom: 16,
+      }}>
+        <div style={{ fontSize: 12, color: colors.MUTED, marginBottom: 4 }}>
+          {filename} · {formatLabel}
+        </div>
+        <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
+          <Stat label="Matched" value={matched.length} color={colors.GOLD} />
+          <Stat label="Unmatched" value={unmatched.length} color={unmatched.length > 0 ? colors.RED : colors.MUTED} />
+          <Stat label="Errors" value={errors.length} color={errors.length > 0 ? colors.RED : colors.MUTED} />
+        </div>
+      </div>
+
+      {preview.warning && (
+        <div style={{
+          padding: "10px 14px",
+          background: "#3a2820",
+          color: "#f4d2a1",
+          borderRadius: 4,
+          fontSize: 12,
+          marginBottom: 16,
+        }}>
+          ⚠ {preview.warning}
+        </div>
+      )}
+
+      {unmatched.length > 0 && (
+        <details open style={{ marginBottom: 12 }}>
+          <summary style={{ fontSize: 12, color: colors.MUTED, cursor: "pointer", marginBottom: 8 }}>
+            Unmatched ({unmatched.length})
+          </summary>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, maxHeight: 200, overflowY: "auto" }}>
+            {unmatched.slice(0, 50).map((u, i) => (
+              <li key={i} style={{
+                fontSize: 12,
+                padding: "4px 10px",
+                color: colors.TEXT,
+                borderBottom: `1px solid ${colors.LINE}`,
+                display: "flex",
+                justifyContent: "space-between",
+              }}>
+                <span>{u.name}</span>
+                <span style={{ color: colors.MUTED, fontSize: 11 }}>
+                  {u.setCode && `${u.setCode} · `}line {u.sourceLineNumber}
+                </span>
+              </li>
+            ))}
+            {unmatched.length > 50 && (
+              <li style={{ fontSize: 11, color: colors.MUTED, padding: "6px 10px" }}>
+                ...and {unmatched.length - 50} more.
+              </li>
+            )}
+          </ul>
+        </details>
+      )}
+
+      {errors.length > 0 && (
+        <details style={{ marginBottom: 12 }}>
+          <summary style={{ fontSize: 12, color: colors.MUTED, cursor: "pointer", marginBottom: 8 }}>
+            Parse errors ({errors.length})
+          </summary>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, maxHeight: 160, overflowY: "auto" }}>
+            {errors.slice(0, 30).map((e, i) => (
+              <li key={i} style={{
+                fontSize: 12,
+                padding: "4px 10px",
+                color: colors.TEXT,
+                borderBottom: `1px solid ${colors.LINE}`,
+              }}>
+                Line {e.line}: {e.message}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {matched.length > 0 && (
+        <details>
+          <summary style={{ fontSize: 12, color: colors.MUTED, cursor: "pointer", marginBottom: 8 }}>
+            Matched preview ({matched.length})
+          </summary>
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, maxHeight: 200, overflowY: "auto" }}>
+            {matched.slice(0, 50).map((m, i) => (
+              <li key={i} style={{
+                fontSize: 12,
+                padding: "4px 10px",
+                color: colors.TEXT,
+                borderBottom: `1px solid ${colors.LINE}`,
+                display: "flex",
+                justifyContent: "space-between",
+              }}>
+                <span>{m.row.name}</span>
+                <span style={{ color: colors.MUTED, fontSize: 11 }}>
+                  {m.row.setCode?.toUpperCase()} · ×{m.row.stacks[0]?.quantity || 1} {m.row.stacks[0]?.finish !== "nonfoil" ? `(${m.row.stacks[0]?.finish})` : ""}
+                </span>
+              </li>
+            ))}
+            {matched.length > 50 && (
+              <li style={{ fontSize: 11, color: colors.MUTED, padding: "6px 10px" }}>
+                ...and {matched.length - 50} more.
+              </li>
+            )}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, color }) {
+  return (
+    <div>
+      <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+        {label}{" "}
+      </span>
+      <span style={{ color, fontWeight: 600 }}>{value}</span>
+    </div>
+  );
+}
+
+function btn(colors) {
+  return {
+    background: "transparent",
+    border: `1px solid ${colors.LINE}`,
+    color: colors.TEXT,
+    padding: "6px 14px",
+    borderRadius: 4,
+    fontSize: 13,
+    cursor: "pointer",
+    fontFamily: "inherit",
+  };
+}
+function primary(colors) {
+  return { ...btn(colors), background: colors.GOLD, color: colors.BG, borderColor: colors.GOLD, fontWeight: 600 };
+}
+function iconBtn(colors) {
+  return {
+    background: "none",
+    border: "none",
+    color: colors.MUTED,
+    padding: 2,
+    cursor: "pointer",
+    fontSize: 20,
+    width: 24,
+    height: 24,
+    lineHeight: 1,
+  };
+}
+function errorBox(colors) {
+  return {
+    padding: "10px 12px",
+    background: "#3a2020",
+    border: `1px solid ${colors.RED}`,
+    borderRadius: 4,
+    color: "#f4b8b6",
+    fontSize: 12,
+    marginTop: 12,
+  };
+}

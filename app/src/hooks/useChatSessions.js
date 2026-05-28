@@ -19,6 +19,7 @@ import {
   shouldUseDeckScopedContext,
   shouldUseEngineContext,
 } from "../lib/deckContextBuilder";
+import { fetchCollectionContextBlock } from "../lib/collectionContextBuilder";
 import { serializeDeck, serializeDeckMemory } from "../lib/deckMemory";
 import {
   buildCardContext,
@@ -354,6 +355,17 @@ export default function useChatSessions({
         } catch {
           // Insights are advisory; never block the chat request.
         }
+      }
+
+      // Inject COLLECTION SUMMARY for Karn (deck-analysis) and Jace (on
+      // collection-intent prompts). Gated inside collectionContextBuilder
+      // to keep token usage under control (≤400 token target). Tibalt
+      // gets the dedicated /api/tibalt/roast-collection endpoint instead
+      // of generic chat injection — collection roasts need outlier data
+      // that doesn't belong in every chat turn.
+      if (["karn", "jace"].includes(targetAgent)) {
+        const collectionBlock = await fetchCollectionContextBlock(targetAgent, prompt);
+        if (collectionBlock) systemPrompt += `\n\n${collectionBlock}`;
       }
 
       if (targetAgent === "karn" && /\b(cut|cuts|remove|trim)\b/i.test(prompt)) {

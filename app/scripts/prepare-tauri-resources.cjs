@@ -132,6 +132,7 @@ const dataFiles = [
   // and unique_artwork are bundled for future alt-art / set-info features
   // (~755 MB combined, but installer LZMA brings it way down)
   ["data/scryfall-bulk/oracle-index.json",     "slim card index — preferred at runtime"],
+  ["data/scryfall-bulk/printings-index.json",  "slim per-printing index — Collection feature lookups"],
   ["data/scryfall-bulk/oracle_cards.json",     "full Scryfall bulk Oracle data"],
   ["data/scryfall-bulk/default_cards.json",    "one printing per card with set codes, prices, alt-art metadata"],
   ["data/scryfall-bulk/unique_artwork.json",   "every distinct artwork — needed for alt-art browsing"],
@@ -181,6 +182,7 @@ const syncScripts = [
   "sync-edhrec-salt.cjs",
   "sync-scryfall-oracle.cjs",
   "build-oracle-index.cjs",
+  "build-collection-printings-index.cjs",
   "build-rules-index.cjs",
 ];
 for (const name of syncScripts) {

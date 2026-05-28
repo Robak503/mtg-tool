@@ -98,6 +98,17 @@ export default function Sidebar({
       </div>
 
       <div>
+        <div style={{fontSize:9,color:MUTED,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:6}}>Library</div>
+        <button
+          style={{width:"100%",padding:"8px 10px",marginBottom:5,borderRadius:6,border:`1px solid ${LINE}`,background:"transparent",color:MUTED,cursor:"pointer",textAlign:"left",fontFamily,display:"flex",alignItems:"center",gap:8}}
+          onClick={()=>{setCenterView("collection");if(mobile)setMobileTab("chat");}}
+        >
+          <span style={{fontSize:16}}>📚</span>
+          <div><div style={{fontSize:13,fontWeight:700}}>Collection</div><div style={{fontSize:10,opacity:.65}}>What you own</div></div>
+        </button>
+      </div>
+
+      <div>
         <div style={{fontSize:9,color:MUTED,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:6}}>Saved Decks</div>
         <input
           value={libraryQuery}

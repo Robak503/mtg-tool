@@ -26,6 +26,7 @@ import ChatPanel from "./mtg/ChatPanel";
 import SessionSidebar from "./mtg/SessionSidebar";
 import FeedbackButton from "./mtg/FeedbackButton";
 import LearnView from "./mtg/LearnView";
+import CollectionView from "./mtg/CollectionView";
 import UpdatesModal from "./UpdatesModal";
 
 export default function MTGAssistant() {
@@ -1050,6 +1051,8 @@ export default function MTGAssistant() {
                 colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD}}
                 fontFamily={F}
               />
+            ):centerView==="collection"?(
+              <CollectionView />
             ):(
               <ChatPanel
                 activeDeck={activeDeck}
