@@ -68,8 +68,12 @@ const overrideConfig = JSON.stringify({
 });
 
 const args = ["tauri", "build", "--config", overrideConfig];
-const proc = spawn(process.platform === "win32" ? "npx.cmd" : "npx", args, {
+// On Windows, npx is a .cmd shim — Node's spawn refuses to run .cmd
+// files without shell:true. Setting shell:true makes spawn invoke
+// cmd.exe under the hood, which handles the .cmd lookup correctly.
+const proc = spawn("npx", args, {
   stdio: "inherit",
+  shell: process.platform === "win32",
   env: { ...process.env, ...signingEnv },
 });
 
