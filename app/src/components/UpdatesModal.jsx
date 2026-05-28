@@ -434,6 +434,50 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
           </div>
         </div>
 
+        {/* Silent auto-install toggle — opt-in. When enabled, the
+            background update check skips the banner and installs the
+            new version immediately on launch. Useful for the developer
+            and any pod member who wants zero-touch updates. */}
+        {autostart.available && (
+          <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, color: "#e0e0e0" }}>Auto-install updates on launch</div>
+              <div style={{ fontSize: 11, color: "#7a7a7a", marginTop: 2 }}>
+                {(() => {
+                  let on = false;
+                  try { on = localStorage.getItem("mtg-auto-install-updates") === "1"; } catch {}
+                  return on
+                    ? "Enabled — new releases install silently the moment you open the app."
+                    : "Disabled — you'll see a banner and click Install yourself.";
+                })()}
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                try {
+                  const cur = localStorage.getItem("mtg-auto-install-updates") === "1";
+                  localStorage.setItem("mtg-auto-install-updates", cur ? "0" : "1");
+                } catch {}
+                // Force a re-render
+                setAppUpdate((prev) => ({ ...prev }));
+              }}
+              style={{
+                background: (() => {
+                  try { return localStorage.getItem("mtg-auto-install-updates") === "1" ? "#244a7a" : "transparent"; } catch { return "transparent"; }
+                })(),
+                border: `1px solid ${LINE || "#3a3640"}`,
+                color: "#e0e0e0", cursor: "pointer",
+                fontSize: 11, padding: "4px 14px", borderRadius: 4, fontFamily: F,
+                minWidth: 80,
+              }}
+            >
+              {(() => {
+                try { return localStorage.getItem("mtg-auto-install-updates") === "1" ? "Enabled" : "Enable"; } catch { return "Enable"; }
+              })()}
+            </button>
+          </div>
+        )}
+
         {/* Autostart toggle — only shown when running inside Tauri */}
         {autostart.available && (
           <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
