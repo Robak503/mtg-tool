@@ -1,8 +1,9 @@
 # Production Cleanup Plan
 
-> **Status:** In progress — Phases A, B, C1, C3, and D2 merged (10 PRs, CI green).
-> The heaviest items (the `knowledge/` rename and the Phase E refactors) are paused
-> for a fresh session. See **Progress** below for exactly what's done and what's next.
+> **Status:** In progress — Phases A, B, C1, C3, D2, the full code-review fix tier,
+> and the first E1 test safety nets are merged (CI green throughout). What remains is
+> either **verification-gated** (needs a running `.exe`/webview to confirm safely) or
+> the larger **Phase E** refactors. See **Progress** below for exactly what's done and next.
 > **Mode:** Researched read-only while other sessions were active; execution happens
 > against a clean tree (see [Execution sequencing](#execution-sequencing)).
 > **Delivery:** Incremental pull requests, one per area, each verified with
@@ -14,25 +15,40 @@ Last updated: 2026-05-29.
 
 ## Progress
 
-**Merged (10 PRs, CI green throughout):**
+**Merged — Phases A–D (initial cleanup, CI green throughout):**
 - **Phase A** — engine `TOOL_ROOT` 500 + `spellbook`/`edhrec` `__dirname` packaging bugs, with tests.
 - **B1** — archived 19 root scratch docs; deleted the dead `mtg-judge/MTGAssistant.jsx` orphan + a `.bak`.
 - **B2** — source-available `LICENSE`; reconciled the licensing contradiction.
 - **B3** — README overhauled for outsiders (desktop build path); retired stale `app/README`.
 - **B4** — `.gitattributes`, `CONTRIBUTING`, `ARCHITECTURE`, `SECURITY`, `CHANGELOG`.
-- **Test health** — fixed the `collectionCsvImport.test.js` leak that hung the whole suite (now 636 tests in ~2s).
+- **Test health** — fixed the `collectionCsvImport.test.js` leak that hung the whole suite.
 - **C3** — CI gate: `ci.yml` runs lint + tests on push/PR; `release.yml` gated on a green suite.
 - **C1** — ESLint + Prettier + knip; lint wired into CI (0 errors, ~60 tracked warnings).
 - **CI fix** — extracted `findOllamaBinary` to `lib/server/ollamaBinary.js`; made `ollama-health` test hermetic.
 - **D2** — corrected stale "Electron" doc references to the Tauri shell.
+- **Version** — reconciled the app to 0.3.0 (`package.json`, `tauri.conf.json`, dated `CHANGELOG`).
 
-**Remaining (paused — resume here):**
+**Merged — code-review fix tier (solo, v0.3.0; a fresh 3-pass review then fixes, CI green):**
+- **Deck-store integrity** — `/api/decks` writes atomically (unique temp + rename), recovers a corrupt `decks.local.json` (backs it up, starts empty) instead of 500-ing, and serializes writes through a promise-chain so concurrent saves can't lose updates; added route tests.
+- **Never-fabricate guard** — `stripHallucinatedCitations` now removes/records any non-allowed citation instead of silently rewriting it (+test). A separate test locks the **Arbiter Ollama-only invariant** (must never call Anthropic regardless of UI tier).
+- **Resilient data loaders** — new `jsonFile.readJsonOrNull`; `cardIndex`/`edhrecSalt`/`printingIndex`/`rulesRetrieval` degrade one corrupt reference file to a single disabled feature instead of crashing the app.
+- **Store write concurrency** — `chats.local.json` uses a unique temp name per write; all `collection.json` mutators (`POST`/`DELETE`/`[id] PATCH`/`[id] DELETE`/`import` commit) serialize through a shared `withCollectionLock` mutex with a concurrency regression test.
+- **Supply chain** — `download-portable-node.cjs` verifies the Node archive against the official `SHASUMS256.txt` before extracting, so a tampered binary can't be bundled into the signed `.exe`.
+- **Largest-module coverage** — `powerRanker.js` (~1165 lines) gets its first tests (deterministic first-launch degradation, classification, formatter contract).
+- **Docs** — archived the frozen first-run `AUDIT.md` to `docs/archive/` and fixed its references.
+
+**Remaining — headless-doable (no running app required):**
 - **C2** — git hooks (commitlint + simple-git-hooks + lint-staged).
-- **C4** — Rust rustfmt + clippy + cargo-audit (wire into CI).
-- **D1** — normalize npm script names to `verb:noun`.
+- **C4** — Rust rustfmt + clippy + cargo-audit, wired into CI. *(compile-heavy)*
+- **D1** — normalize npm script names to `verb:noun`. *(touches CI + docs refs)*
 - **D3** — disambiguate duplicate fn names (`searchCards`, `detectCardNamesInText`, `normalizeName`).
-- **D4** — consolidate data dirs under `knowledge/` (renames `MTG ENGINE/`; touches the signed `.exe` build — verify with `npm run tauri:build`).
-- **E1–E6** — add `powerRanker` + rules-retrieval tests; shared `theme.js`/`styleHelpers`/`<Modal>`; decompose `MTGAssistant.jsx` + `FeedbackButton.jsx`; split `agents.js`/`powerRanker.js`/`lib.rs`; dedupe backend helpers + card-context builders; frontend dead-code cleanup.
+- **E1 (rest)** — rules-retrieval tests + ~8 route smoke tests. (`powerRanker` + Arbiter invariant already done above.)
+- **E2–E6** — shared `theme.js`/`styleHelpers`/`<Modal>`; decompose `MTGAssistant.jsx` + `FeedbackButton.jsx`; split `agents.js`/`powerRanker.js`/`lib.rs`; dedupe backend helpers + card-context builders; frontend dead-code cleanup. *(largest; gated behind the E1 safety net)*
+
+**Remaining — verification-gated (need a running `.exe`/webview to confirm safely):**
+- **D4** — consolidate data dirs under `knowledge/` (renames `MTG ENGINE/`); touches the signed `.exe` build — verify with `npm run tauri:build`.
+- **CSP** — add a webview Content-Security-Policy; a bad CSP blanks the app, so it must be checked against a running build.
+- **Local-first art** — proxy the remaining card-art fetches (hover tooltip, search preview, add-modal) through `/api/art-crop`; webview-rendering, needs a running app.
 - **Deferred** — run the `/health` + `/cso` baseline.
 
 The detailed PR-by-PR breakdown is in the sections below.
