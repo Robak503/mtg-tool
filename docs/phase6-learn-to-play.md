@@ -45,28 +45,45 @@ The existing /qa and goldfish surfaces score the deck. This phase
 ## 2. Scope boundaries
 
 ### In scope (Phase 6 v1)
-- Single-deck "solitaire" mode: user pilots their deck against a fixed
-  AI-piloted opponent deck. Turns alternate, agent narrates per
-  difficulty level.
+- **Two play modes** (the only formats the owner and his pod use):
+  - **Standard (1v1)** — user pilots their deck against a single
+    AI-piloted opponent. The original "solitaire" framing; everything
+    PRs 1-7 shipped against. Turns alternate.
+  - **Commander (4P FFA)** — user pilots their deck against three
+    AI-piloted opponents in a free-for-all. Turns rotate clockwise
+    (user → ai1 → ai2 → ai3 → user). Attackers choose which
+    opponent to attack. The mode the owner actually plays — the
+    primary use case for the learn tool going forward.
 - Three difficulty levels with explicit curriculum specs (below).
+  Difficulty applies the same way in both modes.
 - Rules-accurate execution via Arbiter — every trigger, SBA, priority
   window, replacement effect surfaces as a discrete decision point.
 - Game-state model: zones (library, hand, battlefield, graveyard, exile,
   command, stack), per-player life + commander damage + mana pools +
   poison + experience counters + monarch + initiative, the stack with
   ordered objects + targets, the active player and priority holder, the
-  current phase/step.
+  current phase/step. Player set is `{user, ai}` in Standard or
+  `{user, ai1, ai2, ai3}` in Commander; the engine reads
+  `Object.keys(state.players)` rather than hardcoding the two.
 - Save learning sessions: same shape as `data/games/` but tagged
-  `mode: "learn"` with difficulty, mistakes-made, hints-shown,
-  duration, opponent-deck.
+  `mode: "learn"` with difficulty, format (`standard`/`commander`),
+  mistakes-made, hints-shown, duration, opponent-deck(s).
 - Surface "you keep missing X" insights via the same
   `gameInsights.js` style helper, scoped to learning runs.
 - Jace voice for explanations (CLAUDE.md §6); Arbiter for rules
   citations.
 
 ### NOT in scope (defer to Phase 6.5+ or later)
-- Multiplayer (3-player or 4-player Commander). Solitaire only for v1.
+- 5-player or 6-player Commander, two-headed-giant, Brawl, Standard
+  60-card, or any non-Commander format. Owner only plays 1v1 and
+  4P FFA.
 - Opponent deck-building UI. Use existing saved decks as opponents.
+  In Commander, pick 3 of your saved decks per session (default
+  pod model — see §11.4).
+- Politics modeling beyond mechanical play. Engine doesn't track
+  "deals," kingmaker awareness, or threat negotiation. The AI plays
+  each opponent to maximize their own win probability against the
+  field; emergent kingmaker scenarios are fine but unplanned.
 - Complex effects that would require full MTG engine fidelity
   (replacement effects stacking, copies of triggered abilities, Cascade
   vs Discover, time-walks). v1 punts on edge cases by surfacing
@@ -329,19 +346,20 @@ real cards from the user's actual decks.
 
 ## 6. Open questions
 
-These need user input before implementation starts:
+Resolved during the v2 design pass (2026-05-28):
 
-1. **Opponent deck.** Static fixed deck (e.g. precon) or rotates through
-   saved decks? Recommend: pick from saved decks at session start, so
-   the user trains against their actual playgroup's archetypes.
-2. **Difficulty switching mid-game.** Allowed? Recommend: no, lock
-   difficulty at session start. Restart for a new level.
-3. **Save outcome to deck memory?** Should "won 3 of last 5 learn
-   sessions with Atraxa" appear in DeckView? Recommend: yes, alongside
-   goldfish runs.
-4. **Cards engine doesn't understand.** When Arbiter says "unresolved"
-   on a card's ability, default behavior? Recommend: pause and ask the
-   user to manually resolve, log it, and continue. Build the
+1. **Opponent deck.** Resolved: pick from saved decks at session start.
+   In Standard mode the user picks one opponent; in Commander mode
+   the user picks three. (See §11.4 for the persistent-pod alternative
+   we may layer later.)
+2. **Difficulty switching mid-game.** Resolved: no. Difficulty locks
+   at session start; restart for a different level.
+3. **Save outcome to deck memory?** Resolved: yes. "Won 3 of last 5
+   Commander learn runs with Atraxa" surfaces in DeckView alongside
+   goldfish stats. Format-tagged so Standard and Commander histories
+   stay separable.
+4. **Cards engine doesn't understand.** Resolved: pause and ask the
+   user to manually resolve, log it, continue. Build the
    unresolved-card pattern library over time.
 
 ---
@@ -349,12 +367,15 @@ These need user input before implementation starts:
 ## 7. Success criteria
 
 Phase 6 v1 ships when:
-- A user can pick a deck, pick an opponent deck, pick a difficulty, and
-  play a full 6-12 turn solitaire game with narration.
-- All three difficulty levels are playable end-to-end.
+- A user can pick a deck, pick a format (**Standard** or **Commander**),
+  pick the opponent deck(s), pick a difficulty, and play a full game
+  with narration through to a winner.
+- Both Standard (1v1) and Commander (4P FFA) are playable end-to-end
+  at all three difficulty levels.
 - Learning sessions persist to `data/learn-sessions/` and surface in
   insights ("you've abandoned 4 of 5 Beginner runs at the combat
-  step — try Intermediate?").
+  step — try Intermediate?"). Format and per-opponent breakdowns
+  surface in Commander mode.
 - Arbiter is consulted for rules questions; the engine doesn't fake
   rulings.
 - Zero Anthropic calls in normal operation (CLAUDE.md prime
@@ -372,7 +393,9 @@ What this phase explicitly does NOT do:
 - It is not a deck builder. Use existing tools.
 - It is not a card database. Cards come from existing
   `cardIndex.js` and Scryfall fallback.
-- It is not multiplayer. Solitaire only for v1.
+- It is not a format generalizer. Only Standard (1v1) and Commander
+  (4P FFA) ship; no 5/6-player, no two-headed giant, no Brawl, no
+  60-card. See §2 NOT-in-scope.
 
 ---
 
@@ -389,3 +412,146 @@ Before starting Phase 6 implementation, the next session should:
 6. PR1: gameState + tests
 
 See you on the other side.
+
+---
+
+## 11. Commander (4P FFA) expansion — design pass v2
+
+**Added 2026-05-28** after the owner confirmed that 4-player Commander
+is the format he and his pod actually play. PRs 1-7 shipped against
+Standard (1v1); this section specifies how the foundation extends to
+Commander mode without rebuilding it.
+
+### 11.1 Two-mode framing
+
+The engine supports exactly two formats — **Standard (1v1)** and
+**Commander (4P FFA)**. Format is a session-level config; both share
+the same gameState shape, turn machine, action dispatcher, and
+narrator templates. The only difference is the number of players and
+a handful of helpers that need to fan out across opponents.
+
+The trap to avoid: building an "N-player abstract" engine that can
+support 3-player, 5-player, two-headed giant, etc. The owner doesn't
+play any of those — generality there is wasted work and surface area.
+The codepaths fork at 2 vs 4, nowhere else.
+
+### 11.2 Data-model changes
+
+| Before (Standard-only)              | After (both modes)                         |
+|-------------------------------------|---------------------------------------------|
+| `state.players: { user, ai }`       | `state.players: { user, ai } \|`           |
+|                                     | `{ user, ai1, ai2, ai3 }`                  |
+| `opponentOf(playerId)` → string     | `opponentsOf(playerId)` → string[]         |
+| Implicit `activePlayer`              | Same                                       |
+| Implicit defender in combat          | `declare-attacker` action gains            |
+|                                      | `defenderId` (auto-filled in Standard)     |
+| n/a                                  | `state.mode: "standard" \| "commander"`    |
+| n/a                                  | `state.turnOrder: string[]` (rotation)     |
+
+Standard mode keeps `{user, ai}` keys exactly as today — the existing
+~250 tests don't shift. Commander mode adds `ai1/ai2/ai3` keys and
+the engine just iterates `Object.keys(state.players)` everywhere it
+used to hardcode the two.
+
+### 11.3 Turn rotation
+
+Standard: alternating user ↔ ai (unchanged).
+Commander: user → ai1 → ai2 → ai3 → user, with `state.turnOrder`
+holding the rotation array so the engine can advance via
+`turnOrder[(idx + 1) % turnOrder.length]`. Custom seating order is
+out of scope for v1 — the array is built deterministically from the
+session-start order.
+
+### 11.4 Pod model (opponent selection)
+
+**Default (v1):** at session start the user picks 3 of their saved
+decks as the three AI opponents. Maximum realism — the owner trains
+against his actual pod. Per-opponent archetype detection picks the
+playstyle for each.
+
+**Future option (post v1):** persistent "my pod" config — the user
+configures their 3 default opponent decks once via a Settings panel;
+every Commander session uses them unless overridden. Saves three
+deck-picker clicks per session for the common case where the pod is
+stable. Layer this after the per-session flow is shipped and
+validated.
+
+**Not building:** generic-archetype opponents (e.g. "Aggro / Control /
+Combo"). The owner specifically wants pod-archetype mimicry, not
+category stress-testing. If that gap surfaces later we revisit.
+
+### 11.5 Multi-defender combat
+
+In Commander, declaring an attacker now requires picking which of
+the three opponents that attacker is targeting (CR 506.2). Engine
+changes:
+
+- `declare-attacker` action's payload gains `defenderId: PlayerId`.
+- In Standard the dispatcher auto-fills `defenderId` to the lone
+  opponent — calling sites can keep emitting the action without
+  `defenderId` and the engine fills it in.
+- In Commander the decisionGate surfaces defender choice as part of
+  the action's option set: each attacker contributes N declare-attacker
+  actions (one per legal defender) rather than one.
+- The opponentAI picks defender heuristically: lowest-life opponent
+  by default; ties broken by who has fewer untapped blockers.
+- The trap detector's "counter-attack lethal" check extends to ALL
+  opponents: even if the player you attacked can't lethal you back,
+  another opponent at the table might. The warning now reads "after
+  this attack, ai2 has enough on board to lethal you" with
+  ai2-specific detail.
+
+### 11.6 AI opponents
+
+Each AI opponent runs its own `pickAction` via `opponentAI` with its
+own archetype detection over its own deck. So a `Krenko aggro` deck
+sat next to a `Sheoldred control` deck behaves like both decks at
+once — no shared global archetype. `pickAction(state, "ai2", ...)`
+just reads `state.players.ai2.battlefield` and so on.
+
+Multi-AI orchestration: when an opponent's turn comes up, the
+session loop runs that opponent's full turn (all priority windows,
+combat, etc.) via the existing engine. No multi-AI deadlocks because
+priority is sequential by definition — only one AI is "thinking" at
+a time.
+
+### 11.7 PR sequence
+
+Each PR is shippable independently against the existing user-facing
+Standard mode. The user can keep using Standard 1v1 throughout, and
+Commander mode lights up at PR 11.
+
+1. **PR 8 — Engine refactor.** Introduces `state.mode`,
+   `opponentsOf()`, `turnOrder[]`. Standard tests stay green; no
+   user-visible change. Pure data-model shift.
+2. **PR 9 — Commander session start + turn rotation.**
+   `createLearnSession({ mode: "commander", opponentDecks: [d1,d2,d3] })`.
+   Engine seeds 4 opening hands, rotates turns, all three AIs play
+   their main phase + combat coherently.
+3. **PR 10 — Multi-defender combat.** `declare-attacker` payload
+   carries `defenderId`. Trap detector + narrator extend to "which
+   opponent could swing back lethal."
+4. **PR 11 — LearnView 4P layout.** Three opponent strips in the UI,
+   each showing name + life + commander damage from you + hand count
+   + board count. Defender-pick prompt in combat decisions.
+5. **PR 12 — Expert mode + post-game analysis.** The original PR 8
+   from §5, now layered on the 4P engine. Silent autopilot in both
+   modes; post-game analysis surfaces missed-line detection and
+   per-opponent breakdowns in Commander.
+6. **PR 13 — Learn-session persistence (4P-aware).** `data/learn-sessions/`
+   tags each entry with `format: "standard" | "commander"` and an
+   `opponents: PlayerSummary[]` array. Insights render per-format.
+
+PR 7 (Intermediate trap warnings) already shipped — its trap
+detector is Standard-mode-aware and gets extended in PR 10.
+
+### 11.8 What this section does NOT change
+
+- The difficulty curriculum in §3 stays unchanged. Beginner /
+  Intermediate / Expert apply the same way in both modes.
+- The narrator voice in §4 stays unchanged. Jace's tone is the same
+  whether there's one opponent or three.
+- The Arbiter integration in §4 stays unchanged. Rules questions
+  resolve the same way regardless of player count.
+- Anti-goals in §8 still apply, with the format-generalizer
+  anti-goal added.
