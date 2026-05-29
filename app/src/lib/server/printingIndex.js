@@ -22,6 +22,7 @@
 import fs from "node:fs";
 
 import { dataPath } from "./paths.js";
+import { readJsonOrNull } from "./jsonFile.js";
 
 function indexFile() {
   return dataPath("scryfall-bulk", "printings-index.json");
@@ -40,8 +41,10 @@ function buildIndex() {
     throw error;
   }
 
-  const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-  const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
+  // Missing file still throws above (actionable hint). A corrupt index degrades
+  // to empty (no matches) rather than 500-ing collection import / art lookups.
+  const parsed = readJsonOrNull(file, { fallback: {}, label: "printings-index" });
+  const cards = Array.isArray(parsed?.cards) ? parsed.cards : [];
 
   const bySetCollector = new Map();
   const byId = new Map();

@@ -1,7 +1,6 @@
-import fs from "node:fs";
-
 import { normalizeName } from "./cardIndex.js";
 import { dataPath } from "./paths.js";
+import { readJsonOrNull } from "./jsonFile.js";
 
 let saltIndex = null;
 let saltMeta = null;
@@ -18,9 +17,10 @@ function loadSaltData() {
   const saltFile = dataPath("edhrec-salt.local.json");
   const metaFile = dataPath("edhrec-salt-meta.local.json");
 
-  if (!fs.existsSync(saltFile)) return false;
+  // Missing or corrupt salt data → stay "not ready" rather than throwing.
+  const entries = readJsonOrNull(saltFile, { label: "edhrec-salt" });
+  if (!Array.isArray(entries)) return false;
 
-  const entries = JSON.parse(fs.readFileSync(saltFile, "utf8"));
   const byName = new Map();
   for (const entry of entries) {
     const names = [entry.name, ...(entry.names || [])].filter(Boolean);
@@ -28,9 +28,7 @@ function loadSaltData() {
   }
 
   saltIndex = { entries, byName };
-  if (fs.existsSync(metaFile)) {
-    saltMeta = JSON.parse(fs.readFileSync(metaFile, "utf8"));
-  }
+  saltMeta = readJsonOrNull(metaFile, { label: "edhrec-salt-meta" });
   return true;
 }
 
