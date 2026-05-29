@@ -24,15 +24,24 @@ import {
 } from "../../../lib/server/spellbook.js";
 
 export async function POST(request) {
+  let body;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return Response.json(
+      { ready: false, error: "Invalid JSON request body." },
+      { status: 400 }
+    );
+  }
+
+  try {
     const {
       cardNames = [],
       commanderNames = [],
       type = "full",
       maxIncluded = 5,
       maxAlmost = 20,
-    } = body;
+    } = body || {};
 
     if (!spellbookReady()) {
       return Response.json(
