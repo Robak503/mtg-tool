@@ -21,6 +21,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const https = require("node:https");
+const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 
 // LTS as of late 2026 — the standalone Next.js server runs on 18.17+
@@ -28,6 +29,7 @@ const { spawn } = require("node:child_process");
 const NODE_VERSION = "v22.12.0";
 const ARCHIVE_NAME = `node-${NODE_VERSION}-win-x64.zip`;
 const URL = `https://nodejs.org/dist/${NODE_VERSION}/${ARCHIVE_NAME}`;
+const SHASUMS_URL = `https://nodejs.org/dist/${NODE_VERSION}/SHASUMS256.txt`;
 
 const APP_ROOT = path.resolve(__dirname, "..");
 const NODE_DIR = path.join(APP_ROOT, "src-tauri", "node");
@@ -90,6 +92,42 @@ function download(url, dst) {
   });
 }
 
+function downloadText(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (resp) => {
+      if (resp.statusCode === 301 || resp.statusCode === 302) {
+        return resolve(downloadText(resp.headers.location));
+      }
+      if (resp.statusCode !== 200) {
+        return reject(new Error(`HTTP ${resp.statusCode} for ${url}`));
+      }
+      let data = "";
+      resp.setEncoding("utf8");
+      resp.on("data", (chunk) => { data += chunk; });
+      resp.on("end", () => resolve(data));
+    }).on("error", reject);
+  });
+}
+
+function sha256OfFile(file) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = fs.createReadStream(file);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("error", reject);
+    stream.on("end", () => resolve(hash.digest("hex")));
+  });
+}
+
+// SHASUMS256.txt lines look like: "<hex>  node-vX.Y.Z-win-x64.zip"
+function expectedHashFor(sumsText, archiveName) {
+  for (const line of String(sumsText).split(/\r?\n/)) {
+    const parts = line.trim().split(/\s+/);
+    if (parts.length >= 2 && parts[1] === archiveName) return parts[0].toLowerCase();
+  }
+  return null;
+}
+
 function extractNodeExeFromZip(zipPath, outNodeExe) {
   // Use PowerShell's Expand-Archive to avoid bringing in a zip lib
   // dependency. Only spawn a child process to extract, then move the
@@ -135,6 +173,26 @@ function extractNodeExeFromZip(zipPath, outNodeExe) {
   try {
     await download(URL, ARCHIVE_PATH);
     log(`Downloaded ${ARCHIVE_NAME}`);
+
+    // Verify the archive against the official SHASUMS256.txt BEFORE extracting.
+    // Without this, a tampered / MITM'd / mirror-poisoned zip would be extracted
+    // and bundled into the signed .exe — minisign signs the installer after this
+    // binary is staged, so the signature would bless a tampered runtime.
+    const sums = await downloadText(SHASUMS_URL);
+    const expected = expectedHashFor(sums, ARCHIVE_NAME);
+    if (!expected) {
+      throw new Error(`Could not find ${ARCHIVE_NAME} in SHASUMS256.txt`);
+    }
+    const actual = await sha256OfFile(ARCHIVE_PATH);
+    if (actual !== expected) {
+      try { fs.unlinkSync(ARCHIVE_PATH); } catch {}
+      throw new Error(
+        `SHA-256 mismatch for ${ARCHIVE_NAME} — expected ${expected}, got ${actual}. ` +
+          `Refusing to bundle a possibly-tampered Node binary.`,
+      );
+    }
+    log(`SHA-256 verified (${actual.slice(0, 16)}...)`);
+
     await extractNodeExeFromZip(ARCHIVE_PATH, NODE_EXE);
     fs.writeFileSync(VERSION_FILE, NODE_VERSION);
     fs.unlinkSync(ARCHIVE_PATH);
