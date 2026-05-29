@@ -224,10 +224,18 @@ describe("pruning (per-deck cap)", () => {
       }));
       await new Promise(r => setTimeout(r, 10));
     }
-    // Allow background prune to finish.
-    await new Promise(r => setTimeout(r, 100));
-
-    const files = await listGameFiles();
+    // The prune runs in the background (POST intentionally does not await it),
+    // so poll until it settles instead of relying on a fixed sleep that flakes
+    // under load (e.g. the full parallel suite on a busy CI runner). The prune
+    // only ever deletes down toward the cap, so once the count reaches <= 3 it
+    // stays there; a genuinely broken prune makes this loop time out and the
+    // assertion below still fails.
+    let files = await listGameFiles();
+    const deadline = Date.now() + 3000;
+    while (files.length > 3 && Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 25));
+      files = await listGameFiles();
+    }
     expect(files.length).toBeLessThanOrEqual(3);
     delete process.env.MAX_GAMES_PER_DECK;
   });
