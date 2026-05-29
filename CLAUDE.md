@@ -381,8 +381,8 @@ MTG-TOOL/
 ├─ RELEASE.md                          ← Full release flow + key rotation + rollback
 ├─ ROADMAP.md
 ├─ TODOS.md
-├─ AUDIT.md                            ← Living audit doc
-└─ docs/                               ← Strategic docs (Phase 6 design, packaging review)
+├─ CHANGELOG.md                        ← User-facing change history (keep current)
+└─ docs/                               ← Strategic docs + docs/archive/ (frozen first-run AUDIT, handoffs)
 ```
 
 ---
@@ -676,7 +676,7 @@ After significant changes:
 After major phases:
 - All of the above
 - Update `ROADMAP.md` status
-- Update `AUDIT.md` if anything significant changed
+- Update `CHANGELOG.md` for any user-facing changes
 - Cut a release if user-facing work shipped
 
 ### 7.4 Commit and PR workflow

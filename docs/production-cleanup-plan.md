@@ -33,7 +33,7 @@ Last updated: 2026-05-29.
 - **D3** — disambiguate duplicate fn names (`searchCards`, `detectCardNamesInText`, `normalizeName`).
 - **D4** — consolidate data dirs under `knowledge/` (renames `MTG ENGINE/`; touches the signed `.exe` build — verify with `npm run tauri:build`).
 - **E1–E6** — add `powerRanker` + rules-retrieval tests; shared `theme.js`/`styleHelpers`/`<Modal>`; decompose `MTGAssistant.jsx` + `FeedbackButton.jsx`; split `agents.js`/`powerRanker.js`/`lib.rs`; dedupe backend helpers + card-context builders; frontend dead-code cleanup.
-- **Deferred** — archive stale `AUDIT.md`; run the `/health` + `/cso` baseline.
+- **Deferred** — run the `/health` + `/cso` baseline.
 
 The detailed PR-by-PR breakdown is in the sections below.
 
