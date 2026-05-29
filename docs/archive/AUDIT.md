@@ -1,5 +1,12 @@
 # MTG Tool — Initial Audit
 
+> **Archived — historical record, not maintained.** This is the frozen
+> first-run audit log from 2026-05-23 (first Claude Code session on this
+> repo). It is kept for provenance only; paths, port numbers, and tool
+> versions below reflect that single point in time and are stale today.
+> For current project state see `CLAUDE.md` §9; for user-facing change
+> history see `CHANGELOG.md`.
+
 ## Codex Verification Addendum - 2026-05-23
 
 Codex reran the first-run protocol against the corrected project root:

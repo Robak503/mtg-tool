@@ -76,7 +76,7 @@ This is the working roadmap. Claude Code updates this as phases complete.
 
 ## Status: Phase 0 — Initial Setup
 
-Awaiting first Claude Code session. Audit document (`AUDIT.md`) will be produced on first run.
+Completed. The first-run audit document was produced and is archived at `docs/archive/AUDIT.md` for history.
 
 ---
 
@@ -89,7 +89,7 @@ Awaiting first Claude Code session. Audit document (`AUDIT.md`) will be produced
 - [x] Initial commit
 - [x] `npm install`
 - [x] Verify dev server boots
-- [x] Produce `AUDIT.md` covering current state
+- [x] Produce the first-run audit (archived at `docs/archive/AUDIT.md`)
 - [x] Execute Phase 1 critical fixes (deck context lock, Ollama wiring, provider routing, cost telemetry)
 
 ---
