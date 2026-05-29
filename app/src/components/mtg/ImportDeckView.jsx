@@ -23,7 +23,7 @@ export default function ImportDeckView({
   return (
     <div style={{flex:1,overflowY:"auto",padding:20}}>
       <div style={{maxWidth:520,margin:"0 auto"}}>
-        <div style={{fontFamily,fontSize:18,color:"#e0d6be",marginBottom:14}}>Import Deck</div>
+        <div style={{fontFamily,fontSize:18,color:"#cec8e0",marginBottom:14}}>Import Deck</div>
 
         <div style={{background:BG3,border:`1px solid ${cfg.border}`,borderRadius:8,padding:14,marginBottom:18}}>
           <div style={{fontSize:13,fontWeight:700,color:cfg.color,fontFamily,marginBottom:4}}>Load from Project</div>

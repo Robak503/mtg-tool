@@ -66,7 +66,7 @@ export default function DeckView({
   return (
     <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,paddingBottom:10,borderBottom:`1px solid ${LINE}`}}>
-                      <span style={{fontFamily:F,fontSize:17,color:"#e0d6be"}}>{activeDeck?.name}</span>
+                      <span style={{fontFamily:F,fontSize:17,color:"#d8d2e8"}}>{activeDeck?.name}</span>
                       <div style={{display:"flex",gap:6}}>
                         <button onClick={()=>setCenterView("chat")} style={pb(true,true)}>Chat</button>
                         <button onClick={exportDeck} style={pb(false,true)}>Export</button>
@@ -78,7 +78,7 @@ export default function DeckView({
                           <div style={{display:"flex",justifyContent:"space-between",gap:12,alignItems:"flex-start",marginBottom:12}}>
                             <div>
                               <div style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:4}}>Deck Command Center</div>
-                              <div style={{fontSize:18,color:"#e0d6be",fontFamily:F,lineHeight:1.25}}>{commanderText}</div>
+                              <div style={{fontSize:18,color:"#d8d2e8",fontFamily:F,lineHeight:1.25}}>{commanderText}</div>
                             </div>
                             <div style={{fontSize:11,color:MUTED,textAlign:"right",lineHeight:1.5}}>
                               {deckMemory.owner || "Colton"}<br/>
@@ -106,7 +106,7 @@ export default function DeckView({
                           </div>
                         </div>
                         {tokenEntries.length>0&&(
-                          <div style={{padding:"9px 11px",borderRadius:6,background:"rgba(196,162,69,0.10)",border:"1px solid rgba(196,162,69,0.35)",color:GOLD,fontSize:12,lineHeight:1.5,marginBottom:12}}>
+                          <div style={{padding:"9px 11px",borderRadius:6,background:"rgba(184,116,42,0.10)",border:"1px solid rgba(184,116,42,0.35)",color:GOLD,fontSize:12,lineHeight:1.5,marginBottom:12}}>
                             Tokens saved separately: {tokenEntries.join(", ")}. Karn and Tibalt will ignore these for Commander deck size, curve, legality, and normal card counts.
                           </div>
                         )}

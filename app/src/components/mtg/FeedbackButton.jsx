@@ -788,7 +788,7 @@ export default function FeedbackButton({
                       gap: 9,
                       padding: "8px 10px",
                       borderRadius: 7,
-                      background: attachExchange ? "#0d1a2e" : BG2,
+                      background: attachExchange ? "#1a1b38" : BG2,
                       border: `1px solid ${attachExchange ? (cfg?.border || LINE) : LINE}`,
                       fontSize: 11,
                       color: attachExchange ? TEXT : MUTED,

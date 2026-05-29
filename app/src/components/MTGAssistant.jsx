@@ -487,9 +487,14 @@ export default function MTGAssistant() {
 
   const renderText=text=>text.split(/\[\[([^\]]+)\]\]/g).map((part,i)=>
     i%2===1
-      ?<span key={i} style={{background:cfg.dim,border:`1px solid ${cfg.border}`,color:cfg.color,borderRadius:4,padding:"1px 6px",cursor:"pointer",fontStyle:"italic",fontSize:"0.87em"}}
-          onMouseEnter={e=>handleChipHover(part,e)} onMouseLeave={()=>setTooltip(null)}
-          onClick={()=>window.open(`https://scryfall.com/search?q=${encodeURIComponent('"'+part+'"')}`,"_blank")}>{part}</span>
+      ?<span key={i} style={{display:"inline-flex",alignItems:"center",gap:4,verticalAlign:"middle"}}>
+          <img src={`/api/art-crop?name=${encodeURIComponent(part)}`} alt="" loading="lazy"
+            onError={e=>{e.currentTarget.style.display="none";}}
+            style={{width:30,height:21,objectFit:"cover",objectPosition:"center 28%",borderRadius:3,border:`1px solid ${cfg.border}`,boxShadow:`0 0 7px ${cfg.glow}`,flexShrink:0}}/>
+          <span style={{background:cfg.dim,border:`1px solid ${cfg.border}`,color:cfg.color,borderRadius:4,padding:"1px 6px",cursor:"pointer",fontStyle:"italic",fontSize:"0.87em"}}
+            onMouseEnter={e=>handleChipHover(part,e)} onMouseLeave={()=>setTooltip(null)}
+            onClick={()=>window.open(`https://scryfall.com/search?q=${encodeURIComponent('"'+part+'"')}`,"_blank")}>{part}</span>
+        </span>
       :<span key={i} style={{whiteSpace:"pre-wrap"}}>{part}</span>
   );
 
@@ -600,7 +605,7 @@ export default function MTGAssistant() {
   useEffect(()=>{ if(mobileTab==="search") setRightTab("search"); if(mobileTab==="stats") setRightTab("stats"); },[mobileTab]);
 
   /* Theme */
-  const BG="#070a12",BG2="#090c18",BG3="#0c1020",LINE="#1a1e30",TEXT="#cfc5ae",MUTED="#5a6070",GOLD="#c4a245";
+  const BG="#060608",BG2="rgba(16,17,34,0.70)",BG3="rgba(22,23,44,0.60)",LINE="#252840",TEXT="#cec8e0",MUTED="#9d98b8",GOLD="#cc8a38";
   const F="'Georgia','Palatino Linotype',serif";
   const sb=(outline)=>({width:"100%",padding:"6px 8px",borderRadius:5,fontFamily:F,fontSize:11,cursor:"pointer",marginBottom:4,textAlign:"left",border:`1px solid ${outline?LINE:cfg.border}`,background:outline?"transparent":cfg.dim,color:outline?MUTED:cfg.color});
   const pb=(primary,sm)=>({padding:sm?"5px 10px":"7px 16px",borderRadius:5,fontFamily:F,fontSize:sm?11:13,cursor:"pointer",border:primary?"none":`1px solid ${cfg.border}`,background:primary?cfg.color:"transparent",color:primary?"#fff":cfg.color});
@@ -615,13 +620,31 @@ export default function MTGAssistant() {
   const showRight =(!mobile&&rightOpen)||mobileTab==="search"||mobileTab==="stats";
   const showMobileSessionPicker = mobile && mobileTab === "sessions";
 
+  // Active commander's art backs the whole shell. Routed through /api/art-crop
+  // (disk-cached, offline-safe) — never the Scryfall CDN directly. Resolve from the
+  // real Commander card (locked deck first, else the active deck's Commander
+  // section); skip the deck-name / "No commander saved" fallbacks so commanderless
+  // decks don't fire 404 art lookups or mislabel the portrait.
+  const rawCommander = (currentSession?.lockedDeck?.commander
+    || deckCards.find(card => card.section === "Commander")?.name
+    || "").trim();
+  const commanderArtName = (rawCommander && rawCommander !== "No commander saved")
+    ? (rawCommander.split(" / ")[0] || "").trim()
+    : "";
+
   return (
-    <div style={{fontFamily:F,background:BG,color:TEXT,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+    <div style={{fontFamily:F,background:commanderArtName?"transparent":BG,color:TEXT,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
+      {commanderArtName && (
+        <>
+          <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,backgroundImage:`url(/api/art-crop?name=${encodeURIComponent(commanderArtName)})`,backgroundSize:"cover",backgroundPosition:"center 16%"}}/>
+          <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,background:"radial-gradient(ellipse 120% 120% at 64% 34%, rgba(8,9,20,.58) 0%, rgba(6,6,14,.85) 55%, rgba(3,3,8,.95) 100%), linear-gradient(180deg, rgba(8,8,18,.72) 0%, rgba(6,6,14,.48) 45%, rgba(6,6,14,.8) 100%)"}}/>
+        </>
+      )}
       <style>{`
         @keyframes mtgd{0%,80%,100%{transform:scale(.5);opacity:.3}40%{transform:scale(1);opacity:.9}}
         *{box-sizing:border-box;margin:0;padding:0}
-        ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:#070a12}::-webkit-scrollbar-thumb{background:#1e2235;border-radius:2px}
-        input:focus,textarea:focus{border-color:#2a3050!important;outline:none}button:hover{opacity:.82}
+        ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:#060608}::-webkit-scrollbar-thumb{background:#2a2c46;border-radius:2px}
+        input:focus,textarea:focus{border-color:#3a3c5e!important;outline:none}button:hover{opacity:.82}
       `}</style>
 
       <AppHeader
@@ -699,7 +722,7 @@ export default function MTGAssistant() {
                 style={{
                   background: appUpdateInfo.installFailed ? "#5a3a3a" : "#346b48",
                   border: `1px solid ${appUpdateInfo.installFailed ? "#8a5a5a" : "#5a9a72"}`,
-                  color: "#e0eaf6", cursor: "pointer",
+                  color: "#d8d2e8", cursor: "pointer",
                   fontSize: 11, padding: "4px 12px", borderRadius: 4, fontFamily: F,
                 }}
               >
@@ -728,9 +751,9 @@ export default function MTGAssistant() {
           role="status"
           style={{
             padding: "10px 16px",
-            background: "#1a2638",
-            borderBottom: "1px solid #34547a",
-            color: "#c8d8ee",
+            background: "#12132a",
+            borderBottom: "1px solid #2a2850",
+            color: "#b8b2d0",
             fontSize: 12,
             fontFamily: F,
             display: "flex",
@@ -761,8 +784,8 @@ export default function MTGAssistant() {
               disabled={bootstrapBusy}
               style={{
                 flex: 1, padding: "6px 10px", borderRadius: 5,
-                border: "1px solid #34547a", background: "#0d1422",
-                color: "#e0eaf6", fontFamily: F, fontSize: 12,
+                border: "1px solid #2a2850", background: "#0a0807",
+                color: "#d8d2e8", fontFamily: F, fontSize: 12,
               }}
             />
             <button
@@ -770,9 +793,9 @@ export default function MTGAssistant() {
               disabled={bootstrapBusy || !bootstrapSourcePath.trim()}
               style={{
                 padding: "6px 14px", borderRadius: 5,
-                border: "1px solid #4a7ac4",
-                background: bootstrapBusy ? "#1a2638" : "#244a7a",
-                color: "#e0eaf6", fontFamily: F, fontSize: 12,
+                border: "1px solid #cc8a38",
+                background: bootstrapBusy ? "#12132a" : "#2a2850",
+                color: "#d8d2e8", fontFamily: F, fontSize: 12,
                 cursor: bootstrapBusy ? "default" : "pointer",
               }}
             >
@@ -807,7 +830,7 @@ export default function MTGAssistant() {
             model-missing → "Pull <model>" via ollama pull (streamed) */}
       {ollamaHealth && !ollamaHealth.ok && !ollamaHealthDismissed && (() => {
         const palette = ollamaHealth.status === "not-installed"
-          ? { bg: "#1a2638", border: "#34547a", text: "#c8d8ee", accent: "#244a7a", accentBorder: "#4a7ac4" }
+          ? { bg: "#12132a", border: "#2a2850", text: "#b8b2d0", accent: "#2a2850", accentBorder: "#cc8a38" }
           : ollamaHealth.status === "server-down"
           ? { bg: "#3a1a1a", border: "#6b3a3a", text: "#e0a89a", accent: "#3a1a1a", accentBorder: "#6b3a3a" }
           : { bg: "#3a2a14", border: "#6b5a3a", text: "#e8c285", accent: "#3a2a14", accentBorder: "#6b5a3a" };
@@ -1090,6 +1113,7 @@ export default function MTGAssistant() {
         <RightPanel
           bodyRef={bodyRef}
           cfg={cfg}
+          commanderArtName={commanderArtName}
           colorBreakdown={{curve, colors}}
           deckCards={deckCards}
           deckDataLoad={deckDataLoad}

@@ -71,7 +71,7 @@ export default function Sidebar({
   };
 
   return (
-    <div style={{width:mobile?"100%":172,flexShrink:0,borderRight:mobile?"none":`1px solid ${LINE}`,background:BG2,padding:12,display:"flex",flexDirection:"column",gap:14,overflowY:"auto"}}>
+    <div style={{width:mobile?"100%":172,flexShrink:0,borderRight:mobile?"none":`1px solid ${LINE}`,background:BG2,backdropFilter:"blur(16px) saturate(1.2)",WebkitBackdropFilter:"blur(16px) saturate(1.2)",padding:12,display:"flex",flexDirection:"column",gap:14,overflowY:"auto"}}>
       <div>
         <div style={{fontSize:9,color:MUTED,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:6}}>Agent</div>
         {Object.entries(AGENTS).filter(([, a]) => a.frontFacing !== false).map(([key,a])=>(

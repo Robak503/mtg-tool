@@ -25,13 +25,13 @@ import CollectionImportModal from "./CollectionImportModal";
 import CollectionRoastModal from "./CollectionRoastModal";
 
 const COLORS = {
-  BG: "#0f1115",
-  BG2: "#16191f",
-  BG3: "#1d212a",
-  LINE: "#2a2f3a",
-  TEXT: "#e0d6be",
-  MUTED: "#7a7b85",
-  GOLD: "#caa05a",
+  BG: "#060608",
+  BG2: "#0f1020",
+  BG3: "#141528",
+  LINE: "#252840",
+  TEXT: "#cec8e0",
+  MUTED: "#9d98b8",
+  GOLD: "#cc8a38",
   RED: "#c4534e",
 };
 
@@ -485,7 +485,7 @@ function EmptyState({ color, gold }) {
       height: "100%", padding: 40, textAlign: "center",
     }}>
       <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.4 }}>📚</div>
-      <div style={{ fontSize: 16, color: "#e0d6be", marginBottom: 8 }}>
+      <div style={{ fontSize: 16, color: "#cec8e0", marginBottom: 8 }}>
         Your collection is empty.
       </div>
       <div style={{ fontSize: 13, color, maxWidth: 420, lineHeight: 1.5 }}>

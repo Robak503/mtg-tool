@@ -129,3 +129,31 @@ describe("fetch + cache", () => {
     expect(resp.status).toBe(404);
   });
 });
+
+describe("resolve by name", () => {
+  it("404s for a name with no resolvable printing (index missing)", async () => {
+    // tmpDir has no printings-index.json, so lookupByName throws and the name
+    // can't resolve to a cache id.
+    const resp = await route.GET(req("name=" + encodeURIComponent("Sol Ring")));
+    expect(resp.status).toBe(404);
+  });
+
+  it("resolves art by name via the printings index, caching under the printing id", async () => {
+    vi.resetModules();
+    const artUrl = "https://cards.scryfall.io/art_crop/front/0/0/name.jpg";
+    vi.doMock("../../../lib/server/printingIndex.js", () => ({
+      lookupById: cardId => (cardId === "name-resolved-id" ? { id: cardId, artCropUrl: artUrl } : null),
+      lookupByName: n => (n === "Sol Ring" ? [{ id: "name-resolved-id", artCropUrl: artUrl }] : []),
+    }));
+    const bytes = new Uint8Array([9, 8, 7, 6]);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => bytes.buffer }));
+
+    const fresh = await import("./route.js");
+    const resp = await fresh.GET(req("name=" + encodeURIComponent("Sol Ring")));
+    expect(resp.status).toBe(200);
+    const cached = await fs.readFile(path.join(tmpDir, "data", "art-crops", "name-resolved-id.jpg"));
+    expect(cached.equals(Buffer.from(bytes))).toBe(true);
+
+    vi.doUnmock("../../../lib/server/printingIndex.js");
+  });
+});
