@@ -41,6 +41,7 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     # The Spellbook script handles 429s by sleeping + retrying, but a
     # long enough block can still abort the run. continue-on-error
     # means "the script's already persisted progress to disk -save
@@ -49,10 +50,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
 
