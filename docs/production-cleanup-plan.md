@@ -40,9 +40,8 @@ Last updated: 2026-05-29.
 **Remaining — headless-doable (no running app required):**
 - **C2** — git hooks (commitlint + simple-git-hooks + lint-staged).
 - **C4** — Rust rustfmt + clippy + cargo-audit, wired into CI. *(compile-heavy)*
-- **D1** — normalize npm script names to `verb:noun`. *(touches CI + docs refs)*
 - **D3** — disambiguate duplicate fn names (`searchCards`, `detectCardNamesInText`, `normalizeName`).
-- **E1 (rest)** — rules-retrieval tests + ~8 route smoke tests. (`powerRanker` + Arbiter invariant already done above.)
+- **E1 (rest)** — ~8 route smoke tests. (`powerRanker`, the Arbiter invariant, and the rules-retrieval parsers are already done.)
 - **E2–E6** — shared `theme.js`/`styleHelpers`/`<Modal>`; decompose `MTGAssistant.jsx` + `FeedbackButton.jsx`; split `agents.js`/`powerRanker.js`/`lib.rs`; dedupe backend helpers + card-context builders; frontend dead-code cleanup. *(largest; gated behind the E1 safety net)*
 
 **Remaining — verification-gated (need a running `.exe`/webview to confirm safely):**
