@@ -1,0 +1,104 @@
+name: sync-spellbook
+
+# Refresh the Commander Spellbook combo + card snapshot on a schedule,
+# independent of the release pipeline.
+#
+# Why a separate workflow:
+#   Spellbook's API rate-limits aggressively (HTTP 429 after ~108 pages
+#   of paginated pulls), which historically forced the release workflow
+#   to mark its sync step `continue-on-error: true` -bundles shipped
+#   with whatever stale snapshot was cached, and there was no recovery
+#   path other than waiting for the next release attempt.
+#
+#   Decoupling the data refresh from the release lets each one fail
+#   independently: a flaky Spellbook never delays a release, and a
+#   release cadence pause never starves the bundled snapshot. The
+#   sync-spellbook job is also `continue-on-error` so partial progress
+#   (the script is resumable from disk) gets persisted to the cache
+#   either way and picks up where it left off next week.
+#
+# How releases consume the data:
+#   Both this workflow and release.yml share the `refdata-` cache
+#   prefix. When release.yml restores `restore-keys: refdata-`, it
+#   picks up whatever most-recently-saved cache exists -which after
+#   a successful run here will include the freshest Spellbook files.
+#
+# Triggers:
+#   - Weekly cron (Sunday 03:00 UTC, off-peak) -keeps the cache warm
+#     within GitHub Actions' 7-day default TTL.
+#   - workflow_dispatch -manual button for "refresh now."
+
+on:
+  schedule:
+    # Sunday 03:00 UTC. Spellbook combos shift slowly; weekly is plenty.
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write   # needed to update the actions cache
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # The Spellbook script handles 429s by sleeping + retrying, but a
+    # long enough block can still abort the run. continue-on-error
+    # means "the script's already persisted progress to disk -save
+    # the cache anyway so next run resumes from there."
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install npm deps
+        working-directory: app
+        run: npm ci
+
+      # Restore the latest reference-data cache. The release pipeline
+      # uses the same prefix, so we pick up whatever's freshest:
+      # Scryfall + EDHREC + the previous Spellbook snapshot to resume
+      # from. We save under our own key so the saved cache doesn't
+      # collide with a parallel release run's save.
+      - name: Restore reference data cache
+        id: cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: app/data
+          key: refdata-spellbook-${{ github.run_id }}
+          restore-keys: |
+            refdata-
+
+      - name: Sync Commander Spellbook combos
+        working-directory: app
+        # --delay-ms 1500 keeps us comfortably under Spellbook's
+        # observed rate-limit threshold. The script is resumable, so
+        # even if this step aborts mid-page-range, the partial state
+        # written to disk + the cache save below means next week's
+        # run picks up where this one stopped.
+        run: node scripts/sync-spellbook.cjs --delay-ms 1500
+
+      - name: Save reference data cache
+        # Always save, even if the sync errored out -the on-disk
+        # progress is the whole point of the resumability story.
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: app/data
+          key: refdata-spellbook-${{ github.run_id }}
+
+      - name: Summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f app/data/spellbook-meta.local.json ]; then
+            echo "::notice::Spellbook snapshot updated"
+            cat app/data/spellbook-meta.local.json
+          else
+            echo "::warning::No spellbook-meta.local.json -snapshot may be empty"
+          fi

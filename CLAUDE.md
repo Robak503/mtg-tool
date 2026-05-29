@@ -283,19 +283,21 @@ release flow locally; CI is the authoritative source for releases.**
 4. Build slim oracle index — ~10 sec
 5. Build rules retrieval index — ~5 sec
 6. Sync EDHREC salt — ~1 min
-7. Sync Commander Spellbook combos (continue-on-error — see below)
-8. `npm run tauri:build:release` with secrets injected
-9. Build `latest.json` manifest with version + sig + URL
-10. Publish GitHub Release with `.exe` + `.exe.sig` + `latest.json`
+7. `npm run tauri:build:release` with secrets injected
+8. Build `latest.json` manifest with version + sig + URL
+9. Publish GitHub Release with `.exe` + `.exe.sig` + `latest.json`
 
-Total ~30-40 min per release. Subsequent releases reuse the data
+Total ~20-30 min per release. Subsequent releases reuse the data
 cache so most sync steps short-circuit.
 
-**Spellbook caveat**: their API aggressively rate-limits (HTTP 429
-after ~108 pages of 100-variant pulls). The step is
-`continue-on-error: true` so a Spellbook failure doesn't block the
-release. The bundled snapshot from the previous successful sync
-ships unchanged; users can re-sync via the Updates panel in-app.
+**Commander Spellbook lives in its own workflow**:
+`.github/workflows/sync-spellbook.yml` runs weekly on Sunday at
+03:00 UTC (plus `workflow_dispatch` for "refresh now"). It restores
+the same `refdata-` cache, syncs Spellbook (which is resumable and
+rate-limit-tolerant), and saves the cache back. The release
+workflow picks up whatever Spellbook snapshot is freshest. Spellbook
+flakiness can no longer delay or interrupt a release, and a release
+pause doesn't starve the bundled combo snapshot.
 
 ### 3.5 Signing keys
 
@@ -459,9 +461,15 @@ pipeline or the Rust shell.
     building.
 
 17. **Spellbook API rate-limits aggressively** — HTTP 429 after ~108
-    pages of pulls in a single run. The CI step is
-    `continue-on-error: true` so flaky Spellbook doesn't kill
-    releases; users can sync in-app on demand.
+    pages of pulls in a single run. Originally lived in the release
+    workflow as `continue-on-error: true` so flaky Spellbook
+    wouldn't kill releases; now lives in its own scheduled workflow
+    (`.github/workflows/sync-spellbook.yml`) so the failure mode is
+    isolated entirely from the release path. The sync script is
+    resumable: a partial run writes progress to disk, the cache save
+    persists it, and the next scheduled (or manual) run picks up
+    where the last one stopped. Users can also sync in-app on demand
+    via the Updates panel.
 
 18. **The spawned Node server (next-server) orphans on auto-update**
     unless pinned to a Windows Job Object. Windows does NOT kill a
@@ -748,18 +756,18 @@ Updated whenever phases complete. Last update: 2026-05-28.
 - ✅ Repo signing secrets configured
 - ✅ Reference-dir architecture (read bundled data without copying
   to AppData first)
+- ✅ Phase 6 PR 7 (Intermediate trap warnings + auto-attack)
+- ✅ Spellbook resilience — moved out of release pipeline into a
+  weekly scheduled workflow (`.github/workflows/sync-spellbook.yml`)
 
 ### Open
 
-- ⏳ Phase 6 PRs 7+ (Intermediate/Expert learn modes, post-game
-  analysis)
+- ⏳ Phase 6 PR 8+ (Expert mode + post-game analysis,
+  learn-session persistence, polish)
 - ⏳ Code signing (Authenticode) — paid cert, optional (eliminates
   SmartScreen warning on first install)
 - ⏳ File associations (.dec/.txt) — skipped earlier, low priority
 - ⏳ Microsoft Store distribution — deferred until needed
-- ⏳ Spellbook resilience — currently fails on CI rate limits, runs
-  with `continue-on-error: true`; long-term fix is a separate
-  scheduled cache-update workflow
 
 ### Test coverage
 

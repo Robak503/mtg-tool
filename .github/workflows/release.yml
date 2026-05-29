@@ -84,15 +84,14 @@ jobs:
         working-directory: app
         run: node scripts/sync-edhrec-salt.cjs
 
-      - name: Sync Commander Spellbook combos
-        working-directory: app
-        # Spellbook's API rate-limits aggressively — HTTP 429 after
-        # ~108 pages of pulls. Marked continue-on-error so a flaky
-        # Spellbook doesn't kill the entire release. If sync fails,
-        # the bundle ships with whatever was cached from the last
-        # successful run, and users can sync in-app on demand.
-        continue-on-error: true
-        run: node scripts/sync-spellbook.cjs --delay-ms 1500
+      # NOTE: Commander Spellbook combo sync used to live here as a
+      # `continue-on-error` step. It's been moved to its own scheduled
+      # workflow (.github/workflows/sync-spellbook.yml) because its
+      # rate-limit-driven failures were noise inside the release flow
+      # and the data doesn't actually need to be release-time fresh.
+      # The `refdata-` cache restored above already holds whatever
+      # snapshot the most recent sync-spellbook run produced, so the
+      # bundle ships with current combos either way.
 
       - name: Build signed Tauri release
         working-directory: app
