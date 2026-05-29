@@ -27,6 +27,8 @@
  * same warnings — important for deterministic tests and replays.
  */
 
+import { opponentsOf } from "./gameState.js";
+
 // ─── Type helpers ────────────────────────────────────────────────────────────
 
 function cardType(card) {
@@ -131,7 +133,10 @@ export function detectInstantSpeedResponse(state, defenderId) {
  */
 export function detectCounterAttackLethal(state, attackerPlayerId, attackerActions) {
   if (!Array.isArray(attackerActions) || attackerActions.length === 0) return null;
-  const defenderId = attackerPlayerId === "user" ? "ai" : "user";
+  // The opponent this attack is aimed at. Standard: the lone "ai".
+  // Commander: the first opponent in turn order (PR 10 extends the
+  // counter-attack check to ALL opponents, not just this one).
+  const defenderId = opponentsOf(state, attackerPlayerId)[0];
 
   const theirReady = untappedReadyCreatures(state, defenderId);
   if (theirReady.length === 0) return null;
@@ -184,7 +189,10 @@ export function detectCounterAttackLethal(state, attackerPlayerId, attackerActio
  */
 export function detectAttackTraps(state, attackerPlayerId, attackerActions) {
   if (!state || !attackerPlayerId) return [];
-  const defenderId = attackerPlayerId === "user" ? "ai" : "user";
+  // The opponent this attack is aimed at. Standard: the lone "ai".
+  // Commander: the first opponent in turn order (PR 10 extends the
+  // counter-attack check to ALL opponents, not just this one).
+  const defenderId = opponentsOf(state, attackerPlayerId)[0];
   const traps = [];
 
   const counterAttack = detectCounterAttackLethal(state, attackerPlayerId, attackerActions);

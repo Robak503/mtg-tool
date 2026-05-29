@@ -31,11 +31,12 @@
 import {
   createGameState,
   loseLife,
-  PLAYER_IDS,
+  MODES,
 } from "./gameState.js";
 import {
   startGame,
   nextStep,
+  runStepActions,
 } from "./gameEngine.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
@@ -53,48 +54,79 @@ function generateSessionId() {
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
 /**
- * Build a fresh session. Opening 7s drawn for both sides, status
+ * Build a fresh session. Opening 7s drawn for every seat, status
  * "active", decisionLog empty. Caller passes:
- *   userDeck         — array of card objects (60-100)
- *   opponentDeck     — array of card objects
- *   userCommanders   — optional array of commander cards (Commander variant)
- *   opponentCommanders — optional
+ *   userDeck         — array of card objects
+ *   mode             — "standard" (1v1) | "commander" (4P FFA); default "standard"
+ *   opponentDeck     — Standard: the lone opponent's cards
+ *   opponentDecks    — Commander: array of exactly 3 opponent libraries (the pod)
+ *   userCommanders   — optional array of commander cards
+ *   opponentCommanders — Standard: the lone opponent's commanders;
+ *                        Commander: array of 3 per-opponent commander arrays
  *   difficulty       — "beginner" | "intermediate" | "expert"
- *   activePlayer     — optional "user" | "ai" (default "user")
+ *   activePlayer     — optional player id (default "user")
  *
- * Throws on missing decks or invalid difficulty.
+ * Throws on missing decks, invalid difficulty, invalid mode, or a
+ * commander pod that isn't exactly 3 decks.
  */
 export function createLearnSession({
   userDeck,
   opponentDeck,
+  opponentDecks = null,
   userCommanders = [],
   opponentCommanders = [],
   difficulty = "beginner",
   activePlayer = "user",
+  mode = "standard",
 } = {}) {
   if (!Array.isArray(userDeck) || userDeck.length === 0) {
     throw new Error("createLearnSession: userDeck must be a non-empty array");
   }
-  if (!Array.isArray(opponentDeck) || opponentDeck.length === 0) {
-    throw new Error("createLearnSession: opponentDeck must be a non-empty array");
-  }
   if (!VALID_DIFFICULTIES.has(difficulty)) {
     throw new Error(`createLearnSession: difficulty must be one of ${[...VALID_DIFFICULTIES].join(", ")}`);
   }
+  if (!MODES.includes(mode)) {
+    throw new Error(`createLearnSession: mode must be one of ${MODES.join(", ")}`);
+  }
 
-  let state = createGameState({
-    userDeck,
-    aiDeck: opponentDeck,
-    userCommanders,
-    aiCommanders: opponentCommanders,
-    activePlayer,
-  });
+  let state;
+  if (mode === "commander") {
+    if (!Array.isArray(opponentDecks) || opponentDecks.length !== 3) {
+      throw new Error("createLearnSession: commander mode requires opponentDecks to be an array of exactly 3 decks");
+    }
+    opponentDecks.forEach((deck, i) => {
+      if (!Array.isArray(deck) || deck.length === 0) {
+        throw new Error(`createLearnSession: opponentDecks[${i}] must be a non-empty array`);
+      }
+    });
+    state = createGameState({
+      userDeck,
+      opponentDecks,
+      userCommanders,
+      opponentCommanders, // array-of-arrays, one per opponent
+      activePlayer,
+      mode,
+    });
+  } else {
+    if (!Array.isArray(opponentDeck) || opponentDeck.length === 0) {
+      throw new Error("createLearnSession: opponentDeck must be a non-empty array");
+    }
+    state = createGameState({
+      userDeck,
+      aiDeck: opponentDeck,
+      userCommanders,
+      aiCommanders: opponentCommanders,
+      activePlayer,
+      mode,
+    });
+  }
   state = startGame(state);
 
   return {
     id: generateSessionId(),
     createdAt: new Date().toISOString(),
     difficulty,
+    mode,
     state,
     decisionLog: [],
     status: "active",
@@ -104,42 +136,132 @@ export function createLearnSession({
 // ─── Status helpers ──────────────────────────────────────────────────────────
 
 /**
- * Check state-based actions that end the game. v1 covers life ≤ 0 and
- * library-out-on-draw (the engine doesn't currently track "lost on
- * empty draw" so we infer from the cardsDrawnThisTurn delta).
- *
- * Per CR 704: a player whose life total is 0 or less loses; a player
- * who tries to draw from an empty library loses (we approximate this
- * by detecting a library that became empty mid-turn).
- *
- * Returns the new status string or "active" if the game continues.
+ * A player loses if their life is 0 or less (CR 104.3a / 704.5a) or if
+ * they've taken 21+ combat damage from any single commander (CR 903.14a).
+ * A player already removed from state.players counts as dead.
  */
-function checkGameEnd(state) {
-  if (state.players.user.life <= 0) return "ai-wins";
-  if (state.players.ai.life <= 0) return "user-wins";
+function isPlayerDead(state, playerId) {
+  const player = state.players[playerId];
+  if (!player) return true;
+  if (player.life <= 0) return true;
+  const dmgFrom = player.commanderDamageFrom || {};
+  for (const fromId of Object.keys(dmgFrom)) {
+    if (dmgFrom[fromId] >= 21) return true;
+  }
+  return false;
+}
 
-  // Commander damage SBA (CR 903.14a).
-  for (const playerId of PLAYER_IDS) {
-    const dmgFrom = state.players[playerId].commanderDamageFrom || {};
-    for (const fromId of Object.keys(dmgFrom)) {
-      if (dmgFrom[fromId] >= 21) {
-        return playerId === "user" ? "ai-wins" : "user-wins";
-      }
+/**
+ * Remove an eliminated player from the game (CR 800.4a — objects they own
+ * leave with them). We drop their whole player record plus the references
+ * other state holds to them: their objects on the stack, their combat
+ * involvement, and the commander damage they dealt to survivors. turnOrder
+ * shrinks so nextInTurnOrder / opponentsOf / the priority-pass threshold
+ * all adapt automatically.
+ *
+ * Two cases:
+ *   - Bystander leaves → keep the current turn going; reassign priority
+ *     only if they held it (or it now points at a removed seat).
+ *   - The ACTIVE player leaves → their turn ends now; we start the next
+ *     surviving seat's turn cleanly from untap (via runStepActions) so no
+ *     one inherits a half-finished turn.
+ */
+function removePlayerFromGame(state, playerId) {
+  const oldOrder = state.turnOrder || Object.keys(state.players);
+  const { [playerId]: _gone, ...players } = state.players;
+  const turnOrder = oldOrder.filter((id) => id !== playerId);
+
+  // Strip commander damage the leaving player dealt to survivors.
+  for (const id of turnOrder) {
+    const dmg = players[id]?.commanderDamageFrom;
+    if (dmg && playerId in dmg) {
+      const { [playerId]: _d, ...rest } = dmg;
+      players[id] = { ...players[id], commanderDamageFrom: rest };
     }
   }
 
-  return "active";
+  // Drop their objects on the stack and their combat involvement so later
+  // resolution / combat steps never dereference a removed seat.
+  const stack = (state.stack || []).filter((obj) => obj.controller !== playerId);
+  let combat = state.combat;
+  if (combat) {
+    combat = {
+      ...combat,
+      attackers: (combat.attackers || []).filter(
+        (a) => a.attackingPlayer !== playerId && a.defender !== playerId,
+      ),
+      blockers: (combat.blockers || []).filter((b) => b.blockingPlayer !== playerId),
+    };
+  }
+
+  const log = [...state.log, { turn: state.turn, kind: "player-eliminated", player: playerId }];
+  const base = { ...state, players, turnOrder, stack, combat, log };
+
+  if (state.activePlayer === playerId) {
+    // Active player left mid-turn: end the turn and start the next
+    // surviving seat's turn from untap, rather than splicing a survivor
+    // into the dead player's phase/step.
+    const idx = oldOrder.indexOf(playerId);
+    let nextActive = turnOrder[0] || null;
+    for (let k = 1; k <= oldOrder.length; k++) {
+      const cand = oldOrder[(idx + k) % oldOrder.length];
+      if (cand !== playerId && players[cand]) { nextActive = cand; break; }
+    }
+    return runStepActions({
+      ...base,
+      activePlayer: nextActive,
+      turn: state.turn + 1,
+      phase: "beginning",
+      step: "untap",
+      priorityHolder: null,
+      consecutivePasses: 0,
+    });
+  }
+
+  // Bystander left — keep the current turn going.
+  let priorityHolder = state.priorityHolder;
+  if (priorityHolder === playerId || (priorityHolder && !players[priorityHolder])) {
+    priorityHolder = players[state.activePlayer] ? state.activePlayer : (turnOrder[0] || null);
+  }
+  return { ...base, priorityHolder, consecutivePasses: 0 };
 }
 
+/**
+ * State-based win/loss + elimination, run before every priority window.
+ * From the user's seat:
+ *   - user dead → "ai-wins" (you lost)
+ *   - every opponent dead → "user-wins"
+ *   - some-but-not-all opponents dead → remove them, keep playing
+ *
+ * Standard (a single opponent) only ever hits the first two branches, so
+ * its board is never mutated mid-game and behavior is unchanged.
+ */
 function recordOutcomeIfChanged(session) {
   if (session.status !== "active") return session;
-  const newStatus = checkGameEnd(session.state);
-  if (newStatus === "active") return session;
-  return {
-    ...session,
-    status: newStatus,
-    endedAt: new Date().toISOString(),
-  };
+  const state = session.state;
+
+  if (isPlayerDead(state, "user")) {
+    return { ...session, status: "ai-wins", endedAt: new Date().toISOString() };
+  }
+
+  const order = state.turnOrder || Object.keys(state.players);
+  const opponents = order.filter((id) => id !== "user");
+  const deadOpponents = opponents.filter((id) => isPlayerDead(state, id));
+
+  // All opponents gone → win (no board mutation; the game is over).
+  if (opponents.length > 0 && deadOpponents.length === opponents.length) {
+    return { ...session, status: "user-wins", endedAt: new Date().toISOString() };
+  }
+
+  // Some opponents fell but others remain (Commander only): drop the
+  // eliminated seats and keep playing.
+  if (deadOpponents.length > 0) {
+    let cleaned = state;
+    for (const id of deadOpponents) cleaned = removePlayerFromGame(cleaned, id);
+    return { ...session, state: cleaned };
+  }
+
+  return session;
 }
 
 // ─── Decision loop ───────────────────────────────────────────────────────────

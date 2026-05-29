@@ -11,8 +11,10 @@
  * Design source of truth: `docs/phase6-learn-to-play.md` §4 (Data shapes).
  *
  * Coordinate system:
- *   - Players: "user" | "ai" (solitaire only in v1; multiplayer is
- *     out of scope, see design doc anti-goals)
+ *   - Players: "user" + opponent(s). Standard (1v1) uses {user, ai};
+ *     Commander (4P FFA) uses {user, ai1, ai2, ai3}. Seats come from
+ *     state.turnOrder / Object.keys(state.players), never a hardcoded
+ *     constant (see §11.2 of the design doc).
  *   - Zones (per player): library, hand, battlefield, graveyard, exile,
  *     command. Stack is shared and lives at the top-level state.
  *   - Permanents have stable IDs (separate from card IDs) so attachments
@@ -46,7 +48,22 @@ export function _resetIdsForTests() {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// Standard (1v1) seats — the default mode and the only seats the
+// engine's ~250 Standard tests ever see.
 export const PLAYER_IDS = ["user", "ai"];
+
+// Commander (4P FFA) seats. Opponents are ai1/ai2/ai3 so no single "ai"
+// ever collides with a specific pod seat.
+export const COMMANDER_PLAYER_IDS = ["user", "ai1", "ai2", "ai3"];
+
+// The two supported formats. `state.mode` is one of these; it equals the
+// string returned by formatDetection.detectDeckFormat (see §11.9).
+export const MODES = ["standard", "commander"];
+
+// Every player ID the engine may legally encounter across both modes,
+// for VALIDATION ONLY — the actual seats in a given game come from
+// Object.keys(state.players) / state.turnOrder, never this set.
+const VALID_PLAYER_IDS = new Set([...PLAYER_IDS, ...COMMANDER_PLAYER_IDS]);
 
 export const ZONES = [
   "library", "hand", "battlefield", "graveyard", "exile", "command",
@@ -88,7 +105,7 @@ function emptyManaPool() {
  */
 export function createPermanent({ card, controller, tapped = false, summoningSick = true }) {
   if (!card) throw new Error("createPermanent requires a card");
-  if (!PLAYER_IDS.includes(controller)) throw new Error(`createPermanent requires a valid controller (${PLAYER_IDS.join(", ")})`);
+  if (!VALID_PLAYER_IDS.has(controller)) throw new Error(`createPermanent requires a valid controller (one of ${[...VALID_PLAYER_IDS].join(", ")})`);
   return {
     id: nextId("perm"),
     card,
@@ -110,7 +127,7 @@ export function createPermanent({ card, controller, tapped = false, summoningSic
 export function createStackObject({ kind, source, controller, targets = [], cost = null, payload = {} }) {
   const validKinds = new Set(["spell", "triggered-ability", "activated-ability"]);
   if (!validKinds.has(kind)) throw new Error(`createStackObject: invalid kind "${kind}"`);
-  if (!PLAYER_IDS.includes(controller)) throw new Error("createStackObject requires a valid controller");
+  if (!VALID_PLAYER_IDS.has(controller)) throw new Error("createStackObject requires a valid controller");
   return {
     id: nextId("stk"),
     kind,
@@ -146,47 +163,94 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
 }
 
 /**
- * Create a fresh game state. Both players seeded with their libraries
- * and (if Commander) their commanders in the command zone. Game starts
- * pre-mulligan — call drawCards or applyMulligan to take opening hands.
+ * Create a fresh game state.
+ *
+ * Standard (1v1): pass `userDeck` + `aiDeck` (+ optional commanders).
+ * Commander (4P FFA): pass `mode: "commander"`, `userDeck`, and
+ * `opponentDecks` (exactly 3 libraries) + optional `opponentCommanders`
+ * (array of per-opponent commander arrays, parallel to opponentDecks).
+ *
+ * Game starts pre-mulligan at (beginning, untap) — call startGame (or
+ * drawCards) to take opening hands.
  */
 export function createGameState({
   userDeck,
   aiDeck,
+  opponentDecks = null,
   userCommanders = [],
   aiCommanders = [],
+  opponentCommanders = [],
   startingLife = STARTING_LIFE_COMMANDER,
   activePlayer = "user",
+  mode = "standard",
 } = {}) {
+  if (!MODES.includes(mode)) {
+    throw new Error(`createGameState: mode must be one of ${MODES.join(", ")}`);
+  }
+
+  const { players, turnOrder } =
+    mode === "commander"
+      ? buildCommanderSeats({ userDeck, userCommanders, opponentDecks, opponentCommanders, startingLife })
+      : buildStandardSeats({ userDeck, aiDeck, userCommanders, aiCommanders, startingLife });
+
   return {
     turn: 1,
+    mode,
     activePlayer,
+    // Seat rotation. nextInTurnOrder() walks this for turn AND priority
+    // passing. Standard is a two-seat toggle; Commander is the four-seat
+    // pod order (user → ai1 → ai2 → ai3).
+    turnOrder,
     priorityHolder: null,
     phase: "beginning",
     step: "untap",
     stack: [],
     pendingTriggers: [],
-    players: {
-      user: createPlayerState({
-        library: userDeck,
-        life: startingLife,
-        commanderCards: userCommanders,
-      }),
-      ai: createPlayerState({
-        library: aiDeck,
-        life: startingLife,
-        commanderCards: aiCommanders,
-      }),
-    },
+    players,
     log: [],  // append-only history of events for replay/debugging
   };
+}
+
+// Build the two Standard (1v1) seats. Output is byte-identical to the
+// pre-Commander engine, so the existing Standard test corpus is unaffected.
+function buildStandardSeats({ userDeck, aiDeck, userCommanders, aiCommanders, startingLife }) {
+  return {
+    turnOrder: ["user", "ai"],
+    players: {
+      user: createPlayerState({ library: userDeck, life: startingLife, commanderCards: userCommanders }),
+      ai: createPlayerState({ library: aiDeck, life: startingLife, commanderCards: aiCommanders }),
+    },
+  };
+}
+
+// Build the four Commander (4P FFA) seats: the user plus exactly three
+// pod opponents (ai1/ai2/ai3). opponentCommanders is an array of
+// per-opponent commander arrays, parallel to opponentDecks.
+function buildCommanderSeats({ userDeck, userCommanders, opponentDecks, opponentCommanders, startingLife }) {
+  if (!Array.isArray(opponentDecks) || opponentDecks.length !== 3) {
+    throw new Error("createGameState: commander mode requires opponentDecks to be an array of exactly 3 decks (the pod)");
+  }
+  const players = {
+    user: createPlayerState({ library: userDeck, life: startingLife, commanderCards: userCommanders }),
+  };
+  const turnOrder = ["user"];
+  opponentDecks.forEach((deck, i) => {
+    const seat = `ai${i + 1}`;
+    players[seat] = createPlayerState({
+      library: deck,
+      life: startingLife,
+      commanderCards: (Array.isArray(opponentCommanders) && opponentCommanders[i]) || [],
+    });
+    turnOrder.push(seat);
+  });
+  return { players, turnOrder };
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 function assertPlayer(playerId) {
-  if (!PLAYER_IDS.includes(playerId)) {
-    throw new Error(`Invalid playerId "${playerId}" (must be one of ${PLAYER_IDS.join(", ")})`);
+  if (!VALID_PLAYER_IDS.has(playerId)) {
+    throw new Error(`Invalid playerId "${playerId}" (must be one of ${[...VALID_PLAYER_IDS].join(", ")})`);
   }
 }
 
@@ -223,7 +287,7 @@ export function getZone(state, playerId, zone) {
 }
 
 export function findPermanent(state, permanentId) {
-  for (const playerId of PLAYER_IDS) {
+  for (const playerId of Object.keys(state.players)) {
     const found = state.players[playerId].battlefield.find(p => p.id === permanentId);
     if (found) return { permanent: found, controller: playerId };
   }
@@ -235,9 +299,43 @@ export function totalAvailableMana(state, playerId) {
   return MANA_COLORS.reduce((sum, color) => sum + (pool[color] || 0), 0);
 }
 
+/**
+ * Standard-only convenience: the lone opponent in a 1v1 game. Hardcoded
+ * user↔ai. Mode-aware code MUST NOT use this — use opponentsOf() (all
+ * enemies) or nextInTurnOrder() (seat rotation), both of which read the
+ * actual seats from state.
+ */
 export function opponentOf(playerId) {
   assertPlayer(playerId);
   return playerId === "user" ? "ai" : "user";
+}
+
+/**
+ * Every player other than `playerId`, in turn order. The "enemies"
+ * primitive: combat targeting, threat assessment, trap detection.
+ *   Standard:  opponentsOf(state, "user")  → ["ai"]
+ *   Commander: opponentsOf(state, "user")  → ["ai1", "ai2", "ai3"]
+ */
+export function opponentsOf(state, playerId) {
+  assertPlayer(playerId);
+  const order = state.turnOrder || Object.keys(state.players || {});
+  return order.filter(id => id !== playerId);
+}
+
+/**
+ * The next seat after `playerId` in turn order, wrapping around. Drives
+ * turn passing and priority passing alike.
+ *   Standard:  toggles user↔ai
+ *   Commander: user → ai1 → ai2 → ai3 → user
+ */
+export function nextInTurnOrder(state, playerId) {
+  assertPlayer(playerId);
+  const order = state.turnOrder || Object.keys(state.players || {});
+  const idx = order.indexOf(playerId);
+  if (idx === -1) {
+    throw new Error(`nextInTurnOrder: "${playerId}" not in turn order [${order.join(", ")}]`);
+  }
+  return order[(idx + 1) % order.length];
 }
 
 // ─── Zone transitions ────────────────────────────────────────────────────────
@@ -453,7 +551,7 @@ export function emptyManaPoolForPlayer(state, { playerId }) {
 }
 
 export function emptyAllManaPools(state) {
-  return PLAYER_IDS.reduce(
+  return Object.keys(state.players).reduce(
     (acc, playerId) => emptyManaPoolForPlayer(acc, { playerId }),
     state,
   );

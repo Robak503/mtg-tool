@@ -80,7 +80,7 @@ function findDefaultIndex(actions, suggested) {
  *
  * Arguments:
  *   state         — current GameState
- *   playerId      — "user" | "ai" — whose decision is this?
+ *   playerId      — "user" | "ai" | "ai1" | "ai2" | "ai3" — whose turn?
  *   actions       — legal actions array (from legalChoices.js)
  *   options       — { difficulty, archetype, cardLookup }
  *
@@ -108,8 +108,10 @@ export function makeDecision(state, playerId, actions, options = {}) {
     };
   }
 
-  // AI side: always auto-decide regardless of difficulty.
-  if (playerId === "ai") {
+  // AI side: always auto-decide regardless of difficulty. Any non-user
+  // seat is AI-controlled — Standard "ai", Commander "ai1"/"ai2"/"ai3".
+  // (difficulty governs what the USER sees, never how an AI plays.)
+  if (playerId !== "user") {
     const picked = autoPick(state, playerId, actions, { archetype });
     return {
       kind: "auto-decided",

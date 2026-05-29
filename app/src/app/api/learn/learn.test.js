@@ -128,6 +128,47 @@ describe("POST /api/learn/start", () => {
     }));
     expect(response.status).toBe(400);
   });
+
+  it("starts a commander session with a 3-deck pod", async () => {
+    const response = await startRoute.POST(postRequest("http://localhost/api/learn/start", {
+      userDeck: deck("u"),
+      opponentDecks: [deck("o1"), deck("o2"), deck("o3")],
+      mode: "commander",
+      difficulty: "beginner",
+    }));
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    expect(data.sessionId).toMatch(/^learn-/);
+    expect(data.mode).toBe("commander");
+    expect(data.status).toBe("active");
+    expect(store.getSession(data.sessionId)).toBeTruthy();
+  });
+
+  it("rejects commander mode without exactly 3 opponentDecks with 400", async () => {
+    const response = await startRoute.POST(postRequest("http://localhost/api/learn/start", {
+      userDeck: deck("u"),
+      opponentDecks: [deck("o1"), deck("o2")],
+      mode: "commander",
+    }));
+    expect(response.status).toBe(400);
+  });
+
+  it("threads per-opponent commanders into each seat", async () => {
+    const cmd = (n) => ({ id: `cmd-${n}`, name: n, type: "Legendary Creature", mana: "{G}" });
+    const response = await startRoute.POST(postRequest("http://localhost/api/learn/start", {
+      userDeck: deck("u"),
+      opponentDecks: [deck("o1"), deck("o2"), deck("o3")],
+      opponentCommanders: [[cmd("A")], [cmd("B")], []],
+      mode: "commander",
+      difficulty: "beginner",
+    }));
+    expect(response.status).toBe(200);
+    const data = await response.json();
+    const stored = store.getSession(data.sessionId);
+    expect(stored.state.players.ai1.command).toHaveLength(1);
+    expect(stored.state.players.ai2.command).toHaveLength(1);
+    expect(stored.state.players.ai3.command).toHaveLength(0);
+  });
 });
 
 describe("POST /api/learn/step", () => {

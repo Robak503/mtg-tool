@@ -26,7 +26,7 @@
 import {
   PHASES,
   STEPS,
-  opponentOf,
+  nextInTurnOrder,
   drawCards,
   emptyAllManaPools,
   emptyManaPoolForPlayer,
@@ -120,7 +120,7 @@ export function advanceStep(state) {
   }
 
   // End of turn — next player's turn begins at (beginning, untap).
-  const nextActive = opponentOf(state.activePlayer);
+  const nextActive = nextInTurnOrder(state, state.activePlayer);
   return {
     ...state,
     activePlayer: nextActive,
@@ -220,10 +220,15 @@ export function passPriority(state) {
     throw new Error("passPriority called when no player holds priority");
   }
   const passes = (state.consecutivePasses || 0) + 1;
-  const newHolder = opponentOf(state.priorityHolder);
+  const newHolder = nextInTurnOrder(state, state.priorityHolder);
 
-  if (passes >= 2) {
-    // Both players passed in succession.
+  // A step ends / the stack resolves only once every player has passed
+  // in succession (CR 117.4 / 405.5). Standard = 2 seats; Commander = 4.
+  // Any action taken resets consecutivePasses to 0, so this counts a
+  // full lap of the table with no one acting.
+  const playerCount = Object.keys(state.players).length;
+  if (passes >= playerCount) {
+    // Every player passed in succession.
     if (state.stack.length === 0) {
       // Empty stack — step ends. Advance to the next step + apply
       // its automatic actions.
@@ -362,8 +367,11 @@ export function flushTriggers(state) {
 export function startGame(state, { skipMulliganDraw = false } = {}) {
   let next = { ...state, startingPlayer: state.activePlayer };
   if (!skipMulliganDraw) {
-    next = drawCards(next, { playerId: "user", count: 7 });
-    next = drawCards(next, { playerId: "ai", count: 7 });
+    // Deal opening hands to every seat in turn order. Standard draws
+    // user + ai (unchanged); Commander deals all four pod members.
+    for (const playerId of (state.turnOrder || Object.keys(state.players))) {
+      next = drawCards(next, { playerId, count: 7 });
+    }
   }
   next = logEvent(next, { kind: "game-start", startingPlayer: state.activePlayer });
   // First step is untap — run its actions (which include skipping the

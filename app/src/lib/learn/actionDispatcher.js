@@ -30,7 +30,7 @@ import {
   emptyManaPoolForPlayer,
   moveCardToZone,
   logEvent,
-  opponentOf,
+  opponentsOf,
 } from "./gameState.js";
 import { passPriority } from "./gameEngine.js";
 import { canPayManaCost } from "./legalChoices.js";
@@ -309,7 +309,10 @@ function applyDeclareAttacker(state, action) {
   if (!creature) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
 
   const withCombat = ensureCombat(state);
-  const defender = opponentOf(action.playerId);
+  // Multi-defender ready: PR 10 will pass action.defenderId to pick which
+  // opponent an attacker is targeting. Until then (and always in Standard)
+  // we default to the lone/first opponent in turn order.
+  const defender = action.defenderId || opponentsOf(state, action.playerId)[0];
   const attackerEntry = {
     permanentId: action.permanentId,
     attackingPlayer: action.playerId,

@@ -1,14 +1,24 @@
 /**
  * POST /api/learn/start
  *
- * Body:
+ * Body (Standard 1v1):
  *   {
  *     userDeck:      Card[],
  *     opponentDeck:  Card[],
  *     userCommanders?: Card[],
  *     opponentCommanders?: Card[],
  *     difficulty: "beginner" | "intermediate" | "expert",
- *     activePlayer?: "user" | "ai"
+ *     activePlayer?: "user" | "ai",
+ *     mode?: "standard"
+ *   }
+ * Body (Commander 4P FFA):
+ *   {
+ *     userDeck:      Card[],
+ *     opponentDecks: [Card[], Card[], Card[]],          // exactly 3 (the pod)
+ *     userCommanders?: Card[],
+ *     opponentCommanders?: [Card[], Card[], Card[]],     // per-opponent
+ *     difficulty: "beginner" | "intermediate" | "expert",
+ *     mode: "commander"
  *   }
  *
  * Response:
@@ -36,10 +46,16 @@ export async function POST(request) {
     return Response.json({ error: "Invalid JSON request body." }, { status: 400 });
   }
 
+  const mode = body?.mode === "commander" ? "commander" : "standard";
+
   if (!Array.isArray(body?.userDeck) || body.userDeck.length === 0) {
     return Response.json({ error: "userDeck is required and must be a non-empty array." }, { status: 400 });
   }
-  if (!Array.isArray(body?.opponentDeck) || body.opponentDeck.length === 0) {
+  if (mode === "commander") {
+    if (!Array.isArray(body?.opponentDecks) || body.opponentDecks.length !== 3) {
+      return Response.json({ error: "commander mode requires opponentDecks: an array of exactly 3 opponent decks (the pod)." }, { status: 400 });
+    }
+  } else if (!Array.isArray(body?.opponentDeck) || body.opponentDeck.length === 0) {
     return Response.json({ error: "opponentDeck is required and must be a non-empty array." }, { status: 400 });
   }
 
@@ -48,10 +64,12 @@ export async function POST(request) {
     session = createLearnSession({
       userDeck: body.userDeck,
       opponentDeck: body.opponentDeck,
+      opponentDecks: body.opponentDecks || null,
       userCommanders: body.userCommanders || [],
       opponentCommanders: body.opponentCommanders || [],
       difficulty: body.difficulty || "beginner",
       activePlayer: body.activePlayer || "user",
+      mode,
     });
   } catch (error) {
     return Response.json({ error: error.message || "Could not start learn session." }, { status: 400 });
@@ -70,6 +88,7 @@ export async function POST(request) {
     sessionId: advanced.session.id,
     decision: stripDecisionForWire(advanced.decision),
     status: advanced.session.status,
+    mode: advanced.session.mode,
     turn: advanced.session.state.turn,
     activePlayer: advanced.session.state.activePlayer,
     step: advanced.session.state.step,
