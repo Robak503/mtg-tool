@@ -1,11 +1,11 @@
 /**
  * /api/collection/stats — summary stats over the user's collection.
  *
- * v1 returns current value + counts. Historical deltas require a
- * `collection-prices.jsonl` populated by the sync pipeline (Step 13.1
- * follow-up); for now we just compute the snapshot at request time
- * using current prices stored on each row, and surface a notice when
- * no history file exists.
+ * Returns current value + counts + color breakdown, plus 30/90/365-day
+ * value deltas when price history exists. History is populated by
+ * POST /api/collection/prices (fired on CollectionView mount). With no
+ * history yet, deltas are null and the UI shows a "tracking will start"
+ * hint instead of a misleading $0 delta.
  */
 
 export const runtime = "nodejs";
@@ -15,41 +15,22 @@ import fs from "node:fs/promises";
 import { dataPath } from "../../../../lib/server/paths.js";
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
 import { collectionSummary } from "../../../../lib/server/collectionContext.js";
+import { parseHistory, computeDeltas } from "../../../../lib/server/collectionPrices.js";
 
 async function loadPriceHistory() {
   try {
-    const raw = await fs.readFile(dataPath("collection-prices.jsonl"), "utf8");
-    const lines = raw.split("\n").map(s => s.trim()).filter(Boolean);
-    return lines.map(l => {
-      try { return JSON.parse(l); } catch { return null; }
-    }).filter(Boolean);
+    return parseHistory(await fs.readFile(dataPath("collection-prices.jsonl"), "utf8"));
   } catch (error) {
     if (error.code === "ENOENT") return [];
     throw error;
   }
 }
 
-function summarizeHistory(history, scryfallIds) {
-  if (history.length === 0) return null;
-  // Filter to entries relevant to this user's collection
-  const relevant = history.filter(h => scryfallIds.has(h.scryfallId));
-  if (relevant.length === 0) return null;
-
-  // Group by snappedAt date
-  const byDate = new Map();
-  for (const entry of relevant) {
-    const date = entry.snappedAt;
-    if (!byDate.has(date)) byDate.set(date, new Map());
-    byDate.get(date).set(entry.scryfallId, entry);
-  }
-  const dates = Array.from(byDate.keys()).sort();
-  return { dates, byDate };
-}
-
 export async function GET() {
   try {
     const { collection } = await loadCollection();
     const summary = collectionSummary(collection);
+
     const scryfallIds = new Set(
       (collection.cards || [])
         .filter(c => !c.wishlist)
@@ -58,7 +39,11 @@ export async function GET() {
     );
 
     const history = await loadPriceHistory();
-    const histSummary = summarizeHistory(history, scryfallIds);
+    // Only history for cards the user currently owns is meaningful here.
+    const relevant = history.filter(h => scryfallIds.has(h.scryfallId));
+    const historyDates = Array.from(new Set(relevant.map(h => h.snappedAt))).sort();
+
+    const deltas = computeDeltas(collection, relevant, new Date());
 
     return Response.json({
       counts: {
@@ -68,14 +53,11 @@ export async function GET() {
       },
       value: {
         currentUsd: summary.totalValueUsd,
-        // Historical deltas require populated history. When absent, the
-        // UI shows a "snapshot will start tracking" hint instead of
-        // misleading "$0 delta".
-        deltas: histSummary ? null : null,
+        deltas, // { d30, d90, d365 } — each null or { asOf, pastValue, currentValue, delta }
       },
       colorBreakdown: summary.colorBreakdown,
-      historyAvailable: histSummary !== null,
-      historyDates: histSummary ? histSummary.dates : [],
+      historyAvailable: historyDates.length > 0,
+      historyDates,
     });
   } catch (error) {
     return Response.json({ error: error.message || "Failed to load stats" }, { status: 500 });

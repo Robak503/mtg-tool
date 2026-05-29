@@ -64,6 +64,14 @@ app/data/feedback/
 # Goldfish game records (local-only, regenerable by re-running Garfield)
 app/data/games/
 
+# Collection feature — user data + regenerable caches (live in %APPDATA% in prod)
+app/data/collection.json
+app/data/collection-prices.jsonl
+app/data/collection-prices.compact.jsonl
+app/data/collection-roasts.json
+app/data/collection.broken-*.json
+app/data/art-crops/
+
 # Embedded repos (Forge clone and RulesGuru repo — not submodules)
 mtg-judge/data/forge/
 mtg-judge/data/rulesguru-repo/
