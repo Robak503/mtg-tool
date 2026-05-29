@@ -766,8 +766,13 @@ Updated whenever phases complete. Last update: 2026-05-28.
   learn-session persistence, polish)
 - ⏳ Code signing (Authenticode) — paid cert, optional (eliminates
   SmartScreen warning on first install)
-- ⏳ File associations (.dec/.txt) — skipped earlier, low priority
 - ⏳ Microsoft Store distribution — deferred until needed
+
+### Declined
+
+- ✗ File associations (.dec/.txt) — owner imports from Archidekt /
+  Moxfield via copy-paste; file-based deck workflows aren't part of
+  the loop. Decided 2026-05-28.
 
 ### Test coverage
 
