@@ -9,7 +9,7 @@ const DEFAULT_OLLAMA_FAST_MODEL = "qwen2.5:7b";
 const DEFAULT_OLLAMA_AGENT_MODEL = "qwen2.5:14b";
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_OLLAMA_CONTEXT = 32768;
-// dataPath() resolves at module load — Electron sets MTG_APP_ROOT before
+// dataPath() resolves at module load — the Tauri shell sets MTG_APP_ROOT before
 // spawning the server so the file ends up in %APPDATA%/MTG Tool/data/.
 import { dataPath } from "./paths.js";
 const MODEL_CALL_LOG = dataPath("model-calls.local.json");
