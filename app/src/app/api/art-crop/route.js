@@ -89,8 +89,15 @@ export async function GET(request) {
         id = printing.id;
         if (!clientUrl && printing.artCropUrl) clientUrl = printing.artCropUrl;
       }
-    } catch {
-      // Index not built (dev / pre-sync). id stays null → handled below.
+    } catch (err) {
+      // A missing index (ENOENT) is the expected dev / pre-sync state — fall
+      // through silently and let the name resolve to a 404 below. Anything else
+      // (malformed index JSON, wrong data shape, a bug in lookupByName) is
+      // unexpected: surface it to server.err.log rather than swallow it, so the
+      // misleading "no printing found" 404 doesn't hide a real failure (CLAUDE.md §8).
+      if (err?.code !== "ENOENT") {
+        console.error("[art-crop] lookupByName failed for name:", name, err);
+      }
     }
   }
 
