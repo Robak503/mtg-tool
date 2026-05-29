@@ -39,6 +39,10 @@ jobs:
         working-directory: app
         run: npm ci
 
+      - name: Run tests (gate the release on a green suite)
+        working-directory: app
+        run: npm test
+
       - name: Sync tauri.conf.json version to tag
         shell: pwsh
         # The Tauri build embeds tauri.conf.json's "version" field into

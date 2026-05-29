@@ -1,0 +1,35 @@
+name: ci
+
+# Runs the test suite on every push to master and every pull request, so a
+# regression is caught before it lands (and before it can reach a release tag).
+# Windows-latest matches the dev + release environment the suite is verified on.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install npm deps
+        working-directory: app
+        run: npm ci
+
+      - name: Run tests
+        working-directory: app
+        run: npm test
