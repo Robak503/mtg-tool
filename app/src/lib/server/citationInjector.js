@@ -50,18 +50,15 @@ export function extractCitedRuleNumbers(text) {
 
 export function stripHallucinatedCitations(text, allowedRuleNumbers = []) {
   const allowed = new Set(allowedRuleNumbers);
-  const canonicalByParent = new Map();
-  for (const ruleNumber of allowed) {
-    const parent = String(ruleNumber).match(/^(\d{3}\.\d+)/)?.[1];
-    if (parent && !canonicalByParent.has(parent)) canonicalByParent.set(parent, ruleNumber);
-  }
 
   const hallucinations = [];
   const cleaned = String(text || "").replace(/\[(\d{3}\.\d+[a-z]?)\]/g, (full, ruleNumber) => {
     if (allowed.has(ruleNumber)) return full;
-    const parent = ruleNumber.match(/^(\d{3}\.\d+)/)?.[1];
-    const canonical = parent ? canonicalByParent.get(parent) : null;
-    if (canonical) return `[${canonical}]`;
+    // Not in the retrieved/allowed set. Do NOT substitute a different
+    // real-looking rule (e.g. map 509.2z -> 509.2a just because the parent
+    // 509.2 was retrieved) — that fabricates a citation the model never made
+    // and we never verified, defeating the "never fabricate rule numbers"
+    // mandate. Remove it and record it as a hallucination instead.
     hallucinations.push(ruleNumber);
     return `[citation removed: ${ruleNumber}]`;
   });
