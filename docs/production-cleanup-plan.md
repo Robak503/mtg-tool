@@ -1,6 +1,8 @@
 # Production Cleanup Plan
 
-> **Status:** Awaiting execution. This is a *plan*, not a record of completed work.
+> **Status:** In progress — Phases A, B, C1, C3, and D2 merged (10 PRs, CI green).
+> The heaviest items (the `knowledge/` rename and the Phase E refactors) are paused
+> for a fresh session. See **Progress** below for exactly what's done and what's next.
 > **Mode:** Researched read-only while other sessions were active; execution happens
 > against a clean tree (see [Execution sequencing](#execution-sequencing)).
 > **Delivery:** Incremental pull requests, one per area, each verified with
@@ -8,7 +10,32 @@
 > **Remove this file** once the cleanup is complete — it is a working tracker, not
 > permanent documentation.
 
-Last updated: 2026-05-28.
+Last updated: 2026-05-29.
+
+## Progress
+
+**Merged (10 PRs, CI green throughout):**
+- **Phase A** — engine `TOOL_ROOT` 500 + `spellbook`/`edhrec` `__dirname` packaging bugs, with tests.
+- **B1** — archived 19 root scratch docs; deleted the dead `mtg-judge/MTGAssistant.jsx` orphan + a `.bak`.
+- **B2** — source-available `LICENSE`; reconciled the licensing contradiction.
+- **B3** — README overhauled for outsiders (desktop build path); retired stale `app/README`.
+- **B4** — `.gitattributes`, `CONTRIBUTING`, `ARCHITECTURE`, `SECURITY`, `CHANGELOG`.
+- **Test health** — fixed the `collectionCsvImport.test.js` leak that hung the whole suite (now 636 tests in ~2s).
+- **C3** — CI gate: `ci.yml` runs lint + tests on push/PR; `release.yml` gated on a green suite.
+- **C1** — ESLint + Prettier + knip; lint wired into CI (0 errors, ~60 tracked warnings).
+- **CI fix** — extracted `findOllamaBinary` to `lib/server/ollamaBinary.js`; made `ollama-health` test hermetic.
+- **D2** — corrected stale "Electron" doc references to the Tauri shell.
+
+**Remaining (paused — resume here):**
+- **C2** — git hooks (commitlint + simple-git-hooks + lint-staged).
+- **C4** — Rust rustfmt + clippy + cargo-audit (wire into CI).
+- **D1** — normalize npm script names to `verb:noun`.
+- **D3** — disambiguate duplicate fn names (`searchCards`, `detectCardNamesInText`, `normalizeName`).
+- **D4** — consolidate data dirs under `knowledge/` (renames `MTG ENGINE/`; touches the signed `.exe` build — verify with `npm run tauri:build`).
+- **E1–E6** — add `powerRanker` + rules-retrieval tests; shared `theme.js`/`styleHelpers`/`<Modal>`; decompose `MTGAssistant.jsx` + `FeedbackButton.jsx`; split `agents.js`/`powerRanker.js`/`lib.rs`; dedupe backend helpers + card-context builders; frontend dead-code cleanup.
+- **Deferred** — archive stale `AUDIT.md`; run the `/health` + `/cso` baseline.
+
+The detailed PR-by-PR breakdown is in the sections below.
 
 ---
 
