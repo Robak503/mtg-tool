@@ -1,11 +1,23 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "enables the default permissions",
+  "description": "Core + plugin permissions for the main window. Granted to BOTH the local loading placeholder and the bundled Next.js server origin (127.0.0.1:3000), which Tauri treats as a remote URL. Without the `remote` grant, every IPC call from the loaded app (getVersion, setTitle, updater.check) is silently denied.",
   "windows": [
     "main"
   ],
+  "remote": {
+    "urls": [
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1:3000/*",
+      "http://localhost:3000",
+      "http://localhost:3000/*"
+    ]
+  },
   "permissions": [
-    "core:default"
+    "core:default",
+    "core:app:allow-version",
+    "core:window:allow-set-title",
+    "updater:default",
+    "autostart:default"
   ]
 }
