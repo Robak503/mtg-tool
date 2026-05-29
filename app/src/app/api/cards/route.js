@@ -6,7 +6,7 @@ import {
   lookupCard,
   lookupRulingsForCard,
   publicCard,
-  searchCards,
+  searchLocalCards,
 } from "../../../lib/server/cardIndex.js";
 
 function missingRepositoryResponse(error) {
@@ -46,7 +46,7 @@ export async function GET(request) {
 
   const search = url.searchParams.get("search");
   if (search) {
-    const cards = searchCards(search, {
+    const cards = searchLocalCards(search, {
       colorIdentity: url.searchParams.get("colorIdentity"),
       legal: url.searchParams.get("legal") || "commander",
       limit: url.searchParams.get("limit"),

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-import { searchCards } from "../lib/scryfall";
+import { searchScryfall } from "../lib/scryfall";
 
 export default function useCardSearch() {
   const [searchQ, setSearchQ] = useState("");
@@ -22,7 +22,7 @@ export default function useCardSearch() {
 
     searchTimer.current = setTimeout(async () => {
       setSearchLoad(true);
-      setSearchRes(await searchCards(query));
+      setSearchRes(await searchScryfall(query));
       setSearchLoad(false);
     }, 480);
   };
