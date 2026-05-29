@@ -154,7 +154,7 @@ let crCache = null;
 function normalize(text) {
   return String(text || "")
     .toLowerCase()
-    .replace(/[^a-z0-9.\/+-]+/g, " ")
+    .replace(/[^a-z0-9./+-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

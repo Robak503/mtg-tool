@@ -173,7 +173,7 @@ export async function POST(req) {
 
   if (action === "pull-model") {
     const model = String(body?.model || "qwen2.5:14b").trim();
-    if (!/^[a-zA-Z0-9._:\-\/]+$/.test(model)) {
+    if (!/^[a-zA-Z0-9._:\-/]+$/.test(model)) {
       return Response.json({ ok: false, error: "Invalid model name" }, { status: 400 });
     }
     return streamModelPull(model);

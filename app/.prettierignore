@@ -1,0 +1,10 @@
+.next
+node_modules
+data
+public
+src-tauri/target
+src-tauri/node
+src-tauri/resources
+src-tauri/gen
+package-lock.json
+*.min.js
