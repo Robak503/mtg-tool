@@ -18,6 +18,6 @@ Token rows should stay in the raw import when present. The parser moves known Sc
 Refresh catalog files from the app root:
 
 ```powershell
-npm.cmd run refresh-card-names
-npm.cmd run refresh-tokens
+npm.cmd run generate:card-names
+npm.cmd run generate:token-names
 ```
