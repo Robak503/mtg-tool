@@ -17,6 +17,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
+import { artCropProxySrc } from "../../lib/artCrop";
+
 const CARD_WIDTH = 200;
 const CARD_HEIGHT = 230;
 const GAP = 12;
@@ -150,9 +152,9 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, onClick, colo
         position: "relative",
         overflow: "hidden",
       }}>
-        {card.artCropUrl && !imgError ? (
+        {(card.scryfallId || card.artCropUrl) && !imgError ? (
           <img
-            src={card.artCropUrl}
+            src={artCropProxySrc(card)}
             alt=""
             loading="lazy"
             onError={() => setImgError(true)}

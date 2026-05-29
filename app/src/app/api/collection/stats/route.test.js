@@ -145,4 +145,66 @@ describe("GET /api/collection/stats", () => {
     expect(body.historyAvailable).toBe(true);
     expect(body.historyDates).toEqual(["2026-04-01", "2026-05-01"]);
   });
+
+  it("computes a real 30-day delta from snapshot history", async () => {
+    const now = new Date();
+    const today = now.toISOString().slice(0, 10);
+    const old = new Date(now.getTime() - 35 * 86_400_000).toISOString().slice(0, 10);
+
+    const collection = {
+      version: 1,
+      updatedAt: "x",
+      cards: [{
+        scryfallId: "a",
+        oracleId: "oracle-a",
+        name: "Sol Ring",
+        stacks: [{ finish: "nonfoil", quantity: 2 }],
+        prices: { usd: "1.50" },
+        wishlist: false,
+      }],
+    };
+    await fs.writeFile(
+      path.join(tmpDir, "data", "collection.json"),
+      JSON.stringify(collection),
+      "utf8",
+    );
+    const history = [
+      { snappedAt: old, scryfallId: "a", usd: "1.00" },
+      { snappedAt: today, scryfallId: "a", usd: "1.50" },
+    ].map(e => JSON.stringify(e)).join("\n");
+    await fs.writeFile(
+      path.join(tmpDir, "data", "collection-prices.jsonl"),
+      history,
+      "utf8",
+    );
+
+    const fresh = await loadRoute();
+    const body = await (await fresh.GET()).json();
+    // current = 2 × 1.50 = 3.00 ; 30d-ago = 2 × 1.00 = 2.00 ; delta +1.00
+    expect(body.value.deltas.d30).toEqual({
+      asOf: old,
+      pastValue: 2,
+      currentValue: 3,
+      delta: 1,
+    });
+  });
+
+  it("returns null deltas when no history exists", async () => {
+    const collection = {
+      version: 1, updatedAt: "x",
+      cards: [{
+        scryfallId: "a", oracleId: "oracle-a", name: "Sol Ring",
+        stacks: [{ finish: "nonfoil", quantity: 1 }], prices: { usd: "3.50" }, wishlist: false,
+      }],
+    };
+    await fs.writeFile(
+      path.join(tmpDir, "data", "collection.json"),
+      JSON.stringify(collection),
+      "utf8",
+    );
+    const fresh = await loadRoute();
+    const body = await (await fresh.GET()).json();
+    expect(body.value.deltas).toEqual({ d30: null, d90: null, d365: null });
+    expect(body.historyAvailable).toBe(false);
+  });
 });

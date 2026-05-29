@@ -14,6 +14,8 @@
 
 import { useEffect, useState } from "react";
 
+import { artCropProxySrc } from "../../lib/artCrop";
+
 const FINISH_LABELS = { nonfoil: "Nonfoil", foil: "Foil", etched: "Etched" };
 const CONDITION_OPTIONS = [
   { value: "", label: "—" },
@@ -133,9 +135,9 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, c
       </div>
 
       <div style={{ padding: "16px 16px 24px", overflowY: "auto", flex: 1 }}>
-        {row.artCropUrl && (
+        {(row.scryfallId || row.artCropUrl) && (
           <img
-            src={row.artCropUrl}
+            src={artCropProxySrc(row)}
             alt=""
             style={{
               width: "100%",

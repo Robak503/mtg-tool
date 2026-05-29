@@ -1,0 +1,193 @@
+/**
+ * collectionPrices.js — price-history snapshotting, compaction, and delta
+ * computation for the Collection value-over-time feature.
+ *
+ * History lives in collection-prices.jsonl (one JSON object per line):
+ *   { snappedAt: "YYYY-MM-DD", scryfallId, usd, usdFoil, usdEtched }
+ *
+ * Snapshots are written at most once per calendar day (idempotent — the
+ * POST /api/collection/prices route refuses a second write for the same
+ * day). Entries older than COMPACT_AFTER_DAYS are rolled up to one entry
+ * per scryfallId per month so the file stays bounded over years of use.
+ *
+ * Deltas value CURRENT holdings at historical prices: "the cards you own
+ * now are worth $X more than they were 30 days ago" (price movement, not
+ * portfolio-size change). This needs a snapshot at or before the lookback
+ * date; when none exists the delta is null and the UI shows nothing
+ * rather than a misleading $0.
+ *
+ * Functions are pure — the route injects the price lookup and the clock.
+ */
+
+export const COMPACT_AFTER_DAYS = 90;
+
+const DAY_MS = 86_400_000;
+
+export function todayStamp(now = new Date()) {
+  return new Date(now).toISOString().slice(0, 10);
+}
+
+function shiftDays(now, days) {
+  return new Date(new Date(now).getTime() - days * DAY_MS);
+}
+
+export function parseHistory(raw) {
+  if (!raw) return [];
+  return raw
+    .split("\n")
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(line => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+export function serializeHistory(entries) {
+  return entries.map(e => JSON.stringify(e)).join("\n") + (entries.length ? "\n" : "");
+}
+
+export function hasSnapshotForDate(history, dateStamp) {
+  return history.some(e => e.snappedAt === dateStamp);
+}
+
+/**
+ * Build today's snapshot entries for every owned (non-wishlist) printing.
+ *
+ * priceFor(scryfallId, row) returns { usd, usdFoil, usdEtched } — the
+ * route wires this to the printing index (freshest prices) with a
+ * fallback to the row's stored prices.
+ */
+export function buildSnapshotEntries(collection, dateStamp, priceFor) {
+  const entries = [];
+  if (!collection || !Array.isArray(collection.cards)) return entries;
+
+  const seen = new Set();
+  for (const row of collection.cards) {
+    if (row.wishlist) continue;
+    if (!row.scryfallId) continue;
+    const owned = (row.stacks || []).some(s => (s.quantity || 0) > 0);
+    if (!owned) continue;
+    if (seen.has(row.scryfallId)) continue;
+    seen.add(row.scryfallId);
+
+    const prices = (priceFor && priceFor(row.scryfallId, row)) || row.prices || {};
+    entries.push({
+      snappedAt: dateStamp,
+      scryfallId: row.scryfallId,
+      usd: prices.usd ?? null,
+      usdFoil: prices.usdFoil ?? prices.usd_foil ?? null,
+      usdEtched: prices.usdEtched ?? prices.usd_etched ?? null,
+    });
+  }
+  return entries;
+}
+
+/**
+ * Roll up entries older than compactAfterDays to one (latest) entry per
+ * scryfallId per calendar month. Recent entries keep daily granularity.
+ */
+export function compactHistory(history, now = new Date(), compactAfterDays = COMPACT_AFTER_DAYS) {
+  const cutoff = todayStamp(shiftDays(now, compactAfterDays));
+  const recent = [];
+  const oldByKey = new Map();
+
+  for (const e of history) {
+    if (!e || !e.snappedAt) continue;
+    if (e.snappedAt >= cutoff) {
+      recent.push(e);
+    } else {
+      const ym = e.snappedAt.slice(0, 7); // YYYY-MM
+      const key = `${ym}:${e.scryfallId}`;
+      const existing = oldByKey.get(key);
+      if (!existing || e.snappedAt > existing.snappedAt) oldByKey.set(key, e);
+    }
+  }
+
+  return [...oldByKey.values(), ...recent].sort((a, b) =>
+    a.snappedAt.localeCompare(b.snappedAt),
+  );
+}
+
+function priceForFinish(priceObj, finish) {
+  if (!priceObj) return 0;
+  const key = finish === "foil" ? "usdFoil" : finish === "etched" ? "usdEtched" : "usd";
+  const v = parseFloat(priceObj[key]);
+  return Number.isFinite(v) ? v : 0;
+}
+
+/**
+ * Value the collection's CURRENT holdings using a per-scryfallId price map
+ * (as captured in a single day's snapshot).
+ */
+export function valueCollectionAtPrices(collection, priceMap) {
+  if (!collection || !Array.isArray(collection.cards)) return 0;
+  let total = 0;
+  for (const row of collection.cards) {
+    if (row.wishlist) continue;
+    const prices = priceMap.get(row.scryfallId);
+    if (!prices) continue;
+    for (const stack of row.stacks || []) {
+      const qty = stack.quantity || 0;
+      if (qty <= 0) continue;
+      total += priceForFinish(prices, stack.finish) * qty;
+    }
+  }
+  return Math.round(total * 100) / 100;
+}
+
+function groupByDate(history) {
+  const byDate = new Map();
+  for (const e of history) {
+    if (!e || !e.snappedAt || !e.scryfallId) continue;
+    if (!byDate.has(e.snappedAt)) byDate.set(e.snappedAt, new Map());
+    byDate.get(e.snappedAt).set(e.scryfallId, e);
+  }
+  return byDate;
+}
+
+function nearestOnOrBefore(sortedDates, targetStamp) {
+  let best = null;
+  for (const d of sortedDates) {
+    if (d <= targetStamp) best = d;
+    else break;
+  }
+  return best;
+}
+
+/**
+ * Compute 30 / 90 / 365-day value deltas for current holdings.
+ * Returns { d30, d90, d365 } where each is null (no snapshot that old)
+ * or { asOf, pastValue, currentValue, delta }.
+ */
+export function computeDeltas(collection, history, now = new Date()) {
+  const result = { d30: null, d90: null, d365: null };
+  const byDate = groupByDate(history);
+  const dates = Array.from(byDate.keys()).sort();
+  if (dates.length === 0) return result;
+
+  const currentDate = dates[dates.length - 1];
+  const currentValue = valueCollectionAtPrices(collection, byDate.get(currentDate));
+
+  for (const [key, days] of [["d30", 30], ["d90", 90], ["d365", 365]]) {
+    const target = todayStamp(shiftDays(now, days));
+    const snapDate = nearestOnOrBefore(dates, target);
+    // Don't compare today against today — needs a genuinely older snapshot.
+    if (!snapDate || snapDate === currentDate) {
+      result[key] = null;
+      continue;
+    }
+    const pastValue = valueCollectionAtPrices(collection, byDate.get(snapDate));
+    result[key] = {
+      asOf: snapDate,
+      pastValue,
+      currentValue,
+      delta: Math.round((currentValue - pastValue) * 100) / 100,
+    };
+  }
+  return result;
+}

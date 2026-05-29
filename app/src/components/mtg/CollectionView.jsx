@@ -57,6 +57,8 @@ export default function CollectionView({ onClose }) {
   const [conflictsOpen, setConflictsOpen] = useState(false);
   const [conflicts, setConflicts] = useState({ conflicts: [], totalDecks: 0 });
   const [roastOpen, setRoastOpen] = useState(false);
+  // 30-day value delta from price-history (null until a snapshot ≥30d old exists)
+  const [priceDelta, setPriceDelta] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,6 +99,26 @@ export default function CollectionView({ onClose }) {
         if (!cancelled) setConflicts(body);
       } catch {
         // Conflicts are advisory; don't block the view.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [state.status, state.collection?.updatedAt]);
+
+  // Price history — ensure today's snapshot exists (idempotent per day),
+  // then pull stats for the 30-day value delta. Fire-and-forget: the
+  // value-over-time line is a bonus, never blocks the grid.
+  useEffect(() => {
+    if (state.status !== "ready") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await fetch("/api/collection/prices", { method: "POST" });
+        const resp = await fetch("/api/collection/stats");
+        if (!resp.ok) return;
+        const body = await resp.json();
+        if (!cancelled) setPriceDelta(body.value?.deltas?.d30 || null);
+      } catch {
+        // Price history is advisory.
       }
     })();
     return () => { cancelled = true; };
@@ -216,6 +238,14 @@ export default function CollectionView({ onClose }) {
                   <span style={{ color: COLORS.TEXT }}>
                     ${collectionValue.toFixed(2)}
                   </span>
+                  {priceDelta && priceDelta.delta !== 0 && (
+                    <span
+                      title={`Price movement of your current cards since ${priceDelta.asOf}`}
+                      style={{ color: priceDelta.delta > 0 ? "#6fbf73" : COLORS.RED, marginLeft: 5 }}
+                    >
+                      {priceDelta.delta > 0 ? "▲" : "▼"} ${Math.abs(priceDelta.delta).toFixed(2)} 30d
+                    </span>
+                  )}
                 </>
               )}
               {conflicts.conflicts?.length > 0 && (
