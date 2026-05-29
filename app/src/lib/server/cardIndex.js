@@ -1,6 +1,7 @@
 import fs from "node:fs";
 
 import { dataPath } from "./paths.js";
+import { readJsonOrNull } from "./jsonFile.js";
 
 // Slim pre-built index (~10-20MB) — preferred when present. Build via
 // `npm run build:oracle-index` after every oracle_cards.json refresh.
@@ -48,10 +49,16 @@ function readJson(preferredFile, fallbackFile, missingHint) {
     error.code = "ENOENT";
     throw error;
   }
-  return {
-    file,
-    parsed: JSON.parse(fs.readFileSync(file, "utf8")),
-  };
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    throw new Error(
+      `Local Oracle repository at ${file} is corrupt JSON. ` +
+        `Re-run npm run sync:oracle (or build:oracle-index).`,
+    );
+  }
+  return { file, parsed };
 }
 
 function cardRank(card) {
@@ -83,13 +90,21 @@ function buildCardIndex() {
   // the full 165MB oracle file if the user has not yet run
   // `npm run build:oracle-index` (or if oracle_cards.json was refreshed but
   // the index is stale — the script is fast enough to re-run on every sync).
-  const { file, parsed } = fs.existsSync(ORACLE_INDEX_FILE)
-    ? { file: ORACLE_INDEX_FILE, parsed: JSON.parse(fs.readFileSync(ORACLE_INDEX_FILE, "utf8")) }
-    : readJson(
-        ORACLE_FILE,
-        LEGACY_ORACLE_FILE,
-        "Local Oracle repository missing. Run npm.cmd run sync:oracle from the app folder."
-      );
+  // Prefer the slim index. If it's present but CORRUPT, fall through to the
+  // full oracle file instead of 500-ing; a missing/corrupt full file is fatal.
+  let file;
+  let parsed = null;
+  if (fs.existsSync(ORACLE_INDEX_FILE)) {
+    parsed = readJsonOrNull(ORACLE_INDEX_FILE, { label: "oracle-index" });
+    if (parsed != null) file = ORACLE_INDEX_FILE;
+  }
+  if (parsed == null) {
+    ({ file, parsed } = readJson(
+      ORACLE_FILE,
+      LEGACY_ORACLE_FILE,
+      "Local Oracle repository missing. Run npm.cmd run sync:oracle from the app folder.",
+    ));
+  }
   const cards = Array.isArray(parsed) ? parsed : parsed.cards;
   if (!Array.isArray(cards)) throw new Error("Local Oracle repository does not include a cards array.");
 

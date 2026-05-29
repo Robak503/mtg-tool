@@ -11,6 +11,7 @@ import {
 import { retrieveRulesGuruPrecedents, resetRulesGuruRetrievalForTests } from "./rulesGuruRetrieval.js";
 
 import { dataPath } from "./paths.js";
+import { readJsonOrNull } from "./jsonFile.js";
 const RULES_INDEX_FILE = dataPath("rules-index.json");
 const DEFAULT_LIMIT = 5;
 
@@ -41,11 +42,11 @@ function loadRulesIndex() {
     throw new Error("Missing app/data/rules-index.json. Run npm.cmd run build:rules-index first.");
   }
 
-  const parsed = JSON.parse(fs.readFileSync(RULES_INDEX_FILE, "utf8"));
-  if (!Array.isArray(parsed)) throw new Error("Rules index must be an array.");
-
-  rulesIndex = parsed;
-  rulesByNumber = new Map(parsed.map(rule => [rule.ruleNumber, rule]));
+  // Missing index still throws above (actionable hint). A corrupt index
+  // degrades to empty (no rule hints) instead of 500-ing every rules query.
+  const parsed = readJsonOrNull(RULES_INDEX_FILE, { fallback: [], label: "rules-index" });
+  rulesIndex = Array.isArray(parsed) ? parsed : [];
+  rulesByNumber = new Map(rulesIndex.map(rule => [rule.ruleNumber, rule]));
   return { rules: rulesIndex, byNumber: rulesByNumber };
 }
 
