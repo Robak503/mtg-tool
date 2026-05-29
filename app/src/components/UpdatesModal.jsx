@@ -215,6 +215,7 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
             // Strip ANSI/control chars; collapse repeated trailing newlines.
             const cleaned = String(data.text)
               .replace(/\r/g, "")
+              // eslint-disable-next-line no-control-regex
               .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "")
               .trimEnd();
             if (cleaned) {
