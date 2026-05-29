@@ -5,7 +5,7 @@
  * fixture so the printingIndex module has data to look up against.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -16,7 +16,9 @@ import {
   normalizeFinish,
   parseCollectionCsv,
   mergeImportRows,
+  matchEntries,
 } from "./collectionCsvImport.js";
+import { resetPrintingIndexCache } from "./printingIndex.js";
 
 describe("parseCsv", () => {
   it("parses a simple CSV", () => {
@@ -266,16 +268,21 @@ describe("matchEntries", () => {
     );
     originalCwd = process.cwd();
     process.chdir(tmpDir);
-    vi.resetModules();
+    // Rebuild the printings index from this tmpdir fixture. We use the
+    // module's explicit cache reset rather than a cache-busting dynamic
+    // import: `import("...?bust=" + Math.random())` spawned a fresh module
+    // graph per call that Vitest couldn't settle, hanging the worker (and
+    // stalling the whole suite at the 300s watchdog).
+    resetPrintingIndexCache();
   });
 
   afterEach(async () => {
     process.chdir(originalCwd);
     await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    resetPrintingIndexCache();
   });
 
-  it("matches entries against bundled printings", async () => {
-    const { matchEntries } = await import("./collectionCsvImport.js?bust=" + Math.random());
+  it("matches entries against bundled printings", () => {
     const result = matchEntries([
       { name: "Sol Ring", setCode: "c21", finish: "nonfoil", count: 2, condition: "NM" },
       { name: "Counterspell", setCode: "mh3", finish: "nonfoil", count: 1, condition: "NM" },
@@ -286,8 +293,7 @@ describe("matchEntries", () => {
     expect(result.matched[0].row.stacks[0].quantity).toBe(2);
   });
 
-  it("falls back to any-set match when set doesn't match", async () => {
-    const { matchEntries } = await import("./collectionCsvImport.js?bust=" + Math.random());
+  it("falls back to any-set match when set doesn't match", () => {
     const result = matchEntries([
       { name: "Sol Ring", setCode: "lea", finish: "nonfoil", count: 1, condition: "NM" },
     ]);
@@ -295,8 +301,7 @@ describe("matchEntries", () => {
     expect(result.matched[0].row.scryfallId).toBe("sol-c21");
   });
 
-  it("reports unmatched entries", async () => {
-    const { matchEntries } = await import("./collectionCsvImport.js?bust=" + Math.random());
+  it("reports unmatched entries", () => {
     const result = matchEntries([
       { name: "Made Up Card", setCode: "xyz", finish: "nonfoil", count: 1, condition: "NM" },
     ]);
