@@ -17,7 +17,8 @@ bundled Next.js server, but the user never sees any of that. They
 just see a window.
 
 The repo lives at **https://github.com/Robak503/mtg-tool** (public,
-MIT). Releases publish at `/releases/latest` with a signed installer
+source-available; see LICENSE for terms — not open source, not for
+redistribution). Releases publish at `/releases/latest` with a signed installer
 + `latest.json` manifest that every running instance polls for
 updates.
 
