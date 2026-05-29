@@ -759,11 +759,23 @@ Updated whenever phases complete. Last update: 2026-05-28.
 - ✅ Phase 6 PR 7 (Intermediate trap warnings + auto-attack)
 - ✅ Spellbook resilience — moved out of release pipeline into a
   weekly scheduled workflow (`.github/workflows/sync-spellbook.yml`)
+- ✅ Deck-size → format auto-detection (100→Commander, 60±SB→Standard;
+  `app/src/lib/learn/formatDetection.js`)
+- ✅ Phase 6 PR 8 (engine mode refactor — `state.mode`/`turnOrder`,
+  `opponentsOf`/`nextInTurnOrder`; Standard + Commander foundation)
+- ✅ Phase 6 PR 9 (Commander 4P FFA session start — 3-deck pod = 4
+  players total, 4-seat turn rotation, per-opponent AI, player
+  elimination + multiplayer win/loss)
 
 ### Open
 
-- ⏳ Phase 6 PR 8+ (Expert mode + post-game analysis,
-  learn-session persistence, polish)
+- ⏳ Phase 6 PR 10 (multi-defender combat — `declare-attacker`
+  `defenderId`, AI defender heuristic, multi-opponent trap detection;
+  combat-damage application)
+- ⏳ Phase 6 PR 11 (LearnView 4P layout — 3 opponent strips, mode +
+  format picker wired to `detectDeckFormat`)
+- ⏳ Phase 6 PR 12 (Expert mode + post-game analysis, mode-aware)
+- ⏳ Phase 6 learn-session persistence (`data/learn-sessions/`, PR 13)
 - ⏳ Code signing (Authenticode) — paid cert, optional (eliminates
   SmartScreen warning on first install)
 - ⏳ Microsoft Store distribution — deferred until needed
@@ -776,7 +788,8 @@ Updated whenever phases complete. Last update: 2026-05-28.
 
 ### Test coverage
 
-~350 vitest cases across 24 files. Run with `npm test` in `app/`.
+~388 vitest cases across 27 files (learn engine alone is 279). Run with
+`npm test` in `app/`.
 
 ---
 

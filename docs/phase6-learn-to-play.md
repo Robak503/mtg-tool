@@ -441,12 +441,13 @@ The codepaths fork at 2 vs 4, nowhere else.
 |-------------------------------------|---------------------------------------------|
 | `state.players: { user, ai }`       | `state.players: { user, ai } \|`           |
 |                                     | `{ user, ai1, ai2, ai3 }`                  |
-| `opponentOf(playerId)` → string     | `opponentsOf(playerId)` → string[]         |
+| `opponentOf(playerId)` → string     | `opponentsOf(state, playerId)` → string[]  |
 | Implicit `activePlayer`              | Same                                       |
 | Implicit defender in combat          | `declare-attacker` action gains            |
 |                                      | `defenderId` (auto-filled in Standard)     |
 | n/a                                  | `state.mode: "standard" \| "commander"`    |
-| n/a                                  | `state.turnOrder: string[]` (rotation)     |
+| n/a                                  | `state.turnOrder: string[]` + helper       |
+|                                      | `nextInTurnOrder(state, playerId)`         |
 
 Standard mode keeps `{user, ai}` keys exactly as today — the existing
 ~250 tests don't shift. Commander mode adds `ai1/ai2/ai3` keys and
@@ -521,13 +522,51 @@ Each PR is shippable independently against the existing user-facing
 Standard mode. The user can keep using Standard 1v1 throughout, and
 Commander mode lights up at PR 11.
 
-1. **PR 8 — Engine refactor.** Introduces `state.mode`,
-   `opponentsOf()`, `turnOrder[]`. Standard tests stay green; no
-   user-visible change. Pure data-model shift.
-2. **PR 9 — Commander session start + turn rotation.**
-   `createLearnSession({ mode: "commander", opponentDecks: [d1,d2,d3] })`.
-   Engine seeds 4 opening hands, rotates turns, all three AIs play
-   their main phase + combat coherently.
+1. **PR 8 — Engine refactor. ✅ Shipped 2026-05-28.** Introduced
+   `state.mode` (validated against `MODES`), `state.turnOrder[]`, and
+   two seat-aware primitives in `gameState.js`: `opponentsOf(state,
+   playerId)` (all enemies, turn-ordered) and `nextInTurnOrder(state,
+   playerId)` (rotation, wraps). Player validation broadened to the
+   Commander seats (`COMMANDER_PLAYER_IDS = [user, ai1, ai2, ai3]`);
+   `findPermanent`/`emptyAllManaPools` now iterate
+   `Object.keys(state.players)` instead of a hardcoded constant. The
+   engine's turn + priority passing switched from `opponentOf` to
+   `nextInTurnOrder`, and the "everyone passed" threshold scales from
+   `>= 2` to `>= Object.keys(state.players).length`. The combat
+   dispatcher accepts an optional `action.defenderId` (forward-compat
+   for PR 10), defaulting to the lone/first opponent. `opponentOf` is
+   retained as a documented Standard-only helper. Standard tests stayed
+   green (249→263 with 14 new multiplayer-primitive tests in
+   `gameState.multiplayer.test.js`); no user-visible change.
+2. **PR 9 — Commander session start + turn rotation. ✅ Shipped 2026-05-28.**
+   `createLearnSession({ mode: "commander", opponentDecks: [d1,d2,d3],
+   opponentCommanders: [[..],[..],[..]] })`. What landed:
+   - `createGameState` forks into `buildStandardSeats` / `buildCommanderSeats`;
+     commander requires exactly 3 pod decks and seats user + ai1/ai2/ai3.
+   - `startGame` deals opening 7s to every seat in turn order (Standard
+     still draws user+ai identically).
+   - `decisionGate` now treats **any non-user seat** as AI-controlled
+     (was hardcoded `=== "ai"`), so ai1/ai2/ai3 auto-pilot at every
+     difficulty. Per-opponent archetype is automatic — `opponentAI`
+     already detects each AI's archetype from its own board when none is
+     passed.
+   - Multiplayer win/loss + **player elimination** in `learnSession`:
+     user dead → loss; all opponents dead → win; a non-final opponent
+     death removes that seat (CR 800.4a) and the game continues. The PR 8
+     primitives (`opponentsOf`/`nextInTurnOrder`/seat-count pass
+     threshold) adapt automatically because they read live
+     `turnOrder`/`players`.
+   - `trapDetector` defender resolves via `opponentsOf(state, attacker)[0]`
+     instead of a hardcoded `"ai"` (was a crash in Commander; PR 10
+     extends the counter-attack check to ALL opponents).
+   - `POST /api/learn/start` accepts `mode`/`opponentDecks`/per-opponent
+     `opponentCommanders` and returns `mode`.
+   - +11 tests (gameState.multiplayer + new learnSession.commander +
+     route); full learn suite 263→274, Standard untouched.
+   - **Known PR-9 limitation:** with no `defenderId` yet, every AI's
+     attacks default to the first opponent in turn order (the user) and
+     combat-damage application itself remains a separate engine gap —
+     both are PR 10's domain.
 3. **PR 10 — Multi-defender combat.** `declare-attacker` payload
    carries `defenderId`. Trap detector + narrator extend to "which
    opponent could swing back lethal."
@@ -555,3 +594,51 @@ detector is Standard-mode-aware and gets extended in PR 10.
   resolve the same way regardless of player count.
 - Anti-goals in §8 still apply, with the format-generalizer
   anti-goal added.
+
+### 11.9 Format auto-detection
+
+**Added 2026-05-28** per the owner: *"100 card decks are for commander,
+and 60 card decks with or without a sideboard are for standard."*
+
+The session should **infer** the format from the chosen deck rather
+than make the user declare it. Detection lives in
+`app/src/lib/learn/formatDetection.js` as a pure function
+`detectDeckFormat(deck)` returning `{ format, reason, counts }`, where
+`format` is `"standard" | "commander"` — deliberately the same string
+as `state.mode` (§11.2), so callers pass it straight through to
+`createLearnSession({ mode: format })`.
+
+Signals, in priority order:
+
+1. **A designated Commander section → `"commander"`.** Only EDH/Brawl
+   decks name a commander, and those are 100-card singleton. This
+   overrides size so a mid-build 99 (not yet at 100) still reads as
+   Commander.
+2. **Maindeck size ≥ 80 → `"commander"`, else `"standard"`.** 80 is
+   the midpoint between the two legal sizes (60 and 100), so an
+   off-count list snaps to the nearer format. Catches a flat
+   100-line paste with no commander tag.
+3. **A sideboard with no commander reinforces `"standard"`** — surfaced
+   in `reason` for the UI; size already decides it in practice.
+
+Counting rules: `qty` is summed (not entry count); **Tokens never
+count** toward deck size; unrecognized section names fall through to
+maindeck. Malformed/empty decks resolve to `"standard"` without
+throwing.
+
+`opponentCountForFormat(format)` maps `commander → 3`, `standard → 1`,
+so the session-start flow knows how many opponent decks to ask for.
+
+**Shipping ahead of the engine refactor.** The detection utility +
+tests land independently of PR 8 (it reads only the parsed deck, not
+gameState). It gets *wired into the UI* at:
+
+- **PR 9** — session start uses `detectDeckFormat(userDeck)` to choose
+  `mode` and `opponentCountForFormat()` to size the opponent picker.
+- **PR 11** — the deck picker shows a format badge ("Commander · 100"
+  / "Standard · 60") with a manual override toggle for the rare case
+  the heuristic guesses wrong (e.g. a deliberately-undersized
+  playtest list).
+
+Until then the function is dormant foundation: tested, exported,
+unreferenced by the still-Standard-only UI.
