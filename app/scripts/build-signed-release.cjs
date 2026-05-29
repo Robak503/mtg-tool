@@ -33,8 +33,10 @@ const PASS_FILE = path.join(os.homedir(), ".tauri", "mtg-tool.password");
 
 function loadKeysFromHome() {
   const env = {};
+  let keyFromEnv = false;
   if (process.env.TAURI_SIGNING_PRIVATE_KEY) {
     env.TAURI_SIGNING_PRIVATE_KEY = process.env.TAURI_SIGNING_PRIVATE_KEY;
+    keyFromEnv = true;
   } else if (fs.existsSync(KEY_FILE)) {
     env.TAURI_SIGNING_PRIVATE_KEY = fs.readFileSync(KEY_FILE, "utf8");
   } else {
@@ -49,7 +51,17 @@ function loadKeysFromHome() {
     env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = process.env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD;
   } else if (fs.existsSync(PASS_FILE)) {
     env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = fs.readFileSync(PASS_FILE, "utf8");
+  } else if (keyFromEnv) {
+    // CI path: the key came from a secret but no password is provided. This
+    // project's signing key is password-protected, so an empty password would
+    // fail deep inside `tauri build` with an opaque minisign error. Fail fast
+    // with a clear message instead of burning the whole build first.
+    console.error("[build-signed-release] TAURI_SIGNING_PRIVATE_KEY is set but TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not.");
+    console.error("  Set the TAURI_SIGNING_PRIVATE_KEY_PASSWORD secret/env var (the signing key is password-protected).");
+    process.exit(1);
   } else {
+    // Local path: key file present, no password file. Allow an empty password
+    // so a password-less key still works for local release testing.
     env.TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "";
   }
 
