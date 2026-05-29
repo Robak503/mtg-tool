@@ -14,15 +14,8 @@
  */
 
 import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, "../../../data");
-const COMBOS_FILE = path.join(DATA_DIR, "spellbook-combos.local.json");
-const CARDS_FILE = path.join(DATA_DIR, "spellbook-cards.local.json");
-const INDEX_FILE = path.join(DATA_DIR, "spellbook-index.local.json");
-const META_FILE = path.join(DATA_DIR, "spellbook-meta.local.json");
+import { dataPath } from "./paths.js";
 
 // ── Module-level cache (loaded once per process) ─────────────────────────────
 
@@ -44,9 +37,18 @@ function loadData() {
   // If a previous attempt failed with parse errors (not just missing files), don't retry.
   if (_loadAttempted) return false;
 
+  // Resolve paths here (not at import time) so dataPath's MTG_REFERENCE_DIR /
+  // AppData fallback reflects current on-disk state — an in-app sync that writes
+  // fresher combo data is picked up without a restart, and the packaged .exe no
+  // longer reads relative to the bundled source file.
+  const combosFile = dataPath("spellbook-combos.local.json");
+  const indexFile = dataPath("spellbook-index.local.json");
+  const cardsFile = dataPath("spellbook-cards.local.json");
+  const metaFile = dataPath("spellbook-meta.local.json");
+
   // Files missing: don't mark attempted so we retry when files are synced.
   // This lets users run npm run sync:spellbook and get combos without restarting the server.
-  if (!fs.existsSync(COMBOS_FILE) || !fs.existsSync(INDEX_FILE)) {
+  if (!fs.existsSync(combosFile) || !fs.existsSync(indexFile)) {
     console.warn("[spellbook] Local data not found. Run: node app/scripts/sync-spellbook.cjs");
     return false;
   }
@@ -56,20 +58,20 @@ function loadData() {
 
   try {
 
-    const rawCombos = JSON.parse(fs.readFileSync(COMBOS_FILE, "utf8"));
+    const rawCombos = JSON.parse(fs.readFileSync(combosFile, "utf8"));
     _combos = {};
     for (const c of rawCombos) {
       _combos[c.id] = c;
     }
 
-    _index = JSON.parse(fs.readFileSync(INDEX_FILE, "utf8"));
+    _index = JSON.parse(fs.readFileSync(indexFile, "utf8"));
 
-    if (fs.existsSync(CARDS_FILE)) {
-      _cards = JSON.parse(fs.readFileSync(CARDS_FILE, "utf8"));
+    if (fs.existsSync(cardsFile)) {
+      _cards = JSON.parse(fs.readFileSync(cardsFile, "utf8"));
     }
 
-    if (fs.existsSync(META_FILE)) {
-      _meta = JSON.parse(fs.readFileSync(META_FILE, "utf8"));
+    if (fs.existsSync(metaFile)) {
+      _meta = JSON.parse(fs.readFileSync(metaFile, "utf8"));
     }
 
     _loaded = true;

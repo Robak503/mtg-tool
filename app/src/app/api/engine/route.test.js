@@ -35,4 +35,25 @@ describe("/api/engine — module load and request handling", () => {
     const mod = await import("./route.js");
     expect(typeof mod.POST).toBe("function");
   });
+
+  it("POST with an explicit-rule query returns 200 and a CR source citation", async () => {
+    // Regression guard for the undefined TOOL_ROOT in formatRulesContext, which
+    // threw ReferenceError -> 500 on any POST that routed to rules. An explicit
+    // rule number reliably produces rules from the real bundled CR JSON, so
+    // formatRulesContext actually runs (the GET smoke test never exercised it).
+    const mod = await import("./route.js");
+    const req = new Request("http://localhost/api/engine", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: "casting a spell, rule 601.2" }),
+    });
+    const resp = await mod.POST(req);
+    expect(resp).toBeInstanceOf(Response);
+    expect(resp.status).toBe(200);
+
+    const body = await resp.json();
+    expect(Array.isArray(body.rules)).toBe(true);
+    expect(body.rules.length).toBeGreaterThan(0);
+    expect(body.context).toContain("cr_current.json");
+  });
 });

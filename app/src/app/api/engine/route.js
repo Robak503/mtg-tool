@@ -505,7 +505,7 @@ function formatRulesContext(rules) {
 
   const lines = [
     "## DIRECT COMPREHENSIVE RULES LOOKUP",
-    `Source: ${path.relative(TOOL_ROOT, CR_FILE).replace(/\\/g, "/")}`,
+    `Source: mtg-judge/${path.relative(JUDGE_ROOT, CR_FILE).replace(/\\/g, "/")}`,
     "These are exact local CR entries selected by rule-number lookup and query routing.",
   ];
 
