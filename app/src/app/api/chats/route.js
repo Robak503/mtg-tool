@@ -5,7 +5,6 @@ import fs from "node:fs/promises";
 import { dataDir, dataPath } from "../../../lib/server/paths";
 
 const CHAT_FILE = dataPath("chats.local.json");
-const TMP_FILE = `${CHAT_FILE}.tmp`;
 const V1_BACKUP = `${CHAT_FILE}.v1.bak`;
 const AGENT_KEYS = ["jace", "karn", "tibalt", "arbiter"];
 
@@ -197,12 +196,15 @@ async function readChatFile() {
 
 async function atomicWrite(payload) {
   await fs.mkdir(dataDir(), { recursive: true });
-  // Write to a sibling .tmp file, then atomically rename. fs.rename on the
+  // Write to a sibling temp file, then atomically rename. fs.rename on the
   // same filesystem is atomic on POSIX and on Windows >= NTFS, so a crash
-  // mid-write never leaves a half-written chats.local.json behind.
+  // mid-write never leaves a half-written chats.local.json behind. The temp
+  // name is unique per write so two concurrent writers can't share one .tmp
+  // file and interleave bytes into a corrupt rename.
   const body = JSON.stringify(payload, null, 2);
-  await fs.writeFile(TMP_FILE, body, "utf8");
-  await fs.rename(TMP_FILE, CHAT_FILE);
+  const tmp = `${CHAT_FILE}.tmp.${process.pid}.${Date.now()}`;
+  await fs.writeFile(tmp, body, "utf8");
+  await fs.rename(tmp, CHAT_FILE);
 }
 
 async function writeChatFile({ sessions }) {
