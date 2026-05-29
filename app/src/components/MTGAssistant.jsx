@@ -621,9 +621,16 @@ export default function MTGAssistant() {
   const showMobileSessionPicker = mobile && mobileTab === "sessions";
 
   // Active commander's art backs the whole shell. Routed through /api/art-crop
-  // (disk-cached, offline-safe) — never the Scryfall CDN directly. Falls back to
-  // the plain base color when no deck/commander is in context.
-  const commanderArtName = ((currentSession?.lockedDeck?.commander || commanderText || "").split(" / ")[0] || "").trim();
+  // (disk-cached, offline-safe) — never the Scryfall CDN directly. Resolve from the
+  // real Commander card (locked deck first, else the active deck's Commander
+  // section); skip the deck-name / "No commander saved" fallbacks so commanderless
+  // decks don't fire 404 art lookups or mislabel the portrait.
+  const rawCommander = (currentSession?.lockedDeck?.commander
+    || deckCards.find(card => card.section === "Commander")?.name
+    || "").trim();
+  const commanderArtName = (rawCommander && rawCommander !== "No commander saved")
+    ? (rawCommander.split(" / ")[0] || "").trim()
+    : "";
 
   return (
     <div style={{fontFamily:F,background:commanderArtName?"transparent":BG,color:TEXT,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
