@@ -19,6 +19,7 @@ export const runtime = "nodejs";
 import {
   loadCollection,
   writeCollectionAtomic,
+  withCollectionLock,
   CollectionVersionMismatch,
 } from "../../../../lib/server/collectionStorage.js";
 
@@ -105,37 +106,44 @@ export async function PATCH(request, ctx) {
   }
 
   try {
-    const { collection } = await loadCollection();
-    const idx = collection.cards.findIndex(c => c.scryfallId === id);
-    if (idx < 0) return notFound(id);
+    // Serialize the read-modify-write so a concurrent mutation on another row
+    // can't load a stale snapshot and drop this update (or vice-versa).
+    const result = await withCollectionLock(async () => {
+      const { collection } = await loadCollection();
+      const idx = collection.cards.findIndex(c => c.scryfallId === id);
+      if (idx < 0) return { notFound: true };
 
-    const existing = collection.cards[idx];
-    const updated = { ...existing };
+      const existing = collection.cards[idx];
+      const updated = { ...existing };
 
-    if ("stacks" in body) {
-      updated.stacks = body.stacks.map(s => ({
-        finish: s.finish,
-        quantity: s.quantity,
-        condition: s.condition === undefined ? null : s.condition,
-      }));
-    }
-    if ("notes" in body) {
-      updated.notes = body.notes;
-    }
-    if ("wishlist" in body) {
-      updated.wishlist = body.wishlist;
-    }
+      if ("stacks" in body) {
+        updated.stacks = body.stacks.map(s => ({
+          finish: s.finish,
+          quantity: s.quantity,
+          condition: s.condition === undefined ? null : s.condition,
+        }));
+      }
+      if ("notes" in body) {
+        updated.notes = body.notes;
+      }
+      if ("wishlist" in body) {
+        updated.wishlist = body.wishlist;
+      }
 
-    // Auto-flip wishlist → false if stacks were updated and any stack has
-    // quantity > 0, unless the caller explicitly set wishlist: true.
-    if ("stacks" in body && body.wishlist !== true) {
-      const anyOwned = updated.stacks.some(s => (s.quantity || 0) > 0);
-      if (anyOwned) updated.wishlist = false;
-    }
+      // Auto-flip wishlist → false if stacks were updated and any stack has
+      // quantity > 0, unless the caller explicitly set wishlist: true.
+      if ("stacks" in body && body.wishlist !== true) {
+        const anyOwned = updated.stacks.some(s => (s.quantity || 0) > 0);
+        if (anyOwned) updated.wishlist = false;
+      }
 
-    collection.cards[idx] = updated;
-    const saved = await writeCollectionAtomic(collection);
-    return Response.json({ collection: saved, updated: updated.name || id });
+      collection.cards[idx] = updated;
+      const saved = await writeCollectionAtomic(collection);
+      return { saved, name: updated.name || id };
+    });
+
+    if (result.notFound) return notFound(id);
+    return Response.json({ collection: result.saved, updated: result.name });
   } catch (error) {
     if (error instanceof CollectionVersionMismatch) return versionConflict(error);
     return Response.json({ error: error.message || "Could not update row." }, { status: 500 });
@@ -149,16 +157,22 @@ export async function DELETE(request, ctx) {
   }
 
   try {
-    const { collection } = await loadCollection();
-    const idx = collection.cards.findIndex(c => c.scryfallId === id);
-    if (idx < 0) return notFound(id);
+    // Serialize against concurrent collection writes (lost-update guard).
+    const result = await withCollectionLock(async () => {
+      const { collection } = await loadCollection();
+      const idx = collection.cards.findIndex(c => c.scryfallId === id);
+      if (idx < 0) return { notFound: true };
 
-    const [removed] = collection.cards.splice(idx, 1);
-    const saved = await writeCollectionAtomic(collection);
+      const [removed] = collection.cards.splice(idx, 1);
+      const saved = await writeCollectionAtomic(collection);
+      return { saved, removed: removed.name || id };
+    });
+
+    if (result.notFound) return notFound(id);
     return Response.json({
       ok: true,
-      removed: removed.name || id,
-      collection: saved,
+      removed: result.removed,
+      collection: result.saved,
     });
   } catch (error) {
     if (error instanceof CollectionVersionMismatch) return versionConflict(error);

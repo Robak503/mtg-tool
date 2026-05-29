@@ -118,3 +118,38 @@ export async function writeCollectionAtomic(payload) {
   await fs.rename(tmp, target);
   return normalized;
 }
+
+// ─── Mutation serialization ─────────────────────────────────────────────────
+//
+// Atomic writes (temp + rename) guarantee the file is never left *corrupt*,
+// but they do NOT prevent a *lost update*: two concurrent
+// load → mutate → write sequences can both read the same starting state, each
+// apply their change to that stale snapshot, and the second rename silently
+// clobbers the first writer's change. A rapid double-click "add card", or an
+// import committing while the user edits a row, can hit this.
+//
+// withCollectionLock serializes the whole read-modify-write transaction
+// through a single promise chain, so the second mutation always observes the
+// first one's persisted result before it loads. Every collection.json mutator
+// (add / merge / patch / delete / clear / import-commit) must run its
+// load → mutate → write inside this lock. Pure reads (GET) don't need it.
+//
+// Scope: in-process only. The packaged .exe runs exactly one bundled Node
+// server, so a per-process chain is sufficient — there is no second writer
+// process competing for the file. Mirrors the deck-store write-chain in
+// /api/decks/route.js.
+let writeChain = Promise.resolve();
+
+export function withCollectionLock(task) {
+  // Run `task` whether the previous link fulfilled or rejected, so one failed
+  // mutation never wedges the lock for everything queued behind it.
+  const run = writeChain.then(task, task);
+  // Keep the chain tail always-fulfilled: a rejected tail would reject every
+  // future task and surface as an unhandled rejection. Callers still observe
+  // their own task's resolution/throw through `run`.
+  writeChain = run.then(
+    () => {},
+    () => {},
+  );
+  return run;
+}

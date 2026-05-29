@@ -261,3 +261,47 @@ describe("DELETE /api/collection", () => {
     expect(body.collection.cards).toEqual([]);
   });
 });
+
+describe("concurrent writes (withCollectionLock)", () => {
+  function postBody(body) {
+    return new Request("http://localhost/api/collection", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("does not lose either of two concurrent adds of different cards", async () => {
+    // Both handlers run load → mutate → write. Without serialization both
+    // load the same empty collection and the second rename clobbers the
+    // first, dropping a card. The lock forces them to run end-to-end.
+    const [r1, r2] = await Promise.all([
+      route.POST(postBody({ scryfallId: "scry-sol", stacks: [{ finish: "nonfoil", quantity: 1 }] })),
+      route.POST(postBody({ scryfallId: "scry-counter", stacks: [{ finish: "nonfoil", quantity: 1 }] })),
+    ]);
+    expect(r1.status).toBe(200);
+    expect(r2.status).toBe(200);
+
+    const body = await (await route.GET()).json();
+    const ids = body.collection.cards.map(c => c.scryfallId).sort();
+    expect(ids).toEqual(["scry-counter", "scry-sol"]);
+  });
+
+  it("accumulates every increment across many concurrent merges of one card", async () => {
+    // 5 concurrent merges of the same scryfallId, each +1 nonfoil. A naive
+    // read-modify-write race loses increments (final < 5); the lock makes
+    // each merge observe the previous one's persisted quantity, so the final
+    // quantity is exactly 5.
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        route.POST(postBody({ scryfallId: "scry-sol", stacks: [{ finish: "nonfoil", quantity: 1 }] })),
+      ),
+    );
+    for (const r of results) expect(r.status).toBe(200);
+
+    const body = await (await route.GET()).json();
+    expect(body.collection.cards).toHaveLength(1);
+    const nonfoil = body.collection.cards[0].stacks.find(s => s.finish === "nonfoil");
+    expect(nonfoil.quantity).toBe(5);
+  });
+});
