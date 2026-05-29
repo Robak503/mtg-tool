@@ -16,6 +16,7 @@ import { dataPath } from "../../../lib/server/paths.js";
 import {
   loadCollection,
   writeCollectionAtomic,
+  withCollectionLock,
   emptyCollection,
   CollectionVersionMismatch,
 } from "../../../lib/server/collectionStorage.js";
@@ -162,31 +163,37 @@ export async function POST(request) {
   if (printing?.artCropUrl) newRow.artCropUrl = printing.artCropUrl;
 
   try {
-    const { collection } = await loadCollection();
-    const existingIdx = collection.cards.findIndex(c => c.scryfallId === body.scryfallId);
+    // Serialize the whole load → mutate → write so a concurrent add/merge
+    // can't read the same starting state and clobber this one's change.
+    const { saved, merged } = await withCollectionLock(async () => {
+      const { collection } = await loadCollection();
+      const existingIdx = collection.cards.findIndex(c => c.scryfallId === body.scryfallId);
 
-    if (existingIdx >= 0) {
-      const existing = collection.cards[existingIdx];
-      const mergedStacks = mergeStacks(existing.stacks || [], newRow.stacks);
-      const anyOwned = mergedStacks.some(s => (s.quantity || 0) > 0);
-      collection.cards[existingIdx] = {
-        ...existing,
-        ...newRow,
-        addedAt: existing.addedAt || newRow.addedAt,
-        stacks: mergedStacks,
-        // Auto-flip out of wishlist when stacks gain quantity, unless caller
-        // explicitly set wishlist: true.
-        wishlist: body.wishlist === true ? true : (anyOwned ? false : existing.wishlist),
-      };
-    } else {
-      collection.cards.push(newRow);
-    }
+      if (existingIdx >= 0) {
+        const existing = collection.cards[existingIdx];
+        const mergedStacks = mergeStacks(existing.stacks || [], newRow.stacks);
+        const anyOwned = mergedStacks.some(s => (s.quantity || 0) > 0);
+        collection.cards[existingIdx] = {
+          ...existing,
+          ...newRow,
+          addedAt: existing.addedAt || newRow.addedAt,
+          stacks: mergedStacks,
+          // Auto-flip out of wishlist when stacks gain quantity, unless caller
+          // explicitly set wishlist: true.
+          wishlist: body.wishlist === true ? true : (anyOwned ? false : existing.wishlist),
+        };
+      } else {
+        collection.cards.push(newRow);
+      }
 
-    const saved = await writeCollectionAtomic(collection);
+      const written = await writeCollectionAtomic(collection);
+      return { saved: written, merged: existingIdx >= 0 };
+    });
+
     return Response.json({
       collection: saved,
       added: newRow.name || newRow.scryfallId,
-      merged: existingIdx >= 0,
+      merged,
     });
   } catch (error) {
     if (error instanceof CollectionVersionMismatch) return versionConflict(error);
@@ -211,9 +218,12 @@ export async function DELETE(request) {
     );
   }
   try {
-    const { collection } = await loadCollection();
-    const previousCount = collection.cards.length;
-    const empty = await writeCollectionAtomic(emptyCollection());
+    // Serialize against in-flight adds/edits so the clear can't race a write.
+    const { empty, previousCount } = await withCollectionLock(async () => {
+      const { collection } = await loadCollection();
+      const written = await writeCollectionAtomic(emptyCollection());
+      return { empty: written, previousCount: collection.cards.length };
+    });
     return Response.json({
       ok: true,
       cleared: previousCount,

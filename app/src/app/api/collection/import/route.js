@@ -20,6 +20,7 @@ export const runtime = "nodejs";
 import {
   loadCollection,
   writeCollectionAtomic,
+  withCollectionLock,
   CollectionVersionMismatch,
 } from "../../../../lib/server/collectionStorage.js";
 import {
@@ -57,7 +58,7 @@ export async function POST(request) {
       let matchResult = { matched: [], unmatched: [] };
       try {
         matchResult = matchEntries(parsed.entries);
-      } catch (error) {
+      } catch {
         // Printings index unavailable. Return what we have.
         return Response.json({
           format: parsed.format,
@@ -95,9 +96,14 @@ export async function POST(request) {
   // Branch 2: commit (write a batch of pre-validated rows)
   if (Array.isArray(body.rows)) {
     try {
-      const { collection } = await loadCollection();
-      const { merged, stats } = mergeImportRows(collection, body.rows);
-      const saved = await writeCollectionAtomic(merged);
+      // Serialize against single-row adds/edits so a 5,000-row import commit
+      // and a concurrent user edit can't clobber each other.
+      const { saved, stats } = await withCollectionLock(async () => {
+        const { collection } = await loadCollection();
+        const { merged, stats: importStats } = mergeImportRows(collection, body.rows);
+        const written = await writeCollectionAtomic(merged);
+        return { saved: written, stats: importStats };
+      });
       return Response.json({
         collection: saved,
         stats,
