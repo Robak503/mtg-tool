@@ -1,13 +1,7 @@
 import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { normalizeName } from "./cardIndex.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, "../../../data");
-const SALT_FILE = path.join(DATA_DIR, "edhrec-salt.local.json");
-const META_FILE = path.join(DATA_DIR, "edhrec-salt-meta.local.json");
+import { dataPath } from "./paths.js";
 
 let saltIndex = null;
 let saltMeta = null;
@@ -17,9 +11,16 @@ function loadSaltData() {
   if (attempted) return Boolean(saltIndex);
   attempted = true;
 
-  if (!fs.existsSync(SALT_FILE)) return false;
+  // Resolve here (not at import time) so dataPath's MTG_REFERENCE_DIR / AppData
+  // fallback reflects the current on-disk state: an in-app sync that writes a
+  // fresher copy to the writable data dir is picked up on first use, and the
+  // packaged .exe no longer reads relative to the bundled source file.
+  const saltFile = dataPath("edhrec-salt.local.json");
+  const metaFile = dataPath("edhrec-salt-meta.local.json");
 
-  const entries = JSON.parse(fs.readFileSync(SALT_FILE, "utf8"));
+  if (!fs.existsSync(saltFile)) return false;
+
+  const entries = JSON.parse(fs.readFileSync(saltFile, "utf8"));
   const byName = new Map();
   for (const entry of entries) {
     const names = [entry.name, ...(entry.names || [])].filter(Boolean);
@@ -27,8 +28,8 @@ function loadSaltData() {
   }
 
   saltIndex = { entries, byName };
-  if (fs.existsSync(META_FILE)) {
-    saltMeta = JSON.parse(fs.readFileSync(META_FILE, "utf8"));
+  if (fs.existsSync(metaFile)) {
+    saltMeta = JSON.parse(fs.readFileSync(metaFile, "utf8"));
   }
   return true;
 }
