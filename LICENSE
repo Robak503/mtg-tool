@@ -1,0 +1,33 @@
+MTG Tool - Source-Available License
+Copyright (c) 2026 Colton (https://github.com/Robak503)
+
+All rights reserved.
+
+This source code is made publicly available for reference, learning, and
+personal use. It is NOT open source, and no open-source license is granted.
+
+You MAY:
+  - View, read, and study the source code.
+  - Clone and build the application for your own personal, non-commercial use.
+  - Submit contributions (issues and pull requests) to this repository.
+
+You MAY NOT, without prior written permission from the copyright holder:
+  - Redistribute this software or substantial portions of it, in source or
+    compiled form.
+  - Publish, sublicense, sell, rent, or offer it (or a derivative work) as a
+    hosted service.
+  - Create or distribute derivative works, except as contributions submitted
+    back to this repository.
+
+Third-party data and dependencies retain their own licenses and terms. Magic:
+The Gathering, card names, card text, and the Comprehensive Rules are the
+property of Wizards of the Coast LLC. This project is unofficial Fan Content
+and is not affiliated with, endorsed, or sponsored by Wizards of the Coast.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF,
+OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

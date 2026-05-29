@@ -2,6 +2,7 @@
   "name": "mtg-tool",
   "version": "0.2.2",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "dev": "next dev",

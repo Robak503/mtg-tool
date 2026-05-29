@@ -101,5 +101,12 @@ See `ROADMAP.md` for the rolling status, `TODOS.md` for the queue.
 
 ## License
 
-Personal project. Not for redistribution.
+**Source-available, not open source.** The code is public so you can read it,
+learn from it, and build it for your own personal use, and contributions are
+welcome — but it is **not** licensed for redistribution. See [LICENSE](LICENSE)
+for the full terms.
+
+This is unofficial Fan Content. Magic: The Gathering and the Comprehensive
+Rules are property of Wizards of the Coast; this project is not affiliated with
+or endorsed by them.
 
