@@ -7,10 +7,15 @@ import { DECK_SEEDS } from "../../../data/deckSeeds";
 import { buildSeedDeck, normalizeDeck } from "../../../lib/deckMemory";
 import { dataDir, dataPath } from "../../../lib/server/paths";
 
-const DECK_FILE = dataPath("decks.local.json");
-const BACKUP_DIR = dataPath("backups");
-// Lazy resolution: dataDir() is re-evaluated per call inside the route
-// so MTG_APP_ROOT changes between calls (tests) are honored.
+// Resolve paths per-call (not captured at import) so a changed MTG_APP_ROOT
+// is always honored — the packaged .exe sets it, and tests change it between
+// cases. paths.js is the single source of truth for on-disk locations.
+function deckFile() {
+  return dataPath("decks.local.json");
+}
+function backupDir() {
+  return dataPath("backups");
+}
 
 function mergeSeedDecks(decks, seedDecks) {
   const merged = [...decks];
@@ -27,26 +32,57 @@ function mergeSeedDecks(decks, seedDecks) {
 }
 
 async function readDeckFile() {
+  const target = deckFile();
+  let raw;
   try {
-    const raw = await fs.readFile(DECK_FILE, "utf8");
-    const parsed = JSON.parse(raw);
-    const decks = Array.isArray(parsed) ? parsed : parsed.decks;
-    return Array.isArray(decks) ? decks.map(normalizeDeck) : [];
+    raw = await fs.readFile(target, "utf8");
   } catch (error) {
     if (error.code === "ENOENT") return [];
     throw error;
   }
+
+  try {
+    const parsed = JSON.parse(raw);
+    const decks = Array.isArray(parsed) ? parsed : parsed.decks;
+    return Array.isArray(decks) ? decks.map(normalizeDeck) : [];
+  } catch {
+    // Corrupted JSON (interrupted write, disk glitch). Back up the broken
+    // file and start empty rather than 500-ing every deck read forever; the
+    // seed decks re-merge on this same request, so the user isn't left blank.
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    try {
+      await fs.rename(target, dataPath(`decks.local.broken-${stamp}.json`));
+    } catch {
+      // If the rename fails (permissions, file in use), leave the broken file
+      // alone — the empty list still loads and the next write replaces it.
+    }
+    return [];
+  }
 }
 
+// Serialize writes through a promise chain so a debounced client save can't
+// interleave with the GET-triggered seed-merge write and silently clobber it
+// (read-modify-write race). One failed write must not poison the next.
+let writeChain = Promise.resolve();
+
 async function writeDeckFile(decks) {
-  await fs.mkdir(dataDir(), { recursive: true });
-  const payload = {
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    decks: decks.map(normalizeDeck),
-  };
-  await fs.writeFile(DECK_FILE, JSON.stringify(payload, null, 2), "utf8");
-  return payload.decks;
+  const run = writeChain.then(async () => {
+    await fs.mkdir(dataDir(), { recursive: true });
+    const payload = {
+      version: 1,
+      updatedAt: new Date().toISOString(),
+      decks: decks.map(normalizeDeck),
+    };
+    const target = deckFile();
+    // Atomic temp + rename so a crash mid-write never truncates the file.
+    // Unique tmp name avoids two concurrent writers sharing one temp file.
+    const tmp = `${target}.tmp.${process.pid}.${Date.now()}`;
+    await fs.writeFile(tmp, JSON.stringify(payload, null, 2), "utf8");
+    await fs.rename(tmp, target);
+    return payload.decks;
+  });
+  writeChain = run.then(() => {}, () => {});
+  return run;
 }
 
 function backupName(reason = "manual") {
@@ -56,16 +92,18 @@ function backupName(reason = "manual") {
 }
 
 async function createBackup(reason) {
+  const target = deckFile();
   try {
-    await fs.access(DECK_FILE);
+    await fs.access(target);
   } catch (error) {
     if (error.code === "ENOENT") return null;
     throw error;
   }
 
-  await fs.mkdir(BACKUP_DIR, { recursive: true });
-  const backupPath = path.join(BACKUP_DIR, backupName(reason));
-  await fs.copyFile(DECK_FILE, backupPath);
+  const dir = backupDir();
+  await fs.mkdir(dir, { recursive: true });
+  const backupPath = path.join(dir, backupName(reason));
+  await fs.copyFile(target, backupPath);
   return backupPath;
 }
 
@@ -79,7 +117,7 @@ export async function GET() {
       await writeDeckFile(decks);
     }
 
-    return Response.json({ decks, path: DECK_FILE });
+    return Response.json({ decks, path: deckFile() });
   } catch (error) {
     return Response.json({ error: error.message || "Could not load deck file." }, { status: 500 });
   }
@@ -97,7 +135,7 @@ export async function POST(request) {
     const backupPath = body.createBackup ? await createBackup(body.reason || "manual") : null;
     const saved = await writeDeckFile(decks);
 
-    return Response.json({ decks: saved, path: DECK_FILE, backupPath });
+    return Response.json({ decks: saved, path: deckFile(), backupPath });
   } catch (error) {
     return Response.json({ error: error.message || "Could not save deck file." }, { status: 500 });
   }
