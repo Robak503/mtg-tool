@@ -24,22 +24,8 @@
 export const runtime = "nodejs";
 
 import { spawn } from "node:child_process";
-import path from "node:path";
-import { existsSync } from "node:fs";
 
-/** Re-implements ollama-health's binary detection so this route can answer GET. */
-function findOllamaBinary() {
-  if (process.platform !== "win32") return null;
-  const candidates = [
-    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs", "Ollama", "ollama.exe"),
-    process.env.ProgramFiles && path.join(process.env.ProgramFiles, "Ollama", "ollama.exe"),
-    process.env["ProgramFiles(x86)"] && path.join(process.env["ProgramFiles(x86)"], "Ollama", "ollama.exe"),
-  ].filter(Boolean);
-  for (const c of candidates) {
-    if (existsSync(c)) return c;
-  }
-  return null;
-}
+import { findOllamaBinary } from "../../../lib/server/ollamaBinary.js";
 
 export async function GET() {
   const binaryPath = findOllamaBinary();

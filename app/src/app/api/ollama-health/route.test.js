@@ -1,11 +1,19 @@
 /**
  * Tests for /api/ollama-health — server-down, model-missing, and ok paths.
  *
- * Strategy: stub global fetch since the route's only external dep is the
- * Ollama daemon. No process.chdir / no fs needed.
+ * Strategy: stub global fetch (the daemon probe) and mock findOllamaBinary
+ * (the Windows install-location check). The latter is host-coupled, so without
+ * the mock the "server-down" path is only reachable on a machine that actually
+ * has Ollama installed — which is exactly why this used to fail in CI.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Force "Ollama is installed" so the server-down assertions exercise the
+// daemon-fetch path deterministically, regardless of the host / CI runner.
+vi.mock("../../../lib/server/ollamaBinary.js", () => ({
+  findOllamaBinary: () => "C:/Program Files/Ollama/ollama.exe",
+}));
 
 let route;
 

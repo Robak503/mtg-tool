@@ -21,32 +21,12 @@
 
 export const runtime = "nodejs";
 
-import path from "node:path";
-import { existsSync } from "node:fs";
+import { findOllamaBinary } from "../../../lib/server/ollamaBinary.js";
 
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434";
 const DEFAULT_OLLAMA_MODEL = "qwen2.5:32b";
 const DEFAULT_OLLAMA_FAST_MODEL = "qwen2.5:7b";
 const DEFAULT_OLLAMA_AGENT_MODEL = "qwen2.5:14b";
-
-/**
- * Check the well-known Windows install locations for Ollama. Returns the
- * absolute path if found, null otherwise. Doesn't run the binary — just
- * looks for it on disk so we can distinguish "not installed yet" from
- * "installed but the server isn't running."
- */
-function findOllamaBinary() {
-  if (process.platform !== "win32") return null;
-  const candidates = [
-    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, "Programs", "Ollama", "ollama.exe"),
-    process.env.ProgramFiles && path.join(process.env.ProgramFiles, "Ollama", "ollama.exe"),
-    process.env["ProgramFiles(x86)"] && path.join(process.env["ProgramFiles(x86)"], "Ollama", "ollama.exe"),
-  ].filter(Boolean);
-  for (const c of candidates) {
-    if (existsSync(c)) return c;
-  }
-  return null;
-}
 
 function configuredModels() {
   // The three tiers in active rotation. De-dup since users can point them all
