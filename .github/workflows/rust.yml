@@ -52,6 +52,17 @@ jobs:
       - name: Format check
         run: cargo fmt --all -- --check
 
+      - name: Stub bundle resources for the lint compile
+        # tauri-build validates the bundle.resources glob (resources/**/*) even
+        # for a plain `cargo clippy`/check. The real resources/ dir is staged by
+        # the build pipeline (prepare-tauri-resources.cjs) and is gitignored, so
+        # it is absent in a fresh checkout. Clippy compiles and lints but never
+        # bundles, so one placeholder file is enough to satisfy the glob.
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path resources | Out-Null
+          Set-Content -Path resources/ci-clippy-placeholder.txt -Value "Placeholder so tauri-build's resources glob matches during the lint job. Real bundle resources are staged by prepare-tauri-resources.cjs at build time."
+
       - name: Clippy (release, deny warnings)
         run: cargo clippy --all-targets --release -- -D warnings
 
