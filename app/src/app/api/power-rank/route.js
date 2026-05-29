@@ -6,8 +6,17 @@ import {
 } from "../../../lib/server/powerRanker.js";
 
 export async function POST(request) {
+  let body;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return Response.json(
+      { ready: false, error: "Invalid JSON request body." },
+      { status: 400 }
+    );
+  }
+
+  try {
     const result = rankDeckPower(body || {});
     return Response.json({
       ...result,

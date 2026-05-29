@@ -89,8 +89,14 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  let body;
   try {
-    const body = await request.json();
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Invalid JSON request body." }, { status: 400 });
+  }
+
+  try {
     if (body.card) {
       return Response.json({
         engineVersion: ENGINE_VERSION,
