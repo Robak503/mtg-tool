@@ -1,112 +1,131 @@
 # MTG Tool
 
-A local-first, multi-agent Magic: The Gathering Commander assistant. Built for personal use — deck building, deck roasting, rules questions during play, goldfish simulation, and (eventually) interactive learn-to-play tutoring.
+A local-first, multi-agent Magic: The Gathering Commander assistant, packaged as a
+signed Windows desktop app. Deck building, deck roasting, rules questions during play,
+goldfish simulation, and (in progress) interactive learn-to-play tutoring.
+
+> **Source-available, not open source** — see [LICENSE](LICENSE). Unofficial Fan
+> Content; not affiliated with or endorsed by Wizards of the Coast.
 
 ## What it does
 
-**Five AI agents, three front-facing, two background:**
+**Five AI agents — three front-facing, two background:**
 
-- **Jace** — Plain-English MTG chat. Rules questions, card explanations, general assistance.
-- **Karn** — Deck builder and analyst. Curve, color balance, role coverage, suggested cuts and adds.
-- **Tibalt** — Deck roaster. Sharp, funny, surgical. Critiques your decks like a good friend who knows the format too well.
-- **Arbiter** — Backend rules engine. Called silently by Jace for rules-sensitive questions. Returns formal rulings with verified citations from the Comprehensive Rules.
-- **Garfield** — Goldfish simulator and future learn-to-play tutor. Runs your decks against themselves and (eventually) other decks to teach you to pilot them.
+- **Jace** — Plain-English MTG chat. Rules questions, card explanations, general help.
+- **Karn** — Deck builder and analyst. Curve, color balance, role coverage, cuts and adds.
+- **Tibalt** — Deck roaster. Sharp, funny, surgical — critiques your decks like a friend who knows the format too well.
+- **Arbiter** — Backend rules engine. Called silently by Jace for rules-sensitive questions; returns formal rulings with verified Comprehensive Rules citations. (Ollama-only, never the cloud.)
+- **Garfield** — Goldfish simulator and (in progress) learn-to-play tutor.
+
+## How it ships
+
+The product is a **desktop app**: a Tauri (Rust) shell that bundles its own Node 22
+runtime and a Next.js server, so you install a signed `.exe` and open a window — no
+terminal, no separate Node install. It auto-updates from GitHub Releases. Under the
+hood it's a normal Next.js app you can also run in a browser during development.
 
 ## Architecture
 
-Local-first. All card data, rules data, deck data, and chat history live on your machine. Local Ollama model for generation. External APIs (Anthropic, Scryfall) are deliberate fallbacks for missing data or user-selected API mode only.
+Local-first. All card data, rules data, deck data, and chat history live on your
+machine. A local Ollama model does generation by default. External APIs (Anthropic,
+Scryfall, Commander Spellbook, EDHREC) are deliberate fallbacks — for missing data, or
+for the user-selected "API" tier only.
 
 ```
-Agents → Arbiter (rules engine) → Local Knowledge Layer
-                                  ├─ Scryfall bulk (5 datasets)
-                                  ├─ mtg-judge rules codex
-                                  ├─ RulesGuru question bank
-                                  ├─ Forge card scripts
-                                  └─ GBrain (project memory)
+Agents -> Arbiter (rules engine) -> Local knowledge layer
+                                    |- Scryfall bulk card data
+                                    |- mtg-judge rules codex (Comprehensive Rules JSON)
+                                    |- MTG ENGINE rule-layer docs
+                                    |- RulesGuru question bank
+                                    |- Commander Spellbook + EDHREC data
 ```
 
-## Quick start
+See [CLAUDE.md](CLAUDE.md) for the full system architecture and runtime layout.
+
+## Develop (browser, fast loop)
 
 Requirements:
-- Windows 11 (current) or macOS (future)
-- Node.js 20+
-- [Ollama](https://ollama.com) running locally
-- [gstack](https://github.com/garrytan/gstack) for Claude Code workflow (optional but recommended)
+- Node.js 22+ (the desktop build bundles its own Node 22; dev uses your system Node)
+- [Ollama](https://ollama.com) running locally, for local-model chat
 
 Setup:
-1. Clone or copy this project to your local machine
-2. `cd app && npm install`
-3. Copy `.env.local.example` to `.env.local` and fill in your keys
-4. Set up Ollama (see below)
-5. Run sync to populate local data: `npm run sync:scryfall-bulk` (downloads all 5 bulk datasets) followed by `npm run build:oracle-index` (builds the slim ~29MB lookup table — drops cold start from ~3-5s to ~200ms)
-6. Start the app: `npm run dev` from `app/`
-7. Open http://localhost:3000
+1. `cd app && npm install`
+2. Copy `app/.env.local.example` to `app/.env.local` (only needed for the Anthropic fallback tier)
+3. Populate local data: `npm run sync:scryfall-bulk` (Scryfall bulk: oracle, default, artwork, rulings) then `npm run build:oracle-index` (builds the slim ~29MB lookup table — drops cold start from ~3-5s to ~200ms)
+4. `npm run dev`, then open http://localhost:3000
+
+## Build the desktop app
+
+```bash
+cd app
+npm run tauri:build          # unsigned local build (fast) - good for trying the .exe
+npm run tauri:build:release  # signed build with auto-update artifacts (needs the signing key)
+```
+
+Output lands in `app/src-tauri/target/release/` (`mtg-tool.exe` plus an NSIS installer).
+Releases ship via CI on a `vX.Y.Z` git tag — see [RELEASE.md](RELEASE.md) for the full
+signed-release and auto-update flow.
 
 ## Common commands
 
 ```bash
 npm run dev                  # Next.js dev server
-npm run build                # Production build (cleans .next first)
-npm test                     # Vitest unit/integration suite
+npm run build                # Production web build (cleans .next first)
+npm test                     # Vitest suite (hard-timeout wrapped so it can't hang)
 npm run test:watch           # Vitest in watch mode
-npm run build:oracle-index   # Re-build the slim oracle index after sync
-npm run sync:scryfall-bulk   # Pull the 5 Scryfall bulk datasets
-npm run backup               # Snapshot data/ → data/backups/{ts}/
+npm run tauri:build          # Build the desktop .exe (unsigned)
+npm run sync:scryfall-bulk   # Pull the Scryfall bulk datasets
+npm run backup               # Snapshot data/ -> data/backups/{timestamp}/
 ```
 
-## Features as of 2026-05-26
+## Features
 
-- **Multi-session chat per agent.** Each Jace/Karn/Tibalt conversation lives in its own session with a locked-deck snapshot. Switch sessions via the SessionSidebar (desktop). Archive completed chats; they remain searchable.
-- **Per-session locked deck.** When you start a chat, the active deck is hard-locked to that session. Changing the active deck in the sidebar doesn't change the lock. To talk about a different deck, start a new chat.
-- **Garfield v2 goldfish.** Archetype-aware simulator (aggro / control / combo / ramp / voltron / tokens / aristocrats / midrange). Proper London mulligan. type_line + keywords classification, DFC handled. Game records save to `data/games/`.
-- **Goldfish history insights.** Karn/Tibalt/Jace see your last N runs' stats — average score, mulligan rate, commander-on-curve rate, threat-by-turn-5 rate, weak/strong signals — in their system prompt. They reference real data instead of vibing.
-- **In-app feedback capture.** Floating 💬 button → modal with compose + inbox. Writes to `data/feedback/`.
-- **Ollama health banner.** Auto-detects when the daemon isn't running or models aren't pulled. One-click "Use Anthropic instead" fallback or dismiss.
-- **Atomic chat-file writes.** Crash mid-write never leaves a half-written `chats.local.json`. v1 files auto-migrate to v2 on first read with a `.v1.bak` backup.
-- **Cost stays at 0.** All chat/Arbiter calls hit Ollama by default. Anthropic API is opt-in (toggle in the header).
+- **Multi-session chat per agent.** Each Jace/Karn/Tibalt conversation has its own session with a locked-deck snapshot. Archive completed chats; they stay searchable.
+- **Per-session locked deck.** Starting a chat hard-locks the active deck to that session. To talk about a different deck, start a new chat.
+- **Garfield goldfish.** Archetype-aware simulator (aggro / control / combo / ramp / voltron / tokens / aristocrats / midrange), London mulligan, type-line + keyword classification. Game records save to `data/games/`.
+- **Goldfish history insights.** Agents see your recent runs' stats (average score, mulligan rate, on-curve rate, threat-by-turn-5) in their prompt, so they reference real data instead of vibing.
+- **Card collection.** Import your library (CSV), track price history, resolve conflicts; Tibalt can roast your collection.
+- **In-app data sync, Ollama install wizard, feedback capture, and self-update** — all from the app UI.
+- **Cost stays at $0 by default.** Chat/Arbiter calls hit Ollama; the Anthropic API tier is opt-in (header toggle).
 
 ## Local model setup (Ollama)
 
-The app uses a local Ollama model by default — no API costs.
+1. Install Ollama: https://ollama.com, then `ollama serve`
+2. Pull the model tiers (defaults; configurable via env):
+   - `ollama pull qwen2.5:32b`  (deep tier — Jace, Arbiter)
+   - `ollama pull qwen2.5:14b`  (mid tier — Karn, Tibalt)
+   - `ollama pull qwen2.5:7b`   (fast tier — quick replies)
+3. `ollama list` to confirm
 
-1. Install Ollama: https://ollama.com
-2. Start the server: `ollama serve`
-3. Pull the three model tiers (defaults; configurable via env):
-   - `ollama pull qwen2.5:32b`  (Deep tier — Jace, Arbiter big context)
-   - `ollama pull qwen2.5:14b`  (Mid tier — Karn, Tibalt)
-   - `ollama pull qwen2.5:7b`   (Fast tier — quick replies)
-4. Confirm: `ollama list`
+The app detects a down daemon or missing models and shows an inline banner with a
+one-click "Use Anthropic instead" fallback.
 
-The app pings `/api/tags` on load and renders an inline banner if the daemon is down or any of the three tiers is missing. The banner has two paths to clear: "Use Anthropic instead" (one-click switch) or × dismiss for this session.
-
-Env overrides:
+Env overrides (in `app/.env.local`):
 - `OLLAMA_BASE_URL` — defaults to `http://127.0.0.1:11434`
-- `OLLAMA_MODEL` / `OLLAMA_FAST_MODEL` / `OLLAMA_AGENT_MODEL` — override per-tier models
-- `ANTHROPIC_API_KEY` — only needed if you want the API fallback
-- `MAX_SESSION_MESSAGES` (default 500), `MAX_ARCHIVED_SESSIONS` (default 50), `MAX_ARCHIVED_DAYS` (default 90) — chat-file size caps
-- `MAX_GAMES_PER_DECK` (default 200), `MAX_GAMES_DAYS` (default 365) — goldfish history caps
+- `OLLAMA_MODEL` / `OLLAMA_FAST_MODEL` / `OLLAMA_AGENT_MODEL` — per-tier model overrides
+- `ANTHROPIC_API_KEY` — only for the opt-in API tier
+- chat/goldfish size caps: `MAX_SESSION_MESSAGES`, `MAX_ARCHIVED_SESSIONS`, `MAX_ARCHIVED_DAYS`, `MAX_GAMES_PER_DECK`, `MAX_GAMES_DAYS`
 
-## For Claude Code users
+## For contributors
 
-- Read `CLAUDE.md` for the full operating manual.
-- Read `ROADMAP.md` for current phase and upcoming work.
-- Read `TODOS.md` for the open queue, sorted by priority.
-- Read `docs/phase6-learn-to-play.md` for the design of the next major build.
+- [CLAUDE.md](CLAUDE.md) — full operating manual and system architecture.
+- [ROADMAP.md](ROADMAP.md) — current phase and upcoming work.
+- [TODOS.md](TODOS.md) — open queue by priority.
+- [RELEASE.md](RELEASE.md) — signed release and auto-update flow.
+- [docs/phase6-learn-to-play.md](docs/phase6-learn-to-play.md) — design of the in-progress learn-to-play mode.
 
 ## Project status
 
-Phases 1-5 complete (audit → critical fixes → unified knowledge layer → Ollama integration → session manager UI → archetype-aware Garfield). Phase 4 end-of-pass feedback capture shipped. Phase 6 (Learn-to-Play Mode) design doc written; implementation queued behind GitHub remote setup. 81 Vitest cases across 9 files; full `npm test` clean.
-
-See `ROADMAP.md` for the rolling status, `TODOS.md` for the queue.
+Phases 1-5 are complete (knowledge layer, Ollama integration, agent rewiring, session
+manager, archetype-aware Garfield). The Tauri desktop shell, auto-updater, card
+collection, and in-app data sync have shipped. Phase 6 (Learn-to-Play) is in progress.
+Run `npm test` for the current suite; see [ROADMAP.md](ROADMAP.md) for the rolling status.
 
 ## License
 
-**Source-available, not open source.** The code is public so you can read it,
-learn from it, and build it for your own personal use, and contributions are
-welcome — but it is **not** licensed for redistribution. See [LICENSE](LICENSE)
-for the full terms.
+**Source-available, not open source.** The code is public so you can read it, learn
+from it, and build it for your own personal use, and contributions are welcome — but it
+is **not** licensed for redistribution. See [LICENSE](LICENSE) for the full terms.
 
-This is unofficial Fan Content. Magic: The Gathering and the Comprehensive
-Rules are property of Wizards of the Coast; this project is not affiliated with
-or endorsed by them.
-
+This is unofficial Fan Content. Magic: The Gathering and the Comprehensive Rules are
+property of Wizards of the Coast; this project is not affiliated with or endorsed by them.
