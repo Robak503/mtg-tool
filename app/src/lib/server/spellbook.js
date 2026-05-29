@@ -26,7 +26,7 @@ let _meta = null;
 let _loaded = false;
 let _loadAttempted = false;
 
-function normalizeName(name) {
+function normalizeComboName(name) {
   return String(name || "").toLowerCase().trim()
     .replace(/['']/g, "'")
     .replace(/[""]/g, '"');
@@ -123,7 +123,7 @@ export function findCombos(cardNames, opts = {}) {
     return { included: [], almostIncluded: [], ready: false };
   }
 
-  const deckSet = new Set(cardNames.map(normalizeName));
+  const deckSet = new Set(cardNames.map(normalizeComboName));
 
   // Gather all candidate combo IDs where at least one deck card appears
   const candidateIds = new Set();
@@ -142,7 +142,7 @@ export function findCombos(cardNames, opts = {}) {
 
     const required = combo.cards.map(cardName => ({
       name: cardName,
-      normalized: normalizeName(cardName),
+      normalized: normalizeComboName(cardName),
     }));
     const missing = required.filter(card => !deckSet.has(card.normalized));
 
@@ -173,9 +173,9 @@ function dedupeComboResults(results, includeMissing = false) {
   const seen = new Set();
   const deduped = [];
   for (const result of results) {
-    const cards = [...(result.cards || [])].map(normalizeName).sort().join("|");
-    const produces = [...(result.produces || [])].map(normalizeName).sort().join("|");
-    const missing = includeMissing ? normalizeName(result.missingCard) : "";
+    const cards = [...(result.cards || [])].map(normalizeComboName).sort().join("|");
+    const produces = [...(result.produces || [])].map(normalizeComboName).sort().join("|");
+    const missing = includeMissing ? normalizeComboName(result.missingCard) : "";
     const key = `${cards}::${missing}::${produces}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -235,7 +235,7 @@ export function estimateBracket(cardNames, commanderNames = []) {
   const extraTurns = [];
 
   for (const name of allCardNames) {
-    const flags = _cards[name] || _cards[normalizeName(name)];
+    const flags = _cards[name] || _cards[normalizeComboName(name)];
     if (!flags) continue;
     if (flags.gameChanger) gameChangers.push(name);
     if (flags.massLandDenial) massLandDenial.push(name);
@@ -313,7 +313,7 @@ export function formatCombosForPrompt(findResult, opts = {}) {
     for (const c of findResult.almostIncluded.slice(0, maxAlmost)) {
       const produces = c.produces.slice(0, 1).join("; ");
       const missing = c.missingCard;
-      lines.push(`- ${c.cards.filter(n => normalizeName(n) !== normalizeName(missing)).join(" + ")} + [${missing}]${produces ? ` → ${produces}` : ""}`);
+      lines.push(`- ${c.cards.filter(n => normalizeComboName(n) !== normalizeComboName(missing)).join(" + ")} + [${missing}]${produces ? ` → ${produces}` : ""}`);
     }
     if (findResult.almostIncluded.length > maxAlmost) {
       lines.push(`  ...and ${findResult.almostIncluded.length - maxAlmost} more`);

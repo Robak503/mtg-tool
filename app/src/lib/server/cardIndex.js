@@ -251,7 +251,7 @@ function searchHaystack(card) {
   ].filter(Boolean).join(" "));
 }
 
-export function searchCards(query, options = {}) {
+export function searchLocalCards(query, options = {}) {
   const repo = getCardIndex();
   const normalized = normalizeName(query);
   if (!normalized) return [];

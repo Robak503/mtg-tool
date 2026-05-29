@@ -195,7 +195,7 @@ export async function loadCardCatalog() {
   return _CATALOG_LOADING;
 }
 
-function detectCardNamesInText(text, catalog) {
+function detectCardNamesFromCatalog(text, catalog) {
   if (!catalog || catalog.size === 0) return [];
   const found = new Set();
   const words = text.split(/(\s+|[.,;!?])/);
@@ -384,7 +384,7 @@ export async function buildCardContext(text, options = {}) {
   const textWithoutBrackets = text.replace(/\[\[([^\]]+)\]\]/g, " ");
   // Use Scryfall catalog for accurate bare-name detection (no false positives)
   const catalog = await loadCardCatalog();
-  const detected = detectCardNamesInText(textWithoutBrackets, catalog);
+  const detected = detectCardNamesFromCatalog(textWithoutBrackets, catalog);
   const names = [...new Set([...mentioned, ...detected])];
 
   if (!names.length) return "";
@@ -469,7 +469,7 @@ export async function postProcessKarnResponse(text) {
   return { text: text + flagBlock, bannedFlags: banned };
 }
 
-export async function searchCards(q) {
+export async function searchScryfall(q) {
   if (!q.trim()) return [];
   try {
     const local = await searchLocalCards(q, { limit: 16, legal: "commander" });
