@@ -9,9 +9,14 @@
  * seen once, it never needs the network again.
  *
  * Query params:
- *   id  — scryfallId (used as the cache key; sanitized to [A-Za-z0-9-])
- *   url — optional Scryfall CDN URL (fallback source when the printing
- *         index hasn't been built; SSRF-guarded to scryfall hosts)
+ *   id   — scryfallId (used as the cache key; sanitized to [A-Za-z0-9-])
+ *   name — optional card name; when no id is given, resolved against the
+ *          printings index to the canonical scryfallId (cache key) + its
+ *          trusted art_crop URL. Lets callers that only know a card name
+ *          (chat mentions, the active commander) request art without first
+ *          doing their own id lookup.
+ *   url  — optional Scryfall CDN URL (fallback source when the printing
+ *          index hasn't been built; SSRF-guarded to scryfall hosts)
  *
  * Source URL resolution: the bundled printing index is authoritative
  * (its URLs are trusted). The client-supplied url is only used when the
@@ -26,7 +31,7 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 
 import { dataPath, dataDir } from "../../../lib/server/paths.js";
-import { lookupById } from "../../../lib/server/printingIndex.js";
+import { lookupById, lookupByName } from "../../../lib/server/printingIndex.js";
 
 const IMG_HEADERS = {
   "Content-Type": "image/jpeg",
@@ -65,17 +70,37 @@ function resolveSourceUrl(id, clientUrl) {
 }
 
 export async function GET(request) {
-  let id, clientUrl;
+  let id, clientUrl, name;
   try {
     const url = new URL(request.url);
     id = url.searchParams.get("id");
     clientUrl = url.searchParams.get("url");
+    name = url.searchParams.get("name");
   } catch {
     return Response.json({ error: "Bad request" }, { status: 400 });
   }
 
+  // Resolve by name when no explicit id is given: the printings index yields
+  // the canonical scryfallId (our cache key) and a trusted art_crop URL.
+  if (!id && name) {
+    try {
+      const printing = lookupByName(name)[0];
+      if (printing?.id) {
+        id = printing.id;
+        if (!clientUrl && printing.artCropUrl) clientUrl = printing.artCropUrl;
+      }
+    } catch {
+      // Index not built (dev / pre-sync). id stays null → handled below.
+    }
+  }
+
   const cacheName = safeCacheName(id);
   if (!cacheName) {
+    // A name we couldn't resolve is a 404 (not found); no id and no name is a
+    // 400 (nothing to act on).
+    if (name && !id) {
+      return Response.json({ error: `No printing found for name: ${name}` }, { status: 404 });
+    }
     return Response.json({ error: "id is required and must be alphanumeric/hyphen" }, { status: 400 });
   }
 

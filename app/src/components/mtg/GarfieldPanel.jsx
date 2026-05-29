@@ -11,7 +11,7 @@ const ARCHETYPE_COLORS = {
   tokens: "#a8c87f",
   aristocrats: "#a0676b",
   midrange: "#a8a39a",
-  unknown: "#7f8aa3",
+  unknown: "#9d98b8",
 };
 
 function ArchetypeBadge({ archetype, confidence, fontFamily }) {
@@ -45,7 +45,7 @@ function PacingBar({ label, value, color, MUTED }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "100px 1fr 36px", gap: 6, alignItems: "center" }}>
       <span style={{ fontSize: 10, color: MUTED }}>{label}</span>
-      <div style={{ height: 6, background: "#0a0e1c", borderRadius: 3, overflow: "hidden" }}>
+      <div style={{ height: 6, background: "#1a1b30", borderRadius: 3, overflow: "hidden" }}>
         <div style={{ width: `${bounded}%`, height: "100%", background: color }} />
       </div>
       <span style={{ fontSize: 10, color: MUTED, textAlign: "right" }}>{bounded}%</span>
@@ -56,7 +56,7 @@ function PacingBar({ label, value, color, MUTED }) {
 function TrendArrow({ trend }) {
   if (trend === "improving") return <span style={{ color: "#85b387" }}>↑</span>;
   if (trend === "regressing") return <span style={{ color: "#c2786f" }}>↓</span>;
-  return <span style={{ color: "#7f8aa3" }}>→</span>;
+  return <span style={{ color: "#9d98b8" }}>→</span>;
 }
 
 export default function GarfieldPanel({

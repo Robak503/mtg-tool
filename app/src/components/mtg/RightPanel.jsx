@@ -19,19 +19,19 @@ function CurveChart({ curve }) {
 
         return (
           <div key={label} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-            {value > 0 && <span style={{ fontSize: 9, color: "#7a8090", lineHeight: 1 }}>{value}</span>}
+            {value > 0 && <span style={{ fontSize: 9, color: "#9d98b8", lineHeight: 1 }}>{value}</span>}
             <div style={{ flex: 1, display: "flex", alignItems: "flex-end", width: "100%" }}>
               <div
                 style={{
                   width: "100%",
                   height: height || 0,
-                  background: "#7b9fd4",
+                  background: "#cc8a38",
                   borderRadius: "2px 2px 0 0",
                   minHeight: value > 0 ? 3 : 0,
                 }}
               />
             </div>
-            <span style={{ fontSize: 9, color: "#5a6070" }}>{label}</span>
+            <span style={{ fontSize: 9, color: "#9d98b8" }}>{label}</span>
           </div>
         );
       })}
@@ -44,7 +44,7 @@ function ColorPie({ colors }) {
   const active = Object.entries(colors).filter(([, value]) => value > 0);
 
   if (!active.length) {
-    return <div style={{ fontSize: 12, color: "#5a6070" }}>No colored mana symbols found.</div>;
+    return <div style={{ fontSize: 12, color: "#9d98b8" }}>No colored mana symbols found.</div>;
   }
 
   return (
@@ -69,7 +69,7 @@ function ColorPie({ colors }) {
           >
             {symbol}
           </div>
-          <span style={{ fontSize: 11, color: "#9ca3af" }}>{Math.round((value / total) * 100)}%</span>
+          <span style={{ fontSize: 11, color: "#9d98b8" }}>{Math.round((value / total) * 100)}%</span>
         </div>
       ))}
     </div>
@@ -79,6 +79,7 @@ function ColorPie({ colors }) {
 export default function RightPanel({
   bodyRef,
   cfg,
+  commanderArtName,
   colorBreakdown,
   deckCards,
   deckDataLoad,
@@ -110,7 +111,19 @@ export default function RightPanel({
   if (!showRight) return null;
 
   return (
-    <div style={{width:mobile?"100%":262,flexShrink:0,borderLeft:mobile?"none":`1px solid ${LINE}`,background:BG2,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+    <div style={{width:mobile?"100%":262,flexShrink:0,borderLeft:mobile?"none":`1px solid ${LINE}`,background:BG2,backdropFilter:"blur(16px) saturate(1.2)",WebkitBackdropFilter:"blur(16px) saturate(1.2)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+                {commanderArtName && (
+                  <div style={{position:"relative",height:148,flexShrink:0,overflow:"hidden",borderBottom:`1px solid ${LINE}`}}>
+                    <img src={`/api/art-crop?name=${encodeURIComponent(commanderArtName)}`} alt={commanderArtName}
+                      onError={e=>{if(e.currentTarget.parentElement)e.currentTarget.parentElement.style.display="none";}}
+                      style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:"center 16%",display:"block"}}/>
+                    <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(6,6,14,0) 0%,rgba(6,6,14,.12) 48%,rgba(6,6,14,.92) 100%)"}}/>
+                    <div style={{position:"absolute",left:14,right:14,bottom:9}}>
+                      <div style={{fontSize:9,letterSpacing:"0.22em",textTransform:"uppercase",color:GOLD,marginBottom:2,textShadow:"0 1px 6px rgba(0,0,0,.9)"}}>Commander</div>
+                      <div style={{fontSize:15,fontWeight:600,color:"#f1ecff",lineHeight:1.15,textShadow:"0 2px 10px rgba(0,0,0,.95)"}}>{commanderArtName}</div>
+                    </div>
+                  </div>
+                )}
                 <div style={{display:"flex",borderBottom:`1px solid ${LINE}`,flexShrink:0}}>
                   {[["search","Search"],["stats","Stats"],["legal","Legal"]].map(([key,label])=>(
                     <button key={key} style={{flex:1,padding:"9px 2px",background:rightTab===key?cfg.dim:"transparent",border:"none",borderBottom:rightTab===key?`2px solid ${cfg.color}`:"2px solid transparent",color:rightTab===key?cfg.color:MUTED,cursor:"pointer",fontSize:12,fontFamily:F}}

@@ -270,7 +270,7 @@ export default function LearnView({
                 borderRadius: 4,
               }}
             >
-              <div style={{ color: entry.actor === "user" ? cfg?.color || GOLD : "#a0a8b8", fontWeight: 700, marginBottom: 2 }}>
+              <div style={{ color: entry.actor === "user" ? cfg?.color || GOLD : "#9d98b8", fontWeight: 700, marginBottom: 2 }}>
                 T{entry.turn} · {entry.actor}{entry.auto ? " (auto)" : ""}
               </div>
               <div>
@@ -421,7 +421,7 @@ function selectStyle(BG2, BG3, LINE, TEXT, fontFamily) {
 function primaryButtonStyle(cfg, fontFamily) {
   return {
     padding: "10px 18px",
-    background: cfg?.color || "#c4a245",
+    background: cfg?.color || "#cc8a38",
     color: "#fff",
     border: "none",
     borderRadius: 6,

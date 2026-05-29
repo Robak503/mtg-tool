@@ -149,7 +149,7 @@ function Dots({ color }) {
 function ProviderLabel({ provider, style }) {
   if (!provider || provider === "ollama") return null;
   return (
-    <span style={{ fontSize: 10, color: "#7f8aa3", marginLeft: 6, ...style }}>
+    <span style={{ fontSize: 10, color: "#9d98b8", marginLeft: 6, ...style }}>
       [via Anthropic]
     </span>
   );
@@ -189,7 +189,7 @@ function TrustStrip({ msg, LINE }) {
   return (
     <details
       open={typeof process !== "undefined" && process.env?.NODE_ENV === "development"}
-      style={{ marginTop: 8, fontSize: 10, color: "#7f8aa3" }}
+      style={{ marginTop: 8, fontSize: 10, color: "#9d98b8" }}
     >
       <summary style={{ cursor: "pointer", userSelect: "none", listStyle: "none", outline: "none" }}>
         ▸ Response metadata
@@ -211,14 +211,14 @@ function ArbiterSources({ sources, LINE, TEXT, fontFamily }) {
 
   return (
     <details style={{ marginTop: 8, borderTop: `1px solid ${LINE}`, paddingTop: 8 }}>
-      <summary style={{ cursor: "pointer", fontSize: 11, color: "#7f8aa3" }}>
+      <summary style={{ cursor: "pointer", fontSize: 11, color: "#9d98b8" }}>
         View Arbiter Sources
       </summary>
       <div style={{
         marginTop: 8,
         whiteSpace: "pre-wrap",
         color: TEXT,
-        background: "#070a12",
+        background: "#08091a",
         border: `1px solid ${LINE}`,
         borderRadius: 6,
         padding: 10,
@@ -276,6 +276,8 @@ export default function ChatPanel({
         style={{
           padding: "6px 14px",
           background: BG2,
+          backdropFilter: "blur(16px) saturate(1.2)",
+          WebkitBackdropFilter: "blur(16px) saturate(1.2)",
           borderBottom: `1px solid ${LINE}`,
           display: "flex",
           justifyContent: "space-between",
@@ -400,6 +402,8 @@ export default function ChatPanel({
               padding: "12px 15px",
               borderRadius: "12px 12px 12px 3px",
               background: BG3,
+              backdropFilter: "blur(13px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(13px) saturate(1.1)",
               border: `1px solid ${cfg.border}`,
               fontSize: 14,
               color: TEXT,
@@ -431,10 +435,12 @@ export default function ChatPanel({
                 maxWidth: "82%",
                 padding: "11px 15px",
                 borderRadius: msg.role === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
-                background: msg.role === "user" ? "#101530" : BG3,
+                background: msg.role === "user" ? "#1a1b38" : BG3,
+                backdropFilter: "blur(13px) saturate(1.1)",
+                WebkitBackdropFilter: "blur(13px) saturate(1.1)",
                 border: msg.isError
                   ? "1px solid #6b3a3a"
-                  : `1px solid ${msg.role === "user" ? "#1e2445" : cfg.border}`,
+                  : `1px solid ${msg.role === "user" ? "#2a2850" : cfg.border}`,
                 fontSize: 14,
                 color: msg.isError ? "#c2786f" : TEXT,
                 lineHeight: 1.72,
@@ -473,7 +479,7 @@ export default function ChatPanel({
                           marginTop: 8,
                           whiteSpace: "pre-wrap",
                           color: TEXT,
-                          background: "#070a12",
+                          background: "#08091a",
                           border: `1px solid ${LINE}`,
                           borderRadius: 6,
                           padding: 10,
@@ -501,9 +507,9 @@ export default function ChatPanel({
                   marginTop: 2,
                   padding: "4px 11px",
                   borderRadius: 12,
-                  border: "1px solid #3a4a6b",
-                  background: "#0d1428",
-                  color: "#7fa0c8",
+                  border: "1px solid #2a2850",
+                  background: "#12132a",
+                  color: "#cc8a38",
                   cursor: "pointer",
                   fontSize: 11,
                   fontFamily,
@@ -543,7 +549,7 @@ export default function ChatPanel({
             >
               <Dots color={cfg.color} />
               {waitSeconds >= 10 && (
-                <div style={{ fontSize: 11, color: "#7f8aa3", marginTop: 6 }}>
+                <div style={{ fontSize: 11, color: "#9d98b8", marginTop: 6 }}>
                   Still thinking… (local models can take 20–60s for long responses)
                 </div>
               )}
@@ -559,6 +565,8 @@ export default function ChatPanel({
           padding: "8px 14px",
           borderTop: `1px solid ${LINE}`,
           background: BG2,
+          backdropFilter: "blur(16px) saturate(1.2)",
+          WebkitBackdropFilter: "blur(16px) saturate(1.2)",
           display: "flex",
           gap: 5,
           flexWrap: "wrap",
@@ -591,6 +599,8 @@ export default function ChatPanel({
           padding: "10px 14px 14px",
           borderTop: `1px solid ${LINE}`,
           background: BG2,
+          backdropFilter: "blur(16px) saturate(1.2)",
+          WebkitBackdropFilter: "blur(16px) saturate(1.2)",
           display: "flex",
           gap: 8,
           alignItems: "flex-end",

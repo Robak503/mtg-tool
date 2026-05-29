@@ -953,21 +953,21 @@ For underspecified scenarios, REPLACE VERDICT with UNRESOLVED + what's missing.
 export const AGENTS = {
   jace: {
     name: "Jace", title: "MTG Assistant", icon: "J",
-    color: "#4a9b6a", dim: "rgba(74,155,106,0.10)", border: "rgba(74,155,106,0.30)", glow: "rgba(74,155,106,0.18)",
+    color: "#6a9be0", dim: "rgba(106,155,224,0.12)", border: "rgba(106,155,224,0.32)", glow: "rgba(106,155,224,0.20)",
     prompt: JACE_PROMPT,
     greeting: "I'm Jace - your general Magic assistant. Ask rules questions, gameplay questions, card questions, or anything that comes up at the table; when a rules answer needs precision, I'll consult Arbiter in the background and translate the ruling.",
     placeholder: "Ask any MTG question... e.g. \"Does Deathtouch work with Trample?\"",
   },
   karn: {
     name: "Karn", title: "Deck Builder", icon: "⚙",
-    color: "#7b9fd4", dim: "rgba(123,159,212,0.10)", border: "rgba(123,159,212,0.30)", glow: "rgba(123,159,212,0.18)",
+    color: "#c2c8d4", dim: "rgba(194,200,212,0.10)", border: "rgba(194,200,212,0.30)", glow: "rgba(194,200,212,0.18)",
     prompt: KARN_PROMPT,
     greeting: "I am Karn — architect of Commander strategies. Import your deck list and I'll analyze it in detail, or describe a commander and I'll build around them. What shall we create?",
     placeholder: "Describe a deck idea, ask for improvements, or paste a card list...",
   },
   tibalt: {
     name: "Tibalt", title: "Deck Roaster", icon: "T",
-    color: "#c84848", dim: "rgba(200,72,72,0.10)", border: "rgba(200,72,72,0.30)", glow: "rgba(200,72,72,0.18)",
+    color: "#b02a37", dim: "rgba(176,42,55,0.12)", border: "rgba(176,42,55,0.34)", glow: "rgba(176,42,55,0.20)",
     prompt: TIBALT_PROMPT,
     greeting: "I am Tibalt. Load a deck and I'll roast the card choices, the curve, the mana base, and whatever optimistic pile is calling itself a win condition.",
     placeholder: "Paste a deck idea or ask me to roast the active deck...",
@@ -975,7 +975,7 @@ export const AGENTS = {
   arbiter: {
     name: "Arbiter", title: "Rules Engine", icon: "⚖",
     frontFacing: false,
-    color: "#c4a245", dim: "rgba(196,162,69,0.10)", border: "rgba(196,162,69,0.30)", glow: "rgba(196,162,69,0.18)",
+    color: "#cc8a38", dim: "rgba(204,138,56,0.12)", border: "rgba(204,138,56,0.32)", glow: "rgba(204,138,56,0.20)",
     prompt: ARBITER_PROMPT,
     greeting: "I am the Rules Arbiter — a deterministic execution engine built from the MTG Comprehensive Rules. Describe a board state, a rules interaction, or a sequence of events. I will process it through the formal execution model: would-event identification, replacement effects, trigger detection, SBA processing, and priority assignment. No intuition. No guessing.",
     placeholder: "Describe a board state or interaction... e.g. 'Leyline is out. A creature dies. Does its trigger fire?'",
