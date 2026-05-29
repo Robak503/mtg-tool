@@ -1,3 +1,7 @@
+// Only used by wait_for_port, which is release-only (debug builds connect to
+// the Next dev server instead of spawning the bundled one), so gate the import
+// to match — otherwise debug/clippy builds flag it as unused.
+#[cfg(not(debug_assertions))]
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 
@@ -35,8 +39,7 @@ fn rotate_log_if_large(path: &std::path::Path, max_bytes: u64) {
 #[cfg(not(debug_assertions))]
 fn wait_for_port(port: u16, timeout_secs: u64) -> bool {
     let addr = format!("127.0.0.1:{port}");
-    let deadline =
-        std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
     while std::time::Instant::now() < deadline {
         if TcpStream::connect(&addr).is_ok() {
             return true;
@@ -63,8 +66,8 @@ fn pin_child_to_job(child: &std::process::Child) -> bool {
     use std::os::windows::io::AsRawHandle;
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::JobObjects::{
-        AssignProcessToJobObject, CreateJobObjectW, SetInformationJobObject,
-        JobObjectExtendedLimitInformation, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, JOBOBJECT_EXTENDED_LIMIT_INFORMATION,
         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
     };
 
@@ -85,8 +88,7 @@ fn pin_child_to_job(child: &std::process::Child) -> bool {
             CloseHandle(job);
             return false;
         }
-        let assigned =
-            AssignProcessToJobObject(job, child.as_raw_handle() as *mut core::ffi::c_void);
+        let assigned = AssignProcessToJobObject(job, child.as_raw_handle());
         if assigned == 0 {
             CloseHandle(job);
             return false;
@@ -153,8 +155,7 @@ fn reap_orphan_servers(bundled_node: &std::path::Path) -> usize {
                     if !handle.is_null() {
                         let mut buf = [0u16; 512];
                         let mut size = buf.len() as u32;
-                        let ok =
-                            QueryFullProcessImageNameW(handle, 0, buf.as_mut_ptr(), &mut size);
+                        let ok = QueryFullProcessImageNameW(handle, 0, buf.as_mut_ptr(), &mut size);
                         if ok != 0 {
                             let full =
                                 String::from_utf16_lossy(&buf[..size as usize]).to_lowercase();
@@ -181,8 +182,7 @@ fn reap_orphan_servers(bundled_node: &std::path::Path) -> usize {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Holds the spawned Next.js process in production so we can kill it on exit.
-    let server_child: Arc<Mutex<Option<std::process::Child>>> =
-        Arc::new(Mutex::new(None));
+    let server_child: Arc<Mutex<Option<std::process::Child>>> = Arc::new(Mutex::new(None));
     let server_child_events = server_child.clone();
     let server_child_tray = server_child.clone();
 
@@ -233,7 +233,8 @@ pub fn run() {
                 use tauri::tray::TrayIconBuilder;
                 use tauri::Manager;
 
-                let show = MenuItem::with_id(app, "tray-show", "Show MTG Tool", true, None::<&str>)?;
+                let show =
+                    MenuItem::with_id(app, "tray-show", "Show MTG Tool", true, None::<&str>)?;
                 let hide = MenuItem::with_id(app, "tray-hide", "Hide window", true, None::<&str>)?;
                 let quit = MenuItem::with_id(app, "tray-quit", "Quit", true, None::<&str>)?;
                 let menu = Menu::with_items(app, &[&show, &hide, &quit])?;
@@ -277,7 +278,8 @@ pub fn run() {
                             button: tauri::tray::MouseButton::Left,
                             button_state: tauri::tray::MouseButtonState::Up,
                             ..
-                        } = event {
+                        } = event
+                        {
                             let app = tray.app_handle();
                             if let Some(w) = app.get_webview_window("main") {
                                 let visible = w.is_visible().unwrap_or(false);
@@ -309,15 +311,9 @@ pub fn run() {
                 use std::io::Write;
                 use tauri::Manager;
 
-                let resource_dir = app
-                    .path()
-                    .resource_dir()
-                    .expect("resource dir not found");
+                let resource_dir = app.path().resource_dir().expect("resource dir not found");
 
-                let data_dir = app
-                    .path()
-                    .app_data_dir()
-                    .expect("app data dir not found");
+                let data_dir = app.path().app_data_dir().expect("app data dir not found");
 
                 // First launch: ensure the writable data directory exists.
                 let _ = std::fs::create_dir_all(&data_dir);
@@ -357,9 +353,21 @@ pub fn run() {
                 let mtg_engine_dir = staged.join("MTG ENGINE");
                 let reference_data_dir = staged.join("data");
 
-                logln!("staged       = {} (exists={})", staged.display(), staged.exists());
-                logln!("server_js    = {} (exists={})", server_js.display(), server_js.exists());
-                logln!("reference    = {} (exists={})", reference_data_dir.display(), reference_data_dir.exists());
+                logln!(
+                    "staged       = {} (exists={})",
+                    staged.display(),
+                    staged.exists()
+                );
+                logln!(
+                    "server_js    = {} (exists={})",
+                    server_js.display(),
+                    server_js.exists()
+                );
+                logln!(
+                    "reference    = {} (exists={})",
+                    reference_data_dir.display(),
+                    reference_data_dir.exists()
+                );
 
                 // Always make sure the writable data dir exists so the
                 // server can write user files (decks/chats/feedback/etc).
@@ -390,7 +398,11 @@ pub fn run() {
                 } else {
                     "node".to_string()
                 };
-                logln!("node binary  = {} (bundled={})", node_invocation, bundled_node.exists());
+                logln!(
+                    "node binary  = {} (bundled={})",
+                    node_invocation,
+                    bundled_node.exists()
+                );
 
                 // Reap any orphaned bundled-Node server left running by a
                 // previous version (e.g. one that survived an auto-update

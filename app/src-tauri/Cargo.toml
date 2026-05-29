@@ -1,9 +1,11 @@
 [package]
 name = "mtg-tool"
-version = "0.2.4"
+version = "0.3.0"
 description = "MTG Tool — local-first Commander assistant"
 authors = ["Colton"]
-license = "MIT"
+# Source-available, not open source (see repo LICENSE). NOT MIT — this crate is
+# never published to crates.io; it builds the app binary only.
+license-file = "../../LICENSE"
 edition = "2021"
 rust-version = "1.77.2"
 
