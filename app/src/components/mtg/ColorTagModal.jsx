@@ -131,7 +131,7 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
             onClick={save}
             disabled={!canSave}
             style={{
-              background: cfg.color, border: "none", borderRadius: 8, color: "#0c0b0a",
+              background: cfg.color, border: "none", borderRadius: 8, color: "#fff",
               cursor: canSave ? "pointer" : "not-allowed", opacity: canSave ? 1 : 0.45,
               fontSize: 12.5, fontWeight: 600, padding: "8px 16px", fontFamily,
             }}

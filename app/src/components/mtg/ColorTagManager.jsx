@@ -105,7 +105,7 @@ export default function ColorTagManager({ tags, addTag, updateTag, deleteTag, on
           <button
             onClick={() => setEditing({})}
             style={{
-              background: cfg.color, border: "none", borderRadius: 8, color: "#0c0b0a",
+              background: cfg.color, border: "none", borderRadius: 8, color: "#fff",
               cursor: "pointer", fontSize: 12.5, fontWeight: 600, padding: "8px 16px", fontFamily,
             }}
           >

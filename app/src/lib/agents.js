@@ -975,7 +975,7 @@ export const AGENTS = {
   arbiter: {
     name: "Arbiter", title: "Rules Engine", icon: "⚖",
     frontFacing: false,
-    color: "#d4af37", dim: "rgba(212,175,55,0.12)", border: "rgba(212,175,55,0.40)", glow: "rgba(212,175,55,0.22)",
+    color: "#a06639", dim: "rgba(160,102,57,0.12)", border: "rgba(160,102,57,0.40)", glow: "rgba(160,102,57,0.22)",
     prompt: ARBITER_PROMPT,
     greeting: "I am the Rules Arbiter — a deterministic execution engine built from the MTG Comprehensive Rules. Describe a board state, a rules interaction, or a sequence of events. I will process it through the formal execution model: would-event identification, replacement effects, trigger detection, SBA processing, and priority assignment. No intuition. No guessing.",
     placeholder: "Describe a board state or interaction... e.g. 'Leyline is out. A creature dies. Does its trigger fire?'",

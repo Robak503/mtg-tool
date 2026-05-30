@@ -33,7 +33,7 @@ const COLORS = {
   LINE: "#2b2c34",
   TEXT: "#dfe2ec",
   MUTED: "#9a9caa",
-  GOLD: "#d4af37",
+  GOLD: "#a06639",
   RED: "#a44c45",
 };
 
@@ -42,9 +42,9 @@ const FONT = `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
 // The Vault is gold-themed (not agent-themed); reuse the shared modal/cfg shape.
 const VAULT_CFG = {
   color: COLORS.GOLD,
-  border: "rgba(212,175,55,0.40)",
-  dim: "rgba(212,175,55,0.12)",
-  glow: "rgba(212,175,55,0.22)",
+  border: "rgba(160,102,57,0.40)",
+  dim: "rgba(160,102,57,0.12)",
+  glow: "rgba(160,102,57,0.22)",
 };
 
 const DEFAULT_FILTERS = {
@@ -540,7 +540,7 @@ function primaryHeaderBtn() {
   return {
     ...btn(),
     background: COLORS.GOLD,
-    color: COLORS.BG,
+    color: "#fff",
     borderColor: COLORS.GOLD,
     fontWeight: 600,
   };

@@ -482,12 +482,12 @@ export default function ChatPanel({
                 maxWidth: "82%",
                 padding: "11px 16px",
                 borderRadius: msg.role === "user" ? "14px 14px 5px 14px" : "14px 14px 14px 5px",
-                background: msg.role === "user" ? "rgba(212,175,55,0.06)" : "rgba(255,255,255,0.022)",
+                background: msg.role === "user" ? "rgba(160,102,57,0.06)" : "rgba(255,255,255,0.022)",
                 backdropFilter: "blur(14px) saturate(1.1)",
                 WebkitBackdropFilter: "blur(14px) saturate(1.1)",
                 border: msg.isError
                   ? "1px solid #7a4540"
-                  : `1px solid ${msg.role === "user" ? "rgba(212,175,55,0.30)" : cfg.border}`,
+                  : `1px solid ${msg.role === "user" ? "rgba(160,102,57,0.30)" : cfg.border}`,
                 boxShadow: msg.role === "user"
                   ? "inset 0 1px 0 rgba(255,255,255,0.03)"
                   : `0 10px 30px -16px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.03)`,
