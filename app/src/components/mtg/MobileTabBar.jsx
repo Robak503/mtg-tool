@@ -1,3 +1,7 @@
+/**
+ * MobileTabBar — the bottom tab bar shown only on the mobile breakpoint:
+ * switches the active view between Chat / Sessions / Search / Stats / Decks.
+ */
 export default function MobileTabBar({ cfg, mobileTab, setMobileTab, colors, fontFamily }) {
   const { BG2, LINE, MUTED } = colors;
   const tabs = [

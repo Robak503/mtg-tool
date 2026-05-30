@@ -1,3 +1,9 @@
+/**
+ * AppHeader — the top header bar: the active-agent indicator, the Arbiter
+ * Fast vs Full toggle, model tier / status + knowledge status, export/clear
+ * chat, and the right-panel show/hide toggle. Style props (cfg, ...) follow
+ * the vocabulary documented in MTGAssistant.jsx.
+ */
 export default function AppHeader({
   agent,
   cfg,

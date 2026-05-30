@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * GarfieldPanel — the Garfield goldfish panel shown inside DeckView: runs solo
+ * playtests of the active deck and renders the results classified by archetype
+ * (see ARCHETYPE_COLORS).
+ */
+
 import { useEffect, useState } from "react";
 
 const ARCHETYPE_COLORS = {

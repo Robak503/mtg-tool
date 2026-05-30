@@ -1,3 +1,7 @@
+/**
+ * ImportDeckView — the deck-import view: paste or pull in a decklist, give it a
+ * name + owner, and save it into the local deck library.
+ */
 export default function ImportDeckView({
   cfg,
   pb,
