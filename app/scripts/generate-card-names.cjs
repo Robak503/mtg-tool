@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const APP_ROOT = path.resolve(__dirname, "..");
-const ENGINE_ROOT = path.resolve(APP_ROOT, "..", "MTG ENGINE");
+const ENGINE_ROOT = path.resolve(APP_ROOT, "..", "knowledge", "mtg-engine");
 const OUTPUT_FILE = path.join(APP_ROOT, "public", "card-names.json");
 
 const SOURCE_FILES = [
@@ -29,7 +29,7 @@ fs.writeFileSync(
   JSON.stringify(
     {
       generatedAt: new Date().toISOString(),
-      source: "MTG ENGINE Scryfall Commander card chunks",
+      source: "mtg-engine Scryfall Commander card chunks",
       count: list.length,
       names: list,
     },

@@ -36,7 +36,7 @@ This is a **local-first** tool. The guiding rule: every change should make it *l
 dependent on external services, not more.
 
 - **Never fabricate rules or card text.** Rule citations must trace to real entries in
-  `mtg-judge/data/cr/cr_current.json`; card behavior comes from the bundled Scryfall
+  `knowledge/mtg-judge/data/cr/cr_current.json`; card behavior comes from the bundled Scryfall
   data, never from memory.
 - **Use `app/src/lib/server/paths.js`** for any on-disk path. Never `process.cwd()` or
   `path.join(__dirname, ...)` in app code — the packaged `.exe` has a different layout

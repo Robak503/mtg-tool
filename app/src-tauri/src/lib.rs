@@ -349,8 +349,10 @@ pub fn run() {
 
                 let staged = resource_dir.join("resources");
                 let server_js = staged.join("server").join("server.js");
-                let mtg_judge_dir = staged.join("mtg-judge");
-                let mtg_engine_dir = staged.join("MTG ENGINE");
+                // The rules corpus is staged under resources/knowledge/ to mirror
+                // the repo's knowledge/ dir (see prepare-tauri-resources.cjs).
+                let mtg_judge_dir = staged.join("knowledge").join("mtg-judge");
+                let mtg_engine_dir = staged.join("knowledge").join("mtg-engine");
                 let reference_data_dir = staged.join("data");
 
                 logln!(

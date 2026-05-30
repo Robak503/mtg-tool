@@ -34,8 +34,8 @@ for the user-selected "API" tier only.
 ```
 Agents -> Arbiter (rules engine) -> Local knowledge layer
                                     |- Scryfall bulk card data
-                                    |- mtg-judge rules codex (Comprehensive Rules JSON)
-                                    |- MTG ENGINE rule-layer docs
+                                    |- knowledge/mtg-judge rules codex (Comprehensive Rules JSON)
+                                    |- knowledge/mtg-engine rule-layer docs
                                     |- RulesGuru question bank
                                     |- Commander Spellbook + EDHREC data
 ```

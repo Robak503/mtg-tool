@@ -3,8 +3,8 @@ const path = require("node:path");
 
 const APP_ROOT = path.resolve(__dirname, "..");
 const TOOL_ROOT = path.resolve(APP_ROOT, "..");
-const ENGINE_ROOT = path.join(TOOL_ROOT, "MTG ENGINE");
-const JUDGE_ROOT = path.join(TOOL_ROOT, "mtg-judge");
+const ENGINE_ROOT = path.join(TOOL_ROOT, "knowledge", "mtg-engine");
+const JUDGE_ROOT = path.join(TOOL_ROOT, "knowledge", "mtg-judge");
 
 function walk(dir, predicate, out = []) {
   if (!fs.existsSync(dir)) return out;
@@ -52,7 +52,7 @@ function main() {
   const requiredRules = ["101.4", "117.3b", "601.2f", "603.3b", "613.1", "614.1", "616.1", "704.5", "903.8", "903.10a"];
   const missingRules = [];
 
-  console.log(`MTG ENGINE files: ${engineDocs.length} (${Math.round(sizeOf(engineDocs) / 1024 / 1024)} MB)`);
+  console.log(`mtg-engine files: ${engineDocs.length} (${Math.round(sizeOf(engineDocs) / 1024 / 1024)} MB)`);
   console.log(`mtg-judge files: ${judgeDocs.length} (${Math.round(sizeOf(judgeDocs) / 1024 / 1024)} MB)`);
   for (const file of required) {
     console.log(`${fs.existsSync(file) ? "OK" : "MISSING"} ${path.relative(TOOL_ROOT, file)}`);

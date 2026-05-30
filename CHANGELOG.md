@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Changed
+- Consolidated the two root rules-knowledge dirs under one `knowledge/` folder
+  (`knowledge/mtg-engine` + `knowledge/mtg-judge`), removing the space from the old
+  `MTG ENGINE/` path. Internal layout only — no change to app behavior.
+
+### Removed
+- Two citation-audit QA reports (`cite_audit*.md`) that had been leaking "rule not
+  found" rows into rules retrieval, plus 6 unused local data-build scripts.
+
 ## [0.3.0] - 2026-05-29
 
 ### Added

@@ -59,7 +59,7 @@ fallback, stop and reconsider.
 ### 1.2 Never fabricate
 
 - Never invent rule numbers. Every CR citation must trace to a real
-  entry in `mtg-judge/data/cr/cr_current.json`.
+  entry in `knowledge/mtg-judge/data/cr/cr_current.json`.
 - Never write card behavior from memory. Card text comes from
   bundled Scryfall data only (`scryfall-bulk/oracle_cards.json` or
   the slim `oracle-index.json`).
@@ -148,8 +148,8 @@ mtg-tool.exe                              ← Rust Tauri shell
 │
 ├─ env vars set for the spawned Node:
 │      MTG_APP_ROOT       = %APPDATA%\com.colton.mtg-tool\
-│      MTG_JUDGE_DIR      = <resources>/mtg-judge
-│      MTG_ENGINE_DIR     = <resources>/MTG ENGINE
+│      MTG_JUDGE_DIR      = <resources>/knowledge/mtg-judge
+│      MTG_ENGINE_DIR     = <resources>/knowledge/mtg-engine
 │      MTG_REFERENCE_DIR  = <resources>/data
 │
 ├─ System tray icon + menu (Show / Hide / Quit)
@@ -167,8 +167,8 @@ mtg-tool.exe                              ← Rust Tauri shell
 | `<install>\mtg-tool.exe` | Tauri shell binary | No |
 | `<install>\resources\node\node.exe` | Bundled Node 22 (~79 MB) | No |
 | `<install>\resources\server\` | Next.js standalone bundle | No |
-| `<install>\resources\mtg-judge\` | Rules codex (CR JSON + RulesGuru cases) | No |
-| `<install>\resources\MTG ENGINE\` | Rule layer markdown (93 files) | No |
+| `<install>\resources\knowledge\mtg-judge\` | Rules codex (CR JSON + RulesGuru cases) | No |
+| `<install>\resources\knowledge\mtg-engine\` | Rule layer markdown (96 files) | No |
 | `<install>\resources\data\` | Bundled reference data snapshot | No |
 | `<install>\resources\scripts\` | Sync scripts (Scryfall, Spellbook, salt) | No |
 | `<install>\resources\frontend-placeholder\` | Loading screen | No |
@@ -371,10 +371,11 @@ MTG-TOOL/
 │  ├─ data/                            ← (mostly gitignored) reference data
 │  ├─ package.json
 │  └─ next.config.mjs
-├─ mtg-judge/                          ← Rules codex (17 files in git, rest gitignored)
-│  ├─ META_test_cases_rulesguru.md     ← RulesGuru test cases
-│  └─ data/cr/cr_current.json          ← Comprehensive Rules JSON
-├─ MTG ENGINE/                         ← Rule layer markdown (96 files)
+├─ knowledge/                          ← Bundled rules knowledge layer
+│  ├─ mtg-judge/                       ← Rules codex (CR JSON + test corpus; clones gitignored)
+│  │  ├─ META_test_cases_rulesguru.md  ← RulesGuru test cases
+│  │  └─ data/cr/cr_current.json       ← Comprehensive Rules JSON
+│  └─ mtg-engine/                      ← Rule layer markdown (96 files)
 ├─ scripts/finish-p0.ps1               ← One-shot repo+secrets setup (now consumed)
 ├─ CLAUDE.md                           ← This file
 ├─ README.md
@@ -422,9 +423,9 @@ pipeline or the Rust shell.
    GET. First-launch detection must use an explicit marker file
    (`.first-launch-marker.json`), NOT `decks.local.json` presence.
 
-8. **`mtg-judge/data/forge/.git/`** causes "Access is denied" if
-   you reference `mtg-judge` directly in `bundle.resources`. Stage
-   to local `src-tauri/resources/` dir instead.
+8. **`knowledge/mtg-judge/data/forge/.git/`** causes "Access is denied"
+   if you reference `knowledge/mtg-judge` directly in `bundle.resources`.
+   Stage to local `src-tauri/resources/` dir instead.
 
 9. **`process.cwd()` in the packaged `.exe`** is the bundled
    standalone server dir, NOT the dev tree. Always use `paths.js`
@@ -588,7 +589,7 @@ answers.
 
 **Capabilities**:
 - Accept a structured query (rules question + optional board state)
-- Retrieve relevant rules from `mtg-judge` codex with verified
+- Retrieve relevant rules from `knowledge/mtg-judge` codex with verified
   citations
 - Retrieve relevant cards with Oracle text from `oracle_cards.json`
 - Retrieve relevant rulings from `rulings.json`

@@ -204,13 +204,15 @@ async function walk(dir, includeFile) {
 
 function isJudgeContextFile(file) {
   const name = path.basename(file);
+  // Only the test-case corpus belongs in rules retrieval. The cite_audit*.md
+  // citation-validation QA reports were dropped (and deleted) — they listed
+  // "rule NNN not found in current CR" rows that polluted retrieval for
+  // rule-number queries instead of contributing rules content.
   return [
     "META_test_cases.md",
     "META_test_cases_expanded.md",
     "META_test_cases_rulesguru.md",
     "META_test_suite_coverage.md",
-    "cite_audit.md",
-    "cite_audit_v2.md",
   ].includes(name);
 }
 

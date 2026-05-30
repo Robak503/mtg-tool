@@ -4,21 +4,20 @@
  * Builds src-tauri/resources/ — the clean staging directory that ships
  * inside the .exe bundle. Hand-picked because:
  *
- *   - mtg-judge/ contains a Forge git submodule (44MB) and a RulesGuru
+ *   - knowledge/mtg-judge/ contains a Forge git clone (44MB) and a RulesGuru
  *     repo with node_modules (316MB) that we never read at runtime.
  *     The Forge .git/objects/pack/ files also cause "Access is denied"
  *     when Tauri's build.rs walks them for rerun-if-changed directives.
  *
- *   - MTG ENGINE/ contains stale scryfall_*.json (~46MB), the
- *     plaintext API-key remnant THE KEY.txt, and the DOCX comprehensive
- *     rules — none needed at runtime.
+ *   - knowledge/mtg-engine/ contains stale scryfall_*.json (~46MB) and a
+ *     one-off scryfall_setup.py build script — neither needed at runtime.
  *
- * What we keep:
- *   resources/mtg-judge/META_test_cases_rulesguru.md  (RulesGuru retrieval)
- *   resources/mtg-judge/data/cr/cr_current.json       (CR JSON, knowledge-status + engine)
- *   resources/MTG ENGINE/L*.md, META_*.md             (rules codex)
- *   resources/data/scryfall-bulk/oracle-index.json    (slim 29MB card index)
- *   resources/server/                                  (Next.js standalone, populated by copy-tauri-assets.cjs)
+ * What we keep (staged under resources/knowledge/ to mirror the repo layout):
+ *   resources/knowledge/mtg-judge/META_test_cases_rulesguru.md  (RulesGuru retrieval)
+ *   resources/knowledge/mtg-judge/data/cr/cr_current.json       (CR JSON, knowledge-status + engine)
+ *   resources/knowledge/mtg-engine/L*.md, META_*.md             (rules codex)
+ *   resources/data/scryfall-bulk/oracle-index.json              (slim 29MB card index)
+ *   resources/server/                                           (Next.js standalone, populated by copy-tauri-assets.cjs)
  *
  * Total expected: ~10MB for rules codex + ~29MB oracle index + standalone bundle.
  *
@@ -90,24 +89,24 @@ for (const profile of ["debug", "release"]) {
   }
 }
 
-// 1. mtg-judge — only RulesGuru cases + the CR JSON.
+// 1. knowledge/mtg-judge — only RulesGuru cases + the CR JSON.
 console.log("Copying mtg-judge runtime files...");
-const judgeDst = path.join(RESOURCES, "mtg-judge");
-const rulesGuru = path.join(PROJECT_ROOT, "mtg-judge", "META_test_cases_rulesguru.md");
+const judgeDst = path.join(RESOURCES, "knowledge", "mtg-judge");
+const rulesGuru = path.join(PROJECT_ROOT, "knowledge", "mtg-judge", "META_test_cases_rulesguru.md");
 if (fs.existsSync(rulesGuru)) {
   copyFile(rulesGuru, path.join(judgeDst, "META_test_cases_rulesguru.md"));
   console.log("  + META_test_cases_rulesguru.md");
 }
-const crJson = path.join(PROJECT_ROOT, "mtg-judge", "data", "cr", "cr_current.json");
+const crJson = path.join(PROJECT_ROOT, "knowledge", "mtg-judge", "data", "cr", "cr_current.json");
 if (fs.existsSync(crJson)) {
   copyFile(crJson, path.join(judgeDst, "data", "cr", "cr_current.json"));
   console.log("  + data/cr/cr_current.json");
 }
 
-// 2. MTG ENGINE — keep only the markdown rule layers and META indexes.
-console.log("Copying MTG ENGINE rule files...");
-const engineSrc = path.join(PROJECT_ROOT, "MTG ENGINE");
-const engineDst = path.join(RESOURCES, "MTG ENGINE");
+// 2. knowledge/mtg-engine — keep only the markdown rule layers and META indexes.
+console.log("Copying mtg-engine rule files...");
+const engineSrc = path.join(PROJECT_ROOT, "knowledge", "mtg-engine");
+const engineDst = path.join(RESOURCES, "knowledge", "mtg-engine");
 const engineCount = copyMatching(engineSrc, engineDst, (name) => {
   if (!name.endsWith(".md")) return false;
   if (name.endsWith(".bak")) return false;

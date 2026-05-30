@@ -20,7 +20,7 @@
  *
  *   MTG_JUDGE_DIR (read-only, bundled)
  *     1. process.env.MTG_JUDGE_DIR ← the Tauri shell sets this (bundled resources)
- *     2. path.join(process.cwd(), "..", "mtg-judge")  ← dev: repo root sibling
+ *     2. path.join(process.cwd(), "..", "knowledge", "mtg-judge")  ← dev: repo root
  *
  * Tests are unaffected — they call process.chdir() to a tmp dir and the
  * env vars stay unset, so paths.js falls back to the cwd-based behavior
@@ -39,13 +39,13 @@ function detectAppRoot() {
 function detectMtgJudgeDir() {
   const envOverride = process.env.MTG_JUDGE_DIR;
   if (envOverride && envOverride.trim()) return envOverride;
-  return path.join(process.cwd(), "..", "mtg-judge");
+  return path.join(process.cwd(), "..", "knowledge", "mtg-judge");
 }
 
 function detectMtgEngineDir() {
   const envOverride = process.env.MTG_ENGINE_DIR;
   if (envOverride && envOverride.trim()) return envOverride;
-  return path.join(process.cwd(), "..", "MTG ENGINE");
+  return path.join(process.cwd(), "..", "knowledge", "mtg-engine");
 }
 
 /**
@@ -121,7 +121,7 @@ export function mtgEngineDir() {
   return detectMtgEngineDir();
 }
 
-/** Resolve a path inside the MTG ENGINE directory. */
+/** Resolve a path inside the mtg-engine rule-layer directory. */
 export function mtgEnginePath(...parts) {
   return path.join(detectMtgEngineDir(), ...parts);
 }
