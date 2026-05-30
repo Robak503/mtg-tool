@@ -41,8 +41,9 @@
  *     sourceCount: number of input printings,
  *     count: number of printings in the slim index,
  *     cards: [
- *       { id, oracleId, name, set, collectorNumber, finishes,
- *         layout, releasedAt, artCropUrl, prices: { usd, usdFoil, usdEtched } }
+ *       { id, oracleId, name, set, setName, collectorNumber, finishes,
+ *         foilTypes, layout, releasedAt, artCropUrl,
+ *         prices: { usd, usdFoil, usdEtched } }
  *     ]
  *   }
  *
@@ -71,6 +72,20 @@ const path = require("node:path");
 const { chain } = require("stream-chain");
 const { parser } = require("stream-json");
 const { streamArray } = require("stream-json/streamers/stream-array.js");
+
+// Which Scryfall promo_types are a special FOIL treatment (vs promo metadata
+// like boosterfun / datestamped / prerelease). Rule: anything ending in "foil"
+// plus a curated set of named treatments that don't. Display names + ordering
+// live in src/lib/foilTreatments.js (the UI side); this is just the filter so
+// the index carries only foil-relevant promo_types. Keep the two in sync.
+const FOIL_TREATMENT_EXTRAS = new Set([
+  "oilslick", "stepandcompleat", "gilded", "textured", "neonink",
+  "doublerainbow", "invisibleink",
+]);
+function foilTreatmentsOf(card) {
+  const promos = Array.isArray(card.promo_types) ? card.promo_types : [];
+  return promos.filter(p => typeof p === "string" && (p.endsWith("foil") || FOIL_TREATMENT_EXTRAS.has(p)));
+}
 
 // Mirrors build-oracle-index.cjs path resolution: MTG_APP_ROOT overrides
 // when running inside the packaged .exe (writes go to AppData);
@@ -150,10 +165,12 @@ function slimPrinting(card) {
     oracleId: card.oracle_id,
     name: card.name || "",
     set: (card.set || "").toLowerCase(),
+    setName: card.set_name || "",
     collectorNumber: card.collector_number || "",
     finishes: Array.isArray(card.finishes) && card.finishes.length
       ? card.finishes
       : ["nonfoil"],
+    foilTypes: foilTreatmentsOf(card),
     layout: card.layout || "normal",
     releasedAt: card.released_at || null,
     artCropUrl,

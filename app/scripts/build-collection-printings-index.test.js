@@ -24,6 +24,7 @@ describe("slimPrinting", () => {
       oracle_id: "oracle-456",
       name: "Sol Ring",
       set: "C21",
+      set_name: "Commander 2021",
       collector_number: "256",
       finishes: ["nonfoil", "foil"],
       layout: "normal",
@@ -37,13 +38,35 @@ describe("slimPrinting", () => {
       oracleId: "oracle-456",
       name: "Sol Ring",
       set: "c21",
+      setName: "Commander 2021",
       collectorNumber: "256",
       finishes: ["nonfoil", "foil"],
+      foilTypes: [],
       layout: "normal",
       releasedAt: "2021-04-23",
       artCropUrl: "https://example.com/sol-ring.jpg",
       prices: { usd: "3.50", usdFoil: "12.00", usdEtched: null },
     });
+  });
+
+  it("keeps only foil-treatment promo_types in foilTypes (drops promo metadata)", () => {
+    const out = slimPrinting({
+      id: "x", oracle_id: "y", name: "Phyrexian Vindicator", set: "one",
+      set_name: "Phyrexia: All Will Be One", collector_number: "347",
+      finishes: ["foil"], layout: "normal", image_uris: { art_crop: "x" }, prices: {},
+      promo_types: ["oilslick", "raisedfoil", "boosterfun"],
+    });
+    // boosterfun is promo metadata, not a foil treatment → dropped.
+    expect(out.foilTypes).toEqual(["oilslick", "raisedfoil"]);
+    expect(out.setName).toBe("Phyrexia: All Will Be One");
+  });
+
+  it("defaults foilTypes to [] when promo_types is absent", () => {
+    const out = slimPrinting({
+      id: "x", oracle_id: "y", name: "Test", set: "x", collector_number: "1",
+      finishes: ["nonfoil"], layout: "normal", image_uris: { art_crop: "x" }, prices: {},
+    });
+    expect(out.foilTypes).toEqual([]);
   });
 
   it("captures releasedAt as null when the source omits it", () => {
