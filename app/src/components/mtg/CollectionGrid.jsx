@@ -23,7 +23,7 @@ const CARD_WIDTH = 200;
 const CARD_HEIGHT = 230;
 const GAP = 12;
 
-export default function CollectionGrid({ cards, onCardClick, onQuickAdjust, selectedScryfallId, conflictedOracleIds, colors }) {
+export default function CollectionGrid({ cards, onCardClick, onQuickAdjust, selectedScryfallId, conflictedOracleIds, tagMap, colors }) {
   const parentRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
@@ -106,6 +106,7 @@ export default function CollectionGrid({ cards, onCardClick, onQuickAdjust, sele
                     isConflicted={isConflicted}
                     onClick={() => onCardClick?.(card)}
                     onQuickAdjust={onQuickAdjust}
+                    tag={card.colorTagId ? tagMap?.[card.colorTagId] : null}
                     colors={colors}
                   />
                 );
@@ -141,8 +142,10 @@ function stepBtnStyle(colors, color) {
   };
 }
 
-function CardCell({ card, qty, wishlist, isSelected, isConflicted, onClick, onQuickAdjust, colors }) {
+function CardCell({ card, qty, wishlist, isSelected, isConflicted, onClick, onQuickAdjust, tag, colors }) {
   const [imgError, setImgError] = useState(false);
+  // A real (non-default) color tag paints a left-edge stripe in its color.
+  const tagStripe = tag && tag.id !== "default" && !tag.builtin ? tag : null;
   // Stop the stepper clicks from bubbling to the cell button (which opens the
   // detail drawer). A decrement at the last copy deletes the row upstream.
   const step = (delta) => (e) => {
@@ -170,8 +173,19 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, onClick, onQu
         color: colors.TEXT,
         fontFamily: "inherit",
       }}
-      title={`${card.name}  ·  ${card.setCode?.toUpperCase()} #${card.collectorNumber}`}
+      title={tagStripe
+        ? `${card.name}  ·  ${card.setCode?.toUpperCase()} #${card.collectorNumber}  ·  ${tagStripe.name}`
+        : `${card.name}  ·  ${card.setCode?.toUpperCase()} #${card.collectorNumber}`}
     >
+      {tagStripe && (
+        <span
+          aria-hidden
+          style={{
+            position: "absolute", left: 0, top: 0, bottom: 0,
+            width: 4, background: tagStripe.color, zIndex: 3,
+          }}
+        />
+      )}
       <div style={{
         width: "100%",
         height: 140,

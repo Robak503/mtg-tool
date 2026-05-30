@@ -215,6 +215,31 @@ export default function CollectionView({ onClose }) {
     setSelectedRow(null);
   };
 
+  // Resolve a row's colorTagId → tag definition (name/color) for the grid stripe
+  // and the drawer picker. Tags live in localStorage (useColorTags); the row only
+  // stores the id. Rebuilt when the tag set changes (create / recolor / delete).
+  const tagMap = useMemo(() => {
+    const map = {};
+    for (const tag of colorTags.tags) map[tag.id] = tag;
+    return map;
+  }, [colorTags.tags]);
+
+  // Assign (or clear, when tagId is null/"default") a color tag on a row.
+  const assignTag = async (scryfallId, tagId) => {
+    const colorTagId = tagId && tagId !== "default" ? tagId : null;
+    try {
+      const resp = await fetch(`/api/collection/${encodeURIComponent(scryfallId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ colorTagId }),
+      });
+      const body = await resp.json().catch(() => ({}));
+      if (resp.ok && body.collection) handleCollectionUpdate(body.collection);
+    } catch {
+      // Best-effort; a failed tag assignment leaves the prior tag in place.
+    }
+  };
+
   // Always-current snapshot for the grid quick-stepper. The handler closes over
   // a single render's `state`, so consecutive +/- clicks would each compute from
   // the same stale snapshot and lose updates; reading the ref makes click N see
@@ -427,6 +452,7 @@ export default function CollectionView({ onClose }) {
               onQuickAdjust={adjustRowQuantity}
               selectedScryfallId={selectedRow?.scryfallId}
               conflictedOracleIds={conflictedOracleIds}
+              tagMap={tagMap}
               colors={COLORS}
             />
           )}
@@ -438,6 +464,8 @@ export default function CollectionView({ onClose }) {
             onClose={() => setSelectedRow(null)}
             onSave={handleCollectionUpdate}
             onDelete={handleCollectionDelete}
+            tags={colorTags.tags}
+            onAssignTag={assignTag}
             colors={COLORS}
           />
         )}

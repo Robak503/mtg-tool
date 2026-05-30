@@ -26,7 +26,7 @@ const CONDITION_OPTIONS = [
   { value: "DMG", label: "DMG" },
 ];
 
-export default function CollectionCardDetail({ row, onClose, onSave, onDelete, colors }) {
+export default function CollectionCardDetail({ row, onClose, onSave, onDelete, tags = [], onAssignTag, colors }) {
   const [stacks, setStacks] = useState(row.stacks || []);
   const [notes, setNotes] = useState(row.notes || "");
   const [busy, setBusy] = useState(false);
@@ -181,6 +181,18 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, c
 
         {row.prices && <PriceBlock prices={row.prices} colors={colors} />}
 
+        {onAssignTag && tags.length > 0 && (
+          <section style={{ marginTop: 20 }}>
+            <SectionLabel color={colors.MUTED}>Tag</SectionLabel>
+            <TagPicker
+              tags={tags}
+              activeId={row.colorTagId || null}
+              onAssign={(tagId) => onAssignTag(row.scryfallId, tagId)}
+              colors={colors}
+            />
+          </section>
+        )}
+
         <section style={{ marginTop: 20 }}>
           <SectionLabel color={colors.MUTED}>Stacks</SectionLabel>
           {stacks.map((stack, idx) => (
@@ -252,6 +264,48 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, c
         </button>
       </div>
     </aside>
+  );
+}
+
+function TagPicker({ tags, activeId, onAssign, colors }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {tags.map(tag => {
+        const isNone = tag.id === "default" || tag.builtin;
+        const active = isNone ? !activeId : activeId === tag.id;
+        return (
+          <button
+            key={tag.id}
+            onClick={() => onAssign(isNone ? null : tag.id)}
+            title={isNone ? "Clear tag" : tag.name}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 10px",
+              borderRadius: 999,
+              background: active ? "rgba(255,255,255,0.06)" : "transparent",
+              border: `1px solid ${active ? (isNone ? colors.MUTED : tag.color) : colors.LINE}`,
+              color: colors.TEXT,
+              fontSize: 11,
+              cursor: "pointer",
+              fontFamily: "inherit",
+            }}
+          >
+            <span style={{
+              width: 11,
+              height: 11,
+              borderRadius: 999,
+              flexShrink: 0,
+              background: isNone ? "transparent" : tag.color,
+              border: isNone ? `1px solid ${colors.MUTED}` : "none",
+              display: "inline-block",
+            }} />
+            {isNone ? "None" : tag.name}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
