@@ -8,6 +8,25 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **The Vault — pick the exact printing and finish you own.** Adding a card lists every
+  printing as a row — **full set name · set code · collector number · price** — newest
+  first, each with a button per available treatment: **Normal**, **Foil**, and special
+  foils named from the card data (Surge, Galaxy, Confetti, Oil Slick, Ripple, Step-and-
+  Compleat, Halo, Gilded, Textured, and more). The printings index is now built from the
+  full Scryfall `default_cards` set, so art-reuse reprints (e.g. the Commander Masters
+  Sliver Hivelord that shares M15 art) are selectable too — not just one printing per
+  artwork. Only treatments that exist on real paper cards are shown (digital-only MTGO /
+  Arena printings are excluded).
+- **Quantity steppers everywhere.** Every owned card has a `− N +` control on the grid
+  and per-stack steppers in the detail drawer. Dropping the last copy removes the card
+  (delete-at-zero). Owned value and counts track the quantity live.
+- **Color tags that act.** Tag cards with custom color labels whose behavior reflects
+  onto the card: *Have* marks it owned, *Getting* / *Considering* move it to the wishlist
+  (kept out of owned value), and *Swap* feeds the card to Karn so he suggests
+  replacements. The drawer shows what each tag will do before you apply it; tagged cards
+  get a color stripe on the grid.
+
 ### Changed
 - Consolidated the two root rules-knowledge dirs under one `knowledge/` folder
   (`knowledge/mtg-engine` + `knowledge/mtg-judge`), removing the space from the old

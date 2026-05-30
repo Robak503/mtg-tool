@@ -24,9 +24,11 @@ describe("slimPrinting", () => {
       oracle_id: "oracle-456",
       name: "Sol Ring",
       set: "C21",
+      set_name: "Commander 2021",
       collector_number: "256",
       finishes: ["nonfoil", "foil"],
       layout: "normal",
+      released_at: "2021-04-23",
       image_uris: { art_crop: "https://example.com/sol-ring.jpg" },
       prices: { usd: "3.50", usd_foil: "12.00", usd_etched: null },
     });
@@ -36,12 +38,57 @@ describe("slimPrinting", () => {
       oracleId: "oracle-456",
       name: "Sol Ring",
       set: "c21",
+      setName: "Commander 2021",
       collectorNumber: "256",
       finishes: ["nonfoil", "foil"],
+      foilTypes: [],
       layout: "normal",
+      releasedAt: "2021-04-23",
       artCropUrl: "https://example.com/sol-ring.jpg",
       prices: { usd: "3.50", usdFoil: "12.00", usdEtched: null },
     });
+  });
+
+  it("keeps only foil-treatment promo_types in foilTypes (drops promo metadata)", () => {
+    const out = slimPrinting({
+      id: "x", oracle_id: "y", name: "Phyrexian Vindicator", set: "one",
+      set_name: "Phyrexia: All Will Be One", collector_number: "347",
+      finishes: ["foil"], layout: "normal", image_uris: { art_crop: "x" }, prices: {},
+      promo_types: ["oilslick", "raisedfoil", "boosterfun"],
+    });
+    // boosterfun is promo metadata, not a foil treatment → dropped.
+    expect(out.foilTypes).toEqual(["oilslick", "raisedfoil"]);
+    expect(out.setName).toBe("Phyrexia: All Will Be One");
+  });
+
+  it("defaults foilTypes to [] when promo_types is absent", () => {
+    const out = slimPrinting({
+      id: "x", oracle_id: "y", name: "Test", set: "x", collector_number: "1",
+      finishes: ["nonfoil"], layout: "normal", image_uris: { art_crop: "x" }, prices: {},
+    });
+    expect(out.foilTypes).toEqual([]);
+  });
+
+  it("captures releasedAt as null when the source omits it", () => {
+    const out = slimPrinting({
+      id: "x", oracle_id: "y", name: "Test", set: "x", collector_number: "1",
+      finishes: ["nonfoil"], layout: "normal", image_uris: { art_crop: "x" }, prices: {},
+    });
+    expect(out.releasedAt).toBeNull();
+  });
+
+  it("returns null for digital-only printings (not ownable in paper)", () => {
+    const out = slimPrinting({
+      id: "mtgo-1",
+      oracle_id: "oracle-digital",
+      name: "Sol Ring",
+      set: "pmtg1",
+      collector_number: "1",
+      layout: "normal",
+      digital: true,
+      image_uris: { art_crop: "https://example.com/digital.jpg" },
+    });
+    expect(out).toBeNull();
   });
 
   it("pulls art crop from card_faces[0] for DFC / transform layouts", () => {

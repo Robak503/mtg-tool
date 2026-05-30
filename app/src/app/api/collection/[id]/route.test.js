@@ -195,6 +195,39 @@ describe("PATCH /api/collection/[id]", () => {
     );
     expect(resp.status).toBe(400);
   });
+
+  it("assigns a colorTagId on its own", async () => {
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", { colorTagId: "have" }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    const sol = body.collection.cards.find(c => c.scryfallId === "scry-sol");
+    expect(sol.colorTagId).toBe("have");
+    // Other fields untouched
+    expect(sol.stacks).toEqual([{ finish: "nonfoil", quantity: 4, condition: "NM" }]);
+  });
+
+  it("clears a colorTagId when set to null", async () => {
+    await route.PATCH(patchRequest("scry-sol", { colorTagId: "have" }), ctxWith("scry-sol"));
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", { colorTagId: null }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    const sol = body.collection.cards.find(c => c.scryfallId === "scry-sol");
+    expect(sol.colorTagId).toBeNull();
+  });
+
+  it("rejects a non-string, non-null colorTagId with 400", async () => {
+    const resp = await route.PATCH(
+      patchRequest("scry-sol", { colorTagId: 7 }),
+      ctxWith("scry-sol"),
+    );
+    expect(resp.status).toBe(400);
+  });
 });
 
 describe("DELETE /api/collection/[id]", () => {

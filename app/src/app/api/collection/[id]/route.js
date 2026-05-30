@@ -66,10 +66,10 @@ export async function PATCH(request, ctx) {
   }
 
   // Whitelist of mutable fields
-  const allowedKeys = new Set(["stacks", "notes", "wishlist"]);
+  const allowedKeys = new Set(["stacks", "notes", "wishlist", "colorTagId"]);
   const updateKeys = Object.keys(body).filter(k => allowedKeys.has(k));
   if (updateKeys.length === 0) {
-    return badRequest("No mutable fields in body (allowed: stacks, notes, wishlist)");
+    return badRequest("No mutable fields in body (allowed: stacks, notes, wishlist, colorTagId)");
   }
 
   if ("stacks" in body) {
@@ -81,6 +81,11 @@ export async function PATCH(request, ctx) {
   }
   if ("wishlist" in body && typeof body.wishlist !== "boolean") {
     return badRequest("wishlist must be a boolean");
+  }
+  // colorTagId references a tag in the client-side tag set (localStorage), so
+  // we only enforce the type here — null clears the tag.
+  if ("colorTagId" in body && body.colorTagId !== null && typeof body.colorTagId !== "string") {
+    return badRequest("colorTagId must be a string or null");
   }
 
   try {
@@ -106,6 +111,9 @@ export async function PATCH(request, ctx) {
       }
       if ("wishlist" in body) {
         updated.wishlist = body.wishlist;
+      }
+      if ("colorTagId" in body) {
+        updated.colorTagId = body.colorTagId;
       }
 
       // Auto-flip wishlist → false if stacks were updated and any stack has

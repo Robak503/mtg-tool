@@ -12,6 +12,7 @@ import {
   shouldInjectCollectionContext,
   buildCollectionContextBlock,
   buildOwnedListBlock,
+  buildSwapCandidatesBlock,
   isBuildFromCollectionPrompt,
 } from "./collectionContextBuilder.js";
 
@@ -25,6 +26,7 @@ function makeRow(oracleId, name, stacks, opts = {}) {
     stacks,
     wishlist: !!opts.wishlist,
     prices: opts.prices,
+    colorTagId: opts.colorTagId,
   };
 }
 
@@ -157,6 +159,45 @@ describe("buildCollectionContextBlock", () => {
     const block = buildCollectionContextBlock({ cards });
     // Rough token estimate: ~4 chars/token. 400 tokens ≈ 1600 chars.
     expect(block.length).toBeLessThan(1800);
+  });
+});
+
+describe("buildSwapCandidatesBlock", () => {
+  const cards = [
+    makeRow("o-sol", "Sol Ring", [{ finish: "nonfoil", quantity: 1 }], { colorTagId: "swap" }),
+    makeRow("o-counter", "Counterspell", [{ finish: "nonfoil", quantity: 1 }], { colorTagId: "have" }),
+    makeRow("o-llanowar", "Llanowar Elves", [{ finish: "nonfoil", quantity: 1 }], { colorTagId: "swap" }),
+  ];
+
+  it("returns '' when no swap tag ids are given", () => {
+    expect(buildSwapCandidatesBlock({ cards }, [])).toBe("");
+    expect(buildSwapCandidatesBlock({ cards }, null)).toBe("");
+  });
+
+  it("returns '' when no rows carry a swap tag", () => {
+    expect(buildSwapCandidatesBlock({ cards }, ["nonexistent"])).toBe("");
+  });
+
+  it("lists only the swap-tagged cards", () => {
+    const block = buildSwapCandidatesBlock({ cards }, ["swap"]);
+    expect(block).toMatch(/## SWAP CANDIDATES/);
+    expect(block).toMatch(/- Sol Ring/);
+    expect(block).toMatch(/- Llanowar Elves/);
+    expect(block).not.toMatch(/Counterspell/);
+  });
+
+  it("dedupes by oracleId across printings", () => {
+    const dupes = [
+      makeRow("o-sol", "Sol Ring", [{ finish: "nonfoil", quantity: 1 }], { colorTagId: "swap", scryfallId: "a" }),
+      makeRow("o-sol", "Sol Ring", [{ finish: "foil", quantity: 1 }], { colorTagId: "swap", scryfallId: "b" }),
+    ];
+    const block = buildSwapCandidatesBlock({ cards: dupes }, ["swap"]);
+    expect(block.match(/- Sol Ring/g)).toHaveLength(1);
+  });
+
+  it("handles missing/empty collection", () => {
+    expect(buildSwapCandidatesBlock(null, ["swap"])).toBe("");
+    expect(buildSwapCandidatesBlock({ cards: [] }, ["swap"])).toBe("");
   });
 });
 

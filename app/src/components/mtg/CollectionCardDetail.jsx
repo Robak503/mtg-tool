@@ -26,7 +26,7 @@ const CONDITION_OPTIONS = [
   { value: "DMG", label: "DMG" },
 ];
 
-export default function CollectionCardDetail({ row, onClose, onSave, onDelete, colors }) {
+export default function CollectionCardDetail({ row, onClose, onSave, onDelete, tags = [], onAssignTag, colors }) {
   const [stacks, setStacks] = useState(row.stacks || []);
   const [notes, setNotes] = useState(row.notes || "");
   const [busy, setBusy] = useState(false);
@@ -54,22 +54,49 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, c
     setStacks([...stacks, { finish: newFinish, quantity: 1, condition: "NM" }]);
   };
 
-  const save = async () => {
+  // DELETE the row. Shared by the explicit Delete button and the save() path
+  // when every stack has been zeroed out (delete-at-zero).
+  const deleteRowRequest = async () => {
     setBusy(true);
     setError(null);
     try {
-      const cleanStacks = stacks
-        .filter(s => s.finish && Number.isFinite(s.quantity))
-        .map(s => ({
-          finish: s.finish,
-          quantity: Math.max(0, Math.floor(s.quantity)),
-          condition: s.condition || null,
-        }));
-      if (cleanStacks.length === 0) {
-        setError("Need at least one stack. To remove the row entirely, use Delete.");
+      const resp = await fetch(`/api/collection/${encodeURIComponent(row.scryfallId)}`, {
+        method: "DELETE",
+      });
+      const body = await resp.json();
+      if (!resp.ok) {
+        setError(body.error || `Delete failed (${resp.status})`);
         setBusy(false);
         return;
       }
+      onDelete?.(body.collection);
+    } catch (error) {
+      setError(error.message);
+      setBusy(false);
+    }
+  };
+
+  const save = async () => {
+    // Drop zero-quantity stacks so we never persist a zombie "0 copies" stack.
+    const cleanStacks = stacks
+      .filter(s => s.finish && Number.isFinite(s.quantity) && s.quantity > 0)
+      .map(s => ({
+        finish: s.finish,
+        quantity: Math.max(0, Math.floor(s.quantity)),
+        condition: s.condition || null,
+      }));
+
+    // Saving with everything at 0 means "I no longer own this" → delete the row
+    // (the API rejects an empty stacks array, so PATCH isn't an option anyway).
+    if (cleanStacks.length === 0) {
+      if (!confirm(`All quantities are 0 — remove ${row.name} from your collection?`)) return;
+      await deleteRowRequest();
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
       const resp = await fetch(`/api/collection/${encodeURIComponent(row.scryfallId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -91,24 +118,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, c
 
   const remove = async () => {
     if (!confirm(`Remove ${row.name} from your collection?`)) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const resp = await fetch(`/api/collection/${encodeURIComponent(row.scryfallId)}`, {
-        method: "DELETE",
-      });
-      const body = await resp.json();
-      if (!resp.ok) {
-        setError(body.error || `Delete failed (${resp.status})`);
-        setBusy(false);
-        return;
-      }
-      onDelete?.(body.collection);
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setBusy(false);
-    }
+    await deleteRowRequest();
   };
 
   return (
@@ -170,6 +180,18 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, c
         </div>
 
         {row.prices && <PriceBlock prices={row.prices} colors={colors} />}
+
+        {onAssignTag && tags.length > 0 && (
+          <section style={{ marginTop: 20 }}>
+            <SectionLabel color={colors.MUTED}>Tag</SectionLabel>
+            <TagPicker
+              tags={tags}
+              activeId={row.colorTagId || null}
+              onAssign={(tagId) => onAssignTag(row.scryfallId, tagId)}
+              colors={colors}
+            />
+          </section>
+        )}
 
         <section style={{ marginTop: 20 }}>
           <SectionLabel color={colors.MUTED}>Stacks</SectionLabel>
@@ -245,6 +267,67 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, c
   );
 }
 
+// What applying a tag does to the row, by behavior. Shown under the picker so
+// the action isn't a surprise (it mirrors the reflection in CollectionView).
+const BEHAVIOR_EFFECT = {
+  collection: "Counts as owned in your Vault.",
+  wishlist: "Tracked on your wishlist — won't count toward owned value.",
+  consider: "Kept as “considering” — won't count toward owned value.",
+  swap: "Flagged for Karn to suggest replacements.",
+  marker: null,
+};
+
+function TagPicker({ tags, activeId, onAssign, colors }) {
+  const activeTag = activeId ? tags.find(t => t.id === activeId) : null;
+  const effect = activeTag ? BEHAVIOR_EFFECT[activeTag.behavior || "marker"] : null;
+  return (
+    <>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {tags.map(tag => {
+          const isNone = tag.id === "default" || tag.builtin;
+          const active = isNone ? !activeId : activeId === tag.id;
+          return (
+            <button
+              key={tag.id}
+              onClick={() => onAssign(isNone ? null : tag.id)}
+              title={isNone ? "Clear tag" : tag.name}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: active ? "rgba(255,255,255,0.06)" : "transparent",
+                border: `1px solid ${active ? (isNone ? colors.MUTED : tag.color) : colors.LINE}`,
+                color: colors.TEXT,
+                fontSize: 11,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              <span style={{
+                width: 11,
+                height: 11,
+                borderRadius: 999,
+                flexShrink: 0,
+                background: isNone ? "transparent" : tag.color,
+                border: isNone ? `1px solid ${colors.MUTED}` : "none",
+                display: "inline-block",
+              }} />
+              {isNone ? "None" : tag.name}
+            </button>
+          );
+        })}
+      </div>
+      {effect && (
+        <div style={{ fontSize: 10.5, color: colors.MUTED, marginTop: 7, lineHeight: 1.4 }}>
+          {effect}
+        </div>
+      )}
+    </>
+  );
+}
+
 function PriceBlock({ prices, colors }) {
   const entries = [
     { label: "Nonfoil", key: "usd",       value: prices.usd },
@@ -296,17 +379,29 @@ function StackRow({ stack, onChange, onRemove, colors }) {
         ))}
       </select>
 
-      <input
-        type="number"
-        min={0}
-        value={stack.quantity ?? 0}
-        onChange={(e) => onChange({ quantity: parseInt(e.target.value, 10) || 0 })}
-        style={{
-          ...inputStyle(colors),
-          width: 56,
-          textAlign: "center",
-        }}
-      />
+      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <button
+          onClick={() => onChange({ quantity: Math.max(0, (stack.quantity || 0) - 1) })}
+          style={qtyStepBtn(colors)}
+          aria-label="Decrease quantity"
+        >−</button>
+        <input
+          type="number"
+          min={0}
+          value={stack.quantity ?? 0}
+          onChange={(e) => onChange({ quantity: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+          style={{
+            ...inputStyle(colors),
+            width: 42,
+            textAlign: "center",
+          }}
+        />
+        <button
+          onClick={() => onChange({ quantity: (stack.quantity || 0) + 1 })}
+          style={qtyStepBtn(colors)}
+          aria-label="Increase quantity"
+        >+</button>
+      </div>
 
       <select
         value={stack.condition || ""}
@@ -396,5 +491,25 @@ function inputStyle(colors) {
     fontSize: 11,
     fontFamily: "inherit",
     boxSizing: "border-box",
+  };
+}
+function qtyStepBtn(colors) {
+  return {
+    background: colors.BG,
+    border: `1px solid ${colors.LINE}`,
+    color: colors.TEXT,
+    width: 22,
+    height: 24,
+    borderRadius: 3,
+    fontSize: 14,
+    fontWeight: 700,
+    lineHeight: 1,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    flexShrink: 0,
   };
 }

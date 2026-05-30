@@ -15,6 +15,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { treatmentButtons } from "../../lib/foilTreatments";
+
 const DEBOUNCE_MS = 280;
 const MIN_QUERY_CHARS = 2;
 
@@ -26,7 +28,13 @@ const CONDITION_OPTIONS = [
   { value: "DMG", label: "DMG" },
 ];
 
-const FINISH_LABELS = { nonfoil: "Nonfoil", foil: "Foil", etched: "Etched" };
+// Per-finish price for a printing row.
+function priceForFinish(printing, finish) {
+  const p = printing?.prices || {};
+  if (finish === "foil") return p.usdFoil ?? p.usd ?? p.usdEtched ?? null;
+  if (finish === "etched") return p.usdEtched ?? p.usdFoil ?? p.usd ?? null;
+  return p.usd ?? p.usdFoil ?? p.usdEtched ?? null;
+}
 
 export default function CollectionAddModal({ onClose, onAdded, colors }) {
   const [query, setQuery] = useState("");
@@ -38,6 +46,10 @@ export default function CollectionAddModal({ onClose, onAdded, colors }) {
   const [wishlist, setWishlist] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // All printings of the picked card (the search list is deduped to one per
+  // name, so this is what lets the user choose the exact printing they own).
+  const [allPrintings, setAllPrintings] = useState([]);
+  const [printingsLoading, setPrintingsLoading] = useState(false);
 
   const searchInputRef = useRef(null);
   useEffect(() => { searchInputRef.current?.focus(); }, []);
@@ -76,6 +88,29 @@ export default function CollectionAddModal({ onClose, onAdded, colors }) {
     return () => clearTimeout(handle);
   }, [query]);
 
+  // When a card is picked from search, load ALL its printings so the user can
+  // switch to the exact one they own. Keyed by oracleId so switching among a
+  // card's printings (same oracleId) doesn't re-fetch.
+  useEffect(() => {
+    const oid = selected?.oracleId;
+    const nm = selected?.name;
+    if (!oid || !nm) { setAllPrintings([]); return; }
+    let cancelled = false;
+    setPrintingsLoading(true);
+    (async () => {
+      try {
+        const resp = await fetch(`/api/printings/by-name?name=${encodeURIComponent(nm)}&oracleId=${encodeURIComponent(oid)}`);
+        const body = await resp.json();
+        if (!cancelled && resp.ok) setAllPrintings(body.results || []);
+      } catch {
+        // Keep the single selected printing if the lookup fails.
+      } finally {
+        if (!cancelled) setPrintingsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selected?.oracleId, selected?.name]);
+
   const supportedFinishes = useMemo(() => {
     if (!selected) return ["nonfoil"];
     const arr = Array.isArray(selected.finishes) && selected.finishes.length > 0
@@ -92,6 +127,16 @@ export default function CollectionAddModal({ onClose, onAdded, colors }) {
       setStack(s => ({ ...s, finish: supportedFinishes[0] }));
     }
   }, [supportedFinishes, stack.finish]);
+
+  // The printings to choose from. by-name returns every printing of the card;
+  // fall back to the single search-picked printing if that lookup hasn't landed.
+  const printings = allPrintings.length ? allPrintings : (selected ? [selected] : []);
+
+  // Pick a specific (printing, finish/treatment) pair from a row's buttons.
+  const pickPrinting = (printing, finish) => {
+    setSelected(printing);
+    setStack(s => ({ ...s, finish }));
+  };
 
   const submit = async () => {
     if (!selected) return;
@@ -253,6 +298,29 @@ export default function CollectionAddModal({ onClose, onAdded, colors }) {
             <div style={{ paddingBottom: 12 }}>
               <SelectedPreview card={selected} onChange={() => setSelected(null)} colors={colors} />
 
+              {printingsLoading && allPrintings.length === 0 && (
+                <div style={{ marginTop: 8, fontSize: 11, color: colors.MUTED }}>Loading printings…</div>
+              )}
+              {printings.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 9, color: colors.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
+                    Which printing &amp; finish do you own?{printings.length > 1 ? ` (${printings.length})` : ""}
+                  </div>
+                  <div style={{ maxHeight: 230, overflowY: "auto", border: `1px solid ${colors.LINE}`, borderRadius: 4 }}>
+                    {printings.map(p => (
+                      <PrintingRow
+                        key={p.id}
+                        printing={p}
+                        selectedId={selected.id}
+                        selectedFinish={stack.finish}
+                        onPick={pickPrinting}
+                        colors={colors}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div style={{ marginTop: 16 }}>
                 <label style={chipRow()}>
                   <input
@@ -265,43 +333,30 @@ export default function CollectionAddModal({ onClose, onAdded, colors }) {
                 </label>
               </div>
 
-              <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-                <Field label="Finish" colors={colors}>
-                  <select
-                    value={stack.finish}
-                    onChange={(e) => setStack(s => ({ ...s, finish: e.target.value }))}
-                    style={selectStyle(colors)}
-                  >
-                    {supportedFinishes.map(f => (
-                      <option key={f} value={f}>{FINISH_LABELS[f]}</option>
-                    ))}
-                  </select>
-                </Field>
-                {!wishlist && (
-                  <>
-                    <Field label="Qty" colors={colors}>
-                      <input
-                        type="number"
-                        min={1}
-                        value={stack.quantity}
-                        onChange={(e) => setStack(s => ({ ...s, quantity: parseInt(e.target.value, 10) || 1 }))}
-                        style={{ ...inputStyle(colors), width: 64, textAlign: "center" }}
-                      />
-                    </Field>
-                    <Field label="Condition" colors={colors}>
-                      <select
-                        value={stack.condition}
-                        onChange={(e) => setStack(s => ({ ...s, condition: e.target.value }))}
-                        style={selectStyle(colors)}
-                      >
-                        {CONDITION_OPTIONS.map(c => (
-                          <option key={c.value} value={c.value}>{c.label}</option>
-                        ))}
-                      </select>
-                    </Field>
-                  </>
-                )}
-              </div>
+              {!wishlist && (
+                <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                  <Field label="Qty" colors={colors}>
+                    <input
+                      type="number"
+                      min={1}
+                      value={stack.quantity}
+                      onChange={(e) => setStack(s => ({ ...s, quantity: parseInt(e.target.value, 10) || 1 }))}
+                      style={{ ...inputStyle(colors), width: 64, textAlign: "center" }}
+                    />
+                  </Field>
+                  <Field label="Condition" colors={colors}>
+                    <select
+                      value={stack.condition}
+                      onChange={(e) => setStack(s => ({ ...s, condition: e.target.value }))}
+                      style={selectStyle(colors)}
+                    >
+                      {CONDITION_OPTIONS.map(c => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              )}
 
               {error && <div style={{ ...errorBox(colors), marginTop: 12 }}>{error}</div>}
             </div>
@@ -323,6 +378,67 @@ export default function CollectionAddModal({ onClose, onAdded, colors }) {
       </div>
     </div>
   );
+}
+
+function PrintingRow({ printing, selectedId, selectedFinish, onPick, colors }) {
+  const buttons = treatmentButtons(printing.finishes, printing.foilTypes);
+  const isSel = printing.id === selectedId;
+  const headerFinish = isSel ? selectedFinish : buttons[0]?.finish;
+  const price = priceForFinish(printing, headerFinish);
+  return (
+    <div style={{
+      padding: "8px 10px",
+      borderBottom: `1px solid ${colors.LINE}`,
+      borderLeft: `3px solid ${isSel ? colors.GOLD : "transparent"}`,
+      background: isSel ? colors.BG3 : "transparent",
+    }}>
+      {/* Row 1: set name · CODE #collector · price */}
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 7 }}>
+        <span style={{
+          flex: 1, minWidth: 0, fontSize: 12.5, color: colors.TEXT, fontWeight: 500,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {printing.setName || (printing.set || "").toUpperCase()}
+        </span>
+        <span style={{
+          fontSize: 10, color: colors.MUTED, textTransform: "uppercase",
+          letterSpacing: "0.04em", flexShrink: 0,
+        }}>
+          {printing.set} · #{printing.collectorNumber}
+        </span>
+        <span style={{ fontSize: 11, color: colors.GOLD, minWidth: 46, textAlign: "right", flexShrink: 0 }}>
+          {price != null ? `$${price}` : "—"}
+        </span>
+      </div>
+      {/* Row 2: treatment buttons — Normal, (special) Foil, Etched */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {buttons.map(b => (
+          <button
+            key={b.finish}
+            onClick={() => onPick(printing, b.finish)}
+            style={treatmentBtn(colors, isSel && selectedFinish === b.finish)}
+          >
+            {b.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function treatmentBtn(colors, active) {
+  return {
+    background: active ? colors.GOLD : "transparent",
+    color: active ? colors.BG : colors.TEXT,
+    border: `1px solid ${active ? colors.GOLD : colors.LINE}`,
+    borderRadius: 999,
+    padding: "4px 12px",
+    fontSize: 11.5,
+    fontWeight: active ? 600 : 400,
+    cursor: "pointer",
+    fontFamily: "inherit",
+    lineHeight: 1.3,
+  };
 }
 
 function SelectedPreview({ card, onChange, colors }) {

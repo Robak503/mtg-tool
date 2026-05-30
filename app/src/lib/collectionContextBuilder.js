@@ -150,12 +150,50 @@ export function buildOwnedListBlock(collection, limit = 200) {
 }
 
 /**
+ * Render the cards the user has flagged "Swap" (a color tag whose behavior is
+ * swap) so Karn can propose replacements. swapTagIds are the ids of the user's
+ * swap-behavior tags (resolved client-side from the localStorage tag set, since
+ * the server stores only colorTagId, not the behavior). Returns "" when nothing
+ * is flagged.
+ */
+export function buildSwapCandidatesBlock(collection, swapTagIds) {
+  if (!collection || !Array.isArray(collection.cards)) return "";
+  const ids = new Set(swapTagIds || []);
+  if (ids.size === 0) return "";
+
+  const names = [];
+  const seen = new Set();
+  for (const row of collection.cards) {
+    if (!row || !row.colorTagId || !ids.has(row.colorTagId)) continue;
+    const key = row.oracleId || row.name;
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    if (row.name) names.push(row.name);
+  }
+  if (names.length === 0) return "";
+
+  const lines = [];
+  lines.push("## SWAP CANDIDATES");
+  lines.push(
+    "The user has flagged these owned cards as ones they want to REPLACE. For each, suggest 1-2 " +
+    "stronger or better-fitting replacements that match the deck's strategy and color identity, with a " +
+    "one-line reason. Prefer cards the user already owns when reasonable; otherwise label \"$X to acquire\".",
+  );
+  lines.push("");
+  for (const name of names) lines.push(`- ${name}`);
+  return lines.join("\n");
+}
+
+/**
  * Convenience: fetch + check + render. Returns "" if anything is missing
  * or the gating refuses injection. Used by the chat hook to keep the
  * happy path inline. Detects build-from-collection intent and emits the
  * fuller block when present.
+ *
+ * swapTagIds: ids of the user's swap-behavior color tags (Karn only); when any
+ * owned card carries one, a SWAP CANDIDATES block is appended.
  */
-export async function fetchCollectionContextBlock(targetAgent, prompt) {
+export async function fetchCollectionContextBlock(targetAgent, prompt, swapTagIds = []) {
   try {
     const resp = await fetch("/api/collection");
     if (!resp.ok) return "";
@@ -170,6 +208,12 @@ export async function fetchCollectionContextBlock(targetAgent, prompt) {
     if (targetAgent === "karn" && isBuildFromCollectionPrompt(prompt)) {
       const ownedList = buildOwnedListBlock(collection);
       if (ownedList) block = `${block}\n\n${ownedList}`;
+    }
+
+    // Swap candidates: Karn-only. Lists cards the user tagged for replacement.
+    if (targetAgent === "karn") {
+      const swapBlock = buildSwapCandidatesBlock(collection, swapTagIds);
+      if (swapBlock) block = `${block}\n\n${swapBlock}`;
     }
 
     return block;

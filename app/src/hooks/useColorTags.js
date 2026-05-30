@@ -56,6 +56,16 @@ function loadTags() {
   }
 }
 
+/**
+ * Ids of the user's swap-behavior tags, read straight from localStorage (no
+ * hook / render needed). The chat hook calls this to tell Karn which cards the
+ * user has flagged for replacement, since the server stores only colorTagId.
+ * SSR-safe: returns [] when window/localStorage is unavailable.
+ */
+export function swapBehaviorTagIds() {
+  return loadTags().filter(tag => tag.behavior === "swap").map(tag => tag.id);
+}
+
 function makeId() {
   if (typeof globalThis.crypto?.randomUUID === "function") return `tag-${globalThis.crypto.randomUUID()}`;
   return `tag-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
