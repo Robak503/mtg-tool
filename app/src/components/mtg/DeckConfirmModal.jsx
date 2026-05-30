@@ -44,7 +44,7 @@ export default function DeckConfirmModal({
       <div
         style={{
           width: "min(460px, 94vw)",
-          background: "rgba(20,18,16,0.97)",
+          background: "rgba(18,19,24,0.97)",
           backdropFilter: "blur(18px) saturate(1.2)",
           WebkitBackdropFilter: "blur(18px) saturate(1.2)",
           border: `1px solid ${cfg.border}`,
@@ -73,7 +73,7 @@ export default function DeckConfirmModal({
           value={activeDeckId || lock.id || ""}
           onChange={event => onSelectDeck && onSelectDeck(event.target.value)}
           style={{
-            background: "#1c1a16",
+            background: "#1c1d24",
             color: TEXT,
             border: `1px solid ${cfg.border}`,
             borderRadius: 8,

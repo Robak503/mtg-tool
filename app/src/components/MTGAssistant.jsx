@@ -636,8 +636,9 @@ export default function MTGAssistant() {
   //   cfg              the active agent's theme — AGENTS[agent] (.color/.border/.dim)
   //   sb(outline)      "select button" style object (the sidebar list buttons)
   //   pb(primary, sm)  "primary button" style object (primary = filled, sm = small)
-  // Obsidian & Gold — near-black base, warm gold accent, frosted-glass panels.
-  const BG="#08070a",BG2="rgba(18,16,20,0.66)",BG3="rgba(26,24,28,0.52)",LINE="#2a2620",TEXT="#ece6d8",MUTED="#9c9486",GOLD="#caa24a";
+  // Obsidian & Gold — cool-neutral near-black base (no warm/brown tints), rich
+  // gold accent, frosted-glass panels, cool off-white text.
+  const BG="#090a0d",BG2="rgba(18,19,24,0.66)",BG3="rgba(26,27,33,0.52)",LINE="#2b2c34",TEXT="#dfe2ec",MUTED="#9a9caa",GOLD="#a06639";
   const F="'Georgia','Palatino Linotype',serif";
   const sb=(outline)=>({width:"100%",padding:"7px 9px",borderRadius:8,fontFamily:F,fontSize:11,cursor:"pointer",marginBottom:4,textAlign:"left",border:`1px solid ${outline?LINE:cfg.border}`,background:outline?"rgba(255,255,255,0.02)":cfg.dim,color:outline?MUTED:cfg.color});
   const pb=(primary,sm)=>({padding:sm?"6px 12px":"8px 16px",borderRadius:9,fontFamily:F,fontSize:sm?11:13,cursor:"pointer",border:`1px solid ${primary?cfg.color:cfg.border}`,background:primary?cfg.color:"rgba(255,255,255,0.03)",color:primary?"#0c0b0a":cfg.color,backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",boxShadow:primary?`0 3px 12px -4px ${cfg.glow}`:"inset 0 1px 0 rgba(255,255,255,0.04)"});
@@ -667,7 +668,7 @@ export default function MTGAssistant() {
   return (
     <div style={{fontFamily:F,background:BG,color:TEXT,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
       {/* Clean obsidian backdrop with a faint gold bloom up top for depth — no commander art. */}
-      <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,background:"radial-gradient(ellipse 100% 78% at 50% -12%, rgba(202,162,74,0.07) 0%, rgba(202,162,74,0.015) 32%, transparent 60%), #08070a"}}/>
+      <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,background:"radial-gradient(ellipse 100% 78% at 50% -12%, rgba(160,102,57,0.07) 0%, rgba(160,102,57,0.015) 32%, transparent 60%), #090a0d"}}/>
       <style>{`
         @keyframes mtgd{0%,80%,100%{transform:scale(.5);opacity:.3}40%{transform:scale(1);opacity:.9}}
         *{box-sizing:border-box;margin:0;padding:0}

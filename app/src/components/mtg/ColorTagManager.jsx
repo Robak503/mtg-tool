@@ -11,16 +11,17 @@
 
 import { useState } from "react";
 
+import { behaviorLabel } from "../../hooks/useColorTags";
 import ColorTagModal from "./ColorTagModal";
 
 export default function ColorTagManager({ tags, addTag, updateTag, deleteTag, onClose, cfg, colors, fontFamily }) {
   const { LINE, TEXT, MUTED } = colors;
-  // null = closed; { } = create; { id, name, color } = edit
+  // null = closed; {} = create; { id, name, color, behavior } = edit
   const [editing, setEditing] = useState(null);
 
-  const handleSave = ({ name, color }) => {
-    if (editing?.id) updateTag(editing.id, { name, color });
-    else addTag({ name, color });
+  const handleSave = ({ name, color, behavior }) => {
+    if (editing?.id) updateTag(editing.id, { name, color, behavior });
+    else addTag({ name, color, behavior });
     setEditing(null);
   };
 
@@ -39,7 +40,7 @@ export default function ColorTagManager({ tags, addTag, updateTag, deleteTag, on
     >
       <div style={{
         width: "min(560px, 96vw)", maxHeight: "86vh", overflowY: "auto",
-        background: "rgba(20,18,16,0.98)",
+        background: "rgba(18,19,24,0.98)",
         border: `1px solid ${cfg.border}`,
         borderRadius: 14,
         boxShadow: `0 30px 80px -20px rgba(0,0,0,0.8), inset 3px 0 0 ${cfg.color}`,
@@ -64,8 +65,11 @@ export default function ColorTagManager({ tags, addTag, updateTag, deleteTag, on
 
         {tags.map(tag => (
           <div key={tag.id} style={{ display: "flex", alignItems: "center", padding: "9px 8px", borderBottom: `1px solid ${LINE}`, gap: 8 }}>
-            <span style={{ flex: 1, fontSize: 13, color: TEXT, fontStyle: tag.builtin ? "italic" : "normal" }}>
-              {tag.name}
+            <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1 }}>
+              <span style={{ fontSize: 13, color: TEXT, fontStyle: tag.builtin ? "italic" : "normal" }}>{tag.name}</span>
+              {tag.behavior && tag.behavior !== "marker" && (
+                <span style={{ fontSize: 10, color: MUTED }}>{behaviorLabel(tag.behavior)}</span>
+              )}
             </span>
             <span style={{ width: 120 }}>
               <span style={{
@@ -101,7 +105,7 @@ export default function ColorTagManager({ tags, addTag, updateTag, deleteTag, on
           <button
             onClick={() => setEditing({})}
             style={{
-              background: cfg.color, border: "none", borderRadius: 8, color: "#0c0b0a",
+              background: cfg.color, border: "none", borderRadius: 8, color: "#fff",
               cursor: "pointer", fontSize: 12.5, fontWeight: 600, padding: "8px 16px", fontFamily,
             }}
           >
