@@ -25,9 +25,11 @@ const INITIAL_STATE = {
   sessionId: null,
   decision: null,
   status: "idle",        // idle → starting → active → ended → error
+  mode: null,            // "standard" | "commander"
   turn: null,
   activePlayer: null,
   step: null,
+  table: [],             // per-seat snapshot (life / zone counts / cmd damage)
   decisionLogTail: [],
   error: null,
 };
@@ -49,10 +51,12 @@ export default function useLearnSession() {
   const start = useCallback(async ({
     userDeck,
     opponentDeck,
+    opponentDecks,
     userCommanders,
     opponentCommanders,
     difficulty = "beginner",
     activePlayer = "user",
+    mode = "standard",
   }) => {
     if (inFlightRef.current) return null;
     inFlightRef.current = true;
@@ -65,10 +69,12 @@ export default function useLearnSession() {
         body: JSON.stringify({
           userDeck,
           opponentDeck,
+          opponentDecks,
           userCommanders,
           opponentCommanders,
           difficulty,
           activePlayer,
+          mode,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -80,9 +86,11 @@ export default function useLearnSession() {
         sessionId: data.sessionId,
         decision: data.decision,
         status: data.decision?.kind === "game-over" ? "ended" : "active",
+        mode: data.mode || mode,
         turn: data.turn,
         activePlayer: data.activePlayer,
         step: data.step,
+        table: data.table || [],
         decisionLogTail: [],
         error: null,
       };
@@ -127,6 +135,7 @@ export default function useLearnSession() {
         turn: data.turn,
         activePlayer: data.activePlayer,
         step: data.step,
+        table: data.table || prev.table,
         decisionLogTail: data.decisionLogTail || [],
         error: null,
       }));

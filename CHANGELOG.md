@@ -8,15 +8,26 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-30
+
+### Added
+- **Play Learn-to-Play as a 4-player Commander game.** The Learn-to-Play setup
+  has a format picker — Standard 1v1 or **Commander 4P** (you plus three AI
+  opponents). The game screen now shows a table strip across the top: every seat's
+  life, hand / board / graveyard counts, commander damage, and whose turn it is.
+  When you attack in Commander, each option says which opponent it targets
+  (e.g. "Attack → AI 2").
+
+## [0.6.0] - 2026-05-30
+
 ### Added
 - **Learn-to-Play combat now resolves.** In Garfield's Learn-to-Play mode, the
   combat-damage step is no longer a no-op: creatures deal and take damage,
   lethally-damaged creatures die, and unblocked attackers reduce the defending
   player's life. Multi-defender groundwork landed too (Commander attackers can
   target any opponent, the AI picks a sensible target, and the trap warnings
-  account for every opponent's possible swing-back). The 4-player table UI is
-  next (Phase 6 PR 11). _Simplified for now: no first strike, trample, or
-  deathtouch._
+  account for every opponent's possible swing-back). _Simplified for now: no
+  first strike, trample, or deathtouch._
 
 ## [0.5.0] - 2026-05-30
 

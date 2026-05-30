@@ -18,6 +18,7 @@
 export const runtime = "nodejs";
 
 import { applyChoice, isComplete } from "../../../../lib/learn/learnSession.js";
+import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
 
 export async function POST(request) {
@@ -69,6 +70,7 @@ export async function POST(request) {
     activePlayer: result.session.state.activePlayer,
     step: result.session.state.step,
     decisionLogTail: result.session.decisionLog.slice(-5),
+    table: tableSnapshot(result.session.state),
   });
 }
 
