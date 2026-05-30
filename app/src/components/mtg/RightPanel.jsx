@@ -1,3 +1,7 @@
+/**
+ * RightPanel — the right-hand panel: card search results / preview and the
+ * deck-stat charts (e.g. the mana CurveChart and color breakdown defined below).
+ */
 const MANA_COLORS = {
   W: { fill: "#f5f0cc", stroke: "#9a8a30", text: "#6a5a10" },
   U: { fill: "#9ec4e8", stroke: "#1a5a9a", text: "#0a3060" },

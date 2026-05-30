@@ -1,3 +1,7 @@
+/**
+ * Sidebar — the left sidebar: the agent selector and the saved-deck library
+ * (pick a deck to make it active and jump to its view). Collapses on mobile.
+ */
 import { AGENTS } from "../../lib/agents";
 import { useMemo, useRef, useState } from "react";
 

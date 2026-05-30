@@ -1,3 +1,8 @@
+/**
+ * ChatPanel — the center conversation panel: the message thread, the per-message
+ * 👍/👎 feedback reactions (see MessageReactions below), and the prompt composer
+ * for the active agent.
+ */
 import { useState, useEffect } from "react";
 import { QUICK } from "../../lib/agents";
 import useTauriAppVersion from "../../hooks/useTauriAppVersion";

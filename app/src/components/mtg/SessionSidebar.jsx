@@ -1,3 +1,8 @@
+/**
+ * SessionSidebar — the chat-session list: active and archived sessions grouped
+ * by agent, each showing its locked deck and a relative timestamp, plus the
+ * new-chat and archive controls.
+ */
 import { useMemo, useState } from "react";
 import { AGENTS } from "../../lib/agents";
 

@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * FeedbackButton — the in-app feedback capture UI: a floating button that opens
+ * a panel to file a categorized entry (bug / feature / agent-quality / ui /
+ * other; see CATEGORY_OPTIONS), saved locally under data/feedback/.
+ */
+
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import useTauriAppVersion from "../../hooks/useTauriAppVersion";
