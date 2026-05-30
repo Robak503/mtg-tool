@@ -27,6 +27,7 @@
 
 import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
+import { opponentsOf } from "./gameState.js";
 
 // ─── Cast priority by archetype ──────────────────────────────────────────────
 
@@ -230,13 +231,55 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null } = {}
   return actions.find(a => a.kind === "pass-priority") || null;
 }
 
+/** Count an opponent's untapped creatures (rough "how hard to push through"). */
+function untappedBlockerCount(state, playerId) {
+  const bf = state.players?.[playerId]?.battlefield || [];
+  return bf.filter(p => String(p.card?.type_line || "").includes("Creature") && !p.tapped).length;
+}
+
+/**
+ * Which opponent should the AI swing at? Heuristic (design §11.5): the
+ * lowest-life living opponent; ties broken by who has the fewest untapped
+ * blockers (easiest to push damage through). Returns null when there's no
+ * living opponent. In Standard this is just the lone opponent.
+ */
+function chooseDefender(state, aiPlayerId) {
+  const living = opponentsOf(state, aiPlayerId).filter(id => (state.players?.[id]?.life ?? 0) > 0);
+  if (living.length === 0) return null;
+  return living.slice().sort((a, b) => {
+    const lifeDiff = state.players[a].life - state.players[b].life;
+    if (lifeDiff !== 0) return lifeDiff;
+    return untappedBlockerCount(state, a) - untappedBlockerCount(state, b);
+  })[0];
+}
+
 /**
  * Batch-decision picker for declare-attackers: returns the array of
  * attacker actions the AI commits to. Engine passes the result to
  * its combat-state tracker.
+ *
+ * Commander: the legal-action set contains one entry per (creature, defender);
+ * the AI focuses all its attackers on the single best target (chooseDefender)
+ * and emits exactly one action per creature. Standard: the actions carry no
+ * defenderId (the dispatcher fills the lone opponent), so this returns the full
+ * attacker set unchanged.
  */
 export function pickAttackPlan(state, aiPlayerId, attackerActions) {
-  return pickAllAttackers(attackerActions);
+  if (!Array.isArray(attackerActions) || attackerActions.length === 0) return [];
+  const hasDefenderChoice = attackerActions.some(a => a.defenderId);
+  if (!hasDefenderChoice) return pickAllAttackers(attackerActions);
+
+  const target = chooseDefender(state, aiPlayerId);
+  const byPermanent = new Map();
+  for (const a of attackerActions) {
+    if (!byPermanent.has(a.permanentId)) byPermanent.set(a.permanentId, []);
+    byPermanent.get(a.permanentId).push(a);
+  }
+  const plan = [];
+  for (const opts of byPermanent.values()) {
+    plan.push((target && opts.find(o => o.defenderId === target)) || opts[0]);
+  }
+  return plan;
 }
 
 /**

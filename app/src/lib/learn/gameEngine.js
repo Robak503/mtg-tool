@@ -32,8 +32,12 @@ import {
   emptyManaPoolForPlayer,
   resetTurnCounters,
   untapAll,
+  clearCombatDamage,
   logEvent,
 } from "./gameState.js";
+import { resolveCombatDamage } from "./combatResolution.js";
+
+const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
 // ─── Step ordering ────────────────────────────────────────────────────────────
 
@@ -170,13 +174,35 @@ export function runStepActions(state) {
 
     case "cleanup":
       next = emptyAllManaPools(next);
+      next = clearCombatDamage(next); // combat damage wears off at end of turn
       // Discard-to-hand-size + remove-until-end-of-turn effects are
       // deferred to PR3 (legal choices) and PR4+ (effects engine).
       next = logEvent(next, { kind: "step", phase: "ending", step: "cleanup", player: state.activePlayer });
       break;
 
+    case "beginning-of-combat":
+      // Start each combat from a clean slate (ensureCombat never resets, and
+      // clearCombat was never wired in — combat assignments would otherwise leak
+      // across turns and pile onto the next attack).
+      next = { ...next, combat: { ...EMPTY_COMBAT } };
+      next = logEvent(next, { kind: "step", phase: "combat", step: "beginning-of-combat", player: state.activePlayer });
+      break;
+
+    case "combat-damage":
+      // The core combat step: deal damage, kill lethally-damaged creatures,
+      // drop unblocked damage onto the defending player. (first-strike-damage
+      // stays a no-op — first strike isn't modeled; all damage lands here.)
+      next = resolveCombatDamage(next);
+      next = logEvent(next, { kind: "step", phase: "combat", step: "combat-damage", player: state.activePlayer });
+      break;
+
+    case "end-of-combat":
+      next = { ...next, combat: { ...EMPTY_COMBAT } };
+      next = logEvent(next, { kind: "step", phase: "combat", step: "end-of-combat", player: state.activePlayer });
+      break;
+
     default:
-      // upkeep, main, combat steps — no automatic state mutation.
+      // upkeep, main, other combat steps — no automatic state mutation.
       next = logEvent(next, { kind: "step", phase: state.phase, step: state.step, player: state.activePlayer });
       break;
   }
