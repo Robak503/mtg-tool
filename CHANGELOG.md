@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **The Vault tells you what it costs to finish your decks.** A new **Decks**
+  panel lists every saved deck with how much of it you already own and the
+  cheapest price to complete it — planned (partly-owned) decks sort to the top.
+  Expand a deck for the shopping list of cards you're short, cheapest first;
+  **Add** opens the card picker pre-filled so you choose the printing you bought
+  and it counts as owned. Basic lands are free; sideboards are ignored.
+
 ## [0.7.0] - 2026-05-30
 
 ### Added
