@@ -16,7 +16,11 @@
  * the resetStore helper to clear it between cases.
  */
 
-const SESSIONS = new Map();
+// Back the store with globalThis so every route handler shares ONE Map. Next's
+// dev server can compile route handlers into separate module instances (a
+// freshly-compiled route like /api/learn/ask would otherwise get its own empty
+// Map and never see sessions created by /api/learn/start). The global pins it.
+const SESSIONS = globalThis.__mtgLearnSessions || (globalThis.__mtgLearnSessions = new Map());
 const MAX_SESSIONS = 50;  // simple LRU-ish cap to keep memory bounded
 const SESSION_TTL_MS = 4 * 60 * 60 * 1000;  // 4 hours; long enough for any session
 
