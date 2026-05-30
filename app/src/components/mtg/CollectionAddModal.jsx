@@ -36,8 +36,8 @@ function priceForFinish(printing, finish) {
   return p.usd ?? p.usdFoil ?? p.usdEtched ?? null;
 }
 
-export default function CollectionAddModal({ onClose, onAdded, colors }) {
-  const [query, setQuery] = useState("");
+export default function CollectionAddModal({ onClose, onAdded, initialQuery = "", colors }) {
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState(null);

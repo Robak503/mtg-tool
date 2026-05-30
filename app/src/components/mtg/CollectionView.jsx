@@ -23,6 +23,7 @@ import CollectionCardDetail from "./CollectionCardDetail";
 import CollectionAddModal from "./CollectionAddModal";
 import CollectionImportModal from "./CollectionImportModal";
 import CollectionRoastModal from "./CollectionRoastModal";
+import CollectionDecksModal from "./CollectionDecksModal";
 import ColorTagManager from "./ColorTagManager";
 import useColorTags from "../../hooks/useColorTags";
 
@@ -64,6 +65,8 @@ export default function CollectionView({ onClose }) {
   const [selectedRow, setSelectedRow] = useState(null);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [addOpen, setAddOpen] = useState(false);
+  const [addPrefill, setAddPrefill] = useState("");
+  const [decksOpen, setDecksOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [conflictsOpen, setConflictsOpen] = useState(false);
   const [conflicts, setConflicts] = useState({ conflicts: [], totalDecks: 0 });
@@ -436,9 +439,10 @@ export default function CollectionView({ onClose }) {
               Roast me
             </button>
           )}
+          <button onClick={() => setDecksOpen(true)} style={btn()}>Decks</button>
           <button onClick={() => setTagsOpen(true)} style={btn()}>Color tags</button>
           <button onClick={() => setImportOpen(true)} style={btn()}>Import CSV</button>
-          <button onClick={() => setAddOpen(true)} style={primaryHeaderBtn()}>+ Add card</button>
+          <button onClick={() => { setAddPrefill(""); setAddOpen(true); }} style={primaryHeaderBtn()}>+ Add card</button>
           {onClose && (
             <button onClick={onClose} style={btn()}>Close</button>
           )}
@@ -523,8 +527,17 @@ export default function CollectionView({ onClose }) {
 
       {addOpen && (
         <CollectionAddModal
-          onClose={() => setAddOpen(false)}
+          onClose={() => { setAddOpen(false); setAddPrefill(""); }}
           onAdded={(updated) => setState(s => ({ ...s, collection: updated }))}
+          initialQuery={addPrefill}
+          colors={COLORS}
+        />
+      )}
+
+      {decksOpen && (
+        <CollectionDecksModal
+          onClose={() => setDecksOpen(false)}
+          onAddCard={(name) => { setDecksOpen(false); setAddPrefill(name); setAddOpen(true); }}
           colors={COLORS}
         />
       )}
