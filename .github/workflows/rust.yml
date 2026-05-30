@@ -1,0 +1,78 @@
+name: rust
+
+# Lints, format-checks, and security-audits the Tauri shell (app/src-tauri).
+#
+# Path-filtered: this only runs when Rust / Cargo files change, so the common
+# case (a JS-only PR) is never slowed down by a Rust compile.
+#
+# Clippy runs in RELEASE on purpose. The production code path in src/lib.rs is
+# release-only (#[cfg(not(debug_assertions))] gates the bundled-server spawn,
+# the Job Object, and orphan reaping). A debug clippy would skip all of that and
+# miss real lints in the code that actually ships -- so we lint what ships.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "app/src-tauri/**"
+      - ".github/workflows/rust.yml"
+  pull_request:
+    paths:
+      - "app/src-tauri/**"
+      - ".github/workflows/rust.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app/src-tauri
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust toolchain (rustfmt + clippy)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry + build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Stub bundle resources for the lint compile
+        # tauri-build validates the bundle.resources glob (resources/**/*) even
+        # for a plain `cargo clippy`/check. The real resources/ dir is staged by
+        # the build pipeline (prepare-tauri-resources.cjs) and is gitignored, so
+        # it is absent in a fresh checkout. Clippy compiles and lints but never
+        # bundles, so one placeholder file is enough to satisfy the glob.
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path resources | Out-Null
+          Set-Content -Path resources/ci-clippy-placeholder.txt -Value "Placeholder so tauri-build's resources glob matches during the lint job. Real bundle resources are staged by prepare-tauri-resources.cjs at build time."
+
+      - name: Clippy (release, deny warnings)
+        run: cargo clippy --all-targets --release -- -D warnings
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Audit dependencies (RustSec)
+        # Fails only on actual vulnerabilities. Unmaintained-crate notices for
+        # the Linux-only GTK stack (never shipped in the Windows .exe) are
+        # warnings, not errors, so they do not fail the build.
+        run: cargo audit
