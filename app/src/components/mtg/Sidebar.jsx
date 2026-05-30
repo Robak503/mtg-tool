@@ -111,7 +111,7 @@ export default function Sidebar({
           onClick={()=>{setCenterView("collection");if(mobile)setMobileTab("chat");}}
         >
           <span style={{fontSize:16}}>📚</span>
-          <div><div style={{fontSize:13,fontWeight:700}}>Collection</div><div style={{fontSize:10,opacity:.65}}>What you own</div></div>
+          <div><div style={{fontSize:13,fontWeight:700}}>The Vault</div><div style={{fontSize:10,opacity:.65}}>Decks · cards · value</div></div>
         </button>
       </div>
 

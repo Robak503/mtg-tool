@@ -23,15 +23,16 @@ import CollectionAddModal from "./CollectionAddModal";
 import CollectionImportModal from "./CollectionImportModal";
 import CollectionRoastModal from "./CollectionRoastModal";
 
+// Obsidian & Gold — matches the app shell theme.
 const COLORS = {
-  BG: "#060608",
-  BG2: "#0f1020",
-  BG3: "#141528",
-  LINE: "#252840",
-  TEXT: "#cec8e0",
-  MUTED: "#9d98b8",
-  GOLD: "#cc8a38",
-  RED: "#c4534e",
+  BG: "#08070a",
+  BG2: "#121014",
+  BG3: "#17140f",
+  LINE: "#2a2620",
+  TEXT: "#ece6d8",
+  MUTED: "#9c9486",
+  GOLD: "#caa24a",
+  RED: "#a44c45",
 };
 
 const FONT = `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
@@ -222,19 +223,19 @@ export default function CollectionView({ onClose }) {
           <h1 style={{
             margin: 0,
             fontSize: 18,
-            fontWeight: 500,
-            color: COLORS.TEXT,
-            letterSpacing: "0.02em",
+            fontWeight: 700,
+            color: COLORS.GOLD,
+            letterSpacing: "0.04em",
           }}>
-            Collection
+            The Vault
           </h1>
           {state.status === "ready" && (
             <span style={{ fontSize: 12, color: COLORS.MUTED }}>
-              {totalCardCount} cards · {uniqueCount} unique
+              <strong style={{ color: COLORS.TEXT }}>{totalCardCount}</strong> cards cataloged · {uniqueCount} unique
               {collectionValue > 0 && (
                 <>
-                  {" · "}
-                  <span style={{ color: COLORS.TEXT }}>
+                  {" · owned value "}
+                  <span style={{ color: COLORS.GOLD, fontWeight: 700 }}>
                     ${collectionValue.toFixed(2)}
                   </span>
                   {priceDelta && priceDelta.delta !== 0 && (
