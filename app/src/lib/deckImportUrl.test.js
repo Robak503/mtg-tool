@@ -35,6 +35,18 @@ describe("detectDeckUrl", () => {
     expect(detectDeckUrl(null)).toBeNull();
   });
 
+  it("rejects host-spoofing URLs (trusted domain in path or as a subdomain prefix)", () => {
+    // Trusted domain only in the PATH of a hostile host → no match.
+    expect(detectDeckUrl("https://evil.com/moxfield.com/decks/AbC123")).toBeNull();
+    expect(detectDeckUrl("https://evil.com/path?x=archidekt.com/decks/123")).toBeNull();
+    // Trusted domain as a prefix of a hostile host → no match.
+    expect(detectDeckUrl("https://moxfield.com.evil.com/decks/AbC123")).toBeNull();
+  });
+
+  it("accepts real subdomains of the provider", () => {
+    expect(detectDeckUrl("https://www.archidekt.com/decks/42/x")).toEqual({ type: "archidekt", id: "42" });
+  });
+
   it("isDeckUrl mirrors detectDeckUrl", () => {
     expect(isDeckUrl("https://archidekt.com/decks/42/x")).toBe(true);
     expect(isDeckUrl("nope")).toBe(false);

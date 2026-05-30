@@ -99,10 +99,13 @@ export async function POST(request) {
         { status: 503 },
       );
     }
-    return Response.json({ error: error.message || "Card resolution failed." }, { status: 500 });
+    // Don't echo raw internals (the index error embeds an absolute path).
+    console.error("import-url card resolution failed:", error);
+    return Response.json({ error: "Couldn't resolve the deck's cards." }, { status: 500 });
   }
 
   const totalCards = cards.reduce((sum, c) => sum + (c.qty || 1), 0);
+  const resolvedCount = cards.filter(c => c.resolved).length;
   return Response.json({
     deck: {
       name: normalized.name,
@@ -113,8 +116,8 @@ export async function POST(request) {
     stats: {
       lines: cards.length,
       totalCards,
-      resolved: cards.length - unresolved.length,
-      unresolved: unresolved.length,
+      resolved: resolvedCount,
+      unresolved: cards.length - resolvedCount,
     },
     unresolved,
   });

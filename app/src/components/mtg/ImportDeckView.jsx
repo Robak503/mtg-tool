@@ -3,7 +3,7 @@
  * paste a decklist, or pull one from the project; name it + owner it, and save
  * it into the local deck library.
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { isDeckUrl } from "../../lib/deckImportUrl";
 
@@ -35,6 +35,9 @@ export default function ImportDeckView({
   const [urlBusy, setUrlBusy] = useState(false);
   const [urlPreview, setUrlPreview] = useState(null);
   const [urlError, setUrlError] = useState(null);
+  // Guards against a double-click committing the same imported deck twice
+  // before the view changes / preview clears (synchronous, survives re-render).
+  const savingRef = useRef(false);
 
   const canFetch = isDeckUrl(url) && !urlBusy;
 
@@ -60,12 +63,16 @@ export default function ImportDeckView({
   };
 
   const saveUrlDeck = () => {
-    if (!urlPreview?.deck || !importDeckFromUrl) return;
+    if (savingRef.current || !urlPreview?.deck || !importDeckFromUrl) return;
+    savingRef.current = true;
     const deck = importDeckFromUrl(urlPreview.deck, deckOwner);
     if (deck) {
       setUrlPreview(null);
       setUrl("");
       setCenterView("deck");
+      // leave savingRef latched — the view changes and this unmounts
+    } else {
+      savingRef.current = false; // import failed; allow a retry
     }
   };
 

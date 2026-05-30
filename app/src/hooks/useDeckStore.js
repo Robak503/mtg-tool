@@ -263,7 +263,9 @@ export default function useDeckStore() {
       section: c.section || "Mainboard",
     }));
     const deck = normalizeDeck({
-      id: Date.now().toString(),
+      // Collision-safe id: two URL imports in the same millisecond must not
+      // share an id (Date.now() alone can collide on a fast double-save).
+      id: globalThis.crypto?.randomUUID?.() || `deck-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       name: (importedDeck.name || "").trim() || "Imported deck",
       cards,
       memory: {

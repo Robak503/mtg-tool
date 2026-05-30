@@ -20,6 +20,15 @@ import https from "node:https";
 const USER_AGENT =
   "MTG-Tool/0.4.0 (https://github.com/Robak503/mtg-tool; local deck importer)";
 
+// Only these hosts are ever contacted — enforced on the initial URL AND on every
+// redirect target, so a provider edge mishap / open-redirect can't bounce the
+// request to localhost, a link-local metadata IP, or any other internal host
+// (SSRF defense-in-depth).
+const ALLOWED_HOSTS = new Set(["api2.moxfield.com", "archidekt.com"]);
+// Hard cap on a deck response so a hostile/runaway body can't OOM the bundled
+// Node server (a ~5000-card Moxfield deck is well under 5 MB).
+const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
+
 // ── Moxfield ────────────────────────────────────────────────────────────────
 // v3 deck: boards.<name>.cards is a map of cardId -> { quantity, card:{...} }.
 const MOXFIELD_SECTIONS = {
@@ -28,6 +37,14 @@ const MOXFIELD_SECTIONS = {
   sideboard: "Sideboard",
   companions: "Sideboard",
 };
+
+// Whitelist Moxfield's format string (Archidekt is already mapped from a numeric
+// code) so arbitrary upstream text never rides into the deck record.
+const KNOWN_FORMATS = new Set([
+  "standard", "modern", "legacy", "vintage", "pauper", "pioneer", "historic",
+  "commander", "brawl", "oathbreaker", "penny", "duel", "premodern", "oldschool",
+  "predh", "pauper-commander", "alchemy", "explorer",
+]);
 
 export function normalizeMoxfieldDeck(json) {
   const cards = [];
@@ -50,7 +67,7 @@ export function normalizeMoxfieldDeck(json) {
   }
   return {
     name: json?.name || "Imported deck",
-    format: json?.format || null,
+    format: KNOWN_FORMATS.has(json?.format) ? json.format : null,
     source: "moxfield",
     cards,
   };
@@ -102,20 +119,44 @@ export function normalizeArchidektDeck(json) {
 // also sidesteps Next caching a transient 403.
 function fetchJson(url, depth = 0) {
   return new Promise((resolve, reject) => {
+    let parsed;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return reject(new Error("Malformed provider URL"));
+    }
+    // Re-checked on every recursion, so a redirect off-allowlist is refused.
+    if (parsed.protocol !== "https:" || !ALLOWED_HOSTS.has(parsed.hostname)) {
+      return reject(new Error("Refusing to contact a non-allowlisted host"));
+    }
+
     const req = https.request(
-      url,
+      parsed,
       { method: "GET", headers: { "User-Agent": USER_AGENT, Accept: "application/json" } },
       (res) => {
         const status = res.statusCode || 0;
         // Follow a redirect or two (the deck APIs normally answer 200 directly).
         if (status >= 300 && status < 400 && res.headers.location && depth < 3) {
           res.resume();
-          const next = new URL(res.headers.location, url).toString();
+          let next;
+          try {
+            next = new URL(res.headers.location, parsed).toString();
+          } catch {
+            return reject(new Error("Bad redirect target"));
+          }
           resolve(fetchJson(next, depth + 1));
           return;
         }
         const chunks = [];
-        res.on("data", (c) => chunks.push(c));
+        let bytes = 0;
+        res.on("data", (c) => {
+          bytes += c.length;
+          if (bytes > MAX_RESPONSE_BYTES) {
+            req.destroy(new Error("Deck response too large"));
+            return;
+          }
+          chunks.push(c);
+        });
         res.on("end", () => {
           if (status < 200 || status >= 300) {
             const err = new Error(`Provider returned HTTP ${status}`);
