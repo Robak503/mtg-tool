@@ -133,7 +133,51 @@ async function promptRulingsForCard(card, options = {}) {
 
 /* ── Scryfall card-name catalog (loaded once per session) ── */
 let _CATALOG = null;
+let _CATALOG_NORMALIZED = null;
 let _CATALOG_LOADING = null;
+
+// Punctuation-insensitive lookup key. Card names carry commas, apostrophes,
+// and hyphens ("Omnath, Locus of Mana", "Atraxa, Praetors' Voice") that the
+// free-text tokenizer used to split on or mismatch against, so we ALSO index
+// every name by this normalized form (lowercase, every run of non-alphanumerics
+// collapsed to a single space). Detection matches a candidate span against the
+// exact key OR this normalized key, which is what lets a comma-named commander
+// be recognized from natural prose instead of only inside [[double brackets]].
+export function normalizeCardKey(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Build the exact (lowercased) and normalized lookup maps from a list of
+// canonical card names. Front faces of DFC/split cards ("A // B") are indexed
+// too, so a bare "A" or "[[A]]" resolves to the full card.
+export function buildCatalogMaps(names) {
+  const exact = new Map();
+  const normalized = new Map();
+  const add = (key, canonical) => {
+    const lower = String(key).toLowerCase();
+    if (lower && !exact.has(lower)) exact.set(lower, canonical);
+    const norm = normalizeCardKey(key);
+    if (norm && !normalized.has(norm)) normalized.set(norm, canonical);
+  };
+  for (const name of names || []) {
+    if (!name) continue;
+    add(name, name);
+    if (String(name).includes(" // ")) add(String(name).split(" // ")[0], name);
+  }
+  return { exact, normalized };
+}
+
+function applyCatalog(names) {
+  const { exact, normalized } = buildCatalogMaps(names);
+  _CATALOG = exact;
+  _CATALOG_NORMALIZED = normalized;
+  return exact;
+}
+
 export async function loadCardCatalog() {
   if (_CATALOG) return _CATALOG;
   if (_CATALOG_LOADING) return _CATALOG_LOADING;
@@ -142,16 +186,7 @@ export async function loadCardCatalog() {
       const local = await fetch("/api/cards?catalog=1", { cache: "no-store" });
       if (local.ok) {
         const data = await local.json();
-        const map = new Map();
-        for (const name of (data.names || [])) {
-          map.set(name.toLowerCase(), name);
-          if (name.includes(" // ")) {
-            const front = name.split(" // ")[0];
-            map.set(front.toLowerCase(), name);
-          }
-        }
-        _CATALOG = map;
-        return map;
+        return applyCatalog(data.names);
       }
     } catch {}
 
@@ -159,35 +194,17 @@ export async function loadCardCatalog() {
       const publicCatalog = await fetch("/card-names.json", { cache: "no-store" });
       if (publicCatalog.ok) {
         const data = await publicCatalog.json();
-        const map = new Map();
-        for (const name of (data.names || [])) {
-          map.set(name.toLowerCase(), name);
-          if (name.includes(" // ")) {
-            const front = name.split(" // ")[0];
-            map.set(front.toLowerCase(), name);
-          }
-        }
-        _CATALOG = map;
-        return map;
+        return applyCatalog(data.names);
       }
     } catch {}
 
     try {
       const r = await fetch("https://api.scryfall.com/catalog/card-names");
-      if (!r.ok) return (_CATALOG = new Map());
+      if (!r.ok) return applyCatalog([]);
       const d = await r.json();
-      const map = new Map();
-      for (const name of (d.data || [])) {
-        map.set(name.toLowerCase(), name);
-        if (name.includes(" // ")) {
-          const front = name.split(" // ")[0];
-          map.set(front.toLowerCase(), name);
-        }
-      }
-      _CATALOG = map;
-      return map;
+      return applyCatalog(d.data);
     } catch {
-      return (_CATALOG = new Map());
+      return applyCatalog([]);
     } finally {
       _CATALOG_LOADING = null;
     }
@@ -195,17 +212,29 @@ export async function loadCardCatalog() {
   return _CATALOG_LOADING;
 }
 
-function detectCardNamesFromCatalog(text, catalog) {
+// Greedy longest-match scan: slide a window of up to 7 whitespace tokens over
+// the text and keep the longest span that resolves to a catalog card name.
+// Tokenizing on whitespace ONLY (not punctuation) keeps comma/apostrophe names
+// intact; the exact key handles clean matches and the normalized key recovers
+// names embedded in prose ("how does Omnath, Locus of Mana work"). A bare,
+// ambiguous first name ("omnath" → 5+ real cards) intentionally does not match.
+export function detectCardNamesFromCatalog(text, catalog, normalizedCatalog = _CATALOG_NORMALIZED) {
   if (!catalog || catalog.size === 0) return [];
   const found = new Set();
-  const words = text.split(/(\s+|[.,;!?])/);
-  const tokens = words.filter(w => /\S/.test(w));
+  const tokens = String(text || "").split(/\s+/).filter(Boolean);
   for (let i = 0; i < tokens.length; i++) {
-    for (let n = Math.min(6, tokens.length - i); n >= 1; n--) {
-      const candidate = tokens.slice(i, i + n).join(" ").replace(/[.,;!?]+$/, "");
-      const lower = candidate.toLowerCase();
-      if (catalog.has(lower)) {
-        found.add(catalog.get(lower));
+    const maxSpan = Math.min(7, tokens.length - i);
+    for (let n = maxSpan; n >= 1; n--) {
+      const candidate = tokens.slice(i, i + n).join(" ");
+      const exactKey = candidate.toLowerCase().replace(/[.,;:!?]+$/, "");
+      if (catalog.has(exactKey)) {
+        found.add(catalog.get(exactKey));
+        i += n - 1;
+        break;
+      }
+      const normKey = normalizeCardKey(candidate);
+      if (normKey && normalizedCatalog && normalizedCatalog.has(normKey)) {
+        found.add(normalizedCatalog.get(normKey));
         i += n - 1;
         break;
       }
