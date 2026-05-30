@@ -13,13 +13,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { summariseGameHistory } from "../../../lib/gameInsights";
 import { dataPath } from "../../../lib/server/paths";
+import { sanitiseId } from "../../../lib/server/sanitiseId.js";
 
 const GAMES_DIR = dataPath("games");
-
-function sanitiseId(value) {
-  const stripped = String(value || "").replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "");
-  return stripped.slice(0, 64);
-}
 
 export async function GET(request) {
   const url = new URL(request.url);

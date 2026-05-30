@@ -17,6 +17,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { dataPath } from "../../../lib/server/paths";
+import { sanitiseId } from "../../../lib/server/sanitiseId.js";
 
 const GAMES_DIR = dataPath("games");
 
@@ -34,16 +35,6 @@ function generateShortId() {
     return globalThis.crypto.randomUUID().slice(0, 8);
   }
   return Math.random().toString(16).slice(2, 10);
-}
-
-function sanitiseId(value) {
-  // Replace anything outside [a-zA-Z0-9._-] with underscore, then strip leading
-  // dots so the result can never become a hidden file or look like a path
-  // traversal segment. path.join keeps us safe regardless, but defense in
-  // depth — a filename starting with ".." or "." is just weird.
-  const stripped = String(value || "unknown").replace(/[^a-zA-Z0-9._-]/g, "_").replace(/^\.+/, "");
-  const trimmed = stripped.slice(0, 64);
-  return trimmed || "unknown";
 }
 
 function generateFilename(deckId, timestamp) {
