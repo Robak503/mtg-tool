@@ -23,7 +23,7 @@ const CARD_WIDTH = 200;
 const CARD_HEIGHT = 230;
 const GAP = 12;
 
-export default function CollectionGrid({ cards, onCardClick, selectedScryfallId, conflictedOracleIds, colors }) {
+export default function CollectionGrid({ cards, onCardClick, onQuickAdjust, selectedScryfallId, conflictedOracleIds, colors }) {
   const parentRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
@@ -105,6 +105,7 @@ export default function CollectionGrid({ cards, onCardClick, selectedScryfallId,
                     isSelected={isSelected}
                     isConflicted={isConflicted}
                     onClick={() => onCardClick?.(card)}
+                    onQuickAdjust={onQuickAdjust}
                     colors={colors}
                   />
                 );
@@ -121,8 +122,34 @@ export default function CollectionGrid({ cards, onCardClick, selectedScryfallId,
   );
 }
 
-function CardCell({ card, qty, wishlist, isSelected, isConflicted, onClick, colors }) {
+function stepBtnStyle(colors, color) {
+  return {
+    background: "none",
+    border: "none",
+    color,
+    cursor: "pointer",
+    fontSize: 15,
+    lineHeight: 1,
+    fontWeight: 700,
+    width: 22,
+    height: 22,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
+    fontFamily: "inherit",
+  };
+}
+
+function CardCell({ card, qty, wishlist, isSelected, isConflicted, onClick, onQuickAdjust, colors }) {
   const [imgError, setImgError] = useState(false);
+  // Stop the stepper clicks from bubbling to the cell button (which opens the
+  // detail drawer). A decrement at the last copy deletes the row upstream.
+  const step = (delta) => (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onQuickAdjust?.(card.scryfallId, delta);
+  };
   return (
     <button
       onClick={onClick}
@@ -190,15 +217,43 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, onClick, colo
             }}
           />
         )}
-        {!wishlist && qty > 1 && (
-          <span style={{
-            position: "absolute", top: 6, right: 6,
-            background: "rgba(0,0,0,0.7)", color: colors.TEXT,
-            fontSize: 12, padding: "2px 7px", borderRadius: 3,
-            fontWeight: 600,
-          }}>
-            ×{qty}
-          </span>
+        {!wishlist && onQuickAdjust && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute", top: 6, right: 6,
+              display: "flex", alignItems: "stretch",
+              background: "rgba(0,0,0,0.74)",
+              border: `1px solid ${colors.LINE}`,
+              borderRadius: 5, overflow: "hidden",
+              backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)",
+            }}
+          >
+            <button
+              onClick={step(-1)}
+              aria-label={qty <= 1 ? `Remove ${card.name} from collection` : `Decrease ${card.name} quantity`}
+              title={qty <= 1 ? "Remove from collection" : "Decrease quantity"}
+              style={stepBtnStyle(colors, qty <= 1 ? colors.RED : colors.TEXT)}
+            >
+              −
+            </button>
+            <span style={{
+              minWidth: 22, padding: "0 2px",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: colors.TEXT, fontSize: 12, fontWeight: 700,
+              fontVariantNumeric: "tabular-nums",
+            }}>
+              {qty}
+            </span>
+            <button
+              onClick={step(+1)}
+              aria-label={`Increase ${card.name} quantity`}
+              title="Add a copy"
+              style={stepBtnStyle(colors, colors.TEXT)}
+            >
+              +
+            </button>
+          </div>
         )}
       </div>
       <div style={{

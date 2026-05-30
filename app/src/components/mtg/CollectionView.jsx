@@ -14,8 +14,9 @@
  * the filters drawer, and the detail drawer are sibling components in ./
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { adjustStacks } from "../../lib/collectionStacks";
 import CollectionGrid from "./CollectionGrid";
 import CollectionFilters, { applyFilters } from "./CollectionFilters";
 import CollectionCardDetail from "./CollectionCardDetail";
@@ -214,6 +215,73 @@ export default function CollectionView({ onClose }) {
     setSelectedRow(null);
   };
 
+  // Always-current snapshot for the grid quick-stepper. The handler closes over
+  // a single render's `state`, so consecutive +/- clicks would each compute from
+  // the same stale snapshot and lose updates; reading the ref makes click N see
+  // the optimistic result of click N-1.
+  const collectionRef = useRef(state.collection);
+  useEffect(() => { collectionRef.current = state.collection; }, [state.collection]);
+  // Per-row request sequence so an out-of-order server response can't clobber a
+  // newer optimistic value (rapid clicks fire overlapping PATCH/DELETEs).
+  const adjustSeqRef = useRef(new Map());
+
+  // Grid quick +/- — bump a row's owned count by one. Optimistic, with the
+  // server response only applied when it's the latest request for that row.
+  // A decrement past the last copy deletes the row (delete-at-zero).
+  const adjustRowQuantity = async (scryfallId, delta) => {
+    const coll = collectionRef.current;
+    if (!coll) return;
+    const row = coll.cards.find(c => c.scryfallId === scryfallId);
+    if (!row) return;
+
+    const nextStacks = adjustStacks(row.stacks, delta);
+    const willDelete = nextStacks.length === 0;
+
+    // Optimistic local apply (drives the badge + the next click's math).
+    const optimistic = {
+      ...coll,
+      cards: willDelete
+        ? coll.cards.filter(c => c.scryfallId !== scryfallId)
+        : coll.cards.map(c => c.scryfallId === scryfallId
+            ? { ...c, stacks: nextStacks, wishlist: false }
+            : c),
+    };
+    collectionRef.current = optimistic;
+    setState(s => ({ ...s, collection: optimistic }));
+    setSelectedRow(prev => {
+      if (prev?.scryfallId !== scryfallId) return prev;
+      return willDelete ? null : { ...prev, stacks: nextStacks, wishlist: false };
+    });
+
+    const seq = (adjustSeqRef.current.get(scryfallId) || 0) + 1;
+    adjustSeqRef.current.set(scryfallId, seq);
+
+    try {
+      const resp = willDelete
+        ? await fetch(`/api/collection/${encodeURIComponent(scryfallId)}`, { method: "DELETE" })
+        : await fetch(`/api/collection/${encodeURIComponent(scryfallId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stacks: nextStacks }),
+          });
+      const body = await resp.json().catch(() => ({}));
+      // Only reconcile to server truth if no newer click has superseded this one.
+      if (resp.ok && body.collection && adjustSeqRef.current.get(scryfallId) === seq) {
+        collectionRef.current = body.collection;
+        setState(s => ({ ...s, collection: body.collection }));
+        setSelectedRow(prev => {
+          if (prev?.scryfallId !== scryfallId) return prev;
+          return body.collection.cards.find(c => c.scryfallId === scryfallId) || null;
+        });
+      }
+      // On error the optimistic state stands; the next interaction or a reload
+      // reconciles. We deliberately don't surface a toast for a one-off failed
+      // stepper click — it would be noisier than the (rare) drift.
+    } catch {
+      // Network error: optimistic state stands.
+    }
+  };
+
   return (
     <div style={{
       display: "flex",
@@ -356,6 +424,7 @@ export default function CollectionView({ onClose }) {
             <CollectionGrid
               cards={filteredCards}
               onCardClick={setSelectedRow}
+              onQuickAdjust={adjustRowQuantity}
               selectedScryfallId={selectedRow?.scryfallId}
               conflictedOracleIds={conflictedOracleIds}
               colors={COLORS}
