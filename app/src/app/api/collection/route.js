@@ -21,6 +21,7 @@ import {
   CollectionVersionMismatch,
 } from "../../../lib/server/collectionStorage.js";
 import { lookupById } from "../../../lib/server/printingIndex.js";
+import { enrichCollectionPrices } from "../../../lib/server/priceResolution.js";
 import { validateStacks } from "../../../lib/server/collectionValidation.js";
 
 function badRequest(message) {
@@ -74,8 +75,11 @@ function mergeStacks(existing, incoming) {
 export async function GET() {
   try {
     const { collection, recoveryWarning } = await loadCollection();
+    // Fill any null TCGPlayer prices from the printing index + Card Kingdom so
+    // the grid, owned value, and wishlist cost never show a nil value. Stored
+    // collection on disk is untouched (non-mutating).
     return Response.json({
-      collection,
+      collection: enrichCollectionPrices(collection),
       recoveryWarning,
       path: dataPath("collection.json"),
     });

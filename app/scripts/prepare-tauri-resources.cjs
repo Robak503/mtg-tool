@@ -150,6 +150,8 @@ const dataFiles = [
   // EDHREC power signals
   ["data/edhrec-salt.local.json",              "EDHREC salt scores"],
   ["data/edhrec-salt-meta.local.json",         "EDHREC sync metadata"],
+  // Fallback pricing — fills printings TCGPlayer (Scryfall) can't price
+  ["data/cardkingdom-prices.json",             "Card Kingdom fallback prices (scryfall_id keyed)"],
 ];
 
 let bundledBytes = 0;

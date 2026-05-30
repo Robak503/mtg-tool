@@ -15,6 +15,7 @@ import fs from "node:fs/promises";
 import { dataPath } from "../../../../lib/server/paths.js";
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
 import { collectionSummary } from "../../../../lib/server/collectionContext.js";
+import { enrichCollectionPrices } from "../../../../lib/server/priceResolution.js";
 import { parseHistory, computeDeltas } from "../../../../lib/server/collectionPrices.js";
 
 async function loadPriceHistory() {
@@ -29,7 +30,9 @@ async function loadPriceHistory() {
 export async function GET() {
   try {
     const { collection } = await loadCollection();
-    const summary = collectionSummary(collection);
+    // Value the Overview total off resolved prices (TCGPlayer → printing index
+    // → Card Kingdom) so a card TCGPlayer can't price still counts.
+    const summary = collectionSummary(enrichCollectionPrices(collection));
 
     const scryfallIds = new Set(
       (collection.cards || [])
