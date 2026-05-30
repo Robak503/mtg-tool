@@ -11,16 +11,17 @@
 
 import { useState } from "react";
 
+import { behaviorLabel } from "../../hooks/useColorTags";
 import ColorTagModal from "./ColorTagModal";
 
 export default function ColorTagManager({ tags, addTag, updateTag, deleteTag, onClose, cfg, colors, fontFamily }) {
   const { LINE, TEXT, MUTED } = colors;
-  // null = closed; { } = create; { id, name, color } = edit
+  // null = closed; {} = create; { id, name, color, behavior } = edit
   const [editing, setEditing] = useState(null);
 
-  const handleSave = ({ name, color }) => {
-    if (editing?.id) updateTag(editing.id, { name, color });
-    else addTag({ name, color });
+  const handleSave = ({ name, color, behavior }) => {
+    if (editing?.id) updateTag(editing.id, { name, color, behavior });
+    else addTag({ name, color, behavior });
     setEditing(null);
   };
 
@@ -64,8 +65,11 @@ export default function ColorTagManager({ tags, addTag, updateTag, deleteTag, on
 
         {tags.map(tag => (
           <div key={tag.id} style={{ display: "flex", alignItems: "center", padding: "9px 8px", borderBottom: `1px solid ${LINE}`, gap: 8 }}>
-            <span style={{ flex: 1, fontSize: 13, color: TEXT, fontStyle: tag.builtin ? "italic" : "normal" }}>
-              {tag.name}
+            <span style={{ flex: 1, display: "flex", flexDirection: "column", gap: 1 }}>
+              <span style={{ fontSize: 13, color: TEXT, fontStyle: tag.builtin ? "italic" : "normal" }}>{tag.name}</span>
+              {tag.behavior && tag.behavior !== "marker" && (
+                <span style={{ fontSize: 10, color: MUTED }}>{behaviorLabel(tag.behavior)}</span>
+              )}
             </span>
             <span style={{ width: 120 }}>
               <span style={{

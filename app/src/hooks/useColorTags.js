@@ -17,15 +17,31 @@ import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "mtg-color-tags-v1";
 
-// The built-in starter set, matching the acquisition-tracking tags the user
-// is used to. `builtin: true` marks the unset/Default tag so the UI can treat
-// it specially (it's the "no tag" state and shouldn't be deleted).
+// A tag can carry a BEHAVIOR — what happens to a card when you apply the tag.
+// This is what turns color tags into a workflow (own it / want it / swap it)
+// instead of just a visual marker. A tag with a missing behavior is treated as
+// "marker" (no side effect), so tags saved before this field shipped keep working.
+export const TAG_BEHAVIORS = [
+  { id: "marker", label: "Just a marker (no action)" },
+  { id: "collection", label: "I own it → add to collection" },
+  { id: "wishlist", label: "Want it → add to wishlist" },
+  { id: "consider", label: "Considering (not sure yet)" },
+  { id: "swap", label: "Swap — let Karn suggest replacements" },
+];
+
+export const behaviorLabel = (id) =>
+  (TAG_BEHAVIORS.find(behavior => behavior.id === id) || TAG_BEHAVIORS[0]).label;
+
+// The built-in starter set, matching the acquisition-tracking tags the user is
+// used to, each wired to a behavior. `builtin: true` marks the unset/Default tag
+// so the UI treats it specially (the "no tag" state; can't be deleted).
 export const DEFAULT_COLOR_TAGS = [
-  { id: "default", name: "Default", color: "#656565", builtin: true },
-  { id: "have", name: "Have", color: "#37d67a" },
-  { id: "getting", name: "Getting", color: "#2ccce4" },
-  { id: "dont-have", name: "Don't Have", color: "#f47373" },
-  { id: "wrong-print", name: "Have wrong printing", color: "#fa890d" },
+  { id: "default", name: "Default", color: "#656565", behavior: "marker", builtin: true },
+  { id: "have", name: "Have", color: "#37d67a", behavior: "collection" },
+  { id: "getting", name: "Getting", color: "#2ccce4", behavior: "wishlist" },
+  { id: "considering", name: "Considering", color: "#f47373", behavior: "consider" },
+  { id: "wrong-print", name: "Have wrong printing", color: "#fa890d", behavior: "marker" },
+  { id: "swap", name: "Swap", color: "#a36bd4", behavior: "swap" },
 ];
 
 function loadTags() {
@@ -66,8 +82,13 @@ export default function useColorTags() {
     }
   }, [tags, loaded]);
 
-  const addTag = ({ name, color }) => {
-    const tag = { id: makeId(), name: (name || "").trim() || "New tag", color: color || "#999999" };
+  const addTag = ({ name, color, behavior }) => {
+    const tag = {
+      id: makeId(),
+      name: (name || "").trim() || "New tag",
+      color: color || "#999999",
+      behavior: behavior || "marker",
+    };
     setTags(current => [...current, tag]);
     return tag;
   };

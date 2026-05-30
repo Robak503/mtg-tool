@@ -12,13 +12,17 @@
 import { useState } from "react";
 import { HexColorPicker, HexColorInput } from "react-colorful";
 
+import { TAG_BEHAVIORS } from "../../hooks/useColorTags";
+
 export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, fontFamily }) {
   const { LINE, TEXT, MUTED } = colors;
   const isEdit = Boolean(initial?.id);
   const [name, setName] = useState(initial?.name || "");
   const [color, setColor] = useState(initial?.color || "#fa890d");
+  const [behavior, setBehavior] = useState(initial?.behavior || "marker");
 
   const canSave = name.trim().length > 0;
+  const save = () => { if (canSave) onSave({ name: name.trim(), color, behavior }); };
 
   return (
     <div
@@ -57,7 +61,7 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
             value={name}
             autoFocus
             onChange={event => setName(event.target.value)}
-            onKeyDown={event => { if (event.key === "Enter" && canSave) onSave({ name: name.trim(), color }); }}
+            onKeyDown={event => { if (event.key === "Enter") save(); }}
             placeholder="New tag name"
             style={{
               width: "100%", padding: "9px 11px",
@@ -66,6 +70,25 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
               fontSize: 13, fontFamily,
             }}
           />
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <label htmlFor="tag-behavior" style={{ fontSize: 11, color: MUTED }}>What applying it does</label>
+          <select
+            id="tag-behavior"
+            value={behavior}
+            onChange={event => setBehavior(event.target.value)}
+            style={{
+              width: "100%", padding: "9px 11px",
+              background: "#1c1a16", color: TEXT,
+              border: `1px solid ${LINE}`, borderRadius: 8,
+              fontSize: 13, fontFamily,
+            }}
+          >
+            {TAG_BEHAVIORS.map(option => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </select>
         </div>
 
         <div className="color-tag-picker" style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
@@ -105,7 +128,7 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
             Cancel
           </button>
           <button
-            onClick={() => canSave && onSave({ name: name.trim(), color })}
+            onClick={save}
             disabled={!canSave}
             style={{
               background: cfg.color, border: "none", borderRadius: 8, color: "#0c0b0a",
