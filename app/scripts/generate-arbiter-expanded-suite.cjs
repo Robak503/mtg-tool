@@ -5,8 +5,8 @@ const path = require("node:path");
 
 const APP_ROOT = path.resolve(__dirname, "..");
 const TOOL_ROOT = path.resolve(APP_ROOT, "..");
-const CR_FILE = path.resolve(TOOL_ROOT, "mtg-judge", "data", "cr", "cr_current.json");
-const OUT_FILE = path.resolve(TOOL_ROOT, "mtg-judge", "META_test_cases_expanded.md");
+const CR_FILE = path.resolve(TOOL_ROOT, "knowledge", "mtg-judge", "data", "cr", "cr_current.json");
+const OUT_FILE = path.resolve(TOOL_ROOT, "knowledge", "mtg-judge", "META_test_cases_expanded.md");
 const TARGET_PER_CATEGORY = 53;
 const CORE_PER_CATEGORY = 34;
 

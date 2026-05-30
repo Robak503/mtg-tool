@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const APP_ROOT = path.resolve(__dirname, "..");
-const JUDGE_ROOT = path.resolve(APP_ROOT, "..", "mtg-judge");
+const JUDGE_ROOT = path.resolve(APP_ROOT, "..", "knowledge", "mtg-judge");
 const CORE_TEST_FILE = path.resolve(JUDGE_ROOT, "META_test_cases.md");
 const EXPANDED_TEST_FILE = path.resolve(JUDGE_ROOT, "META_test_cases_expanded.md");
 const RULESGURU_TEST_FILE = path.resolve(JUDGE_ROOT, "META_test_cases_rulesguru.md");

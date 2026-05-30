@@ -25,8 +25,8 @@ describe("/api/engine — module load and request handling", () => {
     const req = new Request("http://localhost/api/engine?q=trample");
     const resp = await mod.GET(req);
     expect(resp).toBeInstanceOf(Response);
-    // Status may be 200 or 500 depending on whether mtg-judge/MTG ENGINE
-    // dirs are reachable from the test cwd. The key invariant is that
+    // Status may be 200 or 500 depending on whether knowledge/mtg-judge and
+    // knowledge/mtg-engine are reachable from the test cwd. The key invariant is that
     // we don't throw before producing a response.
     expect([200, 500]).toContain(resp.status);
   });

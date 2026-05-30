@@ -30,8 +30,7 @@ const APP_ROOT = path.resolve(__dirname, "..");
 const STANDALONE = path.join(APP_ROOT, ".next", "standalone");
 const TARGETS = [
   path.join(STANDALONE, "data"),
-  path.join(STANDALONE, "mtg-judge"),
-  path.join(STANDALONE, "MTG ENGINE"),
+  path.join(STANDALONE, "knowledge"),
 ];
 
 if (!fs.existsSync(STANDALONE)) {

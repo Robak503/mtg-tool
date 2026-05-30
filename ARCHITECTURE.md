@@ -44,9 +44,9 @@ cloud — it is hardcoded to Ollama so rulings stay local and deterministic.
 
 - **Scryfall bulk** — card Oracle text, rulings, art. A slim `oracle-index.json` is
   built from it for fast lookups.
-- **mtg-judge** — the Comprehensive Rules as JSON (`data/cr/cr_current.json`) plus the
-  RulesGuru question bank and a validation harness.
-- **MTG ENGINE** — rule-layer markdown the engine route retrieves over.
+- **knowledge/mtg-judge** — the Comprehensive Rules as JSON (`data/cr/cr_current.json`)
+  plus the RulesGuru question bank.
+- **knowledge/mtg-engine** — rule-layer markdown the engine route retrieves over.
 - **Commander Spellbook / EDHREC** — combo and "saltiness" data.
 
 `/api/engine` does rule-aware retrieval over these sources; `/api/arbiter` produces
@@ -76,5 +76,5 @@ app/src/components/       React UI (MTGAssistant shell + per-feature components)
 app/src/lib/              shared logic; lib/server/ is server-only (paths, card index, ...)
 app/src-tauri/            the Rust desktop shell + build config
 app/scripts/              build and data-sync scripts (.cjs)
-mtg-judge/, MTG ENGINE/   the bundled rules knowledge layer
+knowledge/                the bundled rules knowledge layer (mtg-judge + mtg-engine)
 ```

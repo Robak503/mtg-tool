@@ -61,7 +61,7 @@ function tokensFor(text) {
 function parseRulesGuruFile() {
   if (!fs.existsSync(RULESGURU_FILE)) {
     // Diagnostic: log on first miss so silent degradation is visible in the server console.
-    // Expected path when cwd = app/: project_root/mtg-judge/META_test_cases_rulesguru.md
+    // Expected path when cwd = app/: project_root/knowledge/mtg-judge/META_test_cases_rulesguru.md
     console.warn(`[rulesGuruRetrieval] RulesGuru file not found at ${RULESGURU_FILE} — precedent retrieval disabled.`);
     return [];
   }

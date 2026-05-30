@@ -46,12 +46,7 @@ app/reports/
 app/data/model-calls.local.json
 
 # Legacy ENGINE scryfall fragments (large — already in bulk)
-MTG ENGINE/scryfall_AH.json
-MTG ENGINE/scryfall_IP.json
-MTG ENGINE/scryfall_QZ.json
-MTG ENGINE/scryfall_rulings_1.json
-MTG ENGINE/scryfall_rulings_2.json
-MTG ENGINE/scryfall_rulings_3.json
+knowledge/mtg-engine/scryfall_*.json
 
 # Backups (local snapshots from npm run backup)
 app/data/backups/
@@ -73,12 +68,12 @@ app/data/collection.broken-*.json
 app/data/art-crops/
 
 # Embedded repos (Forge clone and RulesGuru repo — not submodules)
-mtg-judge/data/forge/
-mtg-judge/data/rulesguru-repo/
+knowledge/mtg-judge/data/forge/
+knowledge/mtg-judge/data/rulesguru-repo/
 
 # Sensitive plaintext files
-"MTG ENGINE/THE KEY.txt"
-MTG ENGINE/THE KEY.txt
+"knowledge/mtg-engine/THE KEY.txt"
+knowledge/mtg-engine/THE KEY.txt
 
 # Python artifacts
 __pycache__/

@@ -1,15 +1,15 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-// In dev mode app/ is the cwd, mtg-judge sits in the parent dir. In the
-// .exe MTG_JUDGE_DIR points at the bundled codex and MTG_APP_ROOT at
+// In dev mode app/ is the cwd, knowledge/mtg-judge sits in the parent dir.
+// In the .exe MTG_JUDGE_DIR points at the bundled codex and MTG_APP_ROOT at
 // the user data dir so the rebuilt index lands somewhere writable.
 const APP_ROOT = (process.env.MTG_APP_ROOT && process.env.MTG_APP_ROOT.trim())
   ? process.env.MTG_APP_ROOT.trim()
   : path.resolve(__dirname, "..");
 const JUDGE_DIR = (process.env.MTG_JUDGE_DIR && process.env.MTG_JUDGE_DIR.trim())
   ? process.env.MTG_JUDGE_DIR.trim()
-  : path.resolve(__dirname, "..", "..", "mtg-judge");
+  : path.resolve(__dirname, "..", "..", "knowledge", "mtg-judge");
 const CR_FILE = path.join(JUDGE_DIR, "data", "cr", "cr_current.json");
 const OUT_FILE = path.join(APP_ROOT, "data", "rules-index.json");
 

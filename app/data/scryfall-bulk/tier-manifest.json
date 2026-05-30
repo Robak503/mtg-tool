@@ -37,14 +37,14 @@
       "sources": [
         {
           "id": "rulesguru",
-          "path": "mtg-judge/META_test_cases_rulesguru.md",
+          "path": "knowledge/mtg-judge/META_test_cases_rulesguru.md",
           "description": "500 human-verified rules scenarios used as Arbiter grounding examples.",
           "count": 500,
           "wiredIn": true
         },
         {
           "id": "mtg_judge_codex",
-          "path": "mtg-judge/",
+          "path": "knowledge/mtg-judge/",
           "description": "L00-L10 Comprehensive Rules verbatim codex. Arbiter uses this for CR citations.",
           "format": "Markdown files: _v (verbatim), _t (test), META_ (orchestration)",
           "wiredIn": true

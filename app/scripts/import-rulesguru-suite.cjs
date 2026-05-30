@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const APP_ROOT = path.resolve(__dirname, "..");
-const JUDGE_ROOT = path.resolve(APP_ROOT, "..", "mtg-judge");
+const JUDGE_ROOT = path.resolve(APP_ROOT, "..", "knowledge", "mtg-judge");
 const DEFAULT_OUTPUT = path.resolve(JUDGE_ROOT, "META_test_cases_rulesguru.md");
 const DEFAULT_REPORT = path.resolve(APP_ROOT, "reports", "rulesguru-import.md");
 const DEFAULT_COUNT = 500;

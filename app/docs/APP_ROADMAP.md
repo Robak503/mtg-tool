@@ -77,7 +77,7 @@ After the current roadmap is complete, create a dedicated Garfield master roadma
 
 These are required before calling the judge engine fully production-ready:
 
-1. Add a one-command rules update pipeline that fetches or imports the newest official Comprehensive Rules, updates `mtg-judge/data/cr/cr_current.json`, records the CR effective date, regenerates expanded validation cases, and reports what changed.
+1. Add a one-command rules update pipeline that fetches or imports the newest official Comprehensive Rules, updates `knowledge/mtg-judge/data/cr/cr_current.json`, records the CR effective date, regenerates expanded validation cases, and reports what changed.
 2. Update Arbiter/Jace prompts from the rules baseline automatically or from a generated rules summary, instead of hand-maintaining the CR date and rule anchors in `src/lib/agents.js`.
 3. Add a visible Arbiter health/version panel in the app showing current CR baseline, local CR file date, last validation run, RulesGuru import count, and whether the judge suite is stale.
 4. Continue improving runtime retrieval quality after the first rule-aware pass: add citation-aware answer grading, card-specific interaction routing, and stronger ranking for multi-card layer/replacement/copy questions.
