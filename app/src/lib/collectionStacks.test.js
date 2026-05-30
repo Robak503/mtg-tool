@@ -22,14 +22,34 @@ describe("adjustStacks", () => {
     expect(adjustStacks([], +1)).toEqual([{ finish: "nonfoil", quantity: 1, condition: "NM" }]);
   });
 
-  it("decrements the LAST non-empty stack, leaving earlier ones intact", () => {
+  it("decrements the FIRST non-empty stack, leaving later ones intact", () => {
     expect(adjustStacks(
-      [{ finish: "nonfoil", quantity: 1, condition: "NM" }, { finish: "foil", quantity: 2, condition: "NM" }],
+      [{ finish: "nonfoil", quantity: 2, condition: "NM" }, { finish: "foil", quantity: 1, condition: "NM" }],
       -1,
     )).toEqual([
       { finish: "nonfoil", quantity: 1, condition: "NM" },
       { finish: "foil", quantity: 1, condition: "NM" },
     ]);
+  });
+
+  it("+ then - round-trips a multi-finish row (no foil -> nonfoil corruption)", () => {
+    const start = [
+      { finish: "nonfoil", quantity: 2, condition: "NM" },
+      { finish: "foil", quantity: 1, condition: "NM" },
+    ];
+    const back = adjustStacks(adjustStacks(start, +1), -1);
+    expect(back).toEqual(start);
+  });
+
+  it("drains a multi-finish row front-to-back, then deletes", () => {
+    let s = [
+      { finish: "nonfoil", quantity: 1, condition: "NM" },
+      { finish: "foil", quantity: 1, condition: "NM" },
+    ];
+    s = adjustStacks(s, -1); // nonfoil 1 -> 0, dropped
+    expect(s).toEqual([{ finish: "foil", quantity: 1, condition: "NM" }]);
+    s = adjustStacks(s, -1); // foil 1 -> 0, dropped => empty => delete
+    expect(s).toEqual([]);
   });
 
   it("drops a stack that hits zero", () => {

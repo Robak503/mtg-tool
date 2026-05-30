@@ -201,8 +201,12 @@ export default function CollectionView({ onClose }) {
     return { count, cost: Math.round(cost * 100) / 100 };
   }, [cards, filters.view]);
 
-  // Refresh helpers used by the detail drawer after save/delete
+  // Refresh helpers used by the detail drawer after save/delete. Each keeps
+  // collectionRef in sync synchronously (not just via the effect below) so the
+  // grid stepper's next click always computes from the latest collection,
+  // whatever mutated it last.
   const handleCollectionUpdate = (updated) => {
+    collectionRef.current = updated;
     setState(s => ({ ...s, collection: updated }));
     // If the selected row was updated, refresh the selection from the new data
     if (selectedRow) {
@@ -211,6 +215,7 @@ export default function CollectionView({ onClose }) {
     }
   };
   const handleCollectionDelete = (updated) => {
+    collectionRef.current = updated;
     setState(s => ({ ...s, collection: updated }));
     setSelectedRow(null);
   };
@@ -242,7 +247,10 @@ export default function CollectionView({ onClose }) {
       if (behavior === "collection") {
         patch.wishlist = false;
         if (stackTotal(row.stacks) === 0) {
-          patch.stacks = [{ finish: "nonfoil", quantity: 1, condition: "NM" }];
+          // Seed one copy, preserving the finish the row already tracked (e.g.
+          // a wishlist row that wanted foil) instead of forcing nonfoil.
+          const finish = row.stacks?.[0]?.finish || "nonfoil";
+          patch.stacks = [{ finish, quantity: 1, condition: "NM" }];
         }
       } else if (behavior === "wishlist" || behavior === "consider") {
         patch.wishlist = true;
@@ -271,6 +279,23 @@ export default function CollectionView({ onClose }) {
   // Per-row request sequence so an out-of-order server response can't clobber a
   // newer optimistic value (rapid clicks fire overlapping PATCH/DELETEs).
   const adjustSeqRef = useRef(new Map());
+
+  // Pull server truth back into view. Used when an optimistic stepper write
+  // fails (5xx / 409 / offline) — without this a failed delete-at-zero would
+  // leave the row hidden until a full reload.
+  const reconcileCollection = async () => {
+    try {
+      const resp = await fetch("/api/collection");
+      if (!resp.ok) return;
+      const body = await resp.json();
+      if (body.collection) {
+        collectionRef.current = body.collection;
+        setState(s => ({ ...s, collection: body.collection }));
+      }
+    } catch {
+      // Offline: nothing to reconcile against, optimistic state stands.
+    }
+  };
 
   // Grid quick +/- — bump a row's owned count by one. Optimistic, with the
   // server response only applied when it's the latest request for that row.
@@ -312,20 +337,23 @@ export default function CollectionView({ onClose }) {
             body: JSON.stringify({ stacks: nextStacks }),
           });
       const body = await resp.json().catch(() => ({}));
-      // Only reconcile to server truth if no newer click has superseded this one.
-      if (resp.ok && body.collection && adjustSeqRef.current.get(scryfallId) === seq) {
+      // Only act if no newer click has superseded this one.
+      if (adjustSeqRef.current.get(scryfallId) !== seq) return;
+      if (resp.ok && body.collection) {
         collectionRef.current = body.collection;
         setState(s => ({ ...s, collection: body.collection }));
         setSelectedRow(prev => {
           if (prev?.scryfallId !== scryfallId) return prev;
           return body.collection.cards.find(c => c.scryfallId === scryfallId) || null;
         });
+      } else if (!resp.ok) {
+        // The optimistic apply (including an optimistic delete) didn't persist —
+        // pull server truth back so the row can't silently vanish until reload.
+        await reconcileCollection();
       }
-      // On error the optimistic state stands; the next interaction or a reload
-      // reconciles. We deliberately don't surface a toast for a one-off failed
-      // stepper click — it would be noisier than the (rare) drift.
     } catch {
-      // Network error: optimistic state stands.
+      // Network error mid-flight: reconcile if this is still the latest click.
+      if (adjustSeqRef.current.get(scryfallId) === seq) await reconcileCollection();
     }
   };
 

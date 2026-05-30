@@ -16,8 +16,12 @@ export function stackTotal(stacks) {
  *
  * - Increment adds to the first stack — or creates a default nonfoil stack
  *   when the row has none (e.g. a wishlist row being acquired).
- * - Decrement subtracts from the last stack that still has copies, so repeated
- *   minus-clicks drain a multi-finish row predictably.
+ * - Decrement subtracts from the FIRST non-empty stack — the same stack `+`
+ *   adds to (zero-qty stacks are dropped, so next[0] is always non-empty when
+ *   any copies remain). This keeps +/- a round-trip: on a multi-finish row
+ *   (nonfoil + foil) the grid stepper only ever moves the primary finish and
+ *   never silently converts a foil copy into a nonfoil one. Finer per-finish
+ *   control lives in the detail drawer's per-stack steppers.
  * - Zero-quantity stacks are dropped. An EMPTY result means "delete the row":
  *   the API rejects an empty stacks array, so callers DELETE instead of PATCH.
  *
@@ -37,7 +41,7 @@ export function adjustStacks(stacks, delta) {
       next[0].quantity += 1;
     }
   } else if (delta < 0) {
-    for (let i = next.length - 1; i >= 0; i--) {
+    for (let i = 0; i < next.length; i++) {
       if (next[i].quantity > 0) {
         next[i].quantity -= 1;
         break;
