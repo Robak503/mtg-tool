@@ -1,3 +1,15 @@
+/**
+ * DeckView — the center "deck" view (rendered by MTGAssistant when
+ * centerView === "deck"): the commander + 99 list, deck stats, the Karn deck
+ * notes, the Garfield goldfish (solo playtest) controls, and game recording.
+ *
+ * It takes a large prop bag from the shell. The terse style props are the
+ * shared vocabulary documented in MTGAssistant.jsx (search "Inline style
+ * vocabulary"):
+ *   bg / bg3   background shades        cfg          active agent theme object
+ *   colors     palette object          fontFamily   serif font-family stack
+ *   pb         primary-button style fn  setTooltip   card hover-preview setter
+ */
 import { AGENTS } from "../../lib/agents";
 import { useMemo } from "react";
 import GarfieldPanel from "./GarfieldPanel";

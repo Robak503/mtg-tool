@@ -9,10 +9,9 @@
  *   - filter state (search / view / finish)
  *   - selected row state (drives the right detail drawer)
  *
- * Step 5 lights up: top filters drawer + right card-detail drawer
- * with inline stack edit + delete.
- *
- * Step 6 will add the Add modal; Step 7 will wire this into MTGAssistant.
+ * The Add / Import / Roast actions each open their own modal
+ * (CollectionAddModal, CollectionImportModal, CollectionRoastModal); the grid,
+ * the filters drawer, and the detail drawer are sibling components in ./
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -492,9 +491,6 @@ function EmptyState({ color, gold }) {
         Add cards individually or import from Deckbox / Moxfield CSV. Once
         you've added cards, every agent (Karn, Tibalt, Jace) will know what
         you own and tailor suggestions to your actual collection.
-      </div>
-      <div style={{ marginTop: 24, fontSize: 12, color }}>
-        Add and Import buttons coming in Step 6.
       </div>
     </div>
   );
