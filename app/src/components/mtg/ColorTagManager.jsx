@@ -40,7 +40,7 @@ export default function ColorTagManager({ tags, addTag, updateTag, deleteTag, on
     >
       <div style={{
         width: "min(560px, 96vw)", maxHeight: "86vh", overflowY: "auto",
-        background: "rgba(20,18,16,0.98)",
+        background: "rgba(18,19,24,0.98)",
         border: `1px solid ${cfg.border}`,
         borderRadius: 14,
         boxShadow: `0 30px 80px -20px rgba(0,0,0,0.8), inset 3px 0 0 ${cfg.color}`,

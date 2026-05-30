@@ -25,15 +25,15 @@ import CollectionRoastModal from "./CollectionRoastModal";
 import ColorTagManager from "./ColorTagManager";
 import useColorTags from "../../hooks/useColorTags";
 
-// Obsidian & Gold — matches the app shell theme.
+// Obsidian & Gold — matches the app shell theme (cool-neutral, rich gold).
 const COLORS = {
-  BG: "#08070a",
-  BG2: "#121014",
-  BG3: "#17140f",
-  LINE: "#2a2620",
-  TEXT: "#ece6d8",
-  MUTED: "#9c9486",
-  GOLD: "#caa24a",
+  BG: "#090a0d",
+  BG2: "#121319",
+  BG3: "#181922",
+  LINE: "#2b2c34",
+  TEXT: "#dfe2ec",
+  MUTED: "#9a9caa",
+  GOLD: "#d4af37",
   RED: "#a44c45",
 };
 
@@ -42,9 +42,9 @@ const FONT = `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
 // The Vault is gold-themed (not agent-themed); reuse the shared modal/cfg shape.
 const VAULT_CFG = {
   color: COLORS.GOLD,
-  border: "rgba(202,162,74,0.40)",
-  dim: "rgba(202,162,74,0.12)",
-  glow: "rgba(202,162,74,0.22)",
+  border: "rgba(212,175,55,0.40)",
+  dim: "rgba(212,175,55,0.12)",
+  glow: "rgba(212,175,55,0.22)",
 };
 
 const DEFAULT_FILTERS = {

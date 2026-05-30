@@ -39,7 +39,7 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
     >
       <div style={{
         width: "min(420px, 94vw)",
-        background: "rgba(20,18,16,0.98)",
+        background: "rgba(18,19,24,0.98)",
         border: `1px solid ${cfg.border}`,
         borderRadius: 14,
         boxShadow: `0 30px 80px -20px rgba(0,0,0,0.8), inset 3px 0 0 ${cfg.color}`,
@@ -65,7 +65,7 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
             placeholder="New tag name"
             style={{
               width: "100%", padding: "9px 11px",
-              background: "#1c1a16", color: TEXT,
+              background: "#1c1d24", color: TEXT,
               border: `1px solid ${LINE}`, borderRadius: 8,
               fontSize: 13, fontFamily,
             }}
@@ -80,7 +80,7 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
             onChange={event => setBehavior(event.target.value)}
             style={{
               width: "100%", padding: "9px 11px",
-              background: "#1c1a16", color: TEXT,
+              background: "#1c1d24", color: TEXT,
               border: `1px solid ${LINE}`, borderRadius: 8,
               fontSize: 13, fontFamily,
             }}
@@ -102,7 +102,7 @@ export default function ColorTagModal({ initial, onSave, onClose, cfg, colors, f
                 prefixed
                 style={{
                   width: 110, textAlign: "center", padding: "6px 8px",
-                  background: "#1c1a16", color: TEXT,
+                  background: "#1c1d24", color: TEXT,
                   border: `1px solid ${LINE}`, borderRadius: 7,
                   fontSize: 12, fontFamily, textTransform: "uppercase",
                 }}
