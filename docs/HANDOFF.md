@@ -41,13 +41,35 @@ self-contained on top of `CLAUDE.md` + this file.
 > the Scryfall CDN, per the local-first prime directive. Read `docs/HANDOFF.md`
 > Track 1. Verify each surface renders art in the running app.
 
-**› `knowledge/` directory consolidation (needs `tauri:build`):**
-> Consolidate the reference dirs under `knowledge/`: `MTG ENGINE/` →
-> `knowledge/mtg-engine/` (kills the space in the path) and `mtg-judge/` →
-> `knowledge/mtg-judge/`. Touches the signed `.exe` build — update `lib.rs`
-> (`MTG_ENGINE_DIR`/`MTG_JUDGE_DIR`), `paths.js`, `prepare-tauri-resources.cjs`,
-> `.gitignore`, `tauri.conf.json`, then run `npm run tauri:build` and confirm the
-> built `.exe` still finds the rules data. Read `docs/HANDOFF.md` Track 1.
+**› `knowledge/` directory consolidation (Job 2 — needs `tauri:build`):**
+> Rename and fold the two root-level reference dirs under one `knowledge/` dir:
+> `MTG ENGINE/` → `knowledge/mtg-engine/` (kills the space in the path) and
+> `mtg-judge/` → `knowledge/mtg-judge/`. Use `git mv` to preserve history.
+>
+> **What actually reads these dirs (don't break them):**
+> `mtg-judge/data/cr/cr_current.json` and `mtg-judge/META_test_cases_rulesguru.md`
+> (via `mtgJudgePath()`); the `MTG ENGINE/*.md` rule layers (via `mtgEnginePath()`);
+> and `app/src/app/api/engine/route.js` walks the judge + engine roots, filtering
+> with `isJudgeContextFile`.
+>
+> **Update every path reference:** `app/src/lib/server/paths.js`
+> (`mtgJudgePath`/`mtgEnginePath` dev-tree fallbacks + any `MTG ENGINE`/`mtg-judge`
+> string literals), `app/src-tauri/src/lib.rs` (the `MTG_ENGINE_DIR`/`MTG_JUDGE_DIR`
+> env values), `app/scripts/prepare-tauri-resources.cjs` (the staging copy),
+> `.gitignore`, `tauri.conf.json` if it names them, plus test fixtures and
+> CLAUDE.md/docs references. Grep the repo for `MTG ENGINE` and `mtg-judge`.
+>
+> **Verify in two stages:** (1) `npm test` + `npm run dev` confirm the DEV path
+> (paths.js fallbacks) resolves a rules query; (2) `npm run tauri:build`, then
+> LAUNCH the built `.exe` and confirm a rules query works — that's the only check
+> that the packaged app's bundled paths are right. Owner does the final .exe smoke.
+>
+> **Optional while in here:** `mtg-judge/` still has 6 unused data-build scripts
+> (`mtg_*.py`, `mtg_bootstrap_local.sh`) and two citation-audit reports
+> (`cite_audit.md`, `cite_audit_v2.md`) that `engine/route.js` currently loads as
+> retrieval context via `isJudgeContextFile` — decide whether those QA reports
+> belong in the rules corpus (if not, drop them from that list and delete them).
+> (`THE KEY.txt`, `report.md`, `run_v3.md` were already removed.)
 
 **› Big refactors E3/E4 (fresh context recommended):**
 > Decompose the oversized frontend (E3: `MTGAssistant.jsx` ~1150 lines,
