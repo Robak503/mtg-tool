@@ -8,12 +8,18 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-30
+
 ### Added
 - **Import a deck from a Moxfield or Archidekt URL.** Open Import Deck, paste a deck link,
   and hit Fetch — the deck is pulled, every card resolved against your local data, and a
   preview shows the name, card count, commander, and any cards not found in your snapshot.
   Save to library and it's yours. (One user-triggered fetch, stored locally — same posture
   as the data syncs. Pasted decklists and project loads still work as before.)
+
+## [0.4.0] - 2026-05-30
+
+### Added
 - **The Vault — pick the exact printing and finish you own.** Adding a card lists every
   printing as a row — **full set name · set code · collector number · price** — newest
   first, each with a button per available treatment: **Normal**, **Foil**, and special
