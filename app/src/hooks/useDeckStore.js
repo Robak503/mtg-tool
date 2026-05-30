@@ -251,6 +251,35 @@ export default function useDeckStore() {
     return deck;
   };
 
+  // Save a deck fetched from a Moxfield/Archidekt URL (already resolved by
+  // /api/decks/import-url) into the local library and make it active.
+  const importDeckFromUrl = (importedDeck, ownerName) => {
+    if (!importedDeck || !Array.isArray(importedDeck.cards) || !importedDeck.cards.length) {
+      return null;
+    }
+    const cards = importedDeck.cards.map(c => ({
+      qty: c.qty || 1,
+      name: c.name,
+      section: c.section || "Mainboard",
+    }));
+    const deck = normalizeDeck({
+      // Collision-safe id: two URL imports in the same millisecond must not
+      // share an id (Date.now() alone can collide on a fast double-save).
+      id: globalThis.crypto?.randomUUID?.() || `deck-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      name: (importedDeck.name || "").trim() || "Imported deck",
+      cards,
+      memory: {
+        ...defaultDeckMemory(),
+        owner: (ownerName || "").trim() || "Colton",
+        notes: importedDeck.source ? `Imported from ${importedDeck.source}.` : "",
+      },
+    });
+    persistDecks([...savedDecks, deck], { fileSave: "immediate" });
+    setActiveDeckId(deck.id);
+    setDeckData({});
+    return deck;
+  };
+
   const loadFromProject = () => {
     const name = projectSearch.trim();
     if (!name) return;
@@ -367,6 +396,7 @@ If no matching file exists, list the available deck files. If multiple variants 
     gameResult,
     hasData,
     importDeck,
+    importDeckFromUrl,
     importDeckLibrary,
     legalIssues,
     loadDeckData,

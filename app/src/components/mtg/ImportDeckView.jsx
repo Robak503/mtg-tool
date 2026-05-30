@@ -1,7 +1,12 @@
 /**
- * ImportDeckView — the deck-import view: paste or pull in a decklist, give it a
- * name + owner, and save it into the local deck library.
+ * ImportDeckView — the deck-import view: import from a Moxfield/Archidekt URL,
+ * paste a decklist, or pull one from the project; name it + owner it, and save
+ * it into the local deck library.
  */
+import { useRef, useState } from "react";
+
+import { isDeckUrl } from "../../lib/deckImportUrl";
+
 export default function ImportDeckView({
   cfg,
   pb,
@@ -20,14 +25,116 @@ export default function ImportDeckView({
   deckRaw,
   setDeckRaw,
   importDeck,
+  importDeckFromUrl,
   setCenterView,
 }) {
   const { BG, BG3, LINE, TEXT, MUTED, GOLD } = colors;
+
+  // Local state for the URL-import flow (self-contained; no extra prop plumbing).
+  const [url, setUrl] = useState("");
+  const [urlBusy, setUrlBusy] = useState(false);
+  const [urlPreview, setUrlPreview] = useState(null);
+  const [urlError, setUrlError] = useState(null);
+  // Guards against a double-click committing the same imported deck twice
+  // before the view changes / preview clears (synchronous, survives re-render).
+  const savingRef = useRef(false);
+
+  const canFetch = isDeckUrl(url) && !urlBusy;
+
+  const fetchUrl = async () => {
+    if (!isDeckUrl(url)) return;
+    setUrlBusy(true);
+    setUrlError(null);
+    setUrlPreview(null);
+    try {
+      const resp = await fetch("/api/decks/import-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: url.trim() }),
+      });
+      const body = await resp.json();
+      if (!resp.ok) setUrlError(body.error || `Import failed (${resp.status})`);
+      else setUrlPreview(body);
+    } catch (e) {
+      setUrlError(e.message);
+    } finally {
+      setUrlBusy(false);
+    }
+  };
+
+  const saveUrlDeck = () => {
+    if (savingRef.current || !urlPreview?.deck || !importDeckFromUrl) return;
+    savingRef.current = true;
+    const deck = importDeckFromUrl(urlPreview.deck, deckOwner);
+    if (deck) {
+      setUrlPreview(null);
+      setUrl("");
+      setCenterView("deck");
+      // leave savingRef latched — the view changes and this unmounts
+    } else {
+      savingRef.current = false; // import failed; allow a retry
+    }
+  };
+
+  const urlCommanders = urlPreview
+    ? urlPreview.deck.cards.filter(c => c.section === "Commander").map(c => c.name)
+    : [];
 
   return (
     <div style={{flex:1,overflowY:"auto",padding:20}}>
       <div style={{maxWidth:520,margin:"0 auto"}}>
         <div style={{fontFamily,fontSize:18,color:"#cec8e0",marginBottom:14}}>Import Deck</div>
+
+        <div style={{background:BG3,border:`1px solid ${cfg.border}`,borderRadius:8,padding:14,marginBottom:18}}>
+          <div style={{fontSize:13,fontWeight:700,color:cfg.color,fontFamily,marginBottom:4}}>Import from Moxfield or Archidekt</div>
+          <div style={{fontSize:11,color:MUTED,marginBottom:10,lineHeight:1.65}}>
+            Paste a deck URL — we&apos;ll pull the list, resolve every card against your local data, and save it to your library.
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <input
+              value={url}
+              onChange={e=>{setUrl(e.target.value);setUrlError(null);}}
+              onKeyDown={e=>{if(e.key==="Enter"&&canFetch)fetchUrl();}}
+              placeholder="https://moxfield.com/decks/…  or  archidekt.com/decks/…"
+              style={{flex:1,padding:"7px 10px",background:BG,border:`1px solid ${LINE}`,borderRadius:5,color:TEXT,fontSize:13,fontFamily}}
+            />
+            <button
+              onClick={fetchUrl}
+              disabled={!canFetch}
+              style={{...pb(true,true),opacity:canFetch?1:.45,whiteSpace:"nowrap"}}
+            >
+              {urlBusy?"Fetching…":"Fetch"}
+            </button>
+          </div>
+          {urlError&&(
+            <div style={{marginTop:10,padding:"8px 10px",borderRadius:6,background:"#3a2020",border:"1px solid #a44c45",color:"#f4b8b6",fontSize:12,lineHeight:1.5}}>
+              {urlError}
+            </div>
+          )}
+          {urlPreview&&(
+            <div style={{marginTop:12,padding:"10px 12px",borderRadius:6,background:cfg.dim,border:`1px solid ${cfg.border}`}}>
+              <div style={{fontSize:13,color:TEXT,fontWeight:600}}>{urlPreview.deck.name}</div>
+              <div style={{fontSize:11,color:MUTED,marginTop:3}}>
+                {urlPreview.stats.totalCards} cards · {urlPreview.stats.resolved} matched
+                {urlPreview.stats.unresolved>0?` · ${urlPreview.stats.unresolved} not found`:""}
+                {urlPreview.deck.source?` · from ${urlPreview.deck.source}`:""}
+              </div>
+              {urlCommanders.length>0&&(
+                <div style={{fontSize:11,color:cfg.color,marginTop:4}}>Commander: {urlCommanders.join(", ")}</div>
+              )}
+              {urlPreview.unresolved?.length>0&&(
+                <div style={{fontSize:10.5,color:GOLD,marginTop:6,lineHeight:1.5}}>
+                  Not in your local data (still saved): {urlPreview.unresolved.slice(0,8).join(", ")}
+                  {urlPreview.unresolved.length>8?` +${urlPreview.unresolved.length-8} more`:""}
+                </div>
+              )}
+              <div style={{display:"flex",gap:8,marginTop:10}}>
+                <button onClick={saveUrlDeck} style={pb(true)}>Save to library</button>
+                <button onClick={()=>setUrlPreview(null)} style={pb(false)}>Discard</button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div style={{background:BG3,border:`1px solid ${cfg.border}`,borderRadius:8,padding:14,marginBottom:18}}>
           <div style={{fontSize:13,fontWeight:700,color:cfg.color,fontFamily,marginBottom:4}}>Load from Project</div>
