@@ -117,15 +117,9 @@ export default function RightPanel({
   return (
     <div style={{width:mobile?"100%":262,flexShrink:0,borderLeft:mobile?"none":`1px solid ${LINE}`,background:BG2,backdropFilter:"blur(16px) saturate(1.2)",WebkitBackdropFilter:"blur(16px) saturate(1.2)",display:"flex",flexDirection:"column",overflow:"hidden"}}>
                 {commanderArtName && (
-                  <div style={{position:"relative",height:148,flexShrink:0,overflow:"hidden",borderBottom:`1px solid ${LINE}`}}>
-                    <img src={`/api/art-crop?name=${encodeURIComponent(commanderArtName)}`} alt={commanderArtName}
-                      onError={e=>{if(e.currentTarget.parentElement)e.currentTarget.parentElement.style.display="none";}}
-                      style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:"center 16%",display:"block"}}/>
-                    <div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(6,6,14,0) 0%,rgba(6,6,14,.12) 48%,rgba(6,6,14,.92) 100%)"}}/>
-                    <div style={{position:"absolute",left:14,right:14,bottom:9}}>
-                      <div style={{fontSize:9,letterSpacing:"0.22em",textTransform:"uppercase",color:GOLD,marginBottom:2,textShadow:"0 1px 6px rgba(0,0,0,.9)"}}>Commander</div>
-                      <div style={{fontSize:15,fontWeight:600,color:"#f1ecff",lineHeight:1.15,textShadow:"0 2px 10px rgba(0,0,0,.95)"}}>{commanderArtName}</div>
-                    </div>
+                  <div style={{padding:"12px 14px",flexShrink:0,borderBottom:`1px solid ${LINE}`}}>
+                    <div style={{fontSize:9,letterSpacing:"0.22em",textTransform:"uppercase",color:GOLD,marginBottom:3}}>Commander</div>
+                    <div style={{fontSize:14,fontWeight:600,color:TEXT,lineHeight:1.2}}>{commanderArtName}</div>
                   </div>
                 )}
                 <div style={{display:"flex",borderBottom:`1px solid ${LINE}`,flexShrink:0}}>

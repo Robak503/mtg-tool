@@ -6,6 +6,7 @@
 import { useState, useEffect } from "react";
 import { QUICK } from "../../lib/agents";
 import useTauriAppVersion from "../../hooks/useTauriAppVersion";
+import DeckConfirmModal from "./DeckConfirmModal";
 
 /**
  * Per-message reactions. Click 👍/👎 to log a structured feedback entry
@@ -258,12 +259,27 @@ export default function ChatPanel({
   setInput,
   unloadDeck,
   unlockSessionDeck,
+  confirmSessionDeck,
+  savedDecks,
+  activeDeckId,
+  setActiveDeckId,
   createSession,
 }) {
   const { BG2, BG3, LINE, TEXT, MUTED } = colors;
   const quickPrompts = QUICK[agent] || [];
   const sessionMessages = currentSession?.messages || [];
   const sessionLockedDeck = currentSession?.lockedDeck || null;
+  // A pending lock (confirmed === false) means the user hasn't verified which
+  // deck this chat is bound to: show the confirm bar and block sending. A
+  // missing `confirmed` field is a legacy lock and counts as confirmed.
+  const pendingLock = Boolean(sessionLockedDeck) && sessionLockedDeck.confirmed === false;
+  // Confirmed lock whose deck differs from the sidebar's active deck — surface
+  // it so the user isn't surprised that the chat ignores the sidebar swap.
+  const deckMismatch =
+    Boolean(sessionLockedDeck) &&
+    sessionLockedDeck.confirmed !== false &&
+    Boolean(activeDeck) &&
+    activeDeck.id !== sessionLockedDeck.id;
 
   // Wait counter while streaming.
   const [waitSeconds, setWaitSeconds] = useState(0);
@@ -351,15 +367,34 @@ export default function ChatPanel({
         </div>
       )}
 
-      {sessionLockedDeck && (
+      {/* Pending deck: a pop-out modal that forces a confirm-or-swap choice
+          before the conversation starts (the composer stays disabled behind it). */}
+      <DeckConfirmModal
+        open={pendingLock}
+        lock={sessionLockedDeck}
+        savedDecks={savedDecks}
+        activeDeckId={activeDeckId}
+        agentName={cfg.name}
+        onSelectDeck={id => setActiveDeckId && setActiveDeckId(id)}
+        onConfirm={() => confirmSessionDeck && confirmSessionDeck(currentSession?.id)}
+        onNoDeck={() => unlockSessionDeck(currentSession?.id)}
+        cfg={cfg}
+        colors={colors}
+        fontFamily={fontFamily}
+      />
+
+      {/* Confirmed lock: a clear, persistent banner so it's always obvious which
+          deck the agent is bound to (plus a mismatch note if the sidebar differs). */}
+      {!pendingLock && sessionLockedDeck && (
         <div
           style={{
-            padding: "6px 14px",
+            padding: "8px 14px",
             background: cfg.dim,
             borderBottom: `1px solid ${cfg.border}`,
+            boxShadow: `inset 3px 0 0 ${cfg.color}`,
             color: cfg.color,
-            fontSize: 11,
-            lineHeight: 1.35,
+            fontSize: 11.5,
+            lineHeight: 1.4,
             flexShrink: 0,
             display: "flex",
             justifyContent: "space-between",
@@ -368,7 +403,13 @@ export default function ChatPanel({
           }}
         >
           <span>
-            🔒 Locked to: {sessionLockedDeck.name} / {sessionLockedDeck.commander} ({sessionLockedDeck.mainCount} cards). This session stays on this deck.
+            🔒 Locked to <strong style={{ fontWeight: 700 }}>{sessionLockedDeck.name}</strong>
+            {" "}/ {sessionLockedDeck.commander} ({sessionLockedDeck.mainCount} cards). This chat stays on this deck.
+            {deckMismatch && (
+              <span style={{ display: "block", color: "#c8a24a", marginTop: 2 }}>
+                ⚠ Sidebar deck is &ldquo;{activeDeck.name}&rdquo; — start a new chat to talk about that one.
+              </span>
+            )}
           </span>
           <button
             onClick={() => unlockSessionDeck(currentSession?.id)}
@@ -404,12 +445,13 @@ export default function ChatPanel({
           <div
             style={{
               maxWidth: "82%",
-              padding: "12px 15px",
-              borderRadius: "12px 12px 12px 3px",
-              background: BG3,
-              backdropFilter: "blur(13px) saturate(1.1)",
-              WebkitBackdropFilter: "blur(13px) saturate(1.1)",
+              padding: "12px 16px",
+              borderRadius: "14px 14px 14px 5px",
+              background: "rgba(255,255,255,0.022)",
+              backdropFilter: "blur(14px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(14px) saturate(1.1)",
               border: `1px solid ${cfg.border}`,
+              boxShadow: `0 10px 30px -16px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.03)`,
               fontSize: 14,
               color: TEXT,
               lineHeight: 1.72,
@@ -438,16 +480,19 @@ export default function ChatPanel({
             <div
               style={{
                 maxWidth: "82%",
-                padding: "11px 15px",
-                borderRadius: msg.role === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
-                background: msg.role === "user" ? "#1a1b38" : BG3,
-                backdropFilter: "blur(13px) saturate(1.1)",
-                WebkitBackdropFilter: "blur(13px) saturate(1.1)",
+                padding: "11px 16px",
+                borderRadius: msg.role === "user" ? "14px 14px 5px 14px" : "14px 14px 14px 5px",
+                background: msg.role === "user" ? "rgba(202,162,74,0.06)" : "rgba(255,255,255,0.022)",
+                backdropFilter: "blur(14px) saturate(1.1)",
+                WebkitBackdropFilter: "blur(14px) saturate(1.1)",
                 border: msg.isError
-                  ? "1px solid #6b3a3a"
-                  : `1px solid ${msg.role === "user" ? "#2a2850" : cfg.border}`,
+                  ? "1px solid #7a4540"
+                  : `1px solid ${msg.role === "user" ? "rgba(202,162,74,0.30)" : cfg.border}`,
+                boxShadow: msg.role === "user"
+                  ? "inset 0 1px 0 rgba(255,255,255,0.03)"
+                  : `0 10px 30px -16px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.03)`,
                 fontSize: 14,
-                color: msg.isError ? "#c2786f" : TEXT,
+                color: msg.isError ? "#d08a82" : TEXT,
                 lineHeight: 1.72,
               }}
             >
@@ -582,13 +627,15 @@ export default function ChatPanel({
           <button
             key={prompt}
             onClick={() => send(prompt)}
+            disabled={pendingLock}
             style={{
               padding: "4px 10px",
               borderRadius: 12,
               border: `1px solid ${cfg.border}`,
               background: cfg.dim,
               color: cfg.color,
-              cursor: "pointer",
+              cursor: pendingLock ? "not-allowed" : "pointer",
+              opacity: pendingLock ? 0.4 : 1,
               fontSize: 11,
               fontFamily,
               whiteSpace: "nowrap",
@@ -621,9 +668,9 @@ export default function ChatPanel({
               send();
             }
           }}
-          placeholder={cfg.placeholder}
+          placeholder={pendingLock ? "Confirm the deck above to start chatting…" : cfg.placeholder}
           rows={2}
-          disabled={sending}
+          disabled={sending || pendingLock}
           style={{
             flex: 1,
             padding: "10px 13px",
@@ -635,11 +682,12 @@ export default function ChatPanel({
             fontFamily,
             resize: "none",
             lineHeight: 1.5,
+            opacity: pendingLock ? 0.5 : 1,
           }}
         />
         <button
           onClick={() => send()}
-          disabled={!input.trim() || sending}
+          disabled={!input.trim() || sending || pendingLock}
           style={{
             minWidth: 58,
             height: 42,
@@ -649,12 +697,12 @@ export default function ChatPanel({
             background: cfg.color,
             color: "#fff",
             fontSize: 13,
-            cursor: "pointer",
+            cursor: pendingLock ? "not-allowed" : "pointer",
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            opacity: !input.trim() || sending ? 0.4 : 1,
+            opacity: !input.trim() || sending || pendingLock ? 0.4 : 1,
             fontFamily,
           }}
         >

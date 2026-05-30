@@ -32,6 +32,9 @@ export default function Sidebar({
   const [libraryQuery, setLibraryQuery] = useState("");
   const [ownerFilter, setOwnerFilter] = useState("All");
   const [libraryStatus, setLibraryStatus] = useState("");
+  // The saved-deck list starts collapsed — deck selection now happens in the
+  // chat's deck-confirm modal, so the always-on sidebar list isn't needed.
+  const [decksOpen, setDecksOpen] = useState(false);
   const libraryImportRef = useRef(null);
   const owners = useMemo(
     () => ["All", ...new Set(savedDecks.map(deck => deck.memory?.owner || "Colton"))],
@@ -108,12 +111,19 @@ export default function Sidebar({
           onClick={()=>{setCenterView("collection");if(mobile)setMobileTab("chat");}}
         >
           <span style={{fontSize:16}}>📚</span>
-          <div><div style={{fontSize:13,fontWeight:700}}>Collection</div><div style={{fontSize:10,opacity:.65}}>What you own</div></div>
+          <div><div style={{fontSize:13,fontWeight:700}}>The Vault</div><div style={{fontSize:10,opacity:.65}}>Decks · cards · value</div></div>
         </button>
       </div>
 
       <div>
-        <div style={{fontSize:9,color:MUTED,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:6}}>Saved Decks</div>
+        <button
+          onClick={()=>setDecksOpen(open=>!open)}
+          style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",background:"none",border:"none",cursor:"pointer",padding:0,marginBottom:decksOpen?6:0,fontFamily}}
+        >
+          <span style={{fontSize:9,color:MUTED,textTransform:"uppercase",letterSpacing:"0.12em"}}>Saved Decks ({savedDecks.length})</span>
+          <span style={{fontSize:10,color:MUTED,lineHeight:1}}>{decksOpen?"▾":"▸"}</span>
+        </button>
+        {decksOpen && (<>
         <input
           value={libraryQuery}
           onChange={event => setLibraryQuery(event.target.value)}
@@ -161,6 +171,7 @@ export default function Sidebar({
             <button style={sb(true)} onClick={unloadActiveDeck}>Unload Deck</button>
           </>
         )}
+        </>)}
       </div>
 
       {mobile&&(

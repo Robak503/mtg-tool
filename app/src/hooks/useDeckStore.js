@@ -90,19 +90,14 @@ export default function useDeckStore() {
         setSavedDecks(normalized);
         saveJson("mtg-decks-v3", normalized);
         saveDeckFile(normalized);
-
-        const activeId = await loadJson("mtg-active-deck-id");
-        if (activeId && normalized.some(deck => deck.id === activeId)) {
-          setActiveDeckId(activeId);
-        } else {
-          setActiveDeckId(normalized[0]?.id || null);
-        }
       } else {
         setSavedDecks(seedDecks);
         saveJson("mtg-decks-v3", seedDecks);
         saveDeckFile(seedDecks);
-        setActiveDeckId(seedDecks[0]?.id || null);
       }
+      // Start every session with NO active deck pre-loaded. Decks load into the
+      // library, but the user picks one explicitly (and the chat's deck-confirm
+      // flow verifies it) rather than the tool silently restoring a deck.
     })();
   }, []);
 
@@ -120,10 +115,6 @@ export default function useDeckStore() {
       flushDeckFileSave();
     };
   }, []);
-
-  useEffect(() => {
-    saveJson("mtg-active-deck-id", activeDeckId);
-  }, [activeDeckId]);
 
   const activeDeck = useMemo(
     () => savedDecks.find(deck => deck.id === activeDeckId),

@@ -179,6 +179,11 @@ export function createDeckLock(deck, knowledgeStatus = null) {
     mainCount: deckMainCount(deck),
     tokenCount: deckTokenCount(deck),
     lockedAt: new Date().toISOString(),
+    // New locks start unconfirmed: the chat shows a confirm-or-swap bar and
+    // blocks sending until the user verifies the deck (see useChatSessions +
+    // ChatPanel). deckLockNeedsConfirmation() treats a MISSING flag as
+    // confirmed, so locks persisted before this field shipped aren't disrupted.
+    confirmed: false,
     schemaVersion: 1,
     cardDataVersion: knowledgeStatus?.cardDataVersion || null,
     rulesVersion: knowledgeStatus?.rulesVersion || null,
@@ -186,6 +191,16 @@ export function createDeckLock(deck, knowledgeStatus = null) {
     deckText: serializeDeck(deck.cards || []),
     memoryText: serializeDeckMemory(deck),
   };
+}
+
+/**
+ * Does this lock still need the user to confirm/swap the deck before chatting?
+ * True only when the lock exists AND was explicitly created unconfirmed.
+ * A lock with no `confirmed` field is a legacy (pre-confirmation) lock and is
+ * treated as already confirmed, so old persisted chats keep working unchanged.
+ */
+export function deckLockNeedsConfirmation(lock) {
+  return Boolean(lock) && lock.confirmed === false;
 }
 
 /**
