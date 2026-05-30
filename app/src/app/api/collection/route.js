@@ -21,9 +21,7 @@ import {
   CollectionVersionMismatch,
 } from "../../../lib/server/collectionStorage.js";
 import { lookupById } from "../../../lib/server/printingIndex.js";
-
-const VALID_FINISHES = new Set(["nonfoil", "foil", "etched"]);
-const VALID_CONDITIONS = new Set([null, "NM", "LP", "MP", "HP", "DMG"]);
+import { validateStacks } from "../../../lib/server/collectionValidation.js";
 
 function badRequest(message) {
   return Response.json({ error: message }, { status: 400 });
@@ -50,28 +48,6 @@ function tryLookupPrinting(scryfallId) {
   } catch {
     return null;
   }
-}
-
-function validateStacks(stacks) {
-  if (!Array.isArray(stacks) || stacks.length === 0) {
-    return "stacks must be a non-empty array";
-  }
-  for (const stack of stacks) {
-    if (!stack || typeof stack !== "object") {
-      return "each stack must be an object";
-    }
-    if (!VALID_FINISHES.has(stack.finish)) {
-      return `stack.finish must be one of: nonfoil, foil, etched`;
-    }
-    if (typeof stack.quantity !== "number" || !Number.isFinite(stack.quantity) || stack.quantity < 0) {
-      return "stack.quantity must be a non-negative number";
-    }
-    const cond = stack.condition === undefined ? null : stack.condition;
-    if (!VALID_CONDITIONS.has(cond)) {
-      return "stack.condition must be NM, LP, MP, HP, DMG, or null";
-    }
-  }
-  return null;
 }
 
 function mergeStacks(existing, incoming) {
