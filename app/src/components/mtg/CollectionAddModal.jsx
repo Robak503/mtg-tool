@@ -38,6 +38,10 @@ export default function CollectionAddModal({ onClose, onAdded, colors }) {
   const [wishlist, setWishlist] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // All printings of the picked card (the search list is deduped to one per
+  // name, so this is what lets the user choose the exact printing they own).
+  const [allPrintings, setAllPrintings] = useState([]);
+  const [printingsLoading, setPrintingsLoading] = useState(false);
 
   const searchInputRef = useRef(null);
   useEffect(() => { searchInputRef.current?.focus(); }, []);
@@ -75,6 +79,29 @@ export default function CollectionAddModal({ onClose, onAdded, colors }) {
     }, DEBOUNCE_MS);
     return () => clearTimeout(handle);
   }, [query]);
+
+  // When a card is picked from search, load ALL its printings so the user can
+  // switch to the exact one they own. Keyed by oracleId so switching among a
+  // card's printings (same oracleId) doesn't re-fetch.
+  useEffect(() => {
+    const oid = selected?.oracleId;
+    const nm = selected?.name;
+    if (!oid || !nm) { setAllPrintings([]); return; }
+    let cancelled = false;
+    setPrintingsLoading(true);
+    (async () => {
+      try {
+        const resp = await fetch(`/api/printings/by-name?name=${encodeURIComponent(nm)}&oracleId=${encodeURIComponent(oid)}`);
+        const body = await resp.json();
+        if (!cancelled && resp.ok) setAllPrintings(body.results || []);
+      } catch {
+        // Keep the single selected printing if the lookup fails.
+      } finally {
+        if (!cancelled) setPrintingsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [selected?.oracleId, selected?.name]);
 
   const supportedFinishes = useMemo(() => {
     if (!selected) return ["nonfoil"];
@@ -252,6 +279,43 @@ export default function CollectionAddModal({ onClose, onAdded, colors }) {
           {selected && (
             <div style={{ paddingBottom: 12 }}>
               <SelectedPreview card={selected} onChange={() => setSelected(null)} colors={colors} />
+
+              {printingsLoading && allPrintings.length === 0 && (
+                <div style={{ marginTop: 8, fontSize: 11, color: colors.MUTED }}>Loading printings…</div>
+              )}
+              {allPrintings.length > 1 && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 9, color: colors.MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
+                    Which printing do you own? ({allPrintings.length})
+                  </div>
+                  <div style={{ maxHeight: 170, overflowY: "auto", border: `1px solid ${colors.LINE}`, borderRadius: 4 }}>
+                    {allPrintings.map(p => {
+                      const active = p.id === selected.id;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => setSelected(p)}
+                          style={{
+                            width: "100%", display: "flex", alignItems: "center", gap: 8,
+                            padding: "7px 10px", background: active ? colors.BG3 : "transparent",
+                            border: "none", borderLeft: `3px solid ${active ? colors.GOLD : "transparent"}`,
+                            borderBottom: `1px solid ${colors.LINE}`, cursor: "pointer", color: colors.TEXT,
+                            fontFamily: "inherit", textAlign: "left",
+                          }}
+                        >
+                          <span style={{ flex: 1, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                            {p.set} · #{p.collectorNumber}
+                          </span>
+                          <span style={{ fontSize: 10, color: colors.MUTED }}>{(p.finishes || []).join(" / ")}</span>
+                          <span style={{ fontSize: 11, color: colors.MUTED, minWidth: 44, textAlign: "right" }}>
+                            {p.prices?.usd ? `$${p.prices.usd}` : ""}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div style={{ marginTop: 16 }}>
                 <label style={chipRow()}>
