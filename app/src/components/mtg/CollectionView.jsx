@@ -22,6 +22,8 @@ import CollectionCardDetail from "./CollectionCardDetail";
 import CollectionAddModal from "./CollectionAddModal";
 import CollectionImportModal from "./CollectionImportModal";
 import CollectionRoastModal from "./CollectionRoastModal";
+import ColorTagManager from "./ColorTagManager";
+import useColorTags from "../../hooks/useColorTags";
 
 // Obsidian & Gold — matches the app shell theme.
 const COLORS = {
@@ -36,6 +38,14 @@ const COLORS = {
 };
 
 const FONT = `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+
+// The Vault is gold-themed (not agent-themed); reuse the shared modal/cfg shape.
+const VAULT_CFG = {
+  color: COLORS.GOLD,
+  border: "rgba(202,162,74,0.40)",
+  dim: "rgba(202,162,74,0.12)",
+  glow: "rgba(202,162,74,0.22)",
+};
 
 const DEFAULT_FILTERS = {
   search: "",
@@ -59,6 +69,8 @@ export default function CollectionView({ onClose }) {
   const [roastOpen, setRoastOpen] = useState(false);
   // 30-day value delta from price-history (null until a snapshot ≥30d old exists)
   const [priceDelta, setPriceDelta] = useState(null);
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const colorTags = useColorTags();
 
   useEffect(() => {
     let cancelled = false;
@@ -281,6 +293,7 @@ export default function CollectionView({ onClose }) {
               Roast me
             </button>
           )}
+          <button onClick={() => setTagsOpen(true)} style={btn()}>Color tags</button>
           <button onClick={() => setImportOpen(true)} style={btn()}>Import CSV</button>
           <button onClick={() => setAddOpen(true)} style={primaryHeaderBtn()}>+ Add card</button>
           {onClose && (
@@ -390,6 +403,19 @@ export default function CollectionView({ onClose }) {
         <CollectionRoastModal
           onClose={() => setRoastOpen(false)}
           colors={COLORS}
+        />
+      )}
+
+      {tagsOpen && (
+        <ColorTagManager
+          tags={colorTags.tags}
+          addTag={colorTags.addTag}
+          updateTag={colorTags.updateTag}
+          deleteTag={colorTags.deleteTag}
+          onClose={() => setTagsOpen(false)}
+          cfg={VAULT_CFG}
+          colors={COLORS}
+          fontFamily={FONT}
         />
       )}
     </div>
