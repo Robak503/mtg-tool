@@ -4,6 +4,15 @@ Grouped by skill/component, then priority (P0 at top, P4 at bottom).
 Completed items live in the `## Completed` section so the open queue
 stays readable.
 
+> **Stale notice (2026-05-30):** this file pre-dates the `.exe`/release era.
+> The P0 (GitHub remote) and P1 (auto-updater) items below are **done**, as is
+> all of Phase 6 PR 7–10. The authoritative open-work list is now
+> `docs/HANDOFF.md`. Current open headline work: Phase 6 **PR 11** (4P LearnView
+> UI), Vault **Stage 2** (planned-but-unowned decks + cost-to-finish), the Track 1
+> cleanup tail (webview CSP, art-proxy, big-file decomposition), and optional
+> Authenticode signing. Shipped since: The Vault (v0.4.0), deck URL import
+> (v0.5.0), learn-mode combat damage (PR 10).
+
 ---
 
 ## Infra / Workflow

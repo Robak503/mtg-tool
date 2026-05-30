@@ -734,7 +734,7 @@ These are absolute. Violating any of these is a failure mode.
 
 ## 9. PROJECT STATUS (LIVING SNAPSHOT)
 
-Updated whenever phases complete. Last update: 2026-05-28.
+Updated whenever phases complete. Last update: 2026-05-30.
 
 > **Current status + actionable next steps live in `docs/HANDOFF.md`** — start a
 > new chat by reading it. This §9 is the higher-level snapshot; the handoff has
@@ -772,12 +772,22 @@ Updated whenever phases complete. Last update: 2026-05-28.
 - ✅ Phase 6 PR 9 (Commander 4P FFA session start — 3-deck pod = 4
   players total, 4-seat turn rotation, per-opponent AI, player
   elimination + multiplayer win/loss)
+- ✅ Phase 6 PR 10 (combat damage + multi-defender — `combatResolution.js`
+  resolves the once-no-op combat-damage step: simultaneous damage, lethal
+  creatures → graveyard, unblocked attackers hit the chosen defender;
+  `defenderId` end-to-end, AI lowest-life defender heuristic, all-opponent
+  trap detection. v0.5.x)
+- ✅ **The Vault** collection manager (v0.4.0) — per-printing selector with
+  finish/treatment buttons sourced from the full `default_cards` printings
+  index, quantity steppers + delete-at-zero, color tags with ownership
+  behaviors (Have/Getting/Considering/Swap)
+- ✅ Deck import from a Moxfield / Archidekt URL (v0.5.0) — paste a deck link →
+  fetch server-side (`node:https`, not Next's patched fetch) → resolve cards
+  against the local index → preview → save to library
+- ✅ Releases v0.4.0 + v0.5.0 cut + signed + auto-updating
 
 ### Open
 
-- ⏳ Phase 6 PR 10 (multi-defender combat — `declare-attacker`
-  `defenderId`, AI defender heuristic, multi-opponent trap detection;
-  combat-damage application)
 - ⏳ Phase 6 PR 11 (LearnView 4P layout — 3 opponent strips, mode +
   format picker wired to `detectDeckFormat`)
 - ⏳ Phase 6 PR 12 (Expert mode + post-game analysis, mode-aware)
@@ -794,8 +804,7 @@ Updated whenever phases complete. Last update: 2026-05-28.
 
 ### Test coverage
 
-~388 vitest cases across 27 files (learn engine alone is 279). Run with
-`npm test` in `app/`.
+~775 vitest cases (learn engine alone is 292). Run with `npm test` in `app/`.
 
 ---
 
