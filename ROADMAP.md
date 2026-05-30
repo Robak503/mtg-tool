@@ -1,5 +1,18 @@
 # MTG Tool Roadmap
 
+## Current status — 2026-05-30
+
+> **The authoritative "where we are / what's next" is `docs/HANDOFF.md`.** This
+> file below is historical phase-by-phase context; the addenda are point-in-time.
+
+Since the older addenda below: the app ships as a **signed Windows `.exe` with
+auto-update** (Tauri 2 + bundled Node 22 + Next.js 15). Two feature releases are
+out — **v0.4.0 "The Vault"** (collection manager: per-printing/finish/treatment
+selector, quantity steppers, color tags with ownership behaviors) and **v0.5.0**
+(deck import from Moxfield/Archidekt URLs). The Phase 6 learn engine reached
+**PR 10 — combat damage + multi-defender**; next is PR 11 (the 4P LearnView UI).
+Suite ~775 vitest cases, green; CI gates JS (`ci.yml`) and Rust (`rust.yml`).
+
 ## Current Addendum — 2026-05-26 (late)
 
 Phases 1-5 plus the Phase 4 end-of-pass feedback capture are shipped on

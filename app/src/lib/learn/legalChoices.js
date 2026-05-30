@@ -29,7 +29,7 @@
  * no fetch.
  */
 
-import { getZone, opponentOf, totalAvailableMana } from "./gameState.js";
+import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -288,16 +288,38 @@ function actionsDeclareAttacker(state, playerId) {
   if (state.step !== "declare-attackers") return [];
 
   const player = state.players[playerId];
-  return player.battlefield
+  const attackers = player.battlefield
     .filter(p => isCreature(p.card))
     .filter(p => !p.tapped)
-    .filter(p => !p.summoningSick || hasKeyword(p.card, "Haste"))
-    .map(p => ({
+    .filter(p => !p.summoningSick || hasKeyword(p.card, "Haste"));
+
+  // Standard (a lone opponent): the dispatcher auto-fills the defender, so emit
+  // one action per creature — unchanged shape.
+  const defenders = opponentsOf(state, playerId);
+  if (defenders.length <= 1) {
+    return attackers.map(p => ({
       kind: "declare-attacker",
       playerId,
       permanentId: p.id,
       name: p.card.name,
     }));
+  }
+
+  // Commander (multiple opponents): each attacker contributes one action per
+  // legal defender (CR 506.2) — the player picks who each creature swings at.
+  const actions = [];
+  for (const p of attackers) {
+    for (const defenderId of defenders) {
+      actions.push({
+        kind: "declare-attacker",
+        playerId,
+        permanentId: p.id,
+        name: p.card.name,
+        defenderId,
+      });
+    }
+  }
+  return actions;
 }
 
 function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {

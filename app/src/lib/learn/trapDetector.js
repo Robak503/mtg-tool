@@ -133,45 +133,55 @@ export function detectInstantSpeedResponse(state, defenderId) {
  */
 export function detectCounterAttackLethal(state, attackerPlayerId, attackerActions) {
   if (!Array.isArray(attackerActions) || attackerActions.length === 0) return null;
-  // The opponent this attack is aimed at. Standard: the lone "ai".
-  // Commander: the first opponent in turn order (PR 10 extends the
-  // counter-attack check to ALL opponents, not just this one).
-  const defenderId = opponentsOf(state, attackerPlayerId)[0];
-
-  const theirReady = untappedReadyCreatures(state, defenderId);
-  if (theirReady.length === 0) return null;
-
-  const incoming = totalPower(theirReady);
-  if (incoming === 0) return null;
+  const yourLife = state.players?.[attackerPlayerId]?.life ?? 0;
+  if (yourLife <= 0) return null;
 
   const committedIds = new Set(attackerActions.map(a => a.permanentId));
   const yourCreatures = state.players?.[attackerPlayerId]?.battlefield?.filter(p => isCreature(p.card)) || [];
   const stayingHome = yourCreatures.filter(p => !p.tapped && !committedIds.has(p.id));
   const defended = stayingHome.reduce((sum, p) => sum + (Number(p.card?.toughness) || 0), 0);
 
-  const exposed = Math.max(0, incoming - defended);
-  const yourLife = state.players?.[attackerPlayerId]?.life ?? 0;
-  if (yourLife <= 0 || exposed === 0) return null;
+  // The opponent who can punish hardest after this attack — in Commander any
+  // opponent can swing back, not just the one you attacked. Standard: the lone
+  // opponent (label stays "opponent" so the Standard warning text is unchanged).
+  const opponents = opponentsOf(state, attackerPlayerId);
+  let worst = null;
+  for (const oppId of opponents) {
+    const theirReady = untappedReadyCreatures(state, oppId);
+    const incoming = totalPower(theirReady);
+    if (incoming === 0) continue;
+    const exposed = Math.max(0, incoming - defended);
+    if (exposed === 0) continue;
+    if (!worst || exposed > worst.exposed) {
+      worst = { oppId, incoming, exposed, readyCount: theirReady.length };
+    }
+  }
+  if (!worst) return null;
 
-  if (exposed >= yourLife) {
+  const multi = opponents.length > 1;
+  const who = multi ? worst.oppId : "opponent";
+  const Who = who.charAt(0).toUpperCase() + who.slice(1);
+  const plural = worst.readyCount === 1 ? "" : "s";
+
+  if (worst.exposed >= yourLife) {
     return {
       type: "counter-attack-lethal",
       severity: "danger",
       message:
-        `If you commit this attack, opponent has ${theirReady.length} untapped creature${theirReady.length === 1 ? "" : "s"} ` +
-        `with combined power ${incoming}. After your blockers absorb what they can (${defended}), ${exposed} damage gets through — ` +
+        `If you commit this attack, ${who} has ${worst.readyCount} untapped creature${plural} ` +
+        `with combined power ${worst.incoming}. After your blockers absorb what they can (${defended}), ${worst.exposed} damage gets through — ` +
         `and you're at ${yourLife} life. That's lethal on their swing-back.`,
-      details: { incoming, defended, exposed, yourLife, theirReadyCount: theirReady.length },
+      details: { opponent: worst.oppId, incoming: worst.incoming, defended, exposed: worst.exposed, yourLife, theirReadyCount: worst.readyCount },
     };
   }
-  if (exposed * 2 >= yourLife) {
+  if (worst.exposed * 2 >= yourLife) {
     return {
       type: "counter-attack-dangerous",
       severity: "warn",
       message:
-        `Opponent has ${theirReady.length} untapped creature${theirReady.length === 1 ? "" : "s"} with combined power ${incoming}. ` +
-        `After this attack you'll only soak ${defended} on the swing-back, exposing ${exposed} damage against your ${yourLife} life.`,
-      details: { incoming, defended, exposed, yourLife, theirReadyCount: theirReady.length },
+        `${Who} has ${worst.readyCount} untapped creature${plural} with combined power ${worst.incoming}. ` +
+        `After this attack you'll only soak ${defended} on the swing-back, exposing ${worst.exposed} damage against your ${yourLife} life.`,
+      details: { opponent: worst.oppId, incoming: worst.incoming, defended, exposed: worst.exposed, yourLife, theirReadyCount: worst.readyCount },
     };
   }
   return null;
@@ -189,17 +199,22 @@ export function detectCounterAttackLethal(state, attackerPlayerId, attackerActio
  */
 export function detectAttackTraps(state, attackerPlayerId, attackerActions) {
   if (!state || !attackerPlayerId) return [];
-  // The opponent this attack is aimed at. Standard: the lone "ai".
-  // Commander: the first opponent in turn order (PR 10 extends the
-  // counter-attack check to ALL opponents, not just this one).
-  const defenderId = opponentsOf(state, attackerPlayerId)[0];
   const traps = [];
 
+  // Counter-attack check now scans every opponent internally.
   const counterAttack = detectCounterAttackLethal(state, attackerPlayerId, attackerActions);
   if (counterAttack) traps.push(counterAttack);
 
-  const instantSpeed = detectInstantSpeedResponse(state, defenderId);
-  if (instantSpeed) traps.push(instantSpeed);
+  // Instant-speed response: surface the most threatening opponent (any of them
+  // can hold up interaction). Standard reduces to the lone opponent.
+  let worstInstant = null;
+  for (const oppId of opponentsOf(state, attackerPlayerId)) {
+    const w = detectInstantSpeedResponse(state, oppId);
+    if (w && (!worstInstant || severityRank(w.severity) > severityRank(worstInstant.severity))) {
+      worstInstant = w;
+    }
+  }
+  if (worstInstant) traps.push(worstInstant);
 
   return traps.sort((a, b) => severityRank(b.severity) - severityRank(a.severity));
 }

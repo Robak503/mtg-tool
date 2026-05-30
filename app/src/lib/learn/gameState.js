@@ -113,10 +113,31 @@ export function createPermanent({ card, controller, tapped = false, summoningSic
     tapped,
     summoningSick,
     counters: {},
+    damageMarked: 0,     // combat (and other) damage marked this turn; clears at cleanup
     attachments: [],     // ids of permanents (equipment/auras) attached to THIS one
     attachedTo: null,    // id of the permanent THIS is attached to (for equipment/auras)
     enteredOnTurn: null, // set by the engine when entering the battlefield
   };
+}
+
+/**
+ * Effective power / toughness of a creature permanent: printed value plus any
+ * +1/+1 counters minus -1/-1 counters. Non-numeric printed values (e.g. "*")
+ * read as 0. These are the numbers combat damage uses.
+ */
+export function creaturePower(permanent) {
+  if (!permanent?.card) return 0;
+  const base = Number(permanent.card.power) || 0;
+  const plus = permanent.counters?.["+1/+1"] || 0;
+  const minus = permanent.counters?.["-1/-1"] || 0;
+  return base + plus - minus;
+}
+export function creatureToughness(permanent) {
+  if (!permanent?.card) return 0;
+  const base = Number(permanent.card.toughness) || 0;
+  const plus = permanent.counters?.["+1/+1"] || 0;
+  const minus = permanent.counters?.["-1/-1"] || 0;
+  return base + plus - minus;
 }
 
 /**
@@ -569,6 +590,31 @@ export function gainLife(state, { playerId, amount }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("gainLife: amount must be non-negative integer");
   return withPlayer(state, playerId, p => ({ ...p, life: p.life + amount }));
+}
+
+/** Mark combat (or other) damage on a permanent. */
+export function markCombatDamage(state, { permanentId, amount }) {
+  if (!Number.isInteger(amount) || amount < 0) throw new Error("markCombatDamage: amount must be a non-negative integer");
+  if (amount === 0) return state;
+  return updatePermanent(state, permanentId, p => ({ ...p, damageMarked: (p.damageMarked || 0) + amount }));
+}
+
+/** Wipe marked damage off every permanent (combat damage wears off at cleanup). */
+export function clearCombatDamage(state) {
+  let changed = false;
+  const players = {};
+  for (const [pid, player] of Object.entries(state.players)) {
+    if (!player.battlefield.some(p => (p.damageMarked || 0) !== 0)) {
+      players[pid] = player;
+      continue;
+    }
+    changed = true;
+    players[pid] = {
+      ...player,
+      battlefield: player.battlefield.map(p => (p.damageMarked ? { ...p, damageMarked: 0 } : p)),
+    };
+  }
+  return changed ? { ...state, players } : state;
 }
 
 /**
