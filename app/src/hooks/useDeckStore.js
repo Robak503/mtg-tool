@@ -251,6 +251,33 @@ export default function useDeckStore() {
     return deck;
   };
 
+  // Save a deck fetched from a Moxfield/Archidekt URL (already resolved by
+  // /api/decks/import-url) into the local library and make it active.
+  const importDeckFromUrl = (importedDeck, ownerName) => {
+    if (!importedDeck || !Array.isArray(importedDeck.cards) || !importedDeck.cards.length) {
+      return null;
+    }
+    const cards = importedDeck.cards.map(c => ({
+      qty: c.qty || 1,
+      name: c.name,
+      section: c.section || "Mainboard",
+    }));
+    const deck = normalizeDeck({
+      id: Date.now().toString(),
+      name: (importedDeck.name || "").trim() || "Imported deck",
+      cards,
+      memory: {
+        ...defaultDeckMemory(),
+        owner: (ownerName || "").trim() || "Colton",
+        notes: importedDeck.source ? `Imported from ${importedDeck.source}.` : "",
+      },
+    });
+    persistDecks([...savedDecks, deck], { fileSave: "immediate" });
+    setActiveDeckId(deck.id);
+    setDeckData({});
+    return deck;
+  };
+
   const loadFromProject = () => {
     const name = projectSearch.trim();
     if (!name) return;
@@ -367,6 +394,7 @@ If no matching file exists, list the available deck files. If multiple variants 
     gameResult,
     hasData,
     importDeck,
+    importDeckFromUrl,
     importDeckLibrary,
     legalIssues,
     loadDeckData,

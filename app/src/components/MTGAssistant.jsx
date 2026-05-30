@@ -148,6 +148,7 @@ export default function MTGAssistant() {
     gameResult,
     hasData,
     importDeck: saveImportedDeck,
+    importDeckFromUrl,
     importDeckLibrary,
     legalIssues,
     loadDeckData,
@@ -1057,6 +1058,7 @@ export default function MTGAssistant() {
                 deckRaw={deckRaw}
                 setDeckRaw={setDeckRaw}
                 importDeck={importDeck}
+                importDeckFromUrl={importDeckFromUrl}
                 setCenterView={setCenterView}
               />
             ):centerView==="deck"?(
