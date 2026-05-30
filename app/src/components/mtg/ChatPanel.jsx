@@ -445,12 +445,13 @@ export default function ChatPanel({
           <div
             style={{
               maxWidth: "82%",
-              padding: "12px 15px",
-              borderRadius: "12px 12px 12px 3px",
-              background: BG3,
-              backdropFilter: "blur(13px) saturate(1.1)",
-              WebkitBackdropFilter: "blur(13px) saturate(1.1)",
+              padding: "12px 16px",
+              borderRadius: "14px 14px 14px 5px",
+              background: "rgba(255,255,255,0.022)",
+              backdropFilter: "blur(14px) saturate(1.1)",
+              WebkitBackdropFilter: "blur(14px) saturate(1.1)",
               border: `1px solid ${cfg.border}`,
+              boxShadow: `0 10px 30px -16px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.03)`,
               fontSize: 14,
               color: TEXT,
               lineHeight: 1.72,
@@ -479,16 +480,19 @@ export default function ChatPanel({
             <div
               style={{
                 maxWidth: "82%",
-                padding: "11px 15px",
-                borderRadius: msg.role === "user" ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
-                background: msg.role === "user" ? "#1a1b38" : BG3,
-                backdropFilter: "blur(13px) saturate(1.1)",
-                WebkitBackdropFilter: "blur(13px) saturate(1.1)",
+                padding: "11px 16px",
+                borderRadius: msg.role === "user" ? "14px 14px 5px 14px" : "14px 14px 14px 5px",
+                background: msg.role === "user" ? "rgba(202,162,74,0.06)" : "rgba(255,255,255,0.022)",
+                backdropFilter: "blur(14px) saturate(1.1)",
+                WebkitBackdropFilter: "blur(14px) saturate(1.1)",
                 border: msg.isError
-                  ? "1px solid #6b3a3a"
-                  : `1px solid ${msg.role === "user" ? "#2a2850" : cfg.border}`,
+                  ? "1px solid #7a4540"
+                  : `1px solid ${msg.role === "user" ? "rgba(202,162,74,0.30)" : cfg.border}`,
+                boxShadow: msg.role === "user"
+                  ? "inset 0 1px 0 rgba(255,255,255,0.03)"
+                  : `0 10px 30px -16px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.03)`,
                 fontSize: 14,
-                color: msg.isError ? "#c2786f" : TEXT,
+                color: msg.isError ? "#d08a82" : TEXT,
                 lineHeight: 1.72,
               }}
             >

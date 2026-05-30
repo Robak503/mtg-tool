@@ -46,7 +46,7 @@ import CollectionView from "./mtg/CollectionView";
 import UpdatesModal from "./UpdatesModal";
 
 export default function MTGAssistant() {
-  const [agent, setAgent]   = useState("karn");
+  const [agent, setAgent]   = useState("jace");
   const [centerView, setCenterView] = useState("chat");
 
   const [rightTab, setRightTab] = useState("search");
@@ -636,10 +636,11 @@ export default function MTGAssistant() {
   //   cfg              the active agent's theme — AGENTS[agent] (.color/.border/.dim)
   //   sb(outline)      "select button" style object (the sidebar list buttons)
   //   pb(primary, sm)  "primary button" style object (primary = filled, sm = small)
-  const BG="#060608",BG2="rgba(16,17,34,0.70)",BG3="rgba(22,23,44,0.60)",LINE="#252840",TEXT="#cec8e0",MUTED="#9d98b8",GOLD="#cc8a38";
+  // Obsidian & Gold — near-black base, warm gold accent, frosted-glass panels.
+  const BG="#08070a",BG2="rgba(18,16,20,0.66)",BG3="rgba(26,24,28,0.52)",LINE="#2a2620",TEXT="#ece6d8",MUTED="#9c9486",GOLD="#caa24a";
   const F="'Georgia','Palatino Linotype',serif";
-  const sb=(outline)=>({width:"100%",padding:"6px 8px",borderRadius:5,fontFamily:F,fontSize:11,cursor:"pointer",marginBottom:4,textAlign:"left",border:`1px solid ${outline?LINE:cfg.border}`,background:outline?"transparent":cfg.dim,color:outline?MUTED:cfg.color});
-  const pb=(primary,sm)=>({padding:sm?"5px 10px":"7px 16px",borderRadius:5,fontFamily:F,fontSize:sm?11:13,cursor:"pointer",border:primary?"none":`1px solid ${cfg.border}`,background:primary?cfg.color:"transparent",color:primary?"#fff":cfg.color});
+  const sb=(outline)=>({width:"100%",padding:"7px 9px",borderRadius:8,fontFamily:F,fontSize:11,cursor:"pointer",marginBottom:4,textAlign:"left",border:`1px solid ${outline?LINE:cfg.border}`,background:outline?"rgba(255,255,255,0.02)":cfg.dim,color:outline?MUTED:cfg.color});
+  const pb=(primary,sm)=>({padding:sm?"6px 12px":"8px 16px",borderRadius:9,fontFamily:F,fontSize:sm?11:13,cursor:"pointer",border:`1px solid ${primary?cfg.color:cfg.border}`,background:primary?cfg.color:"rgba(255,255,255,0.03)",color:primary?"#0c0b0a":cfg.color,backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",boxShadow:primary?`0 3px 12px -4px ${cfg.glow}`:"inset 0 1px 0 rgba(255,255,255,0.04)"});
   const deckActionPrompts = {
     jace: `Create a table-ready briefing for the active deck "${activeDeck?.name || "this deck"}". Explain the commander plan, early/mid/late game priorities, biggest rules or sequencing traps, and the 5 questions I should ask during a real game.\n\nDeck list:\n${serializeDeck(deckCards)}`,
     karn: `Create a commander-focused upgrade plan for the active deck "${activeDeck?.name || "this deck"}". Give me: core game plan, role balance, 10 strongest cuts, 10 strongest adds, mana/ramp fixes, interaction/protection fixes, and a short testing plan. Make it useful to save as deck memory.`,
@@ -664,13 +665,9 @@ export default function MTGAssistant() {
     : "";
 
   return (
-    <div style={{fontFamily:F,background:commanderArtName?"transparent":BG,color:TEXT,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
-      {commanderArtName && (
-        <>
-          <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,backgroundImage:`url(/api/art-crop?name=${encodeURIComponent(commanderArtName)})`,backgroundSize:"cover",backgroundPosition:"center 16%"}}/>
-          <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,background:"radial-gradient(ellipse 120% 120% at 64% 34%, rgba(8,9,20,.58) 0%, rgba(6,6,14,.85) 55%, rgba(3,3,8,.95) 100%), linear-gradient(180deg, rgba(8,8,18,.72) 0%, rgba(6,6,14,.48) 45%, rgba(6,6,14,.8) 100%)"}}/>
-        </>
-      )}
+    <div style={{fontFamily:F,background:BG,color:TEXT,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
+      {/* Clean obsidian backdrop with a faint gold bloom up top for depth — no commander art. */}
+      <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,background:"radial-gradient(ellipse 100% 78% at 50% -12%, rgba(202,162,74,0.07) 0%, rgba(202,162,74,0.015) 32%, transparent 60%), #08070a"}}/>
       <style>{`
         @keyframes mtgd{0%,80%,100%{transform:scale(.5);opacity:.3}40%{transform:scale(1);opacity:.9}}
         *{box-sizing:border-box;margin:0;padding:0}

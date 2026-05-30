@@ -44,10 +44,12 @@ export default function DeckConfirmModal({
       <div
         style={{
           width: "min(460px, 94vw)",
-          background: "#101126",
+          background: "rgba(20,18,16,0.97)",
+          backdropFilter: "blur(18px) saturate(1.2)",
+          WebkitBackdropFilter: "blur(18px) saturate(1.2)",
           border: `1px solid ${cfg.border}`,
-          borderRadius: 12,
-          boxShadow: `0 24px 70px rgba(0,0,0,0.6), inset 3px 0 0 ${cfg.color}`,
+          borderRadius: 14,
+          boxShadow: `0 30px 80px -20px rgba(0,0,0,0.8), inset 3px 0 0 ${cfg.color}`,
           padding: "20px 22px",
           display: "flex",
           flexDirection: "column",
@@ -71,10 +73,10 @@ export default function DeckConfirmModal({
           value={activeDeckId || lock.id || ""}
           onChange={event => onSelectDeck && onSelectDeck(event.target.value)}
           style={{
-            background: "#1a1b38",
+            background: "#1c1a16",
             color: TEXT,
             border: `1px solid ${cfg.border}`,
-            borderRadius: 7,
+            borderRadius: 8,
             padding: "9px 11px",
             fontSize: 13,
             fontFamily,
