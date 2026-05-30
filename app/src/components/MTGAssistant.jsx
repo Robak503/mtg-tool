@@ -188,6 +188,7 @@ export default function MTGAssistant() {
     unarchiveSession,
     renameSession,
     unlockSessionDeck,
+    confirmSessionDeck,
     clearChat,
     exportChat,
     input,
@@ -518,7 +519,9 @@ export default function MTGAssistant() {
     if (!activeDeck || sending) return;
     setCenterView("chat");
     if (mobile) setMobileTab("chat");
-    send(prompt, targetAgent);
+    // Deck-view briefings target the active deck explicitly, so skip the
+    // confirm gate (otherwise the briefing would be silently swallowed).
+    send(prompt, targetAgent, 0, null, { autoConfirmDeck: true });
   };
 
   const prepArbiterQuestion = () => {
@@ -1132,6 +1135,10 @@ export default function MTGAssistant() {
                 setInput={setInput}
                 unloadDeck={unloadActiveDeck}
                 unlockSessionDeck={unlockSessionDeck}
+                confirmSessionDeck={confirmSessionDeck}
+                savedDecks={savedDecks}
+                activeDeckId={activeDeckId}
+                setActiveDeckId={setActiveDeckId}
                 createSession={createSession}
               />
             )}

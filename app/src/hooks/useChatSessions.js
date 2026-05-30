@@ -11,6 +11,7 @@ import {
   createDeckLock,
   deckCommander,
   deckCommanderNames,
+  deckLockNeedsConfirmation,
   deckOracleCardNamesFromCards,
   deckOracleCardNamesFromText,
   fetchEngineContext,
@@ -187,6 +188,28 @@ export default function useChatSessions({
     return candidates[0] || null;
   })();
 
+  // ─── Pending-lock ⇄ active-deck sync ──────────────────────────────────────
+  // While a chat's deck lock is still PENDING (unconfirmed), keep it pointed at
+  // the active deck. This is what makes the confirm bar's "Swap deck" work:
+  // changing the active deck (there or in the sidebar) re-targets the pending
+  // lock, and we rebuild it from the fully-loaded activeDeck so card context is
+  // complete. Once the lock is confirmed this stops — a locked chat must not
+  // follow later sidebar changes.
+  const pendingLockId = currentSession?.lockedDeck?.confirmed === false
+    ? currentSession.lockedDeck.id
+    : null;
+  useEffect(() => {
+    if (!currentSession?.id || !activeDeck) return;
+    if (pendingLockId === null || pendingLockId === activeDeck.id) return;
+    if (!DECK_LOCK_AGENTS.has(currentSession.agent)) return;
+    updateSession(currentSession.id, s => (
+      s.lockedDeck && s.lockedDeck.confirmed === false
+        ? { ...s, lockedDeck: createDeckLock(activeDeck, knowledgeStatus) }
+        : s
+    ));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDeck?.id, pendingLockId, currentSession?.id, currentSession?.agent]);
+
   // ─── Session mutators ──────────────────────────────────────────────────────
 
   const updateSession = (sessionId, updater) => {
@@ -248,16 +271,33 @@ export default function useChatSessions({
     updateSession(sessionId, s => ({ ...s, name: trimmed, updatedAt: new Date().toISOString() }));
   };
 
+  // Unlock = this chat becomes deck-less. We also set `deckDeclined` so the
+  // first-send auto-lock (below) doesn't immediately re-lock the active deck
+  // and re-prompt — the user explicitly chose no deck for this conversation.
   const unlockSessionDeck = (sessionId = currentSession?.id) => {
     if (!sessionId) return;
-    updateSession(sessionId, s => ({ ...s, lockedDeck: null, updatedAt: new Date().toISOString() }));
+    updateSession(sessionId, s => ({ ...s, lockedDeck: null, deckDeclined: true, updatedAt: new Date().toISOString() }));
+  };
+
+  // Finalize a pending (unconfirmed) deck lock — the user verified the deck via
+  // the confirm bar. Sending unblocks once confirmed.
+  const confirmSessionDeck = (sessionId = currentSession?.id) => {
+    if (!sessionId) return;
+    updateSession(sessionId, s => (
+      s.lockedDeck
+        ? { ...s, lockedDeck: { ...s.lockedDeck, confirmed: true }, updatedAt: new Date().toISOString() }
+        : s
+    ));
   };
 
   // ─── Send (the big one) ────────────────────────────────────────────────────
 
-  const send = async (text, agentOverride, retryDepth = 0, forceProvider = null) => {
+  const send = async (text, agentOverride, retryDepth = 0, forceProvider = null, opts = {}) => {
     const targetAgent = agentOverride || agent;
     const targetConfig = AGENTS[targetAgent];
+    // Explicit deck-view actions (e.g. the deck-command-center briefings) pass
+    // autoConfirmDeck: there the deck is unambiguous, so we skip the confirm gate.
+    const autoConfirmDeck = Boolean(opts.autoConfirmDeck);
     const prompt = (text || input).trim();
     const requestedTier = normalizeModelTier(forceProvider || modelProvider);
     const effectiveProvider = providerForModelTier(requestedTier);
@@ -290,10 +330,23 @@ export default function useChatSessions({
     const lockingAgent = DECK_LOCK_AGENTS.has(targetAgent);
     let deckLock = lockingAgent ? originSession.lockedDeck : null;
     let deckLockJustCreated = false;
-    if (lockingAgent && !deckLock && activeDeck) {
+    if (lockingAgent && !deckLock && activeDeck && !originSession.deckDeclined) {
       deckLock = createDeckLock(activeDeck, knowledgeStatus);
       deckLockJustCreated = true;
       updateSession(originSessionId, s => ({ ...s, lockedDeck: deckLock }));
+    }
+
+    // Deck confirmation gate. A pending (unconfirmed) lock means the user hasn't
+    // verified which deck this chat is bound to — block the send so ChatPanel's
+    // confirm bar can resolve it (the prompt stays in the box; nothing is sent).
+    // autoConfirmDeck finalizes the lock and proceeds for explicit deck actions.
+    if (lockingAgent && deckLockNeedsConfirmation(deckLock)) {
+      if (autoConfirmDeck) {
+        deckLock = { ...deckLock, confirmed: true };
+        updateSession(originSessionId, s => ({ ...s, lockedDeck: deckLock }));
+      } else {
+        return;
+      }
     }
 
     const baseMessages = retryDepth === 0
@@ -768,6 +821,7 @@ export default function useChatSessions({
     unarchiveSession,
     renameSession,
     unlockSessionDeck,
+    confirmSessionDeck,
     // Chat I/O
     input, setInput, sending,
     send, retryWithFallback,
