@@ -31,6 +31,16 @@ const DIFFICULTY_OPTIONS = [
   { value: "expert", label: "Expert", blurb: "Silent autopilot; post-game analysis." },
 ];
 
+const MODE_OPTIONS = [
+  { value: "standard", label: "Standard 1v1", blurb: "You vs one opponent, 20 life." },
+  { value: "commander", label: "Commander 4P", blurb: "You + three opponents, 40 life, free-for-all." },
+];
+
+const SEAT_LABELS = { user: "You", ai: "Opponent", ai1: "AI 1", ai2: "AI 2", ai3: "AI 3" };
+function seatLabel(id) {
+  return SEAT_LABELS[id] || id;
+}
+
 function deckToCardArray(deck) {
   // useDeckStore exposes decks as { cards: [{ name, qty, section }] }.
   // The engine wants individual card objects with id + name + type +
@@ -76,23 +86,39 @@ export default function LearnView({
 }) {
   const { BG, BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
   const session = useLearnSession();
+  const [mode, setMode] = useState("standard");
   const [userDeckId, setUserDeckId] = useState("");
-  const [opponentDeckId, setOpponentDeckId] = useState("");
+  const [oppIds, setOppIds] = useState(["", "", ""]); // up to 3 opponents (Commander)
   const [difficulty, setDifficulty] = useState("beginner");
 
+  const oppCount = mode === "commander" ? 3 : 1;
   const userDeck = savedDecks.find(d => d.id === userDeckId);
-  const opponentDeck = savedDecks.find(d => d.id === opponentDeckId);
-  const canStart = userDeck && opponentDeck && session.status !== "starting";
+  const oppDecks = oppIds.slice(0, oppCount).map(id => savedDecks.find(d => d.id === id));
+  const canStart = userDeck && oppDecks.every(Boolean) && session.status !== "starting";
+
+  const setOppId = (index, id) => setOppIds(prev => prev.map((v, i) => (i === index ? id : v)));
 
   const handleStart = async () => {
     if (!canStart) return;
-    await session.start({
-      userDeck: deckToCardArray(userDeck),
-      opponentDeck: deckToCardArray(opponentDeck),
-      userCommanders: commandersOf(userDeck),
-      opponentCommanders: commandersOf(opponentDeck),
-      difficulty,
-    });
+    if (mode === "commander") {
+      await session.start({
+        mode: "commander",
+        userDeck: deckToCardArray(userDeck),
+        opponentDecks: oppDecks.map(deckToCardArray),
+        userCommanders: commandersOf(userDeck),
+        opponentCommanders: oppDecks.map(commandersOf),
+        difficulty,
+      });
+    } else {
+      await session.start({
+        mode: "standard",
+        userDeck: deckToCardArray(userDeck),
+        opponentDeck: deckToCardArray(oppDecks[0]),
+        userCommanders: commandersOf(userDeck),
+        opponentCommanders: commandersOf(oppDecks[0]),
+        difficulty,
+      });
+    }
   };
 
   const handleAbandon = () => session.reset();
@@ -114,6 +140,27 @@ export default function LearnView({
               Beginner difficulty, lighter at higher difficulties.
             </p>
 
+            <fieldset style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, border: "none", padding: 0 }}>
+              <legend style={{ ...labelStyle(MUTED), padding: 0, gridColumn: "1 / -1" }}>Format</legend>
+              {MODE_OPTIONS.map(opt => (
+                <label
+                  key={opt.value}
+                  style={{
+                    display: "flex", flexDirection: "column", padding: "10px 12px",
+                    border: `1px solid ${mode === opt.value ? cfg?.border || GOLD : LINE}`,
+                    background: mode === opt.value ? cfg?.dim || BG2 : "transparent",
+                    borderRadius: 6, cursor: "pointer",
+                  }}
+                >
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input type="radio" name="mode" value={opt.value} checked={mode === opt.value} onChange={e => setMode(e.target.value)} />
+                    <strong style={{ color: cfg?.color || GOLD, fontSize: 13 }}>{opt.label}</strong>
+                  </span>
+                  <span style={{ fontSize: 11, color: MUTED, marginLeft: 26, marginTop: 2 }}>{opt.blurb}</span>
+                </label>
+              ))}
+            </fieldset>
+
             <label style={labelStyle(MUTED)}>
               Your deck
               <select
@@ -126,17 +173,19 @@ export default function LearnView({
               </select>
             </label>
 
-            <label style={labelStyle(MUTED)}>
-              Opponent's deck
-              <select
-                value={opponentDeckId}
-                onChange={e => setOpponentDeckId(e.target.value)}
-                style={selectStyle(BG2, BG3, LINE, TEXT, fontFamily)}
-              >
-                <option value="">(pick a saved deck)</option>
-                {savedDecks.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-            </label>
+            {Array.from({ length: oppCount }).map((_, i) => (
+              <label key={i} style={labelStyle(MUTED)}>
+                {oppCount === 1 ? "Opponent's deck" : `Opponent ${i + 1}'s deck`}
+                <select
+                  value={oppIds[i] || ""}
+                  onChange={e => setOppId(i, e.target.value)}
+                  style={selectStyle(BG2, BG3, LINE, TEXT, fontFamily)}
+                >
+                  <option value="">(pick a saved deck)</option>
+                  {savedDecks.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </label>
+            ))}
 
             <fieldset style={{ display: "grid", gap: 8, border: "none", padding: 0 }}>
               <legend style={{ ...labelStyle(MUTED), padding: 0 }}>Difficulty</legend>
@@ -231,11 +280,13 @@ export default function LearnView({
   return (
     <div style={containerStyle(BG, fontFamily)}>
       <header style={{ ...headerStyle(LINE, BG2, GOLD), justifyContent: "space-between" }}>
-        <span>Garfield · {userDeck?.name || "Your deck"} vs {opponentDeck?.name || "Opponent"}</span>
+        <span>Garfield · {session.mode === "commander" ? "Commander 4P pod" : `${userDeck?.name || "You"} vs ${oppDecks[0]?.name || "Opponent"}`}</span>
         <span style={{ fontSize: 11, color: MUTED }}>
-          Turn {session.turn} · {session.activePlayer === "user" ? "Your" : "Opponent's"} {session.step}
+          Turn {session.turn} · {session.activePlayer === "user" ? "Your" : `${seatLabel(session.activePlayer)}'s`} {session.step}
         </span>
       </header>
+
+      <TableStrip table={session.table} activePlayer={session.activePlayer} cfg={cfg} colors={colors} />
 
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* Decision area */}
@@ -291,6 +342,52 @@ export default function LearnView({
         </button>
         {session.error && <span style={{ fontSize: 11, color: "#e0a89a" }}>⚠ {session.error}</span>}
       </footer>
+    </div>
+  );
+}
+
+// ─── Table strip (all seats: life / zones / commander damage) ─────────────────
+
+function TableStrip({ table, activePlayer, cfg, colors }) {
+  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+  if (!table || table.length === 0) return null;
+  return (
+    <div style={{ display: "flex", gap: 8, padding: "8px 12px", background: BG2, borderBottom: `1px solid ${LINE}`, overflowX: "auto" }}>
+      {table.map(seat => {
+        const active = seat.id === activePlayer;
+        const cmd = Object.entries(seat.commanderDamage || {}).filter(([, n]) => n > 0);
+        return (
+          <div
+            key={seat.id}
+            style={{
+              minWidth: 118, flexShrink: 0, padding: "8px 10px", borderRadius: 6,
+              background: BG3,
+              border: `1px solid ${active ? cfg?.border || GOLD : LINE}`,
+              boxShadow: active ? `0 0 0 1px ${cfg?.border || GOLD}` : "none",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: seat.isUser ? (cfg?.color || GOLD) : TEXT }}>
+                {seatLabel(seat.id)}
+              </span>
+              {active && <span style={{ fontSize: 8, color: cfg?.color || GOLD, textTransform: "uppercase", letterSpacing: "0.08em" }}>turn</span>}
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: seat.life <= 5 ? "#e0a89a" : TEXT, lineHeight: 1.15 }}>
+              {seat.life} <span style={{ fontSize: 10, color: MUTED, fontWeight: 400 }}>life</span>
+            </div>
+            <div style={{ display: "flex", gap: 9, fontSize: 10, color: MUTED, marginTop: 2 }}>
+              <span title="cards in hand">✋ {seat.handCount}</span>
+              <span title="permanents on board">▦ {seat.boardCount}</span>
+              <span title="cards in graveyard">⚰ {seat.graveyardCount}</span>
+            </div>
+            {cmd.length > 0 && (
+              <div style={{ fontSize: 9, color: MUTED, marginTop: 3 }}>
+                cmdr dmg {cmd.map(([from, n]) => `${seatLabel(from)} ${n}`).join(" · ")}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -359,6 +456,9 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose }) {
                 {i + 1}.
               </span>
               {opt.name || opt.kind}
+              {opt.kind === "declare-attacker" && opt.defenderId && (
+                <span style={{ color: MUTED }}> → {seatLabel(opt.defenderId)}</span>
+              )}
               {isRecommended && <span style={{ fontSize: 10, color: cfg?.color || GOLD, marginLeft: 8 }}>(recommended)</span>}
             </button>
           );
