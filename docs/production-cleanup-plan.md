@@ -37,12 +37,19 @@ Last updated: 2026-05-29.
 - **Largest-module coverage** — `powerRanker.js` (~1165 lines) gets its first tests (deterministic first-launch degradation, classification, formatter contract).
 - **Docs** — archived the frozen first-run `AUDIT.md` to `docs/archive/` and fixed its references.
 
+**Merged — full-session cleanup (tests, tooling, naming, dedup; CI green):**
+- **E1 test net** — completed the prime-directive trio: `powerRanker` + the **Arbiter Ollama-only invariant** + `rulesRetrieval` parsers, plus import/early-validation **smoke tests for the 8 untested routes** (cards, power-rank, chat-stream, spellbook, symbolic-engine, model-calls, knowledge-status, feedback/open). Writing those exposed + fixed an inconsistency: 3 POST routes returned 500 on malformed JSON instead of 400.
+- **Flaky-suite stabilization** — made the `games` pruning test poll instead of fixed-sleep, and added `vitest.config.mjs` raising `testTimeout` to 20s (the `engine` test spuriously timed out under parallel load on the default 5s). CI is now trustworthy.
+- **D1** — normalized the two hyphenated npm scripts to `verb:noun` (`generate:token-names`, `generate:card-names`).
+- **D3** — disambiguated duplicate fn names: `searchCards` -> `searchLocalCards`/`searchScryfall`; scryfall's private `detectCardNamesInText` -> `detectCardNamesFromCatalog`; spellbook's private `normalizeName` -> `normalizeComboName`.
+- **C4** — Rust gate: path-filtered `rust.yml` runs `cargo fmt --check` + `clippy --release -D warnings` + `cargo audit`. Applied rustfmt, fixed a clippy cast + a cfg'd-out import, corrected stale `Cargo.toml` (version `0.2.4` -> `0.3.0`, `license = MIT` -> `license-file`).
+- **E5 (partial)** — extracted duplicated `validateStacks`/`VALID_*` (collection routes) and `sanitiseId` (games routes) into shared modules; the `sanitiseId` copies had diverged, now fixed.
+
 **Remaining — headless-doable (no running app required):**
-- **C2** — git hooks (commitlint + simple-git-hooks + lint-staged).
-- **C4** — Rust rustfmt + clippy + cargo-audit, wired into CI. *(compile-heavy)*
-- **D3** — disambiguate duplicate fn names (`searchCards`, `detectCardNamesInText`, `normalizeName`).
-- **E1 (rest)** — ~8 route smoke tests. (`powerRanker`, the Arbiter invariant, and the rules-retrieval parsers are already done.)
-- **E2–E6** — shared `theme.js`/`styleHelpers`/`<Modal>`; decompose `MTGAssistant.jsx` + `FeedbackButton.jsx`; split `agents.js`/`powerRanker.js`/`lib.rs`; dedupe backend helpers + card-context builders; frontend dead-code cleanup. *(largest; gated behind the E1 safety net)*
+- **C2** — git hooks (commitlint + simple-git-hooks + lint-staged). *(low value: CI already gates lint+tests; fiddly in this app/-package + repo-root-`.git` layout)*
+- **E4** — split the big modules: `agents.js` (mostly one 630-line prompt), `powerRanker.js` (now test-covered), `lib.rs` (5 concerns; the new Rust gate verifies it compiles). *(large)*
+- **E5 (rest)** — dedupe the remaining backend overlap (feedback store logic, card-context builders).
+- **E6** — frontend dead-code/stale-comment cleanup (unwired `onClose`, "Step N" comments, "coming in Step 6" copy). *(some items change visible UI text -> verify in a running app)*
 
 **Remaining — verification-gated (need a running `.exe`/webview to confirm safely):**
 - **D4** — consolidate data dirs under `knowledge/` (renames `MTG ENGINE/`); touches the signed `.exe` build — verify with `npm run tauri:build`.
