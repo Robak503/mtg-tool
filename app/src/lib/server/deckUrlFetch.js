@@ -15,6 +15,8 @@
  *   section ∈ "Commander" | "Mainboard" | "Sideboard"
  */
 
+import https from "node:https";
+
 const USER_AGENT =
   "MTG-Tool/0.4.0 (https://github.com/Robak503/mtg-tool; local deck importer)";
 
@@ -93,17 +95,45 @@ export function normalizeArchidektDeck(json) {
 }
 
 // ── Network dispatch ─────────────────────────────────────────────────────────
-async function fetchJson(url) {
-  const resp = await fetch(url, {
-    headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-    redirect: "follow",
+// Uses node:https directly rather than global fetch: Next.js patches fetch for
+// caching/instrumentation, and Moxfield's Cloudflare 403s the patched request
+// even with the right headers. node:https gives us full header control and a
+// clean TLS handshake that Cloudflare accepts (custom UA + Accept: json). It
+// also sidesteps Next caching a transient 403.
+function fetchJson(url, depth = 0) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      url,
+      { method: "GET", headers: { "User-Agent": USER_AGENT, Accept: "application/json" } },
+      (res) => {
+        const status = res.statusCode || 0;
+        // Follow a redirect or two (the deck APIs normally answer 200 directly).
+        if (status >= 300 && status < 400 && res.headers.location && depth < 3) {
+          res.resume();
+          const next = new URL(res.headers.location, url).toString();
+          resolve(fetchJson(next, depth + 1));
+          return;
+        }
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          if (status < 200 || status >= 300) {
+            const err = new Error(`Provider returned HTTP ${status}`);
+            err.status = status;
+            return reject(err);
+          }
+          try {
+            resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+          } catch {
+            reject(new Error("Provider returned invalid JSON"));
+          }
+        });
+      },
+    );
+    req.on("error", reject);
+    req.setTimeout(20000, () => req.destroy(new Error("request timed out")));
+    req.end();
   });
-  if (!resp.ok) {
-    const err = new Error(`Provider returned HTTP ${resp.status}`);
-    err.status = resp.status;
-    throw err;
-  }
-  return resp.json();
 }
 
 /**
