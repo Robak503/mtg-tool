@@ -1,5 +1,10 @@
 # Production Cleanup Plan
 
+> **ARCHIVED — superseded by `docs/HANDOFF.md`.** This was the working tracker
+> for the production-cleanup pass, which is now essentially complete. Kept for
+> the detailed per-area code findings in §4. For current status + next steps,
+> see `docs/HANDOFF.md`.
+
 > **Status:** In progress — Phases A, B, C1, C3, D2, the full code-review fix tier,
 > and the first E1 test safety nets are merged (CI green throughout). What remains is
 > either **verification-gated** (needs a running `.exe`/webview to confirm safely) or

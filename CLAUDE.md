@@ -735,6 +735,10 @@ These are absolute. Violating any of these is a failure mode.
 
 Updated whenever phases complete. Last update: 2026-05-28.
 
+> **Current status + actionable next steps live in `docs/HANDOFF.md`** — start a
+> new chat by reading it. This §9 is the higher-level snapshot; the handoff has
+> the copy-paste "what's next" prompts for each remaining piece.
+
 ### Shipped
 
 - ✅ Phases 1-5 (Foundation, Knowledge Layer, Ollama, Agent
