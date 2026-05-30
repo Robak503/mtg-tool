@@ -27,6 +27,7 @@ describe("slimPrinting", () => {
       collector_number: "256",
       finishes: ["nonfoil", "foil"],
       layout: "normal",
+      released_at: "2021-04-23",
       image_uris: { art_crop: "https://example.com/sol-ring.jpg" },
       prices: { usd: "3.50", usd_foil: "12.00", usd_etched: null },
     });
@@ -39,9 +40,32 @@ describe("slimPrinting", () => {
       collectorNumber: "256",
       finishes: ["nonfoil", "foil"],
       layout: "normal",
+      releasedAt: "2021-04-23",
       artCropUrl: "https://example.com/sol-ring.jpg",
       prices: { usd: "3.50", usdFoil: "12.00", usdEtched: null },
     });
+  });
+
+  it("captures releasedAt as null when the source omits it", () => {
+    const out = slimPrinting({
+      id: "x", oracle_id: "y", name: "Test", set: "x", collector_number: "1",
+      finishes: ["nonfoil"], layout: "normal", image_uris: { art_crop: "x" }, prices: {},
+    });
+    expect(out.releasedAt).toBeNull();
+  });
+
+  it("returns null for digital-only printings (not ownable in paper)", () => {
+    const out = slimPrinting({
+      id: "mtgo-1",
+      oracle_id: "oracle-digital",
+      name: "Sol Ring",
+      set: "pmtg1",
+      collector_number: "1",
+      layout: "normal",
+      digital: true,
+      image_uris: { art_crop: "https://example.com/digital.jpg" },
+    });
+    expect(out).toBeNull();
   });
 
   it("pulls art crop from card_faces[0] for DFC / transform layouts", () => {

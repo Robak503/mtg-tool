@@ -28,9 +28,12 @@ export async function GET(request) {
     let results = lookupByName(name);
     if (oracleId) results = results.filter(p => p.oracleId === oracleId);
 
-    // Group by set, then collector number, so a card's printings list reads in
-    // a predictable order (the index has no release date to sort on).
+    // Newest printing first (releasedAt is an ISO date, so a string compare is
+    // chronological), then set + collector number for stable ordering of ties
+    // (e.g. printings released the same day).
     results = [...results].sort((a, b) => {
+      const dateCmp = String(b.releasedAt || "").localeCompare(String(a.releasedAt || ""));
+      if (dateCmp !== 0) return dateCmp;
       const setCmp = String(a.set || "").localeCompare(String(b.set || ""));
       if (setCmp !== 0) return setCmp;
       return String(a.collectorNumber || "").localeCompare(String(b.collectorNumber || ""), undefined, { numeric: true });
