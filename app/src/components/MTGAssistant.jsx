@@ -1,5 +1,21 @@
 "use client";
 
+/**
+ * MTGAssistant — the single top-level client component (the app "shell").
+ *
+ * Owns the global UI state (active agent, which center view is showing, the
+ * right-panel tab, the mobile breakpoint, the Ollama install/pull wizard, the
+ * updates / data-sync modal) and wires the data hooks (useDeckStore,
+ * useChatSessions, useCardSearch) to the presentational sub-components under
+ * ./mtg/* (AppHeader, Sidebar, DeckView, ChatPanel, RightPanel, CollectionView,
+ * LearnView, ...).
+ *
+ * This file is large and is a known decomposition target (cleanup plan, phase
+ * E3). The terse inline style vocabulary it passes down to children as props
+ * (bg, bg3, cfg, pb, F, ...) is documented at the palette definition further
+ * down in this component — search "Inline style vocabulary".
+ */
+
 import { useState, useRef, useEffect } from "react";
 
 import { AGENTS } from "../lib/agents";
@@ -605,6 +621,18 @@ export default function MTGAssistant() {
   useEffect(()=>{ if(mobileTab==="search") setRightTab("search"); if(mobileTab==="stats") setRightTab("stats"); },[mobileTab]);
 
   /* Theme */
+  // ─── Inline style vocabulary ──────────────────────────────────────────────
+  // The UI uses terse local names for its palette + a couple of tiny style
+  // helpers, and passes them down to child components as props (bg, bg3, cfg,
+  // pb, F, ...). Legend so a reader doesn't have to reverse-engineer them:
+  //   BG / BG2 / BG3   background layers: page (opaque) → panel → translucent card
+  //   LINE             border / divider color
+  //   TEXT / MUTED     primary text color / secondary (muted) text color
+  //   GOLD             accent color
+  //   F                serif font-family stack
+  //   cfg              the active agent's theme — AGENTS[agent] (.color/.border/.dim)
+  //   sb(outline)      "select button" style object (the sidebar list buttons)
+  //   pb(primary, sm)  "primary button" style object (primary = filled, sm = small)
   const BG="#060608",BG2="rgba(16,17,34,0.70)",BG3="rgba(22,23,44,0.60)",LINE="#252840",TEXT="#cec8e0",MUTED="#9d98b8",GOLD="#cc8a38";
   const F="'Georgia','Palatino Linotype',serif";
   const sb=(outline)=>({width:"100%",padding:"6px 8px",borderRadius:5,fontFamily:F,fontSize:11,cursor:"pointer",marginBottom:4,textAlign:"left",border:`1px solid ${outline?LINE:cfg.border}`,background:outline?"transparent":cfg.dim,color:outline?MUTED:cfg.color});
