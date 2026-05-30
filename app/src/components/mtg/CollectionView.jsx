@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { adjustStacks } from "../../lib/collectionStacks";
+import { adjustStacks, stackTotal } from "../../lib/collectionStacks";
 import CollectionGrid from "./CollectionGrid";
 import CollectionFilters, { applyFilters } from "./CollectionFilters";
 import CollectionCardDetail from "./CollectionCardDetail";
@@ -224,14 +224,36 @@ export default function CollectionView({ onClose }) {
     return map;
   }, [colorTags.tags]);
 
-  // Assign (or clear, when tagId is null/"default") a color tag on a row.
+  // Assign (or clear, when tagId is null/"default") a color tag on a row, and
+  // reflect the tag's BEHAVIOR onto the row's ownership state. The server only
+  // stores colorTagId — behaviors live client-side (useColorTags) — so the
+  // ownership change is computed here and sent in the same PATCH.
+  //   collection (Have)      → owned (wishlist=false; seed a copy if none)
+  //   wishlist  (Getting)    → wishlist=true  (excluded from owned value)
+  //   consider  (Considering)→ wishlist=true  (excluded from owned value)
+  //   swap / marker          → tag only, ownership untouched
   const assignTag = async (scryfallId, tagId) => {
     const colorTagId = tagId && tagId !== "default" ? tagId : null;
+    const behavior = colorTagId ? (tagMap[colorTagId]?.behavior || "marker") : "marker";
+    const row = collectionRef.current?.cards.find(c => c.scryfallId === scryfallId);
+
+    const patch = { colorTagId };
+    if (row) {
+      if (behavior === "collection") {
+        patch.wishlist = false;
+        if (stackTotal(row.stacks) === 0) {
+          patch.stacks = [{ finish: "nonfoil", quantity: 1, condition: "NM" }];
+        }
+      } else if (behavior === "wishlist" || behavior === "consider") {
+        patch.wishlist = true;
+      }
+    }
+
     try {
       const resp = await fetch(`/api/collection/${encodeURIComponent(scryfallId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ colorTagId }),
+        body: JSON.stringify(patch),
       });
       const body = await resp.json().catch(() => ({}));
       if (resp.ok && body.collection) handleCollectionUpdate(body.collection);

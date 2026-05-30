@@ -21,6 +21,7 @@ import {
   shouldUseEngineContext,
 } from "../lib/deckContextBuilder";
 import { fetchCollectionContextBlock } from "../lib/collectionContextBuilder";
+import { swapBehaviorTagIds } from "./useColorTags";
 import { serializeDeck, serializeDeckMemory } from "../lib/deckMemory";
 import {
   buildCardContext,
@@ -417,7 +418,10 @@ export default function useChatSessions({
       // of generic chat injection — collection roasts need outlier data
       // that doesn't belong in every chat turn.
       if (["karn", "jace"].includes(targetAgent)) {
-        const collectionBlock = await fetchCollectionContextBlock(targetAgent, prompt);
+        // Karn also gets a SWAP CANDIDATES block for cards the user tagged for
+        // replacement; resolve the swap-tag ids from the local tag set.
+        const swapTagIds = targetAgent === "karn" ? swapBehaviorTagIds() : [];
+        const collectionBlock = await fetchCollectionContextBlock(targetAgent, prompt, swapTagIds);
         if (collectionBlock) systemPrompt += `\n\n${collectionBlock}`;
       }
 

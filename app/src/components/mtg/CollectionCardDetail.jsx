@@ -267,45 +267,64 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
   );
 }
 
+// What applying a tag does to the row, by behavior. Shown under the picker so
+// the action isn't a surprise (it mirrors the reflection in CollectionView).
+const BEHAVIOR_EFFECT = {
+  collection: "Counts as owned in your Vault.",
+  wishlist: "Tracked on your wishlist — won't count toward owned value.",
+  consider: "Kept as “considering” — won't count toward owned value.",
+  swap: "Flagged for Karn to suggest replacements.",
+  marker: null,
+};
+
 function TagPicker({ tags, activeId, onAssign, colors }) {
+  const activeTag = activeId ? tags.find(t => t.id === activeId) : null;
+  const effect = activeTag ? BEHAVIOR_EFFECT[activeTag.behavior || "marker"] : null;
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-      {tags.map(tag => {
-        const isNone = tag.id === "default" || tag.builtin;
-        const active = isNone ? !activeId : activeId === tag.id;
-        return (
-          <button
-            key={tag.id}
-            onClick={() => onAssign(isNone ? null : tag.id)}
-            title={isNone ? "Clear tag" : tag.name}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "4px 10px",
-              borderRadius: 999,
-              background: active ? "rgba(255,255,255,0.06)" : "transparent",
-              border: `1px solid ${active ? (isNone ? colors.MUTED : tag.color) : colors.LINE}`,
-              color: colors.TEXT,
-              fontSize: 11,
-              cursor: "pointer",
-              fontFamily: "inherit",
-            }}
-          >
-            <span style={{
-              width: 11,
-              height: 11,
-              borderRadius: 999,
-              flexShrink: 0,
-              background: isNone ? "transparent" : tag.color,
-              border: isNone ? `1px solid ${colors.MUTED}` : "none",
-              display: "inline-block",
-            }} />
-            {isNone ? "None" : tag.name}
-          </button>
-        );
-      })}
-    </div>
+    <>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {tags.map(tag => {
+          const isNone = tag.id === "default" || tag.builtin;
+          const active = isNone ? !activeId : activeId === tag.id;
+          return (
+            <button
+              key={tag.id}
+              onClick={() => onAssign(isNone ? null : tag.id)}
+              title={isNone ? "Clear tag" : tag.name}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 10px",
+                borderRadius: 999,
+                background: active ? "rgba(255,255,255,0.06)" : "transparent",
+                border: `1px solid ${active ? (isNone ? colors.MUTED : tag.color) : colors.LINE}`,
+                color: colors.TEXT,
+                fontSize: 11,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              <span style={{
+                width: 11,
+                height: 11,
+                borderRadius: 999,
+                flexShrink: 0,
+                background: isNone ? "transparent" : tag.color,
+                border: isNone ? `1px solid ${colors.MUTED}` : "none",
+                display: "inline-block",
+              }} />
+              {isNone ? "None" : tag.name}
+            </button>
+          );
+        })}
+      </div>
+      {effect && (
+        <div style={{ fontSize: 10.5, color: colors.MUTED, marginTop: 7, lineHeight: 1.4 }}>
+          {effect}
+        </div>
+      )}
+    </>
   );
 }
 
