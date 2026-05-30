@@ -36,6 +36,7 @@
 export const runtime = "nodejs";
 
 import { createLearnSession, advanceUntilDecision } from "../../../../lib/learn/learnSession.js";
+import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
 
 export async function POST(request) {
@@ -92,6 +93,7 @@ export async function POST(request) {
     turn: advanced.session.state.turn,
     activePlayer: advanced.session.state.activePlayer,
     step: advanced.session.state.step,
+    table: tableSnapshot(advanced.session.state),
   });
 }
 
