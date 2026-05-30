@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-30
+
 ### Added
 - **The Vault — pick the exact printing and finish you own.** Adding a card lists every
   printing as a row — **full set name · set code · collector number · price** — newest
