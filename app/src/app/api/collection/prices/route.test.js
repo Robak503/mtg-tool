@@ -37,6 +37,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   process.chdir(originalCwd);
+  delete process.env.MTG_REFERENCE_DIR;
   await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
 });
 
@@ -109,5 +110,58 @@ describe("POST /api/collection/prices", () => {
     await (await loadRoute()).POST();
     const files = await fs.readdir(path.join(tmpDir, "data"));
     expect(files.find(n => n.includes(".tmp."))).toBeUndefined();
+  });
+});
+
+describe("bundled seed history (#4 groundwork)", () => {
+  it("reads a bundled seed and writes the merged history to the writable dir, leaving the bundle untouched", async () => {
+    // A read-only bundled seed, as shipped under resources/data on a fresh
+    // install. dataPath() falls back to it because the writable copy is absent.
+    const bundleDir = path.join(tmpDir, "bundle");
+    await fs.mkdir(bundleDir, { recursive: true });
+    const seedFile = path.join(bundleDir, "collection-prices.jsonl");
+    const seedLine = JSON.stringify({
+      snappedAt: "2020-01-01", scryfallId: "staple1", usd: "5.00", usdFoil: null, usdEtched: null,
+    });
+    await fs.writeFile(seedFile, seedLine + "\n", "utf8");
+    process.env.MTG_REFERENCE_DIR = bundleDir;
+
+    await seedCollection([
+      { scryfallId: "a", oracleId: "o-a", name: "Sol Ring", stacks: [{ finish: "nonfoil", quantity: 1 }], prices: { usd: "3.50" }, wishlist: false },
+    ]);
+
+    const fresh = await loadRoute();
+    const body = await (await fresh.POST()).json();
+    expect(body.snapped).toBe(true);
+
+    // Writable history now carries the seed (past point) + today's owned entry —
+    // exactly what the Finance movers need on day 1.
+    const history = await readHistoryFile();
+    const ids = history.map(e => e.scryfallId);
+    expect(ids).toContain("staple1");
+    expect(ids).toContain("a");
+    expect(history.some(e => e.snappedAt === "2020-01-01")).toBe(true);
+
+    // The read-only bundle was never written to.
+    const bundleAfter = (await fs.readFile(seedFile, "utf8")).trim().split("\n").filter(Boolean);
+    expect(bundleAfter).toHaveLength(1);
+    expect(JSON.parse(bundleAfter[0]).scryfallId).toBe("staple1");
+  });
+
+  it("snapshot writes go to the writable dir even when a bundled seed exists", async () => {
+    const bundleDir = path.join(tmpDir, "bundle");
+    await fs.mkdir(bundleDir, { recursive: true });
+    await fs.writeFile(
+      path.join(bundleDir, "collection-prices.jsonl"),
+      JSON.stringify({ snappedAt: "2020-01-01", scryfallId: "staple1", usd: "5.00" }) + "\n",
+      "utf8",
+    );
+    process.env.MTG_REFERENCE_DIR = bundleDir;
+    await seedCollection([
+      { scryfallId: "a", oracleId: "o-a", name: "X", stacks: [{ finish: "nonfoil", quantity: 1 }], prices: { usd: "1.00" }, wishlist: false },
+    ]);
+    await (await loadRoute()).POST();
+    // The writable copy now exists (proving the write didn't target the bundle).
+    await expect(fs.access(path.join(tmpDir, "data", "collection-prices.jsonl"))).resolves.toBeUndefined();
   });
 });

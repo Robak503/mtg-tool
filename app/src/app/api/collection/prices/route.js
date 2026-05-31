@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
 
-import { dataDir, dataPath } from "../../../../lib/server/paths.js";
+import { appPath, dataDir, dataPath } from "../../../../lib/server/paths.js";
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
 import { loadWatchlist } from "../../../../lib/server/watchlistStorage.js";
 import { resolvePrices } from "../../../../lib/server/priceResolution.js";
@@ -30,7 +30,13 @@ import {
   compactHistory,
 } from "../../../../lib/server/collectionPrices.js";
 
+// Read path: dataPath() falls back to a bundled seed (resources/data) on a
+// fresh install so day-1 Finance has a baseline. Write path: ALWAYS the
+// writable data dir — never the read-only bundle — so the first snapshot merges
+// the seed into AppData instead of trying to write into resources (which fails
+// on a packaged install). (#4 groundwork.)
 const HISTORY_FILE = () => dataPath("collection-prices.jsonl");
+const HISTORY_WRITE_FILE = () => appPath("data", "collection-prices.jsonl");
 
 // Top EDHREC staples to track daily (beyond owned + grails) so the Finance
 // section's "worth getting" movers have a candidate universe to chart.
@@ -54,7 +60,7 @@ async function readHistory() {
 
 async function writeHistoryAtomic(entries) {
   await fs.mkdir(dataDir(), { recursive: true });
-  const target = HISTORY_FILE();
+  const target = HISTORY_WRITE_FILE();
   const tmp = `${target}.tmp.${process.pid}.${Date.now()}`;
   await fs.writeFile(tmp, serializeHistory(entries), "utf8");
   await fs.rename(tmp, target);
