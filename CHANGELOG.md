@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-05-31
+
 ### Added
 - **MTG Finance in the Vault.** The Vault has a new **Finance** tab — a local,
   MTGStocks-style price watch built entirely from the app's own daily price
