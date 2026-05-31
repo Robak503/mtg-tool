@@ -6,8 +6,8 @@
  * directory-of-files stores and are left for a follow-up.
  */
 
-// Backup section → the writable data file it restores into.
-export const RESTORE_SECTION_FILES = {
+// Backup section → the writable data file it restores into. Internal-only.
+const RESTORE_SECTION_FILES = {
   decks: "decks.local.json",
   chats: "chats.local.json",
   collection: "collection.json",
