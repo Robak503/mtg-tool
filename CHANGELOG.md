@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Deck Report in the deck view.** A new **Deck Report** section (next to
+  Recommendations) generates one complete, local report for the active deck —
+  power level + WotC bracket, role counts, Commander legality + color-identity
+  check, in-deck and one-card-away combos, EDHREC salt, and cost-to-finish from
+  your collection — plus a copy-paste **Rule 0 card** for the table. Toggle
+  between the full report and the Rule 0 pitch, and copy either to the
+  clipboard. Runs entirely off local data — no API cost.
+
 ## [0.11.0] - 2026-05-31
 
 ### Fixed
