@@ -19,8 +19,24 @@ function cleanProvider(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+// Local-first provider allowlist. The ONLY values that may reach Anthropic are
+// the explicit cloud aliases below; "auto" opts into local-first-with-fallback;
+// everything else — "ollama", "local", the Fast/Deep tier names, the empty
+// string, and any typo — resolves to local Ollama. A mistyped provider must
+// never silently spend API credits. (CLAUDE.md §1.1 local-first mandate.)
+const CLOUD_PROVIDERS = new Set(["anthropic", "api"]);
+
+export function normalizeProvider(value) {
+  const p = cleanProvider(value);
+  if (CLOUD_PROVIDERS.has(p)) return "anthropic";
+  if (p === "auto") return "auto";
+  return "ollama";
+}
+
 export function selectedProvider(requestedProvider) {
-  return cleanProvider(requestedProvider || process.env.MTG_MODEL_PROVIDER || process.env.MODEL_PROVIDER || "ollama");
+  return normalizeProvider(
+    requestedProvider || process.env.MTG_MODEL_PROVIDER || process.env.MODEL_PROVIDER || "ollama"
+  );
 }
 
 function maxTokensFrom(value) {
@@ -247,17 +263,21 @@ export async function callOllamaMessages(body = {}) {
 export async function callModelMessages(body = {}) {
   const provider = selectedProvider(body.provider);
 
-  if (provider === "ollama" || provider === "local") {
-    return callOllamaMessages(body);
+  // Explicit cloud tier — the only path that spends API credits.
+  if (provider === "anthropic") {
+    return callAnthropicMessages(body);
   }
 
+  // Local-first with opt-in fallback: try Ollama, only reach for Anthropic if
+  // the local call failed AND the env explicitly allows auto-fallback.
   if (provider === "auto") {
     const local = await callOllamaMessages(body);
     if (local.ok || !fallbackAllowed()) return local;
     return callAnthropicMessages(body);
   }
 
-  return callAnthropicMessages(body);
+  // Default (incl. "ollama"/"local" and any unknown/typo) stays local.
+  return callOllamaMessages(body);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

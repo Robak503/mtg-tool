@@ -275,3 +275,64 @@ describe("POST /api/feedback/bundle (import)", () => {
     expect(response.status).toBe(413);
   });
 });
+
+describe("POST /api/feedback/bundle (path-traversal hardening)", () => {
+  function maliciousBundle(timestamp) {
+    return {
+      kind: "mtg-tool-feedback-bundle",
+      schemaVersion: 1,
+      entries: [
+        { id: "evil0001", message: "payload", category: "bug", timestamp, context: {} },
+      ],
+    };
+  }
+
+  it.each([
+    "../../../../pwned",
+    "..\\..\\..\\pwned",
+    "/etc/passwd",
+    "C:\\Windows\\pwned",
+    "2026-05-28T10:00:00Z/../../pwned",
+  ])("neutralizes a traversal timestamp (%j): the file stays inside the feedback dir", async (ts) => {
+    const response = await bundleRoute.POST(bundleRequest(maliciousBundle(ts)));
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    // The entry is still imported — the timestamp is just display metadata ...
+    expect(body.imported).toBe(1);
+
+    // ... but the written file is a flat, safe name with no separators, no
+    // parent refs, and no attacker marker.
+    const files = await listEntryFiles();
+    expect(files).toHaveLength(1);
+    const name = files[0];
+    expect(name).toMatch(/^[A-Za-z0-9._-]+\.json$/);
+    expect(name).not.toContain("..");
+    expect(name).not.toContain("pwned");
+    expect(name).not.toContain("passwd");
+
+    // The file is readable at the expected location — proving it did not escape.
+    const written = JSON.parse(
+      await fs.readFile(path.join(tmpDir, "data", "feedback", name), "utf8")
+    );
+    expect(written.message).toBe("payload");
+
+    // Nothing leaked next to (or above) the feedback dir.
+    const dataListing = await fs.readdir(path.join(tmpDir, "data"));
+    expect(dataListing.some(f => f.includes("pwned") || f.includes("passwd"))).toBe(false);
+  });
+
+  it("still derives the filename from a valid ISO timestamp", async () => {
+    const bundle = {
+      kind: "mtg-tool-feedback-bundle",
+      schemaVersion: 1,
+      entries: [
+        { id: "iso00001", message: "legit", category: "bug", timestamp: "2026-05-28T10:00:00.000Z", context: {} },
+      ],
+    };
+    const response = await bundleRoute.POST(bundleRequest(bundle));
+    expect(response.status).toBe(200);
+    const files = await listEntryFiles();
+    expect(files).toHaveLength(1);
+    expect(files[0]).toMatch(/^2026-05-28T10-00-00Z-/);
+  });
+});
