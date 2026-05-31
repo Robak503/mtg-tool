@@ -8,6 +8,32 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **Your chats keep their state across a restart.** The deck-gate "Chat without
+  a deck" choice, plus each answer's retry button and its grounding / Arbiter
+  metadata, were silently dropped when chats were saved — so they vanished on
+  the next launch (Karn and Tibalt would re-prompt for a deck every time). They
+  now persist.
+- **Streaming answers can't hang forever.** Local (Ollama) and API (Anthropic)
+  streamed responses now have an idle timeout that covers the whole response,
+  not just the initial connection — a stalled model surfaces a clear error you
+  can retry instead of a frozen "…".
+- **In-app data syncs take effect immediately.** After a sync from the Updates
+  panel, the app now drops its stale in-memory caches, so refreshed cards,
+  combos, salt scores, prices, and rules are used right away without restarting.
+
+### Added
+- **Price history accrues on app launch**, not only when you open the Vault — so
+  the Finance tab's movers and "finance plays" fill in reliably even if you
+  rarely open your collection.
+
+### Security
+- **A mistyped model provider can no longer spend API credits.** Provider
+  selection is now a strict allowlist that defaults to the local model; only the
+  explicit API tier reaches Anthropic.
+- **Hardened feedback-bundle import** against a path-traversal attempt hidden in
+  a malicious bundle's timestamp.
+
 ## [0.10.0] - 2026-05-31
 
 ### Added
