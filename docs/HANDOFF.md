@@ -6,6 +6,13 @@
 > - `docs/production-cleanup-plan.md` → archived to `docs/archive/` (deep
 >   per-area code findings live there if you need them).
 > - `docs/phase6-handoff.md` → folded into **Track 2** below and deleted.
+>
+> **For the full prioritized backlog + product strategy, see
+> [`docs/master-plan.md`](master-plan.md)** — the consolidated strategic source of
+> truth (CEO review + implementation plan + feature research + the Vault menu).
+> This HANDOFF is its tactical companion. ⚠️ *This file is stale below — it
+> predates v0.6–v0.10; trust `CHANGELOG.md` / `master-plan.md` §2 for shipped
+> state until it's refreshed (master-plan O2).*
 
 **Last updated:** 2026-05-30 · **Master:** `3cd6277` (green).
 
