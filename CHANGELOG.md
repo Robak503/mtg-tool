@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-30
+
 ### Added
 - **Combos tab in the right panel.** Pick any deck and the new **Combos** tab
   shows the Commander Spellbook combos already in it *and* the ones you're a
