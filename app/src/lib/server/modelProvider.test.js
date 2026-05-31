@@ -32,7 +32,7 @@ beforeEach(async () => {
   process.chdir(tmpDir);
 
   // Deterministic env: no ambient provider override, no real API key by default.
-  for (const key of ["MTG_MODEL_PROVIDER", "MODEL_PROVIDER", "ANTHROPIC_API_KEY"]) {
+  for (const key of ["MTG_MODEL_PROVIDER", "MODEL_PROVIDER", "ANTHROPIC_API_KEY", "MTG_STREAM_IDLE_TIMEOUT_MS"]) {
     savedEnv[key] = process.env[key];
     delete process.env[key];
   }
@@ -57,7 +57,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   globalThis.fetch = originalFetch;
-  for (const key of ["MTG_MODEL_PROVIDER", "MODEL_PROVIDER", "ANTHROPIC_API_KEY"]) {
+  for (const key of ["MTG_MODEL_PROVIDER", "MODEL_PROVIDER", "ANTHROPIC_API_KEY", "MTG_STREAM_IDLE_TIMEOUT_MS"]) {
     if (savedEnv[key] === undefined) delete process.env[key];
     else process.env[key] = savedEnv[key];
   }
@@ -138,5 +138,133 @@ describe("callModelMessages routing (a typo must not bill the user)", () => {
     await mod.callModelMessages({ messages: [{ role: "user", content: "hi" }] });
     expect(hitOllama()).toBe(true);
     expect(hitAnthropic()).toBe(false);
+  });
+});
+
+describe("streaming idle timeouts (A4)", () => {
+  // Decode an enqueued `data: {json}\n\n` chunk back to an object.
+  function decodeEvent(u8) {
+    const text = new TextDecoder().decode(u8);
+    return JSON.parse(text.replace(/^data:\s*/, "").trim());
+  }
+  function makeController() {
+    const events = [];
+    return { events, enqueue: (chunk) => events.push(decodeEvent(chunk)) };
+  }
+  // A body whose reader yields `firstChunk` then stalls forever until the
+  // request's AbortController fires — mirrors a stalled upstream stream.
+  function stallingBody(firstChunk, signal) {
+    let calls = 0;
+    return {
+      getReader() {
+        return {
+          read() {
+            calls += 1;
+            if (calls === 1) {
+              return Promise.resolve({ done: false, value: new TextEncoder().encode(firstChunk) });
+            }
+            return new Promise((_resolve, reject) => {
+              const onAbort = () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+              if (signal?.aborted) onAbort();
+              else signal?.addEventListener("abort", onAbort, { once: true });
+            });
+          },
+          cancel() {},
+        };
+      },
+    };
+  }
+  // A body whose reader yields the given chunks then completes cleanly.
+  function completingBody(chunks) {
+    let i = 0;
+    return {
+      getReader() {
+        return {
+          read() {
+            if (i < chunks.length) {
+              const value = new TextEncoder().encode(chunks[i]);
+              i += 1;
+              return Promise.resolve({ done: false, value });
+            }
+            return Promise.resolve({ done: true, value: undefined });
+          },
+          cancel() {},
+        };
+      },
+    };
+  }
+
+  // Set a short idle timeout + a custom fetch, then reload the module so the
+  // env-driven STREAM_IDLE_TIMEOUT_MS takes effect.
+  async function loadStreamingModule(setup) {
+    process.env.MTG_STREAM_IDLE_TIMEOUT_MS = "40";
+    setup();
+    vi.resetModules();
+    return import("./modelProvider.js");
+  }
+
+  it("ollama: a stalled body times out instead of hanging", async () => {
+    const streaming = await loadStreamingModule(() => {
+      globalThis.fetch = vi.fn(async (_url, options) => ({
+        ok: true,
+        status: 200,
+        body: stallingBody('{"message":{"content":"hi"}}\n', options.signal),
+      }));
+    });
+    const controller = makeController();
+    const result = await streaming.streamOllamaMessages(
+      { messages: [{ role: "user", content: "go" }] },
+      controller
+    );
+    expect(controller.events.some(e => e.type === "text_delta" && e.text === "hi")).toBe(true);
+    const err = controller.events.find(e => e.type === "error");
+    expect(err).toBeTruthy();
+    expect(err.timeout).toBe(true);
+    expect(err.error).toMatch(/stalled/i);
+    expect(result.errorOccurred).toMatch(/stalled/i);
+  });
+
+  it("ollama: a normally-completing stream emits done with no error", async () => {
+    const streaming = await loadStreamingModule(() => {
+      globalThis.fetch = vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        body: completingBody(['{"message":{"content":"hi"}}\n', '{"done":true,"eval_count":2}\n']),
+      }));
+    });
+    const controller = makeController();
+    const result = await streaming.streamOllamaMessages(
+      { messages: [{ role: "user", content: "go" }] },
+      controller
+    );
+    expect(controller.events.some(e => e.type === "text_delta")).toBe(true);
+    expect(controller.events.some(e => e.type === "done")).toBe(true);
+    expect(controller.events.some(e => e.type === "error")).toBe(false);
+    expect(result.errorOccurred).toBeNull();
+  });
+
+  it("anthropic: a stalled body times out instead of hanging", async () => {
+    const streaming = await loadStreamingModule(() => {
+      process.env.ANTHROPIC_API_KEY = "sk-ant-stream-test";
+      globalThis.fetch = vi.fn(async (_url, options) => ({
+        ok: true,
+        status: 200,
+        body: stallingBody(
+          'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"hi"}}\n',
+          options.signal
+        ),
+      }));
+    });
+    const controller = makeController();
+    const result = await streaming.streamAnthropicMessages(
+      { messages: [{ role: "user", content: "go" }] },
+      controller
+    );
+    expect(controller.events.some(e => e.type === "text_delta" && e.text === "hi")).toBe(true);
+    const err = controller.events.find(e => e.type === "error");
+    expect(err).toBeTruthy();
+    expect(err.timeout).toBe(true);
+    expect(err.error).toMatch(/stalled/i);
+    expect(result.errorOccurred).toMatch(/stalled/i);
   });
 });

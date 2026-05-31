@@ -297,6 +297,34 @@ function encodeStreamEvent(event) {
   return new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`);
 }
 
+// Idle timeout for streaming bodies. Configurable for tests; 120s in prod.
+const STREAM_IDLE_TIMEOUT_MS =
+  Number(process.env.MTG_STREAM_IDLE_TIMEOUT_MS) > 0
+    ? Number(process.env.MTG_STREAM_IDLE_TIMEOUT_MS)
+    : 120_000;
+
+// A resettable idle timeout bound to an AbortController. `bump()` (re)arms it;
+// call it before the request and after every received chunk so a stream that
+// goes silent for STREAM_IDLE_TIMEOUT_MS is aborted instead of hanging the UI
+// forever. `clear()` disarms it on completion. (A4: the body-read loop must stay
+// covered — clearing the timer once headers arrived was the original bug, and
+// the Anthropic path had no idle timeout at all.)
+function createStreamIdleTimeout(abortController, ms = STREAM_IDLE_TIMEOUT_MS) {
+  let timer = null;
+  return {
+    bump() {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => abortController.abort(), ms);
+    },
+    clear() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    },
+  };
+}
+
 function resolveOllamaModel(body) {
   // Karn and Tibalt always use the agent-tier model for reasoning quality,
   // regardless of the user's Fast/Deep selector. Other agents respect the
@@ -327,7 +355,8 @@ export async function streamOllamaMessages(body, controller) {
   }));
 
   const abort = new AbortController();
-  const timeoutId = setTimeout(() => abort.abort(), 120_000);
+  const idle = createStreamIdleTimeout(abort);
+  idle.bump();
 
   let outputChars = 0;
   let outputTokens = null;
@@ -350,10 +379,10 @@ export async function streamOllamaMessages(body, controller) {
       }),
     });
   } catch (fetchError) {
-    clearTimeout(timeoutId);
+    idle.clear();
     const isTimeout = fetchError?.name === "AbortError";
     const errMsg = isTimeout
-      ? "Ollama request timed out after 120s."
+      ? `Ollama stream stalled (no data for ${STREAM_IDLE_TIMEOUT_MS / 1000}s).`
       : `Could not reach Ollama at ${baseUrl}. Start with: ollama serve`;
     controller.enqueue(encodeStreamEvent({
       type: "error",
@@ -364,9 +393,9 @@ export async function streamOllamaMessages(body, controller) {
     }));
     return { outputChars, outputTokens, errorOccurred: errMsg, model };
   }
-  clearTimeout(timeoutId);
 
   if (!response.ok) {
+    idle.clear();
     const errData = await response.json().catch(() => ({}));
     const errText = String(errData.error || "Ollama error");
     const isModelMissing = /model.{0,40}not found|pull/i.test(errText);
@@ -386,33 +415,50 @@ export async function streamOllamaMessages(body, controller) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split("\n");
-    buf = lines.pop();
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const event = JSON.parse(line);
-        const token = event.message?.content || event.response || "";
-        if (token) {
-          outputChars += token.length;
-          controller.enqueue(encodeStreamEvent({ type: "text_delta", text: token }));
-        }
-        if (event.done) {
-          outputTokens = event.eval_count ?? null;
-          controller.enqueue(encodeStreamEvent({
-            type: "done",
-            provider: "ollama",
-            model,
-            modelTier: isAgentModel ? "mid" : (body.modelTier || (body.fastLocal ? "fast" : "deep")),
-            usage: { output_tokens: outputTokens },
-          }));
-        }
-      } catch { /* skip malformed NDJSON line */ }
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      idle.bump(); // received data — reset the idle clock
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const event = JSON.parse(line);
+          const token = event.message?.content || event.response || "";
+          if (token) {
+            outputChars += token.length;
+            controller.enqueue(encodeStreamEvent({ type: "text_delta", text: token }));
+          }
+          if (event.done) {
+            outputTokens = event.eval_count ?? null;
+            controller.enqueue(encodeStreamEvent({
+              type: "done",
+              provider: "ollama",
+              model,
+              modelTier: isAgentModel ? "mid" : (body.modelTier || (body.fastLocal ? "fast" : "deep")),
+              usage: { output_tokens: outputTokens },
+            }));
+          }
+        } catch { /* skip malformed NDJSON line */ }
+      }
     }
+  } catch (readError) {
+    const isTimeout = readError?.name === "AbortError";
+    errorOccurred = isTimeout
+      ? `Ollama stream stalled (no data for ${STREAM_IDLE_TIMEOUT_MS / 1000}s).`
+      : `Ollama stream read failed: ${readError?.message || readError}`;
+    controller.enqueue(encodeStreamEvent({
+      type: "error",
+      error: errorOccurred,
+      provider: "ollama",
+      fallbackAvailable: Boolean(anthropicKey()),
+      timeout: isTimeout,
+    }));
+  } finally {
+    idle.clear();
   }
 
   return { outputChars, outputTokens, errorOccurred, model };
@@ -443,6 +489,10 @@ export async function streamAnthropicMessages(body, controller) {
   let inputTokens = null;
   let errorOccurred = null;
 
+  const abort = new AbortController();
+  const idle = createStreamIdleTimeout(abort);
+  idle.bump();
+
   let response;
   try {
     response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -452,6 +502,7 @@ export async function streamAnthropicMessages(body, controller) {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
+      signal: abort.signal,
       body: JSON.stringify({
         model,
         max_tokens: maxTokensFrom(body.max_tokens),
@@ -461,12 +512,17 @@ export async function streamAnthropicMessages(body, controller) {
       }),
     });
   } catch (fetchError) {
-    const errMsg = `Could not reach Anthropic API: ${fetchError.message}`;
-    controller.enqueue(encodeStreamEvent({ type: "error", error: errMsg, provider: "anthropic" }));
+    idle.clear();
+    const isTimeout = fetchError?.name === "AbortError";
+    const errMsg = isTimeout
+      ? `Anthropic stream stalled (no data for ${STREAM_IDLE_TIMEOUT_MS / 1000}s).`
+      : `Could not reach Anthropic API: ${fetchError.message}`;
+    controller.enqueue(encodeStreamEvent({ type: "error", error: errMsg, provider: "anthropic", timeout: isTimeout }));
     return { outputChars, outputTokens, inputTokens, errorOccurred: errMsg, model };
   }
 
   if (!response.ok) {
+    idle.clear();
     const errData = await response.json().catch(() => ({}));
     const errMsg = errData.error?.message || `Anthropic error ${response.status}`;
     controller.enqueue(encodeStreamEvent({ type: "error", error: errMsg, provider: "anthropic" }));
@@ -477,47 +533,58 @@ export async function streamAnthropicMessages(body, controller) {
   const decoder = new TextDecoder();
   let buf = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split("\n");
-    buf = lines.pop();
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      idle.bump(); // received data — reset the idle clock
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop();
 
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const payload = line.slice(6).trim();
-      if (payload === "[DONE]") continue;
-      try {
-        const event = JSON.parse(payload);
-        if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
-          const token = event.delta.text || "";
-          if (token) {
-            outputChars += token.length;
-            controller.enqueue(encodeStreamEvent({ type: "text_delta", text: token }));
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const payload = line.slice(6).trim();
+        if (payload === "[DONE]") continue;
+        try {
+          const event = JSON.parse(payload);
+          if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+            const token = event.delta.text || "";
+            if (token) {
+              outputChars += token.length;
+              controller.enqueue(encodeStreamEvent({ type: "text_delta", text: token }));
+            }
+          } else if (event.type === "message_delta" && event.usage) {
+            outputTokens = event.usage.output_tokens ?? null;
+            inputTokens = event.usage.input_tokens ?? null;
+          } else if (event.type === "message_stop") {
+            controller.enqueue(encodeStreamEvent({
+              type: "done",
+              provider: "anthropic",
+              model,
+              modelTier: body.modelTier || "anthropic",
+              usage: { input_tokens: inputTokens, output_tokens: outputTokens },
+            }));
+          } else if (event.type === "error") {
+            const errMsg = event.error?.message || "Anthropic stream error";
+            controller.enqueue(encodeStreamEvent({
+              type: "error",
+              error: errMsg,
+              provider: "anthropic",
+            }));
+            errorOccurred = errMsg;
           }
-        } else if (event.type === "message_delta" && event.usage) {
-          outputTokens = event.usage.output_tokens ?? null;
-          inputTokens = event.usage.input_tokens ?? null;
-        } else if (event.type === "message_stop") {
-          controller.enqueue(encodeStreamEvent({
-            type: "done",
-            provider: "anthropic",
-            model,
-            modelTier: body.modelTier || "anthropic",
-            usage: { input_tokens: inputTokens, output_tokens: outputTokens },
-          }));
-        } else if (event.type === "error") {
-          const errMsg = event.error?.message || "Anthropic stream error";
-          controller.enqueue(encodeStreamEvent({
-            type: "error",
-            error: errMsg,
-            provider: "anthropic",
-          }));
-          errorOccurred = errMsg;
-        }
-      } catch { /* skip malformed SSE line */ }
+        } catch { /* skip malformed SSE line */ }
+      }
     }
+  } catch (readError) {
+    const isTimeout = readError?.name === "AbortError";
+    errorOccurred = isTimeout
+      ? `Anthropic stream stalled (no data for ${STREAM_IDLE_TIMEOUT_MS / 1000}s).`
+      : `Anthropic stream read failed: ${readError?.message || readError}`;
+    controller.enqueue(encodeStreamEvent({ type: "error", error: errorOccurred, provider: "anthropic", timeout: isTimeout }));
+  } finally {
+    idle.clear();
   }
 
   return { outputChars, outputTokens, inputTokens, errorOccurred, model };
