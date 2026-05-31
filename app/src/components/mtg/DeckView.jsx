@@ -11,7 +11,7 @@
  *   pb         primary-button style fn  setTooltip   card hover-preview setter
  */
 import { AGENTS } from "../../lib/agents";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import GarfieldPanel from "./GarfieldPanel";
 
 export default function DeckView({
@@ -91,6 +91,26 @@ export default function DeckView({
   };
   const deleteSnapshot = (id) => {
     updateActiveMemory({ snapshots: snapshots.filter(entry => entry.id !== id) });
+  };
+
+  const [recs, setRecs] = useState(null);
+  const [recsLoading, setRecsLoading] = useState(false);
+  const loadRecs = async () => {
+    if (!deckCards.length || recsLoading) return;
+    setRecsLoading(true);
+    try {
+      const resp = await fetch("/api/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cards: deckCards }),
+      });
+      const data = await resp.json();
+      setRecs(resp.ok ? data : { ready: false, error: data.error || "Recommendations failed." });
+    } catch (e) {
+      setRecs({ ready: false, error: e.message });
+    } finally {
+      setRecsLoading(false);
+    }
   };
 
   return (
@@ -293,6 +313,61 @@ export default function DeckView({
                               </details>
                             );
                           })}
+                        </div>
+                        <div style={{background:BG,border:`1px solid ${LINE}`,borderRadius:6,padding:10,marginBottom:14}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                            <span style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em"}}>Recommendations</span>
+                            <span style={{fontSize:9,color:MUTED}}>local · free</span>
+                            <button onClick={loadRecs} disabled={recsLoading||!deckCards.length} style={{...pb(false,true),marginLeft:"auto",fontSize:10,padding:"4px 8px",opacity:(recsLoading||!deckCards.length)?.5:1}}>{recsLoading?"Analyzing…":(recs?"Refresh":"Get recommendations")}</button>
+                          </div>
+                          {!recs&&!recsLoading&&<div style={{fontSize:11,color:MUTED,lineHeight:1.45}}>Deterministic add/cut suggestions from your local data — role gaps filled with color-legal staples, one-card-away combos, and weak/salty cut candidates. No API cost.</div>}
+                          {recs&&recs.ready===false&&<div style={{fontSize:11,color:"#c84848",lineHeight:1.45}}>{recs.error}</div>}
+                          {recs&&recs.ready&&(
+                            <div style={{display:"flex",flexDirection:"column",gap:11}}>
+                              <div style={{fontSize:11,color:MUTED}}>Bracket {recs.bracket} · power {recs.powerLevel}{recs.colors?.length?` · ${recs.colors.join("")}`:""}{recs.confidence==="low"?" · low confidence (unresolved cards)":""}</div>
+                              {recs.notes?.length>0&&(
+                                <div style={{fontSize:11,color:GOLD,lineHeight:1.45}}>{recs.notes.map((n,i)=><div key={i}>• {n}</div>)}</div>
+                              )}
+                              {recs.adds?.length>0&&(
+                                <div>
+                                  <div style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>Fill these gaps</div>
+                                  {recs.adds.map((a,i)=>(
+                                    <div key={i} style={{fontSize:11,lineHeight:1.6,marginBottom:5}}>
+                                      <span style={{color:TEXT,fontWeight:700}}>{a.role}</span> <span style={{color:MUTED}}>({a.have}/{a.target})</span>
+                                      {a.suggestions.length>0?(
+                                        <div>{a.suggestions.map((s,j)=>(
+                                          <span key={j}
+                                            onMouseEnter={e=>handleChipHover(s,e)} onMouseLeave={()=>setTooltip(null)}
+                                            style={{color:cfg.color,cursor:"pointer",marginRight:8,borderBottom:`1px dotted ${cfg.border}`}}>{s}</span>
+                                        ))}</div>
+                                      ):<div style={{color:MUTED}}>No local color-legal staples found for this role.</div>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {recs.completions?.length>0&&(
+                                <div>
+                                  <div style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>Finish a combo</div>
+                                  {recs.completions.map((c,i)=>(
+                                    <div key={i} style={{fontSize:11,lineHeight:1.5,color:MUTED}}>
+                                      Add <span onMouseEnter={e=>handleChipHover(c.missingCard,e)} onMouseLeave={()=>setTooltip(null)} style={{color:GOLD,fontWeight:700,cursor:"pointer"}}>{c.missingCard}</span> with {c.pieces.join(" + ")}{c.produces?.length?` → ${c.produces[0]}`:""}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {recs.cuts?.length>0&&(
+                                <div>
+                                  <div style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:5}}>Consider cutting</div>
+                                  {recs.cuts.map((c,i)=>(
+                                    <div key={i} style={{fontSize:11,lineHeight:1.5}}>
+                                      <span onMouseEnter={e=>handleChipHover(c.name,e)} onMouseLeave={()=>setTooltip(null)} style={{color:TEXT,cursor:"pointer"}}>{c.name}</span> <span style={{color:MUTED}}>— {c.reason}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              <div style={{fontSize:10,color:MUTED,lineHeight:1.4}}>Heuristic, not gospel — Karn&apos;s Upgrade Plan reasons about your specific list.</div>
+                            </div>
+                          )}
                         </div>
                         <div style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:7}}>Game Log</div>
                         <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"90px 1fr",gap:8,marginBottom:8}}>

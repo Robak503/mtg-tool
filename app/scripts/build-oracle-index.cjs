@@ -19,7 +19,7 @@
  *     count: number of cards in the slim index (art_series excluded),
  *     cards: [
  *       { name, oracle_id, type_line, oracle_text, mana_cost, cmc,
- *         color_identity, legalities, layout, card_faces? }
+ *         color_identity, legalities, layout, keywords, edhrec_rank, card_faces? }
  *     ]
  *   }
  *
@@ -73,6 +73,10 @@ function slimCard(card) {
     legalities: card.legalities || {},
     layout: card.layout || "normal",
     keywords: Array.isArray(card.keywords) ? card.keywords : [],
+    // edhrec_rank powers staple-ranking in searchLocalCards() and the deck
+    // recommender (lower rank = more played). Kept slim (one number) — without
+    // it, edhrec_rank-based scoring silently no-ops on the slim-index path.
+    edhrec_rank: typeof card.edhrec_rank === "number" ? card.edhrec_rank : null,
   };
 
   if (Array.isArray(card.card_faces) && card.card_faces.length) {
