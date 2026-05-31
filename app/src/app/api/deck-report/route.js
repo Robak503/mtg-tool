@@ -20,6 +20,7 @@ import {
   assessDeckLegality,
   buildDeckReport,
   renderDeckReportMarkdown,
+  renderRule0Card,
 } from "../../../lib/server/deckReport.js";
 
 // Sections that don't count toward legality (the commander defines the color
@@ -83,7 +84,8 @@ export async function POST(request) {
 
     const report = buildDeckReport({ deckName, ranker, legality, cost, recs });
     const markdown = renderDeckReportMarkdown(report);
-    return Response.json({ ...report, markdown });
+    const rule0 = renderRule0Card(report);
+    return Response.json({ ...report, markdown, rule0 });
   } catch (err) {
     if (err?.code === "ENOENT") {
       return Response.json(

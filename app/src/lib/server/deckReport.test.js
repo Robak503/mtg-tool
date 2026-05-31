@@ -10,6 +10,7 @@ import {
   assessDeckLegality,
   buildDeckReport,
   renderDeckReportMarkdown,
+  renderRule0Card,
 } from "./deckReport.js";
 
 const RANKER = {
@@ -145,5 +146,25 @@ describe("renderDeckReportMarkdown", () => {
     const legality = assessDeckLegality([{ name: "Sol Ring", commanderLegal: "legal", colorIdentity: [] }], ["U", "B", "R"]);
     const md = renderDeckReportMarkdown(buildDeckReport({ deckName: "Clean", ranker: RANKER, legality, cost: null, recs: null }));
     expect(md).toContain("✅ Legal");
+  });
+});
+
+describe("renderRule0Card", () => {
+  it("renders a compact table pitch with the key signals", () => {
+    const card = renderRule0Card(buildDeckReport({ deckName: "Kess Storm", ranker: RANKER, legality: null, cost: null, recs: null }));
+    expect(card).toContain("# Rule 0: Kess Storm");
+    expect(card).toContain("Kess, Dissident Mage");
+    expect(card).toMatch(/Bracket \*\*3 — Upgraded\*\*/);
+    expect(card).toContain("Thassa's Oracle + Demonic Consultation"); // combos
+    expect(card).toContain("Time Warp"); // extra turns
+    expect(card).toContain("Cyclonic Rift"); // game changers
+    expect(card).toMatch(/Tutors: 4/);
+    // Compact: a Rule 0 card is much shorter than the full report.
+    const full = renderDeckReportMarkdown(buildDeckReport({ deckName: "Kess Storm", ranker: RANKER, legality: null, cost: null, recs: null }));
+    expect(card.length).toBeLessThan(full.length);
+  });
+
+  it("handles a not-ready report without throwing", () => {
+    expect(renderRule0Card({ ready: false, reason: "no data" })).toContain("Rule 0");
   });
 });

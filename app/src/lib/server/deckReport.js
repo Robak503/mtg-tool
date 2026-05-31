@@ -238,3 +238,37 @@ export function renderDeckReportMarkdown(report) {
   L.push("---", "_Generated locally by MTG Tool — deterministic, no API cost._");
   return L.join("\n");
 }
+
+/**
+ * Render a short, table-ready "Rule 0" pitch from a buildDeckReport() object —
+ * the thing you read aloud to the pod before a game. Compact by design.
+ */
+export function renderRule0Card(report) {
+  if (!report?.ready) return `# Rule 0\n\n_${report?.reason || "No deck data available."}_\n`;
+
+  const d = report.deck;
+  const p = report.power;
+  const c = report.composition;
+  const cb = report.combos;
+  const colors = d.colorIdentity.length ? d.colorIdentity.join("") : "Colorless";
+
+  const L = [];
+  L.push(`# Rule 0: ${d.name}`, "");
+  L.push(`**${d.commander}** · ${colors} · Bracket **${p.bracket} — ${p.bracketLabel}** · Power ${p.level}/10`);
+  L.push("");
+  const doing = [d.archetype, ...(report.drivers || [])].filter(Boolean).join("; ");
+  L.push(`**What it's trying to do:** ${doing || "—"}.`);
+  L.push("");
+  L.push("**At the table:**");
+  const comboBit = cb.complete.length
+    ? `${cb.complete.length} in-deck${cb.complete[0]?.cards?.length ? ` (${cb.complete[0].cards.join(" + ")})` : ""}`
+    : (cb.oneCardAway.length ? `none complete, ${cb.oneCardAway.length} one card away` : "none");
+  L.push(`- Combos: ${comboBit}`);
+  L.push(`- Tutors: ${c.tutors ?? 0} · Fast mana: ${c.fastMana ?? 0} · Extra turns: ${cb.extraTurns.length ? cb.extraTurns.join(", ") : "none"} · Mass land denial: ${cb.massLandDenial.length ? cb.massLandDenial.join(", ") : "none"}`);
+  L.push(`- Game Changers: ${report.gameChangers.length ? report.gameChangers.join(", ") : "none"}`);
+  if (report.salt?.ready) {
+    L.push(`- Salt: ${report.salt.top.length ? report.salt.top.slice(0, 3).map(t => t.name).join(", ") : "low"}`);
+  }
+  if (p.bracketReason) L.push("", `_${p.bracketReason}_`);
+  return L.join("\n");
+}
