@@ -92,7 +92,7 @@ async function readAllEntries() {
 
 async function atomicWriteJson(filePath, payload) {
   const body = JSON.stringify(payload, null, 2);
-  const tmp = `${filePath}.tmp`;
+  const tmp = `${filePath}.tmp.${process.pid}.${Date.now()}`;
   await fs.writeFile(tmp, body, "utf8");
   await fs.rename(tmp, filePath);
 }
@@ -191,7 +191,7 @@ async function regenerateDigest() {
   const entries = await readAllEntries();
   await fs.mkdir(FEEDBACK_DIR, { recursive: true });
   const body = buildDigest(entries);
-  const tmp = `${DIGEST_FILE}.tmp`;
+  const tmp = `${DIGEST_FILE}.tmp.${process.pid}.${Date.now()}`;
   await fs.writeFile(tmp, body, "utf8");
   await fs.rename(tmp, DIGEST_FILE);
   return entries.length;

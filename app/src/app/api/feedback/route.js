@@ -95,13 +95,13 @@ function sanitiseFilename(value) {
 
 async function atomicWriteJson(filePath, payload) {
   const body = JSON.stringify(payload, null, 2);
-  const tmp = `${filePath}.tmp`;
+  const tmp = `${filePath}.tmp.${process.pid}.${Date.now()}`;
   await fs.writeFile(tmp, body, "utf8");
   await fs.rename(tmp, filePath);
 }
 
 async function atomicWriteText(filePath, body) {
-  const tmp = `${filePath}.tmp`;
+  const tmp = `${filePath}.tmp.${process.pid}.${Date.now()}`;
   await fs.writeFile(tmp, body, "utf8");
   await fs.rename(tmp, filePath);
 }
