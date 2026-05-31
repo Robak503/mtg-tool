@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-05-31
+
 ### Fixed
 - **Your chats keep their state across a restart.** The deck-gate "Chat without
   a deck" choice, plus each answer's retry button and its grounding / Arbiter
