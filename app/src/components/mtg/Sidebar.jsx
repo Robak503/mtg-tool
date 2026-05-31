@@ -24,6 +24,7 @@ export default function Sidebar({
   exportChat,
   clearChat,
   unloadActiveDeck,
+  openPodBalance,
   sb,
   colors,
   fontFamily,
@@ -114,6 +115,13 @@ export default function Sidebar({
         >
           <span style={{fontSize:16}}>📚</span>
           <div><div style={{fontSize:13,fontWeight:700}}>The Vault</div><div style={{fontSize:10,opacity:.65}}>Decks · cards · value</div></div>
+        </button>
+        <button
+          style={{width:"100%",padding:"8px 10px",borderRadius:6,border:`1px solid ${LINE}`,background:"transparent",color:MUTED,cursor:"pointer",textAlign:"left",fontFamily,display:"flex",alignItems:"center",gap:8}}
+          onClick={()=>openPodBalance?.()}
+        >
+          <span style={{fontSize:16}}>⚖️</span>
+          <div><div style={{fontSize:13,fontWeight:700}}>Pod Balance</div><div style={{fontSize:10,opacity:.65}}>Compare deck brackets</div></div>
         </button>
       </div>
 
