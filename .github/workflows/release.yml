@@ -83,6 +83,15 @@ jobs:
         working-directory: app
         run: node scripts/build-collection-printings-index.cjs
 
+      # Seed a staples price snapshot into the shipped data so the Finance tab
+      # has a day-1 baseline (#4). Needs the oracle + printings indexes above.
+      # Best-effort: a missing seed just means Finance fills in over time, so a
+      # hiccup must never fail the release.
+      - name: Seed starter price history (day-1 Finance baseline)
+        working-directory: app
+        continue-on-error: true
+        run: node scripts/build-seed-price-history.mjs
+
       - name: Build rules retrieval index
         working-directory: app
         run: node scripts/build-rules-index.cjs

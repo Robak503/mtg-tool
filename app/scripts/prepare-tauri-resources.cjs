@@ -152,6 +152,11 @@ const dataFiles = [
   ["data/edhrec-salt-meta.local.json",         "EDHREC sync metadata"],
   // Fallback pricing — fills printings TCGPlayer (Scryfall) can't price
   ["data/cardkingdom-prices.json",             "Card Kingdom fallback prices (scryfall_id keyed)"],
+  // Seed price history — a build-time staples snapshot so the Finance tab has a
+  // day-1 baseline (Vault #4). Optional: absent in dev → skipped here, which
+  // just means no seed ships. Read-only at runtime; the first launch snapshot
+  // merges it into the writable AppData copy, which then takes precedence.
+  ["data/collection-prices.jsonl",             "seed price history — day-1 Finance baseline"],
 ];
 
 let bundledBytes = 0;
