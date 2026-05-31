@@ -22,7 +22,10 @@ export async function POST(request) {
   }
 
   const provider = selectedProvider(body.provider);
-  const isOllama = provider === "ollama" || provider === "local";
+  // Only the explicit cloud tier streams from Anthropic; "auto" and any unknown
+  // value stay local (streaming has no auto-fallback dance, and a mistyped
+  // provider must never spend API credits). See normalizeProvider.
+  const isAnthropic = provider === "anthropic";
   const callStart = Date.now();
 
   const stream = new ReadableStream({
@@ -36,17 +39,17 @@ export async function POST(request) {
       };
 
       try {
-        result = isOllama
-          ? await streamOllamaMessages(body, controller)
-          : await streamAnthropicMessages(body, controller);
+        result = isAnthropic
+          ? await streamAnthropicMessages(body, controller)
+          : await streamOllamaMessages(body, controller);
       } catch (error) {
         const errMsg = String(error?.message || "Stream error");
         controller.enqueue(
           new TextEncoder().encode(`data: ${JSON.stringify({
             type: "error",
             error: errMsg,
-            provider: isOllama ? "ollama" : "anthropic",
-            fallbackAvailable: isOllama ? Boolean(anthropicKey()) : false,
+            provider: isAnthropic ? "anthropic" : "ollama",
+            fallbackAvailable: isAnthropic ? false : Boolean(anthropicKey()),
           })}\n\n`)
         );
         result.errorOccurred = errMsg;
@@ -57,7 +60,7 @@ export async function POST(request) {
         await appendStreamingCallLog({
           id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
           timestamp: new Date().toISOString(),
-          provider: isOllama ? "ollama" : "anthropic",
+          provider: isAnthropic ? "anthropic" : "ollama",
           model: result.model,
           ok: !result.errorOccurred,
           status: result.errorOccurred ? 500 : 200,

@@ -104,11 +104,33 @@ function generateFileId() {
   return Math.random().toString(16).slice(2, 10);
 }
 
+// Strict ISO-8601 (with or without milliseconds), e.g. 2026-05-31T01:02:03.456Z.
+// An imported timestamp is untrusted display metadata — we only let it shape the
+// filename when it matches this exactly; anything else (including "../" path-
+// traversal attempts) falls back to the current time.
+function isIsoTimestamp(value) {
+  if (typeof value !== "string") return false;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(value)) return false;
+  return Number.isFinite(Date.parse(value));
+}
+
 function timestampedFilename(timestamp) {
-  const safeTs = String(timestamp || new Date().toISOString())
-    .replace(/:/g, "-")
-    .replace(/\..+Z$/, "Z");
-  return `${safeTs}-${generateFileId()}.json`;
+  const iso = isIsoTimestamp(timestamp) ? timestamp : new Date().toISOString();
+  const safeTs = iso.replace(/:/g, "-").replace(/\..+Z$/, "Z");
+  // Belt-and-suspenders: drop anything that isn't filename-safe, then basename
+  // it, so the result can only ever be a flat filename — never a path.
+  const flat = `${safeTs}-${generateFileId()}.json`.replace(/[^A-Za-z0-9._-]/g, "");
+  return path.basename(flat);
+}
+
+// Resolve a feedback entry path and assert it lands DIRECTLY inside FEEDBACK_DIR
+// (no subdirs, no escape). Returns null if the filename is unsafe. The atomic
+// writer's sibling ".tmp" file stays in the same dir, so a safe target keeps the
+// temp write safe too. Defence-in-depth on top of timestampedFilename().
+function safeFeedbackPath(filename) {
+  const dir = path.resolve(FEEDBACK_DIR);
+  const target = path.resolve(dir, filename);
+  return path.dirname(target) === dir ? target : null;
 }
 
 // ─── Digest regen (kept duplicate-free with the main route by re-reading
@@ -260,8 +282,12 @@ export async function POST(request) {
       : new Date().toISOString();
     const entry = { id, timestamp, category, message, context };
     try {
-      const filename = timestampedFilename(timestamp);
-      await atomicWriteJson(path.join(FEEDBACK_DIR, filename), entry);
+      const target = safeFeedbackPath(timestampedFilename(timestamp));
+      if (!target) {
+        errors.push({ id, error: "unsafe filename" });
+        continue;
+      }
+      await atomicWriteJson(target, entry);
       existingIds.add(id);
       imported++;
     } catch (error) {
