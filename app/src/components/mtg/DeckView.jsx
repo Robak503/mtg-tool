@@ -113,6 +113,33 @@ export default function DeckView({
     }
   };
 
+  const [report, setReport] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportMode, setReportMode] = useState("full"); // "full" | "rule0"
+  const loadReport = async () => {
+    if (!deckCards.length || reportLoading) return;
+    setReportLoading(true);
+    try {
+      const resp = await fetch("/api/deck-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cards: deckCards, deckName: activeDeck?.name }),
+      });
+      const data = await resp.json();
+      setReport(resp.ok ? data : { ready: false, error: data.error || "Deck report failed." });
+    } catch (e) {
+      setReport({ ready: false, error: e.message });
+    } finally {
+      setReportLoading(false);
+    }
+  };
+  const copyReport = () => {
+    const text = report?.ready ? (reportMode === "rule0" ? report.rule0 : report.markdown) : "";
+    if (text && typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+  };
+
   return (
     <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,paddingBottom:10,borderBottom:`1px solid ${LINE}`}}>
@@ -367,6 +394,24 @@ export default function DeckView({
                               )}
                               <div style={{fontSize:10,color:MUTED,lineHeight:1.4}}>Heuristic, not gospel — Karn&apos;s Upgrade Plan reasons about your specific list.</div>
                             </div>
+                          )}
+                        </div>
+                        <div style={{background:BG,border:`1px solid ${LINE}`,borderRadius:6,padding:10,marginBottom:14}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}}>
+                            <span style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em"}}>Deck Report</span>
+                            <span style={{fontSize:9,color:MUTED}}>local · free</span>
+                            {report?.ready&&(
+                              <>
+                                <button onClick={()=>setReportMode(reportMode==="full"?"rule0":"full")} style={{...pb(false,true),fontSize:10,padding:"4px 8px"}}>{reportMode==="full"?"Rule 0 card":"Full report"}</button>
+                                <button onClick={copyReport} style={{...pb(false,true),fontSize:10,padding:"4px 8px"}}>Copy</button>
+                              </>
+                            )}
+                            <button onClick={loadReport} disabled={reportLoading||!deckCards.length} style={{...pb(false,true),marginLeft:"auto",fontSize:10,padding:"4px 8px",opacity:(reportLoading||!deckCards.length)?.5:1}}>{reportLoading?"Building…":(report?"Refresh":"Generate report")}</button>
+                          </div>
+                          {!report&&!reportLoading&&<div style={{fontSize:11,color:MUTED,lineHeight:1.45}}>One complete local report — power &amp; bracket, roles, legality, combos, salt, cost-to-finish — plus a copy-paste Rule 0 pitch. No API cost.</div>}
+                          {report&&report.ready===false&&<div style={{fontSize:11,color:"#c84848",lineHeight:1.45}}>{report.error}</div>}
+                          {report&&report.ready&&(
+                            <pre style={{fontSize:11,color:TEXT,lineHeight:1.5,whiteSpace:"pre-wrap",wordBreak:"break-word",fontFamily:"ui-monospace, SFMono-Regular, monospace",maxHeight:360,overflowY:"auto",margin:0}}>{reportMode==="rule0"?report.rule0:report.markdown}</pre>
                           )}
                         </div>
                         <div style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:7}}>Game Log</div>
