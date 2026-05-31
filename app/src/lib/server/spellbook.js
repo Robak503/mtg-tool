@@ -26,6 +26,20 @@ let _meta = null;
 let _loaded = false;
 let _loadAttempted = false;
 
+/**
+ * Drop the in-memory combo cache (and the load flags) so the next call reloads
+ * from disk. Called after an in-app Spellbook sync so fresher combos are
+ * visible without a server restart (also used by tests). See /api/sync-data.
+ */
+export function resetSpellbookCache() {
+  _combos = null;
+  _index = null;
+  _cards = null;
+  _meta = null;
+  _loaded = false;
+  _loadAttempted = false;
+}
+
 function normalizeComboName(name) {
   return String(name || "").toLowerCase().trim()
     .replace(/['']/g, "'")

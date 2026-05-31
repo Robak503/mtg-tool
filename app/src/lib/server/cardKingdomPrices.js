@@ -62,3 +62,12 @@ export function cardKingdomStats() {
   const idx = ensureIndex();
   return { generatedAt: idx.generatedAt, count: idx.count };
 }
+
+/**
+ * Drop the in-memory cache so the next lookup reloads from disk. Called after
+ * an in-app Card Kingdom price sync so fresher prices are visible without a
+ * server restart (also used by tests). See /api/sync-data.
+ */
+export function resetCardKingdomPricesCache() {
+  cached = null;
+}
