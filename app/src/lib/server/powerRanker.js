@@ -662,10 +662,16 @@ function deckEfficiencyMetrics(infos, counts, comboAnalysis, salt, commanderColo
     : 0;
   const score = round1(clamp(averageImpact * efficiency * 1.1, 0, 100));
   const scorePowerLevel = round1(clamp(1 + score / 11, 1, 10));
-  const topImpactCards = [...nonlandCards]
+  const dedupedByName = [...nonlandCards]
+    .filter((card, index, cards) => cards.findIndex(other => other.name === card.name) === index);
+  const topImpactCards = [...dedupedByName]
     .sort((a, b) => b.impact - a.impact || a.effectiveManaValue - b.effectiveManaValue)
-    .filter((card, index, cards) => cards.findIndex(other => other.name === card.name) === index)
     .slice(0, 10);
+  // Lowest-impact nonland cards — the deterministic cut-candidate signal the
+  // deck recommender surfaces (weakest payoff per slot first).
+  const lowImpactCards = [...dedupedByName]
+    .sort((a, b) => a.impact - b.impact || b.effectiveManaValue - a.effectiveManaValue)
+    .slice(0, 12);
 
   return {
     tippingPoint,
@@ -676,6 +682,7 @@ function deckEfficiencyMetrics(infos, counts, comboAnalysis, salt, commanderColo
     scorePowerLevel,
     playability,
     topImpactCards,
+    lowImpactCards,
   };
 }
 

@@ -29,8 +29,20 @@ summarizes the notable changes.
   list, detected from the bundled Commander Spellbook data) — plus a one-line
   verdict on whether the table is balanced or lopsided. Select a single deck to
   use it as a quick bracket + Game Changers readout. All local, no API cost.
+- **Recommendations (local, free) in the deck view.** A new section gives
+  instant, deterministic add/cut guidance without spending a model call: the
+  roles your deck is short on (ramp / draw / removal / wipes / protection)
+  filled with color-identity-legal staples ranked by play rate, the combos
+  you're one card away from completing, and weak- or salty-card cut candidates.
+  Hover any suggestion to preview the card. Karn's Upgrade Plan still does the
+  deep, deck-specific reasoning; this is the fast first pass.
 
 ### Fixed
+- **Card popularity is back in the local card index.** The slim Oracle index was
+  dropping each card's `edhrec_rank`, so play-rate never factored into local
+  card search or the deck power/impact scoring (both were written to use it).
+  Restoring it makes search surface real staples first and tightens the power
+  ranker's impact model — which also resolved a long-standing calibration drift.
 - **Karn and Tibalt no longer answer with no deck.** Starting a chat with the
   deck-builder (Karn) or roaster (Tibalt) when no deck was loaded let them reply
   from generic card-search context — recommending cuts of cards that aren't in
