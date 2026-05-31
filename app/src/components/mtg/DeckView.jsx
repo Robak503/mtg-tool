@@ -75,6 +75,24 @@ export default function DeckView({
     return { added, removed };
   };
 
+  const snapshots = deckMemory.snapshots || [];
+  const saveSnapshot = () => {
+    const entry = {
+      id: globalThis.crypto?.randomUUID?.() || `snap-${Date.now()}`,
+      date: new Date().toLocaleString(),
+      snapshot: {
+        commander: commanderText,
+        mainCount,
+        tokenCount,
+        cardNames: [...currentDriftCards],
+      },
+    };
+    updateActiveMemory({ snapshots: [entry, ...snapshots].slice(0, 20) });
+  };
+  const deleteSnapshot = (id) => {
+    updateActiveMemory({ snapshots: snapshots.filter(entry => entry.id !== id) });
+  };
+
   return (
     <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,paddingBottom:10,borderBottom:`1px solid ${LINE}`}}>
@@ -244,6 +262,38 @@ export default function DeckView({
                             ))}
                           </div>
                         )}
+                        <div style={{background:BG,border:`1px solid ${LINE}`,borderRadius:6,padding:10,marginBottom:14}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                            <span style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em"}}>Deck Snapshots</span>
+                            <button onClick={saveSnapshot} style={{...pb(false,true),marginLeft:"auto",fontSize:10,padding:"4px 8px"}}>Snapshot now</button>
+                          </div>
+                          {!snapshots.length&&<div style={{fontSize:11,color:MUTED,lineHeight:1.45}}>No snapshots yet. Take one to track what you add and cut over time.</div>}
+                          {snapshots.slice(0,12).map(entry=>{
+                            const drift = artifactDrift(entry);
+                            const changed = drift&&(drift.added.length>0||drift.removed.length>0);
+                            return (
+                              <details key={entry.id} style={{borderTop:`1px solid ${LINE}`,padding:"7px 0"}}>
+                                <summary style={{cursor:"pointer",color:TEXT,fontSize:11,lineHeight:1.35,display:"flex",alignItems:"center",gap:6}}>
+                                  <span style={{color:GOLD,fontWeight:700}}>{entry.date}</span>
+                                  <span style={{color:MUTED}}>{entry.snapshot?.mainCount} cards</span>
+                                  {drift&&(changed
+                                    ?<span style={{color:MUTED,marginLeft:"auto"}}>+{drift.added.length} / −{drift.removed.length} since</span>
+                                    :<span style={{color:"#4a9b6a",marginLeft:"auto"}}>unchanged</span>)}
+                                </summary>
+                                <div style={{fontSize:10,color:MUTED,lineHeight:1.4,marginTop:7}}>
+                                  {entry.snapshot?.commander} | {entry.snapshot?.mainCount} cards | {entry.snapshot?.tokenCount} tokens
+                                </div>
+                                {changed&&(
+                                  <div style={{fontSize:10,color:MUTED,lineHeight:1.45,marginTop:5}}>
+                                    {drift.added.length>0&&<div><span style={{color:"#4a9b6a"}}>Added:</span> {drift.added.slice(0,16).join(", ")}{drift.added.length>16?` +${drift.added.length-16} more`:""}</div>}
+                                    {drift.removed.length>0&&<div><span style={{color:"#c84848"}}>Removed:</span> {drift.removed.slice(0,16).join(", ")}{drift.removed.length>16?` +${drift.removed.length-16} more`:""}</div>}
+                                  </div>
+                                )}
+                                <button onClick={()=>deleteSnapshot(entry.id)} style={{...pb(false,true),marginTop:7,fontSize:10,padding:"3px 7px"}}>Delete</button>
+                              </details>
+                            );
+                          })}
+                        </div>
                         <div style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:7}}>Game Log</div>
                         <div style={{display:"grid",gridTemplateColumns:mobile?"1fr":"90px 1fr",gap:8,marginBottom:8}}>
                           <select value={gameResult} onChange={e=>setGameResult(e.target.value)}

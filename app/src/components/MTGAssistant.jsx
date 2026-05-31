@@ -44,6 +44,7 @@ import FeedbackButton from "./mtg/FeedbackButton";
 import LearnView from "./mtg/LearnView";
 import CollectionView from "./mtg/CollectionView";
 import UpdatesModal from "./UpdatesModal";
+import PodBalanceModal from "./mtg/PodBalanceModal";
 
 export default function MTGAssistant() {
   const [agent, setAgent]   = useState("jace");
@@ -70,6 +71,8 @@ export default function MTGAssistant() {
   const [ollamaPullProgress, setOllamaPullProgress] = useState("");
   // Updates / data-sync modal
   const [showUpdates, setShowUpdates] = useState(false);
+  // Pod Balance modal — compare brackets/power across saved decks
+  const [showPodBalance, setShowPodBalance] = useState(false);
   // Background app-update check — runs once per session on mount.
   // Result is just metadata (version + notes); install happens via the
   // Updates modal. localStorage skip-until lets us throttle to once
@@ -710,6 +713,14 @@ export default function MTGAssistant() {
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}
       />
+      {showPodBalance && (
+        <PodBalanceModal
+          onClose={() => setShowPodBalance(false)}
+          decks={savedDecks}
+          colors={{BG2, BG3, LINE, TEXT, MUTED, GOLD}}
+          fontFamily={F}
+        />
+      )}
 
       {/* App-update banner — three states:
             installing (default, zero-touch flow): "Installing v0.X.Y, restarting…"
@@ -984,6 +995,7 @@ export default function MTGAssistant() {
             exportChat={exportChat}
             clearChat={clearChat}
             unloadActiveDeck={unloadActiveDeck}
+            openPodBalance={() => setShowPodBalance(true)}
             sb={sb}
             colors={{BG2, LINE, MUTED, TEXT}}
             fontFamily={F}

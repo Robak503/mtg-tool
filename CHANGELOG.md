@@ -20,6 +20,15 @@ summarizes the notable changes.
 - **"Buildable only" filter in the Vault's Decks panel.** A toggle (plus a
   running "X of Y decks buildable now" count) hides everything except the decks
   you can build end-to-end from cards you already own.
+- **Deck snapshots.** A new section in the deck view lets you snapshot a deck on
+  demand; each saved snapshot shows exactly what you've added and cut since you
+  took it ("+4 / −3 since"), so you can track how a deck drifts over time.
+- **Pod Balance.** A new sidebar tool (Library → Pod Balance) compares up to four
+  saved decks side by side: each deck's official WotC **bracket (1–5)**, power
+  level, CRISPI axes, and the **Game Changers** it runs (the official 53-card
+  list, detected from the bundled Commander Spellbook data) — plus a one-line
+  verdict on whether the table is balanced or lopsided. Select a single deck to
+  use it as a quick bracket + Game Changers readout. All local, no API cost.
 
 ### Fixed
 - **Karn and Tibalt no longer answer with no deck.** Starting a chat with the

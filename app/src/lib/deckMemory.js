@@ -79,6 +79,7 @@ export function defaultDeckMemory() {
     goldfishRuns: [],
     karnPlans: [],
     tibaltRoasts: [],
+    snapshots: [],
     updatedAt: new Date().toISOString(),
   };
 }
@@ -101,6 +102,7 @@ export function normalizeDeck(deck) {
       goldfishRuns: Array.isArray(memory.goldfishRuns) ? memory.goldfishRuns : [],
       karnPlans: Array.isArray(memory.karnPlans) ? memory.karnPlans : [],
       tibaltRoasts: Array.isArray(memory.tibaltRoasts) ? memory.tibaltRoasts : [],
+      snapshots: Array.isArray(memory.snapshots) ? memory.snapshots : [],
     },
   };
 }
