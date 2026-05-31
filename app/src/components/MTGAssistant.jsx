@@ -150,7 +150,11 @@ export default function MTGAssistant() {
     importDeck: saveImportedDeck,
     importDeckFromUrl,
     importDeckLibrary,
+    colorIssues,
+    comboData,
+    comboLoad,
     legalIssues,
+    loadCombos,
     loadDeckData,
     loadFromProject,
     mainCount,
@@ -1154,7 +1158,11 @@ export default function MTGAssistant() {
           deckDataLoad={deckDataLoad}
           hasData={hasData}
           handleSearch={handleSearch}
+          colorIssues={colorIssues}
+          comboData={comboData}
+          comboLoad={comboLoad}
           legalIssues={legalIssues}
+          loadCombos={loadCombos}
           loadDeckData={loadDeckData}
           mobile={mobile}
           pb={pb}

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { DECK_SEEDS } from "../data/deckSeeds";
-import { buildColors, buildCurve, calcPrice, checkLegal } from "../lib/deckAnalytics";
+import { buildColors, buildCurve, calcPrice, checkLegal, colorIdentityIssues } from "../lib/deckAnalytics";
 import {
   buildSeedDeck,
   defaultDeckMemory,
@@ -74,6 +74,8 @@ export default function useDeckStore() {
   const [tokenCatalogReady, setTokenCatalogReady] = useState(false);
   const [deckData, setDeckData] = useState({});
   const [deckDataLoad, setDeckDataLoad] = useState(false);
+  const [comboData, setComboData] = useState(null);
+  const [comboLoad, setComboLoad] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -116,6 +118,11 @@ export default function useDeckStore() {
     };
   }, []);
 
+  // Combos are deck-specific and fetched on demand; drop the cached result when
+  // the active deck changes so the Combos tab never shows the previous deck's
+  // combos before a reload.
+  useEffect(() => { setComboData(null); }, [activeDeckId]);
+
   const activeDeck = useMemo(
     () => savedDecks.find(deck => deck.id === activeDeckId),
     [activeDeckId, savedDecks]
@@ -128,6 +135,7 @@ export default function useDeckStore() {
   const colors = useMemo(() => hasData ? buildColors(deckCards, deckData) : {}, [deckCards, deckData, hasData]);
   const priceInfo = useMemo(() => hasData ? calcPrice(deckCards, deckData) : null, [deckCards, deckData, hasData]);
   const legalIssues = useMemo(() => hasData ? checkLegal(deckCards, deckData) : [], [deckCards, deckData, hasData]);
+  const colorIssues = useMemo(() => hasData ? colorIdentityIssues(deckCards, deckData) : [], [deckCards, deckData, hasData]);
   const mainCount = useMemo(
     () => deckCards.filter(card => card.section !== "Sideboard" && card.section !== "Tokens").reduce((sum, card) => sum + card.qty, 0),
     [deckCards]
@@ -152,6 +160,33 @@ export default function useDeckStore() {
     setDeckData(loaded);
     setDeckDataLoad(false);
     return loaded;
+  };
+
+  // Find Commander Spellbook combos in the deck (and ones a single card away).
+  // Names only — no Scryfall fetch needed — so this is independent of deckData.
+  const loadCombos = async () => {
+    if (!deckCards.length) return null;
+    if (comboLoad) return comboData;
+    setComboLoad(true);
+    try {
+      const cardNames = deckCards
+        .filter(card => card.section !== "Tokens" && card.section !== "Sideboard")
+        .map(card => card.name);
+      const response = await fetch("/api/combos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardNames }),
+      });
+      const data = await response.json();
+      setComboData(data);
+      return data;
+    } catch (error) {
+      const failed = { ready: false, error: error.message, included: [], almostIncluded: [] };
+      setComboData(failed);
+      return failed;
+    } finally {
+      setComboLoad(false);
+    }
   };
 
   const persistDecks = (decks, options = {}) => {
@@ -377,6 +412,9 @@ If no matching file exists, list the available deck files. If multiple variants 
     agentNotes,
     backupDeckLibrary,
     colors,
+    colorIssues,
+    comboData,
+    comboLoad,
     commanderText,
     curve,
     deckCards,
@@ -399,6 +437,7 @@ If no matching file exists, list the available deck files. If multiple variants 
     importDeckFromUrl,
     importDeckLibrary,
     legalIssues,
+    loadCombos,
     loadDeckData,
     loadFromProject,
     mainCount,

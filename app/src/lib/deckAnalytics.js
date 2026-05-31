@@ -36,3 +36,37 @@ export function checkLegal(deckCards, cardData) {
     return l === "banned" || l === "not_legal";
   }).map(dc => ({name: dc.name, status: cardData[dc.name]?.legalities?.commander}));
 }
+
+// Commander color-identity guardrail: flag any card in the 99 whose color
+// identity falls outside the commander's combined color identity. Mirrors the
+// shape of checkLegal so the Legal tab can render both lists the same way.
+//
+// Returns [] (no false positives) when there's no Commander card or the
+// commander's color identity hasn't resolved yet in cardData — we only flag a
+// card when BOTH it and the commander have known color identities. The
+// commander card(s) themselves and Tokens/Sideboard are never flagged.
+export function colorIdentityIssues(deckCards, cardData) {
+  const commanders = deckCards.filter(dc => dc.section === "Commander");
+  if (!commanders.length) return [];
+
+  const allowed = new Set();
+  let commanderResolved = false;
+  for (const dc of commanders) {
+    const identity = cardData[dc.name]?.colorIdentity;
+    if (Array.isArray(identity)) {
+      commanderResolved = true;
+      for (const sym of identity) allowed.add(sym);
+    }
+  }
+  if (!commanderResolved) return [];
+
+  const issues = [];
+  for (const dc of deckCards) {
+    if (dc.section === "Commander" || dc.section === "Tokens" || dc.section === "Sideboard") continue;
+    const identity = cardData[dc.name]?.colorIdentity;
+    if (!Array.isArray(identity)) continue; // unresolved card — don't guess
+    const offColors = identity.filter(sym => !allowed.has(sym));
+    if (offColors.length) issues.push({ name: dc.name, offColors });
+  }
+  return issues;
+}
