@@ -16,6 +16,8 @@ summarizes the notable changes.
   your collection — plus a copy-paste **Rule 0 card** for the table. Toggle
   between the full report and the Rule 0 pitch, and copy either to the
   clipboard. Runs entirely off local data — no API cost.
+- **Export your collection to CSV** from the Vault — a Deckbox-style sheet of
+  your owned cards that re-imports cleanly into MTG Tool, Deckbox, or Moxfield.
 
 ## [0.11.0] - 2026-05-31
 

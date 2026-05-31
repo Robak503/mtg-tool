@@ -109,6 +109,24 @@ export default function CollectionView({ onClose }) {
     }
   };
 
+  // Download the collection as a Deckbox-style CSV (round-trips back through
+  // Import CSV, Deckbox, and Moxfield). Reuses the app's Blob-download pattern.
+  const exportCollection = async () => {
+    try {
+      const resp = await fetch("/api/collection/export?format=csv");
+      if (!resp.ok) return;
+      const text = await resp.text();
+      const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `mtg-collection-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      /* export is best-effort */
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -497,6 +515,7 @@ export default function CollectionView({ onClose }) {
             {refreshing ? "Refreshing…" : "↻ Prices"}
           </button>
           <button onClick={() => setImportOpen(true)} style={btn()}>Import CSV</button>
+          <button onClick={exportCollection} style={btn()}>Export CSV</button>
           <button onClick={() => { setAddPrefill(""); setAddOpen(true); }} style={primaryHeaderBtn()}>+ Add card</button>
           </>)}
           {onClose && (
