@@ -154,8 +154,20 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, onClick, onQu
     onQuickAdjust?.(card.scryfallId, delta);
   };
   return (
-    <button
+    // Card container is a div (role="button"), NOT a <button>: the quantity
+    // steppers below are real <button>s, and a <button> cannot legally contain
+    // another <button> (React hydration error). Keyboard support is wired by
+    // hand so the card stays openable via Enter/Space.
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
       style={{
         width: CARD_WIDTH,
         height: CARD_HEIGHT,
@@ -300,6 +312,6 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, onClick, onQu
           <span>#{card.collectorNumber}</span>
         </div>
       </div>
-    </button>
+    </div>
   );
 }
