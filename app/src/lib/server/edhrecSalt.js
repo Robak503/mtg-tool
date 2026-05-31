@@ -85,3 +85,14 @@ export function evaluateDeckSalt(cardNames = []) {
     meta: saltMeta,
   };
 }
+
+/**
+ * Drop the in-memory salt cache (and the load-attempted flag) so the next
+ * lookup reloads from disk. Called after an in-app EDHREC-salt sync so fresher
+ * scores are visible without a server restart (also used by tests).
+ */
+export function resetEdhrecSaltCache() {
+  saltIndex = null;
+  saltMeta = null;
+  attempted = false;
+}

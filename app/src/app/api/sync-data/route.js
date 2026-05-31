@@ -33,6 +33,7 @@ import fs from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { dataPath, appRoot } from "../../../lib/server/paths";
+import { invalidateCachesFor } from "../../../lib/server/syncCacheInvalidation";
 
 const SCRIPTS = {
   "scryfall-bulk":     "sync-scryfall-bulk.cjs",
@@ -193,6 +194,9 @@ function streamSingle(action, scriptName) {
         } catch {}
       };
       const result = await runScriptToStream(action, scriptName, controller);
+      // Drop stale server caches so the freshly-written data is visible without
+      // a restart (A5). Only on success — a failed sync left the old files.
+      if (result.ok) invalidateCachesFor(action);
       send({
         done: true,
         ok: result.ok,
@@ -240,7 +244,8 @@ function streamFullSequence() {
         const [action, scriptName] = sequence[i];
         send({ phase: action, step: i + 1, totalSteps, text: `[${i + 1}/${totalSteps}] ${PHASE_LABELS[action]}` });
         const result = await runScriptToStream(action, scriptName, controller);
-        if (!result.ok) failures += 1;
+        if (result.ok) invalidateCachesFor(action);
+        else failures += 1;
       }
       send({
         done: true,
