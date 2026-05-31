@@ -129,7 +129,7 @@ export default function LearnView({
     return (
       <div style={containerStyle(BG, fontFamily)}>
         <header style={{ ...headerStyle(LINE, BG2, GOLD), justifyContent: "space-between" }}>
-          <span>Garfield · Learn to Play</span>
+          <span>The Academy · Learn to Play</span>
           {session.status === "starting" && <span style={{ fontSize: 12, color: MUTED }}>starting…</span>}
         </header>
         <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
@@ -252,7 +252,7 @@ export default function LearnView({
     const youWon = reason === "user-wins";
     return (
       <div style={containerStyle(BG, fontFamily)}>
-        <header style={headerStyle(LINE, BG2, GOLD)}>Garfield · Game Over</header>
+        <header style={headerStyle(LINE, BG2, GOLD)}>The Academy · Game Over</header>
         <div style={{ flex: 1, padding: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 12, maxWidth: 480 }}>
             <h2 style={{ fontSize: 24, color: youWon ? "#85d18a" : "#e0a89a", margin: 0 }}>
@@ -280,7 +280,7 @@ export default function LearnView({
   return (
     <div style={containerStyle(BG, fontFamily)}>
       <header style={{ ...headerStyle(LINE, BG2, GOLD), justifyContent: "space-between" }}>
-        <span>Garfield · {session.mode === "commander" ? "Commander 4P pod" : `${userDeck?.name || "You"} vs ${oppDecks[0]?.name || "Opponent"}`}</span>
+        <span>The Academy · {session.mode === "commander" ? "Commander 4P pod" : `${userDeck?.name || "You"} vs ${oppDecks[0]?.name || "Opponent"}`}</span>
         <span style={{ fontSize: 11, color: MUTED }}>
           Turn {session.turn} · {session.activePlayer === "user" ? "Your" : `${seatLabel(session.activePlayer)}'s`} {session.step}
         </span>
@@ -342,6 +342,110 @@ export default function LearnView({
         </button>
         {session.error && <span style={{ fontSize: 11, color: "#e0a89a" }}>⚠ {session.error}</span>}
       </footer>
+
+      <AskPanel sessionId={session.sessionId} cfg={cfg} colors={colors} fontFamily={fontFamily} />
+    </div>
+  );
+}
+
+// ─── Ask Jace — real-time, board-aware tutor pop-out ──────────────────────────
+
+function AskPanel({ sessionId, cfg, colors, fontFamily }) {
+  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState([]); // [{ q, a, error, pending }]
+
+  const ask = async () => {
+    const question = q.trim();
+    if (!question || busy || !sessionId) return;
+    setBusy(true);
+    setQ("");
+    setHistory(h => [...h, { q: question, a: null, error: null, pending: true }]);
+    const finish = patch => setHistory(h => h.map((it, i) => (i === h.length - 1 ? { ...it, ...patch, pending: false } : it)));
+    try {
+      const resp = await fetch("/api/learn/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, question }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok) finish({ a: data.answer });
+      else finish({ error: data.error || `Failed (${resp.status})` });
+    } catch (e) {
+      finish({ error: e.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const accent = cfg?.color || GOLD;
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        title="Ask Jace about the board"
+        style={{
+          position: "absolute", bottom: 60, right: 18, zIndex: 20,
+          display: "flex", alignItems: "center", gap: 7,
+          padding: "9px 14px", borderRadius: 999,
+          background: accent, color: "#fff", border: "none", cursor: "pointer",
+          fontSize: 12.5, fontWeight: 600, fontFamily,
+          boxShadow: "0 6px 18px -6px rgba(0,0,0,0.6)",
+        }}
+      >
+        💬 Ask Jace
+      </button>
+    );
+  }
+
+  return (
+    <div style={{
+      position: "absolute", bottom: 60, right: 18, zIndex: 20,
+      width: 330, maxWidth: "calc(100% - 36px)", maxHeight: 400,
+      display: "flex", flexDirection: "column",
+      background: BG2, border: `1px solid ${cfg?.border || LINE}`, borderRadius: 10,
+      boxShadow: "0 16px 40px -12px rgba(0,0,0,0.7)",
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderBottom: `1px solid ${LINE}` }}>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: accent }}>Ask Jace</span>
+        <button onClick={() => setOpen(false)} aria-label="Close" style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 17, lineHeight: 1 }}>×</button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 10 }}>
+        {history.length === 0 && (
+          <div style={{ fontSize: 11.5, color: MUTED, lineHeight: 1.5 }}>
+            Ask anything about the current board — &ldquo;what can I play?&rdquo;, &ldquo;is it safe to attack?&rdquo;, &ldquo;what does this step do?&rdquo;. Jace reads the live game to answer.
+          </div>
+        )}
+        {history.map((item, i) => (
+          <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ fontSize: 12, color: TEXT, fontWeight: 600 }}>{item.q}</div>
+            {item.pending && <div style={{ fontSize: 11.5, color: MUTED, fontStyle: "italic" }}>Jace is thinking…</div>}
+            {item.a && <div style={{ fontSize: 12, color: TEXT, lineHeight: 1.5, background: BG3, border: `1px solid ${LINE}`, borderRadius: 6, padding: "7px 9px", whiteSpace: "pre-wrap" }}>{item.a}</div>}
+            {item.error && <div style={{ fontSize: 11.5, color: "#e0a89a" }}>⚠ {item.error}</div>}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 6, padding: "10px 12px", borderTop: `1px solid ${LINE}` }}>
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter" && !busy) ask(); }}
+          placeholder="Ask about the board…"
+          style={{ flex: 1, padding: "7px 10px", background: BG3, border: `1px solid ${LINE}`, borderRadius: 6, color: TEXT, fontSize: 12.5, fontFamily }}
+        />
+        <button
+          onClick={ask}
+          disabled={busy || !q.trim()}
+          style={{ padding: "7px 12px", background: accent, color: "#fff", border: "none", borderRadius: 6, cursor: busy || !q.trim() ? "not-allowed" : "pointer", opacity: busy || !q.trim() ? 0.5 : 1, fontSize: 12.5, fontWeight: 600, fontFamily }}
+        >
+          {busy ? "…" : "Ask"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -477,6 +581,7 @@ function containerStyle(BG, fontFamily) {
     height: "100%",
     background: BG,
     fontFamily,
+    position: "relative", // anchors the floating Ask-Jace pop-out
   };
 }
 

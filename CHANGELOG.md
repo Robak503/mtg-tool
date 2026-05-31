@@ -15,6 +15,13 @@ summarizes the notable changes.
   Expand a deck for the shopping list of cards you're short, cheapest first;
   **Add** opens the card picker pre-filled so you choose the printing you bought
   and it counts as owned. Basic lands are free; sideboards are ignored.
+- **Learn-to-Play is now its own section: The Academy.** It moved out of the
+  agent list into its own sidebar area (Train → The Academy), a home for both
+  Standard 1v1 and Commander 4P training.
+- **Ask Jace, in real time, mid-game.** A floating tutor pop-out in any Academy
+  game: ask "what can I play?", "is it safe to attack?", "what does this step
+  do?" and Jace answers grounded in the actual board — your hand, everyone's
+  life and board, the current step. Runs on the local model (no API credits).
 
 ## [0.7.0] - 2026-05-30
 
