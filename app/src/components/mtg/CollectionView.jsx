@@ -25,6 +25,7 @@ import CollectionImportModal from "./CollectionImportModal";
 import CollectionRoastModal from "./CollectionRoastModal";
 import CollectionDecksModal from "./CollectionDecksModal";
 import ColorTagManager from "./ColorTagManager";
+import FinanceView from "./FinanceView";
 import useColorTags from "../../hooks/useColorTags";
 
 // Obsidian & Gold — matches the app shell theme (cool-neutral, rich gold).
@@ -76,6 +77,7 @@ export default function CollectionView({ onClose }) {
   const [tagsOpen, setTagsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
+  const [mode, setMode] = useState("collection"); // "collection" | "finance"
   const colorTags = useColorTags();
 
   // Re-pull live Scryfall prices for cards whose stored TCGPlayer price is
@@ -418,6 +420,16 @@ export default function CollectionView({ onClose }) {
           }}>
             The Vault
           </h1>
+          <div style={{ display: "flex", gap: 4, alignSelf: "center" }}>
+            {[["collection", "Collection"], ["finance", "Finance"]].map(([k, label]) => (
+              <button key={k} onClick={() => setMode(k)} style={{
+                background: mode === k ? COLORS.GOLD : "transparent",
+                color: mode === k ? "#fff" : COLORS.MUTED,
+                border: `1px solid ${mode === k ? COLORS.GOLD : COLORS.LINE}`,
+                padding: "4px 12px", borderRadius: 4, fontSize: 12, cursor: "pointer", fontFamily: FONT,
+              }}>{label}</button>
+            ))}
+          </div>
           {state.status === "ready" && (
             <span style={{ fontSize: 12, color: COLORS.MUTED }}>
               <strong style={{ color: COLORS.TEXT }}>{totalCardCount}</strong> cards cataloged · {uniqueCount} unique
@@ -464,6 +476,7 @@ export default function CollectionView({ onClose }) {
           )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          {mode === "collection" && (<>
           {cards.length > 0 && (
             <button
               onClick={() => setRoastOpen(true)}
@@ -485,6 +498,7 @@ export default function CollectionView({ onClose }) {
           </button>
           <button onClick={() => setImportOpen(true)} style={btn()}>Import CSV</button>
           <button onClick={() => { setAddPrefill(""); setAddOpen(true); }} style={primaryHeaderBtn()}>+ Add card</button>
+          </>)}
           {onClose && (
             <button onClick={onClose} style={btn()}>Close</button>
           )}
@@ -503,6 +517,11 @@ export default function CollectionView({ onClose }) {
         </div>
       )}
 
+      {mode === "finance" && (
+        <FinanceView colors={COLORS} fontFamily={FONT} />
+      )}
+
+      {mode === "collection" && (<>
       {state.status === "ready" && cards.length > 0 && (
         <CollectionFilters
           filters={filters}
@@ -566,6 +585,7 @@ export default function CollectionView({ onClose }) {
           />
         )}
       </div>
+      </>)}
 
       {addOpen && (
         <CollectionAddModal

@@ -49,5 +49,7 @@ describe("/api/recommend — module load and request handling", () => {
     } else {
       expect(body.ready).toBe(false);
     }
-  });
+    // Generous timeout: loads the oracle + printings indexes when data is
+    // present locally; can exceed 5s under full-suite parallelism. 503 in CI.
+  }, 30000);
 });

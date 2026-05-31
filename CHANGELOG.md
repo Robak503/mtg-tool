@@ -8,6 +8,23 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **MTG Finance in the Vault.** The Vault has a new **Finance** tab — a local,
+  MTGStocks-style price watch built entirely from the app's own daily price
+  snapshots (no external finance API, no cost):
+  - **Your collection** — total value with 30 / 90 / 365-day change, plus your
+    cards' biggest price risers and fallers.
+  - **Finance plays** — the biggest movers across everything the app tracks.
+  - **Worth getting** — EDHREC staples (across all of Commander, not just your
+    colors) you don't own, and combo pieces you're one card away from, each with
+    its current price; one click adds any of them to your Grails.
+  - **Grails** — a personal price watchlist: search any card to track it, and
+    the app charts its price movement over time.
+  Movement starts empty on a fresh install and fills in over the first week or
+  two as daily snapshots accrue — there's no free way to back-fill historical
+  prices, and the UI says so rather than faking it. The daily snapshot now also
+  records your grails and the top ~200 staples so their movers build up too.
+
 ## [0.9.0] - 2026-05-30
 
 ### Added

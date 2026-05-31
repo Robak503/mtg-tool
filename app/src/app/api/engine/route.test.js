@@ -29,7 +29,9 @@ describe("/api/engine — module load and request handling", () => {
     // knowledge/mtg-engine are reachable from the test cwd. The key invariant is that
     // we don't throw before producing a response.
     expect([200, 500]).toContain(resp.status);
-  });
+    // Generous timeout: loads the rules codex when present; can exceed 5s under
+    // full-suite parallelism alongside the other data-heavy route tests.
+  }, 30000);
 
   it("exports a POST handler", async () => {
     const mod = await import("./route.js");
@@ -55,5 +57,5 @@ describe("/api/engine — module load and request handling", () => {
     expect(Array.isArray(body.rules)).toBe(true);
     expect(body.rules.length).toBeGreaterThan(0);
     expect(body.context).toContain("cr_current.json");
-  });
+  }, 30000);
 });
