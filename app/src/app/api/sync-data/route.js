@@ -35,19 +35,21 @@ import path from "node:path";
 import { dataPath, appRoot } from "../../../lib/server/paths";
 
 const SCRIPTS = {
-  "scryfall-bulk": "sync-scryfall-bulk.cjs",
-  "spellbook":     "sync-spellbook.cjs",
-  "edhrec-salt":   "sync-edhrec-salt.cjs",
-  "oracle-index":  "build-oracle-index.cjs",
-  "rules-index":   "build-rules-index.cjs",
+  "scryfall-bulk":     "sync-scryfall-bulk.cjs",
+  "spellbook":         "sync-spellbook.cjs",
+  "edhrec-salt":       "sync-edhrec-salt.cjs",
+  "cardkingdom-prices": "sync-cardkingdom-prices.cjs",
+  "oracle-index":      "build-oracle-index.cjs",
+  "rules-index":       "build-rules-index.cjs",
 };
 
 const PHASE_LABELS = {
-  "scryfall-bulk": "Scryfall bulk data",
-  "spellbook":     "Commander Spellbook combos",
-  "edhrec-salt":   "EDHREC salt scores",
-  "oracle-index":  "Slim oracle index",
-  "rules-index":   "Rules retrieval index",
+  "scryfall-bulk":     "Scryfall bulk data",
+  "spellbook":         "Commander Spellbook combos",
+  "edhrec-salt":       "EDHREC salt scores",
+  "cardkingdom-prices": "Card Kingdom fallback prices",
+  "oracle-index":      "Slim oracle index",
+  "rules-index":       "Rules retrieval index",
 };
 
 // Datasets surfaced by GET — file → label + freshness source
@@ -64,6 +66,10 @@ const DATASETS = [
     file: ["edhrec-salt-meta.local.json"],
     label: "EDHREC salt scores",
     timestampField: "syncedAt" },
+  { key: "cardkingdom-prices",
+    file: ["cardkingdom-prices.json"],
+    label: "Card Kingdom fallback prices",
+    timestampField: "generatedAt" },
   { key: "oracle-index",
     file: ["scryfall-bulk", "oracle-index.json"],
     label: "Slim oracle index",
@@ -212,11 +218,12 @@ function streamFullSequence() {
   // off the fresh data; spellbook + salt next; rules-index last (independent
   // of card data, just needs the bundled mtg-judge codex).
   const sequence = [
-    ["scryfall-bulk", SCRIPTS["scryfall-bulk"]],
-    ["oracle-index",  SCRIPTS["oracle-index"]],
-    ["spellbook",     SCRIPTS["spellbook"]],
-    ["edhrec-salt",   SCRIPTS["edhrec-salt"]],
-    ["rules-index",   SCRIPTS["rules-index"]],
+    ["scryfall-bulk",      SCRIPTS["scryfall-bulk"]],
+    ["oracle-index",       SCRIPTS["oracle-index"]],
+    ["spellbook",          SCRIPTS["spellbook"]],
+    ["edhrec-salt",        SCRIPTS["edhrec-salt"]],
+    ["cardkingdom-prices", SCRIPTS["cardkingdom-prices"]],
+    ["rules-index",        SCRIPTS["rules-index"]],
   ];
 
   const stream = new ReadableStream({

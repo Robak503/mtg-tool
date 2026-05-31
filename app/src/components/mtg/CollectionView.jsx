@@ -74,7 +74,38 @@ export default function CollectionView({ onClose }) {
   // 30-day value delta from price-history (null until a snapshot ≥30d old exists)
   const [priceDelta, setPriceDelta] = useState(null);
   const [tagsOpen, setTagsOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState("");
   const colorTags = useColorTags();
+
+  // Re-pull live Scryfall prices for cards whose stored TCGPlayer price is
+  // null (the Card Kingdom fallback already covers most; this catches a
+  // market price that got computed since our snapshot). User-triggered.
+  const handleRefreshPrices = async () => {
+    setRefreshing(true);
+    setRefreshMsg("Checking prices…");
+    try {
+      const resp = await fetch("/api/collection/refresh-prices", { method: "POST" });
+      const body = await resp.json();
+      if (!resp.ok) {
+        setRefreshMsg(body.error || "Price refresh failed");
+      } else if (body.needed === 0) {
+        setRefreshMsg("Every card already has a price.");
+      } else {
+        const stillNull = body.stillNull ? `, ${body.stillNull} still unpriced` : "";
+        setRefreshMsg(`Updated ${body.refreshed} price${body.refreshed === 1 ? "" : "s"}${stillNull}.`);
+        // Reflect the fresh prices in the grid + value.
+        const r = await fetch("/api/collection");
+        const b = await r.json();
+        if (r.ok) setState(s => ({ ...s, collection: b.collection }));
+      }
+    } catch (error) {
+      setRefreshMsg(error.message || "Price refresh failed");
+    } finally {
+      setRefreshing(false);
+      window.setTimeout(() => setRefreshMsg(""), 6000);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -426,6 +457,9 @@ export default function CollectionView({ onClose }) {
                   </button>
                 </>
               )}
+              {refreshMsg && (
+                <>{" · "}<span style={{ color: COLORS.GOLD }}>{refreshMsg}</span></>
+              )}
             </span>
           )}
         </div>
@@ -441,6 +475,14 @@ export default function CollectionView({ onClose }) {
           )}
           <button onClick={() => setDecksOpen(true)} style={btn()}>Decks</button>
           <button onClick={() => setTagsOpen(true)} style={btn()}>Color tags</button>
+          <button
+            onClick={handleRefreshPrices}
+            disabled={refreshing}
+            style={{ ...btn(), opacity: refreshing ? 0.6 : 1 }}
+            title="Re-pull live prices for cards TCGPlayer can't price"
+          >
+            {refreshing ? "Refreshing…" : "↻ Prices"}
+          </button>
           <button onClick={() => setImportOpen(true)} style={btn()}>Import CSV</button>
           <button onClick={() => { setAddPrefill(""); setAddOpen(true); }} style={primaryHeaderBtn()}>+ Add card</button>
           {onClose && (

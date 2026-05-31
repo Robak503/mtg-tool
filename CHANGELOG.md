@@ -23,6 +23,17 @@ summarizes the notable changes.
   do?" and Jace answers grounded in the actual board — your hand, everyone's
   life and board, the current step. Runs on the local model (no API credits).
 
+- **No more nil card values in the Vault.** When TCGPlayer (via Scryfall) has no
+  market price for a printing — which happens when it lacks recent sales even
+  though copies are listed — the value now falls back to **Card Kingdom's actual
+  retail price** for that exact printing (matched by scryfall_id, synced + cached
+  locally like the rest of the data). CardSphere and Star City Games were
+  evaluated but render prices in JavaScript with no public API, so they can't be
+  read from a desktop app; Card Kingdom's bulk pricelist covers the gap.
+- **"↻ Prices" button in the Vault** re-pulls live Scryfall prices for any cards
+  whose stored price is still null, in case TCGPlayer computed a market price
+  since the last sync. Bounded, throttled, user-triggered.
+
 ## [0.7.0] - 2026-05-30
 
 ### Added

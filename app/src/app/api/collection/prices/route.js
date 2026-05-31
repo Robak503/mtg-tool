@@ -17,7 +17,7 @@ import fs from "node:fs/promises";
 
 import { dataDir, dataPath } from "../../../../lib/server/paths.js";
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
-import { lookupById } from "../../../../lib/server/printingIndex.js";
+import { resolvePrices } from "../../../../lib/server/priceResolution.js";
 import {
   todayStamp,
   parseHistory,
@@ -30,15 +30,10 @@ import {
 const HISTORY_FILE = () => dataPath("collection-prices.jsonl");
 
 function priceFor(scryfallId, row) {
-  // Prefer the printing index (refreshed on sync) over the stale prices
-  // captured on the row when the card was added.
-  try {
-    const printing = lookupById(scryfallId);
-    if (printing?.prices) return printing.prices;
-  } catch {
-    // Printing index not built yet (dev / pre-sync). Fall through.
-  }
-  return row?.prices || null;
+  // Resolve through the full fallback chain so a snapshot records a real
+  // value even for cards TCGPlayer can't price: row → printing index
+  // (sync-fresh TCGPlayer) → Card Kingdom retail.
+  return resolvePrices(scryfallId, row?.prices);
 }
 
 async function readHistory() {
