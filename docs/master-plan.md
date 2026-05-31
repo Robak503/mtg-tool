@@ -309,12 +309,13 @@ Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index
 | 1 | Price alerts | ⬜ | Target price per grail/owned card; flag on snapshot crossing. Pairs with Grails. |
 | 2 | Per-card price sparkline | 🟡 | Mini line chart in the detail drawer + Finance rows. Grail charts exist; generalize to any card using `collection-prices.jsonl`. |
 | 3 | Collection value chart over time | 🟡 | Full value-history line (today only 30/90/365 deltas). |
-| 4 | Seed starter price history at release | ⬜ | Bake a build-time staples snapshot into shipped data so "finance plays" isn't empty on day 1. Directly fixes the empty-on-fresh-install limitation. |
+| 4 | Seed starter price history at release | ✅ | Shipped — write-path groundwork (#69) + a build-time staples seed generator wired into the release (#72). Populates day-1 Finance from the next release onward. |
 | 5 | Cost-basis / P&L | ⬜ | Record what you paid; per-card + portfolio gain/loss (depends M1 purchase fields). |
 | 6 | Buylist + "worth selling now" | ⬜ | Card Kingdom buylist vs retail; surface just-spiked cards to sell. |
 | 7 | Rarity + set-EV signals | ⬜ | Add rarity to the index (#22); set "expected value," reserved-list flag + RL holdings value, mythic movers. |
 | 8 | Deal radar / buy-the-dip | ⬜ | Owned/grail/wishlist cards at a local low. |
 | 9 | Multi-currency + price-source comparison | ⬜ | USD/EUR/tix; TCGPlayer vs CK vs Cardmarket side-by-side; "cheapest place to buy." |
+| 23 | Set browser + price-list view | ⬜ | Browse every set → drill into a set → see every card as a **price list**; per-card tabs for **Normal / Foil / special treatments** (surge, galaxy, manafoil, etc.) each showing that printing's price. Each card links out to its **specific TCGPlayer page**. All local from the printings-index (set / collector / finishes / treatments / prices already there). Deep-links need `tcgplayer_id` / `purchase_uris.tcgplayer` added to `build-collection-printings-index.cjs` (**pairs with #22**); the external link is navigation-only, so local-first is preserved. Relates to **#11** (set completion) and **#9** (price sources). |
 
 ### Collection management
 
@@ -341,7 +342,7 @@ Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index
 
 | # | Item | Status | One-liner |
 |---|---|---|---|
-| 21 | Background daily snapshot | ⬜ | Snapshots fire only when the Vault is opened today; trigger one on app launch (Tauri) regardless of view so history accrues reliably. **Biggest lever on movers filling in faster.** Pairs with #4. |
+| 21 | Background daily snapshot | ✅ v0.11.0 | Shipped — the daily snapshot now fires on app launch (`DailySnapshotTrigger` at the app root), not just on Vault open, so history accrues regardless of view. |
 | 22 | Richer printings index | ⬜ | Add rarity (+ anything finance needs) to `build-collection-printings-index.cjs`. Enabler for #7. |
 
 ### Recommended Vault batches
