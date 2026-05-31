@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-30
+
 ### Added
 - **The Vault tells you what it costs to finish your decks.** A new **Decks**
   panel lists every saved deck with how much of it you already own and the
