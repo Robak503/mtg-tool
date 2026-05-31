@@ -204,6 +204,38 @@ export function deckLockNeedsConfirmation(lock) {
 }
 
 /**
+ * Agents whose entire job is one specific deck. They MUST bind to a deck — or
+ * the user must explicitly opt out — before the conversation can start, so they
+ * never answer from generic search context with no deck loaded. Jace is
+ * deliberately excluded: it's the general rules expert and answers plenty of
+ * questions ("what does deathtouch do?") with no deck at all.
+ */
+export const DECK_REQUIRED_AGENTS = new Set(["karn", "tibalt"]);
+
+export function isDeckRequiredAgent(agentId) {
+  return DECK_REQUIRED_AGENTS.has(agentId);
+}
+
+/**
+ * Should this chat block on the deck-selection pop-out before it can send?
+ * True for a deck-required agent whose session has no deck locked AND hasn't
+ * explicitly opted out of having a deck (deckDeclined). A pending OR confirmed
+ * lock both count as "has a deck" here — a pending lock surfaces the separate
+ * confirm bar, not the picker.
+ *
+ * Requires an existing session: the picker attaches its lock to a session id,
+ * so there's nothing to gate until one exists. A deck-required agent with no
+ * session yet materializes one on the first send (which the send gate blocks),
+ * and the picker then appears against that fresh session.
+ */
+export function sessionNeedsDeckSelection(session, agentId) {
+  if (!isDeckRequiredAgent(agentId)) return false;
+  if (!session) return false;
+  if (session.deckDeclined) return false;
+  return !session.lockedDeck;
+}
+
+/**
  * Render a deck lock as a system-prompt context block for an agent.
  */
 export function lockContext(lock, agentId = "karn", confirmLock = false) {

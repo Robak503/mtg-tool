@@ -5,6 +5,7 @@
  */
 import { useState, useEffect } from "react";
 import { QUICK } from "../../lib/agents";
+import { sessionNeedsDeckSelection } from "../../lib/deckContextBuilder";
 import useTauriAppVersion from "../../hooks/useTauriAppVersion";
 import DeckConfirmModal from "./DeckConfirmModal";
 
@@ -273,6 +274,13 @@ export default function ChatPanel({
   // deck this chat is bound to: show the confirm bar and block sending. A
   // missing `confirmed` field is a legacy lock and counts as confirmed.
   const pendingLock = Boolean(sessionLockedDeck) && sessionLockedDeck.confirmed === false;
+  // Deck-required agents (Karn/Tibalt) with no deck locked and no opt-out: the
+  // pop-out opens in "pick a deck" mode and the composer stays blocked, so they
+  // can never answer from generic context with no deck. Jace is exempt.
+  const needsDeckSelection = sessionNeedsDeckSelection(currentSession, agent);
+  // Either gate (confirm an existing pending lock, or pick a deck from scratch)
+  // blocks the composer and opens the pop-out.
+  const deckGateOpen = pendingLock || needsDeckSelection;
   // Confirmed lock whose deck differs from the sidebar's active deck — surface
   // it so the user isn't surprised that the chat ignores the sidebar swap.
   const deckMismatch =
@@ -367,10 +375,11 @@ export default function ChatPanel({
         </div>
       )}
 
-      {/* Pending deck: a pop-out modal that forces a confirm-or-swap choice
-          before the conversation starts (the composer stays disabled behind it). */}
+      {/* Deck gate: a pop-out that forces a deck decision before the conversation
+          starts — pick/import a deck (deck-required agents with none loaded), or
+          confirm/swap a pending lock. The composer stays disabled behind it. */}
       <DeckConfirmModal
-        open={pendingLock}
+        open={deckGateOpen}
         lock={sessionLockedDeck}
         savedDecks={savedDecks}
         activeDeckId={activeDeckId}
@@ -378,6 +387,7 @@ export default function ChatPanel({
         onSelectDeck={id => setActiveDeckId && setActiveDeckId(id)}
         onConfirm={() => confirmSessionDeck && confirmSessionDeck(currentSession?.id)}
         onNoDeck={() => unlockSessionDeck(currentSession?.id)}
+        onImport={() => setCenterView("import")}
         cfg={cfg}
         colors={colors}
         fontFamily={fontFamily}
@@ -627,15 +637,15 @@ export default function ChatPanel({
           <button
             key={prompt}
             onClick={() => send(prompt)}
-            disabled={pendingLock}
+            disabled={deckGateOpen}
             style={{
               padding: "4px 10px",
               borderRadius: 12,
               border: `1px solid ${cfg.border}`,
               background: cfg.dim,
               color: cfg.color,
-              cursor: pendingLock ? "not-allowed" : "pointer",
-              opacity: pendingLock ? 0.4 : 1,
+              cursor: deckGateOpen ? "not-allowed" : "pointer",
+              opacity: deckGateOpen ? 0.4 : 1,
               fontSize: 11,
               fontFamily,
               whiteSpace: "nowrap",
@@ -668,9 +678,13 @@ export default function ChatPanel({
               send();
             }
           }}
-          placeholder={pendingLock ? "Confirm the deck above to start chatting…" : cfg.placeholder}
+          placeholder={deckGateOpen
+            ? (needsDeckSelection
+                ? "Pick a deck above to start chatting…"
+                : "Confirm the deck above to start chatting…")
+            : cfg.placeholder}
           rows={2}
-          disabled={sending || pendingLock}
+          disabled={sending || deckGateOpen}
           style={{
             flex: 1,
             padding: "10px 13px",
@@ -682,12 +696,12 @@ export default function ChatPanel({
             fontFamily,
             resize: "none",
             lineHeight: 1.5,
-            opacity: pendingLock ? 0.5 : 1,
+            opacity: deckGateOpen ? 0.5 : 1,
           }}
         />
         <button
           onClick={() => send()}
-          disabled={!input.trim() || sending || pendingLock}
+          disabled={!input.trim() || sending || deckGateOpen}
           style={{
             minWidth: 58,
             height: 42,
@@ -697,12 +711,12 @@ export default function ChatPanel({
             background: cfg.color,
             color: "#fff",
             fontSize: 13,
-            cursor: pendingLock ? "not-allowed" : "pointer",
+            cursor: deckGateOpen ? "not-allowed" : "pointer",
             flexShrink: 0,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            opacity: !input.trim() || sending || pendingLock ? 0.4 : 1,
+            opacity: !input.trim() || sending || deckGateOpen ? 0.4 : 1,
             fontFamily,
           }}
         >
