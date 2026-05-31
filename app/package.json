@@ -30,6 +30,7 @@
     "build": "npm run clean:next && next build",
     "build:oracle-index": "node scripts/build-oracle-index.cjs",
     "build:printings-index": "node scripts/build-collection-printings-index.cjs",
+  "build:seed-prices": "node scripts/build-seed-price-history.mjs",
     "backup": "node scripts/backup-data.cjs",
     "test": "node scripts/test-with-timeout.cjs",
     "test:raw": "vitest run",
