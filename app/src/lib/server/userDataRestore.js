@@ -1,0 +1,45 @@
+/**
+ * userDataRestore.js — validate + plan a restore from a K1 backup bundle (I2).
+ *
+ * Pure: the route does the file I/O (back up current files first, then write).
+ * Only the file-based sections are restored here; feedback/ and games/ are
+ * directory-of-files stores and are left for a follow-up.
+ */
+
+// Backup section → the writable data file it restores into.
+export const RESTORE_SECTION_FILES = {
+  decks: "decks.local.json",
+  chats: "chats.local.json",
+  collection: "collection.json",
+  watchlist: "watchlist.json",
+  agentNotes: "agent-notes.local.json",
+};
+
+export function validateBackupBundle(bundle) {
+  if (!bundle || typeof bundle !== "object") return { ok: false, error: "Not a backup object." };
+  if (bundle.kind !== "mtg-tool-backup") {
+    return { ok: false, error: "This doesn't look like an MTG Tool backup file." };
+  }
+  if (!bundle.sections || typeof bundle.sections !== "object") {
+    return { ok: false, error: "Backup is missing its sections." };
+  }
+  return { ok: true };
+}
+
+/**
+ * Which sections to restore. Returns [{ section, file, data }] for the
+ * file-based sections that are present (non-null) in the bundle and, if
+ * `requested` is a non-empty list, also requested.
+ */
+export function selectRestoreSections(bundle, requested = null) {
+  const sections = bundle?.sections || {};
+  const want = Array.isArray(requested) && requested.length ? new Set(requested) : null;
+  const out = [];
+  for (const [section, file] of Object.entries(RESTORE_SECTION_FILES)) {
+    if (want && !want.has(section)) continue;
+    const data = sections[section];
+    if (data == null) continue;
+    out.push({ section, file, data });
+  }
+  return out;
+}
