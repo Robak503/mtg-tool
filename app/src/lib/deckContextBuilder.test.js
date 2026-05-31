@@ -11,7 +11,12 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createDeckLock, deckLockNeedsConfirmation } from "./deckContextBuilder";
+import {
+  createDeckLock,
+  deckLockNeedsConfirmation,
+  isDeckRequiredAgent,
+  sessionNeedsDeckSelection,
+} from "./deckContextBuilder";
 
 const DECK = {
   id: "deck-1",
@@ -52,5 +57,44 @@ describe("deckLockNeedsConfirmation", () => {
 
   it("treats a legacy lock without the field as confirmed (backward compat)", () => {
     expect(deckLockNeedsConfirmation({ id: "old", name: "Legacy" })).toBe(false);
+  });
+});
+
+describe("isDeckRequiredAgent", () => {
+  it("requires a deck for the deck-centric agents", () => {
+    expect(isDeckRequiredAgent("karn")).toBe(true);
+    expect(isDeckRequiredAgent("tibalt")).toBe(true);
+  });
+
+  it("does not require a deck for Jace (general rules expert) or others", () => {
+    expect(isDeckRequiredAgent("jace")).toBe(false);
+    expect(isDeckRequiredAgent("arbiter")).toBe(false);
+    expect(isDeckRequiredAgent("garfield")).toBe(false);
+    expect(isDeckRequiredAgent(undefined)).toBe(false);
+  });
+});
+
+describe("sessionNeedsDeckSelection", () => {
+  it("is true for a deck-required agent with no lock and no opt-out", () => {
+    expect(sessionNeedsDeckSelection({}, "karn")).toBe(true);
+    expect(sessionNeedsDeckSelection({ messages: [] }, "tibalt")).toBe(true);
+  });
+
+  it("is false once the chat has opted out of having a deck", () => {
+    expect(sessionNeedsDeckSelection({ deckDeclined: true }, "karn")).toBe(false);
+  });
+
+  it("is false when a deck is already locked (pending or confirmed)", () => {
+    expect(sessionNeedsDeckSelection({ lockedDeck: createDeckLock(DECK) }, "karn")).toBe(false);
+    expect(sessionNeedsDeckSelection({ lockedDeck: { ...createDeckLock(DECK), confirmed: true } }, "tibalt")).toBe(false);
+  });
+
+  it("is false for Jace even with no deck — Jace answers general questions deckless", () => {
+    expect(sessionNeedsDeckSelection({}, "jace")).toBe(false);
+  });
+
+  it("is false for a null/undefined session (nothing to attach a lock to yet)", () => {
+    expect(sessionNeedsDeckSelection(null, "karn")).toBe(false);
+    expect(sessionNeedsDeckSelection(undefined, "tibalt")).toBe(false);
   });
 });

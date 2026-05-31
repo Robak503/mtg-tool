@@ -14,6 +14,7 @@ import {
   deckLockNeedsConfirmation,
   deckOracleCardNamesFromCards,
   deckOracleCardNamesFromText,
+  DECK_REQUIRED_AGENTS,
   fetchEngineContext,
   fetchGoldfishInsightsBlock,
   lockContext,
@@ -211,6 +212,24 @@ export default function useChatSessions({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDeck?.id, pendingLockId, currentSession?.id, currentSession?.agent]);
 
+  // ─── Deck-required agents: bind to a deck once one is available ─────────────
+  // Karn/Tibalt must talk about a specific deck. When such a chat has no lock
+  // yet (and the user hasn't opted out) and an active deck becomes available —
+  // e.g. they just picked one in the deck-selection pop-out, or imported one and
+  // returned — create a PENDING lock so the confirm flow takes over. This is
+  // what advances the pop-out from "pick a deck" to "confirm <deck>".
+  useEffect(() => {
+    if (!currentSession?.id || !activeDeck) return;
+    if (!DECK_REQUIRED_AGENTS.has(currentSession.agent)) return;
+    if (currentSession.lockedDeck || currentSession.deckDeclined) return;
+    updateSession(currentSession.id, s => (
+      !s.lockedDeck && !s.deckDeclined
+        ? { ...s, lockedDeck: createDeckLock(activeDeck, knowledgeStatus) }
+        : s
+    ));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDeck?.id, currentSession?.id, currentSession?.agent, currentSession?.lockedDeck, currentSession?.deckDeclined]);
+
   // ─── Session mutators ──────────────────────────────────────────────────────
 
   const updateSession = (sessionId, updater) => {
@@ -329,12 +348,23 @@ export default function useChatSessions({
     }
 
     const lockingAgent = DECK_LOCK_AGENTS.has(targetAgent);
+    const deckRequiredAgent = DECK_REQUIRED_AGENTS.has(targetAgent);
     let deckLock = lockingAgent ? originSession.lockedDeck : null;
     let deckLockJustCreated = false;
     if (lockingAgent && !deckLock && activeDeck && !originSession.deckDeclined) {
       deckLock = createDeckLock(activeDeck, knowledgeStatus);
       deckLockJustCreated = true;
       updateSession(originSessionId, s => ({ ...s, lockedDeck: deckLock }));
+    }
+
+    // Deck-required gate. Karn/Tibalt must bind to a deck — or the user must
+    // explicitly opt out — before any message. With no deck loaded and no prior
+    // opt-out, block the send (the prompt stays in the box); ChatPanel's
+    // deck-selection pop-out is already showing so the user resolves it there.
+    // autoConfirmDeck (deck-view briefings) always targets the active deck, so
+    // it bypasses this gate.
+    if (deckRequiredAgent && !deckLock && !originSession.deckDeclined && !autoConfirmDeck) {
+      return;
     }
 
     // Deck confirmation gate. A pending (unconfirmed) lock means the user hasn't

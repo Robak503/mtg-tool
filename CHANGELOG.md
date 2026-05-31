@@ -22,6 +22,13 @@ summarizes the notable changes.
   you can build end-to-end from cards you already own.
 
 ### Fixed
+- **Karn and Tibalt no longer answer with no deck.** Starting a chat with the
+  deck-builder (Karn) or roaster (Tibalt) when no deck was loaded let them reply
+  from generic card-search context — recommending cuts of cards that aren't in
+  any of your decks. Those two agents now require a deck before the first
+  message: a pop-out forces you to pick a saved deck, import one, or explicitly
+  choose "Chat without a deck" (build-from-scratch). Jace is unaffected — it
+  still answers general rules questions with no deck loaded.
 - **The Vault grid no longer logs a console error on load.** The collection
   card was a button that contained the +/- quantity steppers (also buttons),
   which a browser can't nest — React flagged it as a hydration error. The card
