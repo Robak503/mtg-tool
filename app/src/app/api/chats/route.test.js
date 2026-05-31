@@ -276,6 +276,109 @@ describe("session message cap (MAX_SESSION_MESSAGES)", () => {
   });
 });
 
+describe("message + session metadata persistence (A2)", () => {
+  const fullAssistantMessage = {
+    id: "m-1",
+    role: "assistant",
+    content: "Here is the ruling.",
+    arbiterTrace: "STATE\nRESOLUTION\nstep 1",
+    arbiterStatus: "resolved",
+    arbiterSources: { ruleNumbers: ["117.3a"], cards: ["Lightning Bolt"] },
+    factReceipt: { provider: "ollama", deckLocked: true, arbiterStatus: "resolved" },
+  };
+
+  async function saveAndRead(session) {
+    const request = new Request("http://localhost/api/chats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessions: [session] }),
+    });
+    const response = await route.POST(request);
+    expect(response.status).toBe(200);
+    const written = await readChatFile();
+    return written.sessions[0];
+  }
+
+  it("preserves Arbiter trace/status/sources and the fact receipt", async () => {
+    const session = await saveAndRead({
+      id: "s1", agent: "jace", name: "Ruling", lockedDeck: null,
+      messages: [{ role: "user", content: "q" }, fullAssistantMessage],
+    });
+    const msg = session.messages[1];
+    expect(msg.id).toBe("m-1");
+    expect(msg.arbiterTrace).toContain("RESOLUTION");
+    expect(msg.arbiterStatus).toBe("resolved");
+    expect(msg.arbiterSources).toEqual({ ruleNumbers: ["117.3a"], cards: ["Lightning Bolt"] });
+    expect(msg.factReceipt).toEqual({ provider: "ollama", deckLocked: true, arbiterStatus: "resolved" });
+  });
+
+  it("preserves error/retry metadata", async () => {
+    const session = await saveAndRead({
+      id: "s1", agent: "jace", name: "Err", lockedDeck: null,
+      messages: [{
+        role: "assistant",
+        content: "Could not connect.",
+        isError: true,
+        fallbackAvailable: true,
+        originalPrompt: "what happens if...",
+        errorProvider: "ollama",
+      }],
+    });
+    const msg = session.messages[0];
+    expect(msg.isError).toBe(true);
+    expect(msg.fallbackAvailable).toBe(true);
+    expect(msg.originalPrompt).toBe("what happens if...");
+    expect(msg.errorProvider).toBe("ollama");
+  });
+
+  it("preserves session.deckDeclined — the deck-gate opt-out survives reload", async () => {
+    const session = await saveAndRead({
+      id: "s1", agent: "karn", name: "No deck", lockedDeck: null, deckDeclined: true,
+      messages: [{ role: "user", content: "build me something" }],
+    });
+    expect(session.deckDeclined).toBe(true);
+  });
+
+  it("omits deckDeclined when not set", async () => {
+    const session = await saveAndRead({
+      id: "s1", agent: "jace", name: "x", lockedDeck: null, messages: [],
+    });
+    expect(session.deckDeclined).toBeUndefined();
+  });
+
+  it("drops transient/unknown message fields (streaming, arbitrary keys)", async () => {
+    const session = await saveAndRead({
+      id: "s1", agent: "jace", name: "x", lockedDeck: null,
+      messages: [{ role: "assistant", content: "partial", streaming: true, evilField: "x", id: "m9" }],
+    });
+    const msg = session.messages[0];
+    expect(msg.streaming).toBeUndefined();
+    expect(msg.evilField).toBeUndefined();
+    expect(msg.id).toBe("m9"); // allowlisted field still kept
+    expect(msg.content).toBe("partial");
+  });
+
+  it("round-trips metadata through GET as well as the written file", async () => {
+    await saveAndRead({
+      id: "s1", agent: "jace", name: "Ruling", lockedDeck: null,
+      messages: [fullAssistantMessage],
+    });
+    const response = await route.GET();
+    const data = await response.json();
+    const msg = data.sessions[0].messages[0];
+    expect(msg.arbiterStatus).toBe("resolved");
+    expect(msg.factReceipt.provider).toBe("ollama");
+  });
+
+  it("loads an old assistant message that lacks the new metadata (back-compat)", async () => {
+    const session = await saveAndRead({
+      id: "s1", agent: "jace", name: "Legacy", lockedDeck: null,
+      messages: [{ role: "assistant", content: "plain answer" }],
+    });
+    expect(session.messages[0]).toEqual({ role: "assistant", content: "plain answer" });
+  });
+});
+
 describe("pruneSessions", () => {
   it("never prunes active sessions, even when there are many", async () => {
     // 60 active sessions — exceeds MAX_ARCHIVED_SESSIONS=50 but active is uncapped.

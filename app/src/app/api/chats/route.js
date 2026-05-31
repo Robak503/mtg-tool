@@ -28,12 +28,26 @@ const MAX_ARCHIVED_DAYS = envNumber("MAX_ARCHIVED_DAYS", 90);
 
 // ─── Normalisation ────────────────────────────────────────────────────────────
 
+// Persisted message shape. Beyond role/content we keep a STRICT allowlist of
+// the fields the UI needs after a reload — error/retry affordances, the trust
+// "fact receipt", and Arbiter metadata — and drop everything else (transient
+// flags like `streaming`, plus any unknown keys). Without this, a reloaded chat
+// silently loses its retry buttons, grounding badge, and Arbiter trace.
 function normalizeMessage(message) {
-  return {
+  const out = {
     role: message?.role === "assistant" ? "assistant" : "user",
     content: String(message?.content || ""),
-    ...(message?.arbiterTrace ? { arbiterTrace: String(message.arbiterTrace) } : {}),
   };
+  if (typeof message?.id === "string" && message.id) out.id = message.id;
+  if (message?.isError === true) out.isError = true;
+  if (message?.fallbackAvailable === true) out.fallbackAvailable = true;
+  if (typeof message?.originalPrompt === "string") out.originalPrompt = message.originalPrompt;
+  if (typeof message?.errorProvider === "string") out.errorProvider = message.errorProvider;
+  if (typeof message?.arbiterTrace === "string" && message.arbiterTrace) out.arbiterTrace = message.arbiterTrace;
+  if (typeof message?.arbiterStatus === "string") out.arbiterStatus = message.arbiterStatus;
+  if (message?.arbiterSources && typeof message.arbiterSources === "object") out.arbiterSources = message.arbiterSources;
+  if (message?.factReceipt && typeof message.factReceipt === "object") out.factReceipt = message.factReceipt;
+  return out;
 }
 
 function normalizeLockedDeck(value) {
@@ -65,6 +79,9 @@ function normalizeSession(session) {
     agent: AGENT_KEYS.includes(session?.agent) ? session.agent : "jace",
     name: String(session?.name || "Untitled session").slice(0, 200),
     lockedDeck: normalizeLockedDeck(session?.lockedDeck),
+    // The deck-gate opt-out ("Chat without a deck") must survive a reload, or
+    // Karn/Tibalt re-prompt for a deck on every restart. Stored only when set.
+    ...(session?.deckDeclined === true ? { deckDeclined: true } : {}),
     messages,
     createdAt: typeof session?.createdAt === "string" ? session.createdAt : new Date().toISOString(),
     updatedAt: typeof session?.updatedAt === "string" ? session.updatedAt : new Date().toISOString(),
