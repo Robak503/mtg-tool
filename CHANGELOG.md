@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **The Vault grid no longer logs a console error on load.** The collection
+  card was a button that contained the +/- quantity steppers (also buttons),
+  which a browser can't nest — React flagged it as a hydration error. The card
+  is now a regular clickable element with keyboard support (Enter / Space),
+  steppers still adjust quantity without opening the card, and the console is
+  clean.
+
 ## [0.8.0] - 2026-05-30
 
 ### Added
