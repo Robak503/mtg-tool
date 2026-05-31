@@ -56,5 +56,7 @@ describe("/api/pod-balance — module load and request handling", () => {
     } else {
       expect(body.ready).toBe(false);
     }
-  });
+    // Generous timeout: loads the oracle index when data is present locally;
+    // can exceed 5s under full-suite parallelism. Fast 503 in data-less CI.
+  }, 30000);
 });

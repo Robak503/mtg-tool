@@ -17,17 +17,24 @@ import fs from "node:fs/promises";
 
 import { dataDir, dataPath } from "../../../../lib/server/paths.js";
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
+import { loadWatchlist } from "../../../../lib/server/watchlistStorage.js";
 import { resolvePrices } from "../../../../lib/server/priceResolution.js";
+import { stapleSnapshotTargets } from "../../../../lib/server/financeUniverse.js";
 import {
   todayStamp,
   parseHistory,
   serializeHistory,
   hasSnapshotForDate,
   buildSnapshotEntries,
+  buildExtraSnapshotEntries,
   compactHistory,
 } from "../../../../lib/server/collectionPrices.js";
 
 const HISTORY_FILE = () => dataPath("collection-prices.jsonl");
+
+// Top EDHREC staples to track daily (beyond owned + grails) so the Finance
+// section's "worth getting" movers have a candidate universe to chart.
+const STAPLE_SNAPSHOT_LIMIT = 200;
 
 function priceFor(scryfallId, row) {
   // Resolve through the full fallback chain so a snapshot records a real
@@ -63,21 +70,46 @@ export async function POST() {
       return Response.json({ snapped: false, alreadyExisted: true, dateStamp: stamp });
     }
 
-    const entries = buildSnapshotEntries(collection, stamp, priceFor);
+    const ownedEntries = buildSnapshotEntries(collection, stamp, priceFor);
+    const ownedIds = new Set(ownedEntries.map(e => e.scryfallId));
+
+    // Also snapshot the finance "universe" — grails + top staples — so movers
+    // accrue for cards the user doesn't own yet. Best-effort: if the indexes
+    // aren't synced, skip the extras rather than fail the owned snapshot.
+    let extraEntries = [];
+    try {
+      const { watchlist } = await loadWatchlist();
+      const grailTargets = (watchlist.cards || []).map(card => ({
+        scryfallId: card.scryfallId,
+        prices: resolvePrices(card.scryfallId, null),
+      }));
+      const stapleTargets = stapleSnapshotTargets(STAPLE_SNAPSHOT_LIMIT);
+      extraEntries = buildExtraSnapshotEntries([...grailTargets, ...stapleTargets], stamp, ownedIds);
+    } catch (error) {
+      console.warn("[/api/collection/prices] universe snapshot skipped:", error.message);
+    }
+
+    const entries = [...ownedEntries, ...extraEntries];
     if (entries.length === 0) {
       return Response.json({
         snapped: false,
         alreadyExisted: false,
         dateStamp: stamp,
         entryCount: 0,
-        reason: "no owned cards to snapshot",
+        reason: "no cards to snapshot",
       });
     }
 
     const merged = compactHistory([...history, ...entries]);
     await writeHistoryAtomic(merged);
 
-    return Response.json({ snapped: true, dateStamp: stamp, entryCount: entries.length });
+    return Response.json({
+      snapped: true,
+      dateStamp: stamp,
+      entryCount: entries.length,
+      ownedCount: ownedEntries.length,
+      extraCount: extraEntries.length,
+    });
   } catch (error) {
     return Response.json({ error: error.message || "Snapshot failed" }, { status: 500 });
   }

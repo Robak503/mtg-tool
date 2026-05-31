@@ -113,6 +113,74 @@ export function compactHistory(history, now = new Date(), compactAfterDays = COM
   );
 }
 
+/**
+ * Build snapshot entries for an explicit list of price targets (grails, staple
+ * representative printings) so per-card movers accrue beyond just owned cards.
+ *
+ * targets: [{ scryfallId, prices: { usd, usdFoil, usdEtched } }] — prices
+ * already resolved by the caller. excludeIds skips scryfallIds already
+ * snapshotted (e.g. owned cards) so the day's history has one row per card.
+ */
+export function buildExtraSnapshotEntries(targets, dateStamp, excludeIds = new Set()) {
+  const entries = [];
+  const seen = new Set(excludeIds);
+  for (const target of targets || []) {
+    if (!target?.scryfallId || seen.has(target.scryfallId)) continue;
+    seen.add(target.scryfallId);
+    const prices = target.prices || {};
+    entries.push({
+      snappedAt: dateStamp,
+      scryfallId: target.scryfallId,
+      usd: prices.usd ?? null,
+      usdFoil: prices.usdFoil ?? prices.usd_foil ?? null,
+      usdEtched: prices.usdEtched ?? prices.usd_etched ?? null,
+    });
+  }
+  return entries;
+}
+
+/**
+ * Per-card price movers over a lookback window (nonfoil USD).
+ *
+ * For each scryfallId (optionally restricted to `scryfallIds`), compares the
+ * latest snapshot's price to the nearest snapshot on or before now-windowDays.
+ * Returns movers (nonzero change, valid past price) sorted by % change
+ * descending — risers first, fallers last. Empty until history spans the
+ * window, which is the honest local-first state on a fresh install.
+ *
+ * @returns {{ scryfallId, current, past, asOf, absChange, pctChange }[]}
+ */
+export function computeCardMovers(history, scryfallIds = null, now = new Date(), windowDays = 30) {
+  const byDate = groupByDate(history);
+  const dates = Array.from(byDate.keys()).sort();
+  if (dates.length === 0) return [];
+
+  const currentDate = dates[dates.length - 1];
+  const target = todayStamp(shiftDays(now, windowDays));
+  const pastDate = nearestOnOrBefore(dates, target);
+  if (!pastDate || pastDate === currentDate) return [];
+
+  const currentMap = byDate.get(currentDate);
+  const pastMap = byDate.get(pastDate);
+  const ids = scryfallIds ? new Set(scryfallIds) : null;
+  const movers = [];
+
+  for (const [scryfallId, entry] of currentMap) {
+    if (ids && !ids.has(scryfallId)) continue;
+    const current = parseFloat(entry.usd);
+    const pastEntry = pastMap.get(scryfallId);
+    const past = pastEntry ? parseFloat(pastEntry.usd) : NaN;
+    if (!Number.isFinite(current) || !Number.isFinite(past) || past <= 0) continue;
+    const absChange = Math.round((current - past) * 100) / 100;
+    if (absChange === 0) continue;
+    const pctChange = Math.round(((current - past) / past) * 1000) / 10;
+    movers.push({ scryfallId, current, past, asOf: pastDate, absChange, pctChange });
+  }
+
+  movers.sort((a, b) => b.pctChange - a.pctChange);
+  return movers;
+}
+
 function priceForFinish(priceObj, finish) {
   if (!priceObj) return 0;
   const key = finish === "foil" ? "usdFoil" : finish === "etched" ? "usdEtched" : "usd";
