@@ -85,11 +85,15 @@ export default function RightPanel({
   cfg,
   commanderArtName,
   colorBreakdown,
+  colorIssues,
+  comboData,
+  comboLoad,
   deckCards,
   deckDataLoad,
   hasData,
   handleSearch,
   legalIssues,
+  loadCombos,
   loadDeckData,
   mobile,
   pb,
@@ -123,9 +127,9 @@ export default function RightPanel({
                   </div>
                 )}
                 <div style={{display:"flex",borderBottom:`1px solid ${LINE}`,flexShrink:0}}>
-                  {[["search","Search"],["stats","Stats"],["legal","Legal"]].map(([key,label])=>(
-                    <button key={key} style={{flex:1,padding:"9px 2px",background:rightTab===key?cfg.dim:"transparent",border:"none",borderBottom:rightTab===key?`2px solid ${cfg.color}`:"2px solid transparent",color:rightTab===key?cfg.color:MUTED,cursor:"pointer",fontSize:12,fontFamily:F}}
-                      onClick={()=>{setRightTab(key);if(key!=="search")loadDeckData();}}>
+                  {[["search","Search"],["stats","Stats"],["legal","Legal"],["combos","Combos"]].map(([key,label])=>(
+                    <button key={key} style={{flex:1,padding:"9px 2px",background:rightTab===key?cfg.dim:"transparent",border:"none",borderBottom:rightTab===key?`2px solid ${cfg.color}`:"2px solid transparent",color:rightTab===key?cfg.color:MUTED,cursor:"pointer",fontSize:11,fontFamily:F}}
+                      onClick={()=>{setRightTab(key);if(key==="combos")loadCombos();else if(key!=="search")loadDeckData();}}>
                       {label}
                     </button>
                   ))}
@@ -226,7 +230,80 @@ export default function RightPanel({
                           ))}
                         </div>
                       )}
+                      {hasData&&deckCards.length>0&&(
+                        <div style={{marginTop:18}}>
+                          <div style={{fontSize:9,color:MUTED,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:10}}>Color Identity</div>
+                          {!commanderArtName?(
+                            <div style={{fontSize:12,color:MUTED}}>Set a commander to check color identity.</div>
+                          ):colorIssues.length===0?(
+                            <div style={{padding:"10px 12px",borderRadius:6,background:"rgba(74,155,106,0.1)",border:"1px solid rgba(74,155,106,0.3)",color:"#4a9b6a",fontSize:13}}>
+                              Every card fits the commander's color identity.
+                            </div>
+                          ):(
+                            <div>
+                              <div style={{padding:"8px 12px",borderRadius:6,background:"rgba(190,50,40,0.1)",border:"1px solid rgba(190,50,40,0.3)",color:"#c84848",fontSize:12,marginBottom:12}}>
+                                {colorIssues.length} off-color card{colorIssues.length>1?"s":""} (illegal in this deck)
+                              </div>
+                              {colorIssues.map((c,i)=>(
+                                <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",fontSize:12,borderBottom:`1px solid ${LINE}`}}>
+                                  <span style={{color:TEXT,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"74%"}}>{c.name}</span>
+                                  <span style={{color:"#c84848",flexShrink:0}}>off: {c.offColors.join("")}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div style={{fontSize:10,color:MUTED,marginTop:14,lineHeight:1.55}}>Based on Scryfall data. Verify bans before tournaments.</div>
+                    </div>
+                  )}
+
+                  {rightTab==="combos"&&(
+                    <div>
+                      {!deckCards.length?(
+                        <div style={{textAlign:"center",color:MUTED,fontSize:12,padding:20}}>Import a deck to find combos.</div>
+                      ):!comboData?(
+                        <div style={{textAlign:"center",padding:20}}>
+                          <button onClick={loadCombos} disabled={comboLoad} style={{...pb(true),opacity:comboLoad?.5:1}}>{comboLoad?"Finding...":"Find Combos"}</button>
+                          <div style={{fontSize:11,color:MUTED,marginTop:8}}>Searches your local Commander Spellbook data.</div>
+                        </div>
+                      ):comboData.ready===false?(
+                        <div style={{padding:"10px 12px",borderRadius:6,background:"rgba(190,50,40,0.08)",border:`1px solid ${LINE}`,color:MUTED,fontSize:12,lineHeight:1.5}}>
+                          Combo data isn't synced yet. Open the Updates panel and sync Commander Spellbook.
+                        </div>
+                      ):(
+                        <div style={{display:"flex",flexDirection:"column",gap:18}}>
+                          <div>
+                            <div style={{fontSize:9,color:MUTED,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:8}}>In deck ({comboData.included.length})</div>
+                            {comboData.included.length===0?(
+                              <div style={{fontSize:12,color:MUTED}}>No complete combos detected.</div>
+                            ):comboData.included.map((c,i)=>(
+                              <div key={i} style={{padding:"7px 0",borderBottom:`1px solid ${LINE}`}}>
+                                <div style={{fontSize:12,color:TEXT,lineHeight:1.4}}>{c.cards.join(" + ")}</div>
+                                {c.produces?.length>0&&<div style={{fontSize:10,color:GOLD,marginTop:2}}>{c.produces.slice(0,2).join(" · ")}</div>}
+                              </div>
+                            ))}
+                          </div>
+                          <div>
+                            <div style={{fontSize:9,color:MUTED,textTransform:"uppercase",letterSpacing:"0.12em",marginBottom:8}}>One card away ({comboData.almostIncluded.length})</div>
+                            {comboData.almostIncluded.length===0?(
+                              <div style={{fontSize:12,color:MUTED}}>Nothing one card away.</div>
+                            ):comboData.almostIncluded.map((c,i)=>(
+                              <div key={i} style={{padding:"7px 0",borderBottom:`1px solid ${LINE}`}}>
+                                <div style={{fontSize:12,color:TEXT,lineHeight:1.4}}>
+                                  {c.cards.filter(n=>n!==c.missingCard).join(" + ")}
+                                  {" + "}
+                                  <span style={{color:GOLD,fontWeight:600}}>{c.missingCard}</span>
+                                </div>
+                                {c.produces?.length>0&&<div style={{fontSize:10,color:MUTED,marginTop:2}}>{c.produces.slice(0,1).join(" · ")}</div>}
+                              </div>
+                            ))}
+                          </div>
+                          <div style={{fontSize:10,color:MUTED,lineHeight:1.55}}>
+                            From your local Commander Spellbook snapshot. <span style={{color:GOLD,cursor:"pointer"}} onClick={loadCombos}>Refresh</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

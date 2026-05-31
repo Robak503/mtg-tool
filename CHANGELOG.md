@@ -8,6 +8,19 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Combos tab in the right panel.** Pick any deck and the new **Combos** tab
+  shows the Commander Spellbook combos already in it *and* the ones you're a
+  single card away from — with the missing piece called out. Runs entirely off
+  your local Spellbook snapshot (no network calls).
+- **Color-identity guardrail in the Legal tab.** Alongside the ban check, the
+  Legal tab now flags any card whose color identity falls outside your
+  commander's — the cards that are illegal in the deck even though they're
+  Commander-legal — and tells you which colors are off.
+- **"Buildable only" filter in the Vault's Decks panel.** A toggle (plus a
+  running "X of Y decks buildable now" count) hides everything except the decks
+  you can build end-to-end from cards you already own.
+
 ### Fixed
 - **The Vault grid no longer logs a console error on load.** The collection
   card was a button that contained the +/- quantity steppers (also buttons),

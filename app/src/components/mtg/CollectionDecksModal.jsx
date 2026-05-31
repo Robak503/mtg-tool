@@ -16,6 +16,7 @@ export default function CollectionDecksModal({ onClose, onAddCard, colors }) {
   const { BG2, BG3, LINE, TEXT, MUTED, GOLD, RED } = colors;
   const [state, setState] = useState({ status: "loading", decks: [], error: null });
   const [expanded, setExpanded] = useState(null);
+  const [buildableOnly, setBuildableOnly] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,6 +33,9 @@ export default function CollectionDecksModal({ onClose, onAddCard, colors }) {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  const buildableCount = state.decks.filter(deck => deck.complete).length;
+  const shown = buildableOnly ? state.decks.filter(deck => deck.complete) : state.decks;
 
   return (
     <div
@@ -61,7 +65,26 @@ export default function CollectionDecksModal({ onClose, onAddCard, colors }) {
           {state.status === "error" && <Center color={RED}>{state.error}</Center>}
           {state.status === "ready" && state.decks.length === 0 && <Center color={MUTED}>No saved decks yet.</Center>}
 
-          {state.status === "ready" && state.decks.map(deck => {
+          {state.status === "ready" && state.decks.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "4px 18px 10px" }}>
+              <span style={{ fontSize: 11, color: MUTED }}>
+                {buildableCount} of {state.decks.length} deck{state.decks.length === 1 ? "" : "s"} buildable now
+              </span>
+              <button
+                onClick={() => setBuildableOnly(v => !v)}
+                title="Show only decks you can build entirely from cards you own"
+                style={{ background: buildableOnly ? GOLD : "transparent", border: `1px solid ${buildableOnly ? GOLD : LINE}`, color: buildableOnly ? "#1a1626" : MUTED, borderRadius: 4, padding: "3px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}
+              >
+                {buildableOnly ? "✓ Buildable only" : "Buildable only"}
+              </button>
+            </div>
+          )}
+
+          {state.status === "ready" && state.decks.length > 0 && shown.length === 0 && (
+            <Center color={MUTED}>No decks are fully buildable from your collection yet.</Center>
+          )}
+
+          {state.status === "ready" && shown.map(deck => {
             const open = expanded === deck.deckId;
             return (
               <div key={deck.deckId || deck.deckName} style={{ borderBottom: `1px solid ${LINE}` }}>
