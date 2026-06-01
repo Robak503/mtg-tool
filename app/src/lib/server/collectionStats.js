@@ -120,5 +120,5 @@ export function computeCollectionBreakdowns(collection, getMeta, { topSets = 8, 
     .sort((a, b) => b.lineValue - a.lineValue || a.name.localeCompare(b.name))
     .slice(0, topValuable);
 
-  return { byType, byRarity, byColor, manaCurve, topSets: topSetList, mostValuable, ownedRows, pricedRows };
+  return { byType, byRarity, byColor, manaCurve, topSets: topSetList, mostValuable, ownedRows, pricedRows, setCount: setCounts.size };
 }

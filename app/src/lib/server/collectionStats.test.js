@@ -74,6 +74,11 @@ describe("computeCollectionBreakdowns", () => {
     expect(b.manaCurve["1"]).toBe(2);
   });
 
+  it("reports the true distinct-set count (not the truncated top-sets length)", () => {
+    const b = computeCollectionBreakdowns(collection, getMeta);
+    expect(b.setCount).toBe(3); // c21, m21, 2xm
+  });
+
   it("ranks top sets and most-valuable cards (value = price × qty)", () => {
     const b = computeCollectionBreakdowns(collection, getMeta);
     expect(b.topSets[0]).toEqual({ setCode: "C21", setName: "Commander 2021", count: 2 });

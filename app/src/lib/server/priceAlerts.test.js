@@ -134,6 +134,16 @@ describe("applyCrossings", () => {
     expect(newlyTriggered.map(a => a.scryfallId)).toEqual(["a"]);
   });
 
+  it("leaves a triggered alert untouched when the price is unavailable (no spurious re-arm)", () => {
+    const { alerts, newlyTriggered } = applyCrossings(base, () => null, NOW);
+    // b was triggered with lastPrice 9 — a missing price must not re-arm it or null lastPrice
+    expect(alerts[1].triggeredAt).toBe(NOW);
+    expect(alerts[1].lastPrice).toBe(9);
+    // a was never triggered and has no price — stays armed, nothing fires
+    expect(alerts[0].triggeredAt).toBeNull();
+    expect(newlyTriggered).toEqual([]);
+  });
+
   it("refreshes lastPrice even when met-state is unchanged", () => {
     const { alerts } = applyCrossings(base, () => "9.50", NOW);
     expect(alerts[1].lastPrice).toBe(9.5);

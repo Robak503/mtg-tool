@@ -128,7 +128,13 @@ export default function DeckView({
   // Cost-to-finish for THIS deck from the collection (E3). Advisory; refetches
   // when the deck changes (so an applied Karn add updates the "own X/Y" line).
   const [deckCost, setDeckCost] = useState(null);
-  const deckCardCount = deckCards.length;
+  // Signature of the card list (name+qty+section), so the cost refetches on ANY
+  // content change — including a qty-only edit that leaves the array length the
+  // same (e.g. applying a Karn add/cut of a card already in the deck).
+  const deckSig = useMemo(
+    () => (deckCards || []).map(c => `${c.name}:${c.qty}:${c.section}`).join("|"),
+    [deckCards],
+  );
   useEffect(() => {
     let cancelled = false;
     setDeckCost(null);
@@ -142,7 +148,7 @@ export default function DeckView({
       } catch { /* advisory — collection cost is best-effort */ }
     })();
     return () => { cancelled = true; };
-  }, [activeDeck?.id, deckCardCount]);
+  }, [activeDeck?.id, deckSig]);
   const loadReport = async () => {
     if (!deckCards.length || reportLoading) return;
     setReportLoading(true);
