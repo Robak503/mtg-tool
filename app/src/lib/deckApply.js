@@ -1,0 +1,85 @@
+/**
+ * deckApply.js — reversible deck mutations for "Karn applies a cut/add" (E1).
+ *
+ * Pure: given a deck and a change, return a NEW deck with the change applied AND
+ * a snapshot of the pre-change state pushed onto `memory.snapshots`, so every
+ * applied suggestion is one click from being undone. The snapshot entry matches
+ * the shape DeckView already renders (`{ id, date, snapshot }`) and adds:
+ *   - `reason`  — why it was taken ("Before adding Rhystic Study")
+ *   - `cards`   — the full pre-change cards array, for LOSSLESS restore
+ *                 (the `snapshot.cardNames` form is lossy — it drops section).
+ *
+ * The caller injects id/date (so this stays deterministic + testable). Adds
+ * default to the Mainboard; cuts decrement and drop at zero, never touching the
+ * Commander unless it's the only match.
+ */
+
+import { deckSnapshot } from "./agentArtifacts.js";
+
+const MAIN = "Mainboard";
+const key = (name) => String(name || "").trim().toLowerCase();
+
+/** Add one copy of `name` (increment if the printing already sits in `section`). */
+export function addCardToDeck(cards, name, section = MAIN) {
+  const list = [...(cards || [])];
+  const k = key(name);
+  const i = list.findIndex((c) => key(c.name) === k && c.section === section);
+  if (i >= 0) list[i] = { ...list[i], qty: (list[i].qty || 0) + 1 };
+  else list.push({ qty: 1, name: String(name).trim(), section });
+  return list;
+}
+
+/** Remove one copy of `name` (drop the entry at zero). Prefers a non-Commander match. */
+export function cutCardFromDeck(cards, name) {
+  const list = [...(cards || [])];
+  const k = key(name);
+  let i = list.findIndex((c) => key(c.name) === k && c.section !== "Commander");
+  if (i < 0) i = list.findIndex((c) => key(c.name) === k);
+  if (i < 0) return list; // not in the deck — no-op
+  const qty = (list[i].qty || 0) - 1;
+  if (qty <= 0) list.splice(i, 1);
+  else list[i] = { ...list[i], qty };
+  return list;
+}
+
+/**
+ * Apply a change to a deck, snapshotting the prior state first.
+ * @param change { action: "add"|"cut", name, section? }
+ * @param meta   { id, date } — injected so the snapshot entry is deterministic
+ * @returns the new deck (unchanged deck if the change is invalid)
+ */
+export function applyDeckChange(deck, change, { id, date } = {}) {
+  if (!deck || !change || !change.name || (change.action !== "add" && change.action !== "cut")) {
+    return deck;
+  }
+  const verb = change.action === "add" ? "adding" : "cutting";
+  const snapEntry = {
+    id: id || `snap-${date || ""}-${key(change.name)}`,
+    date: date || "",
+    reason: `Before ${verb} ${String(change.name).trim()}`,
+    snapshot: deckSnapshot(deck),
+    cards: deck.cards || [],
+  };
+  const cards = change.action === "add"
+    ? addCardToDeck(deck.cards, change.name, change.section || MAIN)
+    : cutCardFromDeck(deck.cards, change.name);
+  const snapshots = [snapEntry, ...(deck.memory?.snapshots || [])].slice(0, 20);
+  return { ...deck, cards, memory: { ...(deck.memory || {}), snapshots } };
+}
+
+/**
+ * Restore a deck's cards from a snapshot entry. Lossless when the entry carries
+ * a full `cards` array (apply-snapshots do); older display-only snapshots that
+ * only have `snapshot.cardNames` can't be restored here (caller should disable
+ * restore for those) so we return the deck unchanged rather than flatten it.
+ */
+export function restoreDeckCards(deck, snapEntry) {
+  if (!deck || !snapEntry) return deck;
+  if (Array.isArray(snapEntry.cards)) return { ...deck, cards: snapEntry.cards };
+  return deck;
+}
+
+/** Whether a snapshot entry can be losslessly restored (has full cards). */
+export function isRestorable(snapEntry) {
+  return Array.isArray(snapEntry?.cards);
+}
