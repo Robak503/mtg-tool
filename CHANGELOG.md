@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-05-31
+
 ### Added
 - **Deck Report in the deck view.** A new **Deck Report** section (next to
   Recommendations) generates one complete, local report for the active deck —
