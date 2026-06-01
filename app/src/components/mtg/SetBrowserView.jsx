@@ -9,7 +9,7 @@
  * the bundled printings index, ownership from your collection.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, memo } from "react";
 
 const money = (n) => (n == null || Number.isNaN(n) ? "—" : `$${Number(n).toFixed(2)}`);
 const RARITY_COLOR = { mythic: "#d8542f", rare: "#d9a531", uncommon: "#b6c2cc", common: "#7d8590", special: "#a06fd8", bonus: "#a06fd8" };
@@ -110,20 +110,7 @@ export default function SetBrowserView({ colors, fontFamily }) {
               </div>
             </div>
             {sortedCards.map((c) => (
-              <div key={c.scryfallId} style={rowStyle(LINE)}>
-                <span style={{ width: 46, fontSize: 11, color: MUTED, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>#{c.collectorNumber}</span>
-                {c.rarity && <span title={c.rarity} style={{ width: 8, height: 8, borderRadius: "50%", background: RARITY_COLOR[c.rarity] || "#555", flexShrink: 0 }} />}
-                <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: c.owned ? TEXT : "#b9b3cc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
-                {c.owned
-                  ? <span style={{ fontSize: 10, color: "#6fbf73", border: "1px solid #6fbf73", borderRadius: 3, padding: "1px 6px", flexShrink: 0 }}>✓ Owned</span>
-                  : c.ownedOtherPrinting
-                    ? <span title="You own a different printing of this card" style={{ fontSize: 10, color: GOLD, border: `1px solid ${LINE}`, borderRadius: 3, padding: "1px 6px", flexShrink: 0 }}>other printing</span>
-                    : null}
-                <a href={`https://scryfall.com/search?q=${encodeURIComponent("set:" + c.setCode + " cn:" + c.collectorNumber)}`} target="_blank" rel="noreferrer"
-                   style={{ fontSize: 13, color: GOLD, minWidth: 64, textAlign: "right", textDecoration: "none", flexShrink: 0 }}>
-                  {money(c.usd)}
-                </a>
-              </div>
+              <SetCardRow key={c.scryfallId} c={c} colors={colors} />
             ))}
           </div>
         )}
@@ -146,8 +133,8 @@ export default function SetBrowserView({ colors, fontFamily }) {
         {filteredSets.map((s) => (
           <button key={s.setCode} onClick={() => setActive({ setCode: s.setCode, setName: s.setName })} style={{
             display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
-            padding: "8px 6px", borderTop: `1px solid ${LINE}`, background: "transparent", border: "none",
-            borderTopWidth: 1, borderTopStyle: "solid", cursor: "pointer", fontFamily: F, color: TEXT,
+            padding: "8px 6px", background: "transparent", border: "none", borderTop: `1px solid ${LINE}`,
+            cursor: "pointer", fontFamily: F, color: TEXT,
           }}>
             <span style={{ flex: 1, minWidth: 0, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {s.setName} <span style={{ color: MUTED, fontSize: 11 }}>· {s.setCode.toUpperCase()}{year(s.releasedAt) ? ` · ${year(s.releasedAt)}` : ""}</span>
@@ -162,6 +149,28 @@ export default function SetBrowserView({ colors, fontFamily }) {
     </div>
   );
 }
+
+// Memoized so a sort toggle (which only reorders the list) doesn't re-render
+// every row — sets can carry hundreds of printings.
+const SetCardRow = memo(function SetCardRow({ c, colors }) {
+  const { LINE, TEXT, MUTED, GOLD } = colors;
+  return (
+    <div style={rowStyle(LINE)}>
+      <span style={{ width: 46, fontSize: 11, color: MUTED, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>#{c.collectorNumber}</span>
+      {c.rarity && <span title={c.rarity} style={{ width: 8, height: 8, borderRadius: "50%", background: RARITY_COLOR[c.rarity] || "#555", flexShrink: 0 }} />}
+      <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: c.owned ? TEXT : "#b9b3cc", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+      {c.owned
+        ? <span style={{ fontSize: 10, color: "#6fbf73", border: "1px solid #6fbf73", borderRadius: 3, padding: "1px 6px", flexShrink: 0 }}>✓ Owned</span>
+        : c.ownedOtherPrinting
+          ? <span title="You own a different printing of this card" style={{ fontSize: 10, color: GOLD, border: `1px solid ${LINE}`, borderRadius: 3, padding: "1px 6px", flexShrink: 0 }}>other printing</span>
+          : null}
+      <a href={`https://scryfall.com/search?q=${encodeURIComponent("set:" + c.setCode + " cn:" + c.collectorNumber)}`} target="_blank" rel="noreferrer"
+         style={{ fontSize: 13, color: GOLD, minWidth: 64, textAlign: "right", textDecoration: "none", flexShrink: 0 }}>
+        {money(c.usd)}
+      </a>
+    </div>
+  );
+});
 
 function collNum(cn) {
   const n = parseInt(String(cn).replace(/\D/g, ""), 10);

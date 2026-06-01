@@ -210,13 +210,18 @@ export function cardPriceSeries(history, scryfallId, { maxPoints = 90 } = {}) {
  * Dates with no usable prices value to 0. `maxPoints` keeps the most recent N.
  * @returns {{ snappedAt: string, value: number }[]}
  */
-export function collectionValueSeries(collection, history, { maxPoints = 90 } = {}) {
+export function collectionValueSeries(collection, history, { maxPoints = 0 } = {}) {
   const byDate = groupByDate(history || []);
   const dates = Array.from(byDate.keys()).sort();
-  const series = dates.map((d) => ({
-    snappedAt: d,
-    value: valueCollectionAtPrices(collection, byDate.get(d)),
-  }));
+  const series = dates
+    .map((d) => ({ snappedAt: d, value: valueCollectionAtPrices(collection, byDate.get(d)) }))
+    // Skip days where nothing priced (a partial/failed snapshot) — plotting $0
+    // there reads as a crash-to-zero. Mirrors computeDeltas' "show nothing
+    // rather than a misleading $0" policy.
+    .filter((p) => p.value > 0);
+  // maxPoints <= 0 means keep everything: on-disk history is already compacted
+  // (≈90 daily + one-per-month older), so the full series is bounded and the
+  // chart can span the same horizon as the 365-day delta.
   return maxPoints > 0 && series.length > maxPoints ? series.slice(-maxPoints) : series;
 }
 

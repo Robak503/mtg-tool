@@ -85,7 +85,7 @@ export default function StatsView({ colors, fontFamily }) {
           <Stat label="Distinct cards" value={b.ownedRows} color={TEXT} />
           <Stat label="Total copies" value={data?.counts?.totalCards ?? "—"} color={TEXT} />
           <Stat label="Owned value" value={money(data?.value?.currentUsd)} color={GOLD} />
-          <Stat label="Sets represented" value={(b.topSets?.length ? b.topSets.length : 0) + (b.topSets?.length >= 8 ? "+" : "")} color={TEXT} />
+          <Stat label="Sets represented" value={b.setCount ?? 0} color={TEXT} />
         </div>
         {(() => {
           const series = data?.value?.series || [];

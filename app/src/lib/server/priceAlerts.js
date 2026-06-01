@@ -94,14 +94,20 @@ export function applyCrossings(alerts, priceForId, nowIso = new Date().toISOStri
   const newlyTriggered = [];
   const updated = (alerts || []).map((alert) => {
     const currentPrice = num(priceForId(alert.scryfallId));
-    const met = isMet(alert, currentPrice);
     const wasTriggered = !!alert.triggeredAt;
-    const next = { ...alert, lastPrice: currentPrice };
+    const next = { ...alert };
+    // A missing price this snapshot is NOT a reversal — leave crossing state and
+    // lastPrice untouched, so an alert that briefly loses its price doesn't get
+    // re-armed and then spuriously re-fire when the price reappears unchanged.
+    if (currentPrice === null) return next;
+
+    next.lastPrice = currentPrice;
+    const met = isMet(alert, currentPrice);
     if (met && !wasTriggered) {
       next.triggeredAt = nowIso;
       newlyTriggered.push(next);
     } else if (!met && wasTriggered) {
-      next.triggeredAt = null; // re-arm
+      next.triggeredAt = null; // re-arm only on a real price reversal
     }
     return next;
   });
