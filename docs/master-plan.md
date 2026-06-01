@@ -306,8 +306,8 @@ Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index
 
 | # | Item | Status | One-liner |
 |---|---|---|---|
-| 1 | Price alerts | ⬜ | Target price per grail/owned card; flag on snapshot crossing. Pairs with Grails. |
-| 2 | Per-card price sparkline | 🟡 | Mini line chart in the detail drawer + Finance rows. Grail charts exist; generalize to any card using `collection-prices.jsonl`. |
+| 1 | Price alerts | ✅ v0.13.0 | Shipped — target price + direction per card (set in the card drawer), crossing flagged on the daily snapshot, surfaced in Finance with a "🔔 N hit" badge. Engine/API #93, UI #94. |
+| 2 | Per-card price sparkline | ✅ v0.13.0 | Shipped — mini SVG price-trend line in the card detail drawer for any card with ≥2 days of `collection-prices.jsonl` history (#92). |
 | 3 | Collection value chart over time | 🟡 | Full value-history line (today only 30/90/365 deltas). |
 | 4 | Seed starter price history at release | ✅ | Shipped — write-path groundwork (#69) + a build-time staples seed generator wired into the release (#72). Populates day-1 Finance from the next release onward. |
 | 5 | Cost-basis / P&L | ⬜ | Record what you paid; per-card + portfolio gain/loss (depends M1 purchase fields). |
