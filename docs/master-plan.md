@@ -315,14 +315,14 @@ Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index
 | 7 | Rarity + set-EV signals | ⬜ | Add rarity to the index (#22); set "expected value," reserved-list flag + RL holdings value, mythic movers. |
 | 8 | Deal radar / buy-the-dip | ⬜ | Owned/grail/wishlist cards at a local low. |
 | 9 | Multi-currency + price-source comparison | ⬜ | USD/EUR/tix; TCGPlayer vs CK vs Cardmarket side-by-side; "cheapest place to buy." |
-| 23 | Set browser + price-list view | ⬜ | Browse every set → drill into a set → see every card as a **price list**; per-card tabs for **Normal / Foil / special treatments** (surge, galaxy, manafoil, etc.) each showing that printing's price. Each card links out to its **specific TCGPlayer page**. All local from the printings-index (set / collector / finishes / treatments / prices already there). Deep-links need `tcgplayer_id` / `purchase_uris.tcgplayer` added to `build-collection-printings-index.cjs` (**pairs with #22**); the external link is navigation-only, so local-first is preserved. Relates to **#11** (set completion) and **#9** (price sources). |
+| 23 | Set browser + price-list view | ⬜ **NEXT** | **Now absorbs #11** (owner's reframe — see #11). Browse every set → drill into a set → see **every card** as a value/price list with **owned cards flagged** (and owned count + completion % for real expansions). Per-card tabs for **Normal / Foil / special treatments** (surge, galaxy, manafoil, etc.) each showing that printing's price. Each card links out to its **specific TCGPlayer page**. All local from the printings-index (set / collector / finishes / treatments / prices already there). **Build note:** enumerating a whole set needs a `set → cards` grouping; add it to `build-collection-printings-index.cjs` (a `bySet` map + set metadata). Deep-links need `tcgplayer_id` / `purchase_uris.tcgplayer` added there too (**pairs with #22**, `rarity` already added in #96); external link is navigation-only, so local-first holds. Relates to **#9** (price sources). |
 
 ### Collection management
 
 | # | Item | Status | One-liner / cross-ref |
 |---|---|---|---|
 | 10 | Collection stats dashboard | ✅ (Unreleased) | Shipped — new Stats tab: type / color-identity / rarity / mana-curve breakdowns + top sets + most-valuable + value-over-time (#96, #97). Set-completion % deferred to #11. |
-| 11 | Set completion tracker | ⬜ | % of a set owned + checklist. |
+| 11 | Set completion tracker | 🔀 → #23 | **Reframed by owner (2026-05-31):** completionism isn't the goal — "having the complete sets was so I could go look through them and see what has value / what cards are in the set, more than a realistic completion number." So this folds into **#23 (Set Browser)**: browse a set as a value list with owned cards flagged; completion % is a *secondary* stat scoped to real expansions only (skip Secret Lair / Commander / promo sets). |
 | 12 | Bulk edit | ⬜ | Multi-select rows → set finish/tag/quantity en masse. |
 | 13 | Binders / storage locations | ⬜ | = **G5** (physical location tracking). |
 | 14 | Lend / borrow tracker | ⬜ | = **M3**. |
