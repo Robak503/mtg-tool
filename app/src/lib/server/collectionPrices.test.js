@@ -13,6 +13,7 @@ import {
   compactHistory,
   valueCollectionAtPrices,
   computeDeltas,
+  cardPriceSeries,
 } from "./collectionPrices.js";
 
 function row(scryfallId, stacks, prices, opts = {}) {
@@ -171,5 +172,40 @@ describe("computeDeltas", () => {
     const now = new Date("2026-06-01T00:00:00Z");
     const history = [{ snappedAt: "2026-06-01", scryfallId: "a", usd: "1.50" }];
     expect(computeDeltas(collection, history, now)).toEqual({ d30: null, d90: null, d365: null });
+  });
+});
+
+describe("cardPriceSeries", () => {
+  const history = [
+    { snappedAt: "2026-05-01", scryfallId: "a", usd: "1.00" },
+    { snappedAt: "2026-05-03", scryfallId: "a", usd: "1.50" },
+    { snappedAt: "2026-05-02", scryfallId: "a", usd: "1.20" }, // out of order
+    { snappedAt: "2026-05-03", scryfallId: "a", usd: "1.60" }, // dup date → last wins
+    { snappedAt: "2026-05-02", scryfallId: "b", usd: "9.00" }, // other card
+    { snappedAt: "2026-05-04", scryfallId: "a", usd: null }, // non-numeric → skipped
+  ];
+
+  it("returns the card's series oldest→newest, one point per day (last write wins)", () => {
+    expect(cardPriceSeries(history, "a")).toEqual([
+      { snappedAt: "2026-05-01", usd: 1.0 },
+      { snappedAt: "2026-05-02", usd: 1.2 },
+      { snappedAt: "2026-05-03", usd: 1.6 },
+    ]);
+  });
+
+  it("returns [] for an unknown card or missing id", () => {
+    expect(cardPriceSeries(history, "zzz")).toEqual([]);
+    expect(cardPriceSeries(history, null)).toEqual([]);
+  });
+
+  it("caps to the most recent maxPoints", () => {
+    const long = Array.from({ length: 100 }, (_, i) => ({
+      snappedAt: `2026-${String(i).padStart(3, "0")}`,
+      scryfallId: "a",
+      usd: String(i),
+    }));
+    const series = cardPriceSeries(long, "a", { maxPoints: 10 });
+    expect(series).toHaveLength(10);
+    expect(series[9].usd).toBe(99);
   });
 });
