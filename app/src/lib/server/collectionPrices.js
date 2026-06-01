@@ -220,6 +220,71 @@ export function collectionValueSeries(collection, history, { maxPoints = 90 } = 
   return maxPoints > 0 && series.length > maxPoints ? series.slice(-maxPoints) : series;
 }
 
+/**
+ * Deal radar (#8): cards currently sitting at/near their low over a window AND
+ * meaningfully down from the window high — i.e. "buy-the-dip" candidates among
+ * the cards you care about. Restrict to `scryfallIds` (owned + grails) when
+ * given. Empty until history spans the window (honest day-1 state).
+ *
+ * A card qualifies when, over the last `windowDays`:
+ *   - current price is within `nearPct`% of the window minimum (near the low)
+ *   - current is at least `minDipPct`% below the window maximum (it actually dipped)
+ *
+ * @returns {{ scryfallId, current, low, high, pctAboveLow, dipPct }[]}  (biggest dip first)
+ */
+export function computeDeals(
+  history,
+  scryfallIds = null,
+  now = new Date(),
+  { windowDays = 90, nearPct = 5, minDipPct = 10 } = {},
+) {
+  const byDate = groupByDate(history || []);
+  const dates = Array.from(byDate.keys()).sort();
+  if (dates.length === 0) return [];
+
+  const currentDate = dates[dates.length - 1];
+  const cutoff = todayStamp(shiftDays(now, windowDays));
+  const windowDates = dates.filter((d) => d >= cutoff);
+  if (windowDates.length < 2) return [];
+
+  const currentMap = byDate.get(currentDate);
+  const ids = scryfallIds ? new Set(scryfallIds) : null;
+  const deals = [];
+
+  for (const [scryfallId, entry] of currentMap) {
+    if (ids && !ids.has(scryfallId)) continue;
+    const current = parseFloat(entry.usd);
+    if (!Number.isFinite(current) || current <= 0) continue;
+
+    let low = Infinity;
+    let high = -Infinity;
+    for (const d of windowDates) {
+      const e = byDate.get(d).get(scryfallId);
+      const p = e ? parseFloat(e.usd) : NaN;
+      if (!Number.isFinite(p) || p <= 0) continue;
+      if (p < low) low = p;
+      if (p > high) high = p;
+    }
+    if (!Number.isFinite(low) || low <= 0 || high <= low) continue;
+
+    const pctAboveLow = ((current - low) / low) * 100;
+    const dipPct = ((high - current) / high) * 100;
+    if (pctAboveLow <= nearPct && dipPct >= minDipPct) {
+      deals.push({
+        scryfallId,
+        current,
+        low: Math.round(low * 100) / 100,
+        high: Math.round(high * 100) / 100,
+        pctAboveLow: Math.round(pctAboveLow * 10) / 10,
+        dipPct: Math.round(dipPct * 10) / 10,
+      });
+    }
+  }
+
+  deals.sort((a, b) => b.dipPct - a.dipPct);
+  return deals;
+}
+
 function priceForFinish(priceObj, finish) {
   if (!priceObj) return 0;
   const key = finish === "foil" ? "usdFoil" : finish === "etched" ? "usdEtched" : "usd";

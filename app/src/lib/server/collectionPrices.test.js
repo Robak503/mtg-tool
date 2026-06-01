@@ -15,6 +15,7 @@ import {
   computeDeltas,
   cardPriceSeries,
   collectionValueSeries,
+  computeDeals,
 } from "./collectionPrices.js";
 
 function row(scryfallId, stacks, prices, opts = {}) {
@@ -205,6 +206,39 @@ describe("collectionValueSeries", () => {
       snappedAt: `2026-${String(i).padStart(3, "0")}`, scryfallId: "a", usd: "1.00",
     }));
     expect(collectionValueSeries(collection, long, { maxPoints: 5 })).toHaveLength(5);
+  });
+});
+
+describe("computeDeals", () => {
+  const now = new Date("2026-06-01T00:00:00Z");
+  // "a" spiked to 20 then fell back to ~10 (near its low) → a deal.
+  // "b" is flat → not a deal. "c" is near its high → not a deal.
+  const history = [
+    { snappedAt: "2026-05-01", scryfallId: "a", usd: "10.00" },
+    { snappedAt: "2026-05-10", scryfallId: "a", usd: "20.00" },
+    { snappedAt: "2026-06-01", scryfallId: "a", usd: "10.40" }, // ~4% above low(10), ~48% below high(20)
+    { snappedAt: "2026-05-01", scryfallId: "b", usd: "5.00" },
+    { snappedAt: "2026-06-01", scryfallId: "b", usd: "5.00" },  // flat → no dip
+    { snappedAt: "2026-05-01", scryfallId: "c", usd: "8.00" },
+    { snappedAt: "2026-05-10", scryfallId: "c", usd: "9.00" },
+    { snappedAt: "2026-06-01", scryfallId: "c", usd: "9.00" },  // at its high → not a deal
+  ];
+
+  it("flags a card near its window low that dipped meaningfully", () => {
+    const deals = computeDeals(history, null, now);
+    expect(deals.map(d => d.scryfallId)).toEqual(["a"]);
+    expect(deals[0]).toMatchObject({ current: 10.4, low: 10, high: 20 });
+    expect(deals[0].dipPct).toBeGreaterThan(40);
+    expect(deals[0].pctAboveLow).toBeLessThanOrEqual(5);
+  });
+
+  it("restricts to the given scryfallIds and returns [] when none qualify", () => {
+    expect(computeDeals(history, ["b", "c"], now)).toEqual([]);
+    expect(computeDeals(history, ["a"], now).map(d => d.scryfallId)).toEqual(["a"]);
+  });
+
+  it("returns [] for empty history", () => {
+    expect(computeDeals([], null, now)).toEqual([]);
   });
 });
 
