@@ -27,6 +27,7 @@ import CollectionDecksModal from "./CollectionDecksModal";
 import ColorTagManager from "./ColorTagManager";
 import FinanceView from "./FinanceView";
 import StatsView from "./StatsView";
+import SetBrowserView from "./SetBrowserView";
 import useColorTags from "../../hooks/useColorTags";
 
 // Obsidian & Gold — matches the app shell theme (cool-neutral, rich gold).
@@ -504,7 +505,7 @@ export default function CollectionView({ onClose }) {
             The Vault
           </h1>
           <div style={{ display: "flex", gap: 4, alignSelf: "center" }}>
-            {[["collection", "Collection"], ["stats", "Stats"], ["finance", "Finance"]].map(([k, label]) => (
+            {[["collection", "Collection"], ["stats", "Stats"], ["sets", "Sets"], ["finance", "Finance"]].map(([k, label]) => (
               <button key={k} onClick={() => setMode(k)} style={{
                 background: mode === k ? COLORS.GOLD : "transparent",
                 color: mode === k ? "#fff" : COLORS.MUTED,
@@ -616,6 +617,10 @@ export default function CollectionView({ onClose }) {
 
       {mode === "stats" && (
         <StatsView colors={COLORS} fontFamily={FONT} />
+      )}
+
+      {mode === "sets" && (
+        <SetBrowserView colors={COLORS} fontFamily={FONT} />
       )}
 
       {mode === "collection" && (<>

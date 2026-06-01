@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Set Browser.** A new **Sets** tab in the Vault lists every set (newest first,
+  searchable) with how many of its cards you own; open a set to see every
+  printing as a value list — owned cards flagged (and "other printing" when you
+  own a different version), sortable by value / collector number / owned, each
+  price linking to Scryfall. All local from the printings index.
+
 ### Changed
 - **"Worth getting" now shows cards actually worth getting.** The Finance
   staples suggestions are filtered to $50+ and sorted by value (richest first),
