@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-05-31
+
 ### Added
 - **Price alerts.** Set a target price on any card in the detail drawer —
   "notify when it drops to ≤ $X" (a buy signal) or "rises to ≥ $X" (a
