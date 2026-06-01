@@ -10,6 +10,7 @@ export default function Sidebar({
   activeDeckId,
   cfg,
   mobile,
+  sending,
   savedDecks,
   setAgent,
   setCenterView,
@@ -90,8 +91,15 @@ export default function Sidebar({
           >
             <span style={{fontSize:16}}>{a.icon}</span>
             <div><div style={{fontSize:13,fontWeight:700}}>{a.name}</div><div style={{fontSize:10,opacity:.65}}>{a.title}</div></div>
+            {key===agent && sending && (
+              <span title={`${a.name} is working…`} style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:5}}>
+                <span style={{fontSize:9,opacity:.8}}>thinking</span>
+                <span style={{width:7,height:7,borderRadius:"50%",background:a.color,animation:"thinkpulse 1s ease-in-out infinite"}} />
+              </span>
+            )}
           </button>
         ))}
+        <style>{"@keyframes thinkpulse{0%,100%{opacity:.25}50%{opacity:1}}"}</style>
       </div>
 
       {/* The Academy — Learn-to-Play is its own section (like the Vault), a

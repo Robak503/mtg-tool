@@ -125,6 +125,7 @@ export default function MTGAssistant() {
 
   const bodyRef  = useRef(null);
   const bottomRef= useRef(null);
+  const chatScrollRef = useRef(null);
 
   const {
     activeDeck,
@@ -239,7 +240,15 @@ export default function MTGAssistant() {
   } = useCardSearch();
 
   useEffect(()=>{ const h=()=>setMobile(window.innerWidth<660); window.addEventListener("resize",h); return()=>window.removeEventListener("resize",h); },[]);
-  useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:"smooth"}); },[currentSession?.messages,sending]);
+  // Opening / switching a chat jumps to the latest message.
+  useEffect(()=>{ bottomRef.current?.scrollIntoView({behavior:"auto"}); },[currentSession?.id]);
+  // While a message streams in, only follow the bottom if the user is already
+  // near it — don't yank them down when they've scrolled up to read (item 3).
+  useEffect(()=>{
+    const el = chatScrollRef.current;
+    if (el && el.scrollHeight - el.scrollTop - el.clientHeight > 140) return;
+    bottomRef.current?.scrollIntoView({behavior:"smooth"});
+  },[currentSession?.messages,sending]);
 
   // Ollama startup health probe. Runs once on app load, then again every 30s
   // while the banner is unresolved so it auto-clears when the user starts the
@@ -981,6 +990,7 @@ export default function MTGAssistant() {
             activeDeckId={activeDeckId}
             cfg={cfg}
             mobile={mobile}
+            sending={sending}
             savedDecks={savedDecks}
             setAgent={setAgent}
             setCenterView={setCenterView}
@@ -1137,6 +1147,7 @@ export default function MTGAssistant() {
                 activeDeck={activeDeck}
                 agent={agent}
                 bottomRef={bottomRef}
+                chatScrollRef={chatScrollRef}
                 cfg={cfg}
                 colors={{BG2, BG3, LINE, TEXT, MUTED}}
                 currentSession={currentSession}

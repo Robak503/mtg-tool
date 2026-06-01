@@ -17,6 +17,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 const money = (n) => (n == null || Number.isNaN(n) ? "—" : `$${Number(n).toFixed(2)}`);
 
+// Grails are chase cards — a $0.50 "grail" is noise. Only offer to add a card to
+// the watchlist when it's worth at least this much (item: grails are $50+ only).
+const GRAIL_MIN_USD = 50;
+
 function MoverPill({ mover, colors }) {
   if (!mover) return <span style={{ fontSize: 11, color: colors.MUTED }}>—</span>;
   const up = mover.pctChange > 0;
@@ -88,6 +92,9 @@ export default function FinanceView({ colors, fontFamily }) {
 
   const addGrail = async (card) => {
     if (!card?.scryfallId || watched.has(card.scryfallId)) return;
+    // Guard: grails are $50+ chase cards (the +Grail button is hidden below this,
+    // but defend the handler too).
+    if (card.usd != null && Number(card.usd) < GRAIL_MIN_USD) return;
     setWatched(prev => new Set(prev).add(card.scryfallId));
     setGrails(prev => [{
       scryfallId: card.scryfallId, name: card.name, setCode: card.setCode || card.set || null,
@@ -256,7 +263,7 @@ export default function FinanceView({ colors, fontFamily }) {
             </span>
             <span style={{ fontSize: 13, color: GOLD, minWidth: 64, textAlign: "right" }}>{money(c.usd)}</span>
             <div style={{ minWidth: 96, textAlign: "right" }}><MoverPill mover={c.mover30d} colors={colors} /></div>
-            <GrailButton on={watched.has(c.scryfallId)} onClick={() => addGrail(c)} colors={colors} font={F} />
+            <GrailButton on={watched.has(c.scryfallId)} onClick={() => addGrail(c)} colors={colors} font={F} usd={c.usd} />
           </div>
         ))}
       </div>
@@ -282,6 +289,7 @@ export default function FinanceView({ colors, fontFamily }) {
                   </span>
                   <GrailButton
                     on={watched.has(r.id)}
+                    usd={r.prices?.usd != null ? parseFloat(r.prices.usd) : null}
                     onClick={() => addGrail({ scryfallId: r.id, oracleId: r.oracleId, name: r.name, setCode: r.set, collectorNumber: r.collectorNumber, usd: r.prices?.usd != null ? parseFloat(r.prices.usd) : null })}
                     colors={colors} font={F}
                   />
@@ -328,8 +336,10 @@ function MoverList({ movers, colors, empty }) {
   ));
 }
 
-function GrailButton({ on, onClick, colors, font }) {
+function GrailButton({ on, onClick, colors, font, usd }) {
   const { LINE, GOLD } = colors;
+  // Below the grail threshold (and not already tracked): don't offer it at all.
+  if (!on && usd != null && usd < GRAIL_MIN_USD) return null;
   return (
     <button
       onClick={onClick}

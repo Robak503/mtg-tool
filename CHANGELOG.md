@@ -8,6 +8,21 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **Chat no longer yanks you to the bottom while reading.** The message view only
+  auto-follows a streaming reply if you're already near the bottom — scroll up to
+  read earlier text and it stays put.
+- **Agents keep working when you leave the chat.** The response keeps streaming in
+  the background while you browse the Vault or other views, and the active agent
+  now shows a "thinking" pulse in the sidebar so you can see it's still going.
+
+### Changed
+- **Tibalt reveals his roast all at once.** Instead of slow token-by-token text,
+  Tibalt shows a progress bar while he works, then drops the finished roast in one
+  shot (local models can take a while; the half-written version landed worse).
+- **Grails are $50+ only.** The "+ Grail" button now appears only for cards worth
+  at least $50 — no more being offered a 50-cent "grail."
+
 ### Added
 - **Bulk edit in the Vault.** A new **Select** mode lets you pick multiple cards
   (or "Select all" the filtered view) and then **assign a color tag** or

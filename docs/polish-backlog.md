@@ -12,6 +12,13 @@ shuffled), gated through gstack `/design-review` + `/qa`. **"Ready to ship" = th
 > and: *"the Vault showing the mana curve, which has nothing to do with finance,
 > but would be great in Karn."*
 
+> **Scope rule (owner, 2026-05-31): only defer *purely cosmetic* items to the
+> 1.0.0 overhaul — 1.0.0 is still a long way off.** Anything *functional* (a bug,
+> broken interaction, slow/confusing behavior) gets fixed **now**, not parked here.
+> Example fixes already shipped inline rather than deferred: chat auto-scroll
+> hijack, stream surviving a view switch, Tibalt's slow streaming, grail price
+> floor. This file is for layout/placement/visual-consistency only.
+
 ---
 
 ## Relocations (right widget, wrong place)

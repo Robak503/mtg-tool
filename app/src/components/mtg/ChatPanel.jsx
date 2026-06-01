@@ -242,10 +242,32 @@ function ArbiterSources({ sources, LINE, TEXT, fontFamily }) {
   );
 }
 
+/**
+ * RoastLoader — Tibalt streams like the others, but a half-written roast lands
+ * worse than the whole thing at once. While his message is streaming we hide the
+ * partial text behind an indeterminate progress bar + elapsed-seconds counter,
+ * then reveal the finished roast in one shot when the stream completes (item 2).
+ */
+function RoastLoader({ seconds, color, muted, font }) {
+  return (
+    <div style={{ minWidth: 230, fontFamily: font }}>
+      <div style={{ fontSize: 13, color, marginBottom: 8 }}>
+        Tibalt is sharpening his knives…{" "}
+        <span style={{ color: muted, fontVariantNumeric: "tabular-nums" }}>{seconds}s</span>
+      </div>
+      <div style={{ position: "relative", height: 6, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, bottom: 0, width: "40%", borderRadius: 3, background: color, animation: "roastbar 1.1s ease-in-out infinite" }} />
+      </div>
+      <style>{"@keyframes roastbar{0%{left:-40%}100%{left:100%}}"}</style>
+    </div>
+  );
+}
+
 export default function ChatPanel({
   activeDeck,
   agent,
   bottomRef,
+  chatScrollRef,
   cfg,
   colors,
   currentSession,
@@ -441,6 +463,7 @@ export default function ChatPanel({
       )}
 
       <div
+        ref={chatScrollRef}
         style={{
           flex: 1,
           overflowY: "auto",
@@ -472,6 +495,10 @@ export default function ChatPanel({
         </div>
 
         {sessionMessages.map((msg, index) => (
+          // Tibalt's roast lands better whole: while his reply streams, hide the
+          // partial text (the RoastLoader in the sending block is the indicator)
+          // and let the finished roast appear at once when it completes (item 2).
+          (msg.streaming && agent === "tibalt") ? null : (
           <div
             key={msg.id || `${msg.role}-${index}`}
             style={{
@@ -594,6 +621,7 @@ export default function ChatPanel({
               />
             )}
           </div>
+          )
         ))}
 
         {sending && (
@@ -607,11 +635,17 @@ export default function ChatPanel({
                 border: `1px solid ${cfg.border}`,
               }}
             >
-              <Dots color={cfg.color} />
-              {waitSeconds >= 10 && (
-                <div style={{ fontSize: 11, color: "#9d98b8", marginTop: 6 }}>
-                  Still thinking… (local models can take 20–60s for long responses)
-                </div>
+              {agent === "tibalt" ? (
+                <RoastLoader seconds={waitSeconds} color={cfg.color} muted={MUTED} font={fontFamily} />
+              ) : (
+                <>
+                  <Dots color={cfg.color} />
+                  {waitSeconds >= 10 && (
+                    <div style={{ fontSize: 11, color: "#9d98b8", marginTop: 6 }}>
+                      Still thinking… (local models can take 20–60s for long responses)
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
