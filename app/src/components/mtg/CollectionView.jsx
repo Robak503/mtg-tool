@@ -28,6 +28,7 @@ import ColorTagManager from "./ColorTagManager";
 import FinanceView from "./FinanceView";
 import StatsView from "./StatsView";
 import SetBrowserView from "./SetBrowserView";
+import BuildView from "./BuildView";
 import useColorTags from "../../hooks/useColorTags";
 
 // Obsidian & Gold — matches the app shell theme (cool-neutral, rich gold).
@@ -58,7 +59,7 @@ const DEFAULT_FILTERS = {
   finish: "any",
 };
 
-export default function CollectionView({ onClose }) {
+export default function CollectionView({ onClose, onBuildCommander }) {
   const [state, setState] = useState({
     status: "loading",
     collection: null,
@@ -505,7 +506,7 @@ export default function CollectionView({ onClose }) {
             The Vault
           </h1>
           <div style={{ display: "flex", gap: 4, alignSelf: "center" }}>
-            {[["collection", "Collection"], ["stats", "Stats"], ["sets", "Sets"], ["finance", "Finance"]].map(([k, label]) => (
+            {[["collection", "Collection"], ["build", "Build"], ["stats", "Stats"], ["sets", "Sets"], ["finance", "Finance"]].map(([k, label]) => (
               <button key={k} onClick={() => setMode(k)} style={{
                 background: mode === k ? COLORS.GOLD : "transparent",
                 color: mode === k ? "#fff" : COLORS.MUTED,
@@ -621,6 +622,10 @@ export default function CollectionView({ onClose }) {
 
       {mode === "sets" && (
         <SetBrowserView colors={COLORS} fontFamily={FONT} />
+      )}
+
+      {mode === "build" && (
+        <BuildView colors={COLORS} fontFamily={FONT} onBuildCommander={onBuildCommander} />
       )}
 
       {mode === "collection" && (<>

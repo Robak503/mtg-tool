@@ -208,6 +208,7 @@ export default function MTGAssistant() {
     send,
     sending,
     setInput,
+    primeInput,
   } = useChatSessions({
     activeDeck,
     agent,
@@ -551,6 +552,30 @@ export default function MTGAssistant() {
     // Deck-view briefings target the active deck explicitly, so skip the
     // confirm gate (otherwise the briefing would be silently swallowed).
     send(prompt, targetAgent, 0, null, { autoConfirmDeck: true });
+  };
+
+  // "Build From Vault" (#20): the user picked a commander they own from the
+  // Vault's Build tab. Open a fresh, deck-less Karn chat (build-from-scratch —
+  // unlockSessionDeck sets deckDeclined so Karn's deck gate clears) and prefill
+  // a ready-to-send build prompt. We prefill rather than auto-send so the user
+  // fires the (local-model, slow) request when ready and can tweak the ask.
+  const buildFromVault = (name) => {
+    const commander = String(name || "").trim();
+    if (!commander) return;
+    const session = createSession("karn", { lockedDeck: null, name: `Build: ${commander}` });
+    unlockSessionDeck(session.id);
+    setCenterView("chat");
+    if (mobile) setMobileTab("chat");
+    const prompt = `Help me build a Commander deck around [[${commander}]], a card I own. Prioritize cards from my collection where possible. What's the game plan, and what key pieces (ramp, draw, removal, win conditions, synergy) should I include?`;
+    // Switching to Karn fires the hook's agent-change input-clear, so when we're
+    // changing agent we prime the prefill to survive it; if already on Karn, set
+    // the draft directly (no clear effect fires).
+    if (agent === "karn") {
+      setInput(prompt);
+    } else {
+      primeInput(prompt);
+      setAgent("karn");
+    }
   };
 
   const prepArbiterQuestion = () => {
@@ -1153,7 +1178,7 @@ export default function MTGAssistant() {
                 fontFamily={F}
               />
             ):centerView==="collection"?(
-              <CollectionView />
+              <CollectionView onBuildCommander={buildFromVault} />
             ):(
               <ChatPanel
                 activeDeck={activeDeck}
