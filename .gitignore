@@ -39,9 +39,14 @@ app/data/rules-index.json
 app/data/cardkingdom-prices.json
 app/reports/
 
-# But DO commit these local data files:
-!app/data/decks.local.json
-!app/data/chats.local.json
+# User data — IGNORED. Decks, chats, and agent notes are the user's own content:
+# they live in %APPDATA% in production and are local-only in dev. The app
+# auto-seeds a starter deck on first launch (CLAUDE.md §5 #7), so NO seed file is
+# committed. (These also match app/.gitignore's `data/*.local.json` rule, which
+# takes precedence inside app/ — the earlier "!" un-ignore here was dead.)
+app/data/decks.local.json
+app/data/chats.local.json
+app/data/agent-notes.local.json
 
 # Local provider/cost telemetry (regenerable and private)
 app/data/model-calls.local.json
@@ -62,6 +67,7 @@ app/data/games/
 
 # Collection feature — user data + regenerable caches (live in %APPDATA% in prod)
 app/data/collection.json
+app/data/watchlist.json
 app/data/collection-prices.jsonl
 app/data/collection-prices.compact.jsonl
 app/data/collection-roasts.json
