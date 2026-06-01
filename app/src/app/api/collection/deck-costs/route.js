@@ -27,14 +27,18 @@ async function loadDecks() {
   }
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
+    const deckId = request?.url ? new URL(request.url).searchParams.get("deckId") : null;
     const { collection } = await loadCollection();
     const decks = await loadDecks();
 
     let summaries;
     try {
-      summaries = decks.map(deck => deckCostToFinish(deck, collection, lookupByName));
+      // ?deckId= → just that deck's summary (used by the deck view's
+      // cost-to-finish line); otherwise every deck (the Vault's decks list).
+      const targets = deckId ? decks.filter(d => d.id === deckId) : decks;
+      summaries = targets.map(deck => deckCostToFinish(deck, collection, lookupByName));
     } catch (error) {
       if (error.code === "ENOENT") {
         return Response.json(
@@ -43,6 +47,10 @@ export async function GET() {
         );
       }
       throw error;
+    }
+
+    if (deckId) {
+      return Response.json({ summary: summaries[0] || null });
     }
 
     // Unfinished decks first (priciest to finish at the top), completed last.
