@@ -308,7 +308,7 @@ Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index
 |---|---|---|---|
 | 1 | Price alerts | ✅ v0.13.0 | Shipped — target price + direction per card (set in the card drawer), crossing flagged on the daily snapshot, surfaced in Finance with a "🔔 N hit" badge. Engine/API #93, UI #94. |
 | 2 | Per-card price sparkline | ✅ v0.13.0 | Shipped — mini SVG price-trend line in the card detail drawer for any card with ≥2 days of `collection-prices.jsonl` history (#92). |
-| 3 | Collection value chart over time | 🟡 | Full value-history line (today only 30/90/365 deltas). |
+| 3 | Collection value chart over time | ✅ (Unreleased) | Shipped — "Value over time" line in the Stats tab valuing current holdings at each daily snapshot's prices, beside the 30/90/365 deltas (#97). |
 | 4 | Seed starter price history at release | ✅ | Shipped — write-path groundwork (#69) + a build-time staples seed generator wired into the release (#72). Populates day-1 Finance from the next release onward. |
 | 5 | Cost-basis / P&L | ⬜ | Record what you paid; per-card + portfolio gain/loss (depends M1 purchase fields). |
 | 6 | Buylist + "worth selling now" | ⬜ | Card Kingdom buylist vs retail; surface just-spiked cards to sell. |
@@ -321,7 +321,7 @@ Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index
 
 | # | Item | Status | One-liner / cross-ref |
 |---|---|---|---|
-| 10 | Collection stats dashboard | ⬜ | Rarity/set/type/color breakdowns, most-valuable cards, set-completion %. |
+| 10 | Collection stats dashboard | ✅ (Unreleased) | Shipped — new Stats tab: type / color-identity / rarity / mana-curve breakdowns + top sets + most-valuable + value-over-time (#96, #97). Set-completion % deferred to #11. |
 | 11 | Set completion tracker | ⬜ | % of a set owned + checklist. |
 | 12 | Bulk edit | ⬜ | Multi-select rows → set finish/tag/quantity en masse. |
 | 13 | Binders / storage locations | ⬜ | = **G5** (physical location tracking). |
@@ -343,7 +343,7 @@ Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index
 | # | Item | Status | One-liner |
 |---|---|---|---|
 | 21 | Background daily snapshot | ✅ v0.11.0 | Shipped — the daily snapshot now fires on app launch (`DailySnapshotTrigger` at the app root), not just on Vault open, so history accrues regardless of view. |
-| 22 | Richer printings index | ⬜ | Add rarity (+ anything finance needs) to `build-collection-printings-index.cjs`. Enabler for #7. |
+| 22 | Richer printings index | 🟡 | Started — `rarity` now kept per printing in `build-collection-printings-index.cjs` (#96); populates the Stats rarity breakdown after the next index rebuild. Remaining finance fields (set EV, RL flag, etc.) still open. Enabler for #7. |
 
 ### Recommended Vault batches
 
