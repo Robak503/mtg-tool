@@ -14,6 +14,7 @@ import {
   valueCollectionAtPrices,
   computeDeltas,
   cardPriceSeries,
+  collectionValueSeries,
 } from "./collectionPrices.js";
 
 function row(scryfallId, stacks, prices, opts = {}) {
@@ -172,6 +173,38 @@ describe("computeDeltas", () => {
     const now = new Date("2026-06-01T00:00:00Z");
     const history = [{ snappedAt: "2026-06-01", scryfallId: "a", usd: "1.50" }];
     expect(computeDeltas(collection, history, now)).toEqual({ d30: null, d90: null, d365: null });
+  });
+});
+
+describe("collectionValueSeries", () => {
+  const collection = {
+    cards: [
+      row("a", [{ finish: "nonfoil", quantity: 2 }]),
+      row("b", [{ finish: "nonfoil", quantity: 1 }]),
+    ],
+  };
+  const history = [
+    { snappedAt: "2026-05-01", scryfallId: "a", usd: "1.00" },
+    { snappedAt: "2026-05-01", scryfallId: "b", usd: "5.00" },
+    { snappedAt: "2026-05-03", scryfallId: "a", usd: "1.50" }, // out of order date
+    { snappedAt: "2026-05-02", scryfallId: "a", usd: "1.20" },
+    { snappedAt: "2026-05-02", scryfallId: "b", usd: "6.00" },
+  ];
+
+  it("values current holdings at each date's prices, oldest→newest", () => {
+    expect(collectionValueSeries(collection, history)).toEqual([
+      { snappedAt: "2026-05-01", value: 7 },   // 2*1.00 + 1*5.00
+      { snappedAt: "2026-05-02", value: 8.4 }, // 2*1.20 + 1*6.00
+      { snappedAt: "2026-05-03", value: 3 },   // 2*1.50 (b absent that day)
+    ]);
+  });
+
+  it("returns [] for empty history and caps to maxPoints", () => {
+    expect(collectionValueSeries(collection, [])).toEqual([]);
+    const long = Array.from({ length: 100 }, (_, i) => ({
+      snappedAt: `2026-${String(i).padStart(3, "0")}`, scryfallId: "a", usd: "1.00",
+    }));
+    expect(collectionValueSeries(collection, long, { maxPoints: 5 })).toHaveLength(5);
   });
 });
 

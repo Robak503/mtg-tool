@@ -202,6 +202,24 @@ export function cardPriceSeries(history, scryfallId, { maxPoints = 90 } = {}) {
   return maxPoints > 0 && series.length > maxPoints ? series.slice(-maxPoints) : series;
 }
 
+/**
+ * Value the collection's CURRENT holdings at each snapshot date's prices,
+ * oldest→newest. Answers "what would the cards I own now have been worth back
+ * then" — price movement of the current portfolio, the same basis as
+ * computeDeltas (we don't store historical holdings, only price history).
+ * Dates with no usable prices value to 0. `maxPoints` keeps the most recent N.
+ * @returns {{ snappedAt: string, value: number }[]}
+ */
+export function collectionValueSeries(collection, history, { maxPoints = 90 } = {}) {
+  const byDate = groupByDate(history || []);
+  const dates = Array.from(byDate.keys()).sort();
+  const series = dates.map((d) => ({
+    snappedAt: d,
+    value: valueCollectionAtPrices(collection, byDate.get(d)),
+  }));
+  return maxPoints > 0 && series.length > maxPoints ? series.slice(-maxPoints) : series;
+}
+
 function priceForFinish(priceObj, finish) {
   if (!priceObj) return 0;
   const key = finish === "foil" ? "usdFoil" : finish === "etched" ? "usdEtched" : "usd";
