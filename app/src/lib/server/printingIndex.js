@@ -49,6 +49,7 @@ function buildIndex() {
   const bySetCollector = new Map();
   const byId = new Map();
   const byNameLower = new Map();
+  const bySet = new Map(); // set code → { setCode, setName, releasedAt, cards: [] }
 
   for (const card of cards) {
     if (!card || !card.id) continue;
@@ -65,12 +66,23 @@ function buildIndex() {
       }
       bucket.push(card);
     }
+    if (card.set) {
+      let s = bySet.get(card.set);
+      if (!s) {
+        s = { setCode: card.set, setName: card.setName || card.set.toUpperCase(), releasedAt: card.releasedAt || null, cards: [] };
+        bySet.set(card.set, s);
+      }
+      s.cards.push(card);
+      // keep the earliest known release date for the set
+      if (card.releasedAt && (!s.releasedAt || card.releasedAt < s.releasedAt)) s.releasedAt = card.releasedAt;
+    }
   }
 
   return {
     bySetCollector,
     byId,
     byNameLower,
+    bySet,
     generatedAt: parsed.generatedAt || null,
     count: cards.length,
   };
@@ -122,6 +134,28 @@ export function lookupByNameAndSet(name, setCode) {
 export function printingIndexStats() {
   const idx = ensureIndex();
   return { generatedAt: idx.generatedAt, count: idx.count };
+}
+
+/**
+ * Every set present in the index, newest first. Powers the Set Browser (#23).
+ * `total` is the number of printings the index holds for that set.
+ * @returns {{ setCode, setName, releasedAt, total }[]}
+ */
+export function listSets() {
+  const idx = ensureIndex();
+  return [...idx.bySet.values()]
+    .map(s => ({ setCode: s.setCode, setName: s.setName, releasedAt: s.releasedAt, total: s.cards.length }))
+    .sort((a, b) =>
+      (b.releasedAt || "").localeCompare(a.releasedAt || "") || a.setCode.localeCompare(b.setCode),
+    );
+}
+
+/** Every printing in a set (raw index rows), or [] if the set is unknown. */
+export function cardsInSet(setCode) {
+  if (!setCode) return [];
+  const idx = ensureIndex();
+  const s = idx.bySet.get(String(setCode).toLowerCase());
+  return s ? s.cards : [];
 }
 
 /**
