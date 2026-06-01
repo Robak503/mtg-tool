@@ -3,8 +3,9 @@
  * 👍/👎 feedback reactions (see MessageReactions below), and the prompt composer
  * for the active agent.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { QUICK } from "../../lib/agents";
+import { parseKarnPlan } from "../../lib/agentArtifacts";
 import { sessionNeedsDeckSelection } from "../../lib/deckContextBuilder";
 import useTauriAppVersion from "../../hooks/useTauriAppVersion";
 import DeckConfirmModal from "./DeckConfirmModal";
@@ -263,9 +264,75 @@ function RoastLoader({ seconds, color, muted, font }) {
   );
 }
 
+/**
+ * KarnApplyBar — turns Karn's suggested adds/cuts into one-click deck edits (E1).
+ * Parses the message with parseKarnPlan, renders an Apply chip per add/cut; each
+ * click snapshots the locked deck then mutates it (reversible from DeckView).
+ */
+function KarnApplyBar({ content, deckName, onApply, colors, font }) {
+  const plan = useMemo(() => parseKarnPlan(content), [content]);
+  const [applied, setApplied] = useState({}); // name → "added" | "cut"
+  const adds = (plan.adds || []).slice(0, 12);
+  const cuts = (plan.cuts || []).slice(0, 12);
+  if (!adds.length && !cuts.length) return null;
+
+  const apply = (action, name) => {
+    if (applied[name]) return;
+    const result = onApply?.({ action, name });
+    if (result) setApplied((a) => ({ ...a, [name]: action === "add" ? "added" : "cut" }));
+  };
+
+  const chip = (action, name) => {
+    const done = applied[name];
+    const isAdd = action === "add";
+    const color = done ? "#6fbf73" : isAdd ? colors.TEXT : "#c84848";
+    return (
+      <button
+        key={`${action}-${name}`}
+        onClick={() => apply(action, name)}
+        disabled={!!done}
+        title={done ? `${done === "added" ? "Added" : "Cut"} ${name}` : `${isAdd ? "Add" : "Cut"} ${name}`}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 4, maxWidth: 220,
+          background: "transparent", border: `1px solid ${done ? "#6fbf73" : colors.LINE}`,
+          color, borderRadius: 999, padding: "3px 9px", fontSize: 11.5,
+          cursor: done ? "default" : "pointer", fontFamily: font,
+        }}
+      >
+        <span style={{ fontWeight: 700 }}>{done ? "✓" : isAdd ? "+" : "−"}</span>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+      </button>
+    );
+  };
+
+  return (
+    <div style={{
+      marginTop: 4, padding: "8px 10px", borderRadius: 8,
+      border: `1px solid ${colors.LINE}`, background: "rgba(255,255,255,0.018)", maxWidth: "82%",
+    }}>
+      <div style={{ fontSize: 10, color: colors.MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 7 }}>
+        Apply to {deckName || "deck"} · snapshots first (undo in deck view)
+      </div>
+      {adds.length > 0 && (
+        <div style={{ marginBottom: cuts.length ? 7 : 0 }}>
+          <span style={{ fontSize: 10, color: colors.MUTED, marginRight: 6 }}>Adds</span>
+          <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 5 }}>{adds.map((n) => chip("add", n))}</span>
+        </div>
+      )}
+      {cuts.length > 0 && (
+        <div>
+          <span style={{ fontSize: 10, color: colors.MUTED, marginRight: 6 }}>Cuts</span>
+          <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 5 }}>{cuts.map((n) => chip("cut", n))}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ChatPanel({
   activeDeck,
   agent,
+  applyKarnChange,
   bottomRef,
   chatScrollRef,
   cfg,
@@ -585,6 +652,16 @@ export default function ChatPanel({
                 )
                 : <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>}
             </div>
+
+            {agent === "karn" && msg.role === "assistant" && !msg.streaming && !msg.isError && applyKarnChange && sessionLockedDeck?.id && (
+              <KarnApplyBar
+                content={msg.content}
+                deckName={sessionLockedDeck.name}
+                onApply={applyKarnChange}
+                colors={colors}
+                font={fontFamily}
+              />
+            )}
 
             {msg.isError && msg.fallbackAvailable && retryWithFallback && (
               <button
