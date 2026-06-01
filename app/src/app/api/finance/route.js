@@ -30,7 +30,8 @@ import { lookupById } from "../../../lib/server/printingIndex.js";
 import { topStaples, representativePrinting } from "../../../lib/server/financeUniverse.js";
 import { findCombos } from "../../../lib/server/spellbook.js";
 
-const STAPLE_SCAN = 80;       // scan top-N staples, surface those not owned
+const STAPLE_SCAN = 600;      // scan deep so the valuable staples actually surface
+const STAPLE_MIN_USD = 50;    // "worth getting" should mean worth something — no $1 staples
 const SUGGESTION_CAP = 24;
 const COMBO_CAP = 12;
 const MOVER_CAP = 12;
@@ -113,13 +114,17 @@ export async function GET() {
       };
     });
 
-    // ── suggestions: EDHREC staples (overall) not owned ──
+    // ── suggestions: valuable EDHREC staples (≥ $50) the user doesn't own,
+    //    richest first. Cheap staples (Sol Ring at $1, etc.) are noise here —
+    //    this section is "chase cards worth getting," not a bulk shopping list.
     const ownedOracles = buildOwnedSet(collection);
     const staples = [];
     for (const staple of topStaples(STAPLE_SCAN)) {
       if (ownedOracles.has(staple.oracleId)) continue;
       const rep = representativePrinting(staple.name);
       if (!rep) continue;
+      const usd = num(rep.prices?.usd);
+      if (usd == null || usd < STAPLE_MIN_USD) continue;
       staples.push({
         name: staple.name,
         edhrecRank: staple.edhrecRank,
@@ -127,13 +132,14 @@ export async function GET() {
         oracleId: rep.oracleId,
         setCode: rep.setCode,
         collectorNumber: rep.collectorNumber,
-        usd: num(rep.prices?.usd),
+        usd,
         art: rep.artCropUrl,
         onWatchlist: grailIds.has(rep.scryfallId),
         mover30d: moverById30.get(rep.scryfallId) || null,
       });
-      if (staples.length >= SUGGESTION_CAP) break;
     }
+    staples.sort((a, b) => b.usd - a.usd);
+    staples.length = Math.min(staples.length, SUGGESTION_CAP);
 
     // ── suggestions: near-combo pieces across decks, not owned ──
     let combos = [];

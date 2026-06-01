@@ -8,6 +8,18 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Changed
+- **"Worth getting" now shows cards actually worth getting.** The Finance
+  staples suggestions are filtered to $50+ and sorted by value (richest first),
+  so the list is chase cards you don't own — no more a $1 Sol Ring at the top.
+
+### Added
+- **Updates panel: two more syncable sources.** The data-sync list now includes
+  **Card Kingdom fallback prices** and the **collection printings index** (the
+  Vault's card data), each individually refreshable or via "Refresh all." Every
+  sync writes permanently to your data files and refreshes the in-memory caches
+  so it takes effect immediately.
+
 ### Fixed
 - **Chat no longer yanks you to the bottom while reading.** The message view only
   auto-follows a streaming reply if you're already near the bottom — scroll up to
