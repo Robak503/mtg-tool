@@ -455,6 +455,34 @@ export default function useChatSessions({
         if (collectionBlock) systemPrompt += `\n\n${collectionBlock}`;
       }
 
+      // Deck-scoped owned signal for Karn (G1): how many of THIS deck the user
+      // owns + the in-color upgrade pool they already own, so Karn prefers
+      // suggesting cards the user can apply at no cost. Advisory + bounded.
+      if (targetAgent === "karn") {
+        const overlapNames = (
+          deckLock?.cardNames?.length ? deckLock.cardNames
+          : deckLock?.deckText ? deckOracleCardNamesFromText(deckLock.deckText)
+          : (deckCards || []).map(c => c.name)
+        ) || [];
+        const overlapCommanders = (
+          deckLock?.commanderNames?.length ? deckLock.commanderNames
+          : (deckCards || []).filter(c => c.section === "Commander").map(c => c.name)
+        ) || [];
+        if (overlapNames.length) {
+          try {
+            const resp = await fetch("/api/collection/deck-overlap", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ cardNames: overlapNames, commanderNames: overlapCommanders }),
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data.block) systemPrompt += `\n\n${data.block}`;
+            }
+          } catch { /* owned-pool hint is advisory; never block the send */ }
+        }
+      }
+
       if (targetAgent === "karn" && /\b(cut|cuts|remove|trim)\b/i.test(prompt)) {
         systemPrompt += "\n\n## KARN CUT MODE\nThe user is asking for cuts only. Rules:\n1. Every cut MUST be an exact card name from the locked or active deck list — no invented cards, no search results, no training-memory cards.\n2. Do NOT include an Additions section, Recommendations section, or any suggested replacements. Cuts only.\n3. Format: bullet list, [[Card Name]] — one-line reason.\n4. If a card name is not visible in the deck list, it cannot be a cut.";
       }
