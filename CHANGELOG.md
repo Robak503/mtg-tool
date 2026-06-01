@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Per-card price sparklines.** The card detail drawer shows a small price-trend
+  line (first → latest) for any card with at least two days of local price
+  history. Built from data the app already collects — no API cost. (Fills in as
+  history accrues, like the Finance movers.)
+
 ## [0.12.0] - 2026-05-31
 
 ### Added

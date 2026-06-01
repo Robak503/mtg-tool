@@ -181,6 +181,27 @@ export function computeCardMovers(history, scryfallIds = null, now = new Date(),
   return movers;
 }
 
+/**
+ * The nonfoil-USD price series for a single card, oldest→newest, one point per
+ * day (last write per day wins). For per-card sparklines. Skips entries with no
+ * parseable USD. `maxPoints` keeps only the most recent N points.
+ * @returns {{ snappedAt: string, usd: number }[]}
+ */
+export function cardPriceSeries(history, scryfallId, { maxPoints = 90 } = {}) {
+  if (!scryfallId) return [];
+  const byDate = new Map();
+  for (const e of history || []) {
+    if (!e || e.scryfallId !== scryfallId || !e.snappedAt) continue;
+    const usd = parseFloat(e.usd);
+    if (!Number.isFinite(usd)) continue;
+    byDate.set(e.snappedAt, usd); // last write for a date wins
+  }
+  const series = [...byDate.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([snappedAt, usd]) => ({ snappedAt, usd }));
+  return maxPoints > 0 && series.length > maxPoints ? series.slice(-maxPoints) : series;
+}
+
 function priceForFinish(priceObj, finish) {
   if (!priceObj) return 0;
   const key = finish === "foil" ? "usdFoil" : finish === "etched" ? "usdEtched" : "usd";

@@ -15,6 +15,7 @@
 import { useEffect, useState } from "react";
 
 import { artCropProxySrc } from "../../lib/artCrop";
+import Sparkline from "./Sparkline";
 
 const FINISH_LABELS = { nonfoil: "Nonfoil", foil: "Foil", etched: "Etched" };
 const CONDITION_OPTIONS = [
@@ -31,6 +32,7 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
   const [notes, setNotes] = useState(row.notes || "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [series, setSeries] = useState([]);
 
   // Re-sync when the selected row changes
   useEffect(() => {
@@ -38,6 +40,24 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
     setNotes(row.notes || "");
     setError(null);
   }, [row.scryfallId, row.stacks, row.notes]);
+
+  // Fetch the card's local price history for the sparkline (advisory).
+  useEffect(() => {
+    let cancelled = false;
+    setSeries([]);
+    if (!row.scryfallId) return;
+    (async () => {
+      try {
+        const resp = await fetch(`/api/collection/price-history?scryfallId=${encodeURIComponent(row.scryfallId)}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!cancelled && Array.isArray(data.series)) setSeries(data.series);
+      } catch {
+        /* sparkline is advisory */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [row.scryfallId]);
 
   const updateStack = (idx, patch) => {
     setStacks(stacks.map((s, i) => i === idx ? { ...s, ...patch } : s));
@@ -163,6 +183,14 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
         <div style={{ fontSize: 16, color: colors.TEXT, fontWeight: 500, marginBottom: 4 }}>
           {row.name}
         </div>
+        {series.length >= 2 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 10, color: colors.MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
+              Price trend · ${series[0].usd.toFixed(2)} → ${series[series.length - 1].usd.toFixed(2)}
+            </div>
+            <Sparkline points={series} />
+          </div>
+        )}
         <div style={{ fontSize: 11, color: colors.MUTED, marginBottom: 16 }}>
           {row.setCode?.toUpperCase()} · #{row.collectorNumber}
           {row.wishlist && (
