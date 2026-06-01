@@ -9,6 +9,13 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Settings screen.** A new **⚙ Settings** button in the header opens one place
+  for everything that used to be scattered: the **AI model tier** (Fast / Deep /
+  API) with plain-English notes on what each does, a **Display** summary, a
+  **Privacy** section spelling out exactly what does and doesn't leave your
+  machine (and how to export or delete your data), a launcher into **Data &
+  Updates**, and an **About & Legal** section with the version, the
+  source-available license, and the Unofficial Fan Content notice.
 - **Build From Vault.** A new **Build** tab in the Vault lists the legendary
   commanders you already own, ranked by how many of your cards are legal in each
   one's colors — a quick read on what you could build right now. Pick one and it

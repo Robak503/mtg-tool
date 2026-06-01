@@ -45,6 +45,7 @@ import LearnView from "./mtg/LearnView";
 import CollectionView from "./mtg/CollectionView";
 import UpdatesModal from "./UpdatesModal";
 import PodBalanceModal from "./mtg/PodBalanceModal";
+import SettingsModal from "./mtg/SettingsModal";
 import { applyDeckChange } from "../lib/deckApply";
 
 export default function MTGAssistant() {
@@ -72,6 +73,8 @@ export default function MTGAssistant() {
   const [ollamaPullProgress, setOllamaPullProgress] = useState("");
   // Updates / data-sync modal
   const [showUpdates, setShowUpdates] = useState(false);
+  // Central Settings screen (Models / Display / Privacy / Data / About)
+  const [showSettings, setShowSettings] = useState(false);
   // Pod Balance modal — compare brackets/power across saved decks
   const [showPodBalance, setShowPodBalance] = useState(false);
   // Background app-update check — runs once per session on mount.
@@ -747,6 +750,7 @@ export default function MTGAssistant() {
         setModelProvider={setModelProvider}
         unlockDeck={() => unlockSessionDeck(currentSession?.id)}
         openUpdates={() => setShowUpdates(true)}
+        openSettings={() => setShowSettings(true)}
         appVersion={appVersion}
         pb={pb}
         colors={{BG2, LINE, GOLD}}
@@ -757,6 +761,18 @@ export default function MTGAssistant() {
         onClose={() => setShowUpdates(false)}
         initialUpdate={appUpdateInfo}
         colors={{BG2, LINE, GOLD}}
+        fontFamily={F}
+      />
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        modelProvider={modelProvider}
+        setModelProvider={setModelProvider}
+        fastMode={fastMode}
+        setFastMode={setFastMode}
+        appVersion={appVersion}
+        onOpenUpdates={() => { setShowSettings(false); setShowUpdates(true); }}
+        colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD}}
         fontFamily={F}
       />
       {showPodBalance && (

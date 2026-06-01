@@ -21,6 +21,7 @@ export default function AppHeader({
   setModelProvider,
   unlockDeck,
   openUpdates,
+  openSettings,
   appVersion,
   pb,
   colors,
@@ -150,6 +151,15 @@ export default function AppHeader({
                 style={pb(false,true)}
               >
                 ⟳ Updates
+              </button>
+            )}
+            {openSettings && (
+              <button
+                onClick={openSettings}
+                title="Settings — models, privacy, data, and about"
+                style={pb(false,true)}
+              >
+                ⚙ Settings
               </button>
             )}
           </>
