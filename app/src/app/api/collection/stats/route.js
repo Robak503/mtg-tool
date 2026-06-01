@@ -17,6 +17,41 @@ import { loadCollection } from "../../../../lib/server/collectionStorage.js";
 import { collectionSummary } from "../../../../lib/server/collectionContext.js";
 import { enrichCollectionPrices } from "../../../../lib/server/priceResolution.js";
 import { parseHistory, computeDeltas } from "../../../../lib/server/collectionPrices.js";
+import { computeCollectionBreakdowns } from "../../../../lib/server/collectionStats.js";
+import { lookupCard } from "../../../../lib/server/cardIndex.js";
+import { lookupById } from "../../../../lib/server/printingIndex.js";
+
+// Resolve a row's oracle metadata for composition breakdowns. Best-effort:
+// returns null breakdowns if the local card index isn't synced (e.g. CI) so the
+// rest of the stats payload still returns.
+function buildBreakdowns(collection) {
+  try {
+    const getMeta = (row) => {
+      const oracle = lookupCard(row.name);
+      const printing = row.scryfallId ? lookupById(row.scryfallId) : null;
+      // Color identity (Commander's meaningful axis) — present in the slim
+      // oracle index; fall back to cost colors / face colors for older data.
+      const colors = oracle?.color_identity?.length
+        ? oracle.color_identity
+        : oracle?.colors?.length
+          ? oracle.colors
+          : (oracle?.card_faces?.flatMap((f) => f.colors || []) || []);
+      return {
+        typeLine: oracle?.type_line || null,
+        cmc: oracle?.cmc,
+        colors,
+        // Rarity is printing-specific; the slim oracle index doesn't carry it,
+        // so prefer the printing's rarity, falling back to the oracle's.
+        rarity: printing?.rarity || oracle?.rarity || null,
+        setName: printing?.setName || oracle?.set_name || null,
+      };
+    };
+    return computeCollectionBreakdowns(collection, getMeta);
+  } catch (error) {
+    console.warn("[/api/collection/stats] breakdowns skipped:", error.message);
+    return null;
+  }
+}
 
 async function loadPriceHistory() {
   try {
@@ -59,6 +94,7 @@ export async function GET() {
         deltas, // { d30, d90, d365 } — each null or { asOf, pastValue, currentValue, delta }
       },
       colorBreakdown: summary.colorBreakdown,
+      breakdowns: buildBreakdowns(collection),
       historyAvailable: historyDates.length > 0,
       historyDates,
     });

@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Collection stats dashboard.** A new **Stats** tab in the Vault breaks your
+  collection down by card type, color identity, rarity, and mana curve, with
+  your top sets and most-valuable cards. All local — type/color come from the
+  bundled card index, value from stored prices. (Rarity appears once the
+  printings index is rebuilt to carry it.)
+
 ## [0.13.0] - 2026-05-31
 
 ### Added

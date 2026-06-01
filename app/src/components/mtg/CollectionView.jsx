@@ -26,6 +26,7 @@ import CollectionRoastModal from "./CollectionRoastModal";
 import CollectionDecksModal from "./CollectionDecksModal";
 import ColorTagManager from "./ColorTagManager";
 import FinanceView from "./FinanceView";
+import StatsView from "./StatsView";
 import useColorTags from "../../hooks/useColorTags";
 
 // Obsidian & Gold — matches the app shell theme (cool-neutral, rich gold).
@@ -77,7 +78,7 @@ export default function CollectionView({ onClose }) {
   const [tagsOpen, setTagsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
-  const [mode, setMode] = useState("collection"); // "collection" | "finance"
+  const [mode, setMode] = useState("collection"); // "collection" | "stats" | "finance"
   const colorTags = useColorTags();
 
   // Re-pull live Scryfall prices for cards whose stored TCGPlayer price is
@@ -439,7 +440,7 @@ export default function CollectionView({ onClose }) {
             The Vault
           </h1>
           <div style={{ display: "flex", gap: 4, alignSelf: "center" }}>
-            {[["collection", "Collection"], ["finance", "Finance"]].map(([k, label]) => (
+            {[["collection", "Collection"], ["stats", "Stats"], ["finance", "Finance"]].map(([k, label]) => (
               <button key={k} onClick={() => setMode(k)} style={{
                 background: mode === k ? COLORS.GOLD : "transparent",
                 color: mode === k ? "#fff" : COLORS.MUTED,
@@ -538,6 +539,10 @@ export default function CollectionView({ onClose }) {
 
       {mode === "finance" && (
         <FinanceView colors={COLORS} fontFamily={FONT} />
+      )}
+
+      {mode === "stats" && (
+        <StatsView colors={COLORS} fontFamily={FONT} />
       )}
 
       {mode === "collection" && (<>
