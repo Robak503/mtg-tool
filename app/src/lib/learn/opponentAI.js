@@ -41,8 +41,6 @@ function scoreCastAction(action, card, archetype) {
   const type = String(card?.type || card?.type_line || "");
   const oracle = String(card?.oracle || card?.oracle_text || "");
   const isCreature = /Creature/.test(type);
-  const isLand = /Land/.test(type);
-  const isInstantOrSorcery = /Instant|Sorcery/.test(type);
   const cmc = action.cmc || 0;
 
   // Heuristic flags — very rough versions of what goldfish.js does in

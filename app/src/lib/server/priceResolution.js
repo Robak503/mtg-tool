@@ -24,13 +24,6 @@
 import { lookupById } from "./printingIndex.js";
 import { cardKingdomPrice } from "./cardKingdomPrices.js";
 
-function firstNonNull(...vals) {
-  for (const v of vals) {
-    if (v !== null && v !== undefined && v !== "") return v;
-  }
-  return null;
-}
-
 function tryPrintingPrices(scryfallId) {
   try {
     return lookupById(scryfallId)?.prices || null;

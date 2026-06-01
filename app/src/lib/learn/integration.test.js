@@ -142,7 +142,7 @@ function applyAction(state, action) {
  * stuck states (shouldn't happen, but if the engine has a bug we'd
  * loop forever). Used inside a bounded for-loop with a safety cap.
  */
-function tick(state, { userDifficulty = "expert", maxSpellsPerWindow = 0 } = {}) {
+function tick(state, { userDifficulty = "expert" } = {}) {
   if (!state.priorityHolder) {
     return { state: nextStep(state), kind: "step" };
   }

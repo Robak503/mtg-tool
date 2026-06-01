@@ -191,7 +191,7 @@ export default function CollectionView({ onClose }) {
     return () => { cancelled = true; };
   }, [state.status, state.collection?.updatedAt]);
 
-  const cards = state.collection?.cards || [];
+  const cards = useMemo(() => state.collection?.cards || [], [state.collection]);
   const filteredCards = useMemo(() => applyFilters(cards, filters), [cards, filters]);
 
   const totalCardCount = useMemo(() => {
@@ -745,7 +745,7 @@ function CenterMessage({ text, color }) {
   );
 }
 
-function EmptyState({ color, gold }) {
+function EmptyState({ color }) {
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",

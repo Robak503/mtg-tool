@@ -11,10 +11,6 @@ import {
   _resetIdsForTests,
   createGameState,
   createStackObject,
-  createPermanent,
-  drawCards,
-  moveCardToZone,
-  PHASES,
   STEPS,
 } from "./gameState.js";
 import {
@@ -36,7 +32,7 @@ function makeDeck(count, prefix = "C") {
   }));
 }
 
-function baseState({ skipMulliganDraw = true } = {}) {
+function baseState({ _skipMulliganDraw = true } = {}) {
   const state = createGameState({
     userDeck: makeDeck(60, "U"),
     aiDeck: makeDeck(60, "A"),
