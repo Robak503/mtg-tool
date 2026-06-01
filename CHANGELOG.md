@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-06-01
+
 ### Added
 - **Settings screen.** A new **⚙ Settings** button in the header opens one place
   for everything that used to be scattered: the **AI model tier** (Fast / Deep /

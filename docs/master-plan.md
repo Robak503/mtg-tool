@@ -14,7 +14,7 @@
 > For "where we are right now + copy-paste next-chat prompts," `docs/HANDOFF.md`
 > remains the tactical companion; this doc is the strategic backlog it points into.
 
-**Created:** 2026-05-31 · **Reflects shipped state through:** v0.10.0 · **Owner:** Colton (Robak503)
+**Created:** 2026-05-31 · **Reflects shipped state through:** v0.16.0 · **Owner:** Colton (Robak503)
 
 ---
 
@@ -171,8 +171,8 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| D1 | Central Settings screen | ⬜ P0 | One place for Models / Privacy / Data / Updates / Display / Support / About. Settings are scattered today. **PLAN B1** |
-| D2 | Privacy / Legal / About page | ⬜ P0 | Source-available license, Unofficial Fan Content disclaimer, what leaves the machine, how to delete/export data. **PLAN B3** |
+| D1 | Central Settings screen | ✅ v0.16.0 (#116) | `SettingsModal` — one place for Models / Display / Privacy / Data & Updates / About; launches the Updates panel rather than duplicating it. **PLAN B1** |
+| D2 | Privacy / Legal / About page | ✅ v0.16.0 (#116) | Settings → Privacy ("what leaves your machine" + export/delete) + About & Legal (source-available license, Unofficial Fan Content disclaimer, version). **PLAN B3** |
 | D3 | Feature stability labels in UI | ⬜ P0 | Per §1 (Preview/Beta/Stable). **PLAN B6** |
 | D4 | Public download / landing docs | ⬜ P1 | What it is, requirements, SmartScreen note, privacy, screenshots, limitations. **PLAN B5** |
 | D5 | Support bundle ("copy/export") | ✅ v0.12.0 (#83/#90) | Version/OS/data-freshness/model+Ollama status/last error; no secrets, no deck/chat unless opted in. **PLAN B7** |
@@ -198,7 +198,7 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| G1 | "Build From Vault" mode | ⬜ P0 | Karn prioritizes owned → wishlist → external; each candidate tagged owned-available / owned-allocated / owned-diff-printing / wishlist / missing / proxy. **PLAN D1 / RSCH P0#2 / VAULT #20** |
+| G1 | "Build From Vault" mode | 🟡 v0.16.0 (#114/#115) | Collection-aware Karn (deck-overlap: owned + in-color upgrade pool, prefers owned adds) + a Vault **Build** tab that ranks owned commanders and opens a Karn build chat. Remaining: the full per-candidate tagging taxonomy (owned-available / owned-allocated / owned-diff-printing / wishlist / missing / proxy). **PLAN D1 / RSCH P0#2 / VAULT #20** |
 | G2 | Shopping-list export | ✅ v0.12.0 (#77) | In-app list exists (v0.8); export to CSV / text / Moxfield / Archidekt; toggles for no-basics, cheapest printing, include set+price. **PLAN D2 / RSCH P0#5 / VAULT #17** |
 | G3 | Collection export | ✅ v0.12.0 (#76/#85) | MTG Tool JSON / CSV / Deckbox / Moxfield-Archidekt-compatible / selected-cards. Escape hatch + backup. **PLAN D4 / RSCH P0#7 / VAULT #17** |
 | G4 | Collection update / merge import | ⬜ P0 | CSV import exists; add update modes (add-only / merge-qty / replace-location / reconcile / mark-absent) with a diff preview. **PLAN D5 / RSCH P0#6** |
@@ -336,14 +336,14 @@ Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index
 | # | Item | Status | One-liner / cross-ref |
 |---|---|---|---|
 | 19 | Deeper Vault-aware agents | ⬜ | "build the best deck I own," "what to buy/sell next," acquisition planner (optimal buy order by price/impact). Extends **E1/G1**. |
-| 20 | "What can I build now" | ⬜ | Generate commander/deck suggestions buildable from owned cards (we have a buildable *filter*; this is *generation*). = **G1** generation half. |
+| 20 | "What can I build now" | ✅ v0.16.0 (#114/#115) | Vault **Build** tab → `GET /api/collection/buildable` ranks the legendary commanders you own by owned in-color pool; click → a fresh Karn build chat. = **G1** generation half. |
 
 ### Infra / quality
 
 | # | Item | Status | One-liner |
 |---|---|---|---|
 | 21 | Background daily snapshot | ✅ v0.11.0 | Shipped — the daily snapshot now fires on app launch (`DailySnapshotTrigger` at the app root), not just on Vault open, so history accrues regardless of view. |
-| 22 | Richer printings index | 🟡 | Started — `rarity` now kept per printing in `build-collection-printings-index.cjs` (#96); populates the Stats rarity breakdown after the next index rebuild. Remaining finance fields (set EV, RL flag, etc.) still open. Enabler for #7. |
+| 22 | Richer printings index | 🟡 | Started — `rarity` (#96), plus `setType` + `reserved` (#114) now kept per printing in `build-collection-printings-index.cjs`; populate after the next index rebuild. Remaining finance fields (set EV, full RL-value rollups, etc.) still open. Enabler for #7. |
 
 ### Recommended Vault batches
 
