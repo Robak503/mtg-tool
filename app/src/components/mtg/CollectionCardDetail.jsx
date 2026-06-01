@@ -33,6 +33,10 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [series, setSeries] = useState([]);
+  const [alert, setAlert] = useState(null);
+  const [alertTarget, setAlertTarget] = useState("");
+  const [alertDir, setAlertDir] = useState("below");
+  const [alertBusy, setAlertBusy] = useState(false);
 
   // Re-sync when the selected row changes
   useEffect(() => {
@@ -58,6 +62,70 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
     })();
     return () => { cancelled = true; };
   }, [row.scryfallId]);
+
+  // Load any existing price alert for this card (#1).
+  useEffect(() => {
+    let cancelled = false;
+    setAlert(null);
+    setAlertTarget("");
+    setAlertDir("below");
+    if (!row.scryfallId) return;
+    (async () => {
+      try {
+        const resp = await fetch("/api/price-alerts");
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const mine = (data.alerts || []).find(a => a.scryfallId === row.scryfallId);
+        if (!cancelled && mine) {
+          setAlert(mine);
+          setAlertTarget(String(mine.target));
+          setAlertDir(mine.direction);
+        }
+      } catch {
+        /* alerts are advisory */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [row.scryfallId]);
+
+  const saveAlert = async () => {
+    const target = parseFloat(alertTarget);
+    if (!Number.isFinite(target) || target <= 0) {
+      setError("Enter a target price above $0.");
+      return;
+    }
+    setAlertBusy(true);
+    setError(null);
+    try {
+      const resp = await fetch("/api/price-alerts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scryfallId: row.scryfallId, name: row.name, target, direction: alertDir }),
+      });
+      const body = await resp.json();
+      if (!resp.ok) { setError(body.error || `Alert save failed (${resp.status})`); return; }
+      setAlert((body.alerts || []).find(a => a.scryfallId === row.scryfallId) || null);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setAlertBusy(false);
+    }
+  };
+
+  const clearAlert = async () => {
+    setAlertBusy(true);
+    setError(null);
+    try {
+      const resp = await fetch(`/api/price-alerts?scryfallId=${encodeURIComponent(row.scryfallId)}`, { method: "DELETE" });
+      if (!resp.ok) { const b = await resp.json(); setError(b.error || `Clear failed (${resp.status})`); return; }
+      setAlert(null);
+      setAlertTarget("");
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setAlertBusy(false);
+    }
+  };
 
   const updateStack = (idx, patch) => {
     setStacks(stacks.map((s, i) => i === idx ? { ...s, ...patch } : s));
@@ -209,6 +277,21 @@ export default function CollectionCardDetail({ row, onClose, onSave, onDelete, t
 
         {row.prices && <PriceBlock prices={row.prices} colors={colors} />}
 
+        <section style={{ marginTop: 20 }}>
+          <SectionLabel color={colors.MUTED}>Price alert</SectionLabel>
+          <AlertEditor
+            alert={alert}
+            target={alertTarget}
+            direction={alertDir}
+            busy={alertBusy}
+            onTarget={setAlertTarget}
+            onDirection={setAlertDir}
+            onSave={saveAlert}
+            onClear={clearAlert}
+            colors={colors}
+          />
+        </section>
+
         {onAssignTag && tags.length > 0 && (
           <section style={{ marginTop: 20 }}>
             <SectionLabel color={colors.MUTED}>Tag</SectionLabel>
@@ -352,6 +435,62 @@ function TagPicker({ tags, activeId, onAssign, colors }) {
           {effect}
         </div>
       )}
+    </>
+  );
+}
+
+function AlertEditor({ alert, target, direction, busy, onTarget, onDirection, onSave, onClear, colors }) {
+  const dirVerb = direction === "above" ? "rises to ≥" : "drops to ≤";
+  return (
+    <>
+      {alert && (
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 10px",
+          background: alert.met ? "rgba(111,191,115,0.10)" : colors.BG,
+          border: `1px solid ${alert.met ? "#6fbf73" : colors.LINE}`,
+          borderRadius: 4,
+          marginBottom: 8,
+          fontSize: 12,
+          color: colors.TEXT,
+        }}>
+          <span style={{ fontSize: 14 }}>{alert.met ? "🔔" : "⏳"}</span>
+          <div style={{ flex: 1, lineHeight: 1.35 }}>
+            Notify when {alert.direction === "above" ? "≥" : "≤"} ${alert.target.toFixed(2)}
+            <span style={{ color: colors.MUTED }}>
+              {alert.currentPrice != null ? ` · now $${alert.currentPrice.toFixed(2)}` : " · no price yet"}
+              {alert.met ? " · target hit" : ""}
+            </span>
+          </div>
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <select value={direction} onChange={(e) => onDirection(e.target.value)} style={selectStyle(colors)} aria-label="Alert direction">
+          <option value="below">Drops to ≤</option>
+          <option value="above">Rises to ≥</option>
+        </select>
+        <span style={{ color: colors.MUTED, fontSize: 12 }}>$</span>
+        <input
+          type="number"
+          min={0}
+          step="0.01"
+          value={target}
+          onChange={(e) => onTarget(e.target.value)}
+          placeholder="0.00"
+          style={{ ...inputStyle(colors), width: 70, fontSize: 12, padding: "5px 6px" }}
+        />
+        <button onClick={onSave} disabled={busy} style={{ ...primaryBtn(colors), padding: "5px 10px", fontSize: 12 }}>
+          {alert ? "Update" : "Set"}
+        </button>
+        {alert && (
+          <button onClick={onClear} disabled={busy} style={{ ...textBtn(colors), fontSize: 12 }}>Clear</button>
+        )}
+      </div>
+      <div style={{ fontSize: 10.5, color: colors.MUTED, marginTop: 6, lineHeight: 1.4 }}>
+        Flags on the daily price snapshot when the card {dirVerb} your target.
+      </div>
     </>
   );
 }
