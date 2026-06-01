@@ -68,6 +68,7 @@ app/data/games/
 # Collection feature — user data + regenerable caches (live in %APPDATA% in prod)
 app/data/collection.json
 app/data/watchlist.json
+app/data/price-alerts.json
 app/data/collection-prices.jsonl
 app/data/collection-prices.compact.jsonl
 app/data/collection-roasts.json

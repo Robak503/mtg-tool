@@ -18,6 +18,8 @@ import fs from "node:fs/promises";
 import { appPath, dataDir, dataPath } from "../../../../lib/server/paths.js";
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
 import { loadWatchlist } from "../../../../lib/server/watchlistStorage.js";
+import { loadAlerts, writeAlertsAtomic } from "../../../../lib/server/priceAlertStorage.js";
+import { applyCrossings } from "../../../../lib/server/priceAlerts.js";
 import { resolvePrices } from "../../../../lib/server/priceResolution.js";
 import { stapleSnapshotTargets } from "../../../../lib/server/financeUniverse.js";
 import {
@@ -109,12 +111,30 @@ export async function POST() {
     const merged = compactHistory([...history, ...entries]);
     await writeHistoryAtomic(merged);
 
+    // Re-evaluate price alerts against this snapshot's prices, stamping
+    // crossing state (#1). Best-effort: a failure here must not lose the
+    // snapshot we just wrote.
+    let alertsTriggered = 0;
+    try {
+      const { store } = await loadAlerts();
+      if (store.alerts.length) {
+        const priceByScryfall = new Map(merged.map(e => [e.scryfallId, e.usd]));
+        const priceForAlert = (id) => priceByScryfall.get(id) ?? resolvePrices(id, null)?.usd ?? null;
+        const { alerts, newlyTriggered } = applyCrossings(store.alerts, priceForAlert);
+        await writeAlertsAtomic({ alerts });
+        alertsTriggered = newlyTriggered.length;
+      }
+    } catch (error) {
+      console.warn("[/api/collection/prices] alert crossing skipped:", error.message);
+    }
+
     return Response.json({
       snapped: true,
       dateStamp: stamp,
       entryCount: entries.length,
       ownedCount: ownedEntries.length,
       extraCount: extraEntries.length,
+      alertsTriggered,
     });
   } catch (error) {
     return Response.json({ error: error.message || "Snapshot failed" }, { status: 500 });

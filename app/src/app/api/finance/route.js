@@ -21,6 +21,8 @@ import fs from "node:fs/promises";
 import { dataPath } from "../../../lib/server/paths.js";
 import { loadCollection } from "../../../lib/server/collectionStorage.js";
 import { loadWatchlist } from "../../../lib/server/watchlistStorage.js";
+import { loadAlerts } from "../../../lib/server/priceAlertStorage.js";
+import { evaluateAlerts } from "../../../lib/server/priceAlerts.js";
 import { collectionSummary, buildOwnedSet } from "../../../lib/server/collectionContext.js";
 import { enrichCollectionPrices, resolvePrices } from "../../../lib/server/priceResolution.js";
 import { parseHistory, computeDeltas, computeCardMovers } from "../../../lib/server/collectionPrices.js";
@@ -170,6 +172,17 @@ export async function GET() {
       console.warn("[/api/finance] combo suggestions skipped:", error.message);
     }
 
+    // ── price alerts (#1): which targets are met right now ──
+    let alerts = [];
+    try {
+      const { store } = await loadAlerts();
+      alerts = evaluateAlerts(store.alerts, (id) => resolvePrices(id, null)?.usd ?? null)
+        .map(a => ({ ...a, name: a.name || nameFor(a.scryfallId), art: artFor(a.scryfallId) }));
+    } catch (error) {
+      console.warn("[/api/finance] alerts skipped:", error.message);
+    }
+    const alertsMet = alerts.filter(a => a.met);
+
     const historyDates = Array.from(new Set(history.map(h => h.snappedAt))).sort();
 
     return Response.json({
@@ -178,6 +191,8 @@ export async function GET() {
       owned: { risers: topRisers(ownedMovers), fallers: topFallers(ownedMovers) },
       movers: { risers: topRisers(movers30), fallers: topFallers(movers30) },
       grails,
+      alerts,
+      alertsMetCount: alertsMet.length,
       suggestions: { staples, combos },
       trackedCount: new Set(history.map(h => h.scryfallId)).size,
       historyDates,
