@@ -90,6 +90,8 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
     update: initialUpdate.update,
   } : { status: "idle", message: "" });
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
+  const [dataMsg, setDataMsg] = useState("");
+  const restoreInputRef = useRef(null);
   // Autostart toggle state
   const [autostart, setAutostart] = useState({ available: false, enabled: false, busy: false });
   // Current app version from the Tauri runtime (shows "—" in a browser tab)
@@ -308,6 +310,71 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
     }
   };
 
+  // ── Your data: backup / restore / support bundle ──────────────────────────
+  const dataBtn = {
+    background: "transparent",
+    border: `1px solid ${LINE || "#3a3640"}`,
+    color: "#e0e0e0",
+    cursor: "pointer",
+    fontSize: 11,
+    padding: "4px 10px",
+    borderRadius: 4,
+    fontFamily: F,
+  };
+  const flashData = (msg) => {
+    setDataMsg(msg);
+    window.setTimeout(() => setDataMsg(""), 6000);
+  };
+  const backupAllData = async () => {
+    try {
+      const resp = await fetch("/api/export-all");
+      if (!resp.ok) return flashData("Backup failed.");
+      const text = await resp.text();
+      const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `mtg-tool-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      flashData("Backup downloaded.");
+    } catch (e) {
+      flashData(e.message || "Backup failed.");
+    }
+  };
+  const copySupportInfo = async () => {
+    try {
+      const resp = await fetch("/api/support-bundle");
+      const data = await resp.json();
+      const text = data.text || JSON.stringify(data, null, 2);
+      if (navigator.clipboard) await navigator.clipboard.writeText(text);
+      flashData("Support info copied to clipboard.");
+    } catch (e) {
+      flashData(e.message || "Couldn't gather support info.");
+    }
+  };
+  const restoreFromBackup = async (file) => {
+    if (!file) return;
+    const ok = window.confirm(
+      "Restore REPLACES your current decks, chats, collection, grails, and agent notes with the backup's contents. A safety backup of your current data is saved first. Continue?",
+    );
+    if (!ok) return;
+    try {
+      flashData("Restoring…");
+      const bundle = JSON.parse(await file.text());
+      const resp = await fetch("/api/import-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bundle }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) return flashData(data.error || "Restore failed.");
+      flashData(`Restored: ${(data.restored || []).join(", ") || "nothing"}. Reloading…`);
+      window.setTimeout(() => window.location.reload(), 1500);
+    } catch (e) {
+      flashData(e.message || "Restore failed (invalid backup file?).");
+    }
+  };
+
   if (!open) return null;
 
   const datasets = status?.datasets || [];
@@ -432,6 +499,26 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
                 {appUpdateBusy && appUpdate.status === "checking" ? "Checking…" : "Check for updates"}
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Your data — backup / restore / diagnostics */}
+        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${LINE || "#3a3640"}` }}>
+          <div style={{ fontSize: 13, color: "#e0e0e0", marginBottom: 8 }}>Your data</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={backupAllData} style={dataBtn}>Back up all data</button>
+            <button onClick={() => restoreInputRef.current?.click()} style={dataBtn}>Restore from backup…</button>
+            <button onClick={copySupportInfo} style={dataBtn}>Copy support info</button>
+            <input
+              ref={restoreInputRef}
+              type="file"
+              accept="application/json,.json"
+              style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; restoreFromBackup(f); }}
+            />
+          </div>
+          <div style={{ fontSize: 11, color: "#7a7a7a", marginTop: 6 }}>
+            {dataMsg || "Export everything (decks, chats, collection, grails, games) to one JSON, restore it on another machine, or copy redacted diagnostics for a bug report. Nothing leaves your machine unless you share the file."}
           </div>
         </div>
 
