@@ -25,7 +25,7 @@ import { loadAlerts } from "../../../lib/server/priceAlertStorage.js";
 import { evaluateAlerts } from "../../../lib/server/priceAlerts.js";
 import { collectionSummary, buildOwnedSet } from "../../../lib/server/collectionContext.js";
 import { enrichCollectionPrices, resolvePrices } from "../../../lib/server/priceResolution.js";
-import { parseHistory, computeDeltas, computeCardMovers } from "../../../lib/server/collectionPrices.js";
+import { parseHistory, computeDeltas, computeCardMovers, computeDeals } from "../../../lib/server/collectionPrices.js";
 import { lookupById } from "../../../lib/server/printingIndex.js";
 import { topStaples, representativePrinting } from "../../../lib/server/financeUniverse.js";
 import { findCombos } from "../../../lib/server/spellbook.js";
@@ -189,6 +189,10 @@ export async function GET() {
     }
     const alertsMet = alerts.filter(a => a.met);
 
+    // ── deal radar (#8): owned + grail cards near a recent low ──
+    const dealIds = new Set([...ownedIds, ...grailIds]);
+    const deals = computeDeals(history, dealIds, now).slice(0, MOVER_CAP).map(decorate);
+
     const historyDates = Array.from(new Set(history.map(h => h.snappedAt))).sort();
 
     return Response.json({
@@ -197,6 +201,7 @@ export async function GET() {
       owned: { risers: topRisers(ownedMovers), fallers: topFallers(ownedMovers) },
       movers: { risers: topRisers(movers30), fallers: topFallers(movers30) },
       grails,
+      deals,
       alerts,
       alertsMetCount: alertsMet.length,
       suggestions: { staples, combos },

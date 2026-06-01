@@ -198,6 +198,21 @@ export default function FinanceView({ colors, fontFamily }) {
         </div>
       )}
 
+      {/* Deal radar — owned/grail cards near a recent low */}
+      {(data?.deals?.length || 0) > 0 && (
+        <div style={card}>
+          <div style={h}>Deals · your cards near a recent low</div>
+          {data.deals.map((d) => (
+            <div key={d.scryfallId} style={rowStyle(LINE)}>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
+              <span style={{ fontSize: 11, color: "#6fbf73", minWidth: 92, textAlign: "right" }}>▼ {d.dipPct}% off high</span>
+              <span style={{ fontSize: 13, color: GOLD, minWidth: 64, textAlign: "right" }}>{money(d.current)}</span>
+              <span style={{ fontSize: 10, color: MUTED, minWidth: 70, textAlign: "right" }}>low {money(d.low)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Finance plays — movers across everything tracked */}
       {!noHistory && (
         <div style={card}>

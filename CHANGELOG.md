@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Deal radar.** The Finance tab now surfaces owned/grail cards sitting near a
+  recent low (and meaningfully down from their window high) — buy-the-dip
+  candidates among the cards you actually care about. Local, from your price
+  history; fills in as history accrues.
 - **Karn applies edits.** When Karn suggests cuts and adds, each one now has a
   one-click **Apply** chip right in the chat — it edits the locked deck for you
   and **takes a snapshot first**, so any change is one click from undo. The deck
