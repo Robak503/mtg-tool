@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Karn builds from your Vault.** When Karn analyzes a deck he now sees how many
+  of its cards you already own and the in-color upgrade pool sitting in your
+  collection, so his suggested adds prefer cards you can apply at no cost — pairs
+  with one-click Apply. Bounded + local.
+
 ## [0.15.0] - 2026-06-01
 
 ### Added
