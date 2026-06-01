@@ -18,6 +18,15 @@ summarizes the notable changes.
   clipboard. Runs entirely off local data — no API cost.
 - **Export your collection to CSV** from the Vault — a Deckbox-style sheet of
   your owned cards that re-imports cleanly into MTG Tool, Deckbox, or Moxfield.
+- **Back up & restore all your data** from the Updates panel — export everything
+  (decks, chats, collection, grails, games) to one JSON file and restore it on
+  another machine. A safety backup of your current data is saved before a restore
+  overwrites anything.
+- **Copy support info** (Updates panel) — a redacted diagnostics summary for bug
+  reports (version, OS, data freshness, content counts) with no secrets and no
+  deck/chat content.
+- **Export a deck's shopping list** from the Vault's Decks panel — the cards
+  you're still missing as a paste-ready Moxfield / Archidekt decklist.
 
 ## [0.11.0] - 2026-05-31
 

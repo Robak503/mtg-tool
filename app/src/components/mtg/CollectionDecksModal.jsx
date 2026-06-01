@@ -129,6 +129,20 @@ export default function CollectionDecksModal({ onClose, onAddCard, colors }) {
                         </button>
                       </div>
                     ))}
+                    <button
+                      onClick={() => {
+                        const text = deck.missing.map(m => `${m.need} ${m.name}`).join("\n") + "\n";
+                        const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `${(deck.deckName || "deck").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-shopping-list.txt`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      style={{ background: "transparent", border: `1px solid ${LINE}`, color: TEXT, borderRadius: 4, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", marginTop: 8 }}
+                    >
+                      ⬇ Export shopping list (paste into Moxfield / Archidekt)
+                    </button>
                   </div>
                 )}
                 {open && deck.missing.length === 0 && (
