@@ -210,6 +210,22 @@ export default function useDeckStore() {
     persistDecks(updated);
   };
 
+  // Mutate a deck by id (not necessarily the active one) — used by "Karn applies
+  // a cut/add" so an apply targets the chat's LOCKED deck even when the sidebar's
+  // active deck differs. Returns the updated deck, or null if the id is unknown.
+  const updateDeckById = (id, updater, options = {}) => {
+    if (!id) return null;
+    let next = null;
+    const updated = savedDecks.map(deck => {
+      if (deck.id !== id) return deck;
+      next = normalizeDeck(updater(normalizeDeck(deck)));
+      return next;
+    });
+    if (!next) return null;
+    persistDecks(updated, options);
+    return next;
+  };
+
   const updateActiveMemory = (patch) => {
     updateActiveDeck(deck => ({
       ...deck,
@@ -461,6 +477,7 @@ If no matching file exists, list the available deck files. If multiple variants 
     tokenCount,
     tokenEntries,
     updateActiveDeck,
+    updateDeckById,
     updateActiveMemory,
     updateAgentNote,
   };

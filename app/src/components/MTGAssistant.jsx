@@ -45,6 +45,7 @@ import LearnView from "./mtg/LearnView";
 import CollectionView from "./mtg/CollectionView";
 import UpdatesModal from "./UpdatesModal";
 import PodBalanceModal from "./mtg/PodBalanceModal";
+import { applyDeckChange } from "../lib/deckApply";
 
 export default function MTGAssistant() {
   const [agent, setAgent]   = useState("jace");
@@ -181,6 +182,7 @@ export default function MTGAssistant() {
     tokenCount,
     tokenEntries,
     updateActiveDeck,
+    updateDeckById,
     updateActiveMemory,
     updateAgentNote,
   } = useDeckStore();
@@ -531,6 +533,16 @@ export default function MTGAssistant() {
         </span>
       :<span key={i} style={{whiteSpace:"pre-wrap"}}>{part}</span>
   );
+
+  // Apply a Karn-suggested add/cut to the chat's LOCKED deck, snapshotting first
+  // (E1). Returns the updated deck or null (no locked deck / unknown id).
+  const applyKarnChange = (change) => {
+    const lockedId = currentSession?.lockedDeck?.id;
+    if (!lockedId || !change?.name) return null;
+    const id = globalThis.crypto?.randomUUID?.() || `snap-${Date.now()}`;
+    const date = new Date().toLocaleString();
+    return updateDeckById(lockedId, (deck) => applyDeckChange(deck, change, { id, date }), { fileSave: "immediate" });
+  };
 
   const askDeckAgent = (targetAgent, prompt) => {
     if (!activeDeck || sending) return;
@@ -1146,6 +1158,7 @@ export default function MTGAssistant() {
               <ChatPanel
                 activeDeck={activeDeck}
                 agent={agent}
+                applyKarnChange={applyKarnChange}
                 bottomRef={bottomRef}
                 chatScrollRef={chatScrollRef}
                 cfg={cfg}

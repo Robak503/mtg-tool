@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Karn applies edits.** When Karn suggests cuts and adds, each one now has a
+  one-click **Apply** chip right in the chat — it edits the locked deck for you
+  and **takes a snapshot first**, so any change is one click from undo. The deck
+  view's Deck Snapshots now has a **Restore** button to roll back an applied
+  change losslessly.
+
 ## [0.14.0] - 2026-06-01
 
 ### Added

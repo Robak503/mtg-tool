@@ -13,6 +13,7 @@
 import { AGENTS } from "../../lib/agents";
 import { useMemo, useState } from "react";
 import GarfieldPanel from "./GarfieldPanel";
+import { restoreDeckCards, isRestorable } from "../../lib/deckApply";
 
 export default function DeckView({
   activeDeck,
@@ -91,6 +92,13 @@ export default function DeckView({
   };
   const deleteSnapshot = (id) => {
     updateActiveMemory({ snapshots: snapshots.filter(entry => entry.id !== id) });
+  };
+  // Restore the deck's cards from an apply-snapshot (lossless — undoes a Karn
+  // apply). Only available for snapshots that captured the full cards array.
+  const restoreSnapshot = (entry) => {
+    if (!isRestorable(entry)) return;
+    if (!confirm(`Restore the deck to this snapshot? Current card list will be replaced.${entry.reason ? `\n\n(${entry.reason})` : ""}`)) return;
+    updateActiveDeck(deck => restoreDeckCards(deck, entry));
   };
 
   const [recs, setRecs] = useState(null);
@@ -328,6 +336,7 @@ export default function DeckView({
                                     :<span style={{color:"#4a9b6a",marginLeft:"auto"}}>unchanged</span>)}
                                 </summary>
                                 <div style={{fontSize:10,color:MUTED,lineHeight:1.4,marginTop:7}}>
+                                  {entry.reason && <div style={{color:GOLD,marginBottom:3}}>{entry.reason}</div>}
                                   {entry.snapshot?.commander} | {entry.snapshot?.mainCount} cards | {entry.snapshot?.tokenCount} tokens
                                 </div>
                                 {changed&&(
@@ -336,7 +345,12 @@ export default function DeckView({
                                     {drift.removed.length>0&&<div><span style={{color:"#c84848"}}>Removed:</span> {drift.removed.slice(0,16).join(", ")}{drift.removed.length>16?` +${drift.removed.length-16} more`:""}</div>}
                                   </div>
                                 )}
-                                <button onClick={()=>deleteSnapshot(entry.id)} style={{...pb(false,true),marginTop:7,fontSize:10,padding:"3px 7px"}}>Delete</button>
+                                <div style={{display:"flex",gap:6,marginTop:7}}>
+                                  {isRestorable(entry)&&(
+                                    <button onClick={()=>restoreSnapshot(entry)} style={{...pb(false,true),fontSize:10,padding:"3px 7px",borderColor:"#6fbf73",color:"#6fbf73"}}>Restore</button>
+                                  )}
+                                  <button onClick={()=>deleteSnapshot(entry.id)} style={{...pb(false,true),fontSize:10,padding:"3px 7px"}}>Delete</button>
+                                </div>
                               </details>
                             );
                           })}
