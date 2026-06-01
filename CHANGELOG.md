@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-06-01
+
 ### Added
 - **Set Browser.** A new **Sets** tab in the Vault lists every set (newest first,
   searchable) with how many of its cards you own; open a set to see every
