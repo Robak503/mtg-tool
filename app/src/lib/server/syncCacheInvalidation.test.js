@@ -43,7 +43,7 @@ describe("invalidateCachesFor (A5)", () => {
   it("maps every cache-affecting sync action to one or more reset fns", async () => {
     const { CACHE_RESETTERS } = await import("./syncCacheInvalidation.js");
     expect(Object.keys(CACHE_RESETTERS).sort()).toEqual(
-      ["cardkingdom-prices", "edhrec-salt", "oracle-index", "rules-index", "scryfall-bulk", "spellbook"]
+      ["cardkingdom-prices", "edhrec-salt", "oracle-index", "printings-index", "rules-index", "scryfall-bulk", "spellbook"]
     );
     for (const list of Object.values(CACHE_RESETTERS)) {
       expect(Array.isArray(list)).toBe(true);

@@ -41,6 +41,7 @@ const SCRIPTS = {
   "edhrec-salt":       "sync-edhrec-salt.cjs",
   "cardkingdom-prices": "sync-cardkingdom-prices.cjs",
   "oracle-index":      "build-oracle-index.cjs",
+  "printings-index":   "build-collection-printings-index.cjs",
   "rules-index":       "build-rules-index.cjs",
 };
 
@@ -50,6 +51,7 @@ const PHASE_LABELS = {
   "edhrec-salt":       "EDHREC salt scores",
   "cardkingdom-prices": "Card Kingdom fallback prices",
   "oracle-index":      "Slim oracle index",
+  "printings-index":   "Collection card index (printings)",
   "rules-index":       "Rules retrieval index",
 };
 
@@ -74,6 +76,10 @@ const DATASETS = [
   { key: "oracle-index",
     file: ["scryfall-bulk", "oracle-index.json"],
     label: "Slim oracle index",
+    timestampField: "generatedAt" },
+  { key: "printings-index",
+    file: ["scryfall-bulk", "printings-index.json"],
+    label: "Collection card index (printings)",
     timestampField: "generatedAt" },
   { key: "rules-index",
     file: ["rules-index.json"],
@@ -218,12 +224,13 @@ function streamSingle(action, scriptName) {
 }
 
 function streamFullSequence() {
-  // Order matters: download Scryfall bulk first, then rebuild oracle-index
-  // off the fresh data; spellbook + salt next; rules-index last (independent
-  // of card data, just needs the bundled mtg-judge codex).
+  // Order matters: download Scryfall bulk first, then rebuild the oracle-index
+  // and printings-index off the fresh data; spellbook + salt next; rules-index
+  // last (independent of card data, just needs the bundled mtg-judge codex).
   const sequence = [
     ["scryfall-bulk",      SCRIPTS["scryfall-bulk"]],
     ["oracle-index",       SCRIPTS["oracle-index"]],
+    ["printings-index",    SCRIPTS["printings-index"]],
     ["spellbook",          SCRIPTS["spellbook"]],
     ["edhrec-salt",        SCRIPTS["edhrec-salt"]],
     ["cardkingdom-prices", SCRIPTS["cardkingdom-prices"]],

@@ -28,19 +28,23 @@ async function loadTauriUpdater() {
 }
 
 const DATASET_LABELS = {
-  "scryfall-bulk": "Scryfall bulk (oracle, rulings, default, artwork)",
-  "spellbook":     "Commander Spellbook combos",
-  "edhrec-salt":   "EDHREC salt scores",
-  "oracle-index":  "Slim card index (rebuild)",
-  "rules-index":   "Rules retrieval index (rebuild)",
+  "scryfall-bulk":      "Scryfall bulk (oracle, rulings, default, artwork)",
+  "spellbook":          "Commander Spellbook combos",
+  "edhrec-salt":        "EDHREC salt scores",
+  "cardkingdom-prices": "Card Kingdom fallback prices",
+  "oracle-index":       "Slim card index (rebuild)",
+  "printings-index":    "Collection card index — printings (rebuild)",
+  "rules-index":        "Rules retrieval index (rebuild)",
 };
 
 const DATASET_HINTS = {
-  "scryfall-bulk": "~5 minutes; downloads ~950 MB",
-  "spellbook":     "~10-15 minutes (rate-limited API)",
-  "edhrec-salt":   "~1-2 minutes",
-  "oracle-index":  "~10 seconds (runs after scryfall-bulk)",
-  "rules-index":   "~5 seconds (uses bundled rules codex)",
+  "scryfall-bulk":      "~5 minutes; downloads ~950 MB",
+  "spellbook":          "~10-15 minutes (rate-limited API)",
+  "edhrec-salt":        "~1-2 minutes",
+  "cardkingdom-prices": "~1-2 minutes (price fallback)",
+  "oracle-index":       "~10 seconds (runs after scryfall-bulk)",
+  "printings-index":    "~1-2 minutes; needs Scryfall bulk first",
+  "rules-index":        "~5 seconds (uses bundled rules codex)",
 };
 
 function timeAgo(iso) {

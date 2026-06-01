@@ -14,13 +14,13 @@ import { resetRulesRetrievalForTests as resetRulesRetrievalCache } from "./rules
 import { resetSpellbookCache } from "./spellbook.js";
 import { resetEdhrecSaltCache } from "./edhrecSalt.js";
 import { resetCardKingdomPricesCache } from "./cardKingdomPrices.js";
+import { resetPrintingIndexCache } from "./printingIndex.js";
 
 // Each /api/sync-data action → the caches whose on-disk source it rewrites.
-// (printingIndex is not listed: its source, printings-index.json, is built by a
-// separate script that is not one of the sync-data actions.)
 export const CACHE_RESETTERS = {
   "scryfall-bulk":      [resetCardIndexCache],        // oracle_cards.json + rulings.json
   "oracle-index":       [resetCardIndexCache],        // oracle-index.json (preferred card source)
+  "printings-index":    [resetPrintingIndexCache],    // printings-index.json (Vault card lookups)
   "spellbook":          [resetSpellbookCache],
   "edhrec-salt":        [resetEdhrecSaltCache],
   "cardkingdom-prices": [resetCardKingdomPricesCache],
