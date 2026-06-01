@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-06-01
+
 ### Added
 - **Cost-to-finish in the deck view.** Each deck now shows how much of it you own
   from your collection and what it'd cost to finish (e.g. "own 87/99 · $24 to

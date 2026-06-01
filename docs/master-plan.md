@@ -182,9 +182,9 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| E1 | Karn *applies* a cut/add (real deck mutation) | 🟡 engine shipped (#106), UI pending | Action buttons on suggestions mutate the deck (+ snapshot first). The biggest loop item. **CEO B2 = PLAN C3** |
+| E1 | Karn *applies* a cut/add (real deck mutation) | ✅ v0.15.0 (#106/#108) | Action buttons on suggestions mutate the deck (+ snapshot first). The biggest loop item. **CEO B2 = PLAN C3** |
 | E2 | "Play this deck in the Academy" one-click | ⬜ P1 | From deck/Vault view. **CEO B1** |
-| E3 | Cost-to-finish surfaced where you build | 🟡 P1 | Decks panel exists (v0.8); surface "own 87/99, finish $24" in the deck view too. **CEO B3** |
+| E3 | Cost-to-finish surfaced where you build | ✅ v0.15.0 (#110) | Decks panel exists (v0.8); surface "own 87/99, finish $24" in the deck view too. **CEO B3** |
 
 ### F — Deck report & actionable analysis (P0–P1)
 
@@ -313,7 +313,7 @@ Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index
 | 5 | Cost-basis / P&L | ⬜ | Record what you paid; per-card + portfolio gain/loss (depends M1 purchase fields). |
 | 6 | Buylist + "worth selling now" | ⬜ | Card Kingdom buylist vs retail; surface just-spiked cards to sell. |
 | 7 | Rarity + set-EV signals | ⬜ | Add rarity to the index (#22); set "expected value," reserved-list flag + RL holdings value, mythic movers. |
-| 8 | Deal radar / buy-the-dip | ⬜ | Owned/grail/wishlist cards at a local low. |
+| 8 | Deal radar / buy-the-dip | ✅ v0.15.0 (#109) | Owned/grail cards near a recent low, in the Finance tab. |
 | 9 | Multi-currency + price-source comparison | ⬜ | USD/EUR/tix; TCGPlayer vs CK vs Cardmarket side-by-side; "cheapest place to buy." |
 | 23 | Set browser + price-list view | ✅ v0.14.0 (#104) — TCGPlayer deep-links still pending #22 | **Now absorbs #11** (owner's reframe — see #11). Browse every set → drill into a set → see **every card** as a value/price list with **owned cards flagged** (and owned count + completion % for real expansions). Per-card tabs for **Normal / Foil / special treatments** (surge, galaxy, manafoil, etc.) each showing that printing's price. Each card links out to its **specific TCGPlayer page**. All local from the printings-index (set / collector / finishes / treatments / prices already there). **Build note:** enumerating a whole set needs a `set → cards` grouping; add it to `build-collection-printings-index.cjs` (a `bySet` map + set metadata). Deep-links need `tcgplayer_id` / `purchase_uris.tcgplayer` added there too (**pairs with #22**, `rarity` already added in #96); external link is navigation-only, so local-first holds. Relates to **#9** (price sources). |
 
