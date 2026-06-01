@@ -141,11 +141,11 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| A1 | Feedback-bundle path traversal fix | ⬜ P0 | Imported timestamps build filenames; generate server-side, basename-only, assert inside `FEEDBACK_DIR`. **PLAN A1** |
-| A2 | Preserve chat/session metadata across reload | ⬜ P0 | Persist `deckDeclined`, message `id`, `isError`/`fallbackAvailable`/`originalPrompt`, `factReceipt`, `arbiterStatus/Sources/Trace` on a strict allowlist. Makes the deck gate + retry/trust survive restart. **PLAN A2** |
-| A3 | Strict model-provider allowlist | ⬜ P0 | `normalizeProvider()`; a typo must not route to Anthropic / spend credits. Arbiter stays Ollama-only. **PLAN A3** |
-| A4 | Full streaming idle timeouts | ⬜ P0 | Timeout must cover the body stream, reset per chunk, abort upstream, clear `sending`. **PLAN A4** |
-| A5 | Invalidate server caches after data sync | ⬜ P0 | Reset (or mtime-gate) `cardIndex`/`printingIndex`/rules/spellbook/salt singletons so in-app sync is visible without restart. **PLAN A5** |
+| A1 | Feedback-bundle path traversal fix | ✅ v0.11.0 (#63) | Imported timestamps build filenames; generate server-side, basename-only, assert inside `FEEDBACK_DIR`. **PLAN A1** |
+| A2 | Preserve chat/session metadata across reload | ✅ v0.11.0 (#65) | Persist `deckDeclined`, message `id`, `isError`/`fallbackAvailable`/`originalPrompt`, `factReceipt`, `arbiterStatus/Sources/Trace` on a strict allowlist. Makes the deck gate + retry/trust survive restart. **PLAN A2** |
+| A3 | Strict model-provider allowlist | ✅ v0.11.0 (#63) | `normalizeProvider()`; a typo must not route to Anthropic / spend credits. Arbiter stays Ollama-only. **PLAN A3** |
+| A4 | Full streaming idle timeouts | ✅ v0.11.0 (#67) | Timeout must cover the body stream, reset per chunk, abort upstream, clear `sending`. **PLAN A4** |
+| A5 | Invalidate server caches after data sync | ✅ v0.11.0 (#66) | Reset (or mtime-gate) `cardIndex`/`printingIndex`/rules/spellbook/salt singletons so in-app sync is visible without restart. **PLAN A5** |
 | A6 | Webview CSP | ⬜ P0 · verify live | CSP currently disabled. Measured policy; confirm app/server/art/updater all still load (bad policy blanks the window). **PLAN A6 = CEO D1** |
 
 ### B — Trust & agents feeling alive (P1, cheap)
@@ -175,14 +175,14 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 | D2 | Privacy / Legal / About page | ⬜ P0 | Source-available license, Unofficial Fan Content disclaimer, what leaves the machine, how to delete/export data. **PLAN B3** |
 | D3 | Feature stability labels in UI | ⬜ P0 | Per §1 (Preview/Beta/Stable). **PLAN B6** |
 | D4 | Public download / landing docs | ⬜ P1 | What it is, requirements, SmartScreen note, privacy, screenshots, limitations. **PLAN B5** |
-| D5 | Support bundle ("copy/export") | ⬜ P1 | Version/OS/data-freshness/model+Ollama status/last error; no secrets, no deck/chat unless opted in. **PLAN B7** |
+| D5 | Support bundle ("copy/export") | ✅ v0.12.0 (#83/#90) | Version/OS/data-freshness/model+Ollama status/last error; no secrets, no deck/chat unless opted in. **PLAN B7** |
 | D6 | Installer trust story (Authenticode / Store) | ⬜ decision | Paid cert or MS Store or documented SmartScreen note. Owner chooses. **PLAN B4** (deferred per CLAUDE.md) |
 
 ### E — Core-loop wiring (the product unlock)
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| E1 | Karn *applies* a cut/add (real deck mutation) | ⬜ P0 | Action buttons on suggestions mutate the deck (+ snapshot first). The biggest loop item. **CEO B2 = PLAN C3** |
+| E1 | Karn *applies* a cut/add (real deck mutation) | 🟡 engine shipped (#106), UI pending | Action buttons on suggestions mutate the deck (+ snapshot first). The biggest loop item. **CEO B2 = PLAN C3** |
 | E2 | "Play this deck in the Academy" one-click | ⬜ P1 | From deck/Vault view. **CEO B1** |
 | E3 | Cost-to-finish surfaced where you build | 🟡 P1 | Decks panel exists (v0.8); surface "own 87/99, finish $24" in the deck view too. **CEO B3** |
 
@@ -190,8 +190,8 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| F1 | Unified Deck Report + Markdown export | 🟡 P0 | Pieces exist (Pod Balance, recommendations, combos, legality, power); compose them into one `GET/POST /api/deck-report` + a button + Markdown export. **PLAN C1 / RSCH P0#1** |
-| F2 | Rule 0 card | ⬜ P1 | Table-ready intro: bracket, power, win speed, tutors, combos, fast mana, stax/salt, "what this deck does." Export/copy. **PLAN C2 / RSCH #10** |
+| F1 | Unified Deck Report + Markdown export | ✅ v0.12.0 (#74/#84) | Pieces exist (Pod Balance, recommendations, combos, legality, power); compose them into one `GET/POST /api/deck-report` + a button + Markdown export. **PLAN C1 / RSCH P0#1** |
+| F2 | Rule 0 card | ✅ v0.12.0 (#75) | Table-ready intro: bracket, power, win speed, tutors, combos, fast mana, stax/salt, "what this deck does." Export/copy. **PLAN C2 / RSCH #10** |
 | F3 | Actionable Karn suggestions (structured) | ⬜ P1 | add-to-wishlist / mark-cut / maybeboard / replace / save-upgrade-plan / version-before-apply. Overlaps E1. **PLAN C3** |
 
 ### G — Collection-aware deckbuilding (P0)
@@ -199,8 +199,8 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
 | G1 | "Build From Vault" mode | ⬜ P0 | Karn prioritizes owned → wishlist → external; each candidate tagged owned-available / owned-allocated / owned-diff-printing / wishlist / missing / proxy. **PLAN D1 / RSCH P0#2 / VAULT #20** |
-| G2 | Shopping-list export | ⬜ P0 | In-app list exists (v0.8); export to CSV / text / Moxfield / Archidekt; toggles for no-basics, cheapest printing, include set+price. **PLAN D2 / RSCH P0#5 / VAULT #17** |
-| G3 | Collection export | ⬜ P0 | MTG Tool JSON / CSV / Deckbox / Moxfield-Archidekt-compatible / selected-cards. Escape hatch + backup. **PLAN D4 / RSCH P0#7 / VAULT #17** |
+| G2 | Shopping-list export | ✅ v0.12.0 (#77) | In-app list exists (v0.8); export to CSV / text / Moxfield / Archidekt; toggles for no-basics, cheapest printing, include set+price. **PLAN D2 / RSCH P0#5 / VAULT #17** |
+| G3 | Collection export | ✅ v0.12.0 (#76/#85) | MTG Tool JSON / CSV / Deckbox / Moxfield-Archidekt-compatible / selected-cards. Escape hatch + backup. **PLAN D4 / RSCH P0#7 / VAULT #17** |
 | G4 | Collection update / merge import | ⬜ P0 | CSV import exists; add update modes (add-only / merge-qty / replace-location / reconcile / mark-absent) with a diff preview. **PLAN D5 / RSCH P0#6** |
 | G5 | Physical location tracking (binders/boxes) | ⬜ P1 | Location type + name + page + slot; deck completion says "pull from Binder A / in Deck B / missing." **PLAN D3 / RSCH P1#6 / VAULT #13** |
 | G6 | Scanner-CSV compatibility | ⬜ P1 | Import ManaBox / Delver Lens / Dragon Shield / TCGplayer CSV (auto-detect) → review → merge. No camera. **PLAN D6 / RSCH #8** |
@@ -237,9 +237,9 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| K1 | Export all user data | 🟡 P1 | `npm run backup` exists; add in-app export of decks/chats/collection/feedback/games/learn/settings (no secrets). **PLAN I1** |
-| K2 | Restore from backup | ⬜ P1 | Pick → preview → restore selected types → backup-before-restore. **PLAN I2** |
-| K3 | Backup before destructive ops | ⬜ P1 | Merge-replace / sync / restore / bulk-delete / URL-refresh-apply. **PLAN I3** |
+| K1 | Export all user data | ✅ v0.12.0 (#78/#90) | `npm run backup` exists; add in-app export of decks/chats/collection/feedback/games/learn/settings (no secrets). **PLAN I1** |
+| K2 | Restore from backup | ✅ v0.12.0 (#81) | Pick → preview → restore selected types → backup-before-restore. **PLAN I2** |
+| K3 | Backup before destructive ops | 🟡 P1 | Backup-before-restore shipped (#81); merge-replace / sync / bulk-delete / URL-refresh-apply still uncovered. **PLAN I3** |
 
 ### L — House rules, brackets, pod fit (P2)
 
@@ -261,20 +261,20 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
 | N1 | Decompose oversized files | ⬜ P2 | `MTGAssistant.jsx`, `FeedbackButton.jsx`, `useChatSessions.js`, `agents.js`, `powerRanker.js`, `lib.rs` (no behavior change). **PLAN L1 / CEO D5** |
-| N2 | Dead-code cleanup | ⬜ P2 | Rerun `npm run deadcode`; remove `cardContext.js` + unused exports. **PLAN L2** |
-| N3 | Lint-warning cleanup | ⬜ P2 | Unused vars, hook deps, `img` warnings, empty catches. **PLAN L3** |
+| N2 | Dead-code cleanup | 🟡 P2 | `cardContext.js` removed (#82); broader unused-export sweep still open. **PLAN L2** |
+| N3 | Lint-warning cleanup | ✅ v0.12.0 (#86/#89) | All 63 warnings cleared + `eslint . --max-warnings 0` gate. **PLAN L3** |
 | N4 | Local-first art completion | 🟡 P1 · verify live | Chat surfaces proxied (v0.3); route the last surfaces (hover tooltip, right-search preview, CollectionAddModal) through `/api/art-crop`. **PLAN L4 / CEO D2** |
 | N5 | Art-proxy hardening | ⬜ P1 | Timeout + response-size cap + content-type validation + safe fallback. **PLAN L5** |
-| N6 | Atomic-write temp names (UUID suffix) | ⬜ P2 | Avoid predictable `.tmp` collisions. **PLAN L6** |
+| N6 | Atomic-write temp names (UUID suffix) | ✅ (#80) | Avoid predictable `.tmp` collisions. **PLAN L6** |
 
 ### O — Docs, versioning, CI (P1–P2)
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| O1 | Align version sources | ⬜ P1 | One source of truth for `package.json` / `tauri.conf.json` / changelog / user-agents. **PLAN M1** |
-| O2 | Archive / refresh stale docs | 🟡 P1 | This doc + the archive move are part of it; still refresh `HANDOFF.md` to v0.10.0 and reconcile `ROADMAP.md`/`TODOS.md`/`phase6` refs. **PLAN M2** |
-| O3 | Resolve local-data `.gitignore` strategy | ⬜ P1 | Clarify tracked-seed vs ignored-user-data for `app/data/*.local.json`. **PLAN M3** |
-| O4 | CI improvements | ⬜ P2 | Fail-lint-on-warnings, format check, deadcode gate, audit policy, light browser smoke test, release checklist. **PLAN M4** |
+| O1 | Align version sources | ✅ (#79, drift-guard test) | One source of truth for `package.json` / `tauri.conf.json` / changelog / user-agents. **PLAN M1** |
+| O2 | Archive / refresh stale docs | ✅ (#87 HANDOFF, #64 consolidation) | HANDOFF current; minor ROADMAP/TODOS reconcile may linger. **PLAN M2** |
+| O3 | Resolve local-data `.gitignore` strategy | ✅ (#88) | Tracked-seed vs ignored-user-data made explicit. **PLAN M3** |
+| O4 | CI improvements | 🟡 P2 | lint-gate (#89) + test-gate + rust-gate shipped; format-check / deadcode-gate / browser-smoke still open. **PLAN M4** |
 
 ---
 
@@ -308,7 +308,7 @@ Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index
 |---|---|---|---|
 | 1 | Price alerts | ✅ v0.13.0 | Shipped — target price + direction per card (set in the card drawer), crossing flagged on the daily snapshot, surfaced in Finance with a "🔔 N hit" badge. Engine/API #93, UI #94. |
 | 2 | Per-card price sparkline | ✅ v0.13.0 | Shipped — mini SVG price-trend line in the card detail drawer for any card with ≥2 days of `collection-prices.jsonl` history (#92). |
-| 3 | Collection value chart over time | ✅ (Unreleased) | Shipped — "Value over time" line in the Stats tab valuing current holdings at each daily snapshot's prices, beside the 30/90/365 deltas (#97). |
+| 3 | Collection value chart over time | ✅ v0.14.0 (#97) | Shipped — "Value over time" line in the Stats tab valuing current holdings at each daily snapshot's prices, beside the 30/90/365 deltas (#97). |
 | 4 | Seed starter price history at release | ✅ | Shipped — write-path groundwork (#69) + a build-time staples seed generator wired into the release (#72). Populates day-1 Finance from the next release onward. |
 | 5 | Cost-basis / P&L | ⬜ | Record what you paid; per-card + portfolio gain/loss (depends M1 purchase fields). |
 | 6 | Buylist + "worth selling now" | ⬜ | Card Kingdom buylist vs retail; surface just-spiked cards to sell. |
@@ -321,14 +321,14 @@ Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index
 
 | # | Item | Status | One-liner / cross-ref |
 |---|---|---|---|
-| 10 | Collection stats dashboard | ✅ (Unreleased) | Shipped — new Stats tab: type / color-identity / rarity / mana-curve breakdowns + top sets + most-valuable + value-over-time (#96, #97). Set-completion % deferred to #11. |
+| 10 | Collection stats dashboard | ✅ v0.14.0 (#96) | Shipped — new Stats tab: type / color-identity / rarity / mana-curve breakdowns + top sets + most-valuable + value-over-time (#96, #97). Set-completion % deferred to #11. |
 | 11 | Set completion tracker | 🔀 → #23 | **Reframed by owner (2026-05-31):** completionism isn't the goal — "having the complete sets was so I could go look through them and see what has value / what cards are in the set, more than a realistic completion number." So this folds into **#23 (Set Browser)**: browse a set as a value list with owned cards flagged; completion % is a *secondary* stat scoped to real expansions only (skip Secret Lair / Commander / promo sets). |
-| 12 | Bulk edit | ⬜ | Multi-select rows → set finish/tag/quantity en masse. |
+| 12 | Bulk edit | ✅ v0.14.0 (#100) | Select mode → multi-assign tag / delete. (Per-stack finish/quantity bulk still open.) |
 | 13 | Binders / storage locations | ⬜ | = **G5** (physical location tracking). |
 | 14 | Lend / borrow tracker | ⬜ | = **M3**. |
 | 15 | Trade tool | ⬜ | = **M2** (wishlist↔tradelist matching within the pod). |
 | 16 | Saved searches / smart filters | ⬜ | = **I2**. |
-| 17 | Export | ⬜ | = **G2 + G3** (+ vendor mass-entry cart handoff from the shopping list). |
+| 17 | Export | ✅ v0.12.0 | = **G2 + G3** shipped (#76/#77/#85). Remaining: vendor mass-entry cart handoff from the shopping list. |
 | 18 | Condition / language | 🟡 | = **M1** (condition stored; expose language + per-condition pricing). |
 
 ### Agent / cross-feature
