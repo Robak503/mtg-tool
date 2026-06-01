@@ -45,17 +45,18 @@ async function readJsonDir(rel) {
 
 export async function GET() {
   try {
-    const [decks, chats, collection, watchlist, agentNotes, feedback, games] = await Promise.all([
+    const [decks, chats, collection, watchlist, priceAlerts, agentNotes, feedback, games] = await Promise.all([
       readJsonFile("decks.local.json"),
       readJsonFile("chats.local.json"),
       readJsonFile("collection.json"),
       readJsonFile("watchlist.json"),
+      readJsonFile("price-alerts.json"),
       readJsonFile("agent-notes.local.json"),
       readJsonDir("feedback"),
       readJsonDir("games"),
     ]);
 
-    const bundle = buildUserDataBundle({ decks, chats, collection, watchlist, agentNotes, feedback, games });
+    const bundle = buildUserDataBundle({ decks, chats, collection, watchlist, priceAlerts, agentNotes, feedback, games });
     const stamp = new Date().toISOString().slice(0, 10);
     return new Response(JSON.stringify(bundle, null, 2), {
       status: 200,

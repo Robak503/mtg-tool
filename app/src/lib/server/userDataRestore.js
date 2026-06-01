@@ -12,6 +12,7 @@ const RESTORE_SECTION_FILES = {
   chats: "chats.local.json",
   collection: "collection.json",
   watchlist: "watchlist.json",
+  priceAlerts: "price-alerts.json",
   agentNotes: "agent-notes.local.json",
 };
 

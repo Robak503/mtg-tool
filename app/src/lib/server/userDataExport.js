@@ -20,13 +20,14 @@ export function summarizeUserData(sections = {}) {
     chatSessions: countOf(s.chats, "sessions"),
     collectionCards: countOf(s.collection, "cards"),
     grails: countOf(s.watchlist, "cards"),
+    priceAlerts: countOf(s.priceAlerts, "alerts"),
     feedback: Array.isArray(s.feedback) ? s.feedback.length : 0,
     games: Array.isArray(s.games) ? s.games.length : 0,
   };
 }
 
 /**
- * @param sections { decks, chats, collection, watchlist, agentNotes, feedback[], games[] }
+ * @param sections { decks, chats, collection, watchlist, priceAlerts, agentNotes, feedback[], games[] }
  *   — each null/absent when that data doesn't exist yet.
  */
 export function buildUserDataBundle(sections = {}, exportedAt = new Date().toISOString()) {
@@ -41,6 +42,7 @@ export function buildUserDataBundle(sections = {}, exportedAt = new Date().toISO
       chats: s.chats ?? null,
       collection: s.collection ?? null,
       watchlist: s.watchlist ?? null,
+      priceAlerts: s.priceAlerts ?? null,
       agentNotes: s.agentNotes ?? null,
       feedback: Array.isArray(s.feedback) ? s.feedback : [],
       games: Array.isArray(s.games) ? s.games : [],

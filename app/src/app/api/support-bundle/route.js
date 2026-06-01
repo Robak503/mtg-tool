@@ -57,13 +57,14 @@ export async function GET() {
       data[key] = await freshness(parts);
     }
 
-    const [decks, chats, collection, watchlist] = await Promise.all([
+    const [decks, chats, collection, watchlist, priceAlerts] = await Promise.all([
       readJson("decks.local.json"),
       readJson("chats.local.json"),
       readJson("collection.json"),
       readJson("watchlist.json"),
+      readJson("price-alerts.json"),
     ]);
-    const content = summarizeUserData({ decks, chats, collection, watchlist });
+    const content = summarizeUserData({ decks, chats, collection, watchlist, priceAlerts });
     content.games = await countDir("games");
     content.feedback = await countDir("feedback");
 

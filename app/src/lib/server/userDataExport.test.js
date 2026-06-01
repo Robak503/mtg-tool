@@ -11,6 +11,7 @@ const SECTIONS = {
   chats: { version: 2, sessions: [{ id: "s1" }] },
   collection: { version: 1, cards: [{ name: "Sol Ring" }, { name: "Mana Crypt" }, { name: "Arcane Signet" }] },
   watchlist: { cards: [{ scryfallId: "x" }] },
+  priceAlerts: { alerts: [{ scryfallId: "x", target: 5 }, { scryfallId: "y", target: 9 }] },
   agentNotes: { foo: "bar" },
   feedback: [{ id: "f1" }, { id: "f2" }],
   games: [{ id: "g1" }],
@@ -23,6 +24,7 @@ describe("summarizeUserData", () => {
       chatSessions: 1,
       collectionCards: 3,
       grails: 1,
+      priceAlerts: 2,
       feedback: 2,
       games: 1,
     });
@@ -30,7 +32,7 @@ describe("summarizeUserData", () => {
 
   it("returns zeros for empty input", () => {
     expect(summarizeUserData({})).toEqual({
-      decks: 0, chatSessions: 0, collectionCards: 0, grails: 0, feedback: 0, games: 0,
+      decks: 0, chatSessions: 0, collectionCards: 0, grails: 0, priceAlerts: 0, feedback: 0, games: 0,
     });
   });
 });
