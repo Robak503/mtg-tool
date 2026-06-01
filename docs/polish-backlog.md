@@ -1,14 +1,16 @@
 # Polish & Information-Architecture Backlog
 
-The **final pre-ship phase**: once features are built, this is the punch list of
-UI cleanup + "put each thing where it belongs" moves. Intentionally deferred —
-done as one coherent pass (so the app feels unified) and gated through gstack
-`/design-review` + `/qa`, not piecemeal during feature work.
+The **final pre-1.0.0 phase: a full layout overhaul.** Once features are built,
+this is the punch list for the redesign — re-laying-out the whole app and
+moving every widget to where it belongs. Intentionally deferred and done as one
+coherent pass (so the app feels deliberately designed, not incrementally
+shuffled), gated through gstack `/design-review` + `/qa`. **"Ready to ship" = the
+1.0.0 release, and this overhaul is the last thing before it.**
 
-> Owner's framing (2026-05-31): *"after everything is programmed, the last
-> changes are all gonna be UI cleanup and location changes — example: the Vault
-> showing the mana curve, which has nothing to do with finance, but would be
-> great in Karn."*
+> Owner's framing (2026-05-31): *"by ready to ship I mean the final 1.0.0
+> release; prior to that final release will be a full overhaul of the layout."*
+> and: *"the Vault showing the mana curve, which has nothing to do with finance,
+> but would be great in Karn."*
 
 ---
 
@@ -23,7 +25,13 @@ done as one coherent pass (so the app feels unified) and gated through gstack
 _(seed as noticed during build — examples: button placement, spacing, label
 casing, redundant controls, empty-state copy, modal vs. inline, tab order)_
 
-- (none logged yet — populate during the polish pass with `/design-review`)
+- **Shorthand/longhand style mixing → React warnings.** Several buttons spread a
+  base style that sets the `border` shorthand and then override `borderColor`
+  (longhand), which logs *"Removing borderColor border"* on every rerender.
+  App-wide (mounted everywhere via `AppHeader.jsx:136`), plus `CollectionAddModal`,
+  `CollectionImportModal`, `CollectionCardDetail` (`primaryBtn`/`dangerBtn`),
+  `GarfieldPanel`. Fix: use the full `border` shorthand in the override instead of
+  `borderColor`. (Already fixed in `CollectionView` during #12.) Clean sweep here.
 
 ## Information architecture (navigation / grouping)
 

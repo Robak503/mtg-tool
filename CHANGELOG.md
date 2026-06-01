@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Bulk edit in the Vault.** A new **Select** mode lets you pick multiple cards
+  (or "Select all" the filtered view) and then **assign a color tag** or
+  **remove** them all at once, instead of one card at a time.
 - **Collection value over time.** The Stats tab now charts your collection's
   value across the daily price snapshots (your current holdings valued at each
   past day's prices), alongside the existing 30/90/365-day deltas. Fills in as
