@@ -167,6 +167,7 @@ function slimPrinting(card) {
     set: (card.set || "").toLowerCase(),
     setName: card.set_name || "",
     collectorNumber: card.collector_number || "",
+    rarity: card.rarity || null,
     finishes: Array.isArray(card.finishes) && card.finishes.length
       ? card.finishes
       : ["nonfoil"],
