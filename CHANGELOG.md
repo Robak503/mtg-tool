@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Price alerts.** Set a target price on any card in the detail drawer —
+  "notify when it drops to ≤ $X" (a buy signal) or "rises to ≥ $X" (a
+  sell/spike signal). The daily price snapshot flags an alert when the card
+  crosses your target, and the Vault's Finance tab shows a "🔔 N hit" badge plus
+  the full alert list. Re-arms automatically, so a price that dips, recovers,
+  then dips again fires again. All local — no API cost.
 - **Per-card price sparklines.** The card detail drawer shows a small price-trend
   line (first → latest) for any card with at least two days of local price
   history. Built from data the app already collects — no API cost. (Fills in as

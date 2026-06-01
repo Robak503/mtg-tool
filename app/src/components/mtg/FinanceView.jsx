@@ -162,6 +162,35 @@ export default function FinanceView({ colors, fontFamily }) {
         )}
       </div>
 
+      {/* Price alerts */}
+      {(data?.alerts?.length || 0) > 0 && (
+        <div style={card}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={h}>Price alerts</span>
+            {(data.alertsMetCount || 0) > 0 && (
+              <span style={{
+                marginLeft: "auto", marginBottom: 10, fontSize: 11, fontWeight: 700,
+                color: "#6fbf73", background: "rgba(111,191,115,0.12)",
+                border: "1px solid #6fbf73", borderRadius: 999, padding: "1px 9px",
+              }}>🔔 {data.alertsMetCount} hit</span>
+            )}
+          </div>
+          {[...data.alerts].sort((a, b) => (b.met ? 1 : 0) - (a.met ? 1 : 0)).map(a => (
+            <div key={a.scryfallId} style={rowStyle(LINE)}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 13, color: TEXT, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {a.met ? "🔔 " : ""}{a.name}
+                </span>
+                <span style={{ fontSize: 10, color: MUTED }}>
+                  notify {a.direction === "above" ? "≥" : "≤"} ${a.target.toFixed(2)}
+                </span>
+              </span>
+              <span style={{ fontSize: 13, color: a.met ? "#6fbf73" : GOLD, minWidth: 64, textAlign: "right" }}>{money(a.currentPrice)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Finance plays — movers across everything tracked */}
       {!noHistory && (
         <div style={card}>
