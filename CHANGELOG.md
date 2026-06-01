@@ -9,6 +9,9 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Cost-to-finish in the deck view.** Each deck now shows how much of it you own
+  from your collection and what it'd cost to finish (e.g. "own 87/99 · $24 to
+  finish"), updating live as you apply Karn's adds.
 - **Deal radar.** The Finance tab now surfaces owned/grail cards sitting near a
   recent low (and meaningfully down from their window high) — buy-the-dip
   candidates among the cards you actually care about. Local, from your price

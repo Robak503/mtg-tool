@@ -11,7 +11,7 @@
  *   pb         primary-button style fn  setTooltip   card hover-preview setter
  */
 import { AGENTS } from "../../lib/agents";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import GarfieldPanel from "./GarfieldPanel";
 import { restoreDeckCards, isRestorable } from "../../lib/deckApply";
 
@@ -124,6 +124,25 @@ export default function DeckView({
   const [report, setReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportMode, setReportMode] = useState("full"); // "full" | "rule0"
+
+  // Cost-to-finish for THIS deck from the collection (E3). Advisory; refetches
+  // when the deck changes (so an applied Karn add updates the "own X/Y" line).
+  const [deckCost, setDeckCost] = useState(null);
+  const deckCardCount = deckCards.length;
+  useEffect(() => {
+    let cancelled = false;
+    setDeckCost(null);
+    if (!activeDeck?.id) return;
+    (async () => {
+      try {
+        const resp = await fetch(`/api/collection/deck-costs?deckId=${encodeURIComponent(activeDeck.id)}`);
+        if (!resp.ok) return;
+        const body = await resp.json();
+        if (!cancelled) setDeckCost(body.summary || null);
+      } catch { /* advisory — collection cost is best-effort */ }
+    })();
+    return () => { cancelled = true; };
+  }, [activeDeck?.id, deckCardCount]);
   const loadReport = async () => {
     if (!deckCards.length || reportLoading) return;
     setReportLoading(true);
@@ -183,6 +202,13 @@ export default function DeckView({
                               </div>
                             ))}
                           </div>
+                          {deckCost&&(
+                            <div style={{fontSize:11,color:MUTED,marginBottom:12,lineHeight:1.5}}>
+                              {deckCost.complete
+                                ? <span style={{color:"#6fbf73"}}>✓ You own every card in this deck ({deckCost.ownedCards}/{deckCost.totalCards}).</span>
+                                : <>From your collection: own <strong style={{color:TEXT}}>{deckCost.ownedCards}/{deckCost.totalCards}</strong> ({deckCost.ownedPct}%) · <strong style={{color:GOLD}}>${deckCost.costToFinish.toFixed(2)}</strong> to finish{deckCost.unpricedCount>0?` (+${deckCost.unpricedCount} unpriced)`:""}</>}
+                            </div>
+                          )}
                           <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
                             <button onClick={()=>askDeckAgent("karn",deckActionPrompts.karn)} disabled={sending} style={{...pb(true,true),background:AGENTS.karn.color}}>Karn Upgrade Plan</button>
                             <button onClick={()=>askDeckAgent("tibalt",deckActionPrompts.tibalt)} disabled={sending} style={{...pb(true,true),background:AGENTS.tibalt.color}}>Tibalt Roast</button>
