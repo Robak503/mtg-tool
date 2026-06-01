@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AGENTS, ARBITER_PROMPT_FAST } from "../lib/agents";
 import { fetchArbiterTrace, shouldUseArbiterTrace, summarizeArbiterMetadata } from "../lib/arbiterUtils";
@@ -111,6 +111,12 @@ export default function useChatSessions({
   const [activeSessionIds, setActiveSessionIds] = useState(() => loadActiveSessionIds());
   const [chatLoaded, setChatLoaded] = useState(false);
   const [input, setInput] = useState("");
+  // A prefill staged to survive the imminent agent-switch input-clear (below):
+  // callers that switch agent *and* want a starting draft (e.g. Build-From-Vault)
+  // set this just before changing `agent`; the clear effect restores it instead
+  // of wiping. Consumed (reset to null) on the first agent change after priming.
+  const pendingInputRef = useRef(null);
+  const primeInput = (text) => { pendingInputRef.current = String(text ?? ""); };
   const [sending, setSending] = useState(false);
   const [knowledgeStatus, setKnowledgeStatus] = useState(null);
 
@@ -168,9 +174,16 @@ export default function useChatSessions({
   }, [activeSessionIds]);
 
   // Clear typed-but-unsent input when the user switches agents so a draft
-  // intended for one agent doesn't bleed into a different agent's chat.
+  // intended for one agent doesn't bleed into a different agent's chat — unless
+  // a prefill was primed for the new agent (Build-From-Vault), in which case
+  // restore that instead of clearing.
   useEffect(() => {
-    setInput("");
+    if (pendingInputRef.current !== null) {
+      setInput(pendingInputRef.current);
+      pendingInputRef.current = null;
+    } else {
+      setInput("");
+    }
   }, [agent]);
 
   // ─── Session derivations ────────────────────────────────────────────────────
@@ -885,7 +898,7 @@ export default function useChatSessions({
     unlockSessionDeck,
     confirmSessionDeck,
     // Chat I/O
-    input, setInput, sending,
+    input, setInput, primeInput, sending,
     send, retryWithFallback,
     exportChat, clearChat,
     // Knowledge

@@ -9,6 +9,11 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Build From Vault.** A new **Build** tab in the Vault lists the legendary
+  commanders you already own, ranked by how many of your cards are legal in each
+  one's colors — a quick read on what you could build right now. Pick one and it
+  opens a fresh Karn chat, ready to build a deck around it from your collection.
+  All local, from your collection joined with the bundled card index.
 - **Karn builds from your Vault.** When Karn analyzes a deck he now sees how many
   of its cards you already own and the in-color upgrade pool sitting in your
   collection, so his suggested adds prefer cards you can apply at no cost — pairs
