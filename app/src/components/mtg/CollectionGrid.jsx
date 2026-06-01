@@ -23,7 +23,7 @@ const CARD_WIDTH = 200;
 const CARD_HEIGHT = 230;
 const GAP = 12;
 
-export default function CollectionGrid({ cards, onCardClick, onQuickAdjust, selectedScryfallId, conflictedOracleIds, tagMap, colors }) {
+export default function CollectionGrid({ cards, onCardClick, onQuickAdjust, selectedScryfallId, conflictedOracleIds, tagMap, colors, selectMode = false, selectedIds, onToggleSelect }) {
   const parentRef = useRef(null);
   const [containerWidth, setContainerWidth] = useState(0);
 
@@ -94,7 +94,8 @@ export default function CollectionGrid({ cards, onCardClick, onQuickAdjust, sele
             >
               {slice.map((card, sliceIdx) => {
                 const meta = rowMeta[startIdx + sliceIdx];
-                const isSelected = card.scryfallId === selectedScryfallId;
+                const isChecked = selectMode && !!selectedIds?.has(card.scryfallId);
+                const isSelected = selectMode ? isChecked : card.scryfallId === selectedScryfallId;
                 const isConflicted = conflictedOracleIds?.has(card.oracleId);
                 return (
                   <CardCell
@@ -104,8 +105,10 @@ export default function CollectionGrid({ cards, onCardClick, onQuickAdjust, sele
                     wishlist={meta.wishlist}
                     isSelected={isSelected}
                     isConflicted={isConflicted}
-                    onClick={() => onCardClick?.(card)}
-                    onQuickAdjust={onQuickAdjust}
+                    selectMode={selectMode}
+                    isChecked={isChecked}
+                    onClick={() => (selectMode ? onToggleSelect?.(card.scryfallId) : onCardClick?.(card))}
+                    onQuickAdjust={selectMode ? undefined : onQuickAdjust}
                     tag={card.colorTagId ? tagMap?.[card.colorTagId] : null}
                     colors={colors}
                   />
@@ -142,7 +145,7 @@ function stepBtnStyle(colors, color) {
   };
 }
 
-function CardCell({ card, qty, wishlist, isSelected, isConflicted, onClick, onQuickAdjust, tag, colors }) {
+function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, isChecked, onClick, onQuickAdjust, tag, colors }) {
   const [imgError, setImgError] = useState(false);
   // A real (non-default) color tag paints a left-edge stripe in its color.
   const tagStripe = tag && tag.id !== "default" && !tag.builtin ? tag : null;
@@ -205,6 +208,25 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, onClick, onQu
         position: "relative",
         overflow: "hidden",
       }}>
+        {selectMode && (
+          <span
+            aria-hidden
+            style={{
+              position: "absolute", top: 6, left: 6, zIndex: 4,
+              width: 20, height: 20, borderRadius: "50%",
+              border: `2px solid ${isChecked ? colors.GOLD : "rgba(255,255,255,0.85)"}`,
+              background: isChecked ? colors.GOLD : "rgba(0,0,0,0.5)",
+              color: colors.BG, fontSize: 13, fontWeight: 900, lineHeight: "16px",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
+            }}
+          >
+            {isChecked ? "✓" : ""}
+          </span>
+        )}
+        {selectMode && isChecked && (
+          <span aria-hidden style={{ position: "absolute", inset: 0, zIndex: 2, background: "rgba(217,165,49,0.18)" }} />
+        )}
         {(card.scryfallId || card.artCropUrl) && !imgError ? (
           <img
             src={artCropProxySrc(card)}

@@ -79,6 +79,9 @@ export default function CollectionView({ onClose }) {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState("");
   const [mode, setMode] = useState("collection"); // "collection" | "stats" | "finance"
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const colorTags = useColorTags();
 
   // Re-pull live Scryfall prices for cards whose stored TCGPlayer price is
@@ -292,18 +295,17 @@ export default function CollectionView({ onClose }) {
   //   wishlist  (Getting)    → wishlist=true  (excluded from owned value)
   //   consider  (Considering)→ wishlist=true  (excluded from owned value)
   //   swap / marker          → tag only, ownership untouched
-  const assignTag = async (scryfallId, tagId) => {
+  // Build the PATCH body for assigning a color tag to one row, including the
+  // behavior-driven side effects (collection → owned + seed a copy; wishlist/
+  // consider → flag wishlist). Shared by single-card assign and bulk assign.
+  const buildTagPatch = (row, tagId) => {
     const colorTagId = tagId && tagId !== "default" ? tagId : null;
     const behavior = colorTagId ? (tagMap[colorTagId]?.behavior || "marker") : "marker";
-    const row = collectionRef.current?.cards.find(c => c.scryfallId === scryfallId);
-
     const patch = { colorTagId };
     if (row) {
       if (behavior === "collection") {
         patch.wishlist = false;
         if (stackTotal(row.stacks) === 0) {
-          // Seed one copy, preserving the finish the row already tracked (e.g.
-          // a wishlist row that wanted foil) instead of forcing nonfoil.
           const finish = row.stacks?.[0]?.finish || "nonfoil";
           patch.stacks = [{ finish, quantity: 1, condition: "NM" }];
         }
@@ -311,6 +313,12 @@ export default function CollectionView({ onClose }) {
         patch.wishlist = true;
       }
     }
+    return patch;
+  };
+
+  const assignTag = async (scryfallId, tagId) => {
+    const row = collectionRef.current?.cards.find(c => c.scryfallId === scryfallId);
+    const patch = buildTagPatch(row, tagId);
 
     try {
       const resp = await fetch(`/api/collection/${encodeURIComponent(scryfallId)}`, {
@@ -349,6 +357,62 @@ export default function CollectionView({ onClose }) {
       }
     } catch {
       // Offline: nothing to reconcile against, optimistic state stands.
+    }
+  };
+
+  // ── bulk edit (#12) ──
+  const toggleSelect = (scryfallId) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(scryfallId)) next.delete(scryfallId); else next.add(scryfallId);
+      return next;
+    });
+  };
+  const exitSelectMode = () => { setSelectMode(false); setSelectedIds(new Set()); };
+  const selectAllVisible = () => setSelectedIds(new Set(filteredCards.map(c => c.scryfallId)));
+
+  // Apply one op to every selected row by looping the existing single-card
+  // endpoints, then reconcile once from server truth. Looping reuses the tested
+  // PATCH/DELETE (and their behavior side effects) rather than duplicating that
+  // logic in a new batch route — fine for a local single-user collection.
+  const bulkAssignTag = async (tagId) => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      for (const scryfallId of ids) {
+        const row = collectionRef.current?.cards.find(c => c.scryfallId === scryfallId);
+        const patch = buildTagPatch(row, tagId);
+        try {
+          await fetch(`/api/collection/${encodeURIComponent(scryfallId)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(patch),
+          });
+        } catch { /* best-effort per card; reconcile reflects what stuck */ }
+      }
+      await reconcileCollection();
+    } finally {
+      setBulkBusy(false);
+      exitSelectMode();
+    }
+  };
+
+  const bulkDelete = async () => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    if (!confirm(`Remove ${ids.length} card${ids.length === 1 ? "" : "s"} from your collection? This can't be undone.`)) return;
+    setBulkBusy(true);
+    try {
+      for (const scryfallId of ids) {
+        try {
+          await fetch(`/api/collection/${encodeURIComponent(scryfallId)}`, { method: "DELETE" });
+        } catch { /* best-effort; reconcile reflects what stuck */ }
+      }
+      await reconcileCollection();
+    } finally {
+      setBulkBusy(false);
+      exitSelectMode();
     }
   };
 
@@ -499,7 +563,7 @@ export default function CollectionView({ onClose }) {
           {cards.length > 0 && (
             <button
               onClick={() => setRoastOpen(true)}
-              style={{ ...btn(), borderColor: "#c4534e", color: "#c4534e" }}
+              style={{ ...btn(), border: "1px solid #c4534e", color: "#c4534e" }}
               title="Have Tibalt roast your collection"
             >
               Roast me
@@ -507,6 +571,15 @@ export default function CollectionView({ onClose }) {
           )}
           <button onClick={() => setDecksOpen(true)} style={btn()}>Decks</button>
           <button onClick={() => setTagsOpen(true)} style={btn()}>Color tags</button>
+          {cards.length > 0 && (
+            <button
+              onClick={() => { if (selectMode) { exitSelectMode(); } else { setSelectedRow(null); setSelectMode(true); } }}
+              style={selectMode ? primaryHeaderBtn() : btn()}
+              title="Select multiple cards to tag or remove at once"
+            >
+              {selectMode ? "Done" : "Select"}
+            </button>
+          )}
           <button
             onClick={handleRefreshPrices}
             disabled={refreshing}
@@ -576,6 +649,22 @@ export default function CollectionView({ onClose }) {
         </div>
       )}
 
+      {selectMode && (
+        <BulkActionBar
+          count={selectedIds.size}
+          tags={colorTags.tags}
+          busy={bulkBusy}
+          onAssignTag={bulkAssignTag}
+          onDelete={bulkDelete}
+          onSelectAll={selectAllVisible}
+          onClear={() => setSelectedIds(new Set())}
+          onExit={exitSelectMode}
+          visibleCount={filteredCards.length}
+          colors={COLORS}
+          font={FONT}
+        />
+      )}
+
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         <main style={{ flex: 1, overflow: "hidden", position: "relative" }}>
           {state.status === "loading" && <CenterMessage text="Loading collection..." color={COLORS.MUTED} />}
@@ -593,6 +682,9 @@ export default function CollectionView({ onClose }) {
               conflictedOracleIds={conflictedOracleIds}
               tagMap={tagMap}
               colors={COLORS}
+              selectMode={selectMode}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelect}
             />
           )}
         </main>
@@ -769,6 +861,56 @@ function EmptyState({ color }) {
   );
 }
 
+function BulkActionBar({ count, tags, busy, onAssignTag, onDelete, onSelectAll, onClear, onExit, visibleCount, colors, font }) {
+  const has = count > 0;
+  const pill = {
+    background: "transparent", border: `1px solid ${colors.LINE}`, color: colors.TEXT,
+    padding: "5px 12px", borderRadius: 4, fontSize: 12, cursor: "pointer", fontFamily: font,
+  };
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+      padding: "8px 20px", background: colors.BG3,
+      borderBottom: `1px solid ${colors.LINE}`,
+    }}>
+      <span style={{ fontSize: 13, color: has ? colors.GOLD : colors.MUTED, fontWeight: 600, minWidth: 90 }}>
+        {has ? `${count} selected` : "Select cards…"}
+      </span>
+      <button onClick={onSelectAll} disabled={busy} style={pill} title="Select all cards matching the current filters">
+        Select all {visibleCount}
+      </button>
+      <button onClick={onClear} disabled={busy || !has} style={{ ...pill, opacity: has ? 1 : 0.5 }}>Clear</button>
+
+      <div style={{ flex: 1 }} />
+
+      <select
+        defaultValue=""
+        disabled={busy || !has}
+        onChange={(e) => { const v = e.target.value; e.target.value = ""; if (v) onAssignTag(v === "__none" ? null : v); }}
+        style={{ ...pill, opacity: has ? 1 : 0.5, cursor: has ? "pointer" : "default" }}
+        title="Assign a color tag to the selected cards"
+      >
+        <option value="" disabled>Assign tag ▾</option>
+        {tags.filter(t => t.id !== "default" && !t.builtin).map(t => (
+          <option key={t.id} value={t.id}>{t.name}</option>
+        ))}
+        <option value="__none">— Clear tag —</option>
+      </select>
+
+      <button
+        onClick={onDelete}
+        disabled={busy || !has}
+        style={{ ...pill, border: `1px solid ${colors.RED}`, color: colors.RED, opacity: has ? 1 : 0.5 }}
+      >
+        {busy ? "Working…" : `Delete${has ? ` (${count})` : ""}`}
+      </button>
+      <button onClick={onExit} disabled={busy} style={{ ...pill, background: colors.GOLD, color: "#fff", border: `1px solid ${colors.GOLD}`, fontWeight: 600 }}>
+        Done
+      </button>
+    </div>
+  );
+}
+
 function btn() {
   return {
     background: "transparent",
@@ -787,7 +929,7 @@ function primaryHeaderBtn() {
     ...btn(),
     background: COLORS.GOLD,
     color: "#fff",
-    borderColor: COLORS.GOLD,
+    border: `1px solid ${COLORS.GOLD}`,
     fontWeight: 600,
   };
 }
