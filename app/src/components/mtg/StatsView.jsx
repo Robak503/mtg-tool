@@ -10,6 +10,8 @@
 
 import { useEffect, useState } from "react";
 
+import Sparkline from "./Sparkline";
+
 const COLOR_META = {
   W: { label: "White", swatch: "#e9e4cf" },
   U: { label: "Blue", swatch: "#3b7dd8" },
@@ -85,6 +87,20 @@ export default function StatsView({ colors, fontFamily }) {
           <Stat label="Owned value" value={money(data?.value?.currentUsd)} color={GOLD} />
           <Stat label="Sets represented" value={(b.topSets?.length ? b.topSets.length : 0) + (b.topSets?.length >= 8 ? "+" : "")} color={TEXT} />
         </div>
+        {(() => {
+          const series = data?.value?.series || [];
+          if (series.length < 2) return null;
+          const first = series[0].value;
+          const last = series[series.length - 1].value;
+          return (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
+                Value over time · {money(first)} → {money(last)}
+              </div>
+              <Sparkline points={series.map((p) => p.value)} width={420} height={56} strokeWidth={2} />
+            </div>
+          );
+        })()}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>

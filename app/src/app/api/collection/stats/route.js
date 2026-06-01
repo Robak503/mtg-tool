@@ -16,7 +16,7 @@ import { dataPath } from "../../../../lib/server/paths.js";
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
 import { collectionSummary } from "../../../../lib/server/collectionContext.js";
 import { enrichCollectionPrices } from "../../../../lib/server/priceResolution.js";
-import { parseHistory, computeDeltas } from "../../../../lib/server/collectionPrices.js";
+import { parseHistory, computeDeltas, collectionValueSeries } from "../../../../lib/server/collectionPrices.js";
 import { computeCollectionBreakdowns } from "../../../../lib/server/collectionStats.js";
 import { lookupCard } from "../../../../lib/server/cardIndex.js";
 import { lookupById } from "../../../../lib/server/printingIndex.js";
@@ -92,6 +92,7 @@ export async function GET() {
       value: {
         currentUsd: summary.totalValueUsd,
         deltas, // { d30, d90, d365 } — each null or { asOf, pastValue, currentValue, delta }
+        series: collectionValueSeries(collection, relevant), // [{ snappedAt, value }] oldest→newest
       },
       colorBreakdown: summary.colorBreakdown,
       breakdowns: buildBreakdowns(collection),

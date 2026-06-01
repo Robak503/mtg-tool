@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Collection value over time.** The Stats tab now charts your collection's
+  value across the daily price snapshots (your current holdings valued at each
+  past day's prices), alongside the existing 30/90/365-day deltas. Fills in as
+  history accrues.
 - **Collection stats dashboard.** A new **Stats** tab in the Vault breaks your
   collection down by card type, color identity, rarity, and mana curve, with
   your top sets and most-valuable cards. All local — type/color come from the
