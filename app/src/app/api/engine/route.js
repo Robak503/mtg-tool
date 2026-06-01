@@ -404,7 +404,7 @@ function wantsValidationDocs(query) {
   return /\b(test|tests|scenario|scenarios|rulesguru|suite|coverage|benchmark|validation|validate|case|cases)\b/i.test(query);
 }
 
-function scoreDoc(doc, terms, route, rules, includeValidationDocs) {
+function scoreDoc(doc, terms, route, rules, _includeValidationDocs) {
   let score = 0;
 
   if (doc.root === "MTG ENGINE") score += 3;

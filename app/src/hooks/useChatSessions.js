@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AGENTS, ARBITER_PROMPT_FAST } from "../lib/agents";
 import { fetchArbiterTrace, shouldUseArbiterTrace, summarizeArbiterMetadata } from "../lib/arbiterUtils";
 import { bracketKnownCardNames, countContextCards, countContextRulings, localJaceRulesPrimer } from "../lib/chatPostProcess";
-import { flushChatFileSave, loadChatState, saveSessions, scheduleChatSessionsSave } from "../lib/chatPersistence";
+import { flushChatFileSave, loadChatState, scheduleChatSessionsSave } from "../lib/chatPersistence";
 import {
   buildSavedDeckContext,
   createDeckLock,

@@ -30,7 +30,7 @@ export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
 
-import { dataPath, dataDir } from "../../../lib/server/paths.js";
+import { dataPath } from "../../../lib/server/paths.js";
 import { lookupById, lookupByName } from "../../../lib/server/printingIndex.js";
 
 const IMG_HEADERS = {

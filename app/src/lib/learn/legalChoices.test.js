@@ -11,10 +11,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   _resetIdsForTests,
   createGameState,
-  createPermanent,
-  moveCardToZone,
-  drawCards,
-  addMana,
 } from "./gameState.js";
 import {
   parseManaCost,
@@ -27,10 +23,6 @@ import {
 
 function makeCard({ id, name, type, mana, keywords = [] }) {
   return { id: id || `card-${name}`, name, type, mana, keywords };
-}
-
-function deckOf(...cards) {
-  return cards.map((c, i) => ({ ...c, id: c.id || `card-${c.name}-${i}` }));
 }
 
 function stateWith({ activePlayer = "user", phase = "precombat-main", step = "main", priorityHolder = "user" } = {}) {

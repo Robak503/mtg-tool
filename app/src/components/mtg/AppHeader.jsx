@@ -26,7 +26,7 @@ export default function AppHeader({
   colors,
   fontFamily,
 }) {
-  const { BG2, LINE, GOLD } = colors;
+  const { BG2, LINE } = colors;
   const localCalls = modelStatus?.providers?.ollama?.total || 0;
   const apiCalls = modelStatus?.providers?.anthropic?.total || 0;
   const failedCalls = (modelStatus?.providers?.ollama?.failed || 0) + (modelStatus?.providers?.anthropic?.failed || 0);
@@ -47,7 +47,6 @@ export default function AppHeader({
     if (ollama && !ollama.available) {
       warnings.push({ key: "ollama-down", text: "Ollama offline", detail: "Start with: ollama serve", color: "#c2786f" });
     } else if (ollama?.missingModels?.length) {
-      const missing = ollama.missingModels.join(", ");
       warnings.push({ key: "models-missing", text: `Model missing`, detail: `Run: ollama pull ${ollama.missingModels[0]}`, color: "#c2786f" });
     }
     if (spellbook?.stale) {

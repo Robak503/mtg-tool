@@ -49,8 +49,14 @@ export default [
       ...(nextPlugin.configs?.recommended?.rules ?? {}),
       // Cleanup / advisory: warn so the gate stays green during adoption.
       "react-hooks/exhaustive-deps": "warn",
-      "no-unused-vars": "warn",
-      "no-empty": "warn",
+      // Allow intentional throwaways (_unused, _f, _gone) and best-effort empty
+      // catch blocks (a widely-used pattern here for advisory I/O).
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
+      "no-empty": ["warn", { allowEmptyCatch: true }],
+      // This is a local-first desktop app (Tauri): card art is served through
+      // our own /api/art-crop proxy, so next/image's remote-image optimization
+      // (LCP / bandwidth) doesn't apply and its loader doesn't fit local art.
+      "@next/next/no-img-element": "off",
     },
   },
 

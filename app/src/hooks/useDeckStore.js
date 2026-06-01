@@ -127,7 +127,7 @@ export default function useDeckStore() {
     () => savedDecks.find(deck => deck.id === activeDeckId),
     [activeDeckId, savedDecks]
   );
-  const deckCards = activeDeck?.cards || [];
+  const deckCards = useMemo(() => activeDeck?.cards || [], [activeDeck]);
   const deckMemory = activeDeck?.memory || defaultDeckMemory();
   const tokenEntries = useMemo(() => suspiciousDeckEntries(deckCards), [deckCards]);
   const hasData = Object.keys(deckData).length > 0;

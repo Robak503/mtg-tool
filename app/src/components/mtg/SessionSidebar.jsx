@@ -28,13 +28,10 @@ function sessionSummary(session) {
 }
 
 export default function SessionSidebar({
-  sessions,
   activeSessions,
   archivedSessions,
   currentSession,
-  activeSessionIds,
   agent,
-  setAgent,
   createSession,
   switchSession,
   archiveSession,

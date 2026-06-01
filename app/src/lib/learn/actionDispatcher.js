@@ -27,7 +27,6 @@
 
 import {
   createStackObject,
-  emptyManaPoolForPlayer,
   moveCardToZone,
   logEvent,
   opponentsOf,

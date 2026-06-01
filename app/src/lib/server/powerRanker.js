@@ -315,9 +315,6 @@ function cardInfo(entry) {
   };
 }
 
-function has(info, regex) {
-  return regex.test(info.search);
-}
 
 function isRamp(info) {
   if (info.isLand) return false;
