@@ -9,6 +9,8 @@ import {
   applyDeckChange,
   restoreDeckCards,
   isRestorable,
+  createSnapshotEntry,
+  relabelSnapshot,
 } from "./deckApply.js";
 
 const baseCards = [
@@ -71,6 +73,41 @@ describe("applyDeckChange", () => {
     const d = deck();
     expect(applyDeckChange(d, { action: "wat", name: "X" })).toBe(d);
     expect(applyDeckChange(d, { action: "add" })).toBe(d);
+  });
+});
+
+describe("createSnapshotEntry", () => {
+  it("captures the full cards array (lossless) so a manual snapshot is restorable", () => {
+    const entry = createSnapshotEntry(deck(), { id: "m1", date: "2026-06-01" });
+    expect(entry).toMatchObject({ id: "m1", date: "2026-06-01" });
+    expect(entry.cards).toHaveLength(3);
+    expect(isRestorable(entry)).toBe(true);
+    expect(entry.snapshot.cardNames).toContain("1 Sol Ring");
+    expect(entry.reason).toBeUndefined(); // no auto-cause for a manual save
+    expect(entry.label).toBeUndefined();  // unlabeled by default
+  });
+  it("keeps an optional label (trimmed) and omits a blank one", () => {
+    expect(createSnapshotEntry(deck(), { id: "a", label: "  after game night  " }).label).toBe("after game night");
+    expect(createSnapshotEntry(deck(), { id: "b", label: "   " }).label).toBeUndefined();
+  });
+  it("tolerates a missing deck/cards", () => {
+    expect(createSnapshotEntry(null, { id: "z" }).cards).toEqual([]);
+  });
+});
+
+describe("relabelSnapshot", () => {
+  const snaps = [{ id: "s1", date: "d1" }, { id: "s2", date: "d2", label: "old" }];
+  it("sets a label on the matching entry only", () => {
+    const out = relabelSnapshot(snaps, "s1", "named it");
+    expect(out.find((s) => s.id === "s1").label).toBe("named it");
+    expect(out.find((s) => s.id === "s2").label).toBe("old"); // untouched
+  });
+  it("clears the label when given a blank string", () => {
+    const out = relabelSnapshot(snaps, "s2", "   ");
+    expect(out.find((s) => s.id === "s2").label).toBeUndefined();
+  });
+  it("returns entries unchanged when the id is unknown", () => {
+    expect(relabelSnapshot(snaps, "nope", "x")).toEqual(snaps);
   });
 });
 

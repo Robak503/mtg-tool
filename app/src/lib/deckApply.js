@@ -43,6 +43,38 @@ export function cutCardFromDeck(cards, name) {
 }
 
 /**
+ * Build a snapshot/version entry capturing a deck's CURRENT state losslessly.
+ * Shared by the manual "Snapshot now" button and the Karn-apply undo path so
+ * every entry carries the full `cards` array and is therefore restorable.
+ * @param meta { id, date, reason?, label? } — id/date injected for determinism;
+ *   `reason` is the auto-cause (e.g. "Before adding X"), `label` an optional
+ *   user-given name ("after game night"). Both omitted when empty.
+ */
+export function createSnapshotEntry(deck, { id, date, reason = "", label = "" } = {}) {
+  const cleanLabel = String(label || "").trim().slice(0, 80);
+  return {
+    id: id || `snap-${date || ""}`,
+    date: date || "",
+    ...(reason ? { reason } : {}),
+    ...(cleanLabel ? { label: cleanLabel } : {}),
+    snapshot: deckSnapshot(deck),
+    cards: (deck && deck.cards) || [],
+  };
+}
+
+/** Return a new snapshots array with `id`'s label set (trimmed; empty clears it). */
+export function relabelSnapshot(snapshots, id, label) {
+  const cleanLabel = String(label || "").trim().slice(0, 80);
+  return (snapshots || []).map((s) => {
+    if (s.id !== id) return s;
+    const next = { ...s };
+    if (cleanLabel) next.label = cleanLabel;
+    else delete next.label;
+    return next;
+  });
+}
+
+/**
  * Apply a change to a deck, snapshotting the prior state first.
  * @param change { action: "add"|"cut", name, section? }
  * @param meta   { id, date } — injected so the snapshot entry is deterministic
@@ -53,13 +85,11 @@ export function applyDeckChange(deck, change, { id, date } = {}) {
     return deck;
   }
   const verb = change.action === "add" ? "adding" : "cutting";
-  const snapEntry = {
+  const snapEntry = createSnapshotEntry(deck, {
     id: id || `snap-${date || ""}-${key(change.name)}`,
-    date: date || "",
+    date,
     reason: `Before ${verb} ${String(change.name).trim()}`,
-    snapshot: deckSnapshot(deck),
-    cards: deck.cards || [],
-  };
+  });
   const cards = change.action === "add"
     ? addCardToDeck(deck.cards, change.name, change.section || MAIN)
     : cutCardFromDeck(deck.cards, change.name);
