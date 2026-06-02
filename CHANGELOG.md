@@ -9,6 +9,15 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Always-visible deck context in chat.** Every chat now shows whether a deck is
+  bound to it: the existing "🔒 Locked to …" banner, or a new **"○ No deck locked"**
+  chip when it isn't — with a one-click way to start a new chat that locks your
+  loaded deck (or a pointer to load one). No more guessing what context an agent
+  is using.
+- **Chat now via the API while Ollama sets up.** When Ollama is installing or a
+  model is downloading, the setup banner now says so and offers a **"Chat now via
+  API"** button — so you can start using the app immediately instead of waiting on
+  a multi-GB download, then switch back to Local when it's ready.
 - **Deck version history.** The deck view's Snapshots section is now **Version
   History**: every saved version captures the full deck (not just a summary), so
   you can **restore the deck to any saved version** — not only undo a Karn edit.

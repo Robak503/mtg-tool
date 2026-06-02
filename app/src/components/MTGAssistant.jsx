@@ -954,6 +954,9 @@ export default function MTGAssistant() {
           ollamaHealth.status === "server-down" ? "⚠ Ollama not running" :
           "⚠ Ollama model missing";
         const primaryModel = ollamaHealth.missing?.[0] || "qwen2.5:14b";
+        // While Ollama is installing or a model is downloading, the user doesn't
+        // have to wait — they can chat right now via the API (C2 fast path).
+        const setupBusy = ollamaInstallBusy || ollamaPullBusy;
         return (
           <div
             role="status"
@@ -973,6 +976,11 @@ export default function MTGAssistant() {
               <span style={{ flex: 1 }}>
                 <strong style={{ marginRight: 8 }}>{title}</strong>
                 {ollamaHealth.message}
+                {setupBusy && (
+                  <span style={{ display: "block", marginTop: 3, color: palette.text, opacity: 0.85 }}>
+                    No need to wait — you can chat now via the API while this finishes, then switch back to Local.
+                  </span>
+                )}
               </span>
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 {ollamaHealth.status === "not-installed" && ollamaHealth.canAutoInstall && (
@@ -1005,14 +1013,14 @@ export default function MTGAssistant() {
                 )}
                 <button
                   onClick={() => setModelProvider("anthropic")}
-                  title="Switch to the Anthropic API for this session"
+                  title="Switch to the Anthropic API so you can chat right now"
                   style={{
-                    background: "transparent", border: `1px solid ${palette.border}`,
+                    background: setupBusy ? palette.accent : "transparent", border: `1px solid ${setupBusy ? palette.accentBorder : palette.border}`,
                     color: "inherit", cursor: "pointer",
                     fontSize: 11, padding: "3px 10px", borderRadius: 5, fontFamily: F,
                   }}
                 >
-                  Use Anthropic instead
+                  {setupBusy ? "Chat now via API" : "Use Anthropic instead"}
                 </button>
                 <button
                   onClick={() => setOllamaHealthDismissed(true)}

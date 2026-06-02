@@ -529,6 +529,40 @@ export default function ChatPanel({
         </div>
       )}
 
+      {/* Deckless chip: the always-visible counterpart to the locked banner, so
+          the deck context is never ambiguous. Shown when no deck is locked and
+          the deck gate isn't open (e.g. Jace with no deck, or a build-from-
+          scratch chat). Offers a one-click bind when a deck is loaded. */}
+      {!deckGateOpen && !sessionLockedDeck && (
+        <div
+          style={{
+            padding: "7px 14px",
+            background: BG3,
+            borderBottom: `1px solid ${LINE}`,
+            color: MUTED,
+            fontSize: 11,
+            lineHeight: 1.4,
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ color: MUTED }}>○ No deck locked</span> — this chat answers from general knowledge.
+          {activeDeck ? (
+            <>
+              {" "}A deck (<strong style={{ color: TEXT }}>{activeDeck.name}</strong>) is loaded;{" "}
+              <button
+                onClick={() => createSession(agent)}
+                style={{ background: "none", border: "none", padding: 0, color: cfg.color, cursor: "pointer", fontSize: 11, fontFamily, textDecoration: "underline" }}
+              >
+                start a new chat
+              </button>{" "}
+              to lock it to the conversation.
+            </>
+          ) : (
+            <> Load a deck from the sidebar for deck-specific help.</>
+          )}
+        </div>
+      )}
+
       <div
         ref={chatScrollRef}
         style={{
