@@ -162,8 +162,8 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| C1 | Guided empty state + always-visible deck-context chip | 🟡 P0 | Deck gate shipped (v0.9); still want a deckless empty state + a persistent `No deck locked` / `Locked to: X` indicator. **CEO A1** |
-| C2 | "Ask now via API while your local model downloads" fast path | ⬜ P0 | On the Ollama-not-ready banner. **CEO A2** |
+| C1 | Guided empty state + always-visible deck-context chip | ✅ v0.17.0 (#123) | "🔒 Locked to X" banner + a new "○ No deck locked" chip (one-click bind / pointer to load). The deck context is always visible. **CEO A1** |
+| C2 | "Ask now via API while your local model downloads" fast path | ✅ v0.17.0 (#123) | Ollama setup banner: while installing/pulling, "Chat now via API" + a one-line nudge. **CEO A2** |
 | C3 | Model-pull progress + ETA in the install wizard | ⬜ P1 · verify live | SSE already streams; surface percent/bytes. **CEO A3 / PLAN B2** |
 | C4 | Unified first-run onboarding wizard | 🟡 P0 | First-launch + Ollama wizards exist; the gap is one guided flow: local-only vs API → Ollama → model → data → first deck → optional collection → suggested action. **PLAN B2** |
 
@@ -173,7 +173,7 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 |---|---|---|---|
 | D1 | Central Settings screen | ✅ v0.16.0 (#116) | `SettingsModal` — one place for Models / Display / Privacy / Data & Updates / About; launches the Updates panel rather than duplicating it. **PLAN B1** |
 | D2 | Privacy / Legal / About page | ✅ v0.16.0 (#116) | Settings → Privacy ("what leaves your machine" + export/delete) + About & Legal (source-available license, Unofficial Fan Content disclaimer, version). **PLAN B3** |
-| D3 | Feature stability labels in UI | ⬜ P0 | Per §1 (Preview/Beta/Stable). **PLAN B6** |
+| D3 | Feature stability labels in UI | ✅ v0.17.0 (#124) | `StabilityBadge` — Preview on The Academy, Beta on Pod Balance + goldfish; Stable unlabeled. **PLAN B6** |
 | D4 | Public download / landing docs | ⬜ P1 | What it is, requirements, SmartScreen note, privacy, screenshots, limitations. **PLAN B5** |
 | D5 | Support bundle ("copy/export") | ✅ v0.12.0 (#83/#90) | Version/OS/data-freshness/model+Ollama status/last error; no secrets, no deck/chat unless opted in. **PLAN B7** |
 | D6 | Installer trust story (Authenticode / Store) | ⬜ decision | Paid cert or MS Store or documented SmartScreen note. Owner chooses. **PLAN B4** (deferred per CLAUDE.md) |

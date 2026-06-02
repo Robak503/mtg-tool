@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-06-01
+
 ### Added
 - **Feature maturity labels.** Features that are still rough now wear a small
   badge so you know what to expect: **Preview** on The Academy (learn-to-play),
