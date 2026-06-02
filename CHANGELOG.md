@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Collection import has update modes + a change preview.** When you import a
+  Deckbox/Moxfield CSV you now choose how it applies: **Merge** (add quantities),
+  **Add only** (never touch existing counts), **Replace** (set to the file's
+  quantity), or **Reconcile** (make your collection match the file — also removes
+  owned cards not in it). A preview shows exactly what will be added, changed, and
+  removed before you commit, and reconcile's removals are spelled out in red.
+
 ## [0.17.0] - 2026-06-01
 
 ### Added

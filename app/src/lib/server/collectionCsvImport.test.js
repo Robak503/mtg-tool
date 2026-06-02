@@ -16,6 +16,7 @@ import {
   normalizeFinish,
   parseCollectionCsv,
   mergeImportRows,
+  diffImport,
   matchEntries,
 } from "./collectionCsvImport.js";
 import { resetPrintingIndexCache } from "./printingIndex.js";
@@ -181,7 +182,7 @@ describe("mergeImportRows", () => {
       makeImportRow("a", "nonfoil", 2),
       makeImportRow("b", "foil", 1),
     ]);
-    expect(result.stats).toEqual({ added: 2, mergedCount: 0 });
+    expect(result.stats).toEqual({ added: 2, mergedCount: 0, removed: 0 });
     expect(result.merged.cards).toHaveLength(2);
   });
 
@@ -199,7 +200,7 @@ describe("mergeImportRows", () => {
       makeImportRow("a", "nonfoil", 1),
       makeImportRow("a", "foil", 1),
     ]);
-    expect(result.stats).toEqual({ added: 0, mergedCount: 2 });
+    expect(result.stats).toEqual({ added: 0, mergedCount: 2, removed: 0 });
     expect(result.merged.cards).toHaveLength(1);
     const stacks = result.merged.cards[0].stacks;
     expect(stacks.find(s => s.finish === "nonfoil").quantity).toBe(3);
@@ -219,6 +220,71 @@ describe("mergeImportRows", () => {
     const result = mergeImportRows(existing, [makeImportRow("a", "foil", 1)]);
     expect(result.merged.cards[0].wishlist).toBe(false);
     expect(result.merged.cards[0].stacks[0].quantity).toBe(1);
+  });
+
+  const ownedColl = () => ({
+    cards: [
+      { scryfallId: "a", oracleId: "oracle-a", name: "Card a", stacks: [{ finish: "nonfoil", quantity: 2, condition: "NM" }], wishlist: false },
+      { scryfallId: "b", oracleId: "oracle-b", name: "Card b", stacks: [{ finish: "nonfoil", quantity: 1, condition: "NM" }], wishlist: false },
+    ],
+  });
+
+  it("add-only leaves an existing finish's quantity untouched but adds a new finish", () => {
+    const result = mergeImportRows(ownedColl(), [makeImportRow("a", "nonfoil", 5), makeImportRow("a", "foil", 1)], "add-only");
+    const stacks = result.merged.cards.find(c => c.scryfallId === "a").stacks;
+    expect(stacks.find(s => s.finish === "nonfoil").quantity).toBe(2); // untouched
+    expect(stacks.find(s => s.finish === "foil").quantity).toBe(1);    // new finish added
+  });
+
+  it("replace sets an existing printing's stacks to exactly the import's", () => {
+    const result = mergeImportRows(ownedColl(), [makeImportRow("a", "nonfoil", 5)], "replace");
+    const card = result.merged.cards.find(c => c.scryfallId === "a");
+    expect(card.stacks).toEqual([{ finish: "nonfoil", quantity: 5, condition: "NM" }]);
+    // a card not in the import is untouched
+    expect(result.merged.cards.find(c => c.scryfallId === "b").stacks[0].quantity).toBe(1);
+  });
+
+  it("reconcile replaces present cards and removes owned cards absent from the import", () => {
+    const result = mergeImportRows(ownedColl(), [makeImportRow("a", "nonfoil", 3)], "reconcile");
+    expect(result.merged.cards.find(c => c.scryfallId === "a").stacks[0].quantity).toBe(3);
+    expect(result.merged.cards.find(c => c.scryfallId === "b")).toBeUndefined(); // marked absent
+    expect(result.stats.removed).toBe(1);
+  });
+
+  it("reconcile never drops wishlist rows", () => {
+    const coll = { cards: [
+      { scryfallId: "w", oracleId: "oracle-w", name: "Wish", stacks: [{ finish: "nonfoil", quantity: 0, condition: null }], wishlist: true },
+    ] };
+    const result = mergeImportRows(coll, [makeImportRow("a", "nonfoil", 1)], "reconcile");
+    expect(result.merged.cards.find(c => c.scryfallId === "w")).toBeDefined();
+  });
+});
+
+describe("diffImport", () => {
+  const row = (id, finish, qty, name) => ({ scryfallId: id, oracleId: `o-${id}`, name: name || `Card ${id}`, stacks: [{ finish, quantity: qty, condition: "NM" }] });
+  const coll = () => ({ cards: [
+    { scryfallId: "a", name: "Card a", stacks: [{ finish: "nonfoil", quantity: 2 }], wishlist: false },
+    { scryfallId: "b", name: "Card b", stacks: [{ finish: "nonfoil", quantity: 1 }], wishlist: false },
+  ] });
+
+  it("classifies new / changed / unchanged under merge", () => {
+    const d = diffImport(coll(), [row("a", "nonfoil", 1), row("c", "foil", 1, "Card c")], "merge");
+    expect(d.newCards).toEqual([{ name: "Card c", qty: 1 }]);
+    expect(d.changed).toEqual([{ name: "Card a", from: 2, to: 3 }]); // 2 + 1
+    expect(d.removed).toEqual([]);
+  });
+
+  it("reports removals only under reconcile", () => {
+    const merge = diffImport(coll(), [row("a", "nonfoil", 2)], "merge");
+    expect(merge.removed).toEqual([]);
+    const reconcile = diffImport(coll(), [row("a", "nonfoil", 2)], "reconcile");
+    expect(reconcile.removed).toEqual([{ name: "Card b", qty: 1 }]);
+  });
+
+  it("add-only shows no change for an existing finish", () => {
+    const d = diffImport(coll(), [row("a", "nonfoil", 9)], "add-only");
+    expect(d.changed).toEqual([]);
+    expect(d.unchangedCount).toBe(1);
   });
 });
 

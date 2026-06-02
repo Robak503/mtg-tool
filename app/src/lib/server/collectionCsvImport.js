@@ -215,15 +215,47 @@ export function matchEntries(entries) {
 }
 
 /**
- * Merge a list of import rows into an existing collection. For each
- * incoming row:
- *   - if a row with the same scryfallId exists, stacks are merged by
- *     finish (quantities summed, conditions preserved)
- *   - else the row is appended
- *
- * Returns { merged: collection, stats: { added, mergedCount } }.
+ * Update modes for importing into an existing collection (G4):
+ *   - "merge"     — sum quantities by finish (the original behavior; "I bought more")
+ *   - "add-only"  — add new cards/finishes; never change an existing quantity
+ *   - "replace"   — set each imported printing's stacks to exactly the import's
+ *                   (cards NOT in the import are untouched)
+ *   - "reconcile" — like replace, AND remove owned (non-wishlist) printings that
+ *                   aren't in the import — i.e. make the collection match the file
+ *                   ("mark-absent"). Destructive; gated behind the diff preview.
  */
-export function mergeImportRows(collection, importRows) {
+export const IMPORT_MODES = ["merge", "add-only", "replace", "reconcile"];
+const normalizeMode = (m) => (IMPORT_MODES.includes(m) ? m : "merge");
+const stackQtyTotal = (stacks) => (stacks || []).reduce((s, st) => s + (st.quantity || 0), 0);
+
+// Apply one import row's stacks onto an existing printing's stacks per `mode`.
+function applyStacks(existingStacks, newStacks, mode) {
+  if (mode === "replace" || mode === "reconcile") {
+    return (newStacks || []).map((s) => ({ ...s }));
+  }
+  const stacks = [...(existingStacks || [])];
+  for (const ns of newStacks || []) {
+    const i = stacks.findIndex((s) => s.finish === ns.finish);
+    if (i < 0) {
+      stacks.push({ ...ns }); // new finish — added under every mode
+    } else if (mode === "merge") {
+      stacks[i] = {
+        ...stacks[i],
+        quantity: (stacks[i].quantity || 0) + (ns.quantity || 0),
+        condition: ns.condition || stacks[i].condition,
+      };
+    }
+    // add-only on an existing finish: leave the existing quantity untouched.
+  }
+  return stacks;
+}
+
+/**
+ * Merge a list of import rows into an existing collection under `mode` (above).
+ * Returns { merged: collection, stats: { added, mergedCount, removed } }.
+ */
+export function mergeImportRows(collection, importRows, mode = "merge") {
+  const useMode = normalizeMode(mode);
   const merged = {
     version: collection.version || 1,
     updatedAt: new Date().toISOString(),
@@ -231,29 +263,18 @@ export function mergeImportRows(collection, importRows) {
   };
   let added = 0;
   let mergedCount = 0;
+  let removed = 0;
+  const importIds = new Set((importRows || []).map((r) => r.scryfallId));
 
-  for (const row of importRows) {
-    const idx = merged.cards.findIndex(c => c.scryfallId === row.scryfallId);
+  for (const row of importRows || []) {
+    const idx = merged.cards.findIndex((c) => c.scryfallId === row.scryfallId);
     if (idx < 0) {
-      merged.cards.push(row);
+      merged.cards.push({ ...row });
       added += 1;
     } else {
       const existing = merged.cards[idx];
-      const stacks = [...(existing.stacks || [])];
-      for (const newStack of row.stacks || []) {
-        const matchIdx = stacks.findIndex(s => s.finish === newStack.finish);
-        if (matchIdx >= 0) {
-          stacks[matchIdx] = {
-            ...stacks[matchIdx],
-            quantity: (stacks[matchIdx].quantity || 0) + (newStack.quantity || 0),
-            condition: newStack.condition || stacks[matchIdx].condition,
-          };
-        } else {
-          stacks.push({ ...newStack });
-        }
-      }
-      // Acquiring from import flips wishlist off when any stack has qty > 0
-      const anyOwned = stacks.some(s => (s.quantity || 0) > 0);
+      const stacks = applyStacks(existing.stacks, row.stacks, useMode);
+      const anyOwned = stacks.some((s) => (s.quantity || 0) > 0);
       merged.cards[idx] = {
         ...existing,
         stacks,
@@ -263,5 +284,53 @@ export function mergeImportRows(collection, importRows) {
     }
   }
 
-  return { merged, stats: { added, mergedCount } };
+  if (useMode === "reconcile") {
+    const kept = merged.cards.filter((c) => {
+      if (c.wishlist) return true;                 // never touch the wishlist
+      if (importIds.has(c.scryfallId)) return true; // present in the import
+      if (stackQtyTotal(c.stacks) === 0) return true; // already empty
+      return false;                                 // owned, absent from import → drop
+    });
+    removed = merged.cards.length - kept.length;
+    merged.cards = kept;
+  }
+
+  return { merged, stats: { added, mergedCount, removed } };
+}
+
+/**
+ * Compute what an import would change WITHOUT writing, for the confirm-preview.
+ * @returns { mode, newCards:[{name,qty}], changed:[{name,from,to}],
+ *            removed:[{name,qty}], unchangedCount }
+ */
+export function diffImport(collection, importRows, mode = "merge") {
+  const useMode = normalizeMode(mode);
+  const byId = new Map((collection.cards || []).map((c) => [c.scryfallId, c]));
+  const importIds = new Set((importRows || []).map((r) => r.scryfallId));
+  const newCards = [];
+  const changed = [];
+  const removed = [];
+  let unchangedCount = 0;
+
+  for (const row of importRows || []) {
+    const existing = byId.get(row.scryfallId);
+    if (!existing) {
+      newCards.push({ name: row.name, qty: stackQtyTotal(row.stacks) });
+      continue;
+    }
+    const fromQty = stackQtyTotal(existing.stacks);
+    const toQty = stackQtyTotal(applyStacks(existing.stacks, row.stacks, useMode));
+    if (toQty !== fromQty) changed.push({ name: existing.name, from: fromQty, to: toQty });
+    else unchangedCount += 1;
+  }
+
+  if (useMode === "reconcile") {
+    for (const c of collection.cards || []) {
+      if (c.wishlist || importIds.has(c.scryfallId)) continue;
+      const q = stackQtyTotal(c.stacks);
+      if (q > 0) removed.push({ name: c.name, qty: q });
+    }
+  }
+
+  return { mode: useMode, newCards, changed, removed, unchangedCount };
 }
