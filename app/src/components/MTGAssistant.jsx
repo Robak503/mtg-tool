@@ -583,10 +583,18 @@ export default function MTGAssistant() {
 
   const prepArbiterQuestion = () => {
     if (!activeDeck) return;
-    setAgent("jace");
     setCenterView("chat");
     if (mobile) setMobileTab("chat");
-    setInput(`Active deck: ${activeDeck.name}\nCommander: ${commanderText}${deckMemory.boardSnapshot ? `\nCurrent board snapshot:\n${deckMemory.boardSnapshot}` : ""}\n\nRules question for Arbiter-backed Jace:\n`);
+    const prompt = `Active deck: ${activeDeck.name}\nCommander: ${commanderText}${deckMemory.boardSnapshot ? `\nCurrent board snapshot:\n${deckMemory.boardSnapshot}` : ""}\n\nRules question for Arbiter-backed Jace:\n`;
+    // Switching to Jace fires the hook's agent-change input-clear, which would
+    // wipe this prefill if we're coming from another agent (e.g. Karn). Prime it
+    // to survive the switch; if already on Jace, set it directly (no clear fires).
+    if (agent === "jace") {
+      setInput(prompt);
+    } else {
+      primeInput(prompt);
+      setAgent("jace");
+    }
   };
 
   const saveLatestAgentReply = (key) => {
