@@ -9,6 +9,12 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Guided first-run setup.** The first time you open MTG Tool, a short welcome
+  wizard walks you through it: pick how to run the AI (private local model via
+  Ollama, or the cloud API right now), set up the model (or skip and use the API
+  while it downloads), and get a deck in (restore a previous install or import
+  from a URL). Replaces the scattered first-launch + Ollama banners with one
+  flow, and you can skip any step.
 - **Karn's suggested adds show what you already own.** Each "Add" chip on Karn's
   suggestions is now tagged from your collection — **owned** (and how many of your
   decks already use it) or **wishlist** — so you can see at a glance which upgrades
