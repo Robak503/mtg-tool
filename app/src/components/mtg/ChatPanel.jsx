@@ -374,6 +374,39 @@ function KarnApplyBar({ content, deckName, onApply, colors, font }) {
   );
 }
 
+/**
+ * TrustBadge (B2) — a compact grounding signal on Jace's rules answers. Green
+ * "Rules-grounded" when the Arbiter engine resolved the answer against the local
+ * Comprehensive Rules (with the CR citation count), amber "Unverified" when it
+ * couldn't (the detailed reason shows in the warning box below). Only appears
+ * when a message carries Arbiter metadata, so non-rules chat stays clean.
+ */
+function TrustBadge({ msg }) {
+  const status = msg.arbiterStatus;
+  if (!status && !msg.arbiterTrace) return null;
+  const grounded = status === "resolved";
+  const ruleCount = (msg.arbiterSources?.ruleNumbers || []).length;
+  const c = grounded ? "#6fbf73" : "#c89e6f";
+  return (
+    <div
+      title={grounded
+        ? "Grounded in the local Comprehensive Rules via the Arbiter engine — open the trace below to see the citations."
+        : "The Arbiter engine couldn't fully verify this answer — see the note below and verify independently."}
+      style={{
+        marginTop: 8, display: "inline-flex", alignItems: "center", gap: 5,
+        fontSize: 10.5, fontWeight: 700, letterSpacing: "0.03em",
+        color: c, border: `1px solid ${c}`,
+        background: grounded ? "rgba(111,191,115,0.10)" : "rgba(200,158,111,0.10)",
+        borderRadius: 999, padding: "2px 9px",
+      }}
+    >
+      {grounded
+        ? `✓ Rules-grounded${ruleCount ? ` · ${ruleCount} CR citation${ruleCount === 1 ? "" : "s"}` : ""}`
+        : "⚠ Unverified"}
+    </div>
+  );
+}
+
 export default function ChatPanel({
   activeDeck,
   agent,
@@ -403,6 +436,10 @@ export default function ChatPanel({
   const { BG2, BG3, LINE, TEXT, MUTED } = colors;
   const quickPrompts = QUICK[agent] || [];
   const sessionMessages = currentSession?.messages || [];
+  // Pre-first-token window: a streaming placeholder exists but no text has landed
+  // yet. Drives the "reasoning…" state (B1) so local-model first-token lag reads
+  // as thinking, not frozen.
+  const awaitingFirstToken = sending && !sessionMessages.find(m => m.streaming)?.content;
   const sessionLockedDeck = currentSession?.lockedDeck || null;
   // A pending lock (confirmed === false) means the user hasn't verified which
   // deck this chat is bound to: show the confirm bar and block sending. A
@@ -686,6 +723,7 @@ export default function ChatPanel({
                       ? <span style={{ display: "block" }}>⚠ {msg.content}</span>
                       : renderText(msg.content)
                     }
+                    {!msg.isError && !msg.streaming && <div><TrustBadge msg={msg} /></div>}
                     {["citation_failed", "retrieval_miss", "unresolved"].includes(msg.arbiterStatus) && (
                       <div style={{
                         marginTop: 8,
@@ -795,7 +833,14 @@ export default function ChatPanel({
                 <RoastLoader seconds={waitSeconds} color={cfg.color} muted={MUTED} font={fontFamily} />
               ) : (
                 <>
-                  <Dots color={cfg.color} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                    <Dots color={cfg.color} />
+                    {awaitingFirstToken && (
+                      <span style={{ fontSize: 11.5, color: cfg.color, opacity: 0.9 }}>
+                        {cfg.name} is reasoning…
+                      </span>
+                    )}
+                  </div>
                   {waitSeconds >= 10 && (
                     <div style={{ fontSize: 11, color: "#9d98b8", marginTop: 6 }}>
                       Still thinking… (local models can take 20–60s for long responses)

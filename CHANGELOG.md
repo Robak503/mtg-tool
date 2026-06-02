@@ -8,6 +8,17 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **"Jace is reasoning…" while you wait.** When you send a message, the local
+  model's first-token lag now reads as the agent *thinking* — a "{agent} is
+  reasoning…" state shows until the first words arrive, instead of a silent
+  spinner that looks frozen.
+- **Rules-grounded trust badge.** Jace's rules answers now wear a small badge:
+  green **"✓ Rules-grounded · N CR citations"** when the Arbiter engine verified
+  the answer against the local Comprehensive Rules, or amber **"⚠ Unverified"**
+  when it couldn't (with the existing detail note + the Arbiter trace right
+  below). Makes the never-fabricate grounding visible at a glance.
+
 ## [0.18.0] - 2026-06-02
 
 ### Security
