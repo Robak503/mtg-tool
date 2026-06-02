@@ -111,7 +111,7 @@ export default function Sidebar({
           style={{width:"100%",padding:"8px 10px",marginBottom:5,borderRadius:6,border:`1px solid ${LINE}`,background:"transparent",color:MUTED,cursor:"pointer",textAlign:"left",fontFamily,display:"flex",alignItems:"center",gap:8}}
           onClick={()=>{setCenterView("learn");if(mobile)setMobileTab("chat");}}
         >
-          <span style={{fontSize:16}}>🎓</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style={{flexShrink:0}} aria-hidden="true"><path d="M12 3 1 8.5 12 14l9-4.5V15h2V8.5L12 3zM5 13.2V17c0 1.7 3.1 3 7 3s7-1.3 7-3v-3.8l-7 3.5-7-3.5z"/></svg>
           <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700}}>The Academy</div><div style={{fontSize:10,opacity:.65}}>Learn to play · 1v1 &amp; 4P</div></div>
           <StabilityBadge level="preview" />
         </button>
@@ -123,14 +123,14 @@ export default function Sidebar({
           style={{width:"100%",padding:"8px 10px",marginBottom:5,borderRadius:6,border:`1px solid ${LINE}`,background:"transparent",color:MUTED,cursor:"pointer",textAlign:"left",fontFamily,display:"flex",alignItems:"center",gap:8}}
           onClick={()=>{setCenterView("collection");if(mobile)setMobileTab("chat");}}
         >
-          <span style={{fontSize:16}}>📚</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}} aria-hidden="true"><path d="M2 4h7a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H2z"/><path d="M22 4h-7a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z"/></svg>
           <div><div style={{fontSize:13,fontWeight:700}}>The Vault</div><div style={{fontSize:10,opacity:.65}}>Decks · cards · value</div></div>
         </button>
         <button
           style={{width:"100%",padding:"8px 10px",borderRadius:6,border:`1px solid ${LINE}`,background:"transparent",color:MUTED,cursor:"pointer",textAlign:"left",fontFamily,display:"flex",alignItems:"center",gap:8}}
           onClick={()=>openPodBalance?.()}
         >
-          <span style={{fontSize:16}}>⚖️</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}} aria-hidden="true"><path d="M12 3v18M7 21h10M6 7h12M6 7l-3 6a3 3 0 0 0 6 0zM18 7l-3 6a3 3 0 0 0 6 0z"/></svg>
           <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700}}>Pod Balance</div><div style={{fontSize:10,opacity:.65}}>Compare deck brackets</div></div>
           <StabilityBadge level="beta" />
         </button>

@@ -64,7 +64,7 @@ export default function OnboardingWizard({
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300 }}>
       <div style={{ width: 640, maxWidth: "calc(100vw - 40px)", maxHeight: "calc(100vh - 60px)", background: BG2, border: `1px solid ${LINE}`, borderRadius: 12, display: "flex", flexDirection: "column", color: TEXT, fontFamily: F, overflow: "hidden" }}>
         <header style={{ padding: "16px 22px", borderBottom: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 16, fontWeight: 700, color: GOLD, letterSpacing: "0.03em" }}>Welcome to MTG Tool</span>
+          <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 22, fontWeight: 700, color: GOLD, letterSpacing: "-0.01em" }}>Welcome to MTG Tool</span>
           <span style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <span style={{ display: "flex", gap: 6 }}>
               {STEPS.map((s, i) => (
@@ -188,7 +188,7 @@ export default function OnboardingWizard({
 function Step({ title, subtitle, muted, children }) {
   return (
     <div>
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 4px" }}>{title}</h2>
+      <h2 style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 24, fontWeight: 700, margin: "0 0 4px", letterSpacing: "-0.01em" }}>{title}</h2>
       {subtitle && <p style={{ fontSize: 13, color: muted, margin: "0 0 16px", lineHeight: 1.5 }}>{subtitle}</p>}
       {!subtitle && <div style={{ height: 10 }} />}
       {children}

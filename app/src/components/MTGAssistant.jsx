@@ -705,10 +705,10 @@ export default function MTGAssistant() {
   //   cfg              the active agent's theme — AGENTS[agent] (.color/.border/.dim)
   //   sb(outline)      "select button" style object (the sidebar list buttons)
   //   pb(primary, sm)  "primary button" style object (primary = filled, sm = small)
-  // Obsidian & Gold — cool-neutral near-black base (no warm/brown tints), rich
-  // gold accent, frosted-glass panels, cool off-white text.
-  const BG="#090a0d",BG2="rgba(18,19,24,0.66)",BG3="rgba(26,27,33,0.52)",LINE="#2b2c34",TEXT="#dfe2ec",MUTED="#9a9caa",GOLD="#a06639";
-  const F="'Georgia','Palatino Linotype',serif";
+  // Aether — near-black Material surfaces, electric-cyan hero accent, frosted
+  // glass panels, cool off-white text. Tokens mirror globals.css :root.
+  const BG="#090a0d",BG2="rgba(18,19,24,0.8)",BG3="rgba(13,14,17,0.6)",LINE="#2c393b",TEXT="#e3e2e6",MUTED="#b9cacb",GOLD="#00dbe7";
+  const F="var(--font-body), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
   const sb=(outline)=>({width:"100%",padding:"7px 9px",borderRadius:8,fontFamily:F,fontSize:11,cursor:"pointer",marginBottom:4,textAlign:"left",border:`1px solid ${outline?LINE:cfg.border}`,background:outline?"rgba(255,255,255,0.02)":cfg.dim,color:outline?MUTED:cfg.color});
   const pb=(primary,sm)=>({padding:sm?"6px 12px":"8px 16px",borderRadius:9,fontFamily:F,fontSize:sm?11:13,cursor:"pointer",border:`1px solid ${primary?cfg.color:cfg.border}`,background:primary?cfg.color:"rgba(255,255,255,0.03)",color:primary?"#0c0b0a":cfg.color,backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",boxShadow:primary?`0 3px 12px -4px ${cfg.glow}`:"inset 0 1px 0 rgba(255,255,255,0.04)"});
   const deckActionPrompts = {
@@ -736,8 +736,8 @@ export default function MTGAssistant() {
 
   return (
     <div style={{fontFamily:F,background:BG,color:TEXT,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
-      {/* Clean obsidian backdrop with a faint gold bloom up top for depth — no commander art. */}
-      <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,background:"radial-gradient(ellipse 100% 78% at 50% -12%, rgba(160,102,57,0.07) 0%, rgba(160,102,57,0.015) 32%, transparent 60%), #090a0d"}}/>
+      {/* Near-black backdrop with a faint cyan bloom up top for depth — no commander art. */}
+      <div aria-hidden style={{position:"fixed",inset:0,zIndex:-1,background:"radial-gradient(ellipse 100% 78% at 50% -12%, rgba(0,242,255,0.06) 0%, rgba(0,242,255,0.015) 32%, transparent 60%), #090a0d"}}/>
       <style>{`
         @keyframes mtgd{0%,80%,100%{transform:scale(.5);opacity:.3}40%{transform:scale(1);opacity:.9}}
         *{box-sizing:border-box;margin:0;padding:0}
@@ -935,7 +935,7 @@ export default function MTGAssistant() {
               disabled={bootstrapBusy || !bootstrapSourcePath.trim()}
               style={{
                 padding: "6px 14px", borderRadius: 5,
-                border: "1px solid #cc8a38",
+                border: "1px solid #00dbe7",
                 background: bootstrapBusy ? "#12132a" : "#2a2850",
                 color: "#d8d2e8", fontFamily: F, fontSize: 12,
                 cursor: bootstrapBusy ? "default" : "pointer",
@@ -972,7 +972,7 @@ export default function MTGAssistant() {
             model-missing → "Pull <model>" via ollama pull (streamed) */}
       {ollamaHealth && !ollamaHealth.ok && !ollamaHealthDismissed && (() => {
         const palette = ollamaHealth.status === "not-installed"
-          ? { bg: "#12132a", border: "#2a2850", text: "#b8b2d0", accent: "#2a2850", accentBorder: "#cc8a38" }
+          ? { bg: "#12132a", border: "#2a2850", text: "#b8b2d0", accent: "#2a2850", accentBorder: "#00dbe7" }
           : ollamaHealth.status === "server-down"
           ? { bg: "#3a1a1a", border: "#6b3a3a", text: "#e0a89a", accent: "#3a1a1a", accentBorder: "#6b3a3a" }
           : { bg: "#3a2a14", border: "#6b5a3a", text: "#e8c285", accent: "#3a2a14", accentBorder: "#6b5a3a" };

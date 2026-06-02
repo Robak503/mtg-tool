@@ -66,7 +66,7 @@ export default function SettingsModal({
         }}
       >
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: `1px solid ${LINE}` }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: GOLD, letterSpacing: "0.04em" }}>Settings</span>
+          <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 22, fontWeight: 700, color: GOLD, letterSpacing: "-0.01em" }}>Settings</span>
           <button onClick={onClose} style={{ background: "none", border: "none", color: MUTED, cursor: "pointer", fontSize: 20, width: 24, height: 24, lineHeight: 1 }}>×</button>
         </header>
 
@@ -106,7 +106,7 @@ export default function SettingsModal({
                         onClick={() => setModelProvider(t.id)}
                         style={{
                           textAlign: "left", padding: "11px 13px", borderRadius: 8, cursor: "pointer",
-                          background: on ? "rgba(160,102,57,0.14)" : BG3,
+                          background: on ? "rgba(0,242,255,0.12)" : BG3,
                           border: `1px solid ${on ? GOLD : LINE}`, color: TEXT, fontFamily: F,
                         }}
                       >
@@ -131,7 +131,7 @@ export default function SettingsModal({
                       const on = (id === "fast") === Boolean(fastMode);
                       return (
                         <button key={id} onClick={() => setFastMode(id === "fast")}
-                          style={{ border: 0, background: on ? "rgba(160,102,57,0.14)" : "transparent", color: on ? GOLD : MUTED, cursor: "pointer", fontFamily: F, fontSize: 12, padding: "6px 14px" }}>
+                          style={{ border: 0, background: on ? "rgba(0,242,255,0.12)" : "transparent", color: on ? GOLD : MUTED, cursor: "pointer", fontFamily: F, fontSize: 12, padding: "6px 14px" }}>
                           {label}
                         </button>
                       );
@@ -144,9 +144,9 @@ export default function SettingsModal({
             {section === "display" && (
               <Section title="Display">
                 <P muted={MUTED}>
-                  MTG Tool uses a single hand-tuned theme — <strong>Obsidian &amp; Gold</strong>: a
-                  near-black background with a warm gold accent and serif typography, designed to sit
-                  behind translucent commander art.
+                  MTG Tool uses a single hand-tuned theme — <strong>Aether</strong>: near-black
+                  Material surfaces with an electric-cyan accent, frosted-glass panels, and a
+                  Playfair Display / Inter / JetBrains Mono type system.
                 </P>
                 <P muted={MUTED}>
                   Theme and font customization isn&apos;t available yet. The layout adapts automatically
@@ -238,7 +238,7 @@ export default function SettingsModal({
 function Section({ title, children }) {
   return (
     <div>
-      <h2 style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.12em", color: "#8a8f98", margin: "0 0 12px", fontWeight: 700 }}>{title}</h2>
+      <h2 style={{ fontFamily: "var(--font-mono), monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.12em", color: "var(--primary-fixed-dim)", margin: "0 0 12px", fontWeight: 600 }}>{title}</h2>
       {children}
     </div>
   );
@@ -253,7 +253,7 @@ function Bullets({ items, muted, text }) {
     <ul style={{ listStyle: "none", padding: 0, margin: "10px 0 0" }}>
       {items.map(([lead, rest], i) => (
         <li key={i} style={{ fontSize: 13, color: muted, lineHeight: 1.5, marginBottom: 9, paddingLeft: 16, position: "relative" }}>
-          <span style={{ position: "absolute", left: 0, color: "#a06639" }}>•</span>
+          <span style={{ position: "absolute", left: 0, color: "#00dbe7" }}>•</span>
           <strong style={{ color: text }}>{lead}</strong>{rest}
         </li>
       ))}

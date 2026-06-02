@@ -702,12 +702,12 @@ export default function ChatPanel({
                 maxWidth: "82%",
                 padding: "11px 16px",
                 borderRadius: msg.role === "user" ? "14px 14px 5px 14px" : "14px 14px 14px 5px",
-                background: msg.role === "user" ? "rgba(160,102,57,0.06)" : "rgba(255,255,255,0.022)",
+                background: msg.role === "user" ? "rgba(0,242,255,0.05)" : "rgba(255,255,255,0.022)",
                 backdropFilter: "blur(14px) saturate(1.1)",
                 WebkitBackdropFilter: "blur(14px) saturate(1.1)",
                 border: msg.isError
-                  ? "1px solid #7a4540"
-                  : `1px solid ${msg.role === "user" ? "rgba(160,102,57,0.30)" : cfg.border}`,
+                  ? "1px solid rgba(255,180,171,0.5)"
+                  : `1px solid ${msg.role === "user" ? "rgba(0,242,255,0.25)" : cfg.border}`,
                 boxShadow: msg.role === "user"
                   ? "inset 0 1px 0 rgba(255,255,255,0.03)"
                   : `0 10px 30px -16px ${cfg.glow}, inset 0 1px 0 rgba(255,255,255,0.03)`,
@@ -793,9 +793,9 @@ export default function ChatPanel({
                   marginTop: 2,
                   padding: "4px 11px",
                   borderRadius: 12,
-                  border: "1px solid #2a2850",
-                  background: "#12132a",
-                  color: "#cc8a38",
+                  border: "1px solid rgba(0,242,255,0.3)",
+                  background: "rgba(0,242,255,0.08)",
+                  color: "var(--primary-fixed-dim)",
                   cursor: "pointer",
                   fontSize: 11,
                   fontFamily,

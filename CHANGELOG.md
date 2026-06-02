@@ -8,6 +8,18 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Changed
+- **Aether visual redesign.** The whole app moves from the warm "Obsidian & Gold"
+  serif theme to **Aether** — near-black Material surfaces, an electric-cyan hero
+  accent, frosted-glass panels, and a new type system (Playfair Display headings,
+  Inter body, JetBrains Mono for data labels and numbers). Fonts are bundled
+  locally via `next/font`, so the app still runs fully offline. The **deck view**
+  was rebuilt into a glass-panel dashboard (ribbon header, stat cards, and an
+  art-bleed decklist) with all functionality preserved; every other screen — chat,
+  the Vault, Settings, the Academy, onboarding — was re-skinned to match. Agent
+  accents were retuned (Jace cyan, Karn steel, Tibalt red, Arbiter gold) and the
+  sidebar's section icons are now crisp inline SVGs.
+
 ## [0.19.0] - 2026-06-02
 
 ### Added

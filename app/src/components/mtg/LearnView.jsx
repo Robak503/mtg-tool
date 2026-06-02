@@ -595,8 +595,10 @@ function headerStyle(LINE, BG2, GOLD) {
     borderBottom: `1px solid ${LINE}`,
     background: BG2,
     color: GOLD,
-    fontSize: 13,
-    fontWeight: 600,
+    fontFamily: "var(--font-display), Georgia, serif",
+    fontSize: 18,
+    fontWeight: 700,
+    letterSpacing: "-0.01em",
     display: "flex",
     alignItems: "center",
     gap: 12,
@@ -630,8 +632,8 @@ function selectStyle(BG2, BG3, LINE, TEXT, fontFamily) {
 function primaryButtonStyle(cfg, fontFamily) {
   return {
     padding: "10px 18px",
-    background: cfg?.color || "#cc8a38",
-    color: "#fff",
+    background: cfg?.color || "#00dbe7",
+    color: "#00363a",
     border: "none",
     borderRadius: 6,
     fontSize: 14,

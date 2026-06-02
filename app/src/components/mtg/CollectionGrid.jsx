@@ -164,6 +164,7 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
     <div
       role="button"
       tabIndex={0}
+      className="aether-card"
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -225,7 +226,7 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
           </span>
         )}
         {selectMode && isChecked && (
-          <span aria-hidden style={{ position: "absolute", inset: 0, zIndex: 2, background: "rgba(217,165,49,0.18)" }} />
+          <span aria-hidden style={{ position: "absolute", inset: 0, zIndex: 2, background: "rgba(0,242,255,0.16)" }} />
         )}
         {(card.scryfallId || card.artCropUrl) && !imgError ? (
           <img
