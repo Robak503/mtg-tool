@@ -47,6 +47,7 @@ function normalizeMessage(message) {
   if (typeof message?.arbiterStatus === "string") out.arbiterStatus = message.arbiterStatus;
   if (message?.arbiterSources && typeof message.arbiterSources === "object") out.arbiterSources = message.arbiterSources;
   if (message?.factReceipt && typeof message.factReceipt === "object") out.factReceipt = message.factReceipt;
+  if (typeof message?.fallbackNotice === "string" && message.fallbackNotice) out.fallbackNotice = message.fallbackNotice;
   return out;
 }
 

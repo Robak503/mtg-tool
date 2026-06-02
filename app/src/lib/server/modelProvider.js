@@ -399,9 +399,26 @@ export async function streamOllamaMessages(body, controller) {
     const errData = await response.json().catch(() => ({}));
     const errText = String(errData.error || "Ollama error");
     const isModelMissing = /model.{0,40}not found|pull/i.test(errText);
+    const isMemory = /more system memory|than is available|out of memory|not enough memory|insufficient memory|cannot allocate|requires more|vram/i.test(errText);
+    const fastModel = process.env.OLLAMA_FAST_MODEL || DEFAULT_OLLAMA_FAST_MODEL;
+
+    // B3 — graceful "model too big" fallback: the loaded model needs more memory
+    // than the machine has. Quietly retry with the smaller fast model and tell
+    // the user in one plain line, instead of surfacing Ollama's raw VRAM string.
+    // Memory errors arrive before any tokens stream, so the retry is clean.
+    if (isMemory && !isModelMissing && model !== fastModel && !body.__memoryFallback) {
+      controller.enqueue(encodeStreamEvent({
+        type: "notice",
+        notice: `Not enough memory to run ${model} — answering with the faster ${fastModel} instead.`,
+      }));
+      return streamOllamaMessages({ ...body, ollamaModel: fastModel, fastLocal: true, __memoryFallback: true }, controller);
+    }
+
     const errMsg = isModelMissing
       ? `Ollama model "${model}" not pulled. Run: ollama pull ${model}`
-      : errText;
+      : isMemory
+        ? `Not enough memory to run ${model}. Switch to the Fast model in the header, or free up memory and retry.`
+        : errText;
     controller.enqueue(encodeStreamEvent({
       type: "error",
       error: errMsg,

@@ -724,6 +724,11 @@ export default function ChatPanel({
                       : renderText(msg.content)
                     }
                     {!msg.isError && !msg.streaming && <div><TrustBadge msg={msg} /></div>}
+                    {msg.fallbackNotice && (
+                      <div style={{ marginTop: 8, fontSize: 11, color: MUTED, fontStyle: "italic" }}>
+                        ⓘ {msg.fallbackNotice}
+                      </div>
+                    )}
                     {["citation_failed", "retrieval_miss", "unresolved"].includes(msg.arbiterStatus) && (
                       <div style={{
                         marginTop: 8,

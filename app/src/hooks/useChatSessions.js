@@ -713,6 +713,7 @@ export default function useChatSessions({
       let streamedText = "";
       let streamDoneEvent = null;
       let streamError = null;
+      let streamNotice = null; // e.g. graceful model-too-big fallback (B3)
 
       while (true) {
         const { done, value } = await reader.read();
@@ -739,6 +740,8 @@ export default function useChatSessions({
               streamDoneEvent = event;
             } else if (event.type === "error") {
               streamError = event;
+            } else if (event.type === "notice") {
+              streamNotice = event.notice;
             }
           } catch { /* malformed line */ }
         }
@@ -807,6 +810,8 @@ export default function useChatSessions({
           reply = processed.text;
         } catch { /* deliver unmodified reply */ }
       }
+
+      if (streamNotice) responseMeta.fallbackNotice = streamNotice;
 
       responseMeta.factReceipt = buildFactReceipt({
         provider: data.provider || effectiveProvider,
