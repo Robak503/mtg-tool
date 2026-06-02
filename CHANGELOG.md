@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Karn's suggested adds show what you already own.** Each "Add" chip on Karn's
+  suggestions is now tagged from your collection — **owned** (and how many of your
+  decks already use it) or **wishlist** — so you can see at a glance which upgrades
+  are free from cards you have on hand. Local, no API cost.
 - **Collection import has update modes + a change preview.** When you import a
   Deckbox/Moxfield CSV you now choose how it applies: **Merge** (add quantities),
   **Add only** (never touch existing counts), **Replace** (set to the file's

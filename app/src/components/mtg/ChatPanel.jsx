@@ -272,14 +272,58 @@ function RoastLoader({ seconds, color, muted, font }) {
 function KarnApplyBar({ content, deckName, onApply, colors, font }) {
   const plan = useMemo(() => parseKarnPlan(content), [content]);
   const [applied, setApplied] = useState({}); // name → "added" | "cut"
+  const [ownership, setOwnership] = useState({}); // name → { status, inDecks }
   const adds = (plan.adds || []).slice(0, 12);
   const cuts = (plan.cuts || []).slice(0, 12);
+  const addsKey = adds.join("|");
+
+  // Tag each suggested ADD with its collection status (owned / wishlist /
+  // missing) so the user can see, before applying, what they already have (G1).
+  useEffect(() => {
+    if (!adds.length) { setOwnership({}); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch("/api/collection/ownership", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ names: adds }),
+        });
+        if (!resp.ok) return;
+        const body = await resp.json();
+        if (!cancelled) setOwnership(body.statuses || {});
+      } catch {
+        // Tags are advisory; the Apply chips work without them.
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addsKey]);
+
   if (!adds.length && !cuts.length) return null;
 
   const apply = (action, name) => {
     if (applied[name]) return;
     const result = onApply?.({ action, name });
     if (result) setApplied((a) => ({ ...a, [name]: action === "add" ? "added" : "cut" }));
+  };
+
+  const ownTag = (name) => {
+    const o = ownership[name];
+    if (!o || o.status === "missing") return null;
+    const owned = o.status === "owned";
+    const label = owned ? (o.inDecks > 0 ? `owned · in ${o.inDecks}` : "owned") : "wishlist";
+    const c = owned ? "#6fbf73" : "#c8a24a";
+    return (
+      <span
+        title={owned
+          ? (o.inDecks > 0 ? `You own this — currently in ${o.inDecks} of your decks` : "You own this card")
+          : "On your wishlist"}
+        style={{ marginLeft: 4, fontSize: 9, fontWeight: 700, color: c, border: `1px solid ${c}`, borderRadius: 3, padding: "0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}
+      >
+        {label}
+      </span>
+    );
   };
 
   const chip = (action, name) => {
@@ -293,7 +337,7 @@ function KarnApplyBar({ content, deckName, onApply, colors, font }) {
         disabled={!!done}
         title={done ? `${done === "added" ? "Added" : "Cut"} ${name}` : `${isAdd ? "Add" : "Cut"} ${name}`}
         style={{
-          display: "inline-flex", alignItems: "center", gap: 4, maxWidth: 220,
+          display: "inline-flex", alignItems: "center", gap: 4, maxWidth: 240,
           background: "transparent", border: `1px solid ${done ? "#6fbf73" : colors.LINE}`,
           color, borderRadius: 999, padding: "3px 9px", fontSize: 11.5,
           cursor: done ? "default" : "pointer", fontFamily: font,
@@ -301,6 +345,7 @@ function KarnApplyBar({ content, deckName, onApply, colors, font }) {
       >
         <span style={{ fontWeight: 700 }}>{done ? "✓" : isAdd ? "+" : "−"}</span>
         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+        {isAdd && !done && ownTag(name)}
       </button>
     );
   };
