@@ -11,6 +11,8 @@ import {
   isRestorable,
   createSnapshotEntry,
   relabelSnapshot,
+  diffDeckCards,
+  cardsFromEntry,
 } from "./deckApply.js";
 
 const baseCards = [
@@ -108,6 +110,57 @@ describe("relabelSnapshot", () => {
   });
   it("returns entries unchanged when the id is unknown", () => {
     expect(relabelSnapshot(snaps, "nope", "x")).toEqual(snaps);
+  });
+});
+
+describe("diffDeckCards", () => {
+  it("reports adds, removes, and quantity changes (not paired add+remove)", () => {
+    const from = [
+      { qty: 1, name: "Sol Ring", section: "Mainboard" },
+      { qty: 1, name: "Forest", section: "Mainboard" },
+      { qty: 1, name: "Counterspell", section: "Mainboard" },
+    ];
+    const to = [
+      { qty: 1, name: "Sol Ring", section: "Mainboard" }, // unchanged
+      { qty: 3, name: "Forest", section: "Mainboard" },    // 1 -> 3 changed
+      { qty: 1, name: "Rhystic Study", section: "Mainboard" }, // added
+      // Counterspell removed
+    ];
+    const d = diffDeckCards(from, to);
+    expect(d.added).toEqual([{ name: "Rhystic Study", qty: 1 }]);
+    expect(d.removed).toEqual([{ name: "Counterspell", qty: 1 }]);
+    expect(d.changed).toEqual([{ name: "Forest", from: 1, to: 3 }]);
+  });
+  it("is case-insensitive on names and excludes tokens", () => {
+    const from = [{ qty: 1, name: "sol ring", section: "Mainboard" }, { qty: 2, name: "Treasure", section: "Tokens" }];
+    const to = [{ qty: 1, name: "Sol Ring", section: "Mainboard" }, { qty: 5, name: "Treasure", section: "Tokens" }];
+    const d = diffDeckCards(from, to);
+    expect(d.added).toHaveLength(0);
+    expect(d.removed).toHaveLength(0);
+    expect(d.changed).toHaveLength(0); // tokens ignored; sol ring unchanged
+  });
+  it("handles empty sides", () => {
+    expect(diffDeckCards([], [{ qty: 1, name: "X", section: "Mainboard" }]).added).toEqual([{ name: "X", qty: 1 }]);
+    expect(diffDeckCards(null, null)).toEqual({ added: [], removed: [], changed: [] });
+  });
+});
+
+describe("cardsFromEntry", () => {
+  it("returns the full cards array when present", () => {
+    const entry = { cards: [{ qty: 1, name: "Sol Ring", section: "Mainboard" }] };
+    expect(cardsFromEntry(entry)).toBe(entry.cards);
+  });
+  it("parses legacy snapshot.cardNames into rough {qty,name}", () => {
+    const out = cardsFromEntry({ snapshot: { cardNames: ["2 Forest", "1 Sol Ring", "Mountain"] } });
+    expect(out).toEqual([
+      { qty: 2, name: "Forest", section: "Mainboard" },
+      { qty: 1, name: "Sol Ring", section: "Mainboard" },
+      { qty: 1, name: "Mountain", section: "Mainboard" },
+    ]);
+  });
+  it("returns [] when there is nothing to read", () => {
+    expect(cardsFromEntry(null)).toEqual([]);
+    expect(cardsFromEntry({})).toEqual([]);
   });
 });
 

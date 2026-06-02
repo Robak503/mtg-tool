@@ -14,6 +14,10 @@ summarizes the notable changes.
   you can **restore the deck to any saved version** — not only undo a Karn edit.
   Name a version when you save it ("after game night") and **rename** any version
   later; each still shows what you've added and cut since. All local.
+- **Compare any two deck versions.** A **Compare** panel in Version History diffs
+  any saved version against another (or against the current deck), quantity-aware:
+  cards added, cards removed, and quantity changes (e.g. "Forest 1→3") — not the
+  paired add/remove a string compare would show. Local, instant.
 
 ### Fixed
 - **"Prep Arbiter Question" no longer opens an empty box.** Triggering it from the

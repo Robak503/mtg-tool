@@ -113,3 +113,66 @@ export function restoreDeckCards(deck, snapEntry) {
 export function isRestorable(snapEntry) {
   return Array.isArray(snapEntry?.cards);
 }
+
+// ── Version diff (H2) ───────────────────────────────────────────────────────
+
+/**
+ * The card list for a version entry. Lossless entries carry `cards`; older
+ * display-only snapshots only kept `snapshot.cardNames` ("2 Forest"), which we
+ * parse back into rough {qty, name} (section unknown → Mainboard) so they can
+ * still take part in a diff.
+ */
+export function cardsFromEntry(entry) {
+  if (Array.isArray(entry?.cards)) return entry.cards;
+  const names = entry?.snapshot?.cardNames;
+  if (!Array.isArray(names)) return [];
+  return names.map((line) => {
+    const m = String(line).match(/^\s*(\d+)\s+(.*)$/);
+    return m
+      ? { qty: parseInt(m[1], 10) || 1, name: m[2].trim(), section: MAIN }
+      : { qty: 1, name: String(line).trim(), section: MAIN };
+  });
+}
+
+/** Sum quantities per card name (case-insensitive), excluding tokens by default. */
+function qtyByName(cards, { includeTokens = false } = {}) {
+  const map = new Map(); // key -> { name, qty }
+  for (const c of cards || []) {
+    if (!c || !c.name) continue;
+    if (!includeTokens && c.section === "Tokens") continue;
+    const k = key(c.name);
+    const prev = map.get(k);
+    if (prev) prev.qty += c.qty || 0;
+    else map.set(k, { name: String(c.name).trim(), qty: c.qty || 0 });
+  }
+  return map;
+}
+
+/**
+ * Quantity-aware diff between two deck card lists (from → to), keyed by card
+ * name (case-insensitive), tokens excluded. Unlike the string-based "+/- since",
+ * a 1→2 quantity bump shows as a `changed` entry rather than a paired add+remove.
+ * @returns { added:[{name,qty}], removed:[{name,qty}], changed:[{name,from,to}] }
+ *   each sorted by name; all counts are positive deltas.
+ */
+export function diffDeckCards(fromCards, toCards) {
+  const from = qtyByName(fromCards);
+  const to = qtyByName(toCards);
+  const added = [];
+  const removed = [];
+  const changed = [];
+  const keys = new Set([...from.keys(), ...to.keys()]);
+  for (const k of keys) {
+    const a = from.get(k);
+    const b = to.get(k);
+    const fromQty = a?.qty || 0;
+    const toQty = b?.qty || 0;
+    if (fromQty === toQty) continue;
+    const name = b?.name || a?.name;
+    if (fromQty === 0) added.push({ name, qty: toQty });
+    else if (toQty === 0) removed.push({ name, qty: fromQty });
+    else changed.push({ name, from: fromQty, to: toQty });
+  }
+  const byName = (x, y) => x.name.localeCompare(y.name);
+  return { added: added.sort(byName), removed: removed.sort(byName), changed: changed.sort(byName) };
+}
