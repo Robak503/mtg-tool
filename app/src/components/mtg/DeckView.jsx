@@ -13,7 +13,7 @@
 import { AGENTS } from "../../lib/agents";
 import { useMemo, useState, useEffect } from "react";
 import GarfieldPanel from "./GarfieldPanel";
-import { restoreDeckCards, isRestorable, createSnapshotEntry, relabelSnapshot } from "../../lib/deckApply";
+import { restoreDeckCards, isRestorable, createSnapshotEntry, relabelSnapshot, diffDeckCards, cardsFromEntry } from "../../lib/deckApply";
 
 export default function DeckView({
   activeDeck,
@@ -105,6 +105,23 @@ export default function DeckView({
     if (!confirm(`Restore the deck to this snapshot? Current card list will be replaced.${entry.reason ? `\n\n(${entry.reason})` : ""}`)) return;
     updateActiveDeck(deck => restoreDeckCards(deck, entry));
   };
+
+  // ── Compare any two versions (H2) ──
+  // "current" is a sentinel for the live deck; otherwise a snapshot id. Default
+  // From = newest saved version, To = current deck (i.e. "what changed since").
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [cmpFrom, setCmpFrom] = useState("");
+  const [cmpTo, setCmpTo] = useState("current");
+  const versionLabel = (entry) => entry.label || entry.reason || entry.date || "version";
+  const cardsForSel = (sel) =>
+    sel === "current" ? (activeDeck?.cards || []) : cardsFromEntry(snapshots.find(s => s.id === sel));
+  const compareDiff = useMemo(() => {
+    if (!compareOpen) return null;
+    const from = cmpFrom || snapshots[snapshots.length - 1]?.id;
+    if (!from) return null;
+    return diffDeckCards(cardsForSel(from), cardsForSel(cmpTo));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compareOpen, cmpFrom, cmpTo, snapshots, activeDeck]);
 
   const [recs, setRecs] = useState(null);
   const [recsLoading, setRecsLoading] = useState(false);
@@ -357,8 +374,35 @@ export default function DeckView({
                         <div style={{background:BG,border:`1px solid ${LINE}`,borderRadius:6,padding:10,marginBottom:14}}>
                           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                             <span style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em"}}>Version History</span>
-                            <button onClick={saveSnapshot} style={{...pb(false,true),marginLeft:"auto",fontSize:10,padding:"4px 8px"}}>Save version</button>
+                            {snapshots.length>0&&(
+                              <button onClick={()=>setCompareOpen(o=>!o)} style={{...pb(false,true),marginLeft:"auto",fontSize:10,padding:"4px 8px",...(compareOpen?{borderColor:GOLD,color:GOLD}:{})}}>{compareOpen?"Hide compare":"Compare"}</button>
+                            )}
+                            <button onClick={saveSnapshot} style={{...pb(false,true),marginLeft:snapshots.length>0?0:"auto",fontSize:10,padding:"4px 8px"}}>Save version</button>
                           </div>
+                          {compareOpen&&snapshots.length>0&&(
+                            <div style={{border:`1px solid ${LINE}`,borderRadius:6,padding:8,marginBottom:10,background:BG3}}>
+                              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",fontSize:10,color:MUTED}}>
+                                <span>From</span>
+                                <select value={cmpFrom||snapshots[snapshots.length-1]?.id||""} onChange={e=>setCmpFrom(e.target.value)} style={{background:BG,color:TEXT,border:`1px solid ${LINE}`,borderRadius:4,fontSize:10,padding:"3px 5px",fontFamily:F,maxWidth:150}}>
+                                  {snapshots.map(s=>(<option key={s.id} value={s.id}>{versionLabel(s)}</option>))}
+                                </select>
+                                <span>→</span>
+                                <select value={cmpTo} onChange={e=>setCmpTo(e.target.value)} style={{background:BG,color:TEXT,border:`1px solid ${LINE}`,borderRadius:4,fontSize:10,padding:"3px 5px",fontFamily:F,maxWidth:150}}>
+                                  <option value="current">Current deck</option>
+                                  {snapshots.map(s=>(<option key={s.id} value={s.id}>{versionLabel(s)}</option>))}
+                                </select>
+                              </div>
+                              {compareDiff&&(
+                                (compareDiff.added.length+compareDiff.removed.length+compareDiff.changed.length===0)
+                                  ?<div style={{fontSize:10,color:"#4a9b6a",marginTop:7}}>Identical — no card differences.</div>
+                                  :<div style={{fontSize:10,color:MUTED,lineHeight:1.5,marginTop:7}}>
+                                    {compareDiff.added.length>0&&<div><span style={{color:"#4a9b6a"}}>Added:</span> {compareDiff.added.map(c=>`${c.qty}× ${c.name}`).join(", ")}</div>}
+                                    {compareDiff.removed.length>0&&<div><span style={{color:"#c84848"}}>Removed:</span> {compareDiff.removed.map(c=>`${c.qty}× ${c.name}`).join(", ")}</div>}
+                                    {compareDiff.changed.length>0&&<div><span style={{color:GOLD}}>Qty changed:</span> {compareDiff.changed.map(c=>`${c.name} ${c.from}→${c.to}`).join(", ")}</div>}
+                                  </div>
+                              )}
+                            </div>
+                          )}
                           {!snapshots.length&&<div style={{fontSize:11,color:MUTED,lineHeight:1.45}}>No saved versions yet. Save one to track what you add and cut over time — and restore the deck to any saved version later.</div>}
                           {snapshots.slice(0,12).map(entry=>{
                             const drift = artifactDrift(entry);
