@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-06-02
+
 ### Changed
 - **Aether visual redesign.** The whole app moves from the warm "Obsidian & Gold"
   serif theme to **Aether** — near-black Material surfaces, an electric-cyan hero
