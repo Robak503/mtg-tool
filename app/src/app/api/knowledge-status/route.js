@@ -110,6 +110,10 @@ export async function GET() {
 
   const spellbookStaleDays = staleDays(spellbookMeta?.syncedAt);
   const saltStaleDays = staleDays(saltMeta?.syncedAt);
+  // Card data refreshes with each new set; nudge a sync after ~30 days. The CR
+  // baseline changes ~quarterly, so a longer threshold (~120 days) (B5).
+  const cardDataStaleDays = staleDays(oracle.mtime);
+  const rulesStaleDays = staleDays(rules.mtime);
 
   return Response.json({
     version: 1,
@@ -122,6 +126,18 @@ export async function GET() {
     ].join("|"),
     rulesVersion: rules.version,
     sources: { oracle, rulings, rules },
+    cardData: {
+      ready: !oracle.missing,
+      syncedAt: oracle.mtime || null,
+      staleDays: cardDataStaleDays,
+      stale: cardDataStaleDays !== null && cardDataStaleDays > 30,
+    },
+    rulesFreshness: {
+      ready: !rules.missing,
+      syncedAt: rules.mtime || null,
+      staleDays: rulesStaleDays,
+      stale: rulesStaleDays !== null && rulesStaleDays > 120,
+    },
     spellbook: {
       ready: Boolean(spellbookMeta?.variants > 0),
       variants: spellbookMeta?.variants || 0,
