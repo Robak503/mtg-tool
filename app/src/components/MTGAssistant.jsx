@@ -709,8 +709,6 @@ export default function MTGAssistant() {
   // glass panels, cool off-white text. Tokens mirror globals.css :root.
   const BG="#090a0d",BG2="rgba(18,19,24,0.8)",BG3="rgba(13,14,17,0.6)",LINE="#2c393b",TEXT="#e3e2e6",MUTED="#b9cacb",GOLD="#00dbe7";
   const F="var(--font-body), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
-  const FD="var(--font-display), Georgia, 'Palatino Linotype', serif"; // Playfair display headings
-  const FM="var(--font-mono), 'Consolas', monospace"; // JetBrains mono labels/numbers
   const sb=(outline)=>({width:"100%",padding:"7px 9px",borderRadius:8,fontFamily:F,fontSize:11,cursor:"pointer",marginBottom:4,textAlign:"left",border:`1px solid ${outline?LINE:cfg.border}`,background:outline?"rgba(255,255,255,0.02)":cfg.dim,color:outline?MUTED:cfg.color});
   const pb=(primary,sm)=>({padding:sm?"6px 12px":"8px 16px",borderRadius:9,fontFamily:F,fontSize:sm?11:13,cursor:"pointer",border:`1px solid ${primary?cfg.color:cfg.border}`,background:primary?cfg.color:"rgba(255,255,255,0.03)",color:primary?"#0c0b0a":cfg.color,backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",boxShadow:primary?`0 3px 12px -4px ${cfg.glow}`:"inset 0 1px 0 rgba(255,255,255,0.04)"});
   const deckActionPrompts = {
