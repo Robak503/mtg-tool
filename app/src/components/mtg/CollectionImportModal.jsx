@@ -213,7 +213,7 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
             <button
               onClick={commit}
               style={mode === "reconcile" && diff?.removed?.length
-                ? { ...primary(colors), background: colors.RED, borderColor: colors.RED, color: "#fff" }
+                ? { ...primary(colors), background: colors.RED, borderColor: colors.RED, color: "#3a0a06" }
                 : primary(colors)}
             >
               {mode === "reconcile" && diff?.removed?.length
@@ -294,8 +294,8 @@ function PreviewPanel({ preview, filename, colors, mode, onChangeMode, diff, dif
       {preview.warning && (
         <div style={{
           padding: "10px 14px",
-          background: "#3a2820",
-          color: "#f4d2a1",
+          background: "rgba(254,216,58,0.08)",
+          color: "var(--tertiary-container)",
           borderRadius: 4,
           fontSize: 12,
           marginBottom: 16,

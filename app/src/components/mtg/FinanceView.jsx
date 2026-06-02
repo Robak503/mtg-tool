@@ -147,7 +147,7 @@ export default function FinanceView({ colors, fontFamily }) {
       <div style={card}>
         <div style={h}>Collection value</div>
         <div style={{ display: "flex", alignItems: "baseline", gap: 16, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 30, color: GOLD, fontWeight: 700 }}>{money(data?.value?.currentUsd)}</span>
+          <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 38, color: GOLD, fontWeight: 700, letterSpacing: "-0.01em" }}>{money(data?.value?.currentUsd)}</span>
           {["d30", "d90", "d365"].map(k => {
             const d = deltas[k];
             const label = k === "d30" ? "30d" : k === "d90" ? "90d" : "1yr";

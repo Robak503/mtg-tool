@@ -14,7 +14,7 @@
 
 import { useState } from "react";
 
-const BRACKET_COLOR = { 1: "#4a9b6a", 2: "#6fae5a", 3: "#cc8a38", 4: "#d9772f", 5: "#c84848" };
+const BRACKET_COLOR = { 1: "#4a9b6a", 2: "#6fae5a", 3: "#e8c423", 4: "#d9772f", 5: "#c84848" };
 const AXES = [
   ["speed", "Speed"],
   ["consistency", "Consist."],

@@ -178,8 +178,8 @@ export default function StatsView({ colors, fontFamily }) {
 function Stat({ label, value, color }) {
   return (
     <div>
-      <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
-      <div style={{ fontSize: 10, color: "#8a8f98", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 2 }}>{label}</div>
+      <div style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 26, fontWeight: 700, color }}>{value}</div>
+      <div style={{ fontFamily: "var(--font-mono), monospace", fontSize: 10, color: "var(--on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 2 }}>{label}</div>
     </div>
   );
 }

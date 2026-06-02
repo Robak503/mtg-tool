@@ -1,3 +1,53 @@
+/* ============================================================
+   AETHER design tokens — single source of truth for the theme.
+   Palette is Material-3-derived (cyan hero on near-black).
+   Fonts come from next/font (layout.jsx) via --font-* variables.
+   ============================================================ */
+:root {
+  /* surfaces */
+  --bg: #090a0d;
+  --surface: #121316;
+  --surface-dim: #121316;
+  --surface-bright: #38393c;
+  --surface-container-lowest: #0d0e11;
+  --surface-container-low: #1b1b1f;
+  --surface-container: #1f1f23;
+  --surface-container-high: #292a2d;
+  --surface-container-highest: #343538;
+  --surface-variant: #343538;
+
+  /* text */
+  --on-surface: #e3e2e6;
+  --on-surface-variant: #b9cacb;
+
+  /* cyan hero */
+  --primary: #e1fdff;
+  --primary-container: #00f2ff;
+  --primary-fixed-dim: #00dbe7;
+  --primary-fixed: #74f5ff;
+
+  /* supporting */
+  --outline: #849495;
+  --outline-variant: #3a494b;
+  --error: #ffb4ab;
+  --tertiary: #fff6e4;
+  --tertiary-container: #fed83a;
+  --tertiary-dim: #e8c423;
+
+  /* derived */
+  --glass: rgba(18, 19, 24, 0.8);
+  --glass-strong: rgba(18, 19, 24, 0.95);
+  --hairline: rgba(58, 73, 75, 0.3);
+  --hairline-10: rgba(58, 73, 75, 0.1);
+  --cyan-glow: rgba(0, 242, 255, 0.3);
+  --cyan-faint: rgba(0, 242, 255, 0.1);
+
+  /* fonts (fallbacks if next/font hasn't loaded) */
+  --font-display: Georgia, "Palatino Linotype", serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Consolas", "Menlo", monospace;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -9,7 +59,13 @@ body {
 }
 
 body {
-  background: #060608;
+  background: var(--bg);
+  font-family: var(--font-body);
+}
+
+::selection {
+  background: var(--primary-container);
+  color: #00363a;
 }
 
 button,
@@ -17,4 +73,44 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+/* Aether scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(58, 73, 75, 0.5);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cyan-glow);
+}
+
+/* Aether interaction utilities (inline styles can't express :hover) */
+.aether-row {
+  border: 1px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.aether-row:hover {
+  border-color: rgba(0, 242, 255, 0.3);
+  background: rgba(0, 242, 255, 0.04);
+}
+.aether-glass-hover {
+  transition: border-color 0.2s, background 0.2s;
+}
+.aether-glass-hover:hover {
+  border-color: rgba(0, 242, 255, 0.25);
+  background: var(--glass-strong);
+}
+.aether-card {
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.aether-card:hover {
+  border-color: rgba(0, 242, 255, 0.45) !important;
+  box-shadow: 0 0 0 1px rgba(0, 242, 255, 0.15), 0 6px 20px -10px rgba(0, 242, 255, 0.4);
 }

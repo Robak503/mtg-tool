@@ -107,7 +107,7 @@ export default function ImportDeckView({
             </button>
           </div>
           {urlError&&(
-            <div style={{marginTop:10,padding:"8px 10px",borderRadius:6,background:"#3a2020",border:"1px solid #a44c45",color:"#f4b8b6",fontSize:12,lineHeight:1.5}}>
+            <div style={{marginTop:10,padding:"8px 10px",borderRadius:6,background:"rgba(147,0,10,0.18)",border:"1px solid rgba(255,180,171,0.4)",color:"#ffb4ab",fontSize:12,lineHeight:1.5}}>
               {urlError}
             </div>
           )}

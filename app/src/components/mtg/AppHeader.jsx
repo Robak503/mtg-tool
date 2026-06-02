@@ -68,11 +68,11 @@ export default function AppHeader({
 
   return (
     <div style={{padding:"9px 16px",borderBottom:`1px solid ${LINE}`,background:BG2,backdropFilter:"blur(16px) saturate(1.2)",WebkitBackdropFilter:"blur(16px) saturate(1.2)",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-      <span style={{fontFamily,fontSize:16,fontWeight:700,letterSpacing:"0.05em",color:"transparent",background:"linear-gradient(180deg,#e8c178 0%,#cc8a38 52%,#9a6526 100%)",WebkitBackgroundClip:"text",backgroundClip:"text",filter:"drop-shadow(0 0 9px rgba(204,138,56,.40))"}}>
+      <span style={{fontFamily:"var(--font-display), Georgia, serif",fontSize:18,fontWeight:700,letterSpacing:"-0.01em",color:"transparent",background:"linear-gradient(180deg,#74f5ff 0%,#00dbe7 52%,#00a3ab 100%)",WebkitBackgroundClip:"text",backgroundClip:"text",filter:"drop-shadow(0 0 9px rgba(0,242,255,.40))"}}>
         MTG Assistant
         {appVersion && (
           <span style={{
-            marginLeft:8,fontSize:11,fontWeight:400,color:"#9d98b8",letterSpacing:"normal",fontFamily:"Consolas, Menlo, monospace"
+            marginLeft:8,fontSize:11,fontWeight:400,color:"var(--on-surface-variant)",letterSpacing:"normal",fontFamily:"var(--font-mono), Consolas, monospace"
           }}>v{appVersion}</span>
         )}
       </span>
@@ -104,7 +104,7 @@ export default function AppHeader({
             style={{
               border:`1px solid ${LINE}`,
               borderRadius:5,
-              color:failedCalls?"#c2786f":"#9d98b8",
+              color:failedCalls?"#c2786f":"var(--on-surface-variant)",
               fontFamily,
               fontSize:11,
               padding:"5px 8px",
@@ -127,7 +127,7 @@ export default function AppHeader({
                     border:0,
                     borderRight:option.id !== providerOptions[providerOptions.length - 1].id ? `1px solid ${LINE}` : 0,
                     background:active?cfg.dim:"transparent",
-                    color:active?cfg.color:"#9d98b8",
+                    color:active?cfg.color:"var(--on-surface-variant)",
                     cursor:"pointer",
                     fontFamily,
                     fontSize:11,

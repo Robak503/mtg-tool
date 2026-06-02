@@ -31,26 +31,26 @@ import SetBrowserView from "./SetBrowserView";
 import BuildView from "./BuildView";
 import useColorTags from "../../hooks/useColorTags";
 
-// Obsidian & Gold — matches the app shell theme (cool-neutral, rich gold).
+// Aether — matches the app shell theme (near-black Material surfaces, cyan hero).
 const COLORS = {
   BG: "#090a0d",
-  BG2: "#121319",
-  BG3: "#181922",
-  LINE: "#2b2c34",
-  TEXT: "#dfe2ec",
-  MUTED: "#9a9caa",
-  GOLD: "#a06639",
-  RED: "#a44c45",
+  BG2: "#121316",
+  BG3: "#1f1f23",
+  LINE: "#2c393b",
+  TEXT: "#e3e2e6",
+  MUTED: "#b9cacb",
+  GOLD: "#00dbe7",
+  RED: "#ffb4ab",
 };
 
-const FONT = `system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+const FONT = `var(--font-body), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
 
-// The Vault is gold-themed (not agent-themed); reuse the shared modal/cfg shape.
+// The Vault leads with the cyan hero accent (not agent-themed); reuse the shared cfg shape.
 const VAULT_CFG = {
   color: COLORS.GOLD,
-  border: "rgba(160,102,57,0.40)",
-  dim: "rgba(160,102,57,0.12)",
-  glow: "rgba(160,102,57,0.22)",
+  border: "rgba(0,242,255,0.30)",
+  dim: "rgba(0,242,255,0.10)",
+  glow: "rgba(0,242,255,0.30)",
 };
 
 const DEFAULT_FILTERS = {
@@ -498,10 +498,11 @@ export default function CollectionView({ onClose, onBuildCommander }) {
         <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
           <h1 style={{
             margin: 0,
-            fontSize: 18,
+            fontFamily: "var(--font-display), Georgia, serif",
+            fontSize: 28,
             fontWeight: 700,
             color: COLORS.GOLD,
-            letterSpacing: "0.04em",
+            letterSpacing: "-0.02em",
           }}>
             The Vault
           </h1>
@@ -509,9 +510,10 @@ export default function CollectionView({ onClose, onBuildCommander }) {
             {[["collection", "Collection"], ["build", "Build"], ["stats", "Stats"], ["sets", "Sets"], ["finance", "Finance"]].map(([k, label]) => (
               <button key={k} onClick={() => setMode(k)} style={{
                 background: mode === k ? COLORS.GOLD : "transparent",
-                color: mode === k ? "#fff" : COLORS.MUTED,
+                color: mode === k ? "#00363a" : COLORS.MUTED,
+                fontWeight: mode === k ? 600 : 400,
                 border: `1px solid ${mode === k ? COLORS.GOLD : COLORS.LINE}`,
-                padding: "4px 12px", borderRadius: 4, fontSize: 12, cursor: "pointer", fontFamily: FONT,
+                padding: "4px 12px", borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: "var(--font-mono), monospace", letterSpacing: "0.04em",
               }}>{label}</button>
             ))}
           </div>
@@ -603,8 +605,8 @@ export default function CollectionView({ onClose, onBuildCommander }) {
       {state.recoveryWarning && (
         <div style={{
           padding: "10px 20px",
-          background: "#3a2820",
-          color: "#f4d2a1",
+          background: "rgba(254,216,58,0.08)",
+          color: "var(--tertiary-container)",
           fontSize: 13,
           borderBottom: `1px solid ${COLORS.LINE}`,
         }}>
@@ -914,7 +916,7 @@ function BulkActionBar({ count, tags, busy, onAssignTag, onDelete, onSelectAll, 
       >
         {busy ? "Working…" : `Delete${has ? ` (${count})` : ""}`}
       </button>
-      <button onClick={onExit} disabled={busy} style={{ ...pill, background: colors.GOLD, color: "#fff", border: `1px solid ${colors.GOLD}`, fontWeight: 600 }}>
+      <button onClick={onExit} disabled={busy} style={{ ...pill, background: colors.GOLD, color: "#00363a", border: `1px solid ${colors.GOLD}`, fontWeight: 600 }}>
         Done
       </button>
     </div>
@@ -927,7 +929,7 @@ function btn() {
     border: `1px solid ${COLORS.LINE}`,
     color: COLORS.TEXT,
     padding: "6px 14px",
-    borderRadius: 4,
+    borderRadius: 6,
     fontSize: 13,
     cursor: "pointer",
     fontFamily: FONT,
@@ -938,7 +940,7 @@ function primaryHeaderBtn() {
   return {
     ...btn(),
     background: COLORS.GOLD,
-    color: "#fff",
+    color: "#00363a",
     border: `1px solid ${COLORS.GOLD}`,
     fontWeight: 600,
   };

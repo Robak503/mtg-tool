@@ -84,7 +84,7 @@ export default function SetBrowserView({ colors, fontFamily }) {
       <div style={wrap}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
           <button onClick={() => setActive(null)} style={pill(colors, F)}>← All sets</button>
-          <span style={{ fontSize: 18, fontWeight: 700, color: TEXT }}>{active.setName}</span>
+          <span style={{ fontFamily: "var(--font-display), Georgia, serif", fontSize: 24, fontWeight: 700, color: TEXT }}>{active.setName}</span>
           <span style={{ fontSize: 12, color: MUTED }}>{active.setCode.toUpperCase()}</span>
           {detail.status === "ready" && (
             <span style={{ marginLeft: "auto", fontSize: 13, color: GOLD, fontWeight: 600 }}>

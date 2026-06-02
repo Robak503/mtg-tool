@@ -113,14 +113,14 @@ export default function FeedbackWindowPage() {
   };
 
   // Theme — matches the main app but standalone.
-  const BG = "#070a12";
-  const BG2 = "#090c18";
-  const BG3 = "#0c1020";
-  const LINE = "#1a1e30";
-  const TEXT = "#cfc5ae";
-  const MUTED = "#5a6070";
-  const GOLD = "#c4a245";
-  const FONT = "'Georgia','Palatino Linotype',serif";
+  const BG = "#090a0d";
+  const BG2 = "#121316";
+  const BG3 = "#1f1f23";
+  const LINE = "#2c393b";
+  const TEXT = "#e3e2e6";
+  const MUTED = "#b9cacb";
+  const GOLD = "#00dbe7";
+  const FONT = "var(--font-body), system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
 
   return (
     <div style={{
