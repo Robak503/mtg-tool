@@ -24,6 +24,7 @@
 
 import { useState } from "react";
 import useLearnSession from "../../hooks/useLearnSession";
+import StabilityBadge from "./StabilityBadge";
 
 const DIFFICULTY_OPTIONS = [
   { value: "beginner", label: "Beginner", blurb: "Ask every decision with full narration." },
@@ -129,7 +130,10 @@ export default function LearnView({
     return (
       <div style={containerStyle(BG, fontFamily)}>
         <header style={{ ...headerStyle(LINE, BG2, GOLD), justifyContent: "space-between" }}>
-          <span>The Academy · Learn to Play</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+            The Academy · Learn to Play
+            <StabilityBadge level="preview" title="Preview — the Academy is early and still being built out" />
+          </span>
           {session.status === "starting" && <span style={{ fontSize: 12, color: MUTED }}>starting…</span>}
         </header>
         <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
