@@ -209,8 +209,8 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| H1 | Deck version history | 🟡 P0 | Deck snapshots (v0.9, +/− since) are the precursor; build the timeline + restore + "before Karn plan" / "after game night" milestones. Makes AI edits safe. **PLAN E1 / RSCH P0#3** |
-| H2 | Deck diff | 🟡 P0 | Snapshots show +/− since; add compare-two-versions and compare-vs-imported-URL. **PLAN E2** |
+| H1 | Deck version history | ✅ [Unreleased] (#120) | Snapshots → **Version History**: every saved version captures the full deck (lossless), so any version is restorable (not just Karn-undo); optional label on save + rename. `createSnapshotEntry`/`relabelSnapshot` in `deckApply.js`. **PLAN E1 / RSCH P0#3** |
+| H2 | Deck diff | ✅ 🟡 [Unreleased] (#121) | **Compare** panel: qty-aware diff of any version vs another or the current deck (`diffDeckCards`). Remaining: compare-vs-imported-URL (folded into H4). **PLAN E2** |
 | H3 | Role view + auto-categorization | ⬜ P1 | ramp/draw/removal/wipes/protection/tutors/combo/win-con/synergy/flex; Karn classifies, user overrides, counts feed the Deck Report. **PLAN E3 / RSCH #3** |
 | H4 | Refresh deck from source URL | ⬜ P1 | Re-pull Moxfield/Archidekt, diff, version-before-apply. **PLAN E4** |
 
