@@ -27,6 +27,7 @@ import {
   parseCollectionCsv,
   matchEntries,
   mergeImportRows,
+  diffImport,
 } from "../../../../lib/server/collectionCsvImport.js";
 
 function badRequest(message) {
@@ -93,14 +94,25 @@ export async function POST(request) {
     }
   }
 
-  // Branch 2: commit (write a batch of pre-validated rows)
+  // Branch 2: dry-run diff (compute what a mode would change; no writes)
+  if (Array.isArray(body.rows) && body.dryRun) {
+    try {
+      const { collection } = await loadCollection();
+      return Response.json({ diff: diffImport(collection, body.rows, body.mode) });
+    } catch (error) {
+      if (error instanceof CollectionVersionMismatch) return versionConflict(error);
+      return Response.json({ error: error.message || "Failed to compute import diff" }, { status: 500 });
+    }
+  }
+
+  // Branch 3: commit (write a batch of pre-validated rows under an update mode)
   if (Array.isArray(body.rows)) {
     try {
       // Serialize against single-row adds/edits so a 5,000-row import commit
       // and a concurrent user edit can't clobber each other.
       const { saved, stats } = await withCollectionLock(async () => {
         const { collection } = await loadCollection();
-        const { merged, stats: importStats } = mergeImportRows(collection, body.rows);
+        const { merged, stats: importStats } = mergeImportRows(collection, body.rows, body.mode);
         const written = await writeCollectionAtomic(merged);
         return { saved: written, stats: importStats };
       });

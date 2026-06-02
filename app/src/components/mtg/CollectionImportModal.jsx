@@ -15,14 +15,50 @@
 
 import { useRef, useState } from "react";
 
+const MODES = [
+  { id: "merge", label: "Merge", blurb: "Add the imported quantities to what you already own." },
+  { id: "add-only", label: "Add only", blurb: "Add new cards/finishes; never change an existing quantity." },
+  { id: "replace", label: "Replace", blurb: "Set each imported card to exactly the file's quantity." },
+  { id: "reconcile", label: "Reconcile", blurb: "Make your collection match the file — also removes owned cards not in it." },
+];
+
 export default function CollectionImportModal({ onClose, onAdded, colors }) {
   const fileRef = useRef(null);
   const [phase, setPhase] = useState("pick"); // pick | preview | committing | done
   const [filename, setFilename] = useState("");
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
+  const [mode, setMode] = useState("merge");
+  const [diff, setDiff] = useState(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [stats, setStats] = useState(null);
 
   const pickFile = () => fileRef.current?.click();
+
+  // Dry-run: ask the server what the chosen mode would change (no writes).
+  const loadDiff = async (rows, m) => {
+    if (!rows?.length) { setDiff(null); return; }
+    setDiffLoading(true);
+    setDiff(null);
+    try {
+      const resp = await fetch("/api/collection/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows, mode: m, dryRun: true }),
+      });
+      const body = await resp.json();
+      if (resp.ok) setDiff(body.diff);
+    } catch {
+      // Diff is advisory; commit still works without it.
+    } finally {
+      setDiffLoading(false);
+    }
+  };
+
+  const changeMode = (m) => {
+    setMode(m);
+    loadDiff((preview?.matched || []).map(x => x.row), m);
+  };
 
   const onFileChange = async (e) => {
     const file = e.target.files?.[0];
@@ -44,6 +80,7 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
         return;
       }
       setPreview(body);
+      loadDiff((body.matched || []).map(m => m.row), mode);
     } catch (e) {
       setError(e.message);
       setPhase("pick");
@@ -62,7 +99,7 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
       const resp = await fetch("/api/collection/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows }),
+        body: JSON.stringify({ rows, mode }),
       });
       const body = await resp.json();
       if (!resp.ok) {
@@ -71,6 +108,7 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
         return;
       }
       onAdded?.(body.collection);
+      setStats(body.stats || null);
       setPhase("done");
       // Close shortly after showing the success summary
       setTimeout(() => onClose?.(), 800);
@@ -137,6 +175,10 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
               preview={preview}
               filename={filename}
               colors={colors}
+              mode={mode}
+              onChangeMode={changeMode}
+              diff={diff}
+              diffLoading={diffLoading}
             />
           )}
 
@@ -148,7 +190,7 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
 
           {phase === "done" && (
             <div style={{ padding: "16px 0", color: colors.GOLD, fontSize: 14, textAlign: "center" }}>
-              ✓ Imported {preview?.matched?.length || 0} cards.
+              ✓ Import complete{stats ? ` — ${stats.added} added, ${stats.mergedCount} updated${stats.removed ? `, ${stats.removed} removed` : ""}.` : "."}
             </div>
           )}
 
@@ -168,8 +210,15 @@ export default function CollectionImportModal({ onClose, onAdded, colors }) {
             {phase === "done" ? "Close" : "Cancel"}
           </button>
           {phase === "preview" && preview?.matched?.length > 0 && (
-            <button onClick={commit} style={primary(colors)}>
-              Import {preview.matched.length} matched cards
+            <button
+              onClick={commit}
+              style={mode === "reconcile" && diff?.removed?.length
+                ? { ...primary(colors), background: colors.RED, borderColor: colors.RED, color: "#fff" }
+                : primary(colors)}
+            >
+              {mode === "reconcile" && diff?.removed?.length
+                ? `Reconcile (removes ${diff.removed.length})`
+                : `${MODES.find(m => m.id === mode)?.label || "Import"} ${preview.matched.length} cards`}
             </button>
           )}
         </footer>
@@ -214,13 +263,14 @@ function PickPanel({ onPickFile, colors }) {
   );
 }
 
-function PreviewPanel({ preview, filename, colors }) {
+function PreviewPanel({ preview, filename, colors, mode, onChangeMode, diff, diffLoading }) {
   const matched = preview.matched || [];
   const unmatched = preview.unmatched || [];
   const errors = preview.errors || [];
   const formatLabel = preview.format === "unknown"
     ? "Unknown format"
     : preview.format.charAt(0).toUpperCase() + preview.format.slice(1);
+  const activeMode = MODES.find(m => m.id === mode) || MODES[0];
 
   return (
     <div>
@@ -251,6 +301,60 @@ function PreviewPanel({ preview, filename, colors }) {
           marginBottom: 16,
         }}>
           ⚠ {preview.warning}
+        </div>
+      )}
+
+      {matched.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: colors.MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+            Update mode
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+            {MODES.map(m => {
+              const on = m.id === mode;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => onChangeMode(m.id)}
+                  style={{
+                    background: on ? (m.id === "reconcile" ? colors.RED : colors.GOLD) : "transparent",
+                    color: on ? "#fff" : colors.MUTED,
+                    border: `1px solid ${on ? (m.id === "reconcile" ? colors.RED : colors.GOLD) : colors.LINE}`,
+                    padding: "4px 10px", borderRadius: 4, fontSize: 12, cursor: "pointer", fontFamily: "inherit",
+                  }}
+                >{m.label}</button>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 12, color: colors.MUTED, lineHeight: 1.45 }}>{activeMode.blurb}</div>
+
+          {/* Diff preview for the chosen mode */}
+          <div style={{ marginTop: 8, background: colors.BG3, border: `1px solid ${mode === "reconcile" && diff?.removed?.length ? colors.RED : colors.LINE}`, borderRadius: 4, padding: "8px 12px" }}>
+            {diffLoading && <div style={{ fontSize: 12, color: colors.MUTED }}>Computing changes…</div>}
+            {!diffLoading && diff && (
+              <div style={{ fontSize: 12, color: colors.TEXT, lineHeight: 1.6 }}>
+                <span style={{ color: "#6fbf73" }}>+{diff.newCards.length} new</span>
+                {" · "}
+                <span style={{ color: colors.GOLD }}>{diff.changed.length} qty changed</span>
+                {" · "}
+                <span style={{ color: colors.MUTED }}>{diff.unchangedCount} unchanged</span>
+                {diff.removed.length > 0 && (
+                  <>
+                    {" · "}
+                    <span style={{ color: colors.RED, fontWeight: 600 }}>{diff.removed.length} removed</span>
+                  </>
+                )}
+                {diff.removed.length > 0 && (
+                  <div style={{ color: colors.RED, marginTop: 5, fontSize: 11.5 }}>
+                    ⚠ Will remove from your collection: {diff.removed.slice(0, 12).map(c => `${c.qty}× ${c.name}`).join(", ")}{diff.removed.length > 12 ? ` +${diff.removed.length - 12} more` : ""}
+                  </div>
+                )}
+              </div>
+            )}
+            {!diffLoading && !diff && (
+              <div style={{ fontSize: 12, color: colors.MUTED }}>Pick a mode to preview the changes.</div>
+            )}
+          </div>
         </div>
       )}
 
