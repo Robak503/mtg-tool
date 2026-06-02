@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-06-02
+
 ### Added
 - **Data freshness warnings.** The header now flags when your **card data** or the
   **Comprehensive Rules** have gone stale (alongside the existing combos/salt

@@ -152,11 +152,11 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| B1 | Streaming "Jace is reasoning…" state | ⬜ P1 | So 14B first-token lag doesn't read as a hang. **CEO C1** |
-| B2 | Grounding / trust badge + promote "View Arbiter Trace" | ⬜ P1 | Surface the never-fabricate moat on rules answers. **CEO C2** |
-| B3 | Graceful model-too-big fallback (14B→7B w/ one-line notice) | ⬜ P1 | Never show the raw Ollama VRAM string. Builds on `modelProvider.js` tiering. **CEO C3** |
+| B1 | Streaming "Jace is reasoning…" state | ✅ [Unreleased] (#131) | "{agent} is reasoning…" shows in the pre-first-token window (`sending && !streamingMsg.content`). **CEO C1** |
+| B2 | Grounding / trust badge + promote "View Arbiter Trace" | ✅ [Unreleased] (#131) | `TrustBadge` on Jace rules answers — green "✓ Rules-grounded · N CR citations" (arbiterStatus resolved) / amber "⚠ Unverified"; trace stays below. **CEO C2** |
+| B3 | Graceful model-too-big fallback (14B→7B w/ one-line notice) | ✅ [Unreleased] (#133) | Memory error → retry on fast 7B + a `fallbackNotice`; raw VRAM string scrubbed. **CEO C3** |
 | B4 | Ruling-card UI for Arbiter answers | ⬜ P1 | Short answer / why / rules / cards / confidence / unresolved + "run formal check." Overlaps B2. **PLAN H1** |
-| B5 | Rules / data freshness warnings | ⬜ P1 | Show CR baseline date; warn if rules or Scryfall data is stale; link to sync. **PLAN H2** |
+| B5 | Rules / data freshness warnings | ✅ [Unreleased] (#132) | knowledge-status reports card-data (>30d) + CR (>120d) staleness; header chips for all data sources are now click-to-open Data & Updates. **PLAN H2** |
 
 ### C — Activation / first-run (P0–P1)
 
