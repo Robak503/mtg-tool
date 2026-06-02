@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Feature maturity labels.** Features that are still rough now wear a small
+  badge so you know what to expect: **Preview** on The Academy (learn-to-play),
+  **Beta** on Pod Balance and the Garfield goldfish. Stable features are
+  unlabeled.
 - **Always-visible deck context in chat.** Every chat now shows whether a deck is
   bound to it: the existing "🔒 Locked to …" banner, or a new **"○ No deck locked"**
   chip when it isn't — with a one-click way to start a new chat that locks your

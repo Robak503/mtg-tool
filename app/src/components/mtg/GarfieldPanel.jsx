@@ -8,6 +8,8 @@
 
 import { useEffect, useState } from "react";
 
+import StabilityBadge from "./StabilityBadge";
+
 const ARCHETYPE_COLORS = {
   aggro: "#c2786f",
   control: "#7fa0c8",
@@ -127,6 +129,7 @@ export default function GarfieldPanel({
             <span style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em" }}>
               Garfield Goldfish v2
             </span>
+            <StabilityBadge level="beta" />
             <ArchetypeBadge archetype={archetypeToShow} confidence={confidence} fontFamily={fontFamily} />
           </div>
           <div style={{ color: TEXT, fontSize: 13, lineHeight: 1.45 }}>

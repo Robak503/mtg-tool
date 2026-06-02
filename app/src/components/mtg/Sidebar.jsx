@@ -4,6 +4,7 @@
  */
 import { AGENTS } from "../../lib/agents";
 import { useMemo, useRef, useState } from "react";
+import StabilityBadge from "./StabilityBadge";
 
 export default function Sidebar({
   agent,
@@ -111,7 +112,8 @@ export default function Sidebar({
           onClick={()=>{setCenterView("learn");if(mobile)setMobileTab("chat");}}
         >
           <span style={{fontSize:16}}>🎓</span>
-          <div><div style={{fontSize:13,fontWeight:700}}>The Academy</div><div style={{fontSize:10,opacity:.65}}>Learn to play · 1v1 &amp; 4P</div></div>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700}}>The Academy</div><div style={{fontSize:10,opacity:.65}}>Learn to play · 1v1 &amp; 4P</div></div>
+          <StabilityBadge level="preview" />
         </button>
       </div>
 
@@ -129,7 +131,8 @@ export default function Sidebar({
           onClick={()=>openPodBalance?.()}
         >
           <span style={{fontSize:16}}>⚖️</span>
-          <div><div style={{fontSize:13,fontWeight:700}}>Pod Balance</div><div style={{fontSize:10,opacity:.65}}>Compare deck brackets</div></div>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700}}>Pod Balance</div><div style={{fontSize:10,opacity:.65}}>Compare deck brackets</div></div>
+          <StabilityBadge level="beta" />
         </button>
       </div>
 
