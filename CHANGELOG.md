@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Security
+- **Content-Security-Policy is now enforced.** The app window previously ran with
+  no CSP. It now restricts content to the app itself — no external scripts,
+  network connections, plugins, or framing — while still allowing the local card-art
+  proxy and the model providers. Hardens the desktop window against injected
+  external content. (Also sets `X-Content-Type-Options` and `Referrer-Policy`.)
+
 ### Added
 - **Guided first-run setup.** The first time you open MTG Tool, a short welcome
   wizard walks you through it: pick how to run the AI (private local model via
