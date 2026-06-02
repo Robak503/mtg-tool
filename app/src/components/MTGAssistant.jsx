@@ -46,6 +46,7 @@ import CollectionView from "./mtg/CollectionView";
 import UpdatesModal from "./UpdatesModal";
 import PodBalanceModal from "./mtg/PodBalanceModal";
 import SettingsModal from "./mtg/SettingsModal";
+import OnboardingWizard from "./mtg/OnboardingWizard";
 import { applyDeckChange } from "../lib/deckApply";
 
 export default function MTGAssistant() {
@@ -75,6 +76,9 @@ export default function MTGAssistant() {
   const [showUpdates, setShowUpdates] = useState(false);
   // Central Settings screen (Models / Display / Privacy / Data / About)
   const [showSettings, setShowSettings] = useState(false);
+  // First-run onboarding wizard. Closing it (X) falls back to the small
+  // legacy banner; Skip/Finish writes the marker so it never returns.
+  const [onboardingClosed, setOnboardingClosed] = useState(false);
   // Pod Balance modal — compare brackets/power across saved decks
   const [showPodBalance, setShowPodBalance] = useState(false);
   // Background app-update check — runs once per session on mount.
@@ -783,6 +787,29 @@ export default function MTGAssistant() {
         colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD}}
         fontFamily={F}
       />
+      <OnboardingWizard
+        open={Boolean(firstLaunch?.needsBootstrap) && !onboardingClosed}
+        onClose={() => setOnboardingClosed(true)}
+        modelProvider={modelProvider}
+        setModelProvider={setModelProvider}
+        ollamaHealth={ollamaHealth}
+        runOllamaInstall={runOllamaInstall}
+        ollamaInstallBusy={ollamaInstallBusy}
+        ollamaInstallLog={ollamaInstallLog}
+        runModelPull={runModelPull}
+        ollamaPullBusy={ollamaPullBusy}
+        ollamaPullProgress={ollamaPullProgress}
+        suggestedSource={firstLaunch?.suggestedSource}
+        bootstrapSourcePath={bootstrapSourcePath}
+        setBootstrapSourcePath={setBootstrapSourcePath}
+        runBootstrapImport={runBootstrapImport}
+        bootstrapBusy={bootstrapBusy}
+        bootstrapResult={bootstrapResult}
+        onGoImport={() => { dismissBootstrap(); setCenterView("import"); }}
+        onFinish={dismissBootstrap}
+        colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD, RED: "#c84848"}}
+        fontFamily={F}
+      />
       {showPodBalance && (
         <PodBalanceModal
           onClose={() => setShowPodBalance(false)}
@@ -858,10 +885,10 @@ export default function MTGAssistant() {
         </div>
       )}
 
-      {/* First-launch data import — only shown in the packaged .exe when
-          %APPDATA% is still empty. The text input is pre-filled with a
-          detected dev-tree path; the user confirms and clicks Import. */}
-      {firstLaunch?.needsBootstrap && (
+      {/* First-launch data import — legacy banner, now superseded by the
+          OnboardingWizard below. Kept as a fallback only if the wizard was
+          dismissed via the X while bootstrap is still needed (rare). */}
+      {firstLaunch?.needsBootstrap && onboardingClosed && (
         <div
           role="status"
           style={{
