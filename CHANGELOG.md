@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Deck version history.** The deck view's Snapshots section is now **Version
+  History**: every saved version captures the full deck (not just a summary), so
+  you can **restore the deck to any saved version** — not only undo a Karn edit.
+  Name a version when you save it ("after game night") and **rename** any version
+  later; each still shows what you've added and cut since. All local.
+
 ### Fixed
 - **"Prep Arbiter Question" no longer opens an empty box.** Triggering it from the
   deck view while another agent (e.g. Karn) was active switched you to Jace but

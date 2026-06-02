@@ -13,7 +13,7 @@
 import { AGENTS } from "../../lib/agents";
 import { useMemo, useState, useEffect } from "react";
 import GarfieldPanel from "./GarfieldPanel";
-import { restoreDeckCards, isRestorable } from "../../lib/deckApply";
+import { restoreDeckCards, isRestorable, createSnapshotEntry, relabelSnapshot } from "../../lib/deckApply";
 
 export default function DeckView({
   activeDeck,
@@ -77,21 +77,26 @@ export default function DeckView({
   };
 
   const snapshots = deckMemory.snapshots || [];
+  // Capture a full, lossless version of the deck (the whole cards array), so
+  // every manual snapshot is restorable — not just Karn-apply ones. An optional
+  // label names the version ("after game night"); blank = unlabeled.
   const saveSnapshot = () => {
-    const entry = {
+    const label = (typeof window !== "undefined" ? window.prompt("Name this version (optional):", "") : "") || "";
+    const entry = createSnapshotEntry(activeDeck, {
       id: globalThis.crypto?.randomUUID?.() || `snap-${Date.now()}`,
       date: new Date().toLocaleString(),
-      snapshot: {
-        commander: commanderText,
-        mainCount,
-        tokenCount,
-        cardNames: [...currentDriftCards],
-      },
-    };
+      label,
+    });
     updateActiveMemory({ snapshots: [entry, ...snapshots].slice(0, 20) });
   };
   const deleteSnapshot = (id) => {
     updateActiveMemory({ snapshots: snapshots.filter(entry => entry.id !== id) });
+  };
+  const relabel = (entry) => {
+    if (typeof window === "undefined") return;
+    const next = window.prompt("Rename this version:", entry.label || "");
+    if (next === null) return; // cancelled
+    updateActiveMemory({ snapshots: relabelSnapshot(snapshots, entry.id, next) });
   };
   // Restore the deck's cards from an apply-snapshot (lossless — undoes a Karn
   // apply). Only available for snapshots that captured the full cards array.
@@ -351,24 +356,25 @@ export default function DeckView({
                         )}
                         <div style={{background:BG,border:`1px solid ${LINE}`,borderRadius:6,padding:10,marginBottom:14}}>
                           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                            <span style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em"}}>Deck Snapshots</span>
-                            <button onClick={saveSnapshot} style={{...pb(false,true),marginLeft:"auto",fontSize:10,padding:"4px 8px"}}>Snapshot now</button>
+                            <span style={{fontSize:10,color:MUTED,textTransform:"uppercase",letterSpacing:"0.08em"}}>Version History</span>
+                            <button onClick={saveSnapshot} style={{...pb(false,true),marginLeft:"auto",fontSize:10,padding:"4px 8px"}}>Save version</button>
                           </div>
-                          {!snapshots.length&&<div style={{fontSize:11,color:MUTED,lineHeight:1.45}}>No snapshots yet. Take one to track what you add and cut over time.</div>}
+                          {!snapshots.length&&<div style={{fontSize:11,color:MUTED,lineHeight:1.45}}>No saved versions yet. Save one to track what you add and cut over time — and restore the deck to any saved version later.</div>}
                           {snapshots.slice(0,12).map(entry=>{
                             const drift = artifactDrift(entry);
                             const changed = drift&&(drift.added.length>0||drift.removed.length>0);
                             return (
                               <details key={entry.id} style={{borderTop:`1px solid ${LINE}`,padding:"7px 0"}}>
                                 <summary style={{cursor:"pointer",color:TEXT,fontSize:11,lineHeight:1.35,display:"flex",alignItems:"center",gap:6}}>
-                                  <span style={{color:GOLD,fontWeight:700}}>{entry.date}</span>
+                                  <span style={{color:GOLD,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160}}>{entry.label || entry.reason || entry.date}</span>
                                   <span style={{color:MUTED}}>{entry.snapshot?.mainCount} cards</span>
                                   {drift&&(changed
                                     ?<span style={{color:MUTED,marginLeft:"auto"}}>+{drift.added.length} / −{drift.removed.length} since</span>
                                     :<span style={{color:"#4a9b6a",marginLeft:"auto"}}>unchanged</span>)}
                                 </summary>
                                 <div style={{fontSize:10,color:MUTED,lineHeight:1.4,marginTop:7}}>
-                                  {entry.reason && <div style={{color:GOLD,marginBottom:3}}>{entry.reason}</div>}
+                                  {entry.label && entry.reason && <div style={{color:GOLD,marginBottom:3}}>{entry.reason}</div>}
+                                  <div style={{marginBottom:3}}>{entry.date}</div>
                                   {entry.snapshot?.commander} | {entry.snapshot?.mainCount} cards | {entry.snapshot?.tokenCount} tokens
                                 </div>
                                 {changed&&(
@@ -378,9 +384,10 @@ export default function DeckView({
                                   </div>
                                 )}
                                 <div style={{display:"flex",gap:6,marginTop:7}}>
-                                  {isRestorable(entry)&&(
-                                    <button onClick={()=>restoreSnapshot(entry)} style={{...pb(false,true),fontSize:10,padding:"3px 7px",borderColor:"#6fbf73",color:"#6fbf73"}}>Restore</button>
-                                  )}
+                                  {isRestorable(entry)
+                                    ?<button onClick={()=>restoreSnapshot(entry)} style={{...pb(false,true),fontSize:10,padding:"3px 7px",borderColor:"#6fbf73",color:"#6fbf73"}}>Restore</button>
+                                    :<span style={{fontSize:9,color:MUTED,alignSelf:"center"}} title="This older snapshot only stored a summary, not the full card list.">view-only</span>}
+                                  <button onClick={()=>relabel(entry)} style={{...pb(false,true),fontSize:10,padding:"3px 7px"}}>Rename</button>
                                   <button onClick={()=>deleteSnapshot(entry.id)} style={{...pb(false,true),fontSize:10,padding:"3px 7px"}}>Delete</button>
                                 </div>
                               </details>
