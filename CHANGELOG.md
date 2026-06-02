@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Data freshness warnings.** The header now flags when your **card data** or the
+  **Comprehensive Rules** have gone stale (alongside the existing combos/salt
+  chips), and every freshness chip is now a one-click shortcut into Data &
+  Updates to refresh it.
 - **"Jace is reasoning…" while you wait.** When you send a message, the local
   model's first-token lag now reads as the agent *thinking* — a "{agent} is
   reasoning…" state shows until the first words arrive, instead of a silent

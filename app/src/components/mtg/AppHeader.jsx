@@ -41,20 +41,28 @@ export default function AppHeader({
     { id: "anthropic", label: "API", title: "Use Anthropic API for the next messages." },
   ];
 
-  // Build warning chips from knowledge status.
+  // Build warning chips from knowledge status. Data-freshness chips set
+  // `sync: true` so they become click-to-open-the-Updates-panel buttons (B5);
+  // the Ollama ones stay informational.
   const warnings = [];
   if (knowledgeStatus) {
-    const { ollama, spellbook, salt } = knowledgeStatus;
+    const { ollama, spellbook, salt, cardData, rulesFreshness } = knowledgeStatus;
     if (ollama && !ollama.available) {
       warnings.push({ key: "ollama-down", text: "Ollama offline", detail: "Start with: ollama serve", color: "#c2786f" });
     } else if (ollama?.missingModels?.length) {
       warnings.push({ key: "models-missing", text: `Model missing`, detail: `Run: ollama pull ${ollama.missingModels[0]}`, color: "#c2786f" });
     }
+    if (cardData?.stale) {
+      warnings.push({ key: "carddata-stale", text: `Card data ${cardData.staleDays}d old`, detail: "Open Data & Updates to refresh card data from Scryfall", color: "#b08a3e", sync: true });
+    }
     if (spellbook?.stale) {
-      warnings.push({ key: "spellbook-stale", text: `Combos ${spellbook.staleDays}d old`, detail: "Run: npm run sync:spellbook", color: "#b08a3e" });
+      warnings.push({ key: "spellbook-stale", text: `Combos ${spellbook.staleDays}d old`, detail: "Open Data & Updates to refresh combos", color: "#b08a3e", sync: true });
     }
     if (salt?.stale) {
-      warnings.push({ key: "salt-stale", text: `Salt ${salt.staleDays}d old`, detail: "Run: npm run sync:edhrec-salt", color: "#b08a3e" });
+      warnings.push({ key: "salt-stale", text: `Salt ${salt.staleDays}d old`, detail: "Open Data & Updates to refresh EDHREC salt", color: "#b08a3e", sync: true });
+    }
+    if (rulesFreshness?.stale) {
+      warnings.push({ key: "rules-stale", text: `Rules ${rulesFreshness.staleDays}d old`, detail: "Open Data & Updates to refresh the Comprehensive Rules", color: "#b08a3e", sync: true });
     }
   }
 
@@ -69,24 +77,27 @@ export default function AppHeader({
         )}
       </span>
       <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
-        {warnings.map(w => (
-          <span
-            key={w.key}
-            title={w.detail}
-            style={{
-              border:`1px solid ${w.color}44`,
-              borderRadius:5,
-              color:w.color,
-              fontFamily,
-              fontSize:11,
-              padding:"5px 8px",
-              whiteSpace:"nowrap",
-              cursor:"default",
-            }}
-          >
-            ⚠ {w.text}
-          </span>
-        ))}
+        {warnings.map(w => {
+          const chipStyle = {
+            border:`1px solid ${w.color}44`,
+            borderRadius:5,
+            color:w.color,
+            fontFamily,
+            fontSize:11,
+            padding:"5px 8px",
+            whiteSpace:"nowrap",
+            background:"transparent",
+          };
+          return (w.sync && openUpdates) ? (
+            <button key={w.key} title={w.detail} onClick={openUpdates} style={{...chipStyle, cursor:"pointer"}}>
+              ⚠ {w.text} ↻
+            </button>
+          ) : (
+            <span key={w.key} title={w.detail} style={{...chipStyle, cursor:"default"}}>
+              ⚠ {w.text}
+            </span>
+          );
+        })}
         {modelStatus&&(
           <span
             title={`Last provider: ${lastProvider} | tier: ${lastTier} | model: ${lastModel}${failedCalls ? ` | failed calls: ${failedCalls}` : ""}`}
