@@ -14,6 +14,7 @@ import {
   crossDeckUsage,
   conflicts,
   collectionSummary,
+  cardOwnershipStatuses,
 } from "./collectionContext.js";
 
 function makeRow(oracleId, name, stacks, opts = {}) {
@@ -273,5 +274,35 @@ describe("collectionSummary", () => {
     const out = collectionSummary(c);
     expect(out.uniqueOracles).toBe(1);
     expect(out.topByCount).toHaveLength(1);
+  });
+});
+
+describe("cardOwnershipStatuses", () => {
+  const coll = {
+    cards: [
+      makeRow("o-sol", "Sol Ring", [{ finish: "nonfoil", quantity: 2 }]),
+      makeRow("o-rhystic", "Rhystic Study", [{ finish: "nonfoil", quantity: 0 }], { wishlist: true }),
+    ],
+  };
+
+  it("classifies owned / wishlist / missing by name (case-insensitive)", () => {
+    const out = cardOwnershipStatuses(coll, [], ["sol ring", "Rhystic Study", "Llanowar Elves"]);
+    expect(out["sol ring"].status).toBe("owned");
+    expect(out["Rhystic Study"].status).toBe("wishlist");
+    expect(out["Llanowar Elves"].status).toBe("missing");
+  });
+
+  it("counts how many decks an owned card is used in", () => {
+    const decks = [
+      { id: "d1", cards: [{ oracleId: "o-sol", quantity: 1 }] },
+      { id: "d2", cards: [{ oracleId: "o-sol", quantity: 1 }] },
+    ];
+    const out = cardOwnershipStatuses(coll, decks, ["Sol Ring"]);
+    expect(out["Sol Ring"]).toEqual({ status: "owned", inDecks: 2 });
+  });
+
+  it("tolerates an empty collection / missing names", () => {
+    expect(cardOwnershipStatuses({ cards: [] }, [], ["X"])).toEqual({ X: { status: "missing", inDecks: 0 } });
+    expect(cardOwnershipStatuses(null, null, null)).toEqual({});
   });
 });

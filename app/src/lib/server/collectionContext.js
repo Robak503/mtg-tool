@@ -127,6 +127,45 @@ export function conflicts(collection, decks) {
 }
 
 /**
+ * Per-card ownership status for a list of card NAMES (Karn's suggestions are by
+ * name, not printing). Resolves purely from the collection rows by name — owned
+ * (≥1 copy, non-wishlist), wishlist, or missing — and, for owned cards, how many
+ * saved decks already use them (via crossDeckUsage). Powers the ownership tags
+ * on Karn's Apply chips (G1).
+ *
+ * @param decks enriched decks ({ id, cards:[{oracleId, quantity}] }) or [] — only
+ *   used to compute `inDecks`. Pass [] to skip the deck join.
+ * @returns { [name]: { status: "owned"|"wishlist"|"missing", inDecks: number } }
+ */
+export function cardOwnershipStatuses(collection, decks, names) {
+  const byName = new Map(); // lowerName → { owned, wishlist, oracleId }
+  for (const row of collection?.cards || []) {
+    if (!row?.name) continue;
+    const k = row.name.toLowerCase();
+    const total = (row.stacks || []).reduce((s, st) => s + (st.quantity || 0), 0);
+    const e = byName.get(k) || { owned: false, wishlist: false, oracleId: row.oracleId || null };
+    if (row.wishlist) e.wishlist = true;
+    else if (total > 0) { e.owned = true; e.oracleId = row.oracleId || e.oracleId; }
+    if (!e.oracleId) e.oracleId = row.oracleId || null;
+    byName.set(k, e);
+  }
+  const usage = crossDeckUsage(collection, decks);
+  const out = {};
+  for (const name of names || []) {
+    const e = byName.get(String(name || "").toLowerCase());
+    if (e?.owned) {
+      const u = e.oracleId ? usage.get(e.oracleId) : null;
+      out[name] = { status: "owned", inDecks: u ? u.deckIds.length : 0 };
+    } else if (e?.wishlist) {
+      out[name] = { status: "wishlist", inDecks: 0 };
+    } else {
+      out[name] = { status: "missing", inDecks: 0 };
+    }
+  }
+  return out;
+}
+
+/**
  * High-level rollup for agent prompts and the Collection home stat block.
  *
  * lookupOracleColors(oracleId): optional callback returning an array of
