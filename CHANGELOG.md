@@ -8,6 +8,11 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **"Prep Arbiter Question" no longer opens an empty box.** Triggering it from the
+  deck view while another agent (e.g. Karn) was active switched you to Jace but
+  dropped the pre-filled rules question; the prompt now survives the switch.
+
 ## [0.16.0] - 2026-06-01
 
 ### Added

@@ -3,6 +3,10 @@ node_modules/
 .pnp
 .pnp.js
 
+# Local Claude Code tooling state (auto-created preview launch config, session
+# state). Not project config — kept local so it can't be committed by accident.
+.claude/
+
 # Next.js
 app/.next/
 app/out/
@@ -47,6 +51,10 @@ app/reports/
 app/data/decks.local.json
 app/data/chats.local.json
 app/data/agent-notes.local.json
+
+# First-launch sentinel — runtime marker, written to %APPDATA% in production and
+# to app/data/ in dev (CLAUDE.md §5 #7 / gotcha #7). Never commit it.
+app/data/.first-launch-marker.json
 
 # Local provider/cost telemetry (regenerable and private)
 app/data/model-calls.local.json
