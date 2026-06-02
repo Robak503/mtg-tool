@@ -267,4 +267,51 @@ describe("streaming idle timeouts (A4)", () => {
     expect(err.error).toMatch(/stalled/i);
     expect(result.errorOccurred).toMatch(/stalled/i);
   });
+
+  it("ollama: a model-too-big memory error falls back to the fast model with a notice (B3)", async () => {
+    const streaming = await loadStreamingModule(() => {
+      globalThis.fetch = vi.fn(async (_url, options) => {
+        const reqModel = JSON.parse(options.body).model;
+        // The big model can't load; the fast model answers.
+        if (reqModel !== "qwen2.5:7b") {
+          return {
+            ok: false,
+            status: 500,
+            json: async () => ({ error: "model requires more system memory (18.0 GiB) than is available (12.0 GiB)" }),
+          };
+        }
+        return { ok: true, status: 200, body: completingBody(['{"message":{"content":"ok"}}\n', '{"done":true,"eval_count":3}\n']) };
+      });
+    });
+    const controller = makeController();
+    const result = await streaming.streamOllamaMessages(
+      { messages: [{ role: "user", content: "go" }], ollamaModel: "qwen2.5:14b" },
+      controller
+    );
+    const notice = controller.events.find(e => e.type === "notice");
+    expect(notice).toBeTruthy();
+    expect(notice.notice).toMatch(/qwen2\.5:7b/);
+    expect(controller.events.some(e => e.type === "text_delta" && e.text === "ok")).toBe(true);
+    expect(controller.events.some(e => e.type === "error")).toBe(false);
+    expect(result.model).toBe("qwen2.5:7b"); // resolved to the fallback
+  });
+
+  it("ollama: does not show the raw VRAM string when the fast model itself OOMs", async () => {
+    const streaming = await loadStreamingModule(() => {
+      globalThis.fetch = vi.fn(async () => ({
+        ok: false,
+        status: 500,
+        json: async () => ({ error: "model requires more system memory than is available" }),
+      }));
+    });
+    const controller = makeController();
+    await streaming.streamOllamaMessages(
+      { messages: [{ role: "user", content: "go" }], ollamaModel: "qwen2.5:7b" }, // already the fast model
+      controller
+    );
+    const err = controller.events.find(e => e.type === "error");
+    expect(err).toBeTruthy();
+    expect(err.error).not.toMatch(/system memory|GiB/i); // scrubbed
+    expect(err.error).toMatch(/Not enough memory/i);
+  });
 });
