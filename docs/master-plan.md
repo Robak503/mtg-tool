@@ -146,7 +146,7 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 | A3 | Strict model-provider allowlist | ✅ v0.11.0 (#63) | `normalizeProvider()`; a typo must not route to Anthropic / spend credits. Arbiter stays Ollama-only. **PLAN A3** |
 | A4 | Full streaming idle timeouts | ✅ v0.11.0 (#67) | Timeout must cover the body stream, reset per chunk, abort upstream, clear `sending`. **PLAN A4** |
 | A5 | Invalidate server caches after data sync | ✅ v0.11.0 (#66) | Reset (or mtime-gate) `cardIndex`/`printingIndex`/rules/spellbook/salt singletons so in-app sync is visible without restart. **PLAN A5** |
-| A6 | Webview CSP | ⬜ P0 · verify live | CSP currently disabled. Measured policy; confirm app/server/art/updater all still load (bad policy blanks the window). **PLAN A6 = CEO D1** |
+| A6 | Webview CSP | ✅ [Unreleased] (#129) | Measured CSP via Next.js `headers()` on the server the webview loads from (single policy, browser-verifiable). `default-src 'self'`, inline script/style allowed (Next + inline keyframes), external script/connect/object/frame locked down; art proxy + IPC permitted. Verified live: renders + art loads + zero violations. **PLAN A6 = CEO D1** |
 
 ### B — Trust & agents feeling alive (P1, cheap)
 
@@ -165,7 +165,7 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 | C1 | Guided empty state + always-visible deck-context chip | ✅ v0.17.0 (#123) | "🔒 Locked to X" banner + a new "○ No deck locked" chip (one-click bind / pointer to load). The deck context is always visible. **CEO A1** |
 | C2 | "Ask now via API while your local model downloads" fast path | ✅ v0.17.0 (#123) | Ollama setup banner: while installing/pulling, "Chat now via API" + a one-line nudge. **CEO A2** |
 | C3 | Model-pull progress + ETA in the install wizard | ⬜ P1 · verify live | SSE already streams; surface percent/bytes. **CEO A3 / PLAN B2** |
-| C4 | Unified first-run onboarding wizard | 🟡 P0 | First-launch + Ollama wizards exist; the gap is one guided flow: local-only vs API → Ollama → model → data → first deck → optional collection → suggested action. **PLAN B2** |
+| C4 | Unified first-run onboarding wizard | ✅ [Unreleased] (#128) | `OnboardingWizard` — one guided first-launch flow: path (local vs API) → AI setup (Ollama install/pull or use API now) → get decks in (restore / import / skip). Writes the marker once; replaces the scattered banners. **PLAN B2** |
 
 ### D — Public-release readiness (P0–P1)
 
@@ -198,10 +198,10 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| G1 | "Build From Vault" mode | 🟡 v0.16.0 (#114/#115) | Collection-aware Karn (deck-overlap: owned + in-color upgrade pool, prefers owned adds) + a Vault **Build** tab that ranks owned commanders and opens a Karn build chat. Remaining: the full per-candidate tagging taxonomy (owned-available / owned-allocated / owned-diff-printing / wishlist / missing / proxy). **PLAN D1 / RSCH P0#2 / VAULT #20** |
+| G1 | "Build From Vault" mode | ✅ v0.16.0 (#114/#115) + [Unreleased] (#127) | Collection-aware Karn (deck-overlap) + Vault **Build** tab + per-candidate **ownership tags** on Karn's add chips (owned / "in N decks" / wishlist / missing) via `cardOwnershipStatuses` + `/api/collection/ownership`. **PLAN D1 / RSCH P0#2 / VAULT #20** |
 | G2 | Shopping-list export | ✅ v0.12.0 (#77) | In-app list exists (v0.8); export to CSV / text / Moxfield / Archidekt; toggles for no-basics, cheapest printing, include set+price. **PLAN D2 / RSCH P0#5 / VAULT #17** |
 | G3 | Collection export | ✅ v0.12.0 (#76/#85) | MTG Tool JSON / CSV / Deckbox / Moxfield-Archidekt-compatible / selected-cards. Escape hatch + backup. **PLAN D4 / RSCH P0#7 / VAULT #17** |
-| G4 | Collection update / merge import | ⬜ P0 | CSV import exists; add update modes (add-only / merge-qty / replace-location / reconcile / mark-absent) with a diff preview. **PLAN D5 / RSCH P0#6** |
+| G4 | Collection update / merge import | ✅ [Unreleased] (#126) | CSV import now has update modes — merge / add-only / replace / reconcile (mark-absent) — with a dry-run change preview (new / qty-changed / removed) before commit. **PLAN D5 / RSCH P0#6** |
 | G5 | Physical location tracking (binders/boxes) | ⬜ P1 | Location type + name + page + slot; deck completion says "pull from Binder A / in Deck B / missing." **PLAN D3 / RSCH P1#6 / VAULT #13** |
 | G6 | Scanner-CSV compatibility | ⬜ P1 | Import ManaBox / Delver Lens / Dragon Shield / TCGplayer CSV (auto-detect) → review → merge. No camera. **PLAN D6 / RSCH #8** |
 

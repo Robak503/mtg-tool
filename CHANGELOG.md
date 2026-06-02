@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-06-02
+
 ### Security
 - **Content-Security-Policy is now enforced.** The app window previously ran with
   no CSP. It now restricts content to the app itself — no external scripts,
