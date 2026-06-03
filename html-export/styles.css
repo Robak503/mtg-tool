@@ -1,0 +1,23 @@
+/* MTG Tool — globals (app/src/app/globals.css), shared by every exported screen.
+   The app styles everything else with inline style attributes, so each screen's
+   .html file carries its own visual styling; this file is just the resets. */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  background: #060608;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
