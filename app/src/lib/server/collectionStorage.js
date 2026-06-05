@@ -20,7 +20,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { dataDir, dataPath } from "./paths.js";
+import { profilePath } from "./paths.js";
 
 const COLLECTION_FILE_NAME = "collection.json";
 export const CURRENT_VERSION = 1;
@@ -47,12 +47,12 @@ export function emptyCollection() {
 }
 
 function collectionFilePath() {
-  return dataPath(COLLECTION_FILE_NAME);
+  return profilePath(COLLECTION_FILE_NAME);
 }
 
 function brokenBackupPath() {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return dataPath(`collection.broken-${stamp}.json`);
+  return profilePath(`collection.broken-${stamp}.json`);
 }
 
 export async function loadCollection() {
@@ -104,7 +104,7 @@ export async function loadCollection() {
 }
 
 export async function writeCollectionAtomic(payload) {
-  await fs.mkdir(dataDir(), { recursive: true });
+  await fs.mkdir(path.dirname(collectionFilePath()), { recursive: true });
 
   const normalized = {
     version: CURRENT_VERSION,

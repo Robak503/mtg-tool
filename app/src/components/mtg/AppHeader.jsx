@@ -1,9 +1,11 @@
 /**
  * AppHeader — the top header bar: the active-agent indicator, the Arbiter
  * Fast vs Full toggle, model tier / status + knowledge status, export/clear
- * chat, and the right-panel show/hide toggle. Style props (cfg, ...) follow
- * the vocabulary documented in MTGAssistant.jsx.
+ * chat, the right-panel show/hide toggle, and the profile switcher. Style props
+ * (cfg, ...) follow the vocabulary documented in MTGAssistant.jsx.
  */
+import ProfileMenu from "./ProfileMenu";
+
 export default function AppHeader({
   agent,
   cfg,
@@ -26,6 +28,12 @@ export default function AppHeader({
   pb,
   colors,
   fontFamily,
+  profiles,
+  activeProfile,
+  activeProfileId,
+  onSwitchProfile,
+  onManageProfiles,
+  profileColors,
 }) {
   const { BG2, LINE } = colors;
   const localCalls = modelStatus?.providers?.ollama?.total || 0;
@@ -77,6 +85,17 @@ export default function AppHeader({
         )}
       </span>
       <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
+        {!mobile && profiles?.length > 0 && onSwitchProfile && (
+          <ProfileMenu
+            activeProfile={activeProfile}
+            profiles={profiles}
+            activeId={activeProfileId}
+            onSwitch={onSwitchProfile}
+            onManage={onManageProfiles}
+            colors={profileColors}
+            fontFamily={fontFamily}
+          />
+        )}
         {warnings.map(w => {
           const chipStyle = {
             border:`1px solid ${w.color}44`,

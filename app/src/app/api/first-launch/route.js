@@ -26,7 +26,8 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { dataPath } from "../../../lib/server/paths";
+import { dataPath, profilePath } from "../../../lib/server/paths";
+import { ensureMigrated } from "../../../lib/server/profiles";
 
 const KEY_DECK_FILE = "decks.local.json";
 const MARKER_FILE = ".first-launch-marker.json";
@@ -35,9 +36,17 @@ const MARKER_FILE = ".first-launch-marker.json";
 // Globs aren't used here — we explicitly enumerate to keep the surface
 // area small and predictable. Anything not in this list (e.g. bulk
 // Scryfall data) stays where it is.
-const LOCAL_JSON_FILES = [
+//
+// Split by namespace: per-profile user data lands in the ACTIVE profile so the
+// imported decks/chats actually show up (post-migration, routes read from
+// data/profiles/<id>/, not the flat root); machine-wide reference + dev files
+// stay at the data root.
+const PROFILE_JSON_FILES = [
   "decks.local.json",
   "chats.local.json",
+  "agent-notes.local.json",
+];
+const GLOBAL_JSON_FILES = [
   "model-calls.local.json",
   "spellbook-meta.local.json",
   "edhrec-salt-meta.local.json",
@@ -45,10 +54,10 @@ const LOCAL_JSON_FILES = [
   "spellbook-cards.local.json",
   "spellbook-index.local.json",
   "edhrec-salt.local.json",
-  "agent-notes.local.json",
 ];
 
-const COPY_DIRS = ["feedback", "games", "agent-notes", "backups"];
+const PROFILE_DIRS = ["games", "agent-notes", "backups"];
+const GLOBAL_DIRS = ["feedback"];
 
 async function pathExists(p) {
   try {
@@ -191,17 +200,35 @@ export async function POST(req) {
     );
   }
 
+  // Make sure the active-profile pointer exists so per-profile imports land in
+  // a real profile folder rather than the (now-shadowed) flat data root.
+  ensureMigrated();
   await fs.mkdir(dst, { recursive: true });
 
   const report = { copied: [], skipped: [], errors: [] };
-  for (const name of LOCAL_JSON_FILES) {
+  // Per-profile user data → active profile; machine-wide data → data root.
+  for (const name of PROFILE_JSON_FILES) {
+    try {
+      await copyFileIfExists(path.join(absSource, name), profilePath(name), report);
+    } catch (e) {
+      report.errors.push(`${name}: ${e.message || e}`);
+    }
+  }
+  for (const name of GLOBAL_JSON_FILES) {
     try {
       await copyFileIfExists(path.join(absSource, name), path.join(dst, name), report);
     } catch (e) {
       report.errors.push(`${name}: ${e.message || e}`);
     }
   }
-  for (const dir of COPY_DIRS) {
+  for (const dir of PROFILE_DIRS) {
+    try {
+      await copyDirIfExists(path.join(absSource, dir), profilePath(dir), report);
+    } catch (e) {
+      report.errors.push(`${dir}/: ${e.message || e}`);
+    }
+  }
+  for (const dir of GLOBAL_DIRS) {
     try {
       await copyDirIfExists(path.join(absSource, dir), path.join(dst, dir), report);
     } catch (e) {

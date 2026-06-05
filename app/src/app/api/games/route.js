@@ -16,10 +16,11 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { dataPath } from "../../../lib/server/paths";
+import { profilePath } from "../../../lib/server/paths";
 import { sanitiseId } from "../../../lib/server/sanitiseId.js";
 
-const GAMES_DIR = dataPath("games");
+// Per-profile: resolved per-call (active profile can change between requests).
+const GAMES_DIR = () => profilePath("games");
 
 function envNumber(name, fallback) {
   const raw = process.env[name];
@@ -60,7 +61,7 @@ function isWithinAgeCap(entry) {
 async function pruneGames() {
   let files;
   try {
-    files = await fs.readdir(GAMES_DIR);
+    files = await fs.readdir(GAMES_DIR());
   } catch (error) {
     if (error.code === "ENOENT") return;
     throw error;
@@ -70,7 +71,7 @@ async function pruneGames() {
   const byDeck = new Map();
   for (const file of files) {
     if (!file.endsWith(".json") || file.endsWith(".tmp.json")) continue;
-    const fullPath = path.join(GAMES_DIR, file);
+    const fullPath = path.join(GAMES_DIR(), file);
     try {
       const raw = await fs.readFile(fullPath, "utf8");
       const parsed = JSON.parse(raw);
@@ -123,9 +124,9 @@ export async function POST(request) {
   const entry = { ...result, deckId, savedAt };
 
   try {
-    await fs.mkdir(GAMES_DIR, { recursive: true });
+    await fs.mkdir(GAMES_DIR(), { recursive: true });
     const filename = generateFilename(deckId, savedAt);
-    const filePath = path.join(GAMES_DIR, filename);
+    const filePath = path.join(GAMES_DIR(), filename);
     await atomicWriteJson(filePath, entry);
     // Prune in the background — don't make the response wait. If the prune
     // fails it's not user-visible, and the next save will try again.
@@ -153,7 +154,7 @@ export async function GET(request) {
 
   let files;
   try {
-    files = await fs.readdir(GAMES_DIR);
+    files = await fs.readdir(GAMES_DIR());
   } catch (error) {
     if (error.code === "ENOENT") return Response.json({ entries: [], count: 0 });
     return Response.json({ error: error.message }, { status: 500 });
@@ -163,7 +164,7 @@ export async function GET(request) {
   for (const file of files) {
     if (!file.endsWith(".json") || file.endsWith(".tmp.json")) continue;
     try {
-      const raw = await fs.readFile(path.join(GAMES_DIR, file), "utf8");
+      const raw = await fs.readFile(path.join(GAMES_DIR(), file), "utf8");
       const parsed = JSON.parse(raw);
       if (sanitisedFilter && parsed?.deckId !== sanitisedFilter) continue;
       entries.push({ filename: file, ...parsed });

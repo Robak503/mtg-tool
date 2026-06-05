@@ -14,8 +14,9 @@
 export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
+import path from "node:path";
 
-import { appPath, dataDir, dataPath } from "../../../../lib/server/paths.js";
+import { dataPath, profilePath } from "../../../../lib/server/paths.js";
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
 import { loadWatchlist } from "../../../../lib/server/watchlistStorage.js";
 import { loadAlerts, writeAlertsAtomic } from "../../../../lib/server/priceAlertStorage.js";
@@ -32,13 +33,11 @@ import {
   compactHistory,
 } from "../../../../lib/server/collectionPrices.js";
 
-// Read path: dataPath() falls back to a bundled seed (resources/data) on a
-// fresh install so day-1 Finance has a baseline. Write path: ALWAYS the
-// writable data dir — never the read-only bundle — so the first snapshot merges
-// the seed into AppData instead of trying to write into resources (which fails
-// on a packaged install). (#4 groundwork.)
-const HISTORY_FILE = () => dataPath("collection-prices.jsonl");
-const HISTORY_WRITE_FILE = () => appPath("data", "collection-prices.jsonl");
+// Per-profile price history. Write always targets the active profile's
+// collection-prices.jsonl; read falls back to the bundled global seed (see
+// readHistory) when the profile has no history yet.
+const HISTORY_FILE = () => profilePath("collection-prices.jsonl");
+const HISTORY_WRITE_FILE = () => profilePath("collection-prices.jsonl");
 
 // Top EDHREC staples to track daily (beyond owned + grails) so the Finance
 // section's "worth getting" movers have a candidate universe to chart.
@@ -55,13 +54,21 @@ async function readHistory() {
   try {
     return parseHistory(await fs.readFile(HISTORY_FILE(), "utf8"));
   } catch (error) {
-    if (error.code === "ENOENT") return [];
-    throw error;
+    if (error.code !== "ENOENT") throw error;
+  }
+  // No per-profile history yet: seed from the bundled global baseline of
+  // staple prices (resources/data via MTG_REFERENCE_DIR) so day-1 Finance has
+  // a value line. These are universal market prices, not personal data; the
+  // merged result is then written into the active profile by the caller.
+  try {
+    return parseHistory(await fs.readFile(dataPath("collection-prices.jsonl"), "utf8"));
+  } catch {
+    return [];
   }
 }
 
 async function writeHistoryAtomic(entries) {
-  await fs.mkdir(dataDir(), { recursive: true });
+  await fs.mkdir(path.dirname(HISTORY_WRITE_FILE()), { recursive: true });
   const target = HISTORY_WRITE_FILE();
   const tmp = `${target}.tmp.${process.pid}.${Date.now()}`;
   await fs.writeFile(tmp, serializeHistory(entries), "utf8");

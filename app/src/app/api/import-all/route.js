@@ -16,7 +16,7 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { appPath } from "../../../lib/server/paths.js";
+import { appPath, profilePath } from "../../../lib/server/paths.js";
 import {
   validateBackupBundle,
   selectRestoreSections,
@@ -49,11 +49,11 @@ export async function POST(request) {
   try {
     // I3 — back up the current files before overwriting anything.
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const backupDir = appPath("data", "backups", `pre-restore-${stamp}`);
+    const backupDir = profilePath("backups", `pre-restore-${stamp}`);
     let backedUp = 0;
     for (const { file } of selected) {
       try {
-        const current = await fs.readFile(appPath("data", file), "utf8");
+        const current = await fs.readFile(profilePath(file), "utf8");
         await fs.mkdir(backupDir, { recursive: true });
         await fs.writeFile(path.join(backupDir, file), current, "utf8");
         backedUp += 1;
@@ -65,7 +65,7 @@ export async function POST(request) {
     // Overwrite each section atomically.
     const restored = [];
     for (const { section, file, data } of selected) {
-      await atomicWriteJson(appPath("data", file), data);
+      await atomicWriteJson(profilePath(file), data);
       restored.push(section);
     }
 

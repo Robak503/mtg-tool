@@ -28,7 +28,7 @@
  */
 
 import path from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 function detectAppRoot() {
   const envOverride = process.env.MTG_APP_ROOT;
@@ -110,6 +110,59 @@ export function dataPath(...parts) {
     if (existsSync(bundled)) return bundled;
   }
   return live;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Local profiles (multi-user). Each profile owns a private data namespace under
+   data/profiles/<id>/ for the writable user data (decks, chats, collection,
+   games). Reference data (Scryfall/rules/spellbook) stays at the data/ root and
+   is shared across profiles — keep using dataPath() for those.
+
+   The active profile is a pointer in data/profiles.json (the registry). paths.js
+   only READS it; profiles.js owns writes + migration. profilePath() falls back
+   to the legacy flat data/ location when no registry exists yet, so the app
+   still works in the brief window before first-run migration runs.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/** Path to the profiles registry (global, one per install). */
+export function profilesRegistryPath() {
+  return path.join(detectAppRoot(), "data", "profiles.json");
+}
+
+function readRegistrySafe() {
+  try {
+    const p = profilesRegistryPath();
+    if (!existsSync(p)) return null;
+    const reg = JSON.parse(readFileSync(p, "utf8"));
+    if (!reg || !Array.isArray(reg.profiles) || reg.profiles.length === 0) return null;
+    return reg;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Id of the active profile, or null when no registry exists yet (pre-migration).
+ * Falls back to the first profile if the stored activeProfileId is stale.
+ */
+export function activeProfileId() {
+  const reg = readRegistrySafe();
+  if (!reg) return null;
+  if (reg.activeProfileId && reg.profiles.some(p => p.id === reg.activeProfileId)) {
+    return reg.activeProfileId;
+  }
+  return reg.profiles[0]?.id || null;
+}
+
+/**
+ * Resolve a path inside the active profile's data namespace. Before the
+ * registry exists, falls back to the legacy flat data/ location so reads keep
+ * working until migration moves the files under profiles/<id>/.
+ */
+export function profilePath(...parts) {
+  const id = activeProfileId();
+  if (id) return path.join(detectAppRoot(), "data", "profiles", id, ...parts);
+  return path.join(detectAppRoot(), "data", ...parts);
 }
 
 /** Resolve a path inside the mtg-judge codex directory. */

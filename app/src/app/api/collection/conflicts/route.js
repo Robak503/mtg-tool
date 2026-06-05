@@ -12,14 +12,14 @@ export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
 
-import { dataPath } from "../../../../lib/server/paths.js";
+import { profilePath } from "../../../../lib/server/paths.js";
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
 import { conflicts as computeConflicts } from "../../../../lib/server/collectionContext.js";
 import { lookupCard } from "../../../../lib/server/cardIndex.js";
 
 async function loadDecks() {
   try {
-    const raw = await fs.readFile(dataPath("decks.local.json"), "utf8");
+    const raw = await fs.readFile(profilePath("decks.local.json"), "utf8");
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : (parsed.decks || []);
   } catch (error) {

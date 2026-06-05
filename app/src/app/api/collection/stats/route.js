@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
 
-import { dataPath } from "../../../../lib/server/paths.js";
+import { profilePath } from "../../../../lib/server/paths.js";
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
 import { collectionSummary } from "../../../../lib/server/collectionContext.js";
 import { enrichCollectionPrices } from "../../../../lib/server/priceResolution.js";
@@ -55,7 +55,7 @@ function buildBreakdowns(collection) {
 
 async function loadPriceHistory() {
   try {
-    return parseHistory(await fs.readFile(dataPath("collection-prices.jsonl"), "utf8"));
+    return parseHistory(await fs.readFile(profilePath("collection-prices.jsonl"), "utf8"));
   } catch (error) {
     if (error.code === "ENOENT") return [];
     throw error;

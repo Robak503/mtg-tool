@@ -13,6 +13,13 @@ import os from "node:os";
 
 let tmpDir, originalCwd, route;
 
+// The roast endpoint runs the profiles migration, so the collection + roast log
+// live under data/profiles/<activeId>/. Resolve that dir from the registry.
+async function activeProfileDir() {
+  const reg = JSON.parse(await fs.readFile(path.join(tmpDir, "data", "profiles.json"), "utf8"));
+  return path.join(tmpDir, "data", "profiles", reg.activeProfileId);
+}
+
 async function loadRoute() {
   vi.resetModules();
   vi.doMock("../../../../lib/server/modelProvider.js", () => ({
@@ -99,7 +106,7 @@ describe("POST /api/tibalt/roast-collection", () => {
     ]);
     route = await loadRoute();
     await route.POST(new Request("http://localhost/api/tibalt/roast-collection", { method: "POST" }));
-    const raw = await fs.readFile(path.join(tmpDir, "data", "collection-roasts.json"), "utf8");
+    const raw = await fs.readFile(path.join(await activeProfileDir(), "collection-roasts.json"), "utf8");
     const parsed = JSON.parse(raw);
     expect(parsed.roasts).toHaveLength(1);
     expect(parsed.roasts[0].roast).toMatch(/Mocked Tibalt roast/);

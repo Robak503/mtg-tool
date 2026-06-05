@@ -13,10 +13,11 @@
  */
 
 import fs from "node:fs/promises";
+import path from "node:path";
 
-import { dataDir, dataPath } from "./paths.js";
+import { profilePath } from "./paths.js";
 
-const FILE = () => dataPath("watchlist.json");
+const FILE = () => profilePath("watchlist.json");
 
 function normalize(payload) {
   const cards = Array.isArray(payload?.cards) ? payload.cards : [];
@@ -50,7 +51,7 @@ export async function loadWatchlist() {
 
 export async function writeWatchlistAtomic(payload) {
   const normalized = normalize(payload);
-  await fs.mkdir(dataDir(), { recursive: true });
+  await fs.mkdir(path.dirname(FILE()), { recursive: true });
   const target = FILE();
   const tmp = `${target}.tmp.${process.pid}.${Date.now()}`;
   await fs.writeFile(tmp, JSON.stringify(normalized, null, 2), "utf8");

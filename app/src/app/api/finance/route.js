@@ -18,7 +18,7 @@ export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
 
-import { dataPath } from "../../../lib/server/paths.js";
+import { profilePath } from "../../../lib/server/paths.js";
 import { loadCollection } from "../../../lib/server/collectionStorage.js";
 import { loadWatchlist } from "../../../lib/server/watchlistStorage.js";
 import { loadAlerts } from "../../../lib/server/priceAlertStorage.js";
@@ -38,7 +38,7 @@ const MOVER_CAP = 12;
 
 async function loadHistory() {
   try {
-    return parseHistory(await fs.readFile(dataPath("collection-prices.jsonl"), "utf8"));
+    return parseHistory(await fs.readFile(profilePath("collection-prices.jsonl"), "utf8"));
   } catch (error) {
     if (error.code === "ENOENT") return [];
     throw error;
@@ -47,7 +47,7 @@ async function loadHistory() {
 
 async function loadDecks() {
   try {
-    const parsed = JSON.parse(await fs.readFile(dataPath("decks.local.json"), "utf8"));
+    const parsed = JSON.parse(await fs.readFile(profilePath("decks.local.json"), "utf8"));
     return Array.isArray(parsed) ? parsed : (parsed.decks || []);
   } catch (error) {
     if (error.code === "ENOENT") return [];

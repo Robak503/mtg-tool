@@ -4,6 +4,11 @@ out
 .env.local
 *.log
 data/*.local.json
+# Local multi-user profile runtime data — per-user decks/chats/collection live
+# here and must never be committed (contains personal deck libraries).
+data/profiles.json
+data/profiles/
+data/.pre-profiles-backup/
 # Scryfall bulk data files (large, regenerable via npm run sync:scryfall-bulk)
 # tier-manifest.json is a small metadata file and is committed
 data/scryfall-bulk/*.json

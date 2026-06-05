@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
 
-import { dataPath } from "../../../../lib/server/paths.js";
+import { profilePath } from "../../../../lib/server/paths.js";
 import { parseHistory, cardPriceSeries } from "../../../../lib/server/collectionPrices.js";
 
 export async function GET(request) {
@@ -21,7 +21,7 @@ export async function GET(request) {
     }
     let history = [];
     try {
-      history = parseHistory(await fs.readFile(dataPath("collection-prices.jsonl"), "utf8"));
+      history = parseHistory(await fs.readFile(profilePath("collection-prices.jsonl"), "utf8"));
     } catch (e) {
       if (e.code !== "ENOENT") throw e;
     }

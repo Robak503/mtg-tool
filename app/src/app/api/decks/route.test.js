@@ -2,9 +2,9 @@
  * Tests for /api/decks — atomic, corrupt-resilient, race-safe deck store.
  *
  * tmpdir + process.chdir so paths.js resolves the deck file under the temp
- * tree. This works because the route now resolves its paths lazily (the old
- * eager `const DECK_FILE = dataPath(...)` froze the path at import and ignored
- * the changed cwd — a bug this also covers).
+ * tree. The route now runs the profiles migration on each request and resolves
+ * its paths lazily, so user decks live under data/profiles/<activeId>/ — the
+ * helpers below read the registry to find that path.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,7 +25,11 @@ function postReq(body) {
 }
 
 const dataDirPath = () => path.join(tmpDir, "data");
-const deckFilePath = () => path.join(dataDirPath(), "decks.local.json");
+
+async function activeProfileDir() {
+  const reg = JSON.parse(await fs.readFile(path.join(dataDirPath(), "profiles.json"), "utf8"));
+  return path.join(dataDirPath(), "profiles", reg.activeProfileId);
+}
 
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "decks-test-"));
@@ -42,26 +46,29 @@ afterEach(async () => {
 });
 
 describe("/api/decks", () => {
-  it("GET returns seed decks on a fresh tree without throwing", async () => {
+  it("GET returns the active profile's decks without throwing (empty on a fresh tree)", async () => {
     const resp = await route.GET();
     expect(resp.status).toBe(200);
     const body = await resp.json();
     expect(Array.isArray(body.decks)).toBe(true);
-    expect(body.decks.length).toBeGreaterThan(0); // seeded
+    // A fresh tree migrates to a single empty default profile — no auto-seeding
+    // of the bundled personal deck library into a new namespace.
+    expect(body.decks.length).toBe(0);
   });
 
-  it("POST persists a deck atomically (read back, no stray .tmp file)", async () => {
+  it("POST persists a deck atomically into the active profile (read back, no stray .tmp file)", async () => {
     const deck = { name: "Atomic Test Deck", memory: { owner: "Colton" }, cards: [] };
     const resp = await route.POST(postReq({ decks: [deck] }));
     expect(resp.status).toBe(200);
     const saved = await resp.json();
     expect(saved.decks.some(d => d.name === "Atomic Test Deck")).toBe(true);
 
-    const onDisk = JSON.parse(await fs.readFile(deckFilePath(), "utf8"));
+    const dir = await activeProfileDir();
+    const onDisk = JSON.parse(await fs.readFile(path.join(dir, "decks.local.json"), "utf8"));
     expect(onDisk.decks.some(d => d.name === "Atomic Test Deck")).toBe(true);
 
     // temp file was renamed away, not left behind
-    const files = await fs.readdir(dataDirPath());
+    const files = await fs.readdir(dir);
     expect(files.some(f => f.includes(".tmp"))).toBe(false);
   });
 
@@ -71,7 +78,10 @@ describe("/api/decks", () => {
   });
 
   it("recovers from a corrupt deck file (backs it up, no 500)", async () => {
-    await fs.writeFile(deckFilePath(), "{ this is not valid json", "utf8");
+    // Trigger migration so the active profile + its deck file exist.
+    await route.GET();
+    const dir = await activeProfileDir();
+    await fs.writeFile(path.join(dir, "decks.local.json"), "{ this is not valid json", "utf8");
 
     const resp = await route.GET();
     expect(resp.status).toBe(200); // not a 500
@@ -79,7 +89,7 @@ describe("/api/decks", () => {
     const body = await resp.json();
     expect(Array.isArray(body.decks)).toBe(true);
 
-    const files = await fs.readdir(dataDirPath());
+    const files = await fs.readdir(dir);
     expect(files.some(f => f.startsWith("decks.local.broken-"))).toBe(true);
   });
 });

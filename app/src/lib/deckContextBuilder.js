@@ -94,18 +94,23 @@ function deckMatchesText(deck, normalizedText) {
  * Build a system-prompt context block for the saved deck library.
  * Returns { context: string, hasDeckReference: boolean, hasFullDeckContext: boolean }.
  */
-export function buildSavedDeckContext(savedDecks, targetAgent, conversationText, activeDeckId) {
+export function buildSavedDeckContext(savedDecks, targetAgent, conversationText, activeDeckId, defaultOwner = "Colton") {
   if (!["jace", "karn", "tibalt"].includes(targetAgent) || !savedDecks?.length) {
     return { context: "", hasDeckReference: false, hasFullDeckContext: false };
   }
 
+  // The fallback owner is the active profile's name — so an ownerless deck in
+  // Joe's profile reads as "Joe", and "my decks" matches Joe's decks, not the
+  // hardcoded original owner.
+  const ownerFallback = (defaultOwner || "Colton").trim() || "Colton";
+  const normalizedDefaultOwner = normalizeSearchText(ownerFallback);
   const normalizedText = normalizeSearchText(conversationText);
-  const owners = [...new Set(savedDecks.map(deck => deck.memory?.owner || "Colton"))];
+  const owners = [...new Set(savedDecks.map(deck => deck.memory?.owner || ownerFallback))];
   const mentionedOwners = owners.filter(owner => {
     const normalizedOwner = normalizeSearchText(owner);
     if (!normalizedOwner) return false;
     if (normalizedText.includes(normalizedOwner)) return true;
-    return normalizedOwner === "colton" && /\b(my|mine|personal)\b/.test(normalizedText);
+    return normalizedOwner === normalizedDefaultOwner && /\b(my|mine|personal)\b/.test(normalizedText);
   });
 
   const asksForSavedDecks = /\b(saved|database|library|deck file|deck files|all decks|all of the decks|their decks|his decks|her decks)\b/.test(normalizedText);
@@ -114,7 +119,7 @@ export function buildSavedDeckContext(savedDecks, targetAgent, conversationText,
   const summaryLines = savedDecks.map(deck => {
     const memory = deck.memory || {};
     return [
-      `- ${memory.owner || "Colton"} :: ${deck.name || "Unnamed"}`,
+      `- ${memory.owner || ownerFallback} :: ${deck.name || "Unnamed"}`,
       `Commander: ${deckCommander(deck)}`,
       `${deckMainCount(deck)} deck cards${deckTokenCount(deck) ? `, ${deckTokenCount(deck)} token entries saved separately` : ""}`,
       memory.tags ? `Tags: ${memory.tags}` : "",
@@ -125,7 +130,7 @@ export function buildSavedDeckContext(savedDecks, targetAgent, conversationText,
   let matchedDecks = savedDecks.filter(deck => deckMatchesText(deck, normalizedText));
   if (mentionedOwners.length) {
     const ownerSet = new Set(mentionedOwners.map(owner => normalizeSearchText(owner)));
-    matchedDecks = savedDecks.filter(deck => ownerSet.has(normalizeSearchText(deck.memory?.owner || "Colton")));
+    matchedDecks = savedDecks.filter(deck => ownerSet.has(normalizeSearchText(deck.memory?.owner || ownerFallback)));
   }
 
   if (!matchedDecks.length && asksForSavedDecks && asksForRoastSet && mentionedOwners.length === 0) {
@@ -147,7 +152,7 @@ export function buildSavedDeckContext(savedDecks, targetAgent, conversationText,
     lines.push("Use these full saved deck lists as concrete deck context for this conversation. Token sections are not normal Commander deck slots.");
     for (const deck of fullDecks) {
       lines.push("");
-      lines.push(`### ${deck.memory?.owner || "Colton"} :: ${deck.name || "Unnamed"}`);
+      lines.push(`### ${deck.memory?.owner || ownerFallback} :: ${deck.name || "Unnamed"}`);
       lines.push(serializeDeckMemory(deck));
       lines.push("");
       lines.push(serializeDeck(deck.cards || []));

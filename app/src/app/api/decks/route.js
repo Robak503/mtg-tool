@@ -3,32 +3,18 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { DECK_SEEDS } from "../../../data/deckSeeds";
-import { buildSeedDeck, normalizeDeck } from "../../../lib/deckMemory";
-import { dataDir, dataPath } from "../../../lib/server/paths";
+import { normalizeDeck } from "../../../lib/deckMemory";
+import { profilePath } from "../../../lib/server/paths";
+import { ensureMigrated } from "../../../lib/server/profiles";
 
 // Resolve paths per-call (not captured at import) so a changed MTG_APP_ROOT
 // is always honored — the packaged .exe sets it, and tests change it between
 // cases. paths.js is the single source of truth for on-disk locations.
 function deckFile() {
-  return dataPath("decks.local.json");
+  return profilePath("decks.local.json");
 }
 function backupDir() {
-  return dataPath("backups");
-}
-
-function mergeSeedDecks(decks, seedDecks) {
-  const merged = [...decks];
-
-  for (const seed of seedDecks) {
-    const index = merged.findIndex(deck =>
-      (deck.memory?.owner || "Colton") === seed.memory.owner && deck.name === seed.name
-    );
-
-    if (index === -1) merged.push(seed);
-  }
-
-  return merged;
+  return profilePath("backups");
 }
 
 async function readDeckFile() {
@@ -51,7 +37,7 @@ async function readDeckFile() {
     // seed decks re-merge on this same request, so the user isn't left blank.
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     try {
-      await fs.rename(target, dataPath(`decks.local.broken-${stamp}.json`));
+      await fs.rename(target, profilePath(`decks.local.broken-${stamp}.json`));
     } catch {
       // If the rename fails (permissions, file in use), leave the broken file
       // alone — the empty list still loads and the next write replaces it.
@@ -67,7 +53,7 @@ let writeChain = Promise.resolve();
 
 async function writeDeckFile(decks) {
   const run = writeChain.then(async () => {
-    await fs.mkdir(dataDir(), { recursive: true });
+    await fs.mkdir(path.dirname(deckFile()), { recursive: true });
     const payload = {
       version: 1,
       updatedAt: new Date().toISOString(),
@@ -109,14 +95,14 @@ async function createBackup(reason) {
 
 export async function GET() {
   try {
-    const seedDecks = DECK_SEEDS.map(buildSeedDeck);
-    const storedDecks = await readDeckFile();
-    const decks = mergeSeedDecks(storedDecks, seedDecks);
-
-    if (!storedDecks.length || decks.length !== storedDecks.length) {
-      await writeDeckFile(decks);
-    }
-
+    // Run the one-time profiles migration to completion FIRST. ensureMigrated()
+    // is fully synchronous + idempotent, so the first request to call it (this
+    // route or /api/profiles) finishes the migration atomically before Node
+    // yields — no route ever reads the legacy flat deck file via profilePath's
+    // pre-migration fallback and writes it into the active profile (the race
+    // that would clobber a freshly-split profile on upgrade).
+    ensureMigrated();
+    const decks = await readDeckFile();
     return Response.json({ decks, path: deckFile() });
   } catch (error) {
     return Response.json({ error: error.message || "Could not load deck file." }, { status: 500 });
@@ -125,13 +111,15 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    ensureMigrated();
     const body = await request.json();
     if (!Array.isArray(body.decks)) {
       return Response.json({ error: "Request body must include a decks array." }, { status: 400 });
     }
 
-    const seedDecks = DECK_SEEDS.map(buildSeedDeck);
-    const decks = mergeSeedDecks(body.decks.map(normalizeDeck), seedDecks);
+    // Save exactly what the client sends — no seed re-merge (that would re-add
+    // the shared seed library to whatever profile is active).
+    const decks = body.decks.map(normalizeDeck);
     const backupPath = body.createBackup ? await createBackup(body.reason || "manual") : null;
     const saved = await writeDeckFile(decks);
 
