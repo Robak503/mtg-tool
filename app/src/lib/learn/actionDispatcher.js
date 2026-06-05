@@ -35,6 +35,7 @@ import {
 } from "./gameState.js";
 import { passPriority } from "./gameEngine.js";
 import { manaSources, planPayment } from "./manaModel.js";
+import { parseSpellEffect, resolveSpellEffect } from "./spellEffects.js";
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -220,17 +221,25 @@ function applyCastSpell(state, action) {
   const handIndex = player.hand.findIndex(c => c.id === action.cardId);
   const nextHand = [...player.hand.slice(0, handIndex), ...player.hand.slice(handIndex + 1)];
 
-  // 4. Build the stack object. The default resolver puts permanent spells on
-  // the battlefield and treats instants/sorceries as no-op-with-log.
+  // 4. Build the stack object. An instant/sorcery with a recognized effect
+  // (damage/destroy/draw) resolves that effect against the chosen targets;
+  // permanents and unrecognized spells fall back to the default resolver
+  // (permanent enters the battlefield, else no-op-with-log).
+  const effect = action.effect || parseSpellEffect(card);
+  const targets = action.targets || [];
+  const onResolve = effect
+    ? (s) => resolveSpellEffect(s, { effect, controller: action.playerId, targets })
+    : defaultSpellResolver(card, action.playerId);
   const stackObject = createStackObject({
     kind: "spell",
     source: card,
     controller: action.playerId,
-    targets: action.targets || [],
+    targets,
     cost: action.cost,
     payload: {
       cardId: card.id,
-      onResolve: defaultSpellResolver(card, action.playerId),
+      effect: effect || null,
+      onResolve,
     },
   });
 

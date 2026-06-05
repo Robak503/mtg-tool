@@ -132,10 +132,16 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
       const costString = formatCost(action.cost);
       const oracle = card?.oracle || card?.oracle_text || "";
       const oracleSnippet = oracle ? ` (${truncate(oracle, 80)})` : "";
+      const tgt = action.targets?.[0];
+      const targeting = tgt
+        ? (tgt.type === "player"
+          ? ` targeting ${tgt.id === "user" ? "you" : "the opponent"}`
+          : ` targeting [[${tgt.name || "a creature"}]]`)
+        : "";
       if (difficulty === "beginner") {
-        return `Cast [[${cardName}]] for ${costString}${oracleSnippet}. The spell goes on the stack; opponents can respond before it resolves.`;
+        return `Cast [[${cardName}]] for ${costString}${targeting}${oracleSnippet}. The spell goes on the stack; opponents can respond before it resolves.`;
       }
-      return `Cast [[${cardName}]] for ${costString}.`;
+      return `Cast [[${cardName}]] for ${costString}${targeting}.`;
     }
 
     case "declare-attacker": {

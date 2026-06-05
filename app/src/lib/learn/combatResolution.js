@@ -27,18 +27,13 @@ import {
   findPermanent,
   loseLife,
   gainLife,
-  moveCardToZone,
   logEvent,
   creaturePower,
   creatureToughness,
   markCombatDamage,
+  destroyLethalCreatures,
 } from "./gameState.js";
 import { hasKeyword } from "./keywords.js";
-
-function isCreatureCard(card) {
-  // In-session deck cards use `type`; older test fixtures use `type_line`.
-  return String(card?.type || card?.type_line || "").includes("Creature");
-}
 
 function combatHasFirstStrike(state, combat) {
   const ids = [
@@ -168,21 +163,8 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   }
 
   // ── SBA: lethal damage (or ANY deathtouch damage) destroys creatures ──
-  const dead = [];
-  for (const [pid, player] of Object.entries(next.players)) {
-    for (const perm of player.battlefield) {
-      if (!isCreatureCard(perm.card)) continue;
-      const printed = Number(perm.card?.toughness);
-      if (!Number.isFinite(printed)) continue;
-      const tough = creatureToughness(perm, next);
-      const dmg = perm.damageMarked || 0;
-      const lethal = tough <= 0 || (dmg > 0 && dmg >= tough) || (deathtouched.has(perm.id) && dmg > 0);
-      if (lethal) dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature" });
-    }
-  }
-  for (const d of dead) {
-    next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone: "graveyard", cardId: d.id });
-  }
+  const { state: afterDeaths, dead } = destroyLethalCreatures(next, deathtouched);
+  next = afterDeaths;
 
   // ── Log ──
   next = logEvent(next, {

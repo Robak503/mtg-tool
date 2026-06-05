@@ -32,6 +32,7 @@
 import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
 import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { hasKeyword } from "./keywords.js";
+import { parseSpellEffect, enumerateTargets, effectNeedsTarget } from "./spellEffects.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -272,15 +273,28 @@ function actionsCastSpell(state, playerId) {
     const affordable = canAfford(player.manaPool, manaSources(state, playerId), cost);
     if (!affordable) continue;
 
-    actions.push({
+    const effect = parseSpellEffect(card);
+    const base = {
       kind: "cast-spell",
       playerId,
       cardId: card.id,
       name: card.name,
       cost,
       cmc: totalCmc(cost),
-      needsTargets: false,  // PR3.5 will set this from oracle text parsing
-    });
+      effect: effect || null,
+    };
+
+    if (effectNeedsTarget(effect)) {
+      // Targeted spell: one cast action per legal target (the action-expansion
+      // pattern, same as multi-defender combat). No legal target → can't cast.
+      const targets = enumerateTargets(state, playerId, effect);
+      if (targets.length === 0) continue;
+      for (const t of targets) {
+        actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true });
+      }
+    } else {
+      actions.push({ ...base, targets: [], needsTargets: false });
+    }
   }
   return actions;
 }

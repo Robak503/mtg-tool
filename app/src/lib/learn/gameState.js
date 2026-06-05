@@ -626,6 +626,35 @@ export function clearCombatDamage(state) {
 }
 
 /**
+ * State-based action: move every creature with lethal damage to its graveyard
+ * (CR 704.5g). Lethal = marked damage ≥ effective toughness, a non-positive
+ * toughness, OR any damage from a deathtouch source (pass `deathtouched` as a
+ * Set of permanent ids). Shared by combat damage and direct-damage spells so
+ * the lethality rule lives in one place. Returns `{ state, dead }`.
+ */
+export function destroyLethalCreatures(state, deathtouched = new Set()) {
+  const dead = [];
+  for (const [pid, player] of Object.entries(state.players)) {
+    for (const perm of player.battlefield) {
+      const typeStr = String(perm.card?.type || perm.card?.type_line || "");
+      if (!typeStr.includes("Creature")) continue;
+      const printed = Number(perm.card?.toughness);
+      if (!Number.isFinite(printed)) continue; // skip "*"/unknown toughness
+      const tough = creatureToughness(perm, state);
+      const dmg = perm.damageMarked || 0;
+      if (tough <= 0 || (dmg > 0 && dmg >= tough) || (deathtouched.has(perm.id) && dmg > 0)) {
+        dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature" });
+      }
+    }
+  }
+  let next = state;
+  for (const d of dead) {
+    next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone: "graveyard", cardId: d.id });
+  }
+  return { state: next, dead };
+}
+
+/**
  * Track commander damage from one player to another. Used by SBAs
  * (engine PR) to check the 21-commander-damage rule.
  */
