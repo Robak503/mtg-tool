@@ -240,16 +240,25 @@ function recordOutcomeIfChanged(session) {
   if (session.status !== "active") return session;
   const state = session.state;
 
-  if (isPlayerDead(state, "user")) {
+  const order = state.turnOrder || Object.keys(state.players);
+  const opponents = order.filter((id) => id !== "user");
+  const userDead = isPlayerDead(state, "user");
+  const deadOpponents = opponents.filter((id) => isPlayerDead(state, id));
+  const allOpponentsDead = opponents.length > 0 && deadOpponents.length === opponents.length;
+
+  // Simultaneous death — the user AND every remaining opponent die in the same
+  // SBA check (mutual lethal in one combat-damage step) → draw, not a user
+  // loss (CR 104.4a). Checked before the user-loss branch so it wins the tie.
+  if (userDead && allOpponentsDead) {
+    return { ...session, status: "draw", endedAt: new Date().toISOString() };
+  }
+
+  if (userDead) {
     return { ...session, status: "ai-wins", endedAt: new Date().toISOString() };
   }
 
-  const order = state.turnOrder || Object.keys(state.players);
-  const opponents = order.filter((id) => id !== "user");
-  const deadOpponents = opponents.filter((id) => isPlayerDead(state, id));
-
   // All opponents gone → win (no board mutation; the game is over).
-  if (opponents.length > 0 && deadOpponents.length === opponents.length) {
+  if (allOpponentsDead) {
     return { ...session, status: "user-wins", endedAt: new Date().toISOString() };
   }
 
@@ -265,6 +274,32 @@ function recordOutcomeIfChanged(session) {
 }
 
 // ─── Decision loop ───────────────────────────────────────────────────────────
+
+// A real learn game ends long before this. Hitting it means the AI couldn't
+// close (or a genuine non-progress bug) — we end as a draw with diagnostics
+// rather than spinning to the tick cap.
+const MAX_TURNS = 100;
+
+/**
+ * A cheap fingerprint of "meaningful progress." If an actor takes a non-pass
+ * action that leaves this unchanged, the action did nothing and the driver
+ * would risk spinning — so we force a pass instead. Uses DISTINCT combat
+ * permanent counts (not raw lengths) so a re-declare-style loop, which would
+ * grow a raw length, is still caught as no-progress.
+ */
+function progressSignature(state) {
+  const active = state.players[state.activePlayer];
+  const handCount = active ? active.hand.length : 0;
+  const poolTotal = active ? Object.values(active.manaPool).reduce((a, b) => a + b, 0) : 0;
+  const bfCount = Object.values(state.players).reduce((sum, p) => sum + p.battlefield.length, 0);
+  const distinctAttackers = new Set((state.combat?.attackers || []).map(a => a.permanentId)).size;
+  const distinctBlockers = new Set((state.combat?.blockers || []).map(b => b.blockerId)).size;
+  return [
+    state.turn, state.phase, state.step,
+    distinctAttackers, distinctBlockers, state.stack.length,
+    handCount, poolTotal, bfCount,
+  ].join("|");
+}
 
 /**
  * The driver. Given an active session, advance the engine until the
@@ -287,7 +322,11 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
     };
   }
 
-  const SAFETY_CAP = 1000;
+  // High cap = a true-infinite-loop backstop only. Normal termination is the
+  // game ending or the turn limit; an Expert full-game runs to completion in a
+  // single call (it never stops for a user decision), so the cap must clear a
+  // long game. The anti-loop latch below is the primary guard.
+  const SAFETY_CAP = 50000;
   let current = session;
   let ticks = 0;
 
@@ -300,6 +339,23 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
       return {
         session: current,
         decision: { kind: "game-over", reason: current.status },
+      };
+    }
+
+    // Turn-limit stalemate: end as a draw with diagnostics, not a scary
+    // "engine stuck". A dev warning fires so a draw that's really a bug (the
+    // AI never closing) is visible rather than silently "normal".
+    if (current.state.turn > MAX_TURNS) {
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn(`[learn] turn limit (${MAX_TURNS}) reached at turn ${current.state.turn} — ending as a draw`);
+      }
+      return {
+        session: { ...current, status: "draw", endedAt: new Date().toISOString() },
+        decision: {
+          kind: "game-over",
+          reason: "turn-limit",
+          diagnostic: { turn: current.state.turn, phase: current.state.phase, step: current.state.step },
+        },
       };
     }
 
@@ -347,6 +403,20 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
 
     try {
       const newState = dispatchAction(state, decision.action);
+      // Anti-loop latch (defense-in-depth behind the combat exclusion fix): a
+      // non-pass action that leaves the progress signature unchanged did
+      // nothing meaningful. Rather than re-applying the same no-op forever,
+      // force a pass to move the game forward.
+      if (
+        decision.action.kind !== "pass-priority" &&
+        progressSignature(newState) === progressSignature(state)
+      ) {
+        current = {
+          ...current,
+          state: dispatchAction(state, { kind: "pass-priority", playerId: actor }),
+        };
+        continue;
+      }
       const logEntry = {
         ts: Date.now(),
         turn: state.turn,
