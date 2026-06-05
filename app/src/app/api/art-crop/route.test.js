@@ -95,6 +95,7 @@ describe("fetch + cache", () => {
     const bytes = new Uint8Array([1, 2, 3, 4, 5]);
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
+      headers: new Headers({ "content-type": "image/jpeg", "content-length": String(bytes.length) }),
       arrayBuffer: async () => bytes.buffer,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -104,7 +105,8 @@ describe("fetch + cache", () => {
     const resp = await fresh.GET(req("id=fetch-me&url=" + encodeURIComponent(url)));
 
     expect(resp.status).toBe(200);
-    expect(fetchMock).toHaveBeenCalledWith(url);
+    // Now called with an abort signal for the timeout guard.
+    expect(fetchMock).toHaveBeenCalledWith(url, expect.objectContaining({ signal: expect.anything() }));
     const out = Buffer.from(await resp.arrayBuffer());
     expect(out.equals(Buffer.from(bytes))).toBe(true);
 
@@ -130,6 +132,64 @@ describe("fetch + cache", () => {
   });
 });
 
+describe("upstream hardening", () => {
+  const scryUrl = "https://cards.scryfall.io/art_crop/front/0/0/x.jpg";
+
+  it("404s (and does not cache) when upstream returns a non-image content-type", async () => {
+    const html = new Uint8Array([60, 33, 100]); // "<!d..." — an HTML error page
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ "content-type": "text/html; charset=utf-8" }),
+      arrayBuffer: async () => html.buffer,
+    }));
+    const fresh = await loadRoute();
+    const resp = await fresh.GET(req("id=htmlpage&url=" + encodeURIComponent(scryUrl)));
+    expect(resp.status).toBe(404);
+    // Nothing written to the cache.
+    await expect(fs.readFile(path.join(tmpDir, "data", "art-crops", "htmlpage.jpg"))).rejects.toThrow();
+  });
+
+  it("404s when the declared Content-Length exceeds the cap (before buffering)", async () => {
+    const arrayBuffer = vi.fn(async () => new Uint8Array([1, 2]).buffer);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ "content-type": "image/jpeg", "content-length": String(20 * 1024 * 1024) }),
+      arrayBuffer,
+    }));
+    const fresh = await loadRoute();
+    const resp = await fresh.GET(req("id=huge&url=" + encodeURIComponent(scryUrl)));
+    expect(resp.status).toBe(404);
+    expect(arrayBuffer).not.toHaveBeenCalled(); // rejected before reading the body
+  });
+
+  it("404s when the actual body exceeds the cap (Content-Length absent/lied)", async () => {
+    const big = new Uint8Array(9 * 1024 * 1024); // 9 MB > 8 MB cap
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ "content-type": "image/jpeg" }), // no content-length
+      arrayBuffer: async () => big.buffer,
+    }));
+    const fresh = await loadRoute();
+    const resp = await fresh.GET(req("id=lying&url=" + encodeURIComponent(scryUrl)));
+    expect(resp.status).toBe(404);
+    await expect(fs.readFile(path.join(tmpDir, "data", "art-crops", "lying.jpg"))).rejects.toThrow();
+  });
+
+  it("passes an abort signal to fetch and 404s when it aborts (timeout path)", async () => {
+    // The route wraps fetch in an AbortController + setTimeout; when that fires,
+    // fetch rejects with an AbortError. Assert the signal is wired and an abort
+    // degrades to the placeholder 404 (rather than asserting on the timer clock,
+    // which is brittle under fake timers + real module I/O).
+    const abortErr = Object.assign(new Error("aborted"), { name: "AbortError" });
+    const fetchMock = vi.fn().mockRejectedValue(abortErr);
+    vi.stubGlobal("fetch", fetchMock);
+    const fresh = await loadRoute();
+    const resp = await fresh.GET(req("id=timedout&url=" + encodeURIComponent(scryUrl)));
+    expect(resp.status).toBe(404);
+    expect(fetchMock).toHaveBeenCalledWith(scryUrl, expect.objectContaining({ signal: expect.anything() }));
+  });
+});
+
 describe("resolve by name", () => {
   it("404s for a name with no resolvable printing (index missing)", async () => {
     // tmpDir has no printings-index.json, so lookupByName throws and the name
@@ -146,7 +206,11 @@ describe("resolve by name", () => {
       lookupByName: n => (n === "Sol Ring" ? [{ id: "name-resolved-id", artCropUrl: artUrl }] : []),
     }));
     const bytes = new Uint8Array([9, 8, 7, 6]);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, arrayBuffer: async () => bytes.buffer }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      headers: new Headers({ "content-type": "image/jpeg", "content-length": String(bytes.length) }),
+      arrayBuffer: async () => bytes.buffer,
+    }));
 
     const fresh = await import("./route.js");
     const resp = await fresh.GET(req("name=" + encodeURIComponent("Sol Ring")));

@@ -39,6 +39,14 @@ const IMG_HEADERS = {
   "Cache-Control": "public, max-age=31536000, immutable",
 };
 
+// Upstream-fetch safety rails. The source URL is already host-guarded to
+// Scryfall, but a slow/huge/non-image response (CDN hiccup, redirect to an
+// error page) must not hang the request or poison the on-disk cache.
+const FETCH_TIMEOUT_MS = 10_000;
+// art_crop JPEGs are ~50-200 KB; 8 MB is a generous ceiling that still bounds
+// memory against an upstream that lies about (or omits) Content-Length.
+const MAX_ART_BYTES = 8 * 1024 * 1024;
+
 function safeCacheName(id) {
   if (typeof id !== "string" || !/^[A-Za-z0-9-]+$/.test(id)) return null;
   return `${id}.jpg`;
@@ -131,16 +139,36 @@ export async function GET(request) {
   }
 
   let bytes;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const resp = await fetch(sourceUrl);
+    const resp = await fetch(sourceUrl, { signal: controller.signal });
     if (!resp.ok) {
       return Response.json({ error: `Upstream ${resp.status}` }, { status: 404 });
     }
+    // Require an image content-type — a redirect to an HTML error/login page or
+    // any non-image body must never be cached as art.
+    const contentType = (resp.headers?.get("content-type") || "").toLowerCase();
+    if (!contentType.startsWith("image/")) {
+      return Response.json({ error: "Upstream did not return an image" }, { status: 404 });
+    }
+    // Reject a declared-oversized body before buffering it, then re-check after
+    // reading in case Content-Length was absent or lied.
+    const declaredLen = Number(resp.headers?.get("content-length"));
+    if (Number.isFinite(declaredLen) && declaredLen > MAX_ART_BYTES) {
+      return Response.json({ error: "Upstream art too large" }, { status: 404 });
+    }
     const arrayBuf = await resp.arrayBuffer();
+    if (arrayBuf.byteLength > MAX_ART_BYTES) {
+      return Response.json({ error: "Upstream art too large" }, { status: 404 });
+    }
     bytes = Buffer.from(arrayBuf);
   } catch {
-    // Offline or network error. The grid shows its placeholder.
+    // Offline, request timeout (abort), or network error. The grid shows its
+    // placeholder.
     return Response.json({ error: "Art unavailable (offline?)" }, { status: 404 });
+  } finally {
+    clearTimeout(timer);
   }
 
   // 3. Write to cache atomically (temp + rename), best-effort.
