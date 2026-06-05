@@ -151,3 +151,34 @@ describe("flying blocking legality", () => {
     expect(blockerIds).toContain("ai-b");       // flying can
   });
 });
+
+describe("review bug #1 — blocked creature with a dead blocker", () => {
+  it("a double-striker that kills its blocker in first strike deals NOTHING to the player after (no trample)", () => {
+    const base = {
+      userBf: [cr("Blademaster", "bm", "user", { power: 3, toughness: 3, oracle: "Double strike" })],
+      aiBf: [cr("Blocker", "blk", "ai", { power: 3, toughness: 3 })],
+      aiLife: 40,
+      attackers: [{ permanentId: "bm", attackingPlayer: "user", defender: "ai" }],
+      blockers: [{ blockerId: "blk", blockingPlayer: "ai", attackerId: "bm" }],
+    };
+    // First-strike step: double-striker deals 3, blocker dies; blocker (no FS) deals nothing.
+    let s = resolveCombatDamage(st({ ...base, step: "first-strike-damage" }), { firstStrikeStep: true });
+    expect(grave(s, "ai")).toEqual(["Blocker"]);
+    // Regular step: it's blocked but the blocker is gone and it has no trample,
+    // so it deals 0 to the player — NOT 3 (the pre-fix bug routed it as unblocked).
+    s = resolveCombatDamage(s, { firstStrikeStep: false });
+    expect(s.players.ai.life).toBe(40);
+  });
+});
+
+describe("review bug #2 — keyword from oracle (no shadowed hasKeyword)", () => {
+  it("a summoning-sick creature with oracle Haste can still attack", () => {
+    const state = {
+      ...st({ step: "declare-attackers", userBf: [cr("Hasty", "h1", "user", { power: 2, toughness: 2, oracle: "Haste", summoningSick: true })] }),
+      activePlayer: "user",
+      priorityHolder: "user",
+    };
+    const attacks = filterActions(legalActionsForPlayer(state, "user"), "declare-attacker");
+    expect(attacks.map(a => a.permanentId)).toContain("h1");
+  });
+});

@@ -98,14 +98,30 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     const trample = hasKeyword(card, "Trample");
     const lifelink = hasKeyword(card, "Lifelink");
 
-    const assigned = (blockersByAttacker[att.permanentId] || [])
+    // "Was blocked" reads the DECLARED blockers; "live" reads the survivors.
+    // A creature blocked by a now-dead blocker (e.g. a first-striker that
+    // killed its blocker) stays blocked and deals no damage to the player —
+    // it must NOT fall through to the unblocked path. (CR 509.1h / 510.1c.)
+    const declaredBlockers = blockersByAttacker[att.permanentId] || [];
+    const wasBlocked = declaredBlockers.length > 0;
+    const liveBlockers = declaredBlockers
       .map(b => findPermanent(state, b.blockerId))
       .filter(Boolean);
 
+    const spillToDefender = (amount, trampleFlag) => {
+      const defender = att.defender;
+      if (defender && state.players[defender] && amount > 0) {
+        lifeLoss[defender] = (lifeLoss[defender] || 0) + amount;
+        playerEvents.push({ kind: "combat-damage-player", turn: state.turn, attackerId: att.permanentId, attackingPlayer: att.attackingPlayer, defender, amount, ...(trampleFlag ? { trample: true } : {}) });
+        return amount;
+      }
+      return 0;
+    };
+
     let dealt = 0;
-    if (assigned.length > 0) {
+    if (liveBlockers.length > 0) {
       let remaining = power;
-      for (const blk of assigned) {
+      for (const blk of liveBlockers) {
         const already = blk.permanent.damageMarked || 0;
         // Deathtouch makes 1 damage lethal; otherwise lethal = remaining toughness.
         const lethalNeed = deathtouch ? 1 : Math.max(1, creatureToughness(blk.permanent, state) - already);
@@ -115,22 +131,14 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
         dealt += give;
       }
       // Trample: leftover beyond all blockers' lethal need spills to the defender.
-      if (trample && remaining > 0) {
-        const defender = att.defender;
-        if (defender && state.players[defender]) {
-          lifeLoss[defender] = (lifeLoss[defender] || 0) + remaining;
-          dealt += remaining;
-          playerEvents.push({ kind: "combat-damage-player", turn: state.turn, attackerId: att.permanentId, attackingPlayer: att.attackingPlayer, defender, amount: remaining, trample: true });
-        }
-      }
+      if (trample && remaining > 0) dealt += spillToDefender(remaining, true);
+    } else if (wasBlocked) {
+      // Blocked, but every blocker is gone. Deals NO damage — unless trample,
+      // which then lets its full power through (no blockers to assign to).
+      if (trample) dealt += spillToDefender(power, true);
     } else {
-      // Unblocked: damage to the defending player.
-      const defender = att.defender;
-      if (defender && state.players[defender] && power > 0) {
-        lifeLoss[defender] = (lifeLoss[defender] || 0) + power;
-        dealt += power;
-        playerEvents.push({ kind: "combat-damage-player", turn: state.turn, attackerId: att.permanentId, attackingPlayer: att.attackingPlayer, defender, amount: power });
-      }
+      // Truly unblocked: full damage to the defending player.
+      dealt += spillToDefender(power, false);
     }
     if (lifelink && dealt > 0) lifeGain[att.attackingPlayer] = (lifeGain[att.attackingPlayer] || 0) + dealt;
   }

@@ -189,11 +189,10 @@ function isSorcerySpeed(card) {
   // Flash check is a v1.5 add — for now any non-instant defaults to sorcery.
   return !type.includes("Instant");
 }
-
-function hasKeyword(card, keyword) {
-  const keywords = Array.isArray(card?.keywords) ? card.keywords : [];
-  return keywords.includes(keyword);
-}
+// hasKeyword is imported from keywords.js (oracle-aware) — a local copy here
+// previously shadowed it (keyword-array-only, oracle-blind), so Haste / Flying
+// checks silently failed on real cards that carry oracle text but no keywords
+// array. Removed; all call sites now use the import.
 
 function manaCostOf(card) {
   if (!card) return "";
