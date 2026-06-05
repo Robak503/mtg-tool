@@ -216,11 +216,19 @@ export function runStepActions(state) {
       next = logEvent(next, { kind: "step", phase: "combat", step: "beginning-of-combat", player: state.activePlayer });
       break;
 
+    case "first-strike-damage":
+      // First-strike + double-strike creatures deal here; the call no-ops when
+      // none have it (CR 510.5). Lethal first-strike damage kills before the
+      // regular step, so those creatures never deal back.
+      next = resolveCombatDamage(next, { firstStrikeStep: true });
+      next = logEvent(next, { kind: "step", phase: "combat", step: "first-strike-damage", player: state.activePlayer });
+      break;
+
     case "combat-damage":
-      // The core combat step: deal damage, kill lethally-damaged creatures,
-      // drop unblocked damage onto the defending player. (first-strike-damage
-      // stays a no-op — first strike isn't modeled; all damage lands here.)
-      next = resolveCombatDamage(next);
+      // Regular combat damage: everyone WITHOUT first strike (plus double
+      // strikers again). Kills lethally-damaged creatures, drops unblocked /
+      // trample damage onto the defending player.
+      next = resolveCombatDamage(next, { firstStrikeStep: false });
       next = logEvent(next, { kind: "step", phase: "combat", step: "combat-damage", player: state.activePlayer });
       break;
 

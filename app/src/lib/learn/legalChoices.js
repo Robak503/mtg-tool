@@ -31,6 +31,7 @@
 
 import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
 import { canAfford, manaSources, manaProduction } from "./manaModel.js";
+import { hasKeyword } from "./keywords.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -383,12 +384,27 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
     .filter(p => !p.tapped)
     .filter(p => !assigned.has(p.id));
 
-  // For each candidate blocker, surface one action per attacker it
-  // could block. v1 doesn't enforce "must block X" effects (Lure, etc.)
-  // — that's an Arbiter case.
+  // Look up each declared attacker's card (attackers are the active player's
+  // creatures) so we can enforce evasion: a creature with flying can only be
+  // blocked by creatures with flying or reach (CR 509.1b / 702.9c).
+  const attackerCardById = {};
+  for (const ap of state.players[state.activePlayer]?.battlefield || []) {
+    attackerCardById[ap.id] = ap.card;
+  }
+  const canBlock = (blockerCard, attackerCard) => {
+    if (attackerCard && hasKeyword(attackerCard, "Flying")) {
+      return hasKeyword(blockerCard, "Flying") || hasKeyword(blockerCard, "Reach");
+    }
+    return true;
+  };
+
+  // For each candidate blocker, surface one action per attacker it could
+  // legally block. v1 doesn't enforce "must block X" effects (Lure, etc.) or
+  // menace's 2+-blocker requirement — those are Arbiter / future cases.
   const actions = [];
   for (const blocker of candidateBlockers) {
     for (const attackerId of declaredAttackers) {
+      if (!canBlock(blocker.card, attackerCardById[attackerId])) continue;
       actions.push({
         kind: "declare-blocker",
         playerId,
