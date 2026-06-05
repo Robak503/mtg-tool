@@ -6,7 +6,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { QUICK } from "../../lib/agents";
 import { parseKarnPlan } from "../../lib/agentArtifacts";
-import { sessionNeedsDeckSelection } from "../../lib/deckContextBuilder";
+import { sessionNeedsDeckSelection } from "../../lib/deck/deckContextBuilder";
 import useTauriAppVersion from "../../hooks/useTauriAppVersion";
 import DeckConfirmModal from "./DeckConfirmModal";
 

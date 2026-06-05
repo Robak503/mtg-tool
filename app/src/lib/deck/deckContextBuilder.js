@@ -7,7 +7,7 @@
  * Extracted from useChatAgents.js (PR0) — keep in sync with that file's imports.
  */
 
-import { AGENTS } from "./agents";
+import { AGENTS } from "../agents";
 import { serializeDeck, serializeDeckMemory } from "./deckMemory";
 
 // Maximum number of matched decks to expand into full context per request.

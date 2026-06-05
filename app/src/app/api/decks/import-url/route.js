@@ -14,7 +14,7 @@
 
 export const runtime = "nodejs";
 
-import { detectDeckUrl } from "../../../../lib/deckImportUrl.js";
+import { detectDeckUrl } from "../../../../lib/deck/deckImportUrl.js";
 import { fetchDeckFromUrl } from "../../../../lib/server/deckUrlFetch.js";
 import {
   lookupById,

@@ -19,7 +19,7 @@
 import { useState, useRef, useEffect } from "react";
 
 import { AGENTS } from "../lib/agents";
-import { serializeDeck } from "../lib/deckMemory";
+import { serializeDeck } from "../lib/deck/deckMemory";
 import {
   formatGoldfishBatchNotes,
   formatGoldfishNotes,
@@ -50,7 +50,7 @@ import OnboardingWizard from "./mtg/OnboardingWizard";
 import ProfileGate from "./mtg/ProfileGate";
 import ProfileManageModal from "./mtg/ProfileManageModal";
 import useProfiles from "../hooks/useProfiles";
-import { applyDeckChange } from "../lib/deckApply";
+import { applyDeckChange } from "../lib/deck/deckApply";
 
 export default function MTGAssistant() {
   const [agent, setAgent]   = useState("jace");
