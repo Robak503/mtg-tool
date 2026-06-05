@@ -26,16 +26,16 @@
 import {
   PHASES,
   STEPS,
+  MANA_COLORS,
   nextInTurnOrder,
   drawCards,
-  emptyAllManaPools,
-  emptyManaPoolForPlayer,
   resetTurnCounters,
   untapAll,
   clearCombatDamage,
   logEvent,
 } from "./gameState.js";
 import { resolveCombatDamage } from "./combatResolution.js";
+import { manaDoesNotEmpty } from "./cardEffects.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -95,6 +95,28 @@ function resetPriorityLoop(state) {
   };
 }
 
+// ─── Mana emptying (CR 500.4) ──────────────────────────────────────────────────
+
+/**
+ * Empty every player's mana pool, EXCEPT colors a "doesn't empty" effect
+ * preserves for that player (Omnath keeps green, Kruphix keeps all — wired
+ * via cardEffects in PR 10.5; default keeps nothing). Per CR 500.4 mana
+ * empties as each step and phase ends; this is the one helper all the
+ * emptying checkpoints route through, so the preservation hook is honored
+ * everywhere.
+ */
+export function emptyManaPools(state) {
+  const nextPlayers = {};
+  for (const pid of Object.keys(state.players)) {
+    const keep = manaDoesNotEmpty(state, pid);
+    const pool = state.players[pid].manaPool;
+    const newPool = {};
+    for (const c of MANA_COLORS) newPool[c] = keep.includes(c) ? (pool[c] || 0) : 0;
+    nextPlayers[pid] = { ...state.players[pid], manaPool: newPool };
+  }
+  return { ...state, players: nextPlayers };
+}
+
 // ─── Step advancement ────────────────────────────────────────────────────────
 
 /**
@@ -112,10 +134,16 @@ export function advanceStep(state) {
     throw new Error(`Invalid (phase=${state.phase}, step=${state.step})`);
   }
 
+  // Mana empties as the current step/phase ends (CR 500.4), honoring any
+  // "doesn't empty" effect. advanceStep is the single step-transition
+  // chokepoint, so every normal transition (and the end-of-turn wrap) clears
+  // floated mana here — bulk/forced advances can't skip it.
+  const emptied = emptyManaPools(state);
+
   if (index + 1 < TURN_SEQUENCE.length) {
     const next = TURN_SEQUENCE[index + 1];
     return {
-      ...state,
+      ...emptied,
       phase: next.phase,
       step: next.step,
       priorityHolder: null,
@@ -126,7 +154,7 @@ export function advanceStep(state) {
   // End of turn — next player's turn begins at (beginning, untap).
   const nextActive = nextInTurnOrder(state, state.activePlayer);
   return {
-    ...state,
+    ...emptied,
     activePlayer: nextActive,
     turn: state.turn + 1,
     phase: "beginning",
@@ -154,7 +182,7 @@ export function runStepActions(state) {
 
   switch (state.step) {
     case "untap":
-      next = emptyManaPoolForPlayer(next, { playerId: state.activePlayer });
+      next = emptyManaPools(next);
       next = resetTurnCounters(next, { playerId: state.activePlayer });
       next = untapAll(next, { playerId: state.activePlayer });
       next = logEvent(next, { kind: "step", phase: "beginning", step: "untap", player: state.activePlayer });
@@ -173,7 +201,7 @@ export function runStepActions(state) {
       break;
 
     case "cleanup":
-      next = emptyAllManaPools(next);
+      next = emptyManaPools(next);
       next = clearCombatDamage(next); // combat damage wears off at end of turn
       // Discard-to-hand-size + remove-until-end-of-turn effects are
       // deferred to PR3 (legal choices) and PR4+ (effects engine).
