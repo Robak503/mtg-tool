@@ -7,11 +7,12 @@
  */
 
 import fs from "node:fs/promises";
+import path from "node:path";
 
-import { dataDir, dataPath } from "./paths.js";
+import { profilePath } from "./paths.js";
 import { normalizeAlerts } from "./priceAlerts.js";
 
-const FILE = () => dataPath("price-alerts.json");
+const FILE = () => profilePath("price-alerts.json");
 
 let tmpSeq = 0;
 
@@ -27,7 +28,7 @@ export async function loadAlerts() {
 
 export async function writeAlertsAtomic(payload) {
   const normalized = normalizeAlerts(payload);
-  await fs.mkdir(dataDir(), { recursive: true });
+  await fs.mkdir(path.dirname(FILE()), { recursive: true });
   const target = FILE();
   const tmp = `${target}.tmp.${process.pid}.${Date.now()}.${tmpSeq++}`;
   await fs.writeFile(tmp, JSON.stringify(normalized, null, 2), "utf8");

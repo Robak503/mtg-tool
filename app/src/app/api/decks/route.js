@@ -5,16 +5,16 @@ import path from "node:path";
 
 import { DECK_SEEDS } from "../../../data/deckSeeds";
 import { buildSeedDeck, normalizeDeck } from "../../../lib/deckMemory";
-import { dataDir, dataPath } from "../../../lib/server/paths";
+import { profilePath } from "../../../lib/server/paths";
 
 // Resolve paths per-call (not captured at import) so a changed MTG_APP_ROOT
 // is always honored — the packaged .exe sets it, and tests change it between
 // cases. paths.js is the single source of truth for on-disk locations.
 function deckFile() {
-  return dataPath("decks.local.json");
+  return profilePath("decks.local.json");
 }
 function backupDir() {
-  return dataPath("backups");
+  return profilePath("backups");
 }
 
 function mergeSeedDecks(decks, seedDecks) {
@@ -51,7 +51,7 @@ async function readDeckFile() {
     // seed decks re-merge on this same request, so the user isn't left blank.
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     try {
-      await fs.rename(target, dataPath(`decks.local.broken-${stamp}.json`));
+      await fs.rename(target, profilePath(`decks.local.broken-${stamp}.json`));
     } catch {
       // If the rename fails (permissions, file in use), leave the broken file
       // alone — the empty list still loads and the next write replaces it.
@@ -67,7 +67,7 @@ let writeChain = Promise.resolve();
 
 async function writeDeckFile(decks) {
   const run = writeChain.then(async () => {
-    await fs.mkdir(dataDir(), { recursive: true });
+    await fs.mkdir(path.dirname(deckFile()), { recursive: true });
     const payload = {
       version: 1,
       updatedAt: new Date().toISOString(),

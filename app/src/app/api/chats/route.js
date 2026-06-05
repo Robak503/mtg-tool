@@ -1,11 +1,13 @@
 export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
+import path from "node:path";
 
-import { dataDir, dataPath } from "../../../lib/server/paths";
+import { profilePath } from "../../../lib/server/paths";
 
-const CHAT_FILE = dataPath("chats.local.json");
-const V1_BACKUP = `${CHAT_FILE}.v1.bak`;
+// Per-profile: resolved per-call (the active profile can change between requests).
+const CHAT_FILE = () => profilePath("chats.local.json");
+const V1_BACKUP = () => `${CHAT_FILE()}.v1.bak`;
 const AGENT_KEYS = ["jace", "karn", "tibalt", "arbiter"];
 
 // Per-session and per-file growth caps. v1 trimmed each agent history to 200
@@ -167,7 +169,7 @@ function migrateV1ToV2(parsed) {
 async function readChatFile() {
   let raw;
   try {
-    raw = await fs.readFile(CHAT_FILE, "utf8");
+    raw = await fs.readFile(CHAT_FILE(), "utf8");
   } catch (error) {
     if (error.code === "ENOENT") return { version: 2, updatedAt: null, sessions: [] };
     throw error;
@@ -180,7 +182,7 @@ async function readChatFile() {
     // Corrupted file: keep the bad copy for forensics, return empty v2 state
     // so the app still boots. The user can manually inspect .corrupted later.
     try {
-      await fs.copyFile(CHAT_FILE, `${CHAT_FILE}.corrupted`).catch(() => {});
+      await fs.copyFile(CHAT_FILE(), `${CHAT_FILE()}.corrupted`).catch(() => {});
     } catch { /* best-effort */ }
     return { version: 2, updatedAt: null, sessions: [] };
   }
@@ -197,7 +199,7 @@ async function readChatFile() {
   const v2 = migrateV1ToV2(parsed);
   // Best-effort backup of the v1 file before we overwrite it.
   try {
-    await fs.copyFile(CHAT_FILE, V1_BACKUP);
+    await fs.copyFile(CHAT_FILE(), V1_BACKUP());
   } catch {
     // Backup failure should not block reads.
   }
@@ -213,16 +215,16 @@ async function readChatFile() {
 }
 
 async function atomicWrite(payload) {
-  await fs.mkdir(dataDir(), { recursive: true });
+  await fs.mkdir(path.dirname(CHAT_FILE()), { recursive: true });
   // Write to a sibling temp file, then atomically rename. fs.rename on the
   // same filesystem is atomic on POSIX and on Windows >= NTFS, so a crash
   // mid-write never leaves a half-written chats.local.json behind. The temp
   // name is unique per write so two concurrent writers can't share one .tmp
   // file and interleave bytes into a corrupt rename.
   const body = JSON.stringify(payload, null, 2);
-  const tmp = `${CHAT_FILE}.tmp.${process.pid}.${Date.now()}`;
+  const tmp = `${CHAT_FILE()}.tmp.${process.pid}.${Date.now()}`;
   await fs.writeFile(tmp, body, "utf8");
-  await fs.rename(tmp, CHAT_FILE);
+  await fs.rename(tmp, CHAT_FILE());
 }
 
 async function writeChatFile({ sessions }) {
@@ -279,7 +281,7 @@ export async function GET() {
       histories,
       locks,
       exists,
-      path: CHAT_FILE,
+      path: CHAT_FILE(),
     });
   } catch (error) {
     return Response.json(
@@ -301,7 +303,7 @@ export async function POST(request) {
     }
 
     const saved = await writeChatFile({ sessions: body.sessions });
-    return Response.json({ ...saved, path: CHAT_FILE });
+    return Response.json({ ...saved, path: CHAT_FILE() });
   } catch (error) {
     if (error.code === "ENOSPC") {
       return Response.json(

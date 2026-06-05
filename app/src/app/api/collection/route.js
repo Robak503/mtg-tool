@@ -12,7 +12,7 @@
 
 export const runtime = "nodejs";
 
-import { dataPath } from "../../../lib/server/paths.js";
+import { profilePath } from "../../../lib/server/paths.js";
 import {
   loadCollection,
   writeCollectionAtomic,
@@ -81,7 +81,7 @@ export async function GET() {
     return Response.json({
       collection: enrichCollectionPrices(collection),
       recoveryWarning,
-      path: dataPath("collection.json"),
+      path: profilePath("collection.json"),
     });
   } catch (error) {
     if (error instanceof CollectionVersionMismatch) return versionConflict(error);

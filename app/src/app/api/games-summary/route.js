@@ -12,10 +12,11 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { summariseGameHistory } from "../../../lib/gameInsights";
-import { dataPath } from "../../../lib/server/paths";
+import { profilePath } from "../../../lib/server/paths";
 import { sanitiseId } from "../../../lib/server/sanitiseId.js";
 
-const GAMES_DIR = dataPath("games");
+// Per-profile: resolved per-call (active profile can change between requests).
+const GAMES_DIR = () => profilePath("games");
 
 export async function GET(request) {
   const url = new URL(request.url);
@@ -24,7 +25,7 @@ export async function GET(request) {
 
   let files;
   try {
-    files = await fs.readdir(GAMES_DIR);
+    files = await fs.readdir(GAMES_DIR());
   } catch (error) {
     if (error.code === "ENOENT") return Response.json({ count: 0 });
     return Response.json({ error: error.message }, { status: 500 });
@@ -36,7 +37,7 @@ export async function GET(request) {
     // Cheap pre-filter on filename — speeds up large dirs when a deckId is given.
     if (deckId && !file.startsWith(`${deckId}-`)) continue;
     try {
-      const raw = await fs.readFile(path.join(GAMES_DIR, file), "utf8");
+      const raw = await fs.readFile(path.join(GAMES_DIR(), file), "utf8");
       const parsed = JSON.parse(raw);
       if (deckId && parsed?.deckId !== deckId) continue;
       runs.push(parsed);

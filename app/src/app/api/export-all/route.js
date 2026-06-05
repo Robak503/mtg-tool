@@ -12,19 +12,20 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { dataPath } from "../../../lib/server/paths.js";
+import { dataPath, profilePath } from "../../../lib/server/paths.js";
 import { buildUserDataBundle } from "../../../lib/server/userDataExport.js";
 
+// Per-profile files resolve via profilePath; feedback (global, dev-facing) uses dataPath.
 async function readJsonFile(rel) {
   try {
-    return JSON.parse(await fs.readFile(dataPath(rel), "utf8"));
+    return JSON.parse(await fs.readFile(profilePath(rel), "utf8"));
   } catch {
     return null;
   }
 }
 
-async function readJsonDir(rel) {
-  const dir = dataPath(rel);
+async function readJsonDir(rel, resolve = dataPath) {
+  const dir = resolve(rel);
   let names;
   try {
     names = await fs.readdir(dir);
@@ -53,7 +54,7 @@ export async function GET() {
       readJsonFile("price-alerts.json"),
       readJsonFile("agent-notes.local.json"),
       readJsonDir("feedback"),
-      readJsonDir("games"),
+      readJsonDir("games", profilePath),
     ]);
 
     const bundle = buildUserDataBundle({ decks, chats, collection, watchlist, priceAlerts, agentNotes, feedback, games });
