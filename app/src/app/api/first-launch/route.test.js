@@ -25,6 +25,13 @@ function getRequest() {
   return new Request("http://localhost/api/first-launch");
 }
 
+// Import runs the profiles migration, so per-profile data (decks, chats, games)
+// lands under data/profiles/<activeId>/; feedback stays at the global data root.
+async function activeProfileDir() {
+  const reg = JSON.parse(await fs.readFile(path.join(tmpDir, "data", "profiles.json"), "utf8"));
+  return path.join(tmpDir, "data", "profiles", reg.activeProfileId);
+}
+
 function postRequest(body) {
   return new Request("http://localhost/api/first-launch", {
     method: "POST",
@@ -194,13 +201,15 @@ describe("POST /api/first-launch — import happy path", () => {
     expect(body.copied.some((s) => s.startsWith("feedback/"))).toBe(true);
     expect(body.copied.some((s) => s.startsWith("games/"))).toBe(true);
 
-    // Verify the actual files landed.
+    // Verify the actual files landed. Per-profile data → active profile folder;
+    // feedback (dev channel) → global data root.
     const dst = path.join(tmpDir, "data");
-    const decks = JSON.parse(await fs.readFile(path.join(dst, "decks.local.json"), "utf8"));
+    const profileDir = await activeProfileDir();
+    const decks = JSON.parse(await fs.readFile(path.join(profileDir, "decks.local.json"), "utf8"));
     expect(decks.decks[0].id).toBe("test-deck");
     const fb = await fs.readdir(path.join(dst, "feedback"));
     expect(fb).toContain("fb-1.json");
-    const games = await fs.readdir(path.join(dst, "games"));
+    const games = await fs.readdir(path.join(profileDir, "games"));
     expect(games).toContain("game-1.json");
   });
 

@@ -202,7 +202,7 @@ export default function MTGAssistant() {
     updateDeckById,
     updateActiveMemory,
     updateAgentNote,
-  } = useDeckStore();
+  } = useDeckStore(profilesApi.activeProfile?.name);
 
   const {
     sessions,
@@ -228,6 +228,7 @@ export default function MTGAssistant() {
     primeInput,
   } = useChatSessions({
     activeDeck,
+    activeProfileName: profilesApi.activeProfile?.name,
     agent,
     deckCards,
     fastMode,
@@ -1264,6 +1265,7 @@ export default function MTGAssistant() {
                 deleteGame={deleteGame}
                 exportDeck={exportDeck}
                 fontFamily={F}
+                ownerName={profilesApi.activeProfile?.name}
                 gameCount={gameCount}
                 gameNotes={gameNotes}
                 gameOpponents={gameOpponents}

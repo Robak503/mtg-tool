@@ -99,6 +99,7 @@ function persistActiveSessionIds(map) {
 
 export default function useChatSessions({
   activeDeck,
+  activeProfileName,
   agent,
   deckCards,
   fastMode,
@@ -432,7 +433,7 @@ export default function useChatSessions({
       }
 
       const conversationText = baseMessages.slice(-8).map(m => m.content).join("\n");
-      const savedDeckContext = buildSavedDeckContext(savedDecks, targetAgent, conversationText, activeDeck?.id);
+      const savedDeckContext = buildSavedDeckContext(savedDecks, targetAgent, conversationText, activeDeck?.id, activeProfileName);
       if (savedDeckContext.context) systemPrompt += `\n\n${savedDeckContext.context}`;
 
       if (lockingAgent && deckLock) {

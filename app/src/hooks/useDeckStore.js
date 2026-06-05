@@ -23,12 +23,15 @@ import {
 import { fetchDeckData } from "../lib/scryfall";
 import { loadJson, saveJson } from "../lib/storage";
 
-export default function useDeckStore() {
+export default function useDeckStore(activeProfileName) {
   const [savedDecks, setSavedDecks] = useState([]);
   const [activeDeckId, setActiveDeckId] = useState(null);
   const [deckRaw, setDeckRaw] = useState("");
   const [deckName, setDeckName] = useState("My Deck");
-  const [deckOwner, setDeckOwner] = useState("Colton");
+  // The import-form owner defaults to the active profile. Start empty and fill
+  // it once the profile name resolves (profiles load async after mount) so a
+  // deck imported by Joe is attributed to Joe, not the old hardcoded "Colton".
+  const [deckOwner, setDeckOwner] = useState("");
   const [projectSearch, setProjectSearch] = useState("");
   const [projectRequested, setProjectRequested] = useState(false);
   const [gameResult, setGameResult] = useState("Win");
@@ -83,6 +86,13 @@ export default function useDeckStore() {
       flushDeckFileSave();
     };
   }, []);
+
+  // Default the import-form owner to the active profile name once it loads.
+  // Only fills a still-empty value so a manual edit in the form is never
+  // clobbered. Switching profiles is a full reload, so this fires once.
+  useEffect(() => {
+    if (activeProfileName) setDeckOwner(prev => prev || activeProfileName);
+  }, [activeProfileName]);
 
   // Combos are deck-specific and fetched on demand; drop the cached result when
   // the active deck changes so the Combos tab never shows the previous deck's
@@ -253,7 +263,7 @@ export default function useDeckStore() {
       cards,
       memory: {
         ...defaultDeckMemory(),
-        owner: deckOwner.trim() || "Colton",
+        owner: deckOwner.trim() || activeProfileName || "Colton",
       },
     });
 
@@ -287,7 +297,7 @@ export default function useDeckStore() {
       cards,
       memory: {
         ...defaultDeckMemory(),
-        owner: (ownerName || "").trim() || "Colton",
+        owner: (ownerName || "").trim() || activeProfileName || "Colton",
         notes: importedDeck.source ? `Imported from ${importedDeck.source}.` : "",
       },
     });

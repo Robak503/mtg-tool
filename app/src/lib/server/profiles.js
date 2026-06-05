@@ -13,7 +13,7 @@
  */
 import path from "node:path";
 import {
-  existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, cpSync,
+  existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, rmSync, cpSync, readdirSync,
 } from "node:fs";
 import crypto from "node:crypto";
 
@@ -31,6 +31,18 @@ const PER_PROFILE_FILES = [
   "watchlist.json",
   "price-alerts.json",
   "agent-notes.local.json",
+  "collection-roasts.json",
+];
+
+// Recovery/corruption backups the data routes write next to their files (via
+// profilePath's pre-registry fallback). They use timestamped or variant names
+// so they can't be enumerated — match them by pattern during migration so they
+// follow their owner's data into the primary profile instead of being orphaned
+// at the now-shadowed data root.
+const RECOVERY_FILE_PATTERNS = [
+  /^decks\.local\.broken-.*\.json$/,
+  /^collection\.broken-.*\.json$/,
+  /^chats\.local\.json\.corrupted$/,
 ];
 const PER_PROFILE_DIRS = ["games", "backups"];
 
@@ -245,6 +257,20 @@ export function ensureMigrated() {
   const ownerlessFiles = PER_PROFILE_FILES.filter(f => f !== "decks.local.json");
   for (const f of [...ownerlessFiles, ...PER_PROFILE_DIRS]) {
     moveIntoPrimary(f);
+  }
+
+  // Sweep any pre-migration recovery/corruption backups into the primary
+  // profile too. They're created with timestamped/variant names so they can't
+  // be listed in PER_PROFILE_FILES; pattern-match them off the data root so a
+  // user can still recover a corrupted file after the layout changes underneath
+  // them. Best-effort — never block the migration.
+  try {
+    for (const name of readdirSync(dataRoot())) {
+      if (name === "profiles" || name === ".pre-profiles-backup") continue;
+      if (RECOVERY_FILE_PATTERNS.some(re => re.test(name))) moveIntoPrimary(name);
+    }
+  } catch {
+    /* advisory */
   }
 
   // The legacy flat decks file is now split; remove it so it can't shadow

@@ -18,9 +18,11 @@
 export const runtime = "nodejs";
 
 import fs from "node:fs/promises";
+import path from "node:path";
 
 import { TIBALT_PROMPT } from "../../../../lib/agents.js";
-import { dataPath, dataDir } from "../../../../lib/server/paths.js";
+import { profilePath } from "../../../../lib/server/paths.js";
+import { ensureMigrated } from "../../../../lib/server/profiles.js";
 import { loadCollection } from "../../../../lib/server/collectionStorage.js";
 import { collectionSummary } from "../../../../lib/server/collectionContext.js";
 import { callModelMessages } from "../../../../lib/server/modelProvider.js";
@@ -103,8 +105,10 @@ function buildRoastPrompt(summary, outliers) {
 
 async function appendRoastLog(entry) {
   try {
-    await fs.mkdir(dataDir(), { recursive: true });
-    const target = dataPath(ROAST_LOG_FILE);
+    // The roast log belongs to the profile whose collection was roasted —
+    // each profile has its own collection, so its drift history is private too.
+    const target = profilePath(ROAST_LOG_FILE);
+    await fs.mkdir(path.dirname(target), { recursive: true });
     let history = [];
     try {
       const raw = await fs.readFile(target, "utf8");
@@ -127,6 +131,7 @@ async function appendRoastLog(entry) {
 
 export async function POST() {
   try {
+    ensureMigrated();
     const { collection } = await loadCollection();
     const cards = (collection.cards || []).filter(c => !c.wishlist);
     if (cards.length === 0) {

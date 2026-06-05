@@ -33,6 +33,7 @@ export default function DeckView({
   deckMemory,
   deleteGame,
   exportDeck,
+  ownerName,
   fontFamily,
   gameCount,
   gameNotes,
@@ -232,7 +233,7 @@ export default function DeckView({
             <div style={{ ...dlabel, marginTop: 8, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
               {commanderText && <span>{commanderText}</span>}
               <span style={{ opacity: 0.7 }}>
-                {deckMemory.owner || "Colton"}
+                {deckMemory.owner || ownerName || "Colton"}
                 {deckMemory.updatedAt ? ` · Updated ${new Date(deckMemory.updatedAt).toLocaleDateString()}` : ""}
               </span>
             </div>
@@ -295,7 +296,7 @@ export default function DeckView({
                 </label>
                 <label style={labelWrap}>
                   Owner
-                  <input value={deckMemory.owner} onChange={e => updateActiveMemory({ owner: e.target.value })} placeholder="Colton" style={fieldStyle} />
+                  <input value={deckMemory.owner} onChange={e => updateActiveMemory({ owner: e.target.value })} placeholder={ownerName || "Colton"} style={fieldStyle} />
                 </label>
                 <label style={labelWrap}>
                   Tags
