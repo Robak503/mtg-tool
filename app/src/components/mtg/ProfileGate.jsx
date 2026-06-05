@@ -43,6 +43,17 @@ export default function ProfileGate({ profiles = [], activeId, onPick, onManage,
         </div>
       )}
 
+      {/* Empty-state guard: migration always leaves at least one profile, so an
+          empty list means we're still loading or the registry read failed.
+          Explain it rather than showing a lone "New / Manage" tile that reads as
+          broken. */}
+      {!error && profiles.length === 0 && (
+        <div style={{ marginBottom: 18, fontSize: 13, color: MUTED, textAlign: "center", maxWidth: 440, lineHeight: 1.5 }}>
+          Setting up your profile… If this doesn&apos;t clear in a moment, create one with
+          {" "}<strong style={{ color: TEXT }}>New&nbsp;/&nbsp;Manage</strong> below, or restart the app.
+        </div>
+      )}
+
       <div style={{ display: "flex", flexWrap: "wrap", gap: 18, justifyContent: "center", maxWidth: 720 }}>
         {profiles.map((p) => {
           const active = p.id === activeId;
