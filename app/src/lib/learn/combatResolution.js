@@ -62,7 +62,7 @@ export function resolveCombatDamage(state) {
   for (const att of combat.attackers) {
     const lookup = findPermanent(state, att.permanentId);
     if (!lookup) continue; // attacker left the battlefield before damage
-    const power = Math.max(0, creaturePower(lookup.permanent));
+    const power = Math.max(0, creaturePower(lookup.permanent, state));
     const assigned = blockersByAttacker[att.permanentId] || [];
 
     if (assigned.length > 0) {
@@ -71,8 +71,8 @@ export function resolveCombatDamage(state) {
       for (const b of assigned) {
         const blk = findPermanent(state, b.blockerId);
         if (!blk) continue;
-        addDmg(att.permanentId, Math.max(0, creaturePower(blk.permanent)));
-        const need = Math.max(0, creatureToughness(blk.permanent));
+        addDmg(att.permanentId, Math.max(0, creaturePower(blk.permanent, state)));
+        const need = Math.max(0, creatureToughness(blk.permanent, state));
         const give = Math.min(remaining, need);
         addDmg(b.blockerId, give);
         remaining -= give;
@@ -111,7 +111,7 @@ export function resolveCombatDamage(state) {
       // Only judge creatures with a real numeric toughness (skip "*"/unknown).
       const printed = Number(perm.card?.toughness);
       if (!Number.isFinite(printed)) continue;
-      const tough = creatureToughness(perm);
+      const tough = creatureToughness(perm, next);
       const dmg = perm.damageMarked || 0;
       if (tough <= 0 || (dmg > 0 && dmg >= tough)) {
         dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature" });

@@ -26,6 +26,8 @@
  *   - Everything else — pure read, returns a value
  */
 
+import { staticPTModifier } from "./cardEffects.js";
+
 // ─── ID generation ────────────────────────────────────────────────────────────
 
 let _idCounter = 0;
@@ -122,22 +124,28 @@ export function createPermanent({ card, controller, tapped = false, summoningSic
 
 /**
  * Effective power / toughness of a creature permanent: printed value plus any
- * +1/+1 counters minus -1/-1 counters. Non-numeric printed values (e.g. "*")
- * read as 0. These are the numbers combat damage uses.
+ * +1/+1 counters minus -1/-1 counters, plus any registered static-ability
+ * modifier (Omnath: +1/+1 per unspent green). Non-numeric printed values
+ * (e.g. "*") read as 0. These are THE numbers all readers use (combat, UI,
+ * legality) — the single accessor, so static effects can't drift between
+ * callers. `state` is optional: pass it when a static modifier might apply
+ * (it reads the mana pool, etc.); without it you get printed + counters only.
  */
-export function creaturePower(permanent) {
+export function creaturePower(permanent, state = null) {
   if (!permanent?.card) return 0;
   const base = Number(permanent.card.power) || 0;
   const plus = permanent.counters?.["+1/+1"] || 0;
   const minus = permanent.counters?.["-1/-1"] || 0;
-  return base + plus - minus;
+  const mod = state ? staticPTModifier(state, permanent) : null;
+  return base + plus - minus + (mod?.p || 0);
 }
-export function creatureToughness(permanent) {
+export function creatureToughness(permanent, state = null) {
   if (!permanent?.card) return 0;
   const base = Number(permanent.card.toughness) || 0;
   const plus = permanent.counters?.["+1/+1"] || 0;
   const minus = permanent.counters?.["-1/-1"] || 0;
-  return base + plus - minus;
+  const mod = state ? staticPTModifier(state, permanent) : null;
+  return base + plus - minus + (mod?.t || 0);
 }
 
 /**

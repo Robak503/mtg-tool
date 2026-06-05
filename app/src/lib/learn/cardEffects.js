@@ -26,8 +26,36 @@
  * nothing from the engine, so there's no import cycle.
  */
 
-// Populated in PR 10.5. Keyed by exact card name.
-const REGISTRY = {};
+// Keyed by exact card name. Grows one verified card at a time.
+const REGISTRY = {
+  // "Green mana doesn't empty from your mana pool as steps and phases end."
+  // "Omnath, Locus of Mana gets +1/+1 for each unspent green mana you have."
+  // Printed 1/1, so 5 floating green makes it a 6/6.
+  "Omnath, Locus of Mana": {
+    manaDoesNotEmpty: ["G"],
+    staticPT: (state, permanent) => {
+      const green = state?.players?.[permanent.controller]?.manaPool?.G || 0;
+      return { p: green, t: green };
+    },
+  },
+
+  // "You don't lose unspent mana as steps and phases end." (Controller only —
+  // matches the per-controller hook. Kruphix's other abilities aren't modeled.)
+  "Kruphix, God of Horizons": {
+    manaDoesNotEmpty: ["W", "U", "B", "R", "G", "C"],
+  },
+
+  // "If unused mana would empty from your mana pool, that mana becomes
+  // colorless instead." v1 approximates by PRESERVING the mana (same total
+  // available); the color→colorless conversion is a future refinement.
+  "Horizon Stone": {
+    manaDoesNotEmpty: ["W", "U", "B", "R", "G", "C"],
+  },
+
+  // NOTE — Upwelling ("Mana doesn't empty from players' mana pools…") is a
+  // SYMMETRIC effect (helps every player), which the per-controller hook
+  // doesn't express. Deferred until manaDoesNotEmpty scans all battlefields.
+};
 
 /**
  * Colors whose mana should NOT empty for this player at step/phase end,
