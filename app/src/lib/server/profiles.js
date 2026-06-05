@@ -176,8 +176,28 @@ function readDecksFile() {
 const ownerOf = (deck) => ((deck && deck.memory && deck.memory.owner) || (deck && deck.owner) || "").trim();
 
 /**
+ * Best-effort removal of the legacy flat decks file. The migration splits it
+ * into per-profile copies and deletes it, but on a real Windows install that
+ * single delete can lose a race with a transient file lock (AV/indexer/the
+ * just-closed session) and leave the original behind. It's inert once the
+ * registry exists — profilePath() never reads it — but a stale copy can shadow
+ * on a downgrade and confuses diagnostics. Re-attempting on each launch lets the
+ * delete succeed once the transient lock clears.
+ */
+function cleanupLegacyFlatDecks() {
+  const flat = path.join(dataRoot(), "decks.local.json");
+  if (!existsSync(flat)) return;
+  try {
+    rmSync(flat, { force: true });
+  } catch {
+    /* still locked — retry on the next launch */
+  }
+}
+
+/**
  * One-time migration: legacy flat data/ -> data/profiles/<id>/.
- * Idempotent: a no-op once data/profiles.json exists.
+ * Idempotent: a no-op once data/profiles.json exists (beyond self-healing a
+ * stale legacy flat decks file the original migration couldn't delete).
  *
  * - Groups existing decks by deck.memory.owner into one profile per owner.
  * - The "primary" profile (most decks; "Colton" wins ties when present) also
@@ -185,7 +205,10 @@ const ownerOf = (deck) => ((deck && deck.memory && deck.memory.owner) || (deck &
  * - Backs the moved originals up to data/.pre-profiles-backup/ first.
  */
 export function ensureMigrated() {
-  if (existsSync(profilesRegistryPath())) return;
+  if (existsSync(profilesRegistryPath())) {
+    cleanupLegacyFlatDecks();
+    return;
+  }
   mkdirSync(profilesRoot(), { recursive: true });
 
   const decksFile = readDecksFile();
@@ -282,11 +305,9 @@ export function ensureMigrated() {
 
   // The legacy flat decks file is now split; remove it so it can't shadow
   // (the backup retains it). profilePath() ignores it once the registry exists.
-  try {
-    rmSync(path.join(dataRoot(), "decks.local.json"), { force: true });
-  } catch {
-    /* non-fatal */
-  }
+  // If a transient lock defeats this, the early-return self-heal above retries
+  // on the next launch.
+  cleanupLegacyFlatDecks();
 
   writeRegistry({ version: 1, profiles, activeProfileId: primaryId });
 }
