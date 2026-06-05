@@ -1,6 +1,10 @@
 # Phase 6 — Playable Engine (the missing wiring)
 
-**Status:** roadmap / in progress.
+**Status:** ✅ SHIPPED in v0.22.0 (2026-06-05). PRs 10.1–10.6 landed; The
+Academy plays end-to-end in both modes at all difficulties. Independent code
+review (Codex plan-stage + an adversarial diff review + an 800k-case mana fuzz)
+found and fixed a hybrid-payment divergence; no correctness bugs remain. Live
+QA confirmed in-browser with the owner's real Omnath deck.
 **Created:** 2026-06-05.
 **Owner:** Colton.
 **Slots:** before PR 11 in `docs/phase6-learn-to-play.md` §11.7. PRs 11–13

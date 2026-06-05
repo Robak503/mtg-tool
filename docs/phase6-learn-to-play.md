@@ -1,6 +1,14 @@
 # Phase 6 — Learn-to-Play Mode
 
-**Status:** design doc, not started.
+**Status:** PRs 1–10 + the playable-engine wiring (PRs 10.1–10.6) shipped. The
+Academy plays end-to-end in both modes at all difficulties as of v0.22.0.
+> The original §5/§11.7 PR sequence built the engine *pieces* but never wired
+> them into a playable loop (no mana was ever produced, combat was never
+> orchestrated, nothing terminated). That gap — the "engine got stuck" report —
+> was closed by **`docs/phase6-playable-engine.md`** (mana system, combat
+> orchestration, termination, and a targeted `cardEffects.js` registry for
+> Omnath-style floating-mana payoffs). Remaining open: PR 11 (4P UI polish),
+> PR 12 (Expert post-game analysis), PR 13 (session persistence).
 **Prereq:** Phases 1-5 done. Goldfish v2 + game records + insights shipped on master.
 **Owner:** Colton.
 **Last updated:** 2026-05-26 (end-of-session handoff).

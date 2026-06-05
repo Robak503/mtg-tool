@@ -8,6 +8,31 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-06-05
+
+### Added
+- **The Academy is actually playable now.** The learn-to-play simulator used to
+  stall before a real game could start — it would spin until a safety cap and
+  show "engine got stuck." The whole play loop is now wired together:
+  - **Mana works.** Lands, mana rocks (Sol Ring, Signets…), and mana dorks tap
+    for mana, so spells finally get cast. Beginner mode teaches tapping; higher
+    difficulties auto-tap to pay.
+  - **Floating mana.** You can tap for more mana than you spend and hold it.
+    [[Omnath, Locus of Mana]] grows +1/+1 for each unspent green and keeps its
+    green between phases — so a board floated full of green swings for it.
+  - **Combat happens.** Attackers tap (vigilance excepted), the AI actually
+    attacks and blocks, and damage resolves — creatures trade and players lose
+    life until someone wins.
+  - **Games end.** Wins, losses, eliminations, and a turn-limit draw instead of
+    a scary error. Plays end-to-end in both 1v1 and 4-player Commander at
+    Beginner / Intermediate / Expert.
+
+### Fixed
+- **"Engine got stuck: safety cap (1000 ticks) hit."** Root cause: nothing ever
+  produced mana, so no spell was castable, the user was never prompted, and the
+  engine auto-piloted empty turns until the cap. Fixed by building the mana,
+  combat-orchestration, and termination layers the simulator was missing.
+
 ## [0.21.0] - 2026-06-04
 
 ### Added
