@@ -26,6 +26,18 @@ summarizes the notable changes.
   - **Games end.** Wins, losses, eliminations, and a turn-limit draw instead of
     a scary error. Plays end-to-end in both 1v1 and 4-player Commander at
     Beginner / Intermediate / Expert.
+- **Combat keywords.** Combat now plays like real Magic: **flying / reach**
+  (a flyer can only be blocked by flying or reach), **first strike** and
+  **double strike** (resolved in their own damage step), **trample** (excess
+  spills to the defender), **deathtouch** (any damage is lethal), and
+  **lifelink** (gain life equal to damage dealt). Evasion and trample let
+  games actually close instead of stalemating.
+- **Spells that do things.** Instants and sorceries used to fizzle to nothing;
+  now the common ones work — **burn** ("deals N damage to any target"),
+  **removal** ("destroy target creature"), and **card draw** — with proper
+  targeting (you pick the target; the AI aims removal at the biggest threat
+  and never at its own creatures). Unrecognized spells still resolve safely as
+  a no-op rather than guessing.
 
 ### Fixed
 - **"Engine got stuck: safety cap (1000 ticks) hit."** Root cause: nothing ever
