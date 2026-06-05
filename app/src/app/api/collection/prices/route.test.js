@@ -165,3 +165,93 @@ describe("bundled seed history (#4 groundwork)", () => {
     await expect(fs.access(path.join(tmpDir, "data", "collection-prices.jsonl"))).resolves.toBeUndefined();
   });
 });
+
+describe("per-profile scoping (profiles active)", () => {
+  it("writes the day-1 snapshot into the ACTIVE profile, seeded from the global bundle", async () => {
+    // Fresh-install layout: a global staples seed in the bundle (dataPath), and
+    // legacy data the migration sorts into a real owner profile.
+    const bundleDir = path.join(tmpDir, "bundle");
+    await fs.mkdir(bundleDir, { recursive: true });
+    await fs.writeFile(
+      path.join(bundleDir, "collection-prices.jsonl"),
+      JSON.stringify({ snappedAt: "2020-01-01", scryfallId: "staple1", usd: "5.00" }) + "\n",
+      "utf8",
+    );
+    process.env.MTG_REFERENCE_DIR = bundleDir;
+
+    // Seed legacy decks + collection BEFORE migration so ensureMigrated routes
+    // the collection into the primary profile (where loadCollection reads it).
+    await fs.writeFile(
+      path.join(tmpDir, "data", "decks.local.json"),
+      JSON.stringify({ version: 1, decks: [{ id: "d1", name: "A", memory: { owner: "Colton" } }] }),
+      "utf8",
+    );
+    await seedCollection([
+      { scryfallId: "a", oracleId: "o-a", name: "Sol Ring", stacks: [{ finish: "nonfoil", quantity: 1 }], prices: { usd: "3.50" }, wishlist: false },
+    ]);
+
+    const { ensureMigrated } = await import("../../../../lib/server/profiles.js?bust=" + Math.random());
+    ensureMigrated();
+    const reg = JSON.parse(await fs.readFile(path.join(tmpDir, "data", "profiles.json"), "utf8"));
+    const activeId = reg.activeProfileId;
+
+    const body = await (await loadRoute()).POST();
+    expect((await body.json()).snapped).toBe(true);
+
+    // History landed UNDER THE ACTIVE PROFILE, carrying the global seed (day-1
+    // Finance baseline) plus today's owned entry.
+    const profileHist = path.join(tmpDir, "data", "profiles", activeId, "collection-prices.jsonl");
+    const ids = (await fs.readFile(profileHist, "utf8"))
+      .trim().split("\n").filter(Boolean).map(l => JSON.parse(l).scryfallId);
+    expect(ids).toContain("staple1");
+    expect(ids).toContain("a");
+
+    // NOT at the legacy flat location, and the read-only bundle is untouched.
+    await expect(fs.access(path.join(tmpDir, "data", "collection-prices.jsonl"))).rejects.toThrow();
+    const bundleAfter = (await fs.readFile(path.join(bundleDir, "collection-prices.jsonl"), "utf8")).trim().split("\n").filter(Boolean);
+    expect(bundleAfter).toHaveLength(1);
+  });
+
+  it("a second profile starts with the global seed too (no cross-profile history bleed)", async () => {
+    const bundleDir = path.join(tmpDir, "bundle");
+    await fs.mkdir(bundleDir, { recursive: true });
+    await fs.writeFile(
+      path.join(bundleDir, "collection-prices.jsonl"),
+      JSON.stringify({ snappedAt: "2020-01-01", scryfallId: "staple1", usd: "5.00" }) + "\n",
+      "utf8",
+    );
+    process.env.MTG_REFERENCE_DIR = bundleDir;
+
+    await fs.writeFile(
+      path.join(tmpDir, "data", "decks.local.json"),
+      JSON.stringify({ version: 1, decks: [
+        { id: "d1", name: "A", memory: { owner: "Colton" } },
+        { id: "d2", name: "B", memory: { owner: "Joe" } },
+      ] }),
+      "utf8",
+    );
+    const profilesMod = await import("../../../../lib/server/profiles.js?bust=" + Math.random());
+    profilesMod.ensureMigrated();
+    const reg = JSON.parse(await fs.readFile(path.join(tmpDir, "data", "profiles.json"), "utf8"));
+    const joe = reg.profiles.find(p => p.name === "Joe");
+
+    // Switch to Joe (who has no collection) and snapshot — Joe's collection is
+    // empty so nothing owned is snapped, but the read still falls back to the
+    // shared global seed rather than Colton's profile history.
+    profilesMod.setActiveProfile(joe.id);
+    await fs.writeFile(
+      path.join(tmpDir, "data", "profiles", joe.id, "collection.json"),
+      JSON.stringify({ version: 1, cards: [
+        { scryfallId: "z", oracleId: "o-z", name: "Z", stacks: [{ finish: "nonfoil", quantity: 1 }], prices: { usd: "2.00" }, wishlist: false },
+      ] }),
+      "utf8",
+    );
+    await (await loadRoute()).POST();
+
+    const joeHist = path.join(tmpDir, "data", "profiles", joe.id, "collection-prices.jsonl");
+    const ids = (await fs.readFile(joeHist, "utf8"))
+      .trim().split("\n").filter(Boolean).map(l => JSON.parse(l).scryfallId);
+    expect(ids).toContain("staple1"); // shared global seed
+    expect(ids).toContain("z");       // Joe's own card
+  });
+});
