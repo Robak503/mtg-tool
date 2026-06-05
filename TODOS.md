@@ -92,7 +92,7 @@ PR1-PR6 done (Beginner mode end-to-end playable). Open items for PR7+:
 
 ### P4 — Tests for new UI components
 
-**What:** Add Vitest + React-testing-library coverage for FeedbackButton (inbox view rendering, submit success path), GarfieldPanel (insights fetch + render, archetype badge), SessionSidebar (active/archived toggle, rename, archive). Currently all 81 tests are server/lib — UI components are untested.
+**What:** Add Vitest + React-testing-library coverage for FeedbackPanel (inbox view rendering, submit success path), GarfieldPanel (insights fetch + render, archetype badge), SessionSidebar (active/archived toggle, rename, archive). Currently all 81 tests are server/lib — UI components are untested.
 
 **Why:** UI bugs slip through `/qa` runs because we don't have a fast feedback loop. Component tests are cheap once the framework is wired.
 
@@ -108,7 +108,7 @@ PR1-PR6 done (Beginner mode end-to-end playable). Open items for PR7+:
 
 First-launch wizard ships as `/api/first-launch` + a banner in `MTGAssistant.jsx`. GET detects fresh installs via a `.first-launch-marker.json` sentinel (not decks.local.json — that's auto-seeded by /api/decks). POST `{ sourcePath }` copies user data; POST `{ action: "dismiss" }` writes the marker without copying. 16 vitest cases cover both branches.
 
-Also fixed a latent ReferenceError in `/api/engine` (ENGINE_ROOT / JUDGE_ROOT got dropped in commit 5f8137e but call sites still referenced them). Added a 3-test smoke suite — would have caught the regression at the time.
+Also fixed a latent ReferenceError in `/api/rules-retrieval` (ENGINE_ROOT / JUDGE_ROOT got dropped in commit 5f8137e but call sites still referenced them). Added a 3-test smoke suite — would have caught the regression at the time.
 
 End-to-end verified on a clean install: window opens, wizard appears, import copies the full deck library + chats + spellbook data, marker persists across restarts, engine returns rule chunks, all 335 tests pass.
 

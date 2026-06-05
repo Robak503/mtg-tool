@@ -140,6 +140,39 @@ describe("path scoping", () => {
   });
 });
 
+describe("profile id validation (path-traversal defense)", () => {
+  it("isValidProfileId accepts server-generated ids and rejects traversal/garbage", async () => {
+    const { isValidProfileId } = await loadPaths();
+    expect(isValidProfileId("prof_123e4567-e89b-42d3-a456-426614174000")).toBe(true);
+    expect(isValidProfileId("../../etc/passwd")).toBe(false);
+    expect(isValidProfileId("prof_../../evil")).toBe(false);
+    expect(isValidProfileId("prof_short")).toBe(false);
+    expect(isValidProfileId("")).toBe(false);
+    expect(isValidProfileId(null)).toBe(false);
+  });
+
+  it("rejects a malformed active id even when it is a registry member (no path escape)", async () => {
+    await seedDecks([{ id: "d1", name: "A", memory: { owner: "Colton" } }]);
+    const { ensureMigrated } = await loadProfiles();
+    ensureMigrated();
+
+    // Simulate a hand-corrupted data/profiles.json whose active pointer (and a
+    // member entry) carry a traversal payload. The shape guard must refuse it
+    // rather than path.join it — the pre-guard code would have escaped.
+    const reg = await readJson("profiles.json");
+    const evil = "..\\..\\..\\Windows\\System32";
+    reg.profiles.unshift({ id: evil, name: "evil", createdAt: "x" });
+    reg.activeProfileId = evil;
+    await fs.writeFile(path.join(workDir, "data", "profiles.json"), JSON.stringify(reg));
+
+    const { activeProfileId, profilePath } = await loadPaths();
+    expect(activeProfileId()).toBeNull();
+    const resolved = profilePath("decks.local.json");
+    expect(resolved).toBe(path.join(workDir, "data", "decks.local.json"));
+    expect(resolved).not.toContain("System32");
+  });
+});
+
 describe("registry CRUD", () => {
   it("creates an empty profile and switches to it", async () => {
     const { listProfiles, createProfile, setActiveProfile } = await loadProfiles();

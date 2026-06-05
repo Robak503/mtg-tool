@@ -141,17 +141,36 @@ function readRegistrySafe() {
   }
 }
 
+// Profile ids are always server-generated as prof_<uuid v4>. Validate the shape
+// before any id reaches path.join(), so a hand-tampered data/profiles.json can
+// never turn the active-profile pointer into a path-traversal read/write/delete.
+// Defense in depth: no API path can set an arbitrary id (createProfile generates
+// it; the mutating routes reject ids not already in the registry) — this guards
+// the one remaining vector, a locally-edited registry file.
+const VALID_PROFILE_ID = /^prof_[0-9a-f-]{36}$/;
+
+export function isValidProfileId(id) {
+  return typeof id === "string" && VALID_PROFILE_ID.test(id);
+}
+
 /**
  * Id of the active profile, or null when no registry exists yet (pre-migration).
- * Falls back to the first profile if the stored activeProfileId is stale.
+ * Falls back to the first profile if the stored activeProfileId is stale. Any
+ * id that doesn't match the server-generated shape is rejected (returns null →
+ * legacy flat path) rather than trusted into a file path.
  */
 export function activeProfileId() {
   const reg = readRegistrySafe();
   if (!reg) return null;
-  if (reg.activeProfileId && reg.profiles.some(p => p.id === reg.activeProfileId)) {
+  if (
+    reg.activeProfileId &&
+    isValidProfileId(reg.activeProfileId) &&
+    reg.profiles.some(p => p.id === reg.activeProfileId)
+  ) {
     return reg.activeProfileId;
   }
-  return reg.profiles[0]?.id || null;
+  const first = reg.profiles[0]?.id;
+  return isValidProfileId(first) ? first : null;
 }
 
 /**
