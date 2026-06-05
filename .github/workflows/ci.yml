@@ -2,7 +2,8 @@ name: ci
 
 # Runs the test suite on every push to master and every pull request, so a
 # regression is caught before it lands (and before it can reach a release tag).
-# Windows-latest matches the dev + release environment the suite is verified on.
+# Pinned to windows-2025 (not windows-latest) so the suite runs on the same
+# image the release pipeline builds on -- see release.yml for the pin rationale.
 
 on:
   push:
@@ -19,7 +20,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: windows-latest
+    runs-on: windows-2025
     timeout-minutes: 20
     steps:
       - name: Checkout

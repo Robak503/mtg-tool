@@ -11,7 +11,12 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    # Pinned, not windows-latest, so a signed release can't have its build
+    # environment shift mid-flight. GitHub is redirecting windows-latest to
+    # windows-2025-vs2026 by 2026-06-15; windows-2025 is the same image that
+    # produced the working signed v0.21.0 build, so the cargo + NSIS toolchain
+    # is known-good here.
+    runs-on: windows-2025
     timeout-minutes: 60
 
     steps:
