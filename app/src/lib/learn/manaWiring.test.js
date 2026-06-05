@@ -107,6 +107,25 @@ describe("PR 10.1 — tap-for-mana action + floating", () => {
     expect(after.priorityHolder).toBe("user"); // mana ability doesn't change priority
   });
 
+  it("casts a multi-hybrid spell without throwing (review bug #1 regression)", () => {
+    // Two hybrid pips sharing a color ({R/G}{G/B}) used to make planPayment and
+    // the old deductManaCost disagree → MANA_SHORT thrown after the spell was
+    // already deemed castable. Now the cast deducts the plan's exact spend.
+    let state = baseState({
+      hand: [{ id: "hc", name: "Hybrid Card", type: "Creature — Elemental", mana: "{U}{R}{G}{R/G}{G/B}" }],
+    });
+    state = { ...state, players: { ...state.players, user: { ...state.players.user, manaPool: { W: 2, U: 2, B: 0, R: 3, G: 2, C: 1 } } } };
+    expect(() =>
+      dispatchAction(state, { kind: "cast-spell", playerId: "user", cardId: "hc", cost: parseManaCost("{U}{R}{G}{R/G}{G/B}") }),
+    ).not.toThrow();
+    const after = dispatchAction(state, { kind: "cast-spell", playerId: "user", cardId: "hc", cost: parseManaCost("{U}{R}{G}{R/G}{G/B}") });
+    expect(after.stack).toHaveLength(1);
+    // No pool color went negative.
+    for (const c of Object.keys(after.players.user.manaPool)) {
+      expect(after.players.user.manaPool[c]).toBeGreaterThanOrEqual(0);
+    }
+  });
+
   it("a floated pool pays a later cast with zero additional taps", () => {
     // Float 2 green, then cast a {1}{G} spell — should pay from the pool.
     let state = baseState({

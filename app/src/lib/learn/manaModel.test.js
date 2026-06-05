@@ -112,7 +112,8 @@ const G = (s) => parseManaCost(s);
 describe("planPayment / canAfford", () => {
   it("pays from a pre-filled pool with zero taps (pool-first)", () => {
     const plan = planPayment({ ...EMPTY_POOL, G: 1 }, [], G("{G}"));
-    expect(plan).toEqual({ taps: [] });
+    expect(plan.taps).toEqual([]);
+    expect(plan.spend.G).toBe(1);
     expect(canAfford({ ...EMPTY_POOL, G: 1 }, [], G("{G}"))).toBe(true);
   });
 
@@ -168,5 +169,32 @@ describe("planPayment / canAfford", () => {
     // Pool has 2 generic-worth; cost is {1}. Should not need to tap.
     const plan = planPayment({ ...EMPTY_POOL, C: 2 }, sources, G("{1}"));
     expect(plan.taps).toEqual([]);
+    expect(plan.spend.C).toBe(1);
+  });
+
+  // Regression (review bug #2): scarcest-color-first must not strand the only
+  // source of a color. pool {G:1}; sources can make {U,B},{U,R,W},{C,U}; cost
+  // {W}{U}{B}. A naive first-fit pays U from the only-B source and fails.
+  it("does not strand the sole source of a color (scarcity-first)", () => {
+    const sources = [
+      { permanentId: "s1", colors: ["U", "B"], amount: 1 },
+      { permanentId: "s2", colors: ["U", "R", "W"], amount: 1 },
+      { permanentId: "s3", colors: ["C", "U"], amount: 1 },
+    ];
+    expect(canAfford({ ...EMPTY_POOL, G: 1 }, sources, G("{W}{U}{B}"))).toBe(true);
+  });
+
+  // Regression (review bug #1): the plan's spend, applied to the topped-up
+  // pool, must always be payable — no divergence from a second heuristic. Two
+  // hybrid pips sharing a color is the case that used to throw MANA_SHORT.
+  it("returns a self-consistent spend for multi-hybrid costs", () => {
+    const pool = { W: 2, U: 2, B: 0, R: 3, G: 2, C: 1 };
+    const cost = G("{U}{R}{G}{R/G}{G/B}");
+    const plan = planPayment(pool, [], cost);
+    expect(plan).not.toBeNull();
+    // Topped pool (no taps here) minus spend must be non-negative everywhere.
+    for (const c of ["W", "U", "B", "R", "G", "C"]) {
+      expect((pool[c] || 0) - plan.spend[c]).toBeGreaterThanOrEqual(0);
+    }
   });
 });

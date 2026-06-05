@@ -159,20 +159,26 @@ export function manaSources(state, playerId) {
 
 /**
  * Plan how to pay `cost` from the current `pool` plus tapping `sources`.
- * Returns `{ taps: [{ permanentId, color, amount }] }` (possibly empty when
- * the pool already covers the cost) or null when it can't be paid.
+ * Returns `{ taps: [{ permanentId, color, amount }], spend: {W,U,B,R,G,C} }`
+ * or null when it can't be paid.
  *
- * The dispatcher commits the plan: for each tap, set the permanent tapped and
- * `addMana(color, amount)`, then deduct the full cost from the topped-up pool.
- * Surplus from an over-producing source (Sol Ring paying a single generic)
- * floats — which is exactly the floating-mana behavior we want.
+ * `spend` is the EXACT per-color amount to remove from the topped-up pool —
+ * the dispatcher applies the taps (`addMana`) then subtracts `spend` verbatim.
+ * Returning the exact spend (rather than re-deriving payment with a second
+ * heuristic) is what guarantees "affordable per planPayment" == "actually
+ * paid": there's no algorithm divergence that could strand mana and throw.
+ * Surplus from an over-producing source (Sol Ring on a single generic) floats.
  *
- * Greedy, most-constrained-source-first for colored pips. Hybrid pips pay the
- * cheapest colored side; phyrexian pips are assumed paid with life (not mana,
- * matching legalChoices.canPayManaCost); X counts as 0.
+ * Greedy: colored pips are paid SCARCEST-COLOR-FIRST (fewest producing sources
+ * first) from the most-constrained source, so the sole source of a color isn't
+ * wasted on a more-flexible pip. Hybrid pips pay the cheapest colored side;
+ * phyrexian pips are assumed paid with life (not mana, matching
+ * legalChoices.canPayManaCost); X counts as 0. Pathological multicolor costs
+ * fall to "can't afford" (null) — never to fabricated mana.
  */
 export function planPayment(pool, sources, cost) {
-  if (!cost) return { taps: [] };
+  const spend = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+  if (!cost) return { taps: [], spend };
 
   const working = {};
   for (const c of MANA_COLORS) working[c] = pool?.[c] || 0;
@@ -184,6 +190,7 @@ export function planPayment(pool, sources, cost) {
     used: false,
   }));
   const taps = [];
+  const spendOne = (color) => { working[color] -= 1; spend[color] += 1; };
 
   // Tap the most-constrained untapped source that can make `color`.
   const tapForColor = (color) => {
@@ -218,12 +225,19 @@ export function planPayment(pool, sources, cost) {
     return null;
   };
 
-  // 1. Colored + colorless pips (hardest to pay — do first).
-  for (const color of ["W", "U", "B", "R", "G", "C"]) {
+  // 1. Colored + colorless pips, scarcest color first. Scarcity = how many
+  // sources (plus current pool) can produce it; paying the scarce color first
+  // avoids stranding the only source of a color on a more-flexible pip.
+  const producerCount = (color) =>
+    (working[color] || 0) + avail.filter(s => !s.used && s.colors.includes(color)).length;
+  const coloredNeeded = ["W", "U", "B", "R", "G", "C"].filter(c => (cost[c] || 0) > 0);
+  coloredNeeded.sort((a, b) => producerCount(a) - producerCount(b));
+
+  for (const color of coloredNeeded) {
     let need = cost[color] || 0;
     while (need > 0) {
-      if (working[color] > 0) { working[color] -= 1; need -= 1; continue; }
-      if (tapForColor(color)) { working[color] -= 1; need -= 1; continue; }
+      if (working[color] > 0) { spendOne(color); need -= 1; continue; }
+      if (tapForColor(color)) { spendOne(color); need -= 1; continue; }
       return null;
     }
   }
@@ -233,11 +247,11 @@ export function planPayment(pool, sources, cost) {
     const colored = options.filter(o => COLOR_SET.has(o));
     let paid = false;
     for (const opt of colored) {
-      if (working[opt] > 0) { working[opt] -= 1; paid = true; break; }
+      if (working[opt] > 0) { spendOne(opt); paid = true; break; }
     }
     if (!paid) {
       for (const opt of colored) {
-        if (tapForColor(opt)) { working[opt] -= 1; paid = true; break; }
+        if (tapForColor(opt)) { spendOne(opt); paid = true; break; }
       }
     }
     if (!paid) return null;
@@ -247,16 +261,16 @@ export function planPayment(pool, sources, cost) {
   let generic = cost.generic || 0;
   if (generic > 0) {
     for (const c of MANA_COLORS) {
-      while (generic > 0 && working[c] > 0) { working[c] -= 1; generic -= 1; }
+      while (generic > 0 && working[c] > 0) { spendOne(c); generic -= 1; }
     }
   }
   while (generic > 0) {
     const color = tapAny();
     if (color === null) return null;
-    while (generic > 0 && working[color] > 0) { working[color] -= 1; generic -= 1; }
+    while (generic > 0 && working[color] > 0) { spendOne(color); generic -= 1; }
   }
 
-  return { taps };
+  return { taps, spend };
 }
 
 /**

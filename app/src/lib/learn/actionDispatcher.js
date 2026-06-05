@@ -204,9 +204,15 @@ function applyCastSpell(state, action) {
     working = addMana(working, { playerId: action.playerId, color: tap.color, amount: tap.amount });
   }
 
-  // 2. Deduct the cost from the (now topped-up) pool.
+  // 2. Deduct EXACTLY what the plan spent. Using the plan's own breakdown (not
+  // a second payment heuristic) guarantees the deduction always succeeds — no
+  // divergence that could strand a hybrid pip and throw MANA_SHORT after the
+  // spell was already deemed castable.
   const toppedPool = working.players[action.playerId].manaPool;
-  const nextPool = deductManaCost(toppedPool, action.cost);
+  const nextPool = {};
+  for (const c of Object.keys(toppedPool)) {
+    nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
+  }
 
   // 3. Move the card out of hand. We splice manually because the stack is
   // shared (top-level state), not per-player.
