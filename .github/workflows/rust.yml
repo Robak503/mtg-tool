@@ -30,7 +30,11 @@ concurrency:
 
 jobs:
   rust:
-    runs-on: windows-latest
+    # Pinned, not windows-latest, so the Rust lint/audit environment can't
+    # shift unexpectedly (GitHub is redirecting windows-latest to
+    # windows-2025-vs2026 by 2026-06-15). windows-2025 carries the MSVC +
+    # cargo toolchain this job needs.
+    runs-on: windows-2025
     timeout-minutes: 30
     defaults:
       run:
