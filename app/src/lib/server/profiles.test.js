@@ -103,6 +103,24 @@ describe("ensureMigrated — splits decks by owner", () => {
     expect(after.activeProfileId).toBe(before.activeProfileId);
   });
 
+  it("self-heals a stale legacy flat decks file a prior migration couldn't delete", async () => {
+    await seedDecks([{ id: "d1", name: "A", memory: { owner: "Colton" } }]);
+    const { ensureMigrated } = await loadProfiles();
+    ensureMigrated();
+    // Normal migration removes the flat file.
+    expect(await exists("decks.local.json")).toBe(false);
+
+    // Simulate a real-install migration whose delete lost a race with a file
+    // lock: the registry exists but the flat file lingers.
+    await fs.writeFile(path.join(workDir, "data", "decks.local.json"), JSON.stringify({ decks: [] }));
+    expect(await exists("decks.local.json")).toBe(true);
+
+    // The next ensureMigrated (next launch) is a no-op for migration but sweeps
+    // the inert leftover.
+    ensureMigrated();
+    expect(await exists("decks.local.json")).toBe(false);
+  });
+
   it("creates a single default profile when there are no decks", async () => {
     const { listProfiles } = await loadProfiles();
     const { profiles, activeProfileId } = listProfiles();

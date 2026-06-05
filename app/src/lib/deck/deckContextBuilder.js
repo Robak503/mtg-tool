@@ -309,7 +309,7 @@ export async function fetchGoldfishInsightsBlock(deckId) {
     if (!response.ok) return "";
     const insights = await response.json();
     if (!insights || (insights.count || 0) < 2) return "";
-    const { formatInsightsForAgent } = await import("./gameInsights");
+    const { formatInsightsForAgent } = await import("../gameInsights");
     return formatInsightsForAgent(insights);
   } catch {
     return "";

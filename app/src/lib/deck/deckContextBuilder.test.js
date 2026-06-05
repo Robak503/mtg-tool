@@ -9,11 +9,12 @@
  * locks without the field must stay usable).
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createDeckLock,
   deckLockNeedsConfirmation,
+  fetchGoldfishInsightsBlock,
   isDeckRequiredAgent,
   sessionNeedsDeckSelection,
 } from "./deckContextBuilder";
@@ -96,5 +97,40 @@ describe("sessionNeedsDeckSelection", () => {
   it("is false for a null/undefined session (nothing to attach a lock to yet)", () => {
     expect(sessionNeedsDeckSelection(null, "karn")).toBe(false);
     expect(sessionNeedsDeckSelection(undefined, "tibalt")).toBe(false);
+  });
+});
+
+// Regression guard for the dynamic `import("../gameInsights")` inside
+// fetchGoldfishInsightsBlock. gameInsights.js was moved up a directory by the
+// #141 structure cleanup; the stale "./gameInsights" path threw at runtime, but
+// the function's catch {} swallowed it and silently returned "" — so deck
+// insights vanished from agent prompts with no error. This exercises the real
+// import path (count >= 2 reaches the import) and asserts a non-empty block, so
+// a broken path fails loudly here instead of degrading silently in prod.
+describe("fetchGoldfishInsightsBlock", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns an empty string with no deck id (no fetch attempted)", async () => {
+    expect(await fetchGoldfishInsightsBlock("")).toBe("");
+  });
+
+  it("resolves gameInsights and formats a non-empty block when history exists", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => ({ count: 3 }) })),
+    );
+    const block = await fetchGoldfishInsightsBlock("deck-1");
+    expect(block).toContain("Goldfish History");
+    expect(block.length).toBeGreaterThan(0);
+  });
+
+  it("returns an empty string when the summary route reports too little history", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, json: async () => ({ count: 1 }) })),
+    );
+    expect(await fetchGoldfishInsightsBlock("deck-1")).toBe("");
   });
 });
