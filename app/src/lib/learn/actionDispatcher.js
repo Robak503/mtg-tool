@@ -338,14 +338,27 @@ function defaultSpellResolver(card, controller) {
   };
 }
 
+function hasVigilance(card) {
+  const kws = Array.isArray(card?.keywords) ? card.keywords : [];
+  if (kws.some(k => String(k).toLowerCase() === "vigilance")) return true;
+  return /\bvigilance\b/i.test(String(card?.oracle || card?.oracle_text || ""));
+}
+
 function applyDeclareAttacker(state, action) {
   const creature = findCreatureOnBattlefield(state, action.playerId, action.permanentId);
   if (!creature) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
 
-  const withCombat = ensureCombat(state);
-  // Multi-defender ready: PR 10 will pass action.defenderId to pick which
-  // opponent an attacker is targeting. Until then (and always in Standard)
-  // we default to the lone/first opponent in turn order.
+  // Attacking taps the creature (CR 508.1f) unless it has vigilance. This is
+  // what self-dedups attackers (a tapped creature is no longer a legal
+  // attacker) and stops a creature that attacked from also blocking before
+  // its next untap. combatResolution reads power regardless of tapped state.
+  let next = ensureCombat(state);
+  if (!hasVigilance(creature.card)) {
+    next = tapPermanent(next, action.permanentId);
+  }
+
+  // defenderId picks which opponent this attacker targets (Commander). In
+  // Standard the dispatcher fills the lone opponent.
   const defender = action.defenderId || opponentsOf(state, action.playerId)[0];
   const attackerEntry = {
     permanentId: action.permanentId,
@@ -353,13 +366,13 @@ function applyDeclareAttacker(state, action) {
     defender,
   };
   return {
-    ...withCombat,
+    ...next,
     combat: {
-      ...withCombat.combat,
-      attackers: [...withCombat.combat.attackers, attackerEntry],
+      ...next.combat,
+      attackers: [...next.combat.attackers, attackerEntry],
     },
     log: [
-      ...withCombat.log,
+      ...next.log,
       { turn: state.turn, kind: "attack-declared", attackerId: action.permanentId, attackingPlayer: action.playerId },
     ],
   };

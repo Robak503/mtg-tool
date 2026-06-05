@@ -330,10 +330,15 @@ function actionsDeclareAttacker(state, playerId) {
   if (state.activePlayer !== playerId) return [];
   if (state.step !== "declare-attackers") return [];
 
+  // Creatures already attacking this combat can't be re-declared. Tapping on
+  // attack already excludes most, but a Vigilance attacker stays untapped —
+  // this set is what stops it (and any future no-tap attacker) from looping.
+  const declared = new Set((state.combat?.attackers || []).map(a => a.permanentId));
   const player = state.players[playerId];
   const attackers = player.battlefield
     .filter(p => isCreature(p.card))
     .filter(p => !p.tapped)
+    .filter(p => !declared.has(p.id))
     .filter(p => !p.summoningSick || hasKeyword(p.card, "Haste"));
 
   // Standard (a lone opponent): the dispatcher auto-fills the defender, so emit
@@ -370,10 +375,13 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
   if (state.step !== "declare-blockers") return [];
   if (declaredAttackers.length === 0) return [];
 
+  // A creature already assigned as a blocker this combat can't block again.
+  const assigned = new Set((state.combat?.blockers || []).map(b => b.blockerId));
   const player = state.players[playerId];
   const candidateBlockers = player.battlefield
     .filter(p => isCreature(p.card))
-    .filter(p => !p.tapped);
+    .filter(p => !p.tapped)
+    .filter(p => !assigned.has(p.id));
 
   // For each candidate blocker, surface one action per attacker it
   // could block. v1 doesn't enforce "must block X" effects (Lure, etc.)
@@ -407,10 +415,14 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
  *                      because the engine tracks combat assignments
  *                      separately, not in state.
  */
-export function legalActionsForPlayer(state, playerId, { declaredAttackers = [] } = {}) {
+export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {}) {
   if (!state || !state.players?.[playerId]) {
     throw new Error(`legalActionsForPlayer: invalid playerId "${playerId}"`);
   }
+  // Default the declared-attackers list from live combat state, so the
+  // session driver gets blocker candidates without threading it explicitly.
+  // (Tests may still pass an explicit list — including [] — which wins.)
+  const attackerIds = declaredAttackers ?? (state.combat?.attackers || []).map(a => a.permanentId);
   const actions = [];
 
   // Pass priority — always available IF the player has priority.
@@ -425,7 +437,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers = [] 
 
   // Combat actions.
   actions.push(...actionsDeclareAttacker(state, playerId));
-  actions.push(...actionsDeclareBlocker(state, playerId, declaredAttackers));
+  actions.push(...actionsDeclareBlocker(state, playerId, attackerIds));
 
   return actions;
 }

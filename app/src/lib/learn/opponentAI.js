@@ -206,6 +206,29 @@ function pickBlockers(blockerActions, state, aiPlayerId) {
 export function pickAction(state, aiPlayerId, actions, { archetype = null } = {}) {
   if (!Array.isArray(actions) || actions.length === 0) return null;
 
+  // Combat is a batch decision, but the driver applies one action per tick.
+  // We compute the plan and return its first still-legal choice; declared
+  // attackers/blockers are excluded from the legal set next tick (attackers
+  // tap on declare; blockers are tracked), so each tick drains one and the
+  // step empties, after which we fall through to pass.
+  if (state.step === "declare-attackers") {
+    const attackerActions = filterActions(actions, "declare-attacker");
+    if (attackerActions.length > 0) {
+      const plan = pickAttackPlan(state, aiPlayerId, attackerActions);
+      if (plan.length > 0) return plan[0];
+    }
+  }
+  if (state.step === "declare-blockers") {
+    // Only consider attackers we haven't blocked yet (v1: one blocker each),
+    // so the AI doesn't pile redundant blockers on the same attacker.
+    const blocked = new Set((state.combat?.blockers || []).map(b => b.attackerId));
+    const blockerActions = filterActions(actions, "declare-blocker").filter(a => !blocked.has(a.attackerId));
+    if (blockerActions.length > 0) {
+      const plan = pickBlockPlan(state, aiPlayerId, blockerActions);
+      if (plan.length > 0) return plan[0];
+    }
+  }
+
   const lands = filterActions(actions, "play-land");
   if (lands.length > 0) {
     const land = pickLandAction(state, aiPlayerId, lands);
