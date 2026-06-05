@@ -9,8 +9,9 @@
  *     The Forge .git/objects/pack/ files also cause "Access is denied"
  *     when Tauri's build.rs walks them for rerun-if-changed directives.
  *
- *   - knowledge/mtg-engine/ contains stale scryfall_*.json (~46MB) and a
- *     one-off scryfall_setup.py build script — neither needed at runtime.
+ *   - knowledge/mtg-engine/_source/ holds one-off build artifacts (the CR
+ *     .docx, scryfall_setup.py, mtg_judge_v5.py) — never needed at runtime.
+ *     The .md-only filter below excludes them regardless of location.
  *
  * What we keep (staged under resources/knowledge/ to mirror the repo layout):
  *   resources/knowledge/mtg-judge/META_test_cases_rulesguru.md  (RulesGuru retrieval)

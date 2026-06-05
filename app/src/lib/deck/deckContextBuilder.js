@@ -7,7 +7,7 @@
  * Extracted from useChatAgents.js (PR0) — keep in sync with that file's imports.
  */
 
-import { AGENTS } from "./agents";
+import { AGENTS } from "../agents";
 import { serializeDeck, serializeDeckMemory } from "./deckMemory";
 
 // Maximum number of matched decks to expand into full context per request.
@@ -281,7 +281,7 @@ export function shouldUseDeckScopedContext(targetAgent, prompt) {
 
 export async function fetchEngineContext({ query, limit = 4 }) {
   try {
-    const response = await fetch("/api/engine", {
+    const response = await fetch("/api/rules-retrieval", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, limit }),

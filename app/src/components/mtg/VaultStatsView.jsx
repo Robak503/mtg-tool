@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * StatsView — the Vault's collection stats dashboard (#10).
+ * VaultStatsView — the Vault's collection stats dashboard (#10).
  *
  * Reads /api/collection/stats and renders composition breakdowns (type, color,
  * rarity), a mana curve, top sets, and the most-valuable cards. All local —
@@ -28,7 +28,7 @@ const RARITY_COLOR = { mythic: "#d8542f", rare: "#d9a531", uncommon: "#b6c2cc", 
 
 const money = (v) => (v == null || Number.isNaN(v) ? "—" : `$${Number(v).toFixed(2)}`);
 
-export default function StatsView({ colors, fontFamily }) {
+export default function VaultStatsView({ colors, fontFamily }) {
   const { BG, BG2, LINE, TEXT, MUTED, GOLD } = colors;
   const F = fontFamily;
   const [state, setState] = useState({ status: "loading", data: null, error: null });

@@ -19,7 +19,7 @@
 import { useState, useRef, useEffect } from "react";
 
 import { AGENTS } from "../lib/agents";
-import { serializeDeck } from "../lib/deckMemory";
+import { serializeDeck } from "../lib/deck/deckMemory";
 import {
   formatGoldfishBatchNotes,
   formatGoldfishNotes,
@@ -40,17 +40,17 @@ import DeckView from "./mtg/DeckView";
 import RightPanel from "./mtg/RightPanel";
 import ChatPanel from "./mtg/ChatPanel";
 import SessionSidebar from "./mtg/SessionSidebar";
-import FeedbackButton from "./mtg/FeedbackButton";
+import FeedbackPanel from "./mtg/FeedbackPanel";
 import LearnView from "./mtg/LearnView";
 import CollectionView from "./mtg/CollectionView";
-import UpdatesModal from "./UpdatesModal";
+import UpdatesModal from "./mtg/UpdatesModal";
 import PodBalanceModal from "./mtg/PodBalanceModal";
 import SettingsModal from "./mtg/SettingsModal";
 import OnboardingWizard from "./mtg/OnboardingWizard";
 import ProfileGate from "./mtg/ProfileGate";
 import ProfileManageModal from "./mtg/ProfileManageModal";
 import useProfiles from "../hooks/useProfiles";
-import { applyDeckChange } from "../lib/deckApply";
+import { applyDeckChange } from "../lib/deck/deckApply";
 
 export default function MTGAssistant() {
   const [agent, setAgent]   = useState("jace");
@@ -1389,7 +1389,7 @@ export default function MTGAssistant() {
       {/* In-app feedback capture. Floats over everything; writes to
           data/feedback/ via /api/feedback. Per CLAUDE.md "End-of-pass
           behavior" — the user will accumulate notes during real usage. */}
-      <FeedbackButton
+      <FeedbackPanel
         agent={agent}
         currentSession={currentSession}
         activeDeck={activeDeck}

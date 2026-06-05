@@ -5,7 +5,7 @@
  */
 import { useRef, useState } from "react";
 
-import { isDeckUrl } from "../../lib/deckImportUrl";
+import { isDeckUrl } from "../../lib/deck/deckImportUrl";
 
 export default function ImportDeckView({
   cfg,

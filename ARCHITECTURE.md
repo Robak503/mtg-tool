@@ -49,8 +49,8 @@ cloud — it is hardcoded to Ollama so rulings stay local and deterministic.
 - **knowledge/mtg-engine** — rule-layer markdown the engine route retrieves over.
 - **Commander Spellbook / EDHREC** — combo and "saltiness" data.
 
-`/api/engine` does rule-aware retrieval over these sources; `/api/arbiter` produces
-formal rulings with verified citations.
+`/api/rules-retrieval` does rule-aware retrieval over these sources; `/api/arbiter`
+produces formal rulings with verified citations.
 
 ## Path resolution
 

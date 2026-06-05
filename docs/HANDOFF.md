@@ -121,7 +121,7 @@ Done: lint warnings → 0; dead-code removal (`cardContext.js`); unique
 atomic-write temp names; version-source alignment + drift guard; sync cache
 invalidation; production-cleanup pass (atomic/race-free writes, never-fabricate
 guard, CI gates). **Remaining:** decompose the oversized files (`MTGAssistant.jsx`
-~1.2k lines, `FeedbackButton.jsx`, `powerRanker.js`, `lib.rs`) — headless but
+~1.2k lines, `FeedbackPanel.jsx`, `powerRanker.js`, `lib.rs`) — headless but
 large and behavior-sensitive (best done with the app available to smoke-test);
 and the verification-gated items above (CSP, art proxy).
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { buildColors, buildCurve, calcPrice, checkLegal, colorIdentityIssues } from "../lib/deckAnalytics";
+import { buildColors, buildCurve, calcPrice, checkLegal, colorIdentityIssues } from "../lib/deck/deckAnalytics";
 import {
   defaultDeckMemory,
   loadCardNameCatalog,
@@ -11,7 +11,7 @@ import {
   parseDeck,
   serializeDeck,
   suspiciousDeckEntries,
-} from "../lib/deckMemory";
+} from "../lib/deck/deckMemory";
 import {
   cancelScheduledDeckFileSave,
   createDeckBackup,
@@ -19,7 +19,7 @@ import {
   loadDeckFile,
   saveDeckFile,
   scheduleDeckFileSave,
-} from "../lib/deckPersistence";
+} from "../lib/deck/deckPersistence";
 import { fetchDeckData } from "../lib/scryfall";
 import { loadJson, saveJson } from "../lib/storage";
 

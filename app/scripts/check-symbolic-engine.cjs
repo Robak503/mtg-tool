@@ -7,7 +7,7 @@ const {
   executeActions,
   runScenario,
   summarizeState,
-} = require("../src/lib/symbolicEngine.cjs");
+} = require("../src/lib/server/symbolicEngine.cjs");
 const {
   hydrateExecutionInput,
   symbolicObjectFromCard,

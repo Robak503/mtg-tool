@@ -1,5 +1,5 @@
 /**
- * Smoke test for /api/engine — catches the kind of bug introduced by
+ * Smoke test for /api/rules-retrieval — catches the kind of bug introduced by
  * commit 5f8137e (paths.js migration) which dropped ENGINE_ROOT/JUDGE_ROOT
  * but left call sites referencing them, throwing ReferenceError on every
  * request. No test covered the endpoint at the time so the regression
@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from "vitest";
 
-describe("/api/engine — module load and request handling", () => {
+describe("/api/rules-retrieval — module load and request handling", () => {
   it("imports without throwing", async () => {
     await expect(import("./route.js")).resolves.toBeDefined();
   });
@@ -22,7 +22,7 @@ describe("/api/engine — module load and request handling", () => {
   it("exports a GET handler that returns a Response", async () => {
     const mod = await import("./route.js");
     expect(typeof mod.GET).toBe("function");
-    const req = new Request("http://localhost/api/engine?q=trample");
+    const req = new Request("http://localhost/api/rules-retrieval?q=trample");
     const resp = await mod.GET(req);
     expect(resp).toBeInstanceOf(Response);
     // Status may be 200 or 500 depending on whether knowledge/mtg-judge and
@@ -44,7 +44,7 @@ describe("/api/engine — module load and request handling", () => {
     // rule number reliably produces rules from the real bundled CR JSON, so
     // formatRulesContext actually runs (the GET smoke test never exercised it).
     const mod = await import("./route.js");
-    const req = new Request("http://localhost/api/engine", {
+    const req = new Request("http://localhost/api/rules-retrieval", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ query: "casting a spell, rule 601.2" }),

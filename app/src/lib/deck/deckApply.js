@@ -14,7 +14,7 @@
  * Commander unless it's the only match.
  */
 
-import { deckSnapshot } from "./agentArtifacts.js";
+import { deckSnapshot } from "../agentArtifacts.js";
 
 const MAIN = "Mainboard";
 const key = (name) => String(name || "").trim().toLowerCase();

@@ -8,7 +8,7 @@
  * Extracted from useChatAgents.js (PR0).
  */
 
-import { normalizeSearchText } from "./deckContextBuilder";
+import { normalizeSearchText } from "./deck/deckContextBuilder";
 
 // ─── Context counters (used for factReceipt) ──────────────────────────────────
 

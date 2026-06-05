@@ -25,10 +25,10 @@ import CollectionImportModal from "./CollectionImportModal";
 import CollectionRoastModal from "./CollectionRoastModal";
 import CollectionDecksModal from "./CollectionDecksModal";
 import ColorTagManager from "./ColorTagManager";
-import FinanceView from "./FinanceView";
-import StatsView from "./StatsView";
-import SetBrowserView from "./SetBrowserView";
-import BuildView from "./BuildView";
+import VaultFinanceView from "./VaultFinanceView";
+import VaultStatsView from "./VaultStatsView";
+import VaultSetBrowserView from "./VaultSetBrowserView";
+import VaultBuildView from "./VaultBuildView";
 import useColorTags from "../../hooks/useColorTags";
 
 // Aether — matches the app shell theme (near-black Material surfaces, cyan hero).
@@ -615,19 +615,19 @@ export default function CollectionView({ onClose, onBuildCommander }) {
       )}
 
       {mode === "finance" && (
-        <FinanceView colors={COLORS} fontFamily={FONT} />
+        <VaultFinanceView colors={COLORS} fontFamily={FONT} />
       )}
 
       {mode === "stats" && (
-        <StatsView colors={COLORS} fontFamily={FONT} />
+        <VaultStatsView colors={COLORS} fontFamily={FONT} />
       )}
 
       {mode === "sets" && (
-        <SetBrowserView colors={COLORS} fontFamily={FONT} />
+        <VaultSetBrowserView colors={COLORS} fontFamily={FONT} />
       )}
 
       {mode === "build" && (
-        <BuildView colors={COLORS} fontFamily={FONT} onBuildCommander={onBuildCommander} />
+        <VaultBuildView colors={COLORS} fontFamily={FONT} onBuildCommander={onBuildCommander} />
       )}
 
       {mode === "collection" && (<>

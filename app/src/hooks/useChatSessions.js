@@ -20,10 +20,10 @@ import {
   lockContext,
   shouldUseDeckScopedContext,
   shouldUseEngineContext,
-} from "../lib/deckContextBuilder";
+} from "../lib/deck/deckContextBuilder";
 import { fetchCollectionContextBlock } from "../lib/collectionContextBuilder";
 import { swapBehaviorTagIds } from "./useColorTags";
-import { serializeDeck, serializeDeckMemory } from "../lib/deckMemory";
+import { serializeDeck, serializeDeckMemory } from "../lib/deck/deckMemory";
 import {
   buildCardContext,
   buildCardContextForNames,

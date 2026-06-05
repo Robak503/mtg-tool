@@ -17,7 +17,7 @@ import {
 } from "node:fs";
 import crypto from "node:crypto";
 
-import { appPath, profilesRegistryPath } from "./paths.js";
+import { appPath, profilesRegistryPath, isValidProfileId } from "./paths.js";
 
 // Writable user data that belongs to a single profile. Reference data
 // (scryfall*, spellbook-*, edhrec-salt*, rules-index, scryfall-bulk) and
@@ -53,6 +53,13 @@ function profilesRoot() {
   return path.join(dataRoot(), "profiles");
 }
 function profileDir(id) {
+  // Never path.join an id we didn't generate — a malformed id (only reachable
+  // via a hand-edited registry) must not become a traversal write/delete.
+  if (!isValidProfileId(id)) {
+    const err = new Error(`Refusing to resolve a malformed profile id: ${id}`);
+    err.code = "INVALID_PROFILE_ID";
+    throw err;
+  }
   return path.join(profilesRoot(), id);
 }
 function nowIso() {

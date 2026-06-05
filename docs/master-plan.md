@@ -260,7 +260,7 @@ status updated to reflect what's shipped. **The Vault's own 22-item menu lives i
 
 | ID | Item | Status | Notes / source |
 |---|---|---|---|
-| N1 | Decompose oversized files | ⬜ P2 | `MTGAssistant.jsx`, `FeedbackButton.jsx`, `useChatSessions.js`, `agents.js`, `powerRanker.js`, `lib.rs` (no behavior change). **PLAN L1 / CEO D5** |
+| N1 | Decompose oversized files | ⬜ P2 | `MTGAssistant.jsx`, `FeedbackPanel.jsx`, `useChatSessions.js`, `agents.js`, `powerRanker.js`, `lib.rs` (no behavior change). **PLAN L1 / CEO D5** |
 | N2 | Dead-code cleanup | 🟡 P2 | `cardContext.js` removed (#82); broader unused-export sweep still open. **PLAN L2** |
 | N3 | Lint-warning cleanup | ✅ v0.12.0 (#86/#89) | All 63 warnings cleared + `eslint . --max-warnings 0` gate. **PLAN L3** |
 | N4 | Local-first art completion | 🟡 P1 · verify live | Chat surfaces proxied (v0.3); route the last surfaces (hover tooltip, right-search preview, CollectionAddModal) through `/api/art-crop`. **PLAN L4 / CEO D2** |
@@ -297,7 +297,7 @@ The dedicated next work area. The Vault already does a lot (don't rebuild):
 > **Known reality:** movers come from the app's own daily snapshots (no free
 > historical-price API), so they fill in over ~1–2 weeks; the UI says so.
 
-**Key files** — UI: `app/src/components/mtg/{CollectionView,FinanceView,CollectionGrid,CardDetail,Filters,AddModal,ImportModal,DecksModal,RoastModal,ColorTagManager}.jsx`.
+**Key files** — UI: `app/src/components/mtg/{CollectionView,VaultFinanceView,CollectionGrid,CardDetail,Filters,AddModal,ImportModal,DecksModal,RoastModal,ColorTagManager}.jsx`.
 Server: `app/src/lib/server/{collectionStorage,collectionContext,collectionPrices,priceResolution,printingIndex,financeUniverse,watchlistStorage,cardKingdomPrices,scryfallPriceFetch}.js`.
 Routes: `app/src/app/api/{collection[/id/prices/stats/refresh-prices/deck-costs/conflicts],finance,watchlist,printings/[search|by-name]}`.
 Build scripts: `app/scripts/{build-collection-printings-index,build-oracle-index,sync-cardkingdom-prices}.cjs`.

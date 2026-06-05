@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { normalizeDeck } from "../../../lib/deckMemory";
+import { normalizeDeck } from "../../../lib/deck/deckMemory";
 import { profilePath } from "../../../lib/server/paths";
 import { ensureMigrated } from "../../../lib/server/profiles";
 
