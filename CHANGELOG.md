@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-06-04
+
 ### Added
 - **Local multi-user profiles.** Decks, the Vault collection, chats, games, and
   agent notes are now scoped per profile, so more than one person can share a
