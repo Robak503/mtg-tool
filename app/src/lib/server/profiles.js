@@ -80,6 +80,13 @@ export function createProfile(name) {
   const clean = (name || "").trim() || "New profile";
   const id = newId();
   mkdirSync(profileDir(id), { recursive: true });
+  // Write an empty deck file so the profile starts blank — a present-but-empty
+  // file stops /api/decks from seeding it with the bundled starter library
+  // (only a genuinely missing file gets seeded).
+  writeFileSync(
+    path.join(profileDir(id), "decks.local.json"),
+    JSON.stringify({ version: 1, updatedAt: nowIso(), decks: [] }, null, 2),
+  );
   const profile = { id, name: clean, createdAt: nowIso() };
   reg.profiles.push(profile);
   writeRegistry(reg);

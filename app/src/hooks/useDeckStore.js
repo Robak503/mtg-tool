@@ -2,10 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { DECK_SEEDS } from "../data/deckSeeds";
 import { buildColors, buildCurve, calcPrice, checkLegal, colorIdentityIssues } from "../lib/deckAnalytics";
 import {
-  buildSeedDeck,
   defaultDeckMemory,
   loadCardNameCatalog,
   loadTokenCatalog,
@@ -24,41 +22,6 @@ import {
 } from "../lib/deckPersistence";
 import { fetchDeckData } from "../lib/scryfall";
 import { loadJson, saveJson } from "../lib/storage";
-
-function mergeSeedDecks(decks, seedDecks) {
-  const merged = [...decks];
-
-  for (const seed of seedDecks) {
-    const index = merged.findIndex(deck =>
-      (deck.memory?.owner || "Colton") === seed.memory.owner && deck.name === seed.name
-    );
-
-    if (index === -1) {
-      merged.push(seed);
-      continue;
-    }
-
-    const existingCommanderCount = (merged[index].cards || [])
-      .filter(card => card.section === "Commander")
-      .reduce((sum, card) => sum + card.qty, 0);
-    const seedCommanderCount = (seed.cards || [])
-      .filter(card => card.section === "Commander")
-      .reduce((sum, card) => sum + card.qty, 0);
-
-    if (existingCommanderCount > seedCommanderCount + 2 && seedCommanderCount > 0) {
-      merged[index] = normalizeDeck({
-        ...merged[index],
-        cards: seed.cards,
-        memory: {
-          ...seed.memory,
-          ...(merged[index].memory || {}),
-        },
-      });
-    }
-  }
-
-  return merged;
-}
 
 export default function useDeckStore() {
   const [savedDecks, setSavedDecks] = useState([]);
@@ -83,19 +46,22 @@ export default function useDeckStore() {
       await loadCardNameCatalog();
       setTokenCatalogReady(tokenReady);
 
+      // The server's per-profile deck file is authoritative. Use it as-is — no
+      // seed re-merge, which would re-pollute the active profile with the
+      // bundled deck library and clobber a freshly-migrated per-owner split.
+      // localStorage is only a fallback for when the file can't be read; in that
+      // case we migrate the cache to the file so the file becomes the source.
       const fileDecks = await loadDeckFile();
-      const saved = fileDecks || await loadJson("mtg-decks-v3") || await loadJson("mtg-decks-v2");
-      const seedDecks = DECK_SEEDS.map(buildSeedDeck);
-
-      if (saved?.length) {
-        const normalized = mergeSeedDecks(saved.map(normalizeDeck), seedDecks);
+      if (fileDecks) {
+        const normalized = fileDecks.map(normalizeDeck);
         setSavedDecks(normalized);
         saveJson("mtg-decks-v3", normalized);
-        saveDeckFile(normalized);
       } else {
-        setSavedDecks(seedDecks);
-        saveJson("mtg-decks-v3", seedDecks);
-        saveDeckFile(seedDecks);
+        const cached = (await loadJson("mtg-decks-v3")) || (await loadJson("mtg-decks-v2")) || [];
+        const normalized = cached.map(normalizeDeck);
+        setSavedDecks(normalized);
+        saveJson("mtg-decks-v3", normalized);
+        if (normalized.length) saveDeckFile(normalized);
       }
       // Start every session with NO active deck pre-loaded. Decks load into the
       // library, but the user picks one explicitly (and the chat's deck-confirm

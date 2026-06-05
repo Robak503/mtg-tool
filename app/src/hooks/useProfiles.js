@@ -73,6 +73,12 @@ export default function useProfiles() {
 
   // Switch the active profile, then hard-reload so every per-profile fetch
   // resolves to the new namespace. `reload` is injectable for tests.
+  //
+  // localStorage is domain-global, NOT profile-scoped — so before reloading we
+  // must drop the keys that hold per-user data, or the new profile would
+  // silently hydrate the previous profile's last-open chat and custom color
+  // tags. Global preferences (model tier, update banner, feedback panel pos)
+  // are intentionally left alone so they follow the user across profiles.
   const switchTo = useCallback(async (id, reload = () => window.location.reload()) => {
     const resp = await fetch("/api/profiles/active", {
       method: "PUT",
@@ -81,6 +87,14 @@ export default function useProfiles() {
     });
     const body = await resp.json();
     if (!resp.ok) throw new Error(body.error || "Failed to switch profile");
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem("mtg-active-session-ids");
+        window.localStorage.removeItem("mtg-color-tags-v1");
+        window.localStorage.removeItem("mtg-decks-v3");
+        window.localStorage.removeItem("mtg-decks-v2");
+      } catch { /* private mode / disabled storage — reload still corrects the server data */ }
+    }
     reload();
     return body;
   }, []);

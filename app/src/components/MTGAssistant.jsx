@@ -47,6 +47,9 @@ import UpdatesModal from "./UpdatesModal";
 import PodBalanceModal from "./mtg/PodBalanceModal";
 import SettingsModal from "./mtg/SettingsModal";
 import OnboardingWizard from "./mtg/OnboardingWizard";
+import ProfileGate from "./mtg/ProfileGate";
+import ProfileManageModal from "./mtg/ProfileManageModal";
+import useProfiles from "../hooks/useProfiles";
 import { applyDeckChange } from "../lib/deckApply";
 
 export default function MTGAssistant() {
@@ -81,6 +84,13 @@ export default function MTGAssistant() {
   const [onboardingClosed, setOnboardingClosed] = useState(false);
   // Pod Balance modal — compare brackets/power across saved decks
   const [showPodBalance, setShowPodBalance] = useState(false);
+  // Local multi-user profiles. The launch picker (ProfileGate) gates the shell
+  // until a profile is chosen this session; the active profile is already set
+  // server-side, so confirming it is friction-free (no reload).
+  const profilesApi = useProfiles();
+  const [profileChosen, setProfileChosen] = useState(false);
+  const [switchingProfile, setSwitchingProfile] = useState(false);
+  const [showProfiles, setShowProfiles] = useState(false);
   // Background app-update check — runs once per session on mount.
   // Result is just metadata (version + notes); install happens via the
   // Updates modal. localStorage skip-until lets us throttle to once
@@ -734,6 +744,54 @@ export default function MTGAssistant() {
     ? (rawCommander.split(" / ")[0] || "").trim()
     : "";
 
+  // ── Local profiles ──
+  const profileColors = { BG, BG2, BG3, LINE, TEXT, MUTED, GOLD };
+  // Pick from the launch gate: the active profile needs no reload (its data is
+  // already what the shell loaded); a different one switches + reloads.
+  const handlePickProfile = (p) => {
+    if (p.id === profilesApi.activeId) { setProfileChosen(true); return; }
+    setSwitchingProfile(true);
+    profilesApi.switchTo(p.id).catch(() => setSwitchingProfile(false));
+  };
+  // Switch from the header menu / manage modal: always a real switch + reload.
+  const handleSwitchProfile = (id) => {
+    setSwitchingProfile(true);
+    profilesApi.switchTo(id).catch(() => setSwitchingProfile(false));
+  };
+  const manageModal = showProfiles ? (
+    <ProfileManageModal
+      profiles={profilesApi.profiles}
+      activeId={profilesApi.activeId}
+      onCreate={profilesApi.create}
+      onRename={profilesApi.rename}
+      onDelete={profilesApi.remove}
+      onSwitch={handleSwitchProfile}
+      onClose={() => setShowProfiles(false)}
+      colors={profileColors}
+      fontFamily={F}
+    />
+  ) : null;
+
+  // Gate the shell behind the "Who's playing?" picker until a profile is chosen
+  // this session (the first /api/profiles GET also ran the one-time migration).
+  if (!profileChosen) {
+    return (
+      <>
+        <ProfileGate
+          profiles={profilesApi.profiles}
+          activeId={profilesApi.activeId}
+          onPick={handlePickProfile}
+          onManage={() => setShowProfiles(true)}
+          colors={profileColors}
+          fontFamily={F}
+          busy={switchingProfile || profilesApi.status === "loading"}
+          error={profilesApi.error}
+        />
+        {manageModal}
+      </>
+    );
+  }
+
   return (
     <div style={{fontFamily:F,background:BG,color:TEXT,height:"100vh",display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
       {/* Near-black backdrop with a faint cyan bloom up top for depth — no commander art. */}
@@ -767,7 +825,14 @@ export default function MTGAssistant() {
         pb={pb}
         colors={{BG2, LINE, GOLD}}
         fontFamily={F}
+        profiles={profilesApi.profiles}
+        activeProfile={profilesApi.activeProfile}
+        activeProfileId={profilesApi.activeId}
+        onSwitchProfile={handleSwitchProfile}
+        onManageProfiles={() => setShowProfiles(true)}
+        profileColors={profileColors}
       />
+      {manageModal}
       <UpdatesModal
         open={showUpdates}
         onClose={() => setShowUpdates(false)}
