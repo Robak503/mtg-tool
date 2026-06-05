@@ -281,7 +281,7 @@ export function shouldUseDeckScopedContext(targetAgent, prompt) {
 
 export async function fetchEngineContext({ query, limit = 4 }) {
   try {
-    const response = await fetch("/api/engine", {
+    const response = await fetch("/api/rules-retrieval", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query, limit }),

@@ -8,6 +8,31 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Local multi-user profiles.** Decks, the Vault collection, chats, games, and
+  agent notes are now scoped per profile, so more than one person can share a
+  single install without mixing libraries. Pick or switch profiles from the
+  header; your existing data is migrated automatically (decks are split by owner
+  into their own profiles on first launch, and ownerless data stays with the
+  primary profile). Fully local — no accounts, no passwords, no servers.
+
+### Changed
+- Renamed the internal `/api/engine` route to `/api/rules-retrieval` to match its
+  job and disambiguate it from `/api/symbolic-engine` (no user-visible change).
+- Project structure cleanup: the four Vault sub-tabs now share a `Vault*` name,
+  the deck-domain modules are grouped under `lib/deck/`, and server-only code
+  moved into `lib/server/`. Internal only — no behavior change.
+
+### Fixed
+- **Multi-user data isolation.** The support bundle, the Tibalt collection-roast
+  log, and the first-launch import now read/write the *active* profile instead of
+  a shared global location, and new decks are attributed to the current profile
+  rather than always "Colton".
+- The 20-second anti-flake test timeout now actually applies — a duplicate Vitest
+  config had been silently shadowing it, so CI was running on the 5s default.
+- Trimmed the bundled rules codex: a roadmap doc was being shipped into the `.exe`
+  and indexed as rule-retrieval noise; it no longer is.
+
 ## [0.20.0] - 2026-06-02
 
 ### Changed

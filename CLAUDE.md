@@ -431,10 +431,11 @@ pipeline or the Rust shell.
    standalone server dir, NOT the dev tree. Always use `paths.js`
    helpers — never raw `path.join(process.cwd(), ...)`.
 
-10. **`/api/engine` had a latent ReferenceError** from commit
-    5f8137e until 7b09ff0 because no test covered the route.
-    **Always add at least an import smoke test when introducing a
-    new route.** See `app/src/app/api/engine/route.test.js`.
+10. **`/api/rules-retrieval` (formerly `/api/engine`) had a latent
+    ReferenceError** from commit 5f8137e until 7b09ff0 because no test
+    covered the route. **Always add at least an import smoke test when
+    introducing a new route.** See
+    `app/src/app/api/rules-retrieval/route.test.js`.
 
 11. **`tauri build --config '<json>'` breaks under `shell:true`**
     on Windows because cmd.exe strips quotes. Write the override

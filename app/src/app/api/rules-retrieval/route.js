@@ -10,7 +10,7 @@ const ROUTER_FILE = mtgEnginePath("META_query_router.md");
 const LAYER_INDEX_FILE = mtgEnginePath("META_layer_index.md");
 // loadDocs() walks the rules codex roots and labels chunks by which
 // root they came from. The previous refactor (5f8137e) dropped these
-// constants but missed the call sites, leaving /api/engine throwing
+// constants but missed the call sites, leaving /api/rules-retrieval throwing
 // ReferenceError on every request — kept latent because no test
 // covered the actual endpoint. Re-derived from the paths helpers so
 // they pick up MTG_ENGINE_DIR / MTG_JUDGE_DIR env overrides in the

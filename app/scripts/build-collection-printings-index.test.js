@@ -7,7 +7,7 @@
  * single-faced), finish defaults, price preservation, and skip-row
  * logic (art_series, missing ids).
  *
- * Pattern mirrors /api/engine/route.test.js — module-import + behavior
+ * Pattern mirrors /api/rules-retrieval/route.test.js — module-import + behavior
  * smoke, no real bulk-data dependency.
  */
 
