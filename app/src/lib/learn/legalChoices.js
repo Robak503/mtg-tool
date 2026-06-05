@@ -30,6 +30,7 @@
  */
 
 import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
+import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -264,7 +265,10 @@ function actionsCastSpell(state, playerId) {
     if (!timingOk) continue;
 
     const cost = parseManaCost(manaCostOf(card));
-    const affordable = canPayManaCost(player.manaPool, cost);
+    // Castable if the pool PLUS what untapped lands/rocks/dorks could produce
+    // covers the cost — the dispatcher auto-taps to pay. (Pool-only would
+    // never be castable since nothing pre-fills it.)
+    const affordable = canAfford(player.manaPool, manaSources(state, playerId), cost);
     if (!affordable) continue;
 
     actions.push({
@@ -276,6 +280,45 @@ function actionsCastSpell(state, playerId) {
       cmc: totalCmc(cost),
       needsTargets: false,  // PR3.5 will set this from oracle text parsing
     });
+  }
+  return actions;
+}
+
+/**
+ * Tap-for-mana: any untapped mana source the player controls, one action per
+ * (source, color) so a dual surfaces "tap for W" and "tap for U" separately.
+ * Mana abilities are technically instant-speed (CR 605.3a), but surfacing
+ * them at every priority window would spam the learner. v1 gates to the
+ * player's OWN main phase — the window where you'd float mana to cast or to
+ * pump Omnath. Casting still auto-taps at any speed via the dispatcher, so
+ * this action is only the explicit manual-tap / float path (Beginner +
+ * floating-mana decks). Auto modes ignore it, so they never loop on it.
+ */
+function actionsTapForMana(state, playerId) {
+  if (state.activePlayer !== playerId) return [];
+  if (state.priorityHolder !== playerId) return [];
+  if (state.step !== "main") return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const perm of player.battlefield) {
+    if (perm.tapped) continue;
+    const prod = manaProduction(perm.card);
+    if (!prod) continue;
+    const isCreature = /Creature/.test(String(perm.card?.type || perm.card?.type_line || ""));
+    const keywords = Array.isArray(perm.card?.keywords) ? perm.card.keywords : [];
+    const hasHaste = keywords.some(k => String(k).toLowerCase() === "haste") ||
+      /\bhaste\b/i.test(String(perm.card?.oracle || perm.card?.oracle_text || ""));
+    if (isCreature && perm.summoningSick && !hasHaste) continue;
+    for (const color of prod.colors) {
+      actions.push({
+        kind: "tap-for-mana",
+        playerId,
+        permanentId: perm.id,
+        color,
+        amount: prod.amount,
+        name: perm.card.name,
+      });
+    }
   }
   return actions;
 }
@@ -375,9 +418,10 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers = [] 
     actions.push(actionPassPriority(playerId));
   }
 
-  // Lands, spells.
+  // Lands, spells, mana.
   actions.push(...actionsPlayLand(state, playerId));
   actions.push(...actionsCastSpell(state, playerId));
+  actions.push(...actionsTapForMana(state, playerId));
 
   // Combat actions.
   actions.push(...actionsDeclareAttacker(state, playerId));
