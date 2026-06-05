@@ -491,11 +491,13 @@ export default function CollectionView({ onClose, onBuildCommander }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: 12,
         padding: "14px 20px",
         borderBottom: `1px solid ${COLORS.LINE}`,
         background: COLORS.BG2,
       }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap", minWidth: 0 }}>
           <h1 style={{
             margin: 0,
             fontFamily: "var(--font-display), Georgia, serif",
@@ -503,6 +505,7 @@ export default function CollectionView({ onClose, onBuildCommander }) {
             fontWeight: 700,
             color: COLORS.GOLD,
             letterSpacing: "-0.02em",
+            whiteSpace: "nowrap",
           }}>
             The Vault
           </h1>
@@ -562,7 +565,7 @@ export default function CollectionView({ onClose, onBuildCommander }) {
             </span>
           )}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           {mode === "collection" && (<>
           {cards.length > 0 && (
             <button
