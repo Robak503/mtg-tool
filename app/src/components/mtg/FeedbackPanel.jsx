@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * FeedbackButton — the in-app feedback capture UI: a floating button that opens
+ * FeedbackPanel — the in-app feedback capture UI: a floating button that opens
  * a panel to file a categorized entry (bug / feature / agent-quality / ui /
  * other; see CATEGORY_OPTIONS), saved locally under data/feedback/.
  */
@@ -39,7 +39,7 @@ function truncateMid(text, limit) {
   return `${s.slice(0, limit)}…`;
 }
 
-export default function FeedbackButton({
+export default function FeedbackPanel({
   agent,
   currentSession,
   activeDeck,

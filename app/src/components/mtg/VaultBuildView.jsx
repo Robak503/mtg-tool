@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * BuildView — the Vault's "Build From Vault" tab (#20 / G1, generation half).
+ * VaultBuildView — the Vault's "Build From Vault" tab (#20 / G1, generation half).
  *
  * Reads /api/collection/buildable and lists the legendary creatures (and
  * commander-eligible planeswalkers) you OWN, ranked by how many other owned
@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from "react";
 
-// WUBRG pip swatches — match the color language used in StatsView.
+// WUBRG pip swatches — match the color language used in VaultStatsView.
 const PIP = {
   W: { bg: "#e9e4cf", fg: "#3a3526" },
   U: { bg: "#3b7dd8", fg: "#ffffff" },
@@ -23,7 +23,7 @@ const PIP = {
 };
 const PIP_ORDER = ["W", "U", "B", "R", "G"];
 
-export default function BuildView({ colors, fontFamily, onBuildCommander }) {
+export default function VaultBuildView({ colors, fontFamily, onBuildCommander }) {
   const { BG, BG2, LINE, TEXT, MUTED, GOLD, RED } = colors;
   const F = fontFamily;
   const [state, setState] = useState({ status: "loading", data: null, error: null });

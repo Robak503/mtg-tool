@@ -40,10 +40,10 @@ import DeckView from "./mtg/DeckView";
 import RightPanel from "./mtg/RightPanel";
 import ChatPanel from "./mtg/ChatPanel";
 import SessionSidebar from "./mtg/SessionSidebar";
-import FeedbackButton from "./mtg/FeedbackButton";
+import FeedbackPanel from "./mtg/FeedbackPanel";
 import LearnView from "./mtg/LearnView";
 import CollectionView from "./mtg/CollectionView";
-import UpdatesModal from "./UpdatesModal";
+import UpdatesModal from "./mtg/UpdatesModal";
 import PodBalanceModal from "./mtg/PodBalanceModal";
 import SettingsModal from "./mtg/SettingsModal";
 import OnboardingWizard from "./mtg/OnboardingWizard";
@@ -1389,7 +1389,7 @@ export default function MTGAssistant() {
       {/* In-app feedback capture. Floats over everything; writes to
           data/feedback/ via /api/feedback. Per CLAUDE.md "End-of-pass
           behavior" — the user will accumulate notes during real usage. */}
-      <FeedbackButton
+      <FeedbackPanel
         agent={agent}
         currentSession={currentSession}
         activeDeck={activeDeck}

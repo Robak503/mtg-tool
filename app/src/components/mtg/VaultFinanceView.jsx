@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * FinanceView — the Vault's MTG-finance dashboard (an MTGStocks-style price
+ * VaultFinanceView — the Vault's MTG-finance dashboard (an MTGStocks-style price
  * watch). Renders /api/finance:
  *   - Your collection: total value + 30/90/365-day deltas + owned movers
  *   - Finance plays: top risers/fallers across everything tracked
@@ -32,7 +32,7 @@ function MoverPill({ mover, colors }) {
   );
 }
 
-export default function FinanceView({ colors, fontFamily }) {
+export default function VaultFinanceView({ colors, fontFamily }) {
   const { BG, BG2, BG3, LINE, TEXT, MUTED, GOLD, RED } = colors;
   const F = fontFamily;
 

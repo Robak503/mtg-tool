@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 
-import symbolicEngine from "../../../lib/symbolicEngine.cjs";
+import symbolicEngine from "../../../lib/server/symbolicEngine.cjs";
 import symbolicCardAdapter from "../../../lib/symbolicCardAdapter.cjs";
 
 const {

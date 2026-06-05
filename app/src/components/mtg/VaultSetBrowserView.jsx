@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * SetBrowserView — the Vault's Set Browser (#23).
+ * VaultSetBrowserView — the Vault's Set Browser (#23).
  *
  * List every set (newest first, searchable) with how many of its cards you own;
  * drill into a set to see every printing as a value list, owned cards flagged,
@@ -15,7 +15,7 @@ const money = (n) => (n == null || Number.isNaN(n) ? "—" : `$${Number(n).toFix
 const RARITY_COLOR = { mythic: "#d8542f", rare: "#d9a531", uncommon: "#b6c2cc", common: "#7d8590", special: "#a06fd8", bonus: "#a06fd8" };
 const year = (iso) => (iso && /^\d{4}/.test(iso) ? iso.slice(0, 4) : "");
 
-export default function SetBrowserView({ colors, fontFamily }) {
+export default function VaultSetBrowserView({ colors, fontFamily }) {
   const { BG, BG2, BG3, LINE, TEXT, MUTED, GOLD, RED } = colors;
   const F = fontFamily;
 
