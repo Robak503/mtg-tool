@@ -7,7 +7,7 @@
  * damage), abandon, isComplete.
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   _resetIdsForTests,
 } from "./gameState.js";
@@ -15,6 +15,7 @@ import {
   createLearnSession,
   advanceUntilDecision,
   applyChoice,
+  continueFromArbiter,
   abandon,
   isComplete,
   _forceLifeForTests,
@@ -185,6 +186,79 @@ describe("advanceUntilDecision", () => {
       },
     };
     const { decision } = advanceUntilDecision(session);
+    expect(decision.kind).toBe("game-over");
+  });
+});
+
+describe("unresolved->Arbiter seam (P2.1)", () => {
+  function withPendingArbiter(session, { controller = "user", priorityHolder } = {}) {
+    return {
+      ...session,
+      state: {
+        ...session.state,
+        ...(priorityHolder !== undefined ? { priorityHolder } : {}),
+        pendingArbiter: {
+          stackObjectId: "stk-77",
+          cardName: "Mystic Confluence",
+          oracle: "Choose three —",
+          reason: "instant-or-sorcery (no recognized effect)",
+          controller,
+        },
+      },
+    };
+  }
+
+  it("surfaces an `unresolved` decision for the player's own unmodeled spell (beginner)", () => {
+    let session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a"), difficulty: "beginner" });
+    session = withPendingArbiter(session, { controller: "user" });
+    const { decision } = advanceUntilDecision(session);
+    expect(decision.kind).toBe("unresolved");
+    expect(decision.cardName).toBe("Mystic Confluence");
+    expect(decision.oracle).toBe("Choose three —");
+    expect(decision.stackObjectId).toBe("stk-77");
+    expect(decision.controller).toBe("user");
+  });
+
+  it("does NOT pause for an opponent's unmodeled spell — logged, not a player teaching pause", () => {
+    let session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a"), difficulty: "beginner" });
+    session = withPendingArbiter(session, { controller: "ai", priorityHolder: "user" });
+    const { session: after, decision } = advanceUntilDecision(session);
+    expect(decision.kind).not.toBe("unresolved");
+    expect(after.state.pendingArbiter).toBeUndefined();
+  });
+
+  it("expert auto-continues past an unresolved spell instead of pausing the autopilot", () => {
+    let session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a"), difficulty: "expert" });
+    session = withPendingArbiter(session, { controller: "user" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { session: after, decision } = advanceUntilDecision(session);
+    warn.mockRestore();
+    expect(decision.kind).not.toBe("unresolved");
+    expect(decision.kind).toBe("game-over");
+    expect(after.state.pendingArbiter).toBeUndefined();
+  });
+
+  it("continueFromArbiter clears the flag, records the acknowledgment, and advances", () => {
+    let session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a"), difficulty: "beginner" });
+    session = withPendingArbiter(session, { controller: "user", priorityHolder: "user" });
+    const { session: after, decision } = continueFromArbiter(session);
+    expect(after.state.pendingArbiter).toBeUndefined();
+    expect(after.state.log.some(l => l.kind === "arbiter-acknowledged" && l.cardName === "Mystic Confluence")).toBe(true);
+    expect(after.decisionLog.some(e => e.action?.kind === "continue-after-arbiter")).toBe(true);
+    expect(decision.kind).not.toBe("unresolved");
+  });
+
+  it("continueFromArbiter with nothing pending just re-derives the next decision (double-submit safe)", () => {
+    const session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a"), difficulty: "beginner" });
+    const { decision } = continueFromArbiter(session);
+    expect(decision.kind).toBeTruthy();
+    expect(decision.kind).not.toBe("unresolved");
+  });
+
+  it("continueFromArbiter on a finished session returns game-over", () => {
+    let session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a") });
+    session = { ...session, status: "user-wins" };
+    const { decision } = continueFromArbiter(session);
     expect(decision.kind).toBe("game-over");
   });
 });

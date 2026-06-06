@@ -25,6 +25,7 @@
 import { useEffect, useState } from "react";
 import useLearnSession from "../../hooks/useLearnSession";
 import StabilityBadge from "./StabilityBadge";
+import { fetchArbiterTrace } from "../../lib/arbiterUtils";
 
 const DIFFICULTY_OPTIONS = [
   { value: "beginner", label: "Beginner", blurb: "Ask every decision with full narration." },
@@ -356,7 +357,14 @@ export default function LearnView({
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* Decision area */}
         <main style={{ flex: 2, padding: 20, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
-          <DecisionPrompt decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyChoice} />
+          <DecisionPrompt
+            decision={decision}
+            cfg={cfg}
+            colors={colors}
+            fontFamily={fontFamily}
+            onChoose={session.applyChoice}
+            onContinue={session.continueGame}
+          />
         </main>
 
         {/* Auto-played feed */}
@@ -563,11 +571,14 @@ function TableStrip({ table, activePlayer, cfg, colors }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose }) {
+function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue }) {
   const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
 
   if (!decision) {
     return <p style={{ color: MUTED, fontSize: 13 }}>Waiting for engine…</p>;
+  }
+  if (decision.kind === "unresolved") {
+    return <UnresolvedPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onContinue={onContinue} />;
   }
   if (decision.kind === "dispatch-error") {
     return (
@@ -634,6 +645,107 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose }) {
         })}
       </div>
     </>
+  );
+}
+
+// ─── Unresolved → Arbiter teaching moment (P2.1) ──────────────────────────────
+
+/**
+ * The engine couldn't model a spell's effect, so instead of silently doing
+ * nothing it paused and handed the card to the Arbiter (the local, Ollama-only
+ * rules engine) for a verified ruling. We auto-fetch that ruling on mount, show
+ * it as a teaching moment, and let the player continue. The engine never made a
+ * network call — this component does, exactly as the design intends.
+ */
+function UnresolvedPanel({ decision, cfg, colors, fontFamily, onContinue }) {
+  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+  const accent = cfg?.color || GOLD;
+  const [ruling, setRuling] = useState({ trace: "", status: null, loading: true, error: null });
+  const [continuing, setContinuing] = useState(false);
+
+  // Fetch the Arbiter's ruling once per unresolved spell (keyed by stack id).
+  useEffect(() => {
+    let cancelled = false;
+    setRuling({ trace: "", status: null, loading: true, error: null });
+    fetchArbiterTrace({
+      question: decision.question,
+      cardContext: decision.oracle || "",
+      context: decision.context || "",
+      cardNames: decision.cardName ? [decision.cardName] : undefined,
+      provider: "ollama", // local-only — never spends API credits
+    })
+      .then(res => {
+        if (cancelled) return;
+        if (res.trace) setRuling({ trace: res.trace, status: res.status, loading: false, error: null });
+        else setRuling({ trace: "", status: res.status, loading: false, error: "Arbiter is offline — make sure Ollama is running, or continue without a ruling." });
+      })
+      .catch(e => { if (!cancelled) setRuling({ trace: "", status: null, loading: false, error: e.message }); });
+    return () => { cancelled = true; };
+  }, [decision.stackObjectId, decision.question, decision.oracle, decision.context, decision.cardName]);
+
+  const handleContinue = async () => {
+    if (continuing) return;
+    setContinuing(true);
+    try { await onContinue?.(); } finally { setContinuing(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{
+        padding: "12px 14px",
+        background: BG3,
+        border: `1px solid ${accent}`,
+        borderRadius: 6,
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+          ⚖ Rules check — {decision.cardName || "this card"}
+        </div>
+        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5 }}>
+          The simulator can&rsquo;t fully model this card yet, so rather than guess it asked
+          the Arbiter (the local rules engine) for a ruling. Read it, apply it on your board
+          if you like, then continue.
+        </div>
+      </div>
+
+      <div style={{
+        padding: "12px 14px",
+        background: BG2,
+        border: `1px solid ${LINE}`,
+        borderRadius: 6,
+        minHeight: 60,
+      }}>
+        {ruling.loading && <div style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>Asking the Arbiter…</div>}
+        {!ruling.loading && ruling.trace && (
+          <div style={{ fontSize: 12, color: TEXT, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{ruling.trace}</div>
+        )}
+        {!ruling.loading && !ruling.trace && ruling.error && (
+          <div style={{ fontSize: 12, color: "#e0a89a" }}>⚠ {ruling.error}</div>
+        )}
+      </div>
+
+      <button
+        onClick={handleContinue}
+        disabled={continuing}
+        style={{
+          alignSelf: "flex-start",
+          padding: "9px 16px",
+          background: accent,
+          color: "#fff",
+          border: "none",
+          borderRadius: 6,
+          cursor: continuing ? "not-allowed" : "pointer",
+          opacity: continuing ? 0.6 : 1,
+          fontSize: 13,
+          fontWeight: 600,
+          fontFamily,
+        }}
+      >
+        {continuing ? "Continuing…" : "Continue playing"}
+      </button>
+    </div>
   );
 }
 

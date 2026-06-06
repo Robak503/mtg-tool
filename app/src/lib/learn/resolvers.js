@@ -127,6 +127,52 @@ function resolveManual(state, obj) {
 }
 
 /**
+ * Phase-2 P2.1 — the unresolved→Arbiter seam. A cast spell the engine can't model
+ * (today: an instant/sorcery whose oracle text didn't parse) used to resolve as a
+ * SILENT no-op — the single biggest fidelity + honesty gap (a relevant spell did
+ * nothing and the player was never told). Instead we:
+ *
+ *   1. Log a STRUCTURED, honest `spell-unresolved` event (never the misleading
+ *      `spell-no-op-resolve`) so the record always reflects "we couldn't model
+ *      this" — this is the "never a silent no-op" guarantee (CLAUDE.md §1.2/§8).
+ *   2. Flag `state.pendingArbiter` so the session driver can surface an
+ *      `unresolved` decision and the UI can hand the card to the Ollama-only
+ *      Arbiter for a verified ruling (a teaching moment), then let the player
+ *      continue.
+ *
+ * The engine NEVER calls the network and NEVER fabricates the effect — it only
+ * leaves an honest marker. The driver (learnSession) decides whether to pause
+ * (it knows difficulty + that the AI's spells shouldn't flood the player). The
+ * first unresolved object wins (FIFO) — once flagged, the driver pauses before a
+ * second can resolve, so this guard is belt-and-braces.
+ */
+export function markPendingArbiter(state, obj, reason) {
+  const card = obj?.source && typeof obj.source === "object" ? obj.source : {};
+  const cardName = card.name || obj?.payload?.params?.cardName || (typeof obj?.source === "string" ? obj.source : "Unknown card");
+  const oracle = card.oracle || card.oracle_text || "";
+  let next = logEvent(state, {
+    kind: "spell-unresolved",
+    objectId: obj?.id,
+    cardName,
+    controller: obj?.controller,
+    reason,
+  });
+  if (!next.pendingArbiter) {
+    next = {
+      ...next,
+      pendingArbiter: {
+        stackObjectId: obj?.id ?? null,
+        cardName,
+        oracle,
+        reason,
+        controller: obj?.controller ?? null,
+      },
+    };
+  }
+  return next;
+}
+
+/**
  * Built-in resolvers. Each is `(state, stackObject) => newState`. PURE — reads
  * only `stackObject.payload.params` + `state`; never closes over cast-time data.
  */
@@ -143,9 +189,13 @@ export const RESOLVERS = Object.freeze({
     return enterPermanent(state, card, controller);
   },
 
+  // P2.1: a recognized-but-unparseable instant/sorcery. No longer a silent
+  // no-op — flag it for the Arbiter seam (structured `spell-unresolved` log +
+  // `state.pendingArbiter`) so the player gets a verified ruling instead of the
+  // spell quietly doing nothing.
   [RESOLVER_KEYS.SPELL_NOOP]: (state, obj) => {
-    const { cardName, reason } = obj.payload?.params || {};
-    return logEvent(state, { kind: "spell-no-op-resolve", cardName, reason });
+    const { reason } = obj.payload?.params || {};
+    return markPendingArbiter(state, obj, reason || "instant-or-sorcery (no recognized effect)");
   },
 
   // PR-6: a triggered ability resolves through applyTriggerEffect (the

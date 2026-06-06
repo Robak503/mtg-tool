@@ -31,6 +31,7 @@
 import {
   createGameState,
   loseLife,
+  logEvent,
   MODES,
 } from "./gameState.js";
 import {
@@ -301,6 +302,13 @@ function progressSignature(state) {
   ].join("|");
 }
 
+/** Strip the transient P2.1 unresolved→Arbiter flag from a state (pure). */
+function clearPendingArbiter(state) {
+  if (!state.pendingArbiter) return state;
+  const { pendingArbiter: _gone, ...rest } = state;
+  return rest;
+}
+
 /**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
@@ -340,6 +348,23 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
         session: current,
         decision: { kind: "game-over", reason: current.status },
       };
+    }
+
+    // P2.1 — the unresolved→Arbiter seam. A resolver flagged a cast spell it
+    // can't model (state.pendingArbiter). Surface it as a teaching moment for
+    // the PLAYER'S OWN spells at beginner/intermediate; otherwise (Expert
+    // autopilot, or an opponent's unmodeled spell) the `spell-unresolved` log
+    // already recorded it honestly — clear the flag and keep playing rather than
+    // flooding the modal or stalling the autopilot. The engine never calls the
+    // network; the UI invokes the Ollama-only Arbiter on this decision.
+    if (current.state.pendingArbiter) {
+      const pa = current.state.pendingArbiter;
+      const pause = pa.controller === "user" && current.difficulty !== "expert";
+      if (pause) {
+        return { session: current, decision: { kind: "unresolved", ...pa } };
+      }
+      current = { ...current, state: clearPendingArbiter(current.state) };
+      continue;
     }
 
     // Turn-limit stalemate: end as a draw with diagnostics, not a scary
@@ -509,6 +534,49 @@ export function applyChoice(session, choice) {
   };
 
   return advanceUntilDecision(next);
+}
+
+/**
+ * P2.1 — the player has seen the Arbiter's ruling for an `unresolved` spell and
+ * wants to continue. Clears the `pendingArbiter` flag, records that the ruling
+ * was acknowledged (audit trail for Phase-3 records), and resumes the driver.
+ *
+ * The unresolved spell already left the stack at resolution; its effect was
+ * deferred to the player's manual application of the ruling — the engine never
+ * fabricates it. Returns { session, decision } like advanceUntilDecision.
+ */
+export function continueFromArbiter(session) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  if (!session.state.pendingArbiter) {
+    // Nothing pending (e.g. a double-submit) — just re-derive the next decision.
+    return advanceUntilDecision(session);
+  }
+
+  const pa = session.state.pendingArbiter;
+  const cleared = clearPendingArbiter(session.state);
+  const logged = logEvent(cleared, {
+    kind: "arbiter-acknowledged",
+    objectId: pa.stackObjectId,
+    cardName: pa.cardName,
+  });
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "continue-after-arbiter", name: pa.cardName },
+    auto: false,
+    reasoning: "arbiter-acknowledged",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: logged,
+    decisionLog: [...session.decisionLog, logEntry],
+  });
 }
 
 // ─── Termination ─────────────────────────────────────────────────────────────

@@ -205,7 +205,7 @@ describe("cast-spell", () => {
     expect(resolved.log.some(e => e.kind === "permanent-enters")).toBe(true);
   });
 
-  it("instant spell resolves as no-op + log", () => {
+  it("instant with no recognized effect flags the Arbiter seam (P2.1, not a silent no-op)", () => {
     const bolt = card("Lightning Bolt", "Instant", "{R}");
     let state = withHand(stateWith(), [bolt]);
     state = withMana(state, { R: 1 });
@@ -222,7 +222,9 @@ describe("cast-spell", () => {
     const resolved = resolveTopOfStack(state);
     expect(resolved.stack).toHaveLength(0);
     expect(resolved.players.user.battlefield).toHaveLength(0);
-    expect(resolved.log.some(e => e.kind === "spell-no-op-resolve")).toBe(true);
+    // P2.1: structured spell-unresolved log + pendingArbiter, not a silent no-op.
+    expect(resolved.log.some(e => e.kind === "spell-unresolved" && e.cardName === "Lightning Bolt")).toBe(true);
+    expect(resolved.pendingArbiter).toMatchObject({ cardName: "Lightning Bolt", controller: "user" });
   });
 
   it("throws MANA_SHORT when the cost can't be paid", () => {
