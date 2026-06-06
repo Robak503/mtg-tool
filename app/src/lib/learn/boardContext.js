@@ -5,13 +5,18 @@
  */
 
 import { tableSnapshot } from "./tableSnapshot.js";
+import { permanentPower, permanentToughness } from "./layers.js";
 
 const SEAT_LABELS = { user: "You", ai: "Opponent", ai1: "AI 1", ai2: "AI 2", ai3: "AI 3" };
 const label = id => SEAT_LABELS[id] || id;
 
-function permLabel(perm) {
+function permLabel(perm, state) {
   const card = perm?.card || {};
-  const pt = (card.power != null && card.toughness != null) ? ` ${card.power}/${card.toughness}` : "";
+  // Show the tutor the DERIVED P/T (anthems/lords/pump applied), so its answers
+  // match what combat actually resolves on (F7a) — never the stale printed value.
+  const pt = (card.power != null && card.toughness != null)
+    ? ` ${permanentPower(state, perm.id)}/${permanentToughness(state, perm.id)}`
+    : "";
   const tapped = perm?.tapped ? " (tapped)" : "";
   return `${card.name || "?"}${pt}${tapped}`;
 }
@@ -40,7 +45,7 @@ export function buildBoardContext(state) {
     lines.push("");
     const hand = (user.hand || []).map(c => c?.name).filter(Boolean);
     lines.push(`Your hand (${hand.length}): ${hand.length ? hand.join(", ") : "(empty)"}`);
-    const board = (user.battlefield || []).map(permLabel);
+    const board = (user.battlefield || []).map(p => permLabel(p, state));
     lines.push(`Your board: ${board.length ? board.join(", ") : "(empty)"}`);
   }
 

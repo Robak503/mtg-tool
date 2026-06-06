@@ -13,13 +13,15 @@
  * Unknown cards get nothing — honest, bounded, extensible one card at a time.
  *
  * PR 10.2 ships the hooks over an EMPTY registry (default behavior unchanged:
- * all mana empties, no P/T modifiers). PR 10.5 populates REGISTRY with
- * Omnath/Kruphix/Horizon Stone/Upwelling.
+ * all mana empties). PR 10.5 populated REGISTRY with Omnath/Kruphix/Horizon
+ * Stone/Upwelling. Phase-7 PR-11/PR-12 moved the STATIC P/T half (Omnath's
+ * +1/+1 per unspent green) into the CR 613 layer engine (layers.js
+ * STATIC_REGISTRY → layer-7c ptModifyDynamic); the old `staticPTModifier` hook
+ * is deleted. This module now owns ONLY mana-emptying behavior.
  *
  * A descriptor:
  *   {
- *     manaDoesNotEmpty?: string[],                 // e.g. ["G"] (Omnath)
- *     staticPT?: (state, permanent) => { p, t },   // delta to printed P/T
+ *     manaDoesNotEmpty?: string[],   // e.g. ["G"] (Omnath)
  *   }
  *
  * Leaf module: reads card names + live state (pool, battlefield) but imports
@@ -29,14 +31,9 @@
 // Keyed by exact card name. Grows one verified card at a time.
 const REGISTRY = {
   // "Green mana doesn't empty from your mana pool as steps and phases end."
-  // "Omnath, Locus of Mana gets +1/+1 for each unspent green mana you have."
-  // Printed 1/1, so 5 floating green makes it a 6/6.
+  // (Omnath's +1/+1-per-green P/T half lives in layers.js, not here.)
   "Omnath, Locus of Mana": {
     manaDoesNotEmpty: ["G"],
-    staticPT: (state, permanent) => {
-      const green = state?.players?.[permanent.controller]?.manaPool?.G || 0;
-      return { p: green, t: green };
-    },
   },
 
   // "You don't lose unspent mana as steps and phases end." (Controller only —
@@ -75,15 +72,5 @@ export function manaDoesNotEmpty(state, playerId) {
   return [...keep];
 }
 
-/**
- * Static P/T delta for a permanent from a registered static ability, or null.
- * Applied on top of printed value + counters by the single P/T accessor.
- */
-export function staticPTModifier(state, permanent) {
-  const effect = REGISTRY[permanent?.card?.name];
-  if (!effect?.staticPT) return null;
-  return effect.staticPT(state, permanent) || null;
-}
-
-// Exposed for tests + PR 10.5 to register against.
+// Exposed for tests + future card registrations to register against.
 export const _registry = REGISTRY;

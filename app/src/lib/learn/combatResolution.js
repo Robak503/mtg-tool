@@ -33,18 +33,22 @@ import {
   markCombatDamage,
   destroyLethalCreatures,
 } from "./gameState.js";
-import { hasKeyword } from "./keywords.js";
+import { permanentHasKeyword } from "./layers.js";
 import { checkDiesTriggers } from "./triggers.js";
 
+// Combat keyword checks go through the layer engine (permanentHasKeyword) so a
+// GRANTED keyword (sliver lord, anthem, equipment) is respected, not just a
+// printed one (Phase-7 PR-12). Vanilla creatures resolve via the empty-board
+// fast path, so this is byte-identical for keyword-less boards.
 function combatHasFirstStrike(state, combat) {
   const ids = [
     ...combat.attackers.map(a => a.permanentId),
     ...(combat.blockers || []).map(b => b.blockerId),
   ];
-  return ids.some(id => {
-    const lookup = findPermanent(state, id);
-    return lookup && (hasKeyword(lookup.permanent.card, "First strike") || hasKeyword(lookup.permanent.card, "Double strike"));
-  });
+  return ids.some(id =>
+    findPermanent(state, id) &&
+    (permanentHasKeyword(state, id, "First strike") || permanentHasKeyword(state, id, "Double strike")),
+  );
 }
 
 /**
@@ -71,8 +75,8 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   }
 
   const dealsThisStep = (perm) => {
-    const fs = hasKeyword(perm.card, "First strike");
-    const ds = hasKeyword(perm.card, "Double strike");
+    const fs = permanentHasKeyword(state, perm.id, "First strike");
+    const ds = permanentHasKeyword(state, perm.id, "Double strike");
     return firstStrikeStep ? (fs || ds) : (!fs || ds);
   };
 
@@ -93,11 +97,11 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   for (const att of combat.attackers) {
     const lookup = findPermanent(state, att.permanentId);
     if (!lookup || !dealsThisStep(lookup.permanent)) continue;
-    const card = lookup.permanent.card;
+    const attackerId = lookup.permanent.id;
     const power = Math.max(0, creaturePower(lookup.permanent, state));
-    const deathtouch = hasKeyword(card, "Deathtouch");
-    const trample = hasKeyword(card, "Trample");
-    const lifelink = hasKeyword(card, "Lifelink");
+    const deathtouch = permanentHasKeyword(state, attackerId, "Deathtouch");
+    const trample = permanentHasKeyword(state, attackerId, "Trample");
+    const lifelink = permanentHasKeyword(state, attackerId, "Lifelink");
 
     // "Was blocked" reads the DECLARED blockers; "live" reads the survivors.
     // A creature blocked by a now-dead blocker (e.g. a first-striker that
@@ -152,8 +156,8 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       const blk = findPermanent(state, b.blockerId);
       if (!blk || !dealsThisStep(blk.permanent)) continue;
       const bpow = Math.max(0, creaturePower(blk.permanent, state));
-      const bdt = hasKeyword(blk.permanent.card, "Deathtouch");
-      const blifelink = hasKeyword(blk.permanent.card, "Lifelink");
+      const bdt = permanentHasKeyword(state, blk.permanent.id, "Deathtouch");
+      const blifelink = permanentHasKeyword(state, blk.permanent.id, "Lifelink");
       addDmg(att.permanentId, bpow, bdt);
       if (blifelink && bpow > 0) lifeGain[blk.permanent.controller] = (lifeGain[blk.permanent.controller] || 0) + bpow;
     }

@@ -32,6 +32,7 @@
 import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
 import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { hasKeyword } from "./keywords.js";
+import { permanentHasKeyword } from "./layers.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget } from "./spellEffects.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
@@ -319,10 +320,8 @@ function actionsTapForMana(state, playerId) {
     const prod = manaProduction(perm.card);
     if (!prod) continue;
     const isCreature = /Creature/.test(String(perm.card?.type || perm.card?.type_line || ""));
-    const keywords = Array.isArray(perm.card?.keywords) ? perm.card.keywords : [];
-    const hasHaste = keywords.some(k => String(k).toLowerCase() === "haste") ||
-      /\bhaste\b/i.test(String(perm.card?.oracle || perm.card?.oracle_text || ""));
-    if (isCreature && perm.summoningSick && !hasHaste) continue;
+    // Granted Haste counts here too (a lord that hastes your mana dorks).
+    if (isCreature && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
     for (const color of prod.colors) {
       actions.push({
         kind: "tap-for-mana",
@@ -353,7 +352,8 @@ function actionsDeclareAttacker(state, playerId) {
     .filter(p => isCreature(p.card))
     .filter(p => !p.tapped)
     .filter(p => !declared.has(p.id))
-    .filter(p => !p.summoningSick || hasKeyword(p.card, "Haste"));
+    // Granted Haste (Concordant Crossroads, sliver) counts, not just printed.
+    .filter(p => !p.summoningSick || permanentHasKeyword(state, p.id, "Haste"));
 
   // Standard (a lone opponent): the dispatcher auto-fills the defender, so emit
   // one action per creature — unchanged shape.
@@ -397,16 +397,12 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
     .filter(p => !p.tapped)
     .filter(p => !assigned.has(p.id));
 
-  // Look up each declared attacker's card (attackers are the active player's
-  // creatures) so we can enforce evasion: a creature with flying can only be
+  // Enforce evasion through the layer engine so GRANTED flying/reach counts
+  // (sliver lord, anthem), not just printed: a creature with flying can only be
   // blocked by creatures with flying or reach (CR 509.1b / 702.9c).
-  const attackerCardById = {};
-  for (const ap of state.players[state.activePlayer]?.battlefield || []) {
-    attackerCardById[ap.id] = ap.card;
-  }
-  const canBlock = (blockerCard, attackerCard) => {
-    if (attackerCard && hasKeyword(attackerCard, "Flying")) {
-      return hasKeyword(blockerCard, "Flying") || hasKeyword(blockerCard, "Reach");
+  const canBlock = (blockerId, attackerId) => {
+    if (attackerId && permanentHasKeyword(state, attackerId, "Flying")) {
+      return permanentHasKeyword(state, blockerId, "Flying") || permanentHasKeyword(state, blockerId, "Reach");
     }
     return true;
   };
@@ -417,7 +413,7 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
   const actions = [];
   for (const blocker of candidateBlockers) {
     for (const attackerId of declaredAttackers) {
-      if (!canBlock(blocker.card, attackerCardById[attackerId])) continue;
+      if (!canBlock(blocker.id, attackerId)) continue;
       actions.push({
         kind: "declare-blocker",
         playerId,

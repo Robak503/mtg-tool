@@ -39,6 +39,7 @@ import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
 import { checkStepTriggers, checkAttackTriggers } from "./triggers.js";
+import { expireContinuousEffects } from "./layers.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -206,8 +207,10 @@ export function runStepActions(state) {
     case "cleanup":
       next = emptyManaPools(next);
       next = clearCombatDamage(next); // combat damage wears off at end of turn
-      // Discard-to-hand-size + remove-until-end-of-turn effects are
-      // deferred to PR3 (legal choices) and PR4+ (effects engine).
+      // "Until end of turn" continuous effects wear off here (CR 514.2) — pump
+      // (Giant Growth etc.) registered as endOfTurn-duration layer effects expire.
+      next = expireContinuousEffects(next, { atCleanupOfTurn: next.turn });
+      // Discard-to-hand-size is deferred to a later PR (the engine needs hand max).
       next = logEvent(next, { kind: "step", phase: "ending", step: "cleanup", player: state.activePlayer });
       break;
 

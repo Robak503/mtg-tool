@@ -10,7 +10,8 @@ import { describe, expect, it } from "vitest";
 import { createGameState, creaturePower, creatureToughness, _resetIdsForTests } from "./gameState.js";
 import { emptyManaPools } from "./gameEngine.js";
 import { resolveCombatDamage } from "./combatResolution.js";
-import { manaDoesNotEmpty, staticPTModifier } from "./cardEffects.js";
+import { manaDoesNotEmpty } from "./cardEffects.js";
+import { permanentPower } from "./layers.js";
 
 function perm(name, id, controller, { power = 1, toughness = 1, type = "Legendary Creature — Elemental" } = {}) {
   return { id, card: { name, type, power, toughness }, controller, tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null };
@@ -56,7 +57,9 @@ describe("Omnath static P/T", () => {
     const bear = perm("Grizzly Bears", "b1", "user", { power: 2, toughness: 2, type: "Creature — Bear" });
     const state = stateWith({ userBf: [bear], userPool: { G: 5 } });
     expect(creaturePower(state.players.user.battlefield[0], state)).toBe(2);
-    expect(staticPTModifier(state, bear)).toBeNull();
+    // The static P/T half is now in the layer engine: a non-registered creature
+    // with no continuous effects derives to its printed power (no green buff).
+    expect(permanentPower(state, "b1")).toBe(2);
   });
 });
 
