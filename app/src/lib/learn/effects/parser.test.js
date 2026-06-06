@@ -100,6 +100,8 @@ const MUST_DROP_TO_LOW = [
   // (the residue allowlist rejects the leftover qualifier).
   "Destroy target tapped creature an opponent controls that's attacking.", // tapped+controller modeled, "attacking" not
   "Destroy target creature you control with flying.",                      // controller modeled, "with flying" not
+  "Destroy target creature an opponent controls with mana value 3 or less.", // controller modeled, "mana value" not
+  "Destroy target creature with the greatest power.",                       // non-numeric power phrase → not modeled
   // Pump with a keyword-grant rider — the "+X/+Y" matches but the granted keyword
   // would be silently dropped, so it must NOT rate HIGH.
   "Target creature gets +2/+2 until end of turn with trample.",
