@@ -28,6 +28,14 @@ describe("parseEffectProgram — high-confidence (the modeled patterns)", () => 
     expect(parseEffectProgram({ type: "Sorcery", oracle: "Draw two cards." }).atoms).toEqual([{ op: "draw", amount: 2, targetType: null }]);
     expect(parseEffectProgram({ type: "Sorcery", oracle: "Draw a card." }).atoms).toEqual([{ op: "draw", amount: 1, targetType: null }]);
   });
+  it("parses pump (Giant Growth family), positive and negative, only with 'until end of turn'", () => {
+    expect(parseEffectProgram(I("Target creature gets +3/+3 until end of turn.")).atoms)
+      .toEqual([{ op: "pump", ptDelta: { p: 3, t: 3 }, targetType: "creature", duration: "endOfTurn" }]);
+    expect(parseEffectProgram(I("Target creature gets -2/-2 until end of turn.")).atoms)
+      .toEqual([{ op: "pump", ptDelta: { p: -2, t: -2 }, targetType: "creature", duration: "endOfTurn" }]);
+    // No "until end of turn" → not the modeled pump shape → low (Arbiter).
+    expect(programConfidence(parseEffectProgram(I("Target creature gets +1/+1.")))).toBe("low");
+  });
   it("tolerates reminder text in parens (stripped before the clean-clause check)", () => {
     const p = parseEffectProgram(I("Draw two cards (this clause is reminder text)."));
     expect(programConfidence(p)).toBe("high");
@@ -58,7 +66,6 @@ const MUST_DROP_TO_LOW = [
   "Destroy all creatures.",
   "Return target creature to its owner's hand.",
   "Exile target creature.",
-  "Target creature gets +3/+3 until end of turn.",
   "Create a 1/1 white Soldier creature token.",
   "Each player draws a card.",
   "Target player discards a card at random.",
@@ -79,6 +86,9 @@ const MUST_DROP_TO_LOW = [
   "Destroy target tapped creature.",
   "Destroy target attacking creature.",
   "Deals 4 damage to target attacking or blocking creature.",
+  // Pump with a keyword-grant rider — the "+X/+Y" matches but the granted keyword
+  // would be silently dropped, so it must NOT rate HIGH.
+  "Target creature gets +2/+2 until end of turn with trample.",
 ];
 
 describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
@@ -95,7 +105,7 @@ describe("programConfidence — pure shape function", () => {
     expect(programConfidence(null)).toBe("low");
     expect(programConfidence({ atoms: [] })).toBe("low");
     expect(programConfidence({ atoms: [{ op: "draw" }] })).toBe("high");
-    expect(programConfidence({ atoms: [{ op: "draw" }, { op: "pump" }] })).toBe("low"); // one unknown → low
+    expect(programConfidence({ atoms: [{ op: "draw" }, { op: "counter-spell" }] })).toBe("low"); // one unknown → low
     KNOWN_ATOM_OPS.forEach((op) => expect(programConfidence({ atoms: [{ op }] })).toBe("high"));
   });
 });

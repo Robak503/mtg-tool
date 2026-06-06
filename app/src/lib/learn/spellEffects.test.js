@@ -46,6 +46,12 @@ describe("parseSpellEffect", () => {
     expect(parseSpellEffect({ type: "Sorcery", oracle: "Draw two cards." })).toEqual({ kind: "draw", amount: 2, targetType: null });
     expect(parseSpellEffect({ type: "Sorcery", oracle: "Draw a card." })).toEqual({ kind: "draw", amount: 1, targetType: null });
   });
+  it("parses pump (+X/+X until end of turn), positive and negative", () => {
+    expect(parseSpellEffect({ type: "Instant", oracle: "Target creature gets +3/+3 until end of turn." }))
+      .toEqual({ kind: "pump", targetType: "creature", ptDelta: { p: 3, t: 3 }, duration: "endOfTurn" });
+    expect(parseSpellEffect({ type: "Instant", oracle: "Target creature gets -1/-1 until end of turn." }))
+      .toEqual({ kind: "pump", targetType: "creature", ptDelta: { p: -1, t: -1 }, duration: "endOfTurn" });
+  });
   it("returns null for permanents and unrecognized spells", () => {
     expect(parseSpellEffect({ type: "Creature — Bear", oracle: "" })).toBeNull();
     expect(parseSpellEffect({ type: "Instant", oracle: "Counter target spell." })).toBeNull();
@@ -79,6 +85,11 @@ describe("chooseAITarget", () => {
     const state = st({ aiBf: [cr("Mine", "mine", "ai")] });
     const targets = enumerateTargets(state, "ai", { targetType: "creature" });
     expect(chooseAITarget(state, "ai", { kind: "destroy", targetType: "creature" }, targets)).toBeNull();
+  });
+  it("returns null for pump — the AI does not cast combat tricks yet (intentional deferral, P2.3)", () => {
+    const state = st({ userBf: [cr("Theirs", "t", "user")], aiBf: [cr("Mine", "mine", "ai")] });
+    const targets = enumerateTargets(state, "ai", { targetType: "creature" });
+    expect(chooseAITarget(state, "ai", { kind: "pump", targetType: "creature", ptDelta: { p: 3, t: 3 } }, targets)).toBeNull();
   });
   it("burn prefers a killable enemy creature, else the lowest-life enemy player", () => {
     const state = st({ userBf: [cr("Killable", "k", "user", { power: 2, toughness: 2 })], userLife: 5 });

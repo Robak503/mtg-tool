@@ -83,6 +83,16 @@ export function parseSpellEffect(card) {
     return { kind: "draw", amount, targetType: null };
   }
 
+  // Pump: "target creature gets +X/+Y until end of turn" (Giant Growth family).
+  // Anchored to the whole clause so a rider/restriction variant doesn't match here;
+  // the EffectProgram clean-clause gate is the second line of defense. Resolution
+  // is the P2.3 `pump` atom (a CR 613.4c layer-7c effect), not the legacy
+  // resolveSpellEffect (which has no pump branch and is no longer the cast path).
+  m = oracle.match(/target creature gets ([+-]\d+)\/([+-]\d+)\s+until end of turn/i);
+  if (m) {
+    return { kind: "pump", targetType: "creature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, duration: "endOfTurn" };
+  }
+
   return null;
 }
 
@@ -132,6 +142,11 @@ function toughOf(state, t) {
  * returns null when there's no good enemy target (so the AI won't, say, destroy
  * its own creature). Heuristics: destroy the biggest enemy creature; burn the
  * biggest enemy creature it can kill, else the lowest-life enemy player.
+ *
+ * Pump (kind "pump", P2.3) intentionally falls through to `return null` — the AI
+ * does not yet cast combat tricks (a deliberate deferral, like attack-trap logic
+ * in opponentAI). This is SAFE: the player can still cast pump normally; the AI
+ * simply holds the card. A future PR can add a "pump my best attacker" heuristic.
  */
 export function chooseAITarget(state, aiPlayerId, effect, targets) {
   if (!targets || targets.length === 0) return null;

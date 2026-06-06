@@ -52,8 +52,18 @@ describe("effectAtoms — per-atom resolution (parity with the legacy helpers)",
     const after = resolveAtom(state, { op: "draw", amount: 2 }, { controller: "user", targets: [] });
     expect(after.players.user.hand.map(c => c.name)).toEqual(["L1", "L2"]);
   });
+  it("pump registers an endOfTurn layer-7c continuous effect for the targeted creature", () => {
+    const state = st({ userBf: [cr("Bear", "bear", "user")] });
+    const after = resolveAtom(state, { op: "pump", ptDelta: { p: 3, t: 3 }, targetType: "creature" }, { controller: "user", targets: [{ type: "creature", id: "bear" }] });
+    expect(after.continuousEffects).toHaveLength(1);
+    const eff = after.continuousEffects[0];
+    expect(eff).toMatchObject({ layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: 3, toughness: 3 } });
+    expect(eff.duration).toMatchObject({ kind: "endOfTurn" });
+    expect(eff.affects.permanentIds).toEqual(["bear"]);
+  });
+
   it("returns null for an unknown atom op (caller routes to the Arbiter seam, never fabricates)", () => {
-    expect(resolveAtom(st(), { op: "pump", ptDelta: { p: 3, t: 3 } }, { controller: "user", targets: [] })).toBeNull();
-    expect(ATOM_RESOLVERS.pump).toBeUndefined();
+    expect(resolveAtom(st(), { op: "counter-spell" }, { controller: "user", targets: [] })).toBeNull();
+    expect(ATOM_RESOLVERS["counter-spell"]).toBeUndefined();
   });
 });
