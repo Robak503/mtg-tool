@@ -33,6 +33,7 @@ import {
   untapAll,
   clearCombatDamage,
   logEvent,
+  mintId,
 } from "./gameState.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
@@ -402,30 +403,54 @@ export function enqueueTrigger(state, trigger) {
  * (Sundial of the Infinite, conflict between multiple "your triggers")
  * are an Arbiter case.
  */
+/**
+ * Order simultaneous triggers APNAP across ALL seats (CR 603.3b): active player
+ * first, then the rest in turn order; FIFO within each controller. Triggers
+ * whose controller has left the game (eliminated, CR 800.4a) are dropped because
+ * the rotation only walks live seats. Generalizes the old 2-bucket split to the
+ * Commander 4-seat pod.
+ */
+function orderTriggersAPNAP(state, pending) {
+  const order = state.turnOrder || Object.keys(state.players);
+  const startIdx = order.indexOf(state.activePlayer);
+  const rotated = startIdx >= 0 ? order.slice(startIdx).concat(order.slice(0, startIdx)) : order;
+  const out = [];
+  for (const pid of rotated) out.push(...pending.filter(t => t.controller === pid));
+  return out;
+}
+
 export function flushTriggers(state) {
   const pending = state.pendingTriggers || [];
   if (pending.length === 0) return state;
 
-  const active = state.activePlayer;
-  const activeTriggers = pending.filter(t => t.controller === active);
-  const otherTriggers = pending.filter(t => t.controller !== active);
+  const ordered = orderTriggersAPNAP(state, pending);
 
-  const newStackObjects = [
-    ...activeTriggers,
-    ...otherTriggers,
-  ].map(trigger => ({
-    id: trigger.id,
-    kind: "triggered-ability",
-    source: trigger.source,
-    controller: trigger.controller,
-    targets: trigger.targets || [],
-    cost: null,
-    payload: trigger.payload || {},
-  }));
+  // Mint a deterministic stack id for any trigger without one (real triggers
+  // from triggers.js carry no id; some tests pass explicit ids). Thread state so
+  // idSeq advances per mint and the result is serialize-stable.
+  let s = state;
+  const newStackObjects = [];
+  for (const trigger of ordered) {
+    let id = trigger.id;
+    if (!id) {
+      const m = mintId(s, "stk");
+      id = m.id;
+      s = m.state;
+    }
+    newStackObjects.push({
+      id,
+      kind: "triggered-ability",
+      source: trigger.source,
+      controller: trigger.controller,
+      targets: trigger.targets || [],
+      cost: null,
+      payload: trigger.payload || {},
+    });
+  }
 
   return {
-    ...state,
-    stack: [...state.stack, ...newStackObjects],
+    ...s,
+    stack: [...s.stack, ...newStackObjects],
     pendingTriggers: [],
   };
 }
