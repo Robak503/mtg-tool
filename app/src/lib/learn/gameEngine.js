@@ -38,6 +38,7 @@ import {
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
+import { checkStepTriggers, checkAttackTriggers } from "./triggers.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -244,6 +245,14 @@ export function runStepActions(state) {
       next = logEvent(next, { kind: "step", phase: state.phase, step: state.step, player: state.activePlayer });
       break;
   }
+
+  // Step-boundary triggers (CR 603.2b) and attack triggers (CR 508.3). Attack
+  // triggers fire at the declare-blockers step, when the full attacker batch is
+  // in state.combat.attackers. Enqueued here, then flushed onto the stack below.
+  if (next.step === "upkeep") next = checkStepTriggers(next, "upkeep");
+  else if (next.step === "draw") next = checkStepTriggers(next, "draw");
+  else if (next.step === "end") next = checkStepTriggers(next, "endStep");
+  else if (next.step === "declare-blockers") next = checkAttackTriggers(next);
 
   if (grantsPriority(next.step)) {
     next = grantPriority(next);
