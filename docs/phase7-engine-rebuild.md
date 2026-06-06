@@ -244,39 +244,53 @@ preserved until PR-11). (c) The equivalence gate (PR-10) is its own PR before PR
 
 ---
 
-## 4. Phase 2 — Depth (high-level PR outline)
+## 4. Phase 2 — Depth: the coverage spine (ordered, decided 2026-06-06)
 
-Built on the Phase-1 infrastructure. Each is a small, test-backed, Arbiter-fail-safe
-PR. Full detail in [`docs/design/engine-rebuild/04-effect-interpreter.md`](design/engine-rebuild/04-effect-interpreter.md)
-and the layers design.
+Phase 1 (Foundation) is **COMPLETE through v0.25.0** (serializable stack, triggers,
+CR 613 layers + anthems/lords/granted-keywords + the pump *mechanism*; AI threat-math
+already routes through the derived accessor per F7a/PR-12). Phase 2 grows *coverage*
+on that infra. **The goal is the supported-vs-Arbiter coverage metric, not template
+parity** — every common interaction native, the Arbiter a permanent fail-safe for the
+tail. The parser is "incomplete but never wrong": low-confidence → Arbiter, never a
+silent no-op, never a fabricated effect.
 
-1. **Anthems / lords** as layer-6/7c continuous effects (Sliver lords, Glorious
-   Anthem, Honor of the Pure) **+ route AI threat-math** (`boardContext`,
-   `trapDetector`, `opponentAI`) through `permanentPower(state, id)` so the AI sees
-   buffed boards (NOT optional — an AI that can't see its own anthems misplays).
-2. **Pump** (`+X/+X until end of turn`) as a timestamped layer-7c effect with
-   cleanup-step expiry (514.2).
-3. **Tokens** (`create-token` → `createTokenPermanent`) + **counters** effects.
-4. **General effect interpreter** — oracle → ordered `EffectProgram` of effect
-   *atoms* (deal-damage/destroy/exile/draw/discard/mill/scry/tap/bounce/counter/
-   create-token/put-counters/pump/gain-life/…), each with a target spec
-   (restrictions: controller/keyword/type/power/tapped). Multi-clause, modal
-   ("Choose one"), and the **confidence boundary**: high-confidence executes;
-   anything unparsed → `decision.kind:"unresolved"` → Arbiter (replaces the silent
-   no-op). Introduces the `effect-program` resolver key. **Fail-safe, never
-   fabricates, all-or-nothing on low confidence.**
-5. **X-spells** (X bound at cast, threaded into params).
-6. **Activated abilities** (new action kind + cost + resolver — currently fully
-   deferred in the dispatcher).
-7. **Replacement effects** engine (CR 614/616, ordering-aware) — the named owner
-   for "enters tapped / with counters" + "if it would die, exile instead".
-8. **Oracle-template library expansion** + the **"supported vs Arbiter-resolved"
-   coverage metric** surfaced in the UI.
+This ordering was produced by a 3-lens design workflow (coverage-per-effort ×
+full-game-first × architecture-correct) and synthesized to one dependency-correct
+spine. Full atom/EffectProgram detail in
+[`04-effect-interpreter.md`](design/engine-rebuild/04-effect-interpreter.md);
+coverage-metric + scope realism in
+[`06-test-and-realism.md`](design/engine-rebuild/06-test-and-realism.md).
+
+| # | PR | Mechanic | Coverage | Effort/Risk | Depends on |
+|---|----|----------|----------|-------------|------------|
+| **P2.1 ▶ START** | **Unresolved→Arbiter seam** | `learnSession` returns an `unresolved` decision kind (`pendingArbiter`); start/step routes surface it; LearnView calls the Arbiter | huge | S / low | — |
+| **P2.2** | **EffectProgram interpreter keystone** | `EffectProgram`/`Atom` + `runEffectProgram` under the reserved `effect-program` resolver key; `spellEffects` becomes a facade | (keystone) | M / med | P2.1 |
+| **P2.3** | **Pump-spell wiring** | a `pump` atom → `addContinuousEffect` (7c modify, endOfTurn). Mechanism already built — cheapest win | high | S / low | P2.2 |
+| **P2.4** | **Targeting restrictions + AI awareness** | target-spec restrictions + unparsed marker; `enumerateTargets` filters; `chooseAITarget` honors them | high | M / med | P2.2 |
+| **P2.5** | **Multi-clause + modal + X** | clause→atoms split, modal "choose one", X from `hasX`, all-or-nothing on low confidence | high | L / med | P2.4 |
+| **P2.6** | **Token + counter atoms** | `create-token` via `createTokenPermanent`; put-counters via `addCounter` | high | M / med | P2.2 |
+| **P2.7** | **Atom-family expansion** | life/tap/untap/bounce/discard/mill/scry/exile on existing helpers | high | M / low | P2.5 |
+| **P2.8** | **Coverage metric** | static deck scan + runtime tally (`programConfidence`), median over real decks, surfaced in LearnView | medium | M / low | P2.7 |
+| **P2.9** | **Broad anthem/lord/grant expansion** | grow the `staticAbilityParser` grammar | medium | M / low | P2.5 |
+| **P2.10** | **Beginner trigger-target / "may" interaction (F7b)** | extend the decisionGate ask contract for triggers | medium | M / med | P2.5 |
+| **P2.11** | **Activated abilities** | new `activate-ability` action kind paying tap/mana/sacrifice under `activated.effect` (fully deferred today) | high | L / high | P2.7 |
+| **P2.12** | **Replacement effects (CR 614/616)** | enters-tapped/with-counters + die-replacement; entry-event hook on the D5 ETB seam (hardest; a miss is safe) | medium | L / high | P2.6 |
+| **P2.13** | **cardEffects override hook + facade removal** | named-card EffectProgram override; the closer | low | S / low | P2.11 |
+
+**First three: P2.1 seam → P2.2 interpreter → P2.3 pump.** The Arbiter boundary:
+`programConfidence` is **all-or-nothing** — high runs ALL atoms; low runs ZERO and
+emits `pendingArbiter`. The engine never makes a network call; the UI invokes the
+Ollama-only Arbiter (CLAUDE.md §6 invariant).
+
+**Biggest risk:** a false-confident parse executing the *wrong* behavior silently
+(worse than a no-op). Mitigation: conservative-by-construction confidence + a pinned
+"must drop to low" parser corpus, CI-gated (every widening of "high" is a deliberate,
+reviewed act).
 
 **Named Phase-2 gaps to own (not discover later):** replacement effects (614/616),
 state-triggered abilities (603.8), copiable values (707, reserve a `copiableValues`
-field on the layers output now), additional costs / cost riders, the
-decisionGate "ask" contract extension for user trigger-target / "may" choices.
+field on the layers output — already present), additional costs / cost riders, the
+decisionGate "ask" contract extension for user trigger-target / "may" choices (P2.10).
 
 ---
 
