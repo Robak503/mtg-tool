@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Pump and "-X/-X" spells work in The Academy.** "+X/+X until end of turn"
+  combat tricks (Giant Growth and friends) now actually buff the targeted
+  creature — through the real layers engine, so the bonus counts in combat and
+  wears off at end of turn — and "-X/-X" removal (Disfigure, Last Gasp, …)
+  correctly kills a creature whose toughness it drops to 0.
+
 ### Changed
 - **The Academy's spell engine is now a general effect interpreter** (Phase 2 of
   the engine rebuild). Instants and sorceries resolve through an ordered,
