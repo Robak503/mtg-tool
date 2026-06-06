@@ -44,6 +44,14 @@ summarizes the notable changes.
   produced mana, so no spell was castable, the user was never prompted, and the
   engine auto-piloted empty turns until the cap. Fixed by building the mana,
   combat-orchestration, and termination layers the simulator was missing.
+- **Card art loading is more robust.** The local art proxy now times out a slow
+  upstream, caps the response size, and rejects non-image responses — so a flaky
+  CDN can't hang a card image or cache a junk file. Failures fall back to the
+  card-name placeholder as before.
+- **The profiles migration self-heals.** If the one-time migration couldn't
+  delete the old combined deck file (a transient Windows file lock), it now
+  retries on later launches. The leftover was always inert — the app only reads
+  the per-profile copies — this just tidies it up.
 
 ## [0.21.0] - 2026-06-04
 
