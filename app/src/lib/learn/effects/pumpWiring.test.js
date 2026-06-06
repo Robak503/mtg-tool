@@ -66,4 +66,27 @@ describe("P2.3 pump-spell wiring", () => {
     expect(permanentPower(afterCleanup, "bear")).toBe(2);
     expect(permanentToughness(afterCleanup, "bear")).toBe(2);
   });
+
+  it("a NEGATIVE pump that drops derived toughness to 0 kills the creature at resolution (CR 704.5f)", () => {
+    // Disfigure-style -2/-2 removal. The pump atom runs the lethal SBA, so the
+    // 2/2 dies immediately instead of lingering at 0 toughness until combat.
+    const disfigure = { id: "dis", name: "Disfigure", type: "Instant", oracle: "Target creature gets -2/-2 until end of turn.", mana: "{B}" };
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const state = {
+      ...s0,
+      phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user",
+      startingPlayer: "user", consecutivePasses: 0,
+      players: {
+        ...s0.players,
+        user: { ...s0.players.user, hand: [disfigure], manaPool: { ...s0.players.user.manaPool, B: 1 } },
+        ai: { ...s0.players.ai, battlefield: [{ ...bearPerm(), controller: "ai" }] },
+      },
+    };
+    const casts = filterActions(legalActionsForPlayer(state, "user"), "cast-spell");
+    const onBear = casts.find(c => c.targets?.[0]?.id === "bear");
+    expect(onBear).toBeTruthy();
+    const resolved = resolveTopOfStack(dispatchAction(state, onBear));
+    expect(resolved.players.ai.battlefield).toHaveLength(0);                 // off the battlefield
+    expect(resolved.players.ai.graveyard.map(c => c.name)).toEqual(["Grizzly Bears"]); // in the graveyard
+  });
 });

@@ -21,7 +21,8 @@ import {
   applyDrawEffect,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent } from "../gameState.js";
+import { logEvent, destroyLethalCreatures } from "../gameState.js";
+import { checkDiesTriggers } from "../triggers.js";
 
 /**
  * P2.3 pump — "+X/+X until end of turn" (Giant Growth family). Does NOT mutate
@@ -47,6 +48,13 @@ function applyPumpEffect(state, atom, ctx) {
       source: { kind: "resolution", permanentId: null, cardName: ctx.cardName || null },
     }).state;
   }
+  // A negative pump (-X/-Y, e.g. Disfigure / Last Gasp / Dismember) can drop a
+  // creature's DERIVED toughness to <= 0 — run the lethal SBA so it dies at
+  // resolution (CR 704.5f), exactly as the damage atom does. A positive pump
+  // (Giant Growth) finds nothing lethal, so this is a no-op for it. Without this
+  // the creature would silently survive at 0 toughness until the next combat step.
+  const lethal = destroyLethalCreatures(next);
+  next = checkDiesTriggers(lethal.state, lethal.dead);
   return logEvent(next, { kind: "spell-effect", effect: "pump", power, toughness, targets: (ctx.targets || []).map(t => t.id) });
 }
 

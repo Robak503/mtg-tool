@@ -69,7 +69,7 @@ function makeProgram({ confidence, atoms, unparsedTail }) {
  * interpreter is never confidently wrong about something it didn't model. A
  * false-low (routing a clean spell to the judge) is safe; a false-high is forbidden.
  */
-const UNMODELED_MARKERS = /\b(unless|instead|rather than|where|for each|equal to|divided|as long as|if|then|may|choose (?:one|two|three)|non(?:black|blue|white|red|green|land|artifact|creature)|attacking|blocking|tapped|untapped|with (?:flying|power|toughness|mana value)|that (?:player|creature|deals|has|was|spell)|you don't control|an opponent controls|you control|its (?:owner|controller))\b/i;
+const UNMODELED_MARKERS = /\b(unless|instead|rather than|where|for each|equal to|divided|as long as|if|then|may|choose (?:one|two|three)|non(?:black|blue|white|red|green|land|artifact|creature)|attacking|blocking|tapped|untapped|with (?:flying|reach|trample|lifelink|deathtouch|vigilance|menace|haste|first strike|double strike|hexproof|indestructible|protection|ward|power|toughness|mana value)|that (?:player|creature|deals|has|was|spell)|you don't control|an opponent controls|you control|its (?:owner|controller))\b/i;
 
 /**
  * Is the oracle a single clean clause that exactly matches one known pattern with

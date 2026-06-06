@@ -142,6 +142,11 @@ function toughOf(state, t) {
  * returns null when there's no good enemy target (so the AI won't, say, destroy
  * its own creature). Heuristics: destroy the biggest enemy creature; burn the
  * biggest enemy creature it can kill, else the lowest-life enemy player.
+ *
+ * Pump (kind "pump", P2.3) intentionally falls through to `return null` — the AI
+ * does not yet cast combat tricks (a deliberate deferral, like attack-trap logic
+ * in opponentAI). This is SAFE: the player can still cast pump normally; the AI
+ * simply holds the card. A future PR can add a "pump my best attacker" heuristic.
  */
 export function chooseAITarget(state, aiPlayerId, effect, targets) {
   if (!targets || targets.length === 0) return null;

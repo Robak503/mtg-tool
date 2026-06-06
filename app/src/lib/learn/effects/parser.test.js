@@ -86,6 +86,9 @@ const MUST_DROP_TO_LOW = [
   "Destroy target tapped creature.",
   "Destroy target attacking creature.",
   "Deals 4 damage to target attacking or blocking creature.",
+  // Pump with a keyword-grant rider — the "+X/+Y" matches but the granted keyword
+  // would be silently dropped, so it must NOT rate HIGH.
+  "Target creature gets +2/+2 until end of turn with trample.",
 ];
 
 describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {

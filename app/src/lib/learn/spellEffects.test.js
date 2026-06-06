@@ -86,6 +86,11 @@ describe("chooseAITarget", () => {
     const targets = enumerateTargets(state, "ai", { targetType: "creature" });
     expect(chooseAITarget(state, "ai", { kind: "destroy", targetType: "creature" }, targets)).toBeNull();
   });
+  it("returns null for pump — the AI does not cast combat tricks yet (intentional deferral, P2.3)", () => {
+    const state = st({ userBf: [cr("Theirs", "t", "user")], aiBf: [cr("Mine", "mine", "ai")] });
+    const targets = enumerateTargets(state, "ai", { targetType: "creature" });
+    expect(chooseAITarget(state, "ai", { kind: "pump", targetType: "creature", ptDelta: { p: 3, t: 3 } }, targets)).toBeNull();
+  });
   it("burn prefers a killable enemy creature, else the lowest-life enemy player", () => {
     const state = st({ userBf: [cr("Killable", "k", "user", { power: 2, toughness: 2 })], userLife: 5 });
     const targets = enumerateTargets(state, "ai", { targetType: "any" });
