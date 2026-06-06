@@ -9,6 +9,7 @@
  * (that swap is PR-11, gated by the PR-10 equivalence test).
  */
 
+import { readFileSync } from "node:fs";
 import { describe, it, expect, beforeEach } from "vitest";
 import { createGameState } from "./gameState.js";
 import {
@@ -49,6 +50,25 @@ function stateWith({ userBf = [], aiBf = [], userPool = {} } = {}) {
 }
 
 beforeEach(() => _resetLayerStatsForTests());
+
+describe("cycle-break discipline (eng-review F3)", () => {
+  // layers/ptPrimitive must NEVER import gameState — gameState delegates OUTWARD
+  // to layers, so a layers→gameState import would close the cycle. (Comments may
+  // mention gameState; an `import ... from "./gameState"` statement may not.)
+  const importsGameState = (file) => {
+    const src = readFileSync(new URL(file, import.meta.url), "utf8");
+    return /^\s*import[^\n]*from\s+["']\.\/gameState(\.js)?["']/m.test(src);
+  };
+  it("layers.js does not import gameState", () => {
+    expect(importsGameState("./layers.js")).toBe(false);
+  });
+  it("ptPrimitive.js does not import gameState", () => {
+    expect(importsGameState("./ptPrimitive.js")).toBe(false);
+  });
+  it("staticAbilityParser.js does not import gameState", () => {
+    expect(importsGameState("./staticAbilityParser.js")).toBe(false);
+  });
+});
 
 describe("empty-board fast path", () => {
   it("returns printed P/T when no effects and no counters", () => {

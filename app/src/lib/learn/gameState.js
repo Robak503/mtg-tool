@@ -26,7 +26,8 @@
  *   - Everything else — pure read, returns a value
  */
 
-import { staticPTModifier } from "./cardEffects.js";
+import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
+import { permanentPower, permanentToughness } from "./layers.js";
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 
@@ -145,29 +146,32 @@ export function createPermanent({ id, card, controller, tapped = false, summonin
 }
 
 /**
- * Effective power / toughness of a creature permanent: printed value plus any
- * +1/+1 counters minus -1/-1 counters, plus any registered static-ability
- * modifier (Omnath: +1/+1 per unspent green). Non-numeric printed values
- * (e.g. "*") read as 0. These are THE numbers all readers use (combat, UI,
- * legality) — the single accessor, so static effects can't drift between
- * callers. `state` is optional: pass it when a static modifier might apply
- * (it reads the mana pool, etc.); without it you get printed + counters only.
+ * Effective power / toughness of a creature permanent — THE numbers all readers
+ * use (combat, UI, legality, SBAs), so characteristics can't drift between
+ * callers (CR 613). `state` is optional:
+ *
+ *   - WITH state: delegate to the CR 613 layer engine
+ *     (`permanentPower`/`permanentToughness`), which applies every continuous
+ *     effect (counters in 7c, anthems/lords/Omnath, pump-until-EOT) in layer
+ *     order. Returns the TRUE CR value — can be negative; combat floors at 0
+ *     (Math.max(0, …) at the call sites) and the lethal SBA reads it raw.
+ *   - WITHOUT state: printed value + ±1/±1 counters only (no continuous
+ *     effects can be resolved), via the shared ptPrimitive — preserving the
+ *     "no state ⇒ printed only" contract.
+ *
+ * The delegation edge points OUTWARD (gameState → layers); layers never imports
+ * gameState (it reads ptPrimitive + keywords), so the cycle never closes
+ * (eng-review F3 — ptPrimitive is the cut point). Phase-7 PR-11.
  */
 export function creaturePower(permanent, state = null) {
   if (!permanent?.card) return 0;
-  const base = Number(permanent.card.power) || 0;
-  const plus = permanent.counters?.["+1/+1"] || 0;
-  const minus = permanent.counters?.["-1/-1"] || 0;
-  const mod = state ? staticPTModifier(state, permanent) : null;
-  return base + plus - minus + (mod?.p || 0);
+  if (state && permanent.id != null) return permanentPower(state, permanent.id);
+  return printedPower(permanent) + counterPtDelta(permanent);
 }
 export function creatureToughness(permanent, state = null) {
   if (!permanent?.card) return 0;
-  const base = Number(permanent.card.toughness) || 0;
-  const plus = permanent.counters?.["+1/+1"] || 0;
-  const minus = permanent.counters?.["-1/-1"] || 0;
-  const mod = state ? staticPTModifier(state, permanent) : null;
-  return base + plus - minus + (mod?.t || 0);
+  if (state && permanent.id != null) return permanentToughness(state, permanent.id);
+  return printedToughness(permanent) + counterPtDelta(permanent);
 }
 
 /**
