@@ -22,7 +22,7 @@
  *     better.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useLearnSession from "../../hooks/useLearnSession";
 import StabilityBadge from "./StabilityBadge";
 
@@ -91,6 +91,7 @@ export default function LearnView({
   const [userDeckId, setUserDeckId] = useState("");
   const [oppIds, setOppIds] = useState(["", "", ""]); // up to 3 opponents (Commander)
   const [difficulty, setDifficulty] = useState("beginner");
+  const [saves, setSaves] = useState([]);
 
   const oppCount = mode === "commander" ? 3 : 1;
   const userDeck = savedDecks.find(d => d.id === userDeckId);
@@ -101,6 +102,12 @@ export default function LearnView({
 
   const handleStart = async () => {
     if (!canStart) return;
+    // Deck identity for the saved-game list ("Sliver Hivelord · turn 4").
+    const meta = {
+      userDeckId: userDeck?.id,
+      userDeckName: userDeck?.name,
+      opponentDeckNames: oppDecks.map(d => d?.name),
+    };
     if (mode === "commander") {
       await session.start({
         mode: "commander",
@@ -109,6 +116,7 @@ export default function LearnView({
         userCommanders: commandersOf(userDeck),
         opponentCommanders: oppDecks.map(commandersOf),
         difficulty,
+        ...meta,
       });
     } else {
       await session.start({
@@ -118,11 +126,28 @@ export default function LearnView({
         userCommanders: commandersOf(userDeck),
         opponentCommanders: commandersOf(oppDecks[0]),
         difficulty,
+        ...meta,
       });
     }
   };
 
   const handleAbandon = () => session.reset();
+
+  // Saved-game list for the "Continue a game" panel on the idle screen.
+  useEffect(() => {
+    let cancelled = false;
+    if (session.status === "idle") {
+      session.listSaves().then(list => { if (!cancelled) setSaves(list); });
+    }
+    return () => { cancelled = true; };
+    // session.listSaves is stable (useCallback); refresh only on status change.
+  }, [session.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleResume = (sessionId) => session.resume(sessionId);
+  const handleDeleteSave = async (sessionId) => {
+    await session.deleteSave(sessionId);
+    setSaves(prev => prev.filter(s => s.sessionId !== sessionId));
+  };
 
   // ─── Idle / setup screen ──────────────────────────────────────────────────
 
@@ -143,6 +168,42 @@ export default function LearnView({
               The session runs locally — every decision is narrated by Jace at
               Beginner difficulty, lighter at higher difficulties.
             </p>
+
+            {saves.length > 0 && (
+              <div style={{ border: `1px solid ${LINE}`, borderRadius: 6, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ ...labelStyle(MUTED), padding: 0 }}>Continue a game</div>
+                {saves.map(s => (
+                  <div
+                    key={s.sessionId}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 10px", border: `1px solid ${LINE}`, borderRadius: 4, background: BG2 }}
+                  >
+                    <span style={{ fontSize: 12, color: TEXT }}>
+                      {(s.userDeckName || "Untitled deck")}
+                      {" · "}{s.mode === "commander" ? "Commander" : "Standard"}
+                      {" · turn "}{s.turn ?? "?"}
+                      {" · "}{s.difficulty || "beginner"}
+                    </span>
+                    <span style={{ display: "inline-flex", gap: 6 }}>
+                      <button
+                        onClick={() => handleResume(s.sessionId)}
+                        disabled={!s.resumable || session.status === "starting"}
+                        title={s.resumable ? "Resume this game" : "Saved on an incompatible version — start a new game"}
+                        style={{ padding: "4px 10px", fontSize: 11, background: s.resumable ? (cfg?.color || GOLD) : LINE, color: "#fff", border: "none", borderRadius: 4, cursor: s.resumable ? "pointer" : "not-allowed", fontFamily, opacity: s.resumable ? 1 : 0.5 }}
+                      >
+                        Resume
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSave(s.sessionId)}
+                        title="Delete this saved game"
+                        style={{ padding: "4px 8px", fontSize: 11, background: "transparent", color: MUTED, border: `1px solid ${LINE}`, borderRadius: 4, cursor: "pointer", fontFamily }}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <fieldset style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, border: "none", padding: 0 }}>
               <legend style={{ ...labelStyle(MUTED), padding: 0, gridColumn: "1 / -1" }}>Format</legend>

@@ -8,6 +8,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   _resetIdsForTests,
+  mintId,
   PLAYER_IDS, ZONES, MANA_COLORS, PHASES, STEPS,
   createGameState,
   createPlayerState,
@@ -555,5 +556,65 @@ describe("logEvent", () => {
     expect(state.log[0].turn).toBe(1);
     expect(state.log[0].kind).toBe("phase-change");
     expect(state.log[1].kind).toBe("draw");
+  });
+});
+
+describe("mintId + state.idSeq (Phase-7 PR-0 deterministic ids)", () => {
+  it("returns { id, state } with a prefix-N id and the counter advanced", () => {
+    const state = createGameState({ userDeck: [], aiDeck: [] });
+    expect(state.idSeq).toBe(0);
+    const { id, state: next } = mintId(state, "perm");
+    expect(id).toBe("perm-1");
+    expect(next.idSeq).toBe(1);
+  });
+
+  it("is a pure function — same state in always yields the same id (serialize-stable)", () => {
+    const state = { ...createGameState({ userDeck: [], aiDeck: [] }), idSeq: 6 };
+    const a = mintId(state, "stk");
+    const b = mintId(state, "stk");
+    expect(a.id).toBe("stk-7");
+    expect(b.id).toBe("stk-7");      // deterministic: didn't depend on call order or entropy
+    expect(state.idSeq).toBe(6);     // input is not mutated
+  });
+
+  it("advances monotonically when threaded through the returned state", () => {
+    let state = createGameState({ userDeck: [], aiDeck: [] });
+    const ids = [];
+    for (let i = 0; i < 3; i++) {
+      const m = mintId(state, "perm");
+      ids.push(m.id);
+      state = m.state;
+    }
+    expect(ids).toEqual(["perm-1", "perm-2", "perm-3"]);
+    expect(state.idSeq).toBe(3);
+  });
+
+  it("createGameState seeds idSeq:0 in both modes", () => {
+    const std = createGameState({ userDeck: [], aiDeck: [] });
+    const cmd = createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] });
+    expect(std.idSeq).toBe(0);
+    expect(cmd.idSeq).toBe(0);
+  });
+
+  it("factories honor an explicit id over the legacy fallback", () => {
+    const perm = createPermanent({ id: "perm-explicit", card: card("Bear"), controller: "user" });
+    const stk = createStackObject({ id: "stk-explicit", kind: "spell", source: card("Bolt"), controller: "user" });
+    expect(perm.id).toBe("perm-explicit");
+    expect(stk.id).toBe("stk-explicit");
+  });
+
+  it("moveCardToZone mints a deterministic permanent id from state.idSeq", () => {
+    let state = createGameState({ userDeck: makeDeck(2, "U"), aiDeck: makeDeck(2, "A") });
+    state = drawCards(state, { playerId: "user", count: 2 });
+
+    const firstCardId = state.players.user.hand[0].id;
+    state = moveCardToZone(state, { playerId: "user", fromZone: "hand", toZone: "battlefield", cardId: firstCardId, becomePermanent: true });
+    expect(state.players.user.battlefield[0].id).toBe("perm-1");
+    expect(state.idSeq).toBe(1);     // counter advanced and persisted on the returned state
+
+    const secondCardId = state.players.user.hand[0].id;
+    state = moveCardToZone(state, { playerId: "user", fromZone: "hand", toZone: "battlefield", cardId: secondCardId, becomePermanent: true });
+    expect(state.players.user.battlefield[1].id).toBe("perm-2");
+    expect(state.idSeq).toBe(2);
   });
 });

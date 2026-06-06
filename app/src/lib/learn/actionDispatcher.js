@@ -32,10 +32,12 @@ import {
   opponentsOf,
   tapPermanent,
   addMana,
+  mintId,
 } from "./gameState.js";
 import { passPriority } from "./gameEngine.js";
 import { manaSources, planPayment } from "./manaModel.js";
-import { parseSpellEffect, resolveSpellEffect } from "./spellEffects.js";
+import { parseSpellEffect } from "./spellEffects.js";
+import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -221,39 +223,48 @@ function applyCastSpell(state, action) {
   const handIndex = player.hand.findIndex(c => c.id === action.cardId);
   const nextHand = [...player.hand.slice(0, handIndex), ...player.hand.slice(handIndex + 1)];
 
-  // 4. Build the stack object. An instant/sorcery with a recognized effect
-  // (damage/destroy/draw) resolves that effect against the chosen targets;
-  // permanents and unrecognized spells fall back to the default resolver
-  // (permanent enters the battlefield, else no-op-with-log).
+  // 4. Build a plain-data, SERIALIZABLE payload (Phase-7 PR-3) — no closure.
+  // A recognized instant/sorcery effect resolves via spell.effect; a permanent
+  // spell enters the battlefield via spell.permanent; anything else logs a
+  // no-op via spell.noop. resolveTopOfStack dispatches on payload.resolver
+  // through the registry. Because state now carries zero functions, a game can
+  // be serialized mid-stack and restored to byte-identical behavior.
   const effect = action.effect || parseSpellEffect(card);
   const targets = action.targets || [];
-  const onResolve = effect
-    ? (s) => resolveSpellEffect(s, { effect, controller: action.playerId, targets })
-    : defaultSpellResolver(card, action.playerId);
+
+  let payload;
+  if (effect) {
+    payload = { resolver: RESOLVER_KEYS.SPELL_EFFECT, params: { effect, controller: action.playerId, targets, cardId: card.id } };
+  } else if (isPermanentSpell(card)) {
+    payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params: { card, controller: action.playerId } };
+  } else {
+    payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "instant-or-sorcery (no recognized effect)" } };
+  }
+
+  // Mint a deterministic stack id; thread the advanced state (working2) so idSeq
+  // persists onto the result.
+  const { id: stkId, state: working2 } = mintId(working, "stk");
   const stackObject = createStackObject({
+    id: stkId,
     kind: "spell",
     source: card,
     controller: action.playerId,
     targets,
     cost: action.cost,
-    payload: {
-      cardId: card.id,
-      effect: effect || null,
-      onResolve,
-    },
+    payload,
   });
 
   let next = {
-    ...working,
+    ...working2,
     players: {
-      ...working.players,
+      ...working2.players,
       [action.playerId]: {
         ...player,
         hand: nextHand,
         manaPool: nextPool,
       },
     },
-    stack: [...working.stack, stackObject],
+    stack: [...working2.stack, stackObject],
   };
   next = logEvent(next, {
     kind: "cast-spell",
@@ -294,63 +305,6 @@ function applyTapForMana(state, action) {
     cardName: perm.card?.name,
   });
   return next;
-}
-
-/**
- * Default per-spell resolver. Creatures enter the battlefield; other
- * permanents (artifacts, enchantments, planeswalkers) also enter; the
- * "etb on this side" rule is enforced by the engine's default — it
- * calls onResolve which here moves the card from a placeholder to
- * battlefield. Instants and sorceries just log and pop.
- */
-function defaultSpellResolver(card, controller) {
-  const typeLine = String(card?.type || card?.type_line || "");
-  const isPermanentSpell =
-    /Creature/.test(typeLine) ||
-    /Artifact/.test(typeLine) ||
-    /Enchantment/.test(typeLine) ||
-    /Planeswalker/.test(typeLine);
-  if (!isPermanentSpell) {
-    return (state) => logEvent(state, {
-      kind: "spell-no-op-resolve",
-      cardName: card.name,
-      reason: "instant-or-sorcery (effects not wired in PR6.1)",
-    });
-  }
-
-  return (state) => {
-    // Card is already off hand and on the stack. Resolution puts the
-    // card on the battlefield as a new Permanent. We need to insert
-    // the card object back through moveCardToZone — except it's not
-    // currently in any zone. We can splice it in directly.
-    const player = state.players[controller];
-    if (!player) return state;
-    const newPermanent = {
-      id: `perm-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-      card,
-      controller,
-      tapped: false,
-      summoningSick: /Creature/.test(typeLine),
-      counters: {},
-      attachments: [],
-      attachedTo: null,
-      enteredOnTurn: state.turn,
-    };
-    return {
-      ...state,
-      players: {
-        ...state.players,
-        [controller]: {
-          ...player,
-          battlefield: [...player.battlefield, newPermanent],
-        },
-      },
-      log: [
-        ...state.log,
-        { turn: state.turn, kind: "permanent-enters", cardName: card.name, controller },
-      ],
-    };
-  };
 }
 
 function hasVigilance(card) {

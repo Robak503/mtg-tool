@@ -18,6 +18,7 @@ import path from "node:path";
 
 import { profilePath } from "../../../lib/server/paths";
 import { sanitiseId } from "../../../lib/server/sanitiseId.js";
+import { atomicWriteJson } from "../../../lib/server/atomicJson.js";
 
 // Per-profile: resolved per-call (active profile can change between requests).
 const GAMES_DIR = () => profilePath("games");
@@ -41,13 +42,6 @@ function generateShortId() {
 function generateFilename(deckId, timestamp) {
   const safeTs = timestamp.replace(/:/g, "-").replace(/\..+Z$/, "Z");
   return `${sanitiseId(deckId)}-${safeTs}-${generateShortId()}.json`;
-}
-
-async function atomicWriteJson(filePath, payload) {
-  const body = JSON.stringify(payload, null, 2);
-  const tmp = `${filePath}.tmp.${process.pid}.${Date.now()}`;
-  await fs.writeFile(tmp, body, "utf8");
-  await fs.rename(tmp, filePath);
 }
 
 function isWithinAgeCap(entry) {

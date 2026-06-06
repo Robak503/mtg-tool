@@ -57,6 +57,9 @@ export default function useLearnSession() {
     difficulty = "beginner",
     activePlayer = "user",
     mode = "standard",
+    userDeckId,
+    userDeckName,
+    opponentDeckNames,
   }) => {
     if (inFlightRef.current) return null;
     inFlightRef.current = true;
@@ -75,6 +78,9 @@ export default function useLearnSession() {
           difficulty,
           activePlayer,
           mode,
+          userDeckId,
+          userDeckName,
+          opponentDeckNames,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -148,10 +154,77 @@ export default function useLearnSession() {
     }
   }, [state.sessionId]);
 
+  /** List resumable saved games for the active profile (Phase-7 PR-4a). */
+  const listSaves = useCallback(async () => {
+    try {
+      const response = await fetch("/api/learn/saves");
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) return [];
+      return Array.isArray(data.saves) ? data.saves : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  /** Resume a saved game by id. Sets hook state like start(); returns the decision. */
+  const resume = useCallback(async (sessionId) => {
+    if (inFlightRef.current || !sessionId) return null;
+    inFlightRef.current = true;
+    setState({ ...INITIAL_STATE, status: "starting" });
+    try {
+      const response = await fetch("/api/learn/resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState({ ...INITIAL_STATE, status: "error", error: data.error || `Resume failed: ${response.status}` });
+        return null;
+      }
+      const next = {
+        sessionId: data.sessionId,
+        decision: data.decision,
+        status: data.decision?.kind === "game-over" ? "ended" : "active",
+        mode: data.mode || null,
+        turn: data.turn,
+        activePlayer: data.activePlayer,
+        step: data.step,
+        table: data.table || [],
+        decisionLogTail: [],
+        error: null,
+      };
+      setState(next);
+      return next.decision;
+    } catch (error) {
+      setState({ ...INITIAL_STATE, status: "error", error: error.message || "network error" });
+      return null;
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, []);
+
+  /** Delete a saved game by id. Returns true on success. */
+  const deleteSave = useCallback(async (sessionId) => {
+    try {
+      const response = await fetch("/api/learn/saves/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }, []);
+
   return {
     ...state,
     start,
     applyChoice,
     reset,
+    listSaves,
+    resume,
+    deleteSave,
   };
 }

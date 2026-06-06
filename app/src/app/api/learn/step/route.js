@@ -20,6 +20,7 @@ export const runtime = "nodejs";
 import { applyChoice, isComplete } from "../../../../lib/learn/learnSession.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
+import { autosaveSession, deleteSave } from "../../../../lib/server/learnSaveStore.js";
 
 export async function POST(request) {
   let body;
@@ -52,25 +53,33 @@ export async function POST(request) {
     return Response.json({ error: error.message || "Engine error processing choice." }, { status: 500 });
   }
 
-  putSession(result.session);
+  // Preserve the route-level deck metadata across the step (the pure engine
+  // doesn't carry session.meta).
+  const stepped = result.session.meta
+    ? result.session
+    : { ...result.session, meta: session.meta };
 
-  // If the game ended, clean up the session from the store after a
-  // short delay. The client gets one final response with the final
-  // state; subsequent requests would 404. We delete eagerly to free
-  // memory for active sessions.
-  if (isComplete(result.session)) {
+  putSession(stepped);
+
+  if (isComplete(stepped)) {
+    // Game over: free the in-memory session and drop the in-flight save (it's no
+    // longer resumable). Completed-game records are Phase 3.
     deleteSession(sessionId);
+    try { await deleteSave(sessionId); } catch { /* never block on cleanup */ }
+  } else {
+    // Autosave so the game survives a restart (awaited but error-swallowed).
+    try { await autosaveSession(stepped); } catch { /* never block play on a save */ }
   }
 
   return Response.json({
-    sessionId: result.session.id,
+    sessionId: stepped.id,
     decision: stripDecisionForWire(result.decision),
-    status: result.session.status,
-    turn: result.session.state.turn,
-    activePlayer: result.session.state.activePlayer,
-    step: result.session.state.step,
-    decisionLogTail: result.session.decisionLog.slice(-5),
-    table: tableSnapshot(result.session.state),
+    status: stepped.status,
+    turn: stepped.state.turn,
+    activePlayer: stepped.state.activePlayer,
+    step: stepped.state.step,
+    decisionLogTail: stepped.decisionLog.slice(-5),
+    table: tableSnapshot(stepped.state),
   });
 }
 
