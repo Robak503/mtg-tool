@@ -8,6 +8,33 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-06-06
+
+### Added
+- **Anthems, tribal lords, and granted keywords in The Academy.** The simulator
+  now has a real continuous-effects engine (Magic's "layers", CR 613), so static
+  abilities actually change the board:
+  - **Anthems** ("Creatures you control get +1/+1", "White creatures you control
+    get +1/+1") buff your team's power and toughness.
+  - **Tribal lords** ("Other Slivers you control get +1/+1") buff their kind and
+    correctly skip themselves — your Sliver decks finally play like Slivers.
+  - **Granted keywords** ("Creatures you control have flying", a Sliver granting
+    flying to your other Slivers) now count in combat: a granted flyer can't be
+    chump-blocked by a ground creature, granted deathtouch/first strike/trample
+    resolve, and granted haste lets a creature attack the turn it arrives.
+  - **Until-end-of-turn pump** wears off at the cleanup step, the way it should.
+  - The opponent AI now evaluates the *buffed* board (not printed stats), so it
+    no longer misjudges combat against an anthem.
+
+### Changed
+- **Engine internals: a CR 613 layer engine is now the single source of truth for
+  power/toughness/keywords.** Effective stats are derived by applying every
+  continuous effect (counters, anthems, lords, Omnath, pump) in proper layer
+  order. The change is behavior-preserving for boards without such effects
+  (proven by an exhaustive equivalence test before the switch). Part of the
+  Phase 7 engine rebuild (`docs/phase7-engine-rebuild.md`) — this completes the
+  Phase-1 Foundation.
+
 ## [0.24.0] - 2026-06-06
 
 ### Added

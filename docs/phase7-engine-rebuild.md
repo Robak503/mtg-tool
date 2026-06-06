@@ -190,8 +190,22 @@ deliberate, enumerated test migrations only at **PR-3** (3 tests) and **PR-11**
 > **✅ SHIPPED — triggered abilities (2026-06-06): PR-5 → PR-8.** `triggers.js`
 > detection/APNAP (#149), ETB triggers (#149), dies triggers from the `dead`
 > look-back (PR-7), step + attack triggers (PR-8). The full ETB/dies/step/attack
-> trigger system fires end-to-end. Suite at 1283. **Next: PR-9..12 (CR 613
-> layers — anthems/lords/pump; extract `ptPrimitive.js` to break the cycle).**
+> trigger system fires end-to-end. Suite at 1283.
+>
+> **✅ SHIPPED — CR 613 layers (2026-06-06): PR-9 → PR-12. Phase-1 Foundation
+> COMPLETE.** `ptPrimitive.js` (cycle cut, F3) + `layers.js`
+> (`deriveCharacteristics`, accessors, memo + fast path, layers 4–7 with 7a/7b/7c
+> /7d sublayers) + `staticAbilityParser.js` (anthems/lords/grants). PR-10's
+> exhaustive equivalence matrix (106 cases) gated the PR-11 accessor swap
+> (`creaturePower`/`creatureToughness` → layers, zero integration regressions).
+> PR-12 wired granted keywords into combat + legality, cleanup expiry (514.2), and
+> the F7a AI P/T rewire (boardContext/trapDetector/opponentAI). Anthems, Sliver
+> lords, granted flying/deathtouch/haste, and until-EOT pump now visibly change
+> gameplay. Suite at 1445. Released as **v0.25.0**.
+>
+> **Phase 1 (Foundation) is fully shipped. Next: Phase 2 (Depth) — the general
+> oracle→effect interpreter, broad anthem/lord/pump coverage, pump SPELL wiring,
+> the coverage metric (§4).**
 >
 > **Revised 2026-06-06 after `/plan-eng-review` + outside-voice.** Changes are tagged
 > `[eng-review FN]` and explained in §11. Headline: a minimal save/resume slice
