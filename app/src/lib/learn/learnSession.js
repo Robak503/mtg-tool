@@ -137,7 +137,7 @@ export function createLearnSession({
 
 /**
  * A player loses if their life is 0 or less (CR 104.3a / 704.5a) or if
- * they've taken 21+ combat damage from any single commander (CR 903.14a).
+ * they've taken 21+ combat damage from any single commander (CR 903.10a / 704.6c).
  * A player already removed from state.players counts as dead.
  */
 function isPlayerDead(state, playerId) {

@@ -42,10 +42,31 @@ function nextId(prefix) {
 
 /**
  * Reset the in-process ID counter. ONLY for tests — never call in
- * production code. Test isolation depends on this.
+ * production code. Test isolation depends on this. (Legacy fallback path:
+ * factories without an explicit `id` and any un-migrated caller still mint
+ * through `nextId`; the authoritative, serialize-stable counter is
+ * `state.idSeq` via `mintId` below.)
  */
 export function _resetIdsForTests() {
   _idCounter = 0;
+}
+
+/**
+ * Mint the next stable id of a given kind, threaded through `state.idSeq`.
+ * Returns `{ id, state }` — the returned state has the counter advanced, so
+ * the caller MUST build its result from it (not from the input state) or the
+ * counter silently fails to move and the next mint collides.
+ *
+ * Deterministic and reproducible: the same state in always yields the same id
+ * (`perm-7`, `stk-8`, …). This is what lets a serialized game restore to
+ * byte-identical ids — the keystone of Phase-7 mid-game save/resume. Unlike
+ * the legacy module-global `nextId`, the counter lives in game state, so it
+ * survives a serialize → restore round-trip and never depends on process
+ * lifetime or `crypto`/`Date` entropy.
+ */
+export function mintId(state, prefix) {
+  const seq = (state.idSeq || 0) + 1;
+  return { id: `${prefix}-${seq}`, state: { ...state, idSeq: seq } };
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -105,11 +126,12 @@ function emptyManaPool() {
  * is the snapshot of the printed card; everything else is per-permanent
  * state. Cards leaving the battlefield drop their permanent ID.
  */
-export function createPermanent({ card, controller, tapped = false, summoningSick = true }) {
+export function createPermanent({ id, card, controller, tapped = false, summoningSick = true }) {
   if (!card) throw new Error("createPermanent requires a card");
   if (!VALID_PLAYER_IDS.has(controller)) throw new Error(`createPermanent requires a valid controller (one of ${[...VALID_PLAYER_IDS].join(", ")})`);
   return {
-    id: nextId("perm"),
+    // Caller-supplied (deterministic, via mintId) wins; else legacy fallback.
+    id: id || nextId("perm"),
     card,
     controller,
     tapped,
@@ -153,12 +175,13 @@ export function creatureToughness(permanent, state = null) {
  * ability waiting to resolve. The engine pushes these on, resolves the
  * top, and pops.
  */
-export function createStackObject({ kind, source, controller, targets = [], cost = null, payload = {} }) {
+export function createStackObject({ id, kind, source, controller, targets = [], cost = null, payload = {} }) {
   const validKinds = new Set(["spell", "triggered-ability", "activated-ability"]);
   if (!validKinds.has(kind)) throw new Error(`createStackObject: invalid kind "${kind}"`);
   if (!VALID_PLAYER_IDS.has(controller)) throw new Error("createStackObject requires a valid controller");
   return {
-    id: nextId("stk"),
+    // Caller-supplied (deterministic, via mintId) wins; else legacy fallback.
+    id: id || nextId("stk"),
     kind,
     source,        // card reference or permanent id
     controller,
@@ -224,6 +247,10 @@ export function createGameState({
 
   return {
     turn: 1,
+    // Monotonic id counter threaded through state (Phase-7 PR-0). mintId reads
+    // and advances it; carrying it in state (not a module global) is what makes
+    // permanent/stack ids stable across a serialize -> restore round-trip.
+    idSeq: 0,
     mode,
     activePlayer,
     // Seat rotation. nextInTurnOrder() walks this for turn AND priority
@@ -418,13 +445,20 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
   if (index === -1) throw new Error(`Card ${cardId} not found in ${playerId}.${fromZone}`);
   const card = sourceList[index];
   const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
-  let nextDest;
   if (toZone === "battlefield" && becomePermanent) {
-    nextDest = [...player[toZone], createPermanent({ card, controller: playerId })];
-  } else {
-    nextDest = [...player[toZone], card];
+    // Mint a deterministic permanent id from state.idSeq and build the result
+    // from the advanced state (s2) so the counter persists — the single
+    // production path that creates a permanent from a card (Phase-7 PR-0).
+    const { id: permId, state: s2 } = mintId(state, "perm");
+    const nextDest = [...player[toZone], createPermanent({ id: permId, card, controller: playerId })];
+    return withPlayer(s2, playerId, p => ({
+      ...p,
+      [fromZone]: nextSource,
+      [toZone]: nextDest,
+    }));
   }
 
+  const nextDest = [...player[toZone], card];
   return withPlayer(state, playerId, p => ({
     ...p,
     [fromZone]: nextSource,
