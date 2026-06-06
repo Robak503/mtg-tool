@@ -171,7 +171,10 @@ describe("cast-spell", () => {
     expect(after.stack).toHaveLength(1);
     expect(after.stack[0].kind).toBe("spell");
     expect(after.stack[0].source.name).toBe("Grizzly Bears");
-    expect(after.stack[0].payload.onResolve).toBeTypeOf("function");
+    // Phase-7 PR-3: the cast path emits a plain-data, serializable payload
+    // (no closure). Grizzly Bears is a creature -> the spell.permanent resolver.
+    expect(after.stack[0].payload.resolver).toBe("spell.permanent");
+    expect(after.stack[0].payload.params.card.name).toBe("Grizzly Bears");
     expect(after.players.user.manaPool.G).toBe(0);
     expect(after.players.user.manaPool.C).toBe(0);
     expect(after.priorityHolder).toBe("user");
