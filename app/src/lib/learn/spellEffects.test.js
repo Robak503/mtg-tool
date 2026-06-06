@@ -10,6 +10,7 @@ import {
   enumerateTargets,
   chooseAITarget,
   resolveSpellEffect,
+  parseCreatureTargetRestrictions,
 } from "./spellEffects.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -71,6 +72,59 @@ describe("enumerateTargets", () => {
     expect(enumerateTargets(state, "user", { targetType: "player" }).map(t => t.id).sort()).toEqual(["ai", "user"]);
     expect(enumerateTargets(state, "user", { targetType: "any" }).length).toBe(4);
     expect(enumerateTargets(state, "user", { targetType: null })).toEqual([]);
+  });
+});
+
+describe("parseCreatureTargetRestrictions (P2.4)", () => {
+  const card = (oracle) => ({ type: "Instant", oracle });
+  it("parses controller / tapped / power restrictions, all clean", () => {
+    expect(parseCreatureTargetRestrictions(card("Destroy target creature an opponent controls."))).toMatchObject({ clean: true, restrictions: [{ kind: "controller", who: "opponent" }] });
+    expect(parseCreatureTargetRestrictions(card("Destroy target creature you control."))).toMatchObject({ clean: true, restrictions: [{ kind: "controller", who: "you" }] });
+    expect(parseCreatureTargetRestrictions(card("Destroy target tapped creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "tapped", value: true }] });
+    expect(parseCreatureTargetRestrictions(card("Destroy target untapped creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "tapped", value: false }] });
+    expect(parseCreatureTargetRestrictions(card("Destroy target creature with power 2 or less."))).toMatchObject({ clean: true, restrictions: [{ kind: "power", op: "<=", value: 2 }] });
+    expect(parseCreatureTargetRestrictions(card("Deals 4 damage to target creature with power 4 or greater."))).toMatchObject({ clean: true, restrictions: [{ kind: "power", op: ">=", value: 4 }] });
+  });
+  it("is clean with NO restrictions for a plain creature target", () => {
+    expect(parseCreatureTargetRestrictions(card("Destroy target creature."))).toMatchObject({ clean: true, restrictions: [] });
+  });
+  it("is UNCLEAN when an unmodeled qualifier is present (→ Arbiter)", () => {
+    expect(parseCreatureTargetRestrictions(card("Destroy target nonblack creature.")).clean).toBe(false);
+    expect(parseCreatureTargetRestrictions(card("Destroy target attacking creature.")).clean).toBe(false);
+    expect(parseCreatureTargetRestrictions(card("Destroy target creature you control with flying.")).clean).toBe(false);
+    expect(parseCreatureTargetRestrictions(card("Destroy target artifact creature.")).clean).toBe(false);
+  });
+  it("is a no-op (clean, no restrictions) for non-creature / non-target effects", () => {
+    expect(parseCreatureTargetRestrictions(card("Draw two cards."))).toMatchObject({ clean: true, restrictions: [] });
+    expect(parseCreatureTargetRestrictions(card("Deals 3 damage to any target."))).toMatchObject({ clean: true, restrictions: [] });
+  });
+});
+
+describe("enumerateTargets honors restrictions (P2.4)", () => {
+  const tap = (p) => ({ ...p, tapped: true });
+  it("controller=opponent excludes the caster's own creatures", () => {
+    const state = st({ userBf: [cr("Mine", "mine", "user")], aiBf: [cr("Theirs", "theirs", "ai")] });
+    const ids = enumerateTargets(state, "user", { kind: "destroy", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }] }).map(t => t.id);
+    expect(ids).toEqual(["theirs"]);
+  });
+  it("controller=you keeps only the caster's own creatures", () => {
+    const state = st({ userBf: [cr("Mine", "mine", "user")], aiBf: [cr("Theirs", "theirs", "ai")] });
+    const ids = enumerateTargets(state, "user", { kind: "destroy", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] }).map(t => t.id);
+    expect(ids).toEqual(["mine"]);
+  });
+  it("tapped filters to tapped creatures", () => {
+    const state = st({ aiBf: [tap(cr("Tap", "tap", "ai")), cr("Untap", "untap", "ai")] });
+    const ids = enumerateTargets(state, "user", { kind: "destroy", targetType: "creature", restrictions: [{ kind: "tapped", value: true }] }).map(t => t.id);
+    expect(ids).toEqual(["tap"]);
+  });
+  it("power<=N filters by derived power", () => {
+    const state = st({ aiBf: [cr("Small", "small", "ai", { power: 1 }), cr("Big", "big", "ai", { power: 5 })] });
+    const ids = enumerateTargets(state, "user", { kind: "damage", targetType: "creature", restrictions: [{ kind: "power", op: "<=", value: 2 }] }).map(t => t.id);
+    expect(ids).toEqual(["small"]);
+  });
+  it("no restrictions → every creature (back-compat)", () => {
+    const state = st({ userBf: [cr("A", "a", "user")], aiBf: [cr("B", "b", "ai")] });
+    expect(enumerateTargets(state, "user", { kind: "destroy", targetType: "creature" }).map(t => t.id).sort()).toEqual(["a", "b"]);
   });
 });
 

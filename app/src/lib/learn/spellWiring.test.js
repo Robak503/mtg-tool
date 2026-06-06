@@ -66,6 +66,23 @@ describe("targeted spell — end to end", () => {
   });
 });
 
+describe("restricted targeting — end to end (P2.4)", () => {
+  it("'an opponent controls' removal only surfaces the opponent's creatures, not your own", () => {
+    const DISFAVOR = { id: "disf", name: "Disfavor", type: "Sorcery", oracle: "Destroy target creature an opponent controls.", mana: "{B}" };
+    const state = mainState({ userHand: [DISFAVOR], userPool: { B: 1 }, userBf: [cr("Mine", "mine", "user")], aiBf: [cr("Theirs", "theirs", "ai")] });
+    const casts = filterActions(legalActionsForPlayer(state, "user"), "cast-spell");
+    const targetIds = casts.map(c => c.targets?.[0]?.id).sort();
+    expect(targetIds).toEqual(["theirs"]); // your own "mine" is no longer a legal target
+  });
+
+  it("a power restriction only surfaces creatures within the power bound", () => {
+    const SMITE = { id: "smite", name: "Smite the Weak", type: "Instant", oracle: "Destroy target creature with power 2 or less.", mana: "{W}" };
+    const state = mainState({ userHand: [SMITE], userPool: { W: 1 }, aiBf: [cr("Weak", "weak", "ai", { power: 1, toughness: 1 }), cr("Strong", "strong", "ai", { power: 5, toughness: 5 })] });
+    const casts = filterActions(legalActionsForPlayer(state, "user"), "cast-spell");
+    expect(casts.map(c => c.targets?.[0]?.id)).toEqual(["weak"]);
+  });
+});
+
 describe("AI removal targeting", () => {
   it("aims Doom Blade at the user's creature, not its own", () => {
     const state = mainState({

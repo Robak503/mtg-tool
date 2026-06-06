@@ -41,6 +41,16 @@ describe("parseEffectProgram — high-confidence (the modeled patterns)", () => 
     expect(programConfidence(p)).toBe("high");
     expect(p.atoms).toEqual([{ op: "draw", amount: 2, targetType: null }]);
   });
+  it("rates a MODELED creature-target restriction HIGH (controller / tapped / power) — P2.4", () => {
+    expect(programConfidence(parseEffectProgram(I("Destroy target creature an opponent controls.")))).toBe("high");
+    expect(programConfidence(parseEffectProgram(I("Destroy target creature you control.")))).toBe("high");
+    expect(programConfidence(parseEffectProgram(I("Destroy target tapped creature.")))).toBe("high");
+    expect(programConfidence(parseEffectProgram(I("Destroy target untapped creature.")))).toBe("high");
+    expect(programConfidence(parseEffectProgram(I("Destroy target creature with power 4 or greater.")))).toBe("high");
+    expect(programConfidence(parseEffectProgram(I("Deals 3 damage to target creature an opponent controls.")))).toBe("high");
+    // The atom is still the bare effect — restrictions ride the targeting path, not the atom.
+    expect(parseEffectProgram(I("Destroy target tapped creature.")).atoms).toEqual([{ op: "destroy", targetType: "creature" }]);
+  });
 });
 
 describe("parseEffectProgram — null only for non-spells", () => {
@@ -60,8 +70,7 @@ describe("parseEffectProgram — null only for non-spells", () => {
 const MUST_DROP_TO_LOW = [
   "Counter target spell.",
   "Destroy target creature unless its controller pays {2}.",   // legacy over-matches → MUST drop
-  "Destroy target nonblack creature.",                          // unmodeled restriction → MUST drop
-  "Deals 3 damage to target creature an opponent controls.",    // unmodeled restriction → MUST drop
+  "Destroy target nonblack creature.",                          // unmodeled COLOR restriction → MUST drop
   "Destroy target artifact.",
   "Destroy all creatures.",
   "Return target creature to its owner's hand.",
@@ -82,10 +91,15 @@ const MUST_DROP_TO_LOW = [
   "Destroy target artifact and draw a card.",
   "Deals 2 damage to target creature and 2 damage to target player.",    // multi-target mis-resolve
   "Draw two cards, discard a card.",                                     // comma-joined rider
-  // Unmodeled target restrictions — HIGH would permit an illegal target.
-  "Destroy target tapped creature.",
+  // Unmodeled target restrictions — HIGH would permit an illegal target. P2.4 models
+  // controller/tapped/power; attacking/blocking/color/type stay unmodeled → Arbiter.
   "Destroy target attacking creature.",
   "Deals 4 damage to target attacking or blocking creature.",
+  "Destroy target enchantment creature.",                                 // unmodeled type restriction
+  // MIXED — a MODELED restriction next to an UNMODELED one must still drop to low
+  // (the residue allowlist rejects the leftover qualifier).
+  "Destroy target tapped creature an opponent controls that's attacking.", // tapped+controller modeled, "attacking" not
+  "Destroy target creature you control with flying.",                      // controller modeled, "with flying" not
   // Pump with a keyword-grant rider — the "+X/+Y" matches but the granted keyword
   // would be silently dropped, so it must NOT rate HIGH.
   "Target creature gets +2/+2 until end of turn with trample.",

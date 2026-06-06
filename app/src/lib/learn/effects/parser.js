@@ -21,7 +21,7 @@
  * resolvers, or the runner — so it can't introduce a cycle.
  */
 
-import { parseSpellEffect } from "../spellEffects.js";
+import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js";
 import { ATOM_RESOLVERS } from "./effectAtoms.js";
 
 /**
@@ -106,10 +106,25 @@ export function parseEffectProgram(card) {
 
   const oracle = oracleOf(card);
   const atom = legacyToAtom(parseSpellEffect(card));
-  // HIGH only for a known atom AND a clean single clause — so a loose legacy match
-  // on a rider/restricted/multi-clause oracle never resolves the wrong thing.
-  if (atom && KNOWN.has(atom.op) && isCleanSingleClause(oracle)) {
-    return makeProgram({ confidence: "high", atoms: [atom], unparsedTail: null });
+  if (atom && KNOWN.has(atom.op)) {
+    // P2.4: a single "target creature" for damage/destroy is gated by the residue
+    // ALLOWLIST (parseCreatureTargetRestrictions) — it models controller/tapped/
+    // power and rejects any unmodeled qualifier. We re-check the REST of the clause
+    // on the oracle with the modeled restriction phrases removed, so a modeled
+    // restriction can rate HIGH without the gate's denylist (kept for mass effects)
+    // blocking it.
+    if ((atom.op === "deal-damage" || atom.op === "destroy") && atom.targetType === "creature") {
+      const { clean, cleanedOracle } = parseCreatureTargetRestrictions(card);
+      if (clean && isCleanSingleClause(cleanedOracle)) {
+        return makeProgram({ confidence: "high", atoms: [atom], unparsedTail: null });
+      }
+      return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
+    }
+    // HIGH only for a clean single clause — so a loose legacy match on a
+    // rider/restricted/multi-clause oracle never resolves the wrong thing.
+    if (isCleanSingleClause(oracle)) {
+      return makeProgram({ confidence: "high", atoms: [atom], unparsedTail: null });
+    }
   }
   // An instant/sorcery WITH text we can't confidently model → low confidence,
   // ZERO atoms. Resolution hands it to the Arbiter (never a fabricated effect).

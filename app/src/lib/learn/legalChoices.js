@@ -33,7 +33,7 @@ import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameStat
 import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword } from "./layers.js";
-import { parseSpellEffect, enumerateTargets, effectNeedsTarget } from "./spellEffects.js";
+import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions } from "./spellEffects.js";
 import { parseEffectProgram } from "./effects/parser.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
@@ -292,7 +292,14 @@ function actionsCastSpell(state, playerId) {
     if (effectNeedsTarget(effect)) {
       // Targeted spell: one cast action per legal target (the action-expansion
       // pattern, same as multi-defender combat). No legal target → can't cast.
-      const targets = enumerateTargets(state, playerId, effect);
+      // P2.4: thread target restrictions (controller/tapped/power) so a restricted
+      // removal only surfaces the creatures it can legally hit.
+      let targetingEffect = effect;
+      if (effect.targetType === "creature") {
+        const { restrictions } = parseCreatureTargetRestrictions(card);
+        if (restrictions.length) targetingEffect = { ...effect, restrictions };
+      }
+      const targets = enumerateTargets(state, playerId, targetingEffect);
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true });
