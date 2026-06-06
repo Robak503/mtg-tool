@@ -795,6 +795,21 @@ Updated whenever phases complete. Last update: 2026-06-05.
   `cardEffects.js` registry (Omnath static P/T + mana-doesn't-empty; Kruphix,
   Horizon Stone). The Academy now plays end-to-end in 1v1 and 4P at all three
   difficulties. See `docs/phase6-playable-engine.md`.
+- ✅ **Local multi-user profiles (v0.21.0)** — decks, Vault, chats, games, and
+  agent notes are scoped per profile under `data/profiles/<id>/` (resolved via
+  `profilePath()`; reference data stays shared at the `data/` root via
+  `dataPath()`). One-time migration splits legacy decks by `memory.owner`,
+  routes ownerless data to the primary profile, and backs up to
+  `.pre-profiles-backup/` first; idempotent + self-healing of a stale flat decks
+  file. `ProfileGate` launch picker + header menu. Fully local (no auth). The
+  migration is shape-guarded against profile-id path traversal. See
+  `app/src/lib/server/profiles.js` + `docs/qa/v0.21.0-profiles-qa.md`.
+- ✅ **Structure cleanup + route rename (v0.21.0)** — `/api/engine` →
+  `/api/rules-retrieval`, `lib/deck/` module grouping, `lib/server/` boundary
+  (`symbolicEngine.cjs` moved), `Vault*` sub-tab names, dead-code/doc prune, and
+  a shadowed-vitest-config + bundled-roadmap-doc latent-bug fix.
+- ✅ **Card-art proxy hardening (v0.22.0)** — `/api/art-crop` upstream fetch now
+  has a timeout, response-size cap, and image-only content-type check.
 
 ### Open
 
