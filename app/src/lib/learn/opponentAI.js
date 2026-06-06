@@ -28,6 +28,7 @@
 import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf } from "./gameState.js";
+import { permanentPower } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 
 // ─── Cast priority by archetype ──────────────────────────────────────────────
@@ -105,11 +106,6 @@ function cardFromHand(state, playerId, cardId) {
   return player?.hand.find(c => c.id === cardId) || null;
 }
 
-function permanentFromBattlefield(state, playerId, permanentId) {
-  const player = state.players[playerId];
-  return player?.battlefield.find(p => p.id === permanentId) || null;
-}
-
 // ─── Sub-pickers ──────────────────────────────────────────────────────────────
 
 /**
@@ -182,17 +178,16 @@ function pickAllAttackers(attackerActions) {
  * blocker per attacker, preferring the smallest legal blocker.
  * Returns an array of declare-blocker actions.
  */
-function pickBlockers(blockerActions, state, aiPlayerId) {
+function pickBlockers(blockerActions, state) {
   if (blockerActions.length === 0) return [];
 
   // Group by attackerId so each gets at most one blocker.
   const assigned = new Map();
   const sorted = [...blockerActions].sort((a, b) => {
-    // Prefer smaller creatures (cheaper-to-lose chump blockers).
-    const aCard = permanentFromBattlefield(state, aiPlayerId, a.permanentId)?.card;
-    const bCard = permanentFromBattlefield(state, aiPlayerId, b.permanentId)?.card;
-    const aPow = Number(aCard?.power) || 0;
-    const bPow = Number(bCard?.power) || 0;
+    // Prefer smaller creatures (cheaper-to-lose chump blockers). DERIVED power
+    // (anthems/lords applied), so the AI chumps with what's actually smallest (F7a).
+    const aPow = Math.max(0, permanentPower(state, a.permanentId));
+    const bPow = Math.max(0, permanentPower(state, b.permanentId));
     return aPow - bPow;
   });
 
@@ -325,8 +320,10 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions) {
 /**
  * Batch-decision picker for declare-blockers.
  */
-export function pickBlockPlan(state, aiPlayerId, blockerActions) {
-  return pickBlockers(blockerActions, state, aiPlayerId);
+export function pickBlockPlan(state, _aiPlayerId, blockerActions) {
+  // _aiPlayerId kept for the stable positional API; block sizing now reads
+  // derived power straight off `state` (F7a), so the owner id isn't needed.
+  return pickBlockers(blockerActions, state);
 }
 
 // ─── Deck-context helper ──────────────────────────────────────────────────────

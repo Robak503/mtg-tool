@@ -26,7 +26,8 @@
  *   - Everything else — pure read, returns a value
  */
 
-import { staticPTModifier } from "./cardEffects.js";
+import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
+import { permanentPower, permanentToughness } from "./layers.js";
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 
@@ -145,29 +146,41 @@ export function createPermanent({ id, card, controller, tapped = false, summonin
 }
 
 /**
- * Effective power / toughness of a creature permanent: printed value plus any
- * +1/+1 counters minus -1/-1 counters, plus any registered static-ability
- * modifier (Omnath: +1/+1 per unspent green). Non-numeric printed values
- * (e.g. "*") read as 0. These are THE numbers all readers use (combat, UI,
- * legality) — the single accessor, so static effects can't drift between
- * callers. `state` is optional: pass it when a static modifier might apply
- * (it reads the mana pool, etc.); without it you get printed + counters only.
+ * Effective power / toughness of a creature permanent — THE numbers all readers
+ * use (combat, UI, legality, SBAs), so characteristics can't drift between
+ * callers (CR 613). `state` is optional:
+ *
+ *   - WITH state: delegate to the CR 613 layer engine
+ *     (`permanentPower`/`permanentToughness`), which applies every continuous
+ *     effect (counters in 7c, anthems/lords/Omnath, pump-until-EOT) in layer
+ *     order. Returns the TRUE CR value — can be negative; combat floors at 0
+ *     (Math.max(0, …) at the call sites) and the lethal SBA reads it raw.
+ *   - WITHOUT state: printed value + ±1/±1 counters only (no continuous
+ *     effects can be resolved), via the shared ptPrimitive — preserving the
+ *     "no state ⇒ printed only" contract.
+ *
+ * The delegation edge points OUTWARD (gameState → layers); layers never imports
+ * gameState (it reads ptPrimitive + keywords), so the cycle never closes
+ * (eng-review F3 — ptPrimitive is the cut point). Phase-7 PR-11.
+ *
+ * Delegation requires the permanent to be ON a battlefield in `state` (continuous
+ * effects can only apply there). An off-battlefield or null-id permanent — e.g. a
+ * CR 603.10a look-back snapshot of a creature that just died — reads as its
+ * printed value + counters (last-known characteristics), never a silent 0.
  */
 export function creaturePower(permanent, state = null) {
   if (!permanent?.card) return 0;
-  const base = Number(permanent.card.power) || 0;
-  const plus = permanent.counters?.["+1/+1"] || 0;
-  const minus = permanent.counters?.["-1/-1"] || 0;
-  const mod = state ? staticPTModifier(state, permanent) : null;
-  return base + plus - minus + (mod?.p || 0);
+  if (state && permanent.id != null && findPermanent(state, permanent.id)) {
+    return permanentPower(state, permanent.id);
+  }
+  return printedPower(permanent) + counterPtDelta(permanent);
 }
 export function creatureToughness(permanent, state = null) {
   if (!permanent?.card) return 0;
-  const base = Number(permanent.card.toughness) || 0;
-  const plus = permanent.counters?.["+1/+1"] || 0;
-  const minus = permanent.counters?.["-1/-1"] || 0;
-  const mod = state ? staticPTModifier(state, permanent) : null;
-  return base + plus - minus + (mod?.t || 0);
+  if (state && permanent.id != null && findPermanent(state, permanent.id)) {
+    return permanentToughness(state, permanent.id);
+  }
+  return printedToughness(permanent) + counterPtDelta(permanent);
 }
 
 /**
@@ -262,6 +275,13 @@ export function createGameState({
     step: "untap",
     stack: [],
     pendingTriggers: [],
+    // CR 613 continuous-effects/layers state (Phase-7 PR-9). `continuousEffects`
+    // holds resolution-generated effects (pump-until-EOT); static-ability effects
+    // (anthems/lords) are synthesized on read, never stored. `timestampCounter` is
+    // the monotonic 613.7 source — each permanent gets a timestamp at ETB and each
+    // resolution effect at creation. Both are plain JSON ⇒ serialize for free.
+    continuousEffects: [],
+    timestampCounter: 0,
     players,
     log: [],  // append-only history of events for replay/debugging
   };

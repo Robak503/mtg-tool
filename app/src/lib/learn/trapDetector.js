@@ -28,6 +28,7 @@
  */
 
 import { opponentsOf } from "./gameState.js";
+import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 
 // ─── Type helpers ────────────────────────────────────────────────────────────
 
@@ -53,25 +54,21 @@ function untappedLandCount(state, playerId) {
   return untappedPermanentsOfType(state, playerId, isLand).length;
 }
 
-function hasHaste(card) {
-  const kw = card?.keywords;
-  const kwString = Array.isArray(kw) ? kw.join(" ") : String(kw || "");
-  const oracle = String(card?.oracle || card?.oracle_text || "");
-  return /Haste/i.test(`${kwString} ${oracle}`);
-}
-
 function untappedReadyCreatures(state, playerId) {
-  // "Ready" = can attack on their turn (untapped, not summoning sick
-  // unless Haste). We do a string check on keywords / oracle so this
-  // works whether the card data was hydrated from Scryfall or built
-  // by hand in a test.
+  // "Ready" = can attack on their turn (untapped, not summoning sick unless Haste).
+  // Haste goes through the layer engine (permanentHasKeyword), so GRANTED haste
+  // counts — keeping this readiness gate consistent with legalChoices' attack gate,
+  // which combat actually resolves on (F7a). Otherwise the counter-swing heuristic
+  // would undercount a granted-haste creature that can legally attack.
   return untappedPermanentsOfType(state, playerId, isCreature).filter(p =>
-    !p.summoningSick || hasHaste(p.card)
+    !p.summoningSick || permanentHasKeyword(state, p.id, "Haste")
   );
 }
 
-function totalPower(permanents) {
-  return permanents.reduce((sum, p) => sum + (Number(p.card?.power) || 0), 0);
+// Threat math reads DERIVED power (anthems/lords/pump), not printed (F7a), so the
+// AI's "is this attack a trap" heuristic sees the same board combat resolves on.
+function totalPower(state, permanents) {
+  return permanents.reduce((sum, p) => sum + Math.max(0, permanentPower(state, p.id)), 0);
 }
 
 function handSize(state, playerId) {
@@ -139,7 +136,7 @@ export function detectCounterAttackLethal(state, attackerPlayerId, attackerActio
   const committedIds = new Set(attackerActions.map(a => a.permanentId));
   const yourCreatures = state.players?.[attackerPlayerId]?.battlefield?.filter(p => isCreature(p.card)) || [];
   const stayingHome = yourCreatures.filter(p => !p.tapped && !committedIds.has(p.id));
-  const defended = stayingHome.reduce((sum, p) => sum + (Number(p.card?.toughness) || 0), 0);
+  const defended = stayingHome.reduce((sum, p) => sum + Math.max(0, permanentToughness(state, p.id)), 0);
 
   // The opponent who can punish hardest after this attack — in Commander any
   // opponent can swing back, not just the one you attacked. Standard: the lone
@@ -148,7 +145,7 @@ export function detectCounterAttackLethal(state, attackerPlayerId, attackerActio
   let worst = null;
   for (const oppId of opponents) {
     const theirReady = untappedReadyCreatures(state, oppId);
-    const incoming = totalPower(theirReady);
+    const incoming = totalPower(state, theirReady);
     if (incoming === 0) continue;
     const exposed = Math.max(0, incoming - defended);
     if (exposed === 0) continue;

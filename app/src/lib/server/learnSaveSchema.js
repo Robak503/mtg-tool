@@ -19,13 +19,50 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
- * Empty at v1. Each entry upgrades exactly one version and must be pure + total.
+ * Each entry upgrades exactly one version and must be pure + total.
  */
-export const MIGRATIONS = {};
+export const MIGRATIONS = {
+  // v1 → v2 — the CR 613 layers engine (Phase-7 PR-9) added continuous-effects
+  // state to the game state. A v1 save predates it; default the new fields so it
+  // resumes cleanly. `continuousEffects` (resolution effects — none in an old
+  // save) and `timestampCounter` (the monotonic 613.7 source) seed empty/zero;
+  // each permanent gets `timestamp: 0` (they all predate the counter, and every
+  // Phase-1 layer effect is additive, so a uniform timestamp is order-neutral).
+  1: (doc) => {
+    const session = doc.session || {};
+    const state = session.state || {};
+    const players = state.players || {};
+    const nextPlayers = {};
+    for (const [pid, p] of Object.entries(players)) {
+      const bf = Array.isArray(p?.battlefield) ? p.battlefield : [];
+      nextPlayers[pid] = {
+        ...p,
+        battlefield: bf.map(perm =>
+          (perm && typeof perm === "object" && perm.timestamp === undefined)
+            ? { ...perm, timestamp: 0 }
+            : perm,
+        ),
+      };
+    }
+    return {
+      ...doc,
+      schemaVersion: 2,
+      session: {
+        ...session,
+        state: {
+          ...state,
+          continuousEffects: Array.isArray(state.continuousEffects) ? state.continuousEffects : [],
+          timestampCounter: Number.isFinite(state.timestampCounter) ? state.timestampCounter : 0,
+          players: nextPlayers,
+        },
+      },
+    };
+  },
+};
 
 export class SaveMigrationError extends Error {
   constructor(message) {
