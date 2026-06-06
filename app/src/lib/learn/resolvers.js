@@ -56,15 +56,22 @@ export function enterPermanent(state, card, controller) {
   const player = state.players[controller];
   if (!player) return state;
   const { id: permId, state: s2 } = mintId(state, "perm");
+  // Stamp the CR 613.7e layer timestamp at ETB (Phase-7 PR-9), alongside the
+  // deterministic id, and advance the monotonic counter. Layers reads
+  // `permanent.timestamp` to order anthems/lords; threading it through state keeps
+  // it serialize-stable. (The three-way ETB stamp seam, D5.)
+  const ts = s2.timestampCounter || 0;
+  const s3 = { ...s2, timestampCounter: ts + 1 };
   const typeStr = String(card?.type || card?.type_line || "");
   const perm = {
     ...createPermanent({ id: permId, card, controller, summoningSick: /Creature/.test(typeStr) }),
-    enteredOnTurn: s2.turn,
+    enteredOnTurn: s3.turn,
+    timestamp: ts,
   };
   let next = {
-    ...s2,
+    ...s3,
     players: {
-      ...s2.players,
+      ...s3.players,
       [controller]: { ...player, battlefield: [...player.battlefield, perm] },
     },
   };

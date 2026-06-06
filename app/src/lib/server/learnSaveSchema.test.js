@@ -80,6 +80,53 @@ describe("migrate", () => {
     const doc = saveDoc(sampleSession(), { schemaVersion: CURRENT_SCHEMA_VERSION + 5 });
     expect(() => migrate(doc)).toThrow(/newer than supported/);
   });
+
+  // CONTRACT-MIG: the CR 613 layers slice (PR-9) added continuousEffects /
+  // timestampCounter / permanent.timestamp. A v1 fixture must carry forward to v2
+  // with those fields defaulted (no data loss). This save-v1 fixture is the proof.
+  it("carries a v1 save forward to v2, defaulting the layers fields", () => {
+    const saveV1 = {
+      schemaVersion: 1,
+      kind: "learn-session-save",
+      savedAt: "2026-06-06T00:01:00.000Z",
+      sessionId: "learn-old1",
+      serializable: true,
+      session: {
+        id: "learn-old1",
+        createdAt: "2026-06-06T00:00:00.000Z",
+        difficulty: "beginner",
+        mode: "standard",
+        status: "active",
+        // A v1 game state — note: NO continuousEffects / timestampCounter, and the
+        // permanent has NO timestamp field (it predates the layers engine).
+        state: {
+          turn: 4,
+          idSeq: 7,
+          stack: [],
+          players: {
+            user: { life: 40, battlefield: [{ id: "perm-3", card: { name: "Grizzly Bears" }, counters: {} }] },
+            ai: { life: 38, battlefield: [] },
+          },
+        },
+        decisionLog: [],
+      },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+
+    const upgraded = migrate(saveV1);
+    expect(upgraded.schemaVersion).toBe(2);
+    expect(upgraded.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(upgraded.session.state.continuousEffects).toEqual([]);
+    expect(upgraded.session.state.timestampCounter).toBe(0);
+    expect(upgraded.session.state.players.user.battlefield[0].timestamp).toBe(0);
+    // Preserved fields are untouched.
+    expect(upgraded.session.state.turn).toBe(4);
+    expect(upgraded.session.state.idSeq).toBe(7);
+    expect(upgraded.session.state.players.ai.life).toBe(38);
+    expect(upgraded.serializable).toBe(true);
+    // A migrated v1 save is now resumable (current schema + serializable).
+    expect(isResumable(upgraded)).toBe(true);
+  });
 });
 
 describe("isResumable", () => {

@@ -262,6 +262,13 @@ export function createGameState({
     step: "untap",
     stack: [],
     pendingTriggers: [],
+    // CR 613 continuous-effects/layers state (Phase-7 PR-9). `continuousEffects`
+    // holds resolution-generated effects (pump-until-EOT); static-ability effects
+    // (anthems/lords) are synthesized on read, never stored. `timestampCounter` is
+    // the monotonic 613.7 source — each permanent gets a timestamp at ETB and each
+    // resolution effect at creation. Both are plain JSON ⇒ serialize for free.
+    continuousEffects: [],
+    timestampCounter: 0,
     players,
     log: [],  // append-only history of events for replay/debugging
   };
