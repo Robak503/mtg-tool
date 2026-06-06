@@ -221,6 +221,35 @@ export function triggersForEvent(state, { event, sourcePermanent, triggeringPerm
   return out;
 }
 
+/**
+ * Enqueue dies triggers for a batch of creatures that just died (CR 603.6c).
+ * `dead` is destroyLethalCreatures' return — [{ id, controller, name, card }],
+ * the look-back snapshot (CR 603.10a), since the permanents are already in the
+ * graveyard. For each death we fire its own "when this dies" trigger plus every
+ * surviving battlefield watcher ("whenever a creature dies"). Pure — appends to
+ * pendingTriggers and returns new state.
+ *
+ * Phase-1 limitation: simultaneously-dying watchers don't see each other's
+ * deaths (a dead Blood Artist won't drain off another creature that died in the
+ * same batch). The common case — a death + a surviving drain — is covered.
+ */
+export function checkDiesTriggers(state, dead) {
+  if (!dead || !dead.length) return state;
+  let fired = [];
+  for (const d of dead) {
+    if (!d?.card) continue;
+    const lookBack = { id: d.id, controller: d.controller, card: d.card };
+    fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+    for (const pid of Object.keys(state.players)) {
+      for (const watcher of state.players[pid].battlefield) {
+        fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack }));
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
 // ─── Intervening-if (CR 603.4) ──────────────────────────────────────────────────
 
 /**
