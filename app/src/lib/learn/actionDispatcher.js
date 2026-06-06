@@ -36,7 +36,7 @@ import {
 } from "./gameState.js";
 import { passPriority } from "./gameEngine.js";
 import { manaSources, planPayment } from "./manaModel.js";
-import { parseSpellEffect } from "./spellEffects.js";
+import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 
 export class DispatcherError extends Error {
@@ -224,17 +224,19 @@ function applyCastSpell(state, action) {
   const nextHand = [...player.hand.slice(0, handIndex), ...player.hand.slice(handIndex + 1)];
 
   // 4. Build a plain-data, SERIALIZABLE payload (Phase-7 PR-3) — no closure.
-  // A recognized instant/sorcery effect resolves via spell.effect; a permanent
-  // spell enters the battlefield via spell.permanent; anything else logs a
-  // no-op via spell.noop. resolveTopOfStack dispatches on payload.resolver
-  // through the registry. Because state now carries zero functions, a game can
-  // be serialized mid-stack and restored to byte-identical behavior.
-  const effect = action.effect || parseSpellEffect(card);
+  // An instant/sorcery resolves via the P2.2 effect-program interpreter (an
+  // ordered Atom[]; a low-confidence/unmodeled program runs zero atoms and routes
+  // to the Arbiter seam at resolution); a permanent spell enters via spell.permanent;
+  // a card with no oracle text we can't classify logs via spell.noop (→ Arbiter
+  // seam too). resolveTopOfStack dispatches on payload.resolver through the
+  // registry. Because state carries zero functions, a game serializes mid-stack
+  // and restores to byte-identical behavior.
+  const program = action.program || parseEffectProgram(card);
   const targets = action.targets || [];
 
   let payload;
-  if (effect) {
-    payload = { resolver: RESOLVER_KEYS.SPELL_EFFECT, params: { effect, controller: action.playerId, targets, cardId: card.id } };
+  if (program) {
+    payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: action.playerId, targets, cardId: card.id } };
   } else if (isPermanentSpell(card)) {
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params: { card, controller: action.playerId } };
   } else {
