@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-06-06
+
 ### Added
 - **Removal targets correctly in The Academy.** Spells that restrict their target —
   "destroy target creature an opponent controls", "destroy target tapped creature",
