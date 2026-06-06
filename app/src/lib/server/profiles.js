@@ -44,7 +44,7 @@ const RECOVERY_FILE_PATTERNS = [
   /^collection\.broken-.*\.json$/,
   /^chats\.local\.json\.corrupted$/,
 ];
-const PER_PROFILE_DIRS = ["games", "backups"];
+const PER_PROFILE_DIRS = ["games", "backups", "learn-sessions"];
 
 function dataRoot() {
   return appPath("data");

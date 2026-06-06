@@ -38,6 +38,7 @@ export const runtime = "nodejs";
 import { createLearnSession, advanceUntilDecision } from "../../../../lib/learn/learnSession.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
+import { autosaveSession } from "../../../../lib/server/learnSaveStore.js";
 
 export async function POST(request) {
   let body;
@@ -83,17 +84,33 @@ export async function POST(request) {
     return Response.json({ error: error.message || "Engine error advancing to first decision." }, { status: 500 });
   }
 
-  putSession(advanced.session);
+  // Capture deck identity at the route boundary (the pure engine never sees it)
+  // so saved games + the resume list can show "Sliver Hivelord, turn 4". Purely
+  // additive — the engine ignores session.meta.
+  const meta = {
+    userDeckId: typeof body.userDeckId === "string" ? body.userDeckId : null,
+    userDeckName: typeof body.userDeckName === "string" ? body.userDeckName : null,
+    opponentNames: Array.isArray(body.opponentDeckNames)
+      ? body.opponentDeckNames.filter(n => typeof n === "string")
+      : [],
+  };
+  session = { ...advanced.session, meta };
+
+  putSession(session);
+  // Autosave so the game survives a server restart. Awaited but error-swallowed:
+  // a failed save must never break a playable game, but awaiting keeps the save
+  // deterministic (it's a small atomic write on a user-paced turn).
+  try { await autosaveSession(session); } catch { /* never block play on a save */ }
 
   return Response.json({
-    sessionId: advanced.session.id,
+    sessionId: session.id,
     decision: stripDecisionForWire(advanced.decision),
-    status: advanced.session.status,
-    mode: advanced.session.mode,
-    turn: advanced.session.state.turn,
-    activePlayer: advanced.session.state.activePlayer,
-    step: advanced.session.state.step,
-    table: tableSnapshot(advanced.session.state),
+    status: session.status,
+    mode: session.mode,
+    turn: session.state.turn,
+    activePlayer: session.state.activePlayer,
+    step: session.state.step,
+    table: tableSnapshot(session.state),
   });
 }
 

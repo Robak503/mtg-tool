@@ -8,15 +8,26 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 let startRoute;
 let stepRoute;
+let savesRoute;
+let resumeRoute;
+let deleteRoute;
 let store;
+let tmpDir;
+let originalCwd;
 
 async function loadRoutes() {
   vi.resetModules();
   startRoute = await import("./start/route.js");
   stepRoute = await import("./step/route.js");
+  savesRoute = await import("./saves/route.js");
+  resumeRoute = await import("./resume/route.js");
+  deleteRoute = await import("./saves/delete/route.js");
   store = await import("../../../lib/server/learnSessionStore.js");
 }
 
@@ -42,12 +53,20 @@ function postRequest(url, body) {
 }
 
 beforeEach(async () => {
+  // chdir to a temp dir so autosave (PR-4a) writes saves under <tmp>/data/
+  // instead of polluting the repo. paths.js falls back to cwd when MTG_APP_ROOT
+  // is unset.
+  originalCwd = process.cwd();
+  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "mtg-learn-route-"));
+  process.chdir(tmpDir);
   await loadRoutes();
   store.resetStore();
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  process.chdir(originalCwd);
+  fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
 describe("POST /api/learn/start", () => {
@@ -275,5 +294,75 @@ describe("session store behaviour", () => {
     expect(store.sessionCount()).toBeGreaterThan(0);
     store.resetStore();
     expect(store.sessionCount()).toBe(0);
+  });
+});
+
+describe("save / resume / delete (Phase-7 PR-4a)", () => {
+  async function startAGame() {
+    const res = await startRoute.POST(postRequest("http://localhost/api/learn/start", {
+      userDeck: deck("u"),
+      opponentDeck: deck("a"),
+      difficulty: "beginner",
+      userDeckId: "my-deck",
+      userDeckName: "My Forest Deck",
+    }));
+    return res.json();
+  }
+
+  it("autosaves on start and lists the save with deck metadata", async () => {
+    const { sessionId } = await startAGame();
+    const listRes = await savesRoute.GET();
+    const { saves } = await listRes.json();
+    const entry = saves.find(s => s.sessionId === sessionId);
+    expect(entry).toBeTruthy();
+    expect(entry.userDeckName).toBe("My Forest Deck");
+    expect(entry.resumable).toBe(true);
+    expect(entry.turn).toBe(1);
+  });
+
+  it("resumes a saved game after the in-memory store is cleared (simulated restart)", async () => {
+    const { sessionId } = await startAGame();
+    store.resetStore(); // simulate a server restart — the in-memory session is gone
+    expect(store.getSession(sessionId)).toBeNull();
+
+    const res = await resumeRoute.POST(postRequest("http://localhost/api/learn/resume", { sessionId }));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.sessionId).toBe(sessionId);
+    expect(data.resumed).toBe(true);
+    expect(data.decision).toBeTruthy();
+    expect(store.getSession(sessionId)).toBeTruthy(); // re-hydrated into the store
+  });
+
+  it("resume returns 404 for an unknown save", async () => {
+    const res = await resumeRoute.POST(postRequest("http://localhost/api/learn/resume", { sessionId: "learn-nope" }));
+    expect(res.status).toBe(404);
+  });
+
+  it("resume rejects a missing sessionId with 400", async () => {
+    const res = await resumeRoute.POST(postRequest("http://localhost/api/learn/resume", {}));
+    expect(res.status).toBe(400);
+  });
+
+  it("deletes a saved game", async () => {
+    const { sessionId } = await startAGame();
+    const delRes = await deleteRoute.POST(postRequest("http://localhost/api/learn/saves/delete", { sessionId }));
+    expect((await delRes.json()).ok).toBe(true);
+    const { saves } = await (await savesRoute.GET()).json();
+    expect(saves.some(s => s.sessionId === sessionId)).toBe(false);
+  });
+
+  it("drops the in-flight save when the game ends", async () => {
+    const { sessionId } = await startAGame();
+    // Force-end the game, then take a step so the route's game-over path runs.
+    const session = store.getSession(sessionId);
+    session.state.players.user.life = 0;
+    store.putSession(session);
+    await stepRoute.POST(postRequest("http://localhost/api/learn/step", {
+      sessionId,
+      choice: { kind: "pass-priority" },
+    }));
+    const { saves } = await (await savesRoute.GET()).json();
+    expect(saves.some(s => s.sessionId === sessionId)).toBe(false);
   });
 });
