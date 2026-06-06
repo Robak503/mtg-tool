@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-06-06
+
 ### Added
 - **Pump and "-X/-X" spells work in The Academy.** "+X/+X until end of turn"
   combat tricks (Giant Growth and friends) now actually buff the targeted
