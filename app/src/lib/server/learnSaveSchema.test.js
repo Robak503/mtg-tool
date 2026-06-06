@@ -82,9 +82,10 @@ describe("migrate", () => {
   });
 
   // CONTRACT-MIG: the CR 613 layers slice (PR-9) added continuousEffects /
-  // timestampCounter / permanent.timestamp. A v1 fixture must carry forward to v2
-  // with those fields defaulted (no data loss). This save-v1 fixture is the proof.
-  it("carries a v1 save forward to v2, defaulting the layers fields", () => {
+  // timestampCounter / permanent.timestamp. A v1 fixture must carry forward to the
+  // current schema (now v3, via v1→v2→v3) with those fields defaulted (no data
+  // loss). This save-v1 fixture is the proof.
+  it("carries a v1 save forward to the current schema, defaulting the layers fields", () => {
     const saveV1 = {
       schemaVersion: 1,
       kind: "learn-session-save",
@@ -114,7 +115,6 @@ describe("migrate", () => {
     };
 
     const upgraded = migrate(saveV1);
-    expect(upgraded.schemaVersion).toBe(2);
     expect(upgraded.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(upgraded.session.state.continuousEffects).toEqual([]);
     expect(upgraded.session.state.timestampCounter).toBe(0);
@@ -152,7 +152,7 @@ describe("migrate", () => {
     };
     let upgraded;
     expect(() => { upgraded = migrate(oddV1); }).not.toThrow();
-    expect(upgraded.schemaVersion).toBe(2);
+    expect(upgraded.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(upgraded.session.state.continuousEffects).toEqual([]);
     expect(upgraded.session.state.timestampCounter).toBe(0);
     // non-array battlefield normalized to []
@@ -166,9 +166,67 @@ describe("migrate", () => {
     const bare = { schemaVersion: 1, kind: "learn-session-save", session: { id: "x" }, serializable: true, checksum: "sha256:x" };
     let upgraded;
     expect(() => { upgraded = migrate(bare); }).not.toThrow();
-    expect(upgraded.schemaVersion).toBe(2);
+    expect(upgraded.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
     expect(upgraded.session.state.continuousEffects).toEqual([]);
     expect(upgraded.session.state.timestampCounter).toBe(0);
+  });
+
+  // CONTRACT-MIG: Phase-2 P2.1 added a transient state.pendingArbiter flag (the
+  // unresolved→Arbiter seam). A v2 save (no such field) carries forward to v3
+  // untouched and stays resumable — absent === "no pending ruling".
+  it("carries a v2 save forward to v3 (the P2.1 seam) and keeps it resumable", () => {
+    const saveV2 = {
+      schemaVersion: 2,
+      kind: "learn-session-save",
+      savedAt: "2026-06-06T00:01:00.000Z",
+      sessionId: "learn-v2",
+      serializable: true,
+      session: {
+        id: "learn-v2",
+        difficulty: "beginner",
+        mode: "standard",
+        status: "active",
+        state: {
+          turn: 5,
+          idSeq: 9,
+          stack: [],
+          continuousEffects: [],
+          timestampCounter: 0,
+          players: {
+            user: { life: 38, battlefield: [{ id: "perm-1", card: { name: "Grizzly Bears" }, counters: {}, timestamp: 0 }] },
+            ai: { life: 40, battlefield: [] },
+          },
+        },
+        decisionLog: [],
+      },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    const upgraded = migrate(saveV2);
+    expect(upgraded.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(upgraded.schemaVersion).toBe(3);
+    // No field churn — a v2 save had no pendingArbiter and still has none.
+    expect(upgraded.session.state.pendingArbiter).toBeUndefined();
+    // Layers fields + game data preserved untouched.
+    expect(upgraded.session.state.continuousEffects).toEqual([]);
+    expect(upgraded.session.state.turn).toBe(5);
+    expect(upgraded.session.state.players.user.battlefield[0].timestamp).toBe(0);
+    expect(isResumable(upgraded)).toBe(true);
+  });
+
+  it("a v3 save carrying a pendingArbiter flag is serializable and resumable", () => {
+    const session = sampleSession();
+    session.state.pendingArbiter = {
+      stackObjectId: "stk-7",
+      cardName: "Mystic Confluence",
+      oracle: "Choose three —",
+      reason: "instant-or-sorcery (no recognized effect)",
+      controller: "user",
+    };
+    // Plain data — no closure smuggled in, so it round-trips losslessly.
+    expect(isSerializable(session)).toEqual({ ok: true });
+    const doc = saveDoc(session);
+    expect(verifyChecksum(doc)).toBe(true);
+    expect(isResumable(doc)).toBe(true);
   });
 });
 

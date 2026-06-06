@@ -263,7 +263,7 @@ coverage-metric + scope realism in
 
 | # | PR | Mechanic | Coverage | Effort/Risk | Depends on |
 |---|----|----------|----------|-------------|------------|
-| **P2.1 ▶ START** | **Unresolved→Arbiter seam** | `learnSession` returns an `unresolved` decision kind (`pendingArbiter`); start/step routes surface it; LearnView calls the Arbiter | huge | S / low | — |
+| **P2.1 ✅ SHIPPED (v0.26.0)** | **Unresolved→Arbiter seam** | `learnSession` returns an `unresolved` decision kind (`pendingArbiter`); start/step/continue routes surface it; LearnView calls the Ollama-only Arbiter. Driver policy: pause for the player's own unmodeled spell at beginner/intermediate; Expert + opponent spells auto-continue but log to the action feed. CONTRACT-MIG: save schema v2→v3. | huge | S / low | — |
 | **P2.2** | **EffectProgram interpreter keystone** | `EffectProgram`/`Atom` + `runEffectProgram` under the reserved `effect-program` resolver key; `spellEffects` becomes a facade | (keystone) | M / med | P2.1 |
 | **P2.3** | **Pump-spell wiring** | a `pump` atom → `addContinuousEffect` (7c modify, endOfTurn). Mechanism already built — cheapest win | high | S / low | P2.2 |
 | **P2.4** | **Targeting restrictions + AI awareness** | target-spec restrictions + unparsed marker; `enumerateTargets` filters; `chooseAITarget` honors them | high | M / med | P2.2 |
@@ -277,7 +277,7 @@ coverage-metric + scope realism in
 | **P2.12** | **Replacement effects (CR 614/616)** | enters-tapped/with-counters + die-replacement; entry-event hook on the D5 ETB seam (hardest; a miss is safe) | medium | L / high | P2.6 |
 | **P2.13** | **cardEffects override hook + facade removal** | named-card EffectProgram override; the closer | low | S / low | P2.11 |
 
-**First three: P2.1 seam → P2.2 interpreter → P2.3 pump.** The Arbiter boundary:
+**First three: P2.1 seam (✅ shipped v0.26.0) → P2.2 interpreter (NEXT) → P2.3 pump.** The Arbiter boundary:
 `programConfidence` is **all-or-nothing** — high runs ALL atoms; low runs ZERO and
 emits `pendingArbiter`. The engine never makes a network call; the UI invokes the
 Ollama-only Arbiter (CLAUDE.md §6 invariant).

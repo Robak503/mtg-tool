@@ -16,6 +16,7 @@ export const runtime = "nodejs";
 
 import { advanceUntilDecision } from "../../../../lib/learn/learnSession.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
+import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
 import { loadSave } from "../../../../lib/server/learnSaveStore.js";
 import { migrate, isResumable } from "../../../../lib/server/learnSaveSchema.js";
@@ -73,7 +74,7 @@ export async function POST(request) {
 
   return Response.json({
     sessionId: advanced.session.id,
-    decision: stripDecisionForWire(advanced.decision),
+    decision: stripDecisionForWire(enrichUnresolvedDecision(advanced.decision, advanced.session.state)),
     status: advanced.session.status,
     mode: advanced.session.mode,
     turn: advanced.session.state.turn,

@@ -26,8 +26,13 @@ export function shouldUseArbiterTrace(targetAgent, prompt) {
 /**
  * POST to /api/arbiter and return { trace, status, retrievalMetadata }.
  * Never throws — returns an empty trace on any network/parse error.
+ *
+ * `cardNames` (optional) is forwarded so the Arbiter's retrieval can look up the
+ * real Oracle text from the bundled index even when the caller has no oracle on
+ * hand (e.g. an unhydrated learn-session card) — JSON.stringify drops it when
+ * undefined, so existing callers are unaffected.
  */
-export async function fetchArbiterTrace({ question, cardContext, context, fast, provider }) {
+export async function fetchArbiterTrace({ question, cardContext, context, fast, provider, cardNames }) {
   try {
     const isLocal = provider === "ollama" || provider === "local";
     const response = await fetch("/api/arbiter", {
@@ -37,6 +42,7 @@ export async function fetchArbiterTrace({ question, cardContext, context, fast, 
         question,
         cardContext,
         context,
+        cardNames,
         fast,
         provider,
         fastLocal: isLocal,

@@ -15,6 +15,7 @@ import {
   _clearExtensionsForTests,
   enterPermanent,
   isPermanentSpell,
+  markPendingArbiter,
 } from "./resolvers.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
@@ -27,9 +28,9 @@ function creature(name, extra = {}) {
 function freshState() {
   return createGameState({ userDeck: makeDeck(5, "U"), aiDeck: makeDeck(5, "A") });
 }
-/** Minimal stack object — resolvers read only payload.params (+ id/kind for manual). */
-function stk(params, { id = "stk-1", kind = "spell", source } = {}) {
-  return { id, kind, source, payload: { params } };
+/** Minimal stack object — resolvers read only payload.params (+ id/kind/source/controller). */
+function stk(params, { id = "stk-1", kind = "spell", source, controller } = {}) {
+  return { id, kind, source, controller, payload: { params } };
 }
 
 beforeEach(() => {
@@ -118,10 +119,31 @@ describe("built-in resolvers", () => {
     expect(out.log.some(l => l.kind === "permanent-enters")).toBe(true);
   });
 
-  it("spell.noop logs the no-op resolve (not silent)", () => {
+  it("spell.noop flags the unresolved->Arbiter seam (P2.1 — never a silent no-op)", () => {
     const state = freshState();
-    const out = RESOLVERS[RESOLVER_KEYS.SPELL_NOOP](state, stk({ cardName: "Brainstorm", reason: "no recognized effect" }));
-    expect(out.log.some(l => l.kind === "spell-no-op-resolve" && l.cardName === "Brainstorm")).toBe(true);
+    const obj = stk(
+      { cardName: "Mystic Confluence", reason: "no recognized effect" },
+      { id: "stk-3", source: { name: "Mystic Confluence", oracle: "Choose three —" }, controller: "user" },
+    );
+    const out = RESOLVERS[RESOLVER_KEYS.SPELL_NOOP](state, obj);
+    // Structured, honest log (NOT the old misleading spell-no-op-resolve).
+    expect(out.log.some(l => l.kind === "spell-unresolved" && l.cardName === "Mystic Confluence" && l.controller === "user")).toBe(true);
+    // Flags pendingArbiter so the driver surfaces it + the UI hands it to the Arbiter.
+    expect(out.pendingArbiter).toMatchObject({
+      stackObjectId: "stk-3",
+      cardName: "Mystic Confluence",
+      oracle: "Choose three —",
+      controller: "user",
+    });
+  });
+
+  it("markPendingArbiter is FIFO — a second unresolved spell does not overwrite the first", () => {
+    const state = freshState();
+    const first = markPendingArbiter(state, stk({}, { id: "stk-1", source: { name: "Spell A" }, controller: "user" }), "a");
+    const second = markPendingArbiter(first, stk({}, { id: "stk-2", source: { name: "Spell B" }, controller: "ai" }), "b");
+    // pendingArbiter still points at the FIRST; both are logged honestly.
+    expect(second.pendingArbiter.cardName).toBe("Spell A");
+    expect(second.log.filter(l => l.kind === "spell-unresolved")).toHaveLength(2);
   });
 
   it("manual logs a stack-resolve with manual:true", () => {

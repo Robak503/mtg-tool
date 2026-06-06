@@ -19,6 +19,7 @@ export const runtime = "nodejs";
 
 import { applyChoice, isComplete } from "../../../../lib/learn/learnSession.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
+import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
 import { autosaveSession, deleteSave } from "../../../../lib/server/learnSaveStore.js";
 
@@ -73,7 +74,7 @@ export async function POST(request) {
 
   return Response.json({
     sessionId: stepped.id,
-    decision: stripDecisionForWire(result.decision),
+    decision: stripDecisionForWire(enrichUnresolvedDecision(result.decision, stepped.state)),
     status: stepped.status,
     turn: stepped.state.turn,
     activePlayer: stepped.state.activePlayer,

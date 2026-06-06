@@ -154,6 +154,46 @@ export default function useLearnSession() {
     }
   }, [state.sessionId]);
 
+  /**
+   * Continue after the player has seen the Arbiter's ruling for an `unresolved`
+   * spell (P2.1). Clears the pause server-side and returns the next decision.
+   */
+  const continueGame = useCallback(async () => {
+    if (inFlightRef.current || !state.sessionId) return null;
+    inFlightRef.current = true;
+
+    try {
+      const response = await fetch("/api/learn/continue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: state.sessionId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState(prev => ({ ...prev, status: "error", error: data.error || `Continue failed: ${response.status}` }));
+        return null;
+      }
+      const isOver = data.decision?.kind === "game-over";
+      setState(prev => ({
+        ...prev,
+        decision: data.decision,
+        status: isOver ? "ended" : "active",
+        turn: data.turn,
+        activePlayer: data.activePlayer,
+        step: data.step,
+        table: data.table || prev.table,
+        decisionLogTail: data.decisionLogTail || [],
+        error: null,
+      }));
+      return data.decision;
+    } catch (error) {
+      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
+      return null;
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [state.sessionId]);
+
   /** List resumable saved games for the active profile (Phase-7 PR-4a). */
   const listSaves = useCallback(async () => {
     try {
@@ -222,6 +262,7 @@ export default function useLearnSession() {
     ...state,
     start,
     applyChoice,
+    continueGame,
     reset,
     listSaves,
     resume,

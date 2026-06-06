@@ -7,14 +7,16 @@
  * damage), abandon, isComplete.
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   _resetIdsForTests,
 } from "./gameState.js";
+import { RESOLVER_KEYS } from "./resolvers.js";
 import {
   createLearnSession,
   advanceUntilDecision,
   applyChoice,
+  continueFromArbiter,
   abandon,
   isComplete,
   _forceLifeForTests,
@@ -186,6 +188,137 @@ describe("advanceUntilDecision", () => {
     };
     const { decision } = advanceUntilDecision(session);
     expect(decision.kind).toBe("game-over");
+  });
+});
+
+describe("unresolved->Arbiter seam (P2.1)", () => {
+  function withPendingArbiter(session, { controller = "user", priorityHolder } = {}) {
+    return {
+      ...session,
+      state: {
+        ...session.state,
+        ...(priorityHolder !== undefined ? { priorityHolder } : {}),
+        pendingArbiter: {
+          stackObjectId: "stk-77",
+          cardName: "Mystic Confluence",
+          oracle: "Choose three —",
+          reason: "instant-or-sorcery (no recognized effect)",
+          controller,
+        },
+      },
+    };
+  }
+
+  it("surfaces an `unresolved` decision for the player's own unmodeled spell (beginner)", () => {
+    let session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a"), difficulty: "beginner" });
+    session = withPendingArbiter(session, { controller: "user" });
+    const { decision } = advanceUntilDecision(session);
+    expect(decision.kind).toBe("unresolved");
+    expect(decision.cardName).toBe("Mystic Confluence");
+    expect(decision.oracle).toBe("Choose three —");
+    expect(decision.stackObjectId).toBe("stk-77");
+    expect(decision.controller).toBe("user");
+  });
+
+  it("does NOT pause for an opponent's unmodeled spell — surfaces it in the feed instead", () => {
+    let session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a"), difficulty: "beginner" });
+    session = withPendingArbiter(session, { controller: "ai", priorityHolder: "user" });
+    const { session: after, decision } = advanceUntilDecision(session);
+    expect(decision.kind).not.toBe("unresolved");
+    expect(after.state.pendingArbiter).toBeUndefined();
+    // Honest to the PLAYER, not just the engine record: it shows in the action feed.
+    expect(after.decisionLog.some(e => e.action?.kind === "spell-unresolved" && e.action.name === "Mystic Confluence")).toBe(true);
+  });
+
+  it("expert auto-continues past an unresolved spell but still records it in the feed", () => {
+    let session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a"), difficulty: "expert" });
+    session = withPendingArbiter(session, { controller: "user" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { session: after, decision } = advanceUntilDecision(session);
+    warn.mockRestore();
+    expect(decision.kind).not.toBe("unresolved");
+    expect(decision.kind).toBe("game-over");
+    expect(after.state.pendingArbiter).toBeUndefined();
+    expect(after.decisionLog.some(e => e.action?.kind === "spell-unresolved")).toBe(true);
+  });
+
+  it("continueFromArbiter clears the flag, records the acknowledgment, and advances", () => {
+    let session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a"), difficulty: "beginner" });
+    session = withPendingArbiter(session, { controller: "user", priorityHolder: "user" });
+    const { session: after, decision } = continueFromArbiter(session);
+    expect(after.state.pendingArbiter).toBeUndefined();
+    expect(after.state.log.some(l => l.kind === "arbiter-acknowledged" && l.cardName === "Mystic Confluence")).toBe(true);
+    expect(after.decisionLog.some(e => e.action?.kind === "continue-after-arbiter")).toBe(true);
+    expect(decision.kind).not.toBe("unresolved");
+  });
+
+  it("continueFromArbiter with nothing pending just re-derives the next decision (double-submit safe)", () => {
+    const session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a"), difficulty: "beginner" });
+    const { decision } = continueFromArbiter(session);
+    expect(decision.kind).toBeTruthy();
+    expect(decision.kind).not.toBe("unresolved");
+  });
+
+  it("continueFromArbiter on a finished session returns game-over", () => {
+    let session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a") });
+    session = { ...session, status: "user-wins" };
+    const { decision } = continueFromArbiter(session);
+    expect(decision.kind).toBe("game-over");
+  });
+
+  // End-to-end through the REAL loop: a SPELL_NOOP object on the stack is resolved
+  // BY THE DRIVER (passPriority → resolveTopOfStack → markPendingArbiter), then the
+  // driver re-reads state.pendingArbiter and surfaces `unresolved`. This proves the
+  // seam BETWEEN resolution and surfacing — the part the injected-flag tests skip.
+  function stagedNoopStack(difficulty, stackObjects) {
+    const session = createLearnSession({ userDeck: makeDeck("u"), opponentDeck: makeDeck("a"), difficulty });
+    return {
+      ...session,
+      state: {
+        ...session.state,
+        phase: "precombat-main",
+        step: "main",
+        priorityHolder: "user",
+        consecutivePasses: 0,
+        stack: stackObjects,
+        // Both hands + boards empty so the ONLY legal action is pass — the driver
+        // auto-passes both seats (intermediate), the stack resolves, the seam fires.
+        players: {
+          ...session.state.players,
+          user: { ...session.state.players.user, hand: [], battlefield: [] },
+          ai: { ...session.state.players.ai, hand: [], battlefield: [] },
+        },
+      },
+    };
+  }
+  function noopObj(id, cardName) {
+    return {
+      id, kind: "spell", source: { name: cardName, oracle: "Choose three —" },
+      controller: "user", targets: [], cost: null,
+      payload: { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName, reason: "no recognized effect" } },
+    };
+  }
+
+  it("drives a real unmodeled spell through the loop to an `unresolved` decision (no silent no-op)", () => {
+    const staged = stagedNoopStack("intermediate", [noopObj("stk-noop", "Mystic Confluence")]);
+    const { session: after, decision } = advanceUntilDecision(staged);
+    expect(decision.kind).toBe("unresolved");
+    expect(decision.cardName).toBe("Mystic Confluence");
+    expect(decision.stackObjectId).toBe("stk-noop");
+    // The honest marker is logged; the misleading silent no-op kind is gone.
+    expect(after.state.log.some(l => l.kind === "spell-unresolved")).toBe(true);
+    expect(after.state.log.some(l => l.kind === "spell-no-op-resolve")).toBe(false);
+  });
+
+  it("FIFO through the loop: the first unmodeled spell surfaces; the second stays on the stack", () => {
+    // Two unmodeled spells on the stack. The driver pauses on the first to resolve
+    // (top of stack), leaving the second unresolved — the driver-level FIFO guard.
+    const staged = stagedNoopStack("intermediate", [noopObj("stk-bottom", "Spell B"), noopObj("stk-top", "Spell A")]);
+    const { session: after, decision } = advanceUntilDecision(staged);
+    expect(decision.kind).toBe("unresolved");
+    expect(decision.cardName).toBe("Spell A");           // top resolved first
+    expect(after.state.stack.map(o => o.id)).toEqual(["stk-bottom"]); // second still pending
+    expect(after.state.log.filter(l => l.kind === "spell-unresolved")).toHaveLength(1); // exactly one at the pause
   });
 });
 

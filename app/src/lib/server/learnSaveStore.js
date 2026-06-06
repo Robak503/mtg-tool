@@ -21,6 +21,7 @@ import {
   verifyChecksum,
   isSerializable,
   isResumable,
+  migrate,
 } from "./learnSaveSchema.js";
 
 const SAVES_DIR = () => profilePath("learn-sessions");
@@ -46,6 +47,13 @@ function opponentSummary(session) {
 
 function indexEntryFromDoc(doc) {
   const s = doc.session || {};
+  // Compute `resumable` against the MIGRATED doc, exactly as the resume route
+  // does (loadSave → migrate → isResumable). Computing it on the raw on-disk doc
+  // would report `resumable:false` for every save written by an older schema
+  // (e.g. a v2 save after a v2→v3 bump) even though the resume route migrates and
+  // resumes it fine — greying out the Resume button and stranding in-flight games.
+  let migrated;
+  try { migrated = migrate(doc); } catch { migrated = null; }
   return {
     sessionId: doc.sessionId,
     savedAt: doc.savedAt,
@@ -58,7 +66,7 @@ function indexEntryFromDoc(doc) {
     opponentSummary: opponentSummary(s),
     schemaVersion: doc.schemaVersion,
     engineVersion: doc.engineVersion,
-    resumable: isResumable(doc),
+    resumable: !!migrated && isResumable(migrated),
   };
 }
 

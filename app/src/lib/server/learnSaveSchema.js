@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -62,6 +62,13 @@ export const MIGRATIONS = {
       },
     };
   },
+
+  // v2 → v3 — Phase-2 P2.1 added a TRANSIENT `state.pendingArbiter` flag (the
+  // unresolved→Arbiter seam). It is absent-by-default and absent === "no pending
+  // ruling", so a v2 save needs no field backfill — an old in-flight game simply
+  // resumes with no pause, which is correct. This migration only stamps the
+  // version forward so pre-v0.26 saves stay resumable. (CONTRACT-MIG.)
+  2: (doc) => ({ ...doc, schemaVersion: 3 }),
 };
 
 export class SaveMigrationError extends Error {

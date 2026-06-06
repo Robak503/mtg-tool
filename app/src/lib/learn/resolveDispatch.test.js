@@ -34,7 +34,10 @@ describe("resolveTopOfStack registry dispatch (Phase-7 PR-2)", () => {
     });
     const out = resolveTopOfStack(state);
     expect(out.stack).toHaveLength(0);
-    expect(out.log.some(l => l.kind === "spell-no-op-resolve" && l.cardName === "Brainstorm")).toBe(true);
+    // P2.1: an unparseable instant/sorcery flags the Arbiter seam (structured
+    // spell-unresolved log + pendingArbiter), never a silent no-op.
+    expect(out.log.some(l => l.kind === "spell-unresolved" && l.cardName === "Brainstorm")).toBe(true);
+    expect(out.pendingArbiter?.cardName).toBe("Brainstorm");
   });
 
   it("resolves a permanent ETB payload onto the battlefield deterministically", () => {
