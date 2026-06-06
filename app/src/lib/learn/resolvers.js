@@ -22,6 +22,7 @@
 
 import { createPermanent, mintId, logEvent } from "./gameState.js";
 import { resolveSpellEffect } from "./spellEffects.js";
+import { triggersForEvent, applyTriggerEffect } from "./triggers.js";
 
 /**
  * The canonical resolver-key contract. Frozen + exported so every producer
@@ -60,14 +61,37 @@ export function enterPermanent(state, card, controller) {
     ...createPermanent({ id: permId, card, controller, summoningSick: /Creature/.test(typeStr) }),
     enteredOnTurn: s2.turn,
   };
-  const next = {
+  let next = {
     ...s2,
     players: {
       ...s2.players,
       [controller]: { ...player, battlefield: [...player.battlefield, perm] },
     },
   };
-  return logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller });
+  next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller });
+  // Fire ETB triggers now that the permanent is on the battlefield (CR 603.6a).
+  // They land in pendingTriggers and flushTriggers puts them on the stack at the
+  // next priority-grant checkpoint (which resolveTopOfStack runs after this).
+  return checkEtbTriggers(next, perm);
+}
+
+/**
+ * Enqueue every ETB trigger that fires when `enteredPerm` enters: the
+ * newcomer's own "when this enters" triggers AND every watcher already on a
+ * battlefield ("whenever a creature enters"). Pure — appends to pendingTriggers.
+ * (Phase-7 PR-6. The layer-timestamp stamp from D5 lands with the layers engine
+ * in PR-9, which is when timestamps start to matter.)
+ */
+function checkEtbTriggers(state, enteredPerm) {
+  let fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of state.players[pid].battlefield) {
+      const ts = triggersForEvent(state, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm });
+      if (ts.length) fired = fired.concat(ts);
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
 /**
@@ -117,12 +141,13 @@ export const RESOLVERS = Object.freeze({
     return logEvent(state, { kind: "spell-no-op-resolve", cardName, reason });
   },
 
-  // STUB in PR-1: triggers wire real params in PR-5..8. Resolves a recognized
-  // effect (reusing the spell resolver), else logs through the manual path.
+  // PR-6: a triggered ability resolves through applyTriggerEffect (the
+  // TriggerEffect vocabulary: gain/lose life, draw, damage-to-each-opponent).
+  // An unrecognized effect (null) routes to the manual/Arbiter log, never faked.
   [RESOLVER_KEYS.TRIGGER_EFFECT]: (state, obj) => {
-    const { effect, controller, targets = [] } = obj.payload?.params || {};
+    const { effect, controller, targets = [], context } = obj.payload?.params || {};
     if (!effect) return resolveManual(state, obj);
-    return resolveSpellEffect(state, { effect, controller, targets });
+    return applyTriggerEffect(state, { effect, controller, context, targets });
   },
 
   // STUB in PR-1: activated abilities are Phase 2.
