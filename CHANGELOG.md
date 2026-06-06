@@ -8,6 +8,28 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-06-06
+
+### Added
+- **Save and resume a game in The Academy.** Games now autosave as you play, so
+  you can close the app mid-game, reopen it, and pick up exactly where you left
+  off. The start screen shows a "Continue a game" list (deck, format, turn,
+  difficulty) with Resume and Delete. Saves are per-profile and survive a
+  restart. This is the first piece of the Phase 7 engine rebuild — see
+  `docs/phase7-engine-rebuild.md`.
+
+### Changed
+- **Engine internals: the stack is now fully serializable.** Under the hood the
+  rules engine stopped storing live functions on the stack and switched to a
+  data-driven resolver registry (`{ resolver, params }`). This is what makes
+  save/resume possible and is the foundation the upcoming triggered-abilities and
+  CR 613 layers systems build on. Permanent/stack ids are now deterministic
+  (`state.idSeq`), so a restored game is byte-identical to the original.
+
+### Fixed
+- Corrected a stale Comprehensive Rules citation in the learn engine (commander
+  damage is CR 903.10a / 704.6c, not the non-existent 903.14a).
+
 ## [0.22.0] - 2026-06-05
 
 ### Added

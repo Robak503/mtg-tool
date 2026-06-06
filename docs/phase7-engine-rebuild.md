@@ -183,6 +183,11 @@ additive (new triggers fire, new layer math) and stay green by construction, wit
 deliberate, enumerated test migrations only at **PR-3** (3 tests) and **PR-11**
 (0 if the `staticPTModifier` shim is kept).
 
+> **✅ SHIPPED — v0.23.0 (2026-06-06): PR-0 → PR-4a.** The serializable
+> data-driven stack, deterministic state-threaded ids, and mid-game save/resume
+> are merged to master (PR #147) and released. Suite at 1244. **Next: PR-5..8
+> (triggered abilities), then PR-9..12 (CR 613 layers).**
+>
 > **Revised 2026-06-06 after `/plan-eng-review` + outside-voice.** Changes are tagged
 > `[eng-review FN]` and explained in §11. Headline: a minimal save/resume slice
 > (**PR-4a**) is pulled forward right after PR-4 per the owner's decision, so
