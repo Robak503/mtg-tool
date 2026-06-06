@@ -735,7 +735,7 @@ These are absolute. Violating any of these is a failure mode.
 
 ## 9. PROJECT STATUS (LIVING SNAPSHOT)
 
-Updated whenever phases complete. Last update: 2026-05-30.
+Updated whenever phases complete. Last update: 2026-06-05.
 
 > **Current status + actionable next steps live in `docs/HANDOFF.md`** — start a
 > new chat by reading it. This §9 is the higher-level snapshot; the handoff has
@@ -786,6 +786,15 @@ Updated whenever phases complete. Last update: 2026-05-30.
   fetch server-side (`node:https`, not Next's patched fetch) → resolve cards
   against the local index → preview → save to library
 - ✅ Releases v0.4.0 + v0.5.0 cut + signed + auto-updating
+- ✅ **Playable learn engine (v0.22.0)** — closed the wiring gap that left The
+  Academy stuck at the safety cap before any real game. Mana system (pool +
+  tap-for-mana from lands/rocks/dorks, floating mana, CR 500.4 emptying with a
+  per-card "doesn't empty" hook), combat orchestration (tap-on-attack + AI
+  attacks/blocks + loop fix), termination (win/loss/elimination, simultaneous-
+  death draw, turn-limit stalemate, anti-loop latch), and a targeted
+  `cardEffects.js` registry (Omnath static P/T + mana-doesn't-empty; Kruphix,
+  Horizon Stone). The Academy now plays end-to-end in 1v1 and 4P at all three
+  difficulties. See `docs/phase6-playable-engine.md`.
 
 ### Open
 
@@ -805,7 +814,7 @@ Updated whenever phases complete. Last update: 2026-05-30.
 
 ### Test coverage
 
-~775 vitest cases (learn engine alone is 292). Run with `npm test` in `app/`.
+~1144 vitest cases (learn engine alone is ~357). Run with `npm test` in `app/`.
 
 ---
 

@@ -28,6 +28,7 @@
 import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf } from "./gameState.js";
+import { chooseAITarget } from "./spellEffects.js";
 
 // ─── Cast priority by archetype ──────────────────────────────────────────────
 
@@ -129,21 +130,39 @@ function pickLandAction(state, aiPlayerId, landActions) {
 }
 
 /**
- * Pick the best cast-spell action via archetype-aware scoring.
- * Returns null if no spell is affordable.
+ * Pick the best cast-spell action via archetype-aware scoring. A targeted
+ * spell appears once per legal target; we group by card, score each spell
+ * once, and for targeted spells choose the AI's best enemy target — skipping
+ * a targeted spell entirely when there's no good target (so the AI never
+ * burns/destroys its own creatures). Returns null if nothing worth casting.
  */
 function pickCastAction(state, aiPlayerId, castActions, archetype) {
   if (castActions.length === 0) return null;
 
-  // Score each affordable cast.
-  const scored = castActions.map(action => {
-    const card = cardFromHand(state, aiPlayerId, action.cardId);
-    if (!card) return { action, score: Infinity };  // skip if card vanished
-    return { action, score: scoreCastAction(action, card, archetype) };
-  });
+  const byCard = new Map();
+  for (const action of castActions) {
+    if (!byCard.has(action.cardId)) byCard.set(action.cardId, []);
+    byCard.get(action.cardId).push(action);
+  }
 
-  scored.sort((a, b) => a.score - b.score || (a.action.cmc - b.action.cmc));
-  return scored[0]?.action || null;
+  const scored = [];
+  for (const [cardId, actions] of byCard) {
+    const card = cardFromHand(state, aiPlayerId, cardId);
+    if (!card) continue; // card vanished
+    const effect = actions[0].effect;
+    let chosen = actions[0];
+    if (effect && actions.some(a => a.targets?.length)) {
+      const options = actions.map(a => a.targets?.[0]).filter(Boolean);
+      const target = chooseAITarget(state, aiPlayerId, effect, options);
+      if (!target) continue; // no good enemy target — don't cast it on our own stuff
+      chosen = actions.find(a => a.targets?.[0]?.id === target.id) || actions[0];
+    }
+    scored.push({ action: chosen, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });
+  }
+
+  if (scored.length === 0) return null;
+  scored.sort((a, b) => a.score - b.score || a.cmc - b.cmc);
+  return scored[0].action;
 }
 
 /**
@@ -205,6 +224,29 @@ function pickBlockers(blockerActions, state, aiPlayerId) {
  */
 export function pickAction(state, aiPlayerId, actions, { archetype = null } = {}) {
   if (!Array.isArray(actions) || actions.length === 0) return null;
+
+  // Combat is a batch decision, but the driver applies one action per tick.
+  // We compute the plan and return its first still-legal choice; declared
+  // attackers/blockers are excluded from the legal set next tick (attackers
+  // tap on declare; blockers are tracked), so each tick drains one and the
+  // step empties, after which we fall through to pass.
+  if (state.step === "declare-attackers") {
+    const attackerActions = filterActions(actions, "declare-attacker");
+    if (attackerActions.length > 0) {
+      const plan = pickAttackPlan(state, aiPlayerId, attackerActions);
+      if (plan.length > 0) return plan[0];
+    }
+  }
+  if (state.step === "declare-blockers") {
+    // Only consider attackers we haven't blocked yet (v1: one blocker each),
+    // so the AI doesn't pile redundant blockers on the same attacker.
+    const blocked = new Set((state.combat?.blockers || []).map(b => b.attackerId));
+    const blockerActions = filterActions(actions, "declare-blocker").filter(a => !blocked.has(a.attackerId));
+    if (blockerActions.length > 0) {
+      const plan = pickBlockPlan(state, aiPlayerId, blockerActions);
+      if (plan.length > 0) return plan[0];
+    }
+  }
 
   const lands = filterActions(actions, "play-land");
   if (lands.length > 0) {

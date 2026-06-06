@@ -233,12 +233,17 @@ export function makeDecision(state, playerId, actions, options = {}) {
  */
 export function resolveChoice(actions, choice) {
   if (!choice) return null;
-  // Match by all distinguishing fields. cardId+kind is usually enough,
-  // but combat actions share kind+permanentId, so include both.
+  // Match by all distinguishing fields. cardId+kind is usually enough, but
+  // combat actions share kind+permanentId, a dual mana source emits two
+  // tap-for-mana actions differing only by color, and a targeted spell emits
+  // one cast action per target — so include color and the chosen target too.
+  const targetId = (x) => x?.targets?.[0]?.id ?? null;
   return actions.find(a =>
     a.kind === choice.kind &&
     (a.cardId === choice.cardId || (a.cardId == null && choice.cardId == null)) &&
     (a.permanentId === choice.permanentId || (a.permanentId == null && choice.permanentId == null)) &&
-    (a.attackerId === choice.attackerId || (a.attackerId == null && choice.attackerId == null))
+    (a.attackerId === choice.attackerId || (a.attackerId == null && choice.attackerId == null)) &&
+    (a.color === choice.color || (a.color == null && choice.color == null)) &&
+    targetId(a) === targetId(choice)
   ) || null;
 }

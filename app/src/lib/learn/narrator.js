@@ -132,10 +132,16 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
       const costString = formatCost(action.cost);
       const oracle = card?.oracle || card?.oracle_text || "";
       const oracleSnippet = oracle ? ` (${truncate(oracle, 80)})` : "";
+      const tgt = action.targets?.[0];
+      const targeting = tgt
+        ? (tgt.type === "player"
+          ? ` targeting ${tgt.id === "user" ? "you" : "the opponent"}`
+          : ` targeting [[${tgt.name || "a creature"}]]`)
+        : "";
       if (difficulty === "beginner") {
-        return `Cast [[${cardName}]] for ${costString}${oracleSnippet}. The spell goes on the stack; opponents can respond before it resolves.`;
+        return `Cast [[${cardName}]] for ${costString}${targeting}${oracleSnippet}. The spell goes on the stack; opponents can respond before it resolves.`;
       }
-      return `Cast [[${cardName}]] for ${costString}.`;
+      return `Cast [[${cardName}]] for ${costString}${targeting}.`;
     }
 
     case "declare-attacker": {
@@ -152,6 +158,15 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
         return `Block the attacker with [[${name}]]. Both creatures deal damage to each other simultaneously during the combat-damage step.`;
       }
       return `Block with [[${name}]].`;
+    }
+
+    case "tap-for-mana": {
+      const name = action.name || "the source";
+      const amt = action.amount && action.amount > 1 ? `${action.amount} ` : "";
+      if (difficulty === "beginner") {
+        return `Tap [[${name}]] for ${amt}{${action.color}}. Mana abilities don't use the stack — the mana goes straight into your pool to spend this step. (You don't have to tap first; casting taps for you.)`;
+      }
+      return `Tap [[${name}]] for ${amt}{${action.color}}.`;
     }
 
     default:

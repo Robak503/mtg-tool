@@ -30,9 +30,12 @@ import {
   moveCardToZone,
   logEvent,
   opponentsOf,
+  tapPermanent,
+  addMana,
 } from "./gameState.js";
 import { passPriority } from "./gameEngine.js";
-import { canPayManaCost } from "./legalChoices.js";
+import { manaSources, planPayment } from "./manaModel.js";
+import { parseSpellEffect, resolveSpellEffect } from "./spellEffects.js";
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -184,52 +187,73 @@ function applyCastSpell(state, action) {
   const card = findCardInHand(state, action.playerId, action.cardId);
   if (!card) throw new DispatcherError(`Card ${action.cardId} not in hand`, "CARD_NOT_IN_HAND");
 
+  // Plan payment from the current pool PLUS untapped mana sources. planPayment
+  // is pool-first, so a pre-filled pool pays with zero taps (preserving the
+  // old behavior + tests); otherwise we auto-tap lands/rocks/dorks to cover.
   const pool = state.players[action.playerId].manaPool;
-  if (!canPayManaCost(pool, action.cost)) {
+  const plan = planPayment(pool, manaSources(state, action.playerId), action.cost);
+  if (!plan) {
     throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
   }
 
-  // 1. Move the card out of hand. We don't push it through
-  // moveCardToZone because the stack is shared (not per-player); it
-  // lives at the top level of state. So we splice manually.
-  const player = state.players[action.playerId];
+  // 1. Commit the taps: tap each source and add its mana to the pool. Any
+  // surplus from an over-producing source (Sol Ring on a single generic)
+  // floats — the floating-mana behavior we want.
+  let working = state;
+  for (const tap of plan.taps) {
+    working = tapPermanent(working, tap.permanentId);
+    working = addMana(working, { playerId: action.playerId, color: tap.color, amount: tap.amount });
+  }
+
+  // 2. Deduct EXACTLY what the plan spent. Using the plan's own breakdown (not
+  // a second payment heuristic) guarantees the deduction always succeeds — no
+  // divergence that could strand a hybrid pip and throw MANA_SHORT after the
+  // spell was already deemed castable.
+  const toppedPool = working.players[action.playerId].manaPool;
+  const nextPool = {};
+  for (const c of Object.keys(toppedPool)) {
+    nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
+  }
+
+  // 3. Move the card out of hand. We splice manually because the stack is
+  // shared (top-level state), not per-player.
+  const player = working.players[action.playerId];
   const handIndex = player.hand.findIndex(c => c.id === action.cardId);
   const nextHand = [...player.hand.slice(0, handIndex), ...player.hand.slice(handIndex + 1)];
 
-  // 2. Deduct mana cost.
-  const nextPool = deductManaCost(pool, action.cost);
-
-  // 3. Build the stack object. payload.onResolve isn't supplied here —
-  // it's the engine's job (PR4-PR8) to wire up per-card resolvers.
-  // For now, the spell resolves as a no-op + log entry, matching the
-  // engine's default resolveTopOfStack behavior. PR7+ can hook in
-  // creature-enters-battlefield, instant-speed-effect, etc.
+  // 4. Build the stack object. An instant/sorcery with a recognized effect
+  // (damage/destroy/draw) resolves that effect against the chosen targets;
+  // permanents and unrecognized spells fall back to the default resolver
+  // (permanent enters the battlefield, else no-op-with-log).
+  const effect = action.effect || parseSpellEffect(card);
+  const targets = action.targets || [];
+  const onResolve = effect
+    ? (s) => resolveSpellEffect(s, { effect, controller: action.playerId, targets })
+    : defaultSpellResolver(card, action.playerId);
   const stackObject = createStackObject({
     kind: "spell",
     source: card,
     controller: action.playerId,
-    targets: action.targets || [],
+    targets,
     cost: action.cost,
     payload: {
       cardId: card.id,
-      // Default resolver: creature spells enter the battlefield;
-      // everything else just logs and pops. PR7 will replace this
-      // with type-aware resolution for instants/sorceries.
-      onResolve: defaultSpellResolver(card, action.playerId),
+      effect: effect || null,
+      onResolve,
     },
   });
 
   let next = {
-    ...state,
+    ...working,
     players: {
-      ...state.players,
+      ...working.players,
       [action.playerId]: {
         ...player,
         hand: nextHand,
         manaPool: nextPool,
       },
     },
-    stack: [...state.stack, stackObject],
+    stack: [...working.stack, stackObject],
   };
   next = logEvent(next, {
     kind: "cast-spell",
@@ -244,6 +268,32 @@ function applyCastSpell(state, action) {
     priorityHolder: state.activePlayer,
     consecutivePasses: 0,
   };
+}
+
+/**
+ * Tap a mana source for mana. Mana abilities don't use the stack and don't
+ * change priority (CR 605.3) — the player keeps priority. Surfaced as an
+ * explicit action for Beginner teaching and floating-mana plays; casting
+ * auto-taps without needing this.
+ */
+function applyTapForMana(state, action) {
+  const player = state.players[action.playerId];
+  if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
+  const perm = player.battlefield.find(p => p.id === action.permanentId);
+  if (!perm) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
+  if (perm.tapped) throw new DispatcherError("Mana source is already tapped", "ALREADY_TAPPED");
+
+  let next = tapPermanent(state, action.permanentId);
+  next = addMana(next, { playerId: action.playerId, color: action.color, amount: action.amount || 1 });
+  next = logEvent(next, {
+    kind: "tap-for-mana",
+    playerId: action.playerId,
+    permanentId: action.permanentId,
+    color: action.color,
+    amount: action.amount || 1,
+    cardName: perm.card?.name,
+  });
+  return next;
 }
 
 /**
@@ -303,14 +353,27 @@ function defaultSpellResolver(card, controller) {
   };
 }
 
+function hasVigilance(card) {
+  const kws = Array.isArray(card?.keywords) ? card.keywords : [];
+  if (kws.some(k => String(k).toLowerCase() === "vigilance")) return true;
+  return /\bvigilance\b/i.test(String(card?.oracle || card?.oracle_text || ""));
+}
+
 function applyDeclareAttacker(state, action) {
   const creature = findCreatureOnBattlefield(state, action.playerId, action.permanentId);
   if (!creature) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
 
-  const withCombat = ensureCombat(state);
-  // Multi-defender ready: PR 10 will pass action.defenderId to pick which
-  // opponent an attacker is targeting. Until then (and always in Standard)
-  // we default to the lone/first opponent in turn order.
+  // Attacking taps the creature (CR 508.1f) unless it has vigilance. This is
+  // what self-dedups attackers (a tapped creature is no longer a legal
+  // attacker) and stops a creature that attacked from also blocking before
+  // its next untap. combatResolution reads power regardless of tapped state.
+  let next = ensureCombat(state);
+  if (!hasVigilance(creature.card)) {
+    next = tapPermanent(next, action.permanentId);
+  }
+
+  // defenderId picks which opponent this attacker targets (Commander). In
+  // Standard the dispatcher fills the lone opponent.
   const defender = action.defenderId || opponentsOf(state, action.playerId)[0];
   const attackerEntry = {
     permanentId: action.permanentId,
@@ -318,13 +381,13 @@ function applyDeclareAttacker(state, action) {
     defender,
   };
   return {
-    ...withCombat,
+    ...next,
     combat: {
-      ...withCombat.combat,
-      attackers: [...withCombat.combat.attackers, attackerEntry],
+      ...next.combat,
+      attackers: [...next.combat.attackers, attackerEntry],
     },
     log: [
-      ...withCombat.log,
+      ...next.log,
       { turn: state.turn, kind: "attack-declared", attackerId: action.permanentId, attackingPlayer: action.playerId },
     ],
   };
@@ -359,6 +422,7 @@ const HANDLERS = {
   "pass-priority": applyPassPriority,
   "play-land": applyPlayLand,
   "cast-spell": applyCastSpell,
+  "tap-for-mana": applyTapForMana,
   "declare-attacker": applyDeclareAttacker,
   "declare-blocker": applyDeclareBlocker,
 };

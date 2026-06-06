@@ -30,6 +30,9 @@
  */
 
 import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
+import { canAfford, manaSources, manaProduction } from "./manaModel.js";
+import { hasKeyword } from "./keywords.js";
+import { parseSpellEffect, enumerateTargets, effectNeedsTarget } from "./spellEffects.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -186,11 +189,10 @@ function isSorcerySpeed(card) {
   // Flash check is a v1.5 add — for now any non-instant defaults to sorcery.
   return !type.includes("Instant");
 }
-
-function hasKeyword(card, keyword) {
-  const keywords = Array.isArray(card?.keywords) ? card.keywords : [];
-  return keywords.includes(keyword);
-}
+// hasKeyword is imported from keywords.js (oracle-aware) — a local copy here
+// previously shadowed it (keyword-array-only, oracle-blind), so Haste / Flying
+// checks silently failed on real cards that carry oracle text but no keywords
+// array. Removed; all call sites now use the import.
 
 function manaCostOf(card) {
   if (!card) return "";
@@ -264,18 +266,73 @@ function actionsCastSpell(state, playerId) {
     if (!timingOk) continue;
 
     const cost = parseManaCost(manaCostOf(card));
-    const affordable = canPayManaCost(player.manaPool, cost);
+    // Castable if the pool PLUS what untapped lands/rocks/dorks could produce
+    // covers the cost — the dispatcher auto-taps to pay. (Pool-only would
+    // never be castable since nothing pre-fills it.)
+    const affordable = canAfford(player.manaPool, manaSources(state, playerId), cost);
     if (!affordable) continue;
 
-    actions.push({
+    const effect = parseSpellEffect(card);
+    const base = {
       kind: "cast-spell",
       playerId,
       cardId: card.id,
       name: card.name,
       cost,
       cmc: totalCmc(cost),
-      needsTargets: false,  // PR3.5 will set this from oracle text parsing
-    });
+      effect: effect || null,
+    };
+
+    if (effectNeedsTarget(effect)) {
+      // Targeted spell: one cast action per legal target (the action-expansion
+      // pattern, same as multi-defender combat). No legal target → can't cast.
+      const targets = enumerateTargets(state, playerId, effect);
+      if (targets.length === 0) continue;
+      for (const t of targets) {
+        actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true });
+      }
+    } else {
+      actions.push({ ...base, targets: [], needsTargets: false });
+    }
+  }
+  return actions;
+}
+
+/**
+ * Tap-for-mana: any untapped mana source the player controls, one action per
+ * (source, color) so a dual surfaces "tap for W" and "tap for U" separately.
+ * Mana abilities are technically instant-speed (CR 605.3a), but surfacing
+ * them at every priority window would spam the learner. v1 gates to the
+ * player's OWN main phase — the window where you'd float mana to cast or to
+ * pump Omnath. Casting still auto-taps at any speed via the dispatcher, so
+ * this action is only the explicit manual-tap / float path (Beginner +
+ * floating-mana decks). Auto modes ignore it, so they never loop on it.
+ */
+function actionsTapForMana(state, playerId) {
+  if (state.activePlayer !== playerId) return [];
+  if (state.priorityHolder !== playerId) return [];
+  if (state.step !== "main") return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const perm of player.battlefield) {
+    if (perm.tapped) continue;
+    const prod = manaProduction(perm.card);
+    if (!prod) continue;
+    const isCreature = /Creature/.test(String(perm.card?.type || perm.card?.type_line || ""));
+    const keywords = Array.isArray(perm.card?.keywords) ? perm.card.keywords : [];
+    const hasHaste = keywords.some(k => String(k).toLowerCase() === "haste") ||
+      /\bhaste\b/i.test(String(perm.card?.oracle || perm.card?.oracle_text || ""));
+    if (isCreature && perm.summoningSick && !hasHaste) continue;
+    for (const color of prod.colors) {
+      actions.push({
+        kind: "tap-for-mana",
+        playerId,
+        permanentId: perm.id,
+        color,
+        amount: prod.amount,
+        name: perm.card.name,
+      });
+    }
   }
   return actions;
 }
@@ -287,10 +344,15 @@ function actionsDeclareAttacker(state, playerId) {
   if (state.activePlayer !== playerId) return [];
   if (state.step !== "declare-attackers") return [];
 
+  // Creatures already attacking this combat can't be re-declared. Tapping on
+  // attack already excludes most, but a Vigilance attacker stays untapped —
+  // this set is what stops it (and any future no-tap attacker) from looping.
+  const declared = new Set((state.combat?.attackers || []).map(a => a.permanentId));
   const player = state.players[playerId];
   const attackers = player.battlefield
     .filter(p => isCreature(p.card))
     .filter(p => !p.tapped)
+    .filter(p => !declared.has(p.id))
     .filter(p => !p.summoningSick || hasKeyword(p.card, "Haste"));
 
   // Standard (a lone opponent): the dispatcher auto-fills the defender, so emit
@@ -327,17 +389,35 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
   if (state.step !== "declare-blockers") return [];
   if (declaredAttackers.length === 0) return [];
 
+  // A creature already assigned as a blocker this combat can't block again.
+  const assigned = new Set((state.combat?.blockers || []).map(b => b.blockerId));
   const player = state.players[playerId];
   const candidateBlockers = player.battlefield
     .filter(p => isCreature(p.card))
-    .filter(p => !p.tapped);
+    .filter(p => !p.tapped)
+    .filter(p => !assigned.has(p.id));
 
-  // For each candidate blocker, surface one action per attacker it
-  // could block. v1 doesn't enforce "must block X" effects (Lure, etc.)
-  // — that's an Arbiter case.
+  // Look up each declared attacker's card (attackers are the active player's
+  // creatures) so we can enforce evasion: a creature with flying can only be
+  // blocked by creatures with flying or reach (CR 509.1b / 702.9c).
+  const attackerCardById = {};
+  for (const ap of state.players[state.activePlayer]?.battlefield || []) {
+    attackerCardById[ap.id] = ap.card;
+  }
+  const canBlock = (blockerCard, attackerCard) => {
+    if (attackerCard && hasKeyword(attackerCard, "Flying")) {
+      return hasKeyword(blockerCard, "Flying") || hasKeyword(blockerCard, "Reach");
+    }
+    return true;
+  };
+
+  // For each candidate blocker, surface one action per attacker it could
+  // legally block. v1 doesn't enforce "must block X" effects (Lure, etc.) or
+  // menace's 2+-blocker requirement — those are Arbiter / future cases.
   const actions = [];
   for (const blocker of candidateBlockers) {
     for (const attackerId of declaredAttackers) {
+      if (!canBlock(blocker.card, attackerCardById[attackerId])) continue;
       actions.push({
         kind: "declare-blocker",
         playerId,
@@ -364,10 +444,14 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
  *                      because the engine tracks combat assignments
  *                      separately, not in state.
  */
-export function legalActionsForPlayer(state, playerId, { declaredAttackers = [] } = {}) {
+export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {}) {
   if (!state || !state.players?.[playerId]) {
     throw new Error(`legalActionsForPlayer: invalid playerId "${playerId}"`);
   }
+  // Default the declared-attackers list from live combat state, so the
+  // session driver gets blocker candidates without threading it explicitly.
+  // (Tests may still pass an explicit list — including [] — which wins.)
+  const attackerIds = declaredAttackers ?? (state.combat?.attackers || []).map(a => a.permanentId);
   const actions = [];
 
   // Pass priority — always available IF the player has priority.
@@ -375,13 +459,14 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers = [] 
     actions.push(actionPassPriority(playerId));
   }
 
-  // Lands, spells.
+  // Lands, spells, mana.
   actions.push(...actionsPlayLand(state, playerId));
   actions.push(...actionsCastSpell(state, playerId));
+  actions.push(...actionsTapForMana(state, playerId));
 
   // Combat actions.
   actions.push(...actionsDeclareAttacker(state, playerId));
-  actions.push(...actionsDeclareBlocker(state, playerId, declaredAttackers));
+  actions.push(...actionsDeclareBlocker(state, playerId, attackerIds));
 
   return actions;
 }
