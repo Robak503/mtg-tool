@@ -16,6 +16,7 @@ import {
   listSaves,
   deleteSave,
 } from "./learnSaveStore.js";
+import { checksumOf } from "./learnSaveSchema.js";
 
 let tmpDir, originalCwd;
 beforeEach(() => {
@@ -100,5 +101,29 @@ describe("learnSaveStore", () => {
     await autosaveSession(bad);
     const entry = (await listSaves()).find(x => x.sessionId === "learn-bad");
     expect(entry.resumable).toBe(false);
+  });
+
+  // Regression: a save written by an OLDER schema (e.g. the shipped v0.25.x /
+  // schema-v2 build) must still list as resumable — the index computes the flag
+  // against the MIGRATED doc, matching what the resume route does. Without this,
+  // bumping CURRENT_SCHEMA_VERSION greys out the Resume button for every in-flight
+  // game and strands it, defeating the migration's whole purpose.
+  it("lists an older-schema (v2) save as resumable (migration honored at the index)", async () => {
+    const s = session("learn-old2");
+    const v2Doc = {
+      schemaVersion: 2,
+      engineVersion: "0.25.0",
+      kind: "learn-session-save",
+      savedAt: "2026-06-06T00:01:00.000Z",
+      sessionId: "learn-old2",
+      session: s,
+      serializable: true,
+      checksum: checksumOf(s),
+    };
+    fs.mkdirSync(path.dirname(saveDirFile("learn-old2.json")), { recursive: true });
+    fs.writeFileSync(saveDirFile("learn-old2.json"), JSON.stringify(v2Doc), "utf8");
+    const entry = (await listSaves()).find(x => x.sessionId === "learn-old2");
+    expect(entry).toBeTruthy();
+    expect(entry.resumable).toBe(true);
   });
 });

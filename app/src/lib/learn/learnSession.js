@@ -363,7 +363,25 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
       if (pause) {
         return { session: current, decision: { kind: "unresolved", ...pa } };
       }
-      current = { ...current, state: clearPendingArbiter(current.state) };
+      // Expert autopilot, or an opponent's unmodeled spell: don't block, but
+      // surface it in the action feed so the player is TOLD the simulator
+      // couldn't model the spell (not just the engine record) — the honesty
+      // mandate applies to the player, not only Phase-3 logs.
+      const feedEntry = {
+        ts: Date.now(),
+        turn: current.state.turn,
+        phase: current.state.phase,
+        step: current.state.step,
+        actor: pa.controller,
+        action: { kind: "spell-unresolved", name: pa.cardName },
+        auto: true,
+        reasoning: "engine could not model this spell",
+      };
+      current = {
+        ...current,
+        state: clearPendingArbiter(current.state),
+        decisionLog: [...current.decisionLog, feedEntry],
+      };
       continue;
     }
 

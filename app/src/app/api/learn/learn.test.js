@@ -336,6 +336,26 @@ describe("POST /api/learn/continue — the P2.1 unresolved→Arbiter seam", () =
     const res = await continueRoute.POST(postRequest("http://localhost/api/learn/continue", "not valid"));
     expect(res.status).toBe(400);
   });
+
+  it("resume re-surfaces the unresolved decision from a save persisted while paused", async () => {
+    const { sessionId, decision: first } = await startGame();
+    flagUnmodeledUserSpell(sessionId);
+    const passOption = first.options.find(o => o.kind === "pass-priority");
+    // The /step persists the paused session (pendingArbiter still set) via autosave.
+    const stepData = await (await stepRoute.POST(postRequest("http://localhost/api/learn/step", { sessionId, choice: passOption }))).json();
+    expect(stepData.decision.kind).toBe("unresolved");
+
+    store.resetStore(); // simulate a server restart — the in-memory session is gone
+    expect(store.getSession(sessionId)).toBeNull();
+
+    const res = await resumeRoute.POST(postRequest("http://localhost/api/learn/resume", { sessionId }));
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.decision.kind).toBe("unresolved");
+    expect(data.decision.cardName).toBe("Mystic Confluence");
+    expect(data.decision.question).toContain("Mystic Confluence");
+    expect(data.decision.context).toContain("CURRENT GAME");
+  });
 });
 
 describe("session store behaviour", () => {
