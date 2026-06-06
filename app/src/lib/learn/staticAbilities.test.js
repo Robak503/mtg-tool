@@ -101,6 +101,39 @@ describe("anti-fabrication guards (CLAUDE.md §1.2)", () => {
     const d = parseStaticAbilities(card("Anthem", "Creatures you control get +1/+1.", "Enchantment"));
     expect(d).toHaveLength(1);
   });
+
+  // ── Variable / conditional magnitude must be a clean MISS, never a flat buff ──
+  it("does NOT fabricate a flat buff from a 'for each' lord (Sliver Legion)", () => {
+    // Sliver Legion: "Other Slivers get +1/+1 for each other Sliver on the
+    // battlefield." A flat +1/+1 would be the WRONG magnitude — a forbidden false
+    // grant. Until variable-count ops exist, it must parse to nothing.
+    expect(parseStaticAbilities(card("Sliver Legion", "Other Slivers get +1/+1 for each other Sliver on the battlefield.", "Creature — Sliver"))).toEqual([]);
+  });
+
+  it("does NOT fabricate an unconditional buff from an 'as long as' anthem", () => {
+    expect(parseStaticAbilities(card("Conditional", "Other creatures you control get +2/+2 as long as you control a Forest.", "Enchantment"))).toEqual([]);
+  });
+
+  // ── Triggered / activated / ETB abilities are NOT static continuous effects ──
+  it("does NOT treat a triggered anthem ('Whenever ~ attacks, ... get +1/+1 until end of turn') as static", () => {
+    expect(parseStaticAbilities(card("Warleader", "Whenever this creature attacks, other creatures you control get +1/+1 until end of turn.", "Creature — Cat"))).toEqual([]);
+  });
+
+  it("does NOT treat an activated anthem ('{G}: Creatures you control get +1/+1 ...') as static", () => {
+    expect(parseStaticAbilities(card("Overrunner", "{G}: Creatures you control get +1/+1 until end of turn.", "Enchantment"))).toEqual([]);
+  });
+
+  it("does NOT treat an ETB anthem ('When this enters, ... get +2/+2 until end of turn') as static", () => {
+    expect(parseStaticAbilities(card("Flash Pump", "When this creature enters, creatures you control get +2/+2 until end of turn.", "Creature — Elemental"))).toEqual([]);
+  });
+
+  it("does NOT treat a triggered keyword grant ('Whenever ~ attacks, ... have flying') as static", () => {
+    expect(parseStaticAbilities(card("Skyleader", "Whenever this creature attacks, creatures you control have flying until end of turn.", "Creature — Bird"))).toEqual([]);
+  });
+
+  it("does NOT treat an activated keyword grant ('{T}: Creatures you control have haste') as static", () => {
+    expect(parseStaticAbilities(card("Hastemaker", "{T}: Creatures you control have haste until end of turn.", "Artifact"))).toEqual([]);
+  });
 });
 
 describe("end-to-end through the layer engine", () => {

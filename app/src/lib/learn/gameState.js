@@ -162,15 +162,24 @@ export function createPermanent({ id, card, controller, tapped = false, summonin
  * The delegation edge points OUTWARD (gameState → layers); layers never imports
  * gameState (it reads ptPrimitive + keywords), so the cycle never closes
  * (eng-review F3 — ptPrimitive is the cut point). Phase-7 PR-11.
+ *
+ * Delegation requires the permanent to be ON a battlefield in `state` (continuous
+ * effects can only apply there). An off-battlefield or null-id permanent — e.g. a
+ * CR 603.10a look-back snapshot of a creature that just died — reads as its
+ * printed value + counters (last-known characteristics), never a silent 0.
  */
 export function creaturePower(permanent, state = null) {
   if (!permanent?.card) return 0;
-  if (state && permanent.id != null) return permanentPower(state, permanent.id);
+  if (state && permanent.id != null && findPermanent(state, permanent.id)) {
+    return permanentPower(state, permanent.id);
+  }
   return printedPower(permanent) + counterPtDelta(permanent);
 }
 export function creatureToughness(permanent, state = null) {
   if (!permanent?.card) return 0;
-  if (state && permanent.id != null) return permanentToughness(state, permanent.id);
+  if (state && permanent.id != null && findPermanent(state, permanent.id)) {
+    return permanentToughness(state, permanent.id);
+  }
   return printedToughness(permanent) + counterPtDelta(permanent);
 }
 

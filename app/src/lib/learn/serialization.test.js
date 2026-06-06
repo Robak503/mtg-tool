@@ -14,6 +14,7 @@ import { _resetIdsForTests, createGameState } from "./gameState.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { parseManaCost } from "./legalChoices.js";
 import { resolveTopOfStack } from "./gameEngine.js";
+import { addContinuousEffect } from "./layers.js";
 
 function card(name, type, mana = "", id = null) {
   return { id: id || `card-${name}`, name, type, mana };
@@ -73,6 +74,28 @@ describe("serialization round-trip (Phase-7 PR-4)", () => {
     // The stack payload is plain data with a string resolver, not a closure.
     expect(state.stack[0].payload.resolver).toBe("spell.permanent");
     expect(typeof state.stack[0].payload.onResolve).toBe("undefined");
+  });
+
+  it("a POPULATED continuousEffects (incl. a dynamic op) stays closure-free and round-trips", () => {
+    // The layer engine's dynamic P/T lives in code (DYNAMIC_PT_FNS); only the string
+    // `fn` key ever reaches state. Prove the no-closure + round-trip invariant on a
+    // state that actually carries a stored resolution effect, not just the [] seed.
+    let state = createGameState({ userDeck: [], aiDeck: [] });
+    state = addContinuousEffect(state, {
+      layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: 3, toughness: 3 },
+      affects: { mode: "fixed", permanentIds: ["perm-1"] }, duration: { kind: "endOfTurn", turn: 1 },
+      source: { kind: "resolution", permanentId: null, cardName: "Giant Growth" },
+    }).state;
+    state = addContinuousEffect(state, {
+      layer: 7, sublayer: "7c", op: { layerOp: "ptModifyDynamic", fn: "omnathGreen" },
+      affects: { mode: "self", permanentId: "perm-2" }, duration: { kind: "permanent" },
+      source: { kind: "static", permanentId: "perm-2", cardName: "Omnath, Locus of Mana" },
+    }).state;
+    expect(state.continuousEffects).toHaveLength(2);
+    expect(containsFunction(state)).toBe(false);
+    const restored = deserializeState(serializeState(state));
+    expect(restored).toEqual(state);
+    expect(restored.continuousEffects[1].op.fn).toBe("omnathGreen"); // a string key, not a function
   });
 
   it("containsFunction detects a function and is cycle-safe", () => {

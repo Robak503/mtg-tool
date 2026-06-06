@@ -109,6 +109,35 @@ describe("EQUIVALENCE GATE — Omnath across 0..N floating green", () => {
   }
 });
 
+describe("EQUIVALENCE GATE — non-numeric ('*') printed P/T", () => {
+  for (const counters of COUNTERS) {
+    it(`'*'/'*' coerces to 0 in both engines, counters=${JSON.stringify(counters)}`, () => {
+      const perm = makePerm("Tarmogoyf-ish", "*", "*", counters);
+      const state = buildState(perm);
+      expect(permanentPower(state, "p1")).toBe(legacyPower(perm, state));
+      expect(permanentToughness(state, "p1")).toBe(legacyToughness(perm, state));
+      expect(permanentPower(state, "p1")).toBe(creaturePower(perm, state));
+    });
+  }
+});
+
+describe("EQUIVALENCE GATE — off-battlefield / null-id permanents read printed+counters", () => {
+  it("a permanent NOT on any battlefield (with state) reads printed+counters, not 0", () => {
+    // Look-back semantics (CR 603.10a): a just-died Omnath snapshot reads its
+    // last-known printed value, never a silent 0 from the layer engine.
+    const detached = makePerm("Omnath, Locus of Mana", 1, 1, { "+1/+1": 1 });
+    const state = createGameState({ userDeck: [], aiDeck: [] }); // detached is NOT placed on a battlefield
+    expect(creaturePower(detached, state)).toBe(2);      // 1 printed + 1 counter (no green buff off-battlefield)
+    expect(creatureToughness(detached, state)).toBe(2);
+  });
+
+  it("a null-id permanent (with state) reads printed+counters", () => {
+    const noId = { card: { name: "Grizzly Bears", type: "Creature", power: 2, toughness: 2 }, counters: { "+1/+1": 1 } };
+    const state = createGameState({ userDeck: [], aiDeck: [] });
+    expect(creaturePower(noId, state)).toBe(3);
+  });
+});
+
 describe("EQUIVALENCE GATE — explicit negative / zero toughness cases", () => {
   it("1/1 with three -1/-1 counters is -2/-2 in BOTH engines (raw CR value)", () => {
     const perm = makePerm("Grizzly Bears", 1, 1, { "-1/-1": 3 });

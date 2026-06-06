@@ -229,19 +229,25 @@ function byTimestamp(a, b) {
 
 const _charMemo = new WeakMap();
 
-const EMPTY_CHARS = Object.freeze({
-  permanentId: null,
-  power: 0,
-  toughness: 0,
-  basePower: 0,
-  baseToughness: 0,
-  keywords: new Set(),
-  types: [],
-  subtypes: [],
-  colors: [],
-  appliedEffects: [],
-  copiableValues: null, // reserved for CR 707 (Phase 2)
-});
+// Characteristics for an unknown/off-battlefield permanent. A FRESH object with
+// fresh nested containers per call — never a shared frozen singleton, because the
+// keywords Set / arrays are mutable by shape and a shared instance would leak
+// mutations across every unknown-perm derive (copiableValues reserved for CR 707).
+function makeEmptyChars(permanentId) {
+  return {
+    permanentId,
+    power: 0,
+    toughness: 0,
+    basePower: 0,
+    baseToughness: 0,
+    keywords: new Set(),
+    types: [],
+    subtypes: [],
+    colors: [],
+    appliedEffects: [],
+    copiableValues: null,
+  };
+}
 
 /**
  * Apply the layer-7 sublayers (7a CDA → 7b set → 7c modify+counters → 7d switch)
@@ -311,11 +317,14 @@ function printedKeywords(card) {
  * scanning keywords/types/colors — so a no-effect board pays ≈ the old cost.
  */
 export function deriveCharacteristics(state, permanentId) {
-  const perm = findPerm(state, permanentId);
-  if (!perm) return { ...EMPTY_CHARS, permanentId };
-
+  // Memo check first (keyed by the immutable state object) so repeated reads for
+  // the same (state, id) skip even the board scan.
   let permMemo = _charMemo.get(state);
   if (permMemo?.has(permanentId)) return permMemo.get(permanentId);
+
+  const perm = findPerm(state, permanentId);
+  if (!perm) return makeEmptyChars(permanentId); // fresh containers; not memoized (rare)
+
   if (!permMemo) {
     permMemo = new Map();
     _charMemo.set(state, permMemo);
@@ -537,8 +546,11 @@ export function expireContinuousEffects(state, { atCleanupOfTurn = null, atStepB
     const d = e.duration || { kind: "permanent" };
     if (d.kind === "endOfTurn") {
       // Expires at the cleanup of its turn (a stale effect from an earlier turn
-      // also expires — e.turn <= current cleanup turn).
-      return !(atCleanupOfTurn != null && d.turn <= atCleanupOfTurn);
+      // also expires — d.turn <= current cleanup turn). Fail-safe: an endOfTurn
+      // effect with a missing/non-numeric turn is treated as expirable, never a
+      // silent never-wears-off pump (a leaked permanent buff is the unsafe way).
+      if (atCleanupOfTurn == null) return true;
+      return !(d.turn == null || !Number.isFinite(d.turn) || d.turn <= atCleanupOfTurn);
     }
     if (d.kind === "endOfStep") {
       return !(atStepBegin && d.phase === atStepBegin.phase && d.step === atStepBegin.step);

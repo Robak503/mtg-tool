@@ -84,6 +84,19 @@ describe("empty-board fast path", () => {
     expect(permanentPower(state, "ghost")).toBe(0);
     expect(permanentToughness(state, "ghost")).toBe(0);
   });
+
+  it("unknown-perm derives do NOT share mutable containers (no cross-call leak)", () => {
+    const state = stateWith({ userBf: [perm("Bear", "b1", "user", { power: 2, toughness: 2 })] });
+    const a = deriveCharacteristics(state, "ghostA");
+    a.keywords.add("flying");
+    a.types.push("Hacked");
+    a.colors.push("R");
+    const b = deriveCharacteristics(state, "ghostB");
+    expect(b.keywords.has("flying")).toBe(false);
+    expect(b.types).not.toContain("Hacked");
+    expect(b.colors).not.toContain("R");
+    expect(a.keywords).not.toBe(b.keywords);
+  });
 });
 
 describe("counters as layer 7c (CR 613.4c) — parity with legacy arithmetic", () => {
@@ -299,6 +312,21 @@ describe("resolution effects: add / remove / expire", () => {
       layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: 3, toughness: 3 },
       affects: { mode: "fixed", permanentIds: ["c1"] }, duration: { kind: "endOfTurn", turn: state.turn },
       source: { kind: "resolution", permanentId: null, cardName: "Giant Growth" },
+    });
+    expect(permanentPower(s2, "c1")).toBe(4);
+    const cleaned = expireContinuousEffects(s2, { atCleanupOfTurn: s2.turn });
+    expect(cleaned.continuousEffects).toEqual([]);
+    expect(permanentPower(cleaned, "c1")).toBe(1);
+  });
+
+  it("expireContinuousEffects treats an endOfTurn effect with no turn as expirable (fail-safe)", () => {
+    const c = perm("Pumped", "c1", "user", { power: 1, toughness: 1 });
+    const state = stateWith({ userBf: [c] });
+    // A future caller that forgets duration.turn must NOT mint a never-expiring pump.
+    const { state: s2 } = addContinuousEffect(state, {
+      layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: 3, toughness: 3 },
+      affects: { mode: "fixed", permanentIds: ["c1"] }, duration: { kind: "endOfTurn" },
+      source: { kind: "resolution", permanentId: null, cardName: "Forgetful Pump" },
     });
     expect(permanentPower(s2, "c1")).toBe(4);
     const cleaned = expireContinuousEffects(s2, { atCleanupOfTurn: s2.turn });

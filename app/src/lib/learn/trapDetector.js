@@ -28,7 +28,7 @@
  */
 
 import { opponentsOf } from "./gameState.js";
-import { permanentPower, permanentToughness } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 
 // ─── Type helpers ────────────────────────────────────────────────────────────
 
@@ -54,20 +54,14 @@ function untappedLandCount(state, playerId) {
   return untappedPermanentsOfType(state, playerId, isLand).length;
 }
 
-function hasHaste(card) {
-  const kw = card?.keywords;
-  const kwString = Array.isArray(kw) ? kw.join(" ") : String(kw || "");
-  const oracle = String(card?.oracle || card?.oracle_text || "");
-  return /Haste/i.test(`${kwString} ${oracle}`);
-}
-
 function untappedReadyCreatures(state, playerId) {
-  // "Ready" = can attack on their turn (untapped, not summoning sick
-  // unless Haste). We do a string check on keywords / oracle so this
-  // works whether the card data was hydrated from Scryfall or built
-  // by hand in a test.
+  // "Ready" = can attack on their turn (untapped, not summoning sick unless Haste).
+  // Haste goes through the layer engine (permanentHasKeyword), so GRANTED haste
+  // counts — keeping this readiness gate consistent with legalChoices' attack gate,
+  // which combat actually resolves on (F7a). Otherwise the counter-swing heuristic
+  // would undercount a granted-haste creature that can legally attack.
   return untappedPermanentsOfType(state, playerId, isCreature).filter(p =>
-    !p.summoningSick || hasHaste(p.card)
+    !p.summoningSick || permanentHasKeyword(state, p.id, "Haste")
   );
 }
 

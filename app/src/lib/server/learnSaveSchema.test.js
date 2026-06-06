@@ -127,6 +127,49 @@ describe("migrate", () => {
     // A migrated v1 save is now resumable (current schema + serializable).
     expect(isResumable(upgraded)).toBe(true);
   });
+
+  // The v1->v2 migration must be TOTAL — never throw on a partial/malformed save,
+  // and never lose data. Exercise the odd-shape branches the happy-path fixture
+  // doesn't reach.
+  it("v1->v2 migration is total across missing/null/odd shapes", () => {
+    const oddV1 = {
+      schemaVersion: 1,
+      kind: "learn-session-save",
+      savedAt: "2026-06-06T00:01:00.000Z",
+      sessionId: "learn-odd",
+      serializable: true,
+      session: {
+        id: "learn-odd",
+        state: {
+          turn: 2,
+          players: {
+            user: { life: 40, battlefield: null }, // non-array battlefield
+            ai: { life: 40, battlefield: [null, { id: "perm-9", card: { name: "X" }, timestamp: 5 }] },
+          },
+        },
+      },
+      checksum: "sha256:unused",
+    };
+    let upgraded;
+    expect(() => { upgraded = migrate(oddV1); }).not.toThrow();
+    expect(upgraded.schemaVersion).toBe(2);
+    expect(upgraded.session.state.continuousEffects).toEqual([]);
+    expect(upgraded.session.state.timestampCounter).toBe(0);
+    // non-array battlefield normalized to []
+    expect(upgraded.session.state.players.user.battlefield).toEqual([]);
+    // a null entry survives untouched; an already-timestamped perm keeps its value
+    expect(upgraded.session.state.players.ai.battlefield[0]).toBeNull();
+    expect(upgraded.session.state.players.ai.battlefield[1].timestamp).toBe(5);
+  });
+
+  it("v1->v2 migration tolerates a save with no state/players at all", () => {
+    const bare = { schemaVersion: 1, kind: "learn-session-save", session: { id: "x" }, serializable: true, checksum: "sha256:x" };
+    let upgraded;
+    expect(() => { upgraded = migrate(bare); }).not.toThrow();
+    expect(upgraded.schemaVersion).toBe(2);
+    expect(upgraded.session.state.continuousEffects).toEqual([]);
+    expect(upgraded.session.state.timestampCounter).toBe(0);
+  });
 });
 
 describe("isResumable", () => {

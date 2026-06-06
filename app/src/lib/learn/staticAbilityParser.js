@@ -68,6 +68,27 @@ function normalizeSubtype(word) {
 function parseClause(clause, out) {
   const c = clause.toLowerCase();
 
+  // ── STATIC-ONLY GUARD (CLAUDE.md §1.2: a miss is safe; a false grant is forbidden) ──
+  // A continuous effect is created only by a STATIC ability. Bail on any marker of a
+  // triggered / activated / one-shot / variable / conditional ability so we never
+  // fabricate a PERMANENT board buff the oracle doesn't grant statically. Examples
+  // this rejects (each verified to formerly false-match): "Whenever ~ attacks, other
+  // creatures you control get +1/+1 until end of turn." (triggered), "{G}: Creatures
+  // you control get +1/+1 until end of turn." (activated), "Other Sliver creatures
+  // get +1/+1 for each other Sliver" (variable — can't quantify), "...get +2/+2 as
+  // long as you control a Forest." (conditional — can't evaluate).
+  if (
+    /^(?:when|whenever|at)\b/.test(c) ||      // triggered ability (leading keyword)
+    /\bwhenever\b/.test(c) ||                 // embedded trigger (comma-joined clause)
+    c.includes(":") ||                        // activated ability ("cost: effect")
+    /\buntil end of turn\b/.test(c) ||        // one-shot duration, not static
+    /\bthis turn\b/.test(c) ||                // one-shot duration, not static
+    /\bfor each\b/.test(c) ||                 // variable magnitude we can't quantify
+    /\bas long as\b/.test(c)                  // conditional we can't evaluate
+  ) {
+    return;
+  }
+
   // ── P/T anthems / lords (layer 7c, 613.4c) ──────────────────────────────────
   // "get +X/+Y" with explicit signs is the anthem/lord signature.
   const ptMatch = c.match(/\bget\s+([+-]\d+)\/([+-]\d+)\b/);
@@ -144,8 +165,12 @@ function parseCreatureSelector(c) {
   const youControl = /\byou control\b/.test(c);
   const controllerScope = youControl ? "you" : "each";
 
+  // Every pattern is ANCHORED to the clause start (^): the buffed set must be the
+  // SUBJECT of the clause. This is what stops a comma-joined effect body (e.g. the
+  // tail of a trigger after the static guard) from matching as an anthem.
+
   // Tribal: "(all|other|each) <subtype>s [creatures] [you control]"
-  let m = c.match(/\b(all|other|each)\s+([a-z]+)\s+(?:creatures?\s+)?(?:you control\s+)?(?:get|gain|have)\b/);
+  let m = c.match(/^(all|other|each)\s+([a-z]+)\s+(?:creatures?\s+)?(?:you control\s+)?(?:get|gain|have)\b/);
   if (m) {
     const determiner = m[1];
     const word = m[2];
@@ -164,7 +189,7 @@ function parseCreatureSelector(c) {
   }
 
   // Color anthem: "<color> creatures you control"
-  m = c.match(/\b(white|blue|black|red|green)\s+creatures?\s+you control\b/);
+  m = c.match(/^(white|blue|black|red|green)\s+creatures?\s+you control\b/);
   if (m) {
     return {
       mode: "dynamic",
@@ -176,8 +201,8 @@ function parseCreatureSelector(c) {
     };
   }
 
-  // Generic anthem: "creatures you control"
-  if (/\bcreatures?\s+you control\b/.test(c)) {
+  // Generic anthem: "creatures you control [get|have]"
+  if (/^creatures?\s+you control\s+(?:get|gain|have)\b/.test(c)) {
     return {
       mode: "dynamic",
       selector: { controllerScope: "you", cardTypes: ["Creature"] },
