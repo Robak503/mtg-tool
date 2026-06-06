@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Removal targets correctly in The Academy.** Spells that restrict their target —
+  "destroy target creature an opponent controls", "destroy target tapped creature",
+  "destroy target creature with power 2 or less" — now resolve natively and only
+  offer the creatures they can legally hit, so you can't aim a one-sided removal at
+  your own board and the AI plays them correctly. Restrictions the engine doesn't
+  model yet (color, type, "attacking", keyword) still route to the Arbiter for a ruling.
+
 ## [0.27.0] - 2026-06-06
 
 ### Added

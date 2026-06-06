@@ -101,19 +101,116 @@ export function effectNeedsTarget(effect) {
   return !!effect && !!effect.targetType && !["eachOpponent", "eachCreature"].includes(effect.targetType);
 }
 
+// ─── Target restrictions (P2.4) ───────────────────────────────────────────────
+
+/**
+ * Parse the MODELED restrictions on a "target creature" spec and report whether
+ * the spec is fully accounted for. Returns `{ restrictions, clean }`.
+ *
+ * Modeled set (conservative): controller (you/opponent), tapped/untapped, and
+ * power (<= / >=). `clean` is an ALLOWLIST check — true ONLY when the whole
+ * creature-target text reduces to the base noun + filler + the modeled
+ * restrictions. ANY leftover qualifier (a color like "nonblack", a type like
+ * "artifact", "attacking", "named", "with flying", "with mana value", …) makes it
+ * false, so the confidence gate routes the spell to the Arbiter rather than
+ * targeting wrongly. An allowlist (the match must SPAN the spec) is what the P2.2
+ * review proved necessary — a denylist of markers always has holes.
+ *
+ * Only meaningful for destroy / deal-damage creature targets (its regex matches
+ * only those); for anything else (pump, draw, "any" target) it returns clean.
+ */
+const MODELED_RESTRICTION_RES = [
+  /\b(?:an opponent controls|you don't control|a player other than you controls)\b/g,
+  /\byou control\b/g,
+  /\buntapped\b/g,
+  /\btapped\b/g,
+  /\bpower \d+ or less\b/g,
+  /\bpower \d+ or (?:greater|more)\b/g,
+];
+
+export function parseCreatureTargetRestrictions(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").toLowerCase();
+  let m = oracle.match(/destroy\s+target\s+([^.]+)/);
+  if (!m) m = oracle.match(/deals?\s+\d+\s+damage\s+to\s+([^.]+)/);
+  if (!m || !/\bcreature\b/.test(m[1])) {
+    // Not a creature target → nothing to model. (A "creature or player" any-target
+    // never reaches here — parseSpellEffect maps it to targetType "any". A genuine
+    // "creature or <type>" leaves an unmodeled "or <type>" residue below → unclean.)
+    return { restrictions: [], clean: true, cleanedOracle: oracle };
+  }
+
+  let t = ` ${m[1].replace(/[.,]/g, " ")} `;
+  const restrictions = [];
+
+  // Controller — "an opponent controls" / "you don't control" vs "you control".
+  if (/\b(?:an opponent controls|you don't control|a player other than you controls)\b/.test(t)) {
+    restrictions.push({ kind: "controller", who: "opponent" });
+    t = t.replace(/\b(?:an opponent controls|you don't control|a player other than you controls)\b/g, " ");
+  } else if (/\byou control\b/.test(t)) {
+    restrictions.push({ kind: "controller", who: "you" });
+    t = t.replace(/\byou control\b/g, " ");
+  }
+
+  // Tapped / untapped (untapped first so "tapped" doesn't eat it).
+  if (/\buntapped\b/.test(t)) { restrictions.push({ kind: "tapped", value: false }); t = t.replace(/\buntapped\b/g, " "); }
+  else if (/\btapped\b/.test(t)) { restrictions.push({ kind: "tapped", value: true }); t = t.replace(/\btapped\b/g, " "); }
+
+  // Power N or less / N or greater.
+  let pm = t.match(/\bpower (\d+) or less\b/);
+  if (pm) { restrictions.push({ kind: "power", op: "<=", value: parseInt(pm[1], 10) }); t = t.replace(/\bpower \d+ or less\b/g, " "); }
+  pm = t.match(/\bpower (\d+) or (?:greater|more)\b/);
+  if (pm) { restrictions.push({ kind: "power", op: ">=", value: parseInt(pm[1], 10) }); t = t.replace(/\bpower \d+ or (?:greater|more)\b/g, " "); }
+
+  // Strip the base noun + filler; anything left is an UNMODELED qualifier → unclean.
+  t = t.replace(/\b(target|a|an|another|other|each|any|creature|creatures|with|that|to|the|is)\b/g, " ").replace(/[^a-z]+/g, " ").trim();
+
+  // The oracle with the MODELED restriction phrases removed — so the confidence
+  // gate (which keeps controller/tapped/power in its denylist to protect mass
+  // effects like "each creature an opponent controls") can re-check the REST of
+  // the clause (riders, other markers) without tripping on a restriction we model.
+  let cleanedOracle = oracle;
+  for (const re of MODELED_RESTRICTION_RES) cleanedOracle = cleanedOracle.replace(re, " ");
+  return { restrictions, clean: t.length === 0, cleanedOracle };
+}
+
+/** Does a creature permanent (controlled by `pid`) satisfy a restriction set, from `casterId`'s view? */
+function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions) {
+  for (const r of restrictions) {
+    if (r.kind === "controller") {
+      if (r.who === "you" && pid !== casterId) return false;
+      if (r.who === "opponent" && pid === casterId) return false;
+    } else if (r.kind === "tapped") {
+      if (!!perm.tapped !== r.value) return false;
+    } else if (r.kind === "power") {
+      const pw = creaturePower(perm, state);
+      if (r.op === "<=" && !(pw <= r.value)) return false;
+      if (r.op === ">=" && !(pw >= r.value)) return false;
+    }
+  }
+  return true;
+}
+
 // ─── Target enumeration ───────────────────────────────────────────────────────
 
 /**
  * Legal targets for a targeted effect, as `{ type, id, controller?, name }`.
  * Empty for non-targeted effects (draw, each-opponent, each-creature).
+ *
+ * P2.4: honors `effect.restrictions` (controller / tapped / power) so the player
+ * and AI are only offered LEGAL creature targets — e.g. "destroy target creature
+ * an opponent controls" no longer surfaces the caster's own creatures. No
+ * restrictions → every creature, as before.
  */
 export function enumerateTargets(state, controllerId, effect) {
   if (!effectNeedsTarget(effect)) return [];
+  const restrictions = Array.isArray(effect.restrictions) ? effect.restrictions : [];
   const out = [];
   const addCreatures = () => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
-        if (isCreature(perm.card)) out.push({ type: "creature", id: perm.id, controller: pid, name: perm.card?.name });
+        if (isCreature(perm.card) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions)) {
+          out.push({ type: "creature", id: perm.id, controller: pid, name: perm.card?.name });
+        }
       }
     }
   };
