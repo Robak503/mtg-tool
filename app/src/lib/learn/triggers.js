@@ -255,7 +255,9 @@ export function checkInterveningIf(state, pendingTrigger) {
  * damage-to-each-opponent). Targeted damage triggers are Phase-2 and resolve as
  * an honest "unresolved" log, never fabricated.
  */
-export function applyTriggerEffect(state, { effect, controller, context = {}, targets = [] }) {
+export function applyTriggerEffect(state, { effect, controller, targets = [] }) {
+  // `context` (the look-back snapshot) is accepted by callers but unused by the
+  // Phase-1 effect vocabulary; targeted/contextual effects in Phase 2 will read it.
   if (!effect) return state; // fail-safe: unrecognized → no-op
   const amt = Math.max(0, effect.amount || 0);
   let next = state;
