@@ -8,6 +8,17 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Changed
+- **The Academy's spell engine is now a general effect interpreter** (Phase 2 of
+  the engine rebuild). Instants and sorceries resolve through an ordered,
+  serializable program of "atoms" instead of a hard-coded handful of effects.
+  Today's burn / removal / draw behave exactly as before — the difference is that
+  the parser is deliberately conservative ("incomplete but never wrong"): it only
+  resolves a spell natively when it cleanly matches a modeled pattern, and routes
+  anything with a rider, a restriction (e.g. "target tapped creature"), a second
+  clause ("…and you gain 3 life"), or any text it can't fully model to the Arbiter
+  for a ruling (the v0.26.0 seam) instead of silently resolving the wrong thing.
+
 ## [0.26.0] - 2026-06-06
 
 ### Added

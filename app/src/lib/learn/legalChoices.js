@@ -34,6 +34,7 @@ import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword } from "./layers.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget } from "./spellEffects.js";
+import { parseEffectProgram } from "./effects/parser.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -282,6 +283,10 @@ function actionsCastSpell(state, playerId) {
       cost,
       cmc: totalCmc(cost),
       effect: effect || null,
+      // P2.2: the serializable EffectProgram the dispatcher resolves through the
+      // `effect-program` interpreter. `effect` stays for targeting + AI scoring
+      // (unchanged) until those move to the program in a later PR.
+      program: parseEffectProgram(card),
     };
 
     if (effectNeedsTarget(effect)) {

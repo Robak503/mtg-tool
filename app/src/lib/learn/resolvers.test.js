@@ -52,8 +52,9 @@ describe("RESOLVER_KEYS contract", () => {
 
   it("RESOLVERS is frozen and every built-in key resolves to a function", () => {
     expect(Object.isFrozen(RESOLVERS)).toBe(true);
+    // effect-program became a built-in in P2.2 (the interpreter) — it's no longer
+    // a reserved-but-empty slot, so it's covered by this assertion too.
     for (const key of Object.values(RESOLVER_KEYS)) {
-      if (key === RESOLVER_KEYS.EFFECT_PROGRAM) continue; // reserved, no built-in yet
       expect(typeof RESOLVERS[key]).toBe("function");
     }
   });

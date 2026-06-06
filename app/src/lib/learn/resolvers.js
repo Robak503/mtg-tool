@@ -23,6 +23,12 @@
 import { createPermanent, mintId, logEvent } from "./gameState.js";
 import { resolveSpellEffect } from "./spellEffects.js";
 import { triggersForEvent, applyTriggerEffect } from "./triggers.js";
+import { markPendingArbiter } from "./pendingArbiter.js";
+import { runEffectProgram } from "./effects/runProgram.js";
+
+// Re-export the P2.1 seam marker from its leaf module (it moved out of this file
+// in P2.2 so the effect interpreter can share it without an import cycle).
+export { markPendingArbiter } from "./pendingArbiter.js";
 
 /**
  * The canonical resolver-key contract. Frozen + exported so every producer
@@ -127,52 +133,6 @@ function resolveManual(state, obj) {
 }
 
 /**
- * Phase-2 P2.1 — the unresolved→Arbiter seam. A cast spell the engine can't model
- * (today: an instant/sorcery whose oracle text didn't parse) used to resolve as a
- * SILENT no-op — the single biggest fidelity + honesty gap (a relevant spell did
- * nothing and the player was never told). Instead we:
- *
- *   1. Log a STRUCTURED, honest `spell-unresolved` event (never the misleading
- *      `spell-no-op-resolve`) so the record always reflects "we couldn't model
- *      this" — this is the "never a silent no-op" guarantee (CLAUDE.md §1.2/§8).
- *   2. Flag `state.pendingArbiter` so the session driver can surface an
- *      `unresolved` decision and the UI can hand the card to the Ollama-only
- *      Arbiter for a verified ruling (a teaching moment), then let the player
- *      continue.
- *
- * The engine NEVER calls the network and NEVER fabricates the effect — it only
- * leaves an honest marker. The driver (learnSession) decides whether to pause
- * (it knows difficulty + that the AI's spells shouldn't flood the player). The
- * first unresolved object wins (FIFO) — once flagged, the driver pauses before a
- * second can resolve, so this guard is belt-and-braces.
- */
-export function markPendingArbiter(state, obj, reason) {
-  const card = obj?.source && typeof obj.source === "object" ? obj.source : {};
-  const cardName = card.name || obj?.payload?.params?.cardName || (typeof obj?.source === "string" ? obj.source : "Unknown card");
-  const oracle = card.oracle || card.oracle_text || "";
-  let next = logEvent(state, {
-    kind: "spell-unresolved",
-    objectId: obj?.id,
-    cardName,
-    controller: obj?.controller,
-    reason,
-  });
-  if (!next.pendingArbiter) {
-    next = {
-      ...next,
-      pendingArbiter: {
-        stackObjectId: obj?.id ?? null,
-        cardName,
-        oracle,
-        reason,
-        controller: obj?.controller ?? null,
-      },
-    };
-  }
-  return next;
-}
-
-/**
  * Built-in resolvers. Each is `(state, stackObject) => newState`. PURE — reads
  * only `stackObject.payload.params` + `state`; never closes over cast-time data.
  */
@@ -209,6 +169,12 @@ export const RESOLVERS = Object.freeze({
 
   // STUB in PR-1: activated abilities are Phase 2.
   [RESOLVER_KEYS.ACTIVATED_EFFECT]: (state, obj) => resolveManual(state, obj),
+
+  // P2.2: the EffectProgram interpreter. Runs an ordered Atom[] in printed order
+  // when the program is high-confidence; a low-confidence (unmodeled) program runs
+  // ZERO atoms and routes to the Arbiter seam (all-or-nothing). Additive — never
+  // overloads spell.effect.
+  [RESOLVER_KEYS.EFFECT_PROGRAM]: (state, obj) => runEffectProgram(state, obj),
 
   [RESOLVER_KEYS.MANUAL]: resolveManual,
 });

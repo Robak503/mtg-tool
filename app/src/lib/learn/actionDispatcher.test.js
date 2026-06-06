@@ -18,6 +18,7 @@ import {
 } from "./actionDispatcher.js";
 import { parseManaCost } from "./legalChoices.js";
 import { resolveTopOfStack } from "./gameEngine.js";
+import { RESOLVER_KEYS } from "./resolvers.js";
 
 function card(name, type, mana = "", id = null) {
   return { id: id || `card-${name}`, name, type, mana };
@@ -225,6 +226,28 @@ describe("cast-spell", () => {
     // P2.1: structured spell-unresolved log + pendingArbiter, not a silent no-op.
     expect(resolved.log.some(e => e.kind === "spell-unresolved" && e.cardName === "Lightning Bolt")).toBe(true);
     expect(resolved.pendingArbiter).toMatchObject({ cardName: "Lightning Bolt", controller: "user" });
+  });
+
+  it("an instant with real-but-unmodeled oracle emits a LOW effect-program that routes to the Arbiter seam (P2.2 cast-path ordering)", () => {
+    // Counterspell parses (it IS an instant with text) but isn't modeled → a
+    // low-confidence effect-program, NOT spell.noop. This pins the dispatcher's
+    // payload-selection ordering so the cast→low→Arbiter fail-safe can't regress.
+    const counter = { ...card("Counterspell", "Instant", "{U}{U}"), oracle: "Counter target spell." };
+    let state = withHand(stateWith(), [counter]);
+    state = withMana(state, { U: 2 });
+
+    state = dispatchAction(state, {
+      kind: "cast-spell", playerId: "user", cardId: counter.id, name: "Counterspell",
+      cost: parseManaCost("{U}{U}"), cmc: 2,
+    });
+    expect(state.stack[0].payload.resolver).toBe(RESOLVER_KEYS.EFFECT_PROGRAM);
+    expect(state.stack[0].payload.params.program.confidence).toBe("low");
+    expect(state.stack[0].payload.params.program.atoms).toHaveLength(0);
+
+    const resolved = resolveTopOfStack(state);
+    expect(resolved.stack).toHaveLength(0);
+    expect(resolved.pendingArbiter).toMatchObject({ cardName: "Counterspell", controller: "user" });
+    expect(resolved.log.some(e => e.kind === "spell-unresolved")).toBe(true);
   });
 
   it("throws MANA_SHORT when the cost can't be paid", () => {

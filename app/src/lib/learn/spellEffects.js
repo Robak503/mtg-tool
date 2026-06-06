@@ -156,53 +156,66 @@ export function chooseAITarget(state, aiPlayerId, effect, targets) {
 // ─── Resolution ───────────────────────────────────────────────────────────────
 
 /**
+ * Per-effect resolution helpers — the single source of truth for each effect's
+ * state mutation. `resolveSpellEffect` (the legacy `spell.effect` resolver) AND
+ * the Phase-2 EffectProgram atoms (`effects/effectAtoms.js`) both call these, so
+ * the interpreter's atoms are byte-for-byte equivalent to the legacy path by
+ * construction — there is no second implementation to drift.
+ */
+export function applyDrawEffect(state, { controller, amount }) {
+  const next = drawCards(state, { playerId: controller, count: Math.max(0, amount || 1) });
+  return logEvent(next, { kind: "spell-effect", effect: "draw", controller, amount });
+}
+
+export function applyDestroyEffect(state, { controller, targets = [] }) {
+  let next = state;
+  const dead = [];
+  for (const t of targets) {
+    if (t.type !== "creature") continue;
+    const lk = findPermanent(next, t.id);
+    if (lk) {
+      // Capture the look-back BEFORE the move (CR 603.10a), then destroy.
+      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
+      next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: t.id });
+    }
+  }
+  next = checkDiesTriggers(next, dead);
+  return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id) });
+}
+
+export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [] }) {
+  let next = state;
+  const amount = Math.max(0, rawAmount || 0);
+  if (targetType === "eachOpponent") {
+    for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = loseLife(next, { playerId: opp, amount });
+  } else if (targetType === "eachCreature") {
+    for (const pid of Object.keys(next.players)) {
+      for (const perm of next.players[pid].battlefield) {
+        if (isCreature(perm.card)) next = markCombatDamage(next, { permanentId: perm.id, amount });
+      }
+    }
+  } else {
+    for (const t of targets) {
+      if (t.type === "player" && next.players[t.id]) next = loseLife(next, { playerId: t.id, amount });
+      else if (t.type === "creature" && findPermanent(next, t.id)) next = markCombatDamage(next, { permanentId: t.id, amount });
+    }
+  }
+  const dmgResult = destroyLethalCreatures(next);
+  next = checkDiesTriggers(dmgResult.state, dmgResult.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "damage", controller, amount, targets: targets.map(t => t.id) });
+}
+
+/**
  * Apply a parsed effect on resolution. Returns a new state. Damage runs the
- * shared lethal SBA so creatures it kills hit the graveyard.
+ * shared lethal SBA so creatures it kills hit the graveyard. Delegates to the
+ * per-effect helpers above (which the EffectProgram atoms also use).
  */
 export function resolveSpellEffect(state, { effect, controller, targets = [] }) {
   if (!effect) return state;
-  let next = state;
-
-  if (effect.kind === "draw") {
-    next = drawCards(next, { playerId: controller, count: Math.max(0, effect.amount || 1) });
-    return logEvent(next, { kind: "spell-effect", effect: "draw", controller, amount: effect.amount });
-  }
-
-  if (effect.kind === "destroy") {
-    const dead = [];
-    for (const t of targets) {
-      if (t.type !== "creature") continue;
-      const lk = findPermanent(next, t.id);
-      if (lk) {
-        // Capture the look-back BEFORE the move (CR 603.10a), then destroy.
-        dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
-        next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: t.id });
-      }
-    }
-    next = checkDiesTriggers(next, dead);
-    return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id) });
-  }
-
+  if (effect.kind === "draw") return applyDrawEffect(state, { controller, amount: effect.amount });
+  if (effect.kind === "destroy") return applyDestroyEffect(state, { controller, targets });
   if (effect.kind === "damage") {
-    const amount = Math.max(0, effect.amount || 0);
-    if (effect.targetType === "eachOpponent") {
-      for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = loseLife(next, { playerId: opp, amount });
-    } else if (effect.targetType === "eachCreature") {
-      for (const pid of Object.keys(next.players)) {
-        for (const perm of next.players[pid].battlefield) {
-          if (isCreature(perm.card)) next = markCombatDamage(next, { permanentId: perm.id, amount });
-        }
-      }
-    } else {
-      for (const t of targets) {
-        if (t.type === "player" && next.players[t.id]) next = loseLife(next, { playerId: t.id, amount });
-        else if (t.type === "creature" && findPermanent(next, t.id)) next = markCombatDamage(next, { permanentId: t.id, amount });
-      }
-    }
-    const dmgResult = destroyLethalCreatures(next);
-    next = checkDiesTriggers(dmgResult.state, dmgResult.dead);
-    return logEvent(next, { kind: "spell-effect", effect: "damage", controller, amount, targets: targets.map(t => t.id) });
+    return applyDamageEffect(state, { controller, amount: effect.amount, targetType: effect.targetType, targets });
   }
-
-  return next;
+  return state;
 }
