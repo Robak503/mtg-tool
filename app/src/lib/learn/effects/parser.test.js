@@ -66,6 +66,19 @@ const MUST_DROP_TO_LOW = [
   "Deal damage to target creature equal to the number of Mountains you control.",
   "Choose one — Draw two cards; or destroy target creature.",
   "Deal 2 damage to target creature. Draw a card.",            // multi-clause → MUST drop
+  // "and"-joined / comma riders — the loose legacy regex over-matches the first
+  // clause and the engine would SILENTLY drop the rest (the #1 forbidden false-high).
+  "Lightning Helix deals 3 damage to any target and you gain 3 life.",   // lifegain rider dropped
+  "Char deals 4 damage to any target and 2 damage to you.",              // self-damage drawback dropped
+  "You draw two cards and lose 2 life.",                                 // Night's Whisper — life-loss dropped
+  "Counter target spell and draw a card.",                               // primary effect dropped, draw survives
+  "Destroy target artifact and draw a card.",
+  "Deals 2 damage to target creature and 2 damage to target player.",    // multi-target mis-resolve
+  "Draw two cards, discard a card.",                                     // comma-joined rider
+  // Unmodeled target restrictions — HIGH would permit an illegal target.
+  "Destroy target tapped creature.",
+  "Destroy target attacking creature.",
+  "Deals 4 damage to target attacking or blocking creature.",
 ];
 
 describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {

@@ -22,9 +22,17 @@
  */
 
 import { parseSpellEffect } from "../spellEffects.js";
+import { ATOM_RESOLVERS } from "./effectAtoms.js";
 
-/** The atom ops the interpreter can resolve natively today (grows in later PRs). */
-export const KNOWN_ATOM_OPS = Object.freeze(["deal-damage", "destroy", "draw"]);
+/**
+ * The atom ops the interpreter can resolve natively — DERIVED from the resolver
+ * table so the HIGH-confidence gate and the resolver set can never drift apart.
+ * (If an op is "known" but has no resolver, programConfidence could rate HIGH a
+ * program runEffectProgram can't fully run — a partial-execution hole. Deriving
+ * makes the all-or-nothing invariant structural, not a hand-maintained coincidence.)
+ * parser → effectAtoms → spellEffects is a safe leaf edge (no cycle).
+ */
+export const KNOWN_ATOM_OPS = Object.freeze(Object.keys(ATOM_RESOLVERS));
 const KNOWN = new Set(KNOWN_ATOM_OPS);
 
 function typeOf(card) {
@@ -60,7 +68,7 @@ function makeProgram({ confidence, atoms, unparsedTail }) {
  * interpreter is never confidently wrong about something it didn't model. A
  * false-low (routing a clean spell to the judge) is safe; a false-high is forbidden.
  */
-const UNMODELED_MARKERS = /\b(unless|instead|rather than|where|for each|equal to|divided|as long as|if|then|may|choose (?:one|two|three)|non(?:black|blue|white|red|green|land|artifact|creature)|with (?:flying|power|toughness|mana value)|that (?:player|creature|deals|has|was|spell)|you don't control|an opponent controls|you control|its (?:owner|controller))\b/i;
+const UNMODELED_MARKERS = /\b(unless|instead|rather than|where|for each|equal to|divided|as long as|if|then|may|choose (?:one|two|three)|non(?:black|blue|white|red|green|land|artifact|creature)|attacking|blocking|tapped|untapped|with (?:flying|power|toughness|mana value)|that (?:player|creature|deals|has|was|spell)|you don't control|an opponent controls|you control|its (?:owner|controller))\b/i;
 
 /**
  * Is the oracle a single clean clause that exactly matches one known pattern with
@@ -71,6 +79,14 @@ function isCleanSingleClause(oracle) {
   const stripped = oracle.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
   // More than one sentence/clause → not a single clean clause (multi-clause is P2.5).
   if (/\.\s+\S/.test(stripped) || stripped.includes(";")) return false;
+  // A coordinating conjunction or a comma joins a SECOND instruction the loose
+  // single-pattern parse would silently drop or mis-target — e.g. "deals 3 damage
+  // to any target AND you gain 3 life" (Lightning Helix), "...and 2 damage to you"
+  // (Char), "draw two cards, discard a card", "destroy target creature and target
+  // land". None of the three modeled clean patterns (burn to a target, destroy a
+  // creature, draw N) ever legitimately contains a standalone "and" or a comma, so
+  // this drops every conjunction-rider to low → the Arbiter resolves the whole spell.
+  if (/\band\b/i.test(stripped) || stripped.includes(",")) return false;
   if (UNMODELED_MARKERS.test(stripped)) return false;
   return true;
 }

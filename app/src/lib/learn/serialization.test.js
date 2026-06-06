@@ -68,6 +68,35 @@ describe("serialization round-trip (Phase-7 PR-4)", () => {
     expect(r1.players.user.battlefield[0].id).toBe(r2.players.user.battlefield[0].id);
   });
 
+  it("round-trips an effect-program payload (high-confidence instant) to byte-identical resolution", () => {
+    const burn = card("Searing Spear", "Instant", "{1}{R}");
+    burn.oracle = "Searing Spear deals 3 damage to any target.";
+    let state = createGameState({ userDeck: [], aiDeck: [] });
+    state = {
+      ...state,
+      phase: "precombat-main", step: "main", priorityHolder: "user", activePlayer: "user",
+      players: {
+        ...state.players,
+        user: { ...state.players.user, hand: [burn], manaPool: { ...state.players.user.manaPool, R: 1, C: 1 } },
+      },
+    };
+    const before = dispatchAction(state, {
+      kind: "cast-spell", playerId: "user", cardId: burn.id, name: "Searing Spear",
+      cost: parseManaCost("{1}{R}"), cmc: 2, targets: [{ type: "player", id: "ai" }],
+    });
+    // The cast emitted a serializable effect-program payload (plain data, no closure).
+    expect(before.stack[0].payload.resolver).toBe("effect-program");
+    expect(containsFunction(before)).toBe(false);
+
+    const after = deserializeState(serializeState(before));
+    expect(after).toEqual(before);
+
+    const r1 = resolveTopOfStack(before);
+    const r2 = resolveTopOfStack(after);
+    expect(r2).toEqual(r1);
+    expect(r1.players.ai.life).toBe(37); // 3 damage to the player resolved through the interpreter
+  });
+
   it("a cast game state contains NO functions anywhere (closure-regression guard)", () => {
     const state = castBearState();
     expect(containsFunction(state)).toBe(false);
