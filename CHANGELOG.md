@@ -8,6 +8,27 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-06-06
+
+### Added
+- **No more silent no-ops — the Academy asks the judge.** When you cast a spell
+  the simulator can't fully model yet, it used to quietly do *nothing* and never
+  tell you. Now it pauses, hands the card to the Arbiter (the local, Ollama-only
+  rules engine) for a verified ruling, and shows it to you as a teaching moment —
+  read the ruling, apply it on your board, then continue. This is the permanent
+  fail-safe the rest of Phase 2 builds on: the engine is allowed to be incomplete,
+  but it's never silently wrong.
+  - Beginner/Intermediate pause on *your own* unmodeled spell (a teaching moment);
+    Expert autopilot and an opponent's unmodeled spell don't block — they're shown
+    in the "Recent actions" feed so you're always told, never left guessing.
+  - Mid-game save/resume carries the pause across a restart, so you don't lose the
+    ruling if you close the app.
+
+### Changed
+- First slice of **Phase 2 (Depth)** of the engine rebuild
+  (`docs/phase7-engine-rebuild.md` §4) — growing how much of a real game the
+  simulator resolves natively, with the Arbiter absorbing the long tail.
+
 ## [0.25.0] - 2026-06-06
 
 ### Added
