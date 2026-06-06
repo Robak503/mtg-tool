@@ -185,8 +185,13 @@ deliberate, enumerated test migrations only at **PR-3** (3 tests) and **PR-11**
 
 > **✅ SHIPPED — v0.23.0 (2026-06-06): PR-0 → PR-4a.** The serializable
 > data-driven stack, deterministic state-threaded ids, and mid-game save/resume
-> are merged to master (PR #147) and released. Suite at 1244. **Next: PR-5..8
-> (triggered abilities), then PR-9..12 (CR 613 layers).**
+> are merged to master (PR #147) and released. Suite at 1244.
+>
+> **✅ SHIPPED — triggered abilities (2026-06-06): PR-5 → PR-8.** `triggers.js`
+> detection/APNAP (#149), ETB triggers (#149), dies triggers from the `dead`
+> look-back (PR-7), step + attack triggers (PR-8). The full ETB/dies/step/attack
+> trigger system fires end-to-end. Suite at 1283. **Next: PR-9..12 (CR 613
+> layers — anthems/lords/pump; extract `ptPrimitive.js` to break the cycle).**
 >
 > **Revised 2026-06-06 after `/plan-eng-review` + outside-voice.** Changes are tagged
 > `[eng-review FN]` and explained in §11. Headline: a minimal save/resume slice

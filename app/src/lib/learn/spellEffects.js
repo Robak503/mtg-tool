@@ -29,6 +29,7 @@ import {
   creaturePower,
   creatureToughness,
 } from "./gameState.js";
+import { checkDiesTriggers } from "./triggers.js";
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
@@ -168,11 +169,17 @@ export function resolveSpellEffect(state, { effect, controller, targets = [] }) 
   }
 
   if (effect.kind === "destroy") {
+    const dead = [];
     for (const t of targets) {
       if (t.type !== "creature") continue;
       const lk = findPermanent(next, t.id);
-      if (lk) next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: t.id });
+      if (lk) {
+        // Capture the look-back BEFORE the move (CR 603.10a), then destroy.
+        dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
+        next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: t.id });
+      }
     }
+    next = checkDiesTriggers(next, dead);
     return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id) });
   }
 
@@ -192,7 +199,8 @@ export function resolveSpellEffect(state, { effect, controller, targets = [] }) 
         else if (t.type === "creature" && findPermanent(next, t.id)) next = markCombatDamage(next, { permanentId: t.id, amount });
       }
     }
-    next = destroyLethalCreatures(next).state;
+    const dmgResult = destroyLethalCreatures(next);
+    next = checkDiesTriggers(dmgResult.state, dmgResult.dead);
     return logEvent(next, { kind: "spell-effect", effect: "damage", controller, amount, targets: targets.map(t => t.id) });
   }
 

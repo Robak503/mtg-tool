@@ -20,6 +20,7 @@ import {
   gainLife,
   drawCards,
   opponentsOf,
+  findPermanent,
   logEvent,
 } from "./gameState.js";
 
@@ -219,6 +220,79 @@ export function triggersForEvent(state, { event, sourcePermanent, triggeringPerm
     out.push(makePendingTrigger(d, sourcePermanent, triggeringPermanent, triggeringContext));
   }
   return out;
+}
+
+/**
+ * Enqueue dies triggers for a batch of creatures that just died (CR 603.6c).
+ * `dead` is destroyLethalCreatures' return — [{ id, controller, name, card }],
+ * the look-back snapshot (CR 603.10a), since the permanents are already in the
+ * graveyard. For each death we fire its own "when this dies" trigger plus every
+ * surviving battlefield watcher ("whenever a creature dies"). Pure — appends to
+ * pendingTriggers and returns new state.
+ *
+ * Phase-1 limitation: simultaneously-dying watchers don't see each other's
+ * deaths (a dead Blood Artist won't drain off another creature that died in the
+ * same batch). The common case — a death + a surviving drain — is covered.
+ */
+export function checkDiesTriggers(state, dead) {
+  if (!dead || !dead.length) return state;
+  let fired = [];
+  for (const d of dead) {
+    if (!d?.card) continue;
+    const lookBack = { id: d.id, controller: d.controller, card: d.card };
+    fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+    for (const pid of Object.keys(state.players)) {
+      for (const watcher of state.players[pid].battlefield) {
+        fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack }));
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * Enqueue step-boundary triggers (CR 603.2b) for the given event ("upkeep" /
+ * "draw" / "endStep"). Scans every battlefield permanent; the descriptor's
+ * `whose:"yours"` gate (applied in triggersForEvent) fires "your upkeep" only on
+ * the controller's own turn while "each upkeep" fires on every turn. Pure.
+ */
+export function checkStepTriggers(state, event) {
+  let fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const perm of state.players[pid].battlefield) {
+      fired = fired.concat(triggersForEvent(state, { event, sourcePermanent: perm }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * Enqueue attack triggers (CR 508.3) for the full declared-attacker batch in
+ * state.combat.attackers: each attacker's own "whenever this attacks" plus every
+ * "whenever a creature you control attacks" watcher the attacking player
+ * controls. Context carries the defenderId. Pure.
+ */
+export function checkAttackTriggers(state) {
+  const attackers = state.combat?.attackers || [];
+  if (!attackers.length) return state;
+  let fired = [];
+  for (const a of attackers) {
+    const lk = findPermanent(state, a.permanentId);
+    if (!lk) continue;
+    const attackerPerm = lk.permanent;
+    const context = { defenderId: a.defender };
+    // self ("this attacks") + the attacker's own "creature you control attacks"
+    fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    // other watchers the attacking player controls
+    for (const watcher of state.players[a.attackingPlayer]?.battlefield || []) {
+      if (watcher.id === attackerPerm.id) continue;
+      fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
 // ─── Intervening-if (CR 603.4) ──────────────────────────────────────────────────

@@ -677,7 +677,10 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
       const tough = creatureToughness(perm, state);
       const dmg = perm.damageMarked || 0;
       if (tough <= 0 || (dmg > 0 && dmg >= tough) || (deathtouched.has(perm.id) && dmg > 0)) {
-        dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature" });
+        // Carry the card as the look-back snapshot (CR 603.10a): by the time
+        // dies-triggers are checked the permanent is already in the graveyard,
+        // so its last-known characteristics must travel with the `dead` entry.
+        dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature", card: perm.card });
       }
     }
   }

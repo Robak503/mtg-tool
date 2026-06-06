@@ -34,6 +34,7 @@ import {
   destroyLethalCreatures,
 } from "./gameState.js";
 import { hasKeyword } from "./keywords.js";
+import { checkDiesTriggers } from "./triggers.js";
 
 function combatHasFirstStrike(state, combat) {
   const ids = [
@@ -187,6 +188,11 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   for (const d of dead) {
     next = logEvent(next, { kind: "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause: "combat" });
   }
+
+  // Fire dies triggers (self + surviving watchers) off the look-back `dead`
+  // snapshot. They land in pendingTriggers; flushTriggers puts them on the stack
+  // at the next priority-grant checkpoint.
+  next = checkDiesTriggers(next, dead);
 
   return next;
 }
