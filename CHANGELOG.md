@@ -8,6 +8,27 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-06-06
+
+### Added
+- **Triggered abilities in The Academy.** Cards that say "when/whenever/at…" now
+  actually do their thing while you play:
+  - **Enters-the-battlefield** triggers (e.g. "When this creature enters, draw a
+    card"; Soul-Warden-style "whenever another creature enters, gain 1 life").
+  - **Dies** triggers (e.g. "when this dies…"; Blood-Artist-style "whenever a
+    creature dies, each opponent loses 1 life") — firing off combat deaths,
+    burn, and removal alike.
+  - **Upkeep / draw / end-step** triggers ("at the beginning of your upkeep,
+    draw a card"), correctly gated to your own turn.
+  - **Attack** triggers ("whenever this attacks…").
+  - The simulator reads the card's actual oracle text; anything it isn't sure how
+    to resolve is handed to the Arbiter rather than guessed. Part of the Phase 7
+    engine rebuild (`docs/phase7-engine-rebuild.md`).
+
+### Changed
+- Triggered abilities are placed on the stack in proper APNAP order (active
+  player first) across all seats, including the 4-player Commander pod.
+
 ## [0.23.0] - 2026-06-06
 
 ### Added
