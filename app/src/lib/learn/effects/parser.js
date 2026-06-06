@@ -51,6 +51,7 @@ function legacyToAtom(effect) {
   if (effect.kind === "damage") return { op: "deal-damage", amount: effect.amount, targetType: effect.targetType };
   if (effect.kind === "destroy") return { op: "destroy", targetType: effect.targetType || "creature" };
   if (effect.kind === "draw") return { op: "draw", amount: effect.amount, targetType: null };
+  if (effect.kind === "pump") return { op: "pump", ptDelta: effect.ptDelta, targetType: effect.targetType || "creature", duration: effect.duration || "endOfTurn" };
   return null;
 }
 

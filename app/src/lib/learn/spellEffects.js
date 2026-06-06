@@ -83,6 +83,16 @@ export function parseSpellEffect(card) {
     return { kind: "draw", amount, targetType: null };
   }
 
+  // Pump: "target creature gets +X/+Y until end of turn" (Giant Growth family).
+  // Anchored to the whole clause so a rider/restriction variant doesn't match here;
+  // the EffectProgram clean-clause gate is the second line of defense. Resolution
+  // is the P2.3 `pump` atom (a CR 613.4c layer-7c effect), not the legacy
+  // resolveSpellEffect (which has no pump branch and is no longer the cast path).
+  m = oracle.match(/target creature gets ([+-]\d+)\/([+-]\d+)\s+until end of turn/i);
+  if (m) {
+    return { kind: "pump", targetType: "creature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, duration: "endOfTurn" };
+  }
+
   return null;
 }
 

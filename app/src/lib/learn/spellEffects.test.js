@@ -46,6 +46,12 @@ describe("parseSpellEffect", () => {
     expect(parseSpellEffect({ type: "Sorcery", oracle: "Draw two cards." })).toEqual({ kind: "draw", amount: 2, targetType: null });
     expect(parseSpellEffect({ type: "Sorcery", oracle: "Draw a card." })).toEqual({ kind: "draw", amount: 1, targetType: null });
   });
+  it("parses pump (+X/+X until end of turn), positive and negative", () => {
+    expect(parseSpellEffect({ type: "Instant", oracle: "Target creature gets +3/+3 until end of turn." }))
+      .toEqual({ kind: "pump", targetType: "creature", ptDelta: { p: 3, t: 3 }, duration: "endOfTurn" });
+    expect(parseSpellEffect({ type: "Instant", oracle: "Target creature gets -1/-1 until end of turn." }))
+      .toEqual({ kind: "pump", targetType: "creature", ptDelta: { p: -1, t: -1 }, duration: "endOfTurn" });
+  });
   it("returns null for permanents and unrecognized spells", () => {
     expect(parseSpellEffect({ type: "Creature — Bear", oracle: "" })).toBeNull();
     expect(parseSpellEffect({ type: "Instant", oracle: "Counter target spell." })).toBeNull();

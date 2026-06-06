@@ -20,6 +20,35 @@ import {
   applyDestroyEffect,
   applyDrawEffect,
 } from "../spellEffects.js";
+import { addContinuousEffect } from "../layers.js";
+import { logEvent } from "../gameState.js";
+
+/**
+ * P2.3 pump — "+X/+X until end of turn" (Giant Growth family). Does NOT mutate
+ * P/T directly: it registers a CR 613.4c (layer 7c) continuous effect into the
+ * layer engine for each targeted creature, with an endOfTurn duration so it wears
+ * off at the cleanup step (CR 514.2 — `expireContinuousEffects`, already wired in
+ * gameEngine). Derived P/T (combat, SBAs, the AI) reads through layers, so the
+ * pump shows up everywhere. The mechanism was built + tested in Phase 1; this
+ * atom just emits the record.
+ */
+function applyPumpEffect(state, atom, ctx) {
+  let next = state;
+  const power = atom.ptDelta?.p || 0;
+  const toughness = atom.ptDelta?.t || 0;
+  for (const target of ctx.targets || []) {
+    if (target.type !== "creature") continue;
+    next = addContinuousEffect(next, {
+      layer: 7,
+      sublayer: "7c",
+      op: { layerOp: "ptModify", power, toughness },
+      affects: { mode: "fixed", permanentIds: [target.id] },
+      duration: { kind: "endOfTurn", turn: next.turn },
+      source: { kind: "resolution", permanentId: null, cardName: ctx.cardName || null },
+    }).state;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "pump", power, toughness, targets: (ctx.targets || []).map(t => t.id) });
+}
 
 export const ATOM_RESOLVERS = Object.freeze({
   "deal-damage": (state, atom, ctx) =>
@@ -28,6 +57,7 @@ export const ATOM_RESOLVERS = Object.freeze({
     applyDestroyEffect(state, { controller: ctx.controller, targets: ctx.targets }),
   "draw": (state, atom, ctx) =>
     applyDrawEffect(state, { controller: ctx.controller, amount: atom.amount }),
+  "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
 });
 
 /**

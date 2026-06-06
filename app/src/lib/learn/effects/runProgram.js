@@ -30,7 +30,7 @@ export function runEffectProgram(state, stackObject) {
   }
 
   let next = state;
-  const ctx = { controller, targets };
+  const ctx = { controller, targets, cardName: stackObject?.source?.name || null };
   for (const atom of program.atoms) {
     const after = resolveAtom(next, atom, ctx);
     if (after == null) {
