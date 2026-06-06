@@ -36,6 +36,7 @@ import {
 } from "./gameState.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
+import { getResolver } from "./resolvers.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -326,7 +327,23 @@ export function resolveTopOfStack(state) {
 
   let next = { ...state, stack: remainingStack };
 
-  if (typeof top.payload?.onResolve === "function") {
+  // Phase-7 data-driven path: payload.resolver -> serializable registry. This is
+  // checked FIRST; the legacy closure branch below is the additive fallback that
+  // production stops using in PR-3 (kept thereafter for tests + the Arbiter
+  // escape valve per D6). No production stack object sets payload.resolver until
+  // PR-3, so existing behavior is byte-identical here.
+  const resolver = getResolver(top.payload?.resolver);
+  if (resolver) {
+    try {
+      next = resolver(next, top) || next;
+    } catch (error) {
+      next = logEvent(next, {
+        kind: "stack-resolve-error",
+        objectId: top.id,
+        error: String(error?.message || error),
+      });
+    }
+  } else if (typeof top.payload?.onResolve === "function") {
     try {
       next = top.payload.onResolve(next, top) || next;
     } catch (error) {
@@ -337,9 +354,8 @@ export function resolveTopOfStack(state) {
       });
     }
   } else {
-    // No explicit resolver — log that we resolved it and move on. The
-    // Arbiter-driven escape hatch lives in legalChoices (PR3) which
-    // surfaces "unresolved" prompts to the user.
+    // No resolver and no closure — log that we resolved it and move on. The
+    // Arbiter-driven escape hatch surfaces "unresolved" prompts to the user.
     next = logEvent(next, {
       kind: "stack-resolve",
       objectId: top.id,
