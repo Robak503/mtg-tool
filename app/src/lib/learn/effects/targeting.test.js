@@ -13,8 +13,8 @@ import { RESOLVER_KEYS } from "../resolvers.js";
 
 beforeEach(() => _resetIdsForTests());
 
-function cr(name, id, controller, { power = 2, toughness = 2 } = {}) {
-  return { id, card: { name, type: "Creature — Bear", power, toughness, oracle: "" }, controller, tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null };
+function cr(name, id, controller, { power = 2, toughness = 2, tapped = false } = {}) {
+  return { id, card: { name, type: "Creature — Bear", power, toughness, oracle: "" }, controller, tapped, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null };
 }
 function freshState(over = {}) {
   const s = createGameState({ userDeck: [], aiDeck: [] });
@@ -59,6 +59,18 @@ describe("expandCastChoices — sequence", () => {
     const state = withBoard([]); // no creatures anywhere
     const program = parseEffectProgram(I("Destroy target creature and draw a card."));
     expect(expandCastChoices(state, "user", program)).toEqual([]);
+  });
+
+  // P2.6 adversarial-review pin: a tapped-RESTRICTED removal that flipped HIGH only
+  // because of a gain-life rider (Eriette's Lullaby) must NOT offer untapped creatures
+  // as legal targets — the restriction has to survive the multi-atom expansion path.
+  it("a tapped-restricted removal in a multi-atom program only offers tapped creatures", () => {
+    const state = withBoard([cr("Tapped", "t1", "ai", { tapped: true }), cr("Untapped", "u1", "ai")]);
+    const program = parseEffectProgram(I("Destroy target tapped creature. You gain 2 life."));
+    const choices = expandCastChoices(state, "user", program);
+    expect(choices).toHaveLength(1);                  // only the tapped creature is legal
+    expect(choices[0].targets.map(t => t.id)).toEqual(["t1"]);
+    expect(choices[0].targets[0].atomIndex).toBe(0);  // bound to the destroy atom, not gain-life
   });
 });
 
