@@ -19,6 +19,7 @@ export const runtime = "nodejs";
 
 import { applyChoice, isComplete } from "../../../../lib/learn/learnSession.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
+import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { getSession, putSession, deleteSession } from "../../../../lib/server/learnSessionStore.js";
 import { autosaveSession, deleteSave } from "../../../../lib/server/learnSaveStore.js";
@@ -81,6 +82,7 @@ export async function POST(request) {
     step: stepped.state.step,
     decisionLogTail: stepped.decisionLog.slice(-5),
     table: tableSnapshot(stepped.state),
+    board: boardSnapshot(stepped.state),
   });
 }
 
