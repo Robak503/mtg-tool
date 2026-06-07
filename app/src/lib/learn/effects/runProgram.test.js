@@ -234,3 +234,16 @@ describe("P2.7 targeted atoms — resolution", () => {
     expect(ogre.counters["+1/+1"]).toBe(1);
   });
 });
+
+describe("P2.6 create-token — resolution", () => {
+  it("puts N token creatures (correct P/T) on the controller's battlefield", () => {
+    const state = freshState();
+    const before = state.players.user.battlefield.length;
+    const out = runEffectProgram(state, stackObj(high([{ op: "create-token", count: 2, power: 2, toughness: 2, descriptor: "green bear" }])));
+    expect(out.players.user.battlefield.length).toBe(before + 2);
+    const tokens = out.players.user.battlefield.filter(p => p.card.token);
+    expect(tokens).toHaveLength(2);
+    expect(tokens[0].card).toMatchObject({ power: 2, toughness: 2, token: true, name: "Bear" });
+    expect(tokens[0].summoningSick).toBe(true);
+  });
+});

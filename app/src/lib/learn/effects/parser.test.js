@@ -260,6 +260,22 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
   });
 });
 
+// P2.6 — CREATE-TOKEN. Single-color creature tokens; a keyword rider / non-creature
+// token / multi-color "and" list (clause-splitter splits "and") stays low.
+describe("parseEffectProgram — create-token (P2.6)", () => {
+  it("recognizes single-color creature tokens (count, P/T)", () => {
+    expect(parseEffectProgram(I("Create a 1/1 white Soldier creature token.")).atoms)
+      .toEqual([{ op: "create-token", count: 1, power: 1, toughness: 1, descriptor: "white soldier", targetType: null }]);
+    expect(parseEffectProgram(I("Create two 2/2 green Bear creature tokens.")).atoms[0])
+      .toMatchObject({ op: "create-token", count: 2, power: 2, toughness: 2 });
+  });
+  it("keeps keyword-rider / non-creature tokens low", () => {
+    expect(programConfidence(parseEffectProgram(I("Create a 1/1 white Soldier creature token with flying.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Create a Treasure token.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Create a 2/2 black Zombie creature token tapped.")))).toBe("low");
+  });
+});
+
 // THE FAIL-SAFE GATE. Every near-miss / unmodeled instant-or-sorcery MUST drop to
 // a low-confidence, ZERO-atom program (→ Arbiter seam). Crucially this includes
 // oracles the LOOSE legacy regexes over-match (e.g. "destroy target creature
@@ -271,7 +287,6 @@ const MUST_DROP_TO_LOW = [
   "Destroy target nonblack creature.",                          // unmodeled COLOR restriction → MUST drop
   "Destroy target artifact.",
   "Destroy all creatures.",
-  "Create a 1/1 white Soldier creature token.",
   "Each player draws a card.",
   "Target player discards a card at random.",
   "Scry 2, then draw a card.",

@@ -21,8 +21,38 @@ import {
   applyDrawEffect,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId } from "../gameState.js";
 import { checkDiesTriggers } from "../triggers.js";
+
+const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
+const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+
+/**
+ * P2.6 create-token (CR 701.7) — put `count` token creatures onto the controller's
+ * battlefield. v1 conservative: tokens enter via createPermanent (correct P/T, owner,
+ * summoning sick) but do NOT fire ETB-watcher triggers yet (an under-model, never a
+ * fabricated effect — the token IS created). Keyword-granting tokens ("…with flying")
+ * stay low at the parser, so we never silently drop a granted ability.
+ */
+function applyCreateToken(state, atom, ctx) {
+  let next = state;
+  const words = String(atom.descriptor || "").split(/\s+/).filter(Boolean);
+  const subtypes = words.filter(w => !TOKEN_COLOR_WORDS.has(w.toLowerCase())).map(cap).join(" ");
+  const type = subtypes ? `Token Creature — ${subtypes}` : "Token Creature";
+  const count = Math.max(1, atom.count || 1);
+  for (let i = 0; i < count; i++) {
+    const minted = mintId(next, "tok");
+    next = minted.state;
+    const card = { id: `tok-${minted.id}`, name: subtypes || "Token", type, power: atom.power, toughness: atom.toughness, oracle: "", token: true };
+    const perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
+    const player = next.players[ctx.controller];
+    next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
+  }
+  // A 0/0 token with no other effect dies immediately (CR 704.5f) — run the lethal SBA.
+  const r = destroyLethalCreatures(next);
+  next = checkDiesTriggers(r.state, r.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "create-token", count, power: atom.power, toughness: atom.toughness, controller: ctx.controller });
+}
 
 // ─── P2.7 atom family (delegate to existing gameState helpers) ────────────────
 
@@ -145,6 +175,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
   "exile": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "exile"),
   "add-counter": applyAddCounter,
+  "create-token": applyCreateToken,
 });
 
 /**

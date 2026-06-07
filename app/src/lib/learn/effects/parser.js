@@ -158,6 +158,11 @@ function parseExtendedAtom(s) {
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
+  // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)". Anchored
+  // to end at "creature token(s)" — a keyword/ability rider ("…with flying", "…that's
+  // tapped") fails the anchor → low, so a granted ability is never silently dropped.
+  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?$/);
+  if (m) return { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power: parseInt(m[2], 10), toughness: parseInt(m[3], 10), descriptor: m[4].trim(), targetType: null };
   return null;
 }
 
