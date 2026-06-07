@@ -30,6 +30,7 @@ const INITIAL_STATE = {
   activePlayer: null,
   step: null,
   table: [],             // per-seat snapshot (life / zone counts / cmd damage)
+  board: null,           // full board view model (hands/permanents/zones/stack) for LearnBoard
   decisionLogTail: [],
   error: null,
 };
@@ -97,6 +98,7 @@ export default function useLearnSession() {
         activePlayer: data.activePlayer,
         step: data.step,
         table: data.table || [],
+        board: data.board || null,
         decisionLogTail: [],
         error: null,
       };
@@ -142,6 +144,7 @@ export default function useLearnSession() {
         activePlayer: data.activePlayer,
         step: data.step,
         table: data.table || prev.table,
+        board: data.board || prev.board,
         decisionLogTail: data.decisionLogTail || [],
         error: null,
       }));
@@ -182,6 +185,7 @@ export default function useLearnSession() {
         activePlayer: data.activePlayer,
         step: data.step,
         table: data.table || prev.table,
+        board: data.board || prev.board,
         decisionLogTail: data.decisionLogTail || [],
         error: null,
       }));
@@ -231,6 +235,7 @@ export default function useLearnSession() {
         activePlayer: data.activePlayer,
         step: data.step,
         table: data.table || [],
+        board: data.board || null,
         decisionLogTail: [],
         error: null,
       };
