@@ -20,18 +20,38 @@ import { markPendingArbiter } from "../pendingArbiter.js";
 import { resolveAtom } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 
+/**
+ * The targets that belong to the atom at `atomIndex`. P2.5 multi-clause / modal /
+ * X programs bind each chosen target to its atom (`ResolvedTarget.atomIndex`), so
+ * clause 0 can target a creature and clause 1 a player. The runner filters by
+ * that tag. Legacy single-atom casts pass UNTAGGED targets (no `atomIndex`) — for
+ * those we apply every target to the atom (the degenerate single-atom case), which
+ * preserves every pre-P2.5 cast path byte-for-byte.
+ */
+function targetsForAtom(targets, atomIndex) {
+  const tagged = targets.some(t => typeof t?.atomIndex === "number");
+  return tagged ? targets.filter(t => t.atomIndex === atomIndex) : targets;
+}
+
 export function runEffectProgram(state, stackObject) {
   const params = stackObject?.payload?.params || {};
-  const { program, controller, targets = [] } = params;
+  const { program, controller, targets = [], xValue = null } = params;
 
   // Low confidence (or absent program) → ZERO atoms, route to the Arbiter seam.
   if (programConfidence(program) === "low") {
     return markPendingArbiter(state, stackObject, "effect-program (low confidence — unmodeled effect)");
   }
 
+  // A modal program resolves only the chosen mode's atoms (frozen at cast time).
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes?.[params.chosenMode]?.atoms || [])
+    : program.atoms;
+
   let next = state;
-  const ctx = { controller, targets, cardName: stackObject?.source?.name || null };
-  for (const atom of program.atoms) {
+  const cardName = stackObject?.source?.name || null;
+  for (let i = 0; i < atoms.length; i++) {
+    const atom = atoms[i];
+    const ctx = { controller, targets: targetsForAtom(targets, i), cardName, xValue };
     const after = resolveAtom(next, atom, ctx);
     if (after == null) {
       // Belt-and-braces: an atom with no resolver. programConfidence should have

@@ -8,6 +8,36 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-06-06
+
+### Fixed
+- **The Academy now plays with real cards.** Decks were reaching the game engine
+  blank — no mana cost, no card type, no rules text — so every spell was castable
+  for free on turn one, nothing was recognized as a creature or land, and none of
+  the spell effects ever fired. Cards are now filled in from the local card index
+  before a game starts, so mana actually gates what you can cast, lands and
+  creatures are recognized, and the whole effect/combat/mana engine (everything
+  built in v0.22–v0.28) finally comes alive in a real game. (Found by playing the
+  game, not by a test — the unit tests build full cards directly.)
+
+### Added
+- **Multi-effect and "choose one" spells work in The Academy.** Spells that do more
+  than one thing now resolve natively: "deal 2 damage to target creature, then draw
+  a card", pump-and-draw cantrips (Defiant Strike), multi-target buffs (Agony Warp,
+  Bounty of Might), and "Choose one —" modal spells (you get one choice per mode,
+  each targeting legally). Each clause targets independently — clause one can hit a
+  creature while clause two draws. Anything with a clause the engine can't model
+  (a counter, lifegain, an exile — coming in later slices) still hands the whole
+  spell to the Arbiter rather than half-resolving it.
+
+### Changed
+- The spell parser graduated from a single-effect matcher to a real multi-atom
+  parser (Phase-2 P2.5). An adversarial pass over all 7,595 real instants/sorceries
+  caught and fixed eight ways the parser could have confidently done the *wrong*
+  thing (qualified mass damage like "each creature without flying", "another target",
+  tiered/bulleted spells, delayed draws, "creature or planeswalker" wrongly allowing
+  a player target, …) — each pinned in the test corpus so it can't come back.
+
 ## [0.28.0] - 2026-06-06
 
 ### Added
