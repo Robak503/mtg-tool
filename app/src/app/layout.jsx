@@ -33,7 +33,11 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable} ${mono.variable}`}>
-      <body>
+      {/* suppressHydrationWarning: browser extensions (Grammarly's data-gr-*, etc.)
+          inject attributes onto <body> before React hydrates, which would otherwise
+          throw a dev-only hydration mismatch. This suppresses only <body>'s own
+          attribute diff (not its children) — the React-recommended fix for this. */}
+      <body suppressHydrationWarning>
         {children}
         {/* Fires the daily price snapshot on launch, regardless of view (#21). */}
         <DailySnapshotTrigger />
