@@ -8,6 +8,28 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-06-07
+
+### Added
+- **More cards play natively in The Academy.** The engine now models a new family of
+  effects directly instead of handing them to the Arbiter: **gain/lose life** ("you gain
+  3 life", "each opponent loses 2 life"), **tap / untap target creature**, **bounce**
+  (return target creature to its owner's hand), **exile target creature**, **+1/+1 and
+  −1/−1 counters**, and **token creation** (go-wide tokens like Raise the Alarm, Hordeling
+  Outburst, Captain's Call). Crucially, this unlocks dozens of common multi-clause spells
+  whose second half used to stall the whole card — Lightning Helix (damage **+ gain
+  life**), Night's Whisper (draw **+ lose life**), Moment of Craving (−2/−2 **+ gain
+  life**), and the like — which now resolve end-to-end.
+
+### Verified
+- Adversarial corpus review: ran the real effect parser over all 7,595 bundled
+  instants/sorceries. Every one of the 73 newly-recognized cards decomposes into
+  faithfully-modeled steps — no card silently drops part of its text, and a
+  targeting restriction (e.g. "destroy target **tapped** creature") is still enforced
+  even when a life-gain rider is what made the card recognizable. Anything outside the
+  modeled shapes (keyword-granting tokens, multicolor tokens, conditional riders) stays
+  routed to the Arbiter rather than guessed at.
+
 ## [0.31.0] - 2026-06-07
 
 ### Added
