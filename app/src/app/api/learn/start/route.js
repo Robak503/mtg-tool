@@ -117,6 +117,7 @@ export async function POST(request) {
     decision: stripDecisionForWire(enrichUnresolvedDecision(advanced.decision, session.state)),
     status: session.status,
     mode: session.mode,
+    difficulty: session.difficulty,
     turn: session.state.turn,
     activePlayer: session.state.activePlayer,
     step: session.state.step,
