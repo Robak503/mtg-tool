@@ -5,14 +5,21 @@
 > product strategy, see **[`docs/master-plan.md`](master-plan.md)**.
 > `CHANGELOG.md` is authoritative for shipped state.
 
-**Last updated:** 2026-06-05 · **Master:** green · **Tests:** ~1091 vitest · **Lint:** 0 warnings.
+**Last updated:** 2026-06-06 · **Master:** green · **Tests:** ~1558 vitest · **Lint:** 0 warnings.
 
 ---
 
 ## TL;DR — current state
 
-- **Latest release: v0.22.0** (signed + auto-updating). The big arc since the
-  old single-user era:
+- **Active workstream: the "Phase 7" engine rebuild, Phase 2 (Depth).** The
+  Academy's rules engine is being grown toward maximal fidelity. **P2.1–P2.4 are
+  shipped (v0.26.0–v0.28.0):** the unresolved→Arbiter seam, the EffectProgram
+  interpreter (`app/src/lib/learn/effects/`), pump wiring, and target
+  restrictions. **The next-session prompt + the full mission (a QA pass, then P2.5
+  multi-clause/modal/X) live in [`docs/handoff-learn-engine.md`](handoff-learn-engine.md)
+  — start there.** Roadmap: [`docs/phase7-engine-rebuild.md`](phase7-engine-rebuild.md) §4.
+- **Latest release: v0.28.0** (signed + auto-updating). The arc since the old
+  single-user era:
   - **v0.20.0 — Aether redesign.** Whole app moved to the cyan / near-black /
     glass "Aether" system (Playfair + Inter + JetBrains Mono, bundled locally).
   - **v0.21.0 — Local multi-user profiles + structure cleanup.** Decks, Vault,
@@ -26,7 +33,8 @@
     (burn / removal / draw with targeting), and termination (win/loss/draw).
     Plays end-to-end 1v1 and 4P Commander at all three difficulties. Plus
     card-art-proxy hardening and a self-healing profiles migration.
-- **`[Unreleased]` is empty** — master == the v0.22.0 release plus docs.
+- **`[Unreleased]`** holds whatever's merged since the last tag — `CHANGELOG.md`
+  is authoritative. Phase-2 slices (P2.5+) land here before the next release bundle.
 - **CI gates both languages:** `ci.yml` (lint + vitest on every PR), `rust.yml`
   (rustfmt + clippy `-D warnings` + cargo-audit), `release.yml` (tag-triggered
   signed build + publish), `sync-spellbook.yml` (weekly). Windows runner pinned
@@ -53,6 +61,15 @@
   opponentAI). Owned by the Academy track — coordinate before editing.
 
 ## How to start the next chat (copy a block)
+
+**› PRIMARY — Phase-2 engine rebuild (QA pass, then P2.5):**
+> The full self-contained ultracode prompt is in
+> [`docs/handoff-learn-engine.md`](handoff-learn-engine.md). It directs a live QA
+> pass on the shipped Academy (P2.1–P2.4) first, then P2.5 (multi-clause + modal +
+> X-spells) with the TDD + adversarial-review + ship process. This is the active
+> workstream.
+
+The items below are still-valid but lower-priority side tracks:
 
 **› Local-first art proxying — finish it (needs the app running):**
 > Route the last card-art surfaces (hover tooltip, right-panel search preview,
