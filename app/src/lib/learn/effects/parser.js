@@ -46,10 +46,35 @@ function isInstantOrSorcery(card) {
 function oracleOf(card) {
   return String(card?.oracle || card?.oracle_text || "");
 }
+function manaOf(card) {
+  return String(card?.mana || card?.mana_cost || "");
+}
+/** Does the card's mana cost carry an {X} pip (Fireball, Blaze, Stroke of Genius…)? */
+function hasXCost(card) {
+  return /\{X\}/i.test(manaOf(card));
+}
 
 /** Strip reminder text in parens + collapse whitespace. */
 function stripReminder(text) {
   return String(text || "").replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * For an {X}-cost spell, rewrite the X in the AMOUNT slot of a modeled clause to a
+ * sentinel "1" so the proven numeric clause parser recognizes the shape; the caller
+ * stamps `amountX` and drops the sentinel. ONLY the amount slot is rewritten — a
+ * power/cardinality X ("power X or less", "X target creatures", "gain X life") is
+ * left intact so it stays unmodeled → low. Returns the rewritten clause, or null
+ * when no amount-X shape matches (so a fixed clause in an X-spell parses numerically).
+ */
+function rewriteAmountX(clause) {
+  const damage = /(deals?\s+)X(\s+damage\b)/i;
+  const draw = /(\bdraw\s+)X(\s+cards?\b)/i;
+  const pump = /(\bgets\s+)\+X\/\+X\b/i;
+  if (damage.test(clause)) return clause.replace(damage, (_, a, b) => `${a}1${b}`);
+  if (draw.test(clause)) return clause.replace(draw, (_, a, b) => `${a}1${b}`);
+  if (pump.test(clause)) return clause.replace(pump, (_, a) => `${a}+1/+1`);
+  return null;
 }
 
 /** Map a legacy effect descriptor to a single EffectProgram atom (or null). */
@@ -116,9 +141,29 @@ function splitClauses(oracle) {
  * (`parseCreatureTargetRestrictions`) models controller/tapped/power; any other
  * qualifier leaves a residue → null. Non-creature atoms must pass `isCleanClause`.
  */
-function parseClauseToAtom(cardType, clause) {
+function parseClauseToAtom(cardType, clause, hasX = false) {
   const s = stripReminder(clause);
   if (!s) return null;
+
+  // X-amount variant (only for an {X}-cost spell). Rewrite the X in the AMOUNT slot
+  // to a sentinel so the numeric clause parse models the shape, then stamp `amountX`
+  // (the resolver substitutes the chosen X via ctx.xValue) and drop the sentinel
+  // amount. A standalone X surviving the rewrite ("power X or less", "X target
+  // creatures") is a non-amount X we don't model → drop to low. A clause with no
+  // amount-X shape falls through to the numeric path (a fixed clause in an X-spell).
+  if (hasX) {
+    const rewritten = rewriteAmountX(s);
+    if (rewritten) {
+      if (/\bX\b/.test(rewritten)) return null;
+      const base = parseClauseToAtom(cardType, rewritten, false);
+      if (!base) return null;
+      const atom = { op: base.op, targetType: base.targetType, amountX: true };
+      if (base.restrictions) atom.restrictions = base.restrictions;
+      if (base.duration) atom.duration = base.duration;
+      return atom;
+    }
+  }
+
   const sub = { type: cardType, oracle: s };
   const atom = legacyToAtom(parseSpellEffect(sub));
   if (!atom || !KNOWN.has(atom.op)) return null;
@@ -153,7 +198,7 @@ const MODAL_RE = /^choose one\s*[—–-]\s*/i;
  * single) clause sequence parsed via `parseClauseToAtom`, so a mode can be
  * multi-clause too.
  */
-function parseModal(cardType, oracle) {
+function parseModal(cardType, oracle, hasX = false) {
   const stripped = stripReminder(oracle);
   const m = stripped.match(MODAL_RE);
   if (!m) return null;
@@ -170,7 +215,7 @@ function parseModal(cardType, oracle) {
     const atoms = [];
     let ok = clauses.length > 0;
     for (const clause of clauses) {
-      const atom = parseClauseToAtom(cardType, clause);
+      const atom = parseClauseToAtom(cardType, clause, hasX);
       if (!atom) { ok = false; break; }
       atoms.push(atom);
     }
@@ -195,13 +240,17 @@ export function parseEffectProgram(card) {
 
   const oracle = oracleOf(card);
   const cardType = typeOf(card);
+  // {X}-cost spell: the parser may stamp `amountX` on a damage/draw/pump atom whose
+  // amount is the chosen X, bound at cast time (CR 601.2b) and read at resolution.
+  const hasX = hasXCost(card);
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).
-  const modal = parseModal(cardType, oracle);
+  const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
     if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)))) {
-      return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, unparsedTail: null });
+      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX));
+      return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
     return makeProgram({ confidence: "low", structure: "modal", atoms: [], modal: null, unparsedTail: oracle });
   }
@@ -219,12 +268,13 @@ export function parseEffectProgram(card) {
   const atoms = [];
   let allParsed = clauses.length > 0;
   for (const clause of clauses) {
-    const atom = parseClauseToAtom(cardType, clause);
+    const atom = parseClauseToAtom(cardType, clause, hasX);
     if (!atom) { allParsed = false; break; }
     atoms.push(atom);
   }
   if (allParsed && atoms.length > 0 && atoms.every(a => KNOWN.has(a.op))) {
-    return makeProgram({ confidence: "high", atoms, unparsedTail: null });
+    const xSpell = atoms.some(a => a.amountX);
+    return makeProgram({ confidence: "high", atoms, xSpell, unparsedTail: null });
   }
 
   // Any clause unmodeled → low confidence, ZERO atoms. Resolution hands the whole

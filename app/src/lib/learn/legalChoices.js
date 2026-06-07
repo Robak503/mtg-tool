@@ -255,6 +255,34 @@ function actionsPlayLand(state, playerId) {
     }));
 }
 
+// Bounds the X choices surfaced for an X-spell (CR 107.3). The mana ceiling already
+// caps it in practice; this is the backstop so a turbo-mana board can't flood the
+// action list (and the UI) with dozens of near-identical casts.
+const X_CHOICE_CAP = 10;
+
+/**
+ * Affordable X values for an {X}-cost spell, as a bounded ascending list [1..maxX].
+ * maxX = total available mana (pool + untapped sources) minus the fixed cost. Each
+ * candidate is verified through the real `canAfford` planner (so colored-pip
+ * constraints are exact, not estimated); since adding +1 generic only ever makes the
+ * cost harder, affordability is monotonic in X — the first failure ends the list.
+ * X=0 is legal but never useful here (a 0 X-spell does nothing), so we start at 1.
+ */
+function affordableXValues(state, playerId, cost) {
+  const player = state.players[playerId];
+  const sources = manaSources(state, playerId);
+  const poolTotal = totalAvailableMana(state, playerId);
+  const sourceTotal = sources.reduce((sum, s) => sum + (s.amount || 1), 0);
+  const ceiling = Math.min(poolTotal + sourceTotal, X_CHOICE_CAP);
+  const out = [];
+  for (let x = 1; x <= ceiling; x++) {
+    const xCost = { ...cost, generic: (cost.generic || 0) + x };
+    if (!canAfford(player.manaPool, sources, xCost)) break; // monotonic in X
+    out.push(x);
+  }
+  return out;
+}
+
 function actionsCastSpell(state, playerId) {
   const player = state.players[playerId];
   const actions = [];
@@ -291,11 +319,54 @@ function actionsCastSpell(state, playerId) {
       program,
     };
 
+    const isHigh = program && programConfidence(program) === "high";
+
+    // X-spell ({X} cost, an `amountX` atom): the player chooses X at cast (CR 601.2b).
+    // Surface a BOUNDED set of affordable X values, each crossed with the program's
+    // legal target combos (expandCastChoices handles per-atom target binding for both
+    // sequence and modal X-spells). Each cast bakes the chosen X into the cost
+    // (generic += X, so payment auto-taps fixed + X) and onto the action (xValue),
+    // which the dispatcher threads into resolution.
+    if (isHigh && program.xSpell) {
+      const xValues = affordableXValues(state, playerId, cost);
+      if (xValues.length === 0) continue;
+      const combos = expandCastChoices(state, playerId, program);
+      if (combos.length === 0) continue;
+      for (const x of xValues) {
+        const xCost = { ...cost, generic: (cost.generic || 0) + x };
+        const xCmc = totalCmc(xCost);
+        // AI safety: parseSpellEffect returns null for the literal "X", so base.effect
+        // is null and pickCastAction would skip its enemy-only target filter. Re-attach
+        // a synthetic legacy effect for a single-atom X-damage program so the AI still
+        // only aims X-burn at enemies (and holds it when there's no good target).
+        let xEffect = base.effect;
+        if (!xEffect && (program.atoms?.length === 1) && program.atoms[0].op === "deal-damage") {
+          xEffect = { kind: "damage", amount: x, targetType: program.atoms[0].targetType };
+        }
+        for (const ch of combos) {
+          actions.push({
+            ...base,
+            cost: xCost,
+            cmc: xCmc,
+            xValue: x,
+            effect: xEffect,
+            targets: ch.targets,
+            chosenMode: ch.chosenMode ?? null,
+            needsTargets: ch.targets.length > 0,
+            targetName: ch.targets.map(t => t.name).filter(Boolean).join(", ") || undefined,
+            modeName: ch.label || undefined,
+            xName: `X=${x}`,
+          });
+        }
+      }
+      continue;
+    }
+
     // P2.5: a HIGH modal or multi-atom program needs per-(mode × atom) target
     // binding the legacy single-effect path can't express — expand it through
     // `expandCastChoices` (each cast carries atomIndex-tagged targets + chosenMode).
     // Single-atom programs keep the proven legacy targeting path below unchanged.
-    const isMultiOrModal = program && programConfidence(program) === "high"
+    const isMultiOrModal = isHigh
       && (program.structure === "modal" || (program.atoms?.length || 0) > 1);
     if (isMultiOrModal) {
       const choices = expandCastChoices(state, playerId, program);

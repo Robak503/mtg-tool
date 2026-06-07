@@ -35,8 +35,11 @@ import { checkDiesTriggers } from "../triggers.js";
  */
 function applyPumpEffect(state, atom, ctx) {
   let next = state;
-  const power = atom.ptDelta?.p || 0;
-  const toughness = atom.ptDelta?.t || 0;
+  // X-pump ("+X/+X until end of turn") binds both pips to the chosen X (ctx.xValue);
+  // a fixed pump reads its printed ptDelta.
+  const x = ctx.xValue || 0;
+  const power = atom.amountX ? x : atom.ptDelta?.p || 0;
+  const toughness = atom.amountX ? x : atom.ptDelta?.t || 0;
   for (const target of ctx.targets || []) {
     if (target.type !== "creature") continue;
     next = addContinuousEffect(next, {
@@ -58,13 +61,17 @@ function applyPumpEffect(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "pump", power, toughness, targets: (ctx.targets || []).map(t => t.id) });
 }
 
+// An X-amount atom (`amountX:true`, set by the parser for an {X}-cost spell) reads
+// the chosen X (ctx.xValue, bound at cast time) instead of a printed numeric amount.
+const effectiveAmount = (atom, ctx) => (atom.amountX ? ctx.xValue || 0 : atom.amount);
+
 export const ATOM_RESOLVERS = Object.freeze({
   "deal-damage": (state, atom, ctx) =>
-    applyDamageEffect(state, { controller: ctx.controller, amount: atom.amount, targetType: atom.targetType, targets: ctx.targets }),
+    applyDamageEffect(state, { controller: ctx.controller, amount: effectiveAmount(atom, ctx), targetType: atom.targetType, targets: ctx.targets }),
   "destroy": (state, atom, ctx) =>
     applyDestroyEffect(state, { controller: ctx.controller, targets: ctx.targets }),
   "draw": (state, atom, ctx) =>
-    applyDrawEffect(state, { controller: ctx.controller, amount: atom.amount }),
+    applyDrawEffect(state, { controller: ctx.controller, amount: effectiveAmount(atom, ctx) }),
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
 });
 

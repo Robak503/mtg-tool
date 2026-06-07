@@ -121,6 +121,94 @@ describe("parseEffectProgram — modal 'Choose one —' (P2.5)", () => {
   });
 });
 
+// P2-X — X SPELLS: an {X}-cost spell whose amount is the chosen X. The parser stamps
+// `amountX` on the damage/draw/pump atom (dropping the numeric amount) and flags
+// `program.xSpell`; the resolver substitutes ctx.xValue. Only triggers when the card's
+// mana cost carries {X} — the literal "X" is otherwise unmodeled → low.
+describe("parseEffectProgram — X spells (cost has {X})", () => {
+  const IX = (oracle, mana = "{X}{R}") => ({ type: "Instant", oracle, mana });
+  const SX = (oracle, mana = "{X}{U}") => ({ type: "Sorcery", oracle, mana });
+
+  it("parses an X-burn (deals X damage to any target) → amountX atom + xSpell, no numeric amount", () => {
+    const p = parseEffectProgram(IX("Blaze deals X damage to any target."));
+    expect(p.confidence).toBe("high");
+    expect(p.xSpell).toBe(true);
+    expect(p.atoms).toEqual([{ op: "deal-damage", targetType: "any", amountX: true }]);
+    expect(p.atoms[0].amount).toBeUndefined();
+  });
+  it("parses draw X cards", () => {
+    const p = parseEffectProgram(SX("Draw X cards."));
+    expect(p.confidence).toBe("high");
+    expect(p.xSpell).toBe(true);
+    expect(p.atoms).toEqual([{ op: "draw", targetType: null, amountX: true }]);
+  });
+  it("parses +X/+X pump (drops ptDelta; resolver reads X)", () => {
+    const p = parseEffectProgram(IX("Target creature gets +X/+X until end of turn.", "{X}{G}"));
+    expect(p.confidence).toBe("high");
+    expect(p.xSpell).toBe(true);
+    expect(p.atoms).toEqual([{ op: "pump", targetType: "creature", duration: "endOfTurn", amountX: true }]);
+    expect(p.atoms[0].ptDelta).toBeUndefined();
+  });
+  it("carries an X-damage restriction (deals X damage to target creature an opponent controls)", () => {
+    const p = parseEffectProgram(IX("Comet deals X damage to target creature an opponent controls."));
+    expect(p.confidence).toBe("high");
+    expect(p.atoms).toEqual([{ op: "deal-damage", targetType: "creature", amountX: true, restrictions: [{ kind: "controller", who: "opponent" }] }]);
+  });
+  it("mixes an X clause with a fixed clause (X-burn a creature, then draw a card)", () => {
+    const p = parseEffectProgram(IX("Blaze deals X damage to target creature. Draw a card."));
+    expect(p.confidence).toBe("high");
+    expect(p.xSpell).toBe(true);
+    expect(p.atoms).toEqual([
+      { op: "deal-damage", targetType: "creature", amountX: true },
+      { op: "draw", amount: 1, targetType: null },
+    ]);
+  });
+  it("does NOT treat X as an amount without an {X} cost (literal X → unmodeled → low)", () => {
+    const p = parseEffectProgram({ type: "Instant", oracle: "Blaze deals X damage to any target.", mana: "{1}{R}" });
+    expect(programConfidence(p)).toBe("low");
+    expect(p.atoms).toHaveLength(0);
+  });
+
+  it("parses a modal X-spell (Invoke the Firemind: Choose one — Draw X / deal X)", () => {
+    const p = parseEffectProgram(IX("Choose one —\n• Draw X cards.\n• Invoke the Firemind deals X damage to any target.", "{X}{U}{U}{R}"));
+    expect(p.confidence).toBe("high");
+    expect(p.structure).toBe("modal");
+    expect(p.xSpell).toBe(true);
+    expect(p.modal.modes.map(m => m.atoms)).toEqual([
+      [{ op: "draw", targetType: null, amountX: true }],
+      [{ op: "deal-damage", targetType: "any", amountX: true }],
+    ]);
+  });
+
+  // Real Scryfall X-spells the adversarial corpus sweep confirmed are legitimately
+  // HIGH — pinned so a future tightening can't over-correct and drop them to low.
+  it.each([
+    ["Blaze deals X damage to any target.", "{X}{R}"],
+    ["Heat Ray deals X damage to target creature.", "{X}{R}"],
+    ["Volcanic Geyser deals X damage to any target.", "{X}{R}{R}"],
+    ["Savage Twister deals X damage to each creature.", "{X}{R}{G}"],          // bare "each creature" mass X
+    ["Draw X cards.", "{X}{U}{U}"],                                            // Mind Spring
+    ["Target creature gets +X/+X until end of turn.", "{X}{G}"],              // Untamed Might
+    ["Buyback {3} (reminder text here)\nFanning the Flames deals X damage to any target.", "{X}{R}{R}"], // Buyback reminder stripped → default cast is the bare burn
+  ])("review-confirmed HIGH (X corpus): %s", (oracle, mana) => {
+    expect(programConfidence(parseEffectProgram(IX(oracle, mana)))).toBe("high");
+  });
+
+  // MUST DROP — near-misses that have an {X} cost but still aren't fully modeled.
+  it.each([
+    "Fireball deals X damage divided evenly, rounded down, among any number of targets.", // "divided" rider
+    "Comet deals X damage to any target. You gain X life.",        // gain-life atom not modeled (P2.7)
+    "Demonfire deals X damage to target creature with power X or less.", // residual non-amount X
+    "Exile the top X cards of your library.",                       // exile/mill not modeled
+    "Draw X cards. You lose X life.",                               // lose-life not modeled
+    "Hydroid deals X damage to each creature your opponents control.", // qualified mass damage (not bare "each creature")
+  ])("MUST drop to low (X near-miss): %s", (oracle) => {
+    const p = parseEffectProgram(IX(oracle));
+    expect(programConfidence(p)).toBe("low");
+    expect(p.atoms).toHaveLength(0);
+  });
+});
+
 describe("parseEffectProgram — null only for non-spells", () => {
   it("returns null for permanents and for cards with no oracle text", () => {
     expect(parseEffectProgram({ type: "Creature — Bear", oracle: "When this enters, draw a card." })).toBeNull();
