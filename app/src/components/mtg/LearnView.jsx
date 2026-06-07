@@ -407,11 +407,14 @@ export default function LearnView({
           <UnresolvedPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onContinue={session.continueGame} />
         </div>
       )}
-      {/* Engine error as a floating banner over the board (never drops to text). */}
-      {session.board && (decision?.kind === "dispatch-error" || decision?.kind === "engine-stuck") && (
+      {/* Engine OR transport error as a floating banner over the board (never drops
+          to text, and never leaves the stale board looking silently interactive). */}
+      {session.board && (session.status === "error" || decision?.kind === "dispatch-error" || decision?.kind === "engine-stuck") && (
         <div style={floatErrorStyle()}>
-          ⚠ {decision.kind === "engine-stuck" ? "The engine got stuck" : "The engine rejected that"}: {decision.reason}
-          {decision.code ? ` (${decision.code})` : ""}. Use “Abandon game” below to start over.
+          ⚠ {session.status === "error"
+            ? (session.error || "Lost the connection to the game.")
+            : `${decision.kind === "engine-stuck" ? "The engine got stuck" : "The engine rejected that"}: ${decision.reason}${decision.code ? ` (${decision.code})` : ""}`}
+          {" — use “Abandon game” below to start over."}
         </div>
       )}
 
@@ -422,14 +425,19 @@ export default function LearnView({
         {session.error && <span style={{ fontSize: 11, color: "#e0a89a" }}>⚠ {session.error}</span>}
       </footer>
 
-      <AskPanel sessionId={session.sessionId} cfg={cfg} colors={colors} fontFamily={fontFamily} />
+      <AskPanel sessionId={session.sessionId} cfg={cfg} colors={colors} fontFamily={fontFamily} avoidSheet={!!session.board && decision?.kind === "unresolved"} />
     </div>
   );
 }
 
 // ─── Ask Jace — real-time, board-aware tutor pop-out ──────────────────────────
 
-function AskPanel({ sessionId, cfg, colors, fontFamily }) {
+function AskPanel({ sessionId, cfg, colors, fontFamily, avoidSheet = false }) {
+  // When the unresolved Arbiter side-sheet (right:16, width:372 → left edge ~388,
+  // z-40) is up, slide the Ask-Jace pop-out clear of it and lift it above the sheet
+  // so the affordance isn't painted behind the ruling card.
+  const dockRight = avoidSheet ? 404 : 18;
+  const dockZ = avoidSheet ? 45 : 20;
   const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -467,7 +475,7 @@ function AskPanel({ sessionId, cfg, colors, fontFamily }) {
         onClick={() => setOpen(true)}
         title="Ask Jace about the board"
         style={{
-          position: "absolute", bottom: 60, right: 18, zIndex: 20,
+          position: "absolute", bottom: 60, right: dockRight, zIndex: dockZ,
           display: "flex", alignItems: "center", gap: 7,
           padding: "9px 14px", borderRadius: 999,
           background: accent, color: "#fff", border: "none", cursor: "pointer",
@@ -482,7 +490,7 @@ function AskPanel({ sessionId, cfg, colors, fontFamily }) {
 
   return (
     <div style={{
-      position: "absolute", bottom: 60, right: 18, zIndex: 20,
+      position: "absolute", bottom: 60, right: dockRight, zIndex: dockZ,
       width: 330, maxWidth: "calc(100% - 36px)", maxHeight: 400,
       display: "flex", flexDirection: "column",
       background: BG2, border: `1px solid ${cfg?.border || LINE}`, borderRadius: 10,

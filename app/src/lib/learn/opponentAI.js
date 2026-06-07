@@ -28,7 +28,7 @@
 import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf } from "./gameState.js";
-import { permanentPower, permanentToughness } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 
 // ─── Cast priority by archetype ──────────────────────────────────────────────
@@ -293,7 +293,15 @@ function chooseDefender(state, aiPlayerId) {
   })[0];
 }
 
-/** Derived P/T of a player's UNTAPPED creatures — the bodies that could block. */
+/** First/double strike on a permanent (layer-aware), guarded against bad ids. */
+function hasFirstStrike(state, permanentId) {
+  try {
+    return permanentHasKeyword(state, permanentId, "First strike") ||
+      permanentHasKeyword(state, permanentId, "Double strike");
+  } catch { return false; }
+}
+
+/** Derived P/T (+ first-strike) of a player's UNTAPPED creatures — its blockers. */
 function untappedDefenderBlockers(state, defenderId) {
   const bf = state.players?.[defenderId]?.battlefield || [];
   return bf
@@ -301,18 +309,28 @@ function untappedDefenderBlockers(state, defenderId) {
     .map(p => ({
       power: Math.max(0, permanentPower(state, p.id)),
       toughness: permanentToughness(state, p.id),
+      firstStrike: hasFirstStrike(state, p.id),
     }));
 }
 
 /**
  * Would this attacker die "for nothing"? True when some untapped blocker can kill
- * it (blocker power ≥ attacker toughness) WITHOUT itself dying (blocker toughness
- * > attacker power). The defender, not the attacker, picks the block — so the
- * existence of one such free-kill blocker is enough to make the swing a bad trade.
- * A competent racer holds these back (unless the whole swing is lethal).
+ * it (blocker power ≥ attacker toughness) without the attacker getting value back.
+ * The defender, not the attacker, picks the block — so one such free-kill blocker
+ * is enough to make the swing a bad trade; a competent racer holds these back
+ * (unless the whole swing is lethal). Cases, given a blocker that CAN kill it:
+ *   - blocker has first/double strike and the attacker doesn't → the attacker dies
+ *     in the first-strike step before it can deal, so it dies for nothing.
+ *   - otherwise (simultaneous damage): only "for nothing" if the blocker survives
+ *     the attacker's hit (blocker toughness > attacker power); an even/ favorable
+ *     trade (attacker power ≥ blocker toughness) is allowed.
  */
-function attackerDiesForNothing(power, toughness, blockers) {
-  return blockers.some(b => b.power >= toughness && b.toughness > power);
+function attackerDiesForNothing(power, toughness, blockers, attackerHasFS = false) {
+  return blockers.some(b => {
+    if (b.power < toughness) return false;            // this blocker can't kill the attacker
+    if (b.firstStrike && !attackerHasFS) return true; // strikes first → attacker never deals back
+    return b.toughness > power;                        // vanilla: blocker outlives the attacker's hit
+  });
 }
 
 /**
@@ -333,8 +351,15 @@ function swingIsLethal(attackerPowers, blockerCount, defenderLife) {
  * defender has no blockers (free damage); otherwise swing only creatures that
  * won't just die for nothing to a free-kill block. Returns null when the board
  * can't be evaluated (no defender / unknown seat), signalling "attack with all".
+ *
+ * Lethality is judged over the FULL swing — attackers already declared THIS combat
+ * (state.combat.attackers, tapped + excluded from the shrinking legal set) PLUS the
+ * still-legal candidates. The driver declares one attacker per tick, so without
+ * folding the committed ones back in, a lethal alpha strike would lose its lethal
+ * status after the first attacker taps and the rest would (correctly, for a
+ * non-lethal swing) be held — fizzling the kill. (Found in adversarial review.)
  */
-function selectProfitableAttackers(state, attackerActions, defenderId) {
+function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderId) {
   if (!defenderId || !state.players?.[defenderId]) return null;
   const blockers = untappedDefenderBlockers(state, defenderId);
   const defenderLife = state.players[defenderId].life ?? 0;
@@ -343,14 +368,20 @@ function selectProfitableAttackers(state, attackerActions, defenderId) {
   const stats = new Map(permIds.map(id => [id, {
     power: Math.max(0, permanentPower(state, id)),
     toughness: permanentToughness(state, id),
+    firstStrike: hasFirstStrike(state, id),
   }]));
 
-  const lethal = swingIsLethal([...stats.values()].map(s => s.power), blockers.length, defenderLife);
+  // Powers of attackers ALREADY committed this combat against this same defender.
+  const committedPowers = (state.combat?.attackers || [])
+    .filter(a => a.attackingPlayer === aiPlayerId && a.defender === defenderId)
+    .map(a => Math.max(0, permanentPower(state, a.permanentId)));
+  const candidatePowers = [...stats.values()].map(s => s.power);
+  const lethal = swingIsLethal([...committedPowers, ...candidatePowers], blockers.length, defenderLife);
 
   const chosen = new Set();
   for (const id of permIds) {
-    const { power, toughness } = stats.get(id);
-    if (lethal || blockers.length === 0 || !attackerDiesForNothing(power, toughness, blockers)) {
+    const { power, toughness, firstStrike } = stats.get(id);
+    if (lethal || blockers.length === 0 || !attackerDiesForNothing(power, toughness, blockers, firstStrike)) {
       chosen.add(id);
     }
   }
@@ -372,7 +403,7 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions) {
   if (!Array.isArray(attackerActions) || attackerActions.length === 0) return [];
   const hasDefenderChoice = attackerActions.some(a => a.defenderId);
   const target = chooseDefender(state, aiPlayerId);
-  const chosen = selectProfitableAttackers(state, attackerActions, target);
+  const chosen = selectProfitableAttackers(state, aiPlayerId, attackerActions, target);
 
   if (!hasDefenderChoice) {
     // Standard: one action per creature, no defenderId. Can't evaluate → swing all.

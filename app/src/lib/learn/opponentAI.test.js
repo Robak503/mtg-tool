@@ -157,17 +157,18 @@ describe("pickAttackPlan", () => {
 });
 
 describe("pickAttackPlan — competent racer profitability", () => {
-  function atkPerm({ id, power, toughness, controller = "ai", tapped = false }) {
+  function atkPerm({ id, power, toughness, controller = "ai", tapped = false, keywords }) {
     return {
-      id, card: { name: id, type: "Creature — Beast", power, toughness },
+      id, card: { name: id, type: "Creature — Beast", power, toughness, ...(keywords ? { keywords } : {}) },
       controller, tapped, summoningSick: false, counters: {}, attachments: [], attachedTo: null,
     };
   }
-  function raceState({ attackers, blockers, defenderLife = 20 }) {
+  function raceState({ attackers, blockers, defenderLife = 20, combat }) {
     const base = createGameState({ userDeck: [], aiDeck: [] });
     return {
       ...base,
       activePlayer: "ai", phase: "combat", step: "declare-attackers", priorityHolder: "ai",
+      ...(combat ? { combat } : {}),
       players: {
         user: { ...base.players.user, life: defenderLife, battlefield: blockers },
         ai: { ...base.players.ai, battlefield: attackers },
@@ -216,6 +217,54 @@ describe("pickAttackPlan — competent racer profitability", () => {
     });
     const plan = pickAttackPlan(state, "ai", [atk("a1")]);
     expect(plan.map(p => p.permanentId)).toEqual(["a1"]);
+  });
+
+  it("holds a vanilla creature back from a FIRST-STRIKE blocker that kills it for free", () => {
+    // 3/3 attacker vs 3/3 first-strike blocker: the blocker strikes first and kills
+    // the attacker before it deals → dies for nothing → hold (not lethal).
+    const state = raceState({
+      attackers: [atkPerm({ id: "vanilla", power: 3, toughness: 3 })],
+      blockers: [atkPerm({ id: "fsWall", power: 3, toughness: 3, controller: "user", keywords: ["First strike"] })],
+    });
+    expect(pickAttackPlan(state, "ai", [atk("vanilla")])).toEqual([]);
+  });
+
+  it("DOES swing a first-strike attacker into an equal first-strike blocker (real trade)", () => {
+    const state = raceState({
+      attackers: [atkPerm({ id: "fsAtk", power: 3, toughness: 3, keywords: ["First strike"] })],
+      blockers: [atkPerm({ id: "fsWall", power: 3, toughness: 3, controller: "user", keywords: ["First strike"] })],
+    });
+    expect(pickAttackPlan(state, "ai", [atk("fsAtk")]).map(p => p.permanentId)).toEqual(["fsAtk"]);
+  });
+
+  it("a bigger creature ignores a first-strike blocker it survives", () => {
+    // 4/4 vs 3/3 first strike: takes 3 (survives), then kills the 3/3 → swing.
+    const state = raceState({
+      attackers: [atkPerm({ id: "big", power: 4, toughness: 4 })],
+      blockers: [atkPerm({ id: "fsWall", power: 3, toughness: 3, controller: "user", keywords: ["First strike"] })],
+    });
+    expect(pickAttackPlan(state, "ai", [atk("big")]).map(p => p.permanentId)).toEqual(["big"]);
+  });
+
+  it("keeps a lethal alpha strike going across the per-tick attacker drain", () => {
+    // The driver declares ONE attacker per tick (it taps + lands in combat.attackers,
+    // shrinking the legal set). Tick 2: a1 is already committed; only a2,a3 are legal.
+    // Lethality must be judged over the FULL team (committed + candidates), or the kill
+    // fizzles. Defender at 2 life behind a single 5/5: 3× 1/1 = exactly lethal.
+    const state = raceState({
+      defenderLife: 2,
+      attackers: [
+        atkPerm({ id: "a1", power: 1, toughness: 1, tapped: true }), // already declared this combat
+        atkPerm({ id: "a2", power: 1, toughness: 1 }),
+        atkPerm({ id: "a3", power: 1, toughness: 1 }),
+      ],
+      blockers: [atkPerm({ id: "fat", power: 5, toughness: 5, controller: "user" })],
+      combat: { attackers: [{ permanentId: "a1", attackingPlayer: "ai", defender: "user" }], blockers: [] },
+    });
+    // Only a2,a3 are still legal (a1 tapped). Without folding a1 back into the lethal
+    // calc they'd each read as "dies for nothing" into the 5/5 and be held → fizzle.
+    const plan = pickAttackPlan(state, "ai", [atk("a2"), atk("a3")]);
+    expect(plan.map(p => p.permanentId).sort()).toEqual(["a2", "a3"]);
   });
 
   it("Commander: focuses the chosen defender and drops unprofitable attackers", () => {
