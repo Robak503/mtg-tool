@@ -100,6 +100,50 @@ describe("runEffectProgram — confidence gate", () => {
   });
 });
 
+describe("runEffectProgram — X spells (amountX reads ctx.xValue)", () => {
+  it("X-burn deals EXACTLY the bound X: X=5 kills a 5-toughness creature", () => {
+    let state = freshState();
+    state = { ...state, players: { ...state.players, ai: { ...state.players.ai, battlefield: [cr("Hydra", "hydra", "ai", { toughness: 5 })] } } };
+    const targets = [{ type: "creature", id: "hydra" }];
+    const obj = { id: "stk-x5", kind: "spell", source: { name: "Blaze", oracle: "" }, controller: "user", targets, cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program: high([{ op: "deal-damage", targetType: "creature", amountX: true }]), controller: "user", targets, xValue: 5 } } };
+    const out = runEffectProgram(state, obj);
+    expect(out.players.ai.graveyard.map(c => c.name)).toEqual(["Hydra"]);
+  });
+
+  it("X-burn deals exactly X and no more: X=2 leaves a 5-toughness creature alive with 2 damage marked", () => {
+    let state = freshState();
+    state = { ...state, players: { ...state.players, ai: { ...state.players.ai, battlefield: [cr("Hydra", "hydra", "ai", { toughness: 5 })] } } };
+    const targets = [{ type: "creature", id: "hydra" }];
+    const obj = { id: "stk-x2", kind: "spell", source: { name: "Blaze", oracle: "" }, controller: "user", targets, cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program: high([{ op: "deal-damage", targetType: "creature", amountX: true }]), controller: "user", targets, xValue: 2 } } };
+    const out = runEffectProgram(state, obj);
+    const hydra = out.players.ai.battlefield.find(p => p.id === "hydra");
+    expect(hydra).toBeTruthy();
+    expect(hydra.damageMarked).toBe(2);
+  });
+
+  it("X-burn to a player loses exactly X life", () => {
+    const state = freshState();
+    const targets = [{ type: "player", id: "ai" }];
+    const obj = { id: "stk-xp", kind: "spell", source: { name: "Fireball", oracle: "" }, controller: "user", targets, cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program: high([{ op: "deal-damage", targetType: "player", amountX: true }]), controller: "user", targets, xValue: 7 } } };
+    const before = state.players.ai.life;
+    const out = runEffectProgram(state, obj);
+    expect(out.players.ai.life).toBe(before - 7);
+  });
+
+  it("X-draw draws exactly X cards", () => {
+    let state = freshState();
+    state = { ...state, players: { ...state.players, user: { ...state.players.user, library: [{ id: "l1", name: "L1" }, { id: "l2", name: "L2" }, { id: "l3", name: "L3" }, { id: "l4", name: "L4" }] } } };
+    const before = state.players.user.hand.length;
+    const obj = stackObj(high([{ op: "draw", targetType: null, amountX: true }]));
+    obj.payload.params.xValue = 3;
+    const out = runEffectProgram(state, obj);
+    expect(out.players.user.hand.length).toBe(before + 3);
+  });
+});
+
 describe("effect-program resolver registration + end-to-end", () => {
   it("is a built-in resolver under the reserved key", () => {
     expect(getResolver(RESOLVER_KEYS.EFFECT_PROGRAM)).toBe(RESOLVERS[RESOLVER_KEYS.EFFECT_PROGRAM]);

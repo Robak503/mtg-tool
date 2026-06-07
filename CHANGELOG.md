@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **X-spells work in The Academy.** Spells whose cost includes `{X}` — Blaze, Fireball-style
+  burn, Mind Spring, Untamed Might (+X/+X) — now resolve natively. When you cast one, you pick
+  X from the values your available mana can actually pay for, the cost auto-taps for the fixed
+  cost plus X, and the spell deals/draws/pumps exactly X. Modal X-spells (Invoke the Firemind)
+  and "deals X damage to each creature" (Savage Twister) work too. An adversarial pass over the
+  whole card corpus confirmed zero spells resolve the *wrong* amount; anything with an unmodeled
+  rider still hands off to the Arbiter rather than guessing.
+
 ## [0.29.0] - 2026-06-06
 
 ### Fixed
