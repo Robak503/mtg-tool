@@ -21,8 +21,31 @@ import {
   applyDrawEffect,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent, destroyLethalCreatures } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf } from "../gameState.js";
 import { checkDiesTriggers } from "../triggers.js";
+
+// ─── P2.7 atom family (delegate to existing gameState helpers) ────────────────
+
+/** "You gain N life" (CR 119.3) — the spell's controller gains life. Non-targeted. */
+function applyGainLife(state, atom, ctx) {
+  const amount = Math.max(0, atom.amount || 0);
+  const next = gainLife(state, { playerId: ctx.controller, amount });
+  return logEvent(next, { kind: "spell-effect", effect: "gain-life", controller: ctx.controller, amount });
+}
+
+/** "You lose N life" / "Each opponent loses N life" (CR 119.3). Non-targeted. */
+function applyLoseLife(state, atom, ctx) {
+  let next = state;
+  const amount = Math.max(0, atom.amount || 0);
+  if (atom.who === "eachOpponent") {
+    for (const opp of opponentsOf(next, ctx.controller)) {
+      if (next.players[opp]) next = loseLife(next, { playerId: opp, amount });
+    }
+  } else {
+    next = loseLife(next, { playerId: ctx.controller, amount });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "lose-life", who: atom.who || "controller", amount });
+}
 
 /**
  * P2.3 pump — "+X/+X until end of turn" (Giant Growth family). Does NOT mutate
@@ -73,6 +96,8 @@ export const ATOM_RESOLVERS = Object.freeze({
   "draw": (state, atom, ctx) =>
     applyDrawEffect(state, { controller: ctx.controller, amount: effectiveAmount(atom, ctx) }),
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
+  "gain-life": applyGainLife,
+  "lose-life": applyLoseLife,
 });
 
 /**

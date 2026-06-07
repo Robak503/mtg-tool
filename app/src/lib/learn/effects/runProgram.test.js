@@ -171,3 +171,33 @@ describe("effect-program resolver registration + end-to-end", () => {
     expect(out.log.some(l => l.kind === "spell-unresolved")).toBe(true);
   });
 });
+
+describe("P2.7 life atoms — resolution", () => {
+  it("gain-life adds to the controller's life", () => {
+    let state = freshState();
+    const before = state.players.user.life;
+    const out = runEffectProgram(state, stackObj(high([{ op: "gain-life", amount: 3 }])));
+    expect(out.players.user.life).toBe(before + 3);
+  });
+  it("lose-life (controller) and each-opponent loss reduce the right players", () => {
+    let state = freshState();
+    const myBefore = state.players.user.life, oppBefore = state.players.ai.life;
+    const out = runEffectProgram(state, stackObj(high([{ op: "lose-life", amount: 2, who: "controller" }])));
+    expect(out.players.user.life).toBe(myBefore - 2);
+    expect(out.players.ai.life).toBe(oppBefore); // controller-only
+
+    const out2 = runEffectProgram(freshState(), stackObj(high([{ op: "lose-life", amount: 4, who: "eachOpponent" }])));
+    expect(out2.players.ai.life).toBe(oppBefore - 4);
+    expect(out2.players.user.life).toBe(myBefore); // the caster doesn't lose
+  });
+  it("a damage+gain-life rider runs BOTH atoms (Lightning Helix)", () => {
+    let state = freshState();
+    state = { ...state, players: { ...state.players, ai: { ...state.players.ai, battlefield: [cr("Ogre", "ogre", "ai", { toughness: 3 })] } } };
+    const myBefore = state.players.user.life;
+    const obj = stackObj(high([{ op: "deal-damage", amount: 3, targetType: "any" }, { op: "gain-life", amount: 3 }]),
+      { targets: [{ type: "creature", id: "ogre" }] });
+    const out = runEffectProgram(state, obj);
+    expect(out.players.ai.graveyard.map(c => c.name)).toEqual(["Ogre"]); // 3 damage killed it
+    expect(out.players.user.life).toBe(myBefore + 3);                    // and we gained 3
+  });
+});

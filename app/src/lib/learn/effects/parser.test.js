@@ -218,6 +218,28 @@ describe("parseEffectProgram — null only for non-spells", () => {
   });
 });
 
+// P2.7 — LIFE atoms (gain-life / lose-life), non-targeted. Anchored ^…$ matchers,
+// so the clause must reduce EXACTLY to the shape. These light up the multi-clause
+// RIDERS that were stuck at low (Lightning Helix, Night's Whisper).
+describe("parseEffectProgram — life atoms (P2.7)", () => {
+  it("recognizes controller gain/lose life and each-opponent life loss", () => {
+    expect(parseEffectProgram(I("You gain 3 life.")).atoms).toEqual([{ op: "gain-life", amount: 3, targetType: null }]);
+    expect(parseEffectProgram(I("You lose 2 life.")).atoms).toEqual([{ op: "lose-life", amount: 2, who: "controller", targetType: null }]);
+    expect(parseEffectProgram(I("Each opponent loses 2 life.")).atoms).toEqual([{ op: "lose-life", amount: 2, who: "eachOpponent", targetType: null }]);
+  });
+  it("FLIPS the multi-clause life riders to high", () => {
+    expect(parseEffectProgram(I("Lightning Helix deals 3 damage to any target and you gain 3 life.")).atoms.map(a => a.op)).toEqual(["deal-damage", "gain-life"]);
+    expect(parseEffectProgram(I("You draw two cards and lose 2 life.")).atoms.map(a => a.op)).toEqual(["draw", "lose-life"]);
+  });
+  it("keeps wrong-subject / dynamic life low (anchored allowlist holds)", () => {
+    // a DIFFERENT player gains/loses, or a dynamic amount — not the bare controller form.
+    expect(programConfidence(parseEffectProgram(I("Target player loses 2 life.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Target player draws two cards and loses 2 life.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("You gain life equal to the number of creatures you control.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("You gain 2 life for each creature you control.")))).toBe("low");
+  });
+});
+
 // THE FAIL-SAFE GATE. Every near-miss / unmodeled instant-or-sorcery MUST drop to
 // a low-confidence, ZERO-atom program (→ Arbiter seam). Crucially this includes
 // oracles the LOOSE legacy regexes over-match (e.g. "destroy target creature
@@ -244,9 +266,7 @@ const MUST_DROP_TO_LOW = [
   // life, counter, discard, a verbless damage fragment, a comma-rider) still drops
   // the WHOLE program (all-or-nothing). These are the false-high vectors P2.2 guarded
   // with a denylist; P2.5 keeps them low because a split clause fails to parse.
-  "Lightning Helix deals 3 damage to any target and you gain 3 life.",   // gain-life atom is P2.7 → low
   "Char deals 4 damage to any target and 2 damage to you.",              // "2 damage to you" has no verb → low
-  "You draw two cards and lose 2 life.",                                 // lose-life atom is P2.7 → low
   "Counter target spell and draw a card.",                               // counter-spell atom is P2.6 → low
   "Destroy target artifact and draw a card.",                            // "destroy target artifact" not modeled → low
   "Deals 2 damage to target creature and 2 damage to target player.",    // 2nd clause verbless → low

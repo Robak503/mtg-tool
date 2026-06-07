@@ -136,6 +136,24 @@ function splitClauses(oracle) {
 }
 
 /**
+ * P2.7 extended atoms — recognized by ANCHORED `^…$` matchers. Anchoring is the
+ * ALLOWLIST discipline: the clause must reduce EXACTLY to the modeled shape, so a
+ * match is clean by construction (any extra/unmodeled text fails the anchor → low).
+ * Currently the NON-TARGETED life atoms; targeted ones (tap/bounce/exile/counters)
+ * land in a later sub-step alongside the targeting wiring.
+ */
+function parseExtendedAtom(s) {
+  const t = s.toLowerCase();
+  let m = t.match(/^(?:you )?gain (\d+) life$/);
+  if (m) return { op: "gain-life", amount: parseInt(m[1], 10), targetType: null };
+  m = t.match(/^(?:you )?lose (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "controller", targetType: null };
+  m = t.match(/^each opponent loses (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  return null;
+}
+
+/**
  * Parse ONE clause into an atom (+ its target restrictions), or null when the
  * clause carries anything we don't model. The creature-target ALLOWLIST
  * (`parseCreatureTargetRestrictions`) models controller/tapped/power; any other
@@ -163,6 +181,10 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       return atom;
     }
   }
+
+  // Extended atoms (anchored ALLOWLIST) before the legacy parse.
+  const ext = parseExtendedAtom(s);
+  if (ext && KNOWN.has(ext.op)) return ext;
 
   const sub = { type: cardType, oracle: s };
   const atom = legacyToAtom(parseSpellEffect(sub));
