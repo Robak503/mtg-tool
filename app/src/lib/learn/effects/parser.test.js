@@ -114,8 +114,8 @@ describe("parseEffectProgram — modal 'Choose one —' (P2.5)", () => {
     expect(p.modal.modes[1].atoms[0].op).toBe("destroy");
   });
   it("ALL-OR-NOTHING across modes: an unmodeled mode forces the whole modal low", () => {
-    // mode 2 ("exile target creature") has no atom yet → whole modal low, zero atoms.
-    const p = parseEffectProgram(I("Choose one —\n• Draw a card.\n• Exile target creature."));
+    // mode 2 ("counter target spell") has no atom yet → whole modal low, zero atoms.
+    const p = parseEffectProgram(I("Choose one —\n• Draw a card.\n• Counter target spell."));
     expect(programConfidence(p)).toBe("low");
     expect(p.atoms).toHaveLength(0);
   });
@@ -240,6 +240,26 @@ describe("parseEffectProgram — life atoms (P2.7)", () => {
   });
 });
 
+// P2.7 — TARGETED atoms (tap / untap / bounce / exile / add-counter) on a bare
+// "target creature". Anchored ^…$ matchers keep them EXACT — any restriction or a
+// non-creature target fails the anchor → low → Arbiter.
+describe("parseEffectProgram — targeted atoms (P2.7)", () => {
+  it("recognizes tap/untap/bounce/exile/counter on target creature", () => {
+    expect(parseEffectProgram(I("Tap target creature.")).atoms).toEqual([{ op: "tap", targetType: "creature" }]);
+    expect(parseEffectProgram(I("Untap target creature.")).atoms).toEqual([{ op: "untap", targetType: "creature" }]);
+    expect(parseEffectProgram(I("Exile target creature.")).atoms).toEqual([{ op: "exile", targetType: "creature" }]);
+    expect(parseEffectProgram(I("Return target creature to its owner's hand.")).atoms).toEqual([{ op: "bounce", targetType: "creature" }]);
+    expect(parseEffectProgram(I("Put a +1/+1 counter on target creature.")).atoms).toEqual([{ op: "add-counter", counterType: "+1/+1", amount: 1, targetType: "creature" }]);
+    expect(parseEffectProgram(I("Put two -1/-1 counters on target creature.")).atoms).toEqual([{ op: "add-counter", counterType: "-1/-1", amount: 2, targetType: "creature" }]);
+  });
+  it("keeps RESTRICTED / non-creature variants low (anchor exact)", () => {
+    expect(programConfidence(parseEffectProgram(I("Exile target creature you control.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Tap target artifact.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Exile target nonland permanent.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Return target nonland permanent to its owner's hand.")))).toBe("low");
+  });
+});
+
 // THE FAIL-SAFE GATE. Every near-miss / unmodeled instant-or-sorcery MUST drop to
 // a low-confidence, ZERO-atom program (→ Arbiter seam). Crucially this includes
 // oracles the LOOSE legacy regexes over-match (e.g. "destroy target creature
@@ -251,17 +271,15 @@ const MUST_DROP_TO_LOW = [
   "Destroy target nonblack creature.",                          // unmodeled COLOR restriction → MUST drop
   "Destroy target artifact.",
   "Destroy all creatures.",
-  "Return target creature to its owner's hand.",
-  "Exile target creature.",
   "Create a 1/1 white Soldier creature token.",
   "Each player draws a card.",
   "Target player discards a card at random.",
   "Scry 2, then draw a card.",
   "Deal damage to target creature equal to the number of Mountains you control.",
   // Modal that should stay low: "choose two" (multi-mode pick deferred), and a
-  // modal with an unmodeled mode (exile not an atom yet).
+  // modal with an unmodeled mode (counter-spell not an atom yet).
   "Choose two —\n• Draw a card.\n• Destroy target creature.",
-  "Choose one —\n• Draw a card.\n• Exile target creature.",
+  "Choose one —\n• Draw a card.\n• Counter target spell.",
   // P2.5 SPLITS on " and " — but a clause whose SECOND half is unmodeled (gain/lose
   // life, counter, discard, a verbless damage fragment, a comma-rider) still drops
   // the WHOLE program (all-or-nothing). These are the false-high vectors P2.2 guarded

@@ -142,14 +142,22 @@ function splitClauses(oracle) {
  * Currently the NON-TARGETED life atoms; targeted ones (tap/bounce/exile/counters)
  * land in a later sub-step alongside the targeting wiring.
  */
+const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 function parseExtendedAtom(s) {
-  const t = s.toLowerCase();
+  const t = s.toLowerCase().replace(/[’]/g, "'"); // normalize curly apostrophe
   let m = t.match(/^(?:you )?gain (\d+) life$/);
   if (m) return { op: "gain-life", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^(?:you )?lose (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "controller", targetType: null };
   m = t.match(/^each opponent loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  // Targeted (single "target creature", no restriction — the anchor keeps it exact).
+  if (/^tap target creature$/.test(t)) return { op: "tap", targetType: "creature" };
+  if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
+  if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
+  if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   return null;
 }
 

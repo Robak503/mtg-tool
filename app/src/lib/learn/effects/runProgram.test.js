@@ -201,3 +201,36 @@ describe("P2.7 life atoms — resolution", () => {
     expect(out.players.user.life).toBe(myBefore + 3);                    // and we gained 3
   });
 });
+
+describe("P2.7 targeted atoms — resolution", () => {
+  const withOgre = (extra = {}) => {
+    const s = freshState();
+    return { ...s, players: { ...s.players, ai: { ...s.players.ai, battlefield: [cr("Ogre", "ogre", "ai", extra)] } } };
+  };
+  const aim = (op, props = {}) => stackObj(high([{ op, targetType: "creature", ...props }]), { targets: [{ type: "creature", id: "ogre" }] });
+
+  it("tap taps the target creature", () => {
+    const out = runEffectProgram(withOgre(), aim("tap"));
+    expect(out.players.ai.battlefield.find(p => p.id === "ogre").tapped).toBe(true);
+  });
+  it("bounce returns the creature to its owner's hand", () => {
+    const out = runEffectProgram(withOgre(), aim("bounce"));
+    expect(out.players.ai.battlefield.find(p => p.id === "ogre")).toBeUndefined();
+    expect(out.players.ai.hand.some(c => c.name === "Ogre")).toBe(true);
+  });
+  it("exile moves the creature to exile, NOT graveyard (no dies trigger)", () => {
+    const out = runEffectProgram(withOgre(), aim("exile"));
+    expect(out.players.ai.exile.some(c => c.name === "Ogre")).toBe(true);
+    expect(out.players.ai.graveyard.some(c => c.name === "Ogre")).toBe(false);
+  });
+  it("a -1/-1 counter dropping toughness to 0 kills the creature (lethal SBA)", () => {
+    const out = runEffectProgram(withOgre({ power: 1, toughness: 1 }), aim("add-counter", { counterType: "-1/-1", amount: 1 }));
+    expect(out.players.ai.graveyard.map(c => c.name)).toEqual(["Ogre"]);
+  });
+  it("a +1/+1 counter buffs the creature and it survives", () => {
+    const out = runEffectProgram(withOgre({ power: 2, toughness: 2 }), aim("add-counter", { counterType: "+1/+1", amount: 1 }));
+    const ogre = out.players.ai.battlefield.find(p => p.id === "ogre");
+    expect(ogre).toBeTruthy();
+    expect(ogre.counters["+1/+1"]).toBe(1);
+  });
+});
