@@ -8,7 +8,22 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
-## [0.30.0] - 2026-06-07
+## [0.31.0] - 2026-06-07
+
+### Added
+- **The Academy is now a clickable board, not a text list.** Instead of reading your
+  options as a numbered list, you see the actual game: your hand fanned at the bottom
+  (toggle it up/down), the battlefield in the center with **real Magic cards** (full
+  frames, art, P/T, tapped sideways, token stacks), your life / commander / commander-tax
+  / library-graveyard-exile piles on the left, and your opponents on the right. Click a
+  playable card to play it, click a target to aim a spell, click any card to enlarge it,
+  and a single **context-aware button** always tells you the next move ("Pass → next
+  phase", "Let it resolve", "End turn"). Click an opponent to spotlight *their* board in
+  the center and inspect it like your own. (Built for Commander 4P; works in 1v1 too.)
+
+### Fixed
+- The commander no longer also appears in your library (it was being added twice).
+
 
 ### Added
 - **X-spells work in The Academy.** Spells whose cost includes `{X}` — Blaze, Fireball-style
