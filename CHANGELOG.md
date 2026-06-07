@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-06-07
+
 ### Added
 - **X-spells work in The Academy.** Spells whose cost includes `{X}` — Blaze, Fireball-style
   burn, Mind Spring, Untamed Might (+X/+X) — now resolve natively. When you cast one, you pick
