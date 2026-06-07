@@ -20,9 +20,12 @@
  */
 
 import { useState } from "react";
+import { reasonToOutcome } from "../../lib/learn/learnOutcome.js";
 
 // Full Magic card image (frame/border/text) — immersion. Cached local-first.
 const ART = (name) => `/api/card-image?name=${encodeURIComponent(name || "")}`;
+const MANA_PIPS = [["W", "#f5f0d8"], ["U", "#a9d2f0"], ["B", "#b9a7c0"], ["R", "#f0a98f"], ["G", "#9fd0a3"], ["C", "#cfd0dd"]];
+const TONE_COLOR = { win: "#85d18a", loss: "#e0a89a", draw: "#d8c98a", neutral: "#c9cad8" };
 const KW_ABBR = { Flying: "FLY", Reach: "RCH", Deathtouch: "DT", Trample: "TR", Vigilance: "VIG", Lifelink: "LL", "First Strike": "FS", "Double Strike": "DS", Menace: "MEN", Haste: "HST", Hexproof: "HEX", Indestructible: "IND" };
 
 /** Group identical permanents (token stacks) into one tile with a count. */
@@ -50,11 +53,14 @@ function progressionLabel(step, stackLen, passOption, options) {
   }
 }
 
-export default function LearnBoard({ board, decision, onAction, logTail = [], turn, step, colors = {} }) {
+export default function LearnBoard({ board, decision, onAction, logTail = [], turn, step, colors = {}, status, difficulty, onNewGame }) {
   const [focusedId, setFocusedId] = useState(null);
   const [handUp, setHandUp] = useState(true);
   const [enlarged, setEnlarged] = useState(null);
   const [targeting, setTargeting] = useState(null); // { card, options }
+  const [manualMana, setManualMana] = useState(difficulty === "beginner"); // Beginner default ON
+  const [manaPick, setManaPick] = useState(null); // dual land color choice: { name, options }
+  const [peek, setPeek] = useState(false);        // game-over "Review board" peek
 
   const GOLD = colors.GOLD || "#c9a14e";
   const players = board?.players || [];
@@ -65,11 +71,33 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   const viewingOpp = !focused.isUser;
   const options = decision?.options || [];
 
+  // Game-over result layered as a scrim ON TOP of the final board (LearnView
+  // floats the unresolved / error overlays). The board stays mounted underneath.
+  const isOver = status === "ended" || decision?.kind === "game-over";
+  const outcome = isOver ? reasonToOutcome(decision?.reason) : null;
+
   const optsForCard = (cardId) => options.filter(o => (o.kind === "cast-spell" || o.kind === "play-land") && o.cardId === cardId);
+  // tap-for-mana options for a permanent id (only present in your own main phase asks).
+  const tapOptsForId = (permId) => options.filter(o => o.kind === "tap-for-mana" && o.permanentId === permId);
+  // For a (possibly stacked) land tile: the first still-untapped member that can produce mana.
+  const tapOptsForTile = (tile) => {
+    for (const id of (tile.ids || [tile.id])) { const o = tapOptsForId(id); if (o.length) return o; }
+    return [];
+  };
+  const manaTapEnabled = manualMana && focused.isUser && options.some(o => o.kind === "tap-for-mana");
   const passOption = options.find(o => o.kind === "pass-priority");
   const stackLen = (board?.stack || []).length;
   const progLabel = progressionLabel(step, stackLen, passOption, options);
   const legalTargetIds = targeting ? new Set(targeting.options.flatMap(o => (o.targets || []).map(t => t.id))) : null;
+
+  const clickLand = (tile) => {
+    if (manaTapEnabled) {
+      const opts = tapOptsForTile(tile);
+      if (opts.length === 1) { onAction(opts[0]); return; }
+      if (opts.length > 1) { setManaPick({ name: tile.name, options: opts }); return; } // dual → pick color
+    }
+    clickPermanent(tile);
+  };
 
   const clickHandCard = (card) => {
     const opts = optsForCard(card.id);
@@ -101,11 +129,31 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
           <button onClick={() => setTargeting(null)}>cancel</button>
         </div>
       )}
+      {manaPick && (
+        <div className="lb-targetbar lb-manabar">Tap <b>{manaPick.name}</b> for which color?
+          {manaPick.options.map((o, i) => (
+            <button key={i} className="lb-manabtn" onClick={() => { onAction(o); setManaPick(null); }}>{o.color}</button>
+          ))}
+          <button onClick={() => setManaPick(null)}>cancel</button>
+        </div>
+      )}
 
       <div className="lb-table">
         {/* LEFT: life / commander / tax / zones */}
         <div className="lb-left">
           <div className="lb-box lb-life"><div className="lb-zl">Life</div><div className="lb-n"><span className="lb-h">♥</span> {me.life}</div></div>
+          {me.manaPool && (
+            <div className="lb-box lb-mana">
+              <div className="lb-zl">Mana Pool</div>
+              <div className="lb-pool">
+                {MANA_PIPS.map(([sym, col]) => {
+                  const n = me.manaPool[sym] || 0;
+                  return <span key={sym} className={`lb-pip ${n ? "on" : ""}`} style={n ? { borderColor: col, color: col } : undefined}>{sym}<b>{n}</b></span>;
+                })}
+              </div>
+              {manaTapEnabled && <div className="lb-manahint">Click a land below to tap it for mana</div>}
+            </div>
+          )}
           <div className="lb-box lb-cmd">
             <div className="lb-zl" style={{ marginBottom: 4 }}>Commander</div>
             {me.command?.[0]
@@ -143,7 +191,9 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             <div className="lb-zl lb-corner">{focused.isUser ? "Your" : `${focused.id}'s`} Lands</div>
             <div className="lb-row">
               {stackPermanents(focused.lands).map(p => (
-                <Land key={p.ids[0]} card={p} count={p.count > 1 ? p.count : null} onClick={() => clickPermanent(p)} />
+                <Land key={p.ids[0]} card={p} count={p.count > 1 ? p.count : null}
+                  manaTap={manaTapEnabled && tapOptsForTile(p).length > 0}
+                  onClick={() => clickLand(p)} />
               ))}
               {!focused.lands.length && <div className="lb-empty">no lands</div>}
             </div>
@@ -201,7 +251,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
         <span className="lb-turn">Turn {turn} · {step}</span>
         <span className="lb-narr">{(decision?.prompt || "").split("\n")[0]}</span>
         <div className="lb-actions">
-          {options.filter(o => o.kind !== "pass-priority").slice(0, 6).map((o, i) => (
+          {options.filter(o => o.kind !== "pass-priority" && o.kind !== "tap-for-mana").slice(0, 6).map((o, i) => (
             <button key={i} className="lb-act" onClick={() => onAction(o)} title={o.kind}>
               {o.kind === "cast-spell" ? `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}`
                 : o.kind === "play-land" ? `Play ${o.name}`
@@ -209,6 +259,12 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             </button>
           ))}
         </div>
+        {me.manaPool && (
+          <button className={`lb-mtoggle ${manualMana ? "on" : ""}`} onClick={() => setManualMana(v => !v)}
+            title="Tap your own lands for mana before casting (teaching aid). Casting still auto-pays any shortfall.">
+            ⛁ Manual mana {manualMana ? "ON" : "OFF"}
+          </button>
+        )}
         {progLabel && <button className="lb-prog" onClick={clickProgress}>{progLabel}</button>}
       </div>
 
@@ -218,6 +274,23 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
           <img className="lb-bigimg" src={ART(enlarged.name)} alt={enlarged.name} onClick={e => e.stopPropagation()} />
           {enlarged.isCreature && enlarged.power != null && <div className="lb-bigpt">{enlarged.power} / {enlarged.toughness}</div>}
         </div>
+      )}
+
+      {/* GAME-OVER scrim — sits ON the final board; "Review board" peeks underneath. */}
+      {isOver && outcome && !peek && (
+        <div className="lb-result">
+          <div className="lb-resultcard">
+            <h2 style={{ color: TONE_COLOR[outcome.tone] || TONE_COLOR.neutral }}>{outcome.title}</h2>
+            <p>{outcome.blurb}</p>
+            <div className="lb-resultbtns">
+              <button className="lb-prog" onClick={() => onNewGame?.()}>New game</button>
+              <button className="lb-rev" onClick={() => setPeek(true)}>Review board ▸</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isOver && outcome && peek && (
+        <button className="lb-showresult" onClick={() => setPeek(false)}>◂ Show result</button>
       )}
     </div>
   );
@@ -238,11 +311,13 @@ function Card({ card, onClick, sel, hand, count, tappable, target }) {
   );
 }
 
-function Land({ card, onClick, count }) {
+function Land({ card, onClick, count, manaTap }) {
   return (
-    <div className={`lb-land ${card.tapped ? "tapped" : ""}`} onClick={onClick} title={card.name}>
+    <div className={`lb-land ${card.tapped ? "tapped" : ""} ${manaTap ? "manatap" : ""}`} onClick={onClick}
+      title={manaTap ? `Tap ${card.name} for mana` : card.name}>
       {count && <div className="lb-cnt sm">×{count}</div>}
       <img className="lb-cimg" src={ART(card.name)} alt={card.name} loading="lazy" />
+      {manaTap && <div className="lb-taphint">tap ⤵</div>}
     </div>
   );
 }
@@ -328,4 +403,24 @@ const LB_CSS = `
 .lb-close{position:absolute;top:18px;right:26px;color:#fff;font-size:24px;cursor:pointer;}
 .lb-bigimg{width:auto;height:80vh;max-height:680px;border-radius:18px;box-shadow:0 24px 70px #000;cursor:default;}
 .lb-bigpt{position:absolute;bottom:9%;left:50%;transform:translateX(-50%);font-size:20px;font-weight:800;color:#fff;background:#000d;border:1px solid var(--gold);border-radius:6px;padding:3px 14px;}
+/* Mana pool widget */
+.lb-mana{text-align:left;} .lb-pool{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.lb-pip{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:800;color:#4a4d62;background:#0e0f17;border:1px solid #272a3c;border-radius:5px;padding:2px 5px;min-width:26px;justify-content:center;}
+.lb-pip b{font-size:11px;} .lb-pip.on{background:#1a1d2e;}
+.lb-manahint{font-size:9px;color:#8a7338;margin-top:6px;line-height:1.3;}
+/* Manual-mana tap affordance on lands */
+.lb-land.manatap{border-color:#8a7338;box-shadow:0 0 0 1px #8a733888;cursor:pointer;} .lb-land.manatap:hover{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold),0 0 12px #c9a14e66;}
+.lb-taphint{position:absolute;left:50%;bottom:3px;transform:translateX(-50%);font-size:8px;font-weight:800;color:#1a1206;background:var(--gold);border-radius:3px;padding:0 4px;white-space:nowrap;}
+.lb-manabar .lb-manabtn{background:#23304a;color:#cfe0ff;border:1px solid #4a6aa0;border-radius:5px;padding:3px 11px;cursor:pointer;font-size:12px;font-weight:800;} .lb-manabar .lb-manabtn:hover{border-color:#8fb4ff;}
+/* Manual-mana toggle in the bottom bar */
+.lb-mtoggle{background:#1d2030;color:#8a8ca0;border:1px solid #383c54;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.lb-mtoggle.on{background:#2a2410;color:var(--gold);border-color:#8a7338;}
+/* Game-over scrim — overlays the final board, never unmounts it */
+.lb-result{position:absolute;inset:0;background:#070810ee;backdrop-filter:blur(2px);z-index:60;display:flex;align-items:center;justify-content:center;}
+.lb-resultcard{text-align:center;max-width:440px;padding:30px 34px;background:linear-gradient(#15182a,#0c0e16);border:1px solid #2a2e44;border-radius:16px;box-shadow:0 24px 70px #000c;}
+.lb-resultcard h2{font-size:30px;margin:0 0 12px;font-weight:800;}
+.lb-resultcard p{font-size:13px;color:#aeb0c4;line-height:1.55;margin:0 0 20px;}
+.lb-resultbtns{display:flex;gap:10px;justify-content:center;}
+.lb-rev{background:#1d2030;color:#d6d7e2;border:1px solid #383c54;border-radius:7px;padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;} .lb-rev:hover{border-color:var(--gold);color:var(--gold);}
+.lb-showresult{position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:61;background:linear-gradient(var(--gold),#a9863b);color:#1a1206;font-weight:800;font-size:12px;border:none;border-radius:7px;padding:7px 16px;cursor:pointer;box-shadow:0 4px 14px #000a;}
 `;

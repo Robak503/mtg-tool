@@ -28,7 +28,7 @@
 import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf } from "./gameState.js";
-import { permanentPower } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 
 // ─── Cast priority by archetype ──────────────────────────────────────────────
@@ -166,10 +166,11 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
 }
 
 /**
- * Pick which creatures to attack with. Default policy: attack with
- * every legal attacker. Defers the "trap detection" enhancement
- * (Intermediate mode flagging "they have untapped mana for a counter")
- * to PR7.
+ * Degenerate fallback: attack with every legal attacker. Used only when the AI
+ * can't evaluate the board (no living/identifiable defender — e.g. a bare test
+ * state). Defaulting to "swing" here is deliberate: never freezing means the
+ * anti-loop latch can't mistake the AI for a stalled game. Real boards go through
+ * the profitability heuristic in `selectProfitableAttackers`.
  */
 function pickAllAttackers(attackerActions) {
   return attackerActions;
@@ -292,25 +293,128 @@ function chooseDefender(state, aiPlayerId) {
   })[0];
 }
 
+/** First/double strike on a permanent (layer-aware), guarded against bad ids. */
+function hasFirstStrike(state, permanentId) {
+  try {
+    return permanentHasKeyword(state, permanentId, "First strike") ||
+      permanentHasKeyword(state, permanentId, "Double strike");
+  } catch { return false; }
+}
+
+/** Derived P/T (+ first-strike) of a player's UNTAPPED creatures — its blockers. */
+function untappedDefenderBlockers(state, defenderId) {
+  const bf = state.players?.[defenderId]?.battlefield || [];
+  return bf
+    .filter(p => String(p.card?.type_line || p.card?.type || "").includes("Creature") && !p.tapped)
+    .map(p => ({
+      power: Math.max(0, permanentPower(state, p.id)),
+      toughness: permanentToughness(state, p.id),
+      firstStrike: hasFirstStrike(state, p.id),
+    }));
+}
+
 /**
- * Batch-decision picker for declare-attackers: returns the array of
- * attacker actions the AI commits to. Engine passes the result to
- * its combat-state tracker.
+ * Would this attacker die "for nothing"? True when some untapped blocker can kill
+ * it (blocker power ≥ attacker toughness) without the attacker getting value back.
+ * The defender, not the attacker, picks the block — so one such free-kill blocker
+ * is enough to make the swing a bad trade; a competent racer holds these back
+ * (unless the whole swing is lethal). Cases, given a blocker that CAN kill it:
+ *   - blocker has first/double strike and the attacker doesn't → the attacker dies
+ *     in the first-strike step before it can deal, so it dies for nothing.
+ *   - otherwise (simultaneous damage): only "for nothing" if the blocker survives
+ *     the attacker's hit (blocker toughness > attacker power); an even/ favorable
+ *     trade (attacker power ≥ blocker toughness) is allowed.
+ */
+function attackerDiesForNothing(power, toughness, blockers, attackerHasFS = false) {
+  return blockers.some(b => {
+    if (b.power < toughness) return false;            // this blocker can't kill the attacker
+    if (b.firstStrike && !attackerHasFS) return true; // strikes first → attacker never deals back
+    return b.toughness > power;                        // vanilla: blocker outlives the attacker's hit
+  });
+}
+
+/**
+ * Is the swing lethal this turn? The defender blocks optimally to minimize face
+ * damage — i.e. it chump-blocks the highest-power attackers — so the unavoidable
+ * damage is the sum of the powers of every attacker beyond the defender's blocker
+ * count. If that meets or exceeds the defender's life, the alpha strike kills.
+ */
+function swingIsLethal(attackerPowers, blockerCount, defenderLife) {
+  if (defenderLife <= 0) return false;
+  const unblocked = [...attackerPowers].sort((a, b) => b - a).slice(blockerCount);
+  return unblocked.reduce((s, p) => s + p, 0) >= defenderLife;
+}
+
+/**
+ * "Competent racer" attack policy: return the SET of attacker permanentIds the AI
+ * should commit against `defenderId`. Swing the whole team when it's lethal or the
+ * defender has no blockers (free damage); otherwise swing only creatures that
+ * won't just die for nothing to a free-kill block. Returns null when the board
+ * can't be evaluated (no defender / unknown seat), signalling "attack with all".
  *
- * Commander: the legal-action set contains one entry per (creature, defender);
- * the AI focuses all its attackers on the single best target (chooseDefender)
- * and emits exactly one action per creature. Standard: the actions carry no
- * defenderId (the dispatcher fills the lone opponent), so this returns the full
- * attacker set unchanged.
+ * Lethality is judged over the FULL swing — attackers already declared THIS combat
+ * (state.combat.attackers, tapped + excluded from the shrinking legal set) PLUS the
+ * still-legal candidates. The driver declares one attacker per tick, so without
+ * folding the committed ones back in, a lethal alpha strike would lose its lethal
+ * status after the first attacker taps and the rest would (correctly, for a
+ * non-lethal swing) be held — fizzling the kill. (Found in adversarial review.)
+ */
+function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderId) {
+  if (!defenderId || !state.players?.[defenderId]) return null;
+  const blockers = untappedDefenderBlockers(state, defenderId);
+  const defenderLife = state.players[defenderId].life ?? 0;
+
+  const permIds = [...new Set(attackerActions.map(a => a.permanentId))];
+  const stats = new Map(permIds.map(id => [id, {
+    power: Math.max(0, permanentPower(state, id)),
+    toughness: permanentToughness(state, id),
+    firstStrike: hasFirstStrike(state, id),
+  }]));
+
+  // Powers of attackers ALREADY committed this combat against this same defender.
+  const committedPowers = (state.combat?.attackers || [])
+    .filter(a => a.attackingPlayer === aiPlayerId && a.defender === defenderId)
+    .map(a => Math.max(0, permanentPower(state, a.permanentId)));
+  const candidatePowers = [...stats.values()].map(s => s.power);
+  const lethal = swingIsLethal([...committedPowers, ...candidatePowers], blockers.length, defenderLife);
+
+  const chosen = new Set();
+  for (const id of permIds) {
+    const { power, toughness, firstStrike } = stats.get(id);
+    if (lethal || blockers.length === 0 || !attackerDiesForNothing(power, toughness, blockers, firstStrike)) {
+      chosen.add(id);
+    }
+  }
+  return chosen;
+}
+
+/**
+ * Batch-decision picker for declare-attackers: returns the array of attacker
+ * actions the AI commits to, after the "competent racer" profitability filter
+ * (alpha-strike when lethal / open; hold back creatures that would die for
+ * nothing). Engine passes the result to its combat-state tracker.
+ *
+ * Commander: the legal-action set has one entry per (creature, defender); the AI
+ * focuses the chosen target (chooseDefender) and emits one action per surviving
+ * attacker. Standard: the actions carry no defenderId (the dispatcher fills the
+ * lone opponent), so this returns the profitable subset.
  */
 export function pickAttackPlan(state, aiPlayerId, attackerActions) {
   if (!Array.isArray(attackerActions) || attackerActions.length === 0) return [];
   const hasDefenderChoice = attackerActions.some(a => a.defenderId);
-  if (!hasDefenderChoice) return pickAllAttackers(attackerActions);
-
   const target = chooseDefender(state, aiPlayerId);
+  const chosen = selectProfitableAttackers(state, aiPlayerId, attackerActions, target);
+
+  if (!hasDefenderChoice) {
+    // Standard: one action per creature, no defenderId. Can't evaluate → swing all.
+    if (chosen === null) return pickAllAttackers(attackerActions);
+    return attackerActions.filter(a => chosen.has(a.permanentId));
+  }
+
+  // Commander: focus the chosen target, one action per attacking creature.
   const byPermanent = new Map();
   for (const a of attackerActions) {
+    if (chosen !== null && !chosen.has(a.permanentId)) continue;
     if (!byPermanent.has(a.permanentId)) byPermanent.set(a.permanentId, []);
     byPermanent.get(a.permanentId).push(a);
   }

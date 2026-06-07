@@ -77,6 +77,7 @@ export async function POST(request) {
     sessionId: stepped.id,
     decision: stripDecisionForWire(enrichUnresolvedDecision(result.decision, stepped.state)),
     status: stepped.status,
+    difficulty: stepped.difficulty,
     turn: stepped.state.turn,
     activePlayer: stepped.state.activePlayer,
     step: stepped.state.step,

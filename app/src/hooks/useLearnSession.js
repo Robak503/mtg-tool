@@ -26,6 +26,7 @@ const INITIAL_STATE = {
   decision: null,
   status: "idle",        // idle → starting → active → ended → error
   mode: null,            // "standard" | "commander"
+  difficulty: null,      // "beginner" | "intermediate" | "expert" (echoed by the routes)
   turn: null,
   activePlayer: null,
   step: null,
@@ -94,6 +95,7 @@ export default function useLearnSession() {
         decision: data.decision,
         status: data.decision?.kind === "game-over" ? "ended" : "active",
         mode: data.mode || mode,
+        difficulty: data.difficulty || difficulty,
         turn: data.turn,
         activePlayer: data.activePlayer,
         step: data.step,
@@ -140,6 +142,7 @@ export default function useLearnSession() {
         ...prev,
         decision: data.decision,
         status: isOver ? "ended" : "active",
+        difficulty: data.difficulty ?? prev.difficulty,
         turn: data.turn,
         activePlayer: data.activePlayer,
         step: data.step,
@@ -181,6 +184,7 @@ export default function useLearnSession() {
         ...prev,
         decision: data.decision,
         status: isOver ? "ended" : "active",
+        difficulty: data.difficulty ?? prev.difficulty,
         turn: data.turn,
         activePlayer: data.activePlayer,
         step: data.step,
@@ -231,6 +235,7 @@ export default function useLearnSession() {
         decision: data.decision,
         status: data.decision?.kind === "game-over" ? "ended" : "active",
         mode: data.mode || null,
+        difficulty: data.difficulty || null,
         turn: data.turn,
         activePlayer: data.activePlayer,
         step: data.step,

@@ -8,6 +8,31 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-06-07
+
+### Changed
+- **The Academy opponent now plays to win.** The AI used to develop a board but
+  rarely close, so games drifted to a turn-limit stalemate. It now follows a
+  "competent racer" policy: it takes free damage when you're open, holds back
+  creatures that would die for nothing (no dumb trades — and it now respects
+  first-strike blockers), and recognizes and commits a lethal alpha strike. It
+  attacks to actually end the game while protecting its own board. This also
+  upgrades the "recommended move" hint you see at Beginner/Intermediate.
+
+### Added
+- **Game over, rulings, and errors now stay on the board instead of kicking you
+  to a text screen.** When a game ends, the result appears as a scrim *over* the
+  final board, with a "Review board" peek to inspect the end state and a "New
+  game" button. A draw or turn-limit stalemate is now correctly labelled
+  "Draw." / "Stalemate." (previously every non-win mislabelled as "You lost.").
+  When a spell needs the Arbiter mid-game, the ruling slides in as a
+  non-blocking side-sheet — the board stays visible and you keep playing.
+- **Manual mana, for learning.** Your mana pool now shows on the board, and in
+  Beginner (or via the "Manual mana" toggle) you can click your lands to tap
+  them for mana and watch the pool fill before you cast. Dual lands ask which
+  colour. Casting still auto-pays whatever you don't tap yourself, so it never
+  gets in the way.
+
 ## [0.32.0] - 2026-06-07
 
 ### Added

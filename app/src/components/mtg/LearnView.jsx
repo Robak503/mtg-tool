@@ -312,35 +312,10 @@ export default function LearnView({
     );
   }
 
-  // ─── Game-over screen ─────────────────────────────────────────────────────
-
-  if (session.status === "ended") {
-    const reason = session.decision?.reason || "game-ended";
-    const youWon = reason === "user-wins";
-    return (
-      <div style={containerStyle(BG, fontFamily)}>
-        <header style={headerStyle(LINE, BG2, GOLD)}>The Academy · Game Over</header>
-        <div style={{ flex: 1, padding: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ textAlign: "center", display: "flex", flexDirection: "column", gap: 12, maxWidth: 480 }}>
-            <h2 style={{ fontSize: 24, color: youWon ? "#85d18a" : "#e0a89a", margin: 0 }}>
-              {youWon ? "You won." : "You lost."}
-            </h2>
-            <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
-              {reasonBlurb(reason)}
-            </p>
-            <button
-              onClick={handleAbandon}
-              style={primaryButtonStyle(cfg, fontFamily)}
-            >
-              New game
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Active game ──────────────────────────────────────────────────────────
+  // ─── Active game (and terminal/hand-off states, as overlays ON the board) ──
+  // The board stays mounted for active, ended, unresolved and error states; the
+  // result scrim / Arbiter side-sheet / error banner layer on TOP of it (GAP C).
+  // The legacy two-column text view is only a fallback when there is no board.
 
   const decision = session.decision;
 
@@ -355,7 +330,7 @@ export default function LearnView({
 
       <TableStrip table={session.table} activePlayer={session.activePlayer} cfg={cfg} colors={colors} />
 
-      {session.board && decision?.kind === "ask" ? (
+      {session.board ? (
         <LearnBoard
           board={session.board}
           decision={decision}
@@ -364,6 +339,9 @@ export default function LearnView({
           turn={session.turn}
           step={session.step}
           colors={colors}
+          status={session.status}
+          difficulty={session.difficulty}
+          onNewGame={handleAbandon}
         />
       ) : (
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -422,6 +400,24 @@ export default function LearnView({
       </div>
       )}
 
+      {/* Unresolved spell → Arbiter ruling as a NON-BLOCKING side-sheet over the
+          board (GAP C). The board behind it stays visible and interactive. */}
+      {session.board && decision?.kind === "unresolved" && (
+        <div style={unresolvedSheetStyle(LINE, BG2)}>
+          <UnresolvedPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onContinue={session.continueGame} />
+        </div>
+      )}
+      {/* Engine OR transport error as a floating banner over the board (never drops
+          to text, and never leaves the stale board looking silently interactive). */}
+      {session.board && (session.status === "error" || decision?.kind === "dispatch-error" || decision?.kind === "engine-stuck") && (
+        <div style={floatErrorStyle()}>
+          ⚠ {session.status === "error"
+            ? (session.error || "Lost the connection to the game.")
+            : `${decision.kind === "engine-stuck" ? "The engine got stuck" : "The engine rejected that"}: ${decision.reason}${decision.code ? ` (${decision.code})` : ""}`}
+          {" — use “Abandon game” below to start over."}
+        </div>
+      )}
+
       <footer style={{ padding: "10px 16px", borderTop: `1px solid ${LINE}`, background: BG2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={handleAbandon} style={{ ...subtleButtonStyle(LINE, MUTED, fontFamily) }}>
           Abandon game
@@ -429,14 +425,19 @@ export default function LearnView({
         {session.error && <span style={{ fontSize: 11, color: "#e0a89a" }}>⚠ {session.error}</span>}
       </footer>
 
-      <AskPanel sessionId={session.sessionId} cfg={cfg} colors={colors} fontFamily={fontFamily} />
+      <AskPanel sessionId={session.sessionId} cfg={cfg} colors={colors} fontFamily={fontFamily} avoidSheet={!!session.board && decision?.kind === "unresolved"} />
     </div>
   );
 }
 
 // ─── Ask Jace — real-time, board-aware tutor pop-out ──────────────────────────
 
-function AskPanel({ sessionId, cfg, colors, fontFamily }) {
+function AskPanel({ sessionId, cfg, colors, fontFamily, avoidSheet = false }) {
+  // When the unresolved Arbiter side-sheet (right:16, width:372 → left edge ~388,
+  // z-40) is up, slide the Ask-Jace pop-out clear of it and lift it above the sheet
+  // so the affordance isn't painted behind the ruling card.
+  const dockRight = avoidSheet ? 404 : 18;
+  const dockZ = avoidSheet ? 45 : 20;
   const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -474,7 +475,7 @@ function AskPanel({ sessionId, cfg, colors, fontFamily }) {
         onClick={() => setOpen(true)}
         title="Ask Jace about the board"
         style={{
-          position: "absolute", bottom: 60, right: 18, zIndex: 20,
+          position: "absolute", bottom: 60, right: dockRight, zIndex: dockZ,
           display: "flex", alignItems: "center", gap: 7,
           padding: "9px 14px", borderRadius: 999,
           background: accent, color: "#fff", border: "none", cursor: "pointer",
@@ -489,7 +490,7 @@ function AskPanel({ sessionId, cfg, colors, fontFamily }) {
 
   return (
     <div style={{
-      position: "absolute", bottom: 60, right: 18, zIndex: 20,
+      position: "absolute", bottom: 60, right: dockRight, zIndex: dockZ,
       width: 330, maxWidth: "calc(100% - 36px)", maxHeight: 400,
       display: "flex", flexDirection: "column",
       background: BG2, border: `1px solid ${cfg?.border || LINE}`, borderRadius: 10,
@@ -815,16 +816,44 @@ function selectStyle(BG2, BG3, LINE, TEXT, fontFamily) {
   };
 }
 
-function primaryButtonStyle(cfg, fontFamily) {
+// Floating Arbiter side-sheet — sits over the right of the board, non-blocking
+// (the board behind stays visible + interactive). Anchored by containerStyle's
+// position:relative.
+function unresolvedSheetStyle(LINE, BG2) {
   return {
-    padding: "10px 18px",
-    background: cfg?.color || "#00dbe7",
-    color: "#00363a",
-    border: "none",
-    borderRadius: 6,
-    fontSize: 14,
-    cursor: "pointer",
-    fontFamily,
+    position: "absolute",
+    top: 70,
+    right: 16,
+    bottom: 64,
+    width: 372,
+    maxWidth: "44%",
+    background: BG2 || "#12131c",
+    border: `1px solid ${LINE || "#272a3c"}`,
+    borderRadius: 12,
+    boxShadow: "0 20px 60px #000a",
+    padding: 16,
+    overflowY: "auto",
+    zIndex: 40,
+  };
+}
+
+// Floating engine-error banner over the board (replaces the old drop-to-text).
+function floatErrorStyle() {
+  return {
+    position: "absolute",
+    top: 70,
+    left: "50%",
+    transform: "translateX(-50%)",
+    maxWidth: 560,
+    background: "#2a1416",
+    border: "1px solid #7a3a3a",
+    color: "#e0a89a",
+    borderRadius: 8,
+    padding: "10px 16px",
+    fontSize: 12.5,
+    lineHeight: 1.5,
+    zIndex: 41,
+    boxShadow: "0 12px 36px #000a",
   };
 }
 
@@ -852,11 +881,3 @@ function errorBoxStyle() {
   };
 }
 
-function reasonBlurb(reason) {
-  switch (reason) {
-    case "user-wins":   return "Opponent's life hit 0 (or commander damage finished them).";
-    case "ai-wins":     return "Your life hit 0 (or commander damage finished you).";
-    case "abandoned":   return "You abandoned the run.";
-    default:            return reason;
-  }
-}
