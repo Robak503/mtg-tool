@@ -55,6 +55,49 @@ describe("runEffectProgram — confidence gate", () => {
     expect(out.players.user.hand.length).toBe(before + 2);
     expect(out.pendingArbiter).toBeUndefined();
   });
+
+  it("P2.5 multi-clause: damages a creature AND draws a card in one resolution", () => {
+    let state = freshState();
+    state = {
+      ...state,
+      players: {
+        ...state.players,
+        user: { ...state.players.user, library: [{ id: "l1", name: "L1" }] },
+        ai: { ...state.players.ai, battlefield: [cr("Ogre", "ogre", "ai", { toughness: 2 })] },
+      },
+    };
+    const before = state.players.user.hand.length;
+    // "Deal 2 damage to target creature. Draw a card." — untagged single target (legacy
+    // path) applies to the only targeting atom; the draw atom ignores it.
+    const obj = stackObj(high([{ op: "deal-damage", amount: 2, targetType: "creature" }, { op: "draw", amount: 1 }]),
+      { targets: [{ type: "creature", id: "ogre" }] });
+    const out = runEffectProgram(state, obj);
+    expect(out.players.ai.graveyard.map(c => c.name)).toEqual(["Ogre"]); // creature died
+    expect(out.players.user.hand.length).toBe(before + 1);               // and we drew
+    expect(out.pendingArbiter).toBeUndefined();
+  });
+
+  it("P2.5 atomIndex binding: each atom only sees its OWN tagged targets", () => {
+    let state = freshState();
+    state = {
+      ...state,
+      players: {
+        ...state.players,
+        ai: { ...state.players.ai, battlefield: [cr("A", "a1", "ai", { toughness: 2 }), cr("B", "b1", "ai", { toughness: 2 })] },
+      },
+    };
+    // Two damage atoms, each bound to a DIFFERENT creature via atomIndex. Atom 0 → a1,
+    // atom 1 → b1. Both die; neither atom touches the other's target.
+    const program = high([
+      { op: "deal-damage", amount: 2, targetType: "creature" },
+      { op: "deal-damage", amount: 2, targetType: "creature" },
+    ]);
+    const targets = [{ atomIndex: 0, type: "creature", id: "a1" }, { atomIndex: 1, type: "creature", id: "b1" }];
+    const obj = { id: "stk-x", kind: "spell", source: { name: "Twin Bolt", oracle: "" }, controller: "user", targets, cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: "user", targets } } };
+    const out = runEffectProgram(state, obj);
+    expect(out.players.ai.graveyard.map(c => c.name).sort()).toEqual(["A", "B"]);
+  });
 });
 
 describe("effect-program resolver registration + end-to-end", () => {

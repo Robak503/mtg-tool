@@ -236,7 +236,12 @@ function applyCastSpell(state, action) {
 
   let payload;
   if (program) {
-    payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: action.playerId, targets, cardId: card.id } };
+    // P2.5: thread the cast-time choices (chosenMode for modal, xValue for X-spells)
+    // frozen onto the action so resolution is deterministic + serializable.
+    const params = { program, controller: action.playerId, targets, cardId: card.id };
+    if (action.chosenMode != null) params.chosenMode = action.chosenMode;
+    if (action.xValue != null) params.xValue = action.xValue;
+    payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
   } else if (isPermanentSpell(card)) {
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params: { card, controller: action.playerId } };
   } else {

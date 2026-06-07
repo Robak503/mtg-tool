@@ -34,7 +34,8 @@ import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword } from "./layers.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions } from "./spellEffects.js";
-import { parseEffectProgram } from "./effects/parser.js";
+import { parseEffectProgram, programConfidence } from "./effects/parser.js";
+import { expandCastChoices } from "./effects/targeting.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -275,6 +276,7 @@ function actionsCastSpell(state, playerId) {
     if (!affordable) continue;
 
     const effect = parseSpellEffect(card);
+    const program = parseEffectProgram(card);
     const base = {
       kind: "cast-spell",
       playerId,
@@ -284,10 +286,32 @@ function actionsCastSpell(state, playerId) {
       cmc: totalCmc(cost),
       effect: effect || null,
       // P2.2: the serializable EffectProgram the dispatcher resolves through the
-      // `effect-program` interpreter. `effect` stays for targeting + AI scoring
-      // (unchanged) until those move to the program in a later PR.
-      program: parseEffectProgram(card),
+      // `effect-program` interpreter. `effect` stays for AI scoring of the legacy
+      // single-effect shapes.
+      program,
     };
+
+    // P2.5: a HIGH modal or multi-atom program needs per-(mode × atom) target
+    // binding the legacy single-effect path can't express — expand it through
+    // `expandCastChoices` (each cast carries atomIndex-tagged targets + chosenMode).
+    // Single-atom programs keep the proven legacy targeting path below unchanged.
+    const isMultiOrModal = program && programConfidence(program) === "high"
+      && (program.structure === "modal" || (program.atoms?.length || 0) > 1);
+    if (isMultiOrModal) {
+      const choices = expandCastChoices(state, playerId, program);
+      if (choices.length === 0) continue; // no legal cast (a required target is missing)
+      for (const ch of choices) {
+        actions.push({
+          ...base,
+          targets: ch.targets,
+          chosenMode: ch.chosenMode ?? null,
+          needsTargets: ch.targets.length > 0,
+          targetName: ch.targets.map(t => t.name).filter(Boolean).join(", ") || undefined,
+          modeName: ch.label || undefined,
+        });
+      }
+      continue;
+    }
 
     if (effectNeedsTarget(effect)) {
       // Targeted spell: one cast action per legal target (the action-expansion

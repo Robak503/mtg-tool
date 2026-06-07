@@ -59,11 +59,25 @@ export function parseSpellEffect(card) {
   let m = oracle.match(/deals?\s+(\d+)\s+damage\s+to\s+([^.]+)/i);
   if (m) {
     const amount = parseInt(m[1], 10);
-    const tgt = m[2].toLowerCase();
-    if (/each opponent/.test(tgt)) return { kind: "damage", amount, targetType: "eachOpponent" };
-    if (/each creature/.test(tgt)) return { kind: "damage", amount, targetType: "eachCreature" };
+    const tgt = m[2].toLowerCase().trim();
+    // Mass damage is modeled ONLY for the BARE form — "each opponent" / "each
+    // creature" with no trailing qualifier. A qualifier ("each creature WITHOUT
+    // flying", "each creature your opponents control", "each creature with shadow")
+    // changes WHICH creatures are hit, which eachCreature would ignore (damaging
+    // all). Anything qualified falls through to null → the EffectProgram rates it
+    // low → Arbiter, rather than hitting the wrong set of creatures.
+    if (/^each opponent('s)?$/.test(tgt)) return { kind: "damage", amount, targetType: "eachOpponent" };
+    if (/^each creature$/.test(tgt)) return { kind: "damage", amount, targetType: "eachCreature" };
+    // Any OTHER "each …" is mass damage to a subset we don't model — bail before the
+    // single-target branches, so e.g. "each creature target opponent controls" can't
+    // mis-match the "target opponent" → player-damage branch below.
+    if (/\beach\b/.test(tgt)) return null;
     if (/any target/.test(tgt)) return { kind: "damage", amount, targetType: "any" };
-    if (/target creature or (player|planeswalker)/.test(tgt)) return { kind: "damage", amount, targetType: "any" };
+    // "creature or PLAYER" is any (creature+player). "creature or PLANESWALKER" is
+    // NOT — it excludes players; since we don't model planeswalkers, offer creatures
+    // ONLY (mapping it to "any" would let a creature-or-pw burn illegally hit a player).
+    if (/target creature or player\b/.test(tgt)) return { kind: "damage", amount, targetType: "any" };
+    if (/target creature or planeswalker\b/.test(tgt)) return { kind: "damage", amount, targetType: "creature" };
     if (/target (player|opponent)/.test(tgt)) return { kind: "damage", amount, targetType: "player" };
     if (/target[^,]*creature/.test(tgt)) return { kind: "damage", amount, targetType: "creature" };
     return null; // unrecognized damage target
