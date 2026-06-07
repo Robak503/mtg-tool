@@ -40,6 +40,7 @@ import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
 import { putSession } from "../../../../lib/server/learnSessionStore.js";
 import { autosaveSession } from "../../../../lib/server/learnSaveStore.js";
+import { enrichDeck, enrichDecks } from "../../../../lib/server/learnDeckEnrich.js";
 
 export async function POST(request) {
   let body;
@@ -62,14 +63,21 @@ export async function POST(request) {
     return Response.json({ error: "opponentDeck is required and must be a non-empty array." }, { status: 400 });
   }
 
+  // Enrich every deck card from the LOCAL oracle index before the engine sees it.
+  // The client (LearnView.deckToCardArray) can only send `{ id, name }` — the deck
+  // store has no type/mana/oracle — so without this the engine plays with BLANK
+  // cards (no mana cost, no type, no effect). Local-first: index via paths.js, no
+  // network. Unknown names stay blank (honest noop/Arbiter, never fabricated).
   let session;
   try {
     session = createLearnSession({
-      userDeck: body.userDeck,
-      opponentDeck: body.opponentDeck,
-      opponentDecks: body.opponentDecks || null,
-      userCommanders: body.userCommanders || [],
-      opponentCommanders: body.opponentCommanders || [],
+      userDeck: enrichDeck(body.userDeck),
+      opponentDeck: enrichDeck(body.opponentDeck),
+      opponentDecks: body.opponentDecks ? enrichDecks(body.opponentDecks) : null,
+      userCommanders: enrichDeck(body.userCommanders || []),
+      opponentCommanders: mode === "commander"
+        ? enrichDecks(body.opponentCommanders || [])
+        : enrichDeck(body.opponentCommanders || []),
       difficulty: body.difficulty || "beginner",
       activePlayer: body.activePlayer || "user",
       mode,
