@@ -24,6 +24,7 @@
 
 import { useEffect, useState } from "react";
 import useLearnSession from "../../hooks/useLearnSession";
+import LearnBoard from "./LearnBoard";
 import StabilityBadge from "./StabilityBadge";
 import { fetchArbiterTrace } from "../../lib/arbiterUtils";
 
@@ -54,7 +55,7 @@ function deckToCardArray(deck) {
   if (!deck?.cards) return [];
   const out = [];
   for (const entry of deck.cards) {
-    if (entry.section === "Sideboard" || entry.section === "Tokens") continue;
+    if (entry.section === "Sideboard" || entry.section === "Tokens" || entry.section === "Commander") continue;
     for (let i = 0; i < (entry.qty || 1); i++) {
       out.push({
         id: `${deck.id || "deck"}-${entry.name}-${i}`,
@@ -354,6 +355,17 @@ export default function LearnView({
 
       <TableStrip table={session.table} activePlayer={session.activePlayer} cfg={cfg} colors={colors} />
 
+      {session.board && decision?.kind === "ask" ? (
+        <LearnBoard
+          board={session.board}
+          decision={decision}
+          onAction={session.applyChoice}
+          logTail={session.decisionLogTail}
+          turn={session.turn}
+          step={session.step}
+          colors={colors}
+        />
+      ) : (
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* Decision area */}
         <main style={{ flex: 2, padding: 20, overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -408,6 +420,7 @@ export default function LearnView({
           )}
         </aside>
       </div>
+      )}
 
       <footer style={{ padding: "10px 16px", borderTop: `1px solid ${LINE}`, background: BG2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <button onClick={handleAbandon} style={{ ...subtleButtonStyle(LINE, MUTED, fontFamily) }}>
