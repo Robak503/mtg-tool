@@ -366,9 +366,15 @@ function actionsCastSpell(state, playerId) {
     // binding the legacy single-effect path can't express — expand it through
     // `expandCastChoices` (each cast carries atomIndex-tagged targets + chosenMode).
     // Single-atom programs keep the proven legacy targeting path below unchanged.
+    const atomNeedsTarget = (a) => !!a && !!a.targetType && !["eachOpponent", "eachCreature"].includes(a.targetType);
+    // A single-atom program whose target the legacy `effect` can't express — the P2.7
+    // extended atoms (tap/untap/bounce/exile/add-counter) — also routes through
+    // expandCastChoices so its creature target is enumerated + bound.
+    const isExtendedTargeted = isHigh && (program.atoms?.length || 0) === 1
+      && atomNeedsTarget(program.atoms[0]) && !effectNeedsTarget(effect);
     const isMultiOrModal = isHigh
       && (program.structure === "modal" || (program.atoms?.length || 0) > 1);
-    if (isMultiOrModal) {
+    if (isMultiOrModal || isExtendedTargeted) {
       const choices = expandCastChoices(state, playerId, program);
       if (choices.length === 0) continue; // no legal cast (a required target is missing)
       for (const ch of choices) {

@@ -171,3 +171,79 @@ describe("effect-program resolver registration + end-to-end", () => {
     expect(out.log.some(l => l.kind === "spell-unresolved")).toBe(true);
   });
 });
+
+describe("P2.7 life atoms — resolution", () => {
+  it("gain-life adds to the controller's life", () => {
+    let state = freshState();
+    const before = state.players.user.life;
+    const out = runEffectProgram(state, stackObj(high([{ op: "gain-life", amount: 3 }])));
+    expect(out.players.user.life).toBe(before + 3);
+  });
+  it("lose-life (controller) and each-opponent loss reduce the right players", () => {
+    let state = freshState();
+    const myBefore = state.players.user.life, oppBefore = state.players.ai.life;
+    const out = runEffectProgram(state, stackObj(high([{ op: "lose-life", amount: 2, who: "controller" }])));
+    expect(out.players.user.life).toBe(myBefore - 2);
+    expect(out.players.ai.life).toBe(oppBefore); // controller-only
+
+    const out2 = runEffectProgram(freshState(), stackObj(high([{ op: "lose-life", amount: 4, who: "eachOpponent" }])));
+    expect(out2.players.ai.life).toBe(oppBefore - 4);
+    expect(out2.players.user.life).toBe(myBefore); // the caster doesn't lose
+  });
+  it("a damage+gain-life rider runs BOTH atoms (Lightning Helix)", () => {
+    let state = freshState();
+    state = { ...state, players: { ...state.players, ai: { ...state.players.ai, battlefield: [cr("Ogre", "ogre", "ai", { toughness: 3 })] } } };
+    const myBefore = state.players.user.life;
+    const obj = stackObj(high([{ op: "deal-damage", amount: 3, targetType: "any" }, { op: "gain-life", amount: 3 }]),
+      { targets: [{ type: "creature", id: "ogre" }] });
+    const out = runEffectProgram(state, obj);
+    expect(out.players.ai.graveyard.map(c => c.name)).toEqual(["Ogre"]); // 3 damage killed it
+    expect(out.players.user.life).toBe(myBefore + 3);                    // and we gained 3
+  });
+});
+
+describe("P2.7 targeted atoms — resolution", () => {
+  const withOgre = (extra = {}) => {
+    const s = freshState();
+    return { ...s, players: { ...s.players, ai: { ...s.players.ai, battlefield: [cr("Ogre", "ogre", "ai", extra)] } } };
+  };
+  const aim = (op, props = {}) => stackObj(high([{ op, targetType: "creature", ...props }]), { targets: [{ type: "creature", id: "ogre" }] });
+
+  it("tap taps the target creature", () => {
+    const out = runEffectProgram(withOgre(), aim("tap"));
+    expect(out.players.ai.battlefield.find(p => p.id === "ogre").tapped).toBe(true);
+  });
+  it("bounce returns the creature to its owner's hand", () => {
+    const out = runEffectProgram(withOgre(), aim("bounce"));
+    expect(out.players.ai.battlefield.find(p => p.id === "ogre")).toBeUndefined();
+    expect(out.players.ai.hand.some(c => c.name === "Ogre")).toBe(true);
+  });
+  it("exile moves the creature to exile, NOT graveyard (no dies trigger)", () => {
+    const out = runEffectProgram(withOgre(), aim("exile"));
+    expect(out.players.ai.exile.some(c => c.name === "Ogre")).toBe(true);
+    expect(out.players.ai.graveyard.some(c => c.name === "Ogre")).toBe(false);
+  });
+  it("a -1/-1 counter dropping toughness to 0 kills the creature (lethal SBA)", () => {
+    const out = runEffectProgram(withOgre({ power: 1, toughness: 1 }), aim("add-counter", { counterType: "-1/-1", amount: 1 }));
+    expect(out.players.ai.graveyard.map(c => c.name)).toEqual(["Ogre"]);
+  });
+  it("a +1/+1 counter buffs the creature and it survives", () => {
+    const out = runEffectProgram(withOgre({ power: 2, toughness: 2 }), aim("add-counter", { counterType: "+1/+1", amount: 1 }));
+    const ogre = out.players.ai.battlefield.find(p => p.id === "ogre");
+    expect(ogre).toBeTruthy();
+    expect(ogre.counters["+1/+1"]).toBe(1);
+  });
+});
+
+describe("P2.6 create-token — resolution", () => {
+  it("puts N token creatures (correct P/T) on the controller's battlefield", () => {
+    const state = freshState();
+    const before = state.players.user.battlefield.length;
+    const out = runEffectProgram(state, stackObj(high([{ op: "create-token", count: 2, power: 2, toughness: 2, descriptor: "green bear" }])));
+    expect(out.players.user.battlefield.length).toBe(before + 2);
+    const tokens = out.players.user.battlefield.filter(p => p.card.token);
+    expect(tokens).toHaveLength(2);
+    expect(tokens[0].card).toMatchObject({ power: 2, toughness: 2, token: true, name: "Bear" });
+    expect(tokens[0].summoningSick).toBe(true);
+  });
+});

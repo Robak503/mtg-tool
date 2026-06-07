@@ -82,6 +82,8 @@ app/data/collection-prices.compact.jsonl
 app/data/collection-roasts.json
 app/data/collection.broken-*.json
 app/data/art-crops/
+# Full-card image proxy cache (/api/card-image — regenerable from Scryfall)
+app/data/card-images/
 
 # Embedded repos (Forge clone and RulesGuru repo — not submodules)
 knowledge/mtg-judge/data/forge/

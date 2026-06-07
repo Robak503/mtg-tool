@@ -21,8 +21,103 @@ import {
   applyDrawEffect,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent, destroyLethalCreatures } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId } from "../gameState.js";
 import { checkDiesTriggers } from "../triggers.js";
+
+const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
+const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+
+/**
+ * P2.6 create-token (CR 701.7) — put `count` token creatures onto the controller's
+ * battlefield. v1 conservative: tokens enter via createPermanent (correct P/T, owner,
+ * summoning sick) but do NOT fire ETB-watcher triggers yet (an under-model, never a
+ * fabricated effect — the token IS created). Keyword-granting tokens ("…with flying")
+ * stay low at the parser, so we never silently drop a granted ability.
+ */
+function applyCreateToken(state, atom, ctx) {
+  let next = state;
+  const words = String(atom.descriptor || "").split(/\s+/).filter(Boolean);
+  const subtypes = words.filter(w => !TOKEN_COLOR_WORDS.has(w.toLowerCase())).map(cap).join(" ");
+  const type = subtypes ? `Token Creature — ${subtypes}` : "Token Creature";
+  const count = Math.max(1, atom.count || 1);
+  for (let i = 0; i < count; i++) {
+    const minted = mintId(next, "tok");
+    next = minted.state;
+    const card = { id: `tok-${minted.id}`, name: subtypes || "Token", type, power: atom.power, toughness: atom.toughness, oracle: "", token: true };
+    const perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
+    const player = next.players[ctx.controller];
+    next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
+  }
+  // A 0/0 token with no other effect dies immediately (CR 704.5f) — run the lethal SBA.
+  const r = destroyLethalCreatures(next);
+  next = checkDiesTriggers(r.state, r.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "create-token", count, power: atom.power, toughness: atom.toughness, controller: ctx.controller });
+}
+
+// ─── P2.7 atom family (delegate to existing gameState helpers) ────────────────
+
+/** "You gain N life" (CR 119.3) — the spell's controller gains life. Non-targeted. */
+function applyGainLife(state, atom, ctx) {
+  const amount = Math.max(0, atom.amount || 0);
+  const next = gainLife(state, { playerId: ctx.controller, amount });
+  return logEvent(next, { kind: "spell-effect", effect: "gain-life", controller: ctx.controller, amount });
+}
+
+/** "You lose N life" / "Each opponent loses N life" (CR 119.3). Non-targeted. */
+function applyLoseLife(state, atom, ctx) {
+  let next = state;
+  const amount = Math.max(0, atom.amount || 0);
+  if (atom.who === "eachOpponent") {
+    for (const opp of opponentsOf(next, ctx.controller)) {
+      if (next.players[opp]) next = loseLife(next, { playerId: opp, amount });
+    }
+  } else {
+    next = loseLife(next, { playerId: ctx.controller, amount });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "lose-life", who: atom.who || "controller", amount });
+}
+
+/** Tap / untap target creature(s) (CR 701.26). */
+function applyTapEffect(state, atom, ctx, tap) {
+  let next = state;
+  for (const t of ctx.targets || []) {
+    if (t.type === "creature" && findPermanent(next, t.id)) next = tap ? tapPermanent(next, t.id) : untapPermanent(next, t.id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: (ctx.targets || []).map(t => t.id) });
+}
+
+/** Move target creature(s) battlefield → hand (bounce) or → exile. */
+function applyZoneMove(state, atom, ctx, toZone) {
+  let next = state;
+  const dead = [];
+  for (const t of ctx.targets || []) {
+    if (t.type !== "creature") continue;
+    const lk = findPermanent(next, t.id);
+    if (lk) {
+      if (toZone === "exile") dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
+      next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone, cardId: t.id });
+    }
+  }
+  // Exile is NOT "dies" (CR 700.4 — dies = to graveyard), so no dies triggers fire.
+  return logEvent(next, { kind: "spell-effect", effect: toZone === "exile" ? "exile" : "bounce", targets: (ctx.targets || []).map(t => t.id) });
+}
+
+/** Put +1/+1 or -1/-1 counters on target creature(s) (CR 122.1). */
+function applyAddCounter(state, atom, ctx) {
+  let next = state;
+  for (const t of ctx.targets || []) {
+    if (t.type === "creature" && findPermanent(next, t.id)) {
+      next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount: atom.amount || 1 });
+    }
+  }
+  // -1/-1 counters lower DERIVED toughness — run the lethal SBA so a creature it
+  // drops to 0 dies at resolution (the P2.3 negative-pump discipline).
+  if (atom.counterType === "-1/-1") {
+    const r = destroyLethalCreatures(next);
+    next = checkDiesTriggers(r.state, r.dead);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount: atom.amount || 1, targets: (ctx.targets || []).map(t => t.id) });
+}
 
 /**
  * P2.3 pump — "+X/+X until end of turn" (Giant Growth family). Does NOT mutate
@@ -73,6 +168,14 @@ export const ATOM_RESOLVERS = Object.freeze({
   "draw": (state, atom, ctx) =>
     applyDrawEffect(state, { controller: ctx.controller, amount: effectiveAmount(atom, ctx) }),
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
+  "gain-life": applyGainLife,
+  "lose-life": applyLoseLife,
+  "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),
+  "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
+  "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
+  "exile": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "exile"),
+  "add-counter": applyAddCounter,
+  "create-token": applyCreateToken,
 });
 
 /**

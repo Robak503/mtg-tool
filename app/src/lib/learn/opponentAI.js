@@ -147,10 +147,14 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
     if (!card) continue; // card vanished
     const effect = actions[0].effect;
     let chosen = actions[0];
-    if (effect && actions.some(a => a.targets?.length)) {
+    if (actions.some(a => a.targets?.length)) {
+      // A targeted spell: only cast on a good ENEMY target. chooseAITarget filters to
+      // enemies for the scorable legacy effects (damage/destroy); for spells it can't
+      // score yet (effect == null — the P2.7 extended atoms tap/bounce/exile/counters)
+      // it returns null, so the AI HOLDS them rather than aim removal at its own board.
       const options = actions.map(a => a.targets?.[0]).filter(Boolean);
-      const target = chooseAITarget(state, aiPlayerId, effect, options);
-      if (!target) continue; // no good enemy target — don't cast it on our own stuff
+      const target = effect ? chooseAITarget(state, aiPlayerId, effect, options) : null;
+      if (!target) continue;
       chosen = actions.find(a => a.targets?.[0]?.id === target.id) || actions[0];
     }
     scored.push({ action: chosen, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });

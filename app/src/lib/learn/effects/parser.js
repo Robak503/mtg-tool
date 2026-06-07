@@ -136,6 +136,37 @@ function splitClauses(oracle) {
 }
 
 /**
+ * P2.7 extended atoms — recognized by ANCHORED `^…$` matchers. Anchoring is the
+ * ALLOWLIST discipline: the clause must reduce EXACTLY to the modeled shape, so a
+ * match is clean by construction (any extra/unmodeled text fails the anchor → low).
+ * Currently the NON-TARGETED life atoms; targeted ones (tap/bounce/exile/counters)
+ * land in a later sub-step alongside the targeting wiring.
+ */
+const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
+function parseExtendedAtom(s) {
+  const t = s.toLowerCase().replace(/[’]/g, "'"); // normalize curly apostrophe
+  let m = t.match(/^(?:you )?gain (\d+) life$/);
+  if (m) return { op: "gain-life", amount: parseInt(m[1], 10), targetType: null };
+  m = t.match(/^(?:you )?lose (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "controller", targetType: null };
+  m = t.match(/^each opponent loses (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  // Targeted (single "target creature", no restriction — the anchor keeps it exact).
+  if (/^tap target creature$/.test(t)) return { op: "tap", targetType: "creature" };
+  if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
+  if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
+  if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
+  // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)". Anchored
+  // to end at "creature token(s)" — a keyword/ability rider ("…with flying", "…that's
+  // tapped") fails the anchor → low, so a granted ability is never silently dropped.
+  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?$/);
+  if (m) return { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power: parseInt(m[2], 10), toughness: parseInt(m[3], 10), descriptor: m[4].trim(), targetType: null };
+  return null;
+}
+
+/**
  * Parse ONE clause into an atom (+ its target restrictions), or null when the
  * clause carries anything we don't model. The creature-target ALLOWLIST
  * (`parseCreatureTargetRestrictions`) models controller/tapped/power; any other
@@ -163,6 +194,10 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       return atom;
     }
   }
+
+  // Extended atoms (anchored ALLOWLIST) before the legacy parse.
+  const ext = parseExtendedAtom(s);
+  if (ext && KNOWN.has(ext.op)) return ext;
 
   const sub = { type: cardType, oracle: s };
   const atom = legacyToAtom(parseSpellEffect(sub));
