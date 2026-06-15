@@ -30,6 +30,13 @@ summarizes the notable changes.
   AI see the real numbers. (Tribal lords and "creatures you control" anthems already
   worked; this fills in the common shapes they were missing.) Level-up and Class cards,
   whose buffs only apply at the right level, are correctly left alone.
+- **"Whenever you cast a spell" triggers now fire in The Academy.** Spellslinger payoffs
+  like *"Whenever you cast an instant or sorcery spell, this deals 1 damage to each
+  opponent"* (or a creature/noncreature spell, or *"whenever an opponent casts a spell"*)
+  now trigger when a spell is cast — the trigger goes on the stack above your spell and
+  resolves first. Effects we don't model yet (like *"unless they pay {4}"*) still route to
+  the Arbiter rather than firing wrong, and a trigger with an unmodeled restriction
+  (*"…a spell that targets a creature"*) is left for a manual ruling.
 
 ## [0.33.0] - 2026-06-07
 

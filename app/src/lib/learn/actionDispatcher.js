@@ -34,10 +34,11 @@ import {
   addMana,
   mintId,
 } from "./gameState.js";
-import { passPriority } from "./gameEngine.js";
+import { passPriority, flushTriggers } from "./gameEngine.js";
 import { manaSources, planPayment } from "./manaModel.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
+import { checkCastTriggers } from "./triggers.js";
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -279,6 +280,12 @@ function applyCastSpell(state, action) {
     cardName: card.name,
     cost: action.cost,
   });
+  // Cast-spell triggers (CR 603.2): the spell is now on the stack, so "whenever you/an
+  // opponent casts a … spell" watchers trigger and go on the stack ABOVE it (flush here,
+  // not at a later checkpoint, so they resolve BEFORE the spell — correct order, and the
+  // right thing for any future referential effect).
+  next = checkCastTriggers(next, { spellCard: card, casterId: action.playerId });
+  next = flushTriggers(next);
   // Restart priority loop at active player after the spell goes on
   // the stack (per CR 117.1c).
   return {
