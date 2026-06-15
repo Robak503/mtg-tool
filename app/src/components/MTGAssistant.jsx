@@ -940,6 +940,7 @@ export default function MTGAssistant() {
             {!appUpdateInfo.installing && (
               <button
                 onClick={() => setAppUpdateInfo(null)}
+                aria-label="Dismiss update notification"
                 title="Hide until next launch"
                 style={{
                   background: "none", border: "none", color: "inherit",
@@ -976,6 +977,7 @@ export default function MTGAssistant() {
             </span>
             <button
               onClick={dismissBootstrap}
+              aria-label="Dismiss welcome banner"
               title="Don't ask again this session"
               style={{
                 background: "none", border: "none", color: "inherit",
@@ -1117,6 +1119,7 @@ export default function MTGAssistant() {
                 </button>
                 <button
                   onClick={() => setOllamaHealthDismissed(true)}
+                  aria-label="Dismiss banner"
                   title="Dismiss this banner (will not show again this session)"
                   style={{
                     background: "none", border: "none", color: "inherit",

@@ -164,6 +164,9 @@ function CardCell({ card, qty, wishlist, isSelected, isConflicted, selectMode, i
     <div
       role="button"
       tabIndex={0}
+      aria-label={selectMode
+        ? `${isChecked ? "Deselect" : "Select"} ${card.name}`
+        : `View ${card.name} details`}
       className="aether-card"
       onClick={onClick}
       onKeyDown={(e) => {

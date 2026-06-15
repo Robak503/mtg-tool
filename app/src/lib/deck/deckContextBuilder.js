@@ -15,7 +15,7 @@ const DECK_CONTEXT_FULL_LIMIT = 10;
 
 // ─── Text helpers ────────────────────────────────────────────────────────────
 
-export function compact(text, limit = 420) {
+function compact(text, limit = 420) {
   const clean = String(text || "").replace(/\s+/g, " ").trim();
   return clean.length <= limit ? clean : clean.slice(0, limit - 3).trim() + "...";
 }
