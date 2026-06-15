@@ -5,21 +5,33 @@
 > product strategy, see **[`docs/master-plan.md`](master-plan.md)**.
 > `CHANGELOG.md` is authoritative for shipped state.
 
-**Last updated:** 2026-06-06 · **Master:** green · **Tests:** ~1558 vitest · **Lint:** 0 warnings.
+**Last updated:** 2026-06-15 · **Master:** green · **Tests:** ~1739 vitest · **Lint:** 0 warnings.
 
 ---
 
 ## TL;DR — current state
 
-- **Active workstream: the "Phase 7" engine rebuild, Phase 2 (Depth).** The
-  Academy's rules engine is being grown toward maximal fidelity. **P2.1–P2.4 are
-  shipped (v0.26.0–v0.28.0):** the unresolved→Arbiter seam, the EffectProgram
-  interpreter (`app/src/lib/learn/effects/`), pump wiring, and target
-  restrictions. **The next-session prompt + the full mission (a QA pass, then P2.5
-  multi-clause/modal/X) live in [`docs/handoff-learn-engine.md`](handoff-learn-engine.md)
-  — start there.** Roadmap: [`docs/phase7-engine-rebuild.md`](phase7-engine-rebuild.md) §4.
-- **Latest release: v0.28.0** (signed + auto-updating). The arc since the old
-  single-user era:
+- **Active workstream: the "Phase 7" engine rebuild, Phase 2 (Depth) — Frontier A is
+  COMPLETE.** The Academy's rules engine now plays, natively and serialization-safe:
+  triggered abilities (ETB / dies / step / attack / **cast-spell**, targeted *and*
+  non-targeted), **activated abilities** (`{cost}: effect` — pingers/tappers/token-makers),
+  and **static anthems/lords**. Shipped this session as v0.34.0: the flush-time target
+  chooser (#168), P2.9 activated abilities (#169), P2.10 static anthems (#170), the
+  composite `native-mixed` coverage tier + a latent over-claim fix (#171), and cast-spell
+  triggers (#172). Each went build → real-parser corpus sweep over all of
+  `oracle_cards.json` → multi-lens adversarial diff review (0 findings every time) → PR →
+  merge. **Coverage 45% → 46% native** across the 16 sample decks.
+- **THE STRATEGIC FINDING (drives the next session): the headline metric is sample-limited,
+  and the gap is dominated by unmodeled EFFECTS, not undetected triggers.** Trigger detection
+  is largely done; the lever now is EFFECT modeling. `npm run coverage` THE GAP buckets:
+  **Spell effect (other) = 338 slots** (instants/sorceries: counters/tutors/conditional —
+  Frontier B, BY FAR the biggest), ETB 130 (tutor/steal/win effects), copy/clone 83,
+  attacks 78, complex statics 52, auras/equipment 34 (attach mechanic), cast triggers 33
+  (Rhystic/Remora "unless pay"). **Cross-cutting effects that hit multiple buckets: tutors,
+  counter-target-spell, "unless pay", self-untap, copy, attach.** Full detail + the ordered
+  plan in memory `project_coverage_roadmap` + [`docs/phase7-engine-rebuild.md`](phase7-engine-rebuild.md) §4.
+- **Latest release: v0.34.0** (signed + auto-updating; cut 2026-06-15 with the five
+  Frontier-A engine features above). The arc since the old single-user era:
   - **v0.20.0 — Aether redesign.** Whole app moved to the cyan / near-black /
     glass "Aether" system (Playfair + Inter + JetBrains Mono, bundled locally).
   - **v0.21.0 — Local multi-user profiles + structure cleanup.** Decks, Vault,
@@ -62,12 +74,23 @@
 
 ## How to start the next chat (copy a block)
 
-**› PRIMARY — Phase-2 engine rebuild (QA pass, then P2.5):**
-> The full self-contained ultracode prompt is in
-> [`docs/handoff-learn-engine.md`](handoff-learn-engine.md). It directs a live QA
-> pass on the shipped Academy (P2.1–P2.4) first, then P2.5 (multi-clause + modal +
-> X-spells) with the TDD + adversarial-review + ship process. This is the active
-> workstream.
+**› PRIMARY — Phase-2 engine rebuild: Frontier B (EFFECT modeling — the real lever):**
+> Frontier A (triggers + activated + statics, detection) is complete (v0.34.0). The
+> data-driven finding from this session: the headline gap is now dominated by unmodeled
+> EFFECTS, biggest = "Spell effect (other)" (338 slots — instants/sorceries). Start with
+> **`counter target spell` (P3.1)** and a cross-cutting **`tutor` atom** ("search your
+> library for [filter], put into hand/onto battlefield, shuffle" — hits ETB + spells +
+> activated at once), then P3.3 conditional/scaling, P3.4 mass effects. Same discipline:
+> build → run the REAL parser over the whole `oracle_cards.json` corpus (pin must-drop-to-low,
+> the parser confidence gate is the #1 risk) → multi-lens adversarial diff review → live QA
+> on `/api/learn/*` → PR → merge. Read memory `project_coverage_roadmap` (NEXT section) +
+> `project_phase2_coverage_path` first. **Effect atoms live in `app/src/lib/learn/effects/`;
+> the parser confidence gate is `effects/parser.js`.** This is the active workstream.
+>
+> Deferred lower-priority seams (from this session): AI/Beginner trigger-target chooser (the
+> `chooseTargets` seam in `gameEngine.flushTriggers` is built but the live loop uses
+> first-legal); AI use of activated abilities (`opponentAI` ignores them); self-untap +
+> "unless pay" cast-trigger effects (the untap-pinger / Rhystic cluster).
 
 The items below are still-valid but lower-priority side tracks:
 

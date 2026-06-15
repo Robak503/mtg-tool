@@ -8,7 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-06-15
+
 ### Added
+- **Creatures with simple enter/dies/attack value abilities now resolve in The Academy.**
+  A *"When this creature enters, draw a card"*, *"…create a 1/1 token"*, *"…each opponent
+  loses 2 life"*, or *"Whenever this attacks, you gain 1 life"* now fires and resolves in-game
+  instead of pausing for a manual ruling. (Targeted versions and the rest below build on this.)
 - **Creatures with targeted enter/attack/dies abilities now resolve in The Academy.**
   An ability like *"When this creature enters, destroy target creature an opponent
   controls"* or *"Whenever this attacks, it deals 2 damage to any target"* used to pause
@@ -37,6 +43,10 @@ summarizes the notable changes.
   resolves first. Effects we don't model yet (like *"unless they pay {4}"*) still route to
   the Arbiter rather than firing wrong, and a trigger with an unmodeled restriction
   (*"…a spell that targets a creature"*) is left for a manual ruling.
+
+### Fixed
+- Mobile bottom tab bar now shows its icons, and several controls picked up accessibility
+  labels for screen readers. Internal dead-code cleanup.
 
 ## [0.33.0] - 2026-06-07
 
