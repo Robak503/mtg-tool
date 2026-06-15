@@ -28,7 +28,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle } from "./staticAbilityParser.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
 // permanent whose only text is these plays natively (the body fights, the layer
@@ -80,15 +80,41 @@ export function spellIsNative(card) {
  * INTERVENING-IF trigger (CR 603.4, condition unevaluated at flush) are NOT routed by
  * the engine, so they do NOT count as native.
  */
+/**
+ * Does ONE detected trigger route natively through the flush stage? HIGH, non-modal,
+ * non-intervening-if EffectProgram — the exact gate `gameEngine.buildTriggerStack` uses.
+ * The single source of truth for both `permanentTriggersCovered` and the composite
+ * classifier, so the trigger-routing rule can't drift between them.
+ */
+function triggerRoutesNatively(d) {
+  if (!d.effectClause || d.interveningIf) return false; // intervening-if → not routed
+  const p = parseEffectClause(d.effectClause, "Instant");
+  return !!p && programConfidence(p) === "high" && p.structure !== "modal";
+}
+
+// The When/Whenever/At sentence shape (matches detectTriggers' grammar). Used to COUNT
+// trigger-shaped sentences so an UNMODELED-event trigger ("Whenever you cast …", "…put
+// into a graveyard …") can't be silently stripped from the residue and mis-credited.
+const TRIGGER_SENTENCE_RE = /(?:^|[\n.;]\s*)(?:When|Whenever|At)\b\s+[^.]+\./gi;
+
+/**
+ * Every trigger-shaped sentence on the card is a DETECTED trigger that routes natively.
+ * detectTriggers only returns descriptors for events it recognizes (etb/dies/step/attack);
+ * an unrecognized trigger sentence is counted by the regex but absent from `detected`, so a
+ * count mismatch means there's an unmodeled trigger → the card is NOT fully covered. This
+ * closes the residue's blind spot (it strips ALL When/Whenever/At text regardless of model).
+ */
+function allTriggerSentencesModeled(card, oracle) {
+  const shaped = (String(oracle).match(TRIGGER_SENTENCE_RE) || []).length;
+  const detected = detectTriggers(card);
+  if (detected.length !== shaped) return false;     // an unrecognized-event trigger sentence
+  return detected.every(triggerRoutesNatively);      // every recognized trigger's effect routes
+}
+
 export function permanentTriggersCovered(card) {
   const triggers = detectTriggers(card); // card IS the publicCard shape — keep WeakMap cache hits
   if (triggers.length === 0) return false;
-  const allRoute = triggers.every((d) => {
-    if (!d.effectClause || d.interveningIf) return false; // intervening-if → not routed
-    const p = parseEffectClause(d.effectClause, "Instant");
-    return !!p && programConfidence(p) === "high" && p.structure !== "modal";
-  });
-  if (!allRoute) return false;
+  if (!allTriggerSentencesModeled(card, card?.oracle || "")) return false;
   // Remove the trigger sentences (same anchored grammar detectTriggers uses); what's
   // left must be keyword-only/empty, or there's unmodeled activated/static text.
   const residue = String(card.oracle || "").replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ");
@@ -134,6 +160,55 @@ export function permanentActivatedCovered(card) {
 }
 
 /**
+ * The COMPOSITE classifier: true when a permanent's ENTIRE non-body text is modeled, even
+ * when it MIXES ability types (an ETB trigger + a `{T}` ability + a static anthem). The
+ * single-mechanism predicates above each demand "no OTHER residue", so a multi-ability
+ * creature reads body-only despite every piece being modeled — yet the engine already
+ * plays all of them (the subsystems are independent). This unifies them: subtract the
+ * trigger sentences + activated-ability lines, then require every remaining clause to be a
+ * modeled static or keyword-only, with every trigger routing and every activated modeled.
+ *
+ * Conservative by construction: ANY unmodeled piece (a non-routing trigger, an unmodeled
+ * activated cost/effect, an unmodeled static, a leveler) → false. Pure metric — it changes
+ * only how cards are COUNTED, never what the engine does.
+ */
+export function permanentFullyCovered(card) {
+  const oracle = String(card?.oracle || "");
+  if (!oracle.trim()) return false;             // vanilla → native-body handles it
+  if (isLevelGatedOracle(oracle)) return false;  // level-gated buffs aren't always-on
+
+  // Every trigger-shaped sentence must be a detected trigger that routes (the count guard
+  // closes the residue's blind spot for unmodeled-event triggers like "Whenever you cast …").
+  if (!allTriggerSentencesModeled(card, oracle)) return false;
+  const triggers = detectTriggers(card);
+  const activated = parseActivatedAbilities(card);
+  if (!activated.every((a) => a.modeled)) return false;     // an unmodeled activated ability
+
+  // Need at least one MODELED ability (else this is keyword-only/vanilla, caught earlier).
+  if (triggers.length === 0 && activated.length === 0) {
+    if (!staticAbilitiesCoverCard(card, isKeywordOnly)) return false;
+  }
+
+  // Residue: drop trigger sentences (anchored, the detectTriggers grammar) + activated-
+  // ability lines (a colon with a `{…}` cost), then every remaining clause must be a
+  // modeled static or keyword-only — no unmodeled trigger/static/other text survives.
+  const afterTriggers = oracle.replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n");
+  const afterActivated = stripReminder(afterTriggers)
+    .split(/\n+/)
+    .filter((line) => {
+      const ci = line.indexOf(":");
+      return !(ci !== -1 && line.slice(0, ci).includes("{"));
+    })
+    .join("\n");
+  for (const clause of afterActivated.split(/[\n.;]+/).map((s) => s.trim()).filter(Boolean)) {
+    if (clauseProducesStatic(clause)) continue;  // a modeled static clause
+    if (isKeywordOnly(clause)) continue;          // keyword-only / vanilla
+    return false;                                 // unmodeled residue
+  }
+  return true;
+}
+
+/**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
  */
@@ -148,13 +223,16 @@ export function classifyCard(card) {
   // Permanent (creature / artifact / enchantment / battle): the body always works.
   if (isKeywordOnly(oracle)) return "native-body";
   if (hasManaAbility(oracle)) return "native-mana";
+  // Single-mechanism tiers first (the informative labels), then the composite catch-all for
+  // multi-ability creatures whose pieces are each modeled but span types.
   if (permanentTriggersCovered(card)) return "native-trigger";   // P2.8: body + only-routing triggers
   if (permanentActivatedCovered(card)) return "native-activated"; // P2.9: body + only-modeled activated abilities
   if (staticAbilitiesCoverCard(card, isKeywordOnly)) return "native-static"; // P2.10: body + only-modeled static anthems
+  if (permanentFullyCovered(card)) return "native-mixed";        // composite: modeled trigger + activated + static together
   return "body-only";
 }
 
-export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static"]);
+export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-mixed"]);
 export const isNativeTier = (tier) => NATIVE_TIERS.has(tier);
 
 // Mechanism buckets for the gap (priority-ordered; first match wins) — the roadmap.

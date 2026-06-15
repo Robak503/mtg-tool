@@ -286,3 +286,17 @@ export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
   }
   return true;
 }
+
+/**
+ * Granular helpers for the COMPOSITE coverage classifier (coverage.permanentFullyCovered),
+ * which subtracts trigger + activated clauses itself before checking the static residue —
+ * so it needs the per-clause static test + the leveler guard, not the whole-card wrapper.
+ */
+export function clauseProducesStatic(clause) {
+  const out = [];
+  parseClause(String(clause || ""), out);
+  return out.length > 0;
+}
+export function isLevelGatedOracle(oracle) {
+  return isLevelGated(String(oracle || ""));
+}

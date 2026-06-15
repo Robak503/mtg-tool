@@ -63,6 +63,24 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Cat", "Other creatures you control get +1/+1.\nWhenever this creature attacks, scry 2."))).toBe("body-only");
     expect(classifyCard(C("Creature — Sliver", "Other Slivers get +1/+1 for each other Sliver."))).toBe("body-only");
   });
+  it("a multi-ability permanent whose pieces are EACH modeled is native-mixed (composite)", () => {
+    // static anthem + activated ability (Imperious Perfect); upkeep trigger + pinger (Staff
+    // of Nin); static lord + ETB token (Captain of the Watch). None pass a single-mechanism
+    // predicate (each sees the others as residue), but the engine plays all the pieces.
+    expect(classifyCard(C("Creature — Elf", "Other Elves you control get +1/+1.\n{G}, {T}: Create a 1/1 green Elf Warrior creature token."))).toBe("native-mixed");
+    expect(classifyCard(C("Artifact", "At the beginning of your upkeep, draw a card.\n{T}: This artifact deals 1 damage to any target."))).toBe("native-mixed");
+    expect(classifyCard(C("Creature — Soldier", "Vigilance\nOther Soldier creatures you control get +1/+1 and have vigilance.\nWhen this creature enters, create three 1/1 white Soldier creature tokens."))).toBe("native-mixed");
+  });
+
+  it("does NOT over-claim a card with an UNMODELED trigger beside a modeled one (count guard)", () => {
+    // The residue strips ALL When/Whenever sentences — but detectTriggers only recognizes
+    // some events. A modeled ETB next to an UNDETECTED dies/cast trigger (Elas il-Kor's
+    // Blood-Artist drain, a "Whenever you cast …" untap) must stay body-only, not be silently
+    // credited. This also pins the latent over-claim the composite work surfaced.
+    expect(classifyCard(C("Creature — Cleric", "When this creature enters, draw a card.\nWhenever another creature you control dies, each opponent loses 1 life."))).toBe("body-only");
+    expect(classifyCard(C("Creature — Wizard", "{T}: This creature deals 1 damage to any target.\nWhenever you cast an instant or sorcery spell, untap this creature."))).toBe("body-only");
+  });
+
   it("a planeswalker is arbiter-pw", () => {
     expect(classifyCard(C("Legendary Planeswalker — Jace", "+1: Draw a card."))).toBe("arbiter-pw");
   });
@@ -111,7 +129,7 @@ describe("coverageSummary", () => {
     expect(s.pct).toBe(90);    // 18/20
   });
   it("every native tier is in NATIVE_TIERS and gap tiers are not", () => {
-    expect([...NATIVE_TIERS].sort()).toEqual(["land", "native-activated", "native-body", "native-mana", "native-spell", "native-static", "native-trigger"]);
+    expect([...NATIVE_TIERS].sort()).toEqual(["land", "native-activated", "native-body", "native-mana", "native-mixed", "native-spell", "native-static", "native-trigger"]);
   });
   it("buckets the gap by mechanism (ETB value is no longer in the gap)", () => {
     const s = coverageSummary(DECK);
