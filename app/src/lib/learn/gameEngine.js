@@ -41,6 +41,7 @@ import { getResolver } from "./resolvers.js";
 import { checkStepTriggers, checkAttackTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget } from "./effects/parser.js";
+import { expandCastChoices } from "./effects/targeting.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -433,20 +434,51 @@ function orderTriggersAPNAP(state, pending) {
 }
 
 /**
- * The serializable payload a pending trigger goes on the stack with. P2.8: when the
- * trigger's effect clause parses to a HIGH, non-modal, NON-TARGETED EffectProgram
- * (draw / gain-life / make-a-token / each-opponent / …), route it through the full
- * EFFECT_PROGRAM interpreter so the trigger inherits the whole P2.x atom family.
- * Targeted + modal triggers keep the small `trigger.effect` fallback until the
- * flush-time target chooser lands (a clean follow-up). An unparseable clause also
- * keeps the fallback (→ Arbiter), never a fabricated effect (CLAUDE.md §1.2).
- *
- * An INTERVENING-IF trigger (CR 603.4, "When ~ enters, if <cond>, <effect>") is NOT
- * routed: the flush stage doesn't evaluate the condition yet, so firing the effect
- * unconditionally would be a false grant. It keeps the fallback (→ Arbiter) until
- * checkInterveningIf is wired into the flush filter (a clean follow-up).
+ * The default flush-time target chooser: the FIRST legal candidate. It is always a
+ * mechanically-legal pick (CR-valid, never a fabricated effect), just not yet an
+ * optimized one — an enemy-aware AI chooser and a Beginner-interactive chooser slot
+ * in later by passing `flushTriggers(state, { chooseTargets })`. Kept deterministic
+ * so serialize→restore replays identically.
  */
-function triggerStackPayload(trigger) {
+function firstLegalChoice(candidates) {
+  return candidates[0];
+}
+
+/**
+ * Pick one target-combination for a targeted trigger. An injected `chooseTargets`
+ * callback may override the default (returning the chosen candidate, or its index);
+ * an absent/invalid return falls back to first-legal. The callback receives the full
+ * candidate list (each `{ targets, chosenMode?, label? }` from expandCastChoices) and
+ * `{ trigger, program, state }` for context.
+ */
+function pickTriggerChoice(candidates, info, chooseTargets) {
+  if (typeof chooseTargets === "function") {
+    const picked = chooseTargets(candidates, info);
+    if (typeof picked === "number" && candidates[picked]) return candidates[picked];
+    if (picked && Array.isArray(picked.targets)) return picked;
+  }
+  return firstLegalChoice(candidates);
+}
+
+/**
+ * Build the serializable stack payload + chosen targets a pending trigger goes on the
+ * stack with — or `null` to DROP it (CR 603.3c/608.2b: a triggered ability that needs
+ * a target with no legal target is removed from the stack, it never resolves).
+ *
+ * Routing (mirrors coverage.permanentTriggersCovered exactly so the metric can't drift
+ * from the runtime):
+ *  - HIGH, non-modal, NON-targeted, no intervening-if → EFFECT_PROGRAM, empty targets.
+ *    Inherits the whole P2.x atom family (draw / token / each-opponent / …).
+ *  - HIGH, non-modal, TARGETED, no intervening-if → enumerate the legal targets at
+ *    flush time via expandCastChoices (CR 603.3c — targets chosen as the ability goes
+ *    on the stack). No legal target → DROP; else the chooser picks (default first-legal)
+ *    and the atomIndex-tagged targets ride onto the EFFECT_PROGRAM payload, so the
+ *    interpreter binds each chosen target to its clause.
+ *  - everything else (MODAL — would silently pick a mode; INTERVENING-IF — condition
+ *    unevaluated at flush; unparseable) → the small `trigger.effect` fallback (→ the
+ *    Phase-1 vocab or the Arbiter), never a fabricated effect (CLAUDE.md §1.2).
+ */
+function buildTriggerStack(state, trigger, chooseTargets) {
   const clause = trigger.descriptor?.effectClause;
   if (clause && !trigger.descriptor?.interveningIf) {
     // Parse the trigger's effect clause as spell-like text: a triggered ability's
@@ -454,17 +486,33 @@ function triggerStackPayload(trigger) {
     // (spellEffects.parseSpellEffect) only engages for Instant/Sorcery types — so
     // pass "Instant" to unlock draw/damage/destroy off a permanent source.
     const program = parseEffectClause(clause, "Instant");
-    if (program && programConfidence(program) === "high" && program.structure !== "modal" && !programNeedsChosenTarget(program)) {
-      return {
-        resolver: "effect-program",
-        params: { program, controller: trigger.controller, targets: [], context: trigger.context },
-      };
+    if (program && programConfidence(program) === "high" && program.structure !== "modal") {
+      const baseParams = { program, controller: trigger.controller, context: trigger.context };
+      if (!programNeedsChosenTarget(program)) {
+        return { payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } }, targets: [] };
+      }
+      // Targeted trigger: choose targets as it's put on the stack (CR 603.3c). The
+      // restriction-aware enumerator (expandCastChoices → enumerateTargets) only
+      // surfaces LEGAL targets, so a restricted clause ("…an opponent controls")
+      // never offers an illegal pick.
+      const candidates = expandCastChoices(state, trigger.controller, program);
+      if (candidates.length === 0) return null; // no legal target → removed from the stack
+      const choice = pickTriggerChoice(candidates, { trigger, program, state }, chooseTargets);
+      const targets = choice?.targets || [];
+      return { payload: { resolver: "effect-program", params: { ...baseParams, targets } }, targets };
     }
   }
-  return trigger.payload || {};
+  return { payload: trigger.payload || {}, targets: trigger.targets || [] };
 }
 
-export function flushTriggers(state) {
+/**
+ * Move every pending trigger onto the stack at this priority-grant checkpoint (CR
+ * 603.3). Targets for a targeted trigger are chosen HERE, as the ability goes on the
+ * stack (CR 603.3c); pass `{ chooseTargets }` to override the default first-legal
+ * pick (an AI/Beginner-interactive chooser). A targeted trigger with no legal target
+ * is dropped (logged, not silent).
+ */
+export function flushTriggers(state, { chooseTargets } = {}) {
   const pending = state.pendingTriggers || [];
   if (pending.length === 0) return state;
 
@@ -472,10 +520,23 @@ export function flushTriggers(state) {
 
   // Mint a deterministic stack id for any trigger without one (real triggers
   // from triggers.js carry no id; some tests pass explicit ids). Thread state so
-  // idSeq advances per mint and the result is serialize-stable.
+  // idSeq advances per mint and the result is serialize-stable. Target enumeration
+  // reads the (board-identical) threaded state — minting never touches the battlefield,
+  // so every simultaneous trigger chooses against the same flush-time board.
   let s = state;
   const newStackObjects = [];
   for (const trigger of ordered) {
+    const built = buildTriggerStack(s, trigger, chooseTargets);
+    if (!built) {
+      // A targeted trigger with no legal target is removed from the stack (CR 603.3c).
+      // Log it so the removal is visible to the player, never a silent disappearance.
+      s = logEvent(s, {
+        kind: "trigger-removed-no-target",
+        source: trigger.source?.name || trigger.source,
+        controller: trigger.controller,
+      });
+      continue;
+    }
     let id = trigger.id;
     if (!id) {
       const m = mintId(s, "stk");
@@ -487,9 +548,9 @@ export function flushTriggers(state) {
       kind: "triggered-ability",
       source: trigger.source,
       controller: trigger.controller,
-      targets: trigger.targets || [],
+      targets: built.targets,
       cost: null,
-      payload: triggerStackPayload(trigger),
+      payload: built.payload,
     });
   }
 

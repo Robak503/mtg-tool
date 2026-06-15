@@ -334,6 +334,11 @@ const MUST_DROP_TO_LOW = [
   "Target creature gets +2/+0 until end of turn. Draw a card at the beginning of the next turn's upkeep.", // DELAYED draw rider
   "Strangle deals 3 damage to target creature or planeswalker.",                // "or planeswalker" must NOT become "any" (illegal player target)
   "Wither (This deals damage to creatures in the form of -1/-1 counters.)\nGut Punch deals 3 damage to any target.", // wither changes the damage TYPE
+  // ── P2.8b (flush-time target chooser) review catch: "at random" is a selection the
+  // engine doesn't model. Picking first-legal would be DETERMINISTIC, not random — so a
+  // damage-at-random clause must route to the Arbiter, never a fabricated (fixed) pick.
+  // (Surfaced by a corpus scan of the newly-routing targeted triggers: Knight Rampager.)
+  "Goblin Sniper deals 1 damage to target opponent chosen at random.",
 ];
 
 describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {

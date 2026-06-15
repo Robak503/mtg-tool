@@ -261,6 +261,16 @@ spine. Full atom/EffectProgram detail in
 coverage-metric + scope realism in
 [`06-test-and-realism.md`](design/engine-rebuild/06-test-and-realism.md).
 
+> **Reordered "road to 100%" status (authoritative tracker: memory
+> `project_coverage_roadmap`).** The shipped sequence is: the **coverage metric**
+> (PR #165) → **P2.8 triggered abilities fire the full EffectProgram** (PR #166,
+> non-targeted) → **the flush-time target chooser** (THIS slice — targeted triggers
+> enumerate targets via `expandCastChoices` and resolve through `EFFECT_PROGRAM` as the
+> ability goes on the stack, CR 603.3c; no legal target → dropped; default first-legal,
+> injectable `chooseTargets` seam) → **NEXT: P2.9 activated abilities → P2.10 static
+> anthems** (Frontier A). The §4 table's old numbering predates this reorder; the
+> mechanics below still describe the work, just under different P2.x labels.
+
 | # | PR | Mechanic | Coverage | Effort/Risk | Depends on |
 |---|----|----------|----------|-------------|------------|
 | **P2.1 ✅ SHIPPED (v0.26.0)** | **Unresolved→Arbiter seam** | `learnSession` returns an `unresolved` decision kind (`pendingArbiter`); start/step/continue routes surface it; LearnView calls the Ollama-only Arbiter. Driver policy: pause for the player's own unmodeled spell at beginner/intermediate; Expert + opponent spells auto-continue but log to the action feed. CONTRACT-MIG: save schema v2→v3. | huge | S / low | — |

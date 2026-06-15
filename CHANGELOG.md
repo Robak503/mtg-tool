@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Creatures with targeted enter/attack/dies abilities now resolve in The Academy.**
+  An ability like *"When this creature enters, destroy target creature an opponent
+  controls"* or *"Whenever this attacks, it deals 2 damage to any target"* used to pause
+  the game for a manual ruling. The engine now picks a legal target as the ability goes
+  on the stack and resolves it in-game — and, per the rules, correctly removes the
+  ability when there's no legal target to choose. Restricted targets are honoured (a
+  *"...an opponent controls"* removal only ever hits an opponent's creature).
+
 ## [0.33.0] - 2026-06-07
 
 ### Changed

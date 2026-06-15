@@ -25,7 +25,7 @@
  * parsers the runtime uses so the metric stays honest.
  */
 
-import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget } from "./effects/parser.js";
+import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
@@ -67,14 +67,16 @@ export function spellIsNative(card) {
 
 /**
  * True when a permanent's ENTIRE non-keyword text is triggered abilities the engine
- * now fires natively (P2.8): every detected trigger's effect routes through the
- * EffectProgram interpreter (high, non-modal, non-targeted — the same gate
- * `flushTriggers` uses), AND nothing else is left after removing the trigger
- * sentences + reminder + keywords (no activated/static residue). This is the
- * common "body + one ETB value trigger" creature — fully native now.
+ * now fires natively (P2.8 + the flush-time target chooser): every detected trigger's
+ * effect routes through the EffectProgram interpreter (high, non-modal — the same gate
+ * `flushTriggers`/`buildTriggerStack` uses, including TARGETED triggers, whose targets
+ * the flush chooser binds at stack time), AND nothing else is left after removing the
+ * trigger sentences + reminder + keywords (no activated/static residue). This is the
+ * common "body + one ETB value/removal trigger" creature — fully native now.
  *
- * Mirrors the runtime exactly: an intervening-if trigger (CR 603.4) is NOT routed
- * by the engine (it would fire unconditionally), so it does NOT count as native.
+ * Mirrors the runtime exactly: a MODAL trigger (would silently pick a mode) and an
+ * INTERVENING-IF trigger (CR 603.4, condition unevaluated at flush) are NOT routed by
+ * the engine, so they do NOT count as native.
  */
 export function permanentTriggersCovered(card) {
   const triggers = detectTriggers(card); // card IS the publicCard shape — keep WeakMap cache hits
@@ -82,7 +84,7 @@ export function permanentTriggersCovered(card) {
   const allRoute = triggers.every((d) => {
     if (!d.effectClause || d.interveningIf) return false; // intervening-if → not routed
     const p = parseEffectClause(d.effectClause, "Instant");
-    return !!p && programConfidence(p) === "high" && p.structure !== "modal" && !programNeedsChosenTarget(p);
+    return !!p && programConfidence(p) === "high" && p.structure !== "modal";
   });
   if (!allRoute) return false;
   // Remove the trigger sentences (same anchored grammar detectTriggers uses); what's
