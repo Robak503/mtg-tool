@@ -1,0 +1,84 @@
+import { describe, it, expect } from "vitest";
+import { classifyCard, coverageSummary, isKeywordOnly, hasManaAbility, NATIVE_TIERS } from "./coverage.js";
+
+// Fixtures are enriched card shapes ({ type, oracle, mana, name }) hardcoded so the
+// test is deterministic and needs NO card index (CI has no Scryfall bulk data).
+const C = (type, oracle, extra = {}) => ({ type, oracle, mana: "", name: "x", ...extra });
+
+describe("classifyCard — tiers", () => {
+  it("a basic land is native", () => {
+    expect(classifyCard(C("Basic Land — Forest", ""))).toBe("land");
+    expect(classifyCard(C("Land", "{T}: Add {C}."))).toBe("land");
+  });
+  it("a mana rock/dork is native-mana", () => {
+    expect(classifyCard(C("Artifact", "{T}: Add one mana of any color."))).toBe("native-mana");
+    expect(classifyCard(C("Creature — Elf Druid", "{T}: Add {G}."))).toBe("native-mana");
+  });
+  it("a vanilla or keyword-only creature is native-body", () => {
+    expect(classifyCard(C("Creature — Bear", ""))).toBe("native-body");
+    expect(classifyCard(C("Creature — Angel", "Flying, vigilance"))).toBe("native-body");
+    expect(classifyCard(C("Creature — Beast", "Trample (reminder)"))).toBe("native-body");
+  });
+  it("a HIGH instant/sorcery is native-spell", () => {
+    expect(classifyCard(C("Instant", "Lightning Bolt deals 3 damage to any target.", { name: "Lightning Bolt" }))).toBe("native-spell");
+  });
+  it("a complex spell (tutor/counter) bounces to arbiter-spell", () => {
+    expect(classifyCard(C("Instant", "Counter target spell.", { name: "Counterspell" }))).toBe("arbiter-spell");
+    expect(classifyCard(C("Sorcery", "Search your library for a creature card, reveal it, put it into your hand, then shuffle.", { name: "tutor" }))).toBe("arbiter-spell");
+  });
+  it("a permanent with abilities is body-only (body works, ability doesn't yet)", () => {
+    expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, draw a card."))).toBe("body-only");
+    expect(classifyCard(C("Enchantment", "Creatures you control get +1/+1."))).toBe("body-only");
+  });
+  it("a planeswalker is arbiter-pw", () => {
+    expect(classifyCard(C("Legendary Planeswalker — Jace", "+1: Draw a card."))).toBe("arbiter-pw");
+  });
+});
+
+describe("helpers", () => {
+  it("isKeywordOnly: vanilla + keyword-only true, ability false", () => {
+    expect(isKeywordOnly("")).toBe(true);
+    expect(isKeywordOnly("Flying")).toBe(true);
+    expect(isKeywordOnly("Flying, first strike, trample")).toBe(true);
+    expect(isKeywordOnly("When this enters, draw a card.")).toBe(false);
+  });
+  it("hasManaAbility detects mana producers", () => {
+    expect(hasManaAbility("{T}: Add {G}.")).toBe(true);
+    expect(hasManaAbility("{T}: Add two mana of any one color.")).toBe(true);
+    expect(hasManaAbility("When this enters, draw a card.")).toBe(false);
+  });
+});
+
+describe("coverageSummary", () => {
+  // A tiny fixed "deck" spanning every tier; locks the metric so coverage never
+  // silently regresses. As P2.8+ land, the ETB/anthem fixtures move to native and
+  // these expectations get TIGHTENED deliberately (never loosened).
+  const DECK = [
+    C("Basic Land — Island", "", { qty: 10 }),
+    C("Artifact", "{T}: Add {C}.", { qty: 2 }),                 // native-mana
+    C("Creature — Bear", "", { qty: 2 }),                        // native-body
+    C("Instant", "Deal 3 damage to any target.", { qty: 1 }),    // native-spell
+    C("Creature — Wizard", "When this enters, draw a card.", { qty: 2 }), // body-only
+    C("Instant", "Counter target spell.", { qty: 1 }),           // arbiter-spell
+  ];
+  it("counts tiers weighted by qty and computes native %", () => {
+    const s = coverageSummary(DECK);
+    expect(s.total).toBe(18);
+    expect(s.tiers.land).toBe(10);
+    expect(s.tiers["native-mana"]).toBe(2);
+    expect(s.tiers["native-body"]).toBe(2);
+    expect(s.tiers["native-spell"]).toBe(1);
+    expect(s.tiers["body-only"]).toBe(2);
+    expect(s.tiers["arbiter-spell"]).toBe(1);
+    expect(s.native).toBe(15); // 10 + 2 + 2 + 1
+    expect(s.pct).toBe(83);    // 15/18
+  });
+  it("every native tier is in NATIVE_TIERS and gap tiers are not", () => {
+    expect([...NATIVE_TIERS].sort()).toEqual(["land", "native-body", "native-mana", "native-spell"]);
+  });
+  it("buckets the gap by mechanism", () => {
+    const s = coverageSummary(DECK);
+    expect(s.gap["ETB trigger"]).toBe(2);
+    expect(Object.values(s.gap).reduce((a, b) => a + b, 0)).toBe(3); // body-only + arbiter-spell
+  });
+});
