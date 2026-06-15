@@ -267,9 +267,14 @@ coverage-metric + scope realism in
 > non-targeted) → **the flush-time target chooser** (THIS slice — targeted triggers
 > enumerate targets via `expandCastChoices` and resolve through `EFFECT_PROGRAM` as the
 > ability goes on the stack, CR 603.3c; no legal target → dropped; default first-legal,
-> injectable `chooseTargets` seam) → **NEXT: P2.9 activated abilities → P2.10 static
-> anthems** (Frontier A). The §4 table's old numbering predates this reorder; the
-> mechanics below still describe the work, just under different P2.x labels.
+> injectable `chooseTargets` seam) → **P2.9 activated abilities** (`{cost}: effect` becomes a
+> playable action: `effects/abilities.parseActivatedAbilities` with a mana+`{T}` cost
+> allowlist, `legalChoices.actionsActivateAbility` + `actionDispatcher.applyActivateAbility`
+> resolving through `EFFECT_PROGRAM`; mana abilities stay on the no-stack tap path;
+> `native-activated` coverage tier) → **NEXT: P2.10 static anthems** (widen
+> `staticAbilityParser` — e.g. the missed "Other creatures you control get +1/+1") (Frontier
+> A). The §4 table's old numbering predates this reorder; the mechanics below still describe
+> the work, just under different P2.x labels.
 
 | # | PR | Mechanic | Coverage | Effort/Risk | Depends on |
 |---|----|----------|----------|-------------|------------|

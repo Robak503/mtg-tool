@@ -27,6 +27,7 @@
 
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
+import { parseActivatedAbilities } from "./effects/abilities.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
 // permanent whose only text is these plays natively (the body fights, the layer
@@ -94,6 +95,44 @@ export function permanentTriggersCovered(card) {
 }
 
 /**
+ * True when a permanent's ENTIRE non-keyword text is activated abilities the engine now
+ * plays natively (P2.9): EVERY detected `{cost}: effect` ability is `modeled` (cost
+ * reduces to mana + `{T}`; effect parses HIGH, non-modal, non-X) — the same
+ * `parseActivatedAbilities` gate the runtime offers on — AND nothing else is left after
+ * removing the activated-ability lines + reminder + keywords.
+ *
+ * Conservative by construction (never over-claims):
+ *  - It does NOT strip trigger sentences. A card with ANY trigger (or static) text keeps
+ *    that text in the residue → NOT native-activated, because the engine would route the
+ *    trigger to the Arbiter. The trigger+activated COMPOSITE (both modeled → native) is a
+ *    deliberate later refinement; under-claiming here is safe, over-claiming is not.
+ *  - A complex mana ability ("Add X mana where X is …") that slipped past `hasManaAbility`
+ *    is `modeled:false` (its effect is a mana ability, not a stack effect), so it fails the
+ *    every-modeled gate — never counted as covered.
+ *
+ * Simple mana dorks ("{T}: Add {G}") are caught earlier by `hasManaAbility` → native-mana,
+ * so this fires on the value-ability case (a `{2}, {T}: Draw`, a `{T}`-pinger, a tapper…).
+ */
+export function permanentActivatedCovered(card) {
+  const abilities = parseActivatedAbilities(card);
+  if (abilities.length === 0) return false;
+  // A single unmodeled ability (unmodeled cost OR effect, incl. complex mana abilities)
+  // leaves the card in the gap — all-or-nothing, mirroring the all-or-nothing runtime.
+  if (!abilities.every((a) => a.modeled)) return false;
+  // Drop reminder, then every activated-ability-shaped line (a colon with a `{…}` cost to
+  // its left — the same shape parseActivatedAbilities detects). The remainder (keywords,
+  // and any trigger/static text) must be keyword-only/empty.
+  const residue = stripReminder(card.oracle || "")
+    .split(/\n+/)
+    .filter((line) => {
+      const ci = line.indexOf(":");
+      return !(ci !== -1 && line.slice(0, ci).includes("{")); // keep non-ability lines
+    })
+    .join("\n");
+  return isKeywordOnly(residue);
+}
+
+/**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
  */
@@ -108,11 +147,12 @@ export function classifyCard(card) {
   // Permanent (creature / artifact / enchantment / battle): the body always works.
   if (isKeywordOnly(oracle)) return "native-body";
   if (hasManaAbility(oracle)) return "native-mana";
-  if (permanentTriggersCovered(card)) return "native-trigger"; // P2.8: body + only-routing triggers
+  if (permanentTriggersCovered(card)) return "native-trigger";  // P2.8: body + only-routing triggers
+  if (permanentActivatedCovered(card)) return "native-activated"; // P2.9: body + only-modeled activated abilities
   return "body-only";
 }
 
-export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger"]);
+export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated"]);
 export const isNativeTier = (tier) => NATIVE_TIERS.has(tier);
 
 // Mechanism buckets for the gap (priority-ordered; first match wins) — the roadmap.

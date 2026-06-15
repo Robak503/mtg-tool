@@ -314,6 +314,77 @@ function applyTapForMana(state, action) {
   return next;
 }
 
+/**
+ * Activate an activated ability (`{cost}: effect`, CR 602.1) — P2.9. Pays the cost
+ * (mana via planPayment + auto-tap, plus tapping the source for a `{T}` cost), then
+ * puts the ability on the stack with the SAME serializable `effect-program` payload a
+ * spell uses, so it resolves through the P2.x interpreter with its chosen targets. The
+ * source stays on the battlefield (an activated ability isn't the permanent leaving).
+ * Mana abilities never reach here — they resolve via `applyTapForMana` (no stack).
+ */
+function applyActivateAbility(state, action) {
+  const player = state.players[action.playerId];
+  if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
+  const perm = player.battlefield.find(p => p.id === action.permanentId);
+  if (!perm) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
+  if (action.tapSelf && perm.tapped) {
+    throw new DispatcherError("Ability source is already tapped", "ALREADY_TAPPED");
+  }
+
+  // Plan + commit mana payment. A `{T}`-tapping source can't also tap for mana to pay
+  // its own cost, so exclude it from the available sources (matches legalChoices).
+  const pool = player.manaPool;
+  const sources = manaSources(state, action.playerId).filter(s => !(action.tapSelf && s.permanentId === action.permanentId));
+  const plan = planPayment(pool, sources, action.cost);
+  if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
+
+  let working = state;
+  for (const tap of plan.taps) {
+    working = tapPermanent(working, tap.permanentId);
+    working = addMana(working, { playerId: action.playerId, color: tap.color, amount: tap.amount });
+  }
+  const toppedPool = working.players[action.playerId].manaPool;
+  const nextPool = {};
+  for (const c of Object.keys(toppedPool)) nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
+  working = {
+    ...working,
+    players: { ...working.players, [action.playerId]: { ...working.players[action.playerId], manaPool: nextPool } },
+  };
+
+  // Pay the `{T}` part of the cost by tapping the source (after the mana taps, so the
+  // source was already excluded from the mana plan above and can't be double-tapped).
+  if (action.tapSelf) working = tapPermanent(working, action.permanentId);
+
+  // Build the serializable effect-program payload (same shape as a cast spell).
+  const targets = action.targets || [];
+  const params = { program: action.program, controller: action.playerId, targets, cardId: perm.card?.id };
+  if (action.chosenMode != null) params.chosenMode = action.chosenMode;
+  const payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
+
+  const { id: stkId, state: working2 } = mintId(working, "stk");
+  const stackObject = createStackObject({
+    id: stkId,
+    kind: "activated-ability",
+    source: perm.card,
+    controller: action.playerId,
+    targets,
+    cost: action.cost,
+    payload,
+  });
+
+  let next = { ...working2, stack: [...working2.stack, stackObject] };
+  next = logEvent(next, {
+    kind: "activate-ability",
+    playerId: action.playerId,
+    permanentId: action.permanentId,
+    cardName: perm.card?.name,
+    abilityText: action.abilityText,
+  });
+  // Activating a (non-mana) ability uses the stack — restart the priority loop at the
+  // active player (CR 117.1c), exactly like casting a spell.
+  return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
+}
+
 function hasVigilance(card) {
   const kws = Array.isArray(card?.keywords) ? card.keywords : [];
   if (kws.some(k => String(k).toLowerCase() === "vigilance")) return true;
@@ -384,6 +455,7 @@ const HANDLERS = {
   "play-land": applyPlayLand,
   "cast-spell": applyCastSpell,
   "tap-for-mana": applyTapForMana,
+  "activate-ability": applyActivateAbility,
   "declare-attacker": applyDeclareAttacker,
   "declare-blocker": applyDeclareBlocker,
 };
