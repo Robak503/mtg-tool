@@ -133,11 +133,29 @@ describe("ETB triggers via the full EffectProgram (P2.8)", () => {
     expect(resolveTopOfStack(afterSpell).players.user.hand.map((x) => x.id)).toContain("lib-x");
   });
 
-  it("a TARGETED ETB does NOT use EFFECT_PROGRAM — it keeps the fallback, never fabricating (CLAUDE.md §1.2)", () => {
-    const c = creature("Hunter", "When Hunter enters, destroy target creature.", { id: "card-hu" });
-    const afterSpell = castAndResolveSpell(c);
-    expect(afterSpell.stack[0].kind).toBe("triggered-ability");
-    expect(afterSpell.stack[0].payload.resolver).not.toBe("effect-program");
+  it("a TARGETED ETB routes through EFFECT_PROGRAM, choosing a target at flush time (CR 603.3c)", () => {
+    // An enemy creature is on board, so the restricted target ('an opponent controls')
+    // has a legal pick; the flush chooser binds it (default first-legal) and the
+    // interpreter destroys it — the small fallback could never resolve this.
+    let s = enterPermanent(stateWith(), creature("Victim", "", { id: "card-vic" }), "ai");
+    const victimId = s.players.ai.battlefield[0].id;
+    const hunter = creature("Hunter", "When Hunter enters, destroy target creature an opponent controls.", { id: "card-hu" });
+    s = { ...s, stack: [{ id: "stk-1", kind: "spell", source: hunter, controller: "user", targets: [], cost: null, payload: { resolver: "spell.permanent", params: { card: hunter, controller: "user" } } }] };
+    const afterSpell = resolveTopOfStack(s);
+    const trig = afterSpell.stack.find((o) => o.kind === "triggered-ability");
+    expect(trig.payload.resolver).toBe("effect-program");
+    expect(trig.payload.params.targets.map((t) => t.id)).toContain(victimId);
+    expect(trig.targets.map((t) => t.id)).toContain(victimId); // mirrored onto the stack object
+    expect(resolveTopOfStack(afterSpell).players.ai.battlefield).toHaveLength(0); // destroyed
+  });
+
+  it("a TARGETED ETB with NO legal target is removed from the stack, never fabricated (CR 603.3c)", () => {
+    // No opponent creature → 'destroy target creature an opponent controls' has no
+    // legal target, so the trigger is dropped (logged) rather than put on the stack.
+    const hunter = creature("Hunter", "When Hunter enters, destroy target creature an opponent controls.", { id: "card-hu2" });
+    const afterSpell = castAndResolveSpell(hunter);
+    expect(afterSpell.stack.find((o) => o.kind === "triggered-ability")).toBeUndefined();
+    expect(afterSpell.log.some((e) => e.kind === "trigger-removed-no-target")).toBe(true);
   });
 
   it("a MODAL 'choose one' ETB does NOT use EFFECT_PROGRAM — routing it would silently pick one mode (gameEngine gate: structure !== modal)", () => {

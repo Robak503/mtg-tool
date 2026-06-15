@@ -27,13 +27,17 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Sorcery", "Search your library for a creature card, reveal it, put it into your hand, then shuffle.", { name: "tutor" }))).toBe("arbiter-spell");
   });
   it("a permanent with abilities is body-only (body works, ability doesn't yet)", () => {
-    // P2.8: a body whose ONLY ability is a now-firing (non-targeted) trigger is native.
+    // P2.8 + the flush-time target chooser: a body whose ONLY ability is a now-firing
+    // trigger is native — INCLUDING a targeted trigger (the chooser binds its target at
+    // flush time, CR 603.3c).
     expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, draw a card."))).toBe("native-trigger");
     expect(classifyCard(C("Creature — Soldier", "When this creature enters, create a 1/1 white Soldier creature token."))).toBe("native-trigger");
-    // Still body-only: unmodeled static, unmodeled activated, or a TARGETED trigger.
+    expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, destroy target creature."))).toBe("native-trigger");
+    // Still body-only: unmodeled static, unmodeled activated, a MODAL trigger (the engine
+    // won't silently pick a mode), or an intervening-if trigger (condition unevaluated).
     expect(classifyCard(C("Enchantment", "Creatures you control get +1/+1."))).toBe("body-only");
-    expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, destroy target creature."))).toBe("body-only");
     expect(classifyCard(C("Creature — Knight", "When this enters, draw a card. {2}, {T}: Draw a card."))).toBe("body-only"); // extra activated text
+    expect(classifyCard(C("Creature — Wizard", "When this enters, choose one — draw a card; or you gain 3 life."))).toBe("body-only"); // modal → fallback
     // Intervening-if (CR 603.4) is NOT routed by the engine, so it must NOT count native.
     expect(classifyCard(C("Creature — Cleric", "When this creature enters, if you control another creature, draw a card."))).toBe("body-only");
   });
