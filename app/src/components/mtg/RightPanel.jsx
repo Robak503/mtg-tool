@@ -151,9 +151,10 @@ export default function RightPanel({
                       )}
                       <div style={{display:"flex",flexDirection:"column",gap:5}}>
                         {searchRes.map((c,i)=>(
-                          <div key={i} style={{padding:"6px 9px",borderRadius:5,border:`1px solid ${LINE}`,background:BG3,cursor:"pointer"}}
+                          <div key={i} role="button" tabIndex={0} aria-label={`Preview ${c.name}`} style={{padding:"6px 9px",borderRadius:5,border:`1px solid ${LINE}`,background:BG3,cursor:"pointer"}}
                             onMouseEnter={e=>{if(c.normal&&bodyRef.current){const br=bodyRef.current.getBoundingClientRect(),er=e.currentTarget.getBoundingClientRect();setTooltip({name:c.name,image:c.normal,x:Math.max(0,er.left-br.left-225),y:Math.max(0,er.top-br.top)});}}}
                             onMouseLeave={()=>setTooltip(null)}
+                            onKeyDown={e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setPreviewCard(c);}}}
                             onClick={()=>setPreviewCard(c)}>
                             <div style={{fontSize:12,color:TEXT}}>{c.name}</div>
                             <div style={{fontSize:10,color:MUTED,display:"flex",justifyContent:"space-between",marginTop:2}}>

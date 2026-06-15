@@ -1,9 +1,4 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "ignore": ["src-tauri/**", "data/**", "scripts/**"],
-  "ignoreDependencies": [
-    "@next/eslint-plugin-next",
-    "eslint-config-prettier",
-    "eslint-plugin-react-hooks"
-  ]
+  "ignore": ["src-tauri/**", "data/**", "scripts/**"]
 }

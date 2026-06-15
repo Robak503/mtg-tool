@@ -139,4 +139,13 @@ describe("ETB triggers via the full EffectProgram (P2.8)", () => {
     expect(afterSpell.stack[0].kind).toBe("triggered-ability");
     expect(afterSpell.stack[0].payload.resolver).not.toBe("effect-program");
   });
+
+  it("a MODAL 'choose one' ETB does NOT use EFFECT_PROGRAM — routing it would silently pick one mode (gameEngine gate: structure !== modal)", () => {
+    // Without a chosen mode, the interpreter would resolve modes[undefined] →
+    // zero atoms, silently dropping the ability. The gate must keep the fallback.
+    const c = creature("Chooser", "When Chooser enters, choose one — draw a card; or you gain 3 life.", { id: "card-ch" });
+    const afterSpell = castAndResolveSpell(c);
+    expect(afterSpell.stack[0].kind).toBe("triggered-ability");
+    expect(afterSpell.stack[0].payload.resolver).not.toBe("effect-program");
+  });
 });

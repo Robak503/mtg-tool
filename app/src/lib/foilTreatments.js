@@ -26,7 +26,7 @@ const FOIL_TREATMENT_EXTRAS = new Set([
 
 // Display names for the foil treatments present in Scryfall's paper data.
 // Anything not listed falls back to a humanized "<Stem> Foil".
-export const FOIL_TREATMENT_NAMES = {
+const FOIL_TREATMENT_NAMES = {
   surgefoil: "Surge Foil",
   galaxyfoil: "Galaxy Foil",
   confettifoil: "Confetti Foil",
