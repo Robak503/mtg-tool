@@ -108,6 +108,22 @@ describe("ETB triggers via the full EffectProgram (P2.8)", () => {
     expect(resolveTopOfStack(afterSpell).players.ai.life).toBe(oppBefore - 2);
   });
 
+  it("an ETB 'deal N damage to each opponent' trigger routes through EFFECT_PROGRAM and damages opponents", () => {
+    const c = creature("Bomber", "When Bomber enters, it deals 2 damage to each opponent.", { id: "card-bm" });
+    const oppBefore = createGameState({ userDeck: [], aiDeck: [] }).players.ai.life;
+    const afterSpell = castAndResolveSpell(c);
+    expect(afterSpell.stack[0].payload.resolver).toBe("effect-program");
+    expect(resolveTopOfStack(afterSpell).players.ai.life).toBe(oppBefore - 2);
+  });
+
+  it("an INTERVENING-IF ETB is NOT routed and does NOT fabricate its effect (CR 603.4 condition unevaluated)", () => {
+    const c = creature("Conditional Maker", "When Conditional Maker enters, if you control another creature, create a 1/1 white Soldier creature token.", { id: "card-cm" });
+    const afterSpell = castAndResolveSpell(c);
+    expect(afterSpell.stack[0].payload.resolver).not.toBe("effect-program"); // kept the fallback
+    const after = resolveTopOfStack(afterSpell);
+    expect(after.players.user.battlefield.filter((p) => p.card?.token)).toHaveLength(0); // no fabricated token
+  });
+
   it("the canonical 'draw a card' ETB routes through EFFECT_PROGRAM (draw unlocked off a creature source)", () => {
     const c = creature("Visionary", "When Visionary enters, draw a card.", { id: "card-v2" });
     let s = withLibrary(stateWith(), [{ id: "lib-x", name: "Card" }]);

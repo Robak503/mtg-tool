@@ -8,7 +8,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { checkStepTriggers, checkAttackTriggers } from "./triggers.js";
-import { runStepActions } from "./gameEngine.js";
+import { runStepActions, resolveTopOfStack } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -69,7 +69,8 @@ describe("checkAttackTriggers (unit)", () => {
 describe("wired into runStepActions", () => {
   it("stepping into upkeep flushes a 'your upkeep' draw trigger onto the stack", () => {
     const howler = creature("Howler", "At the beginning of your upkeep, draw a card.", { id: "card-h" });
-    const state = placePerms(stateWith({ phase: "beginning", step: "upkeep", activePlayer: "user" }), [permObj(howler, "user", "perm-h")]);
+    let state = placePerms(stateWith({ phase: "beginning", step: "upkeep", activePlayer: "user" }), [permObj(howler, "user", "perm-h")]);
+    state = { ...state, players: { ...state.players, user: { ...state.players.user, library: [{ id: "lib-up", name: "Card" }] } } };
     const out = runStepActions(state);
     const trig = triggerOnStack(out);
     expect(trig).toBeTruthy();
@@ -77,6 +78,8 @@ describe("wired into runStepActions", () => {
     // interpreter (event-agnostic — upkeep triggers ride the same flush upgrade).
     expect(trig.payload.resolver).toBe("effect-program");
     expect(trig.payload.params.program.atoms[0].op).toBe("draw");
+    // …and resolving it actually draws the card (effect, not just shape).
+    expect(resolveTopOfStack(out).players.user.hand.map((c) => c.id)).toContain("lib-up");
   });
 
   it("a 'your upkeep' trigger does not fire on an opponent's upkeep", () => {
@@ -91,9 +94,13 @@ describe("wired into runStepActions", () => {
       stateWith({ phase: "combat", step: "declare-blockers", activePlayer: "user", combat: { attackers: [{ permanentId: "perm-r", attackingPlayer: "user", defender: "ai" }], blockers: [] } }),
       [raider],
     );
-    const trig = triggerOnStack(runStepActions(state));
+    const out = runStepActions(state);
+    const trig = triggerOnStack(out);
     expect(trig).toBeTruthy();
     expect(trig.payload.resolver).toBe("effect-program");
     expect(trig.payload.params.program.atoms[0].op).toBe("gain-life");
+    // …and resolving it actually gains the life.
+    const lifeBefore = out.players.user.life;
+    expect(resolveTopOfStack(out).players.user.life).toBe(lifeBefore + 1);
   });
 });

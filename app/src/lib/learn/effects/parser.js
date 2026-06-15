@@ -351,3 +351,18 @@ export function programConfidence(program) {
   if (!Array.isArray(program.atoms) || program.atoms.length === 0) return "low";
   return program.atoms.every(a => KNOWN.has(a.op)) ? "high" : "low";
 }
+
+/**
+ * Does the program contain an atom that REQUIRES a chosen target (vs. self / each-*
+ * atoms that resolve with no target)? The single source of truth for the
+ * trigger-flush routing gate (gameEngine.triggerStackPayload) AND the coverage
+ * classifier (coverage.permanentTriggersCovered) — kept here so the runtime and the
+ * metric can never drift. eachOpponent/eachCreature resolve without a chosen target.
+ */
+export function programNeedsChosenTarget(program) {
+  if (!program) return false;
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.some(a => a.targetType && !["eachOpponent", "eachCreature"].includes(a.targetType));
+}

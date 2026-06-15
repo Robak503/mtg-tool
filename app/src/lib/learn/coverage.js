@@ -25,7 +25,7 @@
  * parsers the runtime uses so the metric stays honest.
  */
 
-import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
+import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
@@ -65,15 +65,6 @@ export function spellIsNative(card) {
   return !!program && programConfidence(program) === "high";
 }
 
-/** Does a parsed program need a chosen target (vs self/each-* atoms)? Mirrors the
- *  engine's flush-time routing gate (gameEngine.programNeedsChosenTarget). */
-function programNeedsTarget(program) {
-  const atoms = program.structure === "modal"
-    ? (program.modal?.modes || []).flatMap((m) => m.atoms || [])
-    : (program.atoms || []);
-  return atoms.some((a) => a.targetType && !["eachOpponent", "eachCreature"].includes(a.targetType));
-}
-
 /**
  * True when a permanent's ENTIRE non-keyword text is triggered abilities the engine
  * now fires natively (P2.8): every detected trigger's effect routes through the
@@ -81,14 +72,17 @@ function programNeedsTarget(program) {
  * `flushTriggers` uses), AND nothing else is left after removing the trigger
  * sentences + reminder + keywords (no activated/static residue). This is the
  * common "body + one ETB value trigger" creature — fully native now.
+ *
+ * Mirrors the runtime exactly: an intervening-if trigger (CR 603.4) is NOT routed
+ * by the engine (it would fire unconditionally), so it does NOT count as native.
  */
 export function permanentTriggersCovered(card) {
-  const triggers = detectTriggers({ name: card.name, type: card.type, oracle: card.oracle });
+  const triggers = detectTriggers(card); // card IS the publicCard shape — keep WeakMap cache hits
   if (triggers.length === 0) return false;
   const allRoute = triggers.every((d) => {
-    if (!d.effectClause) return false;
+    if (!d.effectClause || d.interveningIf) return false; // intervening-if → not routed
     const p = parseEffectClause(d.effectClause, "Instant");
-    return !!p && programConfidence(p) === "high" && p.structure !== "modal" && !programNeedsTarget(p);
+    return !!p && programConfidence(p) === "high" && p.structure !== "modal" && !programNeedsChosenTarget(p);
   });
   if (!allRoute) return false;
   // Remove the trigger sentences (same anchored grammar detectTriggers uses); what's

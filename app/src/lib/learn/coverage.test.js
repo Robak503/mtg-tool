@@ -34,6 +34,8 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Enchantment", "Creatures you control get +1/+1."))).toBe("body-only");
     expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, destroy target creature."))).toBe("body-only");
     expect(classifyCard(C("Creature — Knight", "When this enters, draw a card. {2}, {T}: Draw a card."))).toBe("body-only"); // extra activated text
+    // Intervening-if (CR 603.4) is NOT routed by the engine, so it must NOT count native.
+    expect(classifyCard(C("Creature — Cleric", "When this creature enters, if you control another creature, draw a card."))).toBe("body-only");
   });
   it("a planeswalker is arbiter-pw", () => {
     expect(classifyCard(C("Legendary Planeswalker — Jace", "+1: Draw a card."))).toBe("arbiter-pw");

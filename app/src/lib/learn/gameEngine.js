@@ -40,7 +40,7 @@ import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
 import { checkStepTriggers, checkAttackTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
-import { parseEffectClause, programConfidence } from "./effects/parser.js";
+import { parseEffectClause, programConfidence, programNeedsChosenTarget } from "./effects/parser.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -432,14 +432,6 @@ function orderTriggersAPNAP(state, pending) {
   return out;
 }
 
-/** Atoms in a program that REQUIRE a chosen target (vs. self/each-* atoms). */
-function programNeedsChosenTarget(program) {
-  const atoms = program.structure === "modal"
-    ? (program.modal?.modes || []).flatMap((m) => m.atoms || [])
-    : (program.atoms || []);
-  return atoms.some((a) => a.targetType && !["eachOpponent", "eachCreature"].includes(a.targetType));
-}
-
 /**
  * The serializable payload a pending trigger goes on the stack with. P2.8: when the
  * trigger's effect clause parses to a HIGH, non-modal, NON-TARGETED EffectProgram
@@ -448,10 +440,15 @@ function programNeedsChosenTarget(program) {
  * Targeted + modal triggers keep the small `trigger.effect` fallback until the
  * flush-time target chooser lands (a clean follow-up). An unparseable clause also
  * keeps the fallback (→ Arbiter), never a fabricated effect (CLAUDE.md §1.2).
+ *
+ * An INTERVENING-IF trigger (CR 603.4, "When ~ enters, if <cond>, <effect>") is NOT
+ * routed: the flush stage doesn't evaluate the condition yet, so firing the effect
+ * unconditionally would be a false grant. It keeps the fallback (→ Arbiter) until
+ * checkInterveningIf is wired into the flush filter (a clean follow-up).
  */
 function triggerStackPayload(trigger) {
   const clause = trigger.descriptor?.effectClause;
-  if (clause) {
+  if (clause && !trigger.descriptor?.interveningIf) {
     // Parse the trigger's effect clause as spell-like text: a triggered ability's
     // effect resolves exactly as a spell would, and the legacy effect parser
     // (spellEffects.parseSpellEffect) only engages for Instant/Sorcery types — so
