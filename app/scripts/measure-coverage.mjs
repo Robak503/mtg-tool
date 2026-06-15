@@ -88,7 +88,7 @@ const grand = perDeck.reduce((a, d) => ({ n: a.n + d.native, t: a.t + d.total })
 console.log(`\n  AGGREGATE: ${grand.t ? Math.round((grand.n / grand.t) * 100) : 0}% native  (${grand.n}/${grand.t} slots across ${decks.length} decks)`);
 
 console.log("\n=== TIER BREAKDOWN (card-slots) ===");
-for (const k of ["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "body-only", "arbiter-spell", "arbiter-pw"]) {
+for (const k of ["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "body-only", "arbiter-spell", "arbiter-pw"]) {
   if (tierTotals[k]) console.log(`  ${String(tierTotals[k]).padStart(4)}  ${k}`);
 }
 

@@ -23,6 +23,13 @@ summarizes the notable changes.
   resolves through the same engine your spells use. Abilities whose cost the engine
   can't model yet (sacrifice, pay-life, {X}) are simply not offered rather than played
   wrong; mana abilities still tap the normal way.
+- **More lords and anthems work in The Academy.** Static buffs like *"Other creatures you
+  control get +1/+1"* (the classic lord), *"All creatures have haste"*, and combined buffs
+  like *"…get +1/+1 and have vigilance"* now actually change the board — your team gets
+  bigger and gains the keywords, applied through the rules layer system so combat and the
+  AI see the real numbers. (Tribal lords and "creatures you control" anthems already
+  worked; this fills in the common shapes they were missing.) Level-up and Class cards,
+  whose buffs only apply at the right level, are correctly left alone.
 
 ## [0.33.0] - 2026-06-07
 

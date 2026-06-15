@@ -77,6 +77,58 @@ describe("parseStaticAbilities — keyword grants", () => {
   });
 });
 
+describe("parseStaticAbilities — P2.10 widened anthems", () => {
+  it("'Other creatures you control get +1/+1.' (generic excludeSelf lord — Benalish Marshal)", () => {
+    const d = parseStaticAbilities(card("Benalish Marshal", "Other creatures you control get +1/+1.", "Creature — Human Soldier"));
+    expect(d).toHaveLength(1);
+    expect(d[0].op).toEqual({ layerOp: "ptModify", power: 1, toughness: 1 });
+    expect(d[0].affects.selector).toMatchObject({ controllerScope: "you", excludeSelf: true });
+    expect(d[0].affects.selector.subtypes).toBeUndefined();
+  });
+
+  it("'Each creature you control gets +1/+1.' (determiner 'each', includes self)", () => {
+    const d = parseStaticAbilities(card("Each Lord", "Each creature you control gets +1/+1.", "Enchantment"));
+    expect(d).toHaveLength(1);
+    expect(d[0].affects.selector).toMatchObject({ controllerScope: "you", excludeSelf: false });
+  });
+
+  it("'All creatures have haste.' (symmetric global — Mass Hysteria)", () => {
+    const d = parseStaticAbilities(card("Mass Hysteria", "All creatures have haste.", "Enchantment"));
+    expect(d).toHaveLength(1);
+    expect(d[0].op).toEqual({ layerOp: "addKeyword", keyword: "Haste" });
+    expect(d[0].affects.selector.controllerScope).toBe("each");
+  });
+
+  it("'All creatures get -1/-1.' (symmetric debuff — Night of Souls' Betrayal)", () => {
+    const d = parseStaticAbilities(card("Night of Souls' Betrayal", "All creatures get -1/-1.", "Enchantment"));
+    expect(d[0].op).toEqual({ layerOp: "ptModify", power: -1, toughness: -1 });
+    expect(d[0].affects.selector.controllerScope).toBe("each");
+  });
+
+  it("'Other creatures you control have trample.' (generic keyword grant, excludeSelf)", () => {
+    const d = parseStaticAbilities(card("Trampler", "Other creatures you control have trample.", "Creature — Beast"));
+    expect(d).toHaveLength(1);
+    expect(d[0].op).toEqual({ layerOp: "addKeyword", keyword: "Trample" });
+    expect(d[0].affects.selector.excludeSelf).toBe(true);
+  });
+
+  it("multi-grant: '… get +1/+1 and have vigilance' emits BOTH the buff and the keyword", () => {
+    const d = parseStaticAbilities(card("Captain", "Creatures you control get +1/+1 and have vigilance.", "Enchantment"));
+    expect(d).toHaveLength(2);
+    expect(d.find(e => e.op.layerOp === "ptModify").op).toEqual({ layerOp: "ptModify", power: 1, toughness: 1 });
+    expect(d.find(e => e.op.layerOp === "addKeyword").op).toEqual({ layerOp: "addKeyword", keyword: "Vigilance" });
+  });
+
+  it("multi-grant on a tribal lord: 'Other Soldier creatures get +1/+1 and have first strike' (Field Marshal)", () => {
+    const d = parseStaticAbilities(card("Field Marshal", "Other Soldier creatures get +1/+1 and have first strike.", "Creature — Soldier"));
+    const pt = d.find(e => e.op.layerOp === "ptModify");
+    const kw = d.find(e => e.op.layerOp === "addKeyword");
+    expect(pt.affects.selector.subtypes).toEqual(["Soldier"]);
+    expect(pt.affects.selector.excludeSelf).toBe(true);
+    expect(kw.op.keyword).toBe("First strike");
+  });
+});
+
 describe("anti-fabrication guards (CLAUDE.md §1.2)", () => {
   it("does NOT grant flying from 'can't be blocked by creatures with flying'", () => {
     const d = parseStaticAbilities(card("Sneaky", "Sneaky can't be blocked by creatures with flying."));
@@ -134,6 +186,18 @@ describe("anti-fabrication guards (CLAUDE.md §1.2)", () => {
   it("does NOT treat an activated keyword grant ('{T}: Creatures you control have haste') as static", () => {
     expect(parseStaticAbilities(card("Hastemaker", "{T}: Creatures you control have haste until end of turn.", "Artifact"))).toEqual([]);
   });
+
+  // ── Level-gated cards (CR: ability active only at the right level) — a buff line on a
+  // leveler / Class is NOT an always-on static. The whole card parses to NOTHING. ──
+  it("does NOT fabricate a static anthem from a LEVELER's level-band buff", () => {
+    const leveler = card("Transcendent Master", "Level up {W} ({W}: Put a level counter on this. Level up only as a sorcery.)\nLEVEL 1-5\n6/6\nLifelink\nLEVEL 6+\n9/9\nCreatures you control get +1/+1.", "Creature — Human Monk");
+    expect(parseStaticAbilities(leveler)).toEqual([]);
+  });
+
+  it("does NOT fabricate a static anthem from a CLASS's level ability", () => {
+    const klass = card("Ninja Teen", "Whenever a creature you control leaves the battlefield, each opponent loses 1 life.\n{1}{B}: Level 2\nCreatures you control get +1/+0 and have menace.", "Enchantment — Class");
+    expect(parseStaticAbilities(klass)).toEqual([]);
+  });
 });
 
 describe("end-to-end through the layer engine", () => {
@@ -156,5 +220,13 @@ describe("end-to-end through the layer engine", () => {
     expect(permanentHasKeyword(state, "b1", "Flying")).toBe(false);
     // "other" — the lord itself doesn't get its own grant.
     expect(permanentHasKeyword(state, "g1", "Flying")).toBe(false);
+  });
+
+  it("P2.10: 'Other creatures you control get +1/+1' pumps another creature but not itself", () => {
+    const marshal = perm("Benalish Marshal", "m1", "user", { type: "Creature — Soldier", power: 2, toughness: 2, oracle: "Other creatures you control get +1/+1." });
+    const ally = perm("Ally", "a1", "user", { type: "Creature — Soldier", power: 2, toughness: 2 });
+    const state = stateWith([marshal, ally]);
+    expect(permanentPower(state, "a1")).toBe(3);   // other creature buffed
+    expect(permanentPower(state, "m1")).toBe(2);   // the lord excludes itself
   });
 });

@@ -28,6 +28,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
+import { staticAbilitiesCoverCard } from "./staticAbilityParser.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
 // permanent whose only text is these plays natively (the body fights, the layer
@@ -147,12 +148,13 @@ export function classifyCard(card) {
   // Permanent (creature / artifact / enchantment / battle): the body always works.
   if (isKeywordOnly(oracle)) return "native-body";
   if (hasManaAbility(oracle)) return "native-mana";
-  if (permanentTriggersCovered(card)) return "native-trigger";  // P2.8: body + only-routing triggers
+  if (permanentTriggersCovered(card)) return "native-trigger";   // P2.8: body + only-routing triggers
   if (permanentActivatedCovered(card)) return "native-activated"; // P2.9: body + only-modeled activated abilities
+  if (staticAbilitiesCoverCard(card, isKeywordOnly)) return "native-static"; // P2.10: body + only-modeled static anthems
   return "body-only";
 }
 
-export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated"]);
+export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static"]);
 export const isNativeTier = (tier) => NATIVE_TIERS.has(tier);
 
 // Mechanism buckets for the gap (priority-ordered; first match wins) — the roadmap.

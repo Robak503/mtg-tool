@@ -33,9 +33,10 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, draw a card."))).toBe("native-trigger");
     expect(classifyCard(C("Creature — Soldier", "When this creature enters, create a 1/1 white Soldier creature token."))).toBe("native-trigger");
     expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, destroy target creature."))).toBe("native-trigger");
-    // Still body-only: unmodeled static, unmodeled activated, a MODAL trigger (the engine
-    // won't silently pick a mode), or an intervening-if trigger (condition unevaluated).
-    expect(classifyCard(C("Enchantment", "Creatures you control get +1/+1."))).toBe("body-only");
+    // Still body-only: an UNMODELED static (a conditional anthem the parser refuses to
+    // fabricate), unmodeled activated, a MODAL trigger (the engine won't silently pick a
+    // mode), or an intervening-if trigger (condition unevaluated).
+    expect(classifyCard(C("Enchantment", "Creatures you control get +2/+2 as long as you control a Forest."))).toBe("body-only");
     expect(classifyCard(C("Creature — Knight", "When this enters, draw a card. {2}, {T}: Draw a card."))).toBe("body-only"); // extra activated text
     expect(classifyCard(C("Creature — Wizard", "When this enters, choose one — draw a card; or you gain 3 life."))).toBe("body-only"); // modal → fallback
     // Intervening-if (CR 603.4) is NOT routed by the engine, so it must NOT count native.
@@ -51,6 +52,16 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Wizard", "{1}, Sacrifice this creature: Draw a card."))).toBe("body-only");
     expect(classifyCard(C("Artifact", "{2}, {T}: Search your library for a card, then shuffle."))).toBe("body-only");
     expect(classifyCard(C("Creature — Human", "{T}: This creature deals 1 damage to any target.\nWhenever this creature deals damage, you may untap it."))).toBe("body-only");
+  });
+  it("a permanent whose only text is a modeled static anthem is native-static (P2.10)", () => {
+    // Pure anthem enchantment + a vanilla-body lord (body + layer anthem) are fully native.
+    expect(classifyCard(C("Enchantment", "Creatures you control get +1/+1."))).toBe("native-static");
+    expect(classifyCard(C("Creature — Soldier", "Other creatures you control get +1/+1."))).toBe("native-static");
+    expect(classifyCard(C("Creature — Sliver", "Flying\nOther Sliver creatures you control get +1/+1 and have flying."))).toBe("native-static");
+    // Still body-only: an anthem next to an UNMODELED trigger (composite → conservative),
+    // or a conditional/variable anthem the parser refuses to fabricate.
+    expect(classifyCard(C("Creature — Cat", "Other creatures you control get +1/+1.\nWhenever this creature attacks, scry 2."))).toBe("body-only");
+    expect(classifyCard(C("Creature — Sliver", "Other Slivers get +1/+1 for each other Sliver."))).toBe("body-only");
   });
   it("a planeswalker is arbiter-pw", () => {
     expect(classifyCard(C("Legendary Planeswalker — Jace", "+1: Draw a card."))).toBe("arbiter-pw");
@@ -81,29 +92,31 @@ describe("coverageSummary", () => {
     C("Creature — Bear", "", { qty: 2 }),                         // native-body
     C("Instant", "Deal 3 damage to any target.", { qty: 1 }),     // native-spell
     C("Creature — Wizard", "When this enters, draw a card.", { qty: 2 }), // native-trigger (P2.8)
-    C("Enchantment", "Creatures you control get +1/+1.", { qty: 1 }),     // body-only (static — P2.10)
+    C("Enchantment", "Creatures you control get +1/+1.", { qty: 1 }),     // native-static (P2.10)
+    C("Enchantment", "Creatures you control get +2/+2 as long as you control a Forest.", { qty: 1 }), // body-only (conditional static — unmodeled)
     C("Instant", "Counter target spell.", { qty: 1 }),            // arbiter-spell (P3.1)
   ];
   it("counts tiers weighted by qty and computes native %", () => {
     const s = coverageSummary(DECK);
-    expect(s.total).toBe(19);
+    expect(s.total).toBe(20);
     expect(s.tiers.land).toBe(10);
     expect(s.tiers["native-mana"]).toBe(2);
     expect(s.tiers["native-body"]).toBe(2);
     expect(s.tiers["native-spell"]).toBe(1);
     expect(s.tiers["native-trigger"]).toBe(2);
+    expect(s.tiers["native-static"]).toBe(1);
     expect(s.tiers["body-only"]).toBe(1);
     expect(s.tiers["arbiter-spell"]).toBe(1);
-    expect(s.native).toBe(17); // 10 + 2 + 2 + 1 + 2
-    expect(s.pct).toBe(89);    // 17/19
+    expect(s.native).toBe(18); // 10 + 2 + 2 + 1 + 2 + 1
+    expect(s.pct).toBe(90);    // 18/20
   });
   it("every native tier is in NATIVE_TIERS and gap tiers are not", () => {
-    expect([...NATIVE_TIERS].sort()).toEqual(["land", "native-activated", "native-body", "native-mana", "native-spell", "native-trigger"]);
+    expect([...NATIVE_TIERS].sort()).toEqual(["land", "native-activated", "native-body", "native-mana", "native-spell", "native-static", "native-trigger"]);
   });
   it("buckets the gap by mechanism (ETB value is no longer in the gap)", () => {
     const s = coverageSummary(DECK);
     expect(s.gap["ETB trigger"]).toBeUndefined(); // the ETB draw is native now
-    expect(s.gap["Static anthem/buff"]).toBe(1);
-    expect(Object.values(s.gap).reduce((a, b) => a + b, 0)).toBe(2); // anthem + counter
+    expect(s.gap["Static anthem/buff"]).toBe(1);  // the CONDITIONAL anthem stays in the gap
+    expect(Object.values(s.gap).reduce((a, b) => a + b, 0)).toBe(2); // conditional anthem + counterspell
   });
 });

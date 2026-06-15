@@ -91,7 +91,7 @@ function parseClause(clause, out) {
 
   // ── P/T anthems / lords (layer 7c, 613.4c) ──────────────────────────────────
   // "get +X/+Y" with explicit signs is the anthem/lord signature.
-  const ptMatch = c.match(/\bget\s+([+-]\d+)\/([+-]\d+)\b/);
+  const ptMatch = c.match(/\bgets?\s+([+-]\d+)\/([+-]\d+)\b/);
   if (ptMatch) {
     const power = signed(ptMatch[1]);
     const toughness = signed(ptMatch[2]);
@@ -104,13 +104,15 @@ function parseClause(clause, out) {
         affects,
         duration: { kind: "permanent" },
       });
-      return; // one buff per clause
+      // P2.10: do NOT return — a clause can grant a buff AND a keyword in one breath
+      // ("creatures you control get +1/+1 and have vigilance"). Fall through so the
+      // keyword-grant pass below also fires (it no-ops when there's no "have <kw>").
     }
   }
 
   // ── Keyword grants (layer 6, 613.1f) ────────────────────────────────────────
   // "<selector> have <keyword>[ and <keyword>...]"
-  const haveMatch = c.match(/\bhave\s+(.+)$/);
+  const haveMatch = c.match(/\b(?:have|has)\s+(.+)$/);
   if (haveMatch) {
     const affects = parseCreatureSelector(c);
     if (affects) {
@@ -169,13 +171,13 @@ function parseCreatureSelector(c) {
   // SUBJECT of the clause. This is what stops a comma-joined effect body (e.g. the
   // tail of a trigger after the static guard) from matching as an anthem.
 
-  // Tribal: "(all|other|each) <subtype>s [creatures] [you control]"
-  let m = c.match(/^(all|other|each)\s+([a-z]+)\s+(?:creatures?\s+)?(?:you control\s+)?(?:get|gain|have)\b/);
+  // Tribal / determiner anthem: "(all|other|each) <word> [creatures] [you control] get…"
+  let m = c.match(/^(all|other|each)\s+([a-z]+)\s+(?:creatures?\s+)?(?:you control\s+)?(?:gets?|gains?|has|have)\b/);
   if (m) {
     const determiner = m[1];
     const word = m[2];
-    // Skip the bare "creatures you control" case (no real subtype) — handled below.
     if (word !== "creature" && word !== "creatures") {
+      // Tribal lord: "(all|other|each) <Subtype>s [creatures] [you control] …".
       return {
         mode: "dynamic",
         selector: {
@@ -186,6 +188,15 @@ function parseCreatureSelector(c) {
         },
       };
     }
+    // P2.10: determiner + bare "creatures": "(all|other|each) creatures [you control] …".
+    // The generic regex below only matches a LITERAL "creatures you control" start, so the
+    // common LORD anthem "Other creatures you control get +1/+1" and "Each creature you
+    // control gets …" would otherwise fall through unmatched. "other" excludes the source
+    // (a lord doesn't pump itself); all/each include it.
+    return {
+      mode: "dynamic",
+      selector: { controllerScope, cardTypes: ["Creature"], excludeSelf: determiner === "other" },
+    };
   }
 
   // Color anthem: "<color> creatures you control"
@@ -202,14 +213,39 @@ function parseCreatureSelector(c) {
   }
 
   // Generic anthem: "creatures you control [get|have]"
-  if (/^creatures?\s+you control\s+(?:get|gain|have)\b/.test(c)) {
+  if (/^creatures?\s+you control\s+(?:gets?|gains?|has|have)\b/.test(c)) {
     return {
       mode: "dynamic",
       selector: { controllerScope: "you", cardTypes: ["Creature"] },
     };
   }
 
+  // P2.10 symmetric anthem: bare "creatures get|gain|have …" (no "you control") buffs EVERY
+  // controller's creatures (a global static, e.g. "Creatures get +1/+1"). Anchored so
+  // "creatures you control get …" (caught above) and "creatures with flying get …" (a
+  // qualified subset we don't model) never reach here.
+  if (/^creatures?\s+(?:gets?|gains?|has|have)\b/.test(c)) {
+    return {
+      mode: "dynamic",
+      selector: { controllerScope: "each", cardTypes: ["Creature"] },
+    };
+  }
+
   return null;
+}
+
+/**
+ * LEVEL-GATED card guard (CLAUDE.md §1.2). On a leveler ("Level up {cost}" + "LEVEL
+ * N-M" bands) or a Class ("{cost}: Level N"), a buff line like "Creatures you control
+ * get +1/+1" is only active at the right LEVEL — but it sits on its own (colon-less)
+ * line, so per-clause parsing can't tell which band it belongs to and would fabricate
+ * an always-on anthem. We can't model levels, so we parse NO static abilities from
+ * these cards (→ Arbiter/body-only). Conservative: a miss is safe, a false grant isn't.
+ */
+function isLevelGated(oracle) {
+  return /\blevel up\b/i.test(oracle) ||      // Rise-of-Eldrazi levelers
+    /\bLEVEL \d+(?:-\d+|\+)?\b/.test(oracle) || // their "LEVEL 1-3" band headers
+    /:\s*Level \d/i.test(oracle);              // Class "{cost}: Level N"
 }
 
 /**
@@ -219,10 +255,34 @@ function parseCreatureSelector(c) {
  */
 export function parseStaticAbilities(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
-  if (!oracle) return [];
+  if (!oracle || isLevelGated(oracle)) return [];
   const out = [];
   for (const clause of abilityClauses(oracle)) {
     parseClause(clause, out);
   }
   return out;
+}
+
+/**
+ * True when EVERY ability clause of the card is a modeled static effect or keyword-only
+ * text — i.e. the static parser covers the WHOLE (non-body) card, so a pure anthem
+ * ("Glorious Anthem") or a vanilla-body lord ("Benalish Marshal") plays fully natively
+ * (body + layer anthem). The coverage metric (`coverage.permanentStaticCovered`) calls
+ * this. `isKeywordOnlyClause` is INJECTED (coverage owns the keyword vocabulary) so this
+ * module stays a leaf — no coverage→static→coverage import cycle.
+ *
+ * Conservative: a leveler (parseStaticAbilities already returns []) or ANY unmodeled
+ * clause (a trigger/activated/conditional next to the anthem) → false. Mirrors the
+ * runtime exactly (the same parseClause the layer engine consumes).
+ */
+export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
+  if (parseStaticAbilities(card).length === 0) return false; // none, or leveler-gated
+  for (const clause of abilityClauses(String(card?.oracle || card?.oracle_text || ""))) {
+    const produced = [];
+    parseClause(clause, produced);
+    if (produced.length > 0) continue;          // a modeled static clause
+    if (isKeywordOnlyClause(clause)) continue;   // keyword-only / vanilla line
+    return false;                                // unmodeled residue (trigger/activated/…)
+  }
+  return true;
 }
