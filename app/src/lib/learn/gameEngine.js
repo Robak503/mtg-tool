@@ -40,6 +40,7 @@ import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
 import { checkStepTriggers, checkAttackTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
+import { parseEffectClause, programConfidence } from "./effects/parser.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -431,6 +432,41 @@ function orderTriggersAPNAP(state, pending) {
   return out;
 }
 
+/** Atoms in a program that REQUIRE a chosen target (vs. self/each-* atoms). */
+function programNeedsChosenTarget(program) {
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap((m) => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.some((a) => a.targetType && !["eachOpponent", "eachCreature"].includes(a.targetType));
+}
+
+/**
+ * The serializable payload a pending trigger goes on the stack with. P2.8: when the
+ * trigger's effect clause parses to a HIGH, non-modal, NON-TARGETED EffectProgram
+ * (draw / gain-life / make-a-token / each-opponent / …), route it through the full
+ * EFFECT_PROGRAM interpreter so the trigger inherits the whole P2.x atom family.
+ * Targeted + modal triggers keep the small `trigger.effect` fallback until the
+ * flush-time target chooser lands (a clean follow-up). An unparseable clause also
+ * keeps the fallback (→ Arbiter), never a fabricated effect (CLAUDE.md §1.2).
+ */
+function triggerStackPayload(trigger) {
+  const clause = trigger.descriptor?.effectClause;
+  if (clause) {
+    // Parse the trigger's effect clause as spell-like text: a triggered ability's
+    // effect resolves exactly as a spell would, and the legacy effect parser
+    // (spellEffects.parseSpellEffect) only engages for Instant/Sorcery types — so
+    // pass "Instant" to unlock draw/damage/destroy off a permanent source.
+    const program = parseEffectClause(clause, "Instant");
+    if (program && programConfidence(program) === "high" && program.structure !== "modal" && !programNeedsChosenTarget(program)) {
+      return {
+        resolver: "effect-program",
+        params: { program, controller: trigger.controller, targets: [], context: trigger.context },
+      };
+    }
+  }
+  return trigger.payload || {};
+}
+
 export function flushTriggers(state) {
   const pending = state.pendingTriggers || [];
   if (pending.length === 0) return state;
@@ -456,7 +492,7 @@ export function flushTriggers(state) {
       controller: trigger.controller,
       targets: trigger.targets || [],
       cost: null,
-      payload: trigger.payload || {},
+      payload: triggerStackPayload(trigger),
     });
   }
 

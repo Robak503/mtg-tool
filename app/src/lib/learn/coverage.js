@@ -25,7 +25,8 @@
  * parsers the runtime uses so the metric stays honest.
  */
 
-import { parseEffectProgram, programConfidence } from "./effects/parser.js";
+import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
+import { detectTriggers } from "./triggers.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
 // permanent whose only text is these plays natively (the body fights, the layer
@@ -64,6 +65,38 @@ export function spellIsNative(card) {
   return !!program && programConfidence(program) === "high";
 }
 
+/** Does a parsed program need a chosen target (vs self/each-* atoms)? Mirrors the
+ *  engine's flush-time routing gate (gameEngine.programNeedsChosenTarget). */
+function programNeedsTarget(program) {
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap((m) => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.some((a) => a.targetType && !["eachOpponent", "eachCreature"].includes(a.targetType));
+}
+
+/**
+ * True when a permanent's ENTIRE non-keyword text is triggered abilities the engine
+ * now fires natively (P2.8): every detected trigger's effect routes through the
+ * EffectProgram interpreter (high, non-modal, non-targeted — the same gate
+ * `flushTriggers` uses), AND nothing else is left after removing the trigger
+ * sentences + reminder + keywords (no activated/static residue). This is the
+ * common "body + one ETB value trigger" creature — fully native now.
+ */
+export function permanentTriggersCovered(card) {
+  const triggers = detectTriggers({ name: card.name, type: card.type, oracle: card.oracle });
+  if (triggers.length === 0) return false;
+  const allRoute = triggers.every((d) => {
+    if (!d.effectClause) return false;
+    const p = parseEffectClause(d.effectClause, "Instant");
+    return !!p && programConfidence(p) === "high" && p.structure !== "modal" && !programNeedsTarget(p);
+  });
+  if (!allRoute) return false;
+  // Remove the trigger sentences (same anchored grammar detectTriggers uses); what's
+  // left must be keyword-only/empty, or there's unmodeled activated/static text.
+  const residue = String(card.oracle || "").replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ");
+  return isKeywordOnly(residue);
+}
+
 /**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
@@ -79,10 +112,11 @@ export function classifyCard(card) {
   // Permanent (creature / artifact / enchantment / battle): the body always works.
   if (isKeywordOnly(oracle)) return "native-body";
   if (hasManaAbility(oracle)) return "native-mana";
+  if (permanentTriggersCovered(card)) return "native-trigger"; // P2.8: body + only-routing triggers
   return "body-only";
 }
 
-export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell"]);
+export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger"]);
 export const isNativeTier = (tier) => NATIVE_TIERS.has(tier);
 
 // Mechanism buckets for the gap (priority-ordered; first match wins) — the roadmap.

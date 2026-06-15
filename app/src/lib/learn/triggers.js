@@ -145,6 +145,11 @@ export function detectTriggers(card) {
         optional: /\bmay\b/.test(split.effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         effect: parseTriggerEffect(split.effectClause),
+        // Raw effect text so the flush stage (gameEngine, which can import the parser
+        // without the triggers→parser→effectAtoms→triggers cycle) can parse it into a
+        // full EffectProgram. P2.8 routes the rich-parsed program through the
+        // EFFECT_PROGRAM resolver; `effect` stays the small fallback.
+        effectClause: split.effectClause,
         sourceText: `${m[1]} ${inner}`,
       });
     }

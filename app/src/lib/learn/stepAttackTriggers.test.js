@@ -73,7 +73,10 @@ describe("wired into runStepActions", () => {
     const out = runStepActions(state);
     const trig = triggerOnStack(out);
     expect(trig).toBeTruthy();
-    expect(trig.payload.params.effect).toMatchObject({ kind: "draw" });
+    // P2.8: a non-targeted trigger effect now routes through the full EffectProgram
+    // interpreter (event-agnostic — upkeep triggers ride the same flush upgrade).
+    expect(trig.payload.resolver).toBe("effect-program");
+    expect(trig.payload.params.program.atoms[0].op).toBe("draw");
   });
 
   it("a 'your upkeep' trigger does not fire on an opponent's upkeep", () => {
@@ -90,6 +93,7 @@ describe("wired into runStepActions", () => {
     );
     const trig = triggerOnStack(runStepActions(state));
     expect(trig).toBeTruthy();
-    expect(trig.payload.params.effect).toMatchObject({ kind: "gainLife" });
+    expect(trig.payload.resolver).toBe("effect-program");
+    expect(trig.payload.params.program.atoms[0].op).toBe("gain-life");
   });
 });

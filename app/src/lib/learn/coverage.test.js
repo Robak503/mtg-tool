@@ -27,8 +27,13 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Sorcery", "Search your library for a creature card, reveal it, put it into your hand, then shuffle.", { name: "tutor" }))).toBe("arbiter-spell");
   });
   it("a permanent with abilities is body-only (body works, ability doesn't yet)", () => {
-    expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, draw a card."))).toBe("body-only");
+    // P2.8: a body whose ONLY ability is a now-firing (non-targeted) trigger is native.
+    expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, draw a card."))).toBe("native-trigger");
+    expect(classifyCard(C("Creature — Soldier", "When this creature enters, create a 1/1 white Soldier creature token."))).toBe("native-trigger");
+    // Still body-only: unmodeled static, unmodeled activated, or a TARGETED trigger.
     expect(classifyCard(C("Enchantment", "Creatures you control get +1/+1."))).toBe("body-only");
+    expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, destroy target creature."))).toBe("body-only");
+    expect(classifyCard(C("Creature — Knight", "When this enters, draw a card. {2}, {T}: Draw a card."))).toBe("body-only"); // extra activated text
   });
   it("a planeswalker is arbiter-pw", () => {
     expect(classifyCard(C("Legendary Planeswalker — Jace", "+1: Draw a card."))).toBe("arbiter-pw");
@@ -55,30 +60,33 @@ describe("coverageSummary", () => {
   // these expectations get TIGHTENED deliberately (never loosened).
   const DECK = [
     C("Basic Land — Island", "", { qty: 10 }),
-    C("Artifact", "{T}: Add {C}.", { qty: 2 }),                 // native-mana
-    C("Creature — Bear", "", { qty: 2 }),                        // native-body
-    C("Instant", "Deal 3 damage to any target.", { qty: 1 }),    // native-spell
-    C("Creature — Wizard", "When this enters, draw a card.", { qty: 2 }), // body-only
-    C("Instant", "Counter target spell.", { qty: 1 }),           // arbiter-spell
+    C("Artifact", "{T}: Add {C}.", { qty: 2 }),                  // native-mana
+    C("Creature — Bear", "", { qty: 2 }),                         // native-body
+    C("Instant", "Deal 3 damage to any target.", { qty: 1 }),     // native-spell
+    C("Creature — Wizard", "When this enters, draw a card.", { qty: 2 }), // native-trigger (P2.8)
+    C("Enchantment", "Creatures you control get +1/+1.", { qty: 1 }),     // body-only (static — P2.10)
+    C("Instant", "Counter target spell.", { qty: 1 }),            // arbiter-spell (P3.1)
   ];
   it("counts tiers weighted by qty and computes native %", () => {
     const s = coverageSummary(DECK);
-    expect(s.total).toBe(18);
+    expect(s.total).toBe(19);
     expect(s.tiers.land).toBe(10);
     expect(s.tiers["native-mana"]).toBe(2);
     expect(s.tiers["native-body"]).toBe(2);
     expect(s.tiers["native-spell"]).toBe(1);
-    expect(s.tiers["body-only"]).toBe(2);
+    expect(s.tiers["native-trigger"]).toBe(2);
+    expect(s.tiers["body-only"]).toBe(1);
     expect(s.tiers["arbiter-spell"]).toBe(1);
-    expect(s.native).toBe(15); // 10 + 2 + 2 + 1
-    expect(s.pct).toBe(83);    // 15/18
+    expect(s.native).toBe(17); // 10 + 2 + 2 + 1 + 2
+    expect(s.pct).toBe(89);    // 17/19
   });
   it("every native tier is in NATIVE_TIERS and gap tiers are not", () => {
-    expect([...NATIVE_TIERS].sort()).toEqual(["land", "native-body", "native-mana", "native-spell"]);
+    expect([...NATIVE_TIERS].sort()).toEqual(["land", "native-body", "native-mana", "native-spell", "native-trigger"]);
   });
-  it("buckets the gap by mechanism", () => {
+  it("buckets the gap by mechanism (ETB value is no longer in the gap)", () => {
     const s = coverageSummary(DECK);
-    expect(s.gap["ETB trigger"]).toBe(2);
-    expect(Object.values(s.gap).reduce((a, b) => a + b, 0)).toBe(3); // body-only + arbiter-spell
+    expect(s.gap["ETB trigger"]).toBeUndefined(); // the ETB draw is native now
+    expect(s.gap["Static anthem/buff"]).toBe(1);
+    expect(Object.values(s.gap).reduce((a, b) => a + b, 0)).toBe(2); // anthem + counter
   });
 });
