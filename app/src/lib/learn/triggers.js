@@ -94,7 +94,32 @@ function classifyCondition(condRaw, cardName) {
     if (/a creature you control/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };
   }
   if (/\bblocks\b/.test(c) && selfRef) return { event: "blocks", scope: "self", whose: "any" };
+
+  // Cast-spell triggers (CR 603.2, the spell-cast event). The WHOLE condition must reduce
+  // to "(you|an opponent|a player|each player) cast(s) a[n] <filter> spell" — ANCHORED, so a
+  // trailing rider ("… spell that targets …", "… spell from your graveyard", "… spell during
+  // your turn", "… your first/second spell each turn") leaves residue and is NOT detected
+  // (→ Arbiter), never an over-fire. `whose` = which caster; `spellFilter` = which types —
+  // only the modeled filters (any / instant-or-sorcery / creature / noncreature) classify; a
+  // color/subtype/historic/timing filter returns null → undetected. ("an?" greedily takes the
+  // "n" of "an" but stops at the space of a bare "a".)
+  const castM = c.match(/^(you|an opponent|a player|each player) casts?\s+(?:an?|your|its|their)?\s*([a-z- ]*?)\s*spell$/);
+  if (castM) {
+    const whose = /you/.test(castM[1]) ? "you" : /opponent/.test(castM[1]) ? "opponent" : "any";
+    const spellFilter = castSpellFilter(castM[2].trim());
+    if (spellFilter) return { event: "cast", scope: "castWatcher", whose, spellFilter };
+  }
   return null;
+}
+
+/** Map the words between "cast a[n]" and "spell" to a MODELED spell filter, or null. */
+function castSpellFilter(text) {
+  const f = String(text).trim();
+  if (f === "") return "any";                                  // "casts a spell"
+  if (/^(?:instant|sorcery|instant or sorcery)$/.test(f)) return "instantSorcery";
+  if (f === "creature") return "creature";
+  if (f === "noncreature") return "noncreature";
+  return null; // color / subtype / "second" / historic / multicolored / … → unmodeled
 }
 
 /**
@@ -142,6 +167,7 @@ export function detectTriggers(card) {
         event: cls.event,
         scope: cls.scope,
         whose: cls.whose,
+        spellFilter: cls.spellFilter, // cast triggers only (undefined otherwise)
         optional: /\bmay\b/.test(split.effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         effect: parseTriggerEffect(split.effectClause),
@@ -294,6 +320,46 @@ export function checkAttackTriggers(state) {
     for (const watcher of state.players[a.attackingPlayer]?.battlefield || []) {
       if (watcher.id === attackerPerm.id) continue;
       fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/** Does the cast spell match a cast trigger's modeled spell-type filter? */
+function spellMatchesFilter(filter, spellCard) {
+  const t = typeStr(spellCard);
+  switch (filter) {
+    case "any": return true;
+    case "instantSorcery": return /Instant|Sorcery/.test(t);
+    case "creature": return /Creature/.test(t);
+    case "noncreature": return !/Creature/.test(t);
+    default: return false;
+  }
+}
+
+/**
+ * Enqueue cast-spell triggers (CR 603.2) when `spellCard` is cast by `casterId`. Scans
+ * every battlefield permanent for a "Whenever … casts a … spell" watcher whose `whose`
+ * (you / opponent / any caster) and `spellFilter` (the modeled types) match this cast,
+ * and enqueues it. The trigger then rides the normal flush → stack path, so it inherits
+ * the EffectProgram routing (an unmodeled effect like "untap this" stays a no-op, never
+ * fabricated). Context carries the cast spell's name + type for future referential
+ * effects. Pure — appends to pendingTriggers and returns new state.
+ */
+export function checkCastTriggers(state, { spellCard, casterId }) {
+  if (!spellCard) return state;
+  const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard) };
+  let fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of state.players[pid].battlefield) {
+      const descriptors = detectTriggers(watcher.card).filter(d => d.event === "cast");
+      for (const d of descriptors) {
+        if (d.whose === "you" && casterId !== watcher.controller) continue;
+        if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(casterId)) continue;
+        if (!spellMatchesFilter(d.spellFilter, spellCard)) continue;
+        fired.push(makePendingTrigger(d, watcher, null, context));
+      }
     }
   }
   if (!fired.length) return state;
