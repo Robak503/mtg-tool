@@ -271,10 +271,17 @@ coverage-metric + scope realism in
 > playable action: `effects/abilities.parseActivatedAbilities` with a mana+`{T}` cost
 > allowlist, `legalChoices.actionsActivateAbility` + `actionDispatcher.applyActivateAbility`
 > resolving through `EFFECT_PROGRAM`; mana abilities stay on the no-stack tap path;
-> `native-activated` coverage tier) → **NEXT: P2.10 static anthems** (widen
-> `staticAbilityParser` — e.g. the missed "Other creatures you control get +1/+1") (Frontier
-> A). The §4 table's old numbering predates this reorder; the mechanics below still describe
-> the work, just under different P2.x labels.
+> `native-activated` coverage tier) → **P2.10 static anthems** (widen `staticAbilityParser`:
+> determiner/symmetric/multi-grant anthems — "Other creatures you control get +1/+1", "All
+> creatures have haste", "…get +1/+1 and have vigilance"; a leveler/Class guard so
+> level-gated buffs aren't fabricated as always-on; `native-static` coverage tier). **Frontier
+> A is now COMPLETE** — the headline coverage moved 45%→46% as the Sliver lords flip
+> native-static (the lumpy jump the metric predicted once the pieces compose). NEXT: Frontier
+> B spells (P3.1 counter-target-spell, P3.2 tutors, P3.3 conditional/scaling, P3.4 mass
+> effects) + the AI/Beginner trigger-target chooser + the trigger+activated+static COMPOSITE
+> coverage pass (each predicate is conservative today, so multi-ability creatures still need
+> all their abilities to flip together). The §4 table's old numbering predates this reorder;
+> the mechanics below still describe the work, just under different P2.x labels.
 
 | # | PR | Mechanic | Coverage | Effort/Risk | Depends on |
 |---|----|----------|----------|-------------|------------|
