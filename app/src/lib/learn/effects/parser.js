@@ -272,12 +272,28 @@ function parseModal(cardType, oracle, hasX = false) {
  */
 export function parseEffectProgram(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
-
-  const oracle = oracleOf(card);
-  const cardType = typeOf(card);
   // {X}-cost spell: the parser may stamp `amountX` on a damage/draw/pump atom whose
   // amount is the chosen X, bound at cast time (CR 601.2b) and read at resolution.
-  const hasX = hasXCost(card);
+  return parseEffectClause(oracleOf(card), typeOf(card), { hasX: hasXCost(card) });
+}
+
+/**
+ * Parse a raw effect-text clause into an EffectProgram, regardless of card type.
+ *
+ * This is `parseEffectProgram`'s body, factored out so a NON-spell effect clause —
+ * a triggered ability's effect ("When ~ enters, <this>"), an activated ability's
+ * effect ("{cost}: <this>") — runs through the SAME multi-clause / modal /
+ * all-or-nothing-confidence pipeline and inherits the full P2.x atom family. The
+ * confidence gate is identical: `high` iff every clause (or every mode) parses to a
+ * known atom, `low` (zero atoms → Arbiter seam) otherwise. Returns null only for
+ * empty text. NEVER a fabricated effect.
+ *
+ * `cardType` is the source's type line (used by clause parsers for type-sensitive
+ * shapes); `hasX` marks an X in the relevant cost so amount-X atoms bind at choice
+ * time (default false — permanent-ability effects rarely carry their own X).
+ */
+export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) {
+  if (!oracle) return null;
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).
@@ -334,4 +350,19 @@ export function programConfidence(program) {
   }
   if (!Array.isArray(program.atoms) || program.atoms.length === 0) return "low";
   return program.atoms.every(a => KNOWN.has(a.op)) ? "high" : "low";
+}
+
+/**
+ * Does the program contain an atom that REQUIRES a chosen target (vs. self / each-*
+ * atoms that resolve with no target)? The single source of truth for the
+ * trigger-flush routing gate (gameEngine.triggerStackPayload) AND the coverage
+ * classifier (coverage.permanentTriggersCovered) — kept here so the runtime and the
+ * metric can never drift. eachOpponent/eachCreature resolve without a chosen target.
+ */
+export function programNeedsChosenTarget(program) {
+  if (!program) return false;
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.some(a => a.targetType && !["eachOpponent", "eachCreature"].includes(a.targetType));
 }

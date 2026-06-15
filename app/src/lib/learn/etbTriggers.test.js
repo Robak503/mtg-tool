@@ -73,3 +73,70 @@ describe("ETB triggers fire (Phase-7 PR-6)", () => {
     expect(afterTrigger.players.user.hand[0].id).toBe("lib-1");
   });
 });
+
+describe("ETB triggers via the full EffectProgram (P2.8)", () => {
+  // Resolve a creature spell so its ETB trigger ends up on the stack, then inspect.
+  function castAndResolveSpell(card, over = {}) {
+    let s = stateWith(over);
+    s = { ...s, stack: [{ id: "stk-1", kind: "spell", source: card, controller: "user", targets: [], cost: null, payload: { resolver: "spell.permanent", params: { card, controller: "user" } } }] };
+    return resolveTopOfStack(s);
+  }
+
+  it("an ETB TOKEN trigger routes through EFFECT_PROGRAM and makes the token (new — fallback couldn't)", () => {
+    const c = creature("Token Maker", "When Token Maker enters, create a 1/1 white Soldier creature token.", { id: "card-tm" });
+    const afterSpell = castAndResolveSpell(c);
+    expect(afterSpell.stack[0].kind).toBe("triggered-ability");
+    expect(afterSpell.stack[0].payload.resolver).toBe("effect-program");
+    const after = resolveTopOfStack(afterSpell);
+    expect(after.stack).toHaveLength(0);
+    expect(after.players.user.battlefield.some((p) => p.card?.token)).toBe(true);
+  });
+
+  it("an ETB gain-life trigger gains the life via EFFECT_PROGRAM", () => {
+    const before = createGameState({ userDeck: [], aiDeck: [] }).players.user.life;
+    const c = creature("Healer", "When Healer enters, you gain 3 life.", { id: "card-h" });
+    const afterSpell = castAndResolveSpell(c);
+    expect(afterSpell.stack[0].payload.resolver).toBe("effect-program");
+    expect(resolveTopOfStack(afterSpell).players.user.life).toBe(before + 3);
+  });
+
+  it("an ETB 'each opponent loses life' trigger routes through EFFECT_PROGRAM", () => {
+    const c = creature("Drainer", "When Drainer enters, each opponent loses 2 life.", { id: "card-dr" });
+    const oppBefore = createGameState({ userDeck: [], aiDeck: [] }).players.ai.life;
+    const afterSpell = castAndResolveSpell(c);
+    expect(afterSpell.stack[0].payload.resolver).toBe("effect-program");
+    expect(resolveTopOfStack(afterSpell).players.ai.life).toBe(oppBefore - 2);
+  });
+
+  it("an ETB 'deal N damage to each opponent' trigger routes through EFFECT_PROGRAM and damages opponents", () => {
+    const c = creature("Bomber", "When Bomber enters, it deals 2 damage to each opponent.", { id: "card-bm" });
+    const oppBefore = createGameState({ userDeck: [], aiDeck: [] }).players.ai.life;
+    const afterSpell = castAndResolveSpell(c);
+    expect(afterSpell.stack[0].payload.resolver).toBe("effect-program");
+    expect(resolveTopOfStack(afterSpell).players.ai.life).toBe(oppBefore - 2);
+  });
+
+  it("an INTERVENING-IF ETB is NOT routed and does NOT fabricate its effect (CR 603.4 condition unevaluated)", () => {
+    const c = creature("Conditional Maker", "When Conditional Maker enters, if you control another creature, create a 1/1 white Soldier creature token.", { id: "card-cm" });
+    const afterSpell = castAndResolveSpell(c);
+    expect(afterSpell.stack[0].payload.resolver).not.toBe("effect-program"); // kept the fallback
+    const after = resolveTopOfStack(afterSpell);
+    expect(after.players.user.battlefield.filter((p) => p.card?.token)).toHaveLength(0); // no fabricated token
+  });
+
+  it("the canonical 'draw a card' ETB routes through EFFECT_PROGRAM (draw unlocked off a creature source)", () => {
+    const c = creature("Visionary", "When Visionary enters, draw a card.", { id: "card-v2" });
+    let s = withLibrary(stateWith(), [{ id: "lib-x", name: "Card" }]);
+    s = { ...s, stack: [{ id: "stk-1", kind: "spell", source: c, controller: "user", targets: [], cost: null, payload: { resolver: "spell.permanent", params: { card: c, controller: "user" } } }] };
+    const afterSpell = resolveTopOfStack(s);
+    expect(afterSpell.stack[0].payload.resolver).toBe("effect-program");
+    expect(resolveTopOfStack(afterSpell).players.user.hand.map((x) => x.id)).toContain("lib-x");
+  });
+
+  it("a TARGETED ETB does NOT use EFFECT_PROGRAM — it keeps the fallback, never fabricating (CLAUDE.md §1.2)", () => {
+    const c = creature("Hunter", "When Hunter enters, destroy target creature.", { id: "card-hu" });
+    const afterSpell = castAndResolveSpell(c);
+    expect(afterSpell.stack[0].kind).toBe("triggered-ability");
+    expect(afterSpell.stack[0].payload.resolver).not.toBe("effect-program");
+  });
+});

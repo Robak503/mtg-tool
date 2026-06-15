@@ -25,7 +25,8 @@
  * parsers the runtime uses so the metric stays honest.
  */
 
-import { parseEffectProgram, programConfidence } from "./effects/parser.js";
+import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget } from "./effects/parser.js";
+import { detectTriggers } from "./triggers.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
 // permanent whose only text is these plays natively (the body fights, the layer
@@ -65,6 +66,32 @@ export function spellIsNative(card) {
 }
 
 /**
+ * True when a permanent's ENTIRE non-keyword text is triggered abilities the engine
+ * now fires natively (P2.8): every detected trigger's effect routes through the
+ * EffectProgram interpreter (high, non-modal, non-targeted — the same gate
+ * `flushTriggers` uses), AND nothing else is left after removing the trigger
+ * sentences + reminder + keywords (no activated/static residue). This is the
+ * common "body + one ETB value trigger" creature — fully native now.
+ *
+ * Mirrors the runtime exactly: an intervening-if trigger (CR 603.4) is NOT routed
+ * by the engine (it would fire unconditionally), so it does NOT count as native.
+ */
+export function permanentTriggersCovered(card) {
+  const triggers = detectTriggers(card); // card IS the publicCard shape — keep WeakMap cache hits
+  if (triggers.length === 0) return false;
+  const allRoute = triggers.every((d) => {
+    if (!d.effectClause || d.interveningIf) return false; // intervening-if → not routed
+    const p = parseEffectClause(d.effectClause, "Instant");
+    return !!p && programConfidence(p) === "high" && p.structure !== "modal" && !programNeedsChosenTarget(p);
+  });
+  if (!allRoute) return false;
+  // Remove the trigger sentences (same anchored grammar detectTriggers uses); what's
+  // left must be keyword-only/empty, or there's unmodeled activated/static text.
+  const residue = String(card.oracle || "").replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ");
+  return isKeywordOnly(residue);
+}
+
+/**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
  */
@@ -79,10 +106,11 @@ export function classifyCard(card) {
   // Permanent (creature / artifact / enchantment / battle): the body always works.
   if (isKeywordOnly(oracle)) return "native-body";
   if (hasManaAbility(oracle)) return "native-mana";
+  if (permanentTriggersCovered(card)) return "native-trigger"; // P2.8: body + only-routing triggers
   return "body-only";
 }
 
-export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell"]);
+export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger"]);
 export const isNativeTier = (tier) => NATIVE_TIERS.has(tier);
 
 // Mechanism buckets for the gap (priority-ordered; first match wins) — the roadmap.
