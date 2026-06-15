@@ -244,6 +244,9 @@ export function resolveChoice(actions, choice) {
     (a.permanentId === choice.permanentId || (a.permanentId == null && choice.permanentId == null)) &&
     (a.attackerId === choice.attackerId || (a.attackerId == null && choice.attackerId == null)) &&
     (a.color === choice.color || (a.color == null && choice.color == null)) &&
+    // A permanent can have more than one activated ability — disambiguate by index so
+    // two abilities sharing kind+permanentId+target don't collapse to the same choice.
+    (a.abilityIndex === choice.abilityIndex || (a.abilityIndex == null && choice.abilityIndex == null)) &&
     targetId(a) === targetId(choice)
   ) || null;
 }

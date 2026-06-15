@@ -41,6 +41,17 @@ describe("classifyCard — tiers", () => {
     // Intervening-if (CR 603.4) is NOT routed by the engine, so it must NOT count native.
     expect(classifyCard(C("Creature — Cleric", "When this creature enters, if you control another creature, draw a card."))).toBe("body-only");
   });
+  it("a permanent whose only text is modeled activated abilities is native-activated (P2.9)", () => {
+    // {T} pinger, mana-cost draw, tapper, and a keyword + modeled ability — all native.
+    expect(classifyCard(C("Creature — Wizard", "{T}: This creature deals 1 damage to any target."))).toBe("native-activated");
+    expect(classifyCard(C("Artifact", "{4}, {T}: Draw a card."))).toBe("native-activated");
+    expect(classifyCard(C("Creature — Wall", "Defender\n{1}{W}, {T}: Tap target creature."))).toBe("native-activated");
+    // Still body-only: an unmodeled cost (sacrifice), an unmodeled effect (tutor), or an
+    // activated ability sitting next to an UNMODELED trigger (composite → conservative).
+    expect(classifyCard(C("Creature — Wizard", "{1}, Sacrifice this creature: Draw a card."))).toBe("body-only");
+    expect(classifyCard(C("Artifact", "{2}, {T}: Search your library for a card, then shuffle."))).toBe("body-only");
+    expect(classifyCard(C("Creature — Human", "{T}: This creature deals 1 damage to any target.\nWhenever this creature deals damage, you may untap it."))).toBe("body-only");
+  });
   it("a planeswalker is arbiter-pw", () => {
     expect(classifyCard(C("Legendary Planeswalker — Jace", "+1: Draw a card."))).toBe("arbiter-pw");
   });
@@ -87,7 +98,7 @@ describe("coverageSummary", () => {
     expect(s.pct).toBe(89);    // 17/19
   });
   it("every native tier is in NATIVE_TIERS and gap tiers are not", () => {
-    expect([...NATIVE_TIERS].sort()).toEqual(["land", "native-body", "native-mana", "native-spell", "native-trigger"]);
+    expect([...NATIVE_TIERS].sort()).toEqual(["land", "native-activated", "native-body", "native-mana", "native-spell", "native-trigger"]);
   });
   it("buckets the gap by mechanism (ETB value is no longer in the gap)", () => {
     const s = coverageSummary(DECK);

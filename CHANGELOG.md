@@ -16,6 +16,13 @@ summarizes the notable changes.
   on the stack and resolves it in-game — and, per the rules, correctly removes the
   ability when there's no legal target to choose. Restricted targets are honoured (a
   *"...an opponent controls"* removal only ever hits an opponent's creature).
+- **You can now use activated abilities in The Academy.** Permanents with a
+  *"{cost}: do something"* ability — a `{T}` pinger, a tapper, a `{2}, {T}: Draw a card`,
+  a token-maker, a pump — now offer that ability as a play on your main phase. It pays
+  the cost (tapping the permanent and auto-paying the mana), goes on the stack, and
+  resolves through the same engine your spells use. Abilities whose cost the engine
+  can't model yet (sacrifice, pay-life, {X}) are simply not offered rather than played
+  wrong; mana abilities still tap the normal way.
 
 ## [0.33.0] - 2026-06-07
 

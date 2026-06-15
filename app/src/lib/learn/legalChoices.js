@@ -36,6 +36,7 @@ import { permanentHasKeyword } from "./layers.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
+import { parseActivatedAbilities } from "./effects/abilities.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -449,6 +450,67 @@ function actionsTapForMana(state, playerId) {
   return actions;
 }
 
+/**
+ * Activated abilities (`{cost}: effect`, CR 602.1) — P2.9. One action per (ability ×
+ * legal-target combo), mirroring the cast-spell expansion. Only abilities whose cost
+ * reduces to the modeled subset (mana pips + `{T}`) AND whose effect parses HIGH are
+ * offered (`effects/abilities.parseActivatedAbilities`); MANA abilities (`{T}: Add …`)
+ * are handled by `actionsTapForMana`, not here.
+ *
+ * v1 gates to the player's OWN main phase with priority (same window as
+ * `actionsTapForMana`) — activated abilities are instant-speed (CR 602.2), but
+ * surfacing them at every priority window would spam the learner; the AI auto-pickers
+ * ignore this kind (like tap-for-mana) so they never loop on it. Instant-speed timing
+ * is a later refinement.
+ */
+function actionsActivateAbility(state, playerId) {
+  if (state.activePlayer !== playerId) return [];
+  if (state.priorityHolder !== playerId) return [];
+  if (state.step !== "main") return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const perm of player.battlefield) {
+    const abilities = parseActivatedAbilities(perm.card);
+    if (!abilities.length) continue;
+    const isCreaturePerm = isCreature(perm.card);
+    for (const ab of abilities) {
+      if (!ab.modeled) continue;
+      if (ab.tapSelf) {
+        if (perm.tapped) continue; // can't tap an already-tapped source
+        // CR 302.6: a creature's {T} ability needs it un-summoning-sick (granted Haste counts).
+        if (isCreaturePerm && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
+      }
+      const cost = parseManaCost(ab.manaPips || "");
+      if (cost.hasX) continue; // X-cost activated abilities deferred (need the X-choice expansion)
+      // A {T}-tapping source can't ALSO tap for mana to pay its own cost — drop it from
+      // the available mana sources for the affordability check + payment plan.
+      const sources = manaSources(state, playerId).filter((s) => !(ab.tapSelf && s.permanentId === perm.id));
+      if (!canAfford(player.manaPool, sources, cost)) continue;
+      const choices = expandCastChoices(state, playerId, ab.program);
+      if (choices.length === 0) continue; // a required target has no legal pick → uncastable
+      for (const ch of choices) {
+        actions.push({
+          kind: "activate-ability",
+          playerId,
+          permanentId: perm.id,
+          name: perm.card.name,
+          abilityIndex: ab.index,
+          cost,
+          cmc: totalCmc(cost),
+          tapSelf: ab.tapSelf,
+          program: ab.program,
+          targets: ch.targets,
+          chosenMode: ch.chosenMode ?? null,
+          needsTargets: ch.targets.length > 0,
+          targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
+          abilityText: ab.effectClause,
+        });
+      }
+    }
+  }
+  return actions;
+}
+
 function actionsDeclareAttacker(state, playerId) {
   // Only the active player declares attackers, and only in the
   // declare-attackers step. legalChoices doesn't enforce step phase
@@ -572,6 +634,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsPlayLand(state, playerId));
   actions.push(...actionsCastSpell(state, playerId));
   actions.push(...actionsTapForMana(state, playerId));
+  actions.push(...actionsActivateAbility(state, playerId));
 
   // Combat actions.
   actions.push(...actionsDeclareAttacker(state, playerId));
