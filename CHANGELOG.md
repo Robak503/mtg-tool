@@ -23,6 +23,14 @@ summarizes the notable changes.
   printed stats. (Surfaced by live real-card verification of the new Aura mechanic.)
 
 ### Added
+- **Board wipes now work in The Academy.** Cast *"Destroy all creatures"* (*Day of
+  Judgment*, *Wrath of God* / *Damnation* — the *"can't be regenerated"* clause is handled),
+  *"Exile all creatures"*, or *"All creatures get -X/-X until end of turn"* (*Infest*,
+  *Languish*) and every creature on every battlefield is hit at once — destroyed, exiled, or
+  shrunk (with the ones that drop to 0 toughness dying). A *filtered* wipe ("…with flying",
+  "…you don't control", "all non-Dragon creatures") or a variable one (*Toxic Deluge*) is
+  handed to the Arbiter rather than wiping the wrong set. The opponent AI holds symmetric
+  wipes for now (it won't nuke its own board). 14 common board wipes now play natively.
 - **Auras now work in The Academy.** Cast an Aura that says *"Enchant creature"* with a
   *"Enchanted creature gets +X/+Y"* and/or *"has [keyword]"* bonus — *Unholy Strength*,
   *Flight*, *Rancor*-style buffs, or a debuff like *Weakness* / *Dead Weight* on an

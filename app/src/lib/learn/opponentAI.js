@@ -30,7 +30,7 @@ import { filterActions } from "./legalChoices.js";
 import { opponentsOf } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
-import { programContainsCounter } from "./effects/parser.js";
+import { programContainsCounter, programContainsMassRemoval } from "./effects/parser.js";
 
 // ─── Cast priority by archetype ──────────────────────────────────────────────
 
@@ -152,6 +152,10 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
     // counter+damage like Suffocating Blast held only by atom ordering). The player can
     // still cast counters normally; the AI simply passes.
     if (programContainsCounter(actions[0].program)) continue;
+    // The AI HOLDS a symmetric board wipe (destroy/exile/-X-X all creatures): it can't yet
+    // weigh whether the wipe nets out in its favor, and an indiscriminate Wrath into its own
+    // board plays terribly. The player casts wipes normally. (Deferred board-state heuristic.)
+    if (programContainsMassRemoval(actions[0].program)) continue;
     // The AI HOLDS Auras (deferred seam): it doesn't yet weigh which creature to enchant
     // (buff its own attacker vs. curse an enemy) and must never hang a beneficial Aura on an
     // opponent. The player casts Auras normally; the AI passes. (Belt-and-suspenders — these

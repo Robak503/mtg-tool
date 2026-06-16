@@ -28,6 +28,30 @@ import { setPendingTutorChoice } from "../pendingChoice.js";
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
 
+const isCreatureCard = (card) => /Creature/.test(String(card?.type || card?.type_line || ""));
+
+/**
+ * Every creature on EVERY battlefield, as target descriptors `{type:"creature", id,
+ * controller}`. The "all creatures" target set for a MASS atom (`targetType:"eachCreature"`
+ * — board wipes: destroy/exile/-X-X all). The order is players-then-battlefield (stable,
+ * serialize-deterministic). The mass resolvers feed this into the SAME per-effect helpers a
+ * targeted spell uses, so dies-triggers fire once for the simultaneous deaths (CR 700.4 /
+ * 603.10a captured pre-move in applyDestroyEffect; one lethal SBA in applyPumpEffect).
+ */
+function massCreatureTargets(state) {
+  const out = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const perm of state.players[pid].battlefield) {
+      if (isCreatureCard(perm.card)) out.push({ type: "creature", id: perm.id, controller: pid });
+    }
+  }
+  return out;
+}
+
+/** The atom's effective target list: every creature for a mass atom, else the chosen targets. */
+const atomTargets = (state, atom, ctx) =>
+  atom.targetType === "eachCreature" ? massCreatureTargets(state) : (ctx.targets || []);
+
 /**
  * P2.6 create-token (CR 701.7) — put `count` token creatures onto the controller's
  * battlefield. v1 conservative: tokens enter via createPermanent (correct P/T, owner,
@@ -87,20 +111,20 @@ function applyTapEffect(state, atom, ctx, tap) {
   return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: (ctx.targets || []).map(t => t.id) });
 }
 
-/** Move target creature(s) battlefield → hand (bounce) or → exile. */
+/** Move creature(s) battlefield → hand (bounce) or → exile — chosen targets, or ALL creatures
+ * for a mass `exile all creatures` (atom.targetType "eachCreature"). */
 function applyZoneMove(state, atom, ctx, toZone) {
   let next = state;
-  const dead = [];
-  for (const t of ctx.targets || []) {
+  const targets = atomTargets(state, atom, ctx);
+  for (const t of targets) {
     if (t.type !== "creature") continue;
     const lk = findPermanent(next, t.id);
     if (lk) {
-      if (toZone === "exile") dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
       next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone, cardId: t.id });
     }
   }
   // Exile is NOT "dies" (CR 700.4 — dies = to graveyard), so no dies triggers fire.
-  return logEvent(next, { kind: "spell-effect", effect: toZone === "exile" ? "exile" : "bounce", targets: (ctx.targets || []).map(t => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect: toZone === "exile" ? "exile" : "bounce", targets: targets.map(t => t.id) });
 }
 
 /** Put +1/+1 or -1/-1 counters on target creature(s) (CR 122.1). */
@@ -136,7 +160,11 @@ function applyPumpEffect(state, atom, ctx) {
   const x = ctx.xValue || 0;
   const power = atom.amountX ? x : atom.ptDelta?.p || 0;
   const toughness = atom.amountX ? x : atom.ptDelta?.t || 0;
-  for (const target of ctx.targets || []) {
+  // Chosen targets for a single-creature pump (Giant Growth), or EVERY creature for a mass
+  // "All creatures get -X/-X until end of turn" (atom.targetType "eachCreature" — Infest /
+  // Languish). The single lethal SBA below fires once, so a mass -X/-X kills simultaneously.
+  const targets = atomTargets(state, atom, ctx);
+  for (const target of targets) {
     if (target.type !== "creature") continue;
     next = addContinuousEffect(next, {
       layer: 7,
@@ -154,7 +182,7 @@ function applyPumpEffect(state, atom, ctx) {
   // the creature would silently survive at 0 toughness until the next combat step.
   const lethal = destroyLethalCreatures(next);
   next = checkDiesTriggers(lethal.state, lethal.dead);
-  return logEvent(next, { kind: "spell-effect", effect: "pump", power, toughness, targets: (ctx.targets || []).map(t => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect: "pump", power, toughness, targets: targets.map(t => t.id) });
 }
 
 /**
@@ -313,7 +341,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "deal-damage": (state, atom, ctx) =>
     applyDamageEffect(state, { controller: ctx.controller, amount: effectiveAmount(atom, ctx), targetType: atom.targetType, targets: ctx.targets }),
   "destroy": (state, atom, ctx) =>
-    applyDestroyEffect(state, { controller: ctx.controller, targets: ctx.targets }),
+    applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx) }),
   "draw": (state, atom, ctx) =>
     applyDrawEffect(state, { controller: ctx.controller, amount: effectiveAmount(atom, ctx) }),
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),

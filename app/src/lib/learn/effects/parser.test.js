@@ -388,7 +388,13 @@ const MUST_DROP_TO_LOW = [
   "Destroy target creature unless its controller pays {2}.",   // legacy over-matches → MUST drop
   "Destroy target nonblack creature.",                          // unmodeled COLOR restriction → MUST drop
   "Destroy target artifact.",
-  "Destroy all creatures.",
+  // FILTERED board wipes — `eachCreature` would wrongly hit the UNFILTERED set, so the exact
+  // "all creatures" anchor must reject any qualifier (color/type/keyword/controller).
+  "Destroy all creatures with flying.",                         // keyword filter → not all creatures
+  "Destroy all nonblack creatures.",                            // color filter
+  "Exile all creatures you don't control.",                     // controller filter
+  "Destroy all artifacts and enchantments.",                    // not creatures (noncreature wipe)
+  "All creatures get -1/-1 until end of turn and can't block.", // pump rider (can't block) — keyword effect dropped
   "Each player draws a card.",
   "Target player discards a card at random.",
   "Scry 2, then draw a card.",
@@ -481,6 +487,13 @@ const MUST_STAY_HIGH = [
   "Search your library for a legendary creature card, reveal it, put it into your hand, then shuffle.",     // Time of Need
   "Search your library for an Aura or Equipment card, reveal it, put it into your hand, then shuffle.",     // Open the Armory
   "Search your library for a basic land card, reveal it, put it into your hand, then shuffle. You gain 2 life.", // Environmental Sciences
+  // ── Mass effects (board wipes) — UNFILTERED "all creatures", modeled this slice. ──
+  "Destroy all creatures.",                                                     // Day of Judgment
+  "Destroy all creatures. They can't be regenerated.",                          // Wrath of God / Damnation (regen rider stripped)
+  "Exile all creatures.",                                                        // mass exile
+  "All creatures get -2/-2 until end of turn.",                                  // Infest
+  "Each creature gets -1/-1 until end of turn.",                                 // singular phrasing
+  "Destroy all creatures. Draw a card.",                                         // mass destroy + a modeled rider
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {
