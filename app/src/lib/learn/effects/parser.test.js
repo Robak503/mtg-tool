@@ -416,6 +416,17 @@ const MUST_DROP_TO_LOW = [
   "Creatures you control get +1/+1 and gain hexproof until end of turn.", // hexproof not grantable/enforced
   "Creatures you control get +2/+2 and gain menace until end of turn.",   // menace not grantable (unenforced)
   "Creatures you control gain trample until end of turn.",             // pure team keyword grant (no P/T) — deferred
+  // ── GRAVEYARD RECURSION (return-from-graveyard) — only the bare single-target "return target
+  // [creature] card from YOUR graveyard to your HAND" is modeled. A different filter, another
+  // graveyard, multi-card cardinality, or a battlefield (reanimation) destination must stay LOW →
+  // Arbiter, so we never mis-target the graveyard or silently drop a rider. ──
+  "Return up to two target creature cards from your graveyard to your hand.",       // "up to two" cardinality
+  "Return target instant or sorcery card from your graveyard to your hand.",        // unmodeled filter
+  "Return target artifact card from your graveyard to your hand.",                  // unmodeled filter
+  "Return target permanent card from your graveyard to your hand.",                 // unmodeled filter
+  "Return target creature card from a graveyard to your hand.",                     // ANY graveyard, not "your"
+  "Return target creature card from your graveyard to the battlefield.",            // reanimation (battlefield dest)
+  "Return target creature or land card from your graveyard to your hand.",          // multi-type filter
   "Each player draws a card.",
   "Target player discards a card at random.",
   "Scry 2, then draw a card.",
@@ -526,6 +537,10 @@ const MUST_STAY_HIGH = [
   "Creatures you control get +1/+1 until end of turn.",                          // generic team pump
   "Creatures you control get +3/+3 and gain trample until end of turn.",         // Overrun (no-split guard holds the combo)
   "Creatures you control get +1/+1 and gain vigilance until end of turn.",       // single-keyword combo
+  // ── Graveyard recursion (return-from-graveyard) — single-target, your graveyard, to hand. ──
+  "Return target creature card from your graveyard to your hand.",                // Raise Dead (creature filter)
+  "Return target card from your graveyard to your hand.",                         // Regrowth (any-card filter)
+  "Return target creature card from your graveyard to your hand. Draw a card.",   // Recover (recursion + draw)
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {

@@ -29,6 +29,9 @@ function atomTargetSpec(atom) {
   if (!tt || tt === "eachOpponent" || tt === "eachCreature") return null;
   // P3.1 counter: a spell-target spec carries the spellFilter for stack-spell enumeration.
   if (tt === "spell") return { kind: "counter", targetType: "spell", spellFilter: atom.spellFilter || "any" };
+  // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so
+  // enumerateTargets surfaces only the caster's matching graveyard cards.
+  if (tt === "graveyardCard") return { kind: "return-gy", targetType: "graveyardCard", cardFilter: atom.cardFilter || "any" };
   return { kind: atom.op === "destroy" ? "destroy" : "damage", targetType: tt, restrictions: atom.restrictions || [] };
 }
 

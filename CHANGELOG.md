@@ -8,6 +8,18 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Graveyard recursion now works in The Academy.** Cast *"Return target creature card from
+  your graveyard to your hand"* (*Raise Dead*, *Disentomb*, *Wildwood Rebirth*) or the
+  any-card *"Return target card from your graveyard to your hand"* (*Regrowth*, *Recollect*,
+  *Elven Cache*) and pick one of your own graveyard cards to take back to hand — including as
+  one mode of a charm (*Darigaaz's Charm*, *Evolution Charm*) or alongside a draw (*Recover*).
+  Only your *own* graveyard is offered, tokens aren't (they're not cards), and the creature
+  version lists only creature cards. A version that returns *up to two* cards, a different
+  filter (*instant/sorcery*, *artifact*), one from *any* graveyard, or one to the
+  *battlefield* (reanimation) is handed to the Arbiter rather than guessing. ~11 common
+  recursion spells now play natively.
+
 ## [0.35.0] - 2026-06-16
 
 ### Fixed
