@@ -9,6 +9,7 @@ import { createGameState, _resetIdsForTests, createPermanent } from "./gameState
 import { legalActionsForPlayer, filterActions } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack, flushTriggers } from "./gameEngine.js";
+import { resolveTutorChoice, autoPickTutorCandidate } from "./effects/runProgram.js";
 import { pickAction } from "./opponentAI.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -30,18 +31,24 @@ const FABRICATE = { id: "fab", name: "Fabricate", type: "Sorcery", mana: "{2}{U}
   oracle: "Search your library for an artifact card, reveal it, put it into your hand, then shuffle." };
 
 describe("tutor spell — end to end", () => {
-  it("casting a tutor auto-fetches the best matching card into hand and shuffles", () => {
+  it("casting a tutor pauses with a pendingChoice, then the chosen card goes to hand + shuffles", () => {
     const state = mainState({
       hand: [FABRICATE], pool: { U: 1, C: 2 },
       library: [lib("l", "Forest", "Basic Land — Forest"), lib("a1", "Sol Ring", "Artifact", "{1}"), lib("a2", "Gilded Lotus", "Artifact", "{5}")],
     });
     const cast = filterActions(legalActionsForPlayer(state, "user"), "cast-spell").find(c => c.cardId === "fab");
     expect(cast).toBeTruthy();
-    expect(cast.needsTargets).toBeFalsy(); // non-targeted (auto-pick at resolution)
-    const resolved = resolveTopOfStack(dispatchAction(state, cast));
-    expect(resolved.players.user.hand.map(c => c.name)).toContain("Gilded Lotus"); // highest-MV artifact
-    expect(resolved.players.user.library.some(c => c.name === "Gilded Lotus")).toBe(false);
-    expect(resolved.log.find(l => l.effect === "tutor")?.cardName).toBeUndefined(); // hidden
+    expect(cast.needsTargets).toBeFalsy(); // non-targeted (the choice happens at resolution)
+    const paused = resolveTopOfStack(dispatchAction(state, cast));
+    // The program is suspended on a tutor search — candidates are the two artifacts.
+    expect(paused.pendingChoice).toMatchObject({ kind: "tutor-search", controller: "user" });
+    expect(paused.pendingChoice.candidates.map(c => c.name).sort()).toEqual(["Gilded Lotus", "Sol Ring"]);
+    expect(paused.players.user.hand).toHaveLength(0); // nothing fetched until the player picks
+    // The player picks Sol Ring (NOT the auto-best) → it goes to hand, library shuffles.
+    const out = resolveTutorChoice(paused, "a1");
+    expect(out.players.user.hand.map(c => c.name)).toEqual(["Sol Ring"]);
+    expect(out.players.user.library.some(c => c.name === "Sol Ring")).toBe(false);
+    expect(out.log.find(l => l.effect === "tutor")?.cardName).toBeUndefined(); // hidden
   });
 
   it("the AI will cast a tutor (value play, not held) and not stall", () => {
@@ -71,8 +78,11 @@ describe("ETB tutor trigger — flush auto-resolves (non-targeted, harmless auto
     };
     s = flushTriggers(s);
     const trig = s.stack.find(o => o.kind === "triggered-ability");
-    expect(trig.payload.resolver).toBe("effect-program"); // routed natively (auto-pick is harmless)
+    expect(trig.payload.resolver).toBe("effect-program"); // routed natively
     s = resolveTopOfStack(s);
+    // The ETB trigger pauses on a tutor search too; the auto-pick (or player) settles it.
+    expect(s.pendingChoice).toMatchObject({ kind: "tutor-search", controller: "user" });
+    s = resolveTutorChoice(s, autoPickTutorCandidate(s, s.pendingChoice));
     expect(s.players.user.hand.map(c => c.name)).toEqual(["Sol Ring"]);
   });
 });

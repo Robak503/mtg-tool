@@ -9,16 +9,18 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
-- **Type-filtered tutors now work in The Academy.** A *"Search your library for a
-  [creature / artifact / basic land / enchantment / instant or sorcery / …] card, put it
-  into your hand, then shuffle"* now actually fetches a matching card to your hand and
-  shuffles — as a spell (*Fabricate*, *Idyllic Tutor*, *Eladamri's Call*, *Lay of the
-  Land*), an enters-the-battlefield ability (*Trophy Mage*), or an activated ability
-  (*Captain Sisay*, *Journeyer's Kite*). The engine picks a sensible legal card (the
-  highest-cost match) and keeps the choice hidden from opponents. Tutors whose choice is
-  the whole point — an *unfiltered* *"search for a card"* (*Demonic Tutor*), a
-  put-onto-the-battlefield land fetch (*Rampant Growth*), a creature-type tribal tutor, or
-  a multi-card search — still route to the Arbiter rather than guessing.
+- **Tutors now open a real library picker in The Academy.** When you cast a *"Search
+  your library for a … card, put it into your hand, then shuffle"* — including an
+  *unfiltered* *Demonic Tutor* — the game pauses and shows you a card-browser side-sheet:
+  your matching library cards with their real art, click one (or "Find nothing"), and it
+  goes to your hand and your library is shuffled. Works as a spell (*Demonic Tutor*,
+  *Fabricate*, *Idyllic Tutor*, *Eladamri's Call*), an enters-the-battlefield ability
+  (*Trophy Mage*), or an activated ability (*Captain Sisay*). On Expert, and for your
+  opponents, the engine auto-picks a sensible card with no panel (and an opponent's pick
+  stays hidden from you). The library shuffle is fully deterministic, so saving and
+  resuming a game mid-search reproduces exactly. Tutors that put a card onto the
+  battlefield (*Rampant Growth*), a creature-type tribal tutor, or a multi-card search
+  still route to the Arbiter for now.
 - **Counterspells now work in The Academy (Frontier B begins).** Cast a *"Counter
   target spell"* in response to a spell on the stack and it actually counters it — the
   target spell is removed from the stack and put into its owner's graveyard without

@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createGameState, _resetIdsForTests } from "../gameState.js";
-import { runEffectProgram } from "./runProgram.js";
+import { runEffectProgram, resolveTutorChoice, autoPickTutorCandidate } from "./runProgram.js";
 import { RESOLVERS, RESOLVER_KEYS, getResolver } from "../resolvers.js";
 import { resolveTopOfStack } from "../gameEngine.js";
 
@@ -296,59 +296,72 @@ describe("P3.1 counter target spell — resolution (stack-removal mechanic)", ()
   });
 });
 
-describe("P3.2 tutor — resolution", () => {
+describe("interactive tutor — resolution-time choice (pause / resume)", () => {
   const lib = (id, name, type, mana = "") => ({ id, name, type, mana });
   const withLibrary = (cards) => {
     const s = freshState();
     return { ...s, players: { ...s.players, user: { ...s.players.user, library: cards } } };
   };
-  const tutorObj = (groups) => stackObj(high([{ op: "tutor", filter: { groups }, destination: "hand", targetType: null }]));
+  const tutorObj = (filter) => stackObj(high([{ op: "tutor", filter, destination: "hand", targetType: null }]));
 
-  it("fetches the highest-MV matching card into hand, shrinks the library, never leaks the name", () => {
-    const state = withLibrary([
-      lib("l1", "Forest", "Basic Land — Forest"),
-      lib("a1", "Sol Ring", "Artifact", "{1}"),
-      lib("a3", "Gilded Lotus", "Artifact", "{5}"), // highest-MV artifact
-    ]);
-    const out = runEffectProgram(state, tutorObj([["artifact"]]));
-    expect(out.players.user.hand.map(c => c.name)).toContain("Gilded Lotus");
-    expect(out.players.user.library).toHaveLength(2);
-    expect(out.players.user.library.some(c => c.name === "Gilded Lotus")).toBe(false);
+  it("sets a pendingChoice with the matching candidates (no fetch yet) and pauses", () => {
+    const state = withLibrary([lib("l1", "Forest", "Basic Land — Forest"), lib("a1", "Sol Ring", "Artifact", "{1}"), lib("a3", "Gilded Lotus", "Artifact", "{5}")]);
+    const out = runEffectProgram(state, tutorObj({ groups: [["artifact"]] }));
+    expect(out.pendingChoice).toMatchObject({ kind: "tutor-search", controller: "user" });
+    expect(out.pendingChoice.candidates.map(c => c.name).sort()).toEqual(["Gilded Lotus", "Sol Ring"]);
+    expect(out.players.user.hand).toHaveLength(0);   // nothing fetched yet
+    expect(out.players.user.library).toHaveLength(3);
+  });
+
+  it("resolveTutorChoice fetches the PLAYER's chosen card → hand, shuffles, never leaks the name", () => {
+    const paused = runEffectProgram(withLibrary([lib("a1", "Sol Ring", "Artifact", "{1}"), lib("a3", "Gilded Lotus", "Artifact", "{5}")]), tutorObj({ groups: [["artifact"]] }));
+    const out = resolveTutorChoice(paused, "a1"); // the player picks Sol Ring, NOT the auto best
+    expect(out.players.user.hand.map(c => c.name)).toEqual(["Sol Ring"]);
+    expect(out.players.user.library).toHaveLength(1);
+    expect(out.pendingChoice).toBeUndefined();
     const tutorLog = out.log.find(l => l.effect === "tutor");
     expect(tutorLog).toMatchObject({ found: true, controller: "user" });
     expect(tutorLog.cardName).toBeUndefined(); // hidden-info safe
   });
 
-  it("finds nothing when no card matches (logged no-op, library intact)", () => {
-    const out = runEffectProgram(withLibrary([lib("l1", "Forest", "Basic Land — Forest")]), tutorObj([["artifact"]]));
+  it("autoPickTutorCandidate picks the highest-MV match (Expert/AI auto-pick path)", () => {
+    const paused = runEffectProgram(withLibrary([lib("a1", "Sol Ring", "Artifact", "{1}"), lib("a3", "Gilded Lotus", "Artifact", "{5}")]), tutorObj({ groups: [["artifact"]] }));
+    expect(autoPickTutorCandidate(paused, paused.pendingChoice)).toBe("a3"); // Gilded Lotus, MV 5
+    const out = resolveTutorChoice(paused, autoPickTutorCandidate(paused, paused.pendingChoice));
+    expect(out.players.user.hand.map(c => c.name)).toEqual(["Gilded Lotus"]);
+  });
+
+  it("resolveTutorChoice(null) finds nothing (no fetch), still shuffles + logs", () => {
+    const paused = runEffectProgram(withLibrary([lib("a1", "Sol Ring", "Artifact", "{1}")]), tutorObj({ groups: [["artifact"]] }));
+    const out = resolveTutorChoice(paused, null);
     expect(out.players.user.hand).toHaveLength(0);
     expect(out.players.user.library).toHaveLength(1);
     expect(out.log.some(l => l.effect === "tutor" && l.found === false)).toBe(true);
   });
 
-  it("filter matching: 'basic land' excludes nonbasic; 'instant or sorcery' matches either group", () => {
-    const out = runEffectProgram(
-      withLibrary([lib("nb", "Command Tower", "Land"), lib("b", "Island", "Basic Land — Island")]),
-      tutorObj([["basic", "land"]]),
-    );
-    expect(out.players.user.hand.map(c => c.name)).toEqual(["Island"]); // not the nonbasic Land
-
-    const out2 = runEffectProgram(
-      withLibrary([lib("c", "Bear", "Creature — Bear"), lib("i", "Shock", "Instant", "{R}")]),
-      tutorObj([["instant"], ["sorcery"]]),
-    );
-    expect(out2.players.user.hand.map(c => c.name)).toEqual(["Shock"]);
+  it("an empty filter (unfiltered 'a card') offers the WHOLE library as candidates", () => {
+    const out = runEffectProgram(withLibrary([lib("a", "A", "Instant"), lib("b", "B", "Creature — Bear")]), tutorObj(null));
+    expect(out.pendingChoice.candidates.map(c => c.id).sort()).toEqual(["a", "b"]);
   });
 
-  it("REVIEW CATCH: does NOT fetch an MDFC whose FRONT face isn't the searched type (front-face only)", () => {
-    // "Glasspool Mimic // Glasspool Shore" — front is a Creature, back is a Land. A
-    // [land] tutor must NOT fetch it (a library card has only front-face characteristics).
-    const state = withLibrary([
-      lib("mdfc", "Glasspool Mimic", "Creature — Shapeshifter // Land"),
-      lib("real", "Forest", "Basic Land — Forest"),
-    ]);
-    const out = runEffectProgram(state, tutorObj([["land"]]));
-    expect(out.players.user.hand.map(c => c.name)).toEqual(["Forest"]); // not the front-Creature MDFC
+  it("filter matching: 'basic land' excludes nonbasic; MDFC matches FRONT face only", () => {
+    const a = runEffectProgram(withLibrary([lib("nb", "Command Tower", "Land"), lib("b", "Island", "Basic Land — Island")]), tutorObj({ groups: [["basic", "land"]] }));
+    expect(a.pendingChoice.candidates.map(c => c.name)).toEqual(["Island"]); // not the nonbasic Land
+    // MDFC front is a Creature, back a Land → a [land] tutor does NOT offer it (CR 712.4a).
+    const m = runEffectProgram(withLibrary([lib("m", "Glasspool Mimic", "Creature — Shapeshifter // Land"), lib("f", "Forest", "Basic Land — Forest")]), tutorObj({ groups: [["land"]] }));
+    expect(m.pendingChoice.candidates.map(c => c.name)).toEqual(["Forest"]);
+  });
+
+  it("a multi-atom tutor (tutor → gain-life) RESUMES the remaining atoms after the choice", () => {
+    const state = withLibrary([lib("a1", "Sol Ring", "Artifact", "{1}")]);
+    const program = high([{ op: "tutor", filter: { groups: [["artifact"]] }, destination: "hand", targetType: null }, { op: "gain-life", amount: 2 }]);
+    const before = state.players.user.life;
+    const paused = runEffectProgram(state, stackObj(program));
+    expect(paused.pendingChoice.resume.nextAtomIndex).toBe(1);
+    expect(paused.players.user.life).toBe(before); // gain-life hasn't run yet
+    const out = resolveTutorChoice(paused, "a1");
+    expect(out.players.user.hand.map(c => c.name)).toEqual(["Sol Ring"]);
+    expect(out.players.user.life).toBe(before + 2); // resumed → gained 2
   });
 
   it("the shuffle atom keeps the same card set deterministically (serialize-stable)", () => {

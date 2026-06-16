@@ -19,7 +19,7 @@
 import { createHash } from "node:crypto";
 import { containsFunction } from "../learn/serialization.js";
 
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /**
  * Forward-only migrations: { [fromVersion]: (saveDoc) => saveDoc-at-fromVersion+1 }.
@@ -69,6 +69,26 @@ export const MIGRATIONS = {
   // resumes with no pause, which is correct. This migration only stamps the
   // version forward so pre-v0.26 saves stay resumable. (CONTRACT-MIG.)
   2: (doc) => ({ ...doc, schemaVersion: 3 }),
+
+  // v3 → v4 — the interactive-tutor slice added a DURABLE `state.rngSeed` (the
+  // threaded deterministic-shuffle seed). Unlike pendingArbiter it is NOT transient:
+  // shuffles read + advance it, so a pre-v4 save (no field) must get an EXPLICIT
+  // seed rather than relying on the read-side `?? 0` fallback — otherwise the on-disk
+  // shape is ambiguous (a v4 doc without rngSeed vs one with rngSeed:0). Backfill 0
+  // (= a fresh game's seed). The transient `state.pendingChoice` (resolution-time tutor
+  // pause) is absent-by-default like pendingArbiter, so it needs no backfill. (CONTRACT-MIG.)
+  3: (doc) => {
+    const session = doc.session || {};
+    const state = session.state || {};
+    return {
+      ...doc,
+      schemaVersion: 4,
+      session: {
+        ...session,
+        state: { ...state, rngSeed: Number.isFinite(state.rngSeed) ? state.rngSeed : 0 },
+      },
+    };
+  },
 };
 
 export class SaveMigrationError extends Error {

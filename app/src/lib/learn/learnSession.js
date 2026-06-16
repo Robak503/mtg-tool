@@ -38,10 +38,12 @@ import {
   startGame,
   nextStep,
   runStepActions,
+  finalizeStackResolution,
 } from "./gameEngine.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
+import { autoPickTutorCandidate, resolveTutorChoice } from "./effects/runProgram.js";
 
 const VALID_DIFFICULTIES = new Set(["beginner", "intermediate", "expert"]);
 
@@ -310,6 +312,18 @@ function clearPendingArbiter(state) {
 }
 
 /**
+ * Settle a tutor's pending choice (apply the fetch + shuffle + resume the suspended
+ * program). When the program FULLY completes — not re-paused on a second tutor — run the
+ * stack-resolution finalization the spell missed while paused: flush any triggers the
+ * resumed post-tutor atoms enqueued (CR 603.3), so they don't sit unflushed past the next
+ * priority window. A re-paused program (a second tutor) finalizes when ITS choice settles.
+ */
+function settleTutorChoice(state, cardId) {
+  const next = resolveTutorChoice(state, cardId);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
  * decisions auto-apply; trivial user auto-passes also auto-apply.
@@ -382,6 +396,20 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
         state: clearPendingArbiter(current.state),
         decisionLog: [...current.decisionLog, feedEntry],
       };
+      continue;
+    }
+
+    // Interactive resolution-time choice (a tutor's library search). The player's OWN
+    // tutor at beginner/intermediate surfaces a card PICKER; Expert autopilot and an
+    // opponent's tutor AUTO-PICK the best candidate with no panel (the same pause-or-
+    // auto split as pendingArbiter). The picker resumes via /api/learn/choose.
+    if (current.state.pendingChoice) {
+      const pc = current.state.pendingChoice;
+      const pause = pc.controller === "user" && current.difficulty !== "expert";
+      if (pause) {
+        return { session: current, decision: { kind: "tutor-search", ...pc } };
+      }
+      current = { ...current, state: settleTutorChoice(current.state, autoPickTutorCandidate(current.state, pc)) };
       continue;
     }
 
@@ -593,6 +621,55 @@ export function continueFromArbiter(session) {
   return advanceUntilDecision({
     ...session,
     state: logged,
+    decisionLog: [...session.decisionLog, logEntry],
+  });
+}
+
+/**
+ * The player picked a card (or chose "find nothing") from a `tutor-search` decision.
+ * Validates the pick against the pending candidates, applies the fetch + shuffle, resumes
+ * the suspended effect program, then re-derives the next decision. `choice.cardId` is the
+ * chosen library card id, or null/absent to find nothing (CR 701.19f). Returns
+ * { session, decision } like advanceUntilDecision.
+ */
+export function applyTutorChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "tutor-search") {
+    // Nothing pending (e.g. a double-submit) — just re-derive the next decision.
+    return advanceUntilDecision(session);
+  }
+  const cardId = choice?.cardId ?? null;
+  if (cardId !== null && !pc.candidates.some((c) => c.id === cardId)) {
+    // An illegal/stale pick must NOT strand the game: the choice is still pending, so
+    // re-surface the SAME picker (advanceUntilDecision re-derives it) instead of a
+    // terminal dispatch-error the UI can't recover from.
+    return advanceUntilDecision(session);
+  }
+
+  let newState;
+  try {
+    newState = settleTutorChoice(session.state, cardId);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "tutor-choice", found: cardId !== null },
+    auto: false,
+    reasoning: "user-chose-tutor",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
     decisionLog: [...session.decisionLog, logEntry],
   });
 }
