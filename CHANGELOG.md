@@ -9,6 +9,16 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Equipment now works in The Academy.** An Equipment with *"Equip {cost}"* and a
+  *"Equipped creature gets +X/+Y"* and/or *"has [keyword]"* bonus can now be equipped:
+  on your main phase, pay the equip cost, pick one of your creatures, and it gains the
+  bonus — bigger, or with flying / trample / deathtouch / lifelink / vigilance / first
+  strike / etc. The bonus follows the equipment (move it to another creature, and it
+  leaves the first); it falls off the instant the equipment or the creature leaves the
+  battlefield. Equipment whose bonus we can't fully model (a protection/hexproof grant,
+  an unmodeled rider, a "whenever equipped creature …" trigger) is left for the Arbiter
+  rather than partially applied. The opponent AI doesn't equip yet (you do). ~66 common
+  equipment now play natively.
 - **Tutors now open a real library picker in The Academy.** When you cast a *"Search
   your library for a … card, put it into your hand, then shuffle"* — including an
   *unfiltered* *Demonic Tutor* — the game pauses and shows you a card-browser side-sheet:

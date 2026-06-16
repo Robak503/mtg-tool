@@ -456,11 +456,14 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
       // Unwrapping: drop permanent state, keep the card.
       nextDest = [...player[toZone], card];
     }
-    return withPlayer(state, playerId, p => ({
+    const result = withPlayer(state, playerId, p => ({
       ...p,
       [fromZone]: nextSource,
       [toZone]: nextDest,
     }));
+    // Leaving the battlefield: detach this permanent from its host and unattach anything
+    // on it (CR 704.5n/704.5q). A blink (→ battlefield) keeps attachments out of scope here.
+    return toZone === "battlefield" ? result : detachPermanentFromAll(result, permanent);
   }
 
   // Non-battlefield source: cardId is matched against card.id (caller's
@@ -566,6 +569,47 @@ function updatePermanent(state, permanentId, updater) {
     ...player,
     battlefield: player.battlefield.map(p => (p.id === permanentId ? updater(p) : p)),
   }));
+}
+
+/** updatePermanent that NO-OPs (instead of throwing) if the permanent is gone — attach cleanup. */
+function updatePermanentSafe(state, permanentId, updater) {
+  return findPermanent(state, permanentId) ? updatePermanent(state, permanentId, updater) : state;
+}
+
+/**
+ * Attach `equipId` to `targetId` (CR 701.3) — bidirectional: the equipment's `attachedTo`
+ * and the target's `attachments`. Detaches the equipment from any prior host first
+ * (re-equip / move). Pure; no-ops if EITHER the equipment or the target is missing (so the
+ * two sides can never desync into a dangling `attachedTo` pointing at a ghost id).
+ */
+export function attachPermanent(state, { equipId, targetId }) {
+  const src = findPermanent(state, equipId);
+  const tgt = findPermanent(state, targetId);
+  if (!src || !tgt) return state;
+  let next = state;
+  const prev = src.permanent.attachedTo;
+  if (prev && prev !== targetId) {
+    next = updatePermanentSafe(next, prev, p => ({ ...p, attachments: (p.attachments || []).filter(id => id !== equipId) }));
+  }
+  next = updatePermanentSafe(next, equipId, p => ({ ...p, attachedTo: targetId }));
+  next = updatePermanentSafe(next, targetId, p => ({ ...p, attachments: [...(p.attachments || []).filter(id => id !== equipId), equipId] }));
+  return next;
+}
+
+/**
+ * Detach a permanent as it LEAVES the battlefield (CR 704.5n / 704.5q): drop it from its
+ * host's `attachments`, and clear `attachedTo` on everything attached to IT. Pure.
+ */
+export function detachPermanentFromAll(state, permanent) {
+  if (!permanent) return state;
+  let next = state;
+  if (permanent.attachedTo) {
+    next = updatePermanentSafe(next, permanent.attachedTo, p => ({ ...p, attachments: (p.attachments || []).filter(id => id !== permanent.id) }));
+  }
+  for (const attId of permanent.attachments || []) {
+    next = updatePermanentSafe(next, attId, p => ({ ...p, attachedTo: null }));
+  }
+  return next;
 }
 
 export function tapPermanent(state, permanentId) {

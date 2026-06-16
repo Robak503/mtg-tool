@@ -147,7 +147,7 @@ describe("coverageSummary", () => {
     expect(s.pct).toBe(90);    // 18/20
   });
   it("every native tier is in NATIVE_TIERS and gap tiers are not", () => {
-    expect([...NATIVE_TIERS].sort()).toEqual(["land", "native-activated", "native-body", "native-mana", "native-mixed", "native-spell", "native-static", "native-trigger"]);
+    expect([...NATIVE_TIERS].sort()).toEqual(["land", "native-activated", "native-body", "native-equipment", "native-mana", "native-mixed", "native-spell", "native-static", "native-trigger"]);
   });
   it("buckets the gap by mechanism (ETB value is no longer in the gap)", () => {
     const s = coverageSummary(DECK);
