@@ -164,16 +164,29 @@ function applyPumpEffect(state, atom, ctx) {
   // "All creatures get -X/-X until end of turn" (atom.targetType "eachCreature" — Infest /
   // Languish). The single lethal SBA below fires once, so a mass -X/-X kills simultaneously.
   const targets = atomTargets(state, atom, ctx);
+  const src = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null };
+  const dur = () => ({ kind: "endOfTurn", turn: next.turn });
   for (const target of targets) {
     if (target.type !== "creature") continue;
-    next = addContinuousEffect(next, {
-      layer: 7,
-      sublayer: "7c",
-      op: { layerOp: "ptModify", power, toughness },
-      affects: { mode: "fixed", permanentIds: [target.id] },
-      duration: { kind: "endOfTurn", turn: next.turn },
-      source: { kind: "resolution", permanentId: null, cardName: ctx.cardName || null },
-    }).state;
+    if (power !== 0 || toughness !== 0) {
+      next = addContinuousEffect(next, {
+        layer: 7, sublayer: "7c",
+        op: { layerOp: "ptModify", power, toughness },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur(), source: src,
+      }).state;
+    }
+    // Combat-trick keyword grant ("…and gains trample until end of turn"): a layer-6 addKeyword
+    // for each granted keyword, same endOfTurn duration as the pump (wears off at cleanup, CR
+    // 514.2). Granted via the layer engine, so combat reads it exactly like a printed keyword.
+    for (const kw of atom.grantKeywords || []) {
+      next = addContinuousEffect(next, {
+        layer: 6,
+        op: { layerOp: "addKeyword", keyword: kw },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur(), source: src,
+      }).state;
+    }
   }
   // A negative pump (-X/-Y, e.g. Disfigure / Last Gasp / Dismember) can drop a
   // creature's DERIVED toughness to <= 0 — run the lethal SBA so it dies at

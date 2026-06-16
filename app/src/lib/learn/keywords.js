@@ -28,6 +28,25 @@ export const COMBAT_KEYWORDS = [
   "Haste",
 ];
 
+// Keywords the engine will GRANT (Equipment/Aura/anthem statics AND combat-trick spells/
+// abilities). RESTRICTED to those whose runtime effect is ENFORCED *and read layer-aware*
+// (combat damage, blocking, attack-tapping, summoning-sickness all consult permanentHasKeyword),
+// so a granted instance behaves EXACTLY like a printed one. Menace is EXCLUDED — its
+// "must be blocked by two or more" rule (CR 702.110) isn't enforced anywhere, so granting it
+// would be a silent no-op that over-claims coverage. SINGLE SOURCE OF TRUTH: staticAbilityParser
+// (attach/anthem grants) and effects/parser (combat-trick grants) both read this — they can't
+// drift into granting a keyword the engine ignores. A "gains <unmodeled kw>" clause
+// (indestructible/hexproof/protection/…) therefore drops to the Arbiter, never a fake grant.
+const NON_GRANTABLE = new Set(["menace"]);
+export const GRANTABLE_COMBAT_KEYWORDS = new Set(
+  COMBAT_KEYWORDS.map((k) => k.toLowerCase()).filter((k) => !NON_GRANTABLE.has(k)),
+);
+
+/** Canonical-cased keyword name for a lowercase word ("first strike" → "First strike"). */
+export function canonicalCombatKeyword(lower) {
+  return COMBAT_KEYWORDS.find((k) => k.toLowerCase() === String(lower).toLowerCase()) || lower;
+}
+
 function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

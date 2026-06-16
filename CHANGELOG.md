@@ -23,6 +23,15 @@ summarizes the notable changes.
   printed stats. (Surfaced by live real-card verification of the new Aura mechanic.)
 
 ### Added
+- **Combat tricks now work in The Academy.** Cast a pump that also grants a keyword —
+  *"Target creature gets +2/+2 and gains trample until end of turn"*, *"…gains flying"*,
+  *"…gains first strike and lifelink"* — or a pure keyword trick (*"Target creature gains
+  haste until end of turn"*), and the creature gets the boost **and** the keyword through the
+  layer engine, so it actually flies / tramples / strikes first in combat that turn (and the
+  effect wears off at end of turn). Only keywords the engine truly enforces can be granted; a
+  trick that grants *hexproof*, *indestructible*, *menace*, or *protection* (which aren't
+  enforced yet) is handed to the Arbiter rather than faking it. ~70 common combat tricks now
+  play natively.
 - **Board wipes now work in The Academy.** Cast *"Destroy all creatures"* (*Day of
   Judgment*, *Wrath of God* / *Damnation* — the *"can't be regenerated"* clause is handled),
   *"Exile all creatures"*, or *"All creatures get -X/-X until end of turn"* (*Infest*,
