@@ -296,6 +296,70 @@ describe("P3.1 counter target spell — resolution (stack-removal mechanic)", ()
   });
 });
 
+describe("P3.2 tutor — resolution", () => {
+  const lib = (id, name, type, mana = "") => ({ id, name, type, mana });
+  const withLibrary = (cards) => {
+    const s = freshState();
+    return { ...s, players: { ...s.players, user: { ...s.players.user, library: cards } } };
+  };
+  const tutorObj = (groups) => stackObj(high([{ op: "tutor", filter: { groups }, destination: "hand", targetType: null }]));
+
+  it("fetches the highest-MV matching card into hand, shrinks the library, never leaks the name", () => {
+    const state = withLibrary([
+      lib("l1", "Forest", "Basic Land — Forest"),
+      lib("a1", "Sol Ring", "Artifact", "{1}"),
+      lib("a3", "Gilded Lotus", "Artifact", "{5}"), // highest-MV artifact
+    ]);
+    const out = runEffectProgram(state, tutorObj([["artifact"]]));
+    expect(out.players.user.hand.map(c => c.name)).toContain("Gilded Lotus");
+    expect(out.players.user.library).toHaveLength(2);
+    expect(out.players.user.library.some(c => c.name === "Gilded Lotus")).toBe(false);
+    const tutorLog = out.log.find(l => l.effect === "tutor");
+    expect(tutorLog).toMatchObject({ found: true, controller: "user" });
+    expect(tutorLog.cardName).toBeUndefined(); // hidden-info safe
+  });
+
+  it("finds nothing when no card matches (logged no-op, library intact)", () => {
+    const out = runEffectProgram(withLibrary([lib("l1", "Forest", "Basic Land — Forest")]), tutorObj([["artifact"]]));
+    expect(out.players.user.hand).toHaveLength(0);
+    expect(out.players.user.library).toHaveLength(1);
+    expect(out.log.some(l => l.effect === "tutor" && l.found === false)).toBe(true);
+  });
+
+  it("filter matching: 'basic land' excludes nonbasic; 'instant or sorcery' matches either group", () => {
+    const out = runEffectProgram(
+      withLibrary([lib("nb", "Command Tower", "Land"), lib("b", "Island", "Basic Land — Island")]),
+      tutorObj([["basic", "land"]]),
+    );
+    expect(out.players.user.hand.map(c => c.name)).toEqual(["Island"]); // not the nonbasic Land
+
+    const out2 = runEffectProgram(
+      withLibrary([lib("c", "Bear", "Creature — Bear"), lib("i", "Shock", "Instant", "{R}")]),
+      tutorObj([["instant"], ["sorcery"]]),
+    );
+    expect(out2.players.user.hand.map(c => c.name)).toEqual(["Shock"]);
+  });
+
+  it("REVIEW CATCH: does NOT fetch an MDFC whose FRONT face isn't the searched type (front-face only)", () => {
+    // "Glasspool Mimic // Glasspool Shore" — front is a Creature, back is a Land. A
+    // [land] tutor must NOT fetch it (a library card has only front-face characteristics).
+    const state = withLibrary([
+      lib("mdfc", "Glasspool Mimic", "Creature — Shapeshifter // Land"),
+      lib("real", "Forest", "Basic Land — Forest"),
+    ]);
+    const out = runEffectProgram(state, tutorObj([["land"]]));
+    expect(out.players.user.hand.map(c => c.name)).toEqual(["Forest"]); // not the front-Creature MDFC
+  });
+
+  it("the shuffle atom keeps the same card set deterministically (serialize-stable)", () => {
+    const cards = Array.from({ length: 6 }, (_, i) => lib(`c${i}`, `C${i}`, "Instant"));
+    const shuf = (st) => runEffectProgram(st, stackObj(high([{ op: "shuffle", targetType: null }])));
+    const out = shuf(withLibrary(cards));
+    expect(out.players.user.library.map(c => c.id).sort()).toEqual(cards.map(c => c.id).sort()); // same set
+    expect(shuf(withLibrary(cards)).players.user.library.map(c => c.id)).toEqual(out.players.user.library.map(c => c.id)); // deterministic
+  });
+});
+
 describe("P2.6 create-token — resolution", () => {
   it("puts N token creatures (correct P/T) on the controller's battlefield", () => {
     const state = freshState();

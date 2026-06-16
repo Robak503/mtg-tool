@@ -127,6 +127,15 @@ function splitClauses(oracle) {
   for (let sentence of stripReminder(oracle).split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
     if (!sentence) continue;
+    // A sentence that STARTS with "search your library" is ONE tutor instruction (P3.2):
+    // its internal " and " ("reveal it, and put it into your hand", "search for X and Y")
+    // is never a top-level effect boundary, so don't sever it. MUST be anchored to the
+    // start — a sentence that merely CONTAINS it after a leading modeled effect ("Draw a
+    // card and search your library …") must still split, or the leading atom (e.g. draw)
+    // would parse HIGH while the tutor portion is silently dropped (a confident WRONG
+    // partial execution — the cardinal-rule failure, P3.2 review catch). The tutor anchor
+    // still drops anything it can't model in the whole sentence to low.
+    if (/^search your library\b/i.test(sentence)) { clauses.push(sentence); continue; }
     for (const c of sentence.split(/\s+\band\b\s+/i)) {
       const t = c.trim();
       if (t) clauses.push(t);
@@ -143,8 +152,51 @@ function splitClauses(oracle) {
  * land in a later sub-step alongside the targeting wiring.
  */
 const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
+
+/**
+ * P3.2 tutor filter ALLOWLIST — the type / supertype / land-subtype words the engine can
+ * match against a card's type line by literal containment (each word appears verbatim in
+ * a real type line). A filter built only from these words is modeled; ANY other word
+ * ("nonland", "permanent", "with", "named", a number, an un-listed creature subtype like
+ * "dragon") makes the filter unmodeled → the tutor drops to low → Arbiter, so the engine
+ * never silently mis-matches a filter it doesn't truly understand. (Creature-subtype
+ * tribal tutors are a deliberate fast-follow once the subtype vocabulary is curated.)
+ */
+const TUTOR_FILTER_WORDS = new Set([
+  "basic", "legendary", "snow", "land", "creature", "artifact", "enchantment",
+  "instant", "sorcery", "planeswalker", "battle", "plains", "island", "swamp",
+  "mountain", "forest", "equipment", "aura",
+]);
+/**
+ * Parse a tutor's filter phrase (the words between "for a/an" and "card") into
+ * `{ groups }` — an OR of AND-groups: "instant or sorcery" → [["instant"],["sorcery"]],
+ * "basic land" → [["basic","land"]]. Returns null if ANY word is outside the allowlist
+ * (→ the tutor is unmodeled → low). A card matches if ANY group's words ALL appear in
+ * its type line (effectAtoms.cardMatchesTutorFilter).
+ */
+function parseTutorFilter(phrase) {
+  const groups = String(phrase).trim().split(/\s+or\s+/).map((g) => g.trim().split(/\s+/).filter(Boolean));
+  if (groups.length === 0 || groups.some((g) => g.length === 0)) return null;
+  for (const g of groups) for (const w of g) if (!TUTOR_FILTER_WORDS.has(w)) return null;
+  return { groups };
+}
+
 function parseExtendedAtom(s) {
   const t = s.toLowerCase().replace(/[’]/g, "'"); // normalize curly apostrophe
+
+  // P3.2 tutor — "Search your library for a/an <FILTER> card, [reveal it,] [and] put it
+  // into your hand[, then shuffle]." Single card, HAND destination only. The filter must
+  // be an ALLOWLISTED type phrase (parseTutorFilter); an unmodeled filter / multi-card
+  // ("two", "up to N", "any number of") / battlefield/top/graveyard destination all fail
+  // the anchor → low → Arbiter. The engine auto-picks the fetched card at resolution.
+  const tm = t.match(/^search your library for an? ([a-z][a-z ]*?) cards?,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (tm) {
+    const filter = parseTutorFilter(tm[1]);
+    return filter ? { op: "tutor", filter, destination: "hand", targetType: null } : null;
+  }
+  // A standalone "[then] shuffle [your library]" clause (some cards put it in its own
+  // sentence after the search) — shuffles the controller's library (CR 103.2).
+  if (/^(?:then |and )?shuffle(?: your library)?$/.test(t)) return { op: "shuffle", targetType: null };
   let m = t.match(/^(?:you )?gain (\d+) life$/);
   if (m) return { op: "gain-life", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^(?:you )?lose (\d+) life$/);
@@ -334,8 +386,12 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
     atoms.push(atom);
   }
   if (allParsed && atoms.length > 0 && atoms.every(a => KNOWN.has(a.op))) {
-    const xSpell = atoms.some(a => a.amountX);
-    return makeProgram({ confidence: "high", atoms, xSpell, unparsedTail: null });
+    // Drop a redundant `shuffle` atom that immediately follows a `tutor` (the tutor
+    // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
+    // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.
+    const seq = atoms.filter((a, i) => !(a.op === "shuffle" && atoms[i - 1]?.op === "tutor"));
+    const xSpell = seq.some(a => a.amountX);
+    return makeProgram({ confidence: "high", atoms: seq, xSpell, unparsedTail: null });
   }
 
   // Any clause unmodeled → low confidence, ZERO atoms. Resolution hands the whole
