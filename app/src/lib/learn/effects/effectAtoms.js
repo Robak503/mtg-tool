@@ -48,9 +48,29 @@ function massCreatureTargets(state) {
   return out;
 }
 
-/** The atom's effective target list: every creature for a mass atom, else the chosen targets. */
-const atomTargets = (state, atom, ctx) =>
-  atom.targetType === "eachCreature" ? massCreatureTargets(state) : (ctx.targets || []);
+/**
+ * Every creature CONTROLLER controls right now, as target descriptors — the affected set for a
+ * controller-scoped TEAM pump (`scope:"youControl"`: Overrun / Trumpet Blast). Gathered AT
+ * RESOLUTION so applyPumpEffect locks the set into per-creature fixed effects (CR 611.2c — a
+ * one-shot effect's set is fixed when it begins, NOT re-evaluated as creatures enter later).
+ */
+function controllerCreatureTargets(state, controller) {
+  const player = state.players?.[controller];
+  if (!player) return [];
+  return player.battlefield
+    .filter((perm) => isCreatureCard(perm.card))
+    .map((perm) => ({ type: "creature", id: perm.id, controller }));
+}
+
+/**
+ * The atom's effective target list: every creature for a mass atom (`eachCreature`), every
+ * creature the controller controls for a team pump (`scope:"youControl"`), else the chosen targets.
+ */
+const atomTargets = (state, atom, ctx) => {
+  if (atom.targetType === "eachCreature") return massCreatureTargets(state);
+  if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller);
+  return ctx.targets || [];
+};
 
 /**
  * P2.6 create-token (CR 701.7) — put `count` token creatures onto the controller's
@@ -160,9 +180,11 @@ function applyPumpEffect(state, atom, ctx) {
   const x = ctx.xValue || 0;
   const power = atom.amountX ? x : atom.ptDelta?.p || 0;
   const toughness = atom.amountX ? x : atom.ptDelta?.t || 0;
-  // Chosen targets for a single-creature pump (Giant Growth), or EVERY creature for a mass
+  // Chosen targets for a single-creature pump (Giant Growth), EVERY creature for a mass
   // "All creatures get -X/-X until end of turn" (atom.targetType "eachCreature" — Infest /
-  // Languish). The single lethal SBA below fires once, so a mass -X/-X kills simultaneously.
+  // Languish), or the controller's creatures for a TEAM pump (atom.scope "youControl" — Overrun
+  // / Trumpet Blast; the set locked at resolution, CR 611.2c). Each becomes a per-creature fixed
+  // layer effect below, so the keyword-grant + lethal-SBA machinery is shared across all three.
   const targets = atomTargets(state, atom, ctx);
   const src = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null };
   const dur = () => ({ kind: "endOfTurn", turn: next.turn });

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { parseEffectProgram, programConfidence, programContainsCounter, KNOWN_ATOM_OPS } from "./parser.js";
+import { parseEffectProgram, programConfidence, programContainsCounter, programContainsTeamPump, programNeedsChosenTarget, KNOWN_ATOM_OPS } from "./parser.js";
 
 const I = (oracle) => ({ type: "Instant", oracle });
 
@@ -405,6 +405,17 @@ const MUST_DROP_TO_LOW = [
   // must NOT parse high with a partial grant — the whole clause is unmodeled → Arbiter.
   "Target creature gains trample and draws a card until end of turn.", // "draws a card" is not a keyword
   "Target creature gains flying and gets +2/+2 until end of turn.",    // mixed ordering, one token non-keyword
+  // ── TEAM pump (scope:youControl) — only the EXACT unfiltered "creatures you control get
+  // +N/+N [and gain <enforced kw>] until end of turn" is modeled. A filtered/wrong-scope set,
+  // an unenforced granted keyword, or a pure (no-P/T) team grant must stay LOW → Arbiter, so a
+  // team buff is never applied to the wrong creatures or fabricated. ──
+  "Attacking creatures get +2/+0 until end of turn.",                  // Trumpet Blast — "attacking" subset, not modeled
+  "Other creatures you control get +1/+1 until end of turn.",          // "other" excludes the source — different set
+  "Creatures you control with flying get +1/+1 until end of turn.",    // keyword-filtered subset
+  "White creatures you control get +1/+1 until end of turn.",          // color-filtered subset
+  "Creatures you control get +1/+1 and gain hexproof until end of turn.", // hexproof not grantable/enforced
+  "Creatures you control get +2/+2 and gain menace until end of turn.",   // menace not grantable (unenforced)
+  "Creatures you control gain trample until end of turn.",             // pure team keyword grant (no P/T) — deferred
   "Each player draws a card.",
   "Target player discards a card at random.",
   "Scry 2, then draw a card.",
@@ -510,11 +521,50 @@ const MUST_STAY_HIGH = [
   "Target creature gets +1/+1 and gains first strike and lifelink until end of turn.", // multi-keyword (Sure Strike-ish)
   "Target creature gains haste until end of turn. Draw a card.",                 // Expedite (pure grant + draw)
   "Target creature gets +2/+1 and gains lifelink until end of turn. Draw a card.", // Moment of Defiance (pump+grant+draw)
+  // ── TEAM pump (scope:youControl) — controller-scoped mass pump + Overrun-style grant combo. ──
+  "Creatures you control get +2/+2 until end of turn.",                          // Inspired Charge
+  "Creatures you control get +1/+1 until end of turn.",                          // generic team pump
+  "Creatures you control get +3/+3 and gain trample until end of turn.",         // Overrun (no-split guard holds the combo)
+  "Creatures you control get +1/+1 and gain vigilance until end of turn.",       // single-keyword combo
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {
   it.each(MUST_STAY_HIGH)("stays high: %s", (oracle) => {
     expect(programConfidence(parseEffectProgram(I(oracle)))).toBe("high");
+  });
+});
+
+// TEAM pump (scope:youControl) — the controller-scoped mass pump atom shape: scope marker
+// (NOT a targetType, so it stays non-targeted), ptDelta, optional Overrun-style grantKeywords,
+// the AI-hold classifier, and the no-split-guard interplay with a trailing modeled clause.
+describe("parseEffectProgram — team pump (scope:youControl)", () => {
+  it("models a plain team pump as a single non-targeted pump atom", () => {
+    const p = parseEffectProgram(I("Creatures you control get +2/+2 until end of turn."));
+    expect(p).toMatchObject({ confidence: "high", atoms: [{ op: "pump", scope: "youControl", ptDelta: { p: 2, t: 2 } }] });
+    expect(p.atoms[0].targetType).toBeUndefined();          // scope, NOT a targetType
+    expect(programNeedsChosenTarget(p)).toBe(false);         // non-targeted → no chosen target
+    expect(programContainsTeamPump(p)).toBe(true);
+  });
+  it("models the Overrun combo (pump + granted keyword) as one bound atom", () => {
+    const p = parseEffectProgram(I("Creatures you control get +3/+3 and gain trample until end of turn."));
+    expect(p).toMatchObject({ confidence: "high", atoms: [{ op: "pump", scope: "youControl", ptDelta: { p: 3, t: 3 }, grantKeywords: ["Trample"] }] });
+    expect(programNeedsChosenTarget(p)).toBe(false);
+  });
+  it("splits a trailing modeled clause while keeping the combo's internal 'and' intact", () => {
+    const p = parseEffectProgram(I("Creatures you control get +1/+1 and gain vigilance until end of turn. Draw a card."));
+    expect(p.confidence).toBe("high");
+    expect(p.atoms).toEqual([
+      { op: "pump", scope: "youControl", ptDelta: { p: 1, t: 1 }, grantKeywords: ["Vigilance"] },
+      { op: "draw", amount: 1, targetType: null },
+    ]);
+  });
+  it("drops an unenforced granted keyword to low (all-or-nothing, no fake grant)", () => {
+    expect(programConfidence(parseEffectProgram(I("Creatures you control get +1/+1 and gain hexproof until end of turn.")))).toBe("low");
+    expect(parseEffectProgram(I("Creatures you control get +1/+1 and gain hexproof until end of turn.")).atoms).toHaveLength(0);
+  });
+  it("is not flagged as mass removal (a team pump is not a wipe)", () => {
+    const p = parseEffectProgram(I("Creatures you control get +2/+2 until end of turn."));
+    expect(programContainsTeamPump(p)).toBe(true);
   });
 });
 

@@ -155,6 +155,12 @@ function splitClauses(oracle) {
     // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence
     // as one clause so parseExtendedAtom binds the pump + grant to the SAME target.
     if (/^target creature (?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // Overrun-style TEAM pump + keyword grant ("Creatures you control get +3/+3 and gain
+    // trample until end of turn"): the " and " between the P/T bump and the grant is INTERNAL
+    // to one team-pump instruction, not a top-level effect boundary. Keep the whole sentence so
+    // parseExtendedAtom binds the controller-scoped pump + grant together (plural subject →
+    // "gain", no trailing s).
+    if (/^creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     for (const c of sentence.split(/\s+\band\b\s+/i)) {
       const t = c.trim();
       if (t) clauses.push(t);
@@ -287,6 +293,23 @@ function parseExtendedAtom(s) {
   if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
   m = t.match(/^(?:all creatures|each creature) gets? ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", targetType: "eachCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
+  // TEAM pump — "Creatures you control get +N/+N [and gain KW[, KW][ and KW]] until end of turn"
+  // (Trumpet Blast, Inspired Charge, Overrun). A controller-scoped one-shot: it pumps EXACTLY the
+  // creatures the caster controls AS IT RESOLVES (CR 611.2c — the set is locked when the effect
+  // begins, NOT continuously re-evaluated like a static anthem). Modeled with the `scope:"youControl"`
+  // marker (NOT a targetType — it's non-targeted, so it stays non-targeted across every
+  // targetType-keyed path: programNeedsChosenTarget, atomTargetSpec, legalChoices). The resolver
+  // (effectAtoms.applyPumpEffect) locks in the controller's creature ids and adds one fixed
+  // layer-7c P/T effect (+ layer-6 keyword grant) per creature — reusing the combat-trick pump
+  // loop verbatim. A FILTERED team pump ("creatures you control with flying", "other creatures you
+  // control") fails the exact anchor → low → Arbiter (scope:youControl would hit the wrong set).
+  let tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) and gain (.+) until end of turn$/);
+  if (tp) {
+    const kws = parseGrantedKeywords(tp[3]);
+    return kws ? { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) }, grantKeywords: kws } : null;
+  }
+  tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (tp) return { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) } };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)". Anchored
@@ -541,4 +564,21 @@ export function programContainsMassRemoval(program) {
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
   return atoms.some(a => a.targetType === "eachCreature" && ["destroy", "exile", "pump"].includes(a.op));
+}
+
+/**
+ * Does the program contain a controller-scoped TEAM pump (`scope:"youControl"`, an Overrun /
+ * Trumpet Blast / Inspired Charge "creatures you control get +N/+N [and gain KW] until end of
+ * turn")? The AI HOLDS these for now (opponentAI.pickCastAction): a team pump only earns its
+ * value cast pre-combat into a profitable attack, and the AI can't yet time it — casting it
+ * blindly in its main phase (or with no creatures) wastes the card. Holding is SAFE (the buff
+ * is the AI's own, so a miss only costs tempo, never a wrong play); the player casts it normally.
+ * Narrow + deferred — lift it once a "pump my team before a good attack" heuristic exists.
+ */
+export function programContainsTeamPump(program) {
+  if (!program) return false;
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.some(a => a.op === "pump" && a.scope === "youControl");
 }
