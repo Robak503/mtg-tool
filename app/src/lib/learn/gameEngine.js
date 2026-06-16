@@ -381,7 +381,20 @@ export function resolveTopOfStack(state) {
 
   // Flush any triggers that fired as a result of resolution, then
   // restart the priority loop with the active player.
-  next = flushTriggers(next);
+  return finalizeStackResolution(next);
+}
+
+/**
+ * Finalize a stack resolution: flush any triggers the resolution enqueued onto the
+ * stack (CR 603.3), then restart the priority loop at the active player if the step
+ * grants priority. Extracted from resolveTopOfStack so the interactive-tutor RESUME
+ * path (effects/runProgram.resolveTutorChoice runs the post-tutor atoms OUTSIDE
+ * resolveTopOfStack) can run the SAME finalization — otherwise a trigger fired by a
+ * resumed atom (e.g. a "[tutor] [destroy]" whose destroy kills a creature with a dies
+ * trigger) would sit unflushed past the next priority window.
+ */
+export function finalizeStackResolution(state) {
+  let next = flushTriggers(state);
   if (grantsPriority(next.step)) {
     next = resetPriorityLoop(next);
   }

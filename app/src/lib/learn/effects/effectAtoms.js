@@ -23,6 +23,7 @@ import {
 import { addContinuousEffect } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary } from "../gameState.js";
 import { checkDiesTriggers } from "../triggers.js";
+import { setPendingTutorChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
@@ -226,7 +227,7 @@ function applyCounter(state, atom, ctx) {
  * "you may"/mandatory search that finds nothing (no match, CR 701.19f) is a logged no-op
  * + shuffle, never an error.
  */
-function tutorManaValue(card) {
+export function tutorManaValue(card) {
   if (typeof card?.cmc === "number") return card.cmc;
   if (typeof card?.mana_value === "number") return card.mana_value;
   let mv = 0;
@@ -243,13 +244,14 @@ function tutorManaValue(card) {
   }
   return mv;
 }
-function cardMatchesTutorFilter(card, filter) {
+/** Does a library card match a tutor's filter? A null filter (unfiltered "a card") matches ALL. */
+export function cardMatchesTutorFilter(card, filter) {
+  if (!filter || !Array.isArray(filter.groups) || filter.groups.length === 0) return true;
   // Match the FRONT face only: a library card has just its front-face characteristics
   // (CR 712.4a), but the enriched type line is the COMBINED "Front // Back" for an MDFC —
-  // so a [artifact] tutor must NOT match a card whose FRONT is a land and back an artifact
-  // (P3.2 review catch). Split on " // " and take the front.
+  // so a [artifact] tutor must NOT match a card whose FRONT is a land and back an artifact.
   const type = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
-  return (filter?.groups || []).some((group) => group.every((w) => new RegExp(`\\b${w}\\b`).test(type)));
+  return filter.groups.some((group) => group.every((w) => new RegExp(`\\b${w}\\b`).test(type)));
 }
 /** A deterministic PRNG (mulberry32) so the shuffle is serialize-stable (no Math.random). */
 function deterministicRng(seed) {
@@ -261,35 +263,39 @@ function deterministicRng(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-/** Shuffle a player's library deterministically (CR 701.19e / 103.2) — serialize-stable. */
-function shuffleControllerLibrary(state, controller) {
+/**
+ * Shuffle a player's library deterministically (CR 701.19e / 103.2) using the seed
+ * THREADED through state (`state.rngSeed`), then advance it (an LCG step) so the next
+ * shuffle differs AND a serialized game restores to byte-identical future shuffles. No
+ * Math.random anywhere in game-state mutation.
+ */
+export function shuffleControllerLibrary(state, controller) {
   if (!state.players[controller]) return state;
-  const seed = (((state.idSeq || 0) + 1) * 2654435761 + (state.players[controller].library.length || 0)) >>> 0;
-  return shuffleLibrary(state, { playerId: controller, rng: deterministicRng(seed) });
+  const seed = (state.rngSeed ?? 0) >>> 0;
+  const shuffled = shuffleLibrary(state, { playerId: controller, rng: deterministicRng(seed) });
+  return { ...shuffled, rngSeed: ((Math.imul(seed, 1664525) + 1013904223) >>> 0) };
 }
+/**
+ * Tutor (CR 701.19) — flag a resolution-time CHOICE rather than auto-picking. Gathers the
+ * caster's legal library cards (matching the filter; a null filter = "search for a card" =
+ * every card) and sets `state.pendingChoice`; runProgram pauses the effect program here.
+ * The driver surfaces a picker (the player's own tutor, beginner/intermediate) or auto-
+ * picks (Expert autopilot / an opponent); the fetch + shuffle happen in resolveTutorChoice.
+ * Hidden-info safe: the candidate list is the searcher's OWN library (names are theirs to see).
+ */
 function applyTutor(state, atom, ctx) {
   const controller = ctx.controller;
   const player = state.players[controller];
   if (!player) return state;
-  let next = state;
-  const matches = player.library.filter((c) => cardMatchesTutorFilter(c, atom.filter));
-  let found = false;
-  if (matches.length > 0) {
-    // Deterministic pick: highest mana value, then a LOCALE-FREE codepoint tie-break by
-    // name then id (localeCompare's default collation is environment-dependent → would
-    // break the serialize-stable mandate). cmp returns -1/0/1 by raw code points.
-    const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-    const best = [...matches].sort((a, b) =>
-      tutorManaValue(b) - tutorManaValue(a) ||
-      cmp(String(a.name || ""), String(b.name || "")) ||
-      cmp(String(a.id || ""), String(b.id || "")),
-    )[0];
-    next = moveCardToZone(next, { playerId: controller, fromZone: "library", toZone: "hand", cardId: best.id });
-    found = true;
-  }
-  next = shuffleControllerLibrary(next, controller);
-  // Hidden-info safe: log the filter + found-ness, NOT the fetched card's name.
-  return logEvent(next, { kind: "spell-effect", effect: "tutor", controller, found, destination: "hand" });
+  const candidates = player.library
+    .filter((c) => cardMatchesTutorFilter(c, atom.filter))
+    .map((c) => ({ id: c.id, name: c.name }));
+  return setPendingTutorChoice(state, {
+    controller,
+    candidates,
+    sourceName: ctx.cardName || null,
+    filterLabel: atom.filterLabel || null,
+  });
 }
 
 /** P3.2 shuffle — "[then] shuffle [your library]" as its own clause (CR 103.2). */

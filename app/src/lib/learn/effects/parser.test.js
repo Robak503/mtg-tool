@@ -314,13 +314,17 @@ describe("parseEffectProgram — tutor (P3.2)", () => {
   const S = (oracle) => parseEffectProgram({ type: "Sorcery", oracle });
   it("recognizes the modeled type/supertype filters with grouped words", () => {
     expect(S("Search your library for a creature card, put it into your hand, then shuffle.").atoms)
-      .toEqual([{ op: "tutor", filter: { groups: [["creature"]] }, destination: "hand", targetType: null }]);
+      .toEqual([{ op: "tutor", filter: { groups: [["creature"]] }, filterLabel: "creature card", destination: "hand", targetType: null }]);
     expect(S("Search your library for a basic land card, reveal it, put it into your hand, then shuffle.").atoms[0].filter)
       .toEqual({ groups: [["basic", "land"]] });
     expect(S("Search your library for an instant or sorcery card, reveal it, put it into your hand, then shuffle.").atoms[0].filter)
       .toEqual({ groups: [["instant"], ["sorcery"]] });
     expect(S("Search your library for a legendary creature card, reveal it, put it into your hand, then shuffle.").atoms[0].filter)
       .toEqual({ groups: [["legendary", "creature"]] });
+  });
+  it("accepts an UNFILTERED tutor (Demonic Tutor) — filter null, the picker shows the whole library", () => {
+    expect(S("Search your library for a card, put that card into your hand, then shuffle.").atoms)
+      .toEqual([{ op: "tutor", filter: null, filterLabel: "card", destination: "hand", targetType: null }]);
   });
   it("handles the 'reveal it, and put' (Oxford-and) phrasing without severing the search sentence", () => {
     const p = S("Search your library for an artifact card, reveal it, and put it into your hand. Then shuffle.");
@@ -373,7 +377,6 @@ const MUST_DROP_TO_LOW = [
   "Choose two —\n• Counter target spell.\n• Return target permanent to its owner's hand.\n• Draw a card.", // Cryptic Command — "choose two"
   "Counter target spell you don't control.",                           // Counterflux — "you don't control" unmodeled
   // ── P3.2 tutor — shapes that must STAY low (unmodeled filter / destination / count) ──
-  "Search your library for a card, put it into your hand, then shuffle.",                         // unfiltered (Demonic) — choice matters
   "Search your library for a Dragon card, reveal it, put it into your hand, then shuffle.",        // creature subtype (deferred)
   "Search your library for a creature card with mana value 3 or less, put it into your hand, then shuffle.", // mana-value rider
   "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",  // battlefield destination (deferred)

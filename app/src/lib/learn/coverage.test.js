@@ -27,11 +27,12 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Instant", "Counter target noncreature spell.", { name: "Negate" }))).toBe("native-spell");
     expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {3}.", { name: "Mana Leak" }))).toBe("arbiter-spell");
   });
-  it("P3.2: a type-filtered 'search → hand → shuffle' tutor is native-spell; unfiltered/battlefield bounces", () => {
+  it("a 'search → hand → shuffle' tutor is native-spell (filtered OR unfiltered via the picker); battlefield bounces", () => {
     expect(classifyCard(C("Sorcery", "Search your library for a creature card, reveal it, put it into your hand, then shuffle.", { name: "Eladamri's Call" }))).toBe("native-spell");
     expect(classifyCard(C("Sorcery", "Search your library for a basic land card, reveal it, put it into your hand, then shuffle.", { name: "Lay of the Land" }))).toBe("native-spell");
-    // Unfiltered (the choice is the point) and battlefield destination stay in the gap.
-    expect(classifyCard(C("Sorcery", "Search your library for a card, put it into your hand, then shuffle.", { name: "Demonic Tutor" }))).toBe("arbiter-spell");
+    // The unfiltered tutor is native too now (the player picks any card via the picker).
+    expect(classifyCard(C("Sorcery", "Search your library for a card, put that card into your hand, then shuffle.", { name: "Demonic Tutor" }))).toBe("native-spell");
+    // A battlefield/top destination (deferred) still routes to the Arbiter.
     expect(classifyCard(C("Sorcery", "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", { name: "Rampant Growth" }))).toBe("arbiter-spell");
   });
   it("a permanent with abilities is body-only (body works, ability doesn't yet)", () => {
@@ -129,7 +130,7 @@ describe("coverageSummary", () => {
     C("Creature — Wizard", "When this enters, draw a card.", { qty: 2 }), // native-trigger (P2.8)
     C("Enchantment", "Creatures you control get +1/+1.", { qty: 1 }),     // native-static (P2.10)
     C("Enchantment", "Creatures you control get +2/+2 as long as you control a Forest.", { qty: 1 }), // body-only (conditional static — unmodeled)
-    C("Sorcery", "Search your library for a card, put it into your hand, then shuffle.", { qty: 1 }), // arbiter-spell (UNFILTERED tutor — the choice is the point)
+    C("Sorcery", "Target player mills four cards.", { qty: 1 }), // arbiter-spell (mill — unmodeled)
   ];
   it("counts tiers weighted by qty and computes native %", () => {
     const s = coverageSummary(DECK);
@@ -152,6 +153,6 @@ describe("coverageSummary", () => {
     const s = coverageSummary(DECK);
     expect(s.gap["ETB trigger"]).toBeUndefined(); // the ETB draw is native now
     expect(s.gap["Static anthem/buff"]).toBe(1);  // the CONDITIONAL anthem stays in the gap
-    expect(Object.values(s.gap).reduce((a, b) => a + b, 0)).toBe(2); // conditional anthem + tutor
+    expect(Object.values(s.gap).reduce((a, b) => a + b, 0)).toBe(2); // conditional anthem + mill
   });
 });

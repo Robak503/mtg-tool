@@ -203,7 +203,6 @@ describe("migrate", () => {
     };
     const upgraded = migrate(saveV2);
     expect(upgraded.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(upgraded.schemaVersion).toBe(3);
     // No field churn — a v2 save had no pendingArbiter and still has none.
     expect(upgraded.session.state.pendingArbiter).toBeUndefined();
     // Layers fields + game data preserved untouched.
@@ -211,6 +210,49 @@ describe("migrate", () => {
     expect(upgraded.session.state.turn).toBe(5);
     expect(upgraded.session.state.players.user.battlefield[0].timestamp).toBe(0);
     expect(isResumable(upgraded)).toBe(true);
+  });
+
+  // CONTRACT-MIG: the interactive-tutor slice added a DURABLE state.rngSeed (the threaded
+  // deterministic-shuffle seed). A v3 save (no field) backfills rngSeed:0 and stays resumable.
+  it("carries a v3 save forward to v4, backfilling an explicit rngSeed:0", () => {
+    const saveV3 = {
+      schemaVersion: 3,
+      kind: "learn-session-save",
+      savedAt: "2026-06-15T00:00:00.000Z",
+      sessionId: "learn-v3",
+      serializable: true,
+      session: {
+        id: "learn-v3", difficulty: "beginner", mode: "standard", status: "active",
+        state: { turn: 3, idSeq: 4, stack: [], continuousEffects: [], timestampCounter: 0, players: { user: { life: 40, battlefield: [] }, ai: { life: 40, battlefield: [] } } },
+        decisionLog: [],
+      },
+      checksum: "sha256:stale-but-unused-after-verify",
+    };
+    expect(saveV3.session.state.rngSeed).toBeUndefined(); // pre-v4: no seed on disk
+    const upgraded = migrate(saveV3);
+    expect(upgraded.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
+    expect(upgraded.session.state.rngSeed).toBe(0);       // explicit backfill (not the read-side ?? 0)
+    expect(upgraded.session.state.turn).toBe(3);          // game data preserved
+    expect(isResumable(upgraded)).toBe(true);
+  });
+
+  // A game serialized mid-tutor-search (a paused pendingChoice + its resume continuation)
+  // is plain JSON — it must round-trip losslessly so save/resume mid-search is exact.
+  it("a v4 save paused on a tutor-search (pendingChoice + resume) round-trips serializably", () => {
+    const session = sampleSession();
+    session.state.rngSeed = 12345;
+    session.state.pendingChoice = {
+      kind: "tutor-search", controller: "user", sourceName: "Demonic Tutor", filterLabel: "card",
+      candidates: [{ id: "a", name: "Sol Ring" }, { id: "b", name: "Grave Titan" }],
+      resume: {
+        program: { version: 1, confidence: "high", structure: "sequence", atoms: [{ op: "tutor", filter: null }, { op: "gain-life", amount: 2 }] },
+        controller: "user", targets: [], xValue: null, chosenMode: null, nextAtomIndex: 1, cardName: "Demonic Tutor",
+      },
+    };
+    expect(isSerializable(session)).toEqual({ ok: true }); // no closures — pure JSON
+    const doc = saveDoc(session);
+    expect(verifyChecksum(doc)).toBe(true);
+    expect(isResumable(doc)).toBe(true);
   });
 
   it("a v3 save carrying a pendingArbiter flag is serializable and resumable", () => {

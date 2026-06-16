@@ -282,6 +282,10 @@ export function createGameState({
     // resolution effect at creation. Both are plain JSON ⇒ serialize for free.
     continuousEffects: [],
     timestampCounter: 0,
+    // Deterministic PRNG seed THREADED through state — the tutor/shuffle path reads it
+    // and advances it (an LCG step) so library shuffles are reproducible AND a game
+    // serialized mid-shuffle restores to byte-identical future shuffles (no Math.random).
+    rngSeed: 0,
     players,
     log: [],  // append-only history of events for replay/debugging
   };

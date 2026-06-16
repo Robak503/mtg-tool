@@ -184,15 +184,21 @@ function parseTutorFilter(phrase) {
 function parseExtendedAtom(s) {
   const t = s.toLowerCase().replace(/[’]/g, "'"); // normalize curly apostrophe
 
-  // P3.2 tutor — "Search your library for a/an <FILTER> card, [reveal it,] [and] put it
-  // into your hand[, then shuffle]." Single card, HAND destination only. The filter must
-  // be an ALLOWLISTED type phrase (parseTutorFilter); an unmodeled filter / multi-card
-  // ("two", "up to N", "any number of") / battlefield/top/graveyard destination all fail
-  // the anchor → low → Arbiter. The engine auto-picks the fetched card at resolution.
-  const tm = t.match(/^search your library for an? ([a-z][a-z ]*?) cards?,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // Tutor — "Search your library for a/an [<FILTER>] card, [reveal it,] [and] put it into
+  // your hand[, then shuffle]." HAND destination only, single card. The filter is OPTIONAL:
+  // an UNFILTERED "search for a card" (Demonic Tutor) is modeled too (the picker shows the
+  // whole library / the auto-pick takes the best). A FILTERED phrase must be ALLOWLISTED
+  // (parseTutorFilter); an unmodeled filter ("nonland", "named X", "with mana value") /
+  // multi-card ("two", "up to N") / battlefield/top destination all fail the anchor → low →
+  // Arbiter. The fetched card is chosen at resolution (player picker, or auto-pick).
+  const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (tm) {
-    const filter = parseTutorFilter(tm[1]);
-    return filter ? { op: "tutor", filter, destination: "hand", targetType: null } : null;
+    const phrase = tm[1]; // undefined for an unfiltered "a card"
+    if (phrase === undefined) {
+      return { op: "tutor", filter: null, filterLabel: "card", destination: "hand", targetType: null };
+    }
+    const filter = parseTutorFilter(phrase);
+    return filter ? { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "hand", targetType: null } : null;
   }
   // A standalone "[then] shuffle [your library]" clause (some cards put it in its own
   // sentence after the search) — shuffles the controller's library (CR 103.2).

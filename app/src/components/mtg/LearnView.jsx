@@ -354,6 +354,7 @@ export default function LearnView({
             fontFamily={fontFamily}
             onChoose={session.applyChoice}
             onContinue={session.continueGame}
+            onTutorChoose={session.applyTutorChoice}
           />
         </main>
 
@@ -405,6 +406,13 @@ export default function LearnView({
       {session.board && decision?.kind === "unresolved" && (
         <div style={unresolvedSheetStyle(LINE, BG2)}>
           <UnresolvedPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onContinue={session.continueGame} />
+        </div>
+      )}
+      {/* Interactive tutor search → library picker side-sheet (non-blocking, board behind
+          stays visible). The game is paused on this choice until the player picks. */}
+      {session.board && decision?.kind === "tutor-search" && (
+        <div style={tutorSheetStyle(LINE, BG2)}>
+          <TutorSearchPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyTutorChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -585,7 +593,7 @@ function TableStrip({ table, activePlayer, cfg, colors }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue }) {
+function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose }) {
   const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
 
   if (!decision) {
@@ -593,6 +601,9 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
   }
   if (decision.kind === "unresolved") {
     return <UnresolvedPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onContinue={onContinue} />;
+  }
+  if (decision.kind === "tutor-search") {
+    return <TutorSearchPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onTutorChoose} />;
   }
   if (decision.kind === "dispatch-error") {
     return (
@@ -763,7 +774,126 @@ function UnresolvedPanel({ decision, cfg, colors, fontFamily, onContinue }) {
   );
 }
 
+/**
+ * Interactive tutor search — the player browses the matching cards in their own library
+ * (real art via /api/art-crop?name=) and picks one to put into their hand, or finds
+ * nothing. Resumes the suspended spell via session.applyTutorChoice. The board behind
+ * stays visible (non-blocking sheet), but the game is paused until the choice is made.
+ */
+function TutorSearchPanel({ decision, cfg, colors, fontFamily, onChoose }) {
+  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+  const accent = cfg?.color || GOLD;
+  const [selected, setSelected] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const candidates = decision.candidates || [];
+
+  // Reset the selection whenever the search changes — a card with two tutor clauses
+  // resolves one tutor-search straight into the next, reusing this same panel; without
+  // this the stale selection from the first search could be submitted to the second
+  // (a non-candidate → rejected). Keyed on the candidate ids (a new search → new set).
+  const candidateKey = candidates.map((c) => c.id).join("|");
+  useEffect(() => { setSelected(null); }, [candidateKey]);
+
+  const submit = async (cardId) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+          🔍 Search your library{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+          Choose {decision.filterLabel ? `a ${decision.filterLabel}` : "a card"} to put into your hand
+          ({candidates.length} match{candidates.length === 1 ? "" : "es"}). Then your library is shuffled.
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+        {candidates.length === 0 && (
+          <div style={{ gridColumn: "1 / -1", fontSize: 12, color: MUTED, fontStyle: "italic" }}>
+            No matching cards in your library.
+          </div>
+        )}
+        {candidates.map((c) => {
+          const isSel = selected === c.id;
+          return (
+            <button
+              key={c.id}
+              onClick={() => setSelected(c.id)}
+              title={c.name}
+              style={{
+                display: "flex", flexDirection: "column", gap: 4, padding: 4,
+                background: isSel ? (cfg?.dim || BG3) : "transparent",
+                border: `2px solid ${isSel ? accent : LINE}`,
+                borderRadius: 8, cursor: "pointer", fontFamily, textAlign: "left",
+              }}
+            >
+              <img
+                src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
+                alt={c.name}
+                loading="lazy"
+                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: BG2 }}
+                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+              />
+              <div style={{ fontSize: 11, color: isSel ? accent : TEXT, lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+                {c.name}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          onClick={() => submit(selected)}
+          disabled={!selected || submitting}
+          style={{
+            flex: 1, padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
+            cursor: (!selected || submitting) ? "not-allowed" : "pointer", opacity: (!selected || submitting) ? 0.5 : 1,
+            fontSize: 13, fontWeight: 600, fontFamily,
+          }}
+        >
+          {submitting ? "…" : "Put in hand"}
+        </button>
+        <button
+          onClick={() => submit(null)}
+          disabled={submitting}
+          style={{
+            padding: "9px 14px", background: "transparent", color: MUTED, border: `1px solid ${LINE}`,
+            borderRadius: 6, cursor: submitting ? "not-allowed" : "pointer", fontSize: 13, fontFamily,
+          }}
+        >
+          Find nothing
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Style helpers ───────────────────────────────────────────────────────────
+
+function tutorSheetStyle(LINE, BG2) {
+  return {
+    position: "absolute",
+    top: 70,
+    right: 16,
+    bottom: 64,
+    width: 440,
+    maxWidth: "52%",
+    background: BG2 || "#12131c",
+    border: `1px solid ${LINE || "#272a3c"}`,
+    borderRadius: 12,
+    boxShadow: "0 20px 60px #000a",
+    padding: 16,
+    display: "flex",
+    flexDirection: "column",
+    zIndex: 45,
+  };
+}
 
 function containerStyle(BG, fontFamily) {
   return {
