@@ -30,7 +30,7 @@ import { filterActions } from "./legalChoices.js";
 import { opponentsOf } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
-import { programContainsCounter, programContainsMassRemoval } from "./effects/parser.js";
+import { programContainsCounter, programContainsMassRemoval, programContainsTeamPump } from "./effects/parser.js";
 
 // ─── Cast priority by archetype ──────────────────────────────────────────────
 
@@ -156,6 +156,12 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
     // weigh whether the wipe nets out in its favor, and an indiscriminate Wrath into its own
     // board plays terribly. The player casts wipes normally. (Deferred board-state heuristic.)
     if (programContainsMassRemoval(actions[0].program)) continue;
+    // The AI HOLDS a controller-scoped TEAM pump (Overrun / Trumpet Blast — "creatures you
+    // control get +N/+N until end of turn"): the buff is its OWN, so this is purely a timing
+    // call (cast it pre-combat into a profitable attack), which the AI can't make yet — casting
+    // it blindly in its main phase wastes it. Holding only costs tempo, never a wrong play.
+    // (Deferred "pump my team before a good attack" heuristic; player casts it normally.)
+    if (programContainsTeamPump(actions[0].program)) continue;
     // The AI HOLDS Auras (deferred seam): it doesn't yet weigh which creature to enchant
     // (buff its own attacker vs. curse an enemy) and must never hang a beneficial Aura on an
     // opponent. The player casts Auras normally; the AI passes. (Belt-and-suspenders — these

@@ -23,6 +23,17 @@ summarizes the notable changes.
   printed stats. (Surfaced by live real-card verification of the new Aura mechanic.)
 
 ### Added
+- **Team pumps now work in The Academy.** Cast *"Creatures you control get +N/+N until end
+  of turn"* (*Inspired Charge*, *Charge*, *Glorious Charge*) or the Overrun-style *"…get
+  +N/+N and gain trample until end of turn"* (*Overrun*, *Overcome*, *For the Emperor!*) and
+  every creature **you** control gets the boost — and the granted keyword — at once, while
+  your opponents' creatures stay untouched. The set is locked when the spell resolves (a
+  creature you play afterward doesn't get the buff), and it wears off at end of turn. Modal
+  cards whose other mode was already understood (*Fortify*, *Engineered Might*, *Goblin
+  Surprise*) now play natively too. A *filtered* team pump ("**other** creatures you
+  control", "**white** creatures you control", "creatures you control **with flying**") or
+  one that grants an unenforced keyword is handed to the Arbiter rather than buffing the
+  wrong creatures. ~29 common team pumps now play natively.
 - **Combat tricks now work in The Academy.** Cast a pump that also grants a keyword —
   *"Target creature gets +2/+2 and gains trample until end of turn"*, *"…gains flying"*,
   *"…gains first strike and lifelink"* — or a pure keyword trick (*"Target creature gains
