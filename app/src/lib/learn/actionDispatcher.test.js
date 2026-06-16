@@ -229,16 +229,17 @@ describe("cast-spell", () => {
   });
 
   it("an instant with real-but-unmodeled oracle emits a LOW effect-program that routes to the Arbiter seam (P2.2 cast-path ordering)", () => {
-    // Counterspell parses (it IS an instant with text) but isn't modeled → a
+    // Mana Leak parses (it IS an instant with text) but its "unless … pays" tax isn't
+    // modeled (P3.1 models the bare "Counter target spell"; a tax rider stays low) → a
     // low-confidence effect-program, NOT spell.noop. This pins the dispatcher's
     // payload-selection ordering so the cast→low→Arbiter fail-safe can't regress.
-    const counter = { ...card("Counterspell", "Instant", "{U}{U}"), oracle: "Counter target spell." };
+    const counter = { ...card("Mana Leak", "Instant", "{1}{U}"), oracle: "Counter target spell unless its controller pays {3}." };
     let state = withHand(stateWith(), [counter]);
-    state = withMana(state, { U: 2 });
+    state = withMana(state, { U: 1, C: 1 });
 
     state = dispatchAction(state, {
-      kind: "cast-spell", playerId: "user", cardId: counter.id, name: "Counterspell",
-      cost: parseManaCost("{U}{U}"), cmc: 2,
+      kind: "cast-spell", playerId: "user", cardId: counter.id, name: "Mana Leak",
+      cost: parseManaCost("{1}{U}"), cmc: 2,
     });
     expect(state.stack[0].payload.resolver).toBe(RESOLVER_KEYS.EFFECT_PROGRAM);
     expect(state.stack[0].payload.params.program.confidence).toBe("low");
@@ -246,7 +247,7 @@ describe("cast-spell", () => {
 
     const resolved = resolveTopOfStack(state);
     expect(resolved.stack).toHaveLength(0);
-    expect(resolved.pendingArbiter).toMatchObject({ cardName: "Counterspell", controller: "user" });
+    expect(resolved.pendingArbiter).toMatchObject({ cardName: "Mana Leak", controller: "user" });
     expect(resolved.log.some(e => e.kind === "spell-unresolved")).toBe(true);
   });
 

@@ -40,7 +40,7 @@ import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
 import { checkStepTriggers, checkAttackTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
-import { parseEffectClause, programConfidence, programNeedsChosenTarget } from "./effects/parser.js";
+import { parseEffectClause, programConfidence, programNeedsChosenTarget, programContainsCounter } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
@@ -486,7 +486,14 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // (spellEffects.parseSpellEffect) only engages for Instant/Sorcery types — so
     // pass "Instant" to unlock draw/damage/destroy off a permanent source.
     const program = parseEffectClause(clause, "Instant");
-    if (program && programConfidence(program) === "high" && program.structure !== "modal") {
+    // A COUNTER atom must NOT route through the auto-chooser here (P3.1): the default
+    // first-legal flush chooser has no enemy-awareness and no self-exclusion, so an ETB
+    // "counter target spell" (Mystic Snake / Draining Whelk) would silently counter the
+    // CONTROLLER'S OWN spell when it sorts first on the stack — a confident WRONG play,
+    // worse than the Arbiter route (CLAUDE.md §1.2). Fall through to the trigger.effect/
+    // Arbiter fallback until an enemy-aware/interactive flush chooser exists. (Counter is
+    // safe on the cast path: the user picks the target, the AI holds counters.)
+    if (program && programConfidence(program) === "high" && program.structure !== "modal" && !programContainsCounter(program)) {
       const baseParams = { program, controller: trigger.controller, context: trigger.context };
       if (!programNeedsChosenTarget(program)) {
         return { payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } }, targets: [] };

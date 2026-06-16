@@ -62,6 +62,9 @@ describe("parseSpellEffect", () => {
     expect(effectNeedsTarget({ kind: "damage", targetType: "any" })).toBe(true);
     expect(effectNeedsTarget({ kind: "draw", targetType: null })).toBe(false);
     expect(effectNeedsTarget({ kind: "damage", targetType: "eachOpponent" })).toBe(false);
+    // P3.1: the "spell" target type (counter) must gate as needing a target — the new
+    // enumerateTargets "spell" branch (and the whole counter cast path) hinges on this.
+    expect(effectNeedsTarget({ kind: "counter", targetType: "spell" })).toBe(true);
   });
 });
 

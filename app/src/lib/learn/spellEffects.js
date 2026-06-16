@@ -231,10 +231,31 @@ export function enumerateTargets(state, controllerId, effect) {
   const addPlayers = () => {
     for (const pid of Object.keys(state.players)) out.push({ type: "player", id: pid, name: pid });
   };
+  // P3.1 counter: legal targets are SPELLS on the stack (kind "spell"; abilities are
+  // not spells), filtered by the counter's spellFilter (any/noncreature/creature).
+  // An on-card uncounterable spell (CR 701.5e) is excluded — conservative: granted/
+  // external "can't be countered" isn't modeled, but the on-card case is never wrong.
+  const addStackSpells = () => {
+    for (const obj of state.stack || []) {
+      if (obj.kind !== "spell") continue;
+      if (/can't be countered/i.test(String(obj.source?.oracle || obj.source?.oracle_text || ""))) continue;
+      if (!spellMatchesCounterFilter(obj, effect.spellFilter)) continue;
+      out.push({ type: "spell", id: obj.id, name: obj.source?.name });
+    }
+  };
   if (effect.targetType === "creature") addCreatures();
   else if (effect.targetType === "player") addPlayers();
   else if (effect.targetType === "any") { addCreatures(); addPlayers(); }
+  else if (effect.targetType === "spell") addStackSpells();
   return out;
+}
+
+/** Does a spell on the stack match a counter's spellFilter (CR 701.5a)? */
+function spellMatchesCounterFilter(stackObj, filter) {
+  const type = String(stackObj?.source?.type || stackObj?.source?.type_line || "");
+  if (filter === "noncreature") return !/Creature/.test(type);
+  if (filter === "creature") return /Creature/.test(type);
+  return true; // "any"
 }
 
 // ─── AI target selection ──────────────────────────────────────────────────────

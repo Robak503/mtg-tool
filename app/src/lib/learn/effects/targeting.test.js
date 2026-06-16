@@ -74,6 +74,58 @@ describe("expandCastChoices — sequence", () => {
   });
 });
 
+describe("expandCastChoices — counter target spell (P3.1, spell targets on the stack)", () => {
+  // A stack object of kind "spell" (the counter's potential target).
+  const spell = (id, name, type = "Instant", oracle = "") => ({
+    id, kind: "spell", source: { id: `c-${id}`, name, type, oracle }, controller: "ai", targets: [], cost: null, payload: {},
+  });
+  const ability = (id) => ({ id, kind: "triggered-ability", source: { name: "Trig" }, controller: "ai", targets: [], cost: null, payload: {} });
+
+  it("offers one cast per spell on the stack ('any' filter), tagged to the counter atom", () => {
+    const state = freshState({ stack: [spell("s1", "Shock"), spell("s2", "Divination", "Sorcery")] });
+    const program = parseEffectProgram(I("Counter target spell."));
+    const choices = expandCastChoices(state, "user", program);
+    expect(choices).toHaveLength(2);
+    expect(choices.map(c => c.targets[0].id).sort()).toEqual(["s1", "s2"]);
+    expect(choices[0].targets[0]).toMatchObject({ type: "spell", atomIndex: 0 });
+  });
+
+  it("the noncreature filter (Negate) omits creature spells", () => {
+    const state = freshState({ stack: [spell("inst", "Shock"), spell("crt", "Bear", "Creature — Bear")] });
+    const choices = expandCastChoices(state, "user", parseEffectProgram(I("Counter target noncreature spell.")));
+    expect(choices.map(c => c.targets[0].id)).toEqual(["inst"]);
+  });
+
+  it("the creature filter (Essence Scatter) only offers creature spells", () => {
+    const state = freshState({ stack: [spell("inst", "Shock"), spell("crt", "Bear", "Creature — Bear")] });
+    const choices = expandCastChoices(state, "user", parseEffectProgram(I("Counter target creature spell.")));
+    expect(choices.map(c => c.targets[0].id)).toEqual(["crt"]);
+  });
+
+  it("never targets a non-spell stack object (a triggered/activated ability)", () => {
+    const state = freshState({ stack: [ability("trig"), spell("s1", "Shock")] });
+    const choices = expandCastChoices(state, "user", parseEffectProgram(I("Counter target spell.")));
+    expect(choices.map(c => c.targets[0].id)).toEqual(["s1"]);
+  });
+
+  it("excludes an on-card uncounterable spell (CR 701.5e)", () => {
+    const state = freshState({ stack: [spell("safe", "Abrupt Decay", "Instant", "This spell can't be countered.")] });
+    expect(expandCastChoices(state, "user", parseEffectProgram(I("Counter target spell.")))).toEqual([]);
+  });
+
+  it("is uncastable (no choices) when the stack holds no legal spell target", () => {
+    const state = freshState({ stack: [] });
+    expect(expandCastChoices(state, "user", parseEffectProgram(I("Counter target spell.")))).toEqual([]);
+  });
+
+  it("CAN target the caster's OWN spell on the stack (you may counter your own spell)", () => {
+    const own = { id: "mine", kind: "spell", source: { id: "c-mine", name: "My Spell", type: "Sorcery", oracle: "" }, controller: "user", targets: [], cost: null, payload: {} };
+    const state = freshState({ stack: [own] });
+    const choices = expandCastChoices(state, "user", parseEffectProgram(I("Counter target spell.")));
+    expect(choices.map(c => c.targets[0].id)).toEqual(["mine"]); // own spell is a legal target — correct MTG
+  });
+});
+
 describe("expandCastChoices — modal", () => {
   it("surfaces one cast per (mode × legal target)", () => {
     const state = withBoard([cr("A", "a1", "ai"), cr("B", "b1", "ai")]);

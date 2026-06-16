@@ -22,8 +22,12 @@ describe("classifyCard — tiers", () => {
   it("a HIGH instant/sorcery is native-spell", () => {
     expect(classifyCard(C("Instant", "Lightning Bolt deals 3 damage to any target.", { name: "Lightning Bolt" }))).toBe("native-spell");
   });
-  it("a complex spell (tutor/counter) bounces to arbiter-spell", () => {
-    expect(classifyCard(C("Instant", "Counter target spell.", { name: "Counterspell" }))).toBe("arbiter-spell");
+  it("P3.1: a bare 'Counter target spell' is native-spell, but a tax/rider counter bounces to arbiter-spell", () => {
+    expect(classifyCard(C("Instant", "Counter target spell.", { name: "Counterspell" }))).toBe("native-spell");
+    expect(classifyCard(C("Instant", "Counter target noncreature spell.", { name: "Negate" }))).toBe("native-spell");
+    expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {3}.", { name: "Mana Leak" }))).toBe("arbiter-spell");
+  });
+  it("a complex spell (tutor) still bounces to arbiter-spell", () => {
     expect(classifyCard(C("Sorcery", "Search your library for a creature card, reveal it, put it into your hand, then shuffle.", { name: "tutor" }))).toBe("arbiter-spell");
   });
   it("a permanent with abilities is body-only (body works, ability doesn't yet)", () => {
@@ -41,6 +45,10 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Wizard", "When this enters, choose one — draw a card; or you gain 3 life."))).toBe("body-only"); // modal → fallback
     // Intervening-if (CR 603.4) is NOT routed by the engine, so it must NOT count native.
     expect(classifyCard(C("Creature — Cleric", "When this creature enters, if you control another creature, draw a card."))).toBe("body-only");
+    // P3.1 review fix: a COUNTER trigger (Mystic Snake) is NOT routed by the engine (the
+    // first-legal flush chooser could counter the controller's own spell), so the metric
+    // must NOT over-claim it as native — it stays in the gap.
+    expect(classifyCard(C("Creature — Snake", "Flash\nWhen this creature enters the battlefield, counter target spell."))).toBe("body-only");
   });
   it("a permanent whose only text is modeled activated abilities is native-activated (P2.9)", () => {
     // {T} pinger, mana-cost draw, tapper, and a keyword + modeled ability — all native.
@@ -105,27 +113,28 @@ describe("coverageSummary", () => {
   // silently regresses. As P2.8+ land, the ETB/anthem fixtures move to native and
   // these expectations get TIGHTENED deliberately (never loosened).
   const DECK = [
-    C("Basic Land — Island", "", { qty: 10 }),
+    C("Basic Land — Island", "", { qty: 9 }),
     C("Artifact", "{T}: Add {C}.", { qty: 2 }),                  // native-mana
     C("Creature — Bear", "", { qty: 2 }),                         // native-body
     C("Instant", "Deal 3 damage to any target.", { qty: 1 }),     // native-spell
+    C("Instant", "Counter target spell.", { qty: 1 }),            // native-spell (P3.1)
     C("Creature — Wizard", "When this enters, draw a card.", { qty: 2 }), // native-trigger (P2.8)
     C("Enchantment", "Creatures you control get +1/+1.", { qty: 1 }),     // native-static (P2.10)
     C("Enchantment", "Creatures you control get +2/+2 as long as you control a Forest.", { qty: 1 }), // body-only (conditional static — unmodeled)
-    C("Instant", "Counter target spell.", { qty: 1 }),            // arbiter-spell (P3.1)
+    C("Sorcery", "Search your library for a creature card, put it into your hand, then shuffle.", { qty: 1 }), // arbiter-spell (tutor — P3.2)
   ];
   it("counts tiers weighted by qty and computes native %", () => {
     const s = coverageSummary(DECK);
     expect(s.total).toBe(20);
-    expect(s.tiers.land).toBe(10);
+    expect(s.tiers.land).toBe(9);
     expect(s.tiers["native-mana"]).toBe(2);
     expect(s.tiers["native-body"]).toBe(2);
-    expect(s.tiers["native-spell"]).toBe(1);
+    expect(s.tiers["native-spell"]).toBe(2); // Deal 3 damage + Counterspell (P3.1)
     expect(s.tiers["native-trigger"]).toBe(2);
     expect(s.tiers["native-static"]).toBe(1);
     expect(s.tiers["body-only"]).toBe(1);
     expect(s.tiers["arbiter-spell"]).toBe(1);
-    expect(s.native).toBe(18); // 10 + 2 + 2 + 1 + 2 + 1
+    expect(s.native).toBe(18); // 9 + 2 + 2 + 2 + 2 + 1
     expect(s.pct).toBe(90);    // 18/20
   });
   it("every native tier is in NATIVE_TIERS and gap tiers are not", () => {
@@ -135,6 +144,6 @@ describe("coverageSummary", () => {
     const s = coverageSummary(DECK);
     expect(s.gap["ETB trigger"]).toBeUndefined(); // the ETB draw is native now
     expect(s.gap["Static anthem/buff"]).toBe(1);  // the CONDITIONAL anthem stays in the gap
-    expect(Object.values(s.gap).reduce((a, b) => a + b, 0)).toBe(2); // conditional anthem + counterspell
+    expect(Object.values(s.gap).reduce((a, b) => a + b, 0)).toBe(2); // conditional anthem + tutor
   });
 });

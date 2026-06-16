@@ -30,6 +30,7 @@ import { filterActions } from "./legalChoices.js";
 import { opponentsOf } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
+import { programContainsCounter } from "./effects/parser.js";
 
 // ─── Cast priority by archetype ──────────────────────────────────────────────
 
@@ -145,6 +146,12 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
   for (const [cardId, actions] of byCard) {
     const card = cardFromHand(state, aiPlayerId, cardId);
     if (!card) continue; // card vanished
+    // The AI HOLDS any counter spell (deferred seam — it doesn't evaluate response
+    // windows and must never counter its OWN spell). Explicit rather than relying on the
+    // coincidence that a counter atom sorts its spell target first (P3.1 review finding:
+    // counter+damage like Suffocating Blast held only by atom ordering). The player can
+    // still cast counters normally; the AI simply passes.
+    if (programContainsCounter(actions[0].program)) continue;
     const effect = actions[0].effect;
     let chosen = actions[0];
     if (actions.some(a => a.targets?.length)) {

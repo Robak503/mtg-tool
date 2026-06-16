@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { parseEffectProgram, programConfidence, KNOWN_ATOM_OPS } from "./parser.js";
+import { parseEffectProgram, programConfidence, programContainsCounter, KNOWN_ATOM_OPS } from "./parser.js";
 
 const I = (oracle) => ({ type: "Instant", oracle });
 
@@ -87,8 +87,8 @@ describe("parseEffectProgram — multi-clause sequences (P2.5)", () => {
     ]);
   });
   it("ALL-OR-NOTHING: a multi-clause program with ANY unmodeled clause stays low + zero atoms", () => {
-    // clause 1 (damage) is modeled; clause 2 (counter) is not (no atom yet) → whole low.
-    const p = parseEffectProgram(I("Deal 2 damage to target creature. Counter target spell."));
+    // clause 1 (damage) is modeled; clause 2 (mill) is not (no atom yet) → whole low.
+    const p = parseEffectProgram(I("Deal 2 damage to target creature. Target player mills three cards."));
     expect(programConfidence(p)).toBe("low");
     expect(p.atoms).toHaveLength(0);
   });
@@ -114,8 +114,8 @@ describe("parseEffectProgram — modal 'Choose one —' (P2.5)", () => {
     expect(p.modal.modes[1].atoms[0].op).toBe("destroy");
   });
   it("ALL-OR-NOTHING across modes: an unmodeled mode forces the whole modal low", () => {
-    // mode 2 ("counter target spell") has no atom yet → whole modal low, zero atoms.
-    const p = parseEffectProgram(I("Choose one —\n• Draw a card.\n• Counter target spell."));
+    // mode 2 ("mill three cards") has no atom yet → whole modal low, zero atoms.
+    const p = parseEffectProgram(I("Choose one —\n• Draw a card.\n• Target player mills three cards."));
     expect(programConfidence(p)).toBe("low");
     expect(p.atoms).toHaveLength(0);
   });
@@ -276,13 +276,62 @@ describe("parseEffectProgram — create-token (P2.6)", () => {
   });
 });
 
+// P3.1 — COUNTER TARGET SPELL. The atom shape (any/noncreature/creature filter) +
+// the multi-clause/modal composition. Riders stay low (pinned in MUST_DROP_TO_LOW).
+describe("parseEffectProgram — counter target spell (P3.1)", () => {
+  it("recognizes the three modeled filters with the right spellFilter", () => {
+    expect(parseEffectProgram(I("Counter target spell.")).atoms)
+      .toEqual([{ op: "counter", spellFilter: "any", targetType: "spell" }]);
+    expect(parseEffectProgram(I("Counter target noncreature spell.")).atoms)
+      .toEqual([{ op: "counter", spellFilter: "noncreature", targetType: "spell" }]);
+    expect(parseEffectProgram(I("Counter target creature spell.")).atoms)
+      .toEqual([{ op: "counter", spellFilter: "creature", targetType: "spell" }]);
+  });
+  it("composes in a multi-clause sequence (counter + draw)", () => {
+    const p = parseEffectProgram(I("Counter target spell. Draw a card."));
+    expect(p.confidence).toBe("high");
+    expect(p.atoms.map(a => a.op)).toEqual(["counter", "draw"]);
+  });
+  it("composes in a 'Choose one —' modal (draw OR counter)", () => {
+    const p = parseEffectProgram(I("Choose one —\n• Draw a card.\n• Counter target spell."));
+    expect(p.confidence).toBe("high");
+    expect(p.structure).toBe("modal");
+    expect(p.modal.modes.map(m => m.atoms[0].op)).toEqual(["draw", "counter"]);
+  });
+  it("programContainsCounter flags counter-bearing programs (the trigger-flush guard)", () => {
+    expect(programContainsCounter(parseEffectProgram(I("Counter target spell.")))).toBe(true);
+    expect(programContainsCounter(parseEffectProgram(I("Counter target spell. Draw a card.")))).toBe(true);
+    expect(programContainsCounter(parseEffectProgram(I("Choose one —\n• Draw a card.\n• Counter target spell.")))).toBe(true);
+    expect(programContainsCounter(parseEffectProgram(I("Deal 3 damage to any target.")))).toBe(false);
+    expect(programContainsCounter(null)).toBe(false);
+  });
+});
+
 // THE FAIL-SAFE GATE. Every near-miss / unmodeled instant-or-sorcery MUST drop to
 // a low-confidence, ZERO-atom program (→ Arbiter seam). Crucially this includes
 // oracles the LOOSE legacy regexes over-match (e.g. "destroy target creature
 // unless …", which legacy parses as a plain destroy) — the clean-clause gate
 // catches the rider so the interpreter never resolves the wrong thing.
 const MUST_DROP_TO_LOW = [
-  "Counter target spell.",
+  // ── P3.1 counter target spell — the riders that must STAY low (the modeled shapes
+  // are pinned HIGH in MUST_STAY_HIGH + the dedicated describe block below). The
+  // anchored allowlist drops anything that isn't EXACTLY a bare "Counter target
+  // [noncreature|creature]? spell". ──
+  "Counter target spell unless its controller pays {3}.",       // Mana Leak tax — "unless" unmodeled
+  "Counter target spell unless its controller pays {1} for each card in your hand.", // tax
+  "Counter target spell or ability.",                            // "or ability" — not a bare spell target
+  "Counter target activated or triggered ability.",              // an ability is not a spell
+  "Counter up to two target spells.",                            // "up to two" cardinality unmodeled
+  "Counter target spell with mana value 3 or less.",             // mana-value rider unmodeled
+  "Counter target creature or planeswalker spell.",              // "or planeswalker" — not the modeled filter
+  "Counter target noncreature spell. This spell can't be countered.", // Dovin's Veto 2nd clause unmodeled
+  "Counter target spell. If that spell is countered this way, exile it instead.", // replacement rider
+  // ── P3.1 corpus-confirmed riders (REAL Scryfall cards the sweep verified stay LOW) ──
+  "Counter target artifact or enchantment spell.",                     // Annul — unmodeled filter
+  "Counter target spell. Its controller mills four cards.",            // Countermand — unmodeled mill rider
+  "Counter target noncreature spell. Its controller loses 2 life.",    // Countersquall — "its controller" subject unmodeled
+  "Choose two —\n• Counter target spell.\n• Return target permanent to its owner's hand.\n• Draw a card.", // Cryptic Command — "choose two"
+  "Counter target spell you don't control.",                           // Counterflux — "you don't control" unmodeled
   "Destroy target creature unless its controller pays {2}.",   // legacy over-matches → MUST drop
   "Destroy target nonblack creature.",                          // unmodeled COLOR restriction → MUST drop
   "Destroy target artifact.",
@@ -294,17 +343,14 @@ const MUST_DROP_TO_LOW = [
   // Modal that should stay low: "choose two" (multi-mode pick deferred), and a
   // modal with an unmodeled mode (counter-spell not an atom yet).
   "Choose two —\n• Draw a card.\n• Destroy target creature.",
-  "Choose one —\n• Draw a card.\n• Counter target spell.",
   // P2.5 SPLITS on " and " — but a clause whose SECOND half is unmodeled (gain/lose
   // life, counter, discard, a verbless damage fragment, a comma-rider) still drops
   // the WHOLE program (all-or-nothing). These are the false-high vectors P2.2 guarded
   // with a denylist; P2.5 keeps them low because a split clause fails to parse.
   "Char deals 4 damage to any target and 2 damage to you.",              // "2 damage to you" has no verb → low
-  "Counter target spell and draw a card.",                               // counter-spell atom is P2.6 → low
   "Destroy target artifact and draw a card.",                            // "destroy target artifact" not modeled → low
   "Deals 2 damage to target creature and 2 damage to target player.",    // 2nd clause verbless → low
   "Draw two cards, discard a card.",                                     // comma-rider (NOT split) → low
-  "Deal 2 damage to target creature. Counter target spell.",             // multi-clause, 2nd unmodeled → low
   // Unmodeled target restrictions — HIGH would permit an illegal target. P2.4 models
   // controller/tapped/power; attacking/blocking/color/type stay unmodeled → Arbiter.
   "Destroy target attacking creature.",
@@ -360,6 +406,20 @@ const MUST_STAY_HIGH = [
   "Target creature gets -3/-0 until end of turn. Target creature gets -0/-3 until end of turn.", // Agony Warp: two "target creature" (no "another") = legal
   "Ember Shot deals 3 damage to any target. Draw a card.",                      // damage + draw multi-clause
   "Target creature gets +1/+0 until end of turn. Draw a card.",                 // pump + draw (Defiant Strike)
+  // ── P3.1 counter target spell — the modeled shapes (any/noncreature/creature) +
+  // counter-bearing multi-clause/modal programs. FLIPPED from low→high this slice. ──
+  "Counter target spell.",                                                      // Counterspell
+  "Counter target noncreature spell.",                                          // Negate
+  "Counter target creature spell.",                                             // Essence Scatter
+  "Counter target spell and draw a card.",                                      // counter + draw (split on " and ")
+  "Deal 2 damage to target creature. Counter target spell.",                    // multi-clause, both modeled
+  // P3.1 corpus-confirmed HIGH (REAL Scryfall cards the sweep verified — every clause modeled):
+  "Counter target spell. Draw a card.",                                         // Dismiss / Contradict
+  "Counter target noncreature spell. Draw a card.",                             // Scatter Arc
+  "Counter target spell. You gain 3 life.",                                     // Absorb (counter + gain-life)
+  "Counter target creature spell. Create a 2/2 blue Illusion creature token.",  // Summoner's Bane (counter + token)
+  "Counter target spell and Suffocating Blast deals 3 damage to target creature.", // Suffocating Blast (dual-target)
+  "Choose one —\n• You gain 5 life.\n• Counter target spell.\n• Target creature gets -2/-2 until end of turn.", // Dromar's Charm
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {

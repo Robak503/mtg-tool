@@ -25,7 +25,7 @@
  * parsers the runtime uses so the metric stays honest.
  */
 
-import { parseEffectProgram, parseEffectClause, programConfidence } from "./effects/parser.js";
+import { parseEffectProgram, parseEffectClause, programConfidence, programContainsCounter } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle } from "./staticAbilityParser.js";
@@ -89,7 +89,10 @@ export function spellIsNative(card) {
 function triggerRoutesNatively(d) {
   if (!d.effectClause || d.interveningIf) return false; // intervening-if → not routed
   const p = parseEffectClause(d.effectClause, "Instant");
-  return !!p && programConfidence(p) === "high" && p.structure !== "modal";
+  // Mirror buildTriggerStack EXACTLY: a counter atom is NOT routed through the trigger
+  // flush (its first-legal auto-target could counter the controller's own spell), so an
+  // ETB "counter target spell" creature (Mystic Snake) stays in the gap, not native.
+  return !!p && programConfidence(p) === "high" && p.structure !== "modal" && !programContainsCounter(p);
 }
 
 // The When/Whenever/At sentence shape (matches detectTriggers' grammar). Used to COUNT

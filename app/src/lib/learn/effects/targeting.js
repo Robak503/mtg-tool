@@ -27,6 +27,8 @@ const MAX_CAST_EXPANSIONS = 64;
 function atomTargetSpec(atom) {
   const tt = atom?.targetType;
   if (!tt || tt === "eachOpponent" || tt === "eachCreature") return null;
+  // P3.1 counter: a spell-target spec carries the spellFilter for stack-spell enumeration.
+  if (tt === "spell") return { kind: "counter", targetType: "spell", spellFilter: atom.spellFilter || "any" };
   return { kind: atom.op === "destroy" ? "destroy" : "damage", targetType: tt, restrictions: atom.restrictions || [] };
 }
 
