@@ -60,6 +60,19 @@ function stripReminder(text) {
 }
 
 /**
+ * Remove the "(They|It|That creature|Those creatures) can't be regenerated." rider — a
+ * VACUOUS clause in this engine: regeneration shields aren't modeled, so a Destroy always
+ * sends the creature to the graveyard whether or not it "can't be regenerated". Stripping it
+ * (rather than failing the all-or-nothing gate on an unmodeled clause) is correct, NOT a
+ * silent gap: honoring it would produce the IDENTICAL board state. This is what lets
+ * Wrath of God / Damnation ("Destroy all creatures. They can't be regenerated.") and
+ * regen-rider single-target removal parse natively. Anchored to the regen sentence only.
+ */
+function stripRegenerationRider(text) {
+  return String(text || "").replace(/\b(?:they|it|that creature|those creatures) can'?t be regenerated\b\.?/gi, " ");
+}
+
+/**
  * For an {X}-cost spell, rewrite the X in the AMOUNT slot of a modeled clause to a
  * sentinel "1" so the proven numeric clause parser recognizes the shape; the caller
  * stamps `amountX` and drops the sentinel. ONLY the amount slot is rewritten — a
@@ -224,6 +237,17 @@ function parseExtendedAtom(s) {
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
   if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
+  // MASS effects (board wipes) — UNFILTERED "all creatures" only. Resolve to the SAME atoms
+  // with the `eachCreature` scope (no chosen target; programNeedsChosenTarget excludes it),
+  // so they hit every creature on every battlefield. A FILTERED wipe ("all creatures with
+  // flying", "all creatures you don't control", "all non-Dragon creatures") fails the exact
+  // anchor → low → Arbiter, since `eachCreature` would wrongly hit the unfiltered set. The
+  // vacuous "they can't be regenerated" rider was already stripped (regeneration is unmodeled,
+  // so a Destroy always reaches the graveyard regardless).
+  if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
+  if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
+  m = t.match(/^(?:all creatures|each creature) gets? ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (m) return { op: "pump", targetType: "eachCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)". Anchored
@@ -362,6 +386,10 @@ export function parseEffectProgram(card) {
  */
 export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) {
   if (!oracle) return null;
+  // Drop the vacuous "can't be regenerated" rider up front (regeneration is unmodeled), so a
+  // board wipe / removal spell that carries it isn't forced low by an otherwise-unmodeled
+  // clause. Safe: honoring it yields the identical state in this engine.
+  oracle = stripRegenerationRider(oracle);
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).
@@ -457,4 +485,21 @@ export function programContainsCounter(program) {
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
   return atoms.some(a => a.op === "counter");
+}
+
+/**
+ * Does the program contain a MASS creature-removal atom — destroy / exile / -X-X scoped to
+ * `eachCreature` (a board wipe)? The AI HOLDS these (opponentAI.pickCastAction): the engine
+ * resolves a symmetric wipe correctly, but the AI can't yet weigh whether nuking the board
+ * helps or hurts it, and an indiscriminate Wrath into its own developed board plays terribly.
+ * The player casts wipes normally. Narrow + deferred — lift it once a board-state-aware wipe
+ * heuristic exists. (Mass DAMAGE, e.g. Pyroclasm, is intentionally NOT gated here — it's a
+ * pre-existing cast and small symmetric burn is often a fine aggressive play.)
+ */
+export function programContainsMassRemoval(program) {
+  if (!program) return false;
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.some(a => a.targetType === "eachCreature" && ["destroy", "exile", "pump"].includes(a.op));
 }
