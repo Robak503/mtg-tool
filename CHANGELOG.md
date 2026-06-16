@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-06-16
+
 ### Fixed
 - **Granted keywords now actually work in combat.** A creature given *vigilance* by an
   Aura, Equipment, or anthem now stays untapped when it attacks (it was tapping anyway,
