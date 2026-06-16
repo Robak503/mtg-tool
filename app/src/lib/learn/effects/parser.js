@@ -28,6 +28,7 @@
 
 import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js";
 import { ATOM_RESOLVERS } from "./effectAtoms.js";
+import { GRANTABLE_COMBAT_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -149,6 +150,11 @@ function splitClauses(oracle) {
     // partial execution — the cardinal-rule failure, P3.2 review catch). The tutor anchor
     // still drops anything it can't model in the whole sentence to low.
     if (/^search your library\b/i.test(sentence)) { clauses.push(sentence); continue; }
+    // A combat trick that pumps AND grants a keyword ("Target creature gets +2/+2 and gains
+    // trample until end of turn"), or grants several keywords ("gains flying and vigilance"),
+    // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence
+    // as one clause so parseExtendedAtom binds the pump + grant to the SAME target.
+    if (/^target creature (?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     for (const c of sentence.split(/\s+\band\b\s+/i)) {
       const t = c.trim();
       if (t) clauses.push(t);
@@ -194,6 +200,24 @@ function parseTutorFilter(phrase) {
   return { groups };
 }
 
+/**
+ * Parse a combat-trick's granted-keyword phrase ("trample", "flying and vigilance",
+ * "first strike, deathtouch, and lifelink") into canonical keyword names, or null if ANY
+ * word is outside the enforced+layer-aware GRANTABLE set (menace / indestructible / hexproof
+ * / "protection from red" / …). ALL-OR-NOTHING: one unmodeled keyword drops the whole grant
+ * to null → the clause is unmodeled → low → Arbiter, never a fake/partial grant.
+ */
+function parseGrantedKeywords(phrase) {
+  const words = String(phrase).split(/,|\band\b/).map((w) => w.trim()).filter(Boolean);
+  if (words.length === 0) return null;
+  const out = [];
+  for (const w of words) {
+    if (!GRANTABLE_COMBAT_KEYWORDS.has(w.toLowerCase())) return null;
+    out.push(canonicalCombatKeyword(w));
+  }
+  return out;
+}
+
 function parseExtendedAtom(s) {
   const t = s.toLowerCase().replace(/[’]/g, "'"); // normalize curly apostrophe
 
@@ -237,6 +261,21 @@ function parseExtendedAtom(s) {
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
   if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
+  // Combat-trick pump + keyword grant: "target creature gets +N/+N and gains KW[, KW][ and KW]
+  // until end of turn" — a layer-7c P/T bump AND layer-6 keyword grant(s), both endOfTurn. The
+  // granted keywords must ALL be in the enforced+layer-aware GRANTABLE set (parseGrantedKeywords),
+  // else the whole clause is unmodeled → low → Arbiter (no fake/partial grant).
+  let pg = t.match(/^target creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
+  if (pg) {
+    const kws = parseGrantedKeywords(pg[3]);
+    return kws ? { op: "pump", targetType: "creature", ptDelta: { p: parseInt(pg[1], 10), t: parseInt(pg[2], 10) }, grantKeywords: kws } : null;
+  }
+  // Pure keyword grant (no P/T): "target creature gains KW[ and KW] until end of turn".
+  pg = t.match(/^target creature gains (.+) until end of turn$/);
+  if (pg) {
+    const kws = parseGrantedKeywords(pg[1]);
+    return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
   // MASS effects (board wipes) — UNFILTERED "all creatures" only. Resolve to the SAME atoms
   // with the `eachCreature` scope (no chosen target; programNeedsChosenTarget excludes it),
   // so they hit every creature on every battlefield. A FILTERED wipe ("all creatures with

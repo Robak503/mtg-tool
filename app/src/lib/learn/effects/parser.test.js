@@ -395,6 +395,16 @@ const MUST_DROP_TO_LOW = [
   "Exile all creatures you don't control.",                     // controller filter
   "Destroy all artifacts and enchantments.",                    // not creatures (noncreature wipe)
   "All creatures get -1/-1 until end of turn and can't block.", // pump rider (can't block) — keyword effect dropped
+  // Combat-trick keyword grants must drop when the granted keyword isn't enforced (a fake
+  // grant is forbidden) — the grantable set is the layer-aware combat keywords, NOT these.
+  "Target creature gains hexproof until end of turn.",          // hexproof not enforced/grantable
+  "Target creature gains indestructible until end of turn.",    // indestructible not grantable
+  "Target creature gets +1/+1 and gains menace until end of turn.", // menace not grantable (unenforced)
+  "Target creature gets +2/+2 and gains protection from red until end of turn.", // protection not grantable
+  // Review catch (no-split + all-or-nothing): a grant chained to a non-keyword via " and "
+  // must NOT parse high with a partial grant — the whole clause is unmodeled → Arbiter.
+  "Target creature gains trample and draws a card until end of turn.", // "draws a card" is not a keyword
+  "Target creature gains flying and gets +2/+2 until end of turn.",    // mixed ordering, one token non-keyword
   "Each player draws a card.",
   "Target player discards a card at random.",
   "Scry 2, then draw a card.",
@@ -494,6 +504,12 @@ const MUST_STAY_HIGH = [
   "All creatures get -2/-2 until end of turn.",                                  // Infest
   "Each creature gets -1/-1 until end of turn.",                                 // singular phrasing
   "Destroy all creatures. Draw a card.",                                         // mass destroy + a modeled rider
+  // ── Combat-trick keyword grants — pump + layer-6 grant (enforced keywords only). ──
+  "Target creature gets +2/+2 and gains trample until end of turn.",             // Tread Upon
+  "Target creature gains flying until end of turn.",                            // pure grant (Mighty Leap-style)
+  "Target creature gets +1/+1 and gains first strike and lifelink until end of turn.", // multi-keyword (Sure Strike-ish)
+  "Target creature gains haste until end of turn. Draw a card.",                 // Expedite (pure grant + draw)
+  "Target creature gets +2/+1 and gains lifelink until end of turn. Draw a card.", // Moment of Defiance (pump+grant+draw)
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {

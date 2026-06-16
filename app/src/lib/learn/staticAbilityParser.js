@@ -21,20 +21,12 @@
  * Pure; imports only the keyword vocabulary. Returns plain JSON descriptors.
  */
 
-import { COMBAT_KEYWORDS } from "./keywords.js";
+import { GRANTABLE_COMBAT_KEYWORDS, canonicalCombatKeyword } from "./keywords.js";
 
-// Keywords we will GRANT via a static ability (an Equipment/Aura bonus or anthem).
-// Restricted to those whose runtime effect the engine actually ENFORCES *and reads
-// layer-aware* — so a granted instance behaves EXACTLY like a printed one (combat damage,
-// blocking, attack-tapping, summoning-sickness all consult `permanentHasKeyword`). Menace
-// is deliberately EXCLUDED: its "must be blocked by two or more" rule (CR 702.110) isn't
-// enforced anywhere, so granting it would be a SILENT no-op that over-claims coverage — a
-// "has menace" clause therefore drops the whole bonus to [] and the card routes to the
-// Arbiter (CLAUDE.md "no silent gaps": a false-negative is safe, a false grant is forbidden).
-const NON_GRANTABLE = new Set(["menace"]);
-const GRANTABLE_KEYWORDS = new Set(
-  COMBAT_KEYWORDS.map(k => k.toLowerCase()).filter(k => !NON_GRANTABLE.has(k)),
-);
+// The grantable-keyword set + canonical-caser now live in keywords.js as the SINGLE source of
+// truth shared with the combat-trick grant path (effects/parser.js), so the two can't drift
+// into granting a keyword the engine doesn't enforce. Menace is excluded there (unenforced).
+const GRANTABLE_KEYWORDS = GRANTABLE_COMBAT_KEYWORDS;
 
 // Color words → WUBRG letters (for "white creatures you control get +1/+1").
 const COLOR_WORDS = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
@@ -155,9 +147,7 @@ function extractKeywords(tail) {
   return found;
 }
 
-function canonicalKeyword(lower) {
-  return COMBAT_KEYWORDS.find(k => k.toLowerCase() === lower) || lower;
-}
+const canonicalKeyword = canonicalCombatKeyword;
 
 /**
  * Build the AffectSpec selector for a creature-buff clause, or null if the clause
