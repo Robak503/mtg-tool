@@ -152,6 +152,11 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
     // counter+damage like Suffocating Blast held only by atom ordering). The player can
     // still cast counters normally; the AI simply passes.
     if (programContainsCounter(actions[0].program)) continue;
+    // The AI HOLDS Auras (deferred seam): it doesn't yet weigh which creature to enchant
+    // (buff its own attacker vs. curse an enemy) and must never hang a beneficial Aura on an
+    // opponent. The player casts Auras normally; the AI passes. (Belt-and-suspenders — these
+    // also have a null `effect`, so the targeted branch below would hold them anyway.)
+    if (actions[0].isAuraSpell) continue;
     const effect = actions[0].effect;
     let chosen = actions[0];
     if (actions.some(a => a.targets?.length)) {

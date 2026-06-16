@@ -113,6 +113,21 @@ describe("resolution — equip attaches and the bonus applies via layers", () =>
   });
 });
 
+describe("REVIEW FIX — granted Vigilance is honored at attack time (shared with Auras/anthems)", () => {
+  it("a creature equipped with a Vigilance-granting Equipment does NOT tap when it attacks", () => {
+    const SPEAR = { id: "c-spear", name: "Vigil Spear", type: "Artifact — Equipment", mana: "{1}", oracle: "Equipped creature gets +1/+0 and has vigilance.\nEquip {1}" };
+    let s = boardState({ user: [
+      createPermanent({ id: "bear", card: bearCard, controller: "user", summoningSick: false }),
+      createPermanent({ id: "spear", card: SPEAR, controller: "user", summoningSick: false }),
+    ] });
+    s = attachPermanent(s, { equipId: "spear", targetId: "bear" });
+    expect(permanentHasKeyword(s, "bear", "Vigilance")).toBe(true);
+    s = { ...s, phase: "combat", step: "declare-attackers" };
+    s = dispatchAction(s, { kind: "declare-attacker", playerId: "user", permanentId: "bear" });
+    expect(findPermanent(s, "bear").permanent.tapped).toBe(false);
+  });
+});
+
 describe("attach state helpers", () => {
   it("REVIEW FIX: Equip is sorcery-speed — not offered while the stack is non-empty (CR 702.6f)", () => {
     const board = (stack) => ({ ...boardState({ user: [

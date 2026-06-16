@@ -23,10 +23,18 @@
 
 import { COMBAT_KEYWORDS } from "./keywords.js";
 
-// Keywords we will GRANT via a static ability. Restricted to the combat-relevant
-// evergreen set the engine actually models, so a parsed grant always maps to real
-// engine behavior (no granting a keyword nothing reads).
-const GRANTABLE_KEYWORDS = new Set(COMBAT_KEYWORDS.map(k => k.toLowerCase()));
+// Keywords we will GRANT via a static ability (an Equipment/Aura bonus or anthem).
+// Restricted to those whose runtime effect the engine actually ENFORCES *and reads
+// layer-aware* — so a granted instance behaves EXACTLY like a printed one (combat damage,
+// blocking, attack-tapping, summoning-sickness all consult `permanentHasKeyword`). Menace
+// is deliberately EXCLUDED: its "must be blocked by two or more" rule (CR 702.110) isn't
+// enforced anywhere, so granting it would be a SILENT no-op that over-claims coverage — a
+// "has menace" clause therefore drops the whole bonus to [] and the card routes to the
+// Arbiter (CLAUDE.md "no silent gaps": a false-negative is safe, a false grant is forbidden).
+const NON_GRANTABLE = new Set(["menace"]);
+const GRANTABLE_KEYWORDS = new Set(
+  COMBAT_KEYWORDS.map(k => k.toLowerCase()).filter(k => !NON_GRANTABLE.has(k)),
+);
 
 // Color words → WUBRG letters (for "white creatures you control get +1/+1").
 const COLOR_WORDS = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
@@ -288,13 +296,14 @@ export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
 }
 
 /**
- * Parse one "equipped creature gets +X/+Y [and has KW…]" / "equipped creature has KW…"
- * clause into layer descriptors, or null if the clause carries ANYTHING we don't model.
- * ALL-OR-NOTHING (the clause must reduce EXACTLY to a +N/+N P/T mod and/or grantable
- * keywords) so a rider ("can't be blocked", "is a 4/4") is never silently dropped.
+ * Parse one "<subject> creature gets +X/+Y [and has KW…]" / "<subject> creature has KW…"
+ * clause (subject = "equipped" for Equipment, "enchanted" for an Aura) into layer
+ * descriptors, or null if the clause carries ANYTHING we don't model. ALL-OR-NOTHING (the
+ * clause must reduce EXACTLY to a +N/+N P/T mod and/or grantable keywords) so a rider
+ * ("can't be blocked", "is a 4/4") is never silently dropped.
  */
-function parseEquippedClause(c) {
-  let rest = c.replace(/^equipped creature\s+/, "").trim();
+function parseAttachedClause(c, subject) {
+  let rest = c.replace(new RegExp(`^${subject} creature\\s+`), "").trim();
   const out = [];
   const ptMatch = rest.match(/^gets?\s+([+-]\d+)\/([+-]\d+)\b/);
   if (ptMatch) {
@@ -315,44 +324,107 @@ function parseEquippedClause(c) {
 }
 
 /**
- * A clause that touches the EQUIPPED CREATURE — the granted abilities are templated as
- * "Equipped creature …" or, in older/condensed text, a leading pronoun ("It can't be
- * blocked.") or a conditional ("As long as equipped creature is legendary, it …"). The
- * equipment's OWN body (a self-keyword like "Indestructible", the "Equip {cost}" line) is
- * NOT about the creature. Used to make the bonus ALL-OR-NOTHING over every creature clause.
+ * A clause that touches the ATTACHED CREATURE — the granted abilities are templated as
+ * "Equipped/Enchanted creature …" or, in condensed text, a leading pronoun ("It can't be
+ * blocked.") or a conditional ("As long as enchanted creature is …, it …"). The
+ * equipment/aura's OWN body (a self-keyword, the "Equip {cost}" line) is NOT about the
+ * creature. Used to make the bonus ALL-OR-NOTHING over every creature clause.
  */
-function touchesEquippedCreature(c) {
-  return /\bequipped creature\b/.test(c) || /^it\b/.test(c) || /^that creature\b/.test(c);
+function touchesAttachedCreature(c, subject) {
+  return c.includes(`${subject} creature`) || /^it\b/.test(c) || /^that creature\b/.test(c);
 }
 
 /**
- * An Equipment's static bonus — "Equipped creature gets +X/+Y" and/or "has [keyword]" — as
- * partial continuous-effect descriptors (no `affects`; `layers.staticEffectsOf` scopes them
- * to the attached creature ONLY when `attachedTo` is set). ALL-OR-NOTHING per the "no silent
- * gaps" rule: if ANY clause that TOUCHES the equipped creature isn't a clean "+X/+Y and/or
- * grantable keywords" grant — a separate-sentence rider ("It can't be blocked."), a
- * conditional ("As long as … it gets +2/+2"), a triggered ability — the WHOLE bonus drops to
- * [] (a clean false-negative → body-only, never a misleading partial buff). The equipment's
- * own body keywords / Equip line are irrelevant to the bonus and ignored. Pure.
+ * The static bonus an Equipment ("equipped creature") or Aura ("enchanted creature") grants
+ * the creature it's attached to — "gets +X/+Y" and/or "has [keyword]" — as partial
+ * continuous-effect descriptors (no `affects`; `layers.staticEffectsOf` scopes them to the
+ * attached creature ONLY when `attachedTo` is set). ALL-OR-NOTHING per the "no silent gaps"
+ * rule: if ANY clause that TOUCHES the attached creature isn't a clean "+X/+Y and/or
+ * grantable keywords" grant — a separate-sentence rider, a conditional, a triggered ability —
+ * the WHOLE bonus drops to [] (a clean false-negative → body-only, never a misleading partial
+ * buff). The card's own body keywords / Equip line are ignored. `subject` defaults to the one
+ * the card uses. Pure.
  */
-export function parseEquipmentBonus(card) {
+export function parseAttachedBonus(card, subjectOverride) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
+  const subject = subjectOverride || (/enchanted creature/i.test(oracle) ? "enchanted" : "equipped");
   const out = [];
   let saw = false;
   for (const clause of abilityClauses(oracle)) {
     const c = clause.toLowerCase();
-    if (!touchesEquippedCreature(c)) continue;          // the equipment's own body — ignore
-    const parsed = c.startsWith("equipped creature") ? parseEquippedClause(c) : null;
-    if (!parsed) return [];                              // a creature clause we can't fully model
+    if (!touchesAttachedCreature(c, subject)) continue;          // the card's own body — ignore
+    const parsed = c.startsWith(`${subject} creature`) ? parseAttachedClause(c, subject) : null;
+    if (!parsed) return [];                                       // a creature clause we can't fully model
     out.push(...parsed);
     saw = true;
   }
   return saw ? out : [];
 }
 
+/** Back-compat alias — the equipment bonus is the attached bonus with the "equipped" subject. */
+export const parseEquipmentBonus = (card) => parseAttachedBonus(card, "equipped");
+/** An Aura's "Enchanted creature gets/has …" bonus (same machinery, "enchanted" subject). */
+export const parseAuraBonus = (card) => parseAttachedBonus(card, "enchanted");
+
 /** Split oracle into ability clauses (period / semicolon / newline). Exported for coverage. */
 export function equipmentAbilityClauses(oracle) {
   return abilityClauses(oracle);
+}
+
+/** True when the card's TYPE line marks it an Aura (CR 303.4). */
+export function isAuraCard(card) {
+  return /\bAura\b/.test(String(card?.type || card?.type_line || ""));
+}
+
+/**
+ * The subject of an Aura's "Enchant <subject>" keyword ability (CR 702.5), lowercased —
+ * "creature", "permanent", "creature you control", "land", "player", … — or null if the
+ * card has no Enchant line. The modeled subset is EXACTLY "creature" (any creature, no
+ * controller/zone restriction); everything else stays unmodeled.
+ */
+function auraEnchantSubject(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  for (const clause of abilityClauses(oracle)) {
+    const m = clause.trim().match(/^enchant\s+(.+)$/i);
+    if (m) return m[1].trim().toLowerCase();
+  }
+  return null;
+}
+
+/**
+ * Clauses on an Aura that are NEITHER the "Enchant …" keyword line NOR a clause that
+ * touches the enchanted creature (those are the modeled bonus). A non-empty residue means
+ * the Aura carries something we DON'T model (a triggered ability, an activated ability, a
+ * static effect on the controller) — so attaching it and applying only the P/T/keyword
+ * bonus would SILENTLY drop that text. Used to keep `isNativeAura` all-or-nothing.
+ */
+function auraResidueClauses(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  const out = [];
+  for (const clause of abilityClauses(oracle)) {
+    const c = clause.toLowerCase().trim();
+    if (/^enchant\b/.test(c)) continue;                       // the Enchant keyword line
+    if (touchesAttachedCreature(c, "enchanted")) continue;    // a creature-bonus clause
+    out.push(clause);
+  }
+  return out;
+}
+
+/**
+ * Is this Aura one the engine can play END-TO-END natively? ALL of (no silent gaps):
+ *   1. type line is an Aura,
+ *   2. it enchants EXACTLY "creature" (no controller/zone restriction, not a non-creature),
+ *   3. `parseAuraBonus` yields a non-empty all-or-nothing P/T + keyword bonus, AND
+ *   4. there is NO residual clause (no triggered/activated/controller-static text we'd drop).
+ * When any fails, the Aura is NOT native — the cast path routes it to the Arbiter seam
+ * rather than entering a do-nothing permanent. Single source of truth for the runtime
+ * (legalChoices/actionDispatcher) AND the coverage metric, so they can't drift. Pure.
+ */
+export function isNativeAura(card) {
+  if (!isAuraCard(card)) return false;
+  if (auraEnchantSubject(card) !== "creature") return false;
+  if (!parseAuraBonus(card).length) return false;
+  return auraResidueClauses(card).length === 0;
 }
 
 /**

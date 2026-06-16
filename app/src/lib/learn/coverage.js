@@ -28,7 +28,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programContainsCounter } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura } from "./staticAbilityParser.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
 // permanent whose only text is these plays natively (the body fights, the layer
@@ -256,6 +256,13 @@ export function classifyCard(card) {
   if (/\b(instant|sorcery)\b/.test(type)) {
     return spellIsNative(card) ? "native-spell" : "arbiter-spell";
   }
+  // An Aura's oracle describes effects on the ENCHANTED permanent, not the Aura itself, so the
+  // generic permanent classifiers below (mana / trigger / activated / static) would mis-read
+  // its text (e.g. a granted "{T}: Add …" on the enchanted land reads as a mana ability the
+  // Aura doesn't have). An Aura is EITHER fully native (enter + attach + a clean
+  // enchanted-creature bonus, no residue) OR body-only — whose cast routes to the Arbiter
+  // seam, never a do-nothing permanent. Exhaustive + first, so no Aura slips into a wrong tier.
+  if (isAuraCard(card)) return isNativeAura(card) ? "native-aura" : "body-only";
   // Permanent (creature / artifact / enchantment / battle): the body always works.
   if (isKeywordOnly(oracle)) return "native-body";
   if (hasManaAbility(oracle)) return "native-mana";
@@ -269,7 +276,7 @@ export function classifyCard(card) {
   return "body-only";
 }
 
-export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-mixed"]);
+export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-mixed"]);
 export const isNativeTier = (tier) => NATIVE_TIERS.has(tier);
 
 // Mechanism buckets for the gap (priority-ordered; first match wins) — the roadmap.

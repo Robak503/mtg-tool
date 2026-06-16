@@ -74,9 +74,28 @@ describe("happy path", () => {
         color_identity: ["U"],
         legalities: { commander: "legal" },
         card_faces: [
-          { name: "Delver of Secrets", type_line: "Creature", oracle_text: "Look at the top card..." },
-          { name: "Insectile Aberration", type_line: "Creature", oracle_text: "Flying" },
+          { name: "Delver of Secrets", type_line: "Creature", oracle_text: "Look at the top card...", power: "1", toughness: "1" },
+          { name: "Insectile Aberration", type_line: "Creature", oracle_text: "Flying", power: "3", toughness: "2" },
         ],
+      },
+      {
+        // Engine-critical fields (P/T, colors, produced_mana, loyalty) MUST survive the slim
+        // pass — they feed combat + the CR-613 layer engine via learnDeckEnrich. Dropping
+        // them silently made every enriched creature 0/0 in real play (live-QA find 2026-06-16).
+        name: "Grizzly Bears",
+        oracle_id: "oracle-bears",
+        type_line: "Creature — Bear",
+        oracle_text: "",
+        mana_cost: "{1}{G}",
+        cmc: 2,
+        power: "2",
+        toughness: "2",
+        colors: ["G"],
+        produced_mana: [],
+        color_identity: ["G"],
+        legalities: { commander: "legal" },
+        layout: "normal",
+        keywords: [],
       },
       {
         name: "Some Art",
@@ -95,8 +114,8 @@ describe("happy path", () => {
     });
 
     const index = await readIndex();
-    expect(index.count).toBe(2);
-    expect(index.sourceCount).toBe(3);
+    expect(index.count).toBe(3);
+    expect(index.sourceCount).toBe(4);
     expect(index.cards.map(c => c.name)).toContain("Lightning Bolt");
     expect(index.cards.map(c => c.name)).toContain("Delver of Secrets // Insectile Aberration");
     expect(index.cards.find(c => c.name === "Some Art")).toBeUndefined();
@@ -105,10 +124,24 @@ describe("happy path", () => {
     expect(bolt.oracle_text).toMatch(/3 damage/);
     expect(bolt.color_identity).toEqual(["R"]);
     expect(bolt.legalities.commander).toBe("legal");
+    // A noncreature has no P/T — null, never undefined-dropped.
+    expect(bolt.power).toBeNull();
+    expect(bolt.toughness).toBeNull();
 
     const delver = index.cards.find(c => c.name === "Delver of Secrets // Insectile Aberration");
     expect(delver.card_faces).toHaveLength(2);
     expect(delver.card_faces[0].name).toBe("Delver of Secrets");
+    // A DFC creature's P/T lives on the face — it must survive the slim pass.
+    expect(delver.card_faces[0].power).toBe("1");
+    expect(delver.card_faces[1].power).toBe("3");
+
+    // Engine-critical base fields the layer engine + combat read off the enriched card.
+    const bears = index.cards.find(c => c.name === "Grizzly Bears");
+    expect(bears.power).toBe("2");
+    expect(bears.toughness).toBe("2");
+    expect(bears.colors).toEqual(["G"]);
+    expect(bears).toHaveProperty("produced_mana");
+    expect(bears).toHaveProperty("loyalty", null);
   });
 });
 
