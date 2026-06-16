@@ -20,7 +20,7 @@
  * PR-2 and the cast path emits these payloads in PR-3.
  */
 
-import { createPermanent, mintId, logEvent } from "./gameState.js";
+import { createPermanent, mintId, logEvent, findPermanent, attachPermanent } from "./gameState.js";
 import { resolveSpellEffect } from "./spellEffects.js";
 import { triggersForEvent, applyTriggerEffect } from "./triggers.js";
 import { markPendingArbiter } from "./pendingArbiter.js";
@@ -45,6 +45,7 @@ export const RESOLVER_KEYS = Object.freeze({
   ACTIVATED_EFFECT: "activated.effect", // an activated ability's effect (Phase 2)
   MANUAL: "manual",                     // Arbiter escape valve — surfaces an "unresolved" log
   EFFECT_PROGRAM: "effect-program",     // RESERVED for Phase-2's multi-atom interpreter
+  ATTACH: "attach",                     // Equip/Aura attach — sets attachedTo + attachments
 });
 
 /**
@@ -175,6 +176,23 @@ export const RESOLVERS = Object.freeze({
   // ZERO atoms and routes to the Arbiter seam (all-or-nothing). Additive — never
   // overloads spell.effect.
   [RESOLVER_KEYS.EFFECT_PROGRAM]: (state, obj) => runEffectProgram(state, obj),
+
+  // Equip/Aura attach (CR 701.3): move the equipment onto the target creature. Re-checks
+  // legality at resolution (CR 608.2b) — the source + target must still be on the
+  // battlefield, both controlled by the activating player, the target a creature; an
+  // illegal target makes the ability do nothing (logged, never fabricated).
+  [RESOLVER_KEYS.ATTACH]: (state, obj) => {
+    const { sourceId, targetId, controller } = obj.payload?.params || {};
+    const src = findPermanent(state, sourceId);
+    const tgt = findPermanent(state, targetId);
+    const tgtType = String(tgt?.permanent?.card?.type || tgt?.permanent?.card?.type_line || "");
+    if (!src || !tgt || src.controller !== controller || tgt.controller !== controller || !/Creature/.test(tgtType)) {
+      return resolveManual(state, obj);
+    }
+    return logEvent(attachPermanent(state, { equipId: sourceId, targetId }), {
+      kind: "attach", source: src.permanent.card?.name, target: tgt.permanent.card?.name, controller,
+    });
+  },
 
   [RESOLVER_KEYS.MANUAL]: resolveManual,
 });

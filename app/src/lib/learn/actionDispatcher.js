@@ -362,11 +362,18 @@ function applyActivateAbility(state, action) {
   // source was already excluded from the mana plan above and can't be double-tapped).
   if (action.tapSelf) working = tapPermanent(working, action.permanentId);
 
-  // Build the serializable effect-program payload (same shape as a cast spell).
+  // Build the serializable payload. An Equip ability ATTACHES (the ATTACH resolver moves
+  // the equipment onto the target creature); every other activated ability runs its effect
+  // program (same shape as a cast spell).
   const targets = action.targets || [];
-  const params = { program: action.program, controller: action.playerId, targets, cardId: perm.card?.id };
-  if (action.chosenMode != null) params.chosenMode = action.chosenMode;
-  const payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
+  let payload;
+  if (action.isEquipAbility) {
+    payload = { resolver: RESOLVER_KEYS.ATTACH, params: { sourceId: action.permanentId, targetId: targets[0]?.id, controller: action.playerId } };
+  } else {
+    const params = { program: action.program, controller: action.playerId, targets, cardId: perm.card?.id };
+    if (action.chosenMode != null) params.chosenMode = action.chosenMode;
+    payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
+  }
 
   const { id: stkId, state: working2 } = mintId(working, "stk");
   const stackObject = createStackObject({

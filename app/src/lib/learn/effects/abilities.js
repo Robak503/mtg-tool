@@ -85,6 +85,20 @@ export function parseActivatedAbilities(card) {
   for (const rawLine of oracle.split(/\n+/)) {
     const line = rawLine.trim();
     if (!line) continue;
+    // "Equip {cost}" — the attach activated ability (CR 702.6); no colon, the cost is mana
+    // and the effect is to attach to a creature you control (the ATTACH resolver, not an
+    // effect program). Sorcery-speed only. A non-mana / typed equip cost ("Equip — Sacrifice
+    // …", "Equip legendary creature {2}") doesn't match → unmodeled (body-only).
+    const em = !line.includes(":") && line.match(/^equip\b\s*(?:[—–-])?\s*((?:\{[^}]+\})+)$/i);
+    if (em) {
+      const cost = parseAbilityCost(em[1]);
+      out.push({
+        index: index++, raw: line, costStr: line, effectClause: "",
+        manaPips: cost?.manaPips ?? null, tapSelf: false, costModeled: !!cost,
+        isManaEffect: false, program: null, modeled: !!cost, needsTarget: true, isEquipAbility: true,
+      });
+      continue;
+    }
     const ci = line.indexOf(":");
     if (ci === -1) continue;
     const costStr = line.slice(0, ci).trim();

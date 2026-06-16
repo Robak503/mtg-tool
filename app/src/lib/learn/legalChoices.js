@@ -486,6 +486,25 @@ function actionsActivateAbility(state, playerId) {
       // the available mana sources for the affordability check + payment plan.
       const sources = manaSources(state, playerId).filter((s) => !(ab.tapSelf && s.permanentId === perm.id));
       if (!canAfford(player.manaPool, sources, cost)) continue;
+
+      // Equip {cost}: target a creature YOU control (CR 702.6e). Equip is SORCERY-SPEED
+      // (CR 702.6f) — unlike other activated abilities (instant-speed, conservatively
+      // main-gated here), it also needs an EMPTY stack, or the player could illegally equip
+      // in response to a spell already on the stack. One action per legal creature target.
+      if (ab.isEquipAbility) {
+        if ((state.stack?.length || 0) > 0) continue;
+        for (const t of player.battlefield) {
+          if (!isCreature(t.card)) continue;
+          actions.push({
+            kind: "activate-ability", playerId, permanentId: perm.id, name: perm.card.name,
+            abilityIndex: ab.index, cost, cmc: totalCmc(cost), tapSelf: false, program: null,
+            targets: [{ id: t.id, name: t.card?.name, type: "creature" }],
+            needsTargets: true, targetName: t.card?.name, abilityText: ab.costStr, isEquipAbility: true,
+          });
+        }
+        continue;
+      }
+
       const choices = expandCastChoices(state, playerId, ab.program);
       if (choices.length === 0) continue; // a required target has no legal pick → uncastable
       for (const ch of choices) {

@@ -288,6 +288,74 @@ export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
 }
 
 /**
+ * Parse one "equipped creature gets +X/+Y [and has KW…]" / "equipped creature has KW…"
+ * clause into layer descriptors, or null if the clause carries ANYTHING we don't model.
+ * ALL-OR-NOTHING (the clause must reduce EXACTLY to a +N/+N P/T mod and/or grantable
+ * keywords) so a rider ("can't be blocked", "is a 4/4") is never silently dropped.
+ */
+function parseEquippedClause(c) {
+  let rest = c.replace(/^equipped creature\s+/, "").trim();
+  const out = [];
+  const ptMatch = rest.match(/^gets?\s+([+-]\d+)\/([+-]\d+)\b/);
+  if (ptMatch) {
+    out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: signed(ptMatch[1]), toughness: signed(ptMatch[2]) }, duration: { kind: "permanent" } });
+    rest = rest.slice(ptMatch[0].length).trim().replace(/^and\s+/, "").trim(); // "+1/+1 and has flying"
+  }
+  if (rest) {
+    const haveMatch = rest.match(/^(?:has|have)\s+(.+)$/);
+    if (!haveMatch) return null;                       // residue that isn't a keyword grant
+    const words = haveMatch[1].split(/,|\band\b/).map(w => w.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
+    if (words.length === 0) return null;
+    for (const w of words) {
+      if (!GRANTABLE_KEYWORDS.has(w)) return null;     // an unmodeled keyword/rider → whole bonus drops
+      out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: canonicalKeyword(w) }, duration: { kind: "permanent" } });
+    }
+  }
+  return out.length ? out : null;
+}
+
+/**
+ * A clause that touches the EQUIPPED CREATURE — the granted abilities are templated as
+ * "Equipped creature …" or, in older/condensed text, a leading pronoun ("It can't be
+ * blocked.") or a conditional ("As long as equipped creature is legendary, it …"). The
+ * equipment's OWN body (a self-keyword like "Indestructible", the "Equip {cost}" line) is
+ * NOT about the creature. Used to make the bonus ALL-OR-NOTHING over every creature clause.
+ */
+function touchesEquippedCreature(c) {
+  return /\bequipped creature\b/.test(c) || /^it\b/.test(c) || /^that creature\b/.test(c);
+}
+
+/**
+ * An Equipment's static bonus — "Equipped creature gets +X/+Y" and/or "has [keyword]" — as
+ * partial continuous-effect descriptors (no `affects`; `layers.staticEffectsOf` scopes them
+ * to the attached creature ONLY when `attachedTo` is set). ALL-OR-NOTHING per the "no silent
+ * gaps" rule: if ANY clause that TOUCHES the equipped creature isn't a clean "+X/+Y and/or
+ * grantable keywords" grant — a separate-sentence rider ("It can't be blocked."), a
+ * conditional ("As long as … it gets +2/+2"), a triggered ability — the WHOLE bonus drops to
+ * [] (a clean false-negative → body-only, never a misleading partial buff). The equipment's
+ * own body keywords / Equip line are irrelevant to the bonus and ignored. Pure.
+ */
+export function parseEquipmentBonus(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  const out = [];
+  let saw = false;
+  for (const clause of abilityClauses(oracle)) {
+    const c = clause.toLowerCase();
+    if (!touchesEquippedCreature(c)) continue;          // the equipment's own body — ignore
+    const parsed = c.startsWith("equipped creature") ? parseEquippedClause(c) : null;
+    if (!parsed) return [];                              // a creature clause we can't fully model
+    out.push(...parsed);
+    saw = true;
+  }
+  return saw ? out : [];
+}
+
+/** Split oracle into ability clauses (period / semicolon / newline). Exported for coverage. */
+export function equipmentAbilityClauses(oracle) {
+  return abilityClauses(oracle);
+}
+
+/**
  * Granular helpers for the COMPOSITE coverage classifier (coverage.permanentFullyCovered),
  * which subtracts trigger + activated clauses itself before checking the static residue —
  * so it needs the per-clause static test + the leveler guard, not the whole-card wrapper.

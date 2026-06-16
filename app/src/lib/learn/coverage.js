@@ -28,7 +28,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programContainsCounter } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses } from "./staticAbilityParser.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
 // permanent whose only text is these plays natively (the body fights, the layer
@@ -212,6 +212,39 @@ export function permanentFullyCovered(card) {
 }
 
 /**
+ * True when an Equipment's ENTIRE non-keyword text is the attach mechanic the engine now
+ * plays: a modeled "Equip {cost}" ability + a cleanly-modeled "Equipped creature gets +X/+Y
+ * / has [keyword]" bonus. ALL-OR-NOTHING (mirrors the runtime): every activated ability must
+ * be a modeled Equip; the bonus must parse cleanly (a rider drops parseEquipmentBonus to []);
+ * and nothing else may be left after the Equip + equipped-creature lines (no extra trigger/
+ * activated text). A complex equipment (a triggered ability, a non-Equip activated ability,
+ * an unmodeled bonus rider) stays body-only.
+ */
+export function permanentEquipmentCovered(card) {
+  if (!/\bequipment\b/i.test(String(card?.type || ""))) return false;
+  const abilities = parseActivatedAbilities(card);
+  if (abilities.length === 0 || !abilities.every((a) => a.isEquipAbility && a.modeled)) return false;
+  // The bonus parser is all-or-nothing over every equipped-creature clause: a non-empty result
+  // guarantees EVERY clause touching the creature parsed cleanly (no rider silently dropped).
+  if (parseEquipmentBonus(card).length === 0) return false;
+  // Clause-granular residue (split on . ; \n — same as the bonus parser, so a period-joined
+  // rider can't be swallowed by a whole-line strip). Every clause must be a modeled Equip
+  // line or an equipped-creature clause (already validated clean above). ANYTHING else — a
+  // self-keyword printed on the EQUIPMENT ("Indestructible"), an unmodeled equip variant
+  // ("Equip Human {1}"), a non-Equip activated ability — leaves residue → body-only, so a
+  // not-fully-modeled equipment is never over-claimed as native (CLAUDE.md "no silent gaps").
+  const modeledEquipLine = /^equip\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i;
+  for (const clause of equipmentAbilityClauses(stripReminder(card.oracle || ""))) {
+    const c = clause.toLowerCase().trim();
+    if (!c) continue;
+    if (modeledEquipLine.test(c)) continue;
+    if (/\bequipped creature\b/.test(c) || /^it\b/.test(c) || /^that creature\b/.test(c)) continue;
+    return false; // residue the engine doesn't model → body-only
+  }
+  return true;
+}
+
+/**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
  */
@@ -231,11 +264,12 @@ export function classifyCard(card) {
   if (permanentTriggersCovered(card)) return "native-trigger";   // P2.8: body + only-routing triggers
   if (permanentActivatedCovered(card)) return "native-activated"; // P2.9: body + only-modeled activated abilities
   if (staticAbilitiesCoverCard(card, isKeywordOnly)) return "native-static"; // P2.10: body + only-modeled static anthems
+  if (permanentEquipmentCovered(card)) return "native-equipment"; // attach: Equip + a clean equipped-creature bonus
   if (permanentFullyCovered(card)) return "native-mixed";        // composite: modeled trigger + activated + static together
   return "body-only";
 }
 
-export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-mixed"]);
+export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-mixed"]);
 export const isNativeTier = (tier) => NATIVE_TIERS.has(tier);
 
 // Mechanism buckets for the gap (priority-ordered; first match wins) — the roadmap.
