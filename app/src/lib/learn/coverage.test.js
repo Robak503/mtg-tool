@@ -27,8 +27,12 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Instant", "Counter target noncreature spell.", { name: "Negate" }))).toBe("native-spell");
     expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {3}.", { name: "Mana Leak" }))).toBe("arbiter-spell");
   });
-  it("a complex spell (tutor) still bounces to arbiter-spell", () => {
-    expect(classifyCard(C("Sorcery", "Search your library for a creature card, reveal it, put it into your hand, then shuffle.", { name: "tutor" }))).toBe("arbiter-spell");
+  it("P3.2: a type-filtered 'search → hand → shuffle' tutor is native-spell; unfiltered/battlefield bounces", () => {
+    expect(classifyCard(C("Sorcery", "Search your library for a creature card, reveal it, put it into your hand, then shuffle.", { name: "Eladamri's Call" }))).toBe("native-spell");
+    expect(classifyCard(C("Sorcery", "Search your library for a basic land card, reveal it, put it into your hand, then shuffle.", { name: "Lay of the Land" }))).toBe("native-spell");
+    // Unfiltered (the choice is the point) and battlefield destination stay in the gap.
+    expect(classifyCard(C("Sorcery", "Search your library for a card, put it into your hand, then shuffle.", { name: "Demonic Tutor" }))).toBe("arbiter-spell");
+    expect(classifyCard(C("Sorcery", "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", { name: "Rampant Growth" }))).toBe("arbiter-spell");
   });
   it("a permanent with abilities is body-only (body works, ability doesn't yet)", () => {
     // P2.8 + the flush-time target chooser: a body whose ONLY ability is a now-firing
@@ -37,6 +41,8 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, draw a card."))).toBe("native-trigger");
     expect(classifyCard(C("Creature — Soldier", "When this creature enters, create a 1/1 white Soldier creature token."))).toBe("native-trigger");
     expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, destroy target creature."))).toBe("native-trigger");
+    // P3.2: an ETB tutor (Trophy Mage shape) routes its search through the flush → native.
+    expect(classifyCard(C("Creature — Wizard", "When this creature enters, search your library for an artifact card, reveal it, put it into your hand, then shuffle."))).toBe("native-trigger");
     // Still body-only: an UNMODELED static (a conditional anthem the parser refuses to
     // fabricate), unmodeled activated, a MODAL trigger (the engine won't silently pick a
     // mode), or an intervening-if trigger (condition unevaluated).
@@ -55,8 +61,10 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Wizard", "{T}: This creature deals 1 damage to any target."))).toBe("native-activated");
     expect(classifyCard(C("Artifact", "{4}, {T}: Draw a card."))).toBe("native-activated");
     expect(classifyCard(C("Creature — Wall", "Defender\n{1}{W}, {T}: Tap target creature."))).toBe("native-activated");
-    // Still body-only: an unmodeled cost (sacrifice), an unmodeled effect (tutor), or an
-    // activated ability sitting next to an UNMODELED trigger (composite → conservative).
+    // P3.2: a modeled activated tutor (Journeyer's Kite / Captain Sisay shape) is native.
+    expect(classifyCard(C("Artifact", "{3}, {T}: Search your library for a basic land card, reveal it, put it into your hand, then shuffle."))).toBe("native-activated");
+    // Still body-only: an unmodeled cost (sacrifice), an UNFILTERED tutor (the choice is the
+    // point), or an activated ability sitting next to an UNMODELED trigger (composite → conservative).
     expect(classifyCard(C("Creature — Wizard", "{1}, Sacrifice this creature: Draw a card."))).toBe("body-only");
     expect(classifyCard(C("Artifact", "{2}, {T}: Search your library for a card, then shuffle."))).toBe("body-only");
     expect(classifyCard(C("Creature — Human", "{T}: This creature deals 1 damage to any target.\nWhenever this creature deals damage, you may untap it."))).toBe("body-only");
@@ -121,7 +129,7 @@ describe("coverageSummary", () => {
     C("Creature — Wizard", "When this enters, draw a card.", { qty: 2 }), // native-trigger (P2.8)
     C("Enchantment", "Creatures you control get +1/+1.", { qty: 1 }),     // native-static (P2.10)
     C("Enchantment", "Creatures you control get +2/+2 as long as you control a Forest.", { qty: 1 }), // body-only (conditional static — unmodeled)
-    C("Sorcery", "Search your library for a creature card, put it into your hand, then shuffle.", { qty: 1 }), // arbiter-spell (tutor — P3.2)
+    C("Sorcery", "Search your library for a card, put it into your hand, then shuffle.", { qty: 1 }), // arbiter-spell (UNFILTERED tutor — the choice is the point)
   ];
   it("counts tiers weighted by qty and computes native %", () => {
     const s = coverageSummary(DECK);

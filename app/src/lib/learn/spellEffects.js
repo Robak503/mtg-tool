@@ -252,7 +252,8 @@ export function enumerateTargets(state, controllerId, effect) {
 
 /** Does a spell on the stack match a counter's spellFilter (CR 701.5a)? */
 function spellMatchesCounterFilter(stackObj, filter) {
-  const type = String(stackObj?.source?.type || stackObj?.source?.type_line || "");
+  // Front-face type only — a split/MDFC spell's enriched type line is "Front // Back".
+  const type = String(stackObj?.source?.type || stackObj?.source?.type_line || "").split(" // ")[0];
   if (filter === "noncreature") return !/Creature/.test(type);
   if (filter === "creature") return /Creature/.test(type);
   return true; // "any"

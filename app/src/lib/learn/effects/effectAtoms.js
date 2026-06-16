@@ -21,7 +21,7 @@ import {
   applyDrawEffect,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary } from "../gameState.js";
 import { checkDiesTriggers } from "../triggers.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
@@ -172,7 +172,9 @@ function applyPumpEffect(state, atom, ctx) {
  * engine models no effect that grants uncounterability after a target is chosen, and
  * on-card text is immutable, so an uncounterable spell can never reach this atom.
  */
-const counterTypeLine = (card) => String(card?.type || card?.type_line || "");
+// Front-face type only (CR 712.4a) — for a split/MDFC spell the enriched type line is the
+// combined "Front // Back", so the creature/noncreature filter must read the front half.
+const counterTypeLine = (card) => String(card?.type || card?.type_line || "").split(" // ")[0];
 function counterFilterMatches(card, filter) {
   const type = counterTypeLine(card);
   if (filter === "noncreature") return !/Creature/.test(type);
@@ -210,6 +212,93 @@ function applyCounter(state, atom, ctx) {
   return next;
 }
 
+/**
+ * P3.2 tutor (CR 701.19) — search the caster's library for a card matching the modeled
+ * type filter, put it into their hand, then shuffle. The filter (`atom.filter.groups`,
+ * parsed + allowlisted by the parser) matches a library card when ANY group's words ALL
+ * appear in the card's type line (so "instant or sorcery" → 2 groups; "basic land" → 1).
+ *
+ * v1 conservatism + "never wrong": the ENGINE auto-picks (the deepest cleanly-modelable
+ * point — there's no resolution-time choice mechanism), choosing the highest-mana-value
+ * match (deterministic tie-break) so the fetch is a sensible, LEGAL card. Interactive
+ * tutor choice is a future enhancement. Hidden-info safe: the log records the FILTER and
+ * whether a card was found, NEVER the card's name (an opponent's tutor stays hidden). A
+ * "you may"/mandatory search that finds nothing (no match, CR 701.19f) is a logged no-op
+ * + shuffle, never an error.
+ */
+function tutorManaValue(card) {
+  if (typeof card?.cmc === "number") return card.cmc;
+  if (typeof card?.mana_value === "number") return card.mana_value;
+  let mv = 0;
+  for (const sym of String(card?.mana || card?.mana_cost || "").matchAll(/\{([^}]+)\}/g)) {
+    const s = sym[1];
+    if (/^\d+$/.test(s)) mv += parseInt(s, 10);
+    else if (/^[XYZ]$/i.test(s)) mv += 0;
+    else {
+      // A 2-generic hybrid pip like {2/W} has mana value 2 (CR 202.3f — the largest
+      // component); a colored / colored-hybrid / phyrexian pip is 1.
+      const lead = s.match(/^(\d+)/);
+      mv += lead ? parseInt(lead[1], 10) : 1;
+    }
+  }
+  return mv;
+}
+function cardMatchesTutorFilter(card, filter) {
+  // Match the FRONT face only: a library card has just its front-face characteristics
+  // (CR 712.4a), but the enriched type line is the COMBINED "Front // Back" for an MDFC —
+  // so a [artifact] tutor must NOT match a card whose FRONT is a land and back an artifact
+  // (P3.2 review catch). Split on " // " and take the front.
+  const type = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
+  return (filter?.groups || []).some((group) => group.every((w) => new RegExp(`\\b${w}\\b`).test(type)));
+}
+/** A deterministic PRNG (mulberry32) so the shuffle is serialize-stable (no Math.random). */
+function deterministicRng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/** Shuffle a player's library deterministically (CR 701.19e / 103.2) — serialize-stable. */
+function shuffleControllerLibrary(state, controller) {
+  if (!state.players[controller]) return state;
+  const seed = (((state.idSeq || 0) + 1) * 2654435761 + (state.players[controller].library.length || 0)) >>> 0;
+  return shuffleLibrary(state, { playerId: controller, rng: deterministicRng(seed) });
+}
+function applyTutor(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players[controller];
+  if (!player) return state;
+  let next = state;
+  const matches = player.library.filter((c) => cardMatchesTutorFilter(c, atom.filter));
+  let found = false;
+  if (matches.length > 0) {
+    // Deterministic pick: highest mana value, then a LOCALE-FREE codepoint tie-break by
+    // name then id (localeCompare's default collation is environment-dependent → would
+    // break the serialize-stable mandate). cmp returns -1/0/1 by raw code points.
+    const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+    const best = [...matches].sort((a, b) =>
+      tutorManaValue(b) - tutorManaValue(a) ||
+      cmp(String(a.name || ""), String(b.name || "")) ||
+      cmp(String(a.id || ""), String(b.id || "")),
+    )[0];
+    next = moveCardToZone(next, { playerId: controller, fromZone: "library", toZone: "hand", cardId: best.id });
+    found = true;
+  }
+  next = shuffleControllerLibrary(next, controller);
+  // Hidden-info safe: log the filter + found-ness, NOT the fetched card's name.
+  return logEvent(next, { kind: "spell-effect", effect: "tutor", controller, found, destination: "hand" });
+}
+
+/** P3.2 shuffle — "[then] shuffle [your library]" as its own clause (CR 103.2). */
+function applyShuffle(state, atom, ctx) {
+  if (!state.players[ctx.controller]) return state;
+  const next = shuffleControllerLibrary(state, ctx.controller);
+  return logEvent(next, { kind: "spell-effect", effect: "shuffle", controller: ctx.controller });
+}
+
 // An X-amount atom (`amountX:true`, set by the parser for an {X}-cost spell) reads
 // the chosen X (ctx.xValue, bound at cast time) instead of a printed numeric amount.
 const effectiveAmount = (atom, ctx) => (atom.amountX ? ctx.xValue || 0 : atom.amount);
@@ -231,6 +320,8 @@ export const ATOM_RESOLVERS = Object.freeze({
   "add-counter": applyAddCounter,
   "create-token": applyCreateToken,
   "counter": applyCounter,
+  "tutor": applyTutor,
+  "shuffle": applyShuffle,
 });
 
 /**

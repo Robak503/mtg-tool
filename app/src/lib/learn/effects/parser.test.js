@@ -307,6 +307,46 @@ describe("parseEffectProgram — counter target spell (P3.1)", () => {
   });
 });
 
+// P3.2 — TUTOR. "Search your library for a/an <type-filter> card, [reveal it,] put it
+// into your hand[, then shuffle]." HIGH only for an ALLOWLISTED type/supertype filter;
+// unfiltered / creature-subtype / battlefield / multi-card / rider → low (MUST_DROP).
+describe("parseEffectProgram — tutor (P3.2)", () => {
+  const S = (oracle) => parseEffectProgram({ type: "Sorcery", oracle });
+  it("recognizes the modeled type/supertype filters with grouped words", () => {
+    expect(S("Search your library for a creature card, put it into your hand, then shuffle.").atoms)
+      .toEqual([{ op: "tutor", filter: { groups: [["creature"]] }, destination: "hand", targetType: null }]);
+    expect(S("Search your library for a basic land card, reveal it, put it into your hand, then shuffle.").atoms[0].filter)
+      .toEqual({ groups: [["basic", "land"]] });
+    expect(S("Search your library for an instant or sorcery card, reveal it, put it into your hand, then shuffle.").atoms[0].filter)
+      .toEqual({ groups: [["instant"], ["sorcery"]] });
+    expect(S("Search your library for a legendary creature card, reveal it, put it into your hand, then shuffle.").atoms[0].filter)
+      .toEqual({ groups: [["legendary", "creature"]] });
+  });
+  it("handles the 'reveal it, and put' (Oxford-and) phrasing without severing the search sentence", () => {
+    const p = S("Search your library for an artifact card, reveal it, and put it into your hand. Then shuffle.");
+    expect(p.confidence).toBe("high");
+    // The redundant trailing shuffle is deduped (the tutor already shuffles) → just [tutor].
+    expect(p.atoms.map(a => a.op)).toEqual(["tutor"]);
+  });
+  it("composes with a modeled rider (tutor + gain-life: Environmental Sciences)", () => {
+    const p = S("Search your library for a basic land card, reveal it, put it into your hand, then shuffle. You gain 2 life.");
+    expect(p.confidence).toBe("high");
+    expect(p.atoms.map(a => a.op)).toEqual(["tutor", "gain-life"]);
+  });
+  it("dedupes the redundant separate-sentence 'Then shuffle' (the tutor already shuffles)", () => {
+    expect(S("Search your library for a creature card, put it into your hand. Then shuffle your library.").atoms.map(a => a.op))
+      .toEqual(["tutor"]);
+  });
+  it("REVIEW CATCH: a leading effect before 'and search …' does NOT parse HIGH dropping the tutor", () => {
+    // "Draw a card and search your library …" must NOT rate HIGH as [draw] (silently
+    // dropping the tutor) — splitClauses only keeps a sentence whole when it STARTS with
+    // "search your library". This whole shape routes to the Arbiter.
+    const p = S("Draw a card and search your library for a creature card and put it into your hand.");
+    expect(programConfidence(p)).toBe("low");
+    expect(p.atoms).toHaveLength(0);
+  });
+});
+
 // THE FAIL-SAFE GATE. Every near-miss / unmodeled instant-or-sorcery MUST drop to
 // a low-confidence, ZERO-atom program (→ Arbiter seam). Crucially this includes
 // oracles the LOOSE legacy regexes over-match (e.g. "destroy target creature
@@ -332,6 +372,16 @@ const MUST_DROP_TO_LOW = [
   "Counter target noncreature spell. Its controller loses 2 life.",    // Countersquall — "its controller" subject unmodeled
   "Choose two —\n• Counter target spell.\n• Return target permanent to its owner's hand.\n• Draw a card.", // Cryptic Command — "choose two"
   "Counter target spell you don't control.",                           // Counterflux — "you don't control" unmodeled
+  // ── P3.2 tutor — shapes that must STAY low (unmodeled filter / destination / count) ──
+  "Search your library for a card, put it into your hand, then shuffle.",                         // unfiltered (Demonic) — choice matters
+  "Search your library for a Dragon card, reveal it, put it into your hand, then shuffle.",        // creature subtype (deferred)
+  "Search your library for a creature card with mana value 3 or less, put it into your hand, then shuffle.", // mana-value rider
+  "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",  // battlefield destination (deferred)
+  "Search your library for a basic land card, put it on top of your library, then shuffle.",       // top-of-library
+  "Search your library for up to two basic land cards, put them into your hand, then shuffle.",     // multi-card
+  "Search your library for a nonland card, put it into your hand, then shuffle.",                   // "nonland" not in any type line
+  "Search your library for a card named Lightning Bolt, put it into your hand, then shuffle.",      // by-name
+  "Draw a card and search your library for a creature card and put it into your hand.",             // leading-effect leak (review catch) — must NOT parse HIGH as [draw]
   "Destroy target creature unless its controller pays {2}.",   // legacy over-matches → MUST drop
   "Destroy target nonblack creature.",                          // unmodeled COLOR restriction → MUST drop
   "Destroy target artifact.",
@@ -420,6 +470,14 @@ const MUST_STAY_HIGH = [
   "Counter target creature spell. Create a 2/2 blue Illusion creature token.",  // Summoner's Bane (counter + token)
   "Counter target spell and Suffocating Blast deals 3 damage to target creature.", // Suffocating Blast (dual-target)
   "Choose one —\n• You gain 5 life.\n• Counter target spell.\n• Target creature gets -2/-2 until end of turn.", // Dromar's Charm
+  // P3.2 corpus-confirmed tutors (REAL Scryfall cards the sweep verified — modeled filters):
+  "Search your library for a creature card, reveal that card, put it into your hand, then shuffle.",        // Eladamri's Call
+  "Search your library for an artifact card, reveal it, put it into your hand, then shuffle.",              // Fabricate
+  "Search your library for an enchantment card, reveal it, put it into your hand, then shuffle.",           // Idyllic Tutor
+  "Search your library for an instant or sorcery card, reveal it, put it into your hand, then shuffle.",    // Solve the Equation
+  "Search your library for a legendary creature card, reveal it, put it into your hand, then shuffle.",     // Time of Need
+  "Search your library for an Aura or Equipment card, reveal it, put it into your hand, then shuffle.",     // Open the Armory
+  "Search your library for a basic land card, reveal it, put it into your hand, then shuffle. You gain 2 life.", // Environmental Sciences
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {
