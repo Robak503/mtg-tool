@@ -235,6 +235,67 @@ describe("P2.7 targeted atoms — resolution", () => {
   });
 });
 
+describe("P3.1 counter target spell — resolution (stack-removal mechanic)", () => {
+  // A spell sitting on the stack as the counter's target. kind:"spell" + a card source.
+  const spellOnStack = (id, name, type = "Instant", controller = "ai") => ({
+    id, kind: "spell", source: { id: `card-${id}`, name, type, oracle: "" }, controller, targets: [], cost: null,
+    payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: {} },
+  });
+  const counterObj = (spellFilter, targetId, { name = "Counterspell", id = "stk-c" } = {}) =>
+    stackObj(high([{ op: "counter", spellFilter, targetType: "spell" }]),
+      { source: { name, oracle: "" }, id, targets: [{ type: "spell", id: targetId }] });
+
+  it("removes the target spell from the stack → its controller's graveyard, WITHOUT resolving", () => {
+    // resolveTopOfStack pops the counter first, so the resolver sees only the target.
+    let state = freshState({ stack: [spellOnStack("tgt", "Shock", "Instant")] });
+    const out = runEffectProgram(state, counterObj("any", "tgt"));
+    expect(out.stack).toHaveLength(0);                                    // target removed from the stack
+    expect(out.players.ai.graveyard.map(c => c.name)).toEqual(["Shock"]); // → its controller's graveyard
+    expect(out.log.some(l => l.effect === "counter" && l.cardName === "Shock")).toBe(true);
+  });
+
+  it("fizzles (logged no-op, never an error) when the target already left the stack", () => {
+    const out = runEffectProgram(freshState({ stack: [] }), counterObj("any", "gone"));
+    expect(out.log.some(l => l.effect === "counter-fizzle")).toBe(true);
+    expect(out.players.ai.graveyard).toHaveLength(0);
+  });
+
+  it("the noncreature filter never counters a creature spell (defensive CR 608.2b re-check)", () => {
+    let state = freshState({ stack: [spellOnStack("crt", "Bear", "Creature — Bear")] });
+    const out = runEffectProgram(state, counterObj("noncreature", "crt", { name: "Negate" }));
+    expect(out.stack).toHaveLength(1);  // the creature spell is NOT countered by Negate
+    expect(out.players.ai.graveyard).toHaveLength(0);
+    expect(out.log.some(l => l.effect === "counter-fizzle")).toBe(true);
+  });
+
+  it("resolves end-to-end through resolveTopOfStack: top counter pops, target spell is countered", () => {
+    const target = spellOnStack("tgt2", "Divination", "Sorcery");
+    const counter = counterObj("any", "tgt2", { id: "stk-ce" });
+    const out = resolveTopOfStack(freshState({ stack: [target, counter] }));
+    expect(out.stack).toHaveLength(0);                                        // both gone
+    expect(out.players.ai.graveyard.map(c => c.name)).toEqual(["Divination"]); // countered → graveyard
+  });
+
+  it("a counter targeting ANOTHER counter (nested stack-removal) resolves in CR order", () => {
+    // Stack bottom→top: ai Divination, user Counterspell→Divination, ai Negate→Counterspell.
+    const base = spellOnStack("div", "Divination", "Sorcery", "ai");
+    const inner = { ...counterObj("any", "div", { id: "inner-cs", name: "Counterspell" }), controller: "user",
+      targets: [{ type: "spell", id: "div" }] };
+    inner.payload.params.controller = "user";
+    const outer = counterObj("any", "inner-cs", { id: "outer-neg", name: "Negate" }); // controlled by "user" via stackObj default... set ai below
+    outer.controller = "ai"; outer.payload.params.controller = "ai";
+    let state = freshState({ stack: [base, inner, outer] });
+    // Negate (top) resolves first → counters the inner Counterspell (to user's graveyard).
+    state = resolveTopOfStack(state);
+    expect(state.players.user.graveyard.map(c => c.name)).toEqual(["Counterspell"]);
+    expect(state.stack.map(o => o.source.name)).toEqual(["Divination"]); // base Divination survives
+    // Divination now resolves normally (NOT countered — its counter was itself countered).
+    state = resolveTopOfStack(state);
+    expect(state.stack).toHaveLength(0);
+    expect(state.players.ai.graveyard.some(c => c.name === "Divination")).toBe(false);
+  });
+});
+
 describe("P2.6 create-token — resolution", () => {
   it("puts N token creatures (correct P/T) on the controller's battlefield", () => {
     const state = freshState();

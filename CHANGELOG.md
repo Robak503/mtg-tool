@@ -8,7 +8,19 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
-## [0.34.0] - 2026-06-15
+### Added
+- **Counterspells now work in The Academy (Frontier B begins).** Cast a *"Counter
+  target spell"* in response to a spell on the stack and it actually counters it — the
+  target spell is removed from the stack and put into its owner's graveyard without
+  resolving. The three common shapes are modeled: *Counterspell* (any spell), *Negate*
+  (noncreature), and *Essence Scatter* (creature), plus counters that ride a second
+  modeled effect (*Dismiss* counter-and-draw, *Absorb* counter-and-gain-life,
+  *Summoner's Bane* counter-and-make-a-token, *Suffocating Blast* counter-and-burn, and
+  *Dromar's Charm*'s modal counter). A tax or conditional counter (*Mana Leak*'s
+  *"unless its controller pays {3}"*, *Cryptic Command*'s "choose two", filters we don't
+  model like *"artifact or enchantment spell"*) still routes to the Arbiter rather than
+  firing wrong. The opponent AI holds its counterspells for now (it never counters its
+  own spell). Corpus-wide this makes 17 instant/sorcery counters play natively.
 
 ### Added
 - **Creatures with simple enter/dies/attack value abilities now resolve in The Academy.**

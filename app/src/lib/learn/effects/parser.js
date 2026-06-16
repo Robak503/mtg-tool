@@ -151,6 +151,16 @@ function parseExtendedAtom(s) {
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "controller", targetType: null };
   m = t.match(/^each opponent loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  // Counter target spell (P3.1, CR 701.5a) — targets a SPELL on the stack, not a
+  // permanent/player. Anchored ALLOWLIST: a tax/conditional/modal-target counter
+  // ("…unless its controller pays {3}", "…or ability", "…up to two target spells",
+  // "…with mana value 3 or less", "Counter target creature or planeswalker spell")
+  // all fail the exact anchor → low → Arbiter, so a counter we can't faithfully model
+  // is never confidently wrong. spellFilter is checked against the target's type line
+  // at enumeration + resolution.
+  if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };
+  if (/^counter target noncreature spell$/.test(t)) return { op: "counter", spellFilter: "noncreature", targetType: "spell" };
+  if (/^counter target creature spell$/.test(t)) return { op: "counter", spellFilter: "creature", targetType: "spell" };
   // Targeted (single "target creature", no restriction — the anchor keeps it exact).
   if (/^tap target creature$/.test(t)) return { op: "tap", targetType: "creature" };
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
@@ -365,4 +375,24 @@ export function programNeedsChosenTarget(program) {
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
   return atoms.some(a => a.targetType && !["eachOpponent", "eachCreature"].includes(a.targetType));
+}
+
+/**
+ * Does the program contain a `counter` atom (P3.1)? The single source of truth for the
+ * one place the counter atom must NOT route natively: the trigger-flush path
+ * (gameEngine.buildTriggerStack). There, targets are auto-chosen by the default
+ * first-legal chooser, which has no enemy-awareness and no self-exclusion — so an ETB
+ * "counter target spell" (Mystic Snake) would silently counter the CONTROLLER'S OWN
+ * spell when it's the first legal target on the stack (CLAUDE.md §1.2 — a confident
+ * WRONG play, worse than the Arbiter route). Counter is SAFE on the cast path (the user
+ * picks the target interactively; the AI holds counters) and the activated path (user-
+ * picked; the AI doesn't activate), so the gate is narrow: trigger flush + the coverage
+ * metric that mirrors it. Lift it once an enemy-aware/interactive flush chooser exists.
+ */
+export function programContainsCounter(program) {
+  if (!program) return false;
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.some(a => a.op === "counter");
 }

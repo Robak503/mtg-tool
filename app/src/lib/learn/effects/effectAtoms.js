@@ -156,6 +156,60 @@ function applyPumpEffect(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "pump", power, toughness, targets: (ctx.targets || []).map(t => t.id) });
 }
 
+/**
+ * P3.1 counter (CR 701.5a) — counter the target spell(s) on the stack. The targeted
+ * spell is removed from the stack and put into its controller's graveyard WITHOUT
+ * resolving: no atoms run, no permanent enters, no effect, no triggers. This is the
+ * stack-removal mechanic — the FIRST atom that mutates the stack rather than the
+ * battlefield/players.
+ *
+ * Fail-safe (CR 608.2b): if the target already left the stack (it resolved, or a
+ * higher counter got it first), the counter fizzles for that target — a logged no-op,
+ * never an error, never a fabricated effect. A defensive re-check of the SPELL-TYPE
+ * filter (creature/noncreature) runs here (it held at cast time + a spell's type can't
+ * change on the stack). The on-card "can't be countered" exclusion (CR 701.5e) is
+ * enforced at ENUMERATION only (spellEffects.enumerateTargets) — sufficient because the
+ * engine models no effect that grants uncounterability after a target is chosen, and
+ * on-card text is immutable, so an uncounterable spell can never reach this atom.
+ */
+const counterTypeLine = (card) => String(card?.type || card?.type_line || "");
+function counterFilterMatches(card, filter) {
+  const type = counterTypeLine(card);
+  if (filter === "noncreature") return !/Creature/.test(type);
+  if (filter === "creature") return /Creature/.test(type);
+  return true; // "any"
+}
+function applyCounter(state, atom, ctx) {
+  let next = state;
+  for (const t of ctx.targets || []) {
+    if (t.type !== "spell") continue;
+    const idx = next.stack.findIndex((o) => o.id === t.id && o.kind === "spell");
+    if (idx === -1) {
+      // Target already off the stack → illegal target, the counter does nothing here.
+      next = logEvent(next, { kind: "spell-effect", effect: "counter-fizzle", targetId: t.id });
+      continue;
+    }
+    const targetObj = next.stack[idx];
+    const card = targetObj.source;
+    if (!counterFilterMatches(card, atom.spellFilter)) {
+      next = logEvent(next, { kind: "spell-effect", effect: "counter-fizzle", targetId: t.id });
+      continue;
+    }
+    const controller = targetObj.controller;
+    const newStack = [...next.stack.slice(0, idx), ...next.stack.slice(idx + 1)];
+    const player = next.players[controller];
+    next = {
+      ...next,
+      stack: newStack,
+      players: player
+        ? { ...next.players, [controller]: { ...player, graveyard: [...player.graveyard, card] } }
+        : next.players,
+    };
+    next = logEvent(next, { kind: "spell-effect", effect: "counter", targetId: t.id, cardName: card?.name, controller });
+  }
+  return next;
+}
+
 // An X-amount atom (`amountX:true`, set by the parser for an {X}-cost spell) reads
 // the chosen X (ctx.xValue, bound at cast time) instead of a printed numeric amount.
 const effectiveAmount = (atom, ctx) => (atom.amountX ? ctx.xValue || 0 : atom.amount);
@@ -176,6 +230,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "exile": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "exile"),
   "add-counter": applyAddCounter,
   "create-token": applyCreateToken,
+  "counter": applyCounter,
 });
 
 /**

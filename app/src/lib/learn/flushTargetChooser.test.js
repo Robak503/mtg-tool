@@ -109,4 +109,18 @@ describe("flushTriggers — flush-time target chooser (CR 603.3c)", () => {
     expect(trig.payload.resolver).toBe("effect-program");
     expect(trig.payload.params.targets).toEqual([]);
   });
+
+  // P3.1 review fix: a COUNTER trigger (Mystic Snake "When this enters, counter target
+  // spell") must NOT route through the auto-chooser — the first-legal flush chooser has
+  // no enemy-awareness, so it would silently counter the CONTROLLER'S OWN spell. It must
+  // fall through to the trigger.effect/Arbiter fallback instead (worse-than-Arbiter guard).
+  it("a counter-target-spell trigger does NOT auto-route — falls through to the Arbiter fallback", () => {
+    const ownSpell = { id: "own-stk", kind: "spell", controller: "user", targets: [], cost: null, source: { name: "Divination", type: "Sorcery" }, payload: {} };
+    const s = { ...stateWith(), stack: [ownSpell], pendingTriggers: [targetedTrigger("counter target spell")] };
+    const out = flushTriggers(s);
+    const trig = out.stack.find((o) => o.kind === "triggered-ability");
+    expect(trig.payload.resolver).toBe("trigger.effect");  // the fallback, NOT effect-program
+    // The controller's own spell is still on the stack — the trigger did not counter it.
+    expect(out.stack.some((o) => o.id === "own-stk")).toBe(true);
+  });
 });
