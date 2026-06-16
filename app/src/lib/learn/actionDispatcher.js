@@ -38,6 +38,8 @@ import { passPriority, flushTriggers } from "./gameEngine.js";
 import { manaSources, planPayment } from "./manaModel.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
+import { isAuraCard, isNativeAura } from "./staticAbilityParser.js";
+import { permanentHasKeyword } from "./layers.js";
 import { checkCastTriggers } from "./triggers.js";
 
 export class DispatcherError extends Error {
@@ -236,7 +238,17 @@ function applyCastSpell(state, action) {
   const targets = action.targets || [];
 
   let payload;
-  if (program) {
+  if (isNativeAura(card)) {
+    // Aura (CR 303.4f): resolve via the AURA_ETB resolver — enter the battlefield attached
+    // to the targeted creature. The target id is the battlefield permanent chosen at cast.
+    const targetId = targets[0]?.id;
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card, controller: action.playerId, targetId } };
+  } else if (isAuraCard(card)) {
+    // An Aura we can't model end-to-end (enchants a non-creature / restricted subject, or
+    // carries an unmodeled bonus/ability). Route to the Arbiter seam rather than entering a
+    // do-nothing unattached permanent — honest about the gap, never a silent no-op.
+    payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "aura (unmodeled enchant or bonus)" } };
+  } else if (program) {
     // P2.5: thread the cast-time choices (chosenMode for modal, xValue for X-spells)
     // frozen onto the action so resolution is deterministic + serializable.
     const params = { program, controller: action.playerId, targets, cardId: card.id };
@@ -399,22 +411,19 @@ function applyActivateAbility(state, action) {
   return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
 }
 
-function hasVigilance(card) {
-  const kws = Array.isArray(card?.keywords) ? card.keywords : [];
-  if (kws.some(k => String(k).toLowerCase() === "vigilance")) return true;
-  return /\bvigilance\b/i.test(String(card?.oracle || card?.oracle_text || ""));
-}
-
 function applyDeclareAttacker(state, action) {
   const creature = findCreatureOnBattlefield(state, action.playerId, action.permanentId);
   if (!creature) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
 
-  // Attacking taps the creature (CR 508.1f) unless it has vigilance. This is
-  // what self-dedups attackers (a tapped creature is no longer a legal
-  // attacker) and stops a creature that attacked from also blocking before
-  // its next untap. combatResolution reads power regardless of tapped state.
+  // Attacking taps the creature (CR 508.1f) unless it has vigilance. Read vigilance through
+  // the LAYER ENGINE (permanentHasKeyword), not the printed card — a creature GRANTED
+  // vigilance by an Aura/Equipment/anthem must also stay untapped, or the granted keyword
+  // is silently dropped (the engine would claim the grant is modeled yet tap anyway). This
+  // is what self-dedups attackers (a tapped creature is no longer a legal attacker) and
+  // stops a creature that attacked from also blocking before its next untap.
+  // combatResolution reads power regardless of tapped state.
   let next = ensureCombat(state);
-  if (!hasVigilance(creature.card)) {
+  if (!permanentHasKeyword(state, action.permanentId, "Vigilance")) {
     next = tapPermanent(next, action.permanentId);
   }
 

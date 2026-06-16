@@ -23,12 +23,15 @@
  * state — the dispatcher commits taps. This separation (pure planner +
  * separate commit) keeps castability checks side-effect free.
  *
- * This module is a LEAF: it imports only constants from gameState and
- * operates on already-parsed cost objects (from legalChoices.parseManaCost),
- * so there is no import cycle with legalChoices.
+ * Near-leaf: it imports constants from gameState plus `permanentHasKeyword` from
+ * the layer engine (so a creature dork GRANTED Haste by an Aura/anthem can tap on
+ * the turn it would otherwise be summoning-sick). It operates on already-parsed
+ * cost objects (from legalChoices.parseManaCost), so there is no import cycle with
+ * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
 import { MANA_COLORS } from "./gameState.js";
+import { permanentHasKeyword } from "./layers.js";
 
 // ─── Card → mana production ────────────────────────────────────────────────────
 
@@ -149,7 +152,10 @@ export function manaSources(state, playerId) {
     const prod = manaProduction(perm.card);
     if (!prod) continue;
     const isCreature = /Creature/.test(typeLineOf(perm.card));
-    if (isCreature && perm.summoningSick && !hasHaste(perm.card)) continue;
+    // GRANTED Haste counts (read through the layer engine), not just printed — a mana dork
+    // enchanted/anthemed with Haste can tap the turn it enters. Falls back to the printed
+    // seed when there are no continuous effects (the common case), so the hot path is cheap.
+    if (isCreature && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
     sources.push({ permanentId: perm.id, colors: prod.colors, amount: prod.amount });
   }
   return sources;

@@ -607,7 +607,15 @@ export function detachPermanentFromAll(state, permanent) {
     next = updatePermanentSafe(next, permanent.attachedTo, p => ({ ...p, attachments: (p.attachments || []).filter(id => id !== permanent.id) }));
   }
   for (const attId of permanent.attachments || []) {
-    next = updatePermanentSafe(next, attId, p => ({ ...p, attachedTo: null }));
+    const lk = findPermanent(next, attId);
+    if (!lk) continue;
+    // CR 704.5n: an AURA that loses its host can't stay on the battlefield — it's put into
+    // its owner's graveyard. An Equipment just becomes unattached (stays on the battlefield).
+    if (/\bAura\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) {
+      next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: attId });
+    } else {
+      next = updatePermanentSafe(next, attId, p => ({ ...p, attachedTo: null }));
+    }
   }
   return next;
 }

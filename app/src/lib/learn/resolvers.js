@@ -46,6 +46,7 @@ export const RESOLVER_KEYS = Object.freeze({
   MANUAL: "manual",                     // Arbiter escape valve — surfaces an "unresolved" log
   EFFECT_PROGRAM: "effect-program",     // RESERVED for Phase-2's multi-atom interpreter
   ATTACH: "attach",                     // Equip/Aura attach — sets attachedTo + attachments
+  AURA_ETB: "spell.aura",               // an Aura spell resolving: enter + attach to its target
 });
 
 /**
@@ -59,7 +60,7 @@ export const RESOLVER_KEYS = Object.freeze({
  * trigger + layer-timestamp stamps ride through `gameEngine.enterBattlefield`
  * in PR-6 (the three-way integration seam); PR-1 deliberately keeps this minimal.
  */
-export function enterPermanent(state, card, controller) {
+export function enterPermanent(state, card, controller, opts = {}) {
   const player = state.players[controller];
   if (!player) return state;
   const { id: permId, state: s2 } = mintId(state, "perm");
@@ -83,6 +84,13 @@ export function enterPermanent(state, card, controller) {
     },
   };
   next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller });
+  // Aura attach (CR 303.4f): an Aura attaches to the object it's enchanting AS it enters —
+  // the freshly-minted permanent's `attachedTo` is wired bidirectionally to its host so the
+  // layer engine applies the bonus from the same turn. Guarded: the host must still be on a
+  // battlefield (the resolver already re-checked legality, but a no-op stays safe).
+  if (opts.attachTo && findPermanent(next, opts.attachTo)) {
+    next = attachPermanent(next, { equipId: permId, targetId: opts.attachTo });
+  }
   // Fire ETB triggers now that the permanent is on the battlefield (CR 603.6a).
   // They land in pendingTriggers and flushTriggers puts them on the stack at the
   // next priority-grant checkpoint (which resolveTopOfStack runs after this).
@@ -148,6 +156,22 @@ export const RESOLVERS = Object.freeze({
     const { card, controller } = obj.payload?.params || {};
     if (!card || !controller) return resolveManual(state, obj);
     return enterPermanent(state, card, controller);
+  },
+
+  // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the
+  // creature it targeted at cast. Re-check legality at resolution (CR 608.2b): the target
+  // must still be a creature on a battlefield. If it's gone/illegal, the Aura spell doesn't
+  // resolve — it's put into its owner's graveyard by game rules (CR 608.3b) and never
+  // enters (logged, never fabricated). The targetId is a battlefield permanent id.
+  [RESOLVER_KEYS.AURA_ETB]: (state, obj) => {
+    const { card, controller, targetId } = obj.payload?.params || {};
+    if (!card || !controller) return resolveManual(state, obj);
+    const tgt = findPermanent(state, targetId);
+    const tgtType = String(tgt?.permanent?.card?.type || tgt?.permanent?.card?.type_line || "");
+    if (!tgt || !/Creature/.test(tgtType)) {
+      return logEvent(state, { kind: "spell-fizzle", source: card?.name, reason: "aura target illegal", controller });
+    }
+    return enterPermanent(state, card, controller, { attachTo: targetId });
   },
 
   // P2.1: a recognized-but-unparseable instant/sorcery. No longer a silent

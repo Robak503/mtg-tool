@@ -37,6 +37,7 @@ import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTar
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
+import { isNativeAura } from "./staticAbilityParser.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -387,6 +388,20 @@ function actionsCastSpell(state, playerId) {
           targetName: ch.targets.map(t => t.name).filter(Boolean).join(", ") || undefined,
           modeName: ch.label || undefined,
         });
+      }
+      continue;
+    }
+
+    // Aura (CR 303.4): a native Aura is a targeted permanent spell — it chooses the
+    // creature it will enchant as it's cast. One cast action per creature on any
+    // battlefield ("Enchant creature" has no controller restriction); no legal creature
+    // → can't cast (CR 303.4a). A non-native Aura has no modeled bonus, so it falls
+    // through to the no-target branch and the dispatcher routes it to the Arbiter seam.
+    if (isNativeAura(card)) {
+      const targets = enumerateTargets(state, playerId, { targetType: "creature" });
+      if (targets.length === 0) continue;
+      for (const t of targets) {
+        actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
       }
       continue;
     }

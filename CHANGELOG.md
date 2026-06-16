@@ -8,7 +8,31 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **Granted keywords now actually work in combat.** A creature given *vigilance* by an
+  Aura, Equipment, or anthem now stays untapped when it attacks (it was tapping anyway,
+  because the attack step read the printed card instead of the live keyword); a mana
+  creature granted *haste* can now tap for mana the turn it arrives. *Menace*, which the
+  engine doesn't yet enforce, is no longer offered as a grantable keyword — an Aura/Equipment
+  whose only trick is granting menace is handed to the Arbiter rather than silently doing
+  nothing. (Found by the Aura review.)
+- **Creatures are no longer secretly 0/0 in The Academy.** The bundled slim card index
+  dropped each card's power/toughness (plus colors, loyalty, and produced-mana), so every
+  creature loaded into a learn-game enriched to 0/0 — combat dealt no damage and pumps/auras
+  built off a 0/0 base. The index now carries those fields, so creatures play at their
+  printed stats. (Surfaced by live real-card verification of the new Aura mechanic.)
+
 ### Added
+- **Auras now work in The Academy.** Cast an Aura that says *"Enchant creature"* with a
+  *"Enchanted creature gets +X/+Y"* and/or *"has [keyword]"* bonus — *Unholy Strength*,
+  *Flight*, *Rancor*-style buffs, or a debuff like *Weakness* / *Dead Weight* on an
+  opponent's creature — and it enters attached to the creature you target, granting the
+  bonus through the same layer engine Equipment uses. When the enchanted creature leaves
+  the battlefield the Aura goes to the graveyard (it doesn't linger like Equipment). An
+  Aura whose bonus we can't fully model (a triggered ability, a non-creature enchant, an
+  unmodeled rider) is handed to the Arbiter rather than entering as a do-nothing permanent.
+  The opponent AI holds its Auras for now (you cast them). ~50 common Auras now play
+  natively.
 - **Equipment now works in The Academy.** An Equipment with *"Equip {cost}"* and a
   *"Equipped creature gets +X/+Y"* and/or *"has [keyword]"* bonus can now be equipped:
   on your main phase, pay the equip cost, pick one of your creatures, and it gains the

@@ -34,7 +34,7 @@ import {
   counterPtDelta,
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { parseStaticAbilities, parseEquipmentBonus } from "./staticAbilityParser.js";
+import { parseStaticAbilities, parseAttachedBonus } from "./staticAbilityParser.js";
 
 // ─── Dynamic P/T functions (CR 613 CDA-style values; code, NEVER stored in state) ─
 
@@ -129,12 +129,12 @@ export function staticEffectsOf(state, permanent) {
     ...(STATIC_REGISTRY[card.name] || []),
     ...parseStaticAbilities(card),
   ];
-  // Equipment bonus (CR 301.5): when this permanent is ATTACHED to a creature, its
-  // "Equipped creature gets +X/+Y / has [keyword]" effect applies ONLY to that creature
-  // (affects fixed [attachedTo]). collectContinuousEffects re-runs per state, so the
-  // bonus appears/disappears the instant attachedTo changes — no manual refresh.
+  // Attached-permanent bonus (CR 301.5 / 303.4): when this Equipment or Aura is ATTACHED
+  // to a creature, its "Equipped/Enchanted creature gets +X/+Y / has [keyword]" effect
+  // applies ONLY to that creature (affects fixed [attachedTo]). collectContinuousEffects
+  // re-runs per state, so the bonus appears/disappears the instant attachedTo changes.
   if (permanent.attachedTo) {
-    for (const e of parseEquipmentBonus(card)) {
+    for (const e of parseAttachedBonus(card)) {
       partials.push({ ...e, affects: { mode: "fixed", permanentIds: [permanent.attachedTo] } });
     }
   }

@@ -69,6 +69,18 @@ function slimCard(card) {
     oracle_text: card.oracle_text || "",
     mana_cost: card.mana_cost || "",
     cmc: typeof card.cmc === "number" ? card.cmc : 0,
+    // P/T + loyalty + colors + produced_mana: the Academy engine reads these off the
+    // enriched card (base power/toughness for combat & the layer engine, colors for
+    // mana/scoring, produced_mana for tap-for-mana). They were ORIGINALLY stripped, which
+    // silently made every enriched creature 0/0 in real play (the slim index is the active
+    // lookup source, and learnDeckEnrich fills P/T from `full.power ?? null` → null). Caught
+    // via live real-enrichment QA, 2026-06-16. Keep them (a few bytes/card) so the slim index
+    // and the full oracle agree on the fields the engine depends on. `null` for cards without.
+    power: card.power ?? null,
+    toughness: card.toughness ?? null,
+    loyalty: card.loyalty ?? null,
+    colors: Array.isArray(card.colors) ? card.colors : [],
+    produced_mana: Array.isArray(card.produced_mana) ? card.produced_mana : [],
     color_identity: Array.isArray(card.color_identity) ? card.color_identity : [],
     legalities: card.legalities || {},
     layout: card.layout || "normal",
@@ -86,6 +98,11 @@ function slimCard(card) {
       oracle_text: face.oracle_text || "",
       mana_cost: face.mana_cost || "",
       colors: Array.isArray(face.colors) ? face.colors : [],
+      // Same engine-critical fields on each face (a DFC creature's P/T lives here).
+      power: face.power ?? null,
+      toughness: face.toughness ?? null,
+      loyalty: face.loyalty ?? null,
+      produced_mana: Array.isArray(face.produced_mana) ? face.produced_mana : [],
     }));
   }
 
@@ -145,4 +162,8 @@ function main() {
   );
 }
 
-main();
+// Only run the build when invoked directly (`node build-oracle-index.cjs`). When required
+// from a test, just expose `slimCard` so the slim schema can be asserted without a 165MB read.
+if (require.main === module) main();
+
+module.exports = { slimCard };
