@@ -20,11 +20,13 @@
  * PR-2 and the cast path emits these payloads in PR-3.
  */
 
-import { createPermanent, mintId, logEvent, findPermanent, attachPermanent } from "./gameState.js";
+import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures } from "./gameState.js";
 import { resolveSpellEffect } from "./spellEffects.js";
-import { triggersForEvent, applyTriggerEffect } from "./triggers.js";
+import { triggersForEvent, applyTriggerEffect, checkDiesTriggers } from "./triggers.js";
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram } from "./effects/runProgram.js";
+import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
+import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
 // in P2.2 so the effect interpreter can share it without an import cycle).
@@ -75,6 +77,10 @@ export function enterPermanent(state, card, controller, opts = {}) {
     ...createPermanent({ id: permId, card, controller, summoningSick: /Creature/.test(typeStr) }),
     enteredOnTurn: s3.turn,
     timestamp: ts,
+    // A clone enters carrying a `card` that's the COPIED creature's copiable values, while its
+    // ORIGINAL card is stashed here and restored when it leaves the battlefield (CR 707.2 — off
+    // the battlefield it's the original card, not the copy). moveCardToZone reads printedCard.
+    ...(opts.printedCard ? { printedCard: opts.printedCard } : {}),
   };
   let next = {
     ...s3,
@@ -127,6 +133,37 @@ export function isPermanentSpell(card) {
 }
 
 /**
+ * Settle a pending clone copy-choice (CR 707): the clone enters the battlefield. With a chosen
+ * creature still on the battlefield, it enters AS A COPY — its `card` becomes the source's
+ * copiable values (CR 707.2) and its ORIGINAL card is stashed as `printedCard` (restored on
+ * leave). With no/illegal/declined choice (a "you may" clone, or the target left — CR 707.9c),
+ * it enters AS ITSELF: a 0/0 with no copy, which the lethal SBA then kills (CR 704.5f). Either
+ * way the entry fires ETB triggers (enterPermanent reads the now-current card.oracle). The
+ * caller (learnSession.settleCloneChoice) runs finalizeStackResolution to flush them.
+ */
+export function resolveCloneChoice(state, chosenPermId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "clone-search") return state;
+  const { cloneCard, controller } = pc.resume || {};
+  let next = clearPendingChoice(state);
+  if (!cloneCard || !controller) return next;
+
+  const chosen = chosenPermId ? findPermanent(next, chosenPermId) : null;
+  const chosenIsCreature = chosen && /Creature/.test(String(chosen.permanent.card?.type || chosen.permanent.card?.type_line || ""));
+  if (chosen && chosenIsCreature) {
+    const copied = snapshotCopiedCard(chosen.permanent, cloneCard);
+    next = enterPermanent(next, copied, controller, { printedCard: cloneCard });
+  } else {
+    // Declined, or the target is gone/illegal — the clone enters as itself (a 0/0).
+    next = enterPermanent(next, cloneCard, controller);
+  }
+  // A clone that copied nothing is a 0/0 and dies immediately (CR 704.5f) — run the lethal SBA
+  // (the copy case finds nothing lethal, so this is a no-op for it).
+  const lethal = destroyLethalCreatures(next);
+  return checkDiesTriggers(lethal.state, lethal.dead);
+}
+
+/**
  * A "no resolver / unknown key" resolution: log it and pop. This is the Arbiter
  * escape valve — the engine couldn't resolve natively, so it surfaces an
  * "unresolved" log the UI can hand to the Arbiter. Never throws, never fabricates.
@@ -155,6 +192,26 @@ export const RESOLVERS = Object.freeze({
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
     const { card, controller } = obj.payload?.params || {};
     if (!card || !controller) return resolveManual(state, obj);
+    // Clone (CR 707.9): the permanent enters AS A COPY of a creature chosen as it enters. Suspend
+    // on a resolution-time choice (the player picks which creature; Expert/AI auto-pick) — the
+    // same pendingChoice seam the tutor uses. With no legal target (no creatures), a clone just
+    // enters as itself (a 0/0 → dies), so we only pause when there's something to copy.
+    if (isCloneCard(card)) {
+      const spec = parseCloneSpec(card);
+      const candidates = cloneCandidates(state, controller, spec.scope);
+      if (candidates.length > 0) {
+        return setPendingCloneChoice(state, {
+          controller,
+          candidates,
+          sourceName: card?.name || null,
+          resume: { cloneCard: card, controller },
+        });
+      }
+      // No creature to copy: the clone enters as itself (a 0/0) and dies (CR 704.5f).
+      const entered = enterPermanent(state, card, controller);
+      const lethal = destroyLethalCreatures(entered);
+      return checkDiesTriggers(lethal.state, lethal.dead);
+    }
     return enterPermanent(state, card, controller);
   },
 

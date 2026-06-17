@@ -36,6 +36,28 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
   };
 }
 
+/**
+ * Flag a clone awaiting its "which creature to copy" choice (CR 707.9 — chosen as the permanent
+ * enters). `candidates` is the list of legal copy-target battlefield permanents as `{ id, name }`.
+ * `resume` carries what's needed to finish the entry once chosen: the clone's own card + its
+ * controller + whether the choice is optional (a "you may" clone can decline → enter as itself).
+ * Public info (the candidates are visible permanents). FIFO like the tutor choice.
+ */
+export function setPendingCloneChoice(state, { controller, candidates, sourceName = null, resume }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "clone-choice-pending", controller, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "clone-search",
+      controller,
+      candidates,
+      sourceName,
+      resume,
+    },
+  };
+}
+
 /** Clear the pending choice (after it's resolved). */
 export function clearPendingChoice(state) {
   if (!state.pendingChoice) return state;

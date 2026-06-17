@@ -29,6 +29,7 @@ import { parseEffectProgram, parseEffectClause, programConfidence, programContai
 import { detectTriggers } from "./triggers.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura } from "./staticAbilityParser.js";
+import { isCloneCard } from "./cloneCopy.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
 // permanent whose only text is these plays natively (the body fights, the layer
@@ -263,6 +264,10 @@ export function classifyCard(card) {
   // enchanted-creature bonus, no residue) OR body-only — whose cast routes to the Arbiter
   // seam, never a do-nothing permanent. Exhaustive + first, so no Aura slips into a wrong tier.
   if (isAuraCard(card)) return isNativeAura(card) ? "native-aura" : "body-only";
+  // A clone (CR 707) — a creature whose WHOLE text is "enters as a copy of a creature" — now
+  // plays natively (it suspends on a copy-choice and enters as a snapshot). Checked before the
+  // generic classifiers (its copy clause isn't a trigger/static/mana ability they'd recognize).
+  if (isCloneCard(card)) return "native-clone";
   // Permanent (creature / artifact / enchantment / battle): the body always works.
   if (isKeywordOnly(oracle)) return "native-body";
   if (hasManaAbility(oracle)) return "native-mana";
@@ -276,7 +281,7 @@ export function classifyCard(card) {
   return "body-only";
 }
 
-export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-mixed"]);
+export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-clone", "native-mixed"]);
 export const isNativeTier = (tier) => NATIVE_TIERS.has(tier);
 
 // Mechanism buckets for the gap (priority-ordered; first match wins) — the roadmap.

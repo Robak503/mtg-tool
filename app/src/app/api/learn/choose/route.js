@@ -1,13 +1,14 @@
 /**
  * POST /api/learn/choose
  *
- * The player picked a card (or chose "find nothing") from an interactive
- * `tutor-search` decision — a tutor's "search your library for a card". Applies the
- * fetch + shuffle, resumes the suspended effect program, and re-derives the next
- * decision. Same response envelope as /api/learn/step.
+ * The player resolved an interactive choice — a tutor's "search your library for a card"
+ * (`tutor-search`) OR a clone's "which creature to copy" (`clone-search`, CR 707).
+ * `applyPendingChoice` dispatches by the pending choice's kind; the resolution resumes/finishes it
+ * and re-derives the next decision. Same response envelope as /api/learn/step.
  *
  * Body:
- *   { sessionId, choice: { cardId: string | null } }   // cardId null/absent = find nothing
+ *   { sessionId, choice: { cardId: string | null } }  // tutor: cardId null/absent = find nothing
+ *   { sessionId, choice: { permId: string | null } }  // clone: permId null/absent = decline copy
  *
  * Errors:
  *   400 — missing body / sessionId
@@ -17,7 +18,7 @@
 
 export const runtime = "nodejs";
 
-import { applyTutorChoice, isComplete } from "../../../../lib/learn/learnSession.js";
+import { applyPendingChoice, isComplete } from "../../../../lib/learn/learnSession.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
@@ -47,7 +48,7 @@ export async function POST(request) {
 
   let result;
   try {
-    result = applyTutorChoice(session, body?.choice || {});
+    result = applyPendingChoice(session, body?.choice || {});
   } catch (error) {
     return Response.json({ error: error.message || "Engine error applying the choice." }, { status: 500 });
   }
