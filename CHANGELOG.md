@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Added
+- **Artifact / enchantment / land destruction now works in The Academy.** *"Destroy target
+  artifact"* (Shatter), *"Destroy target artifact or enchantment"* (Disenchant / Naturalize),
+  *"Destroy target enchantment"* (Demystify), *"Destroy target land"* (Stone Rain), *"Destroy
+  target permanent"* (Vindicate), and the *exile* versions (*Utter End*, *Anguished Unmaking*) now
+  let you pick a legal target and remove it — including modal cards whose other half was already
+  modeled (*Abrade*). ~55 removal spells play natively. For now this is a card you *cast* (where
+  you choose the target); a creature whose ability *triggers* one of these is still handed to the
+  Arbiter, so it can never auto-destroy your own permanent.
+
 ### Fixed
 - **Triggers with a follow-up sentence no longer half-resolve.** A trigger whose effect spanned two
   sentences — *"each opponent loses 2 life. You gain 2 life and draw a card."* (Shroudstomper),

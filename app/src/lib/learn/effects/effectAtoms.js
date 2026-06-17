@@ -149,7 +149,9 @@ function applyZoneMove(state, atom, ctx, toZone) {
   let next = state;
   const targets = atomTargets(state, atom, ctx);
   for (const t of targets) {
-    if (t.type !== "creature") continue;
+    // "creature" (bounce/exile-creature + mass eachCreature) or "permanent" (targeted non-creature
+    // exile — Oblivion Ring-style spot exile). moveCardToZone detaches any Aura/Equipment on it.
+    if (t.type !== "creature" && t.type !== "permanent") continue;
     const lk = findPermanent(next, t.id);
     if (lk) {
       next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone, cardId: t.id });
