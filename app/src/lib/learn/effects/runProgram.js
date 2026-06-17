@@ -25,7 +25,7 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice } from "../pendingChoice.js";
-import { moveCardToZone, logEvent } from "../gameState.js";
+import { moveCardToZone, logEvent, applyScrySurveil } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 
@@ -127,14 +127,47 @@ export function resolveTutorChoice(state, cardId) {
   next = shuffleControllerLibrary(next, pc.controller);
   next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inLibrary, destination: "hand" });
 
-  // Resume the rest of the suspended effect program (atoms after the tutor).
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * Settle a scry/surveil choice (CR 701.18 / 701.43): apply the reorder — `keepIdsOrdered` stay on
+ * top in that order, the rest of the looked-at cards go to the bottom (scry) / graveyard (surveil)
+ * — then RESUME the suspended program. A null/empty keep list moves everything away; an omitted
+ * decision (the auto-keep-all default is supplied by the driver) keeps all on top. Hidden-info safe.
+ */
+export function resolveScryChoice(state, keepIdsOrdered) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "scry-surveil") return state;
+  let next = clearPendingChoice(state);
+  // The controller can be ELIMINATED between the pause and the settle (an opponent dying to
+  // "You lose 2 life. Scry 2." — SBA removes them on the next driver tick). The scry and the rest
+  // of its program then do nothing; clear the choice and bail so the game never wedges on a removed
+  // player's pending decision (CR 800.4a). No resume — the remaining atoms are that player's too.
+  if (!next.players?.[pc.controller]) return next;
+  // Dedupe the keep-list once: only valid in-top-N ids, each at most once (matches the dedup the
+  // library mutation does, so the kept/moved log is honest under a malformed/duplicate input).
+  const valid = new Set((pc.cards || []).map((c) => c.id));
+  const seen = new Set();
+  const keep = (keepIdsOrdered || []).filter((id) => valid.has(id) && !seen.has(id) && seen.add(id));
+  next = applyScrySurveil(next, { playerId: pc.controller, n: (pc.cards || []).length, keepIdsOrdered: keep, mode: pc.mode });
+  next = logEvent(next, { kind: "spell-effect", effect: pc.mode, controller: pc.controller, looked: (pc.cards || []).length, moved: (pc.cards || []).length - keep.length });
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * Resume a suspended effect program after a resolution-time choice settled (shared by the tutor +
+ * scry/surveil paths): re-enter the program at the recorded `nextAtomIndex` so the atoms AFTER the
+ * choice run (e.g. the "draw a card" in "Scry 1, then draw a card").
+ */
+function resumeAfterChoice(state, pc) {
   const r = pc.resume;
   if (r?.program && Array.isArray(programAtoms(r.program, r.chosenMode)) && r.nextAtomIndex < programAtoms(r.program, r.chosenMode).length) {
     const obj = {
       source: { name: r.cardName ?? pc.sourceName ?? null },
       payload: { params: { program: r.program, controller: r.controller, targets: r.targets, xValue: r.xValue, sourceId: r.sourceId, chosenMode: r.chosenMode } },
     };
-    next = runEffectProgram(next, obj, { startIndex: r.nextAtomIndex });
+    return runEffectProgram(state, obj, { startIndex: r.nextAtomIndex });
   }
-  return next;
+  return state;
 }

@@ -356,6 +356,7 @@ export default function LearnView({
             onContinue={session.continueGame}
             onTutorChoose={session.applyTutorChoice}
             onCloneChoose={session.applyCloneChoice}
+            onScryChoose={session.applyScryChoice}
           />
         </main>
 
@@ -420,6 +421,12 @@ export default function LearnView({
       {session.board && decision?.kind === "clone-search" && (
         <div style={tutorSheetStyle(LINE, BG2)}>
           <CloneCopyPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyCloneChoice} />
+        </div>
+      )}
+      {/* Interactive scry/surveil → keep/move the top N (CR 701.18 / 701.43). Same side-sheet. */}
+      {session.board && decision?.kind === "scry-surveil" && (
+        <div style={tutorSheetStyle(LINE, BG2)}>
+          <ScrySurveilPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyScryChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -600,7 +607,7 @@ function TableStrip({ table, activePlayer, cfg, colors }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose }) {
+function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose }) {
   const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
 
   if (!decision) {
@@ -614,6 +621,9 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
   }
   if (decision.kind === "clone-search") {
     return <CloneCopyPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onCloneChoose} />;
+  }
+  if (decision.kind === "scry-surveil") {
+    return <ScrySurveilPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onScryChoose} />;
   }
   if (decision.kind === "dispatch-error") {
     return (
@@ -974,6 +984,99 @@ function CloneCopyPanel({ decision, cfg, colors, fontFamily, onChoose }) {
       </div>
     </div>
   );
+}
+
+/**
+ * Interactive scry / surveil (CR 701.18 / 701.43) — the player sees the top N cards of their own
+ * library and decides which to keep on top (and in what order) vs move away: to the bottom (scry)
+ * or the graveyard (surveil). Submits the ordered keep-list via session.applyScryChoice. Same
+ * non-blocking side-sheet as the tutor/clone pickers.
+ */
+function ScrySurveilPanel({ decision, cfg, colors, fontFamily, onChoose }) {
+  const { BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+  const accent = cfg?.color || GOLD;
+  const cards = decision.cards || [];
+  const surveil = decision.mode === "surveil";
+  const awayLabel = surveil ? "graveyard" : "bottom";
+  const [submitting, setSubmitting] = useState(false);
+  // `kept` is the ordered list of card ids on top; any card not in it is moved away. Default: keep all.
+  const [kept, setKept] = useState(() => cards.map((c) => c.id));
+  const key = cards.map((c) => c.id).join("|");
+  // Reset the keep-list to "keep all" when a NEW scry surfaces (keyed on the card ids), mirroring
+  // the tutor panel's reset-on-candidate-change. `cards` is stable per scry, so the key is enough.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setKept(cards.map((c) => c.id)); }, [key]);
+
+  const byId = (id) => cards.find((c) => c.id === id);
+  const moved = cards.filter((c) => !kept.includes(c.id));
+  const setMove = (id) => setKept((k) => k.filter((x) => x !== id));
+  const setKeep = (id) => setKept((k) => (k.includes(id) ? k : [...k, id]));
+  const move = (id, dir) => setKept((k) => {
+    const i = k.indexOf(id); const j = i + dir;
+    if (i < 0 || j < 0 || j >= k.length) return k;
+    const n = [...k]; [n[i], n[j]] = [n[j], n[i]]; return n;
+  });
+  const submit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    try { await onChoose?.(kept); } finally { setSubmitting(false); }
+  };
+
+  const CardRow = ({ id, where }) => {
+    const c = byId(id);
+    if (!c) return null;
+    const i = kept.indexOf(id);
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 4, border: `1px solid ${LINE}`, borderRadius: 8, background: where === "keep" ? (cfg?.dim || BG3) : "transparent" }}>
+        <img src={`/api/art-crop?name=${encodeURIComponent(c.name)}`} alt={c.name} loading="lazy"
+          style={{ width: 64, aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: BG2 }}
+          onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
+        <div style={{ flex: 1, fontSize: 12, color: TEXT, fontWeight: where === "keep" ? 600 : 400 }}>{c.name}</div>
+        {where === "keep" ? (
+          <>
+            <button onClick={() => move(id, -1)} disabled={i <= 0} title="Move up" style={arrowBtn(LINE, MUTED, i <= 0)}>▲</button>
+            <button onClick={() => move(id, 1)} disabled={i >= kept.length - 1} title="Move down" style={arrowBtn(LINE, MUTED, i >= kept.length - 1)}>▼</button>
+            <button onClick={() => setMove(id)} title={`Put on ${awayLabel}`} style={pillBtn(accent, "transparent", MUTED, LINE)}>→ {awayLabel}</button>
+          </>
+        ) : (
+          <button onClick={() => setKeep(id)} title="Keep on top" style={pillBtn(accent, accent, "#fff")}>↑ keep on top</button>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+          {surveil ? "📜 Surveil" : "🔮 Scry"} {cards.length}{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+          Top of your library. Keep cards on top (drag order with ▲▼) or send them to the {awayLabel}.
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 }}>On top ({kept.length}) — top first</div>
+        {kept.length === 0 && <div style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>(nothing kept)</div>}
+        {kept.map((id) => <CardRow key={id} id={id} where="keep" />)}
+        {moved.length > 0 && <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 6 }}>To {awayLabel} ({moved.length})</div>}
+        {moved.map((c) => <CardRow key={c.id} id={c.id} where="away" />)}
+      </div>
+
+      <button onClick={submit} disabled={submitting}
+        style={{ padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
+          cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.5 : 1, fontSize: 13, fontWeight: 600, fontFamily }}>
+        {submitting ? "…" : "Done"}
+      </button>
+    </div>
+  );
+}
+function arrowBtn(LINE, MUTED, disabled) {
+  return { padding: "2px 6px", background: "transparent", color: MUTED, border: `1px solid ${LINE}`, borderRadius: 4, cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.35 : 1, fontSize: 11 };
+}
+function pillBtn(accent, bg, color, border) {
+  return { padding: "3px 8px", background: bg, color, border: `1px solid ${border || accent}`, borderRadius: 5, cursor: "pointer", fontSize: 11, whiteSpace: "nowrap" };
 }
 
 // ─── Style helpers ───────────────────────────────────────────────────────────

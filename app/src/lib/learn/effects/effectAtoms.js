@@ -23,7 +23,7 @@ import {
 import { addContinuousEffect } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary } from "../gameState.js";
 import { checkDiesTriggers } from "../triggers.js";
-import { setPendingTutorChoice } from "../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
@@ -395,6 +395,24 @@ function applyTutor(state, atom, ctx) {
   });
 }
 
+/**
+ * Scry / surveil (CR 701.18 / 701.43) — flag a resolution-time CHOICE: peek the top N of the
+ * controller's library and set state.pendingChoice (runProgram pauses the program here, like a
+ * tutor). The driver surfaces a keep/move picker (the player) or auto-keeps-all (Expert/opponent);
+ * resolveScryChoice (runProgram) applies the reorder + resumes. An empty library is a logged no-op.
+ * Hidden-info safe: it's the searcher's OWN library, so the candidate names are theirs to see.
+ */
+function applyScrySurveilAtom(state, atom, ctx, mode) {
+  const player = state.players[ctx.controller];
+  if (!player) return state;
+  const n = Math.min(Math.max(0, atom.amount || 0), player.library.length);
+  if (n === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: mode, controller: ctx.controller, count: 0 });
+  }
+  const cards = player.library.slice(0, n).map((c) => ({ id: c.id, name: c.name }));
+  return setPendingScryChoice(state, { controller: ctx.controller, mode, cards, sourceName: ctx.cardName || null });
+}
+
 /** P3.2 shuffle — "[then] shuffle [your library]" as its own clause (CR 103.2). */
 function applyShuffle(state, atom, ctx) {
   if (!state.players[ctx.controller]) return state;
@@ -426,6 +444,8 @@ export const ATOM_RESOLVERS = Object.freeze({
   "counter": applyCounter,
   "tutor": applyTutor,
   "shuffle": applyShuffle,
+  "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
+  "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
 });
 
 /**

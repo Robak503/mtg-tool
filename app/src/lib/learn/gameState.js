@@ -562,6 +562,32 @@ export function putCardsOnBottom(state, { playerId, cardIds }) {
   });
 }
 
+/**
+ * Apply a scry/surveil decision (CR 701.18 / 701.43): the top `n` cards of the player's library
+ * are repartitioned — `keepIdsOrdered` stay on top in that exact order, and the rest of the looked-
+ * at cards go to the BOTTOM (scry) or to the GRAVEYARD (surveil), in their original top-first order.
+ * The library below the top `n` is untouched. `keepIdsOrdered` is filtered to ids actually among
+ * the top `n` (defensive — a stale/duplicate id is ignored), so no card is duplicated or lost.
+ */
+export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
+  assertPlayer(playerId);
+  if (!state.players[playerId]) return state; // controller eliminated mid-resolution → clean no-op
+  return withPlayer(state, playerId, player => {
+    const top = player.library.slice(0, n);
+    const rest = player.library.slice(n);
+    const byId = new Map(top.map(c => [c.id, c]));
+    const seen = new Set();
+    const kept = [];
+    for (const id of keepIdsOrdered || []) {
+      if (byId.has(id) && !seen.has(id)) { kept.push(byId.get(id)); seen.add(id); }
+    }
+    const moved = top.filter(c => !seen.has(c.id)); // not kept → bottom (scry) / graveyard (surveil)
+    return mode === "surveil"
+      ? { ...player, library: [...kept, ...rest], graveyard: [...player.graveyard, ...moved] }
+      : { ...player, library: [...kept, ...rest, ...moved] };
+  });
+}
+
 // ─── Permanent helpers ────────────────────────────────────────────────────────
 
 function updatePermanent(state, permanentId, updater) {

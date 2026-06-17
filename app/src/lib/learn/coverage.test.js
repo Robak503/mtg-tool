@@ -76,8 +76,9 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Soldier", "Other creatures you control get +1/+1."))).toBe("native-static");
     expect(classifyCard(C("Creature — Sliver", "Flying\nOther Sliver creatures you control get +1/+1 and have flying."))).toBe("native-static");
     // Still body-only: an anthem next to an UNMODELED trigger (composite → conservative),
-    // or a conditional/variable anthem the parser refuses to fabricate.
-    expect(classifyCard(C("Creature — Cat", "Other creatures you control get +1/+1.\nWhenever this creature attacks, scry 2."))).toBe("body-only");
+    // or a conditional/variable anthem the parser refuses to fabricate. (Scry IS modeled now —
+    // #9 — so the unmodeled example uses an impulse-exile effect we don't model.)
+    expect(classifyCard(C("Creature — Cat", "Other creatures you control get +1/+1.\nWhenever this creature attacks, exile the top card of your library."))).toBe("body-only");
     expect(classifyCard(C("Creature — Sliver", "Other Slivers get +1/+1 for each other Sliver."))).toBe("body-only");
   });
   it("a multi-ability permanent whose pieces are EACH modeled is native-mixed (composite)", () => {
