@@ -9,6 +9,13 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **"Whenever a creature you control / an opponent controls enters or dies" triggers now work in
+  The Academy.** Aristocrats and lifegain-matters staples — *Corpse Knight*, *Malakir Cullblade*,
+  *The Meathook Massacre*, *Liliana, Dreadhorde General*, *Purphoros, God of the Forge*, *Healer
+  of the Pride* — now fire on **exactly the right creatures**: a *"you control"* trigger only on
+  your own, an *"an opponent controls"* trigger only on your opponents'. ~60 more permanents play
+  their enter/dies trigger natively. (A condition we still can't check precisely — *"a creature
+  **with flying** dies"* — is left for the Arbiter rather than firing on the wrong creatures.)
 - **Firebreathing and self-pumps now work in The Academy.** A creature whose own ability pumps
   *itself* — *"{R}: This creature gets +1/+0 until end of turn"* (firebreathing), *"Whenever this
   creature attacks, it gets +2/+0"*, or *"…put a +1/+1 counter on this creature"* — now actually
