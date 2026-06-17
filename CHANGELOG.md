@@ -9,6 +9,10 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **More "do X, then Y" cards now work in The Academy.** The parser now reads a *", then"*
+  sequence as two steps, so cantrips like *Preordain* (*"Scry 2, then draw a card"*), *Foresee*,
+  and *Read the Bones* resolve their scry/surveil **and** their draw — your scry actually decides
+  what you draw. (Improves any *"X, then Y"* card, not just these.)
 - **Scry and surveil now work in The Academy.** Cast *"Scry 2"* / *"Surveil 1"* — or trigger one
   from a creature, an activated ability, or a *"Scry 1, draw a card"* cantrip (*Opt*, *Serum
   Visions*) — and a panel opens showing the top cards of your library: keep the ones you want on

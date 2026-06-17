@@ -161,7 +161,11 @@ function splitClauses(oracle) {
     // parseExtendedAtom binds the controller-scoped pump + grant together (plural subject →
     // "gain", no trailing s).
     if (/^creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
-    for (const c of sentence.split(/\s+\band\b\s+/i)) {
+    // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
+    // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
+    // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split
+    // just yields an unmodeled clause → low → Arbiter, never a confident wrong partial.
+    for (const c of sentence.split(/\s+\band\b\s+|,\s+then\s+/i)) {
       const t = c.trim();
       if (t) clauses.push(t);
     }

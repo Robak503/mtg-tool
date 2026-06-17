@@ -424,7 +424,6 @@ const MUST_DROP_TO_LOW = [
   // rider, or a ", then" combo (a splitClauses follow-up) stays LOW → Arbiter.
   "Scry X.",                                                            // variable amount — deferred
   "You may scry 2.",                                                    // "may" rider — deferred
-  "Scry 1, then draw a card.",                                          // ", then" combo — splitClauses follow-up
   // ── GRAVEYARD RECURSION (return-from-graveyard) — only the bare single-target "return target
   // [creature] card from YOUR graveyard to your HAND" is modeled. A different filter, another
   // graveyard, multi-card cardinality, or a battlefield (reanimation) destination must stay LOW →
@@ -438,7 +437,6 @@ const MUST_DROP_TO_LOW = [
   "Return target creature or land card from your graveyard to your hand.",          // multi-type filter
   "Each player draws a card.",
   "Target player discards a card at random.",
-  "Scry 2, then draw a card.",
   "Deal damage to target creature equal to the number of Mountains you control.",
   // Modal that should stay low: "choose two" (multi-mode pick deferred), and a
   // modal with an unmodeled mode (counter-spell not an atom yet).
@@ -550,6 +548,10 @@ const MUST_STAY_HIGH = [
   "Scry 2.",                                                                      // standalone scry
   "Surveil 1.",                                                                   // standalone surveil
   "Surveil 1. Draw a card.",                                                      // multi-clause (sentence-split)
+  // ── ", then" sequence split (#10) — "X, then Y" composes (Preordain / Foresee / Read the Bones). ──
+  "Scry 2, then draw a card.",                                                    // Preordain
+  "Scry 4, then draw two cards.",                                                 // Foresee
+  "Surveil 2, then draw two cards. You lose 2 life.",                             // Read the Bones-style
   // ── Self-reference (trigger/activated vocabulary) — "this creature" = the ability's source. ──
   "This creature gets +2/+0 until end of turn.",                                  // firebreathing / attack-trigger self-pump
   "Put a +1/+1 counter on this creature.",                                        // self +1/+1 counter
