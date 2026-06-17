@@ -262,6 +262,16 @@ function parseExtendedAtom(s) {
   if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };
   if (/^counter target noncreature spell$/.test(t)) return { op: "counter", spellFilter: "noncreature", targetType: "spell" };
   if (/^counter target creature spell$/.test(t)) return { op: "counter", spellFilter: "creature", targetType: "spell" };
+  // Graveyard recursion (CR 608) — "Return target [creature] card from your graveyard to your
+  // hand" (Raise Dead / Cemetery Recruitment; Regrowth for the unfiltered "card"). The target is
+  // a CARD in the CASTER'S OWN graveyard (a PUBLIC zone), chosen at cast time like any target —
+  // so it flows through the normal cast-time target enumeration, NO resolution-time picker. Only
+  // the two clean filters are modeled: a creature card, or any card. A different filter
+  // ("instant or sorcery card", "artifact card", "permanent card"), another zone ("from a
+  // graveyard"), a multi-card / "up to" cardinality, or a battlefield destination (reanimation)
+  // fails the exact anchor → low → Arbiter, so we never silently mis-target the graveyard.
+  if (/^return target creature card from your graveyard to your hand$/.test(t)) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "creature" };
+  if (/^return target card from your graveyard to your hand$/.test(t)) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "any" };
   // Targeted (single "target creature", no restriction — the anchor keeps it exact).
   if (/^tap target creature$/.test(t)) return { op: "tap", targetType: "creature" };
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };

@@ -243,10 +243,27 @@ export function enumerateTargets(state, controllerId, effect) {
       out.push({ type: "spell", id: obj.id, name: obj.source?.name });
     }
   };
+  // Graveyard recursion: legal targets are CARDS in the CASTER'S OWN graveyard ("your
+  // graveyard"), filtered by the atom's cardFilter (creature → creature cards only; any → every
+  // card). The graveyard is a public zone, so this is a normal cast-time target choice.
+  // Front-face type only (CR 712.4a) — a card in the graveyard has just its FRONT-face
+  // characteristics, but the enriched type line is the combined "Front // Back" for a
+  // transform-DFC / MDFC / Battle / Saga. So "Westvale Abbey // Ormendahl, Profane Prince"
+  // (Land // Creature) is a LAND in the graveyard and must NOT match the creature filter.
+  // Mirrors the counter (counterTypeLine) + tutor (cardMatchesTutorFilter) front-face discipline.
+  const frontIsCreature = (card) => /Creature/.test(String(card?.type || card?.type_line || "").split(" // ")[0]);
+  const addGraveyardCards = () => {
+    for (const card of state.players[controllerId]?.graveyard || []) {
+      if (card.token) continue; // a token is not a "card" (CR 111 / 608.2b) — never a legal target
+      if (effect.cardFilter === "creature" && !frontIsCreature(card)) continue;
+      out.push({ type: "graveyardCard", id: card.id, controller: controllerId, name: card?.name });
+    }
+  };
   if (effect.targetType === "creature") addCreatures();
   else if (effect.targetType === "player") addPlayers();
   else if (effect.targetType === "any") { addCreatures(); addPlayers(); }
   else if (effect.targetType === "spell") addStackSpells();
+  else if (effect.targetType === "graveyardCard") addGraveyardCards();
   return out;
 }
 

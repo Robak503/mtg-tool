@@ -147,6 +147,26 @@ function applyZoneMove(state, atom, ctx, toZone) {
   return logEvent(next, { kind: "spell-effect", effect: toZone === "exile" ? "exile" : "bounce", targets: targets.map(t => t.id) });
 }
 
+/**
+ * Graveyard recursion (CR 608) — move the targeted card(s) from the CASTER'S graveyard to their
+ * hand (Raise Dead / Regrowth). The target was chosen at cast time from the caster's own
+ * graveyard (a public zone). Fail-safe (CR 608.2b): if the targeted card already left the
+ * graveyard, that target does nothing — a logged no-op, never a throw. Hidden-info safe: the
+ * card was already visible in the graveyard, so logging the move reveals nothing new.
+ */
+function applyReturnFromGraveyard(state, atom, ctx) {
+  let next = state;
+  const returned = [];
+  for (const t of ctx.targets || []) {
+    if (t.type !== "graveyardCard") continue;
+    const gy = next.players[ctx.controller]?.graveyard || [];
+    if (!gy.some((c) => c.id === t.id)) continue; // target left the graveyard — no-op (CR 608.2b)
+    next = moveCardToZone(next, { playerId: ctx.controller, fromZone: "graveyard", toZone: "hand", cardId: t.id });
+    returned.push(t.id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "return-from-graveyard", controller: ctx.controller, targets: returned });
+}
+
 /** Put +1/+1 or -1/-1 counters on target creature(s) (CR 122.1). */
 function applyAddCounter(state, atom, ctx) {
   let next = state;
@@ -387,6 +407,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
   "exile": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "exile"),
   "add-counter": applyAddCounter,
+  "return-from-graveyard": applyReturnFromGraveyard,
   "create-token": applyCreateToken,
   "counter": applyCounter,
   "tutor": applyTutor,
