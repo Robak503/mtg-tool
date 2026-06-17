@@ -8,6 +8,8 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-06-17
+
 ### Added
 - **Artifact / enchantment / land destruction now works in The Academy.** *"Destroy target
   artifact"* (Shatter), *"Destroy target artifact or enchantment"* (Disenchant / Naturalize),
@@ -17,19 +19,6 @@ summarizes the notable changes.
   modeled (*Abrade*). ~55 removal spells play natively. For now this is a card you *cast* (where
   you choose the target); a creature whose ability *triggers* one of these is still handed to the
   Arbiter, so it can never auto-destroy your own permanent.
-
-### Fixed
-- **Triggers with a follow-up sentence no longer half-resolve.** A trigger whose effect spanned two
-  sentences — *"each opponent loses 2 life. You gain 2 life and draw a card."* (Shroudstomper),
-  *"create a 0/0 token. Put a +1/+1 counter on it."* (Recon Craft Theta), *"mill a card. If a land
-  was milled this way, you gain 2 life."* (Loafing Giant) — used to fire only the *first* sentence
-  and silently drop the rest. Recon Craft Theta even left a 0/0 token that immediately died. The
-  Academy now reads a trigger's whole single-line effect: if every part is modeled it resolves in
-  full (Shroudstomper drains, gains, **and** draws); if any part isn't, the whole trigger is handed
-  to the Arbiter rather than doing half of it. Verified against the full card corpus — zero triggers
-  fire a partial effect. (This protects every trigger effect, not just mill.)
-
-### Added
 - **Mill now works in The Academy.** *"Mill three cards"* / *"Each opponent mills two cards"* —
   on a spell, an enters/dies/attacks trigger, or an activated ability — now puts the top cards of
   the right library into the graveyard. ~24 clean mill cards play natively (graveyard/dredge
@@ -79,6 +68,17 @@ summarizes the notable changes.
   filter (*instant/sorcery*, *artifact*), one from *any* graveyard, or one to the
   *battlefield* (reanimation) is handed to the Arbiter rather than guessing. ~11 common
   recursion spells now play natively.
+
+### Fixed
+- **Triggers with a follow-up sentence no longer half-resolve.** A trigger whose effect spanned two
+  sentences — *"each opponent loses 2 life. You gain 2 life and draw a card."* (Shroudstomper),
+  *"create a 0/0 token. Put a +1/+1 counter on it."* (Recon Craft Theta), *"mill a card. If a land
+  was milled this way, you gain 2 life."* (Loafing Giant) — used to fire only the *first* sentence
+  and silently drop the rest. Recon Craft Theta even left a 0/0 token that immediately died. The
+  Academy now reads a trigger's whole single-line effect: if every part is modeled it resolves in
+  full (Shroudstomper drains, gains, **and** draws); if any part isn't, the whole trigger is handed
+  to the Arbiter rather than doing half of it. Verified against the full card corpus — zero triggers
+  fire a partial effect. (This protects every trigger effect, not just mill.)
 
 ## [0.35.0] - 2026-06-16
 
