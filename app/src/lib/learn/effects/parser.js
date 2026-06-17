@@ -320,8 +320,19 @@ function parseExtendedAtom(s) {
   }
   tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (tp) return { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) } };
+  // SELF-reference pump (trigger / activated vocabulary) — "this creature gets +N/+N until end of
+  // turn" refers to the ability's SOURCE (CR 109.2 — "this creature" = the source permanent). NOT
+  // a chosen target (target:"self", no targetType → stays non-targeted), so it routes natively on
+  // the trigger-flush + activated paths, which thread the source permanent id into ctx.sourceId.
+  // A spell never produces this (its text isn't "this creature"); if a self atom somehow lacks a
+  // source it resolves to a no-op, never a fabricated pump.
+  m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (m) return { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
+  // SELF-reference +1/+1 / -1/-1 counter — "put a +1/+1 counter on this creature" (the source).
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
   // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)". Anchored
   // to end at "creature token(s)" — a keyword/ability rider ("…with flying", "…that's
   // tapped") fails the anchor → low, so a granted ability is never silently dropped.
@@ -355,6 +366,12 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       const atom = { op: base.op, targetType: base.targetType, amountX: true };
       if (base.restrictions) atom.restrictions = base.restrictions;
       if (base.duration) atom.duration = base.duration;
+      // Carry a non-targetType binding (a self pump's target:"self") so an X-cost self atom can't
+      // silently lose its binding and route a target-less/mis-targeted pump. (ptDelta is NOT
+      // carried — an X atom reads its amount from ctx.xValue, not a printed delta.) No current
+      // card reaches this (a spell never says "this creature"); it keeps the self-binding
+      // invariant from regressing (adversarial-review hardening).
+      if (base.target) atom.target = base.target;
       return atom;
     }
   }

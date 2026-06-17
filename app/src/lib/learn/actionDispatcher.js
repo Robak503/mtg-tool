@@ -382,7 +382,9 @@ function applyActivateAbility(state, action) {
   if (action.isEquipAbility) {
     payload = { resolver: RESOLVER_KEYS.ATTACH, params: { sourceId: action.permanentId, targetId: targets[0]?.id, controller: action.playerId } };
   } else {
-    const params = { program: action.program, controller: action.playerId, targets, cardId: perm.card?.id };
+    // sourceId = the activating permanent — lets a "this creature gets …" self atom in an
+    // activated ability ("{T}: This creature gets +1/+1 until end of turn") resolve to the source.
+    const params = { program: action.program, controller: action.playerId, targets, cardId: perm.card?.id, sourceId: action.permanentId };
     if (action.chosenMode != null) params.chosenMode = action.chosenMode;
     payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
   }

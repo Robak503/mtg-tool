@@ -63,6 +63,12 @@ function splitTriggerSentence(inner) {
   return { condition, effectClause: rest, interveningIf };
 }
 
+/** The subject phrase before an event verb ("a creature", "another creature you control"), so a
+ * RESTRICTED subject can be rejected rather than silently widened to a too-broad each-scope. */
+function subjectBefore(condition, verb) {
+  return String(condition).split(new RegExp(`\\b${verb}\\b`))[0].trim();
+}
+
 /**
  * Classify a trigger condition into { event, scope, whose } or null. selfRef is
  * "this <permanent>" or the card's own name. The CR 603.6d static guard makes
@@ -73,14 +79,24 @@ function classifyCondition(condRaw, cardName) {
   const nameL = String(cardName || "").toLowerCase();
   const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL));
 
+  // Only a BARE subject ("a creature" / "another creature") classifies. A RESTRICTION the
+  // matcher would drop — "a creature you control", "a creature an opponent controls", "another
+  // nontoken creature you control", "a creature with flying" — is NOT enforced by scopeMatches
+  // (eachCreature/eachOtherCreature match every creature), so widening it to the each-scope would
+  // OVER-FIRE on disallowed entries/deaths. Once the effect is modeled (e.g. a self +1/+1 counter)
+  // that over-fire becomes a confident WRONG play, so a restricted subject is left UNDETECTED →
+  // safe no-op / Arbiter (CLAUDE.md §1.2). Modeling you-control / opponent etb-dies scopes
+  // correctly (controller-enforced in scopeMatches, like `creatureYouControl` does for attacks) is
+  // a clean follow-up. `subjectBefore` is exactly the text before the event verb.
   if (/\benters\b/.test(c) && !/\benters (the battlefield )?(tapped|with|as)\b/.test(c)) {
     if (selfRef) return { event: "etb", scope: "self", whose: "any" };
-    if (/\banother creature\b/.test(c)) return { event: "etb", scope: "eachOtherCreature", whose: "any" };
-    if (/\ba creature\b/.test(c)) return { event: "etb", scope: "eachCreature", whose: "any" };
+    const subj = subjectBefore(c, "enters");
+    if (subj === "another creature") return { event: "etb", scope: "eachOtherCreature", whose: "any" };
+    if (subj === "a creature") return { event: "etb", scope: "eachCreature", whose: "any" };
   }
   if (/\bdies\b/.test(c)) {
     if (selfRef) return { event: "dies", scope: "self", whose: "any" };
-    if (/\ba creature\b/.test(c)) return { event: "dies", scope: "eachCreature", whose: "any" };
+    if (subjectBefore(c, "dies") === "a creature") return { event: "dies", scope: "eachCreature", whose: "any" };
   }
   if (/leaves the battlefield/.test(c) && selfRef) return { event: "ltb", scope: "self", whose: "any" };
 
