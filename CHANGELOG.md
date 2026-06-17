@@ -8,7 +8,22 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+### Fixed
+- **Triggers with a follow-up sentence no longer half-resolve.** A trigger whose effect spanned two
+  sentences — *"each opponent loses 2 life. You gain 2 life and draw a card."* (Shroudstomper),
+  *"create a 0/0 token. Put a +1/+1 counter on it."* (Recon Craft Theta), *"mill a card. If a land
+  was milled this way, you gain 2 life."* (Loafing Giant) — used to fire only the *first* sentence
+  and silently drop the rest. Recon Craft Theta even left a 0/0 token that immediately died. The
+  Academy now reads a trigger's whole single-line effect: if every part is modeled it resolves in
+  full (Shroudstomper drains, gains, **and** draws); if any part isn't, the whole trigger is handed
+  to the Arbiter rather than doing half of it. Verified against the full card corpus — zero triggers
+  fire a partial effect. (This protects every trigger effect, not just mill.)
+
 ### Added
+- **Mill now works in The Academy.** *"Mill three cards"* / *"Each opponent mills two cards"* —
+  on a spell, an enters/dies/attacks trigger, or an activated ability — now puts the top cards of
+  the right library into the graveyard. ~24 clean mill cards play natively (graveyard/dredge
+  staples). A *"target player mills"* spell is still handed to the Arbiter for now.
 - **More "do X, then Y" cards now work in The Academy.** The parser now reads a *", then"*
   sequence as two steps, so cantrips like *Preordain* (*"Scry 2, then draw a card"*), *Foresee*,
   and *Read the Bones* resolve their scry/surveil **and** their draw — your scry actually decides

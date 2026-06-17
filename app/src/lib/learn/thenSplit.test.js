@@ -24,7 +24,7 @@ describe("', then' splits a top-level sequence", () => {
     expect(ops("Search your library for a creature card, put it into your hand, then shuffle.")).toEqual(["tutor"]);
   });
   it("an unmodeled second half still drops the whole program (all-or-nothing)", () => {
-    expect(programConfidence(parseEffectProgram(I("Scry 2, then mill three cards.")))).toBe("low"); // mill unmodeled → low
+    expect(programConfidence(parseEffectProgram(I("Scry 2, then exile the top card of your library.")))).toBe("low"); // impulse — unmodeled
     expect(programConfidence(parseEffectProgram(I("Scry 2, then create a Treasure token.")))).toBe("low");
   });
 });

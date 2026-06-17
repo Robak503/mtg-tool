@@ -47,7 +47,10 @@ const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
 export function isKeywordOnly(oracle) {
   const t = stripReminder(oracle).toLowerCase().replace(/[’']/g, "'");
   if (!t.trim()) return true; // vanilla
-  const clauses = t.split(/[,;\n]|\band\b/).map((c) => c.trim()).filter(Boolean);
+  // Split on SENTENCE boundaries (. ! ?) too — not just , ; \n and. Otherwise a trailing non-keyword
+  // sentence glued on by a strip ("flying  scry 1.") is swallowed whole by `startsWith("flying ")`
+  // and mis-credited as keyword-only. Splitting on the period forces "scry 1" to stand alone and fail.
+  const clauses = t.split(/[,;.!?\n]|\band\b/).map((c) => c.trim()).filter(Boolean);
   return clauses.every((c) =>
     COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)),
   );

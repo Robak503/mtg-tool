@@ -21,7 +21,7 @@ import {
   applyDrawEffect,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards } from "../gameState.js";
 import { checkDiesTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice } from "../pendingChoice.js";
 
@@ -413,6 +413,19 @@ function applyScrySurveilAtom(state, atom, ctx, mode) {
   return setPendingScryChoice(state, { controller: ctx.controller, mode, cards, sourceName: ctx.cardName || null });
 }
 
+/** Mill (CR 701.13) — "you mill N cards" (the controller) or "each opponent mills N cards". Top N
+ * of each milled player's library → their graveyard. Non-targeted. */
+function applyMill(state, atom, ctx) {
+  let next = state;
+  const amount = atom.amount || 0;
+  if (atom.who === "eachOpponent") {
+    for (const opp of opponentsOf(next, ctx.controller)) next = millCards(next, { playerId: opp, count: amount });
+  } else {
+    next = millCards(next, { playerId: ctx.controller, count: amount });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "mill", who: atom.who || "controller", amount });
+}
+
 /** P3.2 shuffle — "[then] shuffle [your library]" as its own clause (CR 103.2). */
 function applyShuffle(state, atom, ctx) {
   if (!state.players[ctx.controller]) return state;
@@ -446,6 +459,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "shuffle": applyShuffle,
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
+  "mill": applyMill,
 });
 
 /**

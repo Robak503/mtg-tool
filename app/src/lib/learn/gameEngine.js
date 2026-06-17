@@ -523,6 +523,15 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       const targets = choice?.targets || [];
       return { payload: { resolver: "effect-program", params: { ...baseParams, targets } }, targets };
     }
+    // LOW + non-modal = a trigger whose effect ISN'T fully modeled (an unmodeled clause or a
+    // follow-up sentence like "… If a land card was milled this way, you gain 2 life"). Route to a
+    // NO-OP, NOT the legacy single-effect fallback — `parseTriggerEffect` is unanchored and would
+    // sub-phrase-match (firing "gain 2 life" while dropping the mill = a forbidden partial). The
+    // rich parser is a superset of that legacy vocab, so a LOW rich parse means genuinely unmodeled.
+    // (MODAL / intervening-if / counter still use the fallback below — that's deliberate.)
+    if (programConfidence(program) === "low" && program.structure !== "modal") {
+      return { payload: { resolver: "manual" }, targets: [] };
+    }
   }
   return { payload: trigger.payload || {}, targets: trigger.targets || [] };
 }

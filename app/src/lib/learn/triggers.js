@@ -43,6 +43,27 @@ function isCreaturePerm(perm) {
 // ─── Detection ────────────────────────────────────────────────────────────────
 
 /**
+ * Is `sentence` a FOLLOW-UP that belongs to the trigger just matched (vs a separate ability)? A
+ * triggered ability's WHOLE effect lives on ONE oracle line — "each opponent loses 2 life. You gain
+ * 2 life and draw a card." (Shroudstomper), "create a 0/0 token. Put a +1/+1 counter on it."
+ * (Recon Craft Theta), "mill a card. If a land card was milled this way, you gain 2 life." (Loafing
+ * Giant) — while DISTINCT abilities are newline-delimited. So on the SAME line, every sentence after
+ * the trigger's first IS part of its effect; the caller walks only up to the first newline. The
+ * sole same-line sentences that are NOT this trigger's effect are a SECOND trigger (When/Whenever/At)
+ * or an activated ability (`{cost}: …`), which we exclude here. Appending the whole effect lets the
+ * all-or-nothing parser see it all: a modeled follow-up resolves too; an unmodeled one drops the
+ * WHOLE program to low → Arbiter. Never a partial (CR-faithful: a trigger does all of its effect or,
+ * when we can't model it, none of it — routed to the Arbiter).
+ */
+function isFollowupSentence(sentence) {
+  const t = String(sentence).trim().toLowerCase();
+  if (!t) return false;
+  if (/^(when|whenever|at)\b/.test(t)) return false; // a SECOND trigger, not this one's effect
+  if (t.includes(":")) return false;                  // an activated ability
+  return true;                                         // any other same-line sentence continues the effect
+}
+
+/**
  * Split "<condition>, <effect>" (the text after the leading keyword, sans the
  * trailing period) into its parts, peeling off an "if <cond>," intervening
  * clause (CR 603.4) when present.
@@ -195,19 +216,32 @@ export function detectTriggers(card) {
       if (!split) continue;
       const cls = classifyCondition(split.condition, card.name);
       if (!cls) continue;
+      // Extend the effect with the trigger's remaining SAME-LINE sentences (reminder text stripped)
+      // so the parser sees its WHOLE effect. A triggered ability's effect is one oracle line, so we
+      // stop at the first newline — that avoids swallowing a separate ability on the next line. An
+      // unmodeled follow-up then drops the whole program to low → Arbiter, instead of firing the
+      // first effect natively and dropping the rest (a forbidden partial application).
+      let effectClause = split.effectClause;
+      const sameLine = oracle.slice(re.lastIndex).split("\n")[0].replace(/\([^)]*\)/g, " ");
+      for (const sent of sameLine.split(/\.\s+|\.\s*$|;\s+/)) {
+        const s = sent.trim();
+        if (!s) continue;
+        if (!isFollowupSentence(s)) break;
+        effectClause += `. ${s}`;
+      }
       out.push({
         event: cls.event,
         scope: cls.scope,
         whose: cls.whose,
         spellFilter: cls.spellFilter, // cast triggers only (undefined otherwise)
-        optional: /\bmay\b/.test(split.effectClause.toLowerCase()),
+        optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
-        effect: parseTriggerEffect(split.effectClause),
+        effect: parseTriggerEffect(effectClause),
         // Raw effect text so the flush stage (gameEngine, which can import the parser
         // without the triggers→parser→effectAtoms→triggers cycle) can parse it into a
         // full EffectProgram. P2.8 routes the rich-parsed program through the
         // EFFECT_PROGRAM resolver; `effect` stays the small fallback.
-        effectClause: split.effectClause,
+        effectClause,
         sourceText: `${m[1]} ${inner}`,
       });
     }

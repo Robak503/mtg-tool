@@ -3,6 +3,11 @@ node_modules
 out
 .env.local
 *.log
+# Throwaway corpus-sweep / verification scratch scripts (e.g. _sweep_followup.mjs,
+# _verify_mill.mjs). They live at app/ root, are linted by `eslint .`, and have
+# repeatedly broken the CI lint job when accidentally staged — never commit them.
+_sweep_*.mjs
+_verify_*.mjs
 data/*.local.json
 # Local multi-user profile runtime data — per-user decks/chats/collection live
 # here and must never be committed (contains personal deck libraries).
