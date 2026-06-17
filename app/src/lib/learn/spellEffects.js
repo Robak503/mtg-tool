@@ -259,11 +259,41 @@ export function enumerateTargets(state, controllerId, effect) {
       out.push({ type: "graveyardCard", id: card.id, controller: controllerId, name: card?.name });
     }
   };
+  // Targeted NON-CREATURE permanent removal (Disenchant / Naturalize / Stone Rain / "destroy target
+  // permanent"). The only modeled restriction is the controller (the 3 the parser captures);
+  // tapped/power aren't part of the anchored permanent shapes, so they never reach here.
+  const PERMANENT_PREDICATES = {
+    artifact: (tl) => /\bArtifact\b/.test(tl),
+    enchantment: (tl) => /\bEnchantment\b/.test(tl),
+    land: (tl) => /\bLand\b/.test(tl),
+    permanent: () => true,
+    nonlandPermanent: (tl) => !/\bLand\b/.test(tl),
+    artifactOrEnchantment: (tl) => /\bArtifact\b|\bEnchantment\b/.test(tl),
+  };
+  const controllerOk = (pid) => restrictions.every((r) =>
+    r.kind !== "controller" || (r.who === "you" ? pid === controllerId : pid !== controllerId));
+  const addPermanents = (pred) => {
+    for (const pid of Object.keys(state.players)) {
+      for (const perm of state.players[pid].battlefield) {
+        const tl = String(perm.card?.type || perm.card?.type_line || "");
+        // A double-faced permanent's CURRENT battlefield face isn't tracked (the engine has no face
+        // state), so its combined "Front // Back" type line can't be trusted to pick a targetType —
+        // a back-face-played MDFC (Akoum Warrior cast as the land Akoum Teeth) would mis-match. Skip
+        // DFCs: they're simply not offered to native non-creature removal (a SAFE omission, never a
+        // wrong target). The spell still routes to the Arbiter if a DFC is its only would-be target.
+        if (tl.includes(" // ")) continue;
+        if (pred(tl) && controllerOk(pid)) {
+          out.push({ type: "permanent", id: perm.id, controller: pid, name: perm.card?.name });
+        }
+      }
+    }
+  };
   if (effect.targetType === "creature") addCreatures();
   else if (effect.targetType === "player") addPlayers();
   else if (effect.targetType === "any") { addCreatures(); addPlayers(); }
   else if (effect.targetType === "spell") addStackSpells();
   else if (effect.targetType === "graveyardCard") addGraveyardCards();
+  else if (PERMANENT_PREDICATES[effect.targetType]) addPermanents(PERMANENT_PREDICATES[effect.targetType]);
   return out;
 }
 
@@ -333,14 +363,24 @@ export function applyDrawEffect(state, { controller, amount }) {
 }
 
 export function applyDestroyEffect(state, { controller, targets = [] }) {
+  // NOTE: indestructible is modeled NOWHERE in the learn engine (neither here nor the lethal-damage
+  // SBA) — a Destroy always reaches the graveyard. The new permanent path inherits this exactly as
+  // the long-standing destroy-creature path has it (Darksteel Myr dies the same way). Parity, not a
+  // new gap; when indestructible is modeled it must be honored here for creatures AND permanents.
   let next = state;
   const dead = [];
   for (const t of targets) {
-    if (t.type !== "creature") continue;
+    // "creature" (the dedicated creature path / mass wipe) or "permanent" (targeted non-creature
+    // removal — Disenchant/Stone Rain). moveCardToZone handles detaching any Aura/Equipment on the
+    // destroyed permanent (CR 704.5n/q). Only a CREATURE going to the graveyard "dies" (CR 700.4),
+    // so only creatures feed the dies-trigger look-back; destroying a land/artifact fires no dies.
+    if (t.type !== "creature" && t.type !== "permanent") continue;
     const lk = findPermanent(next, t.id);
     if (lk) {
       // Capture the look-back BEFORE the move (CR 603.10a), then destroy.
-      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
+      if (isCreature(lk.permanent.card)) {
+        dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
+      }
       next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: t.id });
     }
   }

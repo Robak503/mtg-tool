@@ -25,7 +25,7 @@
  * parsers the runtime uses so the metric stays honest.
  */
 
-import { parseEffectProgram, parseEffectClause, programConfidence, programContainsCounter } from "./effects/parser.js";
+import { parseEffectProgram, parseEffectClause, programConfidence, programContainsCounter, programContainsChosenPermanentRemoval } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura } from "./staticAbilityParser.js";
@@ -93,10 +93,12 @@ export function spellIsNative(card) {
 function triggerRoutesNatively(d) {
   if (!d.effectClause || d.interveningIf) return false; // intervening-if → not routed
   const p = parseEffectClause(d.effectClause, "Instant");
-  // Mirror buildTriggerStack EXACTLY: a counter atom is NOT routed through the trigger
-  // flush (its first-legal auto-target could counter the controller's own spell), so an
-  // ETB "counter target spell" creature (Mystic Snake) stays in the gap, not native.
-  return !!p && programConfidence(p) === "high" && p.structure !== "modal" && !programContainsCounter(p);
+  // Mirror buildTriggerStack EXACTLY: a counter atom (Mystic Snake) AND a chosen-target non-creature
+  // permanent removal ("destroy target artifact") are NOT routed through the trigger flush — the
+  // first-legal auto-target could hit the controller's OWN spell/permanent — so a creature with one
+  // stays in the gap, not native.
+  return !!p && programConfidence(p) === "high" && p.structure !== "modal"
+    && !programContainsCounter(p) && !programContainsChosenPermanentRemoval(p);
 }
 
 // The When/Whenever/At sentence shape (matches detectTriggers' grammar). Used to COUNT

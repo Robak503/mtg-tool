@@ -252,11 +252,22 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
     expect(parseEffectProgram(I("Put a +1/+1 counter on target creature.")).atoms).toEqual([{ op: "add-counter", counterType: "+1/+1", amount: 1, targetType: "creature" }]);
     expect(parseEffectProgram(I("Put two -1/-1 counters on target creature.")).atoms).toEqual([{ op: "add-counter", counterType: "-1/-1", amount: 2, targetType: "creature" }]);
   });
+  it("recognizes targeted NON-CREATURE permanent removal (Disenchant/Stone Rain class)", () => {
+    expect(parseEffectProgram(I("Destroy target artifact.")).atoms).toEqual([{ op: "destroy", targetType: "artifact", restrictions: [] }]);
+    expect(parseEffectProgram(I("Destroy target enchantment.")).atoms).toEqual([{ op: "destroy", targetType: "enchantment", restrictions: [] }]);
+    expect(parseEffectProgram(I("Destroy target land.")).atoms).toEqual([{ op: "destroy", targetType: "land", restrictions: [] }]);
+    expect(parseEffectProgram(I("Destroy target permanent.")).atoms).toEqual([{ op: "destroy", targetType: "permanent", restrictions: [] }]);
+    expect(parseEffectProgram(I("Destroy target artifact or enchantment.")).atoms).toEqual([{ op: "destroy", targetType: "artifactOrEnchantment", restrictions: [] }]);
+    expect(parseEffectProgram(I("Exile target nonland permanent.")).atoms).toEqual([{ op: "exile", targetType: "nonlandPermanent", restrictions: [] }]);
+    expect(parseEffectProgram(I("Destroy target artifact an opponent controls.")).atoms)
+      .toEqual([{ op: "destroy", targetType: "artifact", restrictions: [{ kind: "controller", who: "opponent" }] }]);
+  });
   it("keeps RESTRICTED / non-creature variants low (anchor exact)", () => {
     expect(programConfidence(parseEffectProgram(I("Exile target creature you control.")))).toBe("low");
-    expect(programConfidence(parseEffectProgram(I("Tap target artifact.")))).toBe("low");
-    expect(programConfidence(parseEffectProgram(I("Exile target nonland permanent.")))).toBe("low");
-    expect(programConfidence(parseEffectProgram(I("Return target nonland permanent to its owner's hand.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Tap target artifact.")))).toBe("low");          // tap is creature-only
+    expect(programConfidence(parseEffectProgram(I("Destroy target tapped artifact.")))).toBe("low"); // unmodeled restriction
+    expect(programConfidence(parseEffectProgram(I("Destroy target artifact creature.")))).toBe("low"); // not a bare type
+    expect(programConfidence(parseEffectProgram(I("Return target nonland permanent to its owner's hand.")))).toBe("low"); // bounce is creature-only
   });
 });
 
@@ -387,7 +398,8 @@ const MUST_DROP_TO_LOW = [
   "Draw a card and search your library for a creature card and put it into your hand.",             // leading-effect leak (review catch) — must NOT parse HIGH as [draw]
   "Destroy target creature unless its controller pays {2}.",   // legacy over-matches → MUST drop
   "Destroy target nonblack creature.",                          // unmodeled COLOR restriction → MUST drop
-  "Destroy target artifact.",
+  "Destroy target artifact with mana value 3 or less.",         // unmodeled MV restriction on a permanent → MUST drop
+  "Destroy target nonbasic land.",                              // unmodeled "nonbasic" qualifier → MUST drop
   // FILTERED board wipes — `eachCreature` would wrongly hit the UNFILTERED set, so the exact
   // "all creatures" anchor must reject any qualifier (color/type/keyword/controller).
   "Destroy all creatures with flying.",                         // keyword filter → not all creatures
@@ -446,7 +458,6 @@ const MUST_DROP_TO_LOW = [
   // the WHOLE program (all-or-nothing). These are the false-high vectors P2.2 guarded
   // with a denylist; P2.5 keeps them low because a split clause fails to parse.
   "Char deals 4 damage to any target and 2 damage to you.",              // "2 damage to you" has no verb → low
-  "Destroy target artifact and draw a card.",                            // "destroy target artifact" not modeled → low
   "Deals 2 damage to target creature and 2 damage to target player.",    // 2nd clause verbless → low
   "Draw two cards, discard a card.",                                     // comma-rider (NOT split) → low
   // Unmodeled target restrictions — HIGH would permit an illegal target. P2.4 models
@@ -560,6 +571,17 @@ const MUST_STAY_HIGH = [
   "Return target creature card from your graveyard to your hand.",                // Raise Dead (creature filter)
   "Return target card from your graveyard to your hand.",                         // Regrowth (any-card filter)
   "Return target creature card from your graveyard to your hand. Draw a card.",   // Recover (recursion + draw)
+  // ── Targeted NON-CREATURE permanent removal (Disenchant / Stone Rain class) — corpus-confirmed. ──
+  "Destroy target artifact.",                                                     // Shatter / Smelt
+  "Destroy target artifact or enchantment.",                                      // Disenchant / Naturalize
+  "Destroy target enchantment.",                                                  // Demystify
+  "Destroy target land.",                                                          // Stone Rain
+  "Destroy target permanent.",                                                     // Vindicate / Desert Twister
+  "Exile target nonland permanent.",                                              // Utter End
+  "Destroy target artifact or enchantment. You gain 3 life.",                     // Natural End (removal + gain-life)
+  "Destroy target artifact. Draw a card.",                                        // Smash (removal + draw)
+  "Destroy target land. Scry 2.",                                                  // Rubble Reading (removal + scry)
+  "Exile target nonland permanent. You lose 3 life.",                            // Anguished Unmaking
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {

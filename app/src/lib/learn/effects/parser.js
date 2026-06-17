@@ -283,6 +283,21 @@ function parseExtendedAtom(s) {
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
   if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
+  // Targeted NON-CREATURE permanent removal (Disenchant / Naturalize / Stone Rain / "Destroy
+  // target permanent"). CREATURE removal keeps its dedicated path (the richer creature-restriction
+  // parser); this covers artifact / enchantment / land / permanent / nonland permanent / "artifact
+  // or enchantment", with the SAME 3 controller restrictions the creature path models, enforced at
+  // enumeration. A different filter ("artifact creature", "tapped artifact"), a non-controller
+  // restriction, or a rider (a 2nd clause — Beast Within's "Its controller creates …") fails the
+  // exact anchor → low → Arbiter. The new targetType is gated OUT of the trigger flush
+  // (programContainsChosenPermanentRemoval) — first-legal could hit the controller's OWN permanent,
+  // a forbidden mis-application; safe on the cast path where the player/AI choose the target.
+  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|nonland permanent|artifact|enchantment|land|permanent)(?: (an opponent controls|you don't control|you control))?$/);
+  if (rm) {
+    const TT = { "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent", "nonland permanent": "nonlandPermanent", "artifact or enchantment": "artifactOrEnchantment" };
+    const restrictions = rm[3] ? [{ kind: "controller", who: /^you control$/.test(rm[3]) ? "you" : "opponent" }] : [];
+    return { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
+  }
   // Combat-trick pump + keyword grant: "target creature gets +N/+N and gains KW[, KW][ and KW]
   // until end of turn" — a layer-7c P/T bump AND layer-6 keyword grant(s), both endOfTurn. The
   // granted keywords must ALL be in the enforced+layer-aware GRANTABLE set (parseGrantedKeywords),
@@ -597,6 +612,28 @@ export function programContainsCounter(program) {
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
   return atoms.some(a => a.op === "counter");
+}
+
+// The chosen-target NON-CREATURE permanent-removal targetTypes (Disenchant / Stone Rain class). A
+// SET so the parser, the trigger gate, and the enumerator can't drift on which types are covered.
+export const PERMANENT_TARGET_TYPES = new Set(["artifact", "enchantment", "land", "permanent", "nonlandPermanent", "artifactOrEnchantment"]);
+
+/**
+ * Does the program contain a CHOSEN-TARGET non-creature permanent-removal atom (destroy/exile target
+ * artifact/enchantment/land/permanent/…)? Gated OUT of the trigger flush (gameEngine.buildTriggerStack)
+ * for the SAME reason as `counter`: the default first-legal flush chooser has no enemy-awareness, so a
+ * trigger's "destroy target artifact" would silently destroy the CONTROLLER'S OWN permanent when it
+ * sorts first — a confident WRONG play (CLAUDE.md §1.2). SAFE on the cast path (the user picks; the AI
+ * holds non-creature removal), so the gate is narrow: the trigger flush + the coverage metric that
+ * mirrors it. Lift it once an enemy-aware/interactive flush chooser exists. (CREATURE removal keeps
+ * its existing trigger behavior — different targetType, unchanged by this gate.)
+ */
+export function programContainsChosenPermanentRemoval(program) {
+  if (!program) return false;
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.some(a => (a.op === "destroy" || a.op === "exile") && PERMANENT_TARGET_TYPES.has(a.targetType));
 }
 
 /**

@@ -40,7 +40,7 @@ import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
 import { checkStepTriggers, checkAttackTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
-import { parseEffectClause, programConfidence, programNeedsChosenTarget, programContainsCounter } from "./effects/parser.js";
+import { parseEffectClause, programConfidence, programNeedsChosenTarget, programContainsCounter, programContainsChosenPermanentRemoval } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
@@ -506,7 +506,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // worse than the Arbiter route (CLAUDE.md §1.2). Fall through to the trigger.effect/
     // Arbiter fallback until an enemy-aware/interactive flush chooser exists. (Counter is
     // safe on the cast path: the user picks the target, the AI holds counters.)
-    if (program && programConfidence(program) === "high" && program.structure !== "modal" && !programContainsCounter(program)) {
+    if (program && programConfidence(program) === "high" && program.structure !== "modal" && !programContainsCounter(program) && !programContainsChosenPermanentRemoval(program)) {
       // sourceId = the trigger's SOURCE permanent (CR 109.2) — lets a "this creature gets …" /
       // "put a +1/+1 counter on this creature" self atom resolve to the source on the non-targeted path.
       const baseParams = { program, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId };
@@ -523,13 +523,16 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       const targets = choice?.targets || [];
       return { payload: { resolver: "effect-program", params: { ...baseParams, targets } }, targets };
     }
-    // LOW + non-modal = a trigger whose effect ISN'T fully modeled (an unmodeled clause or a
-    // follow-up sentence like "… If a land card was milled this way, you gain 2 life"). Route to a
-    // NO-OP, NOT the legacy single-effect fallback — `parseTriggerEffect` is unanchored and would
-    // sub-phrase-match (firing "gain 2 life" while dropping the mill = a forbidden partial). The
-    // rich parser is a superset of that legacy vocab, so a LOW rich parse means genuinely unmodeled.
+    // Route to a NO-OP (NOT the unanchored legacy fallback, which would sub-phrase-match a partial)
+    // when, non-modal, the program is either:
+    //   - LOW = a trigger whose effect ISN'T fully modeled (an unmodeled clause or a follow-up like
+    //     "… If a land card was milled this way, you gain 2 life"); the rich parser is a superset of
+    //     the legacy vocab, so LOW means genuinely unmodeled; or
+    //   - HIGH but a CHOSEN-TARGET permanent-removal (gated out of native routing above): firing it
+    //     with the first-legal chooser could destroy the controller's OWN permanent. Explicit no-op
+    //     here so it doesn't depend on the legacy parser lacking a destroy vocab.
     // (MODAL / intervening-if / counter still use the fallback below — that's deliberate.)
-    if (programConfidence(program) === "low" && program.structure !== "modal") {
+    if (program.structure !== "modal" && (programConfidence(program) === "low" || programContainsChosenPermanentRemoval(program))) {
       return { payload: { resolver: "manual" }, targets: [] };
     }
   }
