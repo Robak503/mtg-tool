@@ -420,6 +420,11 @@ const MUST_DROP_TO_LOW = [
   // the ambiguous "it" (could be a prior target, not the source) stays LOW → Arbiter.
   "It gets +2/+0 until end of turn.",                                   // "it" is ambiguous — deferred
   "It gains flying until end of turn.",                                 // "it" keyword grant — deferred
+  // SCRY / SURVEIL — only the numeric standalone form is modeled; a variable amount, a "you may"
+  // rider, or a ", then" combo (a splitClauses follow-up) stays LOW → Arbiter.
+  "Scry X.",                                                            // variable amount — deferred
+  "You may scry 2.",                                                    // "may" rider — deferred
+  "Scry 1, then draw a card.",                                          // ", then" combo — splitClauses follow-up
   // ── GRAVEYARD RECURSION (return-from-graveyard) — only the bare single-target "return target
   // [creature] card from YOUR graveyard to your HAND" is modeled. A different filter, another
   // graveyard, multi-card cardinality, or a battlefield (reanimation) destination must stay LOW →
@@ -541,6 +546,10 @@ const MUST_STAY_HIGH = [
   "Creatures you control get +1/+1 until end of turn.",                          // generic team pump
   "Creatures you control get +3/+3 and gain trample until end of turn.",         // Overrun (no-split guard holds the combo)
   "Creatures you control get +1/+1 and gain vigilance until end of turn.",       // single-keyword combo
+  // ── Scry / surveil (CR 701.18 / 701.43) — numeric standalone + ". "-separated multi-clause. ──
+  "Scry 2.",                                                                      // standalone scry
+  "Surveil 1.",                                                                   // standalone surveil
+  "Surveil 1. Draw a card.",                                                      // multi-clause (sentence-split)
   // ── Self-reference (trigger/activated vocabulary) — "this creature" = the ability's source. ──
   "This creature gets +2/+0 until end of turn.",                                  // firebreathing / attack-trigger self-pump
   "Put a +1/+1 counter on this creature.",                                        // self +1/+1 counter

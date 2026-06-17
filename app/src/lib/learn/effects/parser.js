@@ -338,6 +338,15 @@ function parseExtendedAtom(s) {
   // tapped") fails the anchor → low, so a granted ability is never silently dropped.
   m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?$/);
   if (m) return { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power: parseInt(m[2], 10), toughness: parseInt(m[3], 10), descriptor: m[4].trim(), targetType: null };
+  // Scry / surveil (CR 701.18 / 701.43) — look at the top N of YOUR library and reorder: keep any
+  // on top (in any order), put the rest on the bottom (scry) or into your graveyard (surveil). A
+  // resolution-time INTERACTIVE choice (the player decides; AI/Expert keep all on top) — non-
+  // targeted, so it routes natively as a spell, trigger, or activated ability. Numeric N only; a
+  // variable "scry X" / a modal "scry 1 or 2" leaves the anchor → low → Arbiter.
+  m = t.match(/^scry (\d+)$/);
+  if (m) return { op: "scry", amount: parseInt(m[1], 10), targetType: null };
+  m = t.match(/^surveil (\d+)$/);
+  if (m) return { op: "surveil", amount: parseInt(m[1], 10), targetType: null };
   return null;
 }
 

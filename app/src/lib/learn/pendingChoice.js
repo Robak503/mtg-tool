@@ -58,6 +58,28 @@ export function setPendingCloneChoice(state, { controller, candidates, sourceNam
   };
 }
 
+/**
+ * Flag a scry/surveil awaiting the player's keep-on-top / move-away decision (CR 701.18 / 701.43).
+ * `cards` is the top N of the controller's library, top-first, as `{ id, name }` (public to the
+ * controller — they're looking at their own library). `mode` is "scry" (rest → bottom) or
+ * "surveil" (rest → graveyard). Like the tutor, `runProgram` records the suspended-program
+ * continuation onto `pendingChoice.resume` when it detects the pause. FIFO: one choice at a time.
+ */
+export function setPendingScryChoice(state, { controller, mode, cards, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "scry-pending", controller, mode, count: cards.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "scry-surveil",
+      controller,
+      mode,
+      cards,
+      sourceName,
+    },
+  };
+}
+
 /** Clear the pending choice (after it's resolved). */
 export function clearPendingChoice(state) {
   if (!state.pendingChoice) return state;

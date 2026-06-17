@@ -43,7 +43,7 @@ import {
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { autoPickTutorCandidate, resolveTutorChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -336,6 +336,17 @@ function settleCloneChoice(state, chosenPermId) {
 }
 
 /**
+ * Settle a scry/surveil choice: apply the keep/move reorder, resume the suspended program (the
+ * "draw a card" after "Scry 1, then draw"), then finalizeStackResolution flushes any triggers a
+ * resumed atom enqueued — the same finalize the tutor path runs. A re-pause (a second scry) returns
+ * as-is for the driver to surface. `keepIds` is the ordered list of top-card ids to keep on top.
+ */
+function settleScryChoice(state, keepIds) {
+  const next = resolveScryChoice(state, keepIds);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
  * decisions auto-apply; trivial user auto-passes also auto-apply.
@@ -425,6 +436,16 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
           return { session: current, decision: { kind: "clone-search", ...pc } };
         }
         current = { ...current, state: settleCloneChoice(current.state, autoPickCloneCandidate(current.state, pc)) };
+        continue;
+      }
+      // Scry / surveil (CR 701.18 / 701.43): the player's OWN reorder surfaces a keep/move picker;
+      // Expert autopilot + an opponent's scry KEEP ALL on top (a legal, deterministic default — a
+      // board-aware "bin a land when flooded" heuristic is a future refinement).
+      if (pc.kind === "scry-surveil") {
+        if (pause) {
+          return { session: current, decision: { kind: "scry-surveil", ...pc } };
+        }
+        current = { ...current, state: settleScryChoice(current.state, (pc.cards || []).map((c) => c.id)) };
         continue;
       }
       // Tutor library search.
@@ -742,15 +763,59 @@ export function applyCloneChoice(session, choice) {
 }
 
 /**
+ * The player resolved a `scry-surveil` decision (CR 701.18 / 701.43). `choice.keep` is the ordered
+ * list of top-card ids to keep on top; everything else among the looked-at cards goes to the bottom
+ * (scry) or the graveyard (surveil). Applies the reorder + resumes, then re-derives the next
+ * decision. Returns { session, decision } like advanceUntilDecision.
+ */
+export function applyScryChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "scry-surveil") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  // Keep only ids that are actually among the looked-at cards, each at most once (defensive
+  // against a stale/duplicate-id UI submit — keeps the library mutation + the log count honest).
+  const valid = new Set((pc.cards || []).map((c) => c.id));
+  const keep = [...new Set((Array.isArray(choice?.keep) ? choice.keep : []).filter((id) => valid.has(id)))];
+
+  let newState;
+  try {
+    newState = settleScryChoice(session.state, keep);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "scry-choice", mode: pc.mode, kept: keep.length, looked: (pc.cards || []).length },
+    auto: false,
+    reasoning: "user-chose-scry",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
+    decisionLog: [...session.decisionLog, logEntry],
+  });
+}
+
+/**
  * Dispatch an interactive resolution-time choice (state.pendingChoice) to the right handler by
- * its kind — so the single /api/learn/choose route serves both the tutor library search and the
- * clone copy-pick. A `clone-search` reads `choice.permId`; a tutor reads `choice.cardId`. (Named
- * apart from the decision-gate `applyChoice`, which resolves a player ACTION, not a pendingChoice.)
+ * its kind — so the single /api/learn/choose route serves the tutor search, the clone copy-pick,
+ * and scry/surveil. (Named apart from the decision-gate `applyChoice`, which resolves a player
+ * ACTION, not a pendingChoice.)
  */
 export function applyPendingChoice(session, choice) {
-  if (session.state?.pendingChoice?.kind === "clone-search") {
-    return applyCloneChoice(session, choice);
-  }
+  const kind = session.state?.pendingChoice?.kind;
+  if (kind === "clone-search") return applyCloneChoice(session, choice);
+  if (kind === "scry-surveil") return applyScryChoice(session, choice);
   return applyTutorChoice(session, choice);
 }
 

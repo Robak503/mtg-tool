@@ -9,6 +9,13 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Scry and surveil now work in The Academy.** Cast *"Scry 2"* / *"Surveil 1"* — or trigger one
+  from a creature, an activated ability, or a *"Scry 1, draw a card"* cantrip (*Opt*, *Serum
+  Visions*) — and a panel opens showing the top cards of your library: keep the ones you want on
+  top (reorder them with ▲▼) and send the rest to the bottom (scry) or your graveyard (surveil).
+  Then the spell finishes — so a *"scry, then draw"* actually lets your scry decide what you draw.
+  ~260 cards now resolve their scry/surveil natively. (The opponent AI keeps everything on top for
+  now; you get the real choice.)
 - **"Whenever a creature you control / an opponent controls enters or dies" triggers now work in
   The Academy.** Aristocrats and lifegain-matters staples — *Corpse Knight*, *Malakir Cullblade*,
   *The Meathook Massacre*, *Liliana, Dreadhorde General*, *Purphoros, God of the Forge*, *Healer
