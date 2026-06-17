@@ -63,10 +63,31 @@ function splitTriggerSentence(inner) {
   return { condition, effectClause: rest, interveningIf };
 }
 
-/** The subject phrase before an event verb ("a creature", "another creature you control"), so a
- * RESTRICTED subject can be rejected rather than silently widened to a too-broad each-scope. */
+/** The subject phrase before an event verb ("a creature", "another creature you control"). */
 function subjectBefore(condition, verb) {
   return String(condition).split(new RegExp(`\\b${verb}\\b`))[0].trim();
+}
+
+/**
+ * Map an etb/dies subject phrase to a creature-scope `scopeMatches` ENFORCES, or null. Only the
+ * shapes the matcher can faithfully restrict are modeled — bare ("a creature" / "another
+ * creature") + the controller restriction ("you control" / "an opponent controls" / "you don't
+ * control"). A subject carrying anything else (a keyword/type/power filter, "named", "token",
+ * "nontoken") returns null → the trigger is left UNDETECTED → safe no-op (never an over-fire on a
+ * restriction we can't check, CLAUDE.md §1.2). "another … an opponent controls" === the opponent
+ * scope (an opponent's creature is never the source, so "another" is redundant there).
+ */
+function creatureSubjectScope(subj) {
+  switch (subj) {
+    case "a creature": return "eachCreature";
+    case "another creature": return "eachOtherCreature";
+    case "a creature you control": return "creatureYouControl";
+    case "another creature you control": return "otherCreatureYouControl";
+    case "a creature an opponent controls":
+    case "another creature an opponent controls":
+    case "a creature you don't control": return "creatureOpponentControls";
+    default: return null;
+  }
 }
 
 /**
@@ -79,24 +100,19 @@ function classifyCondition(condRaw, cardName) {
   const nameL = String(cardName || "").toLowerCase();
   const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL));
 
-  // Only a BARE subject ("a creature" / "another creature") classifies. A RESTRICTION the
-  // matcher would drop — "a creature you control", "a creature an opponent controls", "another
-  // nontoken creature you control", "a creature with flying" — is NOT enforced by scopeMatches
-  // (eachCreature/eachOtherCreature match every creature), so widening it to the each-scope would
-  // OVER-FIRE on disallowed entries/deaths. Once the effect is modeled (e.g. a self +1/+1 counter)
-  // that over-fire becomes a confident WRONG play, so a restricted subject is left UNDETECTED →
-  // safe no-op / Arbiter (CLAUDE.md §1.2). Modeling you-control / opponent etb-dies scopes
-  // correctly (controller-enforced in scopeMatches, like `creatureYouControl` does for attacks) is
-  // a clean follow-up. `subjectBefore` is exactly the text before the event verb.
+  // The subject is mapped ONLY to a scope scopeMatches can ENFORCE (bare, or the controller
+  // restriction); any other restriction (keyword/type/power/named/token) → null → UNDETECTED, so
+  // we never over-fire on a restriction we can't check (CLAUDE.md §1.2). `subjectBefore` is the
+  // exact text before the event verb.
   if (/\benters\b/.test(c) && !/\benters (the battlefield )?(tapped|with|as)\b/.test(c)) {
     if (selfRef) return { event: "etb", scope: "self", whose: "any" };
-    const subj = subjectBefore(c, "enters");
-    if (subj === "another creature") return { event: "etb", scope: "eachOtherCreature", whose: "any" };
-    if (subj === "a creature") return { event: "etb", scope: "eachCreature", whose: "any" };
+    const scope = creatureSubjectScope(subjectBefore(c, "enters"));
+    if (scope) return { event: "etb", scope, whose: "any" };
   }
   if (/\bdies\b/.test(c)) {
     if (selfRef) return { event: "dies", scope: "self", whose: "any" };
-    if (subjectBefore(c, "dies") === "a creature") return { event: "dies", scope: "eachCreature", whose: "any" };
+    const scope = creatureSubjectScope(subjectBefore(c, "dies"));
+    if (scope) return { event: "dies", scope, whose: "any" };
   }
   if (/leaves the battlefield/.test(c) && selfRef) return { event: "ltb", scope: "self", whose: "any" };
 
@@ -219,6 +235,10 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent) {
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent);
     case "creatureYouControl":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
+    case "otherCreatureYouControl":
+      return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
+    case "creatureOpponentControls":
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller;
     default:
       return false;
   }

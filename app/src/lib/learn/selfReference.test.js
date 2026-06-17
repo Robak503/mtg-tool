@@ -76,17 +76,17 @@ describe("trigger flush — an attack self-pump resolves against the source", ()
   });
 });
 
-describe("restriction guard — a dropped restriction must NOT over-fire a self effect (review catch)", () => {
+describe("restriction guard — only restrictions scopeMatches can ENFORCE are detected", () => {
   const T = (oracle) => detectTriggers({ type: "Creature — Beast", name: "X", oracle });
-  it("a RESTRICTED dies/etb condition stays UNDETECTED (safe no-op); bare conditions still classify", () => {
-    // The classifier doesn't enforce these restrictions, so widening them to each-scope would
-    // over-fire on disallowed deaths/entries (Malakir Cullblade counting an OWN creature's death).
-    expect(T("Whenever a creature an opponent controls dies, put a +1/+1 counter on this creature.")).toEqual([]);
-    expect(T("Whenever another creature you control enters, put a +1/+1 counter on this creature.")).toEqual([]);
+  it("an UNENFORCEABLE restriction (keyword/type) stays UNDETECTED; controller restrictions get an enforcing scope", () => {
+    // A keyword/type filter the matcher can't check → undetected (safe no-op, never an over-fire).
     expect(T("Whenever a creature with flying dies, put a +1/+1 counter on this creature.")).toEqual([]);
-    // BARE conditions (no dropped restriction) and self-triggers still classify and route.
+    expect(T("Whenever a nontoken creature you control dies, put a +1/+1 counter on this creature.")).toEqual([]);
+    // Controller restrictions are detected with a scope scopeMatches enforces (#8b).
+    expect(T("Whenever a creature an opponent controls dies, put a +1/+1 counter on this creature.")[0]).toMatchObject({ event: "dies", scope: "creatureOpponentControls" });
+    expect(T("Whenever another creature you control enters, put a +1/+1 counter on this creature.")[0]).toMatchObject({ event: "etb", scope: "otherCreatureYouControl" });
+    // Bare + self still classify.
     expect(T("Whenever a creature dies, put a +1/+1 counter on this creature.")[0]).toMatchObject({ event: "dies", scope: "eachCreature" });
-    expect(T("Whenever another creature enters the battlefield, this creature gets +1/+1 until end of turn.")[0]).toMatchObject({ event: "etb", scope: "eachOtherCreature" });
     expect(T("Whenever this creature attacks, this creature gets +1/+0 until end of turn.")[0]).toMatchObject({ event: "attacks", scope: "self" });
   });
 });
