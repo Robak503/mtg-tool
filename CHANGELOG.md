@@ -9,6 +9,14 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Firebreathing and self-pumps now work in The Academy.** A creature whose own ability pumps
+  *itself* — *"{R}: This creature gets +1/+0 until end of turn"* (firebreathing), *"Whenever this
+  creature attacks, it gets +2/+0"*, or *"…put a +1/+1 counter on this creature"* — now actually
+  grows when you activate it or when the trigger fires (and the +1/+1 counters stick around).
+  This is one of the most common ability shapes in Magic, so it quietly lights up hundreds of
+  creatures: roughly **390** firebreathers and self-growing creatures now resolve their own
+  ability natively instead of pausing for a ruling. (The opponent AI doesn't activate these yet —
+  you do.)
 - **Clones now work in The Academy.** Cast *Clone* or *Mirror Image* (*"You may have this
   creature enter as a copy of any creature on the battlefield"*) and a picker opens: choose
   which creature on the table to copy, and your clone enters with that creature's power,

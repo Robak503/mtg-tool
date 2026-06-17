@@ -69,8 +69,20 @@ function controllerCreatureTargets(state, controller) {
 const atomTargets = (state, atom, ctx) => {
   if (atom.targetType === "eachCreature") return massCreatureTargets(state);
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller);
+  if (atom.target === "self") return selfTargets(state, ctx);
   return ctx.targets || [];
 };
+
+/**
+ * The trigger/activated SOURCE permanent as a target list (for a "this creature gets …" self
+ * effect, CR 109.2). ctx.sourceId is threaded from the trigger flush / activated dispatcher; a
+ * spell has no source permanent, so a self atom there resolves to [] (a no-op, never a fabricated
+ * effect). Only a CREATURE source is returned — "this creature" implies a creature.
+ */
+function selfTargets(state, ctx) {
+  const lk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  return lk && isCreatureCard(lk.permanent.card) ? [{ type: "creature", id: ctx.sourceId, controller: lk.controller }] : [];
+}
 
 /**
  * P2.6 create-token (CR 701.7) — put `count` token creatures onto the controller's
@@ -167,10 +179,12 @@ function applyReturnFromGraveyard(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "return-from-graveyard", controller: ctx.controller, targets: returned });
 }
 
-/** Put +1/+1 or -1/-1 counters on target creature(s) (CR 122.1). */
+/** Put +1/+1 or -1/-1 counters on the chosen creature(s), or the SOURCE for a self counter
+ * ("put a +1/+1 counter on this creature", atom.target "self"; CR 122.1). */
 function applyAddCounter(state, atom, ctx) {
   let next = state;
-  for (const t of ctx.targets || []) {
+  const targets = atomTargets(state, atom, ctx);
+  for (const t of targets) {
     if (t.type === "creature" && findPermanent(next, t.id)) {
       next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount: atom.amount || 1 });
     }
@@ -181,7 +195,7 @@ function applyAddCounter(state, atom, ctx) {
     const r = destroyLethalCreatures(next);
     next = checkDiesTriggers(r.state, r.dead);
   }
-  return logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount: atom.amount || 1, targets: (ctx.targets || []).map(t => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount: atom.amount || 1, targets: targets.map(t => t.id) });
 }
 
 /**

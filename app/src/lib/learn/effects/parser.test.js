@@ -416,6 +416,10 @@ const MUST_DROP_TO_LOW = [
   "Creatures you control get +1/+1 and gain hexproof until end of turn.", // hexproof not grantable/enforced
   "Creatures you control get +2/+2 and gain menace until end of turn.",   // menace not grantable (unenforced)
   "Creatures you control gain trample until end of turn.",             // pure team keyword grant (no P/T) — deferred
+  // SELF-reference (trigger/activated vocabulary) — "this creature" is modeled (= the source);
+  // the ambiguous "it" (could be a prior target, not the source) stays LOW → Arbiter.
+  "It gets +2/+0 until end of turn.",                                   // "it" is ambiguous — deferred
+  "It gains flying until end of turn.",                                 // "it" keyword grant — deferred
   // ── GRAVEYARD RECURSION (return-from-graveyard) — only the bare single-target "return target
   // [creature] card from YOUR graveyard to your HAND" is modeled. A different filter, another
   // graveyard, multi-card cardinality, or a battlefield (reanimation) destination must stay LOW →
@@ -537,6 +541,10 @@ const MUST_STAY_HIGH = [
   "Creatures you control get +1/+1 until end of turn.",                          // generic team pump
   "Creatures you control get +3/+3 and gain trample until end of turn.",         // Overrun (no-split guard holds the combo)
   "Creatures you control get +1/+1 and gain vigilance until end of turn.",       // single-keyword combo
+  // ── Self-reference (trigger/activated vocabulary) — "this creature" = the ability's source. ──
+  "This creature gets +2/+0 until end of turn.",                                  // firebreathing / attack-trigger self-pump
+  "Put a +1/+1 counter on this creature.",                                        // self +1/+1 counter
+  "Put two +1/+1 counters on this creature.",                                     // multi-count self counter
   // ── Graveyard recursion (return-from-graveyard) — single-target, your graveyard, to hand. ──
   "Return target creature card from your graveyard to your hand.",                // Raise Dead (creature filter)
   "Return target card from your graveyard to your hand.",                         // Regrowth (any-card filter)

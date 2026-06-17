@@ -507,7 +507,9 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // Arbiter fallback until an enemy-aware/interactive flush chooser exists. (Counter is
     // safe on the cast path: the user picks the target, the AI holds counters.)
     if (program && programConfidence(program) === "high" && program.structure !== "modal" && !programContainsCounter(program)) {
-      const baseParams = { program, controller: trigger.controller, context: trigger.context };
+      // sourceId = the trigger's SOURCE permanent (CR 109.2) — lets a "this creature gets …" /
+      // "put a +1/+1 counter on this creature" self atom resolve to the source on the non-targeted path.
+      const baseParams = { program, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId };
       if (!programNeedsChosenTarget(program)) {
         return { payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } }, targets: [] };
       }

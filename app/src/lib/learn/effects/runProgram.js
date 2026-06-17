@@ -51,7 +51,7 @@ function programAtoms(program, chosenMode) {
 
 export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
   const params = stackObject?.payload?.params || {};
-  const { program, controller, targets = [], xValue = null } = params;
+  const { program, controller, targets = [], xValue = null, sourceId = null } = params;
 
   // Low confidence (or absent program) → ZERO atoms, route to the Arbiter seam.
   if (programConfidence(program) === "low") {
@@ -64,7 +64,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
   const cardName = stackObject?.source?.name || null;
   for (let i = startIndex; i < atoms.length; i++) {
     const atom = atoms[i];
-    const ctx = { controller, targets: targetsForAtom(targets, i), cardName, xValue };
+    const ctx = { controller, targets: targetsForAtom(targets, i), cardName, xValue, sourceId };
     const after = resolveAtom(next, atom, ctx);
     if (after == null) {
       // Belt-and-braces: an atom with no resolver. programConfidence should have
@@ -81,7 +81,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
         ...next,
         pendingChoice: {
           ...next.pendingChoice,
-          resume: { program, controller, targets, xValue, chosenMode: params.chosenMode ?? null, nextAtomIndex: i + 1, cardName },
+          resume: { program, controller, targets, xValue, sourceId, chosenMode: params.chosenMode ?? null, nextAtomIndex: i + 1, cardName },
         },
       };
     }
@@ -132,7 +132,7 @@ export function resolveTutorChoice(state, cardId) {
   if (r?.program && Array.isArray(programAtoms(r.program, r.chosenMode)) && r.nextAtomIndex < programAtoms(r.program, r.chosenMode).length) {
     const obj = {
       source: { name: r.cardName ?? pc.sourceName ?? null },
-      payload: { params: { program: r.program, controller: r.controller, targets: r.targets, xValue: r.xValue, chosenMode: r.chosenMode } },
+      payload: { params: { program: r.program, controller: r.controller, targets: r.targets, xValue: r.xValue, sourceId: r.sourceId, chosenMode: r.chosenMode } },
     };
     next = runEffectProgram(next, obj, { startIndex: r.nextAtomIndex });
   }
