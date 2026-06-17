@@ -588,6 +588,21 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
   });
 }
 
+/**
+ * Mill (CR 701.13) — put the top `count` cards of a player's library into their graveyard, top
+ * first. Bounded by the library size (milling an empty/short library is a clean no-op). A removed/
+ * stale player resolves to a no-op (never a throw). Pure.
+ */
+export function millCards(state, { playerId, count }) {
+  assertPlayer(playerId);
+  if (!state.players[playerId]) return state;
+  return withPlayer(state, playerId, player => {
+    const n = Math.min(Math.max(0, count || 0), player.library.length);
+    if (n === 0) return player;
+    return { ...player, library: player.library.slice(n), graveyard: [...player.graveyard, ...player.library.slice(0, n)] };
+  });
+}
+
 // ─── Permanent helpers ────────────────────────────────────────────────────────
 
 function updatePermanent(state, permanentId, updater) {

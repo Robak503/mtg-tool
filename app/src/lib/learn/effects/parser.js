@@ -181,6 +181,8 @@ function splitClauses(oracle) {
  * land in a later sub-step alongside the targeting wiring.
  */
 const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
+// Spelled cardinals up to ten — mill amounts ("Mill three cards", "Mill ten cards") are spelled out.
+const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
 
 /**
  * P3.2 tutor filter ALLOWLIST — the type / supertype / land-subtype words the engine can
@@ -351,6 +353,14 @@ function parseExtendedAtom(s) {
   if (m) return { op: "scry", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^surveil (\d+)$/);
   if (m) return { op: "surveil", amount: parseInt(m[1], 10), targetType: null };
+  // Mill (CR 701.13) — top N of a library to its graveyard. Non-targeted only: "you mill N" (self-
+  // mill, for graveyard decks) and "each opponent mills N". "TARGET player mills N" (Glimpse the
+  // Unthinkable) is deferred — a targeted mill on a TRIGGER would first-legal-target the controller
+  // (mill yourself), the same hazard the counter atom gates, so we keep mill non-targeted for now.
+  m = t.match(/^(?:you )?mill (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
+  m = t.match(/^each opponent mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
   return null;
 }
 
