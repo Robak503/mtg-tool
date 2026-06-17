@@ -9,6 +9,15 @@ summarizes the notable changes.
 ## [Unreleased]
 
 ### Added
+- **Clones now work in The Academy.** Cast *Clone* or *Mirror Image* (*"You may have this
+  creature enter as a copy of any creature on the battlefield"*) and a picker opens: choose
+  which creature on the table to copy, and your clone enters with that creature's power,
+  toughness, abilities, and keywords — and its *"when this enters"* trigger even fires, because
+  your clone *is* that creature as it arrives. Decline (or copy nothing available) and it
+  enters as a 0/0 and dies. When it later leaves the battlefield it goes to the graveyard as
+  the original card again, per the rules. Clones with an *"except …"* twist (*Spark Double*,
+  *Phyrexian Metamorph*), copies of a specific creature type, or copies of non-creatures are
+  still handed to the Arbiter — the foundation is in, and those build on it next.
 - **Graveyard recursion now works in The Academy.** Cast *"Return target creature card from
   your graveyard to your hand"* (*Raise Dead*, *Disentomb*, *Wildwood Rebirth*) or the
   any-card *"Return target card from your graveyard to your hand"* (*Regrowth*, *Recollect*,

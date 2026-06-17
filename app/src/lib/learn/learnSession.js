@@ -44,6 +44,8 @@ import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { autoPickTutorCandidate, resolveTutorChoice } from "./effects/runProgram.js";
+import { resolveCloneChoice } from "./resolvers.js";
+import { autoPickCloneCandidate } from "./cloneCopy.js";
 
 const VALID_DIFFICULTIES = new Set(["beginner", "intermediate", "expert"]);
 
@@ -324,6 +326,16 @@ function settleTutorChoice(state, cardId) {
 }
 
 /**
+ * Settle a clone copy-choice: the clone enters (as the chosen copy, or as itself), then
+ * finalizeStackResolution flushes the ETB triggers the entry enqueued (CR 603.3) and resets
+ * priority — the same finalize the normal stack-resolution path runs, so a copied creature's
+ * "when this enters" trigger doesn't sit unflushed past the next priority window.
+ */
+function settleCloneChoice(state, chosenPermId) {
+  return finalizeStackResolution(resolveCloneChoice(state, chosenPermId));
+}
+
+/**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
  * decisions auto-apply; trivial user auto-passes also auto-apply.
@@ -406,6 +418,16 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
     if (current.state.pendingChoice) {
       const pc = current.state.pendingChoice;
       const pause = pc.controller === "user" && current.difficulty !== "expert";
+      // Clone copy-choice (CR 707.9): the player's OWN clone surfaces a copy PICKER; Expert
+      // autopilot + an opponent's clone auto-pick the best creature (no panel).
+      if (pc.kind === "clone-search") {
+        if (pause) {
+          return { session: current, decision: { kind: "clone-search", ...pc } };
+        }
+        current = { ...current, state: settleCloneChoice(current.state, autoPickCloneCandidate(current.state, pc)) };
+        continue;
+      }
+      // Tutor library search.
       if (pause) {
         return { session: current, decision: { kind: "tutor-search", ...pc } };
       }
@@ -672,6 +694,64 @@ export function applyTutorChoice(session, choice) {
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
   });
+}
+
+/**
+ * The player picked which creature to copy (or declined) from a `clone-search` decision (CR 707).
+ * Validates the pick against the pending candidates, then enters the clone as that copy (or as
+ * itself on decline/illegal), flushes its ETB triggers, and re-derives the next decision.
+ * `choice.permId` is the chosen battlefield permanent id, or null/absent to decline a "you may"
+ * clone. Returns { session, decision } like advanceUntilDecision.
+ */
+export function applyCloneChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "clone-search") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const permId = choice?.permId ?? null;
+  if (permId !== null && !pc.candidates.some((c) => c.id === permId)) {
+    return advanceUntilDecision(session); // illegal/stale pick → re-surface the same picker.
+  }
+
+  let newState;
+  try {
+    newState = settleCloneChoice(session.state, permId);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "clone-choice", copied: permId !== null },
+    auto: false,
+    reasoning: "user-chose-copy-target",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
+    decisionLog: [...session.decisionLog, logEntry],
+  });
+}
+
+/**
+ * Dispatch an interactive resolution-time choice (state.pendingChoice) to the right handler by
+ * its kind — so the single /api/learn/choose route serves both the tutor library search and the
+ * clone copy-pick. A `clone-search` reads `choice.permId`; a tutor reads `choice.cardId`. (Named
+ * apart from the decision-gate `applyChoice`, which resolves a player ACTION, not a pendingChoice.)
+ */
+export function applyPendingChoice(session, choice) {
+  if (session.state?.pendingChoice?.kind === "clone-search") {
+    return applyCloneChoice(session, choice);
+  }
+  return applyTutorChoice(session, choice);
 }
 
 // ─── Termination ─────────────────────────────────────────────────────────────

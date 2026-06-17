@@ -445,7 +445,10 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     const index = sourceList.findIndex(p => p.id === cardId);
     if (index === -1) throw new Error(`Permanent ${cardId} not found on ${playerId}'s battlefield`);
     const permanent = sourceList[index];
-    const card = permanent.card;
+    // A clone leaving the battlefield reverts to its ORIGINAL card (CR 707.2 — the copy effect
+    // only applied on the battlefield; in the graveyard/exile/hand it's the printed card again).
+    // `printedCard` is set only on a permanent that entered as a copy; normal permanents use card.
+    const card = permanent.printedCard || permanent.card;
 
     const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
     let nextDest;

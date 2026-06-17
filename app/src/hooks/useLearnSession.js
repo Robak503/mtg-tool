@@ -245,6 +245,49 @@ export default function useLearnSession() {
     }
   }, [state.sessionId]);
 
+  /**
+   * Submit the player's pick from an interactive `clone-search` decision (CR 707 — "which creature
+   * to copy"). `permId` is the chosen battlefield permanent id, or null to decline a "you may"
+   * clone (it then enters as a 0/0 and dies). Finishes the clone entry server-side + next decision.
+   */
+  const applyCloneChoice = useCallback(async (permId) => {
+    if (inFlightRef.current || !state.sessionId) return null;
+    inFlightRef.current = true;
+
+    try {
+      const response = await fetch("/api/learn/choose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { permId: permId ?? null } }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+        return null;
+      }
+      const isOver = data.decision?.kind === "game-over";
+      setState(prev => ({
+        ...prev,
+        decision: data.decision,
+        status: isOver ? "ended" : "active",
+        difficulty: data.difficulty ?? prev.difficulty,
+        turn: data.turn,
+        activePlayer: data.activePlayer,
+        step: data.step,
+        table: data.table || prev.table,
+        board: data.board || prev.board,
+        decisionLogTail: data.decisionLogTail || [],
+        error: null,
+      }));
+      return data.decision;
+    } catch (error) {
+      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
+      return null;
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [state.sessionId]);
+
   /** List resumable saved games for the active profile (Phase-7 PR-4a). */
   const listSaves = useCallback(async () => {
     try {
@@ -317,6 +360,7 @@ export default function useLearnSession() {
     applyChoice,
     continueGame,
     applyTutorChoice,
+    applyCloneChoice,
     reset,
     listSaves,
     resume,
