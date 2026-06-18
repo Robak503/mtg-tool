@@ -13,7 +13,7 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 ## Progress to goal — corpus-wide native % (`cd app && npm run coverage`)
 
 **Goal: ~90% corpus native** (the honest ceiling; the Arbiter permanently handles the rest).
-**Now: 15.7% → 17% of the way to goal.** (γ1b shipped — "Sacrifice a/another <type>" outlets, +77 cards. The aristocrats sacrifice engine is now playable.)
+**Now: 15.7% → 17% of the way to goal.** (γ1c shipped — exile-self + remove-a-counter costs, +4. The clean COST frontier is now mined out; next is the spell-effect vocabulary grind.)
 
 ```
 [####······················] 15.7% native  ·  goal 90%  ·  17% of the way there
@@ -27,7 +27,8 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 | α2: you-may optional wrapper | **15.1%** (5,066/33,540) | +0.2 | 17% | 47% | #199 |
 | strip: vacuous "can't be countered" | **15.1%** (~5,071/33,540) | +0.0 | 17% | 47% | #200 |
 | γ1: pay-life + self-sac costs | **15.5%** (5,193/33,540) | +0.4 | 17% | 47% | #201 |
-| γ1b: sacrifice-a-creature outlet | **15.7%** (5,270/33,540) | +0.2 | 17% | 47% | #202 _(PR open)_ |
+| γ1b: sacrifice-a-creature outlet | **15.7%** (5,270/33,540) | +0.2 | 17% | 47% | #202 |
+| γ1c: exile-self + remove-a-counter | **15.7%** (5,274/33,540) | +0.0 | 17% | 47% | #203 _(PR open)_ |
 
 **Projected trajectory** (roadmap §2): α (near-term clean atoms) → ~37% · α+β (full vocab grind) → ~90% · +δ (hard subsystems) → ~98%. A row is appended every time a slice merges — this table *is* the climb.
 
@@ -56,45 +57,43 @@ the corpus signal re-ranks the roadmap toward the cost-structure work (γ1) soon
 | α2 | "you may <effect>" optional wrapper — suspend/resume yes-no, expert/AI auto-take | **#199 merged** | +70 cards (14.9→15.1%) |
 | strip | drop the vacuous "this spell can't be countered" rider | **#200 merged** | +5 cards (≈15.1%) |
 | γ1 | no-choice activated-ability costs — "Pay N life" + "Sacrifice this"; self-sac fires dies triggers (aristocrats payoff) | **#201 merged** | +127 cards (15.1→15.5%) |
-| γ1b | "Sacrifice a/another <type>" outlet — per-victim action expansion (no new picker), victim fail-safe reused | **#202 (PR open)** | +77 cards (15.5→15.7%) |
+| γ1b | "Sacrifice a/another <type>" outlet — per-victim action expansion (no new picker), victim fail-safe reused | **#202 merged** | +77 cards (15.5→15.7%) |
+| γ1c | exile-self + remove-a-counter costs (batched) — the end of the clean cost frontier | **#203 (PR open)** | +4 cards (≈15.7%) |
 
 ## Cost-atom frequency (the data behind the γ-series, scanned over the real corpus)
 
-Among activated-ability cost items the parser couldn't yet pay: **Sacrifice a/other 724** (γ1b) ·
-Discard 310 · Exile 278 · Remove a counter 253 · Tap a creature 163 · {X} 157 · {E} 59 · Return 50.
-Sacrifice-as-cost is ~3× the next item — γ1 (self-sac) + γ1b (a-creature) take the lion's share.
+Among activated-ability cost items the parser couldn't yet pay: **Sacrifice a/other 724** (γ1/γ1b) ·
+Discard 310 (picker — deferred) · Exile 278 (γ1c — but only ~4 have a HIGH effect) · Remove a counter
+253 (γ1c — 54 modeled, but mostly on cards with OTHER unmodeled text) · Tap a creature 163 (convoke-ish,
+needs a picker) · {X} 157 · {E}/{S}/{Q} symbol-mana. **Lesson:** sacrifice was the one big clean cost
+lever; the rest are either picker-gated (Discard, Tap-a-creature) or sit on complex cards (Exile, Remove-
+counter). The cost frontier is now low-ROI — pivot to the spell-effect vocabulary grind.
 
 ## In flight / next
 
-- **γ1b — "Sacrifice a/another <type>" outlet: BUILT + in review (PR #202, branch
-  `feat/gamma1b-sacrifice-a-creature`).**
-  - **What it does:** `parseAbilityCost` recognizes `Sacrifice a/an/another <creature|permanent|
-    artifact|enchantment|land>` → `{sacOther}`. The CHOICE (which permanent) is modeled WITHOUT a new
-    picker: `legalChoices` expands one action per legal victim (a permanent you control of the type;
-    source excluded when "another"). The shared `sacrificePermanentForCost` sacrifices the chosen victim
-    (creature → dies triggers, flushed above the ability). The γ1 `sacrificeDropsTrigger` fail-safe is
-    **reused on the victim** — a victim whose sacrifice would drop its own leave/compound trigger is
-    excluded. Multi-sacrifice (count > 1) / compound types still drop to null (deferred).
-  - **Gauntlet (all green):** full suite **2,074** (+7 γ1b pins: per-victim expansion, "another"
-    excludes source, victim fail-safe, dispatch sacrifices the CHOSEN one, Blood-Artist payoff) · lint
-    clean · **corpus sweep = 84 native sacOther outlets, 0 false-positives** (Nantuko Husk, Fallen
-    Angel, Atog, Razaketh, Viscera-Seer family; no effect references the sacrificed victim) · real-card
-    e2e (Nantuko Husk offers all victims, sacrifices the chosen creature, source stays).
-  - **Adversarial review (3 lenses, Opus): found + FIXED a real P0** — the victim fail-safe missed the
-    CR 700.4 dies-EQUIVALENT wording "is put into [a/your] graveyard from the battlefield" (+ the exile
-    variant), which the dies detector also misses (it keys on the literal word "dies"). Sacrificing such
-    a creature (Brood of Cockroaches, Psychomancer, Triumph of Saint Katherine) silently dropped its
-    death trigger — a partial application. Closed in `sacrificeDropsTrigger` (now trips on that wording,
-    matches trigger clauses regardless of an ability-word/reminder prefix, reads the raw oracle) — shared
-    with γ1's self-sac, so both paths are fixed. All 81 corpus self-triggers of this shape now flagged
-    (was missing 18). Also filtered the pointless sac-the-thing-you-target action (the review's P2; not a
-    false-positive — it cleanly no-ops). Commit 691c3e9.
+- **γ1c — exile-self + remove-a-counter costs: BUILT + in review (PR #203, branch
+  `feat/gamma1c-exile-removecounter-costs`).** `parseAbilityCost` → `{exileSelf, removeCounter:{type}}`.
+  Exile-self mirrors self-sac (exile is NOT "dies" → no dies trigger; shares the leave-trigger fail-safe;
+  the `$` anchor excludes "Exile this card from your graveyard"). Remove-counter is offered only when the
+  source HAS the counter; a lethal +1/+1 removal runs the SBA + dies triggers. Full suite **2,086** (+8
+  pins) · lint clean · sweep **0 false-positives** · **only +4 native** (most exile/remove-counter
+  abilities sit on cards with other unmodeled text — the machinery is laid, the whole card isn't native).
+  - **Adversarial review (3 lenses, Opus): found + FIXED a real P0** (+ 2 latent) — the remove-counter
+    regex ended in `\b` not `$`, so a COMPOUND cost ("Remove a quest counter from this enchantment AND
+    SACRIFICE IT" — Quest for the Gemblades) matched the prefix and silently dropped the sacrifice (a
+    partial payment). End-anchored it (mirrors exile-self). Also gated remove-counter by the leave-trigger
+    fail-safe (a lethal +1/+1 removal makes the source leave → a self-LTB trigger would drop) and added
+    `exileSelf` to the dispatcher's mana-exclusion. 51 of 54 modeled remove-counter cards stay modeled
+    (only the 3 compound/leave ones drop); corpus unchanged. Commit 2aa797c. **Lesson: the sweep must
+    also check for dropped compound-cost text — the review caught what my sweep (self-reference only) missed.**
   - **Merge gate:** review SAFE after the fix + CI green, then `gh pr merge --squash`.
-- **Next slice (re-scan first):** the cost frontier continues — the cleanest no-UI next atoms are
-  **exile-as-cost** (278; "Exile this" mirrors self-sac, reuse the leave-trigger fail-safe) and
-  **remove-a-counter** (253; often from the source = no choice). **Discard-a-card** (310) needs a
-  hand picker (a bigger UI slice). Or pivot to the huge **spell-effect (other)** tail (8,863). Re-run
-  `npm run coverage` + a fresh cost/gap scan before picking — the best next atom shifts each slice.
+- **Next slice — PIVOT to the spell-effect vocabulary grind (β).** The clean COST frontier is mined out
+  (γ1/γ1b took the sacrifice volume; the rest is picker-gated or on complex cards). The biggest remaining
+  bucket by far is **Spell effect (other) — 8,863 cards**: instants/sorceries whose effect the
+  EffectProgram parser doesn't yet model. Re-run `npm run coverage`, then scan the unmodeled
+  instant/sorcery effects for the highest-frequency UNMODELED verb/clause (a clean atom: a new effect-atom
+  + parser clause + the all-or-nothing gate), and grind those. ETB triggers (4,879) share the same
+  effect-vocabulary lever. This is where the next ~30 points of corpus coverage live.
 - **Backlog (found during γ1 review — pre-existing, NOT γ1's regression):** the trigger detector
   **collapses a COMPOUND trigger** ("When this enters OR leaves the battlefield" / "…AND when you
   sacrifice it") to a single event and drops the rest. γ1 no longer exposes it (a self-sac on such a

@@ -512,9 +512,12 @@ function actionsActivateAbility(state, playerId) {
       // have). Paying down to exactly 0 is legal (an SBA loss follows), so only skip a strictly-
       // unaffordable one — never hide a legal play.
       if (ab.payLife && player.life < ab.payLife) continue;
-      // A source paying part of its OWN cost by tapping ({T}) or being sacrificed can't ALSO tap
-      // for mana — drop it from the available mana sources for the affordability check + payment.
-      const sources = manaSources(state, playerId).filter((s) => !((ab.tapSelf || ab.sacSelf) && s.permanentId === perm.id));
+      // γ1c — a "Remove a <type> counter from this" cost needs the source to actually HAVE such a
+      // counter; otherwise it's unpayable (never offer a cost we can't pay).
+      if (ab.removeCounter && !((perm.counters?.[ab.removeCounter.type] || 0) >= 1)) continue;
+      // A source paying part of its OWN cost by tapping ({T}), being sacrificed, or being exiled can't
+      // ALSO tap for mana — drop it from the available mana sources for the affordability + payment.
+      const sources = manaSources(state, playerId).filter((s) => !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id));
       if (!canAfford(player.manaPool, sources, cost)) continue;
 
       // Equip {cost}: target a creature YOU control (CR 702.6e). Equip is SORCERY-SPEED
@@ -569,6 +572,8 @@ function actionsActivateAbility(state, playerId) {
             tapSelf: ab.tapSelf,
             payLife: ab.payLife || 0,
             sacSelf: ab.sacSelf || false,
+            exileSelf: ab.exileSelf || false,            // γ1c — exile the source from the battlefield
+            removeCounter: ab.removeCounter || null,     // γ1c — remove a counter of this type from the source
             sacCreatureId: victim?.id ?? null,           // γ1b — the chosen victim to sacrifice (cost)
             sacCreatureName: victim?.card?.name ?? null,
             program: ab.program,

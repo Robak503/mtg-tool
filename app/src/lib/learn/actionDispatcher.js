@@ -33,6 +33,8 @@ import {
   tapPermanent,
   addMana,
   loseLife,
+  removeCounter,
+  destroyLethalCreatures,
   mintId,
 } from "./gameState.js";
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
@@ -367,10 +369,10 @@ function applyActivateAbility(state, action) {
     throw new DispatcherError("Ability source is already tapped", "ALREADY_TAPPED");
   }
 
-  // Plan + commit mana payment. A `{T}`-tapping source can't also tap for mana to pay
-  // its own cost, so exclude it from the available sources (matches legalChoices).
+  // Plan + commit mana payment. A source paying its own cost by tapping ({T}), being sacrificed, OR being
+  // exiled can't ALSO tap for mana — exclude it from the available sources (matches legalChoices exactly).
   const pool = player.manaPool;
-  const sources = manaSources(state, action.playerId).filter(s => !((action.tapSelf || action.sacSelf) && s.permanentId === action.permanentId));
+  const sources = manaSources(state, action.playerId).filter(s => !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId));
   const plan = planPayment(pool, sources, action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 
@@ -392,13 +394,27 @@ function applyActivateAbility(state, action) {
   if (action.tapSelf) working = tapPermanent(working, action.permanentId);
 
   // Pay the non-mana cost items, all BEFORE the ability is put on the stack (CR 602.2b): life first
-  // (γ1, CR 119.4), then the self-sacrifice (γ1) and/or the chosen-victim sacrifice (γ1b).
+  // (γ1, CR 119.4), then the self-sacrifice (γ1) and/or the chosen-victim sacrifice (γ1b), then the
+  // self-exile (γ1c) and/or a self counter removal (γ1c).
   if (action.payLife) working = loseLife(working, { playerId: action.playerId, amount: action.payLife });
   if (action.sacSelf) working = sacrificePermanentForCost(working, action.playerId, perm);
   if (action.sacCreatureId) {
     const victim = working.players[action.playerId]?.battlefield.find((p) => p.id === action.sacCreatureId);
     if (!victim) throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} not on battlefield`, "PERM_NOT_FOUND");
     working = sacrificePermanentForCost(working, action.playerId, victim);
+  }
+  if (action.exileSelf) {
+    // Exile the source from the battlefield (CR 406). Exile is NOT "dies" (CR 700.4 — dies = to the
+    // graveyard), so NO dies triggers fire; the offer-gate's leave-trigger fail-safe already excluded a
+    // source with an LTB/exile trigger we couldn't fire, so nothing is silently dropped here.
+    working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "exile", cardId: perm.id });
+  }
+  if (action.removeCounter) {
+    working = removeCounter(working, { permanentId: action.permanentId, type: action.removeCounter.type, amount: 1 });
+    // Removing a +1/+1 counter lowers derived toughness — a creature it drops to <= 0 dies as an SBA
+    // (CR 704.5f). Run the lethal sweep + its dies triggers so that's never left until the next combat.
+    const lethal = destroyLethalCreatures(working);
+    working = checkDiesTriggers(lethal.state, lethal.dead);
   }
 
   // Build the serializable payload. An Equip ability ATTACHES (the ATTACH resolver moves
