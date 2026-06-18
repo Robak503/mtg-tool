@@ -89,7 +89,17 @@ counter). The cost frontier is now low-ROI — pivot to the spell-effect vocabul
     program union atom; both halves now offered (verified live). **Lesson: the single-atom cast path has a
     second (legacy) target enumerator — a new program-level targetType must verify the LIVE cast path,
     not just enumerateTargets.**
-  - **Merge gate:** 3-lens adversarial review (Opus) + CI green, then `gh pr merge --squash`.
+  - **Adversarial review (3 lenses, Opus): MERGE (concerns/merge-but-note) — no P0, no false-positive,**
+    CR-safe (verified vs the full 37,474-card corpus + live cast/trigger paths). Two honest P2 notes
+    (non-blocking, recorded): (a) the `PERMANENT_TARGET_TYPES` trigger-gate is DEAD code — the live trigger
+    flush is now gated by the α1 enemy-aware chooser (a union-removal trigger routes to an enemy or
+    NO_SAFE_TARGET→Arbiter, NOT via the #192 helper); the misleading test/comment were corrected. (b) a
+    SAFE AI play-quality regression — the legacy-exclusion nulls `effect`, so the AI now HOLDS the 5 union
+    cards (it cast them pre-β-2); consistent with #192's "AI holds permanent removal", deferred to a
+    future "teach the AI to cast union/permanent removal" slice. Pre-existing (NOT β-2): a comma-list
+    multi-type "destroy target artifact, creature, or enchantment" (Bedevil/Vindicate, 9 cards) still
+    offers creatures only — a clean follow-up to widen the legacy exclusion to any "or"/comma type list.
+  - **Merge gate:** review SAFE + CI green, then `gh pr merge --squash`.
 ## β PHASE — the spell-effect vocabulary grind (SCOPED, ready to build)
 
 The clean COST frontier is mined out. The biggest remaining bucket is **Spell effect (other) — ~7,028

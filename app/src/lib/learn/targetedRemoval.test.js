@@ -87,7 +87,11 @@ describe("β-2 — compound permanent-type unions (X or Y)", () => {
     expect(enumerateTargets(s, "user", { targetType: "creatureOrEnchantment", restrictions: [] }).map((t) => t.id).sort()).toEqual(["ae", "uc"]);
     expect(enumerateTargets(s, "user", { targetType: "artifactOrLand", restrictions: [] }).map((t) => t.id).sort()).toEqual(["aa", "al", "ua"]);
   });
-  it("a union is GATED OUT of native trigger routing (first-legal could hit the controller's own permanent)", () => {
+  it("programContainsChosenPermanentRemoval classifies a union as chosen-permanent removal (the #192-era helper)", () => {
+    // NB: this helper is the legacy #192 trigger-denylist — the LIVE trigger flush is now gated by the
+    // α1 enemy-aware chooser instead (atomTargetIntent(destroy)='enemy' → it picks an enemy permanent, or
+    // NO_SAFE_TARGET→Arbiter; never the controller's own). The helper is retained for consistency; the
+    // union keys keep it in sync so the metric/classifier can't drift if it's ever reused.
     expect(programContainsChosenPermanentRemoval(parseEffectProgram(I("Destroy target creature or land.")))).toBe(true);
   });
   it("destroying a CREATURE chosen via a union still routes through the dies path", () => {
