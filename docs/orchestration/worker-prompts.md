@@ -20,24 +20,40 @@ The anchor branch is just a collision-free home base (one branch per worktree). 
 ## Announce every task switch — so Colton can rename the chat at a glance
 
 The desktop chat title does not auto-update; Colton renames it by hand and tracks who's on what from those titles.
-**Every time you start or switch a task, the FIRST thing you print that turn is this banner — big, bold, impossible to miss:**
+**Every time you start or switch a task, the FIRST thing you print that turn is this banner — big, bold, impossible to miss.**
+
+Write the headline and the chat name in **plain Magic-player language** — name the cards or describe what the Academy can now do. **Never headline with a bare internal ID** (`TOK-3`, `EP-2`); keep that only as a small parenthetical tag for branch traceability.
 
 ```
-# 🔵 NOW WORKING ON  →  <Name> · <TASK-ID> · <short label>
-**Rename this chat to:**  `<Name> — <TASK-ID> <short label>`
+# 🔵 NOW WORKING ON  →  <plain: the cards / the gameplay this covers>
+**Rename this chat to:**  `<Name> — <plain 2-4 word label>`
+_(<TASK-ID> · feat/<branch>)_
 ```
 
-Example, when Cindy finishes named tokens and moves to token counts:
+Example — Cindy claims the named-artifact-token task:
 
 ```
-# 🔵 NOW WORKING ON  →  Cindy · TOK-3 · token counts
-**Rename this chat to:**  `Cindy — TOK-3 token-counts`
+# 🔵 NOW WORKING ON  →  Cindy is teaching the Academy to make Treasure, Clue, Food & Blood tokens
+**Rename this chat to:**  `Cindy — Treasure/Clue/Food tokens`
+_(TOK-2 · feat/TOK-2-artifact-tokens)_
 ```
 
-- **Builders:** print it the instant you claim a new board task. When a task is merged and you have nothing claimed yet, print `# ⚪ IDLE — picking next task…` so the title can flip to idle.
-- **Hans / Rod:** print it whenever your current focus changes (e.g. `Hans — scouting the EP family` → `Hans — refreshing the board`; `Rod — QA on TOK-2 tokens` → `Rod — filing FIX-blink-etb`).
+Translate the internal IDs to player language — what Colton would actually call it at the table:
 
-Never switch tasks silently. The banner is how Colton keeps the five chats legible at a glance.
+| Internal | Say this instead |
+|---|---|
+| TOK-2 | Treasure / Clue / Food tokens |
+| TOK-3 | big token-swarm spells (Secure the Wastes, Empty the Warrens) |
+| CNT-2 | +1/+1 counters on creatures (pump & distribute) |
+| EP-2  | hand attack — make a player discard (Mind Rot) |
+| EP-3  | group life-loss / mill (Syphon Soul) |
+| ED-2  | sacrifice effects & edicts |
+| BURN-2 | burn spells with a bonus (gain life / scry / draw) |
+
+- **Builders:** banner the instant you claim a board task. Between tasks (nothing claimed yet) print `# ⚪ IDLE — picking next task…` so the title can flip to idle.
+- **Hans / Rod:** banner whenever your focus changes, also in plain language — e.g. `Hans — hunting the next big lever`, `Rod — checking the new Treasure tokens`.
+
+Never switch tasks silently, and never headline with a bare ID. These titles are how Colton reads the whole board at a glance.
 
 ---
 
