@@ -31,6 +31,10 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 ## 🔧 FIX / VERIFY lane — unowned (these jump the builder queue; any builder can pull)
 
+> **Retiring a FP is deferral, not deletion** (Colton, 2026-06-18): every retirement → a row in
+> [`retired-fp-ledger.md`](retired-fp-ledger.md) keyed by the unblocking engine capability, so the bucket
+> gets re-evaluated + re-promoted when that capability ships. Coverage dipping here is the metric getting honest.
+
 | ID | Pri | Finding | ~Impact | Status |
 |---|---|---|---:|---|
 | **VERIFY-MENACE** | 🔴 | **LIVE shipped false positive.** Menace is in COVERED_KEYWORDS so a Menace-only creature is native-body — but the 2-blocker rule (CR 702.110) is enforced NOWHERE (`canBlock` admits a single blocker; `combatResolution.js:17` defers Menace). The engine lets ONE creature block a Menace attacker. **Fix:** enforce 2-blocker in canBlock/declare-blockers, OR remove Menace from COVERED_KEYWORDS (safe default → Arbiter). Same gap that blocks EVADE — fix together. | −FP | OPEN |

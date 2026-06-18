@@ -46,6 +46,11 @@ LOW (the Arbiter) and pinning it so it can't silently flip back.
      in `parser.test.js`. Only model-it-properly instead if that's clearly safe and in scope.
    - Batch the cycle's fixes into ONE PR `fix/<batch>-hans` with a per-finding note (what was wrong, the repro,
      the fix). Full gate before PR (§6).
+   - **Log every retirement in `docs/orchestration/retired-fp-ledger.md`** keyed by the **unblocking engine
+     capability** (EVADE/`canBlock`, targeting-restriction enforcement, the trigger compiler…). Retiring a FP
+     is a **deferral, not deletion** (Colton's standing policy) — when that capability later ships, re-scan the
+     bucket and re-promote the cards that now resolve whole-card. Only the irreducible one-offs are write-offs
+     (those don't go in the ledger).
 5. **Report to Clyde:** the `scout/board-<n>` branch (to adopt) + the `fix/<batch>-hans` PR (to merge).
 
 ## 4. Scouting well
