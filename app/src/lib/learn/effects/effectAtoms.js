@@ -273,33 +273,46 @@ function applyReturnFromGraveyard(state, atom, ctx) {
  * 608.2b). Tokens were excluded at enumeration (not a card). "to your HAND" stays return-from-graveyard;
  * a rider ("tapped", "under your control", "with a +1/+1 counter") fails the exact anchor → Arbiter.
  */
+/**
+ * Enter `cardId` from `fromZone` (graveyard / library) onto `playerId`'s battlefield as a permanent
+ * under their control, then fire its ETB triggers (checkEnterTriggers; the resolution finalizer flushes
+ * them). MIRRORS resolvers.enterPermanent's setup (deterministic perm id + the CR 613.7e layer timestamp
+ * + enteredOnTurn + creature summoning sickness) — it can't call enterPermanent directly because
+ * resolvers→runProgram→effectAtoms would cycle. `tapped` enters it tapped (RAMP-1 — Rampant Growth's
+ * basic enters tapped). Returns `{ state, entered }`: entered:false (state unchanged) when the card isn't
+ * in the zone (CR 608.2b — it left). Shared by reanimation (β-3b, graveyard) and battlefield ramp (RAMP-1,
+ * library) so the two enter-a-found-card paths can't drift.
+ */
+export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false }) {
+  const player = state.players[playerId];
+  if (!player) return { state, entered: false };
+  const card = (player[fromZone] || []).find((c) => c.id === cardId);
+  if (!card) return { state, entered: false };
+  const { id: permId, state: s2 } = mintId(state, "perm");
+  const ts = s2.timestampCounter || 0;
+  const isCreatureCard = /Creature/.test(String(card?.type || card?.type_line || ""));
+  const perm = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped }), enteredOnTurn: s2.turn, timestamp: ts };
+  const p = s2.players[playerId];
+  let next = {
+    ...s2,
+    timestampCounter: ts + 1,
+    players: { ...s2.players, [playerId]: { ...p,
+      [fromZone]: p[fromZone].filter((c) => c.id !== cardId),
+      battlefield: [...p.battlefield, perm],
+    } },
+  };
+  next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: playerId });
+  return { state: checkEnterTriggers(next, perm), entered: true };
+}
+
 function applyReanimate(state, atom, ctx) {
   let next = state;
   const reanimated = [];
   for (const t of ctx.targets || []) {
     if (t.type !== "graveyardCard") continue;
-    const card = (next.players[ctx.controller]?.graveyard || []).find((c) => c.id === t.id);
-    if (!card) continue; // target left the graveyard — no-op (CR 608.2b)
-    // Enter the card as a permanent under the caster's control. This MIRRORS resolvers.enterPermanent's
-    // setup (deterministic perm id + the CR 613.7e layer timestamp + enteredOnTurn + creature summoning
-    // sickness) — it can't call enterPermanent directly because resolvers→runProgram→effectAtoms would
-    // cycle. Then fire ETB (checkEnterTriggers; the resolution finalizer flushes them onto the stack).
-    const { id: permId, state: s2 } = mintId(next, "perm");
-    const ts = s2.timestampCounter || 0;
-    const isCreatureCard = /Creature/.test(String(card?.type || card?.type_line || ""));
-    const perm = { ...createPermanent({ id: permId, card, controller: ctx.controller, summoningSick: isCreatureCard }), enteredOnTurn: s2.turn, timestamp: ts };
-    const player = s2.players[ctx.controller];
-    next = {
-      ...s2,
-      timestampCounter: ts + 1,
-      players: { ...s2.players, [ctx.controller]: { ...player,
-        graveyard: player.graveyard.filter((c) => c.id !== t.id),
-        battlefield: [...player.battlefield, perm],
-      } },
-    };
-    next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: ctx.controller });
-    next = checkEnterTriggers(next, perm);
-    reanimated.push(t.id);
+    const r = enterCardFromZone(next, { playerId: ctx.controller, cardId: t.id, fromZone: "graveyard" });
+    next = r.state;
+    if (r.entered) reanimated.push(t.id); // skipped (entered:false) = target left the graveyard (CR 608.2b)
   }
   return logEvent(next, { kind: "spell-effect", effect: "reanimate", controller: ctx.controller, targets: reanimated });
 }
@@ -657,6 +670,10 @@ function applyTutor(state, atom, ctx) {
     candidates,
     sourceName: ctx.cardName || null,
     filterLabel: atom.filterLabel || null,
+    // RAMP-1 — destination "battlefield" (+ entersTapped) puts the fetched card onto the battlefield
+    // instead of the hand (Rampant Growth / Farhaven Elf). Defaults to "hand" (the P3.2 tutor).
+    destination: atom.destination === "battlefield" ? "battlefield" : "hand",
+    entersTapped: !!atom.entersTapped,
   });
 }
 

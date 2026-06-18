@@ -28,13 +28,16 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {3}.", { name: "Mana Leak" }))).toBe("native-spell");      // SOFT-CNT — fixed {N} now modeled
     expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {X}.", { name: "Clash of Wills" }))).toBe("arbiter-spell"); // variable {X} stays Arbiter
   });
-  it("a 'search → hand → shuffle' tutor is native-spell (filtered OR unfiltered via the picker); battlefield bounces", () => {
+  it("a 'search → hand → shuffle' tutor is native-spell; RAMP-1: a single-land 'onto the battlefield' fetch is native too, multi-land/non-land bounce", () => {
     expect(classifyCard(C("Sorcery", "Search your library for a creature card, reveal it, put it into your hand, then shuffle.", { name: "Eladamri's Call" }))).toBe("native-spell");
     expect(classifyCard(C("Sorcery", "Search your library for a basic land card, reveal it, put it into your hand, then shuffle.", { name: "Lay of the Land" }))).toBe("native-spell");
     // The unfiltered tutor is native too now (the player picks any card via the picker).
     expect(classifyCard(C("Sorcery", "Search your library for a card, put that card into your hand, then shuffle.", { name: "Demonic Tutor" }))).toBe("native-spell");
-    // A battlefield/top destination (deferred) still routes to the Arbiter.
-    expect(classifyCard(C("Sorcery", "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", { name: "Rampant Growth" }))).toBe("arbiter-spell");
+    // RAMP-1: a single basic land onto the battlefield is now native (the fetched land enters via the tutor picker).
+    expect(classifyCard(C("Sorcery", "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", { name: "Rampant Growth" }))).toBe("native-spell");
+    // Still Arbiter: a MULTI-land battlefield fetch (Explosive Vegetation) and a non-land cheat-into-play (Natural Order).
+    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.", { name: "Explosive Vegetation" }))).toBe("arbiter-spell");
+    expect(classifyCard(C("Sorcery", "Search your library for a green creature card, put it onto the battlefield, then shuffle.", { name: "Natural Order" }))).toBe("arbiter-spell");
   });
   it("a permanent with abilities is body-only (body works, ability doesn't yet)", () => {
     // P2.8 + the flush-time target chooser: a body whose ONLY ability is a now-firing

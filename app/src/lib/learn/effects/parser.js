@@ -171,15 +171,17 @@ function splitClauses(oracle) {
   for (let sentence of stripReminder(oracle).split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
     if (!sentence) continue;
-    // A sentence that STARTS with "search your library" is ONE tutor instruction (P3.2):
-    // its internal " and " ("reveal it, and put it into your hand", "search for X and Y")
-    // is never a top-level effect boundary, so don't sever it. MUST be anchored to the
-    // start — a sentence that merely CONTAINS it after a leading modeled effect ("Draw a
-    // card and search your library …") must still split, or the leading atom (e.g. draw)
-    // would parse HIGH while the tutor portion is silently dropped (a confident WRONG
-    // partial execution — the cardinal-rule failure, P3.2 review catch). The tutor anchor
-    // still drops anything it can't model in the whole sentence to low.
-    if (/^search your library\b/i.test(sentence)) { clauses.push(sentence); continue; }
+    // A sentence that STARTS with "search your library" — or a "you may search your library" optional
+    // tutor (RAMP-1: Farhaven Elf's "you may search … put it onto the battlefield … then shuffle") — is
+    // ONE tutor instruction (P3.2 / α2): its internal " and " ("reveal it, and put it into your hand",
+    // "search for X and Y") is never a top-level effect boundary, so don't sever it (the "you may"
+    // wrapper would otherwise be split off from its tutor body, dropping the whole thing to low). MUST be
+    // anchored to the start — a sentence that merely CONTAINS it after a leading modeled effect ("Draw a
+    // card and search your library …") must still split, or the leading atom (e.g. draw) would parse HIGH
+    // while the tutor portion is silently dropped (a confident WRONG partial execution — the cardinal-rule
+    // failure, P3.2 review catch). The tutor anchor + the α2 "you may" peel still drop anything they can't
+    // model in the whole sentence to low.
+    if (/^(?:you may )?search your library\b/i.test(sentence)) { clauses.push(sentence); continue; }
     // A combat trick that pumps AND grants a keyword ("Target creature gets +2/+2 and gains
     // trample until end of turn"), or grants several keywords ("gains flying and vigilance"),
     // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence
@@ -317,6 +319,22 @@ function parseExtendedAtom(s) {
     }
     const filter = parseTutorFilter(phrase);
     return filter ? { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "hand", targetType: null } : null;
+  }
+  // RAMP-1 — battlefield-destination tutor: "Search your library for a <LAND> card, put (it|that card)
+  // onto the battlefield[ tapped], then shuffle." (Rampant Growth / Untamed Wilds / Shared Roots, and
+  // the same clause inside Farhaven Elf's ETB). Reuses the tutor atom + picker; the fetched card enters
+  // the battlefield (resolveTutorChoice → enterCardFromZone, firing ETB). RESTRICTED to LAND fetches —
+  // every filter group must include "land" — so a non-land cheat-into-play (Natural Order) stays OUT of
+  // scope → low → Arbiter. Anchored whole-clause: a rider (Threshold / Domain / Rebound), a multi-land
+  // "two/up to N", or a split "to your hand … onto the battlefield" (Cultivate) all fail → low → Arbiter.
+  const bfm = t.match(/^search your library for an? ([a-z][a-z ]*?) cards?,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (bfm) {
+    const phrase = bfm[1];
+    const filter = parseTutorFilter(phrase);
+    if (filter && filter.groups.every((g) => g.includes("land"))) {
+      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!bfm[2], targetType: null };
+    }
+    return null; // a non-land / unmodeled-filter battlefield tutor → low → Arbiter
   }
   // A standalone "[then] shuffle [your library]" clause (some cards put it in its own
   // sentence after the search) — shuffles the controller's library (CR 103.2).

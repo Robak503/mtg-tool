@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { canAfford, manaSources, payGenericMana } from "../manaModel.js";
 
@@ -135,11 +135,17 @@ export function resolveTutorChoice(state, cardId) {
 
   // Apply the fetch (cardId null = the player chose to find nothing, or no candidate).
   const inLibrary = cardId && (next.players?.[pc.controller]?.library || []).some((c) => c.id === cardId);
+  const destination = pc.destination === "battlefield" ? "battlefield" : "hand";
   if (inLibrary) {
-    next = moveCardToZone(next, { playerId: pc.controller, fromZone: "library", toZone: "hand", cardId });
+    if (destination === "battlefield") {
+      // RAMP-1 — the fetched basic enters the battlefield (tapped per the card), firing ETB triggers.
+      next = enterCardFromZone(next, { playerId: pc.controller, cardId, fromZone: "library", tapped: !!pc.entersTapped }).state;
+    } else {
+      next = moveCardToZone(next, { playerId: pc.controller, fromZone: "library", toZone: "hand", cardId });
+    }
   }
   next = shuffleControllerLibrary(next, pc.controller);
-  next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inLibrary, destination: "hand" });
+  next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inLibrary, destination });
 
   return resumeAfterChoice(next, pc);
 }
