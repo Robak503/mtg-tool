@@ -25,7 +25,7 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice } from "../pendingChoice.js";
-import { moveCardToZone, logEvent, applyScrySurveil } from "../gameState.js";
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 
@@ -183,6 +183,25 @@ export function resolveHandDiscardChoice(state, cardId) {
   // and-braces — unreachable in normal play (the discard atom precedes any rider, so the caster is alive
   // at the pause, and pendingChoice is transient/non-persisted) — but it keeps the shared seam uniform.
   if (!next.players?.[pc.controller]) return next;
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * Settle a pending impulse-dig choice (δ-2): the chosen looked-at card goes to the controller's HAND
+ * and the rest to `restTo` (bottom of library / graveyard) via applyImpulseDig, then RESUME the
+ * suspended program (a "Look at the top N … then draw" rider). A `cardId` not among the revealed
+ * candidates (stale) keeps nothing but still disposes the rest. Eliminated-controller guard (the pause
+ * can outlive the SBA that removes them), mirroring resolveScryChoice. Hidden-info safe (the controller's
+ * own library).
+ */
+export function resolveImpulseDigChoice(state, cardId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "impulse-dig") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → clean no-op
+  const chosenId = (pc.candidates || []).some((c) => c.id === cardId) ? cardId : null;
+  next = applyImpulseDig(next, { playerId: pc.controller, n: (pc.candidates || []).length, chosenId, restTo: pc.restTo });
+  next = logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: pc.controller, kept: !!chosenId, restTo: pc.restTo });
   return resumeAfterChoice(next, pc);
 }
 

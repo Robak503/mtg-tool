@@ -43,7 +43,7 @@ import {
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -368,6 +368,16 @@ function settleHandDiscardChoice(state, cardId) {
 }
 
 /**
+ * Settle an impulse-dig choice (δ-2): keep the chosen card (→ hand), dispose the rest (bottom/graveyard),
+ * resume the suspended program (a "then draw" rider — may re-pause, so guard pendingChoice before
+ * flushing), then finalizeStackResolution flushes any triggers a resumed atom enqueued.
+ */
+function settleImpulseDigChoice(state, cardId) {
+  const next = resolveImpulseDigChoice(state, cardId);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
  * decisions auto-apply; trivial user auto-passes also auto-apply.
@@ -488,6 +498,16 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
           return { session: current, decision: { kind: "hand-discard", ...pc } };
         }
         current = { ...current, state: settleHandDiscardChoice(current.state, autoPickHandDiscardCandidate(current.state, pc)) };
+        continue;
+      }
+      // δ-2 — impulse-dig (Anticipate / Strategic Planning): the player's OWN dig surfaces a pick-one
+      // picker (their revealed top N); Expert autopilot + an opponent auto-keep the best card (reuses the
+      // tutor's highest-mana-value picker — both keep the most impactful library card from the candidates).
+      if (pc.kind === "impulse-dig") {
+        if (pause) {
+          return { session: current, decision: { kind: "impulse-dig", ...pc } };
+        }
+        current = { ...current, state: settleImpulseDigChoice(current.state, autoPickTutorCandidate(current.state, pc)) };
         continue;
       }
       // Tutor library search.
@@ -933,10 +953,54 @@ export function applyHandDiscardChoice(session, choice) {
 }
 
 /**
+ * The player picked which looked-at card to keep from an `impulse-dig` decision (δ-2). Validates the
+ * pick against the revealed candidates, keeps it (→ hand) + disposes the rest, resumes the program,
+ * then re-derives the next decision. `choice.cardId` is the chosen library card id. A null/illegal pick
+ * re-surfaces the picker (a dig always keeps one when ≥1 was revealed).
+ */
+export function applyImpulseDigChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "impulse-dig") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const cardId = choice?.cardId ?? null;
+  if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
+    return advanceUntilDecision(session); // illegal/stale pick → re-surface the same picker.
+  }
+
+  let newState;
+  try {
+    newState = settleImpulseDigChoice(session.state, cardId);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "impulse-dig-choice" },
+    auto: false,
+    reasoning: "user-chose-dig",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
+    decisionLog: [...session.decisionLog, logEntry],
+  });
+}
+
+/**
  * Dispatch an interactive resolution-time choice (state.pendingChoice) to the right handler by
  * its kind — so the single /api/learn/choose route serves the tutor search, the clone copy-pick,
- * scry/surveil, the optional yes/no, and the hand-discard pick. (Named apart from the decision-gate
- * `applyChoice`, which resolves a player ACTION, not a pendingChoice.)
+ * scry/surveil, the optional yes/no, the hand-discard pick, and the impulse-dig pick. (Named apart from
+ * the decision-gate `applyChoice`, which resolves a player ACTION, not a pendingChoice.)
  */
 export function applyPendingChoice(session, choice) {
   const kind = session.state?.pendingChoice?.kind;
@@ -944,6 +1008,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "scry-surveil") return applyScryChoice(session, choice);
   if (kind === "optional-effect") return applyOptionalChoice(session, choice);
   if (kind === "hand-discard") return applyHandDiscardChoice(session, choice);
+  if (kind === "impulse-dig") return applyImpulseDigChoice(session, choice);
   return applyTutorChoice(session, choice);
 }
 

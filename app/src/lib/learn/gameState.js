@@ -614,6 +614,29 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
 }
 
 /**
+ * Apply an impulse-dig decision (δ-2 — Anticipate / Strategic Planning / Impulse): of the
+ * top `n` looked-at cards, the CHOSEN one goes to HAND and ALL the rest go to the BOTTOM (`restTo:
+ * "bottom"`) or to the GRAVEYARD (`restTo: "graveyard"`), in their original top-first order. The
+ * library below the top `n` is untouched. A `chosenId` not among the top `n` (stale/eliminated) just
+ * puts nothing in hand and still disposes the rest — no card duplicated or lost. Mirrors
+ * applyScrySurveil's eliminated-controller guard + immutable withPlayer shape.
+ */
+export function applyImpulseDig(state, { playerId, n, chosenId, restTo }) {
+  assertPlayer(playerId);
+  if (!state.players[playerId]) return state; // controller eliminated mid-resolution → clean no-op
+  return withPlayer(state, playerId, player => {
+    const top = player.library.slice(0, n);
+    const rest = player.library.slice(n);
+    const chosen = top.find(c => c.id === chosenId);
+    const others = top.filter(c => c.id !== chosenId); // every non-chosen looked-at card → bottom / graveyard
+    const hand = chosen ? [...player.hand, chosen] : player.hand;
+    return restTo === "graveyard"
+      ? { ...player, hand, library: [...rest], graveyard: [...player.graveyard, ...others] }
+      : { ...player, hand, library: [...rest, ...others] };
+  });
+}
+
+/**
  * Mill (CR 701.13) — put the top `count` cards of a player's library into their graveyard, top
  * first. Bounded by the library size (milling an empty/short library is a clean no-op). A removed/
  * stale player resolves to a no-op (never a throw). Pure.

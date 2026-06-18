@@ -507,6 +507,11 @@ const MUST_DROP_TO_LOW = [
   "Target player discards two cards.",                                          // Mind Rot — no reveal/choose (the player picks their OWN cards)
   "Target opponent reveals their hand. You choose a nonblack card from it. That player discards that card.", // an unmodeled card filter
   "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card. Create a 2/2 zombie.", // an unmodeled rider after a modeled template (no silent partial)
+  // ── δ-2 impulse-dig — shapes OUTSIDE the exact "keep one, rest → bottom/graveyard" template ──
+  "Look at the top three cards of your library. Put one of them into your hand, one on top of your library, and one on the bottom of your library.", // Telling Time — 3-way split
+  "Look at the top three cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order.", // multi-pick
+  "Reveal the top three cards of your library. Put one of them into your hand and the rest into your graveyard.", // reveal, not look
+  "Look at the top X cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.", // variable X count
 ];
 
 describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
@@ -617,6 +622,10 @@ const MUST_STAY_HIGH = [
   "Target opponent reveals their hand. You choose a card from it. That player discards that card.", // Coercion (any card)
   "Target opponent reveals their hand. You choose a creature or planeswalker card from it. That player discards that card.", // Despise
   "Target opponent reveals their hand. You choose a creature card from it. That player discards that card. Scry 1.", // Harsh Scrutiny (+ scry rider)
+  // ── δ-2 impulse-dig (look at top N, keep one, rest → bottom / graveyard) ──
+  "Look at the top three cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.", // Anticipate
+  "Look at the top three cards of your library. Put one of them into your hand and the rest into your graveyard.", // Strategic Planning
+  "Look at the top four cards of your library. Put one of them into your hand and the rest into your graveyard. Draw a card.", // dig + draw rider
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {

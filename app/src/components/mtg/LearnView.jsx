@@ -359,6 +359,7 @@ export default function LearnView({
             onScryChoose={session.applyScryChoice}
             onOptionalChoose={session.applyOptionalChoice}
             onHandDiscardChoose={session.applyHandDiscardChoice}
+            onImpulseDigChoose={session.applyImpulseDigChoice}
           />
         </main>
 
@@ -442,6 +443,13 @@ export default function LearnView({
       {session.board && decision?.kind === "hand-discard" && (
         <div style={tutorSheetStyle(LINE, BG2)}>
           <HandDiscardPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyHandDiscardChoice} />
+        </div>
+      )}
+      {/* δ-2 — impulse-dig (Strategic Planning / Anticipate) → keep one of the looked-at top N cards;
+          the rest go to the bottom / graveyard. Same side-sheet. */}
+      {session.board && decision?.kind === "impulse-dig" && (
+        <div style={tutorSheetStyle(LINE, BG2)}>
+          <ImpulseDigPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyImpulseDigChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -622,7 +630,7 @@ function TableStrip({ table, activePlayer, cfg, colors }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose }) {
+function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose }) {
   const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
 
   if (!decision) {
@@ -645,6 +653,9 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
   }
   if (decision.kind === "hand-discard") {
     return <HandDiscardPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onHandDiscardChoose} />;
+  }
+  if (decision.kind === "impulse-dig") {
+    return <ImpulseDigPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onImpulseDigChoose} />;
   }
   if (decision.kind === "dispatch-error") {
     return (
@@ -992,6 +1003,86 @@ function HandDiscardPanel({ decision, cfg, colors, fontFamily, onChoose }) {
         }}
       >
         {submitting ? "…" : "Discard"}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * δ-2 — interactive impulse-dig (Strategic Planning / Anticipate). The player looks at the top N of
+ * their OWN library (real art) and keeps ONE in hand; the rest go to the bottom of the library or the
+ * graveyard (per the spell). Resumes the suspended spell via session.applyImpulseDigChoice. Same
+ * non-blocking side-sheet as the tutor picker; the keep is mandatory (the engine only pauses here when
+ * ≥1 card was revealed), so there's no "keep nothing".
+ */
+function ImpulseDigPanel({ decision, cfg, colors, fontFamily, onChoose }) {
+  const { BG2, BG3, LINE, TEXT, GOLD } = colors || {};
+  const accent = cfg?.color || GOLD;
+  const [selected, setSelected] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const candidates = decision.candidates || [];
+  const restWord = decision.restTo === "graveyard" ? "graveyard" : "bottom of your library";
+
+  const candidateKey = candidates.map((c) => c.id).join("|");
+  useEffect(() => { setSelected(null); }, [candidateKey]);
+
+  const submit = async (cardId) => {
+    if (submitting || !cardId) return;
+    setSubmitting(true);
+    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+          🔮 Dig{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+          Top {candidates.length} of your library — keep one in hand. The rest go to the {restWord}.
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+        {candidates.map((c) => {
+          const isSel = selected === c.id;
+          return (
+            <button
+              key={c.id}
+              onClick={() => setSelected(c.id)}
+              title={c.name}
+              style={{
+                display: "flex", flexDirection: "column", gap: 4, padding: 4,
+                background: isSel ? (cfg?.dim || BG3) : "transparent",
+                border: `2px solid ${isSel ? accent : LINE}`,
+                borderRadius: 8, cursor: "pointer", fontFamily, textAlign: "left",
+              }}
+            >
+              <img
+                src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
+                alt={c.name}
+                loading="lazy"
+                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: BG2 }}
+                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+              />
+              <div style={{ fontSize: 11, color: isSel ? accent : TEXT, lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+                {c.name}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={() => submit(selected)}
+        disabled={!selected || submitting}
+        style={{
+          padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
+          cursor: (!selected || submitting) ? "not-allowed" : "pointer", opacity: (!selected || submitting) ? 0.5 : 1,
+          fontSize: 13, fontWeight: 600, fontFamily,
+        }}
+      >
+        {submitting ? "…" : "Keep"}
       </button>
     </div>
   );

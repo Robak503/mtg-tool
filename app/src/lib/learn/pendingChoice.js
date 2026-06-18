@@ -104,6 +104,29 @@ export function setPendingHandDiscardChoice(state, { controller, victim, candida
   };
 }
 
+/**
+ * Flag an impulse-dig awaiting the player's pick of which looked-at card to keep (δ-2 — Anticipate /
+ * Strategic Planning / Impulse). `candidates` is the top N of the controller's OWN library,
+ * top-first, as `{ id, name }` (public to the controller — they're looking at their own library). The
+ * chosen card goes to HAND; the rest go to `restTo` ("bottom" of the library / "graveyard"). Like the
+ * tutor/scry, `runProgram` records the suspended-program continuation onto `pendingChoice.resume` when
+ * it detects the pause. FIFO: one choice at a time.
+ */
+export function setPendingImpulseDigChoice(state, { controller, candidates, restTo, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "impulse-dig-pending", controller, count: candidates.length, restTo, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "impulse-dig",
+      controller,
+      candidates,
+      restTo,
+      sourceName,
+    },
+  };
+}
+
 /** Clear the pending choice (after it's resolved). */
 export function clearPendingChoice(state) {
   if (!state.pendingChoice) return state;
