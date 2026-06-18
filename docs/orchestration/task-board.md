@@ -36,6 +36,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | **VERIFY-MENACE** | 🔴 | **LIVE shipped false positive.** Menace is in COVERED_KEYWORDS so a Menace-only creature is native-body — but the 2-blocker rule (CR 702.110) is enforced NOWHERE (`canBlock` admits a single blocker; `combatResolution.js:17` defers Menace). The engine lets ONE creature block a Menace attacker. **Fix:** enforce 2-blocker in canBlock/declare-blockers, OR remove Menace from COVERED_KEYWORDS (safe default → Arbiter). Same gap that blocks EVADE — fix together. | −FP | OPEN |
 | **FIX-TRIG-CONDITION** | 🔴 | `classifyCondition` over-detects restricted/compound-subject triggers (selfRef too broad; scope-inexpressible restriction dropped → over-fires). 34 cards incl. aristocrats staples. Detail: `docs/qa/rod-findings-1.md`. | 34 (−FP) | DONE #226 (Erin batch) |
 | **VERIFY-ETB-DESTROY** | 🟡 | Spot-check (lower confidence): Ravenous Chupacabra & the ETB-destroy-an-opponent's-creature family classify native-trigger — owed a LIVE 4P end-to-end check that the flush enemy-chooser targets an opponent, never own / never crashes on no-legal-target. | spot-check | OPEN |
+| **FIX-PW-LAND-ORDER** | 🟢 | PW-1 review: Wrenn and One (corpus's only Land Planeswalker) hits the `land` tier BEFORE the planeswalker gate in `classifyCard` → counted native-`land` despite 2 unmodeled loyalty abilities. PRE-EXISTING (identical on master), NO runtime harm (isPlaneswalker=true → loyalty-offer + cast-gate both refuse it). Only over-counts 1 card in the metric. Fix: check planeswalker-before-land (or exclude PWs from the land tier). | 1 (−FP metric) | OPEN |
 
 ---
 
@@ -43,7 +44,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 > **Claimed subsystem lanes (NOT pull tasks — do not grab):**
 > **PW (Planeswalkers) — Walt** (`feat/PW-*-walt`). Multi-PR loyalty subsystem; measured by "can the
-> Academy play planeswalker decks," not the corpus %. **PW-1 (framework) — PR in review:** loyalty
+> Academy play planeswalker decks," not the corpus %. **PW-1 (framework) — ✅ DONE #236** (adversarial review: CREED-airtight, 0 native-PW false positives, rules enforced engine-first): loyalty
 > counters + enters-with-loyalty (CR 306.5b), `+N`/`−N`/`0` abilities (sorcery-speed + once/turn CR
 > 606.3, can't pay below 0 CR 118.3), 0-loyalty SBA (CR 704.5i), attack-a-planeswalker + combat
 > damage→loyalty (CR 120.3c), `native-planeswalker` tier. **0 cards flip native yet** (every real PW
