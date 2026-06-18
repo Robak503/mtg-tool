@@ -178,6 +178,23 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
     if ((actions[0].program?.atoms || []).some(a => a.op === "discard-chosen")) {
       const handSize = (a) => (state.players?.[a.targets?.[0]?.id]?.hand || []).length;
       chosen = actions.reduce((best, a) => (handSize(a) > handSize(best) ? a : best), actions[0]);
+    } else if ((actions[0].program?.atoms || []).some(a => a.op === "sacrifice")) {
+      // ===== EDICTS ===== (Diabolic Edict / Cruel Edict): a program-only edict targeting a player. The AI
+      // only ever edicts an OPPONENT that controls a creature to lose — never itself, never a creatureless
+      // player (the edict would just fizzle) — and picks the opponent with the MOST creatures. The victim
+      // creature is chosen at RESOLUTION (autoPickSacrificeCandidate sacs that opponent's least valuable).
+      // Restricted to a PURE single-target edict (the player is the only chosen target): a multi-target
+      // edict program (e.g. Grave Exchange = graveyard-return + edict) is HELD — the AI doesn't yet pick
+      // the extra target — which is safe (a miss only costs tempo). Bypasses the chooseAITarget hold below.
+      const creatureCount = (pid) => (state.players?.[pid]?.battlefield || [])
+        .filter(p => /Creature/.test(String(p.card?.type || p.card?.type_line || ""))).length;
+      const oppActions = actions.filter(a => {
+        if ((a.targets?.length || 0) !== 1) return false;       // pure single-target edict only
+        const tid = a.targets[0]?.id;
+        return tid && tid !== aiPlayerId && creatureCount(tid) > 0;
+      });
+      if (oppActions.length === 0) continue; // no clean opponent target → the edict fizzles / is multi-target; hold
+      chosen = oppActions.reduce((best, a) => (creatureCount(a.targets[0].id) > creatureCount(best.targets[0].id) ? a : best), oppActions[0]);
     } else if (actions.some(a => a.targets?.length)) {
       // A targeted spell: only cast on a good ENEMY target. chooseAITarget filters to
       // enemies for the scorable legacy effects (damage/destroy); for spells it can't

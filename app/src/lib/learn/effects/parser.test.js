@@ -548,6 +548,18 @@ const MUST_DROP_TO_LOW = [
   "Put a +1/+1 counter on each creature target player controls.",           // Practiced Offense — target player, not the controller
   "Put a -1/-1 counter on each creature.",                                  // Soul Snuffers — ALL creatures (not "you control"); not this slice
   "Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.", // Felidar Retreat mode — rider clause unmodeled → whole drops (no silent partial)
+  // ===== EDICTS ===== — sacrifice-as-effect variants OUTSIDE the exact "target player/opponent
+  // sacrifices a creature [of their choice]" template route to the Arbiter (a count, a filtered victim,
+  // a non-creature, a target-loses-life rider, or a different actor would be confidently mis-resolved).
+  "Target player sacrifices two creatures of their choice.",                    // Dead Drop / Barter — a count
+  "Target player sacrifices a creature of their choice with the greatest power among creatures that player controls.", // filtered victim
+  "Target player sacrifices a creature you don't control.",                     // controller filter on the victim
+  "Target player sacrifices a nonblack creature.",                              // color filter
+  "Target opponent sacrifices a nonland permanent.",                            // non-creature victim
+  "Target player sacrifices a creature of their choice and loses 1 life.",      // Geth's Verdict — the TARGET loses life (deferred)
+  "Each player sacrifices a creature of their choice.",                         // each-player (a later slice — not yet modeled)
+  "Each opponent sacrifices a creature of their choice.",                       // each-opponent (a later slice)
+  "You sacrifice a creature.",                                                  // controller-sac as an effect (a later slice)
 ];
 
 describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
@@ -665,6 +677,12 @@ const MUST_STAY_HIGH = [
   // ===== COUNTERS ===== the EXACT team-distribution forms — counters on the controller's whole team.
   "Put a +1/+1 counter on each creature you control.",                          // Titania's Boon / Basri's Solidarity
   "Put two +1/+1 counters on each creature you control.",                       // Strength of the Pack (N=2)
+  // ── EDICTS — "target player/opponent sacrifices a creature of their choice" (the victim is chosen at
+  // resolution by the sacrificer) + a modeled compose (Grave Exchange = gy-return + edict). Full behavior
+  // pinned in edicts.test.js. ──
+  "Target player sacrifices a creature of their choice.",                       // Diabolic Edict (any player)
+  "Target opponent sacrifices a creature of their choice.",                     // Cruel Edict (opponents only)
+  "Return target creature card from your graveyard to your hand. Target player sacrifices a creature of their choice.", // Grave Exchange (gy-return + edict)
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {
