@@ -25,7 +25,8 @@ Corpus native %, denominator 33,540 real cards. Card bands are honest, CREED-dis
 | **Rider / composition harvest** | thin — composition is ALREADY SOLVED; only CTRL-LIFE / ADDCOST / MODAL / 2nd-minus ratchet | ~+100-200 | ~19-20 % |
 | **⭐ Trigger-effect compiler (THE SPINE)** | bridge each recognized trigger's `effectClause` → the modeled atom library for the **~5,267 single-trigger gap cards** whose EVENT fires but `effect:null` (TRIG-SCRY/DRAW/TREASURE/COUNTER/MONARCH/…). Lights up most of the 20,956 body-only permanents. | ~+10,000-16,000 (grows with the atom library) | **~20 % → ~80-85 %** |
 | **Remaining subsystems** | additional-costs · modal-executor · regeneration / replacement-shield (+ PREVENT) · equipment auto-attach · ETB/upkeep/dies value-subsystems · energy · monarch · levelers · partial sagas | ~+2,000-4,000 | ~85-90 % |
-| **Irreducible-Arbiter tail (the ceiling)** | PW loyalty (337) · random/dice/coin (406) · hidden/secret info (461) · sagas (199) · monarch-class globals (162) · control-exchange (55) · extra-turns (53) · dungeons (41) · stickers/attractions (81) · voting (37) · class/level-up (61) · unique one-offs | ~2,500-4,000 | **stays LOW → ceiling ~88-92 %** |
+| **⭐ Planeswalker subsystem (gameplay-critical, deferred-buildable)** | the 337 PWs — a dedicated framework, **NOT the tail.** Most become native (a loyalty system + the standard +/−/static abilities, reusing the modeled atoms); a residual of game-warping ULTIMATES degrades **per-card** to the Arbiter (CREED-safe). Measured by "can the Academy *play* PW decks," not by the ~1 % corpus bump. | ~+250-300 of 337 | ~90-93 % |
+| **Irreducible-Arbiter tail (the true ceiling)** | random/dice/coin (406) · hidden/secret info (461) · sagas (199) · monarch-class globals (162) · control-exchange (55) · extra-turns (53) · dungeons (41) · stickers/attractions (81) · voting (37) · class/level-up (61) · the PW ultimate residual (~40-90) · unique one-offs | ~2,200-3,700 | **stays LOW → ceiling ~89-93 %** |
 
 **Headline: the trigger-effect compiler is the spine of the entire remaining climb.** Most of the 20,956
 body-only permanents are gated by a trigger whose EVENT the engine ALREADY recognizes (`detectTriggers`
@@ -34,8 +35,26 @@ spell-effect atom library — it's left `effect:null`. Bridge that ONE seam and 
 draw, tokens, counters, damage, destroy, monarch…) light up across thousands of creatures. The clean-atom
 and rider tiers are nearly mined out — worth a few points and good builder fuel, but the climb from ~20 %
 to ~85 % is one subsystem: the compiler. **TRIG-PUMP-1 is its safe pilot** (one trigger shape, self-bound,
-already low-FP). The irreducible tail caps the honest ceiling at **~88-92 %** — ≈ Colton's ~90 % corpus /
+already low-FP). The irreducible tail caps the honest ceiling at **~89-93 %** — ≈ Colton's ~90 % corpus /
 ~94 % real-deck convention; that tail stays on the Ollama-only Arbiter forever, by design.
+
+### Planeswalkers — gameplay-critical, a buildable subsystem, NOT the tail (decided 2026-06-18)
+Coverage-% is the **wrong yardstick** for the 337 planeswalkers. The Academy is a simulator/teacher; its job
+is playing realistic Commander games, and PWs are pivotal there — build-arounds, win conditions, everywhere.
+An Academy that routes every PW to the Arbiter literally **can't simulate a PW game**: the AI can't use its
+own +1, the player can't learn loyalty/combat-redirection decisions, and the per-deck "does a real game play?"
+gate craters for any deck running one. So their gameplay value massively exceeds their ~1 % corpus share —
+this tier is a **gameplay-quality investment, measured by "can the Academy play PW decks," not by the +1 %
+bump.** It is therefore re-categorized OUT of the irreducible tail into a **dedicated, deferred-buildable
+subsystem** with a focused owner (a PW agent, framework-first — not a coverage-builder grabbing it as a slice).
+Honest outcome (no over-promise): **most** PWs fully native (loyalty + standard abilities), the **complex** ones
+gracefully degrade — a weird game-warping ultimate routes per-card to the Arbiter (CREED-safe). "Most
+planeswalkers playable," not "all 337 perfect," and definitely not "0." Build-time research is **mandatory**
+(the CREED forbids coding PW behavior from memory) but the shipped engine stays **100 % local** (research
+informs the code; it never becomes a runtime dependency — local-first, CLAUDE.md §1). Source hierarchy:
+bundled CR (`cr_current.json`) + `rulings.json` are the rules truth → official web (Scryfall/Gatherer/WotC)
+for gaps → Reddit/forums only to surface edge-cases + **what players misunderstand** (that feeds the teaching
+layer, never the rules layer; a hot-take never overrides a CR citation).
 
 ### What the deep scan KILLED (so we don't chase ghosts)
 - **The clean SPELL frontier is exhausted.** The real parser already flips every clean verb-atom the loose
