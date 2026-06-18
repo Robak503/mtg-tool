@@ -654,6 +654,11 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       if (/\bX\b/.test(rewritten)) return null;
       const base = parseClauseToAtom(cardType, rewritten, false);
       if (!base) return null;
+      // ===== DIVIDE ===== (MT-1) — an X-divide ("deals X damage divided among …", Conflagrate / Rolling
+      // Thunder) rewrites to a divide-damage atom here, but the generic amountX path below would DROP its
+      // `group` + lose the division (resolving to 0 / mis-targeting). X-divide is a deliberate fast-follow,
+      // so reject it → low → Arbiter rather than emit a broken atom. (Numeric-N divide is modeled directly.)
+      if (base.op === "divide-damage") return null;
       const atom = { op: base.op, targetType: base.targetType, amountX: true };
       if (base.restrictions) atom.restrictions = base.restrictions;
       if (base.duration) atom.duration = base.duration;

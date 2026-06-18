@@ -362,6 +362,7 @@ export default function LearnView({
             onImpulseDigChoose={session.applyImpulseDigChoice}
             onSacrificeChoose={session.applySacrificeChoice}
             onDiscardChoose={session.applyDiscardChoice}
+            onDivideChoose={session.applyDivideChoice}
           />
         </main>
 
@@ -467,6 +468,13 @@ export default function LearnView({
       {session.board && decision?.kind === "discard" && (
         <div style={tutorSheetStyle(LINE, BG2)}>
           <DiscardChoicePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyDiscardChoice} />
+        </div>
+      )}
+      {/* DIVIDE (MT-1) — divide-damage division → the human caster assigns the spell's full damage among
+          any number of targets (creatures + players) via steppers. Same side-sheet. */}
+      {session.board && decision?.kind === "divide-damage" && (
+        <div style={tutorSheetStyle(LINE, BG2)}>
+          <DivideDamagePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyDivideChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -647,7 +655,7 @@ function TableStrip({ table, activePlayer, cfg, colors }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onSacrificeChoose, onDiscardChoose }) {
+function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose }) {
   const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
 
   if (!decision) {
@@ -679,6 +687,9 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
   }
   if (decision.kind === "discard") {
     return <DiscardChoicePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onDiscardChoose} />;
+  }
+  if (decision.kind === "divide-damage") {
+    return <DivideDamagePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onDivideChoose} />;
   }
   if (decision.kind === "dispatch-error") {
     return (
@@ -1118,6 +1129,83 @@ function ImpulseDigPanel({ decision, cfg, colors, fontFamily, onChoose }) {
  * Same non-blocking side-sheet as the dig/discard pickers; the sacrifice is mandatory (the engine only
  * pauses here when ≥2 creatures could be sacrificed — 0/1 resolve without a choice), so there's no decline.
  */
+/**
+ * ===== DIVIDE ===== (MT-1) — divide-damage division picker (Boulderfall, Mythos of Vadrok). Shown to the
+ * human caster: assign the spell's full damage among any number of the legal targets (creatures + players),
+ * via per-target steppers bounded by a live "remaining" budget. Submit is gated until the whole amount is
+ * assigned (CR 601.2d — all of it must be divided). Submits `[{ id, type, amount }]` via session.applyDivideChoice.
+ */
+function DivideDamagePanel({ decision, cfg, colors, fontFamily, onChoose }) {
+  const { BG2, BG3, LINE, TEXT, GOLD } = colors || {};
+  const accent = cfg?.color || GOLD;
+  const candidates = decision.candidates || [];
+  const total = decision.amount || 0;
+  const [amounts, setAmounts] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const resetKey = candidates.map((c) => c.id).join("|") + ":" + total;
+  useEffect(() => { setAmounts({}); }, [resetKey]);
+
+  const assigned = Object.values(amounts).reduce((s, n) => s + (n || 0), 0);
+  const remaining = total - assigned;
+  const bump = (id, delta) => setAmounts((prev) => {
+    const cur = prev[id] || 0;
+    const next = Math.max(0, delta > 0 ? Math.min(cur + delta, cur + Math.max(0, remaining)) : cur + delta);
+    return { ...prev, [id]: next };
+  });
+  const stepStyle = (disabled) => ({
+    width: 24, height: 24, lineHeight: "20px", padding: 0, background: BG2, color: TEXT,
+    border: `1px solid ${LINE}`, borderRadius: 4, cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.4 : 1, fontSize: 15, fontWeight: 700, fontFamily,
+  });
+
+  const submit = async () => {
+    if (submitting || remaining !== 0) return;
+    const distribution = candidates.filter((c) => (amounts[c.id] || 0) > 0).map((c) => ({ id: c.id, type: c.type, amount: amounts[c.id] }));
+    setSubmitting(true);
+    try { await onChoose?.(distribution); } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+          🎯 Divide {total} damage{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+          Assign all {total} among any number of targets. Remaining: <b style={{ color: remaining === 0 ? accent : "#e0a030" }}>{remaining}</b>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+        {candidates.map((c) => {
+          const amt = amounts[c.id] || 0;
+          return (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: amt > 0 ? (cfg?.dim || BG3) : "transparent", border: `1px solid ${amt > 0 ? accent : LINE}`, borderRadius: 6 }}>
+              <span style={{ fontSize: 12, color: TEXT, fontFamily }}>{c.type === "player" ? `🧑 ${c.name}` : c.name}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button onClick={() => bump(c.id, -1)} disabled={amt <= 0} style={stepStyle(amt <= 0)}>−</button>
+                <span style={{ minWidth: 16, textAlign: "center", fontSize: 13, color: accent, fontWeight: 700 }}>{amt}</span>
+                <button onClick={() => bump(c.id, +1)} disabled={remaining <= 0} style={stepStyle(remaining <= 0)}>+</button>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <button
+        onClick={submit}
+        disabled={remaining !== 0 || submitting}
+        style={{
+          padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
+          cursor: (remaining !== 0 || submitting) ? "not-allowed" : "pointer", opacity: (remaining !== 0 || submitting) ? 0.5 : 1,
+          fontSize: 13, fontWeight: 600, fontFamily,
+        }}
+      >
+        {remaining === 0 ? "Deal damage" : `Assign ${remaining} more`}
+      </button>
+    </div>
+  );
+}
+
 function SacrificeChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
   const { BG2, BG3, LINE, TEXT, GOLD } = colors || {};
   const accent = cfg?.color || GOLD;

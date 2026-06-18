@@ -1199,6 +1199,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "impulse-dig") return applyImpulseDigChoice(session, choice);
   if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice);
   if (kind === "discard") return applyDiscardChoice(session, choice);
+  if (kind === "divide-damage") return applyDivideChoice(session, choice);
   return applyTutorChoice(session, choice);
 }
 

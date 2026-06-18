@@ -7,13 +7,15 @@
  * the three engine pieces in isolation: applyDivideDamage (gather legal targets → pause),
  * autoPickDivideDistribution (the AI greedy-kill split), and resolveDivideChoice (apply the split).
  *
- * NOTE: divide-damage is intentionally NOT yet registered in ATOM_RESOLVERS (so no card flips HIGH until
- * the picker + driver + UI land in the next steps) — these are direct-call unit tests of the logic.
+ * The atom is now REGISTERED + wired end-to-end (parser → picker → AI/human driver → resolution), so
+ * divide-damage cards classify native-spell; these pin the engine pieces + the parser/coverage contract.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 import { applyDivideDamage } from "./effects/effectAtoms.js";
 import { autoPickDivideDistribution, resolveDivideChoice } from "./effects/runProgram.js";
+import { parseEffectProgram, programConfidence } from "./effects/parser.js";
+import { classifyCard } from "./coverage.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -87,5 +89,22 @@ describe("MT-1 resolveDivideChoice — applies the split through the deal-damage
     const s = applyDivideDamage(state({ aiBf: [creature("Bear", 2, 2, "ai")] }), { op: "divide-damage", amount: 4, group: "anyTarget" }, { controller: "user" });
     const out = resolveDivideChoice(s, [{ id: "not-a-target", type: "player", amount: 4 }]);
     expect(out.players.ai.life).toBe(40); // nothing applied
+  });
+});
+
+describe("MT-1 parser + coverage — divide-damage is native (the card-name prefix is tolerated)", () => {
+  const I = (oracle, mana = "{X}{R}") => ({ type: "Sorcery", mana, oracle, name: oracle.split(" ")[0] });
+  it("parses the divide shapes to a divide-damage atom + classifies native-spell", () => {
+    expect(parseEffectProgram(I("Boulderfall deals 5 damage divided as you choose among any number of targets.", "{4}{R}")).atoms)
+      .toEqual([{ op: "divide-damage", amount: 5, group: "anyTarget" }]);
+    expect(parseEffectProgram(I("Hail of Arrows deals 4 damage divided as you choose among any number of target creatures.", "{3}{W}")).atoms[0])
+      .toMatchObject({ op: "divide-damage", amount: 4, group: "creatures" });
+    expect(classifyCard(I("Boulderfall deals 5 damage divided as you choose among any number of targets.", "{4}{R}"))).toBe("native-spell");
+  });
+  it("MUST_DROP_TO_LOW: a bounded count, an X-divide (no numeric N), or a rider stays low → Arbiter", () => {
+    const low = (o, m) => expect(programConfidence(parseEffectProgram(I(o, m)))).toBe("low");
+    low("Electrolyze deals 2 damage divided as you choose among one or two targets.", "{1}{U}{R}"); // bounded "one or two"
+    low("Conflagrate deals X damage divided as you choose among any number of targets.", "{X}{X}{R}"); // X (not numeric) — fast-follow
+    low("Rolling Thunder deals X damage divided as you choose among any number of target creatures and/or players.", "{X}{X}{R}");
   });
 });

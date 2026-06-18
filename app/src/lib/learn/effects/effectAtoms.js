@@ -878,11 +878,11 @@ export const ATOM_RESOLVERS = Object.freeze({
   "impulse-dig": applyImpulseDigAtom,
   "mill": applyMill,
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
-  // ===== DIVIDE ===== (MT-1) — "divide-damage" is wired end-to-end EXCEPT the LearnView human picker UI;
-  // it is intentionally LEFT UNREGISTERED so KNOWN.has("divide-damage") stays false → the parser atom is
-  // dropped → no card flips HIGH (no native-but-human-stuck false positive). Flip this ON in the final
-  // step once the useLearnSession hook + the LearnView DivideDamagePanel land + live-QA passes:
-  //   "divide-damage": applyDivideDamage,
+  // ===== DIVIDE ===== (MT-1) — split N damage among any number of targets via a resolution-time picker.
+  // Wired end-to-end: applyDivideDamage → setPendingDivideChoice → driver (AI auto-distributes /
+  // human assigns via the LearnView DivideDamagePanel) → resolveDivideChoice applies it through the
+  // deal-damage atom. (distribute-counters reuses this same picker — fast-follow.)
+  "divide-damage": applyDivideDamage,
 });
 
 /**
