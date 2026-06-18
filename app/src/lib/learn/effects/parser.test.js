@@ -501,6 +501,12 @@ const MUST_DROP_TO_LOW = [
   // damage-at-random clause must route to the Arbiter, never a fabricated (fixed) pick.
   // (Surfaced by a corpus scan of the newly-routing targeted triggers: Knight Rampager.)
   "Goblin Sniper deals 1 damage to target opponent chosen at random.",
+  // ── δ-1 hand disruption — variants OUTSIDE the exact template / filter allowlist route to Arbiter. ──
+  "Target opponent reveals their hand. You choose a nonland card from it or a card from their graveyard. Exile that card. You lose 1 life.", // Agonizing Remorse — exile + graveyard option
+  "Target opponent reveals their hand. You may choose a nonland card from it. If you do, that player discards that card.", // Reckoner Shakedown — optional "you may" + else-branch
+  "Target player discards two cards.",                                          // Mind Rot — no reveal/choose (the player picks their OWN cards)
+  "Target opponent reveals their hand. You choose a nonblack card from it. That player discards that card.", // an unmodeled card filter
+  "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card. Create a 2/2 zombie.", // an unmodeled rider after a modeled template (no silent partial)
 ];
 
 describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
@@ -604,6 +610,13 @@ const MUST_STAY_HIGH = [
   "Destroy target artifact. Draw a card.",                                        // Smash (removal + draw)
   "Destroy target land. Scry 2.",                                                  // Rubble Reading (removal + scry)
   "Exile target nonland permanent. You lose 3 life.",                            // Anguished Unmaking
+  // ── δ-1 targeted hand disruption (Duress family) — the discard-from-revealed-hand atom + riders. ──
+  "Target opponent reveals their hand. You choose a noncreature, nonland card from it. That player discards that card.", // Duress
+  "Target player reveals their hand. You choose a nonland card from it. That player discards that card. You lose 2 life.", // Thoughtseize (+ lose-life rider)
+  "Target player reveals their hand. You choose a nonland card from it with mana value 3 or less. That player discards that card.", // Inquisition of Kozilek (mv filter)
+  "Target opponent reveals their hand. You choose a card from it. That player discards that card.", // Coercion (any card)
+  "Target opponent reveals their hand. You choose a creature or planeswalker card from it. That player discards that card.", // Despise
+  "Target opponent reveals their hand. You choose a creature card from it. That player discards that card. Scry 1.", // Harsh Scrutiny (+ scry rider)
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {

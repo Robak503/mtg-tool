@@ -32,6 +32,10 @@ function atomTargetSpec(atom) {
   // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so
   // enumerateTargets surfaces only the caster's matching graveyard cards.
   if (tt === "graveyardCard") return { kind: "return-gy", targetType: "graveyardCard", cardFilter: atom.cardFilter || "any" };
+  // δ-1 hand disruption: a hand-card target carries the handFilter so enumerateTargets surfaces only
+  // the opponents' hand cards the spell may strip (Duress = noncreature+nonland, Inquisition = nonland
+  // + mv≤3, …). Modeled like graveyardCard — a card in a zone, chosen at cast.
+  if (tt === "handCard") return { kind: "discard-chosen", targetType: "handCard", handFilter: atom.handFilter || {} };
   return { kind: atom.op === "destroy" ? "destroy" : "damage", targetType: tt, restrictions: atom.restrictions || [] };
 }
 

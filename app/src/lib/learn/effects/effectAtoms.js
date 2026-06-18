@@ -220,6 +220,31 @@ function applyReanimate(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "reanimate", controller: ctx.controller, targets: reanimated });
 }
 
+/**
+ * δ-1 targeted hand disruption (CR 701.8 discard) — Duress / Thoughtseize / Inquisition / Coercion /
+ * Despise / Divest / Harsh Scrutiny. The caster chose which card to strip from the target's REVEALED
+ * hand at cast time (the `handCard` target enumerated over opponents' hands by handFilter — modeled
+ * like the `graveyardCard` recursion target: a card in a zone, picked at cast time, NO resolution-time
+ * picker). On resolution, that card moves from its OWNER'S hand to their graveyard (a discard). The
+ * owner is `t.controller` (set at enumeration), NOT the caster — this is the one targeted atom whose
+ * target lives in a DIFFERENT player's zone. Fail-safe (CR 608.2b): if the chosen card already left the
+ * hand, that target is a logged no-op, never a throw. Hidden-info safe: the card was revealed by the
+ * spell, so logging the discard reveals nothing the spell didn't already.
+ */
+function applyDiscardChosen(state, atom, ctx) {
+  let next = state;
+  const discarded = [];
+  for (const t of ctx.targets || []) {
+    if (t.type !== "handCard") continue;
+    const owner = t.controller;
+    const hand = next.players[owner]?.hand || [];
+    if (!hand.some((c) => c.id === t.id)) continue; // chosen card left the hand — no-op (CR 608.2b)
+    next = moveCardToZone(next, { playerId: owner, fromZone: "hand", toZone: "graveyard", cardId: t.id });
+    discarded.push({ owner, id: t.id, name: t.name });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "discard-chosen", controller: ctx.controller, targets: discarded });
+}
+
 /** Put +1/+1 or -1/-1 counters on the chosen creature(s), or the SOURCE for a self counter
  * ("put a +1/+1 counter on this creature", atom.target "self"; CR 122.1). */
 function applyAddCounter(state, atom, ctx) {
@@ -495,6 +520,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "add-counter": applyAddCounter,
   "return-from-graveyard": applyReturnFromGraveyard,
   "reanimate": applyReanimate,
+  "discard-chosen": applyDiscardChosen,
   "create-token": applyCreateToken,
   "counter": applyCounter,
   "tutor": applyTutor,
