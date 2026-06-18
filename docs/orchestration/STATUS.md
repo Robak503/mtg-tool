@@ -19,6 +19,7 @@
 | **Hans**  | Scout · 3h | 🔵 deep-scan running (board-3) |
 | **Rod**   | QA · 3h | findings #1 fully addressed · next sweep ~3h |
 | **Iris**  | Dashboard · 30m | renders this board (read-only) |
+| **Walt**  | Planeswalkers · subsystem | 🆕 launching — loyalty framework first (research + build) |
 
 > ⏳ **Owner cubes are "pending" for one round.** The current claims (DIG-1, REG-1, FOG-1) were made on the old convention (descriptor suffix, no name), so they can't be attributed — Iris correctly leaves them unowned rather than guess (CREED). From the **next** claim each builder makes (`feat/<task>-<name>`), the cubes auto-fill with real owners.
 
