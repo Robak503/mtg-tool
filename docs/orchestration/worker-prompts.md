@@ -2,7 +2,7 @@
 
 > **⚠️ SUPERSEDED (2026-06-18) — canonical faculty manuals now live in `docs/orchestration/agents/`:**
 > `clyde.md` (integrator), `cindy.md` + `walt.md` (the two builders), `hans.md` (scout+QA+fix, **she/her**),
-> `omnath.md` (brain). **The roster went lean:** the old "Omnath orchestrator" **split into Omnath (brain) +
+> `iris.md` (dashboard), `omnath.md` (brain). **The roster went lean:** the old "Omnath orchestrator" **split into Omnath (brain) +
 > Clyde (integrator)** — **Clyde now owns `master` and merges every PR**; **Paula/Tess/Erin/Rod stood down**
 > (Hans absorbed QA+fix; Walt pivoted from the PW subsystem to the reserved PW-leverage general-mechanism
 > lane in `agents/walt.md`). This file is kept for history — **where it disagrees with `agents/*.md`, the
