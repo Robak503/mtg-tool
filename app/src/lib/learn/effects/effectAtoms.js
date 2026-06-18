@@ -751,7 +751,11 @@ function applyDiscard(state, atom, ctx) {
     return logEvent(state, { kind: "spell-effect", effect: "discard", who: atom.who || "target", amount: 0 });
   }
   let discarders;
-  if (atom.who === "eachPlayer") {
+  if (atom.who === "controller") {
+    // LOOT-1 — the caster discards (draw-then-discard loot). A single discarder; the chain pauses for the
+    // human to pick which cards / auto-discards the AI's cheapest, exactly like the each/target forms.
+    discarders = state.players?.[ctx.controller] ? [ctx.controller] : [];
+  } else if (atom.who === "eachPlayer") {
     const seen = new Set();
     discarders = [ctx.controller, ...opponentsOf(state, ctx.controller)]
       .filter((pid) => state.players?.[pid] && !seen.has(pid) && seen.add(pid));

@@ -71,6 +71,38 @@ describe("parser + coverage — the discard family is HIGH; the atom targets a P
   });
 });
 
+// LOOT-1 — the CONTROLLER self-discards (the "loot" half of draw-then-discard). who:"controller" reuses the
+// same discard chain: the caster picks which cards (human picker / AI auto-pitches cheapest). "Discard N
+// at random" (engine-chosen) and "discard your hand" stay low → Arbiter.
+describe("LOOT-1 — controller self-discard (draw-then-discard loot)", () => {
+  const CAREFUL = { id: "cs", name: "Careful Study", type: SORCERY, mana: "{1}", oracle: "Draw two cards, then discard two cards." };
+  it("parses imperative / 'you' self-discard to a who:controller atom", () => {
+    expect(parseEffectProgram({ type: SORCERY, oracle: "You discard a card." }).atoms)
+      .toEqual([{ op: "discard", amount: 1, who: "controller", targetType: null }]);
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Discard two cards." }).atoms)
+      .toEqual([{ op: "discard", amount: 2, who: "controller", targetType: null }]);
+  });
+  it("draw-then-discard composes; Careful Study / Thoughtflare classify native-spell", () => {
+    expect(parseEffectProgram(CAREFUL).atoms).toEqual([
+      { op: "draw", amount: 2, targetType: null },
+      { op: "discard", amount: 2, who: "controller", targetType: null },
+    ]);
+    expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle: "Draw three cards, then discard a card." }))).toBe("high");
+    expect(classifyCard(CAREFUL)).toBe("native-spell");
+  });
+  it("'discard N at random' (engine-chosen) and 'discard your hand' stay low → Arbiter", () => {
+    expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle: "Discard two cards at random." }))).toBe("low");
+    expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle: "Discard your hand, then draw seven cards." }))).toBe("low");
+  });
+  it("resolution: the caster draws then discards via the chain (keeps the priciest, pitches cheapest)", () => {
+    const s = state({ userHand: [CAREFUL, hc("K1", "Keep", 5)], userLib: [lc("L1"), lc("L2")] });
+    const after = castAndAutoResolve(s, "cs");
+    expect(after.players.user.hand.map((c) => c.id)).toEqual(["K1"]);                 // kept the expensive card
+    expect(after.players.user.graveyard.map((c) => c.id)).toEqual(expect.arrayContaining(["L1", "L2"])); // the 2 cheapest drawn → pitched
+    expect(after.pendingChoice).toBeUndefined();
+  });
+});
+
 describe("resolution — the discarder chooses; the N>1 / each-player chain; the 0 / ≤N / >N split", () => {
   it("target discards N: the AI auto-discards its N cheapest cards (chain), keeping the priciest", () => {
     const s = state({ userHand: [MINDROT], aiHand: [hc("h1", "Cheap", 1), hc("h2", "Mid", 3), hc("h3", "Big", 6)] });
