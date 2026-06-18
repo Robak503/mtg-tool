@@ -74,6 +74,19 @@ function stripRegenerationRider(text) {
 }
 
 /**
+ * Remove the "This spell can't be countered[ by spells or abilities]." rider — VACUOUS for the effect
+ * parser: uncounterability is ENFORCED at the counter-target enumerator (spellEffects.enumerateTargets
+ * excludes an on-card "can't be countered" spell from a counter's legal targets), NOT by the effect
+ * program, so the spell resolves IDENTICALLY whether or not the parser sees this clause. Stripping it
+ * (rather than failing the all-or-nothing gate on an otherwise-unmodeled clause) lets a modeled spell
+ * carrying it — Supreme Verdict ("Destroy all creatures. … This spell can't be countered."), Rending
+ * Volley — parse natively. Anchored to the "this spell can't be countered" sentence only.
+ */
+function stripUncounterableRider(text) {
+  return String(text || "").replace(/\bthis spell can'?t be countered(?: by spells or abilities)?\b\.?/gi, " ");
+}
+
+/**
  * For an {X}-cost spell, rewrite the X in the AMOUNT slot of a modeled clause to a
  * sentinel "1" so the proven numeric clause parser recognizes the shape; the caller
  * stamps `amountX` and drops the sentinel. ONLY the amount slot is rewritten — a
@@ -531,6 +544,9 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   // board wipe / removal spell that carries it isn't forced low by an otherwise-unmodeled
   // clause. Safe: honoring it yields the identical state in this engine.
   oracle = stripRegenerationRider(oracle);
+  // Drop the vacuous "This spell can't be countered" rider too — uncounterability is enforced at the
+  // counter-target enumerator, not the effect program, so honoring it yields the identical resolution.
+  oracle = stripUncounterableRider(oracle);
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).
