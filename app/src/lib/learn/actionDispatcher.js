@@ -36,12 +36,17 @@ import {
   removeCounter,
   destroyLethalCreatures,
   mintId,
+  isPlaneswalker,
+  adjustLoyalty,
+  markLoyaltyActivated,
+  destroyZeroLoyaltyPlaneswalkers,
 } from "./gameState.js";
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment } from "./manaModel.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura } from "./staticAbilityParser.js";
+import { planeswalkerNativelyCovered } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
 import { checkCastTriggers, checkDiesTriggers } from "./triggers.js";
 
@@ -284,6 +289,16 @@ function applyCastSpell(state, action) {
     // carries an unmodeled bonus/ability). Route to the Arbiter seam rather than entering a
     // do-nothing unattached permanent — honest about the gap, never a silent no-op.
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "aura (unmodeled enchant or bonus)" } };
+  } else if (isPlaneswalker(card)) {
+    // A planeswalker (PW-1). Only a FULLY-modeled walker (every loyalty ability HIGH, no unmodeled
+    // static/trigger residue) enters the native battlefield via PERMANENT_ETB (with its starting
+    // loyalty, set in enterPermanent). A partially-modeled walker routes to the Arbiter seam rather
+    // than entering and silently dropping its unmodeled text — the all-or-nothing CREED (a partial
+    // application is forbidden; a false negative is safe). Checked before the generic `program`
+    // branch, which would otherwise parse the first loyalty line and mis-route it.
+    payload = planeswalkerNativelyCovered(card)
+      ? { resolver: RESOLVER_KEYS.PERMANENT_ETB, params: { card, controller: action.playerId } }
+      : { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "planeswalker (unmodeled loyalty ability or static)" } };
   } else if (program) {
     // P2.5: thread the cast-time choices (chosenMode for modal, xValue for X-spells)
     // frozen onto the action so resolution is deterministic + serializable.
@@ -494,6 +509,66 @@ function applyActivateAbility(state, action) {
   return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
 }
 
+/**
+ * Activate a loyalty ability (`[+N]/[−N]/[0]: effect`, CR 606) — PW-1. The cost is a loyalty
+ * adjustment, paid by changing the planeswalker's loyalty counters BEFORE the ability goes on the
+ * stack (CR 602.2b), and the controller is marked as having used a loyalty ability of this walker
+ * this turn (CR 606.3). The effect then resolves through the SAME serializable effect-program
+ * interpreter a spell/activated ability uses, with sourceId = the planeswalker so a self ("this")
+ * atom resolves to it. A `−N` cost that drops loyalty to 0 puts the walker into the graveyard as an
+ * SBA (CR 704.5i) — but the ability is already on the stack and still resolves.
+ */
+function applyActivateLoyalty(state, action) {
+  const player = state.players[action.playerId];
+  if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
+  const perm = player.battlefield.find((p) => p.id === action.permanentId);
+  if (!perm) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
+  if (!isPlaneswalker(perm.card)) throw new DispatcherError("Not a planeswalker", "NOT_PLANESWALKER");
+  if (perm.loyaltyActivatedThisTurn) throw new DispatcherError("A loyalty ability of this planeswalker was already activated this turn", "LOYALTY_USED");
+  const loyalty = perm.counters?.loyalty ?? 0;
+  if (!Number.isInteger(action.costDelta)) throw new DispatcherError("Loyalty cost delta missing", "BAD_ACTION");
+  if (action.costDelta < 0 && loyalty + action.costDelta < 0) {
+    throw new DispatcherError("Not enough loyalty to pay this cost", "LOYALTY_SHORT");
+  }
+
+  // Pay the loyalty cost (CR 602.2b — before the ability is put on the stack) + mark it used.
+  let working = adjustLoyalty(state, { permanentId: perm.id, delta: action.costDelta });
+  working = markLoyaltyActivated(working, perm.id);
+
+  // Same effect-program payload a spell/activated ability uses; sourceId = the planeswalker.
+  const targets = action.targets || [];
+  const params = { program: action.program, controller: action.playerId, targets, cardId: perm.card?.id, sourceId: perm.id };
+  if (action.chosenMode != null) params.chosenMode = action.chosenMode;
+  const payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
+
+  const { id: stkId, state: working2 } = mintId(working, "stk");
+  const stackObject = createStackObject({
+    id: stkId,
+    kind: "activated-ability",
+    source: perm.card,
+    controller: action.playerId,
+    targets,
+    cost: null,
+    payload,
+  });
+
+  let next = { ...working2, stack: [...working2.stack, stackObject] };
+  next = logEvent(next, {
+    kind: "activate-loyalty",
+    playerId: action.playerId,
+    permanentId: perm.id,
+    cardName: perm.card?.name,
+    costDelta: action.costDelta,
+    abilityText: action.abilityText,
+  });
+  // SBA (CR 704.5i): paying a −N cost down to 0 puts the walker into the graveyard. The ability is
+  // already on the stack (above) and still resolves — putting it there before the sweep is what
+  // preserves that ordering.
+  next = destroyZeroLoyaltyPlaneswalkers(next).state;
+  // A loyalty ability uses the stack — restart the priority loop at the active player (CR 117.1c).
+  return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
+}
+
 function applyDeclareAttacker(state, action) {
   const creature = findCreatureOnBattlefield(state, action.playerId, action.permanentId);
   if (!creature) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
@@ -517,6 +592,10 @@ function applyDeclareAttacker(state, action) {
     permanentId: action.permanentId,
     attackingPlayer: action.playerId,
     defender,
+    // PW-1: when attacking a planeswalker, combat damage is removed as loyalty from THIS walker
+    // (not the player's life) — combatResolution reads defenderPlaneswalkerId. `defender` still
+    // names the defending player (who declares blockers).
+    ...(action.defenderPlaneswalkerId ? { defenderPlaneswalkerId: action.defenderPlaneswalkerId } : {}),
   };
   return {
     ...next,
@@ -562,6 +641,7 @@ const HANDLERS = {
   "cast-spell": applyCastSpell,
   "tap-for-mana": applyTapForMana,
   "activate-ability": applyActivateAbility,
+  "activate-loyalty": applyActivateLoyalty,
   "declare-attacker": applyDeclareAttacker,
   "declare-blocker": applyDeclareBlocker,
 };

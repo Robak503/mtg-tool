@@ -20,7 +20,7 @@
  * PR-2 and the cast path emits these payloads in PR-3.
  */
 
-import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures } from "./gameState.js";
+import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, isPlaneswalker, startingLoyalty } from "./gameState.js";
 import { resolveSpellEffect } from "./spellEffects.js";
 import { applyTriggerEffect, checkDiesTriggers, checkEnterTriggers } from "./triggers.js";
 import { markPendingArbiter } from "./pendingArbiter.js";
@@ -82,6 +82,14 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // the battlefield it's the original card, not the copy). moveCardToZone reads printedCard.
     ...(opts.printedCard ? { printedCard: opts.printedCard } : {}),
   };
+  // A planeswalker enters with its starting loyalty as loyalty counters (CR 306.5b). Stored under
+  // the generic counters map (`counters.loyalty`) so the 0-loyalty SBA + loyalty costs read it the
+  // same way +1/+1 counters work. A non-finite printed loyalty (X/*) gets no counter — it never
+  // classifies native and the SBA only kills walkers that entered with one.
+  if (isPlaneswalker(card)) {
+    const loy = startingLoyalty(card);
+    if (loy != null) perm.counters = { ...perm.counters, loyalty: loy };
+  }
   let next = {
     ...s3,
     players: {

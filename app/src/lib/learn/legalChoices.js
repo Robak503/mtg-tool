@@ -29,7 +29,7 @@
  * no fetch.
  */
 
-import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
+import { getZone, opponentOf, opponentsOf, totalAvailableMana, isPlaneswalker } from "./gameState.js";
 import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword } from "./layers.js";
@@ -37,6 +37,7 @@ import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTar
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { parseActivatedAbilities, sacrificeDropsTrigger } from "./effects/abilities.js";
+import { parseLoyaltyAbilities, planeswalkerNativelyCovered } from "./effects/loyaltyAbilities.js";
 import { isNativeAura } from "./staticAbilityParser.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
@@ -630,6 +631,56 @@ function actionsActivateAbility(state, playerId) {
   return actions;
 }
 
+/**
+ * Loyalty abilities (`[+N]/[−N]/[0]: effect`, CR 606) — PW-1. A planeswalker's controller may
+ * activate ONE loyalty ability of it per turn (CR 606.3 — "only if no player has previously
+ * activated a loyalty ability of that permanent that turn"), only any time they could cast a sorcery
+ * (own main, empty stack, priority — `canCastSorcerySpeed`, also CR 606.3). Only abilities whose
+ * effect parses HIGH are offered (`parseLoyaltyAbilities`); a `−N` cost is offered only when the
+ * walker has ≥ N loyalty (CR 118.3 — you can't pay a cost without the resources to pay it fully).
+ * One action per (ability × legal-target combo), mirroring the activated-ability expansion.
+ */
+function actionsActivateLoyalty(state, playerId) {
+  if (!canCastSorcerySpeed(state, playerId)) return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const perm of player.battlefield) {
+    if (!isPlaneswalker(perm.card)) continue;
+    // CREED gate: only offer loyalty abilities for a FULLY-modeled walker. A partially-modeled
+    // walker shouldn't be on the native battlefield at all (the cast path routes it to the Arbiter),
+    // but if one arrives via another path, never offer a subset of its abilities (silent partial play).
+    if (!planeswalkerNativelyCovered(perm.card)) continue;
+    if (perm.loyaltyActivatedThisTurn) continue; // CR 606.3 — at most one per turn per walker
+    const loyalty = perm.counters?.loyalty ?? 0;
+    for (const ab of parseLoyaltyAbilities(perm.card)) {
+      if (!ab.modeled) continue;
+      // CR 118.3: a player can't pay a cost without the resources to pay it fully — so a −N loyalty
+      // cost can't be paid by a walker with fewer than N loyalty. (+N / 0 are always payable.)
+      if (ab.costDelta < 0 && loyalty + ab.costDelta < 0) continue;
+      const choices = expandCastChoices(state, playerId, ab.program);
+      if (choices.length === 0) continue; // a required target has no legal pick → can't activate
+      const costLabel = `${ab.costDelta >= 0 ? "+" : ""}${ab.costDelta}`;
+      for (const ch of choices) {
+        actions.push({
+          kind: "activate-loyalty",
+          playerId,
+          permanentId: perm.id,
+          name: perm.card.name,
+          abilityIndex: ab.index,
+          costDelta: ab.costDelta,
+          program: ab.program,
+          targets: ch.targets,
+          chosenMode: ch.chosenMode ?? null,
+          needsTargets: ch.targets.length > 0,
+          targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
+          abilityText: `${costLabel}: ${ab.effectClause}`,
+        });
+      }
+    }
+  }
+  return actions;
+}
+
 function actionsDeclareAttacker(state, playerId) {
   // Only the active player declares attackers, and only in the
   // declare-attackers step. legalChoices doesn't enforce step phase
@@ -649,10 +700,20 @@ function actionsDeclareAttacker(state, playerId) {
     // Granted Haste (Concordant Crossroads, sliver) counts, not just printed.
     .filter(p => !p.summoningSick || permanentHasKeyword(state, p.id, "Haste"));
 
-  // Standard (a lone opponent): the dispatcher auto-fills the defender, so emit
-  // one action per creature — unchanged shape.
-  const defenders = opponentsOf(state, playerId);
-  if (defenders.length <= 1) {
+  // Legal attack targets (CR 508.1a): each opponent (their face) PLUS every planeswalker they
+  // control (PW-1 — a creature may attack a planeswalker instead of its controller). A face target
+  // carries just `defenderId`; a planeswalker target also carries `defenderPlaneswalkerId`.
+  const targets = [];
+  for (const oppId of opponentsOf(state, playerId)) {
+    targets.push({ defenderId: oppId });
+    for (const p of (state.players[oppId]?.battlefield || [])) {
+      if (isPlaneswalker(p.card)) targets.push({ defenderId: oppId, defenderPlaneswalkerId: p.id, pwName: p.card?.name });
+    }
+  }
+
+  // Standard fast path (a lone opponent, no enemy planeswalkers → exactly one target): the
+  // dispatcher auto-fills the defender, so emit one action per creature — unchanged shape.
+  if (targets.length <= 1) {
     return attackers.map(p => ({
       kind: "declare-attacker",
       playerId,
@@ -661,17 +722,18 @@ function actionsDeclareAttacker(state, playerId) {
     }));
   }
 
-  // Commander (multiple opponents): each attacker contributes one action per
-  // legal defender (CR 506.2) — the player picks who each creature swings at.
+  // Multiple targets (Commander, OR any game with an enemy planeswalker): each attacker contributes
+  // one action per legal target (CR 506.2) — the player picks who/what each creature swings at.
   const actions = [];
   for (const p of attackers) {
-    for (const defenderId of defenders) {
+    for (const t of targets) {
       actions.push({
         kind: "declare-attacker",
         playerId,
         permanentId: p.id,
         name: p.card.name,
-        defenderId,
+        defenderId: t.defenderId,
+        ...(t.defenderPlaneswalkerId ? { defenderPlaneswalkerId: t.defenderPlaneswalkerId, targetName: t.pwName } : {}),
       });
     }
   }
@@ -754,6 +816,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsCastSpell(state, playerId));
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsActivateAbility(state, playerId));
+  actions.push(...actionsActivateLoyalty(state, playerId));
 
   // Combat actions.
   actions.push(...actionsDeclareAttacker(state, playerId));

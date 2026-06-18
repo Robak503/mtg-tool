@@ -208,6 +208,86 @@ export function isIndestructible(permanent, state = null) {
   return hasKeyword(permanent.card, "indestructible");
 }
 
+// ===== PLANESWALKER / LOYALTY (PW-1) =====
+
+/**
+ * Type-line predicate: is this card a planeswalker? Reads the printed type line, or — for a
+ * double-faced card — any face that's a planeswalker (the back of a flip-walker). Pure card read,
+ * mirroring isIndestructible's printed-fallback contract. The single source of truth every reader
+ * (resolvers ETB, legalChoices offer, actionDispatcher, combat, coverage) shares.
+ */
+export function isPlaneswalker(card) {
+  const t = String(card?.type || card?.type_line || "");
+  if (/Planeswalker/.test(t)) return true;
+  const faces = card?.card_faces;
+  return Array.isArray(faces) && faces.some((f) => /Planeswalker/.test(String(f?.type_line || f?.type || "")));
+}
+
+/**
+ * The starting loyalty a planeswalker enters with (CR 306.5b) — its printed `loyalty`, or the
+ * loyalty on its planeswalker FACE (DFC). Returns the integer, or null when it isn't a finite
+ * number (an "X"/"*" printed loyalty — that card never classifies native, and the 0-loyalty SBA
+ * only ever fires on a planeswalker that actually entered WITH a loyalty counter, so a null here
+ * can never insta-kill one).
+ */
+export function startingLoyalty(card) {
+  let raw = card?.loyalty;
+  if (raw == null && Array.isArray(card?.card_faces)) {
+    raw = card.card_faces.find((f) => /Planeswalker/.test(String(f?.type_line || f?.type || "")))?.loyalty;
+  }
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Adjust a planeswalker's loyalty by a SIGNED delta (+N add, −N remove, 0 no-op). Unlike
+ * removeCounter (which deletes the key at 0), this ALWAYS keeps the `loyalty` key present — even at
+ * or below 0 — so the 0-loyalty SBA (destroyZeroLoyaltyPlaneswalkers) can see a walker that a −N
+ * cost or combat damage drove to 0 and put it into the graveyard (CR 704.5i). Used for loyalty
+ * costs and damage-to-planeswalker alike, so the "key persists at 0" invariant lives in one place.
+ */
+export function adjustLoyalty(state, { permanentId, delta }) {
+  if (!Number.isInteger(delta)) throw new Error("adjustLoyalty: delta must be an integer");
+  return updatePermanent(state, permanentId, (p) => ({
+    ...p,
+    counters: { ...p.counters, loyalty: (p.counters?.loyalty || 0) + delta },
+  }));
+}
+
+/**
+ * Mark (or clear) that a planeswalker's controller has activated one of its loyalty abilities this
+ * turn (CR 606.3 — at most one per turn per permanent). Set true when an ability is activated;
+ * cleared back to false by untapAll at the controller's untap step (the once-per-turn reset).
+ */
+export function markLoyaltyActivated(state, permanentId, value = true) {
+  return updatePermanent(state, permanentId, (p) => ({ ...p, loyaltyActivatedThisTurn: value }));
+}
+
+/**
+ * State-based action (CR 704.5i): a planeswalker with 0 (or less) loyalty is put into its owner's
+ * graveyard. Only fires on a planeswalker that actually carries a `loyalty` counter key (entered
+ * with finite starting loyalty), so a non-numeric-loyalty walker is never spuriously killed.
+ * Mirrors destroyLethalCreatures' shape — returns `{ state, dead }` with a look-back snapshot — so
+ * callers can fire any leaves-the-battlefield watchers off `dead` (none are modeled yet, but the
+ * shape is forward-compatible and consistent with the creature SBA).
+ */
+export function destroyZeroLoyaltyPlaneswalkers(state) {
+  const dead = [];
+  for (const [pid, player] of Object.entries(state.players)) {
+    for (const perm of player.battlefield) {
+      if (!isPlaneswalker(perm.card)) continue;
+      const loy = perm.counters?.loyalty;
+      if (loy == null) continue; // entered without a finite loyalty counter → SBA doesn't apply
+      if (loy <= 0) dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "planeswalker", card: perm.card });
+    }
+  }
+  let next = state;
+  for (const d of dead) {
+    next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone: "graveyard", cardId: d.id });
+  }
+  return { state: next, dead };
+}
+
 /**
  * Create a stack object — a spell on the stack or a triggered/activated
  * ability waiting to resolve. The engine pushes these on, resolves the
@@ -733,6 +813,9 @@ export function untapAll(state, { playerId }) {
       ...p,
       tapped: false,
       summoningSick: false,
+      // CR 606.3 once-per-turn loyalty reset: clear the flag at the controller's untap so each of
+      // their planeswalkers can activate one loyalty ability again this turn. Harmless on non-walkers.
+      loyaltyActivatedThisTurn: false,
     })),
   }));
 }

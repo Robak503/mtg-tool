@@ -41,6 +41,15 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 ## 🟥 Active coverage backlog — pull from the top
 
+> **Claimed subsystem lanes (NOT pull tasks — do not grab):**
+> **PW (Planeswalkers) — Walt** (`feat/PW-*-walt`). Multi-PR loyalty subsystem; measured by "can the
+> Academy play planeswalker decks," not the corpus %. **PW-1 (framework) — PR in review:** loyalty
+> counters + enters-with-loyalty (CR 306.5b), `+N`/`−N`/`0` abilities (sorcery-speed + once/turn CR
+> 606.3, can't pay below 0 CR 118.3), 0-loyalty SBA (CR 704.5i), attack-a-planeswalker + combat
+> damage→loyalty (CR 120.3c), `native-planeswalker` tier. **0 cards flip native yet** (every real PW
+> has ≥1 unmodeled ability/static — honest CREED baseline; coverage in PW-2+). See
+> `docs/planeswalker-subsystem.md`.
+
 ### 🔴 high-lever
 
 | ID | Mechanic / atom (short landmine — full detail in the report) | ~Yield | Cplx | Status | Examples |
