@@ -28,7 +28,7 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 | strip: vacuous "can't be countered" | **15.1%** (~5,071/33,540) | +0.0 | 17% | 47% | #200 |
 | γ1: pay-life + self-sac costs | **15.5%** (5,193/33,540) | +0.4 | 17% | 47% | #201 |
 | γ1b: sacrifice-a-creature outlet | **15.7%** (5,270/33,540) | +0.2 | 17% | 47% | #202 |
-| γ1c: exile-self + remove-a-counter | **15.7%** (5,274/33,540) | +0.0 | 17% | 47% | #203 _(PR open)_ |
+| γ1c: exile-self + remove-a-counter | **15.7%** (5,274/33,540) | +0.0 | 17% | 47% | #203 |
 
 **Projected trajectory** (roadmap §2): α (near-term clean atoms) → ~37% · α+β (full vocab grind) → ~90% · +δ (hard subsystems) → ~98%. A row is appended every time a slice merges — this table *is* the climb.
 
@@ -58,7 +58,7 @@ the corpus signal re-ranks the roadmap toward the cost-structure work (γ1) soon
 | strip | drop the vacuous "this spell can't be countered" rider | **#200 merged** | +5 cards (≈15.1%) |
 | γ1 | no-choice activated-ability costs — "Pay N life" + "Sacrifice this"; self-sac fires dies triggers (aristocrats payoff) | **#201 merged** | +127 cards (15.1→15.5%) |
 | γ1b | "Sacrifice a/another <type>" outlet — per-victim action expansion (no new picker), victim fail-safe reused | **#202 merged** | +77 cards (15.5→15.7%) |
-| γ1c | exile-self + remove-a-counter costs (batched) — the end of the clean cost frontier | **#203 (PR open)** | +4 cards (≈15.7%) |
+| γ1c | exile-self + remove-a-counter costs (batched) — the end of the clean cost frontier | **#203 merged** | +4 cards (≈15.7%) |
 
 ## Cost-atom frequency (the data behind the γ-series, scanned over the real corpus)
 
@@ -87,13 +87,38 @@ counter). The cost frontier is now low-ROI — pivot to the spell-effect vocabul
     (only the 3 compound/leave ones drop); corpus unchanged. Commit 2aa797c. **Lesson: the sweep must
     also check for dropped compound-cost text — the review caught what my sweep (self-reference only) missed.**
   - **Merge gate:** review SAFE after the fix + CI green, then `gh pr merge --squash`.
-- **Next slice — PIVOT to the spell-effect vocabulary grind (β).** The clean COST frontier is mined out
-  (γ1/γ1b took the sacrifice volume; the rest is picker-gated or on complex cards). The biggest remaining
-  bucket by far is **Spell effect (other) — 8,863 cards**: instants/sorceries whose effect the
-  EffectProgram parser doesn't yet model. Re-run `npm run coverage`, then scan the unmodeled
-  instant/sorcery effects for the highest-frequency UNMODELED verb/clause (a clean atom: a new effect-atom
-  + parser clause + the all-or-nothing gate), and grind those. ETB triggers (4,879) share the same
-  effect-vocabulary lever. This is where the next ~30 points of corpus coverage live.
+## β PHASE — the spell-effect vocabulary grind (SCOPED, ready to build)
+
+The clean COST frontier is mined out. The biggest remaining bucket is **Spell effect (other) — ~7,028
+unmodeled instants/sorceries** (of 7,595 total). **Scan finding (the key insight): the gap is NOT new
+verbs — it's the TARGET vocabulary.** The removal verbs are already modeled; a RESTRICTED or COMPOUND
+target drops the whole spell to LOW:
+
+| Cause | Example (LOW) | vs modeled (HIGH) |
+|---|---|---|
+| compound type "X or Y" | Hero's Downfall `Destroy target creature or planeswalker` | Murder `Destroy target creature` |
+| combat-state restriction | Immolating Glare `Destroy target attacking creature` | — |
+| negated type | Doom Blade `Destroy target nonblack creature` | — |
+
+**Ranked β atoms (unmodeled single-clause removal by target phrase):** attacking/blocking creature **24**
+(combat-state filter) · creature-or-planeswalker **13** (needs planeswalker-as-target) · compound
+permanent types — creature-or-enchantment 5, artifact-or-enchantment 3, creature-or-Vehicle 3,
+artifact-or-land 2 (**~13, the cleanest — both halves are already-modeled permanent types, no new zone/
+state**) · negated types (nonblack/nonland/etc.) ~12 · graveyard-card targets ~15 (return-from-gy variants).
+
+**Recommended β-1 (cleanest first atom): compound permanent-type targets** (`target X or Y` where both
+are modeled permanent types — artifact/enchantment/creature/land). One target-parser extension (accept a
+type UNION) + enumerator (offer permanents matching either type) + confirm the resolver is type-agnostic.
+A force multiplier — un-gates destroy/exile/return/bounce/tap with those targets at once. Then combat-
+state targets, then negated types, then planeswalker-as-target (the biggest, needs the engine to model
+planeswalkers as targetable permanents). ETB triggers (4,879) share the same target/effect lever.
+
+**This is a bigger, more intricate phase than the cost atoms** (each atom touches the target parser +
+the legalChoices/targeting enumerator + verification that resolvers are type-agnostic) — no trivial
+1-cycle first win. Best built in a FRESH session for clean context; this scoping + the ranked list is the
+handoff. Re-run `npm run coverage` + the verb/target scans first (the frontier shifts as atoms land).
+**Sweep discipline (γ1c lesson): when verifying a β slice, also check for DROPPED compound text — a
+target/clause the parser silently ignored — not just self-reference.**
 - **Backlog (found during γ1 review — pre-existing, NOT γ1's regression):** the trigger detector
   **collapses a COMPOUND trigger** ("When this enters OR leaves the battlefield" / "…AND when you
   sacrifice it") to a single event and drops the rest. γ1 no longer exposes it (a self-sac on such a
