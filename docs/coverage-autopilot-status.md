@@ -13,10 +13,10 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 ## Progress to goal — corpus-wide native % (`cd app && npm run coverage`)
 
 **Goal: ~90% corpus native** (the honest ceiling; the Arbiter permanently handles the rest).
-**Now: 15.9% → 18% of the way to goal.** (β-1 shipped — creature-target restrictions: color/type negation + combat state, +64. The β spell-effect grind has begun.)
+**Now: 16.0% → 18% of the way to goal.** (β-2 shipped — compound permanent-type union targets ("destroy/exile target X or Y"), +13. Crossed 16%.)
 
 ```
-[####······················] 15.9% native  ·  goal 90%  ·  18% of the way there
+[####······················] 16.0% native  ·  goal 90%  ·  18% of the way there
 ```
 
 | Slice | Corpus native | Δ | → goal (now ÷ 90%) | Deck % | PR |
@@ -29,7 +29,8 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 | γ1: pay-life + self-sac costs | **15.5%** (5,193/33,540) | +0.4 | 17% | 47% | #201 |
 | γ1b: sacrifice-a-creature outlet | **15.7%** (5,270/33,540) | +0.2 | 17% | 47% | #202 |
 | γ1c: exile-self + remove-a-counter | **15.7%** (5,274/33,540) | +0.0 | 17% | 47% | #203 |
-| β-1: creature-target restrictions | **15.9%** (5,338/33,540) | +0.2 | 18% | 47% | #204 _(PR open)_ |
+| β-1: creature-target restrictions | **15.9%** (5,338/33,540) | +0.2 | 18% | 47% | #204 |
+| β-2: permanent-type union targets | **16.0%** (5,351/33,540) | +0.1 | 18% | 47% | #205 _(PR open)_ |
 
 **Projected trajectory** (roadmap §2): α (near-term clean atoms) → ~37% · α+β (full vocab grind) → ~90% · +δ (hard subsystems) → ~98%. A row is appended every time a slice merges — this table *is* the climb.
 
@@ -60,7 +61,8 @@ the corpus signal re-ranks the roadmap toward the cost-structure work (γ1) soon
 | γ1 | no-choice activated-ability costs — "Pay N life" + "Sacrifice this"; self-sac fires dies triggers (aristocrats payoff) | **#201 merged** | +127 cards (15.1→15.5%) |
 | γ1b | "Sacrifice a/another <type>" outlet — per-victim action expansion (no new picker), victim fail-safe reused | **#202 merged** | +77 cards (15.5→15.7%) |
 | γ1c | exile-self + remove-a-counter costs (batched) — the end of the clean cost frontier | **#203 merged** | +4 cards (≈15.7%) |
-| β-1 | creature-target restrictions — color/type negation + combat state (Doom Blade, Go for the Throat, Divine Verdict) | **#204 (PR open)** | +64 cards (15.7→15.9%) |
+| β-1 | creature-target restrictions — color/type negation + combat state (Doom Blade, Go for the Throat, Divine Verdict) | **#204 merged** | +64 cards (15.7→15.9%) |
+| β-2 | compound permanent-type union targets ("destroy/exile target X or Y") — Mortify, Wrecking Ball, Demolish | **#205 (PR open)** | +13 cards (15.9→16.0%) |
 
 ## Cost-atom frequency (the data behind the γ-series, scanned over the real corpus)
 
@@ -73,26 +75,31 @@ counter). The cost frontier is now low-ROI — pivot to the spell-effect vocabul
 
 ## In flight / next
 
-- **β-1 — creature-target restrictions: BUILT + in review (PR #204, branch
-  `feat/beta1-creature-target-restrictions`).** The first β slice. The removal VERBS were modeled; a
-  restricted TARGET dropped the spell to LOW. Extends `parseCreatureTargetRestrictions` (P2.4) with three
-  kinds, enforced at enumeration so only legal targets are offered: **color negation** (nonblack — Doom
-  Blade), **type negation** (nonartifact — Go for the Throat), **combat state** (attacking/blocking —
-  Divine Verdict). They stack (Searing Light = combat+power); the same parser feeds the deal-damage +
-  trigger/activated paths. A color union / positive type / "legendary" / keyword / "creature or
-  planeswalker" still → Arbiter. Full suite **2,099** (+6 enforcement pins) · lint clean · corpus 15.7→
-  15.9% (**+64**) · sweep **0 false-positives, 0 dropped-compound** (the γ1c lesson applied) · live QA:
-  real Doom Blade offers only the non-black creature.
-  - **Adversarial review (3 lenses, Opus): found + FIXED a real P0** (+ 2 P2s, same root) — colorNeg read
-    `perm.card.colors`, but the slim index enriches transform/MDFC creatures with top-level `colors:[]`
-    even when the front face is colored, so a black DFC (Graveyard Trespasser) was treated as colorless
-    and ILLEGALLY offered to Doom Blade (328 DFCs affected). Fixed with FRONT-face discipline (read
-    `card_faces[0].colors` / front-face type line, CR 712.4a) + fail-closed on unresolvable data — also
-    closes the typeNeg DFC false-negative (Kazandu Mammoth) and the latent absent-colors hazard. The
-    trigger-flush × α1-chooser interaction verified SAFE (a combat-restricted destroy trigger NO_SAFE_-
-    TARGETs → Arbiter when no enemy is in the role). Commit 9fe4083. **Lesson: a new field CONSUMER
-    (colors for targeting) must handle the slim-index DFC enrichment gap — front-face or fail-closed.**
-  - **Merge gate:** review SAFE after the fix + CI green, then `gh pr merge --squash`.
+- **β-2 — compound permanent-type union targets: BUILT + in review (PR #205, branch
+  `feat/beta2-permanent-type-unions`).** Extends the #192 permanent-removal path with five "X or Y" type
+  unions (creatureOr{Enchantment,Land,Artifact}, artifactOrLand, enchantmentOrLand — Mortify, Wrecking
+  Ball, Demolish, Angelic Edict). Four coordinated points: the matcher (unions before singles), TT map,
+  `PERMANENT_TARGET_TYPES` (trigger flush → Arbiter), `PERMANENT_PREDICATES`. "creature or planeswalker" +
+  riders → Arbiter; DFCs skipped (inherited); creature-via-union still feeds the dies look-back. Full
+  suite green (+5 pins) · lint clean · corpus 15.9 → 16.0% (**+13**) · sweep 0 false-positives.
+  - **LIVE-QA CATCH (fixed in-slice):** the single-atom CAST path used the legacy `parseSpellEffect`,
+    whose `destroy target …` matched any phrase containing "creature" as creature-only — so a union's
+    enchantment/land half was dropped from the cast options (Mortify offered only the creature). Fixed:
+    the legacy match excludes a "creature or"/"or creature" union → routes to expandCastChoices via the
+    program union atom; both halves now offered (verified live). **Lesson: the single-atom cast path has a
+    second (legacy) target enumerator — a new program-level targetType must verify the LIVE cast path,
+    not just enumerateTargets.**
+  - **Adversarial review (3 lenses, Opus): MERGE (concerns/merge-but-note) — no P0, no false-positive,**
+    CR-safe (verified vs the full 37,474-card corpus + live cast/trigger paths). Two honest P2 notes
+    (non-blocking, recorded): (a) the `PERMANENT_TARGET_TYPES` trigger-gate is DEAD code — the live trigger
+    flush is now gated by the α1 enemy-aware chooser (a union-removal trigger routes to an enemy or
+    NO_SAFE_TARGET→Arbiter, NOT via the #192 helper); the misleading test/comment were corrected. (b) a
+    SAFE AI play-quality regression — the legacy-exclusion nulls `effect`, so the AI now HOLDS the 5 union
+    cards (it cast them pre-β-2); consistent with #192's "AI holds permanent removal", deferred to a
+    future "teach the AI to cast union/permanent removal" slice. Pre-existing (NOT β-2): a comma-list
+    multi-type "destroy target artifact, creature, or enchantment" (Bedevil/Vindicate, 9 cards) still
+    offers creatures only — a clean follow-up to widen the legacy exclusion to any "or"/comma type list.
+  - **Merge gate:** review SAFE + CI green, then `gh pr merge --squash`.
 ## β PHASE — the spell-effect vocabulary grind (SCOPED, ready to build)
 
 The clean COST frontier is mined out. The biggest remaining bucket is **Spell effect (other) — ~7,028
