@@ -18,7 +18,7 @@ import { legalActionsForPlayer, filterActions } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack } from "./gameEngine.js";
 import { advanceUntilDecision, applyHandDiscardChoice } from "./learnSession.js";
-import { autoPickHandDiscardCandidate, resolveHandDiscardChoice } from "./effects/runProgram.js";
+import { autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveScryChoice } from "./effects/runProgram.js";
 import { enumerateTargets } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
@@ -145,11 +145,41 @@ describe("resolution — reveal the targeted opponent's hand, then the caster pi
     expect(after.players.ai.graveyard).toHaveLength(0);
     expect(after.players.ai.hand.map((c) => c.id).sort()).toEqual(["a-bear", "a-land"]); // hand untouched
   });
+  it("Harsh Scrutiny chains TWO pending choices: the discard pick, THEN the Scry rider (no wedge)", () => {
+    const s = state({ userHand: [HARSH], aiHand: [crea("a-bear", "Bear"), sorc("a-sorc", "NonCrea")] });
+    const withLib = { ...s, players: { ...s.players, user: { ...s.players.user, library: [{ id: "top1", name: "Top" }] } } };
+    const cast = filterActions(legalActionsForPlayer(withLib, "user"), "cast-spell").find((a) => a.cardId === "hs");
+    // Pause 1 — hand-discard, only the CREATURE eligible (Harsh Scrutiny = "creature card").
+    let st = resolveTopOfStack(dispatchAction(withLib, cast));
+    expect(st.pendingChoice.kind).toBe("hand-discard");
+    expect(st.pendingChoice.candidates.map((c) => c.id)).toEqual(["a-bear"]);
+    // Settle the discard → the creature is binned, AND the Scry rider chains as a SECOND pending choice.
+    st = resolveHandDiscardChoice(st, autoPickHandDiscardCandidate(st, st.pendingChoice));
+    expect(st.pendingChoice.kind).toBe("scry-surveil");
+    expect(st.players.ai.graveyard.map((c) => c.id)).toEqual(["a-bear"]);
+    expect(st.players.ai.hand.map((c) => c.id)).toEqual(["a-sorc"]); // the noncreature is untouched
+    // Settle the scry → fully resolved, no lingering pending choice (the FIFO pause/resume seam held).
+    st = resolveScryChoice(st, (st.pendingChoice.cards || []).map((c) => c.id));
+    expect(st.pendingChoice).toBeUndefined();
+    expect(st.players.user.library.map((c) => c.id)).toEqual(["top1"]);
+  });
   it("608.2b — a chosen card that left the hand is a clean no-op (no throw, riders still resume)", () => {
     const s = state({ userHand: [], aiHand: [] });
     const paused = { ...s, pendingChoice: { kind: "hand-discard", controller: "user", victim: "ai", candidates: [{ id: "gone", name: "Ghost" }] } };
     expect(() => resolveHandDiscardChoice(paused, "gone")).not.toThrow();
     expect(resolveHandDiscardChoice(paused, "gone").players.ai.graveyard).toHaveLength(0);
+  });
+  it("an eliminated CASTER mid-pause is a clean no-op for the rider (the victim's discard still applies; no throw)", () => {
+    // δ-1b review P3: guard the controller before resuming its riders (Thoughtseize "lose 2 life"),
+    // mirroring resolveScryChoice / resolveOptionalChoice. The victim's discard already happened.
+    const s = state({ userHand: [], aiHand: [sorc("a-card", "Strip", 2)] });
+    const program = parseEffectProgram(THOUGHTSEIZE);
+    const gone = { ...s, players: Object.fromEntries(Object.entries(s.players).filter(([id]) => id !== "user")),
+      pendingChoice: { kind: "hand-discard", controller: "user", victim: "ai", candidates: [{ id: "a-card", name: "Strip" }],
+        resume: { program, controller: "user", targets: [], nextAtomIndex: 1, cardName: "Thoughtseize" } } };
+    let out;
+    expect(() => { out = resolveHandDiscardChoice(gone, "a-card"); }).not.toThrow();
+    expect(out.players.ai.graveyard.map((c) => c.id)).toEqual(["a-card"]); // the discard on the victim still applied
   });
 });
 

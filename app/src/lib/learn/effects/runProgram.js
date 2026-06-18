@@ -177,6 +177,12 @@ export function resolveHandDiscardChoice(state, cardId) {
     next = moveCardToZone(next, { playerId: pc.victim, fromZone: "hand", toZone: "graveyard", cardId });
   }
   next = logEvent(next, { kind: "spell-effect", effect: "discard-chosen", controller: pc.controller, victim: pc.victim, discarded: !!inHand });
+  // The CASTER can be eliminated between the pause and the settle (CR 800.4a) — the riders that resume
+  // are THEIRS (Thoughtseize "lose 2 life"), so bail without resuming if they're gone (mirrors the
+  // resolveScryChoice / resolveOptionalChoice guard; the victim's discard above already applied). Belt-
+  // and-braces — unreachable in normal play (the discard atom precedes any rider, so the caster is alive
+  // at the pause, and pendingChoice is transient/non-persisted) — but it keeps the shared seam uniform.
+  if (!next.players?.[pc.controller]) return next;
   return resumeAfterChoice(next, pc);
 }
 
