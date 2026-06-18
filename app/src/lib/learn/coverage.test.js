@@ -65,9 +65,13 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Wall", "Defender\n{1}{W}, {T}: Tap target creature."))).toBe("native-activated");
     // P3.2: a modeled activated tutor (Journeyer's Kite / Captain Sisay shape) is native.
     expect(classifyCard(C("Artifact", "{3}, {T}: Search your library for a basic land card, reveal it, put it into your hand, then shuffle."))).toBe("native-activated");
-    // Still body-only: an unmodeled cost (sacrifice), an UNFILTERED tutor (the choice is the
-    // point), or an activated ability sitting next to an UNMODELED trigger (composite → conservative).
-    expect(classifyCard(C("Creature — Wizard", "{1}, Sacrifice this creature: Draw a card."))).toBe("body-only");
+    // γ1: a NO-CHOICE self-sacrifice / pay-life activated cost is now modeled → native.
+    expect(classifyCard(C("Creature — Wizard", "{1}, Sacrifice this creature: Draw a card."))).toBe("native-activated");
+    expect(classifyCard(C("Creature — Cleric", "{T}, Pay 2 life: Draw a card."))).toBe("native-activated");
+    // Still body-only: a CHOICE-bearing sac cost (Sacrifice A creature — deferred to γ1b), an
+    // UNFILTERED tutor (the choice is the point), or an activated ability sitting next to an
+    // UNMODELED trigger (composite → conservative).
+    expect(classifyCard(C("Creature — Wizard", "{1}, Sacrifice a creature: Draw a card."))).toBe("body-only");
     expect(classifyCard(C("Artifact", "{2}, {T}: Search your library for a card, then shuffle."))).toBe("body-only");
     expect(classifyCard(C("Creature — Human", "{T}: This creature deals 1 damage to any target.\nWhenever this creature deals damage, you may untap it."))).toBe("body-only");
   });
