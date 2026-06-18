@@ -106,3 +106,66 @@ describe("activated abilities — dispatch + resolution", () => {
     expect(resolved.players.user.hand.map((c) => c.id)).toContain("lib-1");
   });
 });
+
+describe("activated abilities — γ1 pay-life + self-sacrifice costs", () => {
+  const withLife = (state, playerId, life) =>
+    ({ ...state, players: { ...state.players, [playerId]: { ...state.players[playerId], life } } });
+  const withLibrary = (state, playerId, library) =>
+    ({ ...state, players: { ...state.players, [playerId]: { ...state.players[playerId], library } } });
+
+  it("surfaces a Pay-life ability and the dispatch deducts the life, then resolves", () => {
+    const altar = createPermanent({ id: "perm-a", card: creature("Bond", "{T}, Pay 2 life: Draw a card.", { type: "Artifact" }), controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [altar]);
+    s = withLife(s, "user", 20);
+    s = withLibrary(s, "user", [{ id: "lib-1", name: "Card" }]);
+    const act = activateActions(s)[0];
+    expect(act).toMatchObject({ payLife: 2, tapSelf: true, sacSelf: false });
+
+    const afterDispatch = dispatchAction(s, act);
+    expect(afterDispatch.players.user.life).toBe(18);                 // paid 2 life as a cost
+    expect(afterDispatch.players.user.battlefield.find((p) => p.id === "perm-a").tapped).toBe(true);
+    const resolved = resolveTopOfStack(afterDispatch);
+    expect(resolved.players.user.hand.map((c) => c.id)).toContain("lib-1");
+  });
+
+  it("does NOT surface a Pay-life ability the player can't afford (CR 119.4)", () => {
+    const altar = createPermanent({ id: "perm-a", card: creature("Bond", "{T}, Pay 5 life: Draw a card.", { type: "Artifact" }), controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [altar]);
+    s = withLife(s, "user", 3);                                       // 3 life < 5 → unpayable
+    expect(activateActions(s)).toHaveLength(0);
+  });
+
+  it("a Sacrifice-this ability sends the source to the graveyard (cost) and resolves the effect", () => {
+    const sac = createPermanent({ id: "perm-s", card: creature("Outlet", "{1}, Sacrifice this creature: Draw a card."), controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [sac]);
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 1 }, library: [{ id: "lib-1", name: "Card" }] } } };
+    const act = activateActions(s)[0];
+    expect(act).toMatchObject({ sacSelf: true });
+
+    const afterDispatch = dispatchAction(s, act);
+    expect(afterDispatch.players.user.battlefield.find((p) => p.id === "perm-s")).toBeUndefined(); // sacrificed
+    expect(afterDispatch.players.user.graveyard.some((c) => c.name === "Outlet")).toBe(true);
+    const resolved = resolveTopOfStack(afterDispatch);
+    expect(resolved.players.user.hand.map((c) => c.id)).toContain("lib-1");
+  });
+
+  it("self-sacrifice fires a dies trigger (the aristocrats payoff) ABOVE the ability on the stack", () => {
+    const sac = createPermanent({ id: "perm-s", card: creature("Outlet", "Sacrifice this creature: Draw a card."), controller: "user", summoningSick: false });
+    const artist = createPermanent({ id: "perm-ba", card: creature("Blood Artist", "Whenever a creature dies, each opponent loses 1 life."), controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [sac, artist]);
+    s = withLibrary(s, "user", [{ id: "lib-1", name: "Card" }]);
+    const act = activateActions(s).find((a) => a.permanentId === "perm-s");
+    expect(act).toMatchObject({ sacSelf: true });
+
+    const afterDispatch = dispatchAction(s, act);
+    // The death from the cost put the dies trigger on the stack ABOVE the activated ability
+    // (CR 603.3b) — so it resolves FIRST. Prove it by behavior, not payload internals.
+    const top = afterDispatch.stack[afterDispatch.stack.length - 1];
+    const bottom = afterDispatch.stack[afterDispatch.stack.length - 2];
+    expect(top.kind).toBe("triggered-ability");
+    expect(bottom.kind).toBe("activated-ability");
+    const aiLifeBefore = afterDispatch.players.ai.life;
+    const resolved = resolveTopOfStack(afterDispatch);                 // resolve the drain
+    expect(resolved.players.ai.life).toBe(aiLifeBefore - 1);           // the aristocrats payoff fired
+  });
+});

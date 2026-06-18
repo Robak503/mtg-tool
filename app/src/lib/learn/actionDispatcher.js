@@ -32,6 +32,7 @@ import {
   opponentsOf,
   tapPermanent,
   addMana,
+  loseLife,
   mintId,
 } from "./gameState.js";
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
@@ -40,7 +41,7 @@ import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura } from "./staticAbilityParser.js";
 import { permanentHasKeyword } from "./layers.js";
-import { checkCastTriggers } from "./triggers.js";
+import { checkCastTriggers, checkDiesTriggers } from "./triggers.js";
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -353,7 +354,7 @@ function applyActivateAbility(state, action) {
   // Plan + commit mana payment. A `{T}`-tapping source can't also tap for mana to pay
   // its own cost, so exclude it from the available sources (matches legalChoices).
   const pool = player.manaPool;
-  const sources = manaSources(state, action.playerId).filter(s => !(action.tapSelf && s.permanentId === action.permanentId));
+  const sources = manaSources(state, action.playerId).filter(s => !((action.tapSelf || action.sacSelf) && s.permanentId === action.permanentId));
   const plan = planPayment(pool, sources, action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 
@@ -373,6 +374,21 @@ function applyActivateAbility(state, action) {
   // Pay the `{T}` part of the cost by tapping the source (after the mana taps, so the
   // source was already excluded from the mana plan above and can't be double-tapped).
   if (action.tapSelf) working = tapPermanent(working, action.permanentId);
+
+  // γ1 — pay the two NO-CHOICE non-mana cost items: life first (CR 119.4), then sacrifice the
+  // source. Both are paid HERE, before the ability is put on the stack (CR 602.2b).
+  if (action.payLife) working = loseLife(working, { playerId: action.playerId, amount: action.payLife });
+  if (action.sacSelf) {
+    const isCreatureSource = /Creature/.test(String(perm.card?.type || perm.card?.type_line || ""));
+    working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "graveyard", cardId: perm.id });
+    // CR 700.4 — only a CREATURE going to the graveyard "dies". Fire its + watchers' dies triggers
+    // (the aristocrats payoff — Blood Artist, Zulaport Cutthroat). A non-creature sacrifice leaves
+    // no dies trigger. The dispatch's flushTriggers stacks these ABOVE the ability, so they resolve
+    // first (correct CR 603.3b order). Snapshot last-known characteristics for the look-back.
+    if (isCreatureSource) {
+      working = checkDiesTriggers(working, [{ controller: action.playerId, id: perm.id, name: perm.card?.name || "creature", card: perm.card }]);
+    }
+  }
 
   // Build the serializable payload. An Equip ability ATTACHES (the ATTACH resolver moves
   // the equipment onto the target creature); every other activated ability runs its effect
@@ -408,6 +424,10 @@ function applyActivateAbility(state, action) {
     cardName: perm.card?.name,
     abilityText: action.abilityText,
   });
+  // γ1 — a self-sacrifice cost (above) enqueues dies triggers in pendingTriggers; flush them onto
+  // the stack now (ABOVE the ability, so they resolve first — CR 603.3b), exactly as the cast path
+  // flushes cast triggers. A no-op when nothing triggered (the pre-γ1 common case).
+  next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // Activating a (non-mana) ability uses the stack — restart the priority loop at the
   // active player (CR 117.1c), exactly like casting a spell.
   return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };

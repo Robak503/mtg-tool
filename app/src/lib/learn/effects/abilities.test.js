@@ -25,13 +25,26 @@ describe("parseActivatedAbilities — cost parsing (mana + {T} allowlist)", () =
     expect(a).toMatchObject({ manaPips: "{1}{R}", tapSelf: false, modeled: true });
   });
 
-  it("does NOT model a Sacrifice cost (unmodeled → not playable)", () => {
+  it("models a Sacrifice-this cost (γ1 — no-choice self-sac)", () => {
     const [a] = one("{1}, Sacrifice this creature: Draw a card.");
+    expect(a).toMatchObject({ manaPips: "{1}", sacSelf: true, costModeled: true, modeled: true });
+  });
+  it("models a bare Sacrifice-this cost with no mana/{T} (γ1 — detection relaxed for word-costs)", () => {
+    const [a] = one("Sacrifice this creature: Draw a card.");
+    expect(a).toMatchObject({ manaPips: "", tapSelf: false, sacSelf: true, costModeled: true, modeled: true });
+  });
+  it("models a Pay-life cost (γ1 — no-choice life payment)", () => {
+    const [a] = one("{T}, Pay 1 life: Draw a card.");
+    expect(a).toMatchObject({ tapSelf: true, payLife: 1, costModeled: true, modeled: true });
+  });
+  it("does NOT model a Sacrifice-A-creature cost (needs a picker — deferred to γ1b)", () => {
+    const [a] = one("{1}, Sacrifice a creature: Draw a card.");
     expect(a.costModeled).toBe(false);
     expect(a.modeled).toBe(false);
   });
-  it("does NOT model a Pay-life cost", () => {
-    const [a] = one("{T}, Pay 1 life: Draw a card.");
+  it("does NOT model a Discard cost (needs a picker — deferred to γ1b)", () => {
+    const [a] = one("{T}, Discard a card: Draw a card.");
+    expect(a.costModeled).toBe(false);
     expect(a.modeled).toBe(false);
   });
   it("does NOT model an {X} cost", () => {

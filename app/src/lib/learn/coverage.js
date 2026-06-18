@@ -27,7 +27,7 @@
 
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
-import { parseActivatedAbilities } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 
@@ -149,21 +149,30 @@ export function permanentTriggersCovered(card) {
  * Simple mana dorks ("{T}: Add {G}") are caught earlier by `hasManaAbility` → native-mana,
  * so this fires on the value-ability case (a `{2}, {T}: Draw`, a `{T}`-pinger, a tapper…).
  */
+/**
+ * Does this single oracle line read as an activated ability the detector picks up? Mirrors the
+ * EXACT detection guard in `parseActivatedAbilities` (a colon whose cost is symbol-bearing OR a
+ * modeled word-cost — γ1's "Pay N life" / "Sacrifice this"), so the residue strippers below can
+ * never drift from what the parser detects. Single source of truth = the shared `parseAbilityCost`.
+ */
+function isActivatedAbilityLine(line) {
+  const ci = line.indexOf(":");
+  if (ci === -1) return false;
+  const costStr = line.slice(0, ci).trim();
+  return costStr.includes("{") || !!parseAbilityCost(costStr);
+}
+
 export function permanentActivatedCovered(card) {
   const abilities = parseActivatedAbilities(card);
   if (abilities.length === 0) return false;
   // A single unmodeled ability (unmodeled cost OR effect, incl. complex mana abilities)
   // leaves the card in the gap — all-or-nothing, mirroring the all-or-nothing runtime.
   if (!abilities.every((a) => a.modeled)) return false;
-  // Drop reminder, then every activated-ability-shaped line (a colon with a `{…}` cost to
-  // its left — the same shape parseActivatedAbilities detects). The remainder (keywords,
-  // and any trigger/static text) must be keyword-only/empty.
+  // Drop reminder, then every activated-ability-shaped line (the same shape the parser detects).
+  // The remainder (keywords, and any trigger/static text) must be keyword-only/empty.
   const residue = stripReminder(card.oracle || "")
     .split(/\n+/)
-    .filter((line) => {
-      const ci = line.indexOf(":");
-      return !(ci !== -1 && line.slice(0, ci).includes("{")); // keep non-ability lines
-    })
+    .filter((line) => !isActivatedAbilityLine(line))
     .join("\n");
   return isKeywordOnly(residue);
 }
@@ -198,16 +207,13 @@ export function permanentFullyCovered(card) {
     if (!staticAbilitiesCoverCard(card, isKeywordOnly)) return false;
   }
 
-  // Residue: drop trigger sentences (anchored, the detectTriggers grammar) + activated-
-  // ability lines (a colon with a `{…}` cost), then every remaining clause must be a
-  // modeled static or keyword-only — no unmodeled trigger/static/other text survives.
+  // Residue: drop trigger sentences (anchored, the detectTriggers grammar) + activated-ability
+  // lines (the same shape the parser detects, incl. γ1 word-costs), then every remaining clause
+  // must be a modeled static or keyword-only — no unmodeled trigger/static/other text survives.
   const afterTriggers = oracle.replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n");
   const afterActivated = stripReminder(afterTriggers)
     .split(/\n+/)
-    .filter((line) => {
-      const ci = line.indexOf(":");
-      return !(ci !== -1 && line.slice(0, ci).includes("{"));
-    })
+    .filter((line) => !isActivatedAbilityLine(line))
     .join("\n");
   for (const clause of afterActivated.split(/[\n.;]+/).map((s) => s.trim()).filter(Boolean)) {
     if (clauseProducesStatic(clause)) continue;  // a modeled static clause

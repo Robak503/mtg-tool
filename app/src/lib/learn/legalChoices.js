@@ -497,9 +497,13 @@ function actionsActivateAbility(state, playerId) {
       }
       const cost = parseManaCost(ab.manaPips || "");
       if (cost.hasX) continue; // X-cost activated abilities deferred (need the X-choice expansion)
-      // A {T}-tapping source can't ALSO tap for mana to pay its own cost — drop it from
-      // the available mana sources for the affordability check + payment plan.
-      const sources = manaSources(state, playerId).filter((s) => !(ab.tapSelf && s.permanentId === perm.id));
+      // γ1 — a "Pay N life" cost needs the life to spend (CR 119.4: you can't pay life you don't
+      // have). Paying down to exactly 0 is legal (an SBA loss follows), so only skip a strictly-
+      // unaffordable one — never hide a legal play.
+      if (ab.payLife && player.life < ab.payLife) continue;
+      // A source paying part of its OWN cost by tapping ({T}) or being sacrificed can't ALSO tap
+      // for mana — drop it from the available mana sources for the affordability check + payment.
+      const sources = manaSources(state, playerId).filter((s) => !((ab.tapSelf || ab.sacSelf) && s.permanentId === perm.id));
       if (!canAfford(player.manaPool, sources, cost)) continue;
 
       // Equip {cost}: target a creature YOU control (CR 702.6e). Equip is SORCERY-SPEED
@@ -532,6 +536,8 @@ function actionsActivateAbility(state, playerId) {
           cost,
           cmc: totalCmc(cost),
           tapSelf: ab.tapSelf,
+          payLife: ab.payLife || 0,
+          sacSelf: ab.sacSelf || false,
           program: ab.program,
           targets: ch.targets,
           chosenMode: ch.chosenMode ?? null,

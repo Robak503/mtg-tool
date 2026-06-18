@@ -45,20 +45,30 @@ function pipIsMana(pipRaw) {
  * ({X}/{Q}/{S}/{E}) drops the whole cost to null, so we never offer an ability whose
  * cost we can't pay.
  */
-function parseAbilityCost(costStr) {
-  const items = costStr.split(",").map((s) => s.trim()).filter(Boolean);
+export function parseAbilityCost(costStr) {
+  const items = String(costStr || "").split(",").map((s) => s.trim()).filter(Boolean);
   if (!items.length) return null;
   let manaPips = "";
   let tapSelf = false;
+  let payLife = 0;
+  let sacSelf = false;
   for (const item of items) {
     if (/^\{t\}$/i.test(item)) { tapSelf = true; continue; }
+    // γ1 — two NO-CHOICE non-mana costs the engine can pay without a player decision:
+    //   "Pay N life"          → deduct N life (the caller checks affordability).
+    //   "Sacrifice this[ …]"  → sacrifice the SOURCE permanent (no "which one?" choice).
+    // A "Sacrifice a creature" / "Discard a card" (which need a picker) still drop to null —
+    // deferred to γ1b — so we never offer a cost we can't pay cleanly.
+    const lifeM = /^pay (\d+) life$/i.exec(item);
+    if (lifeM) { payLife += parseInt(lifeM[1], 10); continue; }
+    if (/^sacrifice (?:this|~)(?: creature| permanent| artifact| enchantment| land)?$/i.test(item)) { sacSelf = true; continue; }
     const pips = [...item.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
-    if (pips.length === 0) return null;                          // a wordy item (Sacrifice …) → unmodeled
+    if (pips.length === 0) return null;                          // a wordy item we don't model → unmodeled
     if (item.replace(/\{[^}]+\}/g, "").trim() !== "") return null; // leftover text around the pips → unmodeled
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{S}/… → unmodeled
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf };
+  return { manaPips, tapSelf, payLife, sacSelf };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -103,11 +113,14 @@ export function parseActivatedAbilities(card) {
     if (ci === -1) continue;
     const costStr = line.slice(0, ci).trim();
     const effectClause = line.slice(ci + 1).trim();
-    // Require a symbol in the cost — a real activated ability's cost is {mana}/{T}, so a
-    // colon with no `{…}` to its left is flavor/rules text or an unmodeled word-cost.
-    if (!costStr || !effectClause || !costStr.includes("{")) continue;
+    if (!costStr || !effectClause) continue;
 
     const cost = parseAbilityCost(costStr);
+    // A real activated ability's cost is either symbol-bearing ({mana}/{T}) or a modeled word-cost
+    // (γ1: "Pay N life" / "Sacrifice this"). A colon with neither to its left is flavor/rules text
+    // (a level band, a Class line, a keyword-action colon) → skip, so we never mis-detect.
+    if (!costStr.includes("{") && !cost) continue;
+
     const isManaEffect = effectIsManaAbility(effectClause);
     let program = null;
     let effectHigh = false;
@@ -122,6 +135,8 @@ export function parseActivatedAbilities(card) {
       effectClause,
       manaPips: cost?.manaPips ?? null,
       tapSelf: cost?.tapSelf ?? false,
+      payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)
+      sacSelf: cost?.sacSelf ?? false, // γ1 — "Sacrifice this" cost item (the runtime sacs the source)
       costModeled: !!cost,
       isManaEffect,
       program,
