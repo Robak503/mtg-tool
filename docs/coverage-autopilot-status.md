@@ -87,7 +87,14 @@ counter). The cost frontier is now low-ROI — pivot to the spell-effect vocabul
   so the cast path routes cleanly through expandCastChoices — verified live (the β-2 lesson applied). Full
   suite green (+β-3 pins) · lint clean · corpus 16.0% (5,368, **+17**) · sweep 0 false-positives, 0
   dropped-compound · live cast e2e: Boomerang offers every permanent type.
-  - **Merge gate:** 3-lens adversarial review (Opus) + CI green, then `gh pr merge --squash`.
+  - **Adversarial review (3 lenses, Opus): all CLEAN, MERGE — no P0/P1, no false-positive** (verified vs
+    the full corpus + live cast/trigger paths: 14 native, 0 dropped text, all false-positive vectors
+    rejected, DFC skip inherited, bounce trigger → Arbiter via α1). The lower-risk reuse-everything slice
+    paid off — first all-clean review of the run. One **pre-existing, non-reachable P2** (NOT β-3's): the
+    bounce/exile-to-hand resolver returns to the CONTROLLER's hand, not the OWNER's — correct today
+    (controller==owner; no control-change is modeled, permanents have no `owner` field), but must move to
+    the owner IF/WHEN control-change (Control Magic / Threaten) is ever modeled (a δ subsystem).
+  - **Merge gate:** review CLEAN + CI green, then `gh pr merge --squash`.
 - **β backlog / next atoms (the clean-atom frontier is THINNING — most of what's left needs hard δ
   subsystems):** reanimation ("return target creature card from your graveyard to the BATTLEFIELD" — ~8,
   a new mechanic: enter + fire ETB, reuses enterPermanent); positive-type creature restrictions (~1-5);
