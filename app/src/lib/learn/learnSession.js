@@ -500,7 +500,7 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
         current = { ...current, state: settleHandDiscardChoice(current.state, autoPickHandDiscardCandidate(current.state, pc)) };
         continue;
       }
-      // δ-2 — impulse-dig (Telling Time / Strategic Planning): the player's OWN dig surfaces a pick-one
+      // δ-2 — impulse-dig (Anticipate / Strategic Planning): the player's OWN dig surfaces a pick-one
       // picker (their revealed top N); Expert autopilot + an opponent auto-keep the best card (reuses the
       // tutor's highest-mana-value picker — both keep the most impactful library card from the candidates).
       if (pc.kind === "impulse-dig") {

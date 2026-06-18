@@ -579,7 +579,8 @@ const DIG_NUM = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8
 /**
  * Match the "Look at the top N cards of your library. Put one of them into your hand and the rest
  * <on the bottom of your library [in any/a random order] | into your graveyard>." dig template (δ-2 —
- * Telling Time, Strategic Planning, Glimpse the Cosmos, Forging the Anchor). Returns `{ atom, rest }`
+ * Anticipate, Strategic Planning, Impulse — a 3-way "one to hand / one on top / one on bottom" split
+ * like Telling Time correctly fails the anchor → Arbiter). Returns `{ atom, rest }`
  * — the `impulse-dig` atom plus any oracle text AFTER the template — or null. Like hand disruption this
  * SPANS two sentences (the "Put one … and the rest …" clause's internal " and " would be shattered by
  * splitClauses), so it's matched up front as ONE atom. ALL-OR-NOTHING ALLOWLIST: EXACTLY "put one …

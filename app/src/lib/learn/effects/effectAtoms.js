@@ -486,7 +486,7 @@ function applyScrySurveilAtom(state, atom, ctx, mode) {
 }
 
 /**
- * Impulse-dig (δ-2 — Telling Time / Strategic Planning / Glimpse the Cosmos) — flag a resolution-time
+ * Impulse-dig (δ-2 — Anticipate / Strategic Planning / Impulse) — flag a resolution-time
  * CHOICE: peek the top N of the controller's library and set state.pendingChoice (runProgram pauses,
  * like scry/tutor). The driver surfaces a pick-one picker (the player) or auto-picks the best card
  * (Expert/opponent); resolveImpulseDigChoice (runProgram) moves the chosen card to HAND and the rest to

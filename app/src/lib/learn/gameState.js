@@ -614,7 +614,7 @@ export function applyScrySurveil(state, { playerId, n, keepIdsOrdered, mode }) {
 }
 
 /**
- * Apply an impulse-dig decision (δ-2 — Telling Time / Strategic Planning / Glimpse the Cosmos): of the
+ * Apply an impulse-dig decision (δ-2 — Anticipate / Strategic Planning / Impulse): of the
  * top `n` looked-at cards, the CHOSEN one goes to HAND and ALL the rest go to the BOTTOM (`restTo:
  * "bottom"`) or to the GRAVEYARD (`restTo: "graveyard"`), in their original top-first order. The
  * library below the top `n` is untouched. A `chosenId` not among the top `n` (stale/eliminated) just

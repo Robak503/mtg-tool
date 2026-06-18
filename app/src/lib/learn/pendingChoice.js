@@ -105,8 +105,8 @@ export function setPendingHandDiscardChoice(state, { controller, victim, candida
 }
 
 /**
- * Flag an impulse-dig awaiting the player's pick of which looked-at card to keep (δ-2 — Telling Time /
- * Strategic Planning / Glimpse the Cosmos). `candidates` is the top N of the controller's OWN library,
+ * Flag an impulse-dig awaiting the player's pick of which looked-at card to keep (δ-2 — Anticipate /
+ * Strategic Planning / Impulse). `candidates` is the top N of the controller's OWN library,
  * top-first, as `{ id, name }` (public to the controller — they're looking at their own library). The
  * chosen card goes to HAND; the rest go to `restTo` ("bottom" of the library / "graveyard"). Like the
  * tutor/scry, `runProgram` records the suspended-program continuation onto `pendingChoice.resume` when
