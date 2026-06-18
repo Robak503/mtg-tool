@@ -1,7 +1,7 @@
 # 🎛️ Academy Coverage — Live Status
 
-> **The one-glance board.** Omnath refreshes this every integration cycle — no separate agent, so it costs nothing extra. Ask Omnath "status" anytime for the visual.
-> _Last update: master `8860f17` · 2026-06-18._
+> **The one-glance board.** Omnath keeps this file fresh every integration cycle (the data source); **Iris** (the Dashboard faculty) renders it as a visual in her own chat — glance there, or type "status"/"refresh" in Iris's chat to re-render. Rendering lives in Iris's chat so it never bloats Omnath's context.
+> _Omnath updates this every integration cycle · 2026-06-18._
 
 ## 📊 Scoreboard
 - **Native coverage: 16.0%** — 5,369 / 33,540 cards · goal **~90%** (honest ceiling; the Arbiter handles the rest)
