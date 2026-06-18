@@ -588,6 +588,13 @@ function parseExtendedAtom(s) {
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
   m = t.match(/^each player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
+  // LOOT-1 — the CONTROLLER discards (the "loot" half of draw-then-discard: Faithless Looting, Careful
+  // Study, Catalog). "Discard N cards" (imperative) / "You discard N cards" = the caster discards, CHOOSING
+  // which (CR 701.8 → the discard chain, who:"controller"). "Draw N cards, then discard M cards" composes
+  // via the multi-clause splitter. Numeric/spelled N only; "at random" (engine-chosen, not player-chosen)
+  // leaves trailing text → fails `$` → low → Arbiter. ("Discard your hand" is a different shape → low.)
+  m = t.match(/^(?:you )?discard (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
   // ===== EDICTS ===== (sacrifice as an EFFECT; sacrifice as a COST is γ1/γ1b in abilities.js)
   // "Target player/opponent sacrifices a creature [of their choice]" (Diabolic Edict / Cruel Edict). The
   // SACRIFICING player — the TARGET — chooses which creature (CR 701.16; the modern Oracle templating
