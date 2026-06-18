@@ -91,8 +91,15 @@ counter). The cost frontier is now low-ROI — pivot to the spell-effect vocabul
   suite green (+ reanimation pins incl. the LIVE e2e: Zombify reanimates Elvish Visionary → it enters
   summoning-sick with enteredOnTurn+timestamp and its ETB "draw a card" FIRES) · lint clean · corpus 16.0%
   (5,376, **+8**) · sweep 0 false-positives, 0 rider-leak.
-  - **Merge gate:** 3-lens adversarial review (Opus — scrutinizing the enter-setup vs enterPermanent + the
-    checkEnterTriggers/checkEtbTriggers duplication) + CI green, then `gh pr merge --squash`.
+  - **Adversarial review (3 lenses, Opus): MERGE — no P0, no false-positive** (verified byte-identical
+    field parity with enterPermanent, summoning sickness, ETB firing, exactly-once entry, stale-target
+    no-op, 7 native / 39 rider-variants → Arbiter). Applied its 2 clean P2 improvements: (1) added the
+    `reanimate` case to atomTargetIntent → "own" (a reanimation TRIGGER now routes natively, not Arbiter —
+    safe own-graveyard intent, a small coverage gain); (2) DRY'd the ETB-fire — `enterPermanent` now uses
+    the shared `checkEnterTriggers`, removed the duplicate `checkEtbTriggers` (the cast/clone/aura and
+    reanimate ETB paths can no longer drift). The 3rd P2 (summoning-sick "//" split) is non-reachable
+    (enumeration filters front-face; matches enterPermanent) — left consistent.
+  - **Merge gate:** review MERGE + CI green, then `gh pr merge --squash`.
 - **β backlog / next atoms (the clean-atom frontier is THINNING — most of what's left needs hard δ
   subsystems):** reanimation ("return target creature card from your graveyard to the BATTLEFIELD" — ~8,
   a new mechanic: enter + fire ETB, reuses enterPermanent); positive-type creature restrictions (~1-5);
