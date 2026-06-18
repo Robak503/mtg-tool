@@ -16,6 +16,8 @@ Omnath (this Command chat) stays in the main `MTG-TOOL` repo and is the only one
 The anchor branch is just a collision-free home base (one branch per worktree). Each faculty re-branches off
 `origin/master` for its actual work, so the anchor never matters after launch.
 
+**First boot in a fresh worktree — provision deps ONCE.** The desktop app does NOT populate `app/node_modules` in a new worktree, so `npm test` / `npm run lint` / `npm run dev` fail until you fix it. **Recommended: `cd app && npm ci`** (an isolated per-worktree install) — because Omnath and the other faculties run tests concurrently and a *shared* `node_modules` can contend on the vitest/eslint cache and cause flaky runs. Fast alternative if disk is tight: junction `app/node_modules` → the main repo's `app/node_modules` (per the shared-worktree hazard note), accepting that small concurrent-cache flake risk.
+
 ---
 
 ## Loop cadence (current — "batch" mode, tunable)
