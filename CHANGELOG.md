@@ -8,6 +8,28 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-06-18
+
+The Academy opens its **δ (subsystem) phase** — two new interactive mechanics that play out at
+resolution with a real in-game picker, built on the same pending-choice engine as tutoring and scry.
+The Arbiter remains the fail-safe for anything the engine doesn't model natively. Suite ~2,170 green,
+lint clean; corpus native coverage ~16.1%.
+
+### Added
+- **Hand disruption now plays in The Academy** (Duress, Thoughtseize, Inquisition of Kozilek, Coercion,
+  Despise, Divest, Harsh Scrutiny, and friends). You target an opponent, *their* hand is revealed, and
+  you choose a card for them to discard — and it's faithful in a 4-player pod: you commit to one
+  opponent first and only ever see *that* hand (no peeking at everyone's hand at once). The AI plays its
+  discard too, taking your most expensive card. (#208, #209)
+- **Impulse-dig** (Anticipate, Strategic Planning, Impulse, Commune with Evil, Shimmer of Possibility,
+  Ransack the Lab, Glimpse the Future). "Look at the top N cards of your library, keep one, the rest go
+  to the bottom or your graveyard" — a real pick-one picker shows the cards; the AI keeps the best. (#210)
+
+### Notes
+- Variants outside the exact modeled templates (a hand-disruption spell that *exiles* the card, an
+  optional "you may" branch, a 3-way dig split like Telling Time, a filtered/multi-pick dig) continue to
+  route to the Arbiter rather than risk a wrong resolution.
+
 ## [0.37.0] - 2026-06-18
 
 Academy native-coverage batch. Each item shipped as its own slice behind the full
