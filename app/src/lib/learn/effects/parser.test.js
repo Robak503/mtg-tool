@@ -267,7 +267,9 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
     expect(programConfidence(parseEffectProgram(I("Tap target artifact.")))).toBe("low");          // tap is creature-only
     expect(programConfidence(parseEffectProgram(I("Destroy target tapped artifact.")))).toBe("low"); // unmodeled restriction
     expect(programConfidence(parseEffectProgram(I("Destroy target artifact creature.")))).toBe("low"); // not a bare type
-    expect(programConfidence(parseEffectProgram(I("Return target nonland permanent to its owner's hand.")))).toBe("low"); // bounce is creature-only
+    expect(programConfidence(parseEffectProgram(I("Return target nonland permanent to its owner's hand.")))).toBe("high"); // β-3: bounce-permanent modeled
+    expect(programConfidence(parseEffectProgram(I("Return target tapped artifact to its owner's hand.")))).toBe("low");   // an unmodeled restriction on bounce → Arbiter
+    expect(programConfidence(parseEffectProgram(I("Return target creature card from your graveyard to the battlefield.")))).toBe("low"); // reanimation deferred
   });
 });
 

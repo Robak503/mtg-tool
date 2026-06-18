@@ -147,3 +147,24 @@ describe("α1 — a removal trigger targets an ENEMY natively (never first-legal
     expect(s.players.user.battlefield.some((p) => p.id === "ua")).toBe(true); // the controller's OWN artifact survives
   });
 });
+
+describe("β-3 — bounce a non-creature permanent (Return target permanent to its owner's hand)", () => {
+  it("parses permanent / nonland-permanent + a controller restriction", () => {
+    expect(parseEffectProgram(I("Return target permanent to its owner's hand.")).atoms).toEqual([{ op: "bounce", targetType: "permanent", restrictions: [] }]);
+    expect(parseEffectProgram(I("Return target nonland permanent to its owner's hand.")).atoms).toEqual([{ op: "bounce", targetType: "nonlandPermanent", restrictions: [] }]);
+    expect(parseEffectProgram(I("Return target artifact an opponent controls to its owner's hand.")).atoms)
+      .toEqual([{ op: "bounce", targetType: "artifact", restrictions: [{ kind: "controller", who: "opponent" }] }]);
+    // a rider / unmodeled restriction stays low
+    expect(programConfidence(parseEffectProgram(I("Return target tapped permanent to its owner's hand.")))).toBe("low");
+  });
+  it("enumerates the right permanents (nonland-permanent excludes lands)", () => {
+    const s = board();
+    expect(enumerateTargets(s, "user", { targetType: "permanent", restrictions: [] })).toHaveLength(5);
+    expect(enumerateTargets(s, "user", { targetType: "nonlandPermanent", restrictions: [] }).map((t) => t.id)).not.toContain("al");
+  });
+  it("the bounce resolver moves the chosen permanent to its owner's hand", () => {
+    const s = ATOM_RESOLVERS.bounce(board(), { op: "bounce", targetType: "permanent" }, { controller: "user", targets: [{ type: "permanent", id: "aa" }] });
+    expect(s.players.ai.battlefield.map((p) => p.id)).toEqual(["ae", "al"]); // FoeArt left the battlefield
+    expect(s.players.ai.hand.map((c) => c.id)).toContain("aa");              // returned to its OWNER's hand
+  });
+});

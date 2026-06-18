@@ -296,6 +296,16 @@ function parseExtendedAtom(s) {
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
   if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
+  // β-3 — bounce a NON-creature permanent ("Return target permanent / nonland permanent / artifact …
+  // to its owner's hand" — Boomerang, Eye of Nowhere, Void Snare). The bounce resolver (applyZoneMove)
+  // already handles a "permanent" target and the enumerator already offers the #192 permanent types;
+  // a controller restriction composes exactly like the destroy/exile path. A rider/filter → low → Arbiter.
+  const bp = t.match(/^return target (nonland permanent|permanent|artifact|enchantment|land)(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
+  if (bp) {
+    const TT = { "permanent": "permanent", "nonland permanent": "nonlandPermanent", "artifact": "artifact", "enchantment": "enchantment", "land": "land" };
+    const restrictions = bp[2] ? [{ kind: "controller", who: /^you control$/.test(bp[2]) ? "you" : "opponent" }] : [];
+    return { op: "bounce", targetType: TT[bp[1]], restrictions };
+  }
   // Targeted NON-CREATURE permanent removal (Disenchant / Naturalize / Stone Rain / "Destroy
   // target permanent"). CREATURE removal keeps its dedicated path (the richer creature-restriction
   // parser); this covers artifact / enchantment / land / permanent / nonland permanent / "artifact
