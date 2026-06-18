@@ -27,7 +27,8 @@
  */
 
 import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
-import { permanentPower, permanentToughness } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
+import { hasKeyword } from "./keywords.js";
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 
@@ -181,6 +182,30 @@ export function creatureToughness(permanent, state = null) {
     return permanentToughness(state, permanent.id);
   }
   return printedToughness(permanent) + counterPtDelta(permanent);
+}
+
+/**
+ * CR 702.12: does this permanent have indestructible right now? Reads the layer engine
+ * (permanentHasKeyword) so a GRANTED indestructible is honored, not just a printed keyword —
+ * an Equipment/Aura ("Equipped creature has indestructible"), an anthem ("Creatures you control
+ * have indestructible"), or a self-grant ("Artifacts you control are indestructible"). The single
+ * indestructible check for the whole native engine: the destroy effect (CR 702.12b — can't be
+ * destroyed) and the lethal-damage SBA (CR 704.5g — not destroyed by lethal/deathtouch damage)
+ * both call it.
+ *
+ * NOTE the carve-out lives at the CALL SITE, not here: indestructible does NOT save a permanent
+ * from 0-or-less toughness (CR 704.5f), sacrifice, exile, or bounce — none of those is "destroy".
+ *
+ * Mirrors creaturePower/creatureToughness: an on-battlefield permanent reads the full layer-aware
+ * value; an off-battlefield / null-id snapshot reads the printed keyword (last-known
+ * characteristics), never a silent false.
+ */
+export function isIndestructible(permanent, state = null) {
+  if (!permanent?.card) return false;
+  if (state && permanent.id != null && findPermanent(state, permanent.id)) {
+    return permanentHasKeyword(state, permanent.id, "indestructible");
+  }
+  return hasKeyword(permanent.card, "indestructible");
 }
 
 /**
@@ -780,14 +805,22 @@ export function clearCombatDamage(state) {
 }
 
 /**
- * State-based action: move every creature with lethal damage to its graveyard
- * (CR 704.5g). Lethal = marked damage ≥ effective toughness, a non-positive
- * toughness, OR any damage from a deathtouch source (pass `deathtouched` as a
- * Set of permanent ids). Shared by combat damage and direct-damage spells so
- * the lethality rule lives in one place. Returns `{ state, dead }`.
+ * State-based action: move dying creatures to their graveyard. Two distinct SBAs,
+ * which is why indestructible (CR 702.12b) splits them:
+ *   - CR 704.5f — toughness 0 or less → put into graveyard. NOT "destroy", so an
+ *     indestructible creature still dies this way (a 0/0 token, an -X/-X wipe).
+ *   - CR 704.5g — lethal marked damage (≥ effective toughness), OR any damage from a
+ *     deathtouch source (pass `deathtouched` as a Set of permanent ids) → DESTROYED.
+ *     An indestructible creature is NOT destroyed and survives.
+ * Shared by combat damage and direct-damage spells so the lethality rule lives in one
+ * place. Returns `{ state, dead }`.
  */
 export function destroyLethalCreatures(state, deathtouched = new Set()) {
   const dead = [];
+  // Look-back snapshot (CR 603.10a): by the time dies-triggers are checked the permanent is
+  // already in the graveyard, so its last-known characteristics travel with the `dead` entry.
+  const markDead = (pid, perm) =>
+    dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature", card: perm.card });
   for (const [pid, player] of Object.entries(state.players)) {
     for (const perm of player.battlefield) {
       const typeStr = String(perm.card?.type || perm.card?.type_line || "");
@@ -796,11 +829,13 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
       if (!Number.isFinite(printed)) continue; // skip "*"/unknown toughness
       const tough = creatureToughness(perm, state);
       const dmg = perm.damageMarked || 0;
-      if (tough <= 0 || (dmg > 0 && dmg >= tough) || (deathtouched.has(perm.id) && dmg > 0)) {
-        // Carry the card as the look-back snapshot (CR 603.10a): by the time
-        // dies-triggers are checked the permanent is already in the graveyard,
-        // so its last-known characteristics must travel with the `dead` entry.
-        dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature", card: perm.card });
+      if (tough <= 0) {
+        markDead(pid, perm); // CR 704.5f — indestructible does NOT prevent this
+        continue;
+      }
+      const lethalDamage = (dmg > 0 && dmg >= tough) || (deathtouched.has(perm.id) && dmg > 0);
+      if (lethalDamage && !isIndestructible(perm, state)) {
+        markDead(pid, perm); // CR 704.5g — destruction; an indestructible creature survives
       }
     }
   }

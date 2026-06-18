@@ -42,6 +42,18 @@ export const GRANTABLE_COMBAT_KEYWORDS = new Set(
   COMBAT_KEYWORDS.map((k) => k.toLowerCase()).filter((k) => !NON_GRANTABLE.has(k)),
 );
 
+// Keywords the STATIC grant path (anthems/lords + attached Equipment/Auras) may grant —
+// the combat set PLUS non-combat keywords whose runtime effect is ENFORCED and read
+// layer-aware. "indestructible" qualifies now that the destroy effect (CR 702.12b) and the
+// lethal-damage SBA (CR 704.5g) both consult permanentHasKeyword via gameState.isIndestructible,
+// so a GRANTED instance is honored exactly like a printed one (Darksteel Plate's "Equipped
+// creature has indestructible", Avacyn's "Other permanents you control have indestructible").
+// Combat TRICKS (effects/parser.js) intentionally STAY on GRANTABLE_COMBAT_KEYWORDS only — an
+// until-end-of-turn indestructible grant is a valid future add, but isn't modeled yet, so a
+// "gains indestructible until end of turn" instant still routes to the Arbiter (a deliberate,
+// test-pinned divergence, not drift).
+export const GRANTABLE_STATIC_KEYWORDS = new Set([...GRANTABLE_COMBAT_KEYWORDS, "indestructible"]);
+
 /** Canonical-cased keyword name for a lowercase word ("first strike" → "First strike"). */
 export function canonicalCombatKeyword(lower) {
   return COMBAT_KEYWORDS.find((k) => k.toLowerCase() === String(lower).toLowerCase()) || lower;
