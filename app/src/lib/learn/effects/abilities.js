@@ -91,13 +91,24 @@ function effectIsManaAbility(clause) {
  * to the Arbiter instead (CLAUDE.md §1.2 — a false-negative is safe; a partial application is forbidden).
  * "X or another creature dies" is NOT flagged: that's one event (all-creature scope), fired by the dies
  * path — only a second WHEN-clause or a distinct leave/sacrifice verb trips this.
+ *
+ * CR 700.4 dies-EQUIVALENT wording ("is put into a graveyard from the battlefield") and the exile/zone
+ * LTB variants ("put into exile from the battlefield") ALSO trip this: the dies detector keys on the
+ * literal word "dies", so checkDiesTriggers never fires for that wording — without this guard a victim
+ * worded that way (Brood of Cockroaches, the God-Eternal cycle…) would have its death trigger silently
+ * dropped on sacrifice. Conservative by design — route the whole card to the Arbiter.
  */
 export function sacrificeDropsTrigger(oracle) {
-  const sentences = String(oracle).match(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^.]*\.?/gi) || [];
-  for (const s of sentences) {
+  // Match each trigger CLAUSE wherever it starts — not anchored to the start of a line/sentence — so an
+  // ability-word prefix ("Praesidium Protectiva — When this creature is put into your graveyard…") or
+  // reminder text "(When a creature is put into your graveyard from the battlefield…)" is still seen.
+  // Callers pass the RAW oracle (reminder included) so death-keyword reminders (Recover…) are caught.
+  const clauses = String(oracle).match(/(?:When|Whenever|At)\b[^.]*/gi) || [];
+  for (const s of clauses) {
     if (/\b(?:and|or)\s+when(?:ever)?\b/i.test(s)) return true;       // a second embedded when-clause
     if (/\bleaves the battlefield\b/i.test(s)) return true;           // LTB — the dies path won't fire it
     if (/\bwhen(?:ever)? you sacrifice\b/i.test(s)) return true;      // a sacrifice trigger
+    if (/\bput into\b[^.]*\bfrom the battlefield\b/i.test(s)) return true; // CR 700.4 dies-equiv / zone-LTB the detector misses
   }
   return false;
 }
@@ -115,7 +126,9 @@ export function sacrificeDropsTrigger(oracle) {
 export function parseActivatedAbilities(card) {
   const oracle = stripReminder(card?.oracle || card?.oracle_text || "");
   if (!oracle.trim()) return [];
-  const sacUnsafe = sacrificeDropsTrigger(oracle); // card-level: would a self-sac drop a trigger?
+  // Card-level: would a self-sac drop a trigger? Use the RAW oracle (reminder included) so a death
+  // keyword whose trigger lives in reminder text (Recover…) is caught, matching the victim path.
+  const sacUnsafe = sacrificeDropsTrigger(card?.oracle || card?.oracle_text || "");
   const out = [];
   let index = 0;
   for (const rawLine of oracle.split(/\n+/)) {

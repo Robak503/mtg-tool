@@ -96,6 +96,16 @@ describe("parseActivatedAbilities — cost parsing (mana + {T} allowlist)", () =
     const abilities = one("When this creature leaves the battlefield, create a Treasure token.\n{T}, Pay 2 life: Draw a card.");
     expect(abilities.find((a) => a.payLife).modeled).toBe(true);
   });
+  // P0 (γ1b review): the CR 700.4 dies-EQUIVALENT wording the dies detector misses (it keys on the
+  // literal word "dies"), so checkDiesTriggers never fires it — a self-sac would silently drop it.
+  it("does NOT model a self-sac whose card has a 'put into a graveyard from the battlefield' trigger (Brood-of-Cockroaches shape)", () => {
+    const abilities = one("When this creature is put into your graveyard from the battlefield, return this card to its owner's hand.\nSacrifice this creature: Draw a card.");
+    expect(abilities.find((a) => a.sacSelf).modeled).toBe(false);
+  });
+  it("does NOT model a self-sac whose card has a 'put into exile from the battlefield' trigger (God-Eternal shape)", () => {
+    const abilities = one("When this creature is put into exile from the battlefield, shuffle it into its owner's library.\nSacrifice this creature: Draw a card.");
+    expect(abilities.find((a) => a.sacSelf).modeled).toBe(false);
+  });
 });
 
 describe("parseActivatedAbilities — effect gating", () => {

@@ -215,6 +215,28 @@ describe("activated abilities — γ1b sacrifice-a-creature (chosen victim)", ()
     expect(victims).not.toContain("perm-risky"); // LTB trigger would be dropped → not a legal victim
   });
 
+  it("excludes a victim with a 'put into a graveyard from the battlefield' trigger (the dies path misses it — P0)", () => {
+    const outlet = createPermanent({ id: "perm-o", card: creature("Feeder", "Sacrifice a creature: Draw a card.", { type: "Artifact" }), controller: "user", summoningSick: false });
+    const safe = createPermanent({ id: "perm-safe", card: creature("Bear", ""), controller: "user", summoningSick: false });
+    const brood = createPermanent({ id: "perm-brood", card: creature("Brood", "When this creature is put into your graveyard from the battlefield, return this card to its owner's hand."), controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [outlet, safe, brood]);
+    s = withLibrary(s, "user", [{ id: "lib-1", name: "Card" }]);
+    const victims = activateActions(s).filter((a) => a.permanentId === "perm-o").map((a) => a.sacCreatureId);
+    expect(victims).toContain("perm-safe");
+    expect(victims).not.toContain("perm-brood"); // its recursion trigger would be silently dropped
+  });
+
+  it("never offers an action that sacrifices the very creature the effect targets (would fizzle — P2)", () => {
+    const cannon = createPermanent({ id: "perm-c", card: creature("Cannon", "Sacrifice a creature: This creature deals 2 damage to target creature.", { type: "Artifact" }), controller: "user", summoningSick: false });
+    const bear = createPermanent({ id: "perm-bear", card: creature("Bear", ""), controller: "user", summoningSick: false });
+    const enemy = createPermanent({ id: "perm-e", card: creature("Goblin", ""), controller: "ai", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [cannon, bear]);
+    s = withBattlefield(s, "ai", [enemy]);
+    const acts = activateActions(s).filter((a) => a.permanentId === "perm-c");
+    expect(acts.length).toBeGreaterThan(0);                                   // valid lines still exist
+    for (const a of acts) expect(a.targets.some((t) => t.id === a.sacCreatureId)).toBe(false);
+  });
+
   it("sacrificing the victim fires a Blood-Artist watcher (aristocrats payoff)", () => {
     const outlet = createPermanent({ id: "perm-o", card: creature("Altar", "Sacrifice a creature: Draw a card.", { type: "Artifact" }), controller: "user", summoningSick: false });
     const victim = createPermanent({ id: "perm-v", card: creature("Token", ""), controller: "user", summoningSick: false });

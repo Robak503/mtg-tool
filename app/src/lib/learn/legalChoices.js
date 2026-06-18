@@ -554,6 +554,10 @@ function actionsActivateAbility(state, playerId) {
       if (choices.length === 0) continue; // a required target has no legal pick → uncastable
       for (const victim of sacVictims) {
         for (const ch of choices) {
+          // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
+          // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
+          // A clean no-op, but a pointless self-defeating action; drop it from the choice list.
+          if (victim && ch.targets.some((t) => t.id === victim.id)) continue;
           actions.push({
             kind: "activate-ability",
             playerId,
