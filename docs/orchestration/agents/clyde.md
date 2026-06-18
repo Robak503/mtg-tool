@@ -60,9 +60,9 @@ Arbiter, and the safe action is to *not* merge.
    code) + `npm run lint`. Red → revert the merge (never force-push); investigate.
 5. **Multiple parser.js PRs in the queue:** merge ONE, wait, then re-check siblings' `mergeable` (it shows
    UNKNOWN right after a merge while GitHub recomputes). Merge the next only once it's green again.
-6. **Hans's outputs:** adopt his `scout/board-<n>` branch **directly** (`git show <ref>:<file> > <file>` —
+6. **Hans's outputs (Hans is she/her):** adopt her `scout/board-<n>` branch **directly** (`git show <ref>:<file> > <file>` —
    confirm the ref HAS the file first, or you'll truncate it), re-apply the `feat/<task>-<name>` convention, flip
-   merged rows DONE. Merge his `fix/<batch>-hans` PR through the normal gate.
+   merged rows DONE. Merge her `fix/<batch>-hans` PR through the normal gate.
 7. **Walt's PW PRs** (`feat/PW-*-walt`): merge with **extra care + LIVE acceptance** (`npm run dev`, play a
    planeswalker end-to-end) until the PW lane closes; then Walt sunsets.
 8. **After CODE merges:** flip the board rows DONE; refresh `STATUS.md` (scoreboard, faculties, queue, recent
