@@ -392,6 +392,34 @@ describe("parseEffectProgram — named artifact tokens (TOK-2)", () => {
   });
 });
 
+// ===== TOKENS ===== T3 — X-COUNT creature tokens (count = the spell's {X}: Secure the Wastes, Goblin
+// Offensive). The board-derived "where X is …" count + an "If X is N …" rider correctly stay low.
+describe("parseEffectProgram — X-count create-token (TOK-3)", () => {
+  const X = (oracle, mana = "{X}{W}") => ({ type: "Instant", mana, oracle });
+  it("stamps countX (not a fixed count) and flags the program xSpell", () => {
+    const p = parseEffectProgram(X("Create X 1/1 white Warrior creature tokens."));
+    expect(p.atoms).toEqual([{ op: "create-token", power: 1, toughness: 1, descriptor: "white warrior", targetType: null, countX: true }]);
+    expect(p.xSpell).toBe(true);
+  });
+  it("preserves P/T, multi-word descriptor, and keywords on an X-count token", () => {
+    expect(parseEffectProgram(X("Create X 1/1 white Bird creature tokens with flying.")).atoms[0])
+      .toMatchObject({ op: "create-token", power: 1, toughness: 1, descriptor: "white bird", keywords: ["Flying"], countX: true });
+  });
+  it("MUST_DROP_TO_LOW: a BOARD-derived X count or an 'If X is N' rider stays low → Arbiter", () => {
+    expect(programConfidence(parseEffectProgram(X("Create X 1/1 green Saproling creature tokens, where X is the number of creatures you control.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(X("Create X 1/1 white Soldier creature tokens. If X is 5 or more, destroy all other creatures.")))).toBe("low");
+    // Without an {X} cost, a literal "Create X …" isn't a cost-X count → low (no mana → hasX false).
+    expect(programConfidence(parseEffectProgram({ type: "Instant", oracle: "Create X 1/1 white Soldier creature tokens." }))).toBe("low");
+    // A LAND creature token (descriptor contains "land") drops its intrinsic mana ability if minted
+    // vanilla → low → Arbiter (Awaken the Woods); applies to fixed counts too.
+    expect(programConfidence(parseEffectProgram(X("Create X 1/1 green Forest Dryad land creature tokens.", "{X}{G}{G}")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Create two 1/1 green Saproling land creature tokens.")))).toBe("low");
+    // (A plain 0/1 Plant token has toughness 1 — a legit vanilla token, stays HIGH; the land-ness of
+    // Khalni Garden lives on the LAND, not the token, so the guard must NOT over-reach to non-land tokens.)
+    expect(programConfidence(parseEffectProgram(I("Create a 0/1 green Plant creature token.")))).toBe("high");
+  });
+});
+
 // P3.1 — COUNTER TARGET SPELL. The atom shape (any/noncreature/creature filter) +
 // the multi-clause/modal composition. Riders stay low (pinned in MUST_DROP_TO_LOW).
 describe("parseEffectProgram — counter target spell (P3.1)", () => {

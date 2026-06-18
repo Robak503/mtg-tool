@@ -14,6 +14,7 @@ import { createGameState, _resetIdsForTests } from "../gameState.js";
 import { legalActionsForPlayer } from "../legalChoices.js";
 import { dispatchAction } from "../actionDispatcher.js";
 import { resolveTopOfStack } from "../gameEngine.js";
+import { parseEffectProgram } from "./parser.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -97,5 +98,35 @@ describe("X-spell cast → pay → resolve (end-to-end)", () => {
     expect(afterCast.players.user.battlefield.filter(p => !p.tapped)).toHaveLength(2);
     const before = afterCast.players.ai.life;
     expect(resolveTopOfStack(afterCast).players.ai.life).toBe(before - 2);
+  });
+});
+
+// ===== TOKENS ===== T3 — an X-COUNT token spell (Secure the Wastes, {X}{W}: "Create X 1/1 white
+// Warrior creature tokens") makes EXACTLY X tokens, with the chosen X bound + paid through the same
+// pipeline as an X-damage spell.
+describe("X-COUNT token spell cast → pay → resolve (TOK-3)", () => {
+  const plains = (id) => ({ id, card: { name: "Plains", type: "Basic Land — Plains", oracle: "" }, controller: "user", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null });
+  function secureState() {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const secure = { id: "secure", name: "Secure the Wastes", type: "Instant", mana: "{X}{W}", oracle: "Create X 1/1 white Warrior creature tokens." };
+    return { ...s, activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main", stack: [],
+      players: { ...s.players, user: { ...s.players.user, hand: [secure], battlefield: [plains("p0"), plains("p1"), plains("p2"), plains("p3")] } } };
+  }
+  it("parses to a countX create-token atom and flags the program xSpell", () => {
+    const p = parseEffectProgram({ type: "Instant", mana: "{X}{W}", oracle: "Create X 1/1 white Warrior creature tokens." });
+    expect(p.xSpell).toBe(true);
+    expect(p.atoms).toEqual([{ op: "create-token", power: 1, toughness: 1, descriptor: "white warrior", targetType: null, countX: true }]);
+  });
+  it("casting for X=3 pays {3}{W} and mints exactly 3 Warrior tokens", () => {
+    const state = secureState();
+    const action = legalActionsForPlayer(state, "user").find(a => a.kind === "cast-spell" && a.xValue === 3);
+    expect(action).toBeTruthy();
+    const afterCast = dispatchAction(state, action);
+    expect(afterCast.players.user.battlefield.filter(p => p.tapped)).toHaveLength(4); // {W} + {3} = 4 Plains
+    const resolved = resolveTopOfStack(afterCast);
+    const tokens = resolved.players.user.battlefield.filter(p => p.card?.token);
+    expect(tokens).toHaveLength(3);
+    expect(tokens.every(t => t.card.power === 1 && t.card.toughness === 1 && /Warrior/.test(t.card.type))).toBe(true);
+    expect(resolved.pendingArbiter).toBeUndefined();
   });
 });

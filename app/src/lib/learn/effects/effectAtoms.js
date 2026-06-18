@@ -130,7 +130,10 @@ function applyCreateToken(state, atom, ctx) {
   const { type, name } = tokenTypeLine(atom.descriptor);
   const keywords = Array.isArray(atom.keywords) ? atom.keywords : [];
   const oracle = keywords.join(", ");
-  const count = Math.max(1, atom.count || 1);
+  // ===== TOKENS ===== T3 X-count: the count is the chosen {X} (ctx.xValue, bound at cast) for an
+  // X-token spell (Secure the Wastes), else the printed fixed count. X=0 mints zero tokens (CR 107.3) —
+  // a clean no-op, NOT forced to 1; a fixed count is floored at 1.
+  const count = atom.countX ? Math.max(0, ctx.xValue || 0) : Math.max(1, atom.count || 1);
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
     next = minted.state;
