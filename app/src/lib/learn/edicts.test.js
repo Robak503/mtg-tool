@@ -19,10 +19,11 @@ import { legalActionsForPlayer, filterActions } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack } from "./gameEngine.js";
 import { advanceUntilDecision, applySacrificeChoice } from "./learnSession.js";
-import { autoPickSacrificeCandidate, resolveSacrificeChoice } from "./effects/runProgram.js";
+import { autoPickSacrificeCandidate, resolveSacrificeChoice, runEffectProgram } from "./effects/runProgram.js";
 import { sacrificeCreatureEffect } from "./effects/effectAtoms.js";
+import { RESOLVER_KEYS } from "./resolvers.js";
 import { enumerateTargets } from "./spellEffects.js";
-import { parseEffectProgram, programConfidence, atomTargetIntent, programTriggerTargetsResolvable } from "./effects/parser.js";
+import { parseEffectProgram, programConfidence, atomTargetIntent, programTriggerTargetsResolvable, programNeedsChosenTarget } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
 import { pickAction } from "./opponentAI.js";
 
@@ -74,7 +75,7 @@ describe("parser — the edict family is HIGH; the atom targets a PLAYER (victim
     expect(programConfidence(parseEffectProgram(GRAVE))).toBe("high");
     expect(parseEffectProgram(GRAVE).atoms.map((a) => a.op)).toEqual(["return-from-graveyard", "sacrifice"]);
   });
-  it("a variant outside the exact template stays low → Arbiter (count / filter / non-creature / each-player / target-loses-life)", () => {
+  it("a variant outside the exact template stays low → Arbiter (count / filter / non-creature / target-loses-life)", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
     low("Target player sacrifices two creatures of their choice.");              // a count (Dead Drop / Barter in Blood)
     low("Target player sacrifices a creature of their choice with the greatest power."); // filtered victim
@@ -82,9 +83,11 @@ describe("parser — the edict family is HIGH; the atom targets a PLAYER (victim
     low("Target player sacrifices a nonblack creature.");                        // color filter
     low("Target opponent sacrifices a nonland permanent.");                      // non-creature victim
     low(GETHS);                                                                  // Geth's Verdict — the TARGET loses life (deferred)
-    low("Each player sacrifices a creature of their choice.");                   // each-player (a later slice)
-    low("Each opponent sacrifices a creature of their choice.");                 // each-opponent (a later slice)
-    low("You sacrifice a creature.");                                            // controller-sac as an effect (a later slice)
+    // ED-2 boundary: each-player/each-opponent are modeled for the BARE "a creature" form only.
+    low("Each player sacrifices two creatures of their choice.");                // a count
+    low("Each player sacrifices a land of their choice.");                       // non-creature victim (Tremble)
+    low("Each opponent sacrifices a creature or planeswalker of their choice."); // type union (Dark Intimations)
+    low("You sacrifice a creature.");                                            // controller "you sacrifice" — bare controller-sac deferred (α2 risk)
   });
 });
 
@@ -233,5 +236,118 @@ describe("AI — casts an edict at an opponent that has creatures, never itself,
       players: { ...s0.players, ai: { ...s0.players.ai, hand: [DIABOLIC], manaPool: { ...s0.players.ai.manaPool, C: 8, B: 4 } } } };
     const picked = pickAction(s, "ai", legalActionsForPlayer(s, "ai"));
     expect(picked?.kind).not.toBe("cast-spell");                                    // held (pass / land), not a fizzling edict
+  });
+});
+
+// ═══ ED-2 — each-player / each-opponent sacrifice (NON-targeted; every sacrificer chooses their own at
+// resolution, CR 701.16, via the SAME chain as the target edict). ═══
+const EACH_PLAYER = { id: "ib", name: "Innocent Blood", type: SORCERY, mana: "{B}", oracle: "Each player sacrifices a creature of their choice." };
+const EACH_OPP = { id: "lt", name: "Liliana's Triumph", type: SORCERY, mana: "{1}{B}", oracle: "Each opponent sacrifices a creature of their choice." };
+
+describe("ED-2 parser/coverage — each-player & each-opponent sacrifice are NON-targeted native-spells", () => {
+  it("parse to one non-targeted sacrifice atom with the right `who` (no targetType)", () => {
+    expect(parseEffectProgram(EACH_PLAYER).atoms).toEqual([{ op: "sacrifice", who: "eachPlayer", what: "creature" }]);
+    expect(parseEffectProgram(EACH_OPP).atoms).toEqual([{ op: "sacrifice", who: "eachOpponent", what: "creature" }]);
+    expect(programNeedsChosenTarget(parseEffectProgram(EACH_PLAYER))).toBe(false); // non-targeted → routes on triggers too
+  });
+  it("the bare form without 'of their choice' also parses", () => {
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Each player sacrifices a creature." }).atoms)
+      .toEqual([{ op: "sacrifice", who: "eachPlayer", what: "creature" }]);
+  });
+  it("classify native-spell", () => {
+    expect(classifyCard(EACH_PLAYER)).toBe("native-spell");
+    expect(classifyCard(EACH_OPP)).toBe("native-spell");
+  });
+});
+
+describe("ED-2 resolution — the sacrifice CHAIN walks every sacrificer (each picks their own creature)", () => {
+  // Resolve a non-targeted edict through the chain, auto-settling each ≥2 pick (the AI/Expert path).
+  function runChain(s, card, controller = "user") {
+    const program = parseEffectProgram(card);
+    const stk = { id: "stk-ed", kind: "spell", source: { name: card.name, oracle: card.oracle }, controller, targets: [], cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller, targets: [] } } };
+    let next = runEffectProgram(s, stk);
+    while (next.pendingChoice?.kind === "sacrifice-choice") next = resolveSacrificeChoice(next, autoPickSacrificeCandidate(next, next.pendingChoice));
+    return next;
+  }
+
+  it("each player (controller + opponent) sacrifices one — each their LEAST valuable (auto)", () => {
+    const s = state({
+      userBf: [creaPerm("u1", "MyToken", "user", 0, 1), creaPerm("u2", "MyBomb", "user", 6, 6)],
+      aiBf: [creaPerm("a1", "AiToken", "ai", 0, 1), creaPerm("a2", "AiBomb", "ai", 6, 6)],
+    });
+    const after = runChain(s, EACH_PLAYER);
+    expect(after.pendingChoice).toBeUndefined();
+    expect(after.players.user.graveyard.map((c) => c.id)).toEqual(["u1"]);  // controller sac'd their cheapest
+    expect(after.players.ai.graveyard.map((c) => c.id)).toEqual(["a1"]);    // opponent sac'd their cheapest
+    expect(after.players.user.battlefield.map((p) => p.id)).toEqual(["u2"]);
+    expect(after.players.ai.battlefield.map((p) => p.id)).toEqual(["a2"]);
+  });
+
+  it("each OPPONENT spares the controller — only opponents sacrifice", () => {
+    const s = state({
+      userBf: [creaPerm("u1", "Mine1", "user"), creaPerm("u2", "Mine2", "user")],
+      aiBf: [creaPerm("a1", "AiOnly", "ai")],
+    });
+    const after = runChain(s, EACH_OPP);
+    expect(after.players.user.graveyard).toHaveLength(0);                    // controller NOT a sacrificer
+    expect(after.players.user.battlefield.map((p) => p.id)).toEqual(["u1", "u2"]);
+    expect(after.players.ai.graveyard.map((c) => c.id)).toEqual(["a1"]);     // opponent sac'd (forced, 1 creature)
+  });
+
+  it("per-player 0/1/≥2 split: a creatureless player is skipped; a sole creature is forced", () => {
+    const s = state({
+      userBf: [],                                            // controller has none → skipped (no pause, no sac)
+      aiBf: [creaPerm("a1", "Sole", "ai")],                  // opponent has exactly one → forced
+    });
+    const after = runChain(s, EACH_PLAYER);
+    expect(after.pendingChoice).toBeUndefined();             // no real choice anywhere → no pause
+    expect(after.players.ai.graveyard.map((c) => c.id)).toEqual(["a1"]);
+  });
+
+  it("pauses for the HEAD sacrificer first (APNAP — controller before opponent) when they owe a real choice", () => {
+    const program = parseEffectProgram(EACH_PLAYER);
+    const s = state({
+      userBf: [creaPerm("u1", "U1", "user"), creaPerm("u2", "U2", "user")],   // controller ≥2 → real choice first
+      aiBf: [creaPerm("a1", "A1", "ai"), creaPerm("a2", "A2", "ai")],
+    });
+    const stk = { id: "stk-ed", kind: "spell", source: { name: "Innocent Blood" }, controller: "user", targets: [], cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: "user", targets: [] } } };
+    const paused = runEffectProgram(s, stk);
+    expect(paused.pendingChoice).toMatchObject({ kind: "sacrifice-choice", controller: "user" }); // controller (APNAP head) pauses first
+    expect(paused.pendingChoice.candidates.map((c) => c.id).sort()).toEqual(["u1", "u2"]);
+    // After the controller settles, the chain advances to the opponent.
+    const next = resolveSacrificeChoice(paused, "u2");
+    expect(next.pendingChoice).toMatchObject({ kind: "sacrifice-choice", controller: "ai" });
+  });
+
+  it("a sacrificed creature's dies trigger fires within the chain", () => {
+    const s = state({ aiBf: [creaPerm("a1", "Doomed", "ai", 2, 2, "When Doomed dies, draw a card.")] });
+    const after = runChain(s, EACH_OPP);
+    expect(after.players.ai.graveyard.map((c) => c.id)).toEqual(["a1"]);
+    expect(after.pendingTriggers?.length || 0).toBeGreaterThan(0);            // the dies trigger enqueued
+  });
+});
+
+describe("ED-2 trigger path — a non-targeted each-player/each-opponent sac routes natively on a trigger", () => {
+  it("an ETB 'each opponent sacrifices a creature' is native-trigger (non-targeted → no chosen-target gate)", () => {
+    const etb = { type: "Creature — Horror", name: "Fleshbag-ish", oracle: "When this creature enters, each opponent sacrifices a creature of their choice." };
+    expect(classifyCard(etb)).toBe("native-trigger");
+  });
+  it("the iconic Fleshbag family (ETB-self / dies-self) + a clean 'a creature you control dies' are native-trigger", () => {
+    expect(classifyCard({ type: "Creature — Zombie Warrior", name: "Fleshbag Marauder", oracle: "When this creature enters, each player sacrifices a creature of their choice." })).toBe("native-trigger");
+    expect(classifyCard({ type: "Creature — Horror", name: "Abyssal Gatekeeper", oracle: "When this creature dies, each player sacrifices a creature of their choice." })).toBe("native-trigger");
+    expect(classifyCard({ type: "Enchantment", name: "Dictate of Erebos", oracle: "Flash\nWhenever a creature you control dies, each opponent sacrifices a creature of their choice." })).toBe("native-trigger");
+  });
+  // CREED — the ED-2 effect atom EXPOSED a pre-existing trigger-condition false positive (Rod QA #1
+  // FIX-TRIG-CONDITION): a COMPOUND-SUBJECT condition "this creature or another creature you control dies"
+  // (Butcher of Malakir) would be read as self-only, dropping "or another" → the edict mis-fires. The
+  // compound-subject guard in classifyCondition routes it to the Arbiter instead (a SAFE false-negative).
+  it("a compound-subject 'this OR ANOTHER creature you control dies' edict trigger is NOT native (→ Arbiter)", () => {
+    const butcher = { type: "Creature — Vampire Warrior", name: "Butcher of Malakir", oracle: "Flying\nWhenever this creature or another creature you control dies, each opponent sacrifices a creature of their choice." };
+    expect(classifyCard(butcher)).not.toBe("native-trigger");
+    // and the same compound subject on a bare death trigger (Zulaport-class) also routes to the Arbiter
+    const zulaportish = { type: "Creature — Human Cleric", name: "Drainer-ish", oracle: "Whenever this creature or another creature you control dies, each opponent loses 1 life and you gain 1 life." };
+    expect(classifyCard(zulaportish)).not.toBe("native-trigger");
   });
 });

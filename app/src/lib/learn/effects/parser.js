@@ -558,6 +558,20 @@ function parseExtendedAtom(s) {
   // the life, an actor we don't model) fails the exact anchor / all-or-nothing gate → low → Arbiter.
   m = t.match(/^target (player|opponent) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
   if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: "creature" };
+  // ED-2 — each-player / each-opponent sacrifice (each sacrificer gives up ONE creature of their choice, CR
+  // 701.16). NON-targeted (no targetType — every player / every opponent), resolved through the SAME chain
+  // as the target edict (applySacrifice → advanceSacrificeChain). Non-targeted ⇒ programNeedsChosenTarget
+  // false ⇒ also routes on the trigger path. Bare "a creature" ONLY: a count ("two creatures" — Barter in
+  // Blood), a non-creature ("a land", "an artifact", "a permanent"), a filter / union ("creature or
+  // planeswalker", "with the greatest power", "nontoken"), "all", or an X leaves trailing text → fails `$`
+  // → low → Arbiter (those are NOT this slice — a wrong-victim sac would be a forbidden false positive).
+  // (Controller-sac "Sacrifice a creature." is intentionally NOT modeled here: it has ~0 standalone corpus
+  // yield, and the α2 "you may" wrapper would then flip "You may sacrifice a creature." HIGH through an
+  // untested optional+sacrifice-chain composition — deferred to keep that pin LOW. See parser.test.js.)
+  m = t.match(/^each player sacrifices a creature(?: of (?:their|his or her) choice)?$/);
+  if (m) return { op: "sacrifice", who: "eachPlayer", what: "creature" };
+  m = t.match(/^each opponent sacrifices a creature(?: of (?:their|his or her) choice)?$/);
+  if (m) return { op: "sacrifice", who: "eachOpponent", what: "creature" };
   return null;
 }
 

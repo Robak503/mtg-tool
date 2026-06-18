@@ -672,9 +672,14 @@ const MUST_DROP_TO_LOW = [
   "Target player sacrifices a nonblack creature.",                              // color filter
   "Target opponent sacrifices a nonland permanent.",                            // non-creature victim
   "Target player sacrifices a creature of their choice and loses 1 life.",      // Geth's Verdict — the TARGET loses life (deferred)
-  "Each player sacrifices a creature of their choice.",                         // each-player (a later slice — not yet modeled)
-  "Each opponent sacrifices a creature of their choice.",                       // each-opponent (a later slice)
-  "You sacrifice a creature.",                                                  // controller-sac as an effect (a later slice)
+  // ED-2 boundary — each-player / each-opponent sacrifice OUTSIDE the bare "a creature" form stays LOW (a
+  // count / non-creature / type-union / "all" would sacrifice the wrong thing — a forbidden false positive).
+  "Each player sacrifices two creatures of their choice.",                      // a count (Barter in Blood / Tergrid's Shadow)
+  "Each player sacrifices a land of their choice.",                             // non-creature victim (Tremble)
+  "Each player sacrifices all permanents they control that are one or more colors.", // "all" (All Is Dust)
+  "Each opponent sacrifices a creature or planeswalker of their choice.",       // type UNION (Dark Intimations)
+  "Each opponent sacrifices an artifact.",                                      // non-creature victim (Visions of Ruin)
+  "You sacrifice a creature.",                                                  // controller "you sacrifice" — bare controller-sac deferred (α2-interaction risk)
 
   // ===== EACH-PLAYER ===== discard (EP-2) — only the bare numeric "target/each player discards N cards"
   // is modeled (the discarding player chooses). "at random" (RNG, no choice), X, "their hand", "half",
@@ -815,6 +820,11 @@ const MUST_STAY_HIGH = [
   "Target player sacrifices a creature of their choice.",                       // Diabolic Edict (any player)
   "Target opponent sacrifices a creature of their choice.",                     // Cruel Edict (opponents only)
   "Return target creature card from your graveyard to your hand. Target player sacrifices a creature of their choice.", // Grave Exchange (gy-return + edict)
+  // ED-2 — each-player / each-opponent sacrifice (bare "a creature"; every sacrificer chooses their own at
+  // resolution via the same chain). Non-targeted ⇒ routes on the trigger path too. Full behavior in edicts.test.js. ──
+  "Each player sacrifices a creature of their choice.",                         // Innocent Blood (every player)
+  "Each opponent sacrifices a creature of their choice.",                       // Liliana's Triumph (opponents only)
+  "Each player sacrifices a creature.",                                         // bare form without "of their choice" (Tergrid's Shadow-adjacent)
 
   // ── EACH-PLAYER discard (EP-2) — "target/each player discards N cards" (the DISCARDING player chooses
   // at resolution, CR 701.8) + a modeled compose (Fill with Fright = discard + scry; Unhinge = discard +

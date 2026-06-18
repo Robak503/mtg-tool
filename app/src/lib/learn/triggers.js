@@ -138,6 +138,16 @@ function classifyCondition(condRaw, cardName) {
     .filter((re) => re.test(c)).length;
   if (eventVerbs >= 2) return null;
   if (/\b(?:and|or)\s+when(?:ever)?\b/i.test(c)) return null; // an embedded second trigger clause
+  // ===== COMPOUND-SUBJECT guard (CREED, CLAUDE.md §1.2; Rod QA #1 FIX-TRIG-CONDITION, the "or another"
+  // sub-case) ===== A single-event condition that names a SECOND subject after the self — "this creature
+  // OR ANOTHER creature you control dies/enters" (Butcher of Malakir, Zulaport Cutthroat, Cruel Celebrant)
+  // — is read as a BARE SELF trigger by the selfRef branches below (selfRef matches "this"), silently
+  // DROPPING the "or another creature you control" half so the ability fires ONLY on the source's own
+  // event — a confident WRONG partial. Leave it UNDETECTED → the whole card routes to the Arbiter (a SAFE
+  // false-negative), mirroring the compound-event guard above. Exposed by the ED-2 each-player/each-opponent
+  // edict slice (the sacrifice EFFECT became modeled, flipping these toward native). The BROADER
+  // FIX-TRIG-CONDITION sub-case (scope-inexpressible restrictions) remains Rod/Erin's lane.
+  if (selfRef && /\bor another\b/.test(c)) return null;
 
   // ===== FIX-TRIG-CONDITION (Rod QA #1, CREED CLAUDE.md §1.2) ===== Reject conditions whose SUBJECT or
   // RESTRICTION the scope system can't faithfully represent — the single-event branches below would map
