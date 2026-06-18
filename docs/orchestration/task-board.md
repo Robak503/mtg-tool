@@ -2,8 +2,8 @@
 
 **Model:** builders **pull from this board** rather than owning a fixed mechanic — pick the highest-priority
 `OPEN` task you're suited for, develop your own working knowledge, never idle. **Hans (scout) maintains +
-re-prioritizes this board** as the modeled set grows; **Rod (QA) and Omnath file findings here as new
-tasks.** Omnath (Command) merges; only Omnath touches `master`.
+re-prioritizes this board** as the modeled set grows; findings get filed here as new tasks. **Clyde
+(integrator) merges; only Clyde touches `master`** (Omnath is the strategy brain).
 
 > **Last scout refresh:** cycle **board-3 (DEEP SCAN)**, 2026-06-18 — live baseline **16.0 % corpus native**
 > (5,369/33,540). A one-off deep scan mapped the WHOLE climb 16 %→~90 % and pre-stocked a ranked backlog
@@ -21,7 +21,7 @@ tasks.** Omnath (Command) merges; only Omnath touches `master`.
 1. Pick the highest-priority **`OPEN`** task that fits you (mix: a fast clean atom, or a subsystem for a longer run).
 2. **Claim by pushing your branch — put YOUR FACULTY NAME as the suffix** (so the dashboard attributes it): `git fetch origin && git checkout -B feat/<task-id>-<name> origin/master && git commit --allow-empty -m "claim <task-id> (<name>)" && git push -u origin feat/<task-id>-<name>` (e.g. `feat/REG-1-cindy`).
 3. **Check it's free first:** `git ls-remote --heads origin "feat/<task-id>-*"` — branch exists = taken; take the next.
-4. Tell Colton "claiming `<task-id>`". Build it (full gate), open the PR. Omnath merges + flips status to DONE.
+4. Tell Colton "claiming `<task-id>`". Build it (full gate), open the PR. Clyde merges + flips status to DONE.
 
 A task is **disjoint** by design (different atoms/oracle shapes). **`Cplx`** = build size: `low` (a matcher +
 reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, flag clearly). **`engine-first`**
@@ -29,7 +29,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 ---
 
-## 🔧 FIX / VERIFY lane — Erin (these jump the builder queue)
+## 🔧 FIX / VERIFY lane — unowned (these jump the builder queue; any builder can pull)
 
 | ID | Pri | Finding | ~Impact | Status |
 |---|---|---|---:|---|
@@ -64,13 +64,20 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 > combat-damage-as-loyalty / CR 120.3c, enters-with-loyalty) — every CR citation verified real. **The PW
 > subsystem (PW-1→PW-4) is COMPLETE; shipped in v0.39.0.**
 >
+> **✅ PW-6 + PW-7 MERGED #253 (2026-06-18, 6295bf2) — planeswalkers are targetable by removal.** Damage
+> now offers a planeswalker target and removes it as loyalty (CR 120.3c), killing it at 0 (CR 704.5i);
+> `destroy`/`exile target planeswalker` (Hero's Downfall class) works. New target types `planeswalker` /
+> `creatureOrPlaneswalker` / `playerOrPlaneswalker`, all gated out of the first-legal trigger flush (CREED).
+> +24 native (17.1→17.2%) — this is how walkers die outside combat.
+>
 > **⏳ PW-5 (emblem subsystem, #251) — reviewed + CREED-approved, BLOCKED on a trivial rebase.** Adds a
 > real command-zone emblem object (`addEmblem`) whose static-anthem ability applies via the existing layer
 > engine (`emblemEffectsOf`, scoped to the controller); a `create-emblem` atom flips anthem-ultimate
 > walkers toward `native-planeswalker`; triggered emblems → Arbiter (PW-6). It conflicts with the merged
 > #252 on `effectAtoms.js` (the shared gameState import line + ATOM_RESOLVERS). **Walt:** rebase
 > `feat/PW-5-walt` onto current `origin/master`, keep BOTH `addEmblem` + `attachPermanent` in the import
-> and BOTH resolver keys, `git push --force-with-lease` — then Omnath merges (no re-review needed).
+> and BOTH resolver keys (plus PW-6/7's new planeswalker target-types now in the same files), `git push
+--force-with-lease` — then Clyde merges (no re-review needed).
 > Remaining follow-ups OPTIONAL: static-residue ~3 anthem walkers, AI walker-protection blocking, PW-6 triggered emblems.
 
 ### 🔴 high-lever
@@ -129,7 +136,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 ---
 
-## ✅ Shipped this run (Omnath's merge ledger) · 🔵 in-flight (claimed — don't re-take)
+## ✅ Shipped this run (Clyde's merge ledger) · 🔵 in-flight (claimed — don't re-take)
 
 | ID | Mechanic | State |
 |---|---|---|
@@ -139,7 +146,8 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | FIX-TRIG-COMPOUND / FIX-TRIG-LTB | trigger −FP fixes | ~DONE #218 |
 | ED-2 · EP-3 · TOK-3 · BURN-2 · ADDCOST-sac | edicts · mill · token-counts · burn-riders · sac-to-cast | 🔵 in-flight (`feat/*` branch exists) |
 
-**Hans (Scout):** re-rank + add rows each cycle; file mis-modeled cards as `VERIFY-…`. **Rod (QA):** file
-false-positives as 🔴 `FIX-…`. **Erin (Fixer):** owns the FIX/VERIFY lane (default fix: tighten the matcher →
-Arbiter + pin `MUST_DROP_TO_LOW`); claims `fix/<area>-*`. Coverage rows stay with **Cindy, Paula & Tess**.
-**Omnath:** flips status to `DONE` on merge, files review P0s as `FIX-…`.
+**Hans (Scout):** re-rank + add rows each cycle; file mis-modeled cards as `VERIFY-…`. **Cindy (Builder):**
+pulls coverage rows (cap 3 in-flight). **Walt:** the planeswalker subsystem lane. **Clyde (integrator):**
+flips status to `DONE` on merge, files review P0s as `FIX-…`, owns master + releases. The lean roster
+(2026-06-18) stood down Paula/Tess/Erin/Rod — their **FIX/VERIFY rows are now unowned** and any builder
+can pull them (default fix: tighten the matcher → Arbiter + pin `MUST_DROP_TO_LOW`).
