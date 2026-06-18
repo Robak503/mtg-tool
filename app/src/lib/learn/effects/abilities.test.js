@@ -58,6 +58,30 @@ describe("parseActivatedAbilities — cost parsing (mana + {T} allowlist)", () =
   it("ignores a flavor/rules colon with no symbol cost (not an ability)", () => {
     expect(one("Choose a color: that becomes the chosen color.")).toHaveLength(0);
   });
+
+  // γ1 fail-safe: a self-sac cost is UNMODELED when sacrificing would silently drop one of the card's
+  // own triggers (an LTB / "when you sacrifice" / compound condition the dies path can't fire), so the
+  // whole card routes to the Arbiter rather than partially applying.
+  it("does NOT model a self-sac whose card has a compound 'and when you sacrifice it' trigger (Carrot Cake)", () => {
+    const abilities = one("When this artifact enters and when you sacrifice it, create a 1/1 white Rabbit creature token and scry 1.\n{2}, {T}, Sacrifice this artifact: You gain 3 life.", { type: "Artifact" });
+    const sac = abilities.find((a) => a.sacSelf);
+    expect(sac.costModeled).toBe(true);   // the COST parses…
+    expect(sac.modeled).toBe(false);      // …but offering it would drop the sacrifice token-trigger
+  });
+  it("does NOT model a self-sac whose card has an 'enters or leaves the battlefield' trigger (Mouser Foundry)", () => {
+    const abilities = one("When this artifact enters or leaves the battlefield, create a 1/1 colorless Robot artifact creature token.\n{4}{R}, Sacrifice this artifact: It deals 3 damage to target creature.", { type: "Artifact" });
+    expect(abilities.find((a) => a.sacSelf).modeled).toBe(false);
+  });
+  it("STILL models a self-sac whose only trigger is a normal dies trigger (the dies path fires it)", () => {
+    // "When this dies" fires correctly on the sacrifice (checkDiesTriggers) — never dropped — so this
+    // genuine aristocrats outlet stays playable (no over-blocking).
+    const abilities = one("When this creature dies, draw a card.\nSacrifice this creature: You gain 2 life.");
+    expect(abilities.find((a) => a.sacSelf).modeled).toBe(true);
+  });
+  it("a pay-life ability is unaffected by a leaves-the-battlefield trigger (no sacrifice → no drop)", () => {
+    const abilities = one("When this creature leaves the battlefield, create a Treasure token.\n{T}, Pay 2 life: Draw a card.");
+    expect(abilities.find((a) => a.payLife).modeled).toBe(true);
+  });
 });
 
 describe("parseActivatedAbilities — effect gating", () => {

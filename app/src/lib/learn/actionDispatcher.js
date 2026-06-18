@@ -379,7 +379,10 @@ function applyActivateAbility(state, action) {
   // source. Both are paid HERE, before the ability is put on the stack (CR 602.2b).
   if (action.payLife) working = loseLife(working, { playerId: action.playerId, amount: action.payLife });
   if (action.sacSelf) {
-    const isCreatureSource = /Creature/.test(String(perm.card?.type || perm.card?.type_line || ""));
+    // Mirror typeLineOf's DFC fallthrough (front face) so a card whose creature-ness lives only on
+    // card_faces still fires its dies triggers — single-source-of-truth with legalChoices/layers.
+    const typeLine = String(perm.card?.type || perm.card?.type_line || perm.card?.card_faces?.[0]?.type_line || perm.card?.card_faces?.[0]?.type || "");
+    const isCreatureSource = /Creature/.test(typeLine);
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "graveyard", cardId: perm.id });
     // CR 700.4 — only a CREATURE going to the graveyard "dies". Fire its + watchers' dies triggers
     // (the aristocrats payoff — Blood Artist, Zulaport Cutthroat). A non-creature sacrifice leaves

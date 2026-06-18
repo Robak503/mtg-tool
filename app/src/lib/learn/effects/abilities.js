@@ -78,6 +78,26 @@ function effectIsManaAbility(clause) {
 }
 
 /**
+ * γ1 fail-safe — would sacrificing this permanent as a COST silently drop one of its OWN triggers?
+ * The self-sac path fires only creature "dies" triggers (checkDiesTriggers); a "leaves the battlefield"
+ * / "when you sacrifice this" trigger, or a COMPOUND condition the detector under-splits ("…enters AND
+ * when you sacrifice it", "…enters OR leaves the battlefield"), would NOT be put on the stack — a silent
+ * partial application. When true, the card's self-sac ability stays UNMODELED so the WHOLE card routes
+ * to the Arbiter instead (CLAUDE.md §1.2 — a false-negative is safe; a partial application is forbidden).
+ * "X or another creature dies" is NOT flagged: that's one event (all-creature scope), fired by the dies
+ * path — only a second WHEN-clause or a distinct leave/sacrifice verb trips this.
+ */
+function sacrificeDropsTrigger(oracle) {
+  const sentences = String(oracle).match(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^.]*\.?/gi) || [];
+  for (const s of sentences) {
+    if (/\b(?:and|or)\s+when(?:ever)?\b/i.test(s)) return true;       // a second embedded when-clause
+    if (/\bleaves the battlefield\b/i.test(s)) return true;           // LTB — the dies path won't fire it
+    if (/\bwhen(?:ever)? you sacrifice\b/i.test(s)) return true;      // a sacrifice trigger
+  }
+  return false;
+}
+
+/**
  * All activated-ability lines on a permanent, as serializable descriptors. Each entry:
  *   { index, raw, costStr, effectClause, manaPips, tapSelf, costModeled, isManaEffect,
  *     program, modeled, needsTarget }
@@ -90,6 +110,7 @@ function effectIsManaAbility(clause) {
 export function parseActivatedAbilities(card) {
   const oracle = stripReminder(card?.oracle || card?.oracle_text || "");
   if (!oracle.trim()) return [];
+  const sacUnsafe = sacrificeDropsTrigger(oracle); // card-level: would a self-sac drop a trigger?
   const out = [];
   let index = 0;
   for (const rawLine of oracle.split(/\n+/)) {
@@ -140,9 +161,10 @@ export function parseActivatedAbilities(card) {
       costModeled: !!cost,
       isManaEffect,
       program,
-      // Playable on the stack: cost is mana+{T}, effect is HIGH (non-modal, non-X), and
-      // it's NOT a mana ability (those resolve via the no-stack tap-for-mana path).
-      modeled: !!cost && !isManaEffect && effectHigh,
+      // Playable on the stack: cost is mana+{T}(+pay-life/self-sac), effect is HIGH (non-modal,
+      // non-X), it's NOT a mana ability (those use the no-stack tap-for-mana path), AND — for a
+      // self-sac cost — sacrificing won't silently drop one of the card's own triggers (γ1 fail-safe).
+      modeled: !!cost && !isManaEffect && effectHigh && !(cost.sacSelf && sacUnsafe),
       needsTarget: effectHigh && !!program && programNeedsChosenTarget(program),
     });
   }
