@@ -43,7 +43,7 @@ import {
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -346,6 +346,13 @@ function settleScryChoice(state, keepIds) {
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
+// ===== DIVIDE ===== (MT-1) — settle a divide-damage division then finalize the stack (flush any
+// dies-triggers from the damage, continue resolution). Mirrors settleScryChoice.
+function settleDivideChoice(state, distribution) {
+  const next = resolveDivideChoice(state, distribution);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
 /**
  * Settle an optional "you may <effect>" choice (α2): run-or-skip the paused atom and resume — which
  * may itself set ANOTHER choice ("you may scry 2"), so guard pendingChoice before flushing — then
@@ -553,6 +560,16 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
           return { session: current, decision: { kind: "discard", ...pc } };
         }
         current = { ...current, state: settleDiscardChoice(current.state, autoPickDiscardCandidate(current.state, pc)) };
+        continue;
+      }
+      // ===== DIVIDE ===== (MT-1) — divide-damage / distribute-counters. pc.controller is the CASTER (the
+      // divider), so `pause` pauses a human caster (they assign via the picker) and auto-distributes for an
+      // AI / Expert (greedy-kill split). Resolving applies the split + finalizes the stack.
+      if (pc.kind === "divide-damage") {
+        if (pause) {
+          return { session: current, decision: { kind: "divide-damage", ...pc } };
+        }
+        current = { ...current, state: settleDivideChoice(current.state, autoPickDivideDistribution(current.state, pc)) };
         continue;
       }
       // Tutor library search.
@@ -911,6 +928,39 @@ export function applyScryChoice(session, choice) {
     state: newState,
     decisionLog: [...session.decisionLog, logEntry],
   });
+}
+
+/**
+ * ===== DIVIDE ===== (MT-1) — the player assigned a divide-damage division. `choice.distribution` is
+ * `[{ id, type, amount }]`; resolveDivideChoice validates it against the candidates + caps the running
+ * total, so a malformed UI submit can never fabricate damage or hit a non-target. Settles + re-derives.
+ */
+export function applyDivideChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "divide-damage") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const distribution = Array.isArray(choice?.distribution) ? choice.distribution : [];
+  let newState;
+  try {
+    newState = settleDivideChoice(session.state, distribution);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "divide-choice", amount: pc.amount, targets: distribution.length },
+    auto: false,
+    reasoning: "user-assigned-divide",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
 }
 
 /**
