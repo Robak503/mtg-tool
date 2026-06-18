@@ -174,6 +174,12 @@ function splitClauses(oracle) {
     // parseExtendedAtom binds the controller-scoped pump + grant together (plural subject →
     // "gain", no trailing s).
     if (/^creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // SELF pump + keyword grant ("This creature gets +1/+0 and gains trample until end of turn" / "This
+    // creature gains flying and vigilance until end of turn") — the " and " is INTERNAL to the one
+    // self-grant instruction (CR 109.2 "this creature" = the source), NOT a top-level effect boundary.
+    // Keep the whole sentence so parseExtendedAtom binds the self pump + every granted keyword together
+    // (ACT-KW-GRANT). All-or-nothing anchored, so an un-grantable keyword just fails to match → low.
+    if (/^this creature (?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ===== TOKENS ===== a keyword token minted with several keywords ("Create a 4/4 white Angel
     // creature token with flying and vigilance") joins them with " and " — INTERNAL to the one
     // create-token instruction, not a top-level effect boundary. Keep the whole sentence so
@@ -429,6 +435,22 @@ function parseExtendedAtom(s) {
   // source it resolves to a no-op, never a fabricated pump.
   m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
+  // SELF keyword grant (+ optional P/T) — "this creature [gets +N/+N and ]gains KW[ and KW] until end of
+  // turn" grants the SOURCE (CR 109.2) the keyword(s), layer-6 endOfTurn. The keyword form of the self
+  // pump above; reuses the combat-trick GRANTABLE allowlist (parseGrantedKeywords — the enforced,
+  // layer-aware set IS the FP guard, so an un-enforced keyword → null → low → Arbiter) + the self-pump
+  // resolver path (atomTargets → selfTargets → ctx.sourceId). Used by "{cost}: this creature gains …"
+  // activated abilities (ACT-KW-GRANT) and "When this attacks, this creature gains …" triggers alike.
+  m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
+  if (m) {
+    const kws = parseGrantedKeywords(m[3]);
+    return kws ? { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, grantKeywords: kws } : null;
+  }
+  m = t.match(/^this creature gains (.+) until end of turn$/);
+  if (m) {
+    const kws = parseGrantedKeywords(m[1]);
+    return kws ? { op: "pump", target: "self", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   // SELF-reference +1/+1 / -1/-1 counter — "put a +1/+1 counter on this creature" (the source).

@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { parseEffectProgram, programConfidence, programContainsCounter, programContainsTeamPump, programNeedsChosenTarget, KNOWN_ATOM_OPS } from "./parser.js";
+import { parseEffectProgram, parseEffectClause, programConfidence, programContainsCounter, programContainsTeamPump, programNeedsChosenTarget, KNOWN_ATOM_OPS } from "./parser.js";
 
 const I = (oracle) => ({ type: "Instant", oracle });
 
@@ -979,5 +979,28 @@ describe("parseEffectProgram — additional sacrifice cost (ADDCOST)", () => {
   it("MUST DROP TO LOW: a sac cost whose REMAINING effect is itself unmodeled (all-or-nothing)", () => {
     // The sac cost is clean, but "Target player loses N life" is not a modeled atom → the whole card is LOW.
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice a creature.\nTarget player loses 2 life.")))).toBe("low");
+  });
+});
+
+// ===== ACT-KW-GRANT — self keyword-grant (activated/trigger effect, via parseEffectClause) =====
+// "This creature [gets +N/+N and ]gains <KW> until end of turn" grants the SOURCE (CR 109.2) the
+// keyword(s) for the turn, reusing the combat-trick GRANTABLE_COMBAT_KEYWORDS allowlist (the enforced,
+// layer-aware set IS the false-positive guard). A keyword the engine doesn't enforce (menace /
+// indestructible / hexproof / protection / ward) → null → low → Arbiter (never a grant the engine can't honor).
+describe("parseEffectClause — self keyword-grant (ACT-KW-GRANT)", () => {
+  const atomsOf = (o) => (parseEffectClause(o, "Creature") || {}).atoms;
+  const conf = (o) => programConfidence(parseEffectClause(o, "Creature"));
+  it("parses a self keyword-grant (+ optional self pump) to a target:self pump atom with grantKeywords", () => {
+    expect(atomsOf("This creature gains flying until end of turn.")).toEqual([{ op: "pump", target: "self", ptDelta: { p: 0, t: 0 }, grantKeywords: ["Flying"] }]);
+    expect(atomsOf("This creature gains first strike and deathtouch until end of turn.")).toEqual([{ op: "pump", target: "self", ptDelta: { p: 0, t: 0 }, grantKeywords: ["First strike", "Deathtouch"] }]);
+    expect(atomsOf("This creature gets +1/+0 and gains trample until end of turn.")).toEqual([{ op: "pump", target: "self", ptDelta: { p: 1, t: 0 }, grantKeywords: ["Trample"] }]);
+    // negative pump composes (Hopping Automaton: {0}: gets -1/-1 and gains flying)
+    expect(atomsOf("This creature gets -1/-1 and gains flying until end of turn.")).toEqual([{ op: "pump", target: "self", ptDelta: { p: -1, t: -1 }, grantKeywords: ["Flying"] }]);
+  });
+  it("MUST stay LOW: granting a keyword the engine does NOT enforce → Arbiter (the allowlist IS the FP guard)", () => {
+    expect(conf("This creature gains menace until end of turn.")).toBe("low");          // 2-blocker rule unenforced
+    expect(conf("This creature gains indestructible until end of turn.")).toBe("low");  // combat-trick set excludes it
+    expect(conf("This creature gains hexproof until end of turn.")).toBe("low");
+    expect(conf("This creature gets +1/+0 and gains menace until end of turn.")).toBe("low"); // one bad kw sinks the whole grant
   });
 });
