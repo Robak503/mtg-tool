@@ -80,7 +80,16 @@ Sacrifice-as-cost is ~3× the next item — γ1 (self-sac) + γ1b (a-creature) t
     clean · **corpus sweep = 84 native sacOther outlets, 0 false-positives** (Nantuko Husk, Fallen
     Angel, Atog, Razaketh, Viscera-Seer family; no effect references the sacrificed victim) · real-card
     e2e (Nantuko Husk offers all victims, sacrifices the chosen creature, source stays).
-  - **Merge gate:** 3-lens adversarial review (Opus) + CI green, then `gh pr merge --squash`.
+  - **Adversarial review (3 lenses, Opus): found + FIXED a real P0** — the victim fail-safe missed the
+    CR 700.4 dies-EQUIVALENT wording "is put into [a/your] graveyard from the battlefield" (+ the exile
+    variant), which the dies detector also misses (it keys on the literal word "dies"). Sacrificing such
+    a creature (Brood of Cockroaches, Psychomancer, Triumph of Saint Katherine) silently dropped its
+    death trigger — a partial application. Closed in `sacrificeDropsTrigger` (now trips on that wording,
+    matches trigger clauses regardless of an ability-word/reminder prefix, reads the raw oracle) — shared
+    with γ1's self-sac, so both paths are fixed. All 81 corpus self-triggers of this shape now flagged
+    (was missing 18). Also filtered the pointless sac-the-thing-you-target action (the review's P2; not a
+    false-positive — it cleanly no-ops). Commit 691c3e9.
+  - **Merge gate:** review SAFE after the fix + CI green, then `gh pr merge --squash`.
 - **Next slice (re-scan first):** the cost frontier continues — the cleanest no-UI next atoms are
   **exile-as-cost** (278; "Exile this" mirrors self-sac, reuse the leave-trigger fail-safe) and
   **remove-a-counter** (253; often from the source = no choice). **Discard-a-card** (310) needs a
