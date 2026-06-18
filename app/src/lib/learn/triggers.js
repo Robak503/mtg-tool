@@ -270,6 +270,22 @@ function parseTriggerEffect(clauseRaw) {
 const _detectCache = new WeakMap();
 
 /**
+ * TRIG-PUMP-1 (the trigger-effect compiler pilot) — a SELF-scope trigger states the pump on its OWN
+ * source with the pronoun "it": "Whenever this creature attacks, IT gets +2/+0 until end of turn"
+ * (Brazen Wolves), "…, IT gains trample until end of turn" (the combat-buff family). The modeled
+ * self-pump atom keys off the literal subject "this creature" (target:"self" → ctx.sourceId in the
+ * parser), so the effectClause "it gets/gains … until end of turn" must be normalized "it" →
+ * "this creature" for the parser to model it. This regex is the CREED guard on WHEN to do that: it
+ * matches ONLY the WHOLE-clause self-pump shapes the parser accepts (pure ±P/±T, ±P/±T + keyword
+ * grant, or keyword-grant only — anchored start-to-end). A rider/compound ("it gets +2/+0 until end
+ * of turn. Draw a card") leaves residue past `until end of turn$` → no match → no rewrite → stays
+ * LOW → Arbiter (a SAFE false-negative). It mirrors parser.js's three self-pump matchers exactly;
+ * the parser still re-gates the keyword set (an unmodeled keyword → LOW), so this only GIVES the
+ * parser the chance to model it — it never asserts coverage on its own.
+ */
+const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+)?|gains .+) until end of turn$/i;
+
+/**
  * All triggered abilities printed on a card, as serializable TriggerDescriptors.
  * Cached by card identity (the regex pass runs once per distinct card object).
  */
@@ -301,6 +317,15 @@ export function detectTriggers(card) {
         if (!s) continue;
         if (!isFollowupSentence(s)) break;
         effectClause += `. ${s}`;
+      }
+      // TRIG-PUMP-1: for a SELF-scope trigger only, normalize a leading "it" → "this creature" when
+      // the WHOLE effect is the self-pump shape (SELF_PUMP_IT_RE), so the parser's self-pump atom
+      // (target:"self") models it. Gated on `cls.scope === "self"`: in a NON-self trigger
+      // ("Whenever a creature you control attacks, it gets…") the "it" is the OTHER triggering
+      // creature, not the source — rewriting there would mis-pump the source, a forbidden false
+      // positive. The whole-clause anchor leaves any rider/compound untouched (→ stays LOW → Arbiter).
+      if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
+        effectClause = effectClause.replace(/^it /i, "this creature ");
       }
       out.push({
         event: cls.event,
