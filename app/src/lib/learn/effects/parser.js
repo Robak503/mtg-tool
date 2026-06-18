@@ -450,6 +450,19 @@ function parseExtendedAtom(s) {
   // is a DIFFERENT set scope:youControl would wrongly buff in full). Numeric N only (no X).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
+  // ===== TOKENS ===== T2 named artifact tokens — "Create [N] <Treasure|Clue|Food|Gold> token(s)".
+  // Each enters as a REAL artifact permanent carrying its printed ability, so the existing subsystems
+  // drive it end-to-end: Treasure/Gold are mana sources the mana model SACRIFICES on use (one-shot
+  // any-color ramp — manaModel.manaProduction flags `sacrifices`), Clue/Food activate on the stack via
+  // the γ1 self-sac activated-ability path ({2}[,{T}],Sac → draw / gain 3 life). The ALLOWLIST is exactly
+  // these four: Blood (its ability needs a "Discard a card" cost we don't model), Map ("explore" + a
+  // sorcery-speed target), and Powerstone (restricted "can't pay for nonartifact" mana) are LEFT OUT —
+  // their cost/effect/restriction is unmodeled, so a card making them stays low → Arbiter (CREED: never
+  // a token whose ability the engine would silently ignore). A "tapped" rider ("Create a tapped Treasure
+  // token") or a count word + extra text breaks the `$` anchor → low (entering tapped is a different
+  // behavior — it can't be cracked until it untaps). Numeric/spelled N only.
+  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (treasure|clue|food|gold) tokens?$/);
+  if (m) return { op: "create-named-token", token: m[2], count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
   // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)" — a vanilla typed
   // creature token. ===== TOKENS ===== T1 extends the anchor with an OPTIONAL " with <keywords>"
   // suffix (Bird/Thopter/Angel "with flying [and vigilance]"). The keyword phrase must reduce

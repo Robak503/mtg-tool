@@ -88,6 +88,30 @@ describe("classifyCondition — block-trigger compound/restricted guard (CREED: 
   });
 });
 
+// ===== COMPOUND self-event + LTB guard (CREED) ===== Surfaced by the TOK-2 named-token slice: once
+// "create a Food/Treasure token" became a modeled trigger EFFECT, compound conditions ("enters or
+// leaves", "enters or dies", "dies and when you discard this card") and "leaves the battlefield"
+// (which the engine never fires) would have flipped cards to native while DROPPING half the trigger.
+describe("classifyCondition — compound self-event + LTB guard (CREED)", () => {
+  const events = (oracle) => detectTriggers(creature("X", oracle)).map((t) => t.event);
+  it("detects each SINGLE self event (the modeled forms stay native)", () => {
+    expect(events("When this creature enters, create a Food token.")).toEqual(["etb"]);
+    expect(events("When this creature dies, create a Food token.")).toEqual(["dies"]);
+  });
+  it("does NOT detect 'enters or leaves the battlefield' (Brandywine Farmer) — the LTB half would be dropped", () => {
+    expect(detectTriggers(creature("Brandywine Farmer", "When this creature enters or leaves the battlefield, create a Food token."))).toHaveLength(0);
+  });
+  it("does NOT detect 'enters or dies' (Vinereap Mentor) — the dies half would be dropped", () => {
+    expect(detectTriggers(creature("Vinereap Mentor", "When this creature enters or dies, create a Food token."))).toHaveLength(0);
+  });
+  it("does NOT detect a 'dies and when you discard this card' embedded second trigger (Bartered Cow)", () => {
+    expect(detectTriggers(creature("Bartered Cow", "When this creature dies and when you discard this card, create a Food token."))).toHaveLength(0);
+  });
+  it("does NOT detect a 'leaves the battlefield' trigger (City Pigeon) — the engine never fires LTB", () => {
+    expect(detectTriggers(creature("City Pigeon", "When this creature leaves the battlefield, create a Food token."))).toHaveLength(0);
+  });
+});
+
 describe("triggersForEvent", () => {
   const visionary = creature("Elvish Visionary", "When Elvish Visionary enters, draw a card.");
   const warden = creature("Soul Warden", "Whenever another creature enters the battlefield, you gain 1 life.");

@@ -108,9 +108,28 @@ function parseAddClause(oracle) {
 }
 
 /**
- * What mana can this card's mana ability produce? Returns `{ colors, amount }`
+ * Does this card's MANA ability pay for itself by SACRIFICING the source — a ONE-SHOT mana
+ * artifact/token (Treasure / Gold / Lotus Petal) — rather than a repeatable tap source? True when the
+ * line whose effect is the "Add …" clause carries "Sacrifice this/~" in its COST (left of the colon).
+ * The mana subsystem sacrifices such a source on use instead of just tapping it, so it can't ramp
+ * forever (the TOK-2 correctness invariant: a minted Treasure is one mana, then gone). Precise
+ * per-line so a normal rock ("{T}: Add {C}") or dork ("{T}: Add {G}") is never flagged.
+ */
+function manaAbilitySacrificesSelf(oracle) {
+  for (const line of String(oracle || "").split(/\n+/)) {
+    const ci = line.indexOf(":");
+    if (ci === -1) continue;
+    if (/\badd\b/i.test(line.slice(ci + 1)) && /\bsacrifice (?:this|~)\b/i.test(line.slice(0, ci))) return true;
+  }
+  return false;
+}
+
+/**
+ * What mana can this card's mana ability produce? Returns `{ colors, amount[, sacrifices] }`
  * or null if it isn't a mana source. Resolution order: basic-land name →
- * known-rock table → oracle "Add" parse → land fallback (colorless).
+ * known-rock table → oracle "Add" parse → land fallback (colorless). `sacrifices:true` marks a
+ * one-shot source the mana commit path sacrifices on use (Treasure / Gold) — only ever set on the
+ * oracle-parsed branch (basics/known-rocks/land-fallback are all repeatable).
  */
 export function manaProduction(card) {
   if (!card) return null;
@@ -125,7 +144,9 @@ export function manaProduction(card) {
   }
 
   const fromOracle = parseAddClause(oracleOf(card));
-  if (fromOracle) return fromOracle;
+  if (fromOracle) {
+    return manaAbilitySacrificesSelf(oracleOf(card)) ? { ...fromOracle, sacrifices: true } : fromOracle;
+  }
 
   // A land we couldn't otherwise parse still taps for something — assume
   // colorless so it can at least pay generic. Never invents a color.
@@ -156,7 +177,7 @@ export function manaSources(state, playerId) {
     // enchanted/anthemed with Haste can tap the turn it enters. Falls back to the printed
     // seed when there are no continuous effects (the common case), so the hot path is cheap.
     if (isCreature && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
-    sources.push({ permanentId: perm.id, colors: prod.colors, amount: prod.amount });
+    sources.push({ permanentId: perm.id, colors: prod.colors, amount: prod.amount, sacrifices: !!prod.sacrifices });
   }
   return sources;
 }
@@ -193,6 +214,7 @@ export function planPayment(pool, sources, cost) {
     permanentId: s.permanentId,
     colors: s.colors.filter(c => COLOR_SET.has(c)),
     amount: s.amount || 1,
+    sacrifices: !!s.sacrifices,   // one-shot source (Treasure/Gold) — the commit path sacrifices it
     used: false,
   }));
   const taps = [];
@@ -214,19 +236,23 @@ export function planPayment(pool, sources, cost) {
     const s = avail[best];
     s.used = true;
     working[color] += s.amount;
-    taps.push({ permanentId: s.permanentId, color, amount: s.amount });
+    taps.push({ permanentId: s.permanentId, color, amount: s.amount, ...(s.sacrifices && { sacrifices: true }) });
     return true;
   };
 
-  // Tap any remaining source (for generic). Returns the color it produced.
+  // Tap any remaining source (for generic). Returns the color it produced. Prefers a REPEATABLE
+  // source over a one-shot sacrifice source (Treasure/Gold) so we never crack a Treasure for generic
+  // while an untapped land/rock could pay it — a play-quality refinement, not a legality change.
   const tapAny = () => {
-    for (const s of avail) {
-      if (s.used || s.colors.length === 0) continue;
-      const color = s.colors[0];
-      s.used = true;
-      working[color] += s.amount;
-      taps.push({ permanentId: s.permanentId, color, amount: s.amount });
-      return color;
+    for (const preferSac of [false, true]) {
+      for (const s of avail) {
+        if (s.used || s.colors.length === 0 || !!s.sacrifices !== preferSac) continue;
+        const color = s.colors[0];
+        s.used = true;
+        working[color] += s.amount;
+        taps.push({ permanentId: s.permanentId, color, amount: s.amount, ...(s.sacrifices && { sacrifices: true }) });
+        return color;
+      }
     }
     return null;
   };
