@@ -757,19 +757,42 @@ const DIG_NUM = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8
  * — the `impulse-dig` atom plus any oracle text AFTER the template — or null. Like hand disruption this
  * SPANS two sentences (the "Put one … and the rest …" clause's internal " and " would be shattered by
  * splitClauses), so it's matched up front as ONE atom. ALL-OR-NOTHING ALLOWLIST: EXACTLY "put one …
- * into your hand" + rest → bottom or graveyard. A filtered dig ("put a creature card …"), a multi-pick
- * ("put two", "put any number"), "you may", a reveal, "rest in random order ON TOP", or an X/Domain
- * count all fail the anchor → low → Arbiter (never a fabricated dig).
+ * into your hand" + rest → bottom or graveyard. A multi-pick ("put two", "put any number"), a 3-way
+ * split (Telling Time), "rest in random order ON TOP", or an X/Domain count all fail the anchor → low →
+ * Arbiter. DIG-1 ADDS: the N=2 "and the OTHER on the bottom" phrasing (Sleight of Hand), and the FILTERED
+ * reveal-dig "you may reveal a <type> card from among them and put it into your hand. Put the rest on the
+ * bottom" (Commune with Nature, Seek the Wilds, Peer Through Depths).
  */
 function matchImpulseDig(oracle) {
+  // (1) Plain keep-one dig — "put one of them into your hand and the rest|the other on the bottom|graveyard".
   const m = String(oracle).match(
-    /^look at the top (\w+) cards? of your library\. put one of (?:them|those cards|these cards) into your hand and (?:put )?the rest (on the bottom of your library(?: in (?:any|a random) order)?|into your graveyard)\.?/i,
+    /^look at the top (\w+) cards? of your library\. put one of (?:them|those cards|these cards) into your hand and (?:put )?(?:the rest|the other) (on the bottom of your library(?: in (?:any|a random) order)?|into your graveyard)\.?/i,
   );
-  if (!m) return null;
-  const amount = DIG_NUM[m[1].toLowerCase()];
-  if (!amount) return null;                                     // "the top X cards" (variable) / unspelled → Arbiter
-  const restTo = /graveyard/i.test(m[2]) ? "graveyard" : "bottom";
-  return { atom: { op: "impulse-dig", amount, restTo }, rest: oracle.slice(m[0].length).trim() };
+  if (m) {
+    const amount = DIG_NUM[m[1].toLowerCase()];
+    if (!amount) return null;                                   // "the top X cards" (variable) / unspelled → Arbiter
+    const restTo = /graveyard/i.test(m[2]) ? "graveyard" : "bottom";
+    return { atom: { op: "impulse-dig", amount, restTo }, rest: oracle.slice(m[0].length).trim() };
+  }
+  // (2) FILTERED reveal-dig — "look at top N. you may reveal a <type> card from among them and put it into
+  // your hand. Put the rest on the bottom." Only TYPE-MATCHING cards are keepable to hand; the rest (incl.
+  // non-matching) go to the bottom — applyImpulseDig disposes the whole looked-at set minus the kept card.
+  // The "you may" DECLINE is omitted as STRICTLY DOMINATED: a free card to hand vs. that card going to the
+  // bottom either way, with no cost / no decking risk to decline (unlike "you may draw") — so the modeled
+  // line (keep the best matching; human picks which) is always faithful-or-better. The type phrase reuses
+  // the tutor filter allowlist (parseTutorFilter); a tribal ("dinosaur") / unlisted word → null → Arbiter.
+  // Plural "put the revealed CARDS" (multi-keep) / "any number" / "onto the battlefield" don't match "put
+  // it into your hand" → low → Arbiter (those are different effects, deferred).
+  const rd = String(oracle).match(
+    /^look at the top (\w+) cards? of your library\. you may reveal an? ([a-z][a-z ]*?) card from among them and put (?:it|that card) into your hand\. put the rest on the bottom of your library(?: in (?:any|a random) order)?\.?/i,
+  );
+  if (rd) {
+    const amount = DIG_NUM[rd[1].toLowerCase()];
+    const filter = parseTutorFilter(rd[2].trim());
+    if (!amount || !filter) return null;                        // unspelled N / tribal-or-unlisted type → Arbiter
+    return { atom: { op: "impulse-dig", amount, restTo: "bottom", filter, filterLabel: `${rd[2].trim()} card` }, rest: oracle.slice(rd[0].length).trim() };
+  }
+  return null;
 }
 
 /**

@@ -57,11 +57,12 @@ describe("parser — the dig template is HIGH with amount + restTo; other shapes
     expect(programConfidence(p)).toBe("high");
     expect(p.atoms.map((a) => a.op)).toEqual(["impulse-dig", "draw"]);
   });
-  it("a 3-way split / filtered / multi-pick / 'you may' / reveal variant stays low → Arbiter", () => {
+  it("a 3-way split / multi-keep / tribal-filter / reveal-not-look / X variant stays low → Arbiter", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
     low("Look at the top three cards of your library. Put one of them into your hand, one on top of your library, and one on the bottom of your library."); // Telling Time — 3-way
-    low("Look at the top five cards of your library. You may put a creature card from among them into your hand. Put the rest on the bottom of your library in a random order."); // filtered + you may
-    low("Look at the top three cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order."); // multi-pick
+    low("Look at the top five cards of your library. You may reveal a Dinosaur card from among them and put it into your hand. Put the rest on the bottom of your library in a random order."); // Commune with Dinosaurs — TRIBAL filter (unlisted word) → Arbiter
+    low("Look at the top three cards of your library. You may reveal any number of artifact cards from among them and put the revealed cards into your hand. Put the rest on the bottom of your library."); // Forging the Anchor — multi-keep ("the revealed cards")
+    low("Look at the top three cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order."); // keep-two (multi-pick)
     low("Reveal the top three cards of your library. Put one of them into your hand and the rest into your graveyard."); // reveal, not look
     low("Look at the top X cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order."); // variable X count
   });
@@ -72,6 +73,54 @@ describe("coverage — clean dig is native-spell", () => {
     expect(classifyCard(DIG_BOTTOM)).toBe("native-spell");
     expect(classifyCard(DIG_GY)).toBe("native-spell");
     expect(classifyCard({ type: SORCERY, name: "Telling Time", oracle: "Look at the top three cards of your library. Put one of them into your hand, one on top of your library, and one on the bottom of your library." })).toBe("arbiter-spell");
+  });
+});
+
+// DIG-1 — the N=2 "and the other on the bottom" phrasing (Sleight of Hand) + the FILTERED reveal-dig
+// "you may reveal a <type> card from among them and put it into your hand. Put the rest on the bottom"
+// (Commune with Nature, Seek the Wilds, Peer Through Depths). The type phrase reuses the tutor filter
+// allowlist; the "you may" decline is omitted as strictly dominated (free card vs. bottom, no cost/decking).
+describe("DIG-1 parser/coverage — 'the other' phrasing + the filtered reveal-dig", () => {
+  it("the N=2 'and the other on the bottom' parses to a plain keep-one dig (Sleight of Hand)", () => {
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Look at the top two cards of your library. Put one of them into your hand and the other on the bottom of your library." }).atoms)
+      .toEqual([{ op: "impulse-dig", amount: 2, restTo: "bottom" }]);
+  });
+  it("the filtered reveal-dig parses with a tutor-style filter (creature / instant-or-sorcery / union)", () => {
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Look at the top five cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in a random order." }).atoms)
+      .toEqual([{ op: "impulse-dig", amount: 5, restTo: "bottom", filter: { groups: [["creature"]] }, filterLabel: "creature card" }]);
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Look at the top three cards of your library. You may reveal an instant or sorcery card from among them and put it into your hand. Put the rest on the bottom of your library." }).atoms[0])
+      .toMatchObject({ op: "impulse-dig", amount: 3, restTo: "bottom", filter: { groups: [["instant"], ["sorcery"]] } });
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Look at the top three cards of your library. You may reveal a creature or land card from among them and put it into your hand. Put the rest on the bottom of your library." }).atoms[0])
+      .toMatchObject({ filter: { groups: [["creature"], ["land"]] } });
+  });
+  it("classifies native-spell (Commune with Nature / Sleight of Hand)", () => {
+    expect(classifyCard({ type: SORCERY, name: "Commune with Nature", oracle: "Look at the top five cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in a random order." })).toBe("native-spell");
+    expect(classifyCard({ type: SORCERY, name: "Sleight of Hand", oracle: "Look at the top two cards of your library. Put one of them into your hand and the other on the bottom of your library." })).toBe("native-spell");
+  });
+});
+
+describe("DIG-1 resolution — the reveal-dig picker offers only TYPE-MATCHING cards; the rest go to the bottom", () => {
+  const REVEAL = { id: "cn", name: "Commune with Nature", type: SORCERY, mana: "{1}", oracle: "Look at the top five cards of your library. You may reveal a creature card from among them and put it into your hand. Put the rest on the bottom of your library in a random order." };
+  const crea = (id) => ({ id, name: id, type: "Creature — Bear", cmc: 2 });
+  const land = (id) => ({ id, name: id, type: "Land", cmc: 0 });
+
+  it("only creature cards are candidates; a kept creature → hand, ALL the rest (incl. lands) → bottom", () => {
+    const s = state({ hand: [REVEAL], library: [crea("C1"), land("L1"), crea("C2"), land("L2"), land("L3")] });
+    const cast = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find((a) => a.cardId === "cn");
+    const paused = resolveTopOfStack(dispatchAction(s, cast));
+    expect(paused.pendingChoice).toMatchObject({ kind: "impulse-dig", controller: "user", restTo: "bottom" });
+    expect(paused.pendingChoice.candidates.map((c) => c.id)).toEqual(["C1", "C2"]); // only the creatures are revealable
+    const after = castAndAutoResolve(s, "cn");
+    expect(after.players.user.hand.map((c) => c.id)).toEqual(["C1"]);               // a creature kept (cmc tie → first)
+    expect(after.players.user.hand.map((c) => c.id)).not.toContain("L1");           // a land never enters hand
+    expect(after.players.user.library.map((c) => c.id).sort()).toEqual(["C2", "L1", "L2", "L3"]); // the rest → bottom
+  });
+  it("no matching card in the looked-at set → reveal nothing, the whole set to the bottom (no picker)", () => {
+    const s = state({ hand: [REVEAL], library: [land("L1"), land("L2"), land("L3")] });
+    const after = castAndAutoResolve(s, "cn");
+    expect(after.pendingChoice).toBeUndefined();
+    expect(after.players.user.hand).toHaveLength(0);                                 // nothing matching → nothing kept
+    expect(after.players.user.library.map((c) => c.id)).toEqual(["L1", "L2", "L3"]); // all back to bottom (≤N → order holds)
   });
 });
 
