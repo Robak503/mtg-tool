@@ -334,41 +334,54 @@ function actionsCastSpell(state, playerId) {
 
     const isHigh = program && programConfidence(program) === "high";
 
-    // ===== ADDITIONAL COSTS (cast-path, CR 601.2f) ===== a spell carrying a chosen-victim sacrifice
-    // additional cost (parser-attached `program.additionalCosts`): the player picks which permanent to
-    // sacrifice AT CAST. Expand one cast per legal victim × the program's legal target/mode combos — the
-    // exact γ1b shape from actionsActivateAbility. GATE: no legal victim → the cost can't be paid →
-    // uncastable (continue; never offer a cast we can't complete). A victim whose OWN leave-trigger the
-    // dies path can't fire is excluded (sacrificeDropsTrigger) so we never partially apply. A program is
-    // never both xSpell and additional-cost (parseEffectProgram defers that compound to LOW), so this
-    // precedes the X / modal / target branches and `continue`s after — additional-cost spells are fully
-    // handled here, in one place, for every effect shape (expandCastChoices covers single/multi/modal).
-    const sacCost = isHigh ? (program.additionalCosts || []).find(c => c.kind === "sacrifice") : null;
-    if (sacCost) {
-      const victims = player.battlefield.filter(v =>
-        sacTypeMatches(v.card, sacCost.sacType) &&
-        !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
-      if (victims.length === 0) continue;                 // unpayable additional cost → uncastable
+    // ===== ADDITIONAL COSTS (cast-path, CR 601.2f) ===== a spell carrying a parser-attached additional
+    // cost (`program.additionalCosts`) is paid AT CAST. Expand one cast per legal way-to-pay × the program's
+    // legal target/mode combos. GATE: no legal way to pay → uncastable (continue; never offer a cast we
+    // can't complete). A program is never both xSpell and additional-cost (parseEffectProgram defers that
+    // compound to LOW), so this precedes the X / modal / target branches and `continue`s after — additional
+    // -cost spells are fully handled here, for every effect shape (expandCastChoices covers single/multi/modal).
+    // Cost kinds: sacrifice (γ1b chosen victim) · payLife (no choice) · discard (N=1, chosen hand card).
+    const addCost = isHigh ? (program.additionalCosts || [])[0] : null;
+    if (addCost) {
       const combos = expandCastChoices(state, playerId, program);
       if (combos.length === 0) continue;                  // a required effect target has no legal pick
-      for (const victim of victims) {
-        for (const ch of combos) {
-          // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a cost
-          // (gone before the spell resolves), so the target would fizzle (CR 608.2b). A pointless
-          // self-defeating action; drop it (matches the γ1b activated-ability victim guard).
+      const emit = (ch, extra) => actions.push({
+        ...base,
+        targets: ch.targets,
+        chosenMode: ch.chosenMode ?? null,
+        needsTargets: ch.targets.length > 0,
+        targetName: ch.targets.map(t => t.name).filter(Boolean).join(", ") || undefined,
+        modeName: ch.label || undefined,
+        ...extra,
+      });
+      if (addCost.kind === "sacrifice") {
+        // γ1b: the player picks which permanent of <type> to sacrifice. A victim whose OWN leave-trigger
+        // the dies path can't fire is excluded (sacrificeDropsTrigger) so we never partially apply.
+        const victims = player.battlefield.filter(v =>
+          sacTypeMatches(v.card, addCost.sacType) &&
+          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
+        if (victims.length === 0) continue;               // no legal victim → unpayable → uncastable
+        for (const victim of victims) for (const ch of combos) {
+          // Don't sacrifice the very permanent the effect targets — paid as a cost (gone before the spell
+          // resolves) → the target would fizzle (CR 608.2b). Pointless self-defeating action; drop it.
           if (ch.targets.some(t => t.id === victim.id)) continue;
-          actions.push({
-            ...base,
-            targets: ch.targets,
-            chosenMode: ch.chosenMode ?? null,
-            needsTargets: ch.targets.length > 0,
-            targetName: ch.targets.map(t => t.name).filter(Boolean).join(", ") || undefined,
-            modeName: ch.label || undefined,
-            sacCreatureId: victim.id,                      // the chosen victim to sacrifice as the cost
-            sacCreatureName: victim.card?.name ?? null,
-            sacName: victim.card?.name ? `sacrifice ${victim.card.name}` : undefined,
-          });
+          emit(ch, { sacCreatureId: victim.id, sacCreatureName: victim.card?.name ?? null, sacName: victim.card?.name ? `sacrifice ${victim.card.name}` : undefined });
         }
+      } else if (addCost.kind === "payLife") {
+        // No choice — just deduct N at cast. CR 119.4: you can't pay life you don't have (paying to exactly
+        // 0 is legal, an SBA loss follows), so only a strictly-unaffordable cost is uncastable.
+        if ((player.life || 0) < addCost.amount) continue;
+        for (const ch of combos) emit(ch, { payLifeCost: addCost.amount, payLifeName: `pay ${addCost.amount} life` });
+      } else if (addCost.kind === "discard") {
+        // N=1: the player picks which hand card to discard. The spell itself is being cast (on its way to
+        // the stack), so it's NOT a legal discard candidate — exclude it. No legal card → uncastable.
+        const discardable = player.hand.filter(h => h.id !== card.id);
+        if (discardable.length < addCost.count) continue;
+        for (const dc of discardable) for (const ch of combos) {
+          emit(ch, { discardCardId: dc.id, discardCardName: dc.name ?? null, discardName: dc.name ? `discard ${dc.name}` : undefined });
+        }
+      } else {
+        continue; // unknown cost kind — programConfidence already gates unsupported kinds to low (defensive)
       }
       continue;
     }

@@ -33,13 +33,15 @@ function mainState(over = {}) {
   const base = createGameState({ userDeck: [], aiDeck: [] });
   return { ...base, activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main", ...over };
 }
-function setup({ userPerms = [], aiPerms = [], hand = [], mana = {} } = {}) {
+function setup({ userPerms = [], aiPerms = [], hand = [], mana = {}, life, library = [] } = {}) {
   let s = mainState();
+  const user = { ...s.players.user, battlefield: userPerms, hand, library, manaPool: { ...s.players.user.manaPool, ...mana } };
+  if (life != null) user.life = life;
   s = {
     ...s,
     players: {
       ...s.players,
-      user: { ...s.players.user, battlefield: userPerms, hand, manaPool: { ...s.players.user.manaPool, ...mana } },
+      user,
       ai: { ...s.players.ai, battlefield: aiPerms },
     },
   };
@@ -119,5 +121,52 @@ describe("ADDCOST — dispatch pays the cost, then the spell resolves", () => {
     // Strip the frozen victim — simulates a malformed action reaching the dispatcher.
     const unpaid = { ...action, sacCreatureId: undefined, sacCreatureName: undefined };
     expect(() => dispatchAction(s, unpaid)).toThrow(/sacrifice cost/i);
+  });
+});
+
+// ===== ADDCOST-2 — pay-N-life (no choice) + discard-a-card (chosen hand card) =====
+describe("ADDCOST-2 — pay-life cost", () => {
+  const payLifeSpell = (over = {}) => ({ id: "card-pay", name: "Life Bolt", type: "Instant", mana: "{B}", oracle: "As an additional cost to cast this spell, pay 2 life.\nDestroy target creature.", ...over });
+  it("deducts the life at cast, then resolves the effect", () => {
+    const enemy = createPermanent({ id: "perm-enemy", card: creature("Their Goblin"), controller: "ai", summoningSick: false });
+    const s = setup({ aiPerms: [enemy], hand: [payLifeSpell()], mana: { B: 1 } });
+    const before = s.players.user.life;
+    const action = casts(s).find((a) => a.name === "Life Bolt");
+    expect(action).toMatchObject({ payLifeCost: 2 });
+    const afterCast = dispatchAction(s, action);
+    expect(afterCast.players.user.life).toBe(before - 2);                                       // cost paid
+    const afterResolve = resolveTopOfStack(afterCast);
+    expect(afterResolve.players.ai.battlefield.find((p) => p.id === "perm-enemy")).toBeUndefined(); // effect resolved
+  });
+  it("is UNCASTABLE when life < the cost (CR 119.4 — can't pay life you don't have)", () => {
+    const enemy = createPermanent({ id: "perm-enemy", card: creature("Their Goblin"), controller: "ai", summoningSick: false });
+    const s = setup({ aiPerms: [enemy], hand: [payLifeSpell()], mana: { B: 1 }, life: 1 });
+    expect(casts(s).some((a) => a.name === "Life Bolt")).toBe(false);
+  });
+});
+
+describe("ADDCOST-2 — discard-a-card cost", () => {
+  const thrill = (over = {}) => ({ id: "card-thrill", name: "Thrill", type: "Instant", mana: "{R}", oracle: "As an additional cost to cast this spell, discard a card.\nDraw two cards.", ...over });
+  const handCard = (id) => ({ id, name: id, type: "Instant", oracle: "" });
+  it("offers one cast per discardable hand card (the spell itself excluded) + pays the discard at cast", () => {
+    const s = setup({ hand: [thrill(), handCard("c-x"), handCard("c-y")], mana: { R: 1 }, library: [{ id: "lib1", name: "L1" }, { id: "lib2", name: "L2" }] });
+    const acts = casts(s).filter((a) => a.name === "Thrill");
+    expect(acts.map((a) => a.discardCardId).sort()).toEqual(["c-x", "c-y"]);   // one per discardable card; NOT the spell itself
+    const afterCast = dispatchAction(s, acts.find((a) => a.discardCardId === "c-x"));
+    expect(afterCast.players.user.graveyard.some((c) => c.id === "c-x")).toBe(true);  // discarded as the cost
+    expect(afterCast.players.user.hand.some((c) => c.id === "c-x")).toBe(false);
+    expect(afterCast.stack.some((o) => o.kind === "spell")).toBe(true);
+    const afterResolve = resolveTopOfStack(afterCast);
+    expect(afterResolve.players.user.hand.filter((c) => /^lib/.test(c.id)).length).toBe(2); // drew two
+  });
+  it("is UNCASTABLE when the spell is the only card in hand (nothing else to discard)", () => {
+    const s = setup({ hand: [thrill()], mana: { R: 1 } });
+    expect(casts(s).some((a) => a.name === "Thrill")).toBe(false);
+  });
+  it("FAIL-FAST: dispatching a discard-cost spell with no card chosen throws", () => {
+    const s = setup({ hand: [thrill(), handCard("c-x")], mana: { R: 1 } });
+    const action = casts(s).find((a) => a.name === "Thrill");
+    const unpaid = { ...action, discardCardId: undefined, discardCardName: undefined };
+    expect(() => dispatchAction(s, unpaid)).toThrow(/discard cost/i);
   });
 });
