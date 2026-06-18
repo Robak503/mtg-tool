@@ -560,7 +560,13 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
     if (!atom) { allParsed = false; break; }
     atoms.push(atom);
   }
-  if (allParsed && atoms.length > 0 && atoms.every(a => KNOWN.has(a.op))) {
+  // α2 forward guard: an `optional` atom ("you may <effect>") wraps only its OWN clause, but a
+  // conjoined "you may X and Y" splits into [optional X, mandatory Y] — ambiguous optionality scope
+  // (a decline would force Y). A multi-atom program carrying any optional atom drops to LOW →
+  // Arbiter rather than risk a partial. No printed card produces this today (the 144 native optionals
+  // are single-atom); guards it before the vocabulary widens (α2 review).
+  const optionalScopeOk = !(atoms.length > 1 && atoms.some(a => a.optional));
+  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op))) {
     // Drop a redundant `shuffle` atom that immediately follows a `tutor` (the tutor
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.

@@ -440,6 +440,7 @@ const MUST_DROP_TO_LOW = [
   // optional effect → stays LOW; likewise "you may <unmodeled effect>".
   "You may pay {2}. If you do, draw a card.",                          // optional COST (kicker) — deferred
   "You may sacrifice a creature.",                                      // optional UNMODELED effect — deferred
+  "You may draw a card and gain 2 life.",                              // conjoined "you may X and Y" — optionality scope ambiguous → low (α2 forward guard)
   // ── GRAVEYARD RECURSION (return-from-graveyard) — only the bare single-target "return target
   // [creature] card from YOUR graveyard to your HAND" is modeled. A different filter, another
   // graveyard, multi-card cardinality, or a battlefield (reanimation) destination must stay LOW →
