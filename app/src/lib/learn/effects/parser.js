@@ -782,23 +782,29 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
 }
 
 /**
- * Modal prefix — "Choose one —". P2.5 supports EXACTLY-ONE modal ("Choose one")
- * only; "choose two", "choose up to one", "one or both" stay low (the player picks
- * multiple modes — a combinatorial cast expansion deferred to the Arbiter for now).
+ * Modal prefix — "Choose one —" (P2.5) plus MODAL-2's "Choose two —" / "Choose one or both —". The
+ * capture groups carry the count: group 1 = one|two (the MAX modes to pick), group 2 = " or both" (the
+ * "fewer is allowed" / upTo form). "choose up to N" / "choose two or more" etc. don't match → stay low
+ * (the executor only resolves a FIXED-or-one-or-both pick; anything else routes to the Arbiter).
  */
-const MODAL_RE = /^choose one\s*[—–-]\s*/i;
+const MODAL_RE = /^choose (one|two)( or both)?\s*[—–-]\s*/i;
 
 /**
- * Parse a "Choose one —" modal into `{ chooseCount, upTo, modes:[{label, atoms}] }`,
- * or null if not modal, or `{ modes: null }` if a mode is unmodeled (→ low). Modes
- * are split on bullet "•" or "; or " / " or ". Each mode is itself a (usually
- * single) clause sequence parsed via `parseClauseToAtom`, so a mode can be
- * multi-clause too.
+ * Parse a modal prefix into `{ chooseCount, upTo, modes:[{label, atoms}] }`, or null if not modal, or
+ * `{ modes: null }` if a mode is unmodeled / the count is unsatisfiable (→ low). `chooseCount` is the MAX
+ * modes the caster picks (1 or 2); `upTo` means fewer is allowed down to 1 ("one or both" → 1 or 2). The
+ * cast-time enumerator (targeting.expandCastChoices) expands the mode COMBINATIONS; the executor
+ * (runProgram.programAtoms) concatenates every chosen mode's atoms — so a "Choose two" never drops its 2nd
+ * mode (the gate + executor ship together, the MODAL-2 CREED invariant). Modes split on bullet "•" or
+ * "; or " / " or ". Each mode is itself a clause sequence parsed via `parseClauseToAtom` (multi-clause ok).
  */
 function parseModal(cardType, oracle, hasX = false) {
   const stripped = stripReminder(oracle);
   const m = stripped.match(MODAL_RE);
   if (!m) return null;
+  const orBoth = !!m[2];
+  const chooseCount = (orBoth || m[1].toLowerCase() === "two") ? 2 : 1;
+  const upTo = orBoth; // "one or both" → pick 1 or 2; "choose one"/"choose two" → an exact count
   const rest = stripped.slice(m[0].length).trim();
   const rawModes = rest.includes("•")
     ? rest.split("•")
@@ -816,10 +822,14 @@ function parseModal(cardType, oracle, hasX = false) {
       if (!atom) { ok = false; break; }
       atoms.push(atom);
     }
-    if (!ok) return { chooseCount: 1, upTo: false, modes: null }; // an unmodeled mode → low
+    if (!ok) return { chooseCount, upTo, modes: null }; // an unmodeled mode → low
     modes.push({ label: part, atoms });
   }
-  return { chooseCount: 1, upTo: false, modes };
+  // Count must be satisfiable: can't pick more modes than exist, and "one or both" is specifically a
+  // TWO-mode card (1 or 2 of exactly 2). An unsatisfiable count → modes:null → low (never a wrong pick).
+  if (chooseCount > modes.length) return { chooseCount, upTo, modes: null };
+  if (orBoth && modes.length !== 2) return { chooseCount, upTo, modes: null };
+  return { chooseCount, upTo, modes };
 }
 
 // δ-1 hand disruption — the filter phrase between "you choose a/an" and "card" mapped to a modeled

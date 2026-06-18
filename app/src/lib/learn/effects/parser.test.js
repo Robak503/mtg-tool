@@ -524,7 +524,8 @@ const MUST_DROP_TO_LOW = [
   "Counter target artifact or enchantment spell.",                     // Annul — unmodeled filter
   "Counter target spell. Its controller mills four cards.",            // Countermand — unmodeled mill rider
   "Counter target noncreature spell. Its controller loses 2 life.",    // Countersquall — "its controller" subject unmodeled
-  "Choose two —\n• Counter target spell.\n• Return target permanent to its owner's hand.\n• Draw a card.", // Cryptic Command — "choose two"
+  "Choose up to two —\n• Draw a card.\n• You gain 3 life.",            // MODAL-2 models "choose two"/"one or both"; "up to N" count stays low
+  "Choose two —\n• Draw a card.\n• Untap all lands you control, then add {G} for each.", // a choose-two with an UNMODELED mode → whole card low (all-or-nothing across modes)
   "Counter target spell you don't control.",                           // Counterflux — "you don't control" unmodeled
   // ── P3.2 tutor — shapes that must STAY low (unmodeled filter / destination / count) ──
   "Search your library for a Dragon card, reveal it, put it into your hand, then shuffle.",        // creature subtype (deferred)
@@ -598,9 +599,9 @@ const MUST_DROP_TO_LOW = [
   // slice) — see the dedicated describe block above. They are intentionally NOT in this stay-low corpus.
   "Target player discards a card at random.",
   "Deal damage to target creature equal to the number of Mountains you control.",
-  // Modal that should stay low: "choose two" (multi-mode pick deferred), and a
-  // modal with an unmodeled mode (counter-spell not an atom yet).
-  "Choose two —\n• Draw a card.\n• Destroy target creature.",
+  // Modal that should stay low (MODAL-2 models "choose two"/"one or both" when EVERY mode is modeled;
+  // these stay low because a mode is UNMODELED — all-or-nothing across modes).
+  "Choose two —\n• Draw a card.\n• Each player reveals their hand, then you choose a noncreature card from it.",
   // P2.5 SPLITS on " and " — but a clause whose SECOND half is unmodeled (gain/lose
   // life, counter, discard, a verbless damage fragment, a comma-rider) still drops
   // the WHOLE program (all-or-nothing). These are the false-high vectors P2.2 guarded

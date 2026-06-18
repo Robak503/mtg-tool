@@ -43,11 +43,18 @@ function targetsForAtom(targets, atomIndex) {
   return tagged ? targets.filter(t => t.atomIndex === atomIndex) : targets;
 }
 
-/** The atoms a program runs (the chosen modal mode, or the sequence). */
+/**
+ * The atoms a program runs (the chosen modal mode(s), or the sequence). `chosenMode` is either a single
+ * mode index ("Choose one") OR an ARRAY of indices (MODAL-2 "Choose two" / "one or both"). For an array,
+ * every chosen mode's atoms are concatenated IN ASCENDING MODE ORDER — the same order the cast-time
+ * enumerator (targeting.expandCastChoices) tagged the per-atom targets with, so `targetsForAtom`'s global
+ * atomIndex lines up and NO mode is dropped (the MODAL-2 executor half of the gate+executor invariant).
+ */
 function programAtoms(program, chosenMode) {
-  return program.structure === "modal"
-    ? (program.modal?.modes?.[chosenMode]?.atoms || [])
-    : program.atoms;
+  if (program.structure !== "modal") return program.atoms;
+  const modes = program.modal?.modes || [];
+  if (Array.isArray(chosenMode)) return chosenMode.flatMap((k) => modes[k]?.atoms || []);
+  return modes[chosenMode]?.atoms || [];
 }
 
 export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
