@@ -357,6 +357,7 @@ export default function LearnView({
             onTutorChoose={session.applyTutorChoice}
             onCloneChoose={session.applyCloneChoice}
             onScryChoose={session.applyScryChoice}
+            onOptionalChoose={session.applyOptionalChoice}
           />
         </main>
 
@@ -427,6 +428,12 @@ export default function LearnView({
       {session.board && decision?.kind === "scry-surveil" && (
         <div style={tutorSheetStyle(LINE, BG2)}>
           <ScrySurveilPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyScryChoice} />
+        </div>
+      )}
+      {/* α2 — optional "you may <effect>" → a yes/no. Same side-sheet. */}
+      {session.board && decision?.kind === "optional-effect" && (
+        <div style={tutorSheetStyle(LINE, BG2)}>
+          <OptionalChoicePanel decision={decision} colors={colors} fontFamily={fontFamily} onChoose={session.applyOptionalChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -607,7 +614,7 @@ function TableStrip({ table, activePlayer, cfg, colors }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose }) {
+function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose }) {
   const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
 
   if (!decision) {
@@ -624,6 +631,9 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
   }
   if (decision.kind === "scry-surveil") {
     return <ScrySurveilPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onScryChoose} />;
+  }
+  if (decision.kind === "optional-effect") {
+    return <OptionalChoicePanel decision={decision} colors={colors} fontFamily={fontFamily} onChoose={onOptionalChoose} />;
   }
   if (decision.kind === "dispatch-error") {
     return (
@@ -889,6 +899,39 @@ function TutorSearchPanel({ decision, cfg, colors, fontFamily, onChoose }) {
         >
           Find nothing
         </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * α2 — an OPTIONAL "you may <effect>" decision: a simple yes/no. onChoose(true) takes the effect,
+ * onChoose(false) declines. Only ever shown for the human player's own optional (beginner/
+ * intermediate); Expert + opponents auto-take it in the engine.
+ */
+function OptionalChoicePanel({ decision, colors, fontFamily, onChoose }) {
+  const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+  const opLabel = {
+    "draw": "draw a card", "gain-life": "gain life", "lose-life": "lose life", "create-token": "create a token",
+    "deal-damage": "deal the damage", "destroy": "destroy the target", "exile": "exile the target",
+    "pump": "apply the boost", "add-counter": "add the counter(s)", "tap": "tap the target",
+    "untap": "untap the target", "bounce": "return it to hand", "mill": "mill", "scry": "scry", "surveil": "surveil",
+    "return-from-graveyard": "return the card", "counter": "counter the spell",
+  }[decision?.effectOp] || "apply this effect";
+  const btn = (border, color, weight) => ({
+    flex: 1, padding: "10px 14px", borderRadius: 6, border: `1px solid ${border}`,
+    background: BG3, color, cursor: "pointer", fontSize: 13, fontWeight: weight, fontFamily,
+  });
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, fontFamily }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>You may…</div>
+      <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+        {decision?.cardName ? <strong style={{ color: TEXT }}>{decision.cardName}</strong> : "This effect"} lets you{" "}
+        <strong style={{ color: GOLD }}>{opLabel}</strong>. Do it?
+      </div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={() => onChoose(true)} style={btn(GOLD, TEXT, 600)}>Yes, do it</button>
+        <button onClick={() => onChoose(false)} style={btn(LINE, MUTED, 400)}>No, skip</button>
       </div>
     </div>
   );

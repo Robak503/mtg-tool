@@ -13,7 +13,7 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 ## Progress to goal — corpus-wide native % (`cd app && npm run coverage`)
 
 **Goal: ~90% corpus native** (the honest ceiling; the Arbiter permanently handles the rest).
-**Now: 14.9% → 17% of the way to goal.** (α1 measured; PR open, pending human-gated merge.)
+**Now: 15.1% → 17% of the way to goal.** (α2 shipped — the "you may" optional wrapper, +70 cards.)
 
 ```
 [####······················] 14.9% native  ·  goal 90%  ·  17% of the way there
@@ -23,7 +23,8 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 |---|---|---|---|---|---|
 | Baseline (run start) | **14.8%** (4,977/33,540) | — | 16% | 47% | — |
 | metric: corpus headline | 14.8% | +0.0 | 16% | 47% | #197 |
-| α1: enemy/own trigger chooser | **14.9%** (4,996/33,540) | +0.1 | 17% | 47% | _PR open_ |
+| α1: enemy/own trigger chooser | **14.9%** (4,996/33,540) | +0.1 | 17% | 47% | #198 |
+| α2: you-may optional wrapper | **15.1%** (5,066/33,540) | +0.2 | 17% | 47% | _PR open_ |
 
 **Projected trajectory** (roadmap §2): α (near-term clean atoms) → ~37% · α+β (full vocab grind) → ~90% · +δ (hard subsystems) → ~98%. A row is appended every time a slice merges — this table *is* the climb.
 
@@ -48,12 +49,12 @@ the corpus signal re-ranks the roadmap toward the cost-structure work (γ1) soon
 | Slice | What | PR | Corpus Δ |
 |---|---|---|---|
 | metric | corpus-primary headline (`allCards()` + corpus pass) | #197 (merged) | — (tooling) |
-| α1 | enemy/own trigger-target chooser — un-gates counter + removal triggers, fixes the friendly-target hazard | _PR open_ | +19 cards (14.8→14.9%) |
+| α1 | enemy/own trigger-target chooser — un-gates counter + removal triggers, fixes the friendly-target hazard | **#198 merged** | +19 cards (14.8→14.9%) |
 
 ## In flight / next
 
-- **α1 — enemy/own-aware trigger-target chooser: BUILT + VERIFIED, PR open (human-gated merge).**
-  Branch `feat/alpha1-enemy-trigger-chooser`.
+- **α1 — enemy/own-aware trigger-target chooser: SHIPPED (merged to master, #198).**
+  Adversarial review (3 lenses) returned unanimous SAFE; the one P3 (stale JSDoc) was fixed.
   - **What it does:** replaces the trigger-flush `firstLegalChoice` with an intent-aware chooser —
     `deal-damage`/`destroy`/`exile`/`counter`/`tap`/negative-pump pick an *enemy*; own-side buffs
     pick the controller's own; *ambiguous* atoms (bounce) route to the Arbiter. Flips the flush gate

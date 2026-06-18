@@ -389,6 +389,20 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
   const s = stripReminder(clause);
   if (!s) return null;
 
+  // α2 — "you may <effect>": an OPTIONAL effect the controller chooses to take (or not). Peel the
+  // "you may" wrapper and parse the inner clause on its own merits; if it reduces to a fully-modeled
+  // atom, stamp optional:true so the resolver offers a real yes/no (player) / auto-decides (AI),
+  // never resolving it as mandatory. A "you may PAY …" (a cost — kicker) or an inner effect we don't
+  // model falls through to null → gated as before (the bare "may" stays in UNMODELED_MARKERS, so
+  // nothing else is loosened). Only a LEADING "you may" is an optional wrapper (a mid-clause "you
+  // may" is a different shape the marker still catches).
+  const mayMatch = /^you may (.+)$/i.exec(s);
+  if (mayMatch) {
+    if (/^pay\b/i.test(mayMatch[1])) return null;
+    const inner = parseClauseToAtom(cardType, mayMatch[1], hasX);
+    return inner ? { ...inner, optional: true } : null;
+  }
+
   // X-amount variant (only for an {X}-cost spell). Rewrite the X in the AMOUNT slot
   // to a sentinel so the numeric clause parse models the shape, then stamp `amountX`
   // (the resolver substitutes the chosen X via ctx.xValue) and drop the sentinel
@@ -546,7 +560,13 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
     if (!atom) { allParsed = false; break; }
     atoms.push(atom);
   }
-  if (allParsed && atoms.length > 0 && atoms.every(a => KNOWN.has(a.op))) {
+  // α2 forward guard: an `optional` atom ("you may <effect>") wraps only its OWN clause, but a
+  // conjoined "you may X and Y" splits into [optional X, mandatory Y] — ambiguous optionality scope
+  // (a decline would force Y). A multi-atom program carrying any optional atom drops to LOW →
+  // Arbiter rather than risk a partial. No printed card produces this today (the 144 native optionals
+  // are single-atom); guards it before the vocabulary widens (α2 review).
+  const optionalScopeOk = !(atoms.length > 1 && atoms.some(a => a.optional));
+  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op))) {
     // Drop a redundant `shuffle` atom that immediately follows a `tutor` (the tutor
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.

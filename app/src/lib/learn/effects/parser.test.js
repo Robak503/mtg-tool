@@ -432,10 +432,15 @@ const MUST_DROP_TO_LOW = [
   // the ambiguous "it" (could be a prior target, not the source) stays LOW → Arbiter.
   "It gets +2/+0 until end of turn.",                                   // "it" is ambiguous — deferred
   "It gains flying until end of turn.",                                 // "it" keyword grant — deferred
-  // SCRY / SURVEIL — only the numeric standalone form is modeled; a variable amount, a "you may"
-  // rider, or a ", then" combo (a splitClauses follow-up) stays LOW → Arbiter.
+  // SCRY / SURVEIL — only the numeric standalone form is modeled; a variable amount or a ", then"
+  // combo (a splitClauses follow-up) stays LOW → Arbiter. (A "you may scry 2" is now an OPTIONAL
+  // scry — pinned HIGH in MUST_STAY_HIGH, α2.)
   "Scry X.",                                                            // variable amount — deferred
-  "You may scry 2.",                                                    // "may" rider — deferred
+  // α2 — "you may" wraps an OPTIONAL effect, but a "you may PAY <cost>" (kicker) is a COST, not an
+  // optional effect → stays LOW; likewise "you may <unmodeled effect>".
+  "You may pay {2}. If you do, draw a card.",                          // optional COST (kicker) — deferred
+  "You may sacrifice a creature.",                                      // optional UNMODELED effect — deferred
+  "You may draw a card and gain 2 life.",                              // conjoined "you may X and Y" — optionality scope ambiguous → low (α2 forward guard)
   // ── GRAVEYARD RECURSION (return-from-graveyard) — only the bare single-target "return target
   // [creature] card from YOUR graveyard to your HAND" is modeled. A different filter, another
   // graveyard, multi-card cardinality, or a battlefield (reanimation) destination must stay LOW →
@@ -515,6 +520,10 @@ const MUST_STAY_HIGH = [
   "Target creature gets -3/-0 until end of turn. Target creature gets -0/-3 until end of turn.", // Agony Warp: two "target creature" (no "another") = legal
   "Ember Shot deals 3 damage to any target. Draw a card.",                      // damage + draw multi-clause
   "Target creature gets +1/+0 until end of turn. Draw a card.",                 // pump + draw (Defiant Strike)
+  // ── α2 — "you may <effect>" is an OPTIONAL atom (optional:true), HIGH when the inner effect is
+  // modeled (the resolver offers a yes/no, never resolves it as mandatory). FLIPPED from low. ──
+  "You may draw a card.",                                                       // optional draw
+  "You may scry 2.",                                                            // optional scry (chains to the reorder)
   // ── P3.1 counter target spell — the modeled shapes (any/noncreature/creature) +
   // counter-bearing multi-clause/modal programs. FLIPPED from low→high this slice. ──
   "Counter target spell.",                                                      // Counterspell

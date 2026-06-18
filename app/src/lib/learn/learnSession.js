@@ -43,7 +43,7 @@ import {
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -347,6 +347,16 @@ function settleScryChoice(state, keepIds) {
 }
 
 /**
+ * Settle an optional "you may <effect>" choice (α2): run-or-skip the paused atom and resume — which
+ * may itself set ANOTHER choice ("you may scry 2"), so guard pendingChoice before flushing — then
+ * finalizeStackResolution flushes any triggers the resumed atoms enqueued (CR 603.3).
+ */
+function settleOptionalChoice(state, doIt) {
+  const next = resolveOptionalChoice(state, doIt);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
  * decisions auto-apply; trivial user auto-passes also auto-apply.
@@ -446,6 +456,16 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
           return { session: current, decision: { kind: "scry-surveil", ...pc } };
         }
         current = { ...current, state: settleScryChoice(current.state, (pc.cards || []).map((c) => c.id)) };
+        continue;
+      }
+      // α2 — optional "you may <effect>": the player's OWN optional surfaces a yes/no; Expert
+      // autopilot + an opponent AUTO-TAKE it (the modeled optional effects are all beneficial to the
+      // controller — draw / token / gain life / etc.; a board-aware decline is a future refinement).
+      if (pc.kind === "optional-effect") {
+        if (pause) {
+          return { session: current, decision: { kind: "optional-effect", ...pc } };
+        }
+        current = { ...current, state: settleOptionalChoice(current.state, true) };
         continue;
       }
       // Tutor library search.
@@ -807,6 +827,46 @@ export function applyScryChoice(session, choice) {
 }
 
 /**
+ * The player resolved an `optional-effect` decision ("you may <effect>", α2). `choice.take` is the
+ * yes/no. Runs-or-skips the paused atom, resumes the program, then re-derives the next decision.
+ * Returns { session, decision } like advanceUntilDecision.
+ */
+export function applyOptionalChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "optional-effect") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const take = choice?.take === true || choice === true;
+
+  let newState;
+  try {
+    newState = settleOptionalChoice(session.state, take);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "optional-choice", op: pc.effectOp, taken: take },
+    auto: false,
+    reasoning: "user-chose-optional",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
+    decisionLog: [...session.decisionLog, logEntry],
+  });
+}
+
+/**
  * Dispatch an interactive resolution-time choice (state.pendingChoice) to the right handler by
  * its kind — so the single /api/learn/choose route serves the tutor search, the clone copy-pick,
  * and scry/surveil. (Named apart from the decision-gate `applyChoice`, which resolves a player
@@ -816,6 +876,7 @@ export function applyPendingChoice(session, choice) {
   const kind = session.state?.pendingChoice?.kind;
   if (kind === "clone-search") return applyCloneChoice(session, choice);
   if (kind === "scry-surveil") return applyScryChoice(session, choice);
+  if (kind === "optional-effect") return applyOptionalChoice(session, choice);
   return applyTutorChoice(session, choice);
 }
 
