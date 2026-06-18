@@ -141,6 +141,11 @@ const MODELED_RESTRICTION_RES = [
   /\btapped\b/g,
   /\bpower \d+ or less\b/g,
   /\bpower \d+ or (?:greater|more)\b/g,
+  /\battacking or blocking\b/g,         // β-1 (order before the singles so the phrase is removed whole)
+  /\battacking\b/g,
+  /\bblocking\b/g,
+  /\bnon(?:white|blue|black|red|green)\b/g,
+  /\bnon(?:artifact|enchantment|land)\b/g,
 ];
 
 export function parseCreatureTargetRestrictions(card) {
@@ -176,6 +181,23 @@ export function parseCreatureTargetRestrictions(card) {
   pm = t.match(/\bpower (\d+) or (?:greater|more)\b/);
   if (pm) { restrictions.push({ kind: "power", op: ">=", value: parseInt(pm[1], 10) }); t = t.replace(/\bpower \d+ or (?:greater|more)\b/g, " "); }
 
+  // β-1 — combat state ("attacking" / "blocking" / "attacking or blocking"; the phrase is stripped whole
+  // so its internal "or" doesn't leave a residue). The target must currently be in the named combat role.
+  if (/\battacking or blocking\b/.test(t)) { restrictions.push({ kind: "combat", value: "either" }); t = t.replace(/\battacking or blocking\b/g, " "); }
+  else if (/\battacking\b/.test(t)) { restrictions.push({ kind: "combat", value: "attacking" }); t = t.replace(/\battacking\b/g, " "); }
+  else if (/\bblocking\b/.test(t)) { restrictions.push({ kind: "combat", value: "blocking" }); t = t.replace(/\bblocking\b/g, " "); }
+
+  // β-1 — color negation ("nonblack/nonwhite/nonblue/nonred/nongreen creature" — Doom Blade, Ultimate
+  // Price): the target's COLORS (CR 105) must NOT include that color (a colorless creature satisfies any).
+  const COLOR_WORD = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+  const cm = t.match(/\bnon(white|blue|black|red|green)\b/);
+  if (cm) { restrictions.push({ kind: "colorNeg", color: COLOR_WORD[cm[1]] }); t = t.replace(/\bnon(?:white|blue|black|red|green)\b/g, " "); }
+
+  // β-1 — type negation ("nonartifact/nonenchantment/nonland creature" — Go for the Throat): the target's
+  // type line must NOT contain that card type.
+  const ntm = t.match(/\bnon(artifact|enchantment|land)\b/);
+  if (ntm) { restrictions.push({ kind: "typeNeg", type: ntm[1] }); t = t.replace(/\bnon(?:artifact|enchantment|land)\b/g, " "); }
+
   // Strip the base noun + filler; anything left is an UNMODELED qualifier → unclean.
   t = t.replace(/\b(target|a|an|another|other|each|any|creature|creatures|with|that|to|the|is)\b/g, " ").replace(/[^a-z]+/g, " ").trim();
 
@@ -200,6 +222,18 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions)
       const pw = creaturePower(perm, state);
       if (r.op === "<=" && !(pw <= r.value)) return false;
       if (r.op === ">=" && !(pw >= r.value)) return false;
+    } else if (r.kind === "combat") {
+      const atk = (state.combat?.attackers || []).some((a) => a.permanentId === perm.id);
+      const blk = (state.combat?.blockers || []).some((b) => b.blockerId === perm.id);
+      if (r.value === "attacking" && !atk) return false;
+      if (r.value === "blocking" && !blk) return false;
+      if (r.value === "either" && !(atk || blk)) return false;
+    } else if (r.kind === "colorNeg") {
+      const colors = Array.isArray(perm.card?.colors) ? perm.card.colors : [];
+      if (colors.includes(r.color)) return false; // a non<color> target can't be that color
+    } else if (r.kind === "typeNeg") {
+      const tl = String(perm.card?.type || perm.card?.type_line || "").toLowerCase();
+      if (tl.includes(r.type)) return false;       // a non<type> target can't be that card type
     }
   }
   return true;

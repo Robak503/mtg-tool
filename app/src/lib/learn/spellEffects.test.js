@@ -91,11 +91,17 @@ describe("parseCreatureTargetRestrictions (P2.4)", () => {
   it("is clean with NO restrictions for a plain creature target", () => {
     expect(parseCreatureTargetRestrictions(card("Destroy target creature."))).toMatchObject({ clean: true, restrictions: [] });
   });
+  it("β-1: models color negation / type negation / combat state (clean + the right restriction)", () => {
+    expect(parseCreatureTargetRestrictions(card("Destroy target nonblack creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "colorNeg", color: "B" }] });
+    expect(parseCreatureTargetRestrictions(card("Destroy target nonartifact creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "typeNeg", type: "artifact" }] });
+    expect(parseCreatureTargetRestrictions(card("Destroy target attacking creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "combat", value: "attacking" }] });
+    expect(parseCreatureTargetRestrictions(card("Deals 4 damage to target attacking or blocking creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "combat", value: "either" }] });
+  });
   it("is UNCLEAN when an unmodeled qualifier is present (→ Arbiter)", () => {
-    expect(parseCreatureTargetRestrictions(card("Destroy target nonblack creature.")).clean).toBe(false);
-    expect(parseCreatureTargetRestrictions(card("Destroy target attacking creature.")).clean).toBe(false);
     expect(parseCreatureTargetRestrictions(card("Destroy target creature you control with flying.")).clean).toBe(false);
-    expect(parseCreatureTargetRestrictions(card("Destroy target artifact creature.")).clean).toBe(false);
+    expect(parseCreatureTargetRestrictions(card("Destroy target artifact creature.")).clean).toBe(false);      // positive type, not negation
+    expect(parseCreatureTargetRestrictions(card("Destroy target legendary creature.")).clean).toBe(false);     // supertype, unmodeled
+    expect(parseCreatureTargetRestrictions(card("Destroy target white or blue creature.")).clean).toBe(false); // color UNION, not a single non-color
   });
   it("is a no-op (clean, no restrictions) for non-creature / non-target effects", () => {
     expect(parseCreatureTargetRestrictions(card("Draw two cards."))).toMatchObject({ clean: true, restrictions: [] });
