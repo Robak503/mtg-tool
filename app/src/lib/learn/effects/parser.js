@@ -424,6 +424,20 @@ function parseExtendedAtom(s) {
   // SELF-reference +1/+1 / -1/-1 counter — "put a +1/+1 counter on this creature" (the source).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
+  // ===== COUNTERS ===== OPTIONAL single target — "Put N +1/+1 (or -1/-1) counter(s) on up to one
+  // target creature" (The Wandering Emperor, Basri, Scale the Heights). Identical to the modeled
+  // bare-target counter (above), but the target is OPTIONAL (CR 115.1b — "up to one" → choose 0 or 1):
+  // the `optionalTarget` flag tells targeting.expandAtoms to ALSO offer a no-target cast, so the spell/
+  // ability stays castable with an empty board and the chooser/player can decline. (DISTINCT from the
+  // α2 `optional` flag, which is a resolution-time "you may take this whole effect" yes/no — here the
+  // 0-or-1 TARGET is chosen at cast/flush, CR 601.2c/603.3c, then resolved mandatorily; no yes/no.) The
+  // resolver loops `ctx.targets`, so a declined cast (targets [] ) is a clean no-op — never a fabricated
+  // counter. Bare unfiltered "target creature" ONLY: any filter ("…you control", "…an opponent
+  // controls", a creature subtype) or the multi-target "each of up to two target creatures" leaves
+  // trailing text → fails `$` → low → Arbiter. Numeric N only (no X). Intent is side-resolvable (+1/+1
+  // own, -1/-1 enemy via atomTargetIntent), so it routes natively on the trigger path too.
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on up to one target creature$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature", optionalTarget: true };
   // ===== COUNTERS ===== TEAM distribution — "Put N +1/+1 (or -1/-1) counter(s) on each creature you
   // control" (Titania's Boon, Basri's Solidarity, Strength of the Pack N=2). NON-targeted, modeled with
   // the SAME `scope:"youControl"` marker the Overrun-style team pump uses (NOT a targetType — it stays

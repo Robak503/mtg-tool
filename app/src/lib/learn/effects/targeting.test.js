@@ -173,3 +173,45 @@ describe("modal cast resolves the CHOSEN mode only (end-to-end)", () => {
     expect(out.players.user.hand.length).toBe(before + 2);
   });
 });
+
+// CNT-2 — OPTIONAL single target ("Put a +1/+1 counter on up to one target creature"): the atom is
+// flagged optional:true, so expandAtoms offers each legal creature PLUS a decline (no-target) cast and
+// the spell stays castable on an empty board (CR 115.1b). Real targets come before the decline.
+describe("expandCastChoices — optional single target (up to one, CNT-2)", () => {
+  it("offers one cast per legal creature PLUS a trailing decline (empty-targets) cast", () => {
+    const state = withBoard([cr("A", "a1", "user"), cr("B", "b1", "ai")]);
+    const program = parseEffectProgram(I("Put a +1/+1 counter on up to one target creature."));
+    const choices = expandCastChoices(state, "user", program);
+    expect(choices).toHaveLength(3);                                  // 2 creatures + 1 decline
+    const tids = choices.map(c => c.targets.map(t => t.id).join(","));
+    expect(tids).toEqual(expect.arrayContaining(["a1", "b1", ""]));   // both creatures + the no-target cast
+    expect(choices[choices.length - 1].targets).toEqual([]);          // decline is LAST (target preferred)
+    for (const ch of choices) for (const t of ch.targets) expect(t.atomIndex).toBe(0);
+  });
+
+  it("is STILL castable with an empty board — only the decline cast (CR 115.1b)", () => {
+    const state = withBoard([]);
+    const choices = expandCastChoices(state, "user", parseEffectProgram(I("Put a +1/+1 counter on up to one target creature.")));
+    expect(choices).toEqual([{ targets: [] }]);
+  });
+});
+
+describe("optional counter resolves to a counter or a clean no-op (end-to-end, CNT-2)", () => {
+  function castObj(program, targets = []) {
+    return { id: "stk-c", kind: "spell", source: { name: "Counter Spell", oracle: "" }, controller: "user", targets, cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: "user", targets } } };
+  }
+  const PROGRAM = () => parseEffectProgram(I("Put a +1/+1 counter on up to one target creature."));
+
+  it("targeting a creature adds the +1/+1 counter", () => {
+    const state = withBoard([cr("Ogre", "ogre", "user")]);
+    const out = runEffectProgram(state, castObj(PROGRAM(), [{ atomIndex: 0, type: "creature", id: "ogre" }]));
+    expect(out.players.user.battlefield.find(p => p.id === "ogre").counters["+1/+1"]).toBe(1);
+  });
+
+  it("declining (no target) is a clean no-op — no counter, no crash", () => {
+    const state = withBoard([cr("Ogre", "ogre", "user")]);
+    const out = runEffectProgram(state, castObj(PROGRAM(), []));
+    expect(out.players.user.battlefield.find(p => p.id === "ogre").counters["+1/+1"]).toBeUndefined();
+  });
+});
