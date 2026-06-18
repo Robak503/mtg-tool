@@ -335,6 +335,24 @@ export function triggersForEvent(state, { event, sourcePermanent, triggeringPerm
  * deaths (a dead Blood Artist won't drain off another creature that died in the
  * same batch). The common case — a death + a surviving drain — is covered.
  */
+/**
+ * Fire ETB ("enters the battlefield") triggers for a permanent that just entered (β-3b reanimation,
+ * and reusable for any non-cast entry). `enteredPerm` is already ON the battlefield, so iterating every
+ * battlefield watcher covers BOTH its own "when this enters" trigger AND others' "whenever a creature
+ * enters" — mirrors enterPermanent's inline ETB loop. Pure — appends to pendingTriggers.
+ */
+export function checkEnterTriggers(state, enteredPerm) {
+  if (!enteredPerm) return state;
+  let fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of state.players[pid].battlefield) {
+      fired = fired.concat(triggersForEvent(state, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
 export function checkDiesTriggers(state, dead) {
   if (!dead || !dead.length) return state;
   let fired = [];

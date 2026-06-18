@@ -22,7 +22,7 @@
 
 import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures } from "./gameState.js";
 import { resolveSpellEffect } from "./spellEffects.js";
-import { triggersForEvent, applyTriggerEffect, checkDiesTriggers } from "./triggers.js";
+import { applyTriggerEffect, checkDiesTriggers, checkEnterTriggers } from "./triggers.js";
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram } from "./effects/runProgram.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
@@ -97,29 +97,12 @@ export function enterPermanent(state, card, controller, opts = {}) {
   if (opts.attachTo && findPermanent(next, opts.attachTo)) {
     next = attachPermanent(next, { equipId: permId, targetId: opts.attachTo });
   }
-  // Fire ETB triggers now that the permanent is on the battlefield (CR 603.6a).
-  // They land in pendingTriggers and flushTriggers puts them on the stack at the
-  // next priority-grant checkpoint (which resolveTopOfStack runs after this).
-  return checkEtbTriggers(next, perm);
-}
-
-/**
- * Enqueue every ETB trigger that fires when `enteredPerm` enters: the
- * newcomer's own "when this enters" triggers AND every watcher already on a
- * battlefield ("whenever a creature enters"). Pure — appends to pendingTriggers.
- * (Phase-7 PR-6. The layer-timestamp stamp from D5 lands with the layers engine
- * in PR-9, which is when timestamps start to matter.)
- */
-function checkEtbTriggers(state, enteredPerm) {
-  let fired = [];
-  for (const pid of Object.keys(state.players)) {
-    for (const watcher of state.players[pid].battlefield) {
-      const ts = triggersForEvent(state, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm });
-      if (ts.length) fired = fired.concat(ts);
-    }
-  }
-  if (!fired.length) return state;
-  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+  // Fire ETB triggers now that the permanent is on the battlefield (CR 603.6a). They land in
+  // pendingTriggers and flushTriggers puts them on the stack at the next priority-grant checkpoint
+  // (which resolveTopOfStack runs after this). `checkEnterTriggers` (triggers.js) is the SINGLE ETB-fire
+  // helper, shared with the reanimation atom (β-3b) — so the cast/clone/aura and non-cast entry paths
+  // can't drift.
+  return checkEnterTriggers(next, perm);
 }
 
 /**

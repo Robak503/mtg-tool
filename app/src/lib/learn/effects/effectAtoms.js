@@ -22,7 +22,7 @@ import {
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards } from "../gameState.js";
-import { checkDiesTriggers } from "../triggers.js";
+import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
@@ -179,6 +179,45 @@ function applyReturnFromGraveyard(state, atom, ctx) {
     returned.push(t.id);
   }
   return logEvent(next, { kind: "spell-effect", effect: "return-from-graveyard", controller: ctx.controller, targets: returned });
+}
+
+/**
+ * Reanimation (β-3b, CR 608) — "Return target creature card from your graveyard to the battlefield"
+ * (Resurrection / Zombify / Breath of Life). Like return-from-graveyard but the chosen card enters the
+ * battlefield as a permanent UNDER THE CASTER'S CONTROL (becomePermanent), and its ETB triggers fire
+ * (checkEnterTriggers, flushed by the resolution finalizer). Target left the graveyard → no-op (CR
+ * 608.2b). Tokens were excluded at enumeration (not a card). "to your HAND" stays return-from-graveyard;
+ * a rider ("tapped", "under your control", "with a +1/+1 counter") fails the exact anchor → Arbiter.
+ */
+function applyReanimate(state, atom, ctx) {
+  let next = state;
+  const reanimated = [];
+  for (const t of ctx.targets || []) {
+    if (t.type !== "graveyardCard") continue;
+    const card = (next.players[ctx.controller]?.graveyard || []).find((c) => c.id === t.id);
+    if (!card) continue; // target left the graveyard — no-op (CR 608.2b)
+    // Enter the card as a permanent under the caster's control. This MIRRORS resolvers.enterPermanent's
+    // setup (deterministic perm id + the CR 613.7e layer timestamp + enteredOnTurn + creature summoning
+    // sickness) — it can't call enterPermanent directly because resolvers→runProgram→effectAtoms would
+    // cycle. Then fire ETB (checkEnterTriggers; the resolution finalizer flushes them onto the stack).
+    const { id: permId, state: s2 } = mintId(next, "perm");
+    const ts = s2.timestampCounter || 0;
+    const isCreatureCard = /Creature/.test(String(card?.type || card?.type_line || ""));
+    const perm = { ...createPermanent({ id: permId, card, controller: ctx.controller, summoningSick: isCreatureCard }), enteredOnTurn: s2.turn, timestamp: ts };
+    const player = s2.players[ctx.controller];
+    next = {
+      ...s2,
+      timestampCounter: ts + 1,
+      players: { ...s2.players, [ctx.controller]: { ...player,
+        graveyard: player.graveyard.filter((c) => c.id !== t.id),
+        battlefield: [...player.battlefield, perm],
+      } },
+    };
+    next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: ctx.controller });
+    next = checkEnterTriggers(next, perm);
+    reanimated.push(t.id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "reanimate", controller: ctx.controller, targets: reanimated });
 }
 
 /** Put +1/+1 or -1/-1 counters on the chosen creature(s), or the SOURCE for a self counter
@@ -455,6 +494,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "exile": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "exile"),
   "add-counter": applyAddCounter,
   "return-from-graveyard": applyReturnFromGraveyard,
+  "reanimate": applyReanimate,
   "create-token": applyCreateToken,
   "counter": applyCounter,
   "tutor": applyTutor,

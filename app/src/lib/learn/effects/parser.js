@@ -287,10 +287,15 @@ function parseExtendedAtom(s) {
   // so it flows through the normal cast-time target enumeration, NO resolution-time picker. Only
   // the two clean filters are modeled: a creature card, or any card. A different filter
   // ("instant or sorcery card", "artifact card", "permanent card"), another zone ("from a
-  // graveyard"), a multi-card / "up to" cardinality, or a battlefield destination (reanimation)
-  // fails the exact anchor → low → Arbiter, so we never silently mis-target the graveyard.
+  // graveyard") or a multi-card / "up to" cardinality fails the exact anchor → low → Arbiter, so we
+  // never silently mis-target the graveyard. The "to your hand" destination = return-from-graveyard;
+  // "to the battlefield" = β-3b reanimation (the card enters as a permanent + fires ETB).
   if (/^return target creature card from your graveyard to your hand$/.test(t)) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "creature" };
   if (/^return target card from your graveyard to your hand$/.test(t)) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "any" };
+  // β-3b reanimation — "Return target creature card from your graveyard to the battlefield" (Resurrection,
+  // Zombify, Breath of Life). CREATURE only; "the battlefield under your control" / "tapped" / "with a
+  // +1/+1 counter" / a non-creature card filter fails the exact anchor → low → Arbiter.
+  if (/^return target creature card from your graveyard to the battlefield$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
   // Targeted (single "target creature", no restriction — the anchor keeps it exact).
   if (/^tap target creature$/.test(t)) return { op: "tap", targetType: "creature" };
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
@@ -724,6 +729,10 @@ export function atomTargetIntent(atom) {
       return (typeof atom.counterType === "string" && atom.counterType.trim().startsWith("-")) ? "enemy" : "own";
     case "untap":
     case "return-from-graveyard":
+    case "reanimate":
+      // The target is a card in the CASTER'S OWN graveyard — always own-side, so a reanimation TRIGGER
+      // ("When this enters, return target creature card from your graveyard to the battlefield") routes
+      // natively (programTriggerTargetsResolvable → true; the chooser's only candidates are own-gy cards).
       return "own";
     case "bounce":
       return "ambiguous";
