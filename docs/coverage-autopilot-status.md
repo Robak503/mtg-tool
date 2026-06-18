@@ -13,10 +13,10 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 ## Progress to goal — corpus-wide native % (`cd app && npm run coverage`)
 
 **Goal: ~90% corpus native** (the honest ceiling; the Arbiter permanently handles the rest).
-**Now: 16.3% → 18% of the way to goal.** (**PARALLEL PUSH LIVE — Omnath orchestrating 3 builders (Erin/Paula/Cindy) + Hans/scout + Rod/QA, each in its own git worktree; builders PULL from `docs/orchestration/task-board.md`.** v0.38.0 baseline (δ hand-disruption + impulse-dig). **Parallel merges:** counters team-distribution (#211) · each/target-player draw (#212) · tokens T1 keyword tokens (#213) · edicts target/opponent-sacrifice (#214) · blocks-trigger CREED false-positive fix (#215, −9 mis-fires). → corpus 16.1%→**16.3%** (5,413→5,475; native-spell 629→650, native-trigger 603). Builders relaunching in their worktrees; Hans refills the board; Rod QAs the merged result on-demand.)
+**Now: 16% → 18% of the way to goal.** (**PARALLEL PUSH LIVE — Omnath orchestrating 3 coverage builders (Cindy/Paula/Tess) + Erin/fixer + Hans/scout + Rod/QA, each in its own desktop-managed worktree; builders PULL from `docs/orchestration/task-board.md`; all faculties launch from `docs/orchestration/worker-prompts.md`.** Builder tier = Opus 4.8 · max · fast-off · ultracode-off; the in-builder adversarial review of the flipped-to-HIGH set is the one fan-out [decided 2026-06-18 via analysis]. **Cycle 2026-06-18 — 5 merges:** mana reminder-text FP fix (#221, −~150 native-mana FPs, CR 207.2) · Rod QA #1 → 3 `FIX-TRIG` tasks (#217) · CNT-2 optional single-target counter (#219) · EP-2 target/each-player discard, victim chooses (#220) · TOK-2 named tokens + **proactive trigger-tier hardening** (#218 — fixed FIX-TRIG-COMPOUND+LTB at source). → corpus 16.3%→15.9%→**16%** (5,475→5,369; honest net-down — retired more false positives than added coverage). **Open:** FIX-TRIG-CONDITION (34 cards) → Erin's first batch; Hans #216 board-refresh needs rebase off origin/master.)
 
 ```
-[####······················] 16.3% native  ·  goal 90%  ·  18% of the way there
+[####······················] 16% native  ·  goal 90%  ·  18% of the way there
 ```
 
 | Slice | Corpus native | Δ | → goal (now ÷ 90%) | Deck % | PR |
