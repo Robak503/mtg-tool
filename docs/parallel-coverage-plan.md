@@ -2,6 +2,34 @@
 
 Baseline: **v0.38.0 / master `d2fb8d6`**, corpus ~16.1% native. All four chats branch from this.
 
+## Filesystem isolation — one git worktree per chat (CRITICAL)
+
+The chats collide if they share one folder, because each Claude Code chat's working directory is fixed
+at launch — so any file op that isn't explicitly pointed elsewhere lands in *that* folder. Fix: **every
+chat runs from its OWN git worktree** (separate folder, separate branch, shared `.git`). **Launch each
+chat rooted in its own folder** (not the main repo) and it's automatically isolated.
+
+| Chat | Folder (cwd at launch) | Branch |
+|---|---|---|
+| **Command** (this) | `…/MTG-TOOL` (the main repo) | `master` |
+| Harold — tokens | `…/mtg-tokens` | `feat/tokens-*` |
+| Cindy — counters | `…/MTG-TOOL-counters` | `feat/counters-*` |
+| Erin — edicts | `…/MTG-TOOL-edicts` | `feat/edicts-*` |
+| Paula — each-player | `…/MTG-TOOL-each-player` | `feat/each-player-*` |
+| Hans — scout | `…/MTG-TOOL-scout` | detached (read-only) |
+| Rod — QA | `…/MTG-TOOL-qa` | detached (read-only) |
+
+**Per-worktree setup (once):** `cd app && npm ci` (worktrees do NOT share `node_modules`).
+**Dev-server port (live QA):** each chat uses a distinct port to avoid the 3000 collision — Command 3000,
+tokens 3001, counters 3002, edicts 3003, each-player 3004, QA 3005 (`PORT=300X npm run dev`).
+
+**Git flow in a worktree** (a worktree CANNOT `git checkout master` — master is checked out in the main
+repo): builders, per sub-slice → `git fetch origin && git checkout -B feat/<mech>-<short> origin/master`
+(fresh off the latest master, no rebase ever), build + gate, `git push -u origin feat/<mech>-<short>`,
+open a PR, wait for it to merge (poll `gh pr view`), repeat. Support chats (detached) → `git fetch origin
+&& git reset --hard origin/master` each cycle to analyze the latest. **Only the Command chat ever touches
+`master` or merges.**
+
 ## Why parallel + how it stays safe
 
 Naive parallel branches collide on the hot shared files (`parser.js`, `effectAtoms.js`,
