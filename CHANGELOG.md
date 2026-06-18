@@ -8,6 +8,47 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-06-18
+
+**Planeswalkers come to The Academy**, alongside the largest single wave of spell/ability coverage
+yet — the parallel-coverage push lifting native corpus coverage from ~16.1% to **17.0%**. Suite
+~2,533 green, lint clean. The Arbiter remains the fail-safe for anything not modeled natively
+(false-negative-safe by design — nothing is ever faked or silently dropped).
+
+### Added
+- **Planeswalkers are now playable** (full subsystem, PW-1 through PW-4). A walker enters with its
+  starting loyalty, ticks up/down (one ability per turn, sorcery speed, can't pay below 0), can be
+  attacked directly (combat damage removes loyalty counters), and dies at 0 — **184 planeswalkers
+  play end-to-end**. Modeled loyalty abilities resolve natively; anything not yet modeled is
+  adjudicated by the Arbiter *at activation* (the loyalty cost is still paid — never fabricated). The
+  AI pilots its walkers (activates a beneficial ability each turn; swings a clean attack to remove a
+  dangerous enemy walker), and a beginner-mode teaching layer pre-empts the common loyalty
+  misconceptions (once-per-turn, sorcery speed, summoning-sick walkers can still activate, direct
+  attacks, no redirect).
+- **Land ramp** (RAMP-1) — "search your library for a basic land, put it onto the battlefield" now
+  plays natively across spells, enters-the-battlefield triggers, dies-triggers, and activated
+  abilities (Rampant Growth, Farhaven Elf, Sakura-Tribe Elder, Wayfarer's Bauble, Solemn Simulacrum).
+- **Soft counterspells** (SOFT-CNT) — "counter unless its controller pays {N}" (Mana Leak, Force
+  Spike, Censor); in multiplayer the targeted opponent gets the pay-or-be-countered choice.
+- **Looting** (LOOT-1) — self-discard and "draw N, then discard M" (Faithless Looting, Careful Study).
+- **Investigate** (KWACT-INVEST) — the keyword action mints real Clue tokens (Thraben Inspector,
+  Deduce, Confirm Suspicions).
+- **Divide damage / distribute counters among any number of targets** (MT-1) — Rolling Thunder,
+  Pyrotechnics, Hail of Arrows.
+- A broad wave of further coverage: each-player draw / discard / life-loss / mill (EP-2, EP-3),
+  edicts (ED-2), team +1/+1 and −1/−1 counter distribution, named artifact tokens (Treasure / Clue /
+  Food / Gold + X-count creature tokens), keyword creature tokens, self keyword-grant abilities
+  (ACT-KW-GRANT), vacuous cast-keyword stripping (KWSTRIP-1), graveyard-recursion filters (REG-1),
+  impulse/reveal dig (DIG-1), Fog effects (FOG-1), and pay-life / discard / sacrifice additional cast
+  costs (ADDCOST).
+- **Trigger-effect compiler pilot** (TRIG-PUMP-1) — "whenever this attacks, it gets +N/+N" compiles to
+  a native program, proving the path for the corpus's largest coverage lever.
+
+### Fixed
+- **CREED hardening** — ~93 trigger-tier false positives (compound/restricted subjects, self-block
+  triggers, over-broad conditions) routed back to the Arbiter so nothing plays incorrectly; reminder
+  text is stripped before the mana / native-coverage checks (no phantom mana sources).
+
 ## [0.38.0] - 2026-06-18
 
 The Academy opens its **δ (subsystem) phase** — two new interactive mechanics that play out at

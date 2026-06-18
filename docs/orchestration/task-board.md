@@ -51,12 +51,19 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 > has ≥1 unmodeled ability/static — honest CREED baseline; coverage in PW-2+). See
 > `docs/planeswalker-subsystem.md`.
 >
-> **⚠️ STACK STRANDED (2026-06-18, Omnath verified):** PW-2 (#239) + PW-3 (#242) work is **NOT on
-> master.** #242 was merged into `feat/PW-2-walt` (not master); #239 + #244 are CLOSED. The branch
-> `feat/PW-2-walt` carries PW-2+PW-3 stacked on the *unsquashed* PW-1 commits, so it diverged from
-> master's squashed PW-1 (#236). **Walt: rebase `feat/PW-2-walt` onto current `origin/master`, drop
-> the duplicate PW-1 commits, and open ONE clean PR (PW-2+PW-3) targeting `master`. Then rebase
-> `feat/PW-4-walt` on top and reopen #244.** All work is preserved on both origin branches.
+> **✅ PW-2 + PW-3 LANDED #245 (2026-06-18, aa600c8) — hybrid model + AI piloting.** Walt rebased the
+> stack onto master cleanly. **184 walkers now `playable-pw`** (enter/tick/die natively; modeled loyalty
+> abilities resolve native, unmodeled ones route to the Arbiter AT ACTIVATION — cost paid, effect
+> adjudicated, never fabricated). **0 native flips, 0 false positives** (`playable-pw` ∉ NATIVE_TIERS —
+> Omnath source-verified + real-corpus measured). AI activates a beneficial modeled loyalty ability/turn
+> + diverts a clean swing to kill an enemy walker.
+>
+> **✅ PW-4 (teaching layer) LANDED #249 (fd047fb).** Walt rebased cleanly onto master (old #247 closed,
+> reopened as #249). Beginner-mode narrator now teaches the common loyalty misconceptions (once-per-turn
+> + sorcery speed, summoning-sick walkers CAN activate, can't pay below 0 / CR 118.3, direct attacks +
+> combat-damage-as-loyalty / CR 120.3c, enters-with-loyalty) — every CR citation verified real. **The PW
+> subsystem (PW-1→PW-4) is COMPLETE; shipped in v0.39.0.** Follow-ups remain OPTIONAL (static-residue
+> coverage ~3 anthem walkers, AI walker-protection blocking, per-ability emblem modelling).
 
 ### 🔴 high-lever
 
@@ -80,8 +87,8 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | **ADDCOST-2** | `As an additional cost to cast, discard N / pay N life / sacrifice an artifact. <EFFECT>` — extends the CLAIMED sac-to-cast seam. **FP is in the EFFECT half:** reject cost-scaled effects + "or pay {N}" alt-costs; whitelist the effect template. | ~15 | med | DONE #240 | Thrill of Possibility, Cathartic Reunion, Deadly Dispute |
 | **FOG-1** | "Prevent all combat damage that would be dealt this turn" — a turn-scoped damage-skip latch `combatResolution.js` checks. Whole-turn latch ONLY (not aura/ongoing prevention). | ~14 | sub | DONE #230 | Fog, Darkness, Holy Day, Moment's Peace |
 | **ETB-RAMP-SEARCH** | "When ~ enters, search for a basic land → hand \| battlefield-tapped, shuffle." **FP #1 = a SECOND ability** (Solemn Simulacrum dies→draw!). Singular "a basic land", one destination, rest keyword-only. | ~14 | med | OPEN | Sylvan Ranger, Pilgrim's Eye, Farhaven Elf, Civic Wayfinder |
-| **KWACT-INVEST** | Alias "Investigate[ N times]." → N create-Clue-token atoms (reuses TOK-2). Free, additive. **Fire only on first-person Investigate** — reject "<subject> investigates" (wrong-owner Clue). | ~11 | low | OPEN | Foul Play, Jace's Scrutiny, Confirm Suspicions, Deduce |
-| **RAMP-1** | Spell ramp: "Search for a basic land, put onto the battlefield [tapped], shuffle" — new battlefield-destination resolver (shipped `tutor` is HAND-only). **High real-deck value (Colton's ramp).** End-anchored `…shuffle.` only; **Cultivate/Kodama's Reach are split-destination traps**; honor tapped/untapped. | ~6-9 | med | OPEN | Rampant Growth, Explosive Vegetation, Into the North |
+| **KWACT-INVEST** | Alias "Investigate[ N times]." → N create-Clue-token atoms (reuses TOK-2). Free, additive. **Fire only on first-person Investigate** — reject "<subject> investigates" (wrong-owner Clue). | ~11 | low | DONE #246 (Tess) | Foul Play, Jace's Scrutiny, Confirm Suspicions, Deduce |
+| **RAMP-1** | Spell ramp: "Search for a basic land, put onto the battlefield [tapped], shuffle" — new battlefield-destination resolver (shipped `tutor` is HAND-only). **High real-deck value (Colton's ramp).** End-anchored `…shuffle.` only; **Cultivate/Kodama's Reach are split-destination traps**; honor tapped/untapped. | ~6-9 (shipped +39 w/ side-benefits) | med | DONE #248 (Cindy) | Rampant Growth, Explosive Vegetation, Into the North |
 | **ETB-EQUIP-ATTACH** | "When this Equipment enters, attach it to target creature you control" + plain +N/+N. **Engine must actually attach** (flip without resolver = a lie); the attach line often carries a "gains <KW> UEOT" rider — drop those. | ~9 | med | OPEN | Bramble Armor, Scavenged Blade, Mirran Banesplitter |
 | **MODAL-2** | Extend the shipped "Choose one —" gate to "Choose two / one or both". **Gate + EXECUTOR must ship in ONE PR** (runtime resolves exactly one mode today → would drop the 2nd = FP). Thin but auto-ratchets. | ~9 | sub | OPEN | Kolaghan's Command, Soul Manipulation, Crush Contraband |
 | **LOOT-1** | Add a self-discard atom (`you discard N` = controller); `draw N, then discard M` then composes. **Reject "discard at random"** (engine-chosen ≠ player-chosen). | ~9 | low | DONE #241 (Paula) | Careful Study, Faithless Looting, Catalog, Thoughtflare |
