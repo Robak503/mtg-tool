@@ -22,28 +22,29 @@ Command chat merges**, one PR at a time, rebasing the others as it goes.
 Clean boundary between edicts and each-player: **edicts owns every "sacrifice" verb** (each-player,
 target-player, as-effect); **each-player owns draw, discard, lose-life, mill** (no sacrifice).
 
-## Coordination protocol
+## Coordination protocol — autonomous loops, no human relay
 
-**Builders:**
-1. **One mechanic = one branch off latest `master`** (`feat/tokens`, `feat/counters`, `feat/edicts`,
-   `feat/each-player`). `git pull origin master` before branching.
-2. **Go deep, in sub-slices.** Don't land a whole mechanic in one giant PR — ship 2–4 focused sub-slices.
-   Each sub-slice is its own branch + PR + gate.
-3. **Full self-gate per sub-slice** (the project's bar — see `docs/coverage-autopilot-prompt.md`): build →
+Each builder runs as a **self-paced `/loop`**; the Command chat runs as a **self-paced `/loop`**. They
+coordinate entirely through the GitHub PR queue — no "rebase now" relay is needed, because each builder
+branches **fresh off the latest `master` every sub-slice** and **polls its own PR until it merges**.
+
+**Builder loop** (repeat until the mechanic's clean templates are exhausted, then stop + report):
+1. `git checkout master && git pull` → `git checkout -b feat/<mech>-<short-name>` (a FRESH branch per
+   sub-slice off the now-current master — so no rebase is ever needed).
+2. Build **one focused sub-slice**. **Full self-gate** (the project's bar — `docs/coverage-autopilot-prompt.md`):
    a **REAL-parser corpus sweep** (your matcher over all cards via `publicCard`; **0 false-positives**;
-   list every newly-native card) → `npm test` + `npm run lint` (both from `app/`) → a **3-lens adversarial
-   `Workflow` review** on Opus, **fix every P0 / false-positive / regression** → **live QA** (`npm run dev`).
-   Then open a PR with the sweep count + verification in the body — do **not** merge.
-4. **Rebase on demand.** When the Command chat posts "rebase now", `git pull origin master` +
-   `git rebase origin/master` onto your branch, re-run tests, force-push.
+   list newly-native cards) → `npm test` + `npm run lint` (from `app/`) → a **3-lens adversarial `Workflow`
+   review** on Opus, **fix every P0 / false-positive / regression** → **live QA** (`npm run dev`).
+3. Push + **open a PR** (sweep count + verification in the body). Do **not** merge.
+4. **Wait for YOUR PR to merge:** self-pace (`ScheduleWakeup` ~10 min), poll `gh pr view <#> --json state`.
+   When `MERGED` → go to step 1 (next sub-slice off the updated master). If `CHANGES`/closed → address + re-push.
+5. When every clean template of your mechanic is covered, **stop** and post "mechanic done — deferred: …".
 
-**Command (integrator):**
-1. Watch `gh pr list`. For each PR: re-run the corpus sweep + `npm test` + `npm run lint` on the
-   merged-into-master result, spot-review the diff for CREED violations; escalate to a **full 3-lens
-   review** only on concern (the builder already self-reviewed).
-2. **Merge serially** (`gh pr merge <#> --squash --delete-branch`), one at a time. After each merge,
-   post "**Builder X: rebase**" for the human to relay.
-3. Update the scoreboard + the live coverage number; cut a release at each sensible milestone.
+**Command loop** (this chat): `git checkout master && git pull` → `gh pr list`. For each builder PR with
+CI green: re-run the corpus sweep + `npm test` + `npm run lint` on the merged result, spot-review the
+diff for CREED violations (escalate to a full 3-lens review only on concern — the builder self-reviewed);
+**merge serially** (`gh pr merge <#> --squash --delete-branch`), one at a time. After merges: update the
+scoreboard + live coverage number; cut a release at milestones. Then self-pace (~15–20 min) and re-poll.
 
 **Shared-file convention** (minimizes merge conflicts): each builder adds its matchers, its
 `ATOM_RESOLVERS` entries, and its `parser.test.js` pins inside a clearly-labeled block, e.g.
