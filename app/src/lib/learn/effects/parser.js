@@ -304,6 +304,12 @@ function parseExtendedAtom(s) {
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "controller", targetType: null };
   m = t.match(/^each opponent loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  // ===== EACH-PLAYER ===== (EP-3) symmetric life loss — "Each player loses N life" (Crushing
+  // Disappointment, Bad Deal). NON-targeted (who:eachPlayer, no targetType), so it resolves the same
+  // on a spell or a trigger — no first-legal self-target hazard. A "for each …" rider (Stronghold
+  // Discipline) or any trailing text fails the `$` anchor → low → Arbiter. Numeric N only.
+  m = t.match(/^each player loses (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   // Counter target spell (P3.1, CR 701.5a) — targets a SPELL on the stack, not a
   // permanent/player. Anchored ALLOWLIST: a tax/conditional/modal-target counter
   // ("…unless its controller pays {3}", "…or ability", "…up to two target spells",
@@ -501,6 +507,11 @@ function parseExtendedAtom(s) {
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
   m = t.match(/^each opponent mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  // ===== EACH-PLAYER ===== (EP-3) symmetric mill — "Each player mills N cards" (Winds of Rebuke rider,
+  // Mind Funeral-adjacent). NON-targeted, so safe on a trigger. A variable "mills X cards" (Dread Summons)
+  // isn't matched (no numeric/spelled N) → low → Arbiter, so an X-mill is never under-modeled to a fixed N.
+  m = t.match(/^each player mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   // ===== EACH-PLAYER ===== draw — extend the ACTOR of a draw beyond the controller. The controller-only
   // form ("draw N cards") stays on the legacy path (parseSpellEffect — "draws", a different subject, is
   // intentionally not matched there). These two add: EVERY player draws ("Each player draws N cards" —

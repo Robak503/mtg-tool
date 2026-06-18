@@ -194,11 +194,18 @@ function applyGainLife(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "gain-life", controller: ctx.controller, amount });
 }
 
-/** "You lose N life" / "Each opponent loses N life" (CR 119.3). Non-targeted. */
+/** "You lose N life" / "Each opponent loses N life" / "Each player loses N life" (CR 119.3). Non-targeted. */
 function applyLoseLife(state, atom, ctx) {
   let next = state;
   const amount = Math.max(0, atom.amount || 0);
-  if (atom.who === "eachOpponent") {
+  if (atom.who === "eachPlayer") {
+    // ===== EACH-PLAYER ===== (EP-3) EVERY player loses N life (symmetric — Crushing Disappointment).
+    // Non-targeted, so it resolves identically on a spell or a trigger. An eliminated player isn't in
+    // state.players (skipped); loseLife to 0 lets the loss SBA fire at the next check, as elsewhere.
+    for (const pid of Object.keys(next.players)) {
+      if (next.players[pid]) next = loseLife(next, { playerId: pid, amount });
+    }
+  } else if (atom.who === "eachOpponent") {
     for (const opp of opponentsOf(next, ctx.controller)) {
       if (next.players[opp]) next = loseLife(next, { playerId: opp, amount });
     }
@@ -628,12 +635,16 @@ function applyImpulseDigAtom(state, atom, ctx) {
   return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null });
 }
 
-/** Mill (CR 701.13) — "you mill N cards" (the controller) or "each opponent mills N cards". Top N
- * of each milled player's library → their graveyard. Non-targeted. */
+/** Mill (CR 701.13) — "you mill N cards" (the controller), "each opponent mills N cards", or
+ * "each player mills N cards" (EP-3). Top N of each milled player's library → their graveyard. Non-targeted. */
 function applyMill(state, atom, ctx) {
   let next = state;
   const amount = atom.amount || 0;
-  if (atom.who === "eachOpponent") {
+  if (atom.who === "eachPlayer") {
+    // ===== EACH-PLAYER ===== (EP-3) EVERY player mills N (symmetric — Mind Funeral-adjacent / Winds of
+    // Rebuke rider). Non-targeted → identical on a spell or trigger; an eliminated player isn't in the map.
+    for (const pid of Object.keys(next.players)) next = millCards(next, { playerId: pid, count: amount });
+  } else if (atom.who === "eachOpponent") {
     for (const opp of opponentsOf(next, ctx.controller)) next = millCards(next, { playerId: opp, count: amount });
   } else {
     next = millCards(next, { playerId: ctx.controller, count: amount });
