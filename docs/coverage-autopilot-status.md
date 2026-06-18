@@ -13,7 +13,7 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 ## Progress to goal — corpus-wide native % (`cd app && npm run coverage`)
 
 **Goal: ~90% corpus native** (the honest ceiling; the Arbiter permanently handles the rest).
-**Now: 16.0% → 18% of the way to goal.** (β-3 shipped — bounce a non-creature permanent ("Return target permanent to its owner's hand"), +17. Almost pure parser — the resolver/enumerator were already there.)
+**Now: 16.0% → 18% of the way to goal.** (β-3b shipped — REANIMATION ("...graveyard to the battlefield" + ETB), +8. The last meaty clean atom; a new mechanic.)
 
 ```
 [####······················] 16.0% native  ·  goal 90%  ·  18% of the way there
@@ -31,7 +31,8 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 | γ1c: exile-self + remove-a-counter | **15.7%** (5,274/33,540) | +0.0 | 17% | 47% | #203 |
 | β-1: creature-target restrictions | **15.9%** (5,338/33,540) | +0.2 | 18% | 47% | #204 |
 | β-2: permanent-type union targets | **16.0%** (5,351/33,540) | +0.1 | 18% | 47% | #205 |
-| β-3: bounce a non-creature permanent | **16.0%** (5,368/33,540) | +0.1 | 18% | 47% | #206 _(PR open)_ |
+| β-3: bounce a non-creature permanent | **16.0%** (5,368/33,540) | +0.1 | 18% | 47% | #206 |
+| β-3b: reanimation (gy → battlefield) | **16.0%** (5,376/33,540) | +0.0 | 18% | 47% | #207 _(PR open)_ |
 
 **Projected trajectory** (roadmap §2): α (near-term clean atoms) → ~37% · α+β (full vocab grind) → ~90% · +δ (hard subsystems) → ~98%. A row is appended every time a slice merges — this table *is* the climb.
 
@@ -64,7 +65,8 @@ the corpus signal re-ranks the roadmap toward the cost-structure work (γ1) soon
 | γ1c | exile-self + remove-a-counter costs (batched) — the end of the clean cost frontier | **#203 merged** | +4 cards (≈15.7%) |
 | β-1 | creature-target restrictions — color/type negation + combat state (Doom Blade, Go for the Throat, Divine Verdict) | **#204 merged** | +64 cards (15.7→15.9%) |
 | β-2 | compound permanent-type union targets ("destroy/exile target X or Y") — Mortify, Wrecking Ball, Demolish | **#205 merged** | +13 cards (15.9→16.0%) |
-| β-3 | bounce a non-creature permanent ("Return target permanent to its owner's hand") — Boomerang, Void Snare | **#206 (PR open)** | +17 cards (≈16.0%) |
+| β-3 | bounce a non-creature permanent ("Return target permanent to its owner's hand") — Boomerang, Void Snare | **#206 merged** | +17 cards (≈16.0%) |
+| β-3b | reanimation ("...graveyard to the battlefield" + ETB) — Resurrection, Zombify; a new mechanic | **#207 (PR open)** | +8 cards (≈16.0%) |
 
 ## Cost-atom frequency (the data behind the γ-series, scanned over the real corpus)
 
@@ -77,24 +79,20 @@ counter). The cost frontier is now low-ROI — pivot to the spell-effect vocabul
 
 ## In flight / next
 
-- **β-3 — bounce a non-creature permanent: BUILT + in review (PR #206, branch
-  `feat/beta3-bounce-permanent`).** The cleanest β atom — almost pure parser. "Return target permanent /
-  nonland permanent / artifact / enchantment / land [an opponent controls / you control] to its owner's
-  hand" (Boomerang, Eye of Nowhere, Void Snare). The bounce resolver (`applyZoneMove → "hand"`) already
-  handled a "permanent" target (for spot-exile), and the enumerator already offers the #192 permanent
-  types — so β-3 is just a new matcher. Bounce is AMBIGUOUS intent → a bounce-permanent TRIGGER routes to
-  the Arbiter via α1 (never first-legal). No legacy-`parseSpellEffect` interference (bounce is extended),
-  so the cast path routes cleanly through expandCastChoices — verified live (the β-2 lesson applied). Full
-  suite green (+β-3 pins) · lint clean · corpus 16.0% (5,368, **+17**) · sweep 0 false-positives, 0
-  dropped-compound · live cast e2e: Boomerang offers every permanent type.
-  - **Adversarial review (3 lenses, Opus): all CLEAN, MERGE — no P0/P1, no false-positive** (verified vs
-    the full corpus + live cast/trigger paths: 14 native, 0 dropped text, all false-positive vectors
-    rejected, DFC skip inherited, bounce trigger → Arbiter via α1). The lower-risk reuse-everything slice
-    paid off — first all-clean review of the run. One **pre-existing, non-reachable P2** (NOT β-3's): the
-    bounce/exile-to-hand resolver returns to the CONTROLLER's hand, not the OWNER's — correct today
-    (controller==owner; no control-change is modeled, permanents have no `owner` field), but must move to
-    the owner IF/WHEN control-change (Control Magic / Threaten) is ever modeled (a δ subsystem).
-  - **Merge gate:** review CLEAN + CI green, then `gh pr merge --squash`.
+- **β-3b — reanimation: BUILT + in review (PR #207, branch `feat/beta3b-reanimation`).** The last meaty
+  clean atom + a NEW mechanic. "Return target creature card from your graveyard to the battlefield"
+  (Resurrection, Zombify, Breath of Life): the gy creature card ENTERS the battlefield as a permanent +
+  fires its ETB. Builds on graveyard recursion (#185 — same graveyardCard target, public-zone cast-time,
+  front-face creature filter, tokens excluded) but destination = battlefield. New `reanimate` atom +
+  `checkEnterTriggers` (mirrors checkDiesTriggers). `applyReanimate` enters under the caster's control
+  MIRRORING `enterPermanent`'s setup (perm id + CR 613.7e timestamp + enteredOnTurn + creature summoning
+  sickness) — can't import `enterPermanent` (resolvers→runProgram→effectAtoms cycles). A rider ("tapped"/
+  "under your control"/"+1/+1 counter") / non-creature filter → Arbiter. AI holds (effect null). Full
+  suite green (+ reanimation pins incl. the LIVE e2e: Zombify reanimates Elvish Visionary → it enters
+  summoning-sick with enteredOnTurn+timestamp and its ETB "draw a card" FIRES) · lint clean · corpus 16.0%
+  (5,376, **+8**) · sweep 0 false-positives, 0 rider-leak.
+  - **Merge gate:** 3-lens adversarial review (Opus — scrutinizing the enter-setup vs enterPermanent + the
+    checkEnterTriggers/checkEtbTriggers duplication) + CI green, then `gh pr merge --squash`.
 - **β backlog / next atoms (the clean-atom frontier is THINNING — most of what's left needs hard δ
   subsystems):** reanimation ("return target creature card from your graveyard to the BATTLEFIELD" — ~8,
   a new mechanic: enter + fire ETB, reuses enterPermanent); positive-type creature restrictions (~1-5);
