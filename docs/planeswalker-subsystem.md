@@ -53,16 +53,43 @@ pure-loyalty walker MUST be `native-planeswalker`).
 So PR1 flips **0** cards native — and that is the honest CREED baseline, not a bug. The framework is
 the unblocker; coverage comes in the waves below.
 
+So PR1 flips **0** cards native — the honest CREED baseline. **PW-2's HYBRID model is what makes
+walkers actually playable** (below).
+
+## PW-2 — the hybrid model (playability)
+
+A walker doesn't need every ability modelled to be PLAYABLE. Under the hybrid:
+
+- `planeswalkerPlayable(card)` — true when the walker has **no unmodelled static/triggered residue**
+  (a static can't be hybrid-routed — it applies continuously). It does NOT require every loyalty
+  ability modelled.
+- A playable walker **enters the native battlefield** (cast gate uses `planeswalkerPlayable`). Each
+  loyalty ability is offered: a **modelled** one resolves natively; an **unmodelled** one is an
+  Arbiter-routed action — the loyalty cost is paid natively, then the EFFECT routes to the Arbiter
+  seam (`markPendingArbiter`) at activation. Surfacing *every* ability is required by the CREED
+  (hiding an unmodelled one would silently drop it).
+- New coverage tier **`playable-pw`** — playable but NOT counted native (≥1 ability is Arbiter-routed).
+  `native-planeswalker` stays strict (every ability modelled) for the corpus-% metric.
+- The AI does not yet pilot loyalty abilities (it passes — no self-play stall on Arbiter-routed
+  effects); that's PW-4.
+
+**Result: 185 / 324 castable planeswalkers are now `playable-pw`** (up from 0), 0 native, 138
+`arbiter-pw` (static/trigger residue), with **0 false positives**. Live-driven end-to-end on a real
+card (Zariel, Archduke of Avernus: enters at 4 loyalty → +1 ticks to 5 natively → a 6/6 attack drops
+it to 0 → graveyard).
+
 ## Roadmap
 
-- **PR1 — framework foundation.** ✅ (this doc). 0 cards native; machinery + tests proven.
-- **PR2 — residue coverage.** Treat a non-loyalty line that's an **already-modelled** static/trigger
-  (anthem, etc.) as covered rather than residue, reusing `staticAbilityParser` / trigger coverage.
-  Flips the ~10 "blocked only by a modelled-shape line" walkers. False-positive-prone → independent
-  adversarial review required.
-- **PR3 — AI piloting (full heuristics).** AI deploys walkers, activates loyalty abilities with value
-  evaluation + ultimate timing, attacks enemy walkers as threats, protects its own. (Today the AI
-  defaults to attacking the face — safe, never crashes.)
-- **PR4+ — long-tail loyalty atoms.** New effect atoms for the common loyalty shapes (make-a-token,
-  +1/+1 on up to two targets, gain-life-per-creature, …), flipping pure-loyalty walkers card by card —
-  the coverage-builder lane.
+- **PR1 — framework foundation.** ✅ 0 cards native; machinery + tests proven.
+- **PR2 — hybrid playability.** ✅ 185 walkers `playable-pw`; modelled abilities native, the rest →
+  Arbiter at activation.
+- **PR3 — static/trigger residue coverage.** Treat a non-loyalty line that's an **already-modelled**
+  static/trigger (anthem, etc.) as covered, reusing `staticAbilityParser` / trigger coverage — makes
+  more of the 138 residue walkers playable. False-positive-prone → independent adversarial review.
+- **PR4 — AI piloting.** AI deploys walkers, activates loyalty abilities (value eval + ultimate
+  timing), attacks enemy walkers / protects its own. Full browser QA of the loyalty UI lands here.
+- **PR5 — long-tail loyalty atoms.** New effect atoms for common loyalty shapes (make-a-token, +1/+1
+  on up to two, gain-life-per-creature, …) — raises the native-ability rate + flips some walkers
+  fully native (moves the % metric).
+- **PR6 — teaching layer.** Common planeswalker mistakes (loyalty timing, "can I activate two,"
+  summoning-sick walkers CAN activate, combat redirection, protecting a walker).
