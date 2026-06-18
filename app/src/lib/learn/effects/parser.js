@@ -729,6 +729,10 @@ export function atomTargetIntent(atom) {
       return (typeof atom.counterType === "string" && atom.counterType.trim().startsWith("-")) ? "enemy" : "own";
     case "untap":
     case "return-from-graveyard":
+    case "reanimate":
+      // The target is a card in the CASTER'S OWN graveyard — always own-side, so a reanimation TRIGGER
+      // ("When this enters, return target creature card from your graveyard to the battlefield") routes
+      // natively (programTriggerTargetsResolvable → true; the chooser's only candidates are own-gy cards).
       return "own";
     case "bounce":
       return "ambiguous";

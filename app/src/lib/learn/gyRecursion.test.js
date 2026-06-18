@@ -87,6 +87,11 @@ describe("β-3b — reanimation (Return target creature card from your graveyard
     expect(s.players.user.graveyard.some((c) => c.id === "vis")).toBe(false);          // left the graveyard
     expect(s.players.user.hand.some((c) => c.id === "lib-1")).toBe(true);              // its ETB "draw a card" FIRED
   });
+  it("a reanimation TRIGGER routes natively (own-graveyard intent, not the Arbiter)", () => {
+    // β-3b review fix: atomTargetIntent(reanimate) = "own" (the target is the caster's own graveyard), so
+    // a "When this enters, reanimate" trigger is native-trigger, not gated to the Arbiter like ambiguous ops.
+    expect(classifyCard({ type: "Creature — Cleric", name: "Reanimator", oracle: "When this creature enters, return target creature card from your graveyard to the battlefield." })).toBe("native-trigger");
+  });
   it("a target that left the graveyard is a clean no-op (CR 608.2b — no throw, nothing enters)", () => {
     let s = boardState({ userGy: [] }); // empty gy
     // resolve the atom directly against a stale target id
