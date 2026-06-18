@@ -30,6 +30,25 @@ const MAX_CAST_EXPANSIONS = 64;
 // resolution-time "you may take this whole effect" yes/no handled in runProgram.)
 const DECLINE = Symbol("decline-optional-target");
 
+/** Integers [a, b] inclusive (MODAL-2: the mode-count sizes for an "up to" pick). */
+function range(a, b) {
+  const out = [];
+  for (let i = a; i <= b; i++) out.push(i);
+  return out;
+}
+
+/** All ascending-order k-combinations of indices 0..n-1 (MODAL-2 mode-combinations). */
+function kCombinations(n, k) {
+  if (k <= 0 || k > n) return [];
+  const out = [];
+  const pick = (start, combo) => {
+    if (combo.length === k) { out.push(combo.slice()); return; }
+    for (let i = start; i < n; i++) { combo.push(i); pick(i + 1, combo); combo.pop(); }
+  };
+  pick(0, []);
+  return out;
+}
+
 /** An effect-like target spec for one atom, or null when the atom is non-targeted. */
 function atomTargetSpec(atom) {
   const tt = atom?.targetType;
@@ -104,12 +123,34 @@ export function expandCastChoices(state, controllerId, program) {
   if (!program) return [];
 
   if (program.structure === "modal") {
+    const modes = program.modal?.modes || [];
+    const chooseCount = program.modal?.chooseCount || 1;
+    // Single-pick "Choose one" (the P2.5 path): one cast per (mode × target-combo), chosenMode = an INT.
+    if (chooseCount <= 1) {
+      const out = [];
+      modes.forEach((mode, chosenMode) => {
+        const combos = expandAtoms(state, controllerId, mode.atoms);
+        if (combos === null) return; // this mode is uncastable (a target has no legal pick)
+        for (const targets of combos) out.push({ chosenMode, targets, label: mode.label });
+      });
+      return out;
+    }
+    // MODAL-2 "Choose two" / "one or both": one cast per (mode-COMBINATION × target-combo). Each
+    // combination's atoms are concatenated in ASCENDING mode order (matching programAtoms' execution
+    // order), and targets are enumerated over that concatenation so their atomIndex tags are GLOBAL +
+    // aligned. chosenMode = an ARRAY of mode indices. `upTo` ("one or both") also offers single-mode
+    // picks (sizes 1..chooseCount); a plain "Choose two" offers exactly `chooseCount`-sized combos.
+    const sizes = program.modal?.upTo ? range(1, chooseCount) : [chooseCount];
     const out = [];
-    (program.modal?.modes || []).forEach((mode, chosenMode) => {
-      const combos = expandAtoms(state, controllerId, mode.atoms);
-      if (combos === null) return; // this mode is uncastable (a target has no legal pick)
-      for (const targets of combos) out.push({ chosenMode, targets, label: mode.label });
-    });
+    for (const size of sizes) {
+      for (const combo of kCombinations(modes.length, size)) {
+        const concatAtoms = combo.flatMap((k) => modes[k].atoms);
+        const combos = expandAtoms(state, controllerId, concatAtoms);
+        if (combos === null) continue; // some required target in this mode-combo has no legal pick
+        const label = combo.map((k) => modes[k].label).join(" + ");
+        for (const targets of combos) out.push({ chosenMode: combo, targets, label });
+      }
+    }
     return out;
   }
 
