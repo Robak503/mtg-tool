@@ -512,6 +512,17 @@ const MUST_DROP_TO_LOW = [
   "Look at the top three cards of your library. Put two of them into your hand and the rest on the bottom of your library in any order.", // multi-pick
   "Reveal the top three cards of your library. Put one of them into your hand and the rest into your graveyard.", // reveal, not look
   "Look at the top X cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.", // variable X count
+  // ===== COUNTERS ===== TEAM distribution ("…on each creature you control") — only the EXACT unfiltered
+  // form is modeled (scope:youControl buffs the WHOLE team, so a filtered subset / wrong scope must drop). ──
+  "Put a +1/+1 counter on each creature you control with flying.",          // Wingspan Mentor — keyword-filtered subset
+  "Put a +1/+1 counter on each creature you control other than this creature.", // Dawnstrike Vanguard — excludes the source
+  "Put a +1/+1 counter on each creature you control with a +1/+1 counter on it.", // Patron of the Valiant — counter-filtered subset
+  "Put a +1/+1 counter on each creature you control that entered this turn.", // Raucous Entertainer — entered-this-turn subset
+  "Put X +1/+1 counters on each creature you control, where X is the number of Elves you control.", // Voja — variable X (+ "where X is" rider)
+  "Put a -1/-1 counter on each creature you don't control.",                // Liliana's Influence — WRONG scope ("don't control")
+  "Put a +1/+1 counter on each creature target player controls.",           // Practiced Offense — target player, not the controller
+  "Put a -1/-1 counter on each creature.",                                  // Soul Snuffers — ALL creatures (not "you control"); not this slice
+  "Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.", // Felidar Retreat mode — rider clause unmodeled → whole drops (no silent partial)
 ];
 
 describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
@@ -626,6 +637,9 @@ const MUST_STAY_HIGH = [
   "Look at the top three cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.", // Anticipate
   "Look at the top three cards of your library. Put one of them into your hand and the rest into your graveyard.", // Strategic Planning
   "Look at the top four cards of your library. Put one of them into your hand and the rest into your graveyard. Draw a card.", // dig + draw rider
+  // ===== COUNTERS ===== the EXACT team-distribution forms — counters on the controller's whole team.
+  "Put a +1/+1 counter on each creature you control.",                          // Titania's Boon / Basri's Solidarity
+  "Put two +1/+1 counters on each creature you control.",                       // Strength of the Pack (N=2)
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {
@@ -665,6 +679,24 @@ describe("parseEffectProgram — team pump (scope:youControl)", () => {
   it("is not flagged as mass removal (a team pump is not a wipe)", () => {
     const p = parseEffectProgram(I("Creatures you control get +2/+2 until end of turn."));
     expect(programContainsTeamPump(p)).toBe(true);
+  });
+});
+
+// ===== COUNTERS ===== TEAM counter distribution (scope:youControl) — "Put N +1/+1 counter(s) on
+// each creature you control". The same non-targeted controller-scoped marker the team pump uses,
+// reusing applyAddCounter's existing scope routing; no chosen target. Filtered subsets / wrong
+// scopes are pinned LOW in MUST_DROP_TO_LOW above.
+describe("parseEffectProgram — team counter distribution (scope:youControl)", () => {
+  it("models 'on each creature you control' as a single non-targeted add-counter atom", () => {
+    const p = parseEffectProgram(I("Put a +1/+1 counter on each creature you control."));
+    expect(p).toMatchObject({ confidence: "high", atoms: [{ op: "add-counter", counterType: "+1/+1", amount: 1, scope: "youControl" }] });
+    expect(p.atoms[0].targetType).toBeUndefined();          // scope, NOT a targetType
+    expect(programNeedsChosenTarget(p)).toBe(false);         // non-targeted → no chosen target
+  });
+  it("carries the spelled count (N=2) through to the amount", () => {
+    const p = parseEffectProgram(I("Put two +1/+1 counters on each creature you control."));
+    expect(p).toMatchObject({ confidence: "high", atoms: [{ op: "add-counter", counterType: "+1/+1", amount: 2, scope: "youControl" }] });
+    expect(programNeedsChosenTarget(p)).toBe(false);
   });
 });
 

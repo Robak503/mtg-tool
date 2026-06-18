@@ -67,3 +67,33 @@ describe("effectAtoms — per-atom resolution (parity with the legacy helpers)",
     expect(ATOM_RESOLVERS["counter-spell"]).toBeUndefined();
   });
 });
+
+// ===== COUNTERS ===== team counter distribution (scope:youControl) — applyAddCounter routes the
+// scope to the controller's creatures (gathered at resolution), reusing the single-target loop. No
+// chosen target; the affected set is keyed off ctx.controller, so a trigger/activated source on a
+// non-user player buffs THAT player's team.
+describe("effectAtoms — team counter distribution (scope:youControl)", () => {
+  it("puts a +1/+1 counter on EVERY creature the controller controls, none of the opponent's", () => {
+    const state = st({ userBf: [cr("Mine A", "a", "user"), cr("Mine B", "b", "user")], aiBf: [cr("Theirs", "t", "ai")] });
+    const after = resolveAtom(state, { op: "add-counter", counterType: "+1/+1", amount: 1, scope: "youControl" }, { controller: "user", targets: [] });
+    expect(after.players.user.battlefield.map(p => p.counters["+1/+1"] || 0)).toEqual([1, 1]);
+    expect(after.players.ai.battlefield[0].counters["+1/+1"] || 0).toBe(0); // opponent untouched
+  });
+  it("carries the count N to every controlled creature", () => {
+    const state = st({ userBf: [cr("Mine", "a", "user")] });
+    const after = resolveAtom(state, { op: "add-counter", counterType: "+1/+1", amount: 2, scope: "youControl" }, { controller: "user", targets: [] });
+    expect(after.players.user.battlefield[0].counters["+1/+1"]).toBe(2);
+  });
+  it("resolves against ctx.controller — an AI-controlled source buffs the AI's team only (trigger/activated path)", () => {
+    const state = st({ userBf: [cr("User", "u", "user")], aiBf: [cr("AI", "x", "ai")] });
+    const after = resolveAtom(state, { op: "add-counter", counterType: "+1/+1", amount: 1, scope: "youControl" }, { controller: "ai", targets: [] });
+    expect(after.players.ai.battlefield[0].counters["+1/+1"]).toBe(1);
+    expect(after.players.user.battlefield[0].counters["+1/+1"] || 0).toBe(0);
+  });
+  it("a -1/-1 team distribution runs the lethal SBA (a 2/2 dropped to 0 toughness dies)", () => {
+    const state = st({ userBf: [cr("Frail", "f", "user", { power: 2, toughness: 2 })] });
+    const after = resolveAtom(state, { op: "add-counter", counterType: "-1/-1", amount: 2, scope: "youControl" }, { controller: "user", targets: [] });
+    expect(after.players.user.battlefield).toHaveLength(0);
+    expect(after.players.user.graveyard.map(c => c.name)).toEqual(["Frail"]);
+  });
+});
