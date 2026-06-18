@@ -13,10 +13,10 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 ## Progress to goal — corpus-wide native % (`cd app && npm run coverage`)
 
 **Goal: ~90% corpus native** (the honest ceiling; the Arbiter permanently handles the rest).
-**Now: 16.0% → 18% of the way to goal.** (β-3b shipped — REANIMATION ("...graveyard to the battlefield" + ETB), +8. The last meaty clean atom; a new mechanic.)
+**Now: 16.1% → 18% of the way to goal.** (**δ phase opened.** The clean single-atom frontier is exhausted — pure pump/burn/counter/destroy are all already native, and the static-anthem + trigger-event subsystems turned out already-built. Remaining gains are bespoke subsystems. **δ-1 shipped: targeted HAND DISRUPTION** (Duress / Thoughtseize family — reveal hand → choose → discard), +13. 1v1-faithful; a 4P fidelity refinement is queued as δ-1b.)
 
 ```
-[####······················] 16.0% native  ·  goal 90%  ·  18% of the way there
+[####······················] 16.1% native  ·  goal 90%  ·  18% of the way there
 ```
 
 | Slice | Corpus native | Δ | → goal (now ÷ 90%) | Deck % | PR |
@@ -32,7 +32,8 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 | β-1: creature-target restrictions | **15.9%** (5,338/33,540) | +0.2 | 18% | 47% | #204 |
 | β-2: permanent-type union targets | **16.0%** (5,351/33,540) | +0.1 | 18% | 47% | #205 |
 | β-3: bounce a non-creature permanent | **16.0%** (5,368/33,540) | +0.1 | 18% | 47% | #206 |
-| β-3b: reanimation (gy → battlefield) | **16.0%** (5,376/33,540) | +0.0 | 18% | 47% | #207 _(PR open)_ |
+| β-3b: reanimation (gy → battlefield) | **16.0%** (5,377/33,540) | +0.0 | 18% | 47% | #207 merged |
+| δ-1: targeted hand disruption | **16.1%** (5,390/33,540) | +0.1 | 18% | 47% | #208 merged |
 
 **Projected trajectory** (roadmap §2): α (near-term clean atoms) → ~37% · α+β (full vocab grind) → ~90% · +δ (hard subsystems) → ~98%. A row is appended every time a slice merges — this table *is* the climb.
 
@@ -66,7 +67,8 @@ the corpus signal re-ranks the roadmap toward the cost-structure work (γ1) soon
 | β-1 | creature-target restrictions — color/type negation + combat state (Doom Blade, Go for the Throat, Divine Verdict) | **#204 merged** | +64 cards (15.7→15.9%) |
 | β-2 | compound permanent-type union targets ("destroy/exile target X or Y") — Mortify, Wrecking Ball, Demolish | **#205 merged** | +13 cards (15.9→16.0%) |
 | β-3 | bounce a non-creature permanent ("Return target permanent to its owner's hand") — Boomerang, Void Snare | **#206 merged** | +17 cards (≈16.0%) |
-| β-3b | reanimation ("...graveyard to the battlefield" + ETB) — Resurrection, Zombify; a new mechanic | **#207 (PR open)** | +8 cards (≈16.0%) |
+| β-3b | reanimation ("...graveyard to the battlefield" + ETB) — Resurrection, Zombify; a new mechanic | **#207 merged** | +8 cards (≈16.0%) |
+| **δ-1** | **targeted hand disruption** — Duress / Thoughtseize family (reveal hand → choose → discard); `handCard` target mirrors the graveyard-recursion path, riders compose (lose-life/scry/surveil/draw), AI strips the best card. **Opens the δ (subsystem) phase.** | **#208 merged** | +13 cards (16.0→16.1%) |
 
 ## Cost-atom frequency (the data behind the γ-series, scanned over the real corpus)
 
@@ -77,36 +79,36 @@ needs a picker) · {X} 157 · {E}/{S}/{Q} symbol-mana. **Lesson:** sacrifice was
 lever; the rest are either picker-gated (Discard, Tap-a-creature) or sit on complex cards (Exile, Remove-
 counter). The cost frontier is now low-ROI — pivot to the spell-effect vocabulary grind.
 
-## In flight / next
+## In flight / next — the δ (subsystem) phase
 
-- **β-3b — reanimation: BUILT + in review (PR #207, branch `feat/beta3b-reanimation`).** The last meaty
-  clean atom + a NEW mechanic. "Return target creature card from your graveyard to the battlefield"
-  (Resurrection, Zombify, Breath of Life): the gy creature card ENTERS the battlefield as a permanent +
-  fires its ETB. Builds on graveyard recursion (#185 — same graveyardCard target, public-zone cast-time,
-  front-face creature filter, tokens excluded) but destination = battlefield. New `reanimate` atom +
-  `checkEnterTriggers` (mirrors checkDiesTriggers). `applyReanimate` enters under the caster's control
-  MIRRORING `enterPermanent`'s setup (perm id + CR 613.7e timestamp + enteredOnTurn + creature summoning
-  sickness) — can't import `enterPermanent` (resolvers→runProgram→effectAtoms cycles). A rider ("tapped"/
-  "under your control"/"+1/+1 counter") / non-creature filter → Arbiter. AI holds (effect null). Full
-  suite green (+ reanimation pins incl. the LIVE e2e: Zombify reanimates Elvish Visionary → it enters
-  summoning-sick with enteredOnTurn+timestamp and its ETB "draw a card" FIRES) · lint clean · corpus 16.0%
-  (5,376, **+8**) · sweep 0 false-positives, 0 rider-leak.
-  - **Adversarial review (3 lenses, Opus): MERGE — no P0, no false-positive** (verified byte-identical
-    field parity with enterPermanent, summoning sickness, ETB firing, exactly-once entry, stale-target
-    no-op, 7 native / 39 rider-variants → Arbiter). Applied its 2 clean P2 improvements: (1) added the
-    `reanimate` case to atomTargetIntent → "own" (a reanimation TRIGGER now routes natively, not Arbiter —
-    safe own-graveyard intent, a small coverage gain); (2) DRY'd the ETB-fire — `enterPermanent` now uses
-    the shared `checkEnterTriggers`, removed the duplicate `checkEtbTriggers` (the cast/clone/aura and
-    reanimate ETB paths can no longer drift). The 3rd P2 (summoning-sick "//" split) is non-reachable
-    (enumeration filters front-face; matches enterPermanent) — left consistent.
-  - **Merge gate:** review MERGE + CI green, then `gh pr merge --squash`.
-- **β backlog / next atoms (the clean-atom frontier is THINNING — most of what's left needs hard δ
-  subsystems):** reanimation ("return target creature card from your graveyard to the BATTLEFIELD" — ~8,
-  a new mechanic: enter + fire ETB, reuses enterPermanent); positive-type creature restrictions (~1-5);
-  the pre-existing comma-list multi-type removal (Bedevil/Vindicate — widen the legacy exclusion to any
-  "or"/comma type list); teach the AI to cast union/permanent removal (the β-2 AI-hold). Beyond these the
-  gains need the **δ hard subsystems** (replacement effects, copy layer-1, planeswalker loyalty,
-  control-change) — big multi-cycle builds, not 1-cycle clean atoms.
+**The clean single-atom frontier is EXHAUSTED** (confirmed by a corpus scan: pure pump/burn/counter/
+destroy/bounce/tokens/counters/mill/scry/tap are all already native; the big headline gap-clusters —
+124 pump, 77 burn, 65 counter — are all RIDER variants of already-native atoms). The two δ's first
+planned (static anthem, trigger-event wiring) turned out **already built** (`staticAbilityParser.js`,
+`checkAttackTriggers`/`checkStepTriggers`/…). So from here every gain is a bespoke **subsystem**.
+
+- **δ-1 — targeted hand disruption: SHIPPED (PR #208 merged).** Duress / Thoughtseize / Inquisition /
+  Coercion / Despise / Divest / Harsh Scrutiny family (13 corpus cards). The 3-sentence "reveal hand →
+  choose a card → discard" template collapses to one `discard-chosen` atom whose target is a `handCard`
+  (a card in an opponent's hand, chosen at cast — mirrors the `graveyardCard` recursion target); riders
+  (lose-life / scry / surveil / draw) compose via the multi-atom gate. Human picks the card via the
+  existing action-list UI; AI strips the highest-mv card. **3-lens review: MERGE, 0 P0, 0 false-positive**
+  (37k-card sweep = exactly the 13 genuine cards). corpus 16.0→16.1% (**+13**).
+  - **One review P2 → queued as δ-1b:** in 4P FFA, "opponents' hands only" pooling lets the caster/AI see
+    ALL opponents' hidden hands and cherry-pick the global best, vs real Duress (target ONE opponent,
+    committed before the reveal). NOT a misresolve, and 1v1 is fully correct — but 4P is the owner's
+    primary format + it skews the self-play data engine. **δ-1b = the faithful model:** target an opponent
+    (player) at cast → at resolution set a `pendingChoice` (mirror tutor/scry/clone) revealing only THAT
+    opponent's hand → human picks / AI auto-picks. Reuses the proven resolution-time pending-choice infra;
+    its own slice + review (touches the resolver, runProgram resume, learnSession driver, the UI picker,
+    serialization, AI auto-pick). Land it before the next release.
+
+**Next δ candidates (after δ-1b):** spell additional costs (~74 — "as an additional cost to cast this,
+sacrifice/discard/pay-life"; threads the cast path, reuses the γ cost machinery) · modal spells
+("choose one —", ~50; each mode often already-modeled, the lever is the mode-choice UI/AI) · temporary
+control change (Threaten / Act of Treason, ~25; the hardest — control swap + untap + haste + give-back).
+**Release cadence:** v0.37.0 cut this run (banked α/β/cost slices through #207); bundle δ-1+ into the
+next release at a sensible milestone.
 ## β PHASE — the spell-effect vocabulary grind (SCOPED, ready to build)
 
 The clean COST frontier is mined out. The biggest remaining bucket is **Spell effect (other) — ~7,028
