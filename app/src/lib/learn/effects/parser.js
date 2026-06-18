@@ -87,6 +87,23 @@ function stripUncounterableRider(text) {
 }
 
 /**
+ * KWSTRIP-1 — strip a VACUOUS cast/alternate-cost keyword LINE so the spell's actual BODY can parse (the
+ * #200 vacuous-rider precedent; zero new resolver). Each of these keywords is a different WAY to cast or
+ * use the card — foretell / suspend (cast later from exile), splice onto Arcane (graft the text onto an
+ * Arcane spell), recover (a graveyard ability), harmonize, basic landcycling (discard-to-fetch from hand)
+ * — NONE of which changes the spell's resolution when it is cast NORMALLY, so the engine resolves the body
+ * identically whether or not the parser sees the keyword line. Anchored to a whole LINE that STARTS with
+ * the keyword + its cost, so it can never eat a body sentence (a suspend card's "Exile ~ with N time
+ * counters" body stays intact → still LOW, correctly). DELIBERATELY EXCLUDES rebound / cipher / conspire /
+ * learn / proliferate / amass — those DO add an effect (recast / encode / copy / Lesson / extra effect),
+ * so their card must stay LOW → Arbiter (never strip a non-vacuous keyword).
+ */
+const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{)[^\n]*$/gim;
+function stripCastKeywordLines(text) {
+  return String(text || "").replace(CAST_KEYWORD_LINE, " ");
+}
+
+/**
  * For an {X}-cost spell, rewrite the X in the AMOUNT slot of a modeled clause to a
  * sentinel "1" so the proven numeric clause parser recognizes the shape; the caller
  * stamps `amountX` and drops the sentinel. ONLY the amount slot is rewritten — a
@@ -895,6 +912,9 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   // Drop the vacuous "This spell can't be countered" rider too — uncounterability is enforced at the
   // counter-target enumerator, not the effect program, so honoring it yields the identical resolution.
   oracle = stripUncounterableRider(oracle);
+  // KWSTRIP-1 — drop a vacuous cast-keyword line (foretell / suspend / splice onto arcane / recover /
+  // harmonize / basic landcycling) so the spell's BODY parses; the normal-cast resolution is identical.
+  oracle = stripCastKeywordLines(oracle);
 
   // Multi-sentence templates whose effect SPANS sentences (so the clause splitter below would shatter
   // them into unmatchable fragments) are matched up front as ONE atom, then any RIDER sentences that
