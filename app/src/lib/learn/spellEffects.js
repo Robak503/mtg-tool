@@ -29,6 +29,8 @@ import {
   creaturePower,
   creatureToughness,
   isIndestructible,
+  adjustLoyalty,
+  destroyZeroLoyaltyPlaneswalkers,
 } from "./gameState.js";
 import { checkDiesTriggers } from "./triggers.js";
 
@@ -114,11 +116,13 @@ export function parseSpellEffect(card) {
     // mis-match the "target opponent" → player-damage branch below.
     if (/\beach\b/.test(tgt)) return null;
     if (/any target/.test(tgt)) return { kind: "damage", amount, targetType: "any" };
-    // "creature or PLAYER" is any (creature+player). "creature or PLANESWALKER" is
-    // NOT — it excludes players; since we don't model planeswalkers, offer creatures
-    // ONLY (mapping it to "any" would let a creature-or-pw burn illegally hit a player).
+    // "creature or PLAYER" → any (creature+player). PW-6: damage that can hit a planeswalker now
+    // enumerates walkers too (a walker target takes the damage as loyalty removal, CR 120.3c). Order
+    // matters — the "… or planeswalker" forms precede the bare "target player"/"target creature".
     if (/target creature or player\b/.test(tgt)) return { kind: "damage", amount, targetType: "any" };
-    if (/target creature or planeswalker\b/.test(tgt)) return { kind: "damage", amount, targetType: "creature" };
+    if (/target creature or planeswalker\b/.test(tgt)) return { kind: "damage", amount, targetType: "creatureOrPlaneswalker" };
+    if (/target player or planeswalker\b/.test(tgt)) return { kind: "damage", amount, targetType: "playerOrPlaneswalker" };
+    if (/target planeswalker\b/.test(tgt)) return { kind: "damage", amount, targetType: "planeswalker" };
     if (/target (player|opponent)/.test(tgt)) return { kind: "damage", amount, targetType: "player" };
     if (/target[^,]*creature/.test(tgt)) return { kind: "damage", amount, targetType: "creature" };
     return null; // unrecognized damage target
@@ -389,9 +393,24 @@ export function enumerateTargets(state, controllerId, effect) {
       }
     }
   };
+  // PW-6: a live planeswalker (carries a loyalty counter, PW-1 ETB) is a legal target for damage
+  // (and other "any target" effects). Honors the controller restriction so "… an opponent controls"
+  // never offers your own walker. Damage to it is removed as loyalty (applyDamageEffect, CR 120.3c).
+  const addPlaneswalkers = () => {
+    for (const pid of Object.keys(state.players)) {
+      for (const perm of state.players[pid].battlefield) {
+        if (perm.counters?.loyalty != null && controllerOk(pid)) {
+          out.push({ type: "planeswalker", id: perm.id, controller: pid, name: perm.card?.name });
+        }
+      }
+    }
+  };
   if (effect.targetType === "creature") addCreatures();
   else if (effect.targetType === "player") addPlayers();
-  else if (effect.targetType === "any") { addCreatures(); addPlayers(); }
+  else if (effect.targetType === "any") { addCreatures(); addPlayers(); addPlaneswalkers(); }
+  else if (effect.targetType === "creatureOrPlaneswalker") { addCreatures(); addPlaneswalkers(); }
+  else if (effect.targetType === "playerOrPlaneswalker") { addPlayers(); addPlaneswalkers(); }
+  else if (effect.targetType === "planeswalker") addPlaneswalkers();
   else if (effect.targetType === "spell") addStackSpells();
   else if (effect.targetType === "graveyardCard") addGraveyardCards();
   else if (effect.targetType === "opponent") addOpponents();
@@ -532,10 +551,14 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     for (const t of targets) {
       if (t.type === "player" && next.players[t.id]) next = loseLife(next, { playerId: t.id, amount });
       else if (t.type === "creature" && findPermanent(next, t.id)) next = markCombatDamage(next, { permanentId: t.id, amount });
+      // PW-6: damage to a planeswalker removes that many loyalty counters (CR 120.3c), not life.
+      else if (t.type === "planeswalker" && findPermanent(next, t.id)) next = adjustLoyalty(next, { permanentId: t.id, delta: -amount });
     }
   }
   const dmgResult = destroyLethalCreatures(next);
   next = checkDiesTriggers(dmgResult.state, dmgResult.dead);
+  // PW-6: a planeswalker driven to 0 loyalty by the damage is put into the graveyard (CR 704.5i).
+  next = destroyZeroLoyaltyPlaneswalkers(next).state;
   return logEvent(next, { kind: "spell-effect", effect: "damage", controller, amount, targets: targets.map(t => t.id) });
 }
 
