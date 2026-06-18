@@ -546,18 +546,18 @@ const MUST_DROP_TO_LOW = [
   "You may pay {2}. If you do, draw a card.",                          // optional COST (kicker) — deferred
   "You may sacrifice a creature.",                                      // optional UNMODELED effect — deferred
   "You may draw a card and gain 2 life.",                              // conjoined "you may X and Y" — optionality scope ambiguous → low (α2 forward guard)
-  // ── GRAVEYARD RECURSION (return-from-graveyard) — only the bare single-target "return target
-  // [creature] card from YOUR graveyard to your HAND" is modeled. A different filter, another
-  // graveyard, multi-card cardinality, or a battlefield (reanimation) destination must stay LOW →
-  // Arbiter, so we never mis-target the graveyard or silently drop a rider. ──
+  // ── GRAVEYARD RECURSION (return-from-graveyard) — single-target "return target <X> card from YOUR
+  // graveyard to your HAND". REG-1 widened the modeled <X> to any basic type / " or " union / "permanent"
+  // (see gyRecursion.test.js for those HIGH pins). A NON-type filter (subtype / color / negation /
+  // intersection), another graveyard, multi-card cardinality, or a battlefield (reanimation) destination
+  // must stay LOW → Arbiter, so we never mis-target the graveyard or silently drop a rider. ──
   "Return up to two target creature cards from your graveyard to your hand.",       // "up to two" cardinality
-  "Return target instant or sorcery card from your graveyard to your hand.",        // unmodeled filter
-  "Return target artifact card from your graveyard to your hand.",                  // unmodeled filter
-  "Return target permanent card from your graveyard to your hand.",                 // unmodeled filter
+  "Return target goblin card from your graveyard to your hand.",                    // creature SUBTYPE — unmodeled (REG-1 models types, not subtypes)
+  "Return target nonland permanent card from your graveyard to your hand.",         // negation — unmodeled
+  "Return target artifact creature card from your graveyard to your hand.",         // INTERSECTION (both), not a union — unmodeled
   "Return target creature card from a graveyard to your hand.",                     // ANY graveyard, not "your"
   "Return target creature card from your graveyard to the battlefield under your control.", // β-3b: a reanimation RIDER stays low (bare form is HIGH)
   "Return target creature card from your graveyard to the battlefield with a +1/+1 counter on it.", // counter rider → low
-  "Return target creature or land card from your graveyard to your hand.",          // multi-type filter
   // NOTE: "Each player draws a card." / "Target player draws N cards." are now HIGH (EACH-PLAYER draw
   // slice) — see the dedicated describe block above. They are intentionally NOT in this stay-low corpus.
   "Target player discards a card at random.",
@@ -751,6 +751,9 @@ const MUST_STAY_HIGH = [
   "Return target creature card from your graveyard to your hand.",                // Raise Dead (creature filter)
   "Return target card from your graveyard to your hand.",                         // Regrowth (any-card filter)
   "Return target creature card from your graveyard to your hand. Draw a card.",   // Recover (recursion + draw)
+  "Return target artifact card from your graveyard to your hand.",                // REG-1: artifact filter
+  "Return target instant or sorcery card from your graveyard to your hand.",      // REG-1: instant|sorcery union
+  "Return target permanent card from your graveyard to your hand.",               // REG-1: permanent (any permanent-type card)
   // ── Targeted NON-CREATURE permanent removal (Disenchant / Stone Rain class) — corpus-confirmed. ──
   "Destroy target artifact.",                                                     // Shatter / Smelt
   "Destroy target artifact or enchantment.",                                      // Disenchant / Naturalize

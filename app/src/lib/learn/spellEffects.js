@@ -41,6 +41,46 @@ function isCreature(card) {
   return typeOf(card).includes("Creature");
 }
 
+// ===== REG-1 graveyard-recursion filter ===== the card-type filter on "Return target <X> card from your
+// graveyard to your hand". Mirrors the tutor-filter allowlist discipline: a filter built only from these
+// basic card types (a single type, an " or "-joined union, or "permanent") is modeled by literal
+// front-face type-line containment; ANY other word (a creature subtype "goblin", a color "green", a
+// negation "nonland", an intersection "artifact creature", "historic"/"arcane") makes the filter
+// unmodeled → the recursion stays LOW → Arbiter, so we never silently mis-match a graveyard filter.
+const GY_FILTER_TYPES = new Set(["creature", "artifact", "enchantment", "land", "planeswalker", "battle", "instant", "sorcery"]);
+const GY_TYPE_WORD = { creature: "Creature", artifact: "Artifact", enchantment: "Enchantment", land: "Land", planeswalker: "Planeswalker", battle: "Battle", instant: "Instant", sorcery: "Sorcery" };
+
+/**
+ * Parse a graveyard-recursion filter phrase (the words between "target" and "card") into a canonical
+ * cardFilter token, or null if unmodeled. "" → "any" (no filter); "permanent" → "permanent" (any
+ * permanent-type card); a single type or an " or "-joined union of basic types → the sorted, pipe-joined
+ * union ("instant or sorcery" → "instant|sorcery", "artifact or creature" → "artifact|creature"). Null for
+ * any non-type word (subtype / color / negation / intersection), keeping the all-or-nothing gate.
+ */
+export function parseGraveyardFilter(phrase) {
+  const p = String(phrase || "").trim().toLowerCase();
+  if (p === "") return "any";
+  if (p === "permanent") return "permanent";
+  const parts = p.split(/\s+or\s+/).map((s) => s.trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+  for (const w of parts) if (!GY_FILTER_TYPES.has(w)) return null;
+  return [...new Set(parts)].sort().join("|");
+}
+
+/**
+ * Does a graveyard card match a parseGraveyardFilter cardFilter token? FRONT-FACE type only (CR 712.4a):
+ * a card in the graveyard has only its front-face characteristics, but the enriched type line is the
+ * combined "Front // Back" for a transform-DFC / MDFC / Battle / Saga — so "Westvale Abbey // Ormendahl,
+ * Profane Prince" (Land // Creature) is a LAND in the graveyard and must NOT match a creature filter.
+ * Mirrors the tutor (cardMatchesTutorFilter) + counter front-face discipline.
+ */
+function cardMatchesGraveyardFilter(card, cardFilter) {
+  if (!cardFilter || cardFilter === "any") return true;
+  const front = String(card?.type || card?.type_line || "").split(" // ")[0];
+  if (cardFilter === "permanent") return /\b(?:Creature|Artifact|Enchantment|Land|Planeswalker|Battle)\b/.test(front);
+  return cardFilter.split("|").some((tok) => GY_TYPE_WORD[tok] && front.includes(GY_TYPE_WORD[tok]));
+}
+
 // ─── Parse ──────────────────────────────────────────────────────────────────
 
 /**
@@ -292,19 +332,14 @@ export function enumerateTargets(state, controllerId, effect) {
       out.push({ type: "spell", id: obj.id, name: obj.source?.name });
     }
   };
-  // Graveyard recursion: legal targets are CARDS in the CASTER'S OWN graveyard ("your
-  // graveyard"), filtered by the atom's cardFilter (creature → creature cards only; any → every
-  // card). The graveyard is a public zone, so this is a normal cast-time target choice.
-  // Front-face type only (CR 712.4a) — a card in the graveyard has just its FRONT-face
-  // characteristics, but the enriched type line is the combined "Front // Back" for a
-  // transform-DFC / MDFC / Battle / Saga. So "Westvale Abbey // Ormendahl, Profane Prince"
-  // (Land // Creature) is a LAND in the graveyard and must NOT match the creature filter.
-  // Mirrors the counter (counterTypeLine) + tutor (cardMatchesTutorFilter) front-face discipline.
-  const frontIsCreature = (card) => /Creature/.test(String(card?.type || card?.type_line || "").split(" // ")[0]);
+  // Graveyard recursion: legal targets are CARDS in the CASTER'S OWN graveyard ("your graveyard"),
+  // filtered by the atom's cardFilter (REG-1: creature / any / artifact / instant|sorcery / permanent /
+  // … — see parseGraveyardFilter). The graveyard is a public zone, so this is a normal cast-time target
+  // choice; cardMatchesGraveyardFilter applies the front-face (CR 712.4a) type discipline.
   const addGraveyardCards = () => {
     for (const card of state.players[controllerId]?.graveyard || []) {
       if (card.token) continue; // a token is not a "card" (CR 111 / 608.2b) — never a legal target
-      if (effect.cardFilter === "creature" && !frontIsCreature(card)) continue;
+      if (!cardMatchesGraveyardFilter(card, effect.cardFilter)) continue;
       out.push({ type: "graveyardCard", id: card.id, controller: controllerId, name: card?.name });
     }
   };

@@ -26,7 +26,7 @@
  * NOT import gameState, resolvers, or the runner — so it can't introduce a cycle.
  */
 
-import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js";
+import { parseSpellEffect, parseCreatureTargetRestrictions, parseGraveyardFilter } from "../spellEffects.js";
 import { ATOM_RESOLVERS } from "./effectAtoms.js";
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 
@@ -314,17 +314,21 @@ function parseExtendedAtom(s) {
   if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };
   if (/^counter target noncreature spell$/.test(t)) return { op: "counter", spellFilter: "noncreature", targetType: "spell" };
   if (/^counter target creature spell$/.test(t)) return { op: "counter", spellFilter: "creature", targetType: "spell" };
-  // Graveyard recursion (CR 608) — "Return target [creature] card from your graveyard to your
-  // hand" (Raise Dead / Cemetery Recruitment; Regrowth for the unfiltered "card"). The target is
-  // a CARD in the CASTER'S OWN graveyard (a PUBLIC zone), chosen at cast time like any target —
-  // so it flows through the normal cast-time target enumeration, NO resolution-time picker. Only
-  // the two clean filters are modeled: a creature card, or any card. A different filter
-  // ("instant or sorcery card", "artifact card", "permanent card"), another zone ("from a
-  // graveyard") or a multi-card / "up to" cardinality fails the exact anchor → low → Arbiter, so we
-  // never silently mis-target the graveyard. The "to your hand" destination = return-from-graveyard;
-  // "to the battlefield" = β-3b reanimation (the card enters as a permanent + fires ETB).
-  if (/^return target creature card from your graveyard to your hand$/.test(t)) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "creature" };
-  if (/^return target card from your graveyard to your hand$/.test(t)) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "any" };
+  // Graveyard recursion (CR 608) — "Return target <X> card from your graveyard to your hand" (Raise Dead,
+  // Regrowth, Eternal Witness's ETB, Argivian Find…). The target is a CARD in the CASTER'S OWN graveyard
+  // (a PUBLIC zone), chosen at cast time like any target — so it flows through the normal cast-time target
+  // enumeration, NO resolution-time picker. REG-1: the card-type filter <X> is parsed by parseGraveyardFilter
+  // — a single basic type, an " or "-union, "permanent", or unfiltered "card" (any) is modeled; a subtype /
+  // color / negation / intersection / "historic" → null → low. The exact "$" anchor still rejects multi-card
+  // ("up to two", plural "cards"), another zone ("from a graveyard"), and any trailing rider. The "to your
+  // hand" destination = return-from-graveyard; "to the battlefield" = β-3b reanimation (enters + fires ETB).
+  {
+    const gm = /^return target (.*?)card from your graveyard to your hand$/.exec(t);
+    if (gm) {
+      const cardFilter = parseGraveyardFilter(gm[1]);
+      if (cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter };
+    }
+  }
   // β-3b reanimation — "Return target creature card from your graveyard to the battlefield" (Resurrection,
   // Zombify, Breath of Life). CREATURE only; "the battlefield under your control" / "tapped" / "with a
   // +1/+1 counter" / a non-creature card filter fails the exact anchor → low → Arbiter.
