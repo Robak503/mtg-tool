@@ -13,8 +13,10 @@
  *   gap tiers (bounces to the Arbiter, or only the body works):
  *     body-only     — a permanent with abilities the engine doesn't model yet
  *     arbiter-spell — an instant/sorcery the EffectProgram can't model
- *     native-planeswalker — a planeswalker whose every loyalty ability is fully modelled (PW-1)
- *     arbiter-pw    — a planeswalker with an unmodelled loyalty ability / residual text
+ *     native-planeswalker — a planeswalker whose every loyalty ability is fully modelled (PW-1; counts native)
+ *     playable-pw   — PW-2 hybrid: plays natively (loyalty/combat/modelled abilities) but ≥1 ability
+ *                     routes to the Arbiter at activation (NOT counted native — partial coverage)
+ *     arbiter-pw    — a planeswalker with unmodelled static/triggered residual text (whole card → Arbiter)
  *     unknown       — not found in the card index
  *
  * Pure: depends only on the EffectProgram parser (no card index, no filesystem),
@@ -31,7 +33,7 @@ import { detectTriggers } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
-import { planeswalkerNativelyCovered } from "./effects/loyaltyAbilities.js";
+import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
@@ -282,7 +284,11 @@ export function classifyCard(card) {
   // Native when EVERY loyalty ability is a fully-modeled HIGH program and there's no unmodeled
   // residual text (planeswalkerNativelyCovered, the all-or-nothing CREED gate); otherwise the whole
   // walker routes to the Ollama-only Arbiter (arbiter-pw).
-  if (castsAsPlaneswalker(card)) return planeswalkerNativelyCovered(card) ? "native-planeswalker" : "arbiter-pw";
+  if (castsAsPlaneswalker(card)) {
+    if (planeswalkerNativelyCovered(card)) return "native-planeswalker"; // every loyalty ability modeled (counts native)
+    if (planeswalkerPlayable(card)) return "playable-pw";                // PW-2 hybrid: plays, some abilities → Arbiter (NOT counted native)
+    return "arbiter-pw";                                                 // unmodeled static/trigger residue → whole card to the Arbiter
+  }
   // A DFC with a planeswalker BACK face but a non-PW front (Jace, Vryn's Prodigy; Valki // Tibalt)
   // enters as its front at runtime; its transform + back face are unmodeled, so it's NEVER native.
   // Classify body-only directly — running the creature native classifiers on the combined oracle could

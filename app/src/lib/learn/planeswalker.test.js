@@ -20,7 +20,7 @@ import {
   isPlaneswalker, castsAsPlaneswalker, startingLoyalty, adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers, untapAll,
 } from "./gameState.js";
-import { parseLoyaltyAbilities, planeswalkerNativelyCovered } from "./effects/loyaltyAbilities.js";
+import { parseLoyaltyAbilities, planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { classifyCard } from "./coverage.js";
 import { enterPermanent } from "./resolvers.js";
 
@@ -307,6 +307,79 @@ describe("casting a planeswalker", () => {
   });
 });
 
+// ── PW-2 HYBRID: pure-loyalty walkers are playable; unmodeled abilities route to the Arbiter ──
+describe("PW-2 hybrid — planeswalkerPlayable", () => {
+  // +1 draw is modeled; −6 emblem is not. Pure-loyalty (no static/trigger residue) → playable.
+  const HYBRID = "+1: Draw a card.\n−6: You get an emblem with \"Creatures you control get +2/+2.\"";
+  it("is true for a pure-loyalty walker even when some abilities are unmodeled", () => {
+    expect(planeswalkerPlayable(pw("Hybrid", HYBRID, { loyalty: "4" }))).toBe(true);
+    expect(planeswalkerNativelyCovered(pw("Hybrid", HYBRID, { loyalty: "4" }))).toBe(false); // not ALL modeled
+  });
+  it("is false when there's an unmodeled static/triggered line (residue)", () => {
+    expect(planeswalkerPlayable(pw("Staty", "Creatures you control get +1/+1.\n+1: Draw a card."))).toBe(false);
+  });
+  it("is false for a non-planeswalker and non-numeric loyalty", () => {
+    expect(planeswalkerPlayable(creature("Bear"))).toBe(false);
+    expect(planeswalkerPlayable(pw("X", HYBRID, { loyalty: "X" }))).toBe(false);
+  });
+});
+
+describe("PW-2 hybrid — offer surfaces every ability (modeled native, unmodeled → Arbiter)", () => {
+  const HYBRID = "+1: Draw a card.\n−6: You get an emblem with \"X\".";
+  it("offers both the modeled +1 (native) and the unmodeled −6 (Arbiter-routed)", () => {
+    const walker = pwPerm("perm-w", pw("Hybrid", HYBRID), "user", 6); // 6 loyalty so the −6 is payable
+    const acts = loyaltyActions(withBattlefield(mainState(), "user", [walker]));
+    const plus = acts.find((a) => a.costDelta === 1);
+    const ult = acts.find((a) => a.costDelta === -6);
+    expect(plus.program).toBeTruthy();          // modeled → native effect program
+    expect(plus.routeToArbiter).toBeFalsy();
+    expect(ult).toMatchObject({ routeToArbiter: true, program: null, targets: [] });
+  });
+  it("the −N affordability gate applies to Arbiter-routed abilities too", () => {
+    const walker = pwPerm("perm-w", pw("Hybrid", "+1: Draw a card.\n−3: You get an emblem with \"X\"."), "user", 2);
+    const acts = loyaltyActions(withBattlefield(mainState(), "user", [walker]));
+    expect(acts.some((a) => a.costDelta === -3)).toBe(false); // 2 loyalty < 3
+    expect(acts.some((a) => a.costDelta === 1)).toBe(true);
+  });
+});
+
+describe("PW-2 hybrid — dispatch routes an unmodeled ability to the Arbiter (cost paid first)", () => {
+  it("pays the loyalty cost, marks it used, then flags pendingArbiter on resolution", () => {
+    // Loyalty 8, −6 → 2 (survives, so we can inspect it post-dispatch).
+    const walker = pwPerm("perm-w", pw("Hybrid", "+1: Draw a card.\n−6: You get an emblem with \"X\"."), "user", 8);
+    let s = withBattlefield(mainState(), "user", [walker]);
+    const ult = loyaltyActions(s).find((a) => a.costDelta === -6);
+    s = dispatchAction(s, ult);
+    expect(findPermanent(s, "perm-w").permanent.counters.loyalty).toBe(2); // 8 − 6, cost paid natively
+    expect(findPermanent(s, "perm-w").permanent.loyaltyActivatedThisTurn).toBe(true);
+    expect(s.stack).toHaveLength(1);
+    s = resolveTopOfStack(s);
+    expect(s.pendingArbiter).toBeTruthy();
+    expect(s.pendingArbiter.reason).toMatch(/loyalty ability \(unmodeled/i);
+  });
+});
+
+describe("PW-2 hybrid — cast gate uses playability", () => {
+  it("a pure-loyalty walker with an unmodeled ability now ENTERS (hybrid), with its loyalty", () => {
+    let s = mainState();
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, hand: [pw("Hybrid", "+1: Draw a card.\n−6: You get an emblem with \"X\".", { loyalty: "4" })] } } };
+    s = dispatchAction(s, { kind: "cast-spell", playerId: "user", cardId: "card-Hybrid", cost: { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } });
+    s = resolveTopOfStack(s);
+    const perm = s.players.user.battlefield.find((p) => p.card.name === "Hybrid");
+    expect(perm?.counters.loyalty).toBe(4);
+  });
+  it("a walker with an unmodeled STATIC line still routes whole-card to the Arbiter (does NOT enter)", () => {
+    let s = mainState();
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, hand: [pw("Staty", "Creatures you control get +1/+1.\n+1: Draw a card.")] } } };
+    s = dispatchAction(s, { kind: "cast-spell", playerId: "user", cardId: "card-Staty", cost: { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } });
+    s = resolveTopOfStack(s);
+    expect(s.players.user.battlefield.find((p) => p.card?.name === "Staty")).toBeUndefined();
+  });
+  it("classifies a hybrid walker as playable-pw (not native, not arbiter-pw)", () => {
+    expect(classifyCard({ type: "Legendary Planeswalker — Test", oracle: "+1: Draw a card.\n−6: You get an emblem with \"X\".", loyalty: "4", name: "Hybrid" })).toBe("playable-pw");
+  });
+});
+
 // ── Creature-front double-faced cards (review P2.1) ──────────────────────────────
 describe("creature-front DFCs cast as their creature side, not as a planeswalker", () => {
   const flip = {
@@ -351,24 +424,27 @@ describe("creature-front DFCs cast as their creature side, not as a planeswalker
   });
 });
 
-// ── Corpus pins (CREED): real walkers stay on the Arbiter until their text is modeled ──
-describe("corpus pins — these real planeswalkers MUST route to the Arbiter (arbiter-pw)", () => {
-  const MUST_DROP = [
-    { name: "Jaya, Venerated Firemage", type: "Legendary Planeswalker — Jaya", loyalty: "5",
+// ── Corpus pins (CREED): real walkers and their honest tiers — NEVER native (no false positives) ──
+describe("corpus pins — real planeswalkers classify correctly and never leak native", () => {
+  const PINS = [
+    // Static/triggered residue → the WHOLE card routes to the Arbiter (can't hybrid-route a static).
+    { name: "Jaya, Venerated Firemage", type: "Legendary Planeswalker — Jaya", loyalty: "5", tier: "arbiter-pw",
       oracle: "If another red source you control would deal damage to a permanent or player, it deals that much damage plus 1 to that permanent or player instead.\n−2: Jaya deals 2 damage to any target." },
-    { name: "Sorin, Vengeful Bloodlord", type: "Legendary Planeswalker — Sorin", loyalty: "4",
+    { name: "Sorin, Vengeful Bloodlord", type: "Legendary Planeswalker — Sorin", loyalty: "4", tier: "arbiter-pw",
       oracle: "During your turn, creatures and planeswalkers you control have lifelink.\n+2: Sorin deals 1 damage to target player or planeswalker.\n−X: Return target creature card with mana value X from your graveyard to the battlefield." },
-    { name: "Tibalt, the Fiend-Blooded", type: "Legendary Planeswalker — Tibalt", loyalty: "2",
+    // Pure-loyalty, none of its abilities modeled → PLAYABLE (PW-2 hybrid): it enters/ticks/dies and
+    // every ability routes to the Arbiter at activation. Playable, but NOT counted native.
+    { name: "Tibalt, the Fiend-Blooded", type: "Legendary Planeswalker — Tibalt", loyalty: "2", tier: "playable-pw",
       oracle: "+1: Draw a card, then discard a card at random.\n−4: Tibalt deals damage equal to the number of cards in target player's hand to that player.\n−6: Gain control of all creatures until end of turn. Untap them. They gain haste until end of turn." },
   ];
-  for (const card of MUST_DROP) {
-    it(`${card.name} stays arbiter-pw`, () => {
+  for (const card of PINS) {
+    it(`${card.name} → ${card.tier} (never native)`, () => {
       expect(planeswalkerNativelyCovered(card)).toBe(false);
-      expect(classifyCard({ type: card.type, oracle: card.oracle, loyalty: card.loyalty, name: card.name })).toBe("arbiter-pw");
+      expect(classifyCard({ type: card.type, oracle: card.oracle, loyalty: card.loyalty, name: card.name })).toBe(card.tier);
     });
   }
 
-  it("the synthetic native walker classifies native-planeswalker (the positive pin)", () => {
+  it("the synthetic fully-modeled walker classifies native-planeswalker (the positive pin)", () => {
     expect(classifyCard({ type: "Legendary Planeswalker — Test", oracle: NATIVE_ORACLE, loyalty: "3", name: "Native" })).toBe("native-planeswalker");
   });
 });
