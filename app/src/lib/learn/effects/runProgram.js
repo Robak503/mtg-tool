@@ -25,7 +25,7 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice } from "../pendingChoice.js";
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent } from "../gameState.js";
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 
@@ -268,6 +268,61 @@ export function resolveSacrificeChoice(state, permId) {
   const casterId = pc.resume?.controller;
   if (casterId && !r.players?.[casterId]) return r; // caster eliminated mid-pause → no resume
   return resumeAfterChoice(r, pc);
+}
+
+/**
+ * ===== DIVIDE ===== (MT-1) — auto-distribute a divide-damage spell's total for an AI / Expert caster (no
+ * picker). Greedy KILL: give each ENEMY creature (a candidate the caster doesn't control) just-lethal damage
+ * cheapest-first (toughness asc, serialize-stable id tie-break), spending the budget to kill as many as
+ * possible; dump any remainder on an enemy player (reach), falling back to the last creature if there's no
+ * enemy player. Returns a distribution `[{ id, type, amount }]` (sum ≤ pc.amount) — correct + never wastes
+ * damage on the caster's own board; not provably optimal (a later heuristic can refine).
+ */
+export function autoPickDivideDistribution(state, pc) {
+  let remaining = pc.amount || 0;
+  const enemies = (pc.candidates || []).filter((c) => c.controller && c.controller !== pc.controller);
+  const dist = [];
+  const creatures = enemies
+    .filter((c) => c.type === "creature")
+    .map((c) => ({ c, t: Math.max(1, creatureToughness(findPermanent(state, c.id)?.permanent, state) || 1) }))
+    .sort((a, b) => a.t - b.t || (a.c.id < b.c.id ? -1 : 1));
+  for (const { c, t } of creatures) {
+    if (remaining <= 0) break;
+    const give = Math.min(remaining, t);
+    if (give > 0) { dist.push({ id: c.id, type: "creature", amount: give }); remaining -= give; }
+  }
+  if (remaining > 0) {
+    const player = enemies.find((c) => c.type === "player") || (pc.candidates || []).find((c) => c.type === "player");
+    if (player) dist.push({ id: player.id, type: "player", amount: remaining });
+    else if (dist.length) dist[dist.length - 1].amount += remaining; // no player target → onto the last creature
+  }
+  return dist;
+}
+
+/**
+ * ===== DIVIDE ===== (MT-1) — settle a divide-damage division: apply `distribution` ([{id,type,amount}], from
+ * the human picker or autoPickDivideDistribution) as single-target damage events through the SAME registered
+ * `deal-damage` atom (so the lethal SBA / lifelink / dies-triggers are identical to any burn), then RESUME
+ * the caster's program. Guards: only candidate ids count; the running sum is capped at pc.amount (never
+ * fabricated extra damage); an eliminated caster skips the damage and just resumes (CR 800.4a); a stale/dead
+ * creature target is a no-op via the atom's own findPermanent guard.
+ */
+export function resolveDivideChoice(state, distribution) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "divide-damage") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return resumeAfterChoice(next, pc); // caster eliminated mid-pause → no damage
+  const validIds = new Set((pc.candidates || []).map((c) => c.id));
+  let spent = 0;
+  for (const d of distribution || []) {
+    if (!validIds.has(d.id) || (d.type !== "creature" && d.type !== "player")) continue;
+    const amt = Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent));
+    if (amt <= 0) continue;
+    next = resolveAtom(next, { op: "deal-damage", amount: amt, targetType: d.type }, { controller: pc.controller, targets: [{ type: d.type, id: d.id }] });
+    spent += amt;
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "divide-damage", controller: pc.controller, amount: pc.amount, spent });
+  return resumeAfterChoice(next, pc);
 }
 
 /**

@@ -154,6 +154,24 @@ export function setPendingSacrificeChoice(state, { controller, candidates, queue
 }
 
 /**
+ * ===== DIVIDE ===== (MT-1) — flag a divide-damage spell awaiting the CASTER's DIVISION decision (which
+ * targets get how much of `amount`; CR 601.2d's division is modeled at RESOLUTION to avoid the cast-time
+ * cartesian blow-up of "any number of targets × every split"). `controller` is the caster (the divider);
+ * the driver pauses for a human caster and auto-distributes for an AI/Expert (autoPickDivideDistribution).
+ * `candidates` is the legal target set as `{ id, name, type }` (creatures on every battlefield + players,
+ * per the spell's `group`) — all public, hidden-info safe. `amount` is the total damage to split (each
+ * assigned target gets ≥1, CR 601.2d). The caster's continuation rides on `pendingChoice.resume`.
+ */
+export function setPendingDivideChoice(state, { controller, amount, candidates, group, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "divide-damage-pending", controller, amount, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "divide-damage", controller, amount, candidates, group, sourceName },
+  };
+}
+
+/**
  * ===== EACH-PLAYER ===== discard (EP-2) — flag a discard awaiting the DISCARDING player's pick of which
  * card to pitch (CR 701.8 — the discarding player chooses, NOT the caster; the opposite chooser to δ-1b
  * hand disruption). `controller` here is the DISCARDER (Mind Rot's target / each player), so the driver's
