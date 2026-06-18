@@ -23,7 +23,7 @@ import {
   isIndestructible,
   attachPermanent,
 } from "./gameState.js";
-import { applyDestroyEffect } from "./spellEffects.js";
+import { applyDestroyEffect, chooseAITarget } from "./spellEffects.js";
 import { permanentHasKeyword } from "./layers.js";
 import { parseStaticAbilities, parseEquipmentBonus, parseAuraBonus, isNativeAura } from "./staticAbilityParser.js";
 
@@ -38,6 +38,7 @@ const bearCard = { id: "c-bear", name: "Grizzly Bears", type: "Creature — Bear
 const ANTHEM_INDEST = { id: "c-anthem", name: "Indestructible Anthem", type: "Enchantment", oracle: "Creatures you control have indestructible." };
 const AURA_INDEST = { id: "c-auraind", name: "Shielding Aura", type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature has indestructible." };
 const ZERO_TOUGH_INDEST = { id: "c-zero", name: "Hollow Idol", type: "Artifact Creature — Construct", power: 0, toughness: 0, oracle: "Indestructible" };
+const BIG_INDEST = { id: "c-big", name: "Indestructible Colossus", type: "Creature — Golem", power: 5, toughness: 5, oracle: "Indestructible" };
 
 const perm = (card, controller, id = card.id) => createPermanent({ id, card, controller });
 function board({ user = [], ai = [] } = {}) {
@@ -167,5 +168,26 @@ describe("destroyLethalCreatures — indestructible survives lethal/deathtouch b
     s = markCombatDamage(s, { permanentId: "c-bear", amount: 2 });
     const r = destroyLethalCreatures(s);
     expect(r.dead.map((d) => d.id)).toEqual(["c-bear"]);
+  });
+});
+
+// ─── AI targeting — don't waste removal on indestructible (review finding) ────────
+
+describe("chooseAITarget — AI never wastes removal/burn on an indestructible creature", () => {
+  it("destroy: skips a BIGGER indestructible creature for a smaller killable one", () => {
+    // Without the filter the AI picks the 5/5 (biggest power) and fizzles; with it, the 2/2 bear.
+    const s = board({ user: [perm(BIG_INDEST, "user"), perm(bearCard, "user")] });
+    const targets = [{ type: "creature", id: "c-big", controller: "user" }, { type: "creature", id: "c-bear", controller: "user" }];
+    expect(chooseAITarget(s, "ai", { kind: "destroy" }, targets)?.id).toBe("c-bear");
+  });
+  it("destroy: holds (null) when every enemy creature is indestructible", () => {
+    const s = board({ user: [perm(BIG_INDEST, "user")] });
+    const targets = [{ type: "creature", id: "c-big", controller: "user" }];
+    expect(chooseAITarget(s, "ai", { kind: "destroy" }, targets)).toBeNull();
+  });
+  it("damage: an indestructible creature isn't 'killable' — prefers the enemy player", () => {
+    const s = board({ user: [perm(DARKSTEEL_MYR, "user")] }); // 0/1 indestructible — toughness ≤ 3 but unkillable
+    const targets = [{ type: "creature", id: "c-myr", controller: "user" }, { type: "player", id: "user" }];
+    expect(chooseAITarget(s, "ai", { kind: "damage", amount: 3 }, targets)?.type).toBe("player");
   });
 });

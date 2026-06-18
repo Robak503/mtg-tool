@@ -334,16 +334,21 @@ export function chooseAITarget(state, aiPlayerId, effect, targets) {
   const enemies = new Set(opponentsOf(state, aiPlayerId));
   const enemyCreatures = targets.filter(t => t.type === "creature" && enemies.has(t.controller));
   const enemyPlayers = targets.filter(t => t.type === "player" && enemies.has(t.id));
+  // An indestructible enemy creature can't be killed by destroy (CR 702.12b) or by lethal damage
+  // (CR 704.5g) — the AI shouldn't waste removal/burn on it (the spell would fizzle / the damage
+  // just wears off at cleanup). Exclude it from every creature pick; players are unaffected.
+  const isIndestructibleTarget = (t) => { const lk = findPermanent(state, t.id); return !!lk && isIndestructible(lk.permanent, state); };
+  const killableCreatures = enemyCreatures.filter(t => !isIndestructibleTarget(t));
 
   if (effect.kind === "destroy") {
-    if (!enemyCreatures.length) return null;
-    return [...enemyCreatures].sort((a, b) => powerOf(state, b) - powerOf(state, a))[0];
+    if (!killableCreatures.length) return null;
+    return [...killableCreatures].sort((a, b) => powerOf(state, b) - powerOf(state, a))[0];
   }
   if (effect.kind === "damage") {
-    const killable = enemyCreatures.filter(t => toughOf(state, t) > 0 && toughOf(state, t) <= effect.amount);
+    const killable = killableCreatures.filter(t => toughOf(state, t) > 0 && toughOf(state, t) <= effect.amount);
     if (killable.length) return killable.sort((a, b) => powerOf(state, b) - powerOf(state, a))[0];
     if (enemyPlayers.length) return [...enemyPlayers].sort((a, b) => state.players[a.id].life - state.players[b.id].life)[0];
-    if (enemyCreatures.length) return [...enemyCreatures].sort((a, b) => powerOf(state, b) - powerOf(state, a))[0];
+    if (killableCreatures.length) return [...killableCreatures].sort((a, b) => powerOf(state, b) - powerOf(state, a))[0];
     return null;
   }
   return null;

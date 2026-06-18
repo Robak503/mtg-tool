@@ -112,6 +112,9 @@ function parseClause(clause, out) {
   // tail must reduce EXACTLY to "indestructible" (a combined "indestructible and hexproof" we
   // can't fully model drops out → Arbiter, never a silent partial grant). Creature "<creatures>
   // … have <kw>" grants stay on the anthem path below (it also handles combat-keyword combos).
+  // The symmetric "<type>s are indestructible" (no "you control") → controllerScope "each" is
+  // intentional and corpus-validated: the only real card it hits is Terra Eternal ("All lands
+  // have indestructible"), for which an all-players grant IS correct.
   const grantM = c.match(/^(all|other|each)?\s*(artifacts?|enchantments?|lands?|permanents?)\s+(?:you control\s+)?(?:are|is|have|has)\s+(.+)$/);
   if (grantM) {
     const tail = grantM[3].replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
