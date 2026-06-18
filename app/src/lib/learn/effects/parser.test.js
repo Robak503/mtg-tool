@@ -379,7 +379,6 @@ const MUST_DROP_TO_LOW = [
   "Counter up to two target spells.",                            // "up to two" cardinality unmodeled
   "Counter target spell with mana value 3 or less.",             // mana-value rider unmodeled
   "Counter target creature or planeswalker spell.",              // "or planeswalker" — not the modeled filter
-  "Counter target noncreature spell. This spell can't be countered.", // Dovin's Veto 2nd clause unmodeled
   "Counter target spell. If that spell is countered this way, exile it instead.", // replacement rider
   // ── P3.1 corpus-confirmed riders (REAL Scryfall cards the sweep verified stay LOW) ──
   "Counter target artifact or enchantment spell.",                     // Annul — unmodeled filter
@@ -524,6 +523,10 @@ const MUST_STAY_HIGH = [
   // modeled (the resolver offers a yes/no, never resolves it as mandatory). FLIPPED from low. ──
   "You may draw a card.",                                                       // optional draw
   "You may scry 2.",                                                            // optional scry (chains to the reorder)
+  // ── "This spell can't be countered" is a VACUOUS rider (uncounterability is enforced at the
+  // counter-target enumerator, not the effect program) — stripped so the modeled effect parses. ──
+  "This spell can't be countered. Destroy all creatures.",                      // Supreme Verdict
+  "This spell can't be countered. Counter target noncreature spell.",           // Dovin's Veto
   // ── P3.1 counter target spell — the modeled shapes (any/noncreature/creature) +
   // counter-bearing multi-clause/modal programs. FLIPPED from low→high this slice. ──
   "Counter target spell.",                                                      // Counterspell
