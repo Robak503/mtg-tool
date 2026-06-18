@@ -13,7 +13,7 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 ## Progress to goal — corpus-wide native % (`cd app && npm run coverage`)
 
 **Goal: ~90% corpus native** (the honest ceiling; the Arbiter permanently handles the rest).
-**Now: 16.1% → 18% of the way to goal.** (**δ phase opened.** The clean single-atom frontier is exhausted — pure pump/burn/counter/destroy are all already native, and the static-anthem + trigger-event subsystems turned out already-built. Remaining gains are bespoke subsystems. **δ-1 shipped: targeted HAND DISRUPTION** (Duress / Thoughtseize family — reveal hand → choose → discard), +13. 1v1-faithful; a 4P fidelity refinement is queued as δ-1b.)
+**Now: 16.1% → 18% of the way to goal.** (**δ phase opened.** The clean single-atom frontier is exhausted — pure pump/burn/counter/destroy are all already native, and the static-anthem + trigger-event subsystems turned out already-built. Remaining gains are bespoke subsystems. **δ-1 + δ-1b shipped: targeted HAND DISRUPTION** — Duress / Thoughtseize family, reveal hand → choose → discard, +13 cards. δ-1b made it **4P-faithful** (target one opponent → reveal only that hand → pick at resolution via the pending-choice infra; no cross-opponent leak). Next: a coverage-adding δ — spell additional costs or impulse-dig.)
 
 ```
 [####······················] 16.1% native  ·  goal 90%  ·  18% of the way there
@@ -34,6 +34,7 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 | β-3: bounce a non-creature permanent | **16.0%** (5,368/33,540) | +0.1 | 18% | 47% | #206 |
 | β-3b: reanimation (gy → battlefield) | **16.0%** (5,377/33,540) | +0.0 | 18% | 47% | #207 merged |
 | δ-1: targeted hand disruption | **16.1%** (5,390/33,540) | +0.1 | 18% | 47% | #208 merged |
+| δ-1b: 4P-faithful refinement | **16.1%** (5,390/33,540) | +0.0 | 18% | 47% | #209 merged _(fidelity)_ |
 
 **Projected trajectory** (roadmap §2): α (near-term clean atoms) → ~37% · α+β (full vocab grind) → ~90% · +δ (hard subsystems) → ~98%. A row is appended every time a slice merges — this table *is* the climb.
 
@@ -68,7 +69,8 @@ the corpus signal re-ranks the roadmap toward the cost-structure work (γ1) soon
 | β-2 | compound permanent-type union targets ("destroy/exile target X or Y") — Mortify, Wrecking Ball, Demolish | **#205 merged** | +13 cards (15.9→16.0%) |
 | β-3 | bounce a non-creature permanent ("Return target permanent to its owner's hand") — Boomerang, Void Snare | **#206 merged** | +17 cards (≈16.0%) |
 | β-3b | reanimation ("...graveyard to the battlefield" + ETB) — Resurrection, Zombify; a new mechanic | **#207 merged** | +8 cards (≈16.0%) |
-| **δ-1** | **targeted hand disruption** — Duress / Thoughtseize family (reveal hand → choose → discard); `handCard` target mirrors the graveyard-recursion path, riders compose (lose-life/scry/surveil/draw), AI strips the best card. **Opens the δ (subsystem) phase.** | **#208 merged** | +13 cards (16.0→16.1%) |
+| **δ-1** | **targeted hand disruption** — Duress / Thoughtseize family (reveal hand → choose → discard); riders compose (lose-life/scry/surveil/draw), AI strips the best card. **Opens the δ (subsystem) phase.** | **#208 merged** | +13 cards (16.0→16.1%) |
+| **δ-1b** | **4P-faithful hand disruption** — retarget to an opponent (player), reveal only that hand → pick the card at resolution via the pending-choice infra (tutor/scry/clone seam). No cross-opponent leak/cherry-pick. Human picker + AI auto-pick. | **#209 merged** | +0 (pure fidelity) |
 
 ## Cost-atom frequency (the data behind the γ-series, scanned over the real corpus)
 
@@ -87,28 +89,32 @@ destroy/bounce/tokens/counters/mill/scry/tap are all already native; the big hea
 planned (static anthem, trigger-event wiring) turned out **already built** (`staticAbilityParser.js`,
 `checkAttackTriggers`/`checkStepTriggers`/…). So from here every gain is a bespoke **subsystem**.
 
-- **δ-1 — targeted hand disruption: SHIPPED (PR #208 merged).** Duress / Thoughtseize / Inquisition /
-  Coercion / Despise / Divest / Harsh Scrutiny family (13 corpus cards). The 3-sentence "reveal hand →
-  choose a card → discard" template collapses to one `discard-chosen` atom whose target is a `handCard`
-  (a card in an opponent's hand, chosen at cast — mirrors the `graveyardCard` recursion target); riders
-  (lose-life / scry / surveil / draw) compose via the multi-atom gate. Human picks the card via the
-  existing action-list UI; AI strips the highest-mv card. **3-lens review: MERGE, 0 P0, 0 false-positive**
-  (37k-card sweep = exactly the 13 genuine cards). corpus 16.0→16.1% (**+13**).
-  - **One review P2 → queued as δ-1b:** in 4P FFA, "opponents' hands only" pooling lets the caster/AI see
-    ALL opponents' hidden hands and cherry-pick the global best, vs real Duress (target ONE opponent,
-    committed before the reveal). NOT a misresolve, and 1v1 is fully correct — but 4P is the owner's
-    primary format + it skews the self-play data engine. **δ-1b = the faithful model:** target an opponent
-    (player) at cast → at resolution set a `pendingChoice` (mirror tutor/scry/clone) revealing only THAT
-    opponent's hand → human picks / AI auto-picks. Reuses the proven resolution-time pending-choice infra;
-    its own slice + review (touches the resolver, runProgram resume, learnSession driver, the UI picker,
-    serialization, AI auto-pick). Land it before the next release.
+- **δ-1 + δ-1b — targeted hand disruption: SHIPPED (PR #208 + #209 merged).** Duress / Thoughtseize /
+  Inquisition / Coercion / Despise / Divest / Harsh Scrutiny / Ostracize / Pilfer / Dark Inquiry /
+  Brainbite / Thought Erasure / Distress (13 corpus cards, +13). δ-1 brought it native; **δ-1b made it
+  4P-faithful** — the `discard-chosen` atom targets an OPPONENT (player) chosen hand-blind at cast, then
+  at resolution reveals only THAT opponent's hand and the caster picks the card via a `pendingChoice`
+  (the tutor/scry/clone resolution-time seam — human picker / AI auto-picks the best card). No 4P
+  cross-opponent cherry-pick or hidden-hand leak; empty-hand is castable + a clean no-op (a fix over
+  δ-1a). Both **3-lens reviews: MERGE, 0 P0, 0 false-positive, 0 regression**; δ-1b applied one P3
+  (eliminated-controller guard parity). Riders compose; discard TRIGGERS still route to the Arbiter.
 
-**Next δ candidates (after δ-1b):** spell additional costs (~74 — "as an additional cost to cast this,
-sacrifice/discard/pay-life"; threads the cast path, reuses the γ cost machinery) · modal spells
-("choose one —", ~50; each mode often already-modeled, the lever is the mode-choice UI/AI) · temporary
-control change (Threaten / Act of Treason, ~25; the hardest — control swap + untap + haste + give-back).
-**Release cadence:** v0.37.0 cut this run (banked α/β/cost slices through #207); bundle δ-1+ into the
-next release at a sensible milestone.
+**Next δ (a COVERAGE-ADDING subsystem — δ-1/δ-1b were the hand-disruption pair):**
+  - **Spell additional costs (~74):** "As an additional cost to cast this, sacrifice a creature / discard
+    a card / pay N life." A real cast-path subsystem (NOT already built — γ did this for *activated*
+    abilities only; the spell cast path doesn't parse/charge additional costs). Reuses the γ
+    `parseAbilityCost` shapes; gated on the main effect ALSO being modeled. Threads the affordability +
+    payment through the cast branches.
+  - **Impulse-dig (~58):** "Look at the top N cards of your library. Put one into your hand, the rest on
+    the bottom" (Telling Time, Strategic Planning, Forging the Anchor). A coherent dig mechanic that
+    REUSES the pending-choice picker δ-1b just exercised (look at candidates → pick one). Likely the
+    cleanest next δ (familiar infra, sizable, homogeneous) — rescan for the exact templates + count first.
+  - (Deferred/already-wired: modal "choose one —" grows as the per-mode atom vocab grows, not a separate
+    subsystem; temporary control change — Threaten ~25 — is the hardest, needs a control-swap layer.)
+
+**Release cadence:** v0.37.0 cut this run (α/β/cost through #207). δ-1 (+13) + δ-1b (fidelity) are
+unreleased — bundle them with the NEXT coverage δ into **v0.38.0** at that milestone (hand disruption is
+a notable user-visible capability, but pairs better with one more δ for a fuller release).
 ## β PHASE — the spell-effect vocabulary grind (SCOPED, ready to build)
 
 The clean COST frontier is mined out. The biggest remaining bucket is **Spell effect (other) — ~7,028
