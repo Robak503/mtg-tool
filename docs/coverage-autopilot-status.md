@@ -78,7 +78,15 @@ counter). The cost frontier is now low-ROI — pivot to the spell-effect vocabul
   source HAS the counter; a lethal +1/+1 removal runs the SBA + dies triggers. Full suite **2,086** (+8
   pins) · lint clean · sweep **0 false-positives** · **only +4 native** (most exile/remove-counter
   abilities sit on cards with other unmodeled text — the machinery is laid, the whole card isn't native).
-  - **Merge gate:** 3-lens adversarial review (Opus) + CI green, then `gh pr merge --squash`.
+  - **Adversarial review (3 lenses, Opus): found + FIXED a real P0** (+ 2 latent) — the remove-counter
+    regex ended in `\b` not `$`, so a COMPOUND cost ("Remove a quest counter from this enchantment AND
+    SACRIFICE IT" — Quest for the Gemblades) matched the prefix and silently dropped the sacrifice (a
+    partial payment). End-anchored it (mirrors exile-self). Also gated remove-counter by the leave-trigger
+    fail-safe (a lethal +1/+1 removal makes the source leave → a self-LTB trigger would drop) and added
+    `exileSelf` to the dispatcher's mana-exclusion. 51 of 54 modeled remove-counter cards stay modeled
+    (only the 3 compound/leave ones drop); corpus unchanged. Commit 2aa797c. **Lesson: the sweep must
+    also check for dropped compound-cost text — the review caught what my sweep (self-reference only) missed.**
+  - **Merge gate:** review SAFE after the fix + CI green, then `gh pr merge --squash`.
 - **Next slice — PIVOT to the spell-effect vocabulary grind (β).** The clean COST frontier is mined out
   (γ1/γ1b took the sacrifice volume; the rest is picker-gated or on complex cards). The biggest remaining
   bucket by far is **Spell effect (other) — 8,863 cards**: instants/sorceries whose effect the
