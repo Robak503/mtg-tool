@@ -24,7 +24,7 @@ import {
 import { addContinuousEffect } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
-import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice } from "../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 // ===== TOKENS ===== descriptor words that are SUPERTYPES / CARD TYPES, not creature subtypes —
@@ -516,6 +516,31 @@ function counterFilterMatches(card, filter) {
   if (filter === "creature") return /Creature/.test(type);
   return true; // "any"
 }
+/**
+ * Counter the spell with id `spellId` on the stack (CR 701.5a): remove it from the stack → its
+ * controller's graveyard, logging the counter (an optional `via` tag, e.g. "soft-counter", records HOW).
+ * A spell no longer on the stack (left mid-resolution) is a logged fizzle, never an error. Shared by the
+ * hard counter (applyCounter) AND the SOFT-CNT pay-decline path (runProgram.resolveSoftCounterChoice) so
+ * the two can't drift on how a spell is countered.
+ */
+export function counterSpellById(state, spellId, { via = null } = {}) {
+  const idx = (state.stack || []).findIndex((o) => o.id === spellId && o.kind === "spell");
+  if (idx === -1) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: spellId });
+  const targetObj = state.stack[idx];
+  const card = targetObj.source;
+  const controller = targetObj.controller;
+  const newStack = [...state.stack.slice(0, idx), ...state.stack.slice(idx + 1)];
+  const player = state.players[controller];
+  const next = {
+    ...state,
+    stack: newStack,
+    players: player
+      ? { ...state.players, [controller]: { ...player, graveyard: [...player.graveyard, card] } }
+      : state.players,
+  };
+  return logEvent(next, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, ...(via && { via }) });
+}
+
 function applyCounter(state, atom, ctx) {
   let next = state;
   for (const t of ctx.targets || []) {
@@ -532,17 +557,20 @@ function applyCounter(state, atom, ctx) {
       next = logEvent(next, { kind: "spell-effect", effect: "counter-fizzle", targetId: t.id });
       continue;
     }
-    const controller = targetObj.controller;
-    const newStack = [...next.stack.slice(0, idx), ...next.stack.slice(idx + 1)];
-    const player = next.players[controller];
-    next = {
-      ...next,
-      stack: newStack,
-      players: player
-        ? { ...next.players, [controller]: { ...player, graveyard: [...player.graveyard, card] } }
-        : next.players,
-    };
-    next = logEvent(next, { kind: "spell-effect", effect: "counter", targetId: t.id, cardName: card?.name, controller });
+    // SOFT-CNT — "unless its controller pays {N}": don't counter yet. Flag the TARGETED spell's
+    // controller's pay-or-be-countered choice (runProgram attaches the resume + suspends; the driver
+    // settles it via resolveSoftCounterChoice — pay {N} → spell survives, else countered). The parser
+    // produces exactly ONE spell target per counter atom, so set the choice and stop the loop.
+    if (atom.unlessPay != null && !next.pendingChoice) {
+      return setPendingSoftCounterChoice(next, {
+        controller: targetObj.controller,
+        amount: atom.unlessPay,
+        spellId: t.id,
+        spellName: card?.name || null,
+        sourceName: ctx.cardName || null,
+      });
+    }
+    next = counterSpellById(next, t.id);
   }
   return next;
 }

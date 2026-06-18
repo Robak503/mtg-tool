@@ -200,6 +200,33 @@ export function setPendingDiscardChoice(state, { controller, remaining, candidat
   };
 }
 
+/**
+ * ===== SOFT-CNT ===== — flag a "soft" counter (Force Spike / Mana Leak / Mana Tithe / Spell Pierce /
+ * …) awaiting the TARGETED SPELL'S CONTROLLER's pay-or-be-countered decision (CR 701.5a + the spell's
+ * "unless its controller pays {N}" clause). When the counter resolves, instead of countering outright
+ * it flags this: `controller` is the controller of the spell on the stack (an opponent in 4P — NOT the
+ * counter's caster), so the driver's `pause = pc.controller === "user"` rule pauses for a human whose
+ * spell is under threat and auto-decides for an AI. `amount` is the fixed generic {N}; `spellId` is the
+ * stack object to counter (re-found by id at settle — it may have moved). If the controller pays {N}
+ * (and can afford it), the spell SURVIVES; otherwise it's countered. The caster's continuation rides on
+ * `pendingChoice.resume` (attached by runProgram). FIFO: one choice at a time.
+ */
+export function setPendingSoftCounterChoice(state, { controller, amount, spellId, spellName = null, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "soft-counter-pending", controller, amount, spellName, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "soft-counter",
+      controller,
+      amount,
+      spellId,
+      spellName,
+      sourceName,
+    },
+  };
+}
+
 /** Clear the pending choice (after it's resolved). */
 export function clearPendingChoice(state) {
   if (!state.pendingChoice) return state;

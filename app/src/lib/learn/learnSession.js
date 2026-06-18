@@ -43,7 +43,7 @@ import {
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickSoftCounterPay, resolveSoftCounterChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -353,6 +353,15 @@ function settleDivideChoice(state, distribution) {
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
+// ===== SOFT-CNT ===== — settle a soft counter's pay-or-be-countered decision (Force Spike / Mana Leak /
+// Spell Pierce): the targeted spell's controller pays {N} (spell survives) or it's countered, then the
+// caster's program resumes. finalizeStackResolution then continues the stack (the now-uncountered spell
+// resolves on its own when reached, or the counter's own program finishes). Mirrors settleDivideChoice.
+function settleSoftCounterChoice(state, pay) {
+  const next = resolveSoftCounterChoice(state, pay);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
 /**
  * Settle an optional "you may <effect>" choice (α2): run-or-skip the paused atom and resume — which
  * may itself set ANOTHER choice ("you may scry 2"), so guard pendingChoice before flushing — then
@@ -570,6 +579,21 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
           return { session: current, decision: { kind: "divide-damage", ...pc } };
         }
         current = { ...current, state: settleDivideChoice(current.state, autoPickDivideDistribution(current.state, pc)) };
+        continue;
+      }
+      // ===== SOFT-CNT ===== — soft counter "unless its controller pays {N}" (Force Spike / Mana Leak /
+      // Spell Pierce). pc.controller is the TARGETED SPELL'S controller (who decides), so `pause` pauses a
+      // human whose spell is under threat (pay/decline) and auto-decides for an AI (pays if it can afford
+      // {N}, else the spell is countered). The common case — a human counters an AI's spell — is the AI
+      // auto-deciding here. Resolving pays-or-counters then finalizes the stack.
+      if (pc.kind === "soft-counter") {
+        if (pause) {
+          // Enrich with affordability so the picker can disable "Pay" when the human can't cover {N}
+          // (the engine still counters a pay-but-unaffordable submit — this is just honest UI).
+          const affordable = autoPickSoftCounterPay(current.state, pc);
+          return { session: current, decision: { kind: "soft-counter", ...pc, affordable } };
+        }
+        current = { ...current, state: settleSoftCounterChoice(current.state, autoPickSoftCounterPay(current.state, pc)) };
         continue;
       }
       // Tutor library search.
@@ -964,6 +988,40 @@ export function applyDivideChoice(session, choice) {
 }
 
 /**
+ * ===== SOFT-CNT ===== — the player (whose spell is under a soft counter) chose to pay {N} or not.
+ * `choice.pay` is the yes/no. resolveSoftCounterChoice charges the mana + saves the spell (or counters it
+ * if declined / unaffordable — payGenericMana never fabricates mana), then resumes + re-derives. A
+ * double-submit (nothing pending) re-derives.
+ */
+export function applySoftCounterChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "soft-counter") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const pay = choice?.pay === true || choice === true;
+  let newState;
+  try {
+    newState = settleSoftCounterChoice(session.state, pay);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "soft-counter-choice", amount: pc.amount, paid: pay },
+    auto: false,
+    reasoning: "user-chose-soft-counter-pay",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
  * The player resolved an `optional-effect` decision ("you may <effect>", α2). `choice.take` is the
  * yes/no. Runs-or-skips the paused atom, resumes the program, then re-derives the next decision.
  * Returns { session, decision } like advanceUntilDecision.
@@ -1200,6 +1258,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice);
   if (kind === "discard") return applyDiscardChoice(session, choice);
   if (kind === "divide-damage") return applyDivideChoice(session, choice);
+  if (kind === "soft-counter") return applySoftCounterChoice(session, choice);
   return applyTutorChoice(session, choice);
 }
 

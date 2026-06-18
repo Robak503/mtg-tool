@@ -30,7 +30,7 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS } from "./gameState.js";
+import { MANA_COLORS, addMana, moveCardToZone, tapPermanent } from "./gameState.js";
 import { permanentHasKeyword } from "./layers.js";
 
 // ─── Card → mana production ────────────────────────────────────────────────────
@@ -334,6 +334,38 @@ export function planPayment(pool, sources, cost) {
  */
 export function canAfford(pool, sources, cost) {
   return planPayment(pool, sources, cost) !== null;
+}
+
+/**
+ * SOFT-CNT — pay a FIXED generic cost of `amount` from `playerId`'s pool + untapped mana sources
+ * (the "unless its controller pays {N}" escape on Force Spike / Mana Leak / …). Plans the payment with
+ * `planPayment` (the SAME planner the cast path uses, so "affordable" == "actually paid" — no second
+ * heuristic that could strand mana), commits the taps — add each source's mana then TAP it, or SACRIFICE
+ * a one-shot Treasure/Gold (`tap.sacrifices`) — then subtracts the spend. Returns `{ state, paid }`:
+ * `paid:false` with state UNCHANGED when the player can't afford it (the caller then counters the spell),
+ * never fabricated mana. `amount <= 0` is a trivial `paid:true` no-op. Mirrors actionDispatcher's
+ * `commitManaTaps` + spend-deduction; kept here (a leaf) so the resolution layer can pay without importing
+ * the dispatcher (which would cycle).
+ */
+export function payGenericMana(state, playerId, amount) {
+  const n = Math.max(0, Math.trunc(Number(amount) || 0));
+  if (n === 0) return { state, paid: true };
+  const player = state?.players?.[playerId];
+  if (!player) return { state, paid: false };
+  const plan = planPayment(player.manaPool, manaSources(state, playerId), { generic: n });
+  if (!plan) return { state, paid: false };
+  let next = state;
+  for (const tap of plan.taps) {
+    next = addMana(next, { playerId, color: tap.color, amount: tap.amount });
+    next = tap.sacrifices
+      ? moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId })
+      : tapPermanent(next, tap.permanentId);
+  }
+  const topped = next.players[playerId].manaPool;
+  const nextPool = {};
+  for (const c of Object.keys(topped)) nextPool[c] = (topped[c] || 0) - (plan.spend?.[c] || 0);
+  next = { ...next, players: { ...next.players, [playerId]: { ...next.players[playerId], manaPool: nextPool } } };
+  return { state: next, paid: true };
 }
 
 // Internal exports for tests.

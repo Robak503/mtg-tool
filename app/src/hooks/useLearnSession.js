@@ -375,6 +375,49 @@ export default function useLearnSession() {
   }, [state.sessionId]);
 
   /**
+   * SOFT-CNT — submit the pay-or-be-countered decision for a `soft-counter` (Force Spike / Mana Leak /
+   * Spell Pierce): `pay` is true to pay {N} and save the spell, false to let it be countered. Charges the
+   * mana + resumes server-side and returns the next decision.
+   */
+  const applySoftCounterChoice = useCallback(async (pay) => {
+    if (inFlightRef.current || !state.sessionId) return null;
+    inFlightRef.current = true;
+
+    try {
+      const response = await fetch("/api/learn/choose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { pay: pay === true } }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+        return null;
+      }
+      const isOver = data.decision?.kind === "game-over";
+      setState(prev => ({
+        ...prev,
+        decision: data.decision,
+        status: isOver ? "ended" : "active",
+        difficulty: data.difficulty ?? prev.difficulty,
+        turn: data.turn,
+        activePlayer: data.activePlayer,
+        step: data.step,
+        table: data.table || prev.table,
+        board: data.board || prev.board,
+        decisionLogTail: data.decisionLogTail || [],
+        error: null,
+      }));
+      return data.decision;
+    } catch (error) {
+      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
+      return null;
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [state.sessionId]);
+
+  /**
    * Submit the player's pick from a `hand-discard` decision (δ-1b — Duress / Thoughtseize). `cardId`
    * is the chosen card in the targeted opponent's revealed hand to strip. Discards it + resumes the
    * caster's riders server-side and returns the next decision.
@@ -666,6 +709,7 @@ export default function useLearnSession() {
     applySacrificeChoice,
     applyDiscardChoice,
     applyDivideChoice,
+    applySoftCounterChoice,
     reset,
     listSaves,
     resume,
