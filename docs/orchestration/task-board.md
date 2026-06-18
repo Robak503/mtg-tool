@@ -50,6 +50,13 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 > damage→loyalty (CR 120.3c), `native-planeswalker` tier. **0 cards flip native yet** (every real PW
 > has ≥1 unmodeled ability/static — honest CREED baseline; coverage in PW-2+). See
 > `docs/planeswalker-subsystem.md`.
+>
+> **⚠️ STACK STRANDED (2026-06-18, Omnath verified):** PW-2 (#239) + PW-3 (#242) work is **NOT on
+> master.** #242 was merged into `feat/PW-2-walt` (not master); #239 + #244 are CLOSED. The branch
+> `feat/PW-2-walt` carries PW-2+PW-3 stacked on the *unsquashed* PW-1 commits, so it diverged from
+> master's squashed PW-1 (#236). **Walt: rebase `feat/PW-2-walt` onto current `origin/master`, drop
+> the duplicate PW-1 commits, and open ONE clean PR (PW-2+PW-3) targeting `master`. Then rebase
+> `feat/PW-4-walt` on top and reopen #244.** All work is preserved on both origin branches.
 
 ### 🔴 high-lever
 
@@ -57,7 +64,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 |---|---|---:|---|---|---|
 | **ACT-KW-GRANT** | `{cost}: This creature gains <KW> until EOT` — self keyword-grant. Reuses GRANTABLE_COMBAT_KEYWORDS allowlist (the allowlist IS the FP guard). **Self-ref only, all-or-nothing whole card** — reject `target`-grants (different atom) + multi-ability cards. | ~46 | low | DONE #235 | Goblin Balloon Brigade, Narnam Cobra, Unyielding Krumar |
 | **KWSTRIP-1** | Strip the vacuous cast-keyword line (foretell/suspend/splice-onto-arcane/recover/harmonize/basic-landcycling), then parse the body. The #200 precedent, zero new resolver. **Exclude rebound/cipher/conspire/learn/proliferate/amass (NOT vacuous).** | ~44 | low | DONE #234 | Doomskar, Rift Bolt, Evermind, Grim Harvest, Crashing Footfalls |
-| **SOFT-CNT** | "Counter target spell unless its controller pays {N}." Opponent-decision pending-choice at resolution (an opponent in 4P). Clean core = `pays {fixed}` only. | ~36 | sub | OPEN | Force Spike, Mana Tithe, Mana Leak, Censor, Rune Snag |
+| **SOFT-CNT** | "Counter target spell unless its controller pays {N}." Opponent-decision pending-choice at resolution (an opponent in 4P). Clean core = `pays {fixed}` only. | ~36 | sub | DONE #243 (Cindy) | Force Spike, Mana Tithe, Mana Leak, Censor, Rune Snag |
 | **DIG-1** | Impulse-dig: "Look at top N. Put one into your hand, rest on the bottom." HAND-dig only (battlefield-dig is its own atom); drop Descend/Casualty/Domain prefixes. Reuses δ-1b picker. | ~25-30 | med | DONE #232 | Sleight of Hand, Telling Time, Glimpse the Cosmos |
 | **TRIG-PUMP-1** | ⭐ **Pilot for the trigger-effect compiler.** "Whenever this attacks/blocks, IT gets +N/+N until EOT" — wire the trigger's effectClause into the temp-pump program. **Fixed-integer anchor** (reject +X/for-each); recipient = "it"/"this", never "other creatures"/"target". | ~23 | low | DONE #238 (compiler pilot ✓) | Brazen Wolves, Charging Paladin, Steadfast Cathar |
 | **PUMP-1** | Team pump: "Creatures you control get +X/+Y until EOT." Reject `and gain <keyword>` riders (Triumph of the Hordes → infect). Reuses each-you-control enumerator (#211). | ~22 | low | OPEN | Rally the Peasants, Guardians' Pledge, Coordinated Charge |
@@ -77,7 +84,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | **RAMP-1** | Spell ramp: "Search for a basic land, put onto the battlefield [tapped], shuffle" — new battlefield-destination resolver (shipped `tutor` is HAND-only). **High real-deck value (Colton's ramp).** End-anchored `…shuffle.` only; **Cultivate/Kodama's Reach are split-destination traps**; honor tapped/untapped. | ~6-9 | med | OPEN | Rampant Growth, Explosive Vegetation, Into the North |
 | **ETB-EQUIP-ATTACH** | "When this Equipment enters, attach it to target creature you control" + plain +N/+N. **Engine must actually attach** (flip without resolver = a lie); the attach line often carries a "gains <KW> UEOT" rider — drop those. | ~9 | med | OPEN | Bramble Armor, Scavenged Blade, Mirran Banesplitter |
 | **MODAL-2** | Extend the shipped "Choose one —" gate to "Choose two / one or both". **Gate + EXECUTOR must ship in ONE PR** (runtime resolves exactly one mode today → would drop the 2nd = FP). Thin but auto-ratchets. | ~9 | sub | OPEN | Kolaghan's Command, Soul Manipulation, Crush Contraband |
-| **LOOT-1** | Add a self-discard atom (`you discard N` = controller); `draw N, then discard M` then composes. **Reject "discard at random"** (engine-chosen ≠ player-chosen). | ~9 | low | OPEN | Careful Study, Faithless Looting, Catalog, Thoughtflare |
+| **LOOT-1** | Add a self-discard atom (`you discard N` = controller); `draw N, then discard M` then composes. **Reject "discard at random"** (engine-chosen ≠ player-chosen). | ~9 | low | DONE #241 (Paula) | Careful Study, Faithless Looting, Catalog, Thoughtflare |
 | **TOK-NAMED-EXT** | Extend the TOK-2 named-token registry to Blood / Powerstone / Map / Lander / Junk. **Powerstone enters tapped + can't pay nonartifact spells** (model or over-credits ramp); exclude ROLE aura-tokens. | ~8 / ~30-40 corpus | low | OPEN | Powerstone/Blood/Lander/Map ETBs (cross-cluster) |
 | **RIDER-CTRL-LIFE** | "Its controller loses N life." on a single **permanent-target** base. **"its controller" = the TARGET's controller, not the caster**; counter-spell targets have no `.controller` → permanent targets only. | ~7 | med | OPEN | Spreading Rot, Despoil, Hideous End, Vapor Snag |
 

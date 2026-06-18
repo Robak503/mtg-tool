@@ -1,40 +1,52 @@
 # 🎛️ Academy Coverage — Live Status
 
 > **The one-glance board.** Omnath keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
-> _Updated 2026-06-18 ~13:35 MST · +TRIG-PUMP-1 compiler pilot (#238) + ADDCOST-2 (#240); Oracle data restored, coverage live again._
+> _Updated 2026-06-18 14:11 MST · **NEW EPOCH** (Omnath restarted; prior chat retired for context bloat) · master @ e4fb4bd · queue empty · coverage re-measured live._
 
 ## 📊 Scoreboard
-- **Native coverage: 16.7%** — 5,689 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%; corpus grew via the Oracle re-sync)
+- **Native coverage: 16.9%** — 5,765 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%)
 - `[####······················]`  ~19% of the way to goal
-- **Open PRs: 1** — #241 LOOT-1 (Paula), CI pending. master clean.
+- **Open PRs: 0** — queue empty. master clean (@ e4fb4bd).
+- Native breakdown: mana 992 · body 1037 · spell 818 · trigger 680 · activated 729 · static 98 · equip 58 · aura 48 · mixed 40 · clone 2
 
 ## 👥 Faculties — who's doing what
 | Faculty | Role · cadence | Working on |
 |---|---|---|
-| **Omnath** | Command · ~10m watch | watching · **next auto-sweep ~13:45 MST** · last: merged #238 TRIG-PUMP-1 (compiler pilot) + #240 ADDCOST-2; restored Oracle data + node_modules |
-| **Cindy** | Builder · grab-ahead (≤2 PRs) | shipped TRIG-PUMP-1 (#238, compiler pilot ✓) · re-claiming |
-| **Paula** | Builder · continuous | shipped KWSTRIP-1 (#234) ✅ · re-claiming |
+| **Omnath** | Command · ~20m watch | **NEW EPOCH** · this cycle: verified PW stack (**PW-3 is NOT on master** — corrected stale bookkeeping), flipped LOOT-1/SOFT-CNT DONE, refreshed board + coverage (16.9%) · **next sweep ~14:30 MST** |
+| **Cindy** | Builder · grab-ahead (≤2 PRs) | shipped SOFT-CNT (#243) ✅ + TRIG-PUMP-1 (#238 compiler pilot) · re-claiming |
+| **Paula** | Builder · continuous | shipped LOOT-1 (#241) ✅ · re-claiming |
 | **Tess**  | Builder · continuous | shipped ADDCOST-2 (#240) ✅ · re-claiming |
-| **Erin**  | Fixer · 4h cloud | idle until next wake · queue: VERIFY-MENACE 🔴 (live FP), VERIFY-ETB-DESTROY |
+| **Erin**  | Fixer · 4h cloud | FIX lane: **VERIFY-MENACE** 🔴 (live FP), **VERIFY-ETB-DESTROY** 🟡, **FIX-PW-LAND-ORDER** 🟢 |
 | **Hans**  | Scout · 3h | board-3 deep-scan shipped ✅ · next refresh ~3h |
 | **Rod**   | QA · 3h | findings #1 done · next sweep ~3h |
 | **Iris**  | Dashboard · 30m | renders this board (read-only) |
-| **Walt**  | Planeswalkers · subsystem | PW-1 framework ✅ DONE #236 (reviewed) · now on **PW-2** (coverage) |
+| **Walt**  | Planeswalkers · subsystem | ⚠️ **PW-2+PW-3 STRANDED on `feat/PW-2-walt`, NOT on master** — rebase onto master + open ONE clean PR (see relay below). PW-1 #236 ✅ on master. |
 
 ## 🔀 Merge queue (open PRs)
-| PR | Task | State |
-|---|---|---|
-| **#241** | LOOT-1 self-discard/draw (Paula) | CI pending → merge when green |
+_Empty — all builder PRs merged. Next builder PRs land here when CI goes green._
+
+## 🚧 RELAY — Walt (planeswalker stack needs a rebase)
+The PW stack never reached master:
+- **PW-1 #236** → ✅ on master (squashed).
+- **PW-2 #239** → CLOSED (base was `feat/PW-1-walt`, not master).
+- **PW-3 #242** → "MERGED" but **into `feat/PW-2-walt`**, not master.
+- **PW-4 #244** → CLOSED (stacked on PW-3; conflicting).
+
+`feat/PW-2-walt` holds PW-2+PW-3 stacked on the *unsquashed* PW-1 commits → diverged from master's squashed PW-1.
+**Ask:** Walt rebases `feat/PW-2-walt` onto current `origin/master`, drops the dup PW-1 commits, opens **one clean PR (PW-2+PW-3) → master**; then rebases `feat/PW-4-walt` on top and reopens #244. Both branches still exist on origin (work preserved). Review with extra care + LIVE acceptance.
 
 ## 🧭 The climb (Hans board-3 thesis)
-- **~20%→~85% is essentially ONE subsystem — the trigger-effect compiler** (~5,267 trigger cards). **TRIG-PUMP-1 is the safe pilot** (top of the ripe list).
-- Planeswalkers (~337) = a tracked subsystem (Walt, now building PW-1), not the irreducible tail. Honest ceiling **~88–92%**.
+- **~20%→~85% is essentially ONE subsystem — the trigger-effect compiler** (~5,267 trigger cards). **TRIG-PUMP-1 (#238) proved the pilot** — the compiler path is open. Next sub-rows: TRIG-SCRY (~33), TRIG-TREASURE (~45), TRIG-COUNTER (~28), TRIG-DRAW, TRIG-MONARCH (~18).
+- Planeswalkers (~337) = a tracked subsystem (Walt), not the irreducible tail. Honest ceiling **~88–92%**.
 
 ## 📋 Ripe & unclaimed — next picks
-- 🔴 **TRIG-PUMP-1** ⭐ (compiler pilot) · **PUMP-1** · **SOFT-CNT** · **EVADE** (engine-first)
-- 🟡 **ACT-PUMP-TIMING** · **ADDCOST-2** · **ETB-RAMP-SEARCH** + more (see task-board.md)
-- 🔧 Erin's FIX lane: **VERIFY-MENACE** 🔴 (shipped FP — Menace not enforced in canBlock), **VERIFY-ETB-DESTROY**
+- 🔴 **PUMP-1** (team pump) · **EVADE** (engine-first canBlock, pairs w/ VERIFY-MENACE) · **TRIG-* compiler sub-rows** (path proven)
+- 🟡 **ACT-PUMP-TIMING** · **ETB-RAMP-SEARCH** · **KWACT-INVEST** · **RAMP-1** (high real-deck value) · **MODAL-2** + more (see task-board.md)
+- 🔧 Erin's FIX lane: **VERIFY-MENACE** 🔴, **VERIFY-ETB-DESTROY** 🟡, **FIX-PW-LAND-ORDER** 🟢
 
 ## 🔁 Recent merges (newest first)
-- **#238** TRIG-PUMP-1 compiler pilot (Cindy) · **#240** ADDCOST-2 (Tess) · **#236** PW-1 PW loyalty framework (Walt, reviewed) · **#237** MT-1 (Cindy)
-- prior: **#230** FOG-1 · **#231** REG-1 · **#232** DIG-1 · board-3 adopted · 6-PR batch #224–#229 (Erin 41-FP retire + EP-3/TOK-3/ED-2/ADDCOST/BURN-2)
+- **#243** SOFT-CNT soft counterspells (Cindy) · **#241** LOOT-1 self-discard/draw-loot (Paula) · **#240** ADDCOST-2 (Tess) · **#238** TRIG-PUMP-1 compiler pilot (Cindy)
+- prior: **#237** MT-1 (Cindy) · **#236** PW-1 loyalty framework (Walt) · **#235** ACT-KW-GRANT · **#234** KWSTRIP-1 (Paula) · **#232** DIG-1 · **#231** REG-1 · **#230** FOG-1
+
+## 🗒️ Notes
+- Two uncommitted generated artifacts in master's tree from the prior epoch's oracle re-sync (`app/public/card-names.json` regenerated, `app/data/scryfall-bulk/tier-manifest.json` deleted). Not regenerated by `coverage`, don't block merges; left untouched (Omnath commits explicit doc paths only). Will be reconciled by the next sync/release PR.
