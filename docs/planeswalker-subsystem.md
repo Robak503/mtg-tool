@@ -83,13 +83,17 @@ it to 0 → graveyard).
 - **PR1 — framework foundation.** ✅ 0 cards native; machinery + tests proven.
 - **PR2 — hybrid playability.** ✅ 185 walkers `playable-pw`; modelled abilities native, the rest →
   Arbiter at activation.
-- **PR3 — static/trigger residue coverage.** Treat a non-loyalty line that's an **already-modelled**
-  static/trigger (anthem, etc.) as covered, reusing `staticAbilityParser` / trigger coverage — makes
-  more of the 138 residue walkers playable. False-positive-prone → independent adversarial review.
-- **PR4 — AI piloting.** AI deploys walkers, activates loyalty abilities (value eval + ultimate
-  timing), attacks enemy walkers / protects its own. Full browser QA of the loyalty UI lands here.
-- **PR5 — long-tail loyalty atoms.** New effect atoms for common loyalty shapes (make-a-token, +1/+1
-  on up to two, gain-life-per-creature, …) — raises the native-ability rate + flips some walkers
-  fully native (moves the % metric).
-- **PR6 — teaching layer.** Common planeswalker mistakes (loyalty timing, "can I activate two,"
-  summoning-sick walkers CAN activate, combat redirection, protecting a walker).
+- **PR3 — AI piloting.** ✅ The AI activates a beneficial MODELED loyalty ability each turn (prefers
+  an enemy-side removal, else a loyalty-building +N; never a self-harm variant; skips Arbiter-routed
+  ones so self-play never stalls), and diverts a clean swing to remove a dangerous enemy walker
+  (no-blocker clean kill, not when going lethal on a player). Deferred: AI blocking to protect its
+  own walkers; smarter ultimate timing. Live-driven (AI ticks Zariel 4→5, respects once-per-turn).
+- **Native-ability rate rises passively.** The 81% of loyalty abilities that route to the Arbiter are
+  GENERAL effects (loot, tokens, gain-control, search, emblems) the coverage builders model
+  corpus-wide; loyalty abilities parse through the same `parseEffectClause`, so they convert to native
+  automatically as that push advances — no PW-specific atom grind needed.
+- **PR4 — teaching layer.** Common planeswalker mistakes (loyalty timing, "can I activate two,"
+  summoning-sick walkers CAN activate, combat redirection, protecting a walker) fed to the Academy's
+  explanation layer.
+- **Optional follow-ups (small).** Static-residue coverage (only ~3 clean anthem walkers — Samut,
+  Domri, Ajani the Greathearted); AI walker-protection blocking; per-ability emblem modelling.
