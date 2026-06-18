@@ -85,6 +85,14 @@ the corpus signal re-ranks the roadmap toward the cost-structure work (γ1) soon
   creature` / `Discard a card` as costs, needs a sacrifice/discard PICKER UI, like α2's yes-no), then
   the rest of the corpus activated-ability + spell-effect gap. Re-run `npm run coverage` + a fresh gap
   scan before picking — the best next atom shifts as the modeled set grows.
+- **Backlog (found during γ1 review — pre-existing, NOT γ1's regression):** the trigger detector
+  **collapses a COMPOUND trigger** ("When this enters OR leaves the battlefield" / "…AND when you
+  sacrifice it") to a single event and drops the rest. γ1 no longer exposes it (a self-sac on such a
+  card is now `modeled:false`), but a card like Mouser Foundry still drops its leaves-the-battlefield
+  token when it dies in combat / is destroyed, and a pure compound-trigger creature can mis-count as
+  native-trigger. A future **trigger slice** should either model LTB / "when you sacrifice" / compound
+  events or make `allTriggerSentencesModeled` reject an un-split second condition (route the whole card
+  to the Arbiter). Safe-but-real false-positive in the trigger subsystem.
 
 ## The cardinal rule
 
