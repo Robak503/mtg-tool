@@ -156,6 +156,16 @@ function classifyCondition(condRaw, cardName) {
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     if (/a creature you control/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };
   }
+  // ===== BLOCKS compound / restricted-block guard (CREED, CLAUDE.md §1.2) ===== The only modeled block
+  // trigger is the BARE self-block ("Whenever this creature blocks, …"). A COMPOUND condition that also
+  // names "becomes blocked" (Serra Inquisitors / Raging Gorilla / Assembled Alphas — "blocks or becomes
+  // blocked by one or more X creatures") names a SECOND event; a RESTRICTED block ("blocks a creature
+  // with flying" — Snarespinner / Skystinger; "blocks … by one or more <type/color> creatures") carries
+  // a restriction the engine can't enforce. The bare-blocks branch below would DROP both and fire the
+  // (modeled) self-pump on ANY plain block — a confident WRONG partial. Leave any non-bare self-block
+  // UNDETECTED → Arbiter, mirroring the attacks-or-blocks guard. A self-pump on a plain block stays native.
+  if (/\bbecomes blocked\b/.test(c)) return null;
+  if (/\bblocks\b/.test(c) && selfRef && !/\bblocks\s*$/.test(c.trim())) return null;
   if (/\bblocks\b/.test(c) && selfRef) return { event: "blocks", scope: "self", whose: "any" };
 
   // Cast-spell triggers (CR 603.2, the spell-cast event). The WHOLE condition must reduce
