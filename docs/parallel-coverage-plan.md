@@ -6,38 +6,48 @@ Baseline: **v0.38.0 / master `d2fb8d6`**, corpus ~16.1% native. All four chats b
 
 Naive parallel branches collide on the hot shared files (`parser.js`, `effectAtoms.js`,
 `parser.test.js`) and their corpus sweeps interfere. The safe model is **fan-out build, serialized
-integrate**: the four chats *build* their mechanics in parallel (the expensive part), but **only Chat 1
-(the integrator) merges**, one PR at a time, rebasing the others as it goes.
+integrate**: the builder chats *build* their mechanics in parallel (the expensive part), but **only the
+Command chat merges**, one PR at a time, rebasing the others as it goes.
 
-## The four mechanics (disjoint — no two chats touch the same atom)
+## Roles — 1 Command + 4 builders
 
-| Chat | Mechanic | Gross lever | Owns |
-|---|---|---:|---|
-| **1** | **Tokens** + **Integrator** | 3,632 | `master`, all merges, releases |
-| **2** | **+1/+1 / −1/−1 counter distribution** | 2,256 | counter atoms |
-| **3** | **Edicts + sacrifice-as-effect** | 1,575 | all sacrifice/edict atoms |
-| **4** | **Each-player draw / discard / life / mill** | 1,846 | non-sacrifice each-player/target-player atoms |
+| Chat | Role / mechanic | Gross lever |
+|---|---|---:|
+| **Command** | Integrator — owns `master`, reviews + merges every PR serially, manages the rebase rotation, cuts releases, keeps the scoreboard + coverage number. **Builds nothing.** | — |
+| Builder | **Tokens** (typed creature → named Treasure/Clue/Food w/ abilities → keyword tokens → counts) | 3,632 |
+| Builder | **+1/+1 / −1/−1 counter distribution** | 2,256 |
+| Builder | **Edicts + sacrifice-as-effect** (owns every "sacrifice" verb) | 1,575 |
+| Builder | **Each-player draw / discard / life / mill** (non-sacrifice) | 1,846 |
 
-Clean boundary between 3 and 4: **Chat 3 owns every "sacrifice" verb** (each-player, target-player,
-as-effect); **Chat 4 owns each-player/target-player draw, discard, lose-life, mill** (no sacrifice).
+Clean boundary between edicts and each-player: **edicts owns every "sacrifice" verb** (each-player,
+target-player, as-effect); **each-player owns draw, discard, lose-life, mill** (no sacrifice).
 
-## Coordination protocol (every chat follows this)
+## Coordination protocol
 
-1. **One mechanic = one branch off `master`** (`feat/tokens`, `feat/counters`, `feat/edicts`,
-   `feat/each-player`). Re-`git pull origin master` before branching so you're on `d2fb8d6`+.
-2. **Go deep, in slices.** Don't try to land the whole mechanic in one giant PR — ship 2–4 focused
-   sub-slices (e.g. tokens: typed creature tokens → named Treasure/Clue/Food → tokens-with-keywords).
+**Builders:**
+1. **One mechanic = one branch off latest `master`** (`feat/tokens`, `feat/counters`, `feat/edicts`,
+   `feat/each-player`). `git pull origin master` before branching.
+2. **Go deep, in sub-slices.** Don't land a whole mechanic in one giant PR — ship 2–4 focused sub-slices.
    Each sub-slice is its own branch + PR + gate.
-3. **Full gate per sub-slice** (this is the project's bar — see `docs/coverage-autopilot-prompt.md`):
-   build → a **REAL-parser corpus sweep** (run your matcher over all cards via `publicCard`, confirm
-   **0 false-positives**, list every newly-native card) → `npm test` + `npm run lint` (both from `app/`)
-   → a **3-lens adversarial review** (a `Workflow` with 3 Opus agents; fix every P0 / false-positive /
-   regression) → **live QA** (`npm run dev`, exercise the real path). Then open a PR — do **not** merge.
-4. **Only Chat 1 merges.** It reviews each PR, merges one at a time, and posts "rebase now" — at which
-   point you `git checkout master && git pull && git rebase origin/master` onto your branch.
-5. **Shared-file convention** (minimizes merge conflicts): add your matchers, your `ATOM_RESOLVERS`
-   entries, and your `parser.test.js` pins inside a clearly-labeled block, e.g.
-   `// ===== TOKENS (chat 1) =====`. Append at distinct points; conflicts then auto-merge or are trivial.
+3. **Full self-gate per sub-slice** (the project's bar — see `docs/coverage-autopilot-prompt.md`): build →
+   a **REAL-parser corpus sweep** (your matcher over all cards via `publicCard`; **0 false-positives**;
+   list every newly-native card) → `npm test` + `npm run lint` (both from `app/`) → a **3-lens adversarial
+   `Workflow` review** on Opus, **fix every P0 / false-positive / regression** → **live QA** (`npm run dev`).
+   Then open a PR with the sweep count + verification in the body — do **not** merge.
+4. **Rebase on demand.** When the Command chat posts "rebase now", `git pull origin master` +
+   `git rebase origin/master` onto your branch, re-run tests, force-push.
+
+**Command (integrator):**
+1. Watch `gh pr list`. For each PR: re-run the corpus sweep + `npm test` + `npm run lint` on the
+   merged-into-master result, spot-review the diff for CREED violations; escalate to a **full 3-lens
+   review** only on concern (the builder already self-reviewed).
+2. **Merge serially** (`gh pr merge <#> --squash --delete-branch`), one at a time. After each merge,
+   post "**Builder X: rebase**" for the human to relay.
+3. Update the scoreboard + the live coverage number; cut a release at each sensible milestone.
+
+**Shared-file convention** (minimizes merge conflicts): each builder adds its matchers, its
+`ATOM_RESOLVERS` entries, and its `parser.test.js` pins inside a clearly-labeled block, e.g.
+`// ===== TOKENS =====`. Append at distinct points; conflicts then auto-merge or are trivial.
 
 ## THE CREED (non-negotiable, every chat)
 
@@ -79,7 +89,7 @@ never `git add -A` — it re-adds an untracked `ACADEMY-CONVO.md`). Sweep stray 
 > (e) "distribute N +1/+1 counters among any number of target creatures". Reuse `applyAddCounter` +
 > the `eachCreature`/`youControl` scope conventions already in `effectAtoms.js`. ALL-OR-NOTHING:
 > any rider/filter you can't model → Arbiter. Branch `feat/counters` off latest master; open PRs, do
-> NOT merge (Chat 1 integrates). Run a REAL-parser corpus sweep (0 false-positives) + a 3-lens Workflow
+> NOT merge (the Command chat integrates). Run a REAL-parser corpus sweep (0 false-positives) + a 3-lens Workflow
 > review + live QA per sub-slice. `npm`/`lint` from `app/`. CREED: a false-positive is forbidden.
 
 ### CHAT 3 — EDICTS + SACRIFICE-AS-EFFECT (aristocrats)
@@ -96,7 +106,7 @@ never `git add -A` — it re-adds an untracked `ACADEMY-CONVO.md`). Sweep stray 
 > dies-trigger interaction (the `sacrificeDropsTrigger` fail-safe already exists in
 > `effects/abilities.js` — a sacrifice that would drop a leave/dies trigger routes to Arbiter). Filtered
 > edicts ("with the greatest power", "you don't control") → Arbiter unless you can model them exactly.
-> Branch `feat/edicts` off latest master; PRs only, Chat 1 merges. REAL-parser sweep (0 false-positives)
+> Branch `feat/edicts` off latest master; PRs only, the Command chat merges. REAL-parser sweep (0 false-positives)
 > + 3-lens Workflow review + live QA per sub-slice. `npm`/`lint` from `app/`. CREED: false-positive forbidden.
 
 ### CHAT 4 — EACH-PLAYER DRAW / DISCARD / LIFE / MILL
@@ -112,13 +122,30 @@ never `git add -A` — it re-adds an untracked `ACADEMY-CONVO.md`). Sweep stray 
 > loses N life"); (d) **each-player mill** ("each player mills N"). Study the existing `draw` /
 > `lose-life` / `mill` atoms + the impulse-dig pending-choice slice (for the discard picker). The
 > "who acts" must be enforceable (each player / target player / each opponent) — a filtered subset you
-> can't model → Arbiter. Branch `feat/each-player` off latest master; PRs only, Chat 1 merges.
+> can't model → Arbiter. Branch `feat/each-player` off latest master; PRs only, the Command chat merges.
 > REAL-parser sweep (0 false-positives) + 3-lens Workflow review + live QA per sub-slice. `npm`/`lint`
 > from `app/`. CREED: false-positive forbidden.
 
-### CHAT 1 — TOKENS + INTEGRATOR (this chat)
+### BUILDER — TOKENS (the biggest lever)
 
-Tokens (3,632, the biggest lever): typed creature tokens ("a 1/1 white Soldier creature token", N×, X×)
-→ named predefined tokens **with their built-in abilities** (Treasure, Clue, Food, Blood, Map,
-Powerstone, Gold) → tokens with keywords. Plus: own `master`, run the 3-lens review + merge each worker
-PR one at a time, post "rebase now", cut the next release at the milestone.
+> You are working in the MTG-TOOL repo (the Academy learn engine). Read `CLAUDE.md` and
+> `docs/parallel-coverage-plan.md` first — you are the **TOKENS** builder. Today the `create-token` atom
+> in `effects/parser.js` (`parseExtendedAtom`) + `applyCreateToken` in `effects/effectAtoms.js` only
+> handles vanilla typed creature tokens ("Create N P/T Subtype creature token"). Go DEEP in focused
+> sub-slices, full gate each: **(T1) keyword tokens** ("…creature token with flying" / "…with flying and
+> vigilance") — grant via `GRANTABLE_STATIC_KEYWORDS`; mint the token card with a real `keywords: []`
+> array so `hasKeyword`/`permanentHasKeyword` see it. **(T2) named artifact tokens with their built-in
+> abilities** — Treasure, Clue, Food, Blood, Map, Powerstone, Gold — a canonical token table
+> (name → type/oracle/P-T) so each enters as a real permanent with its working ability (Treasure:
+> `{T}, Sacrifice this: Add one mana of any color`); reuse the activated-ability machinery; the biggest
+> token + ramp lever. **(T3) counts** ("Create X …" X-spells, "Create N …" beyond five). ALL-OR-NOTHING:
+> a token shape you can't fully model (copy tokens, tokens with *triggered* abilities) → Arbiter. Branch
+> `feat/tokens` off latest master; open PRs, do NOT merge (the Command chat integrates; rebase when
+> pinged). Stage explicit paths (never `git add -A`). CREED: a false-positive is forbidden.
+
+### COMMAND (this chat) — integrator
+
+Builds nothing. Owns `master`: watches `gh pr list`, integration-checks each PR (re-run the corpus sweep
++ `npm test` + `npm run lint` on the merged result; full 3-lens review only on concern), merges serially
+one at a time, posts "**Builder X: rebase**" after each merge, keeps the scoreboard + coverage number,
+and cuts releases at milestones.
