@@ -576,6 +576,15 @@ function parseExtendedAtom(s) {
   if (m) return { op: "sacrifice", who: "eachPlayer", what: "creature" };
   m = t.match(/^each opponent sacrifices a creature(?: of (?:their|his or her) choice)?$/);
   if (m) return { op: "sacrifice", who: "eachOpponent", what: "creature" };
+  // ===== FOG ===== (FOG-1, CR 615 prevention) — "Prevent all combat damage that would be dealt this
+  // turn" (Fog, Darkness, Holy Day, Root Snare). A turn-scoped one-shot latch: the resolver stamps the
+  // turn onto state and combatResolution skips ALL combat damage that turn (CR 510.4 — both the first-
+  // strike and regular steps). Non-targeted, self-expiring (keyed to the turn). ALL-OR-NOTHING anchored:
+  // a FILTERED prevention ("…by creatures you don't control / by attacking creatures / with power N+",
+  // "…except combat damage that…") leaves trailing text → fails `$` → low → Arbiter (the latch can't
+  // honor a filter); a keyword-cost rider (Flashback / Cycling / Buyback) or a "for each" tail splits
+  // into its own unmodeled clause → low. Only the bare whole-turn prevention is modeled.
+  if (/^prevent all combat damage that would be dealt this turn$/.test(t)) return { op: "fog", targetType: null };
   return null;
 }
 
@@ -1140,4 +1149,20 @@ export function programContainsTeamPump(program) {
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
   return atoms.some(a => a.op === "pump" && a.scope === "youControl");
+}
+
+/**
+ * Does the program contain a FOG atom ("prevent all combat damage this turn", FOG-1)? The AI HOLDS it
+ * (opponentAI.pickCastAction): fog is a purely DEFENSIVE reaction (cast when you're being attacked),
+ * and the AI can't yet time it — casting it in its own main phase would set the turn-latch and wipe out
+ * ITS OWN attackers' damage (actively self-defeating, worse than not casting). Holding is SAFE (a fog
+ * the AI never casts only costs it a defensive option); the player casts it normally. Narrow + deferred
+ * — lift it once a "fog when under lethal attack" heuristic exists.
+ */
+export function programContainsFog(program) {
+  if (!program) return false;
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.some(a => a.op === "fog");
 }
