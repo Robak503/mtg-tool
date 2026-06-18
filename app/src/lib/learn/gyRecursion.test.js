@@ -40,15 +40,31 @@ function boardState({ userGy = [], aiGy = [], hand = [], pool = { C: 6, B: 1, G:
   };
 }
 
-describe("parser — graveyard recursion is HIGH for creature/any; other filters route to Arbiter", () => {
+describe("parser — graveyard recursion is HIGH for modeled type filters; subtypes/colors route to Arbiter", () => {
   it("creature-card + unfiltered-card parse high with the right cardFilter", () => {
     expect(parseEffectProgram(RAISE_DEAD).atoms).toEqual([{ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "creature" }]);
     expect(parseEffectProgram(REGROWTH).atoms).toEqual([{ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "any" }]);
   });
-  it("a different filter / zone / cardinality / destination is low", () => {
+  // REG-1 — the widened type-filter set (single types, " or " unions, "permanent"). Each flips HIGH with a
+  // canonical sorted, pipe-joined cardFilter token. (instant-or-sorcery + artifact were LOW pre-REG-1.)
+  it("REG-1: parses the widened card-type filters HIGH with canonical cardFilter tokens", () => {
+    const f = (oracle) => parseEffectProgram({ type: SORCERY, oracle }).atoms;
+    expect(f("Return target artifact card from your graveyard to your hand.")).toEqual([{ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "artifact" }]);
+    expect(f("Return target enchantment card from your graveyard to your hand.")).toEqual([{ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "enchantment" }]);
+    expect(f("Return target land card from your graveyard to your hand.")).toEqual([{ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "land" }]);
+    expect(f("Return target permanent card from your graveyard to your hand.")).toEqual([{ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "permanent" }]);
+    expect(f("Return target instant or sorcery card from your graveyard to your hand.")).toEqual([{ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "instant|sorcery" }]);
+    expect(f("Return target artifact or enchantment card from your graveyard to your hand.")).toEqual([{ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "artifact|enchantment" }]);
+    // union is order-independent (canonical sort): "artifact or creature" === "creature or artifact"
+    expect(f("Return target artifact or creature card from your graveyard to your hand.")).toEqual([{ op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "artifact|creature" }]);
+  });
+  it("a non-type filter / zone / cardinality / destination is low (Arbiter)", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
-    low("Return target instant or sorcery card from your graveyard to your hand.");  // unmodeled filter
-    low("Return target artifact card from your graveyard to your hand.");            // unmodeled filter
+    low("Return target goblin card from your graveyard to your hand.");              // creature SUBTYPE — unmodeled
+    low("Return target green card from your graveyard to your hand.");               // color — unmodeled
+    low("Return target historic card from your graveyard to your hand.");            // "historic" (artifact/legendary/Saga) — unmodeled
+    low("Return target nonland permanent card from your graveyard to your hand.");   // negation — unmodeled
+    low("Return target artifact creature card from your graveyard to your hand.");   // INTERSECTION (both), not a union — unmodeled
     low("Return target creature card from a graveyard to your hand.");               // any graveyard, not "your"
     low("Return up to two target creature cards from your graveyard to your hand."); // multi-card
     low("Return target creature card from your graveyard to the battlefield tapped.");        // β-3b reanimation RIDER → Arbiter
@@ -102,10 +118,11 @@ describe("β-3b — reanimation (Return target creature card from your graveyard
 });
 
 describe("coverage — clean graveyard recursion is native-spell", () => {
-  it("Raise Dead + Regrowth classify native-spell; a filtered one is arbiter-spell", () => {
+  it("Raise Dead + Regrowth + a widened type filter classify native-spell; a subtype filter is arbiter-spell", () => {
     expect(classifyCard(RAISE_DEAD)).toBe("native-spell");
     expect(classifyCard(REGROWTH)).toBe("native-spell");
-    expect(classifyCard({ type: SORCERY, name: "X", oracle: "Return target artifact card from your graveyard to your hand." })).toBe("arbiter-spell");
+    expect(classifyCard({ type: SORCERY, name: "X", oracle: "Return target artifact card from your graveyard to your hand." })).toBe("native-spell"); // REG-1 — now modeled
+    expect(classifyCard({ type: SORCERY, name: "Y", oracle: "Return target goblin card from your graveyard to your hand." })).toBe("arbiter-spell");  // creature subtype — still Arbiter
   });
 });
 
@@ -131,6 +148,17 @@ describe("enumeration — only the CASTER'S graveyard, filtered by card type", (
     expect(creatures.map((x) => x.id)).toEqual(["u-bear"]);          // the DFC's front is a Land — excluded
     const any = enumerateTargets(s, "user", { targetType: "graveyardCard", cardFilter: "any" });
     expect(any.some((x) => x.id === "u-abbey")).toBe(true);          // but it IS a card (any filter offers it)
+  });
+
+  it("REG-1: a widened filter offers only matching cards (artifact / instant|sorcery / permanent)", () => {
+    const s = boardState({
+      userGy: [gyCreature("u-bear", "Bear"), gyLand("u-forest", "Forest"), gyInstant("u-bolt", "Bolt"),
+        { id: "u-sol", name: "Sol Ring", type: "Artifact", oracle: "" }, { id: "u-rite", name: "Dark Ritual", type: "Sorcery", oracle: "" }],
+    });
+    const f = (cardFilter) => enumerateTargets(s, "user", { targetType: "graveyardCard", cardFilter }).map((x) => x.id).sort();
+    expect(f("artifact")).toEqual(["u-sol"]);                          // only the artifact card
+    expect(f("instant|sorcery")).toEqual(["u-bolt", "u-rite"].sort()); // instant + sorcery, not creature/land/artifact
+    expect(f("permanent")).toEqual(["u-bear", "u-forest", "u-sol"].sort()); // permanent-type cards; instant + sorcery excluded
   });
 });
 
