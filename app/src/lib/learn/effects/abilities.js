@@ -69,7 +69,10 @@ export function parseAbilityCost(costStr) {
     //                                      graveyard" (a graveyard ability) and "…from exile" variants.
     //   "Remove a <type> counter from this" → remove one counter of <type> from the SOURCE (no choice).
     if (/^exile (?:this|~)(?: creature| permanent| artifact| enchantment| land)?$/i.test(item)) { exileSelf = true; continue; }
-    const rcM = /^remove (?:a|an|one) ([+\-\w/]+) counter from (?:this|~|it)\b/i.exec(item);
+    // The item MUST END after the optional permanent-type noun ($) — like the exileSelf allowlist — so a
+    // COMPOUND cost ("Remove a quest counter from this enchantment AND SACRIFICE IT") doesn't match the
+    // prefix and silently drop its trailing cost (a partial-payment false-positive); it routes to the Arbiter.
+    const rcM = /^remove (?:a|an|one) ([+\-\w/]+) counter from (?:this|~|it)(?: creature| permanent| artifact| enchantment| land)?$/i.exec(item);
     // Keep "+1/+1" / "-1/-1" verbatim (the counter-model keys); lowercase named types (charge, fade…).
     if (rcM) { removeCounter = { type: /^[+-]\d/.test(rcM[1]) ? rcM[1] : rcM[1].toLowerCase() }; continue; }
     // γ1b — "Sacrifice a/an/another <type>": a CHOICE cost. The single victim is picked at offer time
@@ -194,10 +197,12 @@ export function parseActivatedAbilities(card) {
       isManaEffect,
       program,
       // Playable on the stack: cost is mana+{T}(+pay-life/self-sac/exile/remove-counter), effect is HIGH
-      // (non-modal, non-X), NOT a mana ability (no-stack path), AND — for a self-sac OR self-exile cost
-      // (both make the source LEAVE the battlefield) — leaving won't silently drop one of the card's own
-      // triggers (the shared γ1 fail-safe). Remove-a-counter doesn't leave, so it isn't gated by it.
-      modeled: !!cost && !isManaEffect && effectHigh && !((cost.sacSelf || cost.exileSelf) && sacUnsafe),
+      // (non-modal, non-X), NOT a mana ability (no-stack path), AND — for a cost that can make the source
+      // LEAVE the battlefield (self-sac, self-exile, OR a remove-counter that can be LETHAL: a +1/+1
+      // removal drops derived toughness, so the source dies) — leaving won't silently drop one of the
+      // card's own triggers (the shared γ1 fail-safe; a normal "When this dies" still fires via the dies
+      // path, so it's not flagged and not over-restricted).
+      modeled: !!cost && !isManaEffect && effectHigh && !((cost.sacSelf || cost.exileSelf || cost.removeCounter) && sacUnsafe),
       needsTarget: effectHigh && !!program && programNeedsChosenTarget(program),
     });
   }

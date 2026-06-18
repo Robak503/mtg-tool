@@ -369,10 +369,10 @@ function applyActivateAbility(state, action) {
     throw new DispatcherError("Ability source is already tapped", "ALREADY_TAPPED");
   }
 
-  // Plan + commit mana payment. A `{T}`-tapping source can't also tap for mana to pay
-  // its own cost, so exclude it from the available sources (matches legalChoices).
+  // Plan + commit mana payment. A source paying its own cost by tapping ({T}), being sacrificed, OR being
+  // exiled can't ALSO tap for mana — exclude it from the available sources (matches legalChoices exactly).
   const pool = player.manaPool;
-  const sources = manaSources(state, action.playerId).filter(s => !((action.tapSelf || action.sacSelf) && s.permanentId === action.permanentId));
+  const sources = manaSources(state, action.playerId).filter(s => !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId));
   const plan = planPayment(pool, sources, action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 

@@ -79,6 +79,21 @@ describe("parseActivatedAbilities — cost parsing (mana + {T} allowlist)", () =
     expect(a.removeCounter).toBe(null);
     expect(a.modeled).toBe(false);
   });
+  // γ1c review P0: a COMPOUND cost item ("Remove a … counter from this … AND SACRIFICE IT") must not
+  // match the prefix and silently drop the trailing cost — it routes to the Arbiter (Quest for the Gemblades).
+  it("does NOT model a compound remove-counter cost that drops a trailing 'and sacrifice it'", () => {
+    expect(one("Remove a quest counter from this enchantment and sacrifice it: Put four +1/+1 counters on target creature.", { type: "Enchantment" })).toHaveLength(0);
+  });
+  // γ1c review P1: a +1/+1 removal can be LETHAL (the source leaves) — so it's gated by the leave-trigger
+  // fail-safe; a card with an LTB trigger whose removal could kill it stays unmodeled.
+  it("does NOT model a remove-counter cost when the source has a leave-the-battlefield trigger", () => {
+    const abilities = one("When this creature leaves the battlefield, each opponent loses 3 life.\nRemove a +1/+1 counter from this creature: Draw a card.");
+    expect(abilities.find((a) => a.removeCounter)?.modeled ?? false).toBe(false);
+  });
+  it("STILL models a remove-counter cost when the source has only a normal dies trigger (the dies path fires it)", () => {
+    const abilities = one("When this creature dies, draw a card.\nRemove a +1/+1 counter from this creature: You gain 2 life.");
+    expect(abilities.find((a) => a.removeCounter).modeled).toBe(true);
+  });
   it("does NOT model an {X} cost", () => {
     const [a] = one("{X}: This creature deals X damage to any target.");
     expect(a.modeled).toBe(false);
