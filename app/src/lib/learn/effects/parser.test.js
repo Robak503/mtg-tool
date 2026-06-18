@@ -564,6 +564,15 @@ const MUST_DROP_TO_LOW = [
   "Put a +1/+1 counter on each creature target player controls.",           // Practiced Offense — target player, not the controller
   "Put a -1/-1 counter on each creature.",                                  // Soul Snuffers — ALL creatures (not "you control"); not this slice
   "Put a +1/+1 counter on each creature you control. Those creatures gain vigilance until end of turn.", // Felidar Retreat mode — rider clause unmodeled → whole drops (no silent partial)
+  // ===== COUNTERS ===== OPTIONAL single target ("…on up to one target creature") — only the EXACT bare
+  // form is modeled; any creature filter OR the multi-target "each of up to two" / "distribute" forms
+  // leave trailing text → must drop (deferred to a later CNT-2 sub-slice / the Arbiter). ──
+  "Put a +1/+1 counter on up to one target creature you control.",          // Essence Capture rider — "you control" filter
+  "Put a +1/+1 counter on up to one target Dinosaur you control.",          // Huatli — creature-subtype filter
+  "Put a +1/+1 counter on up to one target creature an opponent controls.", // opponent-controlled filter
+  "Put a +1/+1 counter on each of up to two target creatures.",             // Rishkar / Travel Preparations — multi-target subset (deferred CNT-2b)
+  "Distribute three +1/+1 counters among one, two, or three target creatures.", // Biogenic Upgrade — distribute (deferred)
+  "Distribute four +1/+1 counters among any number of target creatures.",   // Blessings of Nature — distribute (deferred)
   // ===== EDICTS ===== — sacrifice-as-effect variants OUTSIDE the exact "target player/opponent
   // sacrifices a creature [of their choice]" template route to the Arbiter (a count, a filtered victim,
   // a non-creature, a target-loses-life rider, or a different actor would be confidently mis-resolved).
@@ -693,6 +702,11 @@ const MUST_STAY_HIGH = [
   // ===== COUNTERS ===== the EXACT team-distribution forms — counters on the controller's whole team.
   "Put a +1/+1 counter on each creature you control.",                          // Titania's Boon / Basri's Solidarity
   "Put two +1/+1 counters on each creature you control.",                       // Strength of the Pack (N=2)
+  // ===== COUNTERS ===== OPTIONAL single target ("…on up to one target creature") — bare unfiltered,
+  // any N, +1/+1 or -1/-1; the target is optional (castable with none). Filtered/multi forms drop (above).
+  "Put a +1/+1 counter on up to one target creature.",                          // The Wandering Emperor / Basri
+  "Put two +1/+1 counters on up to one target creature.",                       // Ajani, Inspiring Leader (N=2)
+  "Put a -1/-1 counter on up to one target creature.",                          // -1/-1 optional (enemy intent)
   // ── EDICTS — "target player/opponent sacrifices a creature of their choice" (the victim is chosen at
   // resolution by the sacrificer) + a modeled compose (Grave Exchange = gy-return + edict). Full behavior
   // pinned in edicts.test.js. ──
@@ -756,6 +770,25 @@ describe("parseEffectProgram — team counter distribution (scope:youControl)", 
     const p = parseEffectProgram(I("Put two +1/+1 counters on each creature you control."));
     expect(p).toMatchObject({ confidence: "high", atoms: [{ op: "add-counter", counterType: "+1/+1", amount: 2, scope: "youControl" }] });
     expect(programNeedsChosenTarget(p)).toBe(false);
+  });
+});
+
+// ===== COUNTERS ===== OPTIONAL single-target counter (CNT-2) — "Put N +1/+1 (or -1/-1) counter(s)
+// on up to one target creature". A normal chosen-target add-counter atom flagged `optional:true` so
+// the cast/trigger stays castable with no target (targeting.expandAtoms offers a decline). Filtered
+// + multi-target ("each of up to two") + distribute forms are pinned LOW in MUST_DROP_TO_LOW above.
+describe("parseEffectProgram — optional single-target counter (up to one)", () => {
+  it("models 'on up to one target creature' as a chosen-target add-counter atom with optionalTarget:true", () => {
+    const p = parseEffectProgram(I("Put a +1/+1 counter on up to one target creature."));
+    expect(p).toMatchObject({ confidence: "high", atoms: [{ op: "add-counter", counterType: "+1/+1", amount: 1, targetType: "creature", optionalTarget: true }] });
+    expect(programNeedsChosenTarget(p)).toBe(true);          // it CAN take a target (chooser / UI picks)
+    expect(p.atoms[0].optional).toBeUndefined();             // NOT the α2 "you may" resolution-yes/no flag
+  });
+  it("carries the spelled count (N=2) and the -1/-1 sign through", () => {
+    expect(parseEffectProgram(I("Put two +1/+1 counters on up to one target creature.")).atoms)
+      .toEqual([{ op: "add-counter", counterType: "+1/+1", amount: 2, targetType: "creature", optionalTarget: true }]);
+    expect(parseEffectProgram(I("Put a -1/-1 counter on up to one target creature.")).atoms)
+      .toEqual([{ op: "add-counter", counterType: "-1/-1", amount: 1, targetType: "creature", optionalTarget: true }]);
   });
 });
 

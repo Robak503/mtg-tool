@@ -23,6 +23,13 @@ import { enumerateTargets } from "../spellEffects.js";
 // a backstop so a future multi-target atom can't DoS the action list.
 const MAX_CAST_EXPANSIONS = 64;
 
+// Sentinel option for an atom with an OPTIONAL TARGET ("up to one target …", CR 115.1b): when chosen
+// it contributes NO target to the combo (the player/chooser declines). Kept distinct from a real
+// target so expandAtoms can drop it back out of the flat, atomIndex-tagged target list. (This is the
+// `optionalTarget` flag — a cast-time 0-or-1 TARGET; NOT the `optional` flag, which is α2's separate
+// resolution-time "you may take this whole effect" yes/no handled in runProgram.)
+const DECLINE = Symbol("decline-optional-target");
+
 /** An effect-like target spec for one atom, or null when the atom is non-targeted. */
 function atomTargetSpec(atom) {
   const tt = atom?.targetType;
@@ -57,8 +64,16 @@ function atomTargets(state, controllerId, atom, atomIndex) {
 function expandAtoms(state, controllerId, atoms) {
   const perAtom = [];
   for (let i = 0; i < atoms.length; i++) {
-    const tagged = atomTargets(state, controllerId, atoms[i], i);
+    const atom = atoms[i];
+    const tagged = atomTargets(state, controllerId, atom, i);
     if (tagged === null) continue;            // non-targeted atom
+    if (atom.optionalTarget) {
+      // "up to one target …": MAY take a target or none. Offer each legal target PLUS a decline
+      // option — so the cast is legal even with zero legal targets, and real targets come BEFORE
+      // the decline so the trigger chooser / UI prefer an actual target over the no-op decline.
+      perAtom.push([...tagged, DECLINE]);
+      continue;
+    }
     if (tagged.length === 0) return null;     // a required target has no legal pick
     perAtom.push(tagged);
   }
@@ -69,7 +84,7 @@ function expandAtoms(state, controllerId, atoms) {
     const next = [];
     for (const combo of combos) {
       for (const opt of options) {
-        next.push([...combo, opt]);
+        next.push(opt === DECLINE ? [...combo] : [...combo, opt]);
         if (next.length >= MAX_CAST_EXPANSIONS) break;
       }
       if (next.length >= MAX_CAST_EXPANSIONS) break;
