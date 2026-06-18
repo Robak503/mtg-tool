@@ -1,7 +1,7 @@
 # 🎛️ Academy Coverage — Live Status
 
 > **The one-glance board.** Omnath keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
-> _Updated 2026-06-18 ~12:15 MST · queue cleared, board-3 deep-scan adopted._
+> _Updated 2026-06-18 ~12:38 MST · merge cadence tightened to ~10 min; KWSTRIP-1 in CI._
 
 ## 📊 Scoreboard
 - **Native coverage: 16.2%** — 5,433 / 33,540 cards · goal **~90%** (honest ceiling ~88–92%)
@@ -11,9 +11,9 @@
 ## 👥 Faculties — who's doing what
 | Faculty | Role · cadence | Working on |
 |---|---|---|
-| **Omnath** | Command · ~20m watch | queue cleared + board-3 adopted · **next auto-sweep ~12:35 MST** (sooner if PRs land / on demand) |
+| **Omnath** | Command · ~10m watch | watching · **next auto-sweep ~12:48 MST** (sooner if PRs land / on demand) · last: 3-PR + board-3 cycle |
 | **Cindy** | Builder · grab-ahead | **MT-1** divide-among picker _(name-claim working ✅)_ |
-| **Paula** | Builder · continuous | re-claiming — owner tag on next named claim |
+| **Paula** | Builder · continuous | **KWSTRIP-1** strip vacuous cast-keywords · PR #234 (CI pending) |
 | **Tess**  | Builder · continuous | re-claiming — owner tag on next named claim |
 | **Erin**  | Fixer · 4h cloud | idle until next wake · queue: VERIFY-MENACE 🔴 (live FP), VERIFY-ETB-DESTROY |
 | **Hans**  | Scout · 3h | board-3 deep-scan shipped ✅ · next refresh ~3h |
@@ -22,7 +22,9 @@
 | **Walt**  | Planeswalkers · subsystem | 🆕 launching — loyalty framework first |
 
 ## 🔀 Merge queue (open PRs)
-_Empty — all clear._
+| PR | Task | State |
+|---|---|---|
+| **#234** | KWSTRIP-1 (Paula) | CI pending → Omnath merges when green |
 
 ## 🧭 The climb (from Hans's board-3 deep-scan)
 - **~20%→~85% is essentially ONE subsystem — the trigger-effect compiler** (~5,267 trigger cards): bridge each recognized trigger's effect clause into the modeled atom library. **TRIG-PUMP-1 is the safe pilot.**
