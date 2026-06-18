@@ -13,7 +13,7 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 ## Progress to goal — corpus-wide native % (`cd app && npm run coverage`)
 
 **Goal: ~90% corpus native** (the honest ceiling; the Arbiter permanently handles the rest).
-**Now: 16.1% → 18% of the way to goal.** (**δ phase opened.** The clean single-atom frontier is exhausted — pure pump/burn/counter/destroy are all already native, and the static-anthem + trigger-event subsystems turned out already-built. Remaining gains are bespoke subsystems. **δ-1 + δ-1b shipped: targeted HAND DISRUPTION** — Duress / Thoughtseize family, reveal hand → choose → discard, +13 cards. δ-1b made it **4P-faithful** (target one opponent → reveal only that hand → pick at resolution via the pending-choice infra; no cross-opponent leak). Next: a coverage-adding δ — spell additional costs or impulse-dig.)
+**Now: 16.1% → 18% of the way to goal.** (**PARALLEL PUSH LIVE — Omnath orchestrating 4 builder faculties + Hans/scout + Rod/QA, each in its own git worktree.** δ-1/δ-1b hand disruption + δ-2 impulse-dig shipped (v0.38.0 baseline). **Parallel merges so far: counters team-distribution "on each creature you control" (#211, Cindy) + each/target-player draw (#212, Paula)** → 5,397→5,413 native (native-spell 620→629). Tokens (Harold) + edicts (Erin) in flight; Hans feeds next targets; Rod QAs the merged result.)
 
 ```
 [####······················] 16.1% native  ·  goal 90%  ·  18% of the way there
