@@ -73,6 +73,21 @@ describe("detectTriggers", () => {
   });
 });
 
+describe("classifyCondition — block-trigger compound/restricted guard (CREED: only a BARE self-block is modeled)", () => {
+  const blocks = (oracle) => detectTriggers(creature("X", oracle)).some((t) => t.event === "blocks");
+  it("detects a BARE self-block trigger (the one modeled form stays native)", () => {
+    expect(blocks("Whenever this creature blocks, it gets +1/+1 until end of turn.")).toBe(true);
+  });
+  it("does NOT detect a 'blocks or becomes blocked …' compound (Serra Inquisitors / Raging Gorilla) — 2nd event + restriction dropped would mis-fire", () => {
+    expect(blocks("Whenever this creature blocks or becomes blocked by one or more black creatures, it gets +2/+2 until end of turn.")).toBe(false);
+    expect(blocks("Whenever this creature blocks or becomes blocked, it gets +2/-2 until end of turn.")).toBe(false);
+  });
+  it("does NOT detect a RESTRICTED block (Snarespinner / Skystinger — 'blocks a creature with flying') — the engine can't enforce the restriction", () => {
+    expect(blocks("Whenever this creature blocks a creature with flying, this creature gets +1/+1 until end of turn.")).toBe(false);
+    expect(blocks("Whenever this creature blocks a Dragon, draw a card.")).toBe(false);
+  });
+});
+
 describe("triggersForEvent", () => {
   const visionary = creature("Elvish Visionary", "When Elvish Visionary enters, draw a card.");
   const warden = creature("Soul Warden", "Whenever another creature enters the battlefield, you gain 1 life.");
