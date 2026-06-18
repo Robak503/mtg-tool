@@ -154,6 +154,28 @@ export function staticEffectsOf(state, permanent) {
 }
 
 /**
+ * The continuous (static) effects an EMBLEM generates (PW-5). An emblem is not a permanent — it sits
+ * in the command zone and can't leave (CR 114.3) — so its effects carry `source.kind = "emblem"` (NOT
+ * "static"), which exempts them from the battlefield-source validity drop in effectAffects, and a
+ * `source.controller` so a "creatures you control" anthem scopes to the emblem's owner. Parses the
+ * emblem's quoted ability text exactly like a permanent's static (a clean anthem → an anthem effect;
+ * an unparseable ability → [], so a complex emblem contributes nothing here and its maker stays LOW).
+ */
+export function emblemEffectsOf(emblem, controller) {
+  const partials = parseStaticAbilities({ name: "Emblem", type: "Emblem", oracle: emblem?.oracle || "" });
+  if (!partials.length) return [];
+  const timestamp = Number.isFinite(emblem.timestamp) ? emblem.timestamp : 0;
+  return partials.map(p => ({
+    ...p,
+    sublayer: p.sublayer ?? null,
+    isCDA: !!p.isCDA,
+    timestamp,
+    source: { kind: "emblem", controller, emblemId: emblem.id, cardName: "Emblem" },
+    affects: p.affects, // selectors resolve against the emblem's controller (see effectAffects)
+  }));
+}
+
+/**
  * Every continuous effect applicable to ANY permanent right now: each
  * permanent's synthesized static-ability effects + the stored resolution effects
  * (state.continuousEffects, e.g. pump-until-EOT). Counters are NOT collected here
@@ -170,6 +192,13 @@ export function collectContinuousEffects(state) {
   for (const perm of eachPermanent(state)) {
     const fx = staticEffectsOf(state, perm);
     if (fx.length) effects.push(...fx);
+  }
+  // PW-5: emblems also generate continuous static effects (anthems), scoped to their controller.
+  for (const pid of Object.keys(state.players || {})) {
+    for (const emblem of state.players[pid].emblems || []) {
+      const fx = emblemEffectsOf(emblem, pid);
+      if (fx.length) effects.push(...fx);
+    }
   }
   for (const e of state.continuousEffects || []) effects.push(e);
   _boardMemo.set(state, effects);
@@ -218,11 +247,14 @@ function effectAffects(effect, candidate, state) {
     case "fixed":
       return Array.isArray(affects.permanentIds) && affects.permanentIds.includes(candidate.id);
     case "dynamic": {
-      const sourcePerm = effect.source?.permanentId
+      let sourcePerm = effect.source?.permanentId
         ? findPerm(state, effect.source.permanentId)
         : null;
       // A dynamic (static-ability) effect needs its source on the battlefield.
       if (effect.source?.kind === "static" && !sourcePerm) return false;
+      // An EMBLEM source has no battlefield permanent (and can't leave), so it's never dropped; its
+      // "you control" scope resolves against the emblem's controller (PW-5).
+      if (effect.source?.kind === "emblem") sourcePerm = { controller: effect.source.controller };
       return matchesSelector(affects.selector, candidate, sourcePerm);
     }
     default:
