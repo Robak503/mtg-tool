@@ -64,6 +64,19 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
   const cardName = stackObject?.source?.name || null;
   for (let i = startIndex; i < atoms.length; i++) {
     const atom = atoms[i];
+    // α2 — an OPTIONAL atom ("you may <effect>"): suspend so the controller decides whether to take
+    // it (a real player yes/no, or AI/Expert auto-decide). resolveOptionalChoice runs-or-skips this
+    // atom then resumes. Mirror the tutor/scry pause — plain JSON, serialize-safe; never resolve a
+    // "may" as mandatory (that would be a forbidden mis-apply).
+    if (atom.optional) {
+      return {
+        ...next,
+        pendingChoice: {
+          kind: "optional-effect", controller, atomIndex: i, effectOp: atom.op, cardName,
+          resume: { program, controller, targets, xValue, sourceId, chosenMode: params.chosenMode ?? null, nextAtomIndex: i, cardName },
+        },
+      };
+    }
     const ctx = { controller, targets: targetsForAtom(targets, i), cardName, xValue, sourceId };
     const after = resolveAtom(next, atom, ctx);
     if (after == null) {
@@ -156,9 +169,38 @@ export function resolveScryChoice(state, keepIdsOrdered) {
 }
 
 /**
+ * Settle an optional-effect choice ("you may <effect>", α2): if `doIt`, run the atom that paused
+ * (with its `optional` flag stripped so it can't re-suspend), then resume the rest; if not, skip it
+ * and resume. Mirrors the tutor/scry settle. Eliminated-controller guard (the pause can outlive the
+ * SBA that removes the controller). The taken/declined outcome is logged either way.
+ */
+export function resolveOptionalChoice(state, doIt) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "optional-effect") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail, no resume
+  const r = pc.resume;
+  const i = pc.atomIndex;
+  const atom = programAtoms(r.program, r.chosenMode)[i];
+  if (doIt) {
+    const ctx = { controller: r.controller, targets: targetsForAtom(r.targets, i), cardName: r.cardName, xValue: r.xValue, sourceId: r.sourceId };
+    const after = resolveAtom(next, { ...atom, optional: false }, ctx);
+    if (after == null) return markPendingArbiter(next, { source: { name: r.cardName }, payload: { params: r } }, `optional atom "${atom?.op}" had no resolver`);
+    next = logEvent(after, { kind: "spell-effect", effect: "optional", controller: r.controller, op: atom?.op, taken: true });
+    // The optional atom may ITSELF set a choice ("you may scry 2") — chain its resume to ours.
+    if (next.pendingChoice && !next.pendingChoice.resume) {
+      return { ...next, pendingChoice: { ...next.pendingChoice, resume: { ...r, nextAtomIndex: i + 1 } } };
+    }
+  } else {
+    next = logEvent(next, { kind: "spell-effect", effect: "optional", controller: r.controller, op: atom?.op, taken: false });
+  }
+  return resumeAfterChoice(next, { resume: { ...r, nextAtomIndex: i + 1 } });
+}
+
+/**
  * Resume a suspended effect program after a resolution-time choice settled (shared by the tutor +
- * scry/surveil paths): re-enter the program at the recorded `nextAtomIndex` so the atoms AFTER the
- * choice run (e.g. the "draw a card" in "Scry 1, then draw a card").
+ * scry/surveil + optional paths): re-enter the program at the recorded `nextAtomIndex` so the atoms
+ * AFTER the choice run (e.g. the "draw a card" in "Scry 1, then draw a card").
  */
 function resumeAfterChoice(state, pc) {
   const r = pc.resume;

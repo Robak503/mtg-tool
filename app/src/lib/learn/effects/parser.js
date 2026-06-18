@@ -389,6 +389,20 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
   const s = stripReminder(clause);
   if (!s) return null;
 
+  // α2 — "you may <effect>": an OPTIONAL effect the controller chooses to take (or not). Peel the
+  // "you may" wrapper and parse the inner clause on its own merits; if it reduces to a fully-modeled
+  // atom, stamp optional:true so the resolver offers a real yes/no (player) / auto-decides (AI),
+  // never resolving it as mandatory. A "you may PAY …" (a cost — kicker) or an inner effect we don't
+  // model falls through to null → gated as before (the bare "may" stays in UNMODELED_MARKERS, so
+  // nothing else is loosened). Only a LEADING "you may" is an optional wrapper (a mid-clause "you
+  // may" is a different shape the marker still catches).
+  const mayMatch = /^you may (.+)$/i.exec(s);
+  if (mayMatch) {
+    if (/^pay\b/i.test(mayMatch[1])) return null;
+    const inner = parseClauseToAtom(cardType, mayMatch[1], hasX);
+    return inner ? { ...inner, optional: true } : null;
+  }
+
   // X-amount variant (only for an {X}-cost spell). Rewrite the X in the AMOUNT slot
   // to a sentinel so the numeric clause parse models the shape, then stamp `amountX`
   // (the resolver substitutes the chosen X via ctx.xValue) and drop the sentinel
