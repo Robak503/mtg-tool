@@ -52,23 +52,28 @@ export function parseAbilityCost(costStr) {
   let tapSelf = false;
   let payLife = 0;
   let sacSelf = false;
+  let sacOther = null;
   for (const item of items) {
     if (/^\{t\}$/i.test(item)) { tapSelf = true; continue; }
-    // γ1 — two NO-CHOICE non-mana costs the engine can pay without a player decision:
+    // γ1 — two NO-CHOICE non-mana costs the engine pays without a player decision:
     //   "Pay N life"          → deduct N life (the caller checks affordability).
     //   "Sacrifice this[ …]"  → sacrifice the SOURCE permanent (no "which one?" choice).
-    // A "Sacrifice a creature" / "Discard a card" (which need a picker) still drop to null —
-    // deferred to γ1b — so we never offer a cost we can't pay cleanly.
     const lifeM = /^pay (\d+) life$/i.exec(item);
     if (lifeM) { payLife += parseInt(lifeM[1], 10); continue; }
     if (/^sacrifice (?:this|~)(?: creature| permanent| artifact| enchantment| land)?$/i.test(item)) { sacSelf = true; continue; }
+    // γ1b — "Sacrifice a/an/another <type>": a CHOICE cost. The single victim is picked at offer time
+    // (legalChoices expands one action per legal sacrificeable permanent of <type>), so the parser only
+    // records the shape; "another" excludes the source. A COUNT ("two creatures") or a compound type
+    // ("a creature or planeswalker") doesn't match → null (deferred), keeping the all-or-nothing gate.
+    const sacOtherM = /^sacrifice (a|an|another) (creature|permanent|artifact|enchantment|land)$/i.exec(item);
+    if (sacOtherM) { sacOther = { type: sacOtherM[2].toLowerCase(), another: /^another$/i.test(sacOtherM[1]) }; continue; }
     const pips = [...item.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
     if (pips.length === 0) return null;                          // a wordy item we don't model → unmodeled
     if (item.replace(/\{[^}]+\}/g, "").trim() !== "") return null; // leftover text around the pips → unmodeled
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{S}/… → unmodeled
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, sacSelf };
+  return { manaPips, tapSelf, payLife, sacSelf, sacOther };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -86,13 +91,24 @@ function effectIsManaAbility(clause) {
  * to the Arbiter instead (CLAUDE.md §1.2 — a false-negative is safe; a partial application is forbidden).
  * "X or another creature dies" is NOT flagged: that's one event (all-creature scope), fired by the dies
  * path — only a second WHEN-clause or a distinct leave/sacrifice verb trips this.
+ *
+ * CR 700.4 dies-EQUIVALENT wording ("is put into a graveyard from the battlefield") and the exile/zone
+ * LTB variants ("put into exile from the battlefield") ALSO trip this: the dies detector keys on the
+ * literal word "dies", so checkDiesTriggers never fires for that wording — without this guard a victim
+ * worded that way (Brood of Cockroaches, the God-Eternal cycle…) would have its death trigger silently
+ * dropped on sacrifice. Conservative by design — route the whole card to the Arbiter.
  */
-function sacrificeDropsTrigger(oracle) {
-  const sentences = String(oracle).match(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^.]*\.?/gi) || [];
-  for (const s of sentences) {
+export function sacrificeDropsTrigger(oracle) {
+  // Match each trigger CLAUSE wherever it starts — not anchored to the start of a line/sentence — so an
+  // ability-word prefix ("Praesidium Protectiva — When this creature is put into your graveyard…") or
+  // reminder text "(When a creature is put into your graveyard from the battlefield…)" is still seen.
+  // Callers pass the RAW oracle (reminder included) so death-keyword reminders (Recover…) are caught.
+  const clauses = String(oracle).match(/(?:When|Whenever|At)\b[^.]*/gi) || [];
+  for (const s of clauses) {
     if (/\b(?:and|or)\s+when(?:ever)?\b/i.test(s)) return true;       // a second embedded when-clause
     if (/\bleaves the battlefield\b/i.test(s)) return true;           // LTB — the dies path won't fire it
     if (/\bwhen(?:ever)? you sacrifice\b/i.test(s)) return true;      // a sacrifice trigger
+    if (/\bput into\b[^.]*\bfrom the battlefield\b/i.test(s)) return true; // CR 700.4 dies-equiv / zone-LTB the detector misses
   }
   return false;
 }
@@ -110,7 +126,9 @@ function sacrificeDropsTrigger(oracle) {
 export function parseActivatedAbilities(card) {
   const oracle = stripReminder(card?.oracle || card?.oracle_text || "");
   if (!oracle.trim()) return [];
-  const sacUnsafe = sacrificeDropsTrigger(oracle); // card-level: would a self-sac drop a trigger?
+  // Card-level: would a self-sac drop a trigger? Use the RAW oracle (reminder included) so a death
+  // keyword whose trigger lives in reminder text (Recover…) is caught, matching the victim path.
+  const sacUnsafe = sacrificeDropsTrigger(card?.oracle || card?.oracle_text || "");
   const out = [];
   let index = 0;
   for (const rawLine of oracle.split(/\n+/)) {
@@ -158,6 +176,7 @@ export function parseActivatedAbilities(card) {
       tapSelf: cost?.tapSelf ?? false,
       payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)
       sacSelf: cost?.sacSelf ?? false, // γ1 — "Sacrifice this" cost item (the runtime sacs the source)
+      sacOther: cost?.sacOther ?? null, // γ1b — "Sacrifice a/another <type>": legalChoices picks the victim
       costModeled: !!cost,
       isManaEffect,
       program,

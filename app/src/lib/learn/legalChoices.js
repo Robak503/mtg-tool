@@ -36,7 +36,7 @@ import { permanentHasKeyword } from "./layers.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
-import { parseActivatedAbilities } from "./effects/abilities.js";
+import { parseActivatedAbilities, sacrificeDropsTrigger } from "./effects/abilities.js";
 import { isNativeAura } from "./staticAbilityParser.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
@@ -188,6 +188,17 @@ function typeLineOf(card) {
 function isLand(card)        { return typeLineOf(card).includes("Land"); }
 function isInstant(card)     { return typeLineOf(card).includes("Instant"); }
 function isCreature(card)    { return typeLineOf(card).includes("Creature"); }
+
+/** γ1b — does a permanent match a "Sacrifice a/an/another <type>" cost's type? "permanent" = any. */
+function sacTypeMatches(card, type) {
+  if (type === "permanent") return true;
+  const t = typeLineOf(card);
+  if (type === "creature") return t.includes("Creature");
+  if (type === "artifact") return t.includes("Artifact");
+  if (type === "enchantment") return t.includes("Enchantment");
+  if (type === "land") return t.includes("Land");
+  return false;
+}
 function isSorcerySpeed(card) {
   const type = typeLineOf(card);
   // Sorcery-speed = anything that ISN'T Instant and isn't "flash" tagged.
@@ -524,27 +535,50 @@ function actionsActivateAbility(state, playerId) {
         continue;
       }
 
+      // γ1b — a "Sacrifice a/another <type>" cost: the PLAYER picks which permanent to sacrifice. Expand
+      // one action per legal victim (a permanent you control of <type>, excluding the source when
+      // "another"), so the choice is a real in-game pick from the action list. A victim that would
+      // silently drop its OWN trigger on leaving (an LTB / "when you sacrifice" / compound trigger the
+      // dies path can't fire) is excluded — the same fail-safe as self-sac — so we never partially apply.
+      let sacVictims = [null];
+      if (ab.sacOther) {
+        sacVictims = player.battlefield.filter((v) =>
+          (!ab.sacOther.another || v.id !== perm.id) &&
+          sacTypeMatches(v.card, ab.sacOther.type) &&
+          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
+        );
+        if (sacVictims.length === 0) continue; // no legal sacrifice available → the cost can't be paid
+      }
+
       const choices = expandCastChoices(state, playerId, ab.program);
       if (choices.length === 0) continue; // a required target has no legal pick → uncastable
-      for (const ch of choices) {
-        actions.push({
-          kind: "activate-ability",
-          playerId,
-          permanentId: perm.id,
-          name: perm.card.name,
-          abilityIndex: ab.index,
-          cost,
-          cmc: totalCmc(cost),
-          tapSelf: ab.tapSelf,
-          payLife: ab.payLife || 0,
-          sacSelf: ab.sacSelf || false,
-          program: ab.program,
-          targets: ch.targets,
-          chosenMode: ch.chosenMode ?? null,
-          needsTargets: ch.targets.length > 0,
-          targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
-          abilityText: ab.effectClause,
-        });
+      for (const victim of sacVictims) {
+        for (const ch of choices) {
+          // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
+          // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
+          // A clean no-op, but a pointless self-defeating action; drop it from the choice list.
+          if (victim && ch.targets.some((t) => t.id === victim.id)) continue;
+          actions.push({
+            kind: "activate-ability",
+            playerId,
+            permanentId: perm.id,
+            name: perm.card.name,
+            abilityIndex: ab.index,
+            cost,
+            cmc: totalCmc(cost),
+            tapSelf: ab.tapSelf,
+            payLife: ab.payLife || 0,
+            sacSelf: ab.sacSelf || false,
+            sacCreatureId: victim?.id ?? null,           // γ1b — the chosen victim to sacrifice (cost)
+            sacCreatureName: victim?.card?.name ?? null,
+            program: ab.program,
+            targets: ch.targets,
+            chosenMode: ch.chosenMode ?? null,
+            needsTargets: ch.targets.length > 0,
+            targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
+            abilityText: victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause,
+          });
+        }
       }
     }
   }
