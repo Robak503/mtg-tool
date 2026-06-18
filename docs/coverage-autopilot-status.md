@@ -26,7 +26,7 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 | α1: enemy/own trigger chooser | **14.9%** (4,996/33,540) | +0.1 | 17% | 47% | #198 |
 | α2: you-may optional wrapper | **15.1%** (5,066/33,540) | +0.2 | 17% | 47% | #199 |
 | strip: vacuous "can't be countered" | **15.1%** (~5,071/33,540) | +0.0 | 17% | 47% | #200 |
-| γ1: pay-life + self-sac costs | **15.5%** (5,195/33,540) | +0.4 | 17% | 47% | #201 _(PR open)_ |
+| γ1: pay-life + self-sac costs | **15.5%** (5,193/33,540) | +0.4 | 17% | 47% | #201 _(PR open)_ |
 
 **Projected trajectory** (roadmap §2): α (near-term clean atoms) → ~37% · α+β (full vocab grind) → ~90% · +δ (hard subsystems) → ~98%. A row is appended every time a slice merges — this table *is* the climb.
 
@@ -72,7 +72,15 @@ the corpus signal re-ranks the roadmap toward the cost-structure work (γ1) soon
     **corpus sweep = 1000 γ1-cost cards, 441 native, 0 false-positives** (every flip a genuinely-modeled
     effect; the 4 "its owner's hand" flags are target refs, not source refs) · real-card e2e (Brindle
     Boar sacrifices for +4 life end-to-end).
-  - **Merge gate:** 3-lens adversarial review (Opus) + CI green, then `gh pr merge --squash`.
+  - **Adversarial review (3 lenses, Opus): found + FIXED one P1** — γ1's self-sac flipped two real
+    cards with a COMPOUND/leave trigger (Carrot Cake, Mouser Foundry) into live-playable, where the
+    sacrifice silently dropped half a trigger (a partial application — the cardinal sin). Closed at the
+    single source of truth: `sacrificeDropsTrigger` leaves a self-sac `modeled:false` when the card
+    carries an LTB / "when you sacrifice" / compound trigger, so the WHOLE card routes to the Arbiter
+    (both runtime + metric mirror via `ab.modeled`). Verified: both cards now offer no self-sac; a
+    normal "When this dies" outlet is NOT over-blocked; post-fix sweep = 200 native self-sac cards, 0
+    leak-risk. The other two lenses returned clean (the P2 DFC nit also fixed). Commit 3e82d2d.
+  - **Merge gate:** review SAFE + CI green, then `gh pr merge --squash`.
 - **Next slice (re-scan first):** the cost-structure frontier continues — **γ1b** (`Sacrifice a
   creature` / `Discard a card` as costs, needs a sacrifice/discard PICKER UI, like α2's yes-no), then
   the rest of the corpus activated-ability + spell-effect gap. Re-run `npm run coverage` + a fresh gap
