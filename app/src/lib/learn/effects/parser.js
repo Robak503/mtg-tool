@@ -573,6 +573,31 @@ function matchHandDisruption(oracle) {
   return { atom: { op: "discard-chosen", targetType: "opponent", handFilter, who }, rest: oracle.slice(m[0].length).trim() };
 }
 
+// δ-2 impulse-dig — spelled cardinals the "top <N> cards" template uses (2-10; bigger digs are rare).
+const DIG_NUM = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+
+/**
+ * Match the "Look at the top N cards of your library. Put one of them into your hand and the rest
+ * <on the bottom of your library [in any/a random order] | into your graveyard>." dig template (δ-2 —
+ * Telling Time, Strategic Planning, Glimpse the Cosmos, Forging the Anchor). Returns `{ atom, rest }`
+ * — the `impulse-dig` atom plus any oracle text AFTER the template — or null. Like hand disruption this
+ * SPANS two sentences (the "Put one … and the rest …" clause's internal " and " would be shattered by
+ * splitClauses), so it's matched up front as ONE atom. ALL-OR-NOTHING ALLOWLIST: EXACTLY "put one …
+ * into your hand" + rest → bottom or graveyard. A filtered dig ("put a creature card …"), a multi-pick
+ * ("put two", "put any number"), "you may", a reveal, "rest in random order ON TOP", or an X/Domain
+ * count all fail the anchor → low → Arbiter (never a fabricated dig).
+ */
+function matchImpulseDig(oracle) {
+  const m = String(oracle).match(
+    /^look at the top (\w+) cards? of your library\. put one of (?:them|those cards|these cards) into your hand and (?:put )?the rest (on the bottom of your library(?: in (?:any|a random) order)?|into your graveyard)\.?/i,
+  );
+  if (!m) return null;
+  const amount = DIG_NUM[m[1].toLowerCase()];
+  if (!amount) return null;                                     // "the top X cards" (variable) / unspelled → Arbiter
+  const restTo = /graveyard/i.test(m[2]) ? "graveyard" : "bottom";
+  return { atom: { op: "impulse-dig", amount, restTo }, rest: oracle.slice(m[0].length).trim() };
+}
+
 /**
  * Parse a card into an EffectProgram, or null.
  *
@@ -615,27 +640,30 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   // counter-target enumerator, not the effect program, so honoring it yields the identical resolution.
   oracle = stripUncounterableRider(oracle);
 
-  // δ-1 hand disruption — the discard-from-revealed-hand effect SPANS three sentences ("…reveals their
-  // hand. You choose a card from it. That player discards that card."), which the clause splitter below
-  // would shatter into unmatchable fragments. Match the whole template up front as ONE `discard-chosen`
-  // atom, then run any RIDER sentences that follow (Thoughtseize "You lose 2 life", Harsh Scrutiny
-  // "Scry 1") through the normal clause pipeline. All-or-nothing: HIGH only if every rider atom is
-  // modeled too; an unmodeled rider → low → Arbiter (never a partial — the discard would fire while the
-  // rider is silently dropped, the cardinal-rule failure).
-  const hd = matchHandDisruption(oracle);
-  if (hd) {
-    const atoms = [hd.atom];
-    let allParsed = true;
-    for (const clause of (hd.rest ? splitClauses(hd.rest) : [])) {
+  // Multi-sentence templates whose effect SPANS sentences (so the clause splitter below would shatter
+  // them into unmatchable fragments) are matched up front as ONE atom, then any RIDER sentences that
+  // follow run through the normal clause pipeline. ALL-OR-NOTHING: HIGH only if every rider atom is
+  // modeled too; an unmodeled rider → low → Arbiter (never a partial — the lead effect would fire while
+  // the rider is silently dropped, the cardinal-rule failure).
+  //   - δ-1 hand disruption ("…reveals their hand. You choose a card from it. That player discards …"
+  //     + Thoughtseize "You lose 2 life" / Harsh Scrutiny "Scry 1").
+  //   - δ-2 impulse-dig ("Look at the top N … Put one … into your hand and the rest …").
+  const collapsed = (col) => {
+    const atoms = [col.atom];
+    for (const clause of (col.rest ? splitClauses(col.rest) : [])) {
       const a = parseClauseToAtom(cardType, clause, hasX);
-      if (!a) { allParsed = false; break; }
+      if (!a) return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
       atoms.push(a);
     }
-    if (allParsed && atoms.every(a => KNOWN.has(a.op))) {
+    if (atoms.every(a => KNOWN.has(a.op))) {
       return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX), unparsedTail: null });
     }
     return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
-  }
+  };
+  const hd = matchHandDisruption(oracle);
+  if (hd) return collapsed(hd);
+  const dig = matchImpulseDig(oracle);
+  if (dig) return collapsed(dig);
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).

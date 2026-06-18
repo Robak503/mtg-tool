@@ -24,7 +24,7 @@ import {
 import { addContinuousEffect } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
-import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice } from "../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
@@ -485,6 +485,25 @@ function applyScrySurveilAtom(state, atom, ctx, mode) {
   return setPendingScryChoice(state, { controller: ctx.controller, mode, cards, sourceName: ctx.cardName || null });
 }
 
+/**
+ * Impulse-dig (δ-2 — Telling Time / Strategic Planning / Glimpse the Cosmos) — flag a resolution-time
+ * CHOICE: peek the top N of the controller's library and set state.pendingChoice (runProgram pauses,
+ * like scry/tutor). The driver surfaces a pick-one picker (the player) or auto-picks the best card
+ * (Expert/opponent); resolveImpulseDigChoice (runProgram) moves the chosen card to HAND and the rest to
+ * the `restTo` zone (bottom / graveyard), then resumes. An empty library is a logged no-op. Hidden-info
+ * safe: it's the controller's OWN library, so the candidate names are theirs to see.
+ */
+function applyImpulseDigAtom(state, atom, ctx) {
+  const player = state.players[ctx.controller];
+  if (!player) return state;
+  const n = Math.min(Math.max(0, atom.amount || 0), player.library.length);
+  if (n === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "impulse-dig", controller: ctx.controller, count: 0 });
+  }
+  const cards = player.library.slice(0, n).map((c) => ({ id: c.id, name: c.name }));
+  return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null });
+}
+
 /** Mill (CR 701.13) — "you mill N cards" (the controller) or "each opponent mills N cards". Top N
  * of each milled player's library → their graveyard. Non-targeted. */
 function applyMill(state, atom, ctx) {
@@ -533,6 +552,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "shuffle": applyShuffle,
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
+  "impulse-dig": applyImpulseDigAtom,
   "mill": applyMill,
 });
 
