@@ -9,6 +9,8 @@ import { createGameState, _resetIdsForTests } from "../gameState.js";
 import { runEffectProgram, resolveTutorChoice, autoPickTutorCandidate } from "./runProgram.js";
 import { RESOLVERS, RESOLVER_KEYS, getResolver } from "../resolvers.js";
 import { resolveTopOfStack } from "../gameEngine.js";
+import { hasKeyword } from "../keywords.js";
+import { permanentHasKeyword } from "../layers.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -381,7 +383,25 @@ describe("P2.6 create-token — resolution", () => {
     expect(out.players.user.battlefield.length).toBe(before + 2);
     const tokens = out.players.user.battlefield.filter(p => p.card.token);
     expect(tokens).toHaveLength(2);
-    expect(tokens[0].card).toMatchObject({ power: 2, toughness: 2, token: true, name: "Bear" });
+    expect(tokens[0].card).toMatchObject({ power: 2, toughness: 2, token: true, name: "Bear", type: "Token Creature — Bear" });
     expect(tokens[0].summoningSick).toBe(true);
+  });
+
+  // ===== TOKENS ===== T1: keyword tokens mint a real keywords[] array that the layer + combat
+  // engine reads (hasKeyword / permanentHasKeyword), so the granted ability is actually enforced.
+  it("mints a keyword token with a real keywords[] array honored by hasKeyword/permanentHasKeyword", () => {
+    const out = runEffectProgram(freshState(), stackObj(high([{ op: "create-token", count: 1, power: 4, toughness: 4, descriptor: "white angel", keywords: ["Flying", "Vigilance"] }])));
+    const tok = out.players.user.battlefield.find(p => p.card.token);
+    expect(tok.card).toMatchObject({ power: 4, toughness: 4, name: "Angel", type: "Token Creature — Angel", keywords: ["Flying", "Vigilance"] });
+    expect(hasKeyword(tok.card, "flying")).toBe(true);
+    expect(hasKeyword(tok.card, "vigilance")).toBe(true);
+    expect(permanentHasKeyword(out, tok.id, "Flying")).toBe(true);
+    expect(hasKeyword(tok.card, "menace")).toBe(false);
+  });
+
+  it("mints a Thopter as an Artifact Creature with flying", () => {
+    const out = runEffectProgram(freshState(), stackObj(high([{ op: "create-token", count: 1, power: 1, toughness: 1, descriptor: "colorless thopter artifact", keywords: ["Flying"] }])));
+    const tok = out.players.user.battlefield.find(p => p.card.token);
+    expect(tok.card).toMatchObject({ name: "Thopter", type: "Token Artifact Creature — Thopter", keywords: ["Flying"] });
   });
 });

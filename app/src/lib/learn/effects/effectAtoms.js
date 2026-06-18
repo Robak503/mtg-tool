@@ -27,7 +27,35 @@ import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
+// ===== TOKENS ===== descriptor words that are SUPERTYPES / CARD TYPES, not creature subtypes —
+// so "colorless thopter artifact" mints "Token Artifact Creature — Thopter" (not a bogus "Artifact"
+// subtype) and "legendary spirit" mints "Token Legendary Creature — Spirit". Anything unrecognized
+// falls through to a subtype (safe: the token is still a creature with the right P/T).
+const TOKEN_SUPERTYPE_WORDS = new Set(["legendary", "snow"]);
+const TOKEN_CARDTYPE_WORDS = new Set(["artifact", "enchantment"]);
 const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+
+/**
+ * ===== TOKENS ===== Build a token's type line from its descriptor ("colorless thopter artifact"
+ * → "Token Artifact Creature — Thopter"). Colors are dropped (color isn't tracked); supertypes and
+ * card types are placed before "Creature"; everything else is a subtype. Returns { type, name }.
+ */
+function tokenTypeLine(descriptor) {
+  const words = String(descriptor || "").split(/\s+/).filter(Boolean);
+  const supertypes = [];
+  const cardtypes = [];
+  const subtypes = [];
+  for (const w of words) {
+    const lw = w.toLowerCase();
+    if (TOKEN_COLOR_WORDS.has(lw)) continue;
+    if (TOKEN_SUPERTYPE_WORDS.has(lw)) { supertypes.push(cap(lw)); continue; }
+    if (TOKEN_CARDTYPE_WORDS.has(lw)) { cardtypes.push(cap(lw)); continue; }
+    subtypes.push(cap(w));
+  }
+  const head = ["Token", ...supertypes, ...cardtypes, "Creature"].join(" ");
+  const subtypeStr = subtypes.join(" ");
+  return { type: subtypeStr ? `${head} — ${subtypeStr}` : head, name: subtypeStr || "Token" };
+}
 
 const isCreatureCard = (card) => /Creature/.test(String(card?.type || card?.type_line || ""));
 
@@ -89,19 +117,24 @@ function selfTargets(state, ctx) {
  * P2.6 create-token (CR 701.7) — put `count` token creatures onto the controller's
  * battlefield. v1 conservative: tokens enter via createPermanent (correct P/T, owner,
  * summoning sick) but do NOT fire ETB-watcher triggers yet (an under-model, never a
- * fabricated effect — the token IS created). Keyword-granting tokens ("…with flying")
- * stay low at the parser, so we never silently drop a granted ability.
+ * fabricated effect — the token IS created).
+ *
+ * ===== TOKENS ===== T1 keyword tokens: a token minted with `atom.keywords` carries a real
+ * keywords[] array (and the matching oracle line), so hasKeyword / permanentHasKeyword honor it
+ * exactly like a printed creature — a 1/1 flyer can only be blocked by flyers/reach, a deathtouch
+ * token trades up, etc. The parser only admits keywords that are ENFORCED + read-layer-aware
+ * (parseTokenKeywords), so a token can never claim an ability the combat/SBA engine ignores.
  */
 function applyCreateToken(state, atom, ctx) {
   let next = state;
-  const words = String(atom.descriptor || "").split(/\s+/).filter(Boolean);
-  const subtypes = words.filter(w => !TOKEN_COLOR_WORDS.has(w.toLowerCase())).map(cap).join(" ");
-  const type = subtypes ? `Token Creature — ${subtypes}` : "Token Creature";
+  const { type, name } = tokenTypeLine(atom.descriptor);
+  const keywords = Array.isArray(atom.keywords) ? atom.keywords : [];
+  const oracle = keywords.join(", ");
   const count = Math.max(1, atom.count || 1);
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
     next = minted.state;
-    const card = { id: `tok-${minted.id}`, name: subtypes || "Token", type, power: atom.power, toughness: atom.toughness, oracle: "", token: true };
+    const card = { id: `tok-${minted.id}`, name, type, power: atom.power, toughness: atom.toughness, oracle, keywords, token: true };
     const perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
     const player = next.players[ctx.controller];
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
