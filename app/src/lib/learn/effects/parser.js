@@ -624,6 +624,22 @@ function parseExtendedAtom(s) {
   // honor a filter); a keyword-cost rider (Flashback / Cycling / Buyback) or a "for each" tail splits
   // into its own unmodeled clause → low. Only the bare whole-turn prevention is modeled.
   if (/^prevent all combat damage that would be dealt this turn$/.test(t)) return { op: "fog", targetType: null };
+  // ===== DIVIDE ===== (MT-1) — "<name> deals N damage divided as you choose among any number of target
+  // <creatures and/or players | creatures | targets | players>" (Boulderfall, Mythos of Vadrok, Meteor
+  // Swarm). NOT cast-time-targeted (the cartesian "any number of targets × division" would explode the
+  // action list — see targeting.js): NO `targetType`, so it routes as a non-targeted spell and the DIVISION
+  // (which targets get how much) is a RESOLUTION-time pending-choice (the controller assigns; the AI/Expert
+  // auto-distributes — runProgram.autoPickDivideDistribution). `group` is the legal target set. The card-name
+  // prefix is tolerated like the legacy loose damage parse. Numeric N only here (an {X} divide is a fast-
+  // follow); a bounded "one or two targets" (Electrolyze) or a rider both leave the `$` anchor → low.
+  // NOTE: `divide-damage` is intentionally NOT yet in effectAtoms.ATOM_RESOLVERS — until the resolver +
+  // picker + driver + UI all land, KNOWN.has("divide-damage") is false, so this atom is DROPPED → the card
+  // stays low → Arbiter (no premature native-but-unplayable false positive). Activated in the final step.
+  m = t.match(/^.+ deals (\d+) damage divided as you choose among (any number of target creatures and\/or players|any number of target creatures|any number of targets|any number of target players)$/);
+  if (m) {
+    const GROUP = { "any number of target creatures and/or players": "anyTarget", "any number of target creatures": "creatures", "any number of targets": "anyTarget", "any number of target players": "players" };
+    return { op: "divide-damage", amount: parseInt(m[1], 10), group: GROUP[m[2]] };
+  }
   return null;
 }
 
@@ -677,6 +693,11 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       if (/\bX\b/.test(rewritten)) return null;
       const base = parseClauseToAtom(cardType, rewritten, false);
       if (!base) return null;
+      // ===== DIVIDE ===== (MT-1) — an X-divide ("deals X damage divided among …", Conflagrate / Rolling
+      // Thunder) rewrites to a divide-damage atom here, but the generic amountX path below would DROP its
+      // `group` + lose the division (resolving to 0 / mis-targeting). X-divide is a deliberate fast-follow,
+      // so reject it → low → Arbiter rather than emit a broken atom. (Numeric-N divide is modeled directly.)
+      if (base.op === "divide-damage") return null;
       const atom = { op: base.op, targetType: base.targetType, amountX: true };
       if (base.restrictions) atom.restrictions = base.restrictions;
       if (base.duration) atom.duration = base.duration;

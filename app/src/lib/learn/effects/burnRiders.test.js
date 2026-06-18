@@ -45,9 +45,11 @@ describe("BURN-2 — MUST_STAY_LOW: riders/structures we don't model → Arbiter
   it("a replacement rider ('would die … exile it instead') stays low", () => {
     expect(programConfidence(parseEffectProgram(I("X deals 3 damage to any target. If a creature dealt damage this way would die this turn, exile it instead.")))).toBe("low");
   });
-  it("a variable / divided damage amount stays low", () => {
+  it("a variable damage amount stays low", () => {
     expect(programConfidence(parseEffectProgram(I("X deals damage to any target equal to the number of Mountains you control.")))).toBe("low");
-    expect(programConfidence(parseEffectProgram(I("X deals 3 damage divided as you choose among any number of targets.")))).toBe("low");
+    // NOTE: a NUMERIC divided-damage ("deals 3 damage divided as you choose among any number of targets")
+    // is now MODELED by MT-1 (the divide-among picker) → HIGH. Only the X-divide stays low (deferred).
+    expect(programConfidence(parseEffectProgram(I("X deals X damage divided as you choose among any number of targets.", "{X}{R}")))).toBe("low");
   });
   it("an unmodeled follow-up rider ('Then that player may discard a card') drops the whole program", () => {
     expect(programConfidence(parseEffectProgram(I("X deals 3 damage to any target. Then that player may discard a card.")))).toBe("low");

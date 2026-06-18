@@ -24,7 +24,7 @@ import {
 import { addContinuousEffect } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
-import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice } from "../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 // ===== TOKENS ===== descriptor words that are SUPERTYPES / CARD TYPES, not creature subtypes —
@@ -821,6 +821,34 @@ function applyFog(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "fog", controller: ctx.controller, turn: state.turn });
 }
 
+/**
+ * ===== DIVIDE ===== (MT-1) — "deals N damage divided as you choose among any number of target X." Gather
+ * the legal target set per `atom.group` (every battlefield's creatures, and/or every player) and PAUSE for
+ * the caster's division (setPendingDivideChoice); resolveDivideChoice (runProgram) applies the per-target
+ * damage. Non-targeted at cast — the division is a resolution-time choice — so no ctx.targets are consumed.
+ * Numeric `atom.amount` only for now (an {X} divide is a fast-follow). EXPORTED for direct testing; it is
+ * intentionally NOT in ATOM_RESOLVERS yet (so divide-damage stays low → Arbiter until the picker + driver +
+ * UI all land — no native-but-unplayable false positive). 0 amount / no legal target → a logged no-op.
+ */
+export function applyDivideDamage(state, atom, ctx) {
+  const amount = atom.amount || 0;
+  const group = atom.group || "anyTarget";
+  if (amount <= 0) return logEvent(state, { kind: "spell-effect", effect: "divide-damage", controller: ctx.controller, amount: 0 });
+  const candidates = [];
+  if (group !== "players") {
+    for (const pid of Object.keys(state.players)) {
+      for (const perm of state.players[pid].battlefield) {
+        if (isCreatureCard(perm.card)) candidates.push({ id: perm.id, name: perm.card?.name, type: "creature", controller: pid });
+      }
+    }
+  }
+  if (group !== "creatures") {
+    for (const pid of Object.keys(state.players)) candidates.push({ id: pid, name: pid, type: "player", controller: pid });
+  }
+  if (candidates.length === 0) return logEvent(state, { kind: "spell-effect", effect: "divide-damage", controller: ctx.controller, amount, candidates: 0 });
+  return setPendingDivideChoice(state, { controller: ctx.controller, amount, candidates, group, sourceName: ctx.cardName });
+}
+
 export const ATOM_RESOLVERS = Object.freeze({
   "deal-damage": (state, atom, ctx) =>
     applyDamageEffect(state, { controller: ctx.controller, amount: effectiveAmount(atom, ctx), targetType: atom.targetType, targets: ctx.targets }),
@@ -850,6 +878,11 @@ export const ATOM_RESOLVERS = Object.freeze({
   "impulse-dig": applyImpulseDigAtom,
   "mill": applyMill,
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
+  // ===== DIVIDE ===== (MT-1) — split N damage among any number of targets via a resolution-time picker.
+  // Wired end-to-end: applyDivideDamage → setPendingDivideChoice → driver (AI auto-distributes /
+  // human assigns via the LearnView DivideDamagePanel) → resolveDivideChoice applies it through the
+  // deal-damage atom. (distribute-counters reuses this same picker — fast-follow.)
+  "divide-damage": applyDivideDamage,
 });
 
 /**
