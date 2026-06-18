@@ -241,19 +241,28 @@ export function permanentFullyCovered(card) {
 /**
  * True when an Equipment's ENTIRE non-keyword text is the attach mechanic the engine now
  * plays: a modeled "Equip {cost}" ability + a cleanly-modeled "Equipped creature gets +X/+Y
- * / has [keyword]" bonus. ALL-OR-NOTHING (mirrors the runtime): every activated ability must
- * be a modeled Equip; the bonus must parse cleanly (a rider drops parseEquipmentBonus to []);
- * and nothing else may be left after the Equip + equipped-creature lines (no extra trigger/
- * activated text). A complex equipment (a triggered ability, a non-Equip activated ability,
- * an unmodeled bonus rider) stays body-only.
+ * / has [keyword]" bonus, plus (ETB-EQUIP-ATTACH) an optional natively-routing ETB-attach
+ * trigger ("When this Equipment enters, attach it to target creature you control"). ALL-OR-
+ * NOTHING (mirrors the runtime): every trigger sentence must route natively; every activated
+ * ability must be a modeled Equip; the bonus must parse cleanly (a rider drops
+ * parseEquipmentBonus to []); and nothing else may be left after the trigger + Equip +
+ * equipped-creature lines. A complex equipment (a NON-routing trigger, a non-Equip activated
+ * ability, an unmodeled bonus rider) stays body-only.
  */
 export function permanentEquipmentCovered(card) {
   if (!/\bequipment\b/i.test(String(card?.type || ""))) return false;
-  const abilities = parseActivatedAbilities(card);
+  // ETB-EQUIP-ATTACH: allow a natively-routing trigger (the auto-attach). Require EVERY trigger to route,
+  // then STRIP the trigger sentences so the Equip + bonus + residue checks below see only the static text
+  // — exactly the prior behavior for a trigger-less equipment (the strip is a no-op there). A non-routing
+  // trigger fails allTriggerSentencesModeled → body-only (never an over-claim).
+  const oracle = String(card.oracle || "");
+  if (!allTriggerSentencesModeled(card, oracle)) return false;
+  const noTrig = { ...card, oracle: oracle.replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ") };
+  const abilities = parseActivatedAbilities(noTrig);
   if (abilities.length === 0 || !abilities.every((a) => a.isEquipAbility && a.modeled)) return false;
   // The bonus parser is all-or-nothing over every equipped-creature clause: a non-empty result
   // guarantees EVERY clause touching the creature parsed cleanly (no rider silently dropped).
-  if (parseEquipmentBonus(card).length === 0) return false;
+  if (parseEquipmentBonus(noTrig).length === 0) return false;
   // Clause-granular residue (split on . ; \n — same as the bonus parser, so a period-joined
   // rider can't be swallowed by a whole-line strip). Every clause must be a modeled Equip
   // line or an equipped-creature clause (already validated clean above). ANYTHING else — a
@@ -261,7 +270,7 @@ export function permanentEquipmentCovered(card) {
   // ("Equip Human {1}"), a non-Equip activated ability — leaves residue → body-only, so a
   // not-fully-modeled equipment is never over-claimed as native (CLAUDE.md "no silent gaps").
   const modeledEquipLine = /^equip\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i;
-  for (const clause of equipmentAbilityClauses(stripReminder(card.oracle || ""))) {
+  for (const clause of equipmentAbilityClauses(stripReminder(noTrig.oracle || ""))) {
     const c = clause.toLowerCase().trim();
     if (!c) continue;
     if (modeledEquipLine.test(c)) continue;
