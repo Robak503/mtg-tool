@@ -140,6 +140,16 @@ export function getCardIndex() {
   return cardIndex;
 }
 
+/**
+ * Every card in the active index (the raw oracle entries, deduped by the index
+ * build). Used by the coverage dashboard + autopilot corpus sweeps to classify
+ * all of Magic, not just the cards in a saved deck. Returns the live array — do
+ * not mutate it.
+ */
+export function allCards() {
+  return getCardIndex().cards;
+}
+
 function buildRulingsIndex() {
   try {
     const { file, parsed } = readJson(RULINGS_FILE, LEGACY_RULINGS_FILE, "Local rulings repository missing.");

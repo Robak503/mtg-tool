@@ -1,22 +1,69 @@
 /**
  * measure-coverage.mjs — dev dashboard for the Academy engine's native coverage.
  *
- *   npm run coverage            # every saved deck across all local profiles
- *   npm run coverage -- <name>  # only decks whose name includes <name> (case-insensitive)
+ *   npm run coverage            # CORPUS-wide native % (the primary headline) + every saved deck
+ *   npm run coverage -- <name>  # only decks whose name includes <name> (skips the corpus pass)
  *
- * Enriches each deck card via the engine's own card index, classifies it with the
+ * Enriches each card via the engine's own card index, classifies it with the
  * shared `coverage.js` module (the SAME logic the runtime uses to decide
- * native-vs-Arbiter), and prints per-deck + aggregate native %, the tier
- * breakdown, and the gap bucketed by mechanism (the roadmap). Local-only: it reads
- * profile decks + the bundled oracle index, so it isn't part of CI.
+ * native-vs-Arbiter), and prints:
+ *   1. CORPUS-WIDE native % over all ~33k real cards — the project's north-star
+ *      metric (the goal is to play almost ALL of Magic natively, not just the
+ *      sample decks; the Arbiter is the permanent home for the irreducible tail).
+ *   2. Per-deck + aggregate native % on the saved decks — the realism gate ("does
+ *      a real game actually play"), plus the gap bucketed by mechanism.
+ * Local-only: reads profile decks + the bundled oracle index, so it isn't part of CI.
  */
 import fs from "node:fs";
 import path from "node:path";
-import { lookupCard, publicCard } from "../src/lib/server/cardIndex.js";
+import { lookupCard, publicCard, allCards } from "../src/lib/server/cardIndex.js";
 import { coverageSummary, classifyCard, isNativeTier, mechanismBucket } from "../src/lib/learn/coverage.js";
 
 const filter = (process.argv[2] || "").toLowerCase();
 const profilesDir = path.join("data", "profiles");
+
+// A "real" playable card for the corpus denominator — excludes tokens, emblems,
+// and the various non-deck supplemental card types that aren't part of normal play.
+function isRealCard(c) {
+  const t = c.type || "";
+  if (!t) return false;
+  return !/\b(Token|Emblem|Scheme|Plane|Phenomenon|Vanguard|Dungeon|Conspiracy|Sticker|Attraction|Card)\b/.test(t);
+}
+
+// ---- CORPUS-WIDE native coverage: the PRIMARY headline (skipped when a deck filter is given) ----
+function reportCorpus() {
+  const tier = {};
+  const gap = {};
+  const gapExamples = {};
+  let total = 0;
+  let native = 0;
+  for (const raw of allCards()) {
+    let c;
+    try { c = publicCard(raw); } catch { continue; }
+    if (!isRealCard(c)) continue;
+    total++;
+    const t = classifyCard(c);
+    tier[t] = (tier[t] || 0) + 1;
+    if (isNativeTier(t)) native++;
+    else {
+      const b = mechanismBucket(c.oracle);
+      gap[b] = (gap[b] || 0) + 1;
+      (gapExamples[b] = gapExamples[b] || new Set()).add(c.name);
+    }
+  }
+  const pct = total ? Math.round((native / total) * 1000) / 10 : 0;
+  console.log("=== CORPUS-WIDE NATIVE COVERAGE (the north-star metric) ===");
+  console.log(`  CORPUS: ${pct}% native  (${native}/${total} real cards in the active index)`);
+  console.log("\n  TIER BREAKDOWN (corpus):");
+  for (const k of ["native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-mixed", "native-clone", "land", "body-only", "arbiter-spell", "arbiter-pw"]) {
+    if (tier[k]) console.log(`  ${String(tier[k]).padStart(6)}  ${k}`);
+  }
+  console.log("\n  CORPUS GAP: unmodeled cards by mechanism (the corpus-primary roadmap signal)");
+  for (const [b, n] of Object.entries(gap).sort((a, c) => c[1] - a[1])) {
+    console.log(`  ${String(n).padStart(6)}  ${b}\n            e.g. ${[...(gapExamples[b] || [])].slice(0, 5).join(", ")}`);
+  }
+  console.log("");
+}
 
 function loadDecks() {
   const out = [];
@@ -51,6 +98,9 @@ function enrich(dk) {
   return cards;
 }
 
+// Corpus headline first (the north star). A deck filter narrows to specific decks, so skip it.
+if (!filter) reportCorpus();
+
 const decks = loadDecks();
 if (decks.length === 0) {
   console.log(filter ? `No saved decks match "${filter}".` : "No saved decks found under data/profiles/*/decks.local.json.");
@@ -80,19 +130,19 @@ for (const dk of decks) {
   perDeck.push({ name: dk.name, total: s.total, native: s.native, pct: s.pct });
 }
 
-console.log("=== PER-DECK NATIVE COVERAGE (native card-slots / total) ===");
+console.log("=== PER-DECK NATIVE COVERAGE (the realism gate — does a real game play?) ===");
 for (const d of perDeck.sort((a, b) => b.pct - a.pct)) {
   console.log(`  ${String(d.pct).padStart(3)}%  ${d.name}  (${d.native}/${d.total})`);
 }
 const grand = perDeck.reduce((a, d) => ({ n: a.n + d.native, t: a.t + d.total }), { n: 0, t: 0 });
 console.log(`\n  AGGREGATE: ${grand.t ? Math.round((grand.n / grand.t) * 100) : 0}% native  (${grand.n}/${grand.t} slots across ${decks.length} decks)`);
 
-console.log("\n=== TIER BREAKDOWN (card-slots) ===");
-for (const k of ["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-mixed", "body-only", "arbiter-spell", "arbiter-pw"]) {
+console.log("\n=== TIER BREAKDOWN (deck card-slots) ===");
+for (const k of ["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-mixed", "native-clone", "body-only", "arbiter-spell", "arbiter-pw"]) {
   if (tierTotals[k]) console.log(`  ${String(tierTotals[k]).padStart(4)}  ${k}`);
 }
 
-console.log("\n=== THE GAP: unmodeled slots by MECHANISM (the roadmap) ===");
+console.log("\n=== THE GAP: unmodeled deck slots by MECHANISM (the roadmap) ===");
 for (const [b, n] of Object.entries(gapTotals).sort((a, c) => c[1] - a[1])) {
   console.log(`  ${String(n).padStart(4)}  ${b}\n          e.g. ${[...(gapExamples[b] || [])].slice(0, 6).join(", ")}`);
 }
