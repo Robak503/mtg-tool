@@ -8,6 +8,9 @@ out
 # repeatedly broken the CI lint job when accidentally staged — never commit them.
 _sweep_*.mjs
 _verify_*.mjs
+_query_*.mjs
+# Scout corpus-dump caches (the gap set written by _sweep_scout.mjs)
+_sweep_*.json
 data/*.local.json
 # Local multi-user profile runtime data — per-user decks/chats/collection live
 # here and must never be committed (contains personal deck libraries).
