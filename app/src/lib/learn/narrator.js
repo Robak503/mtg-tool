@@ -138,18 +138,28 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
           ? ` targeting ${tgt.id === "user" ? "you" : "the opponent"}`
           : ` targeting [[${tgt.name || "a creature"}]]`)
         : "";
+      // Front-face planeswalker? (a creature-front DFC casts as its creature side, so check face 0).
+      const frontType = card?.card_faces?.[0]?.type_line || card?.type || card?.type_line || "";
+      const pwNote = /Planeswalker/.test(frontType)
+        ? ` It enters with its starting loyalty counters, and you can activate one of its loyalty abilities this turn (loyalty abilities ignore summoning sickness).`
+        : "";
       if (difficulty === "beginner") {
-        return `Cast [[${cardName}]] for ${costString}${targeting}${oracleSnippet}. The spell goes on the stack; opponents can respond before it resolves.`;
+        return `Cast [[${cardName}]] for ${costString}${targeting}${oracleSnippet}. The spell goes on the stack; opponents can respond before it resolves.${pwNote}`;
       }
       return `Cast [[${cardName}]] for ${costString}${targeting}.`;
     }
 
     case "declare-attacker": {
       const name = action.name || "the creature";
+      const atWalker = action.defenderPlaneswalkerId ? (action.targetName || "an enemy planeswalker") : null;
       if (difficulty === "beginner") {
+        if (atWalker) {
+          // The combat-redirection misconception: you attack a planeswalker DIRECTLY now (PW-4).
+          return `Attack [[${atWalker}]] with [[${name}]]. You declare attacks against a planeswalker directly (the old "redirect" rule is gone) — combat damage to it removes that many loyalty counters (rule 120.3c), not life from its controller. The defending player can still block to protect it.`;
+        }
         return `Attack with [[${name}]]. It becomes tapped (unless it has vigilance) and deals damage equal to its power during the combat-damage step.`;
       }
-      return `Attack with [[${name}]].`;
+      return atWalker ? `Attack [[${atWalker}]] with [[${name}]].` : `Attack with [[${name}]].`;
     }
 
     case "declare-blocker": {
@@ -167,6 +177,28 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
         return `Tap [[${name}]] for ${amt}{${action.color}}. Mana abilities don't use the stack — the mana goes straight into your pool to spend this step. (You don't have to tap first; casting taps for you.)`;
       }
       return `Tap [[${name}]] for ${amt}{${action.color}}.`;
+    }
+
+    case "activate-loyalty": {
+      // The planeswalker teaching moment — pre-empts the common loyalty misconceptions (PW-4).
+      const name = action.name || "the planeswalker";
+      const delta = action.costDelta;
+      const sign = delta > 0 ? `+${delta}` : `${delta}`;
+      const targeting = action.targetName ? ` targeting [[${action.targetName}]]` : "";
+      if (difficulty === "beginner") {
+        const costLine = delta > 0
+          ? `Pay the cost by adding ${delta} loyalty counter${delta === 1 ? "" : "s"}`
+          : delta < 0
+            ? `Pay the cost by removing ${Math.abs(delta)} loyalty counter${Math.abs(delta) === 1 ? "" : "s"} — you can't activate this if it would drop loyalty below 0 (rule 118.3)`
+            : "This ability costs no loyalty change";
+        const arbiterNote = action.routeToArbiter
+          ? " This ability isn't fully modeled yet, so the Arbiter will rule its effect — the loyalty cost is still paid."
+          : "";
+        return `Activate [[${name}]]'s ${sign} loyalty ability${targeting}. ${costLine}. ` +
+          `You may activate only ONE loyalty ability of a given planeswalker each turn, and only when you could cast a sorcery — your main phase, stack empty (rule 606.3). ` +
+          `A planeswalker CAN use a loyalty ability the turn it enters; loyalty abilities ignore summoning sickness.${arbiterNote}`;
+      }
+      return `Activate [[${name}]]'s ${sign} ability${action.targetName ? ` (${action.targetName})` : ""}.`;
     }
 
     default:
