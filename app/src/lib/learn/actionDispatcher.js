@@ -342,6 +342,22 @@ function applyTapForMana(state, action) {
  * source stays on the battlefield (an activated ability isn't the permanent leaving).
  * Mana abilities never reach here — they resolve via `applyTapForMana` (no stack).
  */
+/**
+ * Sacrifice a permanent `playerId` controls as part of paying an activated-ability cost (γ1 self-sac /
+ * γ1b chosen-victim): move it battlefield→graveyard and, if it's a CREATURE, fire its + watchers' dies
+ * triggers (CR 700.4 — the aristocrats payoff). A non-creature sacrifice leaves no dies trigger. The
+ * dispatch's flushTriggers then stacks these ABOVE the ability so they resolve first (CR 603.3b). The
+ * type read mirrors typeLineOf's DFC front-face fallthrough (single-source-of-truth with legalChoices).
+ */
+function sacrificePermanentForCost(state, playerId, permObj) {
+  const typeLine = String(permObj.card?.type || permObj.card?.type_line || permObj.card?.card_faces?.[0]?.type_line || permObj.card?.card_faces?.[0]?.type || "");
+  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permObj.id });
+  if (/Creature/.test(typeLine)) {
+    next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card }]);
+  }
+  return next;
+}
+
 function applyActivateAbility(state, action) {
   const player = state.players[action.playerId];
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
@@ -375,22 +391,14 @@ function applyActivateAbility(state, action) {
   // source was already excluded from the mana plan above and can't be double-tapped).
   if (action.tapSelf) working = tapPermanent(working, action.permanentId);
 
-  // γ1 — pay the two NO-CHOICE non-mana cost items: life first (CR 119.4), then sacrifice the
-  // source. Both are paid HERE, before the ability is put on the stack (CR 602.2b).
+  // Pay the non-mana cost items, all BEFORE the ability is put on the stack (CR 602.2b): life first
+  // (γ1, CR 119.4), then the self-sacrifice (γ1) and/or the chosen-victim sacrifice (γ1b).
   if (action.payLife) working = loseLife(working, { playerId: action.playerId, amount: action.payLife });
-  if (action.sacSelf) {
-    // Mirror typeLineOf's DFC fallthrough (front face) so a card whose creature-ness lives only on
-    // card_faces still fires its dies triggers — single-source-of-truth with legalChoices/layers.
-    const typeLine = String(perm.card?.type || perm.card?.type_line || perm.card?.card_faces?.[0]?.type_line || perm.card?.card_faces?.[0]?.type || "");
-    const isCreatureSource = /Creature/.test(typeLine);
-    working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "graveyard", cardId: perm.id });
-    // CR 700.4 — only a CREATURE going to the graveyard "dies". Fire its + watchers' dies triggers
-    // (the aristocrats payoff — Blood Artist, Zulaport Cutthroat). A non-creature sacrifice leaves
-    // no dies trigger. The dispatch's flushTriggers stacks these ABOVE the ability, so they resolve
-    // first (correct CR 603.3b order). Snapshot last-known characteristics for the look-back.
-    if (isCreatureSource) {
-      working = checkDiesTriggers(working, [{ controller: action.playerId, id: perm.id, name: perm.card?.name || "creature", card: perm.card }]);
-    }
+  if (action.sacSelf) working = sacrificePermanentForCost(working, action.playerId, perm);
+  if (action.sacCreatureId) {
+    const victim = working.players[action.playerId]?.battlefield.find((p) => p.id === action.sacCreatureId);
+    if (!victim) throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} not on battlefield`, "PERM_NOT_FOUND");
+    working = sacrificePermanentForCost(working, action.playerId, victim);
   }
 
   // Build the serializable payload. An Equip ability ATTACHES (the ATTACH resolver moves

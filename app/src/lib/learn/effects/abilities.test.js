@@ -37,12 +37,26 @@ describe("parseActivatedAbilities — cost parsing (mana + {T} allowlist)", () =
     const [a] = one("{T}, Pay 1 life: Draw a card.");
     expect(a).toMatchObject({ tapSelf: true, payLife: 1, costModeled: true, modeled: true });
   });
-  it("does NOT model a Sacrifice-A-creature cost (needs a picker — deferred to γ1b)", () => {
+  it("models a Sacrifice-A-creature cost (γ1b — legalChoices picks the victim)", () => {
     const [a] = one("{1}, Sacrifice a creature: Draw a card.");
-    expect(a.costModeled).toBe(false);
-    expect(a.modeled).toBe(false);
+    expect(a).toMatchObject({ manaPips: "{1}", costModeled: true, modeled: true });
+    expect(a.sacOther).toMatchObject({ type: "creature", another: false });
   });
-  it("does NOT model a Discard cost (needs a picker — deferred to γ1b)", () => {
+  it("models a Sacrifice-ANOTHER-creature cost and flags `another` (excludes the source)", () => {
+    const [a] = one("Sacrifice another creature: Draw a card.");
+    expect(a.modeled).toBe(true);
+    expect(a.sacOther).toMatchObject({ type: "creature", another: true });
+  });
+  it("models a typed sac-a cost (artifact/permanent)", () => {
+    expect(one("{T}, Sacrifice an artifact: Draw a card.")[0].sacOther).toMatchObject({ type: "artifact", another: false });
+    expect(one("Sacrifice a permanent: Draw a card.")[0].sacOther).toMatchObject({ type: "permanent" });
+  });
+  it("does NOT model a multi-sacrifice cost (count > 1 — deferred)", () => {
+    const [a] = one("{1}, Sacrifice two creatures: Draw a card.");
+    expect(a.modeled).toBe(false);
+    expect(a.sacOther).toBe(null);
+  });
+  it("does NOT model a Discard cost (needs a picker — deferred)", () => {
     const [a] = one("{T}, Discard a card: Draw a card.");
     expect(a.costModeled).toBe(false);
     expect(a.modeled).toBe(false);

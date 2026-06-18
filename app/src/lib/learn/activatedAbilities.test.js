@@ -169,3 +169,62 @@ describe("activated abilities — γ1 pay-life + self-sacrifice costs", () => {
     expect(resolved.players.ai.life).toBe(aiLifeBefore - 1);           // the aristocrats payoff fired
   });
 });
+
+describe("activated abilities — γ1b sacrifice-a-creature (chosen victim)", () => {
+  const withLibrary = (state, playerId, library) =>
+    ({ ...state, players: { ...state.players, [playerId]: { ...state.players[playerId], library } } });
+
+  it("expands one action per legal victim and the dispatch sacrifices the CHOSEN one (source stays)", () => {
+    const outlet = createPermanent({ id: "perm-o", card: creature("Altar", "{1}, Sacrifice a creature: Draw a card.", { type: "Artifact" }), controller: "user", summoningSick: false });
+    const tokenA = createPermanent({ id: "perm-a", card: creature("Soldier A", ""), controller: "user", summoningSick: false });
+    const tokenB = createPermanent({ id: "perm-b", card: creature("Soldier B", ""), controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [outlet, tokenA, tokenB]);
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 1 }, library: [{ id: "lib-1", name: "Card" }] } } };
+    const sacActs = activateActions(s).filter((a) => a.permanentId === "perm-o");
+    // One action per legal victim — the two soldiers (the artifact outlet itself is not a creature).
+    expect(sacActs.map((a) => a.sacCreatureId).sort()).toEqual(["perm-a", "perm-b"]);
+
+    const killB = sacActs.find((a) => a.sacCreatureId === "perm-b");
+    const afterDispatch = dispatchAction(s, killB);
+    expect(afterDispatch.players.user.battlefield.find((p) => p.id === "perm-b")).toBeUndefined(); // chosen victim gone
+    expect(afterDispatch.players.user.battlefield.find((p) => p.id === "perm-a")).toBeTruthy();    // the OTHER stays
+    expect(afterDispatch.players.user.battlefield.find((p) => p.id === "perm-o")).toBeTruthy();    // the SOURCE stays
+    expect(afterDispatch.players.user.graveyard.some((c) => c.name === "Soldier B")).toBe(true);
+    const resolved = resolveTopOfStack(afterDispatch);
+    expect(resolved.players.user.hand.map((c) => c.id)).toContain("lib-1");
+  });
+
+  it("'Sacrifice another creature' excludes the source from the victim list", () => {
+    const outlet = createPermanent({ id: "perm-o", card: creature("Cannibal", "Sacrifice another creature: Draw a card."), controller: "user", summoningSick: false });
+    const food = createPermanent({ id: "perm-f", card: creature("Food", ""), controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [outlet, food]);
+    s = withLibrary(s, "user", [{ id: "lib-1", name: "Card" }]);
+    const sacActs = activateActions(s).filter((a) => a.permanentId === "perm-o");
+    expect(sacActs.map((a) => a.sacCreatureId)).toEqual(["perm-f"]); // never the source itself
+  });
+
+  it("excludes a victim that would silently drop its own trigger on leaving (the fail-safe, on the victim)", () => {
+    const outlet = createPermanent({ id: "perm-o", card: creature("Altar", "Sacrifice a creature: Draw a card."), controller: "user", summoningSick: false });
+    const safe = createPermanent({ id: "perm-safe", card: creature("Bear", ""), controller: "user", summoningSick: false });
+    const risky = createPermanent({ id: "perm-risky", card: creature("Loot", "When this creature leaves the battlefield, create a Treasure token."), controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [outlet, safe, risky]);
+    s = withLibrary(s, "user", [{ id: "lib-1", name: "Card" }]);
+    const victims = activateActions(s).filter((a) => a.permanentId === "perm-o").map((a) => a.sacCreatureId);
+    expect(victims).toContain("perm-safe");
+    expect(victims).toContain("perm-o");      // the outlet can sac itself ("a creature", not "another")
+    expect(victims).not.toContain("perm-risky"); // LTB trigger would be dropped → not a legal victim
+  });
+
+  it("sacrificing the victim fires a Blood-Artist watcher (aristocrats payoff)", () => {
+    const outlet = createPermanent({ id: "perm-o", card: creature("Altar", "Sacrifice a creature: Draw a card.", { type: "Artifact" }), controller: "user", summoningSick: false });
+    const victim = createPermanent({ id: "perm-v", card: creature("Token", ""), controller: "user", summoningSick: false });
+    const artist = createPermanent({ id: "perm-ba", card: creature("Blood Artist", "Whenever a creature dies, each opponent loses 1 life."), controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [outlet, victim, artist]);
+    s = withLibrary(s, "user", [{ id: "lib-1", name: "Card" }]);
+    const act = activateActions(s).find((a) => a.sacCreatureId === "perm-v");
+    const afterDispatch = dispatchAction(s, act);
+    const aiLifeBefore = afterDispatch.players.ai.life;
+    const resolved = resolveTopOfStack(afterDispatch); // resolve the drain on top
+    expect(resolved.players.ai.life).toBe(aiLifeBefore - 1);
+  });
+});
