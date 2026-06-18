@@ -25,7 +25,7 @@ Corpus native %, denominator 33,540 real cards. Card bands are honest, CREED-dis
 | **Rider / composition harvest** | thin — composition is ALREADY SOLVED; only CTRL-LIFE / ADDCOST / MODAL / 2nd-minus ratchet | ~+100-200 | ~19-20 % |
 | **⭐ Trigger-effect compiler (THE SPINE)** | bridge each recognized trigger's `effectClause` → the modeled atom library for the **~5,267 single-trigger gap cards** whose EVENT fires but `effect:null` (TRIG-SCRY/DRAW/TREASURE/COUNTER/MONARCH/…). Lights up most of the 20,956 body-only permanents. | ~+10,000-16,000 (grows with the atom library) | **~20 % → ~80-85 %** |
 | **Remaining subsystems** | additional-costs · modal-executor · regeneration / replacement-shield (+ PREVENT) · equipment auto-attach · ETB/upkeep/dies value-subsystems · energy · monarch · levelers · partial sagas | ~+2,000-4,000 | ~85-90 % |
-| **⭐ Planeswalker subsystem (gameplay-critical, deferred-buildable)** | the 337 PWs — a dedicated framework, **NOT the tail.** Most become native (a loyalty system + the standard +/−/static abilities, reusing the modeled atoms); a residual of game-warping ULTIMATES degrades **per-card** to the Arbiter (CREED-safe). Measured by "can the Academy *play* PW decks," not by the ~1 % corpus bump. | ~+250-300 of 337 | ~90-93 % |
+| **⭐ Planeswalker subsystem (gameplay-critical, deferred-buildable — owned by Walt)** | the 337 PWs — a dedicated framework, **NOT the tail.** Most become native (a loyalty system + the standard +/−/static abilities, reusing the modeled atoms); a residual of game-warping ULTIMATES degrades **per-card** to the Arbiter (CREED-safe). Measured by "can the Academy *play* PW decks," not by the ~1 % corpus bump. | ~+250-300 of 337 | ~90-93 % |
 | **Irreducible-Arbiter tail (the true ceiling)** | random/dice/coin (406) · hidden/secret info (461) · sagas (199) · monarch-class globals (162) · control-exchange (55) · extra-turns (53) · dungeons (41) · stickers/attractions (81) · voting (37) · class/level-up (61) · the PW ultimate residual (~40-90) · unique one-offs | ~2,200-3,700 | **stays LOW → ceiling ~89-93 %** |
 
 **Headline: the trigger-effect compiler is the spine of the entire remaining climb.** Most of the 20,956
@@ -46,7 +46,8 @@ own +1, the player can't learn loyalty/combat-redirection decisions, and the per
 gate craters for any deck running one. So their gameplay value massively exceeds their ~1 % corpus share —
 this tier is a **gameplay-quality investment, measured by "can the Academy play PW decks," not by the +1 %
 bump.** It is therefore re-categorized OUT of the irreducible tail into a **dedicated, deferred-buildable
-subsystem** with a focused owner (a PW agent, framework-first — not a coverage-builder grabbing it as a slice).
+subsystem** owned by **Walt** (the planeswalker-framework agent), framework-first — **a tracked workstream,
+not a write-off** — not a coverage-builder grabbing it as a slice. (Walt is building the loyalty framework now.)
 Honest outcome (no over-promise): **most** PWs fully native (loyalty + standard abilities), the **complex** ones
 gracefully degrade — a weird game-warping ultimate routes per-card to the Arbiter (CREED-safe). "Most
 planeswalkers playable," not "all 337 perfect," and definitely not "0." Build-time research is **mandatory**
