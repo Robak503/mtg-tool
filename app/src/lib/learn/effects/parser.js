@@ -512,6 +512,14 @@ function parseExtendedAtom(s) {
   // behavior — it can't be cracked until it untaps). Numeric/spelled N only.
   m = t.match(/^create (a|an|one|two|three|four|five|\d+) (treasure|clue|food|gold) tokens?$/);
   if (m) return { op: "create-named-token", token: m[2], count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
+  // ===== KWACT-INVEST ===== "Investigate" is the keyword action for "create a Clue token" (CR 701.x);
+  // "Investigate N times" = N Clue tokens. Alias it to the shipped create-named-token(clue) atom (the Clue
+  // enters as a real artifact with its "{2}, Sacrifice: Draw a card" ability). FIRST-PERSON ONLY: the bare
+  // imperative "Investigate" is the controller investigating; a 3rd-person "<subject> investigates" (each
+  // player / that player) carries a leading subject, so it fails this `^investigate` anchor → low → Arbiter
+  // (never a Clue minted for the wrong player). "Investigate X times" (variable count) breaks the anchor → low.
+  m = t.match(/^investigate(?: (twice|(?:two|three|four|five|six|seven|eight|nine|ten) times))?$/);
+  if (m) return { op: "create-named-token", token: "clue", count: m[1] === "twice" ? 2 : (m[1] ? NUM_WORD[m[1].split(" ")[0]] : 1), targetType: null };
   // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)" — a vanilla typed
   // creature token. ===== TOKENS ===== T1 extends the anchor with an OPTIONAL " with <keywords>"
   // suffix (Bird/Thopter/Angel "with flying [and vigilance]"). The keyword phrase must reduce

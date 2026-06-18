@@ -1054,3 +1054,27 @@ describe("parseEffectClause — self keyword-grant (ACT-KW-GRANT)", () => {
     expect(conf("This creature gets +1/+0 and gains menace until end of turn.")).toBe("low"); // one bad kw sinks the whole grant
   });
 });
+
+// ===== KWACT-INVEST — "Investigate" keyword action → create-named-token(clue) =====
+// "Investigate" = create a Clue token (CR 701.x); "Investigate N times" = N Clues. Aliased to the shipped
+// TOK-2 create-named-token(clue) atom. FIRST-PERSON ONLY — a 3rd-person "<subject> investigates" or a
+// variable "Investigate X times" is NOT modeled → LOW (never a Clue minted for the wrong player / unknown count).
+describe("parseEffectProgram — Investigate keyword action (KWACT-INVEST)", () => {
+  const atomsOf = (o) => parseEffectProgram(I(o)).atoms;
+  it("aliases Investigate to a Clue token (count 1 / N), composing with other modeled clauses", () => {
+    expect(atomsOf("Investigate.")).toEqual([{ op: "create-named-token", token: "clue", count: 1, targetType: null }]);
+    expect(atomsOf("Investigate three times.")).toEqual([{ op: "create-named-token", token: "clue", count: 3, targetType: null }]);
+    expect(atomsOf("Investigate four times.")).toEqual([{ op: "create-named-token", token: "clue", count: 4, targetType: null }]);
+    // Deduce — draw a card, then investigate (the create-Clue composes after the draw).
+    expect(atomsOf("Draw a card. Investigate.")).toEqual([
+      { op: "draw", amount: 1, targetType: null },
+      { op: "create-named-token", token: "clue", count: 1, targetType: null },
+    ]);
+  });
+  it("MUST stay LOW: a variable count or a 3rd-person (wrong-owner) investigate → Arbiter", () => {
+    const low = (o) => expect(programConfidence(parseEffectProgram(I(o)))).toBe("low");
+    low("Investigate X times.");                 // variable count — deferred
+    low("Each player investigates.");            // wrong owner — the Clue isn't the controller's
+    low("Target opponent investigates.");        // wrong owner
+  });
+});
