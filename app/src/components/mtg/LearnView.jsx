@@ -363,6 +363,7 @@ export default function LearnView({
             onSacrificeChoose={session.applySacrificeChoice}
             onDiscardChoose={session.applyDiscardChoice}
             onDivideChoose={session.applyDivideChoice}
+            onSoftCounterChoose={session.applySoftCounterChoice}
           />
         </main>
 
@@ -475,6 +476,12 @@ export default function LearnView({
       {session.board && decision?.kind === "divide-damage" && (
         <div style={tutorSheetStyle(LINE, BG2)}>
           <DivideDamagePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyDivideChoice} />
+        </div>
+      )}
+      {/* SOFT-CNT — the player's spell is under a soft counter → pay {N} or let it be countered. Same side-sheet. */}
+      {session.board && decision?.kind === "soft-counter" && (
+        <div style={tutorSheetStyle(LINE, BG2)}>
+          <SoftCounterPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applySoftCounterChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -655,7 +662,7 @@ function TableStrip({ table, activePlayer, cfg, colors }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose }) {
+function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose }) {
   const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
 
   if (!decision) {
@@ -690,6 +697,9 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
   }
   if (decision.kind === "divide-damage") {
     return <DivideDamagePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onDivideChoose} />;
+  }
+  if (decision.kind === "soft-counter") {
+    return <SoftCounterPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onSoftCounterChoose} />;
   }
   if (decision.kind === "dispatch-error") {
     return (
@@ -1202,6 +1212,52 @@ function DivideDamagePanel({ decision, cfg, colors, fontFamily, onChoose }) {
       >
         {remaining === 0 ? "Deal damage" : `Assign ${remaining} more`}
       </button>
+    </div>
+  );
+}
+
+/**
+ * ===== SOFT-CNT ===== — soft-counter pay-or-be-countered picker (Force Spike / Mana Leak / Spell Pierce).
+ * Shown to the player whose spell is targeted: pay {N} to save it, or let it be countered. "Pay" is disabled
+ * when `decision.affordable` is false (not enough untapped mana). Submits the boolean via applySoftCounterChoice.
+ */
+function SoftCounterPanel({ decision, cfg, colors, fontFamily, onChoose }) {
+  const { BG3, LINE, TEXT, GOLD } = colors || {};
+  const accent = cfg?.color || GOLD;
+  const amount = decision.amount || 0;
+  const affordable = decision.affordable !== false;
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (pay) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try { await onChoose?.(pay); } finally { setSubmitting(false); }
+  };
+
+  const btn = (bg, disabled) => ({
+    flex: 1, padding: "10px 14px", background: bg, color: "#fff", border: "none", borderRadius: 6,
+    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontSize: 13, fontWeight: 600, fontFamily,
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+          🛡️ Pay {`{${amount}}`} or be countered{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+          {decision.spellName ? <b>{decision.spellName}</b> : "Your spell"} will be countered unless you pay {`{${amount}}`}.
+          {!affordable && <span style={{ color: "#e0a030" }}> You don’t have {`{${amount}}`} available.</span>}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => submit(true)} disabled={submitting || !affordable} style={btn(accent, submitting || !affordable)}>
+          Pay {`{${amount}}`}
+        </button>
+        <button onClick={() => submit(false)} disabled={submitting} style={btn(LINE, submitting)}>
+          Let it be countered
+        </button>
+      </div>
     </div>
   );
 }

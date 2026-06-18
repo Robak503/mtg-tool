@@ -26,8 +26,9 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
+import { canAfford, manaSources, payGenericMana } from "../manaModel.js";
 
 /**
  * The targets that belong to the atom at `atomIndex`. P2.5 multi-clause / modal /
@@ -437,6 +438,50 @@ export function resolveOptionalChoice(state, doIt) {
     next = logEvent(next, { kind: "spell-effect", effect: "optional", controller: r.controller, op: atom?.op, taken: false });
   }
   return resumeAfterChoice(next, { resume: { ...r, nextAtomIndex: i + 1 } });
+}
+
+/**
+ * ===== SOFT-CNT ===== — decide whether an AI / Expert (no picker) pays {N} to save its spell from a soft
+ * counter. Heuristic: PAY IF ABLE (the controller protects its own spell when it has the mana). `canAfford`
+ * checks the pool + untapped sources for the fixed generic — if it can't afford it, return false (the spell
+ * is countered). A board-aware "decline to save a worthless spell / don't tap out for {6}" refinement is a
+ * future enhancement; pay-if-able is always a LEGAL choice (CR 601 — paying optional costs), never wrong.
+ */
+export function autoPickSoftCounterPay(state, pc) {
+  const player = state.players?.[pc?.controller];
+  if (!player) return false; // controller gone → can't pay → countered
+  return canAfford(player.manaPool, manaSources(state, pc.controller), { generic: pc.amount || 0 });
+}
+
+/**
+ * ===== SOFT-CNT ===== — settle a soft counter's pay-or-be-countered decision: if `pay` AND the targeted
+ * spell's controller can afford {N}, charge the mana (payGenericMana — taps their sources) and the spell
+ * SURVIVES; otherwise COUNTER it (counterSpellById, the shared hard-counter path). Then RESUME the caster's
+ * program. Guards: a spell that left the stack mid-pause is a logged fizzle; a controller eliminated mid-
+ * pause can't pay → countered (CR 800.4a); a `pay` the controller can't actually afford falls through to the
+ * counter (payGenericMana returns paid:false, state unchanged — never fabricated mana).
+ */
+export function resolveSoftCounterChoice(state, pay) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "soft-counter") return state;
+  let next = clearPendingChoice(state);
+  const onStack = (next.stack || []).some((o) => o.id === pc.spellId && o.kind === "spell");
+  if (!onStack) {
+    next = logEvent(next, { kind: "spell-effect", effect: "soft-counter-fizzle", spellId: pc.spellId });
+    return resumeAfterChoice(next, pc);
+  }
+  let paid = false;
+  if (pay && next.players?.[pc.controller]) {
+    const r = payGenericMana(next, pc.controller, pc.amount);
+    next = r.state;
+    paid = r.paid;
+  }
+  if (paid) {
+    next = logEvent(next, { kind: "spell-effect", effect: "soft-counter-paid", controller: pc.controller, amount: pc.amount, spellName: pc.spellName });
+  } else {
+    next = counterSpellById(next, pc.spellId, { via: "soft-counter" });
+  }
+  return resumeAfterChoice(next, pc);
 }
 
 /**

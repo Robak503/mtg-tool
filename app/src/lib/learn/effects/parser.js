@@ -343,6 +343,19 @@ function parseExtendedAtom(s) {
   if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };
   if (/^counter target noncreature spell$/.test(t)) return { op: "counter", spellFilter: "noncreature", targetType: "spell" };
   if (/^counter target creature spell$/.test(t)) return { op: "counter", spellFilter: "creature", targetType: "spell" };
+  // SOFT-CNT — a "soft" counter: "Counter target [noncreature|creature] spell unless its controller pays
+  // {N}." (Force Spike / Mana Leak / Mana Tithe / Spell Pierce / Stubborn Denial / Daze / Quench / …).
+  // Extends the hard-counter atom with an `unlessPay` FIXED-generic escape resolved at counter resolution:
+  // the targeted spell's controller pays {N} to save it, else it's countered (the pay-decision rides the
+  // pending-choice seam). ANCHORED to a FIXED {N} only — an {X} tax (Clash of Wills, Syncopate), a variable
+  // tax ("plus an additional {2} for each …", Rune Snag), a non-mana cost ("exiles their graveyard", "pays
+  // {1} and 1 life"), a rider ("Draw a card", "If you control a Wizard …"), a modal "•" bullet, or a
+  // "creature or planeswalker" / "instant or sorcery" filter all leave residue → fail the anchor → low →
+  // Arbiter (CLAUDE.md §1.2, never a confidently-wrong partial). The {N} is generic, mirroring the cast path.
+  {
+    const sc = /^counter target (noncreature |creature )?spell unless its controller pays \{(\d+)\}$/.exec(t);
+    if (sc) return { op: "counter", spellFilter: sc[1] ? sc[1].trim() : "any", targetType: "spell", unlessPay: parseInt(sc[2], 10) };
+  }
   // Graveyard recursion (CR 608) — "Return target <X> card from your graveyard to your hand" (Raise Dead,
   // Regrowth, Eternal Witness's ETB, Argivian Find…). The target is a CARD in the CASTER'S OWN graveyard
   // (a PUBLIC zone), chosen at cast time like any target — so it flows through the normal cast-time target

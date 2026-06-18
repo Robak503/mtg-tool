@@ -512,7 +512,7 @@ const MUST_DROP_TO_LOW = [
   // are pinned HIGH in MUST_STAY_HIGH + the dedicated describe block below). The
   // anchored allowlist drops anything that isn't EXACTLY a bare "Counter target
   // [noncreature|creature]? spell". ──
-  "Counter target spell unless its controller pays {3}.",       // Mana Leak tax — "unless" unmodeled
+  "Counter target spell unless its controller pays {X}.",       // Clash of Wills — variable {X} tax stays low (SOFT-CNT models fixed {N} only)
   "Counter target spell unless its controller pays {1} for each card in your hand.", // tax
   "Counter target spell or ability.",                            // "or ability" — not a bare spell target
   "Counter target activated or triggered ability.",              // an ability is not a spell
