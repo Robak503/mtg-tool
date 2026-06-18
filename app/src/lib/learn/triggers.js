@@ -422,6 +422,23 @@ export function triggersForEvent(state, { event, sourcePermanent, triggeringPerm
 }
 
 /**
+ * PW-8: an EMBLEM as a trigger SOURCE. An emblem has no battlefield permanent, but its triggered
+ * abilities still fire (CR 114.2 — an emblem has the listed ability). Shaped like a permanent so
+ * triggersForEvent / detectTriggers / makePendingTrigger treat it uniformly (its `card.oracle` is the
+ * emblem's ability text; its `controller` scopes "you control" / "your upkeep").
+ */
+function emblemAsSource(emblem, controller) {
+  return { id: emblem.id, controller, card: { oracle: emblem.oracle, name: "Emblem", type: "Emblem" }, isEmblem: true };
+}
+
+/** Every trigger SOURCE a player has: battlefield permanents + emblems (PW-8). */
+function triggerSourcesOf(state, pid) {
+  const p = state.players[pid];
+  if (!p) return [];
+  return [...(p.battlefield || []), ...(p.emblems || []).map((e) => emblemAsSource(e, pid))];
+}
+
+/**
  * Enqueue dies triggers for a batch of creatures that just died (CR 603.6c).
  * `dead` is destroyLethalCreatures' return — [{ id, controller, name, card }],
  * the look-back snapshot (CR 603.10a), since the permanents are already in the
@@ -443,7 +460,7 @@ export function checkEnterTriggers(state, enteredPerm) {
   if (!enteredPerm) return state;
   let fired = [];
   for (const pid of Object.keys(state.players)) {
-    for (const watcher of state.players[pid].battlefield) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
       fired = fired.concat(triggersForEvent(state, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm }));
     }
   }
@@ -459,7 +476,7 @@ export function checkDiesTriggers(state, dead) {
     const lookBack = { id: d.id, controller: d.controller, card: d.card };
     fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
     for (const pid of Object.keys(state.players)) {
-      for (const watcher of state.players[pid].battlefield) {
+      for (const watcher of triggerSourcesOf(state, pid)) {
         fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack }));
       }
     }
@@ -477,7 +494,7 @@ export function checkDiesTriggers(state, dead) {
 export function checkStepTriggers(state, event) {
   let fired = [];
   for (const pid of Object.keys(state.players)) {
-    for (const perm of state.players[pid].battlefield) {
+    for (const perm of triggerSourcesOf(state, pid)) {
       fired = fired.concat(triggersForEvent(state, { event, sourcePermanent: perm }));
     }
   }
@@ -503,7 +520,7 @@ export function checkAttackTriggers(state) {
     // self ("this attacks") + the attacker's own "creature you control attacks"
     fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context }));
     // other watchers the attacking player controls
-    for (const watcher of state.players[a.attackingPlayer]?.battlefield || []) {
+    for (const watcher of triggerSourcesOf(state, a.attackingPlayer)) {
       if (watcher.id === attackerPerm.id) continue;
       fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
     }
@@ -538,7 +555,7 @@ export function checkCastTriggers(state, { spellCard, casterId }) {
   const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard) };
   let fired = [];
   for (const pid of Object.keys(state.players)) {
-    for (const watcher of state.players[pid].battlefield) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
       const descriptors = detectTriggers(watcher.card).filter(d => d.event === "cast");
       for (const d of descriptors) {
         if (d.whose === "you" && casterId !== watcher.controller) continue;

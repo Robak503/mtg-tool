@@ -29,7 +29,8 @@
 import { parseSpellEffect, parseCreatureTargetRestrictions, parseGraveyardFilter } from "../spellEffects.js";
 import { ATOM_RESOLVERS } from "./effectAtoms.js";
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
-import { staticAbilitiesCoverCard } from "../staticAbilityParser.js";
+import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
+import { detectTriggers } from "../triggers.js";
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -1026,19 +1027,42 @@ export function parseEffectProgram(card) {
  * time (default false — permanent-ability effects rarely carry their own X).
  */
 /**
- * ===== EMBLEM ===== (PW-5, CR 114) — "You get an emblem with '<ability>'." Matched UP FRONT because
- * the quoted ability spans sentences (the clause splitter would shatter it). Modeled ONLY when the
- * ability is a clean modeled STATIC the layer engine can apply (`staticAbilitiesCoverCard` with a
- * conservative no-keyword-only gate, so partial coverage → reject). A triggered / activated / complex
- * emblem ability → null → low → Arbiter (PW-6 adds triggered emblems). Returns { atom, rest:"" } for
- * the `collapsed` handler.
+ * ===== EMBLEM ===== (PW-5/8, CR 114) — "You get an emblem with '<ability>'." Matched UP FRONT because
+ * the quoted ability spans sentences (the clause splitter would shatter it). Modeled when the ability
+ * is fully covered by the engine — either a STATIC the layer engine applies (PW-5, emblemEffectsOf) or
+ * TRIGGERED abilities the trigger engine fires (PW-8, triggers scan emblems). All-or-nothing per the
+ * CREED: a partial / activated / complex emblem ability → null → low → Arbiter. Returns { atom, rest:"" }.
  */
 function matchEmblem(oracle) {
   const m = stripReminder(oracle).trim().match(/^you get an emblem with ["“”'](.+)["“”']\.?$/i);
   if (!m) return null;
   const ability = m[1].trim();
-  if (!staticAbilitiesCoverCard({ type: "Emblem", oracle: ability }, () => false)) return null;
+  if (!emblemAbilityModeled(ability)) return null;
   return { atom: { op: "create-emblem", emblemOracle: ability, targetType: null }, rest: "" };
+}
+
+/**
+ * Is an emblem's quoted ability text fully modeled? STATIC (anthem the layer applies, PW-5) OR
+ * TRIGGERED (PW-8: every detected trigger's effect parses HIGH, NO static mixed in, and the trigger
+ * sentences account for the WHOLE text — no unmodeled residue). Mirrors coverage.permanentTriggersCovered
+ * but inline (parser can't import coverage — that would cycle). Conservative: a mixed static+trigger
+ * emblem, a multi-sentence trigger effect the residue scan can't account for, or any LOW trigger effect
+ * → false → Arbiter (a SAFE false-negative).
+ */
+function emblemAbilityModeled(x) {
+  if (staticAbilitiesCoverCard({ type: "Emblem", oracle: x }, () => false)) return true; // PW-5 static
+  if (parseStaticAbilities({ type: "Emblem", oracle: x }).length > 0) return false;       // mixed static+trigger → reject
+  const trigs = detectTriggers({ type: "Emblem", oracle: x });
+  if (trigs.length === 0) return false;
+  const allHigh = trigs.every((d) => {
+    const p = parseEffectClause(d.effectClause, "Instant");
+    return p && programConfidence(p) === "high" && p.structure !== "modal" && !p.xSpell;
+  });
+  if (!allHigh) return false;
+  // The trigger sentences (the When/Whenever/At grammar) must account for the whole text — nothing
+  // unmodeled may remain (same residue check permanentTriggersCovered uses, tightened to empty).
+  const residue = x.replace(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^.]+\./gi, " ").replace(/[\s.]+/g, "");
+  return residue === "";
 }
 
 export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) {
