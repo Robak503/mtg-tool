@@ -83,8 +83,16 @@ counter). The cost frontier is now low-ROI — pivot to the spell-effect vocabul
   planeswalker" still → Arbiter. Full suite **2,099** (+6 enforcement pins) · lint clean · corpus 15.7→
   15.9% (**+64**) · sweep **0 false-positives, 0 dropped-compound** (the γ1c lesson applied) · live QA:
   real Doom Blade offers only the non-black creature.
-  - **Merge gate:** 3-lens adversarial review (Opus — incl. the trigger-flush × α1-chooser interaction) +
-    CI green, then `gh pr merge --squash`.
+  - **Adversarial review (3 lenses, Opus): found + FIXED a real P0** (+ 2 P2s, same root) — colorNeg read
+    `perm.card.colors`, but the slim index enriches transform/MDFC creatures with top-level `colors:[]`
+    even when the front face is colored, so a black DFC (Graveyard Trespasser) was treated as colorless
+    and ILLEGALLY offered to Doom Blade (328 DFCs affected). Fixed with FRONT-face discipline (read
+    `card_faces[0].colors` / front-face type line, CR 712.4a) + fail-closed on unresolvable data — also
+    closes the typeNeg DFC false-negative (Kazandu Mammoth) and the latent absent-colors hazard. The
+    trigger-flush × α1-chooser interaction verified SAFE (a combat-restricted destroy trigger NO_SAFE_-
+    TARGETs → Arbiter when no enemy is in the role). Commit 9fe4083. **Lesson: a new field CONSUMER
+    (colors for targeting) must handle the slim-index DFC enrichment gap — front-face or fail-closed.**
+  - **Merge gate:** review SAFE after the fix + CI green, then `gh pr merge --squash`.
 ## β PHASE — the spell-effect vocabulary grind (SCOPED, ready to build)
 
 The clean COST frontier is mined out. The biggest remaining bucket is **Spell effect (other) — ~7,028
