@@ -32,6 +32,7 @@ import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.j
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered } from "./effects/loyaltyAbilities.js";
+import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
 // permanent whose only text is these plays natively (the body fights, the layer
@@ -276,10 +277,18 @@ export function classifyCard(card) {
   const type = String(card?.type || "").toLowerCase();
   const oracle = card?.oracle || "";
   if (/\bland\b/.test(type)) return "land";
-  // A planeswalker (PW-1): native when EVERY loyalty ability is a fully-modeled HIGH program and
-  // there's no unmodeled residual text (planeswalkerNativelyCovered, the all-or-nothing CREED gate);
-  // otherwise the whole walker routes to the Ollama-only Arbiter (arbiter-pw), as before.
-  if (/\bplaneswalker\b/.test(type)) return planeswalkerNativelyCovered(card) ? "native-planeswalker" : "arbiter-pw";
+  // A planeswalker (PW-1) — keyed on the FRONT face (castsAsPlaneswalker) so a creature-front DFC
+  // (Jace, Vryn's Prodigy) classifies by its creature side below, matching how it actually casts.
+  // Native when EVERY loyalty ability is a fully-modeled HIGH program and there's no unmodeled
+  // residual text (planeswalkerNativelyCovered, the all-or-nothing CREED gate); otherwise the whole
+  // walker routes to the Ollama-only Arbiter (arbiter-pw).
+  if (castsAsPlaneswalker(card)) return planeswalkerNativelyCovered(card) ? "native-planeswalker" : "arbiter-pw";
+  // A DFC with a planeswalker BACK face but a non-PW front (Jace, Vryn's Prodigy; Valki // Tibalt)
+  // enters as its front at runtime; its transform + back face are unmodeled, so it's NEVER native.
+  // Classify body-only directly — running the creature native classifiers on the combined oracle could
+  // false-positive (a stray "Add"/keyword line) and wrongly count it native (CREED). Caught here,
+  // before those classifiers.
+  if (isPlaneswalker(card)) return "body-only";
   if (/\b(instant|sorcery)\b/.test(type)) {
     return spellIsNative(card) ? "native-spell" : "arbiter-spell";
   }

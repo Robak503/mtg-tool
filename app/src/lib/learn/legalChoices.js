@@ -707,7 +707,10 @@ function actionsDeclareAttacker(state, playerId) {
   for (const oppId of opponentsOf(state, playerId)) {
     targets.push({ defenderId: oppId });
     for (const p of (state.players[oppId]?.battlefield || [])) {
-      if (isPlaneswalker(p.card)) targets.push({ defenderId: oppId, defenderPlaneswalkerId: p.id, pwName: p.card?.name });
+      // A battlefield permanent is an attackable planeswalker iff it ENTERED as one (it carries a
+      // loyalty counter) — so a creature-front DFC entered as a creature is never offered as a PW
+      // target (PW-1 review P2.1). This is the precise runtime check, not the any-face card read.
+      if (p.counters?.loyalty != null) targets.push({ defenderId: oppId, defenderPlaneswalkerId: p.id, pwName: p.card?.name });
     }
   }
 

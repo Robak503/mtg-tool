@@ -17,7 +17,7 @@ import { resolveTopOfStack } from "./gameEngine.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import {
   _resetIdsForTests, createGameState, createPermanent, findPermanent,
-  isPlaneswalker, startingLoyalty, adjustLoyalty,
+  isPlaneswalker, castsAsPlaneswalker, startingLoyalty, adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers, untapAll,
 } from "./gameState.js";
 import { parseLoyaltyAbilities, planeswalkerNativelyCovered } from "./effects/loyaltyAbilities.js";
@@ -304,6 +304,50 @@ describe("casting a planeswalker", () => {
     s = dispatchAction(s, { kind: "cast-spell", playerId: "user", cardId: "card-Staty", cost: { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } });
     s = resolveTopOfStack(s);
     expect(s.players.user.battlefield.find((p) => p.card?.name === "Staty")).toBeUndefined();
+  });
+});
+
+// ── Creature-front double-faced cards (review P2.1) ──────────────────────────────
+describe("creature-front DFCs cast as their creature side, not as a planeswalker", () => {
+  const flip = {
+    id: "card-flip", name: "Flipwalker",
+    type: "Creature — Wizard // Legendary Planeswalker — Flip",
+    power: 0, toughness: 2, loyalty: "5",
+    oracle: "{T}: Draw a card, then discard a card.\n+1: Draw a card.",
+    card_faces: [
+      { type_line: "Creature — Wizard", oracle_text: "{T}: Draw a card, then discard a card." },
+      { type_line: "Legendary Planeswalker — Flip", loyalty: "5", oracle_text: "+1: Draw a card." },
+    ],
+  };
+
+  it("castsAsPlaneswalker reads the FRONT face (false here) though isPlaneswalker (any face) is true", () => {
+    expect(isPlaneswalker(flip)).toBe(true);
+    expect(castsAsPlaneswalker(flip)).toBe(false);
+    expect(castsAsPlaneswalker(pw("Real", NATIVE_ORACLE))).toBe(true); // single-faced walker
+    expect(castsAsPlaneswalker(creature("Bear"))).toBe(false);
+  });
+
+  it("classifies body-only (never native, never arbiter-pw) — its transform + back face are unmodeled", () => {
+    const tier = classifyCard({ type: flip.type, oracle: flip.oracle, loyalty: flip.loyalty, card_faces: flip.card_faces, name: flip.name });
+    expect(tier).toBe("body-only");
+  });
+
+  it("casts as a creature: enters the battlefield WITHOUT a loyalty counter", () => {
+    let s = mainState();
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, hand: [flip] } } };
+    s = dispatchAction(s, { kind: "cast-spell", playerId: "user", cardId: "card-flip", cost: { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } });
+    s = resolveTopOfStack(s);
+    const perm = s.players.user.battlefield.find((p) => p.card.name === "Flipwalker");
+    expect(perm).toBeTruthy();
+    expect(perm.counters.loyalty).toBeUndefined();
+  });
+
+  it("an enemy creature-front DFC is NOT offered as an attackable planeswalker", () => {
+    const attacker = createPermanent({ id: "perm-a", card: creature("Attacker"), controller: "user", summoningSick: false });
+    const enemyFlip = createPermanent({ id: "perm-f", card: flip, controller: "ai", summoningSick: false }); // no loyalty counter
+    let s = withBattlefield(mainState({ phase: "combat", step: "declare-attackers" }), "user", [attacker]);
+    s = withBattlefield(s, "ai", [enemyFlip]);
+    expect(attackActions(s).some((a) => a.defenderPlaneswalkerId === "perm-f")).toBe(false);
   });
 });
 

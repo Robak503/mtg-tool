@@ -224,6 +224,23 @@ export function isPlaneswalker(card) {
 }
 
 /**
+ * Does this card CAST / ENTER as a planeswalker? — its FRONT face is a planeswalker. Distinct from
+ * `isPlaneswalker` (which is true if ANY face is one): a creature-front double-faced card (Jace,
+ * Vryn's Prodigy; Nissa, Vastwood Seer) has a planeswalker BACK face but casts and enters as its
+ * creature front, so it must NOT hit the planeswalker cast/ETB/classify paths (it would otherwise
+ * route to the Arbiter and get a spurious back-face loyalty counter). A modal/transforming DFC is
+ * treated by its front face (the conservative default — face-choice/transform isn't modeled). A
+ * single-faced planeswalker (no `card_faces`) falls back to its own type line.
+ */
+export function castsAsPlaneswalker(card) {
+  const faces = card?.card_faces;
+  const frontType = Array.isArray(faces) && faces.length > 0
+    ? String(faces[0]?.type_line || faces[0]?.type || "")
+    : String(card?.type || card?.type_line || "");
+  return /Planeswalker/.test(frontType);
+}
+
+/**
  * The starting loyalty a planeswalker enters with (CR 306.5b) — its printed `loyalty`, or the
  * loyalty on its planeswalker FACE (DFC). Returns the integer, or null when it isn't a finite
  * number (an "X"/"*" printed loyalty — that card never classifies native, and the 0-loyalty SBA

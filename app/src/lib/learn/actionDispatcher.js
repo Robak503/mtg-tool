@@ -37,6 +37,7 @@ import {
   destroyLethalCreatures,
   mintId,
   isPlaneswalker,
+  castsAsPlaneswalker,
   adjustLoyalty,
   markLoyaltyActivated,
   destroyZeroLoyaltyPlaneswalkers,
@@ -289,13 +290,14 @@ function applyCastSpell(state, action) {
     // carries an unmodeled bonus/ability). Route to the Arbiter seam rather than entering a
     // do-nothing unattached permanent — honest about the gap, never a silent no-op.
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "aura (unmodeled enchant or bonus)" } };
-  } else if (isPlaneswalker(card)) {
-    // A planeswalker (PW-1). Only a FULLY-modeled walker (every loyalty ability HIGH, no unmodeled
-    // static/trigger residue) enters the native battlefield via PERMANENT_ETB (with its starting
-    // loyalty, set in enterPermanent). A partially-modeled walker routes to the Arbiter seam rather
-    // than entering and silently dropping its unmodeled text — the all-or-nothing CREED (a partial
-    // application is forbidden; a false negative is safe). Checked before the generic `program`
-    // branch, which would otherwise parse the first loyalty line and mis-route it.
+  } else if (castsAsPlaneswalker(card)) {
+    // A card that casts AS a planeswalker (front face — so a creature-front DFC falls through to the
+    // permanent/creature path and enters as its creature side, PW-1 review P2.1). Only a FULLY-
+    // modeled walker (every loyalty ability HIGH, no unmodeled static/trigger residue) enters the
+    // native battlefield via PERMANENT_ETB (with its starting loyalty, set in enterPermanent). A
+    // partially-modeled walker routes to the Arbiter seam rather than entering and silently dropping
+    // its unmodeled text — the all-or-nothing CREED. Checked before the generic `program` branch,
+    // which would otherwise parse the first loyalty line and mis-route it.
     payload = planeswalkerNativelyCovered(card)
       ? { resolver: RESOLVER_KEYS.PERMANENT_ETB, params: { card, controller: action.playerId } }
       : { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "planeswalker (unmodeled loyalty ability or static)" } };
