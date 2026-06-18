@@ -77,28 +77,45 @@ export function parseLoyaltyAbilities(card) {
 }
 
 /**
- * Is this planeswalker fully modeled — every loyalty ability HIGH, no unmodeled residue — so it
- * plays NATIVELY (the player/AI can deploy it, tick it up/down, and each ability resolves)? This
- * is the all-or-nothing CREED gate coverage.classifyCard reads to flip a walker to
- * `native-planeswalker` instead of `arbiter-pw`.
- *
- * Requires: a planeswalker, a finite starting loyalty, at least one loyalty ability, EVERY loyalty
- * ability modeled, AND no leftover lines after removing the loyalty abilities (a static or
- * triggered ability the engine doesn't model would otherwise be silently dropped). Conservative by
- * design — when in doubt it routes the whole card to the Arbiter.
+ * The non-loyalty lines of a planeswalker's oracle — anything that ISN'T a loyalty ability, i.e. a
+ * static or triggered ability. These CAN'T be hybrid-routed at activation (a static applies
+ * continuously; there's no discrete moment to ask the Arbiter), so any UNMODELED residue line keeps
+ * the WHOLE walker on the Arbiter. (PW-3 will treat residue that's an already-modeled anthem/trigger
+ * as covered; PW-2 requires zero residue — pure-loyalty walkers only.)
  */
-export function planeswalkerNativelyCovered(card) {
-  if (!isPlaneswalker(card)) return false;
-  if (startingLoyalty(card) == null) return false;
-  const abilities = parseLoyaltyAbilities(card);
-  if (abilities.length === 0) return false;
-  if (!abilities.every((a) => a.modeled)) return false;
-  // No non-loyalty residual text — any line that ISN'T a loyalty ability is a static/triggered
-  // ability we don't model here, so the card isn't fully covered (→ Arbiter).
-  const residue = oracleOf(card)
+function nonLoyaltyResidue(card) {
+  return oracleOf(card)
     .split(/\n+/)
     .map((s) => s.trim())
     .filter(Boolean)
     .filter((line) => !LOYALTY_LINE.test(line));
-  return residue.length === 0;
+}
+
+/**
+ * Is this planeswalker PLAYABLE by the native engine under the HYBRID model (PW-2)? — it can enter,
+ * track loyalty, be attacked, die at 0, and have EACH loyalty ability resolve natively if modeled or
+ * route to the Arbiter at activation if not (a discrete, CREED-safe seam — cost still paid, effect
+ * adjudicated, never fabricated or silently dropped).
+ *
+ * Requires: a planeswalker, a finite starting loyalty, ≥1 loyalty ability, and NO unmodeled
+ * non-loyalty residue (a static/triggered ability can't be hybrid-routed → that walker stays
+ * whole-card Arbiter). It does NOT require every loyalty ability modeled — that's the stricter
+ * `planeswalkerNativelyCovered` below.
+ */
+export function planeswalkerPlayable(card) {
+  if (!isPlaneswalker(card)) return false;
+  if (startingLoyalty(card) == null) return false;
+  if (parseLoyaltyAbilities(card).length === 0) return false;
+  return nonLoyaltyResidue(card).length === 0;
+}
+
+/**
+ * Is this planeswalker FULLY modeled — playable AND every loyalty ability is a HIGH atom (nothing
+ * routes to the Arbiter)? This is the all-or-nothing CREED gate `coverage.classifyCard` reads to
+ * count a walker as `native-planeswalker` in the corpus-% metric. A walker that's playable but has
+ * any Arbiter-routed ability is `playable-pw` (runtime-playable) but NOT counted native.
+ */
+export function planeswalkerNativelyCovered(card) {
+  if (!planeswalkerPlayable(card)) return false;
+  return parseLoyaltyAbilities(card).every((a) => a.modeled);
 }
