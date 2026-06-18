@@ -169,7 +169,14 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
     if (actions[0].isAuraSpell) continue;
     const effect = actions[0].effect;
     let chosen = actions[0];
-    if (actions.some(a => a.targets?.length)) {
+    // δ-1 hand disruption (Duress / Thoughtseize / …): every `handCard` target is by construction an
+    // OPPONENT's card (the enumerator only surfaces opponents' hands), so there's no self-target risk —
+    // the AI casts it, stripping the highest-mana-value card from the revealed hand (a simple "take
+    // their best card" heuristic). This bypasses the chooseAITarget hold below, which passes on any
+    // program-only spell (null legacy `effect`) and would otherwise make the AI never play its discard.
+    if ((actions[0].program?.atoms || []).some(a => a.op === "discard-chosen")) {
+      chosen = actions.reduce((best, a) => ((a.targets?.[0]?.cmc ?? 0) > (best.targets?.[0]?.cmc ?? 0) ? a : best), actions[0]);
+    } else if (actions.some(a => a.targets?.length)) {
       // A targeted spell: only cast on a good ENEMY target. chooseAITarget filters to
       // enemies for the scorable legacy effects (damage/destroy); for spells it can't
       // score yet (effect == null — the P2.7 extended atoms tap/bounce/exile/counters)

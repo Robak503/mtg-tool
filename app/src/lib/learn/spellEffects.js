@@ -308,6 +308,30 @@ export function enumerateTargets(state, controllerId, effect) {
       out.push({ type: "graveyardCard", id: card.id, controller: controllerId, name: card?.name });
     }
   };
+  // δ-1 hand disruption: legal targets are CARDS in an OPPONENT'S hand matching the spell's handFilter
+  // (Duress = noncreature+nonland, Thoughtseize = nonland, Inquisition = nonland + mv≤3, Coercion = any,
+  // Despise = creature/planeswalker, Divest = artifact/creature, Harsh Scrutiny = creature). The spell
+  // legally "targets a player," but the meaningful choice is the card — modeled like `graveyardCard`
+  // (a card in a zone, chosen at cast). We only ever offer OPPONENTS' cards: Duress/Despise target an
+  // opponent, and targeting yourself with Thoughtseize is legal-but-pointless, so restricting to
+  // opponents is a SAFE subset (never an illegal target, never a self-mill of your own hand). Front-face
+  // type only (CR 712.4a — a card in hand has just its front-face characteristics; a Battle/Saga/MDFC's
+  // enriched line is the combined "Front // Back"), mirroring the counter/tutor/graveyard discipline. A
+  // hand with no matching card surfaces nothing → the spell is uncastable; a SAFE false-negative (you're
+  // never offered a Duress that would strip nothing), never a mis-resolve.
+  const addHandCards = () => {
+    const hf = effect.handFilter || {};
+    for (const pid of Object.keys(state.players)) {
+      if (pid === controllerId) continue;                       // opponents' hands only
+      for (const card of state.players[pid]?.hand || []) {
+        if (card.token) continue;                                // not a "card"
+        if (!handCardMatches(card, hf)) continue;
+        // `cmc` rides along so the AI's "strip their highest-value card" heuristic (opponentAI) can
+        // rank without a re-lookup; ignored by every other target consumer.
+        out.push({ type: "handCard", id: card.id, controller: pid, name: card?.name, cmc: card?.cmc ?? card?.mana_value ?? 0 });
+      }
+    }
+  };
   // Targeted NON-CREATURE permanent removal (Disenchant / Naturalize / Stone Rain / "destroy target
   // permanent"). The only modeled restriction is the controller (the 3 the parser captures);
   // tapped/power aren't part of the anchored permanent shapes, so they never reach here.
@@ -347,8 +371,25 @@ export function enumerateTargets(state, controllerId, effect) {
   else if (effect.targetType === "any") { addCreatures(); addPlayers(); }
   else if (effect.targetType === "spell") addStackSpells();
   else if (effect.targetType === "graveyardCard") addGraveyardCards();
+  else if (effect.targetType === "handCard") addHandCards();
   else if (PERMANENT_PREDICATES[effect.targetType]) addPermanents(PERMANENT_PREDICATES[effect.targetType]);
   return out;
+}
+
+/**
+ * Does a card in hand match a hand-disruption handFilter (δ-1)? The filter is the small ALLOWLISTED
+ * spec the parser built: `include` (front-face type must contain ANY listed type — "creature or
+ * planeswalker"), `exclude` (must contain NONE — "noncreature, nonland"), and `maxCmc` (Inquisition's
+ * "mana value 3 or less"). An empty filter ({}) matches any card (Coercion). Front-face type only
+ * (CR 712.4a), mirroring the enumerator. A filter the parser couldn't model never reaches here — the
+ * whole spell stayed low → Arbiter.
+ */
+function handCardMatches(card, hf) {
+  const frontType = String(card?.type || card?.type_line || "").split(" // ")[0];
+  if (Array.isArray(hf.include) && !hf.include.some((ty) => new RegExp(`\\b${ty}\\b`).test(frontType))) return false;
+  if (Array.isArray(hf.exclude) && hf.exclude.some((ty) => new RegExp(`\\b${ty}\\b`).test(frontType))) return false;
+  if (typeof hf.maxCmc === "number" && !((card?.cmc ?? card?.mana_value ?? 0) <= hf.maxCmc)) return false;
+  return true;
 }
 
 /** Does a spell on the stack match a counter's spellFilter (CR 701.5a)? */

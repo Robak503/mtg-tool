@@ -530,6 +530,42 @@ function parseModal(cardType, oracle, hasX = false) {
   return { chooseCount: 1, upTo: false, modes };
 }
 
+// δ-1 hand disruption — the filter phrase between "you choose a/an" and "card" mapped to a modeled
+// handFilter spec (the enumerator's predicate: `include` = front-face type must contain ANY, `exclude`
+// = must contain NONE, `maxCmc` = the optional "mana value N or less"). ALLOWLIST: only these exact
+// phrases are modeled — Duress, Thoughtseize, Distress, Inquisition, Coercion, Despise, Divest, Harsh
+// Scrutiny. Any other filter ("nonblack", "with the highest mana value", a tribal type) isn't in the
+// map → matchHandDisruption returns null → the whole spell routes to the Arbiter (CLAUDE.md §1.2).
+const HAND_FILTER_MAP = {
+  "": {},                                                      // Coercion — any card
+  "nonland": { exclude: ["Land"] },                            // Thoughtseize / Distress / Inquisition
+  "noncreature, nonland": { exclude: ["Creature", "Land"] },   // Duress
+  "creature": { include: ["Creature"] },                       // Harsh Scrutiny
+  "creature or planeswalker": { include: ["Creature", "Planeswalker"] }, // Despise
+  "artifact or creature": { include: ["Artifact", "Creature"] },         // Divest
+};
+
+/**
+ * Match the leading "Target <opponent|player> reveals their hand. You choose a <filter> card from it
+ * [with mana value N or less]. That player discards that card." template (δ-1). Returns
+ * `{ atom, rest }` — the `discard-chosen` atom plus the oracle text AFTER the template (rider
+ * sentences like "You lose 2 life." / "Scry 1.") — or null when the text isn't this exact shape or
+ * carries an unmodeled card filter. "You MAY choose …" (Reckoner Shakedown's optional branch) and the
+ * exile/graveyard variant (Agonizing Remorse) don't match → Arbiter. `an?` matches the article whether
+ * the filter starts with a vowel ("an artifact …") or not ("a nonland …").
+ */
+function matchHandDisruption(oracle) {
+  const m = String(oracle).match(
+    /^target (?:opponent|player) reveals their hand\. you choose an? ?([a-z, ]*?) ?card from it(?: with mana value (\d+) or less)?\. that player discards that card\.?/i,
+  );
+  if (!m) return null;
+  const phrase = m[1].trim().toLowerCase();
+  if (!(phrase in HAND_FILTER_MAP)) return null;               // an unmodeled filter → low → Arbiter
+  const handFilter = { ...HAND_FILTER_MAP[phrase] };
+  if (m[2]) handFilter.maxCmc = parseInt(m[2], 10);
+  return { atom: { op: "discard-chosen", targetType: "handCard", handFilter }, rest: oracle.slice(m[0].length).trim() };
+}
+
 /**
  * Parse a card into an EffectProgram, or null.
  *
@@ -571,6 +607,28 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   // Drop the vacuous "This spell can't be countered" rider too — uncounterability is enforced at the
   // counter-target enumerator, not the effect program, so honoring it yields the identical resolution.
   oracle = stripUncounterableRider(oracle);
+
+  // δ-1 hand disruption — the discard-from-revealed-hand effect SPANS three sentences ("…reveals their
+  // hand. You choose a card from it. That player discards that card."), which the clause splitter below
+  // would shatter into unmatchable fragments. Match the whole template up front as ONE `discard-chosen`
+  // atom, then run any RIDER sentences that follow (Thoughtseize "You lose 2 life", Harsh Scrutiny
+  // "Scry 1") through the normal clause pipeline. All-or-nothing: HIGH only if every rider atom is
+  // modeled too; an unmodeled rider → low → Arbiter (never a partial — the discard would fire while the
+  // rider is silently dropped, the cardinal-rule failure).
+  const hd = matchHandDisruption(oracle);
+  if (hd) {
+    const atoms = [hd.atom];
+    let allParsed = true;
+    for (const clause of (hd.rest ? splitClauses(hd.rest) : [])) {
+      const a = parseClauseToAtom(cardType, clause, hasX);
+      if (!a) { allParsed = false; break; }
+      atoms.push(a);
+    }
+    if (allParsed && atoms.every(a => KNOWN.has(a.op))) {
+      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX), unparsedTail: null });
+    }
+    return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
+  }
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).
