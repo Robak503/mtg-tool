@@ -47,7 +47,7 @@ import { manaSources, planPayment } from "./manaModel.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura } from "./staticAbilityParser.js";
-import { planeswalkerNativelyCovered } from "./effects/loyaltyAbilities.js";
+import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
 import { checkCastTriggers, checkDiesTriggers } from "./triggers.js";
 
@@ -298,9 +298,14 @@ function applyCastSpell(state, action) {
     // partially-modeled walker routes to the Arbiter seam rather than entering and silently dropping
     // its unmodeled text — the all-or-nothing CREED. Checked before the generic `program` branch,
     // which would otherwise parse the first loyalty line and mis-route it.
-    payload = planeswalkerNativelyCovered(card)
+    //
+    // HYBRID (PW-2): a PLAYABLE walker (no unmodeled static/trigger residue) enters natively — its
+    // loyalty abilities resolve natively if modeled, else route to the Arbiter AT ACTIVATION. Only a
+    // walker with unmodeled static/triggered text (which can't be hybrid-routed) goes whole-card to
+    // the Arbiter at cast.
+    payload = planeswalkerPlayable(card)
       ? { resolver: RESOLVER_KEYS.PERMANENT_ETB, params: { card, controller: action.playerId } }
-      : { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "planeswalker (unmodeled loyalty ability or static)" } };
+      : { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "planeswalker (unmodeled static/triggered ability)" } };
   } else if (program) {
     // P2.5: thread the cast-time choices (chosenMode for modal, xValue for X-spells)
     // frozen onto the action so resolution is deterministic + serializable.
@@ -537,11 +542,20 @@ function applyActivateLoyalty(state, action) {
   let working = adjustLoyalty(state, { permanentId: perm.id, delta: action.costDelta });
   working = markLoyaltyActivated(working, perm.id);
 
-  // Same effect-program payload a spell/activated ability uses; sourceId = the planeswalker.
+  // Build the resolution payload. HYBRID (PW-2): a MODELED ability resolves natively through the
+  // effect-program interpreter (sourceId = the planeswalker); an UNMODELED ability (routeToArbiter)
+  // has its loyalty cost paid above, then routes the EFFECT to the Arbiter seam (markPendingArbiter
+  // via SPELL_NOOP) — adjudicated, never fabricated or silently dropped.
   const targets = action.targets || [];
-  const params = { program: action.program, controller: action.playerId, targets, cardId: perm.card?.id, sourceId: perm.id };
-  if (action.chosenMode != null) params.chosenMode = action.chosenMode;
-  const payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
+  let payload;
+  if (action.routeToArbiter || !action.program) {
+    const costLabel = `${action.costDelta >= 0 ? "+" : ""}${action.costDelta}`;
+    payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: `${perm.card?.name} — loyalty ${costLabel}`, reason: `planeswalker loyalty ability (unmodeled effect): ${action.abilityText || costLabel}` } };
+  } else {
+    const params = { program: action.program, controller: action.playerId, targets, cardId: perm.card?.id, sourceId: perm.id };
+    if (action.chosenMode != null) params.chosenMode = action.chosenMode;
+    payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
+  }
 
   const { id: stkId, state: working2 } = mintId(working, "stk");
   const stackObject = createStackObject({

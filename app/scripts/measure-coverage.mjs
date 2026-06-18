@@ -55,7 +55,7 @@ function reportCorpus() {
   console.log("=== CORPUS-WIDE NATIVE COVERAGE (the north-star metric) ===");
   console.log(`  CORPUS: ${pct}% native  (${native}/${total} real cards in the active index)`);
   console.log("\n  TIER BREAKDOWN (corpus):");
-  for (const k of ["native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-mixed", "native-clone", "native-planeswalker", "land", "body-only", "arbiter-spell", "arbiter-pw"]) {
+  for (const k of ["native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-mixed", "native-clone", "native-planeswalker", "land", "playable-pw", "body-only", "arbiter-spell", "arbiter-pw"]) {
     if (tier[k]) console.log(`  ${String(tier[k]).padStart(6)}  ${k}`);
   }
   console.log("\n  CORPUS GAP: unmodeled cards by mechanism (the corpus-primary roadmap signal)");
