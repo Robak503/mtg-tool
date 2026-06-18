@@ -13,7 +13,8 @@
  *   gap tiers (bounces to the Arbiter, or only the body works):
  *     body-only     — a permanent with abilities the engine doesn't model yet
  *     arbiter-spell — an instant/sorcery the EffectProgram can't model
- *     arbiter-pw    — a planeswalker (loyalty system not modelled)
+ *     native-planeswalker — a planeswalker whose every loyalty ability is fully modelled (PW-1)
+ *     arbiter-pw    — a planeswalker with an unmodelled loyalty ability / residual text
  *     unknown       — not found in the card index
  *
  * Pure: depends only on the EffectProgram parser (no card index, no filesystem),
@@ -30,6 +31,8 @@ import { detectTriggers } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
+import { planeswalkerNativelyCovered } from "./effects/loyaltyAbilities.js";
+import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 
 // Evergreen / common keywords the layer + combat engine already handles. A
 // permanent whose only text is these plays natively (the body fights, the layer
@@ -274,7 +277,18 @@ export function classifyCard(card) {
   const type = String(card?.type || "").toLowerCase();
   const oracle = card?.oracle || "";
   if (/\bland\b/.test(type)) return "land";
-  if (/\bplaneswalker\b/.test(type)) return "arbiter-pw";
+  // A planeswalker (PW-1) — keyed on the FRONT face (castsAsPlaneswalker) so a creature-front DFC
+  // (Jace, Vryn's Prodigy) classifies by its creature side below, matching how it actually casts.
+  // Native when EVERY loyalty ability is a fully-modeled HIGH program and there's no unmodeled
+  // residual text (planeswalkerNativelyCovered, the all-or-nothing CREED gate); otherwise the whole
+  // walker routes to the Ollama-only Arbiter (arbiter-pw).
+  if (castsAsPlaneswalker(card)) return planeswalkerNativelyCovered(card) ? "native-planeswalker" : "arbiter-pw";
+  // A DFC with a planeswalker BACK face but a non-PW front (Jace, Vryn's Prodigy; Valki // Tibalt)
+  // enters as its front at runtime; its transform + back face are unmodeled, so it's NEVER native.
+  // Classify body-only directly — running the creature native classifiers on the combined oracle could
+  // false-positive (a stray "Add"/keyword line) and wrongly count it native (CREED). Caught here,
+  // before those classifiers.
+  if (isPlaneswalker(card)) return "body-only";
   if (/\b(instant|sorcery)\b/.test(type)) {
     return spellIsNative(card) ? "native-spell" : "arbiter-spell";
   }
@@ -302,7 +316,7 @@ export function classifyCard(card) {
   return "body-only";
 }
 
-export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-clone", "native-mixed"]);
+export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-clone", "native-mixed", "native-planeswalker"]);
 export const isNativeTier = (tier) => NATIVE_TIERS.has(tier);
 
 // Mechanism buckets for the gap (priority-ordered; first match wins) — the roadmap.

@@ -32,6 +32,9 @@ import {
   creatureToughness,
   markCombatDamage,
   destroyLethalCreatures,
+  isPlaneswalker,
+  adjustLoyalty,
+  destroyZeroLoyaltyPlaneswalkers,
 } from "./gameState.js";
 import { permanentHasKeyword } from "./layers.js";
 import { checkDiesTriggers } from "./triggers.js";
@@ -93,6 +96,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const deathtouched = new Set();
   const lifeLoss = {};         // playerId -> amount
   const lifeGain = {};         // playerId -> amount (lifelink)
+  const loyaltyLoss = {};      // planeswalker permanentId -> loyalty removed by combat damage (PW-1)
   const playerEvents = [];
   const addDmg = (id, n, dt) => {
     if (n > 0) {
@@ -122,8 +126,22 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       .filter(Boolean);
 
     const spillToDefender = (amount, trampleFlag) => {
+      if (amount <= 0) return 0;
+      // PW-1: if this attacker is attacking a planeswalker, its damage to the "defender" is removed
+      // as loyalty from that walker (CR 120.3c), NOT life from its controller. If the walker has
+      // already left the battlefield, the attacker deals no combat damage — it does NOT redirect to
+      // the player (CR 509.1h / 508.4 — its declared target is gone).
+      if (att.defenderPlaneswalkerId) {
+        const pw = findPermanent(state, att.defenderPlaneswalkerId);
+        if (pw && isPlaneswalker(pw.permanent.card)) {
+          loyaltyLoss[att.defenderPlaneswalkerId] = (loyaltyLoss[att.defenderPlaneswalkerId] || 0) + amount;
+          playerEvents.push({ kind: "combat-damage-planeswalker", turn: state.turn, attackerId: att.permanentId, attackingPlayer: att.attackingPlayer, planeswalkerId: att.defenderPlaneswalkerId, amount, ...(trampleFlag ? { trample: true } : {}) });
+          return amount;
+        }
+        return 0;
+      }
       const defender = att.defender;
-      if (defender && state.players[defender] && amount > 0) {
+      if (defender && state.players[defender]) {
         lifeLoss[defender] = (lifeLoss[defender] || 0) + amount;
         playerEvents.push({ kind: "combat-damage-player", turn: state.turn, attackerId: att.permanentId, attackingPlayer: att.attackingPlayer, defender, amount, ...(trampleFlag ? { trample: true } : {}) });
         return amount;
@@ -182,10 +200,18 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   for (const [pid, amount] of Object.entries(lifeGain)) {
     if (amount > 0) next = gainLife(next, { playerId: pid, amount });
   }
+  // PW-1: remove loyalty from attacked planeswalkers (CR 120.3c — combat damage to a walker
+  // removes that many loyalty counters). Guarded against a walker that left mid-step.
+  for (const [pwId, amount] of Object.entries(loyaltyLoss)) {
+    if (amount > 0 && findPermanent(next, pwId)) next = adjustLoyalty(next, { permanentId: pwId, delta: -amount });
+  }
 
   // ── SBA: lethal damage (or ANY deathtouch damage) destroys creatures ──
   const { state: afterDeaths, dead } = destroyLethalCreatures(next, deathtouched);
   next = afterDeaths;
+  // ── SBA: a planeswalker at 0 loyalty is put into its owner's graveyard (CR 704.5i) ──
+  const { state: afterPwDeaths, dead: deadPw } = destroyZeroLoyaltyPlaneswalkers(next);
+  next = afterPwDeaths;
 
   // ── Log ──
   next = logEvent(next, {
@@ -199,6 +225,9 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   for (const ev of playerEvents) next = logEvent(next, ev);
   for (const d of dead) {
     next = logEvent(next, { kind: "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause: "combat" });
+  }
+  for (const d of deadPw) {
+    next = logEvent(next, { kind: "planeswalker-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause: "combat" });
   }
 
   // Fire dies triggers (self + surviving watchers) off the look-back `dead`
