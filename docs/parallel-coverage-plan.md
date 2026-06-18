@@ -37,18 +37,23 @@ Naive parallel branches collide on the hot shared files (`parser.js`, `effectAto
 integrate**: the builder chats *build* their mechanics in parallel (the expensive part), but **only the
 Command chat merges**, one PR at a time, rebasing the others as it goes.
 
-## Roles — 1 Command + 4 builders
+## Roles — 1 Command + 3 builders (+ on-demand support)
 
-| Chat | Role / mechanic | Gross lever |
-|---|---|---:|
-| **Command** | Integrator — owns `master`, reviews + merges every PR serially, manages the rebase rotation, cuts releases, keeps the scoreboard + coverage number. **Builds nothing.** | — |
-| Builder | **Tokens** (typed creature → named Treasure/Clue/Food w/ abilities → keyword tokens → counts) | 3,632 |
-| Builder | **+1/+1 / −1/−1 counter distribution** | 2,256 |
-| Builder | **Edicts + sacrifice-as-effect** (owns every "sacrifice" verb) | 1,575 |
-| Builder | **Each-player draw / discard / life / mill** (non-sacrifice) | 1,846 |
+Trimmed from 4→3 builders on 2026-06-18 to stay under the 5-hr usage window. **Edicts is PARKED** (lowest
+gross lever + hadn't shipped a PR yet; its worktree `MTG-TOOL-edicts` + WIP stay on disk to resume later).
 
-Clean boundary between edicts and each-player: **edicts owns every "sacrifice" verb** (each-player,
-target-player, as-effect); **each-player owns draw, discard, lose-life, mill** (no sacrifice).
+| Chat | Role / mechanic | Gross lever | Cadence |
+|---|---|---:|---|
+| **Command** (Omnath) | Integrator — owns `master`, merges every PR serially, cuts releases, keeps the scoreboard. **Builds nothing.** | — | looping |
+| Builder — **Tokens** | typed creature → named Treasure/Clue/Food w/ abilities → keyword tokens → counts | 3,632 | looping |
+| Builder — **Counters** | +1/+1 / −1/−1 distribution | 2,256 | looping |
+| Builder — **Each-player** | draw / discard / life / mill (non-sacrifice) | 1,846 | looping |
+| ~~Builder — Edicts~~ | sacrifice-as-effect / edicts — **PARKED (resume first when capacity returns)** | 1,575 | paused |
+| Support — **Scout** (Hans) | next-target + honest yields | — | **on-demand** (when a builder finishes a mechanic) |
+| Support — **QA** (Rod) | interaction / regression / live-UI | — | **on-demand** (after every ~2-3 merges / at a milestone) |
+
+Hans + Rod run **on-demand, not in a tight loop** — their value doesn't need continuous polling, and that
+keeps the token burn down. Trigger them when their input is actually needed.
 
 ## Coordination protocol — autonomous loops, no human relay
 
