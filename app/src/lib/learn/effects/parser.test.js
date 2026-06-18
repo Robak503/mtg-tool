@@ -396,9 +396,10 @@ const MUST_DROP_TO_LOW = [
   "Search your library for a card named Lightning Bolt, put it into your hand, then shuffle.",      // by-name
   "Draw a card and search your library for a creature card and put it into your hand.",             // leading-effect leak (review catch) — must NOT parse HIGH as [draw]
   "Destroy target creature unless its controller pays {2}.",   // legacy over-matches → MUST drop
-  "Destroy target nonblack creature.",                          // unmodeled COLOR restriction → MUST drop
   "Destroy target artifact with mana value 3 or less.",         // unmodeled MV restriction on a permanent → MUST drop
   "Destroy target nonbasic land.",                              // unmodeled "nonbasic" qualifier → MUST drop
+  "Destroy target white or blue creature.",                     // β-1 models a single non<color>, NOT a color UNION → MUST drop
+  "Destroy target legendary creature.",                         // unmodeled "legendary" supertype → MUST drop
   // FILTERED board wipes — `eachCreature` would wrongly hit the UNFILTERED set, so the exact
   // "all creatures" anchor must reject any qualifier (color/type/keyword/controller).
   "Destroy all creatures with flying.",                         // keyword filter → not all creatures
@@ -464,11 +465,9 @@ const MUST_DROP_TO_LOW = [
   "Char deals 4 damage to any target and 2 damage to you.",              // "2 damage to you" has no verb → low
   "Deals 2 damage to target creature and 2 damage to target player.",    // 2nd clause verbless → low
   "Draw two cards, discard a card.",                                     // comma-rider (NOT split) → low
-  // Unmodeled target restrictions — HIGH would permit an illegal target. P2.4 models
-  // controller/tapped/power; attacking/blocking/color/type stay unmodeled → Arbiter.
-  "Destroy target attacking creature.",
-  "Deals 4 damage to target attacking or blocking creature.",
-  "Destroy target enchantment creature.",                                 // unmodeled type restriction
+  // Unmodeled target restrictions — HIGH would permit an illegal target. P2.4 + β-1 model
+  // controller/tapped/power/combat/non-color/non-type; positive-type/keyword/named stay unmodeled.
+  "Destroy target enchantment creature.",                                 // positive type restriction (IS an enchantment) — not modeled
   // MIXED — a MODELED restriction next to an UNMODELED one must still drop to low
   // (the residue allowlist rejects the leftover qualifier).
   "Destroy target tapped creature an opponent controls that's attacking.", // tapped+controller modeled, "attacking" not
@@ -513,6 +512,13 @@ describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
 // legitimately HIGH. Pinned so a future tightening can't over-correct and drop them.
 const MUST_STAY_HIGH = [
   "Pyroclasm deals 2 damage to each creature.",                                 // BARE "each creature" IS modeled
+  // ── β-1 — creature-target restrictions the engine now ENFORCES at enumeration: combat state +
+  // non-color + non-type (Doom Blade / Go for the Throat / Divine Verdict). A color UNION / positive
+  // type / "legendary" / keyword filter still drops to low (pinned in MUST_DROP_TO_LOW). ──
+  "Destroy target nonblack creature.",                                          // color negation (Doom Blade)
+  "Destroy target nonartifact creature.",                                       // type negation (Go for the Throat)
+  "Destroy target attacking creature.",                                         // combat: attacking (Immolating Glare)
+  "Deals 4 damage to target attacking or blocking creature.",                   // combat: either, on the damage path
   "Lightning Bolt deals 3 damage to any target.",
   "Stoke the Flames deals 4 damage to any target.",                             // a Convoke COST reminder doesn't change the effect
   "Convoke (Your creatures can help cast this.) Destroy target creature.",       // keyword-cost reminder stripped → bare destroy

@@ -13,10 +13,10 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 ## Progress to goal — corpus-wide native % (`cd app && npm run coverage`)
 
 **Goal: ~90% corpus native** (the honest ceiling; the Arbiter permanently handles the rest).
-**Now: 15.7% → 17% of the way to goal.** (γ1c shipped — exile-self + remove-a-counter costs, +4. The clean COST frontier is now mined out; next is the spell-effect vocabulary grind.)
+**Now: 15.9% → 18% of the way to goal.** (β-1 shipped — creature-target restrictions: color/type negation + combat state, +64. The β spell-effect grind has begun.)
 
 ```
-[####······················] 15.7% native  ·  goal 90%  ·  17% of the way there
+[####······················] 15.9% native  ·  goal 90%  ·  18% of the way there
 ```
 
 | Slice | Corpus native | Δ | → goal (now ÷ 90%) | Deck % | PR |
@@ -29,6 +29,7 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 | γ1: pay-life + self-sac costs | **15.5%** (5,193/33,540) | +0.4 | 17% | 47% | #201 |
 | γ1b: sacrifice-a-creature outlet | **15.7%** (5,270/33,540) | +0.2 | 17% | 47% | #202 |
 | γ1c: exile-self + remove-a-counter | **15.7%** (5,274/33,540) | +0.0 | 17% | 47% | #203 |
+| β-1: creature-target restrictions | **15.9%** (5,338/33,540) | +0.2 | 18% | 47% | #204 _(PR open)_ |
 
 **Projected trajectory** (roadmap §2): α (near-term clean atoms) → ~37% · α+β (full vocab grind) → ~90% · +δ (hard subsystems) → ~98%. A row is appended every time a slice merges — this table *is* the climb.
 
@@ -59,6 +60,7 @@ the corpus signal re-ranks the roadmap toward the cost-structure work (γ1) soon
 | γ1 | no-choice activated-ability costs — "Pay N life" + "Sacrifice this"; self-sac fires dies triggers (aristocrats payoff) | **#201 merged** | +127 cards (15.1→15.5%) |
 | γ1b | "Sacrifice a/another <type>" outlet — per-victim action expansion (no new picker), victim fail-safe reused | **#202 merged** | +77 cards (15.5→15.7%) |
 | γ1c | exile-self + remove-a-counter costs (batched) — the end of the clean cost frontier | **#203 merged** | +4 cards (≈15.7%) |
+| β-1 | creature-target restrictions — color/type negation + combat state (Doom Blade, Go for the Throat, Divine Verdict) | **#204 (PR open)** | +64 cards (15.7→15.9%) |
 
 ## Cost-atom frequency (the data behind the γ-series, scanned over the real corpus)
 
@@ -71,21 +73,25 @@ counter). The cost frontier is now low-ROI — pivot to the spell-effect vocabul
 
 ## In flight / next
 
-- **γ1c — exile-self + remove-a-counter costs: BUILT + in review (PR #203, branch
-  `feat/gamma1c-exile-removecounter-costs`).** `parseAbilityCost` → `{exileSelf, removeCounter:{type}}`.
-  Exile-self mirrors self-sac (exile is NOT "dies" → no dies trigger; shares the leave-trigger fail-safe;
-  the `$` anchor excludes "Exile this card from your graveyard"). Remove-counter is offered only when the
-  source HAS the counter; a lethal +1/+1 removal runs the SBA + dies triggers. Full suite **2,086** (+8
-  pins) · lint clean · sweep **0 false-positives** · **only +4 native** (most exile/remove-counter
-  abilities sit on cards with other unmodeled text — the machinery is laid, the whole card isn't native).
-  - **Adversarial review (3 lenses, Opus): found + FIXED a real P0** (+ 2 latent) — the remove-counter
-    regex ended in `\b` not `$`, so a COMPOUND cost ("Remove a quest counter from this enchantment AND
-    SACRIFICE IT" — Quest for the Gemblades) matched the prefix and silently dropped the sacrifice (a
-    partial payment). End-anchored it (mirrors exile-self). Also gated remove-counter by the leave-trigger
-    fail-safe (a lethal +1/+1 removal makes the source leave → a self-LTB trigger would drop) and added
-    `exileSelf` to the dispatcher's mana-exclusion. 51 of 54 modeled remove-counter cards stay modeled
-    (only the 3 compound/leave ones drop); corpus unchanged. Commit 2aa797c. **Lesson: the sweep must
-    also check for dropped compound-cost text — the review caught what my sweep (self-reference only) missed.**
+- **β-1 — creature-target restrictions: BUILT + in review (PR #204, branch
+  `feat/beta1-creature-target-restrictions`).** The first β slice. The removal VERBS were modeled; a
+  restricted TARGET dropped the spell to LOW. Extends `parseCreatureTargetRestrictions` (P2.4) with three
+  kinds, enforced at enumeration so only legal targets are offered: **color negation** (nonblack — Doom
+  Blade), **type negation** (nonartifact — Go for the Throat), **combat state** (attacking/blocking —
+  Divine Verdict). They stack (Searing Light = combat+power); the same parser feeds the deal-damage +
+  trigger/activated paths. A color union / positive type / "legendary" / keyword / "creature or
+  planeswalker" still → Arbiter. Full suite **2,099** (+6 enforcement pins) · lint clean · corpus 15.7→
+  15.9% (**+64**) · sweep **0 false-positives, 0 dropped-compound** (the γ1c lesson applied) · live QA:
+  real Doom Blade offers only the non-black creature.
+  - **Adversarial review (3 lenses, Opus): found + FIXED a real P0** (+ 2 P2s, same root) — colorNeg read
+    `perm.card.colors`, but the slim index enriches transform/MDFC creatures with top-level `colors:[]`
+    even when the front face is colored, so a black DFC (Graveyard Trespasser) was treated as colorless
+    and ILLEGALLY offered to Doom Blade (328 DFCs affected). Fixed with FRONT-face discipline (read
+    `card_faces[0].colors` / front-face type line, CR 712.4a) + fail-closed on unresolvable data — also
+    closes the typeNeg DFC false-negative (Kazandu Mammoth) and the latent absent-colors hazard. The
+    trigger-flush × α1-chooser interaction verified SAFE (a combat-restricted destroy trigger NO_SAFE_-
+    TARGETs → Arbiter when no enemy is in the role). Commit 9fe4083. **Lesson: a new field CONSUMER
+    (colors for targeting) must handle the slim-index DFC enrichment gap — front-face or fail-closed.**
   - **Merge gate:** review SAFE after the fix + CI green, then `gh pr merge --squash`.
 ## β PHASE — the spell-effect vocabulary grind (SCOPED, ready to build)
 
