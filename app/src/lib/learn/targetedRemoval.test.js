@@ -13,7 +13,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 import { enumerateTargets, applyDestroyEffect } from "./spellEffects.js";
 import { ATOM_RESOLVERS } from "./effects/effectAtoms.js";
-import { resolveTopOfStack, flushTriggers } from "./gameEngine.js";
+import { resolveTopOfStack, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { enterPermanent } from "./resolvers.js";
 import { classifyCard } from "./coverage.js";
 import { parseEffectProgram, programConfidence, programContainsChosenPermanentRemoval } from "./effects/parser.js";
@@ -90,23 +90,22 @@ describe("resolution — destroy / exile move the chosen permanent; only creatur
   });
 });
 
-describe("trigger gate — a removal trigger routes to the Arbiter (never first-legal self-destruct)", () => {
-  it("is flagged as a chosen-target permanent removal", () => {
+describe("α1 — a removal trigger targets an ENEMY natively (never first-legal self-destruct)", () => {
+  it("is flagged as a chosen-target permanent removal (still gated on the AI CAST path)", () => {
     expect(programContainsChosenPermanentRemoval(parseEffectProgram(I("Destroy target artifact.")))).toBe(true);
     expect(programContainsChosenPermanentRemoval(parseEffectProgram(I("Destroy target creature.")))).toBe(false); // creature path unaffected
   });
-  it("an ETB 'destroy target artifact' creature is body-only (gated), and fires nothing natively", () => {
+  it("an ETB 'destroy target artifact' creature is native-trigger (α1) and destroys an ENEMY artifact, never the controller's own", () => {
     const C = (oracle) => ({ type: "Creature — Construct", name: "Disenchanter", oracle });
-    expect(classifyCard(C("When this creature enters, destroy target artifact."))).toBe("body-only");
-    // even restricted to an opponent — conservative until an enemy-aware flush chooser exists
-    expect(classifyCard(C("When this creature enters, destroy target artifact an opponent controls."))).toBe("body-only");
-    // a creature-destroy ETB is unchanged (still native)
+    // α1: removal triggers route natively now — the enemy/own chooser picks an opponent's permanent.
+    expect(classifyCard(C("When this creature enters, destroy target artifact."))).toBe("native-trigger");
+    expect(classifyCard(C("When this creature enters, destroy target artifact an opponent controls."))).toBe("native-trigger");
     expect(classifyCard(C("When this creature enters, destroy target creature."))).toBe("native-trigger");
 
     let s = board();
     s = enterPermanent(s, { name: "Disenchanter", type: "Creature — Construct", power: 1, toughness: 1, oracle: "When this creature enters, destroy target artifact." }, "user");
-    s = resolveAll(flushTriggers(s));
-    expect(s.players.ai.battlefield.some((p) => p.id === "aa")).toBe(true); // FoeArt survives — trigger went to Arbiter
-    expect(s.players.user.battlefield.some((p) => p.id === "ua")).toBe(true); // and did NOT destroy the controller's own
+    s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+    expect(s.players.ai.battlefield.some((p) => p.id === "aa")).toBe(false); // FoeArt DESTROYED — enemy-targeted
+    expect(s.players.user.battlefield.some((p) => p.id === "ua")).toBe(true); // the controller's OWN artifact survives
   });
 });

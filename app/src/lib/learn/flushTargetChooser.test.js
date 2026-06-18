@@ -8,7 +8,7 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { flushTriggers } from "./gameEngine.js";
+import { flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -110,17 +110,25 @@ describe("flushTriggers — flush-time target chooser (CR 603.3c)", () => {
     expect(trig.payload.params.targets).toEqual([]);
   });
 
-  // P3.1 review fix: a COUNTER trigger (Mystic Snake "When this enters, counter target
-  // spell") must NOT route through the auto-chooser — the first-legal flush chooser has
-  // no enemy-awareness, so it would silently counter the CONTROLLER'S OWN spell. It must
-  // fall through to the trigger.effect/Arbiter fallback instead (worse-than-Arbiter guard).
-  it("a counter-target-spell trigger does NOT auto-route — falls through to the Arbiter fallback", () => {
+  // α1: a COUNTER trigger (Mystic Snake "When this enters, counter target spell") now routes NATIVELY
+  // with the enemy/own chooser — it counters an ENEMY's spell, never the controller's own. When ONLY
+  // the controller's own spell is targetable, the chooser finds no safe target (NO_SAFE_TARGET) and
+  // the flush routes to the Arbiter no-op rather than self-countering.
+  it("a counter trigger counters an ENEMY spell natively, and no-ops (→ Arbiter) when only the controller's own spell is legal", () => {
+    const enemySpell = { id: "enemy-stk", kind: "spell", controller: "ai", targets: [], cost: null, source: { name: "Opt", type: "Instant" }, payload: {} };
     const ownSpell = { id: "own-stk", kind: "spell", controller: "user", targets: [], cost: null, source: { name: "Divination", type: "Sorcery" }, payload: {} };
-    const s = { ...stateWith(), stack: [ownSpell], pendingTriggers: [targetedTrigger("counter target spell")] };
-    const out = flushTriggers(s);
-    const trig = out.stack.find((o) => o.kind === "triggered-ability");
-    expect(trig.payload.resolver).toBe("trigger.effect");  // the fallback, NOT effect-program
-    // The controller's own spell is still on the stack — the trigger did not counter it.
-    expect(out.stack.some((o) => o.id === "own-stk")).toBe(true);
+    // enemy spell present → counters it natively, NOT the controller's own
+    let trig = flushTriggers(
+      { ...stateWith(), stack: [ownSpell, enemySpell], pendingTriggers: [targetedTrigger("counter target spell")] },
+      { chooseTargets: chooseTriggerTargets },
+    ).stack.find((o) => o.kind === "triggered-ability");
+    expect(trig.payload.resolver).toBe("effect-program");
+    expect(trig.payload.params.targets.map((t) => t.id)).toEqual(["enemy-stk"]);
+    // only the controller's OWN spell is legal → no safe target → Arbiter no-op (never counters own)
+    trig = flushTriggers(
+      { ...stateWith(), stack: [ownSpell], pendingTriggers: [targetedTrigger("counter target spell")] },
+      { chooseTargets: chooseTriggerTargets },
+    ).stack.find((o) => o.kind === "triggered-ability");
+    expect(trig.payload.resolver).toBe("manual");
   });
 });
