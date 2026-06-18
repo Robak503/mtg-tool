@@ -28,7 +28,7 @@
 
 import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js";
 import { ATOM_RESOLVERS } from "./effectAtoms.js";
-import { GRANTABLE_COMBAT_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
+import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -174,6 +174,14 @@ function splitClauses(oracle) {
     // parseExtendedAtom binds the controller-scoped pump + grant together (plural subject →
     // "gain", no trailing s).
     if (/^creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ===== TOKENS ===== a keyword token minted with several keywords ("Create a 4/4 white Angel
+    // creature token with flying and vigilance") joins them with " and " — INTERNAL to the one
+    // create-token instruction, not a top-level effect boundary. Keep the whole sentence so
+    // parseExtendedAtom binds every keyword to the same token. The token matcher is all-or-nothing
+    // anchored, so keeping too much together can only fail to match (→ low → Arbiter), never a
+    // confident wrong partial — e.g. "… with flying and a 1/1 Snake token" / "… with flying and you
+    // gain 2 life" both fail the keyword allowlist and drop to low (safe), they don't half-resolve.
+    if (/^create .*\bcreature tokens?\b with .+$/i.test(sentence)) { clauses.push(sentence); continue; }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split
@@ -239,6 +247,31 @@ function parseGrantedKeywords(phrase) {
   for (const w of words) {
     if (!GRANTABLE_COMBAT_KEYWORDS.has(w.toLowerCase())) return null;
     out.push(canonicalCombatKeyword(w));
+  }
+  return out;
+}
+
+// ===== TOKENS =====
+// Canonical case for the non-combat keywords a token may carry (combat ones come from
+// canonicalCombatKeyword). Title-cased so the minted token's keywords array matches Scryfall.
+const TOKEN_KEYWORD_CANON = { indestructible: "Indestructible" };
+/**
+ * Parse a keyword-token's "with …" phrase ("flying", "flying and vigilance", "first strike,
+ * deathtouch, and lifelink") into canonical keyword names, or null if ANY word is outside the
+ * enforced+layer-aware GRANTABLE STATIC set (combat keywords + indestructible — each ENFORCED
+ * read-layer-aware, so a printed-on-token instance behaves exactly like one on a real creature).
+ * ALL-OR-NOTHING: one unmodeled keyword (menace — unenforced; an inline ability; a number) drops
+ * the whole token to null → low → Arbiter, never a fake/partial token. A trailing period (from a
+ * single-sentence clause) is tolerated.
+ */
+function parseTokenKeywords(phrase) {
+  const words = String(phrase).replace(/\.\s*$/, "").split(/,|\band\b/).map((w) => w.trim()).filter(Boolean);
+  if (words.length === 0) return null;
+  const out = [];
+  for (const w of words) {
+    const lw = w.toLowerCase();
+    if (!GRANTABLE_STATIC_KEYWORDS.has(lw)) return null;
+    out.push(TOKEN_KEYWORD_CANON[lw] || canonicalCombatKeyword(w));
   }
   return out;
 }
@@ -403,11 +436,27 @@ function parseExtendedAtom(s) {
   // is a DIFFERENT set scope:youControl would wrongly buff in full). Numeric N only (no X).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
-  // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)". Anchored
-  // to end at "creature token(s)" — a keyword/ability rider ("…with flying", "…that's
-  // tapped") fails the anchor → low, so a granted ability is never silently dropped.
-  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?$/);
-  if (m) return { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power: parseInt(m[2], 10), toughness: parseInt(m[3], 10), descriptor: m[4].trim(), targetType: null };
+  // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)" — a vanilla typed
+  // creature token. ===== TOKENS ===== T1 extends the anchor with an OPTIONAL " with <keywords>"
+  // suffix (Bird/Thopter/Angel "with flying [and vigilance]"). The keyword phrase must reduce
+  // ENTIRELY to the enforced+layer-aware GRANTABLE STATIC set (parseTokenKeywords) — minted into
+  // the token's real keywords[] array so hasKeyword / permanentHasKeyword honor it exactly like a
+  // printed creature's. ANY other rider ("…that's tapped", "…that's an artifact", an inline ability,
+  // menace) fails the keyword allowlist or the anchor → null → low, so nothing is silently dropped.
+  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: with (.+))?$/);
+  if (m) {
+    const power = parseInt(m[2], 10);
+    const toughness = parseInt(m[3], 10);
+    // A toughness-0 token dies to the lethal SBA (CR 704.5f) the instant it enters — so a STANDALONE
+    // "Create N 0/0 …" sentence is always an INCOMPLETE capture of a card that grows them (a +1/+1
+    // counter / anthem rider in text the slim oracle index drops, e.g. Imaginary Friends). Route to
+    // the Arbiter rather than confidently make tokens that vanish.
+    if (toughness < 1) return null;
+    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), targetType: null };
+    if (m[5] === undefined) return base;
+    const kws = parseTokenKeywords(m[5]);
+    return kws ? { ...base, keywords: kws } : null;
+  }
   // Scry / surveil (CR 701.18 / 701.43) — look at the top N of YOUR library and reorder: keep any
   // on top (in any order), put the rest on the bottom (scry) or into your graveyard (surveil). A
   // resolution-time INTERACTIVE choice (the player decides; AI/Expert keep all on top) — non-

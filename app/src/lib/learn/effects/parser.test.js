@@ -298,8 +298,8 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
   });
 });
 
-// P2.6 — CREATE-TOKEN. Single-color creature tokens; a keyword rider / non-creature
-// token / multi-color "and" list (clause-splitter splits "and") stays low.
+// P2.6 — CREATE-TOKEN. Single-color creature tokens; a non-creature token / inline-ability
+// rider / "tapped" rider stays low. ===== TOKENS ===== T1 adds keyword tokens (with flying …).
 describe("parseEffectProgram — create-token (P2.6)", () => {
   it("recognizes single-color creature tokens (count, P/T)", () => {
     expect(parseEffectProgram(I("Create a 1/1 white Soldier creature token.")).atoms)
@@ -307,10 +307,26 @@ describe("parseEffectProgram — create-token (P2.6)", () => {
     expect(parseEffectProgram(I("Create two 2/2 green Bear creature tokens.")).atoms[0])
       .toMatchObject({ op: "create-token", count: 2, power: 2, toughness: 2 });
   });
-  it("keeps keyword-rider / non-creature tokens low", () => {
-    expect(programConfidence(parseEffectProgram(I("Create a 1/1 white Soldier creature token with flying.")))).toBe("low");
-    expect(programConfidence(parseEffectProgram(I("Create a Treasure token.")))).toBe("low");
+  // ===== TOKENS ===== T1: keyword tokens parse HIGH, with keywords minted onto the token.
+  it("recognizes a single-keyword token (flying)", () => {
+    expect(parseEffectProgram(I("Create a 1/1 white Bird creature token with flying.")).atoms)
+      .toEqual([{ op: "create-token", count: 1, power: 1, toughness: 1, descriptor: "white bird", targetType: null, keywords: ["Flying"] }]);
+  });
+  it("recognizes a multi-keyword token (flying and vigilance) — the internal 'and' is not severed", () => {
+    expect(parseEffectProgram(I("Create a 4/4 white Angel creature token with flying and vigilance.")).atoms[0])
+      .toMatchObject({ op: "create-token", power: 4, toughness: 4, keywords: ["Flying", "Vigilance"] });
+  });
+  it("recognizes a Thopter (artifact creature token with flying)", () => {
+    expect(parseEffectProgram(I("Create a 1/1 colorless Thopter artifact creature token with flying.")).atoms[0])
+      .toMatchObject({ op: "create-token", power: 1, toughness: 1, descriptor: "colorless thopter artifact", keywords: ["Flying"] });
+  });
+  it("keeps non-creature / inline-ability / tapped / 0-toughness / unenforced-keyword tokens low", () => {
+    expect(programConfidence(parseEffectProgram(I("Create a Treasure token.")))).toBe("low");        // T2, not T1
     expect(programConfidence(parseEffectProgram(I("Create a 2/2 black Zombie creature token tapped.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Create a 2/2 red Devil creature token with menace.")))).toBe("low"); // menace unenforced → Arbiter
+    expect(programConfidence(parseEffectProgram(I("Create three 0/0 white Spirit creature tokens with flying.")))).toBe("low"); // 0-toughness → dies to SBA → incomplete capture → Arbiter
+    expect(programConfidence(parseEffectProgram(I("Create a 1/1 green Saproling creature token with \"Sacrifice this creature: Add one mana of any color.\"")))).toBe("low"); // inline ability → Arbiter
+    expect(programConfidence(parseEffectProgram(I("Create a 1/1 white Spirit creature token with flying and you gain 2 life.")))).toBe("low"); // 'and you gain' isn't a keyword
   });
 });
 
