@@ -517,6 +517,37 @@ function applyMill(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "mill", who: atom.who || "controller", amount });
 }
 
+// ===== EACH-PLAYER =====
+/**
+ * Draw (CR 120) — the ACTOR is the atom's `who`:
+ *   - undefined / "controller" (the legacy + "draw N cards" form) — the spell's controller draws.
+ *   - "eachPlayer" ("Each player draws N cards" — Vision Skeins) — EVERY player draws.
+ *   - "target" ("Target player draws N cards" — Opportunity / Ancestral Recall) — the chosen player(s) draw.
+ * Each drawing player goes through applyDrawEffect, the SINGLE source of truth for a draw (shared with the
+ * legacy cast path), so the each/target forms are byte-identical to a controller draw, just for a different
+ * player. amountX (an {X}-draw) still reads ctx.xValue for the controller form; the each/target forms are
+ * numeric-only at the parser (an "{X}" each/target draw fails the anchor → Arbiter), so effectiveAmount is
+ * a plain number there. An eliminated/removed player id is skipped (no throw).
+ */
+function applyDrawAtom(state, atom, ctx) {
+  const amount = effectiveAmount(atom, ctx);
+  if (atom.who === "eachPlayer") {
+    let next = state;
+    for (const pid of Object.keys(state.players)) {
+      if (next.players[pid]) next = applyDrawEffect(next, { controller: pid, amount });
+    }
+    return next;
+  }
+  if (atom.who === "target") {
+    let next = state;
+    for (const t of ctx.targets || []) {
+      if (t.type === "player" && next.players[t.id]) next = applyDrawEffect(next, { controller: t.id, amount });
+    }
+    return next;
+  }
+  return applyDrawEffect(state, { controller: ctx.controller, amount });
+}
+
 /** P3.2 shuffle — "[then] shuffle [your library]" as its own clause (CR 103.2). */
 function applyShuffle(state, atom, ctx) {
   if (!state.players[ctx.controller]) return state;
@@ -533,8 +564,7 @@ export const ATOM_RESOLVERS = Object.freeze({
     applyDamageEffect(state, { controller: ctx.controller, amount: effectiveAmount(atom, ctx), targetType: atom.targetType, targets: ctx.targets }),
   "destroy": (state, atom, ctx) =>
     applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx) }),
-  "draw": (state, atom, ctx) =>
-    applyDrawEffect(state, { controller: ctx.controller, amount: effectiveAmount(atom, ctx) }),
+  "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
   "gain-life": applyGainLife,
   "lose-life": applyLoseLife,

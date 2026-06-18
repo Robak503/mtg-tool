@@ -142,6 +142,16 @@ function classifyCondition(condRaw, cardName) {
     const event = /end step/.test(c) ? "endStep" : /draw step/.test(c) ? "draw" : "upkeep";
     return { event, scope: "you", whose };
   }
+  // ===== EACH-PLAYER (compound-combat-trigger guard) ===== A condition that names BOTH "attacks" and
+  // "blocks" ("Whenever this creature attacks or blocks …" — Howling Golem, Burning Sun Cavalry) is a
+  // COMPOUND combat event. The single-verb branches below model only ONE event, so detecting it as just
+  // "attacks" would silently DROP the "blocks" half — the trigger would fire on attack only, a confident
+  // WRONG partial (CLAUDE.md §1.2). Until compound combat events are modeled, leave it UNDETECTED: the
+  // card's trigger-sentence count then mismatches in allTriggerSentencesModeled and the whole card routes
+  // to the Arbiter (a SAFE false-negative). Exposed by the each-player draw slice (Howling Golem's
+  // "each player draws a card" became modeled); the guard also retires the pre-existing Burning Sun
+  // Cavalry false-positive. (The "blocks or becomes blocked" compound is a separate, unexposed case.)
+  if (/\battacks\b/.test(c) && /\bblocks\b/.test(c)) return null;
   if (/\battacks\b/.test(c)) {
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     if (/a creature you control/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };
