@@ -9,8 +9,10 @@ out
 _sweep_*.mjs
 _verify_*.mjs
 _query_*.mjs
-# Scout corpus-dump caches (the gap set written by _sweep_scout.mjs)
+_deepscan*.mjs
+# Scout corpus-dump caches (the gap set written by _sweep_scout.mjs) + deep-scan tables
 _sweep_*.json
+_ds_*.md
 data/*.local.json
 # Local multi-user profile runtime data — per-user decks/chats/collection live
 # here and must never be committed (contains personal deck libraries).
