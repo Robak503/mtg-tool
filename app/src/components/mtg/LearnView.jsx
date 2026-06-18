@@ -361,6 +361,7 @@ export default function LearnView({
             onHandDiscardChoose={session.applyHandDiscardChoice}
             onImpulseDigChoose={session.applyImpulseDigChoice}
             onSacrificeChoose={session.applySacrificeChoice}
+            onDiscardChoose={session.applyDiscardChoice}
           />
         </main>
 
@@ -458,6 +459,14 @@ export default function LearnView({
       {session.board && decision?.kind === "sacrifice-choice" && (
         <div style={tutorSheetStyle(LINE, BG2)}>
           <SacrificeChoicePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applySacrificeChoice} />
+        </div>
+      )}
+      {/* EACH-PLAYER discard (Mind Rot / Fugue / Delirium Skeins) → the human (a discarder) picks which
+          card from THEIR OWN hand to pitch (CR 701.8 — the discarding player chooses). N>1 / each-player
+          re-surfaces this panel per card. Same side-sheet. */}
+      {session.board && decision?.kind === "discard" && (
+        <div style={tutorSheetStyle(LINE, BG2)}>
+          <DiscardChoicePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyDiscardChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -638,7 +647,7 @@ function TableStrip({ table, activePlayer, cfg, colors }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onSacrificeChoose }) {
+function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onSacrificeChoose, onDiscardChoose }) {
   const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
 
   if (!decision) {
@@ -667,6 +676,9 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
   }
   if (decision.kind === "sacrifice-choice") {
     return <SacrificeChoicePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onSacrificeChoose} />;
+  }
+  if (decision.kind === "discard") {
+    return <DiscardChoicePanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onDiscardChoose} />;
   }
   if (decision.kind === "dispatch-error") {
     return (
@@ -1173,6 +1185,88 @@ function SacrificeChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
         }}
       >
         {submitting ? "…" : "Sacrifice"}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * EACH-PLAYER discard (EP-2 — Mind Rot / Fugue / Delirium Skeins). Shown to the human when THEY are a
+ * discarder: pick which card from your OWN hand to pitch (CR 701.8 — the discarding player chooses, not
+ * the caster). A discard of N>1 (or "each player discards N") re-surfaces this panel once per card —
+ * `decision.remaining` is how many more this player still owes. Resumes the chain via
+ * session.applyDiscardChoice. Same non-blocking side-sheet as the dig/sacrifice pickers; the discard is
+ * mandatory (the engine only pauses here when there's a real choice — a hand ≤ remaining is pitched
+ * whole with no panel), so there's no decline.
+ */
+function DiscardChoicePanel({ decision, cfg, colors, fontFamily, onChoose }) {
+  const { BG2, BG3, LINE, TEXT, GOLD } = colors || {};
+  const accent = cfg?.color || GOLD;
+  const [selected, setSelected] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const candidates = decision.candidates || [];
+  const remaining = decision.remaining || 1;
+
+  const candidateKey = candidates.map((c) => c.id).join("|");
+  useEffect(() => { setSelected(null); }, [candidateKey]);
+
+  const submit = async (cardId) => {
+    if (submitting || !cardId) return;
+    setSubmitting(true);
+    try { await onChoose?.(cardId); } finally { setSubmitting(false); }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+          🃏 Discard{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+          Choose a card from your hand to discard{remaining > 1 ? ` (${remaining} more to discard)` : ""}.
+        </div>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignContent: "start" }}>
+        {candidates.map((c) => {
+          const isSel = selected === c.id;
+          return (
+            <button
+              key={c.id}
+              onClick={() => setSelected(c.id)}
+              title={c.name}
+              style={{
+                display: "flex", flexDirection: "column", gap: 4, padding: 4,
+                background: isSel ? (cfg?.dim || BG3) : "transparent",
+                border: `2px solid ${isSel ? accent : LINE}`,
+                borderRadius: 8, cursor: "pointer", fontFamily, textAlign: "left",
+              }}
+            >
+              <img
+                src={`/api/art-crop?name=${encodeURIComponent(c.name)}`}
+                alt={c.name}
+                loading="lazy"
+                style={{ width: "100%", aspectRatio: "626 / 457", objectFit: "cover", borderRadius: 4, background: BG2 }}
+                onError={(e) => { e.currentTarget.style.visibility = "hidden"; }}
+              />
+              <div style={{ fontSize: 11, color: isSel ? accent : TEXT, lineHeight: 1.25, fontWeight: isSel ? 700 : 400 }}>
+                {c.name}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <button
+        onClick={() => submit(selected)}
+        disabled={!selected || submitting}
+        style={{
+          padding: "9px 16px", background: accent, color: "#fff", border: "none", borderRadius: 6,
+          cursor: (!selected || submitting) ? "not-allowed" : "pointer", opacity: (!selected || submitting) ? 0.5 : 1,
+          fontSize: 13, fontWeight: 600, fontFamily,
+        }}
+      >
+        {submitting ? "…" : "Discard"}
       </button>
     </div>
   );

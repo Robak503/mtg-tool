@@ -260,7 +260,38 @@ describe("parseEffectProgram — each-player / target-player draw", () => {
     low("Target player draws X cards.");                          // Stroke of Genius — variable count
     low("Each player draws X cards.");                            // Prosperity — variable count
     low("Each player draws a card for each creature card in their graveyard."); // dynamic count
-    low("Target player draws three cards, then discards three cards."); // a discard rider (sibling slice) → Arbiter
+    low("Target player draws three cards, then discards three cards."); // bare "discards N" rider doesn't carry the subject → Arbiter
+  });
+});
+
+// ===== EACH-PLAYER ===== discard (EP-2) — "target/each player discards N cards" (the DISCARDING player
+// chooses which cards, CR 701.8). Anchored allowlist: a bare numeric count only. "at random" (RNG, no
+// choice), X, "their hand", "half", the "target opponent" form (deferred — 0 clean cards this slice, all
+// have riders), or any unmodeled rider fails → low → Arbiter. Composes HIGH when every clause is modeled.
+describe("parseEffectProgram — each-player / target-player discard (EP-2)", () => {
+  it("recognizes target-player and each-player discard with the right who/targetType", () => {
+    expect(parseEffectProgram(I("Target player discards two cards.")).atoms).toEqual([{ op: "discard", amount: 2, who: "target", targetType: "player" }]);
+    expect(parseEffectProgram(I("Target player discards a card.")).atoms).toEqual([{ op: "discard", amount: 1, who: "target", targetType: "player" }]);
+    expect(parseEffectProgram(I("Each player discards three cards.")).atoms).toEqual([{ op: "discard", amount: 3, who: "eachPlayer", targetType: null }]);
+  });
+  it("only a target-player discard needs a chosen target; each-player does not", () => {
+    expect(programNeedsChosenTarget(parseEffectProgram(I("Target player discards two cards.")))).toBe(true);
+    expect(programNeedsChosenTarget(parseEffectProgram(I("Each player discards three cards.")))).toBe(false);
+  });
+  it("composes with other modeled atoms (Fill with Fright = discard + scry; Unhinge = discard + draw)", () => {
+    expect(programConfidence(parseEffectProgram(I("Target player discards two cards. Scry 2.")))).toBe("high");
+    expect(programConfidence(parseEffectProgram(I("Target player discards a card. Draw a card.")))).toBe("high");
+  });
+  it("keeps at-random / X / their-hand / half / opponent / riders low (anchored allowlist holds)", () => {
+    const low = (o) => expect(programConfidence(parseEffectProgram(I(o)))).toBe("low");
+    low("Target player discards two cards at random.");                          // Hymn to Tourach — RNG, no choice
+    low("Target player discards X cards at random.");                            // Mind Twist — variable + RNG
+    low("Target player discards their hand.");                                   // Wit's End — different amount shape (deferred)
+    low("Target opponent discards half the cards in their hand, rounded up.");   // Rush of Dread — dynamic count
+    low("Target opponent discards two cards, mills a card, and loses 1 life.");  // Mind Drain — unmodeled riders
+    low("Each player discards a card, then loses 1 life.");                      // Strongarm-ish — life rider
+    low("Target opponent discards two cards.");                                  // opponent form deferred this slice
+    low("Each player discards their hand, then draws seven cards.");             // Wheel of Fortune — "their hand" + variable draw
   });
 });
 
@@ -545,7 +576,7 @@ const MUST_DROP_TO_LOW = [
   // ── δ-1 hand disruption — variants OUTSIDE the exact template / filter allowlist route to Arbiter. ──
   "Target opponent reveals their hand. You choose a nonland card from it or a card from their graveyard. Exile that card. You lose 1 life.", // Agonizing Remorse — exile + graveyard option
   "Target opponent reveals their hand. You may choose a nonland card from it. If you do, that player discards that card.", // Reckoner Shakedown — optional "you may" + else-branch
-  "Target player discards two cards.",                                          // Mind Rot — no reveal/choose (the player picks their OWN cards)
+  // (Mind Rot — "Target player discards two cards." — is now MODELED by EP-2 and pinned in MUST_STAY_HIGH.)
   "Target opponent reveals their hand. You choose a nonblack card from it. That player discards that card.", // an unmodeled card filter
   "Target opponent reveals their hand. You choose a nonland card from it. That player discards that card. Create a 2/2 zombie.", // an unmodeled rider after a modeled template (no silent partial)
   // ── δ-2 impulse-dig — shapes OUTSIDE the exact "keep one, rest → bottom/graveyard" template ──
@@ -576,6 +607,18 @@ const MUST_DROP_TO_LOW = [
   "Each player sacrifices a creature of their choice.",                         // each-player (a later slice — not yet modeled)
   "Each opponent sacrifices a creature of their choice.",                       // each-opponent (a later slice)
   "You sacrifice a creature.",                                                  // controller-sac as an effect (a later slice)
+
+  // ===== EACH-PLAYER ===== discard (EP-2) — only the bare numeric "target/each player discards N cards"
+  // is modeled (the discarding player chooses). "at random" (RNG, no choice), X, "their hand", "half",
+  // the "target opponent" form (deferred — 0 clean cards this slice), or any unmodeled rider drops to low.
+  "Target player discards two cards at random.",                                // Hymn to Tourach — RNG, no choice
+  "Target player discards X cards at random.",                                  // Mind Twist — variable + RNG
+  "Target player discards their hand.",                                         // Wit's End — different amount shape (deferred)
+  "Target player discards their hand unless they pay 7 life.",                  // Tyrannize — conditional
+  "Target opponent discards two cards, mills a card, and loses 1 life.",        // Mind Drain — unmodeled riders
+  "Each player discards a card, then loses 1 life.",                            // Strongarm Tactics-ish — life rider
+  "Target opponent discards two cards.",                                        // opponent form deferred this slice
+  "Each player discards their hand, then draws seven cards.",                   // Wheel of Fortune — "their hand" + variable draw
 ];
 
 describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
@@ -699,6 +742,15 @@ const MUST_STAY_HIGH = [
   "Target player sacrifices a creature of their choice.",                       // Diabolic Edict (any player)
   "Target opponent sacrifices a creature of their choice.",                     // Cruel Edict (opponents only)
   "Return target creature card from your graveyard to your hand. Target player sacrifices a creature of their choice.", // Grave Exchange (gy-return + edict)
+
+  // ── EACH-PLAYER discard (EP-2) — "target/each player discards N cards" (the DISCARDING player chooses
+  // at resolution, CR 701.8) + a modeled compose (Fill with Fright = discard + scry; Unhinge = discard +
+  // draw; Consult the Necrosages = modal draw|discard). Full behavior modeled via the pending-choice chain. ──
+  "Target player discards two cards.",                                          // Mind Rot
+  "Target player discards three cards.",                                        // Fugue / Three Tragedies
+  "Each player discards three cards.",                                          // Delirium Skeins
+  "Target player discards two cards. Scry 2.",                                  // Fill with Fright (discard + scry)
+  "Target player discards a card. Draw a card.",                               // Unhinge (discard + draw)
 ];
 
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {

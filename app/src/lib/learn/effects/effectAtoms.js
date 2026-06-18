@@ -24,7 +24,7 @@ import {
 import { addContinuousEffect } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
-import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice } from "../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 // ===== TOKENS ===== descriptor words that are SUPERTYPES / CARD TYPES, not creature subtypes —
@@ -601,6 +601,76 @@ function applyMill(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "mill", who: atom.who || "controller", amount });
 }
 
+// ===== EACH-PLAYER ===== discard (EP-2)
+/**
+ * Walk the discard CHAIN (CR 701.8 — the DISCARDING player chooses which cards). `queue` is the remaining
+ * discarders, head-first, each `{ playerId, remaining }`. For each in turn:
+ *   - eliminated / empty hand / nothing left to discard → drop and move on (no-op).
+ *   - hand ≤ remaining → a FORCED whole-hand discard (no real choice): pitch every card inline, move on.
+ *   - hand > remaining → a REAL choice: pause via setPendingDiscardChoice for THIS discarder (the driver
+ *     pauses a human, auto-discards an AI's cheapest), carrying the current queue so resolveDiscardChoice
+ *     can decrement + re-enter. Returns the paused state immediately.
+ * When the queue empties with no pause, returns the advanced state (the program continues / resumes).
+ * Hidden-info safe: the discarder is the chooser of their own hand. Shared by applyDiscard (the atom's
+ * first entry) and runProgram.resolveDiscardChoice (each subsequent pick), so ONE implementation drives
+ * both the inline and the interactive paths.
+ */
+export function advanceDiscardChain(state, { queue, sourceName = null }) {
+  let next = state;
+  let q = queue || [];
+  while (q.length) {
+    const head = q[0];
+    const player = next.players?.[head.playerId];
+    if (!player) { q = q.slice(1); continue; } // discarder left the game (CR 800.4a) → skip
+    const hand = (player.hand || []).filter((c) => !c.token);
+    if (head.remaining <= 0 || hand.length === 0) { q = q.slice(1); continue; }
+    if (hand.length <= head.remaining) {
+      // Forced — the whole hand goes (no card left to keep, so no decision). Pitch inline, no pause.
+      for (const c of hand) {
+        next = moveCardToZone(next, { playerId: head.playerId, fromZone: "hand", toZone: "graveyard", cardId: c.id });
+      }
+      next = logEvent(next, { kind: "spell-effect", effect: "discard", controller: head.playerId, discarded: hand.length, forced: true });
+      q = q.slice(1);
+      continue;
+    }
+    // A real choice (hand > remaining): pause for this discarder's single-card pick.
+    const candidates = hand.map((c) => ({ id: c.id, name: c.name }));
+    return setPendingDiscardChoice(next, { controller: head.playerId, remaining: head.remaining, candidates, queue: q, sourceName });
+  }
+  return next;
+}
+
+/**
+ * ===== EACH-PLAYER ===== discard (EP-2) — "Target player discards N cards" (Mind Rot / Fugue — the
+ * VICTIM chooses) and "Each player discards N cards" (Delirium Skeins — every player chooses their own).
+ * CR 701.8: the discarding player picks the cards, so this routes through the resolution-time pending-
+ * choice CHAIN (advanceDiscardChain) — a human discarder gets a picker, an AI discards its cheapest, and
+ * N>1 / multiple discarders resolve as a sequence of single-card picks. who:"target" reads the player
+ * target(s) chosen at cast; who:"eachPlayer" enumerates every player, the controller first (APNAP-stable,
+ * deterministic). A zero/empty amount or no live target is a clean logged no-op.
+ */
+function applyDiscard(state, atom, ctx) {
+  const amount = effectiveAmount(atom, ctx);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "discard", who: atom.who || "target", amount: 0 });
+  }
+  let discarders;
+  if (atom.who === "eachPlayer") {
+    const seen = new Set();
+    discarders = [ctx.controller, ...opponentsOf(state, ctx.controller)]
+      .filter((pid) => state.players?.[pid] && !seen.has(pid) && seen.add(pid));
+  } else {
+    discarders = (ctx.targets || [])
+      .filter((t) => t.type === "player" && state.players?.[t.id])
+      .map((t) => t.id);
+  }
+  if (discarders.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "discard", who: atom.who || "target", amount, discarders: 0 });
+  }
+  const queue = discarders.map((pid) => ({ playerId: pid, remaining: amount }));
+  return advanceDiscardChain(state, { queue, sourceName: ctx.cardName || null });
+}
+
 // ===== EACH-PLAYER =====
 /**
  * Draw (CR 120) — the ACTOR is the atom's `who`:
@@ -660,6 +730,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "return-from-graveyard": applyReturnFromGraveyard,
   "reanimate": applyReanimate,
   "discard-chosen": applyDiscardChosen,
+  "discard": applyDiscard, // ===== EACH-PLAYER ===== target/each player discards N — victim chooses (CR 701.8)
   "sacrifice": applySacrifice,
   "create-token": applyCreateToken,
   "counter": applyCounter,

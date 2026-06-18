@@ -488,6 +488,20 @@ function parseExtendedAtom(s) {
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^target player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
+  // ===== EACH-PLAYER ===== discard (EP-2) — the DISCARDING player chooses which cards (CR 701.8), so this
+  // resolves through the resolution-time pending-choice CHAIN (one single-card pick per card, per
+  // discarder; the driver pauses a human discarder + auto-discards an AI's cheapest). who:"target" carries
+  // targetType:"player" (the cast path enumerates a player target — Mind Rot / Fugue); who:"eachPlayer" is
+  // non-targeted (Delirium Skeins). Anchored ALLOWLIST — a bare numeric count ONLY. "discards N cards at
+  // random" (Hymn to Tourach — no choice, RNG), "discards X cards" (Mind Twist), "discards their hand"
+  // (Wit's End — a different amount shape), "discards half the cards" (Rush of Dread), or any trailing
+  // rider ("…, mills a card, and loses 1 life" — Mind Drain; "…then loses 4 life" — Strongarm Tactics)
+  // fails the `$` anchor → low → Arbiter. A compound where EVERY clause is independently modeled
+  // ("…discards two cards. Scry 2." — Fill with Fright) still composes HIGH via the multi-clause parser.
+  m = t.match(/^target player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
+  m = t.match(/^each player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   // ===== EDICTS ===== (sacrifice as an EFFECT; sacrifice as a COST is γ1/γ1b in abilities.js)
   // "Target player/opponent sacrifices a creature [of their choice]" (Diabolic Edict / Cruel Edict). The
   // SACRIFICING player — the TARGET — chooses which creature (CR 701.16; the modern Oracle templating

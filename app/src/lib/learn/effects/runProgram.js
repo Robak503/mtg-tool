@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect, advanceDiscardChain } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 
 /**
@@ -255,6 +255,66 @@ export function resolveSacrificeChoice(state, permId) {
   const casterId = pc.resume?.controller;
   if (casterId && !next.players?.[casterId]) return next; // caster eliminated mid-pause → no resume
   return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== EACH-PLAYER ===== discard (EP-2) — deterministically auto-pick the card an AI discards (CR 701.8,
+ * no picker for the AI / Expert): its LEAST valuable card = lowest mana value, tie-break lowest power,
+ * then codepoint name then id (serialize-stable, no Math.random). Returns the card id from the DISCARDER's
+ * current hand, or null if none remain. Mirrors autoPickSacrificeCandidate (cheapest-first — pitch the
+ * weakest card); a board-aware "keep cheap interaction, bin flood" heuristic is a future refinement.
+ */
+export function autoPickDiscardCandidate(state, pendingChoice) {
+  const hand = (state.players?.[pendingChoice.controller]?.hand || []).filter((c) => !c.token);
+  const byId = new Map(hand.map((c) => [c.id, c]));
+  const cards = (pendingChoice.candidates || []).map((c) => byId.get(c.id)).filter(Boolean);
+  if (cards.length === 0) return null;
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const pwr = (c) => Number(c.power) || 0;
+  return [...cards].sort((a, b) =>
+    tutorManaValue(a) - tutorManaValue(b) ||
+    pwr(a) - pwr(b) ||
+    cmp(String(a.name || ""), String(b.name || "")) ||
+    cmp(String(a.id || ""), String(b.id || "")),
+  )[0].id;
+}
+
+/**
+ * ===== EACH-PLAYER ===== discard (EP-2) — settle ONE pick in the discard chain (Mind Rot / Fugue / Delirium
+ * Skeins): move the chosen card from the DISCARDER's hand (pc.controller) → their graveyard, decrement that
+ * discarder's `remaining`, then ADVANCE the chain (advanceDiscardChain) — which either pauses again (more
+ * cards / the next discarder owes a real choice) or, when the queue empties, RESUMES the caster's program
+ * (a rider like "Scry 2" on Fill with Fright). A `cardId` not in the discarder's hand (stale) is a logged
+ * no-op but still counts against `remaining` (the discard "happened"). Guards: a discarder removed mid-pause
+ * (CR 800.4a) skips their move; when the chain re-pauses, the original caster-resume is carried forward; a
+ * caster removed before the final resume skips it. Hidden-info safe (the discarder owns the hand).
+ */
+export function resolveDiscardChoice(state, cardId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "discard") return state;
+  let next = clearPendingChoice(state);
+  const discarder = pc.controller;
+  if (next.players?.[discarder]) {
+    const inHand = cardId && (next.players[discarder].hand || []).some((c) => c.id === cardId);
+    if (inHand) {
+      next = moveCardToZone(next, { playerId: discarder, fromZone: "hand", toZone: "graveyard", cardId });
+    }
+    next = logEvent(next, { kind: "spell-effect", effect: "discard", controller: discarder, discarded: inHand ? 1 : 0 });
+  }
+  // Decrement the head discarder's owed count, then advance the chain.
+  const queue = (pc.queue || []).map((e, i) => (i === 0 ? { ...e, remaining: e.remaining - 1 } : e));
+  const r = advanceDiscardChain(next, { queue, sourceName: pc.sourceName });
+  if (r.pendingChoice) {
+    // The chain re-paused (more picks). Carry the original caster-resume onto the new choice so the
+    // program resumes once the whole chain settles (advanceDiscardChain never sets a resume itself).
+    return r.pendingChoice.resume || !pc.resume
+      ? r
+      : { ...r, pendingChoice: { ...r.pendingChoice, resume: pc.resume } };
+  }
+  // Chain done → resume the caster's suspended program (its riders).
+  const casterId = pc.resume?.controller;
+  if (casterId && !r.players?.[casterId]) return r; // caster eliminated mid-pause → no resume
+  return resumeAfterChoice(r, pc);
 }
 
 /**
