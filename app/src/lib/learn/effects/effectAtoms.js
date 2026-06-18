@@ -22,7 +22,7 @@ import {
   handCardMatches,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
@@ -892,6 +892,18 @@ function applyFog(state, atom, ctx) {
 }
 
 /**
+ * ===== EMBLEM ===== (PW-5, CR 114) — "You get an emblem with '[ability]'." Give the controller an
+ * emblem carrying the quoted ability text (addEmblem). The parser only emits this atom when the
+ * ability is a modeled static (a clean anthem the layer engine can apply); the emblem's effect then
+ * applies continuously via layers.emblemEffectsOf. Non-targeted; a removed controller is a clean no-op.
+ */
+function applyCreateEmblem(state, atom, ctx) {
+  if (!ctx.controller || !state.players?.[ctx.controller]) return state;
+  const next = addEmblem(state, { playerId: ctx.controller, oracle: atom.emblemOracle || "" });
+  return logEvent(next, { kind: "spell-effect", effect: "create-emblem", controller: ctx.controller });
+}
+
+/**
  * ===== DIVIDE ===== (MT-1) — "deals N damage divided as you choose among any number of target X." Gather
  * the legal target set per `atom.group` (every battlefield's creatures, and/or every player) and PAUSE for
  * the caster's division (setPendingDivideChoice); resolveDivideChoice (runProgram) applies the per-target
@@ -949,6 +961,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "impulse-dig": applyImpulseDigAtom,
   "mill": applyMill,
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
+  "create-emblem": applyCreateEmblem, // ===== EMBLEM ===== (PW-5) "you get an emblem with '[modeled static]'"
   // ===== DIVIDE ===== (MT-1) — split N damage among any number of targets via a resolution-time picker.
   // Wired end-to-end: applyDivideDamage → setPendingDivideChoice → driver (AI auto-distributes /
   // human assigns via the LearnView DivideDamagePanel) → resolveDivideChoice applies it through the

@@ -29,6 +29,7 @@
 import { parseSpellEffect, parseCreatureTargetRestrictions, parseGraveyardFilter } from "../spellEffects.js";
 import { ATOM_RESOLVERS } from "./effectAtoms.js";
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
+import { staticAbilitiesCoverCard } from "../staticAbilityParser.js";
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -1024,6 +1025,22 @@ export function parseEffectProgram(card) {
  * shapes); `hasX` marks an X in the relevant cost so amount-X atoms bind at choice
  * time (default false — permanent-ability effects rarely carry their own X).
  */
+/**
+ * ===== EMBLEM ===== (PW-5, CR 114) — "You get an emblem with '<ability>'." Matched UP FRONT because
+ * the quoted ability spans sentences (the clause splitter would shatter it). Modeled ONLY when the
+ * ability is a clean modeled STATIC the layer engine can apply (`staticAbilitiesCoverCard` with a
+ * conservative no-keyword-only gate, so partial coverage → reject). A triggered / activated / complex
+ * emblem ability → null → low → Arbiter (PW-6 adds triggered emblems). Returns { atom, rest:"" } for
+ * the `collapsed` handler.
+ */
+function matchEmblem(oracle) {
+  const m = stripReminder(oracle).trim().match(/^you get an emblem with ["“”'](.+)["“”']\.?$/i);
+  if (!m) return null;
+  const ability = m[1].trim();
+  if (!staticAbilitiesCoverCard({ type: "Emblem", oracle: ability }, () => false)) return null;
+  return { atom: { op: "create-emblem", emblemOracle: ability, targetType: null }, rest: "" };
+}
+
 export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) {
   if (!oracle) return null;
   // Drop the vacuous "can't be regenerated" rider up front (regeneration is unmodeled), so a
@@ -1061,6 +1078,8 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   if (hd) return collapsed(hd);
   const dig = matchImpulseDig(oracle);
   if (dig) return collapsed(dig);
+  const emb = matchEmblem(oracle);
+  if (emb) return collapsed(emb);
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).

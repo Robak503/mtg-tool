@@ -306,6 +306,23 @@ export function destroyZeroLoyaltyPlaneswalkers(state) {
 }
 
 /**
+ * Give a player an emblem (CR 114 — "[Player] gets an emblem with '[ability]'"). An emblem is a
+ * marker in the command zone with no characteristics except the listed ability; it can't be targeted,
+ * removed, or interacted with (CR 114.3). Stored minimally as `{ id, oracle, timestamp }` on the
+ * player; the layer engine reads its static abilities (PW-5), the trigger engine its triggered ones
+ * (PW-6). Mints a deterministic id + a CR 613.7e timestamp (so an emblem anthem orders against
+ * permanents), both threaded through state → serialize-stable. Pure.
+ */
+export function addEmblem(state, { playerId, oracle }) {
+  assertPlayer(playerId);
+  const { id, state: s2 } = mintId(state, "emblem");
+  const ts = s2.timestampCounter || 0;
+  const s3 = { ...s2, timestampCounter: ts + 1 };
+  const emblem = { id, oracle: String(oracle || ""), timestamp: ts };
+  return withPlayer(s3, playerId, (p) => ({ ...p, emblems: [...(p.emblems || []), emblem] }));
+}
+
+/**
  * Create a stack object — a spell on the stack or a triggered/activated
  * ability waiting to resolve. The engine pushes these on, resolves the
  * top, and pops.
@@ -342,6 +359,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     graveyard: [],
     exile: [],
     command: [...commanderCards],
+    emblems: [],              // PW-5: emblems this player owns (objects with a continuous/triggered ability)
     experience: 0,
     landsPlayedThisTurn: 0,
     cardsDrawnThisTurn: 0,

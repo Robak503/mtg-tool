@@ -80,8 +80,9 @@ describe("parseLoyaltyAbilities", () => {
     expect(abs[0].costDelta).toBe(-1);
   });
 
-  it("leaves an unmodeled ability un-modeled (an emblem ultimate)", () => {
-    const abs = parseLoyaltyAbilities(pw("A", "+1: Draw a card.\n−6: You get an emblem with \"Creatures you control get +2/+2.\""));
+  it("leaves an unmodeled ability un-modeled (a triggered-emblem ultimate)", () => {
+    // A TRIGGERED emblem is still unmodeled (PW-5 models only static-anthem emblems).
+    const abs = parseLoyaltyAbilities(pw("A", "+1: Draw a card.\n−6: You get an emblem with \"At the beginning of your end step, draw a card.\""));
     expect(abs[0].modeled).toBe(true);
     expect(abs[1].modeled).toBe(false);
   });
@@ -309,8 +310,9 @@ describe("casting a planeswalker", () => {
 
 // ── PW-2 HYBRID: pure-loyalty walkers are playable; unmodeled abilities route to the Arbiter ──
 describe("PW-2 hybrid — planeswalkerPlayable", () => {
-  // +1 draw is modeled; −6 emblem is not. Pure-loyalty (no static/trigger residue) → playable.
-  const HYBRID = "+1: Draw a card.\n−6: You get an emblem with \"Creatures you control get +2/+2.\"";
+  // +1 draw is modeled; the −6 TRIGGERED emblem is not (PW-5 models only static-anthem emblems).
+  // Pure-loyalty (no static/trigger residue) → playable.
+  const HYBRID = "+1: Draw a card.\n−6: You get an emblem with \"At the beginning of your end step, draw a card.\"";
   it("is true for a pure-loyalty walker even when some abilities are unmodeled", () => {
     expect(planeswalkerPlayable(pw("Hybrid", HYBRID, { loyalty: "4" }))).toBe(true);
     expect(planeswalkerNativelyCovered(pw("Hybrid", HYBRID, { loyalty: "4" }))).toBe(false); // not ALL modeled
