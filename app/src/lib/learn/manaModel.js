@@ -68,6 +68,11 @@ function oracleOf(card) {
   return String(card?.oracle || card?.oracle_text || "");
 }
 
+// Strip reminder text (parentheses). Used TYPE-AWARELY in manaProduction — see the note there.
+function stripReminder(text) {
+  return String(text || "").replace(/\([^)]*\)/g, " ");
+}
+
 function hasHaste(card) {
   const kws = Array.isArray(card?.keywords) ? card.keywords : [];
   if (kws.some(k => String(k).toLowerCase() === "haste")) return true;
@@ -126,10 +131,22 @@ function manaAbilitySacrificesSelf(oracle) {
 
 /**
  * What mana can this card's mana ability produce? Returns `{ colors, amount[, sacrifices] }`
- * or null if it isn't a mana source. Resolution order: basic-land name →
- * known-rock table → oracle "Add" parse → land fallback (colorless). `sacrifices:true` marks a
- * one-shot source the mana commit path sacrifices on use (Treasure / Gold) — only ever set on the
- * oracle-parsed branch (basics/known-rocks/land-fallback are all repeatable).
+ * or null if it isn't a mana source. Resolution order: basic-land name → known-rock table →
+ * oracle "Add" parse → land fallback (colorless). `sacrifices:true` marks a one-shot source the
+ * mana commit path sacrifices on use (Treasure / Gold) — only ever set on the oracle-parsed branch
+ * (basics/known-rocks/land-fallback are all repeatable).
+ *
+ * Reminder text (parentheses) is read TYPE-AWARELY:
+ *   - LAND: keep the raw oracle. The original dual lands / type-granting lands print their mana
+ *     ability ENTIRELY as reminder text ("({T}: Add {W} or {U}.)" — Tundra, Badlands, shocklands,
+ *     triomes), because the basic land types grant it intrinsically. Stripping there would drop the
+ *     ability and the land would fall through to the colorless fallback (a {W}/{U} → {C} regression).
+ *   - NON-LAND: strip reminder first. A creature/artifact whose only "Add … mana" text is in reminder
+ *     is describing a TOKEN it creates ("…create a Treasure token. (It's an artifact with "{T},
+ *     Sacrifice this token: Add one mana of any color.")" — Brazen Freebooter) or a keyword's mana
+ *     (firebending) — NOT its own ability. Reading it would mis-offer the permanent as a tappable mana
+ *     source in `manaSources`. A genuine rock/dork states its ability in MAIN text, so stripping never
+ *     drops a real source. (Matches the coverage.hasManaAbility reminder fix; CR 207.2.)
  */
 export function manaProduction(card) {
   if (!card) return null;
@@ -143,14 +160,20 @@ export function manaProduction(card) {
     return { colors: [...KNOWN_ROCKS[name].colors], amount: KNOWN_ROCKS[name].amount };
   }
 
-  const fromOracle = parseAddClause(oracleOf(card));
+  // Type-aware reminder handling (see the note above): lands keep the raw oracle (their reminder-text
+  // ability is real), non-lands strip it (a reminder "Add … mana" describes a token/keyword, not their
+  // own ability). The same `oracleForAdd` feeds the sacrifice-for-mana check so a Treasure (no reminder
+  // parens) still flags `sacrifices`, while a token-MAKER's reminder no longer mints a phantom source.
+  const isLandCard = /\bLand\b/.test(typeLineOf(card));
+  const oracleForAdd = isLandCard ? oracleOf(card) : stripReminder(oracleOf(card));
+  const fromOracle = parseAddClause(oracleForAdd);
   if (fromOracle) {
-    return manaAbilitySacrificesSelf(oracleOf(card)) ? { ...fromOracle, sacrifices: true } : fromOracle;
+    return manaAbilitySacrificesSelf(oracleForAdd) ? { ...fromOracle, sacrifices: true } : fromOracle;
   }
 
   // A land we couldn't otherwise parse still taps for something — assume
   // colorless so it can at least pay generic. Never invents a color.
-  if (/\bLand\b/.test(typeLineOf(card))) {
+  if (isLandCard) {
     return { colors: ["C"], amount: 1 };
   }
   return null;

@@ -87,6 +87,24 @@ describe("manaProduction", () => {
     expect(manaProduction({ name: "Mysterious Nonbasic", type: "Land", oracle: "" }))
       .toEqual({ colors: ["C"], amount: 1 });
   });
+
+  // Reminder text is read TYPE-AWARELY (CR 207.2). A LAND keeps its reminder-text ability (dual lands
+  // print it AS reminder); a NON-LAND's reminder "Add … mana" describes a token/keyword, not its ability.
+  it("KEEPS a dual land's reminder-text mana ability (Tundra prints it as reminder)", () => {
+    expect(manaProduction({ name: "Tundra", type: "Land — Plains Island", oracle: "({T}: Add {W} or {U}.)" }))
+      .toEqual({ colors: ["W", "U"], amount: 1 });
+    expect(manaProduction({ name: "Savai Triome", type: "Land — Mountain Plains Swamp", oracle: "({T}: Add {R}, {W}, or {B}.)\nThis land enters tapped." }))
+      .toEqual({ colors: ["R", "W", "B"], amount: 1 });
+  });
+  it("does NOT read a NON-LAND's reminder-text 'Add mana' (token-maker / firebending) as its own ability", () => {
+    // Brazen Freebooter: the "Add one mana of any color" is the reminder describing the Treasure it makes.
+    expect(manaProduction({ name: "Brazen Freebooter", type: "Creature — Human Pirate", oracle: "When this creature enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")" })).toBeNull();
+    // Firebending: combat mana in the keyword's reminder, not a tap ability.
+    expect(manaProduction({ name: "Fire Sages", type: "Creature — Human Cleric", oracle: "Firebending 1 (Whenever this creature attacks, add {R}. This mana lasts until end of combat.)\n{1}{R}{R}: Put a +1/+1 counter on this creature." })).toBeNull();
+  });
+  it("still reads a real rock/dork whose ability is in MAIN text", () => {
+    expect(manaProduction({ name: "Llanowar Elves", type: "Creature — Elf Druid", oracle: "{T}: Add {G}." })).toEqual({ colors: ["G"], amount: 1 });
+  });
 });
 
 // ─── manaSources ─────────────────────────────────────────────────────────────
@@ -119,6 +137,14 @@ describe("manaSources", () => {
       ),
     ]);
     expect(manaSources(state, "user").map(s => s.permanentId)).toEqual(["hd"]);
+  });
+
+  it("does NOT offer a token-maker creature as a mana source (reminder-text 'Add mana' is the token's, not the creature's)", () => {
+    const state = bf([
+      permanent({ name: "Brazen Freebooter", type: "Creature — Human Pirate", oracle: "When this creature enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")" }, { id: "bf" }),
+      permanent({ name: "Forest", type: "Basic Land — Forest" }, { id: "f1" }),
+    ]);
+    expect(manaSources(state, "user").map(s => s.permanentId)).toEqual(["f1"]); // the creature is NOT a source
   });
 });
 
