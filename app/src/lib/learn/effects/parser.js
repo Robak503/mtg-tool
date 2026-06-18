@@ -418,9 +418,10 @@ function parseExtendedAtom(s) {
   // (programContainsChosenPermanentRemoval) — first-legal could hit the controller's OWN permanent,
   // a forbidden mis-application; safe on the cast path where the player/AI choose the target.
   // β-2 adds the compound permanent-TYPE UNIONS ("X or Y", both already-modeled permanent types) to the
-  // alternation — listed BEFORE the singles so the longer phrase wins. "creature or planeswalker" stays
-  // OUT (planeswalkers aren't modeled as targetable permanents) → low → Arbiter.
-  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or land|enchantment or land|nonland permanent|artifact|enchantment|land|permanent)(?: (an opponent controls|you don't control|you control))?$/);
+  // alternation — listed BEFORE the singles so the longer phrase wins. PW-7: planeswalkers are now
+  // targetable, so "creature or planeswalker" / "planeswalker" are admitted (Hero's Downfall, Vraska's
+  // Contempt, Murderous Rider…), enumerated via addPlaneswalkers.
+  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
@@ -428,6 +429,7 @@ function parseExtendedAtom(s) {
       "creature or enchantment": "creatureOrEnchantment", "creature or land": "creatureOrLand",
       "creature or artifact": "creatureOrArtifact", "artifact or land": "artifactOrLand",
       "enchantment or land": "enchantmentOrLand",
+      "creature or planeswalker": "creatureOrPlaneswalker", "planeswalker": "planeswalker", // PW-7
     };
     const restrictions = rm[3] ? [{ kind: "controller", who: /^you control$/.test(rm[3]) ? "you" : "opponent" }] : [];
     return { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
@@ -1153,6 +1155,7 @@ export function programContainsCounter(program) {
 export const PERMANENT_TARGET_TYPES = new Set([
   "artifact", "enchantment", "land", "permanent", "nonlandPermanent", "artifactOrEnchantment",
   "creatureOrEnchantment", "creatureOrLand", "creatureOrArtifact", "artifactOrLand", "enchantmentOrLand", // β-2 unions
+  "planeswalker", "creatureOrPlaneswalker", // PW-7 — gate triggered destroy/exile-PW out of first-legal flush
 ]);
 
 /**

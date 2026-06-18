@@ -511,9 +511,10 @@ export function applyDestroyEffect(state, { controller, targets = [] }) {
   const dead = [];
   const prevented = [];
   for (const t of targets) {
-    // "creature" (the dedicated creature path / mass wipe) or "permanent" (targeted non-creature
-    // removal — Disenchant/Stone Rain). Other target kinds aren't destroyable here.
-    if (t.type !== "creature" && t.type !== "permanent") continue;
+    // "creature" (the dedicated creature path / mass wipe), "permanent" (targeted non-creature
+    // removal — Disenchant/Stone Rain), or "planeswalker" (PW-7 — Hero's Downfall class). Other
+    // target kinds aren't destroyable here.
+    if (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") continue;
     const lk = findPermanent(next, t.id);
     if (!lk) continue;
     // CR 702.12b — an indestructible permanent can't be destroyed. isIndestructible reads the layer

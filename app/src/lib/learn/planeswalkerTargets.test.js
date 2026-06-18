@@ -7,8 +7,9 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { _resetIdsForTests, createGameState, createPermanent, findPermanent } from "./gameState.js";
-import { parseEffectClause, programConfidence } from "./effects/parser.js";
-import { enumerateTargets, applyDamageEffect } from "./spellEffects.js";
+import { parseEffectClause, programConfidence, programContainsChosenPermanentRemoval } from "./effects/parser.js";
+import { enumerateTargets, applyDamageEffect, applyDestroyEffect } from "./spellEffects.js";
+import { resolveAtom } from "./effects/effectAtoms.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -83,5 +84,33 @@ describe("PW-6 — damage to a planeswalker removes loyalty", () => {
     s = withBf(s, "ai", [pwPerm("epw", pw("EnemyPW"), "ai", 5), createPermanent({ id: "aic", card: creature("Theirs"), controller: "ai", summoningSick: false })]);
     s = applyDamageEffect(s, { controller: "user", amount: 2, targetType: "any", targets: [{ type: "planeswalker", id: "epw" }] });
     expect(findPermanent(s, "epw").permanent.counters.loyalty).toBe(3); // 5 − 2
+  });
+});
+
+// ── PW-7: destroy / exile targeting a planeswalker (Hero's Downfall class) ───────
+describe("PW-7 — destroy/exile target planeswalker", () => {
+  const tt = (clause) => { const p = parseEffectClause(clause, "Instant"); return p && programConfidence(p) === "high" ? `${p.atoms[0].op}:${p.atoms[0].targetType}` : "low"; };
+  it("parses 'destroy target planeswalker' / 'creature or planeswalker' / 'exile target planeswalker'", () => {
+    expect(tt("Destroy target planeswalker.")).toBe("destroy:planeswalker");
+    expect(tt("Destroy target creature or planeswalker.")).toBe("destroy:creatureOrPlaneswalker");
+    expect(tt("Exile target planeswalker.")).toBe("exile:planeswalker");
+  });
+  it("destroy sends the planeswalker to the graveyard", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = withBf(s, "ai", [pwPerm("epw", pw("EnemyPW"), "ai", 5)]);
+    s = applyDestroyEffect(s, { controller: "user", targets: [{ type: "planeswalker", id: "epw" }] });
+    expect(findPermanent(s, "epw")).toBeNull();
+    expect(s.players.ai.graveyard.map((c) => c.name)).toContain("EnemyPW");
+  });
+  it("exile sends the planeswalker to exile", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = withBf(s, "ai", [pwPerm("epw", pw("EnemyPW"), "ai", 5)]);
+    s = resolveAtom(s, { op: "exile", targetType: "planeswalker" }, { controller: "user", targets: [{ type: "planeswalker", id: "epw" }] });
+    expect(findPermanent(s, "epw")).toBeNull();
+    expect(s.players.ai.exile.map((c) => c.name)).toContain("EnemyPW");
+  });
+  it("a triggered destroy-planeswalker is gated out of the first-legal trigger flush (CREED)", () => {
+    const prog = parseEffectClause("Destroy target planeswalker.", "Instant");
+    expect(programContainsChosenPermanentRemoval(prog)).toBe(true);
   });
 });

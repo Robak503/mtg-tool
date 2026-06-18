@@ -73,12 +73,13 @@ describe("enumeration — type filter + controller restriction (front-face type,
 });
 
 describe("β-2 — compound permanent-type unions (X or Y)", () => {
-  it("parses each union to its targetType; a planeswalker union + a rider stay low", () => {
+  it("parses each union to its targetType; a rider stays low", () => {
     expect(parseEffectProgram(I("Destroy target creature or land.")).atoms).toEqual([{ op: "destroy", targetType: "creatureOrLand", restrictions: [] }]);
     expect(parseEffectProgram(I("Exile target creature or enchantment.")).atoms).toEqual([{ op: "exile", targetType: "creatureOrEnchantment", restrictions: [] }]);
     expect(parseEffectProgram(I("Destroy target artifact or land an opponent controls.")).atoms)
       .toEqual([{ op: "destroy", targetType: "artifactOrLand", restrictions: [{ kind: "controller", who: "opponent" }] }]);
-    expect(programConfidence(parseEffectProgram(I("Destroy target creature or planeswalker.")))).toBe("low"); // PW not a modeled target
+    expect(parseEffectProgram(I("Destroy target creature or planeswalker.")).atoms)
+      .toEqual([{ op: "destroy", targetType: "creatureOrPlaneswalker", restrictions: [] }]); // PW-7 — planeswalkers are now targetable
     expect(programConfidence(parseEffectProgram(I("Destroy target artifact or enchantment, then populate.")))).toBe("low"); // rider
   });
   it("enumerates permanents matching EITHER type across battlefields (not the other types)", () => {
