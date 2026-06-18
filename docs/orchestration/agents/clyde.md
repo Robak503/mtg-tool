@@ -103,8 +103,11 @@ Advance my local branch + push my docs (always a fast-forward, never force):
 ```
 git fetch origin && git merge --ff-only origin/master
 # ...do doc edits, commit explicit paths...
-git push            # upstream is origin/master → fast-forwards master
+git push origin HEAD:master    # plain `git push` is REFUSED (branch name ≠ master, push.default=simple)
 ```
+**Use the explicit `HEAD:master` refspec** — my local branch is `claude/<name>`, not `master`, so a
+bare `git push` errors ("upstream branch ... does not match the name of your current branch"). The
+push is still a pure fast-forward (my commit is a child of `origin/master`); it is NOT a force-push.
 
 ---
 
