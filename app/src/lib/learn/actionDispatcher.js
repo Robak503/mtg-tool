@@ -131,6 +131,25 @@ function deductManaCost(manaPool, cost) {
   return pool;
 }
 
+/**
+ * Commit a payment plan's mana taps (manaModel.planPayment). For each tapped source: add its mana to
+ * the pool, then either TAP it (a repeatable land/rock/dork) or — for a one-shot sacrifice-for-mana
+ * source (Treasure / Gold / Lotus Petal, `tap.sacrifices`) — SACRIFICE it (battlefield → graveyard) so
+ * it can't ramp again (the TOK-2 correctness invariant). Those sources are non-creatures, so no dies
+ * trigger fires; routing the removal through moveCardToZone keeps it on the one shared zone-move path.
+ * Shared by the cast-spell + activate-ability auto-pay loops so the two can't drift.
+ */
+function commitManaTaps(state, playerId, taps) {
+  let working = state;
+  for (const tap of taps || []) {
+    working = addMana(working, { playerId, color: tap.color, amount: tap.amount });
+    working = tap.sacrifices
+      ? moveCardToZone(working, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId })
+      : tapPermanent(working, tap.permanentId);
+  }
+  return working;
+}
+
 // ─── Combat-state helper ──────────────────────────────────────────────────────
 
 /**
@@ -204,14 +223,10 @@ function applyCastSpell(state, action) {
     throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
   }
 
-  // 1. Commit the taps: tap each source and add its mana to the pool. Any
-  // surplus from an over-producing source (Sol Ring on a single generic)
-  // floats — the floating-mana behavior we want.
-  let working = state;
-  for (const tap of plan.taps) {
-    working = tapPermanent(working, tap.permanentId);
-    working = addMana(working, { playerId: action.playerId, color: tap.color, amount: tap.amount });
-  }
+  // 1. Commit the taps: add each source's mana to the pool and tap it — OR sacrifice a one-shot
+  // Treasure/Gold (commitManaTaps). Any surplus from an over-producing source (Sol Ring on a single
+  // generic) floats — the floating-mana behavior we want.
+  let working = commitManaTaps(state, action.playerId, plan.taps);
 
   // 2. Deduct EXACTLY what the plan spent. Using the plan's own breakdown (not
   // a second payment heuristic) guarantees the deduction always succeeds — no
@@ -323,14 +338,19 @@ function applyTapForMana(state, action) {
   if (!perm) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
   if (perm.tapped) throw new DispatcherError("Mana source is already tapped", "ALREADY_TAPPED");
 
-  let next = tapPermanent(state, action.permanentId);
-  next = addMana(next, { playerId: action.playerId, color: action.color, amount: action.amount || 1 });
+  // Add the mana, then TAP a repeatable source or SACRIFICE a one-shot Treasure/Gold (action.sacrifices,
+  // set by legalChoices.actionsTapForMana) — the same one-shot discipline as the auto-pay commit path.
+  let next = addMana(state, { playerId: action.playerId, color: action.color, amount: action.amount || 1 });
+  next = action.sacrifices
+    ? moveCardToZone(next, { playerId: action.playerId, fromZone: "battlefield", toZone: "graveyard", cardId: action.permanentId })
+    : tapPermanent(next, action.permanentId);
   next = logEvent(next, {
     kind: "tap-for-mana",
     playerId: action.playerId,
     permanentId: action.permanentId,
     color: action.color,
     amount: action.amount || 1,
+    sacrificed: !!action.sacrifices,
     cardName: perm.card?.name,
   });
   return next;
@@ -376,11 +396,7 @@ function applyActivateAbility(state, action) {
   const plan = planPayment(pool, sources, action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 
-  let working = state;
-  for (const tap of plan.taps) {
-    working = tapPermanent(working, tap.permanentId);
-    working = addMana(working, { playerId: action.playerId, color: tap.color, amount: tap.amount });
-  }
+  let working = commitManaTaps(state, action.playerId, plan.taps);
   const toppedPool = working.players[action.playerId].manaPool;
   const nextPool = {};
   for (const c of Object.keys(toppedPool)) nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);

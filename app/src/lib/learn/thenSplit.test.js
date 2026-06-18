@@ -20,11 +20,14 @@ describe("', then' splits a top-level sequence", () => {
   it("composes a draw-then-effect sequence", () => {
     expect(ops("Draw a card, then you gain 2 life.")).toEqual(["draw", "gain-life"]);
   });
+  it("composes scry-then-create-named-token (TOK-2 — Treasure is now modeled)", () => {
+    expect(ops("Scry 2, then create a Treasure token.")).toEqual(["scry", "create-named-token"]);
+  });
   it("a tutor's internal '… then shuffle' is NOT severed (the no-split guard wins)", () => {
     expect(ops("Search your library for a creature card, put it into your hand, then shuffle.")).toEqual(["tutor"]);
   });
   it("an unmodeled second half still drops the whole program (all-or-nothing)", () => {
     expect(programConfidence(parseEffectProgram(I("Scry 2, then exile the top card of your library.")))).toBe("low"); // impulse — unmodeled
-    expect(programConfidence(parseEffectProgram(I("Scry 2, then create a Treasure token.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Scry 2, then create a Blood token.")))).toBe("low"); // Blood unmodeled (TOK-2 defers it)
   });
 });

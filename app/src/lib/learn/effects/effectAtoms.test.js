@@ -97,3 +97,30 @@ describe("effectAtoms — team counter distribution (scope:youControl)", () => {
     expect(after.players.user.graveyard.map(c => c.name)).toEqual(["Frail"]);
   });
 });
+
+// ===== TOKENS ===== T2 named artifact tokens — the resolver mints a real non-creature artifact
+// permanent carrying its printed ability (no P/T, no keywords). Treasure/Gold then drive the mana
+// model; Clue/Food the activated-ability stack path.
+describe("effectAtoms — create-named-token (TOK-2)", () => {
+  it("mints a Treasure as a non-creature artifact permanent with its mana ability", () => {
+    const after = resolveAtom(st(), { op: "create-named-token", token: "treasure", count: 1 }, { controller: "user", targets: [] });
+    expect(after.players.user.battlefield).toHaveLength(1);
+    const perm = after.players.user.battlefield[0];
+    expect(perm.card).toMatchObject({ name: "Treasure", type: "Token Artifact — Treasure", token: true });
+    expect(perm.card.oracle).toMatch(/Sacrifice this artifact: Add one mana of any color/);
+    expect(perm.card.power).toBeUndefined();   // not a creature — no P/T
+    expect(perm.card.toughness).toBeUndefined();
+  });
+  it("mints N tokens (count) and Clue/Food/Gold by key", () => {
+    const treasures = resolveAtom(st(), { op: "create-named-token", token: "treasure", count: 3 }, { controller: "user", targets: [] });
+    expect(treasures.players.user.battlefield).toHaveLength(3);
+    for (const tok of ["clue", "food", "gold"]) {
+      const after = resolveAtom(st(), { op: "create-named-token", token: tok, count: 1 }, { controller: "user", targets: [] });
+      expect(after.players.user.battlefield[0].card.type).toContain("Artifact");
+    }
+  });
+  it("an unknown token key is a no-op (never fabricated) — the parser allowlist prevents this", () => {
+    const after = resolveAtom(st(), { op: "create-named-token", token: "blood", count: 1 }, { controller: "user", targets: [] });
+    expect(after.players.user.battlefield).toHaveLength(0);
+  });
+});

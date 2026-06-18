@@ -145,6 +145,46 @@ function applyCreateToken(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "create-token", count, power: atom.power, toughness: atom.toughness, controller: ctx.controller });
 }
 
+// ===== TOKENS ===== T2 named artifact tokens — the canonical `token` key → { name, type, oracle }
+// table. Each enters as a REAL non-creature artifact permanent carrying its printed ability, so the
+// existing subsystems run it with no special-casing: Treasure/Gold are mana sources the mana model
+// SACRIFICES on use (manaModel.manaProduction reads "Add … any color" + flags the self-sac cost),
+// Clue/Food activate on the stack through the γ1 self-sac activated-ability path (legalChoices /
+// actionDispatcher). The oracle text is the canonical Oracle wording so parseActivatedAbilities /
+// manaProduction read it exactly as they would a printed permanent. Only these four are in the parser
+// allowlist (Blood/Map/Powerstone are unmodeled → stay low → Arbiter).
+const NAMED_TOKENS = {
+  treasure: { name: "Treasure", type: "Token Artifact — Treasure", oracle: "{T}, Sacrifice this artifact: Add one mana of any color." },
+  clue: { name: "Clue", type: "Token Artifact — Clue", oracle: "{2}, Sacrifice this artifact: Draw a card." },
+  food: { name: "Food", type: "Token Artifact — Food", oracle: "{2}, {T}, Sacrifice this artifact: You gain 3 life." },
+  gold: { name: "Gold", type: "Token Artifact — Gold", oracle: "Sacrifice this artifact: Add one mana of any color." },
+};
+
+/**
+ * ===== TOKENS ===== T2 create-named-token (CR 701.7) — put `count` named artifact tokens (Treasure /
+ * Clue / Food / Gold) onto the controller's battlefield. Mirrors applyCreateToken's minting (deterministic
+ * id, owner = controller, entering untapped) but produces a NON-creature artifact card (no P/T, no keywords,
+ * so no lethal SBA / dies path). The token's printed ability then drives the existing engine: Treasure/Gold
+ * via the mana model (sacrificed on tap-for-mana), Clue/Food via the activated-ability stack path. Like the
+ * creature-token path, the token does NOT fire ETB-watcher triggers yet (an under-model, never fabricated —
+ * the token IS created). An unknown key can't occur (the parser allowlist gates it); guarded to a no-op anyway.
+ */
+function applyCreateNamedToken(state, atom, ctx) {
+  const spec = NAMED_TOKENS[atom.token];
+  if (!spec) return state;
+  let next = state;
+  const count = Math.max(1, atom.count || 1);
+  for (let i = 0; i < count; i++) {
+    const minted = mintId(next, "tok");
+    next = minted.state;
+    const card = { id: `tok-${minted.id}`, name: spec.name, type: spec.type, oracle: spec.oracle, token: true };
+    const perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
+    const player = next.players[ctx.controller];
+    next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "create-named-token", token: atom.token, count, controller: ctx.controller });
+}
+
 // ─── P2.7 atom family (delegate to existing gameState helpers) ────────────────
 
 /** "You gain N life" (CR 119.3) — the spell's controller gains life. Non-targeted. */
@@ -662,6 +702,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "discard-chosen": applyDiscardChosen,
   "sacrifice": applySacrifice,
   "create-token": applyCreateToken,
+  "create-named-token": applyCreateNamedToken, // ===== TOKENS ===== T2 Treasure/Clue/Food/Gold
   "counter": applyCounter,
   "tutor": applyTutor,
   "shuffle": applyShuffle,

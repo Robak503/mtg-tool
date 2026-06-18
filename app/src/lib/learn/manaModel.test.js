@@ -61,6 +61,23 @@ describe("manaProduction", () => {
       .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 1 });
   });
 
+  // ===== TOKENS ===== T2 — a one-shot sacrifice-for-mana source (Treasure / Gold / Lotus Petal) is
+  // flagged `sacrifices:true` so the commit path cracks it instead of tapping it (can't ramp forever).
+  it("flags a sacrifice-for-mana source (Treasure: {T}, Sac) as one-shot", () => {
+    expect(manaProduction({ name: "Treasure", type: "Token Artifact — Treasure", oracle: "{T}, Sacrifice this artifact: Add one mana of any color." }))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 1, sacrifices: true });
+  });
+  it("flags a no-tap sacrifice-for-mana source (Gold: Sac, no {T})", () => {
+    expect(manaProduction({ name: "Gold", type: "Token Artifact — Gold", oracle: "Sacrifice this artifact: Add one mana of any color." }))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 1, sacrifices: true });
+  });
+  it("does NOT flag a repeatable rock/dork as sacrifice-for-mana", () => {
+    expect(manaProduction({ name: "Llanowar Elves", type: "Creature — Elf Druid", oracle: "{T}: Add {G}." }))
+      .toEqual({ colors: ["G"], amount: 1 }); // no `sacrifices` key
+    expect(manaProduction({ name: "Worn Powerstone", type: "Artifact", oracle: "{T}: Add {C}{C}." }))
+      .toEqual({ colors: ["C"], amount: 2 });
+  });
+
   it("returns null for a non-mana permanent", () => {
     expect(manaProduction({ name: "Grizzly Bears", type: "Creature — Bear", oracle: "" })).toBeNull();
     expect(manaProduction({ name: "Oblivion Ring", type: "Enchantment", oracle: "Add a +1/+1 counter? no." })).toBeNull();
@@ -170,6 +187,22 @@ describe("planPayment / canAfford", () => {
     const plan = planPayment({ ...EMPTY_POOL, C: 2 }, sources, G("{1}"));
     expect(plan.taps).toEqual([]);
     expect(plan.spend.C).toBe(1);
+  });
+
+  // ===== TOKENS ===== T2 — a cracked Treasure carries `sacrifices:true` on its tap entry so the
+  // commit path sacrifices it; tapAny prefers a repeatable source so a Treasure isn't wasted.
+  it("a sacrifice-for-mana source carries sacrifices:true on its tap entry", () => {
+    const sources = [{ permanentId: "treas", colors: ["W", "U", "B", "R", "G"], amount: 1, sacrifices: true }];
+    const plan = planPayment(EMPTY_POOL, sources, G("{G}"));
+    expect(plan.taps).toEqual([{ permanentId: "treas", color: "G", amount: 1, sacrifices: true }]);
+  });
+  it("prefers a repeatable source over a Treasure for a generic pip", () => {
+    const sources = [
+      { permanentId: "treas", colors: ["W", "U", "B", "R", "G"], amount: 1, sacrifices: true },
+      { permanentId: "forest", colors: ["G"], amount: 1 },
+    ];
+    const plan = planPayment(EMPTY_POOL, sources, G("{1}"));
+    expect(plan.taps).toEqual([{ permanentId: "forest", color: "G", amount: 1 }]); // Treasure untouched
   });
 
   // Regression (review bug #2): scarcest-color-first must not strand the only

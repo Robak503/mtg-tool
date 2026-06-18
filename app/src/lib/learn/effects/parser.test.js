@@ -321,12 +321,43 @@ describe("parseEffectProgram — create-token (P2.6)", () => {
       .toMatchObject({ op: "create-token", power: 1, toughness: 1, descriptor: "colorless thopter artifact", keywords: ["Flying"] });
   });
   it("keeps non-creature / inline-ability / tapped / 0-toughness / unenforced-keyword tokens low", () => {
-    expect(programConfidence(parseEffectProgram(I("Create a Treasure token.")))).toBe("low");        // T2, not T1
     expect(programConfidence(parseEffectProgram(I("Create a 2/2 black Zombie creature token tapped.")))).toBe("low");
     expect(programConfidence(parseEffectProgram(I("Create a 2/2 red Devil creature token with menace.")))).toBe("low"); // menace unenforced → Arbiter
     expect(programConfidence(parseEffectProgram(I("Create three 0/0 white Spirit creature tokens with flying.")))).toBe("low"); // 0-toughness → dies to SBA → incomplete capture → Arbiter
     expect(programConfidence(parseEffectProgram(I("Create a 1/1 green Saproling creature token with \"Sacrifice this creature: Add one mana of any color.\"")))).toBe("low"); // inline ability → Arbiter
     expect(programConfidence(parseEffectProgram(I("Create a 1/1 white Spirit creature token with flying and you gain 2 life.")))).toBe("low"); // 'and you gain' isn't a keyword
+  });
+});
+
+// ===== TOKENS ===== T2 — NAMED ARTIFACT TOKENS (TOK-2). Treasure/Clue/Food/Gold enter as real
+// artifact permanents whose printed ability the engine drives (mana model for Treasure/Gold, the
+// activated-ability stack path for Clue/Food). Blood/Map/Powerstone stay low (unmodeled cost/effect).
+describe("parseEffectProgram — named artifact tokens (TOK-2)", () => {
+  it("parses the four modeled named tokens to a create-named-token atom", () => {
+    expect(parseEffectProgram(I("Create a Treasure token.")).atoms)
+      .toEqual([{ op: "create-named-token", token: "treasure", count: 1, targetType: null }]);
+    expect(parseEffectProgram(I("Create a Clue token.")).atoms)
+      .toEqual([{ op: "create-named-token", token: "clue", count: 1, targetType: null }]);
+    expect(parseEffectProgram(I("Create a Food token.")).atoms)
+      .toEqual([{ op: "create-named-token", token: "food", count: 1, targetType: null }]);
+    expect(parseEffectProgram(I("Create a Gold token.")).atoms)
+      .toEqual([{ op: "create-named-token", token: "gold", count: 1, targetType: null }]);
+  });
+  it("parses counts (spelled + numeric, singular/plural)", () => {
+    expect(parseEffectProgram(I("Create three Treasure tokens.")).atoms[0]).toMatchObject({ token: "treasure", count: 3 });
+    expect(parseEffectProgram(I("Create two Clue tokens.")).atoms[0]).toMatchObject({ token: "clue", count: 2 });
+  });
+  it("composes with other modeled atoms in a sequence", () => {
+    const p = parseEffectProgram(I("Draw a card. Create a Treasure token."));
+    expect(p.confidence).toBe("high");
+    expect(p.atoms.map(a => a.op)).toEqual(["draw", "create-named-token"]);
+  });
+  it("MUST_DROP_TO_LOW: unmodeled named tokens (Blood/Map/Powerstone) + a tapped/filtered rider", () => {
+    expect(programConfidence(parseEffectProgram(I("Create a Blood token.")))).toBe("low");      // discard cost unmodeled
+    expect(programConfidence(parseEffectProgram(I("Create a Map token.")))).toBe("low");        // explore + sorcery-speed target unmodeled
+    expect(programConfidence(parseEffectProgram(I("Create a Powerstone token.")))).toBe("low"); // restricted mana unmodeled
+    expect(programConfidence(parseEffectProgram(I("Create a tapped Treasure token.")))).toBe("low"); // enters tapped → different behavior
+    expect(programConfidence(parseEffectProgram(I("Create a Treasure token for each opponent.")))).toBe("low"); // 'for each' rider
   });
 });
 

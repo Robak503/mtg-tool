@@ -469,6 +469,7 @@ function actionsTapForMana(state, playerId) {
         permanentId: perm.id,
         color,
         amount: prod.amount,
+        sacrifices: !!prod.sacrifices,   // one-shot Treasure/Gold — applyTapForMana sacrifices it (TOK-2)
         name: perm.card.name,
       });
     }

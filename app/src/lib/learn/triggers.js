@@ -121,6 +121,19 @@ function classifyCondition(condRaw, cardName) {
   const nameL = String(cardName || "").toLowerCase();
   const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL));
 
+  // ===== COMPOUND self-event guard (CREED, CLAUDE.md §1.2) ===== A condition that names TWO trigger
+  // events — "enters or leaves the battlefield" (Brandywine Farmer), "enters or dies" (Vinereap Mentor),
+  // or an embedded second when-clause "dies and when you discard this card" (Bartered Cow) — would be
+  // TRUNCATED by the single-event branches below to just the FIRST verb, silently DROPPING the other
+  // half (the trigger would fire on only one of the two events — a confident WRONG partial). Until
+  // compound trigger events are modeled, leave it UNDETECTED: the trigger-sentence count then mismatches
+  // in allTriggerSentencesModeled and the whole card routes to the Arbiter (a SAFE false-negative),
+  // mirroring the attacks-or-blocks / becomes-blocked guards below. Exposed by the TOK-2 named-token
+  // slice (create-Treasure/Food/Clue effects became modeled, flipping these compounds toward native).
+  const eventVerbs = [/\benters\b/, /\bdies\b/, /leaves the battlefield/].filter((re) => re.test(c)).length;
+  if (eventVerbs >= 2) return null;
+  if (/\b(?:and|or)\s+when(?:ever)?\b/i.test(c)) return null; // an embedded second trigger clause
+
   // The subject is mapped ONLY to a scope scopeMatches can ENFORCE (bare, or the controller
   // restriction); any other restriction (keyword/type/power/named/token) → null → UNDETECTED, so
   // we never over-fire on a restriction we can't check (CLAUDE.md §1.2). `subjectBefore` is the
@@ -135,7 +148,13 @@ function classifyCondition(condRaw, cardName) {
     const scope = creatureSubjectScope(subjectBefore(c, "dies"));
     if (scope) return { event: "dies", scope, whose: "any" };
   }
-  if (/leaves the battlefield/.test(c) && selfRef) return { event: "ltb", scope: "self", whose: "any" };
+  // "Leaves the battlefield" (LTB) is intentionally NOT detected: the engine fires only etb / dies /
+  // step / attacks events (triggersForEvent has no "ltb" caller), so an ltb trigger detected here would
+  // be classified native yet NEVER fire — a false positive (the whole ability silently does nothing,
+  // e.g. City Pigeon / Featherbrained Filcher's "When this leaves the battlefield, create a Food token").
+  // Leave it UNDETECTED → the card routes to the Arbiter (safe) until the engine fires LTB on every
+  // zone-change (dies + exile + bounce). NOTE: the self-sac fail-safe (abilities.sacrificeDropsTrigger)
+  // independently detects "leaves the battlefield" to keep self-sac costs safe — that path is unaffected.
 
   if (/beginning of (your|each) (upkeep|end step|draw step)/.test(c)) {
     const whose = /\beach\b/.test(c) ? "any" : "yours";
