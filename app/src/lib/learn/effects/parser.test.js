@@ -240,6 +240,30 @@ describe("parseEffectProgram — life atoms (P2.7)", () => {
   });
 });
 
+// ===== EACH-PLAYER ===== draw — the actor extends beyond the controller to every player /
+// a chosen player. Anchored allowlist: a rider / variable count / trailing text stays low.
+describe("parseEffectProgram — each-player / target-player draw", () => {
+  it("recognizes each-player and target-player draw with the right who/targetType", () => {
+    expect(parseEffectProgram(I("Each player draws two cards.")).atoms).toEqual([{ op: "draw", amount: 2, who: "eachPlayer", targetType: null }]);
+    expect(parseEffectProgram(I("Target player draws four cards.")).atoms).toEqual([{ op: "draw", amount: 4, who: "target", targetType: "player" }]);
+    expect(parseEffectProgram(I("Target player draws a card.")).atoms).toEqual([{ op: "draw", amount: 1, who: "target", targetType: "player" }]);
+    // the controller-only legacy form is unchanged (no `who`, non-targeted).
+    expect(parseEffectProgram(I("Draw two cards.")).atoms).toEqual([{ op: "draw", amount: 2, targetType: null }]);
+  });
+  it("only a target-player draw needs a chosen target; each-player does not", () => {
+    expect(programNeedsChosenTarget(parseEffectProgram(I("Target player draws four cards.")))).toBe(true);
+    expect(programNeedsChosenTarget(parseEffectProgram(I("Each player draws two cards.")))).toBe(false);
+  });
+  it("keeps riders / variable / dynamic counts low (anchored allowlist holds)", () => {
+    const low = (o) => expect(programConfidence(parseEffectProgram(I(o)))).toBe("low");
+    low("Target player draws two cards and loses 2 life.");       // Painful Lesson — bare "loses 2 life" unmodeled
+    low("Target player draws X cards.");                          // Stroke of Genius — variable count
+    low("Each player draws X cards.");                            // Prosperity — variable count
+    low("Each player draws a card for each creature card in their graveyard."); // dynamic count
+    low("Target player draws three cards, then discards three cards."); // a discard rider (sibling slice) → Arbiter
+  });
+});
+
 // P2.7 — TARGETED atoms (tap / untap / bounce / exile / add-counter) on a bare
 // "target creature". Anchored ^…$ matchers keep them EXACT — any restriction or a
 // non-creature target fails the anchor → low → Arbiter.
@@ -456,7 +480,8 @@ const MUST_DROP_TO_LOW = [
   "Return target creature card from your graveyard to the battlefield under your control.", // β-3b: a reanimation RIDER stays low (bare form is HIGH)
   "Return target creature card from your graveyard to the battlefield with a +1/+1 counter on it.", // counter rider → low
   "Return target creature or land card from your graveyard to your hand.",          // multi-type filter
-  "Each player draws a card.",
+  // NOTE: "Each player draws a card." / "Target player draws N cards." are now HIGH (EACH-PLAYER draw
+  // slice) — see the dedicated describe block above. They are intentionally NOT in this stay-low corpus.
   "Target player discards a card at random.",
   "Deal damage to target creature equal to the number of Mountains you control.",
   // Modal that should stay low: "choose two" (multi-mode pick deferred), and a

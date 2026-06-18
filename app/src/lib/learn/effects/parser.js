@@ -413,6 +413,20 @@ function parseExtendedAtom(s) {
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
   m = t.match(/^each opponent mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  // ===== EACH-PLAYER ===== draw — extend the ACTOR of a draw beyond the controller. The controller-only
+  // form ("draw N cards") stays on the legacy path (parseSpellEffect — "draws", a different subject, is
+  // intentionally not matched there). These two add: EVERY player draws ("Each player draws N cards" —
+  // Vision Skeins) and a CHOSEN player draws ("Target player draws N cards" — Opportunity, Ancestral
+  // Recall, Inspiration, Overflowing Insight). Anchored ALLOWLIST: a rider ("…and loses 2 life" — Painful
+  // Lesson splits, its bare "loses 2 life" stays unmodeled → low), a variable count ("draws X cards" /
+  // "draws cards equal to …"), or any trailing text fails the `$` anchor → low → Arbiter. Numeric N only.
+  // who:"target" carries targetType:"player" so the cast path enumerates a player target; who:"eachPlayer"
+  // is non-targeted (a trigger can auto-resolve it). Discard / lose-life / mill are sibling EACH-PLAYER
+  // slices; sacrifice is the Edicts builder's, never here.
+  m = t.match(/^each player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
+  m = t.match(/^target player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
   return null;
 }
 
