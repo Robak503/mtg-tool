@@ -80,6 +80,30 @@ export function setPendingScryChoice(state, { controller, mode, cards, sourceNam
   };
 }
 
+/**
+ * Flag a hand-disruption awaiting the CASTER's pick of which card to discard (δ-1b, CR 701.8 — Duress
+ * / Thoughtseize / …). The spell already targeted ONE opponent (`victim`) at cast; the atom resolved by
+ * revealing that opponent's hand and filtering it, so `candidates` is the matching subset as
+ * `{ id, name }`. The caster picks one to discard (driver: a picker for the human, auto-pick the best for
+ * the AI / Expert). `controller` is the CASTER (who decides); `victim` is the opponent whose hand it is
+ * and whose graveyard the card moves to. The candidate names are revealed by the spell — surfacing them
+ * to the caster is the "reveal," and ONLY this one opponent's hand is exposed (no 4P leak). FIFO.
+ */
+export function setPendingHandDiscardChoice(state, { controller, victim, candidates, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "hand-discard-pending", controller, victim, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "hand-discard",
+      controller,
+      victim,
+      candidates,
+      sourceName,
+    },
+  };
+}
+
 /** Clear the pending choice (after it's resolved). */
 export function clearPendingChoice(state) {
   if (!state.pendingChoice) return state;

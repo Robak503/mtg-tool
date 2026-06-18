@@ -43,7 +43,7 @@ import {
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -357,6 +357,17 @@ function settleOptionalChoice(state, doIt) {
 }
 
 /**
+ * Settle a hand-discard choice (δ-1b): move the chosen card from the victim's hand → graveyard, resume
+ * the caster's suspended program (Thoughtseize's "lose 2 life", Harsh Scrutiny's "Scry 1" — which may
+ * itself re-pause on the scry, so guard pendingChoice before flushing), then finalizeStackResolution
+ * flushes any triggers a resumed atom enqueued — the same finalize the tutor path runs.
+ */
+function settleHandDiscardChoice(state, cardId) {
+  const next = resolveHandDiscardChoice(state, cardId);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
  * decisions auto-apply; trivial user auto-passes also auto-apply.
@@ -466,6 +477,17 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
           return { session: current, decision: { kind: "optional-effect", ...pc } };
         }
         current = { ...current, state: settleOptionalChoice(current.state, true) };
+        continue;
+      }
+      // δ-1b — hand disruption (Duress / Thoughtseize / …): the spell already targeted ONE opponent at
+      // cast; now the player's OWN disruption surfaces a picker of THAT opponent's revealed, filtered
+      // hand (only that one hand — no 4P leak). Expert autopilot + an opponent's disruption auto-pick the
+      // highest-mana-value card.
+      if (pc.kind === "hand-discard") {
+        if (pause) {
+          return { session: current, decision: { kind: "hand-discard", ...pc } };
+        }
+        current = { ...current, state: settleHandDiscardChoice(current.state, autoPickHandDiscardCandidate(current.state, pc)) };
         continue;
       }
       // Tutor library search.
@@ -867,16 +889,61 @@ export function applyOptionalChoice(session, choice) {
 }
 
 /**
+ * The player picked which card to strip from a `hand-discard` decision (δ-1b — Duress / Thoughtseize).
+ * Validates the pick against the pending candidates (the targeted opponent's revealed, filtered hand),
+ * moves it to their graveyard, resumes the caster's riders, then re-derives the next decision.
+ * `choice.cardId` is the chosen opponent-hand card id. Returns { session, decision } like the others.
+ */
+export function applyHandDiscardChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "hand-discard") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const cardId = choice?.cardId ?? null;
+  if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
+    return advanceUntilDecision(session); // a hand-discard always strips one (no "decline") → illegal/stale pick re-surfaces the picker.
+  }
+
+  let newState;
+  try {
+    newState = settleHandDiscardChoice(session.state, cardId);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "hand-discard-choice" },
+    auto: false,
+    reasoning: "user-chose-discard",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
+    decisionLog: [...session.decisionLog, logEntry],
+  });
+}
+
+/**
  * Dispatch an interactive resolution-time choice (state.pendingChoice) to the right handler by
  * its kind — so the single /api/learn/choose route serves the tutor search, the clone copy-pick,
- * and scry/surveil. (Named apart from the decision-gate `applyChoice`, which resolves a player
- * ACTION, not a pendingChoice.)
+ * scry/surveil, the optional yes/no, and the hand-discard pick. (Named apart from the decision-gate
+ * `applyChoice`, which resolves a player ACTION, not a pendingChoice.)
  */
 export function applyPendingChoice(session, choice) {
   const kind = session.state?.pendingChoice?.kind;
   if (kind === "clone-search") return applyCloneChoice(session, choice);
   if (kind === "scry-surveil") return applyScryChoice(session, choice);
   if (kind === "optional-effect") return applyOptionalChoice(session, choice);
+  if (kind === "hand-discard") return applyHandDiscardChoice(session, choice);
   return applyTutorChoice(session, choice);
 }
 

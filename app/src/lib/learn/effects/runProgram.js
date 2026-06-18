@@ -144,6 +144,43 @@ export function resolveTutorChoice(state, cardId) {
 }
 
 /**
+ * Deterministically auto-pick the card a hand-disruption strips (δ-1b — the AI/Expert caster, no picker):
+ * the highest-mana-value match (the most valuable card to take), codepoint tie-break by name then id
+ * (serialize-stable). Returns the chosen card id from the REVEALED victim hand, or null if none remain.
+ */
+export function autoPickHandDiscardCandidate(state, pendingChoice) {
+  const hand = state.players?.[pendingChoice.victim]?.hand || [];
+  const byId = new Map(hand.map((c) => [c.id, c]));
+  const cards = (pendingChoice.candidates || []).map((c) => byId.get(c.id)).filter(Boolean);
+  if (cards.length === 0) return null;
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  return [...cards].sort((a, b) =>
+    tutorManaValue(b) - tutorManaValue(a) ||
+    cmp(String(a.name || ""), String(b.name || "")) ||
+    cmp(String(a.id || ""), String(b.id || "")),
+  )[0].id;
+}
+
+/**
+ * Settle a pending hand-discard choice (δ-1b): move the chosen card from the VICTIM's hand → their
+ * graveyard (or nothing if `cardId` is null / the victim was eliminated mid-pause), clear the choice,
+ * then RESUME the caster's suspended program (its riders — Thoughtseize "lose 2 life", Harsh Scrutiny
+ * "Scry 1"). The card move is on the VICTIM's zones; the resumed riders are the CASTER's. Hidden-info
+ * safe — the card was revealed by the spell.
+ */
+export function resolveHandDiscardChoice(state, cardId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "hand-discard") return state;
+  let next = clearPendingChoice(state);
+  const inHand = cardId && (next.players?.[pc.victim]?.hand || []).some((c) => c.id === cardId);
+  if (inHand) {
+    next = moveCardToZone(next, { playerId: pc.victim, fromZone: "hand", toZone: "graveyard", cardId });
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "discard-chosen", controller: pc.controller, victim: pc.victim, discarded: !!inHand });
+  return resumeAfterChoice(next, pc);
+}
+
+/**
  * Settle a scry/surveil choice (CR 701.18 / 701.43): apply the reorder — `keepIdsOrdered` stay on
  * top in that order, the rest of the looked-at cards go to the bottom (scry) / graveyard (surveil)
  * — then RESUME the suspended program. A null/empty keep list moves everything away; an omitted

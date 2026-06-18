@@ -169,13 +169,15 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
     if (actions[0].isAuraSpell) continue;
     const effect = actions[0].effect;
     let chosen = actions[0];
-    // δ-1 hand disruption (Duress / Thoughtseize / …): every `handCard` target is by construction an
-    // OPPONENT's card (the enumerator only surfaces opponents' hands), so there's no self-target risk —
-    // the AI casts it, stripping the highest-mana-value card from the revealed hand (a simple "take
-    // their best card" heuristic). This bypasses the chooseAITarget hold below, which passes on any
-    // program-only spell (null legacy `effect`) and would otherwise make the AI never play its discard.
+    // δ-1b hand disruption (Duress / Thoughtseize / …): the target is an OPPONENT (a player), and the
+    // card to strip is chosen at RESOLUTION (hand-blind at cast — the faithful flow). The targets are
+    // opponents only by construction, so no self-target risk; the AI picks the opponent with the most
+    // cards in hand (the most to disrupt), then autoPickHandDiscardCandidate takes their best card when
+    // the spell resolves. This bypasses the chooseAITarget hold below (a program-only spell, null legacy
+    // `effect`) so the AI actually plays its discard.
     if ((actions[0].program?.atoms || []).some(a => a.op === "discard-chosen")) {
-      chosen = actions.reduce((best, a) => ((a.targets?.[0]?.cmc ?? 0) > (best.targets?.[0]?.cmc ?? 0) ? a : best), actions[0]);
+      const handSize = (a) => (state.players?.[a.targets?.[0]?.id]?.hand || []).length;
+      chosen = actions.reduce((best, a) => (handSize(a) > handSize(best) ? a : best), actions[0]);
     } else if (actions.some(a => a.targets?.length)) {
       // A targeted spell: only cast on a good ENEMY target. chooseAITarget filters to
       // enemies for the scorable legacy effects (damage/destroy); for spells it can't

@@ -19,11 +19,12 @@ import {
   applyDamageEffect,
   applyDestroyEffect,
   applyDrawEffect,
+  handCardMatches,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
-import { setPendingTutorChoice, setPendingScryChoice } from "../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
@@ -221,28 +222,33 @@ function applyReanimate(state, atom, ctx) {
 }
 
 /**
- * δ-1 targeted hand disruption (CR 701.8 discard) — Duress / Thoughtseize / Inquisition / Coercion /
- * Despise / Divest / Harsh Scrutiny. The caster chose which card to strip from the target's REVEALED
- * hand at cast time (the `handCard` target enumerated over opponents' hands by handFilter — modeled
- * like the `graveyardCard` recursion target: a card in a zone, picked at cast time, NO resolution-time
- * picker). On resolution, that card moves from its OWNER'S hand to their graveyard (a discard). The
- * owner is `t.controller` (set at enumeration), NOT the caster — this is the one targeted atom whose
- * target lives in a DIFFERENT player's zone. Fail-safe (CR 608.2b): if the chosen card already left the
- * hand, that target is a logged no-op, never a throw. Hidden-info safe: the card was revealed by the
- * spell, so logging the discard reveals nothing the spell didn't already.
+ * δ-1b targeted hand disruption (CR 701.8 discard) — Duress / Thoughtseize / Inquisition / Coercion /
+ * Despise / Divest / Harsh Scrutiny. The spell targeted an OPPONENT at cast (a player target, chosen
+ * WITHOUT seeing their hand — the faithful Duress flow). NOW it resolves: REVEAL that opponent's hand,
+ * keep only the cards matching the atom's handFilter, and set a `pendingChoice` for the CASTER to pick
+ * which one to discard (the driver surfaces a picker for the human, auto-picks the best card for the AI
+ * / Expert — mirroring the tutor/scry/clone pause-or-autopick). The chosen card moves from the OPPONENT'S
+ * hand to their graveyard in resolveHandDiscardChoice. Modeling the card pick at resolution (not cast)
+ * is what makes 4P faithful: the caster commits to ONE opponent first and only ever sees THAT hand — no
+ * cross-opponent cherry-pick, no leak of the other opponents' hands. An empty/no-match revealed hand is a
+ * clean no-op (revealed nothing to take, CR 701.8 — no pause). Eliminated-target guard: a target that
+ * left the game is skipped.
  */
 function applyDiscardChosen(state, atom, ctx) {
-  let next = state;
-  const discarded = [];
-  for (const t of ctx.targets || []) {
-    if (t.type !== "handCard") continue;
-    const owner = t.controller;
-    const hand = next.players[owner]?.hand || [];
-    if (!hand.some((c) => c.id === t.id)) continue; // chosen card left the hand — no-op (CR 608.2b)
-    next = moveCardToZone(next, { playerId: owner, fromZone: "hand", toZone: "graveyard", cardId: t.id });
-    discarded.push({ owner, id: t.id, name: t.name });
+  const victim = (ctx.targets || []).find((t) => t.type === "player");
+  if (!victim || !state.players[victim.id]) {
+    return logEvent(state, { kind: "spell-effect", effect: "discard-chosen", controller: ctx.controller, victim: victim?.id ?? null, candidates: 0 });
   }
-  return logEvent(next, { kind: "spell-effect", effect: "discard-chosen", controller: ctx.controller, targets: discarded });
+  const hf = atom.handFilter || {};
+  const candidates = (state.players[victim.id].hand || [])
+    .filter((c) => !c.token && handCardMatches(c, hf))
+    .map((c) => ({ id: c.id, name: c.name }));
+  // Revealed but nothing the spell can take → a clean no-op (no picker, the program continues).
+  if (candidates.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "discard-chosen", controller: ctx.controller, victim: victim.id, candidates: 0 });
+  }
+  // Pause for the caster's pick (driver surfaces a picker / auto-picks). runProgram attaches the resume.
+  return setPendingHandDiscardChoice(state, { controller: ctx.controller, victim: victim.id, candidates, sourceName: ctx.cardName });
 }
 
 /** Put +1/+1 or -1/-1 counters on the chosen creature(s), or the SOURCE for a self counter
