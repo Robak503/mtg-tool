@@ -14,7 +14,7 @@ tasks.** Omnath (Command) merges; only Omnath touches `master`.
 ## How to claim a task (collision-safe, no inter-chat chat needed)
 
 1. Pick the highest-priority **`OPEN`** task that fits you.
-2. **Claim it by pushing your branch immediately:** `git fetch origin && git checkout -B feat/<task-id>-<short> origin/master && git commit --allow-empty -m "claim <task-id>" && git push -u origin feat/<task-id>-<short>`. The branch's existence on the remote = your claim.
+2. **Claim it by pushing your branch immediately — put YOUR FACULTY NAME as the branch suffix** so the dashboard can attribute it: `git fetch origin && git checkout -B feat/<task-id>-<name> origin/master && git commit --allow-empty -m "claim <task-id> (<name>)" && git push -u origin feat/<task-id>-<name>` (e.g. `feat/REG-1-cindy`). The branch's existence on the remote = your claim; the `-<name>` suffix = the owner (Omnath derives faculty→task from it for STATUS.md).
 3. **Before pushing the claim, check it's free:** `git ls-remote --heads origin "feat/<task-id>-*"` — if a branch already exists, someone has it; take the next task.
 4. Tell Colton "claiming `<task-id>`" so he can deconflict if two of you race.
 5. Build it (full gate), open the PR. Marking it `DONE` on merge is Omnath's job — you just grab the next `OPEN`.

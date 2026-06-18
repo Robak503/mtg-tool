@@ -1,35 +1,39 @@
 # 🎛️ Academy Coverage — Live Status
 
-> **The one-glance board.** Omnath keeps this file fresh every integration cycle (the data source); **Iris** (the Dashboard faculty) renders it as a visual in her own chat — glance there, or type "status"/"refresh" in Iris's chat to re-render. Rendering lives in Iris's chat so it never bloats Omnath's context.
-> _Updated 2026-06-18 ~11:50 MST · after the 6-PR batch (#224–#229)._
+> **The one-glance board.** Omnath keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution is derived from the `feat/<task>-<name>` claim-branch suffix.
+> _Updated 2026-06-18 ~11:55 MST._
 
 ## 📊 Scoreboard
-- **Native coverage: 16.0%** — 5,373 / 33,540 cards · goal **~90%** (honest ceiling; the Arbiter handles the rest)
+- **Native coverage: 16.0%** — 5,373 / 33,540 cards · goal **~90%** (honest ceiling)
 - `[####······················]`  ~18% of the way to goal
-- **Open PRs: 0** — queue fully clear.
-- Last batch was net +4 cards: Erin retired 41 trigger false positives (native-trigger 618→595) while the builders added coverage (native-spell 677→704). Honest > inflated.
+- **Open PRs: 1** (#230 FOG-1).
 
 ## 👥 Faculties — who's doing what
-| Faculty | Role · cadence | Current |
+| Faculty | Role · cadence | Working on |
 |---|---|---|
-| **Cindy** | Builder · continuous · grab-ahead | just merged; re-claiming from board |
-| **Paula** | Builder · continuous | just merged; re-claiming from board |
-| **Tess**  | Builder · continuous | shipped ADDCOST (#228); re-claiming |
-| **Erin**  | Fixer · 4h cloud | shipped batch-1 (#226, 41 FPs → Arbiter) ✅ · next wake ~4h |
-| **Hans**  | Scout · 3h | 🔵 DEEP SCAN running — mapping the full climb + a 10h+ backlog (board-3) |
-| **Rod**   | QA · 3h | findings #1 (52 FPs) all addressed ✅ · next sweep ~3h |
+| **Cindy** | Builder · grab-ahead | active — owner tag lands on next claim |
+| **Paula** | Builder · continuous | active — owner tag lands on next claim |
+| **Tess**  | Builder · continuous | active — owner tag lands on next claim |
+| **Erin**  | Fixer · 4h cloud | batch-1 shipped (#226) · idle until next wake |
+| **Hans**  | Scout · 3h | 🔵 deep-scan running (board-3) |
+| **Rod**   | QA · 3h | findings #1 fully addressed · next sweep ~3h |
 
-## 🛠️ In flight (claimed / building)
-_Queue clear — all 6 merged this cycle. Builders are re-claiming from the board; Hans's board-3 deep-scan will refill it shortly._
+> ⏳ **Owner cubes are "pending" for one round.** The current claims (DIG-1, REG-1, FOG-1) were made on the old convention (descriptor suffix, no name), so they can't be attributed — Iris correctly leaves them unowned rather than guess (CREED). From the **next** claim each builder makes (`feat/<task>-<name>`), the cubes auto-fill with real owners.
+
+## 🔀 Merge queue (open PRs)
+| PR | Task | State |
+|---|---|---|
+| **#230** | FOG-1 fog latch | open — Omnath integrates next cycle |
+
+## 🛠️ Claimed / building (owner pending this round)
+- **DIG-1** impulse-dig · **REG-1** regrowth→hand · **FOG-1** fog latch (→ #230)
 
 ## 📋 Ripe & unclaimed — next picks
-- 🔴 **PUMP-1** team pump · **REG-1** regrowth→hand · **DIG-1** impulse-dig · **MT-1** divide-among picker
-- 🟡 **SOFT-CNT** soft counter · **FOG-1** fog latch
+- 🔴 **PUMP-1** team pump · **MT-1** divide-among picker
+- 🟡 **SOFT-CNT** soft counter
 - 🟢 **CNT-2b** remaining counters
-- _(board-3 deep-scan incoming — a 10h+ backlog + the strategic map to ~90%)_
+- _(Hans's board-3 deep-scan incoming — 10h+ backlog + the strategic map to ~90%)_
 
 ## 🔁 Recent merges (newest first)
-- **#226** Erin batch-1 — 41 trigger false-positives → Arbiter (FIX-TRIG-CONDITION + compound remainder)
-- **#224** EP-3 each-player mill · **#225** TOK-3 X-count tokens · **#227** ED-2 edict variants
-- **#228** ADDCOST slice 1 (sacrifice-at-cast) · **#229** BURN-2 rider composition (regression-lock)
+- **#224–#229** (6-PR batch): Erin batch-1 (41 trigger FPs→Arbiter, #226) · EP-3 mill · TOK-3 X-tokens · ED-2 edicts · ADDCOST sac-at-cast · BURN-2 lock
 - earlier: Hans board-2 · #223 Erin 4h-cloud · #222 manaModel FP fix · #220 EP-2 · #219 CNT-2 · #218 TOK-2 · #217 Rod findings
