@@ -229,10 +229,20 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions)
       if (r.value === "blocking" && !blk) return false;
       if (r.value === "either" && !(atk || blk)) return false;
     } else if (r.kind === "colorNeg") {
-      const colors = Array.isArray(perm.card?.colors) ? perm.card.colors : [];
+      // FRONT-face colors (CR 712.4a): a DFC's top-level `colors` is unreliable in the slim index — often
+      // [] even for a colored front face (Graveyard Trespasser is black but enriches top-level []), so read
+      // card_faces[0].colors for a DFC and top-level for a single-face card. FAIL-CLOSED when the colors are
+      // unresolvable (no face data / an absent field): never risk offering a wrong-color creature to
+      // non<color> removal — an illegal target is the cardinal sin, a dropped legal target is safe.
+      const card = perm.card || {};
+      const isDfc = / \/\/ /.test(String(card.type || card.type_line || ""));
+      const colors = isDfc ? card.card_faces?.[0]?.colors : card.colors;
+      if (!Array.isArray(colors)) return false;
       if (colors.includes(r.color)) return false; // a non<color> target can't be that color
     } else if (r.kind === "typeNeg") {
-      const tl = String(perm.card?.type || perm.card?.type_line || "").toLowerCase();
+      // FRONT-face type only (CR 712.4a) — a DFC's combined "Front // Back" line would wrongly match a
+      // back-face type (mirrors the front-face discipline used for counter/tutor/graveyard targets here).
+      const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0].toLowerCase();
       if (tl.includes(r.type)) return false;       // a non<type> target can't be that card type
     }
   }

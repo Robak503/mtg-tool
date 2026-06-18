@@ -42,6 +42,29 @@ describe("β-1 — type negation", () => {
   });
 });
 
+describe("β-1 — DFC front-face discipline + fail-closed (review P0/P2 fix)", () => {
+  // A transform/MDFC creature's top-level `colors` is unreliable in the slim index (often [] even for a
+  // colored front face); read card_faces[0].colors. A combined type line would wrongly match a back-face
+  // type; read the front face. Unresolvable colors → fail-closed (never offer a wrong-color target).
+  const dfc = (id, type, frontColors, topColors = []) =>
+    createPermanent({ id, card: { id, name: id, type, colors: topColors, card_faces: [{ colors: frontColors }] }, controller: "ai" });
+
+  it("a colored DFC creature (top-level colors []) is EXCLUDED from non<color> removal via its front face", () => {
+    // Graveyard Trespasser shape: black front face, enriched top-level colors:[].
+    const s = boardWith([dfc("ablackdfc", "Creature — Werewolf // Creature — Werewolf", ["B"]), cre("agreen", ["G"])]);
+    expect(ids(enumerateTargets(s, "user", atomOf("Destroy target nonblack creature.")))).toEqual(["agreen"]); // black DFC NOT offered
+  });
+  it("a DFC creature with a non-creature BACK face is judged by its FRONT type (Kazandu Mammoth)", () => {
+    // Creature // Land — a valid "nonland creature" (its front face isn't a land).
+    const s = boardWith([dfc("amammoth", "Creature — Elephant // Land", ["G"])]);
+    expect(ids(enumerateTargets(s, "user", atomOf("Destroy target nonland creature.")))).toEqual(["amammoth"]); // front is not a land → legal
+  });
+  it("fail-closed: a creature with an ABSENT colors field is NOT offered to non<color> removal", () => {
+    const noColors = createPermanent({ id: "anocol", card: { id: "anocol", name: "anocol", type: "Creature — Bear" }, controller: "ai" });
+    expect(enumerateTargets(boardWith([noColors]), "user", atomOf("Destroy target nonblack creature."))).toHaveLength(0);
+  });
+});
+
 describe("β-1 — combat state", () => {
   const withCombat = (s, attackers = [], blockers = []) => ({ ...s, combat: { attackers, blockers } });
   it("'attacking creature' offers only attackers", () => {
