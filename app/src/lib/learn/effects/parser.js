@@ -432,6 +432,15 @@ function parseExtendedAtom(s) {
     const restrictions = rm[3] ? [{ kind: "controller", who: /^you control$/.test(rm[3]) ? "you" : "opponent" }] : [];
     return { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
   }
+  // ETB-EQUIP-ATTACH — "attach it to target creature you control" (Living-Weapon-style auto-attach on an
+  // Equipment's ETB trigger — Bramble Armor, Scavenged Blade, Maul of the Skyclaves). "it" is the SOURCE
+  // Equipment (bound at resolution via ctx.sourceId), so the only chosen target is the host creature,
+  // enumerated with the controller:you restriction. The equipped-creature static bonus is already modeled
+  // (parseAttachedBonus), so the whole card lights up. The exact anchor rejects a rider ("That creature
+  // gains <KW> until end of turn", a 2nd clause) → low → Arbiter (CLAUDE.md §1.2, never a partial).
+  if (/^attach it to target creature you control$/.test(t)) {
+    return { op: "self-attach", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+  }
   // Combat-trick pump + keyword grant: "target creature gets +N/+N and gains KW[, KW][ and KW]
   // until end of turn" — a layer-7c P/T bump AND layer-6 keyword grant(s), both endOfTurn. The
   // granted keywords must ALL be in the enforced+layer-aware GRANTABLE set (parseGrantedKeywords),
@@ -1214,6 +1223,10 @@ export function atomTargetIntent(atom) {
       // The target is a card in the CASTER'S OWN graveyard — always own-side, so a reanimation TRIGGER
       // ("When this enters, return target creature card from your graveyard to the battlefield") routes
       // natively (programTriggerTargetsResolvable → true; the chooser's only candidates are own-gy cards).
+      return "own";
+    case "self-attach":
+      // ETB-EQUIP-ATTACH — the Equipment attaches to "target creature YOU CONTROL", so the trigger-flush
+      // chooser stays on the controller's own side (the host is always friendly; never an enemy creature).
       return "own";
     case "bounce":
       return "ambiguous";

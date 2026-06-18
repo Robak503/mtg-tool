@@ -22,7 +22,7 @@ import {
   handCardMatches,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
@@ -589,6 +589,27 @@ function applyCounter(state, atom, ctx) {
 }
 
 /**
+ * ETB-EQUIP-ATTACH — "attach it to target creature you control" (CR 301.5 / 701.3). "It" is the SOURCE
+ * Equipment (ctx.sourceId, the permanent whose ETB trigger fired), so this attaches the equipment to the
+ * chosen creature via the shared `attachPermanent` helper — the SAME mechanism the Equip activated ability
+ * uses, so the equipped-creature static bonus (parseAttachedBonus, applied by the layer engine when
+ * `attachedTo` is set) lights up immediately. The target is enumerated as a creature the controller
+ * controls (the parser's controller:you restriction), and atomTargetIntent("self-attach")="own" keeps the
+ * trigger-flush chooser on the controller's own side. No source / target gone → attachPermanent no-ops
+ * (never a fabricated attach).
+ */
+function applySelfAttach(state, atom, ctx) {
+  if (!ctx.sourceId) return state;
+  let next = state;
+  for (const t of ctx.targets || []) {
+    if (!t?.id) continue;
+    next = attachPermanent(next, { equipId: ctx.sourceId, targetId: t.id });
+    next = logEvent(next, { kind: "spell-effect", effect: "equip-attach", equipId: ctx.sourceId, targetId: t.id, controller: ctx.controller });
+  }
+  return next;
+}
+
+/**
  * P3.2 tutor (CR 701.19) — search the caster's library for a card matching the modeled
  * type filter, put it into their hand, then shuffle. The filter (`atom.filter.groups`,
  * parsed + allowlisted by the parser) matches a library card when ANY group's words ALL
@@ -920,6 +941,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "create-token": applyCreateToken,
   "create-named-token": applyCreateNamedToken, // ===== TOKENS ===== T2 Treasure/Clue/Food/Gold
   "counter": applyCounter,
+  "self-attach": applySelfAttach, // ETB-EQUIP-ATTACH — auto-attach an Equipment to a creature you control
   "tutor": applyTutor,
   "shuffle": applyShuffle,
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
