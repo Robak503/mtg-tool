@@ -43,7 +43,7 @@ import {
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -390,6 +390,18 @@ function settleSacrificeChoice(state, permId) {
 }
 
 /**
+ * ===== EACH-PLAYER ===== discard (EP-2) — settle one pick in a discard chain (Mind Rot / Fugue / Delirium
+ * Skeins): the discarder pitches the chosen card, then the chain either re-pauses (more cards / the next
+ * discarder owes a choice — guard pendingChoice before flushing) or resumes the caster's program (Fill
+ * with Fright's "Scry 2", which may itself re-pause). finalizeStackResolution then flushes any triggers a
+ * resumed atom enqueued (CR 603.3) — the same finalize the other choice paths run.
+ */
+function settleDiscardChoice(state, cardId) {
+  const next = resolveDiscardChoice(state, cardId);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
  * decisions auto-apply; trivial user auto-passes also auto-apply.
@@ -530,6 +542,17 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
           return { session: current, decision: { kind: "sacrifice-choice", ...pc } };
         }
         current = { ...current, state: settleSacrificeChoice(current.state, autoPickSacrificeCandidate(current.state, pc)) };
+        continue;
+      }
+      // ===== EACH-PLAYER ===== discard (Mind Rot / Fugue / Delirium Skeins). pc.controller is the
+      // DISCARDING player (CR 701.8 — the victim chooses, not the caster), so `pause` already pauses the
+      // human and auto-resolves an AI: the human picks which card to pitch; the AI discards its cheapest.
+      // N>1 / "each player" re-set the next pick after this settles, so the loop sequences the whole chain.
+      if (pc.kind === "discard") {
+        if (pause) {
+          return { session: current, decision: { kind: "discard", ...pc } };
+        }
+        current = { ...current, state: settleDiscardChoice(current.state, autoPickDiscardCandidate(current.state, pc)) };
         continue;
       }
       // Tutor library search.
@@ -1065,11 +1088,57 @@ export function applySacrificeChoice(session, choice) {
 }
 
 /**
+ * ===== EACH-PLAYER ===== discard (EP-2) — the player picked which card to pitch from a `discard` decision
+ * (Mind Rot / Fugue / Delirium Skeins). This fires when the HUMAN is a discarder (CR 701.8 — the discarding
+ * player chooses). Validates the pick against the offered hand, discards it, advances the chain (more cards
+ * / the next discarder, or resume the caster's riders), then re-derives the next decision. `choice.cardId`
+ * is the chosen hand card id. A null/illegal pick re-surfaces the picker (a discard always pitches one when
+ * a real choice exists — no decline). Returns { session, decision } like the others.
+ */
+export function applyDiscardChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "discard") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const cardId = choice?.cardId ?? null;
+  if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
+    return advanceUntilDecision(session); // illegal/stale pick → re-surface the same picker.
+  }
+
+  let newState;
+  try {
+    newState = settleDiscardChoice(session.state, cardId);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "discard-choice" },
+    auto: false,
+    reasoning: "user-chose-discard-own",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
+    decisionLog: [...session.decisionLog, logEntry],
+  });
+}
+
+/**
  * Dispatch an interactive resolution-time choice (state.pendingChoice) to the right handler by
  * its kind — so the single /api/learn/choose route serves the tutor search, the clone copy-pick,
- * scry/surveil, the optional yes/no, the hand-discard pick, the impulse-dig pick, and the edict
- * sacrifice pick. (Named apart from the decision-gate `applyChoice`, which resolves a player ACTION,
- * not a pendingChoice.)
+ * scry/surveil, the optional yes/no, the hand-discard pick, the impulse-dig pick, the edict
+ * sacrifice pick, and the each/target-player discard pick. (Named apart from the decision-gate
+ * `applyChoice`, which resolves a player ACTION, not a pendingChoice.)
  */
 export function applyPendingChoice(session, choice) {
   const kind = session.state?.pendingChoice?.kind;
@@ -1079,6 +1148,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "hand-discard") return applyHandDiscardChoice(session, choice);
   if (kind === "impulse-dig") return applyImpulseDigChoice(session, choice);
   if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice);
+  if (kind === "discard") return applyDiscardChoice(session, choice);
   return applyTutorChoice(session, choice);
 }
 

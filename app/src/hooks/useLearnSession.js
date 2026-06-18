@@ -460,6 +460,50 @@ export default function useLearnSession() {
     }
   }, [state.sessionId]);
 
+  /**
+   * EACH-PLAYER discard (EP-2) — submit the player's pick from a `discard` decision (Mind Rot / Fugue /
+   * Delirium Skeins). Fires when the HUMAN is a discarder (CR 701.8 — the discarding player chooses).
+   * `cardId` is the chosen hand card id to pitch. Resumes the chain (more cards / the caster's riders)
+   * server-side and returns the next decision.
+   */
+  const applyDiscardChoice = useCallback(async (cardId) => {
+    if (inFlightRef.current || !state.sessionId) return null;
+    inFlightRef.current = true;
+
+    try {
+      const response = await fetch("/api/learn/choose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { cardId: cardId ?? null } }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+        return null;
+      }
+      const isOver = data.decision?.kind === "game-over";
+      setState(prev => ({
+        ...prev,
+        decision: data.decision,
+        status: isOver ? "ended" : "active",
+        difficulty: data.difficulty ?? prev.difficulty,
+        turn: data.turn,
+        activePlayer: data.activePlayer,
+        step: data.step,
+        table: data.table || prev.table,
+        board: data.board || prev.board,
+        decisionLogTail: data.decisionLogTail || [],
+        error: null,
+      }));
+      return data.decision;
+    } catch (error) {
+      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
+      return null;
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [state.sessionId]);
+
   /** Resolve an "optional-effect" decision ("you may <effect>", α2): take it (true) or decline. */
   const applyOptionalChoice = useCallback(async (take) => {
     if (inFlightRef.current || !state.sessionId) return null;
@@ -577,6 +621,7 @@ export default function useLearnSession() {
     applyHandDiscardChoice,
     applyImpulseDigChoice,
     applySacrificeChoice,
+    applyDiscardChoice,
     reset,
     listSaves,
     resume,

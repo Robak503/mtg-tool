@@ -150,6 +150,35 @@ export function setPendingSacrificeChoice(state, { controller, candidates, sourc
   };
 }
 
+/**
+ * ===== EACH-PLAYER ===== discard (EP-2) — flag a discard awaiting the DISCARDING player's pick of which
+ * card to pitch (CR 701.8 — the discarding player chooses, NOT the caster; the opposite chooser to δ-1b
+ * hand disruption). `controller` here is the DISCARDER (Mind Rot's target / each player), so the driver's
+ * `pause = pc.controller === "user"` rule pauses for a human discarder and auto-discards an AI one. A
+ * discard of N>1 or by several players ("each player discards N") resolves as a CHAIN: this flags the
+ * NEXT single-card pick; `remaining` is how many more THIS discarder owes, and `queue` is the remaining
+ * discarders (head = the current one, with its own `remaining`). `candidates` is the discarder's hand as
+ * `{ id, name }` (public — the chooser owns the hand). The caster's continuation rides on
+ * `pendingChoice.resume` (attached by runProgram on the FIRST pause; resolveDiscardChoice carries it
+ * forward across the chain). Only flagged when a REAL choice exists (hand > remaining); a hand ≤ remaining
+ * is the forced whole-hand discard, resolved inline with no pause. FIFO: one pick at a time.
+ */
+export function setPendingDiscardChoice(state, { controller, remaining, candidates, queue, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "discard-pending", controller, remaining, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "discard",
+      controller,
+      remaining,
+      candidates,
+      queue,
+      sourceName,
+    },
+  };
+}
+
 /** Clear the pending choice (after it's resolved). */
 export function clearPendingChoice(state) {
   if (!state.pendingChoice) return state;

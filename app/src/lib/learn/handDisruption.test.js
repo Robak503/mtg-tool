@@ -76,7 +76,7 @@ describe("parser — the Duress family is HIGH; the atom targets an OPPONENT (ca
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
     low("Target opponent reveals their hand. You choose a nonland card from it or a card from their graveyard. Exile that card. You lose 1 life."); // Agonizing Remorse
     low("Target opponent reveals their hand. You may choose a nonland card from it. If you do, that player discards that card."); // Reckoner Shakedown
-    low("Target player discards two cards."); // Mind Rot — no reveal/choose
+    low("Target player discards two cards at random."); // Hymn to Tourach — RNG (the victim-chooses form is now EP-2)
     low("Target opponent reveals their hand. You choose a nonblack card from it. That player discards that card."); // unmodeled filter
     low("Target opponent reveals their hand. You choose a nonland card from it. That player discards that card. Create a 2/2 zombie."); // unmodeled rider
   });
@@ -88,7 +88,7 @@ describe("coverage — the family is native-spell; unmodeled variants are arbite
   });
   it("the exile / no-reveal variants are arbiter-spell", () => {
     expect(classifyCard({ type: SORCERY, name: "Agonizing Remorse", oracle: "Target opponent reveals their hand. You choose a nonland card from it or a card from their graveyard. Exile that card. You lose 1 life." })).toBe("arbiter-spell");
-    expect(classifyCard({ type: SORCERY, name: "Mind Rot", oracle: "Target player discards two cards." })).toBe("arbiter-spell");
+    expect(classifyCard({ type: SORCERY, name: "Hymn to Tourach", oracle: "Target player discards two cards at random." })).toBe("arbiter-spell"); // RNG (Mind Rot's victim-chooses form is now EP-2)
   });
 });
 
