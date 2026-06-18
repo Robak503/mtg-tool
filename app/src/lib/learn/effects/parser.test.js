@@ -529,7 +529,8 @@ const MUST_DROP_TO_LOW = [
   // ── P3.2 tutor — shapes that must STAY low (unmodeled filter / destination / count) ──
   "Search your library for a Dragon card, reveal it, put it into your hand, then shuffle.",        // creature subtype (deferred)
   "Search your library for a creature card with mana value 3 or less, put it into your hand, then shuffle.", // mana-value rider
-  "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.",  // battlefield destination (deferred)
+  "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",  // RAMP-1 models the SINGLE-land battlefield fetch; multi-land (Explosive Vegetation) stays low
+  "Search your library for a green creature card, put it onto the battlefield, then shuffle.",  // RAMP-1 restricts battlefield fetch to LANDS; a creature cheat-into-play (Natural Order) stays low
   "Search your library for a basic land card, put it on top of your library, then shuffle.",       // top-of-library
   "Search your library for up to two basic land cards, put them into your hand, then shuffle.",     // multi-card
   "Search your library for a nonland card, put it into your hand, then shuffle.",                   // "nonland" not in any type line
