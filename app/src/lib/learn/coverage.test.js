@@ -125,6 +125,22 @@ describe("helpers", () => {
     expect(hasManaAbility("{T}: Add two mana of any one color.")).toBe(true);
     expect(hasManaAbility("When this enters, draw a card.")).toBe(false);
   });
+  it("hasManaAbility IGNORES 'Add … mana' that lives only in reminder text (CR 207.2)", () => {
+    // Token-MAKER: the only "Add … mana" is the reminder describing the Treasure it creates — the
+    // permanent itself has NO mana ability (Mahadi / Brazen Freebooter were mis-classified native-mana).
+    expect(hasManaAbility("When this creature enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")")).toBe(false);
+    // "Add one [lore counter]" inside a Saga's read-ahead reminder is NOT mana.
+    expect(hasManaAbility("Read ahead (Choose a chapter and start with that many lore counters. Add one after your draw step.)")).toBe(false);
+    // A REAL tap-for-mana (main text) still counts, even with unrelated reminder text alongside.
+    expect(hasManaAbility("{T}: Add {G}. (This is reminder text.)")).toBe(true);
+  });
+  it("a token-MAKER is NOT classified native-mana (its real ETB/trigger is what must be modeled)", () => {
+    // The permanent has no mana ability of its own; on a base without the token-effect modeled it is
+    // body-only (and with the trigger modeled it becomes native-trigger) — never native-mana.
+    expect(classifyCard(C("Creature — Human Pirate", "When this creature enters, create a Treasure token. (It's an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")", { name: "Brazen Freebooter" }))).not.toBe("native-mana");
+    // A real dual land whose mana ability is printed AS reminder text stays native via the `land` tier.
+    expect(classifyCard(C("Land — Plains Island", "({T}: Add {W} or {U}.)", { name: "Tundra" }))).toBe("land");
+  });
 });
 
 describe("coverageSummary", () => {

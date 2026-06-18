@@ -59,10 +59,20 @@ export function isKeywordOnly(oracle) {
 /**
  * True when a permanent's tap produces mana — the mana system taps rocks/dorks
  * generically, so its primary role plays even if a secondary ability doesn't.
+ *
+ * Reminder text (parentheses) is STRIPPED first (CR 207.2 — reminder text is never
+ * rules-bearing): otherwise a token-MAKER whose only "Add … mana" text lives inside the
+ * reminder describing the token it creates ("…create a Treasure token. (It's an artifact
+ * with "{T}, Sacrifice this token: Add one mana of any color.")" — Mahadi, Brazen Freebooter)
+ * would be mis-claimed native-mana even though the permanent itself has NO mana ability and
+ * its real ETB/trigger is unmodeled. A genuine mana source states its ability in the main
+ * text, so stripping the reminder never drops a real rock/dork (matches the parser, which
+ * strips reminders before matching).
  */
 export function hasManaAbility(oracle) {
-  return /\badd \{[wubrgcx]/i.test(oracle) ||
-    /\badd (one|two|three|four|five|that much|an amount|\{)/i.test(oracle);
+  const t = stripReminder(oracle);
+  return /\badd \{[wubrgcx]/i.test(t) ||
+    /\badd (one|two|three|four|five|that much|an amount|\{)/i.test(t);
 }
 
 /** True when an instant/sorcery resolves fully through the EffectProgram interpreter. */
