@@ -8,6 +8,41 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-06-18
+
+Academy native-coverage batch. Each item shipped as its own slice behind the full
+gate: a REAL-parser sweep over the whole card corpus (0 false-positives), a 3-lens
+adversarial review on Opus, and live real-enrichment QA in a running game. The
+Arbiter remains the fail-safe for any text the engine doesn't model natively. The
+clean single-atom frontier is now exhausted — corpus-wide native coverage stands at
+~16% (5,377 / 33,540 real cards), up from ~14.8% at the start of this batch. Suite
+~2,115 green, lint clean.
+
+### Added
+- **Indestructible now works** (CR 702.12). "Destroy" and lethal combat damage no
+  longer remove an indestructible permanent in The Academy, closing a class of
+  false-positive removals. (#194)
+- **Enemy/own-aware trigger targeting.** A trigger that must choose a target now picks
+  an *enemy* permanent for a harmful effect and *your own* for a beneficial one,
+  instead of mis-targeting or over-routing to the Arbiter — plus a "you may" wrapper so
+  optional triggers are handled correctly. (#198, #199)
+- **Activated-ability costs.** Pay-life, sacrifice-this, sacrifice-a(nother)-creature,
+  exile-this, and remove-a-counter are now understood as activation costs. (#201, #202, #203)
+- **Creature-target restrictions.** "Destroy target nonblack / non-Angel / attacking
+  creature" now respects the restriction when offering legal targets. (#204)
+- **Compound permanent-type targets.** "Destroy / exile target artifact or enchantment"
+  style union targets resolve natively. (#205)
+- **Bounce a permanent.** "Return target permanent to its owner's hand" for non-creature
+  permanents. (#206)
+- **Reanimation.** "Return target creature card from your graveyard to the battlefield" —
+  the card enters as a permanent and fires its enter-the-battlefield triggers. (#207)
+
+### Changed
+- Corpus-wide native coverage (`npm run coverage`, ~33,540 real cards) is now the headline
+  metric, replacing the small per-deck sample as the primary signal. (#195, #197)
+- Vacuous "this spell can't be countered" riders are stripped so the rest of the spell
+  still resolves natively instead of routing the whole card to the Arbiter. (#200)
+
 ## [0.36.0] - 2026-06-17
 
 ### Added
