@@ -30,7 +30,7 @@ import { filterActions } from "./legalChoices.js";
 import { opponentsOf } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
-import { programContainsCounter, programContainsMassRemoval, programContainsTeamPump, programContainsFog } from "./effects/parser.js";
+import { programContainsCounter, programContainsMassRemoval, programContainsTeamPump, programContainsFog, atomTargetIntent } from "./effects/parser.js";
 
 // ─── Cast priority by archetype ──────────────────────────────────────────────
 
@@ -257,6 +257,57 @@ function pickBlockers(blockerActions, state) {
   return [...assigned.values()];
 }
 
+// ─── Loyalty-ability piloting (PW-3) ────────────────────────────────────────────
+
+/**
+ * The atoms of a modeled loyalty ability's effect program (non-modal — `modeled` requires it).
+ */
+function loyaltyAtoms(action) {
+  return action.program?.atoms || [];
+}
+
+/**
+ * Is this loyalty action SAFE + on-intent for the AI to activate? A non-targeted ability is always
+ * safe. A targeted ability is safe only when every chosen target sits on its atom's intended side —
+ * a harmful atom (removal/damage/−X−X, intent "enemy") aimed at an OPPONENT, a beneficial atom
+ * (buff/+1/+1/own, intent "own") aimed at the AI's OWN permanent. An ambiguous-intent targeted atom
+ * is rejected (don't risk hitting the wrong side) — mirrors the trigger chooser's discipline.
+ */
+function loyaltyActionSafe(state, aiPlayerId, action) {
+  const targets = action.targets || [];
+  if (targets.length === 0) return true;
+  let enemies;
+  try { enemies = new Set(opponentsOf(state, aiPlayerId)); } catch { return false; }
+  const atoms = loyaltyAtoms(action);
+  const sideOf = (t) => (t.type === "player" ? t.id : t.controller);
+  return targets.every((t) => {
+    const intent = atomTargetIntent(atoms[t.atomIndex]);
+    if (intent === "enemy") return enemies.has(sideOf(t));
+    if (intent === "own") return sideOf(t) === aiPlayerId;
+    return false; // ambiguous targeted atom → skip rather than risk the wrong side
+  });
+}
+
+/** Value of activating a loyalty action: removal/damage on an enemy is impactful; otherwise build loyalty. */
+function loyaltyActionScore(action) {
+  const atoms = loyaltyAtoms(action);
+  const harmful = (action.targets || []).some((t) => atomTargetIntent(atoms[t.atomIndex]) === "enemy");
+  if (harmful) return 100;                          // an enemy-side removal/damage ability
+  return 40 + Math.max(0, action.costDelta || 0);   // build loyalty; prefer a higher +N
+}
+
+/**
+ * Pick the best MODELED loyalty ability for the AI to activate this turn (the caller pre-filters out
+ * Arbiter-routed ones so self-play never stalls). Among safe/on-intent actions, prefer an enemy-side
+ * removal, else the highest loyalty-building +N. Returns null when nothing is safe (the AI then
+ * leaves that walker alone this turn). Deterministic → serialize-stable.
+ */
+export function pickLoyaltyAction(state, aiPlayerId, loyaltyActions) {
+  const safe = (loyaltyActions || []).filter((a) => loyaltyActionSafe(state, aiPlayerId, a));
+  if (safe.length === 0) return null;
+  return safe.slice().sort((a, b) => loyaltyActionScore(b) - loyaltyActionScore(a))[0];
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -316,6 +367,15 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null } = {}
     const detected = archetype || detectArchetype(aiDeck, {}).archetype;
     const cast = pickCastAction(state, aiPlayerId, casts, detected);
     if (cast) return cast;
+  }
+
+  // Activate a beneficial loyalty ability (PW-3). Only MODELED abilities (the AI knows what they do);
+  // Arbiter-routed ones are skipped so self-play never stalls. After lands + casts so the board is
+  // developed first; the once-per-turn rule (enforced in the offer) caps it at one per walker.
+  const loyalties = filterActions(actions, "activate-loyalty").filter(a => !a.routeToArbiter);
+  if (loyalties.length > 0) {
+    const loy = pickLoyaltyAction(state, aiPlayerId, loyalties);
+    if (loy) return loy;
   }
 
   // No active-window action — pass priority. (The engine's combat
@@ -471,11 +531,54 @@ export function pickAttackPlan(state, aiPlayerId, attackerActions) {
     if (!byPermanent.has(a.permanentId)) byPermanent.set(a.permanentId, []);
     byPermanent.get(a.permanentId).push(a);
   }
+
+  // PW-3: remove an enemy planeswalker when it's a clean, worthwhile kill. Focus the whole chosen
+  // swing on the most dangerous enemy walker the AI can kill this combat — but only when the swing
+  // isn't lethal on the focused player (kill the player first) and the walker's controller has no
+  // untapped blockers (a clean hit, no wasted attack). Overkill is fine for v1.
+  const chosenPowers = [...byPermanent.values()].map(opts => Math.max(0, permanentPower(state, opts[0].permanentId)));
+  const walkerTarget = chooseWalkerToKill(state, aiPlayerId, attackerActions, target, chosenPowers);
+
   const plan = [];
   for (const opts of byPermanent.values()) {
-    plan.push((target && opts.find(o => o.defenderId === target)) || opts[0]);
+    if (walkerTarget) {
+      const atWalker = opts.find(o => o.defenderPlaneswalkerId === walkerTarget.walkerId);
+      if (atWalker) { plan.push(atWalker); continue; }
+    }
+    plan.push((target && opts.find(o => o.defenderId === target && !o.defenderPlaneswalkerId)) || opts[0]);
   }
   return plan;
+}
+
+/**
+ * Pick an enemy planeswalker for the AI to remove this combat (PW-3): the highest-loyalty enemy
+ * walker whose controller has NO untapped blockers (a clean hit) and whose loyalty the chosen
+ * attackers' total power can cover — UNLESS the swing is already lethal on the focused player (kill
+ * the player first). Returns { walkerId, loyalty } or null. Deterministic → serialize-stable.
+ */
+function chooseWalkerToKill(state, aiPlayerId, attackerActions, targetPlayer, chosenPowers) {
+  const totalChosen = chosenPowers.reduce((s, p) => s + p, 0);
+  let best = null;
+  const seen = new Set();
+  for (const a of attackerActions) {
+    if (!a.defenderPlaneswalkerId || seen.has(a.defenderPlaneswalkerId)) continue;
+    seen.add(a.defenderPlaneswalkerId);
+    if (untappedBlockerCount(state, a.defenderId) > 0) continue; // defender could block → not a clean kill
+    const walker = state.players?.[a.defenderId]?.battlefield?.find(p => p.id === a.defenderPlaneswalkerId);
+    const loy = walker?.counters?.loyalty;
+    if (loy != null && loy > 0 && totalChosen >= loy && (!best || loy > best.loyalty)) {
+      best = { walkerId: a.defenderPlaneswalkerId, loyalty: loy };
+    }
+  }
+  // Don't divert from a lethal swing on the focused player.
+  if (best && targetPlayer && state.players[targetPlayer]) {
+    const committed = (state.combat?.attackers || [])
+      .filter(x => x.attackingPlayer === aiPlayerId && x.defender === targetPlayer && !x.defenderPlaneswalkerId)
+      .map(x => Math.max(0, permanentPower(state, x.permanentId)));
+    const blockers = untappedDefenderBlockers(state, targetPlayer);
+    if (swingIsLethal([...committed, ...chosenPowers], blockers.length, state.players[targetPlayer].life ?? 0)) return null;
+  }
+  return best;
 }
 
 /**
