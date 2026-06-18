@@ -123,16 +123,40 @@ function classifyCondition(condRaw, cardName) {
 
   // ===== COMPOUND self-event guard (CREED, CLAUDE.md §1.2) ===== A condition that names TWO trigger
   // events — "enters or leaves the battlefield" (Brandywine Farmer), "enters or dies" (Vinereap Mentor),
-  // or an embedded second when-clause "dies and when you discard this card" (Bartered Cow) — would be
-  // TRUNCATED by the single-event branches below to just the FIRST verb, silently DROPPING the other
-  // half (the trigger would fire on only one of the two events — a confident WRONG partial). Until
-  // compound trigger events are modeled, leave it UNDETECTED: the trigger-sentence count then mismatches
-  // in allTriggerSentencesModeled and the whole card routes to the Arbiter (a SAFE false-negative),
-  // mirroring the attacks-or-blocks / becomes-blocked guards below. Exposed by the TOK-2 named-token
-  // slice (create-Treasure/Food/Clue effects became modeled, flipping these compounds toward native).
-  const eventVerbs = [/\benters\b/, /\bdies\b/, /leaves the battlefield/].filter((re) => re.test(c)).length;
+  // "enters or attacks" (Grave Titan — makes its Zombies on ETB only, never on attack), "enters or is put
+  // into a graveyard" (Ichor Wellspring / Servo Schematic — the artifact-recursion family), or an embedded
+  // second when-clause "dies and when you discard this card" (Bartered Cow) — would be TRUNCATED by the
+  // single-event branches below to just the FIRST verb, silently DROPPING the other half (the trigger
+  // would fire on only one of the two events — a confident WRONG partial). Until compound trigger events
+  // are modeled, leave it UNDETECTED: the trigger-sentence count then mismatches in
+  // allTriggerSentencesModeled and the whole card routes to the Arbiter (a SAFE false-negative), mirroring
+  // the attacks-or-blocks / becomes-blocked guards below. FIX-TRIG-COMPOUND (Rod QA #1): the original tally
+  // counted only enters/dies/leaves, so "enters or attacks" (Grave Titan) and "enters or is put into a
+  // graveyard" slipped through (eventVerbs==1) — attacks/blocks/put-into-graveyard are now counted too. A
+  // single-event "attacks"/"blocks"/etc. stays at eventVerbs==1 and resolves normally below.
+  const eventVerbs = [/\benters\b/, /\bdies\b/, /leaves the battlefield/, /\battacks\b/, /\bblocks\b/, /put into a graveyard/]
+    .filter((re) => re.test(c)).length;
   if (eventVerbs >= 2) return null;
   if (/\b(?:and|or)\s+when(?:ever)?\b/i.test(c)) return null; // an embedded second trigger clause
+
+  // ===== FIX-TRIG-CONDITION (Rod QA #1, CREED CLAUDE.md §1.2) ===== Reject conditions whose SUBJECT or
+  // RESTRICTION the scope system can't faithfully represent — the single-event branches below would map
+  // them to a bare self / controller scope and silently DROP the restriction or a second subject, then
+  // over- or under-fire (a confident WRONG partial). All route to the Arbiter (safe false-negative):
+  //  - an alternate 2nd subject — "this/<name> OR ANOTHER creature you control dies/enters" (Zulaport
+  //    Cutthroat, Cruel Celebrant, Rotlung Reanimator, Headless Rider, the Rally tribe) — only the leading
+  //    subject is modeled, so the "or another …" half would be dropped (drains/recurs only on self-death).
+  //  - "dealt damage by <…>" (Sengir Vampire / Sengir Bats / Vampiric Dragon / Blood Cultist) — a
+  //    restriction the broad selfRef misreads as a bare self-dies (fires when the SOURCE dies, never works).
+  //  - a scope-inexpressible restriction: "with <…>" (Tenured Inkcaster "with a +1/+1 counter on it"),
+  //    "while <…>" (Seasoned Warrenguard), "the player with <…>" (Preacher of the Schism), "named <…>",
+  //    "during <…>" (Mongrel Pack "dies during combat"). The modeled clean forms (this/<name>/a-creature-
+  //    you-control + bare enters/dies/attacks/blocks, upkeep/end/draw step, cast-a-spell) carry NONE of
+  //    these tokens, so this is purely additive (confirmed collateral-free by the corpus A/B sweep).
+  if (/\bor another\b/.test(c)) return null;
+  if (/\bdealt damage by\b/.test(c)) return null;
+  if (/\bthe player with\b/.test(c)) return null;
+  if (/\b(?:with|while|during|named)\b/.test(c)) return null;
 
   // The subject is mapped ONLY to a scope scopeMatches can ENFORCE (bare, or the controller
   // restriction); any other restriction (keyword/type/power/named/token) → null → UNDETECTED, so
