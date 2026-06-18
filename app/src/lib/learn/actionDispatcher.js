@@ -245,22 +245,34 @@ function applyCastSpell(state, action) {
   }
 
   // 2b. Pay any ADDITIONAL COSTS (CR 601.2f) — paid at cast, before the spell finishes going on the stack.
-  // This slice: a chosen-victim sacrifice (parser-attached `program.additionalCosts`, enumerated one-per-
-  // legal-victim by legalChoices.actionsCastSpell). Reuses the γ1b `sacrificePermanentForCost` helper
-  // (battlefield→graveyard + the victim's own dies trigger when it's a creature; the legalChoices victim
-  // filter already excluded any victim whose leave-trigger the dies path can't fire, so nothing is silently
-  // dropped). FAIL-FAST: a program that REQUIRES an additional cost but arrived with no victim chosen is an
-  // upstream bug — THROW rather than cast cost-free (silently skipping a cost is the cardinal false-positive
-  // failure, CLAUDE.md §1.2). `program` is hoisted here and reused for the payload below (single parse).
+  // The parser attaches the cost(s) to `program.additionalCosts` and legalChoices.actionsCastSpell freezes
+  // the chosen way-to-pay onto the action. Kinds:
+  //   sacrifice — γ1b `sacrificePermanentForCost` (battlefield→graveyard + the victim's dies trigger; the
+  //               legalChoices filter already excluded any victim whose leave-trigger the dies path can't fire).
+  //   payLife   — deduct N life (CR 119.4; legalChoices gated life >= N).
+  //   discard   — move the CHOSEN hand card → graveyard (same mechanism as EP-2's discard). The spell itself
+  //               is still in hand here but was excluded as a discard candidate at enumeration.
+  // FAIL-FAST: a program that REQUIRES a cost but arrived without the matching choice is an upstream bug —
+  // THROW rather than cast cost-free (silently skipping a cost is the cardinal false-positive failure,
+  // CLAUDE.md §1.2). `program` is hoisted here and reused for the payload below (single parse).
   const program = action.program || parseEffectProgram(card);
-  const needsSacCost = (program?.additionalCosts || []).some(c => c.kind === "sacrifice");
-  if (needsSacCost && !action.sacCreatureId) {
-    throw new DispatcherError("Spell requires an additional sacrifice cost but no victim was chosen", "ADDCOST_UNPAID");
-  }
-  if (action.sacCreatureId) {
-    const victim = working.players[action.playerId]?.battlefield.find(p => p.id === action.sacCreatureId);
-    if (!victim) throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} not on battlefield`, "PERM_NOT_FOUND");
-    working = sacrificePermanentForCost(working, action.playerId, victim);
+  for (const ac of program?.additionalCosts || []) {
+    if (ac.kind === "sacrifice") {
+      if (!action.sacCreatureId) throw new DispatcherError("Spell requires an additional sacrifice cost but no victim was chosen", "ADDCOST_UNPAID");
+      const victim = working.players[action.playerId]?.battlefield.find(p => p.id === action.sacCreatureId);
+      if (!victim) throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} not on battlefield`, "PERM_NOT_FOUND");
+      working = sacrificePermanentForCost(working, action.playerId, victim);
+    } else if (ac.kind === "payLife") {
+      working = loseLife(working, { playerId: action.playerId, amount: ac.amount });
+    } else if (ac.kind === "discard") {
+      if (!action.discardCardId) throw new DispatcherError("Spell requires an additional discard cost but no card was chosen", "ADDCOST_UNPAID");
+      if (!working.players[action.playerId]?.hand.some(c => c.id === action.discardCardId)) {
+        throw new DispatcherError(`Discard card ${action.discardCardId} not in hand`, "CARD_NOT_IN_HAND");
+      }
+      working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.discardCardId });
+    } else {
+      throw new DispatcherError(`Unsupported additional cost kind: ${ac.kind}`, "ADDCOST_UNSUPPORTED");
+    }
   }
 
   // 3. Move the card out of hand. We splice manually because the stack is

@@ -962,21 +962,25 @@ describe("programConfidence — pure shape function", () => {
     KNOWN_ATOM_OPS.forEach((op) => expect(programConfidence({ atoms: [{ op }] })).toBe("high"));
   });
   // ADDCOST — a program may carry parser-attached `additionalCosts`. HIGH requires every cost be a kind the
-  // cast path can actually pay (today: "sacrifice"); an unsupported kind forces LOW even with known atoms.
+  // cast path can actually pay (sacrifice / payLife / discard); an unsupported kind forces LOW even with
+  // known atoms (so a future cost-type can't flip a card HIGH before its cast-path enforcement ships).
   it("gates an unsupported additional-cost kind to low (CREED — never claim a cost we can't pay)", () => {
     expect(programConfidence({ atoms: [{ op: "draw" }], additionalCosts: [{ kind: "sacrifice", sacType: "creature" }] })).toBe("high");
-    expect(programConfidence({ atoms: [{ op: "draw" }], additionalCosts: [{ kind: "pay-life" }] })).toBe("low");
-    expect(programConfidence({ atoms: [{ op: "draw" }], additionalCosts: [{ kind: "sacrifice" }, { kind: "discard" }] })).toBe("low");
+    expect(programConfidence({ atoms: [{ op: "draw" }], additionalCosts: [{ kind: "payLife", amount: 2 }] })).toBe("high");   // ADDCOST-2
+    expect(programConfidence({ atoms: [{ op: "draw" }], additionalCosts: [{ kind: "discard", count: 1 }] })).toBe("high");    // ADDCOST-2
+    expect(programConfidence({ atoms: [{ op: "draw" }], additionalCosts: [{ kind: "exile" }] })).toBe("low");                 // not yet a supported cost kind
+    expect(programConfidence({ atoms: [{ op: "draw" }], additionalCosts: [{ kind: "sacrifice" }, { kind: "exile" }] })).toBe("low");
   });
 });
 
 // ===== ADDITIONAL COSTS (cast-path, CR 601.2f) =====
-// A spell's "As an additional cost to cast this spell, sacrifice a/an <type>." sentence is a cost paid at
-// cast, not an effect atom. This slice strips a CLEAN chosen-victim sacrifice and parses the remaining
-// effect normally; everything else (a count, a compound type, "another", a non-sac cost-type, or any
-// effect that references the sacrificed object) leaves the sentence in place → the clause parser can't
-// match it → LOW → Arbiter. These pins are the merge gate for the false-positive class this slice risks.
-describe("parseEffectProgram — additional sacrifice cost (ADDCOST)", () => {
+// A spell's "As an additional cost to cast this spell, <cost>." sentence is a cost paid at cast, not an
+// effect atom. ADDCOST-1 modeled the chosen-victim sacrifice; ADDCOST-2 adds pay-N-life (no choice) and
+// discard-a-card (N=1). The cost sentence is stripped + the remaining effect parsed normally; everything
+// else (an unmodeled cost shape — a count, a compound, "another", X-life, multi-card discard — or an
+// effect that references the paid-cost object) leaves the sentence in place → LOW → Arbiter. These pins
+// are the merge gate for the false-positive class these slices risk.
+describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + ADDCOST-2 pay-life/discard)", () => {
   it("MUST STAY HIGH: a clean sac-a-creature cost + an independently-modeled effect", () => {
     // Bone Splinters — sac a creature, destroy target creature.
     const bone = parseEffectProgram(I("As an additional cost to cast this spell, sacrifice a creature.\nDestroy target creature."));
@@ -1007,11 +1011,20 @@ describe("parseEffectProgram — additional sacrifice cost (ADDCOST)", () => {
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice an artifact or creature.\nDraw a card.")))).toBe("low");
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice another creature.\nDraw a card.")))).toBe("low");
   });
-  it("MUST DROP TO LOW: a non-sacrifice additional cost-type is OUT of this slice (discard / pay life)", () => {
-    // Cathartic Reunion — discard cost. Must NOT flip just because the effect (draw) parses.
-    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, discard two cards.\nDraw three cards.")))).toBe("low");
-    // Pay-life additional cost — still routed to Arbiter (not in this slice).
-    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, pay 3 life.\nDestroy target creature.")))).toBe("low");
+  it("ADDCOST-2 MUST STAY HIGH: discard-a-card + pay-N-life costs parse HIGH with the right cost descriptor", () => {
+    // Thrill of Possibility — discard a card, draw two.
+    const disc = parseEffectProgram(I("As an additional cost to cast this spell, discard a card.\nDraw two cards."));
+    expect(programConfidence(disc)).toBe("high");
+    expect(disc.additionalCosts).toEqual([{ kind: "discard", count: 1 }]);
+    // Withering Boon — pay 3 life, counter target creature spell.
+    const life = parseEffectProgram(I("As an additional cost to cast this spell, pay 3 life.\nCounter target creature spell."));
+    expect(programConfidence(life)).toBe("high");
+    expect(life.additionalCosts).toEqual([{ kind: "payLife", amount: 3 }]);
+  });
+  it("ADDCOST-2 MUST DROP TO LOW: multi-card discard / X-life / self-ref-discard are deferred", () => {
+    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, discard two cards.\nDraw three cards.")))).toBe("low");   // N>1 discard deferred (Cathartic Reunion)
+    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, pay X life.\nDraw X cards.")))).toBe("low");               // X-life deferred (+ X-cost compound)
+    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, discard a card.\nDraw cards equal to the discarded card's mana value.")))).toBe("low"); // self-ref / cost-scaled effect
   });
   it("MUST DROP TO LOW: a sac cost whose REMAINING effect is itself unmodeled (all-or-nothing)", () => {
     // The sac cost is clean, but "Target player loses N life" is not a modeled atom → the whole card is LOW.

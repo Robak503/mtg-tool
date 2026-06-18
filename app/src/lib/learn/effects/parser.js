@@ -893,27 +893,38 @@ function matchImpulseDig(oracle) {
 // sentence is left in place → the card stays LOW.
 const ADDITIONAL_COST_RE = /\bas an additional cost to cast this spell,\s*([^.]+)\.\s*/i;
 const SAC_COST_RE = /^sacrifice (?:a|an) (creature|permanent|artifact|enchantment|land)$/i;
-const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice"]);
+const PAYLIFE_COST_RE = /^pay (\d+) life$/i;                        // ADDCOST-2 — no-choice life cost
+const DISCARD_COST_RE = /^discard (?:a|an|one) card$/i;             // ADDCOST-2 — N=1 only ("two cards"/"X cards"/"your hand" deferred)
+const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "discard"]);
 
 /**
  * Pull a modeled additional cost off a spell's oracle. Returns `{ costs, rest }`:
- *   - `costs`: `[{ kind:"sacrifice", sacType }]` when the (sole) additional cost is a clean chosen-victim
- *     sacrifice AND the remaining effect does NOT reference the sacrificed object; otherwise `null`.
+ *   - `costs`: `[cost]` when the (sole) additional cost is a modeled type AND the remaining effect does NOT
+ *     reference the paid-cost object; otherwise `null`. Modeled cost shapes:
+ *       `{ kind:"sacrifice", sacType }` (ADDCOST-1) · `{ kind:"payLife", amount }` · `{ kind:"discard", count:1 }`.
  *   - `rest`: the oracle with the cost sentence removed — ONLY when `costs !== null`; otherwise the oracle
  *     unchanged (so the un-strippable cost sentence keeps the card LOW).
- * CONSERVATIVE by construction: anything but the modeled sac form leaves the oracle untouched → Arbiter.
+ * CONSERVATIVE by construction: anything but a modeled cost form (a count, a compound, an "or pay {N}" alt,
+ * an X-life, a multi-card discard) leaves the oracle untouched → Arbiter.
  */
 function extractAdditionalCosts(oracle) {
   const m = ADDITIONAL_COST_RE.exec(oracle);
   if (!m) return { costs: null, rest: oracle };
-  const sac = SAC_COST_RE.exec(m[1].trim());
-  if (!sac) return { costs: null, rest: oracle };              // unmodeled cost-type / count / compound → LOW
+  const phrase = m[1].trim();
+  const sac = SAC_COST_RE.exec(phrase);
+  const life = PAYLIFE_COST_RE.exec(phrase);
+  const disc = DISCARD_COST_RE.exec(phrase);
+  let cost, selfRef = null;
+  if (sac) { cost = { kind: "sacrifice", sacType: sac[1].toLowerCase() }; selfRef = /\bsacrificed\b/i; }
+  else if (life) { cost = { kind: "payLife", amount: parseInt(life[1], 10) }; }       // no-choice: deduct N at cast
+  else if (disc) { cost = { kind: "discard", count: 1 }; selfRef = /\bdiscarded\b/i; } // N=1; "two cards"/X deferred
+  else return { costs: null, rest: oracle };                   // unmodeled cost-type / count / compound → LOW
   const rest = (oracle.slice(0, m.index) + oracle.slice(m.index + m[0].length)).trim();
-  // Self-reference guard: an effect that reads the sacrificed object ("…damage equal to the sacrificed
-  // creature's power", "the sacrificed creature") can't be fed the victim's stats — leave the whole card
-  // LOW. UNMODELED_MARKERS already catches "equal to"/"for each"; this is explicit belt-and-suspenders.
-  if (/\bsacrificed\b/i.test(rest)) return { costs: null, rest: oracle };
-  return { costs: [{ kind: "sacrifice", sacType: sac[1].toLowerCase() }], rest };
+  // Self-reference guard: an effect that reads the paid-cost object ("…damage equal to the sacrificed
+  // creature's power", "the sacrificed creature", "for each card discarded") can't be fed the cost details —
+  // leave the whole card LOW. UNMODELED_MARKERS catches "equal to"/"for each"; this is belt-and-suspenders.
+  if (selfRef && selfRef.test(rest)) return { costs: null, rest: oracle };
+  return { costs: [cost], rest };
 }
 
 export function parseEffectProgram(card) {
