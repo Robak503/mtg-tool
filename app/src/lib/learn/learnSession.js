@@ -43,7 +43,7 @@ import {
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -378,6 +378,18 @@ function settleImpulseDigChoice(state, cardId) {
 }
 
 /**
+ * ===== EDICTS ===== — settle a sacrifice choice (Diabolic Edict / Cruel Edict / Geth's Verdict): the
+ * sacrificing player gives up the chosen creature (dies triggers fire), then the caster's riders resume
+ * (Geth's Verdict "You lose 1 life" — which may itself re-pause, so guard pendingChoice before flushing).
+ * finalizeStackResolution then flushes any triggers the sacrifice + resumed atoms enqueued (CR 603.3) —
+ * the same finalize the tutor/hand-discard paths run. `permId` is the chosen creature's permanent id.
+ */
+function settleSacrificeChoice(state, permId) {
+  const next = resolveSacrificeChoice(state, permId);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+/**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
  * decisions auto-apply; trivial user auto-passes also auto-apply.
@@ -508,6 +520,16 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
           return { session: current, decision: { kind: "impulse-dig", ...pc } };
         }
         current = { ...current, state: settleImpulseDigChoice(current.state, autoPickTutorCandidate(current.state, pc)) };
+        continue;
+      }
+      // ===== EDICTS ===== — sacrifice choice (Diabolic Edict / Cruel Edict / Geth's Verdict). pc.controller
+      // is the SACRIFICING player (the edict's target), so `pause` already pauses the human and auto-resolves
+      // an AI/opponent — the human picks which creature to give up; the AI sacs its least valuable.
+      if (pc.kind === "sacrifice-choice") {
+        if (pause) {
+          return { session: current, decision: { kind: "sacrifice-choice", ...pc } };
+        }
+        current = { ...current, state: settleSacrificeChoice(current.state, autoPickSacrificeCandidate(current.state, pc)) };
         continue;
       }
       // Tutor library search.
@@ -997,10 +1019,57 @@ export function applyImpulseDigChoice(session, choice) {
 }
 
 /**
+ * ===== EDICTS ===== — the player picked which creature to sacrifice from a `sacrifice-choice` decision
+ * (Diabolic Edict / Cruel Edict / Geth's Verdict). This fires when the HUMAN is the sacrificing player
+ * (the edict's target). Validates the pick against the offered creatures, sacrifices it (dies triggers
+ * fire), resumes the caster's riders, then re-derives the next decision. `choice.cardId` is the chosen
+ * creature's permanent id. A null/illegal pick re-surfaces the picker (an edict always sacs one when ≥2
+ * were offered — no decline). Returns { session, decision } like the others.
+ */
+export function applySacrificeChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "sacrifice-choice") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const cardId = choice?.cardId ?? null;
+  if (cardId === null || !pc.candidates.some((c) => c.id === cardId)) {
+    return advanceUntilDecision(session); // illegal/stale pick → re-surface the same picker.
+  }
+
+  let newState;
+  try {
+    newState = settleSacrificeChoice(session.state, cardId);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "sacrifice-choice" },
+    auto: false,
+    reasoning: "user-chose-sacrifice",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
+    decisionLog: [...session.decisionLog, logEntry],
+  });
+}
+
+/**
  * Dispatch an interactive resolution-time choice (state.pendingChoice) to the right handler by
  * its kind — so the single /api/learn/choose route serves the tutor search, the clone copy-pick,
- * scry/surveil, the optional yes/no, the hand-discard pick, and the impulse-dig pick. (Named apart from
- * the decision-gate `applyChoice`, which resolves a player ACTION, not a pendingChoice.)
+ * scry/surveil, the optional yes/no, the hand-discard pick, the impulse-dig pick, and the edict
+ * sacrifice pick. (Named apart from the decision-gate `applyChoice`, which resolves a player ACTION,
+ * not a pendingChoice.)
  */
 export function applyPendingChoice(session, choice) {
   const kind = session.state?.pendingChoice?.kind;
@@ -1009,6 +1078,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "optional-effect") return applyOptionalChoice(session, choice);
   if (kind === "hand-discard") return applyHandDiscardChoice(session, choice);
   if (kind === "impulse-dig") return applyImpulseDigChoice(session, choice);
+  if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice);
   return applyTutorChoice(session, choice);
 }
 

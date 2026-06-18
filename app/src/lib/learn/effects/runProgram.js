@@ -25,8 +25,8 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice } from "../pendingChoice.js";
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue } from "./effectAtoms.js";
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent } from "../gameState.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 
 /**
@@ -202,6 +202,58 @@ export function resolveImpulseDigChoice(state, cardId) {
   const chosenId = (pc.candidates || []).some((c) => c.id === cardId) ? cardId : null;
   next = applyImpulseDig(next, { playerId: pc.controller, n: (pc.candidates || []).length, chosenId, restTo: pc.restTo });
   next = logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: pc.controller, kept: !!chosenId, restTo: pc.restTo });
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== EDICTS ===== — deterministically auto-pick the creature an AI sacrifices to an edict (CR 701.16,
+ * no picker for the AI / Expert): its LEAST valuable creature = lowest mana value, tie-break lowest
+ * printed power, then codepoint name then id (serialize-stable, no Math.random). Returns the permanent id
+ * from the SACRIFICER's battlefield, or null if none remain. Mirrors autoPickTutorCandidate's shape but
+ * picks the cheapest (a token / mana-dork) rather than the priciest — the AI gives up its weakest body.
+ */
+export function autoPickSacrificeCandidate(state, pendingChoice) {
+  const bf = state.players?.[pendingChoice.controller]?.battlefield || [];
+  const byId = new Map(bf.map((p) => [p.id, p]));
+  const perms = (pendingChoice.candidates || []).map((c) => byId.get(c.id)).filter(Boolean);
+  if (perms.length === 0) return null;
+  const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+  const pwr = (p) => Number(p.card?.power) || 0;
+  return [...perms].sort((a, b) =>
+    tutorManaValue(a.card) - tutorManaValue(b.card) ||
+    pwr(a) - pwr(b) ||
+    cmp(String(a.card?.name || ""), String(b.card?.name || "")) ||
+    cmp(String(a.id || ""), String(b.id || "")),
+  )[0].id;
+}
+
+/**
+ * Settle a pending sacrifice choice (edicts — Diabolic Edict / Cruel Edict / Geth's Verdict): sacrifice
+ * the chosen creature from the SACRIFICER's battlefield (pc.controller) → their graveyard, firing dies
+ * triggers via the shared helper, then RESUME the CASTER's program (a rider like Geth's Verdict "You lose
+ * 1 life", which is the CASTER's, not the sacrificer's). A `permId` not among the offered candidates / no
+ * longer on the battlefield (stale) is a logged no-op (the edict still resolved). Two eliminated-player
+ * guards (the pause can outlive an SBA, CR 800.4a): a removed SACRIFICER skips the sac but still resumes
+ * the caster's riders; a removed CASTER skips the resume. Hidden-info safe (the sacrificer's own board).
+ */
+export function resolveSacrificeChoice(state, permId) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "sacrifice-choice") return state;
+  let next = clearPendingChoice(state);
+  if (next.players?.[pc.controller]) {
+    const isCandidate = (pc.candidates || []).some((c) => c.id === permId);
+    if (isCandidate && findPermanent(next, permId)) {
+      next = sacrificeCreatureEffect(next, pc.controller, permId);
+    } else {
+      next = logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: pc.controller, sacrificed: null });
+    }
+  } else {
+    // The sacrificer left the game mid-pause (CR 800.4a) — log the no-op for decision-log parity with the
+    // stale-permId case, then still resume the CASTER's riders below (the rider is theirs, not the victim's).
+    next = logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: pc.controller, sacrificed: null });
+  }
+  const casterId = pc.resume?.controller;
+  if (casterId && !next.players?.[casterId]) return next; // caster eliminated mid-pause → no resume
   return resumeAfterChoice(next, pc);
 }
 

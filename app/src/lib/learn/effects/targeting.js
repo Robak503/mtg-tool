@@ -32,9 +32,11 @@ function atomTargetSpec(atom) {
   // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so
   // enumerateTargets surfaces only the caster's matching graveyard cards.
   if (tt === "graveyardCard") return { kind: "return-gy", targetType: "graveyardCard", cardFilter: atom.cardFilter || "any" };
-  // δ-1b hand disruption: the target is an OPPONENT (a player), enumerated WITHOUT hand info. The
-  // handFilter is applied at RESOLUTION, not enumeration, so the spec is a plain opponent player target.
-  if (tt === "opponent") return { kind: "discard-chosen", targetType: "opponent" };
+  // A PLAYER-target atom — δ-1b hand disruption (opponent) and EDICTS sacrifice (player/opponent).
+  // Enumerated purely by targetType ("opponent" → opponents, "player" → every player); the victim's
+  // hand/creature is chosen at RESOLUTION, not enumeration, so the spec carries no extra filter. The
+  // `kind` is informational (enumerateTargets keys on targetType, not kind).
+  if (tt === "opponent" || tt === "player") return { kind: atom.op, targetType: tt };
   return { kind: atom.op === "destroy" ? "destroy" : "damage", targetType: tt, restrictions: atom.restrictions || [] };
 }
 

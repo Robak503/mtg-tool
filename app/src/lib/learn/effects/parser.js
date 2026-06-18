@@ -439,6 +439,19 @@ function parseExtendedAtom(s) {
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^target player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
+  // ===== EDICTS ===== (sacrifice as an EFFECT; sacrifice as a COST is γ1/γ1b in abilities.js)
+  // "Target player/opponent sacrifices a creature [of their choice]" (Diabolic Edict / Cruel Edict). The
+  // SACRIFICING player — the TARGET — chooses which creature (CR 701.16; the modern Oracle templating
+  // spells this out as "of their choice", an OPTIONAL suffix here so the bare form still matches), so this
+  // resolves through the resolution-time pending-choice seam (applySacrifice → setPendingSacrificeChoice):
+  // the human picks via a panel, an AI sacs its least valuable. `targetType` "player" offers EVERY player
+  // (an edict can hit yourself, legal-but-pointless; the AI only ever edicts an opponent), "opponent"
+  // offers opponents only. ALL-OR-NOTHING: exactly "a creature" (count 1, unfiltered). A count ("two
+  // creatures" — Dead Drop), a FILTERED victim ("with the greatest power", "you don't control"), a
+  // non-creature ("a permanent"), or a conjoined "and loses N life" (Geth's Verdict — the TARGET loses
+  // the life, an actor we don't model) fails the exact anchor / all-or-nothing gate → low → Arbiter.
+  m = t.match(/^target (player|opponent) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
+  if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: "creature" };
   return null;
 }
 
@@ -843,6 +856,13 @@ export function atomTargetIntent(atom) {
     case "counter":
     case "tap":
       return "enemy";
+    case "sacrifice":
+      // An edict aimed at "target opponent" is unambiguously enemy-side — the α1 flush chooser
+      // picks an opponent and that opponent (the sacrificer) chooses the victim. "target player"
+      // is AMBIGUOUS: the first-legal flush chooser could pick the CONTROLLER, self-edicting them
+      // (a confident wrong play), so it stays out of the trigger-flush allowlist → Arbiter on
+      // triggers (still native on the cast path, where the player/AI picks an opponent).
+      return tt === "opponent" ? "enemy" : "ambiguous";
     case "pump":
       return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
     case "add-counter":

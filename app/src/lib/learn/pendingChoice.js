@@ -127,6 +127,29 @@ export function setPendingImpulseDigChoice(state, { controller, candidates, rest
   };
 }
 
+/**
+ * ===== EDICTS ===== — flag a sacrifice awaiting the SACRIFICING player's pick of which creature to give
+ * up (CR 701.16 — Diabolic Edict / Cruel Edict / Geth's Verdict). The spell targeted ONE player; that
+ * target is the sacrificer, and `controller` here is THAT player (not the caster) — so the driver's
+ * `pause = pc.controller === "user"` rule pauses for a human sacrificer and auto-sacs an AI one, exactly
+ * like the other choices. `candidates` is the sacrificer's creatures as `{ id, name }` (public — on the
+ * battlefield, and the chooser is their controller). The caster's continuation rides on `pendingChoice
+ * .resume` (attached by runProgram), so a rider — Geth's Verdict "You lose 1 life" — runs after. FIFO.
+ */
+export function setPendingSacrificeChoice(state, { controller, candidates, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "sacrifice-pending", controller, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "sacrifice-choice",
+      controller,
+      candidates,
+      sourceName,
+    },
+  };
+}
+
 /** Clear the pending choice (after it's resolved). */
 export function clearPendingChoice(state) {
   if (!state.pendingChoice) return state;

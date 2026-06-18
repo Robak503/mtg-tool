@@ -24,7 +24,7 @@ import {
 import { addContinuousEffect } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
-import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice } from "../pendingChoice.js";
+import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
@@ -249,6 +249,57 @@ function applyDiscardChosen(state, atom, ctx) {
   }
   // Pause for the caster's pick (driver surfaces a picker / auto-picks). runProgram attaches the resume.
   return setPendingHandDiscardChoice(state, { controller: ctx.controller, victim: victim.id, candidates, sourceName: ctx.cardName });
+}
+
+/**
+ * ===== EDICTS ===== — sacrifice a creature controlled by `playerId` as an EFFECT (CR 701.16): move it
+ * battlefield → graveyard and fire its + watchers' dies triggers (CR 700.4 — the aristocrats payoff).
+ * The EFFECT-side twin of actionDispatcher.sacrificePermanentForCost (the cost-side self-sac), kept here
+ * so the edict resolver + the resolution-time victim-choice path (runProgram.resolveSacrificeChoice)
+ * share ONE implementation. These paths only ever pass a CREATURE, so dies triggers always fire; the
+ * dispatch's stack-resolution finalizer flushes them above the rest (CR 603.3b). A stale id (the creature
+ * already left) is a logged no-op via the findPermanent guard + moveCardToZone's own guard.
+ */
+export function sacrificeCreatureEffect(state, playerId, permId) {
+  const lk = findPermanent(state, permId);
+  if (!lk) return logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: null });
+  let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permId });
+  if (isCreatureCard(lk.permanent.card)) {
+    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card }]);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: permId, cardName: lk.permanent.card?.name });
+}
+
+/**
+ * EDICTS — "Target player/opponent sacrifices a creature" (Diabolic Edict / Cruel Edict / Geth's Verdict).
+ * The spell targeted a PLAYER at cast; that TARGET is the one who sacrifices, and THEY choose which
+ * creature (CR 701.16 — the sacrificing player chooses, NOT the caster). Resolution gathers the target's
+ * creatures and:
+ *   - 0 creatures → a clean no-op (logged; the edict still "resolved").
+ *   - exactly 1 → no real choice, sacrifice it straight away (the only legal pick; deterministic).
+ *   - ≥2 → set a `pendingChoice` whose `controller` is the SACRIFICER, so the driver pauses for a human
+ *     picker and auto-sacs the AI's least-valuable creature (the same pause-or-autopick split as the
+ *     tutor/scry/hand-discard). The caster's riders (Geth's Verdict "You lose 1 life") resume after.
+ * Eliminated-target guard: a target that left the game is skipped. Hidden-info safe — the sacrificer's
+ * creatures are public on the battlefield, and the chooser IS their controller.
+ */
+function applySacrifice(state, atom, ctx) {
+  const victim = (ctx.targets || []).find((t) => t.type === "player");
+  if (!victim || !state.players[victim.id]) {
+    return logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: ctx.controller, victim: victim?.id ?? null, candidates: 0 });
+  }
+  const creatures = (state.players[victim.id].battlefield || [])
+    .filter((p) => isCreatureCard(p.card))
+    .map((p) => ({ id: p.id, name: p.card?.name }));
+  if (creatures.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: ctx.controller, victim: victim.id, candidates: 0 });
+  }
+  if (creatures.length === 1) {
+    return sacrificeCreatureEffect(state, victim.id, creatures[0].id);
+  }
+  // ≥2 — the SACRIFICER picks (driver pauses for the human, auto-sacs the AI's worst). runProgram
+  // attaches the resume so the caster's riders run after the victim is settled.
+  return setPendingSacrificeChoice(state, { controller: victim.id, candidates: creatures, sourceName: ctx.cardName });
 }
 
 /** Put +1/+1 or -1/-1 counters on the chosen creature(s), or the SOURCE for a self counter
@@ -576,6 +627,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "return-from-graveyard": applyReturnFromGraveyard,
   "reanimate": applyReanimate,
   "discard-chosen": applyDiscardChosen,
+  "sacrifice": applySacrifice,
   "create-token": applyCreateToken,
   "counter": applyCounter,
   "tutor": applyTutor,
