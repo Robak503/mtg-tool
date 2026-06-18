@@ -67,10 +67,12 @@ Arbiter, and the safe action is to *not* merge.
    planeswalker end-to-end) until the PW lane closes; then Walt sunsets.
 8. **After CODE merges:** flip the board rows DONE; refresh `STATUS.md` (scoreboard, faculties, queue, recent
    merges, ripe picks); `cd app && npm run coverage`; commit **explicit paths** (e.g.
-   `git add docs/orchestration/STATUS.md docs/orchestration/task-board.md && git commit`). Coverage going DOWN
-   when false positives are retired is **honest** — report it as such, and confirm the retired set is logged in
-   `docs/orchestration/retired-fp-ledger.md` keyed by its unblocking capability (**retiring is deferral, not
-   deletion** — those buckets get re-evaluated when the enabling engine capability ships).
+   `git add docs/orchestration/STATUS.md docs/orchestration/task-board.md && git commit`).
+   **FP policy = enforce, don't drop (Colton 2026-06-18):** the default remediation for a false positive is to
+   BUILD the enforcement (local-first) so the card plays correctly — dropping to the Arbiter is the LAST RESORT
+   (genuinely-hard mechanics only, temporary, logged). Prioritize enforcement tasks on the board; track all FPs
+   in `docs/orchestration/retired-fp-ledger.md` (the enforcement backlog). When an enforcement lands, coverage
+   rises *correctly*; if a rare drop retires FPs, coverage going DOWN is honest — report it as such.
 9. **Test/docs-only PRs** need no npm gate.
 10. **Queue empty** → re-arm the loop and wait. **Never idle-spin.**
 

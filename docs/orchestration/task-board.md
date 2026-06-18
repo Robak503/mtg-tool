@@ -31,13 +31,14 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 ## 🔧 FIX / VERIFY lane — unowned (these jump the builder queue; any builder can pull)
 
-> **Retiring a FP is deferral, not deletion** (Colton, 2026-06-18): every retirement → a row in
-> [`retired-fp-ledger.md`](retired-fp-ledger.md) keyed by the unblocking engine capability, so the bucket
-> gets re-evaluated + re-promoted when that capability ships. Coverage dipping here is the metric getting honest.
+> **Enforce, don't drop (Colton, 2026-06-18):** the default fix for a live FP is to **BUILD the enforcement**
+> (local-first easy win) so the card plays right — see the 🔝 EVADE/TARGET-RESTRICT/PROWESS rows below.
+> Dropping to the Arbiter is the LAST RESORT (genuinely-hard mechanics only). Every FP is tracked in the
+> [enforcement backlog](retired-fp-ledger.md) keyed by capability.
 
 | ID | Pri | Finding | ~Impact | Status |
 |---|---|---|---:|---|
-| **VERIFY-MENACE** | 🔴 | **LIVE shipped false positive.** Menace is in COVERED_KEYWORDS so a Menace-only creature is native-body — but the 2-blocker rule (CR 702.110) is enforced NOWHERE (`canBlock` admits a single blocker; `combatResolution.js:17` defers Menace). The engine lets ONE creature block a Menace attacker. **Fix:** enforce 2-blocker in canBlock/declare-blockers, OR remove Menace from COVERED_KEYWORDS (safe default → Arbiter). Same gap that blocks EVADE — fix together. | −FP | OPEN |
+| **VERIFY-MENACE** | 🔴 | **LIVE shipped false positive.** Menace is in COVERED_KEYWORDS so a Menace-only creature is native-body — but the 2-blocker rule is enforced NOWHERE (`canBlock` admits a single blocker; `combatResolution.js:17` defers Menace). The engine lets ONE creature block a Menace attacker. **→ FOLDED INTO the 🔝 EVADE enforcement task** (enforce 2-blocker in canBlock/declare-blockers — local-first, NOT the drop). | −FP→native | OPEN (in EVADE) |
 | **FIX-TRIG-CONDITION** | 🔴 | `classifyCondition` over-detects restricted/compound-subject triggers (selfRef too broad; scope-inexpressible restriction dropped → over-fires). 34 cards incl. aristocrats staples. Detail: `docs/qa/rod-findings-1.md`. | 34 (−FP) | DONE #226 (Erin batch) |
 | **VERIFY-ETB-DESTROY** | 🟡 | Spot-check (lower confidence): Ravenous Chupacabra & the ETB-destroy-an-opponent's-creature family classify native-trigger — owed a LIVE 4P end-to-end check that the flush enemy-chooser targets an opponent, never own / never crashes on no-legal-target. | spot-check | OPEN |
 | **FIX-PW-LAND-ORDER** | 🟢 | PW-1 review: Wrenn and One (corpus's only Land Planeswalker) hits the `land` tier BEFORE the planeswalker gate in `classifyCard` → counted native-`land` despite 2 unmodeled loyalty abilities. PRE-EXISTING (identical on master), NO runtime harm (isPlaneswalker=true → loyalty-offer + cast-gate both refuse it). Only over-counts 1 card in the metric. Fix: check planeswalker-before-land (or exclude PWs from the land tier). | 1 (−FP metric) | OPEN |
@@ -98,6 +99,12 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 ### 🔴 high-lever
 
+> **🔝 TOP PRIORITY — enforce, don't drop (Colton, 2026-06-18):** the display-only keywords are LIVE false
+> positives (their rules are enforced NOWHERE). The fix is to **BUILD the enforcement** — local-first easy
+> wins — **not** drop them to the Arbiter. **EVADE · TARGET-RESTRICT · PROWESS below jump the queue** and are
+> **Cindy's lane** (combat/keyword/trigger enforcement; Walt stays on his PW-leverage atoms). Policy +
+> backlog: [`retired-fp-ledger.md`](retired-fp-ledger.md).
+
 | ID | Mechanic / atom (short landmine — full detail in the report) | ~Yield | Cplx | Status | Examples |
 |---|---|---:|---|---|---|
 | **ACT-KW-GRANT** | `{cost}: This creature gains <KW> until EOT` — self keyword-grant. Reuses GRANTABLE_COMBAT_KEYWORDS allowlist (the allowlist IS the FP guard). **Self-ref only, all-or-nothing whole card** — reject `target`-grants (different atom) + multi-ability cards. | ~46 | low | DONE #235 | Goblin Balloon Brigade, Narnam Cobra, Unyielding Krumar |
@@ -108,7 +115,9 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | **PUMP-1** | Team pump: "Creatures you control get +X/+Y until EOT." Reject `and gain <keyword>` riders (Triumph of the Hordes → infect). Reuses each-you-control enumerator (#211). | ~22 | low | OPEN | Rally the Peasants, Guardians' Pledge, Coordinated Charge |
 | **REG-1** | Regrowth (gy → HAND): "Return target \<type> card from your graveyard to your hand." Accept the card-type union; `your graveyard` ≠ `a graveyard`; drop `up to one/two`. Reuses #207. | ~22 | low | DONE #231 | Argivian Find, Relearn, Nature's Spiral, Call to Mind |
 | **MT-1** | Divide-among picker: "deals N damage / distribute N +1/+1 divided among any number of targets." Subsumes CNT-2b's distribute half. | ~20 | med | DONE #237 | Rolling Thunder, Pyrotechnics, Meteor Swarm, Hail of Arrows |
-| **EVADE** | ⚠ **engine-first** combat-keyword engine via ONE `canBlock` chokepoint: unblockable + can't-block (~40) · basic landwalk (~61, per-defender = 4P-correct) · can-block-only-flying (~20). **Must ship canBlock enforcement BEFORE flipping COVERED_KEYWORDS** (else unblockable creatures get blocked = FP). Bare-clause only. Pairs with VERIFY-MENACE. | ~120 | sub | OPEN | Invisible Stalker, Bog Wraith, Jungle Lion, Cloud Elemental |
+| **EVADE** ⭐🔝 | ⚠ **engine-first, PULL FIRST** — combat-evasion enforcement via ONE `canBlock`/attack-legality chokepoint. Covers the **display-only combat keywords** (**menace** = 2-blocker · **skulk/intimidate/fear/horsemanship** = conditional-block · **defender** = can't attack) AND unblockable/can't-block (~40) · basic landwalk (~61, per-defender = 4P-correct) · can-block-only-flying (~20). **Ship the chokepoint BEFORE the keyword counts native** (else FP). **Folds in VERIFY-MENACE.** | ~120+ | sub | OPEN 🔝 | Invisible Stalker, menace/skulk/fear creatures, Bog Wraith |
+| **TARGET-RESTRICT** ⭐🔝 | **engine-first** — target-selection must HONOR: **hexproof** (not targetable by opponents) · **shroud** (not targetable at all) · **ward** (opponent pays the cost, else countered) · **protection** (can't be targeted/blocked/enchanted/equipped/damaged by the quality). Enforce in the target-legality check BEFORE these count native; all-or-nothing per quality. | ~? (Hans to scope) | sub | OPEN 🔝 | Slippery Bogle (hexproof), Troll Ascetic (shroud), Mother of Runes (protection) |
+| **PROWESS** ⭐🔝 | **engine-first** — prowess = a noncreature-cast trigger → +1/+1 until EOT. Wire via the trigger compiler (TRIG-PUMP-1 precedent). Bare prowess only; exotic "whenever you cast"-variants are their own trigger rows. | ~? (Hans to scope) | med | OPEN 🔝 | Monastery Swiftspear, Monastery Mentor |
 
 ### 🟡 medium / lower-risk subsystems (runway)
 

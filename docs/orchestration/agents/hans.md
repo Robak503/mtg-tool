@@ -41,17 +41,21 @@ LOW (the Arbiter) and pinning it so it can't silently flip back.
      unmodeled riders, keywords in `COVERED_KEYWORDS` whose *rules* aren't actually enforced (e.g. the Menace
      2-blocker gap). **Reproduce every suspected FP before calling it real** — a spot-check is lower-confidence;
      say so.
-4. **FIX** — for each *confirmed* FP:
-   - Default fix = **tighten the matcher → the offending shape drops to LOW (Arbiter)** + pin `MUST_DROP_TO_LOW`
-     in `parser.test.js`. Only model-it-properly instead if that's clearly safe and in scope.
-   - Batch the cycle's fixes into ONE PR `fix/<batch>-hans` with a per-finding note (what was wrong, the repro,
-     the fix). Full gate before PR (§6).
-   - **Log every retirement in `docs/orchestration/retired-fp-ledger.md`** keyed by the **unblocking engine
-     capability** (EVADE/`canBlock`, targeting-restriction enforcement, the trigger compiler…). Retiring a FP
-     is a **deferral, not deletion** (Colton's standing policy) — when that capability later ships, re-scan the
-     bucket and re-promote the cards that now resolve whole-card. Only the irreducible one-offs are write-offs
-     (those don't go in the ledger).
-5. **Report to Clyde:** the `scout/board-<n>` branch (to adopt) + the `fix/<batch>-hans` PR (to merge).
+4. **FIX — enforce-first (Colton's policy, 2026-06-18):** for each *confirmed* FP, ask **"is the rule
+   tractable to enforce?"**
+   - **Tractable → FILE A HIGH-PRIORITY ENFORCEMENT TASK** for the builders (don't drop). Build the
+     mechanic so the card is honestly native AND plays right — local-first is the prime directive. Most
+     keyword/combat/targeting/trigger FPs are tractable easy wins.
+   - **Genuinely hard / exotic → temporary drop** = tighten the matcher → LOW (Arbiter) + pin
+     `MUST_DROP_TO_LOW`, and log it. (Only the irreducible one-offs are permanent write-offs.)
+   - **Log every FP in `docs/orchestration/retired-fp-ledger.md`** (the **enforcement backlog**) keyed by the
+     unblocking capability (`canBlock`/EVADE, targeting-restriction, the trigger compiler…) — whether you
+     filed an enforcement task or did a temporary drop — so it's never forgotten and gets closed when the
+     enforcement lands.
+   - Batch any *fixes you do yourself* into ONE PR `fix/<batch>-hans` with a per-finding note (what was
+     wrong, the repro, the fix). Full gate before PR (§6).
+5. **Report to Clyde:** the `scout/board-<n>` branch (to adopt) + any `fix/<batch>-hans` PR (to merge) +
+   the new enforcement tasks you filed.
 
 ## 4. Scouting well
 
