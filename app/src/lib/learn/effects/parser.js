@@ -563,7 +563,14 @@ function matchHandDisruption(oracle) {
   if (!(phrase in HAND_FILTER_MAP)) return null;               // an unmodeled filter → low → Arbiter
   const handFilter = { ...HAND_FILTER_MAP[phrase] };
   if (m[2]) handFilter.maxCmc = parseInt(m[2], 10);
-  return { atom: { op: "discard-chosen", targetType: "handCard", handFilter }, rest: oracle.slice(m[0].length).trim() };
+  // δ-1b: the atom TARGETS the opponent (a player), bound at cast WITHOUT seeing their hand. The
+  // handFilter rides along and is applied at RESOLUTION (applyDiscardChosen reveals that opponent's hand,
+  // sets a pendingChoice of the matching cards). This is the faithful Duress flow — commit to the
+  // opponent, THEN reveal — and in 4P it can't cross-opponent cherry-pick / leak other hands (the δ-1a
+  // `handCard` cast-time model could). `who` records opponent-vs-player for completeness (both enumerate
+  // opponents — a safe subset of "target player", never the caster's own hand).
+  const who = /reveals their hand/i.test(m[0]) && /^target opponent/i.test(m[0]) ? "opponent" : "player";
+  return { atom: { op: "discard-chosen", targetType: "opponent", handFilter, who }, rest: oracle.slice(m[0].length).trim() };
 }
 
 /**
