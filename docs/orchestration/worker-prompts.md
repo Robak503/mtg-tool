@@ -28,6 +28,8 @@ The anchor branch is just a collision-free home base (one branch per worktree). 
 
 Timed batching keeps the three non-builders from burning tokens on continuous polling, and hands Erin clean, sizable batches instead of one-off interrupts. This is the "for now" config — stretch or shorten the timers as throughput dictates.
 
+**Grab-ahead trial (2026-06-18 — Cindy only).** Cindy is testing *grab-ahead*: after opening a PR she does NOT wait for the merge — she immediately claims the next task **fresh off `origin/master`** (never stacked on her un-merged branch) and keeps producing, and at each task boundary she `git fetch`es and rebases any of her **own** still-open PRs that have gone `CONFLICTING`. **Paula & Tess still wait-then-pull.** Rationale: Omnath's merge gate runs on a ~20-min loop, so wait-then-pull idles a builder up to ~20 min/task. Omnath handles her multiple in-flight PRs the same way it handles two builders on the hot file (merge one, re-check siblings, flag dirty). Promote to all builders if it nets more throughput without extra rebase churn; revert if her PR queue tangles.
+
 ---
 
 ## Model tiers & where multi-agent review lives (decided 2026-06-18 via analysis)
