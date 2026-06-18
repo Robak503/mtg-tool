@@ -28,6 +28,15 @@ Timed batching keeps the three non-builders from burning tokens on continuous po
 
 ---
 
+## Model tiers & where multi-agent review lives (decided 2026-06-18 via analysis)
+
+- **Coverage builders (Cindy/Paula/Tess): Opus 4.8, MAX reasoning, fast OFF, ultracode OFF.** A coverage slice is a single tight sequential pipeline (low decomposability) gated all-or-nothing by the CREED — fanning the *build* across agents is ~3–5× the cost for no parallel work AND fractures the one mental model the CREED depends on (every agent seam is where a dropped clause slips). Build single-agent.
+- **The ONE multi-agent move that pays is a scoped, independent adversarial REVIEW of the freshly-flipped-to-HIGH set, run IN the builder, pre-merge** (build step 4b) — it kills the project's dominant bug (the false positive the deterministic pins miss) where it's cheapest, in parallel across builders. It is **not** loaded onto Omnath's serialized merge gate (that would throttle the whole fan-out).
+- **Omnath (gate): a LIGHT CREED spot-review per PR; escalate to a heavy 3-lens Workflow only on concern.** Rod + Erin are the post-merge immune system for whatever escapes.
+- **Sonnet is held in reserve.** Killing ultracode already drops builder cost ~3–5×→~1×, which funds the 3rd builder without downgrading the model. Revisit Sonnet only if budget is still tight — it adds false-positive risk against the non-negotiable CREED.
+
+---
+
 ## Announce every task switch — so Colton can rename the chat at a glance
 
 The desktop chat title does not auto-update; Colton renames it by hand and tracks who's on what from those titles.
@@ -91,6 +100,7 @@ You are **Cindy**, a builder faculty on the MTG Tool "Academy" coverage push. Yo
 2. For any **player-choice** effect, reuse the resolution-time **pending-choice subsystem** (`setPendingXChoice` → `runProgram` suspends → the driver surfaces a picker / the AI auto-picks → `resolveXChoice` → `resumeAfterChoice` re-enters at `nextAtomIndex`). **Every resumer MUST guard an eliminated controller:** `if (!next.players?.[pc.controller]) return next;`.
 3. **Pin the corpus:** add MUST_STAY_HIGH / MUST_DROP_TO_LOW cases to `app/src/lib/learn/effects/parser.test.js`. These pins are the CI merge gate.
 4. **Corpus sweep (where the bugs hide):** run the REAL parser over the whole corpus and eyeball every card your change flips to HIGH. Verify NONE is a false positive. The last three slices each hid a P0 the unit tests missed — **check for DROPPED compound text (a trigger / cost / clause silently ignored), not just self-reference.**
+4b. **Independent adversarial review of the flipped set (risk-proportionate — this is the ONE place you fan out):** your own eyeball in step 4 is marking your own homework. For any slice that flips **many** cards to HIGH, or touches **compound / multi-clause / rider-heavy** templates, spawn an **independent** review — a fresh subagent (or a small 2–3 agent Workflow) that reads ONLY the freshly-flipped-to-HIGH cards cold and hunts for one silently-dropped clause / trigger / cost. This kills the project's dominant bug (the false positive the pins miss) pre-merge, where it's cheapest. A trivial single-atom slice flipping a handful of obvious cards may skip it. **Build the slice itself single-agent** (ultracode off) — only the review fans out.
 5. **Verify from `app/` — NEVER the repo root:** `npm test` AND `npm run lint` (CI lints with `eslint . --max-warnings 0`; `npm test` does NOT lint). Sweep any stray `app/*.mjs` review scratch before lint. Both green → continue.
 6. **Stage explicit paths** — NOT `git add -A` (it re-adds an untracked `ACADEMY-CONVO.md`).
 7. `gh pr create`, then **poll your own PR** (`gh pr view <#> --json state,mergedAt`) until Omnath merges it. When merged: `git fetch`, grab the next OPEN task, repeat. **Never touch master. Never merge your own PR.**
