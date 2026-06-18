@@ -11,12 +11,14 @@
 ## 👥 Faculties — who's doing what
 | Faculty | Role · cadence | Working on |
 |---|---|---|
+| **Omnath** | Command · ~20m watch | integrating + gating master · **next auto-sweep ~12:14 MST** (sooner if PRs land / on demand) · last: 6-PR batch merged |
 | **Cindy** | Builder · grab-ahead | active — owner tag lands on next claim |
 | **Paula** | Builder · continuous | active — owner tag lands on next claim |
 | **Tess**  | Builder · continuous | active — owner tag lands on next claim |
 | **Erin**  | Fixer · 4h cloud | batch-1 shipped (#226) · idle until next wake |
 | **Hans**  | Scout · 3h | 🔵 deep-scan running (board-3) |
 | **Rod**   | QA · 3h | findings #1 fully addressed · next sweep ~3h |
+| **Iris**  | Dashboard · 30m | renders this board (read-only) |
 
 > ⏳ **Owner cubes are "pending" for one round.** The current claims (DIG-1, REG-1, FOG-1) were made on the old convention (descriptor suffix, no name), so they can't be attributed — Iris correctly leaves them unowned rather than guess (CREED). From the **next** claim each builder makes (`feat/<task>-<name>`), the cubes auto-fill with real owners.
 
