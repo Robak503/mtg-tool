@@ -13,10 +13,10 @@ false-positive (claim native, then mis-resolve) — never trade correctness for 
 ## Progress to goal — corpus-wide native % (`cd app && npm run coverage`)
 
 **Goal: ~90% corpus native** (the honest ceiling; the Arbiter permanently handles the rest).
-**Now: 16.1% → 18% of the way to goal.** (**PARALLEL PUSH LIVE — Omnath orchestrating 4 builder faculties + Hans/scout + Rod/QA, each in its own git worktree.** δ-1/δ-1b hand disruption + δ-2 impulse-dig shipped (v0.38.0 baseline). **Parallel merges so far: counters team-distribution "on each creature you control" (#211, Cindy) + each/target-player draw (#212, Paula)** → 5,397→5,413 native (native-spell 620→629). Tokens (Harold) + edicts (Erin) in flight; Hans feeds next targets; Rod QAs the merged result.)
+**Now: 16.3% → 18% of the way to goal.** (**PARALLEL PUSH LIVE — Omnath orchestrating 3 builders (Erin/Paula/Cindy) + Hans/scout + Rod/QA, each in its own git worktree; builders PULL from `docs/orchestration/task-board.md`.** v0.38.0 baseline (δ hand-disruption + impulse-dig). **Parallel merges:** counters team-distribution (#211) · each/target-player draw (#212) · tokens T1 keyword tokens (#213) · edicts target/opponent-sacrifice (#214) · blocks-trigger CREED false-positive fix (#215, −9 mis-fires). → corpus 16.1%→**16.3%** (5,413→5,475; native-spell 629→650, native-trigger 603). Builders relaunching in their worktrees; Hans refills the board; Rod QAs the merged result on-demand.)
 
 ```
-[####······················] 16.1% native  ·  goal 90%  ·  18% of the way there
+[####······················] 16.3% native  ·  goal 90%  ·  18% of the way there
 ```
 
 | Slice | Corpus native | Δ | → goal (now ÷ 90%) | Deck % | PR |
