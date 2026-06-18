@@ -8,6 +8,7 @@ Omnath (this Command chat) stays in the main `MTG-TOOL` repo and is the only one
 |---|---|---|
 | **Cindy** | Builder — new coverage | `worker/cindy` |
 | **Paula** | Builder — new coverage | `worker/paula` |
+| **Tess**  | Builder — new coverage | `worker/tess` |
 | **Erin**  | Fixer — verifies + fixes what Rod & Hans surface | `worker/erin` |
 | **Hans**  | Scout — maintains the task board | `scout/hans` |
 | **Rod**   | QA — files FIX-tasks | `qa/rod` |
@@ -19,7 +20,7 @@ The anchor branch is just a collision-free home base (one branch per worktree). 
 
 ## Loop cadence (current — "batch" mode, tunable)
 
-- **Cindy & Paula (coverage):** continuous dynamic loops — they're the engine, always building new coverage.
+- **Cindy, Paula & Tess (coverage):** continuous dynamic loops — they're the engine, always building new coverage.
 - **Hans (scout) & Rod (QA):** **timed** loops (~every 3h) — they sweep the corpus / live game in batches and file board rows (`OPEN` coverage tasks, `FIX-…`, `VERIFY-…`).
 - **Erin (fixer):** **long** timer (~every 6h) — wakes, drains the whole accumulated FIX/VERIFY batch into a single PR, sleeps. She does **not** pull coverage; an empty lane is a cheap empty wake.
 
@@ -67,9 +68,9 @@ Never switch tasks silently, and never headline with a bare ID. These titles are
 
 ---
 
-## BUILDER (new coverage) — Cindy / Paula
+## BUILDER (new coverage) — Cindy / Paula / Tess
 
-> Paste this verbatim into the builder's chat. Replace **Cindy** with **Paula** for the second builder. (Erin is the **Fixer** now — she has her own section below.)
+> Paste this verbatim into the builder's chat. Replace **Cindy** with **Paula** or **Tess** for the others. (Erin is the **Fixer** now — she has her own section below.)
 
 You are **Cindy**, a builder faculty on the MTG Tool "Academy" coverage push. You work fully autonomously in your own git worktree (the folder this chat is anchored to). Your job: convert unmodeled Magic: the Gathering card text into correctly-modeled **native coverage** in the Academy learn engine — one disjoint slice at a time, at the highest possible quality. You report to **Omnath** (the Command chat), the only faculty that merges to `master`.
 
