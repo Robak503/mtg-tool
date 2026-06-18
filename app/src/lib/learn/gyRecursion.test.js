@@ -51,7 +51,8 @@ describe("parser — graveyard recursion is HIGH for creature/any; other filters
     low("Return target artifact card from your graveyard to your hand.");            // unmodeled filter
     low("Return target creature card from a graveyard to your hand.");               // any graveyard, not "your"
     low("Return up to two target creature cards from your graveyard to your hand."); // multi-card
-    low("Return target creature card from your graveyard to the battlefield.");      // reanimation (battlefield dest)
+    low("Return target creature card from your graveyard to the battlefield tapped.");        // β-3b reanimation RIDER → Arbiter
+    low("Return target artifact card from your graveyard to the battlefield.");               // non-creature reanimation → Arbiter
   });
   it("composes in a multi-clause spell (recursion + draw)", () => {
     const p = parseEffectProgram({ type: SORCERY, oracle: "Return target creature card from your graveyard to your hand. Draw a card." });
@@ -60,6 +61,38 @@ describe("parser — graveyard recursion is HIGH for creature/any; other filters
       { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: "creature" },
       { op: "draw", amount: 1, targetType: null },
     ]);
+  });
+});
+
+const ZOMBIFY = { id: "c-zombify", name: "Zombify", type: SORCERY, mana: "{2}{B}", oracle: "Return target creature card from your graveyard to the battlefield." };
+const resolveAll = (s) => { while (s.stack.length) s = resolveTopOfStack(s); return s; };
+
+describe("β-3b — reanimation (Return target creature card from your graveyard to the battlefield)", () => {
+  it("parses the reanimate atom + classifies native-spell", () => {
+    expect(parseEffectProgram(ZOMBIFY).atoms).toEqual([{ op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" }]);
+    expect(classifyCard(ZOMBIFY)).toBe("native-spell");
+  });
+  it("offers only a CREATURE card in the caster's graveyard (creature filter; land + token excluded)", () => {
+    const s = boardState({ userGy: [gyCreature("gc", "Beast"), gyLand("gl", "Forest"), gyToken("gt", "Token")] });
+    expect(enumerateTargets(s, "user", parseEffectProgram(ZOMBIFY).atoms[0]).map((t) => t.id)).toEqual(["gc"]);
+  });
+  it("reanimates the chosen creature: it ENTERS the battlefield (gone from the graveyard) and fires its ETB", () => {
+    const visionary = { id: "vis", name: "Visionary", type: "Creature — Elf", power: 1, toughness: 1, oracle: "When this creature enters, draw a card." };
+    let s = boardState({ userGy: [visionary], hand: [{ ...ZOMBIFY, id: "z" }] });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, library: [{ id: "lib-1", name: "Card" }] } } };
+    const cast = legalActionsForPlayer(s, "user").filter((a) => a.kind === "cast-spell" && a.cardId === "z");
+    expect(cast.flatMap((a) => (a.targets || []).map((t) => t.id))).toEqual(["vis"]); // the live cast path enumerates the gy creature
+    s = resolveAll(dispatchAction(s, cast[0]));
+    expect(s.players.user.battlefield.some((p) => p.card?.id === "vis")).toBe(true);  // entered as a permanent under the caster's control
+    expect(s.players.user.graveyard.some((c) => c.id === "vis")).toBe(false);          // left the graveyard
+    expect(s.players.user.hand.some((c) => c.id === "lib-1")).toBe(true);              // its ETB "draw a card" FIRED
+  });
+  it("a target that left the graveyard is a clean no-op (CR 608.2b — no throw, nothing enters)", () => {
+    let s = boardState({ userGy: [] }); // empty gy
+    // resolve the atom directly against a stale target id
+    const after = resolveAll({ ...s, stack: [{ id: "stk", kind: "spell", source: ZOMBIFY, controller: "user",
+      payload: { resolver: "effect-program", params: { program: parseEffectProgram(ZOMBIFY), controller: "user", targets: [{ type: "graveyardCard", id: "gone" }] } } }] });
+    expect(after.players.user.battlefield).toHaveLength(0);
   });
 });
 

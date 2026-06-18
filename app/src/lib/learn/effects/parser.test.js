@@ -269,7 +269,8 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
     expect(programConfidence(parseEffectProgram(I("Destroy target artifact creature.")))).toBe("low"); // not a bare type
     expect(programConfidence(parseEffectProgram(I("Return target nonland permanent to its owner's hand.")))).toBe("high"); // β-3: bounce-permanent modeled
     expect(programConfidence(parseEffectProgram(I("Return target tapped artifact to its owner's hand.")))).toBe("low");   // an unmodeled restriction on bounce → Arbiter
-    expect(programConfidence(parseEffectProgram(I("Return target creature card from your graveyard to the battlefield.")))).toBe("low"); // reanimation deferred
+    expect(parseEffectProgram(I("Return target creature card from your graveyard to the battlefield.")).atoms).toEqual([{ op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" }]); // β-3b reanimation
+    expect(programConfidence(parseEffectProgram(I("Return target creature card from your graveyard to the battlefield tapped.")))).toBe("low"); // reanimation rider → Arbiter
   });
 });
 
@@ -452,7 +453,8 @@ const MUST_DROP_TO_LOW = [
   "Return target artifact card from your graveyard to your hand.",                  // unmodeled filter
   "Return target permanent card from your graveyard to your hand.",                 // unmodeled filter
   "Return target creature card from a graveyard to your hand.",                     // ANY graveyard, not "your"
-  "Return target creature card from your graveyard to the battlefield.",            // reanimation (battlefield dest)
+  "Return target creature card from your graveyard to the battlefield under your control.", // β-3b: a reanimation RIDER stays low (bare form is HIGH)
+  "Return target creature card from your graveyard to the battlefield with a +1/+1 counter on it.", // counter rider → low
   "Return target creature or land card from your graveyard to your hand.",          // multi-type filter
   "Each player draws a card.",
   "Target player discards a card at random.",
