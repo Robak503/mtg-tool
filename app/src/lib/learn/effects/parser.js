@@ -305,9 +305,18 @@ function parseExtendedAtom(s) {
   // exact anchor → low → Arbiter. The new targetType is gated OUT of the trigger flush
   // (programContainsChosenPermanentRemoval) — first-legal could hit the controller's OWN permanent,
   // a forbidden mis-application; safe on the cast path where the player/AI choose the target.
-  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|nonland permanent|artifact|enchantment|land|permanent)(?: (an opponent controls|you don't control|you control))?$/);
+  // β-2 adds the compound permanent-TYPE UNIONS ("X or Y", both already-modeled permanent types) to the
+  // alternation — listed BEFORE the singles so the longer phrase wins. "creature or planeswalker" stays
+  // OUT (planeswalkers aren't modeled as targetable permanents) → low → Arbiter.
+  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or land|enchantment or land|nonland permanent|artifact|enchantment|land|permanent)(?: (an opponent controls|you don't control|you control))?$/);
   if (rm) {
-    const TT = { "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent", "nonland permanent": "nonlandPermanent", "artifact or enchantment": "artifactOrEnchantment" };
+    const TT = {
+      "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
+      "nonland permanent": "nonlandPermanent", "artifact or enchantment": "artifactOrEnchantment",
+      "creature or enchantment": "creatureOrEnchantment", "creature or land": "creatureOrLand",
+      "creature or artifact": "creatureOrArtifact", "artifact or land": "artifactOrLand",
+      "enchantment or land": "enchantmentOrLand",
+    };
     const restrictions = rm[3] ? [{ kind: "controller", who: /^you control$/.test(rm[3]) ? "you" : "opponent" }] : [];
     return { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
   }
@@ -652,7 +661,10 @@ export function programContainsCounter(program) {
 
 // The chosen-target NON-CREATURE permanent-removal targetTypes (Disenchant / Stone Rain class). A
 // SET so the parser, the trigger gate, and the enumerator can't drift on which types are covered.
-export const PERMANENT_TARGET_TYPES = new Set(["artifact", "enchantment", "land", "permanent", "nonlandPermanent", "artifactOrEnchantment"]);
+export const PERMANENT_TARGET_TYPES = new Set([
+  "artifact", "enchantment", "land", "permanent", "nonlandPermanent", "artifactOrEnchantment",
+  "creatureOrEnchantment", "creatureOrLand", "creatureOrArtifact", "artifactOrLand", "enchantmentOrLand", // β-2 unions
+]);
 
 /**
  * Does the program contain a CHOSEN-TARGET non-creature permanent-removal atom (destroy/exile target

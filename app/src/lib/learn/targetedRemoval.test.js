@@ -11,7 +11,7 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
-import { enumerateTargets, applyDestroyEffect } from "./spellEffects.js";
+import { enumerateTargets, applyDestroyEffect, parseSpellEffect } from "./spellEffects.js";
 import { ATOM_RESOLVERS } from "./effects/effectAtoms.js";
 import { resolveTopOfStack, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { enterPermanent } from "./resolvers.js";
@@ -69,6 +69,40 @@ describe("enumeration — type filter + controller restriction (front-face type,
     expect(enumerateTargets(s, "user", { kind: "destroy", targetType: "nonlandPermanent", restrictions: [] }).map((t) => t.id)).not.toContain("adfc");
     expect(enumerateTargets(s, "user", { kind: "destroy", targetType: "land", restrictions: [] }).map((t) => t.id)).not.toContain("adfc");
     expect(enumerateTargets(s, "user", { kind: "destroy", targetType: "permanent", restrictions: [] }).map((t) => t.id)).not.toContain("adfc");
+  });
+});
+
+describe("β-2 — compound permanent-type unions (X or Y)", () => {
+  it("parses each union to its targetType; a planeswalker union + a rider stay low", () => {
+    expect(parseEffectProgram(I("Destroy target creature or land.")).atoms).toEqual([{ op: "destroy", targetType: "creatureOrLand", restrictions: [] }]);
+    expect(parseEffectProgram(I("Exile target creature or enchantment.")).atoms).toEqual([{ op: "exile", targetType: "creatureOrEnchantment", restrictions: [] }]);
+    expect(parseEffectProgram(I("Destroy target artifact or land an opponent controls.")).atoms)
+      .toEqual([{ op: "destroy", targetType: "artifactOrLand", restrictions: [{ kind: "controller", who: "opponent" }] }]);
+    expect(programConfidence(parseEffectProgram(I("Destroy target creature or planeswalker.")))).toBe("low"); // PW not a modeled target
+    expect(programConfidence(parseEffectProgram(I("Destroy target artifact or enchantment, then populate.")))).toBe("low"); // rider
+  });
+  it("enumerates permanents matching EITHER type across battlefields (not the other types)", () => {
+    const s = board();
+    expect(enumerateTargets(s, "user", { targetType: "creatureOrLand", restrictions: [] }).map((t) => t.id).sort()).toEqual(["al", "uc"]);
+    expect(enumerateTargets(s, "user", { targetType: "creatureOrEnchantment", restrictions: [] }).map((t) => t.id).sort()).toEqual(["ae", "uc"]);
+    expect(enumerateTargets(s, "user", { targetType: "artifactOrLand", restrictions: [] }).map((t) => t.id).sort()).toEqual(["aa", "al", "ua"]);
+  });
+  it("a union is GATED OUT of native trigger routing (first-legal could hit the controller's own permanent)", () => {
+    expect(programContainsChosenPermanentRemoval(parseEffectProgram(I("Destroy target creature or land.")))).toBe(true);
+  });
+  it("destroying a CREATURE chosen via a union still routes through the dies path", () => {
+    const s = applyDestroyEffect(board(), { controller: "user", targets: [{ type: "permanent", id: "uc" }] });
+    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["uc"]);
+  });
+  it("the legacy single-target path does NOT claim a creature UNION as creature-only (so the cast path offers BOTH halves)", () => {
+    // The bug a live cast caught: legacy parseSpellEffect matched any "destroy target …creature…" as a
+    // pure creature target, so a union's enchantment/land half was dropped from the cast options. The
+    // union must NOT match here → it routes to expandCastChoices via the program's union atom instead.
+    expect(parseSpellEffect({ type: "Instant", oracle: "Destroy target creature or enchantment." })).toBeNull();
+    expect(parseSpellEffect({ type: "Instant", oracle: "Destroy target creature or land." })).toBeNull();
+    // a PURE creature target (incl. a β-1 restriction) still matches the legacy creature path
+    expect(parseSpellEffect({ type: "Instant", oracle: "Destroy target creature." })).toMatchObject({ kind: "destroy", targetType: "creature" });
+    expect(parseSpellEffect({ type: "Instant", oracle: "Destroy target nonblack creature." })).toMatchObject({ kind: "destroy", targetType: "creature" });
   });
 });
 

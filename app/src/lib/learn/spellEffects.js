@@ -84,9 +84,13 @@ export function parseSpellEffect(card) {
     return null; // unrecognized damage target
   }
 
-  // Destroy target creature (other destroy targets deferred).
+  // Destroy target creature (other destroy targets deferred). A "creature or <type>" UNION (Mortify,
+  // Wrecking Ball) is NOT a pure creature target — exclude it so the EffectProgram's union atom
+  // (parseExtendedAtom → creatureOr…) handles it via expandCastChoices and BOTH halves are offered;
+  // matching it here would make the legacy single-target path enumerate creatures only (β-2). A pure
+  // creature target — incl. β-1 restrictions ("nonblack creature", "attacking creature") — still matches.
   m = oracle.match(/destroy\s+target\s+([^.]+)/i);
-  if (m && /creature/.test(m[1].toLowerCase())) {
+  if (m && /creature/.test(m[1].toLowerCase()) && !/\bcreature or\b|\bor creature\b/.test(m[1].toLowerCase())) {
     return { kind: "destroy", targetType: "creature" };
   }
 
@@ -314,6 +318,11 @@ export function enumerateTargets(state, controllerId, effect) {
     permanent: () => true,
     nonlandPermanent: (tl) => !/\bLand\b/.test(tl),
     artifactOrEnchantment: (tl) => /\bArtifact\b|\bEnchantment\b/.test(tl),
+    creatureOrEnchantment: (tl) => /\bCreature\b|\bEnchantment\b/.test(tl), // β-2 type unions
+    creatureOrLand: (tl) => /\bCreature\b|\bLand\b/.test(tl),
+    creatureOrArtifact: (tl) => /\bCreature\b|\bArtifact\b/.test(tl),
+    artifactOrLand: (tl) => /\bArtifact\b|\bLand\b/.test(tl),
+    enchantmentOrLand: (tl) => /\bEnchantment\b|\bLand\b/.test(tl),
   };
   const controllerOk = (pid) => restrictions.every((r) =>
     r.kind !== "controller" || (r.who === "you" ? pid === controllerId : pid !== controllerId));
