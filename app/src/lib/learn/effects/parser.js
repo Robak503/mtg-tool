@@ -485,6 +485,11 @@ function parseExtendedAtom(s) {
     // counter / anthem rider in text the slim oracle index drops, e.g. Imaginary Friends). Route to
     // the Arbiter rather than confidently make tokens that vanish.
     if (toughness < 1) return null;
+    // A LAND creature token (Awaken the Woods' "Forest Dryad land creature", Khalni Garden's Plant…)
+    // carries an INTRINSIC mana ability from its land type ({T}: Add …) that this vanilla mint drops —
+    // so the token would silently lose its tap-for-mana. Route the whole card to the Arbiter rather than
+    // mint a non-producing body (CLAUDE.md §1.2). Surfaced by the TOK-3 X-count sweep (Awaken the Woods).
+    if (/\bland\b/.test(m[4])) return null;
     const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), targetType: null };
     if (m[5] === undefined) return base;
     const kws = parseTokenKeywords(m[5]);
@@ -587,6 +592,20 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
   // creatures") is a non-amount X we don't model → drop to low. A clause with no
   // amount-X shape falls through to the numeric path (a fixed clause in an X-spell).
   if (hasX) {
+    // ===== TOKENS ===== T3 X-COUNT create-token — "Create X <P/T> <descriptor> creature token(s)
+    // [with KW]" where the count is the spell's {X} (Secure the Wastes, Goblin Offensive). Rewrite the
+    // count "X" to the sentinel "1", re-parse to the FULL create-token atom (so P/T / descriptor /
+    // keywords are preserved verbatim), then stamp `countX` + drop the sentinel count (the resolver
+    // reads ctx.xValue for the count). A "…, where X is <board count>" (Deploy to the Front) or a
+    // trailing "If X is N…" rider (Martial Coup) leaves text past "tokens" → the create-token anchor
+    // fails → null → low → Arbiter, so a BOARD-derived X is never mis-modeled as a cost-X count.
+    if (/^create x \d+\/\d+ /i.test(s)) {
+      const base = parseClauseToAtom(cardType, s.replace(/^create x /i, "create 1 "), false);
+      if (!base || base.op !== "create-token") return null;
+      const atom = { ...base, countX: true };
+      delete atom.count;
+      return atom;
+    }
     const rewritten = rewriteAmountX(s);
     if (rewritten) {
       if (/\bX\b/.test(rewritten)) return null;
@@ -797,7 +816,7 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
       atoms.push(a);
     }
     if (atoms.every(a => KNOWN.has(a.op))) {
-      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX), unparsedTail: null });
+      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX), unparsedTail: null });
     }
     return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
   };
@@ -811,7 +830,7 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
     if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)))) {
-      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX));
+      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
     return makeProgram({ confidence: "low", structure: "modal", atoms: [], modal: null, unparsedTail: oracle });
@@ -845,7 +864,7 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.
     const seq = atoms.filter((a, i) => !(a.op === "shuffle" && atoms[i - 1]?.op === "tutor"));
-    const xSpell = seq.some(a => a.amountX);
+    const xSpell = seq.some(a => a.amountX || a.countX);
     return makeProgram({ confidence: "high", atoms: seq, xSpell, unparsedTail: null });
   }
 
