@@ -391,6 +391,18 @@ function parseExtendedAtom(s) {
   // SELF-reference +1/+1 / -1/-1 counter — "put a +1/+1 counter on this creature" (the source).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
+  // ===== COUNTERS ===== TEAM distribution — "Put N +1/+1 (or -1/-1) counter(s) on each creature you
+  // control" (Titania's Boon, Basri's Solidarity, Strength of the Pack N=2). NON-targeted, modeled with
+  // the SAME `scope:"youControl"` marker the Overrun-style team pump uses (NOT a targetType — it stays
+  // non-targeted across programNeedsChosenTarget / atomTargetSpec / legalChoices). The resolver's
+  // `atomTargets` already routes `scope:"youControl"` -> controllerCreatureTargets (the controller's
+  // creatures gathered AT RESOLUTION, CR 611.2c), and applyAddCounter reuses the single-target counter
+  // loop verbatim — the -1/-1 lethal SBA included. ALL-OR-NOTHING anchored: any filter ("…you control
+  // with flying", "…other than this creature", "…with a +1/+1 counter on it", "…that entered this turn")
+  // or a variable "X counters" leaves trailing text -> fails `$` -> low -> Arbiter (the filtered subset
+  // is a DIFFERENT set scope:youControl would wrongly buff in full). Numeric N only (no X).
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
   // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)". Anchored
   // to end at "creature token(s)" — a keyword/ability rider ("…with flying", "…that's
   // tapped") fails the anchor → low, so a granted ability is never silently dropped.
