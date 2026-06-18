@@ -79,8 +79,18 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 > walkers keep other unmodeled abilities → stay `playable-pw`) — a **gameplay** win, not a corpus-% one.
 >
 > **The PW subsystem (PW-1 → PW-7) is COMPLETE.** Playable end-to-end + emblems + killable by removal.
-> Remaining follow-ups OPTIONAL: static-residue ~3 anthem walkers, AI walker-protection blocking,
-> triggered emblems. **Walt is free for a new lane** (a coverage row, or PW polish).
+> (#254 PW-8 triggered emblems still in flight, awaiting Omnath.) **Walt has pivoted to a NEW lane (below).**
+>
+> **WALT — PW-leverage general mechanisms (`feat/WALT-*-walt`).** RESERVED + DISJOINT from Cindy. Meaty
+> general atoms ranked by how many planeswalkers they unblock (they lift the whole corpus by proxy). Full
+> manual: `docs/orchestration/agents/walt.md`. **Reserved IDs — do NOT pull these for Cindy:**
+> **WALT-TOKEN-ABIL** (ability-carrying tokens · PW 48 / ~1,005) · **WALT-DMG-SCALE** (damage = count · PW 54 /
+> ~1,534) · **WALT-FOR-EACH** (count-scaled draw/token/life · PW 33 / ~1,408) · **WALT-GAIN-CTRL** (Threaten ·
+> PW 14) · **WALT-ANIMATE** (becomes-a-creature · PW 22) · **WALT-RECUR** (recursion EXT · PW ~20) ·
+> **WALT-TUTOR-EXT** (search EXT · PW 22) · **WALT-EMBLEM-ACT** (activated/complex emblems · PW 49) ·
+> **WALT-EXILE-COMPLEX** (delayed/conditional exile · PW 12). **Boundary:** scales-with-a-count /
+> ability-on-a-token / control-change / animate / recursion-tutor-exile-emblem EXTENSIONS = Walt; fixed-value
+> atoms + the trigger compiler + combat keywords + named-artifact tokens = Cindy.
 
 ### 🔴 high-lever
 
