@@ -22,7 +22,7 @@ import {
   handCardMatches,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice } from "../pendingChoice.js";
 
@@ -665,7 +665,18 @@ function applyImpulseDigAtom(state, atom, ctx) {
   if (n === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "impulse-dig", controller: ctx.controller, count: 0 });
   }
-  const cards = player.library.slice(0, n).map((c) => ({ id: c.id, name: c.name }));
+  const top = player.library.slice(0, n);
+  // DIG-1 — FILTERED reveal-dig ("you may reveal a <type> card …"): only TYPE-MATCHING cards are keepable
+  // to hand; the rest (incl. non-matching) go to `restTo`. An unfiltered dig keeps the whole looked-at set
+  // as candidates (the legacy δ-2 path).
+  const pool = atom.filter ? top.filter((c) => cardMatchesTutorFilter(c, atom.filter)) : top;
+  if (pool.length === 0) {
+    // Looked at N, nothing matching to reveal → the whole set goes to the bottom (a clean reveal-nothing,
+    // no picker — chosenId null disposes all of the top N). Only reachable on the filtered reveal-dig path.
+    const next = applyImpulseDig(state, { playerId: ctx.controller, n, chosenId: null, restTo: atom.restTo || "bottom" });
+    return logEvent(next, { kind: "spell-effect", effect: "impulse-dig", controller: ctx.controller, count: n, kept: 0 });
+  }
+  const cards = pool.map((c) => ({ id: c.id, name: c.name }));
   return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null });
 }
 
