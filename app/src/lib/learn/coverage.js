@@ -36,14 +36,33 @@ import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 
-// Evergreen / common keywords the layer + combat engine already handles. A
-// permanent whose only text is these plays natively (the body fights, the layer
-// engine applies the keyword).
+// Keywords whose RULES the runtime ACTUALLY ENFORCES — so a permanent whose only
+// text is these resolves CORRECTLY natively (CREED: native-body asserts a right
+// combat/targeting resolution, not just a recognized word). A keyword belongs here
+// ONLY if the engine consults it via permanentHasKeyword / an SBA / attack-legality:
+//   - flying/reach           → legalChoices.canBlock (block legality)
+//   - first/double strike, trample, deathtouch, lifelink → combatResolution.js
+//   - vigilance              → actionDispatcher (no attack-tap)
+//   - haste                  → legalChoices (summoning-sickness bypass)
+//   - indestructible         → gameState lethal-damage SBA + the destroy atom
+//   - flash                  → casting TIMING only; not honoring it removes an option
+//                              (a SAFE false-negative), never mis-resolves the body
+//   - changeling/devoid      → type/color identity; the body plays correctly
+//
+// EXCLUDED (display-only — the engine does NOT enforce their rules, so claiming a
+// body native on their basis is a FALSE POSITIVE; they drop to the Arbiter until
+// their enforcement subsystem ships, then return here):
+//   - menace/skulk/intimidate/fear/horsemanship → block restrictions unenforced
+//        (canBlock honors only flying/reach; combatResolution defers menace) → EVADE/canBlock
+//   - defender               → actionsDeclareAttacker never excludes it (a Wall can attack) → attack-legality
+//   - hexproof/shroud/ward    → enumerateTargets applies no targetability check → targeting-protection subsystem
+//   - protection             → DEBT (block/damage/target/enchant) all unenforced (combatResolution defers it) → protection subsystem
+//   - prowess                → an unmodeled triggered pump (no handler anywhere) → TRIG-PROWESS coverage
+// See docs/scout-gap-report.md "VERIFY-COVERED-KW" for the per-keyword evidence + drop counts.
 export const COVERED_KEYWORDS = [
   "flying", "reach", "first strike", "double strike", "trample", "deathtouch",
-  "lifelink", "vigilance", "menace", "haste", "defender", "flash", "hexproof",
-  "shroud", "indestructible", "ward", "protection", "prowess", "skulk",
-  "intimidate", "fear", "horsemanship", "changeling", "devoid",
+  "lifelink", "vigilance", "haste", "indestructible", "flash",
+  "changeling", "devoid",
 ];
 
 const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
@@ -287,17 +306,19 @@ export function permanentEquipmentCovered(card) {
 export function classifyCard(card) {
   const type = String(card?.type || "").toLowerCase();
   const oracle = card?.oracle || "";
-  if (/\bland\b/.test(type)) return "land";
   // A planeswalker (PW-1) — keyed on the FRONT face (castsAsPlaneswalker) so a creature-front DFC
   // (Jace, Vryn's Prodigy) classifies by its creature side below, matching how it actually casts.
   // Native when EVERY loyalty ability is a fully-modeled HIGH program and there's no unmodeled
   // residual text (planeswalkerNativelyCovered, the all-or-nothing CREED gate); otherwise the whole
-  // walker routes to the Ollama-only Arbiter (arbiter-pw).
+  // walker routes to the Ollama-only Arbiter (arbiter-pw). CHECKED BEFORE the land tier so a Land
+  // Planeswalker (Wrenn and One — type "Land Planeswalker") with unmodeled loyalty isn't masked as
+  // native-`land` (FIX-PW-LAND-ORDER): all-or-nothing wins — an unmodeled loyalty ability → arbiter-pw.
   if (castsAsPlaneswalker(card)) {
     if (planeswalkerNativelyCovered(card)) return "native-planeswalker"; // every loyalty ability modeled (counts native)
     if (planeswalkerPlayable(card)) return "playable-pw";                // PW-2 hybrid: plays, some abilities → Arbiter (NOT counted native)
     return "arbiter-pw";                                                 // unmodeled static/trigger residue → whole card to the Arbiter
   }
+  if (/\bland\b/.test(type)) return "land";
   // A DFC with a planeswalker BACK face but a non-PW front (Jace, Vryn's Prodigy; Valki // Tibalt)
   // enters as its front at runtime; its transform + back face are unmodeled, so it's NEVER native.
   // Classify body-only directly — running the creature native classifiers on the combined oracle could

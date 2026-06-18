@@ -14,8 +14,13 @@
  *   - Deathtouch — any damage is lethal (assigns 1 as "lethal", kills on >0).
  *   - Lifelink — the dealer's controller gains life equal to damage dealt.
  *   - Flying / Reach — enforced in legalChoices (who may block), not here.
- * Deferred: Menace (needs multi-block coordination), first-strike vs regular
- * ordering subtleties beyond the two-step model, protection, indestructible.
+ *   - Indestructible — enforced by the lethal-damage SBA this calls
+ *     (gameState.destroyLethalCreatures → isIndestructible, CR 704.5g), not here.
+ * Deferred (NOT enforced anywhere yet → these keywords are excluded from
+ * coverage.js COVERED_KEYWORDS so a body isn't claimed native on their basis):
+ * Menace (needs multi-block coordination / the EVADE canBlock chokepoint),
+ * protection (DEBT), first-strike vs regular ordering subtleties beyond the
+ * two-step model.
  *
  * Mode-agnostic: reads `state.combat` + each attacker's `defender`, so Standard
  * (1v1) and Commander (4P) resolve through the same path. Vanilla combat (no

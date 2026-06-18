@@ -114,4 +114,45 @@ describe("α1 — end-to-end: an unrestricted removal trigger hits an ENEMY, nev
     expect(out.players.ai.battlefield.some((p) => p.id === "foe")).toBe(false); // enemy creature destroyed
     expect(out.players.user.battlefield.some((p) => p.id === "mine")).toBe(true); // controller's own survives
   });
+
+  // VERIFY-ETB-DESTROY (Hans cycle-1): a RESTRICTED ETB-destroy (Ravenous Chupacabra,
+  // "...an opponent controls") destroys the opponent's creature, never the controller's own.
+  it("a restricted 'destroy target creature an opponent controls' ETB hits the opponent, never own", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const C = (id, name, controller) => createPermanent({ id, card: { id, name, type: "Creature — Bear", power: 2, toughness: 2 }, controller });
+    s = { ...s, players: {
+      ...s.players,
+      user: { ...s.players.user, battlefield: [C("mine", "MyBear", "user")] },
+      ai: { ...s.players.ai, battlefield: [C("foe", "FoeBear", "ai")] },
+    } };
+    s = { ...s, pendingTriggers: [{
+      event: "etb", source: { name: "Ravenous Chupacabra", permanentId: "src" }, controller: "user",
+      descriptor: { event: "etb", scope: "self", whose: "any", effectClause: "destroy target creature an opponent controls", interveningIf: null },
+      context: {}, targets: [], payload: {},
+    }] };
+    let out = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+    while (out.stack.length) out = resolveTopOfStack(out);
+    expect(out.players.ai.battlefield.some((p) => p.id === "foe")).toBe(false);   // opponent's creature destroyed
+    expect(out.players.user.battlefield.some((p) => p.id === "mine")).toBe(true); // controller's own untouched
+  });
+
+  // VERIFY-ETB-DESTROY: no legal target (only the controller's own creature on board) → the trigger
+  // fizzles cleanly (CR 603.3c removal / NO_SAFE_TARGET no-op), never crashes, never destroys own.
+  it("a restricted ETB-destroy with no opponent creature fizzles cleanly (no crash, own survives)", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const C = (id, name, controller) => createPermanent({ id, card: { id, name, type: "Creature — Bear", power: 2, toughness: 2 }, controller });
+    s = { ...s, players: {
+      ...s.players,
+      user: { ...s.players.user, battlefield: [C("mine", "MyBear", "user")] },
+      ai: { ...s.players.ai, battlefield: [] }, // no opponent creature
+    } };
+    s = { ...s, pendingTriggers: [{
+      event: "etb", source: { name: "Ravenous Chupacabra", permanentId: "src" }, controller: "user",
+      descriptor: { event: "etb", scope: "self", whose: "any", effectClause: "destroy target creature an opponent controls", interveningIf: null },
+      context: {}, targets: [], payload: {},
+    }] };
+    let out = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+    while (out.stack.length) out = resolveTopOfStack(out);
+    expect(out.players.user.battlefield.some((p) => p.id === "mine")).toBe(true); // own creature never targeted
+  });
 });
