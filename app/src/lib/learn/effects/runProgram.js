@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect, advanceDiscardChain } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 
 /**
@@ -228,13 +228,15 @@ export function autoPickSacrificeCandidate(state, pendingChoice) {
 }
 
 /**
- * Settle a pending sacrifice choice (edicts — Diabolic Edict / Cruel Edict / Geth's Verdict): sacrifice
- * the chosen creature from the SACRIFICER's battlefield (pc.controller) → their graveyard, firing dies
- * triggers via the shared helper, then RESUME the CASTER's program (a rider like Geth's Verdict "You lose
- * 1 life", which is the CASTER's, not the sacrificer's). A `permId` not among the offered candidates / no
- * longer on the battlefield (stale) is a logged no-op (the edict still resolved). Two eliminated-player
- * guards (the pause can outlive an SBA, CR 800.4a): a removed SACRIFICER skips the sac but still resumes
- * the caster's riders; a removed CASTER skips the resume. Hidden-info safe (the sacrificer's own board).
+ * Settle ONE pick in the sacrifice chain (edicts — Diabolic Edict / Innocent Blood / Liliana's Triumph):
+ * sacrifice the chosen creature from the SACRIFICER's battlefield (pc.controller) → their graveyard, firing
+ * dies triggers via the shared helper, then ADVANCE the chain (advanceSacrificeChain) — which either pauses
+ * again (the next each-player/each-opponent sacrificer owes a real choice) or, when the queue empties,
+ * RESUMES the CASTER's program (a rider like Geth's Verdict "You lose 1 life", which is the CASTER's, not the
+ * sacrificer's). A `permId` not among the offered candidates / no longer on the battlefield (stale) is a
+ * logged no-op (the sacrifice still "resolved"). Eliminated-player guards (the pause can outlive an SBA, CR
+ * 800.4a): a removed SACRIFICER skips their sac; when the chain re-pauses the original caster-resume is
+ * carried forward; a removed CASTER skips the final resume. Hidden-info safe (the sacrificer's own board).
  */
 export function resolveSacrificeChoice(state, permId) {
   const pc = state.pendingChoice;
@@ -249,12 +251,23 @@ export function resolveSacrificeChoice(state, permId) {
     }
   } else {
     // The sacrificer left the game mid-pause (CR 800.4a) — log the no-op for decision-log parity with the
-    // stale-permId case, then still resume the CASTER's riders below (the rider is theirs, not the victim's).
+    // stale-permId case, then advance the chain (the next sacrificer / the caster's riders still settle).
     next = logEvent(next, { kind: "spell-effect", effect: "sacrifice", controller: pc.controller, sacrificed: null });
   }
+  // Advance the chain — drop the settled head sacrificer, then continue (each-player / each-opponent forms).
+  const queue = (pc.queue || []).slice(1);
+  const r = advanceSacrificeChain(next, { queue, sourceName: pc.sourceName });
+  if (r.pendingChoice) {
+    // The chain re-paused (the next sacrificer owes a real choice). Carry the original caster-resume forward
+    // so the program resumes once the whole chain settles (advanceSacrificeChain never sets a resume itself).
+    return r.pendingChoice.resume || !pc.resume
+      ? r
+      : { ...r, pendingChoice: { ...r.pendingChoice, resume: pc.resume } };
+  }
+  // Chain done → resume the caster's suspended program (its riders).
   const casterId = pc.resume?.controller;
-  if (casterId && !next.players?.[casterId]) return next; // caster eliminated mid-pause → no resume
-  return resumeAfterChoice(next, pc);
+  if (casterId && !r.players?.[casterId]) return r; // caster eliminated mid-pause → no resume
+  return resumeAfterChoice(r, pc);
 }
 
 /**

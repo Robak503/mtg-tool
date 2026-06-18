@@ -136,7 +136,7 @@ export function setPendingImpulseDigChoice(state, { controller, candidates, rest
  * battlefield, and the chooser is their controller). The caster's continuation rides on `pendingChoice
  * .resume` (attached by runProgram), so a rider — Geth's Verdict "You lose 1 life" — runs after. FIFO.
  */
-export function setPendingSacrificeChoice(state, { controller, candidates, sourceName = null }) {
+export function setPendingSacrificeChoice(state, { controller, candidates, queue = null, sourceName = null }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "sacrifice-pending", controller, count: candidates.length, sourceName });
   return {
@@ -145,6 +145,9 @@ export function setPendingSacrificeChoice(state, { controller, candidates, sourc
       kind: "sacrifice-choice",
       controller,
       candidates,
+      // EACH-PLAYER / EACH-OPPONENT edicts resolve as a CHAIN: `queue` is the remaining sacrificers (head =
+      // the current one). Single-target edicts (#214) pass no queue → a queue-of-one settles then resumes.
+      queue,
       sourceName,
     },
   };

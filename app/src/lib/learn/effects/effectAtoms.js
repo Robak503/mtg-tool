@@ -344,35 +344,66 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
 }
 
 /**
- * EDICTS — "Target player/opponent sacrifices a creature" (Diabolic Edict / Cruel Edict / Geth's Verdict).
- * The spell targeted a PLAYER at cast; that TARGET is the one who sacrifices, and THEY choose which
- * creature (CR 701.16 — the sacrificing player chooses, NOT the caster). Resolution gathers the target's
- * creatures and:
- *   - 0 creatures → a clean no-op (logged; the edict still "resolved").
- *   - exactly 1 → no real choice, sacrifice it straight away (the only legal pick; deterministic).
- *   - ≥2 → set a `pendingChoice` whose `controller` is the SACRIFICER, so the driver pauses for a human
- *     picker and auto-sacs the AI's least-valuable creature (the same pause-or-autopick split as the
- *     tutor/scry/hand-discard). The caster's riders (Geth's Verdict "You lose 1 life") resume after.
- * Eliminated-target guard: a target that left the game is skipped. Hidden-info safe — the sacrificer's
- * creatures are public on the battlefield, and the chooser IS their controller.
+ * ===== EDICTS ===== — walk the sacrifice CHAIN (CR 701.16 — each sacrificing player chooses which creature
+ * to give up). `queue` is the remaining sacrificers, head-first, each `{ playerId }` (one creature apiece —
+ * the modeled "sacrifices a creature" forms). For each in turn:
+ *   - eliminated / no creature → drop and move on (a clean no-op; you can't sacrifice what you don't have).
+ *   - exactly 1 creature → FORCED sacrifice (no real choice): pitch it inline (dies triggers fire), move on.
+ *   - ≥2 creatures → a REAL choice: pause via setPendingSacrificeChoice for THIS sacrificer (the driver
+ *     pauses a human picker, auto-sacs an AI's least-valuable), carrying the queue so resolveSacrificeChoice
+ *     can drop the settled head + re-enter.
+ * When the queue empties with no pause, returns the advanced state (the program continues / resumes). Shared
+ * by applySacrifice (the atom's first entry) and runProgram.resolveSacrificeChoice (each subsequent pick),
+ * so ONE implementation drives the single-target edict (#214) AND the each-player / each-opponent forms.
+ * Hidden-info safe: each sacrificer's creatures are public, and the chooser IS their controller.
+ */
+export function advanceSacrificeChain(state, { queue, sourceName = null }) {
+  let next = state;
+  let q = queue || [];
+  while (q.length) {
+    const head = q[0];
+    const player = next.players?.[head.playerId];
+    if (!player) { q = q.slice(1); continue; } // sacrificer left the game (CR 800.4a) → skip
+    const creatures = (player.battlefield || [])
+      .filter((p) => isCreatureCard(p.card))
+      .map((p) => ({ id: p.id, name: p.card?.name }));
+    if (creatures.length === 0) { q = q.slice(1); continue; } // no creature → can't sacrifice → skip
+    if (creatures.length === 1) {
+      next = sacrificeCreatureEffect(next, head.playerId, creatures[0].id); // forced — sole legal pick
+      q = q.slice(1);
+      continue;
+    }
+    // ≥2 — a real choice: pause for THIS sacrificer's pick, carrying the rest of the queue.
+    return setPendingSacrificeChoice(next, { controller: head.playerId, candidates: creatures, queue: q, sourceName });
+  }
+  return next;
+}
+
+/**
+ * EDICTS — sacrifice-as-an-effect, resolved through the chain above. The SACRIFICING player chooses which
+ * creature (CR 701.16), never the caster. `atom.who` selects the sacrificers:
+ *   - "target" (default, #214) — the player(s) targeted at cast (Diabolic Edict / Cruel Edict / Geth's Verdict).
+ *   - "eachPlayer" (Innocent Blood / Reign of the Pit) — every player, the controller first (APNAP-stable).
+ *   - "eachOpponent" (Liliana's Triumph / Skull Storm) — every opponent.
+ * A removed sacrificer / no creatures is a clean no-op; the caster's riders resume after the whole chain settles.
  */
 function applySacrifice(state, atom, ctx) {
-  const victim = (ctx.targets || []).find((t) => t.type === "player");
-  if (!victim || !state.players[victim.id]) {
-    return logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: ctx.controller, victim: victim?.id ?? null, candidates: 0 });
+  let sacrificers;
+  if (atom.who === "eachPlayer") {
+    const seen = new Set();
+    sacrificers = [ctx.controller, ...opponentsOf(state, ctx.controller)]
+      .filter((pid) => state.players?.[pid] && !seen.has(pid) && seen.add(pid));
+  } else if (atom.who === "eachOpponent") {
+    sacrificers = opponentsOf(state, ctx.controller).filter((pid) => state.players?.[pid]);
+  } else {
+    sacrificers = (ctx.targets || [])
+      .filter((t) => t.type === "player" && state.players?.[t.id])
+      .map((t) => t.id);
   }
-  const creatures = (state.players[victim.id].battlefield || [])
-    .filter((p) => isCreatureCard(p.card))
-    .map((p) => ({ id: p.id, name: p.card?.name }));
-  if (creatures.length === 0) {
-    return logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: ctx.controller, victim: victim.id, candidates: 0 });
+  if (sacrificers.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "sacrifice", who: atom.who || "target", sacrificers: 0 });
   }
-  if (creatures.length === 1) {
-    return sacrificeCreatureEffect(state, victim.id, creatures[0].id);
-  }
-  // ≥2 — the SACRIFICER picks (driver pauses for the human, auto-sacs the AI's worst). runProgram
-  // attaches the resume so the caster's riders run after the victim is settled.
-  return setPendingSacrificeChoice(state, { controller: victim.id, candidates: creatures, sourceName: ctx.cardName });
+  return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid })), sourceName: ctx.cardName });
 }
 
 /** Put +1/+1 or -1/-1 counters on the chosen creature(s), or the SOURCE for a self counter
