@@ -250,3 +250,48 @@ describe("activated abilities — γ1b sacrifice-a-creature (chosen victim)", ()
     expect(resolved.players.ai.life).toBe(aiLifeBefore - 1);
   });
 });
+
+describe("activated abilities — γ1c exile-self + remove-counter costs", () => {
+  const withLibrary = (state, playerId, library) =>
+    ({ ...state, players: { ...state.players, [playerId]: { ...state.players[playerId], library } } });
+
+  it("an Exile-this ability exiles the source (NOT to the graveyard — exile isn't 'dies') and resolves", () => {
+    const relic = createPermanent({ id: "perm-r", card: creature("Relic", "{1}, Exile this artifact: Draw a card.", { type: "Artifact" }), controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [relic]);
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, manaPool: { W: 0, U: 0, B: 0, R: 0, G: 0, C: 1 }, library: [{ id: "lib-1", name: "Card" }] } } };
+    const act = activateActions(s).find((a) => a.exileSelf);
+    expect(act).toBeTruthy();
+    const after = dispatchAction(s, act);
+    expect(after.players.user.battlefield.find((p) => p.id === "perm-r")).toBeUndefined();
+    expect(after.players.user.exile.some((c) => c.name === "Relic")).toBe(true);       // exiled
+    expect(after.players.user.graveyard.some((c) => c.name === "Relic")).toBe(false);  // NOT a death
+    const resolved = resolveTopOfStack(after);
+    expect(resolved.players.user.hand.map((c) => c.id)).toContain("lib-1");
+  });
+
+  it("does NOT offer an exile-self ability whose source has an LTB trigger (leave-trigger fail-safe reused)", () => {
+    const relic = createPermanent({ id: "perm-r", card: creature("Loot", "When this artifact leaves the battlefield, create a Treasure token.\nExile this artifact: Draw a card.", { type: "Artifact" }), controller: "user", summoningSick: false });
+    const s = withLibrary(withBattlefield(mainState(), "user", [relic]), "user", [{ id: "lib-1", name: "Card" }]);
+    expect(activateActions(s).filter((a) => a.exileSelf)).toHaveLength(0);
+  });
+
+  it("a Remove-a-counter ability is offered only when the source HAS the counter, and removes exactly one", () => {
+    const card = creature("Engine", "Remove a +1/+1 counter from this creature: Draw a card.");
+    const withCounters = { ...createPermanent({ id: "perm-c", card, controller: "user", summoningSick: false }), counters: { "+1/+1": 2 } };
+    let s = withBattlefield(mainState(), "user", [withCounters]);
+    s = withLibrary(s, "user", [{ id: "lib-1", name: "Card" }]);
+    const act = activateActions(s).find((a) => a.removeCounter);
+    expect(act).toMatchObject({ removeCounter: { type: "+1/+1" } });
+    const after = dispatchAction(s, act);
+    expect(after.players.user.battlefield.find((p) => p.id === "perm-c").counters["+1/+1"]).toBe(1);
+    const resolved = resolveTopOfStack(after);
+    expect(resolved.players.user.hand.map((c) => c.id)).toContain("lib-1");
+  });
+
+  it("does NOT offer a Remove-a-counter ability when the source has none of that counter (unpayable)", () => {
+    const card = creature("Engine", "Remove a +1/+1 counter from this creature: Draw a card.");
+    const noCounters = createPermanent({ id: "perm-c", card, controller: "user", summoningSick: false }); // counters {}
+    const s = withBattlefield(mainState(), "user", [noCounters]);
+    expect(activateActions(s).filter((a) => a.removeCounter)).toHaveLength(0);
+  });
+});

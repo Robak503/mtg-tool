@@ -53,6 +53,8 @@ export function parseAbilityCost(costStr) {
   let payLife = 0;
   let sacSelf = false;
   let sacOther = null;
+  let exileSelf = false;
+  let removeCounter = null;
   for (const item of items) {
     if (/^\{t\}$/i.test(item)) { tapSelf = true; continue; }
     // γ1 — two NO-CHOICE non-mana costs the engine pays without a player decision:
@@ -61,6 +63,15 @@ export function parseAbilityCost(costStr) {
     const lifeM = /^pay (\d+) life$/i.exec(item);
     if (lifeM) { payLife += parseInt(lifeM[1], 10); continue; }
     if (/^sacrifice (?:this|~)(?: creature| permanent| artifact| enchantment| land)?$/i.test(item)) { sacSelf = true; continue; }
+    // γ1c — two more NO-CHOICE self costs:
+    //   "Exile this[ <type>]"            → exile the SOURCE from the battlefield (NOT "dies"; no dies
+    //                                      triggers). The `$` anchor excludes "Exile this card from your
+    //                                      graveyard" (a graveyard ability) and "…from exile" variants.
+    //   "Remove a <type> counter from this" → remove one counter of <type> from the SOURCE (no choice).
+    if (/^exile (?:this|~)(?: creature| permanent| artifact| enchantment| land)?$/i.test(item)) { exileSelf = true; continue; }
+    const rcM = /^remove (?:a|an|one) ([+\-\w/]+) counter from (?:this|~|it)\b/i.exec(item);
+    // Keep "+1/+1" / "-1/-1" verbatim (the counter-model keys); lowercase named types (charge, fade…).
+    if (rcM) { removeCounter = { type: /^[+-]\d/.test(rcM[1]) ? rcM[1] : rcM[1].toLowerCase() }; continue; }
     // γ1b — "Sacrifice a/an/another <type>": a CHOICE cost. The single victim is picked at offer time
     // (legalChoices expands one action per legal sacrificeable permanent of <type>), so the parser only
     // records the shape; "another" excludes the source. A COUNT ("two creatures") or a compound type
@@ -73,7 +84,7 @@ export function parseAbilityCost(costStr) {
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{S}/… → unmodeled
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, sacSelf, sacOther };
+  return { manaPips, tapSelf, payLife, sacSelf, sacOther, exileSelf, removeCounter };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -177,13 +188,16 @@ export function parseActivatedAbilities(card) {
       payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)
       sacSelf: cost?.sacSelf ?? false, // γ1 — "Sacrifice this" cost item (the runtime sacs the source)
       sacOther: cost?.sacOther ?? null, // γ1b — "Sacrifice a/another <type>": legalChoices picks the victim
+      exileSelf: cost?.exileSelf ?? false,     // γ1c — "Exile this": exile the source from the battlefield
+      removeCounter: cost?.removeCounter ?? null, // γ1c — "Remove a <type> counter from this"
       costModeled: !!cost,
       isManaEffect,
       program,
-      // Playable on the stack: cost is mana+{T}(+pay-life/self-sac), effect is HIGH (non-modal,
-      // non-X), it's NOT a mana ability (those use the no-stack tap-for-mana path), AND — for a
-      // self-sac cost — sacrificing won't silently drop one of the card's own triggers (γ1 fail-safe).
-      modeled: !!cost && !isManaEffect && effectHigh && !(cost.sacSelf && sacUnsafe),
+      // Playable on the stack: cost is mana+{T}(+pay-life/self-sac/exile/remove-counter), effect is HIGH
+      // (non-modal, non-X), NOT a mana ability (no-stack path), AND — for a self-sac OR self-exile cost
+      // (both make the source LEAVE the battlefield) — leaving won't silently drop one of the card's own
+      // triggers (the shared γ1 fail-safe). Remove-a-counter doesn't leave, so it isn't gated by it.
+      modeled: !!cost && !isManaEffect && effectHigh && !((cost.sacSelf || cost.exileSelf) && sacUnsafe),
       needsTarget: effectHigh && !!program && programNeedsChosenTarget(program),
     });
   }
