@@ -738,11 +738,57 @@ function matchImpulseDig(oracle) {
  * atoms → Arbiter seam) otherwise. NEVER null for a non-permanent spell, NEVER a
  * fabricated effect.
  */
+// ===== ADDITIONAL COSTS (cast-path, CR 601.2f) =====
+// A spell's "As an additional cost to cast this spell, <cost>." sentence is paid AT CAST, not at
+// resolution — it is NOT an effect atom. Today the clause parser can't match that sentence, so any such
+// card stays LOW (safe). This slice recognizes the single cleanest, highest-yield cost-type — a
+// CHOSEN-VICTIM sacrifice ("sacrifice a/an <creature|permanent|artifact|enchantment|land>") — strips the
+// cost sentence, parses the REMAINING effect through the normal all-or-nothing pipeline, and attaches
+// `additionalCosts` to the program. The cast path enforces it (legalChoices.actionsCastSpell enumerates one
+// cast per legal victim + gates the spell uncastable when none can be sacrificed; actionDispatcher.
+// applyCastSpell pays it via the γ1b `sacrificePermanentForCost` helper). The sac allowlist MIRRORS
+// abilities.parseAbilityCost's `sacOther` regex — we can't import it (abilities.js imports parser.js → a
+// cycle), so the discipline is duplicated, not shared: a COUNT ("two creatures"), a compound type ("a
+// creature or artifact"), or "another" (a spell has no source permanent to exclude) doesn't match → the
+// sentence is left in place → the card stays LOW.
+const ADDITIONAL_COST_RE = /\bas an additional cost to cast this spell,\s*([^.]+)\.\s*/i;
+const SAC_COST_RE = /^sacrifice (?:a|an) (creature|permanent|artifact|enchantment|land)$/i;
+const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice"]);
+
+/**
+ * Pull a modeled additional cost off a spell's oracle. Returns `{ costs, rest }`:
+ *   - `costs`: `[{ kind:"sacrifice", sacType }]` when the (sole) additional cost is a clean chosen-victim
+ *     sacrifice AND the remaining effect does NOT reference the sacrificed object; otherwise `null`.
+ *   - `rest`: the oracle with the cost sentence removed — ONLY when `costs !== null`; otherwise the oracle
+ *     unchanged (so the un-strippable cost sentence keeps the card LOW).
+ * CONSERVATIVE by construction: anything but the modeled sac form leaves the oracle untouched → Arbiter.
+ */
+function extractAdditionalCosts(oracle) {
+  const m = ADDITIONAL_COST_RE.exec(oracle);
+  if (!m) return { costs: null, rest: oracle };
+  const sac = SAC_COST_RE.exec(m[1].trim());
+  if (!sac) return { costs: null, rest: oracle };              // unmodeled cost-type / count / compound → LOW
+  const rest = (oracle.slice(0, m.index) + oracle.slice(m.index + m[0].length)).trim();
+  // Self-reference guard: an effect that reads the sacrificed object ("…damage equal to the sacrificed
+  // creature's power", "the sacrificed creature") can't be fed the victim's stats — leave the whole card
+  // LOW. UNMODELED_MARKERS already catches "equal to"/"for each"; this is explicit belt-and-suspenders.
+  if (/\bsacrificed\b/i.test(rest)) return { costs: null, rest: oracle };
+  return { costs: [{ kind: "sacrifice", sacType: sac[1].toLowerCase() }], rest };
+}
+
 export function parseEffectProgram(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
-  // {X}-cost spell: the parser may stamp `amountX` on a damage/draw/pump atom whose
+  const oracle = oracleOf(card);
+  const { costs, rest } = extractAdditionalCosts(oracle);
+  // A spell that is BOTH an X-spell AND carries an additional cost is a compound we defer — the cast-path
+  // X-value expansion and the victim expansion don't yet compose — so parse the FULL oracle and let the
+  // un-stripped cost sentence keep it LOW. No clean printed card needs both today.
+  if (costs && hasXCost(card)) return parseEffectClause(oracle, typeOf(card), { hasX: true });
+  // {X}-cost spell (no additional cost): the parser may stamp `amountX` on a damage/draw/pump atom whose
   // amount is the chosen X, bound at cast time (CR 601.2b) and read at resolution.
-  return parseEffectClause(oracleOf(card), typeOf(card), { hasX: hasXCost(card) });
+  const program = parseEffectClause(costs ? rest : oracle, typeOf(card), { hasX: hasXCost(card) });
+  if (costs && program) program.additionalCosts = costs;
+  return program;
 }
 
 /**
@@ -852,6 +898,11 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
  */
 export function programConfidence(program) {
   if (!program) return "low";
+  // An additional cost the cast path can't pay must never let a card claim HIGH (CREED — a spell that
+  // resolves while silently skipping its cost is a false positive). Today the parser only ever attaches a
+  // "sacrifice" cost, enforced in actionDispatcher.applyCastSpell; this gate future-proofs the invariant —
+  // any unsupported cost kind forces LOW until its cast-path enforcement exists.
+  if (Array.isArray(program.additionalCosts) && program.additionalCosts.some(c => !SUPPORTED_ADDITIONAL_COST_KINDS.has(c.kind))) return "low";
   if (program.structure === "modal") {
     const modes = program.modal?.modes;
     if (!Array.isArray(modes) || modes.length < 2) return "low";

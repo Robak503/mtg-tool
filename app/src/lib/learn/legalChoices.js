@@ -334,6 +334,45 @@ function actionsCastSpell(state, playerId) {
 
     const isHigh = program && programConfidence(program) === "high";
 
+    // ===== ADDITIONAL COSTS (cast-path, CR 601.2f) ===== a spell carrying a chosen-victim sacrifice
+    // additional cost (parser-attached `program.additionalCosts`): the player picks which permanent to
+    // sacrifice AT CAST. Expand one cast per legal victim × the program's legal target/mode combos — the
+    // exact γ1b shape from actionsActivateAbility. GATE: no legal victim → the cost can't be paid →
+    // uncastable (continue; never offer a cast we can't complete). A victim whose OWN leave-trigger the
+    // dies path can't fire is excluded (sacrificeDropsTrigger) so we never partially apply. A program is
+    // never both xSpell and additional-cost (parseEffectProgram defers that compound to LOW), so this
+    // precedes the X / modal / target branches and `continue`s after — additional-cost spells are fully
+    // handled here, in one place, for every effect shape (expandCastChoices covers single/multi/modal).
+    const sacCost = isHigh ? (program.additionalCosts || []).find(c => c.kind === "sacrifice") : null;
+    if (sacCost) {
+      const victims = player.battlefield.filter(v =>
+        sacTypeMatches(v.card, sacCost.sacType) &&
+        !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
+      if (victims.length === 0) continue;                 // unpayable additional cost → uncastable
+      const combos = expandCastChoices(state, playerId, program);
+      if (combos.length === 0) continue;                  // a required effect target has no legal pick
+      for (const victim of victims) {
+        for (const ch of combos) {
+          // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a cost
+          // (gone before the spell resolves), so the target would fizzle (CR 608.2b). A pointless
+          // self-defeating action; drop it (matches the γ1b activated-ability victim guard).
+          if (ch.targets.some(t => t.id === victim.id)) continue;
+          actions.push({
+            ...base,
+            targets: ch.targets,
+            chosenMode: ch.chosenMode ?? null,
+            needsTargets: ch.targets.length > 0,
+            targetName: ch.targets.map(t => t.name).filter(Boolean).join(", ") || undefined,
+            modeName: ch.label || undefined,
+            sacCreatureId: victim.id,                      // the chosen victim to sacrifice as the cost
+            sacCreatureName: victim.card?.name ?? null,
+            sacName: victim.card?.name ? `sacrifice ${victim.card.name}` : undefined,
+          });
+        }
+      }
+      continue;
+    }
+
     // X-spell ({X} cost, an `amountX` atom): the player chooses X at cast (CR 601.2b).
     // Surface a BOUNDED set of affordable X values, each crossed with the program's
     // legal target combos (expandCastChoices handles per-atom target binding for both
