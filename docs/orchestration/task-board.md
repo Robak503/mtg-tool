@@ -31,5 +31,9 @@ different tasks won't collide; the worktree isolation + Omnath's serialized merg
 | **PREVENT** | ⛔ | **Replacement / prevention** — "prevent all combat damage…", "if … would … instead". A replacement-effects subsystem. **Hard δ — defer.** | ~big | DEFER | Fog-class, Story Circle |
 
 **Hans:** re-rank + add rows here each scout cycle (the best next atom shifts as the set grows; estimate
-the **honest clean-template count**, not the loose bucket headline). **Rod:** file any false-positive /
-interaction bug as a 🔴 `FIX-…` task. **Omnath:** flips status to `DONE` on merge, files review P0s as tasks.
+the **honest clean-template count**, not the loose bucket headline); file any mis-modeled card you spot as a
+`VERIFY-…` row. **Rod:** file any false-positive / interaction bug as a 🔴 `FIX-…` task. **Erin (Fixer):**
+owns the `FIX-…` / `VERIFY-…` lane — verifies each is a real false positive, then fixes it (default fix:
+tighten the matcher so the offender drops to LOW → Arbiter + pin `MUST_DROP_TO_LOW`); claims via `fix/<area>-*`
+branches. Coverage rows (TOK/CNT/EP/ED/BURN/…) stay with **Cindy & Paula**. **Omnath:** flips status to
+`DONE` on merge, files review P0s as `FIX-…` tasks.
