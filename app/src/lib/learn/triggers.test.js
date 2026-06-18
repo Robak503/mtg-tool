@@ -104,11 +104,60 @@ describe("classifyCondition — compound self-event + LTB guard (CREED)", () => 
   it("does NOT detect 'enters or dies' (Vinereap Mentor) — the dies half would be dropped", () => {
     expect(detectTriggers(creature("Vinereap Mentor", "When this creature enters or dies, create a Food token."))).toHaveLength(0);
   });
+  // FIX-TRIG-COMPOUND (Rod QA #1) — the original eventVerbs tally counted only enters/dies/leaves, so an
+  // "enters or attacks" (Grave Titan) and the artifact "enters or is put into a graveyard" family slipped
+  // through (eventVerbs==1) and fired on ETB only. attacks/blocks/put-into-graveyard are now counted too.
+  it("does NOT detect 'enters or attacks' (Grave Titan) — the attacks half would be dropped", () => {
+    expect(detectTriggers(creature("Grave Titan", "Whenever Grave Titan enters or attacks, create two 2/2 black Zombie creature tokens."))).toHaveLength(0);
+  });
+  it("does NOT detect 'enters or is put into a graveyard' (Ichor Wellspring / Servo Schematic) — the death half would be dropped", () => {
+    expect(detectTriggers(creature("Ichor Wellspring", "When Ichor Wellspring enters or is put into a graveyard from the battlefield, draw a card.", { type: "Artifact" }))).toHaveLength(0);
+    expect(detectTriggers(creature("Servo Schematic", "When this artifact enters or is put into a graveyard from the battlefield, create a 1/1 colorless Servo artifact creature token.", { type: "Artifact" }))).toHaveLength(0);
+  });
+  it("does NOT detect 'a creature dies or a creature card is put into a graveyard from a library' (Dreadhound) — the second event would be dropped", () => {
+    expect(detectTriggers(creature("Dreadhound", "Whenever a creature dies or a creature card is put into a graveyard from a library, each opponent loses 1 life."))).toHaveLength(0);
+  });
+  // A single-event "attacks" / "blocks" condition is still ONE event and resolves normally (the tally
+  // change must not break the single-event forms).
+  it("still detects a single self 'attacks' / 'blocks' (eventVerbs==1 — unaffected)", () => {
+    expect(detectTriggers(creature("Hellrider", "Whenever this creature attacks, it gets +1/+0 until end of turn.")).map((t) => t.event)).toEqual(["attacks"]);
+    expect(detectTriggers(creature("Wall", "Whenever this creature blocks, it gets +0/+2 until end of turn.")).map((t) => t.event)).toEqual(["blocks"]);
+  });
   it("does NOT detect a 'dies and when you discard this card' embedded second trigger (Bartered Cow)", () => {
     expect(detectTriggers(creature("Bartered Cow", "When this creature dies and when you discard this card, create a Food token."))).toHaveLength(0);
   });
   it("does NOT detect a 'leaves the battlefield' trigger (City Pigeon) — the engine never fires LTB", () => {
     expect(detectTriggers(creature("City Pigeon", "When this creature leaves the battlefield, create a Food token."))).toHaveLength(0);
+  });
+});
+
+// ===== FIX-TRIG-CONDITION (Rod QA #1, CREED) ===== classifyCondition over-detected restricted /
+// alternate-subject triggers: a broad selfRef (`/\bthis\b/` anywhere, or the card name) + dropped
+// scope-inexpressible restrictions made aristocrats / tribal / Sengir payoffs fire at the wrong time or
+// only on self-death. Any condition carrying an "or another" alternate subject, "dealt damage by", or a
+// with / while / during / named / "the player with" restriction is now left UNDETECTED → Arbiter (safe).
+// The legit bare forms (a self/controller bare event) MUST stay detected — no over-correction.
+describe("classifyCondition — restricted / alternate-subject guard (FIX-TRIG-CONDITION)", () => {
+  const zero = (name, oracle) => expect(detectTriggers(creature(name, oracle))).toHaveLength(0);
+  it("does NOT detect 'X or another creature you control dies' aristocrats (Zulaport / Cruel Celebrant / Rotlung)", () => {
+    zero("Zulaport Cutthroat", "Whenever Zulaport Cutthroat or another creature you control dies, each opponent loses 1 life and you gain 1 life.");
+    zero("Cruel Celebrant", "Whenever Cruel Celebrant or another creature you control dies, each opponent loses 1 life and you gain 1 life.");
+    zero("Rotlung Reanimator", "Whenever Rotlung Reanimator or another Cleric dies, create a 2/2 black Zombie creature token.");
+  });
+  it("does NOT detect a 'dealt damage by this' restriction (Sengir Vampire) — broad selfRef mis-read it as a bare self-dies", () => {
+    zero("Sengir Vampire", "Whenever a creature dealt damage by Sengir Vampire this turn dies, put a +1/+1 counter on Sengir Vampire.");
+  });
+  it("does NOT detect a scope-inexpressible restriction (with / while / during / the player with)", () => {
+    zero("Tenured Inkcaster", "Whenever a creature you control with a +1/+1 counter on it attacks, each opponent loses 1 life.");
+    zero("Seasoned Warrenguard", "Whenever a creature you control attacks while you control a token, put a +1/+1 counter on this creature.");
+    zero("Mongrel Pack", "When Mongrel Pack dies during combat, create four 1/1 green Hound creature tokens.");
+    zero("Preacher of the Schism", "Whenever this creature attacks the player with the most life, draw a card.");
+  });
+  it("STILL detects the legit bare forms (no over-correction)", () => {
+    // "another creature you control dies" — no 'or another', no restriction — is the modeled
+    // otherCreatureYouControl death-watcher and must stay native.
+    expect(detectTriggers(creature("Z", "Whenever another creature you control dies, draw a card.")).map((t) => t.event)).toEqual(["dies"]);
+    expect(detectTriggers(creature("Z", "When this creature dies, draw a card.")).map((t) => t.event)).toEqual(["dies"]);
   });
 });
 
