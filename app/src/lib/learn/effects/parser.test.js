@@ -501,6 +501,13 @@ describe("parseEffectProgram — tutor (P3.2)", () => {
 // unless …", which legacy parses as a plain destroy) — the clean-clause gate
 // catches the rider so the interpreter never resolves the wrong thing.
 const MUST_DROP_TO_LOW = [
+  // ── KWSTRIP-1 — only the SIX vacuous cast-keyword lines are stripped. A NON-vacuous keyword
+  // (rebound/cipher/conspire/learn/proliferate/amass) is NOT stripped → its line is an unparseable clause
+  // → low; and a vacuous-keyword card whose BODY is unmodeled also stays low (all-or-nothing). ──
+  "Target creature gets +1/+0 until end of turn.\nRebound",                     // rebound — NOT vacuous (recasts) → not stripped → low
+  "Target player discards a card.\nCipher",                                     // cipher — NOT vacuous (encodes) → not stripped → low
+  "Suspend 4—{1}{R}\nEach player discards their hand, then draws seven cards.", // Wheel of Fate — suspend stripped, but the body is unmodeled → low
+  "Foretell {3}{B}{B}\nReturn all creature cards from your graveyard to the battlefield.", // foretell stripped, but the MASS-reanimation body is unmodeled → low
   // ── P3.1 counter target spell — the riders that must STAY low (the modeled shapes
   // are pinned HIGH in MUST_STAY_HIGH + the dedicated describe block below). The
   // anchored allowlist drops anything that isn't EXACTLY a bare "Counter target
@@ -728,6 +735,15 @@ const MUST_STAY_HIGH = [
   // counter-target enumerator, not the effect program) — stripped so the modeled effect parses. ──
   "This spell can't be countered. Destroy all creatures.",                      // Supreme Verdict
   "This spell can't be countered. Counter target noncreature spell.",           // Dovin's Veto
+  // ── KWSTRIP-1 — a VACUOUS cast/alternate-cost keyword LINE (foretell / suspend / splice onto arcane /
+  // recover / harmonize / basic landcycling) is stripped (line-anchored) so the spell's BODY parses; the
+  // normal-cast resolution is identical. Non-vacuous keywords (rebound/cipher/…) are NOT stripped (low). ──
+  "Destroy all creatures.\nForetell {1}{W}{W}",                                 // Doomskar (foretell)
+  "Rift Bolt deals 3 damage to any target.\nSuspend 1—{R}",                     // Rift Bolt (suspend)
+  "Splice onto Arcane {1}{U}\nDraw a card.",                                    // Evermind (splice onto arcane)
+  "Return target creature card from your graveyard to your hand.\nRecover {2}{B}", // Grim Harvest (recover)
+  "Suspend 4—{G}\nCreate two 4/4 green Rhino creature tokens with trample.",    // Crashing Footfalls (suspend + token)
+  "Suspend 3—{B}\nTarget player discards three cards.",                         // Mindstab (suspend + discard)
   // ── P3.1 counter target spell — the modeled shapes (any/noncreature/creature) +
   // counter-bearing multi-clause/modal programs. FLIPPED from low→high this slice. ──
   "Counter target spell.",                                                      // Counterspell
@@ -842,6 +858,27 @@ const MUST_STAY_HIGH = [
 describe("parseEffectProgram — review-confirmed HIGH (must NOT over-correct)", () => {
   it.each(MUST_STAY_HIGH)("stays high: %s", (oracle) => {
     expect(programConfidence(parseEffectProgram(I(oracle)))).toBe("high");
+  });
+});
+
+// KWSTRIP-1 — a VACUOUS cast/alternate-cost keyword LINE (foretell / suspend / splice onto arcane /
+// recover / harmonize / basic landcycling) is stripped (line-anchored) so the spell's BODY parses; the
+// normal-cast resolution is identical. Non-vacuous keywords (rebound/cipher/…) are NOT stripped.
+describe("parseEffectProgram — KWSTRIP-1 (vacuous cast-keyword line strip)", () => {
+  it("strips the keyword line (before OR after the body) and models the body atom", () => {
+    expect(parseEffectProgram(I("Destroy all creatures.\nForetell {1}{W}{W}")).atoms)
+      .toEqual([{ op: "destroy", targetType: "eachCreature" }]);                       // Doomskar — keyword AFTER the body
+    expect(parseEffectProgram(I("Suspend 1—{R}\nRift Bolt deals 3 damage to any target.")).atoms[0])
+      .toMatchObject({ op: "deal-damage" });                                           // Rift Bolt — keyword BEFORE the body
+    expect(parseEffectProgram(I("Splice onto Arcane {1}{U}\nDraw a card.")).atoms)
+      .toEqual([{ op: "draw", amount: 1, targetType: null }]);                         // Evermind
+  });
+  it("strips ONLY the keyword line — a suspend body's own unmodeled text keeps the card low", () => {
+    expect(programConfidence(parseEffectProgram(I("Suspend 4—{1}{R}\nEach player discards their hand, then draws seven cards.")))).toBe("low");
+  });
+  it("does NOT strip a non-vacuous keyword (rebound / cipher) — the card stays low → Arbiter", () => {
+    expect(programConfidence(parseEffectProgram(I("Target creature gets +1/+0 until end of turn.\nRebound")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Target player discards a card.\nCipher")))).toBe("low");
   });
 });
 
