@@ -70,15 +70,17 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 > `creatureOrPlaneswalker` / `playerOrPlaneswalker`, all gated out of the first-legal trigger flush (CREED).
 > +24 native (17.1→17.2%) — this is how walkers die outside combat.
 >
-> **⏳ PW-5 (emblem subsystem, #251) — reviewed + CREED-approved, BLOCKED on a trivial rebase.** Adds a
-> real command-zone emblem object (`addEmblem`) whose static-anthem ability applies via the existing layer
-> engine (`emblemEffectsOf`, scoped to the controller); a `create-emblem` atom flips anthem-ultimate
-> walkers toward `native-planeswalker`; triggered emblems → Arbiter (PW-6). It conflicts with the merged
-> #252 on `effectAtoms.js` (the shared gameState import line + ATOM_RESOLVERS). **Walt:** rebase
-> `feat/PW-5-walt` onto current `origin/master`, keep BOTH `addEmblem` + `attachPermanent` in the import
-> and BOTH resolver keys (plus PW-6/7's new planeswalker target-types now in the same files), `git push
---force-with-lease` — then Clyde merges (no re-review needed).
-> Remaining follow-ups OPTIONAL: static-residue ~3 anthem walkers, AI walker-protection blocking, PW-6 triggered emblems.
+> **✅ PW-5 (emblem subsystem) MERGED #251 (2026-06-18, 8f9bfc4).** Walt rebased cleanly over PW-6/7;
+> Clyde spot-verified the conflict resolution (both `addEmblem` + `attachPermanent` imports + resolver
+> keys preserved, PW-6/7 target-types intact) → merged. Adds a real command-zone emblem object
+> (`addEmblem`) whose static-anthem ability applies via the layer engine (`emblemEffectsOf`, scoped to
+> the controller); a `create-emblem` atom (gated by `staticAbilitiesCoverCard` — only fully-modeled
+> statics flip, else → Arbiter); triggered emblems → Arbiter. 0 net native flips (anthem-ultimate
+> walkers keep other unmodeled abilities → stay `playable-pw`) — a **gameplay** win, not a corpus-% one.
+>
+> **The PW subsystem (PW-1 → PW-7) is COMPLETE.** Playable end-to-end + emblems + killable by removal.
+> Remaining follow-ups OPTIONAL: static-residue ~3 anthem walkers, AI walker-protection blocking,
+> triggered emblems. **Walt is free for a new lane** (a coverage row, or PW polish).
 
 ### 🔴 high-lever
 
