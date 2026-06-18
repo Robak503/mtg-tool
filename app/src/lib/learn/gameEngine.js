@@ -546,9 +546,10 @@ function buildTriggerStack(state, trigger, chooseTargets) {
  * removal / damage / counter / tap / -X-X → an OPPONENT's permanent / spell / the opponent; a buff /
  * +1/+1 / untap / graveyard-return → the controller's OWN. Returns the FIRST candidate whose every
  * target sits on its atom's intended side (deterministic over the enumeration order → serialize-stable);
- * if none exists (no correct-side target is legal — a CR-forced situation), returns undefined so
- * pickTriggerChoice falls back to first-legal, which is still a LEGAL target. Ambiguous atoms (bounce)
- * never reach here — buildTriggerStack gates them to the Arbiter. Pure function of `info.state`.
+ * if none exists (no correct-side target is legal), returns the NO_SAFE_TARGET sentinel so
+ * buildTriggerStack routes the trigger to the Arbiter no-op rather than first-legal a friendly
+ * (false-negative SAFE). Ambiguous atoms (bounce) never reach here — buildTriggerStack gates them to
+ * the Arbiter too. Pure function of `info.state`.
  *
  * (Restriction-pinned triggers — "…an opponent controls" / "…you control" — are already correct-side
  * via enumeration; this additionally fixes UNRESTRICTED harmful triggers that first-legal could aim at
