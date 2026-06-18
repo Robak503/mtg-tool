@@ -19,6 +19,8 @@ The anchor branch is just a collision-free home base (one branch per worktree). 
 
 **First boot in a fresh worktree — provision deps ONCE.** The desktop app does NOT populate `app/node_modules` in a new worktree, so `npm test` / `npm run lint` / `npm run dev` fail until you fix it. **Recommended: `cd app && npm ci`** (an isolated per-worktree install) — because Omnath and the other faculties run tests concurrently and a *shared* `node_modules` can contend on the vitest/eslint cache and cause flaky runs. Fast alternative if disk is tight: junction `app/node_modules` → the main repo's `app/node_modules` (per the shared-worktree hazard note), accepting that small concurrent-cache flake risk.
 
+**⚠️ Worktree-path trap — your files are NOT in the main `MTG-TOOL` repo.** Your worktree is your OWN folder (run `git rev-parse --show-toplevel` to see it — e.g. `…/.claude/worktrees/<id>`), not `…/Projects/MTG-TOOL`. The CLAUDE.md and these docs show **main-repo** absolute paths (`C:\…\MTG-TOOL\app\…`); if you Read/Edit/Write *those* paths, your changes land in Omnath's tree on master — which silently contaminates the shared board and breaks Omnath's integration cycles. Defense: **prefer relative paths**, confirm `git rev-parse --show-toplevel` is your worktree at session start, and before any Edit/Write sanity-check the target is under YOUR root. **Recovery if you slip** (edits landed in the main repo): `git diff > /tmp/strays.patch` → `git checkout -- .` to clean the main tree → re-apply the patch inside your worktree → verify → re-confirm the main tree is clean. Never commit from a tree whose `--show-toplevel` isn't yours.
+
 ---
 
 ## Loop cadence (current — "batch" mode, tunable)
