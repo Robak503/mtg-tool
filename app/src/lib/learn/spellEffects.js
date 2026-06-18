@@ -28,6 +28,7 @@ import {
   opponentsOf,
   creaturePower,
   creatureToughness,
+  isIndestructible,
 } from "./gameState.js";
 import { checkDiesTriggers } from "./triggers.js";
 
@@ -363,29 +364,33 @@ export function applyDrawEffect(state, { controller, amount }) {
 }
 
 export function applyDestroyEffect(state, { controller, targets = [] }) {
-  // NOTE: indestructible is modeled NOWHERE in the learn engine (neither here nor the lethal-damage
-  // SBA) — a Destroy always reaches the graveyard. The new permanent path inherits this exactly as
-  // the long-standing destroy-creature path has it (Darksteel Myr dies the same way). Parity, not a
-  // new gap; when indestructible is modeled it must be honored here for creatures AND permanents.
   let next = state;
   const dead = [];
+  const prevented = [];
   for (const t of targets) {
     // "creature" (the dedicated creature path / mass wipe) or "permanent" (targeted non-creature
-    // removal — Disenchant/Stone Rain). moveCardToZone handles detaching any Aura/Equipment on the
-    // destroyed permanent (CR 704.5n/q). Only a CREATURE going to the graveyard "dies" (CR 700.4),
-    // so only creatures feed the dies-trigger look-back; destroying a land/artifact fires no dies.
+    // removal — Disenchant/Stone Rain). Other target kinds aren't destroyable here.
     if (t.type !== "creature" && t.type !== "permanent") continue;
     const lk = findPermanent(next, t.id);
-    if (lk) {
-      // Capture the look-back BEFORE the move (CR 603.10a), then destroy.
-      if (isCreature(lk.permanent.card)) {
-        dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
-      }
-      next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: t.id });
+    if (!lk) continue;
+    // CR 702.12b — an indestructible permanent can't be destroyed. isIndestructible reads the layer
+    // engine, so GRANTED indestructible (Darksteel Forge's "artifacts you control are indestructible",
+    // an Equipment/Aura, an anthem) is honored, not just printed. The permanent stays put and fires
+    // no dies-trigger (it never left). Exile/sacrifice/bounce are NOT destroy and never reach here.
+    if (isIndestructible(lk.permanent, next)) {
+      prevented.push(t.id);
+      continue;
     }
+    // moveCardToZone detaches any Aura/Equipment on the destroyed permanent (CR 704.5n/q). Only a
+    // CREATURE going to the graveyard "dies" (CR 700.4), so only creatures feed the dies-trigger
+    // look-back (captured BEFORE the move, CR 603.10a); destroying a land/artifact fires no dies.
+    if (isCreature(lk.permanent.card)) {
+      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
+    }
+    next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: t.id });
   }
   next = checkDiesTriggers(next, dead);
-  return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented });
 }
 
 export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [] }) {

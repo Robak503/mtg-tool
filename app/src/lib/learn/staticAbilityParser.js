@@ -21,12 +21,25 @@
  * Pure; imports only the keyword vocabulary. Returns plain JSON descriptors.
  */
 
-import { GRANTABLE_COMBAT_KEYWORDS, canonicalCombatKeyword } from "./keywords.js";
+import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "./keywords.js";
 
-// The grantable-keyword set + canonical-caser now live in keywords.js as the SINGLE source of
-// truth shared with the combat-trick grant path (effects/parser.js), so the two can't drift
-// into granting a keyword the engine doesn't enforce. Menace is excluded there (unenforced).
-const GRANTABLE_KEYWORDS = GRANTABLE_COMBAT_KEYWORDS;
+// The grantable-keyword set + canonical-caser live in keywords.js as the SINGLE source of truth,
+// so a granted keyword can never be one the engine doesn't enforce. The STATIC path (this module:
+// anthems/lords + attached Equipment/Auras) uses the static superset — the combat keywords PLUS
+// indestructible (now enforced by the destroy effect + lethal SBA). The combat-trick grant path
+// (effects/parser.js) keeps the combat-only set, so the two can't drift. Menace is excluded from
+// both (unenforced).
+const GRANTABLE_KEYWORDS = GRANTABLE_STATIC_KEYWORDS;
+
+// Permanent-type subject words → the cardTypes the layer selector filters on. "permanents" → no
+// type filter (any permanent). Used by the indestructible-grant branch below; layers.matchesSelector
+// applies cardTypes generally, so this is NOT creature-restricted like the anthem path.
+const PERMANENT_TYPE_CARD_TYPES = {
+  artifact: ["Artifact"], artifacts: ["Artifact"],
+  enchantment: ["Enchantment"], enchantments: ["Enchantment"],
+  land: ["Land"], lands: ["Land"],
+  permanent: [], permanents: [],
+};
 
 // Color words → WUBRG letters (for "white creatures you control get +1/+1").
 const COLOR_WORDS = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
@@ -87,6 +100,37 @@ function parseClause(clause, out) {
     /\bas long as\b/.test(c)                  // conditional we can't evaluate
   ) {
     return;
+  }
+
+  // ── Non-creature indestructible grant (layer 6, 613.1f) ─────────────────────
+  // "<Artifacts|Enchantments|Lands|Permanents> [you control] are/have indestructible" —
+  // the linking-verb ("are/is indestructible") + permanent-type templating the creature
+  // selector below can't express. Grants indestructible (the one modeled non-combat keyword)
+  // to the matching permanents; the layer engine's selector applies the cardTypes filter, so a
+  // grant-to-self ("Artifacts you control are indestructible" → Darksteel Forge protects itself)
+  // and a broad "permanents you control" (Avacyn) both resolve correctly. ALL-OR-NOTHING: the
+  // tail must reduce EXACTLY to "indestructible" (a combined "indestructible and hexproof" we
+  // can't fully model drops out → Arbiter, never a silent partial grant). Creature "<creatures>
+  // … have <kw>" grants stay on the anthem path below (it also handles combat-keyword combos).
+  const grantM = c.match(/^(all|other|each)?\s*(artifacts?|enchantments?|lands?|permanents?)\s+(?:you control\s+)?(?:are|is|have|has)\s+(.+)$/);
+  if (grantM) {
+    const tail = grantM[3].replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
+    if (tail === "indestructible") {
+      out.push({
+        layer: 6,
+        op: { layerOp: "addKeyword", keyword: "indestructible" },
+        affects: {
+          mode: "dynamic",
+          selector: {
+            controllerScope: /\byou control\b/.test(c) ? "you" : "each",
+            cardTypes: PERMANENT_TYPE_CARD_TYPES[grantM[2]],
+            excludeSelf: grantM[1] === "other",
+          },
+        },
+        duration: { kind: "permanent" },
+      });
+      return; // a non-creature type subject never also carries a creature anthem
+    }
   }
 
   // ── P/T anthems / lords (layer 7c, 613.4c) ──────────────────────────────────
