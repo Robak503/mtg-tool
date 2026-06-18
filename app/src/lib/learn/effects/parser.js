@@ -637,6 +637,59 @@ export function programContainsChosenPermanentRemoval(program) {
 }
 
 /**
+ * The intended target SIDE for one atom — the basis for the α1 trigger-flush allowlist + the
+ * enemy/own chooser (gameEngine.chooseTriggerTargets).
+ *   "enemy"     — removal / disruption / damage aimed at an opponent's permanent / spell / the
+ *                 opponent (deal-damage, destroy, exile, counter, tap, a negative -X/-X pump, a
+ *                 -1/-1 counter).
+ *   "own"       — a buff / utility the controller aims at their own side (a positive pump, a +1/+1
+ *                 counter, untap, return-a-card-from-your-graveyard).
+ *   "ambiguous" — could go either way (bounce), or any unknown targeting atom → NEVER auto-routed
+ *                 on a trigger (the flush gates it to the Arbiter rather than risk a wrong target).
+ * Returns null for a NON-targeting atom (no targetType, or an each/mass scope; self/team pumps carry
+ * no targetType so they land here too) — those never need a chosen target.
+ */
+export function atomTargetIntent(atom) {
+  if (!atom) return null;
+  const tt = atom.targetType;
+  if (!tt || tt === "eachOpponent" || tt === "eachCreature") return null;
+  switch (atom.op) {
+    case "deal-damage":
+    case "destroy":
+    case "exile":
+    case "counter":
+    case "tap":
+      return "enemy";
+    case "pump":
+      return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
+    case "add-counter":
+      return (typeof atom.counterType === "string" && atom.counterType.trim().startsWith("-")) ? "enemy" : "own";
+    case "untap":
+    case "return-from-graveyard":
+      return "own";
+    case "bounce":
+      return "ambiguous";
+    default:
+      return "ambiguous";
+  }
+}
+
+/**
+ * Can every chosen-target atom in this program have its target placed on a provably-correct side by
+ * the α1 trigger chooser? True when no targeting atom is "ambiguous" (every one is enemy- or
+ * own-intent, or is non-targeting). The single source of truth for the trigger-flush ALLOWLIST:
+ * gameEngine.buildTriggerStack routes a targeted trigger natively only when this holds, and
+ * coverage.triggerRoutesNatively MIRRORS it so the metric can't claim a routing the engine won't do.
+ */
+export function programTriggerTargetsResolvable(program) {
+  if (!program) return false;
+  const atoms = program.structure === "modal"
+    ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
+    : (program.atoms || []);
+  return atoms.every(a => atomTargetIntent(a) !== "ambiguous");
+}
+
+/**
  * Does the program contain a MASS creature-removal atom — destroy / exile / -X-X scoped to
  * `eachCreature` (a board wipe)? The AI HOLDS these (opponentAI.pickCastAction): the engine
  * resolves a symmetric wipe correctly, but the AI can't yet weigh whether nuking the board

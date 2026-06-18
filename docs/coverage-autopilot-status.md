@@ -10,11 +10,22 @@ natively, not just the sample decks. The Arbiter is the permanent, correct home 
 irreducible tail. **Honest ceiling ~90% corpus native.** The one unforgivable failure is a
 false-positive (claim native, then mis-resolve) — never trade correctness for a higher number.
 
-## Headline metric — corpus-wide native % (`cd app && npm run coverage`)
+## Progress to goal — corpus-wide native % (`cd app && npm run coverage`)
 
-| Checkpoint | Corpus native | Deck native (16, realism gate) |
-|---|---|---|
-| **Baseline (run start)** | **14.8%** (4,977 / 33,540 real cards) | 47% (753 / 1,601) |
+**Goal: ~90% corpus native** (the honest ceiling; the Arbiter permanently handles the rest).
+**Now: 14.9% → 17% of the way to goal.** (α1 measured; PR open, pending human-gated merge.)
+
+```
+[####······················] 14.9% native  ·  goal 90%  ·  17% of the way there
+```
+
+| Slice | Corpus native | Δ | → goal (now ÷ 90%) | Deck % | PR |
+|---|---|---|---|---|---|
+| Baseline (run start) | **14.8%** (4,977/33,540) | — | 16% | 47% | — |
+| metric: corpus headline | 14.8% | +0.0 | 16% | 47% | #197 |
+| α1: enemy/own trigger chooser | **14.9%** (4,996/33,540) | +0.1 | 17% | 47% | _PR open_ |
+
+**Projected trajectory** (roadmap §2): α (near-term clean atoms) → ~37% · α+β (full vocab grind) → ~90% · +δ (hard subsystems) → ~98%. A row is appended every time a slice merges — this table *is* the climb.
 
 ## Corpus gap — the prioritization signal (top mechanisms, run-start)
 
@@ -36,14 +47,29 @@ the corpus signal re-ranks the roadmap toward the cost-structure work (γ1) soon
 
 | Slice | What | PR | Corpus Δ |
 |---|---|---|---|
-| metric | corpus-primary headline (`allCards()` + `npm run coverage` corpus pass) | _opening_ | — (tooling) |
+| metric | corpus-primary headline (`allCards()` + corpus pass) | #197 (merged) | — (tooling) |
+| α1 | enemy/own trigger-target chooser — un-gates counter + removal triggers, fixes the friendly-target hazard | _PR open_ | +19 cards (14.8→14.9%) |
 
 ## In flight / next
 
-- **NEXT: α1 — enemy-aware trigger-target chooser** (the foundation that safely un-gates
-  targeted removal/counter/pump on triggers; highest leverage AND highest false-positive risk —
-  built + reviewed hardest). After α1: re-scan the corpus gap and grind the highest-leverage
-  in-phase atom (the corpus view points hard at activated abilities / cost structures).
+- **α1 — enemy/own-aware trigger-target chooser: BUILT + VERIFIED, PR open (human-gated merge).**
+  Branch `feat/alpha1-enemy-trigger-chooser`.
+  - **What it does:** replaces the trigger-flush `firstLegalChoice` with an intent-aware chooser —
+    `deal-damage`/`destroy`/`exile`/`counter`/`tap`/negative-pump pick an *enemy*; own-side buffs
+    pick the controller's own; *ambiguous* atoms (bounce) route to the Arbiter. Flips the flush gate
+    from a 2-item denylist to an allowlist, mirrored in `coverage.triggerRoutesNatively`.
+  - **Also closes a latent on-master false-positive:** unrestricted harmful triggers
+    (creature-destroy / `deal-damage` with no "an opponent controls" clause) used to first-legal a
+    friendly; they now target an enemy.
+  - **Gauntlet (all green):** 2,047 unit tests (incl. the friendly-target regression, counter-an-
+    enemy-spell, an end-to-end) · lint clean · corpus sweep = 23 newly-native (all removal/counter
+    triggers — Angel of Despair, Mystic Snake, Meteor Golem, …) + 3 correctly-gated bounces (Aether
+    Adept, Man-o'-War, Mist Raven), 0 false-positives, 0 cast regressions · live real-enrichment QA
+    on real cards (Angel destroys the enemy permanent; Mystic Snake counters the enemy spell).
+  - **Merge is human-gated** (guardrail): `/code-review ultra` can't be launched from here, so the
+    adversarial pass ran in-process — per the autopilot rules a fallback review doesn't auto-land.
+- **Next slice (data-driven re-scan):** the corpus gap points at activated abilities (3,358) + the
+  cost-structure work (γ1 — sacrifice / discard / pay-life / {X}; the aristocrats unlock).
 
 ## The cardinal rule
 

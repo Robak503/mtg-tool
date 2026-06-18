@@ -34,7 +34,7 @@ import {
   addMana,
   mintId,
 } from "./gameState.js";
-import { passPriority, flushTriggers } from "./gameEngine.js";
+import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment } from "./manaModel.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
@@ -297,7 +297,7 @@ function applyCastSpell(state, action) {
   // not at a later checkpoint, so they resolve BEFORE the spell — correct order, and the
   // right thing for any future referential effect).
   next = checkCastTriggers(next, { spellCard: card, casterId: action.playerId });
-  next = flushTriggers(next);
+  next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // Restart priority loop at active player after the spell goes on
   // the stack (per CR 117.1c).
   return {

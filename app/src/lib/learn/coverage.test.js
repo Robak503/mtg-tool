@@ -52,10 +52,11 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Wizard", "When this enters, choose one — draw a card; or you gain 3 life."))).toBe("body-only"); // modal → fallback
     // Intervening-if (CR 603.4) is NOT routed by the engine, so it must NOT count native.
     expect(classifyCard(C("Creature — Cleric", "When this creature enters, if you control another creature, draw a card."))).toBe("body-only");
-    // P3.1 review fix: a COUNTER trigger (Mystic Snake) is NOT routed by the engine (the
-    // first-legal flush chooser could counter the controller's own spell), so the metric
-    // must NOT over-claim it as native — it stays in the gap.
-    expect(classifyCard(C("Creature — Snake", "Flash\nWhen this creature enters the battlefield, counter target spell."))).toBe("body-only");
+    // α1: an AMBIGUOUS targeted trigger (bounce — could aim at a friendly OR an enemy) is NOT routed
+    // by the engine (the enemy/own chooser can't prove a correct side), so the metric must NOT
+    // over-claim it as native — it stays in the gap. (Counter / removal / damage triggers, which ARE
+    // intent-resolvable, now route natively — see the flushTargetChooser + targetedRemoval tests.)
+    expect(classifyCard(C("Creature — Sprite", "When this creature enters, return target creature to its owner's hand."))).toBe("body-only");
   });
   it("a permanent whose only text is modeled activated abilities is native-activated (P2.9)", () => {
     // {T} pinger, mana-cost draw, tapper, and a keyword + modeled ability — all native.

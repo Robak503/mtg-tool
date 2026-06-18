@@ -34,13 +34,14 @@ import {
   clearCombatDamage,
   logEvent,
   mintId,
+  opponentsOf,
 } from "./gameState.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
 import { checkStepTriggers, checkAttackTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
-import { parseEffectClause, programConfidence, programNeedsChosenTarget, programContainsCounter, programContainsChosenPermanentRemoval } from "./effects/parser.js";
+import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
@@ -266,7 +267,7 @@ export function runStepActions(state) {
   // Flush any pending triggers onto the stack at this priority-grant
   // checkpoint, per CR 603.3a — triggered abilities go on the stack at
   // the next time a player would get priority.
-  next = flushTriggers(next);
+  next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
 
   return next;
 }
@@ -394,7 +395,7 @@ export function resolveTopOfStack(state) {
  * trigger) would sit unflushed past the next priority window.
  */
 export function finalizeStackResolution(state) {
-  let next = flushTriggers(state);
+  let next = flushTriggers(state, { chooseTargets: chooseTriggerTargets });
   if (grantsPriority(next.step)) {
     next = resetPriorityLoop(next);
   }
@@ -458,20 +459,12 @@ function firstLegalChoice(candidates) {
 }
 
 /**
- * Pick one target-combination for a targeted trigger. An injected `chooseTargets`
- * callback may override the default (returning the chosen candidate, or its index);
- * an absent/invalid return falls back to first-legal. The callback receives the full
- * candidate list (each `{ targets, chosenMode?, label? }` from expandCastChoices) and
- * `{ trigger, program, state }` for context.
+ * The enemy/own chooser (chooseTriggerTargets) returns this sentinel when NO correct-side target is
+ * legal — telling buildTriggerStack to route the trigger to the Arbiter no-op rather than first-legal
+ * a friendly (the self-harm hazard the α1 allowlist guards). Distinct from `undefined`, which keeps
+ * the legacy "fall back to first-legal" contract for a generic / absent chooser.
  */
-function pickTriggerChoice(candidates, info, chooseTargets) {
-  if (typeof chooseTargets === "function") {
-    const picked = chooseTargets(candidates, info);
-    if (typeof picked === "number" && candidates[picked]) return candidates[picked];
-    if (picked && Array.isArray(picked.targets)) return picked;
-  }
-  return firstLegalChoice(candidates);
-}
+export const NO_SAFE_TARGET = Symbol("no-safe-trigger-target");
 
 /**
  * Build the serializable stack payload + chosen targets a pending trigger goes on the
@@ -499,14 +492,15 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // (spellEffects.parseSpellEffect) only engages for Instant/Sorcery types — so
     // pass "Instant" to unlock draw/damage/destroy off a permanent source.
     const program = parseEffectClause(clause, "Instant");
-    // A COUNTER atom must NOT route through the auto-chooser here (P3.1): the default
-    // first-legal flush chooser has no enemy-awareness and no self-exclusion, so an ETB
-    // "counter target spell" (Mystic Snake / Draining Whelk) would silently counter the
-    // CONTROLLER'S OWN spell when it sorts first on the stack — a confident WRONG play,
-    // worse than the Arbiter route (CLAUDE.md §1.2). Fall through to the trigger.effect/
-    // Arbiter fallback until an enemy-aware/interactive flush chooser exists. (Counter is
-    // safe on the cast path: the user picks the target, the AI holds counters.)
-    if (program && programConfidence(program) === "high" && program.structure !== "modal" && !programContainsCounter(program) && !programContainsChosenPermanentRemoval(program)) {
+    // α1 ALLOWLIST: route a HIGH non-modal trigger natively only when every chosen-target atom is
+    // intent-resolvable — i.e. the enemy/own chooser (chooseTriggerTargets, wired in at the live
+    // flush call-sites) can prove a correct-side pick: removal/damage/counter/tap/-X-X → an opponent,
+    // a buff/+1/+1/untap/graveyard-return → the controller's own. An AMBIGUOUS atom (bounce, or any
+    // unmodeled-intent targeting atom) falls through to the Arbiter no-op below rather than risk a
+    // first-legal friendly target (CLAUDE.md §1.2). Non-targeted programs always route (no chosen
+    // target to mis-pick). This SUBSUMES the old counter / chosen-permanent-removal denylist AND
+    // closes the latent first-legal-friendly hazard on unrestricted creature-destroy / damage triggers.
+    if (program && programConfidence(program) === "high" && program.structure !== "modal" && (!programNeedsChosenTarget(program) || programTriggerTargetsResolvable(program))) {
       // sourceId = the trigger's SOURCE permanent (CR 109.2) — lets a "this creature gets …" /
       // "put a +1/+1 counter on this creature" self atom resolve to the source on the non-targeted path.
       const baseParams = { program, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId };
@@ -518,8 +512,15 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       // surfaces LEGAL targets, so a restricted clause ("…an opponent controls")
       // never offers an illegal pick.
       const candidates = expandCastChoices(state, trigger.controller, program);
-      if (candidates.length === 0) return null; // no legal target → removed from the stack
-      const choice = pickTriggerChoice(candidates, { trigger, program, state }, chooseTargets);
+      if (candidates.length === 0) return null; // no legal target → removed from the stack (CR 603.3c)
+      const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program, state }) : undefined;
+      // NO_SAFE_TARGET: the enemy/own chooser found no correct-side target → route to the Arbiter
+      // no-op rather than first-legal a friendly (false-negative SAFE). A numeric index or a candidate
+      // object is honored; anything else (a generic / absent chooser) keeps the legacy first-legal pick.
+      if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [] };
+      const choice = (typeof picked === "number" && candidates[picked]) ? candidates[picked]
+        : (picked && Array.isArray(picked.targets)) ? picked
+        : firstLegalChoice(candidates);
       const targets = choice?.targets || [];
       return { payload: { resolver: "effect-program", params: { ...baseParams, targets } }, targets };
     }
@@ -528,15 +529,54 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     //   - LOW = a trigger whose effect ISN'T fully modeled (an unmodeled clause or a follow-up like
     //     "… If a land card was milled this way, you gain 2 life"); the rich parser is a superset of
     //     the legacy vocab, so LOW means genuinely unmodeled; or
-    //   - HIGH but a CHOSEN-TARGET permanent-removal (gated out of native routing above): firing it
-    //     with the first-legal chooser could destroy the controller's OWN permanent. Explicit no-op
-    //     here so it doesn't depend on the legacy parser lacking a destroy vocab.
-    // (MODAL / intervening-if / counter still use the fallback below — that's deliberate.)
-    if (program.structure !== "modal" && (programConfidence(program) === "low" || programContainsChosenPermanentRemoval(program))) {
+    //   - HIGH but carries an AMBIGUOUS chosen target (e.g. bounce) the α1 chooser can't place on a
+    //     provably-correct side — firing it with first-legal could hit the controller's OWN
+    //     permanent. Explicit no-op (→ Arbiter); false-negative SAFE.
+    // (MODAL / intervening-if still use the fallback below — that's deliberate.)
+    if (program.structure !== "modal" && (programConfidence(program) === "low" || (programNeedsChosenTarget(program) && !programTriggerTargetsResolvable(program)))) {
       return { payload: { resolver: "manual" }, targets: [] };
     }
   }
   return { payload: trigger.payload || {}, targets: trigger.targets || [] };
+}
+
+/**
+ * α1 — the enemy/own-aware trigger-target chooser. Injected at the LIVE flush call-sites so a
+ * targeted triggered ability picks a target on the side the card intends instead of blind first-legal:
+ * removal / damage / counter / tap / -X-X → an OPPONENT's permanent / spell / the opponent; a buff /
+ * +1/+1 / untap / graveyard-return → the controller's OWN. Returns the FIRST candidate whose every
+ * target sits on its atom's intended side (deterministic over the enumeration order → serialize-stable);
+ * if none exists (no correct-side target is legal), returns the NO_SAFE_TARGET sentinel so
+ * buildTriggerStack routes the trigger to the Arbiter no-op rather than first-legal a friendly
+ * (false-negative SAFE). Ambiguous atoms (bounce) never reach here — buildTriggerStack gates them to
+ * the Arbiter too. Pure function of `info.state`.
+ *
+ * (Restriction-pinned triggers — "…an opponent controls" / "…you control" — are already correct-side
+ * via enumeration; this additionally fixes UNRESTRICTED harmful triggers that first-legal could aim at
+ * a friendly. A spell target carries no controller field, so its side is resolved from state.stack.)
+ */
+export function chooseTriggerTargets(candidates, info) {
+  const state = info?.state;
+  const controller = info?.trigger?.controller;
+  const program = info?.program;
+  if (!state || !controller || !candidates?.length) return undefined;
+  const atoms = program?.structure === "modal"
+    ? (program.modal?.modes || []).flatMap((m) => m.atoms || [])
+    : (program?.atoms || []);
+  let enemies;
+  try { enemies = new Set(opponentsOf(state, controller)); } catch { return undefined; }
+  const sideOf = (t) => {
+    if (t.type === "player") return t.id;
+    if (t.type === "spell") return (state.stack || []).find((o) => o.id === t.id)?.controller;
+    return t.controller; // creature / permanent / graveyardCard
+  };
+  const targetOk = (t) => {
+    const intent = atomTargetIntent(atoms[t.atomIndex]);
+    if (intent === "enemy") { const s = sideOf(t); return s != null && enemies.has(s); }
+    if (intent === "own") return sideOf(t) === controller;
+    return true; // null/ambiguous: ambiguous is gated upstream; null = a non-targeting atom
+  };
+  return candidates.find((c) => (c.targets || []).every(targetOk)) || NO_SAFE_TARGET;
 }
 
 /**
