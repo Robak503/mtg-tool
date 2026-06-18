@@ -30,7 +30,7 @@ import { filterActions } from "./legalChoices.js";
 import { opponentsOf } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
-import { programContainsCounter, programContainsMassRemoval, programContainsTeamPump } from "./effects/parser.js";
+import { programContainsCounter, programContainsMassRemoval, programContainsTeamPump, programContainsFog } from "./effects/parser.js";
 
 // ─── Cast priority by archetype ──────────────────────────────────────────────
 
@@ -162,6 +162,11 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
     // it blindly in its main phase wastes it. Holding only costs tempo, never a wrong play.
     // (Deferred "pump my team before a good attack" heuristic; player casts it normally.)
     if (programContainsTeamPump(actions[0].program)) continue;
+    // The AI HOLDS a FOG ("prevent all combat damage this turn", FOG-1): it's a purely DEFENSIVE
+    // reaction, and the AI can't yet time it — casting it in its own main phase would set the
+    // turn-latch and wipe out ITS OWN attackers' damage (actively self-defeating). Holding only
+    // costs a defensive option, never a wrong play. (Deferred "fog under lethal attack" heuristic.)
+    if (programContainsFog(actions[0].program)) continue;
     // The AI HOLDS Auras (deferred seam): it doesn't yet weigh which creature to enchant
     // (buff its own attacker vs. curse an enemy) and must never hang a beneficial Aura on an
     // opponent. The player casts Auras normally; the AI passes. (Belt-and-suspenders — these

@@ -62,6 +62,14 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   if (!combat || !Array.isArray(combat.attackers) || combat.attackers.length === 0) {
     return state;
   }
+  // ===== FOG ===== (FOG-1, CR 615.6) — a resolved fog stamped the current turn onto
+  // state.preventCombatDamageTurn; while that holds, ALL combat damage this turn is prevented (this
+  // short-circuit covers BOTH the first-strike and the regular step). No marks, no life loss, no
+  // lifelink, no lethal SBA from combat — the step is a logged no-op. Self-expires: next turn's number
+  // differs. (Non-combat damage is unaffected; this hook is only the combat-damage step.)
+  if (state.preventCombatDamageTurn === state.turn) {
+    return logEvent(state, { kind: "combat-damage-prevented", turn: state.turn, firstStrikeStep });
+  }
   // The first combat-damage step only happens if a creature has first/double
   // strike (CR 510.5) — otherwise skip it entirely (the regular step does all).
   if (firstStrikeStep && !combatHasFirstStrike(state, combat)) {

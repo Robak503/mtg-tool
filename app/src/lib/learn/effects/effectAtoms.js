@@ -798,6 +798,18 @@ function applyShuffle(state, atom, ctx) {
 // the chosen X (ctx.xValue, bound at cast time) instead of a printed numeric amount.
 const effectiveAmount = (atom, ctx) => (atom.amountX ? ctx.xValue || 0 : atom.amount);
 
+/**
+ * ===== FOG ===== (FOG-1, CR 615 prevention) — "Prevent all combat damage that would be dealt this turn."
+ * Stamp the current turn onto state.preventCombatDamageTurn; combatResolution.resolveCombatDamage skips
+ * ALL combat damage (both the first-strike and regular steps) while that flag === state.turn, then it
+ * SELF-EXPIRES (next turn's number differs, so no cleanup is needed). Non-targeted, no choice; the flag
+ * is a plain number so a mid-combat serialize/restore is byte-identical.
+ */
+function applyFog(state, atom, ctx) {
+  const next = { ...state, preventCombatDamageTurn: state.turn };
+  return logEvent(next, { kind: "spell-effect", effect: "fog", controller: ctx.controller, turn: state.turn });
+}
+
 export const ATOM_RESOLVERS = Object.freeze({
   "deal-damage": (state, atom, ctx) =>
     applyDamageEffect(state, { controller: ctx.controller, amount: effectiveAmount(atom, ctx), targetType: atom.targetType, targets: ctx.targets }),
@@ -826,6 +838,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
   "impulse-dig": applyImpulseDigAtom,
   "mill": applyMill,
+  "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
 });
 
 /**
