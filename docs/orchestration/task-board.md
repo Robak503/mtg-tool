@@ -5,64 +5,109 @@
 re-prioritizes this board** as the modeled set grows; **Rod (QA) and Omnath file findings here as new
 tasks.** Omnath (Command) merges; only Omnath touches `master`.
 
-> **Last scout refresh:** cycle **board-2**, 2026-06-18 — live baseline **16.0 % corpus native**
-> (5,369/33,540). The 16.3→16.0 dip is **correct**: the trigger FIX work (#218) + #221 de-claimed ~52
-> false positives (forbidden under the CREED) — that outweighs the TOK-2/EP-2/CNT-2 additions this batch.
-> Honest yields + per-atom false-positive landmines live in
-> [`docs/scout-gap-report.md`](../scout-gap-report.md). **Read the landmine note for your task before you build.**
+> **Last scout refresh:** cycle **board-3 (DEEP SCAN)**, 2026-06-18 — live baseline **16.0 % corpus native**
+> (5,369/33,540). A one-off deep scan mapped the WHOLE climb 16 %→~90 % and pre-stocked a ranked backlog
+> (10+ hrs for 3 builders). Honest yields below are **adversarially CREED-verified** (most first-pass numbers
+> were corrected DOWN — that's the gate working). **The strategic map + every row's full false-positive
+> landmine live in [`docs/scout-gap-report.md`](../scout-gap-report.md) — read your row's landmine before you build.**
+>
+> **The shape of the climb:** the clean-atom + rider tiers are nearly mined out (~a few hundred cards, good
+> builder fuel). The climb from ~20 %→~85 % is ONE subsystem — the **trigger-effect compiler** (bridge each
+> recognized trigger's effect clause into the modeled atom library; ~5,267 trigger cards). **TRIG-PUMP-1 is
+> its safe pilot.** The irreducible Arbiter tail caps the honest ceiling at **~88-92 %**.
 
-## How to claim a task (collision-safe, no inter-chat chat needed)
+## How to claim a task (collision-safe)
 
-1. Pick the highest-priority **`OPEN`** task that fits you.
-2. **Claim it by pushing your branch immediately — put YOUR FACULTY NAME as the branch suffix** so the dashboard can attribute it: `git fetch origin && git checkout -B feat/<task-id>-<name> origin/master && git commit --allow-empty -m "claim <task-id> (<name>)" && git push -u origin feat/<task-id>-<name>` (e.g. `feat/REG-1-cindy`). The branch's existence on the remote = your claim; the `-<name>` suffix = the owner (Omnath derives faculty→task from it for STATUS.md).
-3. **Before pushing the claim, check it's free:** `git ls-remote --heads origin "feat/<task-id>-*"` — if a branch already exists, someone has it; take the next task.
-4. Tell Colton "claiming `<task-id>`" so he can deconflict if two of you race.
-5. Build it (full gate), open the PR. Marking it `DONE` on merge is Omnath's job — you just grab the next `OPEN`.
+1. Pick the highest-priority **`OPEN`** task that fits you (mix: a fast clean atom, or a subsystem for a longer run).
+2. **Claim by pushing your branch — put YOUR FACULTY NAME as the suffix** (so the dashboard attributes it): `git fetch origin && git checkout -B feat/<task-id>-<name> origin/master && git commit --allow-empty -m "claim <task-id> (<name>)" && git push -u origin feat/<task-id>-<name>` (e.g. `feat/REG-1-cindy`).
+3. **Check it's free first:** `git ls-remote --heads origin "feat/<task-id>-*"` — branch exists = taken; take the next.
+4. Tell Colton "claiming `<task-id>`". Build it (full gate), open the PR. Omnath merges + flips status to DONE.
 
-A task is **disjoint** from the others by design (different atoms / oracle shapes), so two builders on two
-different tasks won't collide; the worktree isolation + Omnath's serialized merges handle the rest.
+A task is **disjoint** by design (different atoms/oracle shapes). **`Cplx`** = build size: `low` (a matcher +
+reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, flag clearly). **`engine-first`**
+= the engine must honor it BEFORE coverage flips, or it's a false positive.
 
-## Board (priority: 🔴 high-lever · 🟡 medium · 🟢 small/cleanup · ⛔ hard/δ — defer)
+---
 
-Yields are the **honest clean-template count** (not the loose bucket headline). "Reuses" = infra already
-shipped, so the build is mostly a new matcher + resolver, not a new subsystem.
+## 🔧 FIX / VERIFY lane — Erin (these jump the builder queue)
 
-### Active — pull from here (top = highest priority)
+| ID | Pri | Finding | ~Impact | Status |
+|---|---|---|---:|---|
+| **VERIFY-MENACE** | 🔴 | **LIVE shipped false positive.** Menace is in COVERED_KEYWORDS so a Menace-only creature is native-body — but the 2-blocker rule (CR 702.110) is enforced NOWHERE (`canBlock` admits a single blocker; `combatResolution.js:17` defers Menace). The engine lets ONE creature block a Menace attacker. **Fix:** enforce 2-blocker in canBlock/declare-blockers, OR remove Menace from COVERED_KEYWORDS (safe default → Arbiter). Same gap that blocks EVADE — fix together. | −FP | OPEN |
+| **FIX-TRIG-CONDITION** | 🔴 | `classifyCondition` over-detects restricted/compound-subject triggers (selfRef too broad; scope-inexpressible restriction dropped → over-fires). 34 cards incl. aristocrats staples. Detail: `docs/qa/rod-findings-1.md`. | 34 (−FP) | DONE #226 (Erin batch) |
+| **VERIFY-ETB-DESTROY** | 🟡 | Spot-check (lower confidence): Ravenous Chupacabra & the ETB-destroy-an-opponent's-creature family classify native-trigger — owed a LIVE 4P end-to-end check that the flush enemy-chooser targets an opponent, never own / never crashes on no-legal-target. | spot-check | OPEN |
 
-| ID | Pri | Mechanic / atom shape | ~Clean yield | Status | Examples |
-|---|---|---|---:|---|---|
-| **FIX-TRIG-CONDITION** | 🔴 | **Rod QA #1 — `classifyCondition` over-detects restricted/compound-subject triggers.** (a) `selfRef=/\bthis\b/` is too broad → "a creature **dealt damage by this** … dies" + "this **or another** creature you control dies/enters" mis-read as bare self, dropping the restriction / 2nd subject; (b) a scope-inexpressible restriction ("with a +1/+1 counter on it attacks", "attacks the player with most life", "dies during combat") is dropped → over-fires. **34 cards** incl. aristocrats staples (Zulaport, Cruel Celebrant, Rotlung Reanimator, Headless Rider) reduced to self-death only. Safe fix: tighten self-subject to the leading token + reject alternate-subject/restriction conds → Arbiter; pin MUST_DROP_TO_LOW. Detail: `docs/qa/rod-findings-1.md`. | 34 (−FP) | DONE #226 (Erin batch — 41 FPs) | Zulaport Cutthroat, Sengir Vampire, Tenured Inkcaster, Rotlung Reanimator |
-| **PUMP-1** | 🔴 | **Team pump** — "Creatures you control get +X/+Y until end of turn." Apply the existing pump to every creature you control. **Reject the `and gain <keyword>` riders** (Triumph of the Hordes → infect) unless that grant is modeled — pure +X/+Y only; watch "Green creatures you control" (color-restricted subset). Reuses the each-you-control enumerator (#211) + pump resolver. | ~22 | OPEN | Rally the Peasants, Guardians' Pledge, Marshaling Cry, Coordinated Charge, Heroic Charge |
-| **REG-1** | 🔴 | **Regrowth (graveyard → HAND)** — "Return target \<type> card from your graveyard to your hand." The gy→hand sibling of β-3b reanimation (gy→battlefield); simpler (no ETB/summoning-sick). Accept the card-type union (creature / artifact-or-enchantment / instant-or-sorcery / permanent / land / any). **`your graveyard` ≠ `a graveyard`** (scope); drop `up to one/two target` (optional/multi). Reuses #207 gy-targeting. | ~22 | OPEN | Regrowth, Argivian Find, Relearn, Call to Mind, Nature's Spiral, Déjà Vu |
-| **DIG-1** | 🔴 | **Impulse-dig (look → keep one → bury rest)** — "Look at the top N cards of your library. Put one into your hand, the rest on the bottom." Inherently two sentences = one atom. **Scope to HAND-dig only** (battlefield-dig / Collected Company is its own atom); drop Descend/Casualty/Domain/Bargain-prefixed variants. Reuses the δ-1b pending-choice picker (#209). | ~25-30 | OPEN | Sleight of Hand, Telling Time, Glimpse the Cosmos, Experimental Augury, Discerning Taste |
-| **MT-1** | 🔴 | **Divide-among picker** — "deals N damage divided as you choose among any number of target creatures/players" + "distribute N +1/+1 counters among any number of target creatures." A number-distribution decision (assign N among chosen targets) — distinct from "up to N targets." Un-gates the whole divide-among family at once. **Subsumes the `distribute` half of CNT-2b.** | ~20 | OPEN | Rolling Thunder, Pyrotechnics, Meteor Swarm, Hail of Arrows, Blessings of Nature |
-| **TOK-3** | 🟡 | **Create X / N>5 tokens** — "Create X 1/1 …" (X from the cost) and "Create N …" beyond five. Reuses the typed/keyword token machinery (#213) + X-spell infra. Drop the `where X is <board count>` variable-source riders. | ~15 | DONE #225 | Secure the Wastes, March of the Multitudes, Empty the Pits, Deploy to the Front, Storm Herd |
-| **EP-3** | 🟡 | **Target / each-player MILL** — "Target player mills N cards", "Each player mills N." Deterministic (top N → graveyard), **no picker** — simplest player-effect atom. **The life-half is RETIRED** (only 3 clean — "each player loses N life" is rider-dominated, e.g. Smallpox/Death Cloud). Drop "mills X" (X-spell) + graveyard-count riders. | ~16 | DONE #224 | Tome Scour, Glimpse the Unthinkable, Traumatize, Cut Your Losses, Memory Sluice |
-| **ED-2** | 🟡 | **Edict variants** — "each player sacrifices a \<type> of their choice" (~12 clean; extends target/opponent edict #214 to all players, each picks own), plus the effect-side "you sacrifice a/another \<type>" and "sacrifice a creature: \<effect>" outlets. Reuse the edict victim-picker. | ~12+ | DONE #227 | Innocent Blood, Barter in Blood, Tremble, Crack the Earth, Renounce the Guilds |
-| **SOFT-CNT** | 🟡 | **Soft counter** — "Counter target spell unless its controller pays {N}." **Opponent-decision subsystem:** the spell's controller (an opponent in 4P) chooses to pay at resolution — needs an opponent-payment pending-choice, not a caster choice. Clean core = `pays {fixed}` only (drop `pays {X}` + non-mana variants + the draw/discard/suspect tails). | ~36 | OPEN | Force Spike, Mana Tithe, Mana Leak, Miscalculation, Censor, Rune Snag |
-| **FOG-1** | 🟡 | **Fog latch** — "Prevent all combat damage that would be dealt this turn." A turn-scoped one-shot damage-skip flag `combatResolution.js` checks. **Scope to the whole-turn latch ONLY** — NOT aura/permanent ongoing prevention (that's the deferred PREVENT subsystem). | ~14 | OPEN | Fog, Darkness, Holy Day, Moment's Peace, Constant Mists |
-| **CNT-2b** | 🟢 | **Remaining counter forms** — "Put N +1/+1 on up to N target creatures" (multi-select, reuse MT-1's picker once built) + "−1/−1 single & multi". The `distribute … among any number` half is covered by **MT-1**; the single-target N>1 was the cheap part of CNT-2 (#219). | ~10 | OPEN | Travel Preparations, Cytoplast Root-Kin-ish, Incremental Growth, Wretched Confluence |
-| **BURN-2** | 🟢 | **Burn riders** — "deals N damage to any target. \<modeled rider>" the existing damage atom can compose with (gain-life / scry / draw riders). Re-scan which rider combos are now both-modeled. Composition, not a clean standalone bucket. | composition | DONE #229 | Char-class (the "and N to you" stays Arbiter), Skewer the Critics-ish |
-| **GAIN-CTRL** | ⛔ | **Temporary control change** — Threaten / Act of Treason (gain control + untap + haste + give-back at end of turn). Needs a control-swap + end-of-turn give-back subsystem. Hard δ — defer until the clean clusters are mined. | ~25 | DEFER | Act of Treason, Threaten |
-| **PREVENT** | ⛔ | **Ongoing replacement / prevention** — aura/permanent prevention ("…dealt to and dealt by enchanted creature"), "if … would … instead", Story Circle. A replacement-effects subsystem. Hard δ — defer. (The one-shot Fog latch is carved out as FOG-1.) | ~big | DEFER | Story Circle, Sandskin-class |
+---
 
-**Ripe OPEN for builders (skip the FIX row — that's Erin's lane):** PUMP-1 · REG-1 · DIG-1 · MT-1 are all 🔴,
-clean, and reuse shipped infra. None overlap each other or the in-flight set.
+## 🟥 Active coverage backlog — pull from the top
 
-### Shipped this run (DONE — Omnath's merge ledger)
+### 🔴 high-lever
 
-| ID | Mechanic | PR |
+| ID | Mechanic / atom (short landmine — full detail in the report) | ~Yield | Cplx | Status | Examples |
+|---|---|---:|---|---|---|
+| **ACT-KW-GRANT** | `{cost}: This creature gains <KW> until EOT` — self keyword-grant. Reuses GRANTABLE_COMBAT_KEYWORDS allowlist (the allowlist IS the FP guard). **Self-ref only, all-or-nothing whole card** — reject `target`-grants (different atom) + multi-ability cards. | ~46 | low | OPEN | Goblin Balloon Brigade, Narnam Cobra, Unyielding Krumar |
+| **KWSTRIP-1** | Strip the vacuous cast-keyword line (foretell/suspend/splice-onto-arcane/recover/harmonize/basic-landcycling), then parse the body. The #200 precedent, zero new resolver. **Exclude rebound/cipher/conspire/learn/proliferate/amass (NOT vacuous).** | ~44 | low | OPEN | Doomskar, Rift Bolt, Evermind, Grim Harvest, Crashing Footfalls |
+| **SOFT-CNT** | "Counter target spell unless its controller pays {N}." Opponent-decision pending-choice at resolution (an opponent in 4P). Clean core = `pays {fixed}` only. | ~36 | sub | OPEN | Force Spike, Mana Tithe, Mana Leak, Censor, Rune Snag |
+| **DIG-1** | Impulse-dig: "Look at top N. Put one into your hand, rest on the bottom." HAND-dig only (battlefield-dig is its own atom); drop Descend/Casualty/Domain prefixes. Reuses δ-1b picker. | ~25-30 | med | DONE #232 | Sleight of Hand, Telling Time, Glimpse the Cosmos |
+| **TRIG-PUMP-1** | ⭐ **Pilot for the trigger-effect compiler.** "Whenever this attacks/blocks, IT gets +N/+N until EOT" — wire the trigger's effectClause into the temp-pump program. **Fixed-integer anchor** (reject +X/for-each); recipient = "it"/"this", never "other creatures"/"target". | ~23 | low | OPEN | Brazen Wolves, Charging Paladin, Steadfast Cathar |
+| **PUMP-1** | Team pump: "Creatures you control get +X/+Y until EOT." Reject `and gain <keyword>` riders (Triumph of the Hordes → infect). Reuses each-you-control enumerator (#211). | ~22 | low | OPEN | Rally the Peasants, Guardians' Pledge, Coordinated Charge |
+| **REG-1** | Regrowth (gy → HAND): "Return target \<type> card from your graveyard to your hand." Accept the card-type union; `your graveyard` ≠ `a graveyard`; drop `up to one/two`. Reuses #207. | ~22 | low | DONE #231 | Argivian Find, Relearn, Nature's Spiral, Call to Mind |
+| **MT-1** | Divide-among picker: "deals N damage / distribute N +1/+1 divided among any number of targets." Subsumes CNT-2b's distribute half. | ~20 | med | OPEN | Rolling Thunder, Pyrotechnics, Meteor Swarm, Hail of Arrows |
+| **EVADE** | ⚠ **engine-first** combat-keyword engine via ONE `canBlock` chokepoint: unblockable + can't-block (~40) · basic landwalk (~61, per-defender = 4P-correct) · can-block-only-flying (~20). **Must ship canBlock enforcement BEFORE flipping COVERED_KEYWORDS** (else unblockable creatures get blocked = FP). Bare-clause only. Pairs with VERIFY-MENACE. | ~120 | sub | OPEN | Invisible Stalker, Bog Wraith, Jungle Lion, Cloud Elemental |
+
+### 🟡 medium / lower-risk subsystems (runway)
+
+| ID | Mechanic / atom (short landmine) | ~Yield | Cplx | Status | Examples |
+|---|---|---:|---|---|---|
+| **ACT-PUMP-TIMING** | Firebreathing blocked only by a pure-timing trailer ("Activate only once each turn / as a sorcery"). **Must ENFORCE** (per-source activation counter + sorcery-speed gate) before flipping — no counter exists today. Keep "Activate only IF…" on Arbiter. | ~31 | med | OPEN | Frilled Oculus, Rootwalla, Darkthicket Wolf |
+| **ADDCOST-2** | `As an additional cost to cast, discard N / pay N life / sacrifice an artifact. <EFFECT>` — extends the CLAIMED sac-to-cast seam. **FP is in the EFFECT half:** reject cost-scaled effects + "or pay {N}" alt-costs; whitelist the effect template. | ~15 | med | OPEN | Thrill of Possibility, Cathartic Reunion, Deadly Dispute |
+| **FOG-1** | "Prevent all combat damage that would be dealt this turn" — a turn-scoped damage-skip latch `combatResolution.js` checks. Whole-turn latch ONLY (not aura/ongoing prevention). | ~14 | sub | DONE #230 | Fog, Darkness, Holy Day, Moment's Peace |
+| **ETB-RAMP-SEARCH** | "When ~ enters, search for a basic land → hand \| battlefield-tapped, shuffle." **FP #1 = a SECOND ability** (Solemn Simulacrum dies→draw!). Singular "a basic land", one destination, rest keyword-only. | ~14 | med | OPEN | Sylvan Ranger, Pilgrim's Eye, Farhaven Elf, Civic Wayfinder |
+| **KWACT-INVEST** | Alias "Investigate[ N times]." → N create-Clue-token atoms (reuses TOK-2). Free, additive. **Fire only on first-person Investigate** — reject "<subject> investigates" (wrong-owner Clue). | ~11 | low | OPEN | Foul Play, Jace's Scrutiny, Confirm Suspicions, Deduce |
+| **RAMP-1** | Spell ramp: "Search for a basic land, put onto the battlefield [tapped], shuffle" — new battlefield-destination resolver (shipped `tutor` is HAND-only). **High real-deck value (Colton's ramp).** End-anchored `…shuffle.` only; **Cultivate/Kodama's Reach are split-destination traps**; honor tapped/untapped. | ~6-9 | med | OPEN | Rampant Growth, Explosive Vegetation, Into the North |
+| **ETB-EQUIP-ATTACH** | "When this Equipment enters, attach it to target creature you control" + plain +N/+N. **Engine must actually attach** (flip without resolver = a lie); the attach line often carries a "gains <KW> UEOT" rider — drop those. | ~9 | med | OPEN | Bramble Armor, Scavenged Blade, Mirran Banesplitter |
+| **MODAL-2** | Extend the shipped "Choose one —" gate to "Choose two / one or both". **Gate + EXECUTOR must ship in ONE PR** (runtime resolves exactly one mode today → would drop the 2nd = FP). Thin but auto-ratchets. | ~9 | sub | OPEN | Kolaghan's Command, Soul Manipulation, Crush Contraband |
+| **LOOT-1** | Add a self-discard atom (`you discard N` = controller); `draw N, then discard M` then composes. **Reject "discard at random"** (engine-chosen ≠ player-chosen). | ~9 | low | OPEN | Careful Study, Faithless Looting, Catalog, Thoughtflare |
+| **TOK-NAMED-EXT** | Extend the TOK-2 named-token registry to Blood / Powerstone / Map / Lander / Junk. **Powerstone enters tapped + can't pay nonartifact spells** (model or over-credits ramp); exclude ROLE aura-tokens. | ~8 / ~30-40 corpus | low | OPEN | Powerstone/Blood/Lander/Map ETBs (cross-cluster) |
+| **RIDER-CTRL-LIFE** | "Its controller loses N life." on a single **permanent-target** base. **"its controller" = the TARGET's controller, not the caster**; counter-spell targets have no `.controller` → permanent targets only. | ~7 | med | OPEN | Spreading Rot, Despoil, Hideous End, Vapor Snag |
+
+### 🟢 small / cleanup
+
+| ID | Mechanic / atom (short landmine) | ~Yield | Cplx | Status | Examples |
+|---|---|---:|---|---|---|
+| **CNT-2b** | Remaining counter forms: "on up to N target creatures" + −1/−1 single & multi (reuses MT-1's picker). | ~10 | low | OPEN | Travel Preparations, Incremental Growth |
+| **SYMBURN-1** | "Deals N to each creature and each player" (extend the each-creature path to faces). Must hit ALL players incl. caster. | ~8 | low | OPEN | Inferno, Famine, Fire Tempest, Evincar's Justice |
+| **ACT-SELF-BOUNCE** | "{cost}: Return this creature to its owner's hand" (bind target=source). Bundle, not a solo PR. | ~6 | low | OPEN | Darting Merfolk, Fleeting Image, Blinking Spirit |
+| **TUCK-1** | "Put target creature on top of its owner's library" (new `tuck` op). Anchored whole-card; **top ≠ bottom ≠ hand** (wrong slot loses/dupes the card). | ~5 | low | OPEN | Time Ebb, Griptide, Excommunicate, Repel |
+| **RIDER-2ND-MINUS** | Pump target 1 + debuff a DISTINCT 2nd creature. Needs distinct-second-target binding; don't loosen "another" globally. | ~5 | med | OPEN | Leeching Bite, Consume Strength, Schismotivate |
+
+---
+
+## ⛔ δ subsystem backlog — strategic (needs Colton/Omnath greenlight; longer builds)
+
+| ID | Subsystem | ~Yield | Why deferred |
+|---|---|---:|---|
+| **⭐ TRIG-COMPILER** | **The spine of the climb.** Bridge each recognized trigger's `effectClause` → the spell-effect atom library (self/it/this binding + all-or-nothing residue gate). Carves dozens of sub-rows (TRIG-SCRY ~33, TRIG-TREASURE ~45, TRIG-COUNTER ~28, TRIG-DRAW, TRIG-MONARCH ~18…). | ~5,267 (the largest single lever in the corpus) | Greenlight the full bridge **after TRIG-PUMP-1 (the pilot) proves out** — that's why TRIG-PUMP-1 is a 🔴 now. |
+| **⭐ PW-FRAMEWORK** | **Planeswalker subsystem — GAMEPLAY-CRITICAL, not a coverage-%-play.** A loyalty system + standard +/−/static abilities (reusing the modeled atoms) so the Academy can actually **play + teach** PW decks; complex game-warping ultimates degrade **per-card** to the Arbiter (CREED-safe). **Not a coverage-builder slice — a dedicated PW agent owns it, framework-first.** Build-time research is mandatory (CREED forbids coding PW behavior from memory); shipped engine stays 100 % local (research informs code, never a runtime call). Source hierarchy: bundled CR `cr_current.json` + `rulings.json` = rules truth → official web (Scryfall/Gatherer) for gaps → Reddit only for edge-cases + what players misunderstand (feeds the TEACHING layer, never the rules). | ~250-300 of 337 native (most playable; not all-perfect) | **Pending Colton go/no-go + timing; Omnath drafting the agent.** Re-categorized OUT of the irreducible tail (see the strategic map) — gameplay value ≫ ~1 % corpus share. |
+| **ACT-REGEN-SHIELD** | `{cost}: Regenerate this creature` — a replacement-effect SHIELD (CR 701.15). | ~66 | SAME prerequisite as PREVENT — build the replacement-shield machinery once, unlock both. FORBIDDEN to fake-model. |
+| **PREVENT** | Ongoing replacement/prevention (Story Circle, "if … would … instead", prevent-next-N-damage). | big | Replacement-effects subsystem; pairs with ACT-REGEN-SHIELD. (The one-shot Fog latch is carved out as FOG-1.) |
+| **GAIN-CTRL** | Temporary control change (Threaten/Act of Treason: gain control + untap + haste + end-of-turn give-back). | ~25 | Control-swap + end-of-turn give-back subsystem. |
+| **EVADE-4** | "Attacks each combat if able" — a must-attack REQUIREMENT engine (attacking is optional today). | ~16 | A new requirement code path, separate from the EVADE canBlock work. Lowest ROI. |
+| **ACT-MONSTROSITY** | Monstrosity N / Adapt N. | ~7 | Needs an is-monstrous latch whose own second-ability cards force FPs. Not worth it. |
+
+---
+
+## ✅ Shipped this run (Omnath's merge ledger) · 🔵 in-flight (claimed — don't re-take)
+
+| ID | Mechanic | State |
 |---|---|---|
-| **TOK-2** | Named artifact tokens (Treasure/Clue/Food/Gold) | DONE #218 |
-| **CNT-2** | Optional single-target counter ("up to one target creature") | DONE #219 |
-| **EP-2** | Target/each-player discard N (victim chooses, CR 701.8) | DONE #220 |
-| **FIX-TRIG-COMPOUND** | Compound-event triggers drop their 2nd event (15 cards −FP) | ~DONE #218 — Erin verify+pin |
-| **FIX-TRIG-LTB** | leaves-the-battlefield triggers detected but never fired (3 cards −FP) | ~DONE #218 — Erin verify+pin |
+| TOK-2 | Named artifact tokens (Treasure/Clue/Food/Gold) | DONE #218 |
+| CNT-2 | Optional single-target counter | DONE #219 |
+| EP-2 | Target/each-player discard N | DONE #220 |
+| FIX-TRIG-COMPOUND / FIX-TRIG-LTB | trigger −FP fixes | ~DONE #218 |
+| ED-2 · EP-3 · TOK-3 · BURN-2 · ADDCOST-sac | edicts · mill · token-counts · burn-riders · sac-to-cast | 🔵 in-flight (`feat/*` branch exists) |
 
-**Hans (Scout):** re-rank + add rows each cycle (the best next atom shifts as the set grows; estimate the
-**honest clean-template count**, not the loose bucket headline); file any mis-modeled card you spot as a
-`VERIFY-…` row. **Rod (QA):** file any false-positive / interaction bug as a 🔴 `FIX-…` task. **Erin (Fixer):**
-owns the `FIX-…` / `VERIFY-…` lane — verifies each is a real false positive, then fixes it (default fix:
-tighten the matcher so the offender drops to LOW → Arbiter + pin `MUST_DROP_TO_LOW`); claims via `fix/<area>-*`
-branches. Coverage rows (PUMP/REG/DIG/MT/TOK/EP/ED/…) stay with **Cindy, Paula & Tess**. **Omnath:** flips
-status to `DONE` on merge, files review P0s as `FIX-…` tasks.
+**Hans (Scout):** re-rank + add rows each cycle; file mis-modeled cards as `VERIFY-…`. **Rod (QA):** file
+false-positives as 🔴 `FIX-…`. **Erin (Fixer):** owns the FIX/VERIFY lane (default fix: tighten the matcher →
+Arbiter + pin `MUST_DROP_TO_LOW`); claims `fix/<area>-*`. Coverage rows stay with **Cindy, Paula & Tess**.
+**Omnath:** flips status to `DONE` on merge, files review P0s as `FIX-…`.
