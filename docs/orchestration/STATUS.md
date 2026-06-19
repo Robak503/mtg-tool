@@ -1,14 +1,14 @@
 # 🎛️ Academy Coverage — Live Status
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
-> _Updated 2026-06-18 17:35 MST · **cycle 4** · master @ 2e7f0c2 · v0.39.0 **PUBLISHED** ✓ · **PW-1→PW-8 COMPLETE** · **EVADE #258 shipped (+141)** · **POLICY: enforce FPs, don't drop**._
+> _Updated 2026-06-18 18:05 MST · **cycle 4** · master @ 7f3cf7c · v0.39.0 **PUBLISHED** ✓ · **PW-1→PW-8 COMPLETE** · **EVADE #258 + KW-UNTARGET #260 + token-abil #259 shipped** · **POLICY: enforce FPs, don't drop**._
 
 ## 📊 Scoreboard
-- **Native coverage: 17.6%** — 6,017 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%) · **+141 from EVADE #258** (an HONEST gain — the rule now actually ships)
-- `[####······················]`  ~20% of the way to goal
-- ✅ **EVADE #258 enforced 6 of the 11 interim-FP keywords** (menace/skulk/fear/intimidate/horsemanship/defender) — now **honestly native** (combatEvasion canBlock chokepoint, layer-aware). **~140 remain interim FPs:** hexproof/shroud/ward/protection (KW-UNTARGET/TARGET-RESTRICT) + prowess (TRIG-PROWESS) — claimed while their enforcement is built (Cindy's lane). This is enforce-don't-drop *working*: coverage rose by enforcing, not re-claiming.
+- **Native coverage: 17.5%** — 5,985 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%)
+- `[####······················]`  ~19% of the way to goal
+- ✅ **8 of the 11 interim-FP keywords now ENFORCED → honestly native:** EVADE #258 (menace/skulk/fear/intimidate/horsemanship/defender, +141) · KW-UNTARGET #260 (hexproof/shroud). **3 remain interim FPs:** **ward** (a tax, CR 702.21) + **protection** (DEBT subsystem) + **prowess** (TRIG-PROWESS) — claimed while built (Cindy's lane). #259 also killed the token-as-fake-mana-source FP (−32, honest). Enforce-don't-drop *working*.
 - **184 `playable-pw`** — planeswalkers play end-to-end, run **static + triggered emblem ultimates** (#251 + #254), and are **killable by removal** (#253).
-- **Open PRs: #259** (Walt token-abil — CONFLICTING on `coverage.js` after EVADE landed; Walt rebases). master @ 2e7f0c2. Tests **2,602 green**, lint clean.
+- **Open PRs: 0.** master @ 7f3cf7c. Tests **2,619 green**, lint clean.
 
 ## 🚀 Releases
 - **v0.39.0 — PUBLISHED ✓** — signed installer + `latest.json` live; auto-update active.
@@ -25,9 +25,7 @@
 | **Omnath** | Brain · strategy | sets *what/why*; not in the build/merge loop. Boot via the `/omnath` skill. |
 
 ## 🔀 Merge queue (open PRs)
-| PR | Task | State |
-|---|---|---|
-| **#259** | WALT-TOKEN-ABIL slice 1 — token mana abilities + kill token-as-fake-mana-source FP (Walt) | ⏳ **CONFLICTING** on `coverage.js` (EVADE #258 landed first). **Walt: rebase onto origin/master (2e7f0c2), keep BOTH EVADE's `isKeywordOnly`/COVERED_KEYWORDS changes + your token-abil changes, `--force-with-lease`** → Clyde merges. |
+_Empty — #259/#260/#261 all merged this tick. Awaiting the next enforcement (TRIG-PROWESS / TARGET-RESTRICT-ward) + PW-leverage (WALT-TOKEN-ABIL slice 2) + TRIG-* PRs. **`scout/board-5` (Hans) is STALE** (branched at 88b1d4b, pre-EVADE) — relayed for rebase before adopt._
 
 ## 🧭 The climb (Hans board thesis)
 - **~20%→~85% is essentially ONE subsystem — the trigger-effect compiler** (~5,267 trigger cards). **TRIG-PUMP-1 (#238) proved the pilot.** Highest-lever unclaimed = the TRIG-* sub-rows: TRIG-SCRY (~33), TRIG-TREASURE (~45), TRIG-COUNTER (~28), TRIG-DRAW, TRIG-MONARCH (~18).
@@ -40,7 +38,7 @@
 - 🟦 **Walt's PW-leverage lane** (`feat/WALT-*-walt`): WALT-TOKEN-ABIL (start), WALT-DMG-SCALE, WALT-FOR-EACH… (see `agents/walt.md`)
 
 ## 🔁 Recent merges (newest first)
-- **#258** EVADE — combat-evasion enforcement, +141 (Cindy) · **#257** qa-sweep de-noise (Hans) · **#256** keep 11 keywords claimed / enforce-don't-drop (Hans) · **#255** FP audit (superseded by #256) · **#254** PW-8 triggered emblems (Walt) · **#251** PW-5 emblems (Walt)
+- **#260** KW-UNTARGET — hexproof/shroud targetability (Cindy) · **#259** WALT-TOKEN-ABIL — token mana abilities + kill fake-mana FP (Walt) · **#261** qa-sweep↔EVADE sync (Hans) · **#258** EVADE — combat-evasion enforcement, +141 (Cindy) · **#257** qa-sweep de-noise (Hans) · **#256** enforce-don't-drop keep-claimed (Hans)
 - shipped in v0.39.0: #243 SOFT-CNT · #241 LOOT-1 · #240 ADDCOST-2 · #238 TRIG-PUMP-1 · #237 MT-1 · #236 PW-1 · …
 
 ## 🗒️ Notes
