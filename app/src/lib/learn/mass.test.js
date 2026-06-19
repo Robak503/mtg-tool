@@ -54,12 +54,15 @@ describe("parser — mass effects are HIGH, filtered wipes route to Arbiter", ()
     expect(parseEffectProgram(EXILE_ALL).atoms).toEqual([{ op: "exile", targetType: "eachCreature" }]);
     expect(parseEffectProgram(INFEST).atoms).toEqual([{ op: "pump", targetType: "eachCreature", ptDelta: { p: -2, t: -2 } }]);
   });
-  it("a FILTERED or noncreature wipe is low (eachCreature would hit the wrong set)", () => {
+  it("a FILTERED wipe is low (the unfiltered eachX scope would hit the wrong set)", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
     low("Destroy all creatures with flying.");
     low("Destroy all nonblack creatures.");
     low("Exile all creatures you don't control.");
-    low("Destroy all artifacts.");
+    // MASS-NC: the UNFILTERED non-creature wipes ("Destroy all artifacts/enchantments/lands") are now
+    // modeled (high) — but a FILTERED non-creature wipe still drops to low (eachArtifact ≠ this subset).
+    low("Destroy all nonbasic lands.");
+    low("Destroy all artifacts you control.");
     low("All creatures get -1/-1 until end of turn and can't block.");
   });
 });

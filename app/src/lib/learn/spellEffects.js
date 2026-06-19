@@ -34,6 +34,7 @@ import {
 } from "./gameState.js";
 import { checkDiesTriggers } from "./triggers.js";
 import { permanentHasKeyword } from "./layers.js";
+import { isNonChosenTargetType } from "./targetTypes.js";
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
@@ -166,7 +167,7 @@ export function parseSpellEffect(card) {
 
 /** Does this effect need the caster to choose a target? */
 export function effectNeedsTarget(effect) {
-  return !!effect && !!effect.targetType && !["eachOpponent", "eachCreature"].includes(effect.targetType);
+  return !!effect && !!effect.targetType && !isNonChosenTargetType(effect.targetType);
 }
 
 // ─── Target restrictions (P2.4) ───────────────────────────────────────────────

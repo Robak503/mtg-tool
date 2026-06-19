@@ -716,7 +716,7 @@ const MUST_DROP_TO_LOW = [
   "Destroy all creatures with flying.",                         // keyword filter → not all creatures
   "Destroy all nonblack creatures.",                            // color filter
   "Exile all creatures you don't control.",                     // controller filter
-  "Destroy all artifacts and enchantments.",                    // not creatures (noncreature wipe)
+  "Destroy all nonbasic lands.",                                // MASS-NC: unfiltered NC wipes are modeled now; a FILTERED one stays low
   "All creatures get -1/-1 until end of turn and can't block.", // pump rider (can't block) — keyword effect dropped
   // Combat-trick keyword grants must drop when the granted keyword isn't enforced (a fake
   // grant is forbidden) — the grantable set is the layer-aware combat keywords, NOT these.

@@ -16,6 +16,7 @@
  */
 
 import { enumerateTargets } from "../spellEffects.js";
+import { isNonChosenTargetType } from "../targetTypes.js";
 
 // Bounds the cartesian blow-up of a multi-target spell (CR-spirit: a "deal 4
 // divided among any number of targets" would explode legalChoices + the UI). The
@@ -52,7 +53,7 @@ function kCombinations(n, k) {
 /** An effect-like target spec for one atom, or null when the atom is non-targeted. */
 function atomTargetSpec(atom) {
   const tt = atom?.targetType;
-  if (!tt || tt === "eachOpponent" || tt === "eachCreature") return null;
+  if (!tt || isNonChosenTargetType(tt)) return null;
   // P3.1 counter: a spell-target spec carries the spellFilter for stack-spell enumeration.
   if (tt === "spell") return { kind: "counter", targetType: "spell", spellFilter: atom.spellFilter || "any" };
   // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so
