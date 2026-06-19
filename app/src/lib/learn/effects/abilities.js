@@ -137,7 +137,11 @@ export function sacrificeDropsTrigger(oracle) {
  */
 export function parseCyclingCost(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
-  if (/\bwhen(?:ever)?\s+you\s+cycle\b|\bcycles?\s+or\s+discards?\b/i.test(oracle)) return null;
+  // ANY "When/Whenever … cycle[d]" trigger within a single clause (until the period) is an unmodeled
+  // cycle trigger — gate the whole card. BROAD on purpose (a false-negative is safe): catches the
+  // bare "When you cycle this card …" AND the split form "When you cast OR cycle ~, create a token …"
+  // (Warped Tusker / Drownyard Lurker) + "Whenever you cycle or discard …" (Curator of Mysteries).
+  if (/\b(?:when|whenever)\b[^.]*\bcycle/i.test(oracle)) return null;
   const m = oracle.match(/(?:^|\n)\s*cycling\s+((?:\{[^}]+\})+)/i);
   return m ? m[1] : null;
 }

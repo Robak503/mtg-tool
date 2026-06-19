@@ -63,6 +63,11 @@ describe("KW-CYCLING — from-hand activation", () => {
     expect(filterActions(legalActionsForPlayer(cyclingState({ hand: [tusker] }), "user"), "cycle")).toHaveLength(0);
   });
 
+  it("is NOT offered for the SPLIT 'when you cast OR cycle' trigger form (Warped Tusker — adversarial-review catch)", () => {
+    const warped = { id: "ct2", name: "Warped Tusker", type: "Artifact Creature — Phyrexian Beast", oracle: "When you cast or cycle this card, create a 0/1 colorless Eldrazi Spawn creature token. It has \"Sacrifice this token: Add {C}.\"\nCycling {2}{G}" };
+    expect(filterActions(legalActionsForPlayer(cyclingState({ hand: [warped] }), "user"), "cycle")).toHaveLength(0);
+  });
+
   it("plain cycling is offered even beside a typecycling line; pure typecycling is not (search deferred)", () => {
     // Sheltered Thicket has BOTH plain "Cycling {2}" and Mountaincycling — the plain cycle IS offered.
     const both = { id: "tc1", name: "Sheltered Thicket", type: "Land", oracle: "Cycling {2}\nMountaincycling {2}" };
