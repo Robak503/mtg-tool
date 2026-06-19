@@ -370,6 +370,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     experience: 0,
     landsPlayedThisTurn: 0,
     cardsDrawnThisTurn: 0,
+    spellsCastThisTurn: 0,    // TRIG-CAST2: "cast your second spell each turn" — incremented at the cast chokepoint, reset for all seats at untap
     hasMulliganed: false,
   };
 }
@@ -1068,6 +1069,31 @@ export function resetCardsDrawnAllPlayers(state) {
   const players = {};
   for (const id of Object.keys(state.players)) {
     players[id] = { ...state.players[id], cardsDrawnThisTurn: 0 };
+  }
+  return { ...state, players };
+}
+
+/**
+ * TRIG-CAST2 — record that `playerId` cast a spell (increments spellsCastThisTurn). Called at the cast
+ * chokepoint (actionDispatcher.applyCastSpell) BEFORE checkCastTriggers, so "cast your second spell each
+ * turn" reads the running count and fires when it reaches 2. Each cast is one spell (CR 601 — spells are
+ * cast one at a time), so the count passes through 2 exactly once per turn.
+ */
+export function recordSpellCast(state, { playerId }) {
+  assertPlayer(playerId);
+  return withPlayer(state, playerId, p => ({ ...p, spellsCastThisTurn: (p.spellsCastThisTurn || 0) + 1 }));
+}
+
+/**
+ * TRIG-CAST2 — reset the per-turn SPELL counter for EVERY player at turn start (the spell analogue of
+ * resetCardsDrawnAllPlayers). You cast instants on any player's turn, so "second spell each turn" must
+ * count per game-turn for all seats — a stale off-turn count would false-fire. Called alongside the draw
+ * reset at untap.
+ */
+export function resetSpellsCastAllPlayers(state) {
+  const players = {};
+  for (const id of Object.keys(state.players)) {
+    players[id] = { ...state.players[id], spellsCastThisTurn: 0 };
   }
   return { ...state, players };
 }

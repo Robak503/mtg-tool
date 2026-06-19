@@ -257,6 +257,12 @@ function classifyCondition(condRaw, cardName) {
   // only the modeled filters (any / instant-or-sorcery / creature / noncreature) classify; a
   // color/subtype/historic/timing filter returns null → undetected. ("an?" greedily takes the
   // "n" of "an" but stops at the space of a bare "a".)
+  // TRIG-CAST2 — "cast your second spell each turn" (the magecraft-second-spell payoff). Checked BEFORE the
+  // generic cast matcher below (which is anchored to "…spell$" and so deliberately leaves this for the
+  // Arbiter). BARE second-spell form only; a different ordinal ("first/third"), a spell-type rider, or any
+  // other trailing text stays UNDETECTED → Arbiter. Fires via checkCastTriggers when the caster's
+  // spellsCastThisTurn reaches 2 (reset for all seats at untap); whose:"any" + scan only the caster.
+  if (/^you cast your second spell (?:each|this) turn$/.test(c)) return { event: "castSecond", scope: "you", whose: "any" };
   const castM = c.match(/^(you|an opponent|a player|each player) casts?\s+(?:an?|your|its|their)?\s*([a-z- ]*?)\s*spell$/);
   if (castM) {
     const whose = /you/.test(castM[1]) ? "you" : /opponent/.test(castM[1]) ? "opponent" : "any";
@@ -706,6 +712,17 @@ export function checkCastTriggers(state, { spellCard, casterId }) {
     for (const perm of state.players[casterId]?.battlefield || []) {
       if (isCreaturePerm(perm) && hasKeyword(perm.card, "Prowess")) {
         fired.push(makePendingTrigger(prowessDescriptor(), perm, null, context));
+      }
+    }
+  }
+  // TRIG-CAST2 (CR 601): "Whenever you cast your second spell each turn." recordSpellCast (applyCastSpell)
+  // just incremented the caster's count BEFORE this call, and spells are cast one at a time, so it equals
+  // exactly 2 on the 2nd cast of the turn (reset for all seats at untap → fires again next turn). Fires for
+  // the CASTER's own watchers only (scope "you"), so no whose gate is needed — never on an opponent's cast.
+  if (state.players[casterId]?.spellsCastThisTurn === 2) {
+    for (const watcher of triggerSourcesOf(state, casterId)) {
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "castSecond")) {
+        fired.push(makePendingTrigger(d, watcher, null, context));
       }
     }
   }

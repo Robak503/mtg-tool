@@ -19,6 +19,11 @@ summarizes the notable changes.
   Ratter** pay you off for the second draw. It fires on the second draw of the turn only (not the first or
   third) and resets every turn — and faithfully counts off-turn draws (the per-turn draw counter now resets
   for every seat, not just the active player). ~15 cards flip to fully native.
+- **"Cast your second spell each turn" triggers fire (TRIG-CAST2, CR 601):** the magecraft-second-spell
+  payoffs now fire — **Jori En, Ruin Diver** and **Sunstar Lightsmith** draw, **Clarion Spirit** and
+  **Thunder Drake** make tokens/grow when you cast your second spell of the turn. Fires on the second cast
+  only, resets each turn, and counts off-turn instants faithfully (a new per-seat spell counter mirroring
+  the draw counter). ~8 cards flip to fully native.
 
 ## [0.44.0] - 2026-06-19
 

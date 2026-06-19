@@ -41,6 +41,7 @@ import {
   adjustLoyalty,
   markLoyaltyActivated,
   destroyZeroLoyaltyPlaneswalkers,
+  recordSpellCast,
 } from "./gameState.js";
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 import { manaSources, planPayment } from "./manaModel.js";
@@ -374,6 +375,7 @@ function applyCastSpell(state, action) {
   // opponent casts a … spell" watchers trigger and go on the stack ABOVE it (flush here,
   // not at a later checkpoint, so they resolve BEFORE the spell — correct order, and the
   // right thing for any future referential effect).
+  next = recordSpellCast(next, { playerId: action.playerId }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
   next = checkCastTriggers(next, { spellCard: card, casterId: action.playerId });
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // Restart priority loop at active player after the spell goes on

@@ -31,6 +31,7 @@ import {
   drawCards,
   resetTurnCounters,
   resetCardsDrawnAllPlayers,
+  resetSpellsCastAllPlayers,
   untapAll,
   clearCombatDamage,
   logEvent,
@@ -193,6 +194,7 @@ export function runStepActions(state) {
       next = emptyManaPools(next);
       next = resetTurnCounters(next, { playerId: state.activePlayer });
       next = resetCardsDrawnAllPlayers(next); // TRIG-DRAW2: "draw your second card each turn" counts every seat's draws this turn
+      next = resetSpellsCastAllPlayers(next); // TRIG-CAST2: ditto for "cast your second spell each turn"
       next = untapAll(next, { playerId: state.activePlayer });
       next = logEvent(next, { kind: "step", phase: "beginning", step: "untap", player: state.activePlayer });
       break;
