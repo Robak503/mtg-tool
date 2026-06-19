@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Count-scaled self-buffs play correctly (TRUNK-SELFBUFF):** "This creature gets +X/+Y for each
+  &lt;permanent type&gt; you control" (Nim Lasher, Earth Servant…) now resolves as a live, layer-correct static
+  bonus that tracks the board (the P/T updates as the count changes), instead of being treated as a vanilla
+  body. Generalizes the layer engine's dynamic-P/T hook to data-driven board counts, and recognizes a
+  creature's own name as a self-reference. (Foundational layer infra; flips a small single-line subset
+  native today — the larger static-buff family is multi-line and stays gated until the other clauses model.)
+
 - **Cracking a Treasure triggers your sacrifice payoffs (SAC-TREASURE, CR 701.21):** sacrificing a Treasure
   or Gold for mana now correctly fires "Whenever you sacrifice an artifact / a permanent" — so **Korvold**,
   **Mayhem Devil**, and **Pitiless Plunderer** finally pay off when you crack a Treasure, on every mana path

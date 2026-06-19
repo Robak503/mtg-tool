@@ -73,6 +73,40 @@ function normalizeSubtype(word) {
   return w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w;
 }
 
+// ─── TRUNK-SELFBUFF: count-scaled self static buff ──────────────────────────────
+// A continuous (layer-7c) self-buff whose magnitude is a board count — "this creature gets +X/+Y for each
+// <countsource>" (Nim Lasher, Benalish Honor Guard…). The layer engine re-evaluates the count each P/T
+// computation. The count phrase is parsed to a SERIALIZABLE spec here; layers.js evaluates it (cycle-safe:
+// parser.js's richer parseCountSource isn't importable — parser.js imports THIS module).
+const SELF_COUNT_CARDTYPE = { creature: "Creature", creatures: "Creature", artifact: "Artifact", artifacts: "Artifact", land: "Land", lands: "Land", enchantment: "Enchantment", enchantments: "Enchantment" };
+const SELF_COUNT_BASIC = { plains: "Plains", island: "Island", islands: "Island", swamp: "Swamp", swamps: "Swamp", mountain: "Mountain", mountains: "Mountain", forest: "Forest", forests: "Forest" };
+
+/**
+ * Parse the count phrase of a self "for each <X>" into a `{ kind:"permanentsYouControl", cardType|subtype }`
+ * spec, or null. DELIBERATELY NARROW + allowlist-free: only "<card type> you control" and "<basic land>
+ * you control" — the dup-free, unambiguous sources. A subtype ("Goblin"), "other", graveyard, hand, or any
+ * opponent/qualified count → null → the clause produces NO descriptor → the card stays LOW (Arbiter, never a
+ * fabricated buff). CREED: a miss is safe; a wrong count across 100s of cards is forbidden.
+ */
+function parseSelfCountSource(phrase) {
+  const p = phrase.toLowerCase().trim().replace(/\.\s*$/, "");
+  let m;
+  if ((m = p.match(/^(creatures?|artifacts?|lands?|enchantments?) you control$/))) return { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]] };
+  if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]] };
+  return null;
+}
+
+/**
+ * Replace the card's OWN name with "this creature" so a name-based self-reference ("Nim Lasher gets +1/+0
+ * …", common on older cards) reads the same as modern "This creature gets …" templating. Word-bounded on
+ * the FULL name only (never a partial), so it can't touch an unrelated card's name in the text.
+ */
+function selfNormalizeOracle(oracle, name) {
+  if (!name) return String(oracle || "");
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return String(oracle || "").replace(new RegExp(`\\b${esc}\\b`, "g"), "this creature");
+}
+
 /**
  * Try every supported pattern against one clause; push any descriptor(s) found
  * into `out`. The patterns are intentionally narrow and ordered most-specific
@@ -80,6 +114,29 @@ function normalizeSubtype(word) {
  */
 function parseClause(clause, out) {
   const c = clause.toLowerCase();
+
+  // ── TRUNK-SELFBUFF: a STATIC self-buff scaled by a board count (layer 7c dynamic) ──
+  // "This creature gets +X/+Y for each <countsource>" (Nim Lasher, Benalish Honor Guard…). A CONTINUOUS
+  // effect, so it's exempt from the `for each` guard below — but ONLY this exact self-referential static
+  // shape, with a MODELED count source. Tight: whole-clause anchored, self subject, no trigger/activated/
+  // one-shot prefix, and parseSelfCountSource must recognize the source (else NO descriptor → the card
+  // stays LOW → Arbiter, never a fabricated buff). The card name was normalized to "this creature" upstream.
+  if (!/^(?:when|whenever|at)\b/.test(c) && !/\bwhenever\b/.test(c) && !c.includes(":") && !/\b(?:until end of turn|this turn)\b/.test(c)) {
+    const feM = c.match(/^(?:this creature|it) gets ([+-]\d+)\/([+-]\d+) for each (.+)$/);
+    if (feM) {
+      const countSpec = parseSelfCountSource(feM[3]);
+      if (countSpec) {
+        out.push({
+          layer: 7,
+          sublayer: "7c",
+          op: { layerOp: "ptModifyDynamicCount", countSpec, perPower: signed(feM[1]), perToughness: signed(feM[2]) },
+          affects: { mode: "self" },
+          duration: { kind: "permanent" },
+        });
+      }
+      return; // a self-for-each clause — handled (or intentionally dropped to LOW on an unmodeled source)
+    }
+  }
 
   // ── STATIC-ONLY GUARD (CLAUDE.md §1.2: a miss is safe; a false grant is forbidden) ──
   // A continuous effect is created only by a STATIC ability. Bail on any marker of a
@@ -299,8 +356,9 @@ function isLevelGated(oracle) {
  * everything else yields []. Pure.
  */
 export function parseStaticAbilities(card) {
-  const oracle = String(card?.oracle || card?.oracle_text || "");
-  if (!oracle || isLevelGated(oracle)) return [];
+  const rawOracle = String(card?.oracle || card?.oracle_text || "");
+  if (!rawOracle || isLevelGated(rawOracle)) return [];
+  const oracle = selfNormalizeOracle(rawOracle, card?.name); // TRUNK-SELFBUFF: name-based self-ref → "this creature"
   const out = [];
   for (const clause of abilityClauses(oracle)) {
     parseClause(clause, out);
@@ -322,7 +380,8 @@ export function parseStaticAbilities(card) {
  */
 export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
   if (parseStaticAbilities(card).length === 0) return false; // none, or leveler-gated
-  for (const clause of abilityClauses(String(card?.oracle || card?.oracle_text || ""))) {
+  const oracle = selfNormalizeOracle(String(card?.oracle || card?.oracle_text || ""), card?.name); // match the runtime's name-normalized parse
+  for (const clause of abilityClauses(oracle)) {
     const produced = [];
     parseClause(clause, produced);
     if (produced.length > 0) continue;          // a modeled static clause
