@@ -146,6 +146,43 @@ describe("runEffectProgram — X spells (amountX reads ctx.xValue)", () => {
   });
 });
 
+// ===== DMG-SCALE ===== (WALT-DMG-SCALE) the damage AMOUNT is a board count (`amountCount`) computed at
+// resolution from the controller's current board/hand — not a printed number, not a chosen X.
+describe("runEffectProgram — board-count damage (DMG-SCALE)", () => {
+  const dmgAtom = (targetType, amountCount) => ({ op: "deal-damage", targetType, amountCount });
+  const withBoard = (perms) => { const s = freshState(); return { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: perms } } }; };
+  const land = (name, id, sub) => ({ id, card: { name, type: `Basic Land — ${sub}`, oracle: "" }, controller: "user", tapped: false, summoningSick: false, counters: {} });
+
+  it("deals damage to a player equal to the number of creatures you control (counted at resolution)", () => {
+    const state = withBoard([cr("Bear", "b1", "user"), cr("Bear", "b2", "user"), cr("Bear", "b3", "user")]);
+    const obj = stackObj(high([dmgAtom("player", { kind: "permanentsYouControl", cardType: "creature" })]), { targets: [{ type: "player", id: "ai" }] });
+    expect(runEffectProgram(state, obj).players.ai.life).toBe(state.players.ai.life - 3);
+  });
+  it("counts a basic-land SUBTYPE (Mountains you control), ignoring other lands", () => {
+    const state = withBoard([land("Mountain", "m1", "Mountain"), land("Mountain", "m2", "Mountain"), land("Forest", "f1", "Forest")]);
+    const obj = stackObj(high([dmgAtom("player", { kind: "permanentsYouControl", subtype: "Mountain" })]), { targets: [{ type: "player", id: "ai" }] });
+    expect(runEffectProgram(state, obj).players.ai.life).toBe(state.players.ai.life - 2); // 2 Mountains; the Forest doesn't count
+  });
+  it("counts cards in your hand", () => {
+    let state = freshState();
+    state = { ...state, players: { ...state.players, user: { ...state.players.user, hand: [{ id: "h1" }, { id: "h2" }, { id: "h3" }, { id: "h4" }] } } };
+    const obj = stackObj(high([dmgAtom("player", { kind: "cardsInHand" })]), { targets: [{ type: "player", id: "ai" }] });
+    expect(runEffectProgram(state, obj).players.ai.life).toBe(state.players.ai.life - 4);
+  });
+  it("a zero count deals zero damage (no crash, no fabricated damage)", () => {
+    const state = withBoard([]); // no creatures
+    const obj = stackObj(high([dmgAtom("player", { kind: "permanentsYouControl", cardType: "creature" })]), { targets: [{ type: "player", id: "ai" }] });
+    expect(runEffectProgram(state, obj).players.ai.life).toBe(state.players.ai.life); // 0 creatures → 0 damage
+  });
+  it("an Artifact Creature counts for BOTH 'creatures' and 'artifacts' you control", () => {
+    const ac = { id: "ac", card: { name: "Ornithopter", type: "Artifact Creature — Thopter", power: 0, toughness: 2, oracle: "" }, controller: "user", tapped: false, summoningSick: false, counters: {}, damageMarked: 0 };
+    const state = withBoard([ac]);
+    const tg = { targets: [{ type: "player", id: "ai" }] };
+    expect(runEffectProgram(state, stackObj(high([dmgAtom("player", { kind: "permanentsYouControl", cardType: "creature" })]), tg)).players.ai.life).toBe(state.players.ai.life - 1);
+    expect(runEffectProgram(state, stackObj(high([dmgAtom("player", { kind: "permanentsYouControl", cardType: "artifact" })]), tg)).players.ai.life).toBe(state.players.ai.life - 1);
+  });
+});
+
 describe("effect-program resolver registration + end-to-end", () => {
   it("is a built-in resolver under the reserved key", () => {
     expect(getResolver(RESOLVER_KEYS.EFFECT_PROGRAM)).toBe(RESOLVERS[RESOLVER_KEYS.EFFECT_PROGRAM]);

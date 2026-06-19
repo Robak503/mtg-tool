@@ -329,6 +329,39 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
   });
 });
 
+// ===== DMG-SCALE ===== (WALT-DMG-SCALE) "deals damage to <target> equal to the number of <count source>"
+// — the amount is a board count (amountCount) resolved at resolution. Tight target + source allowlists.
+describe("parseEffectProgram — board-count damage (DMG-SCALE)", () => {
+  const atom0 = (txt) => parseEffectProgram(I(txt)).atoms[0];
+  const conf = (txt) => programConfidence(parseEffectProgram(I(txt)));
+  it("MUST_STAY_HIGH: each modeled target × each modeled count source", () => {
+    expect(atom0("Massive Raid deals damage to any target equal to the number of creatures you control."))
+      .toMatchObject({ op: "deal-damage", targetType: "any", amountCount: { kind: "permanentsYouControl", cardType: "creature" } });
+    expect(atom0("Rumbling Rockslide deals damage to target creature equal to the number of lands you control."))
+      .toMatchObject({ op: "deal-damage", targetType: "creature", amountCount: { kind: "permanentsYouControl", cardType: "land" } });
+    expect(atom0("Feedback Bolt deals damage to target player or planeswalker equal to the number of artifacts you control."))
+      .toMatchObject({ op: "deal-damage", targetType: "playerOrPlaneswalker", amountCount: { kind: "permanentsYouControl", cardType: "artifact" } });
+    expect(atom0("Spitting Earth deals damage to target creature equal to the number of Mountains you control."))
+      .toMatchObject({ op: "deal-damage", targetType: "creature", amountCount: { kind: "permanentsYouControl", subtype: "Mountain" } });
+    expect(atom0("Spiraling Embers deals damage to any target equal to the number of cards in your hand."))
+      .toMatchObject({ op: "deal-damage", targetType: "any", amountCount: { kind: "cardsInHand" } });
+  });
+  it("MUST_DROP_TO_LOW: restricted target / unmodeled source / multiplier → Arbiter", () => {
+    // restricted target (would mis-resolve to the unrestricted set):
+    expect(conf("Outflank deals damage to target attacking creature equal to the number of creatures you control.")).toBe("low");
+    expect(conf("Acidic Soil deals damage to each player equal to the number of lands you control.")).toBe("low"); // each-player damage not modeled
+    // opponent-scoped sources (slice 1 is controller-scoped only):
+    expect(conf("Incite deals damage to target creature equal to the number of creatures they control.")).toBe("low");
+    expect(conf("Sudden Impact deals damage to target player equal to the number of cards in that player's hand.")).toBe("low");
+    // creature subtype / graveyard / exotic sources (deferred):
+    expect(conf("Goblin War Strike deals damage to target player equal to the number of Goblins you control.")).toBe("low");
+    expect(conf("Scrapyard deals damage to any target equal to the number of artifact cards in your graveyard.")).toBe("low");
+    expect(conf("Skred deals damage to target creature equal to the number of snow permanents you control.")).toBe("low");
+    // a multiplier ("twice the number of") is not a half-scalable native:
+    expect(conf("Boom deals damage to any target equal to twice the number of Mountains you control.")).toBe("low");
+  });
+});
+
 // P2.6 — CREATE-TOKEN. Single-color creature tokens; a non-creature token / inline-ability
 // rider / "tapped" rider stays low. ===== TOKENS ===== T1 adds keyword tokens (with flying …).
 describe("parseEffectProgram — create-token (P2.6)", () => {

@@ -879,6 +879,32 @@ function applyShuffle(state, atom, ctx) {
 // the chosen X (ctx.xValue, bound at cast time) instead of a printed numeric amount.
 const effectiveAmount = (atom, ctx) => (atom.amountX ? ctx.xValue || 0 : atom.amount);
 
+// ===== DMG-SCALE ===== (WALT-DMG-SCALE) a board-count amount (`amountCount`, set by parseCountSource)
+// is computed AT RESOLUTION from the CONTROLLER's current board/hand (CR 608.2g — a count-derived value
+// is locked as the spell resolves, not at cast). Slice 1 sources: permanents you control by card TYPE
+// (creature/land/artifact/enchantment) or basic-land SUBTYPE (Mountain/Forest/Island/Plains/Swamp), or
+// cards in your hand. The matcher (countMatches) reads the same `card.type` line as isCreatureCard, so an
+// Artifact Creature correctly counts for both "creatures" and "artifacts" (it IS both, CR 305.4-ish).
+function countMatches(card, spec) {
+  const type = String(card?.type || card?.type_line || "");
+  if (spec.subtype) return new RegExp(`\\b${spec.subtype}\\b`).test(type);   // basic-land subtype (Mountain…)
+  if (spec.cardType) {
+    const T = spec.cardType.charAt(0).toUpperCase() + spec.cardType.slice(1); // creature → Creature
+    return new RegExp(`\\b${T}\\b`).test(type);
+  }
+  return false;
+}
+function countForSpec(state, ctx, spec) {
+  const player = state?.players?.[ctx.controller];
+  if (!player) return 0;
+  if (spec.kind === "cardsInHand") return (player.hand || []).length;
+  if (spec.kind === "permanentsYouControl") return (player.battlefield || []).filter((perm) => countMatches(perm.card, spec)).length;
+  return 0;
+}
+// Resolved numeric amount: a board count (`amountCount`) → counted at resolution; else the X-amount
+// (`amountX` → ctx.xValue) or the printed numeric amount.
+const resolveScaledAmount = (state, atom, ctx) => (atom.amountCount ? countForSpec(state, ctx, atom.amountCount) : effectiveAmount(atom, ctx));
+
 /**
  * ===== FOG ===== (FOG-1, CR 615 prevention) — "Prevent all combat damage that would be dealt this turn."
  * Stamp the current turn onto state.preventCombatDamageTurn; combatResolution.resolveCombatDamage skips
@@ -933,7 +959,7 @@ export function applyDivideDamage(state, atom, ctx) {
 
 export const ATOM_RESOLVERS = Object.freeze({
   "deal-damage": (state, atom, ctx) =>
-    applyDamageEffect(state, { controller: ctx.controller, amount: effectiveAmount(atom, ctx), targetType: atom.targetType, targets: ctx.targets }),
+    applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType: atom.targetType, targets: ctx.targets }),
   "destroy": (state, atom, ctx) =>
     applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx) }),
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player

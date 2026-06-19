@@ -48,6 +48,13 @@ describe("classifyCard — tiers", () => {
   it("a HIGH instant/sorcery is native-spell", () => {
     expect(classifyCard(C("Instant", "Lightning Bolt deals 3 damage to any target.", { name: "Lightning Bolt" }))).toBe("native-spell");
   });
+  // ===== DMG-SCALE ===== (WALT-DMG-SCALE) board-count damage is native-spell; an unmodeled count source
+  // (opponent-scoped / subtype / graveyard) routes the whole spell to the Arbiter.
+  it("DMG-SCALE: 'damage = number of <permanents you control>' is native-spell; an unmodeled source bounces", () => {
+    expect(classifyCard(C("Sorcery", "Spitting Earth deals damage to target creature equal to the number of Mountains you control.", { name: "Spitting Earth" }))).toBe("native-spell");
+    expect(classifyCard(C("Instant", "Massive Raid deals damage to any target equal to the number of creatures you control.", { name: "Massive Raid" }))).toBe("native-spell");
+    expect(classifyCard(C("Sorcery", "Goblin War Strike deals damage to target player equal to the number of Goblins you control.", { name: "Goblin War Strike" }))).toBe("arbiter-spell"); // creature subtype — deferred
+  });
   it("P3.1 / SOFT-CNT: bare + fixed-{N} 'unless pays' counters are native-spell; a variable/rider counter bounces to arbiter-spell", () => {
     expect(classifyCard(C("Instant", "Counter target spell.", { name: "Counterspell" }))).toBe("native-spell");
     expect(classifyCard(C("Instant", "Counter target noncreature spell.", { name: "Negate" }))).toBe("native-spell");
