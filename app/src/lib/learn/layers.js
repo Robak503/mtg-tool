@@ -112,6 +112,13 @@ function countSelfSpecOnBoard(state, perm, spec) {
   return (player.battlefield || []).filter((p) => re.test(typeLineOf(p.card))).length;
 }
 
+// GATED-SELFBUFF: does the SOURCE permanent itself match a count spec's type? (so "another <type>" can
+// exclude it from its own gate count). Word-bounded on the type line, mirroring countSelfSpecOnBoard.
+function matchesCountSpec(perm, spec) {
+  const needle = spec?.cardType || spec?.subtype;
+  return needle ? new RegExp(`\\b${needle}\\b`).test(typeLineOf(perm?.card)) : false;
+}
+
 const COLOR_PIPS = ["W", "U", "B", "R", "G"];
 function colorsOf(card) {
   if (Array.isArray(card?.colors)) return card.colors.map(String);
@@ -346,6 +353,14 @@ function applyLayer7(state, perm, l7Effects) {
       const n = countSelfSpecOnBoard(state, perm, e.op.countSpec);
       power += n * (e.op.perPower || 0);
       toughness += n * (e.op.perToughness || 0);
+    } else if (e.op.layerOp === "ptModifyGated") {
+      // GATED-SELFBUFF: a FIXED self buff applied ONLY while a board threshold holds ("gets +X/+Y as long as
+      // you control a/another/N <type>"). Re-evaluated live every P/T computation. "another" excludes the
+      // source permanent from its own count (CR — "another <type>").
+      const g = e.op.gate || {};
+      let n = countSelfSpecOnBoard(state, perm, g.countSpec);
+      if (g.excludeSelf && matchesCountSpec(perm, g.countSpec)) n -= 1;
+      if (n >= (g.atLeast || 1)) { power += e.op.power || 0; toughness += e.op.toughness || 0; }
     }
   }
 
