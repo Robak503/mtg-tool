@@ -1,28 +1,29 @@
 # 🎛️ Academy Coverage — Live Status
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
-> _Updated 2026-06-19 · **cycle 4** · master @ 30405c9 · **v0.42.0 CUT (CI building)** · **🆕 COMMANDERS ARE CASTABLE** · v0.41.0 published · PW-1→PW-8 COMPLETE · **POLICY: enforce FPs, don't drop**._
+> _Updated 2026-06-19 · **cycle 4** · master @ b1b4bc4 · **v0.42.0 PUBLISHED ✓** · **COMMANDERS CASTABLE + CMD-RETURN** · **LANE RE-CARVE: Walt = keywords · Cindy = commander + compiler** · **POLICY: enforce FPs, don't drop**._
 
 ## 📊 Scoreboard
-- **Native coverage: 17.9%** — 6,118 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%). NEXT: **Cindy → CMD-PARTNER/CMD-COMPANION**, then the 189-keyword waves; **Walt → ANIMATE PR2** (becomes-a-creature atoms).
+- **Native coverage: 17.9% headline** (6,118 / 34,160) — **honest ≈17.5%**: ~110 native-mana sources are a known metric over-claim (🔴 **FIX-MANA-OVERCLAIM** queued — METRIC-ONLY, no runtime harm; Hans fast-tracking the residue-gate fix). goal **~90%** (ceiling ~88–92%). NEXT: **Cindy → CMD-DMG21 → CMD-PARTNER → CMD-COMPANION** then the general trigger compiler; **Walt → the 702.x keyword backlog**.
 - `[####······················]`  ~19% of the way to goal
 - ✅ **9 of the 11 interim-FP keywords now ENFORCED → honestly native:** EVADE #258 (menace/skulk/fear/intimidate/horsemanship/defender, +141) · KW-UNTARGET #260 (hexproof/shroud) · **TRIG-PROWESS #262** (prowess). **Only 2 remain interim FPs — the genuinely-hard ones, legitimately deferred per the policy:** **ward** (a TAX, CR 702.21) + **protection** (the DEBT subsystem). Enforce-don't-drop **essentially complete** for tractable keywords.
 - **184 `playable-pw`** — planeswalkers play end-to-end, run **static + triggered emblem ultimates** (#251 + #254), and are **killable by removal** (#253).
-- **Open PRs: 0.** master @ 30405c9. Tests **2,691 green**, lint clean.
+- **Open PRs: 0.** master @ b1b4bc4. Tests **2,701 green**, lint clean.
 
 ## 🚀 Releases
 - **v0.39.0 — PUBLISHED ✓** — signed installer + `latest.json` live; auto-update active.
 - **v0.40.0 — PUBLISHED ✓** (2026-06-19). `gh release v0.40.0` live — `latest.json` + signed `MTG.Tool_0.40.0_x64-setup.exe` (+`.sig`); auto-update active for all instances. Contents: full PW subsystem (PW-5/6/7/8) + **EVADE #258** + **KW-UNTARGET #260** + **token-abil #259** + the enforce-don't-drop honesty pass (#255/#256). _(Post-tag work for v0.41.0: DMG-SCALE #263, prowess #262, TRIG-TREASURE #264.)_ Recommend a live combat dogfood of EVADE on the published build.
 - **v0.41.0 — PUBLISHED ✓** (2026-06-19). Live, auto-updating — the trigger-compiler + count-scaling coverage wave (#262/#263/#264/#265/#266/#267/#268), 17.5→17.7%.
-- **v0.42.0 — CUT ✅ (CI building, ~20-30 min).** Tagged 2026-06-19 — **COMMANDERS CASTABLE (CMD-CAST #273)** + count-scaling (#271/#272) + MASS-NC #275 (+ SYMBURN cast-bug fix) + SYMBURN #269 + TUCK-1 #270 + ANIMATE framework #274. CMD-CAST is **unit-verified** (cmdCast.test.js — legal action/tax/clone/AI) not UI-smoke-played → **a live commander-game dogfood is recommended post-release.** CI syncs version from the tag → builds/signs/publishes.
+- **v0.42.0 — PUBLISHED ✓** (2026-06-19, live + auto-updating) — **COMMANDERS CASTABLE (CMD-CAST #273)** + count-scaling (#271/#272) + MASS-NC #275 + SYMBURN #269 + TUCK-1 #270 + ANIMATE framework #274. CMD-CAST is **unit-verified** (cmdCast.test.js) → **a live commander-game dogfood is recommended.**
+- **v0.43.0 — banking:** CMD-RETURN #276 + the next CMD/keyword wave. Cut at the next milestone.
 
 ## 👥 Faculties — who's doing what (lean roster)
 | Faculty | Role · cadence | Working on |
 |---|---|---|
 | **Clyde** | Command / integrator · ~20m | **cycle 4:** merged #253 PW-6/7, #251 PW-5, #254 PW-8, **#255 (FP-honesty −289)**; adopted Hans's **board-4**; did the Omnath→Clyde split + wrote the 6 faculty manuals; flipped the FP policy to **enforce-don't-drop**. Post-merge 2,585 green, lint clean, coverage 16.3%. |
 | **Hans** | Scout+QA+Fix (she/her) · 3h | **board-4 shipped** — VERIFY-COVERED-KW (the 11-keyword cluster → #255, −289), re-coverage rows, cleared VERIFY-ETB-DESTROY, PW-before-land fix, + committed the `qa-sweep.mjs` audit tool. Manual: `agents/hans.md`. |
-| **Cindy** | Builder · cap 3 | shipped MODAL-2 (#250) + ETB-EQUIP-ATTACH (#252). Pulls the board MINUS Walt's lane; **top priority = the re-coverage enforcement rows** (EVADE first). Manual: `agents/cindy.md`. |
-| **Walt** | Builder · PW-leverage lane | **PW-1 → PW-8 COMPLETE.** Pivoted to the reserved general-mechanism lane (`feat/WALT-*-walt`) — ability-tokens, scaling/`for-each`, gain-control, animate, recursion/tutor EXT. Disjoint from Cindy. Manual: `agents/walt.md`. |
+| **Cindy** | Builder · commander + non-keyword | **CMD pipeline:** CMD-CAST ✅ → CMD-RETURN ✅ → **CMD-DMG21** (active) → CMD-PARTNER → CMD-COMPANION; then the general (non-keyword) trigger compiler. Owns the compiler CORE + the cast path. Manual: `agents/cindy.md`. |
+| **Walt** | Builder · 702.x keyword backlog | **PW + count series + ANIMATE PR1 ✅.** Re-carved (Colton) to **own the entire 702.x keyword backlog** (Waves B–G, `keyword-coverage-plan.md`, ~4,500+ cards) — **no longer spins down**. Start: non-trigger waves (EVADE-2/KW-CYCLING) until Cindy's compiler core lands; replacement-shield is his. Manual: `agents/walt.md`. |
 | **Iris** | Dashboard (read-only) · hourly | renders this board. Cloud schedule `iris-academy-dashboard` (cron `0 * * * *`) + dash/status/refresh. Manual: `agents/iris.md`. |
 | **Omnath** | Brain · strategy | sets *what/why*; not in the build/merge loop. Boot via the `/omnath` skill. |
 
@@ -44,7 +45,7 @@ _**`scout/board-5` (Hans) is STALE** (branched at 88b1d4b, pre-EVADE) — relaye
 - 🟦 **Walt's PW-leverage lane** (`feat/WALT-*-walt`): WALT-TOKEN-ABIL (start), WALT-DMG-SCALE, WALT-FOR-EACH… (see `agents/walt.md`)
 
 ## 🔁 Recent merges (newest first)
-- **#275** MASS-NC — mass non-creature wipes + non-chosen-targetType helper (Cindy) · **#273** 🆕 CMD-CAST — commanders castable (Cindy) · **#274** WALT-ANIMATE PR1 — creature framework (Walt) · **#272** WALT-COUNT-OPP (Walt) · **#271** WALT-COUNT-SUBTYPE, +14 (Walt) · **#269** SYMBURN-1, +16 (Cindy)
+- **#276** CMD-RETURN — dead commander → command zone, CR 903.9 (Cindy) · **#275** MASS-NC (Cindy) · **#273** 🆕 CMD-CAST (Cindy) · **#274** WALT-ANIMATE PR1 (Walt) · **#272** WALT-COUNT-OPP (Walt) · **#271** WALT-COUNT-SUBTYPE, +14 (Walt)
 - shipped in v0.39.0: #243 SOFT-CNT · #241 LOOT-1 · #240 ADDCOST-2 · #238 TRIG-PUMP-1 · #237 MT-1 · #236 PW-1 · …
 
 ## 🗒️ Notes

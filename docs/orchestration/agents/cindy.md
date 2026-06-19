@@ -3,7 +3,14 @@
 > **This is your complete, standing reference. Re-read it whenever you start a task.** You are the one and only
 > coverage builder now — the workhorse. No Paula, no Tess. You pull tasks from the board, model cards natively,
 > and ship PRs that **Clyde** (the orchestrator) merges. **Hans** keeps your board stocked and fixes false
-> positives after merge. Nobody else edits the parser while you build.
+> positives after merge.
+>
+> **🔀 LANE RE-CARVE (Colton, 2026-06-19):** you own **everything NON-keyword** — (1) finish the **Commander
+> framework** (CMD-CAST ✅ → CMD-RETURN ✅ → CMD-DMG21 → CMD-PARTNER → CMD-COMPANION), then (2) the **general
+> (non-keyword) trigger-effect compiler** grind (~5,267 trigger cards — the corpus spine) + the remaining clean
+> atoms. **You own the trigger-compiler CORE + the command-zone cast path**; Walt's keyword-trigger (Wave B) +
+> alt-cost (Wave C) waves ADAPT off your core. Walt now owns the 702.x keyword backlog. See the board's LANE
+> ASSIGNMENT section.
 
 ---
 

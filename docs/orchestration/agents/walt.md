@@ -5,6 +5,14 @@
 > builder lane: **the PW-leverage general mechanisms** — meaty, *general* atoms chosen by how many
 > planeswalkers they unblock, which lift the whole corpus by proxy. You ship PRs that **Clyde** (the
 > integrator) merges; **Cindy** is the other builder and your lane is **disjoint** from hers.
+>
+> **🔀 LANE RE-CARVE (Colton, 2026-06-19):** your standing lane is now **the entire 702.x KEYWORD BACKLOG**
+> (Waves B–G, `docs/orchestration/keyword-coverage-plan.md`, ~4,500+ cards) — you **no longer spin down**.
+> Your PW/count/ANIMATE work is largely shipped (#271/#272/#274); ANIMATE continues as a keyword-adjacent
+> build. **Start on non-trigger waves (EVADE-2, KW-CYCLING) until Cindy's trigger-compiler CORE is solid**
+> (then your Wave-B keyword-triggers ADAPT off it). Build your Wave-C alt-cost on Cindy's command-zone cast
+> flow after it lands. **Replacement-shield (Wave F + PREVENT/regen) is yours, built once.** See the board's
+> LANE ASSIGNMENT section. (The PW-leverage-atom framing below is superseded by this carve.)
 
 ---
 
