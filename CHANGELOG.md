@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Creatures enter with their +1/+1 counters (TRUNK-ENTERSCOUNTERS, CR 614.1f):** "~ enters with N +1/+1
+  counters on it" (Kavu Primarch, Baloth Gorger, Llanowar Elite, Academy Drake…) now adds those counters as
+  the creature enters, so it has the **right power/toughness from the moment it hits the battlefield** — 94
+  creatures that used to enter as their printed (too-small) body now play correctly. (Conditional/kicker/"for
+  each" variants stay on the Arbiter — only the fixed, unconditional form is modeled.)
+
 - **Count-scaled self-buffs play correctly (TRUNK-SELFBUFF):** "This creature gets +X/+Y for each
   &lt;permanent type&gt; you control" (Nim Lasher, Earth Servant…) now resolves as a live, layer-correct static
   bonus that tracks the board (the P/T updates as the count changes), instead of being treated as a vanilla

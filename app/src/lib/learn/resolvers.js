@@ -27,6 +27,7 @@ import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram } from "./effects/runProgram.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
+import { entersWithPlusCounters } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS: CR 614.1f enter-with-counters
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
 // in P2.2 so the effect interpreter can share it without an import cycle).
@@ -92,6 +93,11 @@ export function enterPermanent(state, card, controller, opts = {}) {
     const loy = startingLoyalty(card);
     if (loy != null) perm.counters = { ...perm.counters, loyalty: loy };
   }
+  // CR 614.1f: "~ enters with N +1/+1 counters on it" — a replacement that adds the counters AS the
+  // permanent enters, so its P/T is correct from turn 1 (Kavu Primarch, Avatar of the Resolute…). Only the
+  // bare, unconditional, literal-N form (entersWithPlusCounters guards out kicker / "for each" / "where X").
+  const plusCounters = entersWithPlusCounters(card);
+  if (plusCounters > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + plusCounters };
   let next = {
     ...s3,
     players: {
