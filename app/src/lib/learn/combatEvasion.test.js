@@ -138,6 +138,10 @@ describe("EVADE — canBlockAttacker enforcement (pairwise, layer-aware)", () =>
     expect(setup(cr("Bear", "a", "user"), cr("Pacifist", "b", "ai", { oracle: "This creature can't block." }))()).toBe(false);
     expect(setup(cr("Bear", "a", "user"), cr("AirGuard", "b", "ai", { oracle: "This creature can block only creatures with flying." }))()).toBe(false);
     expect(setup(cr("Drake", "a", "user", { oracle: "Flying" }), cr("AirGuard", "b", "ai", { oracle: "Flying\nThis creature can block only creatures with flying." }))()).toBe(true);
+    // ...but WITHOUT flying/reach it can block nothing: its clause restricts it to flyers, yet a flying
+    // attacker still requires the blocker to have flying/reach (CR 702.9b). Locks the reviewed interaction
+    // — the clause is a restriction, not a grant; allowing this block would be illegal.
+    expect(setup(cr("Drake", "a", "user", { oracle: "Flying" }), cr("Grounded", "b", "ai", { oracle: "This creature can block only creatures with flying." }))()).toBe(false);
   });
 });
 

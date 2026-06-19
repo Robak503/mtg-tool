@@ -801,7 +801,7 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
     eligibleByAttacker[attackerId] = candidateBlockers.filter((b) => canBlockAttacker(state, b.id, attackerId, playerId));
   }
 
-  // Surface one action per attacker a blocker could legally block. A menace attacker (CR 702.111)
+  // Surface one action per attacker a blocker could legally block. A menace attacker (CR 702.111b)
   // needs ≥2 blockers, so we don't offer a block on it unless this defender has ≥2 eligible blockers
   // for it; resolution drops any lone menace block as the safety net. v1 doesn't enforce "must block
   // X" effects (Lure, etc.) — those stay Arbiter cases.

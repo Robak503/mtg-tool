@@ -9,11 +9,11 @@
  *
  * Pairwise block-legality — canBlockAttacker(state, blockerId, attackerId, defenderId):
  *   attacker-side:
- *     Flying (CR 702.9c)     — blockable only by creatures with flying or reach
+ *     Flying (CR 702.9b)     — blockable only by creatures with flying or reach
  *     "can't be blocked"     — unblockable (bare self-clause): blockable by nothing
- *     basic landwalk (702.x) — unblockable while the DEFENDING player (per-defender → 4P-correct)
+ *     basic landwalk (702.14) — unblockable while the DEFENDING player (per-defender → 4P-correct)
  *                              controls a land of that basic type
- *     Skulk (702.72b)        — not blockable by a creature with greater power
+ *     Skulk (702.118b)        — not blockable by a creature with greater power
  *     Fear (702.36b)         — blockable only by artifact and/or black creatures
  *     Intimidate (702.13b)   — blockable only by artifact and/or creatures sharing a color with it
  *     Horsemanship (702.31b) — blockable only by creatures with horsemanship
@@ -21,7 +21,7 @@
  *     "can't block"          — may never be declared as a blocker
  *     "can block only creatures with flying" — may block only flying attackers
  *
- * Menace (702.111 / CR 509.1c) is a SET-level rule, enforced at resolution
+ * Menace (CR 509.1c / 702.111b) is a SET-level rule, enforced at resolution
  * (combatResolution.js): a menace attacker left with exactly ONE blocker is treated as unblocked.
  * Defender (702.3b) is enforced in legalChoices.actionsDeclareAttacker (can't attack).
  *
@@ -111,6 +111,11 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
 
   // Blocker-side restrictions.
   if (isSelfCantBlock(bCard)) return false;
+  // "Can block only creatures with flying" is a RESTRICTION (this creature can't block non-flyers),
+  // NOT a grant of reach: to actually block a FLYING attacker the blocker still needs flying/reach
+  // (CR 702.9b, enforced below). So a non-flying/non-reach "can block only flyers" creature can block
+  // nothing — correct, and every real such card (Cloud Elemental, …) carries flying. Do NOT "fix" this
+  // to let it block a flier without flying/reach; that would permit an ILLEGAL block (a wrong play).
   if (isCanBlockOnlyFlyers(bCard) && !permanentHasKeyword(state, attackerId, "Flying")) return false;
 
   // Unblockable.
@@ -123,7 +128,7 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
     }
   }
 
-  // Flying — blockable only by flying/reach (CR 702.9c).
+  // Flying — blockable only by flying/reach (CR 702.9b).
   if (permanentHasKeyword(state, attackerId, "Flying")) {
     if (!(permanentHasKeyword(state, blockerId, "Flying") || permanentHasKeyword(state, blockerId, "Reach"))) {
       return false;
@@ -135,7 +140,7 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
     return false;
   }
 
-  // Skulk — not blockable by a creature with greater power (CR 702.72b).
+  // Skulk — not blockable by a creature with greater power (CR 702.118b).
   if (permanentHasKeyword(state, attackerId, "Skulk")) {
     if (creaturePower(bLook.permanent, state) > creaturePower(aLook.permanent, state)) return false;
   }

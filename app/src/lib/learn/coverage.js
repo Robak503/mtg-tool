@@ -42,7 +42,7 @@ import { isEnforcedEvasionClause } from "./combatEvasion.js";
 //
 //  ENFORCED — the runtime consults the keyword (permanentHasKeyword / an SBA /
 //  attack-legality), so the body resolves CORRECTLY today:
-//    flying·reach + the EVADE block-legality set — menace (≥2, CR 509.1c), skulk, fear,
+//    flying·reach + the EVADE block-legality set — menace (≥2, CR 702.111b), skulk, fear,
 //    intimidate, horsemanship, basic landwalk, unblockable, can't-block, can-block-only-flying —
 //    all via combatEvasion.canBlockAttacker / the menace resolution-normalize · defender (can't
 //    attack, CR 702.3b) · first/double strike·trample·deathtouch·lifelink (combatResolution) ·

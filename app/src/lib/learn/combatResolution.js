@@ -16,7 +16,7 @@
  *   - Flying / Reach — enforced in legalChoices (who may block), not here.
  *   - Indestructible — enforced by the lethal-damage SBA this calls
  *     (gameState.destroyLethalCreatures → isIndestructible, CR 704.5g), not here.
- *   - Menace — the ≥2-blocker rule (CR 509.1c): a menace attacker left with exactly one
+ *   - Menace — the ≥2-blocker rule (CR 509.1c / 702.111b): a menace attacker left with exactly one
  *     blocker is normalized to unblocked here (block-legality lives in legalChoices/combatEvasion).
  * Still NOT enforced (a body with these mis-plays them): protection (DEBT) and first-strike-vs-
  * regular ordering subtleties beyond the two-step model. Per the enforce-don't-drop policy they
@@ -91,7 +91,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     (blockersByAttacker[b.attackerId] ||= []).push(b);
   }
 
-  // ===== EVADE (menace — CR 509.1c / 702.111) ===== a menace attacker left with exactly ONE
+  // ===== EVADE (menace — CR 509.1c / 702.111b) ===== a menace attacker left with exactly ONE
   // blocker can't legally be blocked → it's unblocked (the lone would-be blocker isn't in combat,
   // so it deals/takes no combat damage). 2+ blockers resolve normally; non-menace is untouched.
   // legalChoices already avoids offering a hopeless lone block; this is the resolution guarantee.
