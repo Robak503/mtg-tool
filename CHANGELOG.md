@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Cracking a Treasure triggers your sacrifice payoffs (SAC-TREASURE, CR 701.21):** sacrificing a Treasure
+  or Gold for mana now correctly fires "Whenever you sacrifice an artifact / a permanent" — so **Korvold**,
+  **Mayhem Devil**, and **Pitiless Plunderer** finally pay off when you crack a Treasure, on every mana path
+  (casting a spell, an explicit crack, or paying a generic cost). The Treasure-aristocrats archetype now
+  plays faithfully. (Gameplay-faithfulness fix — those cards were already recognized; they just weren't
+  firing on the mana-crack sacrifice.)
+
 ## [0.45.0] - 2026-06-19
 
 **The trigger compiler picks up speed — a coverage wave of payoff hooks.** Four new event hooks light up on

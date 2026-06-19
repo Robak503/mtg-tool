@@ -150,9 +150,14 @@ function commitManaTaps(state, playerId, taps) {
   let working = state;
   for (const tap of taps || []) {
     working = addMana(working, { playerId, color: tap.color, amount: tap.amount });
-    working = tap.sacrifices
-      ? moveCardToZone(working, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId })
-      : tapPermanent(working, tap.permanentId);
+    if (tap.sacrifices) {
+      const sacPerm = working.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
+      working = moveCardToZone(working, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
+      // SAC-TREASURE: a sacrificed one-shot mana source fires "whenever you sacrifice an artifact/permanent".
+      if (sacPerm) working = checkSacrificeTriggers(working, playerId, { id: sacPerm.id, controller: playerId, card: sacPerm.card });
+    } else {
+      working = tapPermanent(working, tap.permanentId);
+    }
   }
   return working;
 }
@@ -403,9 +408,14 @@ function applyTapForMana(state, action) {
   // Add the mana, then TAP a repeatable source or SACRIFICE a one-shot Treasure/Gold (action.sacrifices,
   // set by legalChoices.actionsTapForMana) — the same one-shot discipline as the auto-pay commit path.
   let next = addMana(state, { playerId: action.playerId, color: action.color, amount: action.amount || 1 });
-  next = action.sacrifices
-    ? moveCardToZone(next, { playerId: action.playerId, fromZone: "battlefield", toZone: "graveyard", cardId: action.permanentId })
-    : tapPermanent(next, action.permanentId);
+  if (action.sacrifices) {
+    next = moveCardToZone(next, { playerId: action.playerId, fromZone: "battlefield", toZone: "graveyard", cardId: action.permanentId });
+    // SAC-TREASURE: cracking a one-shot Treasure/Gold for mana IS a sacrifice (CR 701.21) → fire
+    // "whenever you sacrifice an artifact/permanent" (Korvold, Mayhem Devil…). `perm` was captured pre-move.
+    next = checkSacrificeTriggers(next, action.playerId, { id: perm.id, controller: action.playerId, card: perm.card });
+  } else {
+    next = tapPermanent(next, action.permanentId);
+  }
   next = logEvent(next, {
     kind: "tap-for-mana",
     playerId: action.playerId,

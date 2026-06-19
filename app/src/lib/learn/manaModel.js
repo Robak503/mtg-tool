@@ -31,6 +31,7 @@
  */
 
 import { MANA_COLORS, addMana, moveCardToZone, tapPermanent } from "./gameState.js";
+import { checkSacrificeTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice
 import { permanentHasKeyword } from "./layers.js";
 
 // ─── Card → mana production ────────────────────────────────────────────────────
@@ -410,9 +411,14 @@ export function payGenericMana(state, playerId, amount) {
   let next = state;
   for (const tap of plan.taps) {
     next = addMana(next, { playerId, color: tap.color, amount: tap.amount });
-    next = tap.sacrifices
-      ? moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId })
-      : tapPermanent(next, tap.permanentId);
+    if (tap.sacrifices) {
+      const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
+      next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
+      // SAC-TREASURE: cracking a one-shot Treasure/Gold to pay generic mana fires "whenever you sacrifice an artifact/permanent".
+      if (sacPerm) next = checkSacrificeTriggers(next, playerId, { id: sacPerm.id, controller: playerId, card: sacPerm.card });
+    } else {
+      next = tapPermanent(next, tap.permanentId);
+    }
   }
   const topped = next.players[playerId].manaPool;
   const nextPool = {};
