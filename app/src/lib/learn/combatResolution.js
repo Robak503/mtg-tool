@@ -41,6 +41,7 @@ import {
   isPlaneswalker,
   adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers,
+  addCommanderDamage,
 } from "./gameState.js";
 import { permanentHasKeyword } from "./layers.js";
 import { checkDiesTriggers, checkCombatDamageTriggers } from "./triggers.js";
@@ -160,7 +161,11 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       const defender = att.defender;
       if (defender && state.players[defender]) {
         lifeLoss[defender] = (lifeLoss[defender] || 0) + amount;
-        playerEvents.push({ kind: "combat-damage-player", turn: state.turn, attackerId: att.permanentId, attackingPlayer: att.attackingPlayer, defender, amount, ...(trampleFlag ? { trample: true } : {}) });
+        // CMD-DAMAGE (CR 903.10a): if the attacker is a commander, tag the event with its card id so the
+        // post-combat step accrues 21-rule commander damage to the defender (keyed per-commander).
+        const attCard = lookup.permanent?.card;
+        const commanderId = attCard?.isCommander ? attCard.id : null;
+        playerEvents.push({ kind: "combat-damage-player", turn: state.turn, attackerId: att.permanentId, attackingPlayer: att.attackingPlayer, defender, amount, ...(commanderId ? { commanderId } : {}), ...(trampleFlag ? { trample: true } : {}) });
         return amount;
       }
       return 0;
@@ -213,6 +218,14 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   }
   for (const [pid, amount] of Object.entries(lifeLoss)) {
     if (amount > 0) next = loseLife(next, { playerId: pid, amount });
+  }
+  // CMD-DAMAGE (CR 903.10a): accrue 21-rule commander combat damage off the per-attacker events whose
+  // attacker was a commander — read from the events (not the live board) so a commander that died trading
+  // in this same step still records the damage it dealt. isPlayerDead checks the tracker for the SBA loss.
+  for (const ev of playerEvents) {
+    if (ev.kind === "combat-damage-player" && ev.commanderId && ev.amount > 0) {
+      next = addCommanderDamage(next, { commanderId: ev.commanderId, toPlayer: ev.defender, amount: ev.amount });
+    }
   }
   for (const [pid, amount] of Object.entries(lifeGain)) {
     if (amount > 0) next = gainLife(next, { playerId: pid, amount });

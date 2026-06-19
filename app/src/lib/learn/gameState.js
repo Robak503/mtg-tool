@@ -1007,18 +1007,19 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
 }
 
 /**
- * Track commander damage from one player to another. Used by SBAs
- * (engine PR) to check the 21-commander-damage rule.
+ * Track commander combat damage to a player, keyed PER-COMMANDER (by the source commander's card id) —
+ * CR 903.10a is "21+ combat damage from a SINGLE commander", so a player with two partner commanders
+ * tracks each separately. `isPlayerDead` reads `commanderDamageFrom` for the 21-loss SBA. A copy of a
+ * commander is not a commander, so only a real `isCommander` source ever supplies a `commanderId`.
  */
-export function addCommanderDamage(state, { fromPlayer, toPlayer, amount }) {
-  assertPlayer(fromPlayer);
+export function addCommanderDamage(state, { commanderId, toPlayer, amount }) {
   assertPlayer(toPlayer);
-  if (fromPlayer === toPlayer) throw new Error("Commander damage cannot be self-inflicted");
+  if (!commanderId || !(amount > 0)) return state;
   return withPlayer(state, toPlayer, p => ({
     ...p,
     commanderDamageFrom: {
       ...p.commanderDamageFrom,
-      [fromPlayer]: (p.commanderDamageFrom[fromPlayer] || 0) + amount,
+      [commanderId]: (p.commanderDamageFrom[commanderId] || 0) + amount,
     },
   }));
 }
