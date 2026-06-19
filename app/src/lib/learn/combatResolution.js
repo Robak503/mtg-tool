@@ -45,7 +45,8 @@ import {
   addCounter,
   addPoison,
 } from "./gameState.js";
-import { permanentHasKeyword } from "./layers.js";
+import { permanentHasKeyword, permanentColors } from "./layers.js";
+import { parseProtectionColors, protectionApplies } from "./protection.js";
 import { checkDiesTriggers, checkCombatDamageTriggers, checkLifegainTriggers } from "./triggers.js";
 
 // KW-POISON (toxic — CR 702.180a): the toxic VALUE N. The keyword reminder text spells the number
@@ -142,6 +143,14 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       if (dt) deathtouched.add(id);
     }
   };
+  // KW-PROTECTION (CR 702.16e): damage from a source of the stated color is PREVENTED. `targetId` is the
+  // creature taking damage; `sourceColors` is the dealer's colors. Read from the pre-step board (printed
+  // protection). A prevented blocker/attacker takes NO marked damage, NO -1/-1 counters, and grants NO
+  // lifelink — the call sites skip dealing entirely (CR 702.16e + the trample assignment in 702.19e).
+  const protectionPrevents = (targetId, sourceColors) => {
+    const lk = findPermanent(state, targetId);
+    return lk ? protectionApplies(parseProtectionColors(lk.permanent.card), sourceColors) : false;
+  };
 
   // Attackers deal.
   for (const att of combat.attackers) {
@@ -158,6 +167,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     const attackerMinus = permanentHasKeyword(state, attackerId, "Infect") || permanentHasKeyword(state, attackerId, "Wither");
     const attackerInfect = permanentHasKeyword(state, attackerId, "Infect");
     const attackerToxicN = toxicValue(lookup.permanent.card);
+    const attackerColors = permanentColors(state, attackerId); // KW-PROTECTION: a blocker protected from these takes 0
 
     // "Was blocked" reads the DECLARED blockers; "live" reads the survivors.
     // A creature blocked by a now-dead blocker (e.g. a first-striker that
@@ -212,6 +222,9 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     if (liveBlockers.length > 0) {
       let remaining = power;
       for (const blk of liveBlockers) {
+        // KW-PROTECTION (CR 702.16e + 702.19e): a blocker with protection from the attacker's color is
+        // assigned NO damage — it takes 0, and (for trample) absorbs nothing, so the full power tramples.
+        if (protectionPrevents(blk.permanent.id, attackerColors)) continue;
         const already = blk.permanent.damageMarked || 0;
         // Deathtouch makes 1 damage lethal; otherwise lethal = remaining toughness.
         const lethalNeed = deathtouch ? 1 : Math.max(1, creatureToughness(blk.permanent, state) - already);
@@ -243,6 +256,9 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       const bpow = Math.max(0, creaturePower(blk.permanent, state));
       const bdt = permanentHasKeyword(state, blk.permanent.id, "Deathtouch");
       const blifelink = permanentHasKeyword(state, blk.permanent.id, "Lifelink");
+      // KW-PROTECTION (CR 702.16e): if the attacker has protection from the blocker's color, the blocker's
+      // damage back to it is prevented — 0 dealt, and no lifelink for the blocker.
+      if (protectionPrevents(att.permanentId, permanentColors(state, blk.permanent.id))) continue;
       // KW-POISON — the BLOCKER is the source here, so its OWN infect/wither reroutes the damage it
       // deals back to the attacker into -1/-1 counters (toxic is player-only, irrelevant blocking).
       const bminus = permanentHasKeyword(state, blk.permanent.id, "Infect") || permanentHasKeyword(state, blk.permanent.id, "Wither");
