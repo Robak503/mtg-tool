@@ -563,19 +563,36 @@ function applyPumpEffect(state, atom, ctx) {
  */
 function applyAnimateEffect(state, atom, ctx) {
   let next = state;
-  // Lands arrive as type:"permanent" (enumerateTargets land path). Skip any target that left the
-  // battlefield between cast and resolution (e.g. destroyed in response) — a missing-id effect would
-  // be inert, but filtering keeps the log honest.
-  const targets = atomTargets(state, atom, ctx).filter(t => t.type === "permanent" && findPermanent(next, t.id));
-  const src = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null };
+  // A man-land's activated ability animates ITSELF (PR3): target:"self" → the activating permanent via
+  // ctx.sourceId. Resolved directly, NOT through selfTargets — that gates on a PRINTED creature (CR 109.2
+  // self-pump) and would reject a land that is BECOMING a creature. A spell's animate targets a chosen
+  // land (type:"permanent", enumerateTargets land path); skip a chosen target that left the battlefield
+  // between cast and resolution (a missing-id effect is inert; filtering keeps the log honest).
+  const targets = atom.target === "self"
+    ? ((ctx.sourceId && findPermanent(next, ctx.sourceId)) ? [{ type: "permanent", id: ctx.sourceId }] : [])
+    : atomTargets(state, atom, ctx).filter(t => t.type === "permanent" && findPermanent(next, t.id));
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
   const dur = () => ({ kind: "endOfTurn", turn: next.turn });
+  // Layer-4 types: Creature plus any printed card type the animate adds — a man-land that becomes an
+  // "artifact creature" (Mishra's Factory). Additive: the Land type is never stripped (still a land).
+  const animateTypes = ["Creature", ...(atom.cardTypes || [])];
   for (const target of targets) {
     next = addContinuousEffect(next, {
       layer: 4,
-      op: { types: ["Creature"], subtypes: atom.subtypes || [] },
+      op: { types: animateTypes, subtypes: atom.subtypes || [] },
       affects: { mode: "fixed", permanentIds: [target.id] },
       duration: dur(), source: src,
     }).state;
+    // Layer 5 — SET color when the animate gives one ("becomes a 3/3 GREEN Ape creature"; Creeping Tar
+    // Pit "blue and black"). An animate with no color leaves the printed color (a land is colorless).
+    if (atom.colors && atom.colors.length) {
+      next = addContinuousEffect(next, {
+        layer: 5,
+        op: { layerOp: "setColor", colors: atom.colors },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur(), source: src,
+      }).state;
+    }
     next = addContinuousEffect(next, {
       layer: 7, sublayer: "7b",
       op: { layerOp: "ptSet", power: atom.power || 0, toughness: atom.toughness || 0 },

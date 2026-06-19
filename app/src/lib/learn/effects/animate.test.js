@@ -13,13 +13,13 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { parseEffectProgram, programConfidence } from "./parser.js";
+import { parseEffectProgram, parseEffectClause, programConfidence } from "./parser.js";
 import { ATOM_RESOLVERS } from "./effectAtoms.js";
 import { runEffectProgram } from "./runProgram.js";
 import { RESOLVER_KEYS } from "../resolvers.js";
 import { createGameState, createPermanent } from "../gameState.js";
 import { boardSnapshot } from "../boardSnapshot.js";
-import { permanentIsCreature, permanentPower, permanentToughness, permanentHasKeyword, expireContinuousEffects } from "../layers.js";
+import { permanentIsCreature, permanentPower, permanentToughness, permanentHasKeyword, permanentColors, permanentTypes, expireContinuousEffects } from "../layers.js";
 
 const I = (oracle) => ({ type: "Instant", oracle });
 const conf = (c) => programConfidence(parseEffectProgram(c));
@@ -138,5 +138,78 @@ describe("WALT-ANIMATE PR2 — FULL cast→resolution path (runEffectProgram, mi
     expect(land.isCreature).toBe(true);
     expect(land.power).toBe(3);
     expect(land.toughness).toBe(3);
+  });
+});
+
+// ===== WALT-ANIMATE PR3 — man-lands (self-referential activated animate) =====
+function manLandState(name) {
+  const s = createGameState({ userDeck: [], aiDeck: [] });
+  const land = createPermanent({ id: "ML1", card: { name, type: "Land", oracle: "" }, controller: "user", summoningSick: false });
+  return { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [land] } } };
+}
+const clauseConf = (clause) => programConfidence(parseEffectClause(clause, "Instant"));
+const clauseAtom = (clause) => (parseEffectClause(clause, "Instant").atoms || []).find(a => a.op === "animate");
+
+describe("WALT-ANIMATE PR3 — man-land self-animate parser (HIGH: the modeled subset)", () => {
+  it("Treetop Village — '3/3 green Ape creature with trample' (color + subtype + keyword) → HIGH", () => {
+    const clause = "This land becomes a 3/3 green Ape creature with trample until end of turn. It's still a land.";
+    expect(clauseConf(clause)).toBe("high");
+    expect(clauseAtom(clause)).toEqual({ op: "animate", target: "self", power: 3, toughness: 3, colors: ["G"], subtypes: ["Ape"], cardTypes: [], grantKeywords: ["Trample"], duration: "endOfTurn" });
+  });
+  it("Faerie Conclave — '2/1 blue Faerie creature with flying' → HIGH", () => {
+    expect(clauseAtom("This land becomes a 2/1 blue Faerie creature with flying until end of turn. It's still a land."))
+      .toMatchObject({ target: "self", power: 2, toughness: 1, colors: ["U"], subtypes: ["Faerie"], grantKeywords: ["Flying"] });
+  });
+  it("Mishra's Factory — '2/2 Assembly-Worker artifact creature' (artifact card-type) → HIGH", () => {
+    expect(clauseAtom("This land becomes a 2/2 Assembly-Worker artifact creature until end of turn. It's still a land."))
+      .toMatchObject({ target: "self", power: 2, toughness: 2, subtypes: ["Assembly-Worker"], cardTypes: ["Artifact"] });
+  });
+});
+
+describe("WALT-ANIMATE PR3 — man-land CREED routing (LOW → Arbiter)", () => {
+  it("Creeping Tar Pit — a 'can't be blocked' (Lure) rider → LOW", () => {
+    expect(clauseConf("Until end of turn, this land becomes a 3/2 blue and black Elemental creature. It's still a land. It can't be blocked this turn.")).toBe("low");
+  });
+  it("Mutavault — 'with all creature types' (changeling) → LOW", () => {
+    expect(clauseConf("This land becomes a 2/2 creature with all creature types until end of turn. It's still a land.")).toBe("low");
+  });
+  it("Inkmoth Nexus — infect (un-grantable keyword) → LOW", () => {
+    expect(clauseConf("This land becomes a 1/1 Phyrexian Blinkmoth artifact creature with flying and infect until end of turn. It's still a land.")).toBe("low");
+  });
+});
+
+describe("WALT-ANIMATE PR3 — man-land self-animate resolves (activation path via ctx.sourceId)", () => {
+  const activate = (state, clause, name) => {
+    const program = parseEffectClause(clause, "Instant");
+    const stackObj = {
+      id: "stk-ml", kind: "ability", source: { name, oracle: "" },
+      controller: "user", targets: [], cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: "user", targets: [], sourceId: "ML1" } },
+    };
+    return runEffectProgram(state, stackObj);
+  };
+
+  it("Treetop Village animates ITSELF into a 3/3 green Ape with trample, still a land, reverts at cleanup", () => {
+    let state = manLandState("Treetop Village");
+    expect(permanentIsCreature(state, "ML1")).toBe(false);
+    state = activate(state, "This land becomes a 3/3 green Ape creature with trample until end of turn. It's still a land.", "Treetop Village");
+
+    expect(permanentIsCreature(state, "ML1")).toBe(true);
+    expect(permanentPower(state, "ML1")).toBe(3);
+    expect(permanentToughness(state, "ML1")).toBe(3);
+    expect(permanentHasKeyword(state, "ML1", "Trample")).toBe(true);
+    expect(permanentColors(state, "ML1")).toContain("G");       // layer-5 color set
+    expect(permanentTypes(state, "ML1").subtypes).toContain("Ape");
+    expect(String(state.players.user.battlefield.find(p => p.id === "ML1").card.type)).toMatch(/Land/); // still a land
+
+    state = expireContinuousEffects(state, { atCleanupOfTurn: state.turn });
+    expect(permanentIsCreature(state, "ML1")).toBe(false);       // reverts at end of turn
+  });
+
+  it("Mishra's Factory becomes an ARTIFACT creature too (layer-4 adds Artifact)", () => {
+    let state = manLandState("Mishra's Factory");
+    state = activate(state, "This land becomes a 2/2 Assembly-Worker artifact creature until end of turn. It's still a land.", "Mishra's Factory");
+    expect(permanentIsCreature(state, "ML1")).toBe(true);
+    expect(permanentTypes(state, "ML1").types).toEqual(expect.arrayContaining(["Creature", "Artifact"]));
   });
 });

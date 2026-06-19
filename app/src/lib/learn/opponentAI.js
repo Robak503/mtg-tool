@@ -28,7 +28,7 @@
 import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
 import { opponentsOf } from "./gameState.js";
-import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 import { programContainsCounter, programContainsMassRemoval, programContainsTeamPump, programContainsFog, atomTargetIntent } from "./effects/parser.js";
 
@@ -200,7 +200,7 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
       // edict program (e.g. Grave Exchange = graveyard-return + edict) is HELD — the AI doesn't yet pick
       // the extra target — which is safe (a miss only costs tempo). Bypasses the chooseAITarget hold below.
       const creatureCount = (pid) => (state.players?.[pid]?.battlefield || [])
-        .filter(p => /Creature/.test(String(p.card?.type || p.card?.type_line || ""))).length;
+        .filter(p => permanentIsCreature(state, p.id)).length;  // layer-aware: an animated man-land counts
       const oppActions = actions.filter(a => {
         if ((a.targets?.length || 0) !== 1) return false;       // pure single-target edict only
         const tid = a.targets[0]?.id;
@@ -395,7 +395,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null } = {}
 /** Count an opponent's untapped creatures (rough "how hard to push through"). */
 function untappedBlockerCount(state, playerId) {
   const bf = state.players?.[playerId]?.battlefield || [];
-  return bf.filter(p => String(p.card?.type_line || "").includes("Creature") && !p.tapped).length;
+  return bf.filter(p => permanentIsCreature(state, p.id) && !p.tapped).length;  // layer-aware (animated man-lands)
 }
 
 /**
@@ -426,7 +426,7 @@ function hasFirstStrike(state, permanentId) {
 function untappedDefenderBlockers(state, defenderId) {
   const bf = state.players?.[defenderId]?.battlefield || [];
   return bf
-    .filter(p => String(p.card?.type_line || p.card?.type || "").includes("Creature") && !p.tapped)
+    .filter(p => permanentIsCreature(state, p.id) && !p.tapped)  // layer-aware (animated man-lands)
     .map(p => ({
       power: Math.max(0, permanentPower(state, p.id)),
       toughness: permanentToughness(state, p.id),
