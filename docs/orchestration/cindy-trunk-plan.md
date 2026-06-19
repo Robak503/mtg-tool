@@ -5,6 +5,27 @@
 > while the **mass of the game sat untouched**. This is the re-aim. **Walt keeps the keyword lane —
 > this is CINDY's lane.** Strict CREED stays (model the whole card or route it; no partial-native).
 
+## 🔄 REVISED PRIMARY LEVER (2026-06-19, after slice 1 — Cindy's finding, adopted)
+
+**Slice 1 (TRUNK-SELFBUFF #295) flipped only 6 cards and proved the permanent-ability families FRAGMENT.**
+Cindy re-ran the gap analysis: the `this creature …` 1,035-bucket is heterogeneous (30+ shapes, ≤7 per
+shape), and most are multi-line (a 2nd clause keeps them LOW). "Static anthem/buff" is only **652** — not a
+hundreds-per-slice trunk.
+
+**The real hundreds-per-slice lever is EFFECT-ATOM WIDENING** — and it's better than the families because an
+effect is **shared across buckets**: model one common effect ONCE and it flips cards wherever it appears —
+ETB triggers (**5,049**) + activated abilities (**3,263**) + spells (**8,472**) simultaneously. The trigger
+*conditions* and the *bodies* are already largely modeled; the wall is the **effect vocabulary**.
+
+**NEW ORDER for Cindy:** frequency-rank the unmodeled EFFECT clauses (the verb-phrases, not conditions) across
+those three buckets, then model the most common effects first (e.g. "create a token with <rider>", "exile
+target …", "each opponent loses N life / sacrifices …", "return target … from graveyard", "put N counters
+on …", modal "choose one"). Each common effect-atom flips cards across ETB + activated + spell at once. The
+permanent-ability families below are now SECONDARY (cleanup once the effect vocabulary is wide). The reusable
+infra slice 1 shipped (count-driven static hook + name-normalization) stands.
+
+---
+
 ## The data that reframes everything
 
 Measured against the full corpus (`npm run coverage` → `analyze-gap`):
