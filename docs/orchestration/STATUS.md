@@ -1,14 +1,14 @@
 # 🎛️ Academy Coverage — Live Status
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
-> _Updated 2026-06-18 16:45 MST · **cycle 4** · master @ 534175d · v0.39.0 **PUBLISHED** ✓ · **PW-1→PW-8 COMPLETE** · **POLICY: enforce FPs, don't drop**._
+> _Updated 2026-06-18 17:00 MST · **cycle 4** · master @ 94fbfa9 · v0.39.0 **PUBLISHED** ✓ · **PW-1→PW-8 COMPLETE** · **POLICY: enforce FPs, don't drop** (#256 kept the 11 keywords claimed as interim FPs)._
 
 ## 📊 Scoreboard
-- **Native coverage: 16.3%** — 5,583 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%)
-- `[####······················]`  ~18% of the way to goal
-- ⬇️ **−289 from #255 (17.2→16.3%) — an HONEST correction, not a regression.** 11 keywords (menace/defender/hexproof/ward/prowess…) were claimed native-body but the engine enforces none of them. They return CORRECT as the **re-coverage enforcement rows** ship (EVADE, DEFENDER-ENFORCE, KW-UNTARGET, TRIG-PROWESS, PROTECTION).
+- **Native coverage: 17.2%** — 5,876 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%)
+- `[####······················]`  ~19% of the way to goal
+- ⚠️ **~289 of those are INTERIM FALSE POSITIVES** (enforce-don't-drop): #255 dropped 11 unenforced keywords (menace/defender/hexproof/ward/prowess…), but **#256 reverted that — kept claimed** while the enforcement is built (the code labels them so). Live play still mis-resolves them until the **re-coverage rows** ship (EVADE, DEFENDER-ENFORCE, KW-UNTARGET, TRIG-PROWESS, PROTECTION — Cindy's lane). The % is honest once those land.
 - **184 `playable-pw`** — planeswalkers play end-to-end, run **static + triggered emblem ultimates** (#251 + #254), and are **killable by removal** (#253).
-- **Open PRs: 0.** master @ 534175d. Tests **2,585 green**, lint clean.
+- **Open PRs: 0.** master @ 94fbfa9. Tests **2,584 green**, lint clean.
 
 ## 🚀 Releases
 - **v0.39.0 — PUBLISHED ✓** — signed installer + `latest.json` live; auto-update active.
@@ -38,7 +38,7 @@ _Empty — #253/#251/#254/#255 all merged this cycle. Awaiting the first re-cove
 - 🟦 **Walt's PW-leverage lane** (`feat/WALT-*-walt`): WALT-TOKEN-ABIL (start), WALT-DMG-SCALE, WALT-FOR-EACH… (see `agents/walt.md`)
 
 ## 🔁 Recent merges (newest first)
-- **#255** FP-honesty: drop 11 unenforced keywords (Hans, −289) · **#254** PW-8 triggered emblems (Walt) · **#251** PW-5 emblems (Walt) · **#253** PW-6/7 removal targeting (Walt) · **#252** ETB-EQUIP-ATTACH (Cindy) · **#250** MODAL-2 (Cindy)
+- **#256** keep 11 keywords claimed (enforce-don't-drop) + PW-before-land + qa-sweep tool (Hans) · **#255** FP audit (superseded by #256) · **#254** PW-8 triggered emblems (Walt) · **#251** PW-5 emblems (Walt) · **#253** PW-6/7 removal targeting (Walt) · **#252** ETB-EQUIP-ATTACH (Cindy)
 - shipped in v0.39.0: #243 SOFT-CNT · #241 LOOT-1 · #240 ADDCOST-2 · #238 TRIG-PUMP-1 · #237 MT-1 · #236 PW-1 · …
 
 ## 🗒️ Notes

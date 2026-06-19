@@ -5,14 +5,15 @@
 re-prioritizes this board** as the modeled set grows; findings get filed here as new tasks. **Clyde
 (integrator) merges; only Clyde touches `master`** (Omnath is the strategy brain).
 
-> **Last scout refresh:** cycle **board-4 (Hans — QA+FIX focus)**, 2026-06-18 — live baseline **16.44 % corpus
-> native** (5,513/33,540) **after the VERIFY-COVERED-KW correction** (#255 retired 289 keyword false positives —
-> the metric was claiming native-body for 11 keywords the engine never enforces; pre-fix it read 17.30 %). The
-> number went DOWN because false positives were retired — the gate working; coverage returns CORRECT as the
-> enforcement re-coverage rows ship (EVADE +48, DEFENDER-ENFORCE +37, KW-UNTARGET +41, TRIG-PROWESS +23,
-> PROTECTION +75). The board-3 DEEP SCAN backlog below (ranked OPEN coverage, ~10 hrs) is still current — those
-> rows are unchanged. Honest yields are **adversarially CREED-verified**. **The strategic map + every row's full
-> false-positive landmine live in [`docs/scout-gap-report.md`](../scout-gap-report.md) — read your row's landmine before you build.**
+> **Last scout refresh:** cycle **board-4 (Hans — QA+FIX focus)**, 2026-06-18 — live baseline **17.2 % corpus
+> native** (5,876/34,160). **Enforce-don't-drop (Colton):** #255 briefly dropped 11 unenforced keywords (−289)
+> but **#256 reverted that — the keywords stay CLAIMED as openly-acknowledged INTERIM FALSE POSITIVES** (the
+> code labels them so; see `COVERED_KEYWORDS`) while the enforcement is built. The % is honest once the
+> **re-coverage rows ship** (EVADE +48, DEFENDER-ENFORCE +37, KW-UNTARGET +41, TRIG-PROWESS +23, PROTECTION +75
+> — Cindy's lane); until then those ~289 are interim FPs (live play still mis-resolves them). The board-3 DEEP
+> SCAN backlog below (ranked OPEN coverage, ~10 hrs) is still current. Honest yields are **adversarially
+> CREED-verified**. **The strategic map + every row's full false-positive landmine live in
+> [`docs/scout-gap-report.md`](../scout-gap-report.md) — read your row's landmine before you build.**
 >
 > **The shape of the climb:** the clean-atom + rider tiers are nearly mined out (~a few hundred cards, good
 > builder fuel). The climb from ~20 %→~85 % is ONE subsystem — the **trigger-effect compiler** (bridge each
@@ -36,7 +37,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 | ID | Pri | Finding | ~Impact | Status |
 |---|---|---|---:|---|
-| **VERIFY-COVERED-KW** | 🔴 | **LIVE shipped FP CLUSTER (started as VERIFY-MENACE, audit widened it).** `COVERED_KEYWORDS` claimed `native-body` for **11 keywords the runtime NEVER enforces** (a keyword is enforced only if consulted via `permanentHasKeyword`/SBA/attack-legality): menace·skulk·intimidate·fear·horsemanship (block restrictions — `canBlock` honors only flying/reach), **defender** (a Wall can illegally attack — `actionsDeclareAttacker` never excludes it), hexproof·shroud·ward (no targetability check in `enumerateTargets`), protection (DEBT all unenforced), prowess (an unmodeled pump trigger). Each = the body is claimed native but mis-resolves. **Fixed:** dropped all 11 → `body-only`/Arbiter + `MUST_DROP_TO_LOW` pins. Each returns to the list when its enforcement subsystem ships (re-coverage rows below). | **−289 native** | DONE #255 |
+| **VERIFY-COVERED-KW** | 🔴 | **LIVE shipped FP CLUSTER (started as VERIFY-MENACE, audit widened it).** `COVERED_KEYWORDS` claimed `native-body` for **11 keywords the runtime NEVER enforces** (a keyword is enforced only if consulted via `permanentHasKeyword`/SBA/attack-legality): menace·skulk·intimidate·fear·horsemanship (block restrictions — `canBlock` honors only flying/reach), **defender** (a Wall can illegally attack — `actionsDeclareAttacker` never excludes it), hexproof·shroud·ward (no targetability check in `enumerateTargets`), protection (DEBT all unenforced), prowess (an unmodeled pump trigger). Each = the body is claimed native but mis-resolves. **Resolution (enforce-don't-drop):** #255 dropped all 11 → Arbiter, but **#256 REVERTED that** — they stay CLAIMED native as openly-labeled INTERIM FPs (see `COVERED_KEYWORDS`) while the enforcement is built. The REAL fix = the re-coverage rows below; only PW-before-land + `qa-sweep.mjs` survived from #255. | **interim FP** | KEPT → enforce (#255→#256) |
 | **FIX-TRIG-CONDITION** | 🔴 | `classifyCondition` over-detects restricted/compound-subject triggers (selfRef too broad; scope-inexpressible restriction dropped → over-fires). 34 cards incl. aristocrats staples. Detail: `docs/qa/rod-findings-1.md`. | 34 (−FP) | DONE #226 |
 | **VERIFY-ETB-DESTROY** | 🟡 | Ravenous Chupacabra & the ETB-destroy-an-opponent family. | spot-check | **VERIFIED — not a bug #255**: parses `"…an opponent controls"` (`targetsResolvable=true`, the runtime gate); chooser picks an opponent (never own), no-target fizzles via CR 603.3c / `NO_SAFE_TARGET`. Added a restricted-clause + no-target regression pin. |
 | **FIX-PW-LAND-ORDER** | 🟢 | Wrenn and One (corpus's only Land Planeswalker) hit the `land` tier before the planeswalker gate → counted native-`land` despite unmodeled loyalty. **Fixed:** PW gate now runs first → `arbiter-pw`. Pure metric, no runtime harm. | 1 (−FP metric) | DONE #255 |
