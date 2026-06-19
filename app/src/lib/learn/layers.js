@@ -99,6 +99,19 @@ function subtypesOf(card) {
   return line.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
 }
 
+// TRUNK-SELFBUFF: count the controller's permanents matching a self count spec
+// ({ kind:"permanentsYouControl", cardType|subtype }) — the magnitude of a "for each <X> you control"
+// static self-buff. Word-bounded match on the type line. Local (no gameState import). 0 on an unknown spec.
+function countSelfSpecOnBoard(state, perm, spec) {
+  if (!spec || spec.kind !== "permanentsYouControl" || !perm) return 0;
+  const player = state?.players?.[perm.controller];
+  if (!player) return 0;
+  const needle = spec.cardType || spec.subtype;
+  if (!needle) return 0;
+  const re = new RegExp(`\\b${needle}\\b`);
+  return (player.battlefield || []).filter((p) => re.test(typeLineOf(p.card))).length;
+}
+
 const COLOR_PIPS = ["W", "U", "B", "R", "G"];
 function colorsOf(card) {
   if (Array.isArray(card?.colors)) return card.colors.map(String);
@@ -326,6 +339,13 @@ function applyLayer7(state, perm, l7Effects) {
         power += d.power || 0;
         toughness += d.toughness || 0;
       }
+    } else if (e.op.layerOp === "ptModifyDynamicCount") {
+      // TRUNK-SELFBUFF: magnitude = a live board count × per-unit ("gets +X/+Y for each <countsource>").
+      // Self-scoped (affects:self) — the count is read for THIS permanent's controller, re-evaluated here
+      // every P/T computation (so it tracks the board live).
+      const n = countSelfSpecOnBoard(state, perm, e.op.countSpec);
+      power += n * (e.op.perPower || 0);
+      toughness += n * (e.op.perToughness || 0);
     }
   }
 
