@@ -8,6 +8,29 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.43.0] - 2026-06-19
+
+**The commander rules are complete — and the coverage number is now honest.** Building on castable
+commanders (v0.42.0), The Academy now handles the full command-zone lifecycle plus the multiplayer
+loss rule, animated lands swing in combat, and the native-coverage metric was corrected downward to
+stop over-claiming. Suite ~2,733 green, lint clean.
+
+- **Commander lifecycle, end to end (CR 903.9 / 903.10a):** a commander that dies, is exiled, or is
+  put into hand/library can be **returned to the command zone** instead — and **21 combat damage from a
+  single commander** now makes that player lose, tracked **per commander** (so two partner commanders
+  count separately). With the v0.42.0 cast-from-command-zone + {2} tax, the heart of multiplayer
+  Commander now plays correctly. _(Engine-verified via the test suite; a live commander-game dogfood is
+  still recommended.)_
+- **Man-lands attack and block (WALT-ANIMATE PR2+PR3):** "this land becomes a 3/3 creature until end of
+  turn" (Treetop Village, Faerie Conclave, Mishra's Factory, the Restless cycle…) now resolves through
+  the layer system — correct color, subtypes, added card types (artifact creature), granted keywords,
+  P/T — and the animated land counts as a creature everywhere the engine checks (combat, edict math, AI
+  blocker counts). Exotic riders (changeling, infect, "can't be blocked") route to the Arbiter.
+- **Honest coverage metric (FIX-MANA-OVERCLAIM):** the native-mana tier is now all-or-nothing like every
+  other tier — a mana source with an unmodeled trigger or level structure (Mana Crypt's coin-flip,
+  Sorcerer Class's levels) no longer counts as fully modeled. This is an internal metric correction (no
+  user-facing behavior change); it lowers the reported native-coverage headline to its true value.
+
 ## [0.42.0] - 2026-06-19
 
 **Commanders are castable.** The headline: The Academy can now cast your commander from the command
