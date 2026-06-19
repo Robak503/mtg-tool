@@ -1,14 +1,14 @@
 # 🎛️ Academy Coverage — Live Status
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
-> _Updated 2026-06-18 20:10 MST · **cycle 4** · master @ 094d873 · **v0.41.0 PUBLISHED ✓** · **PW-1→PW-8 COMPLETE** · 9/11 keywords enforced · trigger-compiler lane HOT · **POLICY: enforce FPs, don't drop**._
+> _Updated 2026-06-18 20:30 MST · **cycle 4** · master @ bab1826 · **v0.41.0 PUBLISHED ✓** · **PW-1→PW-8 COMPLETE** · 9/11 keywords enforced · **Cindy's #1 = COMMANDER FRAMEWORK** (greenlit) · **POLICY: enforce FPs, don't drop**._
 
 ## 📊 Scoreboard
-- **Native coverage: 17.8%** — 6,072 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%) · the **trigger-effect compiler + count-scaling** lanes are the spine of the climb (DMG-SCALE/FOR-EACH/FOREACH-TOK + TRIG-TREASURE/PROWESS/IT-COUNTER + TUCK-1)
+- **Native coverage: 17.9%** — 6,102 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%) · the **trigger-compiler + count-scaling** lanes are the spine of the climb. NEXT: **Cindy → COMMANDER FRAMEWORK** (CMD-CAST first), then the 189-keyword waves (`keyword-coverage-plan.md`).
 - `[####······················]`  ~19% of the way to goal
 - ✅ **9 of the 11 interim-FP keywords now ENFORCED → honestly native:** EVADE #258 (menace/skulk/fear/intimidate/horsemanship/defender, +141) · KW-UNTARGET #260 (hexproof/shroud) · **TRIG-PROWESS #262** (prowess). **Only 2 remain interim FPs — the genuinely-hard ones, legitimately deferred per the policy:** **ward** (a TAX, CR 702.21) + **protection** (the DEBT subsystem). Enforce-don't-drop **essentially complete** for tractable keywords.
 - **184 `playable-pw`** — planeswalkers play end-to-end, run **static + triggered emblem ultimates** (#251 + #254), and are **killable by removal** (#253).
-- **Open PRs: #269** (Cindy SYMBURN-1 — DIRTY on `coverage.js`, rebasing; her TUCK-1 #270 landed first). master @ 094d873. Tests **2,655 green**, lint clean.
+- **Open PRs: 0.** master @ bab1826. Tests **2,662 green**, lint clean.
 
 ## 🚀 Releases
 - **v0.39.0 — PUBLISHED ✓** — signed installer + `latest.json` live; auto-update active.
@@ -44,7 +44,7 @@ _**`scout/board-5` (Hans) is STALE** (branched at 88b1d4b, pre-EVADE) — relaye
 - 🟦 **Walt's PW-leverage lane** (`feat/WALT-*-walt`): WALT-TOKEN-ABIL (start), WALT-DMG-SCALE, WALT-FOR-EACH… (see `agents/walt.md`)
 
 ## 🔁 Recent merges (newest first)
-- **#270** TUCK-1 — tuck-to-library, +13 (Cindy) · **#268** WALT-FOREACH-TOK — token-per-count (Walt) · **#266** WALT-FOR-EACH, +23 (Walt) · **#265** IT-COUNTER, +9 (Cindy) · **#264** TRIG-TREASURE, +19 (Cindy) · **#263** WALT-DMG-SCALE, +19 (Walt) · **#262** TRIG-PROWESS (Cindy)
+- **#271** WALT-COUNT-SUBTYPE — tribal/typed counts, +14 (Walt) · **#269** SYMBURN-1 — symmetric burn, +16 (Cindy) · **#270** TUCK-1, +13 (Cindy) · **#268** WALT-FOREACH-TOK (Walt) · **#266** WALT-FOR-EACH, +23 (Walt) · **#265** IT-COUNTER, +9 (Cindy) · **#264** TRIG-TREASURE, +19 (Cindy)
 - shipped in v0.39.0: #243 SOFT-CNT · #241 LOOT-1 · #240 ADDCOST-2 · #238 TRIG-PUMP-1 · #237 MT-1 · #236 PW-1 · …
 
 ## 🗒️ Notes
