@@ -706,9 +706,11 @@ const MUST_DROP_TO_LOW = [
   // RIDER-REMOVAL — the UNMODELED controller-riders that must stay LOW (the lead removal is modeled, but an
   // all-or-nothing card never fires the removal while silently dropping the rider).
   "Destroy target creature. Its controller loses 2 life.",                                            // lose-life rider (Sip of Hemlock)
-  "Destroy target creature. Its controller creates a 1/1 white Spirit creature token with flying.",   // KEYWORD token (Afterlife)
+  "Destroy target creature. It can't be regenerated. Its controller creates a 1/1 white Spirit creature token with flying.", // Afterlife — the "can't be regenerated" clause keeps the lead from matching → Arbiter
   "Exile target nonland permanent. Its controller creates a 3/2 red and white Spirit creature token.", // MULTI-COLOR token (Reduce to Memory)
-  "Exile target nonland permanent. Its controller creates a Treasure token.",                         // NAMED token (Buy Your Silence)
+  // SOFT-COUNTER-RIDER — soft-counter NOT hijacked, and delayed/conditional counter-riders stay low.
+  "Counter target spell. Its controller may draw up to two cards at the beginning of the next turn's upkeep. You draw a card at the beginning of the next turn's upkeep.", // Arcane Denial (delayed draw)
+  "Counter target enchantment, instant, or sorcery spell. Its controller creates a 2/2 blue Bird creature token with flying and you gain 2 life.", // a rider tail past the keyword → low
   "Search your library for a basic land card, put it on top of your library, then shuffle.",       // top-of-library
   "Search your library for up to two basic land cards, put them into your hand, then shuffle.",     // multi-card
   "Search your library for a nonland card, put it into your hand, then shuffle.",                   // "nonland" not in any type line
@@ -955,6 +957,11 @@ const MUST_STAY_HIGH = [
   "Exile target creature. Its controller gains life equal to its power.",                                      // Swords to Plowshares
   "Destroy target permanent. Its controller creates a 3/3 green Beast creature token.",                        // Beast Within (vanilla token)
   "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.", // Path to Exile (ramp rider)
+  // ── SOFT-COUNTER-RIDER — counter whose 2nd sentence makes the COUNTERED spell's controller create tokens
+  // (named Treasure / keyword Bird); + the token-rider widening lighting up keyword/named REMOVAL riders. ──
+  'Counter target noncreature spell. Its controller creates two Treasure tokens. (They\'re artifacts with "{T}, Sacrifice this token: Add one mana of any color.")', // An Offer You Can't Refuse
+  "Counter target enchantment, instant, or sorcery spell. Its controller creates a 2/2 blue Bird creature token with flying.", // Swan Song (3-way filter + keyword token)
+  "Exile target creature or planeswalker. Its controller creates a 4/4 white Angel creature token with flying.", // Angelic Ascension (keyword-token removal rider)
   // ── Mass effects (board wipes) — UNFILTERED "all creatures", modeled this slice. ──
   "Destroy all creatures.",                                                     // Day of Judgment
   "Destroy all creatures. They can't be regenerated.",                          // Wrath of God / Damnation (regen rider stripped)
