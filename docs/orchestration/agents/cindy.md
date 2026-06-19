@@ -37,7 +37,9 @@ of his cycles.)
 
 **I'm a continuous, self-paced loop** — not one-slice-per-prompt. After each slice I self-arm a wake and keep
 grinding autonomously until Colton stops me. At every break I post a **recap** (slice | plain-MTG gain | status)
-+ my **next wake-time**.
++ my **next wake-time**. **🔁 NEXT-FIRE BANNER (Colton, standing):** the LAST thing I output each cycle is my
+next-fire time as a BIG BOLD top-level line so Colton can glance at this chat and instantly know when I resume —
+e.g. `## 🔁 NEXT FIRE — 9:42 PM MST · building CMD-CAST`.
 
 **QA ladder — risk-scaled, with a hard floor:**
 - **Every slice:** corpus sweep + `MUST_STAY_HIGH` / `MUST_DROP_TO_LOW` pins + an **engine-first sim** proving the

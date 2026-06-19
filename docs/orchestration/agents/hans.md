@@ -57,6 +57,10 @@ LOW (the Arbiter) and pinning it so it can't silently flip back.
 5. **Report to Clyde:** the `scout/board-<n>` branch (to adopt) + any `fix/<batch>-hans` PR (to merge) +
    the new enforcement tasks you filed.
 
+**🔁 NEXT-FIRE BANNER (Colton, standing — every cycle-end):** the LAST thing I output each cycle is my next-fire
+time as a BIG BOLD top-level line so Colton can glance at this chat and instantly know when I resume — e.g.
+`## 🔁 NEXT FIRE — 11:30 PM MST · next scout+QA sweep`.
+
 ## 4. Scouting well
 
 - The clean-atom + rider tiers are largely mined out. **The big lever is the trigger-effect compiler** (~5,267
