@@ -1,7 +1,7 @@
 # 🎛️ Academy Coverage — Live Status
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
-> _Updated 2026-06-18 17:00 MST · **cycle 4** · master @ 94fbfa9 · v0.39.0 **PUBLISHED** ✓ · **PW-1→PW-8 COMPLETE** · **POLICY: enforce FPs, don't drop** (#256 kept the 11 keywords claimed as interim FPs)._
+> _Updated 2026-06-18 17:10 MST · **cycle 4** · master @ c1bc598 · v0.39.0 **PUBLISHED** ✓ · **PW-1→PW-8 COMPLETE** · **POLICY: enforce FPs, don't drop** (#256 kept the 11 keywords claimed as interim FPs)._
 
 ## 📊 Scoreboard
 - **Native coverage: 17.2%** — 5,876 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%)
@@ -38,7 +38,7 @@ _Empty — #253/#251/#254/#255 all merged this cycle. Awaiting the first re-cove
 - 🟦 **Walt's PW-leverage lane** (`feat/WALT-*-walt`): WALT-TOKEN-ABIL (start), WALT-DMG-SCALE, WALT-FOR-EACH… (see `agents/walt.md`)
 
 ## 🔁 Recent merges (newest first)
-- **#256** keep 11 keywords claimed (enforce-don't-drop) + PW-before-land + qa-sweep tool (Hans) · **#255** FP audit (superseded by #256) · **#254** PW-8 triggered emblems (Walt) · **#251** PW-5 emblems (Walt) · **#253** PW-6/7 removal targeting (Walt) · **#252** ETB-EQUIP-ATTACH (Cindy)
+- **#257** qa-sweep de-noise (Hans, tooling) · **#256** keep 11 keywords claimed (enforce-don't-drop) + PW-before-land + qa-sweep tool (Hans) · **#255** FP audit (superseded by #256) · **#254** PW-8 triggered emblems (Walt) · **#251** PW-5 emblems (Walt) · **#253** PW-6/7 removal targeting (Walt)
 - shipped in v0.39.0: #243 SOFT-CNT · #241 LOOT-1 · #240 ADDCOST-2 · #238 TRIG-PUMP-1 · #237 MT-1 · #236 PW-1 · …
 
 ## 🗒️ Notes
