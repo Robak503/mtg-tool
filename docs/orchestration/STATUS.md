@@ -1,14 +1,14 @@
 # 🎛️ Academy Coverage — Live Status
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
-> _Updated 2026-06-18 18:05 MST · **cycle 4** · master @ 7f3cf7c · v0.39.0 **PUBLISHED** ✓ · **PW-1→PW-8 COMPLETE** · **EVADE #258 + KW-UNTARGET #260 + token-abil #259 shipped** · **POLICY: enforce FPs, don't drop**._
+> _Updated 2026-06-18 18:30 MST · **cycle 4** · master @ 6210d87 · **v0.40.0 CUT (CI building)** · v0.39.0 PUBLISHED ✓ · **PW-1→PW-8 COMPLETE** · **POLICY: enforce FPs, don't drop**._
 
 ## 📊 Scoreboard
-- **Native coverage: 17.5%** — 5,985 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%)
+- **Native coverage: 17.6%** — 6,004 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%) · **+19 DMG-SCALE #263** (board-count damage)
 - `[####······················]`  ~19% of the way to goal
 - ✅ **8 of the 11 interim-FP keywords now ENFORCED → honestly native:** EVADE #258 (menace/skulk/fear/intimidate/horsemanship/defender, +141) · KW-UNTARGET #260 (hexproof/shroud). **3 remain interim FPs:** **ward** (a tax, CR 702.21) + **protection** (DEBT subsystem) + **prowess** (TRIG-PROWESS) — claimed while built (Cindy's lane). #259 also killed the token-as-fake-mana-source FP (−32, honest). Enforce-don't-drop *working*.
 - **184 `playable-pw`** — planeswalkers play end-to-end, run **static + triggered emblem ultimates** (#251 + #254), and are **killable by removal** (#253).
-- **Open PRs: 0.** master @ 7f3cf7c. Tests **2,619 green**, lint clean.
+- **Open PRs: #262** (Cindy TRIG-PROWESS — DIRTY on `coverage.js`, rebasing). master @ 6210d87. Tests **2,627 green**, lint clean.
 
 ## 🚀 Releases
 - **v0.39.0 — PUBLISHED ✓** — signed installer + `latest.json` live; auto-update active.
@@ -25,7 +25,11 @@
 | **Omnath** | Brain · strategy | sets *what/why*; not in the build/merge loop. Boot via the `/omnath` skill. |
 
 ## 🔀 Merge queue (open PRs)
-_Empty — #259/#260/#261 all merged this tick. Awaiting the next enforcement (TRIG-PROWESS / TARGET-RESTRICT-ward) + PW-leverage (WALT-TOKEN-ABIL slice 2) + TRIG-* PRs. **`scout/board-5` (Hans) is STALE** (branched at 88b1d4b, pre-EVADE) — relayed for rebase before adopt._
+| PR | Task | State |
+|---|---|---|
+| **#262** | TRIG-PROWESS — prowess fires as a real cast-trigger self-pump (Cindy) | ⏳ **DIRTY** on `coverage.js` (her own KW-UNTARGET #260 + DMG-SCALE #263 landed first). **Cindy: rebase onto origin/master (6210d87), keep all enforced-keyword changes + your prowess changes, `--force-with-lease`** → Clyde merges. Prowess is the last of the 3 remaining interim-FP keywords' enforcement (with ward + protection). |
+
+_**`scout/board-5` (Hans) is STALE** (branched at 88b1d4b, pre-EVADE) — relayed for rebase before adopt._
 
 ## 🧭 The climb (Hans board thesis)
 - **~20%→~85% is essentially ONE subsystem — the trigger-effect compiler** (~5,267 trigger cards). **TRIG-PUMP-1 (#238) proved the pilot.** Highest-lever unclaimed = the TRIG-* sub-rows: TRIG-SCRY (~33), TRIG-TREASURE (~45), TRIG-COUNTER (~28), TRIG-DRAW, TRIG-MONARCH (~18).
@@ -38,7 +42,7 @@ _Empty — #259/#260/#261 all merged this tick. Awaiting the next enforcement (T
 - 🟦 **Walt's PW-leverage lane** (`feat/WALT-*-walt`): WALT-TOKEN-ABIL (start), WALT-DMG-SCALE, WALT-FOR-EACH… (see `agents/walt.md`)
 
 ## 🔁 Recent merges (newest first)
-- **#260** KW-UNTARGET — hexproof/shroud targetability (Cindy) · **#259** WALT-TOKEN-ABIL — token mana abilities + kill fake-mana FP (Walt) · **#261** qa-sweep↔EVADE sync (Hans) · **#258** EVADE — combat-evasion enforcement, +141 (Cindy) · **#257** qa-sweep de-noise (Hans) · **#256** enforce-don't-drop keep-claimed (Hans)
+- **#263** WALT-DMG-SCALE — board-count damage, +19 (Walt) · **#260** KW-UNTARGET — hexproof/shroud (Cindy) · **#259** WALT-TOKEN-ABIL — token mana abilities (Walt) · **#261** qa-sweep↔EVADE sync (Hans) · **#258** EVADE — combat-evasion enforcement, +141 (Cindy) · **#257** qa-sweep de-noise (Hans)
 - shipped in v0.39.0: #243 SOFT-CNT · #241 LOOT-1 · #240 ADDCOST-2 · #238 TRIG-PUMP-1 · #237 MT-1 · #236 PW-1 · …
 
 ## 🗒️ Notes
