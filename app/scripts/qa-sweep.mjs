@@ -27,6 +27,7 @@ import { allCards, publicCard } from "../src/lib/server/cardIndex.js";
 import { classifyCard, isNativeTier, COVERED_KEYWORDS, isKeywordOnly } from "../src/lib/learn/coverage.js";
 import { parseEffectProgram } from "../src/lib/learn/effects/parser.js";
 import { detectTriggers } from "../src/lib/learn/triggers.js";
+import { isEnforcedEvasionClause } from "../src/lib/learn/combatEvasion.js"; // keep keywordOnlyWithout in sync with isKeywordOnly
 
 const arg = (process.argv[2] || "").toLowerCase();
 
@@ -34,15 +35,17 @@ const arg = (process.argv[2] || "").toLowerCase();
 const ENFORCED_KEYWORDS = new Set([
   "flying", "reach", "first strike", "double strike", "trample", "deathtouch",
   "lifelink", "vigilance", "haste", "indestructible",
+  // EVADE (#258): combatEvasion.canBlockAttacker (block-legality) + the menace ≥2 normalize +
+  // the defender declare-attacker gate moved these from interim-FP → enforced.
+  "menace", "skulk", "intimidate", "fear", "horsemanship", "defender",
 ]);
 const ALLOWED_UNENFORCED = new Set(["flash", "changeling", "devoid"]); // safe: timing/identity, never mis-resolve a body
 // INTERIM-FP: unenforced TODAY but knowingly KEPT claimed native while enforcement is built (enforce-don't-drop
 // policy, retired-fp-ledger.md). These are expected, tracked live FPs — NOT an alarm. Only a COVERED_KEYWORD
 // that is none of {enforced, safe, interim-tracked} is a NEW untracked over-claim worth flagging.
 const KNOWN_INTERIM_FP = new Set([
-  "menace", "skulk", "intimidate", "fear", "horsemanship", "defender", // → EVADE / attack-legality
-  "hexproof", "shroud", "ward", "protection",                          // → TARGET-RESTRICT
-  "prowess",                                                           // → PROWESS cast-trigger
+  "hexproof", "shroud", "ward", "protection", // → TARGET-RESTRICT (enumerateTargets)
+  "prowess",                                  // → PROWESS cast-trigger compiler
 ]);
 
 function isRealCard(c) {
@@ -236,15 +239,16 @@ if (arg === "triggers") {
 }
 
 if (arg === "keywords") {
-  // isKeywordOnly's exact rule, but with one keyword removed — to count native-body
-  // bodies that rest SOLELY on a given covered keyword (i.e. drop if it's de-listed).
-  const reminderStripped = (s) => String(s || "").replace(/\([^)]*\)/g, " ").toLowerCase().replace(/[’']/g, "'");
-  const keywordOnlyWithout = (oracle, drop) => {
+  // isKeywordOnly's exact rule (incl. EVADE's name-normalize + isEnforcedEvasionClause), but with one
+  // keyword removed — to count native-body bodies that rest SOLELY on a given covered keyword.
+  const keywordOnlyWithout = (card, drop) => {
     const kws = COVERED_KEYWORDS.filter((k) => k !== drop);
-    const t = reminderStripped(oracle);
+    let t = String(card?.oracle || "").replace(/\([^)]*\)/g, " ").toLowerCase().replace(/[’']/g, "'");
+    const name = String(card?.name || "").toLowerCase().replace(/[’']/g, "'").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (name) t = t.replace(new RegExp(`\\b${name}\\b`, "g"), "this creature");
     if (!t.trim()) return true;
     return t.split(/[,;.!?\n]|\band\b/).map((c) => c.trim()).filter(Boolean)
-      .every((c) => kws.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)));
+      .every((c) => kws.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)) || isEnforcedEvasionClause(c));
   };
   console.log("=== COVERED_KEYWORDS enforcement audit ===");
   console.log("  (enforce-don't-drop: interim-FP keywords are KEPT native while enforcement is built — tracked,");
@@ -254,7 +258,7 @@ if (arg === "keywords") {
     const enforced = ENFORCED_KEYWORDS.has(kw);
     const safe = ALLOWED_UNENFORCED.has(kw);
     const interim = KNOWN_INTERIM_FP.has(kw);
-    const dependents = nativeBodyCards.filter((c) => !keywordOnlyWithout(c.oracle, kw) && isKeywordOnly(c.oracle)).length;
+    const dependents = nativeBodyCards.filter((c) => !keywordOnlyWithout(c, kw) && isKeywordOnly(c.oracle, c.name)).length;
     const tag = enforced ? "enforced" : safe ? "safe (timing/identity)"
       : interim ? "interim-FP (enforcement queued — retired-fp-ledger.md)" : "*** NEW UNTRACKED OVER-CLAIM ***";
     if (!enforced && !safe && !interim) newRisk++;
