@@ -442,6 +442,12 @@ export default function LearnView({
           <OptionalChoicePanel decision={decision} colors={colors} fontFamily={fontFamily} onChoose={session.applyOptionalChoice} />
         </div>
       )}
+      {/* CMD-RETURN (CR 903.9) — your commander died: return it to the command zone (recastable, taxed) or leave it. */}
+      {session.board && decision?.kind === "commander-return" && (
+        <div style={tutorSheetStyle(LINE, BG2)}>
+          <CommanderReturnPanel decision={decision} colors={colors} fontFamily={fontFamily} onChoose={session.applyCommanderReturnChoice} />
+        </div>
+      )}
       {/* δ-1b — hand disruption (Duress / Thoughtseize) → pick a card from the targeted opponent's
           REVEALED hand to discard. Only that one opponent's hand is shown (no 4P leak). Same side-sheet. */}
       {session.board && decision?.kind === "hand-discard" && (
@@ -1444,6 +1450,33 @@ function OptionalChoicePanel({ decision, colors, fontFamily, onChoose }) {
       <div style={{ display: "flex", gap: 10 }}>
         <button onClick={() => onChoose(true)} style={btn(GOLD, TEXT, 600)}>Yes, do it</button>
         <button onClick={() => onChoose(false)} style={btn(LINE, MUTED, 400)}>No, skip</button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * CMD-RETURN (CR 903.9) — the player's commander died; offer to put it back into the command zone (where
+ * it can be recast, paying the higher commander tax) or leave it in the graveyard (e.g. to reanimate it).
+ * A yes/no, mirroring OptionalChoicePanel; finishes server-side via session.applyCommanderReturnChoice.
+ */
+function CommanderReturnPanel({ decision, colors, fontFamily, onChoose }) {
+  const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
+  const btn = (border, color, weight) => ({
+    flex: 1, padding: "10px 14px", borderRadius: 6, border: `1px solid ${border}`,
+    background: BG3, color, cursor: "pointer", fontSize: 13, fontWeight: weight, fontFamily,
+  });
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, fontFamily }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>Commander down</div>
+      <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.5 }}>
+        Your commander <strong style={{ color: TEXT }}>{decision?.cardName || "commander"}</strong> is in the{" "}
+        {decision?.zone === "exile" ? "exile zone" : "graveyard"}. Put it back in the{" "}
+        <strong style={{ color: GOLD }}>command zone</strong>? (You can recast it, paying the {"{2}"} commander tax.)
+      </div>
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={() => onChoose(true)} style={btn(GOLD, TEXT, 600)}>Return to command zone</button>
+        <button onClick={() => onChoose(false)} style={btn(LINE, MUTED, 400)}>Leave it</button>
       </div>
     </div>
   );

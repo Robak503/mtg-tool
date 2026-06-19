@@ -230,6 +230,27 @@ export function setPendingSoftCounterChoice(state, { controller, amount, spellId
   };
 }
 
+/**
+ * CMD-RETURN (CR 903.9a) — flag a commander sitting in a graveyard/exile awaiting its OWNER's decision:
+ * return it to the command zone, or leave it where it is. A binary yes/no (mirrors the soft-counter
+ * pay-or-decline). Only ever set for the HUMAN owner ("user") — an AI commander is auto-returned directly
+ * by returnCommandersToZone and never pauses. `zone` is where the commander currently is. FIFO (guarded).
+ */
+export function setPendingCommanderReturnChoice(state, { controller, zone, cardId, cardName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "commander-return-pending", controller, cardName, zone });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "commander-return",
+      controller,
+      zone,
+      cardId,
+      cardName,
+    },
+  };
+}
+
 /** Clear the pending choice (after it's resolved). */
 export function clearPendingChoice(state) {
   if (!state.pendingChoice) return state;
