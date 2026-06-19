@@ -49,4 +49,17 @@ describe("tableSnapshot", () => {
     };
     expect(tableSnapshot(state).map(s => s.id)).toEqual(["user", "ai2"]);
   });
+
+  it("CMD-DAMAGE: maps a commander-card-id key to the commander's NAME for display (not a raw id)", () => {
+    const omnath = { id: "omnath-card", name: "Omnath, Locus of Mana", isCommander: true };
+    const state = {
+      turnOrder: ["user", "ai1"],
+      activePlayer: "user",
+      players: {
+        user: { ...player({ cmd: { "omnath-card": 14 } }), command: [] },
+        ai1: { ...player(), command: [omnath] }, // ai1's commander, in its command zone → resolves the id
+      },
+    };
+    expect(tableSnapshot(state)[0].commanderDamage).toEqual({ "Omnath, Locus of Mana": 14 });
+  });
 });
