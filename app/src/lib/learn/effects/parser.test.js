@@ -406,14 +406,23 @@ describe("parseEffectProgram — board-count damage (DMG-SCALE)", () => {
       .toMatchObject({ op: "deal-damage", targetType: "creature", amountCount: { kind: "permanentsYouControl", subtype: "Mountain" } });
     expect(atom0("Spiraling Embers deals damage to any target equal to the number of cards in your hand."))
       .toMatchObject({ op: "deal-damage", targetType: "any", amountCount: { kind: "cardsInHand" } });
+    // OPPONENT-SCOPED: "cards in that player's hand" → the TARGET player's hand (who:"target"), Sudden Impact.
+    expect(atom0("Sudden Impact deals damage to target player equal to the number of cards in that player's hand."))
+      .toMatchObject({ op: "deal-damage", targetType: "player", amountCount: { kind: "cardsInHand", who: "target" } });
   });
   it("MUST_DROP_TO_LOW: restricted target / unmodeled source / multiplier → Arbiter", () => {
     // restricted target (would mis-resolve to the unrestricted set):
     expect(conf("Outflank deals damage to target attacking creature equal to the number of creatures you control.")).toBe("low");
     expect(conf("Acidic Soil deals damage to each player equal to the number of lands you control.")).toBe("low"); // each-player damage not modeled
-    // opponent-scoped sources (slice 1 is controller-scoped only):
-    expect(conf("Incite deals damage to target creature equal to the number of creatures they control.")).toBe("low");
-    expect(conf("Sudden Impact deals damage to target player equal to the number of cards in that player's hand.")).toBe("low");
+    // opponent-scoped PERMANENTS still low (only the target player's HAND is modeled — "that player's
+    // hand", WALT-COUNT-OPP). Opponent permanents + other hand phrasings stay low:
+    expect(conf("Incite deals damage to target creature equal to the number of creatures they control.")).toBe("low");      // opponent's creatures
+    expect(conf("Jeska deals damage to target player equal to the number of cards in target opponent's hand.")).toBe("low"); // "target opponent's hand" phrasing not modeled
+    // who:"target" requires a SINGLE-PLAYER target — "that player's hand" with an each-opponent / creature
+    // target is incoherent → Arbiter (airtight; a count that would silently resolve to 0 must not be native):
+    expect(conf("Boom deals damage to each opponent equal to the number of cards in that player's hand.")).toBe("low"); // each-opponent: no single "that player"
+    expect(conf("Boom deals damage to target creature equal to the number of cards in that player's hand.")).toBe("low"); // creature target: no "that player"
+    expect(conf("Draw a card for each card in that player's hand.")).toBe("low"); // FOR-EACH is controller-scoped; "that player" has no referent
     // exotic sources (deferred). NOTE: graveyard counts (FOR-EACH) and permanent SUBTYPES (WALT-COUNT-SUBTYPE)
     // are now MODELED, so "artifact cards in your graveyard" (Scrapyard Salvo) and "Goblins you control"
     // (Goblin War Strike) flip DMG-SCALE high. Still-unmodeled: opponent-scoped + exotic sources.

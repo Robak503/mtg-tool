@@ -910,7 +910,11 @@ function countMatches(card, spec) {
   return false;
 }
 function countForSpec(state, ctx, spec) {
-  const player = state?.players?.[ctx.controller];
+  // ===== OPPONENT-SCOPED ===== who:"target" counts the SPELL'S TARGET player ("…equal to the number of
+  // cards in that player's hand" — Sudden Impact); everything else counts the controller (the common case).
+  // A missing player target → 0 (a safe no-op, never silently the controller's hand).
+  const playerId = spec.who === "target" ? ctx.targets?.find((t) => t.type === "player")?.id : ctx.controller;
+  const player = playerId ? state?.players?.[playerId] : null;
   if (!player) return 0;
   if (spec.kind === "cardsInHand") return (player.hand || []).length;
   if (spec.kind === "permanentsYouControl") return (player.battlefield || []).filter((perm) => countMatches(perm.card, spec)).length;
