@@ -37,21 +37,6 @@ import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loy
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
-import { hasKeyword } from "./keywords.js";
-
-// KW-POISON CREED GUARD: infect/wither replace ALL damage from the source (CR 702.90b / 702.79b),
-// but the engine routes only COMBAT damage through that replacement (combatResolution.js). A creature
-// with infect or wither AND a non-combat damage-dealing ability (a pinger / a "deal N damage" trigger)
-// would mis-resolve that ability's damage as ordinary damage instead of -1/-1 counters / poison — a
-// CREED false positive. Such a card stays body-only until non-combat infect routing is enforced (the
-// damage-atom follow-up). Pure keyword-only infect/wither creatures are unaffected: they only ever deal
-// COMBAT damage, which IS enforced, so they still flip native-body above. Toxic is exempt — it adds
-// poison ONLY on combat damage (CR 702.180a), so a toxic creature's other damage abilities are ordinary.
-function infectWitherWithNonCombatDamage(card, oracle) {
-  if (!(hasKeyword(card, "Infect") || hasKeyword(card, "Wither"))) return false;
-  const nonReminder = String(oracle || "").replace(/\([^)]*\)/g, " ");
-  return /\bdeals?\s+(?:\d+|x|that much)\s+damage|\bdeals?\s+damage\b/i.test(nonReminder);
-}
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -405,10 +390,6 @@ export function classifyCard(card) {
     ? oracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
     : oracle;
   if (isKeywordOnly(baseOracle, card?.name)) return "native-body";
-  // KW-POISON CREED GUARD (see helper): an infect/wither creature with a non-combat damage ability mis-
-  // resolves that damage (only combat infect/wither is routed), so it stays body-only — checked before
-  // the native-mana/trigger/activated/mixed gates so a modeled pinger can't wrongly clear it to native.
-  if (infectWitherWithNonCombatDamage(card, oracle)) return "body-only";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
   if (hasManaAbility(oracle) && manaCardResidueModeled(card, oracle)) return "native-mana";

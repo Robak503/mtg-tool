@@ -8,6 +8,7 @@ import { createGameState, addPoison, createPermanent } from "./gameState.js";
 import { createLearnSession, advanceUntilDecision } from "./learnSession.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { classifyCard } from "./coverage.js";
+import { runEffectProgram } from "./effects/runProgram.js";
 
 // Build a creature that carries its keyword via ORACLE text — exactly how an in-session card arrives
 // (LearnView's deckToCardArray gives {name,type,mana,oracle}, no Scryfall keywords array), so these
@@ -179,23 +180,98 @@ describe("KW-POISON — coverage classification (flip + CREED guard)", () => {
     })).toBe("native-body");
   });
 
-  it("CREED GUARD: an infect creature with a non-combat damage ability stays body-only (its pinger damage isn't infect-routed)", () => {
-    expect(classifyCard({
-      type: "Creature — Phyrexian Human Shaman", name: "Fallen Ferromancer",
-      oracle: `${INFECT}\n{1}{R}, {T}: This creature deals 1 damage to any target.`,
-    })).toBe("body-only");
-  });
-
-  it("CREED GUARD: a wither creature with a 'deals damage' ability stays body-only", () => {
-    expect(classifyCard({
-      type: "Creature — Elemental", name: "Hateflayer",
-      oracle: `${WITHER}\n{6}{R}, {T}: This creature deals 3 damage to any target.`,
-    })).toBe("body-only");
-  });
-
   it("an infect creature whose extra ability deals NO damage still flips native (mana / ETB-destroy are fine)", () => {
     // Plague Myr — infect + a pure mana ability → native-mana (no damage ability, guard doesn't catch it).
     expect(classifyCard({ type: "Artifact Creature — Phyrexian Myr", name: "Plague Myr", oracle: `${INFECT}\n{T}: Add {C}.` }))
       .toBe("native-mana");
+  });
+
+  it("an infect creature WITH a pinger now flips native (non-combat damage is routed)", () => {
+    // Fallen Ferromancer — infect + "{1}{R}, {T}: deal 1 damage". With non-combat routing the pinger's
+    // damage is infect-routed, so the CREED guard no longer holds it back → native-activated.
+    expect(classifyCard({
+      type: "Creature — Phyrexian Human Shaman", name: "Fallen Ferromancer",
+      oracle: `${INFECT}\n{1}{R}, {T}: This creature deals 1 damage to any target.`,
+    })).toBe("native-activated");
+  });
+});
+
+describe("KW-POISON — non-combat (ability) damage routing", () => {
+  // Build a state with full player shape, then drop in the source + target permanents.
+  const stateWith = (userBf, aiBf) => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    return { ...s, players: {
+      ...s.players,
+      user: { ...s.players.user, battlefield: userBf },
+      ai: { ...s.players.ai, battlefield: aiBf },
+    } };
+  };
+  const program = (atoms) => ({ version: 1, source: "parser", confidence: "high", structure: "sequence", atoms, unparsedTail: null });
+  // A stack object as an ACTIVATED ABILITY would build it: params carry sourceId = the source permanent
+  // (actionDispatcher.js sets `sourceId: action.permanentId`), which runEffectProgram threads into ctx.
+  const abilityStack = (atoms, { controller = "user", targets = [], sourceId = null }) =>
+    ({ id: "stk-poison", kind: "ability", source: { name: "Pinger" }, controller, targets, payload: { params: { program: program(atoms), controller, targets, sourceId } } });
+
+  it("an infect source's ability damage to a creature is -1/-1 counters, not marked damage (CR 702.90b)", () => {
+    const src = kwCreature("Fallen Ferromancer", 1, 1, "user", INFECT);
+    const tgt = kwCreature("Ogre", 2, 4, "ai");
+    const out = runEffectProgram(stateWith([src], [tgt]),
+      abilityStack([{ op: "deal-damage", amount: 2, targetType: "creature" }], { targets: [{ type: "creature", id: tgt.id }], sourceId: src.id }));
+    const ogre = permByName(out, "ai", "Ogre");
+    expect(ogre.counters["-1/-1"]).toBe(2);
+    expect(ogre.damageMarked || 0).toBe(0);
+  });
+
+  it("an infect source's ability damage to a player is poison, not life loss (CR 702.90a)", () => {
+    const src = kwCreature("Fallen Ferromancer", 1, 1, "user", INFECT);
+    let state = stateWith([src], []);
+    const lifeBefore = state.players.ai.life;
+    const out = runEffectProgram(state,
+      abilityStack([{ op: "deal-damage", amount: 3, targetType: "player" }], { targets: [{ type: "player", id: "ai" }], sourceId: src.id }));
+    expect(out.players.ai.poison).toBe(3);
+    expect(out.players.ai.life).toBe(lifeBefore);
+  });
+
+  it("a wither source's ability damage to a creature is -1/-1 counters (players unaffected)", () => {
+    const src = kwCreature("Hateflayer", 1, 1, "user", WITHER);
+    const tgt = kwCreature("Bear", 2, 2, "ai");
+    const out = runEffectProgram(stateWith([src], [tgt]),
+      abilityStack([{ op: "deal-damage", amount: 1, targetType: "creature" }], { targets: [{ type: "creature", id: tgt.id }], sourceId: src.id }));
+    const bear = permByName(out, "ai", "Bear");
+    expect(bear.counters["-1/-1"]).toBe(1);
+    expect(bear.damageMarked || 0).toBe(0);
+  });
+
+  it("an infect source's ability that drops a creature to 0 toughness kills it (CR 704.5f)", () => {
+    const src = kwCreature("Pinger", 1, 1, "user", INFECT);
+    const tgt = kwCreature("Squire", 1, 3, "ai");
+    const out = runEffectProgram(stateWith([src], [tgt]),
+      abilityStack([{ op: "deal-damage", amount: 3, targetType: "creature" }], { targets: [{ type: "creature", id: tgt.id }], sourceId: src.id }));
+    expect(gy(out, "ai")).toEqual(["Squire"]); // 3 -1/-1 counters → 0 toughness → SBA death
+  });
+
+  it("a NORMAL source's ability damage is unchanged — marked damage + life loss, no counters/poison", () => {
+    const src = kwCreature("Prodigal Sorcerer", 1, 1, "user"); // no poison keyword
+    const tgt = kwCreature("Ogre", 2, 4, "ai");
+    let state = stateWith([src], [tgt]);
+    const lifeBefore = state.players.ai.life;
+    let out = runEffectProgram(state,
+      abilityStack([{ op: "deal-damage", amount: 2, targetType: "creature" }], { targets: [{ type: "creature", id: tgt.id }], sourceId: src.id }));
+    const ogre = permByName(out, "ai", "Ogre");
+    expect(ogre.damageMarked).toBe(2);
+    expect(ogre.counters["-1/-1"] || 0).toBe(0);
+    out = runEffectProgram(stateWith([src], []),
+      abilityStack([{ op: "deal-damage", amount: 2, targetType: "player" }], { targets: [{ type: "player", id: "ai" }], sourceId: src.id }));
+    expect(out.players.ai.life).toBe(lifeBefore - 2);
+    expect(out.players.ai.poison || 0).toBe(0);
+  });
+
+  it("a SPELL (sourceId null) deals normal damage even from infect text — spell-source stays unclaimed (safe false-negative)", () => {
+    const tgt = kwCreature("Ogre", 2, 4, "ai");
+    const out = runEffectProgram(stateWith([], [tgt]),
+      abilityStack([{ op: "deal-damage", amount: 2, targetType: "creature" }], { targets: [{ type: "creature", id: tgt.id }], sourceId: null }));
+    const ogre = permByName(out, "ai", "Ogre");
+    expect(ogre.damageMarked).toBe(2);          // no permanent source → no infect routing
+    expect(ogre.counters["-1/-1"] || 0).toBe(0);
   });
 });
