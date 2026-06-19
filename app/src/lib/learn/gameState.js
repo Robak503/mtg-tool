@@ -572,7 +572,7 @@ export function nextInTurnOrder(state, playerId) {
  *     object travels. Counters, attachments, etc. are discarded.
  *   - If `cardId` is not found in the source zone, throws.
  */
-export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, becomePermanent = false }) {
+export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, becomePermanent = false, toTop = false }) {
   assertPlayer(playerId);
   assertZone(fromZone);
   assertZone(toZone);
@@ -596,8 +596,9 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
       // Permanent moves to battlefield from battlefield — weird but possible (blinks).
       nextDest = [...player[toZone], permanent];
     } else {
-      // Unwrapping: drop permanent state, keep the card.
-      nextDest = [...player[toZone], card];
+      // Unwrapping: drop permanent state, keep the card. `toTop` (tuck-to-top-of-library) prepends
+      // instead of appending — library index 0 is the TOP (drawCardEffect slices from the front).
+      nextDest = toTop ? [card, ...player[toZone]] : [...player[toZone], card];
     }
     const result = withPlayer(state, playerId, p => ({
       ...p,
@@ -628,7 +629,7 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     }));
   }
 
-  const nextDest = [...player[toZone], card];
+  const nextDest = toTop ? [card, ...player[toZone]] : [...player[toZone], card];
   return withPlayer(state, playerId, p => ({
     ...p,
     [fromZone]: nextSource,

@@ -566,6 +566,19 @@ function parseExtendedAtom(s) {
     const restrictions = bp[2] ? [{ kind: "controller", who: /^you control$/.test(bp[2]) ? "you" : "opponent" }] : [];
     return { op: "bounce", targetType: TT[bp[1]], restrictions };
   }
+  // TUCK-1 — bounce-to-library ("put target <perm> on top / the bottom of its owner's library" — Time
+  // Ebb, Griptide, Excommunicate, Temporal Spring, Totally Lost, Temporal Eddy, Run Aground). A removal
+  // that mirrors the bounce op with a library destination; the destination (top|bottom) rides on the
+  // atom and the resolver prepends (top) or appends (bottom) via moveCardToZone's toTop flag. Same
+  // target-type map + enumerator as destroy/bounce (creature / permanent / nonland permanent / the
+  // already-modeled 2-way unions). A creature RESTRICTION ("with power 4 or greater" / "with flying" /
+  // "attacking"), a 3-way union, a positional "Nth from the top", or any rider fails the exact anchor →
+  // low → Arbiter (a clean false-negative; restriction + 3-way are a fast-follow).
+  const tk = t.match(/^put target (creature or land|artifact or creature|nonland permanent|creature|permanent) on (top|the bottom) of its owner's library$/);
+  if (tk) {
+    const TT = { "creature": "creature", "permanent": "permanent", "nonland permanent": "nonlandPermanent", "creature or land": "creatureOrLand", "artifact or creature": "creatureOrArtifact" };
+    return { op: "tuck", targetType: TT[tk[1]], where: tk[2] === "top" ? "top" : "bottom" };
+  }
   // Targeted NON-CREATURE permanent removal (Disenchant / Naturalize / Stone Rain / "Destroy
   // target permanent"). CREATURE removal keeps its dedicated path (the richer creature-restriction
   // parser); this covers artifact / enchantment / land / permanent / nonland permanent / "artifact
@@ -1470,6 +1483,9 @@ export function atomTargetIntent(atom) {
       // chooser stays on the controller's own side (the host is always friendly; never an enemy creature).
       return "own";
     case "bounce":
+    case "tuck":
+      // Could target own OR enemy permanents — the trigger-flush chooser can't pick a side, so a tuck
+      // TRIGGER stays non-native; SAFE on the cast/activated path (player/AI picks the target).
       return "ambiguous";
     default:
       return "ambiguous";
