@@ -32,7 +32,7 @@
 import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
 import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { hasKeyword } from "./keywords.js";
-import { permanentHasKeyword, permanentIsCreature } from "./layers.js";
+import { permanentHasKeyword, permanentIsCreature, colorsOf } from "./layers.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -505,7 +505,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
     // → can't cast (CR 303.4a). A non-native Aura has no modeled bonus, so it falls
     // through to the no-target branch and the dispatcher routes it to the Arbiter seam.
     if (isNativeAura(card)) {
-      const targets = enumerateTargets(state, playerId, { targetType: "creature" });
+      // KW-PROTECTION (CR 702.16b): the Aura spell's colors gate targeting — a protection-from-[color]
+      // creature can't be the Aura's target if the Aura is that color (also its 702.16c enchant immunity).
+      const targets = enumerateTargets(state, playerId, { targetType: "creature" }, colorsOf(card));
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
@@ -523,7 +525,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
         const { restrictions } = parseCreatureTargetRestrictions(card);
         if (restrictions.length) targetingEffect = { ...effect, restrictions };
       }
-      const targets = enumerateTargets(state, playerId, targetingEffect);
+      // KW-PROTECTION (CR 702.16b): the spell's colors gate targeting — a creature with protection from
+      // a color the spell is can't be targeted by it (removal/burn immunity), even by its own controller.
+      const targets = enumerateTargets(state, playerId, targetingEffect, colorsOf(card));
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true });
