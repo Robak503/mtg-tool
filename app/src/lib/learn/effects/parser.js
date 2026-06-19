@@ -223,6 +223,18 @@ function splitClauses(oracle) {
     // MULTI-COLOR descriptor ("black and green Insect") carries an internal " and " that must not be
     // split off, so keep the whole "create … creature token (with|for each) …" sentence together.
     if (/^create .*\bcreature tokens?\b (?:with|for each) .+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // SYMBURN-1 symmetric burn ("<source> deals N damage to each creature and each player" — Inferno,
+    // Fire Tempest, Evincar's Justice): the " and " between "each creature" and "each player" is INTERNAL
+    // to one mass-damage target, NOT a top-level effect boundary. Keep the whole sentence so the damage
+    // atom binds the combined eachCreatureAndPlayer scope (CR — "each player" is ALL players incl. the
+    // caster). Anchored BOTH ends: the tail ($) excludes a qualifier on either half ("…each player that
+    // doesn't control a Mountain"); the subject-prefix guard (no top-level " and " before the "deals"
+    // verb) excludes a LEADING effect joined by " and " ("You gain 5 life and <name> deals N …") that
+    // would otherwise be kept whole and silently DROP the leading effect — the only allowed " and " is
+    // the one inside the target. A rejected sentence falls through to the split → low → Arbiter (safe),
+    // never a dropped half.
+    const symBurn = sentence.match(/^(.*?)\bdeals? \d+ damage to each creature and each player$/i);
+    if (symBurn && !/\band\b/i.test(symBurn[1])) { clauses.push(sentence); continue; }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split
@@ -1387,7 +1399,7 @@ export function programNeedsChosenTarget(program) {
   const atoms = program.structure === "modal"
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
-  return atoms.some(a => a.targetType && !["eachOpponent", "eachCreature"].includes(a.targetType));
+  return atoms.some(a => a.targetType && !["eachOpponent", "eachCreature", "eachCreatureAndPlayer"].includes(a.targetType));
 }
 
 /**
@@ -1452,7 +1464,7 @@ export function programContainsChosenPermanentRemoval(program) {
 export function atomTargetIntent(atom) {
   if (!atom) return null;
   const tt = atom.targetType;
-  if (!tt || tt === "eachOpponent" || tt === "eachCreature") return null;
+  if (!tt || tt === "eachOpponent" || tt === "eachCreature" || tt === "eachCreatureAndPlayer") return null;
   switch (atom.op) {
     case "deal-damage":
     case "destroy":
