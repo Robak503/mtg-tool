@@ -617,7 +617,15 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
   // convention — Card objects are expected to have a unique id field).
   const index = sourceList.findIndex(c => c.id === cardId);
   if (index === -1) throw new Error(`Card ${cardId} not found in ${playerId}.${fromZone}`);
-  const card = sourceList[index];
+  let card = sourceList[index];
+  // CMD-RETURN (CR 903.9a): the "owner declined to return this commander" marker (_returnHandled) is scoped
+  // to its CURRENT graveyard/exile residency — 903.9a fires for a commander "put there since the last SBA
+  // check". When the card LEAVES that zone (reanimated, returned to hand, …) the decline is stale, so strip
+  // it; a later death then re-offers the return instead of stranding the commander.
+  if ((fromZone === "graveyard" || fromZone === "exile") && card._returnHandled) {
+    const { _returnHandled: _drop, ...rest } = card;
+    card = rest;
+  }
   const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
   if (toZone === "battlefield" && becomePermanent) {
     // Mint a deterministic permanent id from state.idSeq and build the result

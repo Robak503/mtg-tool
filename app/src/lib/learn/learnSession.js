@@ -32,8 +32,10 @@ import {
   createGameState,
   loseLife,
   logEvent,
+  moveCardToZone,
   MODES,
 } from "./gameState.js";
+import { setPendingCommanderReturnChoice, clearPendingChoice } from "./pendingChoice.js";
 import {
   startGame,
   nextStep,
@@ -373,6 +375,56 @@ function settleOptionalChoice(state, doIt) {
 }
 
 /**
+ * CMD-RETURN state-based action (CR 903.9a) — a commander sitting in a graveyard or exile MAY be put into
+ * the command zone by its owner. Run after the loss/elimination SBA, before the next priority window. An
+ * AI owner AUTO-RETURNS its commander (so it can recast — the correct default for the opponent); the HUMAN
+ * owner gets a pending yes/no (903.9 is the owner's choice — NEVER auto for the human). One commander at a
+ * time (the setter is FIFO-guarded). A DECLINED commander is marked `_returnHandled` so this SBA won't
+ * re-offer it every check (903.9a fires only for a commander put there SINCE the last SBA check). No
+ * commander → returns the state unchanged (Standard, with no command zone, is a no-op).
+ */
+export function returnCommandersToZone(state) {
+  for (const pid of Object.keys(state.players || {})) {
+    for (const zone of ["graveyard", "exile"]) {
+      const card = (state.players[pid]?.[zone] || []).find((c) => c?.isCommander && !c._returnHandled);
+      if (!card) continue;
+      if (pid === "user") {
+        // Human owner → offer the choice (the loop applies the pause / Expert-auto split).
+        return setPendingCommanderReturnChoice(state, { controller: pid, zone, cardId: card.id, cardName: card.name });
+      }
+      // AI owner → auto-return so it can recast. The card keeps isCommander; commanderCastCount (the tax,
+      // CR 903.8) lives on the player and is untouched, so it persists across the return.
+      return moveCardToZone(state, { playerId: pid, fromZone: zone, toZone: "command", cardId: card.id });
+    }
+  }
+  return state;
+}
+
+/**
+ * Settle a commander-return yes/no (CR 903.9). `doReturn` true → move the commander from its dead zone to
+ * the command zone (it keeps its owner's commanderCastCount, so the {2} tax persists — 903.8 counts casts,
+ * not deaths). false → it stays put, marked `_returnHandled` so the SBA won't keep re-offering it.
+ */
+export function settleCommanderReturnChoice(state, doReturn) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "commander-return") return state;
+  const cleared = clearPendingChoice(state);
+  if (doReturn) {
+    return moveCardToZone(cleared, { playerId: pc.controller, fromZone: pc.zone, toZone: "command", cardId: pc.cardId });
+  }
+  return {
+    ...cleared,
+    players: {
+      ...cleared.players,
+      [pc.controller]: {
+        ...cleared.players[pc.controller],
+        [pc.zone]: (cleared.players[pc.controller]?.[pc.zone] || []).map((c) => (c.id === pc.cardId ? { ...c, _returnHandled: true } : c)),
+      },
+    },
+  };
+}
+
+/**
  * Settle a hand-discard choice (δ-1b): move the chosen card from the victim's hand → graveyard, resume
  * the caster's suspended program (Thoughtseize's "lose 2 life", Harsh Scrutiny's "Scry 1" — which may
  * itself re-pause on the scry, so guard pendingChoice before flushing), then finalizeStackResolution
@@ -458,6 +510,10 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
       };
     }
 
+    // CMD-RETURN (CR 903.9a): a commander in a dead zone is auto-returned (AI) or sets a pending yes/no
+    // (human) before the next priority window. The pending-choice handler below surfaces the human's.
+    current = { ...current, state: returnCommandersToZone(current.state) };
+
     // P2.1 — the unresolved→Arbiter seam. A resolver flagged a cast spell it
     // can't model (state.pendingArbiter). Surface it as a teaching moment for
     // the PLAYER'S OWN spells at beginner/intermediate; otherwise (Expert
@@ -527,6 +583,16 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
           return { session: current, decision: { kind: "optional-effect", ...pc } };
         }
         current = { ...current, state: settleOptionalChoice(current.state, true) };
+        continue;
+      }
+      // CMD-RETURN (CR 903.9) — a commander in a dead zone: the human's OWN commander surfaces a yes/no
+      // (return to the command zone?); Expert autopilot AUTO-RETURNS (keeps it recastable — the right
+      // default). An AI's commander never reaches here (returnCommandersToZone auto-returned it directly).
+      if (pc.kind === "commander-return") {
+        if (pause) {
+          return { session: current, decision: { kind: "commander-return", ...pc } };
+        }
+        current = { ...current, state: settleCommanderReturnChoice(current.state, true) };
         continue;
       }
       // δ-1b — hand disruption (Duress / Thoughtseize / …): the spell already targeted ONE opponent at
@@ -1062,6 +1128,46 @@ export function applyOptionalChoice(session, choice) {
 }
 
 /**
+ * The player answered a `commander-return` yes/no (CR 903.9): `choice.return === true` sends the commander
+ * back to the command zone (taxed recast available), false leaves it in the graveyard/exile. Mirrors
+ * applyOptionalChoice — settle, log, re-derive the next decision.
+ */
+export function applyCommanderReturnChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "commander-return") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const doReturn = choice?.return === true || choice === true;
+
+  let newState;
+  try {
+    newState = settleCommanderReturnChoice(session.state, doReturn);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "commander-return", cardName: pc.cardName, returned: doReturn },
+    auto: false,
+    reasoning: doReturn ? "user-returned-commander" : "user-left-commander-in-graveyard",
+  };
+
+  return advanceUntilDecision({
+    ...session,
+    state: newState,
+    decisionLog: [...session.decisionLog, logEntry],
+  });
+}
+
+/**
  * The player picked which card to strip from a `hand-discard` decision (δ-1b — Duress / Thoughtseize).
  * Validates the pick against the pending candidates (the targeted opponent's revealed, filtered hand),
  * moves it to their graveyard, resumes the caster's riders, then re-derives the next decision.
@@ -1253,6 +1359,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "clone-search") return applyCloneChoice(session, choice);
   if (kind === "scry-surveil") return applyScryChoice(session, choice);
   if (kind === "optional-effect") return applyOptionalChoice(session, choice);
+  if (kind === "commander-return") return applyCommanderReturnChoice(session, choice);
   if (kind === "hand-discard") return applyHandDiscardChoice(session, choice);
   if (kind === "impulse-dig") return applyImpulseDigChoice(session, choice);
   if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice);
