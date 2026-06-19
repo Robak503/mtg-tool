@@ -37,6 +37,17 @@ describe("parseProtectionColors", () => {
     expect(parseProtectionColors({ oracle: "Vigilance" }).size).toBe(0);
     expect(parseProtectionColors({}).size).toBe(0);
   });
+  it("skips CONDITIONAL protection — 'as long as' (the engine doesn't evaluate the condition)", () => {
+    // Etched Champion / Masked Gorgon: not actually protected unless the condition holds → safe FN.
+    expect(parseProtectionColors({ oracle: "Metalcraft — This creature has protection from each color as long as you control three or more artifacts." }).size).toBe(0);
+    expect(parseProtectionColors({ oracle: "Protection from green and white as long as there are seven or more cards in your graveyard." }).size).toBe(0);
+  });
+  it("skips GRANTED protection — 'gains protection from' (a temporary grant, not a static property)", () => {
+    expect(parseProtectionColors({ oracle: "{W}: Target creature gains protection from red until end of turn." }).size).toBe(0);
+  });
+  it("still parses a plain static keyword line alongside the gates (regression)", () => {
+    expect([...parseProtectionColors({ oracle: "Flying\nProtection from red\n{W}: Target creature gains protection from white until end of turn." })]).toEqual(["R"]);
+  });
 });
 
 describe("protectionApplies", () => {
