@@ -842,6 +842,14 @@ function parseExtendedAtom(s) {
   // own, -1/-1 enemy via atomTargetIntent), so it routes natively on the trigger path too.
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on up to one target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature", optionalTarget: true };
+  // ===== REGEN (CR 701.15) ===== "Regenerate this creature/permanent" (the SOURCE — the activated
+  // "{cost}: Regenerate ~" that dominates the corpus, or a one-shot) sets up a regeneration shield; "Regenerate
+  // target creature" shields the chosen creature. The shield replaces the NEXT destruction this turn
+  // (gameState.destroyLethalCreatures + spellEffects.applyDestroyEffect consume it, clear damage, tap). Bare
+  // anchored forms ONLY — a filtered/conditional regen ("…you control", "if …", "all creatures") fails `$` →
+  // low → Arbiter, never a fabricated shield. No magnitude to get wrong: a shield is a shield.
+  if (/^regenerate (?:this creature|this permanent)$/.test(t)) return { op: "regenerate", target: "self" };
+  if (/^regenerate target creature$/.test(t)) return { op: "regenerate", targetType: "creature" };
   // ===== COUNTERS ===== TEAM distribution — "Put N +1/+1 (or -1/-1) counter(s) on each creature you
   // control" (Titania's Boon, Basri's Solidarity, Strength of the Pack N=2). NON-targeted, modeled with
   // the SAME `scope:"youControl"` marker the Overrun-style team pump uses (NOT a targetType — it stays

@@ -856,6 +856,32 @@ export function untapPermanent(state, permanentId) {
   return updatePermanent(state, permanentId, p => ({ ...p, tapped: false }));
 }
 
+// ── REGEN (CR 701.15) — regeneration shields ──────────────────────────────────────────────────────────────
+// "Regenerate <permanent>" sets up a replacement: the NEXT time it would be destroyed this turn, instead
+// remove all damage from it, tap it, and remove it from combat (CR 701.15a). Modeled as a per-permanent
+// `regenShields` count: `addRegenShield` is the regen atom's effect; the two destruction sites (the lethal-
+// damage SBA destroyLethalCreatures + the explicit-destroy effect applyDestroyEffect) consume one shield via
+// `regeneratePermanent` INSTEAD of destroying. Shields clear at cleanup (the replacement is "this turn" only).
+// Gated entirely on regenShields > 0, so a permanent without a regen ability is byte-identical to before.
+export function addRegenShield(state, permanentId) {
+  return updatePermanent(state, permanentId, p => ({ ...p, regenShields: (p.regenShields || 0) + 1 }));
+}
+
+/** Consume one regeneration shield: clear marked damage + tap (CR 701.15a). Caller has already confirmed a
+ * shield is present and is skipping the destruction (the creature stays on the battlefield, never entering the
+ * dead set). PARTIAL on CR 701.15a's "remove it from combat": `combatResolution` captures the attacker list
+ * once per damage event, so a creature regenerated in the FIRST-STRIKE sub-step is still iterated in the
+ * regular sub-step and would deal damage twice. Latent today (no engine path sets a shield BEFORE combat
+ * damage); the real fix is to skip dead/regenerated attackers in the combat damage loop — tracked follow-up. */
+export function regeneratePermanent(state, permanentId) {
+  return updatePermanent(state, permanentId, p => ({
+    ...p,
+    regenShields: Math.max(0, (p.regenShields || 0) - 1),
+    damageMarked: 0,
+    tapped: true,
+  }));
+}
+
 /**
  * Untap every permanent the given player controls AND remove summoning
  * sickness from creatures that started the turn under their control.
@@ -959,19 +985,22 @@ export function markCombatDamage(state, { permanentId, amount }) {
   return updatePermanent(state, permanentId, p => ({ ...p, damageMarked: (p.damageMarked || 0) + amount }));
 }
 
-/** Wipe marked damage off every permanent (combat damage wears off at cleanup). */
+/** Wipe marked damage off every permanent (combat damage wears off at cleanup). Also expires unused
+ * regeneration shields (CR 701.15 — the replacement lasts "this turn" only), since both are turn-scoped
+ * cleanup state cleared at the same step. */
 export function clearCombatDamage(state) {
   let changed = false;
   const players = {};
+  const dirty = (p) => (p.damageMarked || 0) !== 0 || (p.regenShields || 0) !== 0;
   for (const [pid, player] of Object.entries(state.players)) {
-    if (!player.battlefield.some(p => (p.damageMarked || 0) !== 0)) {
+    if (!player.battlefield.some(dirty)) {
       players[pid] = player;
       continue;
     }
     changed = true;
     players[pid] = {
       ...player,
-      battlefield: player.battlefield.map(p => (p.damageMarked ? { ...p, damageMarked: 0 } : p)),
+      battlefield: player.battlefield.map(p => (dirty(p) ? { ...p, damageMarked: 0, regenShields: 0 } : p)),
     };
   }
   return changed ? { ...state, players } : state;
@@ -990,6 +1019,7 @@ export function clearCombatDamage(state) {
  */
 export function destroyLethalCreatures(state, deathtouched = new Set()) {
   const dead = [];
+  const regenerated = []; // REGEN (CR 701.15) — creatures whose destruction a regen shield replaces this SBA
   // Look-back snapshot (CR 603.10a): by the time dies-triggers are checked the permanent is
   // already in the graveyard, so its last-known characteristics travel with the `dead` entry.
   const markDead = (pid, perm) =>
@@ -1015,7 +1045,10 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
       }
       const lethalDamage = (dmg > 0 && dmg >= tough) || (deathtouched.has(perm.id) && dmg > 0);
       if (lethalDamage && !isIndestructible(perm, state)) {
-        markDead(pid, perm); // CR 704.5g — destruction; an indestructible creature survives
+        // CR 701.15 — a regeneration shield REPLACES this destruction: consume one shield (clear damage +
+        // tap, applied below) instead of dying. Checked after indestructible (a creature can't be both).
+        if ((perm.regenShields || 0) > 0) regenerated.push(perm.id);
+        else markDead(pid, perm); // CR 704.5g — destruction; an indestructible creature survives
       }
     }
   }
@@ -1023,6 +1056,7 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
   for (const d of dead) {
     next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone: "graveyard", cardId: d.id });
   }
+  for (const pid of regenerated) next = regeneratePermanent(next, pid); // CR 701.15a — clear damage + tap, survive
   return { state: next, dead };
 }
 
