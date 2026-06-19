@@ -334,9 +334,15 @@ function applyControllerRider(state, rider, cap, ctx) {
     return logEvent(next, { kind: "spell-effect", effect: "rider-gain-life", controller: cap.controller, amount: cap.power });
   }
   if (rider.kind === "createToken") {
-    // A vanilla token under the TARGET's controller — reuse applyCreateToken with the controller swapped.
-    const tokenAtom = { op: "create-token", count: 1, power: rider.power, toughness: rider.toughness, descriptor: `${rider.color} ${rider.subtype}`, keywords: [], targetType: null };
+    // A token (vanilla OR keyworded — Swan Song's flying Bird) under the captured controller; reuse
+    // applyCreateToken with the controller swapped and any modeled keywords threaded.
+    const tokenAtom = { op: "create-token", count: 1, power: rider.power, toughness: rider.toughness, descriptor: `${rider.color} ${rider.subtype}`, keywords: rider.keywords || [], targetType: null };
     return applyCreateToken(state, tokenAtom, { ...ctx, controller: cap.controller });
+  }
+  if (rider.kind === "createNamedToken") {
+    // An Offer You Can't Refuse — N named artifact tokens (Treasure/Clue/Food/Gold) under the captured controller.
+    const tokenAtom = { op: "create-named-token", token: rider.token, count: rider.count, targetType: null };
+    return applyCreateNamedToken(state, tokenAtom, { ...ctx, controller: cap.controller });
   }
   if (rider.kind === "rampBasic") {
     // Reuse the RAMP-1 battlefield tutor (basic land → battlefield), scoped to the TARGET's controller — their
@@ -712,6 +718,8 @@ function counterFilterMatches(card, filter) {
   const type = counterTypeLine(card);
   if (filter === "noncreature") return !/Creature/.test(type);
   if (filter === "creature") return /Creature/.test(type);
+  // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors spellMatchesCounterFilter for enumeration).
+  if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
   return true; // "any"
 }
 /**
@@ -768,7 +776,14 @@ function applyCounter(state, atom, ctx) {
         sourceName: ctx.cardName || null,
       });
     }
+    // SOFT-COUNTER-RIDER — capture the COUNTERED spell's controller, counter it, then apply the rider to
+    // THAT player (An Offer's Treasures / Swan Song's Bird go to whoever's spell was countered, not the
+    // caster). The rider only fires when the counter actually happens (a fizzle above skips it).
+    const riderController = targetObj.controller;
     next = counterSpellById(next, t.id);
+    if (atom.controllerRider && next.players?.[riderController]) {
+      next = applyControllerRider(next, atom.controllerRider, { controller: riderController, power: 0 }, ctx);
+    }
   }
   return next;
 }

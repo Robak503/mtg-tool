@@ -44,11 +44,11 @@ describe("parser — removal + 'its controller' rider (RIDER-REMOVAL)", () => {
     expect(isHigh("Destroy target creature. Its controller loses 2 life.")).toBe(false);                          // lose-life rider (Sip of Hemlock)
     expect(isHigh("Destroy target creature. Its controller discards a card.")).toBe(false);                       // discard rider (Assassin's Strike)
     expect(isHigh("Exile target creature with power 2 or less. Its controller gains 4 life.")).toBe(false);       // fixed gain-life (Last Breath) + MV filter
-    expect(isHigh("Destroy target creature. Its controller creates a 1/1 white Spirit creature token with flying.")).toBe(false); // KEYWORD token (Afterlife)
-    expect(isHigh("Exile target nonland permanent. Its controller creates a 3/2 red and white Spirit creature token.")).toBe(false); // MULTI-COLOR token (Reduce to Memory)
-    expect(isHigh("Exile target nonland permanent. Its controller creates a Treasure token.")).toBe(false);      // NAMED token (Buy Your Silence)
+    expect(isHigh("Exile target nonland permanent. Its controller creates a 3/2 red and white Spirit creature token.")).toBe(false); // MULTI-COLOR token (Reduce to Memory) — still unmodeled
     expect(isHigh("Destroy target land. Its controller may search their library for a basic land card, put it onto the battlefield tapped, then shuffle. Draw a card.")).toBe(false); // extra "Draw a card" rider (Geomancer's Gambit)
     expect(isHigh("Exile target creature. Its controller may search their library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.")).toBe(false); // multi-land ramp rider
+    // NOTE: KEYWORD tokens (Afterlife's flying Spirit) + NAMED tokens (Buy Your Silence's Treasure) are now
+    // MODELED by SOFT-COUNTER-RIDER's token-rider widening — see softCounterRider.test.js.
   });
 
   it("CREED: a plain removal with NO rider is untouched (still the bare exile/destroy atom)", () => {
@@ -127,7 +127,7 @@ describe("coverage — RIDER-REMOVAL staples flip native; the unmodeled riders b
   it("CREED: unmodeled-rider removal stays Arbiter-routed", () => {
     expect(classifyCard(C("Instant", "Destroy target creature. Its controller loses 2 life.", "Sip of Hemlock"))).toBe("arbiter-spell");
     expect(classifyCard(C("Sorcery", "Destroy target creature. It can't be regenerated. Its controller creates a 3/3 green Ape creature token.", "Pongify"))).toBe("arbiter-spell"); // the "can't be regenerated" clause (meaningful since REGEN shipped) keeps the lead from matching → Arbiter
-    expect(classifyCard(C("Instant", "Exile target nonland permanent. Its controller creates a 4/4 white Angel creature token with flying.", "Angelic Ascension"))).toBe("arbiter-spell"); // keyword token
-    expect(classifyCard(C("Sorcery", "Destroy target artifact or enchantment. Its controller gains 4 life.", "Nature's Claim"))).toBe("arbiter-spell"); // fixed gain-life
+    expect(classifyCard(C("Instant", "Destroy target creature. Its controller discards a card.", "Assassin's Strike"))).toBe("arbiter-spell"); // discard rider
+    expect(classifyCard(C("Sorcery", "Destroy target artifact or enchantment. Its controller gains 4 life.", "Nature's Claim"))).toBe("arbiter-spell"); // fixed gain-life (not "equal to its power")
   });
 });

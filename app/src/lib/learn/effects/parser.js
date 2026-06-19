@@ -629,6 +629,10 @@ function parseExtendedAtom(s) {
   if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };
   if (/^counter target noncreature spell$/.test(t)) return { op: "counter", spellFilter: "noncreature", targetType: "spell" };
   if (/^counter target creature spell$/.test(t)) return { op: "counter", spellFilter: "creature", targetType: "spell" };
+  // SOFT-COUNTER-RIDER — Swan Song's 3-way spell-type filter "enchantment, instant, or sorcery spell". The
+  // filter is checked at enumeration (spellMatchesCounterFilter) + resolution (counterFilterMatches); both
+  // gained the matching case. A different list / order / 2-way subset fails the exact anchor → low → Arbiter.
+  if (/^counter target enchantment, instant, or sorcery spell$/.test(t)) return { op: "counter", spellFilter: "enchantmentInstantSorcery", targetType: "spell" };
   // SOFT-CNT — a "soft" counter: "Counter target [noncreature|creature] spell unless its controller pays
   // {N}." (Force Spike / Mana Leak / Mana Tithe / Spell Pierce / Stubborn Denial / Daze / Quench / …).
   // Extends the hard-counter atom with an `unlessPay` FIXED-generic escape resolved at counter resolution:
@@ -1271,13 +1275,26 @@ function matchHandDisruption(oracle) {
 // RESOLUTION to the captured target-controller (CR — "its controller" = the just-removed permanent's
 // controller). ALL-OR-NOTHING: an unmodeled rider, or a lead the removal grammar doesn't model, → null →
 // the whole card stays low → Arbiter (never a confident partial that fires the removal but drops the rider).
+const RIDER_COUNT = { a: 1, two: 2, three: 3, four: 4, five: 5 };
 function parseControllerRider(t) {
   // Swords to Plowshares — "gains life equal to its power" (the exiled creature's power, captured pre-removal).
   if (/^gains life equal to its power$/.test(t)) return { kind: "gainLifePower" };
-  // Beast Within / Generous Gift — "creates a 3/3 green Beast/Elephant creature token" (a VANILLA token: a
-  // single color word + a single creature subtype, no keywords/abilities; a multi-word/keyword token fails).
-  let m = t.match(/^creates a (\d+)\/(\d+) (white|blue|black|red|green) ([a-z]+) creature token$/);
-  if (m) return { kind: "createToken", power: parseInt(m[1], 10), toughness: parseInt(m[2], 10), color: m[3], subtype: m[4] };
+  // Beast Within / Generous Gift (vanilla) + Swan Song (KEYWORD) — "creates a N/N <color> <subtype> creature
+  // token[ with <KW…>]". A single color word + a single creature subtype; an optional " with <KW>" is parsed
+  // by parseTokenKeywords (the enforced+layer-aware set), so an UNMODELED keyword (or a "with flying and you
+  // gain 2 life" rider tail) → null → the whole card stays low → Arbiter.
+  let m = t.match(/^creates a (\d+)\/(\d+) (white|blue|black|red|green) ([a-z]+) creature token(?: with (.+))?$/);
+  if (m) {
+    const keywords = m[5] ? parseTokenKeywords(m[5]) : [];
+    if (m[5] && !keywords) return null;                       // unmodeled token keyword → low → Arbiter
+    const rider = { kind: "createToken", power: parseInt(m[1], 10), toughness: parseInt(m[2], 10), color: m[3], subtype: m[4] };
+    if (keywords && keywords.length) rider.keywords = keywords; // vanilla tokens keep NO keywords field (slice-2 shape)
+    return rider;
+  }
+  // An Offer You Can't Refuse — "creates a/two/three <Treasure|Clue|Food|Gold> token(s)" (a NAMED artifact
+  // token; reuses applyCreateNamedToken). The parenthetical reminder is stripped before this runs.
+  m = t.match(/^creates (a|two|three|four|five) (treasure|clue|food|gold) tokens?$/);
+  if (m) return { kind: "createNamedToken", token: m[2], count: RIDER_COUNT[m[1]] };
   // Path to Exile / Assassin's Trophy — "may search their library for a basic land card, put it/that card
   // onto the battlefield[ tapped], then shuffle". Reuses the RAMP-1 battlefield tutor scoped to that player;
   // the optional "may" is the tutor's find-nothing (identical to how Farhaven Elf's "you may search" models).
@@ -1286,12 +1303,28 @@ function parseControllerRider(t) {
   return null; // an unmodeled controller rider → low → Arbiter
 }
 function matchRemovalControllerRider(oracle) {
-  const m = String(oracle).trim().match(/^((?:exile|destroy) target .+?)\.\s+its controller (.+?)\.?$/i);
+  const m = stripReminder(oracle).trim().match(/^((?:exile|destroy) target .+?)\.\s+its controller (.+?)\.?$/i);
   if (!m) return null;
   const lead = parseExtendedAtom(m[1].trim());
   if (!lead || (lead.op !== "exile" && lead.op !== "destroy")) return null; // lead must be a modeled removal
   const rider = parseControllerRider(m[2].trim().toLowerCase());
   if (!rider) return null;                                                   // unmodeled rider → low → Arbiter
+  return { atom: { ...lead, controllerRider: rider }, rest: "" };
+}
+// SOFT-COUNTER-RIDER — "Counter target <filter> spell. Its controller <rider>." (An Offer You Can't Refuse
+// "creates two Treasure tokens", Swan Song "creates a 2/2 blue Bird … with flying"). The lead reuses the
+// counter grammar (spellFilter incl. the 3-way enchantment/instant/sorcery); the rider rides on the atom and
+// is applied at resolution to the COUNTERED spell's controller (captured in applyCounter). The parenthetical
+// token reminder is stripped. ALL-OR-NOTHING: an unmodeled rider, a soft-counter ("unless pays {N}", which
+// the lead grammar returns WITH unlessPay — rejected here so the rider+pay interaction isn't half-modeled),
+// or a non-counter lead → null → low → Arbiter.
+function matchCounterControllerRider(oracle) {
+  const m = stripReminder(oracle).trim().match(/^(counter target .+? spell)\.\s+its controller (.+?)\.?$/i);
+  if (!m) return null;
+  const lead = parseExtendedAtom(m[1].trim());
+  if (!lead || lead.op !== "counter" || lead.unlessPay != null) return null; // hard counter only (defer soft+rider)
+  const rider = parseControllerRider(m[2].trim().toLowerCase());
+  if (!rider) return null;                                                    // unmodeled rider → low → Arbiter
   return { atom: { ...lead, controllerRider: rider }, rest: "" };
 }
 
@@ -1516,6 +1549,10 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   // so it's matched up front like the other collapsed templates.
   const rcr = matchRemovalControllerRider(oracle);
   if (rcr) return collapsed(rcr);
+  // SOFT-COUNTER-RIDER — "Counter target <filter> spell. Its controller <rider>." → ONE counter atom carrying
+  // a `controllerRider` (resolved to the countered spell's controller).
+  const ccr = matchCounterControllerRider(oracle);
+  if (ccr) return collapsed(ccr);
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).

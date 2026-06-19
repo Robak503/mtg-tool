@@ -469,6 +469,8 @@ function spellMatchesCounterFilter(stackObj, filter) {
   const type = String(stackObj?.source?.type || stackObj?.source?.type_line || "").split(" // ")[0];
   if (filter === "noncreature") return !/Creature/.test(type);
   if (filter === "creature") return /Creature/.test(type);
+  // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors counterFilterMatches at resolution).
+  if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
   return true; // "any"
 }
 
