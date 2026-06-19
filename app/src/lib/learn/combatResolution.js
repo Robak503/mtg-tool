@@ -42,9 +42,22 @@ import {
   adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers,
   addCommanderDamage,
+  addCounter,
+  addPoison,
 } from "./gameState.js";
 import { permanentHasKeyword } from "./layers.js";
 import { checkDiesTriggers, checkCombatDamageTriggers, checkLifegainTriggers } from "./triggers.js";
+
+// KW-POISON (toxic — CR 702.180a): the toxic VALUE N. The keyword reminder text spells the number
+// out ("Toxic 3"); the Scryfall keywords array only carries the bare word "Toxic", so N is read from
+// the oracle. The creature's OWN toxic is always the FIRST "Toxic N" in its text (the keyword line
+// precedes any GRANTED "…gains toxic 1" / "Other Rats have toxic 1" clause — verified across the
+// corpus). Granted-toxic riders stay unmodeled (those cards aren't keyword-only → never claimed
+// native), so reading the first match never over-credits.
+function toxicValue(card) {
+  const m = String(card?.oracle ?? card?.oracle_text ?? "").match(/\btoxic\s+(\d+)/i);
+  return m ? parseInt(m[1], 10) : 0;
+}
 
 // Combat keyword checks go through the layer engine (permanentHasKeyword) so a
 // GRANTED keyword (sliver lord, anthem, equipment) is respected, not just a
@@ -114,11 +127,18 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const deathtouched = new Set();
   const lifeLoss = {};         // playerId -> amount
   const lifeGain = {};         // playerId -> amount (lifelink)
+  const minusCounters = {};    // permanentId -> count (KW-POISON: infect/wither creature damage → -1/-1)
+  const poisonGain = {};       // playerId -> count (KW-POISON: infect/toxic combat damage → poison)
   const loyaltyLoss = {};      // planeswalker permanentId -> loyalty removed by combat damage (PW-1)
   const playerEvents = [];
-  const addDmg = (id, n, dt) => {
+  // KW-POISON (CR 702.90b infect / 702.79b wither): when the SOURCE has infect or wither, combat
+  // damage to a creature is dealt as that many -1/-1 counters, NOT as marked damage (`minus=true`).
+  // The damage is still "dealt", so deathtouch (if also present) still marks the creature — no real
+  // card has infect/wither AND deathtouch (corpus-verified 0), so this is a harmless guard.
+  const addDmg = (id, n, dt, minus) => {
     if (n > 0) {
-      dmgToPermanent[id] = (dmgToPermanent[id] || 0) + n;
+      if (minus) minusCounters[id] = (minusCounters[id] || 0) + n;
+      else dmgToPermanent[id] = (dmgToPermanent[id] || 0) + n;
       if (dt) deathtouched.add(id);
     }
   };
@@ -132,6 +152,12 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     const deathtouch = permanentHasKeyword(state, attackerId, "Deathtouch");
     const trample = permanentHasKeyword(state, attackerId, "Trample");
     const lifelink = permanentHasKeyword(state, attackerId, "Lifelink");
+    // KW-POISON — read the attacker's source keywords (layer-aware, so a granted infect counts).
+    // infect/wither reroute its CREATURE damage to -1/-1 counters; infect reroutes its PLAYER damage
+    // to poison (replacement); toxic N adds N poison ON TOP of normal player damage.
+    const attackerMinus = permanentHasKeyword(state, attackerId, "Infect") || permanentHasKeyword(state, attackerId, "Wither");
+    const attackerInfect = permanentHasKeyword(state, attackerId, "Infect");
+    const attackerToxicN = toxicValue(lookup.permanent.card);
 
     // "Was blocked" reads the DECLARED blockers; "live" reads the survivors.
     // A creature blocked by a now-dead blocker (e.g. a first-striker that
@@ -160,7 +186,18 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       }
       const defender = att.defender;
       if (defender && state.players[defender]) {
-        lifeLoss[defender] = (lifeLoss[defender] || 0) + amount;
+        // KW-POISON (CR 702.90a infect / 702.180a toxic). Infect REPLACES the life loss with that many
+        // poison counters (the player loses NO life). Otherwise normal life loss, PLUS — if the attacker
+        // has toxic N — a fixed N poison on top (additive). N is per damage EVENT, so a double-striker
+        // poisons in BOTH combat steps (each is its own resolveCombatDamage call), matching CR. The event
+        // below still carries `amount` so 21-rule commander damage (903.10a) and "deals combat damage to a
+        // player" triggers fire — infect/toxic damage is still combat damage, just in poison form.
+        if (attackerInfect) {
+          poisonGain[defender] = (poisonGain[defender] || 0) + amount;
+        } else {
+          lifeLoss[defender] = (lifeLoss[defender] || 0) + amount;
+          if (attackerToxicN > 0) poisonGain[defender] = (poisonGain[defender] || 0) + attackerToxicN;
+        }
         // CMD-DAMAGE (CR 903.10a): if the attacker is a commander, tag the event with its card id so the
         // post-combat step accrues 21-rule commander damage to the defender (keyed per-commander).
         const attCard = lookup.permanent?.card;
@@ -179,7 +216,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
         // Deathtouch makes 1 damage lethal; otherwise lethal = remaining toughness.
         const lethalNeed = deathtouch ? 1 : Math.max(1, creatureToughness(blk.permanent, state) - already);
         const give = Math.min(remaining, lethalNeed);
-        addDmg(blk.permanent.id, give, deathtouch);
+        addDmg(blk.permanent.id, give, deathtouch, attackerMinus);
         remaining -= give;
         dealt += give;
       }
@@ -206,7 +243,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       const bpow = Math.max(0, creaturePower(blk.permanent, state));
       const bdt = permanentHasKeyword(state, blk.permanent.id, "Deathtouch");
       const blifelink = permanentHasKeyword(state, blk.permanent.id, "Lifelink");
-      addDmg(att.permanentId, bpow, bdt);
+      // KW-POISON — the BLOCKER is the source here, so its OWN infect/wither reroutes the damage it
+      // deals back to the attacker into -1/-1 counters (toxic is player-only, irrelevant blocking).
+      const bminus = permanentHasKeyword(state, blk.permanent.id, "Infect") || permanentHasKeyword(state, blk.permanent.id, "Wither");
+      addDmg(att.permanentId, bpow, bdt, bminus);
       if (blifelink && bpow > 0) lifeGain[blk.permanent.controller] = (lifeGain[blk.permanent.controller] || 0) + bpow;
     }
   }
@@ -218,6 +258,17 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   }
   for (const [pid, amount] of Object.entries(lifeLoss)) {
     if (amount > 0) next = loseLife(next, { playerId: pid, amount });
+  }
+  // KW-POISON (CR 702.90b infect / 702.79b wither): infect/wither combat damage to a creature is dealt
+  // as -1/-1 counters. Applied BEFORE the lethal SBA below so a creature dropped to 0 toughness is
+  // destroyed in the SAME step (CR 704.5f) and fires its dies-triggers — exactly like marked lethal
+  // damage. The +1/+1 ⟷ -1/-1 annihilation (CR 122.3) is handled by the net counterPtDelta math.
+  for (const [id, amount] of Object.entries(minusCounters)) {
+    if (amount > 0 && findPermanent(next, id)) next = addCounter(next, { permanentId: id, type: "-1/-1", amount });
+  }
+  // KW-POISON (CR 702.90a infect / 702.180a toxic): poison counters from combat damage to a player.
+  for (const [pid, amount] of Object.entries(poisonGain)) {
+    if (amount > 0 && next.players[pid]) next = addPoison(next, { playerId: pid, amount });
   }
   // CMD-DAMAGE (CR 903.10a): accrue 21-rule commander combat damage off the per-attacker events whose
   // attacker was a commander — read from the events (not the live board) so a commander that died trading
