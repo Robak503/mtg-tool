@@ -128,6 +128,26 @@ export function entersWithPlusCounters(card) {
 }
 
 /**
+ * TRUNK-ENTERSTAPPED (CR 614.1g) — does this permanent enter the battlefield tapped, unconditionally? True
+ * ONLY for the bare "~ enters tapped" with NO condition/choice in the same sentence: a check-/fast-land
+ * ("enters tapped unless you control …"), a reveal-land ("if you don't, ~ enters tapped"), or any
+ * may/choose/instead form returns false (the gate isn't evaluated → the permanent enters UNTAPPED, the
+ * current behavior — the CREED-safe direction: a false negative leaves the player a land they can tap, never
+ * the false positive of denying mana they're owed). Temples / Triomes / bounce- & karoo-lands / tapped duals
+ * all match the bare form. Leaf (no engine import).
+ */
+export function entersTapped(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
+    if (!/\benters (?:the battlefield )?tapped\b/i.test(sentence)) continue;
+    // Any conditionality / choice / alternative in the SAME sentence → not the bare form → leave untapped.
+    if (/\b(?:unless|if|may|choose|reveal|instead|could|would|rather|or|as long as|you control|you don't|you do)\b/i.test(sentence)) return false;
+    return true;
+  }
+  return false;
+}
+
+/**
  * Try every supported pattern against one clause; push any descriptor(s) found
  * into `out`. The patterns are intentionally narrow and ordered most-specific
  * first so a tribal/color anthem doesn't also match the generic anthem.

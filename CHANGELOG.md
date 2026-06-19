@@ -14,6 +14,13 @@ summarizes the notable changes.
   creatures that used to enter as their printed (too-small) body now play correctly. (Conditional/kicker/"for
   each" variants stay on the Arbiter — only the fixed, unconditional form is modeled.)
 
+- **Taplands enter tapped (TRUNK-ENTERSTAPPED, CR 614.1g):** "~ enters tapped" (Temples, Triomes, karoos,
+  bounce lands, tapped duals — and a few tapped artifacts/creatures like Moss Diamond) now actually enters
+  the battlefield **tapped**, so it can't be tapped for mana the turn it's played. 579 cards now have correct
+  mana timing — which the goldfish/cEDH sims depend on. (Check / fast / reveal / shock / creature-lands whose
+  tap is *conditional* are left untapped — the gate isn't evaluated, the safe direction; they stay on the
+  Arbiter.)
+
 - **Count-scaled self-buffs play correctly (TRUNK-SELFBUFF):** "This creature gets +X/+Y for each
   &lt;permanent type&gt; you control" (Nim Lasher, Earth Servant…) now resolves as a live, layer-correct static
   bonus that tracks the board (the P/T updates as the count changes), instead of being treated as a vanilla

@@ -47,7 +47,7 @@ import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.
 import { manaSources, planPayment } from "./manaModel.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
-import { isAuraCard, isNativeAura } from "./staticAbilityParser.js";
+import { isAuraCard, isNativeAura, entersTapped } from "./staticAbilityParser.js";
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
 import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers } from "./triggers.js";
@@ -199,6 +199,15 @@ function applyPlayLand(state, action) {
     cardId: action.cardId,
     becomePermanent: true,
   });
+  // TRUNK-ENTERSTAPPED (CR 614.1g): a tapland (Temple / Triome / karoo / bounce land / tapped dual) enters
+  // tapped, so it can't be tapped for mana the turn it's played. The freshly-minted land is the last
+  // permanent on the battlefield (moveCardToZone pushes it). Only the BARE, unconditional form (entersTapped)
+  // — a check/fast/reveal/shock land's gated tap is left untapped (the gate isn't evaluated; CREED-safe).
+  if (entersTapped(card)) {
+    const bf = next.players[action.playerId].battlefield;
+    const entered = bf[bf.length - 1];
+    if (entered) next = tapPermanent(next, entered.id);
+  }
   next = {
     ...next,
     players: {
