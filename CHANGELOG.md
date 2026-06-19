@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **"Whenever you draw a card" triggers fire (TRIG-DRAW, CR 121.1/121.2):** the second trigger-compiler
+  event hook, on the card-draw chokepoint. Drawing — your draw step, a cantrip, any spell — now fires your
+  draw-matters payoffs: **Lorescale Coatl** and **Oneirophage** grow, **Psychic Corrosion** mills each
+  opponent, **Horizon Chimera** gains you life. Cards are drawn one at a time (CR 121.2), so a "draw two"
+  fires the trigger twice (two counters); a decked-out draw fires only for cards actually drawn. ~8 cards
+  flip to fully native; "draw your second card each turn" and scaled variants stay on the Arbiter for now.
+
 ## [0.44.0] - 2026-06-19
 
 **The entire Commander format now plays natively — and the trigger compiler opens.** Companions and
