@@ -1081,7 +1081,9 @@ export function applyDivideDamage(state, atom, ctx) {
 
 export const ATOM_RESOLVERS = Object.freeze({
   "deal-damage": (state, atom, ctx) =>
-    applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType: atom.targetType, targets: ctx.targets }),
+    // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an
+    // infect/wither source's non-combat damage routes to -1/-1 counters / poison in applyDamageEffect.
+    applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType: atom.targetType, targets: ctx.targets, source: { id: ctx.sourceId } }),
   "destroy": (state, atom, ctx) =>
     applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx) }),
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player

@@ -31,6 +31,8 @@ import {
   isIndestructible,
   adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers,
+  addCounter,
+  addPoison,
 } from "./gameState.js";
 import { checkDiesTriggers, checkCardDrawnTriggers } from "./triggers.js";
 import { permanentHasKeyword } from "./layers.js";
@@ -561,33 +563,52 @@ export function applyDestroyEffect(state, { controller, targets = [] }) {
   return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented });
 }
 
-export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [] }) {
+export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null }) {
   let next = state;
   const amount = Math.max(0, rawAmount || 0);
-  if (targetType === "eachOpponent") {
-    for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = loseLife(next, { playerId: opp, amount });
-  } else if (targetType === "eachCreature") {
-    for (const pid of Object.keys(next.players)) {
-      for (const perm of next.players[pid].battlefield) {
-        if (isCreature(perm.card)) next = markCombatDamage(next, { permanentId: perm.id, amount });
+  // KW-POISON (CR 702.90 infect / 702.79 wither): a source with infect/wither replaces ALL the damage it
+  // deals — NOT just combat — to a creature as that many -1/-1 counters, and (infect only) to a player as
+  // that many poison counters. `source.id` is the permanent dealing the damage (ctx.sourceId, threaded for
+  // activated/triggered abilities); its keywords are read from the PRE-damage state. A spell or a sourceless
+  // effect has no permanent source → it routes normally (spell-source infect/wither stays unclaimed — a safe
+  // false-negative, never an FP). Gated on the keyword, so every ordinary burn source is byte-for-byte.
+  const sourceInfect = source?.id ? permanentHasKeyword(next, source.id, "Infect") : false;
+  const sourceWither = source?.id ? permanentHasKeyword(next, source.id, "Wither") : false;
+  const hitPlayer = (s, pid) => sourceInfect
+    ? addPoison(s, { playerId: pid, amount })
+    : loseLife(s, { playerId: pid, amount });
+  const hitCreature = (s, permId) => (sourceInfect || sourceWither)
+    ? addCounter(s, { permanentId: permId, type: "-1/-1", amount })
+    : markCombatDamage(s, { permanentId: permId, amount });
+  // A 0-damage effect deals no damage (no marks, no counters, no poison — CR 120.8); guard so an infect
+  // source can't stamp a stray "-1/-1": 0 counter. The lethal SBA + log below still run for parity.
+  if (amount > 0) {
+    if (targetType === "eachOpponent") {
+      for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = hitPlayer(next, opp);
+    } else if (targetType === "eachCreature") {
+      for (const pid of Object.keys(next.players)) {
+        for (const perm of next.players[pid].battlefield) {
+          if (isCreature(perm.card)) next = hitCreature(next, perm.id);
+        }
       }
-    }
-  } else if (targetType === "eachCreatureAndPlayer") {
-    // SYMBURN-1 (Inferno / Fire Tempest / Evincar's Justice): symmetric burn hits EVERY creature on
-    // every battlefield AND EVERY player INCLUDING the caster ("each player" is all players, not just
-    // opponents). Planeswalkers are NOT hit (the text says "each player", not "or planeswalker").
-    for (const pid of Object.keys(next.players)) {
-      if (next.players[pid]) next = loseLife(next, { playerId: pid, amount });
-      for (const perm of next.players[pid].battlefield) {
-        if (isCreature(perm.card)) next = markCombatDamage(next, { permanentId: perm.id, amount });
+    } else if (targetType === "eachCreatureAndPlayer") {
+      // SYMBURN-1 (Inferno / Fire Tempest / Evincar's Justice): symmetric burn hits EVERY creature on
+      // every battlefield AND EVERY player INCLUDING the caster ("each player" is all players, not just
+      // opponents). Planeswalkers are NOT hit (the text says "each player", not "or planeswalker").
+      for (const pid of Object.keys(next.players)) {
+        if (next.players[pid]) next = hitPlayer(next, pid);
+        for (const perm of next.players[pid].battlefield) {
+          if (isCreature(perm.card)) next = hitCreature(next, perm.id);
+        }
       }
-    }
-  } else {
-    for (const t of targets) {
-      if (t.type === "player" && next.players[t.id]) next = loseLife(next, { playerId: t.id, amount });
-      else if (t.type === "creature" && findPermanent(next, t.id)) next = markCombatDamage(next, { permanentId: t.id, amount });
-      // PW-6: damage to a planeswalker removes that many loyalty counters (CR 120.3c), not life.
-      else if (t.type === "planeswalker" && findPermanent(next, t.id)) next = adjustLoyalty(next, { permanentId: t.id, delta: -amount });
+    } else {
+      for (const t of targets) {
+        if (t.type === "player" && next.players[t.id]) next = hitPlayer(next, t.id);
+        else if (t.type === "creature" && findPermanent(next, t.id)) next = hitCreature(next, t.id);
+        // PW-6: damage to a planeswalker removes that many loyalty counters (CR 120.3c), not life. Infect
+        // doesn't touch planeswalkers (it replaces damage to creatures/players only) — loyalty as normal.
+        else if (t.type === "planeswalker" && findPermanent(next, t.id)) next = adjustLoyalty(next, { permanentId: t.id, delta: -amount });
+      }
     }
   }
   const dmgResult = destroyLethalCreatures(next);
