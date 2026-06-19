@@ -8,6 +8,27 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-06-18
+
+**The planeswalker subsystem completes, and "enforce, don't drop" lands.** This release finishes
+planeswalkers in The Academy and turns a wave of long-standing display-only keywords into real,
+enforced rules — coverage rises by *building the enforcement*, not by claiming it.
+
+- **Planeswalkers, complete (PW-1 → PW-8):** play end-to-end with a real loyalty system; **static +
+  triggered emblem ultimates** fire (#251, #254); planeswalkers are **killable by burn/removal** —
+  damage removes loyalty, destroy/exile works (#253).
+- **Combat evasion is enforced (EVADE, #258):** a **menace** creature now needs two blockers, an
+  **unblockable** creature truly can't be blocked, a **Wall (defender) can't attack**, and
+  basic-landwalk / skulk / fear / intimidate / horsemanship are honored — via one layer-aware
+  `canBlock` chokepoint. ~140 creatures play correctly that previously didn't.
+- **Targeting restrictions enforced (KW-UNTARGET, #260):** **hexproof** (untargetable by opponents)
+  and **shroud** (untargetable by anyone) now block illegal targets.
+- **Ability-carrying tokens (#259):** tokens with mana abilities (e.g. sac-for-mana) work, and a
+  fake-mana-source false positive is fixed.
+- **Honest coverage:** the keyword over-claims are now enforced rather than faked; native corpus
+  coverage stands at **~17.5%** with the Arbiter as the fail-safe for anything not modeled. Suite
+  ~2,619 green, lint clean.
+
 ## [0.39.0] - 2026-06-18
 
 **Planeswalkers come to The Academy**, alongside the largest single wave of spell/ability coverage

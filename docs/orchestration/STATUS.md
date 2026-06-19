@@ -12,7 +12,7 @@
 
 ## 🚀 Releases
 - **v0.39.0 — PUBLISHED ✓** — signed installer + `latest.json` live; auto-update active.
-- **v0.40.0 — READY.** On master: full PW subsystem (PW-5/6/7/8) + **EVADE #258 (+141, 17.2→17.6%)** — enforce-don't-drop's first proven win. **Pre-tag gate: a LIVE combat smoke-play of EVADE** (menace needs 2 blockers · unblockable can't be blocked · a Wall can't attack) — then `git tag v0.40.0`. May bundle #259 (Walt token-abil) once it rebases.
+- **v0.40.0 — CUT ✅ (CI building, ~20-30 min).** Tagged 2026-06-18: full PW subsystem (PW-5/6/7/8) + **EVADE #258** + **KW-UNTARGET #260** + **token-abil #259** + the enforce-don't-drop honesty pass (#255/#256). EVADE/KW-UNTARGET are **unit-verified** (combatEvasion/kwUntarget scenarios green in the 2,619 suite) — a live combat dogfood is recommended post-release. CI syncs the version from the tag → builds, signs, publishes `latest.json` + signed installer; running instances auto-update on their next 24h check.
 
 ## 👥 Faculties — who's doing what (lean roster)
 | Faculty | Role · cadence | Working on |
