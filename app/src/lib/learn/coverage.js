@@ -70,6 +70,10 @@ export const COVERED_KEYWORDS = [
   // (702.90a); toxic N adds N poison on top of normal player damage (702.180a); ten poison loses the
   // game (704.5c). "toxic" matches the oracle clause "toxic N" via the startsWith check.
   "infect", "wither", "toxic",
+  // KW-FADING / KW-VANISHING — ENFORCED: enters with N fade/time counters (resolvers PERMANENT_ETB) +
+  // the upkeep remove-or-sacrifice (gameEngine → fading.applyFadeVanishUpkeep), CR 702.32a / 702.63a.
+  // "fading N" / "vanishing N" match via the startsWith check.
+  "fading", "vanishing",
 ];
 
 const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");

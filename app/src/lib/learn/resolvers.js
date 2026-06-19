@@ -28,6 +28,7 @@ import { runEffectProgram } from "./effects/runProgram.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { entersWithPlusCounters, entersTapped } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1f) + TRUNK-ENTERSTAPPED (CR 614.1g)
+import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
 // in P2.2 so the effect interpreter can share it without an import cycle).
@@ -98,6 +99,10 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // bare, unconditional, literal-N form (entersWithPlusCounters guards out kicker / "for each" / "where X").
   const plusCounters = entersWithPlusCounters(card);
   if (plusCounters > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + plusCounters };
+  // KW-FADING (CR 702.32a) / KW-VANISHING (CR 702.63a): enters with N fade / time counters; the upkeep
+  // remove-or-sacrifice runs in gameEngine (applyFadeVanishUpkeep).
+  const fade = entersWithFadeCounters(card);
+  if (fade && fade.n > 0) perm.counters = { ...perm.counters, [fade.type]: (perm.counters[fade.type] || 0) + fade.n };
   let next = {
     ...s3,
     players: {

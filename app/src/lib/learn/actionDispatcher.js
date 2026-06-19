@@ -34,6 +34,7 @@ import {
   addMana,
   loseLife,
   removeCounter,
+  addCounter,
   destroyLethalCreatures,
   mintId,
   isPlaneswalker,
@@ -53,6 +54,7 @@ import { permanentHasKeyword } from "./layers.js";
 import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell } from "./ward.js";
+import { entersWithFadeCounters } from "./fading.js";
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -209,6 +211,15 @@ function applyPlayLand(state, action) {
     const bf = next.players[action.playerId].battlefield;
     const entered = bf[bf.length - 1];
     if (entered) next = tapPermanent(next, entered.id);
+  }
+  // KW-FADING / KW-VANISHING (CR 702.32a / 702.63a): a fading/vanishing LAND enters with N fade/time
+  // counters via the play-land path too (the PERMANENT_ETB resolver only covers cast creature/artifact
+  // permanents). The upkeep remove-or-sacrifice (gameEngine) then ticks it down like any other.
+  const fade = entersWithFadeCounters(card);
+  if (fade && fade.n > 0) {
+    const bf = next.players[action.playerId].battlefield;
+    const entered = bf[bf.length - 1];
+    if (entered) next = addCounter(next, { permanentId: entered.id, type: fade.type, amount: fade.n });
   }
   next = {
     ...next,

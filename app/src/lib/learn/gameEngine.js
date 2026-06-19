@@ -45,6 +45,7 @@ import { checkStepTriggers, checkAttackTriggers, checkCardDrawnTriggers } from "
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
+import { applyFadeVanishUpkeep } from "./fading.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -266,6 +267,10 @@ export function runStepActions(state) {
   // Step-boundary triggers (CR 603.2b) and attack triggers (CR 508.3). Attack
   // triggers fire at the declare-blockers step, when the full attacker batch is
   // in state.combat.attackers. Enqueued here, then flushed onto the stack below.
+  // KW-FADING / KW-VANISHING (CR 702.32a / 702.63a): at the active player's upkeep, remove a fade/time
+  // counter from each of their fading/vanishing permanents and sacrifice per the rule — BEFORE the upkeep
+  // triggers flush, so a vanishing permanent's dies-trigger sits correctly in the queue.
+  if (next.step === "upkeep") next = applyFadeVanishUpkeep(next);
   if (next.step === "upkeep") next = checkStepTriggers(next, "upkeep");
   else if (next.step === "draw") next = checkStepTriggers(next, "draw");
   else if (next.step === "end") next = checkStepTriggers(next, "endStep");
