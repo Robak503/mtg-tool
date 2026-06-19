@@ -34,6 +34,16 @@ export function parseProtectionColors(card) {
   // Capture the quality phrase up to a sentence/clause boundary — stop at a comma so "protection from
   // red, flying" reads only "red"; stop at "(" so reminder text is excluded.
   for (const m of oracle.matchAll(/protection from ([^.;,()\n]+)/gi)) {
+    // Only a STATIC, UNCONDITIONAL self-protection is honored — the engine doesn't evaluate conditions
+    // or track temporary grants, so reading those unconditionally would forbid a legal target / prevent
+    // damage it shouldn't (a CREED false positive). Skip:
+    //  - GRANTED ("gains protection from …", until end of turn — not a property this creature has);
+    //  - CONDITIONAL ("… protection from X as long as <metalcraft/threshold/…>") — Etched Champion etc.
+    const before = oracle.slice(Math.max(0, m.index - 16), m.index).toLowerCase();
+    if (/\bgains?\s+$/.test(before)) continue;
+    const periodIdx = oracle.indexOf(".", m.index);
+    const sentence = oracle.slice(m.index, periodIdx >= 0 ? periodIdx : oracle.length).toLowerCase();
+    if (/\bas long as\b/.test(sentence)) continue;
     const tail = m[1].toLowerCase().trim();
     if (/^all colors\b/.test(tail) || /^each color\b/.test(tail)) {
       for (const c of ALL_COLORS) set.add(c);

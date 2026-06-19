@@ -37,6 +37,7 @@ import {
 } from "./gameState.js";
 import { checkDiesTriggers, checkCardDrawnTriggers } from "./triggers.js";
 import { permanentHasKeyword } from "./layers.js";
+import { parseProtectionColors, protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
@@ -311,9 +312,15 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions)
 // untargetable by the caster's OPPONENTS (the controller may still target their own). Ward is NOT here
 // — it's a TAX the targeter pays (CR 702.21), not an exclusion, so modeling it as untargetable would be
 // a false positive; ward stays an interim-FP until its tax/counter is modeled exactly.
-export function canBeTargetedBy(state, perm, controllerOfPerm, casterId) {
+export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceColors = []) {
   if (permanentHasKeyword(state, perm.id, "Shroud")) return false;
   if (permanentHasKeyword(state, perm.id, "Hexproof") && casterId !== controllerOfPerm) return false;
+  // KW-PROTECTION (CR 702.16b): can't be targeted by a spell/ability of a color it has protection from.
+  // QUALITY-based, not controller-based (unlike hexproof/ward) — a red spell can't target a creature with
+  // protection from red even if cast by the creature's OWN controller. `sourceColors` is the casting
+  // spell's colors (threaded from the cast-target enumeration); empty for paths not yet threaded (a safe
+  // false-negative — trigger/ability/equip targeting is PR3). Printed protection only (granted is PR3).
+  if (sourceColors.length && protectionApplies(parseProtectionColors(perm.card), sourceColors)) return false;
   return true;
 }
 
@@ -328,14 +335,14 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId) {
  * an opponent controls" no longer surfaces the caster's own creatures. No
  * restrictions → every creature, as before.
  */
-export function enumerateTargets(state, controllerId, effect) {
+export function enumerateTargets(state, controllerId, effect, sourceColors = []) {
   if (!effectNeedsTarget(effect)) return [];
   const restrictions = Array.isArray(effect.restrictions) ? effect.restrictions : [];
   const out = [];
   const addCreatures = () => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
-        if (isCreature(perm.card) && canBeTargetedBy(state, perm, pid, controllerId) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions)) {
+        if (isCreature(perm.card) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions)) {
           out.push({ type: "creature", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }
@@ -407,7 +414,7 @@ export function enumerateTargets(state, controllerId, effect) {
         // DFCs: they're simply not offered to native non-creature removal (a SAFE omission, never a
         // wrong target). The spell still routes to the Arbiter if a DFC is its only would-be target.
         if (tl.includes(" // ")) continue;
-        if (pred(tl) && controllerOk(pid) && canBeTargetedBy(state, perm, pid, controllerId)) {
+        if (pred(tl) && controllerOk(pid) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
           out.push({ type: "permanent", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }
@@ -419,7 +426,7 @@ export function enumerateTargets(state, controllerId, effect) {
   const addPlaneswalkers = () => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
-        if (perm.counters?.loyalty != null && controllerOk(pid) && canBeTargetedBy(state, perm, pid, controllerId)) {
+        if (perm.counters?.loyalty != null && controllerOk(pid) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
           out.push({ type: "planeswalker", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }

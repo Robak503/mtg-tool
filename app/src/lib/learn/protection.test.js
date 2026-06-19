@@ -4,11 +4,13 @@
  * DAMAGE (702.16e — combat damage from a source of that color is prevented). Targeting / enchant-equip
  * / non-combat (pinger & spell) damage are PR2 (safe false-negatives).
  */
-import { describe, it, expect } from "vitest";
-import { createPermanent } from "./gameState.js";
+import { describe, it, expect, beforeEach } from "vitest";
+import { createPermanent, createGameState, _resetIdsForTests } from "./gameState.js";
 import { parseProtectionColors, protectionApplies } from "./protection.js";
 import { canBlockAttacker } from "./combatEvasion.js";
 import { resolveCombatDamage } from "./combatResolution.js";
+import { canBeTargetedBy } from "./spellEffects.js";
+import { legalActionsForPlayer } from "./legalChoices.js";
 
 describe("parseProtectionColors", () => {
   it("parses a single color", () => {
@@ -34,6 +36,17 @@ describe("parseProtectionColors", () => {
   it("returns an empty set when there's no protection", () => {
     expect(parseProtectionColors({ oracle: "Vigilance" }).size).toBe(0);
     expect(parseProtectionColors({}).size).toBe(0);
+  });
+  it("skips CONDITIONAL protection — 'as long as' (the engine doesn't evaluate the condition)", () => {
+    // Etched Champion / Masked Gorgon: not actually protected unless the condition holds → safe FN.
+    expect(parseProtectionColors({ oracle: "Metalcraft — This creature has protection from each color as long as you control three or more artifacts." }).size).toBe(0);
+    expect(parseProtectionColors({ oracle: "Protection from green and white as long as there are seven or more cards in your graveyard." }).size).toBe(0);
+  });
+  it("skips GRANTED protection — 'gains protection from' (a temporary grant, not a static property)", () => {
+    expect(parseProtectionColors({ oracle: "{W}: Target creature gains protection from red until end of turn." }).size).toBe(0);
+  });
+  it("still parses a plain static keyword line alongside the gates (regression)", () => {
+    expect([...parseProtectionColors({ oracle: "Flying\nProtection from red\n{W}: Target creature gains protection from white until end of turn." })]).toEqual(["R"]);
   });
 });
 
@@ -121,5 +134,53 @@ describe("KW-PROTECTION — DAMAGE in combat (CR 702.16e)", () => {
     }));
     expect(permByName(out, "ai", "Bear").damageMarked).toBe(3); // ordinary damage
     expect(gy(out, "ai")).toEqual([]); // 3 < 4, survives
+  });
+});
+
+describe("KW-PROTECTION — TARGETING (CR 702.16b)", () => {
+  const protPerm = (oracle) => createPermanent({ card: { id: "pal-card", name: "Paladin", power: 2, toughness: 2, type_line: "Creature", oracle }, controller: "ai" });
+  const stateWith = (perm) => ({ players: { user: { battlefield: [] }, ai: { battlefield: [perm] } } });
+
+  it("a creature with protection from black can't be targeted by a black spell", () => {
+    const perm = protPerm("Protection from black");
+    expect(canBeTargetedBy(stateWith(perm), perm, "ai", "user", ["B"])).toBe(false);
+  });
+  it("...but CAN be targeted by a white spell (color-specific)", () => {
+    const perm = protPerm("Protection from black");
+    expect(canBeTargetedBy(stateWith(perm), perm, "ai", "user", ["W"])).toBe(true);
+  });
+  it("...and by a colorless spell (no color → protection-from-color doesn't apply)", () => {
+    const perm = protPerm("Protection from black");
+    expect(canBeTargetedBy(stateWith(perm), perm, "ai", "user", [])).toBe(true);
+  });
+  it("LANDMINE (CR 702.16b is quality-based): even the OWN controller's black spell can't target it", () => {
+    const perm = protPerm("Protection from black");
+    expect(canBeTargetedBy(stateWith(perm), perm, "ai", "ai", ["B"])).toBe(false); // caster === controller, still false
+  });
+  it("a creature WITHOUT protection is targetable by any color (unchanged)", () => {
+    const vanilla = createPermanent({ card: { id: "bear-card", name: "Bear", power: 2, toughness: 2, type_line: "Creature", oracle: "" }, controller: "ai" });
+    expect(canBeTargetedBy(stateWith(vanilla), vanilla, "ai", "user", ["B"])).toBe(true);
+  });
+});
+
+describe("KW-PROTECTION — targeting wiring (legalChoices omits an illegal target)", () => {
+  beforeEach(() => _resetIdsForTests());
+  it("a black removal is NOT offered targeting a protection-from-black creature, but a white one IS", () => {
+    const prot = createPermanent({ card: { id: "pal-card", name: "Paladin", power: 2, toughness: 2, type_line: "Creature", oracle: "Protection from black" }, controller: "ai" });
+    const blackRemoval = { id: "doom", name: "Doom Blade", type: "Instant", oracle: "Destroy target creature.", mana: "{1}{B}" };
+    const whiteRemoval = { id: "path", name: "Condemn", type: "Instant", oracle: "Destroy target creature.", mana: "{W}" };
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = {
+      ...s,
+      phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: {
+        ...s.players,
+        user: { ...s.players.user, hand: [blackRemoval, whiteRemoval], manaPool: { ...s.players.user.manaPool, B: 1, C: 1, W: 1 } },
+        ai: { ...s.players.ai, battlefield: [prot] },
+      },
+    };
+    const castsAtProt = legalActionsForPlayer(s, "user").filter((a) => a.kind === "cast-spell" && (a.targets || []).some((t) => t.id === prot.id));
+    expect(castsAtProt.some((c) => c.cardId === "doom")).toBe(false); // black can't target protection-from-black
+    expect(castsAtProt.some((c) => c.cardId === "path")).toBe(true);  // white can
   });
 });

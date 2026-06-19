@@ -130,7 +130,9 @@ function gateMet(state, perm, gate) {
 }
 
 const COLOR_PIPS = ["W", "U", "B", "R", "G"];
-function colorsOf(card) {
+/** A card's colors (the Scryfall `colors` array, else derived from mana-cost pips). Exported so the
+ * targeting/protection path can read a SPELL's colors (CR 702.16b protection-from-color). */
+export function colorsOf(card) {
   if (Array.isArray(card?.colors)) return card.colors.map(String);
   const cost = String(card?.mana || card?.mana_cost || "");
   return COLOR_PIPS.filter(c => cost.includes(`{${c}}`));
