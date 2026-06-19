@@ -14,6 +14,11 @@ summarizes the notable changes.
   opponent, **Horizon Chimera** gains you life. Cards are drawn one at a time (CR 121.2), so a "draw two"
   fires the trigger twice (two counters); a decked-out draw fires only for cards actually drawn. ~8 cards
   flip to fully native; "draw your second card each turn" and scaled variants stay on the Arbiter for now.
+- **"Draw your second card each turn" triggers fire (TRIG-DRAW2, CR 121):** the draw-doubler payoffs now
+  fire — **Loxodon Eavesdropper** and **Knights of Dol Amroth** grow, **Irencrag Pyromancer** and **Mad
+  Ratter** pay you off for the second draw. It fires on the second draw of the turn only (not the first or
+  third) and resets every turn — and faithfully counts off-turn draws (the per-turn draw counter now resets
+  for every seat, not just the active player). ~15 cards flip to fully native.
 
 ## [0.44.0] - 2026-06-19
 

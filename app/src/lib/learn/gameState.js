@@ -1056,6 +1056,22 @@ export function resetTurnCounters(state, { playerId }) {
   }));
 }
 
+/**
+ * TRIG-DRAW2 — reset the per-turn DRAW counter for EVERY player at turn start. Unlike landsPlayedThisTurn
+ * (active-player only — you play lands on your own turn), "draw your second card each turn" must count each
+ * player's draws within the CURRENT turn regardless of whose turn it is (a player can draw off-turn via
+ * instants), so cardsDrawnThisTurn resets for all seats each turn — otherwise an off-turn draw would read a
+ * stale count from the player's last turn and false-fire (CR: "each turn" is per game-turn). Idempotent for
+ * the active player (resetTurnCounters already zeroed theirs). Called alongside resetTurnCounters at untap.
+ */
+export function resetCardsDrawnAllPlayers(state) {
+  const players = {};
+  for (const id of Object.keys(state.players)) {
+    players[id] = { ...state.players[id], cardsDrawnThisTurn: 0 };
+  }
+  return { ...state, players };
+}
+
 // ─── Logging ──────────────────────────────────────────────────────────────────
 
 /**
