@@ -38,14 +38,18 @@ const ENFORCED_KEYWORDS = new Set([
   // EVADE (#258): combatEvasion.canBlockAttacker (block-legality) + the menace ≥2 normalize +
   // the defender declare-attacker gate moved these from interim-FP → enforced.
   "menace", "skulk", "intimidate", "fear", "horsemanship", "defender",
+  // KW-UNTARGET (#260): enumerateTargets now honors hexproof/shroud untargetability (CR 702.11/702.18).
+  "hexproof", "shroud",
+  // TRIG-PROWESS (#262): prowess fires as a real cast-trigger self-pump (CR 702.108, triggers.checkCastTriggers).
+  "prowess",
 ]);
 const ALLOWED_UNENFORCED = new Set(["flash", "changeling", "devoid"]); // safe: timing/identity, never mis-resolve a body
 // INTERIM-FP: unenforced TODAY but knowingly KEPT claimed native while enforcement is built (enforce-don't-drop
 // policy, retired-fp-ledger.md). These are expected, tracked live FPs — NOT an alarm. Only a COVERED_KEYWORD
 // that is none of {enforced, safe, interim-tracked} is a NEW untracked over-claim worth flagging.
 const KNOWN_INTERIM_FP = new Set([
-  "hexproof", "shroud", "ward", "protection", // → TARGET-RESTRICT (enumerateTargets)
-  "prowess",                                  // → PROWESS cast-trigger compiler
+  "ward",       // → a targeting TAX (CR 702.21) — own enforcement slice
+  "protection", // → DEBT (block/damage/target/enchant) — δ subsystem
 ]);
 
 function isRealCard(c) {
