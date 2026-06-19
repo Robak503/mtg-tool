@@ -351,12 +351,55 @@ describe("parseEffectProgram — create-token (P2.6)", () => {
     expect(parseEffectProgram(I("Create a 1/1 colorless Thopter artifact creature token with flying.")).atoms[0])
       .toMatchObject({ op: "create-token", power: 1, toughness: 1, descriptor: "colorless thopter artifact", keywords: ["Flying"] });
   });
-  it("keeps non-creature / inline-ability / tapped / 0-toughness / unenforced-keyword tokens low", () => {
+  it("keeps non-creature / non-mana-inline-ability / tapped / 0-toughness / unenforced-keyword tokens low", () => {
     expect(programConfidence(parseEffectProgram(I("Create a 2/2 black Zombie creature token tapped.")))).toBe("low");
     expect(programConfidence(parseEffectProgram(I("Create a 2/2 red Devil creature token with menace.")))).toBe("low"); // menace unenforced → Arbiter
     expect(programConfidence(parseEffectProgram(I("Create three 0/0 white Spirit creature tokens with flying.")))).toBe("low"); // 0-toughness → dies to SBA → incomplete capture → Arbiter
-    expect(programConfidence(parseEffectProgram(I("Create a 1/1 green Saproling creature token with \"Sacrifice this creature: Add one mana of any color.\"")))).toBe("low"); // inline ability → Arbiter
+    // T4 admits ONLY a clean MANA ability inline; a non-mana activated/triggered inline ability stays low → Arbiter.
+    expect(programConfidence(parseEffectProgram(I("Create a 1/1 green Saproling creature token with \"{T}: Draw a card.\"")))).toBe("low"); // non-mana activated inline ability → Arbiter
+    expect(programConfidence(parseEffectProgram(I("Create a 2/2 Bear creature token with \"When this creature dies, draw a card.\"")))).toBe("low"); // triggered inline ability → Arbiter
     expect(programConfidence(parseEffectProgram(I("Create a 1/1 white Spirit creature token with flying and you gain 2 life.")))).toBe("low"); // 'and you gain' isn't a keyword
+  });
+});
+
+// ===== TOKENS ===== T4 — ABILITY-CARRYING TOKENS, slice 1: MANA abilities (WALT-TOKEN-ABIL). A token
+// minted "with \"<ability>\"" or "…token[ named N]. It has \"<ability>\"" whose ability is a CLEAN mana
+// ability is stamped with `tokenOracle` so the mana model drives it like Treasure/Gold. Riders /
+// restrictions / non-mana inline abilities drop the whole token to low → Arbiter (CREED all-or-nothing).
+describe("parseEffectProgram — ability-carrying tokens: mana (T4)", () => {
+  const atom = (txt) => parseEffectProgram(I(txt)).atoms[0];
+  it("MUST_STAY_HIGH: a creature dork token ({T}: Add {G}) — both the 'with' and 'It has' shapes", () => {
+    expect(atom("Create a 1/1 green Human Monk creature token with \"{T}: Add {G}.\""))
+      .toMatchObject({ op: "create-token", power: 1, toughness: 1, descriptor: "green human monk", tokenOracle: "{T}: Add {G}" });
+    // "named N. It has \"…\"" two-sentence shape, normalized to "with" (Llanowar Mentor) — name ignored.
+    expect(atom("Create a 1/1 green Elf Druid creature token named Llanowar Elves. It has \"{T}: Add {G}.\""))
+      .toMatchObject({ op: "create-token", descriptor: "green elf druid", tokenOracle: "{T}: Add {G}" });
+  });
+  it("MUST_STAY_HIGH: Eldrazi Scion/Spawn sac-for-{C} — 'with', 'It has', and the 'this creature' variant", () => {
+    expect(atom("Create a 0/1 colorless Eldrazi Spawn creature token with \"Sacrifice this token: Add {C}.\""))
+      .toMatchObject({ op: "create-token", power: 0, toughness: 1, tokenOracle: "Sacrifice this token: Add {C}" });
+    expect(atom("Create a 1/1 colorless Eldrazi Scion creature token. It has \"Sacrifice this token: Add {C}.\""))
+      .toMatchObject({ op: "create-token", power: 1, toughness: 1, tokenOracle: "Sacrifice this token: Add {C}" });
+    expect(atom("Create a 1/1 colorless Eldrazi Sliver creature token. It has \"Sacrifice this creature: Add {C}.\""))
+      .toMatchObject({ op: "create-token", tokenOracle: "Sacrifice this creature: Add {C}" });
+    expect(atom("Create a 1/1 colorless Eldrazi creature token with \"Sacrifice this token: Add one mana of any color.\""))
+      .toMatchObject({ op: "create-token", tokenOracle: "Sacrifice this token: Add one mana of any color" });
+    // same-color two-pip concat is fine (parseAddClause → amount 2 of one color):
+    expect(atom("Create a 0/1 colorless Eldrazi creature token with \"{T}: Add {C}{C}.\""))
+      .toMatchObject({ op: "create-token", tokenOracle: "{T}: Add {C}{C}" });
+  });
+  it("MUST_DROP_TO_LOW: any rider / restriction / non-mana inline ability → Arbiter", () => {
+    const low = (txt) => programConfidence(parseEffectProgram(I(txt)));
+    // Powerstone spend-restriction (the dropped sentence the mana model would silently ignore):
+    expect(low("Create a 0/1 colorless Eldrazi creature token with \"{T}: Add {C}. This mana can't be spent to cast a nonartifact spell.\"")).toBe("low");
+    // life-gain rider (Kibo / Peel Out):
+    expect(low("Create a 1/1 green Ape creature token with \"{T}, Sacrifice this token: Add {R} or {G}. You gain 2 life.\"")).toBe("low");
+    // spend-only restriction (Commodore Guff):
+    expect(low("Create a 1/1 red Pirate creature token with \"{T}: Add {R}. Spend this mana only to cast a planeswalker spell.\"")).toBe("low");
+    // a non-mana inline ability is NOT in scope for slice 1:
+    expect(low("Create a 2/2 Bear creature token with \"{T}: Draw a card.\"")).toBe("low");
+    // a DIFFERENT-color two-pip concat would be mis-resolved as 2-of-one-color → route to Arbiter:
+    expect(low("Create a 1/1 gold creature token with \"{T}: Add {W}{U}.\"")).toBe("low");
   });
 });
 

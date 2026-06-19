@@ -170,7 +170,18 @@ function isCleanClause(text) {
  */
 function splitClauses(oracle) {
   const clauses = [];
-  for (let sentence of stripReminder(oracle).split(/(?:\.\s+|;\s*)/)) {
+  // ===== TOKENS ===== T4: normalize the two-sentence "create … token[ named N]. It has \"<ability>\""
+  // shape (Eldrazi Scion/Spawn, Llanowar Mentor) into the single-sentence "…token[ named N] with
+  // \"<ability>\"" form so the create-token matcher binds the ability to the token (the ". It has"
+  // boundary would otherwise orphan the ability into its own unparsed clause → low). Fires ONLY on a
+  // QUOTED ability directly after a token-creation sentence; it's content-agnostic (the clean-mana GATE
+  // lives in parseTokenManaAbility — a non-mana ability still drops the whole clause to low). The merge
+  // can only PROMOTE a card that was already low (the orphan clause), never regress a HIGH one.
+  const normalized = stripReminder(oracle).replace(
+    /(\bcreates?\b[^.]*?\btokens?\b[^.]*?)\.\s+it has (["“'])/gi,
+    "$1 with $2",
+  );
+  for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
     if (!sentence) continue;
     // A sentence that STARTS with "search your library" — or a "you may search your library" optional
@@ -276,6 +287,54 @@ function parseGrantedKeywords(phrase) {
     out.push(canonicalCombatKeyword(w));
   }
   return out;
+}
+
+// ===== TOKENS ===== T4 ability-carrying tokens (WALT-TOKEN-ABIL slice 1: MANA abilities).
+// A token minted "with \"<ability>\"" (or the "…token. It has \"<ability>\"" shape, normalized to
+// "with" in splitClauses) whose quoted ability is a CLEAN, self-contained MANA ability the mana model
+// already drives end-to-end — the exact subsystem that runs Treasure/Gold (T2). The minted token
+// carries the ability as its `oracle`, so manaProduction / manaAbilitySacrificesSelf / manaSources
+// honor it identically to a printed permanent (no new enforcement, no fabrication).
+//
+// CLEAN forms (Eldrazi Scion/Spawn "Sacrifice this token: Add {C}", Elf/Monk dorks "{T}: Add {G}",
+// any-color rocks "{T}: Add one mana of any color"):
+//   "{T}: Add <pips | one mana of any color>"
+//   "Sacrifice this <token|creature|artifact>: Add <…>"          (sac-for-mana, no tap)
+//   "{T}, Sacrifice this <token|creature|artifact>: Add <…>"     (tap + sac)
+// REJECTED (→ null → whole token low → Arbiter) — every form whose extra text the mana model would
+// SILENTLY DROP (parseAddClause stops at the first period; a restriction/rider after it vanishes):
+//   "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell." (Powerstone)   — restriction
+//   "{T}: Add {R}. Spend this mana only to cast a planeswalker spell." (Commodore Guff)   — restriction
+//   "{T}, Sacrifice this token: Add {R} or {G}. You gain 2 life." (Kibo/Peel Out)         — life rider
+// ALL-OR-NOTHING anchored, so anything past the Add clause fails the `$` → null. The two-pip concat is
+// restricted to the SAME color (`\{([wubrgc])\}\{\2\}` → "{C}{C}", "{G}{G}") — parseAddClause models a
+// DIFFERENT-color concat ("Add {W}{U}") as `{colors:[W,U], amount:2}`, which the mana model's "one
+// chosen color × amount" contract mis-resolves as 2-of-one-color. A CHOICE ("{R} or {G}") is amount 1
+// (correct). No corpus token uses a different-color concat today; this keeps one Arbiter-routed if it
+// ever ships (CREED: never a mis-resolved native).
+const TOKEN_MANA_ABILITY = /^(?:\{t\}(?:, sacrifice this (?:token|creature|artifact))?|sacrifice this (?:token|creature|artifact)): add (\{[wubrgc]\}(?: or \{[wubrgc]\})?|\{([wubrgc])\}\{\2\}|one mana of any color)$/i;
+/** Canonical Oracle casing for a (lowercased) clean mana ability — readability only; the mana model
+ *  reads it case-insensitively. Uppercases mana pips and the {T} symbol, capitalizes Sacrifice/Add. */
+function canonicalizeManaAbility(lower) {
+  return lower
+    .replace(/\{([wubrgc])\}/gi, (_, c) => `{${c.toUpperCase()}}`)
+    .replace(/^\{t\}/i, "{T}")
+    .replace(/, sacrifice this/i, ", Sacrifice this")
+    .replace(/^sacrifice this/i, "Sacrifice this")
+    .replace(/: add /i, ": Add ");
+}
+/**
+ * Parse a token's quoted ability (the text after "with"/"It has", including the surrounding quotes)
+ * into the canonical mana-ability oracle string to stamp on the minted token, or null if it isn't a
+ * CLEAN mana ability (any rider/restriction/non-mana effect). Tolerates straight or curly quotes and a
+ * trailing period.
+ */
+function parseTokenManaAbility(quotedWithQuotes) {
+  const inner = String(quotedWithQuotes).trim()
+    .replace(/^["“'](.*)["”']$/s, "$1")  // strip surrounding quotes (straight or curly)
+    .trim().replace(/\.\s*$/, "");        // strip a trailing period
+  if (!TOKEN_MANA_ABILITY.test(inner)) return null;
+  return canonicalizeManaAbility(inner);
 }
 
 // ===== TOKENS =====
@@ -569,16 +628,24 @@ function parseExtendedAtom(s) {
   // suffix (Bird/Thopter/Angel "with flying [and vigilance]"). The keyword phrase must reduce
   // ENTIRELY to the enforced+layer-aware GRANTABLE STATIC set (parseTokenKeywords) — minted into
   // the token's real keywords[] array so hasKeyword / permanentHasKeyword honor it exactly like a
-  // printed creature's. ANY other rider ("…that's tapped", "…that's an artifact", an inline ability,
-  // menace) fails the keyword allowlist or the anchor → null → low, so nothing is silently dropped.
-  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: with (.+))?$/);
+  // printed creature's. ANY other rider ("…that's tapped", "…that's an artifact", menace) fails the
+  // keyword allowlist or the anchor → null → low, so nothing is silently dropped.
+  // ===== TOKENS ===== T4 EXTENDS the same "with" slot to accept a QUOTED inline ability ("with
+  // \"<ability>\"") — slice 1 admits only a CLEAN MANA ability (parseTokenManaAbility), stamped on the
+  // minted token as `tokenOracle` so the mana model drives it like Treasure/Gold. An OPTIONAL "named
+  // <Name>" before the ability is tolerated (Llanowar Mentor's "…token named Llanowar Elves with …",
+  // surfaced via the "It has" → "with" rewrite in splitClauses); the cosmetic name is ignored (the
+  // token's mechanical identity is type + P/T + ability, and no card references token names). A bare
+  // "named <Name>" with NO ability still fails the anchor (unchanged → low), so this never silently
+  // flips a named token whose name might matter.
+  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?:(?: named [a-z' ]+?)? with (.+))?$/);
   if (m) {
     const power = parseInt(m[2], 10);
     const toughness = parseInt(m[3], 10);
     // A toughness-0 token dies to the lethal SBA (CR 704.5f) the instant it enters — so a STANDALONE
     // "Create N 0/0 …" sentence is always an INCOMPLETE capture of a card that grows them (a +1/+1
     // counter / anthem rider in text the slim oracle index drops, e.g. Imaginary Friends). Route to
-    // the Arbiter rather than confidently make tokens that vanish.
+    // the Arbiter rather than confidently make tokens that vanish. (A 0/1 Eldrazi Spawn is fine — t≥1.)
     if (toughness < 1) return null;
     // A LAND creature token (Awaken the Woods' "Forest Dryad land creature", Khalni Garden's Plant…)
     // carries an INTRINSIC mana ability from its land type ({T}: Add …) that this vanilla mint drops —
@@ -587,6 +654,12 @@ function parseExtendedAtom(s) {
     if (/\bland\b/.test(m[4])) return null;
     const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), targetType: null };
     if (m[5] === undefined) return base;
+    // T4: a QUOTED inline ability → clean-mana-ability gate (else null → low). A non-quoted phrase →
+    // the keyword path (T1). The quote disambiguates the two "with" shapes.
+    if (/^["“']/.test(m[5].trim())) {
+      const tokenOracle = parseTokenManaAbility(m[5]);
+      return tokenOracle ? { ...base, tokenOracle } : null;
+    }
     const kws = parseTokenKeywords(m[5]);
     return kws ? { ...base, keywords: kws } : null;
   }

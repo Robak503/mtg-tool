@@ -36,6 +36,7 @@ import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
+import { stripCreatedTokenAbilities } from "./manaModel.js";
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -104,7 +105,11 @@ export function isKeywordOnly(oracle, name) {
  * strips reminders before matching).
  */
 export function hasManaAbility(oracle) {
-  const t = stripReminder(oracle);
+  // Strip a created token's quoted ability before reading the card's OWN mana — a token's "…Add …"
+  // belongs to the token, not the card (mirrors manaModel.manaProduction, so the classifier and runtime
+  // agree). Without this, an Eldrazi Spawn-maker is mis-tiered native-mana before its real trigger is
+  // even checked (this tier is read at line ~341, ahead of permanentTriggersCovered).
+  const t = stripCreatedTokenAbilities(stripReminder(oracle));
   return /\badd \{[wubrgcx]/i.test(t) ||
     /\badd (one|two|three|four|five|that much|an amount|\{)/i.test(t);
 }
