@@ -316,6 +316,26 @@ export function permanentEquipmentCovered(card) {
   return true;
 }
 
+// ===== FIX-MANA-OVERCLAIM: residue gate on the native-mana tier =====
+// `hasManaAbility` is loose by design, and `classifyCard` returned `native-mana` on its basis BEFORE the
+// trigger/activated/mixed gates and WITHOUT requiring the rest of the card to be modeled — so a mana
+// source with an unmodeled TRIGGER or level structure (Mana Crypt's upkeep coin-flip; Sorcerer Class's
+// levels) was counted fully native: a metric over-claim (the runtime already routes the unmodeled piece
+// to the Arbiter — `classifyCard` has no runtime consumer). This makes `native-mana` all-or-nothing like
+// every other native tier: a mana source is native only when its non-mana TRIGGER text is modeled too.
+//
+// "Modeled" = the SAME gate the native-trigger tier uses (`allTriggerSentencesModeled`: every trigger-shaped
+// sentence is a detected trigger whose effect routes natively), plus not level-gated. A "pure mana" trigger
+// (an ETB/upkeep/cast "add {mana}") is deliberately NOT a free pass: the runtime mana model produces mana
+// ONLY from tapping/sacrificing a `{T}`/sac source — it never fires triggered mana — so a triggered-mana-
+// ONLY card (Burning-Tree Emissary, Coal Stoker) yields ZERO mana natively and is a genuine over-claim, not
+// a false negative. (The smaller non-mana ACTIVATED-ability over-claim — Lantern of Revealing — is a
+// fragile, separate follow-up: distinguishing a mana ability from a value ability is error-prone, and
+// under-correcting is the safe direction.)
+function manaCardResidueModeled(card, oracle) {
+  return !isLevelGatedOracle(oracle) && allTriggerSentencesModeled(card, oracle);
+}
+
 /**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
@@ -358,7 +378,9 @@ export function classifyCard(card) {
   if (isCloneCard(card)) return "native-clone";
   // Permanent (creature / artifact / enchantment / battle): the body always works.
   if (isKeywordOnly(oracle, card?.name)) return "native-body";
-  if (hasManaAbility(oracle)) return "native-mana";
+  // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
+  // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
+  if (hasManaAbility(oracle) && manaCardResidueModeled(card, oracle)) return "native-mana";
   // Single-mechanism tiers first (the informative labels), then the composite catch-all for
   // multi-ability creatures whose pieces are each modeled but span types.
   if (permanentTriggersCovered(card)) return "native-trigger";   // P2.8: body + only-routing triggers
