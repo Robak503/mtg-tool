@@ -15,7 +15,10 @@
 import { describe, it, expect } from "vitest";
 import { parseEffectProgram, programConfidence } from "./parser.js";
 import { ATOM_RESOLVERS } from "./effectAtoms.js";
+import { runEffectProgram } from "./runProgram.js";
+import { RESOLVER_KEYS } from "../resolvers.js";
 import { createGameState, createPermanent } from "../gameState.js";
+import { boardSnapshot } from "../boardSnapshot.js";
 import { permanentIsCreature, permanentPower, permanentToughness, permanentHasKeyword, expireContinuousEffects } from "../layers.js";
 
 const I = (oracle) => ({ type: "Instant", oracle });
@@ -102,5 +105,38 @@ describe("WALT-ANIMATE PR2 — resolver (applyAnimateEffect) end-to-end", () => 
     const ctx = { controller: "user", targets: [{ type: "permanent", id: "L1", controller: "user" }], cardName: "Test" };
     state = ATOM_RESOLVERS["animate"](state, atom, ctx);
     expect(state.players.user.battlefield.some(p => p.id === "L1")).toBe(false); // toughness 0 → graveyard at resolution
+  });
+});
+
+describe("WALT-ANIMATE PR2 — FULL cast→resolution path (runEffectProgram, mirrors a real cast)", () => {
+  it("casting the real Animate Land program animates the chosen land into a 3/3 creature", () => {
+    // The REAL parse (HIGH animate atom) + the EFFECT_PROGRAM resolver path the dispatcher builds at
+    // cast — this exercises the programConfidence gate + targetsForAtom threading that the direct-resolver
+    // sims above bypass. This is the path the live Academy actually runs.
+    const program = parseEffectProgram({ type: "Instant", oracle: "Until end of turn, target land becomes a 3/3 creature that's still a land." });
+    expect(programConfidence(program)).toBe("high");
+    const targets = [{ type: "permanent", id: "L1", controller: "user", atomIndex: 0 }];
+    const stackObj = {
+      id: "stk-animate", kind: "spell", source: { name: "Animate Land", oracle: "" },
+      controller: "user", targets, cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: "user", targets } },
+    };
+    let state = landState();
+    state = runEffectProgram(state, stackObj);
+    expect(permanentIsCreature(state, "L1")).toBe(true);
+    expect(permanentPower(state, "L1")).toBe(3);
+    expect(permanentToughness(state, "L1")).toBe(3);
+
+    // The board the Academy UI renders must SHOW it as a creature (a real LIVE-QA catch:
+    // permanentView read the printed type, so an animated land displayed as a plain land). It's
+    // still a land (additive → shown in the lands row), now a creature with its set P/T.
+    const board = boardSnapshot(state);
+    const user = board.players.find(p => p.hand !== null) || board.players[0];
+    const land = user.lands.find(l => l.id === "L1");
+    expect(land).toBeDefined();
+    expect(land.isLand).toBe(true);
+    expect(land.isCreature).toBe(true);
+    expect(land.power).toBe(3);
+    expect(land.toughness).toBe(3);
   });
 });
