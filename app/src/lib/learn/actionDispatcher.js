@@ -51,6 +51,8 @@ import { isAuraCard, isNativeAura, entersTapped } from "./staticAbilityParser.js
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
 import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers } from "./triggers.js";
+import { setPendingSoftCounterChoice } from "./pendingChoice.js";
+import { wardTaxForSpell } from "./ward.js";
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -392,6 +394,21 @@ function applyCastSpell(state, action) {
   next = recordSpellCast(next, { playerId: action.playerId }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
   next = checkCastTriggers(next, { spellCard: card, casterId: action.playerId });
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
+  // KW-WARD (CR 702.21): if this spell targets a single opponent-controlled ward permanent, the ward
+  // triggers — counter the spell unless the caster pays the ward cost. Reuses the SOFT-COUNTER
+  // pay-or-be-countered machinery (the pendingChoice decision + AI settle + UI + counter already exist),
+  // raised "above" the spell after the cast triggers. Skipped if a trigger already set a pendingChoice
+  // (setPendingSoftCounterChoice no-ops on an occupied slot — a safe FN for that rare overlap).
+  const wardTax = wardTaxForSpell(next, stackObject);
+  if (wardTax) {
+    next = setPendingSoftCounterChoice(next, {
+      controller: action.playerId,
+      amount: wardTax.amount,
+      spellId: stkId,
+      spellName: card.name,
+      sourceName: wardTax.wardName,
+    });
+  }
   // Restart priority loop at active player after the spell goes on
   // the stack (per CR 117.1c).
   return {
