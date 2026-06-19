@@ -213,6 +213,14 @@ function classifyCondition(condRaw, cardName) {
   // UNDETECTED → Arbiter. Same whose:"any" + scan-only-the-drawer as cardDrawn; fires ONCE when the draw
   // crosses the 2nd card of the turn (checkCardDrawnTriggers reads cardsDrawnThisTurn, reset for all seats).
   if (/^you draw your second card (?:each|this) turn$/.test(c)) return { event: "drawSecond", scope: "you", whose: "any" };
+  // TRIG-SACRIFICE — "Whenever you sacrifice a <permanent|creature|artifact>" (the sac'd thing is always
+  // YOURS, so the scope is an EXACT type-predicate on the sacrificed permanent, checked in
+  // checkSacrificeTriggers — NOT a scopeMatches scope). Only the three type-checkable subjects classify; a
+  // SUBTYPE ("a Clue/Food/Treasure"), token, land, or "creature you control"-style restriction subject →
+  // null → Arbiter (SAFE — a restriction the engine can't check exactly, CLAUDE.md §1.2). "another"
+  // excludes the source permanent. The generic dies/etb subject mapper (creatureSubjectScope) is the model.
+  const sacM = c.match(/^you sacrifice (a|an|another) (permanent|creature|artifact)$/);
+  if (sacM) return { event: "sacrifice", scope: "you", whose: "any", sacScope: sacM[2], sacAnother: sacM[1] === "another" };
   // ===== EACH-PLAYER (compound-combat-trigger guard) ===== A condition that names BOTH "attacks" and
   // "blocks" ("Whenever this creature attacks or blocks …" — Howling Golem, Burning Sun Cavalry) is a
   // COMPOUND combat event. The single-verb branches below model only ONE event, so detecting it as just
@@ -378,6 +386,8 @@ export function detectTriggers(card) {
         scope: cls.scope,
         whose: cls.whose,
         spellFilter: cls.spellFilter, // cast triggers only (undefined otherwise)
+        sacScope: cls.sacScope,       // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
+        sacAnother: cls.sacAnother,   // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         effect: parseTriggerEffect(effectClause),
@@ -649,6 +659,45 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
     }
     if (crossedSecond) {
       fired = fired.concat(triggersForEvent(state, { event: "drawSecond", sourcePermanent: perm, triggeringContext: { drawingPlayerId } }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * TRIG-SACRIFICE — does the sacrificed permanent match this "Whenever you sacrifice a <subject>" descriptor?
+ * EXACT type-predicate (the sac'd thing is always the controller's own, so there's no controller scope to
+ * check). `sacrificed` is a lookBack { id, controller, card } captured BEFORE the permanent left the
+ * battlefield (so card.type is readable). "another" excludes the source permanent itself.
+ */
+function sacScopeMatches(d, watcher, sacrificed) {
+  if (d.sacAnother && sacrificed.id === watcher.id) return false;
+  switch (d.sacScope) {
+    case "permanent": return true;
+    case "creature": return isCreaturePerm(sacrificed);
+    case "artifact": return /\bArtifact\b/.test(String(sacrificed.card?.type || sacrificed.card?.type_line || ""));
+    default: return false;
+  }
+}
+
+/**
+ * TRIG-SACRIFICE — enqueue "Whenever you sacrifice a <permanent|creature|artifact>" triggers for the player
+ * who just sacrificed. Fired at each sacrifice chokepoint (the effect/edict sac + the cost sac), AFTER the
+ * permanent has moved to the graveyard, with the captured permanent passed as `sacrificed` (a lookBack so
+ * its type is readable post-move). Scans the SACRIFICING player's surviving watchers — the common case is a
+ * separate watcher ("Whenever you sacrifice another permanent, …" on a DIFFERENT permanent); a permanent's
+ * trigger on its OWN sacrifice is a SAFE false-negative (it already left → not a watcher). Each watcher's
+ * sacScope is matched EXACTLY against the sacrificed permanent's type (so creature-scope never fires on an
+ * artifact sac, and vice-versa). whose:"any" is moot (only the sacrificer's sources are scanned). Pure.
+ */
+export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
+  if (!sacrificed?.card || !state.players?.[sacrificingPlayerId]) return state;
+  let fired = [];
+  for (const watcher of triggerSourcesOf(state, sacrificingPlayerId)) {
+    for (const d of detectTriggers(watcher.card).filter((x) => x.event === "sacrifice")) {
+      if (!sacScopeMatches(d, watcher, sacrificed)) continue;
+      fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
     }
   }
   if (!fired.length) return state;

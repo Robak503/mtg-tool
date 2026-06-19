@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **"Whenever you sacrifice a …" triggers fire (TRIG-SACRIFICE, CR 701.21):** sacrificing a permanent now
+  fires your sac-matters payoffs — **Gixian Infiltrator** and **Pirate Peddlers** grow, **Smothering
+  Abomination** draws, **Havoc Jester** and **Ruthless Deathfang** punish. It enforces the sacrificed
+  thing's type exactly: a "sacrifice a **creature**" trigger never fires when you sacrifice an artifact (and
+  vice-versa), and "another" excludes the source itself. Fires from both the effect/edict sac and the
+  sacrifice-as-a-cost path. ~7 cards flip to fully native; subtype subjects (Clue/Food/Treasure) stay on
+  the Arbiter.
+
 - **"Whenever you draw a card" triggers fire (TRIG-DRAW, CR 121.1/121.2):** the second trigger-compiler
   event hook, on the card-draw chokepoint. Drawing — your draw step, a cantrip, any spell — now fires your
   draw-matters payoffs: **Lorescale Coatl** and **Oneirophage** grow, **Psychic Corrosion** mills each
