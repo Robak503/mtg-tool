@@ -73,8 +73,9 @@ describe("EVADE — classifier (which evasion bodies are honestly native)", () =
     expect(classifyCard({ type: "Creature — Beast", name: "X", oracle: "This creature can't be blocked except by Walls." })).toBe("body-only");
     // Team grant (others, not self) — never a self-evasion body.
     expect(classifyCard({ type: "Creature — Lord", name: "X", oracle: "Other creatures you control can't be blocked." })).toBe("body-only");
-    // Unblockable beside an UNMODELED activated ability — one bare evasion clause can't carry it.
-    expect(classifyCard({ type: "Creature — Rogue", name: "X", oracle: "This creature can't be blocked.\n{2}: Draw a card for each Island you control." })).toBe("body-only");
+    // Unblockable beside an UNMODELED activated ability — one bare evasion clause can't carry it. (The
+    // count source is opponent-scoped, so FOR-EACH leaves the ability unmodeled → still body-only.)
+    expect(classifyCard({ type: "Creature — Rogue", name: "X", oracle: "This creature can't be blocked.\n{2}: Draw a card for each Island an opponent controls." })).toBe("body-only");
   });
 
   it("isEnforcedEvasionClause: exact-end matching, no over-broad catch", () => {

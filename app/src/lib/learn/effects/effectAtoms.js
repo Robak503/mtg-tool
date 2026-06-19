@@ -196,17 +196,19 @@ function applyCreateNamedToken(state, atom, ctx) {
 
 // ─── P2.7 atom family (delegate to existing gameState helpers) ────────────────
 
-/** "You gain N life" (CR 119.3) — the spell's controller gains life. Non-targeted. */
+/** "You gain N life" (CR 119.3) — the spell's controller gains life. Non-targeted. FOR-EACH: the amount
+ *  may be a board count × per (resolveScaledAmount), e.g. "gain 2 life for each creature you control". */
 function applyGainLife(state, atom, ctx) {
-  const amount = Math.max(0, atom.amount || 0);
+  const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
   const next = gainLife(state, { playerId: ctx.controller, amount });
   return logEvent(next, { kind: "spell-effect", effect: "gain-life", controller: ctx.controller, amount });
 }
 
-/** "You lose N life" / "Each opponent loses N life" / "Each player loses N life" (CR 119.3). Non-targeted. */
+/** "You lose N life" / "Each opponent loses N life" / "Each player loses N life" (CR 119.3). Non-targeted.
+ *  FOR-EACH: the amount may be a board count × per (resolveScaledAmount). */
 function applyLoseLife(state, atom, ctx) {
   let next = state;
-  const amount = Math.max(0, atom.amount || 0);
+  const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
   if (atom.who === "eachPlayer") {
     // ===== EACH-PLAYER ===== (EP-3) EVERY player loses N life (symmetric — Crushing Disappointment).
     // Non-targeted, so it resolves identically on a spell or a trigger. An eliminated player isn't in
@@ -856,7 +858,7 @@ function applyDiscard(state, atom, ctx) {
  * a plain number there. An eliminated/removed player id is skipped (no throw).
  */
 function applyDrawAtom(state, atom, ctx) {
-  const amount = effectiveAmount(atom, ctx);
+  const amount = resolveScaledAmount(state, atom, ctx); // FOR-EACH: count × per (else amountX / printed)
   if (atom.who === "eachPlayer") {
     let next = state;
     for (const pid of Object.keys(state.players)) {
@@ -905,11 +907,14 @@ function countForSpec(state, ctx, spec) {
   if (!player) return 0;
   if (spec.kind === "cardsInHand") return (player.hand || []).length;
   if (spec.kind === "permanentsYouControl") return (player.battlefield || []).filter((perm) => countMatches(perm.card, spec)).length;
+  // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
+  if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
   return 0;
 }
-// Resolved numeric amount: a board count (`amountCount`) → counted at resolution; else the X-amount
-// (`amountX` → ctx.xValue) or the printed numeric amount.
-const resolveScaledAmount = (state, atom, ctx) => (atom.amountCount ? countForSpec(state, ctx, atom.amountCount) : effectiveAmount(atom, ctx));
+// Resolved numeric amount: a board count (`amountCount`) × a per-unit value (FOR-EACH "gain 2 life for
+// each X" → per 2; DMG-SCALE damage = the count itself → per defaults to 1), computed at resolution;
+// else the X-amount (`amountX` → ctx.xValue) or the printed numeric amount.
+const resolveScaledAmount = (state, atom, ctx) => (atom.amountCount ? countForSpec(state, ctx, atom.amountCount) * (atom.amountCount.per ?? 1) : effectiveAmount(atom, ctx));
 
 /**
  * ===== FOG ===== (FOG-1, CR 615 prevention) — "Prevent all combat damage that would be dealt this turn."

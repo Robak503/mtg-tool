@@ -514,7 +514,10 @@ export function chooseAITarget(state, aiPlayerId, effect, targets) {
  * construction — there is no second implementation to drift.
  */
 export function applyDrawEffect(state, { controller, amount }) {
-  const next = drawCards(state, { playerId: controller, count: Math.max(0, amount || 1) });
+  // `amount ?? 1` (NOT `|| 1`): a no-amount call defaults to drawing 1, but a count- or X-derived amount
+  // of exactly 0 ("draw a card for each creature you control" with no creatures; "draw X cards", X=0) must
+  // draw 0 — `|| 1` would fabricate a card (CR: a count-scaled draw of 0 draws nothing).
+  const next = drawCards(state, { playerId: controller, count: Math.max(0, amount ?? 1) });
   return logEvent(next, { kind: "spell-effect", effect: "draw", controller, amount });
 }
 
