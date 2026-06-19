@@ -468,6 +468,17 @@ describe("P2.6 create-token — resolution", () => {
     expect(tokens[0].summoningSick).toBe(true);
   });
 
+  // ===== FOR-EACH ===== (WALT-FOREACH-TOK) `countFor` mints ONE token per source-unit, counted at
+  // resolution (Avenger of Zendikar, Saproling Symbiosis). A 0 count mints 0 tokens — never floored to 1.
+  it("FOREACH-TOK: mints a token per source-unit (3 creatures → 3 tokens); 0 source → 0 tokens", () => {
+    const withCreatures = (n) => { const s = freshState(); const bf = Array.from({ length: n }, (_, i) => cr("Bear", `b${i}`, "user")); return { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: bf } } }; };
+    const atom = { op: "create-token", power: 1, toughness: 1, descriptor: "green saproling", countFor: { kind: "permanentsYouControl", cardType: "creature" }, targetType: null };
+    const out3 = runEffectProgram(withCreatures(3), stackObj(high([atom])));
+    expect(out3.players.user.battlefield.filter(p => p.card.token)).toHaveLength(3); // 3 creatures → 3 Saprolings
+    const out0 = runEffectProgram(withCreatures(0), stackObj(high([atom])));
+    expect(out0.players.user.battlefield.filter(p => p.card.token)).toHaveLength(0); // 0 creatures → 0 tokens (no floor-to-1)
+  });
+
   // ===== TOKENS ===== T1: keyword tokens mint a real keywords[] array that the layer + combat
   // engine reads (hasKeyword / permanentHasKeyword), so the granted ability is actually enforced.
   it("mints a keyword token with a real keywords[] array honored by hasKeyword/permanentHasKeyword", () => {

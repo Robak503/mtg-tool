@@ -137,9 +137,12 @@ function applyCreateToken(state, atom, ctx) {
   // back to the keyword oracle (T1) when no inline ability is present.
   const oracle = atom.tokenOracle || keywords.join(", ");
   // ===== TOKENS ===== T3 X-count: the count is the chosen {X} (ctx.xValue, bound at cast) for an
-  // X-token spell (Secure the Wastes), else the printed fixed count. X=0 mints zero tokens (CR 107.3) —
-  // a clean no-op, NOT forced to 1; a fixed count is floored at 1.
-  const count = atom.countX ? Math.max(0, ctx.xValue || 0) : Math.max(1, atom.count || 1);
+  // X-token spell (Secure the Wastes). ===== FOR-EACH ===== (WALT-FOREACH-TOK) `countFor` is a BOARD count
+  // resolved at resolution ("a token for each creature you control" — Avenger of Zendikar). Both X=0 and a
+  // 0 board count mint zero tokens (CR 107.3 — a clean no-op, NOT forced to 1); a fixed count is floored at 1.
+  const count = atom.countFor
+    ? Math.max(0, countForSpec(next, ctx, atom.countFor))
+    : atom.countX ? Math.max(0, ctx.xValue || 0) : Math.max(1, atom.count || 1);
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
     next = minted.state;
