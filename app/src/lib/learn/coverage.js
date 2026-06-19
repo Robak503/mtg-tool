@@ -47,7 +47,8 @@ import { stripCreatedTokenAbilities } from "./manaModel.js";
 //    intimidate, horsemanship, basic landwalk, unblockable, can't-block, can-block-only-flying —
 //    all via combatEvasion.canBlockAttacker / the menace resolution-normalize · defender (can't
 //    attack, CR 702.3b) · hexproof·shroud (enumerateTargets targetability — shroud untargetable by
-//    all, hexproof untargetable by opponents; KW-UNTARGET) · first/double strike·trample·deathtouch·
+//    all, hexproof untargetable by opponents; KW-UNTARGET) · prowess (a noncreature-cast self-pump
+//    trigger — TRIG-PROWESS, triggers.checkCastTriggers) · first/double strike·trample·deathtouch·
 //    lifelink (combatResolution) · vigilance (no attack-tap) · haste (summoning-sickness) ·
 //    indestructible (lethal-damage SBA). flash (casting timing) + changeling/devoid (type/color
 //    identity) likewise never mis-resolve.
@@ -58,7 +59,6 @@ import { stripCreatedTokenAbilities } from "./manaModel.js";
 //  trade — do NOT re-drop these (that was #255, SUPERSEDED); the enforcement tasks
 //  restore correctness and each is logged in retired-fp-ledger.md:
 //    ward·protection → ward = a TAX not an exclusion (CR 702.21, deferred); protection = DEBT (δ)
-//    prowess         → PROWESS (cast-trigger compiler)
 //  (Dropping to the Arbiter is the LAST RESORT — genuinely-hard/exotic mechanics only.)
 export const COVERED_KEYWORDS = [
   "flying", "reach", "first strike", "double strike", "trample", "deathtouch",

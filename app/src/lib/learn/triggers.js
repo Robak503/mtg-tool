@@ -23,6 +23,7 @@ import {
   findPermanent,
   logEvent,
 } from "./gameState.js";
+import { hasKeyword } from "./keywords.js";
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7 };
 function parseCount(word) {
@@ -541,6 +542,18 @@ function spellMatchesFilter(filter, spellCard) {
   }
 }
 
+// The canonical Prowess ability (CR 702.108) as a descriptor — built once from the reminder text so the
+// runtime prowess trigger rides the EXACT detectTriggers -> makePendingTrigger -> buildTriggerStack ->
+// self-pump (#238) path, with NO change to detectTriggers (which would churn the trigger-counting
+// coverage classifiers — a "Prowess + ETB" creature's detected-vs-shaped count would mismatch).
+let _prowessDescriptor;
+function prowessDescriptor() {
+  if (!_prowessDescriptor) {
+    _prowessDescriptor = detectTriggers({ oracle: "Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn." }).find((d) => d.event === "cast");
+  }
+  return _prowessDescriptor;
+}
+
 /**
  * Enqueue cast-spell triggers (CR 603.2) when `spellCard` is cast by `casterId`. Scans
  * every battlefield permanent for a "Whenever … casts a … spell" watcher whose `whose`
@@ -562,6 +575,18 @@ export function checkCastTriggers(state, { spellCard, casterId }) {
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(casterId)) continue;
         if (!spellMatchesFilter(d.spellFilter, spellCard)) continue;
         fired.push(makePendingTrigger(d, watcher, null, context));
+      }
+    }
+  }
+  // ===== TRIG-PROWESS (CR 702.108) ===== Prowess is a printed keyword = "Whenever you cast a noncreature
+  // spell, this creature gets +1/+1 until end of turn." detectTriggers can't see it (no When/Whenever
+  // text), so fire it here for each of the CASTER's prowess creatures on a noncreature cast, via the same
+  // descriptor -> the identical flush -> #238 self-pump path. Printed-keyword detection mirrors how
+  // coverage classifies prowess (granted prowess isn't modeled anywhere — a consistent, honest scope).
+  if (spellMatchesFilter("noncreature", spellCard)) {
+    for (const perm of state.players[casterId]?.battlefield || []) {
+      if (isCreaturePerm(perm) && hasKeyword(perm.card, "Prowess")) {
+        fired.push(makePendingTrigger(prowessDescriptor(), perm, null, context));
       }
     }
   }
