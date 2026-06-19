@@ -16,11 +16,12 @@
  *   - Flying / Reach — enforced in legalChoices (who may block), not here.
  *   - Indestructible — enforced by the lethal-damage SBA this calls
  *     (gameState.destroyLethalCreatures → isIndestructible, CR 704.5g), not here.
- * NOT enforced yet (a body with these currently mis-plays them): Menace (needs the
- * EVADE multi-block chokepoint), protection (DEBT), first-strike vs regular ordering
- * subtleties beyond the two-step model. Per the enforce-don't-drop policy these stay
- * claimed native in coverage.js COVERED_KEYWORDS as INTERIM false positives while the
- * enforcement is built (Cindy's EVADE / TARGET-RESTRICT lanes) — see retired-fp-ledger.md.
+ *   - Menace — the ≥2-blocker rule (CR 509.1c): a menace attacker left with exactly one
+ *     blocker is normalized to unblocked here (block-legality lives in legalChoices/combatEvasion).
+ * Still NOT enforced (a body with these mis-plays them): protection (DEBT) and first-strike-vs-
+ * regular ordering subtleties beyond the two-step model. Per the enforce-don't-drop policy they
+ * stay claimed native in coverage.js COVERED_KEYWORDS as INTERIM false positives while the
+ * enforcement is built (Cindy's lanes) — see retired-fp-ledger.md.
  *
  * Mode-agnostic: reads `state.combat` + each attacker's `defender`, so Standard
  * (1v1) and Commander (4P) resolve through the same path. Vanilla combat (no
@@ -88,6 +89,17 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const blockersByAttacker = {};
   for (const b of blockers) {
     (blockersByAttacker[b.attackerId] ||= []).push(b);
+  }
+
+  // ===== EVADE (menace — CR 509.1c / 702.111) ===== a menace attacker left with exactly ONE
+  // blocker can't legally be blocked → it's unblocked (the lone would-be blocker isn't in combat,
+  // so it deals/takes no combat damage). 2+ blockers resolve normally; non-menace is untouched.
+  // legalChoices already avoids offering a hopeless lone block; this is the resolution guarantee.
+  for (const att of combat.attackers) {
+    const list = blockersByAttacker[att.permanentId];
+    if (list && list.length === 1 && permanentHasKeyword(state, att.permanentId, "Menace")) {
+      delete blockersByAttacker[att.permanentId];
+    }
   }
 
   const dealsThisStep = (perm) => {
