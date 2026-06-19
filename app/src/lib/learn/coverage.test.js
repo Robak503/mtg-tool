@@ -183,12 +183,12 @@ describe("classifyCard — tiers", () => {
 
   it("does NOT over-claim a card with an UNMODELED trigger beside a modeled one (count guard)", () => {
     // The residue strips ALL When/Whenever sentences — but detectTriggers only recognizes
-    // some events. A modeled ETB next to an UNDETECTED trigger (a lifegain event we don't
-    // recognize, a "Whenever you cast …" self-untap) must stay body-only, not be silently
-    // credited. This also pins the latent over-claim the composite work surfaced. (A you-control
-    // dies drain like Elas il-Kor IS modeled now via the controller-scope work — #8b — so the
-    // undetected example here uses a still-unrecognized trigger event.)
-    expect(classifyCard(C("Creature — Cleric", "When this creature enters, draw a card.\nWhenever you gain life, each opponent loses 1 life."))).toBe("body-only");
+    // some events. A modeled ETB next to an UNDETECTED trigger (a leaves-the-battlefield event
+    // we never fire, a "Whenever you cast …" self-untap) must stay body-only, not be silently
+    // credited. This also pins the latent over-claim the composite work surfaced. (Both a
+    // you-control dies drain — #8b — AND a lifegain event — TRIG-LIFEGAIN — ARE modeled now, so
+    // the undetected example here uses LTB, which is intentionally never fired → still unrecognized.)
+    expect(classifyCard(C("Creature — Cleric", "When this creature enters, draw a card.\nWhen this creature leaves the battlefield, each opponent loses 1 life."))).toBe("body-only");
     expect(classifyCard(C("Creature — Wizard", "{T}: This creature deals 1 damage to any target.\nWhenever you cast an instant or sorcery spell, untap this creature."))).toBe("body-only");
   });
 

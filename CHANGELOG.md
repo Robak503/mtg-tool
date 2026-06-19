@@ -14,6 +14,11 @@ summarizes the notable changes.
   is **not** your commander, so there's no commander tax. Decks imported from Moxfield carry their
   companion across (its own "Companion" section). This is the **last piece of the commander framework**:
   cast → command-zone return → 21-damage loss → partners → companions all now play natively.
+- **"Whenever you gain life" triggers fire (TRIG-LIFEGAIN, CR 119.3):** the first slice of the general
+  trigger compiler on a brand-new event hook. Gaining life — from a spell, an ability, or combat lifelink —
+  now fires your lifegain payoffs natively: **Ajani's Pridemate** and friends grow, **Archangel of Thune**
+  pumps the team, **Cliffhaven Vampire** / **Epicure of Blood** drain each opponent. ~16 cards flip to fully
+  native; conditional ("the first time each turn") and rider-laden variants correctly stay on the Arbiter.
 
 ## [0.43.0] - 2026-06-19
 

@@ -23,7 +23,7 @@ import {
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem } from "../gameState.js";
-import { checkDiesTriggers, checkEnterTriggers } from "../triggers.js";
+import { checkDiesTriggers, checkEnterTriggers, checkLifegainTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
@@ -231,7 +231,9 @@ function applyCreateNamedToken(state, atom, ctx) {
  *  may be a board count × per (resolveScaledAmount), e.g. "gain 2 life for each creature you control". */
 function applyGainLife(state, atom, ctx) {
   const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
-  const next = gainLife(state, { playerId: ctx.controller, amount });
+  let next = gainLife(state, { playerId: ctx.controller, amount });
+  // TRIG-LIFEGAIN (CR 119.3): the controller gained life → fire their "Whenever you gain life" triggers.
+  if (amount > 0) next = checkLifegainTriggers(next, ctx.controller, amount);
   return logEvent(next, { kind: "spell-effect", effect: "gain-life", controller: ctx.controller, amount });
 }
 
