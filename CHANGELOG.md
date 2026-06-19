@@ -8,6 +8,12 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Conditional self-buffs play correctly (GATED-SELFBUFF):** "This creature gets +X/+Y as long as you
+  control a/another/N &lt;type&gt;" (Wild Nacatl, Loam Lion, Mire Kavu, Flinthoof Boar, Drover of the Mighty,
+  Court Homunculus…) now resolves as a **live, layer-correct** fixed buff that turns on and off as the board
+  changes — instead of being treated as a vanilla body. 24 cards. ("another &lt;type&gt;" excludes the creature
+  itself; a color/compound/negated gate — "a blue creature", "no untapped lands" — stays on the Arbiter.)
+
 - **Regeneration works (REGEN, CR 701.15):** "{cost}: Regenerate this creature" and "Regenerate target
   creature" (Troll Ascetic, Ranger en-Vec, Death Ward, Ghost Ship…) now set up a real regeneration shield —
   the next time the creature would be **destroyed** this turn (lethal combat damage, deathtouch, or a Destroy

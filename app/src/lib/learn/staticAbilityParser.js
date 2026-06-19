@@ -97,6 +97,33 @@ function parseSelfCountSource(phrase) {
 }
 
 /**
+ * GATED-SELFBUFF — parse the "you control <quant> <type>" gate of an "as long as you control …" self static
+ * into { countSpec, atLeast, excludeSelf } | null. quant ∈ a|an|another|two/three or more|N or more. The type
+ * must be a SINGLE bare word — a card type, a basic-land subtype, or a creature subtype (matched word-bounded
+ * on the type line by layers.countSelfSpecOnBoard). A color / compound / qualified phrase ("a blue creature",
+ * "no untapped lands", "another multicolored permanent") contains a space → null → the clause stays LOW
+ * (Arbiter). A bare word that isn't a real type counts 0 permanents → the gate never opens → the buff never
+ * applies (false-negative, SAFE — never a fabricated buff). "another" excludes the source (CR — "another").
+ */
+function parseControlGateSource(quant, typePhrase) {
+  const t = String(typePhrase).toLowerCase().trim().replace(/\.$/, "");
+  if (!t || /\s/.test(t)) return null; // compound / color-qualified / negated → LOW
+  let atLeast = 1, excludeSelf = false;
+  if (quant === "another") excludeSelf = true;
+  else if (quant === "two or more") atLeast = 2;
+  else if (quant === "three or more") atLeast = 3;
+  else { const mm = quant.match(/^(\d+) or more$/); if (mm) atLeast = parseInt(mm[1], 10); }
+  if (SELF_COUNT_CARDTYPE[t]) return { countSpec: { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[t] }, atLeast, excludeSelf };
+  if (SELF_COUNT_BASIC[t]) return { countSpec: { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[t] }, atLeast, excludeSelf };
+  // A SUPERTYPE token (legendary/basic/snow/world) would word-bound-match unrelated type lines and OVER-count
+  // the gate; "permanent"/"spell"/"token" aren't type-line subtypes at all → reject → LOW → Arbiter (never a
+  // fabricated gate). Real subtypes (Equipment, Vehicle, Saga, creature types) fall through to the fallback.
+  if (/^(?:legendary|basic|snow|world|ongoing|permanents?|spells?|tokens?)$/.test(t)) return null;
+  const sub = t.charAt(0).toUpperCase() + t.slice(1).replace(/s$/, ""); // bare creature-subtype word → Capitalized
+  return { countSpec: { kind: "permanentsYouControl", subtype: sub }, atLeast, excludeSelf };
+}
+
+/**
  * Replace the card's OWN name with "this creature" so a name-based self-reference ("Nim Lasher gets +1/+0
  * …", common on older cards) reads the same as modern "This creature gets …" templating. Word-bounded on
  * the FULL name only (never a partial), so it can't touch an unrelated card's name in the text.
@@ -175,6 +202,25 @@ function parseClause(clause, out) {
         });
       }
       return; // a self-for-each clause — handled (or intentionally dropped to LOW on an unmodeled source)
+    }
+    // ── GATED-SELFBUFF: a STATIC self P/T buff GATED on a board threshold ("this creature gets +X/+Y as long
+    // as you control a/another/N <type>") — Mire Kavu, Loam Lion, Grixis Grimblade. Same self-static family as
+    // the for-each above (continuous, so exempt from the static-only "as long as" bail below), but the
+    // magnitude is FIXED and applied only WHILE the gate holds; layers.js re-evaluates the gate every P/T
+    // computation. parseControlGateSource must recognize the type (else NO descriptor → LOW → Arbiter).
+    const gateM = c.match(/^(?:this creature|it) gets ([+-]\d+)\/([+-]\d+) as long as you control (a|an|another|two or more|three or more|\d+ or more) (.+)$/);
+    if (gateM) {
+      const gate = parseControlGateSource(gateM[3], gateM[4]);
+      if (gate) {
+        out.push({
+          layer: 7,
+          sublayer: "7c",
+          op: { layerOp: "ptModifyGated", power: signed(gateM[1]), toughness: signed(gateM[2]), gate },
+          affects: { mode: "self" },
+          duration: { kind: "permanent" },
+        });
+      }
+      return; // an as-long-as self-gate — handled (or dropped to LOW on an unmodeled gate type)
     }
   }
 
