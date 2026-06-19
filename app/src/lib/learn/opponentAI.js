@@ -41,6 +41,10 @@ import { programContainsCounter, programContainsMassRemoval, programContainsTeam
  * legal-action object rather than a fully-classified card.
  */
 function scoreCastAction(action, card, archetype) {
+  // Commander framework — the AI prioritizes casting its commander: a key threat + engine piece, and the
+  // path to commander damage / the 21-loss (CR 903.10a). A command-zone cast outranks every other play
+  // (lowest score wins), so the AI deploys its commander as soon as it can afford the taxed cost.
+  if (action?.fromZone === "command" || card?.isCommander) return -1;
   const type = String(card?.type || card?.type_line || "");
   const oracle = String(card?.oracle || card?.oracle_text || "");
   const isCreature = /Creature/.test(type);

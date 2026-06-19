@@ -471,16 +471,18 @@ describe("life and damage", () => {
     expect(state.players.user.life).toBe(45);
   });
 
-  it("addCommanderDamage accumulates per source player", () => {
-    let state = addCommanderDamage(s0(), { fromPlayer: "ai", toPlayer: "user", amount: 7 });
-    state = addCommanderDamage(state, { fromPlayer: "ai", toPlayer: "user", amount: 3 });
-    expect(state.players.user.commanderDamageFrom.ai).toBe(10);
+  it("addCommanderDamage accumulates PER-COMMANDER (CR 903.10a — a single commander)", () => {
+    let state = addCommanderDamage(s0(), { commanderId: "cmdr-a", toPlayer: "user", amount: 7 });
+    state = addCommanderDamage(state, { commanderId: "cmdr-a", toPlayer: "user", amount: 3 });
+    state = addCommanderDamage(state, { commanderId: "cmdr-b", toPlayer: "user", amount: 4 }); // a partner — tracked separately
+    expect(state.players.user.commanderDamageFrom["cmdr-a"]).toBe(10);
+    expect(state.players.user.commanderDamageFrom["cmdr-b"]).toBe(4);
   });
 
-  it("addCommanderDamage rejects self-inflicted", () => {
-    expect(() =>
-      addCommanderDamage(s0(), { fromPlayer: "user", toPlayer: "user", amount: 1 })
-    ).toThrow();
+  it("addCommanderDamage ignores a missing commanderId or non-positive amount (no-op)", () => {
+    const base = s0();
+    expect(addCommanderDamage(base, { toPlayer: "user", amount: 5 })).toBe(base);                 // no commanderId
+    expect(addCommanderDamage(base, { commanderId: "cmdr-a", toPlayer: "user", amount: 0 })).toBe(base); // zero amount
   });
 });
 

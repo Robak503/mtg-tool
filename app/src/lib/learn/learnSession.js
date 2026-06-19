@@ -178,12 +178,20 @@ function removePlayerFromGame(state, playerId) {
   const { [playerId]: _gone, ...players } = state.players;
   const turnOrder = oldOrder.filter((id) => id !== playerId);
 
-  // Strip commander damage the leaving player dealt to survivors.
+  // Strip commander damage the leaving player's commander(s) dealt to survivors (CR 800.4a — their
+  // objects leave with them). Damage is keyed PER-COMMANDER, so collect the leaving player's commander
+  // card ids across every zone and drop those entries from each survivor's tracker.
+  const goneCommanderIds = new Set();
+  for (const zone of ["command", "battlefield", "graveyard", "exile", "hand", "library"]) {
+    for (const entry of (_gone?.[zone] || [])) {
+      const card = entry?.card || entry; // battlefield holds permanents (entry.card); other zones hold cards
+      if (card?.isCommander) goneCommanderIds.add(card.id);
+    }
+  }
   for (const id of turnOrder) {
     const dmg = players[id]?.commanderDamageFrom;
-    if (dmg && playerId in dmg) {
-      const { [playerId]: _d, ...rest } = dmg;
-      players[id] = { ...players[id], commanderDamageFrom: rest };
+    if (dmg && Object.keys(dmg).some((k) => goneCommanderIds.has(k))) {
+      players[id] = { ...players[id], commanderDamageFrom: Object.fromEntries(Object.entries(dmg).filter(([k]) => !goneCommanderIds.has(k))) };
     }
   }
 
