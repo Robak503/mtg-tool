@@ -5,15 +5,21 @@
 re-prioritizes this board** as the modeled set grows; findings get filed here as new tasks. **Clyde
 (integrator) merges; only Clyde touches `master`** (Omnath is the strategy brain).
 
-> **Last scout refresh:** cycle **board-4 (Hans — QA+FIX focus)**, 2026-06-18 — live baseline **17.6 % corpus
-> native** (6,017/34,160) **after EVADE #258 (+141 — enforce-don't-drop's first re-coverage win).** **Enforce-don't-drop (Colton):** #255 briefly dropped 11 unenforced keywords (−289)
-> but **#256 reverted that — the keywords stay CLAIMED as openly-acknowledged INTERIM FALSE POSITIVES** (the
-> code labels them so; see `COVERED_KEYWORDS`) while the enforcement is built. The % is honest once the
-> **re-coverage rows ship** (EVADE +48, DEFENDER-ENFORCE +37, KW-UNTARGET +41, TRIG-PROWESS +23, PROTECTION +75
-> — Cindy's lane); until then those ~289 are interim FPs (live play still mis-resolves them). The board-3 DEEP
-> SCAN backlog below (ranked OPEN coverage, ~10 hrs) is still current. Honest yields are **adversarially
-> CREED-verified**. **The strategic map + every row's full false-positive landmine live in
-> [`docs/scout-gap-report.md`](../scout-gap-report.md) — read your row's landmine before you build.**
+> **Last scout refresh:** cycle **board-8 (Hans — KEYWORD MASTER PLAN + COMMANDER FRAMEWORK)**, 2026-06-18 — live
+> baseline **17.7 % corpus native** (5,947/33,540; +IT-COUNTER #265 +FOR-EACH #266).
+> **🔝 CINDY'S PRIORITY ORDER (Colton):** **(1) the COMMANDER FRAMEWORK — CMD-CAST → CMD-PARTNER → CMD-COMPANION**
+> (greenlit, gameplay-critical, build plan [`commander-framework-build-plan.md`](commander-framework-build-plan.md)),
+> **then (2) the keyword chunks.** No new worker — Cindy owns CMD. _(Walt finishes PW, then spins down + archives.)_
+> **⭐ [`keyword-coverage-plan.md`](keyword-coverage-plan.md)** maps all **189 CR 702.x keywords** to enforce-first
+> waves — a months-long ordered backlog after CMD. **Keyword rows seeded:** EVADE-2 (shadow ~37) · TRIG-ATTACK-PUMP
+> (exalted/battle cry/mentor ~180) · KW-CYCLING (~328, the cast-cost pilot) — plus the cycle-7 rows still open:
+> **TRIG-LIFEGAIN** (~17) · **TRIG-DRAW2** (~11) · **TRIG-TOKEN-ABIL** (~30). **9 of the 11 keyword FPs now honestly
+> enforced** (EVADE #258 · KW-UNTARGET #260 · TRIG-PROWESS #262 — each Hans-verified); only **ward + protection**
+> remain interim. **Enforce-don't-drop (Colton):** #255 dropped the 11 (−289), **#256 reverted** — they stay
+> CLAIMED as openly-labeled interim FPs while enforcement ships (see `COVERED_KEYWORDS`); the policy is proven
+> 3× over (coverage rose CORRECTLY as each enforcement converted interim→honest). The board-3 DEEP SCAN backlog
+> below is still current. Honest yields are **adversarially CREED-verified**. **The strategic map + every row's
+> full false-positive landmine live in [`docs/scout-gap-report.md`](../scout-gap-report.md) — read it before you build.**
 >
 > **The shape of the climb:** the clean-atom + rider tiers are nearly mined out (~a few hundred cards, good
 > builder fuel). The climb from ~20 %→~85 % is ONE subsystem — the **trigger-effect compiler** (bridge each
@@ -37,12 +43,12 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 | ID | Pri | Finding | ~Impact | Status |
 |---|---|---|---:|---|
-| **VERIFY-COVERED-KW** | 🔴 | **LIVE shipped FP CLUSTER (started as VERIFY-MENACE, audit widened it).** `COVERED_KEYWORDS` claimed `native-body` for **11 keywords the runtime NEVER enforces** (a keyword is enforced only if consulted via `permanentHasKeyword`/SBA/attack-legality): menace·skulk·intimidate·fear·horsemanship (block restrictions — `canBlock` honors only flying/reach), **defender** (a Wall can illegally attack — `actionsDeclareAttacker` never excludes it), hexproof·shroud·ward (no targetability check in `enumerateTargets`), protection (DEBT all unenforced), prowess (an unmodeled pump trigger). Each = the body is claimed native but mis-resolves. **Resolution (enforce-don't-drop):** #255 dropped all 11 → Arbiter, but **#256 REVERTED that** — they stay CLAIMED native as openly-labeled INTERIM FPs (see `COVERED_KEYWORDS`) while the enforcement is built. The REAL fix = the re-coverage rows below. **EVADE #258 + KW-UNTARGET #260 now ENFORCE 8 of the 11** (menace/skulk/fear/intimidate/horsemanship/defender + hexproof/shroud) → honestly native. **3 remain interim FP:** ward (a tax) + protection (DEBT) + prowess (TRIG-PROWESS). | 8/11 enforced | EVADE+KW-UNTARGET; 3 left |
+| **VERIFY-COVERED-KW** | 🔴 | **LIVE shipped FP CLUSTER (started as VERIFY-MENACE, audit widened it).** `COVERED_KEYWORDS` claimed `native-body` for **11 keywords the runtime NEVER enforces** (a keyword is enforced only if consulted via `permanentHasKeyword`/SBA/attack-legality): menace·skulk·intimidate·fear·horsemanship (block restrictions — `canBlock` honors only flying/reach), **defender** (a Wall can illegally attack — `actionsDeclareAttacker` never excludes it), hexproof·shroud·ward (no targetability check in `enumerateTargets`), protection (DEBT all unenforced), prowess (an unmodeled pump trigger). Each = the body is claimed native but mis-resolves. **Resolution (enforce-don't-drop):** #255 dropped all 11 → Arbiter, but **#256 REVERTED that** — they stay CLAIMED native as openly-labeled INTERIM FPs (see `COVERED_KEYWORDS`) while the enforcement is built. The REAL fix = the re-coverage rows below. **EVADE #258 + KW-UNTARGET #260 + TRIG-PROWESS #262 now ENFORCE 9 of the 11** (menace/skulk/fear/intimidate/horsemanship/defender + hexproof/shroud + prowess) → honestly native, **each Hans-verified**. **2 remain interim FP:** ward (a targeting tax) + protection (DEBT). | 9/11 enforced | EVADE+KW-UNTARGET+PROWESS; 2 left |
 | **FIX-TRIG-CONDITION** | 🔴 | `classifyCondition` over-detects restricted/compound-subject triggers (selfRef too broad; scope-inexpressible restriction dropped → over-fires). 34 cards incl. aristocrats staples. Detail: `docs/qa/rod-findings-1.md`. | 34 (−FP) | DONE #226 |
 | **VERIFY-ETB-DESTROY** | 🟡 | Ravenous Chupacabra & the ETB-destroy-an-opponent family. | spot-check | **VERIFIED — not a bug #255**: parses `"…an opponent controls"` (`targetsResolvable=true`, the runtime gate); chooser picks an opponent (never own), no-target fizzles via CR 603.3c / `NO_SAFE_TARGET`. Added a restricted-clause + no-target regression pin. |
 | **FIX-PW-LAND-ORDER** | 🟢 | Wrenn and One (corpus's only Land Planeswalker) hit the `land` tier before the planeswalker gate → counted native-`land` despite unmodeled loyalty. **Fixed:** PW gate now runs first → `arbiter-pw`. Pure metric, no runtime harm. | 1 (−FP metric) | DONE #255 |
 
-> **🔁 Re-coverage rows:** ✅ **EVADE #258 (+141)** + ✅ **KW-UNTARGET #260 (hexproof/shroud)** DONE → **8 of 11 keywords now honestly enforced.** **Remaining 3 interim FPs:** **ward** (a TAX, CR 702.21 — own slice) · **TRIG-PROWESS** (🟡 the pump, ~23) · **PROTECTION/DEBT** (δ, ~75). Enforce-don't-drop is proven (EVADE rose coverage CORRECTLY 17.2→17.6%; KW-UNTARGET converted interim→honest).
+> **🔁 Re-coverage rows:** ✅ **EVADE #258 (+141)** + ✅ **KW-UNTARGET #260 (hexproof/shroud)** + ✅ **TRIG-PROWESS #262** DONE → **9 of 11 keywords now honestly enforced** (Hans-verified each). **Remaining 2 interim FPs:** **ward** (a TAX, CR 702.21 — its own slice) · **PROTECTION/DEBT** (δ subsystem, ~77). Enforce-don't-drop is proven 3× over — coverage rose CORRECTLY as each enforcement converted interim→honest.
 >
 > **Policy — ENFORCE, DON'T DROP (Colton, 2026-06-18):** these re-coverage rows ARE the fix — build the enforcement (local-first), don't leave the keywords dropped. They're **Cindy's lane** (combat/keyword/trigger enforcement); Walt stays on his PW-leverage atoms. Standing policy + the full enforcement backlog: [`retired-fp-ledger.md`](retired-fp-ledger.md). Dropping is the last resort (genuinely-hard mechanics only).
 
@@ -102,8 +108,28 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 ### 🔴 high-lever
 
+> **⭐ KEYWORD MASTER PLAN** — all 189 CR 702.x keywords mapped to waves (frequency · status · the task that
+> covers each), enforce-first, so Cindy never idles: [`keyword-coverage-plan.md`](keyword-coverage-plan.md).
+> The top ripe keyword-family rows are seeded below; the plan holds the full months-long ordered backlog.
+>
+> **⭐⭐ GREENLIT — COMMANDER FRAMEWORK is CINDY'S #1 PRIORITY (Colton, 2026-06-18). DO THIS BEFORE THE KEYWORD WAVES.**
+> The Academy plays Commander but a commander **can't be cast from the command zone** today (no action in
+> `actionDispatcher`/`legalChoices`; the multi-commander command-zone ARRAY + damage tracking already exist in
+> `gameState`). A "does a real game play" gate, NOT a coverage-% row — ranks like Walt's PW framework.
+> **Cindy's order: CMD-CAST → CMD-PARTNER → CMD-COMPANION, THEN the keyword chunks** (no new worker — this is
+> Cindy's lane). **CMD-CAST** (cast + {2} tax + return-to-zone, CR 903.8/.9) → **CMD-PARTNER** (702.124, ~143 — two
+> commanders, HUGE in EDH) → **CMD-COMPANION** (702.139, ~12). **Concrete 3-PR build plan (file:function level,
+> CR-verified):** [`commander-framework-build-plan.md`](commander-framework-build-plan.md).
+> _(Walt finishes the PW subsystem, then spins down + is archived — his lane closes; Cindy does not inherit PW.)_
+
 | ID | Mechanic / atom (short landmine — full detail in the report) | ~Yield | Cplx | Status | Examples |
 |---|---|---:|---|---|---|
+| **CMD-CAST** | ⭐⭐ **CINDY #1 — CLAIM FIRST (greenlit).** Commander framework: cast a commander from the command zone + {2} tax per prior cast (CR 903.8) + return-to-zone on death (903.9) + the `isCommander` flag + wire combat→commander-damage 21-loss SBA (903.10a). Foundation exists (command-zone array, damage tracker). **Full 3-PR build plan (file:function, CR-verified):** [`commander-framework-build-plan.md`](commander-framework-build-plan.md). **Live acceptance MANDATORY.** | gameplay | sub (3 PRs) | **OPEN — DO FIRST** | every EDH deck |
+| **CMD-PARTNER** | Partner (CR 702.124) — two commanders in the zone, each taxed + damage-tracked per-card. **Builds on CMD-CAST** (the command array already holds two). HUGE in EDH. | ~143 | sub | OPEN (after CMD-CAST) | partner pairs, Backgrounds |
+| **CMD-COMPANION** | Companion (CR 702.139) — companion zone + `{3}`: put it into hand once per game, gated by the deck restriction. Independent of CMD-CAST. | ~12 | med | OPEN | Lurrus, Yorion, Jegantha |
+| **EVADE-2 (shadow)** | _(keyword chunk — AFTER the CMD framework)_ Evasion: can block / be blocked ONLY by shadow (CR 702.28). **One more `combatEvasion.canBlockAttacker` branch** — the EVADE chokepoint already exists. Ripe, low-risk, engine-first. | ~37 | low | OPEN | Dauthi Slayer, Soltari Priest, Thalakos Seer |
+| **TRIG-ATTACK-PUMP** | Attack/block-triggered keyword pumps — Exalted (alone), Battle cry, Mentor, Melee, Training, Bushido, Flanking, Dethrone — each "whenever ~ attacks/blocks, pump" → reuse the TRIG-PUMP compiler + a +1/+1-counter atom. One keyword/PR. **Build-time CR-verify each shape.** | ~180 | low-med | OPEN | Sublime Archangel, Goblin Wardriver, Odric, Master Tactician |
+| **KW-CYCLING** | ⭐ **Cast-cost subsystem PILOT (cleanest).** "{cost}, Discard this card: Draw a card" — a from-HAND activated ability (+ typecycling/landcycling search variants). No cast-path surgery needed; proves the cost-keyword pattern before the big Wave-C subsystem. | ~328 | med | OPEN | Decree of Justice, Krosan Tusker, Eternal Dragon |
 | **ACT-KW-GRANT** | `{cost}: This creature gains <KW> until EOT` — self keyword-grant. Reuses GRANTABLE_COMBAT_KEYWORDS allowlist (the allowlist IS the FP guard). **Self-ref only, all-or-nothing whole card** — reject `target`-grants (different atom) + multi-ability cards. | ~46 | low | DONE #235 | Goblin Balloon Brigade, Narnam Cobra, Unyielding Krumar |
 | **KWSTRIP-1** | Strip the vacuous cast-keyword line (foretell/suspend/splice-onto-arcane/recover/harmonize/basic-landcycling), then parse the body. The #200 precedent, zero new resolver. **Exclude rebound/cipher/conspire/learn/proliferate/amass (NOT vacuous).** | ~44 | low | DONE #234 | Doomskar, Rift Bolt, Evermind, Grim Harvest, Crashing Footfalls |
 | **SOFT-CNT** | "Counter target spell unless its controller pays {N}." Opponent-decision pending-choice at resolution (an opponent in 4P). Clean core = `pays {fixed}` only. | ~36 | sub | DONE #243 (Cindy) | Force Spike, Mana Tithe, Mana Leak, Censor, Rune Snag |
@@ -130,7 +156,10 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | **TOK-NAMED-EXT** | Extend the TOK-2 named-token registry to Blood / Powerstone / Map / Lander / Junk. **Powerstone enters tapped + can't pay nonartifact spells** (model or over-credits ramp); exclude ROLE aura-tokens. | ~8 / ~30-40 corpus | low | OPEN | Powerstone/Blood/Lander/Map ETBs (cross-cluster) |
 | **RIDER-CTRL-LIFE** | "Its controller loses N life." on a single **permanent-target** base. **"its controller" = the TARGET's controller, not the caster**; counter-spell targets have no `.controller` → permanent targets only. | ~7 | med | OPEN | Spreading Rot, Despoil, Hideous End, Vapor Snag |
 | **KW-UNTARGET** | ✅ **DONE #260** — hexproof (no opponent target) + shroud (no target) enforced in `enumerateTargets` + Equip (layer-aware). **ward DEFERRED** (it's a TAX not an exclusion, CR 702.21 → its own slice / TARGET-RESTRICT). | hexproof/shroud ✅ | sub | DONE #260 | Invisible Stalker (hexproof), Silhana Ledgewalker (shroud) |
-| **TRIG-PROWESS** | **Re-coverage (#255 drop):** model prowess — "Whenever you cast a noncreature spell, this creature gets +1/+1 UEOT" — as a real trigger (reuses the TRIG-PUMP-1 temp-pump compiler + a cast-trigger event). Then return prowess to COVERED_KEYWORDS. Plain prowess only (reject the "prowess-like" custom riders). | ~23 (re-add) | med | OPEN | Monastery Swiftspear, Soulfire Grand Master, Stormchaser Mage |
+| **TRIG-PROWESS** | **Re-coverage (#255 drop) — DONE:** prowess modeled as a real cast-trigger self-pump (CR 702.108, `triggers.checkCastTriggers`, reuses TRIG-PUMP). prowess returned to enforced. | ~23 ✅ | med | DONE #262 | Monastery Swiftspear, Soulfire Grand Master, Stormchaser Mage |
+| **TRIG-LIFEGAIN** | ⭐ **Fresh trigger-event hook (cycle-7 scan — top ripe lever).** Wire "Whenever you gain life, \<effect\>" as a recognized trigger EVENT (the #264 combat-damage-event precedent) → its effectClause rides the existing compiler. **Hans-VERIFIED RIPE: ~17** single-trigger body-only flip native (clean effect + clean residue). **Landmine:** the gain-life EVENT must fire for ALL lifegain (lifelink/spell/ETB), not just combat; **reject "for the FIRST time each turn"** (a limited variant). | ~17 | med | OPEN | Archangel of Thune, Cliffhaven Vampire, Drogskol Reaver, Hallowed Priest |
+| **TRIG-DRAW2** | **Fresh trigger-event hook (cycle-7 scan).** Wire "Whenever you draw your second card each turn, \<effect\>" → compiler. **Hans-VERIFIED RIPE: ~11.** **Landmine:** needs a per-turn draw COUNTER (reset each turn) so it fires on exactly the 2nd draw — model it or stay LOW. | ~11 | med | OPEN | Irencrag Pyromancer, Lat-Nam Adept, Prince Imrahil the Fair |
+| **TRIG-TOKEN-ABIL** | **Trigger-compiler FIX (Walt's signal — `project_walt_token_ability_lane`).** The compiler DROPS a created token's quoted `It has "\<cost\>: \<effect\>"` ability (colon-exclusion + internal-period truncation) → ~30 Eldrazi/Spawn makers stuck body-only. Capture the full quoted token ability → they flip native-trigger WITH the token's real mana/sac ability. | ~30 | med | OPEN | Blisterpod, Nest Invader, Dread Drone, Eldrazi Spawn makers |
 
 ### 🟢 small / cleanup
 
@@ -139,7 +168,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | **CNT-2b** | Remaining counter forms: "on up to N target creatures" + −1/−1 single & multi (reuses MT-1's picker). | ~10 | low | OPEN | Travel Preparations, Incremental Growth |
 | **SYMBURN-1** | "Deals N to each creature and each player" (extend the each-creature path to faces). Must hit ALL players incl. caster. | ~8 | low | OPEN | Inferno, Famine, Fire Tempest, Evincar's Justice |
 | **ACT-SELF-BOUNCE** | "{cost}: Return this creature to its owner's hand" (bind target=source). Bundle, not a solo PR. | ~6 | low | OPEN | Darting Merfolk, Fleeting Image, Blinking Spirit |
-| **TUCK-1** | "Put target creature on top of its owner's library" (new `tuck` op). Anchored whole-card; **top ≠ bottom ≠ hand** (wrong slot loses/dupes the card). | ~5 | low | OPEN | Time Ebb, Griptide, Excommunicate, Repel |
+| **TUCK-1** | "Put target \<perm\> on top/the bottom of its owner's library" (new `tuck` op, top/bottom precise). Anchored whole-card; riders/unions/restrictions + tuck-triggers → Arbiter. | +13 | low | DONE #270 | Time Ebb, Griptide, Excommunicate, Repel |
 | **RIDER-2ND-MINUS** | Pump target 1 + debuff a DISTINCT 2nd creature. Needs distinct-second-target binding; don't loosen "another" globally. | ~5 | med | OPEN | Leeching Bite, Consume Strength, Schismotivate |
 | **DEFENDER-ENFORCE** | **Re-coverage — FOLDED INTO EVADE #258:** Defender excluded from `actionsDeclareAttacker` (CR 702.3b, layer-aware via `permanentHasKeyword`) → "defender" returned to COVERED_KEYWORDS. | ✅ (in #258) | low | DONE #258 | Wall of Omens, Fog Bank, Doran the Siege Tower (grants), Axebane Guardian |
 

@@ -3,15 +3,38 @@
 > **Hans (Scout) owns this doc.** It's the reasoning *behind* `docs/orchestration/task-board.md`:
 > the strategic climb-map, honest clean-yield tables, the per-atom false-positive landmines a builder
 > must dodge, and the methodology. The **board** is the terse pull-queue; this is the why.
+> **⭐ The complete 189-keyword (CR 702.x) coverage map is its own doc:
+> [`keyword-coverage-plan.md`](orchestration/keyword-coverage-plan.md)** — frequency · status · wave per keyword.
 
-**Baseline (live, off `origin/master`):** **16.44 % corpus native — 5,513 / 33,540 real cards** after the
-cycle board-4 VERIFY-COVERED-KW correction (#255 retired 289 keyword false positives; pre-fix the metric read
-17.30 % / 5,802). Cycle **board-4 (Hans QA+FIX)**, 2026-06-18, building on **board-3 (DEEP SCAN)** whose climb
-map + ranked backlog below are unchanged.
+**Baseline (live, off `origin/master`):** **17.7 % corpus native — 5,947 / 33,540 real cards.** Cycle
+**board-7 (Hans — gap re-scan + keyword-enforcement verify)**, 2026-06-18, on the **board-3 DEEP SCAN** climb-map
+below (unchanged). **9 of the 11 keyword FPs are now honestly enforced** (EVADE #258 · KW-UNTARGET #260 ·
+TRIG-PROWESS #262 — each Hans-verified); only ward + protection remain interim.
 
-This cycle was a one-off **deep scan**: a real-parser frequency analysis over the full unmodeled set, an
-8-cluster 4-way classification (cleanAtom / riderGated / subsystem / irreducible), and an **adversarial
-CREED pass over every proposed 🔴/🟡 row** (which corrected most yields downward — that's the gate working).
+## Cycle-7 fresh gap re-scan — where the next native cards are
+Ran the real classifier + `detectTriggers` + `parseEffectClause` over all 20,604 body-only permanents, bucketed
+by trigger EVENT. **Finding: the major events are already recognized** (etb 2,214 · upkeep 805 · attacks 491 ·
+dies 360 · combat-damage-to-player 260) — for those the bottleneck is the unmodeled EFFECT, and the clean
+single-trigger cards are mostly native already. **So the ripe lever now = unrecognized EVENTS whose effects are
+already-modeled atoms** (wire the event → the cards flip for free; the #264 event-hook precedent). Verified-ripe
+(single trigger · effect parses HIGH · clean keyword-only residue):
+- **TRIG-LIFEGAIN ("whenever you gain life") → ~17** (Archangel of Thune, Drogskol Reaver, Cliffhaven Vampire) —
+  the top lever. Landmine: the gain-life EVENT must fire for ALL lifegain (lifelink/spell/ETB); reject "for the
+  first time each turn".
+- **TRIG-DRAW2 ("draw your second card each turn") → ~11** (Irencrag Pyromancer) — needs a per-turn draw counter.
+- **TRIG-TOKEN-ABIL → ~30** — a trigger-COMPILER fix (Walt's signal): the compiler drops a created token's quoted
+  `It has "…:…"` ability (colon-exclusion + internal-period truncation), stranding the Eldrazi/Spawn makers.
+- **Dropped as non-ripe:** "at the beginning of combat on your turn" (244 body-only, but only ~1 has a modeled
+  effect — the effects are the gap, not the event).
+
+**Honest read:** no single BIG clean lever remains (board-3 was right — the clean frontier is mined out); the
+climb from here is the trigger compiler grinding effect-atoms + these marginal event-hooks, plus the deferred
+subsystems. The keyword-enforcement cluster was the high-value run and it's nearly done (2 of 11 left).
+
+## (Historical) board-3 deep scan — the climb-map below
+A one-off real-parser frequency analysis over the full unmodeled set, an 8-cluster 4-way classification
+(cleanAtom / riderGated / subsystem / irreducible), and an adversarial CREED pass over every proposed row (most
+yields corrected downward). The map + backlog below are still current.
 
 ---
 
