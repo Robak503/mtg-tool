@@ -362,8 +362,51 @@ function parseTokenKeywords(phrase) {
   return out;
 }
 
+// ===== DMG-SCALE / FOR-EACH ===== a board-count SOURCE — the "X" in "equal to the number of X" (and,
+// later, "for each X"). Returns a `countSpec` the resolver computes AT RESOLUTION (CR 608.2g — a
+// count-derived value is locked as the spell/ability resolves), or null for an unmodeled source (→ low
+// → Arbiter). Slice 1 (WALT-DMG-SCALE) admits only CONTROLLER-scoped counts: permanents YOU control by
+// card TYPE (creature/land/artifact/enchantment) or basic-land SUBTYPE (the CLOSED set Mountain/Forest/
+// Island/Plains/Swamp), or cards in YOUR hand. Opponent-scoped counts ("creatures they control", "cards
+// in that player's hand"), graveyard counts, creature subtypes (Goblins/Elves), and exotic sources
+// (snow / attacking / "in excess of" / devotion) are NOT modeled → null → the whole clause routes low.
+const COUNT_TYPE = { creatures: "creature", lands: "land", artifacts: "artifact", enchantments: "enchantment" };
+const COUNT_BASIC_SUBTYPE = { mountains: "Mountain", forests: "Forest", islands: "Island", plains: "Plains", swamps: "Swamp" };
+function parseCountSource(phrase) {
+  const p = String(phrase).trim().replace(/\.\s*$/, "");
+  let m;
+  if ((m = p.match(/^(creatures|lands|artifacts|enchantments) you control$/))) {
+    return { kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]] };
+  }
+  if ((m = p.match(/^(mountains|forests|islands|plains|swamps) you control$/))) {
+    return { kind: "permanentsYouControl", subtype: COUNT_BASIC_SUBTYPE[m[1]] };
+  }
+  if (/^cards in your hand$/.test(p)) return { kind: "cardsInHand" };
+  return null;
+}
+
 function parseExtendedAtom(s) {
   const t = s.toLowerCase().replace(/[’]/g, "'"); // normalize curly apostrophe
+
+  // ===== DMG-SCALE ===== (WALT-DMG-SCALE) "<source> deals damage to <target> equal to the number of
+  // <count source>" — the damage AMOUNT is a board count resolved at resolution (`amountCount`), not a
+  // printed number (Massive Raid, Spitting Earth, Outnumber, Feedback Bolt). Reuses the existing
+  // deal-damage atom + targeting verbatim; only the amount is new. TIGHT target ALLOWLIST (the bare,
+  // fully-modeled forms) so a RESTRICTED target ("target attacking creature", "each player") never
+  // mis-resolves to the unrestricted set; an unmodeled count source (parseCountSource → null) drops the
+  // whole clause to low → Arbiter. "twice the number of" / "in excess of" don't match the anchor (a
+  // deliberate deferral — never a half-scaled native).
+  const mds = t.match(/^.+? deals? damage to (.+?) equal to the number of (.+)$/);
+  if (mds) {
+    const TT = {
+      "any target": "any", "target creature": "creature", "target player": "player",
+      "target player or planeswalker": "playerOrPlaneswalker",
+      "target creature or planeswalker": "creatureOrPlaneswalker", "each opponent": "eachOpponent",
+    };
+    const targetType = TT[mds[1].trim()];
+    const amountCount = parseCountSource(mds[2]);
+    return targetType && amountCount ? { op: "deal-damage", targetType, amountCount } : null;
+  }
 
   // Tutor — "Search your library for a/an [<FILTER>] card, [reveal it,] [and] put it into
   // your hand[, then shuffle]." HAND destination only, single card. The filter is OPTIONAL:
