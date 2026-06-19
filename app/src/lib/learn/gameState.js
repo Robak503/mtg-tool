@@ -352,13 +352,16 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     life,
     poison: 0,
     commanderDamageFrom: {},  // { otherPlayerId: number }
+    commanderCastCount: {},   // CMD-CAST (CR 903.8): { commanderCardId: timesCastFromCommandZone } — drives the {2} tax
     manaPool: emptyManaPool(),
     library: [...library],
     hand: [],
     battlefield: [],
     graveyard: [],
     exile: [],
-    command: [...commanderCards],
+    // CR 903.3 — "commander" is a designation on the CARD itself that rides across zones (not a
+    // characteristic). Tag each so isCommander travels card → battlefield permanent → (PR2) back to the zone.
+    command: commanderCards.map((c) => (c ? { ...c, isCommander: true } : c)),
     emblems: [],              // PW-5: emblems this player owns (objects with a continuous/triggered ability)
     experience: 0,
     landsPlayedThisTurn: 0,

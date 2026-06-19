@@ -86,7 +86,9 @@ export function cloneCandidates(state, controller, scope) {
  * and continuous effects are excluded automatically (they live on the permanent, not the card).
  */
 export function snapshotCopiedCard(sourcePerm, cloneCard) {
-  return { ...sourcePerm.card, id: cloneCard?.id, token: false };
+  // A copy of a commander is NOT a commander (CR 903.3 — the designation is on the original card, not a
+  // characteristic that copies). Strip isCommander like token, so a clone never inherits the designation.
+  return { ...sourcePerm.card, id: cloneCard?.id, token: false, isCommander: false };
 }
 
 const ptScore = (card) => (Number(card?.power) || 0) + (Number(card?.toughness) || 0);

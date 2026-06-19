@@ -104,7 +104,11 @@ function scoreCastAction(action, card, archetype) {
  */
 function cardFromHand(state, playerId, cardId) {
   const player = state.players[playerId];
-  return player?.hand.find(c => c.id === cardId) || null;
+  // CMD-CAST: a commander cast action (fromZone:"command") references a card in the command zone, not
+  // the hand — check both so the AI can actually cast its commander (CR 903.8), not sit on it all game.
+  return player?.hand.find(c => c.id === cardId)
+    || player?.command?.find(c => c.id === cardId)
+    || null;
 }
 
 // ─── Sub-pickers ──────────────────────────────────────────────────────────────

@@ -217,8 +217,10 @@ function applyPlayLand(state, action) {
 }
 
 function applyCastSpell(state, action) {
-  const card = findCardInHand(state, action.playerId, action.cardId);
-  if (!card) throw new DispatcherError(`Card ${action.cardId} not in hand`, "CARD_NOT_IN_HAND");
+  // CMD-CAST: a commander is cast FROM the command zone (action.fromZone === "command"); default "hand".
+  const fromZone = action.fromZone || "hand";
+  const card = (state.players[action.playerId]?.[fromZone] || []).find(c => c.id === action.cardId) || null;
+  if (!card) throw new DispatcherError(`Card ${action.cardId} not in ${fromZone}`, "CARD_NOT_IN_ZONE");
 
   // Plan payment from the current pool PLUS untapped mana sources. planPayment
   // is pool-first, so a pre-filled pool pays with zero taps (preserving the
@@ -275,11 +277,11 @@ function applyCastSpell(state, action) {
     }
   }
 
-  // 3. Move the card out of hand. We splice manually because the stack is
-  // shared (top-level state), not per-player.
+  // 3. Move the card out of its source zone (hand, or the command zone for CMD-CAST). We splice
+  // manually because the stack is shared (top-level state), not per-player.
   const player = working.players[action.playerId];
-  const handIndex = player.hand.findIndex(c => c.id === action.cardId);
-  const nextHand = [...player.hand.slice(0, handIndex), ...player.hand.slice(handIndex + 1)];
+  const srcIndex = player[fromZone].findIndex(c => c.id === action.cardId);
+  const nextSrc = [...player[fromZone].slice(0, srcIndex), ...player[fromZone].slice(srcIndex + 1)];
 
   // 4. Build a plain-data, SERIALIZABLE payload (Phase-7 PR-3) — no closure.
   // An instant/sorcery resolves via the P2.2 effect-program interpreter (an
@@ -344,14 +346,20 @@ function applyCastSpell(state, action) {
     payload,
   });
 
+  // CMD-CAST: a cast FROM the command zone bumps the commander's cast count → the {2} tax grows on each
+  // recast (CR 903.8 counts casts from the zone, so the cast counts even if it's later countered).
+  const bumpCount = fromZone === "command"
+    ? { commanderCastCount: { ...(player.commanderCastCount || {}), [action.cardId]: (player.commanderCastCount?.[action.cardId] || 0) + 1 } }
+    : {};
   let next = {
     ...working2,
     players: {
       ...working2.players,
       [action.playerId]: {
         ...player,
-        hand: nextHand,
+        [fromZone]: nextSrc,
         manaPool: nextPool,
+        ...bumpCount,
       },
     },
     stack: [...working2.stack, stackObject],
