@@ -941,6 +941,17 @@ export function gainLife(state, { playerId, amount }) {
   return withPlayer(state, playerId, p => ({ ...p, life: p.life + amount }));
 }
 
+/**
+ * KW-POISON (CR 122 / 704.5c): give a player poison counters. Infect/Toxic combat damage routes here
+ * instead of (or in addition to) life loss; at ten or more the player loses (isPlayerDead). The poison
+ * track already exists on player state (createPlayerState `poison: 0`).
+ */
+export function addPoison(state, { playerId, amount }) {
+  assertPlayer(playerId);
+  if (!Number.isInteger(amount) || amount < 0) throw new Error("addPoison: amount must be non-negative integer");
+  return withPlayer(state, playerId, p => ({ ...p, poison: (p.poison || 0) + amount }));
+}
+
 /** Mark combat (or other) damage on a permanent. */
 export function markCombatDamage(state, { permanentId, amount }) {
   if (!Number.isInteger(amount) || amount < 0) throw new Error("markCombatDamage: amount must be a non-negative integer");
