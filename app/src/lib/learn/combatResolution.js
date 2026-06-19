@@ -43,7 +43,7 @@ import {
   destroyZeroLoyaltyPlaneswalkers,
 } from "./gameState.js";
 import { permanentHasKeyword } from "./layers.js";
-import { checkDiesTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkCombatDamageTriggers } from "./triggers.js";
 
 // Combat keyword checks go through the layer engine (permanentHasKeyword) so a
 // GRANTED keyword (sliver lord, anthem, equipment) is respected, not just a
@@ -222,6 +222,12 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   for (const [pwId, amount] of Object.entries(loyaltyLoss)) {
     if (amount > 0 && findPermanent(next, pwId)) next = adjustLoyalty(next, { permanentId: pwId, delta: -amount });
   }
+
+  // Combat-damage-to-a-player triggers (CR 510.2 — combat damage dealt) — fired off the per-attacker
+  // player-damage events BEFORE the lethal SBA so a trading attacker is still present to bind to (it
+  // triggered at the damage event; abilities that triggered on combat damage go on the stack after the
+  // SBA, CR 510.3a). They land in pendingTriggers; flushTriggers stacks them at the next priority point.
+  next = checkCombatDamageTriggers(next, playerEvents);
 
   // ── SBA: lethal damage (or ANY deathtouch damage) destroys creatures ──
   const { state: afterDeaths, dead } = destroyLethalCreatures(next, deathtouched);
