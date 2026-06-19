@@ -238,22 +238,26 @@ function applyTapEffect(state, atom, ctx, tap) {
   return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: (ctx.targets || []).map(t => t.id) });
 }
 
-/** Move creature(s) battlefield → hand (bounce) or → exile — chosen targets, or ALL creatures
- * for a mass `exile all creatures` (atom.targetType "eachCreature"). */
-function applyZoneMove(state, atom, ctx, toZone) {
+/** Move creature(s) battlefield → hand (bounce), → exile, or → library (TUCK — top via toTop, else
+ * bottom) — chosen targets, or ALL creatures for a mass `exile all creatures` (targetType "eachCreature"). */
+function applyZoneMove(state, atom, ctx, toZone, toTop = false) {
   let next = state;
   const targets = atomTargets(state, atom, ctx);
   for (const t of targets) {
     // "creature" (bounce/exile-creature + mass eachCreature), "permanent" (targeted non-creature
-    // exile — Oblivion Ring-style), or "planeswalker" (PW-7). moveCardToZone detaches any Aura/Equip.
+    // exile — Oblivion Ring-style, incl. a land/artifact within a union target), or "planeswalker"
+    // (PW-7). moveCardToZone detaches any Aura/Equip.
     if (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") continue;
     const lk = findPermanent(next, t.id);
     if (lk) {
-      next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone, cardId: t.id });
+      // TUCK uses the card's controller as the owner proxy (consistent with bounce's "owner's hand");
+      // toTop prepends to the library (top), else moveCardToZone appends (bottom).
+      next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone, cardId: t.id, toTop });
     }
   }
-  // Exile is NOT "dies" (CR 700.4 — dies = to graveyard), so no dies triggers fire.
-  return logEvent(next, { kind: "spell-effect", effect: toZone === "exile" ? "exile" : "bounce", targets: targets.map(t => t.id) });
+  // Exile is NOT "dies" (CR 700.4 — dies = to graveyard), so no dies triggers fire. Tuck → library.
+  const effect = toZone === "exile" ? "exile" : toZone === "library" ? "tuck" : "bounce";
+  return logEvent(next, { kind: "spell-effect", effect, targets: targets.map(t => t.id) });
 }
 
 /**
@@ -983,6 +987,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
   "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
+  "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
   "exile": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "exile"),
   "add-counter": applyAddCounter,
   "return-from-graveyard": applyReturnFromGraveyard,
