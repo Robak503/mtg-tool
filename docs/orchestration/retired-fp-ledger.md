@@ -58,7 +58,7 @@ hexproof/shroud untargetability; ward (a TAX, not an exclusion) is its own slice
 |---|---|---|
 | prowess | +1/+1 until EOT whenever you cast a noncreature spell | ✅ ENFORCED #262 |
 
-### 🔨 CAP: native-mana residue gate (the metric all-or-nothing gap) — **NEW (board-10), tractable**
+### ✅ CAP: native-mana residue gate (the metric all-or-nothing gap) — **DONE #280**
 **Board task:** `FIX-MANA-OVERCLAIM` (🔴, FIX lane). `coverage.js:361` returns `native-mana` with **no residue
 check**, so ≥110 mana sources with unmodeled non-mana text (Mana Crypt's coin-flip, Sorcerer Class's levels,
 Spara's ETB) are counted fully native. **METRIC-ONLY** (no runtime consumer of the tier — the engine routes the
@@ -67,7 +67,7 @@ scoreboard over-count. The fix is a classifier tightening, not a runtime enforce
 
 | Capability | Rule to enforce (plain) | Status |
 |---|---|---|
-| native-mana residue gate | claim native-mana only when every non-mana clause is modeled-or-keyword-only | 🔨 FIX (metric over-count ≥110) |
+| native-mana residue gate | claim native-mana only when every non-mana clause is modeled-or-keyword-only | ✅ ENFORCED #280 (−269 over-claimed; native-mana now all-or-nothing; honest 17.1%. The smaller non-mana *activated*-ability over-claim is a deliberate fragile follow-up — under-correcting is safe) |
 
 ## Corrected reclassifications (not FPs — already right)
 | Item | Fix | Note |
