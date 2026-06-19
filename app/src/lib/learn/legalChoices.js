@@ -38,7 +38,7 @@ import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTar
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
-import { parseActivatedAbilities, sacrificeDropsTrigger } from "./effects/abilities.js";
+import { parseActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost } from "./effects/abilities.js";
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { isNativeAura } from "./staticAbilityParser.js";
 
@@ -678,6 +678,30 @@ function actionsActivateAbility(state, playerId) {
 }
 
 /**
+ * KW-CYCLING (CR 702.29) — cycling is an activated ability usable only from a player's HAND
+ * ("[Cost], Discard this card: Draw a card"). Offer one `cycle` action per hand card whose plain,
+ * fully-modeled cycling cost (parseCyclingCost — null for typecycling + cycle-trigger cards) the
+ * player can afford. Conservatively main + priority gated like the other activated abilities (cycling
+ * is instant-speed per CR 702.29a, but under-offering it at instant speed is a safe false-negative).
+ */
+function actionsCycleFromHand(state, playerId) {
+  if (state.activePlayer !== playerId) return [];
+  if (state.priorityHolder !== playerId) return [];
+  if (state.step !== "main") return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const card of player.hand) {
+    const costStr = parseCyclingCost(card);
+    if (!costStr) continue;
+    const cost = parseManaCost(costStr);
+    if (cost.hasX) continue; // an X cycling cost would need the X-choice expansion (none in the corpus)
+    if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
+    actions.push({ kind: "cycle", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost) });
+  }
+  return actions;
+}
+
+/**
  * Loyalty abilities (`[+N]/[−N]/[0]: effect`, CR 606) — PW-1 framework + PW-2 HYBRID. A planeswalker's
  * controller may activate ONE loyalty ability of it per turn (CR 606.3 — "only if no player has
  * previously activated a loyalty ability of that permanent that turn"), only any time they could cast
@@ -893,6 +917,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsActivateAbility(state, playerId));
+  actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw
   actions.push(...actionsActivateLoyalty(state, playerId));
 
   // Combat actions.
