@@ -42,6 +42,12 @@ const ENFORCED_KEYWORDS = new Set([
   "hexproof", "shroud",
   // TRIG-PROWESS (#262): prowess fires as a real cast-trigger self-pump (CR 702.108, triggers.checkCastTriggers).
   "prowess",
+  // EVADE-2 (#282): combatEvasion.canBlockAttacker enforces Shadow's "can block / be blocked only by shadow" (CR 702.28b).
+  "shadow",
+  // KW-POISON (#294): combatResolution reroutes infect/wither CREATURE damage → -1/-1 counters and infect/toxic
+  // PLAYER damage → poison counters (toxic N adds on top), with the 10-poison loss SBA (gameState.addPoison,
+  // CR 704.5c / 702.90b infect / 702.79b wither / 702.180a toxic). Engine-first — Hans-verified board-loop.
+  "infect", "wither", "toxic",
 ]);
 const ALLOWED_UNENFORCED = new Set(["flash", "changeling", "devoid"]); // safe: timing/identity, never mis-resolve a body
 // INTERIM-FP: unenforced TODAY but knowingly KEPT claimed native while enforcement is built (enforce-don't-drop
