@@ -170,6 +170,18 @@ describe("runEffectProgram — board-count damage (DMG-SCALE)", () => {
     const obj = stackObj(high([dmgAtom("player", { kind: "cardsInHand" })]), { targets: [{ type: "player", id: "ai" }] });
     expect(runEffectProgram(state, obj).players.ai.life).toBe(state.players.ai.life - 4);
   });
+  // ===== OPPONENT-SCOPED ===== who:"target" counts the TARGET player's hand (Sudden Impact), NOT the
+  // controller's — the count must follow the chosen target.
+  it("who:'target' counts the TARGET player's hand, not the controller's", () => {
+    let state = freshState();
+    state = { ...state, players: { ...state.players,
+      user: { ...state.players.user, hand: [{ id: "u1" }, { id: "u2" }] },            // controller: 2 cards
+      ai: { ...state.players.ai, hand: [{ id: "a1" }, { id: "a2" }, { id: "a3" }, { id: "a4" }] } } }; // target: 4
+    const obj = stackObj(high([dmgAtom("player", { kind: "cardsInHand", who: "target" })]), { targets: [{ type: "player", id: "ai" }] });
+    const out = runEffectProgram(state, obj);
+    expect(out.players.ai.life).toBe(state.players.ai.life - 4);   // the TARGET's 4-card hand
+    expect(out.players.user.life).toBe(state.players.user.life);   // controller untouched
+  });
   it("a zero count deals zero damage (no crash, no fabricated damage)", () => {
     const state = withBoard([]); // no creatures
     const obj = stackObj(high([dmgAtom("player", { kind: "permanentsYouControl", cardType: "creature" })]), { targets: [{ type: "player", id: "ai" }] });

@@ -428,6 +428,12 @@ function parseCountSource(phrase) {
     return { kind: "permanentsYouControl", subtype: COUNT_BASIC_SUBTYPE[m[1]] };
   }
   if (/^cards? in your hand$/.test(p)) return { kind: "cardsInHand" };
+  // ===== OPPONENT-SCOPED ===== "cards in that player's hand" — the count is the SPELL'S TARGET player's
+  // hand (CR: "that player" = the targeted player), as in "deals damage to target player equal to the
+  // number of cards in that player's hand" (Sudden Impact, Gaze of Adamaro, Storm Seeker). who:"target"
+  // tells countForSpec to count the target player, not the controller. Only the bare phrase; "a player's"
+  // / "an opponent's" / "each player's" don't match (→ low).
+  if (/^cards? in that player's hand$/.test(p)) return { kind: "cardsInHand", who: "target" };
   // ===== FOR-EACH ===== cards in YOUR graveyard, optionally filtered by ONE card type. Controller-scoped
   // ("your graveyard"); "a graveyard" / "their graveyard" / "that player's graveyard" reject (→ low).
   if ((m = p.match(/^(?:(creature|artifact|land|instant|sorcery|enchantment|planeswalker) )?cards? in your graveyard$/))) {
