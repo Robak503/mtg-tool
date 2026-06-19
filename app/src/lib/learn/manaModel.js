@@ -130,6 +130,44 @@ function manaAbilitySacrificesSelf(oracle) {
 }
 
 /**
+ * Does this card's MANA ability require tapping ({T} in its COST — left of the colon)? Summoning
+ * sickness (CR 302.6) gates a {T}/{Q} ability, but a NON-tap mana ability — a sac-for-mana Eldrazi
+ * Spawn / Treasure ("Sacrifice this token: Add {C}") — is usable the turn the creature enters, so a
+ * freshly-made Spawn can ramp immediately (the WALT-TOKEN-ABIL token-mana correctness invariant).
+ * Precise per-line so the flag reflects the line whose effect is the "Add …" clause.
+ */
+function manaAbilityRequiresTap(oracle) {
+  for (const line of String(oracle || "").split(/\n+/)) {
+    const ci = line.indexOf(":");
+    if (ci === -1) continue;
+    if (/\badd\b/i.test(line.slice(ci + 1)) && /\{t\}/i.test(line.slice(0, ci))) return true;
+  }
+  return false;
+}
+
+/**
+ * Remove the QUOTED ability a card confers on a TOKEN it CREATES ("Create a … token with \"…\"" or the
+ * two-sentence "…token[ named N]. It has \"…\"" form, normalized here to the "with" form) — that ability
+ * belongs to the TOKEN, not the card. Without this, a card's OWN mana production is fabricated from its
+ * token's ability: an Eldrazi Spawn-maker (Blisterpod, Nest Invader) reads as a sac-for-{C} source it
+ * isn't, and the engine would offer "sacrifice Blisterpod for {C}" — a fabricated ability (a false
+ * positive). SCOPED to a CREATE-TOKEN context only, so a self-granting lord ("All Slivers have \"{T}:
+ * Add …\"" — Gemhide IS a Sliver, a real source) and a non-token mana-grant anthem ("Creatures you
+ * control have \"…\"" — a separate concern) are left intact. Mirrors the parser's splitClauses
+ * normalization; shared by coverage.hasManaAbility so the classifier and runtime can't drift.
+ */
+export function stripCreatedTokenAbilities(text) {
+  const norm = String(text || "").replace(
+    /(\bcreates?\b[^.]*?\btokens?\b[^.]*?)\.\s+it has (["“'])/gi,
+    "$1 with $2",
+  );
+  return norm.replace(
+    /(\bcreates?\b[^."]*?\btokens?\b[^."]*?(?: named [^."]*?)? with )(["“][^"”]*["”])/gi,
+    "$1 ",
+  );
+}
+
+/**
  * What mana can this card's mana ability produce? Returns `{ colors, amount[, sacrifices] }`
  * or null if it isn't a mana source. Resolution order: basic-land name → known-rock table →
  * oracle "Add" parse → land fallback (colorless). `sacrifices:true` marks a one-shot source the
@@ -165,10 +203,19 @@ export function manaProduction(card) {
   // own ability). The same `oracleForAdd` feeds the sacrifice-for-mana check so a Treasure (no reminder
   // parens) still flags `sacrifices`, while a token-MAKER's reminder no longer mints a phantom source.
   const isLandCard = /\bLand\b/.test(typeLineOf(card));
-  const oracleForAdd = isLandCard ? oracleOf(card) : stripReminder(oracleOf(card));
+  // Non-lands also strip a CREATED TOKEN's quoted ability (stripCreatedTokenAbilities) — a card's own
+  // mana production must not be fabricated from the ability of a token it makes (Blisterpod is not a
+  // sac-for-{C} source; its Eldrazi Spawn is). The minted TOKEN's own oracle (unquoted "Sacrifice this
+  // token: Add {C}") has no create-token context, so it's untouched and still reads as a real source.
+  const oracleForAdd = isLandCard
+    ? oracleOf(card)
+    : stripCreatedTokenAbilities(stripReminder(oracleOf(card)));
   const fromOracle = parseAddClause(oracleForAdd);
   if (fromOracle) {
-    return manaAbilitySacrificesSelf(oracleForAdd) ? { ...fromOracle, sacrifices: true } : fromOracle;
+    const requiresTap = manaAbilityRequiresTap(oracleForAdd);
+    return manaAbilitySacrificesSelf(oracleForAdd)
+      ? { ...fromOracle, sacrifices: true, requiresTap }
+      : { ...fromOracle, requiresTap };
   }
 
   // A land we couldn't otherwise parse still taps for something — assume
@@ -199,7 +246,13 @@ export function manaSources(state, playerId) {
     // GRANTED Haste counts (read through the layer engine), not just printed — a mana dork
     // enchanted/anthemed with Haste can tap the turn it enters. Falls back to the printed
     // seed when there are no continuous effects (the common case), so the hot path is cheap.
-    if (isCreature && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
+    // EXCEPTION (CR 302.6): summoning sickness gates a {T}/{Q} ability, but a sac-for-mana ability with
+    // NO {T} (an Eldrazi Spawn "Sacrifice this token: Add {C}", or a Treasure on a creature body) is
+    // usable the turn the creature enters — so a freshly-created Spawn ramps immediately. All other
+    // summoning-sick creatures (Haste-less {T} dorks) stay excluded exactly as before.
+    const usableWhileSick = prod.sacrifices && !prod.requiresTap;
+    if (isCreature && perm.summoningSick && !usableWhileSick
+        && !permanentHasKeyword(state, perm.id, "Haste")) continue;
     sources.push({ permanentId: perm.id, colors: prod.colors, amount: prod.amount, sacrifices: !!prod.sacrifices });
   }
   return sources;

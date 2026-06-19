@@ -11,6 +11,7 @@ import { RESOLVERS, RESOLVER_KEYS, getResolver } from "../resolvers.js";
 import { resolveTopOfStack } from "../gameEngine.js";
 import { hasKeyword } from "../keywords.js";
 import { permanentHasKeyword } from "../layers.js";
+import { manaProduction, manaSources } from "../manaModel.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -403,5 +404,18 @@ describe("P2.6 create-token — resolution", () => {
     const out = runEffectProgram(freshState(), stackObj(high([{ op: "create-token", count: 1, power: 1, toughness: 1, descriptor: "colorless thopter artifact", keywords: ["Flying"] }])));
     const tok = out.players.user.battlefield.find(p => p.card.token);
     expect(tok.card).toMatchObject({ name: "Thopter", type: "Token Artifact Creature — Thopter", keywords: ["Flying"] });
+  });
+
+  // ===== TOKENS ===== T4: an ability-carrying token (slice 1: a MANA ability) is minted with the
+  // ability as its real `oracle`, so the mana model drives it like Treasure/Gold (no special-casing). A
+  // sac-for-{C} Eldrazi Spawn is a one-shot {C} source usable WHILE summoning sick (no {T}, CR 302.6).
+  it("mints a mana-ability token carrying its oracle, driven end-to-end by the mana model", () => {
+    const out = runEffectProgram(freshState(), stackObj(high([{ op: "create-token", count: 1, power: 0, toughness: 1, descriptor: "colorless eldrazi spawn", tokenOracle: "Sacrifice this token: Add {C}" }])));
+    const tok = out.players.user.battlefield.find(p => p.card.token);
+    expect(tok.card).toMatchObject({ power: 0, toughness: 1, token: true, type: "Token Creature — Eldrazi Spawn", oracle: "Sacrifice this token: Add {C}" });
+    expect(tok.card.keywords).toEqual([]); // no fabricated combat keyword
+    expect(tok.summoningSick).toBe(true);
+    expect(manaProduction(tok.card)).toMatchObject({ colors: ["C"], amount: 1, sacrifices: true, requiresTap: false });
+    expect(manaSources(out, "user").some(s => s.permanentId === tok.id)).toBe(true); // usable now (no {T})
   });
 });

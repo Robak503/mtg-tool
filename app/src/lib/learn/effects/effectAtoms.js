@@ -129,7 +129,13 @@ function applyCreateToken(state, atom, ctx) {
   let next = state;
   const { type, name } = tokenTypeLine(atom.descriptor);
   const keywords = Array.isArray(atom.keywords) ? atom.keywords : [];
-  const oracle = keywords.join(", ");
+  // ===== TOKENS ===== T4 ability-carrying tokens — a token minted with `atom.tokenOracle` (slice 1: a
+  // CLEAN mana ability, gated by parser.parseTokenManaAbility) carries that ability as its real oracle
+  // text, so the existing subsystems drive it with no special-casing: a "{T}: Add {G}" dork and a
+  // "Sacrifice this token: Add {C}" Eldrazi Spawn are read by manaProduction / manaAbilitySacrificesSelf
+  // exactly like a printed permanent — the same pattern as the named Treasure/Gold tokens (T2). Falls
+  // back to the keyword oracle (T1) when no inline ability is present.
+  const oracle = atom.tokenOracle || keywords.join(", ");
   // ===== TOKENS ===== T3 X-count: the count is the chosen {X} (ctx.xValue, bound at cast) for an
   // X-token spell (Secure the Wastes), else the printed fixed count. X=0 mints zero tokens (CR 107.3) —
   // a clean no-op, NOT forced to 1; a fixed count is floored at 1.

@@ -14,6 +14,21 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Artifact", "{T}: Add one mana of any color."))).toBe("native-mana");
     expect(classifyCard(C("Creature — Elf Druid", "{T}: Add {G}."))).toBe("native-mana");
   });
+  // ===== TOKENS ===== T4 FP fix — a card whose only "Add …" is a TOKEN's ability (main-text "It has"/
+  // "with") is NOT native-mana: the ability belongs to the token, not the card (the engine must never
+  // offer "sacrifice Blisterpod for {C}"). These Eldrazi makers are body-only until their create-token
+  // TRIGGER is modeled (trigger compiler), at which point they flip native-trigger WITH the token ability.
+  it("a token-maker is NOT native-mana (the token's ability is not the card's own)", () => {
+    expect(classifyCard(C("Creature — Eldrazi Drone", "When this creature enters, create a 0/1 colorless Eldrazi Spawn creature token with \"Sacrifice this token: Add {C}.\"", { name: "Nest Invader" }))).not.toBe("native-mana");
+    expect(classifyCard(C("Creature — Eldrazi Drone", "When this creature dies, create a 1/1 colorless Eldrazi Scion creature token. It has \"Sacrifice this token: Add {C}.\"", { name: "Blisterpod" }))).not.toBe("native-mana");
+    // but a self-granting lord (Gemhide IS a Sliver) remains a real mana source (not a create-token clause).
+    expect(classifyCard(C("Creature — Sliver", "All Sliver creatures have \"{T}: Add one mana of any color.\"", { name: "Gemhide Sliver" }))).toBe("native-mana");
+  });
+  // ===== TOKENS ===== T4 — a clean mana-token SPELL (the token's sac-for-{C} ability is modeled) is
+  // fully native-spell; the create-token atom carries the token's real ability (Growth Spasm-style).
+  it("a clean mana-token spell is native-spell", () => {
+    expect(classifyCard(C("Sorcery", "Spawning Breath deals 1 damage to any target. Create a 0/1 colorless Eldrazi Spawn creature token. It has \"Sacrifice this token: Add {C}.\"", { name: "Spawning Breath" }))).toBe("native-spell");
+  });
   it("a vanilla or keyword-only creature is native-body", () => {
     expect(classifyCard(C("Creature — Bear", ""))).toBe("native-body");
     expect(classifyCard(C("Creature — Angel", "Flying, vigilance"))).toBe("native-body");
