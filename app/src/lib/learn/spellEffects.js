@@ -33,6 +33,7 @@ import {
   destroyZeroLoyaltyPlaneswalkers,
 } from "./gameState.js";
 import { checkDiesTriggers } from "./triggers.js";
+import { permanentHasKeyword } from "./layers.js";
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
@@ -297,6 +298,17 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions)
   return true;
 }
 
+// Hexproof / shroud targetability (CR 702.11 / 702.18), read LAYER-AWARE so a GRANTED or removed
+// instance is honored (Alpha Authority hexproof, etc.). shroud = untargetable by ANYONE; hexproof =
+// untargetable by the caster's OPPONENTS (the controller may still target their own). Ward is NOT here
+// — it's a TAX the targeter pays (CR 702.21), not an exclusion, so modeling it as untargetable would be
+// a false positive; ward stays an interim-FP until its tax/counter is modeled exactly.
+export function canBeTargetedBy(state, perm, controllerOfPerm, casterId) {
+  if (permanentHasKeyword(state, perm.id, "Shroud")) return false;
+  if (permanentHasKeyword(state, perm.id, "Hexproof") && casterId !== controllerOfPerm) return false;
+  return true;
+}
+
 // ─── Target enumeration ───────────────────────────────────────────────────────
 
 /**
@@ -315,7 +327,7 @@ export function enumerateTargets(state, controllerId, effect) {
   const addCreatures = () => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
-        if (isCreature(perm.card) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions)) {
+        if (isCreature(perm.card) && canBeTargetedBy(state, perm, pid, controllerId) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions)) {
           out.push({ type: "creature", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }
@@ -387,7 +399,7 @@ export function enumerateTargets(state, controllerId, effect) {
         // DFCs: they're simply not offered to native non-creature removal (a SAFE omission, never a
         // wrong target). The spell still routes to the Arbiter if a DFC is its only would-be target.
         if (tl.includes(" // ")) continue;
-        if (pred(tl) && controllerOk(pid)) {
+        if (pred(tl) && controllerOk(pid) && canBeTargetedBy(state, perm, pid, controllerId)) {
           out.push({ type: "permanent", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }
@@ -399,7 +411,7 @@ export function enumerateTargets(state, controllerId, effect) {
   const addPlaneswalkers = () => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
-        if (perm.counters?.loyalty != null && controllerOk(pid)) {
+        if (perm.counters?.loyalty != null && controllerOk(pid) && canBeTargetedBy(state, perm, pid, controllerId)) {
           out.push({ type: "planeswalker", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }
