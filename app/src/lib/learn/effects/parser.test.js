@@ -418,6 +418,11 @@ describe("parseEffectProgram — board-count damage (DMG-SCALE)", () => {
     // hand", WALT-COUNT-OPP). Opponent permanents + other hand phrasings stay low:
     expect(conf("Incite deals damage to target creature equal to the number of creatures they control.")).toBe("low");      // opponent's creatures
     expect(conf("Jeska deals damage to target player equal to the number of cards in target opponent's hand.")).toBe("low"); // "target opponent's hand" phrasing not modeled
+    // who:"target" requires a SINGLE-PLAYER target — "that player's hand" with an each-opponent / creature
+    // target is incoherent → Arbiter (airtight; a count that would silently resolve to 0 must not be native):
+    expect(conf("Boom deals damage to each opponent equal to the number of cards in that player's hand.")).toBe("low"); // each-opponent: no single "that player"
+    expect(conf("Boom deals damage to target creature equal to the number of cards in that player's hand.")).toBe("low"); // creature target: no "that player"
+    expect(conf("Draw a card for each card in that player's hand.")).toBe("low"); // FOR-EACH is controller-scoped; "that player" has no referent
     // exotic sources (deferred). NOTE: graveyard counts (FOR-EACH) and permanent SUBTYPES (WALT-COUNT-SUBTYPE)
     // are now MODELED, so "artifact cards in your graveyard" (Scrapyard Salvo) and "Goblins you control"
     // (Goblin War Strike) flip DMG-SCALE high. Still-unmodeled: opponent-scoped + exotic sources.

@@ -418,7 +418,11 @@ const COUNT_SUBTYPE = {
   // land subtypes
   gate: "Gate", gates: "Gate", desert: "Desert", deserts: "Desert", locus: "Locus",
 };
-function parseCountSource(phrase) {
+// `allowTarget` admits the TARGET-scoped "cards in that player's hand" (who:"target") — passed ONLY by the
+// DMG-SCALE matcher, which also requires a single-player target. Every other caller (the controller-scoped
+// FOR-EACH draw/gain-life/lose-life/create-token matchers) leaves it false, so "that player" — which has no
+// referent in a controller effect — routes to the Arbiter instead of silently resolving to 0.
+function parseCountSource(phrase, { allowTarget = false } = {}) {
   const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
   if ((m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) you control$/))) {
@@ -433,7 +437,7 @@ function parseCountSource(phrase) {
   // number of cards in that player's hand" (Sudden Impact, Gaze of Adamaro, Storm Seeker). who:"target"
   // tells countForSpec to count the target player, not the controller. Only the bare phrase; "a player's"
   // / "an opponent's" / "each player's" don't match (→ low).
-  if (/^cards? in that player's hand$/.test(p)) return { kind: "cardsInHand", who: "target" };
+  if (allowTarget && /^cards? in that player's hand$/.test(p)) return { kind: "cardsInHand", who: "target" };
   // ===== FOR-EACH ===== cards in YOUR graveyard, optionally filtered by ONE card type. Controller-scoped
   // ("your graveyard"); "a graveyard" / "their graveyard" / "that player's graveyard" reject (→ low).
   if ((m = p.match(/^(?:(creature|artifact|land|instant|sorcery|enchantment|planeswalker) )?cards? in your graveyard$/))) {
@@ -468,8 +472,13 @@ function parseExtendedAtom(s) {
       "target creature or planeswalker": "creatureOrPlaneswalker", "each opponent": "eachOpponent",
     };
     const targetType = TT[mds[1].trim()];
-    const amountCount = parseCountSource(mds[2]);
-    return targetType && amountCount ? { op: "deal-damage", targetType, amountCount } : null;
+    const amountCount = parseCountSource(mds[2], { allowTarget: true });
+    if (!targetType || !amountCount) return null;
+    // who:"target" ("cards in that player's hand") requires a SINGLE-PLAYER target — "that player" = the
+    // targeted player. Pairing it with an each-opponent / creature / any target is incoherent (no single
+    // "that player") → route the whole card to the Arbiter rather than silently count 0.
+    if (amountCount.who === "target" && targetType !== "player" && targetType !== "playerOrPlaneswalker") return null;
+    return { op: "deal-damage", targetType, amountCount };
   }
 
   // ===== FOR-EACH ===== (WALT-FOR-EACH) a count-scaled NON-TARGETED controller effect: "draw a card for
