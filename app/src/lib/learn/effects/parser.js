@@ -367,21 +367,29 @@ function parseTokenKeywords(phrase) {
 // count-derived value is locked as the spell/ability resolves), or null for an unmodeled source (→ low
 // → Arbiter). Slice 1 (WALT-DMG-SCALE) admits only CONTROLLER-scoped counts: permanents YOU control by
 // card TYPE (creature/land/artifact/enchantment) or basic-land SUBTYPE (the CLOSED set Mountain/Forest/
-// Island/Plains/Swamp), or cards in YOUR hand. Opponent-scoped counts ("creatures they control", "cards
-// in that player's hand"), graveyard counts, creature subtypes (Goblins/Elves), and exotic sources
-// (snow / attacking / "in excess of" / devotion) are NOT modeled → null → the whole clause routes low.
-const COUNT_TYPE = { creatures: "creature", lands: "land", artifacts: "artifact", enchantments: "enchantment" };
-const COUNT_BASIC_SUBTYPE = { mountains: "Mountain", forests: "Forest", islands: "Island", plains: "Plains", swamps: "Swamp" };
+// Island/Plains/Swamp), cards in YOUR hand, and (FOR-EACH) cards in YOUR graveyard (optionally typed).
+// Opponent-scoped counts ("creatures they control", "cards in that player's hand"), creature subtypes
+// (Goblins/Elves), and exotic sources (snow / attacking / "in excess of" / devotion) are NOT modeled →
+// null → the whole clause routes low. SINGULAR and PLURAL both map to the same count: DMG-SCALE reads
+// "the number of creatureS you control"; FOR-EACH reads "for each creature you control".
+const COUNT_TYPE = { creature: "creature", creatures: "creature", land: "land", lands: "land", artifact: "artifact", artifacts: "artifact", enchantment: "enchantment", enchantments: "enchantment" };
+const COUNT_BASIC_SUBTYPE = { mountain: "Mountain", mountains: "Mountain", forest: "Forest", forests: "Forest", island: "Island", islands: "Island", swamp: "Swamp", swamps: "Swamp", plains: "Plains" };
+const COUNT_GY_TYPE = { creature: "creature", artifact: "artifact", land: "land", instant: "instant", sorcery: "sorcery", enchantment: "enchantment", planeswalker: "planeswalker" };
 function parseCountSource(phrase) {
   const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
-  if ((m = p.match(/^(creatures|lands|artifacts|enchantments) you control$/))) {
+  if ((m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) you control$/))) {
     return { kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]] };
   }
-  if ((m = p.match(/^(mountains|forests|islands|plains|swamps) you control$/))) {
+  if ((m = p.match(/^(mountains?|forests?|islands?|swamps?|plains) you control$/))) {
     return { kind: "permanentsYouControl", subtype: COUNT_BASIC_SUBTYPE[m[1]] };
   }
-  if (/^cards in your hand$/.test(p)) return { kind: "cardsInHand" };
+  if (/^cards? in your hand$/.test(p)) return { kind: "cardsInHand" };
+  // ===== FOR-EACH ===== cards in YOUR graveyard, optionally filtered by ONE card type. Controller-scoped
+  // ("your graveyard"); "a graveyard" / "their graveyard" / "that player's graveyard" reject (→ low).
+  if ((m = p.match(/^(?:(creature|artifact|land|instant|sorcery|enchantment|planeswalker) )?cards? in your graveyard$/))) {
+    return m[1] ? { kind: "cardsInGraveyard", cardType: COUNT_GY_TYPE[m[1]] } : { kind: "cardsInGraveyard" };
+  }
   return null;
 }
 
@@ -406,6 +414,49 @@ function parseExtendedAtom(s) {
     const targetType = TT[mds[1].trim()];
     const amountCount = parseCountSource(mds[2]);
     return targetType && amountCount ? { op: "deal-damage", targetType, amountCount } : null;
+  }
+
+  // ===== FOR-EACH ===== (WALT-FOR-EACH) a count-scaled NON-TARGETED controller effect: "draw a card for
+  // each X", "you gain N life for each X", "each opponent/player/you lose N life for each X" (and the
+  // "<effect> equal to the number of X" phrasing for draw/gain). The amount is a board count × a per-unit
+  // value (`amountCount.per`), computed at resolution (reuses parseCountSource + resolveScaledAmount). An
+  // unmodeled count source (parseCountSource → null) drops the whole clause to low → Arbiter. Numeric
+  // per only. The effects are non-targeted (targetType:null), so they route the same on a spell or a
+  // trigger; the count is always the CONTROLLER's (ctx.controller).
+  let mfe = t.match(/^(?:you )?draw (a|\d+) cards? for each (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[2]);
+    return src ? { op: "draw", amountCount: { ...src, per: mfe[1] === "a" ? 1 : parseInt(mfe[1], 10) }, targetType: null } : null;
+  }
+  mfe = t.match(/^(?:you )?draw cards equal to the number of (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[1]);
+    return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
+  }
+  mfe = t.match(/^(?:you )?gain (\d+) life for each (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[2]);
+    return src ? { op: "gain-life", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
+  }
+  mfe = t.match(/^(?:you )?gain life equal to the number of (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[1]);
+    return src ? { op: "gain-life", amountCount: { ...src, per: 1 }, targetType: null } : null;
+  }
+  mfe = t.match(/^each opponent loses (\d+) life for each (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[2]);
+    return src ? { op: "lose-life", who: "eachOpponent", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
+  }
+  mfe = t.match(/^each player loses (\d+) life for each (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[2]);
+    return src ? { op: "lose-life", who: "eachPlayer", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
+  }
+  mfe = t.match(/^(?:you )?lose (\d+) life for each (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[2]);
+    return src ? { op: "lose-life", who: "controller", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
   }
 
   // Tutor — "Search your library for a/an [<FILTER>] card, [reveal it,] [and] put it into

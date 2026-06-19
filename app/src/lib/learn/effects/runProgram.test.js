@@ -184,6 +184,49 @@ describe("runEffectProgram — board-count damage (DMG-SCALE)", () => {
   });
 });
 
+// ===== FOR-EACH ===== (WALT-FOR-EACH) a count-scaled NON-TARGETED controller effect — amount = a board
+// count × per (resolveScaledAmount), computed at resolution. Reuses the DMG-SCALE count subsystem.
+describe("runEffectProgram — count-scaled draw / life (FOR-EACH)", () => {
+  const withUser = (over) => { const s = freshState(); return { ...s, players: { ...s.players, user: { ...s.players.user, ...over } } }; };
+  const ccard = (id) => ({ id, name: "Bear", type: "Creature — Bear" });
+
+  it("gain N life for each creature you control multiplies by per (2 life × 3 creatures = 6)", () => {
+    const state = withUser({ battlefield: [cr("Bear", "b1", "user"), cr("Bear", "b2", "user"), cr("Bear", "b3", "user")] });
+    const obj = stackObj(high([{ op: "gain-life", targetType: null, amountCount: { kind: "permanentsYouControl", cardType: "creature", per: 2 } }]));
+    expect(runEffectProgram(state, obj).players.user.life).toBe(state.players.user.life + 6);
+  });
+  it("draw a card for each creature you control draws exactly the count (per 1)", () => {
+    const state = withUser({ battlefield: [cr("Bear", "b1", "user"), cr("Bear", "b2", "user")], library: [{ id: "l1" }, { id: "l2" }, { id: "l3" }] });
+    const before = state.players.user.hand.length;
+    const obj = stackObj(high([{ op: "draw", targetType: null, amountCount: { kind: "permanentsYouControl", cardType: "creature", per: 1 } }]));
+    expect(runEffectProgram(state, obj).players.user.hand.length).toBe(before + 2);
+  });
+  it("counts cards in YOUR graveyard by type (2 creature cards among a noncreature)", () => {
+    const state = withUser({ graveyard: [ccard("g1"), ccard("g2"), { id: "g3", name: "Bolt", type: "Instant" }], library: [{ id: "l1" }, { id: "l2" }, { id: "l3" }] });
+    const before = state.players.user.hand.length;
+    const obj = stackObj(high([{ op: "draw", targetType: null, amountCount: { kind: "cardsInGraveyard", cardType: "creature", per: 1 } }]));
+    expect(runEffectProgram(state, obj).players.user.hand.length).toBe(before + 2); // 2 creature cards; the Instant doesn't count
+  });
+  it("each opponent loses N life for each creature you control (2 life × 2 creatures = 4)", () => {
+    const state = withUser({ battlefield: [cr("Bear", "b1", "user"), cr("Bear", "b2", "user")] });
+    const obj = stackObj(high([{ op: "lose-life", who: "eachOpponent", targetType: null, amountCount: { kind: "permanentsYouControl", cardType: "creature", per: 2 } }]));
+    expect(runEffectProgram(state, obj).players.ai.life).toBe(state.players.ai.life - 4);
+  });
+  it("a zero count → zero (no life gained, no crash)", () => {
+    const state = withUser({ battlefield: [] });
+    const obj = stackObj(high([{ op: "gain-life", targetType: null, amountCount: { kind: "permanentsYouControl", cardType: "creature", per: 5 } }]));
+    expect(runEffectProgram(state, obj).players.user.life).toBe(state.players.user.life);
+  });
+  it("a zero count DRAWS ZERO — never fabricates a card (the `?? 1` floor, not `|| 1`)", () => {
+    const state = withUser({ battlefield: [], library: [{ id: "l1" }, { id: "l2" }] }); // no creatures
+    const before = state.players.user.hand.length;
+    const obj = stackObj(high([{ op: "draw", targetType: null, amountCount: { kind: "permanentsYouControl", cardType: "creature", per: 1 } }]));
+    const out = runEffectProgram(state, obj);
+    expect(out.players.user.hand.length).toBe(before);          // drew 0, not 1
+    expect(out.players.user.library.length).toBe(2);            // library untouched
+  });
+});
+
 describe("effect-program resolver registration + end-to-end", () => {
   it("is a built-in resolver under the reserved key", () => {
     expect(getResolver(RESOLVER_KEYS.EFFECT_PROGRAM)).toBe(RESOLVERS[RESOLVER_KEYS.EFFECT_PROGRAM]);

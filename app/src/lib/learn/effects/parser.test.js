@@ -231,12 +231,15 @@ describe("parseEffectProgram — life atoms (P2.7)", () => {
     expect(parseEffectProgram(I("Lightning Helix deals 3 damage to any target and you gain 3 life.")).atoms.map(a => a.op)).toEqual(["deal-damage", "gain-life"]);
     expect(parseEffectProgram(I("You draw two cards and lose 2 life.")).atoms.map(a => a.op)).toEqual(["draw", "lose-life"]);
   });
-  it("keeps wrong-subject / dynamic life low (anchored allowlist holds)", () => {
-    // a DIFFERENT player gains/loses, or a dynamic amount — not the bare controller form.
+  it("keeps wrong-subject / unmodeled-dynamic life low (anchored allowlist holds)", () => {
+    // a DIFFERENT player gains/loses — not the bare controller form.
     expect(programConfidence(parseEffectProgram(I("Target player loses 2 life.")))).toBe("low");
     expect(programConfidence(parseEffectProgram(I("Target player draws two cards and loses 2 life.")))).toBe("low");
-    expect(programConfidence(parseEffectProgram(I("You gain life equal to the number of creatures you control.")))).toBe("low");
-    expect(programConfidence(parseEffectProgram(I("You gain 2 life for each creature you control.")))).toBe("low");
+    // NOTE: a CONTROLLER count-scaled life ("for each creature you control" / "equal to the number of …")
+    // is now MODELED by FOR-EACH (WALT-FOR-EACH) → HIGH (pinned there). A count source we DON'T model still
+    // stays low:
+    expect(programConfidence(parseEffectProgram(I("You gain 2 life for each creature an opponent controls.")))).toBe("low"); // opponent-scoped
+    expect(programConfidence(parseEffectProgram(I("You gain 2 life for each Elf you control.")))).toBe("low");                // creature subtype
   });
 });
 
@@ -329,6 +332,39 @@ describe("parseEffectProgram — targeted atoms (P2.7)", () => {
   });
 });
 
+// ===== FOR-EACH ===== (WALT-FOR-EACH) count-scaled NON-TARGETED controller effects — "draw a card / gain
+// N life / lose N life for each <source>" (and "<effect> equal to the number of <source>"). amount = a
+// board count × per. Reuses parseCountSource (now singular-aware + graveyard). Unmodeled source → low.
+describe("parseEffectProgram — count-scaled draw / life (FOR-EACH)", () => {
+  const atom0 = (txt) => parseEffectProgram(I(txt)).atoms[0];
+  const conf = (txt) => programConfidence(parseEffectProgram(I(txt)));
+  it("MUST_STAY_HIGH: draw / gain-life / lose-life × source × per", () => {
+    expect(atom0("Draw a card for each creature you control."))
+      .toMatchObject({ op: "draw", amountCount: { kind: "permanentsYouControl", cardType: "creature", per: 1 } });
+    expect(atom0("You gain 2 life for each card in your hand."))
+      .toMatchObject({ op: "gain-life", amountCount: { kind: "cardsInHand", per: 2 } });
+    expect(atom0("Draw a card for each creature card in your graveyard."))
+      .toMatchObject({ op: "draw", amountCount: { kind: "cardsInGraveyard", cardType: "creature", per: 1 } });
+    expect(atom0("You gain 1 life for each Swamp you control."))
+      .toMatchObject({ op: "gain-life", amountCount: { kind: "permanentsYouControl", subtype: "Swamp", per: 1 } });
+    expect(atom0("Each opponent loses 2 life for each creature you control."))
+      .toMatchObject({ op: "lose-life", who: "eachOpponent", amountCount: { kind: "permanentsYouControl", cardType: "creature", per: 2 } });
+    // the "equal to the number of" phrasing too:
+    expect(atom0("Draw cards equal to the number of artifacts you control."))
+      .toMatchObject({ op: "draw", amountCount: { kind: "permanentsYouControl", cardType: "artifact", per: 1 } });
+    expect(atom0("You gain life equal to the number of creatures you control."))
+      .toMatchObject({ op: "gain-life", amountCount: { kind: "permanentsYouControl", cardType: "creature", per: 1 } });
+  });
+  it("MUST_DROP_TO_LOW: opponent-scoped / subtype / 'don't control' / other-graveyard sources → Arbiter", () => {
+    expect(conf("Draw a card for each creature target opponent controls.")).toBe("low");   // opponent-scoped
+    expect(conf("Draw a card for each creature you don't control.")).toBe("low");           // negated control
+    expect(conf("You gain 2 life for each Elf you control.")).toBe("low");                  // creature subtype — deferred
+    expect(conf("Draw a card for each creature card in their graveyard.")).toBe("low");     // not YOUR graveyard
+    expect(conf("Draw a card for each Arcane card in your graveyard.")).toBe("low");         // spell subtype — deferred
+    expect(conf("You gain 2 life for each other creature you control.")).toBe("low");        // "other" (self-exclusion) — deferred
+  });
+});
+
 // ===== DMG-SCALE ===== (WALT-DMG-SCALE) "deals damage to <target> equal to the number of <count source>"
 // — the amount is a board count (amountCount) resolved at resolution. Tight target + source allowlists.
 describe("parseEffectProgram — board-count damage (DMG-SCALE)", () => {
@@ -353,9 +389,9 @@ describe("parseEffectProgram — board-count damage (DMG-SCALE)", () => {
     // opponent-scoped sources (slice 1 is controller-scoped only):
     expect(conf("Incite deals damage to target creature equal to the number of creatures they control.")).toBe("low");
     expect(conf("Sudden Impact deals damage to target player equal to the number of cards in that player's hand.")).toBe("low");
-    // creature subtype / graveyard / exotic sources (deferred):
+    // creature subtype / exotic sources (deferred). NOTE: graveyard counts are now MODELED (FOR-EACH added
+    // them to parseCountSource), so "artifact cards in your graveyard" now flips DMG-SCALE high too (Scrapyard Salvo).
     expect(conf("Goblin War Strike deals damage to target player equal to the number of Goblins you control.")).toBe("low");
-    expect(conf("Scrapyard deals damage to any target equal to the number of artifact cards in your graveyard.")).toBe("low");
     expect(conf("Skred deals damage to target creature equal to the number of snow permanents you control.")).toBe("low");
     // a multiplier ("twice the number of") is not a half-scalable native:
     expect(conf("Boom deals damage to any target equal to twice the number of Mountains you control.")).toBe("low");
