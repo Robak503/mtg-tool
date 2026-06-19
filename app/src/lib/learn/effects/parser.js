@@ -101,7 +101,12 @@ function stripUncounterableRider(text) {
  * learn / proliferate / amass — those DO add an effect (recast / encode / copy / Lesson / extra effect),
  * so their card must stay LOW → Arbiter (never strip a non-vacuous keyword).
  */
-const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{)[^\n]*$/gim;
+// `cycling\s*\{` (KW-CYCLING) strips the plain-cycling line so a cycling SPELL's body parses native —
+// UNLIKE the unenforced keywords above, cycling IS enforced (the from-hand `cycle` activation in
+// legalChoices/actionDispatcher actually discards-and-draws), so the spell counts native honestly. The
+// `^…cycling` anchor never matches "plainscycling"/"landcycling" — typecycling stays unstripped (its
+// search variant routes to the Arbiter until the tutor atom covers it).
+const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{)[^\n]*$/gim;
 function stripCastKeywordLines(text) {
   return String(text || "").replace(CAST_KEYWORD_LINE, " ");
 }
