@@ -31,13 +31,19 @@ import { detectTriggers } from "../src/lib/learn/triggers.js";
 const arg = (process.argv[2] || "").toLowerCase();
 
 // The keywords the runtime ACTUALLY enforces (grep: permanentHasKeyword / SBA / attack-legality).
-// Anything in COVERED_KEYWORDS but NOT here is a display-only over-claim → false positive.
-// `flash` (timing-only) / `changeling`/`devoid` (identity) don't mis-resolve a body, so they're allowed.
 const ENFORCED_KEYWORDS = new Set([
   "flying", "reach", "first strike", "double strike", "trample", "deathtouch",
   "lifelink", "vigilance", "haste", "indestructible",
 ]);
-const ALLOWED_UNENFORCED = new Set(["flash", "changeling", "devoid"]); // safe: never mis-resolve the body
+const ALLOWED_UNENFORCED = new Set(["flash", "changeling", "devoid"]); // safe: timing/identity, never mis-resolve a body
+// INTERIM-FP: unenforced TODAY but knowingly KEPT claimed native while enforcement is built (enforce-don't-drop
+// policy, retired-fp-ledger.md). These are expected, tracked live FPs — NOT an alarm. Only a COVERED_KEYWORD
+// that is none of {enforced, safe, interim-tracked} is a NEW untracked over-claim worth flagging.
+const KNOWN_INTERIM_FP = new Set([
+  "menace", "skulk", "intimidate", "fear", "horsemanship", "defender", // → EVADE / attack-legality
+  "hexproof", "shroud", "ward", "protection",                          // → TARGET-RESTRICT
+  "prowess",                                                           // → PROWESS cast-trigger
+]);
 
 function isRealCard(c) {
   const t = c.type || "";
@@ -238,15 +244,20 @@ if (arg === "keywords") {
       .every((c) => kws.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)));
   };
   console.log("=== COVERED_KEYWORDS enforcement audit ===");
-  console.log("  (a keyword the runtime does NOT enforce, claimed native, is a FALSE POSITIVE)\n");
-  let risk = 0;
+  console.log("  (enforce-don't-drop: interim-FP keywords are KEPT native while enforcement is built — tracked,");
+  console.log("   not an alarm; only a keyword that is none of {enforced, safe, interim-tracked} is a NEW over-claim)\n");
+  let newRisk = 0;
   for (const kw of COVERED_KEYWORDS) {
     const enforced = ENFORCED_KEYWORDS.has(kw);
-    const allowed = enforced || ALLOWED_UNENFORCED.has(kw);
+    const safe = ALLOWED_UNENFORCED.has(kw);
+    const interim = KNOWN_INTERIM_FP.has(kw);
     const dependents = nativeBodyCards.filter((c) => !keywordOnlyWithout(c.oracle, kw) && isKeywordOnly(c.oracle)).length;
-    const tag = enforced ? "enforced" : allowed ? "safe (timing/identity)" : "*** FALSE-POSITIVE RISK ***";
-    if (!allowed) risk++;
+    const tag = enforced ? "enforced" : safe ? "safe (timing/identity)"
+      : interim ? "interim-FP (enforcement queued — retired-fp-ledger.md)" : "*** NEW UNTRACKED OVER-CLAIM ***";
+    if (!enforced && !safe && !interim) newRisk++;
     console.log(`  ${String(dependents).padStart(4)} native-body  ${kw.padEnd(14)} ${tag}`);
   }
-  console.log(`\n  ${risk === 0 ? "OK — every COVERED_KEYWORD is enforced or a safe non-resolving keyword." : `${risk} COVERED_KEYWORD(s) are over-claimed (unenforced) → false positives.`}`);
+  console.log(`\n  ${newRisk === 0
+    ? "OK — every COVERED_KEYWORD is enforced, a safe non-resolving keyword, or a tracked interim FP."
+    : `${newRisk} COVERED_KEYWORD(s) are NEW untracked over-claims → confirm + either enforce or add to the ledger.`}`);
 }

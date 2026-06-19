@@ -36,33 +36,30 @@ import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 
-// Keywords whose RULES the runtime ACTUALLY ENFORCES — so a permanent whose only
-// text is these resolves CORRECTLY natively (CREED: native-body asserts a right
-// combat/targeting resolution, not just a recognized word). A keyword belongs here
-// ONLY if the engine consults it via permanentHasKeyword / an SBA / attack-legality:
-//   - flying/reach           → legalChoices.canBlock (block legality)
-//   - first/double strike, trample, deathtouch, lifelink → combatResolution.js
-//   - vigilance              → actionDispatcher (no attack-tap)
-//   - haste                  → legalChoices (summoning-sickness bypass)
-//   - indestructible         → gameState lethal-damage SBA + the destroy atom
-//   - flash                  → casting TIMING only; not honoring it removes an option
-//                              (a SAFE false-negative), never mis-resolves the body
-//   - changeling/devoid      → type/color identity; the body plays correctly
+// Keywords a keyword-only body counts native on — TWO classes, per Colton's
+// "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
 //
-// EXCLUDED (display-only — the engine does NOT enforce their rules, so claiming a
-// body native on their basis is a FALSE POSITIVE; they drop to the Arbiter until
-// their enforcement subsystem ships, then return here):
-//   - menace/skulk/intimidate/fear/horsemanship → block restrictions unenforced
-//        (canBlock honors only flying/reach; combatResolution defers menace) → EVADE/canBlock
-//   - defender               → actionsDeclareAttacker never excludes it (a Wall can attack) → attack-legality
-//   - hexproof/shroud/ward    → enumerateTargets applies no targetability check → targeting-protection subsystem
-//   - protection             → DEBT (block/damage/target/enchant) all unenforced (combatResolution defers it) → protection subsystem
-//   - prowess                → an unmodeled triggered pump (no handler anywhere) → TRIG-PROWESS coverage
-// See docs/scout-gap-report.md "VERIFY-COVERED-KW" for the per-keyword evidence + drop counts.
+//  ENFORCED — the runtime consults the keyword (permanentHasKeyword / an SBA /
+//  attack-legality), so the body resolves CORRECTLY today:
+//    flying·reach (canBlock) · first/double strike·trample·deathtouch·lifelink
+//    (combatResolution) · vigilance (no attack-tap) · haste (summoning-sickness) ·
+//    indestructible (lethal-damage SBA). flash (casting timing) + changeling/devoid
+//    (type/color identity) likewise never mis-resolve a body.
+//
+//  INTERIM-FP — the rule is NOT enforced yet (a body currently mis-plays it), BUT the
+//  mechanic is TRACTABLE: we KEEP it claimed native and BUILD the enforcement
+//  (engine-first, Cindy's lane) rather than drop coverage. An accepted, time-boxed
+//  trade — do NOT re-drop these (that was #255, SUPERSEDED); the enforcement tasks
+//  restore correctness and each is logged in retired-fp-ledger.md:
+//    menace·skulk·intimidate·fear·horsemanship·defender → EVADE / attack-legality (canBlock)
+//    hexproof·shroud·ward·protection                    → TARGET-RESTRICT (enumerateTargets)
+//    prowess                                            → PROWESS (cast-trigger compiler)
+//  (Dropping to the Arbiter is the LAST RESORT — genuinely-hard/exotic mechanics only.)
 export const COVERED_KEYWORDS = [
   "flying", "reach", "first strike", "double strike", "trample", "deathtouch",
-  "lifelink", "vigilance", "haste", "indestructible", "flash",
-  "changeling", "devoid",
+  "lifelink", "vigilance", "menace", "haste", "defender", "flash", "hexproof",
+  "shroud", "indestructible", "ward", "protection", "prowess", "skulk",
+  "intimidate", "fear", "horsemanship", "changeling", "devoid",
 ];
 
 const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");

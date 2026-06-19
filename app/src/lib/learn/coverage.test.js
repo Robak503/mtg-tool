@@ -19,27 +19,21 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Angel", "Flying, vigilance"))).toBe("native-body");
     expect(classifyCard(C("Creature — Beast", "Trample (reminder)"))).toBe("native-body");
   });
-  // VERIFY-COVERED-KW (Hans cycle-1 FP fix): native-body asserts a CORRECT combat/targeting
-  // resolution, so only keywords the runtime ENFORCES count. These ENFORCED keywords stay native.
-  it("MUST_STAY_HIGH: a body whose only text is an ENFORCED keyword is native-body", () => {
+  // VERIFY-COVERED-KW / enforce-don't-drop policy (retired-fp-ledger.md, 2026-06-18): a keyword-only body
+  // is native-body. ENFORCED keywords resolve correctly today; the INTERIM-FP keywords (menace, defender,
+  // hexproof, shroud, ward, protection, prowess, skulk, intimidate, fear, horsemanship) are KEPT claimed
+  // native as a time-boxed trade while their enforcement is built (Cindy's EVADE / TARGET-RESTRICT / PROWESS
+  // lanes). Do NOT re-drop them (that was #255, SUPERSEDED) — BUILD the enforcement instead.
+  it("MUST_STAY_HIGH: a body whose only text is a covered keyword is native-body (enforced + interim-FP)", () => {
     for (const kw of ["Flying", "Reach", "First strike", "Double strike", "Trample", "Deathtouch",
-      "Lifelink", "Vigilance", "Haste", "Indestructible", "Flash"]) {
+      "Lifelink", "Vigilance", "Haste", "Indestructible", "Flash",                  // enforced — correct today
+      "Menace", "Defender", "Hexproof", "Shroud", "Ward {2}", "Protection from red", // interim-FP — kept native,
+      "Prowess", "Skulk", "Intimidate", "Fear", "Horsemanship"]) {                  // pending enforcement
       expect(classifyCard(C("Creature — Bear", kw))).toBe("native-body");
     }
-    expect(classifyCard(C("Creature — Bear", "Flying, lifelink"))).toBe("native-body");
-  });
-  // MUST_DROP_TO_LOW: a DISPLAY-ONLY keyword (rules unenforced) must NOT be claimed native — the
-  // engine would mis-resolve (block-restriction bypassed / untargetable targeted / Wall attacks /
-  // protection ignored / prowess pump dropped). Each drops to body-only → its card routes to the Arbiter.
-  it("MUST_DROP_TO_LOW: a body whose only text is a DISPLAY-ONLY (unenforced) keyword is body-only, not native", () => {
-    for (const kw of ["Menace", "Defender", "Hexproof", "Shroud", "Ward {2}", "Protection from red",
-      "Prowess", "Skulk", "Intimidate", "Fear", "Horsemanship"]) {
-      expect(classifyCard(C("Creature — Bear", kw))).toBe("body-only");
-    }
-    // Even with an ENFORCED keyword alongside it, one unenforced keyword drops the whole body (all-or-nothing).
-    expect(classifyCard(C("Creature — Bird", "Flying, menace"))).toBe("body-only");
-    // The reminder text is stripped first, so the strip can't smuggle it back to native.
-    expect(classifyCard(C("Creature — Goblin", "Menace (This creature can't be blocked except by two or more creatures.)"))).toBe("body-only");
+    expect(classifyCard(C("Creature — Bird", "Flying, menace"))).toBe("native-body");
+    // Reminder text is stripped first (CR 207.2), so a keyword printed with its reminder still classifies clean.
+    expect(classifyCard(C("Creature — Goblin", "Menace (This creature can't be blocked except by two or more creatures.)"))).toBe("native-body");
   });
   // FIX-PW-LAND-ORDER: a Land Planeswalker (Wrenn and One) with unmodeled loyalty must hit the
   // planeswalker gate, NOT the land tier — else it's mis-counted native-`land` despite unmodeled abilities.
@@ -95,12 +89,10 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Sprite", "When this creature enters, return target creature to its owner's hand."))).toBe("body-only");
   });
   it("a permanent whose only text is modeled activated abilities is native-activated (P2.9)", () => {
-    // {T} pinger, mana-cost draw, tapper, and an ENFORCED keyword + modeled ability — all native.
+    // {T} pinger, mana-cost draw, tapper, and a keyword + modeled ability — all native.
     expect(classifyCard(C("Creature — Wizard", "{T}: This creature deals 1 damage to any target."))).toBe("native-activated");
     expect(classifyCard(C("Artifact", "{4}, {T}: Draw a card."))).toBe("native-activated");
-    // Reach (enforced) + a modeled activated ability → native-activated. (A DISPLAY-ONLY keyword like
-    // Defender would instead drop the whole card to body-only — see the MUST_DROP_TO_LOW pin above.)
-    expect(classifyCard(C("Creature — Wall", "Reach\n{1}{W}, {T}: Tap target creature."))).toBe("native-activated");
+    expect(classifyCard(C("Creature — Wall", "Defender\n{1}{W}, {T}: Tap target creature."))).toBe("native-activated");
     // P3.2: a modeled activated tutor (Journeyer's Kite / Captain Sisay shape) is native.
     expect(classifyCard(C("Artifact", "{3}, {T}: Search your library for a basic land card, reveal it, put it into your hand, then shuffle."))).toBe("native-activated");
     // γ1: a NO-CHOICE self-sacrifice / pay-life activated cost is modeled → native.
