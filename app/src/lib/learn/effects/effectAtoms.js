@@ -393,7 +393,7 @@ function applyDiscardChosen(state, atom, ctx) {
 }
 
 /**
- * ===== EDICTS ===== — sacrifice a creature controlled by `playerId` as an EFFECT (CR 701.16): move it
+ * ===== EDICTS ===== — sacrifice a creature controlled by `playerId` as an EFFECT (CR 701.21): move it
  * battlefield → graveyard and fire its + watchers' dies triggers (CR 700.4 — the aristocrats payoff).
  * The EFFECT-side twin of actionDispatcher.sacrificePermanentForCost (the cost-side self-sac), kept here
  * so the edict resolver + the resolution-time victim-choice path (runProgram.resolveSacrificeChoice)
@@ -415,7 +415,7 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
 }
 
 /**
- * ===== EDICTS ===== — walk the sacrifice CHAIN (CR 701.16 — each sacrificing player chooses which creature
+ * ===== EDICTS ===== — walk the sacrifice CHAIN (CR 701.21 — each sacrificing player chooses which creature
  * to give up). `queue` is the remaining sacrificers, head-first, each `{ playerId }` (one creature apiece —
  * the modeled "sacrifices a creature" forms). For each in turn:
  *   - eliminated / no creature → drop and move on (a clean no-op; you can't sacrifice what you don't have).
@@ -452,7 +452,7 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
 
 /**
  * EDICTS — sacrifice-as-an-effect, resolved through the chain above. The SACRIFICING player chooses which
- * creature (CR 701.16), never the caster. `atom.who` selects the sacrificers:
+ * creature (CR 701.21), never the caster. `atom.who` selects the sacrificers:
  *   - "target" (default, #214) — the player(s) targeted at cast (Diabolic Edict / Cruel Edict / Geth's Verdict).
  *   - "eachPlayer" (Innocent Blood / Reign of the Pit) — every player, the controller first (APNAP-stable).
  *   - "eachOpponent" (Liliana's Triumph / Skull Storm) — every opponent.
