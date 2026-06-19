@@ -117,3 +117,93 @@ describe("coverage — ramp flips native across every path; landmines bounce", (
     expect(classifyCard(C("Instant", "Search your library for a green creature card, put it onto the battlefield, then shuffle.", "Natural Order"))).toBe("arbiter-spell");
   });
 });
+
+/**
+ * RAMP-TYPED (Dex, real-deck-unlock slice 1) — the typed-basic ramp staples that extend RAMP-1 from
+ * the literal "basic land" phrase to a basic-land-TYPE fetch (CR 305.6). Nature's Lore "a Forest card"
+ * (8 of the 15 profile decks), Farseek "a Plains, Island, Swamp, or Mountain card" (a comma-union typed
+ * basic), Three Visits, Spoils of Victory (a 5-way union), plus the same clause inside Wood Elves' /
+ * Kor Cartographer's ETB. Safe because a basic land TYPE only ever appears on a LAND (verified: zero
+ * non-land corpus cards carry one), so the land-guard still admits only land fetches. CREED landmines:
+ * an AMBIGUOUS-basic union (Quandrix Cultivator "a basic Forest or Island card" — "basic" must distribute
+ * but the split can't prove it) and the "up to two" / intervening-if / Crew shells all stay LOW → Arbiter.
+ */
+describe("parser — typed-basic battlefield ramp (RAMP-TYPED)", () => {
+  it("a single basic land TYPE fetches HIGH (Nature's Lore 'Forest', untapped + 'that card'/'it')", () => {
+    expect(atomsOf("Search your library for a Forest card, put that card onto the battlefield, then shuffle."))
+      .toEqual([{ op: "tutor", filter: { groups: [["forest"]] }, filterLabel: "forest card", destination: "battlefield", entersTapped: false, targetType: null }]);
+    expect(atomsOf("Search your library for a Forest card, put it onto the battlefield, then shuffle."))
+      .toEqual([{ op: "tutor", filter: { groups: [["forest"]] }, filterLabel: "forest card", destination: "battlefield", entersTapped: false, targetType: null }]);
+  });
+
+  it("a comma-union of basic land TYPES fetches HIGH, honoring tapped (Farseek, Spoils of Victory)", () => {
+    expect(atomsOf("Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle."))
+      .toEqual([{ op: "tutor", filter: { groups: [["plains"], ["island"], ["swamp"], ["mountain"]] }, filterLabel: "plains, island, swamp, or mountain card", destination: "battlefield", entersTapped: true, targetType: null }]);
+    // Spoils of Victory — a 5-way union with the "and put" (Oxford-and) phrasing, untapped.
+    expect(isHigh("Search your library for a Plains, Island, Swamp, Mountain, or Forest card and put that card onto the battlefield. Then shuffle.")).toBe(true);
+  });
+
+  it("CREED: an AMBIGUOUS-basic union (Quandrix Cultivator) and 'up to two' typed fetch stay LOW → Arbiter", () => {
+    // "a basic Forest or Island card" — "basic" distributes to BOTH, but the split yields a bare "island"
+    // group that would over-permissively offer a NONBASIC dual. Drop to Arbiter rather than mis-fetch.
+    expect(isHigh("Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.")).toBe(false);
+    expect(isHigh("Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.")).toBe(false); // Skyshroud Claim (multi-card)
+  });
+
+  it("regression: the 'basic land' phrase and the HAND tutor are unchanged by the type loosening", () => {
+    expect(isHigh("Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.")).toBe(true);
+    expect(atomsOf("Search your library for a Forest card, put it into your hand, then shuffle.")[0].destination).toBe("hand");
+  });
+});
+
+describe("engine — the fetched typed basic enters the battlefield (RAMP-TYPED)", () => {
+  const dual = { id: "d1", name: "Breeding Pool", type: "Land — Forest Island", oracle: "" };
+  const TYPED_FOREST = { op: "tutor", filter: { groups: [["forest"]] }, filterLabel: "Forest card", destination: "battlefield", entersTapped: false, targetType: null };
+  it("only LANDS with the Forest type are offered — duals included, other basics + non-lands excluded", () => {
+    const st = resolveAtom(stateWithLibrary([forest, island, bear, dual]), TYPED_FOREST, { controller: "user", targets: [], cardName: "Nature's Lore" });
+    expect(st.pendingChoice).toMatchObject({ kind: "tutor-search", destination: "battlefield", entersTapped: false });
+    // Forest + Breeding Pool (both carry the Forest type); Island and the Bear are NOT offered.
+    expect(st.pendingChoice.candidates.map((c) => c.name).sort()).toEqual(["Breeding Pool", "Forest"]);
+  });
+  it("the chosen typed land enters the battlefield and leaves the library", () => {
+    let st = resolveAtom(stateWithLibrary([forest, island]), TYPED_FOREST, { controller: "user", targets: [], cardName: "Three Visits" });
+    st = resolveTutorChoice(st, autoPickTutorCandidate(st, st.pendingChoice));
+    expect(st.players.user.battlefield.map((c) => c.card.name)).toEqual(["Forest"]); // the Forest, not the Island
+    expect(st.players.user.battlefield[0].tapped).toBe(false);                       // Nature's Lore / Three Visits are untapped
+    expect(st.players.user.library).toHaveLength(1);
+  });
+  it("Farseek's tapped union enters TAPPED", () => {
+    const TAPPED_UNION = { op: "tutor", filter: { groups: [["plains"], ["island"], ["swamp"], ["mountain"]] }, filterLabel: "land", destination: "battlefield", entersTapped: true, targetType: null };
+    let st = resolveAtom(stateWithLibrary([island, forest]), TAPPED_UNION, { controller: "user", targets: [], cardName: "Farseek" });
+    expect(st.pendingChoice.candidates.map((c) => c.name)).toEqual(["Island"]); // only the Island matches the union (Forest is not in it)
+    st = resolveTutorChoice(st, autoPickTutorCandidate(st, st.pendingChoice));
+    expect(st.players.user.battlefield[0].card.name).toBe("Island");
+    expect(st.players.user.battlefield[0].tapped).toBe(true);
+  });
+});
+
+describe("coverage — typed-basic ramp flips native; the rider-shelled cards bounce (RAMP-TYPED)", () => {
+  const C = (type, oracle, name) => ({ type, oracle, mana: "", name });
+  it("the typed-basic ramp staples are native (spell + trigger + removal-rider)", () => {
+    expect(classifyCard(C("Sorcery", "Search your library for a Forest card, put that card onto the battlefield, then shuffle.", "Nature's Lore"))).toBe("native-spell");
+    expect(classifyCard(C("Sorcery", "Search your library for a Forest card, put it onto the battlefield, then shuffle.", "Three Visits"))).toBe("native-spell");
+    expect(classifyCard(C("Sorcery", "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.", "Farseek"))).toBe("native-spell");
+    expect(classifyCard(C("Sorcery", "Search your library for a Plains, Island, Swamp, Mountain, or Forest card and put that card onto the battlefield. Then shuffle.", "Spoils of Victory"))).toBe("native-spell");
+    // Mwonvuli Acid-Moss — destroy-target-land + the typed ramp; BOTH atoms modeled, neither dropped.
+    expect(classifyCard(C("Sorcery", "Destroy target land. Search your library for a Forest card, put that card onto the battlefield tapped, then shuffle.", "Mwonvuli Acid-Moss"))).toBe("native-spell");
+    // Clean ETB ramp creatures (no rider) route native-trigger.
+    expect(classifyCard(C("Creature — Elf Scout", "When this creature enters, search your library for a Forest card, put that card onto the battlefield, then shuffle.", "Wood Elves"))).toBe("native-trigger");
+    expect(classifyCard(C("Creature — Soldier", "When this creature enters, you may search your library for a Plains card, put it onto the battlefield tapped, then shuffle.", "Kor Cartographer"))).toBe("native-trigger");
+  });
+
+  it("CREED: typed-ramp cards wrapped in an unmodeled clause stay out of native", () => {
+    // Quandrix Cultivator — ambiguous-basic union → the clause itself drops to Arbiter.
+    expect(classifyCard(C("Creature — Turtle Druid", "When this creature enters, you may search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.", "Quandrix Cultivator"))).not.toBe("native-trigger");
+    // Loyal Warhound / Knight of the White Orchid — an INTERVENING-IF gate the flush stage doesn't evaluate.
+    expect(classifyCard(C("Creature — Dog", "Vigilance\nWhen this creature enters, if an opponent controls more lands than you, search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle.", "Loyal Warhound"))).not.toBe("native-trigger");
+    // Karametra — a devotion-based static ("isn't a creature") the engine doesn't model.
+    expect(classifyCard(C("Legendary Enchantment Creature — God", "Indestructible\nAs long as your devotion to green and white is less than seven, Karametra isn't a creature.\nWhenever you cast a creature spell, you may search your library for a Forest or Plains card, put it onto the battlefield tapped, then shuffle.", "Karametra, God of Harvests"))).not.toBe("native-trigger");
+    // Aerial Surveyor — a Crew ability + an intervening-if attack trigger; not a clean native.
+    expect(classifyCard(C("Artifact — Vehicle", "Flying\nWhenever this Vehicle attacks, if defending player controls more lands than you, search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle.\nCrew 2", "Aerial Surveyor"))).not.toBe("native-trigger");
+  });
+});
