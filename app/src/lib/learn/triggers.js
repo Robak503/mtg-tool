@@ -208,6 +208,11 @@ function classifyCondition(condRaw, cardName) {
   // UNDETECTED → Arbiter (a SAFE false-negative). Like lifegain, whose:"any" + checkCardDrawnTriggers scans
   // ONLY the drawing player's sources (drawing is turn-agnostic — an instant draws on any player's turn).
   if (/^you draw a card$/.test(c)) return { event: "cardDrawn", scope: "you", whose: "any" };
+  // TRIG-DRAW2 — "draw your second card each turn" (the draw-doubler payoff). Anchored to the BARE
+  // second-card form (each/this turn); a different ordinal ("first/third"), scaled, or rider variant stays
+  // UNDETECTED → Arbiter. Same whose:"any" + scan-only-the-drawer as cardDrawn; fires ONCE when the draw
+  // crosses the 2nd card of the turn (checkCardDrawnTriggers reads cardsDrawnThisTurn, reset for all seats).
+  if (/^you draw your second card (?:each|this) turn$/.test(c)) return { event: "drawSecond", scope: "you", whose: "any" };
   // ===== EACH-PLAYER (compound-combat-trigger guard) ===== A condition that names BOTH "attacks" and
   // "blocks" ("Whenever this creature attacks or blocks …" — Howling Golem, Burning Sun Cavalry) is a
   // COMPOUND combat event. The single-verb branches below model only ONE event, so detecting it as just
@@ -614,20 +619,30 @@ export function checkLifegainTriggers(state, gainingPlayerId, amount = 0) {
 }
 
 /**
- * TRIG-DRAW — enqueue "Whenever you draw a card" triggers (the card-draw event) for the player who just
- * drew. Fired at each draw site (the turn-based draw-step draw + the spell/EFFECT_PROGRAM draw atom). Each
- * card is a SEPARATE draw (CR 121.2 — cards are "drawn one at a time"), so a batch draw of N fires the
- * trigger N times (e.g. Lorescale Coatl gets N counters) — triggersForEvent is re-called per card so each
- * pending trigger is a distinct object. Scans ONLY the drawing player's sources (whose:"any"; drawing is
- * turn-agnostic, like lifegain — the "yours"/activePlayer gate would drop off-turn draws). `count` is the
- * number ACTUALLY drawn (the caller passes the real delta, so a deck-out draw of fewer fires fewer). Pure.
+ * TRIG-DRAW / TRIG-DRAW2 — enqueue card-draw triggers for the player who just drew. Fired at each draw
+ * site (the turn-based draw-step draw + the spell/EFFECT_PROGRAM draw atom) with `count` = cards ACTUALLY
+ * drawn (the caller passes the real delta, so a deck-out draw of fewer fires fewer). Two events:
+ *  - "cardDrawn" ("Whenever you draw a card"): each card is a SEPARATE draw (CR 121.2 — "drawn one at a
+ *    time"), so a batch of N fires N times (e.g. Lorescale Coatl gets N counters) — triggersForEvent is
+ *    re-called per card so each pending trigger is a distinct object.
+ *  - "drawSecond" ("…your second card each turn"): fires ONCE iff this batch crossed the 2nd draw of the
+ *    turn. cardsDrawnThisTurn was already incremented by drawCards (reset for ALL seats at untap via
+ *    resetCardsDrawnAllPlayers), so the batch covered (drawnAfter-count, drawnAfter]; the 2nd card is in it
+ *    when drawnAfter-count < 2 <= drawnAfter.
+ * Scans ONLY the drawing player's sources (whose:"any"; drawing is turn-agnostic, like lifegain — the
+ * "yours"/activePlayer gate would drop off-turn draws). Pure — appends to pendingTriggers.
  */
 export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
   if (!drawingPlayerId || !(count > 0) || !state.players?.[drawingPlayerId]) return state;
+  const drawnAfter = state.players[drawingPlayerId].cardsDrawnThisTurn;
+  const crossedSecond = (drawnAfter - count) < 2 && drawnAfter >= 2; // the 2nd draw of the turn was in this batch
   let fired = [];
   for (const perm of triggerSourcesOf(state, drawingPlayerId)) {
     for (let i = 0; i < count; i++) {
       fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId } }));
+    }
+    if (crossedSecond) {
+      fired = fired.concat(triggersForEvent(state, { event: "drawSecond", sourcePermanent: perm, triggeringContext: { drawingPlayerId } }));
     }
   }
   if (!fired.length) return state;
