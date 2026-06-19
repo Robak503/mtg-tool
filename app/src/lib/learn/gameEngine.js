@@ -39,7 +39,7 @@ import {
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
-import { checkStepTriggers, checkAttackTriggers } from "./triggers.js";
+import { checkStepTriggers, checkAttackTriggers, checkCardDrawnTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -202,7 +202,13 @@ export function runStepActions(state) {
       if (next.turn === 1 && state.activePlayer === state.startingPlayer) {
         next = logEvent(next, { kind: "step", phase: "beginning", step: "draw", player: state.activePlayer, skipped: "first-turn-draw" });
       } else {
+        const drawnBefore = next.players[state.activePlayer].cardsDrawnThisTurn;
         next = drawCards(next, { playerId: state.activePlayer, count: 1 });
+        // TRIG-DRAW (CR 121.1): the turn-based draw is a draw → fire "Whenever you draw a card". Guard on
+        // the real delta so a decked-out draw step (drew 0) doesn't fire.
+        if (next.players[state.activePlayer].cardsDrawnThisTurn > drawnBefore) {
+          next = checkCardDrawnTriggers(next, state.activePlayer, 1);
+        }
         next = logEvent(next, { kind: "step", phase: "beginning", step: "draw", player: state.activePlayer });
       }
       break;

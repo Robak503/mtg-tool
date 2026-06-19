@@ -203,6 +203,11 @@ function classifyCondition(condRaw, cardName) {
   // gate on "yours" (triggersForEvent) would wrongly drop an off-turn gain. checkLifegainTriggers instead
   // scans ONLY the gaining player's sources, so "you gain life" still fires for the gainer alone.
   if (/^you gain life$/.test(c)) return { event: "lifegain", scope: "you", whose: "any" };
+  // TRIG-DRAW — the card-draw event (CR 121.1, drawing a card). BARE "you draw a card" only, anchored: a
+  // conditional ("…your second card each turn"), scaled, or compound variant leaves residue and stays
+  // UNDETECTED → Arbiter (a SAFE false-negative). Like lifegain, whose:"any" + checkCardDrawnTriggers scans
+  // ONLY the drawing player's sources (drawing is turn-agnostic — an instant draws on any player's turn).
+  if (/^you draw a card$/.test(c)) return { event: "cardDrawn", scope: "you", whose: "any" };
   // ===== EACH-PLAYER (compound-combat-trigger guard) ===== A condition that names BOTH "attacks" and
   // "blocks" ("Whenever this creature attacks or blocks …" — Howling Golem, Burning Sun Cavalry) is a
   // COMPOUND combat event. The single-verb branches below model only ONE event, so detecting it as just
@@ -603,6 +608,27 @@ export function checkLifegainTriggers(state, gainingPlayerId, amount = 0) {
   let fired = [];
   for (const perm of triggerSourcesOf(state, gainingPlayerId)) {
     fired = fired.concat(triggersForEvent(state, { event: "lifegain", sourcePermanent: perm, triggeringContext: { gainingPlayerId, amount } }));
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * TRIG-DRAW — enqueue "Whenever you draw a card" triggers (the card-draw event) for the player who just
+ * drew. Fired at each draw site (the turn-based draw-step draw + the spell/EFFECT_PROGRAM draw atom). Each
+ * card is a SEPARATE draw (CR 121.2 — cards are "drawn one at a time"), so a batch draw of N fires the
+ * trigger N times (e.g. Lorescale Coatl gets N counters) — triggersForEvent is re-called per card so each
+ * pending trigger is a distinct object. Scans ONLY the drawing player's sources (whose:"any"; drawing is
+ * turn-agnostic, like lifegain — the "yours"/activePlayer gate would drop off-turn draws). `count` is the
+ * number ACTUALLY drawn (the caller passes the real delta, so a deck-out draw of fewer fires fewer). Pure.
+ */
+export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
+  if (!drawingPlayerId || !(count > 0) || !state.players?.[drawingPlayerId]) return state;
+  let fired = [];
+  for (const perm of triggerSourcesOf(state, drawingPlayerId)) {
+    for (let i = 0; i < count; i++) {
+      fired = fired.concat(triggersForEvent(state, { event: "cardDrawn", sourcePermanent: perm, triggeringContext: { drawingPlayerId } }));
+    }
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };

@@ -32,7 +32,7 @@ import {
   adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers,
 } from "./gameState.js";
-import { checkDiesTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkCardDrawnTriggers } from "./triggers.js";
 import { permanentHasKeyword } from "./layers.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 
@@ -522,7 +522,11 @@ export function applyDrawEffect(state, { controller, amount }) {
   // `amount ?? 1` (NOT `|| 1`): a no-amount call defaults to drawing 1, but a count- or X-derived amount
   // of exactly 0 ("draw a card for each creature you control" with no creatures; "draw X cards", X=0) must
   // draw 0 — `|| 1` would fabricate a card (CR: a count-scaled draw of 0 draws nothing).
-  const next = drawCards(state, { playerId: controller, count: Math.max(0, amount ?? 1) });
+  let next = drawCards(state, { playerId: controller, count: Math.max(0, amount ?? 1) });
+  // TRIG-DRAW (CR 121.2): fire "Whenever you draw a card" once per card ACTUALLY drawn (a deck-out draw of
+  // fewer fires fewer — read the real delta, not the requested amount).
+  const drew = next.players[controller].cardsDrawnThisTurn - state.players[controller].cardsDrawnThisTurn;
+  if (drew > 0) next = checkCardDrawnTriggers(next, controller, drew);
   return logEvent(next, { kind: "spell-effect", effect: "draw", controller, amount });
 }
 
