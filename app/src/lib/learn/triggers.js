@@ -221,6 +221,16 @@ function classifyCondition(condRaw, cardName) {
   if (/\bblocks\b/.test(c) && selfRef && !/\bblocks\s*$/.test(c.trim())) return null;
   if (/\bblocks\b/.test(c) && selfRef) return { event: "blocks", scope: "self", whose: "any" };
 
+  // Combat-damage-to-a-player (CR 510.4). "Whenever <self> deals combat damage to a player" (self) /
+  // "Whenever a creature you control deals combat damage to a player" (creatureYouControl). BARE form
+  // only — END-anchored on "a player" so a qualified variant ("…to a player or planeswalker", "…to a
+  // creature", "one or more creatures you control deal…", or any trailing rider) stays UNDETECTED →
+  // Arbiter (a SAFE false-negative). combatResolution fires it off the real per-attacker player-damage.
+  if (/\bdeals combat damage to a player$/.test(c)) {
+    if (selfRef) return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
+    if (/a creature you control/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any" };
+  }
+
   // Cast-spell triggers (CR 603.2, the spell-cast event). The WHOLE condition must reduce
   // to "(you|an opponent|a player|each player) cast(s) a[n] <filter> spell" — ANCHORED, so a
   // trailing rider ("… spell that targets …", "… spell from your graveyard", "… spell during
@@ -523,6 +533,35 @@ export function checkAttackTriggers(state) {
     for (const watcher of triggerSourcesOf(state, a.attackingPlayer)) {
       if (watcher.id === attackerPerm.id) continue;
       fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * Enqueue combat-damage triggers (CR 510.4) for the attackers that dealt combat damage to a PLAYER this
+ * step — driven by combatResolution's `playerEvents` (kind "combat-damage-player"), so they fire exactly
+ * when real damage landed on a player. Each such attacker fires its own "Whenever this creature deals
+ * combat damage to a player" plus every "a creature you control deals combat damage to a player" watcher
+ * the attacking player controls. Mirrors checkAttackTriggers; pure. Called BEFORE the lethal-damage SBA
+ * (an attacker may trade and die, but it still triggered — CR 603.10a).
+ */
+export function checkCombatDamageTriggers(state, playerEvents) {
+  const hits = (playerEvents || []).filter((e) => e.kind === "combat-damage-player");
+  if (!hits.length) return state;
+  let fired = [];
+  for (const ev of hits) {
+    const lk = findPermanent(state, ev.attackerId);
+    if (!lk) continue;
+    const attackerPerm = lk.permanent;
+    const context = { damagedPlayerId: ev.defender, combatDamageAmount: ev.amount };
+    // self ("this creature deals combat damage to a player")
+    fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    // the attacking player's "a creature you control deals combat damage to a player" watchers
+    for (const watcher of triggerSourcesOf(state, ev.attackingPlayer)) {
+      if (watcher.id === attackerPerm.id) continue;
+      fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
     }
   }
   if (!fired.length) return state;
