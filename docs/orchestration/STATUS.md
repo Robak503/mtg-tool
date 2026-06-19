@@ -1,18 +1,19 @@
 # 🎛️ Academy Coverage — Live Status
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
-> _Updated 2026-06-18 18:30 MST · **cycle 4** · master @ 6210d87 · **v0.40.0 CUT (CI building)** · v0.39.0 PUBLISHED ✓ · **PW-1→PW-8 COMPLETE** · **POLICY: enforce FPs, don't drop**._
+> _Updated 2026-06-18 19:00 MST · **cycle 4** · master @ 1a11056 · **v0.40.0 PUBLISHED ✓** · **PW-1→PW-8 COMPLETE** · enforce-don't-drop: **9 of 11 keywords enforced** · **POLICY: enforce FPs, don't drop**._
 
 ## 📊 Scoreboard
 - **Native coverage: 17.6%** — 6,004 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%) · **+19 DMG-SCALE #263** (board-count damage)
 - `[####······················]`  ~19% of the way to goal
-- ✅ **8 of the 11 interim-FP keywords now ENFORCED → honestly native:** EVADE #258 (menace/skulk/fear/intimidate/horsemanship/defender, +141) · KW-UNTARGET #260 (hexproof/shroud). **3 remain interim FPs:** **ward** (a tax, CR 702.21) + **protection** (DEBT subsystem) + **prowess** (TRIG-PROWESS) — claimed while built (Cindy's lane). #259 also killed the token-as-fake-mana-source FP (−32, honest). Enforce-don't-drop *working*.
+- ✅ **9 of the 11 interim-FP keywords now ENFORCED → honestly native:** EVADE #258 (menace/skulk/fear/intimidate/horsemanship/defender, +141) · KW-UNTARGET #260 (hexproof/shroud) · **TRIG-PROWESS #262** (prowess). **Only 2 remain interim FPs — the genuinely-hard ones, legitimately deferred per the policy:** **ward** (a TAX, CR 702.21) + **protection** (the DEBT subsystem). Enforce-don't-drop **essentially complete** for tractable keywords.
 - **184 `playable-pw`** — planeswalkers play end-to-end, run **static + triggered emblem ultimates** (#251 + #254), and are **killable by removal** (#253).
-- **Open PRs: #262** (Cindy TRIG-PROWESS — DIRTY on `coverage.js`, rebasing). master @ 6210d87. Tests **2,627 green**, lint clean.
+- **Open PRs: #264** (Cindy TRIG-TREASURE — combat-damage trigger, CI in progress). master @ 1a11056. Tests **2,632 green**, lint clean.
 
 ## 🚀 Releases
 - **v0.39.0 — PUBLISHED ✓** — signed installer + `latest.json` live; auto-update active.
-- **v0.40.0 — CUT ✅ (CI building, ~20-30 min).** Tagged 2026-06-18: full PW subsystem (PW-5/6/7/8) + **EVADE #258** + **KW-UNTARGET #260** + **token-abil #259** + the enforce-don't-drop honesty pass (#255/#256). EVADE/KW-UNTARGET are **unit-verified** (combatEvasion/kwUntarget scenarios green in the 2,619 suite) — a live combat dogfood is recommended post-release. CI syncs the version from the tag → builds, signs, publishes `latest.json` + signed installer; running instances auto-update on their next 24h check.
+- **v0.40.0 — PUBLISHED ✓** (2026-06-19). `gh release v0.40.0` live — `latest.json` + signed `MTG.Tool_0.40.0_x64-setup.exe` (+`.sig`); auto-update active for all instances. Contents: full PW subsystem (PW-5/6/7/8) + **EVADE #258** + **KW-UNTARGET #260** + **token-abil #259** + the enforce-don't-drop honesty pass (#255/#256). _(Post-tag work for v0.41.0: DMG-SCALE #263, prowess #262, TRIG-TREASURE #264.)_ Recommend a live combat dogfood of EVADE on the published build.
+- **v0.41.0 — banking:** DMG-SCALE #263 + TRIG-PROWESS #262 (+ TRIG-TREASURE #264 when it lands). Cut at the next milestone.
 
 ## 👥 Faculties — who's doing what (lean roster)
 | Faculty | Role · cadence | Working on |
@@ -42,7 +43,7 @@ _**`scout/board-5` (Hans) is STALE** (branched at 88b1d4b, pre-EVADE) — relaye
 - 🟦 **Walt's PW-leverage lane** (`feat/WALT-*-walt`): WALT-TOKEN-ABIL (start), WALT-DMG-SCALE, WALT-FOR-EACH… (see `agents/walt.md`)
 
 ## 🔁 Recent merges (newest first)
-- **#263** WALT-DMG-SCALE — board-count damage, +19 (Walt) · **#260** KW-UNTARGET — hexproof/shroud (Cindy) · **#259** WALT-TOKEN-ABIL — token mana abilities (Walt) · **#261** qa-sweep↔EVADE sync (Hans) · **#258** EVADE — combat-evasion enforcement, +141 (Cindy) · **#257** qa-sweep de-noise (Hans)
+- **#262** TRIG-PROWESS — prowess self-pump (Cindy) · **#263** WALT-DMG-SCALE — board-count damage, +19 (Walt) · **#260** KW-UNTARGET — hexproof/shroud (Cindy) · **#259** WALT-TOKEN-ABIL — token mana abilities (Walt) · **#258** EVADE — +141 (Cindy) · **#261** qa-sweep↔EVADE sync (Hans)
 - shipped in v0.39.0: #243 SOFT-CNT · #241 LOOT-1 · #240 ADDCOST-2 · #238 TRIG-PUMP-1 · #237 MT-1 · #236 PW-1 · …
 
 ## 🗒️ Notes
