@@ -112,6 +112,10 @@ export function parseSpellEffect(card) {
     // low → Arbiter, rather than hitting the wrong set of creatures.
     if (/^each opponent('s)?$/.test(tgt)) return { kind: "damage", amount, targetType: "eachOpponent" };
     if (/^each creature$/.test(tgt)) return { kind: "damage", amount, targetType: "eachCreature" };
+    // SYMBURN-1: symmetric burn — "each creature AND each player" hits every creature AND every player
+    // INCLUDING the caster ("each player" ≠ "each opponent"). Bare form only — a qualifier ("…you
+    // control", "and each planeswalker") doesn't match the exact anchor and falls to the each-bail below.
+    if (/^each creature and each player$/.test(tgt)) return { kind: "damage", amount, targetType: "eachCreatureAndPlayer" };
     // Any OTHER "each …" is mass damage to a subset we don't model — bail before the
     // single-target branches, so e.g. "each creature target opponent controls" can't
     // mis-match the "target opponent" → player-damage branch below.
@@ -559,6 +563,16 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = loseLife(next, { playerId: opp, amount });
   } else if (targetType === "eachCreature") {
     for (const pid of Object.keys(next.players)) {
+      for (const perm of next.players[pid].battlefield) {
+        if (isCreature(perm.card)) next = markCombatDamage(next, { permanentId: perm.id, amount });
+      }
+    }
+  } else if (targetType === "eachCreatureAndPlayer") {
+    // SYMBURN-1 (Inferno / Fire Tempest / Evincar's Justice): symmetric burn hits EVERY creature on
+    // every battlefield AND EVERY player INCLUDING the caster ("each player" is all players, not just
+    // opponents). Planeswalkers are NOT hit (the text says "each player", not "or planeswalker").
+    for (const pid of Object.keys(next.players)) {
+      if (next.players[pid]) next = loseLife(next, { playerId: pid, amount });
       for (const perm of next.players[pid].battlefield) {
         if (isCreature(perm.card)) next = markCombatDamage(next, { permanentId: perm.id, amount });
       }
