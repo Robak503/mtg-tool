@@ -37,6 +37,7 @@ import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
+import { isNonChosenTargetType } from "./targetTypes.js";
 import { parseActivatedAbilities, sacrificeDropsTrigger } from "./effects/abilities.js";
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { isNativeAura } from "./staticAbilityParser.js";
@@ -460,7 +461,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
     // binding the legacy single-effect path can't express — expand it through
     // `expandCastChoices` (each cast carries atomIndex-tagged targets + chosenMode).
     // Single-atom programs keep the proven legacy targeting path below unchanged.
-    const atomNeedsTarget = (a) => !!a && !!a.targetType && !["eachOpponent", "eachCreature"].includes(a.targetType);
+    const atomNeedsTarget = (a) => !!a && !!a.targetType && !isNonChosenTargetType(a.targetType);
     // A single-atom program whose target the legacy `effect` can't express — the P2.7
     // extended atoms (tap/untap/bounce/exile/add-counter) — also routes through
     // expandCastChoices so its creature target is enumerated + bound.

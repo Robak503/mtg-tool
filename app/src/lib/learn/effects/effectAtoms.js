@@ -57,7 +57,15 @@ function tokenTypeLine(descriptor) {
   return { type: subtypeStr ? `${head} — ${subtypeStr}` : head, name: subtypeStr || "Token" };
 }
 
-const isCreatureCard = (card) => /Creature/.test(String(card?.type || card?.type_line || ""));
+const typeLineStr = (card) => String(card?.type || card?.type_line || "");
+const isCreatureCard = (card) => /Creature/.test(typeLineStr(card));
+// MASS-NC type predicates — WORD-ANCHORED (\b) so an artifact/enchantment CREATURE or a creature-land is
+// still swept ("Artifact Creature" / "Creature — … Land" each contain the whole word) WITHOUT a substring
+// false match: an "Artifact — Lander" token is NOT a Land ("Lander" ≠ the word "Land"). Mirrors the
+// engine's canonical type predicates in spellEffects.js (\bArtifact\b / \bEnchantment\b / \bLand\b).
+const isArtifactCard = (card) => /\bArtifact\b/.test(typeLineStr(card));
+const isEnchantmentCard = (card) => /\bEnchantment\b/.test(typeLineStr(card));
+const isLandCard = (card) => /\bLand\b/.test(typeLineStr(card));
 
 /**
  * Every creature on EVERY battlefield, as target descriptors `{type:"creature", id,
@@ -72,6 +80,22 @@ function massCreatureTargets(state) {
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
       if (isCreatureCard(perm.card)) out.push({ type: "creature", id: perm.id, controller: pid });
+    }
+  }
+  return out;
+}
+
+/**
+ * MASS-NC — every permanent matching `matches(card)` on EVERY battlefield, as `{type:"permanent"}`
+ * descriptors (the type applyDestroyEffect accepts; it re-checks isCreature for the CR 603.10a dies
+ * look-back, so an artifact/enchantment CREATURE swept this way still dies + fires its dies-trigger).
+ * Mirrors massCreatureTargets for "destroy all artifacts / enchantments / lands".
+ */
+function massPermanentTargets(state, matches) {
+  const out = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const perm of state.players[pid].battlefield) {
+      if (matches(perm.card)) out.push({ type: "permanent", id: perm.id, controller: pid });
     }
   }
   return out;
@@ -97,6 +121,10 @@ function controllerCreatureTargets(state, controller) {
  */
 const atomTargets = (state, atom, ctx) => {
   if (atom.targetType === "eachCreature") return massCreatureTargets(state);
+  if (atom.targetType === "eachArtifact") return massPermanentTargets(state, isArtifactCard);
+  if (atom.targetType === "eachEnchantment") return massPermanentTargets(state, isEnchantmentCard);
+  if (atom.targetType === "eachLand") return massPermanentTargets(state, isLandCard);
+  if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller);
   if (atom.target === "self") return selfTargets(state, ctx);
   return ctx.targets || [];

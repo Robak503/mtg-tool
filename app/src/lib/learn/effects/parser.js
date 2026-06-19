@@ -27,6 +27,7 @@
  */
 
 import { parseSpellEffect, parseCreatureTargetRestrictions, parseGraveyardFilter } from "../spellEffects.js";
+import { isNonChosenTargetType } from "../targetTypes.js";
 import { ATOM_RESOLVERS } from "./effectAtoms.js";
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
@@ -235,6 +236,10 @@ function splitClauses(oracle) {
     // never a dropped half.
     const symBurn = sentence.match(/^(.*?)\bdeals? \d+ damage to each creature and each player$/i);
     if (symBurn && !/\band\b/i.test(symBurn[1])) { clauses.push(sentence); continue; }
+    // MASS-NC — "destroy all artifacts and enchantments": the " and " joins two permanent TYPES inside
+    // one mass-destroy target, not a top-level effect boundary. Keep the whole sentence so the recognizer
+    // binds the combined eachArtifactOrEnchantment scope. Anchored to the exact bare form.
+    if (/^destroy all artifacts and enchantments$/i.test(sentence)) { clauses.push(sentence); continue; }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split
@@ -700,6 +705,18 @@ function parseExtendedAtom(s) {
   // so a Destroy always reaches the graveyard regardless).
   if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
   if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
+  // MASS-NC — the UNFILTERED non-creature board wipes ("Destroy all artifacts / enchantments / lands /
+  // artifacts and enchantments" — Shatterstorm, Tranquility, Armageddon, Creeping Corrosion, Back to
+  // Nature). Same shape as the creature wipe, a typed mass scope: the resolver enumerates every permanent
+  // of that type on every battlefield and routes it through the generic applyDestroyEffect (indestructible
+  // honored; an artifact/enchantment CREATURE still dies + fires its dies-triggers). A FILTERED wipe ("all
+  // nonbasic lands", "all artifacts you control", "all enchantments with mana value 3 or less") fails the
+  // exact anchor → low → Arbiter — `eachArtifact`/etc. would wrongly hit the whole unfiltered set.
+  m = t.match(/^destroy all (artifacts and enchantments|artifacts|enchantments|lands)$/);
+  if (m) {
+    const TT = { "artifacts": "eachArtifact", "enchantments": "eachEnchantment", "lands": "eachLand", "artifacts and enchantments": "eachArtifactOrEnchantment" };
+    return { op: "destroy", targetType: TT[m[1]] };
+  }
   m = t.match(/^(?:all creatures|each creature) gets? ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", targetType: "eachCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
   // TEAM pump — "Creatures you control get +N/+N [and gain KW[, KW][ and KW]] until end of turn"
@@ -1449,7 +1466,7 @@ export function programNeedsChosenTarget(program) {
   const atoms = program.structure === "modal"
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
-  return atoms.some(a => a.targetType && !["eachOpponent", "eachCreature", "eachCreatureAndPlayer"].includes(a.targetType));
+  return atoms.some(a => a.targetType && !isNonChosenTargetType(a.targetType));
 }
 
 /**
@@ -1514,7 +1531,7 @@ export function programContainsChosenPermanentRemoval(program) {
 export function atomTargetIntent(atom) {
   if (!atom) return null;
   const tt = atom.targetType;
-  if (!tt || tt === "eachOpponent" || tt === "eachCreature" || tt === "eachCreatureAndPlayer") return null;
+  if (!tt || isNonChosenTargetType(tt)) return null;
   switch (atom.op) {
     case "deal-damage":
     case "destroy":
@@ -1570,20 +1587,22 @@ export function programTriggerTargetsResolvable(program) {
 }
 
 /**
- * Does the program contain a MASS creature-removal atom — destroy / exile / -X-X scoped to
- * `eachCreature` (a board wipe)? The AI HOLDS these (opponentAI.pickCastAction): the engine
- * resolves a symmetric wipe correctly, but the AI can't yet weigh whether nuking the board
- * helps or hurts it, and an indiscriminate Wrath into its own developed board plays terribly.
- * The player casts wipes normally. Narrow + deferred — lift it once a board-state-aware wipe
- * heuristic exists. (Mass DAMAGE, e.g. Pyroclasm, is intentionally NOT gated here — it's a
+ * Does the program contain a MASS removal atom — destroy / exile / -X-X scoped to a whole permanent
+ * class on every battlefield (`eachCreature` board wipe, or MASS-NC's `eachArtifact` / `eachEnchantment`
+ * / `eachLand` / `eachArtifactOrEnchantment`)? The AI HOLDS these (opponentAI.pickCastAction): the engine
+ * resolves a symmetric wipe correctly, but the AI can't yet weigh whether nuking the board helps or hurts
+ * it — an indiscriminate Wrath into its own developed board, or an Armageddon into its own mana base,
+ * plays terribly. The player casts wipes normally. Narrow + deferred — lift it once a board-state-aware
+ * wipe heuristic exists. (Mass DAMAGE, e.g. Pyroclasm, is intentionally NOT gated here — it's a
  * pre-existing cast and small symmetric burn is often a fine aggressive play.)
  */
+const MASS_WIPE_SCOPES = new Set(["eachCreature", "eachArtifact", "eachEnchantment", "eachLand", "eachArtifactOrEnchantment"]);
 export function programContainsMassRemoval(program) {
   if (!program) return false;
   const atoms = program.structure === "modal"
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
-  return atoms.some(a => a.targetType === "eachCreature" && ["destroy", "exile", "pump"].includes(a.op));
+  return atoms.some(a => MASS_WIPE_SCOPES.has(a.targetType) && ["destroy", "exile", "pump"].includes(a.op));
 }
 
 /**
