@@ -31,7 +31,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { detectTriggers } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, entersWithPlusCounters } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -397,7 +397,14 @@ export function classifyCard(card) {
   // generic classifiers (its copy clause isn't a trigger/static/mana ability they'd recognize).
   if (isCloneCard(card)) return "native-clone";
   // Permanent (creature / artifact / enchantment / battle): the body always works.
-  if (isKeywordOnly(oracle, card?.name)) return "native-body";
+  // TRUNK-ENTERSCOUNTERS: the modeled "enters with N +1/+1 counters" replacement (CR 614.1f) is covered — the
+  // resolver adds the counters on enter. Strip that one sentence from the residue (derived from the SAME
+  // entersWithPlusCounters the engine uses), so a card whose only non-keyword text is enters-with-counters
+  // classifies native-body. The card-level guard never strips a conditional/variable form (those return 0).
+  const baseOracle = entersWithPlusCounters(card) > 0
+    ? oracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
+    : oracle;
+  if (isKeywordOnly(baseOracle, card?.name)) return "native-body";
   // KW-POISON CREED GUARD (see helper): an infect/wither creature with a non-combat damage ability mis-
   // resolves that damage (only combat infect/wither is routed), so it stays body-only — checked before
   // the native-mana/trigger/activated/mixed gates so a modeled pinger can't wrongly clear it to native.

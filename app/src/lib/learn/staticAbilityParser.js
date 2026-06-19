@@ -107,6 +107,26 @@ function selfNormalizeOracle(oracle, name) {
   return String(oracle || "").replace(new RegExp(`\\b${esc}\\b`, "g"), "this creature");
 }
 
+const _ENTER_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
+/**
+ * TRUNK-ENTERSCOUNTERS (CR 614.1f) — the FIXED number of +1/+1 counters a permanent "enters with N +1/+1
+ * counters on it", or 0. ONLY the bare, unconditional, literal-N form: a kicker / "for each" / "where X" /
+ * conditional ("if …") variant returns 0 (the variable/gated magnitude isn't modeled → the permanent enters
+ * as its printed body and the card stays body-only → Arbiter; never a fabricated counter count). The SINGLE
+ * source of truth: the resolver adds exactly this many on enter, and the coverage classifier credits exactly
+ * these cards — so the metric can never over-claim a card the engine plays wrong. Leaf (no engine import).
+ */
+export function entersWithPlusCounters(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
+    const m = sentence.match(/enters (?:the battlefield )?with (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it/i);
+    if (!m) continue;
+    if (/\b(?:if|for each|where|kicked|unless|equal to|plus)\b/i.test(sentence)) return 0; // conditional/variable → not modeled
+    return _ENTER_NUM[m[1].toLowerCase()] ?? (parseInt(m[1], 10) || 0);
+  }
+  return 0;
+}
+
 /**
  * Try every supported pattern against one clause; push any descriptor(s) found
  * into `out`. The patterns are intentionally narrow and ordered most-specific
