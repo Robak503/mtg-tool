@@ -149,14 +149,15 @@ export function createLearnSession({
 // ─── Status helpers ──────────────────────────────────────────────────────────
 
 /**
- * A player loses if their life is 0 or less (CR 104.3a / 704.5a) or if
- * they've taken 21+ combat damage from any single commander (CR 903.10a / 704.6c).
- * A player already removed from state.players counts as dead.
+ * A player loses if their life is 0 or less (CR 104.3a / 704.5a), if they have ten or more poison
+ * counters (CR 704.5c — KW-POISON), or if they've taken 21+ combat damage from any single commander
+ * (CR 903.10a / 704.6c). A player already removed from state.players counts as dead.
  */
 function isPlayerDead(state, playerId) {
   const player = state.players[playerId];
   if (!player) return true;
   if (player.life <= 0) return true;
+  if ((player.poison || 0) >= 10) return true;
   const dmgFrom = player.commanderDamageFrom || {};
   for (const fromId of Object.keys(dmgFrom)) {
     if (dmgFrom[fromId] >= 21) return true;
