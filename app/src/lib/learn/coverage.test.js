@@ -29,6 +29,36 @@ describe("classifyCard — tiers", () => {
   it("a clean mana-token spell is native-spell", () => {
     expect(classifyCard(C("Sorcery", "Spawning Breath deals 1 damage to any target. Create a 0/1 colorless Eldrazi Spawn creature token. It has \"Sacrifice this token: Add {C}.\"", { name: "Spawning Breath" }))).toBe("native-spell");
   });
+
+  // ===== FIX-MANA-OVERCLAIM ===== the native-mana tier now passes the same all-or-nothing residue gate
+  // the other native tiers use: a mana source counts native-mana only when its NON-mana TRIGGER text is
+  // modeled too (every trigger routes natively OR is pure mana production; not level-gated). Without this,
+  // any "Add {mana}" claimed the whole card native despite an unmodeled trigger/leveler — a metric
+  // over-claim (~240 cards; classifyCard has no runtime consumer, so it's metric-only). MUST_STAY_HIGH:
+  it("MUST_STAY_HIGH: a plain mana rock/dork stays native-mana (no trigger residue)", () => {
+    expect(classifyCard(C("Artifact", "{T}: Add {C}.", { name: "Sol Ring placeholder" }))).toBe("native-mana");
+    expect(classifyCard(C("Creature — Elf Druid", "{T}: Add {G}.", { name: "Llanowar Elves" }))).toBe("native-mana");
+  });
+  it("MUST_STAY_HIGH: a mana source whose trigger ROUTES natively stays native-mana (Meteorite)", () => {
+    // the ETB deal-damage parses HIGH and routes → the whole card is still modeled.
+    expect(classifyCard(C("Artifact", "When this artifact enters, it deals 2 damage to any target.\n{T}: Add one mana of any color.", { name: "Meteorite" }))).toBe("native-mana");
+  });
+  // MUST_DROP_TO_LOW: a mana source with an UNMODELED trigger / level structure is an over-claim → it must
+  // fall out of native-mana to body-only (→ Arbiter), exactly like the other all-or-nothing native tiers.
+  it("MUST_DROP_TO_LOW: a mana rock with an unmodeled trigger is NOT native-mana (Mana Crypt's coin-flip)", () => {
+    expect(classifyCard(C("Artifact", "At the beginning of your upkeep, flip a coin. If you lose the flip, this artifact deals 3 damage to you.\n{T}: Add {C}{C}.", { name: "Mana Crypt" }))).not.toBe("native-mana");
+  });
+  it("MUST_DROP_TO_LOW: a leveler that grants a mana ability is NOT native-mana (Sorcerer Class)", () => {
+    expect(classifyCard(C("Enchantment — Class", "When this Class enters, draw two cards, then discard two cards.\n{U}{R}: Level 2\nCreatures you control have \"{T}: Add {U} or {R}. Spend this mana only to cast an instant or sorcery spell or to gain a Class level.\"\n{3}{U}{R}: Level 3", { name: "Sorcerer Class" }))).not.toBe("native-mana");
+  });
+  it("MUST_DROP_TO_LOW: a mana dork with an unmodeled ETB restriction is NOT native-mana (Spara's Adjudicators)", () => {
+    expect(classifyCard(C("Creature — Bird Soldier", "When this creature enters, target creature an opponent controls can't attack or block until your next turn.\n{T}: Add {G}, {W}, or {U}.", { name: "Spara's Adjudicators" }))).not.toBe("native-mana");
+  });
+  it("MUST_DROP_TO_LOW: a triggered-mana-only card the engine can't produce is NOT native-mana (Coal Stoker)", () => {
+    // no tap ability; the ETB "add {R}{R}{R}" isn't a stack effect (doesn't route) and the mana model only
+    // produces tap/sac mana — so the engine yields ZERO mana from it: a true over-claim, correctly dropped.
+    expect(classifyCard(C("Creature — Elemental", "When this creature enters, if you cast it from your hand, add {R}{R}{R}.", { name: "Coal Stoker" }))).not.toBe("native-mana");
+  });
   it("a vanilla or keyword-only creature is native-body", () => {
     expect(classifyCard(C("Creature — Bear", ""))).toBe("native-body");
     expect(classifyCard(C("Creature — Angel", "Flying, vigilance"))).toBe("native-body");
