@@ -31,6 +31,7 @@
  * Arbiter (false-negative SAFE), never a half-enforced false positive.
  */
 import { permanentHasKeyword, permanentColors, permanentTypes } from "./layers.js";
+import { parseProtectionColors } from "./protection.js";
 import { findPermanent, creaturePower } from "./gameState.js";
 
 // Basic-landwalk keyword → the land subtype that switches it on.
@@ -146,6 +147,16 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // normal attacker can't be blocked by a shadow creature). Layer-aware so a granted/removed shadow counts.
   if (permanentHasKeyword(state, attackerId, "Shadow") !== permanentHasKeyword(state, blockerId, "Shadow")) {
     return false;
+  }
+
+  // Protection from a color (CR 702.16f): an ATTACKING creature with protection from a color can't be
+  // blocked by a creature of that color. Printed protection only (granted protection is PR2). Layer-aware
+  // blocker colors so a granted/removed color counts.
+  const attProtColors = parseProtectionColors(aCard);
+  if (attProtColors.size > 0) {
+    for (const c of permColorSet(state, blockerId)) {
+      if (attProtColors.has(c)) return false;
+    }
   }
 
   // Skulk — not blockable by a creature with greater power (CR 702.118b).
