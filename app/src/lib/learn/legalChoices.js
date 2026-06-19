@@ -32,7 +32,7 @@
 import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
 import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { hasKeyword } from "./keywords.js";
-import { permanentHasKeyword } from "./layers.js";
+import { permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -732,7 +732,9 @@ function actionsDeclareAttacker(state, playerId) {
   const declared = new Set((state.combat?.attackers || []).map(a => a.permanentId));
   const player = state.players[playerId];
   const attackers = player.battlefield
-    .filter(p => isCreature(p.card))
+    // Layer-aware (WALT-ANIMATE): a permanent granted the Creature type — an animated
+    // land or man-land — can be declared as an attacker, not just printed creatures.
+    .filter(p => permanentIsCreature(state, p.id))
     .filter(p => !p.tapped)
     .filter(p => !declared.has(p.id))
     // Defender (CR 702.3b) can't attack — layer-aware so a granted/removed Defender counts (EVADE).
@@ -792,7 +794,8 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
   const assigned = new Set((state.combat?.blockers || []).map(b => b.blockerId));
   const player = state.players[playerId];
   const candidateBlockers = player.battlefield
-    .filter(p => isCreature(p.card))
+    // Layer-aware (WALT-ANIMATE): an animated permanent can be declared as a blocker.
+    .filter(p => permanentIsCreature(state, p.id))
     .filter(p => !p.tapped)
     .filter(p => !assigned.has(p.id));
 
