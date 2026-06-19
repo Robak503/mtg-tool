@@ -4,8 +4,10 @@
 > the strategic climb-map, honest clean-yield tables, the per-atom false-positive landmines a builder
 > must dodge, and the methodology. The **board** is the terse pull-queue; this is the why.
 
-**Baseline (live, off `origin/master`):** **16.0 % corpus native — 5,369 / 33,540 real cards.** Gap =
-**28,171** (20,956 body-only · 6,878 arbiter-spell · 337 planeswalker). Cycle **board-3 (DEEP SCAN)**, 2026-06-18.
+**Baseline (live, off `origin/master`):** **16.44 % corpus native — 5,513 / 33,540 real cards** after the
+cycle board-4 VERIFY-COVERED-KW correction (#255 retired 289 keyword false positives; pre-fix the metric read
+17.30 % / 5,802). Cycle **board-4 (Hans QA+FIX)**, 2026-06-18, building on **board-3 (DEEP SCAN)** whose climb
+map + ranked backlog below are unchanged.
 
 This cycle was a one-off **deep scan**: a real-parser frequency analysis over the full unmodeled set, an
 8-cluster 4-way classification (cleanAtom / riderGated / subsystem / irreducible), and an **adversarial
@@ -192,22 +194,44 @@ where it was demoted). "FP" = the false-positive trap. Board rows carry the shor
 
 ---
 
-## VERIFY findings (false positives for Erin — these jump the queue)
+## VERIFY findings (false positives — Hans's QA+FIX lane)
 
-- **VERIFY-MENACE 🔴 — a LIVE shipped false positive.** Menace is in COVERED_KEYWORDS (`coverage.js:39`) +
-  COMBAT_KEYWORDS, so a Menace-only creature classifies **native-body** — but the 2-blocker requirement
-  (CR 702.110) is enforced NOWHERE: `legalChoices.canBlock` admits a SINGLE blocker vs a Menace attacker
-  and `combatResolution.js:17` explicitly defers Menace. So the engine lets one creature block a Menace
-  attacker — a confident wrong combat resolution. (The design already makes Menace NON_GRANTABLE for exactly
-  this reason; the inconsistency is that PRINTED Menace is still "covered".) **Fix:** enforce the 2-blocker
-  rule in canBlock/declare-blockers, OR remove Menace from COVERED_KEYWORDS so Menace bodies drop to the
-  Arbiter (the safe default). This is the same gap that blocks EVADE — fix it alongside the combat-keyword work.
-- **VERIFY-ETB-DESTROY 🟡 (lower confidence)** — Ravenous Chupacabra & the ETB-destroy-an-opponent's-creature
-  family classify native-trigger (targeted ETB removal). The flush-time enemy-target chooser SHOULD pick an
-  opponent's creature; owed a LIVE end-to-end spot-check in a real 4P session that it never targets own / never
-  crashes on no-legal-target. Not asserted as a bug — a spot-check request.
-- *(Confirmed NOT bugs: the ETB "draw N, then discard M" compound correctly stays LOW; the self-pump activated
-  path is provably $-anchored-tight; equipment/aura all-or-nothing gates hold with zero drift.)*
+### ✅ VERIFY-COVERED-KW 🔴 — RESOLVED #255 (started as VERIFY-MENACE; the cycle-1 audit widened it)
+VERIFY-MENACE was real, and a full `COVERED_KEYWORDS` enforcement audit found it was **one of 11**. The rule:
+a keyword belongs in `COVERED_KEYWORDS` (→ `native-body`) ONLY if the runtime actually enforces it — i.e. the
+engine consults it via `permanentHasKeyword` / a state-based action / attack-legality. The authoritative
+enforced set (grep of every such call): **flying·reach·first strike·double strike·trample·deathtouch·lifelink·
+vigilance·haste·indestructible.** Everything else was display-only — a false positive (the body is claimed
+native, the engine mis-resolves its combat/targeting). Per-keyword corpus impact (native-body cards that drop):
+
+| Keyword(s) | Why unenforced (the evidence) | native-body drop | Re-add when |
+|---|---|---:|---|
+| menace·skulk·intimidate·fear·horsemanship | block restrictions — `legalChoices.canBlock` honors ONLY flying/reach; `combatResolution` defers menace | 19·4·5·7·13 | EVADE / canBlock |
+| defender | `actionsDeclareAttacker` (legalChoices) never excludes Defender → a Wall can illegally attack | 37 | DEFENDER-ENFORCE (clean quick win) |
+| hexproof·shroud·ward | `enumerateTargets` (spellEffects) applies NO targetability check → opponents can target them | 23·13·5 | KW-UNTARGET |
+| protection | DEBT (block/damage/target/enchant) enforced nowhere; `combatResolution` defers it | 75 | PROTECTION (δ, w/ PREVENT) |
+| prowess | an unmodeled triggered pump — the word appears ONLY in `coverage.js`, no handler anywhere | 23 | TRIG-PROWESS |
+
+**Fix (#255):** dropped all 11 from `COVERED_KEYWORDS` → `body-only` (→ Arbiter; the body still plays) +
+`MUST_DROP_TO_LOW` pins; kept flash (casting-timing — not honoring it only removes an OPTION, a safe
+false-negative) + changeling/devoid (type/color identity — never mis-resolve a body). **Net: corpus native
+17.30 % → 16.44 % (−289 cards** — more than the per-keyword sum because composite-tier cards with an unenforced
+keyword in their residue also dropped). Honest down — the gate working. The re-coverage rows on the board bring
+every card back, *correctly*, as enforcement ships. Committed audit tool: `app/scripts/qa-sweep.mjs keywords`.
+
+### ✅ VERIFY-ETB-DESTROY 🟡 — VERIFIED NOT A BUG #255
+Ravenous Chupacabra & Meteor Golem (the ETB-destroy-an-opponent family) classify `native-trigger`. Confirmed
+correct: the effect parses `"…an opponent controls"` with `programTriggerTargetsResolvable=true` (the exact gate
+`buildTriggerStack` uses), so the metric only claims native because the runtime CAN bind the target on the right
+side; `chooseTriggerTargets` picks an opponent (never own — `enemyTriggerChooser.test.js`); and no-legal-target
+fizzles cleanly (`buildTriggerStack` → `candidates.length===0` removes it per CR 603.3c, and `NO_SAFE_TARGET`
+routes to an Arbiter no-op — never first-legal a friendly, never crash). Added a **restricted-clause + no-target
+regression pin** so the spot-check is now a durable test.
+
+- *(Other confirmed NOT bugs: the ETB "draw N, then discard M" compound correctly stays LOW; the self-pump
+  activated path is provably $-anchored-tight; equipment/aura all-or-nothing gates hold with zero drift.)*
+- *(Open QA leads for next cycle, surfaced by `qa-sweep.mjs`: **171 native-spell verb-coverage suspects** +
+  **5 trigger compound-collapse suspects** — narrow them and reproduce before filing.)*
 
 ---
 

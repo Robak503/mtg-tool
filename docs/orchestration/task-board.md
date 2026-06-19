@@ -5,11 +5,14 @@
 re-prioritizes this board** as the modeled set grows; findings get filed here as new tasks. **Clyde
 (integrator) merges; only Clyde touches `master`** (Omnath is the strategy brain).
 
-> **Last scout refresh:** cycle **board-3 (DEEP SCAN)**, 2026-06-18 — live baseline **16.0 % corpus native**
-> (5,369/33,540). A one-off deep scan mapped the WHOLE climb 16 %→~90 % and pre-stocked a ranked backlog
-> (10+ hrs for 3 builders). Honest yields below are **adversarially CREED-verified** (most first-pass numbers
-> were corrected DOWN — that's the gate working). **The strategic map + every row's full false-positive
-> landmine live in [`docs/scout-gap-report.md`](../scout-gap-report.md) — read your row's landmine before you build.**
+> **Last scout refresh:** cycle **board-4 (Hans — QA+FIX focus)**, 2026-06-18 — live baseline **16.44 % corpus
+> native** (5,513/33,540) **after the VERIFY-COVERED-KW correction** (#255 retired 289 keyword false positives —
+> the metric was claiming native-body for 11 keywords the engine never enforces; pre-fix it read 17.30 %). The
+> number went DOWN because false positives were retired — the gate working; coverage returns CORRECT as the
+> enforcement re-coverage rows ship (EVADE +48, DEFENDER-ENFORCE +37, KW-UNTARGET +41, TRIG-PROWESS +23,
+> PROTECTION +75). The board-3 DEEP SCAN backlog below (ranked OPEN coverage, ~10 hrs) is still current — those
+> rows are unchanged. Honest yields are **adversarially CREED-verified**. **The strategic map + every row's full
+> false-positive landmine live in [`docs/scout-gap-report.md`](../scout-gap-report.md) — read your row's landmine before you build.**
 >
 > **The shape of the climb:** the clean-atom + rider tiers are nearly mined out (~a few hundred cards, good
 > builder fuel). The climb from ~20 %→~85 % is ONE subsystem — the **trigger-effect compiler** (bridge each
@@ -29,19 +32,18 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 ---
 
-## 🔧 FIX / VERIFY lane — unowned (these jump the builder queue; any builder can pull)
-
-> **Enforce, don't drop (Colton, 2026-06-18):** the default fix for a live FP is to **BUILD the enforcement**
-> (local-first easy win) so the card plays right — see the 🔝 EVADE/TARGET-RESTRICT/PROWESS rows below.
-> Dropping to the Arbiter is the LAST RESORT (genuinely-hard mechanics only). Every FP is tracked in the
-> [enforcement backlog](retired-fp-ledger.md) keyed by capability.
+## 🔧 FIX / VERIFY lane — Hans (these jump the builder queue)
 
 | ID | Pri | Finding | ~Impact | Status |
 |---|---|---|---:|---|
-| **VERIFY-MENACE** | 🔴 | **LIVE shipped false positive.** Menace is in COVERED_KEYWORDS so a Menace-only creature is native-body — but the 2-blocker rule is enforced NOWHERE (`canBlock` admits a single blocker; `combatResolution.js:17` defers Menace). The engine lets ONE creature block a Menace attacker. **→ FOLDED INTO the 🔝 EVADE enforcement task** (enforce 2-blocker in canBlock/declare-blockers — local-first, NOT the drop). | −FP→native | OPEN (in EVADE) |
-| **FIX-TRIG-CONDITION** | 🔴 | `classifyCondition` over-detects restricted/compound-subject triggers (selfRef too broad; scope-inexpressible restriction dropped → over-fires). 34 cards incl. aristocrats staples. Detail: `docs/qa/rod-findings-1.md`. | 34 (−FP) | DONE #226 (Erin batch) |
-| **VERIFY-ETB-DESTROY** | 🟡 | Spot-check (lower confidence): Ravenous Chupacabra & the ETB-destroy-an-opponent's-creature family classify native-trigger — owed a LIVE 4P end-to-end check that the flush enemy-chooser targets an opponent, never own / never crashes on no-legal-target. | spot-check | OPEN |
-| **FIX-PW-LAND-ORDER** | 🟢 | PW-1 review: Wrenn and One (corpus's only Land Planeswalker) hits the `land` tier BEFORE the planeswalker gate in `classifyCard` → counted native-`land` despite 2 unmodeled loyalty abilities. PRE-EXISTING (identical on master), NO runtime harm (isPlaneswalker=true → loyalty-offer + cast-gate both refuse it). Only over-counts 1 card in the metric. Fix: check planeswalker-before-land (or exclude PWs from the land tier). | 1 (−FP metric) | OPEN |
+| **VERIFY-COVERED-KW** | 🔴 | **LIVE shipped FP CLUSTER (started as VERIFY-MENACE, audit widened it).** `COVERED_KEYWORDS` claimed `native-body` for **11 keywords the runtime NEVER enforces** (a keyword is enforced only if consulted via `permanentHasKeyword`/SBA/attack-legality): menace·skulk·intimidate·fear·horsemanship (block restrictions — `canBlock` honors only flying/reach), **defender** (a Wall can illegally attack — `actionsDeclareAttacker` never excludes it), hexproof·shroud·ward (no targetability check in `enumerateTargets`), protection (DEBT all unenforced), prowess (an unmodeled pump trigger). Each = the body is claimed native but mis-resolves. **Fixed:** dropped all 11 → `body-only`/Arbiter + `MUST_DROP_TO_LOW` pins. Each returns to the list when its enforcement subsystem ships (re-coverage rows below). | **−289 native** | DONE #255 |
+| **FIX-TRIG-CONDITION** | 🔴 | `classifyCondition` over-detects restricted/compound-subject triggers (selfRef too broad; scope-inexpressible restriction dropped → over-fires). 34 cards incl. aristocrats staples. Detail: `docs/qa/rod-findings-1.md`. | 34 (−FP) | DONE #226 |
+| **VERIFY-ETB-DESTROY** | 🟡 | Ravenous Chupacabra & the ETB-destroy-an-opponent family. | spot-check | **VERIFIED — not a bug #255**: parses `"…an opponent controls"` (`targetsResolvable=true`, the runtime gate); chooser picks an opponent (never own), no-target fizzles via CR 603.3c / `NO_SAFE_TARGET`. Added a restricted-clause + no-target regression pin. |
+| **FIX-PW-LAND-ORDER** | 🟢 | Wrenn and One (corpus's only Land Planeswalker) hit the `land` tier before the planeswalker gate → counted native-`land` despite unmodeled loyalty. **Fixed:** PW gate now runs first → `arbiter-pw`. Pure metric, no runtime harm. | 1 (−FP metric) | DONE #255 |
+
+> **🔁 Re-coverage rows (bring the −289 back, CORRECT, as enforcement ships):** **EVADE** (🔴 below — its `canBlock` chokepoint re-adds menace + the 4 block-restriction keywords, ~48). **DEFENDER-ENFORCE** (🟢 below — a one-filter quick win, ~37). **KW-UNTARGET** (🟡 below — hexproof/shroud/ward targetability, ~41). **TRIG-PROWESS** (🟡 below — model the pump, ~23). **PROTECTION/DEBT** (δ backlog, ~75). The drop is honest *now*; the climb resumes correctly.
+>
+> **Policy — ENFORCE, DON'T DROP (Colton, 2026-06-18):** these re-coverage rows ARE the fix — build the enforcement (local-first), don't leave the keywords dropped. They're **Cindy's lane** (combat/keyword/trigger enforcement); Walt stays on his PW-leverage atoms. Standing policy + the full enforcement backlog: [`retired-fp-ledger.md`](retired-fp-ledger.md). Dropping is the last resort (genuinely-hard mechanics only).
 
 ---
 
@@ -83,8 +85,8 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 > statics flip, else → Arbiter); triggered emblems → Arbiter. 0 net native flips (anthem-ultimate
 > walkers keep other unmodeled abilities → stay `playable-pw`) — a **gameplay** win, not a corpus-% one.
 >
-> **The PW subsystem (PW-1 → PW-7) is COMPLETE.** Playable end-to-end + emblems + killable by removal.
-> (#254 PW-8 triggered emblems still in flight, awaiting Omnath.) **Walt has pivoted to a NEW lane (below).**
+> **The PW subsystem (PW-1 → PW-8) is COMPLETE** (#254 triggered emblems merged 2026-06-18). Playable
+> end-to-end + static & triggered emblems + killable by removal. **Walt has pivoted to a NEW lane (below).**
 >
 > **WALT — PW-leverage general mechanisms (`feat/WALT-*-walt`).** RESERVED + DISJOINT from Cindy. Meaty
 > general atoms ranked by how many planeswalkers they unblock (they lift the whole corpus by proxy). Full
@@ -99,12 +101,6 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 ### 🔴 high-lever
 
-> **🔝 TOP PRIORITY — enforce, don't drop (Colton, 2026-06-18):** the display-only keywords are LIVE false
-> positives (their rules are enforced NOWHERE). The fix is to **BUILD the enforcement** — local-first easy
-> wins — **not** drop them to the Arbiter. **EVADE · TARGET-RESTRICT · PROWESS below jump the queue** and are
-> **Cindy's lane** (combat/keyword/trigger enforcement; Walt stays on his PW-leverage atoms). Policy +
-> backlog: [`retired-fp-ledger.md`](retired-fp-ledger.md).
-
 | ID | Mechanic / atom (short landmine — full detail in the report) | ~Yield | Cplx | Status | Examples |
 |---|---|---:|---|---|---|
 | **ACT-KW-GRANT** | `{cost}: This creature gains <KW> until EOT` — self keyword-grant. Reuses GRANTABLE_COMBAT_KEYWORDS allowlist (the allowlist IS the FP guard). **Self-ref only, all-or-nothing whole card** — reject `target`-grants (different atom) + multi-ability cards. | ~46 | low | DONE #235 | Goblin Balloon Brigade, Narnam Cobra, Unyielding Krumar |
@@ -115,9 +111,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | **PUMP-1** | Team pump: "Creatures you control get +X/+Y until EOT." Reject `and gain <keyword>` riders (Triumph of the Hordes → infect). Reuses each-you-control enumerator (#211). | ~22 | low | OPEN | Rally the Peasants, Guardians' Pledge, Coordinated Charge |
 | **REG-1** | Regrowth (gy → HAND): "Return target \<type> card from your graveyard to your hand." Accept the card-type union; `your graveyard` ≠ `a graveyard`; drop `up to one/two`. Reuses #207. | ~22 | low | DONE #231 | Argivian Find, Relearn, Nature's Spiral, Call to Mind |
 | **MT-1** | Divide-among picker: "deals N damage / distribute N +1/+1 divided among any number of targets." Subsumes CNT-2b's distribute half. | ~20 | med | DONE #237 | Rolling Thunder, Pyrotechnics, Meteor Swarm, Hail of Arrows |
-| **EVADE** ⭐🔝 | ⚠ **engine-first, PULL FIRST** — combat-evasion enforcement via ONE `canBlock`/attack-legality chokepoint. Covers the **display-only combat keywords** (**menace** = 2-blocker · **skulk/intimidate/fear/horsemanship** = conditional-block · **defender** = can't attack) AND unblockable/can't-block (~40) · basic landwalk (~61, per-defender = 4P-correct) · can-block-only-flying (~20). **Ship the chokepoint BEFORE the keyword counts native** (else FP). **Folds in VERIFY-MENACE.** | ~120+ | sub | OPEN 🔝 | Invisible Stalker, menace/skulk/fear creatures, Bog Wraith |
-| **TARGET-RESTRICT** ⭐🔝 | **engine-first** — target-selection must HONOR: **hexproof** (not targetable by opponents) · **shroud** (not targetable at all) · **ward** (opponent pays the cost, else countered) · **protection** (can't be targeted/blocked/enchanted/equipped/damaged by the quality). Enforce in the target-legality check BEFORE these count native; all-or-nothing per quality. | ~? (Hans to scope) | sub | OPEN 🔝 | Slippery Bogle (hexproof), Troll Ascetic (shroud), Mother of Runes (protection) |
-| **PROWESS** ⭐🔝 | **engine-first** — prowess = a noncreature-cast trigger → +1/+1 until EOT. Wire via the trigger compiler (TRIG-PUMP-1 precedent). Bare prowess only; exotic "whenever you cast"-variants are their own trigger rows. | ~? (Hans to scope) | med | OPEN 🔝 | Monastery Swiftspear, Monastery Mentor |
+| **EVADE** | ⚠ **engine-first** combat-keyword engine via ONE `canBlock` chokepoint: unblockable + can't-block (~40) · basic landwalk (~61, per-defender = 4P-correct) · can-block-only-flying (~20). **Must ship canBlock enforcement BEFORE flipping COVERED_KEYWORDS** (else unblockable creatures get blocked = FP). Bare-clause only. **Same chokepoint re-adds menace + skulk/intimidate/fear/horsemanship (the block-restriction keywords #255 dropped, ~48 more) — enforce the restriction in `canBlock`/declare-blockers, then return them to COVERED_KEYWORDS.** | ~120 (+48 re-add) | sub | OPEN | Invisible Stalker, Bog Wraith, Jungle Lion, Cloud Elemental |
 
 ### 🟡 medium / lower-risk subsystems (runway)
 
@@ -134,6 +128,8 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | **LOOT-1** | Add a self-discard atom (`you discard N` = controller); `draw N, then discard M` then composes. **Reject "discard at random"** (engine-chosen ≠ player-chosen). | ~9 | low | DONE #241 (Paula) | Careful Study, Faithless Looting, Catalog, Thoughtflare |
 | **TOK-NAMED-EXT** | Extend the TOK-2 named-token registry to Blood / Powerstone / Map / Lander / Junk. **Powerstone enters tapped + can't pay nonartifact spells** (model or over-credits ramp); exclude ROLE aura-tokens. | ~8 / ~30-40 corpus | low | OPEN | Powerstone/Blood/Lander/Map ETBs (cross-cluster) |
 | **RIDER-CTRL-LIFE** | "Its controller loses N life." on a single **permanent-target** base. **"its controller" = the TARGET's controller, not the caster**; counter-spell targets have no `.controller` → permanent targets only. | ~7 | med | OPEN | Spreading Rot, Despoil, Hideous End, Vapor Snag |
+| **KW-UNTARGET** | ⚠ **engine-first re-coverage (#255 drop):** enforce hexproof/shroud/ward in `enumerateTargets` (a targetability check: hexproof = no opponent target, shroud = no target, ward = a tax the targeter must pay). Then return them to COVERED_KEYWORDS. Bare-keyword bodies only. | ~41 (re-add) | sub | OPEN | Invisible Stalker (hexproof), Silhana Ledgewalker, Steel Leaf Champion (ward) |
+| **TRIG-PROWESS** | **Re-coverage (#255 drop):** model prowess — "Whenever you cast a noncreature spell, this creature gets +1/+1 UEOT" — as a real trigger (reuses the TRIG-PUMP-1 temp-pump compiler + a cast-trigger event). Then return prowess to COVERED_KEYWORDS. Plain prowess only (reject the "prowess-like" custom riders). | ~23 (re-add) | med | OPEN | Monastery Swiftspear, Soulfire Grand Master, Stormchaser Mage |
 
 ### 🟢 small / cleanup
 
@@ -144,6 +140,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | **ACT-SELF-BOUNCE** | "{cost}: Return this creature to its owner's hand" (bind target=source). Bundle, not a solo PR. | ~6 | low | OPEN | Darting Merfolk, Fleeting Image, Blinking Spirit |
 | **TUCK-1** | "Put target creature on top of its owner's library" (new `tuck` op). Anchored whole-card; **top ≠ bottom ≠ hand** (wrong slot loses/dupes the card). | ~5 | low | OPEN | Time Ebb, Griptide, Excommunicate, Repel |
 | **RIDER-2ND-MINUS** | Pump target 1 + debuff a DISTINCT 2nd creature. Needs distinct-second-target binding; don't loosen "another" globally. | ~5 | med | OPEN | Leeching Bite, Consume Strength, Schismotivate |
+| **DEFENDER-ENFORCE** | **Re-coverage (#255 drop) — clean quick win.** Exclude Defender creatures from `actionsDeclareAttacker` (CR 702.3b: can't attack — read via `permanentHasKeyword` so a granted/removed Defender counts), then return "defender" to COVERED_KEYWORDS. One filter + a re-add + a live "a Wall can't attack" check. | ~37 (re-add) | low | OPEN | Wall of Omens, Fog Bank, Doran the Siege Tower (grants), Axebane Guardian |
 
 ---
 
@@ -155,6 +152,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | **⭐ PW-FRAMEWORK** | **Planeswalker subsystem — GAMEPLAY-CRITICAL, not a coverage-%-play.** A loyalty system + standard +/−/static abilities (reusing the modeled atoms) so the Academy can actually **play + teach** PW decks; complex game-warping ultimates degrade **per-card** to the Arbiter (CREED-safe). **Not a coverage-builder slice — a dedicated PW agent owns it, framework-first.** Build-time research is mandatory (CREED forbids coding PW behavior from memory); shipped engine stays 100 % local (research informs code, never a runtime call). Source hierarchy: bundled CR `cr_current.json` + `rulings.json` = rules truth → official web (Scryfall/Gatherer) for gaps → Reddit only for edge-cases + what players misunderstand (feeds the TEACHING layer, never the rules). | ~250-300 of 337 native (most playable; not all-perfect) | **Pending Colton go/no-go + timing; Omnath drafting the agent.** Re-categorized OUT of the irreducible tail (see the strategic map) — gameplay value ≫ ~1 % corpus share. |
 | **ACT-REGEN-SHIELD** | `{cost}: Regenerate this creature` — a replacement-effect SHIELD (CR 701.15). | ~66 | SAME prerequisite as PREVENT — build the replacement-shield machinery once, unlock both. FORBIDDEN to fake-model. |
 | **PREVENT** | Ongoing replacement/prevention (Story Circle, "if … would … instead", prevent-next-N-damage). | big | Replacement-effects subsystem; pairs with ACT-REGEN-SHIELD. (The one-shot Fog latch is carved out as FOG-1.) |
+| **PROTECTION** | **Re-coverage (#255 drop): the DEBT subsystem** — protection from [quality] = can't be **D**amaged / **E**nchanted-equipped / **B**locked / **T**argeted by that quality (CR 702.16). Currently enforced NOWHERE → protection-only bodies were dropped to the Arbiter. A real replacement/legality subsystem (pairs conceptually with PREVENT for the damage half). | ~75 (re-add) | Big DEBT subsystem; greenlight with PREVENT. Until then protection-only bodies stay on the Arbiter (safe). |
 | **GAIN-CTRL** | Temporary control change (Threaten/Act of Treason: gain control + untap + haste + end-of-turn give-back). | ~25 | Control-swap + end-of-turn give-back subsystem. |
 | **EVADE-4** | "Attacks each combat if able" — a must-attack REQUIREMENT engine (attacking is optional today). | ~16 | A new requirement code path, separate from the EVADE canBlock work. Lowest ROI. |
 | **ACT-MONSTROSITY** | Monstrosity N / Adapt N. | ~7 | Needs an is-monstrous latch whose own second-ability cards force FPs. Not worth it. |
