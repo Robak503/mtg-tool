@@ -5,7 +5,34 @@
 > while the **mass of the game sat untouched**. This is the re-aim. **Walt keeps the keyword lane —
 > this is CINDY's lane.** Strict CREED stays (model the whole card or route it; no partial-native).
 
-## 🔄 REVISED PRIMARY LEVER (2026-06-19, after slice 1 — Cindy's finding, adopted)
+## ✅ DECISION — COVERAGE-% FIRST, via the COMPLETION FRONTIER (Colton, 2026-06-19)
+
+After 3 slices confirmed per-slice metric gains are tiny (most cards are multi-clause; all-or-nothing scores
+them 0 until FULLY modeled), Colton chose: **optimize the native coverage-% directly.** The naive version
+(grind whole cards one at a time) is slow. The sharp version:
+
+**Rank unmodeled clauses by how many cards each would COMPLETE — not by raw frequency.** A card flips native
+only when its LAST unmodeled clause is covered. So:
+1. **Build a completion analysis** (extend the gap script): for every `body-only` / `arbiter-spell` card,
+   list its unmodeled clause-types; then for each clause-type, count the cards for which it is **the only
+   remaining unmodeled clause** ("on the completion frontier").
+2. **Model the highest-completion clauses first** — each one flips a whole batch of otherwise-ready cards.
+3. For cards needing 2+ new clauses, model the **cluster of clauses that together completes the most cards**.
+4. Effect-atom widening is still the TOOL (a shared effect/ability atom helps many cards); the TARGET is now
+   whole-card completion, measured by cards-flipped-to-native. Expect lumpy % gains (an atom may flip few
+   immediately, then a later atom completes a backlog of cards waiting on it).
+
+Same strict CREED + the FP net (>100-card slices need a sample). The single-atom infra already shipped
+(#295 self-buff, #296 enters-with-counters) stands and feeds the frontier.
+
+> **FUTURE LANE (flagged, not active):** Colton may spin up a separate workstream solely for **personal-deck
+> unlocks** — making his actual decks (Vihaan & co.) play correctly end-to-end for gameplay/cEDH-sim,
+> independent of the corpus-% grind. When greenlit it gets its own brief; until then this coverage-% lane is
+> Cindy's focus.
+
+---
+
+## 🔄 EARLIER LEVER NOTE (2026-06-19, after slice 1 — superseded by the DECISION above)
 
 **Slice 1 (TRUNK-SELFBUFF #295) flipped only 6 cards and proved the permanent-ability families FRAGMENT.**
 Cindy re-ran the gap analysis: the `this creature …` 1,035-bucket is heterogeneous (30+ shapes, ≤7 per
