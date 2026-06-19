@@ -237,7 +237,8 @@ export function runStepActions(state) {
 
     case "first-strike-damage":
       // First-strike + double-strike creatures deal here; the call no-ops when
-      // none have it (CR 510.5). Lethal first-strike damage kills before the
+      // none have it (CR 510.4 — a first-strike/double-strike combatant creates this
+      // first combat-damage step). Lethal first-strike damage kills before the
       // regular step, so those creatures never deal back.
       next = resolveCombatDamage(next, { firstStrikeStep: true });
       next = logEvent(next, { kind: "step", phase: "combat", step: "first-strike-damage", player: state.activePlayer });
