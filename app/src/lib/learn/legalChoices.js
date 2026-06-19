@@ -299,10 +299,31 @@ function affordableXValues(state, playerId, cost) {
 }
 
 function actionsCastSpell(state, playerId) {
+  return castActionsFromZone(state, playerId, state.players[playerId].hand, "hand", null);
+}
+
+// CMD-CAST (CR 903.8) — a player may cast a commander they own FROM the command zone; it costs an
+// additional {2} for each PREVIOUS time they've cast it from the command zone this game (the "commander
+// tax"). This mirrors hand-casting EXACTLY (same timing / affordability / target / X / modal / additional
+// -cost machinery) via the shared `castActionsFromZone`, adding only the per-commander tax + a
+// `fromZone:"command"` marker. Commander-mode only: gated on a non-empty command zone, so Standard (no
+// command zone) is a no-op. Most commanders are creatures → sorcery-speed timing via isSorcerySpeed.
+function actionsCastCommander(state, playerId) {
+  const player = state.players[playerId];
+  const command = player.command || [];
+  if (command.length === 0) return [];
+  const counts = player.commanderCastCount || {};
+  return castActionsFromZone(state, playerId, command, "command", (card) => 2 * (counts[card.id] || 0));
+}
+
+// Shared cast-action builder for a player's castable zone (hand or command). `taxFn(card)` returns the
+// extra GENERIC mana to add to the printed cost (CR 903.8 commander tax); null = untaxed. `fromZone`
+// rides on every emitted action so the dispatcher splices the card out of the correct zone at cast.
+function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
   const player = state.players[playerId];
   const actions = [];
 
-  for (const card of player.hand) {
+  for (const card of cards) {
     if (isLand(card)) continue;
 
     const sorcerySpeed = isSorcerySpeed(card);
@@ -311,7 +332,12 @@ function actionsCastSpell(state, playerId) {
       : canCastInstantSpeed(state, playerId);
     if (!timingOk) continue;
 
-    const cost = parseManaCost(manaCostOf(card));
+    let cost = parseManaCost(manaCostOf(card));
+    // Mana value is a card characteristic the commander tax does NOT change (CR 202.3b) — capture it from
+    // the PRINTED cost before the tax is folded into `cost` (which becomes the payable amount).
+    const printedCmc = totalCmc(cost);
+    const tax = taxFn ? taxFn(card) : 0;
+    if (tax) cost = { ...cost, generic: (cost.generic || 0) + tax };
     // Castable if the pool PLUS what untapped lands/rocks/dorks could produce
     // covers the cost — the dispatcher auto-taps to pay. (Pool-only would
     // never be castable since nothing pre-fills it.)
@@ -323,10 +349,11 @@ function actionsCastSpell(state, playerId) {
     const base = {
       kind: "cast-spell",
       playerId,
+      fromZone, // CMD-CAST: "hand" (default) or "command" — the dispatcher splices from the right zone
       cardId: card.id,
       name: card.name,
       cost,
-      cmc: totalCmc(cost),
+      cmc: printedCmc,
       effect: effect || null,
       // P2.2: the serializable EffectProgram the dispatcher resolves through the
       // `effect-program` interpreter. `effect` stays for AI scoring of the legacy
@@ -401,7 +428,7 @@ function actionsCastSpell(state, playerId) {
       if (combos.length === 0) continue;
       for (const x of xValues) {
         const xCost = { ...cost, generic: (cost.generic || 0) + x };
-        const xCmc = totalCmc(xCost);
+        const xCmc = printedCmc + x; // mana value = printed + chosen X (CR 202.3b); the commander tax doesn't count
         // AI safety: parseSpellEffect returns null for the literal "X", so base.effect
         // is null and pickCastAction would skip its enemy-only target filter. Re-attach
         // a synthetic legacy effect for a single-atom X-damage program so the AI still
@@ -859,6 +886,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // Lands, spells, mana.
   actions.push(...actionsPlayLand(state, playerId));
   actions.push(...actionsCastSpell(state, playerId));
+  actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsActivateAbility(state, playerId));
   actions.push(...actionsActivateLoyalty(state, playerId));
