@@ -8,6 +8,25 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-06-18
+
+**The trigger-effect compiler and count-scaling coverage wave.** Building on v0.40.0's enforcement work,
+this release teaches the engine a batch of trigger and count-derived effects natively — the
+highest-leverage frontier of the coverage climb. Native corpus coverage ~17.5% → **17.7%**; suite ~2,651
+green, lint clean. The Arbiter remains the fail-safe for anything not modeled.
+
+- **Trigger-effect compiler — new events fire natively:** "whenever this/a creature you control deals
+  combat damage to a player" (e.g. Treasure makers), prowess (a noncreature-cast self-pump), and
+  "whenever this creature attacks/dies, put a +1/+1 counter on it."
+- **Count-scaling effects:** "deals damage equal to the number of X you control," "draw a card / gain N
+  life for each X," and "create a token for each X" (Avenger of Zendikar class) now resolve natively —
+  the count is read from your board at resolution, controller-scoped, with opponent-scoped and exotic
+  counts safely left to the Arbiter.
+- **Ability-carrying tokens:** tokens with mana abilities (sac-for-mana) play correctly.
+- **Enforcement completed:** prowess is the last of the previously display-only keywords to become a
+  real, enforced rule — 9 of 11 now play by the rules (only ward's tax and protection's full subsystem
+  remain on the Arbiter, by design).
+
 ## [0.40.0] - 2026-06-18
 
 **The planeswalker subsystem completes, and "enforce, don't drop" lands.** This release finishes

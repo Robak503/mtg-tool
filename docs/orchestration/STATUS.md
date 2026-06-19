@@ -4,7 +4,7 @@
 > _Updated 2026-06-18 19:50 MST · **cycle 4** · master @ 6c20832 · **v0.40.0 PUBLISHED ✓** · **PW-1→PW-8 COMPLETE** · enforce-don't-drop: **9 of 11 keywords enforced** · trigger-compiler lane HOT · **POLICY: enforce FPs, don't drop**._
 
 ## 📊 Scoreboard
-- **Native coverage: 17.7%** — 6,055 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%) · recent: TRIG-TREASURE #264, IT-COUNTER #265, FOR-EACH #266, DMG-SCALE #263 — the **trigger-effect compiler + count-scaling** lanes (the spine of the climb)
+- **Native coverage: 17.7%** — 6,059 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%) · the **trigger-effect compiler + count-scaling** lanes (the spine of the climb) — DMG-SCALE/FOR-EACH/FOREACH-TOK + TRIG-TREASURE/PROWESS/IT-COUNTER
 - `[####······················]`  ~19% of the way to goal
 - ✅ **9 of the 11 interim-FP keywords now ENFORCED → honestly native:** EVADE #258 (menace/skulk/fear/intimidate/horsemanship/defender, +141) · KW-UNTARGET #260 (hexproof/shroud) · **TRIG-PROWESS #262** (prowess). **Only 2 remain interim FPs — the genuinely-hard ones, legitimately deferred per the policy:** **ward** (a TAX, CR 702.21) + **protection** (the DEBT subsystem). Enforce-don't-drop **essentially complete** for tractable keywords.
 - **184 `playable-pw`** — planeswalkers play end-to-end, run **static + triggered emblem ultimates** (#251 + #254), and are **killable by removal** (#253).
@@ -13,7 +13,7 @@
 ## 🚀 Releases
 - **v0.39.0 — PUBLISHED ✓** — signed installer + `latest.json` live; auto-update active.
 - **v0.40.0 — PUBLISHED ✓** (2026-06-19). `gh release v0.40.0` live — `latest.json` + signed `MTG.Tool_0.40.0_x64-setup.exe` (+`.sig`); auto-update active for all instances. Contents: full PW subsystem (PW-5/6/7/8) + **EVADE #258** + **KW-UNTARGET #260** + **token-abil #259** + the enforce-don't-drop honesty pass (#255/#256). _(Post-tag work for v0.41.0: DMG-SCALE #263, prowess #262, TRIG-TREASURE #264.)_ Recommend a live combat dogfood of EVADE on the published build.
-- **v0.41.0 — banking (getting meaty):** prowess #262 + DMG-SCALE #263 + TRIG-TREASURE #264 + IT-COUNTER #265 + FOR-EACH #266 (+ qa-sweep syncs). The trigger-compiler + count-scaling wave. Consider cutting soon — it's a coherent "coverage wave" batch.
+- **v0.41.0 — CUT ✅ (CI building, ~20-30 min).** Tagged 2026-06-18 — the trigger-compiler + count-scaling coverage wave: prowess #262 + DMG-SCALE #263 + TRIG-TREASURE #264 + IT-COUNTER #265 + FOR-EACH #266 + FOREACH-TOK #268 (+ qa-sweep syncs #267). 17.5→17.7%. CI syncs version from the tag → builds/signs/publishes.
 
 ## 👥 Faculties — who's doing what (lean roster)
 | Faculty | Role · cadence | Working on |
@@ -43,7 +43,7 @@ _**`scout/board-5` (Hans) is STALE** (branched at 88b1d4b, pre-EVADE) — relaye
 - 🟦 **Walt's PW-leverage lane** (`feat/WALT-*-walt`): WALT-TOKEN-ABIL (start), WALT-DMG-SCALE, WALT-FOR-EACH… (see `agents/walt.md`)
 
 ## 🔁 Recent merges (newest first)
-- **#266** WALT-FOR-EACH — count-scaled draw/lifegain, +23 (Walt) · **#265** IT-COUNTER — self +1/+1 trigger, +9 (Cindy) · **#264** TRIG-TREASURE, +19 (Cindy) · **#263** WALT-DMG-SCALE, +19 (Walt) · **#262** TRIG-PROWESS (Cindy) · **#260** KW-UNTARGET (Cindy) · **#258** EVADE, +141 (Cindy)
+- **#268** WALT-FOREACH-TOK — token-per-count (Walt) · **#266** WALT-FOR-EACH — count-scaled draw/lifegain, +23 (Walt) · **#265** IT-COUNTER, +9 (Cindy) · **#264** TRIG-TREASURE, +19 (Cindy) · **#263** WALT-DMG-SCALE, +19 (Walt) · **#262** TRIG-PROWESS (Cindy) · **#258** EVADE, +141 (Cindy)
 - shipped in v0.39.0: #243 SOFT-CNT · #241 LOOT-1 · #240 ADDCOST-2 · #238 TRIG-PUMP-1 · #237 MT-1 · #236 PW-1 · …
 
 ## 🗒️ Notes
