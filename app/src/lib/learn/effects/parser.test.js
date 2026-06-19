@@ -701,6 +701,8 @@ const MUST_DROP_TO_LOW = [
   "Search your library for a creature card with mana value 3 or less, put it into your hand, then shuffle.", // mana-value rider
   "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",  // RAMP-1 models the SINGLE-land battlefield fetch; multi-land (Explosive Vegetation) stays low
   "Search your library for a green creature card, put it onto the battlefield, then shuffle.",  // RAMP-1 restricts battlefield fetch to LANDS; a creature cheat-into-play (Natural Order) stays low
+  "Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.",  // RAMP-TYPED: AMBIGUOUS-basic union (Quandrix Cultivator) — "basic" must distribute but the split can't prove it → Arbiter
+  "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.",  // RAMP-TYPED: multi-card typed fetch (Skyshroud Claim) stays low
   "Search your library for a basic land card, put it on top of your library, then shuffle.",       // top-of-library
   "Search your library for up to two basic land cards, put them into your hand, then shuffle.",     // multi-card
   "Search your library for a nonland card, put it into your hand, then shuffle.",                   // "nonland" not in any type line
@@ -937,6 +939,11 @@ const MUST_STAY_HIGH = [
   "Search your library for a legendary creature card, reveal it, put it into your hand, then shuffle.",     // Time of Need
   "Search your library for an Aura or Equipment card, reveal it, put it into your hand, then shuffle.",     // Open the Armory
   "Search your library for a basic land card, reveal it, put it into your hand, then shuffle. You gain 2 life.", // Environmental Sciences
+  // ── RAMP-TYPED — typed-basic land ramp to the battlefield (Dex). A basic land TYPE only appears on a LAND,
+  // so the land-guard safely admits it; the comma-union is honored by the Oxford-comma split. ──
+  "Search your library for a Forest card, put that card onto the battlefield, then shuffle.",                  // Nature's Lore (typed basic, untapped)
+  "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.", // Farseek (comma-union, tapped)
+  "Destroy target land. Search your library for a Forest card, put that card onto the battlefield tapped, then shuffle.", // Mwonvuli Acid-Moss (removal + typed ramp, both modeled)
   // ── Mass effects (board wipes) — UNFILTERED "all creatures", modeled this slice. ──
   "Destroy all creatures.",                                                     // Day of Judgment
   "Destroy all creatures. They can't be regenerated.",                          // Wrath of God / Damnation (regen rider stripped)

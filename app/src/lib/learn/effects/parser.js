@@ -295,6 +295,13 @@ const TUTOR_FILTER_WORDS = new Set([
   "instant", "sorcery", "planeswalker", "battle", "plains", "island", "swamp",
   "mountain", "forest", "equipment", "aura",
 ]);
+// ===== RAMP-TYPED ===== the five basic LAND TYPES (CR 305.6). A tutor-filter group naming any of
+// these is GUARANTEED to fetch a LAND — verified against the bundled corpus: ZERO non-land cards
+// carry a basic land type on their front face — so the battlefield-destination ramp tutor (RAMP-1,
+// below) can safely accept a TYPED-BASIC fetch (Nature's Lore "a Forest card", Farseek "a Plains,
+// Island, Swamp, or Mountain card") alongside the literal "basic land" phrase, without a non-land
+// cheat-into-play ever slipping through the land-guard.
+const BASIC_LAND_SUBTYPES = new Set(["plains", "island", "swamp", "mountain", "forest"]);
 /**
  * Parse a tutor's filter phrase (the words between "for a/an" and "card") into
  * `{ groups }` — an OR of AND-groups: "instant or sorcery" → [["instant"],["sorcery"]],
@@ -303,7 +310,11 @@ const TUTOR_FILTER_WORDS = new Set([
  * its type line (effectAtoms.cardMatchesTutorFilter).
  */
 function parseTutorFilter(phrase) {
-  const groups = String(phrase).trim().split(/\s+or\s+/).map((g) => g.trim().split(/\s+/).filter(Boolean));
+  // Split a union into AND-groups on " or " AND comma-lists (Oxford comma): "Plains, Island, Swamp,
+  // or Mountain" → 4 groups (RAMP-TYPED's typed-basic union, Farseek). The ", or " separator is tried
+  // BEFORE a bare ", " so the final Oxford-comma item isn't left with a stray leading "or". Backward-
+  // compatible: phrases with no comma ("basic land", "instant or sorcery") split exactly as before.
+  const groups = String(phrase).trim().split(/,\s*or\s+|,\s*|\s+or\s+/).map((g) => g.trim().split(/\s+/).filter(Boolean));
   if (groups.length === 0 || groups.some((g) => g.length === 0)) return null;
   for (const g of groups) for (const w of g) if (!TUTOR_FILTER_WORDS.has(w)) return null;
   return { groups };
@@ -563,21 +574,35 @@ function parseExtendedAtom(s) {
     const filter = parseTutorFilter(phrase);
     return filter ? { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "hand", targetType: null } : null;
   }
-  // RAMP-1 — battlefield-destination tutor: "Search your library for a <LAND> card, put (it|that card)
-  // onto the battlefield[ tapped], then shuffle." (Rampant Growth / Untamed Wilds / Shared Roots, and
-  // the same clause inside Farhaven Elf's ETB). Reuses the tutor atom + picker; the fetched card enters
-  // the battlefield (resolveTutorChoice → enterCardFromZone, firing ETB). RESTRICTED to LAND fetches —
-  // every filter group must include "land" — so a non-land cheat-into-play (Natural Order) stays OUT of
-  // scope → low → Arbiter. Anchored whole-clause: a rider (Threshold / Domain / Rebound), a multi-land
-  // "two/up to N", or a split "to your hand … onto the battlefield" (Cultivate) all fail → low → Arbiter.
-  const bfm = t.match(/^search your library for an? ([a-z][a-z ]*?) cards?,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // RAMP-1 / RAMP-TYPED — battlefield-destination LAND tutor: "Search your library for a <LAND> card,
+  // put (it|that card) onto the battlefield[ tapped], then shuffle." (Rampant Growth "a basic land card",
+  // and — RAMP-TYPED — the typed-basic ramp staples: Nature's Lore / Three Visits "a Forest card", Farseek
+  // "a Plains, Island, Swamp, or Mountain card", and the same clause inside Wood Elves' / Farhaven Elf's
+  // ETB). Reuses the tutor atom + picker; the fetched card enters the battlefield (resolveTutorChoice →
+  // enterCardFromZone, firing ETB). RESTRICTED to LAND fetches — every filter group must be GUARANTEED-land
+  // (it names the literal "land", OR a basic land type, which only lands carry — verified zero non-land
+  // hits in the corpus) — so a non-land cheat-into-play (Natural Order "a creature card") stays OUT of scope
+  // → low → Arbiter. Anchored whole-clause: a rider (Threshold / Domain / Rebound), a multi-land "up to two"
+  // (Skyshroud Claim / Explosive Vegetation — "for up to two …" has no "a/an", fails the anchor), or a split
+  // "to your hand … onto the battlefield" (Cultivate) all fail → low → Arbiter. Comma-unions (Farseek) are
+  // honored by parseTutorFilter's Oxford-comma split; the phrase class allows the union's commas.
+  const bfm = t.match(/^search your library for an? ([a-z][a-z ,]*?) cards?,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (bfm) {
     const phrase = bfm[1];
     const filter = parseTutorFilter(phrase);
-    if (filter && filter.groups.every((g) => g.includes("land"))) {
+    // A group fetches ONLY lands when it names "land" OR a basic land type (plains/island/swamp/mountain/forest).
+    const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
+    // AMBIGUOUS-BASIC union → Arbiter: "a basic Forest or Island card" (Quandrix Cultivator) means basic
+    // Forest or basic ISLAND — the leading "basic" distributes — but the split yields [["basic","forest"],
+    // ["island"]], whose bare "island" group would over-permissively match a NONBASIC dual (Breeding Pool).
+    // Modeling that distribution is a fast-follow; for now any union where "basic" appears in some-but-not-all
+    // groups drops to low → Arbiter (a clean false-negative, never an illegal-target fetch — CREED).
+    const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
+    const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
+    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
       return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!bfm[2], targetType: null };
     }
-    return null; // a non-land / unmodeled-filter battlefield tutor → low → Arbiter
+    return null; // a non-land / unmodeled-filter / ambiguous-basic battlefield tutor → low → Arbiter
   }
   // A standalone "[then] shuffle [your library]" clause (some cards put it in its own
   // sentence after the search) — shuffles the controller's library (CR 103.2).
