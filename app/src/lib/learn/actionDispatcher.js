@@ -50,7 +50,7 @@ import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura } from "./staticAbilityParser.js";
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
-import { checkCastTriggers, checkDiesTriggers } from "./triggers.js";
+import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers } from "./triggers.js";
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -439,6 +439,9 @@ function sacrificePermanentForCost(state, playerId, permObj) {
   if (/Creature/.test(typeLine)) {
     next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card }]);
   }
+  // TRIG-SACRIFICE: a sac-as-cost is a sacrifice → fire "Whenever you sacrifice a <permanent|creature|
+  // artifact>" for the sacrificing player (the perm has left, so its type rides on the lookBack card).
+  next = checkSacrificeTriggers(next, playerId, { id: permObj.id, controller: playerId, card: permObj.card });
   return next;
 }
 
