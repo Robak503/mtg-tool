@@ -221,7 +221,7 @@ function classifyCondition(condRaw, cardName) {
   if (/\bblocks\b/.test(c) && selfRef && !/\bblocks\s*$/.test(c.trim())) return null;
   if (/\bblocks\b/.test(c) && selfRef) return { event: "blocks", scope: "self", whose: "any" };
 
-  // Combat-damage-to-a-player (CR 510.4). "Whenever <self> deals combat damage to a player" (self) /
+  // Combat-damage-to-a-player (CR 510.2 — combat damage dealt). "Whenever <self> deals combat damage to a player" (self) /
   // "Whenever a creature you control deals combat damage to a player" (creatureYouControl). BARE form
   // only — END-anchored on "a player" so a qualified variant ("…to a player or planeswalker", "…to a
   // creature", "one or more creatures you control deal…", or any trailing rider) stays UNDETECTED →
@@ -540,12 +540,14 @@ export function checkAttackTriggers(state) {
 }
 
 /**
- * Enqueue combat-damage triggers (CR 510.4) for the attackers that dealt combat damage to a PLAYER this
+ * Enqueue combat-damage triggers (CR 510.2) for the attackers that dealt combat damage to a PLAYER this
  * step — driven by combatResolution's `playerEvents` (kind "combat-damage-player"), so they fire exactly
  * when real damage landed on a player. Each such attacker fires its own "Whenever this creature deals
  * combat damage to a player" plus every "a creature you control deals combat damage to a player" watcher
  * the attacking player controls. Mirrors checkAttackTriggers; pure. Called BEFORE the lethal-damage SBA
- * (an attacker may trade and die, but it still triggered — CR 603.10a).
+ * (a trading attacker may die to the SBA, but it triggered at the damage event — CR 510.2; abilities
+ * that triggered on combat damage are put on the stack after the SBA, CR 510.3a — so we capture them
+ * pre-SBA while the source still resolves).
  */
 export function checkCombatDamageTriggers(state, playerEvents) {
   const hits = (playerEvents || []).filter((e) => e.kind === "combat-damage-player");

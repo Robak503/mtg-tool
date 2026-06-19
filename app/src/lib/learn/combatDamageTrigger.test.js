@@ -1,5 +1,5 @@
 /**
- * Combat-damage-to-a-player trigger event (CR 510.4) — "Whenever <self / a creature you control>
+ * Combat-damage-to-a-player trigger event (CR 510.2 / 510.3a) — "Whenever <self / a creature you control>
  * deals combat damage to a player, <effect>". detectTriggers recognizes the bare shape; combatResolution
  * fires it off the real per-attacker player-damage, BEFORE the lethal SBA (a trading attacker still
  * triggers). The effect rides the existing flush → EffectProgram compiler. Engine-first: the trigger
