@@ -511,6 +511,21 @@ export function permanentTypes(state, permanentId) {
 }
 
 /**
+ * Layer-aware "is this permanent a creature right now?" — true when Creature is
+ * among its derived card types after layer 4. A printed creature, an animated
+ * land/artifact, and a man-land all answer correctly through this one predicate,
+ * so the engine's combat + state-based-action paths treat a granted-Creature
+ * permanent as the creature it has become (WALT-ANIMATE framework).
+ *
+ * Behavior-neutral for any permanent with no layer-4 type effect in play: the
+ * type layer only ADDS types (it never strips them — see applyTypeColorLayers),
+ * so for an unanimated card this is exactly the printed type-line creature check.
+ */
+export function permanentIsCreature(state, permanentId) {
+  return permanentTypes(state, permanentId).types.includes("Creature");
+}
+
+/**
  * Convenience used by tests/explain: the ordered effects that apply to a
  * permanent (layer asc, then CDA-first, then timestamp). Pure.
  */

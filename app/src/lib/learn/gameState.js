@@ -27,7 +27,7 @@
  */
 
 import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
-import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { hasKeyword } from "./keywords.js";
 
 // ─── ID generation ────────────────────────────────────────────────────────────
@@ -968,11 +968,18 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
     dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature", card: perm.card });
   for (const [pid, player] of Object.entries(state.players)) {
     for (const perm of player.battlefield) {
-      const typeStr = String(perm.card?.type || perm.card?.type_line || "");
-      if (!typeStr.includes("Creature")) continue;
-      const printed = Number(perm.card?.toughness);
-      if (!Number.isFinite(printed)) continue; // skip "*"/unknown toughness
+      // Layer-aware creature-ness (WALT-ANIMATE): an animated land/man-land is subject to the
+      // lethal/0-toughness SBAs as the creature it has become, not just printed creatures.
+      if (!permanentIsCreature(state, perm.id)) continue;
+      // Printed creatures keep the legacy guard EXACTLY: an unevaluable printed toughness
+      // ("*"/unknown) is skipped so the SBA never mis-sizes e.g. a CDA creature the engine
+      // can't size. A permanent that is a creature ONLY via a layer-4 effect (an animated land)
+      // has no printed toughness — its toughness is supplied by the animating layer, so it's
+      // read from the derived value below instead of being skipped here.
+      const printedCreature = String(perm.card?.type || perm.card?.type_line || "").includes("Creature");
+      if (printedCreature && !Number.isFinite(Number(perm.card?.toughness))) continue;
       const tough = creatureToughness(perm, state);
+      if (!Number.isFinite(tough)) continue; // animated permanent whose derived toughness is unknown — skip
       const dmg = perm.damageMarked || 0;
       if (tough <= 0) {
         markDead(pid, perm); // CR 704.5f — indestructible does NOT prevent this
