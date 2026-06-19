@@ -1,18 +1,18 @@
 # 🎛️ Academy Coverage — Live Status
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
-> _Updated 2026-06-18 17:10 MST · **cycle 4** · master @ c1bc598 · v0.39.0 **PUBLISHED** ✓ · **PW-1→PW-8 COMPLETE** · **POLICY: enforce FPs, don't drop** (#256 kept the 11 keywords claimed as interim FPs)._
+> _Updated 2026-06-18 17:35 MST · **cycle 4** · master @ 2e7f0c2 · v0.39.0 **PUBLISHED** ✓ · **PW-1→PW-8 COMPLETE** · **EVADE #258 shipped (+141)** · **POLICY: enforce FPs, don't drop**._
 
 ## 📊 Scoreboard
-- **Native coverage: 17.2%** — 5,876 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%)
-- `[####······················]`  ~19% of the way to goal
-- ⚠️ **~289 of those are INTERIM FALSE POSITIVES** (enforce-don't-drop): #255 dropped 11 unenforced keywords (menace/defender/hexproof/ward/prowess…), but **#256 reverted that — kept claimed** while the enforcement is built (the code labels them so). Live play still mis-resolves them until the **re-coverage rows** ship (EVADE, DEFENDER-ENFORCE, KW-UNTARGET, TRIG-PROWESS, PROTECTION — Cindy's lane). The % is honest once those land.
+- **Native coverage: 17.6%** — 6,017 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%) · **+141 from EVADE #258** (an HONEST gain — the rule now actually ships)
+- `[####······················]`  ~20% of the way to goal
+- ✅ **EVADE #258 enforced 6 of the 11 interim-FP keywords** (menace/skulk/fear/intimidate/horsemanship/defender) — now **honestly native** (combatEvasion canBlock chokepoint, layer-aware). **~140 remain interim FPs:** hexproof/shroud/ward/protection (KW-UNTARGET/TARGET-RESTRICT) + prowess (TRIG-PROWESS) — claimed while their enforcement is built (Cindy's lane). This is enforce-don't-drop *working*: coverage rose by enforcing, not re-claiming.
 - **184 `playable-pw`** — planeswalkers play end-to-end, run **static + triggered emblem ultimates** (#251 + #254), and are **killable by removal** (#253).
-- **Open PRs: 0.** master @ 94fbfa9. Tests **2,584 green**, lint clean.
+- **Open PRs: #259** (Walt token-abil — CONFLICTING on `coverage.js` after EVADE landed; Walt rebases). master @ 2e7f0c2. Tests **2,602 green**, lint clean.
 
 ## 🚀 Releases
 - **v0.39.0 — PUBLISHED ✓** — signed installer + `latest.json` live; auto-update active.
-- **v0.40.0 — BANKED, pending one more slice.** On master: the full PW subsystem (PW-5/8 emblems #251/#254 + PW-6/7 removal #253) + Hans's FP-honesty pass (#255). Holding to **bundle the first re-coverage/enforcement slice** (EVADE or DEFENDER-ENFORCE) so v0.40.0 leads with a coverage gain. Cut once it lands — or unconditionally next cycle. CI derives the version from the tag.
+- **v0.40.0 — READY.** On master: full PW subsystem (PW-5/6/7/8) + **EVADE #258 (+141, 17.2→17.6%)** — enforce-don't-drop's first proven win. **Pre-tag gate: a LIVE combat smoke-play of EVADE** (menace needs 2 blockers · unblockable can't be blocked · a Wall can't attack) — then `git tag v0.40.0`. May bundle #259 (Walt token-abil) once it rebases.
 
 ## 👥 Faculties — who's doing what (lean roster)
 | Faculty | Role · cadence | Working on |
@@ -25,7 +25,9 @@
 | **Omnath** | Brain · strategy | sets *what/why*; not in the build/merge loop. Boot via the `/omnath` skill. |
 
 ## 🔀 Merge queue (open PRs)
-_Empty — #253/#251/#254/#255 all merged this cycle. Awaiting the first re-coverage/enforcement PRs (Cindy) + PW-leverage atom PRs (Walt, `feat/WALT-*-walt`)._
+| PR | Task | State |
+|---|---|---|
+| **#259** | WALT-TOKEN-ABIL slice 1 — token mana abilities + kill token-as-fake-mana-source FP (Walt) | ⏳ **CONFLICTING** on `coverage.js` (EVADE #258 landed first). **Walt: rebase onto origin/master (2e7f0c2), keep BOTH EVADE's `isKeywordOnly`/COVERED_KEYWORDS changes + your token-abil changes, `--force-with-lease`** → Clyde merges. |
 
 ## 🧭 The climb (Hans board thesis)
 - **~20%→~85% is essentially ONE subsystem — the trigger-effect compiler** (~5,267 trigger cards). **TRIG-PUMP-1 (#238) proved the pilot.** Highest-lever unclaimed = the TRIG-* sub-rows: TRIG-SCRY (~33), TRIG-TREASURE (~45), TRIG-COUNTER (~28), TRIG-DRAW, TRIG-MONARCH (~18).
@@ -38,7 +40,7 @@ _Empty — #253/#251/#254/#255 all merged this cycle. Awaiting the first re-cove
 - 🟦 **Walt's PW-leverage lane** (`feat/WALT-*-walt`): WALT-TOKEN-ABIL (start), WALT-DMG-SCALE, WALT-FOR-EACH… (see `agents/walt.md`)
 
 ## 🔁 Recent merges (newest first)
-- **#257** qa-sweep de-noise (Hans, tooling) · **#256** keep 11 keywords claimed (enforce-don't-drop) + PW-before-land + qa-sweep tool (Hans) · **#255** FP audit (superseded by #256) · **#254** PW-8 triggered emblems (Walt) · **#251** PW-5 emblems (Walt) · **#253** PW-6/7 removal targeting (Walt)
+- **#258** EVADE — combat-evasion enforcement, +141 (Cindy) · **#257** qa-sweep de-noise (Hans) · **#256** keep 11 keywords claimed / enforce-don't-drop (Hans) · **#255** FP audit (superseded by #256) · **#254** PW-8 triggered emblems (Walt) · **#251** PW-5 emblems (Walt)
 - shipped in v0.39.0: #243 SOFT-CNT · #241 LOOT-1 · #240 ADDCOST-2 · #238 TRIG-PUMP-1 · #237 MT-1 · #236 PW-1 · …
 
 ## 🗒️ Notes
