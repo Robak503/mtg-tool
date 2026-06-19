@@ -22,39 +22,52 @@
   native (coverage rises *correctly*). Confirm the backlog row is closed.
 
 ## ⚠️ Interim honesty note
-These buckets are **live false positives right now** (the cards mis-play until enforcement ships). We are
-**not** dropping them (per the policy above) — we're building the fix. That's an accepted, time-boxed
-trade: prioritize the enforcement so the window is short. (#255's blanket keyword-drop is **superseded** —
-see STATUS; Hans reworks it to keep only the PW-before-land reclassification.)
+The enforce-don't-drop policy has been **proven 3× over** — **9 of the 11 keyword FPs are now honestly enforced**
+(EVADE #258, KW-UNTARGET #260, TRIG-PROWESS #262; coverage rose *correctly* as each enforcement converted
+interim→honest). Only **ward + protection** remain as live interim keyword FPs (each a known, queued enforcement).
+The newest backlog row (`native-mana residue gate`, board-10) is a different animal: a **metric-only** over-count,
+not a live gameplay FP — see its CAP section. (#255's blanket keyword-drop was **superseded** by #256, which reverted
+it to keep the 11 claimed while enforcement shipped.)
 
 ## Enforcement backlog — by capability
 
-### 🔨 CAP: combat-evasion enforcement (the `canBlock` / attack-legality chokepoint) — **PRIORITY (easy win)**
-**Board task:** `EVADE` (expanded) + folds in `VERIFY-MENACE`. One chokepoint the engine actually consults
-for block/attack legality. Today these keywords are display-only (in `COVERED_KEYWORDS` for the body, rules
-enforced nowhere) → the creature mis-plays.
+### ✅ CAP: combat-evasion enforcement (the `canBlock` / attack-legality chokepoint) — **DONE #258**
+**Board task:** `EVADE` (expanded) + folded in `VERIFY-MENACE`. One chokepoint (`combatEvasion.canBlockAttacker`)
+the engine now consults for block/attack legality + the defender declare-attacker gate. Hans-verified.
 
 | Keyword | Rule to enforce (plain) | Status |
 |---|---|---|
-| menace | must be blocked by 2+ creatures | 🔨 ENFORCE (live FP until built) |
-| skulk · intimidate · fear · horsemanship | conditional "can only be blocked by …" restrictions | 🔨 ENFORCE |
-| defender | can't attack | 🔨 ENFORCE |
+| menace | must be blocked by 2+ creatures | ✅ ENFORCED #258 |
+| skulk · intimidate · fear · horsemanship | conditional "can only be blocked by …" restrictions | ✅ ENFORCED #258 |
+| defender | can't attack | ✅ ENFORCED #258 |
 
-### 🔨 CAP: targeting-restriction enforcement — **PRIORITY (easy win)**
-**Board task:** `TARGET-RESTRICT` (new). Target selection must honor these so illegal targets are refused.
-
-| Keyword | Rule to enforce (plain) | Status |
-|---|---|---|
-| hexproof · shroud | can't be targeted by opponents / by anyone | 🔨 ENFORCE (live FP until built) |
-| ward | targeting it costs the opponent (else countered) | 🔨 ENFORCE |
-| protection | can't be targeted/blocked/enchanted/equipped/damaged by the quality | 🔨 ENFORCE |
-
-### 🔨 CAP: prowess via the cast-trigger compiler — **PRIORITY (easy win)**
-**Board task:** `PROWESS` (new). A noncreature-cast trigger → +1/+1 until end of turn.
+### 🔨 CAP: targeting-restriction enforcement — **PARTIAL (hexproof/shroud DONE #260; ward remains)**
+**Board task:** `KW-UNTARGET` (hexproof/shroud, DONE) + `TARGET-RESTRICT` (ward). `enumerateTargets` now honors
+hexproof/shroud untargetability; ward (a TAX, not an exclusion) is its own slice.
 
 | Keyword | Rule to enforce (plain) | Status |
 |---|---|---|
-| prowess | +1/+1 until EOT whenever you cast a noncreature spell | 🔨 ENFORCE (live FP until built) |
+| hexproof · shroud | can't be targeted by opponents / by anyone | ✅ ENFORCED #260 |
+| ward | targeting it costs the opponent (else countered) | 🔨 ENFORCE (interim FP — own slice) |
+| protection | can't be targeted/blocked/enchanted/equipped/damaged by the quality | 🔨 ENFORCE (interim FP — δ DEBT subsystem) |
+
+### ✅ CAP: prowess via the cast-trigger compiler — **DONE #262**
+**Board task:** `TRIG-PROWESS`. A noncreature-cast trigger → +1/+1 until end of turn (CR 702.108, Hans-verified).
+
+| Keyword | Rule to enforce (plain) | Status |
+|---|---|---|
+| prowess | +1/+1 until EOT whenever you cast a noncreature spell | ✅ ENFORCED #262 |
+
+### 🔨 CAP: native-mana residue gate (the metric all-or-nothing gap) — **NEW (board-10), tractable**
+**Board task:** `FIX-MANA-OVERCLAIM` (🔴, FIX lane). `coverage.js:361` returns `native-mana` with **no residue
+check**, so ≥110 mana sources with unmodeled non-mana text (Mana Crypt's coin-flip, Sorcerer Class's levels,
+Spara's ETB) are counted fully native. **METRIC-ONLY** (no runtime consumer of the tier — the engine routes the
+unmodeled trigger to the Arbiter independently), so unlike the keyword rows this is not a live *gameplay* FP — it's a
+scoreboard over-count. The fix is a classifier tightening, not a runtime enforcement.
+
+| Capability | Rule to enforce (plain) | Status |
+|---|---|---|
+| native-mana residue gate | claim native-mana only when every non-mana clause is modeled-or-keyword-only | 🔨 FIX (metric over-count ≥110) |
 
 ## Corrected reclassifications (not FPs — already right)
 | Item | Fix | Note |

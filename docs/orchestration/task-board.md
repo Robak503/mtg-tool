@@ -5,11 +5,17 @@
 re-prioritizes this board** as the modeled set grows; findings get filed here as new tasks. **Clyde
 (integrator) merges; only Clyde touches `master`** (Omnath is the strategy brain).
 
-> **Last scout refresh:** cycle **board-8 (Hans — KEYWORD MASTER PLAN + COMMANDER FRAMEWORK)**, 2026-06-18 — live
-> baseline **17.7 % corpus native** (5,947/33,540; +IT-COUNTER #265 +FOR-EACH #266).
-> **🔝 CINDY'S PRIORITY ORDER (Colton):** **(1) the COMMANDER FRAMEWORK — CMD-CAST → CMD-PARTNER → CMD-COMPANION**
-> (greenlit, gameplay-critical, build plan [`commander-framework-build-plan.md`](commander-framework-build-plan.md)),
-> **then (2) the keyword chunks.** No new worker — Cindy owns CMD. _(Walt finishes PW, then spins down + archives.)_
+> **Last scout refresh:** cycle **board-10 (Hans — QA the v0.42.0 wave + native-mana over-claim found)**, 2026-06-18 —
+> live baseline **17.9 % corpus native** (6,106/34,160 via qa-sweep). **⚠️ Honest ≈ 17.5 %:** the headline carries a
+> **~110-126-card phantom from a native-mana metric over-claim** (new 🔴 FIX row below — METRIC-ONLY, no runtime harm).
+> **Wave QA result: CLEAN** — the trigger-effect compiler, SYMBURN-1 (symmetric burn hits all players incl. caster),
+> and the WALT count-engine (default-floor `?? 1` fix holds) were swept end-to-end; **0 confirmed runtime FPs**, all 8
+> trigger compound-collapse suspects verified false alarms (parser captures the full compound, resolvers apply it).
+> **🔝 CINDY'S CMD PIPELINE (Colton):** **CMD-CAST ✅ #273 → CMD-RETURN ✅ #276** → **CMD-DMG21** (active — 21-combat-damage
+> loss SBA, CR 903.10a, per-commander keying CMD-PARTNER needs) → **CMD-PARTNER** (~143, HUGE in EDH) → **CMD-COMPANION**
+> (~12) → CMD-RETURN-ZONES (903.9b fast-follow). **Then Cindy pivots to the general non-keyword trigger compiler.**
+> _(Walt: count series ✅ #271/#272 + ANIMATE PR1 ✅ #274; **now owns the entire 702.x KEYWORD BACKLOG** per the LANE
+> ASSIGNMENT below — **no longer spins down**, it's his standing lane.)_
 > **⭐ [`keyword-coverage-plan.md`](keyword-coverage-plan.md)** maps all **189 CR 702.x keywords** to enforce-first
 > waves — a months-long ordered backlog after CMD. **Keyword rows seeded:** EVADE-2 (shadow ~37) · TRIG-ATTACK-PUMP
 > (exalted/battle cry/mentor ~180) · KW-CYCLING (~328, the cast-cost pilot) — plus the cycle-7 rows still open:
@@ -25,6 +31,32 @@ re-prioritizes this board** as the modeled set grows; findings get filed here as
 > builder fuel). The climb from ~20 %→~85 % is ONE subsystem — the **trigger-effect compiler** (bridge each
 > recognized trigger's effect clause into the modeled atom library; ~5,267 trigger cards). **TRIG-PUMP-1 is
 > its safe pilot.** The irreducible Arbiter tail caps the honest ceiling at **~88-92 %**.
+
+## 🔀 LANE ASSIGNMENT — Walt = keywords · Cindy = commander + compiler (2026-06-18, Colton; Clyde to confirm overlap)
+
+**The re-carve (Colton's call):** hand the **entire 702.x keyword backlog to Walt**; **Cindy works the disjoint
+non-keyword lanes.** Keywords lean on combat / layers / counters / triggers — Walt's wheelhouse (loyalty, the count
+engine, animate). This frees Cindy for the two highest-gameplay-value levers. Walt no longer spins down after PW;
+the keyword backlog is his standing lane.
+
+| Builder | Owns | Backlog |
+|---|---|---|
+| **Walt** (`feat/<KW-id>-walt`) | **The keyword backlog — Waves B–G** (`keyword-coverage-plan.md`): triggered KWs · cost/alt-cost KWs · poison/evasion · aura/equip grants · replacement KWs · complex subsystems (morph/crew/mutate). ~4,500+ tractable cards, months of runway. | Family by family, enforce-first. |
+| **Cindy** (`feat/<id>-cindy`) | **Everything NOT a 702.x keyword:** (1) finish the **Commander framework** (CMD-PARTNER → CMD-COMPANION) · (2) the **general (non-keyword) trigger-effect compiler** grind (~5,267 trigger cards — the corpus spine) + the remaining clean spell atoms / δ. | CMD first, then compiler. |
+
+**⚠️ Clyde — the 3 shared subsystems to own (assign each ONE owner so the lanes don't collide):**
+1. **Trigger compiler** *(tightest)* — Wave B (Walt) + Cindy's general grind both extend it. → **Cindy owns the
+   compiler CORE** (event→effectClause→atom bridge); **Walt's Wave B keyword-triggers are ADAPTERS that consume it.**
+   Until the core is solid, Walt starts on non-trigger waves (C cost / D combat / E aura-equip) — they don't need it.
+2. **Cast path** — Cindy's CMD-CAST/PARTNER (command-zone casting) + Walt's Wave C (alt-cost casting) both touch
+   `actionDispatcher` / `legalChoices` / mana payment. → **Cindy lands the command-zone cast flow first;** Walt's
+   cost subsystem builds on a stable cast path after.
+3. **Replacement-shield** — Walt's Wave F (graft/fading/vanishing) + the deferred PREVENT/regenerate δ are one
+   machinery. → keep **both under Walt** (built once); Cindy stays out of replacement effects.
+
+Mechanical file-collisions (`parser.js` / `effectAtoms.js` / `coverage.js` — everyone edits these) stay handled by
+the labeled `// ===== MECHANIC =====` block + separate-worktree + rebase-off-`origin/master` + Clyde-serialized-merge
+protocol. Not a blocker — only the 3 shared *subsystems* above need single-owner calls.
 
 ## How to claim a task (collision-safe)
 
@@ -43,6 +75,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 
 | ID | Pri | Finding | ~Impact | Status |
 |---|---|---|---:|---|
+| **FIX-MANA-OVERCLAIM** | 🔴 | **NEW (board-10, Hans-reproduced + scoped).** `coverage.js:361` returns `native-mana` the instant `hasManaAbility(oracle)` is true — **before** the trigger/activated/mixed gates and **without** requiring the rest of the card to be modeled. So any mana source with **unmodeled non-mana text** is counted fully native: a real triggered ability (Mana Crypt's upkeep coin-flip 3 dmg, Spara's Adjudicators' ETB can't-attack, Pygmy Hippo, Old-Growth Troll dies→Aura, Ramos/Urabrask cast-triggers), a leveler/Class (Sorcerer Class, Joraga Treespeaker, Alchemist's Talent), or an unmodeled value-activated ability. **METRIC-ONLY (no runtime harm** — `classifyCard` has zero runtime consumers; the engine routes the unmodeled trigger to the Arbiter independently via `detectTriggers`, so the card still *plays* right). Same class as FIX-PW-LAND-ORDER, ~110× bigger. **Defensible floor: ≥110** (122 native-mana cards w/ a non-routing trigger − ~15 ETB-mana-add that are arguably fine + 4 levelers); the unmodeled-activated subset adds more. **ENFORCE-FIRST fix:** gate `native-mana` so it claims native only when the non-mana residue is fully modeled (reuse the `permanentFullyCovered` residue logic — every trigger routes / every activated modeled / rest static-or-keyword-only); pure dorks (Llanowar Elves, Sol Ring) + modeled-secondary (Meteorite ETB-damage) stay HIGH, the FP cluster drops to body-only/Arbiter. Honest-down ≈ −0.37 % (like #255). Repro + landmines in `scout-gap-report.md`. | ≥110 (−FP metric) | **OPEN — builder pull (Cindy lane)** |
 | **VERIFY-COVERED-KW** | 🔴 | **LIVE shipped FP CLUSTER (started as VERIFY-MENACE, audit widened it).** `COVERED_KEYWORDS` claimed `native-body` for **11 keywords the runtime NEVER enforces** (a keyword is enforced only if consulted via `permanentHasKeyword`/SBA/attack-legality): menace·skulk·intimidate·fear·horsemanship (block restrictions — `canBlock` honors only flying/reach), **defender** (a Wall can illegally attack — `actionsDeclareAttacker` never excludes it), hexproof·shroud·ward (no targetability check in `enumerateTargets`), protection (DEBT all unenforced), prowess (an unmodeled pump trigger). Each = the body is claimed native but mis-resolves. **Resolution (enforce-don't-drop):** #255 dropped all 11 → Arbiter, but **#256 REVERTED that** — they stay CLAIMED native as openly-labeled INTERIM FPs (see `COVERED_KEYWORDS`) while the enforcement is built. The REAL fix = the re-coverage rows below. **EVADE #258 + KW-UNTARGET #260 + TRIG-PROWESS #262 now ENFORCE 9 of the 11** (menace/skulk/fear/intimidate/horsemanship/defender + hexproof/shroud + prowess) → honestly native, **each Hans-verified**. **2 remain interim FP:** ward (a targeting tax) + protection (DEBT). | 9/11 enforced | EVADE+KW-UNTARGET+PROWESS; 2 left |
 | **FIX-TRIG-CONDITION** | 🔴 | `classifyCondition` over-detects restricted/compound-subject triggers (selfRef too broad; scope-inexpressible restriction dropped → over-fires). 34 cards incl. aristocrats staples. Detail: `docs/qa/rod-findings-1.md`. | 34 (−FP) | DONE #226 |
 | **VERIFY-ETB-DESTROY** | 🟡 | Ravenous Chupacabra & the ETB-destroy-an-opponent family. | spot-check | **VERIFIED — not a bug #255**: parses `"…an opponent controls"` (`targetsResolvable=true`, the runtime gate); chooser picks an opponent (never own), no-target fizzles via CR 603.3c / `NO_SAFE_TARGET`. Added a restricted-clause + no-target regression pin. |
@@ -95,41 +128,43 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 > **The PW subsystem (PW-1 → PW-8) is COMPLETE** (#254 triggered emblems merged 2026-06-18). Playable
 > end-to-end + static & triggered emblems + killable by removal. **Walt has pivoted to a NEW lane (below).**
 >
-> **WALT — PW-leverage general mechanisms (`feat/WALT-*-walt`).** RESERVED + DISJOINT from Cindy. Meaty
-> general atoms ranked by how many planeswalkers they unblock (they lift the whole corpus by proxy). Full
-> manual: `docs/orchestration/agents/walt.md`. **Reserved IDs — do NOT pull these for Cindy:**
-> **WALT-TOKEN-ABIL** (ability-carrying tokens · PW 48 / ~1,005) · **WALT-DMG-SCALE** (damage = count · PW 54 /
-> ~1,534) · **WALT-FOR-EACH** (count-scaled draw/token/life · PW 33 / ~1,408) · **WALT-GAIN-CTRL** (Threaten ·
-> PW 14) · **WALT-ANIMATE** (becomes-a-creature · PW 22) · **WALT-RECUR** (recursion EXT · PW ~20) ·
-> **WALT-TUTOR-EXT** (search EXT · PW 22) · **WALT-EMBLEM-ACT** (activated/complex emblems · PW 49) ·
-> **WALT-EXILE-COMPLEX** (delayed/conditional exile · PW 12). **Boundary:** scales-with-a-count /
-> ability-on-a-token / control-change / animate / recursion-tutor-exile-emblem EXTENSIONS = Walt; fixed-value
-> atoms + the trigger compiler + combat keywords + named-artifact tokens = Cindy.
+> **WALT — the KEYWORD backlog (`feat/<KW-id>-walt`).** RESERVED + DISJOINT from Cindy (see the **LANE ASSIGNMENT**
+> section up top + the 3 shared-subsystem watch-points). Walt owns **all of Waves B–G** in
+> [`keyword-coverage-plan.md`](keyword-coverage-plan.md), family by family, enforce-first — ~4,500+ tractable cards.
+> **Suggested start order** (skip the trigger waves until Cindy's compiler core is solid): **EVADE-2 (shadow)** →
+> **KW-CYCLING** (the clean cast-cost pilot) → **TRIG-ATTACK-PUMP** (once the compiler core lands) → **TRIG-ETB-VALUE**
+> → **KW-POISON** → **KW-WARD/PROTECTION** (close the last 2 interim-FP keywords) → the Wave-C cast-cost subsystem.
+> _(Walt's PW-leverage count lane is DONE (#263/#266/#268/#271/#272); WALT-ANIMATE is mid-flight (#274 PR1) — he
+> wraps that, then this keyword backlog is his standing lane. He no longer spins down after PW.)_
 
 ### 🔴 high-lever
 
-> **⭐ KEYWORD MASTER PLAN** — all 189 CR 702.x keywords mapped to waves (frequency · status · the task that
-> covers each), enforce-first, so Cindy never idles: [`keyword-coverage-plan.md`](keyword-coverage-plan.md).
-> The top ripe keyword-family rows are seeded below; the plan holds the full months-long ordered backlog.
+> **⭐ KEYWORD MASTER PLAN — now WALT's standing backlog** (re-carve above): all 189 CR 702.x keywords mapped to
+> waves (frequency · status · the task that covers each), enforce-first: [`keyword-coverage-plan.md`](keyword-coverage-plan.md).
+> The top ripe keyword-family rows below (EVADE-2, TRIG-ATTACK-PUMP, KW-CYCLING) are **Walt's** now; the plan holds
+> the full months-long ordered backlog.
 >
-> **⭐⭐ GREENLIT — COMMANDER FRAMEWORK is CINDY'S #1 PRIORITY (Colton, 2026-06-18). DO THIS BEFORE THE KEYWORD WAVES.**
+> **⭐⭐ GREENLIT — COMMANDER FRAMEWORK is CINDY'S #1 PRIORITY (Colton, 2026-06-18).**
 > The Academy plays Commander but a commander **can't be cast from the command zone** today (no action in
 > `actionDispatcher`/`legalChoices`; the multi-commander command-zone ARRAY + damage tracking already exist in
 > `gameState`). A "does a real game play" gate, NOT a coverage-% row — ranks like Walt's PW framework.
-> **Cindy's order: CMD-CAST → CMD-PARTNER → CMD-COMPANION, THEN the keyword chunks** (no new worker — this is
-> Cindy's lane). **CMD-CAST** (cast + {2} tax + return-to-zone, CR 903.8/.9) → **CMD-PARTNER** (702.124, ~143 — two
-> commanders, HUGE in EDH) → **CMD-COMPANION** (702.139, ~12). **Concrete 3-PR build plan (file:function level,
-> CR-verified):** [`commander-framework-build-plan.md`](commander-framework-build-plan.md).
-> _(Walt finishes the PW subsystem, then spins down + is archived — his lane closes; Cindy does not inherit PW.)_
+> **Cindy's live order:** CMD-CAST ✅ #273 → **CMD-RETURN 🔵 #276 (in 4b review)** → **CMD-DMG21 (PR3 — ACTIVE BUILD,
+> the 21-loss rule)** → CMD-PARTNER (~143) → CMD-COMPANION (~12) → CMD-RETURN-ZONES (903.9b fast-follow), **THEN the
+> general (non-keyword) trigger-effect compiler + clean spell atoms / δ** (**NOT the keyword waves — those are Walt's
+> now**). **Concrete build plan (file:function, CR-verified):** [`commander-framework-build-plan.md`](commander-framework-build-plan.md).
+> _(Cindy owns the trigger-compiler **core**; Walt's Wave-B keyword-triggers adapt off it — see the watch-points up top.)_
 
 | ID | Mechanic / atom (short landmine — full detail in the report) | ~Yield | Cplx | Status | Examples |
 |---|---|---:|---|---|---|
-| **CMD-CAST** | ⭐⭐ **CINDY #1 — CLAIM FIRST (greenlit).** Commander framework: cast a commander from the command zone + {2} tax per prior cast (CR 903.8) + return-to-zone on death (903.9) + the `isCommander` flag + wire combat→commander-damage 21-loss SBA (903.10a). Foundation exists (command-zone array, damage tracker). **Full 3-PR build plan (file:function, CR-verified):** [`commander-framework-build-plan.md`](commander-framework-build-plan.md). **Live acceptance MANDATORY.** | gameplay | sub (3 PRs) | **OPEN — DO FIRST** | every EDH deck |
-| **CMD-PARTNER** | Partner (CR 702.124) — two commanders in the zone, each taxed + damage-tracked per-card. **Builds on CMD-CAST** (the command array already holds two). HUGE in EDH. | ~143 | sub | OPEN (after CMD-CAST) | partner pairs, Backgrounds |
-| **CMD-COMPANION** | Companion (CR 702.139) — companion zone + `{3}`: put it into hand once per game, gated by the deck restriction. Independent of CMD-CAST. | ~12 | med | OPEN | Lurrus, Yorion, Jegantha |
-| **EVADE-2 (shadow)** | _(keyword chunk — AFTER the CMD framework)_ Evasion: can block / be blocked ONLY by shadow (CR 702.28). **One more `combatEvasion.canBlockAttacker` branch** — the EVADE chokepoint already exists. Ripe, low-risk, engine-first. | ~37 | low | OPEN | Dauthi Slayer, Soltari Priest, Thalakos Seer |
-| **TRIG-ATTACK-PUMP** | Attack/block-triggered keyword pumps — Exalted (alone), Battle cry, Mentor, Melee, Training, Bushido, Flanking, Dethrone — each "whenever ~ attacks/blocks, pump" → reuse the TRIG-PUMP compiler + a +1/+1-counter atom. One keyword/PR. **Build-time CR-verify each shape.** | ~180 | low-med | OPEN | Sublime Archangel, Goblin Wardriver, Odric, Master Tactician |
-| **KW-CYCLING** | ⭐ **Cast-cost subsystem PILOT (cleanest).** "{cost}, Discard this card: Draw a card" — a from-HAND activated ability (+ typecycling/landcycling search variants). No cast-path surgery needed; proves the cost-keyword pattern before the big Wave-C subsystem. | ~328 | med | OPEN | Decree of Justice, Krosan Tusker, Eternal Dragon |
+| **CMD-CAST** | ⭐⭐ Commander framework base: cast a commander from the command zone + {2} tax per prior cast (CR 903.8) + the `isCommander` flag. | gameplay | sub | **DONE #273** | every EDH deck |
+| **CMD-RETURN** | Return-to-command-zone on death/exile (CR 903.9) — the dies/exile-replacement so a commander goes back to the zone instead of graveyard/exile. | gameplay | med | **🔵 #276 (in 4b review)** | every EDH deck |
+| **CMD-DMG21** | ⭐⭐ **CINDY ACTIVE BUILD (PR3) — the signature rule.** Commander combat damage → the 21-loss SBA (CR 903.10a): wire `combatResolution`→`addCommanderDamage` **keyed per-commander, not per-player** (903.10a = "the same commander" — **CMD-PARTNER depends on this keying**), add the ≥21→player-loses SBA, AI prioritizes casting its commander. **Full-4P live gate** (a real pod where commanders die, return, chip a player to a 21 loss). | gameplay | sub | **OPEN — ACTIVE (Cindy)** | every EDH deck |
+| **CMD-PARTNER** | Partner / Partner-with / Backgrounds / Friends-forever (CR 702.124, ~143) — two commanders in the zone. Plumbing (command-zone array + per-commander tax/damage) is done by CMD-CAST + CMD-DMG21, so this is mostly **deck-import pair recognition** (detect the legal pair → seat both at game start) + pairing-legality. HUGE in EDH. | ~143 | med | OPEN (after CMD-DMG21) | partner pairs, Backgrounds |
+| **CMD-COMPANION** | Companion (CR 702.139) — companion zone + `{3}`: put it into hand once per game, gated by the deck restriction. Independent of the rest. | ~12 | med | OPEN | Lurrus, Yorion, Jegantha |
+| **CMD-RETURN-ZONES** | Small fast-follow to CMD-RETURN: 903.9b — a commander **bounced to hand / tucked to library** may go to the command zone instead (CMD-RETURN/#276 covers the graveyard/exile zones; this is the remaining two). | gameplay | low | OPEN (fast-follow) | every EDH deck |
+| **EVADE-2 (shadow)** | _(Walt — ripe keyword START, no compiler dep)_ Evasion: can block / be blocked ONLY by shadow (CR 702.28). **One more `combatEvasion.canBlockAttacker` branch** — the EVADE chokepoint already exists. Ripe, low-risk, engine-first. | ~37 | low | **OPEN (Walt)** | Dauthi Slayer, Soltari Priest, Thalakos Seer |
+| **TRIG-ATTACK-PUMP** | _(Walt — Wave B; **wait for Cindy's compiler core**)_ Attack/block-triggered keyword pumps — Exalted (alone), Battle cry, Mentor, Melee, Training, Bushido, Flanking, Dethrone — each "whenever ~ attacks/blocks, pump" → reuse the TRIG-PUMP compiler + a +1/+1-counter atom. One keyword/PR. **Build-time CR-verify each shape.** | ~180 | low-med | **OPEN (Walt)** | Sublime Archangel, Goblin Wardriver, Odric, Master Tactician |
+| **KW-CYCLING** | _(Walt)_ ⭐ **Cast-cost subsystem PILOT (cleanest, no compiler dep).** "{cost}, Discard this card: Draw a card" — a from-HAND activated ability (+ typecycling/landcycling search variants). No cast-path surgery needed; proves the cost-keyword pattern before the big Wave-C subsystem. | ~328 | med | **OPEN (Walt)** | Decree of Justice, Krosan Tusker, Eternal Dragon |
 | **ACT-KW-GRANT** | `{cost}: This creature gains <KW> until EOT` — self keyword-grant. Reuses GRANTABLE_COMBAT_KEYWORDS allowlist (the allowlist IS the FP guard). **Self-ref only, all-or-nothing whole card** — reject `target`-grants (different atom) + multi-ability cards. | ~46 | low | DONE #235 | Goblin Balloon Brigade, Narnam Cobra, Unyielding Krumar |
 | **KWSTRIP-1** | Strip the vacuous cast-keyword line (foretell/suspend/splice-onto-arcane/recover/harmonize/basic-landcycling), then parse the body. The #200 precedent, zero new resolver. **Exclude rebound/cipher/conspire/learn/proliferate/amass (NOT vacuous).** | ~44 | low | DONE #234 | Doomskar, Rift Bolt, Evermind, Grim Harvest, Crashing Footfalls |
 | **SOFT-CNT** | "Counter target spell unless its controller pays {N}." Opponent-decision pending-choice at resolution (an opponent in 4P). Clean core = `pays {fixed}` only. | ~36 | sub | DONE #243 (Cindy) | Force Spike, Mana Tithe, Mana Leak, Censor, Rune Snag |
@@ -166,7 +201,7 @@ reuse), `med` (a resolver branch), `sub` (a real subsystem — longer runway, fl
 | ID | Mechanic / atom (short landmine) | ~Yield | Cplx | Status | Examples |
 |---|---|---:|---|---|---|
 | **CNT-2b** | Remaining counter forms: "on up to N target creatures" + −1/−1 single & multi (reuses MT-1's picker). | ~10 | low | OPEN | Travel Preparations, Incremental Growth |
-| **SYMBURN-1** | "Deals N to each creature and each player" (extend the each-creature path to faces). Must hit ALL players incl. caster. | ~8 | low | OPEN | Inferno, Famine, Fire Tempest, Evincar's Justice |
+| **SYMBURN-1** | "Deals N to each creature and each player" (extend the each-creature path to faces). Must hit ALL players incl. caster. **Hans-verified (board-10): resolver loops every player incl. the caster + every creature; CR-correct.** | ~8 | low | DONE #269 | Inferno, Famine, Fire Tempest, Evincar's Justice |
 | **ACT-SELF-BOUNCE** | "{cost}: Return this creature to its owner's hand" (bind target=source). Bundle, not a solo PR. | ~6 | low | OPEN | Darting Merfolk, Fleeting Image, Blinking Spirit |
 | **TUCK-1** | "Put target \<perm\> on top/the bottom of its owner's library" (new `tuck` op, top/bottom precise). Anchored whole-card; riders/unions/restrictions + tuck-triggers → Arbiter. | +13 | low | DONE #270 | Time Ebb, Griptide, Excommunicate, Repel |
 | **RIDER-2ND-MINUS** | Pump target 1 + debuff a DISTINCT 2nd creature. Needs distinct-second-target binding; don't loosen "another" globally. | ~5 | med | OPEN | Leeching Bite, Consume Strength, Schismotivate |

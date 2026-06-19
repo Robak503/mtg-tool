@@ -1,9 +1,14 @@
 # Keyword Coverage Master Plan — all 189 CR 702.x keyword abilities
 
-> **Hans (scout) owns this.** Colton's ask: *"a plan to cover them all so Cindy is always busy."* This maps
+> **Hans (scout) owns this.** Originally "a plan to cover them all so the builder is always busy." This maps
 > **every** CR 702.x keyword ability to its corpus frequency, current engine status, mechanic family, and the
 > task that covers it — ordered into **waves** so the builder lane never runs dry. Companion to
 > [`task-board.md`](task-board.md) (the live pull-queue) and [`scout-gap-report.md`](../scout-gap-report.md).
+>
+> **⚠️ OWNERSHIP (2026-06-18 re-carve, Colton):** this whole backlog is **WALT's lane now** (Waves B–G), not
+> Cindy's. **Cindy** keeps the disjoint non-keyword work — the Commander framework + the **general** trigger-effect
+> compiler + clean spell atoms. **Cindy owns the trigger-compiler CORE; Walt's Wave-B keyword-triggers adapt off
+> it.** Full carve + the 3 shared-subsystem watch-points: the **LANE ASSIGNMENT** section of `task-board.md`.
 >
 > **Data:** corpus frequency from the bundled Scryfall `keywords` field over 33,540 real cards (Hans cycle-8
 > scan). `gap` = cards carrying the keyword that are **not yet native** (the opportunity). Note a high gap on an
@@ -31,11 +36,14 @@
 
 ---
 
-## WAVE B — Triggered-keyword family (the trigger compiler · Cindy's spine) — **START HERE**
+## WAVE B — Triggered-keyword family (Walt's adapters on Cindy's compiler core) — **wait for the core**
 
 Each is a keyword whose whole behavior is **one triggered ability** whose effect is an already-modeled atom. Reuse
 the trigger compiler (TRIG-PUMP #238 → TRIG-TREASURE #264 → IT-COUNTER/FOR-EACH precedent): recognize the event,
 bind self/it, compile the effectClause. **Highest tractability, lowest risk, large total.** One keyword = one PR.
+**⚠️ Ownership:** these are **Walt's** keyword-trigger ADAPTERS, but the compiler **core** is **Cindy's** — Walt
+starts the non-trigger waves (C/D/E) first and picks up Wave B once Cindy's core is solid (avoids two builders
+editing the compiler seam at once). The keyword-trigger work is mechanical adapter wiring on a stable core.
 
 | Task | Keywords (CR) | gap | Mechanic (verify CR at build) | Cplx |
 |---|---|---:|---|---|
@@ -135,21 +143,26 @@ they actually play in real decks; the un-set/speed mechanics lower).
 ## ⭐ GAMEPLAY track FIRST — the commander framework (GREENLIT, Cindy's #1)
 
 **CMD-CAST is a "does a real game play" gate, not a coverage-% row** — the Academy plays Commander, yet a
-commander can't be cast from the command zone today. **GREENLIT (Colton, 2026-06-18): Cindy builds the commander
-framework FIRST — CMD-CAST → CMD-PARTNER → CMD-COMPANION — then the keyword chunks below.** No new worker (Walt
-finishes PW then spins down). Concrete 3-PR spec: [`commander-framework-build-plan.md`](commander-framework-build-plan.md).
-Partner is huge in EDH; gameplay-quality, hard-coded, measured by "can the Academy play a partner deck," not corpus %.
+commander can't be cast from the command zone today. **GREENLIT (Colton, 2026-06-18): CMD-CAST ✅ DONE #273.
+Cindy continues — CMD-PARTNER → CMD-COMPANION — then the GENERAL (non-keyword) trigger-effect compiler + clean
+atoms** (the keyword waves below are **Walt's** now, not Cindy's). Concrete 3-PR spec:
+[`commander-framework-build-plan.md`](commander-framework-build-plan.md). Partner is huge in EDH; gameplay-quality,
+hard-coded, measured by "can the Academy play a partner deck," not corpus %.
 
-## The order Cindy pulls — THEN the keyword chunks (coverage-%), after CMD + the current TRIG-LIFEGAIN/DRAW2/TOKEN-ABIL rows
+## The order WALT pulls (the keyword waves) — coverage-%, enforce-first
 
-1. **EVADE-2 (shadow)** — low, ripe, the chokepoint exists. ~37.
-2. **TRIG-ATTACK-PUMP** — exalted/battle cry/mentor/melee/training (reuse TRIG-PUMP). ~180 across a few PRs.
-3. **KW-CYCLING** — the clean cast-cost pilot (from-hand activated, no cast-path surgery). 328.
+> Walt starts on the no-compiler-dependency waves; the trigger waves (B) wait until **Cindy's compiler core** is
+> solid (the one shared-subsystem handoff — see `task-board.md` LANE ASSIGNMENT watch-points).
+
+1. **EVADE-2 (shadow)** — low, ripe, the chokepoint exists, no compiler dep. ~37.
+2. **KW-CYCLING** — the clean cast-cost pilot (from-hand activated, no cast-path surgery), no compiler dep. 328.
+3. **TRIG-ATTACK-PUMP** — exalted/battle cry/mentor/melee/training (Wave B; **after Cindy's compiler core**). ~180.
 4. **TRIG-ETB-VALUE** — bloodthirst/evolve/fabricate/devour (existing ETB atoms + choice gate). ~180.
 5. **TRIG-DIES-RETURN** — persist/undying/modular. ~70.
 6. **KW-POISON** — infect/wither/toxic (engine-first poison track). ~115.
 7. **KW-WARD + PROTECTION** — close the last 2 interim-FP keywords. ~319.
-8. **KW-KICKER → the cast-path subsystem** — the biggest lever; build the cost engine, then fan out Wave C. ~1,500.
+8. **KW-KICKER → the cast-path subsystem** — the biggest lever; build the cost engine, then fan out Wave C. ~1,500
+   (coordinate the cast-path seam with Cindy's command-zone cast work — watch-point #2).
 
-This is **months** of ordered, enforce-first builder work — Cindy never idles. Hans re-verifies ripeness +
-reconciles DONE each cycle; the board carries the live top-5.
+This is **months** of ordered, enforce-first work — Walt never idles. Hans re-verifies ripeness + reconciles DONE
+each cycle; the board carries the live top rows.

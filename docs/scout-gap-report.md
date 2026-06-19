@@ -6,10 +6,13 @@
 > **⭐ The complete 189-keyword (CR 702.x) coverage map is its own doc:
 > [`keyword-coverage-plan.md`](orchestration/keyword-coverage-plan.md)** — frequency · status · wave per keyword.
 
-**Baseline (live, off `origin/master`):** **17.7 % corpus native — 5,947 / 33,540 real cards.** Cycle
-**board-7 (Hans — gap re-scan + keyword-enforcement verify)**, 2026-06-18, on the **board-3 DEEP SCAN** climb-map
-below (unchanged). **9 of the 11 keyword FPs are now honestly enforced** (EVADE #258 · KW-UNTARGET #260 ·
-TRIG-PROWESS #262 — each Hans-verified); only ward + protection remain interim.
+**Baseline (live, off `origin/master`):** **17.9 % corpus native — 6,106 / 34,160 (qa-sweep).** Cycle
+**board-10 (Hans — QA the v0.42.0 wave + native-mana over-claim found)**, 2026-06-18, on the **board-3 DEEP SCAN**
+climb-map below (unchanged). **⚠️ Honest ≈ 17.5 %** — the headline carries a **~110-126-card phantom** from the
+`native-mana` metric over-claim (new VERIFY finding below; **metric-only, no runtime harm**). **Wave QA = CLEAN:** the
+trigger-effect compiler, SYMBURN-1, and the WALT count-engine swept end-to-end with **0 confirmed runtime FPs**.
+**9 of the 11 keyword FPs are honestly enforced** (EVADE #258 · KW-UNTARGET #260 · TRIG-PROWESS #262 — each
+Hans-verified); only ward + protection remain interim (the keyword enforcement audit re-ran clean this cycle).
 
 ## Cycle-7 fresh gap re-scan — where the next native cards are
 Ran the real classifier + `detectTriggers` + `parseEffectClause` over all 20,604 body-only permanents, bucketed
@@ -218,6 +221,49 @@ where it was demoted). "FP" = the false-positive trap. Board rows carry the shor
 ---
 
 ## VERIFY findings (false positives — Hans's QA+FIX lane)
+
+### 🔴 FIX-MANA-OVERCLAIM — native-mana masks unmodeled text (board-10, reproduced + scoped)
+**The bug.** `coverage.classifyCard` (coverage.js:361) does `if (hasManaAbility(oracle)) return "native-mana"`
+**before** the trigger / activated / mixed gates and **without** any residue check. `hasManaAbility` is loose by
+design — it returns true on any main-text `add {W/U/B/R/G/C/X}` / `add one|two|…` (it only strips reminder text +
+created-token abilities, to dodge the Eldrazi-Spawn-maker trap). So **any** permanent that taps/triggers for mana is
+counted *fully* native, no matter what else it does. The other native predicates (`permanentTriggersCovered`,
+`permanentActivatedCovered`, `permanentFullyCovered`) all demand "every other clause is modeled or keyword-only" —
+`native-mana` is the **one native tier with no all-or-nothing residue gate**, so it's where unmodeled text hides.
+
+**Reproduced (qa-sweep + a corpus probe over all 965 native-mana cards):**
+- **122** native-mana cards carry a **non-routing trigger** (a detected When/Whenever/At whose effect clause does
+  NOT parse HIGH-non-modal — i.e. genuinely unmodeled). Clean examples: **Mana Crypt** (upkeep coin-flip → 3 dmg;
+  random = irreducible Arbiter tail, silently dropped), **Mana Vault** (upkeep/draw-step triggers), **Spara's
+  Adjudicators** (ETB can't-attack-or-block), **Pygmy Hippo** (attack trigger), **Old-Growth Troll** (dies → returns
+  as an Aura), **Ramos / Urabrask / Crystal, Inhuman Princess** (cast-triggers), **Princess Yue** (dies → return as a
+  land). **Discount ~15** where the trigger only *adds mana* (Akki Rockspeaker, Burning-Tree Emissary, Quirion
+  Sentinel, Coal Stoker…) — those are arguably fine (the ETB mana is the card's function, the mana system handles it).
+- **4** levelers/Classes whose level structure is unmodeled: **Sorcerer Class** (ETB draw-2-discard-2 + Level 2/3 +
+  a spell-damage trigger), **Alchemist's Talent**, **Joraga Treespeaker**, **A-Sorcerer Class**.
+- **+ an unmeasured subset** of the **156** native-mana cards with a non-mana **activated** ability that is itself
+  unmodeled (e.g. Lantern of Revealing's top-of-library, Sarevok's Tome) — NOT all 156 (the Cluestones' "draw a card"
+  / Unstable Obelisk's "destroy target permanent" ARE modeled → those are harmlessly mis-tiered, not FPs).
+
+**Honest scope: ≥110 over-claimed cards** (122 − ~15 + 4, plus the activated subset). ≈ **−0.37 %** of the headline.
+
+**Severity: METRIC-ONLY, no runtime harm** (verified). `classifyCard` / `isNativeTier` have **zero runtime
+consumers** — `grep` across `src/` shows the only importers are `measure-coverage.mjs`, `qa-sweep.mjs`, and tests
+(the `classifyCard` inside `goldfish.js` is an unrelated archetype classifier). The Academy drives gameplay through
+its **own** independent systems (`detectTriggers` → `buildTriggerStack`, `parseActivatedAbilities`,
+`parseEffectProgram`), so Mana Crypt's coin-flip already routes to the Arbiter in-game regardless of its tier. This
+is the **same class as FIX-PW-LAND-ORDER** (a pure-metric over-count) — just ~110× larger. It still matters: the
+native % is the scoreboard the whole push steers by to 0.1 %, and a ~0.37 % phantom corrupts trajectory tracking.
+
+**Fix (ENFORCE-FIRST, tractable — filed as a builder pull, Cindy lane):** gate `native-mana` behind the same
+all-or-nothing residue check the other tiers use — claim native-mana only when, after removing the card's OWN mana
+abilities + reminder + keywords, **every remaining trigger routes, every remaining activated ability is modeled, and
+any leftover is a modeled static or keyword-only** (reuse `permanentFullyCovered`'s residue logic). **Landmines:**
+(1) the mana-ability strip must cover all four shapes — activated `{T}: Add`, ETB `When ~ enters, add`, upkeep `At
+the beginning of … add`, and a **granted** mana ability inside `Creatures you control have "{T}: Add …"` — or a real
+dork drops to LOW (safe but wrong-direction). (2) **MUST_STAY_HIGH pins:** Llanowar Elves, Sol Ring, Mind Stone,
+Meteorite (ETB-damage modeled). (3) **MUST_DROP_TO_LOW pins:** Mana Crypt, Sorcerer Class, Spara's Adjudicators,
+Old-Growth Troll. Expect an honest-down of ≈ −0.37 % when it lands (like #255 — the gate working).
 
 ### ✅ VERIFY-COVERED-KW 🔴 — RESOLVED #255 (started as VERIFY-MENACE; the cycle-1 audit widened it)
 VERIFY-MENACE was real, and a full `COVERED_KEYWORDS` enforcement audit found it was **one of 11**. The rule:
