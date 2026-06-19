@@ -22,7 +22,7 @@ import {
   handCardMatches,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
@@ -494,6 +494,19 @@ function applyAddCounter(state, atom, ctx) {
     next = checkDiesTriggers(r.state, r.dead);
   }
   return logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount: atom.amount || 1, targets: targets.map(t => t.id) });
+}
+
+/** REGEN (CR 701.15) — give the SOURCE (self) or the chosen creature a regeneration shield. The shield is
+ * consumed at the next would-destroy (the lethal-damage SBA / the destroy effect), which clears damage + taps
+ * the creature so it survives. No magnitude (one clause → one shield per target); atomTargets resolves "self"
+ * to the source creature and "creature" to ctx.targets, exactly like the +1/+1-counter atom. */
+function applyRegenerate(state, atom, ctx) {
+  let next = state;
+  const targets = atomTargets(state, atom, ctx);
+  for (const t of targets) {
+    if (t.type === "creature" && findPermanent(next, t.id)) next = addRegenShield(next, t.id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "regenerate", targets: targets.map(t => t.id) });
 }
 
 /**
@@ -1097,6 +1110,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
   "exile": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "exile"),
   "add-counter": applyAddCounter,
+  "regenerate": applyRegenerate, // REGEN (CR 701.15) — set a regeneration shield on self / target creature
   "return-from-graveyard": applyReturnFromGraveyard,
   "reanimate": applyReanimate,
   "discard-chosen": applyDiscardChosen,

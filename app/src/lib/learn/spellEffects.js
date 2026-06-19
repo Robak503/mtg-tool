@@ -29,6 +29,7 @@ import {
   creaturePower,
   creatureToughness,
   isIndestructible,
+  regeneratePermanent,
   adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers,
   addCounter,
@@ -548,6 +549,13 @@ export function applyDestroyEffect(state, { controller, targets = [] }) {
     // an Equipment/Aura, an anthem) is honored, not just printed. The permanent stays put and fires
     // no dies-trigger (it never left). Exile/sacrifice/bounce are NOT destroy and never reach here.
     if (isIndestructible(lk.permanent, next)) {
+      prevented.push(t.id);
+      continue;
+    }
+    // CR 701.15 — a regeneration shield REPLACES this destruction: consume one shield, the permanent survives
+    // (clear damage + tap) and fires no dies-trigger (it never left the battlefield). Same look as indestructible.
+    if ((lk.permanent.regenShields || 0) > 0) {
+      next = regeneratePermanent(next, t.id);
       prevented.push(t.id);
       continue;
     }

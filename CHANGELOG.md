@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Regeneration works (REGEN, CR 701.15):** "{cost}: Regenerate this creature" and "Regenerate target
+  creature" (Troll Ascetic, Ranger en-Vec, Death Ward, Ghost Ship…) now set up a real regeneration shield —
+  the next time the creature would be **destroyed** this turn (lethal combat damage, deathtouch, or a Destroy
+  spell), it instead survives: damage cleared, tapped (CR 701.15a). **85 cards** play correctly. The shield
+  does NOT save from 0-toughness, sacrifice, or exile (those aren't destruction), and a filtered/off-type or
+  unmodeled-cost regen (discard-to-regenerate, "regenerate target artifact") stays on the Arbiter.
+
 - **Creatures enter with their +1/+1 counters (TRUNK-ENTERSCOUNTERS, CR 614.1f):** "~ enters with N +1/+1
   counters on it" (Kavu Primarch, Baloth Gorger, Llanowar Elite, Academy Drake…) now adds those counters as
   the creature enters, so it has the **right power/toughness from the moment it hits the battlefield** — 94
