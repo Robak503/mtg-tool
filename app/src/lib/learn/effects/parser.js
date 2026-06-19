@@ -236,7 +236,7 @@ function splitClauses(oracle) {
     // is INTERNAL to the one animate instruction, not a top-level boundary. Keep the whole sentence so
     // parseExtendedAtom binds the P/T-set + every granted keyword to the same animate atom (all-or-nothing
     // anchored — an un-grantable keyword / color-set / permanent duration just fails to match → low → Arbiter).
-    if (/^(?:until end of turn, )?target land becomes a \d+\/\d+\b.*\bcreature\b/i.test(sentence)) { clauses.push(sentence); continue; }
+    if (/^(?:until end of turn, )?(?:target|this) land becomes a \d+\/\d+\b.*\bcreature\b/i.test(sentence)) { clauses.push(sentence); continue; }
     // SYMBURN-1 symmetric burn ("<source> deals N damage to each creature and each player" — Inferno,
     // Fire Tempest, Evincar's Justice): the " and " between "each creature" and "each player" is INTERNAL
     // to one mass-damage target, NOT a top-level effect boundary. Keep the whole sentence so the damage
@@ -727,6 +727,32 @@ function parseExtendedAtom(s) {
     if (anm[5] && !grantKeywords) return null;  // an un-grantable rider keyword drops the whole clause → Arbiter
     const subtypes = anm[4] ? [anm[4].charAt(0).toUpperCase() + anm[4].slice(1)] : [];
     return { op: "animate", targetType: "land", power: parseInt(anm[2], 10), toughness: parseInt(anm[3], 10), subtypes, grantKeywords, duration: "endOfTurn" };
+  }
+  // ===== WALT-ANIMATE PR3 ===== MAN-LAND self-animate: a land's ACTIVATED ability animates ITSELF
+  // ("{1}: This land becomes a 3/3 green Ape creature with trample until end of turn" — Treetop Village,
+  // Faerie Conclave, the Restless cycle, …). Self-reference ("this land" = the source, resolved via
+  // ctx.sourceId → target:"self"). The middle between "N/N" and "creature" is the set color(s) (layer 5),
+  // creature subtype(s) (layer 4), and an added card type like artifact (layer 4). Routes to LOW → Arbiter:
+  // a non-grantable keyword (menace/infect), "with all creature types" (changeling — Mutavault), a "can't
+  // be blocked"/Lure rider (its own sentence → unparsed clause — Creeping Tar Pit), or any middle token
+  // that isn't a color / artifact / plain subtype word. REQUIRES until-end-of-turn (the modeled subset).
+  const anmSelf = t.match(/^(until end of turn, )?this land becomes a (\d+)\/(\d+) (.*?)creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
+  if (anmSelf) {
+    if (!anmSelf[1] && !anmSelf[6]) return null;  // a PERMANENT animate (no until-end-of-turn) → Arbiter
+    const COLOR_MAP = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+    const capHyphen = (w) => w.split("-").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join("-");
+    const colors = [], subtypes = [], cardTypes = [];
+    let ok = true;
+    for (const w of (anmSelf[4] || "").trim().split(/\s+/).filter(x => x && x !== "and")) {
+      if (COLOR_MAP[w]) colors.push(COLOR_MAP[w]);
+      else if (w === "artifact" || w === "enchantment") cardTypes.push(capHyphen(w));
+      else if (/^[a-z][a-z-]*$/.test(w)) subtypes.push(capHyphen(w));  // a creature subtype (Ape / Faerie / Assembly-Worker)
+      else { ok = false; break; }  // an unrecognized middle token — don't risk a mis-model → Arbiter
+    }
+    if (!ok) return null;
+    const grantKeywords = anmSelf[5] ? parseGrantedKeywords(anmSelf[5]) : [];
+    if (anmSelf[5] && !grantKeywords) return null;  // un-grantable rider (menace/infect/"all creature types") → Arbiter
+    return { op: "animate", target: "self", power: parseInt(anmSelf[2], 10), toughness: parseInt(anmSelf[3], 10), colors, subtypes, cardTypes, grantKeywords, duration: "endOfTurn" };
   }
   // MASS effects (board wipes) — UNFILTERED "all creatures" only. Resolve to the SAME atoms
   // with the `eachCreature` scope (no chosen target; programNeedsChosenTarget excludes it),

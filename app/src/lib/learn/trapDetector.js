@@ -28,7 +28,7 @@
  */
 
 import { opponentsOf } from "./gameState.js";
-import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
+import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 
 // ─── Type helpers ────────────────────────────────────────────────────────────
 
@@ -38,10 +38,6 @@ function cardType(card) {
 
 function isLand(card) {
   return /Land/.test(cardType(card));
-}
-
-function isCreature(card) {
-  return /Creature/.test(cardType(card));
 }
 
 function untappedPermanentsOfType(state, playerId, predicate) {
@@ -60,8 +56,11 @@ function untappedReadyCreatures(state, playerId) {
   // counts — keeping this readiness gate consistent with legalChoices' attack gate,
   // which combat actually resolves on (F7a). Otherwise the counter-swing heuristic
   // would undercount a granted-haste creature that can legally attack.
-  return untappedPermanentsOfType(state, playerId, isCreature).filter(p =>
-    !p.summoningSick || permanentHasKeyword(state, p.id, "Haste")
+  // Creature-ness is layer-aware (permanentIsCreature) so an animated man-land that can swing back
+  // counts in the counter-attack trap math, consistent with legalChoices' attack gate.
+  return (state.players?.[playerId]?.battlefield || []).filter(p =>
+    !p.tapped && permanentIsCreature(state, p.id) &&
+    (!p.summoningSick || permanentHasKeyword(state, p.id, "Haste"))
   );
 }
 
@@ -134,7 +133,7 @@ export function detectCounterAttackLethal(state, attackerPlayerId, attackerActio
   if (yourLife <= 0) return null;
 
   const committedIds = new Set(attackerActions.map(a => a.permanentId));
-  const yourCreatures = state.players?.[attackerPlayerId]?.battlefield?.filter(p => isCreature(p.card)) || [];
+  const yourCreatures = state.players?.[attackerPlayerId]?.battlefield?.filter(p => permanentIsCreature(state, p.id)) || [];
   const stayingHome = yourCreatures.filter(p => !p.tapped && !committedIds.has(p.id));
   const defended = stayingHome.reduce((sum, p) => sum + Math.max(0, permanentToughness(state, p.id)), 0);
 
