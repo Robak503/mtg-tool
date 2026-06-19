@@ -165,6 +165,17 @@ fallback. The merge/verify/board/release logic in §2–§8 is identical either 
 > unswept ones in the release entry). `fp-watch.md` is the running FP log (the channel to Hans); it is NOT
 > `retired-fp-ledger.md` (that's deliberate enforce-later deferrals).
 >
+> **🔀 STACKED-PR COLLISIONS (Colton lifted Cindy's grab-ahead cap, 2026-06-19).** Cindy may now stack MANY
+> open PRs; several branch off the same master and collide on `coverage.js` (`COVERED_KEYWORDS` / tier gates)
+> and `parser.js`. **Tight cadence is the primary defense** — merge fast so each new claim branches off
+> fresher master. Each tick: merge every clean `MERGEABLE` PR first (oldest-first); then for `DIRTY` ones —
+> if the conflict is a **trivial mechanical append** (both sides added to a keyword list / appended a matcher,
+> no overlapping logic), **resolve it yourself at integration** (integration, not building): `git checkout -B
+> <branch> origin/<branch> && git rebase origin/master` → keep BOTH additions → `git push --force-with-lease
+> origin <branch>` → `gh pr merge --squash`. If the conflict is **SEMANTIC** (two slices editing the same
+> function differently) → do NOT guess; comment the PR "rebase onto <sha>" and leave it for Cindy. Never let a
+> trivial append-conflict stall throughput; never resolve a logic conflict yourself.
+>
 > **🔁 NEXT-FIRE BANNER (Colton, standing — every cycle-end):** the LAST thing you output each cycle is your
 > next-fire time as a BIG BOLD top-level line, so Colton can glance at this chat and instantly know when you
 > resume — e.g. `# 🔁 NEXT FIRE — 9:42 PM MST · <one line on what's next>`.
