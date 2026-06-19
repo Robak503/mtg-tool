@@ -1261,6 +1261,40 @@ function matchHandDisruption(oracle) {
   return { atom: { op: "discard-chosen", targetType: "opponent", handFilter, who }, rest: oracle.slice(m[0].length).trim() };
 }
 
+// ===== RIDER-REMOVAL ===== (Dex, real-deck slice 2) — targeted removal whose SECOND sentence acts on the
+// TARGET's controller: "Exile/Destroy target X. Its controller {gains life equal to its power | creates a
+// N/N <color> <subtype> creature token | may search their library for a basic land card, put it onto the
+// battlefield[ tapped], then shuffle}." (Swords to Plowshares, Beast Within / Generous Gift, Path to Exile /
+// Assassin's Trophy). The lead removal is parsed by the SHARED removal grammar (parseExtendedAtom), so it
+// reuses EVERY modeled targetType + controller restriction (creature / permanent / "permanent an opponent
+// controls") with no targeting changes; the rider rides on the atom as `controllerRider` and is applied at
+// RESOLUTION to the captured target-controller (CR — "its controller" = the just-removed permanent's
+// controller). ALL-OR-NOTHING: an unmodeled rider, or a lead the removal grammar doesn't model, → null →
+// the whole card stays low → Arbiter (never a confident partial that fires the removal but drops the rider).
+function parseControllerRider(t) {
+  // Swords to Plowshares — "gains life equal to its power" (the exiled creature's power, captured pre-removal).
+  if (/^gains life equal to its power$/.test(t)) return { kind: "gainLifePower" };
+  // Beast Within / Generous Gift — "creates a 3/3 green Beast/Elephant creature token" (a VANILLA token: a
+  // single color word + a single creature subtype, no keywords/abilities; a multi-word/keyword token fails).
+  let m = t.match(/^creates a (\d+)\/(\d+) (white|blue|black|red|green) ([a-z]+) creature token$/);
+  if (m) return { kind: "createToken", power: parseInt(m[1], 10), toughness: parseInt(m[2], 10), color: m[3], subtype: m[4] };
+  // Path to Exile / Assassin's Trophy — "may search their library for a basic land card, put it/that card
+  // onto the battlefield[ tapped], then shuffle". Reuses the RAMP-1 battlefield tutor scoped to that player;
+  // the optional "may" is the tutor's find-nothing (identical to how Farhaven Elf's "you may search" models).
+  m = t.match(/^may search their library for a basic land card, put (?:it|that card) onto the battlefield( tapped)?, then shuffle$/);
+  if (m) return { kind: "rampBasic", entersTapped: !!m[1] };
+  return null; // an unmodeled controller rider → low → Arbiter
+}
+function matchRemovalControllerRider(oracle) {
+  const m = String(oracle).trim().match(/^((?:exile|destroy) target .+?)\.\s+its controller (.+?)\.?$/i);
+  if (!m) return null;
+  const lead = parseExtendedAtom(m[1].trim());
+  if (!lead || (lead.op !== "exile" && lead.op !== "destroy")) return null; // lead must be a modeled removal
+  const rider = parseControllerRider(m[2].trim().toLowerCase());
+  if (!rider) return null;                                                   // unmodeled rider → low → Arbiter
+  return { atom: { ...lead, controllerRider: rider }, rest: "" };
+}
+
 // δ-2 impulse-dig — spelled cardinals the "top <N> cards" template uses (2-10; bigger digs are rare).
 const DIG_NUM = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
 
@@ -1477,6 +1511,11 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   if (dig) return collapsed(dig);
   const emb = matchEmblem(oracle);
   if (emb) return collapsed(emb);
+  // RIDER-REMOVAL — "Exile/Destroy target X. Its controller <rider>." parses to ONE removal atom carrying
+  // a `controllerRider` (resolved to the target's controller). The two sentences span the clause splitter,
+  // so it's matched up front like the other collapsed templates.
+  const rcr = matchRemovalControllerRider(oracle);
+  if (rcr) return collapsed(rcr);
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).

@@ -45,8 +45,10 @@ describe("parser — targeted non-creature permanent removal", () => {
       .toEqual([{ op: "destroy", targetType: "enchantment", restrictions: [{ kind: "controller", who: "you" }] }]);
     expect(parseEffectProgram(I("Destroy target creature.")).atoms).toEqual([{ op: "destroy", targetType: "creature" }]); // unchanged
   });
-  it("a rider or a multi-type / qualified shape drops the whole program to low (no partial)", () => {
-    expect(programConfidence(parseEffectProgram(I("Destroy target permanent. Its controller creates a 3/3 green Beast creature token.")))).toBe("low"); // Beast Within
+  it("an UNMODELED rider or a multi-type / qualified shape drops the whole program to low (no partial)", () => {
+    // NOTE: Beast Within ("Its controller creates a 3/3 green Beast creature token") now flips NATIVE via
+    // RIDER-REMOVAL (riderRemoval.test.js) — its rider is modeled. An UNMODELED controller-rider still drops:
+    expect(programConfidence(parseEffectProgram(I("Destroy target permanent. Its controller loses 2 life.")))).toBe("low"); // lose-life rider (unmodeled)
     expect(programConfidence(parseEffectProgram(I("Destroy target artifact, creature, enchantment, or land.")))).toBe("low"); // Vindicate-style list
     expect(programConfidence(parseEffectProgram(I("Destroy target nonbasic land.")))).toBe("low"); // unmodeled qualifier
   });

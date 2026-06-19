@@ -22,7 +22,7 @@ import {
   handCardMatches,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
@@ -288,6 +288,63 @@ function applyZoneMove(state, atom, ctx, toZone, toTop = false) {
   // Exile is NOT "dies" (CR 700.4 — dies = to graveyard), so no dies triggers fire. Tuck → library.
   const effect = toZone === "exile" ? "exile" : toZone === "library" ? "tuck" : "bounce";
   return logEvent(next, { kind: "spell-effect", effect, targets: targets.map(t => t.id) });
+}
+
+/**
+ * ===== RIDER-REMOVAL ===== (Dex) targeted removal whose SECOND clause acts on the TARGET's controller
+ * (CR — "its controller" = the just-removed permanent's controller): Swords to Plowshares (exile + that
+ * controller gains life = the creature's power), Beast Within / Generous Gift (destroy + that controller
+ * makes a vanilla token), Path to Exile / Assassin's Trophy (exile/destroy + that controller may ramp a
+ * basic land). The controller (and the creature's power, for the lifegain rider) is captured BEFORE the
+ * removal moves the permanent off the battlefield; the removal then runs through the SHARED exile/destroy
+ * resolver (so indestructible/regen/dies are handled identically); finally the rider applies to the
+ * captured controller. The rider is unconditional — Beast Within still makes the token even if the target
+ * was indestructible (the destroy failed but the second sentence still resolves).
+ */
+function applyRemovalWithRider(state, atom, ctx) {
+  const targets = atomTargets(state, atom, ctx);
+  // Capture each target's controller + power while it's still on the battlefield (these spells are
+  // single-target in the corpus, but the loop is general).
+  const captures = [];
+  for (const t of targets) {
+    if (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") continue;
+    const lk = findPermanent(state, t.id);
+    if (lk) captures.push({ controller: lk.controller, power: Math.max(0, creaturePower(lk.permanent, state)) });
+  }
+  // Perform the removal through the shared resolver (exile → applyZoneMove, destroy → applyDestroyEffect).
+  let next = atom.op === "exile"
+    ? applyZoneMove(state, atom, ctx, "exile")
+    : applyDestroyEffect(state, { controller: ctx.controller, targets });
+  // Apply the rider to each captured controller.
+  for (const cap of captures) {
+    if (!next.players?.[cap.controller]) continue; // controller eliminated mid-resolution → skip (CR 800.4a)
+    next = applyControllerRider(next, atom.controllerRider, cap, ctx);
+    // A rampBasic rider suspends the program (a tutor pending-choice scoped to that player); stop the loop
+    // so a (theoretical) second target can't clobber the pending choice — the runner resumes from here.
+    if (next.pendingChoice && !next.pendingChoice.resume) break;
+  }
+  return next;
+}
+
+/** Apply a single RIDER-REMOVAL controller-rider to the captured target-controller `cap`. */
+function applyControllerRider(state, rider, cap, ctx) {
+  if (rider.kind === "gainLifePower") {
+    let next = gainLife(state, { playerId: cap.controller, amount: cap.power });
+    if (cap.power > 0) next = checkLifegainTriggers(next, cap.controller, cap.power);
+    return logEvent(next, { kind: "spell-effect", effect: "rider-gain-life", controller: cap.controller, amount: cap.power });
+  }
+  if (rider.kind === "createToken") {
+    // A vanilla token under the TARGET's controller — reuse applyCreateToken with the controller swapped.
+    const tokenAtom = { op: "create-token", count: 1, power: rider.power, toughness: rider.toughness, descriptor: `${rider.color} ${rider.subtype}`, keywords: [], targetType: null };
+    return applyCreateToken(state, tokenAtom, { ...ctx, controller: cap.controller });
+  }
+  if (rider.kind === "rampBasic") {
+    // Reuse the RAMP-1 battlefield tutor (basic land → battlefield), scoped to the TARGET's controller — their
+    // library, their pick; the "may" is the tutor's find-nothing. Suspends the program (pending-choice).
+    const tutorAtom = { op: "tutor", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card", destination: "battlefield", entersTapped: !!rider.entersTapped, targetType: null };
+    return applyTutor(state, tutorAtom, { ...ctx, controller: cap.controller });
+  }
+  return state;
 }
 
 /**
@@ -1098,7 +1155,9 @@ export const ATOM_RESOLVERS = Object.freeze({
     // infect/wither source's non-combat damage routes to -1/-1 counters / poison in applyDamageEffect.
     applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType: atom.targetType, targets: ctx.targets, source: { id: ctx.sourceId } }),
   "destroy": (state, atom, ctx) =>
-    applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx) }),
+    atom.controllerRider
+      ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Beast Within / Generous Gift / Assassin's Trophy
+      : applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx) }),
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
   "animate": (state, atom, ctx) => applyAnimateEffect(state, atom, ctx),
@@ -1108,7 +1167,10 @@ export const ATOM_RESOLVERS = Object.freeze({
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
   "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
-  "exile": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "exile"),
+  "exile": (state, atom, ctx) =>
+    atom.controllerRider
+      ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Path to Exile / Swords to Plowshares
+      : applyZoneMove(state, atom, ctx, "exile"),
   "add-counter": applyAddCounter,
   "regenerate": applyRegenerate, // REGEN (CR 701.15) — set a regeneration shield on self / target creature
   "return-from-graveyard": applyReturnFromGraveyard,
