@@ -387,7 +387,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
     // Cost kinds: sacrifice (γ1b chosen victim) · payLife (no choice) · discard (N=1, chosen hand card).
     const addCost = isHigh ? (program.additionalCosts || [])[0] : null;
     if (addCost) {
-      const combos = expandCastChoices(state, playerId, program);
+      const combos = expandCastChoices(state, playerId, program, colorsOf(card));
       if (combos.length === 0) continue;                  // a required effect target has no legal pick
       const emit = (ch, extra) => actions.push({
         ...base,
@@ -439,7 +439,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
     if (isHigh && program.xSpell) {
       const xValues = affordableXValues(state, playerId, cost);
       if (xValues.length === 0) continue;
-      const combos = expandCastChoices(state, playerId, program);
+      const combos = expandCastChoices(state, playerId, program, colorsOf(card));
       if (combos.length === 0) continue;
       for (const x of xValues) {
         const xCost = { ...cost, generic: (cost.generic || 0) + x };
@@ -484,7 +484,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
     const isMultiOrModal = isHigh
       && (program.structure === "modal" || (program.atoms?.length || 0) > 1);
     if (isMultiOrModal || isExtendedTargeted) {
-      const choices = expandCastChoices(state, playerId, program);
+      const choices = expandCastChoices(state, playerId, program, colorsOf(card));
       if (choices.length === 0) continue; // no legal cast (a required target is missing)
       for (const ch of choices) {
         actions.push({

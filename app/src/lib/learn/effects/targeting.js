@@ -67,11 +67,13 @@ function atomTargetSpec(atom) {
   return { kind: atom.op === "destroy" ? "destroy" : "damage", targetType: tt, restrictions: atom.restrictions || [] };
 }
 
-/** Legal targets for one atom, each tagged with its `atomIndex`; null if non-targeted. */
-function atomTargets(state, controllerId, atom, atomIndex) {
+/** Legal targets for one atom, each tagged with its `atomIndex`; null if non-targeted.
+ * `sourceColors` (the casting spell's colors) is threaded to enumerateTargets for KW-PROTECTION
+ * targeting (CR 702.16b) — empty on the trigger-flush / ability paths (a safe FN, PR-later). */
+function atomTargets(state, controllerId, atom, atomIndex, sourceColors = []) {
   const spec = atomTargetSpec(atom);
   if (!spec) return null;
-  return enumerateTargets(state, controllerId, spec).map(t => ({ ...t, atomIndex }));
+  return enumerateTargets(state, controllerId, spec, sourceColors).map(t => ({ ...t, atomIndex }));
 }
 
 /**
@@ -81,11 +83,11 @@ function atomTargets(state, controllerId, atom, atomIndex) {
  *   - `null`   when a targeting atom has ZERO legal targets (spell uncastable)
  *   - otherwise an array of flat, atomIndex-tagged target arrays.
  */
-function expandAtoms(state, controllerId, atoms) {
+function expandAtoms(state, controllerId, atoms, sourceColors = []) {
   const perAtom = [];
   for (let i = 0; i < atoms.length; i++) {
     const atom = atoms[i];
-    const tagged = atomTargets(state, controllerId, atom, i);
+    const tagged = atomTargets(state, controllerId, atom, i, sourceColors);
     if (tagged === null) continue;            // non-targeted atom
     if (atom.optionalTarget) {
       // "up to one target …": MAY take a target or none. Offer each legal target PLUS a decline
@@ -120,7 +122,7 @@ function expandAtoms(state, controllerId, atoms) {
  *   modal    → [{ chosenMode, targets, label }]       (one per mode × target-combo)
  * An empty array means the spell has no legal cast right now (no legal targets).
  */
-export function expandCastChoices(state, controllerId, program) {
+export function expandCastChoices(state, controllerId, program, sourceColors = []) {
   if (!program) return [];
 
   if (program.structure === "modal") {
@@ -130,7 +132,7 @@ export function expandCastChoices(state, controllerId, program) {
     if (chooseCount <= 1) {
       const out = [];
       modes.forEach((mode, chosenMode) => {
-        const combos = expandAtoms(state, controllerId, mode.atoms);
+        const combos = expandAtoms(state, controllerId, mode.atoms, sourceColors);
         if (combos === null) return; // this mode is uncastable (a target has no legal pick)
         for (const targets of combos) out.push({ chosenMode, targets, label: mode.label });
       });
@@ -146,7 +148,7 @@ export function expandCastChoices(state, controllerId, program) {
     for (const size of sizes) {
       for (const combo of kCombinations(modes.length, size)) {
         const concatAtoms = combo.flatMap((k) => modes[k].atoms);
-        const combos = expandAtoms(state, controllerId, concatAtoms);
+        const combos = expandAtoms(state, controllerId, concatAtoms, sourceColors);
         if (combos === null) continue; // some required target in this mode-combo has no legal pick
         const label = combo.map((k) => modes[k].label).join(" + ");
         for (const targets of combos) out.push({ chosenMode: combo, targets, label });
@@ -155,7 +157,7 @@ export function expandCastChoices(state, controllerId, program) {
     return out;
   }
 
-  const combos = expandAtoms(state, controllerId, program.atoms || []);
+  const combos = expandAtoms(state, controllerId, program.atoms || [], sourceColors);
   if (combos === null) return [];
   return combos.map(targets => ({ targets }));
 }
