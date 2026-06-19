@@ -24,7 +24,7 @@
 ## ⚠️ Interim honesty note
 The enforce-don't-drop policy has been **proven 3× over** — **9 of the 11 keyword FPs are now honestly enforced**
 (EVADE #258, KW-UNTARGET #260, TRIG-PROWESS #262; coverage rose *correctly* as each enforcement converted
-interim→honest). Only **ward + protection** remain as live interim keyword FPs (each a known, queued enforcement).
+interim→honest). **ALL keyword interim-FPs now enforced — ward #305 + protection #306 closed the last two** (both partial-but-honest: the deferred sub-rules are safe false-negatives, never mis-resolved).
 The newest backlog row (`native-mana residue gate`, board-10) is a different animal: a **metric-only** over-count,
 not a live gameplay FP — see its CAP section. (#255's blanket keyword-drop was **superseded** by #256, which reverted
 it to keep the 11 claimed while enforcement shipped.)
@@ -48,8 +48,8 @@ hexproof/shroud untargetability; ward (a TAX, not an exclusion) is its own slice
 | Keyword | Rule to enforce (plain) | Status |
 |---|---|---|
 | hexproof · shroud | can't be targeted by opponents / by anyone | ✅ ENFORCED #260 |
-| ward | targeting it costs the opponent (else countered) | 🔨 ENFORCE (interim FP — own slice) |
-| protection | can't be targeted/blocked/enchanted/equipped/damaged by the quality | 🔨 ENFORCE (interim FP — δ DEBT subsystem) |
+| ward | targeting it costs the opponent (else countered) | ✅ ENFORCED #305 (generic-cost mana wards ~142, via the soft-counter machinery; colored/hybrid/non-mana ward = safe FN, PR2) |
+| protection | can't be targeted/blocked/enchanted/equipped/damaged by the quality | ✅ ENFORCED #306 (color quality, COMBAT block+damage, 138/214; targeting/enchant-equip/non-combat/non-color = safe FN, PR2) |
 
 ### ✅ CAP: prowess via the cast-trigger compiler — **DONE #262**
 **Board task:** `TRIG-PROWESS`. A noncreature-cast trigger → +1/+1 until end of turn (CR 702.108, Hans-verified).
