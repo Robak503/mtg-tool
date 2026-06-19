@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Conditional keyword grants play correctly (GATED-KEYWORD):** "This creature has &lt;keyword&gt; as long as
+  you control a/another/N &lt;type&gt;" (Markov Crusader haste, Snapsail Glider flying, Pterodon Knight, Kargan
+  Dragonrider…) now grants the keyword **live**, only while the gate holds — in both templating orders
+  ("… has X as long as Y" and "As long as Y, … has X"). The same fix teaches the #301 P/T gate the leading-
+  "as long as" order too. Only engine-enforced grantable keywords flip; a non-keyword rider, a color/compound
+  gate, or a non-grantable keyword (menace) stays on the Arbiter.
+
 - **Conditional self-buffs play correctly (GATED-SELFBUFF):** "This creature gets +X/+Y as long as you
   control a/another/N &lt;type&gt;" (Wild Nacatl, Loam Lion, Mire Kavu, Flinthoof Boar, Drover of the Mighty,
   Court Homunculus…) now resolves as a **live, layer-correct** fixed buff that turns on and off as the board

@@ -175,6 +175,23 @@ export function entersTapped(card) {
 }
 
 /**
+ * GATED-KEYWORD — emit a layer-6 gated keyword grant for each keyword in `kwPhrase`, gated on the
+ * "you control <quant> <type>" threshold, or nothing. STRICT: EVERY comma/"and"-segment of kwPhrase must be a
+ * grantable keyword — a single leftover non-keyword segment ("trample and is a 4/4") means dropping real text,
+ * so the WHOLE clause is left LOW (CREED: a partial keyword grant that silently drops other text is a false
+ * positive). An unmodeled gate type likewise yields nothing → LOW → Arbiter.
+ */
+function emitGatedKeywords(out, kwPhrase, quant, typePhrase) {
+  const gate = parseControlGateSource(quant, typePhrase);
+  if (!gate) return;
+  const segs = String(kwPhrase).split(/,|\band\b/).map(s => s.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
+  if (segs.length === 0 || !segs.every(s => GRANTABLE_KEYWORDS.has(s))) return;
+  for (const s of segs) {
+    out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: canonicalKeyword(s), gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+  }
+}
+
+/**
  * Try every supported pattern against one clause; push any descriptor(s) found
  * into `out`. The patterns are intentionally narrow and ordered most-specific
  * first so a tribal/color anthem doesn't also match the generic anthem.
@@ -222,6 +239,22 @@ function parseClause(clause, out) {
       }
       return; // an as-long-as self-gate — handled (or dropped to LOW on an unmodeled gate type)
     }
+    // ── GATED-SELFBUFF (prefix form) + GATED-KEYWORD (both forms) ─────────────────────────────────────────
+    // Same control-threshold gate as the suffix P/T above, but (a) the "as long as" can LEAD the clause ("As
+    // long as you control a Mountain, this creature has menace." — Summit Apes), and (b) the gated effect can
+    // be a KEYWORD grant (layer 6, strictly validated). All reuse parseControlGateSource; a keyword gate and a
+    // P/T gate share layers.gateMet, so they can never diverge.
+    const GATE = "you control (a|an|another|two or more|three or more|\\d+ or more) (.+)";
+    let gm = c.match(new RegExp(`^as long as ${GATE}, (?:this creature|it) gets ([+-]\\d+)\\/([+-]\\d+)$`));
+    if (gm) {
+      const gate = parseControlGateSource(gm[1], gm[2]);
+      if (gate) out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyGated", power: signed(gm[3]), toughness: signed(gm[4]), gate }, affects: { mode: "self" }, duration: { kind: "permanent" } });
+      return;
+    }
+    gm = c.match(new RegExp(`^(?:this creature|it) has (.+?) as long as ${GATE}$`));
+    if (gm) { emitGatedKeywords(out, gm[1], gm[2], gm[3]); return; }
+    gm = c.match(new RegExp(`^as long as ${GATE}, (?:this creature|it) has (.+)$`));
+    if (gm) { emitGatedKeywords(out, gm[3], gm[1], gm[2]); return; }
   }
 
   // ── STATIC-ONLY GUARD (CLAUDE.md §1.2: a miss is safe; a false grant is forbidden) ──

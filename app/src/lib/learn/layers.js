@@ -119,6 +119,16 @@ function matchesCountSpec(perm, spec) {
   return needle ? new RegExp(`\\b${needle}\\b`).test(typeLineOf(perm?.card)) : false;
 }
 
+// GATED-SELFBUFF / GATED-KEYWORD: is a control-threshold gate currently OPEN for this permanent? Shared by
+// the layer-7c ptModifyGated buff and the layer-6 gated keyword grant — the SINGLE evaluator so a P/T gate and
+// a keyword gate can never diverge. An absent gate is always open (ungated). "another" excludes the source.
+function gateMet(state, perm, gate) {
+  if (!gate) return true;
+  let n = countSelfSpecOnBoard(state, perm, gate.countSpec);
+  if (gate.excludeSelf && matchesCountSpec(perm, gate.countSpec)) n -= 1;
+  return n >= (gate.atLeast || 1);
+}
+
 const COLOR_PIPS = ["W", "U", "B", "R", "G"];
 function colorsOf(card) {
   if (Array.isArray(card?.colors)) return card.colors.map(String);
@@ -355,12 +365,8 @@ function applyLayer7(state, perm, l7Effects) {
       toughness += n * (e.op.perToughness || 0);
     } else if (e.op.layerOp === "ptModifyGated") {
       // GATED-SELFBUFF: a FIXED self buff applied ONLY while a board threshold holds ("gets +X/+Y as long as
-      // you control a/another/N <type>"). Re-evaluated live every P/T computation. "another" excludes the
-      // source permanent from its own count (CR — "another <type>").
-      const g = e.op.gate || {};
-      let n = countSelfSpecOnBoard(state, perm, g.countSpec);
-      if (g.excludeSelf && matchesCountSpec(perm, g.countSpec)) n -= 1;
-      if (n >= (g.atLeast || 1)) { power += e.op.power || 0; toughness += e.op.toughness || 0; }
+      // you control a/another/N <type>"). Re-evaluated live every P/T computation via the shared gate.
+      if (gateMet(state, perm, e.op.gate)) { power += e.op.power || 0; toughness += e.op.toughness || 0; }
     }
   }
 
@@ -439,7 +445,7 @@ export function deriveCharacteristics(state, permanentId) {
       toughness: pt.toughness,
       basePower: pt.basePower,
       baseToughness: pt.baseToughness,
-      keywords: keywordSet(perm, l6),
+      keywords: keywordSet(perm, l6, state),
       ...applyTypeColorLayers(perm, l4, l5),
       appliedEffects: selfEffects.map(e => ({
         id: e.id, layer: e.layer, sublayer: e.sublayer || null,
@@ -480,7 +486,7 @@ function applyTypeColorLayers(perm, l4, l5) {
  * layer-6 removals (timestamp-ordered, 613.9 last-wins). Keywords stored
  * lowercased for case-insensitive membership.
  */
-function keywordSet(perm, l6Effects) {
+function keywordSet(perm, l6Effects, state) {
   const set = printedKeywords(perm.card);
   // Keyword counters (613.1f), e.g. counters.flying > 0.
   for (const kw of COMBAT_KEYWORDS) {
@@ -489,6 +495,7 @@ function keywordSet(perm, l6Effects) {
   for (const e of l6Effects.slice().sort(byTimestamp)) {
     const kw = String(e.op.keyword || "").toLowerCase();
     if (!kw) continue;
+    if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue; // GATED-KEYWORD: gate closed → no grant this turn
     if (e.op.layerOp === "addKeyword") set.add(kw);
     else if (e.op.layerOp === "removeKeyword") set.delete(kw);
   }
@@ -528,6 +535,7 @@ export function permanentHasKeyword(state, permanentId, keyword) {
   let has = printed || fromCounter;
   for (const e of l6) {
     if (String(e.op.keyword || "").toLowerCase() !== kwLower) continue;
+    if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue; // GATED-KEYWORD: gate closed → no grant
     if (e.op.layerOp === "addKeyword") has = true;
     else if (e.op.layerOp === "removeKeyword") has = false;
   }
