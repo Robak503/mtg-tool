@@ -44,7 +44,7 @@ import {
   addCommanderDamage,
 } from "./gameState.js";
 import { permanentHasKeyword } from "./layers.js";
-import { checkDiesTriggers, checkCombatDamageTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkCombatDamageTriggers, checkLifegainTriggers } from "./triggers.js";
 
 // Combat keyword checks go through the layer engine (permanentHasKeyword) so a
 // GRANTED keyword (sliver lord, anthem, equipment) is respected, not just a
@@ -228,7 +228,8 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     }
   }
   for (const [pid, amount] of Object.entries(lifeGain)) {
-    if (amount > 0) next = gainLife(next, { playerId: pid, amount });
+    // TRIG-LIFEGAIN (CR 119.3): lifelink life gain fires each gaining player's "Whenever you gain life".
+    if (amount > 0) next = checkLifegainTriggers(gainLife(next, { playerId: pid, amount }), pid, amount);
   }
   // PW-1: remove loyalty from attacked planeswalkers (CR 120.3c — combat damage to a walker
   // removes that many loyalty counters). Guarded against a walker that left mid-step.

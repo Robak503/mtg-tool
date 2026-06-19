@@ -196,6 +196,13 @@ function classifyCondition(condRaw, cardName) {
     const event = /end step/.test(c) ? "endStep" : /draw step/.test(c) ? "draw" : "upkeep";
     return { event, scope: "you", whose };
   }
+  // TRIG-LIFEGAIN — the lifegain event (CR 119.3, a player gaining life). BARE "you gain life" only,
+  // anchored: a conditional ("…for the first time each turn") or compound ("…gain or lose life") leaves
+  // residue and stays UNDETECTED → Arbiter (a SAFE false-negative). whose:"any" NOT "yours" — life gain
+  // isn't tied to the active player's turn (lifelink / an instant resolve on ANY turn), and the activePlayer
+  // gate on "yours" (triggersForEvent) would wrongly drop an off-turn gain. checkLifegainTriggers instead
+  // scans ONLY the gaining player's sources, so "you gain life" still fires for the gainer alone.
+  if (/^you gain life$/.test(c)) return { event: "lifegain", scope: "you", whose: "any" };
   // ===== EACH-PLAYER (compound-combat-trigger guard) ===== A condition that names BOTH "attacks" and
   // "blocks" ("Whenever this creature attacks or blocks …" — Howling Golem, Burning Sun Cavalry) is a
   // COMPOUND combat event. The single-verb branches below model only ONE event, so detecting it as just
@@ -578,6 +585,24 @@ export function checkCombatDamageTriggers(state, playerEvents) {
       if (watcher.id === attackerPerm.id) continue;
       fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
     }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * TRIG-LIFEGAIN — enqueue "Whenever you gain life" triggers (CR 119.3 lifegain event) for the player who
+ * just gained life. Fired at each gainLife site (the gain-life effect atom + combat lifelink). Scans ONLY
+ * `gainingPlayerId`'s trigger sources, so "you gain life" fires for the gainer alone — the descriptor uses
+ * whose:"any" (life gain is turn-agnostic; the "yours"/activePlayer gate would wrongly drop off-turn gains).
+ * No-op on a non-positive amount or unknown player. Pure — appends to pendingTriggers (flushed at the next
+ * priority point, like the combat-damage triggers). The amount rides the context for any amount-aware effect.
+ */
+export function checkLifegainTriggers(state, gainingPlayerId, amount = 0) {
+  if (!gainingPlayerId || !(amount > 0) || !state.players?.[gainingPlayerId]) return state;
+  let fired = [];
+  for (const perm of triggerSourcesOf(state, gainingPlayerId)) {
+    fired = fired.concat(triggersForEvent(state, { event: "lifegain", sourcePermanent: perm, triggeringContext: { gainingPlayerId, amount } }));
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
