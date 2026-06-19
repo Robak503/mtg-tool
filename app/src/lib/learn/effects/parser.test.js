@@ -239,7 +239,7 @@ describe("parseEffectProgram — life atoms (P2.7)", () => {
     // is now MODELED by FOR-EACH (WALT-FOR-EACH) → HIGH (pinned there). A count source we DON'T model still
     // stays low:
     expect(programConfidence(parseEffectProgram(I("You gain 2 life for each creature an opponent controls.")))).toBe("low"); // opponent-scoped
-    expect(programConfidence(parseEffectProgram(I("You gain 2 life for each Elf you control.")))).toBe("low");                // creature subtype
+    expect(programConfidence(parseEffectProgram(I("You gain 2 life for each other creature you control.")))).toBe("low");     // "other" self-exclusion (subtypes are now modeled)
   });
 });
 
@@ -358,10 +358,35 @@ describe("parseEffectProgram — count-scaled draw / life (FOR-EACH)", () => {
   it("MUST_DROP_TO_LOW: opponent-scoped / subtype / 'don't control' / other-graveyard sources → Arbiter", () => {
     expect(conf("Draw a card for each creature target opponent controls.")).toBe("low");   // opponent-scoped
     expect(conf("Draw a card for each creature you don't control.")).toBe("low");           // negated control
-    expect(conf("You gain 2 life for each Elf you control.")).toBe("low");                  // creature subtype — deferred
+    expect(conf("You gain 2 life for each other creature you control.")).toBe("low");        // "other" self-exclusion (subtypes ARE modeled now — WALT-COUNT-SUBTYPE)
     expect(conf("Draw a card for each creature card in their graveyard.")).toBe("low");     // not YOUR graveyard
     expect(conf("Draw a card for each Arcane card in your graveyard.")).toBe("low");         // spell subtype — deferred
     expect(conf("You gain 2 life for each other creature you control.")).toBe("low");        // "other" (self-exclusion) — deferred
+  });
+});
+
+// ===== COUNT SUBTYPES ===== (WALT-COUNT-SUBTYPE) a curated permanent SUBTYPE count source ("for each
+// Goblin you control" / "number of Elves you control" / "for each Treasure you control") works across all
+// three count classes (damage / draw / token); a qualified / "other" / opponent-scoped / unknown-word
+// source stays low. countMatches matches `\b<Subtype>\b` on the type line (like the basic-land subtypes).
+describe("parseEffectProgram — count subtypes (WALT-COUNT-SUBTYPE)", () => {
+  const atom0 = (txt) => parseEffectProgram(I(txt)).atoms[0];
+  const conf = (txt) => programConfidence(parseEffectProgram(I(txt)));
+  it("MUST_STAY_HIGH: a subtype source across damage / draw / token (singular + plural)", () => {
+    expect(atom0("Goblin War Strike deals damage to target player equal to the number of Goblins you control."))
+      .toMatchObject({ op: "deal-damage", amountCount: { kind: "permanentsYouControl", subtype: "Goblin" } });
+    expect(atom0("Draw a card for each Elf you control."))
+      .toMatchObject({ op: "draw", amountCount: { kind: "permanentsYouControl", subtype: "Elf" } }); // singular
+    expect(atom0("Create a 1/1 green Elf Warrior creature token for each Elf you control."))
+      .toMatchObject({ op: "create-token", countFor: { kind: "permanentsYouControl", subtype: "Elf" } });
+    expect(atom0("You gain 1 life for each Treasure you control."))
+      .toMatchObject({ op: "gain-life", amountCount: { kind: "permanentsYouControl", subtype: "Treasure" } }); // artifact subtype
+  });
+  it("MUST_DROP_TO_LOW: qualified / 'other' / opponent / unknown-word subtype source → Arbiter", () => {
+    expect(conf("Boom deals damage to any target equal to the number of tapped Goblins you control.")).toBe("low"); // qualifier
+    expect(conf("You gain 1 life for each other Elf you control.")).toBe("low");                                    // "other"
+    expect(conf("Boom deals damage to any target equal to the number of Goblins an opponent controls.")).toBe("low"); // opponent-scoped
+    expect(conf("You gain 1 life for each Xyzzy you control.")).toBe("low");                                        // not a real subtype → not in the allowlist
   });
 });
 
@@ -389,9 +414,10 @@ describe("parseEffectProgram — board-count damage (DMG-SCALE)", () => {
     // opponent-scoped sources (slice 1 is controller-scoped only):
     expect(conf("Incite deals damage to target creature equal to the number of creatures they control.")).toBe("low");
     expect(conf("Sudden Impact deals damage to target player equal to the number of cards in that player's hand.")).toBe("low");
-    // creature subtype / exotic sources (deferred). NOTE: graveyard counts are now MODELED (FOR-EACH added
-    // them to parseCountSource), so "artifact cards in your graveyard" now flips DMG-SCALE high too (Scrapyard Salvo).
-    expect(conf("Goblin War Strike deals damage to target player equal to the number of Goblins you control.")).toBe("low");
+    // exotic sources (deferred). NOTE: graveyard counts (FOR-EACH) and permanent SUBTYPES (WALT-COUNT-SUBTYPE)
+    // are now MODELED, so "artifact cards in your graveyard" (Scrapyard Salvo) and "Goblins you control"
+    // (Goblin War Strike) flip DMG-SCALE high. Still-unmodeled: opponent-scoped + exotic sources.
+    expect(conf("Boom deals damage to any target equal to the number of creatures an opponent controls.")).toBe("low"); // opponent-scoped
     expect(conf("Skred deals damage to target creature equal to the number of snow permanents you control.")).toBe("low");
     // a multiplier ("twice the number of") is not a half-scalable native:
     expect(conf("Boom deals damage to any target equal to twice the number of Mountains you control.")).toBe("low");
@@ -424,7 +450,7 @@ describe("parseEffectProgram — create-token (P2.6)", () => {
   });
   it("FOREACH-TOK MUST_DROP_TO_LOW: unmodeled source / 0-toughness / land token → Arbiter", () => {
     const conf = (txt) => programConfidence(parseEffectProgram(I(txt)));
-    expect(conf("Create a 1/1 green Elf creature token for each Elf you control.")).toBe("low");          // creature subtype source
+    expect(conf("Create a 1/1 green Saproling creature token for each other creature you control.")).toBe("low"); // "other" self-exclusion (subtypes ARE modeled now)
     expect(conf("Create a 1/1 green Saproling creature token for each creature an opponent controls.")).toBe("low"); // opponent-scoped
     expect(conf("Create a 0/0 green Plant creature token for each land you control.")).toBe("low");        // 0-toughness dies to SBA
     expect(conf("Create a 0/1 green Dryad land creature token for each Forest you control.")).toBe("low"); // LAND creature token (intrinsic mana dropped)

@@ -390,6 +390,34 @@ function parseTokenKeywords(phrase) {
 const COUNT_TYPE = { creature: "creature", creatures: "creature", land: "land", lands: "land", artifact: "artifact", artifacts: "artifact", enchantment: "enchantment", enchantments: "enchantment" };
 const COUNT_BASIC_SUBTYPE = { mountain: "Mountain", mountains: "Mountain", forest: "Forest", forests: "Forest", island: "Island", islands: "Island", swamp: "Swamp", swamps: "Swamp", plains: "Plains" };
 const COUNT_GY_TYPE = { creature: "creature", artifact: "artifact", land: "land", instant: "instant", sorcery: "sorcery", enchantment: "enchantment", planeswalker: "planeswalker" };
+// ===== COUNT SUBTYPES ===== a CURATED allowlist of permanent SUBTYPES that appear in "<X>s you control"
+// count sources (tribal "for each Goblin you control" / "number of Elves you control", artifact-token
+// counts "for each Treasure", etc.). Keyed on BOTH the singular and plural surface form → the canonical
+// singular subtype; countForSpec.countMatches then matches `\b<Subtype>\b` against the permanent's type
+// line (exactly like the basic-land subtypes Mountain/Forest). CURATED (not generic) so a non-subtype word
+// can never be mis-matched (CREED): every entry is a real MTG subtype, and a qualified count ("tapped
+// Goblin you control") still fails the `^…$` anchor → low. The irregular plurals (Elves/Allies/Wolves) are
+// listed explicitly so the canonical form fed to countMatches is correct.
+const COUNT_SUBTYPE = {
+  // creature tribes
+  goblin: "Goblin", goblins: "Goblin", elf: "Elf", elves: "Elf", ally: "Ally", allies: "Ally",
+  wizard: "Wizard", wizards: "Wizard", cat: "Cat", cats: "Cat", vampire: "Vampire", vampires: "Vampire",
+  spider: "Spider", spiders: "Spider", spirit: "Spirit", spirits: "Spirit", zombie: "Zombie", zombies: "Zombie",
+  human: "Human", humans: "Human", soldier: "Soldier", soldiers: "Soldier", warrior: "Warrior", warriors: "Warrior",
+  knight: "Knight", knights: "Knight", dragon: "Dragon", dragons: "Dragon", beast: "Beast", beasts: "Beast",
+  merfolk: "Merfolk", wolf: "Wolf", wolves: "Wolf", bird: "Bird", birds: "Bird", snake: "Snake", snakes: "Snake",
+  dog: "Dog", dogs: "Dog", elemental: "Elemental", elementals: "Elemental", rat: "Rat", rats: "Rat",
+  pirate: "Pirate", pirates: "Pirate", dinosaur: "Dinosaur", dinosaurs: "Dinosaur", faerie: "Faerie", faeries: "Faerie",
+  giant: "Giant", giants: "Giant", saproling: "Saproling", saprolings: "Saproling", insect: "Insect", insects: "Insect",
+  boar: "Boar", boars: "Boar", sliver: "Sliver", slivers: "Sliver",
+  // artifact subtypes (incl. the named tokens)
+  treasure: "Treasure", treasures: "Treasure", clue: "Clue", clues: "Clue", food: "Food", foods: "Food",
+  equipment: "Equipment", powerstone: "Powerstone", powerstones: "Powerstone", construct: "Construct", constructs: "Construct",
+  // enchantment subtypes
+  shrine: "Shrine", shrines: "Shrine", aura: "Aura", auras: "Aura",
+  // land subtypes
+  gate: "Gate", gates: "Gate", desert: "Desert", deserts: "Desert", locus: "Locus",
+};
 function parseCountSource(phrase) {
   const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
@@ -404,6 +432,13 @@ function parseCountSource(phrase) {
   // ("your graveyard"); "a graveyard" / "their graveyard" / "that player's graveyard" reject (→ low).
   if ((m = p.match(/^(?:(creature|artifact|land|instant|sorcery|enchantment|planeswalker) )?cards? in your graveyard$/))) {
     return m[1] ? { kind: "cardsInGraveyard", cardType: COUNT_GY_TYPE[m[1]] } : { kind: "cardsInGraveyard" };
+  }
+  // ===== COUNT SUBTYPES ===== "<Subtype>(s) you control" — a single curated permanent subtype (Goblin /
+  // Elf / Treasure / Shrine / Gate …). Checked AFTER the card-type + basic-land-subtype branches so those
+  // win their words; a single word not in the allowlist → null → low. (A multi-word or qualified subtype
+  // count fails the `^…$` anchor → low.)
+  if ((m = p.match(/^([a-z]+) you control$/)) && COUNT_SUBTYPE[m[1]]) {
+    return { kind: "permanentsYouControl", subtype: COUNT_SUBTYPE[m[1]] };
   }
   return null;
 }
