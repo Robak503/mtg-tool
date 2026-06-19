@@ -219,7 +219,10 @@ function splitClauses(oracle) {
     // anchored, so keeping too much together can only fail to match (→ low → Arbiter), never a
     // confident wrong partial — e.g. "… with flying and a 1/1 Snake token" / "… with flying and you
     // gain 2 life" both fail the keyword allowlist and drop to low (safe), they don't half-resolve.
-    if (/^create .*\bcreature tokens?\b with .+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // The same applies to a count-scaled "…creature token FOR EACH <source>" (WALT-FOREACH-TOK) — a
+    // MULTI-COLOR descriptor ("black and green Insect") carries an internal " and " that must not be
+    // split off, so keep the whole "create … creature token (with|for each) …" sentence together.
+    if (/^create .*\bcreature tokens?\b (?:with|for each) .+$/i.test(sentence)) { clauses.push(sentence); continue; }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split
@@ -732,6 +735,21 @@ function parseExtendedAtom(s) {
   // token's mechanical identity is type + P/T + ability, and no card references token names). A bare
   // "named <Name>" with NO ability still fails the anchor (unchanged → low), so this never silently
   // flips a named token whose name might matter.
+  // ===== FOR-EACH ===== (WALT-FOREACH-TOK) "create a/an/one <P/T> <descriptor> creature token for each
+  // <count source>" — ONE token per source-unit; the COUNT is a board count resolved at resolution
+  // (`countFor`), reusing parseCountSource + countForSpec (Avenger of Zendikar, Garruk Primal Hunter,
+  // Beacon of Creation, Saproling Symbiosis, Worm Harvest). Mints the same vanilla typed token as the
+  // fixed-count path (no inline ability/keyword in scope here — a "with …" rider isn't admitted, so it
+  // falls through to low). Same CREED guards: a 0-toughness token (dies to the lethal SBA) and a LAND
+  // creature token (intrinsic mana dropped) route to the Arbiter; an unmodeled count source → null → low.
+  const mtf = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? for each (.+)$/);
+  if (mtf) {
+    const toughness = parseInt(mtf[2], 10);
+    if (toughness < 1) return null;
+    if (/\bland\b/.test(mtf[3])) return null;
+    const countFor = parseCountSource(mtf[4]);
+    return countFor ? { op: "create-token", power: parseInt(mtf[1], 10), toughness, descriptor: mtf[3].trim(), countFor, targetType: null } : null;
+  }
   m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?:(?: named [a-z' ]+?)? with (.+))?$/);
   if (m) {
     const power = parseInt(m[2], 10);

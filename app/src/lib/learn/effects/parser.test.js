@@ -407,6 +407,28 @@ describe("parseEffectProgram — create-token (P2.6)", () => {
     expect(parseEffectProgram(I("Create two 2/2 green Bear creature tokens.")).atoms[0])
       .toMatchObject({ op: "create-token", count: 2, power: 2, toughness: 2 });
   });
+  // ===== FOR-EACH ===== (WALT-FOREACH-TOK) "create a <P/T> <descriptor> creature token for each <source>"
+  // — ONE token per source-unit; the count is a board count (countFor), resolved at resolution.
+  it("FOREACH-TOK MUST_STAY_HIGH: a token per source-unit (creatures / Forests / cards in hand / graveyard)", () => {
+    expect(parseEffectProgram(I("Create a 1/1 green Saproling creature token for each creature you control.")).atoms[0])
+      .toMatchObject({ op: "create-token", power: 1, toughness: 1, descriptor: "green saproling", countFor: { kind: "permanentsYouControl", cardType: "creature" } });
+    expect(parseEffectProgram(I("Create a 2/2 green Wolf creature token for each Forest you control.")).atoms[0])
+      .toMatchObject({ op: "create-token", countFor: { kind: "permanentsYouControl", subtype: "Forest" } });
+    expect(parseEffectProgram(I("Create a 1/1 green Snake creature token for each card in your hand.")).atoms[0])
+      .toMatchObject({ op: "create-token", countFor: { kind: "cardsInHand" } });
+    expect(parseEffectProgram(I("Create a 1/1 green Insect creature token for each creature card in your graveyard.")).atoms[0])
+      .toMatchObject({ op: "create-token", countFor: { kind: "cardsInGraveyard", cardType: "creature" } });
+    // multi-color descriptor keeps its internal " and " (clause-keeper) → still parses:
+    expect(parseEffectProgram(I("Create a 1/1 black and green Worm creature token for each land card in your graveyard.")).atoms[0])
+      .toMatchObject({ op: "create-token", countFor: { kind: "cardsInGraveyard", cardType: "land" } });
+  });
+  it("FOREACH-TOK MUST_DROP_TO_LOW: unmodeled source / 0-toughness / land token → Arbiter", () => {
+    const conf = (txt) => programConfidence(parseEffectProgram(I(txt)));
+    expect(conf("Create a 1/1 green Elf creature token for each Elf you control.")).toBe("low");          // creature subtype source
+    expect(conf("Create a 1/1 green Saproling creature token for each creature an opponent controls.")).toBe("low"); // opponent-scoped
+    expect(conf("Create a 0/0 green Plant creature token for each land you control.")).toBe("low");        // 0-toughness dies to SBA
+    expect(conf("Create a 0/1 green Dryad land creature token for each Forest you control.")).toBe("low"); // LAND creature token (intrinsic mana dropped)
+  });
   // ===== TOKENS ===== T1: keyword tokens parse HIGH, with keywords minted onto the token.
   it("recognizes a single-keyword token (flying)", () => {
     expect(parseEffectProgram(I("Create a 1/1 white Bird creature token with flying.")).atoms)
