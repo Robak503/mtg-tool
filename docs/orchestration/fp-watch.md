@@ -40,7 +40,7 @@ _(newest first · status: 🔴 open · 🟡 in-fix · ✅ fixed)_
 
 | Date | Card(s) | Slice / PR | Symptom (why it's a FP) | Severity | Status |
 |---|---|---|---|---|---|
-| — | _(none yet — suite green @ 2ddbf0f, 17.5%)_ | — | — | — | — |
+| 2026-06-19 | (regeneration creatures) | #300 REGEN | LATENT/unreachable today: `regeneratePermanent` omits CR 701.15a "remove from combat" — a creature regenerated in the FIRST-STRIKE sub-step could deal damage again in the regular sub-step. Nothing sets a shield before combat damage today, so unreachable. Fix = skip dead/regenerated attackers in the combat-damage loop. (Cindy self-flagged in the #300 4b.) | latent | 🔴 open (not release-blocking) |
 
 > Severity: **P0** mis-resolves in a normal game (silent wrong result) · **P1** drops a clause/rider ·
 > **P2** metric-only over-claim (no runtime harm, e.g. FIX-MANA-class). P0/P1 block the next release.
