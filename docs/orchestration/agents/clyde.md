@@ -156,6 +156,15 @@ fallback. The merge/verify/board/release logic in §2–§8 is identical either 
 > **Standing:** choose what's best, no bubbles. Verify heavily. Recap at every loop break (slice | plain-MTG
 > gain | status). Never claim done when it isn't.
 >
+> **🛡️ FP NET — bulk slices (Colton, 2026-06-19).** Cindy's TRUNK PLAN flips 150–600 cards/slice; a broad
+> matcher's blast radius scales with it (one over-broad pattern = dozens of FPs). So at the merge gate, any
+> slice flipping **>100 cards**: (1) require a **15–20 card sample** of the newly-native cards in the PR body
+> (no sample → HOLD the merge); (2) spot-check the sample + confirm the over-broad shapes carry
+> `MUST_DROP_TO_LOW` pins; (3) any doubt → append it to `fp-watch.md` and either hold for Hans or
+> merge-with-a-watch-row. **Don't cut a release whose >100-card slices haven't been Hans-swept** (or note the
+> unswept ones in the release entry). `fp-watch.md` is the running FP log (the channel to Hans); it is NOT
+> `retired-fp-ledger.md` (that's deliberate enforce-later deferrals).
+>
 > **🔁 NEXT-FIRE BANNER (Colton, standing — every cycle-end):** the LAST thing you output each cycle is your
 > next-fire time as a BIG BOLD top-level line, so Colton can glance at this chat and instantly know when you
 > resume — e.g. `# 🔁 NEXT FIRE — 9:42 PM MST · <one line on what's next>`.

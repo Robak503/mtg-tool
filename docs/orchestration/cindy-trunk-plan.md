@@ -40,6 +40,11 @@ plausibly flip **hundreds** of cards, not a dozen. Pick the family, then frequen
 4. Adversarial self-check: run the real parser over the whole corpus, eyeball what your matcher now
    catches — hunt dropped riders / over-broad self-reference.
 5. Full gate (`npm test` "Tests N passed" + `npm run lint`), open the PR with the **card count it adds**.
+6. **FP NET (bulk slices, Colton 2026-06-19):** a broad matcher's blast radius scales with the slice — one
+   over-broad pattern mints *dozens* of false positives at once. So for any slice flipping **>100 cards**,
+   the PR body MUST include a **sample of 15–20 newly-native card names** (from your step-4 corpus run) + the
+   `MUST_DROP_TO_LOW` shapes you excluded. No sample on a big slice → Clyde holds the merge. Anything that
+   smells off goes in `fp-watch.md` for Hans. See `fp-watch.md` for the full net.
 
 ## The target
 
