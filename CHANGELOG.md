@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Companions play from outside the game (CR 702.139a):** a deck's companion now starts *outside the
+  game* — revealed, but in no zone — and The Academy offers the once-per-game special action: **pay {3},
+  at sorcery speed, to put it into your hand**, after which it's cast like any ordinary card. A companion
+  is **not** your commander, so there's no commander tax. Decks imported from Moxfield carry their
+  companion across (its own "Companion" section). This is the **last piece of the commander framework**:
+  cast → command-zone return → 21-damage loss → partners → companions all now play natively.
+
 ## [0.43.0] - 2026-06-19
 
 **The commander rules are complete — and the coverage number is now honest.** Building on castable

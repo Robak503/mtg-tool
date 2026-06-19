@@ -55,7 +55,7 @@ function deckToCardArray(deck) {
   if (!deck?.cards) return [];
   const out = [];
   for (const entry of deck.cards) {
-    if (entry.section === "Sideboard" || entry.section === "Tokens" || entry.section === "Commander") continue;
+    if (entry.section === "Sideboard" || entry.section === "Tokens" || entry.section === "Commander" || entry.section === "Companion") continue;
     for (let i = 0; i < (entry.qty || 1); i++) {
       out.push({
         id: `${deck.id || "deck"}-${entry.name}-${i}`,
@@ -79,6 +79,16 @@ function commandersOf(deck) {
       type: c.type || "Legendary Creature",
       mana: c.mana || "",
     }));
+}
+
+// CMD-COMPANION (CR 702.139) — a deck's companion lives in its own "Companion" section (one card,
+// the same way the "Commander" section drives commandersOf). It is NOT a commander: it starts OUTSIDE
+// the game and the {3}-to-hand action (no commander tax) is wired engine-side. Returns the single
+// companion card ({ id, name }) or null; the route enriches type/mana from the local oracle index.
+function companionOf(deck) {
+  if (!deck?.cards) return null;
+  const c = deck.cards.find(card => card.section === "Companion");
+  return c ? { id: `comp-${deck.id || "deck"}-${c.name}`, name: c.name } : null;
 }
 
 export default function LearnView({
@@ -117,6 +127,8 @@ export default function LearnView({
         opponentDecks: oppDecks.map(deckToCardArray),
         userCommanders: commandersOf(userDeck),
         opponentCommanders: oppDecks.map(commandersOf),
+        userCompanion: companionOf(userDeck),
+        opponentCompanions: oppDecks.map(companionOf),
         difficulty,
         ...meta,
       });
@@ -127,6 +139,8 @@ export default function LearnView({
         opponentDeck: deckToCardArray(oppDecks[0]),
         userCommanders: commandersOf(userDeck),
         opponentCommanders: commandersOf(oppDecks[0]),
+        userCompanion: companionOf(userDeck),
+        opponentCompanions: companionOf(oppDecks[0]),
         difficulty,
         ...meta,
       });

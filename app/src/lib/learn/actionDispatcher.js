@@ -671,6 +671,29 @@ function applyDeclareBlocker(state, action) {
 
 // ─── Public dispatch ─────────────────────────────────────────────────────────
 
+// CMD-COMPANION (CR 702.139) — resolve the "{3}: put this card from outside the game into your hand"
+// action: pay {3}, move the companion → hand, and clear the `companion` field (once per game). The card is
+// then a normal hand card; casting it is the ordinary cast-spell path (no commander tax — it's not a commander).
+function applyCompanionToHand(state, action) {
+  const player = state.players[action.playerId];
+  const companion = player?.companion;
+  if (!companion || companion.id !== action.cardId) {
+    throw new DispatcherError("Companion is not available outside the game", "COMPANION_UNAVAILABLE");
+  }
+  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+  if (!plan) throw new DispatcherError("Cannot pay {3} for the companion", "MANA_SHORT");
+  let working = commitManaTaps(state, action.playerId, plan.taps);
+  const toppedPool = working.players[action.playerId].manaPool;
+  const nextPool = {};
+  for (const c of Object.keys(toppedPool)) nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
+  const w = working.players[action.playerId];
+  let next = {
+    ...working,
+    players: { ...working.players, [action.playerId]: { ...w, manaPool: nextPool, hand: [...w.hand, companion], companion: null } },
+  };
+  return logEvent(next, { kind: "companion-to-hand", playerId: action.playerId, cardName: companion.name });
+}
+
 const HANDLERS = {
   "pass-priority": applyPassPriority,
   "play-land": applyPlayLand,
@@ -680,6 +703,7 @@ const HANDLERS = {
   "activate-loyalty": applyActivateLoyalty,
   "declare-attacker": applyDeclareAttacker,
   "declare-blocker": applyDeclareBlocker,
+  "companion-to-hand": applyCompanionToHand, // CMD-COMPANION (CR 702.139)
 };
 
 /**

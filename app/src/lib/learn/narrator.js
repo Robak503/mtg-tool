@@ -201,6 +201,16 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
       return `Activate [[${name}]]'s ${sign} ability${action.targetName ? ` (${action.targetName})` : ""}.`;
     }
 
+    case "companion-to-hand": {
+      // CMD-COMPANION (CR 702.139) — the companion starts OUTSIDE the game. This is the only way to
+      // get it into play: pay {3} to put it into your hand, then cast it like any other card.
+      const name = action.name || card?.name || "your companion";
+      if (difficulty === "beginner") {
+        return `Pay {3} to put [[${name}]] from outside the game into your hand (rule 702.139a) — a special action that doesn't use the stack. You may do this only once per game, and only at sorcery speed (your main phase, empty stack). It is NOT your commander — once it's in your hand you cast it for its normal cost with no commander tax.`;
+      }
+      return `Pay {3}: put [[${name}]] (companion) into your hand.`;
+    }
+
     default:
       return action.name ? `Take action: ${action.name}` : "Take action";
   }

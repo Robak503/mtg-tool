@@ -70,6 +70,8 @@ export async function POST(request) {
   // cards (no mana cost, no type, no effect). Local-first: index via paths.js, no
   // network. Unknown names stay blank (honest noop/Arbiter, never fabricated).
   let session;
+  // CMD-COMPANION: a companion is a SINGLE card — enrich it via the array path + take the one entry.
+  const enrichOne = (c) => (c ? enrichDeck([c])[0] || null : null);
   try {
     session = createLearnSession({
       userDeck: enrichDeck(body.userDeck),
@@ -79,6 +81,10 @@ export async function POST(request) {
       opponentCommanders: mode === "commander"
         ? enrichDecks(body.opponentCommanders || [])
         : enrichDeck(body.opponentCommanders || []),
+      userCompanion: enrichOne(body.userCompanion),
+      opponentCompanions: mode === "commander"
+        ? (body.opponentCompanions || []).map(enrichOne)
+        : enrichOne(body.opponentCompanions),
       difficulty: body.difficulty || "beginner",
       activePlayer: body.activePlayer || "user",
       mode,

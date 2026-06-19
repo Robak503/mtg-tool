@@ -103,6 +103,9 @@ function playerView(state, id) {
     graveyard: (p.graveyard || []).map(cardView),
     exile: (p.exile || []).map(cardView),
     command: (p.command || []).map(cardView),
+    // CMD-COMPANION (CR 702.139a): the companion sits OUTSIDE the game until the {3} special action
+    // moves it to hand. It's revealed before the game, so it's public for every seat (null once used).
+    companion: p.companion ? cardView(p.companion) : null,
   };
 }
 
