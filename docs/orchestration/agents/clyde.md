@@ -158,4 +158,4 @@ fallback. The merge/verify/board/release logic in §2–§8 is identical either 
 >
 > **🔁 NEXT-FIRE BANNER (Colton, standing — every cycle-end):** the LAST thing you output each cycle is your
 > next-fire time as a BIG BOLD top-level line, so Colton can glance at this chat and instantly know when you
-> resume — e.g. `## 🔁 NEXT FIRE — 9:42 PM MST · <one line on what's next>`.
+> resume — e.g. `# 🔁 NEXT FIRE — 9:42 PM MST · <one line on what's next>`.

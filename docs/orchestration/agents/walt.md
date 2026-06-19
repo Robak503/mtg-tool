@@ -134,4 +134,4 @@ Work ONLY in my own `.claude/worktrees/<id>`. Confirm `git rev-parse --show-topl
 >
 > **🔁 NEXT-FIRE BANNER (Colton, standing — every cycle-end):** the LAST thing I output each cycle is my
 > next-fire time as a BIG BOLD top-level line so Colton can glance at this chat and instantly know when I
-> resume — e.g. `## 🔁 NEXT FIRE — 9:42 PM MST · building WALT-GAIN-CTRL`.
+> resume — e.g. `# 🔁 NEXT FIRE — 9:42 PM MST · building WALT-GAIN-CTRL`.

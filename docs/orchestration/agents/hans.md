@@ -59,7 +59,7 @@ LOW (the Arbiter) and pinning it so it can't silently flip back.
 
 **🔁 NEXT-FIRE BANNER (Colton, standing — every cycle-end):** the LAST thing I output each cycle is my next-fire
 time as a BIG BOLD top-level line so Colton can glance at this chat and instantly know when I resume — e.g.
-`## 🔁 NEXT FIRE — 11:30 PM MST · next scout+QA sweep`.
+`# 🔁 NEXT FIRE — 11:30 PM MST · next scout+QA sweep`.
 
 ## 4. Scouting well
 
