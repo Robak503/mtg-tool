@@ -70,8 +70,11 @@ const OP_COVERS = {
   "return-from-graveyard": [/\breturns?\b/],
   "reanimate": [/\breturns?\b/],
   "discard-chosen": [/\bdiscards?\b/],
+  "discard": [/\bdiscards?\b/],
+  "divide-damage": [/\bdeals?\b[^.]*\bdamage\b/],
   "sacrifice": [/\bsacrifices?\b/],
   "create-token": [/\bcreates?\b/, /\btokens?\b/],
+  "create-named-token": [/\bcreates?\b/, /\btokens?\b/],
   "counter": [/\bcounter\b[^.]*\bspell\b/, /\bcounters?\s+target\b/],
   "tutor": [/\bsearch\b/, /\bshuffles?\b/],
   "shuffle": [/\bshuffles?\b/],
@@ -154,11 +157,11 @@ function spellCandidate(c) {
 // Loose op↔verb association so a verb is "covered" only by a plausibly-related atom.
 function opMatchesVerb(op, verb) {
   const map = {
-    damage: ["deal-damage"], destroy: ["destroy"], draw: ["draw"], exile: ["exile"],
-    create: ["create-token"], token: ["create-token"], return: ["bounce", "return-from-graveyard", "reanimate"],
+    damage: ["deal-damage", "divide-damage"], destroy: ["destroy"], draw: ["draw"], exile: ["exile"],
+    create: ["create-token", "create-named-token"], token: ["create-token", "create-named-token"], return: ["bounce", "return-from-graveyard", "reanimate"],
     counterspell: ["counter"], tap: ["tap"], untap: ["untap"], "gain-life": ["gain-life"],
     "lose-life": ["lose-life"], search: ["tutor"], scry: ["scry"], surveil: ["surveil"],
-    mill: ["mill"], discard: ["discard-chosen"], sacrifice: ["sacrifice"], counters: ["add-counter"],
+    mill: ["mill"], discard: ["discard-chosen", "discard"], sacrifice: ["sacrifice"], counters: ["add-counter"],
     shuffle: ["shuffle", "tutor"], gainctrl: [], copy: [],
   };
   return (map[verb] || []).includes(op);
