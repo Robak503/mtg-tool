@@ -537,6 +537,47 @@ function applyActivateAbility(state, action) {
 }
 
 /**
+ * KW-CYCLING (CR 702.29a) — cycling is an activated ability usable from HAND. Its cost is the cycling
+ * mana cost PLUS "Discard this card"; its effect is "Draw a card". Costs are paid BEFORE the ability
+ * goes on the stack (CR 602.2b): pay the mana, then discard the card (hand → graveyard). The "draw a
+ * card" then goes on the stack and resolves through the SAME EffectProgram interpreter a spell uses
+ * (a draw-1 atom). A card carrying a "when you cycle" / "cycles or discards" trigger is never offered
+ * this action (legalChoices' parseCyclingCost returns null for it), so no cycle trigger is ever dropped.
+ */
+function applyCycle(state, action) {
+  const player = state.players[action.playerId];
+  if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
+  const card = player.hand.find(c => c.id === action.cardId);
+  if (!card) throw new DispatcherError(`Cycling card ${action.cardId} not in hand`, "CARD_NOT_IN_HAND");
+
+  // Pay the cycling MANA cost (CR 602.2b — before the ability is on the stack).
+  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+  if (!plan) throw new DispatcherError("Cannot pay the cycling cost", "MANA_SHORT");
+  let working = commitManaTaps(state, action.playerId, plan.taps);
+  const toppedPool = working.players[action.playerId].manaPool;
+  const nextPool = {};
+  for (const c of Object.keys(toppedPool)) nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
+  working = { ...working, players: { ...working.players, [action.playerId]: { ...working.players[action.playerId], manaPool: nextPool } } };
+
+  // Pay the DISCARD part of the cost — the card itself, hand → graveyard.
+  working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.cardId });
+
+  // Put "Draw a card" on the stack — resolves via the EffectProgram interpreter (a draw-1 atom).
+  const program = { version: 1, source: "cycling", confidence: "high", structure: "sequence", atoms: [{ op: "draw", amount: 1, targetType: null }], modal: null, xSpell: false, unparsedTail: null };
+  const { id: stkId, state: working2 } = mintId(working, "stk");
+  const stackObject = createStackObject({
+    id: stkId, kind: "activated-ability",
+    source: { name: `${card.name} — cycling`, oracle: "" },
+    controller: action.playerId, targets: [], cost: action.cost,
+    payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: action.playerId, targets: [] } },
+  });
+  let next = { ...working2, stack: [...working2.stack, stackObject] };
+  next = logEvent(next, { kind: "cycle", playerId: action.playerId, cardName: card.name });
+  // Cycling uses the stack — restart priority at the active player (CR 117.1c), like an activated ability.
+  return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
+}
+
+/**
  * Activate a loyalty ability (`[+N]/[−N]/[0]: effect`, CR 606) — PW-1. The cost is a loyalty
  * adjustment, paid by changing the planeswalker's loyalty counters BEFORE the ability goes on the
  * stack (CR 602.2b), and the controller is marked as having used a loyalty ability of this walker
@@ -704,6 +745,7 @@ const HANDLERS = {
   "cast-spell": applyCastSpell,
   "tap-for-mana": applyTapForMana,
   "activate-ability": applyActivateAbility,
+  "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
   "activate-loyalty": applyActivateLoyalty,
   "declare-attacker": applyDeclareAttacker,
   "declare-blocker": applyDeclareBlocker,

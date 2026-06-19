@@ -128,6 +128,25 @@ export function sacrificeDropsTrigger(oracle) {
 }
 
 /**
+ * KW-CYCLING (CR 702.29a): the card's plain, FULLY-MODELED cycling cost — "Cycling {2}" → "{2}",
+ * "Cycling {3}{R}" → "{3}{R}". Returns null when the card has no plain cycling, OR when it carries a
+ * cycle/discard TRIGGER ("when you cycle this card" / "whenever you cycle or discard") — that trigger
+ * is unmodeled (the trigger-compiler lane), so we must NOT offer a native cycle that would silently
+ * drop it (THE CREED). TYPEcycling (Plainscycling/Landcycling, CR 702.29e) is excluded by the
+ * line-start anchor — its library search needs the tutor atom, so it routes to the Arbiter until covered.
+ */
+export function parseCyclingCost(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  // ANY "When/Whenever … cycle[d]" trigger within a single clause (until the period) is an unmodeled
+  // cycle trigger — gate the whole card. BROAD on purpose (a false-negative is safe): catches the
+  // bare "When you cycle this card …" AND the split form "When you cast OR cycle ~, create a token …"
+  // (Warped Tusker / Drownyard Lurker) + "Whenever you cycle or discard …" (Curator of Mysteries).
+  if (/\b(?:when|whenever)\b[^.]*\bcycle/i.test(oracle)) return null;
+  const m = oracle.match(/(?:^|\n)\s*cycling\s+((?:\{[^}]+\})+)/i);
+  return m ? m[1] : null;
+}
+
+/**
  * All activated-ability lines on a permanent, as serializable descriptors. Each entry:
  *   { index, raw, costStr, effectClause, manaPips, tapSelf, costModeled, isManaEffect,
  *     program, modeled, needsTarget }
