@@ -140,6 +140,14 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
     return false;
   }
 
+  // Shadow — SYMMETRIC mutual exclusion (CR 702.28b): a creature with shadow can't be blocked by a
+  // creature without shadow, AND a creature without shadow can't be blocked by one with shadow. So a
+  // legal block requires both sides to MATCH on shadow (a shadow attacker needs a shadow blocker; a
+  // normal attacker can't be blocked by a shadow creature). Layer-aware so a granted/removed shadow counts.
+  if (permanentHasKeyword(state, attackerId, "Shadow") !== permanentHasKeyword(state, blockerId, "Shadow")) {
+    return false;
+  }
+
   // Skulk — not blockable by a creature with greater power (CR 702.118b).
   if (permanentHasKeyword(state, attackerId, "Skulk")) {
     if (creaturePower(bLook.permanent, state) > creaturePower(aLook.permanent, state)) return false;
