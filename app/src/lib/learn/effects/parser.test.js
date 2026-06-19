@@ -703,6 +703,12 @@ const MUST_DROP_TO_LOW = [
   "Search your library for a green creature card, put it onto the battlefield, then shuffle.",  // RAMP-1 restricts battlefield fetch to LANDS; a creature cheat-into-play (Natural Order) stays low
   "Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.",  // RAMP-TYPED: AMBIGUOUS-basic union (Quandrix Cultivator) — "basic" must distribute but the split can't prove it → Arbiter
   "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.",  // RAMP-TYPED: multi-card typed fetch (Skyshroud Claim) stays low
+  // RIDER-REMOVAL — the UNMODELED controller-riders that must stay LOW (the lead removal is modeled, but an
+  // all-or-nothing card never fires the removal while silently dropping the rider).
+  "Destroy target creature. Its controller loses 2 life.",                                            // lose-life rider (Sip of Hemlock)
+  "Destroy target creature. Its controller creates a 1/1 white Spirit creature token with flying.",   // KEYWORD token (Afterlife)
+  "Exile target nonland permanent. Its controller creates a 3/2 red and white Spirit creature token.", // MULTI-COLOR token (Reduce to Memory)
+  "Exile target nonland permanent. Its controller creates a Treasure token.",                         // NAMED token (Buy Your Silence)
   "Search your library for a basic land card, put it on top of your library, then shuffle.",       // top-of-library
   "Search your library for up to two basic land cards, put them into your hand, then shuffle.",     // multi-card
   "Search your library for a nonland card, put it into your hand, then shuffle.",                   // "nonland" not in any type line
@@ -944,6 +950,11 @@ const MUST_STAY_HIGH = [
   "Search your library for a Forest card, put that card onto the battlefield, then shuffle.",                  // Nature's Lore (typed basic, untapped)
   "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.", // Farseek (comma-union, tapped)
   "Destroy target land. Search your library for a Forest card, put that card onto the battlefield tapped, then shuffle.", // Mwonvuli Acid-Moss (removal + typed ramp, both modeled)
+  // ── RIDER-REMOVAL — removal whose 2nd sentence acts on the TARGET's controller (Dex). The rider rides on
+  // the removal atom + applies to the captured target-controller; an unmodeled rider keeps the card LOW. ──
+  "Exile target creature. Its controller gains life equal to its power.",                                      // Swords to Plowshares
+  "Destroy target permanent. Its controller creates a 3/3 green Beast creature token.",                        // Beast Within (vanilla token)
+  "Exile target creature. Its controller may search their library for a basic land card, put that card onto the battlefield tapped, then shuffle.", // Path to Exile (ramp rider)
   // ── Mass effects (board wipes) — UNFILTERED "all creatures", modeled this slice. ──
   "Destroy all creatures.",                                                     // Day of Judgment
   "Destroy all creatures. They can't be regenerated.",                          // Wrath of God / Damnation (regen rider stripped)
