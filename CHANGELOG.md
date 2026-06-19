@@ -8,17 +8,34 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-06-19
+
+**The entire Commander format now plays natively — and the trigger compiler opens.** Companions and
+partners land on top of cast / return / 21-damage, completing the full command-zone lifecycle. Alongside
+it, Shadow and Cycling join the enforced-keyword set and the general "trigger compiler" takes its first
+slice (lifegain payoffs). Suite ~2,761 green, lint clean; native coverage 17.3%.
+
 - **Companions play from outside the game (CR 702.139a):** a deck's companion now starts *outside the
   game* — revealed, but in no zone — and The Academy offers the once-per-game special action: **pay {3},
   at sorcery speed, to put it into your hand**, after which it's cast like any ordinary card. A companion
   is **not** your commander, so there's no commander tax. Decks imported from Moxfield carry their
   companion across (its own "Companion" section). This is the **last piece of the commander framework**:
   cast → command-zone return → 21-damage loss → partners → companions all now play natively.
+- **Two-commander pods — partners, Backgrounds, Friends forever (CR 903.3):** both commanders seat in the
+  command zone, each with its **own {2} cast tax** and its **own 21-combat-damage clock** (two partners
+  aren't summed); either can be cast, and both return when they die. Partner support — huge in EDH — now
+  plays natively.
 - **"Whenever you gain life" triggers fire (TRIG-LIFEGAIN, CR 119.3):** the first slice of the general
   trigger compiler on a brand-new event hook. Gaining life — from a spell, an ability, or combat lifelink —
   now fires your lifegain payoffs natively: **Ajani's Pridemate** and friends grow, **Archangel of Thune**
   pumps the team, **Cliffhaven Vampire** / **Epicure of Blood** drain each opponent. ~16 cards flip to fully
   native; conditional ("the first time each turn") and rider-laden variants correctly stay on the Arbiter.
+- **Shadow evasion enforced (EVADE-2, CR 702.28b):** a creature with shadow can block or be blocked by
+  only creatures with shadow — the symmetric exclusion is enforced at the block-legality chokepoint, so the
+  ~10 shadow creatures count honestly native.
+- **Cycling from hand (KW-CYCLING, CR 702.29):** pay the cycling cost and discard the card to draw one —
+  offered for ~46 cycling spells whose body is otherwise modeled. A card carrying a "when you cycle" trigger
+  correctly stays on the Arbiter, so no trigger is ever silently dropped.
 
 ## [0.43.0] - 2026-06-19
 
