@@ -27,7 +27,7 @@ import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram } from "./effects/runProgram.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS: CR 614.1f enter-with-counters
+import { entersWithPlusCounters, entersTapped } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1f) + TRUNK-ENTERSTAPPED (CR 614.1g)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
 // in P2.2 so the effect interpreter can share it without an import cycle).
@@ -75,7 +75,7 @@ export function enterPermanent(state, card, controller, opts = {}) {
   const s3 = { ...s2, timestampCounter: ts + 1 };
   const typeStr = String(card?.type || card?.type_line || "");
   const perm = {
-    ...createPermanent({ id: permId, card, controller, summoningSick: /Creature/.test(typeStr) }),
+    ...createPermanent({ id: permId, card, controller, tapped: entersTapped(card), summoningSick: /Creature/.test(typeStr) }),
     enteredOnTurn: s3.turn,
     timestamp: ts,
     // A clone enters carrying a `card` that's the COPIED creature's copiable values, while its
