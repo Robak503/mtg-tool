@@ -296,6 +296,13 @@ const _detectCache = new WeakMap();
  */
 const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+)?|gains .+) until end of turn$/i;
 
+// IT-COUNTER — the self-COUNTER analogue of SELF_PUMP_IT_RE: a SELF-scope trigger states its +1/+1 (or
+// -1/-1) counter on its own source with the pronoun "it" — "Whenever this creature attacks, put a +1/+1
+// counter on it" (the firebreathing-counter family). Mirrors the parser's self-counter shape
+// (parser.js: "…counters? on this creature$", target:"self") with "it"; whole-clause anchored, so a
+// rider/compound ("…on it. Draw a card") leaves it untouched → LOW → Arbiter (a SAFE false-negative).
+const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on it$/i;
+
 /**
  * All triggered abilities printed on a card, as serializable TriggerDescriptors.
  * Cached by card identity (the regex pass runs once per distinct card object).
@@ -337,6 +344,11 @@ export function detectTriggers(card) {
       // positive. The whole-clause anchor leaves any rider/compound untouched (→ stays LOW → Arbiter).
       if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
         effectClause = effectClause.replace(/^it /i, "this creature ");
+      } else if (cls.scope === "self" && SELF_COUNTER_IT_RE.test(effectClause)) {
+        // IT-COUNTER: "…put a +1/+1 counter on IT" — "it" is the source (CR 109.2). Same self-scope gate
+        // as the pump (a NON-self trigger's "it" is the OTHER triggering creature, never the source) +
+        // the whole-clause anchor, so the parser's self-counter atom (target:"self") models it.
+        effectClause = effectClause.replace(/ on it$/i, " on this creature");
       }
       out.push({
         event: cls.event,
