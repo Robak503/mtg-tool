@@ -183,4 +183,30 @@ describe("KW-PROTECTION — targeting wiring (legalChoices omits an illegal targ
     expect(castsAtProt.some((c) => c.cardId === "doom")).toBe(false); // black can't target protection-from-black
     expect(castsAtProt.some((c) => c.cardId === "path")).toBe(true);  // white can
   });
+
+  it("a HIGH-program (multi-atom) removal also respects protection (the expandCastChoices path)", () => {
+    // "Destroy target creature. Draw a card." parses to a multi-atom HIGH program → the cast targets
+    // route through expandCastChoices → atomTargets, the path PR3 threads the spell's colors into.
+    const prot = createPermanent({ card: { id: "pal-card", name: "Paladin", power: 2, toughness: 2, type_line: "Creature", oracle: "Protection from black" }, controller: "ai" });
+    const bear = createPermanent({ card: { id: "bear-card", name: "Bear", power: 2, toughness: 2, type_line: "Creature", oracle: "" }, controller: "ai" });
+    const blackMulti = { id: "bmulti", name: "Sift Death", type: "Instant", oracle: "Destroy target creature. Draw a card.", mana: "{2}{B}" };
+    const whiteMulti = { id: "wmulti", name: "Holy Sift", type: "Instant", oracle: "Destroy target creature. Draw a card.", mana: "{2}{W}" };
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = {
+      ...s,
+      phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: {
+        ...s.players,
+        user: { ...s.players.user, hand: [blackMulti, whiteMulti], manaPool: { ...s.players.user.manaPool, B: 1, W: 1, C: 2 } },
+        ai: { ...s.players.ai, battlefield: [prot, bear] },
+      },
+    };
+    const casts = legalActionsForPlayer(s, "user").filter((a) => a.kind === "cast-spell");
+    const blackAtProt = casts.some((c) => c.cardId === "bmulti" && (c.targets || []).some((t) => t.id === prot.id));
+    const blackAtBear = casts.some((c) => c.cardId === "bmulti" && (c.targets || []).some((t) => t.id === bear.id));
+    const whiteAtProt = casts.some((c) => c.cardId === "wmulti" && (c.targets || []).some((t) => t.id === prot.id));
+    expect(blackAtProt).toBe(false); // HIGH-path black removal can't target protection-from-black
+    expect(blackAtBear).toBe(true);  // ...but still targets the vanilla Bear (sanity: the spell IS castable)
+    expect(whiteAtProt).toBe(true);  // a white HIGH-path removal CAN target it (color-specific)
+  });
 });
