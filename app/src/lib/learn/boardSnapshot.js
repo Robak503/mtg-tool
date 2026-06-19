@@ -21,7 +21,7 @@
  */
 
 import { creaturePower, creatureToughness } from "./gameState.js";
-import { permanentHasKeyword } from "./layers.js";
+import { permanentHasKeyword, permanentIsCreature } from "./layers.js";
 
 // Combat-relevant keywords surfaced as badges on creature tiles.
 const BADGE_KEYWORDS = [
@@ -54,7 +54,11 @@ function cardView(card) {
 /** A permanent on the battlefield — with derived characteristics + board state. */
 function permanentView(state, perm) {
   const t = typeOf(perm.card);
-  const isCreature = /Creature/.test(t);
+  // Layer-aware (WALT-ANIMATE): an animated land / man-land IS the creature it has become, so the
+  // board shows it as a creature with its set P/T + granted keywords — not the printed land. `isLand`
+  // stays printed-based (animate is additive: it's still a land, shown in the lands row). Behavior-
+  // neutral for every other permanent (permanentIsCreature ⊇ the printed-type check).
+  const isCreature = permanentIsCreature(state, perm.id);
   const view = {
     id: perm.id,
     cardId: perm.card?.id || null,

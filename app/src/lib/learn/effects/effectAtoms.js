@@ -548,6 +548,56 @@ function applyPumpEffect(state, atom, ctx) {
 }
 
 /**
+ * WALT-ANIMATE PR2: "Until end of turn, target land becomes a [subtype] N/N creature [with KW…].
+ * It's still a land." Layers three CR-613 continuous effects onto the chosen permanent, all until
+ * end of turn (worn off at cleanup by expireContinuousEffects, CR 514.2):
+ *   - layer 4: ADD the Creature card type (+ any printed creature subtype like Elemental/Dinosaur).
+ *     Additive — the Land type is never stripped, so "it's still a land" is honored for free.
+ *   - layer 7b: SET base power/toughness to the printed N/N. power/toughness sit at the op TOP LEVEL
+ *     because the 7b handler reads `op.power`/`op.toughness` directly and ignores layerOp.
+ *   - layer 6: GRANT each rider keyword (flying/haste/trample/…); combat reads it layer-aware exactly
+ *     like a printed keyword (granted Haste already lets a just-animated land attack — PR1 framework).
+ * PR1's framework already makes the now-creature permanent attack/block/take+deal combat damage/die to
+ * the SBA. A 0/0 animate (none in the clean spell subset) has toughness 0 → dies to CR 704.5f via the
+ * lethal SBA below, mirroring applyPumpEffect.
+ */
+function applyAnimateEffect(state, atom, ctx) {
+  let next = state;
+  // Lands arrive as type:"permanent" (enumerateTargets land path). Skip any target that left the
+  // battlefield between cast and resolution (e.g. destroyed in response) — a missing-id effect would
+  // be inert, but filtering keeps the log honest.
+  const targets = atomTargets(state, atom, ctx).filter(t => t.type === "permanent" && findPermanent(next, t.id));
+  const src = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null };
+  const dur = () => ({ kind: "endOfTurn", turn: next.turn });
+  for (const target of targets) {
+    next = addContinuousEffect(next, {
+      layer: 4,
+      op: { types: ["Creature"], subtypes: atom.subtypes || [] },
+      affects: { mode: "fixed", permanentIds: [target.id] },
+      duration: dur(), source: src,
+    }).state;
+    next = addContinuousEffect(next, {
+      layer: 7, sublayer: "7b",
+      op: { layerOp: "ptSet", power: atom.power || 0, toughness: atom.toughness || 0 },
+      affects: { mode: "fixed", permanentIds: [target.id] },
+      duration: dur(), source: src,
+    }).state;
+    for (const kw of atom.grantKeywords || []) {
+      next = addContinuousEffect(next, {
+        layer: 6,
+        op: { layerOp: "addKeyword", keyword: kw },
+        affects: { mode: "fixed", permanentIds: [target.id] },
+        duration: dur(), source: src,
+      }).state;
+    }
+  }
+  // A 0/0 animate has toughness 0 → CR 704.5f puts it into the graveyard at resolution.
+  const lethal = destroyLethalCreatures(next);
+  next = checkDiesTriggers(lethal.state, lethal.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "animate", power: atom.power, toughness: atom.toughness, targets: targets.map(t => t.id) });
+}
+
+/**
  * P3.1 counter (CR 701.5a) — counter the target spell(s) on the stack. The targeted
  * spell is removed from the stack and put into its controller's graveyard WITHOUT
  * resolving: no atoms run, no permanent enters, no effect, no triggers. This is the
@@ -1014,6 +1064,7 @@ export const ATOM_RESOLVERS = Object.freeze({
     applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx) }),
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
+  "animate": (state, atom, ctx) => applyAnimateEffect(state, atom, ctx),
   "gain-life": applyGainLife,
   "lose-life": applyLoseLife,
   "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),

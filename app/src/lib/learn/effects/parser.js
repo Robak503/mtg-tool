@@ -178,10 +178,17 @@ function splitClauses(oracle) {
   // QUOTED ability directly after a token-creation sentence; it's content-agnostic (the clean-mana GATE
   // lives in parseTokenManaAbility — a non-mana ability still drops the whole clause to low). The merge
   // can only PROMOTE a card that was already low (the orphan clause), never regress a HIGH one.
-  const normalized = stripReminder(oracle).replace(
-    /(\bcreates?\b[^.]*?\btokens?\b[^.]*?)\.\s+it has (["“'])/gi,
-    "$1 with $2",
-  );
+  const normalized = stripReminder(oracle)
+    // ===== WALT-ANIMATE ===== strip the vacuous "it's/that's still a land" reminder. A land that
+    // "becomes a creature" is additive BY DEFAULT (it stays a land — that's why it still taps; 0
+    // non-additive land-animates in the corpus), so this clause never changes resolution. Stripping it
+    // lets a separate-sentence reminder ("…until end of turn. It's still a land. Draw a card.") not orphan
+    // into an unparsed clause, and folds the inline "…creature that's still a land" form to the core.
+    .replace(/\s*(?:it[’']s|that[’']s|they[’']re)\s+still\s+(?:a\s+land|lands)\.?/gi, "")
+    .replace(
+      /(\bcreates?\b[^.]*?\btokens?\b[^.]*?)\.\s+it has (["“'])/gi,
+      "$1 with $2",
+    );
   for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
     if (!sentence) continue;
@@ -224,6 +231,12 @@ function splitClauses(oracle) {
     // MULTI-COLOR descriptor ("black and green Insect") carries an internal " and " that must not be
     // split off, so keep the whole "create … creature token (with|for each) …" sentence together.
     if (/^create .*\bcreature tokens?\b (?:with|for each) .+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
+    // KW[ and KW]] [until end of turn]" — the " and " inside a multi-keyword rider ("with reach and haste")
+    // is INTERNAL to the one animate instruction, not a top-level boundary. Keep the whole sentence so
+    // parseExtendedAtom binds the P/T-set + every granted keyword to the same animate atom (all-or-nothing
+    // anchored — an un-grantable keyword / color-set / permanent duration just fails to match → low → Arbiter).
+    if (/^(?:until end of turn, )?target land becomes a \d+\/\d+\b.*\bcreature\b/i.test(sentence)) { clauses.push(sentence); continue; }
     // SYMBURN-1 symmetric burn ("<source> deals N damage to each creature and each player" — Inferno,
     // Fire Tempest, Evincar's Justice): the " and " between "each creature" and "each player" is INTERNAL
     // to one mass-damage target, NOT a top-level effect boundary. Keep the whole sentence so the damage
@@ -695,6 +708,25 @@ function parseExtendedAtom(s) {
   if (pg) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
+  // KW[ and KW]]" (Animate Land, Hydroform, Vivify; the "still a land" reminder already stripped above).
+  // Modeled as layer-4 type-ADD (Creature + optional subtype) + layer-7b P/T-SET + layer-6 keyword grants,
+  // all until end of turn (applyAnimateEffect). "becomes a creature" is additive by default — the land
+  // stays a land (0 non-additive land-animates in the corpus) — so the additive layer-4 is always correct.
+  // REQUIRES until-end-of-turn (prefix or suffix); a PERMANENT animate, a color-set ("becomes a black
+  // creature"), a counter-scaled 0/0, or an un-grantable keyword fails the anchor → low → Arbiter. A "must
+  // be blocked this turn if able" (Lure) rider lives in its OWN sentence → unparsed clause → low (a
+  // half-modeled native is forbidden; the whole card routes to the Arbiter instead).
+  const anm = t.match(/^(until end of turn, )?target land becomes a (\d+)\/(\d+)(?: ([a-z]+))? creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
+  if (anm) {
+    if (!anm[1] && !anm[6]) return null;  // a PERMANENT animate (no until-end-of-turn) is not modeled → Arbiter
+    const COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "multicolored"]);
+    if (anm[4] && COLOR_WORDS.has(anm[4])) return null;  // "becomes a black creature" SETS color (layer 5) — not modeled → Arbiter
+    const grantKeywords = anm[5] ? parseGrantedKeywords(anm[5]) : [];
+    if (anm[5] && !grantKeywords) return null;  // an un-grantable rider keyword drops the whole clause → Arbiter
+    const subtypes = anm[4] ? [anm[4].charAt(0).toUpperCase() + anm[4].slice(1)] : [];
+    return { op: "animate", targetType: "land", power: parseInt(anm[2], 10), toughness: parseInt(anm[3], 10), subtypes, grantKeywords, duration: "endOfTurn" };
   }
   // MASS effects (board wipes) — UNFILTERED "all creatures" only. Resolve to the SAME atoms
   // with the `eachCreature` scope (no chosen target; programNeedsChosenTarget excludes it),
@@ -1560,6 +1592,11 @@ export function atomTargetIntent(atom) {
     case "self-attach":
       // ETB-EQUIP-ATTACH — the Equipment attaches to "target creature YOU CONTROL", so the trigger-flush
       // chooser stays on the controller's own side (the host is always friendly; never an enemy creature).
+      return "own";
+    case "animate":
+      // WALT-ANIMATE — you animate your OWN land into a creature to attack/block (own-side buff). No
+      // animate card is a trigger today, so this only future-proofs the trigger-flush chooser; the cast
+      // path picks the target interactively.
       return "own";
     case "bounce":
     case "tuck":
