@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-06-19
+
+**The trigger compiler picks up speed — a coverage wave of payoff hooks.** Four new event hooks light up on
+the proven trigger-compiler pattern: drawing a card, drawing your second card, casting your second spell,
+and sacrificing a permanent now all fire their payoffs natively — the engine behind draw-matters,
+spellslinger, and aristocrats decks. Each enforces its condition exactly (right type, right count, right
+player) and defers the tricky variants to the Arbiter. Suite ~2,790 green, lint clean; native coverage 17.5%.
+
 - **"Whenever you sacrifice a …" triggers fire (TRIG-SACRIFICE, CR 701.21):** sacrificing a permanent now
   fires your sac-matters payoffs — **Gixian Infiltrator** and **Pirate Peddlers** grow, **Smothering
   Abomination** draws, **Havoc Jester** and **Ruthless Deathfang** punish. It enforces the sacrificed
