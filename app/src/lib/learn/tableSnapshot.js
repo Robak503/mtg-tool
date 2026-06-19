@@ -11,6 +11,18 @@
 /** @returns {Array<{ id, isUser, isActive, life, handCount, boardCount, graveyardCount, commanderDamage }>} */
 export function tableSnapshot(state) {
   if (!state || !state.players) return [];
+  // CMD-DAMAGE: `commanderDamageFrom` is keyed by the source commander's CARD id — build an id→name map
+  // across every zone so the UI shows "cmdr dmg <Commander> N", not a raw card id.
+  const commanderName = {};
+  for (const pid of Object.keys(state.players)) {
+    const pl = state.players[pid];
+    for (const zone of ["command", "battlefield", "graveyard", "exile", "hand"]) {
+      for (const entry of (pl?.[zone] || [])) {
+        const card = entry?.card || entry;
+        if (card?.isCommander && card.id) commanderName[card.id] = card.name || card.id;
+      }
+    }
+  }
   const order = Array.isArray(state.turnOrder) && state.turnOrder.length
     ? state.turnOrder
     : Object.keys(state.players);
@@ -18,6 +30,10 @@ export function tableSnapshot(state) {
     .filter(id => state.players[id])
     .map(id => {
       const p = state.players[id];
+      const commanderDamage = {};
+      for (const [cmdId, n] of Object.entries(p.commanderDamageFrom || {})) {
+        commanderDamage[commanderName[cmdId] || cmdId] = n; // key by commander name for display
+      }
       return {
         id,
         isUser: id === "user",
@@ -26,7 +42,7 @@ export function tableSnapshot(state) {
         handCount: (p.hand || []).length,
         boardCount: (p.battlefield || []).length,
         graveyardCount: (p.graveyard || []).length,
-        commanderDamage: { ...(p.commanderDamageFrom || {}) },
+        commanderDamage,
       };
     });
 }

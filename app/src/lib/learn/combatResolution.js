@@ -81,7 +81,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     return logEvent(state, { kind: "combat-damage-prevented", turn: state.turn, firstStrikeStep });
   }
   // The first combat-damage step only happens if a creature has first/double
-  // strike (CR 510.5) — otherwise skip it entirely (the regular step does all).
+  // strike (CR 510.4) — otherwise skip it entirely (the regular step does all).
   if (firstStrikeStep && !combatHasFirstStrike(state, combat)) {
     return state;
   }

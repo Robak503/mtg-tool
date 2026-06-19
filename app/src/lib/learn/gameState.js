@@ -351,7 +351,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
   return {
     life,
     poison: 0,
-    commanderDamageFrom: {},  // { otherPlayerId: number }
+    commanderDamageFrom: {},  // CR 903.10a — { commanderCardId: combatDamage } (per-commander, 21 = a loss)
     commanderCastCount: {},   // CMD-CAST (CR 903.8): { commanderCardId: timesCastFromCommandZone } — drives the {2} tax
     manaPool: emptyManaPool(),
     library: [...library],
@@ -1009,8 +1009,13 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
 /**
  * Track commander combat damage to a player, keyed PER-COMMANDER (by the source commander's card id) —
  * CR 903.10a is "21+ combat damage from a SINGLE commander", so a player with two partner commanders
- * tracks each separately. `isPlayerDead` reads `commanderDamageFrom` for the 21-loss SBA. A copy of a
- * commander is not a commander, so only a real `isCommander` source ever supplies a `commanderId`.
+ * (different cards) tracks each separately. `isPlayerDead` reads `commanderDamageFrom` for the 21-loss SBA.
+ * A copy of a commander is not a commander, so only a real `isCommander` source ever supplies a `commanderId`.
+ *
+ * LIMITATION (tracked follow-up): the key is the commander's CARD id — correct in that it persists across
+ * re-cast (CR 704.6c), but SHARED if two pod seats run the SAME commander card (a same-commander mirror),
+ * collapsing their damage (and the CMD-CAST tax, same keying) into one entry. Rare; the true fix mints a
+ * per-instance commander id at setup, keying tax + damage by that instead of the raw card id.
  */
 export function addCommanderDamage(state, { commanderId, toPlayer, amount }) {
   assertPlayer(toPlayer);
