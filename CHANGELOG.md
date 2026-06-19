@@ -8,6 +8,28 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-06-19
+
+**Commanders are castable.** The headline: The Academy can now cast your commander from the command
+zone, with the escalating commander tax — the heart of the format finally works. Plus a wave of
+count-scaling and mass-effect coverage. Suite ~2,691 green, lint clean.
+
+- **Cast your commander (CR 903.3 / 903.8):** cast from the command zone for its printed cost, with the
+  **{2}-per-prior-cast tax** that grows each time (counted even if the cast is later countered).
+  Commander designation rides the card across zones; a *copy* of a commander isn't a commander. The AI
+  casts its commander too. _(Engine-verified via the test suite; a live commander-game dogfood is
+  recommended.)_
+- **Count-scaling effects, fuller:** "damage / draw / gain life / make a token **for each** X you
+  control" — now across controller-permanents, basic-land and tribal/typed subtypes (Goblins, Elves…),
+  and a target player's hand (Sudden Impact). Opponent-permanent counts and exotic sources stay on the
+  Arbiter.
+- **Mass non-creature destruction:** "destroy all artifacts / enchantments / lands" board wipes resolve
+  natively (and a central targeting-helper fix hardens symmetric burn).
+- **More removal/utility:** symmetric burn ("deals N to each creature and each player"), tuck (put a
+  permanent on top/bottom of its owner's library).
+- **Foundation:** a layer-aware creature framework so animated permanents (man-lands) attack/block/die
+  as creatures (no cards flipped yet — groundwork).
+
 ## [0.41.0] - 2026-06-18
 
 **The trigger-effect compiler and count-scaling coverage wave.** Building on v0.40.0's enforcement work,

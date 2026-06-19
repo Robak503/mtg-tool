@@ -1,20 +1,20 @@
 # 🎛️ Academy Coverage — Live Status
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
-> _Updated 2026-06-18 22:25 MST · **cycle 4** · master @ 292330d · **v0.41.0 PUBLISHED ✓** · **PW-1→PW-8 COMPLETE** · **🆕 COMMANDERS ARE CASTABLE (CMD-CAST #273)** · ANIMATE framework PR1 (#274) · **POLICY: enforce FPs, don't drop**._
+> _Updated 2026-06-19 · **cycle 4** · master @ 30405c9 · **v0.42.0 CUT (CI building)** · **🆕 COMMANDERS ARE CASTABLE** · v0.41.0 published · PW-1→PW-8 COMPLETE · **POLICY: enforce FPs, don't drop**._
 
 ## 📊 Scoreboard
-- **Native coverage: 17.9%** — 6,106 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%) · count-scaling now covers controller + subtype + opponent-hand scopes. NEXT: **Cindy → COMMANDER FRAMEWORK** (CMD-CAST first), then the 189-keyword waves (`keyword-coverage-plan.md`).
+- **Native coverage: 17.9%** — 6,118 / 34,160 cards · goal **~90%** (honest ceiling ~88–92%). NEXT: **Cindy → CMD-PARTNER/CMD-COMPANION**, then the 189-keyword waves; **Walt → ANIMATE PR2** (becomes-a-creature atoms).
 - `[####······················]`  ~19% of the way to goal
 - ✅ **9 of the 11 interim-FP keywords now ENFORCED → honestly native:** EVADE #258 (menace/skulk/fear/intimidate/horsemanship/defender, +141) · KW-UNTARGET #260 (hexproof/shroud) · **TRIG-PROWESS #262** (prowess). **Only 2 remain interim FPs — the genuinely-hard ones, legitimately deferred per the policy:** **ward** (a TAX, CR 702.21) + **protection** (the DEBT subsystem). Enforce-don't-drop **essentially complete** for tractable keywords.
 - **184 `playable-pw`** — planeswalkers play end-to-end, run **static + triggered emblem ultimates** (#251 + #254), and are **killable by removal** (#253).
-- **Open PRs: 0.** master @ 292330d. Tests **2,684 green**, lint clean.
+- **Open PRs: 0.** master @ 30405c9. Tests **2,691 green**, lint clean.
 
 ## 🚀 Releases
 - **v0.39.0 — PUBLISHED ✓** — signed installer + `latest.json` live; auto-update active.
 - **v0.40.0 — PUBLISHED ✓** (2026-06-19). `gh release v0.40.0` live — `latest.json` + signed `MTG.Tool_0.40.0_x64-setup.exe` (+`.sig`); auto-update active for all instances. Contents: full PW subsystem (PW-5/6/7/8) + **EVADE #258** + **KW-UNTARGET #260** + **token-abil #259** + the enforce-don't-drop honesty pass (#255/#256). _(Post-tag work for v0.41.0: DMG-SCALE #263, prowess #262, TRIG-TREASURE #264.)_ Recommend a live combat dogfood of EVADE on the published build.
 - **v0.41.0 — PUBLISHED ✓** (2026-06-19). Live, auto-updating — the trigger-compiler + count-scaling coverage wave (#262/#263/#264/#265/#266/#267/#268), 17.5→17.7%.
-- **v0.42.0 — READY, gated on a live smoke-play.** Banked: TUCK-1 #270 + SYMBURN-1 #269 + COUNT-SUBTYPE #271 + COUNT-OPP #272 + **CMD-CAST #273 (flagship — commanders castable)** + ANIMATE framework #274. **Pre-tag gate: a LIVE commander-cast smoke-play** (npm run dev → start a Commander game → cast the commander from the command zone → confirm the {2} tax escalates on recast) — then tag v0.42.0 (v0.41.0 is the convention reference).
+- **v0.42.0 — CUT ✅ (CI building, ~20-30 min).** Tagged 2026-06-19 — **COMMANDERS CASTABLE (CMD-CAST #273)** + count-scaling (#271/#272) + MASS-NC #275 (+ SYMBURN cast-bug fix) + SYMBURN #269 + TUCK-1 #270 + ANIMATE framework #274. CMD-CAST is **unit-verified** (cmdCast.test.js — legal action/tax/clone/AI) not UI-smoke-played → **a live commander-game dogfood is recommended post-release.** CI syncs version from the tag → builds/signs/publishes.
 
 ## 👥 Faculties — who's doing what (lean roster)
 | Faculty | Role · cadence | Working on |
@@ -44,7 +44,7 @@ _**`scout/board-5` (Hans) is STALE** (branched at 88b1d4b, pre-EVADE) — relaye
 - 🟦 **Walt's PW-leverage lane** (`feat/WALT-*-walt`): WALT-TOKEN-ABIL (start), WALT-DMG-SCALE, WALT-FOR-EACH… (see `agents/walt.md`)
 
 ## 🔁 Recent merges (newest first)
-- **#273** 🆕 CMD-CAST — cast commander from command zone + {2} tax (Cindy) · **#274** WALT-ANIMATE PR1 — layer-aware creature framework (Walt) · **#272** WALT-COUNT-OPP (Walt) · **#271** WALT-COUNT-SUBTYPE, +14 (Walt) · **#269** SYMBURN-1, +16 (Cindy) · **#270** TUCK-1, +13 (Cindy)
+- **#275** MASS-NC — mass non-creature wipes + non-chosen-targetType helper (Cindy) · **#273** 🆕 CMD-CAST — commanders castable (Cindy) · **#274** WALT-ANIMATE PR1 — creature framework (Walt) · **#272** WALT-COUNT-OPP (Walt) · **#271** WALT-COUNT-SUBTYPE, +14 (Walt) · **#269** SYMBURN-1, +16 (Cindy)
 - shipped in v0.39.0: #243 SOFT-CNT · #241 LOOT-1 · #240 ADDCOST-2 · #238 TRIG-PUMP-1 · #237 MT-1 · #236 PW-1 · …
 
 ## 🗒️ Notes
