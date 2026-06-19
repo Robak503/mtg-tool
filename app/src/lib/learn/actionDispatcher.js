@@ -691,7 +691,11 @@ function applyCompanionToHand(state, action) {
     ...working,
     players: { ...working.players, [action.playerId]: { ...w, manaPool: nextPool, hand: [...w.hand, companion], companion: null } },
   };
-  return logEvent(next, { kind: "companion-to-hand", playerId: action.playerId, cardName: companion.name });
+  next = logEvent(next, { kind: "companion-to-hand", playerId: action.playerId, cardName: companion.name });
+  // The actor keeps priority and the pass-in-succession chain resets: a special action doesn't pass
+  // priority (CR 116.2g / 117.3c), so a stale consecutivePasses must not end the step early. This mirrors
+  // every sibling active-window handler (applyPlayLand / applyCastSpell / applyActivateAbility / -Loyalty).
+  return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
 }
 
 const HANDLERS = {

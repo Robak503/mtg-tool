@@ -55,6 +55,15 @@ describe("CMD-COMPANION — bring it to hand (once per game), then cast normally
     expect(companionAction(s)).toBeFalsy();                              // not offered again
   });
 
+  it("keeps the actor's priority and RESETS the pass-in-succession chain (a special action doesn't pass — CR 116.2g)", () => {
+    // Regression (4b P1): without this the stale consecutivePasses could end the step early. Mirrors
+    // every sibling active-window handler (play-land / cast-spell / activate-ability).
+    let s = { ...withCompanion(), consecutivePasses: 2 };
+    s = dispatchAction(s, companionAction(s));
+    expect(s.consecutivePasses).toBe(0);   // pass-chain reset — won't skip remaining priority windows
+    expect(s.priorityHolder).toBe("user"); // the actor retains priority after the special action
+  });
+
   it("once in hand the companion casts via the ORDINARY cast path (fromZone hand — NOT a taxed commander cast)", () => {
     let s = withCompanion({ mana: { W: 6 } });
     s = dispatchAction(s, companionAction(s)); // → hand, {3} paid, W:3 left
