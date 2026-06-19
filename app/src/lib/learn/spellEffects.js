@@ -303,7 +303,7 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions)
 // untargetable by the caster's OPPONENTS (the controller may still target their own). Ward is NOT here
 // — it's a TAX the targeter pays (CR 702.21), not an exclusion, so modeling it as untargetable would be
 // a false positive; ward stays an interim-FP until its tax/counter is modeled exactly.
-function canBeTargetedBy(state, perm, controllerOfPerm, casterId) {
+export function canBeTargetedBy(state, perm, controllerOfPerm, casterId) {
   if (permanentHasKeyword(state, perm.id, "Shroud")) return false;
   if (permanentHasKeyword(state, perm.id, "Hexproof") && casterId !== controllerOfPerm) return false;
   return true;

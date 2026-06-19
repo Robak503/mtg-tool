@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword } from "./layers.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
-import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions } from "./spellEffects.js";
+import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { parseActivatedAbilities, sacrificeDropsTrigger } from "./effects/abilities.js";
@@ -583,6 +583,10 @@ function actionsActivateAbility(state, playerId) {
         if ((state.stack?.length || 0) > 0) continue;
         for (const t of player.battlefield) {
           if (!isCreature(t.card)) continue;
+          // KW-UNTARGET: Equip is a TARGETED ability (CR 702.6e), so it obeys targetability — a Shroud
+          // creature (CR 702.18a) can't be targeted even by its controller. Route through the shared
+          // guard (hexproof never blocks here, since Equip only targets your OWN creatures — CR 702.11b).
+          if (!canBeTargetedBy(state, t, playerId, playerId)) continue;
           actions.push({
             kind: "activate-ability", playerId, permanentId: perm.id, name: perm.card.name,
             abilityIndex: ab.index, cost, cmc: totalCmc(cost), tapSelf: false, program: null,

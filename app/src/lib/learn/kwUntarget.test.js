@@ -9,9 +9,11 @@
  */
 import { describe, it, expect } from "vitest";
 
-import { enumerateTargets } from "./spellEffects.js";
+import { enumerateTargets, canBeTargetedBy } from "./spellEffects.js";
 import { classifyCard } from "./coverage.js";
 import { parseEffectProgram } from "./effects/parser.js";
+import { legalActionsForPlayer, filterActions } from "./legalChoices.js";
+import { createGameState } from "./gameState.js";
 
 const atomOf = (text) => parseEffectProgram({ type: "Instant", oracle: text }).atoms[0];
 
@@ -68,5 +70,26 @@ describe("KW-UNTARGET — hexproof / shroud target-legality", () => {
     expect(classifyCard({ type: "Creature — Elf Druid", name: "Reachy", oracle: "Hexproof, reach" })).toBe("native-body");
     expect(classifyCard({ type: "Creature — Spirit", name: "Shroudy", oracle: "Shroud" })).toBe("native-body");
     expect(classifyCard({ type: "Creature — Elf Knight", name: "Warded", oracle: "Ward {2}" })).toBe("native-body");
+  });
+
+  it("canBeTargetedBy: shroud blocks all (incl. controller); hexproof blocks only opponents", () => {
+    const s = st([cr("Shr", "s", "user", "Shroud"), cr("Hex", "h", "user", "Hexproof"), cr("V", "v", "user")]);
+    expect(canBeTargetedBy(s, s.players.user.battlefield[0], "user", "user")).toBe(false); // shroud — even own caster
+    expect(canBeTargetedBy(s, s.players.user.battlefield[1], "user", "user")).toBe(true);  // hexproof — own caster OK
+    expect(canBeTargetedBy(s, s.players.user.battlefield[1], "user", "ai")).toBe(false);   // hexproof — opponent blocked
+    expect(canBeTargetedBy(s, s.players.user.battlefield[2], "user", "ai")).toBe(true);    // vanilla
+  });
+
+  it("FIX (4b P1): Equip is targeted — your own SHROUD creature isn't a legal equip target; hexproof/normal are", () => {
+    const equip = { id: "eq", card: { id: "eqc", name: "Bonesplitter", type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+0.\nEquip {1}" }, controller: "user", tapped: false, counters: {}, attachments: [], attachedTo: null, summoningSick: false };
+    const base = createGameState({ userDeck: [], aiDeck: [] });
+    const s = {
+      ...base, phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: { ...base.players, user: { ...base.players.user, battlefield: [equip, cr("Shroudy", "shr", "user", "Shroud"), cr("Hexy", "hex", "user", "Hexproof"), cr("Bear", "bear", "user")], manaPool: { ...base.players.user.manaPool, C: 5 } } },
+    };
+    const tgt = filterActions(legalActionsForPlayer(s, "user"), "activate-ability").filter((a) => a.isEquipAbility).flatMap((a) => a.targets.map((t) => t.id));
+    expect(tgt).toContain("bear");
+    expect(tgt).toContain("hex");      // hexproof — controller may target own (CR 702.11b)
+    expect(tgt).not.toContain("shr");  // shroud — CR 702.18a, untargetable even by controller
   });
 });
