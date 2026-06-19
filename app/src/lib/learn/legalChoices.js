@@ -33,6 +33,7 @@ import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameStat
 import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword } from "./layers.js";
+import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -730,6 +731,8 @@ function actionsDeclareAttacker(state, playerId) {
     .filter(p => isCreature(p.card))
     .filter(p => !p.tapped)
     .filter(p => !declared.has(p.id))
+    // Defender (CR 702.3b) can't attack — layer-aware so a granted/removed Defender counts (EVADE).
+    .filter(p => !permanentHasKeyword(state, p.id, "Defender"))
     // Granted Haste (Concordant Crossroads, sliver) counts, not just printed.
     .filter(p => !p.summoningSick || permanentHasKeyword(state, p.id, "Haste"));
 
@@ -789,23 +792,25 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
     .filter(p => !p.tapped)
     .filter(p => !assigned.has(p.id));
 
-  // Enforce evasion through the layer engine so GRANTED flying/reach counts
-  // (sliver lord, anthem), not just printed: a creature with flying can only be
-  // blocked by creatures with flying or reach (CR 509.1b / 702.9c).
-  const canBlock = (blockerId, attackerId) => {
-    if (attackerId && permanentHasKeyword(state, attackerId, "Flying")) {
-      return permanentHasKeyword(state, blockerId, "Flying") || permanentHasKeyword(state, blockerId, "Reach");
-    }
-    return true;
-  };
+  // Evasion runs through ONE chokepoint (combatEvasion.canBlockAttacker), read layer-aware so a
+  // GRANTED keyword counts: flying/reach, unblockable, basic landwalk (gated by THIS defender's
+  // lands), skulk/fear/intimidate/horsemanship, and the blocker-side "can't block" / "can block
+  // only flyers". Menace is a SET rule (≥2) — gated below + normalized at resolution.
+  const eligibleByAttacker = {};
+  for (const attackerId of declaredAttackers) {
+    eligibleByAttacker[attackerId] = candidateBlockers.filter((b) => canBlockAttacker(state, b.id, attackerId, playerId));
+  }
 
-  // For each candidate blocker, surface one action per attacker it could
-  // legally block. v1 doesn't enforce "must block X" effects (Lure, etc.) or
-  // menace's 2+-blocker requirement — those are Arbiter / future cases.
+  // Surface one action per attacker a blocker could legally block. A menace attacker (CR 702.111b)
+  // needs ≥2 blockers, so we don't offer a block on it unless this defender has ≥2 eligible blockers
+  // for it; resolution drops any lone menace block as the safety net. v1 doesn't enforce "must block
+  // X" effects (Lure, etc.) — those stay Arbiter cases.
   const actions = [];
   for (const blocker of candidateBlockers) {
     for (const attackerId of declaredAttackers) {
-      if (!canBlock(blocker.id, attackerId)) continue;
+      const eligible = eligibleByAttacker[attackerId];
+      if (!eligible.includes(blocker)) continue;                                  // pairwise illegal
+      if (attackerHasMenace(state, attackerId) && eligible.length < 2) continue;  // can't form a legal ≥2 menace block
       actions.push({
         kind: "declare-blocker",
         playerId,

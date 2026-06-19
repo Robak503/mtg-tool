@@ -35,25 +35,27 @@ import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, par
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
+import { isEnforcedEvasionClause } from "./combatEvasion.js";
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
 //
 //  ENFORCED — the runtime consults the keyword (permanentHasKeyword / an SBA /
 //  attack-legality), so the body resolves CORRECTLY today:
-//    flying·reach (canBlock) · first/double strike·trample·deathtouch·lifelink
-//    (combatResolution) · vigilance (no attack-tap) · haste (summoning-sickness) ·
-//    indestructible (lethal-damage SBA). flash (casting timing) + changeling/devoid
-//    (type/color identity) likewise never mis-resolve a body.
+//    flying·reach + the EVADE block-legality set — menace (≥2, CR 702.111b), skulk, fear,
+//    intimidate, horsemanship, basic landwalk, unblockable, can't-block, can-block-only-flying —
+//    all via combatEvasion.canBlockAttacker / the menace resolution-normalize · defender (can't
+//    attack, CR 702.3b) · first/double strike·trample·deathtouch·lifelink (combatResolution) ·
+//    vigilance (no attack-tap) · haste (summoning-sickness) · indestructible (lethal-damage SBA).
+//    flash (casting timing) + changeling/devoid (type/color identity) likewise never mis-resolve.
 //
 //  INTERIM-FP — the rule is NOT enforced yet (a body currently mis-plays it), BUT the
 //  mechanic is TRACTABLE: we KEEP it claimed native and BUILD the enforcement
 //  (engine-first, Cindy's lane) rather than drop coverage. An accepted, time-boxed
 //  trade — do NOT re-drop these (that was #255, SUPERSEDED); the enforcement tasks
 //  restore correctness and each is logged in retired-fp-ledger.md:
-//    menace·skulk·intimidate·fear·horsemanship·defender → EVADE / attack-legality (canBlock)
-//    hexproof·shroud·ward·protection                    → TARGET-RESTRICT (enumerateTargets)
-//    prowess                                            → PROWESS (cast-trigger compiler)
+//    hexproof·shroud·ward·protection → TARGET-RESTRICT (enumerateTargets)
+//    prowess                         → PROWESS (cast-trigger compiler)
 //  (Dropping to the Arbiter is the LAST RESORT — genuinely-hard/exotic mechanics only.)
 export const COVERED_KEYWORDS = [
   "flying", "reach", "first strike", "double strike", "trample", "deathtouch",
@@ -64,16 +66,27 @@ export const COVERED_KEYWORDS = [
 
 const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
 
-/** True when a permanent's oracle text is empty (vanilla) or only evergreen keywords. */
-export function isKeywordOnly(oracle) {
-  const t = stripReminder(oracle).toLowerCase().replace(/[’']/g, "'");
+/**
+ * True when a permanent's oracle text is empty (vanilla), only evergreen keywords, or an enforced
+ * EVADE evasion clause (basic landwalk / unblockable / can't-block / can-block-only-flying). The
+ * optional `name` is normalized to "this creature" so a self-clause printed with the card name
+ * ("Invisible Stalker can't be blocked.") reads as a covered self-clause; a nameless caller simply
+ * under-claims such self-clauses (safe — false-negative).
+ */
+export function isKeywordOnly(oracle, name) {
+  let t = stripReminder(oracle).toLowerCase().replace(/[’']/g, "'");
+  if (name) {
+    const n = String(name).toLowerCase().replace(/[’']/g, "'").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (n) t = t.replace(new RegExp(`\\b${n}\\b`, "g"), "this creature");
+  }
   if (!t.trim()) return true; // vanilla
   // Split on SENTENCE boundaries (. ! ?) too — not just , ; \n and. Otherwise a trailing non-keyword
   // sentence glued on by a strip ("flying  scry 1.") is swallowed whole by `startsWith("flying ")`
   // and mis-credited as keyword-only. Splitting on the period forces "scry 1" to stand alone and fail.
   const clauses = t.split(/[,;.!?\n]|\band\b/).map((c) => c.trim()).filter(Boolean);
   return clauses.every((c) =>
-    COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)),
+    COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)) ||
+    isEnforcedEvasionClause(c),
   );
 }
 
@@ -158,7 +171,7 @@ export function permanentTriggersCovered(card) {
   // Remove the trigger sentences (same anchored grammar detectTriggers uses); what's
   // left must be keyword-only/empty, or there's unmodeled activated/static text.
   const residue = String(card.oracle || "").replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ");
-  return isKeywordOnly(residue);
+  return isKeywordOnly(residue, card?.name);
 }
 
 /**
@@ -205,7 +218,7 @@ export function permanentActivatedCovered(card) {
     .split(/\n+/)
     .filter((line) => !isActivatedAbilityLine(line))
     .join("\n");
-  return isKeywordOnly(residue);
+  return isKeywordOnly(residue, card?.name);
 }
 
 /**
@@ -248,7 +261,7 @@ export function permanentFullyCovered(card) {
     .join("\n");
   for (const clause of afterActivated.split(/[\n.;]+/).map((s) => s.trim()).filter(Boolean)) {
     if (clauseProducesStatic(clause)) continue;  // a modeled static clause
-    if (isKeywordOnly(clause)) continue;          // keyword-only / vanilla
+    if (isKeywordOnly(clause, card?.name)) continue;  // keyword-only / vanilla
     return false;                                 // unmodeled residue
   }
   return true;
@@ -337,7 +350,7 @@ export function classifyCard(card) {
   // generic classifiers (its copy clause isn't a trigger/static/mana ability they'd recognize).
   if (isCloneCard(card)) return "native-clone";
   // Permanent (creature / artifact / enchantment / battle): the body always works.
-  if (isKeywordOnly(oracle)) return "native-body";
+  if (isKeywordOnly(oracle, card?.name)) return "native-body";
   if (hasManaAbility(oracle)) return "native-mana";
   // Single-mechanism tiers first (the informative labels), then the composite catch-all for
   // multi-ability creatures whose pieces are each modeled but span types.
