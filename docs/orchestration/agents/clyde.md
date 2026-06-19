@@ -159,3 +159,8 @@ fallback. The merge/verify/board/release logic in §2–§8 is identical either 
 > **🔁 NEXT-FIRE BANNER (Colton, standing — every cycle-end):** the LAST thing you output each cycle is your
 > next-fire time as a BIG BOLD top-level line, so Colton can glance at this chat and instantly know when you
 > resume — e.g. `# 🔁 NEXT FIRE — 9:42 PM MST · <one line on what's next>`.
+> **NEVER ESTIMATE THE TIME (Colton, 2026-06-19).** The clock time in the banner must be the EXACT value the
+> system returns — so the ordering is fixed: **call `ScheduleWakeup` FIRST**, read the `Next wakeup scheduled
+> for HH:MM:SS` line out of its result, and ONLY THEN emit the banner using that exact time as your final words.
+> Do not pre-write a guessed time before the call and do not "correct it after" — first-arm, then-banner, every
+> time. (Guessing was wrong 3×: 10:45 vs 11:24, 12:35 vs 12:31, 1:05 vs 12:43.)
