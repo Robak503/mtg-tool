@@ -16,11 +16,11 @@
  *   - Flying / Reach — enforced in legalChoices (who may block), not here.
  *   - Indestructible — enforced by the lethal-damage SBA this calls
  *     (gameState.destroyLethalCreatures → isIndestructible, CR 704.5g), not here.
- * Deferred (NOT enforced anywhere yet → these keywords are excluded from
- * coverage.js COVERED_KEYWORDS so a body isn't claimed native on their basis):
- * Menace (needs multi-block coordination / the EVADE canBlock chokepoint),
- * protection (DEBT), first-strike vs regular ordering subtleties beyond the
- * two-step model.
+ * NOT enforced yet (a body with these currently mis-plays them): Menace (needs the
+ * EVADE multi-block chokepoint), protection (DEBT), first-strike vs regular ordering
+ * subtleties beyond the two-step model. Per the enforce-don't-drop policy these stay
+ * claimed native in coverage.js COVERED_KEYWORDS as INTERIM false positives while the
+ * enforcement is built (Cindy's EVADE / TARGET-RESTRICT lanes) — see retired-fp-ledger.md.
  *
  * Mode-agnostic: reads `state.combat` + each attacker's `defender`, so Standard
  * (1v1) and Commander (4P) resolve through the same path. Vanilla combat (no
