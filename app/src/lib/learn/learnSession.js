@@ -82,6 +82,8 @@ export function createLearnSession({
   opponentDecks = null,
   userCommanders = [],
   opponentCommanders = [],
+  userCompanion = null,
+  opponentCompanions = null, // CMD-COMPANION: commander → array (one per opponent); standard → the lone opponent's companion
   difficulty = "beginner",
   activePlayer = "user",
   mode = "standard",
@@ -111,6 +113,8 @@ export function createLearnSession({
       opponentDecks,
       userCommanders,
       opponentCommanders, // array-of-arrays, one per opponent
+      userCompanion,
+      opponentCompanions, // CMD-COMPANION: array, one companion (or null) per opponent
       activePlayer,
       mode,
     });
@@ -123,6 +127,8 @@ export function createLearnSession({
       aiDeck: opponentDeck,
       userCommanders,
       aiCommanders: opponentCommanders,
+      userCompanion,
+      aiCompanion: opponentCompanions, // CMD-COMPANION: the lone opponent's companion
       activePlayer,
       mode,
     });

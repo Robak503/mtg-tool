@@ -12,7 +12,7 @@
  *
  * Normalized deck shape:
  *   { name, format, source, cards: [{ name, qty, section, scryfallId, set, collectorNumber }] }
- *   section ∈ "Commander" | "Mainboard" | "Sideboard"
+ *   section ∈ "Commander" | "Mainboard" | "Sideboard" | "Companion"
  */
 
 import https from "node:https";
@@ -35,7 +35,7 @@ const MOXFIELD_SECTIONS = {
   commanders: "Commander",
   mainboard: "Mainboard",
   sideboard: "Sideboard",
-  companions: "Sideboard",
+  companions: "Companion", // CMD-COMPANION: keep companions distinct so commandersOf/companionOf can split them
 };
 
 // Whitelist Moxfield's format string (Archidekt is already mapped from a numeric

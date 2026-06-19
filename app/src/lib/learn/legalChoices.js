@@ -317,6 +317,20 @@ function actionsCastCommander(state, playerId) {
   return castActionsFromZone(state, playerId, command, "command", (card) => 2 * (counts[card.id] || 0));
 }
 
+// CMD-COMPANION (CR 702.139) — the once-per-game "{3}: put this card from outside the game into your hand"
+// action. Sorcery-speed (own main, empty stack); offered only while the companion is still outside the game
+// (player.companion is set). The dispatcher pays {3}, moves it to hand, and clears the field, so it's offered
+// exactly once. After that the companion is a NORMAL hand card — cast via actionsCastSpell, NO commander tax.
+function actionsCompanion(state, playerId) {
+  const player = state.players[playerId];
+  const companion = player.companion;
+  if (!companion) return [];
+  if (!canCastSorcerySpeed(state, playerId)) return [];
+  const cost = parseManaCost("{3}");
+  if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) return [];
+  return [{ kind: "companion-to-hand", playerId, cardId: companion.id, name: companion.name, cost, cmc: 3 }];
+}
+
 // Shared cast-action builder for a player's castable zone (hand or command). `taxFn(card)` returns the
 // extra GENERIC mana to add to the printed cost (CR 903.8 commander tax); null = untaxed. `fromZone`
 // rides on every emitted action so the dispatcher splices the card out of the correct zone at cast.
@@ -891,6 +905,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   actions.push(...actionsPlayLand(state, playerId));
   actions.push(...actionsCastSpell(state, playerId));
   actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
+  actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (CR 702.139)
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsActivateAbility(state, playerId));
   actions.push(...actionsActivateLoyalty(state, playerId));

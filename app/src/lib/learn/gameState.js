@@ -347,7 +347,7 @@ export function createStackObject({ id, kind, source, controller, targets = [], 
  * Create a fresh player state. Pass a library (array of card objects)
  * which becomes the deck; everything else starts empty/zero.
  */
-export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER, commanderCards = [] } = {}) {
+export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER, commanderCards = [], companionCard = null } = {}) {
   return {
     life,
     poison: 0,
@@ -359,6 +359,10 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     battlefield: [],
     graveyard: [],
     exile: [],
+    // CMD-COMPANION (CR 702.139): the companion starts OUTSIDE the game here. The once-per-game "{3}: put
+    // this card into your hand" action moves it → hand (then it's a normal card, NOT a commander — no tax),
+    // and clears this field so the action isn't re-offered. null = no companion / already brought in.
+    companion: companionCard ? { ...companionCard } : null,
     // CR 903.3 — "commander" is a designation on the CARD itself that rides across zones (not a
     // characteristic). Tag each so isCommander travels card → battlefield permanent → (PR2) back to the zone.
     command: commanderCards.map((c) => (c ? { ...c, isCommander: true } : c)),
@@ -388,6 +392,9 @@ export function createGameState({
   userCommanders = [],
   aiCommanders = [],
   opponentCommanders = [],
+  userCompanion = null,
+  aiCompanion = null,
+  opponentCompanions = [],
   startingLife = STARTING_LIFE_COMMANDER,
   activePlayer = "user",
   mode = "standard",
@@ -398,8 +405,8 @@ export function createGameState({
 
   const { players, turnOrder } =
     mode === "commander"
-      ? buildCommanderSeats({ userDeck, userCommanders, opponentDecks, opponentCommanders, startingLife })
-      : buildStandardSeats({ userDeck, aiDeck, userCommanders, aiCommanders, startingLife });
+      ? buildCommanderSeats({ userDeck, userCommanders, opponentDecks, opponentCommanders, userCompanion, opponentCompanions, startingLife })
+      : buildStandardSeats({ userDeck, aiDeck, userCommanders, aiCommanders, userCompanion, aiCompanion, startingLife });
 
   return {
     turn: 1,
@@ -436,12 +443,12 @@ export function createGameState({
 
 // Build the two Standard (1v1) seats. Output is byte-identical to the
 // pre-Commander engine, so the existing Standard test corpus is unaffected.
-function buildStandardSeats({ userDeck, aiDeck, userCommanders, aiCommanders, startingLife }) {
+function buildStandardSeats({ userDeck, aiDeck, userCommanders, aiCommanders, userCompanion, aiCompanion, startingLife }) {
   return {
     turnOrder: ["user", "ai"],
     players: {
-      user: createPlayerState({ library: userDeck, life: startingLife, commanderCards: userCommanders }),
-      ai: createPlayerState({ library: aiDeck, life: startingLife, commanderCards: aiCommanders }),
+      user: createPlayerState({ library: userDeck, life: startingLife, commanderCards: userCommanders, companionCard: userCompanion }),
+      ai: createPlayerState({ library: aiDeck, life: startingLife, commanderCards: aiCommanders, companionCard: aiCompanion }),
     },
   };
 }
@@ -449,12 +456,12 @@ function buildStandardSeats({ userDeck, aiDeck, userCommanders, aiCommanders, st
 // Build the four Commander (4P FFA) seats: the user plus exactly three
 // pod opponents (ai1/ai2/ai3). opponentCommanders is an array of
 // per-opponent commander arrays, parallel to opponentDecks.
-function buildCommanderSeats({ userDeck, userCommanders, opponentDecks, opponentCommanders, startingLife }) {
+function buildCommanderSeats({ userDeck, userCommanders, opponentDecks, opponentCommanders, userCompanion, opponentCompanions, startingLife }) {
   if (!Array.isArray(opponentDecks) || opponentDecks.length !== 3) {
     throw new Error("createGameState: commander mode requires opponentDecks to be an array of exactly 3 decks (the pod)");
   }
   const players = {
-    user: createPlayerState({ library: userDeck, life: startingLife, commanderCards: userCommanders }),
+    user: createPlayerState({ library: userDeck, life: startingLife, commanderCards: userCommanders, companionCard: userCompanion }),
   };
   const turnOrder = ["user"];
   opponentDecks.forEach((deck, i) => {
@@ -463,6 +470,7 @@ function buildCommanderSeats({ userDeck, userCommanders, opponentDecks, opponent
       library: deck,
       life: startingLife,
       commanderCards: (Array.isArray(opponentCommanders) && opponentCommanders[i]) || [],
+      companionCard: (Array.isArray(opponentCompanions) && opponentCompanions[i]) || null,
     });
     turnOrder.push(seat);
   });
