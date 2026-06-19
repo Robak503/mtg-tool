@@ -61,7 +61,7 @@ describe("EVADE — classifier (which evasion bodies are honestly native)", () =
   });
 
   it("the menace family stays native-body — now enforced, not interim-FP", () => {
-    for (const oracle of ["Menace", "Skulk", "Fear", "Intimidate", "Horsemanship", "Defender"]) {
+    for (const oracle of ["Menace", "Skulk", "Fear", "Intimidate", "Horsemanship", "Shadow", "Defender"]) {
       expect(classifyCard({ type: "Creature — Beast", name: "KW", oracle })).toBe("native-body");
     }
     expect(classifyCard({ type: "Creature — Spirit", name: "Combo", oracle: "Flying, menace" })).toBe("native-body");
@@ -133,6 +133,28 @@ describe("EVADE — canBlockAttacker enforcement (pairwise, layer-aware)", () =>
   it("horsemanship — blockable only by horsemanship", () => {
     expect(setup(cr("Cavalry", "a", "user", { oracle: "Horsemanship" }), cr("Bear", "b", "ai"))()).toBe(false);
     expect(setup(cr("Cavalry", "a", "user", { oracle: "Horsemanship" }), cr("Rider", "b", "ai", { oracle: "Horsemanship" }))()).toBe(true);
+  });
+
+  it("shadow — SYMMETRIC: shadow blocks/blocked-by only shadow (EVADE-2, CR 702.28b)", () => {
+    // a shadow attacker can't be blocked by a non-shadow creature
+    expect(setup(cr("Dauthi", "a", "user", { oracle: "Shadow" }), cr("Bear", "b", "ai"))()).toBe(false);
+    // a shadow attacker CAN be blocked by a shadow creature
+    expect(setup(cr("Dauthi", "a", "user", { oracle: "Shadow" }), cr("Soltari", "b", "ai", { oracle: "Shadow" }))()).toBe(true);
+    // the REVERSE direction (the symmetric half flying/horsemanship lack): a NON-shadow attacker
+    // can't be blocked by a shadow creature — a shadow creature can only block shadow.
+    expect(setup(cr("Bear", "a", "user"), cr("Soltari", "b", "ai", { oracle: "Shadow" }))()).toBe(false);
+    // two normal creatures block normally (behavior-neutral)
+    expect(setup(cr("Bear", "a", "user"), cr("Grizzly", "b", "ai"))()).toBe(true);
+  });
+
+  it("shadow — declare-blocker ENUMERATION (the real legalChoices path) honors the exclusion", () => {
+    const shadowAtt = cr("Dauthi", "a", "user", { oracle: "Shadow" });
+    // a non-shadow blocker can't block the shadow attacker → 0 block options offered
+    const noBlock = st({ userBf: [shadowAtt], aiBf: [cr("Bear", "b1", "ai")], step: "declare-blockers" });
+    expect(filterActions(legalActionsForPlayer(noBlock, "ai", { declaredAttackers: ["a"] }), "declare-blocker")).toHaveLength(0);
+    // a shadow blocker CAN block it → a block option appears
+    const canBlock = st({ userBf: [shadowAtt], aiBf: [cr("Soltari", "b1", "ai", { oracle: "Shadow" })], step: "declare-blockers" });
+    expect(filterActions(legalActionsForPlayer(canBlock, "ai", { declaredAttackers: ["a"] }), "declare-blocker").length).toBeGreaterThanOrEqual(1);
   });
 
   it("blocker-side: can't-block never blocks; can-block-only-flying blocks only flyers", () => {

@@ -64,7 +64,7 @@ export const COVERED_KEYWORDS = [
   "flying", "reach", "first strike", "double strike", "trample", "deathtouch",
   "lifelink", "vigilance", "menace", "haste", "defender", "flash", "hexproof",
   "shroud", "indestructible", "ward", "protection", "prowess", "skulk",
-  "intimidate", "fear", "horsemanship", "changeling", "devoid",
+  "intimidate", "fear", "horsemanship", "shadow", "changeling", "devoid",
 ];
 
 const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
