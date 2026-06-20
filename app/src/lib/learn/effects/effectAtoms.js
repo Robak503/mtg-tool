@@ -895,6 +895,8 @@ function applyTutor(state, atom, ctx) {
     // instead of the hand (Rampant Growth / Farhaven Elf). Defaults to "hand" (the P3.2 tutor).
     destination: atom.destination === "battlefield" ? "battlefield" : "hand",
     entersTapped: !!atom.entersTapped,
+    // RAMP-MULTI — "up to two": fetch up to `remaining` matching lands (resolveTutorChoice chains the rest).
+    remaining: atom.remaining || 1,
   });
 }
 

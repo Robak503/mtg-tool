@@ -115,8 +115,10 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Sorcery", "Search your library for a card, put that card into your hand, then shuffle.", { name: "Demonic Tutor" }))).toBe("native-spell");
     // RAMP-1: a single basic land onto the battlefield is now native (the fetched land enters via the tutor picker).
     expect(classifyCard(C("Sorcery", "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", { name: "Rampant Growth" }))).toBe("native-spell");
-    // Still Arbiter: a MULTI-land battlefield fetch (Explosive Vegetation) and a non-land cheat-into-play (Natural Order).
-    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.", { name: "Explosive Vegetation" }))).toBe("arbiter-spell");
+    // RAMP-MULTI: a bare "up to two <land> → battlefield" multi-fetch (Explosive Vegetation) is now native too.
+    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.", { name: "Explosive Vegetation" }))).toBe("native-spell");
+    // Still Arbiter: a SPLIT-destination fetch (Cultivate) and a non-land cheat-into-play (Natural Order).
+    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", { name: "Cultivate" }))).toBe("arbiter-spell");
     expect(classifyCard(C("Sorcery", "Search your library for a green creature card, put it onto the battlefield, then shuffle.", { name: "Natural Order" }))).toBe("arbiter-spell");
   });
   it("a permanent with abilities is body-only (body works, ability doesn't yet)", () => {

@@ -24,7 +24,7 @@
  */
 
 import { markPendingArbiter } from "../pendingArbiter.js";
-import { clearPendingChoice } from "../pendingChoice.js";
+import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
@@ -150,6 +150,20 @@ export function resolveTutorChoice(state, cardId) {
     } else {
       next = moveCardToZone(next, { playerId: pc.controller, fromZone: "library", toZone: "hand", cardId });
     }
+  }
+  // RAMP-MULTI — "up to two": after a SUCCESSFUL fetch with fetches still remaining, re-suspend for the next
+  // pick from the still-legal candidates (the just-fetched card removed), carrying the same program resume —
+  // WITHOUT shuffling yet (Explosive Vegetation / Skyshroud Claim shuffle once, after the last fetch). A
+  // declined/empty fetch ends the search here (the player chose to take fewer). The driver loop drains the
+  // re-suspended choice (settleTutorChoice returns it; the AI auto-picks again, a human gets a second picker).
+  const remaining = (pc.remaining || 1) - 1;
+  if (inLibrary && remaining >= 1 && next.players?.[pc.controller]) {
+    const rest = (pc.candidates || []).filter((c) => c.id !== cardId);
+    next = setPendingTutorChoice(next, {
+      controller: pc.controller, candidates: rest, sourceName: pc.sourceName, filterLabel: pc.filterLabel,
+      destination: pc.destination, entersTapped: pc.entersTapped, remaining,
+    });
+    return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
   }
   next = shuffleControllerLibrary(next, pc.controller);
   next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inLibrary, destination });
