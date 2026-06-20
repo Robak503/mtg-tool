@@ -831,7 +831,15 @@ export function dispatchAction(state, action) {
  */
 export function clearCombat(state) {
   if (!state.combat) return state;
-  return { ...state, combat: { attackers: [], blockers: [] } };
+  // REGEN (CR 701.15a): a creature removed from combat by regeneration clears that transient flag when combat
+  // ends, so it attacks/blocks normally next combat. (Cheap: only rebuilds a player whose board carries the flag.)
+  const players = {};
+  for (const [pid, player] of Object.entries(state.players)) {
+    players[pid] = player.battlefield?.some(p => p.removedFromCombat)
+      ? { ...player, battlefield: player.battlefield.map(p => (p.removedFromCombat ? { ...p, removedFromCombat: false } : p)) }
+      : player;
+  }
+  return { ...state, players, combat: { attackers: [], blockers: [] } };
 }
 
 // Re-export deductManaCost for tests that want to assert mana

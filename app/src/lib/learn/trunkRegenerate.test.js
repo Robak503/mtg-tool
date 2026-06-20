@@ -10,6 +10,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { parseEffectClause } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
 import { applyDestroyEffect } from "./spellEffects.js";
+import { resolveCombatDamage } from "./combatResolution.js";
+import { clearCombat } from "./actionDispatcher.js";
 import { _resetIdsForTests, createGameState, createPermanent, destroyLethalCreatures, clearCombatDamage, findPermanent } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -75,5 +77,45 @@ describe("REGEN — engine: the shield replaces destruction", () => {
   it("unused shields expire at cleanup (CR 701.15 — 'this turn')", () => {
     const after = clearCombatDamage(onBoard(bear({ regenShields: 2 })));
     expect(findPermanent(after, "p1").permanent.regenShields).toBe(0);
+  });
+});
+
+describe("REGEN — CR 701.15a: a regenerated creature is REMOVED FROM COMBAT (no second-step damage)", () => {
+  // A 5/3 trampler with a pre-combat regen shield attacks; a 3/3 first-strike blocker deals lethal in the
+  // first-strike step, so the attacker regenerates THEN — and must deal nothing in the regular step.
+  const fsCombat = () => {
+    const att = { ...createPermanent({ id: "att", card: { name: "Regen Tusker", type: "Creature — Beast", power: 5, toughness: 3, keywords: ["Trample"] }, controller: "user" }), regenShields: 1 };
+    const blk = createPermanent({ id: "blk", card: { name: "FS Knight", type: "Creature — Knight", power: 3, toughness: 3, keywords: ["First strike"] }, controller: "ai" });
+    return {
+      turn: 3, log: [],
+      players: {
+        user: { life: 40, battlefield: [att], graveyard: [], commanderDamageFrom: {} },
+        ai: { life: 40, battlefield: [blk], graveyard: [], commanderDamageFrom: {} },
+      },
+      combat: {
+        attackers: [{ permanentId: "att", attackingPlayer: "user", defender: "ai" }],
+        blockers: [{ blockerId: "blk", blockingPlayer: "ai", attackerId: "att" }],
+      },
+    };
+  };
+
+  it("regenerates in the first-strike step, then deals 0 in the regular step (blocker lives, no trample)", () => {
+    const afterFS = resolveCombatDamage(fsCombat(), { firstStrikeStep: true });
+    const att = findPermanent(afterFS, "att").permanent;
+    expect(att.regenShields).toBe(0);          // shield consumed regenerating
+    expect(att.tapped).toBe(true);             // CR 701.15a — tapped
+    expect(att.removedFromCombat).toBe(true);  // CR 701.15a — removed from combat
+    expect(afterFS.players.ai.battlefield.map(p => p.card.name)).toEqual(["FS Knight"]); // blocker unhurt so far
+
+    const afterReg = resolveCombatDamage(afterFS, { firstStrikeStep: false });
+    expect(afterReg.players.ai.battlefield.map(p => p.card.name)).toEqual(["FS Knight"]); // SURVIVES (the bug killed it)
+    expect(afterReg.players.ai.life).toBe(40); // no second-step trample (the bug dealt 2)
+    expect(findPermanent(afterReg, "att").permanent.tapped).toBe(true); // still the regenerated creature
+  });
+
+  it("clearCombat wipes the removed-from-combat flag so the creature fights normally next combat", () => {
+    const afterFS = resolveCombatDamage(fsCombat(), { firstStrikeStep: true });
+    expect(findPermanent(afterFS, "att").permanent.removedFromCombat).toBe(true);
+    expect(findPermanent(clearCombat(afterFS), "att").permanent.removedFromCombat).toBe(false);
   });
 });

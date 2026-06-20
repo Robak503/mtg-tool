@@ -867,18 +867,21 @@ export function addRegenShield(state, permanentId) {
   return updatePermanent(state, permanentId, p => ({ ...p, regenShields: (p.regenShields || 0) + 1 }));
 }
 
-/** Consume one regeneration shield: clear marked damage + tap (CR 701.15a). Caller has already confirmed a
- * shield is present and is skipping the destruction (the creature stays on the battlefield, never entering the
- * dead set). PARTIAL on CR 701.15a's "remove it from combat": `combatResolution` captures the attacker list
- * once per damage event, so a creature regenerated in the FIRST-STRIKE sub-step is still iterated in the
- * regular sub-step and would deal damage twice. Latent today (no engine path sets a shield BEFORE combat
- * damage); the real fix is to skip dead/regenerated attackers in the combat damage loop — tracked follow-up. */
+/** Consume one regeneration shield: clear marked damage, tap, and REMOVE FROM COMBAT (CR 701.15a). The caller
+ * has already confirmed a shield is present and is skipping the destruction (the creature stays on the
+ * battlefield, never entering the dead set). The `removedFromCombat` flag — set only while a combat is active —
+ * makes combatResolution skip the creature as both a damage dealer and receiver in any LATER damage step this
+ * combat, so a creature regenerated in the first-strike sub-step can't deal/take damage again in the regular
+ * sub-step. The flag is transient: clearCombat wipes it at end of combat so it attacks/blocks normally next
+ * time. (Outside combat — e.g. a Destroy spell in a main phase — no flag is set: there's no combat to leave.) */
 export function regeneratePermanent(state, permanentId) {
+  const inCombat = (state.combat?.attackers?.length || 0) > 0;
   return updatePermanent(state, permanentId, p => ({
     ...p,
     regenShields: Math.max(0, (p.regenShields || 0) - 1),
     damageMarked: 0,
     tapped: true,
+    ...(inCombat ? { removedFromCombat: true } : {}),
   }));
 }
 

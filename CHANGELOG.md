@@ -15,6 +15,12 @@ summarizes the notable changes.
   "as long as" order too. Only engine-enforced grantable keywords flip; a non-keyword rider, a color/compound
   gate, or a non-grantable keyword (menace) stays on the Arbiter.
 
+- **Regeneration removes the creature from combat (REGEN fix, CR 701.15a):** a creature that regenerates in
+  the first-strike combat-damage step is now correctly **removed from combat**, so it can't deal (or take)
+  combat damage again in the regular step. Previously a regen-shielded attacker that survived a first-strike
+  blocker would go on to deal its damage a second time — killing a blocker that should have lived and
+  trampling the defender. (Completes the REGEN slice.)
+
 - **Conditional self-buffs play correctly (GATED-SELFBUFF):** "This creature gets +X/+Y as long as you
   control a/another/N &lt;type&gt;" (Wild Nacatl, Loam Lion, Mire Kavu, Flinthoof Boar, Drover of the Mighty,
   Court Homunculus…) now resolves as a **live, layer-correct** fixed buff that turns on and off as the board

@@ -123,6 +123,11 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     return firstStrikeStep ? (fs || ds) : (!fs || ds);
   };
 
+  // REGEN (CR 701.15a): a creature regenerated in an EARLIER damage step of this combat is removed from combat
+  // — it deals and takes no further combat damage. It's still on the battlefield (findPermanent finds it), so
+  // the damage loops must skip it explicitly. `combatant` returns the live lookup ONLY while still in combat.
+  const combatant = (id) => { const lk = findPermanent(state, id); return lk && !lk.permanent.removedFromCombat ? lk : null; };
+
   // ── Compute damage from the pre-step board (simultaneous within the step) ──
   const dmgToPermanent = {};   // permanentId -> amount
   const deathtouched = new Set();
@@ -154,7 +159,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
 
   // Attackers deal.
   for (const att of combat.attackers) {
-    const lookup = findPermanent(state, att.permanentId);
+    const lookup = combatant(att.permanentId);
     if (!lookup || !dealsThisStep(lookup.permanent)) continue;
     const attackerId = lookup.permanent.id;
     const power = Math.max(0, creaturePower(lookup.permanent, state));
@@ -176,7 +181,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     const declaredBlockers = blockersByAttacker[att.permanentId] || [];
     const wasBlocked = declaredBlockers.length > 0;
     const liveBlockers = declaredBlockers
-      .map(b => findPermanent(state, b.blockerId))
+      .map(b => combatant(b.blockerId))
       .filter(Boolean);
 
     const spillToDefender = (amount, trampleFlag) => {
@@ -248,10 +253,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
 
   // Blockers deal back to the attacker they're blocking.
   for (const att of combat.attackers) {
-    const attLookup = findPermanent(state, att.permanentId);
+    const attLookup = combatant(att.permanentId);
     if (!attLookup) continue;
     for (const b of (blockersByAttacker[att.permanentId] || [])) {
-      const blk = findPermanent(state, b.blockerId);
+      const blk = combatant(b.blockerId);
       if (!blk || !dealsThisStep(blk.permanent)) continue;
       const bpow = Math.max(0, creaturePower(blk.permanent, state));
       const bdt = permanentHasKeyword(state, blk.permanent.id, "Deathtouch");
