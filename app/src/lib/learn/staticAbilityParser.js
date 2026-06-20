@@ -69,9 +69,39 @@ function signed(str) {
  */
 function normalizeSubtype(word) {
   let w = word.trim();
-  if (w.endsWith("s")) w = w.slice(0, -1);
+  // Irregular plurals (else the parsed subtype matches no creature and the buff applies to nobody):
+  //   "-ves" → "-f"  (Elves→Elf, Wolves→Wolf, Dwarves→Dwarf);
+  //   "Allies" → "Ally"  (the only "-y → -ies" creature subtype; a blanket -ies→y would wrongly turn
+  //   Zombies→Zomby / Faeries→Faery, so it's special-cased).
+  // Plain "-s" strips to singular (Slivers→Sliver).
+  if (/^allies$/i.test(w)) w = "ally";
+  else if (/ves$/i.test(w)) w = w.slice(0, -3) + "f";
+  else if (w.endsWith("s")) w = w.slice(0, -1);
   return w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w;
 }
+
+// Leading words in "<word> creatures you control …" that are NOT creature subtypes — board STATE
+// ("attacking"/"tapped"…), supertype/quality qualifiers ("token"/"legendary"/"colorless"…), or
+// determiners handled by the path above. The no-determiner tribal-anthem matcher excludes these so a
+// state-conditional anthem ("Attacking creatures you control get +1/+0" — Lovisa) is never parsed as a
+// subtype grant that selects nobody yet flips the card native (a CREED false positive). Real subtypes
+// (Sliver, Dragon, Goblin, Outlaw…) are never in this set.
+const NON_SUBTYPE_ANTHEM_WORDS = new Set([
+  // board state
+  "attacking", "blocking", "blocked", "unblocked", "tapped", "untapped", "enchanted", "equipped",
+  // supertype / quality qualifiers
+  "token", "nontoken", "legendary", "nonlegendary", "colorless", "multicolored", "monocolored",
+  "nonland", "snow", "monstrous", "modified",
+  // CARD TYPES — "Artifact/Enchantment/Land/Commander creatures you control …" reads on the LEFT of the
+  // em-dash, so it's a card-TYPE filter, NOT a subtype (subtypesOf reads only the right side). Treating
+  // it as a subtype selects ZERO creatures while flipping the card native — a CREED false positive
+  // (Tempered Steel, Thopter Engineer, Bastion Protector, Bloodsworn Steward). These stay body-only
+  // until a card-type-selector anthem is built.
+  "artifact", "enchantment", "land", "planeswalker", "battle", "commander",
+  // determiners (handled by the path above) + bare nouns + "target" (a spell's "target creature you
+  // control gets …" is not a permanent anthem — and a Sorcery never becomes a permanent anyway).
+  "other", "another", "all", "each", "this", "your", "target", "creature", "creatures",
+]);
 
 // ─── TRUNK-SELFBUFF: count-scaled self static buff ──────────────────────────────
 // A continuous (layer-7c) self-buff whose magnitude is a board count — "this creature gets +X/+Y for each
@@ -129,9 +159,15 @@ function parseControlGateSource(quant, typePhrase) {
  * the FULL name only (never a partial), so it can't touch an unrelated card's name in the text.
  */
 function selfNormalizeOracle(oracle, name) {
-  if (!name) return String(oracle || "");
+  // Strip parenthetical reminder text (CR 207.2 — reminder text is never functional) so a fully-modeled
+  // static isn't judged "uncovered" by its own reminder ("Sliver creatures you control have double strike.
+  // (They deal both first-strike and regular combat damage.)"). Removing it changes NO behavior — the
+  // runtime parser already ignores it (it matches at clause starts) — it only lets the coverage check
+  // (staticAbilitiesCoverCard) see that the card's real text is fully modeled. Scoped to static parsing.
+  let o = String(oracle || "").replace(/\([^)]*\)/g, " ");
+  if (!name) return o;
   const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return String(oracle || "").replace(new RegExp(`\\b${esc}\\b`, "g"), "this creature");
+  return o.replace(new RegExp(`\\b${esc}\\b`, "g"), "this creature");
 }
 
 const _ENTER_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
@@ -455,16 +491,21 @@ function parseCreatureSelector(c) {
   if (m) {
     const determiner = m[1];
     const word = m[2];
+    const excludeSelf = determiner === "other";
     if (word !== "creature" && word !== "creatures") {
+      // A COLOR word → a color anthem ("Other red creatures you control get +1/+1" — the Liege cycle),
+      // NOT a subtype. Enforce it via a color selector so the buff actually applies.
+      if (COLOR_WORDS[word]) {
+        return { mode: "dynamic", selector: { controllerScope, cardTypes: ["Creature"], colors: [COLOR_WORDS[word]], excludeSelf } };
+      }
+      // A board-STATE / supertype / card-type qualifier (tapped/nontoken/colorless/artifact/…) is NOT a
+      // tribal lord — never fabricate a subtype grant that selects nobody yet flips the card native (a
+      // CREED FP: Boartusk Liege, Adept Watershaper, Thraben Watcher…). Fall through → clause unmodeled.
+      if (NON_SUBTYPE_ANTHEM_WORDS.has(word)) return null;
       // Tribal lord: "(all|other|each) <Subtype>s [creatures] [you control] …".
       return {
         mode: "dynamic",
-        selector: {
-          controllerScope,
-          cardTypes: ["Creature"],
-          subtypes: [normalizeSubtype(word)],
-          excludeSelf: determiner === "other",
-        },
+        selector: { controllerScope, cardTypes: ["Creature"], subtypes: [normalizeSubtype(word)], excludeSelf },
       };
     }
     // P2.10: determiner + bare "creatures": "(all|other|each) creatures [you control] …".
@@ -474,7 +515,7 @@ function parseCreatureSelector(c) {
     // (a lord doesn't pump itself); all/each include it.
     return {
       mode: "dynamic",
-      selector: { controllerScope, cardTypes: ["Creature"], excludeSelf: determiner === "other" },
+      selector: { controllerScope, cardTypes: ["Creature"], excludeSelf },
     };
   }
 
@@ -488,6 +529,20 @@ function parseCreatureSelector(c) {
         cardTypes: ["Creature"],
         colors: [COLOR_WORDS[m[1]]],
       },
+    };
+  }
+
+  // No-determiner tribal anthem: "<Subtype> creatures you control get|gain|has|have …" — the modern
+  // lord templating ("Sliver creatures you control have flying", "Dragon creatures you control get
+  // +1/+1"). The "(all|other|each) <subtype>" determiner form + color + generic forms are handled
+  // above/below; a state/quality qualifier (attacking/tapped/nontoken/colorless/…) is excluded so it's
+  // never claimed native while granting to nobody. An unrecognized word IS treated as a subtype; a
+  // genuinely-bogus one simply selects no creatures (a safe FN, not a fabricated grant).
+  m = c.match(/^([a-z]+)\s+creatures?\s+you control\s+(?:gets?|gains?|has|have)\b/);
+  if (m && !NON_SUBTYPE_ANTHEM_WORDS.has(m[1])) {
+    return {
+      mode: "dynamic",
+      selector: { controllerScope: "you", cardTypes: ["Creature"], subtypes: [normalizeSubtype(m[1])] },
     };
   }
 

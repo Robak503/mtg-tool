@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest";
 import { parseStaticAbilities } from "./staticAbilityParser.js";
 import { createGameState } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword } from "./layers.js";
+import { classifyCard } from "./coverage.js";
 
 function card(name, oracle, type = "Creature") {
   return { name, type, oracle, power: 0, toughness: 0 };
@@ -74,6 +75,102 @@ describe("parseStaticAbilities — keyword grants", () => {
     const d = parseStaticAbilities(card("Big Lord", "Creatures you control have flying and vigilance.", "Enchantment"));
     const kws = d.map(e => e.op.keyword).sort();
     expect(kws).toEqual(["Flying", "Vigilance"]);
+  });
+});
+
+describe("parseStaticAbilities — NO-DETERMINER tribal anthem ('<Subtype> creatures you control …')", () => {
+  it("keyword grant: 'Sliver creatures you control have flying.' (no 'all/other/each')", () => {
+    const d = parseStaticAbilities(card("Galerider Sliver", "Sliver creatures you control have flying.", "Creature — Sliver"));
+    expect(d).toHaveLength(1);
+    expect(d[0].op).toEqual({ layerOp: "addKeyword", keyword: "Flying" });
+    expect(d[0].affects.selector).toMatchObject({ controllerScope: "you", cardTypes: ["Creature"], subtypes: ["Sliver"] });
+    expect(d[0].affects.selector.excludeSelf).toBeUndefined(); // includes itself (CR — no "other")
+  });
+  it("two keywords: 'Sliver creatures you control have flying and haste.'", () => {
+    const d = parseStaticAbilities(card("Cloudshredder Sliver", "Sliver creatures you control have flying and haste.", "Creature — Sliver"));
+    expect(d.map(e => e.op.keyword).sort()).toEqual(["Flying", "Haste"]);
+  });
+  it("P/T form: 'Dragon creatures you control get +1/+1.'", () => {
+    const d = parseStaticAbilities(card("Dragon Lord", "Dragon creatures you control get +1/+1.", "Creature — Dragon"));
+    expect(d).toHaveLength(1);
+    expect(d[0].op).toEqual({ layerOp: "ptModify", power: 1, toughness: 1 });
+    expect(d[0].affects.selector.subtypes).toEqual(["Dragon"]);
+  });
+
+  // CREED FP guard — a board-STATE/quality qualifier is NOT a subtype: it must grant to nobody, not
+  // flip the card native while selecting an empty set.
+  it("does NOT treat a state qualifier as a subtype ('Attacking creatures you control get +1/+0')", () => {
+    expect(parseStaticAbilities(card("Lovisa-like", "Attacking creatures you control get +1/+0.", "Creature"))).toHaveLength(0);
+  });
+  it("does NOT grant for tapped / nontoken / colorless qualifiers", () => {
+    expect(parseStaticAbilities(card("A", "Tapped creatures you control have vigilance.", "Enchantment"))).toHaveLength(0);
+    expect(parseStaticAbilities(card("B", "Nontoken creatures you control have riot.", "Enchantment"))).toHaveLength(0);
+    expect(parseStaticAbilities(card("C", "Colorless creatures you control get +1/+1.", "Enchantment"))).toHaveLength(0);
+  });
+  // CARD-TYPE words read on the LEFT of the em-dash → a card-type filter, not a subtype. Treating
+  // "Artifact"/"Commander" as a subtype would select zero creatures yet flip the card native (FP).
+  it("does NOT treat a CARD TYPE as a subtype ('Artifact creatures you control get +2/+2' — Tempered Steel)", () => {
+    expect(parseStaticAbilities(card("Tempered Steel", "Artifact creatures you control get +2/+2.", "Enchantment"))).toHaveLength(0);
+    expect(parseStaticAbilities(card("Bastion Protector", "Commander creatures you control get +2/+2 and have indestructible.", "Creature — Human Soldier"))).toHaveLength(0);
+  });
+});
+
+describe("determiner anthem hardening — colors enforce, non-subtype words don't fabricate", () => {
+  it("'Other red creatures you control get +1/+1.' → COLOR selector (Liege cycle), not subtype 'Red'", () => {
+    const d = parseStaticAbilities(card("Boartusk Liege", "Other red creatures you control get +1/+1.", "Creature — Boar Knight"));
+    expect(d).toHaveLength(1);
+    expect(d[0].affects.selector.colors).toEqual(["R"]);
+    expect(d[0].affects.selector.subtypes).toBeUndefined();
+    expect(d[0].affects.selector.excludeSelf).toBe(true);
+  });
+  it("'Other tapped/nontoken/colorless creatures …' → NO grant (not a subtype, CREED)", () => {
+    expect(parseStaticAbilities(card("Adept Watershaper", "Other tapped creatures you control have indestructible.", "Creature"))).toHaveLength(0);
+    expect(parseStaticAbilities(card("Thraben Watcher", "Other nontoken creatures you control get +1/+1.", "Creature"))).toHaveLength(0);
+    expect(parseStaticAbilities(card("Tide Drifter", "Other colorless creatures you control get +0/+1.", "Creature"))).toHaveLength(0);
+  });
+  it("irregular plural subtypes normalize to the real type ('Other Elves' → Elf, 'Allies' → Ally)", () => {
+    const elf = parseStaticAbilities(card("Elf Lord", "Other Elves you control get +1/+1.", "Creature — Elf"));
+    expect(elf[0].affects.selector.subtypes).toEqual(["Elf"]);
+    const ally = parseStaticAbilities(card("Ally Lord", "Other Allies you control get +1/+1.", "Creature — Ally"));
+    expect(ally[0].affects.selector.subtypes).toEqual(["Ally"]);
+  });
+  it("end-to-end: Boartusk Liege buffs only red creatures I control", () => {
+    const liege = perm("Boartusk Liege", "lg", "user", { type: "Creature — Boar Knight", power: 4, toughness: 4, oracle: "Other red creatures you control get +1/+1." });
+    const gob = perm("Goblin", "gob", "user", { type: "Creature — Goblin", oracle: "" });
+    gob.card.mana = "{R}";
+    const drake = perm("Drake", "drk", "user", { type: "Creature — Drake", power: 2, toughness: 2 });
+    drake.card.mana = "{U}";
+    const s = stateWith([liege, gob, drake]);
+    expect(permanentPower(s, "gob")).toBe(2); // 1 + 1 (red)
+    expect(permanentPower(s, "drk")).toBe(2); // unaffected (blue)
+  });
+});
+
+describe("static coverage — reminder text (CR 207.2) doesn't block a fully-modeled anthem", () => {
+  it("a reminder-bearing tribal grant still parses + classifies native-static", () => {
+    const oracle = "Sliver creatures you control have double strike. (They deal both first-strike and regular combat damage.)";
+    const c = card("Bonescythe Sliver", oracle, "Creature — Sliver");
+    expect(parseStaticAbilities(c).map(e => e.op.keyword)).toEqual(["Double strike"]);
+    expect(classifyCard({ ...c, type: "Creature — Sliver" })).toBe("native-static");
+  });
+  it("a real functional rider (not a reminder) still keeps the card body-only", () => {
+    // "Whenever …" is genuine residue, not parenthetical reminder → not covered.
+    const c = card("Tempered Sliver", 'Sliver creatures you control have "Whenever this creature deals combat damage to a player, put a +1/+1 counter on it."', "Creature — Sliver");
+    expect(classifyCard({ ...c, type: "Creature — Sliver" })).not.toBe("native-static");
+  });
+});
+
+describe("end-to-end — no-determiner tribal grant applies layer-aware", () => {
+  it("Galerider grants flying to other Slivers you control, not non-Slivers or opponents", () => {
+    const gal = perm("Galerider Sliver", "gal", "user", { type: "Creature — Sliver", oracle: "Sliver creatures you control have flying." });
+    const muscle = perm("Muscle Sliver", "mus", "user", { type: "Creature — Sliver" });
+    const bear = perm("Grizzly Bears", "bear", "user", { type: "Creature — Bear" });
+    const foe = perm("Foe Sliver", "foe", "ai", { type: "Creature — Sliver" });
+    const s = stateWith([gal, muscle, bear], [foe]);
+    expect(permanentHasKeyword(s, "mus", "Flying")).toBe(true);   // other Sliver I control
+    expect(permanentHasKeyword(s, "gal", "Flying")).toBe(true);   // itself (no "other")
+    expect(permanentHasKeyword(s, "bear", "Flying")).toBe(false); // my non-Sliver
+    expect(permanentHasKeyword(s, "foe", "Flying")).toBe(false);  // opponent's Sliver ("you control")
   });
 });
 
