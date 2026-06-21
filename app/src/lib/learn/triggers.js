@@ -21,6 +21,7 @@ import {
   drawCards,
   opponentsOf,
   findPermanent,
+  creaturePower,
   logEvent,
 } from "./gameState.js";
 import { hasKeyword } from "./keywords.js";
@@ -209,6 +210,16 @@ function classifyCondition(condRaw, cardName, cardType) {
       const sub = subtypeM[1];
       return { event: "etb", scope: "subtypeYouControl", whose: "any", subtypeFilter: sub.charAt(0).toUpperCase() + sub.slice(1) };
     }
+  }
+
+  // ===== POWER-THRESHOLD ETB (Garruk's Uprising, Elemental Bond, Temur Ascendancy) ===== "a creature you
+  // control with power N or greater enters" — the "with" here is a SCOPE-EXPRESSIBLE restriction (the
+  // entering creature's layer-resolved power ≥ N, checked at ETB), UNLIKE the generic unmodeled "with <…>"
+  // (a +1/+1 counter / keyword) the FIX-TRIG-CONDITION guard below rejects. Carved out BEFORE that guard.
+  // "a creature" → creature-only (no land-entry concern). scopeMatches reads creaturePower(perm, state).
+  if (/\benters(?:\s+the battlefield)?\s*$/.test(c)) {
+    const powM = subjectBefore(c, "enters").match(/^a creature you control with power (\d+) or greater$/);
+    if (powM) return { event: "etb", scope: "creatureYouControlPower", whose: "any", powerThreshold: parseInt(powM[1], 10) };
   }
 
   // ===== COMPOUND-SUBJECT guard (CREED, CLAUDE.md §1.2; Rod QA #1 FIX-TRIG-CONDITION, the "or another"
@@ -521,6 +532,7 @@ export function detectTriggers(card) {
         spellFilter: cls.spellFilter,         // cast triggers only (undefined otherwise)
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
         subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF only (e.g. "Dinosaur" for Pantlaza)
+        powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
@@ -546,7 +558,7 @@ export function hasTriggerFor(card, event) {
 
 // ─── Matching ──────────────────────────────────────────────────────────────────
 
-function scopeMatches(descriptor, sourcePermanent, triggeringPermanent) {
+function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   switch (descriptor.scope) {
     case "self":
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;
@@ -582,6 +594,13 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent) {
         && triggeringPermanent.controller === sourcePermanent.controller
         && (triggeringPermanent.id === sourcePermanent.id
             || typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || ""));
+    case "creatureYouControlPower":
+      // POWER-THRESHOLD ETB — the entering creature you control with LAYER-RESOLVED power ≥ N (counters +
+      // anthems included; checkEnterTriggers fires after the permanent + its enters-with counters are on
+      // the battlefield, so creaturePower is accurate at ETB). `state` threaded through scopeMatches for this.
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && creaturePower(triggeringPermanent, state) >= (descriptor.powerThreshold || 0);
     default:
       return false;
   }
@@ -625,7 +644,7 @@ export function triggersForEvent(state, { event, sourcePermanent, triggeringPerm
   if (!descriptors.length) return [];
   const out = [];
   for (const d of descriptors) {
-    if (!scopeMatches(d, sourcePermanent, triggeringPermanent)) continue;
+    if (!scopeMatches(d, sourcePermanent, triggeringPermanent, state)) continue;
     if (d.whose === "yours" && sourcePermanent.controller !== state.activePlayer) continue;
     out.push(makePendingTrigger(d, sourcePermanent, triggeringPermanent, triggeringContext));
   }
