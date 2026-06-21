@@ -1638,6 +1638,12 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   // KWSTRIP-1 — drop a vacuous cast-keyword line (foretell / suspend / splice onto arcane / recover /
   // harmonize / basic landcycling) so the spell's BODY parses; the normal-cast resolution is identical.
   oracle = stripCastKeywordLines(oracle);
+  // ONCE-PER-TURN — "Do this only once each turn." is a FREQUENCY RESTRICTION the engine enforces at
+  // resolution via the `oncePerTurn` flag on the last atom. Strip it before parsing so the core effect
+  // (e.g., Pantlaza's discover) can classify HIGH; the flag is carried to the resolver, which sets a
+  // per-source-per-turn latch (state.onceTriggersFiredThisTurn) cleared at each untap step.
+  let oncePerTurnRestriction = false;
+  oracle = oracle.replace(/\.?\s*Do this only once each turn\.?\s*$/i, () => { oncePerTurnRestriction = true; return ""; }).trim();
 
   // Multi-sentence templates whose effect SPANS sentences (so the clause splitter below would shatter
   // them into unmatchable fragments) are matched up front as ONE atom, then any RIDER sentences that
@@ -1719,6 +1725,10 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.
     const seq = atoms.filter((a, i) => !(a.op === "shuffle" && atoms[i - 1]?.op === "tutor"));
+    // ONCE-PER-TURN: carry the frequency flag on the last atom so the resolver can gate.
+    if (oncePerTurnRestriction && seq.length > 0) {
+      seq[seq.length - 1] = { ...seq[seq.length - 1], oncePerTurn: true };
+    }
     const xSpell = seq.some(a => a.amountX || a.countX);
     return makeProgram({ confidence: "high", atoms: seq, xSpell, unparsedTail: null });
   }

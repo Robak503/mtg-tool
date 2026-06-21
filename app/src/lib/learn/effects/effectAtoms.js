@@ -1064,6 +1064,13 @@ function applyImpulseDigAtom(state, atom, ctx) {
  * serialized mid-discover restores intact.
  */
 function applyDiscoverAtom(state, atom, ctx) {
+  // ONCE-PER-TURN gate (Pantlaza "Do this only once each turn."): if this source has already
+  // triggered its discover this turn, suppress the effect (safe no-op — the trigger went on the
+  // stack and resolved, but the discover is skipped per the frequency restriction).
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_discover`;
+    if ((state.onceTriggersFiredThisTurn || {})[gateKey]) return state;
+  }
   const controller = ctx.controller;
   const player = state.players[controller];
   if (!player) return state;
@@ -1107,7 +1114,13 @@ function applyDiscoverAtom(state, atom, ctx) {
     },
   };
   if (found) next = { ...next, pendingDiscover: { controller, cardId: found.id, mv: tutorManaValue(found) } };
-  return logEvent(next, { kind: "spell-effect", effect: "discover", controller, x, found: !!found });
+  let result = logEvent(next, { kind: "spell-effect", effect: "discover", controller, x, found: !!found });
+  // Mark the once-per-turn latch (regardless of whiff) — the effect ran, so the gate is consumed.
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_discover`;
+    result = { ...result, onceTriggersFiredThisTurn: { ...(result.onceTriggersFiredThisTurn || {}), [gateKey]: true } };
+  }
+  return result;
 }
 
 /** Mill (CR 701.13) — "you mill N cards" (the controller), "each opponent mills N cards", or
@@ -1379,7 +1392,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
   "impulse-dig": applyImpulseDigAtom,
-  "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). NOT yet in the parser's KNOWN set (no card flips native until the full decision + targeting + Pantlaza land — CREED).
+  "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
   "mill": applyMill,
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
   "create-emblem": applyCreateEmblem, // ===== EMBLEM ===== (PW-5) "you get an emblem with '[modeled static]'"

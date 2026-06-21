@@ -1,11 +1,12 @@
 /**
- * DISCOVER engine (Dex, Pantlaza lane) — the reusable exile-top-until-nonland-MV<=N mechanic (LCI). This
- * file covers the RESOLVER in isolation (the exile loop, the random-bottom of the rest, the parked found
- * card). The cast-free-or-hand DECISION is resolved at the action layer (legalChoices free-cast + to-hand,
- * reusing the cast machinery via the actionDispatcher `freeCast` flag) and is wired/tested in a follow-up,
- * along with the parser flip + Pantlaza's "discover X = that creature's toughness, once per turn" trigger.
- * Until then `discover` is intentionally NOT in the parser's KNOWN set, so no card flips native (CREED — no
- * partial-model false positive while the engine is mid-build).
+ * DISCOVER engine + Pantlaza trigger (Dex, PANTLAZA lane).
+ *
+ * Covers: the exile-top-until-nonland-MV<=N resolver, the cast-free/to-hand action-layer decision,
+ * Pantlaza's three trigger pieces:
+ *   [a] subtype-ETB-self scope ("Whenever Pantlaza or another Dinosaur you control enters")
+ *   [b] discover X = that creature's toughness (triggeringPermanentId → layer-resolved toughness)
+ *   [c] once-per-turn gate ("Do this only once each turn")
+ * All pieces are required for Pantlaza to flip to native-trigger (CREED: model the WHOLE card).
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -13,10 +14,11 @@ import { createGameState, _resetIdsForTests } from "./gameState.js";
 import { resolveAtom } from "./effects/effectAtoms.js";
 import { legalActionsForPlayer, filterActions } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { resolveTopOfStack } from "./gameEngine.js";
+import { resolveTopOfStack, runStepActions } from "./gameEngine.js";
 import { pickAction } from "./opponentAI.js";
 import { parseEffectClause, programConfidence } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
+import { detectTriggers, checkEnterTriggers } from "./triggers.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -159,5 +161,106 @@ describe("discover X = that creature's toughness (Pantlaza piece [b])", () => {
     st = resolveAtom(st, { op: "discover", amountToughnessOfTrigger: true, targetType: null }, { controller: "user", triggeringPermanentId: "gone", targets: [] });
     expect(st.pendingDiscover).toBeFalsy(); // X=0 → no nonland with MV<=0 → whiff, nothing exiled
     expect(st.players.user.exile).toHaveLength(0);
+  });
+});
+
+// ─── Pantlaza piece [a] — subtype-ETB-self trigger scope ───────────────────────────────────────
+
+const PANTLAZA_ORACLE = "Whenever Pantlaza, Sun's Vanguard or another Dinosaur you control enters the battlefield, discover X, where X is that creature's toughness. Do this only once each turn.";
+const pantlazaCard = { name: "Pantlaza, Sun's Vanguard", type: "Legendary Creature — Dinosaur", oracle: PANTLAZA_ORACLE, mana: "{4}{R}{G}", power: "4", toughness: "4" };
+const dinoPerm = (id, t, controller = "user") => ({ id, controller, card: { name: `Dino-${id}`, type: "Creature — Dinosaur", oracle: "", power: "2", toughness: String(t), mana: `{${t}}` }, tapped: false, counters: {} });
+const beastPerm = (id, controller = "user") => ({ id, controller, card: { name: `Beast-${id}`, type: "Creature — Beast", oracle: "", power: "2", toughness: "2", mana: "{2}" }, tapped: false, counters: {} });
+
+describe("Pantlaza piece [a] — subtype-ETB-self trigger detection + scope", () => {
+  it("detectTriggers extracts one trigger from Pantlaza's oracle with scope subtypeYouControl and subtypeFilter Dinosaur", () => {
+    const trigs = detectTriggers(pantlazaCard);
+    expect(trigs).toHaveLength(1);
+    expect(trigs[0]).toMatchObject({ event: "etb", scope: "subtypeYouControl", subtypeFilter: "Dinosaur", whose: "any" });
+  });
+
+  it("the trigger's effectClause carries the toughness-discover + once-per-turn rider for the parser", () => {
+    const trigs = detectTriggers(pantlazaCard);
+    expect(trigs[0].effectClause).toMatch(/discover x, where x is that creature's toughness/i);
+    expect(trigs[0].effectClause).toMatch(/do this only once each turn/i);
+  });
+
+  it("checkEnterTriggers fires when a Dinosaur you control enters (including Pantlaza itself)", () => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const pantPerm = { id: "pant1", controller: "user", card: pantlazaCard, tapped: false, counters: {} };
+    const entering = dinoPerm("dino1", 3);
+    const state = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [pantPerm] } } };
+    const after = checkEnterTriggers({ ...state, players: { ...state.players, user: { ...state.players.user, battlefield: [pantPerm, entering] } } }, entering);
+    expect(after.pendingTriggers?.length).toBeGreaterThanOrEqual(1);
+    expect(after.pendingTriggers.some(t => t.descriptor?.scope === "subtypeYouControl")).toBe(true);
+  });
+
+  it("checkEnterTriggers does NOT fire when a non-Dinosaur creature you control enters", () => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const pantPerm = { id: "pant1", controller: "user", card: pantlazaCard, tapped: false, counters: {} };
+    const entering = beastPerm("beast1"); // Beast, not a Dinosaur
+    const state = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [pantPerm, entering] } } };
+    const after = checkEnterTriggers(state, entering);
+    // No subtypeYouControl trigger fired (Pantlaza doesn't trigger for non-Dinos)
+    expect((after.pendingTriggers || []).filter(t => t.descriptor?.scope === "subtypeYouControl")).toHaveLength(0);
+  });
+
+  it("Pantlaza self-ETB fires the trigger (it is itself a Dinosaur you control)", () => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const pantPerm = { id: "pant1", controller: "user", card: pantlazaCard, tapped: false, counters: {} };
+    const state = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [pantPerm] } } };
+    const after = checkEnterTriggers(state, pantPerm); // Pantlaza itself enters
+    expect(after.pendingTriggers?.some(t => t.descriptor?.scope === "subtypeYouControl")).toBe(true);
+  });
+
+  it("does NOT fire for an opponent's Dinosaur entering (scope restricted to you control)", () => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const pantPerm = { id: "pant1", controller: "user", card: pantlazaCard, tapped: false, counters: {} };
+    const oppDino = dinoPerm("d_opp", 3, "ai"); // Dinosaur but controlled by opponent
+    const state = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [pantPerm] }, ai: { ...s.players.ai, battlefield: [oppDino] } } };
+    const after = checkEnterTriggers({ ...state, players: { ...state.players, ai: { ...state.players.ai, battlefield: [oppDino] } } }, oppDino);
+    expect((after.pendingTriggers || []).filter(t => t.descriptor?.scope === "subtypeYouControl")).toHaveLength(0);
+  });
+});
+
+// ─── Pantlaza piece [c] — once-per-turn gate ───────────────────────────────────────────────────
+
+describe("Pantlaza piece [c] — once-per-turn gate + full card classification", () => {
+  it("parser strips 'Do this only once each turn' and yields HIGH discover atom with oncePerTurn:true", () => {
+    const prog = parseEffectClause("Discover X, where X is that creature's toughness. Do this only once each turn.", "Creature — Dinosaur");
+    expect(programConfidence(prog)).toBe("high");
+    expect(prog.atoms).toHaveLength(1);
+    expect(prog.atoms[0]).toMatchObject({ op: "discover", amountToughnessOfTrigger: true, oncePerTurn: true });
+  });
+
+  it("Pantlaza classifies as native-trigger (all three pieces modeled)", () => {
+    expect(classifyCard(pantlazaCard)).toBe("native-trigger");
+  });
+
+  it("applyDiscoverAtom with oncePerTurn:true skips if the gate is already set for this source", () => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const gateKey = "src1_discover";
+    const locked = { ...s, onceTriggersFiredThisTurn: { [gateKey]: true }, rngSeed: 1,
+      players: { ...s.players, user: { ...s.players.user, library: [creature("c1", "MV2", 2)], exile: [] } } };
+    const atom = { op: "discover", amount: 5, targetType: null, oncePerTurn: true };
+    const after = resolveAtom(locked, atom, { controller: "user", sourceId: "src1", targets: [] });
+    expect(after.pendingDiscover).toBeFalsy(); // gate was set → discover suppressed
+    expect(after.players.user.library).toHaveLength(1); // library untouched
+  });
+
+  it("applyDiscoverAtom with oncePerTurn:true sets the gate and allows the first discover to run", () => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const fresh = { ...s, rngSeed: 1,
+      players: { ...s.players, user: { ...s.players.user, library: [creature("c1", "Bolt", 1)], exile: [] } } };
+    const atom = { op: "discover", amount: 5, targetType: null, oncePerTurn: true };
+    const after = resolveAtom(fresh, atom, { controller: "user", sourceId: "src1", targets: [] });
+    expect(after.pendingDiscover).toMatchObject({ cardId: "c1" }); // first discover ran
+    expect(after.onceTriggersFiredThisTurn?.["src1_discover"]).toBe(true); // gate is now set
+  });
+
+  it("the once-per-turn gate is cleared at the start of each untap step", () => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const locked = { ...s, step: "untap", onceTriggersFiredThisTurn: { "src1_discover": true } };
+    const after = runStepActions(locked);
+    expect(after.onceTriggersFiredThisTurn).toEqual({}); // cleared
   });
 });

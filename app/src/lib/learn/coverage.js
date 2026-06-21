@@ -189,7 +189,12 @@ export function permanentTriggersCovered(card) {
   // Remove the trigger sentences (same anchored grammar detectTriggers uses); what's
   // left must be keyword-only/empty, or there's unmodeled activated/static text. Strip the ability-word
   // label first ("Landfall —"), else it survives the trigger-sentence strip as non-keyword residue.
-  const residue = stripTriggerAbilityLabel(card.oracle || "").replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ");
+  // Also strip the "Do this only once each turn." frequency rider — it's part of the trigger's effect
+  // (the parser models it via the oncePerTurn flag), but the trigger regex stops at the first period,
+  // leaving the rider as apparent residue (Pantlaza, Sun's Vanguard).
+  const residue = stripTriggerAbilityLabel(card.oracle || "")
+    .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
+    .replace(/\bDo this only once each turn\b\.?\s*/gi, " ");
   return isKeywordOnly(residue, card?.name);
 }
 

@@ -85,10 +85,23 @@ function isFollowupSentence(sentence) {
  * clause (CR 603.4) when present.
  */
 function splitTriggerSentence(inner) {
-  const firstComma = inner.indexOf(",");
-  if (firstComma === -1) return null;
-  const condition = inner.slice(0, firstComma).trim();
-  let rest = inner.slice(firstComma + 1).trim();
+  // EVENT_VERBS: verbs that appear in trigger CONDITIONS. If the text before the first comma
+  // lacks one, that comma is inside a card name ("Pantlaza, Sun's Vanguard or another Dinosaur
+  // you control enters …") — advance to the next comma that yields an event-verb condition.
+  const hasEventVerb = (s) => /\b(?:enters|dies|attacks|blocks|deals|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning)\b/.test(s);
+  let splitIdx = inner.indexOf(",");
+  if (splitIdx === -1) return null;
+  if (!hasEventVerb(inner.slice(0, splitIdx))) {
+    let pos = splitIdx + 1;
+    while (pos < inner.length) {
+      const next = inner.indexOf(",", pos);
+      if (next === -1) break;
+      if (hasEventVerb(inner.slice(0, next))) { splitIdx = next; break; }
+      pos = next + 1;
+    }
+  }
+  const condition = inner.slice(0, splitIdx).trim();
+  let rest = inner.slice(splitIdx + 1).trim();
   let interveningIf = null;
   if (/^if\b/i.test(rest)) {
     const nextComma = rest.indexOf(",");
@@ -170,6 +183,21 @@ function classifyCondition(condRaw, cardName) {
     if (/^(?:this [a-z]+|[a-z0-9',. -]+?) or another creature(?: you control)?$/.test(subj)
         && !/\b(?:or planeswalker|or artifact|or enchantment|or land|named|with|while|during|token|nontoken|that)\b/.test(subj)) {
       return { event: "dies", scope: /you control$/.test(subj) ? "creatureYouControl" : "eachCreature", whose: "any" };
+    }
+  }
+
+  // ===== SUBTYPE-ETB-SELF (Pantlaza family) — "NAME or another SUBTYPE you control enters" =====
+  // "Pantlaza, Sun's Vanguard or another Dinosaur you control enters the battlefield" = the union
+  // { self } ∪ { other SUBTYPEs you control } where self IS always a SUBTYPE (Pantlaza is a Dinosaur).
+  // That union = "a SUBTYPE you control enters" — so the scope maps faithfully to a type-filtered
+  // controller-scoped ETB. The subtype MUST be a single-word creature subtype checkable via typeStr;
+  // any multi-word, keyword, power, or named restriction falls through to the rejects below (Arbiter).
+  // ETB only — the DEATH-DRAIN carve-out above handles the dies analog.
+  if (selfRef && /\bor another\b/.test(c) && /\benters(?:\s+the battlefield)?\s*$/.test(c)) {
+    const subtypeM = subjectBefore(c, "enters").match(/\bor another ([a-z]+) you control\s*$/);
+    if (subtypeM) {
+      const sub = subtypeM[1];
+      return { event: "etb", scope: "subtypeYouControl", whose: "any", subtypeFilter: sub.charAt(0).toUpperCase() + sub.slice(1) };
     }
   }
 
@@ -454,10 +482,11 @@ export function detectTriggers(card) {
         event: cls.event,
         scope: cls.scope,
         whose: cls.whose,
-        spellFilter: cls.spellFilter,       // cast triggers only (undefined otherwise)
+        spellFilter: cls.spellFilter,         // cast triggers only (undefined otherwise)
+        subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF only (e.g. "Dinosaur" for Pantlaza)
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
-        sacScope: cls.sacScope,             // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
-        sacAnother: cls.sacAnother,         // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
+        sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
+        sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         effect: parseTriggerEffect(effectClause),
@@ -507,6 +536,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent) {
     case "enchantmentYouControl":
       // PERM-ENTERS enchantment — Enchantment Creature / Aura matches too; controller gate.
       return !!triggeringPermanent && /Enchantment/.test(triggeringPermanent.card?.type || triggeringPermanent.card?.type_line || "") && triggeringPermanent.controller === sourcePermanent.controller;
+    case "subtypeYouControl":
+      // SUBTYPE-ETB-SELF — "NAME or another SUBTYPE you control enters" (Pantlaza family). The entering
+      // permanent must carry the subtype in its type line AND be controlled by the source's controller.
+      return !!triggeringPermanent
+        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "")
+        && triggeringPermanent.controller === sourcePermanent.controller;
     default:
       return false;
   }

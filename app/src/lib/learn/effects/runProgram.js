@@ -59,7 +59,7 @@ function programAtoms(program, chosenMode) {
 
 export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
   const params = stackObject?.payload?.params || {};
-  const { program, controller, targets = [], xValue = null, sourceId = null } = params;
+  const { program, controller, targets = [], xValue = null, sourceId = null, context = {} } = params;
 
   // Low confidence (or absent program) → ZERO atoms, route to the Arbiter seam.
   if (programConfidence(program) === "low") {
@@ -85,7 +85,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
         },
       };
     }
-    const ctx = { controller, targets: targetsForAtom(targets, i), cardName, xValue, sourceId };
+    const ctx = { ...context, controller, targets: targetsForAtom(targets, i), cardName, xValue, sourceId };
     const after = resolveAtom(next, atom, ctx);
     if (after == null) {
       // Belt-and-braces: an atom with no resolver. programConfidence should have
