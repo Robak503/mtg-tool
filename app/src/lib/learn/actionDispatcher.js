@@ -55,6 +55,7 @@ import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers } from "./
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell } from "./ward.js";
 import { entersWithFadeCounters } from "./fading.js";
+import { applyXCastTokenTriggers } from "./xCastToken.js";
 
 export class DispatcherError extends Error {
   constructor(message, code) {
@@ -409,6 +410,10 @@ function applyCastSpell(state, action) {
   next = recordSpellCast(next, { playerId: action.playerId }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
   next = checkCastTriggers(next, { spellCard: card, casterId: action.playerId });
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
+  // ZAXARA X-CAST: casting a spell with {X} → each of the caster's "cast a spell with {X} → make a token
+  // with X +1/+1 counters" permanents makes its Hydra token (a real X/X). The general trigger compiler
+  // doesn't model the token-with-X effect, so it's a targeted hook reading the chosen X (action.xValue).
+  next = applyXCastTokenTriggers(next, { spellCard: card, casterId: action.playerId, xValue: action.xValue });
   // KW-WARD (CR 702.21): if this spell targets a single opponent-controlled ward permanent, the ward
   // triggers — counter the spell unless the caster pays the ward cost. Reuses the SOFT-COUNTER
   // pay-or-be-countered machinery (the pendingChoice decision + AI settle + UI + counter already exist),
