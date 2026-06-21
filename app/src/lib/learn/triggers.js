@@ -418,6 +418,26 @@ function classifyCondition(condRaw, cardName, cardType) {
   return null;
 }
 
+// CAST-SUBTYPE: single bare words in "cast a[n] <word> spell" that are NOT a permanent/spell SUBTYPE — a
+// type/supertype/category/ordinal/color that a word-bounded type-line match would NEVER fire on (claiming
+// native while the trigger silently never fires = a CREED false positive). Mirrors staticAbilityParser's
+// merged denylist convention (#338, NON_SUBTYPE_COST_FILTER_WORDS). Real subtypes (Elf, Dog, Dragon,
+// Adventure, Aura, Knight…) are never here. Kept local so triggers.js stays a leaf module.
+const NON_SUBTYPE_CAST_WORDS = new Set([
+  "instant", "sorcery", "artifact", "enchantment", "creature", "noncreature", "land", "planeswalker", "battle",
+  "historic", "legendary", "permanent", "spell", "colorless", "multicolored", "monocolored", "snow",
+  "nonland", "kindred", "tribal", "first", "second", "third", "another", "your", "this",
+  // COLORS — "cast a red/white/… spell" is a COLOR filter, never a type-line token, so subtype:Red would
+  // never fire → claiming native = FP (Dragon's Claw, the Gnarr/Duo cycles, Sol'kanar, Titania's Chosen).
+  // Caught by the corpus flip-diff. Color cast-triggers stay body-only → Arbiter until a color filter exists.
+  "white", "blue", "black", "red", "green",
+  // CAST-MODIFIERS / DEFINED TERMS — "a kicked spell" (kicker, Merfolk Falconer), "a LOUD spell" (a defined
+  // term, The Karfell Rocker) describe HOW a spell was cast / a named property, never a type-line subtype →
+  // would never fire → FP. Also flip-diff-caught. (The denylist is the codebase convention, #338; a future
+  // subtype-allowlist would make this airtight — deferred as infra.)
+  "kicked", "loud",
+]);
+
 /** Map the words between "cast a[n]" and "spell" to a MODELED spell filter, or null. */
 function castSpellFilter(text) {
   const f = String(text).trim();
@@ -427,7 +447,11 @@ function castSpellFilter(text) {
   if (f === "enchantment") return "enchantment"; // "Whenever you cast an enchantment spell" (enchantress payoffs)
   if (f === "creature") return "creature";
   if (f === "noncreature") return "noncreature";
-  return null; // color / subtype / "second" / historic / multicolored / … → unmodeled
+  // CAST-SUBTYPE — a single bare word that's a real subtype (not in the denylist) → match the cast spell's
+  // type line (Elf/Dog/Dragon/Adventure/Aura spells; tribal cast payoffs). A multi-word phrase, color, or
+  // denylisted word → null → undetected → Arbiter (a SAFE false-negative). Serialized as "subtype:Name".
+  if (/^[a-z]+$/.test(f) && !NON_SUBTYPE_CAST_WORDS.has(f)) return `subtype:${f.charAt(0).toUpperCase() + f.slice(1)}`;
+  return null; // color / multi-word / denylisted category → unmodeled
 }
 
 /**
@@ -952,6 +976,12 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
 /** Does the cast spell match a cast trigger's modeled spell-type filter? */
 function spellMatchesFilter(filter, spellCard) {
   const t = typeStr(spellCard);
+  // CAST-SUBTYPE — "subtype:Name" → the cast spell's type line carries that subtype (word-bounded so
+  // "Elf" doesn't match "Elfin…"; type lines are space/em-dash delimited so a bare \b is exact enough).
+  if (typeof filter === "string" && filter.startsWith("subtype:")) {
+    const sub = filter.slice(8);
+    return new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t);
+  }
   switch (filter) {
     case "any": return true;
     case "instantSorcery": return /Instant|Sorcery/.test(t);
