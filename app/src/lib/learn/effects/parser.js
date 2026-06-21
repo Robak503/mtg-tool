@@ -234,7 +234,7 @@ function splitClauses(oracle) {
     // trample until end of turn"), or grants several keywords ("gains flying and vigilance"),
     // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence
     // as one clause so parseExtendedAtom binds the pump + grant to the SAME target.
-    if (/^target creature (?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    if (/^target creature (?:(?:you control|an opponent controls) )?(?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // Overrun-style TEAM pump + keyword grant ("Creatures you control get +3/+3 and gain
     // trample until end of turn"): the " and " between the P/T bump and the grant is INTERNAL
     // to one team-pump instruction, not a top-level effect boundary. Keep the whole sentence so
@@ -929,6 +929,24 @@ function parseExtendedAtom(s) {
   if (pg) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  // PUMP-TGT-CTRL — "target creature you control / an opponent controls gets +N/+N [and gains KW]
+  // until end of turn" / "gains KW until end of turn". Encodes the controller restriction using the
+  // existing P2.4 restriction-array format ({ kind:"controller", who:"you"|"opponent" }), honored by
+  // enumerateTargets so only the controller's own creatures (or opponents') are legal targets.
+  // All-or-nothing anchored: an un-grantable keyword still drops the whole clause → low → Arbiter.
+  let pctrl = t.match(/^target creature (you control|an opponent controls) gets ([+-]\d+)\/([+-]\d+)(?: and gains (.+))? until end of turn$/);
+  if (pctrl) {
+    const who = pctrl[1] === "you control" ? "you" : "opponent";
+    const kws = pctrl[4] ? parseGrantedKeywords(pctrl[4]) : null;
+    if (pctrl[4] && !kws) return null; // un-grantable keyword → low → Arbiter
+    return { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: parseInt(pctrl[2], 10), t: parseInt(pctrl[3], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
+  pctrl = t.match(/^target creature (you control|an opponent controls) gains (.+) until end of turn$/);
+  if (pctrl) {
+    const who = pctrl[1] === "you control" ? "you" : "opponent";
+    const kws = parseGrantedKeywords(pctrl[2]);
+    return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
   // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
   // KW[ and KW]]" (Animate Land, Hydroform, Vivify; the "still a land" reminder already stripped above).
