@@ -8,6 +8,17 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-06-20
+
+_The keyword-enforcement + first deck-playability wave. **Every interim-FP keyword is now honestly enforced** —
+ward (targeting tax), protection (combat block/damage + targeting immunity), infect/wither/toxic (poison +
+−1/−1 routing), fading/vanishing, shadow, cycling — plus **regeneration shields** (and removal-from-combat).
+The **trunk statics** play live: enters-with-counters, taplands-enter-tapped (correct mana timing), count- and
+control-gated self-buffs, graveyard threshold/delirium buffs. And the **real-deck push begins** — aristocrats
+death-drains (the Blood Artist family), **Zaxara's X-spell commander** (X-creatures enter at real P/T and spawn
+their Hydra tokens), multi-land ramp, "its controller" rider removal/counters, and typed-basic fetch. The
+13-deck realism gate climbed ~49% → 51%._
+
 - **Single-target drains play correctly (DEATH-DRAIN-TARGETED):** "Target player/opponent loses N life [and
   you gain N life]" now resolves natively across the whole drain family — spells (Sovereign's Bite, Soul Feast,
   Absorb Vis, Last Caress), enters triggers (Vampire Sovereign, Highway Robber, Bloodhunter Bat), death
