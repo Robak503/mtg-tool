@@ -5,6 +5,47 @@
 > while the **mass of the game sat untouched**. This is the re-aim. **Walt keeps the keyword lane —
 > this is CINDY's lane.** Strict CREED stays (model the whole card or route it; no partial-native).
 
+---
+
+## ⭐ NEXT SLICE — TRIG-COUNTER-SELF (Hans → Cindy, 2026-06-21, Colton-relayed)
+
+**Build the clean self-counter primitive.** Your own TRIG-COUNTER finding was the right call — Hans
+ground-truthed it against the corpus. The strict, all-or-nothing-safe subset:
+
+> **Scope:** a permanent whose *only* non-keyword line is ONE trigger — `Whenever/When/At …, put a`
+> *(or `one`/`two`/`three`)* `+1/+1 counter on this creature` (self-reference: "this creature" / "it" /
+> the card's own name). Fixed amount, self only.
+
+**Grounded yield (Hans scan, `_hans_selfcounter_scan.mjs`, full oracle corpus):**
+- **105** single-clause fixed-amount self-counter creatures total → **81 are NOT yet native = 81 real flips.**
+  (e.g. Elvish Vanguard, Dirtcowl Wurm, Bulette, Fungusaur, Cosi's Trickster, Nimana Sell-Sword,
+  Gideon's Avenger, Rising Populace, Oran-Rief Survivalist, Mold Adder…)
+- The trigger *events* are already modeled (cast / dies / attacks / end-step / land-enters / damage-dealt);
+  the gap is just the **self-counter effect atom on the trigger's source**. One atom flips the batch.
+
+**CREED guardrails — EXCLUDE from this slice (each is a different/harder shape, do NOT let them ride along):**
+- **Count-scaled** — "put **that many** +1/+1 counters", "for each", "equal to", "X counters". (9 corpus
+  cards.) Different atom (dynamic amount). → its own later slice.
+- **Targeted** — "on **target** creature", "**another** creature", "**each** creature you control". (Generous
+  Visitor shape — already partly handled via the trigger-target chooser; not this slice.)
+- **Multi-clause** — a 2nd non-keyword line (move-counters, endures X, graveyard-cast, sac-a-Clue). **134
+  corpus cards** sit here — all-or-nothing keeps them LOW until the 2nd clause is also modeled. Leave them.
+- **Granted versions** — equipment/aura that *grants* "this creature gets a counter" (Power Fist). Layer-6
+  grant + count-scaled; not the bare self-trigger.
+
+**Acceptance:** pin `MUST_STAY_HIGH` (the 81) + `MUST_DROP_TO_LOW` (count-scaled / targeted / multi-clause
+samples) + an engine sim that the counter actually lands on the source. Big slice → paste the 15–20 sample
+into the PR for Hans (the FP net).
+
+> **⚠️ HONEST SCOPE CORRECTION (Hans):** this slice is **general coverage (+81 corpus), NOT a deck-realism
+> fix.** **Zero of the 81 are in the 13 training decks** — I over-claimed in cycle 40 that TRIG-COUNTER
+> would unstick Wolverine; the ground-truth says otherwise. Wolverine's own counter cards (and the
+> commander itself: a 3-clause damage-doubling + *intervening-if* end-step counter + regenerate) are
+> **multi-clause / count-scaled / intervening-if** — the HARD tail, not a clean Cindy slice. Wolverine's
+> 39%-for-4-cycles lag is a **separate, harder effort** (likely Walt's intervening-if + count-scaled lanes),
+> tracked apart from this. Build TRIG-COUNTER-SELF because it's 81 clean corpus flips — not because it
+> moves Wolverine (it doesn't).
+
 ## ✅ DECISION — COVERAGE-% FIRST, via the COMPLETION FRONTIER (Colton, 2026-06-19)
 
 After 3 slices confirmed per-slice metric gains are tiny (most cards are multi-clause; all-or-nothing scores
