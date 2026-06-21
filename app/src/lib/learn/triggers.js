@@ -329,6 +329,8 @@ function castSpellFilter(text) {
   const f = String(text).trim();
   if (f === "") return "any";                                  // "casts a spell"
   if (/^(?:instant|sorcery|instant or sorcery)$/.test(f)) return "instantSorcery";
+  if (f === "artifact") return "artifact";       // "Whenever you cast an artifact spell" (improvise/affinity payoffs)
+  if (f === "enchantment") return "enchantment"; // "Whenever you cast an enchantment spell" (enchantress payoffs)
   if (f === "creature") return "creature";
   if (f === "noncreature") return "noncreature";
   return null; // color / subtype / "second" / historic / multicolored / … → unmodeled
@@ -783,6 +785,8 @@ function spellMatchesFilter(filter, spellCard) {
     case "instantSorcery": return /Instant|Sorcery/.test(t);
     case "creature": return /Creature/.test(t);
     case "noncreature": return !/Creature/.test(t);
+    case "artifact": return /Artifact/.test(t);
+    case "enchantment": return /Enchantment/.test(t);
     default: return false;
   }
 }
