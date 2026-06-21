@@ -7,6 +7,45 @@
 > general DEX backlog). Personal deck URLs/lists are NOT in this repo — they live in local brain memory
 > (`deck_joe_roster.md`, `deck_*.md`).
 
+## 🔬 CLYDE VERIFICATION ADDENDUM (2026-06-20) — per-deck audit; plan needs scope rework
+
+A 13-agent per-deck audit (each independently measured real coverage + cross-checked this plan; workflow
+`wf_fb8182a0-2b3`) returned: **skeleton sound, scope incomplete.** 0 decks clean · 8 minor-corrections · 5
+major-issues (Vihaan, Rograkh/Thrasios, Toph, Ur-Dragon, Mothman). The structural miss:
+
+**🔴 ALL 13 COMMANDERS ARE NON-NATIVE, and the plan never scopes the commander engines as buildables.** In
+11/13 decks the commander is the single #1 gap; in 6+ NO bucket models it. P1–P8 cover the *support shells*
+(combat/counters/tokens/equipment/landfall) but not each deck's actual engine. → **Add a per-commander unlock lane.**
+
+**Demote (over-claimed — inflated decks-unblocked counts):** **P4** token-doubling → real beneficiaries
+Vihaan + Koma only (Slivers/Toph/Pantlaza have NO doublers); **P6** landfall → real Toph only (Koma/Zaxara/Omnath
+= 1 fringe card each). And a token DOUBLER with no native token SOURCE doubles zero — build the source first.
+
+**Add 5 missing buckets:** (1) death-trigger DRAIN / aristocrats (Vihaan, 9 cards + generalizes) · (2) tribal
+card-DRAW triggers (Slivers, Ur-Dragon) · (3) EARTHBEND / land-animation (Toph — WALT-ANIMATE multi-PR) · (4)
+RAD-COUNTER + MILL (Mothman — whole engine unmodeled) · (5) DRAGON-tribal triggers (Ur-Dragon) + damage/P-T
+DOUBLING replacements (Wolverine). Re-scope **P7** into an explicit per-commander lane; **split CAST-TRIGGER-VALUE
+(Kellan) out of discover/cascade** (Kellan is cast-from-non-hand, not cascade).
+
+**Drop (ALREADY NATIVE — wasted effort if built):** Heart/Horned/Talon/Winged/Muscle/Sinew Sliver · Vihaan's
+Pitiless Plunderer/Goldspan/Bastion/Elas/Dictate · Rog/Thras's entire mana base + Swan Song/Eternal Witness/Crop
+Rotation · Kellan's Nature's Lore/Counterspell/Swords · Captain America's Urza's Saga (**strike Cap from P8**).
+
+**↻ REVISED FIRST 3 (data-ranked, highest impact-per-effort):**
+1. **DEATH-TRIGGER DRAIN** (Cindy) — one event-hook ("creature dies → each opp loses N / you gain N" + edict-on-death);
+   flips 6+ Vihaan drains (Blood Artist/Cruel Celebrant/Zulaport/Marionette/Agent/Grave Pact) in one slice AND
+   generalizes to every aristocrats deck. Pulls Vihaan out of major-issues for the least effort. **← new #1.**
+2. **COMMANDER UPKEEP/ETB TOKEN-SOURCE + DISCOVER** (Cindy/Walt) — Pantlaza (Discover, the cleanest commander match
+   in the set), Koma (upkeep Serpent — also makes the P4 doublers actually function), Zaxara token half.
+3. **ENTERS-WITH-X COUNTERS + X-ON-STACK** (Walt) — Zaxara commander + ~7 hydras that currently resolve as 0/0 and
+   die to SBA; pair with the Zaxara X-spell→Hydra trigger (same X-tracking).
+
+**P1 (green combat, 7 decks) stays the confirmed cross-deck #1** and is already shipping (#314 OVERRUN-X). CREED:
+**P7 tribal-grant + P2b/P4 replacement lanes remain highest-risk** — large-sample review before merge (Walt's
+#315 already hardened the tribal selector, FPs 18→0). Full per-deck verdicts in the workflow transcript.
+
+---
+
 ## ⚠️ Retraction — no training-set deck is incomplete
 
 An earlier scope flagged three of Joe's decks as sub-100 ("needs finishing"): Toph (81), Wolverine (85),
