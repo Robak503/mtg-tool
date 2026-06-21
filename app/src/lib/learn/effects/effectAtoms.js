@@ -23,7 +23,7 @@ import {
 } from "../spellEffects.js";
 import { addContinuousEffect, permanentIsCreature } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addPoison, addExperience, addRadCounters, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower, creatureToughness } from "../gameState.js";
-import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../triggers.js";
+import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLifegainTriggers, checkSacrificeTriggers, checkLandfallTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
@@ -484,7 +484,14 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
     } },
   };
   next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: playerId });
-  return { state: checkEnterTriggers(next, perm), entered: true };
+  // ETB fires for any entry; LANDFALL (CR 614) ALSO fires when the entering permanent is a LAND — a
+  // RAMP/fetch that puts a land onto the battlefield (Cultivate, Rampant Growth, Kodama's Reach) is a
+  // landfall event, not just an ETB. Without this, landfall payoffs (Lotus Cobra, Tatyova, Rampaging
+  // Baloths) silently miss every ramp-fetched land. checkLandfallTriggers self-gates via isLandPerm, so a
+  // reanimated/fetched CREATURE never fires it — only a land does. (Sibling of the play-land ETB fix.)
+  next = checkEnterTriggers(next, perm);
+  next = checkLandfallTriggers(next, perm);
+  return { state: next, entered: true };
 }
 
 function applyReanimate(state, atom, ctx) {
