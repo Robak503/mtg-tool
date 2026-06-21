@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Multi-color creature token creation now modeled (TOKEN-BARE-MULTICOLOR):** "create a 1/1 green
+  and white Citizen creature token" (Courier's Briefcase, Elder Auntie, Rakish Revelers, Darling of
+  the Masses, Mascot Exhibition, Spirit Summoning, Warm Welcome, Forbidden Friendship, Bestial
+  Menace, Elemental Summoning, + more) and the optional upkeep form ("you may create a …") were
+  both parsed as LOW because the sentence splitter cut the multi-color descriptor at the internal
+  " and " before the create-token regex could match. A new guard keeps bare "create … creature
+  token" and "you may create … creature token" sentences intact. Single-color forms and "with"/
+  "for each" forms are unchanged. **+16 cards** (18.9% → 19.0%).
+
 - **"Each opponent discards a card" trigger effect modeled (EACHOP-DISCARD):** non-targeted mass
   discard aimed at all opponents (Burglar Rat, Noxious Toad, Cackling Fiend, Liliana's Specter,
   Elderfang Disciple, Elvish Doomsayer, Virus Beetle, + more) is now a first-class effect atom
