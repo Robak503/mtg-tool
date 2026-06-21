@@ -232,8 +232,10 @@ describe("parseEffectProgram — life atoms (P2.7)", () => {
     expect(parseEffectProgram(I("You draw two cards and lose 2 life.")).atoms.map(a => a.op)).toEqual(["draw", "lose-life"]);
   });
   it("keeps wrong-subject / unmodeled-dynamic life low (anchored allowlist holds)", () => {
-    // a DIFFERENT player gains/loses — not the bare controller form.
-    expect(programConfidence(parseEffectProgram(I("Target player loses 2 life.")))).toBe("low");
+    // DEATH-DRAIN-TARGETED — "target player/opponent loses N life" is now MODELED (HIGH, enemy-side like
+    // damage). A COMPOUND whose OTHER half is unmodeled (the bare "loses 2 life" sub-clause, no subject) still
+    // drops the whole program to low (all-or-nothing).
+    expect(programConfidence(parseEffectProgram(I("Target player loses 2 life.")))).toBe("high");
     expect(programConfidence(parseEffectProgram(I("Target player draws two cards and loses 2 life.")))).toBe("low");
     // NOTE: a CONTROLLER count-scaled life ("for each creature you control" / "equal to the number of …")
     // is now MODELED by FOR-EACH (WALT-FOR-EACH) → HIGH (pinned there). A count source we DON'T model still
@@ -1240,8 +1242,9 @@ describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + AD
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, discard a card.\nDraw cards equal to the discarded card's mana value.")))).toBe("low"); // self-ref / cost-scaled effect
   });
   it("MUST DROP TO LOW: a sac cost whose REMAINING effect is itself unmodeled (all-or-nothing)", () => {
-    // The sac cost is clean, but "Target player loses N life" is not a modeled atom → the whole card is LOW.
-    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice a creature.\nTarget player loses 2 life.")))).toBe("low");
+    // The sac cost is clean, but a SCALED drain ("loses life equal to …") is not a modeled atom → LOW.
+    // (The numeric "Target player loses N life" is now modeled by DEATH-DRAIN-TARGETED; the scaled form isn't.)
+    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice a creature.\nTarget player loses life equal to the number of creatures you control.")))).toBe("low");
   });
 });
 

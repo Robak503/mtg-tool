@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Single-target drains play correctly (DEATH-DRAIN-TARGETED):** "Target player/opponent loses N life [and
+  you gain N life]" now resolves natively across the whole drain family — spells (Sovereign's Bite, Soul Feast,
+  Absorb Vis, Last Caress), enters triggers (Vampire Sovereign, Highway Robber, Bloodhunter Bat), death
+  triggers (**Blood Artist**, Falkenrath Noble, Vengeful Bloodwitch), draw triggers (Queza), activated
+  abilities (Bloodrite Invoker, Cackling Imp), and lands (Piranha Marsh). **34 cards.** Targeted life-loss is
+  enemy-side like targeted damage — the AI always drains an opponent, never itself. Vihaan's realism gate
+  **58% → 59%** (Blood Artist). A scaled drain ("loses life equal to …") stays on the Arbiter (CREED).
+
 - **Aristocrats death-drains play correctly (DEATH-DRAIN):** "Whenever this creature or another creature
   [you control] dies, …" (Zulaport Cutthroat, Butcher of Malakir, Warteye Witch) now fires natively — that
   compound subject is the union { self } ∪ { other creatures [you control] } = exactly "a creature [you

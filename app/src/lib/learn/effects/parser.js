@@ -667,6 +667,14 @@ function parseExtendedAtom(s) {
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "controller", targetType: null };
   m = t.match(/^each opponent loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  // DEATH-DRAIN-TARGETED — "target player/opponent loses N life" (Blood Artist, Falkenrath Noble, Vengeful
+  // Bloodwitch, the aristocrats single-target drain). Like targeted DAMAGE (atomTargetIntent → "enemy"), a
+  // life-LOSS aimed at a target is never self-directed — draining yourself is strictly bad — so the trigger-
+  // flush chooser always picks an opponent (no self-drain hazard). who:"target" + a chosen player targetType
+  // so the cast path enumerates a player target and the resolver reads it from ctx.targets (mirrors the
+  // targeted-draw atom). Numeric N only; a "for each"/scaled/rider variant fails the `$` anchor → Arbiter.
+  m = t.match(/^target (player|opponent) loses (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[2], 10), who: "target", targetType: m[1] };
   // ===== EACH-PLAYER ===== (EP-3) symmetric life loss — "Each player loses N life" (Crushing
   // Disappointment, Bad Deal). NON-targeted (who:eachPlayer, no targetType), so it resolves the same
   // on a spell or a trigger — no first-legal self-target hazard. A "for each …" rider (Stronghold
@@ -1786,6 +1794,12 @@ export function atomTargetIntent(atom) {
     case "exile":
     case "counter":
     case "tap":
+      return "enemy";
+    case "lose-life":
+      // DEATH-DRAIN-TARGETED — "target player/opponent loses N life" is enemy-side like targeted damage:
+      // draining yourself is strictly bad, so the trigger-flush chooser always picks an opponent (no
+      // self-drain hazard — unlike the edict's "target player", which could self-sac). Non-targeted lose-life
+      // (each/controller) has no targetType and already returned null above.
       return "enemy";
     case "sacrifice":
       // An edict aimed at "target opponent" is unambiguously enemy-side — the α1 flush chooser
