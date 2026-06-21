@@ -5,12 +5,18 @@
 > and ship PRs that **Clyde** (the orchestrator) merges. **Hans** keeps your board stocked and fixes false
 > positives after merge.
 >
-> **🔀 LANE RE-CARVE (Colton, 2026-06-19):** you own **everything NON-keyword** — (1) finish the **Commander
-> framework** (CMD-CAST ✅ → CMD-RETURN ✅ → CMD-DMG21 → CMD-PARTNER → CMD-COMPANION), then (2) the **general
-> (non-keyword) trigger-effect compiler** grind (~5,267 trigger cards — the corpus spine) + the remaining clean
-> atoms. **You own the trigger-compiler CORE + the command-zone cast path**; Walt's keyword-trigger (Wave B) +
-> alt-cost (Wave C) waves ADAPT off your core. Walt now owns the 702.x keyword backlog. See the board's LANE
-> ASSIGNMENT section.
+> **🎯 REDIRECTED to the 13 DECKS (Colton, 2026-06-21 — supersedes the 06-19 non-keyword carve):** all three
+> builders are now on the **13 local decks** (Colton's 6 + Joe's 7). Your **general-corpus / trigger-compiler /
+> completion-frontier lane is PAUSED, not deleted** — it resumes once the 13 are coverage-complete. **Current
+> claim: (1) VIHAAN token-SOURCE + sacrifice/death-drain triggers** (build the token source before doublers),
+> then **(2) THE WISE MOTHMAN rad-counter + mill engine** (zero builder, lowest deck). Apply your trigger-compiler
+> strength **deck-scoped** — it still generalizes.
+>
+> **⚠️ DECK-ALIGNMENT GATE (standing):** every PR must cite a **specific 13-deck card** it unblocks (grep vs
+> `memory/deck_*.md` + `memory/deck_joe_roster.md`). **Counter / proliferate / keyword-grant / equipment /
+> generic-trigger work is GUILTY UNTIL PROVEN** — Clyde will PARK (not merge) a general-corpus PR built on a
+> post-redirect base. Coordinate via Clyde: **Dex** = Pantlaza/Wolverine/Koma staples; **Walt** = Toph
+> land-animate/landfall; **you** = Vihaan aristocrats + Mothman rad-mill. Order: `memory/orders/cindy.md`.
 
 ---
 
@@ -136,9 +142,12 @@ Work ONLY in my own `.claude/worktrees/<id>`. Confirm `git rev-parse --show-topl
 
 ## 9. Current state
 
-- `master` @ **fd047fb** · corpus **17.0%** native · v0.39.0 cut · board has ripe TRIG-* compiler sub-rows
-  (TRIG-SCRY ~33, TRIG-TREASURE ~45, TRIG-COUNTER ~28, TRIG-DRAW, TRIG-MONARCH ~18) — the highest-lever
-  unclaimed work, path proven by TRIG-PUMP-1 (#238).
+- `master` @ **c11e39a** · corpus **~19%** native · v0.46.0 published · **🎯 LANE = the 13-deck grind** (see the
+  redirect blockquote at the top). General-corpus / TRIG-* / completion-frontier is PAUSED. **Current claim:
+  VIHAAN token-source + sacrifice/death-drain, then THE WISE MOTHMAN rad-counter + mill.** Every PR cites a
+  specific 13-deck card or Clyde parks it. (#332 EACHOP-DISCARD was the last pre-redirect general PR merged;
+  #334 COUNTER-TARGET-OWN was PARKED 2026-06-21 as general-corpus on a post-redirect base — the manual was the
+  gap, now fixed.)
 
 > **Onboarding first:** before I build anything, Colton and I walk through this role together until I fully get
 > it, and I commit my understanding to memory (`project_cindy_builder_faculty`). Only then do I start pulling tasks.
