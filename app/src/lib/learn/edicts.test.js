@@ -339,15 +339,18 @@ describe("ED-2 trigger path — a non-targeted each-player/each-opponent sac rou
     expect(classifyCard({ type: "Creature — Horror", name: "Abyssal Gatekeeper", oracle: "When this creature dies, each player sacrifices a creature of their choice." })).toBe("native-trigger");
     expect(classifyCard({ type: "Enchantment", name: "Dictate of Erebos", oracle: "Flash\nWhenever a creature you control dies, each opponent sacrifices a creature of their choice." })).toBe("native-trigger");
   });
-  // CREED — the ED-2 effect atom EXPOSED a pre-existing trigger-condition false positive (Rod QA #1
-  // FIX-TRIG-CONDITION): a COMPOUND-SUBJECT condition "this creature or another creature you control dies"
-  // (Butcher of Malakir) would be read as self-only, dropping "or another" → the edict mis-fires. The
-  // compound-subject guard in classifyCondition routes it to the Arbiter instead (a SAFE false-negative).
-  it("a compound-subject 'this OR ANOTHER creature you control dies' edict trigger is NOT native (→ Arbiter)", () => {
+  // DEATH-DRAIN — the compound-subject condition "this creature or another creature you control dies" is the
+  // creature union { self } ∪ { others you control } = exactly "a creature you control dies", now mapped to
+  // that scope (it was routed to the Arbiter by the old "or another" guard). The death-edict (Butcher) and the
+  // bare drain (Zulaport-class) both resolve through the SAME path as Dictate of Erebos. "each other player
+  // sacrifices" ≡ "each opponent sacrifices" (Grave Pact). See deathDrainTriggers.test.js.
+  it("a compound-subject 'this OR ANOTHER creature you control dies' edict/drain IS native (DEATH-DRAIN)", () => {
     const butcher = { type: "Creature — Vampire Warrior", name: "Butcher of Malakir", oracle: "Flying\nWhenever this creature or another creature you control dies, each opponent sacrifices a creature of their choice." };
-    expect(classifyCard(butcher)).not.toBe("native-trigger");
-    // and the same compound subject on a bare death trigger (Zulaport-class) also routes to the Arbiter
+    expect(classifyCard(butcher)).toBe("native-trigger");
     const zulaportish = { type: "Creature — Human Cleric", name: "Drainer-ish", oracle: "Whenever this creature or another creature you control dies, each opponent loses 1 life and you gain 1 life." };
-    expect(classifyCard(zulaportish)).not.toBe("native-trigger");
+    expect(classifyCard(zulaportish)).toBe("native-trigger");
+    // a Grave-Pact-style 'each other player' death-edict is the same eachOpponent sacrifice
+    const gravePact = { type: "Enchantment", name: "Grave Pact", oracle: "Whenever a creature you control dies, each other player sacrifices a creature of their choice." };
+    expect(classifyCard(gravePact)).toBe("native-trigger");
   });
 });

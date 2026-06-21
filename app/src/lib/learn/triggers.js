@@ -139,6 +139,25 @@ function classifyCondition(condRaw, cardName) {
     .filter((re) => re.test(c)).length;
   if (eventVerbs >= 2) return null;
   if (/\b(?:and|or)\s+when(?:ever)?\b/i.test(c)) return null; // an embedded second trigger clause
+
+  // ===== DEATH-DRAIN — compound self-subject, creature UNION (carve-out BEFORE the "or another" rejects) =====
+  // "this creature/<name> or another creature [you control] dies" is the union { self } ∪ { other creatures
+  // [you control] } = EXACTLY the bare "a creature [you control] dies" event (CR 603.6e) — so it maps to the
+  // very scope+effect path Bastion of Remembrance / Dictate of Erebos already resolve natively (aristocrats
+  // drains: Blood Artist, Zulaport Cutthroat, Butcher of Malakir, …). The general guards below reject all
+  // "or another" (a partial-fire risk in the open-ended case); this recognizes ONLY the clean creature-only
+  // union and maps it to the equivalent enforceable scope. CREED: the subject must reduce EXACTLY to the
+  // creature union — ANY extra type ("or planeswalker"/"or artifact"), keyword, power, or named/with/while/
+  // during restriction falls through to the reject and stays on the Arbiter (Cruel Celebrant's "or
+  // planeswalker" half is intentionally NOT modeled here). Dies only — the etb union stays deferred.
+  if (selfRef && /\bdies\b/.test(c) && /\bor another creature\b/.test(c)) {
+    const subj = subjectBefore(c, "dies");
+    if (/^(?:this [a-z]+|[a-z0-9',. -]+?) or another creature(?: you control)?$/.test(subj)
+        && !/\b(?:or planeswalker|or artifact|or enchantment|or land|named|with|while|during|token|nontoken|that)\b/.test(subj)) {
+      return { event: "dies", scope: /you control$/.test(subj) ? "creatureYouControl" : "eachCreature", whose: "any" };
+    }
+  }
+
   // ===== COMPOUND-SUBJECT guard (CREED, CLAUDE.md §1.2; Rod QA #1 FIX-TRIG-CONDITION, the "or another"
   // sub-case) ===== A single-event condition that names a SECOND subject after the self — "this creature
   // OR ANOTHER creature you control dies/enters" (Butcher of Malakir, Zulaport Cutthroat, Cruel Celebrant)

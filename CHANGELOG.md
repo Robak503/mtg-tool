@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Aristocrats death-drains play correctly (DEATH-DRAIN):** "Whenever this creature or another creature
+  [you control] dies, …" (Zulaport Cutthroat, Butcher of Malakir, Warteye Witch) now fires natively — that
+  compound subject is the union { self } ∪ { other creatures [you control] } = exactly "a creature [you
+  control] dies", so it resolves on the same path Bastion of Remembrance / Dictate of Erebos already use.
+  Plus "each **other player** sacrifices a creature" ≡ "each opponent sacrifices" (Grave Pact's death-edict).
+  Vihaan's realism gate (non-land native) **56% → 58%** (+2 of its drains). The TARGETED drain ("target player
+  loses N life" — Blood Artist) and the "or planeswalker" union (Cruel Celebrant) stay on the Arbiter for a
+  follow-up slice (CREED — never a partial fire).
+
 - **Graveyard-gated buffs play correctly (GATED-GY — threshold & delirium):** "This creature gets +X/+Y
   [and has &lt;keyword&gt;] as long as there are seven or more cards in your graveyard" (**threshold** — Krosan
   Beast, Nimble Mongoose, Springing Tiger…) and "…four or more card types among cards in your graveyard"

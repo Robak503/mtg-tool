@@ -1094,7 +1094,10 @@ function parseExtendedAtom(s) {
   // untested optional+sacrifice-chain composition — deferred to keep that pin LOW. See parser.test.js.)
   m = t.match(/^each player sacrifices a creature(?: of (?:their|his or her) choice)?$/);
   if (m) return { op: "sacrifice", who: "eachPlayer", what: "creature" };
-  m = t.match(/^each opponent sacrifices a creature(?: of (?:their|his or her) choice)?$/);
+  // "each opponent" and "each other player" are the SAME sacrificer set (every player but the controller) in
+  // FFA / 1v1 — Grave Pact / Butcher of Malakir's death-edict. Both → eachOpponent (the resolver's non-self
+  // each-sacrifice path). CR: "another player" / "other player" = any player who isn't you.
+  m = t.match(/^each (?:opponent|other player) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
   if (m) return { op: "sacrifice", who: "eachOpponent", what: "creature" };
   // ===== FOG ===== (FOG-1, CR 615 prevention) — "Prevent all combat damage that would be dealt this
   // turn" (Fog, Darkness, Holy Day, Root Snare). A turn-scoped one-shot latch: the resolver stamps the
