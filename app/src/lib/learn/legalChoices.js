@@ -33,6 +33,7 @@ import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameStat
 import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf } from "./layers.js";
+import { collectCostReducers, costReductionForSpell } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -357,6 +358,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   const player = state.players[playerId];
   const actions = [];
 
+  // STATIC-COST-REDUCTION: the subtype cost-reducers this player controls, gathered ONCE (the battlefield
+  // is invariant across the loop). Skipped for a free-cast (it pays no mana). costReductionForSpell matches
+  // each castable card's type line against them below. CR 601.2f.
+  const costReducers = freeCast ? [] : collectCostReducers((player.battlefield || []).map((p) => p.card));
+
   for (const card of cards) {
     if (isLand(card)) continue;
 
@@ -375,6 +381,12 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     } else {
       const tax = taxFn ? taxFn(card) : 0;
       if (tax) cost = { ...cost, generic: (cost.generic || 0) + tax };
+      // STATIC-COST-REDUCTION (CR 601.2f): subtype reducers ("Dragon spells you cast cost {2} less to cast"
+      // — Dragonspeaker Shaman) reduce the GENERIC portion only, floored at {0}. Applied AFTER the commander
+      // tax (both adjust the cost to pay) and BEFORE affordability + the {X} branch, so an X-spell's base is
+      // reduced before {X} is added. printedCmc (the mana value) is untouched (CR 202.3).
+      const reduction = costReductionForSpell(costReducers, card);
+      if (reduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
     }
     // Castable if the pool PLUS what untapped lands/rocks/dorks could produce
     // covers the cost — the dispatcher auto-taps to pay. (Pool-only would
