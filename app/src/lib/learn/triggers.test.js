@@ -270,3 +270,66 @@ describe("flushTriggers — N-seat APNAP (CR 603.3b)", () => {
     expect(out.stack[0].payload.resolver).toBe("trigger.effect");
   });
 });
+
+// ===== ANOTHER-SUBTYPE ETB — PR TRIG-COND (otherSubtypeYouControl / otherSubtypeAnywhere) =====
+describe("detectTriggers — ANOTHER-SUBTYPE ETB", () => {
+  it("detects 'another <Subtype> you control enters' as otherSubtypeYouControl", () => {
+    const t = detectTriggers(creature("Youthful Valkyrie", "Whenever another Angel you control enters, put a +1/+1 counter on this creature."));
+    expect(t).toHaveLength(1);
+    expect(t[0]).toMatchObject({ event: "etb", scope: "otherSubtypeYouControl", subtypeFilter: "Angel" });
+  });
+
+  it("detects 'another <Subtype> enters' (no you-control) as otherSubtypeAnywhere", () => {
+    const t = detectTriggers(creature("Elvish Vanguard", "Whenever another Elf enters, put a +1/+1 counter on this creature."));
+    expect(t).toHaveLength(1);
+    expect(t[0]).toMatchObject({ event: "etb", scope: "otherSubtypeAnywhere", subtypeFilter: "Elf" });
+  });
+
+  it("detects 'another Artifact you control enters' (card type via typeStr)", () => {
+    const t = detectTriggers(creature("Glaze Fiend", "Whenever another artifact you control enters, this creature gets +2/+2 until end of turn."));
+    expect(t).toHaveLength(1);
+    expect(t[0]).toMatchObject({ event: "etb", scope: "otherSubtypeYouControl", subtypeFilter: "Artifact" });
+  });
+
+  it("leaves NON_SUBTYPE_ETB_WORDS (outlaw/creature/permanent) UNDETECTED", () => {
+    // "outlaw" is a CR-defined umbrella term, not a type-line token → FP if claimed native
+    expect(detectTriggers(creature("Vial Smasher", "Whenever another outlaw you control enters, deal 1 damage to target opponent."))).toHaveLength(0);
+    // "creature" routes via creatureSubjectScope — still detected but as a DIFFERENT scope (eachOtherCreature / otherCreatureYouControl)
+    const cr = detectTriggers(creature("Soul Warden", "Whenever another creature enters the battlefield, you gain 1 life."));
+    expect(cr[0].scope).toBe("eachOtherCreature");
+    expect(cr[0].scope).not.toBe("otherSubtypeAnywhere");
+  });
+});
+
+describe("triggersForEvent — ANOTHER-SUBTYPE ETB scope matching", () => {
+  const state = { ...createGameState({ userDeck: [], aiDeck: [] }), activePlayer: "user" };
+
+  it("otherSubtypeYouControl fires for your non-self creature with the subtype", () => {
+    const valkyrie = perm(creature("Youthful Valkyrie", "Whenever another Angel you control enters, put a +1/+1 counter on this creature."), "user", "valk");
+    const angel = perm(creature("Other Angel", "", { type: "Creature — Angel" }), "user", "angel");
+    const fired = triggersForEvent(state, { event: "etb", sourcePermanent: valkyrie, triggeringPermanent: angel });
+    expect(fired).toHaveLength(1);
+  });
+
+  it("otherSubtypeYouControl does NOT fire for opponent's creature of the subtype", () => {
+    const valkyrie = perm(creature("Youthful Valkyrie", "Whenever another Angel you control enters, put a +1/+1 counter on this creature."), "user", "valk");
+    const enemyAngel = perm(creature("Enemy Angel", "", { type: "Creature — Angel" }), "ai", "eangel");
+    expect(triggersForEvent(state, { event: "etb", sourcePermanent: valkyrie, triggeringPermanent: enemyAngel })).toHaveLength(0);
+  });
+
+  it("otherSubtypeYouControl does NOT self-trigger even if source has the subtype", () => {
+    const valk = perm(creature("Youthful Valkyrie", "Whenever another Angel you control enters, put a +1/+1 counter on this creature.", { type: "Creature — Angel Warrior" }), "user", "valk");
+    // Valkyrie IS an Angel — but "another" means self-entry should NOT fire
+    expect(triggersForEvent(state, { event: "etb", sourcePermanent: valk, triggeringPermanent: valk })).toHaveLength(0);
+  });
+
+  it("otherSubtypeAnywhere fires for any player's creature with the subtype (not self)", () => {
+    const vanguard = perm(creature("Elvish Vanguard", "Whenever another Elf enters, put a +1/+1 counter on this creature."), "user", "van");
+    const elf = perm(creature("AI Elf", "", { type: "Creature — Elf Druid" }), "ai", "aelf");
+    const myElf = perm(creature("My Elf", "", { type: "Creature — Elf Warrior" }), "user", "melf");
+    expect(triggersForEvent(state, { event: "etb", sourcePermanent: vanguard, triggeringPermanent: elf })).toHaveLength(1);
+    expect(triggersForEvent(state, { event: "etb", sourcePermanent: vanguard, triggeringPermanent: myElf })).toHaveLength(1);
+    // Self-entry: Elvish Vanguard IS an Elf — but "another" excludes self
+    expect(triggersForEvent(state, { event: "etb", sourcePermanent: vanguard, triggeringPermanent: vanguard })).toHaveLength(0);
+  });
+});

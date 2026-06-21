@@ -259,6 +259,18 @@ function classifyCondition(condRaw, cardName, cardType) {
   // exact text before the event verb.
   if (/\benters\b/.test(c) && !/\benters (the battlefield )?(tapped|with|as)\b/.test(c)) {
     if (selfRef) return { event: "etb", scope: "self", whose: "any" };
+    // ANOTHER-SUBTYPE ETB — "another <type/subtype> [you control] enters" (Elvish Vanguard / Youthful Valkyrie /
+    // Arcbound Crusher families). A single-word type that typeStr can enforce; NON_SUBTYPE_ETB_WORDS rejects
+    // supertypes, meta words, and colors whose typeStr check would silently never fire (CREED FP guard).
+    // "creature" stays in the denylist → falls through to creatureSubjectScope below (existing handling).
+    // "artifact" / "enchantment" / "land" are NOT in the denylist — typeStr includes them literally.
+    const etbSubj = subjectBefore(c, "enters");
+    const anotherSubM = etbSubj.match(/^another ([a-z]+)(?: you control)?$/);
+    if (anotherSubM && !NON_SUBTYPE_ETB_WORDS.has(anotherSubM[1])) {
+      const sub = anotherSubM[1].charAt(0).toUpperCase() + anotherSubM[1].slice(1);
+      const youControl = /you control$/.test(etbSubj.trim());
+      return { event: "etb", scope: youControl ? "otherSubtypeYouControl" : "otherSubtypeAnywhere", whose: "any", subtypeFilter: sub };
+    }
     const scope = creatureSubjectScope(subjectBefore(c, "enters"));
     if (scope) return { event: "etb", scope, whose: "any" };
   }
@@ -460,6 +472,20 @@ const NON_SUBTYPE_CAST_WORDS = new Set([
   // never fire → a do-nothing native = FP (Hans, cycle 44 — the denylist leaked; concrete proof the
   // subtype-allowlist infra is worth building).
   "alliterative",
+]);
+
+// ANOTHER-SUBTYPE ETB: words that are NOT a creature subtype or permanents type — type/supertype/meta words
+// whose typeStr inclusion check would never fire (claiming native while the trigger silently never fires = FP).
+// "artifact", "enchantment", "land" are intentionally OMITTED — typeStr covers them faithfully
+// ("Artifact", "Enchantment", "Land" appear literally in type lines). "creature" routes via creatureSubjectScope.
+const NON_SUBTYPE_ETB_WORDS = new Set([
+  "creature", "permanent", "spell", "planeswalker", "battle",
+  "historic", "legendary", "colorless", "snow", "nonland", "noncreature",
+  "nontoken", "token", "nonlegendary",
+  "white", "blue", "black", "red", "green", // colors (never in type line)
+  "another", "your", "this", "that", "each", "every",
+  // CR-defined umbrella terms — not type-line tokens; typeStr check would silently never fire (FP).
+  "outlaw", // CR 203.4c: {Assassin, Mercenary, Pirate, Rogue, Warlock}
 ]);
 
 /** Map the words between "cast a[n]" and "spell" to a MODELED spell filter, or null. */
@@ -669,6 +695,20 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
         && (typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "")
             || (triggeringPermanent.id === sourcePermanent.id
                 && typeStr(sourcePermanent.card).includes(descriptor.subtypeFilter || "")));
+    case "otherSubtypeYouControl":
+      // "another <SUBTYPE> you control enters" (Youthful Valkyrie / Champion of the Perished family).
+      // Fires when a non-self permanent the source's controller controls carries the subtype in its type line.
+      // Unlike subtypeYouControl (Pantlaza — "NAME or another SUBTYPE"), this NEVER self-triggers (id check).
+      return !!triggeringPermanent
+        && triggeringPermanent.id !== sourcePermanent.id
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "");
+    case "otherSubtypeAnywhere":
+      // "another <SUBTYPE> enters" — no controller restriction (Elvish Vanguard / Kavu Monarch / Arcbound Crusher).
+      // Fires when any permanent from any controller carries the subtype, excluding the source itself.
+      return !!triggeringPermanent
+        && triggeringPermanent.id !== sourcePermanent.id
+        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "");
     case "creatureYouControlPower":
       // POWER-THRESHOLD ETB — the entering creature you control with LAYER-RESOLVED power ≥ N (counters +
       // anthems included; checkEnterTriggers fires after the permanent + its enters-with counters are on
