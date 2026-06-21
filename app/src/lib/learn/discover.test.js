@@ -15,6 +15,7 @@ import { resolveAtom } from "./effects/effectAtoms.js";
 import { legalActionsForPlayer, filterActions } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack, runStepActions, flushTriggers } from "./gameEngine.js";
+import { resolveOptionalChoice } from "./effects/runProgram.js";
 import { enterPermanent } from "./resolvers.js";
 import { pickAction } from "./opponentAI.js";
 import { parseEffectClause, programConfidence } from "./effects/parser.js";
@@ -182,10 +183,13 @@ describe("discover X = that creature's toughness (Pantlaza piece [b])", () => {
 
 // ─── Pantlaza piece [a] — subtype-ETB-self trigger scope ───────────────────────────────────────
 
-// The EXACT real LCI printed oracle — modern bare "enters" (no "the battlefield"). Pinning the real form
-// guards the actual corpus card; the detection also accepts the older "enters the battlefield" phrasing.
-const PANTLAZA_ORACLE = "Whenever Pantlaza, Sun's Vanguard or another Dinosaur you control enters, discover X, where X is that creature's toughness. Do this only once each turn.";
-const pantlazaCard = { name: "Pantlaza, Sun's Vanguard", type: "Legendary Creature — Dinosaur", oracle: PANTLAZA_ORACLE, mana: "{4}{R}{G}", power: "4", toughness: "4" };
+// The EXACT real LCI printed oracle for Pantlaza, Sun-Favored (verified against the bundled Scryfall data).
+// Note: self-reference by the SHORT name "Pantlaza" (CR 201.4, the part before the comma), the OPTIONAL
+// "you may discover", and the bare "enters". Pinning the real form guards the actual corpus commander —
+// an earlier draft modeled a misremembered "Sun's Vanguard" / mandatory-discover variant that did NOT
+// match this card (the short-name self-ref went undetected → body-only). Reminder text stripped by the parser.
+const PANTLAZA_ORACLE = "Whenever Pantlaza or another Dinosaur you control enters, you may discover X, where X is that creature's toughness. Do this only once each turn.";
+const pantlazaCard = { name: "Pantlaza, Sun-Favored", type: "Legendary Creature — Dinosaur", oracle: PANTLAZA_ORACLE, mana: "{2}{R}{G}{W}", power: "4", toughness: "4" };
 const dinoPerm = (id, t, controller = "user") => ({ id, controller, card: { name: `Dino-${id}`, type: "Creature — Dinosaur", oracle: "", power: "2", toughness: String(t), mana: `{${t}}` }, tapped: false, counters: {} });
 const beastPerm = (id, controller = "user") => ({ id, controller, card: { name: `Beast-${id}`, type: "Creature — Beast", oracle: "", power: "2", toughness: "2", mana: "{2}" }, tapped: false, counters: {} });
 
@@ -237,6 +241,38 @@ describe("Pantlaza piece [a] — subtype-ETB-self trigger detection + scope", ()
     const state = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [pantPerm] }, ai: { ...s.players.ai, battlefield: [oppDino] } } };
     const after = checkEnterTriggers({ ...state, players: { ...state.players, ai: { ...state.players.ai, battlefield: [oppDino] } } }, oppDino);
     expect((after.pendingTriggers || []).filter(t => t.descriptor?.scope === "subtypeYouControl")).toHaveLength(0);
+  });
+});
+
+// ─── SHORT-NAME self-reference (CR 201.4) — the fix that detects Pantlaza's real oracle ─────────
+// A legendary card refers to itself by the part of its name before the first comma ("Pantlaza" for
+// "Pantlaza, Sun-Favored"). Without this, the real card's self-trigger went UNDETECTED → body-only.
+// The fix is GENERAL (corpus flip-diff: +11 legends correctly flip native-trigger, 0 regressions).
+describe("short-name self-reference (CR 201.4)", () => {
+  const detect = (name, type, oracle) => detectTriggers({ name, type, oracle, mana: "{3}" });
+
+  it("detects a legend's self-trigger templated with its SHORT name (real Pantlaza shape)", () => {
+    const t = detect("Pantlaza, Sun-Favored", "Legendary Creature — Dinosaur",
+      "Whenever Pantlaza or another Dinosaur you control enters, you may discover X, where X is that creature's toughness. Do this only once each turn.");
+    expect(t.map(x => x.scope)).toContain("subtypeYouControl");
+  });
+
+  it("detects a plain short-name self ETB ('When Cao Ren enters, you lose 3 life')", () => {
+    const t = detect("Cao Ren, Wei Commander", "Legendary Creature — Human Soldier", "When Cao Ren enters, you lose 3 life.");
+    expect(t.some(x => x.event === "etb" && x.scope === "self")).toBe(true);
+  });
+
+  it("CREED: a NON-legendary comma-named card gets NO short-name self-ref (avoids common-word over-match)", () => {
+    // "Fear" is a keyword + a common word; only legends use the comma-shortname convention, so a
+    // non-legendary "Fear, ..." must NOT treat "Fear" as a self-reference.
+    const t = detect("Fear, Whatever", "Creature — Horror", "Whenever Fear or another creature you control enters, draw a card.");
+    expect(t.filter(x => x.scope === "subtypeYouControl" || x.scope === "self")).toHaveLength(0);
+  });
+
+  it("a too-short legend short name (< 3 chars) is not used as a self-ref (guard)", () => {
+    // Hypothetical guard case — a 2-char first name can't anchor a self-ref (over-match risk).
+    const t = detect("Ix, the Hidden", "Legendary Creature — Horror", "Whenever Ix or another creature you control enters, draw a card.");
+    expect(t.filter(x => x.scope === "subtypeYouControl").length).toBe(0);
   });
 });
 
@@ -314,6 +350,14 @@ describe("Pantlaza — END-TO-END engine sim (the full play-out)", () => {
   }
   // A Dinosaur card to ENTER (toughness drives X). Distinct id/name so enterPermanent mints a fresh perm.
   const dinoCard = (t) => ({ id: `dino-card-${t}`, name: `Raptor ${t}`, type: "Creature — Dinosaur", oracle: "", power: "1", toughness: String(t), mana: `{${t}}` });
+  // Resolve the on-stack trigger, then ACCEPT the optional "you may discover" (CR — the real card is
+  // optional). resolveTopOfStack runs the effect program; the optional discover atom suspends with a
+  // pendingChoice, which resolveOptionalChoice(true) settles → the discover atom runs (parks or gates).
+  function resolveTriggerAndDiscover(st) {
+    st = resolveTopOfStack(st);
+    if (st.pendingChoice?.kind === "optional-effect") st = resolveOptionalChoice(st, true);
+    return st;
+  }
 
   it("Dino enters → discover fires with X = its toughness → found card parked for the decision", () => {
     // Library: a creature MV4 on top (discover-able by a toughness-5 Dino), a land, a creature MV2.
@@ -322,7 +366,7 @@ describe("Pantlaza — END-TO-END engine sim (the full play-out)", () => {
     expect(st.pendingTriggers?.length).toBeGreaterThanOrEqual(1);
     st = flushTriggers(st, {});                             // trigger → stack (effect-program payload)
     expect(st.stack.some((o) => o.kind === "triggered-ability")).toBe(true);
-    st = resolveTopOfStack(st);                             // resolve the trigger → discover X=5 runs
+    st = resolveTriggerAndDiscover(st);                     // resolve trigger + accept "you may" → discover X=5 runs
     // X=5 → first nonland with MV<=5 is "Stomper" (MV4). It is parked in exile + pendingDiscover.
     expect(st.pendingDiscover).toMatchObject({ controller: "user", cardId: "found", mv: 4 });
     expect(st.players.user.exile.map((c) => c.name)).toEqual(["Stomper"]);
@@ -333,7 +377,7 @@ describe("Pantlaza — END-TO-END engine sim (the full play-out)", () => {
     let st = pantlazaState([creature("found", "Free Beast", 3)]);
     st = enterPermanent(st, dinoCard(4), "user");
     st = flushTriggers(st, {});
-    st = resolveTopOfStack(st); // discover X=4 → Free Beast (MV3) parked
+    st = resolveTriggerAndDiscover(st); // discover X=4 → Free Beast (MV3) parked
     expect(st.pendingDiscover).toMatchObject({ cardId: "found" });
     // Resolve the cast-free decision at the action layer.
     const cast = filterActions(legalActionsForPlayer(st, "user"), "cast-spell")[0];
@@ -349,17 +393,18 @@ describe("Pantlaza — END-TO-END engine sim (the full play-out)", () => {
     // First Dino: discover fires, parks "First".
     st = enterPermanent(st, dinoCard(3), "user");
     st = flushTriggers(st, {});
-    st = resolveTopOfStack(st);
+    st = resolveTriggerAndDiscover(st);
     expect(st.pendingDiscover).toMatchObject({ cardId: "f1" });
     // Resolve that decision (put in hand) so pendingDiscover clears.
     const toHand = legalActionsForPlayer(st, "user").find((a) => a.kind === "discover-to-hand");
     st = dispatchAction(st, toHand);
     expect(st.pendingDiscover).toBeFalsy();
-    // Second Dino SAME turn: the trigger still fires + goes on the stack, but the discover is gated off.
+    // Second Dino SAME turn: the trigger still fires + goes on the stack, the optional may be accepted,
+    // but the discover effect is gated off (CR — "do this only once each turn").
     st = enterPermanent(st, dinoCard(3), "user");
     st = flushTriggers(st, {});
     const hadTrigger = st.stack.some((o) => o.kind === "triggered-ability");
-    st = resolveTopOfStack(st);
+    st = resolveTriggerAndDiscover(st);
     expect(hadTrigger).toBe(true);            // the trigger DID fire (gate is on the effect, not the trigger)
     expect(st.pendingDiscover).toBeFalsy();   // but no new discover — gate blocked it
     expect(st.players.user.exile).toHaveLength(0); // nothing exiled the second time
@@ -369,7 +414,7 @@ describe("Pantlaza — END-TO-END engine sim (the full play-out)", () => {
     let st = pantlazaState([creature("t1", "TurnOne", 2), creature("t2", "TurnTwo", 2)]);
     st = enterPermanent(st, dinoCard(3), "user");
     st = flushTriggers(st, {});
-    st = resolveTopOfStack(st);
+    st = resolveTriggerAndDiscover(st);
     const toHand = legalActionsForPlayer(st, "user").find((a) => a.kind === "discover-to-hand");
     st = dispatchAction(st, toHand);
     expect(st.onceTriggersFiredThisTurn?.["pant1_discover"]).toBe(true);
@@ -380,7 +425,19 @@ describe("Pantlaza — END-TO-END engine sim (the full play-out)", () => {
     // only library card left is "t2" — finding it proves the gate reopened (not a stale block).
     st = enterPermanent(st, dinoCard(3), "user");
     st = flushTriggers(st, {});
-    st = resolveTopOfStack(st);
+    st = resolveTriggerAndDiscover(st);
     expect(st.pendingDiscover).toMatchObject({ cardId: "t2" }); // discovers again next turn
+  });
+
+  it("declining the optional 'you may discover' does nothing (no exile, no decision) but consumes nothing extra", () => {
+    let st = pantlazaState([creature("x1", "Decline Me", 2)]);
+    st = enterPermanent(st, dinoCard(3), "user");
+    st = flushTriggers(st, {});
+    st = resolveTopOfStack(st);                       // trigger resolves → optional suspends
+    expect(st.pendingChoice?.kind).toBe("optional-effect");
+    st = resolveOptionalChoice(st, false);           // DECLINE the discover
+    expect(st.pendingDiscover).toBeFalsy();           // no discover happened
+    expect(st.players.user.exile).toHaveLength(0);    // nothing exiled
+    expect(st.players.user.library.map((c) => c.name)).toEqual(["Decline Me"]); // library untouched
   });
 });
