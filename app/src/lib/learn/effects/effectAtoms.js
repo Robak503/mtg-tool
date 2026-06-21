@@ -176,6 +176,7 @@ export function applyCreateToken(state, atom, ctx) {
   // so a 0/0 token with counters survives as a real N/N instead of dying immediately (CR 704.5f).
   const ewc = atom.entersWithCounters;
   const counterN = ewc ? Math.max(0, ewc.countX ? (ctx.xValue || 0) : (ewc.amount || 0)) : 0;
+  const mintedIds = [];
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
     next = minted.state;
@@ -184,8 +185,19 @@ export function applyCreateToken(state, atom, ctx) {
     if (counterN > 0) perm = { ...perm, counters: { ...perm.counters, [ewc.type || "+1/+1"]: (perm.counters?.[ewc.type || "+1/+1"] || 0) + counterN } };
     const player = next.players[ctx.controller];
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
+    mintedIds.push(minted.id);
   }
-  // A 0/0 token with no other effect dies immediately (CR 704.5f) — run the lethal SBA.
+  // ETB (CR 603.6a) — a created token ENTERS, so it fires "enters" triggers: its own (rare) plus every
+  // watcher (Soul Warden / Impact Tremors / Cathars' Crusade) AND the subtype-ETB scopes (Pantlaza off a
+  // created Dinosaur). Fired here, per token, BEFORE the lethal SBA (the token entered before a 0/0 dies).
+  // Without this, token creation silently bypassed every creature-ETB trigger — a core gap (see issue #345).
+  // No real card loops (create-token → "creature enters" → create-token is unprinted) and the session's
+  // 1000-tick cap backstops any pathological case; checkEnterTriggers only ENQUEUES (the flush is later).
+  for (const id of mintedIds) {
+    const found = findPermanent(next, id);
+    if (found?.permanent) next = checkEnterTriggers(next, found.permanent);
+  }
+  // A 0/0 token with no other effect dies immediately (CR 704.5f) — run the lethal SBA (after ETB enqueue).
   const r = destroyLethalCreatures(next);
   next = checkDiesTriggers(r.state, r.dead);
   return logEvent(next, { kind: "spell-effect", effect: "create-token", count, power: atom.power, toughness: atom.toughness, controller: ctx.controller });
