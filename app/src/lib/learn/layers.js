@@ -129,9 +129,26 @@ const DELIRIUM_TYPE_RES = [
   ["instant", "instant"], ["land", "land"], ["planeswalker", "planeswalker"], ["sorcery", "sorcery"],
   ["tribal", "tribal"], ["kindred", "tribal"],
 ].map(([word, key]) => [new RegExp(`\\b${word}\\b`), key]);
+// GATED-GY-EXT: "permanent card" (Descend 4, CR 700.3) = any card whose type line includes one
+// of the permanent card types (creature, artifact, enchantment, land, battle, planeswalker).
+// "Permanent" is NOT a type line word; we match by the presence of any permanent type instead.
+const PERMANENT_TYPE_RE = /\b(?:creature|artifact|enchantment|land|battle|planeswalker)\b/i;
 function countGraveyardSpec(state, perm, spec) {
   const gy = state?.players?.[perm?.controller]?.graveyard || [];
-  if (spec.kind === "cardsInGraveyard") return gy.length;
+  if (spec.kind === "cardsInGraveyard") {
+    if (!spec.cardType) return gy.length; // bare threshold: all cards
+    // GATED-GY-EXT: typed count — cardType "Permanent" (Descend 4) or "instantOrSorcery" (Ghitu style).
+    // "Permanent" = any permanent card type (creature/artifact/enchantment/land/battle/planeswalker, CR 700.3).
+    if (spec.cardType === "Permanent") {
+      return gy.filter((c) => PERMANENT_TYPE_RE.test(typeLineOf(c).split("—")[0])).length;
+    }
+    if (spec.cardType === "instantOrSorcery") {
+      return gy.filter((c) => /\b(?:instant|sorcery)\b/i.test(typeLineOf(c).split("—")[0])).length;
+    }
+    // Generic single-type filter (e.g., "creature cards") — matches the card-type word in the type line.
+    const typeRe = new RegExp(`\\b${spec.cardType}\\b`, "i");
+    return gy.filter((c) => typeRe.test(typeLineOf(c).split("—")[0])).length;
+  }
   const seen = new Set();
   for (const card of gy) {
     const head = typeLineOf(card).split("—")[0].toLowerCase(); // types/supertypes, before any subtypes

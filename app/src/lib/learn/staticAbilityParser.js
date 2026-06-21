@@ -259,19 +259,23 @@ function emitGatedKeywords(out, kwPhrase, quant, typePhrase) {
 
 const GY_NUMWORD = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
 /**
- * GATED-GY — recognize a graveyard-COUNT gate in a (label-stripped, lowercased) clause; return
- * { gate, match } | null. Two NARROW, UNTYPED shapes only (matched word-for-word against real Oracle text):
- *   "as long as there are <N> or more cards in your graveyard"                  → cardsInGraveyard   (threshold)
+ * GATED-GY / GATED-GY-EXT — recognize a graveyard-COUNT gate in a (label-stripped, lowercased)
+ * clause; return { gate, match } | null.
  *   "as long as there are <N> or more card types among cards in your graveyard" → cardTypesInGraveyard (delirium)
- * Every TYPED variant — "creature cards", "permanent cards", "instant and/or sorcery cards", "mana values among
- * cards", "a land card" — is DELIBERATELY not matched (its "or more" isn't followed by a bare "cards", or it
- * isn't "card types among"), so it stays LOW (Arbiter); a typed graveyard count is a separate, larger mechanic.
- * Delirium is tried FIRST (its string also ends in "cards in your graveyard"). `match` is the exact gate
- * substring so the caller strips precisely it and keeps the effect. layers.gateMet evaluates the countSpec.
+ *   "as long as there are <N> or more cards in your graveyard"                  → cardsInGraveyard   (threshold)
+ *   "as long as there are <N> or more permanent cards in your graveyard"        → cardsInGraveyard + cardType:"Permanent" (Descend 4)
+ *   "as long as there are <N> or more instant and/or sorcery cards in your graveyard" → cardsInGraveyard + cardType:"instantOrSorcery"
+ * Delirium is tried FIRST (its string also ends in "cards in your graveyard"). Typed forms before the
+ * bare threshold so "permanent cards" / "instant and/or sorcery cards" don't spuriously match the bare
+ * "cards" anchor. `match` is the exact gate substring; the caller strips it and keeps the effect text.
  */
 function parseGraveyardGate(clause) {
   let m = clause.match(/as long as there (?:are|is) (\w+) or more card types? among cards in your graveyard/);
   if (m) { const n = GY_NUMWORD[m[1]] ?? parseInt(m[1], 10); if (n > 0) return { gate: { countSpec: { kind: "cardTypesInGraveyard" }, atLeast: n, excludeSelf: false }, match: m[0] }; }
+  m = clause.match(/as long as there (?:are|is) (\w+) or more permanent cards in your graveyard/);
+  if (m) { const n = GY_NUMWORD[m[1]] ?? parseInt(m[1], 10); if (n > 0) return { gate: { countSpec: { kind: "cardsInGraveyard", cardType: "Permanent" }, atLeast: n, excludeSelf: false }, match: m[0] }; }
+  m = clause.match(/as long as there (?:are|is) (\w+) or more instant (?:and\/or|or) sorcery cards in your graveyard/);
+  if (m) { const n = GY_NUMWORD[m[1]] ?? parseInt(m[1], 10); if (n > 0) return { gate: { countSpec: { kind: "cardsInGraveyard", cardType: "instantOrSorcery" }, atLeast: n, excludeSelf: false }, match: m[0] }; }
   m = clause.match(/as long as there (?:are|is) (\w+) or more cards in your graveyard/);
   if (m) { const n = GY_NUMWORD[m[1]] ?? parseInt(m[1], 10); if (n > 0) return { gate: { countSpec: { kind: "cardsInGraveyard" }, atLeast: n, excludeSelf: false }, match: m[0] }; }
   return null;
@@ -282,7 +286,7 @@ function parseGraveyardGate(clause) {
  * "[this creature] has <kw>…" — gated on `gate`. Gate-SOURCE-AGNOSTIC: the same emitter serves the GATED-GY
  * graveyard-count gate (and could serve the control gate). STRICT (CREED): the effect must reduce EXACTLY to a
  * P/T buff and/or grantable keyword(s); ANY leftover text (a quoted triggered ability, "is black", "can't
- * block", a non-grantable keyword like menace) means real text would be silently dropped, so the WHOLE clause
+ * block", a quoted trigger/activated ability) means real text would be silently dropped, so the WHOLE clause
  * emits nothing and the card stays LOW. P/T → layer-7c ptModifyGated; each keyword → layer-6 gated addKeyword;
  * all carry the SAME gate object so they turn on/off together under layers.gateMet.
  */
@@ -429,11 +433,11 @@ function parseClause(clause, out) {
     gm = c.match(new RegExp(`^as long as ${GATE}, (?:this creature|it) has (.+)$`));
     if (gm) { emitGatedKeywords(out, gm[3], gm[1], gm[2]); return; }
     // ── GATED-GY: a self P/T buff and/or keyword grant gated on a GRAVEYARD count (threshold / delirium) ──
-    // Strip the flavor ability-word label first (CR 207.2c — "Threshold —" / "Delirium —" carry no rules
-    // meaning), find the graveyard-count gate, then emit the gated effect via the shared emitter (a rider →
-    // nothing → LOW). Both clause orders work: the gate can trail ("… gets … as long as …") or lead ("As long
-    // as …, this creature gets …"). The control-gate matchers above never fire here (they need "you control").
-    const gyClause = c.replace(/^(?:threshold|delirium)\s*[—–-]\s*/, "");
+    // Strip the flavor ability-word label first (CR 207.2c — "Threshold —" / "Delirium —" / "Descend N —"
+    // carry no rules meaning), find the graveyard-count gate, then emit via the shared emitter (a rider →
+    // nothing → LOW). Both clause orders work: the gate can trail or lead. The control-gate matchers above
+    // never fire here (they need "you control"). GATED-GY-EXT: "Descend N" added to the strip.
+    const gyClause = c.replace(/^(?:threshold|delirium|descend \d+)\s*[—–-]\s*/, "");
     const gy = parseGraveyardGate(gyClause);
     if (gy) {
       const eff = gyClause.replace(gy.match, "").replace(/^[\s,]+|[\s,]+$/g, "");

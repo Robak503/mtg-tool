@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Menace/fear grantable + typed GY gates + Descend N label (GATED-GY-EXT):** menace and fear
+  are now in `GRANTABLE_STATIC_KEYWORDS` / `GRANTABLE_COMBAT_KEYWORDS` — the engine enforces them
+  via `attackerHasMenace` / `canBlockAttacker` / `permanentHasKeyword`, so delirium-gated menace
+  (Thraben Foulbloods, Hound of the Farbogs), control-gated menace (Summit Apes), counter-payoff
+  menace anthems, menace auras (Madcap Skills), and combat-trick menace grants all flip native.
+  "Permanent cards in your graveyard" typed GY gate added (Basking Capybara, Frilled Cave-Wurm,
+  Echo of Dusk). "Instant and/or sorcery cards" typed GY gate added (Ghitu Lavarunner,
+  Spelleater Wolverine). Descend N ability-word label now stripped. **+36 cards**.
+
 - **"Each opponent discards a card" trigger effect modeled (EACHOP-DISCARD):** non-targeted mass
   discard aimed at all opponents (Burglar Rat, Noxious Toad, Cackling Fiend, Liliana's Specter,
   Elderfang Disciple, Elvish Doomsayer, Virus Beetle, + more) is now a first-class effect atom

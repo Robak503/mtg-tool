@@ -184,10 +184,10 @@ describe("REVIEW FIX — granted keywords are honored at runtime (no partial app
     // With granted haste, the summoning-sick dork is now a legal mana source.
     expect(filterActions(legalActionsForPlayer(s, "user"), "tap-for-mana").some(a => a.permanentId === "dork")).toBe(true);
   });
-  it("an Aura granting Menace is NOT native — Menace isn't enforced, so it routes to the Arbiter (no silent no-op)", () => {
+  it("an Aura granting Menace IS native — Menace is enforced via permanentHasKeyword/attackerHasMenace (GATED-GY-EXT)", () => {
     const MENACE = { id: "c-men", name: "Madcap Skills", type: "Enchantment — Aura", mana: "{1}{R}", oracle: "Enchant creature\nEnchanted creature gets +3/+0 and has menace." };
-    expect(isNativeAura(MENACE)).toBe(false);
-    expect(classifyCard(MENACE)).toBe("body-only");
+    expect(isNativeAura(MENACE)).toBe(true);
+    expect(classifyCard(MENACE)).toBe("native-aura");
   });
 });
 

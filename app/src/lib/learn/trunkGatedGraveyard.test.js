@@ -6,7 +6,8 @@
  * live as the graveyard fills. The flavor ability-word label ("Threshold —"/"Delirium —", CR 207.2c) is
  * stripped; both clause orders (gate-leads / gate-trails) parse. CREED: only UNTYPED card / card-type counts
  * with a CLEAN P/T-and-grantable-keyword effect flip — a typed count ("creature cards", "mana values"), a
- * rider ("and can't block", menace, a quoted trigger), or a non-grantable keyword stays LOW (Arbiter).
+ * rider ("and can't block", a quoted trigger), or a non-grantable keyword stays LOW (Arbiter). "Permanent
+ * cards" typed GY gates and menace-gated statics are handled by GATED-GY-EXT (gatedGYExtended.test.js).
  *
  * Delirium counts CARD TYPES only (CR 205.2a) — supertypes (Legendary/Snow/Basic) do NOT count, and
  * kindred ≡ tribal (one type, renamed) never double-counts.
@@ -45,23 +46,23 @@ describe("GATED-GY — coverage flips (threshold + delirium, real cards)", () =>
   it("delirium pure-keyword grant flips native", () => {
     expect(classifyCard({ type: "Creature — Spirit", name: "Moorland Drifter", mana: "{1}{U}", oracle: "Delirium — This creature has flying as long as there are four or more card types among cards in your graveyard." })).toMatch(/^native/);
   });
+  it("delirium P/T + menace (GATED-GY-EXT: menace now grantable) flips native", () => {
+    expect(classifyCard({ type: "Creature — Zombie Dog", name: "Thraben Foulbloods", mana: "{2}{B}", oracle: "Delirium — This creature gets +1/+1 and has menace as long as there are four or more card types among cards in your graveyard." })).toMatch(/^native/);
+  });
 });
 
-describe("GATED-GY — CREED: typed counts, riders, and non-grantable keywords stay LOW", () => {
+describe("GATED-GY — CREED: typed counts and non-grantable riders stay LOW", () => {
   const descns = (oracle) => parseStaticAbilities({ name: "X", type: "Creature — Beast", power: 2, toughness: 2, oracle });
-  it("a TYPED graveyard count is NOT modeled (separate, larger mechanic)", () => {
+  it("a TYPED graveyard count is NOT modeled (creature cards / mana values — not 'permanent cards', which GATED-GY-EXT models)", () => {
     expect(descns("As long as there are two or more creature cards in your graveyard, this creature gets +2/+1.")).toEqual([]);
     expect(descns("This creature gets +3/+3 as long as there is a land card in your graveyard.")).toEqual([]);
     expect(descns("As long as there are five or more mana values among cards in your graveyard, this creature gets +2/+2.")).toEqual([]);
-    expect(descns("This creature gets +3/+0 as long as there are four or more permanent cards in your graveyard.")).toEqual([]);
   });
   it("a rider riding alongside the gated P/T drops the WHOLE clause (no silent partial)", () => {
-    expect(descns("Threshold — This creature gets +1/+1 and has menace as long as there are seven or more cards in your graveyard.")).toEqual([]); // menace not grantable
     expect(descns("As long as there are seven or more cards in your graveyard, this creature gets +2/+2 and can't block.")).toEqual([]);
     expect(descns("Threshold — As long as there are seven or more cards in your graveyard, this creature gets +1/+1, is black, and has \"{2}{B}, {T}: Destroy target green creature.\"")).toEqual([]);
   });
-  it("the same cards stay body-only end-to-end", () => {
-    expect(classifyCard({ type: "Creature — Zombie Dog", name: "Thraben Foulbloods", mana: "{2}{B}", oracle: "Delirium — This creature gets +1/+1 and has menace as long as there are four or more card types among cards in your graveyard." })).toBe("body-only");
+  it("the same cards stay body-only end-to-end (typed creature-cards gate remains unmodeled)", () => {
     expect(classifyCard({ type: "Creature — Vampire", name: "Killmonger", mana: "{2}{B}", oracle: "As long as there are two or more creature cards in your graveyard, this creature gets +2/+1." })).toBe("body-only");
   });
 });

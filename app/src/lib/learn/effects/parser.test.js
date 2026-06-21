@@ -481,7 +481,6 @@ describe("parseEffectProgram — create-token (P2.6)", () => {
   });
   it("keeps non-creature / non-mana-inline-ability / tapped / 0-toughness / unenforced-keyword tokens low", () => {
     expect(programConfidence(parseEffectProgram(I("Create a 2/2 black Zombie creature token tapped.")))).toBe("low");
-    expect(programConfidence(parseEffectProgram(I("Create a 2/2 red Devil creature token with menace.")))).toBe("low"); // menace unenforced → Arbiter
     expect(programConfidence(parseEffectProgram(I("Create three 0/0 white Spirit creature tokens with flying.")))).toBe("low"); // 0-toughness → dies to SBA → incomplete capture → Arbiter
     // T4 admits ONLY a clean MANA ability inline; a non-mana activated/triggered inline ability stays low → Arbiter.
     expect(programConfidence(parseEffectProgram(I("Create a 1/1 green Saproling creature token with \"{T}: Draw a card.\"")))).toBe("low"); // non-mana activated inline ability → Arbiter
@@ -735,7 +734,6 @@ const MUST_DROP_TO_LOW = [
   // grant is forbidden) — the grantable set is the layer-aware combat keywords, NOT these.
   "Target creature gains hexproof until end of turn.",          // hexproof not enforced/grantable
   "Target creature gains indestructible until end of turn.",    // indestructible not grantable
-  "Target creature gets +1/+1 and gains menace until end of turn.", // menace not grantable (unenforced)
   "Target creature gets +2/+2 and gains protection from red until end of turn.", // protection not grantable
   // Review catch (no-split + all-or-nothing): a grant chained to a non-keyword via " and "
   // must NOT parse high with a partial grant — the whole clause is unmodeled → Arbiter.
@@ -750,7 +748,6 @@ const MUST_DROP_TO_LOW = [
   "Creatures you control with flying get +1/+1 until end of turn.",    // keyword-filtered subset
   "White creatures you control get +1/+1 until end of turn.",          // color-filtered subset
   "Creatures you control get +1/+1 and gain hexproof until end of turn.", // hexproof not grantable/enforced
-  "Creatures you control get +2/+2 and gain menace until end of turn.",   // menace not grantable (unenforced)
   "Creatures you control gain trample until end of turn.",             // pure team keyword grant (no P/T) — deferred
   // OVERRUN-X — count-scaled team pump ("…gain trample and get +X/+X, where X is <count>"): a FILTERED team,
   // an unmodeled count source, or an un-grantable keyword stays LOW → Arbiter (never a half-scaled native).
@@ -1251,8 +1248,8 @@ describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + AD
 // ===== ACT-KW-GRANT — self keyword-grant (activated/trigger effect, via parseEffectClause) =====
 // "This creature [gets +N/+N and ]gains <KW> until end of turn" grants the SOURCE (CR 109.2) the
 // keyword(s) for the turn, reusing the combat-trick GRANTABLE_COMBAT_KEYWORDS allowlist (the enforced,
-// layer-aware set IS the false-positive guard). A keyword the engine doesn't enforce (menace /
-// indestructible / hexproof / protection / ward) → null → low → Arbiter (never a grant the engine can't honor).
+// layer-aware set IS the false-positive guard). A keyword the engine doesn't enforce (indestructible /
+// hexproof / protection / ward) → null → low → Arbiter (never a grant the engine can't honor).
 describe("parseEffectClause — self keyword-grant (ACT-KW-GRANT)", () => {
   const atomsOf = (o) => (parseEffectClause(o, "Creature") || {}).atoms;
   const conf = (o) => programConfidence(parseEffectClause(o, "Creature"));
@@ -1263,11 +1260,13 @@ describe("parseEffectClause — self keyword-grant (ACT-KW-GRANT)", () => {
     // negative pump composes (Hopping Automaton: {0}: gets -1/-1 and gains flying)
     expect(atomsOf("This creature gets -1/-1 and gains flying until end of turn.")).toEqual([{ op: "pump", target: "self", ptDelta: { p: -1, t: -1 }, grantKeywords: ["Flying"] }]);
   });
-  it("MUST stay LOW: granting a keyword the engine does NOT enforce → Arbiter (the allowlist IS the FP guard)", () => {
-    expect(conf("This creature gains menace until end of turn.")).toBe("low");          // 2-blocker rule unenforced
+  it("MUST stay LOW: granting a keyword NOT in GRANTABLE_COMBAT_KEYWORDS → Arbiter (the allowlist IS the FP guard)", () => {
     expect(conf("This creature gains indestructible until end of turn.")).toBe("low");  // combat-trick set excludes it
     expect(conf("This creature gains hexproof until end of turn.")).toBe("low");
-    expect(conf("This creature gets +1/+0 and gains menace until end of turn.")).toBe("low"); // one bad kw sinks the whole grant
+  });
+  it("menace IS now grantable (GATED-GY-EXT) — self-grant menace parses high", () => {
+    expect(conf("This creature gains menace until end of turn.")).toBe("high");
+    expect(conf("This creature gets +1/+0 and gains menace until end of turn.")).toBe("high");
   });
 });
 

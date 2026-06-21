@@ -26,18 +26,20 @@ export const COMBAT_KEYWORDS = [
   "Vigilance",
   "Menace",
   "Haste",
+  // Non-evergreen but fully enforced via combatEvasion.canBlockAttacker / permanentHasKeyword:
+  "Fear",       // blockable only by artifact and/or black (CR 702.36b)
 ];
 
 // Keywords the engine will GRANT (Equipment/Aura/anthem statics AND combat-trick spells/
 // abilities). RESTRICTED to those whose runtime effect is ENFORCED *and read layer-aware*
 // (combat damage, blocking, attack-tapping, summoning-sickness all consult permanentHasKeyword),
-// so a granted instance behaves EXACTLY like a printed one. Menace is EXCLUDED — its
-// "must be blocked by two or more" rule (CR 702.110) isn't enforced anywhere, so granting it
-// would be a silent no-op that over-claims coverage. SINGLE SOURCE OF TRUTH: staticAbilityParser
-// (attach/anthem grants) and effects/parser (combat-trick grants) both read this — they can't
-// drift into granting a keyword the engine ignores. A "gains <unmodeled kw>" clause
-// (indestructible/hexproof/protection/…) therefore drops to the Arbiter, never a fake grant.
-const NON_GRANTABLE = new Set(["menace"]);
+// so a granted instance behaves EXACTLY like a printed one. SINGLE SOURCE OF TRUTH:
+// staticAbilityParser (attach/anthem grants) and effects/parser (combat-trick grants) both read
+// this — they can't drift into granting a keyword the engine ignores. A "gains <unmodeled kw>"
+// clause (hexproof/protection/…) therefore drops to the Arbiter, never a fake grant.
+// NOTE: menace WAS excluded here (comment said "not enforced") but combatEvasion.attackerHasMenace
+// / combatResolution enforce it via permanentHasKeyword — the exclusion was stale (GATED-GY-EXT).
+const NON_GRANTABLE = new Set(); // all COMBAT_KEYWORDS are now grantable
 export const GRANTABLE_COMBAT_KEYWORDS = new Set(
   COMBAT_KEYWORDS.map((k) => k.toLowerCase()).filter((k) => !NON_GRANTABLE.has(k)),
 );
