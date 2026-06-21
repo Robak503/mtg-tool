@@ -51,7 +51,7 @@ import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura, entersTapped } from "./staticAbilityParser.js";
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
-import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers } from "./triggers.js";
+import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell } from "./ward.js";
 import { entersWithFadeCounters } from "./fading.js";
@@ -237,6 +237,14 @@ function applyPlayLand(state, action) {
     playerId: action.playerId,
     cardName: card.name,
   });
+  // LANDFALL (CR 614) — the land just entered under this player's control, so fire any landfall watchers
+  // ("Landfall — Whenever a land you control enters …"). The freshly-played land is the last permanent on
+  // the battlefield. The pending triggers flush on the next priority pass like every other trigger.
+  {
+    const bf = next.players[action.playerId].battlefield;
+    const enteredLand = bf[bf.length - 1];
+    next = checkLandfallTriggers(next, enteredLand);
+  }
   // Sorcery-speed action restarts the priority loop at the active player.
   return {
     ...next,

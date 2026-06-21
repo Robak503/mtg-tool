@@ -41,6 +41,21 @@ function isCreaturePerm(perm) {
   return /Creature/.test(typeStr(perm?.card));
 }
 
+function isLandPerm(perm) {
+  return /Land/.test(typeStr(perm?.card));
+}
+
+/**
+ * Strip a leading ability-word label that precedes a trigger keyword ("Landfall — Whenever …"). Ability
+ * words (CR 207.2c) are flavor with no rules meaning; the label otherwise sits between the line start and
+ * "Whenever", so the boundary-anchored trigger regex (here AND coverage.js's TRIGGER_SENTENCE_RE / residue
+ * strip) never matches. Exported so the coverage metric normalizes IDENTICALLY — the shaped-sentence count
+ * and the detected-trigger count must agree, or a landfall card mis-classifies. Currently just "Landfall —".
+ */
+export function stripTriggerAbilityLabel(oracle) {
+  return String(oracle || "").replace(/^landfall\s*[—–-]\s*/gim, "");
+}
+
 // ─── Detection ────────────────────────────────────────────────────────────────
 
 /**
@@ -202,6 +217,16 @@ function classifyCondition(condRaw, cardName) {
     const scope = creatureSubjectScope(subjectBefore(c, "dies"));
     if (scope) return { event: "dies", scope, whose: "any" };
   }
+  // LANDFALL (CR 614 — "a land enters under your control") — "Landfall — Whenever a land you control enters" /
+  // "… a land enters the battlefield under your control" (Tatyova, Lotus Cobra, Rampaging Baloths, Jaddi
+  // Offshoot, the Zendikar landfall payoffs). A NEW land-entry event fired by the play-land path
+  // (checkLandfallTriggers). Controller-scoped ONLY — the entering land is YOURS. The "Landfall —" ability-word
+  // label (CR 207.2c, flavor) is stripped upstream in detectTriggers so the bare condition reaches here. Only
+  // the anchored bare forms: a filtered subject ("a basic land", "another land", "a land an opponent controls")
+  // or an added "enters tapped" rider fails the anchor → UNDETECTED → Arbiter (never an over-fire we can't scope).
+  if (/^a land you control enters$/.test(c) || /^a land enters(?: the battlefield)? under your control$/.test(c)) {
+    return { event: "landfall", scope: "landYouControl", whose: "any" };
+  }
   // "Leaves the battlefield" (LTB) is intentionally NOT detected: the engine fires only etb / dies /
   // step / attacks events (triggersForEvent has no "ltb" caller), so an ltb trigger detected here would
   // be classified native yet NEVER fire — a false positive (the whole ability silently does nothing,
@@ -360,7 +385,11 @@ const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-
 export function detectTriggers(card) {
   if (!card || typeof card !== "object") return [];
   if (_detectCache.has(card)) return _detectCache.get(card);
-  const oracle = oracleOf(card);
+  // Strip the leading "Landfall —" ability-word label (CR 207.2c — flavor, no rules meaning) so the trigger
+  // regex below, which anchors "Whenever" at a line/sentence boundary, sees the bare "Whenever a land you
+  // control enters …". Without this, "Landfall — Whenever …" puts "Whenever" mid-line and never matches.
+  // SHARED with coverage.js (the trigger-sentence count + residue strip must see the same normalized text).
+  const oracle = stripTriggerAbilityLabel(oracleOf(card));
   const out = [];
   if (oracle) {
     // Anchored at start / after a sentence boundary, like keywords.js — so a
@@ -446,6 +475,10 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent) {
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
     case "creatureOpponentControls":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller;
+    case "landYouControl":
+      // LANDFALL — the entering land must be controlled by the watcher's controller. checkLandfallTriggers
+      // only fires on a land entry (triggeringPermanent is a land), but the isLandPerm guard keeps it exact.
+      return !!triggeringPermanent && isLandPerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
     default:
       return false;
   }
@@ -537,6 +570,25 @@ export function checkEnterTriggers(state, enteredPerm) {
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
       fired = fired.concat(triggersForEvent(state, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * LANDFALL — fire "landfall" triggers for a LAND that just entered (`enteredLand`, already on the
+ * battlefield). Every battlefield/emblem watcher is checked; scopeMatches' `landYouControl` keeps it to
+ * watchers controlled by the land's controller. Mirrors checkEnterTriggers/checkDiesTriggers. Pure —
+ * appends to pendingTriggers. Called from the play-land path (applyPlayLand); a future slice fires it on
+ * the ramp/fetch land-entry path too (a missed landfall there is a SAFE under-fire, never a wrong fire).
+ */
+export function checkLandfallTriggers(state, enteredLand) {
+  if (!enteredLand) return state;
+  let fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      fired = fired.concat(triggersForEvent(state, { event: "landfall", sourcePermanent: watcher, triggeringPermanent: enteredLand }));
     }
   }
   if (!fired.length) return state;

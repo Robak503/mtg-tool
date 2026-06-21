@@ -29,7 +29,7 @@
  */
 
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
-import { detectTriggers } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, entersWithPlusCounters, entersWithXCounters } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
@@ -174,7 +174,9 @@ const TRIGGER_SENTENCE_RE = /(?:^|[\n.;]\s*)(?:When|Whenever|At)\b\s+[^.]+\./gi;
  * closes the residue's blind spot (it strips ALL When/Whenever/At text regardless of model).
  */
 function allTriggerSentencesModeled(card, oracle) {
-  const shaped = (String(oracle).match(TRIGGER_SENTENCE_RE) || []).length;
+  // Normalize ability-word labels ("Landfall — Whenever …") IDENTICALLY to detectTriggers, so the
+  // shaped-sentence count and the detected-trigger count agree (else a landfall card mis-classifies).
+  const shaped = (stripTriggerAbilityLabel(oracle).match(TRIGGER_SENTENCE_RE) || []).length;
   const detected = detectTriggers(card);
   if (detected.length !== shaped) return false;     // an unrecognized-event trigger sentence
   return detected.every(triggerRoutesNatively);      // every recognized trigger's effect routes
@@ -185,8 +187,9 @@ export function permanentTriggersCovered(card) {
   if (triggers.length === 0) return false;
   if (!allTriggerSentencesModeled(card, card?.oracle || "")) return false;
   // Remove the trigger sentences (same anchored grammar detectTriggers uses); what's
-  // left must be keyword-only/empty, or there's unmodeled activated/static text.
-  const residue = String(card.oracle || "").replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ");
+  // left must be keyword-only/empty, or there's unmodeled activated/static text. Strip the ability-word
+  // label first ("Landfall —"), else it survives the trigger-sentence strip as non-keyword residue.
+  const residue = stripTriggerAbilityLabel(card.oracle || "").replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ");
   return isKeywordOnly(residue, card?.name);
 }
 
