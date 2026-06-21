@@ -47,7 +47,7 @@ import {
 } from "./gameState.js";
 import { permanentHasKeyword, permanentColors } from "./layers.js";
 import { parseProtectionColors, protectionApplies } from "./protection.js";
-import { checkDiesTriggers, checkCombatDamageTriggers, checkLifegainTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkCombatDamageTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers } from "./triggers.js";
 
 // KW-POISON (toxic — CR 702.180a): the toxic VALUE N. The keyword reminder text spells the number
 // out ("Toxic 3"); the Scryfall keywords array only carries the bare word "Toxic", so N is read from
@@ -314,6 +314,9 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // triggered at the damage event; abilities that triggered on combat damage go on the stack after the
   // SBA, CR 510.3a). They land in pendingTriggers; flushTriggers stacks them at the next priority point.
   next = checkCombatDamageTriggers(next, playerEvents);
+  // BATCH combat-damage (CR 510.4) — "one or more creatures you control deal combat damage to a player"
+  // fires ONCE per controller who connected (not per attacker). Same playerEvents, fired alongside.
+  next = checkBatchCombatDamageTriggers(next, playerEvents);
 
   // ── SBA: lethal damage (or ANY deathtouch damage) destroys creatures ──
   const { state: afterDeaths, dead } = destroyLethalCreatures(next, deathtouched);

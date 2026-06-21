@@ -374,6 +374,15 @@ function classifyCondition(condRaw, cardName, cardType) {
     const cdSub = c.match(/^a ([a-z]{3,}) you control deals combat damage to a player$/);
     if (cdSub) return { event: "combatDamageToPlayer", scope: "subtypeYouControl", whose: "any", subtypeFilter: cdSub[1].charAt(0).toUpperCase() + cdSub[1].slice(1) };
   }
+  // BATCH combat-damage (CR 510.4 — all combat damage is dealt as ONE event). "Whenever one or more
+  // creatures you control deal combat damage to a player, <effect>" fires ONCE per combat regardless of
+  // how many creatures connected (Grim Hireling, Professional Face-Breaker, the treasure/investigate/Food
+  // payoffs) — distinct from the per-attacker combatDamageToPlayer above. checkBatchCombatDamageTriggers
+  // fires it exactly once per controller who dealt player damage this combat. Anchored: a qualified variant
+  // ("…to a player or planeswalker", a rider) leaves residue → undetected → Arbiter (a SAFE false-negative).
+  if (/^one or more creatures you control deal combat damage to a player$/.test(c)) {
+    return { event: "combatDamageBatch", scope: "you", whose: "any" };
+  }
 
   // Cast-spell triggers (CR 603.2, the spell-cast event). The WHOLE condition must reduce
   // to "(you|an opponent|a player|each player) cast(s) a[n] <filter> spell" — ANCHORED, so a
@@ -806,6 +815,27 @@ export function checkCombatDamageTriggers(state, playerEvents) {
     for (const watcher of triggerSourcesOf(state, ev.attackingPlayer)) {
       if (watcher.id === attackerPerm.id) continue;
       fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * BATCH combat-damage (CR 510.4) — "Whenever one or more creatures you control deal combat damage to a
+ * player" fires ONCE per combat per controller who connected, NOT once per attacker. From the same
+ * `playerEvents` checkCombatDamageTriggers reads, collect the distinct set of attacking players who dealt
+ * player damage this step, then fire each "combatDamageBatch" watcher that player controls exactly once
+ * (triggeringPermanent is null — it's a batch event, not a single creature). Pure — appends to
+ * pendingTriggers; the effect rides the normal flush → EffectProgram path (Treasure/Food/investigate/…).
+ */
+export function checkBatchCombatDamageTriggers(state, playerEvents) {
+  const dealers = new Set((playerEvents || []).filter((e) => e.kind === "combat-damage-player" && e.amount > 0).map((e) => e.attackingPlayer));
+  if (!dealers.size) return state;
+  let fired = [];
+  for (const pid of dealers) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      fired = fired.concat(triggersForEvent(state, { event: "combatDamageBatch", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: { batchController: pid } }));
     }
   }
   if (!fired.length) return state;
