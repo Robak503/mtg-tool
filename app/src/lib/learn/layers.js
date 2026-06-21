@@ -293,6 +293,9 @@ function matchesSelector(selector, candidate, sourcePerm) {
     const cols = colorsOf(candidate.card);
     if (!selector.colors.some(c => cols.includes(c))) return false;
   }
+  // COUNTER-PAYOFF: a per-permanent counter gate (Herald of Secret Streams — "creatures you control WITH
+  // A +1/+1 COUNTER on it …"). Re-evaluated each collection, so the grant tracks the counter dynamically.
+  if (selector.requiresCounter && (candidate.counters?.[selector.requiresCounter] || 0) <= 0) return false;
   return true;
 }
 
