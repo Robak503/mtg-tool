@@ -69,6 +69,36 @@ scoreboard over-count. The fix is a classifier tightening, not a runtime enforce
 |---|---|---|
 | native-mana residue gate | claim native-mana only when every non-mana clause is modeled-or-keyword-only | ✅ ENFORCED #280 (−269 over-claimed; native-mana now all-or-nothing; honest 17.1%. The smaller non-mana *activated*-ability over-claim is a deliberate fragile follow-up — under-correcting is safe) |
 
+### 🔨 CAP: earthbend dies-return delayed trigger — **BACKLOG (tractable, Hans-found 2026-06-21 cycle 41)**
+**Board task:** `EARTHBEND-RETURN` (builder — Walt's earthbend lane). `applyEarthbend` (`effects/effectAtoms.js:763`)
+animates the land + applies the N counters but **drops the keyword's last reminder clause** — *"When it dies or is
+exiled, return it to the battlefield tapped."* The atom self-documents the deferral ("a delayed trigger left to the
+Arbiter — a safe FN … it just doesn't recur"). **Partial-but-honest, safe direction:** dropping the recursion makes
+the controller's position *weaker* (they lose the land instead of getting it back) — an under-delivery, never an
+over-delivery, so it's never mis-resolved in the opponent's favor. Same class as ward #305 / protection #306 PR2 →
+does NOT block release.
+
+**Live surface (so it's not invisible):**
+- **3 earthbend SPELLS already ship `native-spell` and drop the rider today:** Earthbending Lesson, Cracked Earth
+  Technique, Sandbenders' Storm (they route via `spellIsNative`, not the trigger path).
+- **All 34 earthbend PERMANENTS (incl. Toph, Earthbending Master) currently stay `body-only`** — masked by a
+  separate latent classifier bug (below), NOT by design. Completing this enforcement is what lets Toph + the
+  earthbend creatures flip *honestly*.
+
+**Enforcement (tractable):** tag the animated land with a `returnOnDeath` flag at animation time; in the dies/exile
+path (`checkDiesTriggers` already exists) fire a delayed trigger that returns it tapped (CR 603.7 delayed triggered
+ability). Engine-first, full gate, then the earthbend cards flip native correctly.
+
+> **⚠️ COUPLED latent bug (do NOT fix in isolation — Hans, cycle 41):** `allTriggerSentencesModeled`
+> (`coverage.js:179`) counts trigger-shaped sentences **without stripping reminder text first**, while
+> `detectTriggers` skips unrecognized in-reminder triggers. Earthbend's reminder embeds *"When it dies or is
+> exiled, return it…"* → `shaped` (3) ≠ `detected` (2) → every earthbend permanent is held `body-only`. This count
+> bug is **currently load-bearing**: it masks the dies-return drop on the 34 permanents. **Fixing the count strip
+> BEFORE the dies-return enforcement would un-mask the partial and flip all 34 into dropped-rider FPs.** Sequence:
+> build `EARTHBEND-RETURN` first, THEN strip reminders in the shaped count (one line, aligns it with
+> `detectTriggers`) so the earthbend permanents flip cleanly. Verified safe-by-construction otherwise (reminder
+> text is never rules-bearing, CR 207.2; the routing check still gates unmodeled effects independently).
+
 ## Corrected reclassifications (not FPs — already right)
 | Item | Fix | Note |
 |---|---|---|
