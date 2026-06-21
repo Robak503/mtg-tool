@@ -22,7 +22,7 @@ import {
   handCardMatches,
 } from "../spellEffects.js";
 import { addContinuousEffect, permanentIsCreature } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addPoison, addExperience, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addPoison, addExperience, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower, creatureToughness } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
@@ -1064,10 +1064,23 @@ function applyImpulseDigAtom(state, atom, ctx) {
  * serialized mid-discover restores intact.
  */
 function applyDiscoverAtom(state, atom, ctx) {
+  // ONCE-PER-TURN gate (Pantlaza "Do this only once each turn."): if this source has already
+  // triggered its discover this turn, suppress the effect (safe no-op — the trigger went on the
+  // stack and resolved, but the discover is skipped per the frequency restriction).
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_discover`;
+    if ((state.onceTriggersFiredThisTurn || {})[gateKey]) return state;
+  }
   const controller = ctx.controller;
   const player = state.players[controller];
   if (!player) return state;
-  const x = atom.amountCount ? Math.max(0, countForSpec(state, ctx, atom.amountCount)) : Math.max(0, atom.amount || 0);
+  // PANTLAZA — "discover X, where X is that creature's toughness": X is the layer-resolved toughness of the
+  // TRIGGERING creature (the Dinosaur that just entered, threaded as ctx.triggeringPermanentId by the trigger
+  // path). 0 if it already left the battlefield (a safe whiff, never fabricated). Otherwise a board count
+  // (amountCount) or the fixed printed amount.
+  const x = atom.amountToughnessOfTrigger
+    ? Math.max(0, (findPermanent(state, ctx.triggeringPermanentId)?.permanent ? creatureToughness(findPermanent(state, ctx.triggeringPermanentId).permanent, state) : 0))
+    : atom.amountCount ? Math.max(0, countForSpec(state, ctx, atom.amountCount)) : Math.max(0, atom.amount || 0);
   const lib = player.library || [];
   let foundIdx = -1;
   for (let i = 0; i < lib.length; i++) {
@@ -1101,7 +1114,13 @@ function applyDiscoverAtom(state, atom, ctx) {
     },
   };
   if (found) next = { ...next, pendingDiscover: { controller, cardId: found.id, mv: tutorManaValue(found) } };
-  return logEvent(next, { kind: "spell-effect", effect: "discover", controller, x, found: !!found });
+  let result = logEvent(next, { kind: "spell-effect", effect: "discover", controller, x, found: !!found });
+  // Mark the once-per-turn latch (regardless of whiff) — the effect ran, so the gate is consumed.
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_discover`;
+    result = { ...result, onceTriggersFiredThisTurn: { ...(result.onceTriggersFiredThisTurn || {}), [gateKey]: true } };
+  }
+  return result;
 }
 
 /** Mill (CR 701.13) — "you mill N cards" (the controller), "each opponent mills N cards", or
@@ -1373,7 +1392,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
   "impulse-dig": applyImpulseDigAtom,
-  "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). NOT yet in the parser's KNOWN set (no card flips native until the full decision + targeting + Pantlaza land — CREED).
+  "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
   "mill": applyMill,
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
   "create-emblem": applyCreateEmblem, // ===== EMBLEM ===== (PW-5) "you get an emblem with '[modeled static]'"
