@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Landfall triggers fire (LANDFALL — foundation):** "Landfall — Whenever a land you control enters, &lt;payoff&gt;"
+  is now a real engine event — playing a land fires it, and the clean payoffs resolve natively (Tatyova's
+  gain-life + draw, Rampaging Baloths' Beast token, Jaddi Offshoot's lifegain, the Zendikar landfall family).
+  **45 cards** flip corpus-wide. The "Landfall —" ability-word label is stripped identically in trigger
+  detection and the coverage metric. Controller-scoped (your lands only). Payoffs the compiler doesn't yet
+  model — landfall MANA (Lotus Cobra), copy-token (Scute Swarm), or a complex commander — stay on the Arbiter
+  (CREED); 4 mana-landfall cards that master over-claimed as native (their landfall never fired) are corrected
+  to Arbiter. The ramp/fetch land-entry path fires landfall in a follow-up slice (a missed trigger there is a
+  safe under-fire).
+
 ## [0.46.0] - 2026-06-20
 
 _The keyword-enforcement + first deck-playability wave. **Every interim-FP keyword is now honestly enforced** —
