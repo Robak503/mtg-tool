@@ -1007,6 +1007,60 @@ function applyImpulseDigAtom(state, atom, ctx) {
   return setPendingImpulseDigChoice(state, { controller: ctx.controller, candidates: cards, restTo: atom.restTo || "bottom", sourceName: ctx.cardName || null });
 }
 
+/**
+ * ===== DISCOVER ===== (LCI keyword, CR 701.x) — "Discover N/X": exile cards from the TOP of the
+ * controller's library until a NONLAND card with mana value <= N is exiled (or the library runs out). The
+ * found card is parked in `state.pendingDiscover` for the controller's CAST-IT-FREE-or-PUT-IN-HAND decision
+ * (resolved at the ACTION layer: legalChoices offers a free-cast action — reusing the cast machinery so
+ * target selection / the stack / cast triggers / AI all behave exactly like a normal cast — plus a
+ * put-to-hand action). The OTHER exiled cards (lands + nonlands with MV > N) go to the BOTTOM of the
+ * library in a RANDOM order (deterministic, via the threaded rngSeed). A whiff (no matching card) bottoms
+ * everything exiled and sets no decision. The found card sits in EXILE until the decision resolves.
+ * N comes from `atom.amount` (fixed "discover 5") or `atom.amountCount` (a board count — Pantlaza's
+ * "discover X, where X is that creature's toughness", PR2). Pure data mutation (no closures) so a game
+ * serialized mid-discover restores intact.
+ */
+function applyDiscoverAtom(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players[controller];
+  if (!player) return state;
+  const x = atom.amountCount ? Math.max(0, countForSpec(state, ctx, atom.amountCount)) : Math.max(0, atom.amount || 0);
+  const lib = player.library || [];
+  let foundIdx = -1;
+  for (let i = 0; i < lib.length; i++) {
+    const c = lib[i];
+    const isLand = /\bLand\b/.test(String(c.type || c.type_line || ""));
+    if (!isLand && tutorManaValue(c) <= x) { foundIdx = i; break; }
+  }
+  const end = foundIdx === -1 ? lib.length : foundIdx + 1;
+  const found = foundIdx === -1 ? null : lib[foundIdx];
+  const rest = lib.slice(0, end).filter((c) => c !== found); // exiled-except-found → bottom, random order
+  const remaining = lib.slice(end);                          // cards below the found one stay (now the top)
+  // Deterministic Fisher-Yates of `rest` (CR "random order"), advancing the threaded seed exactly like
+  // shuffleControllerLibrary so a serialized game restores byte-identical (no Math.random in state mutation).
+  const seed = (state.rngSeed ?? 0) >>> 0;
+  const rng = deterministicRng(seed);
+  const shuffledRest = [...rest];
+  for (let i = shuffledRest.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffledRest[i], shuffledRest[j]] = [shuffledRest[j], shuffledRest[i]];
+  }
+  let next = {
+    ...state,
+    rngSeed: ((Math.imul(seed, 1664525) + 1013904223) >>> 0),
+    players: {
+      ...state.players,
+      [controller]: {
+        ...player,
+        library: [...remaining, ...shuffledRest],
+        exile: found ? [...(player.exile || []), found] : (player.exile || []),
+      },
+    },
+  };
+  if (found) next = { ...next, pendingDiscover: { controller, cardId: found.id, mv: tutorManaValue(found) } };
+  return logEvent(next, { kind: "spell-effect", effect: "discover", controller, x, found: !!found });
+}
+
 /** Mill (CR 701.13) — "you mill N cards" (the controller), "each opponent mills N cards", or
  * "each player mills N cards" (EP-3). Top N of each milled player's library → their graveyard. Non-targeted. */
 function applyMill(state, atom, ctx) {
@@ -1272,6 +1326,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "scry": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "scry"),
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
   "impulse-dig": applyImpulseDigAtom,
+  "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). NOT yet in the parser's KNOWN set (no card flips native until the full decision + targeting + Pantlaza land — CREED).
   "mill": applyMill,
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
   "create-emblem": applyCreateEmblem, // ===== EMBLEM ===== (PW-5) "you get an emblem with '[modeled static]'"

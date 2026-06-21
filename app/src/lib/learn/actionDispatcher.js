@@ -259,28 +259,37 @@ function applyCastSpell(state, action) {
   const card = (state.players[action.playerId]?.[fromZone] || []).find(c => c.id === action.cardId) || null;
   if (!card) throw new DispatcherError(`Card ${action.cardId} not in ${fromZone}`, "CARD_NOT_IN_ZONE");
 
-  // Plan payment from the current pool PLUS untapped mana sources. planPayment
-  // is pool-first, so a pre-filled pool pays with zero taps (preserving the
-  // old behavior + tests); otherwise we auto-tap lands/rocks/dorks to cover.
-  const pool = state.players[action.playerId].manaPool;
-  const plan = planPayment(pool, manaSources(state, action.playerId), action.cost);
-  if (!plan) {
-    throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
-  }
+  // DISCOVER / free-cast (CR 601.2b — "cast without paying its mana cost"): skip the mana plan + payment
+  // entirely when `action.freeCast` is set. ONLY the mana cost is waived — the ADDITIONAL costs below
+  // (sacrifice / pay-life / discard) still apply, exactly as CR requires. Otherwise pay normally.
+  let working, nextPool;
+  if (action.freeCast) {
+    working = state;
+    nextPool = { ...state.players[action.playerId].manaPool };
+  } else {
+    // Plan payment from the current pool PLUS untapped mana sources. planPayment
+    // is pool-first, so a pre-filled pool pays with zero taps (preserving the
+    // old behavior + tests); otherwise we auto-tap lands/rocks/dorks to cover.
+    const pool = state.players[action.playerId].manaPool;
+    const plan = planPayment(pool, manaSources(state, action.playerId), action.cost);
+    if (!plan) {
+      throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
+    }
 
-  // 1. Commit the taps: add each source's mana to the pool and tap it — OR sacrifice a one-shot
-  // Treasure/Gold (commitManaTaps). Any surplus from an over-producing source (Sol Ring on a single
-  // generic) floats — the floating-mana behavior we want.
-  let working = commitManaTaps(state, action.playerId, plan.taps);
+    // 1. Commit the taps: add each source's mana to the pool and tap it — OR sacrifice a one-shot
+    // Treasure/Gold (commitManaTaps). Any surplus from an over-producing source (Sol Ring on a single
+    // generic) floats — the floating-mana behavior we want.
+    working = commitManaTaps(state, action.playerId, plan.taps);
 
-  // 2. Deduct EXACTLY what the plan spent. Using the plan's own breakdown (not
-  // a second payment heuristic) guarantees the deduction always succeeds — no
-  // divergence that could strand a hybrid pip and throw MANA_SHORT after the
-  // spell was already deemed castable.
-  const toppedPool = working.players[action.playerId].manaPool;
-  const nextPool = {};
-  for (const c of Object.keys(toppedPool)) {
-    nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
+    // 2. Deduct EXACTLY what the plan spent. Using the plan's own breakdown (not
+    // a second payment heuristic) guarantees the deduction always succeeds — no
+    // divergence that could strand a hybrid pip and throw MANA_SHORT after the
+    // spell was already deemed castable.
+    const toppedPool = working.players[action.playerId].manaPool;
+    nextPool = {};
+    for (const c of Object.keys(toppedPool)) {
+      nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
+    }
   }
 
   // 2b. Pay any ADDITIONAL COSTS (CR 601.2f) — paid at cast, before the spell finishes going on the stack.
@@ -808,10 +817,32 @@ function applyCompanionToHand(state, action) {
   return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
 }
 
+// DISCOVER (LCI) — resolve the cast-or-hand decision for a card found by discover (parked in exile,
+// state.pendingDiscover). A free-cast routes through applyCastSpell (freeCast skips mana; additional costs
+// still apply; the card goes on the stack to resolve normally) then clears the pending flag. For a NORMAL
+// cast (no pending discover) this is a transparent pass-through.
+function applyCastSpellMaybeDiscover(state, action) {
+  const next = applyCastSpell(state, action);
+  if (state.pendingDiscover && action.fromZone === "exile") {
+    const { pendingDiscover: _drop, ...rest } = next;
+    return rest;
+  }
+  return next;
+}
+// DISCOVER — put the parked (exiled) found card into the controller's hand; clear the pending decision.
+function applyDiscoverToHand(state, action) {
+  let next = state;
+  if ((state.players[action.playerId]?.exile || []).some((c) => c.id === action.cardId)) {
+    next = moveCardToZone(state, { playerId: action.playerId, fromZone: "exile", toZone: "hand", cardId: action.cardId });
+  }
+  const { pendingDiscover: _drop, ...rest } = next;
+  return logEvent(rest, { kind: "discover-to-hand", playerId: action.playerId, cardName: action.name || null });
+}
+
 const HANDLERS = {
   "pass-priority": applyPassPriority,
   "play-land": applyPlayLand,
-  "cast-spell": applyCastSpell,
+  "cast-spell": applyCastSpellMaybeDiscover, // DISCOVER: clears pendingDiscover after a free-cast from exile
   "tap-for-mana": applyTapForMana,
   "activate-ability": applyActivateAbility,
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
@@ -819,6 +850,7 @@ const HANDLERS = {
   "declare-attacker": applyDeclareAttacker,
   "declare-blocker": applyDeclareBlocker,
   "companion-to-hand": applyCompanionToHand, // CMD-COMPANION (CR 702.139)
+  "discover-to-hand": applyDiscoverToHand,   // DISCOVER: take the found card instead of casting it free
 };
 
 /**
