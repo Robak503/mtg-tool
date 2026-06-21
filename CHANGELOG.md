@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Graveyard-gated buffs play correctly (GATED-GY — threshold & delirium):** "This creature gets +X/+Y
+  [and has &lt;keyword&gt;] as long as there are seven or more cards in your graveyard" (**threshold** — Krosan
+  Beast, Nimble Mongoose, Springing Tiger…) and "…four or more card types among cards in your graveyard"
+  (**delirium** — Grim Flayer, Gnarlwood Dryad, Inquisitor's Ox, Dragon's Rage Channeler…) now resolve as a
+  **live, layer-correct** buff/keyword that turns on and off as the graveyard fills — instead of being treated
+  as a vanilla body. The flavor ability-word label ("Threshold —"/"Delirium —") is stripped; both clause orders
+  parse. 25 cards. Delirium counts **card types only** (CR 205.2a — supertypes like Legendary/Snow don't count;
+  kindred ≡ tribal). A typed count ("creature cards", "mana values among cards"), a rider ("and can't block",
+  menace, a quoted triggered ability), or a non-grantable keyword stays on the Arbiter (CREED — no silent partial).
+
 - **Conditional keyword grants play correctly (GATED-KEYWORD):** "This creature has &lt;keyword&gt; as long as
   you control a/another/N &lt;type&gt;" (Markov Crusader haste, Snapsail Glider flying, Pterodon Knight, Kargan
   Dragonrider…) now grants the keyword **live**, only while the gate holds — in both templating orders

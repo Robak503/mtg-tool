@@ -119,13 +119,40 @@ function matchesCountSpec(perm, spec) {
   return needle ? new RegExp(`\\b${needle}\\b`).test(typeLineOf(perm?.card)) : false;
 }
 
-// GATED-SELFBUFF / GATED-KEYWORD: is a control-threshold gate currently OPEN for this permanent? Shared by
-// the layer-7c ptModifyGated buff and the layer-6 gated keyword grant — the SINGLE evaluator so a P/T gate and
-// a keyword gate can never diverge. An absent gate is always open (ungated). "another" excludes the source.
+// GATED-GY: graveyard-count gate sources — the TOTAL cards (threshold, CR 702.15a) or the distinct CARD TYPES
+// (delirium, CR 702.x) in the controller's graveyard. CR 205.2a: only CARD TYPES count for delirium —
+// SUPERTYPES (Legendary/Basic/Snow/World) do NOT — so we match a fixed card-type allowlist, never cardTypesOf
+// (which includes supertypes). The graveyard holds raw card objects (moveCardToZone unwraps the leaving
+// permanent → its printed card). kindred ≡ tribal (one type, renamed) → collapsed so they never double-count.
+const DELIRIUM_TYPE_RES = [
+  ["artifact", "artifact"], ["battle", "battle"], ["creature", "creature"], ["enchantment", "enchantment"],
+  ["instant", "instant"], ["land", "land"], ["planeswalker", "planeswalker"], ["sorcery", "sorcery"],
+  ["tribal", "tribal"], ["kindred", "tribal"],
+].map(([word, key]) => [new RegExp(`\\b${word}\\b`), key]);
+function countGraveyardSpec(state, perm, spec) {
+  const gy = state?.players?.[perm?.controller]?.graveyard || [];
+  if (spec.kind === "cardsInGraveyard") return gy.length;
+  const seen = new Set();
+  for (const card of gy) {
+    const head = typeLineOf(card).split("—")[0].toLowerCase(); // types/supertypes, before any subtypes
+    for (const [re, key] of DELIRIUM_TYPE_RES) if (re.test(head)) seen.add(key);
+  }
+  return seen.size;
+}
+
+// GATED-SELFBUFF / GATED-KEYWORD / GATED-GY: is a count-threshold gate currently OPEN for this permanent?
+// Shared by the layer-7c ptModifyGated buff and the layer-6 gated keyword grant — the SINGLE evaluator so a
+// P/T gate and a keyword gate can never diverge. An absent gate is always open (ungated). A BOARD gate counts
+// the controller's matching permanents ("another" excludes the source); a GRAVEYARD gate counts cards / card
+// types in the controller's graveyard (no self-exclusion — a graveyard card is never the gated permanent).
 function gateMet(state, perm, gate) {
   if (!gate) return true;
-  let n = countSelfSpecOnBoard(state, perm, gate.countSpec);
-  if (gate.excludeSelf && matchesCountSpec(perm, gate.countSpec)) n -= 1;
+  const spec = gate.countSpec;
+  if (spec?.kind === "cardsInGraveyard" || spec?.kind === "cardTypesInGraveyard") {
+    return countGraveyardSpec(state, perm, spec) >= (gate.atLeast || 1);
+  }
+  let n = countSelfSpecOnBoard(state, perm, spec);
+  if (gate.excludeSelf && matchesCountSpec(perm, spec)) n -= 1;
   return n >= (gate.atLeast || 1);
 }
 
