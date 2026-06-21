@@ -14,9 +14,9 @@ describe("earthbend parser", () => {
   it("'earthbend 2' → a literal-N earthbend atom", () => {
     expect(parseEffectProgram({ oracle: "Earthbend 2.", type: "Instant" })?.atoms).toEqual([{ op: "earthbend", count: 2, targetType: null }]);
   });
-  it("'earthbend X, where X is …' does NOT match (experience scaling deferred)", () => {
+  it("'earthbend X, where X is the number of experience counters you have' → earthbend+countSource (PR3)", () => {
     const p = parseEffectProgram({ oracle: "Earthbend X, where X is the number of experience counters you have.", type: "Instant" });
-    expect(p?.atoms?.some((a) => a.op === "earthbend")).not.toBe(true);
+    expect(p?.atoms?.[0]).toMatchObject({ op: "earthbend", countSource: { kind: "experienceCounters" } });
   });
 });
 
