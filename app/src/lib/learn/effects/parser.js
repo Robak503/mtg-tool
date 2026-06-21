@@ -242,6 +242,13 @@ function splitClauses(oracle) {
     // parseExtendedAtom binds the P/T-set + every granted keyword to the same animate atom (all-or-nothing
     // anchored — an un-grantable keyword / color-set / permanent duration just fails to match → low → Arbiter).
     if (/^(?:until end of turn, )?(?:target|this) land becomes a \d+\/\d+\b.*\bcreature\b/i.test(sentence)) { clauses.push(sentence); continue; }
+    // OVERRUN-X — a COUNT-SCALED team pump ("[Until end of turn,] creatures you control gain trample and
+    // get +X/+X[ until end of turn], where X is the greatest power among / the number of creatures you
+    // control" — Overwhelming Stampede, Craterhoof Behemoth's ETB). The " and " between the keyword grant
+    // and the +X/+X bump, plus the trailing ", where X is …" count clause, are INTERNAL to one team-pump
+    // instruction — keep the whole sentence so parseExtendedAtom binds grant + scaled pump + count source
+    // together. All-or-nothing anchored downstream (un-grantable keyword / unmodeled count source → low).
+    if (/^(?:until end of turn, )?creatures you control gain .+ get \+x\/\+x.* where x is /i.test(sentence)) { clauses.push(sentence); continue; }
     // SYMBURN-1 symmetric burn ("<source> deals N damage to each creature and each player" — Inferno,
     // Fire Tempest, Evincar's Justice): the " and " between "each creature" and "each player" is INTERNAL
     // to one mass-damage target, NOT a top-level effect boundary. Keep the whole sentence so the damage
@@ -484,6 +491,10 @@ function parseCountSource(phrase, { allowTarget = false } = {}) {
   if ((m = p.match(/^([a-z]+) you control$/)) && COUNT_SUBTYPE[m[1]]) {
     return { kind: "permanentsYouControl", subtype: COUNT_SUBTYPE[m[1]] };
   }
+  // ===== OVERRUN-X ===== a MAX-reduction, not a count: the single greatest layer-resolved power among the
+  // controller's creatures (Overwhelming Stampede "+X/+X where X is the greatest power among creatures you
+  // control"). countForSpec computes it at resolution; an EMPTY board → 0 (a safe +0/+0, never fabricated).
+  if (/^greatest power among creatures you control$/.test(p)) return { kind: "greatestPowerYouControl" };
   return null;
 }
 
@@ -848,6 +859,20 @@ function parseExtendedAtom(s) {
   }
   tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (tp) return { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) } };
+  // ===== OVERRUN-X ===== count-scaled team pump — "[Until end of turn,] creatures you control gain KW[ and
+  // KW] and get +X/+X[ until end of turn], where X is <count source>." (Overwhelming Stampede — greatest
+  // power; Craterhoof Behemoth's ETB clause — number of creatures). Same controller-scoped one-shot as the
+  // numeric Overrun team pump (scope:"youControl", set locked at resolution, CR 611.2c), but the +X/+X delta
+  // is a BOARD COUNT computed at resolution (`ptDeltaCount`, via parseCountSource + countForSpec), NOT a
+  // printed number. The keyword(s) must be GRANTABLE (parseGrantedKeywords) AND the count source modeled,
+  // else → low → Arbiter (never a half-scaled native). EOT prefix or suffix both fold to the endOfTurn
+  // duration applyPumpEffect already applies.
+  let ox = t.match(/^(?:until end of turn, )?creatures you control gain (.+?) and get \+x\/\+x(?: until end of turn)?, where x is (.+?)$/);
+  if (ox) {
+    const kws = parseGrantedKeywords(ox[1]);
+    const countSpec = parseCountSource(ox[2].replace(/^the /, "").replace(/^number of /, ""));
+    return (kws && countSpec) ? { op: "pump", scope: "youControl", ptDeltaCount: countSpec, grantKeywords: kws } : null;
+  }
   // SELF-reference pump (trigger / activated vocabulary) — "this creature gets +N/+N until end of
   // turn" refers to the ability's SOURCE (CR 109.2 — "this creature" = the source permanent). NOT
   // a chosen target (target:"self", no targetType → stays non-targeted), so it routes natively on

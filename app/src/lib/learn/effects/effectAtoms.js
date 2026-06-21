@@ -586,8 +586,13 @@ function applyPumpEffect(state, atom, ctx) {
   // X-pump ("+X/+X until end of turn") binds both pips to the chosen X (ctx.xValue);
   // a fixed pump reads its printed ptDelta.
   const x = ctx.xValue || 0;
-  const power = atom.amountX ? x : atom.ptDelta?.p || 0;
-  const toughness = atom.amountX ? x : atom.ptDelta?.t || 0;
+  // OVERRUN-X — a count-scaled team pump locks +X/+X to a BOARD COUNT at resolution (CR 608.2g), e.g.
+  // Overwhelming Stampede's "greatest power among creatures you control". Computed from `state` (pre-pump,
+  // before the loop below adds any P/T effect), so X reads the un-buffed board. Takes precedence over the
+  // X-cost pump (amountX → ctx.xValue) and the printed ptDelta; 0 (empty board) is a valid +0/+0, not null.
+  const scaled = atom.ptDeltaCount ? Math.max(0, countForSpec(state, ctx, atom.ptDeltaCount)) : null;
+  const power = scaled != null ? scaled : (atom.amountX ? x : atom.ptDelta?.p || 0);
+  const toughness = scaled != null ? scaled : (atom.amountX ? x : atom.ptDelta?.t || 0);
   // Chosen targets for a single-creature pump (Giant Growth), EVERY creature for a mass
   // "All creatures get -X/-X until end of turn" (atom.targetType "eachCreature" — Infest /
   // Languish), or the controller's creatures for a TEAM pump (atom.scope "youControl" — Overrun
@@ -1107,6 +1112,14 @@ function countForSpec(state, ctx, spec) {
   if (spec.kind === "permanentsYouControl") return (player.battlefield || []).filter((perm) => countMatches(perm.card, spec)).length;
   // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
+  // ===== OVERRUN-X ===== a MAX-reduction: the single greatest layer-resolved power among the controller's
+  // creatures (Overwhelming Stampede). Reads creaturePower (layer-aware) so prior buffs/counters count; an
+  // empty board → 0 (a safe +0/+0). Computed BEFORE applyPumpEffect adds the +X/+X, so X is the pre-buff max.
+  if (spec.kind === "greatestPowerYouControl") {
+    return (player.battlefield || [])
+      .filter((perm) => /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || "")))
+      .reduce((mx, perm) => Math.max(mx, creaturePower(perm, state)), 0);
+  }
   return 0;
 }
 // Resolved numeric amount: a board count (`amountCount`) × a per-unit value (FOR-EACH "gain 2 life for
