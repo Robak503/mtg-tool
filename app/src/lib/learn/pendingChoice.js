@@ -21,7 +21,7 @@ import { logEvent } from "./gameState.js";
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, destination = "hand", entersTapped = false, remaining = 1 }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library" }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "tutor-search-pending", controller, count: candidates.length, sourceName, destination });
   return {
@@ -32,6 +32,9 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       candidates,
       sourceName,
       filterLabel,
+      // LAND-FROM-HAND — which zone the chosen card comes FROM: "library" (every search; default + shuffles)
+      // or "hand" (Growth Spiral's "put a land from your hand onto the battlefield"; no shuffle).
+      sourceZone: sourceZone === "hand" ? "hand" : "library",
       // RAMP-1 — where the chosen card goes: "hand" (P3.2 tutor) or "battlefield" (+ entersTapped, ramp).
       destination: destination === "battlefield" ? "battlefield" : "hand",
       entersTapped: !!entersTapped,

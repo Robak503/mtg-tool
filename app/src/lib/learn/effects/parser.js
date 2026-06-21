@@ -143,6 +143,17 @@ function makeProgram({ confidence, structure = "sequence", atoms = [], modal = n
   return { version: 1, source: "parser", confidence, structure, atoms, modal, xSpell, unparsedTail: unparsedTail ?? null };
 }
 
+// α2 optional-scope invariant — an `optional` atom ("you may <effect>") scopes ONLY its own clause, so an
+// optional FOLLOWED by a MANDATORY atom is ambiguous ("you may X and Y" splits to [optional X, mandatory Y],
+// where declining X would wrongly force Y). Optionals are therefore allowed ONLY as a SUFFIX of the atom
+// sequence (mandatory-then-optional, e.g. Growth Spiral "Draw a card. You may put a land …", is safe). The
+// SINGLE source of truth, applied by BOTH high-producing sequence paths (the collapsed-template helper and
+// the main multi-clause split) so they can't drift.
+function optionalsFormSuffix(atoms) {
+  const i = atoms.findIndex((a) => a.optional);
+  return i === -1 || atoms.slice(i).every((a) => a.optional);
+}
+
 /**
  * Markers that mean a clause carries semantics we do NOT model — a rider, an
  * unmodeled restriction, a variable amount, a conditional, a different actor.
@@ -634,6 +645,18 @@ function parseExtendedAtom(s) {
       return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[2], remaining: 2, targetType: null };
     }
     return null; // a non-land / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
+  }
+  // LAND-FROM-HAND (Growth Spiral "Draw a card. You may put a land card from your hand onto the
+  // battlefield." — the draw is a separate clause). A controller-scoped optional land drop sourced from the
+  // HAND (not the library), entering UNTAPPED, no shuffle. Reuses the tutor pending-choice seam via
+  // `sourceZone:"hand"` — applyTutor gathers the hand lands, the driver surfaces the same picker / auto-picks,
+  // resolveTutorChoice moves hand→battlefield. LANDS ONLY (the literal "land" type — duals/utility included;
+  // it bypasses the land-per-turn limit, CR — it's "put", not "play"). The "you may" is inherent (the tutor
+  // allows declining → put nothing); a MANDATORY "Put a land …" maps to the same atom (declining a forced put
+  // with no land in hand is a clean no-op). NOT a library search (that's the RAMP-1 path above).
+  const lfh = t.match(/^(?:you may )?put a land card from your hand onto the battlefield( tapped)?\.?$/);
+  if (lfh) {
+    return { op: "tutor", sourceZone: "hand", filter: { groups: [["land"]] }, filterLabel: "land card from your hand", destination: "battlefield", entersTapped: !!lfh[1], targetType: null };
   }
   // A standalone "[then] shuffle [your library]" clause (some cards put it in its own
   // sentence after the search) — shuffles the controller's library (CR 103.2).
@@ -1581,7 +1604,7 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
       if (!a) return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
       atoms.push(a);
     }
-    if (atoms.every(a => KNOWN.has(a.op))) {
+    if (atoms.every(a => KNOWN.has(a.op)) && optionalsFormSuffix(atoms)) {
       return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX), unparsedTail: null });
     }
     return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
@@ -1630,12 +1653,17 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
     if (!atom) { allParsed = false; break; }
     atoms.push(atom);
   }
-  // α2 forward guard: an `optional` atom ("you may <effect>") wraps only its OWN clause, but a
-  // conjoined "you may X and Y" splits into [optional X, mandatory Y] — ambiguous optionality scope
-  // (a decline would force Y). A multi-atom program carrying any optional atom drops to LOW →
-  // Arbiter rather than risk a partial. No printed card produces this today (the 144 native optionals
-  // are single-atom); guards it before the vocabulary widens (α2 review).
-  const optionalScopeOk = !(atoms.length > 1 && atoms.some(a => a.optional));
+  // α2 forward guard: an `optional` atom ("you may <effect>") scopes ONLY its own clause. The hazard is an
+  // optional FOLLOWED by a MANDATORY atom — a conjoined "you may X and Y" splits into [optional X, mandatory
+  // Y], where declining X would still wrongly force Y (ambiguous scope). So optionals are allowed ONLY as a
+  // SUFFIX of the sequence: a mandatory-then-optional card (LAND-FROM-HAND — Growth Spiral "Draw a card. You
+  // may put a land …" → [draw, may-put]) is safe (the optional is last; nothing it could wrongly force),
+  // while any optional with a LATER mandatory atom drops the whole program to LOW → Arbiter (never a partial).
+  // Conservative on optional-then-mandatory even when period-separated (a safe false-negative, no card needs
+  // it yet). Growth Spiral is the first printed multi-atom optional; the suffix rule keeps the and-conjoined
+  // ambiguity blocked. (α2 review — tightened from "any optional in a multi-atom program drops".) Shared with
+  // the collapsed-template path via `optionalsFormSuffix` so both HIGH paths enforce the same invariant.
+  const optionalScopeOk = optionalsFormSuffix(atoms);
   if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op))) {
     // Drop a redundant `shuffle` atom that immediately follows a `tutor` (the tutor
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
