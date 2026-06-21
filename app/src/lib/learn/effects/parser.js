@@ -68,17 +68,23 @@ function stripReminder(text) {
   return String(text || "").replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// MTG-001 — the "(They|It|That creature|Those creatures) can't be regenerated." rider. Anchored to these
+// subject forms only, so a damage rider ("a creature dealt damage this way can't be regenerated this turn"
+// — Incinerate) does NOT match. STRIP (CANT_REGEN_STRIP) and DETECT (CANT_REGEN_TEST) are derived from one
+// source so they can never drift: whatever the parse text strips, the parseEffectClause wrapper must detect.
+const CANT_REGEN_SUBJECTS = /\b(?:they|it|that creature|those creatures) can'?t be regenerated\b/;
+const CANT_REGEN_STRIP = new RegExp(CANT_REGEN_SUBJECTS.source + "\\.?", "gi");
+const CANT_REGEN_TEST = new RegExp(CANT_REGEN_SUBJECTS.source, "i");
 /**
- * Remove the "(They|It|That creature|Those creatures) can't be regenerated." rider — a
- * VACUOUS clause in this engine: regeneration shields aren't modeled, so a Destroy always
- * sends the creature to the graveyard whether or not it "can't be regenerated". Stripping it
- * (rather than failing the all-or-nothing gate on an unmodeled clause) is correct, NOT a
- * silent gap: honoring it would produce the IDENTICAL board state. This is what lets
- * Wrath of God / Damnation ("Destroy all creatures. They can't be regenerated.") and
- * regen-rider single-target removal parse natively. Anchored to the regen sentence only.
+ * Remove the "can't be regenerated" rider from the PARSE TEXT so the rest of the card (Wrath of God's
+ * "Destroy all creatures", Terminate's "Destroy target creature") still matches its anchored pattern. The
+ * rider is NOT vacuous — regeneration shields ARE modeled (CR 701.15; applyDestroyEffect / the lethal SBA
+ * consume them) — so the parseEffectClause wrapper re-detects it (CANT_REGEN_TEST) and stamps
+ * `cannotRegenerate` on the resulting destroy atom(s), and applyDestroyEffect then ignores shields for that
+ * destruction. Stripping here is purely to let the lead effect parse; the rider's MEANING is preserved.
  */
 function stripRegenerationRider(text) {
-  return String(text || "").replace(/\b(?:they|it|that creature|those creatures) can'?t be regenerated\b\.?/gi, " ");
+  return String(text || "").replace(CANT_REGEN_STRIP, " ");
 }
 
 /**
@@ -917,8 +923,8 @@ function parseExtendedAtom(s) {
   // so they hit every creature on every battlefield. A FILTERED wipe ("all creatures with
   // flying", "all creatures you don't control", "all non-Dragon creatures") fails the exact
   // anchor → low → Arbiter, since `eachCreature` would wrongly hit the unfiltered set. The
-  // vacuous "they can't be regenerated" rider was already stripped (regeneration is unmodeled,
-  // so a Destroy always reaches the graveyard regardless).
+  // "they can't be regenerated" rider was already stripped from `t` (MTG-001); the parseEffectClause
+  // wrapper re-stamps `cannotRegenerate` on this destroy atom so the rider is still honored.
   if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
   if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
   // MASS-NC — the UNFILTERED non-creature board wipes ("Destroy all artifacts / enchantments / lands /
@@ -1651,11 +1657,13 @@ function emblemAbilityModeled(x) {
   return residue === "";
 }
 
-export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) {
+function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (!oracle) return null;
-  // Drop the vacuous "can't be regenerated" rider up front (regeneration is unmodeled), so a
-  // board wipe / removal spell that carries it isn't forced low by an otherwise-unmodeled
-  // clause. Safe: honoring it yields the identical state in this engine.
+  // MTG-001 — strip the "can't be regenerated" rider from the PARSE TEXT only, so the lead effect (the
+  // board wipe / removal) still matches its anchored pattern instead of being forced low by the rider
+  // clause. The rider's MEANING is NOT dropped: the exported parseEffectClause wrapper re-detects it on
+  // the original oracle (CANT_REGEN_TEST) and stamps `cannotRegenerate` on the resulting destroy atom(s),
+  // which applyDestroyEffect honors by ignoring regeneration shields (CR 701.15).
   oracle = stripRegenerationRider(oracle);
   // Drop the vacuous "This spell can't be countered" rider too — uncounterability is enforced at the
   // counter-target enumerator, not the effect program, so honoring it yields the identical resolution.
@@ -1671,7 +1679,7 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   // rider would over-fire every turn, since those resolvers ignore the flag → a forbidden false positive).
   if (/\bDo this only once each turn\b\.?\s*$/i.test(oracle)) {
     const core = oracle.replace(/\.?\s*Do this only once each turn\b\.?\s*$/i, "").trim();
-    const inner = parseEffectClause(core, cardType, { hasX });
+    const inner = parseEffectClauseImpl(core, cardType, { hasX });
     if (inner && programConfidence(inner) === "high" && inner.structure !== "modal"
         && inner.atoms.length > 0 && ONCE_PER_TURN_HONORED.has(inner.atoms[inner.atoms.length - 1].op)) {
       const atoms = inner.atoms.map((a, i) => (i === inner.atoms.length - 1 ? { ...a, oncePerTurn: true } : a));
@@ -1767,6 +1775,34 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   // Any clause unmodeled → low confidence, ZERO atoms. Resolution hands the whole
   // spell to the Arbiter (never a partial execution, never a fabricated effect).
   return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
+}
+
+/**
+ * MTG-001 — public entry point for `parseEffectClauseImpl`. The impl strips the "can't be regenerated"
+ * rider from its parse text so the lead effect matches; this wrapper restores the rider's MEANING by
+ * stamping `cannotRegenerate: true` on every destroy atom in the produced program whenever the original
+ * oracle carried the rider. `applyDestroyEffect` honors the flag by skipping regeneration shields
+ * (CR 701.15) — indestructible (a separate replacement, CR 702.12b) is unaffected.
+ *
+ * Stamps both the sequence path (`program.atoms`) and any modal modes (`program.modal.modes[].atoms`).
+ * Attribution caveat: the rider is stripped before clauses/modes split, so in the (printed-card-nonexistent)
+ * case of a modal card mixing a regen-rider destroy mode with a non-rider destroy mode, BOTH destroy modes
+ * would be stamped. The flag is inert unless a targeted creature actually holds a regeneration shield, so
+ * over-stamping a destroy atom that never carries the rider has no observable effect on any real card.
+ */
+export function parseEffectClause(oracle, cardType = "", opts = {}) {
+  const program = parseEffectClauseImpl(oracle, cardType, opts);
+  if (!program || !CANT_REGEN_TEST.test(String(oracle || ""))) return program;
+  const stamp = (a) => (a && a.op === "destroy" ? { ...a, cannotRegenerate: true } : a);
+  const next = { ...program };
+  if (Array.isArray(next.atoms)) next.atoms = next.atoms.map(stamp);
+  if (next.modal && Array.isArray(next.modal.modes)) {
+    next.modal = {
+      ...next.modal,
+      modes: next.modal.modes.map((m) => ({ ...m, atoms: Array.isArray(m.atoms) ? m.atoms.map(stamp) : m.atoms })),
+    };
+  }
+  return next;
 }
 
 /**

@@ -22,6 +22,7 @@ function stateWith(battlefield, over = {}) {
 function resolveAll(s) { let g = 0; s = flushTriggers(s, { chooseTargets: chooseTriggerTargets }); while ((s.stack || []).length && g++ < 30) s = resolveTopOfStack(s); return s; }
 const watcher = (id, oracle, controller = "user", type = "Creature — Human") => createPermanent({ id, card: { id: `c-${id}`, name: id, type, power: 1, toughness: 1, oracle }, controller, summoningSick: false });
 const makeToken = (s, over = {}) => resolveAtom(s, { op: "create-token", descriptor: over.descriptor || "white soldier", power: over.power ?? "1", toughness: over.toughness ?? "1", count: over.count ?? 1 }, { controller: over.controller || "user", targets: [] });
+const makeNamed = (s, over = {}) => resolveAtom(s, { op: "create-named-token", token: over.token || "treasure", count: over.count ?? 1 }, { controller: over.controller || "user", targets: [] });
 
 describe("TOKEN ETB fires creature-enters triggers", () => {
   it("Soul Warden gains 1 per created token (fires per token)", () => {
@@ -62,5 +63,53 @@ describe("TOKEN ETB fires creature-enters triggers", () => {
     s = enterPermanent(s, lwEquip, "user"); // equipment enters → mints + attaches the Germ
     s = resolveAll(s);
     expect(s.players.user.life).toBe(41); // the Germ token triggered Soul Warden (was 0 before the fix)
+  });
+});
+
+// MTG-002 — a created token ENTERS (CR 603.6a), so it fires artifact-ETB watchers ("whenever an artifact you
+// control enters" — Reckless Fireweaver) the same way the canonical enterPermanent path does. This covers
+// BOTH the named artifact tokens (Treasure/Clue/Food/Gold) and an artifact-creature token (Servo/Thopter).
+// The artifact-ETB effect here is the Fireweaver shape: 1 damage to each opponent per artifact entering.
+describe("TOKEN ETB fires artifact-enters triggers (MTG-002)", () => {
+  const fireweaver = (id = "fw") =>
+    watcher(id, "Whenever an artifact you control enters, this creature deals 1 damage to each opponent.", "user", "Creature — Human Artificer");
+
+  it("a created Treasure token fires an artifact-ETB watcher (1 damage to each opponent)", () => {
+    let s = stateWith([fireweaver()]);
+    s = resolveAll(makeNamed(s, { token: "treasure", count: 1 }));
+    expect(s.players.ai.life).toBe(39); // the Treasure (an artifact) entered → Fireweaver fired once
+  });
+
+  it("multiple named tokens produce the correct number of trigger events (3 Clues → 3 fires)", () => {
+    let s = stateWith([fireweaver()]);
+    s = resolveAll(makeNamed(s, { token: "clue", count: 3 }));
+    expect(s.players.ai.life).toBe(37); // 3 artifact ETBs → 3 damage
+  });
+
+  it("an artifact-CREATURE token fires the artifact-ETB watcher too (create-token path)", () => {
+    // "colorless thopter artifact" mints a "Token Artifact Creature — Thopter"; its type-line contains
+    // "Artifact", so it matches the artifactYouControl scope (CR 205.2 substring) — the gap applyCreateToken
+    // had before (it fired creature-ETB only). One token → one artifact-ETB fire.
+    let s = stateWith([fireweaver()]);
+    s = resolveAll(makeToken(s, { descriptor: "colorless thopter artifact", power: "1", toughness: "1", count: 1 }));
+    expect(s.players.ai.life).toBe(39);
+  });
+
+  it("a PLAIN creature token does NOT fire the artifact-ETB watcher (no over-fire)", () => {
+    let s = stateWith([fireweaver()]);
+    s = resolveAll(makeToken(s, { descriptor: "white soldier", power: "1", toughness: "1", count: 2 }));
+    expect(s.players.ai.life).toBe(40); // soldiers aren't artifacts → the artifact watcher stays silent
+  });
+
+  it("a named artifact token does NOT fire a creature-ETB watcher (Soul Warden — scope gate)", () => {
+    let s = stateWith([watcher("sw", "Whenever a creature you control enters, you gain 1 life.")]);
+    s = resolveAll(makeNamed(s, { token: "treasure", count: 2 }));
+    expect(s.players.user.life).toBe(40); // a Treasure is not a creature → no creature-ETB fire (no FP)
+  });
+
+  it("an opponent's Treasure does NOT fire MY artifact-ETB watcher (controller-gated)", () => {
+    let s = stateWith([fireweaver()]);
+    s = resolveAll(makeNamed(s, { token: "treasure", count: 1, controller: "ai" }));
+    expect(s.players.ai.life).toBe(40); // my Fireweaver doesn't fire off the opponent's artifact
   });
 });

@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { parseEffectClause } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
-import { applyDestroyEffect } from "./spellEffects.js";
+import { applyDestroyEffect, parseSpellEffect } from "./spellEffects.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { clearCombat } from "./actionDispatcher.js";
 import { _resetIdsForTests, createGameState, createPermanent, destroyLethalCreatures, clearCombatDamage, findPermanent } from "./gameState.js";
@@ -77,6 +77,55 @@ describe("REGEN — engine: the shield replaces destruction", () => {
   it("unused shields expire at cleanup (CR 701.15 — 'this turn')", () => {
     const after = clearCombatDamage(onBoard(bear({ regenShields: 2 })));
     expect(findPermanent(after, "p1").permanent.regenShields).toBe(0);
+  });
+});
+
+// MTG-001 — a destroy effect carrying "[They|It|That creature|Those creatures] can't be regenerated"
+// (Wrath of God, Terminate, Rend Flesh) PREVENTS the regeneration replacement (CR 701.15): the shield
+// does NOT save the creature. The parser strips the rider from the parse text but the parseEffectClause
+// wrapper re-stamps `cannotRegenerate` on the destroy atom, which applyDestroyEffect then honors. The
+// rider does NOT bypass indestructible (CR 702.12b — a separate replacement that still applies).
+describe("REGEN — MTG-001: 'can't be regenerated' overrides the shield (but not indestructible)", () => {
+  describe("parser stamps cannotRegenerate on the destroy atom", () => {
+    it("single-target removal (Terminate / Rend Flesh)", () => {
+      // single-target destroy routes through parseSpellEffect, which gates on an Instant/Sorcery type
+      expect(parseEffectClause("Destroy target creature. It can't be regenerated.", "Instant").atoms)
+        .toEqual([{ op: "destroy", targetType: "creature", cannotRegenerate: true }]);
+    });
+    it("mass removal (Wrath of God / Damnation)", () => {
+      expect(parseEffectClause("Destroy all creatures. They can't be regenerated.", "Sorcery").atoms)
+        .toEqual([{ op: "destroy", targetType: "eachCreature", cannotRegenerate: true }]);
+    });
+    it("a PLAIN destroy carries NO flag (so a shield still saves it)", () => {
+      expect(parseEffectClause("Destroy target creature.", "Instant").atoms).toEqual([{ op: "destroy", targetType: "creature" }]);
+      expect(parseEffectClause("Destroy all creatures.", "Sorcery").atoms).toEqual([{ op: "destroy", targetType: "eachCreature" }]);
+    });
+    it("the legacy parseSpellEffect path also carries (only when present) the rider", () => {
+      expect(parseSpellEffect({ type: "Instant", oracle: "Destroy target creature. It can't be regenerated." }))
+        .toEqual({ kind: "destroy", targetType: "creature", cannotRegenerate: true });
+      expect(parseSpellEffect({ type: "Instant", oracle: "Destroy target creature." }))
+        .toEqual({ kind: "destroy", targetType: "creature" });
+    });
+  });
+
+  describe("engine: cannotRegenerate ignores the shield; indestructible is unaffected", () => {
+    it("a shielded creature DIES to a cannot-regenerate destroy (the shield does NOT save it)", () => {
+      const s = onBoard(bear({ regenShields: 1 }));
+      const after = applyDestroyEffect(s, { controller: "ai", targets: [{ type: "creature", id: "p1" }], cannotRegenerate: true });
+      expect(inGrave(after, "Regen Troll")).toBe(true);
+    });
+    it("CONTROL: the SAME shielded creature SURVIVES a plain destroy (the shield still works)", () => {
+      const s = onBoard(bear({ regenShields: 1 }));
+      const after = applyDestroyEffect(s, { controller: "ai", targets: [{ type: "creature", id: "p1" }] });
+      expect(inGrave(after, "Regen Troll")).toBe(false);
+      expect(findPermanent(after, "p1").permanent.regenShields).toBe(0);
+    });
+    it("a cannot-regenerate destroy does NOT bypass INDESTRUCTIBLE (CR 702.12b — a separate replacement)", () => {
+      const steel = createPermanent({ id: "p1", card: { name: "Steel Troll", type: "Creature — Troll", power: 2, toughness: 3, oracle: "Indestructible" }, controller: "user" });
+      const after = applyDestroyEffect(onBoard(steel), { controller: "ai", targets: [{ type: "creature", id: "p1" }], cannotRegenerate: true });
+      expect(inGrave(after, "Steel Troll")).toBe(false);
+      expect(findPermanent(after, "p1")).toBeTruthy();
+    });
   });
 });
 

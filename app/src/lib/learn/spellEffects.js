@@ -145,7 +145,13 @@ export function parseSpellEffect(card) {
   // creature target — incl. β-1 restrictions ("nonblack creature", "attacking creature") — still matches.
   m = oracle.match(/destroy\s+target\s+([^.]+)/i);
   if (m && /creature/.test(m[1].toLowerCase()) && !/\bcreature or\b|\bor creature\b/.test(m[1].toLowerCase())) {
-    return { kind: "destroy", targetType: "creature" };
+    // MTG-001 — carry the "can't be regenerated" rider (Terminate, Rend Flesh) so resolution ignores
+    // regeneration shields. Matches the wrapper's CANT_REGEN_TEST subjects (it/that creature/they/those).
+    // Added only when present so a no-rider destroy keeps its prior `{kind,targetType}` shape (pinned tests).
+    const cannotRegenerate = /\b(?:they|it|that creature|those creatures) can'?t be regenerated\b/i.test(oracle);
+    return cannotRegenerate
+      ? { kind: "destroy", targetType: "creature", cannotRegenerate: true }
+      : { kind: "destroy", targetType: "creature" };
   }
 
   // Draw N cards (controller). "draws" (someone else) intentionally doesn't match.
@@ -542,7 +548,7 @@ export function applyDrawEffect(state, { controller, amount }) {
   return logEvent(next, { kind: "spell-effect", effect: "draw", controller, amount });
 }
 
-export function applyDestroyEffect(state, { controller, targets = [] }) {
+export function applyDestroyEffect(state, { controller, targets = [], cannotRegenerate = false }) {
   let next = state;
   const dead = [];
   const prevented = [];
@@ -563,7 +569,10 @@ export function applyDestroyEffect(state, { controller, targets = [] }) {
     }
     // CR 701.15 — a regeneration shield REPLACES this destruction: consume one shield, the permanent survives
     // (clear damage + tap) and fires no dies-trigger (it never left the battlefield). Same look as indestructible.
-    if ((lk.permanent.regenShields || 0) > 0) {
+    // MTG-001 — a "can't be regenerated" destroy (Wrath of God, Terminate) sets `cannotRegenerate`, which
+    // overrides the shield (CR 701.15 — the rider prevents the regeneration replacement). It does NOT bypass
+    // indestructible (handled above, a separate replacement CR 702.12b), so the order here is correct.
+    if (!cannotRegenerate && (lk.permanent.regenShields || 0) > 0) {
       next = regeneratePermanent(next, t.id);
       prevented.push(t.id);
       continue;
@@ -643,7 +652,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
 export function resolveSpellEffect(state, { effect, controller, targets = [] }) {
   if (!effect) return state;
   if (effect.kind === "draw") return applyDrawEffect(state, { controller, amount: effect.amount });
-  if (effect.kind === "destroy") return applyDestroyEffect(state, { controller, targets });
+  if (effect.kind === "destroy") return applyDestroyEffect(state, { controller, targets, cannotRegenerate: effect.cannotRegenerate }); // MTG-001
   if (effect.kind === "damage") {
     return applyDamageEffect(state, { controller, amount: effect.amount, targetType: effect.targetType, targets });
   }

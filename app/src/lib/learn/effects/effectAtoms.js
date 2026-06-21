@@ -23,7 +23,7 @@ import {
 } from "../spellEffects.js";
 import { addContinuousEffect, permanentIsCreature } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addPoison, addExperience, addRadCounters, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower, creatureToughness } from "../gameState.js";
-import { checkDiesTriggers, checkEnterTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../triggers.js";
+import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
 const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
@@ -153,6 +153,24 @@ function selfTargets(state, ctx) {
  * token trades up, etc. The parser only admits keywords that are ENFORCED + read-layer-aware
  * (parseTokenKeywords), so a token can never claim an ability the combat/SBA engine ignores.
  */
+// MTG-002 — a created token ENTERS the battlefield (CR 603.6a), so it fires the same ETB seams as any
+// other permanent entry. This mirrors enterPermanent (resolvers.js): checkEnterTriggers (creature-ETB
+// watchers — Soul Warden / Impact Tremors / Cathars' Crusade + the subtype-ETB scopes) THEN
+// checkPermanentEntersTriggers (artifact-ETB / enchantment-ETB watchers — so an artifact-creature token
+// like a Servo/Thopter AND a named artifact token like Treasure/Clue/Food/Gold fire "whenever an artifact
+// you control enters"). Both helpers are scope-gated and pure (enqueue only), so firing both on every
+// minted token can never over-fire — a non-artifact creature token is a no-op for the perm-enters pass.
+function fireTokenEnterTriggers(state, mintedIds) {
+  let next = state;
+  for (const id of mintedIds) {
+    const found = findPermanent(next, id);
+    if (!found?.permanent) continue;
+    next = checkEnterTriggers(next, found.permanent);
+    next = checkPermanentEntersTriggers(next, found.permanent);
+  }
+  return next;
+}
+
 export function applyCreateToken(state, atom, ctx) {
   let next = state;
   const { type, name } = tokenTypeLine(atom.descriptor);
@@ -189,14 +207,12 @@ export function applyCreateToken(state, atom, ctx) {
   }
   // ETB (CR 603.6a) — a created token ENTERS, so it fires "enters" triggers: its own (rare) plus every
   // watcher (Soul Warden / Impact Tremors / Cathars' Crusade) AND the subtype-ETB scopes (Pantlaza off a
-  // created Dinosaur). Fired here, per token, BEFORE the lethal SBA (the token entered before a 0/0 dies).
-  // Without this, token creation silently bypassed every creature-ETB trigger — a core gap (see issue #345).
-  // No real card loops (create-token → "creature enters" → create-token is unprinted) and the session's
-  // 1000-tick cap backstops any pathological case; checkEnterTriggers only ENQUEUES (the flush is later).
-  for (const id of mintedIds) {
-    const found = findPermanent(next, id);
-    if (found?.permanent) next = checkEnterTriggers(next, found.permanent);
-  }
+  // created Dinosaur), plus artifact-ETB watchers for an artifact-creature token (Servo/Thopter). Fired
+  // here, per token, BEFORE the lethal SBA (the token entered before a 0/0 dies). Without this, token
+  // creation silently bypassed every ETB trigger — a core gap (see issue #345, MTG-002). No real card loops
+  // (create-token → "creature enters" → create-token is unprinted) and the session resolution safety cap
+  // backstops any pathological case; the trigger helpers only ENQUEUE (the flush is later).
+  next = fireTokenEnterTriggers(next, mintedIds);
   // A 0/0 token with no other effect dies immediately (CR 704.5f) — run the lethal SBA (after ETB enqueue).
   const r = destroyLethalCreatures(next);
   next = checkDiesTriggers(r.state, r.dead);
@@ -223,15 +239,18 @@ const NAMED_TOKENS = {
  * Clue / Food / Gold) onto the controller's battlefield. Mirrors applyCreateToken's minting (deterministic
  * id, owner = controller, entering untapped) but produces a NON-creature artifact card (no P/T, no keywords,
  * so no lethal SBA / dies path). The token's printed ability then drives the existing engine: Treasure/Gold
- * via the mana model (sacrificed on tap-for-mana), Clue/Food via the activated-ability stack path. Like the
- * creature-token path, the token does NOT fire ETB-watcher triggers yet (an under-model, never fabricated —
- * the token IS created). An unknown key can't occur (the parser allowlist gates it); guarded to a no-op anyway.
+ * via the mana model (sacrificed on tap-for-mana), Clue/Food via the activated-ability stack path. A named
+ * token ENTERS, so (MTG-002) it fires ETB watchers via the shared fireTokenEnterTriggers seam: these are
+ * non-creature artifacts, so creature-ETB watchers (Soul Warden) are gated out, but artifact-ETB watchers
+ * ("whenever an artifact you control enters") DO fire — Treasure/Clue/Food/Gold each count as an artifact
+ * entering. An unknown key can't occur (the parser allowlist gates it); guarded to a no-op anyway.
  */
 function applyCreateNamedToken(state, atom, ctx) {
   const spec = NAMED_TOKENS[atom.token];
   if (!spec) return state;
   let next = state;
   const count = Math.max(1, atom.count || 1);
+  const mintedIds = [];
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
     next = minted.state;
@@ -239,7 +258,10 @@ function applyCreateNamedToken(state, atom, ctx) {
     const perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
     const player = next.players[ctx.controller];
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
+    mintedIds.push(minted.id);
   }
+  // ETB (CR 603.6a) — each named artifact token fires artifact-ETB watchers (see fireTokenEnterTriggers).
+  next = fireTokenEnterTriggers(next, mintedIds);
   return logEvent(next, { kind: "spell-effect", effect: "create-named-token", token: atom.token, count, controller: ctx.controller });
 }
 
@@ -366,7 +388,7 @@ function applyRemovalWithRider(state, atom, ctx) {
   // Perform the removal through the shared resolver (exile → applyZoneMove, destroy → applyDestroyEffect).
   let next = atom.op === "exile"
     ? applyZoneMove(state, atom, ctx, "exile")
-    : applyDestroyEffect(state, { controller: ctx.controller, targets });
+    : applyDestroyEffect(state, { controller: ctx.controller, targets, cannotRegenerate: atom.cannotRegenerate });
   // Apply the rider to each captured controller.
   for (const cap of captures) {
     if (!next.players?.[cap.controller]) continue; // controller eliminated mid-resolution → skip (CR 800.4a)
@@ -1404,7 +1426,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "destroy": (state, atom, ctx) =>
     atom.controllerRider
       ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Beast Within / Generous Gift / Assassin's Trophy
-      : applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx) }),
+      : applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx), cannotRegenerate: atom.cannotRegenerate }), // MTG-001 — honor the "can't be regenerated" rider
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
   "animate": (state, atom, ctx) => applyAnimateEffect(state, atom, ctx),
