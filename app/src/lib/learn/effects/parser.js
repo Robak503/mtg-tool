@@ -258,6 +258,14 @@ function splitClauses(oracle) {
     // MULTI-COLOR descriptor ("black and green Insect") carries an internal " and " that must not be
     // split off, so keep the whole "create … creature token (with|for each) …" sentence together.
     if (/^create .*\bcreature tokens?\b (?:with|for each) .+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TOKEN-BARE-MULTICOLOR — "create a 1/1 green and white Citizen creature token" (no "with"/"for each"
+    // suffix) and its "you may create …" optional form (upkeep token triggers like Creakwood Liege).
+    // The multi-color descriptor ("green and white") carries an INTERNAL " and " that the top-level
+    // splitter (line 288) would cut, orphaning "white Citizen creature token" as an unparsed fragment.
+    // Keep the whole bare-create sentence so the create-token regex matches the full color+type descriptor;
+    // `parseClauseToAtom` then peels the "you may" wrapper before matching. Anchored to $ so
+    // "…token and draw a card" (ending "card") still splits at " and " — only the bare form is protected.
+    if (/^(?:you may )?create\b.*\bcreature tokens?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
     // KW[ and KW]] [until end of turn]" — the " and " inside a multi-keyword rider ("with reach and haste")
     // is INTERNAL to the one animate instruction, not a top-level boundary. Keep the whole sentence so
