@@ -665,6 +665,14 @@ function parseExtendedAtom(s) {
   if (lfh) {
     return { op: "tutor", sourceZone: "hand", filter: { groups: [["land"]] }, filterLabel: "land card from your hand", destination: "battlefield", entersTapped: !!lfh[1], targetType: null };
   }
+  // DISCOVER (LCI, CR 701.x) — "Discover N": exile cards from the top until a NONLAND with mana value <= N
+  // is exiled, then cast it FREE or put it into your hand (the rest to the bottom in a random order).
+  // Resolved by applyDiscoverAtom + the action-layer cast-free/to-hand decision (legalChoices reuses the
+  // cast machinery, so targeting / AI / the stack all behave like a normal cast). FIXED numeric N only;
+  // "discover X, where X is …" (Pantlaza / Hurl into History — a count-scaled X) is a count-source
+  // follow-up → stays low → Arbiter for now.
+  const dsc = t.match(/^discover (\d+)$/);
+  if (dsc) return { op: "discover", amount: parseInt(dsc[1], 10), targetType: null };
   // A standalone "[then] shuffle [your library]" clause (some cards put it in its own
   // sentence after the search) — shuffles the controller's library (CR 103.2).
   if (/^(?:then |and )?shuffle(?: your library)?$/.test(t)) return { op: "shuffle", targetType: null };
@@ -1714,6 +1722,11 @@ export function programConfidence(program) {
       ? "high" : "low";
   }
   if (!Array.isArray(program.atoms) || program.atoms.length === 0) return "low";
+  // DISCOVER must be the LAST atom: its cast-free/to-hand decision resolves at the ACTION layer AFTER the
+  // effect program finishes, so any atom AFTER a discover would wrongly run before the decision (a reorder).
+  // No printed card needs discover-not-last today; this guards the invariant as the vocabulary widens.
+  const di = program.atoms.findIndex(a => a.op === "discover");
+  if (di !== -1 && di !== program.atoms.length - 1) return "low";
   return program.atoms.every(a => KNOWN.has(a.op)) ? "high" : "low";
 }
 

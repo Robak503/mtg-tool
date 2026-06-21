@@ -564,6 +564,29 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
       continue;
     }
 
+    // DISCOVER (LCI) — a pending discover decision (cast the found card FREE, or put it in HAND) is
+    // resolved at the ACTION layer by its CONTROLLER, who may NOT be the current priorityHolder (it's made
+    // mid-resolution). Route it through the SAME decisionGate as a normal action: a human beginner/
+    // intermediate gets the cast-free + to-hand options surfaced; the AI / Expert auto-decides (pickAction
+    // casts a free body / a good-target spell, holds counters, else takes the card to hand). Resolved
+    // before the normal priority loop so it never stalls.
+    if (current.state.pendingDiscover) {
+      const dc = current.state.pendingDiscover.controller;
+      const dActions = legalActionsForPlayer(current.state, dc);
+      const dDecision = makeDecision(current.state, dc, dActions, {
+        difficulty: dc === "user" ? current.difficulty : "expert",
+        archetype,
+      });
+      if (dDecision.kind === "ask") {
+        return { session: current, decision: dDecision };
+      }
+      const dAction = dDecision.action || dActions.find((a) => a.kind === "discover-to-hand") || dActions[0];
+      current = dAction
+        ? { ...current, state: dispatchAction(current.state, dAction) }
+        : { ...current, state: (({ pendingDiscover: _drop, ...rest }) => rest)(current.state) }; // defensive: never stall
+      continue;
+    }
+
     // Interactive resolution-time choice (a tutor's library search). The player's OWN
     // tutor at beginner/intermediate surfaces a card PICKER; Expert autopilot and an
     // opponent's tutor AUTO-PICK the best candidate with no panel (the same pause-or-

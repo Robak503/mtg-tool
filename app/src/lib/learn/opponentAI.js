@@ -337,6 +337,16 @@ export function pickLoyaltyAction(state, aiPlayerId, loyaltyActions) {
 export function pickAction(state, aiPlayerId, actions, { archetype = null } = {}) {
   if (!Array.isArray(actions) || actions.length === 0) return null;
 
+  // DISCOVER (LCI) — a pending discover decision short-circuits everything (legalChoices offers ONLY the
+  // free-cast options + put-to-hand). Cast the found card free if pickCastAction likes a cast (a free
+  // permanent body, or a spell with a good enemy target); it HOLDS counters / declines a targetless or
+  // self-harmful cast → fall through to taking the card to hand. Never returns null (there is no pass here).
+  if (state.pendingDiscover && state.pendingDiscover.controller === aiPlayerId) {
+    const castOpts = filterActions(actions, "cast-spell");
+    const pick = castOpts.length ? pickCastAction(state, aiPlayerId, castOpts, archetype) : null;
+    return pick || actions.find(a => a.kind === "discover-to-hand") || actions[0] || null;
+  }
+
   // Combat is a batch decision, but the driver applies one action per tick.
   // We compute the plan and return its first still-legal choice; declared
   // attackers/blockers are excluded from the legal set next tick (attackers

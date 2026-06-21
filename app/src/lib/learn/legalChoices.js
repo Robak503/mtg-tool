@@ -303,6 +303,20 @@ function actionsCastSpell(state, playerId) {
   return castActionsFromZone(state, playerId, state.players[playerId].hand, "hand", null);
 }
 
+// DISCOVER (LCI) — the decision for a card found by discover (parked in exile, state.pendingDiscover): CAST
+// IT FREE (full target/mode/additional-cost enumeration via the shared builder with freeCast=true, fromZone
+// "exile" — so targeting/AI/the stack all reuse the normal cast path; X is forced to 0 per CR 601.2b) OR
+// PUT IT IN HAND. Both clear pendingDiscover in the dispatcher. An unmodeled found card still offers a (no-op)
+// free-cast — the engine's consistent behavior for any unmodeled spell, not a discover gap.
+function actionsDiscoverDecision(state, playerId) {
+  const pd = state.pendingDiscover;
+  if (!pd || pd.controller !== playerId) return [];
+  const card = (state.players[playerId]?.exile || []).find((c) => c.id === pd.cardId);
+  const toHand = { kind: "discover-to-hand", playerId, cardId: pd.cardId, name: card?.name };
+  if (!card) return [toHand]; // defensive: the card vanished from exile → only the (no-op) hand option remains
+  return [...castActionsFromZone(state, playerId, [card], "exile", null, true), toHand];
+}
+
 // CMD-CAST (CR 903.8) — a player may cast a commander they own FROM the command zone; it costs an
 // additional {2} for each PREVIOUS time they've cast it from the command zone this game (the "commander
 // tax"). This mirrors hand-casting EXACTLY (same timing / affordability / target / X / modal / additional
@@ -334,7 +348,12 @@ function actionsCompanion(state, playerId) {
 // Shared cast-action builder for a player's castable zone (hand or command). `taxFn(card)` returns the
 // extra GENERIC mana to add to the printed cost (CR 903.8 commander tax); null = untaxed. `fromZone`
 // rides on every emitted action so the dispatcher splices the card out of the correct zone at cast.
-function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
+// DISCOVER/free-cast: `freeCast` enumerates a "cast it without paying its mana cost" (CR 601.2b) — it
+// BYPASSES the sorcery-speed timing gate (the cast happens during resolution) + the mana affordability
+// gate (cost is waived), forces an X-spell's X to 0 (CR 601.2b), and stamps `freeCast` on every emitted
+// action (actionDispatcher then skips the mana payment). ADDITIONAL costs still apply (still enumerated
+// below). When false (every normal hand/command cast) behavior is byte-identical.
+function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast = false) {
   const player = state.players[playerId];
   const actions = [];
 
@@ -345,18 +364,22 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
     const timingOk = sorcerySpeed
       ? canCastSorcerySpeed(state, playerId)
       : canCastInstantSpeed(state, playerId);
-    if (!timingOk) continue;
+    if (!freeCast && !timingOk) continue;
 
     let cost = parseManaCost(manaCostOf(card));
     // Mana value is a card characteristic the commander tax does NOT change (CR 202.3b) — capture it from
     // the PRINTED cost before the tax is folded into `cost` (which becomes the payable amount).
     const printedCmc = totalCmc(cost);
-    const tax = taxFn ? taxFn(card) : 0;
-    if (tax) cost = { ...cost, generic: (cost.generic || 0) + tax };
+    if (freeCast) {
+      cost = { generic: 0 }; // waived — the dispatcher pays no mana for a free-cast (additional costs still apply)
+    } else {
+      const tax = taxFn ? taxFn(card) : 0;
+      if (tax) cost = { ...cost, generic: (cost.generic || 0) + tax };
+    }
     // Castable if the pool PLUS what untapped lands/rocks/dorks could produce
     // covers the cost — the dispatcher auto-taps to pay. (Pool-only would
-    // never be castable since nothing pre-fills it.)
-    const affordable = canAfford(player.manaPool, manaSources(state, playerId), cost);
+    // never be castable since nothing pre-fills it.) A free-cast skips this (no mana paid).
+    const affordable = freeCast || canAfford(player.manaPool, manaSources(state, playerId), cost);
     if (!affordable) continue;
 
     const effect = parseSpellEffect(card);
@@ -369,6 +392,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
       name: card.name,
       cost,
       cmc: printedCmc,
+      ...(freeCast ? { freeCast: true } : {}), // DISCOVER: the dispatcher skips the mana payment for this cast
       effect: effect || null,
       // P2.2: the serializable EffectProgram the dispatcher resolves through the
       // `effect-program` interpreter. `effect` stays for AI scoring of the legacy
@@ -437,7 +461,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
     // (generic += X, so payment auto-taps fixed + X) and onto the action (xValue),
     // which the dispatcher threads into resolution.
     if (isHigh && program.xSpell) {
-      const xValues = affordableXValues(state, playerId, cost);
+      // CR 601.2b — a spell cast without paying its mana cost has X = 0. Otherwise enumerate affordable X.
+      const xValues = freeCast ? [0] : affordableXValues(state, playerId, cost);
       if (xValues.length === 0) continue;
       const combos = expandCastChoices(state, playerId, program, colorsOf(card));
       if (combos.length === 0) continue;
@@ -939,6 +964,12 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
 export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {}) {
   if (!state || !state.players?.[playerId]) {
     throw new Error(`legalActionsForPlayer: invalid playerId "${playerId}"`);
+  }
+  // DISCOVER (LCI) — a pending discover decision short-circuits normal priority: ONLY the discovering
+  // player acts, and ONLY to resolve it (it's made mid-resolution, CR — no one else gets to act). Return
+  // exactly the two discover actions for the controller; an empty list for everyone else.
+  if (state.pendingDiscover) {
+    return state.pendingDiscover.controller === playerId ? actionsDiscoverDecision(state, playerId) : [];
   }
   // Default the declared-attackers list from live combat state, so the
   // session driver gets blocker candidates without threading it explicitly.

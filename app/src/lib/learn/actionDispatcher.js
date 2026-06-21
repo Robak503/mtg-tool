@@ -817,10 +817,32 @@ function applyCompanionToHand(state, action) {
   return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
 }
 
+// DISCOVER (LCI) — resolve the cast-or-hand decision for a card found by discover (parked in exile,
+// state.pendingDiscover). A free-cast routes through applyCastSpell (freeCast skips mana; additional costs
+// still apply; the card goes on the stack to resolve normally) then clears the pending flag. For a NORMAL
+// cast (no pending discover) this is a transparent pass-through.
+function applyCastSpellMaybeDiscover(state, action) {
+  const next = applyCastSpell(state, action);
+  if (state.pendingDiscover && action.fromZone === "exile") {
+    const { pendingDiscover: _drop, ...rest } = next;
+    return rest;
+  }
+  return next;
+}
+// DISCOVER — put the parked (exiled) found card into the controller's hand; clear the pending decision.
+function applyDiscoverToHand(state, action) {
+  let next = state;
+  if ((state.players[action.playerId]?.exile || []).some((c) => c.id === action.cardId)) {
+    next = moveCardToZone(state, { playerId: action.playerId, fromZone: "exile", toZone: "hand", cardId: action.cardId });
+  }
+  const { pendingDiscover: _drop, ...rest } = next;
+  return logEvent(rest, { kind: "discover-to-hand", playerId: action.playerId, cardName: action.name || null });
+}
+
 const HANDLERS = {
   "pass-priority": applyPassPriority,
   "play-land": applyPlayLand,
-  "cast-spell": applyCastSpell,
+  "cast-spell": applyCastSpellMaybeDiscover, // DISCOVER: clears pendingDiscover after a free-cast from exile
   "tap-for-mana": applyTapForMana,
   "activate-ability": applyActivateAbility,
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
@@ -828,6 +850,7 @@ const HANDLERS = {
   "declare-attacker": applyDeclareAttacker,
   "declare-blocker": applyDeclareBlocker,
   "companion-to-hand": applyCompanionToHand, // CMD-COMPANION (CR 702.139)
+  "discover-to-hand": applyDiscoverToHand,   // DISCOVER: take the found card instead of casting it free
 };
 
 /**
