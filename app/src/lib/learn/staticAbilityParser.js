@@ -316,6 +316,31 @@ function parseClause(clause, out) {
     return;
   }
 
+  // ── COUNTER-PAYOFF keyword grant (Badgermole/Emil/Training Regimen — "creatures you control with +1/+1
+  // counters on them have trample"): generalizes Herald's counter-gated grant to any GRANTABLE keyword(s),
+  // same requiresCounter dynamic per-creature gate. ALL-OR-NOTHING — every word in the "have …" phrase must
+  // be a grantable (enforced/layer-aware) keyword, else the whole clause is left unmodeled (a rider like
+  // "have trample and <unmodeled>" must never drop a keyword while the card flips native). Bare form only:
+  // a "During your turn," / "Unlock Ability —" prefix or a trailing qualifier won't match the ^…$ anchor → safe FN.
+  const cpKw = c.match(/^(?:each |all )?creatures? you control with (?:a )?\+1\/\+1 counters? on (?:it|them) have (.+)$/);
+  if (cpKw) {
+    // The non-alpha strip drops any numeric tail; that's safe ONLY because every GRANTABLE_KEYWORDS entry is
+    // non-parameterized (flying/trample/first strike/…). If a parameterized keyword (toxic N / ward N) were
+    // ever added to the static grantable set, guard the count here so "have toxic 2" can't drop the "2".
+    const words = cpKw[1].split(/,|\band\b/).map((w) => w.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
+    if (words.length && words.every((w) => GRANTABLE_KEYWORDS.has(w))) {
+      for (const w of words) {
+        out.push({
+          layer: 6,
+          op: { layerOp: "addKeyword", keyword: canonicalKeyword(w) },
+          affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], requiresCounter: "+1/+1" } },
+          duration: { kind: "permanent" },
+        });
+      }
+      return;
+    }
+  }
+
   // ── TRUNK-SELFBUFF: a STATIC self-buff scaled by a board count (layer 7c dynamic) ──
   // "This creature gets +X/+Y for each <countsource>" (Nim Lasher, Benalish Honor Guard…). A CONTINUOUS
   // effect, so it's exempt from the `for each` guard below — but ONLY this exact self-referential static
