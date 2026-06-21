@@ -132,3 +132,32 @@ describe("discover — parser + coverage pins", () => {
     expect(classifyCard(C("Sorcery", "Up to three target creatures can't block this turn. Discover 4.", "Daring Discovery"))).toBe("arbiter-spell"); // unmodeled lead clause
   });
 });
+
+describe("discover X = that creature's toughness (Pantlaza piece [b])", () => {
+  const atomsOf = (txt) => parseEffectClause(txt, "Creature — Dinosaur")?.atoms;
+  const dinoPerm = (id, t) => ({ id, card: { name: id, type: "Creature — Dinosaur", oracle: "", power: "2", toughness: String(t) }, tapped: false, counters: {} });
+  function stateWith(battlefield, library) {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    return { ...s, rngSeed: 7, players: { ...s.players, user: { ...s.players.user, battlefield, library, exile: [] } } };
+  }
+
+  it("parses 'discover X, where X is that creature's toughness' to the toughness-X discover atom", () => {
+    expect(atomsOf("Discover X, where X is that creature's toughness.")).toEqual([{ op: "discover", amountToughnessOfTrigger: true, targetType: null }]);
+  });
+
+  it("X = the triggering creature's layer-resolved toughness (read via ctx.triggeringPermanentId)", () => {
+    // Triggering Dino has toughness 5 → discover 5 finds the first nonland with MV <= 5.
+    let st = stateWith([dinoPerm("dino", 5)], [creature("c6", "MV6", 6), creature("c4", "MV4", 4)]);
+    st = resolveAtom(st, { op: "discover", amountToughnessOfTrigger: true, targetType: null }, { controller: "user", triggeringPermanentId: "dino", targets: [] });
+    expect(st.pendingDiscover).toMatchObject({ cardId: "c4", mv: 4 }); // MV6 skipped (>5), MV4 found
+    expect(st.players.user.exile.map((c) => c.name)).toEqual(["MV4"]);
+    expect(st.players.user.library.map((c) => c.name)).toEqual(["MV6"]); // skipped card → bottom
+  });
+
+  it("a triggering creature that already left the battlefield → X=0, a safe whiff (no fabrication)", () => {
+    let st = stateWith([], [creature("c1", "MV1", 1)]);
+    st = resolveAtom(st, { op: "discover", amountToughnessOfTrigger: true, targetType: null }, { controller: "user", triggeringPermanentId: "gone", targets: [] });
+    expect(st.pendingDiscover).toBeFalsy(); // X=0 → no nonland with MV<=0 → whiff, nothing exiled
+    expect(st.players.user.exile).toHaveLength(0);
+  });
+});

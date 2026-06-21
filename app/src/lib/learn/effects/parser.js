@@ -696,6 +696,10 @@ function parseExtendedAtom(s) {
   // follow-up → stays low → Arbiter for now.
   const dsc = t.match(/^discover (\d+)$/);
   if (dsc) return { op: "discover", amount: parseInt(dsc[1], 10), targetType: null };
+  // PANTLAZA — "discover X, where X is that creature's toughness": X is the TRIGGERING creature's (the
+  // entering Dinosaur's) layer-resolved toughness, read at resolution from ctx.triggeringPermanentId (the
+  // trigger path threads it). Only meaningful inside the Dino-ETB trigger; applyDiscoverAtom computes X.
+  if (/^discover x, where x is that creature's toughness$/.test(t)) return { op: "discover", amountToughnessOfTrigger: true, targetType: null };
   // A standalone "[then] shuffle [your library]" clause (some cards put it in its own
   // sentence after the search) — shuffles the controller's library (CR 103.2).
   if (/^(?:then |and )?shuffle(?: your library)?$/.test(t)) return { op: "shuffle", targetType: null };
