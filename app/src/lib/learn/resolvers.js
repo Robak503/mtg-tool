@@ -64,6 +64,20 @@ export const RESOLVER_KEYS = Object.freeze({
  * trigger + layer-timestamp stamps ride through `gameEngine.enterBattlefield`
  * in PR-6 (the three-way integration seam); PR-1 deliberately keeps this minimal.
  */
+/**
+ * LIVING WEAPON (CR 702.91) / FOR MIRRODIN! (CR 702.157) — the Equipment's built-in ETB: create a token,
+ * then attach this Equipment to it. The token is fixed by the keyword (a 0/0 black Phyrexian Germ for living
+ * weapon; a 2/2 red Rebel for For Mirrodin!), so we don't parse it — we mint the exact token. Returns the token
+ * card spec or null. A 0/0 Germ survives because the Equipment's +X/+Y is attached the same instant (CR 613 —
+ * the layer engine reads the attached bonus), so it's never a 0-toughness SBA casualty before it's buffed.
+ */
+function livingWeaponToken(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  if (/\bliving weapon\b/i.test(oracle)) return { name: "Germ", type: "Creature — Phyrexian Germ", power: 0, toughness: 0, colors: ["B"], token: true };
+  if (/\bfor mirrodin!/i.test(oracle)) return { name: "Rebel", type: "Creature — Rebel", power: 2, toughness: 2, colors: ["R"], token: true };
+  return null;
+}
+
 export function enterPermanent(state, card, controller, opts = {}) {
   const player = state.players[controller];
   if (!player) return state;
@@ -123,6 +137,17 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // battlefield (the resolver already re-checked legality, but a no-op stays safe).
   if (opts.attachTo && findPermanent(next, opts.attachTo)) {
     next = attachPermanent(next, { equipId: permId, targetId: opts.attachTo });
+  }
+  // LIVING WEAPON / FOR MIRRODIN! — the Equipment makes its own token and attaches to it (CR 702.91/702.157).
+  // Mint the fixed token, put it on the controller's battlefield, then attach THIS Equipment via the shared
+  // attachPermanent (the same mechanism Equip / Aura use), so the layer engine buffs the token from this turn.
+  const lwToken = livingWeaponToken(card);
+  if (lwToken) {
+    const { id: tokId, state: ts2 } = mintId(next, "perm");
+    const tokPerm = { ...createPermanent({ id: tokId, card: lwToken, controller, summoningSick: true }), enteredOnTurn: ts2.turn, timestamp: ts2.timestampCounter || 0 };
+    const ts3 = { ...ts2, timestampCounter: (ts2.timestampCounter || 0) + 1 };
+    next = { ...ts3, players: { ...ts3.players, [controller]: { ...ts3.players[controller], battlefield: [...ts3.players[controller].battlefield, tokPerm] } } };
+    next = attachPermanent(next, { equipId: permId, targetId: tokId });
   }
   // Fire ETB triggers now that the permanent is on the battlefield (CR 603.6a). They land in
   // pendingTriggers and flushTriggers puts them on the stack at the next priority-grant checkpoint
