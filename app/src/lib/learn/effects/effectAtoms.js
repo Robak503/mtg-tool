@@ -484,7 +484,8 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
     } },
   };
   next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: playerId });
-  // ETB fires for any entry; LANDFALL (CR 614) ALSO fires when the entering permanent is a LAND — a
+  // ETB fires for any entry; LANDFALL (CR 603 — a triggered ability, ability word CR 207.2c) ALSO fires
+  // when the entering permanent is a LAND — a
   // RAMP/fetch that puts a land onto the battlefield (Cultivate, Rampant Growth, Kodama's Reach) is a
   // landfall event, not just an ETB. Without this, landfall payoffs (Lotus Cobra, Tatyova, Rampaging
   // Baloths) silently miss every ramp-fetched land. checkLandfallTriggers self-gates via isLandPerm, so a

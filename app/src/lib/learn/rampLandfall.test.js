@@ -1,6 +1,7 @@
 /**
  * RAMP/fetch LANDFALL (Dex, real-deck lane) — a land PUT onto the battlefield via ramp/fetch (Cultivate,
- * Rampant Growth, Kodama's Reach → enterCardFromZone) fires LANDFALL (CR 614), not just ETB. Without this,
+ * Rampant Growth, Kodama's Reach → enterCardFromZone) fires LANDFALL (CR 603 — a triggered ability, ability
+ * word CR 207.2c; not a replacement effect), not just ETB. Without this,
  * landfall payoffs (Lotus Cobra, Tatyova, Rampaging Baloths) silently missed every ramp-fetched land — a
  * real gap in every green ramp deck (Koma/Omnath/Zaxara). Sibling of the play-land ETB fix.
  *

@@ -1,5 +1,6 @@
 /**
- * LANDFALL (CR 614) — "Landfall — Whenever a land you control enters, <payoff>" (Tatyova, Jaddi Offshoot,
+ * LANDFALL (CR 603 — landfall is an ability word [CR 207.2c] for a TRIGGERED ability, not a replacement
+ * effect) — "Landfall — Whenever a land you control enters, <payoff>" (Tatyova, Jaddi Offshoot,
  * Rampaging Baloths, the Zendikar landfall family). A NEW land-entry trigger event, fired by the PLAY-LAND
  * path (applyPlayLand → checkLandfallTriggers). The "Landfall —" ability-word label (CR 207.2c, flavor) is
  * stripped IDENTICALLY in detectTriggers and the coverage metric (stripTriggerAbilityLabel) so the

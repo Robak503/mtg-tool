@@ -273,7 +273,8 @@ function classifyCondition(condRaw, cardName, cardType) {
     const diesSub = c.match(/^a ([a-z]{3,}) you control dies$/);
     if (diesSub) return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: diesSub[1].charAt(0).toUpperCase() + diesSub[1].slice(1) };
   }
-  // LANDFALL (CR 614 — "a land enters under your control") — "Landfall — Whenever a land you control enters" /
+  // LANDFALL (CR 603 — landfall is an ability word, CR 207.2c, for a TRIGGERED ability; NOT a replacement
+  // effect, so not CR 614) — "Landfall — Whenever a land you control enters" /
   // "… a land enters the battlefield under your control" (Tatyova, Lotus Cobra, Rampaging Baloths, Jaddi
   // Offshoot, the Zendikar landfall payoffs). A NEW land-entry event fired by the play-land path
   // (checkLandfallTriggers). Controller-scoped ONLY — the entering land is YOURS. The "Landfall —" ability-word

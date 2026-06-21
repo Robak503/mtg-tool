@@ -237,7 +237,8 @@ function applyPlayLand(state, action) {
     playerId: action.playerId,
     cardName: card.name,
   });
-  // LANDFALL (CR 614) — the land just entered under this player's control, so fire any landfall watchers
+  // LANDFALL (CR 603 — a triggered ability via the landfall ability word, CR 207.2c; not a replacement
+  // effect) — the land just entered under this player's control, so fire any landfall watchers
   // ("Landfall — Whenever a land you control enters …"). The freshly-played land is the last permanent on
   // the battlefield. The pending triggers flush on the next priority pass like every other trigger.
   {
