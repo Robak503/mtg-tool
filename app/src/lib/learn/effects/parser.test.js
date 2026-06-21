@@ -750,6 +750,11 @@ const MUST_DROP_TO_LOW = [
   "Creatures you control get +1/+1 and gain hexproof until end of turn.", // hexproof not grantable/enforced
   "Creatures you control get +2/+2 and gain menace until end of turn.",   // menace not grantable (unenforced)
   "Creatures you control gain trample until end of turn.",             // pure team keyword grant (no P/T) — deferred
+  // OVERRUN-X — count-scaled team pump ("…gain trample and get +X/+X, where X is <count>"): a FILTERED team,
+  // an unmodeled count source, or an un-grantable keyword stays LOW → Arbiter (never a half-scaled native).
+  "Until end of turn, creatures you control with flying gain trample and get +X/+X, where X is the greatest power among creatures you control.",        // filtered subset
+  "Until end of turn, creatures you control gain trample and get +X/+X, where X is the number of cards in target opponent's hand.",                     // unmodeled count source
+  "Until end of turn, creatures you control gain indestructible and get +X/+X, where X is the greatest power among creatures you control.",             // indestructible not grantable on the combat-trick path
   // SELF-reference (trigger/activated vocabulary) — "this creature" is modeled (= the source);
   // the ambiguous "it" (could be a prior target, not the source) stays LOW → Arbiter.
   "It gets +2/+0 until end of turn.",                                   // "it" is ambiguous — deferred
@@ -984,6 +989,9 @@ const MUST_STAY_HIGH = [
   "Creatures you control get +1/+1 until end of turn.",                          // generic team pump
   "Creatures you control get +3/+3 and gain trample until end of turn.",         // Overrun (no-split guard holds the combo)
   "Creatures you control get +1/+1 and gain vigilance until end of turn.",       // single-keyword combo
+  // ── OVERRUN-X — count-scaled team pump: "+X/+X where X is <count source>" (Dex). ──
+  "Until end of turn, creatures you control gain trample and get +X/+X, where X is the greatest power among creatures you control.", // Overwhelming Stampede
+  "Creatures you control gain trample and get +X/+X until end of turn, where X is the number of creatures you control.",             // Craterhoof Behemoth's ETB clause
   // ── Scry / surveil (CR 701.18 / 701.43) — numeric standalone + ". "-separated multi-clause. ──
   "Scry 2.",                                                                      // standalone scry
   "Surveil 1.",                                                                   // standalone surveil
