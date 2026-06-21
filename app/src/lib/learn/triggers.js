@@ -254,6 +254,12 @@ function classifyCondition(condRaw, cardName, cardType) {
     if (selfRef) return { event: "dies", scope: "self", whose: "any" };
     const scope = creatureSubjectScope(subjectBefore(c, "dies"));
     if (scope) return { event: "dies", scope, whose: "any" };
+    // SUBTYPE dies (tribal payoffs — Laid to Rest / Slimefoot / Crossway Troublemakers). Single-word
+    // subtype filter reusing subtypeYouControl; checkDiesTriggers threads the dead creature as
+    // triggeringPermanent. The with/while/during/named/or-another guards above already rejected the
+    // restricted shapes, so this only captures the clean "a <Subtype> you control dies" form.
+    const diesSub = c.match(/^a ([a-z]{3,}) you control dies$/);
+    if (diesSub) return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: diesSub[1].charAt(0).toUpperCase() + diesSub[1].slice(1) };
   }
   // LANDFALL (CR 614 — "a land enters under your control") — "Landfall — Whenever a land you control enters" /
   // "… a land enters the battlefield under your control" (Tatyova, Lotus Cobra, Rampaging Baloths, Jaddi
@@ -335,6 +341,10 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\battacks\b/.test(c)) {
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     if (/a creature you control/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };
+    // SUBTYPE attacks (tribal payoffs — Utvara Hellkite / Sanctum Seeker / Grolnok). Single-word subtype
+    // filter reusing subtypeYouControl; checkAttackTriggers threads the attacker as triggeringPermanent.
+    const atkSub = c.match(/^a ([a-z]{3,}) you control attacks$/);
+    if (atkSub) return { event: "attacks", scope: "subtypeYouControl", whose: "any", subtypeFilter: atkSub[1].charAt(0).toUpperCase() + atkSub[1].slice(1) };
   }
   // ===== BLOCKS compound / restricted-block guard (CREED, CLAUDE.md §1.2) ===== The only modeled block
   // trigger is the BARE self-block ("Whenever this creature blocks, …"). A COMPOUND condition that also

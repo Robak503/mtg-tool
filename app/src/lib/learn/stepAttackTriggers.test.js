@@ -7,9 +7,10 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { checkStepTriggers, checkAttackTriggers } from "./triggers.js";
+import { checkStepTriggers, checkAttackTriggers, detectTriggers } from "./triggers.js";
 import { runStepActions, resolveTopOfStack } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
+import { classifyCard } from "./coverage.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -102,5 +103,30 @@ describe("wired into runStepActions", () => {
     // …and resolving it actually gains the life.
     const lifeBefore = out.players.user.life;
     expect(resolveTopOfStack(out).players.user.life).toBe(lifeBefore + 1);
+  });
+});
+
+// SUBTYPE attacks / dies (tribal payoffs) — "Whenever a <Subtype> you control attacks/dies, <effect>".
+// Reuses the subtypeYouControl scope; checkAttackTriggers / checkDiesTriggers thread the triggering
+// creature. Corpus flip-diff: +2 clean (Sanctum Seeker, Utvara Hellkite), 0 regressions; the rest of the
+// pattern's cards carry OTHER unmodeled abilities and correctly stay body-only (CREED — no over-claim).
+describe("SUBTYPE attacks / dies triggers", () => {
+  const trig = (type, oracle) => detectTriggers({ name: "X", type, oracle, mana: "{4}" });
+  const C = (type, oracle) => ({ type, oracle, mana: "{4}", name: "X", power: "4", toughness: "4" });
+
+  it("detects 'a <Subtype> you control attacks/dies' as subtypeYouControl with the subtype filter", () => {
+    expect(trig("Creature — Vampire", "Whenever a Vampire you control attacks, each opponent loses 1 life and you gain 1 life.")[0])
+      .toMatchObject({ event: "attacks", scope: "subtypeYouControl", subtypeFilter: "Vampire" });
+    expect(trig("Creature — Human", "Whenever a Human you control dies, draw a card.")[0])
+      .toMatchObject({ event: "dies", scope: "subtypeYouControl", subtypeFilter: "Human" });
+  });
+
+  it("Sanctum Seeker (Vampire attacks → drain) and Utvara Hellkite (Dragon attacks → token) flip native-trigger", () => {
+    expect(classifyCard(C("Creature — Vampire Knight", "Whenever a Vampire you control attacks, each opponent loses 1 life and you gain 1 life."))).toBe("native-trigger");
+    expect(classifyCard(C("Creature — Dragon", "Flying\nWhenever a Dragon you control attacks, create a 6/6 red Dragon creature token with flying."))).toBe("native-trigger");
+  });
+
+  it("CREED: a restricted subtype-dies ('during your turn') stays undetected → not native", () => {
+    expect(trig("Creature — Mutant", "Whenever a Mutant you control dies during your turn, draw a card.")).toHaveLength(0);
   });
 });
