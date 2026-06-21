@@ -31,8 +31,17 @@ LOW (the Arbiter) and pinning it so it can't silently flip back.
    - Rank OPEN coverage rows by honest, **adversarially-verified** clean-template yield (most first-pass numbers
      come down on inspection — that's the gate working; publish the corrected number).
    - **Stock cycle-sized work:** group trivial variants into ONE bundled task (so each becomes a value-bar-clearing
-     PR for Cindy, not six one-liners); flag `low`/`med`/`sub` honestly so she can pace ~3 substantive PRs to
+     PR, not six one-liners); flag `low`/`med`/`sub` honestly so the builders can pace ~3 substantive PRs to
      Clyde's 20-min sweep. Keep 3-5 ripe at the top.
+   - **🎯 DECK-ALIGNMENT GATE (Colton, 2026-06-21 — all THREE builders are now on the 13 decks):** every active
+     board row MUST name the **specific 13-deck card(s)** it unblocks. Grep the candidate cards against
+     `memory/deck_*.md` (Colton's 6) + `memory/deck_joe_roster.md` (Joe's 7) and cite them in the row.
+     **Counter / proliferate / keyword-grant / equipment / generic-trigger rows are GUILTY UNTIL PROVEN** — do
+     NOT board them unless you can cite a card in one of the 13 decks. Pure general-corpus rows go to a separate
+     **"PARKED — post-13"** section (kept warm, not worked) until the 13 are coverage-complete. Tag each active
+     row with the deck(s) + the per-deck **non-land native %** it moves, so Clyde can route Dex/Walt/Cindy
+     without double-claims (Dex = Pantlaza/Wolverine/Koma staples · Walt = Toph land-animate/landfall · Cindy =
+     Vihaan aristocrats + Mothman rad/mill).
    - Write each row's false-positive **landmine** into `docs/scout-gap-report.md` so the builder reads it before building.
    - Push as `scout/board-<n>` — **Clyde adopts it directly** (he doesn't merge a dirty PR; he pulls the files).
 3. **QA** — `npm run dev` + a corpus false-positive sweep of the HIGH / native set:

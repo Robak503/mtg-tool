@@ -6,13 +6,14 @@
 > planeswalkers they unblock, which lift the whole corpus by proxy. You ship PRs that **Clyde** (the
 > integrator) merges; **Cindy** is the other builder and your lane is **disjoint** from hers.
 >
-> **🔀 LANE RE-CARVE (Colton, 2026-06-19):** your standing lane is now **the entire 702.x KEYWORD BACKLOG**
-> (Waves B–G, `docs/orchestration/keyword-coverage-plan.md`, ~4,500+ cards) — you **no longer spin down**.
-> Your PW/count/ANIMATE work is largely shipped (#271/#272/#274); ANIMATE continues as a keyword-adjacent
-> build. **Start on non-trigger waves (EVADE-2, KW-CYCLING) until Cindy's trigger-compiler CORE is solid**
-> (then your Wave-B keyword-triggers ADAPT off it). Build your Wave-C alt-cost on Cindy's command-zone cast
-> flow after it lands. **Replacement-shield (Wave F + PREVENT/regen) is yours, built once.** See the board's
-> LANE ASSIGNMENT section. (The PW-leverage-atom framing below is superseded by this carve.)
+> **🔀 LANE RE-CARVE (Colton, 2026-06-21 — supersedes the 06-19 keyword-backlog carve):** you are **reassigned
+> off the standalone 702.x keyword backlog and onto the 13-DECK GRIND** (see `memory/orders/walt.md`). The keyword
+> backlog is **NO LONGER your lane** — every PR must now cite a **specific card in one of the 13 decks** it
+> unblocks (decklists: `memory/deck_*.md` + `memory/deck_joe_roster.md`). Your keyword / animate / count
+> expertise is the **TOOL**; a named 13-deck card is the **TARGET**. **Current claim: TOPH (Joe) — EARTHBEND PR2**
+> (you shipped EARTHBEND PR1 #324; continue it) **then Toph P6 LANDFALL** (Toph is the sole landfall beneficiary
+> among the 13). Coordinate with Dex via Clyde so you don't double-claim. The PW-leverage-atom + keyword-wave
+> framing below is **REFERENCE for HOW you build** — not a standalone work source anymore.
 
 ---
 
@@ -130,11 +131,13 @@ Work ONLY in my own `.claude/worktrees/<id>`. Confirm `git rev-parse --show-topl
 
 ## 8. Current state
 
-- PW subsystem **PW-1→PW-7 COMPLETE** (merged through v0.39.0 + cycle 4). **#254 (PW-8 triggered emblems)**
-  is the one PW item still in flight, awaiting Omnath's call — leave it to that thread.
-- New lane open: pull top-down from §3. **Suggested first pull: WALT-TOKEN-ABIL** (the #1 PW-blocker, 48
-  walkers / ~1,005 corpus) — reuses the emblem ability-modeled gate I already built.
-- `master` @ current `origin/master` · corpus 17.2% native · v0.39.0 published.
+- PW subsystem **PW-1→PW-8 COMPLETE**. Keyword waves largely shipped (poison / ward / protection / fading /
+  cycling / counter-payoff / cast-filter, #285–#328). ANIMATE framework PR1 (#274) shipped.
+- **LANE = the 13-deck grind** (see the RE-CARVE block up top). **Current claim: TOPH EARTHBEND PR2** (continues
+  #324), **then Toph P6 LANDFALL.** Pull the specific cards from `memory/deck_joe_roster.md` (Toph) and apply
+  your §3 mechanism toolkit to them. After Toph, coordinate with Clyde for the next at-risk deck (Cap equipment,
+  Ur-Dragon dragon-tribal) — **never a generic keyword wave**.
+- `master` @ current `origin/master` · corpus ~18.7% native · v0.46.0 published.
 
 > **Standing:** choose what's best, no bubbles. Verify heavily. Announce each task switch (plain-language
 > banner + card-count estimate + "claiming `<id>`"). Recap at every break (slice | plain-MTG gain | status).
