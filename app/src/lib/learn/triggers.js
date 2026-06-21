@@ -145,10 +145,20 @@ function creatureSubjectScope(subj) {
  * "this <permanent>" or the card's own name. The CR 603.6d static guard makes
  * "enters tapped / enters with / as ~ enters" NOT an etb trigger.
  */
-function classifyCondition(condRaw, cardName) {
+function classifyCondition(condRaw, cardName, cardType) {
   const c = condRaw.toLowerCase().trim();
   const nameL = String(cardName || "").toLowerCase();
-  const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL));
+  // SHORT-NAME SELF-REF (CR 201.4) — a LEGENDARY card refers to itself by the portion of its name before
+  // the first comma ("Pantlaza" for "Pantlaza, Sun-Favored"). The full-name match below misses that, so a
+  // self-trigger templated with the short name (the standard for legends) goes UNDETECTED → the whole card
+  // wrongly routes to the Arbiter. Match the short name word-bounded (len >= 3), gated to legendary to keep
+  // a common-word first name (rare on non-legends) from over-matching unrelated condition text. Exposed by
+  // Pantlaza, Sun-Favored ("Whenever Pantlaza or another Dinosaur you control enters …").
+  const isLegendary = /legendary/i.test(String(cardType || ""));
+  const shortName = isLegendary ? nameL.split(",")[0].trim() : "";
+  const shortNameRef = shortName.length >= 3 && shortName !== nameL
+    && new RegExp(`\\b${shortName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(c);
+  const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL)) || shortNameRef;
 
   // ===== COMPOUND self-event guard (CREED, CLAUDE.md §1.2) ===== A condition that names TWO trigger
   // events — "enters or leaves the battlefield" (Brandywine Farmer), "enters or dies" (Vinereap Mentor),
@@ -346,6 +356,13 @@ function classifyCondition(condRaw, cardName) {
   if (/\bdeals combat damage to a player$/.test(c)) {
     if (selfRef) return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
     if (/a creature you control/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any" };
+    // SUBTYPE combat-damage (tribal payoffs — Curious Altisaur "Whenever a Dinosaur you control deals
+    // combat damage to a player, draw a card"). A single-word creature SUBTYPE filter, reusing the
+    // subtypeYouControl scope (controller + type-line substring; the attacker is threaded as
+    // triggeringPermanent by combatResolution). Anchored single word, len >= 3 — "creature" is already
+    // handled above; any other shape leaves residue → undetected → Arbiter (never an over-fire).
+    const cdSub = c.match(/^a ([a-z]{3,}) you control deals combat damage to a player$/);
+    if (cdSub) return { event: "combatDamageToPlayer", scope: "subtypeYouControl", whose: "any", subtypeFilter: cdSub[1].charAt(0).toUpperCase() + cdSub[1].slice(1) };
   }
 
   // Cast-spell triggers (CR 603.2, the spell-cast event). The WHOLE condition must reduce
@@ -449,7 +466,7 @@ export function detectTriggers(card) {
       const inner = m[2].trim();
       const split = splitTriggerSentence(inner);
       if (!split) continue;
-      const cls = classifyCondition(split.condition, card.name);
+      const cls = classifyCondition(split.condition, card.name, card.type || card.type_line);
       if (!cls) continue;
       // Extend the effect with the trigger's remaining SAME-LINE sentences (reminder text stripped)
       // so the parser sees its WHOLE effect. A triggered ability's effect is one oracle line, so we

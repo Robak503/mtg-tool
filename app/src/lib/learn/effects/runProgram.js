@@ -81,7 +81,9 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
         ...next,
         pendingChoice: {
           kind: "optional-effect", controller, atomIndex: i, effectOp: atom.op, cardName,
-          resume: { program, controller, targets, xValue, sourceId, chosenMode: params.chosenMode ?? null, nextAtomIndex: i, cardName },
+          // `context` MUST ride along — a context-dependent atom (discover X = the triggering creature's
+          // toughness, via ctx.triggeringPermanentId) loses its trigger context on resume otherwise → X=0.
+          resume: { program, controller, targets, xValue, sourceId, context, chosenMode: params.chosenMode ?? null, nextAtomIndex: i, cardName },
         },
       };
     }
@@ -102,7 +104,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
         ...next,
         pendingChoice: {
           ...next.pendingChoice,
-          resume: { program, controller, targets, xValue, sourceId, chosenMode: params.chosenMode ?? null, nextAtomIndex: i + 1, cardName },
+          resume: { program, controller, targets, xValue, sourceId, context, chosenMode: params.chosenMode ?? null, nextAtomIndex: i + 1, cardName },
         },
       };
     }
@@ -459,7 +461,7 @@ export function resolveOptionalChoice(state, doIt) {
   const i = pc.atomIndex;
   const atom = programAtoms(r.program, r.chosenMode)[i];
   if (doIt) {
-    const ctx = { controller: r.controller, targets: targetsForAtom(r.targets, i), cardName: r.cardName, xValue: r.xValue, sourceId: r.sourceId };
+    const ctx = { ...(r.context || {}), controller: r.controller, targets: targetsForAtom(r.targets, i), cardName: r.cardName, xValue: r.xValue, sourceId: r.sourceId };
     const after = resolveAtom(next, { ...atom, optional: false }, ctx);
     if (after == null) return markPendingArbiter(next, { source: { name: r.cardName }, payload: { params: r } }, `optional atom "${atom?.op}" had no resolver`);
     next = logEvent(after, { kind: "spell-effect", effect: "optional", controller: r.controller, op: atom?.op, taken: true });
@@ -527,7 +529,7 @@ function resumeAfterChoice(state, pc) {
   if (r?.program && Array.isArray(programAtoms(r.program, r.chosenMode)) && r.nextAtomIndex < programAtoms(r.program, r.chosenMode).length) {
     const obj = {
       source: { name: r.cardName ?? pc.sourceName ?? null },
-      payload: { params: { program: r.program, controller: r.controller, targets: r.targets, xValue: r.xValue, sourceId: r.sourceId, chosenMode: r.chosenMode } },
+      payload: { params: { program: r.program, controller: r.controller, targets: r.targets, xValue: r.xValue, sourceId: r.sourceId, context: r.context, chosenMode: r.chosenMode } },
     };
     return runEffectProgram(state, obj, { startIndex: r.nextAtomIndex });
   }
