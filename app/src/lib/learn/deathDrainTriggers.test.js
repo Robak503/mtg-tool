@@ -69,8 +69,10 @@ describe("DEATH-DRAIN — coverage flips (synthetic cards, real oracle text)", (
   it("the each-other-player death-edict flips native (Grave Pact)", () => {
     expect(classifyCard({ type: "Enchantment", name: "Grave Pact", mana: "{1}{B}{B}", oracle: "Whenever a creature you control dies, each other player sacrifices a creature of their choice." })).toMatch(/^native/);
   });
-  it("CREED — the targeted-drain (Blood Artist) and 'or planeswalker' (Cruel Celebrant) stay body-only (follow-up slices)", () => {
-    expect(classifyCard({ type: "Creature — Vampire", name: "Blood Artist", mana: "{1}{B}", oracle: "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life." })).toBe("body-only");
+  it("CREED — the 'or planeswalker' union (Cruel Celebrant) stays body-only (the targeted-drain Blood Artist now flips — see deathDrainTargeted.test.js)", () => {
+    // Blood Artist's "target player loses N life" landed in DEATH-DRAIN-TARGETED; it is now native.
+    expect(classifyCard({ type: "Creature — Vampire", name: "Blood Artist", mana: "{1}{B}", oracle: "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life." })).toMatch(/^native/);
+    // Cruel Celebrant's "or planeswalker" is an extra subject type the creature-only carve-out still rejects.
     expect(classifyCard({ type: "Creature — Vampire", name: "Cruel Celebrant", mana: "{1}{B}", oracle: "Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life." })).toBe("body-only");
   });
 });

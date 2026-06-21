@@ -253,6 +253,13 @@ function applyLoseLife(state, atom, ctx) {
     for (const opp of opponentsOf(next, ctx.controller)) {
       if (next.players[opp]) next = loseLife(next, { playerId: opp, amount });
     }
+  } else if (atom.who === "target") {
+    // DEATH-DRAIN-TARGETED — "target player/opponent loses N life" (Blood Artist family). The chosen player
+    // travels in ctx.targets (the flush chooser / cast path picked an opponent — atomTargetIntent "enemy"),
+    // mirroring the targeted-draw resolver. An eliminated / missing target is a clean no-op.
+    for (const t of ctx.targets || []) {
+      if (t.type === "player" && next.players[t.id]) next = loseLife(next, { playerId: t.id, amount });
+    }
   } else {
     next = loseLife(next, { playerId: ctx.controller, amount });
   }
