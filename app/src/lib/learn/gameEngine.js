@@ -47,6 +47,7 @@ import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { applyFadeVanishUpkeep } from "./fading.js";
+import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -290,7 +291,14 @@ export function runStepActions(state) {
   if (next.step === "upkeep") next = checkStepTriggers(next, "upkeep");
   else if (next.step === "draw") next = checkStepTriggers(next, "draw");
   else if (next.step === "end") next = checkStepTriggers(next, "endStep");
-  else if (next.step === "declare-blockers") next = checkAttackTriggers(next);
+  else if (next.step === "declare-blockers") {
+    next = checkAttackTriggers(next);
+    // The Ur-Dragon variable-count attack trigger (a targeted #319-style hook the compiler can't reach):
+    // resolves draw-that-many + may-cheat-a-permanent synchronously, enqueuing its cardDrawn/ETB sub-triggers
+    // for the same flush below. Fired AFTER checkAttackTriggers so its draw lands after the normal attack-
+    // trigger enqueue, and its own sub-triggers ride the line-302 flush.
+    next = applyUrDragonAttackTriggers(next);
+  }
 
   if (grantsPriority(next.step)) {
     next = grantPriority(next);
