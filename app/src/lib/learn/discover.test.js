@@ -134,6 +134,21 @@ describe("discover — parser + coverage pins", () => {
     expect(isHigh("Discover 3. Draw a card.")).toBe(false); // discover-not-last → the decision resolves after the program (reorder guard)
     expect(classifyCard(C("Sorcery", "Up to three target creatures can't block this turn. Discover 4.", "Daring Discovery"))).toBe("arbiter-spell"); // unmodeled lead clause
   });
+
+  // The discover engine GENERALIZES beyond Pantlaza — these pins lock the whole family's tier so a future
+  // change can't silently over-claim (a rider card flipping native) or under-claim (a clean discover dropping).
+  it("the discover family classifies correctly across shapes (flip-diff guard)", () => {
+    const c3 = (type, oracle, name) => ({ type, oracle, mana: "{3}", name, power: "3", toughness: "3" });
+    // CLEAN → native:
+    expect(classifyCard(c3("Creature — Dinosaur", "When this creature enters, discover 3.", "Clean ETB"))).toBe("native-trigger");
+    expect(classifyCard(c3("Creature — Dinosaur", "When this creature enters, discover 4. Do this only once each turn.", "ETB Once"))).toBe("native-trigger"); // once-per-turn generalizes
+    expect(classifyCard(c3("Creature — Dinosaur", "{3}{R}: Discover 5.", "Activated Disc"))).toBe("native-activated"); // activated discover ability
+    // RIDERS / unmodeled → never native (no over-claim):
+    expect(classifyCard(c3("Sorcery", "Discover 6. If the discovered card's mana value is 6 or greater, create three Treasure tokens.", "Hit the Mother Lode"))).toBe("arbiter-spell");
+    expect(classifyCard(c3("Creature — Dinosaur", "When this creature enters, discover 3, then you may cast the card.", "Weird Rider"))).toBe("body-only");
+    // CREED: a NON-discover once-per-turn effect must NOT flip native (its resolver ignores the gate → would over-fire):
+    expect(classifyCard(c3("Enchantment", "At the beginning of your upkeep, draw a card. Do this only once each turn.", "Bad Once"))).toBe("body-only");
+  });
 });
 
 describe("discover X = that creature's toughness (Pantlaza piece [b])", () => {
