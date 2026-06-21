@@ -506,6 +506,9 @@ function parseCountSource(phrase, { allowTarget = false } = {}) {
   // controller's creatures (Overwhelming Stampede "+X/+X where X is the greatest power among creatures you
   // control"). countForSpec computes it at resolution; an EMPTY board → 0 (a safe +0/+0, never fabricated).
   if (/^greatest power among creatures you control$/.test(p)) return { kind: "greatestPowerYouControl" };
+  // ===== EXPERIENCE ===== the controller's experience counter total. "experience counters you have" is the
+  // bare canonical form; "the controller has" is a rare alternate phrasing on non-Toph cards.
+  if (/^experience counters? (?:you have|the controller has)$/.test(p)) return { kind: "experienceCounters" };
   return null;
 }
 
@@ -521,10 +524,23 @@ function parseExtendedAtom(s) {
 
   // ===== EARTHBEND ===== (WALT, Toph) "earthbend N" — a keyword action: permanently animate a land you
   // control into a 0/0 Elemental creature with haste (still a land) + N +1/+1 counters (effectAtoms.
-  // applyEarthbend). LITERAL-N only — "earthbend X, where X is the number of experience counters" needs the
-  // experience-count scaling (deferred) and carries the trailing "where X is …" so it won't match here.
+  // applyEarthbend). Two forms:
+  //   Literal-N: "earthbend 2" — atom.count carries the printed value.
+  //   Count-source: "earthbend X, where X is the number of <count source>" — atom.countSource carries the
+  //   spec; applyEarthbend reads it at resolution via countForSpec (EARTHBEND-PR3, Toph attack trigger).
   const ebM = t.match(/^earthbend (\d+|a|an|one|two|three|four|five)$/);
   if (ebM) return { op: "earthbend", count: SMALL_NUM[ebM[1]] ?? parseInt(ebM[1], 10), targetType: null };
+  const ebXM = t.match(/^earthbend x,?\s+where x is (?:equal to )?(?:the number of )?(.+)$/);
+  if (ebXM) {
+    const src = parseCountSource(ebXM[1]);
+    if (src) return { op: "earthbend", countSource: src, targetType: null };
+  }
+
+  // ===== GAIN-EXPERIENCE ===== (EARTHBEND-PR3, Toph landfall) "you get an experience counter" / "N counters"
+  // — increments the controller's experience counter total (player.experience). Non-targeted, infallible.
+  if (/^you get an experience counter$/.test(t)) return { op: "gain-experience", count: 1, targetType: null };
+  const expM = t.match(/^you get (\d+|one|two|three|four|five) experience counters?$/);
+  if (expM) return { op: "gain-experience", count: SMALL_NUM[expM[1]] ?? parseInt(expM[1], 10), targetType: null };
 
   // ===== DMG-SCALE ===== (WALT-DMG-SCALE) "<source> deals damage to <target> equal to the number of
   // <count source>" — the damage AMOUNT is a board count resolved at resolution (`amountCount`), not a

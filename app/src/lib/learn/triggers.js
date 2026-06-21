@@ -265,6 +265,11 @@ function classifyCondition(condRaw, cardName) {
   // excludes the source permanent. The generic dies/etb subject mapper (creatureSubjectScope) is the model.
   const sacM = c.match(/^you sacrifice (a|an|another) (permanent|creature|artifact)$/);
   if (sacM) return { event: "sacrifice", scope: "you", whose: "any", sacScope: sacM[2], sacAnother: sacM[1] === "another" };
+  // ===== YOU ATTACK ===== "you attack" (the bare condition for "Whenever you attack, …" — fires ONCE
+  // per combat when the controller declares any attacker). Different from "attacks" (per-attacker scope):
+  // "you attack" is a controller-scoped once-per-combat event (Toph, Earthbending Master's second trigger).
+  // Must be checked BEFORE the \battacks\b guard since both words are in "you attack".
+  if (/^you attack$/.test(c)) return { event: "youAttack", scope: "you", whose: "any" };
   // ===== EACH-PLAYER (compound-combat-trigger guard) ===== A condition that names BOTH "attacks" and
   // "blocks" ("Whenever this creature attacks or blocks …" — Howling Golem, Burning Sun Cavalry) is a
   // COMPOUND combat event. The single-verb branches below model only ONE event, so detecting it as just
@@ -466,7 +471,7 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent) {
     case "self":
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;
     case "you":
-      return true; // step triggers — `whose` gates ownership
+      return true; // step / lifegain / cardDrawn / youAttack triggers — `whose` gates ownership
     case "eachCreature":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent);
     case "eachOtherCreature":
@@ -641,6 +646,17 @@ export function checkAttackTriggers(state) {
   const attackers = state.combat?.attackers || [];
   if (!attackers.length) return state;
   let fired = [];
+  // ===== "WHENEVER YOU ATTACK" — fires ONCE per combat (not per attacker) =====
+  // All attackers belong to the same active player, so we use the first entry's attackingPlayer.
+  // triggerSourcesOf covers battlefield permanents + emblems; triggersForEvent gates on scope:"you"
+  // (always true) + whose:"any", so the trigger fires regardless of whose turn it is.
+  const attackingPlayer = attackers[0]?.attackingPlayer;
+  if (attackingPlayer) {
+    for (const watcher of triggerSourcesOf(state, attackingPlayer)) {
+      fired = fired.concat(triggersForEvent(state, { event: "youAttack", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: {} }));
+    }
+  }
+  // ===== PER-ATTACKER triggers ("this attacks", "a creature you control attacks") =====
   for (const a of attackers) {
     const lk = findPermanent(state, a.permanentId);
     if (!lk) continue;

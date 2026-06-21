@@ -22,7 +22,7 @@ import {
   handCardMatches,
 } from "../spellEffects.js";
 import { addContinuousEffect, permanentIsCreature } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addPoison, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addPoison, addExperience, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
@@ -758,11 +758,13 @@ function applyAnimateEffect(state, atom, ctx) {
  * SBA so the 0/0 survives as a real N/N attacker. The "return it when it dies or is exiled" rider is a
  * delayed trigger left to the Arbiter — a safe FN (the land animates + attacks, it just doesn't recur).
  * The sim picks a land the controller controls that isn't already a creature (it stays a land → still
- * ramps, never lost). The "earthbend X = experience counters" form needs the experience scaling (deferred).
+ * ramps, never lost). atom.countSource uses the count engine (e.g. experience counters) at resolution.
  */
 export function applyEarthbend(state, atom, ctx) {
   const me = ctx.controller;
-  const n = Math.max(0, atom.count || 0);
+  const n = atom.countSource
+    ? Math.max(0, countForSpec(state, ctx, atom.countSource))
+    : Math.max(0, atom.count || 0);
   const player = state.players?.[me];
   if (!player) return state;
   const land = player.battlefield.find((p) => /\bland\b/i.test(typeLineStr(p.card)) && !permanentIsCreature(state, p.id));
@@ -777,6 +779,18 @@ export function applyEarthbend(state, atom, ctx) {
   const lethal = destroyLethalCreatures(next);
   next = checkDiesTriggers(lethal.state, lethal.dead);
   return logEvent(next, { kind: "spell-effect", effect: "earthbend", count: n, targets: [land.id] });
+}
+
+/**
+ * GAIN-EXPERIENCE (EARTHBEND-PR3, Toph landfall) — "You get an experience counter." Increments the
+ * controller's experience counter total (player.experience). Non-targeted, infallible (counter players
+ * can't be targeted). PR3 scope: the landfall trigger fires once per land entry, each granting +1.
+ */
+function applyGainExperience(state, atom, ctx) {
+  const count = Math.max(1, atom.count || 1);
+  const pid = ctx.controller;
+  if (!state.players?.[pid]) return state;
+  return addExperience(state, { playerId: pid, amount: count });
 }
 
 /**
@@ -1249,6 +1263,8 @@ function countForSpec(state, ctx, spec) {
   if (spec.kind === "permanentsYouControl") return (player.battlefield || []).filter((perm) => countMatches(perm.card, spec)).length;
   // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
+  // ===== EXPERIENCE ===== the controller's experience counter total (Toph, Command Beacon, etc.)
+  if (spec.kind === "experienceCounters") return (player.experience || 0);
   // ===== OVERRUN-X ===== a MAX-reduction: the single greatest layer-resolved power among the controller's
   // creatures (Overwhelming Stampede). Reads creaturePower (layer-aware) so prior buffs/counters count; an
   // empty board → 0 (a safe +0/+0). Computed BEFORE applyPumpEffect adds the +X/+X, so X is the pre-buff max.
@@ -1340,6 +1356,7 @@ export const ATOM_RESOLVERS = Object.freeze({
       ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Path to Exile / Swords to Plowshares
       : applyZoneMove(state, atom, ctx, "exile"),
   "add-counter": applyAddCounter,
+  "gain-experience": applyGainExperience, // EARTHBEND-PR3 — "you get an experience counter" (Toph landfall)
   "proliferate": applyProliferate, // PROLIFERATE (CR 701.27) — add one of each counter kind to never-harmful picks
   "regenerate": applyRegenerate, // REGEN (CR 701.15) — set a regeneration shield on self / target creature
   "return-from-graveyard": applyReturnFromGraveyard,
