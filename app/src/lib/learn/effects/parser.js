@@ -519,6 +519,13 @@ function parseExtendedAtom(s) {
   if (/^proliferate twice$/.test(t)) return { op: "proliferate", times: 2, targetType: null };
   if (/^proliferate( again)?$/.test(t)) return { op: "proliferate", targetType: null };
 
+  // ===== EARTHBEND ===== (WALT, Toph) "earthbend N" — a keyword action: permanently animate a land you
+  // control into a 0/0 Elemental creature with haste (still a land) + N +1/+1 counters (effectAtoms.
+  // applyEarthbend). LITERAL-N only — "earthbend X, where X is the number of experience counters" needs the
+  // experience-count scaling (deferred) and carries the trailing "where X is …" so it won't match here.
+  const ebM = t.match(/^earthbend (\d+|a|an|one|two|three|four|five)$/);
+  if (ebM) return { op: "earthbend", count: SMALL_NUM[ebM[1]] ?? parseInt(ebM[1], 10), targetType: null };
+
   // ===== DMG-SCALE ===== (WALT-DMG-SCALE) "<source> deals damage to <target> equal to the number of
   // <count source>" — the damage AMOUNT is a board count resolved at resolution (`amountCount`), not a
   // printed number (Massive Raid, Spitting Earth, Outnumber, Feedback Bolt). Reuses the existing

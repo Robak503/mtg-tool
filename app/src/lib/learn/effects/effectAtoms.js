@@ -21,7 +21,7 @@ import {
   applyDrawEffect,
   handCardMatches,
 } from "../spellEffects.js";
-import { addContinuousEffect } from "../layers.js";
+import { addContinuousEffect, permanentIsCreature } from "../layers.js";
 import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addPoison, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
@@ -751,6 +751,35 @@ function applyAnimateEffect(state, atom, ctx) {
 }
 
 /**
+ * EARTHBEND N (Toph, Earthbending Master deck) — "Target land you control becomes a 0/0 creature with
+ * haste that's still a land. Put N +1/+1 counters on it." A PERMANENT land-animation reusing the same
+ * layer machinery as applyAnimateEffect (layer-4 ADD Creature+Elemental — Land kept, "still a land"; 7b
+ * SET base 0/0; 6 GRANT Haste) but `duration:permanent`, plus N +1/+1 counters applied BEFORE the lethal
+ * SBA so the 0/0 survives as a real N/N attacker. The "return it when it dies or is exiled" rider is a
+ * delayed trigger left to the Arbiter — a safe FN (the land animates + attacks, it just doesn't recur).
+ * The sim picks a land the controller controls that isn't already a creature (it stays a land → still
+ * ramps, never lost). The "earthbend X = experience counters" form needs the experience scaling (deferred).
+ */
+export function applyEarthbend(state, atom, ctx) {
+  const me = ctx.controller;
+  const n = Math.max(0, atom.count || 0);
+  const player = state.players?.[me];
+  if (!player) return state;
+  const land = player.battlefield.find((p) => /\bland\b/i.test(typeLineStr(p.card)) && !permanentIsCreature(state, p.id));
+  if (!land) return logEvent(state, { kind: "spell-effect", effect: "earthbend", count: n, targets: [] });
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
+  const dur = { kind: "permanent" };
+  let next = state;
+  next = addContinuousEffect(next, { layer: 4, op: { types: ["Creature"], subtypes: ["Elemental"] }, affects: { mode: "fixed", permanentIds: [land.id] }, duration: dur, source: src }).state;
+  next = addContinuousEffect(next, { layer: 7, sublayer: "7b", op: { layerOp: "ptSet", power: 0, toughness: 0 }, affects: { mode: "fixed", permanentIds: [land.id] }, duration: dur, source: src }).state;
+  next = addContinuousEffect(next, { layer: 6, op: { layerOp: "addKeyword", keyword: "Haste" }, affects: { mode: "fixed", permanentIds: [land.id] }, duration: dur, source: src }).state;
+  if (n > 0) next = addCounter(next, { permanentId: land.id, type: "+1/+1", amount: n }); // → a real N/N before the SBA
+  const lethal = destroyLethalCreatures(next);
+  next = checkDiesTriggers(lethal.state, lethal.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "earthbend", count: n, targets: [land.id] });
+}
+
+/**
  * P3.1 counter (CR 701.5a) — counter the target spell(s) on the stack. The targeted
  * spell is removed from the stack and put into its controller's graveyard WITHOUT
  * resolving: no atoms run, no permanent enters, no effect, no triggers. This is the
@@ -1299,6 +1328,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
   "animate": (state, atom, ctx) => applyAnimateEffect(state, atom, ctx),
+  "earthbend": applyEarthbend, // EARTHBEND N (Toph) — permanently animate a land you control + N +1/+1 counters
   "gain-life": applyGainLife,
   "lose-life": applyLoseLife,
   "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),
