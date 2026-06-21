@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Artifact-ETB / Constellation triggers fire (PERM-ENTERS):** "Whenever an **artifact** you
+  control enters, …" (Reckless Fireweaver, Salivating Gremlins, Thopter Architect, Contraband Kingpin)
+  and "Whenever an **enchantment** you control enters, …" (Setessan Champion, Nexus Wardens, Favored
+  of Iroas, Triton Waverider) are now modeled trigger events (`permanentEnters`). The "**Constellation
+  —**" ability-word label is stripped so payoffs like Setessan Champion and Favored of Iroas detect
+  cleanly; "**Eerie —**" compound events (enchantment-ETB *and* room-unlock) remain on the Arbiter.
+  An Artifact Creature entering fires artifact-ETB watchers (type-line substring per CR 205.2). **+14
+  cards**.
+
 - **Enchantress / improvise cast triggers fire (CAST-FILTER):** "Whenever you cast an **enchantment** spell, …"
   and "…an **artifact** spell, …" are now modeled cast-trigger filters (joining instant/sorcery/creature/
   noncreature). The whole **enchantress** archetype plays — Argothian / Mesa / Verduran Enchantress, Satyr

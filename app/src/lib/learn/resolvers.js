@@ -22,7 +22,7 @@
 
 import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty } from "./gameState.js";
 import { resolveSpellEffect } from "./spellEffects.js";
-import { applyTriggerEffect, checkDiesTriggers, checkEnterTriggers } from "./triggers.js";
+import { applyTriggerEffect, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "./triggers.js";
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram } from "./effects/runProgram.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
@@ -154,7 +154,8 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // (which resolveTopOfStack runs after this). `checkEnterTriggers` (triggers.js) is the SINGLE ETB-fire
   // helper, shared with the reanimation atom (β-3b) — so the cast/clone/aura and non-cast entry paths
   // can't drift.
-  return checkEnterTriggers(next, perm);
+  const afterEtb = checkEnterTriggers(next, perm);
+  return checkPermanentEntersTriggers(afterEtb, perm);
 }
 
 /**
