@@ -305,7 +305,7 @@ describe("parseEffectProgram — each-player / target-player discard (EP-2)", ()
 // non-creature target fails the anchor → low → Arbiter.
 describe("parseEffectProgram — targeted atoms (P2.7)", () => {
   it("recognizes tap/untap/bounce/exile/counter on target creature", () => {
-    expect(parseEffectProgram(I("Tap target creature.")).atoms).toEqual([{ op: "tap", targetType: "creature" }]);
+    expect(parseEffectProgram(I("Tap target creature.")).atoms).toEqual([{ op: "tap", targetType: "creature", restrictions: [] }]);
     expect(parseEffectProgram(I("Untap target creature.")).atoms).toEqual([{ op: "untap", targetType: "creature" }]);
     expect(parseEffectProgram(I("Exile target creature.")).atoms).toEqual([{ op: "exile", targetType: "creature" }]);
     expect(parseEffectProgram(I("Return target creature to its owner's hand.")).atoms).toEqual([{ op: "bounce", targetType: "creature" }]);
