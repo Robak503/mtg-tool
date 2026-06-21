@@ -27,7 +27,7 @@ import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram } from "./effects/runProgram.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersTapped } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1f) + TRUNK-ENTERSTAPPED (CR 614.1g)
+import { entersWithPlusCounters, entersWithXCounters, entersTapped } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1f) + TRUNK-ENTERSTAPPED (CR 614.1g) + ENTERS-WITH-X
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
@@ -99,6 +99,12 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // bare, unconditional, literal-N form (entersWithPlusCounters guards out kicker / "for each" / "where X").
   const plusCounters = entersWithPlusCounters(card);
   if (plusCounters > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + plusCounters };
+  // ENTERS-WITH-X: "this creature enters with X +1/+1 counters on it" — X is the value paid for the {X}
+  // cost (threaded as opts.xValue from the cast). A hydra cast for X=5 enters as a real 5/5+, not a 0/0
+  // that dies to the lethal-toughness SBA. Guarded by entersWithXCounters so only the literal-X form gets it.
+  if (opts.xValue > 0 && entersWithXCounters(card)) {
+    perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + opts.xValue };
+  }
   // KW-FADING (CR 702.32a) / KW-VANISHING (CR 702.63a): enters with N fade / time counters; the upkeep
   // remove-or-sacrifice runs in gameEngine (applyFadeVanishUpkeep).
   const fade = entersWithFadeCounters(card);
@@ -194,7 +200,7 @@ export const RESOLVERS = Object.freeze({
   },
 
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
-    const { card, controller } = obj.payload?.params || {};
+    const { card, controller, xValue } = obj.payload?.params || {};
     if (!card || !controller) return resolveManual(state, obj);
     // Clone (CR 707.9): the permanent enters AS A COPY of a creature chosen as it enters. Suspend
     // on a resolution-time choice (the player picks which creature; Expert/AI auto-pick) — the
@@ -216,7 +222,7 @@ export const RESOLVERS = Object.freeze({
       const lethal = destroyLethalCreatures(entered);
       return checkDiesTriggers(lethal.state, lethal.dead);
     }
-    return enterPermanent(state, card, controller);
+    return enterPermanent(state, card, controller, { xValue });
   },
 
   // Aura spell resolving (CR 303.4f): the Aura enters the battlefield attached to the

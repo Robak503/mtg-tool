@@ -40,7 +40,7 @@ import { expandCastChoices } from "./effects/targeting.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { parseActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost } from "./effects/abilities.js";
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura } from "./staticAbilityParser.js";
+import { isNativeAura, entersWithXCounters } from "./staticAbilityParser.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -494,6 +494,28 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn) {
           needsTargets: ch.targets.length > 0,
           targetName: ch.targets.map(t => t.name).filter(Boolean).join(", ") || undefined,
           modeName: ch.label || undefined,
+        });
+      }
+      continue;
+    }
+
+    // ENTERS-WITH-X (hydras): a permanent whose {X} cost feeds "this creature enters with X +1/+1
+    // counters" (Hungering / Lifeblood / Primordial / Hydroid Krasis Hydra…). The X isn't an effect-program
+    // atom, so the xSpell branch above never fires — but the player still chooses X at cast (CR 601.2b).
+    // Offer each AFFORDABLE X≥1 (a 0/0 hydra dies to the SBA instantly, so X=0 is never surfaced); the
+    // dispatcher threads xValue into PERMANENT_ETB, which adds the counters so it enters at its real P/T.
+    if (cost.hasX && entersWithXCounters(card)) {
+      const xValues = affordableXValues(state, playerId, cost);
+      if (xValues.length === 0) continue; // can't afford even X=1 → not usefully castable
+      for (const x of xValues) {
+        actions.push({
+          ...base,
+          cost: { ...cost, generic: (cost.generic || 0) + x },
+          cmc: printedCmc + x,
+          xValue: x,
+          targets: [],
+          needsTargets: false,
+          xName: `X=${x}`,
         });
       }
       continue;

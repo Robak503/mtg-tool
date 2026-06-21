@@ -356,7 +356,11 @@ function applyCastSpell(state, action) {
     if (action.xValue != null) params.xValue = action.xValue;
     payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
   } else if (isPermanentSpell(card)) {
-    payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params: { card, controller: action.playerId } };
+    // ENTERS-WITH-X: a hydra cast for {X} threads its chosen X so PERMANENT_ETB adds X +1/+1 counters
+    // (it enters at its real P/T, not a 0/0 that dies to the SBA).
+    const params = { card, controller: action.playerId };
+    if (action.xValue != null) params.xValue = action.xValue;
+    payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params };
   } else {
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "instant-or-sorcery (no recognized effect)" } };
   }
