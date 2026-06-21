@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Enchantress / improvise cast triggers fire (CAST-FILTER):** "Whenever you cast an **enchantment** spell, …"
+  and "…an **artifact** spell, …" are now modeled cast-trigger filters (joining instant/sorcery/creature/
+  noncreature). The whole **enchantress** archetype plays — Argothian / Mesa / Verduran Enchantress, Satyr
+  Enchanter, Enchantress's Presence, Sythis (draw on enchantment cast) — plus artifact-cast payoffs (Patchwork
+  Automaton, Efficient Construction). **18 cards** for a two-line filter add. An Artifact/Enchantment Creature
+  spell correctly counts (type-line substring); color/subtype/historic filters stay on the Arbiter.
+
 - **Living weapon / For Mirrodin! equipment play (LIVING-WEAPON):** an Equipment with **Living weapon** (CR
   702.91) or **For Mirrodin!** (CR 702.157) now enters, **creates its token** (a 0/0 black Phyrexian Germ /
   a 2/2 red Rebel) and **attaches itself to it** — so it's a real creature from turn one (the +X/+Y is applied
