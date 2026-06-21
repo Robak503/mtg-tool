@@ -41,6 +41,11 @@ import { detectTriggers } from "../triggers.js";
 export const KNOWN_ATOM_OPS = Object.freeze(Object.keys(ATOM_RESOLVERS));
 const KNOWN = new Set(KNOWN_ATOM_OPS);
 
+// ONCE-PER-TURN — the atom ops whose resolver actually enforces the "Do this only once each turn"
+// frequency latch (state.onceTriggersFiredThisTurn). Only these may carry the rider and stay HIGH; any
+// other effect with the rider would silently over-fire (its resolver ignores the flag) → forced LOW.
+const ONCE_PER_TURN_HONORED = new Set(["discover"]);
+
 function typeOf(card) {
   return String(card?.type || card?.type_line || "");
 }
@@ -1638,12 +1643,22 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
   // KWSTRIP-1 — drop a vacuous cast-keyword line (foretell / suspend / splice onto arcane / recover /
   // harmonize / basic landcycling) so the spell's BODY parses; the normal-cast resolution is identical.
   oracle = stripCastKeywordLines(oracle);
-  // ONCE-PER-TURN — "Do this only once each turn." is a FREQUENCY RESTRICTION the engine enforces at
-  // resolution via the `oncePerTurn` flag on the last atom. Strip it before parsing so the core effect
-  // (e.g., Pantlaza's discover) can classify HIGH; the flag is carried to the resolver, which sets a
-  // per-source-per-turn latch (state.onceTriggersFiredThisTurn) cleared at each untap step.
-  let oncePerTurnRestriction = false;
-  oracle = oracle.replace(/\.?\s*Do this only once each turn\.?\s*$/i, () => { oncePerTurnRestriction = true; return ""; }).trim();
+  // ONCE-PER-TURN — "Do this only once each turn." is a FREQUENCY RESTRICTION enforced at resolution via
+  // the `oncePerTurn` flag on the gated atom (state.onceTriggersFiredThisTurn, cleared each untap step).
+  // CREED: ONLY atoms whose resolver actually HONORS the flag (ONCE_PER_TURN_HONORED — today just
+  // `discover`) may keep the program HIGH. Strip the rider, parse the core, and require a non-modal HIGH
+  // program whose LAST atom is honored — else the whole thing is LOW (a draw/token/life effect with this
+  // rider would over-fire every turn, since those resolvers ignore the flag → a forbidden false positive).
+  if (/\bDo this only once each turn\b\.?\s*$/i.test(oracle)) {
+    const core = oracle.replace(/\.?\s*Do this only once each turn\b\.?\s*$/i, "").trim();
+    const inner = parseEffectClause(core, cardType, { hasX });
+    if (inner && programConfidence(inner) === "high" && inner.structure !== "modal"
+        && inner.atoms.length > 0 && ONCE_PER_TURN_HONORED.has(inner.atoms[inner.atoms.length - 1].op)) {
+      const atoms = inner.atoms.map((a, i) => (i === inner.atoms.length - 1 ? { ...a, oncePerTurn: true } : a));
+      return makeProgram({ confidence: "high", atoms, xSpell: inner.xSpell, unparsedTail: null });
+    }
+    return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
+  }
 
   // Multi-sentence templates whose effect SPANS sentences (so the clause splitter below would shatter
   // them into unmatchable fragments) are matched up front as ONE atom, then any RIDER sentences that
@@ -1725,10 +1740,6 @@ export function parseEffectClause(oracle, cardType = "", { hasX = false } = {}) 
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.
     const seq = atoms.filter((a, i) => !(a.op === "shuffle" && atoms[i - 1]?.op === "tutor"));
-    // ONCE-PER-TURN: carry the frequency flag on the last atom so the resolver can gate.
-    if (oncePerTurnRestriction && seq.length > 0) {
-      seq[seq.length - 1] = { ...seq[seq.length - 1], oncePerTurn: true };
-    }
     const xSpell = seq.some(a => a.amountX || a.countX);
     return makeProgram({ confidence: "high", atoms: seq, xSpell, unparsedTail: null });
   }

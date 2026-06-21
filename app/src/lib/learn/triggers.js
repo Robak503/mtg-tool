@@ -537,11 +537,15 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent) {
       // PERM-ENTERS enchantment — Enchantment Creature / Aura matches too; controller gate.
       return !!triggeringPermanent && /Enchantment/.test(triggeringPermanent.card?.type || triggeringPermanent.card?.type_line || "") && triggeringPermanent.controller === sourcePermanent.controller;
     case "subtypeYouControl":
-      // SUBTYPE-ETB-SELF — "NAME or another SUBTYPE you control enters" (Pantlaza family). The entering
-      // permanent must carry the subtype in its type line AND be controlled by the source's controller.
+      // SUBTYPE-ETB-SELF — "NAME or another SUBTYPE you control enters" (Pantlaza family). The union is
+      // { self } ∪ { other SUBTYPEs you control }. Fires when the entering permanent is the SOURCE itself
+      // (the "NAME" half — explicit self-inclusion, robust even if the source's own type line is read
+      // before it carries the subtype) OR carries the subtype in its type line; and is controlled by the
+      // source's controller. A non-subtype permanent you control never fires (exact, no over-fire).
       return !!triggeringPermanent
-        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "")
-        && triggeringPermanent.controller === sourcePermanent.controller;
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && (triggeringPermanent.id === sourcePermanent.id
+            || typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || ""));
     default:
       return false;
   }

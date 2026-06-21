@@ -14,7 +14,8 @@ import { createGameState, _resetIdsForTests } from "./gameState.js";
 import { resolveAtom } from "./effects/effectAtoms.js";
 import { legalActionsForPlayer, filterActions } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { resolveTopOfStack, runStepActions } from "./gameEngine.js";
+import { resolveTopOfStack, runStepActions, flushTriggers } from "./gameEngine.js";
+import { enterPermanent } from "./resolvers.js";
 import { pickAction } from "./opponentAI.js";
 import { parseEffectClause, programConfidence } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
@@ -232,6 +233,20 @@ describe("Pantlaza piece [c] — once-per-turn gate + full card classification",
     expect(prog.atoms[0]).toMatchObject({ op: "discover", amountToughnessOfTrigger: true, oncePerTurn: true });
   });
 
+  it("CREED: a NON-discover once-per-turn effect stays LOW (the resolver wouldn't honor the gate → would over-fire)", () => {
+    // Only `discover` honors the oncePerTurn latch. A draw/token/life effect carrying this rider must NOT
+    // flip HIGH — its resolver ignores the flag, so it would fire every turn (a forbidden false positive).
+    expect(programConfidence(parseEffectClause("Draw a card. Do this only once each turn.", "Sorcery"))).toBe("low");
+    expect(programConfidence(parseEffectClause("Create a 1/1 white Soldier creature token. Do this only once each turn.", "Sorcery"))).toBe("low");
+    expect(programConfidence(parseEffectClause("You gain 2 life. Do this only once each turn.", "Sorcery"))).toBe("low");
+  });
+
+  it("a fixed 'Discover N. Do this only once each turn.' also flips HIGH with the gate", () => {
+    const prog = parseEffectClause("Discover 4. Do this only once each turn.", "Sorcery");
+    expect(programConfidence(prog)).toBe("high");
+    expect(prog.atoms[0]).toMatchObject({ op: "discover", amount: 4, oncePerTurn: true });
+  });
+
   it("Pantlaza classifies as native-trigger (all three pieces modeled)", () => {
     expect(classifyCard(pantlazaCard)).toBe("native-trigger");
   });
@@ -262,5 +277,93 @@ describe("Pantlaza piece [c] — once-per-turn gate + full card classification",
     const locked = { ...s, step: "untap", onceTriggersFiredThisTurn: { "src1_discover": true } };
     const after = runStepActions(locked);
     expect(after.onceTriggersFiredThisTurn).toEqual({}); // cleared
+  });
+});
+
+// ─── Pantlaza END-TO-END engine sim — the full flow the orders require ─────────────────────────
+// Dino enters → trigger fires → discover X = that Dino's toughness → cast-free / to-hand → a 2nd
+// Dino entering the SAME turn is blocked by the once-per-turn gate. This drives the LIVE path
+// (enterPermanent → checkEnterTriggers → flushTriggers → buildTriggerStack → resolveTopOfStack →
+// runEffectProgram → applyDiscoverAtom), proving ctx.triggeringPermanentId threads end-to-end.
+
+describe("Pantlaza — END-TO-END engine sim (the full play-out)", () => {
+  function pantlazaState(library) {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const pantPerm = { id: "pant1", controller: "user", card: pantlazaCard, tapped: false, counters: {}, summoningSick: false, enteredOnTurn: 0, timestamp: 0 };
+    return {
+      ...s, rngSeed: 99, turn: 3, activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main", consecutivePasses: 0,
+      players: { ...s.players, user: { ...s.players.user, battlefield: [pantPerm], library, exile: [] } },
+    };
+  }
+  // A Dinosaur card to ENTER (toughness drives X). Distinct id/name so enterPermanent mints a fresh perm.
+  const dinoCard = (t) => ({ id: `dino-card-${t}`, name: `Raptor ${t}`, type: "Creature — Dinosaur", oracle: "", power: "1", toughness: String(t), mana: `{${t}}` });
+
+  it("Dino enters → discover fires with X = its toughness → found card parked for the decision", () => {
+    // Library: a creature MV4 on top (discover-able by a toughness-5 Dino), a land, a creature MV2.
+    let st = pantlazaState([creature("found", "Stomper", 4), land("l1"), creature("c2", "Bird", 2)]);
+    st = enterPermanent(st, dinoCard(5), "user");          // a 5-toughness Dinosaur you control enters
+    expect(st.pendingTriggers?.length).toBeGreaterThanOrEqual(1);
+    st = flushTriggers(st, {});                             // trigger → stack (effect-program payload)
+    expect(st.stack.some((o) => o.kind === "triggered-ability")).toBe(true);
+    st = resolveTopOfStack(st);                             // resolve the trigger → discover X=5 runs
+    // X=5 → first nonland with MV<=5 is "Stomper" (MV4). It is parked in exile + pendingDiscover.
+    expect(st.pendingDiscover).toMatchObject({ controller: "user", cardId: "found", mv: 4 });
+    expect(st.players.user.exile.map((c) => c.name)).toEqual(["Stomper"]);
+    expect(st.onceTriggersFiredThisTurn?.["pant1_discover"]).toBe(true); // gate consumed
+  });
+
+  it("the discovered creature is cast FREE → it enters the battlefield (no mana paid)", () => {
+    let st = pantlazaState([creature("found", "Free Beast", 3)]);
+    st = enterPermanent(st, dinoCard(4), "user");
+    st = flushTriggers(st, {});
+    st = resolveTopOfStack(st); // discover X=4 → Free Beast (MV3) parked
+    expect(st.pendingDiscover).toMatchObject({ cardId: "found" });
+    // Resolve the cast-free decision at the action layer.
+    const cast = filterActions(legalActionsForPlayer(st, "user"), "cast-spell")[0];
+    expect(cast).toBeTruthy();
+    st = dispatchAction(st, cast);
+    expect(st.pendingDiscover).toBeFalsy();
+    st = resolveTopOfStack(st); // the free-cast creature resolves onto the battlefield
+    expect(st.players.user.battlefield.some((p) => p.card.name === "Free Beast")).toBe(true);
+  });
+
+  it("a SECOND Dino entering the same turn does NOT discover again (once-per-turn gate)", () => {
+    let st = pantlazaState([creature("f1", "First", 2), creature("f2", "Second", 2)]);
+    // First Dino: discover fires, parks "First".
+    st = enterPermanent(st, dinoCard(3), "user");
+    st = flushTriggers(st, {});
+    st = resolveTopOfStack(st);
+    expect(st.pendingDiscover).toMatchObject({ cardId: "f1" });
+    // Resolve that decision (put in hand) so pendingDiscover clears.
+    const toHand = legalActionsForPlayer(st, "user").find((a) => a.kind === "discover-to-hand");
+    st = dispatchAction(st, toHand);
+    expect(st.pendingDiscover).toBeFalsy();
+    // Second Dino SAME turn: the trigger still fires + goes on the stack, but the discover is gated off.
+    st = enterPermanent(st, dinoCard(3), "user");
+    st = flushTriggers(st, {});
+    const hadTrigger = st.stack.some((o) => o.kind === "triggered-ability");
+    st = resolveTopOfStack(st);
+    expect(hadTrigger).toBe(true);            // the trigger DID fire (gate is on the effect, not the trigger)
+    expect(st.pendingDiscover).toBeFalsy();   // but no new discover — gate blocked it
+    expect(st.players.user.exile).toHaveLength(0); // nothing exiled the second time
+  });
+
+  it("after a new turn (untap clears the gate), a Dino entering discovers again", () => {
+    let st = pantlazaState([creature("t1", "TurnOne", 2), creature("t2", "TurnTwo", 2)]);
+    st = enterPermanent(st, dinoCard(3), "user");
+    st = flushTriggers(st, {});
+    st = resolveTopOfStack(st);
+    const toHand = legalActionsForPlayer(st, "user").find((a) => a.kind === "discover-to-hand");
+    st = dispatchAction(st, toHand);
+    expect(st.onceTriggersFiredThisTurn?.["pant1_discover"]).toBe(true);
+    // New turn: the untap step clears the once-per-turn gate.
+    st = runStepActions({ ...st, step: "untap" });
+    expect(st.onceTriggersFiredThisTurn).toEqual({});
+    // A Dino enters on the new turn → discover fires again. "t1" went to hand last turn, so the
+    // only library card left is "t2" — finding it proves the gate reopened (not a stale block).
+    st = enterPermanent(st, dinoCard(3), "user");
+    st = flushTriggers(st, {});
+    st = resolveTopOfStack(st);
+    expect(st.pendingDiscover).toMatchObject({ cardId: "t2" }); // discovers again next turn
   });
 });
