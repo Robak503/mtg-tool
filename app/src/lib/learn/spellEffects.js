@@ -302,6 +302,25 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions)
       // back-face type (mirrors the front-face discipline used for counter/tutor/graveyard targets here).
       const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0].toLowerCase();
       if (tl.includes(r.type)) return false;       // a non<type> target can't be that card type
+    } else if (r.kind === "toughness") {
+      // TAP-TARGET-CREATURE: "with toughness N or less" (Errant Doomsayers). Mirrors the power branch.
+      const th = creatureToughness(perm, state);
+      if (r.op === "<=" && !(th <= r.value)) return false;
+      if (r.op === ">=" && !(th >= r.value)) return false;
+    } else if (r.kind === "manaValue") {
+      // TAP-TARGET-CREATURE: "with mana value N or greater" (Law-Rune Enforcer). Uses the slim-index
+      // cmc field (mana value as a number); defaults to 0 when absent (safe false-negative for lands/tokens).
+      const mv = perm.card?.cmc ?? 0;
+      if (r.op === "<=" && !(mv <= r.value)) return false;
+      if (r.op === ">=" && !(mv >= r.value)) return false;
+    } else if (r.kind === "hasKeyword") {
+      // TAP-TARGET-CREATURE: "without flying" (Dromoka Dunecaster, Cephalid Retainer, Flood) or
+      // "with flying" (Storm Front). Layer-aware read via permanentHasKeyword so granted/removed
+      // flying (e.g. via an Aura) is honored. Fail-closed: if the keyword state is unresolvable,
+      // treating the creature as NOT having the keyword is a safe false-negative.
+      const hasKw = permanentHasKeyword(state, perm.id, r.keyword);
+      if (r.negate && hasKw) return false;  // "without flying" → must NOT have flying
+      if (!r.negate && !hasKw) return false; // "with flying" → must have flying
     }
   }
   return true;

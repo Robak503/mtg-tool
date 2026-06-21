@@ -8,6 +8,21 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Tap-target-creature effects modeled with restrictions (TAP-TARGET-CREATURE):**
+  "tap target creature [restriction]" now routes natively across attack triggers, ETB triggers,
+  Landfall/Constellation/Heroic triggers, and activated abilities. Previously only the bare exact
+  form "tap target creature." was modeled; all restriction variants fell to UNMODELED_MARKERS →
+  Arbiter. Now covers: controller (an opponent controls / defending player controls / you don't
+  control / you control), power N or less/greater, toughness N or less (Errant Doomsayers), mana
+  value N or greater (Law-Rune Enforcer), without flying (Dromoka Dunecaster, Cephalid Retainer,
+  Flood), with flying (Storm Front). Also adds `toughness`, `manaValue`, and `hasKeyword`
+  restriction kinds to `creatureSatisfiesRestrictions` so enumerateTargets enforces all forms.
+  Anchored $ guard keeps combined-effect forms (Frost Lynx's "doesn't untap" rider, Vectis
+  Dominator's "unless pays 2 life") LOW → Arbiter. Flipped: Fiend Binder, Captivating Unicorn,
+  Master of Diversion, Kor Line-Slinger, Storm Front, Dromoka Dunecaster, Errant Doomsayers,
+  Law-Rune Enforcer, Heavy Infantry, Makindi Ox, Snare Tactician, Rimefur Reindeer, + more.
+  **+24 cards** (18.9% → 19.1%).
+
 - **"Each opponent discards a card" trigger effect modeled (EACHOP-DISCARD):** non-targeted mass
   discard aimed at all opponents (Burglar Rat, Noxious Toad, Cackling Fiend, Liliana's Specter,
   Elderfang Disciple, Elvish Doomsayer, Virus Beetle, + more) is now a first-class effect atom

@@ -774,8 +774,33 @@ function parseExtendedAtom(s) {
   // Zombify, Breath of Life). CREATURE only; "the battlefield under your control" / "tapped" / "with a
   // +1/+1 counter" / a non-creature card filter fails the exact anchor → low → Arbiter.
   if (/^return target creature card from your graveyard to the battlefield$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
-  // Targeted (single "target creature", no restriction — the anchor keeps it exact).
-  if (/^tap target creature$/.test(t)) return { op: "tap", targetType: "creature" };
+  // TAP-TARGET-CREATURE — "tap target creature [restriction]" (Fiend Binder, Captivating Unicorn,
+  // Court Street Denizen, Kor Line-Slinger, Storm Front, Dromoka Dunecaster, …). Standard controller
+  // qualifiers (an opponent controls / defending player controls / you don't control → opponent;
+  // you control → own), power/toughness/mana-value numeric restrictions, and flying presence/absence.
+  // Anchored to $ so "tap target creature, then return…" (Cyclopean Snare's bounce rider) and
+  // "unless its controller pays…" (Vectis Dominator / Rhystic Deluge) fall through → low → Arbiter.
+  // "defending player controls" maps to controller:opponent — in practice the defending player is
+  // always an opponent; this is a conservative false-negative rather than an enemy mis-tap (safe).
+  {
+    const tapM = t.match(/^tap target creature(?:\s+(an opponent controls|defending player controls|you don't control|you control|with power (\d+) or less|with power (\d+) or (?:greater|more)|with toughness (\d+) or less|with mana value (\d+) or (?:greater|more)|without flying|with flying))?\.?$/);
+    if (tapM) {
+      const qual = tapM[1];
+      const restrictions = [];
+      if (qual === "an opponent controls" || qual === "defending player controls" || qual === "you don't control")
+        restrictions.push({ kind: "controller", who: "opponent" });
+      else if (qual === "you control")
+        restrictions.push({ kind: "controller", who: "you" });
+      else if (tapM[2]) restrictions.push({ kind: "power", op: "<=", value: parseInt(tapM[2], 10) });
+      else if (tapM[3]) restrictions.push({ kind: "power", op: ">=", value: parseInt(tapM[3], 10) });
+      else if (tapM[4]) restrictions.push({ kind: "toughness", op: "<=", value: parseInt(tapM[4], 10) });
+      else if (tapM[5]) restrictions.push({ kind: "manaValue", op: ">=", value: parseInt(tapM[5], 10) });
+      else if (qual === "without flying") restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: true });
+      else if (qual === "with flying") restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: false });
+      // qual undefined → bare "tap target creature" → no restrictions (any creature)
+      return { op: "tap", targetType: "creature", restrictions };
+    }
+  }
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
   if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
@@ -1866,7 +1891,12 @@ export function atomTargetIntent(atom) {
     case "destroy":
     case "exile":
     case "counter":
+      return "enemy";
     case "tap":
+      // TAP-TARGET-CREATURE: "you control" restriction targets own creatures (e.g. Magus of the Arena);
+      // all other tap forms (opponent controls, defending player, power/toughness, flying) target an
+      // enemy creature. The restriction check mirrors the add-counter you-control override pattern.
+      if (atom.restrictions?.some(r => r.kind === "controller" && r.who === "you")) return "own";
       return "enemy";
     case "lose-life":
       // DEATH-DRAIN-TARGETED — "target player/opponent loses N life" is enemy-side like targeted damage:
