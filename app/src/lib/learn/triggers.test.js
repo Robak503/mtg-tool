@@ -131,6 +131,27 @@ describe("classifyCondition — compound self-event + LTB guard (CREED)", () => 
   });
 });
 
+// ===== TRIG-DMG-TO-OPPONENT — non-combat damage-to-player/opponent trigger =====
+describe("classifyCondition — TRIG-DMG-TO-OPPONENT (Vedalken Heretic / Thieving Magpie family)", () => {
+  it("detects 'deals damage to an opponent' (self-ref) as combatDamageToPlayer", () => {
+    const t = detectTriggers(creature("Vedalken Heretic", "Whenever this creature deals damage to an opponent, you may draw a card."));
+    expect(t).toHaveLength(1);
+    expect(t[0].event).toBe("combatDamageToPlayer");
+    expect(t[0].scope).toBe("self");
+  });
+  it("detects 'deals damage to a player' (self-ref by name) as combatDamageToPlayer", () => {
+    const t = detectTriggers(creature("Clambassadors", "Whenever Clambassadors deals damage to a player, choose an artifact, creature, or land you control."));
+    expect(t).toHaveLength(1);
+    expect(t[0].event).toBe("combatDamageToPlayer");
+  });
+  it("does NOT detect when a trailing qualifier is present ('to a player or planeswalker')", () => {
+    expect(detectTriggers(creature("Complex", "Whenever this creature deals damage to a player or planeswalker, draw a card."))).toHaveLength(0);
+  });
+  it("does NOT detect without a self-reference (controller-scoped, not self)", () => {
+    expect(detectTriggers(creature("Wide", "Whenever a creature deals damage to an opponent, draw a card."))).toHaveLength(0);
+  });
+});
+
 // ===== FIX-TRIG-CONDITION (Rod QA #1, CREED) ===== classifyCondition over-detected restricted /
 // alternate-subject triggers: a broad selfRef (`/\bthis\b/` anywhere, or the card name) + dropped
 // scope-inexpressible restrictions made aristocrats / tribal / Sengir payoffs fire at the wrong time or

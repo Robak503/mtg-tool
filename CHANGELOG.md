@@ -8,6 +8,19 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Enters-tapped credit + non-combat damage trigger (TRIG-MISC):** two coverage gaps closed.
+  (1) Cards whose only non-keyword text is an unconditional "enters tapped" sentence — Shambling
+  Ghoul, Custodian of the Trove, Daring Thunder-Thief, and ~16 others — now classify **native-body**;
+  the engine already handles enters-tapped in `actionDispatcher.entersTapped()`. The strip also
+  propagates through all downstream checks (trigger / activated / static / mixed), unlocking cards
+  like Spare Supplies (enters tapped + draws on ETB → **native-trigger**) and mana-dork artifacts.
+  Re-guard (CREED): `entersTapped()` now rejects a same-sentence "and …"/"then …" rider (e.g. "enters
+  tapped **and** you lose 1 life") so the `tapRe` strip can't silently drop an unmodeled rider — such
+  cards stay body-only. (2) "Whenever this creature deals damage to a player / an opponent" — the
+  non-combat form (Vedalken Heretic, Thieving Magpie, Thieving Otter, Looter il-Kor, Lu Xun, …) is now
+  a recognised trigger mapped to `combatDamageToPlayer`; in the simulator all creature damage is combat
+  damage so the event fires correctly. **+28 cards total**.
+
 - **Self-referential bounce + sacrifice trigger effects (TRIG-EFFECT-ATOMS):** two new non-targeted
   self-reference atoms for trigger effects — **SELF-BOUNCE** ("return this creature to its owner's
   hand" → `op:"bounce", target:"self"`) and **SELF-SACRIFICE** ("sacrifice this creature" →

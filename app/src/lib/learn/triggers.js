@@ -522,6 +522,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^one or more creatures you control deal combat damage to a player$/.test(c)) {
     return { event: "combatDamageBatch", scope: "you", whose: "any" };
   }
+  // TRIG-DMG-TO-OPPONENT — "Whenever <self> deals damage to a player / an opponent" without "combat".
+  // Cards like Vedalken Heretic, Thieving Magpie, Reef Pirates: in the simulator all creature damage
+  // is combat damage, so the combatDamageToPlayer event fires correctly when this creature attacks and
+  // connects. BARE end-anchored form only; a trailing qualifier ("…to a player or planeswalker",
+  // "…to an opponent who controls…") leaves residue → UNDETECTED → Arbiter (safe false-negative).
+  if (/\bdeals? damage to (?:a player|an opponent)$/.test(c) && selfRef) {
+    return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
+  }
 
   // HEROIC (CR 702.35) — "Whenever you cast a spell that targets this creature, <effect>".
   // Fires when the controller casts any spell that has this permanent as a chosen target. The
