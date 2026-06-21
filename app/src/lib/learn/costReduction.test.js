@@ -16,6 +16,9 @@
  *   4. Coverage flip: Dragonspeaker → "native-static"; Ruby Medallion (color) → not native.
  *   5. Engine: legalActionsForPlayer trims the cast action's cost.generic (MV/cmc untouched), floors
  *      at {0}, leaves off-subtype spells alone, and reduces an {X}-spell's fixed base before {X}.
+ *   6. EMINENCE (The Ur-Dragon — Joe's deck; Efteekay): a command-zone cost-reducer that discounts
+ *      OTHER subtype spells from the command zone, NEVER the source's own cast (the literal "other"),
+ *      and does NOT flip the carrier native (its attack/ETB trigger is still on the Arbiter tail).
  *
  * Every expected value below was confirmed against the live parser + engine before being written.
  */
@@ -186,5 +189,134 @@ describe("STATIC-COST-REDUCTION — engine cast actions", () => {
     const reducer = createPermanent({ card: { type: "Creature — Hydra", oracle: "Hydra spells you cast cost {1} less to cast.", mana: "{2}{G}" }, controller: "user" });
     const withR = castActions(mkState({ hand: [pure], battlefield: [reducer], mana: { G: 12 } }), "hyd2").find((a) => a.xValue === 1);
     expect(withR.cost.generic).toBe(1); // base 0 floored, reduction lost; pays X(1) in full — exact X-cost reduction is a follow-up
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════
+// EMINENCE COST-REDUCTION (command zone) — anchor: The Ur-Dragon (Joe's deck)
+//
+// "Eminence — As long as <this> is in the command zone or on the battlefield, other <Subtype> spells you
+// cast cost {N} less to cast." Eminence is an ABILITY WORD (CR 207.2c — no rules meaning); the reach from
+// the command zone is the clause's own literal text (CR 113.6 — a permanent's ability functions only on the
+// battlefield "except as [its] wording specifies"). The discount itself is the same CR 601.2f / 202.3 math
+// as the base reducer. The carrier flips NOTHING native (its attack/ETB trigger is uncovered) — this PR just
+// makes the deck PLAY its Dragon discount instead of silently dropping it. Real oracle text below, verified
+// against bundled Scryfall data.
+// ════════════════════════════════════════════════════════════════════════════════════════════════════
+
+const UR_DRAGON = () => ({
+  name: "The Ur-Dragon",
+  type: "Legendary Creature — Dragon Avatar",
+  mana: "{4}{W}{U}{B}{R}{G}",
+  keywords: ["Flying"],
+  oracle: "Eminence — As long as The Ur-Dragon is in the command zone or on the battlefield, other Dragon spells you cast cost {1} less to cast.\nFlying\nWhenever one or more Dragons you control attack, draw that many cards, then you may put a permanent card from your hand onto the battlefield.",
+});
+const EFTEEKAY = () => ({
+  name: "Efteekay, Flame of the Kav",
+  type: "Legendary Creature — Kavu Soldier",
+  mana: "{4}{R}{G}",
+  keywords: [],
+  oracle: "Eminence — As long as Efteekay is in the command zone or on the battlefield, other Kavu spells you cast cost {1} less to cast.\nWhenever Efteekay or another Kavu you control enters, it deals damage equal to its power to target creature.",
+});
+const UNKNOWN_WIZARD = () => ({
+  name: "The Unknown Wizard",
+  type: "Legendary Creature — Human Wizard",
+  mana: "{2}{W}{U}{B}{R}{G}",
+  keywords: [],
+  oracle: "Eminence — As long as The Unknown Wizard is in the command zone or on the battlefield, other playtest cards you cast cost {1} less to cast.\nWhenever The Unknown Wizard enters or attacks, look at the top ten cards of your library. You may put a legendary playtest card from among them onto the battlefield. Put the rest on the bottom in a random order.",
+});
+
+// ─── 6a. Parser: the eminence marker carries fromCommandZone + excludeSelf + sourceName ──────────
+describe("EMINENCE — parser marker", () => {
+  it("The Ur-Dragon → a Dragon/1 reducer flagged fromCommandZone + excludeSelf, stamped with its name", () => {
+    expect(parseStaticAbilities(UR_DRAGON())).toEqual([
+      { costReduction: { subtype: "Dragon", amount: 1, fromCommandZone: true, excludeSelf: true, sourceName: "The Ur-Dragon" } },
+    ]);
+  });
+
+  it("Efteekay (full name ≠ the bare self-ref in its text) → a Kavu/1 eminence reducer", () => {
+    expect(parseStaticAbilities(EFTEEKAY())).toEqual([
+      { costReduction: { subtype: "Kavu", amount: 1, fromCommandZone: true, excludeSelf: true, sourceName: "Efteekay, Flame of the Kav" } },
+    ]);
+  });
+
+  it("The Unknown Wizard ('other playtest CARDS', not 'spells') → no marker", () => {
+    expect(parseStaticAbilities(UNKNOWN_WIZARD()).some((d) => d.costReduction)).toBe(false);
+  });
+});
+
+// ─── 6b. collect (command-zone vs battlefield) + the excludeSelf "other" guard ───────────────────
+describe("EMINENCE — collect + excludeSelf", () => {
+  it("a command-zone scan collects ONLY eminence reducers; a plain battlefield reducer there is skipped", () => {
+    expect(collectCostReducers([UR_DRAGON()], { commandZone: true })).toEqual([
+      { subtype: "Dragon", amount: 1, fromCommandZone: true, excludeSelf: true, sourceName: "The Ur-Dragon" },
+    ]);
+    // Dragonspeaker is a battlefield-only reducer (no fromCommandZone) → not collected from the command zone.
+    expect(collectCostReducers([DRAGONSPEAKER()], { commandZone: true })).toEqual([]);
+  });
+
+  it("the default (battlefield) scan ALSO includes an eminence reducer (it works on the battlefield too)", () => {
+    expect(collectCostReducers([UR_DRAGON()])).toEqual([
+      { subtype: "Dragon", amount: 1, fromCommandZone: true, excludeSelf: true, sourceName: "The Ur-Dragon" },
+    ]);
+  });
+
+  it("excludeSelf: the reducer never discounts ITS OWN cast, but still discounts another Dragon", () => {
+    const reducers = collectCostReducers([UR_DRAGON()], { commandZone: true });
+    expect(costReductionForSpell(reducers, UR_DRAGON())).toBe(0); // "other" — self excluded
+    expect(costReductionForSpell(reducers, { name: "Dragonlord Atarka", type: "Legendary Creature — Elder Dragon" })).toBe(1);
+  });
+});
+
+// ─── 6c. Coverage: the carrier stays NON-native (its trigger is uncovered) — no FP ──────────────
+describe("EMINENCE — coverage (no false positive)", () => {
+  it("The Ur-Dragon does NOT flip native-static (its attack trigger is on the Arbiter tail)", () => {
+    expect(classifyCard(UR_DRAGON())).not.toBe("native-static");
+  });
+  it("Efteekay does NOT flip native-static (its ETB trigger is uncovered)", () => {
+    expect(classifyCard(EFTEEKAY())).not.toBe("native-static");
+  });
+});
+
+// ─── 6d. Engine: the command-zone discount applies to OTHER Dragons, never the commander itself ──
+describe("EMINENCE — engine cast actions (command zone)", () => {
+  function mkCmdState({ hand = [], command = [], mana = {} }) {
+    const base = createGameState({ userDeck: [], aiDeck: [] });
+    return {
+      ...base,
+      phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: {
+        ...base.players,
+        user: { ...base.players.user, manaPool: { ...base.players.user.manaPool, ...mana }, hand, command },
+      },
+    };
+  }
+  const castActions = (s) => filterActions(legalActionsForPlayer(s, "user"), "cast-spell");
+  const FULL_MANA = { W: 6, U: 6, B: 6, R: 6, G: 6 };
+  const HAND_DRAGON = { id: "hd1", name: "Hand Dragon", type: "Creature — Dragon", mana: "{4}{R}{R}", oracle: "", keywords: [] };
+  const HAND_GOBLIN = { id: "hg1", name: "Hand Goblin", type: "Creature — Goblin", mana: "{4}{R}", oracle: "", keywords: [] };
+  const urInCommand = () => ({ ...UR_DRAGON(), id: "ur1", isCommander: true });
+
+  it("a Dragon in HAND is discounted {1} by The Ur-Dragon sitting in the COMMAND ZONE", () => {
+    const a = castActions(mkCmdState({ hand: [HAND_DRAGON], command: [urInCommand()], mana: FULL_MANA })).find((x) => x.cardId === "hd1");
+    expect(a).toBeTruthy();
+    expect(a.cost.generic).toBe(3); // {4}{R}{R} generic 4 → 3; the {R}{R} pips are untouched
+    expect(a.cmc).toBe(6); // CR 202.3 — mana value unchanged
+  });
+
+  it("the SAME hand Dragon with an EMPTY command zone pays its printed {4}", () => {
+    const a = castActions(mkCmdState({ hand: [HAND_DRAGON], command: [], mana: FULL_MANA })).find((x) => x.cardId === "hd1");
+    expect(a.cost.generic).toBe(4);
+  });
+
+  it("an off-subtype hand spell (a Goblin) is NOT discounted by the Dragon eminence", () => {
+    const a = castActions(mkCmdState({ hand: [HAND_GOBLIN], command: [urInCommand()], mana: FULL_MANA })).find((x) => x.cardId === "hg1");
+    expect(a.cost.generic).toBe(4);
+  });
+
+  it("FP GUARD: casting The Ur-Dragon ITSELF from the command zone gets NO self-discount ('other')", () => {
+    const a = castActions(mkCmdState({ command: [urInCommand()], mana: FULL_MANA })).find((x) => x.cardId === "ur1" && x.fromZone === "command");
+    expect(a).toBeTruthy();
+    expect(a.cost.generic).toBe(4); // {4}{W}{U}{B}{R}{G}, tax 0, excludeSelf → no {1} off (would be 3 if the guard were missing)
   });
 });
