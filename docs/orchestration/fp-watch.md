@@ -40,6 +40,8 @@ _(newest first · status: 🔴 open · 🟡 in-fix · ✅ fixed)_
 
 | Date | Card(s) | Slice / PR | Symptom (why it's a FP) | Severity | Status |
 |---|---|---|---|---|---|
+| 2026-06-21 | (Living Weapon comment) | #346 TOKEN-ETB-FIRE | CR-citation hygiene (not a runtime FP): `resolvers.js` comment cites **CR 702.91** for the Living Weapon Germ token, but 702.91 = "Battle Cry" in `cr_current.json`; Living Weapon is **CR 702.92**. Off-by-one wrong CR in a comment — runtime is correct. Fix = correct the comment to 702.92. (Clyde flagged at the cycle-45 merge gate via the adversarial review.) | P2 | 🔴 open |
+| 2026-06-21 | (landfall comment) | #344 RAMP-LANDFALL | CR-citation hygiene (not a runtime FP): landfall comment cites **CR 614** (Replacement Effects); landfall as a *triggered* ability is **CR 603**. 614 is a real section (not fabricated), just loosely applied. NOTE: #344 is rebase-pending — fold this fix into the rebase or fix post-merge. (Clyde flagged at the cycle-45 merge gate.) | P2 | 🔴 open |
 | 2026-06-19 | (regeneration creatures) | #300 REGEN | LATENT/unreachable today: `regeneratePermanent` omits CR 701.15a "remove from combat" — a creature regenerated in the FIRST-STRIKE sub-step could deal damage again in the regular sub-step. Nothing sets a shield before combat damage today, so unreachable. Fix = skip dead/regenerated attackers in the combat-damage loop. (Cindy self-flagged in the #300 4b.) | latent | ✅ FIXED #303 (2026-06-20 — `removeFromCombat` flag + `combatant()` guard skips regenerated creatures in later combat-damage steps; Cindy) |
 
 > Severity: **P0** mis-resolves in a normal game (silent wrong result) · **P1** drops a clause/rider ·

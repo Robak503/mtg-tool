@@ -5,18 +5,34 @@
 > and ship PRs that **Clyde** (the orchestrator) merges. **Hans** keeps your board stocked and fixes false
 > positives after merge.
 >
-> **🎯 REDIRECTED to the 13 DECKS (Colton, 2026-06-21 — supersedes the 06-19 non-keyword carve):** all three
-> builders are now on the **13 local decks** (Colton's 6 + Joe's 7). Your **general-corpus / trigger-compiler /
-> completion-frontier lane is PAUSED, not deleted** — it resumes once the 13 are coverage-complete. **Current
-> claim: (1) VIHAAN token-SOURCE + sacrifice/death-drain triggers** (build the token source before doublers),
-> then **(2) THE WISE MOTHMAN rad-counter + mill engine** (zero builder, lowest deck). Apply your trigger-compiler
-> strength **deck-scoped** — it still generalizes.
+> **🚨🚨 STOP — READ THIS BEFORE YOU CLAIM ANYTHING. You have had FOUR consecutive general-corpus PRs PARKED:
+> #334 COUNTER-TARGET-OWN, #336 TOKEN-BARE-MULTICOLOR, #340 TAP-TARGET-CREATURE, #343 GATED-GY-EXT (2026-06-21).**
+> Every one was clean, CREED-correct, well-tested craft — and every one was PARKED because it flipped ZERO cards
+> in the 13 decks. The problem is not your code quality; it is that you keep claiming general parser-expansion
+> tasks instead of deck cards. **The next PR MUST be a VIHAAN card or it gets parked too.**
+>
+> **🎯 YOUR LANE IS NOW VIHAAN-ONLY (Colton, 2026-06-21).** Mothman is no longer yours — **Walt shipped the
+> Mothman rad-mill engine (#347 RAD-COUNTERS)**, so that deck is covered. Your single focus is **VIHAAN, Goldwaker
+> (Mardu treasure-aristocrats, 59% — Colton's growth deck)**. The general-corpus / trigger-compiler /
+> completion-frontier lane is **PAUSED, not deleted** — it resumes only when Colton says the 13 are
+> coverage-complete.
+>
+> **HOW TO PICK YOUR NEXT TASK (do this exactly):**
+> 1. Open `memory/deck_vihaan.md` (full decklist + oracle text). It is at
+>    `C:\Users\colto\.claude\projects\C--Users-colto-Documents-Claude-Projects-MTG-TOOL\memory\deck_vihaan.md`.
+> 2. For each of the 99 cards, check whether the engine already plays it (grep the card's mechanic against the
+>    parser). Build a list of the **non-native** Vihaan cards.
+> 3. Pick the highest-frequency *non-native shape* that is actually in that 99 — the Vihaan spine is **sac
+>    outlets, token-source bodies, and death-drain riders** (Blood Artist-style "and you gain that much life").
+> 4. Your PR title + body MUST name the specific Vihaan card(s) it flips, e.g. "feat(learn): SAC-OUTLET —
+>    Carrion Feeder + Viscera Seer → Vihaan". No named Vihaan card = Clyde parks it.
 >
 > **⚠️ DECK-ALIGNMENT GATE (standing):** every PR must cite a **specific 13-deck card** it unblocks (grep vs
 > `memory/deck_*.md` + `memory/deck_joe_roster.md`). **Counter / proliferate / keyword-grant / equipment /
-> generic-trigger work is GUILTY UNTIL PROVEN** — Clyde will PARK (not merge) a general-corpus PR built on a
-> post-redirect base. Coordinate via Clyde: **Dex** = Pantlaza/Wolverine/Koma staples; **Walt** = Toph
-> land-animate/landfall; **you** = Vihaan aristocrats + Mothman rad-mill. Order: `memory/orders/cindy.md`.
+> generic-trigger / graveyard-gate / tap-restriction work is GUILTY UNTIL PROVEN** — Clyde WILL PARK (not merge)
+> a general-corpus PR. Coordinate via Clyde: **Dex** = Pantlaza/Wolverine/Koma staples + landfall/token-ETB
+> bugfixes; **Walt** = Toph land-animate/landfall + Mothman rad-mill; **you** = **VIHAAN aristocrats ONLY**.
+> Order: `memory/orders/cindy.md`.
 
 ---
 
@@ -142,12 +158,12 @@ Work ONLY in my own `.claude/worktrees/<id>`. Confirm `git rev-parse --show-topl
 
 ## 9. Current state
 
-- `master` @ **c11e39a** · corpus **~19%** native · v0.46.0 published · **🎯 LANE = the 13-deck grind** (see the
-  redirect blockquote at the top). General-corpus / TRIG-* / completion-frontier is PAUSED. **Current claim:
-  VIHAAN token-source + sacrifice/death-drain, then THE WISE MOTHMAN rad-counter + mill.** Every PR cites a
-  specific 13-deck card or Clyde parks it. (#332 EACHOP-DISCARD was the last pre-redirect general PR merged;
-  #334 COUNTER-TARGET-OWN was PARKED 2026-06-21 as general-corpus on a post-redirect base — the manual was the
-  gap, now fixed.)
+- `master` @ **10985b1** · corpus **~19%** native · v0.46.0 published · **🎯 LANE = VIHAAN ONLY** (see the
+  🚨 redirect blockquote at the top). General-corpus / TRIG-* / completion-frontier is PAUSED. **Current claim:
+  the highest-frequency non-native shape in `deck_vihaan.md` — sac outlets / token-source bodies / death-drain
+  riders.** Mothman is Walt's now (#347 shipped). Every PR MUST name a specific Vihaan card or Clyde parks it.
+  **🚨 FOUR consecutive parks (#334 → #336 → #340 → #343, all general-corpus) — the next PR has to be a named
+  Vihaan card.** (#332 EACHOP-DISCARD was the last pre-redirect general PR actually merged.)
 
 > **Onboarding first:** before I build anything, Colton and I walk through this role together until I fully get
 > it, and I commit my understanding to memory (`project_cindy_builder_faculty`). Only then do I start pulling tasks.
