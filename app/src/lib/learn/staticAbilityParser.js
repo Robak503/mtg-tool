@@ -103,6 +103,15 @@ const NON_SUBTYPE_ANTHEM_WORDS = new Set([
   "other", "another", "all", "each", "this", "your", "target", "creature", "creatures",
 ]);
 
+// STATIC-COST-REDUCTION: leading words in "<word> spells you cast cost {N} less to cast" that are NOT a
+// permanent/spell SUBTYPE and never appear as a TYPE-LINE token — a color (also caught via COLOR_WORDS),
+// a negated/category word ("noncreature"/"historic"), or an over-broad noun ("permanent"/"spell"). A
+// word-bound type-line match for these would NEVER fire, so claiming the reducer native while it silently
+// reduces nothing is a CREED false positive. Excluded → no descriptor → the card stays body-only (safe
+// FN). Card-TYPE filters (Artifact/Enchantment/…) and supertypes/qualities are already in
+// NON_SUBTYPE_ANTHEM_WORDS, which the cost-reduction recognizer reuses alongside this set.
+const NON_SUBTYPE_COST_FILTER_WORDS = new Set(["noncreature", "historic", "permanent", "spell", "spells"]);
+
 // ─── TRUNK-SELFBUFF: count-scaled self static buff ──────────────────────────────
 // A continuous (layer-7c) self-buff whose magnitude is a board count — "this creature gets +X/+Y for each
 // <countsource>" (Nim Lasher, Benalish Honor Guard…). The layer engine re-evaluates the count each P/T
@@ -301,6 +310,28 @@ function emitGatedEffect(out, effRaw, gate) {
  */
 function parseClause(clause, out) {
   const c = clause.toLowerCase();
+
+  // ── STATIC-COST-REDUCTION (Dragonspeaker Shaman → The Ur-Dragon; Gargos → Zaxara) ──────────────────
+  // "<Subtype> spells you cast cost {N} less to cast" reduces the GENERIC portion of the matching spell's
+  // cost (CR 601.2f — effects may reduce the cost to pay), floored at {0} when the cost is applied at the
+  // cast site; the spell's mana value is UNCHANGED (CR 202.3 — MV is the printed mana cost). Emitted as a
+  // coverage MARKER descriptor with NO `affects`/`op`, so the layer engine ignores it entirely
+  // (layers.effectAffects bails on a missing `affects`); legalChoices reads it at the cast site via
+  // collectCostReducers / costReductionForSpell. SUBTYPE-FILTERED ONLY: a color ("Red spells" — Ruby
+  // Medallion), a negated/category word ("Noncreature"), a card type (Artifact/Enchantment), or a
+  // supertype (Legendary) is EXCLUDED — its word-bound type-line match would never fire, so claiming the
+  // card native while it never reduces is a false positive. Those (and chosen-type / colored / compound
+  // "X and Y spells" reducers) stay body-only as a safe false-negative. "you cast" is optional (a rare
+  // symmetric reducer under-applies to opponents — still safe). The subject before "spells" is always
+  // singular, so normalizeSubtype just canonicalizes case ("dragon" → "Dragon").
+  const crM = c.match(/^([a-z]+) spells (?:you cast )?cost \{(\d+)\} less to cast$/);
+  if (crM) {
+    const word = crM[1];
+    if (!NON_SUBTYPE_ANTHEM_WORDS.has(word) && !COLOR_WORDS[word] && !NON_SUBTYPE_COST_FILTER_WORDS.has(word)) {
+      out.push({ costReduction: { subtype: normalizeSubtype(word), amount: parseInt(crM[2], 10) } });
+    }
+    return; // a cost-reduction clause — handled (or intentionally dropped to body-only)
+  }
 
   // ── COUNTER-PAYOFF (Herald of Secret Streams): "(each|all) creature(s) you control with a +1/+1 counter
   // on it/them can't be blocked" → a layer-6 unblockable grant, gated PER-CREATURE (dynamic) on having a
@@ -656,6 +687,41 @@ export function parseStaticAbilities(card) {
     parseClause(clause, out);
   }
   return out;
+}
+
+/**
+ * STATIC-COST-REDUCTION: gather the active subtype cost-reducers on a controller's battlefield —
+ * `[{ subtype, amount }, …]` — from each permanent's "<Subtype> spells you cast cost {N} less to cast"
+ * static (parsed via parseStaticAbilities → the `costReduction` marker). Pure; hoisted ONCE per
+ * castActionsFromZone so the battlefield is parsed a single time, not per castable card.
+ */
+export function collectCostReducers(permanentCards) {
+  const reducers = [];
+  for (const card of permanentCards || []) {
+    for (const d of parseStaticAbilities(card)) {
+      if (d.costReduction) reducers.push(d.costReduction);
+    }
+  }
+  return reducers;
+}
+
+/**
+ * STATIC-COST-REDUCTION: the total GENERIC-mana reduction a set of `reducers` (from collectCostReducers)
+ * grant `spellCard`, summed across every reducer whose subtype appears (word-bounded) in the spell's TYPE
+ * LINE. Matching the type line — not the name — means a creature/Tribal spell of that subtype matches while
+ * an off-type spell that merely mentions the subtype in its name (e.g. "Beast Within") never does. Generic
+ * -only and floored by the caller at the cast site (CR 601.2f); the mana value is never touched (CR 202.3).
+ * Pure; 0 when nothing applies.
+ */
+export function costReductionForSpell(reducers, spellCard) {
+  const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
+  if (!typeLine || !reducers?.length) return 0;
+  let total = 0;
+  for (const r of reducers) {
+    const sub = String(r.subtype || "").toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (sub && new RegExp(`\\b${sub}\\b`).test(typeLine)) total += r.amount || 0;
+  }
+  return total;
 }
 
 /**
