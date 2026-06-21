@@ -7,7 +7,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { detectTriggers } from "./triggers.js";
+import { detectTriggers, checkDiesTriggers } from "./triggers.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
@@ -124,5 +124,53 @@ describe("BATCH combat-damage trigger (one or more creatures …)", () => {
     s = resolveCombatDamage(s);
     s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
     expect(treasureCount(s, "user")).toBe(0);           // no player damage → no batch trigger
+  });
+});
+
+// SHARED-SCOPE SELF-FIRE GUARD (Hans, cycle 42→43): the subtypeYouControl scope is shared across ETB-SELF
+// (#330 Pantlaza), combat-damage (#333), and attacks/dies (#335). Its self-inclusion clause must be gated
+// on the SOURCE carrying the subtype, else a non-SUBTYPE creature whose trigger watches a SUBTYPE fires on
+// its OWN non-matching event. #335 widening to `dies` made this a LIVE P0 (Slimefoot).
+describe("subtype combat-damage self-fire guard (Setzer — latent)", () => {
+  it("a NON-subtype watcher does NOT self-fire its subtype combat-damage trigger", () => {
+    // A Human (not a Vehicle) carrying "Whenever a Vehicle you control deals combat damage…". Its OWN
+    // (non-Vehicle) player damage must NOT fire the trigger — no Vehicle dealt damage.
+    const setzerish = createPermanent({ id: "sz", card: { id: "csz", name: "Setzerish", type: "Creature — Human Rogue", power: 2, toughness: 2, oracle: "Whenever a Vehicle you control deals combat damage to a player, create a Treasure token." }, controller: "user", summoningSick: false });
+    let s = st([setzerish], [], [{ permanentId: "sz", attackingPlayer: "user", defender: "ai" }], []);
+    s = resolveCombatDamage(s);
+    expect(s.players.ai.life).toBe(38);                 // the Human's own 2 combat damage landed
+    s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+    expect(treasureCount(s, "user")).toBe(0);           // but it's not a Vehicle → no self-fire
+  });
+  it("a real Vehicle attacker still fires the same watcher (no regression)", () => {
+    const setzerish = createPermanent({ id: "sz2", card: { id: "csz2", name: "Setzerish", type: "Creature — Human Rogue", power: 1, toughness: 1, oracle: "Whenever a Vehicle you control deals combat damage to a player, create a Treasure token." }, controller: "user", summoningSick: false });
+    const blackjack = createPermanent({ id: "bj", card: { id: "cbj", name: "The Blackjack", type: "Artifact Creature — Vehicle", power: 3, toughness: 3, oracle: "" }, controller: "user", summoningSick: false });
+    let s = st([setzerish, blackjack], [], [{ permanentId: "bj", attackingPlayer: "user", defender: "ai" }], []);
+    s = resolveCombatDamage(s);
+    expect(s.players.ai.life).toBe(37);                 // the Vehicle's 3 damage landed
+    s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+    expect(treasureCount(s, "user")).toBe(1);           // a Vehicle dealt damage → fires
+  });
+});
+
+describe("subtype DIES self-fire guard — Slimefoot (LIVE native P0)", () => {
+  // Slimefoot (native Fungus) watches "a Saproling you control dies" — without the source-subtype guard it
+  // self-fires its drain when Slimefoot ITSELF (a non-Saproling) dies. #335 made this reachable.
+  const slimefoot = (id) => createPermanent({ id, card: { id: `c-${id}`, name: "Slimefoot, the Stowaway", type: "Legendary Creature — Fungus", power: 1, toughness: 1, oracle: "Whenever a Saproling you control dies, Slimefoot deals 1 damage to each opponent and you gain 1 life." }, controller: "user", summoningSick: false });
+  const dead = (perm) => ({ id: perm.id, controller: perm.controller, card: perm.card });
+  const withSlimefoot = (slime) => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    return { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [slime] } } };
+  };
+  const diesFired = (s, deadPerm) => (checkDiesTriggers(s, [dead(deadPerm)]).pendingTriggers || []).filter((t) => t.event === "dies");
+
+  it("a Saproling dying FIRES Slimefoot's drain (the real trigger)", () => {
+    const slime = slimefoot("sf");
+    const sap = createPermanent({ id: "sap", card: { id: "csap", name: "Saproling", type: "Creature — Saproling", power: 1, toughness: 1, oracle: "" }, controller: "user", summoningSick: false });
+    expect(diesFired(withSlimefoot(slime), sap)).toHaveLength(1);   // a Saproling died → Slimefoot's drain fires
+  });
+  it("Slimefoot ITSELF dying does NOT self-fire (Fungus is not a Saproling)", () => {
+    const slime = slimefoot("sf2");
+    expect(diesFired(withSlimefoot(slime), slime)).toHaveLength(0); // Slimefoot (a Fungus) is not a Saproling → no self-fire
   });
 });

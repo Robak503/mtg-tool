@@ -32,6 +32,9 @@ describe("cast-trigger detection", () => {
     expect(castDescriptors("Whenever you cast a kicked spell, scry 2.")).toHaveLength(0);
     expect(castDescriptors("Whenever you cast a permanent spell, draw a card.")).toHaveLength(0);
     expect(castDescriptors("Whenever you cast a legendary spell, draw a card.")).toHaveLength(0);
+    // Un-set defined term: "an alliterative spell" (Treacherous Trapezist) is a name-property, not a
+    // type-line subtype → must NOT detect (subtype:Alliterative would never fire = a do-nothing native FP).
+    expect(castDescriptors("Whenever you cast an alliterative spell, scry 2.")).toHaveLength(0);
   });
 
   it("CAST-SUBTYPE: detects a real creature/spell SUBTYPE filter (Elf / Knight / Adventure → subtype:Name)", () => {
