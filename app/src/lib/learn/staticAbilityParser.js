@@ -191,6 +191,27 @@ export function entersWithPlusCounters(card) {
 }
 
 /**
+ * ENTERS-WITH-X (CR 122.1 + the {X} chosen at cast) — does this permanent "enter with X +1/+1 counters on
+ * it", where X is the value paid for its {X} mana cost? True for the bare literal-"X" form (Hungering /
+ * Lifeblood / Primordial / Hydroid Krasis / Mistcutter / Nyxborn Hydra…). The resolver reads the chosen X
+ * (threaded as the cast's xValue) and adds that many +1/+1 counters, so the creature enters at its real P/T
+ * instead of a 0/0 that dies to the lethal-toughness SBA. A "for each <thing>" / "equal to" / "plus N"
+ * variant is a DIFFERENT magnitude (not the cast X) → false, left for the Arbiter. Leaf (no engine import).
+ */
+export function entersWithXCounters(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
+    if (!/\benters (?:the battlefield )?with x \+1\/\+1 counters? on it/i.test(sentence)) continue;
+    // A "where X is <board count>" / "for each" / "equal to" / "plus N" magnitude is NOT the cast {X}
+    // (Inferno Project, Stag Beetle, Voracious Wurm, Cryptborn Horror…) — the engine can't compute it, so
+    // it's left to the Arbiter. Only the bare cast-X form (the {X} pip feeds the counters) is modeled.
+    if (/\b(?:for each|equal to|plus|times|double|where)\b/i.test(sentence)) return false;
+    return true;
+  }
+  return false;
+}
+
+/**
  * TRUNK-ENTERSTAPPED (CR 614.1g) — does this permanent enter the battlefield tapped, unconditionally? True
  * ONLY for the bare "~ enters tapped" with NO condition/choice in the same sentence: a check-/fast-land
  * ("enters tapped unless you control …"), a reveal-land ("if you don't, ~ enters tapped"), or any
