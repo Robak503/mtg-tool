@@ -1294,3 +1294,46 @@ describe("parseEffectProgram — Investigate keyword action (KWACT-INVEST)", () 
     low("Target opponent investigates.");        // wrong owner
   });
 });
+
+// ===== PUMP-TGT-CTRL — "target creature you control / an opponent controls gets/gains" =====
+// Controller-qualified pump + grant — encodes the existing P2.4 restriction-array format so
+// enumerateTargets enforces the controller filter (only own or opponent creatures, respectively).
+// All-or-nothing: an un-grantable keyword (hexproof/menace/indestructible) still drops → LOW.
+describe("parseEffectProgram — PUMP-TGT-CTRL controller-qualified pump/grant", () => {
+  const hi = (o) => expect(programConfidence(parseEffectClause(o, "Instant"))).toBe("high");
+  const lo = (o) => expect(programConfidence(parseEffectClause(o, "Instant"))).not.toBe("high");
+  const atomOf = (o) => (parseEffectClause(o, "Instant") || {}).atoms?.[0];
+
+  it("'target creature you control gets +N/+N until end of turn' → HIGH, restriction you", () => {
+    hi("target creature you control gets +1/+1 until end of turn");
+    const a = atomOf("target creature you control gets +2/+0 until end of turn");
+    expect(a).toMatchObject({ op: "pump", targetType: "creature", ptDelta: { p: 2, t: 0 }, restrictions: [{ kind: "controller", who: "you" }] });
+  });
+  it("'target creature an opponent controls gets -N/-N until end of turn' → HIGH, restriction opponent", () => {
+    hi("target creature an opponent controls gets -1/-1 until end of turn");
+    hi("target creature an opponent controls gets -2/-0 until end of turn");
+    const a = atomOf("target creature an opponent controls gets -2/-2 until end of turn");
+    expect(a).toMatchObject({ op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }] });
+  });
+  it("'target creature you control gains KW until end of turn' → HIGH for grantable keywords", () => {
+    hi("target creature you control gains flying until end of turn");
+    hi("target creature you control gains trample until end of turn");
+    const a = atomOf("target creature you control gains flying until end of turn");
+    expect(a).toMatchObject({ op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: ["Flying"], restrictions: [{ kind: "controller", who: "you" }] });
+  });
+  it("'target creature you control gets +N/+N and gains KW until end of turn' → HIGH (combo)", () => {
+    hi("target creature you control gets +1/+1 and gains trample until end of turn");
+    const a = atomOf("target creature you control gets +1/+1 and gains vigilance until end of turn");
+    expect(a).toMatchObject({ ptDelta: { p: 1, t: 1 }, grantKeywords: ["Vigilance"], restrictions: [{ kind: "controller", who: "you" }] });
+  });
+  it("MUST stay LOW: un-grantable keywords (hexproof, menace, indestructible) still drop the clause", () => {
+    lo("target creature you control gains hexproof until end of turn");
+    lo("target creature you control gains menace until end of turn");
+    lo("target creature you control gets +1/+0 and gains indestructible until end of turn");
+    lo("target creature an opponent controls gains hexproof until end of turn");
+  });
+  it("unqualified 'target creature gets...' is unchanged (no restriction)", () => {
+    const a = atomOf("target creature gets +2/+2 until end of turn");
+    expect(a?.restrictions).toBeUndefined();
+  });
+});

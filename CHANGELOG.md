@@ -8,6 +8,18 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **"Target creature you/opponent controls gets/gains" pump triggers routed natively (PUMP-TGT-CTRL):**
+  ETB triggers that buff your own creatures ("target creature you control gets +1/+1 until end of turn",
+  "gains flying until end of turn") or debuff opponents' creatures ("target creature an opponent controls
+  gets -1/-1 / -2/-0 until end of turn") now parse at HIGH confidence. The controller qualifier is encoded
+  as the existing P2.4 restriction array (`{ kind:"controller", who:"you"|"opponent" }`), so `enumerateTargets`
+  correctly restricts legal targets to the right side of the table. Un-grantable keywords (hexproof, menace,
+  indestructible) still drop to the Arbiter — the allowlist is the FP guard. **+29 cards** (Eyeblight
+  Assassin, Humbling Elder, Haazda Officer, Toucan-Puffin, Veil of Assimilation, Thoughtweft Lieutenant,
+  Chasm Drake, Faerie Duelist, Vedalken Mesmerist, Shambling Goblin, Splatter Goblin, Stinging Scorpion,
+  Orc Sureshot, Ambush Gigapede, Herald of the Fair, Burrog Befuddler, Cogwork Wrestler, Brinebarrow
+  Intruder, Grim Physician, + 10 more).
+
 - **"Each opponent discards a card" trigger effect modeled (EACHOP-DISCARD):** non-targeted mass
   discard aimed at all opponents (Burglar Rat, Noxious Toad, Cackling Fiend, Liliana's Specter,
   Elderfang Disciple, Elvish Doomsayer, Virus Beetle, + more) is now a first-class effect atom
