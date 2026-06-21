@@ -1140,6 +1140,11 @@ function parseExtendedAtom(s) {
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
   m = t.match(/^each player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
+  // EACHOP-DISCARD — "Each opponent discards a card" (Liliana's Specter, Burglar Rat, Cackling Fiend,
+  // Noxious Toad). Non-targeted mass scope (targetType:null), parallel to "each opponent mills N" / "each
+  // opponent loses N life". Route natively; the resolver walks opponentsOf via the shared discard chain.
+  m = t.match(/^each opponent discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
   // LOOT-1 — the CONTROLLER discards (the "loot" half of draw-then-discard: Faithless Looting, Careful
   // Study, Catalog). "Discard N cards" (imperative) / "You discard N cards" = the caster discards, CHOOSING
   // which (CR 701.8 → the discard chain, who:"controller"). "Draw N cards, then discard M cards" composes

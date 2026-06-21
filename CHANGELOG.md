@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **"Each opponent discards a card" trigger effect modeled (EACHOP-DISCARD):** non-targeted mass
+  discard aimed at all opponents (Burglar Rat, Noxious Toad, Cackling Fiend, Liliana's Specter,
+  Elderfang Disciple, Elvish Doomsayer, Virus Beetle, + more) is now a first-class effect atom
+  (`who:"eachOpponent"`) in the parser and `applyDiscard`. Routes natively with no chosen target
+  (parallel to "each opponent loses N life" / "each opponent mills N cards"). The existing "each
+  **player** discards" (Delirium Skeins) is unaffected. **+15 cards**.
+
 - **Artifact-ETB / Constellation triggers fire (PERM-ENTERS):** "Whenever an **artifact** you
   control enters, …" (Reckless Fireweaver, Salivating Gremlins, Thopter Architect, Contraband Kingpin)
   and "Whenever an **enchantment** you control enters, …" (Setessan Champion, Nexus Wardens, Favored
