@@ -358,10 +358,20 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   const player = state.players[playerId];
   const actions = [];
 
-  // STATIC-COST-REDUCTION: the subtype cost-reducers this player controls, gathered ONCE (the battlefield
-  // is invariant across the loop). Skipped for a free-cast (it pays no mana). costReductionForSpell matches
-  // each castable card's type line against them below. CR 601.2f.
-  const costReducers = freeCast ? [] : collectCostReducers((player.battlefield || []).map((p) => p.card));
+  // STATIC-COST-REDUCTION: the subtype cost-reducers this player controls, gathered ONCE (each zone is
+  // invariant across the loop). Skipped for a free-cast (it pays no mana). costReductionForSpell matches each
+  // castable card's type line against them below. CR 601.2f. Two sources:
+  //   • battlefield permanents — every reducer ("Dragon spells you cast cost {2} less" — Dragonspeaker Shaman).
+  //   • the command zone — ONLY EMINENCE reducers (The Ur-Dragon's "as long as ~ is in the command zone or on
+  //     the battlefield, other Dragon spells you cast cost {1} less"), so a commander discounts its tribe while
+  //     it sits in the command zone (the normal pattern), not only once it has been cast onto the battlefield.
+  //     command entries are BARE card objects (no { card } wrapper), unlike battlefield permanents.
+  const costReducers = freeCast
+    ? []
+    : [
+        ...collectCostReducers((player.battlefield || []).map((p) => p.card)),
+        ...collectCostReducers(player.command || [], { commandZone: true }),
+      ];
 
   for (const card of cards) {
     if (isLand(card)) continue;

@@ -307,8 +307,10 @@ function emitGatedEffect(out, effRaw, gate) {
  * Try every supported pattern against one clause; push any descriptor(s) found
  * into `out`. The patterns are intentionally narrow and ordered most-specific
  * first so a tribal/color anthem doesn't also match the generic anthem.
+ * `selfName` (the card's name, optional) is threaded only so the EMINENCE
+ * cost-reducer can stamp `sourceName` for its excludeSelf ("other ~ spells") guard.
  */
-function parseClause(clause, out) {
+function parseClause(clause, out, selfName) {
   const c = clause.toLowerCase();
 
   // ── STATIC-COST-REDUCTION (Dragonspeaker Shaman → The Ur-Dragon; Gargos → Zaxara) ──────────────────
@@ -331,6 +333,31 @@ function parseClause(clause, out) {
       out.push({ costReduction: { subtype: normalizeSubtype(word), amount: parseInt(crM[2], 10) } });
     }
     return; // a cost-reduction clause — handled (or intentionally dropped to body-only)
+  }
+
+  // ── EMINENCE COST-REDUCTION (The Ur-Dragon; Efteekay, Flame of the Kav) ─────────────────────────────
+  // "Eminence — As long as <this> is in the command zone or on the battlefield, other <Subtype> spells you
+  // cast cost {N} less to cast." EMINENCE is an ABILITY WORD (CR 207.2c — italic, no rules meaning); the
+  // reach-from-the-command-zone is the clause's OWN literal text, not a keyword rule. Per CR 113.6 a
+  // permanent's abilities normally function only on the battlefield "except as [the ability's] wording
+  // specifies" — and this wording specifies the command zone, the normal commander pattern. Same
+  // { costReduction } marker + cost math as the base shape above (CR 601.2f reduces the cost to pay; CR
+  // 202.3 leaves the mana value untouched), plus three runtime flags:
+  //   • fromCommandZone — legalChoices ALSO scans the command zone for these (a commander usually sits there).
+  //   • excludeSelf + sourceName — the literal "OTHER" Dragon spells: it must NOT shave the source's own cast.
+  //     Without this, casting The Ur-Dragon (a Dragon) from the command zone would wrongly get {1} off — a
+  //     false positive. costReductionForSpell skips a reducer whose sourceName === the spell being cast.
+  // The self-reference is `.+` (not a fixed "this creature") because selfNormalizeOracle only rewrites a
+  // card's FULL name (Efteekay's text uses the bare "Efteekay", which stays). SUBTYPE-ONLY, same filter as
+  // the base shape — a color/type/supertype word is excluded as a safe false-negative. "other playtest cards
+  // you cast" (The Unknown Wizard) has no "<subtype> spells" and never matches.
+  const emM = c.match(/^eminence\s*[—–-]\s*as long as .+ is in the command zone or on the battlefield, other ([a-z]+) spells you cast cost \{(\d+)\} less to cast$/);
+  if (emM) {
+    const word = emM[1];
+    if (!NON_SUBTYPE_ANTHEM_WORDS.has(word) && !COLOR_WORDS[word] && !NON_SUBTYPE_COST_FILTER_WORDS.has(word)) {
+      out.push({ costReduction: { subtype: normalizeSubtype(word), amount: parseInt(emM[2], 10), fromCommandZone: true, excludeSelf: true, sourceName: selfName || null } });
+    }
+    return; // an eminence cost-reduction clause — handled (or intentionally dropped to body-only)
   }
 
   // ── COUNTER-PAYOFF (Herald of Secret Streams): "(each|all) creature(s) you control with a +1/+1 counter
@@ -684,22 +711,30 @@ export function parseStaticAbilities(card) {
   const oracle = selfNormalizeOracle(rawOracle, card?.name); // TRUNK-SELFBUFF: name-based self-ref → "this creature"
   const out = [];
   for (const clause of abilityClauses(oracle)) {
-    parseClause(clause, out);
+    parseClause(clause, out, card?.name); // name → EMINENCE excludeSelf sourceName
   }
   return out;
 }
 
 /**
- * STATIC-COST-REDUCTION: gather the active subtype cost-reducers on a controller's battlefield —
- * `[{ subtype, amount }, …]` — from each permanent's "<Subtype> spells you cast cost {N} less to cast"
+ * STATIC-COST-REDUCTION: gather the active subtype cost-reducers among a set of cards —
+ * `[{ subtype, amount, … }, …]` — from each card's "<Subtype> spells you cast cost {N} less to cast"
  * static (parsed via parseStaticAbilities → the `costReduction` marker). Pure; hoisted ONCE per
- * castActionsFromZone so the battlefield is parsed a single time, not per castable card.
+ * castActionsFromZone so each zone is parsed a single time, not per castable card.
+ *
+ * `commandZone: true` filters to ONLY the EMINENCE reducers (`fromCommandZone`) — when scanning the
+ * command zone, a plain battlefield-only reducer that happens to be in the command zone (it can't really
+ * be, but the guard keeps the contract honest) must not apply. The default (battlefield) scan keeps EVERY
+ * reducer: an eminence reducer also functions on the battlefield (CR 113.6 — "command zone OR on the
+ * battlefield"), so it isn't filtered out there.
  */
-export function collectCostReducers(permanentCards) {
+export function collectCostReducers(permanentCards, { commandZone = false } = {}) {
   const reducers = [];
   for (const card of permanentCards || []) {
     for (const d of parseStaticAbilities(card)) {
-      if (d.costReduction) reducers.push(d.costReduction);
+      if (!d.costReduction) continue;
+      if (commandZone && !d.costReduction.fromCommandZone) continue; // only eminence reaches from the command zone
+      reducers.push(d.costReduction);
     }
   }
   return reducers;
@@ -716,8 +751,11 @@ export function collectCostReducers(permanentCards) {
 export function costReductionForSpell(reducers, spellCard) {
   const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
   if (!typeLine || !reducers?.length) return 0;
+  const spellName = spellCard?.name;
   let total = 0;
   for (const r of reducers) {
+    // EMINENCE "OTHER <subtype> spells": never reduce the source card's own cast (The Ur-Dragon casting itself).
+    if (r.excludeSelf && r.sourceName && spellName && r.sourceName === spellName) continue;
     const sub = String(r.subtype || "").toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (sub && new RegExp(`\\b${sub}\\b`).test(typeLine)) total += r.amount || 0;
   }
@@ -741,7 +779,7 @@ export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
   const oracle = selfNormalizeOracle(String(card?.oracle || card?.oracle_text || ""), card?.name); // match the runtime's name-normalized parse
   for (const clause of abilityClauses(oracle)) {
     const produced = [];
-    parseClause(clause, produced);
+    parseClause(clause, produced, card?.name);
     if (produced.length > 0) continue;          // a modeled static clause
     if (isKeywordOnlyClause(clause)) continue;   // keyword-only / vanilla line
     return false;                                // unmodeled residue (trigger/activated/…)
