@@ -167,7 +167,9 @@ describe("discover X = that creature's toughness (Pantlaza piece [b])", () => {
 
 // ─── Pantlaza piece [a] — subtype-ETB-self trigger scope ───────────────────────────────────────
 
-const PANTLAZA_ORACLE = "Whenever Pantlaza, Sun's Vanguard or another Dinosaur you control enters the battlefield, discover X, where X is that creature's toughness. Do this only once each turn.";
+// The EXACT real LCI printed oracle — modern bare "enters" (no "the battlefield"). Pinning the real form
+// guards the actual corpus card; the detection also accepts the older "enters the battlefield" phrasing.
+const PANTLAZA_ORACLE = "Whenever Pantlaza, Sun's Vanguard or another Dinosaur you control enters, discover X, where X is that creature's toughness. Do this only once each turn.";
 const pantlazaCard = { name: "Pantlaza, Sun's Vanguard", type: "Legendary Creature — Dinosaur", oracle: PANTLAZA_ORACLE, mana: "{4}{R}{G}", power: "4", toughness: "4" };
 const dinoPerm = (id, t, controller = "user") => ({ id, controller, card: { name: `Dino-${id}`, type: "Creature — Dinosaur", oracle: "", power: "2", toughness: String(t), mana: `{${t}}` }, tapped: false, counters: {} });
 const beastPerm = (id, controller = "user") => ({ id, controller, card: { name: `Beast-${id}`, type: "Creature — Beast", oracle: "", power: "2", toughness: "2", mana: "{2}" }, tapped: false, counters: {} });
