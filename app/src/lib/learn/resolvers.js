@@ -142,19 +142,28 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // Mint the fixed token, put it on the controller's battlefield, then attach THIS Equipment via the shared
   // attachPermanent (the same mechanism Equip / Aura use), so the layer engine buffs the token from this turn.
   const lwToken = livingWeaponToken(card);
+  let lwTokenId = null;
   if (lwToken) {
     const { id: tokId, state: ts2 } = mintId(next, "perm");
     const tokPerm = { ...createPermanent({ id: tokId, card: lwToken, controller, summoningSick: true }), enteredOnTurn: ts2.turn, timestamp: ts2.timestampCounter || 0 };
     const ts3 = { ...ts2, timestampCounter: (ts2.timestampCounter || 0) + 1 };
     next = { ...ts3, players: { ...ts3.players, [controller]: { ...ts3.players[controller], battlefield: [...ts3.players[controller].battlefield, tokPerm] } } };
     next = attachPermanent(next, { equipId: permId, targetId: tokId });
+    lwTokenId = tokId;
   }
   // Fire ETB triggers now that the permanent is on the battlefield (CR 603.6a). They land in
   // pendingTriggers and flushTriggers puts them on the stack at the next priority-grant checkpoint
   // (which resolveTopOfStack runs after this). `checkEnterTriggers` (triggers.js) is the SINGLE ETB-fire
   // helper, shared with the reanimation atom (β-3b) — so the cast/clone/aura and non-cast entry paths
   // can't drift.
-  const afterEtb = checkEnterTriggers(next, perm);
+  let afterEtb = checkEnterTriggers(next, perm);
+  // LIVING WEAPON — the Germ token ALSO entered (CR 702.91), so it fires creature-ETB watchers too (Soul
+  // Warden / Cathars' Crusade / subtype-ETB off the Germ). Without this the LW token bypassed every ETB
+  // trigger — the same gap the create-token atom had (#345). Fire it after the equipment's own ETB.
+  if (lwTokenId) {
+    const tok = findPermanent(afterEtb, lwTokenId);
+    if (tok?.permanent) afterEtb = checkEnterTriggers(afterEtb, tok.permanent);
+  }
   return checkPermanentEntersTriggers(afterEtb, perm);
 }
 

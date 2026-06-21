@@ -9,6 +9,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { resolveAtom } from "./effects/effectAtoms.js";
+import { enterPermanent } from "./resolvers.js";
 import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
@@ -52,5 +53,14 @@ describe("TOKEN ETB fires creature-enters triggers", () => {
     let s = stateWith([watcher("sw", "Whenever a creature you control enters, you gain 1 life.")]);
     s = resolveAll(makeToken(s, { controller: "ai", count: 2 })); // AI makes 2 tokens
     expect(s.players.user.life).toBe(40); // my Soul Warden doesn't fire off the opponent's tokens
+  });
+
+  it("a LIVING WEAPON Germ token fires creature-ETB watchers too (enterPermanent path)", () => {
+    // A living-weapon equipment makes a 0/0 Germ token on entry; the Germ ENTERED, so it fires watchers.
+    let s = stateWith([watcher("sw", "Whenever a creature you control enters, you gain 1 life.")]);
+    const lwEquip = { id: "lw", name: "Batterskull-ish", type: "Artifact — Equipment", oracle: "Living weapon", mana: "{5}" };
+    s = enterPermanent(s, lwEquip, "user"); // equipment enters → mints + attaches the Germ
+    s = resolveAll(s);
+    expect(s.players.user.life).toBe(41); // the Germ token triggered Soul Warden (was 0 before the fix)
   });
 });
