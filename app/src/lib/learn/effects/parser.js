@@ -512,6 +512,13 @@ function parseCountSource(phrase, { allowTarget = false } = {}) {
 function parseExtendedAtom(s) {
   const t = s.toLowerCase().replace(/[’]/g, "'"); // normalize curly apostrophe
 
+  // ===== PROLIFERATE ===== (WALT, CR 701.27) a standalone keyword action — "Proliferate" / "proliferate
+  // again". The resolver (effectAtoms.applyProliferate) auto-picks the never-harmful counters. "Proliferate
+  // twice" (Contagion Engine) runs it twice (times:2). A "proliferate" with a rider in the same clause
+  // keeps the rider via the normal clause split, so this exact-match never silently drops trailing text.
+  if (/^proliferate twice$/.test(t)) return { op: "proliferate", times: 2, targetType: null };
+  if (/^proliferate( again)?$/.test(t)) return { op: "proliferate", targetType: null };
+
   // ===== DMG-SCALE ===== (WALT-DMG-SCALE) "<source> deals damage to <target> equal to the number of
   // <count source>" — the damage AMOUNT is a board count resolved at resolution (`amountCount`), not a
   // printed number (Massive Raid, Spitting Earth, Outnumber, Feedback Bolt). Reuses the existing

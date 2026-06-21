@@ -22,7 +22,7 @@ import {
   handCardMatches,
 } from "../spellEffects.js";
 import { addContinuousEffect } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addPoison, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
@@ -570,6 +570,43 @@ function applyAddCounter(state, atom, ctx) {
     next = checkDiesTriggers(r.state, r.dead);
   }
   return logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount: atom.amount || 1, targets: targets.map(t => t.id) });
+}
+
+// PROLIFERATE (CR 701.27): "choose any number of permanents and/or players that have a counter on them,
+// then give each another counter of each kind already there." The "may choose any number" is auto-resolved
+// to NEVER-HARMFUL picks (the sim's controller plays to win): a permanent is proliferated only when adding
+// to it HELPS ctx.controller — MY permanent that has a GOOD counter and no BAD one, an OPPONENT's that has
+// a BAD counter and no good one — plus POISON on opponent players. Per CR one of EACH kind on a chosen
+// permanent is added, so the choice is PER-PERMANENT (not per-kind). Ambiguous counters (saga lore, etc.)
+// are never the reason to choose a permanent → a safe no-op. (A future interactive choice UI can replace
+// the heuristic; this is the rules engine.) Compounds with every counter the engine tracks.
+const PROLIF_GOOD = new Set(["+1/+1", "loyalty", "charge", "fade", "time", "level", "oil"]);
+const PROLIF_BAD = new Set(["-1/-1", "stun"]);
+
+export function applyProliferate(state, atom, ctx) {
+  const me = ctx.controller;
+  const times = Math.max(1, atom.times || 1); // "proliferate twice" (Contagion Engine) runs it twice
+  let next = state;
+  for (let n = 0; n < times; n++) {
+    for (const pid of Object.keys(next.players)) {
+      const mine = pid === me;
+      for (const perm of [...next.players[pid].battlefield]) {
+        const kinds = Object.entries(perm.counters || {}).filter(([, v]) => v > 0).map(([k]) => k);
+        if (kinds.length === 0) continue;
+        const hasGood = kinds.some((k) => PROLIF_GOOD.has(k));
+        const hasBad = kinds.some((k) => PROLIF_BAD.has(k));
+        const choose = mine ? (hasGood && !hasBad) : (hasBad && !hasGood);
+        if (!choose) continue;
+        for (const k of kinds) next = addCounter(next, { permanentId: perm.id, type: k, amount: 1 });
+      }
+      // POISON on opponent players (the player counter whose proliferation is unambiguously good for me).
+      if (!mine && (next.players[pid].poison || 0) > 0) next = addPoison(next, { playerId: pid, amount: 1 });
+    }
+  }
+  // A proliferated -1/-1 may drop an opponent's creature to lethal toughness (CR 704.5g).
+  const r = destroyLethalCreatures(next);
+  next = checkDiesTriggers(r.state, r.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "proliferate", controller: me });
 }
 
 /** REGEN (CR 701.15) — give the SOURCE (self) or the chosen creature a regeneration shield. The shield is
@@ -1219,6 +1256,7 @@ export const ATOM_RESOLVERS = Object.freeze({
       ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Path to Exile / Swords to Plowshares
       : applyZoneMove(state, atom, ctx, "exile"),
   "add-counter": applyAddCounter,
+  "proliferate": applyProliferate, // PROLIFERATE (CR 701.27) — add one of each counter kind to never-harmful picks
   "regenerate": applyRegenerate, // REGEN (CR 701.15) — set a regeneration shield on self / target creature
   "return-from-graveyard": applyReturnFromGraveyard,
   "reanimate": applyReanimate,
