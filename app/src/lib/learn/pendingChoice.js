@@ -21,7 +21,7 @@ import { logEvent } from "./gameState.js";
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, destination = "hand", entersTapped = false }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, destination = "hand", entersTapped = false, remaining = 1 }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "tutor-search-pending", controller, count: candidates.length, sourceName, destination });
   return {
@@ -35,6 +35,9 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       // RAMP-1 — where the chosen card goes: "hand" (P3.2 tutor) or "battlefield" (+ entersTapped, ramp).
       destination: destination === "battlefield" ? "battlefield" : "hand",
       entersTapped: !!entersTapped,
+      // RAMP-MULTI — how many fetches are still to make (Explosive Vegetation / Skyshroud Claim = 2). The
+      // resolver chains the next pick while this is > 1, so the picker surfaces once per fetch.
+      remaining: Math.max(1, remaining),
     },
   };
 }

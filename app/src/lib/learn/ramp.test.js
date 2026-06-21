@@ -48,9 +48,11 @@ describe("parser — battlefield-destination tutor (RAMP-1)", () => {
     expect(isHigh("Search your library for a snow land card, put it onto the battlefield tapped, then shuffle.")).toBe(true);
   });
 
-  it("CREED: multi-land / split-destination / non-land battlefield fetches stay LOW → Arbiter", () => {
-    expect(isHigh("Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.")).toBe(false);                       // Explosive Vegetation
+  it("CREED: split-destination / 'up to three' / non-land battlefield fetches stay LOW → Arbiter", () => {
+    // NOTE: the bare "up to two <land> → battlefield" multi-fetch (Explosive Vegetation / Skyshroud Claim)
+    // is now MODELED by RAMP-MULTI (rampMulti.test.js). The SPLIT destination + non-land cheat stay low:
     expect(isHigh("Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.")).toBe(false); // Kodama's Reach (split)
+    expect(isHigh("Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.")).toBe(false);                       // "up to three" (only "up to two" modeled)
     expect(isHigh("Search your library for a green creature card, put it onto the battlefield, then shuffle.")).toBe(false);                                      // Natural Order (non-land cheat)
   });
 
@@ -112,8 +114,8 @@ describe("coverage — ramp flips native across every path; landmines bounce", (
     expect(classifyCard(C("Creature — Elf Scout", "When this creature enters the battlefield, you may search your library for a basic land card, reveal it, put it into your hand, then shuffle.", "Sylvan Ranger"))).toBe("native-trigger");
   });
 
-  it("CREED: multi-land and non-land battlefield fetches stay Arbiter", () => {
-    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.", "Explosive Vegetation"))).toBe("arbiter-spell");
+  it("CREED: split-destination and non-land battlefield fetches stay Arbiter (multi-land 'up to two' is now RAMP-MULTI)", () => {
+    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", "Cultivate"))).toBe("arbiter-spell"); // split destination
     expect(classifyCard(C("Instant", "Search your library for a green creature card, put it onto the battlefield, then shuffle.", "Natural Order"))).toBe("arbiter-spell");
   });
 });
@@ -143,11 +145,11 @@ describe("parser — typed-basic battlefield ramp (RAMP-TYPED)", () => {
     expect(isHigh("Search your library for a Plains, Island, Swamp, Mountain, or Forest card and put that card onto the battlefield. Then shuffle.")).toBe(true);
   });
 
-  it("CREED: an AMBIGUOUS-basic union (Quandrix Cultivator) and 'up to two' typed fetch stay LOW → Arbiter", () => {
+  it("CREED: an AMBIGUOUS-basic union (Quandrix Cultivator) stays LOW → Arbiter", () => {
     // "a basic Forest or Island card" — "basic" distributes to BOTH, but the split yields a bare "island"
     // group that would over-permissively offer a NONBASIC dual. Drop to Arbiter rather than mis-fetch.
     expect(isHigh("Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.")).toBe(false);
-    expect(isHigh("Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.")).toBe(false); // Skyshroud Claim (multi-card)
+    // NOTE: Skyshroud Claim ("up to two Forest cards → battlefield") is now MODELED by RAMP-MULTI.
   });
 
   it("regression: the 'basic land' phrase and the HAND tutor are unchanged by the type loosening", () => {

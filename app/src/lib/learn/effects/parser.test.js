@@ -699,10 +699,11 @@ const MUST_DROP_TO_LOW = [
   // ── P3.2 tutor — shapes that must STAY low (unmodeled filter / destination / count) ──
   "Search your library for a Dragon card, reveal it, put it into your hand, then shuffle.",        // creature subtype (deferred)
   "Search your library for a creature card with mana value 3 or less, put it into your hand, then shuffle.", // mana-value rider
-  "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.",  // RAMP-1 models the SINGLE-land battlefield fetch; multi-land (Explosive Vegetation) stays low
   "Search your library for a green creature card, put it onto the battlefield, then shuffle.",  // RAMP-1 restricts battlefield fetch to LANDS; a creature cheat-into-play (Natural Order) stays low
   "Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.",  // RAMP-TYPED: AMBIGUOUS-basic union (Quandrix Cultivator) — "basic" must distribute but the split can't prove it → Arbiter
-  "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.",  // RAMP-TYPED: multi-card typed fetch (Skyshroud Claim) stays low
+  // RAMP-MULTI models the bare "up to two <land> → battlefield"; the SPLIT destination + "up to THREE" stay low.
+  "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", // Cultivate (split destination)
+  "Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",  // RAMP-MULTI models "up to two" only
   // RIDER-REMOVAL — the UNMODELED controller-riders that must stay LOW (the lead removal is modeled, but an
   // all-or-nothing card never fires the removal while silently dropping the rider).
   "Destroy target creature. Its controller loses 2 life.",                                            // lose-life rider (Sip of Hemlock)
@@ -952,6 +953,9 @@ const MUST_STAY_HIGH = [
   "Search your library for a Forest card, put that card onto the battlefield, then shuffle.",                  // Nature's Lore (typed basic, untapped)
   "Search your library for a Plains, Island, Swamp, or Mountain card, put it onto the battlefield tapped, then shuffle.", // Farseek (comma-union, tapped)
   "Destroy target land. Search your library for a Forest card, put that card onto the battlefield tapped, then shuffle.", // Mwonvuli Acid-Moss (removal + typed ramp, both modeled)
+  // ── RAMP-MULTI — "up to two <land> → battlefield" multi-fetch (Explosive Vegetation / Skyshroud Claim). ──
+  "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.", // Explosive Vegetation
+  "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.",            // Skyshroud Claim (typed, untapped)
   // ── RIDER-REMOVAL — removal whose 2nd sentence acts on the TARGET's controller (Dex). The rider rides on
   // the removal atom + applies to the captured target-controller; an unmodeled rider keeps the card LOW. ──
   "Exile target creature. Its controller gains life equal to its power.",                                      // Swords to Plowshares

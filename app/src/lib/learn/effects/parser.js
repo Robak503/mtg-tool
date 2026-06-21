@@ -604,6 +604,26 @@ function parseExtendedAtom(s) {
     }
     return null; // a non-land / unmodeled-filter / ambiguous-basic battlefield tutor → low → Arbiter
   }
+  // RAMP-MULTI — "Search your library for UP TO TWO <LAND> cards, put them onto the battlefield[ tapped],
+  // then shuffle." (Explosive Vegetation / Skyshroud Claim / Ranger's Path / Migration Path / Nissa's
+  // Expedition). Modeled as a tutor fetching UP TO TWO matching lands (`remaining:2`) — the resolver chains a
+  // second single-pick from the still-legal candidates (the driver loop drains it: AI auto-picks both, a human
+  // gets two pickers), entering each land the same way, shuffling once at the end. Same LAND-guard +
+  // ambiguous-basic guard as RAMP-1/RAMP-TYPED. A SPLIT destination (Cultivate "put one onto the battlefield
+  // and the other into your hand"), "up to THREE", a non-land fetch, or any trailing rider (Hour of Promise
+  // "Then if you control three or more Deserts …") fails the exact anchor → low → Arbiter.
+  const mf = t.match(/^search your library for up to two ([a-z][a-z ,]*?) cards,? put them onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (mf) {
+    const phrase = mf[1];
+    const filter = parseTutorFilter(phrase);
+    const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
+    const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
+    const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
+    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
+      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[2], remaining: 2, targetType: null };
+    }
+    return null; // a non-land / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
+  }
   // A standalone "[then] shuffle [your library]" clause (some cards put it in its own
   // sentence after the search) — shuffles the controller's library (CR 103.2).
   if (/^(?:then |and )?shuffle(?: your library)?$/.test(t)) return { op: "shuffle", targetType: null };
