@@ -439,6 +439,16 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [])
     }
   };
   if (effect.targetType === "creature") addCreatures();
+  // COUNTER-TARGET-OWN — "target creature you control": only the controller's own creatures are
+  // legal. Skips the full addCreatures() sweep so opponents' creatures are never offered to the
+  // trigger-flush chooser (correctness gate, not just an intent hint).
+  else if (effect.targetType === "creatureYouControl") {
+    for (const perm of state.players[controllerId]?.battlefield || []) {
+      if (isCreature(perm.card) && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
+        out.push({ type: "creature", id: perm.id, controller: controllerId, name: perm.card?.name });
+      }
+    }
+  }
   else if (effect.targetType === "player") addPlayers();
   else if (effect.targetType === "any") { addCreatures(); addPlayers(); addPlaneswalkers(); }
   else if (effect.targetType === "creatureOrPlaneswalker") { addCreatures(); addPlaneswalkers(); }
