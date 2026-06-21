@@ -1202,6 +1202,8 @@ function applyDiscard(state, atom, ctx) {
     const seen = new Set();
     discarders = [ctx.controller, ...opponentsOf(state, ctx.controller)]
       .filter((pid) => state.players?.[pid] && !seen.has(pid) && seen.add(pid));
+  } else if (atom.who === "eachOpponent") {
+    discarders = opponentsOf(state, ctx.controller).filter((pid) => state.players?.[pid]);
   } else {
     discarders = (ctx.targets || [])
       .filter((t) => t.type === "player" && state.players?.[t.id])
