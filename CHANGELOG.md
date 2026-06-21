@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Living weapon / For Mirrodin! equipment play (LIVING-WEAPON):** an Equipment with **Living weapon** (CR
+  702.91) or **For Mirrodin!** (CR 702.157) now enters, **creates its token** (a 0/0 black Phyrexian Germ /
+  a 2/2 red Rebel) and **attaches itself to it** — so it's a real creature from turn one (the +X/+Y is applied
+  the same instant, so a 0/0 Germ never dies to the 0-toughness check). **14 cards** (Batterbone, Flayer Husk,
+  Skinwing, Strandwalker, Mirran Bardiche, Vulshok Splitter…). A complex equipped-creature ability (Mortarpod's
+  granted sacrifice) still stays on the Arbiter (CREED).
+
 - **Landfall triggers fire (LANDFALL — foundation):** "Landfall — Whenever a land you control enters, &lt;payoff&gt;"
   is now a real engine event — playing a land fires it, and the clean payoffs resolve natively (Tatyova's
   gain-life + draw, Rampaging Baloths' Beast token, Jaddi Offshoot's lifegain, the Zendikar landfall family).

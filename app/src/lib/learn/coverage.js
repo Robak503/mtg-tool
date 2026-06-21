@@ -323,6 +323,10 @@ export function permanentEquipmentCovered(card) {
     if (!c) continue;
     if (modeledEquipLine.test(c)) continue;
     if (/\bequipped creature\b/.test(c) || /^it\b/.test(c) || /^that creature\b/.test(c)) continue;
+    // LIVING WEAPON / FOR MIRRODIN! — the keyword's "enters → make a token → attach to it" ETB is modeled
+    // in enterPermanent (resolvers.js), and the equipped-creature bonus buffs the token. The bare keyword
+    // (reminder text already stripped) is therefore a MODELED clause, not residue.
+    if (/^living weapon$/.test(c) || /^for mirrodin!?$/.test(c)) continue;
     return false; // residue the engine doesn't model → body-only
   }
   return true;
