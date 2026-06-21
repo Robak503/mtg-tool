@@ -436,6 +436,11 @@ const NON_SUBTYPE_CAST_WORDS = new Set([
   // would never fire → FP. Also flip-diff-caught. (The denylist is the codebase convention, #338; a future
   // subtype-allowlist would make this airtight — deferred as infra.)
   "kicked", "loud",
+  // UN-SET DEFINED TERM — "an alliterative spell" (Treacherous Trapezist) is a name-based joke property
+  // (two+ same-initial capitalized words in the name), NOT a type-line subtype → subtype:Alliterative would
+  // never fire → a do-nothing native = FP (Hans, cycle 44 — the denylist leaked; concrete proof the
+  // subtype-allowlist infra is worth building).
+  "alliterative",
 ]);
 
 /** Map the words between "cast a[n]" and "spell" to a MODELED spell filter, or null. */
@@ -609,15 +614,21 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // PERM-ENTERS enchantment — Enchantment Creature / Aura matches too; controller gate.
       return !!triggeringPermanent && /Enchantment/.test(triggeringPermanent.card?.type || triggeringPermanent.card?.type_line || "") && triggeringPermanent.controller === sourcePermanent.controller;
     case "subtypeYouControl":
-      // SUBTYPE-ETB-SELF — "NAME or another SUBTYPE you control enters" (Pantlaza family). The union is
-      // { self } ∪ { other SUBTYPEs you control }. Fires when the entering permanent is the SOURCE itself
-      // (the "NAME" half — explicit self-inclusion, robust even if the source's own type line is read
-      // before it carries the subtype) OR carries the subtype in its type line; and is controlled by the
-      // source's controller. A non-subtype permanent you control never fires (exact, no over-fire).
+      // SUBTYPE scope — shared by FOUR events: SUBTYPE-ETB-SELF ("NAME or another SUBTYPE you control
+      // enters", Pantlaza — #330), SUBTYPE combat-damage (#333), and SUBTYPE attacks / dies (#335). Fires
+      // when the triggering permanent CARRIES the subtype in its type line AND is controlled by the source's
+      // controller. The ETB-SELF "NAME" half is subsumed by the subtype check because that NAME is ALWAYS
+      // the subtype (Pantlaza IS a Dinosaur), so self-inclusion is only valid when the SOURCE ITSELF carries
+      // the subtype — a robustness hedge for the source's own entry. GATING self-inclusion on the source's
+      // subtype is load-bearing across ALL these events: without it a non-SUBTYPE creature whose trigger
+      // watches a SUBTYPE ("a Saproling you control dies" on Slimefoot, a Fungus — LIVE P0; "a Vehicle you
+      // control deals combat damage" on Setzer, a Human) would over-fire on its OWN non-matching
+      // death / damage / attack — a forbidden false positive (Hans, cycle 42; widened to attacks/dies #335).
       return !!triggeringPermanent
         && triggeringPermanent.controller === sourcePermanent.controller
-        && (triggeringPermanent.id === sourcePermanent.id
-            || typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || ""));
+        && (typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "")
+            || (triggeringPermanent.id === sourcePermanent.id
+                && typeStr(sourcePermanent.card).includes(descriptor.subtypeFilter || "")));
     case "creatureYouControlPower":
       // POWER-THRESHOLD ETB — the entering creature you control with LAYER-RESOLVED power ≥ N (counters +
       // anthems included; checkEnterTriggers fires after the permanent + its enters-with counters are on

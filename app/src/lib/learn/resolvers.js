@@ -65,7 +65,7 @@ export const RESOLVER_KEYS = Object.freeze({
  * in PR-6 (the three-way integration seam); PR-1 deliberately keeps this minimal.
  */
 /**
- * LIVING WEAPON (CR 702.91) / FOR MIRRODIN! (CR 702.157) — the Equipment's built-in ETB: create a token,
+ * LIVING WEAPON (CR 702.92) / FOR MIRRODIN! (CR 702.163) — the Equipment's built-in ETB: create a token,
  * then attach this Equipment to it. The token is fixed by the keyword (a 0/0 black Phyrexian Germ for living
  * weapon; a 2/2 red Rebel for For Mirrodin!), so we don't parse it — we mint the exact token. Returns the token
  * card spec or null. A 0/0 Germ survives because the Equipment's +X/+Y is attached the same instant (CR 613 —
@@ -138,7 +138,7 @@ export function enterPermanent(state, card, controller, opts = {}) {
   if (opts.attachTo && findPermanent(next, opts.attachTo)) {
     next = attachPermanent(next, { equipId: permId, targetId: opts.attachTo });
   }
-  // LIVING WEAPON / FOR MIRRODIN! — the Equipment makes its own token and attaches to it (CR 702.91/702.157).
+  // LIVING WEAPON / FOR MIRRODIN! — the Equipment makes its own token and attaches to it (CR 702.92/702.163).
   // Mint the fixed token, put it on the controller's battlefield, then attach THIS Equipment via the shared
   // attachPermanent (the same mechanism Equip / Aura use), so the layer engine buffs the token from this turn.
   const lwToken = livingWeaponToken(card);
@@ -157,7 +157,7 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // helper, shared with the reanimation atom (β-3b) — so the cast/clone/aura and non-cast entry paths
   // can't drift.
   let afterEtb = checkEnterTriggers(next, perm);
-  // LIVING WEAPON — the Germ token ALSO entered (CR 702.91), so it fires creature-ETB watchers too (Soul
+  // LIVING WEAPON — the Germ token ALSO entered (CR 702.92), so it fires creature-ETB watchers too (Soul
   // Warden / Cathars' Crusade / subtype-ETB off the Germ). Without this the LW token bypassed every ETB
   // trigger — the same gap the create-token atom had (#345). Fire it after the equipment's own ETB.
   if (lwTokenId) {
