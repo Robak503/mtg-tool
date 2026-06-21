@@ -37,6 +37,7 @@ import {
   logEvent,
   mintId,
   opponentsOf,
+  applyRadiation,
 } from "./gameState.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
@@ -259,8 +260,22 @@ export function runStepActions(state) {
       next = logEvent(next, { kind: "step", phase: "combat", step: "end-of-combat", player: state.activePlayer });
       break;
 
+    case "main": {
+      // RAD-COUNTERS (CR 728.1 / 122.1i): the inherent radiation ability triggers at the beginning of a
+      // player's PRECOMBAT main phase — that player mills cards equal to their rad counters; for each nonland
+      // milled they lose 1 life and remove one rad counter (applyRadiation). Gate on phase (both main phases
+      // share step "main"); applyRadiation no-ops at 0 counters. The postcombat main gets no automatic action.
+      if (state.phase === "precombat-main") {
+        const radBefore = state.players[state.activePlayer]?.radCounters || 0;
+        next = applyRadiation(next, { playerId: state.activePlayer });
+        if (radBefore > 0) next = logEvent(next, { kind: "radiation", phase: state.phase, player: state.activePlayer, radCounters: radBefore });
+      }
+      next = logEvent(next, { kind: "step", phase: state.phase, step: state.step, player: state.activePlayer });
+      break;
+    }
+
     default:
-      // upkeep, main, other combat steps — no automatic state mutation.
+      // upkeep, other combat steps — no automatic state mutation.
       next = logEvent(next, { kind: "step", phase: state.phase, step: state.step, player: state.activePlayer });
       break;
   }
