@@ -8,6 +8,18 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **"Another &lt;subtype&gt; [you control] enters" ETB triggers now routed natively (TRIG-COND-ETB-SUBTYPE):**
+  Two new ETB trigger scopes — `otherSubtypeYouControl` ("another Angel you control enters",
+  "another Zombie you control enters") and `otherSubtypeAnywhere` ("another Elf enters") — are now
+  detected and matched at runtime. `otherSubtypeYouControl` fires when a non-self permanent the
+  source's controller controls carries the subtype in its type line; `otherSubtypeAnywhere` removes
+  the controller restriction for "any player" tribal payoffs. A denylist (mirroring
+  `NON_SUBTYPE_CAST_WORDS`) guards CR-defined umbrella terms ("outlaw") and supertypes that never
+  appear in type lines. **+16 cards** (Champion of the Parish, Champion of the Perished, Youthful
+  Valkyrie, Wayward Servant, Mummy Paramount, Elvish Vanguard, Avatar Enthusiasts, Zhalfirin Lancer,
+  River Sneak, Glaze Fiend, Machinesmith Automaton, Towashi Songshaper, Mandible Justiciar, Dawnhart
+  Disciple, The Spirit Oasis, Obyra Dreaming Duelist).
+
 - **"Each opponent discards a card" trigger effect modeled (EACHOP-DISCARD):** non-targeted mass
   discard aimed at all opponents (Burglar Rat, Noxious Toad, Cackling Fiend, Liliana's Specter,
   Elderfang Disciple, Elvish Doomsayer, Virus Beetle, + more) is now a first-class effect atom
