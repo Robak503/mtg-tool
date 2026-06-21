@@ -92,3 +92,37 @@ describe("combat-damage-to-a-player — engine-first: the trigger fires + resolv
     expect(treasureCount(s, "user")).toBe(0);           // no player damage → no trigger
   });
 });
+
+// BATCH combat-damage (CR 510.4) — "Whenever one or more creatures you control deal combat damage to a
+// player, <effect>" fires ONCE per combat, not per attacker. Runtime value (the trigger FIRES in-game for
+// the ~31 treasure/Food/investigate payoffs — Grim Hireling, Professional Face-Breaker in Colton's Vihaan
+// deck); most carry other unmodeled abilities so classifyCard stays body-only (metric ≠ playability).
+describe("BATCH combat-damage trigger (one or more creatures …)", () => {
+  const GRIM = "Whenever one or more creatures you control deal combat damage to a player, create two Treasure tokens.";
+  const batchPerm = (id, oracle) => createPermanent({ id, card: { id: `c-${id}`, name: "Grim", type: "Creature — Human", power: 1, toughness: 1, oracle }, controller: "user", summoningSick: false });
+  const beast = (id, p = 3) => createPermanent({ id, card: { id: `c-${id}`, name: id, type: "Creature — Beast", power: p, toughness: 3, oracle: "" }, controller: "user", summoningSick: false });
+
+  it("detects the batch shape as the combatDamageBatch event (distinct from per-attacker)", () => {
+    expect(detectTriggers({ name: "Grim", type: "Creature — Human", oracle: GRIM })[0]).toMatchObject({ event: "combatDamageBatch", scope: "you" });
+    // a qualified variant stays undetected (safe false-negative)
+    expect(detectTriggers({ name: "X", type: "Creature", oracle: "Whenever one or more creatures you control deal combat damage to a player or planeswalker, draw a card." })).toHaveLength(0);
+  });
+
+  it("fires ONCE for the whole batch — two attackers connecting make 2 Treasures, not 4", () => {
+    let s = st([batchPerm("gh", GRIM), beast("a1"), beast("a2")], [],
+      [{ permanentId: "a1", attackingPlayer: "user", defender: "ai" }, { permanentId: "a2", attackingPlayer: "user", defender: "ai" }], []);
+    s = resolveCombatDamage(s);
+    expect(s.players.ai.life).toBe(34);                 // 6 damage from 2 attackers
+    s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+    expect(treasureCount(s, "user")).toBe(2);           // "create TWO Treasures" fired ONCE (not 2× per attacker = 4)
+  });
+
+  it("does NOT fire when no creature you control connects (all blocked)", () => {
+    const wall = createPermanent({ id: "w", card: { id: "cw", name: "Wall", type: "Creature — Wall", power: 0, toughness: 4, oracle: "" }, controller: "ai", summoningSick: false });
+    let s = st([batchPerm("gh", GRIM), beast("a1")], [wall],
+      [{ permanentId: "a1", attackingPlayer: "user", defender: "ai" }], [{ blockerId: "w", blockingPlayer: "ai", attackerId: "a1" }]);
+    s = resolveCombatDamage(s);
+    s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+    expect(treasureCount(s, "user")).toBe(0);           // no player damage → no batch trigger
+  });
+});
