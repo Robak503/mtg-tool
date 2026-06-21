@@ -977,6 +977,13 @@ function parseExtendedAtom(s) {
   }
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
+  // COUNTER-TARGET-OWN — "put a +1/+1 counter on target creature you control" (Merfolk Skydiver, Kujar
+  // Seedsculptor, Yotian Dissident, Baleful Ammit's -1/-1 ETB drawback, …). The "you control" filter
+  // restricts the target to the controller's own creatures: targetType:"creatureYouControl" signals both
+  // enumerateTargets (only own-side creatures offered) and atomTargetIntent (always "own", overriding the
+  // counterType check so Baleful Ammit's -1/-1 form also routes natively to the controller's creature).
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature you control$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl" };
   // SELF-reference +1/+1 / -1/-1 counter — "put a +1/+1 counter on this creature" (the source).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
@@ -1884,6 +1891,11 @@ export function atomTargetIntent(atom) {
     case "pump":
       return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
     case "add-counter":
+      // COUNTER-TARGET-OWN: "you control" restriction overrides the counterType heuristic so that
+      // Baleful Ammit's "-1/-1 on target creature you control" still picks the controller's own creature
+      // (not an opponent's, as bare -1/-1 would). The restriction is authoritative; counterType is a
+      // fallback for the UNFILTERED "target creature" form only.
+      if (atom.targetType === "creatureYouControl") return "own";
       return (typeof atom.counterType === "string" && atom.counterType.trim().startsWith("-")) ? "enemy" : "own";
     case "untap":
     case "return-from-graveyard":
