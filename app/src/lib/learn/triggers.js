@@ -54,7 +54,7 @@ function isLandPerm(perm) {
  * and the detected-trigger count must agree, or a landfall card mis-classifies. Currently just "Landfall —".
  */
 export function stripTriggerAbilityLabel(oracle) {
-  return String(oracle || "").replace(/^(?:landfall|constellation|eerie)\s*[—–-]\s*/gim, "");
+  return String(oracle || "").replace(/^(?:landfall|constellation|eerie|heroic|magecraft)\s*[—–-]\s*/gim, "");
 }
 
 // ─── Detection ────────────────────────────────────────────────────────────────
@@ -394,6 +394,23 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^one or more creatures you control deal combat damage to a player$/.test(c)) {
     return { event: "combatDamageBatch", scope: "you", whose: "any" };
   }
+
+  // HEROIC (CR 702.35) — "Whenever you cast a spell that targets this creature, <effect>".
+  // Fires when the controller casts any spell that has this permanent as a chosen target. The
+  // scope is "self" (this permanent only); the engine fires it in checkCastTriggers by scanning
+  // the cast spell's targets array for permanents with heroic descriptors. Anchored: a rider
+  // ("that targets this creature and another target", a creature-type restriction) stays
+  // UNDETECTED → Arbiter (a safe false-negative; never an over-fire).
+  if (/^you cast a spell that targets this creature$/.test(c))
+    return { event: "heroic", scope: "self", whose: "you" };
+
+  // MAGECRAFT (CR 702.173) — "Whenever you cast or copy an instant or sorcery spell, <effect>".
+  // Routes to the existing cast event + instantSorcery filter; "copy" is a separate CR 706.10
+  // event not yet tracked, so the copy half is a safe false-negative (never over-fires).
+  // checkCastTriggers already handles event:"cast" whose:"you" spellFilter:"instantSorcery",
+  // so magecraft gets the CAST half for free. Anchored bare form only.
+  if (/^you cast or copy an instant or sorcery spell$/.test(c))
+    return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: "instantSorcery" };
 
   // Cast-spell triggers (CR 603.2, the spell-cast event). The WHOLE condition must reduce
   // to "(you|an opponent|a player|each player) cast(s) a[n] <filter> spell" — ANCHORED, so a
@@ -1014,7 +1031,7 @@ function prowessDescriptor() {
  * fabricated). Context carries the cast spell's name + type for future referential
  * effects. Pure — appends to pendingTriggers and returns new state.
  */
-export function checkCastTriggers(state, { spellCard, casterId }) {
+export function checkCastTriggers(state, { spellCard, casterId, targets = [] }) {
   if (!spellCard) return state;
   const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard) };
   let fired = [];
@@ -1027,6 +1044,23 @@ export function checkCastTriggers(state, { spellCard, casterId }) {
         if (!spellMatchesFilter(d.spellFilter, spellCard)) continue;
         fired.push(makePendingTrigger(d, watcher, null, context));
       }
+    }
+  }
+  // HEROIC (CR 702.35): for each targeted battlefield permanent that the CASTER controls,
+  // fire any heroic triggers on that permanent. Targets are the cast-time chosen targets
+  // threaded from applyCastSpell; scope:"self" + whose:"you" — only fires when the caster
+  // controls the targeted permanent (self-targeting spells like "target creature you control
+  // gets +2/+2" are the primary heroic enablers).
+  for (const target of targets) {
+    if (!target?.id) continue;
+    let targetPerm = null;
+    for (const pid of Object.keys(state.players)) {
+      targetPerm = (state.players[pid]?.battlefield || []).find(p => p.id === target.id);
+      if (targetPerm) break;
+    }
+    if (!targetPerm || targetPerm.controller !== casterId) continue;
+    for (const d of detectTriggers(targetPerm.card).filter(x => x.event === "heroic")) {
+      fired.push(makePendingTrigger(d, targetPerm, null, context));
     }
   }
   // ===== TRIG-PROWESS (CR 702.108) ===== Prowess is a printed keyword = "Whenever you cast a noncreature

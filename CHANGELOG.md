@@ -8,6 +8,17 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Heroic + Magecraft cast-trigger conditions (CAST-HEROIC):** two new "Whenever you cast…"
+  trigger conditions are now recognized and fire at runtime. **Heroic** (CR 702.35, Theros
+  block — Lagonna-Band Trailblazer, Centaur Battlemaster, Battlewise Hoplite, Phalanx Leader,
+  Akroan Crusader, Setessan Battle Priest, Ashiok's Adept, and more) fires when the controller
+  casts a spell that targets the heroic creature; the engine threads the cast-time targets array
+  into `checkCastTriggers` to detect the targeting event. **Magecraft** (CR 702.173, Strixhaven —
+  Leonin Lightscribe, Witherbloom Apprentice, Clever Lumimancer, Storm-Kiln Artist, and more)
+  fires on any instant or sorcery cast by the controller; routes to the existing
+  `event:"cast" + spellFilter:"instantSorcery"` path (the "copy" half of magecraft is a safe
+  false-negative — CR 706.10 copy is a separate engine event not yet tracked). **+27 cards**.
+
 - **"Each opponent discards a card" trigger effect modeled (EACHOP-DISCARD):** non-targeted mass
   discard aimed at all opponents (Burglar Rat, Noxious Toad, Cackling Fiend, Liliana's Specter,
   Elderfang Disciple, Elvish Doomsayer, Virus Beetle, + more) is now a first-class effect atom
