@@ -39,6 +39,32 @@ describe("combat-damage-to-a-player — detection", () => {
     expect(cdEvents("Whenever this creature deals combat damage to a player or planeswalker, draw a card.")).toHaveLength(0);
     expect(cdEvents("Whenever one or more creatures you control deal combat damage to a player, create a Treasure token.")).toHaveLength(0);
   });
+  it("detects the SUBTYPE shape ('a Dinosaur you control deals combat damage to a player') → subtypeYouControl", () => {
+    // Tribal payoffs (Curious Altisaur, Seafloor Oracle, Zeriam) — a single-word subtype filter reusing
+    // the subtypeYouControl scope. The captured subtype rides as subtypeFilter.
+    expect(cdEvents("Whenever a Dinosaur you control deals combat damage to a player, draw a card.")[0])
+      .toMatchObject({ event: "combatDamageToPlayer", scope: "subtypeYouControl", subtypeFilter: "Dinosaur" });
+    expect(cdEvents("Whenever a Merfolk you control deals combat damage to a player, draw a card.")[0])
+      .toMatchObject({ scope: "subtypeYouControl", subtypeFilter: "Merfolk" });
+  });
+});
+
+describe("combat-damage-to-a-player — SUBTYPE tribal payoffs flip native-trigger", () => {
+  const C = (type, oracle) => ({ type, oracle, mana: "{5}{G}", name: "X", power: "5", toughness: "5" });
+  it("Curious Altisaur (Dinosaur → draw) and a Merfolk-draw both classify native-trigger", () => {
+    expect(classifyCard(C("Creature — Dinosaur", "Vigilance, reach\nWhenever a Dinosaur you control deals combat damage to a player, draw a card."))).toBe("native-trigger");
+    expect(classifyCard(C("Creature — Merfolk Wizard", "Whenever a Merfolk you control deals combat damage to a player, draw a card."))).toBe("native-trigger");
+  });
+  it("a SUBTYPE combat-damage trigger fires + resolves end-to-end for a matching attacker", () => {
+    const altisaur = pirate("alt", "Whenever a Dinosaur you control deals combat damage to a player, draw a card.");
+    altisaur.card.type = "Creature — Dinosaur"; // the watcher is itself a Dinosaur (self + subtype both match)
+    let s = st([altisaur], [], [{ permanentId: "alt", attackingPlayer: "user", defender: "ai" }], []);
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [altisaur], library: [{ id: "lib1", name: "Drawn", type: "Instant", oracle: "" }] } } };
+    s = resolveCombatDamage(s);
+    expect(s.players.ai.life).toBe(38);                  // 2 combat damage landed → the trigger condition met
+    s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+    expect(s.players.user.hand.some((c) => c.id === "lib1")).toBe(true); // the subtype trigger's draw resolved
+  });
 });
 
 describe("combat-damage-to-a-player — classification flips body-only -> native-trigger", () => {

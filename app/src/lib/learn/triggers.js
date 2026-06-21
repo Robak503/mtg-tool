@@ -356,6 +356,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\bdeals combat damage to a player$/.test(c)) {
     if (selfRef) return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
     if (/a creature you control/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any" };
+    // SUBTYPE combat-damage (tribal payoffs — Curious Altisaur "Whenever a Dinosaur you control deals
+    // combat damage to a player, draw a card"). A single-word creature SUBTYPE filter, reusing the
+    // subtypeYouControl scope (controller + type-line substring; the attacker is threaded as
+    // triggeringPermanent by combatResolution). Anchored single word, len >= 3 — "creature" is already
+    // handled above; any other shape leaves residue → undetected → Arbiter (never an over-fire).
+    const cdSub = c.match(/^a ([a-z]{3,}) you control deals combat damage to a player$/);
+    if (cdSub) return { event: "combatDamageToPlayer", scope: "subtypeYouControl", whose: "any", subtypeFilter: cdSub[1].charAt(0).toUpperCase() + cdSub[1].slice(1) };
   }
 
   // Cast-spell triggers (CR 603.2, the spell-cast event). The WHOLE condition must reduce
