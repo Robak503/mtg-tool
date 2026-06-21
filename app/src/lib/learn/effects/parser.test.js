@@ -961,6 +961,11 @@ const MUST_STAY_HIGH = [
   // ── RAMP-MULTI — "up to two <land> → battlefield" multi-fetch (Explosive Vegetation / Skyshroud Claim). ──
   "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.", // Explosive Vegetation
   "Search your library for up to two Forest cards, put them onto the battlefield, then shuffle.",            // Skyshroud Claim (typed, untapped)
+  // ── LAND-FROM-HAND — "[you may] put a land from your HAND onto the battlefield[ tapped]" (Dex; tutor seam,
+  // sourceZone:hand). The single-clause optional + the Growth Spiral multi-atom suffix-optional both HIGH. ──
+  "You may put a land card from your hand onto the battlefield.",                                             // Sakura-Tribe Scout / Walking Atlas activated body
+  "Put a land card from your hand onto the battlefield tapped.",                                              // mandatory + tapped variant
+  "Draw a card. You may put a land card from your hand onto the battlefield.",                                // Growth Spiral (mandatory draw + suffix-optional put)
   // ── RIDER-REMOVAL — removal whose 2nd sentence acts on the TARGET's controller (Dex). The rider rides on
   // the removal atom + applies to the captured target-controller; an unmodeled rider keeps the card LOW. ──
   "Exile target creature. Its controller gains life equal to its power.",                                      // Swords to Plowshares

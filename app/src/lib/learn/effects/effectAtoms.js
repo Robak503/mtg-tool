@@ -894,12 +894,16 @@ function applyTutor(state, atom, ctx) {
   const controller = ctx.controller;
   const player = state.players[controller];
   if (!player) return state;
-  const candidates = player.library
+  // LAND-FROM-HAND — `sourceZone:"hand"` gathers candidates from the HAND instead of the library (Growth
+  // Spiral); every other tutor searches the library (the default). The choice/picker/auto-pick are identical.
+  const sourceZone = atom.sourceZone === "hand" ? "hand" : "library";
+  const candidates = (player[sourceZone] || [])
     .filter((c) => cardMatchesTutorFilter(c, atom.filter))
     .map((c) => ({ id: c.id, name: c.name }));
   return setPendingTutorChoice(state, {
     controller,
     candidates,
+    sourceZone,
     sourceName: ctx.cardName || null,
     filterLabel: atom.filterLabel || null,
     // RAMP-1 — destination "battlefield" (+ entersTapped) puts the fetched card onto the battlefield

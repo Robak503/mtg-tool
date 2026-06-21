@@ -117,7 +117,10 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
  * candidate (a search that finds nothing, CR 701.19f).
  */
 export function autoPickTutorCandidate(state, pendingChoice) {
-  const lib = state.players?.[pendingChoice.controller]?.library || [];
+  // LAND-FROM-HAND — read the candidate cards from the choice's source zone (hand for Growth Spiral, the
+  // library for every search). The pick heuristic (highest MV) is identical.
+  const zone = pendingChoice.sourceZone === "hand" ? "hand" : "library";
+  const lib = state.players?.[pendingChoice.controller]?.[zone] || [];
   const byId = new Map(lib.map((c) => [c.id, c]));
   const cards = (pendingChoice.candidates || []).map((c) => byId.get(c.id)).filter(Boolean);
   if (cards.length === 0) return null;
@@ -140,15 +143,17 @@ export function resolveTutorChoice(state, cardId) {
   if (!pc || pc.kind !== "tutor-search") return state;
   let next = clearPendingChoice(state);
 
-  // Apply the fetch (cardId null = the player chose to find nothing, or no candidate).
-  const inLibrary = cardId && (next.players?.[pc.controller]?.library || []).some((c) => c.id === cardId);
+  // Apply the fetch (cardId null = the player chose to find nothing, or no candidate). LAND-FROM-HAND —
+  // `sourceZone` is the zone the card moves FROM: "hand" (Growth Spiral) or "library" (every search).
+  const sourceZone = pc.sourceZone === "hand" ? "hand" : "library";
+  const inSource = cardId && (next.players?.[pc.controller]?.[sourceZone] || []).some((c) => c.id === cardId);
   const destination = pc.destination === "battlefield" ? "battlefield" : "hand";
-  if (inLibrary) {
+  if (inSource) {
     if (destination === "battlefield") {
-      // RAMP-1 — the fetched basic enters the battlefield (tapped per the card), firing ETB triggers.
-      next = enterCardFromZone(next, { playerId: pc.controller, cardId, fromZone: "library", tapped: !!pc.entersTapped }).state;
+      // RAMP-1 — the fetched card enters the battlefield (tapped per the card), firing ETB triggers.
+      next = enterCardFromZone(next, { playerId: pc.controller, cardId, fromZone: sourceZone, tapped: !!pc.entersTapped }).state;
     } else {
-      next = moveCardToZone(next, { playerId: pc.controller, fromZone: "library", toZone: "hand", cardId });
+      next = moveCardToZone(next, { playerId: pc.controller, fromZone: sourceZone, toZone: "hand", cardId });
     }
   }
   // RAMP-MULTI — "up to two": after a SUCCESSFUL fetch with fetches still remaining, re-suspend for the next
@@ -157,16 +162,17 @@ export function resolveTutorChoice(state, cardId) {
   // declined/empty fetch ends the search here (the player chose to take fewer). The driver loop drains the
   // re-suspended choice (settleTutorChoice returns it; the AI auto-picks again, a human gets a second picker).
   const remaining = (pc.remaining || 1) - 1;
-  if (inLibrary && remaining >= 1 && next.players?.[pc.controller]) {
+  if (inSource && remaining >= 1 && next.players?.[pc.controller]) {
     const rest = (pc.candidates || []).filter((c) => c.id !== cardId);
     next = setPendingTutorChoice(next, {
       controller: pc.controller, candidates: rest, sourceName: pc.sourceName, filterLabel: pc.filterLabel,
-      destination: pc.destination, entersTapped: pc.entersTapped, remaining,
+      destination: pc.destination, entersTapped: pc.entersTapped, remaining, sourceZone,
     });
     return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
   }
-  next = shuffleControllerLibrary(next, pc.controller);
-  next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inLibrary, destination });
+  // A library search shuffles afterward (CR 701.19e); a from-HAND put (LAND-FROM-HAND) doesn't touch the library.
+  if (sourceZone === "library") next = shuffleControllerLibrary(next, pc.controller);
+  next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inSource, destination });
 
   return resumeAfterChoice(next, pc);
 }
