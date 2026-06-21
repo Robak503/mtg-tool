@@ -302,6 +302,20 @@ function emitGatedEffect(out, effRaw, gate) {
 function parseClause(clause, out) {
   const c = clause.toLowerCase();
 
+  // ── COUNTER-PAYOFF (Herald of Secret Streams): "(each|all) creature(s) you control with a +1/+1 counter
+  // on it/them can't be blocked" → a layer-6 unblockable grant, gated PER-CREATURE (dynamic) on having a
+  // +1/+1 counter via the selector's requiresCounter; combat reads the granted "unblockable". Only the bare
+  // form — a trailing "by …" / "except …" qualifier doesn't match, so a partial evasion is never claimed.
+  if (/^(?:each |all )?creatures? you control with (?:a )?\+1\/\+1 counters? on (?:it|them) can't be blocked$/.test(c)) {
+    out.push({
+      layer: 6,
+      op: { layerOp: "addKeyword", keyword: "unblockable" },
+      affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], requiresCounter: "+1/+1" } },
+      duration: { kind: "permanent" },
+    });
+    return;
+  }
+
   // ── TRUNK-SELFBUFF: a STATIC self-buff scaled by a board count (layer 7c dynamic) ──
   // "This creature gets +X/+Y for each <countsource>" (Nim Lasher, Benalish Honor Guard…). A CONTINUOUS
   // effect, so it's exempt from the `for each` guard below — but ONLY this exact self-referential static

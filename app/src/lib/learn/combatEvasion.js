@@ -119,8 +119,10 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // to let it block a flier without flying/reach; that would permit an ILLEGAL block (a wrong play).
   if (isCanBlockOnlyFlyers(bCard) && !permanentHasKeyword(state, attackerId, "Flying")) return false;
 
-  // Unblockable.
-  if (isSelfUnblockable(aCard)) return false;
+  // Unblockable — the attacker's own "can't be blocked" OR a GRANTED unblockable (Herald of Secret
+  // Streams: "each creature you control with a +1/+1 counter can't be blocked" → a layer-6 grant, read
+  // layer-aware so it tracks the +1/+1 counter dynamically).
+  if (isSelfUnblockable(aCard) || permanentHasKeyword(state, attackerId, "unblockable")) return false;
 
   // Basic landwalk — gated by the DEFENDING player's lands (per-defender → 4P-correct).
   for (const [walk, subtype] of BASIC_WALK) {
