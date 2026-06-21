@@ -153,7 +153,7 @@ function selfTargets(state, ctx) {
  * token trades up, etc. The parser only admits keywords that are ENFORCED + read-layer-aware
  * (parseTokenKeywords), so a token can never claim an ability the combat/SBA engine ignores.
  */
-function applyCreateToken(state, atom, ctx) {
+export function applyCreateToken(state, atom, ctx) {
   let next = state;
   const { type, name } = tokenTypeLine(atom.descriptor);
   const keywords = Array.isArray(atom.keywords) ? atom.keywords : [];
@@ -171,11 +171,17 @@ function applyCreateToken(state, atom, ctx) {
   const count = atom.countFor
     ? Math.max(0, countForSpec(next, ctx, atom.countFor))
     : atom.countX ? Math.max(0, ctx.xValue || 0) : Math.max(1, atom.count || 1);
+  // ENTERS-WITH-COUNTERS: a token that enters with N +1/+1 counters (Zaxara's "0/0 Hydra with X counters").
+  // `amount` is a resolved count; `countX` reads the chosen {X} (ctx.xValue). Applied BEFORE the lethal SBA
+  // so a 0/0 token with counters survives as a real N/N instead of dying immediately (CR 704.5f).
+  const ewc = atom.entersWithCounters;
+  const counterN = ewc ? Math.max(0, ewc.countX ? (ctx.xValue || 0) : (ewc.amount || 0)) : 0;
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
     next = minted.state;
     const card = { id: `tok-${minted.id}`, name, type, power: atom.power, toughness: atom.toughness, oracle, keywords, token: true };
-    const perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
+    let perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
+    if (counterN > 0) perm = { ...perm, counters: { ...perm.counters, [ewc.type || "+1/+1"]: (perm.counters?.[ewc.type || "+1/+1"] || 0) + counterN } };
     const player = next.players[ctx.controller];
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
   }
