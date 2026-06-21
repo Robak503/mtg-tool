@@ -547,6 +547,21 @@ function parseExtendedAtom(s) {
   const expM = t.match(/^you get (\d+|one|two|three|four|five) experience counters?$/);
   if (expM) return { op: "gain-experience", count: SMALL_NUM[expM[1]] ?? parseInt(expM[1], 10), targetType: null };
 
+  // ===== RAD ===== (CR 728) "<who> gets N rad counter(s)" — a player-counter grant (The Wise Mothman:
+  // "each player gets a rad counter"). The inherent radiation ability (gameEngine, at each player's
+  // precombat main) does the mill + life-loss + counter-removal based on the count. Fixed-N only
+  // ("a"/"an"/"one".."five"/digit); a "for each" / X / scaled / "you MAY get" / "that player"-referent
+  // variant fails the `$` anchor → low → Arbiter (safe FN). NON-targeted forms (each player / each opponent
+  // / you) carry no targetType — they resolve identically on a spell or a trigger. The TARGETED form
+  // ("target player/opponent gets N") rides who:"target" + a player targetType — offensive only
+  // (atomTargetIntent → "enemy", parallel to targeted lose-life: you never rad yourself by choice).
+  const radEachM = t.match(/^each (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
+  if (radEachM) return { op: "rad", amount: SMALL_NUM[radEachM[2]] ?? parseInt(radEachM[2], 10), who: radEachM[1] === "opponent" ? "eachOpponent" : "eachPlayer", targetType: null };
+  const radYouM = t.match(/^you get (\d+|a|an|one|two|three|four|five) rad counters?$/);
+  if (radYouM) return { op: "rad", amount: SMALL_NUM[radYouM[1]] ?? parseInt(radYouM[1], 10), who: "controller", targetType: null };
+  const radTgtM = t.match(/^target (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
+  if (radTgtM) return { op: "rad", amount: SMALL_NUM[radTgtM[2]] ?? parseInt(radTgtM[2], 10), who: "target", targetType: radTgtM[1] };
+
   // ===== DMG-SCALE ===== (WALT-DMG-SCALE) "<source> deals damage to <target> equal to the number of
   // <count source>" — the damage AMOUNT is a board count resolved at resolution (`amountCount`), not a
   // printed number (Massive Raid, Spitting Earth, Outnumber, Feedback Bolt). Reuses the existing
@@ -1873,6 +1888,11 @@ export function atomTargetIntent(atom) {
       // draining yourself is strictly bad, so the trigger-flush chooser always picks an opponent (no
       // self-drain hazard — unlike the edict's "target player", which could self-sac). Non-targeted lose-life
       // (each/controller) has no targetType and already returned null above.
+      return "enemy";
+    case "rad":
+      // RAD (CR 728) — "target player/opponent gets N rad counters" is enemy-side: rad mills + drains its
+      // holder, so you never rad yourself by choice → the flush chooser always picks an opponent (parallel to
+      // targeted lose-life). Non-targeted rad (each/controller) has no targetType and already returned null.
       return "enemy";
     case "sacrifice":
       // An edict aimed at "target opponent" is unambiguously enemy-side — the α1 flush chooser

@@ -22,7 +22,7 @@ import {
   handCardMatches,
 } from "../spellEffects.js";
 import { addContinuousEffect, permanentIsCreature } from "../layers.js";
-import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addPoison, addExperience, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower, creatureToughness } from "../gameState.js";
+import { logEvent, destroyLethalCreatures, gainLife, loseLife, opponentsOf, tapPermanent, untapPermanent, moveCardToZone, addCounter, addPoison, addExperience, addRadCounters, addRegenShield, findPermanent, createPermanent, mintId, shuffleLibrary, millCards, applyImpulseDig, attachPermanent, addEmblem, creaturePower, creatureToughness } from "../gameState.js";
 import { checkDiesTriggers, checkEnterTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../triggers.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingHandDiscardChoice, setPendingImpulseDigChoice, setPendingSacrificeChoice, setPendingDiscardChoice, setPendingDivideChoice, setPendingSoftCounterChoice } from "../pendingChoice.js";
 
@@ -270,6 +270,33 @@ function applyLoseLife(state, atom, ctx) {
     next = loseLife(next, { playerId: ctx.controller, amount });
   }
   return logEvent(next, { kind: "spell-effect", effect: "lose-life", who: atom.who || "controller", amount });
+}
+
+/** RAD (CR 728) — give rad counter(s) to the controller / each player / each opponent / a target player.
+ * Fixed-N grants only (the parser routes variable / "for each" / scaled forms to the Arbiter, so no
+ * resolveScaledAmount). The inherent radiation ability (gameEngine, at each player's precombat main) does the
+ * mill + life-loss + counter-removal. Mirrors applyLoseLife's who-resolution; non-targeted, so identical on a
+ * spell or a trigger. A missing / eliminated player is a clean skip. */
+function applyRad(state, atom, ctx) {
+  let next = state;
+  const amount = Math.max(0, atom.amount || 0);
+  if (amount === 0) return next;
+  if (atom.who === "eachPlayer") {
+    for (const pid of Object.keys(next.players)) {
+      if (next.players[pid]) next = addRadCounters(next, { playerId: pid, amount });
+    }
+  } else if (atom.who === "eachOpponent") {
+    for (const opp of opponentsOf(next, ctx.controller)) {
+      if (next.players[opp]) next = addRadCounters(next, { playerId: opp, amount });
+    }
+  } else if (atom.who === "target") {
+    for (const t of ctx.targets || []) {
+      if (t.type === "player" && next.players[t.id]) next = addRadCounters(next, { playerId: t.id, amount });
+    }
+  } else {
+    next = addRadCounters(next, { playerId: ctx.controller, amount });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "rad", who: atom.who || "controller", amount });
 }
 
 /** Tap / untap target creature(s) (CR 701.26). */
@@ -601,6 +628,10 @@ export function applyProliferate(state, atom, ctx) {
       }
       // POISON on opponent players (the player counter whose proliferation is unambiguously good for me).
       if (!mine && (next.players[pid].poison || 0) > 0) next = addPoison(next, { playerId: pid, amount: 1 });
+      // RAD (CR 728) on opponent players — same heuristic as poison: more rad on an opponent mills + drains
+      // THEM, so it's unambiguously good for me (and bad on myself, so I skip my own). CR 701.34a lets
+      // proliferate add a rad counter to any player who already has one.
+      if (!mine && (next.players[pid].radCounters || 0) > 0) next = addRadCounters(next, { playerId: pid, amount: 1 });
     }
   }
   // A proliferated -1/-1 may drop an opponent's creature to lethal toughness (CR 704.5g).
@@ -1378,6 +1409,7 @@ export const ATOM_RESOLVERS = Object.freeze({
       : applyZoneMove(state, atom, ctx, "exile"),
   "add-counter": applyAddCounter,
   "gain-experience": applyGainExperience, // EARTHBEND-PR3 — "you get an experience counter" (Toph landfall)
+  "rad": applyRad, // RAD (CR 728) — "each/target player gets N rad counter(s)" (The Wise Mothman); engine mills + drains at precombat main
   "proliferate": applyProliferate, // PROLIFERATE (CR 701.27) — add one of each counter kind to never-harmful picks
   "regenerate": applyRegenerate, // REGEN (CR 701.15) — set a regeneration shield on self / target creature
   "return-from-graveyard": applyReturnFromGraveyard,

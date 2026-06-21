@@ -368,6 +368,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     command: commanderCards.map((c) => (c ? { ...c, isCommander: true } : c)),
     emblems: [],              // PW-5: emblems this player owns (objects with a continuous/triggered ability)
     experience: 0,
+    radCounters: 0,           // RAD (CR 728): rad counters a player has; the inherent radiation ability (applyRadiation) mills + drains at their precombat main
     landsPlayedThisTurn: 0,
     cardsDrawnThisTurn: 0,
     spellsCastThisTurn: 0,    // TRIG-CAST2: "cast your second spell each turn" — incremented at the cast chokepoint, reset for all seats at untap
@@ -985,6 +986,58 @@ export function addExperience(state, { playerId, amount }) {
   assertPlayer(playerId);
   if (!Number.isInteger(amount) || amount < 0) throw new Error("addExperience: amount must be non-negative integer");
   return withPlayer(state, playerId, p => ({ ...p, experience: (p.experience || 0) + amount }));
+}
+
+/** RAD-COUNTERS (CR 728): give a player rad counters. A player-level counter (mirrors addPoison/addExperience).
+ * The inherent radiation ability (applyRadiation), fired by the engine at each player's precombat main, mills +
+ * drains based on the count. */
+export function addRadCounters(state, { playerId, amount }) {
+  assertPlayer(playerId);
+  if (!Number.isInteger(amount) || amount < 0) throw new Error("addRadCounters: amount must be non-negative integer");
+  return withPlayer(state, playerId, p => ({ ...p, radCounters: (p.radCounters || 0) + amount }));
+}
+
+/** Remove rad counters from a player, floored at 0 (the radiation ability removes one per nonland milled — CR 728.1). */
+export function removeRadCounters(state, { playerId, amount }) {
+  assertPlayer(playerId);
+  if (!Number.isInteger(amount) || amount < 0) throw new Error("removeRadCounters: amount must be non-negative integer");
+  return withPlayer(state, playerId, p => ({ ...p, radCounters: Math.max(0, (p.radCounters || 0) - amount) }));
+}
+
+/** Front-face type line (CR 712.8a) — a card in a hidden/graveyard zone has ONLY its front-face characteristics,
+ * so an MDFC whose BACK is a land (Malakir Rebirth // Malakir Mire = Instant // Land) is a NONLAND when milled.
+ * Mirrors castsAsPlaneswalker's face[0] read; also splits a "//"-joined type string defensively. */
+function frontFaceTypeLine(card) {
+  const faces = card?.card_faces;
+  const raw = Array.isArray(faces) && faces.length > 0
+    ? String(faces[0]?.type_line || faces[0]?.type || "")
+    : String(card?.type || card?.type_line || "");
+  return raw.split("//")[0];
+}
+
+/**
+ * RAD-COUNTERS inherent ability (CR 728.1) — at the beginning of a player's precombat main phase, if that
+ * player has one or more rad counters, that player mills a number of cards equal to the number of rad counters
+ * they have. For each NONLAND card milled this way, that player loses 1 life and removes one rad counter from
+ * themselves. Lands milled cost nothing (no life, no counter removed). The ability has no source and is
+ * controlled by the active player; gameEngine fires it for the active player at their precombat-main begin.
+ * Milled cards are judged by their FRONT face (frontFaceTypeLine). Pure. An empty/short library mills what it
+ * can — fewer nonlands milled → fewer counters removed → the remaining rad persists (CR-correct partial). */
+export function applyRadiation(state, { playerId }) {
+  assertPlayer(playerId);
+  const player = state.players[playerId];
+  if (!player) return state;
+  const rad = player.radCounters || 0;
+  if (rad <= 0) return state;
+  const toMill = Math.min(rad, player.library.length);
+  if (toMill === 0) return state;
+  const nonland = player.library.slice(0, toMill).filter((c) => !/\bLand\b/.test(frontFaceTypeLine(c))).length;
+  let next = millCards(state, { playerId, count: toMill });
+  if (nonland > 0) {
+    next = loseLife(next, { playerId, amount: nonland });
+    next = removeRadCounters(next, { playerId, amount: nonland });
+  }
+  return next;
 }
 
 /** Mark combat (or other) damage on a permanent. */
