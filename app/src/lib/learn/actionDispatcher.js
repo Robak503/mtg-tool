@@ -51,7 +51,7 @@ import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura, entersTapped } from "./staticAbilityParser.js";
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
-import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers } from "./triggers.js";
+import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell } from "./ward.js";
 import { entersWithFadeCounters } from "./fading.js";
@@ -244,6 +244,14 @@ function applyPlayLand(state, action) {
     const bf = next.players[action.playerId].battlefield;
     const enteredLand = bf[bf.length - 1];
     next = checkLandfallTriggers(next, enteredLand);
+    // ETB on the play-land path (CR 603.6a) — a played land also fires "enters" triggers, NOT just
+    // landfall. Without this a land's OWN ETB (Bojuka Bog "exile a graveyard", a Temple's "scry 1",
+    // Radiant Fountain "gain 2 life") silently never fired when PLAYED (the cast path's enterPermanent
+    // fires ETB, but lands are played, not cast). Additive + type-gated: creature-/artifact-/enchantment-
+    // ETB watchers don't match a plain land (scopeMatches' isCreaturePerm / type checks), and landfall
+    // descriptors are a distinct event, so this never double-fires landfall nor wrong-fires a creature
+    // watcher. An unmodeled land ETB still routes to the Arbiter via buildTriggerStack (never fabricated).
+    next = checkEnterTriggers(next, enteredLand);
   }
   // Sorcery-speed action restarts the priority loop at the active player.
   return {
