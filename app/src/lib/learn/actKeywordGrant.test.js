@@ -32,9 +32,9 @@ describe("ACT-KW-GRANT — classification (the allowlist is the FP guard)", () =
     expect(classifyCard(creature("Goblin Balloon Brigade", "{R}: This creature gains flying until end of turn."))).toBe("native-activated");
     expect(classifyCard(creature("Narnam Cobra", "{G}: This creature gains deathtouch until end of turn.", { type: "Artifact Creature — Snake" }))).toBe("native-activated");
     expect(classifyCard(creature("Firehoof Cavalry", "{3}{R}: This creature gets +2/+0 and gains trample until end of turn."))).toBe("native-activated");
+    expect(classifyCard(creature("X", "{R}: This creature gains menace until end of turn."))).toBe("native-activated");
   });
-  it("NOT native: granting a keyword the engine can't ENFORCE stays off the native path", () => {
-    expect(classifyCard(creature("X", "{R}: This creature gains menace until end of turn."))).not.toBe("native-activated");
+  it("NOT native: granting a keyword NOT in GRANTABLE_COMBAT_KEYWORDS stays off the native path", () => {
     expect(classifyCard(creature("Y", "{R}: This creature gains indestructible until end of turn."))).not.toBe("native-activated");
   });
   it("NOT native: an activation-limit trailer the engine can't enforce sinks the ability", () => {

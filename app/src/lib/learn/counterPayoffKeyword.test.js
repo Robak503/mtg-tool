@@ -23,10 +23,13 @@ describe("counter-payoff keyword anthem — parse", () => {
     const d = parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have reach and trample." });
     expect(d.map((e) => e.op.keyword).sort()).toEqual(["Reach", "Trample"]);
   });
+  it("menace IS grantable (GATED-GY-EXT) — counter-payoff menace anthem IS modeled", () => {
+    expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have menace." })).toHaveLength(1);
+    expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have trample and menace." })).toHaveLength(2);
+  });
   it("ALL-OR-NOTHING: a non-grantable keyword anywhere in the phrase → no grant (no silent drop)", () => {
-    // menace is not grantable (unenforced) → the whole clause stays unmodeled, never a partial grant.
-    expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have menace." })).toHaveLength(0);
-    expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have trample and menace." })).toHaveLength(0);
+    expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have hexproof." })).toHaveLength(0);
+    expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have trample and hexproof." })).toHaveLength(0);
   });
   it("a conditional / label prefix does NOT match (safe FN — the condition isn't modeled)", () => {
     expect(parseStaticAbilities({ name: "Inspiring Paladin", oracle: "During your turn, creatures you control with +1/+1 counters on them have first strike." })).toHaveLength(0);

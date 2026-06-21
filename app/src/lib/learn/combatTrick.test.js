@@ -4,7 +4,7 @@
  * `grantKeywords` field; applyPumpEffect adds a layer-6 addKeyword endOfTurn effect per
  * granted keyword, so combat reads it layer-aware (exactly like a printed keyword). The
  * grantable set is shared with the Equipment/Aura/anthem path, so only enforced keywords
- * grant; an unmodeled one (indestructible/hexproof/menace) drops the whole clause to Arbiter.
+ * grant; an unmodeled one (indestructible/hexproof/protection) drops the whole clause to Arbiter.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -43,9 +43,11 @@ describe("parser — combat-trick keyword grants", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: INSTANT, oracle }))).toBe("low");
     low("Target creature gains hexproof until end of turn.");
     low("Target creature gains indestructible until end of turn.");
-    low("Target creature gets +1/+1 and gains menace until end of turn.");        // menace not grantable
     low("Target creature gets +2/+2 and gains protection from red until end of turn.");
     low("Target creature gains flying until end of turn. Draw a card if you control a Bird."); // conditional rider
+  });
+  it("menace IS now grantable (GATED-GY-EXT) — combat tricks with menace parse high", () => {
+    expect(programConfidence(parseEffectProgram({ type: INSTANT, oracle: "Target creature gets +1/+1 and gains menace until end of turn." }))).toBe("high");
   });
 });
 

@@ -3,8 +3,8 @@
  * haste, Snapsail Glider flying, Expedition Skulker deathtouch…) now grants the keyword LIVE only while the
  * gate holds, in BOTH templating orders (suffix "… has X as long as Y" and prefix "As long as Y, … has X").
  * The same fix adds the prefix form to #301's P/T gate. Reuses parseControlGateSource + the shared
- * layers.gateMet. Only GRANTABLE keywords (the engine-enforced static set — menace is excluded) flip; a
- * non-keyword segment or a color/compound gate stays LOW (Arbiter).
+ * layers.gateMet. Only GRANTABLE keywords (the engine-enforced static set) flip; a color gate, a
+ * compound (P/T+keyword) effect, or a non-keyword segment stays LOW (Arbiter).
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -30,10 +30,9 @@ describe("GATED-KEYWORD — coverage flips (both forms)", () => {
   it("the prefix P/T form (which #301's suffix matcher missed) now also flips native", () => {
     expect(classifyCard({ type: "Creature — Construct", name: "Aerial Engineer", mana: "{4}", oracle: "As long as you control an artifact, this creature gets +2/+2." })).toMatch(/^native/);
   });
-  it("a color / compound gate, a non-keyword segment, or a NON-grantable keyword (menace) stays body-only (CREED)", () => {
+  it("a color gate or a compound (P/T+keyword) effect stays body-only (CREED)", () => {
     expect(classifyCard({ type: "Creature — Soldier", name: "Color Gate", mana: "{2}{W}", oracle: "This creature has first strike as long as you control a white creature." })).toBe("body-only");
     expect(classifyCard({ type: "Creature — Beast", name: "Mixed Effect", mana: "{2}{G}", oracle: "This creature has trample and gets +1/+1 as long as you control a Forest." })).toBe("body-only");
-    expect(classifyCard({ type: "Creature — Ape", name: "Summit Apes", mana: "{3}{R}", oracle: "As long as you control a Mountain, this creature has menace." })).toBe("body-only");
   });
 });
 
