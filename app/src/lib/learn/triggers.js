@@ -53,7 +53,7 @@ function isLandPerm(perm) {
  * and the detected-trigger count must agree, or a landfall card mis-classifies. Currently just "Landfall —".
  */
 export function stripTriggerAbilityLabel(oracle) {
-  return String(oracle || "").replace(/^landfall\s*[—–-]\s*/gim, "");
+  return String(oracle || "").replace(/^(?:landfall|constellation|eerie)\s*[—–-]\s*/gim, "");
 }
 
 // ─── Detection ────────────────────────────────────────────────────────────────
@@ -226,6 +226,20 @@ function classifyCondition(condRaw, cardName) {
   // or an added "enters tapped" rider fails the anchor → UNDETECTED → Arbiter (never an over-fire we can't scope).
   if (/^a land you control enters$/.test(c) || /^a land enters(?: the battlefield)? under your control$/.test(c)) {
     return { event: "landfall", scope: "landYouControl", whose: "any" };
+  }
+  // PERM-ENTERS — "Whenever an artifact you control enters" (affinity/improvise payoffs — Reckless
+  // Fireweaver, Salivating Gremlins, Thopter Architect) and "Whenever an enchantment you control
+  // enters" (Constellation payoffs — Setessan Champion, Nexus Wardens, Favored of Iroas). The
+  // "Constellation —" / "Eerie —" ability-word labels are stripped by stripTriggerAbilityLabel before
+  // classifyCondition sees them. Controller-scoped ONLY: bare "an artifact enters" (without "you
+  // control") covers the opponent's artifacts too — a scope the engine cannot enforce without knowing
+  // who controls the entering permanent → UNDETECTED → Arbiter (SAFE false-negative; CLAUDE.md §1.2).
+  // Artifact Creature spells match the "artifact" filter (type-line substring, matching CR 205.2).
+  if (/^an artifact you control enters(?: the battlefield)?$/.test(c)) {
+    return { event: "permanentEnters", permanentFilter: "artifact", scope: "artifactYouControl", whose: "any" };
+  }
+  if (/^an enchantment you control enters(?: the battlefield)?$/.test(c)) {
+    return { event: "permanentEnters", permanentFilter: "enchantment", scope: "enchantmentYouControl", whose: "any" };
   }
   // "Leaves the battlefield" (LTB) is intentionally NOT detected: the engine fires only etb / dies /
   // step / attacks events (triggersForEvent has no "ltb" caller), so an ltb trigger detected here would
@@ -435,9 +449,10 @@ export function detectTriggers(card) {
         event: cls.event,
         scope: cls.scope,
         whose: cls.whose,
-        spellFilter: cls.spellFilter, // cast triggers only (undefined otherwise)
-        sacScope: cls.sacScope,       // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
-        sacAnother: cls.sacAnother,   // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
+        spellFilter: cls.spellFilter,       // cast triggers only (undefined otherwise)
+        permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
+        sacScope: cls.sacScope,             // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
+        sacAnother: cls.sacAnother,         // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         effect: parseTriggerEffect(effectClause),
@@ -481,6 +496,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent) {
       // LANDFALL — the entering land must be controlled by the watcher's controller. checkLandfallTriggers
       // only fires on a land entry (triggeringPermanent is a land), but the isLandPerm guard keeps it exact.
       return !!triggeringPermanent && isLandPerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
+    case "artifactYouControl":
+      // PERM-ENTERS artifact — type-line substring (CR 205.2) catches Artifact Creature; controller gate.
+      return !!triggeringPermanent && /Artifact/.test(triggeringPermanent.card?.type || triggeringPermanent.card?.type_line || "") && triggeringPermanent.controller === sourcePermanent.controller;
+    case "enchantmentYouControl":
+      // PERM-ENTERS enchantment — Enchantment Creature / Aura matches too; controller gate.
+      return !!triggeringPermanent && /Enchantment/.test(triggeringPermanent.card?.type || triggeringPermanent.card?.type_line || "") && triggeringPermanent.controller === sourcePermanent.controller;
     default:
       return false;
   }
@@ -591,6 +612,26 @@ export function checkLandfallTriggers(state, enteredLand) {
   for (const pid of Object.keys(state.players)) {
     for (const watcher of triggerSourcesOf(state, pid)) {
       fired = fired.concat(triggersForEvent(state, { event: "landfall", sourcePermanent: watcher, triggeringPermanent: enteredLand }));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * PERM-ENTERS — fire "permanentEnters" triggers for a permanent that just entered the battlefield
+ * (`enteredPerm`, already on the battlefield). Handles artifact-ETB ("whenever an artifact you
+ * control enters") and enchantment-ETB ("whenever an enchantment you control enters") watchers.
+ * scopeMatches' `artifactYouControl` / `enchantmentYouControl` gates each watcher to only fire when
+ * the entering permanent is the right type AND controlled by the watcher's controller. Called from
+ * enterPermanent (resolvers.js) immediately after checkEnterTriggers. Pure — appends to pendingTriggers.
+ */
+export function checkPermanentEntersTriggers(state, enteredPerm) {
+  if (!enteredPerm) return state;
+  let fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      fired = fired.concat(triggersForEvent(state, { event: "permanentEnters", sourcePermanent: watcher, triggeringPermanent: enteredPerm }));
     }
   }
   if (!fired.length) return state;
