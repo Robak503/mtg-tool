@@ -29,6 +29,14 @@
 import { parseSpellEffect, parseCreatureTargetRestrictions, parseGraveyardFilter } from "../spellEffects.js";
 import { isNonChosenTargetType } from "../targetTypes.js";
 import { ATOM_RESOLVERS } from "./effectAtoms.js";
+// WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
+// module) because effects/atoms/*.js must NOT import parser.js: parser.js → effectAtoms.js → atoms/*.js is
+// a one-way edge, and an atoms-module importing parser.js back would TDZ-crash at load (registerClauseParser
+// would run before parser.js's CLAUSE_PARSERS const initializes). These modules import only gameState/
+// triggers/tokens (no parser), so importing their pure clause-parser fns here is cycle-free. Registered at
+// the BOTTOM of this file, after CLAUSE_PARSERS is defined.
+import { manifestClauseParser } from "./atoms/manifest.js";
+import { amassClauseParser } from "./atoms/amass.js";
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers } from "../triggers.js";
@@ -2137,3 +2145,11 @@ export function programContainsFog(program) {
     : (program.atoms || []);
   return atoms.some(a => a.op === "fog");
 }
+
+// ─── WAVE 1 clause-parser registration (see import note at the top) ────────────────────────────
+// Wire the new-module clause parsers into the additive seam. Runs after CLAUSE_PARSERS + the
+// register fn are defined (load-safe). Gives GLOBAL visibility: every importer of parser.js
+// (runtime via gameEngine, the coverage metric via coverage.js, tests) sees these parsers, so
+// "manifest dread" and "amass <Subtype> N" clauses resolve to their KNOWN atoms everywhere.
+registerClauseParser(manifestClauseParser);
+registerClauseParser(amassClauseParser);
