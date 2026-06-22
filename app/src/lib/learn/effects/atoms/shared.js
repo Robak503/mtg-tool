@@ -156,7 +156,11 @@ export function countForSpec(state, ctx, spec) {
   const player = playerId ? state?.players?.[playerId] : null;
   if (!player) return 0;
   if (spec.kind === "cardsInHand") return (player.hand || []).length;
-  if (spec.kind === "permanentsYouControl") return (player.battlefield || []).filter((perm) => countMatches(perm.card, spec)).length;
+  // COUNT-OTHER: `excludeSelf` (a leading "other" on the count) drops the SOURCE permanent here. The parser
+  // only tags excludeSelf on a CONTROLLER-scoped spec (who undefined), so although this return is shared with
+  // the who:"target" path, the flag is inert there today. If the wrapper guard (parser.js parseCountSource)
+  // is ever relaxed to scope an "other" count, this exclusion's player-scope must be revisited.
+  if (spec.kind === "permanentsYouControl") return (player.battlefield || []).filter((perm) => countMatches(perm.card, spec) && !(spec.excludeSelf && ctx.sourceId && perm.id === ctx.sourceId)).length;
   // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
   // ===== EXPERIENCE ===== the controller's experience counter total (Toph, Command Beacon, etc.)
