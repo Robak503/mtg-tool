@@ -312,6 +312,75 @@ export function entersWithXCounters(card) {
   return false;
 }
 
+// ─── ETB-XCOUNTERS-FROM-METRIC: enters-with-counters where the count is a BOARD METRIC ───
+// Map the "for each <X>" tail of a metric enters-with clause to a SERIALIZABLE countForSpec spec, or null.
+// DELIBERATELY NARROW: only the dup-free, unambiguous board sources countForSpec already resolves —
+//   "[other ]<card type> you control"   → permanentsYouControl cardType (other → excludeSelf, CR 113.7)
+//   "[other ]<basic land> you control"  → permanentsYouControl subtype
+// A creature subtype ("Goblin"), opponent/qualified/graveyard/hand count, or any multi-word phrase → null →
+// NO spec → the card stays body-only (Arbiter, never a fabricated count). CREED: a miss is safe, a wrong
+// count across many cards is forbidden.
+function parseMetricCountSource(phrase) {
+  let p = String(phrase).toLowerCase().trim().replace(/\.\s*$/, "");
+  let excludeSelf = false;
+  const om = p.match(/^other\s+(.+)$/); // "other creature you control" — exclude the entering permanent
+  if (om) { excludeSelf = true; p = om[1]; }
+  let m;
+  if ((m = p.match(/^(creatures?|artifacts?|lands?|enchantments?) you control$/))) {
+    return { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]], excludeSelf };
+  }
+  if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) {
+    return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]], excludeSelf };
+  }
+  return null;
+}
+
+/**
+ * ETB-XCOUNTERS-FROM-METRIC (CR 614.1c + 122.6a) — does this permanent enter with +1/+1 counters whose COUNT
+ * is a board metric (not a fixed N, not the cast {X})? Returns a serializable descriptor
+ *   { fixed, perUnit, metric }   (counters added at ETB = fixed + perUnit * countForSpec(state, ctx, metric))
+ * or null. The resolver resolves `metric` via countForSpec AT RESOLUTION (CR 608.2h — the board is read as the
+ * permanent enters), so the creature enters at its real P/T instead of a 0/0 that dies to the lethal SBA. Two
+ * STRICT, fully-reducible shapes (every other variant → null → body-only → Arbiter, never a fabricated count):
+ *
+ *   "enters with <N> +1/+1 counter(s) on it [plus an additional +1/+1 counter on it ]for each <metric>"
+ *      — Squad Captain (fixed 0, 1-per other creature), Sheriff of Safe Passage (fixed 1 + 1-per other creature).
+ *        The leading number is the FIXED part; the per-each is always exactly one counter per matched permanent.
+ *
+ *   "enters with X +1/+1 counters on it, where X is the greatest power|toughness among [other ]creatures you control"
+ *      — Prime Speaker Zegana (greatest power among OTHER creatures). metric = greatestPowerYouControl /
+ *        greatestToughnessYouControl with excludeSelf; perUnit 1, fixed 0.
+ *
+ * Leaf (no engine import): the parser emits a spec; resolvers.js computes it through countForSpec.
+ */
+export function entersWithMetricCounters(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
+    const s = sentence.trim();
+    if (!/\benters (?:the battlefield )?with /i.test(s)) continue;
+
+    // Shape B — "where X is the greatest power|toughness among [other ]creatures you control".
+    let m = s.match(/^[^.]*?\benters (?:the battlefield )?with x \+1\/\+1 counters? on it,? where x is the greatest (power|toughness) among (other )?creatures you control\.?$/i);
+    if (m) {
+      const kind = m[1].toLowerCase() === "power" ? "greatestPowerYouControl" : "greatestToughnessYouControl";
+      return { fixed: 0, perUnit: 1, metric: { kind, excludeSelf: !!m[2] } };
+    }
+
+    // Shape A — "<N> +1/+1 counter(s) on it [plus an additional +1/+1 counter on it ]for each <metric>".
+    m = s.match(/^[^.]*?\benters (?:the battlefield )?with (a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it(?: plus an additional \+1\/\+1 counter on it)? for each (.+?)\.?$/i);
+    if (m) {
+      const metric = parseMetricCountSource(m[2]);
+      if (!metric) return null; // unmodeled count source → body-only (Arbiter)
+      // "<N> … for each X" = N counters per matched permanent (Squad Captain: "a … for each" = 1 each, fixed 0).
+      // "<N> … plus an additional +1/+1 counter on it for each X" = N FIXED + 1 each (Sheriff: 1 fixed + 1 each).
+      const n = _ENTER_NUM[m[1].toLowerCase()] ?? (parseInt(m[1], 10) || 0);
+      const hasPlus = /plus an additional \+1\/\+1 counter on it for each/i.test(s);
+      return hasPlus ? { fixed: n, perUnit: 1, metric } : { fixed: 0, perUnit: n, metric };
+    }
+  }
+  return null;
+}
+
 /**
  * TRUNK-ENTERSTAPPED (CR 614.1c; static per 603.6d) — does this permanent enter the battlefield tapped, unconditionally? True
  * ONLY for the bare "~ enters tapped" with NO condition/choice in the same sentence: a check-/fast-land

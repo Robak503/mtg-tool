@@ -31,10 +31,11 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { detectTriggers, stripTriggerAbilityLabel } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, entersWithPlusCounters, entersWithXCounters } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
+import { winConditionParseable } from "./effects/atoms/winGame.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
 import { isPureDoubler } from "./replacementEffects.js"; // Wave-3: pure counter/token doublers classify native-static
@@ -152,7 +153,18 @@ export function spellIsNative(card) {
  * classifier, so the trigger-routing rule can't drift between them.
  */
 function triggerRoutesNatively(d) {
-  if (!d.effectClause || d.interveningIf) return false; // intervening-if → not routed
+  if (!d.effectClause) return false;
+  if (d.interveningIf) {
+    // UPKEEP-WIN (Wave 3b, CR 603.4) — the ONLY intervening-if trigger the runtime routes natively: a
+    // single win-game atom ("you win the game") whose threshold is in the strict evaluator's vocabulary
+    // (Revel in Riches / Felidar Sovereign / Knuckles). gameEngine.buildTriggerStack fires it when the
+    // condition is met (and re-checks on resolution); an unparseable threshold → Arbiter, so the metric
+    // mirrors that by requiring winConditionParseable. Every OTHER intervening-if trigger → not routed.
+    const cp = parseEffectClause(d.effectClause, "Instant");
+    const a = cp?.atoms?.length === 1 ? cp.atoms[0] : null;
+    return !!a && a.op === "win-game" && a.who === "controller"
+      && programConfidence(cp) === "high" && winConditionParseable(d.interveningIf);
+  }
   const p = parseEffectClause(d.effectClause, "Instant");
   // Mirror buildTriggerStack's α1 ALLOWLIST EXACTLY: a HIGH non-modal trigger routes natively only
   // when every chosen-target atom is intent-resolvable (the enemy/own chooser can place it on a
@@ -423,11 +435,19 @@ export function classifyCard(card) {
   // classifies native-body. The card-level guard never strips a conditional/variable form (those return 0).
   // ENTERS-WITH-X: a hydra "enters with X +1/+1 counters" is modeled too (the resolver adds the chosen X
   // at ETB) — strip that sentence so a hydra whose only non-keyword text is enters-with-X classifies native.
+  // ETB-XCOUNTERS-FROM-METRIC: enters with +1/+1 counters whose count is a board metric ("for each other
+  // creature you control" — Squad Captain; "X = greatest power among other creatures" — Prime Speaker Zegana)
+  // is modeled too (the resolver resolves the metric via countForSpec at ETB). Strip that one sentence when
+  // entersWithMetricCounters confirmed one of its two exact shapes, so a card whose only non-keyword text is the
+  // metric enters-with clause classifies native-body (Squad Captain = Vigilance + metric → native-body). Cards
+  // with extra unmodeled text (Sheriff's Plot; Zegana's draw trigger) keep their other clauses → not stripped here.
   const baseOracle = entersWithPlusCounters(card) > 0
     ? oracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
     : entersWithXCounters(card)
       ? oracle.replace(/[^.]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.]*\.?/i, " ")
-      : oracle;
+      : entersWithMetricCounters(card)
+        ? oracle.replace(/[^.]*enters (?:the battlefield )?with [^.]*\+1\/\+1 counters?[^.]*\.?/i, " ")
+        : oracle;
   if (isKeywordOnly(baseOracle, card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).

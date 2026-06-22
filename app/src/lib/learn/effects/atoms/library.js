@@ -6,6 +6,11 @@
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice } from "../../pendingChoice.js";
 import { countForSpec } from "./shared.js";
+// MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
+// "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
+// a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
+// atoms barrel must NOT import effects/parser.js — that's the TDZ hazard; triggers.js is fine).
+import { checkMilledTriggers } from "../../triggers.js";
 
 /**
  * P3.2 tutor (CR 701.19) — search the caster's library for a card matching the modeled
@@ -245,19 +250,34 @@ export function applyDiscoverAtom(state, atom, ctx) {
   return result;
 }
 
+/** Mill ONE player `count` cards (CR 701.13), then fire the MILL-ON-EVENT trigger bind for that player's
+ * mill (CR 701.13a — one event per mill instruction). Captures the ACTUAL milled cards (top N, bounded by
+ * library size) BEFORE the move so checkMilledTriggers can read their front-face types. A no-op mill (empty
+ * library) mills nothing → no trigger (checkMilledTriggers no-ops on an empty batch). Pure. */
+function millOnePlayer(state, playerId, count) {
+  const player = state.players[playerId];
+  if (!player) return state;
+  const n = Math.min(Math.max(0, count || 0), (player.library || []).length);
+  if (n === 0) return state;
+  const milledCards = player.library.slice(0, n); // captured pre-move (top N → graveyard)
+  const next = millCards(state, { playerId, count: n });
+  return checkMilledTriggers(next, { milledByPlayer: playerId, milledCards });
+}
+
 /** Mill (CR 701.13) — "you mill N cards" (the controller), "each opponent mills N cards", or
- * "each player mills N cards" (EP-3). Top N of each milled player's library → their graveyard. Non-targeted. */
+ * "each player mills N cards" (EP-3). Top N of each milled player's library → their graveyard. Non-targeted.
+ * Each player's mill is its OWN event (CR 701.13a), so millOnePlayer fires the milled trigger bind per seat. */
 export function applyMill(state, atom, ctx) {
   let next = state;
   const amount = atom.amount || 0;
   if (atom.who === "eachPlayer") {
     // ===== EACH-PLAYER ===== (EP-3) EVERY player mills N (symmetric — Mind Funeral-adjacent / Winds of
     // Rebuke rider). Non-targeted → identical on a spell or trigger; an eliminated player isn't in the map.
-    for (const pid of Object.keys(next.players)) next = millCards(next, { playerId: pid, count: amount });
+    for (const pid of Object.keys(next.players)) next = millOnePlayer(next, pid, amount);
   } else if (atom.who === "eachOpponent") {
-    for (const opp of opponentsOf(next, ctx.controller)) next = millCards(next, { playerId: opp, count: amount });
+    for (const opp of opponentsOf(next, ctx.controller)) next = millOnePlayer(next, opp, amount);
   } else {
-    next = millCards(next, { playerId: ctx.controller, count: amount });
+    next = millOnePlayer(next, ctx.controller, amount);
   }
   return logEvent(next, { kind: "spell-effect", effect: "mill", who: atom.who || "controller", amount });
 }

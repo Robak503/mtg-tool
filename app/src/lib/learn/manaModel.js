@@ -223,6 +223,26 @@ function manaAbilityRequiresTap(oracle) {
 }
 
 /**
+ * The EFFECT text (right of the colon) of a card's ACTIVATED mana ability — the line whose COST is left of a
+ * colon and whose effect contains "Add" ({T}: Add … / a sac or mana cost : Add …). Returns null when the
+ * card has NO activated mana ability — a bare or TRIGGERED/ETB "Add …" (Hidden Herbalists' "Revolt — When
+ * this enters, … add {G}{G}", Mardu Warshrieker's Raid) is a ONE-SHOT, not a repeatable mana source. Without
+ * this gate, manaProduction read such a clause and `manaSources` minted a PHANTOM standing source the sim
+ * tapped every turn for free, ignoring the ETB-once + the Revolt/Raid condition (a confirmed P1 FP). Parsing
+ * the activated line specifically also fixes a card carrying BOTH an ETB "add" and a real "{T}: Add" (reads
+ * the activated one, not the first). Per-line, mirroring manaAbilityRequiresTap.
+ */
+function activatedManaText(oracle) {
+  for (const line of String(oracle || "").split(/\n+/)) {
+    const ci = line.indexOf(":");
+    if (ci === -1) continue;
+    const rhs = line.slice(ci + 1);
+    if (/\badd\b/i.test(rhs)) return rhs;
+  }
+  return null;
+}
+
+/**
  * Remove the QUOTED ability a card confers on a TOKEN it CREATES ("Create a … token with \"…\"" or the
  * two-sentence "…token[ named N]. It has \"…\"" form, normalized here to the "with" form) — that ability
  * belongs to the TOKEN, not the card. Without this, a card's OWN mana production is fabricated from its
@@ -287,8 +307,15 @@ export function manaProduction(card) {
   const oracleForAdd = isLandCard
     ? oracleOf(card)
     : stripCreatedTokenAbilities(stripReminder(oracleOf(card)));
+  // A NON-LAND repeatable mana source must have an ACTIVATED mana ability ("<cost>: Add …"). A triggered/ETB/
+  // landfall/upkeep/death or spell-effect "Add …" (no colon) is a ONE-SHOT and must NOT mint a standing source
+  // (the Hidden Herbalists phantom-mana FP — manaSources tapped it every turn for free). GATE on the existence
+  // of an activated line, but still parse the WHOLE oracle so parseAddClause keeps its multi-clause selection
+  // (Arbor Adherent's variable line, Prismatic Lens' any-color line, etc. — unchanged). Lands keep raw-oracle
+  // parsing (intrinsic/reminder-printed mana + the colorless fallback).
   const fromOracle = parseAddClause(oracleForAdd);
-  if (fromOracle) {
+  const isActivatedSource = isLandCard || activatedManaText(oracleForAdd) != null;
+  if (fromOracle && isActivatedSource) {
     const requiresTap = manaAbilityRequiresTap(oracleForAdd);
     return manaAbilitySacrificesSelf(oracleForAdd)
       ? { ...fromOracle, sacrifices: true, requiresTap }

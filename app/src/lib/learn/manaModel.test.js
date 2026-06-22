@@ -108,6 +108,19 @@ describe("manaProduction", () => {
   it("still reads a real rock/dork whose ability is in MAIN text", () => {
     expect(manaProduction({ name: "Llanowar Elves", type: "Creature — Elf Druid", oracle: "{T}: Add {G}." })).toEqual({ colors: ["G"], amount: 1, requiresTap: true });
   });
+  // ===== PHANTOM-SOURCE GUARD ===== a NON-LAND repeatable source must have an ACTIVATED mana ability
+  // ("<cost>: Add …"). A TRIGGERED / ETB / landfall / death / spell-effect "Add …" (no colon) is a one-shot,
+  // NOT a standing source — reading it minted a phantom source the sim tapped every turn for free (the
+  // Hidden Herbalists P1 FP). Confirmed pre-existing; the gate removed ~129 phantom sources, 0 real ones.
+  it("does NOT read a TRIGGERED / ETB / spell 'Add mana' (no activated ability) as a standing source", () => {
+    expect(manaProduction({ name: "Hidden Herbalists", type: "Creature — Human Druid", oracle: "Revolt — When this creature enters, if a permanent left the battlefield under your control this turn, add {G}{G}." })).toBeNull();
+    expect(manaProduction({ name: "Mardu Warshrieker", type: "Creature — Orc Shaman", oracle: "Raid — When this creature enters, if you attacked this turn, add {R}{W}{B}." })).toBeNull();
+    expect(manaProduction({ name: "Lotus Cobra", type: "Creature — Snake", oracle: "Landfall — Whenever a land you control enters, add one mana of any color." })).toBeNull();
+    expect(manaProduction({ name: "Dark Ritual", type: "Instant", oracle: "Add {B}{B}{B}." })).toBeNull();
+    // …but a real {T}: dork on the SAME shape is still a source, and it never reaches manaSources as phantom.
+    const hh = permanent({ name: "Hidden Herbalists", type: "Creature — Human Druid", oracle: "Revolt — When this creature enters, if a permanent left the battlefield under your control this turn, add {G}{G}." }, { id: "hh" });
+    expect(manaSources(bf([hh]), "user")).toEqual([]); // not offered as a standing source
+  });
 
   // ===== TOKENS ===== T4 FP fix — a card's OWN mana must not be fabricated from a TOKEN's ability stated
   // in MAIN text ("…token with \"…Add…\"" / "…token. It has \"…Add…\""). Without this, an Eldrazi Spawn-

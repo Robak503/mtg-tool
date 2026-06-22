@@ -38,6 +38,8 @@ import { ATOM_RESOLVERS } from "./effectAtoms.js";
 import { manifestClauseParser } from "./atoms/manifest.js";
 import { amassClauseParser } from "./atoms/amass.js";
 import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfReturn.js";
+import { winGameClauseParser } from "./atoms/winGame.js";
+import { counterClausesParser } from "./atoms/counterClauses.js";
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -692,6 +694,26 @@ function parseExtendedAtom(s) {
   //   (c) "they get that many rad counters" (Infesting Radroach) — the count IS the combat-damage amount.
   const cdmgRadDynM = t.match(/^(?:they|that player) gets? that many rad counters$/);
   if (cdmgRadDynM) return { op: "rad", who: "damagedPlayer", countContext: "combatDamageAmount", targetType: null };
+
+  // ===== DIES-TRIGGER-RESOURCE-PAYOFFS ===== power-scaled dies-trigger payoffs whose COUNT is the dying
+  // creature's last-known power (CR 603.6e), carried as ctx.dyingPower by checkDiesTriggers (captured at the
+  // SBA/destroy/sacrifice look-back BEFORE the permanent left the battlefield). NON-targeted (the dying
+  // creature is the trigger referent, not a chosen target → targetType:null → routes natively on the trigger
+  // flush, programNeedsChosenTarget → false), and a clean no-op outside a dies-trigger (no ctx.dyingPower → 0,
+  // never a fabricated count). All anchored ^…$ — any trailing rider leaves text past the anchor → low →
+  // Arbiter (CREED: never a dropped clause). The fixed dies-payoffs already resolve; these are the DYNAMIC
+  // "equal to its power" forms only. Mirrors the combatDamageAmount countContext path verbatim.
+  //   (a) "each opponent gets a number of rad counters equal to its power" (Feral Ghoul). who:"eachOpponent".
+  //       UNAMBIGUOUS: only a dies-trigger prints "each opponent gets … rad counters equal to its power"
+  //       (corpus-verified to exactly Feral Ghoul), and "its" = the dying creature, so binding ctx.dyingPower
+  //       here is always correct. (The draw/gain-life halves are NOT generic clause matchers — "draw cards
+  //       equal to its power" also appears on ETB/combat-damage cards where "its power" is the LIVE source,
+  //       not a dying creature; those are handled ONLY inside the dies-specific matchDiesGainDrawByPower
+  //       collapsed template, never as a context-free clause, so an ETB Prime Speaker Zegana / a combat-damage
+  //       Gregor is NOT mis-flipped to read an absent dyingPower → 0.)
+  if (/^each opponent gets a number of rad counters equal to its power$/.test(t)) {
+    return { op: "rad", who: "eachOpponent", countContext: "dyingPower", targetType: null };
+  }
 
   // ===== DMG-SCALE ===== (WALT-DMG-SCALE) "<source> deals damage to <target> equal to the number of
   // <count source>" — the damage AMOUNT is a board count resolved at resolution (`amountCount`), not a
@@ -1382,6 +1404,18 @@ function parseExtendedAtom(s) {
   //       "that many" with no combat-damage context resolves to 0 (a clean no-op), never a fabricated count.
   m = t.match(/^create that many (treasure|clue|food|gold) tokens$/);
   if (m) return { op: "create-named-token", token: m[1], countContext: "combatDamageAmount", targetType: null };
+  // ===== DIES-TRIGGER-RESOURCE-PAYOFFS ===== "create a number of [tapped] <tok> tokens equal to its power"
+  // (Goldvein Hydra: "When this creature dies, create a number of tapped Treasure tokens equal to its power").
+  // The count is the dying creature's last-known power (CR 603.6e), carried as ctx.dyingPower by
+  // checkDiesTriggers; the resolver reads ctx.countContext. An OPTIONAL "tapped" adjective mints the tokens
+  // TAPPED (Goldvein's Treasures enter tapped). NON-dies context → no ctx.dyingPower → 0 tokens (a clean
+  // no-op, never a fabricated count). Anchored to $ — any trailing rider → low → Arbiter.
+  m = t.match(/^create a number of (tapped )?(treasure|clue|food|gold) tokens equal to its power$/);
+  if (m) {
+    const atom = { op: "create-named-token", token: m[2], countContext: "dyingPower", targetType: null };
+    if (m[1]) atom.tapped = true;
+    return atom;
+  }
   // ===== TOKENS ===== T2 named artifact tokens — "Create [a tapped] [N] <Treasure|Clue|Food|Gold> token(s)".
   // Each enters as a REAL artifact permanent carrying its printed ability, so the existing subsystems
   // drive it end-to-end: Treasure/Gold are mana sources the mana model SACRIFICES on use (one-shot
@@ -2057,6 +2091,31 @@ function emblemAbilityModeled(x) {
   return residue === "";
 }
 
+/**
+ * ===== DIES-TRIGGER-RESOURCE-PAYOFFS ===== Lifeblood Hydra's "you gain life and draw cards equal to its
+ * power" — a SHARED-magnitude compound: the controller gains N life AND draws N cards where N = the dying
+ * creature's last-known power (CR 603.6e, ctx.dyingPower). The "equal to its power" governs BOTH halves
+ * (CR templating), but the top-level " and " would shatter into ["you gain life" (NO amount), "draw cards
+ * equal to its power"], silently dropping the gain-life magnitude — a forbidden partial. So match the WHOLE
+ * compound up front and emit BOTH atoms directly (each countContext:"dyingPower" → the gain-life resolver
+ * reads ctx.dyingPower via resolveScaledAmount, the draw resolver via its own countContext branch).
+ *
+ * Why match the WHOLE compound and NOT add a generic "draw cards equal to its power" clause matcher: that
+ * bare clause ALSO appears on ETB cards (Prime Speaker Zegana) and combat-damage cards (Gregor) where "its
+ * power" is the LIVE source's power, NOT a dying creature's — a context-free dyingPower binding would mis-
+ * resolve those to 0 (a forbidden FP). The disambiguator is the FULL clause "you gain life and draw cards
+ * equal to its power", which is corpus-unique to Lifeblood (a dies-trigger), so "its" is unambiguously the
+ * dying creature. Anchored ^…$ — any rider leaves residue → no match → low → Arbiter. Returns { atoms }.
+ */
+function matchDiesGainDrawByPower(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/\.\s*$/, "");
+  if (!/^you gain life and draw cards equal to its power$/.test(s)) return null;
+  return { atoms: [
+    { op: "gain-life", countContext: "dyingPower", targetType: null },
+    { op: "draw", countContext: "dyingPower", targetType: null },
+  ] };
+}
+
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (!oracle) return null;
   // MTG-001 — strip the "can't be regenerated" rider from the PARSE TEXT only, so the lead effect (the
@@ -2114,6 +2173,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (dig) return collapsed(dig);
   const emb = matchEmblem(oracle);
   if (emb) return collapsed(emb);
+  // ===== DIES-TRIGGER-RESOURCE-PAYOFFS ===== Lifeblood Hydra "you gain life and draw cards equal to its
+  // power" — a shared-magnitude gain+draw the top-level " and " split would shatter (see
+  // matchDiesGainDrawByPower). Emits BOTH atoms directly; HIGH iff both are KNOWN (they are — gain-life +
+  // draw), so the whole compound resolves natively or not at all (no partial).
+  const dgd = matchDiesGainDrawByPower(oracle);
+  if (dgd && dgd.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: dgd.atoms, xSpell: false, unparsedTail: null });
+  }
   // RIDER-REMOVAL — "Exile/Destroy target X. Its controller <rider>." parses to ONE removal atom carrying
   // a `controllerRider` (resolved to the target's controller). The two sentences span the clause splitter,
   // so it's matched up front like the other collapsed templates.
@@ -2395,6 +2462,13 @@ export function atomTargetIntent(atom) {
       // animate card is a trigger today, so this only future-proofs the trigger-flush chooser; the cast
       // path picks the target interactively.
       return "own";
+    case "win-game":
+      // UPKEEP-WIN — "target player loses the game" (Door to Nothingness) is unambiguously enemy-side:
+      // you'd never make yourself lose. (The "you win the game" form is non-targeted → null above.) No
+      // win-game card is a TRIGGER with a chosen target today (the upkeep-win family wins the CONTROLLER,
+      // no target), so this future-proofs the trigger-flush chooser; the cast/activated path picks the
+      // target interactively.
+      return "enemy";
     case "bounce":
     case "tuck":
       // Could target own OR enemy permanents — the trigger-flush chooser can't pick a side, so a tuck
@@ -2486,3 +2560,8 @@ registerClauseParser(selfReturnClauseParser);
 // CONDITIONS; detectTriggers then rewrites their "return it to its owner's hand" effect to the marker the
 // clause parser above models.
 registerTriggerDetector(selfReturnTriggerDetector);
+// UPKEEP-WIN (Wave 3b) — "you win the game" / "target player loses the game" → the win-game atom.
+registerClauseParser(winGameClauseParser);
+// COUNTERS-ON-EVENT (Wave 3b) — "put a +1/+1 counter on the triggering creature" → the add-counter atom
+// (routed through gameState.addCounter, so the Wave-3 doubler applies). Wired here per the slice contract.
+registerClauseParser(counterClausesParser);

@@ -30,6 +30,7 @@ import { miscResolvers } from "./atoms/misc.js";
 import { manifestResolvers } from "./atoms/manifest.js";
 import { amassResolvers } from "./atoms/amass.js";
 import { selfReturnResolvers } from "./atoms/selfReturn.js";
+import { winGameResolvers } from "./atoms/winGame.js";
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken } from "./atoms/tokens.js";
@@ -56,6 +57,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...manifestResolvers, // manifest-dread (MKM, CR 701.62) — top-2 → one face-down 2/2, other → graveyard
   ...amassResolvers,   // amass (CR 701.47) — grow/mint the controller's Army (Orcish Bowmasters, Lazotep Sliver)
   ...selfReturnResolvers, // self-return (Wave 4 SELF-LTB) — Rancor PiG-return + Sword-of-the-Realms equipped-dies-return
+  ...winGameResolvers, // win-game (UPKEEP-WIN, CR 104.2a) — "you win the game" / "target player loses the game"
 });
 
 /**

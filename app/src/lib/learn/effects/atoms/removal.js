@@ -89,9 +89,13 @@ export function applyControllerRider(state, rider, cap, ctx) {
 export function sacrificeCreatureEffect(state, playerId, permId) {
   const lk = findPermanent(state, permId);
   if (!lk) return logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: playerId, sacrificed: null });
+  // DIES-TRIGGER-RESOURCE-PAYOFFS: capture the layer-aware POWER from the ORIGINAL `state` (the perm is
+  // still on the battlefield there), BEFORE the moveCardToZone below — CR 603.6e — so a SACRIFICED
+  // Goldvein/Lifeblood/Feral-Ghoul still feeds its "equal to its power" dies-trigger the real on-board power.
+  const sacPower = isCreatureCard(lk.permanent.card) ? creaturePower(lk.permanent, state) : null;
   let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permId });
   if (isCreatureCard(lk.permanent.card)) {
-    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card }]);
+    next = checkDiesTriggers(next, [{ controller: playerId, id: permId, name: lk.permanent.card?.name || "creature", card: lk.permanent.card, power: Number.isFinite(sacPower) ? sacPower : null }]);
   }
   // TRIG-SACRIFICE: fire "Whenever you sacrifice a <permanent|creature|artifact>" for the sacrificing
   // player. The perm has left the battlefield, so its type rides on the lookBack card (sacScopeMatches reads it).

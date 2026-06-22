@@ -156,6 +156,7 @@ export function createLearnSession({
 function isPlayerDead(state, playerId) {
   const player = state.players[playerId];
   if (!player) return true;
+  if (player.lostGame) return true; // UPKEEP-WIN — "target player loses the game" (CR 104.3a, Door to Nothingness)
   if (player.life <= 0) return true;
   if ((player.poison || 0) >= 10) return true;
   const dmgFrom = player.commanderDamageFrom || {};
@@ -163,6 +164,12 @@ function isPlayerDead(state, playerId) {
     if (dmgFrom[fromId] >= 21) return true;
   }
   return false;
+}
+
+/** UPKEEP-WIN — a player flagged `wonGame` by the win-game atom (Revel in Riches, Felidar Sovereign,
+ *  Knuckles the Echidna, a resolved "you win the game" spell). CR 104.2a: that player wins immediately. */
+function hasWonGame(state, playerId) {
+  return !!state.players?.[playerId]?.wonGame;
 }
 
 /**
@@ -264,6 +271,19 @@ function recordOutcomeIfChanged(session) {
 
   const order = state.turnOrder || Object.keys(state.players);
   const opponents = order.filter((id) => id !== "user");
+
+  // UPKEEP-WIN (CR 104.2a) — a player who has WON ends the game immediately, BEFORE the life/poison/
+  // elimination death checks below (a card can win you the game even while you're also at lethal — the
+  // win is checked first). The user winning → "user-wins"; ANY opponent winning → "ai-wins" (the user
+  // lost). Checked here so the win-game atom's `wonGame` flag becomes a real game end via the SAME SBA
+  // path every other outcome flows through.
+  if (hasWonGame(state, "user")) {
+    return { ...session, status: "user-wins", endedAt: new Date().toISOString() };
+  }
+  if (opponents.some((id) => hasWonGame(state, id))) {
+    return { ...session, status: "ai-wins", endedAt: new Date().toISOString() };
+  }
+
   const userDead = isPlayerDead(state, "user");
   const deadOpponents = opponents.filter((id) => isPlayerDead(state, id));
   const allOpponentsDead = opponents.length > 0 && deadOpponents.length === opponents.length;

@@ -22,10 +22,14 @@ describe("IT-COUNTER — classification", () => {
     expect(classifyCard({ type: "Creature — Beast", name: "Two", oracle: "Whenever this creature attacks, put two +1/+1 counters on it." })).toBe("native-trigger");
     expect(classifyCard({ type: "Creature — Zombie", name: "Dier", oracle: "When this creature dies, put a +1/+1 counter on it." })).toBe("native-trigger");
   });
-  it("MUST stay body-only — a NON-self 'it' (the other creature) and a rider (no partial)", () => {
-    // "a creature you control" is NOT self-scope, so "it" is the triggering creature, never the source.
-    expect(classifyCard({ type: "Creature — Lord", name: "Captain", oracle: "Whenever a creature you control attacks, put a +1/+1 counter on it." })).toBe("body-only");
-    // a rider past "on it" breaks the whole-clause anchor → no rewrite → unmodeled → Arbiter.
+  it("a NON-self 'it' counter trigger flips native (WAVE-3b COUNTERS-ON-EVENT); a rider still stays body-only", () => {
+    // "a creature you control" is NOT self-scope, so "it" is the TRIGGERING creature. WAVE-3b COUNTERS-ON-EVENT
+    // now models this: detectTriggers rewrites "on it" → the "on the triggering creature" sentinel and the
+    // counterClauses parser emits an add-counter atom (routed through gameState.addCounter, doubler-aware).
+    // The WHOLE card is just this one trigger → native-trigger (the slice's intended flip, Sphere Grid family).
+    expect(classifyCard({ type: "Creature — Lord", name: "Captain", oracle: "Whenever a creature you control attacks, put a +1/+1 counter on it." })).toBe("native-trigger");
+    // …but a RIDER past "on it" breaks the whole-clause anchor → no rewrite → the rider is unmodeled → the
+    // whole card stays body-only (no partial flip — CREED).
     expect(classifyCard({ type: "Creature — Beast", name: "Rider", oracle: "Whenever this creature attacks, put a +1/+1 counter on it. Draw a card." })).toBe("body-only");
   });
 });

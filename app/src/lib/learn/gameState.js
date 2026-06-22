@@ -1129,8 +1129,25 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
   // detaches them — so the "Whenever equipped creature dies, return it to its owner's hand" trigger
   // (Sword of the Realms) can match its watcher (an equipment whose id is in this list) even though the
   // equipment's own `attachedTo` is already null by the time checkDiesTriggers runs.
-  const markDead = (pid, perm) =>
-    dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature", card: perm.card, attachments: [...(perm.attachments || [])] });
+  // DIES-TRIGGER-RESOURCE-PAYOFFS (Wave 3b): capture the dying creature's POWER here too (CR 603.6e — a
+  // dies-trigger that reads "its power" uses the creature's last-known power AS IT EXISTED ON THE
+  // BATTLEFIELD just before it left). `creaturePower(perm, state)` reads the full layer-aware value
+  // (counters + anthems + pumps) BECAUSE this runs inside the loop over the ORIGINAL pre-move `state`
+  // (the perm is still on the battlefield) — captured BEFORE the moveCardToZone look-back below, so a
+  // Goldvein/Lifeblood/Feral-Ghoul "equal to its power" payoff sees the real on-board power, never the
+  // post-death printed-only value. Non-finite (CDA "*" not yet captured) → null (the payoff no-ops to 0,
+  // never a fabricated count).
+  const markDead = (pid, perm) => {
+    const pw = creaturePower(perm, state);
+    dead.push({
+      controller: pid,
+      id: perm.id,
+      name: perm.card?.name || "creature",
+      card: perm.card,
+      attachments: [...(perm.attachments || [])],
+      power: Number.isFinite(pw) ? pw : null,
+    });
+  };
   for (const [pid, player] of Object.entries(state.players)) {
     for (const perm of player.battlefield) {
       // Layer-aware creature-ness (WALT-ANIMATE): an animated land/man-land is subject to the

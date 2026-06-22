@@ -42,13 +42,14 @@ import {
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
-import { checkStepTriggers, checkAttackTriggers, checkCardDrawnTriggers, checkLeavesTriggers } from "./triggers.js";
+import { checkStepTriggers, checkAttackTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { applyFadeVanishUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { applyMothmanRadOnAttack } from "./mothmanRad.js";
+import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -269,8 +270,16 @@ export function runStepActions(state) {
       // share step "main"); applyRadiation no-ops at 0 counters. The postcombat main gets no automatic action.
       if (state.phase === "precombat-main") {
         const radBefore = state.players[state.activePlayer]?.radCounters || 0;
+        // MILL-ON-EVENT (Wave 3b): the radiation ability is the SECOND real mill chokepoint (the rad payoff
+        // mills `rad` cards — CR 728.1). applyRadiation lives in gameState.js, which can't import triggers.js
+        // (cycle), so the milled-trigger bind fires HERE at the caller. Snapshot the cards it WILL mill (top
+        // N, bounded by library size — the same Math.min applyRadiation uses) BEFORE the mill so their
+        // front-face types are readable, then fire the bind for the active player's mill event after.
+        const libBefore = state.players[state.activePlayer]?.library || [];
+        const radMilled = libBefore.slice(0, Math.min(radBefore, libBefore.length));
         next = applyRadiation(next, { playerId: state.activePlayer });
         if (radBefore > 0) next = logEvent(next, { kind: "radiation", phase: state.phase, player: state.activePlayer, radCounters: radBefore });
+        if (radMilled.length > 0) next = checkMilledTriggers(next, { milledByPlayer: state.activePlayer, milledCards: radMilled });
       }
       next = logEvent(next, { kind: "step", phase: state.phase, step: state.step, player: state.activePlayer });
       break;
@@ -546,6 +555,42 @@ export const NO_SAFE_TARGET = Symbol("no-safe-trigger-target");
  */
 function buildTriggerStack(state, trigger, chooseTargets) {
   const clause = trigger.descriptor?.effectClause;
+
+  // ===== UPKEEP-WIN (Wave 3b, CR 603.4) ===== — the win-game intervening-if family ("At the beginning of
+  // your upkeep, IF you control ten or more Treasures, you win the game"). The general intervening-if path
+  // routes ALL conditional triggers to the Arbiter no-op (a fail-open draw/lifegain is mostly harmless),
+  // but a WIN must be modeled exactly: a fail-open here is an instant fake win (the cardinal FP). So handle
+  // the win-game-with-intervening-if shape natively, with a STRICT condition evaluator (never fail-open):
+  //   - parses to "you win the game" (a non-targeted win-game atom), AND
+  //   - the threshold STRICTLY evaluates (true/false; null = unparsed → route to Arbiter, never fire).
+  // CR 603.4 FIRST check: the condition is evaluated as the trigger WOULD go on the stack — false → DROP
+  // (it never goes on the stack); true → it goes on the stack carrying `condition` for the resolution
+  // re-check (the applyWinGame resolver re-evaluates, the SECOND CR 603.4 check, closing the premature-win FP).
+  const interveningIf = trigger.descriptor?.interveningIf;
+  if (clause && interveningIf) {
+    const condProgram = parseEffectClause(clause, "Instant");
+    const winAtom = condProgram?.atoms?.length === 1 ? condProgram.atoms[0] : null;
+    if (winAtom && winAtom.op === "win-game" && winAtom.who === "controller" && programConfidence(condProgram) === "high") {
+      const met = evaluateWinThreshold(state, interveningIf, trigger.controller);
+      if (met === null) {
+        // The condition is outside the strict vocabulary — never fail-open a win → Arbiter no-op (SAFE FN).
+        return { payload: { resolver: "manual" }, targets: [] };
+      }
+      if (met !== true) {
+        // CR 603.4 — condition not met at the trigger event → the ability never goes on the stack.
+        return null;
+      }
+      // Met: route the win-game atom natively, binding the intervening-if onto it for the CR 603.4
+      // resolution re-check (applyWinGame re-evaluates; if a Treasure was sac'd in response, no win).
+      const boundProgram = { ...condProgram, atoms: [{ ...winAtom, condition: interveningIf }] };
+      return {
+        payload: { resolver: "effect-program", params: { program: boundProgram, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId, targets: [] } },
+        targets: [],
+      };
+    }
+    // Any OTHER intervening-if trigger keeps the existing behavior (falls through to the Arbiter no-op below).
+  }
+
   if (clause && !trigger.descriptor?.interveningIf) {
     // Parse the trigger's effect clause as spell-like text: a triggered ability's
     // effect resolves exactly as a spell would, and the legacy effect parser

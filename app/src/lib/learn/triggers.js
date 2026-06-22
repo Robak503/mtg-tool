@@ -77,8 +77,11 @@ const FLAVOR_LABEL_RE = new RegExp(
  * trailing trigger-keyword lookahead so it can only consume a true label, never real rules text.
  */
 export function stripTriggerAbilityLabel(oracle) {
+  // "treasure hunter" is Knuckles the Echidna's flavor ability-word label on its upkeep-win trigger
+  // ("Treasure Hunter — At the beginning of your upkeep, …"). Like the others it's CR 207.2c flavor with
+  // no rules meaning; stripping it lets the boundary-anchored trigger regex see the bare "At the beginning".
   return String(oracle || "")
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft)\s*[—–-]\s*/gim, "")
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter)\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 
@@ -114,7 +117,13 @@ function splitTriggerSentence(inner) {
   // EVENT_VERBS: verbs that appear in trigger CONDITIONS. If the text before the first comma
   // lacks one, that comma is inside a card name ("Pantlaza, Sun's Vanguard or another Dinosaur
   // you control enters …") — advance to the next comma that yields an event-verb condition.
-  const hasEventVerb = (s) => /\b(?:enters|dies|attacks|blocks|deals|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning)\b/.test(s);
+  // MILL-ON-EVENT (Wave 3b): "milled"/"mills" are condition verbs ("one or more nonland cards are milled",
+  // "a player mills a nonland card"). Without them, the advance-past-name-commas loop below would wrongly
+  // skip the real condition boundary — for "one or more nonland cards are milled, draw a card, …" the FIRST
+  // comma's left side lacks a (pre-mill) event verb, so the loop would advance to the comma after "draw a
+  // card" (matching "draws? a"), swallowing the first effect sentence INTO the condition. Listing the mill
+  // verbs anchors the split at the correct comma.
+  const hasEventVerb = (s) => /\b(?:enters|dies|attacks|blocks|deals|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning|milled|mills)\b/.test(s);
   let splitIdx = inner.indexOf(",");
   if (splitIdx === -1) return null;
   if (!hasEventVerb(inner.slice(0, splitIdx))) {
@@ -124,6 +133,19 @@ function splitTriggerSentence(inner) {
       if (next === -1) break;
       if (hasEventVerb(inner.slice(0, next))) { splitIdx = next; break; }
       pos = next + 1;
+    }
+  }
+  // TYPED-CAST-LIST guard — a "cast a <A>, <B>, or <C> spell" condition (Sram: "cast an Aura, Equipment, or
+  // Vehicle spell") puts a comma INSIDE the condition, before the word "spell". The prefix "you cast an
+  // Aura" already has the "cast" event verb, so the loop above stops at that first comma and TRUNCATES the
+  // type list — leaving a partial condition + a garbled effect. The cast condition only ends at "…spell", so
+  // when the chosen split prefix is a cast clause that hasn't reached "spell" yet, advance to the first
+  // comma AFTER "spell". Gated to the cast case (prefix has "cast", lacks "spell"); other triggers unchanged.
+  if (/\bcasts?\b/.test(inner.slice(0, splitIdx)) && !/\bspell\b/.test(inner.slice(0, splitIdx))) {
+    const spellIdx = inner.search(/\bspell\b/);
+    if (spellIdx !== -1) {
+      const afterSpell = inner.indexOf(",", spellIdx);
+      if (afterSpell !== -1) splitIdx = afterSpell;
     }
   }
   const condition = inner.slice(0, splitIdx).trim();
@@ -275,7 +297,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\bor another\b/.test(c)) return null;
   if (/\bdealt damage by\b/.test(c)) return null;
   if (/\bthe player with\b/.test(c)) return null;
-  if (/\b(?:with|while|during|named)\b/.test(c)) return null;
+  // The "with …" rejection guards scope-INEXPRESSIBLE restrictions ("with a +1/+1 counter on it"). Two cast
+  // shapes use "with" but are PRECISELY checkable on the cast spell itself — "cast a spell with {X} in its
+  // mana cost" (printed-cost test) and "cast a spell with mana value N or greater/less" (CR 202.3). Exempt
+  // ONLY those exact anchored shapes here so they reach the cast matchers below; everything else "with …"
+  // still routes to the Arbiter (a SAFE false-negative). The shapes are re-anchored at their matchers.
+  const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
+  if (!castWithExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
 
   // The subject is mapped ONLY to a scope scopeMatches can ENFORCE (bare, or the controller
   // restriction); any other restriction (keyword/type/power/named/token) → null → UNDETECTED, so
@@ -283,6 +311,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   // exact text before the event verb.
   if (/\benters\b/.test(c) && !/\benters (the battlefield )?(tapped|with|as)\b/.test(c)) {
     if (selfRef) return { event: "etb", scope: "self", whose: "any" };
+    // NONTOKEN-SUBJECT ETB (wave3b) — "a nontoken creature you control enters" (Guardian Project / The
+    // Great Henge / Blessed Sanctuary) and "a nontoken <Subtype> you control enters" (Sosuke's Summons —
+    // "create a 1/1 green Snake"). Same scope-expressible nontoken restriction (CR 111.1) as the dies
+    // analog above: nontokenFilter:true GATES on the entering permanent's token-ness in scopeMatches, so
+    // a TOKEN of the matching kind entering does NOT fire. Controller-scoped only; the bare "enters" is
+    // matched (the tapped/with/as guard above already excluded the static-replacement shapes). Checked
+    // BEFORE the another-subtype / creatureSubjectScope matchers, which don't recognize "nontoken".
+    const etbSubjRaw = subjectBefore(c, "enters");
+    if (etbSubjRaw === "a nontoken creature you control") return { event: "etb", scope: "creatureYouControl", whose: "any", nontokenFilter: true };
+    const ntSubEtb = etbSubjRaw.match(/^a nontoken ([a-z]{3,}) you control$/);
+    if (ntSubEtb && !NON_SUBTYPE_ETB_WORDS.has(ntSubEtb[1])) {
+      return { event: "etb", scope: "subtypeYouControl", whose: "any", subtypeFilter: ntSubEtb[1].charAt(0).toUpperCase() + ntSubEtb[1].slice(1), nontokenFilter: true };
+    }
     // ANOTHER-SUBTYPE ETB — "another <type/subtype> [you control] enters" (Elvish Vanguard / Youthful Valkyrie /
     // Arcbound Crusher families). A single-word type that typeStr can enforce; NON_SUBTYPE_ETB_WORDS rejects
     // supertypes, meta words, and colors whose typeStr check would silently never fire (CREED FP guard).
@@ -300,6 +341,28 @@ function classifyCondition(condRaw, cardName, cardType) {
   }
   if (/\bdies\b/.test(c)) {
     if (selfRef) return { event: "dies", scope: "self", whose: "any" };
+    // NONTOKEN-SUBJECT dies (wave3b) — "a nontoken creature you control dies" (Remembrance / Open the
+    // Graves / Ulvenwald Mysteries — the token-recursion family) and "a nontoken <Subtype> you control
+    // dies" (Lazotep Sliver — "amass Slivers 2"). The "nontoken" qualifier is a SCOPE-EXPRESSIBLE
+    // restriction (the dead permanent must NOT be a token, CR 111.1 — checked via card.token in
+    // scopeMatches), so it's carved out HERE rather than rejected. nontokenFilter:true GATES firing on
+    // the dead permanent's token-ness; without the gate a token of the matching kind dying would fire
+    // (the #1 FP — Lazotep's own amass-minted Sliver Army token dying would re-fire its amass). Anchored
+    // controller-scoped ONLY ("you control"): the scope below enforces both the controller AND the
+    // nontoken gate; a no-controller form ("a nontoken creature dies", Mimic Vat) stays UNDETECTED (its
+    // eachCreature scope can't carry the controller-agnostic nontoken check cleanly) → Arbiter (SAFE FN).
+    // Checked BEFORE the bare creatureSubjectScope / subtype matchers because those don't see "nontoken".
+    const ntCreatureDies = c.match(/^a nontoken creature you control dies$/);
+    if (ntCreatureDies) return { event: "dies", scope: "creatureYouControl", whose: "any", nontokenFilter: true };
+    // The NON_SUBTYPE_ETB_WORDS denylist (shared with the ETB path) rejects a meta-word subject
+    // ("permanent"/"planeswalker"/a color) whose typeStr-substring scope check would silently never fire —
+    // claiming native on a do-nothing trigger is a CREED FP. "artifact"/"enchantment" are NOT denylisted
+    // (real type-line tokens — Replication Specialist's "nontoken artifact"). Zero live corpus hits today;
+    // the guard keeps the path robust against future additions, matching the ETB matcher's hygiene.
+    const ntSubDies = c.match(/^a nontoken ([a-z]{3,}) you control dies$/);
+    if (ntSubDies && !NON_SUBTYPE_ETB_WORDS.has(ntSubDies[1])) {
+      return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: ntSubDies[1].charAt(0).toUpperCase() + ntSubDies[1].slice(1), nontokenFilter: true };
+    }
     const scope = creatureSubjectScope(subjectBefore(c, "dies"));
     if (scope) return { event: "dies", scope, whose: "any" };
     // SUBTYPE dies (tribal payoffs — Laid to Rest / Slimefoot / Crossway Troublemakers). Single-word
@@ -387,6 +450,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   // "each player draws a card" became modeled); the guard also retires the pre-existing Burning Sun
   // Cavalry false-positive. (The "blocks or becomes blocked" compound is a separate, unexposed case.)
   if (/\battacks\b/.test(c) && /\bblocks\b/.test(c)) return null;
+  // ===== ATTACKS-ALONE (sole-attacker restriction guard, CR 508.4a) ===== "attacks alone" fires ONLY when
+  // exactly one creature is attacking. The engine has NO sole-attacker gate, so the non-anchored
+  // "a creature you control" match below would silently DROP "alone" and fire on EVERY attacker (Black
+  // Panther / Agent 13 would grant their bonus whenever any creature attacks — a confident over-fire FP,
+  // CLAUDE.md §1.2). Leave it UNDETECTED → the card routes to body-only/Arbiter (SAFE false-negative) until
+  // an attacks-alone system exists. Also neutralizes Exalted's "attacks alone" reminder text. Caught by the
+  // WAVE-3b adversarial sweep + a full-surface scan (this also retired the pre-existing Agent 13 FP).
+  if (/\battacks\b/.test(c) && /\balone\b/.test(c)) return null;
   if (/\battacks\b/.test(c)) {
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     if (/a creature you control/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };
@@ -483,11 +554,66 @@ function classifyCondition(condRaw, cardName, cardType) {
   // other trailing text stays UNDETECTED → Arbiter. Fires via checkCastTriggers when the caster's
   // spellsCastThisTurn reaches 2 (reset for all seats at untap); whose:"any" + scan only the caster.
   if (/^you cast your second spell (?:each|this) turn$/.test(c)) return { event: "castSecond", scope: "you", whose: "any" };
-  const castM = c.match(/^(you|an opponent|a player|each player) casts?\s+(?:an?|your|its|their)?\s*([a-z- ]*?)\s*spell$/);
+  // TRIG-CASTNTH — "cast your <ordinal> spell each turn" generalized to the off-by-one-safe Nth-per-turn
+  // event (CR 601, spells cast one at a time → spellsCastThisTurn equals N exactly once per turn). Covers the
+  // controller form ("you cast your first/third spell each turn" — Rashmi) AND the opponent form ("an
+  // opponent casts their first spell each turn" — Mind's Dilation). BARE form ONLY — a spell-type rider
+  // ("…first noncreature spell") fails the `$` anchor → UNDETECTED → Arbiter (never an over-fire). The
+  // PAYOFF still has to parse HIGH to fire (Rashmi's reveal/free-cast does not → stays non-native; the
+  // detection is correct but the whole card routes to the Arbiter, a SAFE false-negative). checkCastTriggers
+  // reads the CASTER's count. (The bare "second" form stays its own castSecond event for stable identity.)
+  const nthM = c.match(/^(you|an opponent) casts? (?:your|their) (first|second|third) spell (?:each|this) turn$/);
+  if (nthM) {
+    const nth = nthM[2] === "first" ? 1 : nthM[2] === "second" ? 2 : 3;
+    const whose = nthM[1] === "you" ? "you" : "opponent";
+    return { event: "castNth", scope: "castWatcher", whose, nth };
+  }
+  // X-SPELL cast trigger — "cast a spell with {X} in its mana cost" (CR 107.3 / 601.2b). The {X} and "mana
+  // cost" land AFTER "spell", so this never matches the generic "…spell$" matcher; it's its own anchored
+  // form. spellFilter:{ kind:"hasX" } → spellMatchesFilter inspects the cast spell's printed mana cost.
+  // (Zaxara's token-with-X-counters PAYOFF is owned by the xCastToken.js targeted hook; here a non-HIGH
+  // payoff just no-ops through buildTriggerStack — no double token. A simple payoff like "draw a card" fires.)
+  const xCastM = c.match(/^(you|an opponent|a player|each player) casts? an? spell with \{x\} in its mana cost$/);
+  if (xCastM) {
+    const whose = /you/.test(xCastM[1]) ? "you" : /opponent/.test(xCastM[1]) ? "opponent" : "any";
+    return { event: "cast", scope: "castWatcher", whose, spellFilter: { kind: "hasX" } };
+  }
+  // MANA-VALUE-THRESHOLD cast trigger — "cast a spell with mana value N or greater/less" (CR 202.3). Like
+  // the X form, the "with mana value …" rider is AFTER "spell", so it's an anchored standalone form. The
+  // comparison reads the cast spell's mana value at cast time. "or more"/"or greater" → >= N; "or
+  // less"/"or fewer" → <= N. An "exactly N" or unbounded variant isn't in this shape → UNDETECTED.
+  const mvCastM = c.match(/^(you|an opponent|a player|each player) casts? an? spell with mana value (\d+) or (greater|more|less|fewer)$/);
+  if (mvCastM) {
+    const whose = /you/.test(mvCastM[1]) ? "you" : /opponent/.test(mvCastM[1]) ? "opponent" : "any";
+    const op = /greater|more/.test(mvCastM[3]) ? "gte" : "lte";
+    return { event: "cast", scope: "castWatcher", whose, spellFilter: { kind: "manaValue", op, value: parseInt(mvCastM[2], 10) } };
+  }
+  const castM = c.match(/^(you|an opponent|a player|each player) casts?\s+(?:an?|your|its|their)?\s*([a-z,\- ]*?)\s*spell$/);
   if (castM) {
     const whose = /you/.test(castM[1]) ? "you" : /opponent/.test(castM[1]) ? "opponent" : "any";
     const spellFilter = castSpellFilter(castM[2].trim());
     if (spellFilter) return { event: "cast", scope: "castWatcher", whose, spellFilter };
+  }
+  // ===== MILL-ON-EVENT (Wave 3b, CR 701.13a — milling cards is a SINGLE game event) ===== Two corpus
+  // templates, both classified to the shared "milled" event (fired by checkMilledTriggers off the real
+  // mill chokepoints — the mill effect atom + the inherent radiation ability):
+  //   BATCH ("one or more [nonland] cards are milled") — fires ONCE per mill event regardless of how many
+  //     cards were milled (Mirelurk Queen, Screeching Scorchbeast, The Wise Mothman). perCard:false.
+  //   PER-CARD ("a player|an opponent mills a [nonland] card") — fires once per MATCHING card milled (CR
+  //     701.13a — each milled card is a distinct object, so a payoff phrased per-card fires per-card;
+  //     Glowing One "you gain 1 life" per nonland, Infesting Radroach). perCard:true.
+  // `milledFilter` = "nonland" gates on the milled card's FRONT-face type (checkMilledTriggers), null = any
+  // card. `whose` = "any" ("a player") or "opponent" (the milling player must be an opponent of the
+  // watcher's controller — Infesting Radroach). Anchored end-to-end: a TYPE-filtered variant ("one or more
+  // CREATURE cards are milled", "mills one or more cards" rider) or any other shape leaves residue → null →
+  // Arbiter (a SAFE false-negative; CLAUDE.md §1.2). This is the trigger BIND only — the milled-card payoffs
+  // (rad/draw/counter/token) already exist; an effect that can't parse HIGH (a "once each turn"/scaling
+  // rider) still routes the WHOLE trigger to the Arbiter at flush (buildTriggerStack), never a partial.
+  let milledM = c.match(/^one or more (nonland )?cards are milled$/);
+  if (milledM) return { event: "milled", scope: "milled", whose: "any", perCard: false, milledFilter: milledM[1] ? "nonland" : null };
+  milledM = c.match(/^(a player|an opponent) mills (?:a|an|one) (nonland )?card$/);
+  if (milledM) {
+    return { event: "milled", scope: "milled", whose: /opponent/.test(milledM[1]) ? "opponent" : "any", perCard: true, milledFilter: milledM[2] ? "nonland" : null };
   }
   return null;
 }
@@ -544,7 +670,20 @@ function castSpellFilter(text) {
   // type line (Elf/Dog/Dragon/Adventure/Aura spells; tribal cast payoffs). A multi-word phrase, color, or
   // denylisted word → null → undetected → Arbiter (a SAFE false-negative). Serialized as "subtype:Name".
   if (/^[a-z]+$/.test(f) && !NON_SUBTYPE_CAST_WORDS.has(f)) return `subtype:${f.charAt(0).toUpperCase() + f.slice(1)}`;
-  return null; // color / multi-word / denylisted category → unmodeled
+  // TYPED-LIST — an "A, B, or C" list of type words ("Aura, Equipment, or Vehicle" — Sram). Split on
+  // commas / "or" / "and", strip a leftover leading "or "/"and " (the Oxford comma ", or" leaves "or
+  // vehicle" when the comma split fires first), and require EVERY word to be a real type/subtype token (NOT
+  // denylisted — same NON_SUBTYPE_CAST_WORDS gate as the single-word path, so a color/category word in the
+  // list rejects the whole filter → null → Arbiter). The cast spell matches if its type line carries ANY
+  // listed word (CR 205.2), exactly how "Aura, Equipment, or Vehicle" reads. Serialized as a typed object.
+  const words = f
+    .split(/\s*,\s*|\s+or\s+|\s+and\s+/)
+    .map((w) => w.trim().replace(/^(?:or|and)\s+/, ""))
+    .filter(Boolean);
+  if (words.length >= 2 && words.every((w) => /^[a-z]+$/.test(w) && !NON_SUBTYPE_CAST_WORDS.has(w))) {
+    return { kind: "typed", words: words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)) };
+  }
+  return null; // color / multi-word non-type / denylisted category → unmodeled
 }
 
 /**
@@ -596,6 +735,22 @@ const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-
 // rider ("…at the beginning of the next end step" = a DELAYED return, Resurrection Orb; "…draw a card") leaves
 // residue → the marker isn't applied → the program stays LOW → Arbiter (a SAFE false-negative).
 const SELF_RETURN_IT_RE = /^return it to its owner's hand$/i;
+
+// WAVE 3b COUNTERS-ON-EVENT — the NON-SELF triggering-referent counter. A NON-self attack / combat-damage
+// trigger ("Whenever a creature you control deals combat damage to a player, put a +1/+1 counter on THAT
+// CREATURE" — Sphere Grid; "…attacks, put a +1/+1 counter on IT") names the TRIGGERING permanent (CR
+// 608.2c — a pronoun in later text refers to the object the ability triggered on), NOT the source — so
+// the self "it"→"this creature" rewrite above is WRONG here (it would target
+// the source). Instead, for a NON-self scope ONLY, normalize the referent → the canonical sentinel "the
+// triggering creature", which the WAVE-3b clause parser (effects/atoms/counterClauses.js) binds to
+// ctx.triggeringPermanentId. The sentinel is a phrase that appears in ZERO printed oracle text, so a
+// SPELL's anaphoric "it"/"that creature" (Big Play / Puncture Bolt / Miraculous Recovery) is NEVER
+// rewritten (it isn't a non-self trigger) and stays LOW → Arbiter (CREED — no fabricated/mis-bound counter).
+// ±1/±1 only (the enforced counter kinds); whole-clause anchored, so a rider/compound leaves it untouched.
+const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
+// The NON-self scopes for which a bare "it"/"that creature" referent is the TRIGGERING permanent: the
+// "a creature you control" / "a <Subtype> you control" attack + combat-damage watchers (Sphere Grid family).
+const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl"]);
 
 // ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
 // is `(condition, cardName, typeLine, effectClause) => TriggerDescriptorClassification | null` and is
@@ -683,18 +838,29 @@ export function detectTriggers(card) {
         // phrase that ONLY the selfReturnClauseParser models → the self-return atom (graveyard → owner's hand).
         // Gated on cls.selfReturnKind (set ONLY by the two narrow detectors), so no other trigger is touched.
         effectClause = `[self-return:${cls.selfReturnKind}] ${effectClause}`;
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && NONSELF_COUNTER_REF_RE.test(effectClause)) {
+        // WAVE 3b COUNTERS-ON-EVENT: a NON-self attack/combat-damage trigger's "…put a +1/+1 counter on IT
+        // / on THAT CREATURE" — the referent is the TRIGGERING permanent (CR 608.2c), not the source.
+        // Normalize → the sentinel "the triggering creature" so the WAVE-3b clause parser binds it to
+        // ctx.triggeringPermanentId. Gated to the non-self triggering scopes (the spell anaphor never
+        // reaches here) + the whole-clause anchor (a rider stays untouched → LOW → Arbiter), CREED-safe.
+        effectClause = effectClause.replace(/ on (?:it|that creature)$/i, " on the triggering creature");
       }
       out.push({
         event: cls.event,
         scope: cls.scope,
         whose: cls.whose,
         spellFilter: cls.spellFilter,         // cast triggers only (undefined otherwise)
+        nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
         subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF only (e.g. "Dinosaur" for Pantlaza)
+        nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
         selfReturnKind: cls.selfReturnKind,   // SELF-LTB: "self" (Aura PiG) | "attached" (equipped-creature-dies)
+        perCard: cls.perCard,                 // MILL-ON-EVENT: true = per-card ("mills a card"), false = once-per-event ("one or more … are milled")
+        milledFilter: cls.milledFilter,       // MILL-ON-EVENT: "nonland" | null (which milled cards count)
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         effect: parseTriggerEffect(effectClause),
@@ -719,6 +885,14 @@ export function hasTriggerFor(card, event) {
 // ─── Matching ──────────────────────────────────────────────────────────────────
 
 function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
+  // NONTOKEN-SUBJECT gate (wave3b, CR 111.1) — "a nontoken creature/<Subtype> you control dies/enters"
+  // (Lazotep Sliver, Remembrance, Guardian Project). The "nontoken" qualifier EXCLUDES token permanents:
+  // a token of the matching kind triggering must NOT fire. A created token's card carries `token: true`
+  // (tokenFactory / amass / resolvers convention); a real card has no such flag. This gate runs BEFORE the
+  // scope switch so it composes with whichever scope (creatureYouControl / subtypeYouControl) the descriptor
+  // chose. Load-bearing FP guard: without it Lazotep's OWN amass-minted Sliver Army token (a Sliver, so the
+  // subtypeYouControl scope would match it) dying would re-fire its amass — a confident wrong fire.
+  if (descriptor.nontokenFilter && triggeringPermanent?.card?.token) return false;
   switch (descriptor.scope) {
     case "self":
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;
@@ -736,6 +910,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
             || (Array.isArray(triggeringPermanent.attachments) && triggeringPermanent.attachments.includes(sourcePermanent.id)));
     case "you":
       return true; // step / lifegain / cardDrawn / youAttack triggers — `whose` gates ownership
+    case "milled":
+      // MILL-ON-EVENT — a player-mill event has NO triggering PERMANENT (the milled cards are library
+      // objects, not permanents); the milling-player `whose` gate is applied in checkMilledTriggers, which
+      // scans ALL players' watchers directly. Always matches here (like "you"): the event already proved a
+      // mill happened, and the filter (nonland) + whose gate are enforced at the checkMilledTriggers site.
+      return true;
     case "eachCreature":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent);
     case "eachOtherCreature":
@@ -956,13 +1136,23 @@ export function checkDiesTriggers(state, dead) {
   let fired = [];
   for (const d of dead) {
     if (!d?.card) continue;
-    // SELF-LTB: carry the dead creature's former `attachments` ids on the look-back so the
+    // SELF-LTB (Wave 4): carry the dead creature's former `attachments` ids on the look-back so the
     // equippedCreature scope (Sword of the Realms) can match its watcher (CR 603.10a look-back).
+    // DIES-TRIGGER-RESOURCE-PAYOFFS (Wave 3b): also carry the dying creature's last-known POWER (CR 603.6e),
+    // captured at the SBA/destroy/sacrifice look-back BEFORE the permanent left the battlefield. Threaded as
+    // ctx.dyingPower so a "<payoff> equal to its power" dies-trigger (Goldvein Hydra Treasures, Lifeblood
+    // Hydra gain+draw, Feral Ghoul rad) reads the real on-board power. ONLY the SOURCE's OWN dies-trigger
+    // ("when THIS creature dies") references "its power"; a surviving watcher ("whenever a creature dies")
+    // that reads a magnitude off the triggering creature would also want it, so it's carried on both fires
+    // (a watcher that doesn't use it simply ignores the ctx key). A dead entry with no captured power (PW SBA,
+    // an unsized CDA) carries `undefined` → the payoff resolves to 0 (a clean no-op, never a fabricated count).
+    // All fires read `state2` (post-checkLeavesTriggers, consistent with the return below).
     const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [] };
-    fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+    const diesCtx = d.power != null ? { dyingPower: d.power } : {};
+    fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
     for (const pid of Object.keys(state2.players)) {
       for (const watcher of triggerSourcesOf(state2, pid)) {
-        fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack }));
+        fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
       }
     }
   }
@@ -1202,6 +1392,68 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
+/** The cast spell's mana value: prefer a numeric cmc/mana_value, else 0 (a missing cost can't pass a >=N gate). */
+function spellManaValue(spellCard) {
+  if (typeof spellCard?.cmc === "number") return spellCard.cmc;
+  if (typeof spellCard?.mana_value === "number") return spellCard.mana_value;
+  return 0;
+}
+
+/** MILL-ON-EVENT — front-face type line (CR 712.4a / 712.8a). A card in the library has ONLY its front-face
+ * characteristics, so an MDFC whose BACK is a land (Malakir Rebirth // Malakir Mire) is a NONLAND when milled.
+ * Mirrors gameState.frontFaceTypeLine (kept local so triggers.js stays a leaf — no gameState type import). */
+function frontFaceType(card) {
+  const faces = card?.card_faces;
+  const raw = Array.isArray(faces) && faces.length > 0
+    ? String(faces[0]?.type_line || faces[0]?.type || "")
+    : String(card?.type || card?.type_line || "");
+  return raw.split("//")[0];
+}
+function isNonlandCard(card) {
+  return !/\bLand\b/.test(frontFaceType(card));
+}
+
+/**
+ * MILL-ON-EVENT (Wave 3b, CR 701.13a) — enqueue "milled" triggers for ONE player-mill event. `milledCards`
+ * is the ordered batch of card objects that just moved from `milledByPlayer`'s library to their graveyard
+ * (captured by the caller — the mill effect atom or the inherent radiation ability — BEFORE/at the mill so
+ * the front-face type is readable). Fires every battlefield/emblem watcher of EVERY player, because the
+ * corpus triggers watch mills globally ("one or more nonland cards are milled" / "a player mills …"):
+ *   - BATCH descriptors (perCard:false) fire ONCE for this event when ≥1 matching card was milled (CR
+ *     701.13a — milling is a single event; the count rides the context for an amount-aware payoff).
+ *   - PER-CARD descriptors (perCard:true) fire ONCE PER matching card milled (each milled card is its own
+ *     object — Glowing One's "you gain 1 life" per nonland is N separate triggers).
+ * `milledFilter:"nonland"` counts only nonland cards (front-face); null counts all. The `whose:"opponent"`
+ * gate (Infesting Radroach) requires the MILLING player to be an opponent of the watcher's controller.
+ * Pure — appends to pendingTriggers; the effect rides the normal flush → buildTriggerStack path, so a
+ * payoff that can't parse HIGH (a "once each turn"/scaling/conditional rider) routes the WHOLE trigger to
+ * the Arbiter no-op, never a partial (CLAUDE.md §1.2). No-op on an empty/missing mill (a clean library no-op).
+ */
+export function checkMilledTriggers(state, { milledByPlayer, milledCards } = {}) {
+  const cards = Array.isArray(milledCards) ? milledCards : [];
+  if (!milledByPlayer || !state.players?.[milledByPlayer] || cards.length === 0) return state;
+  const nonlandCount = cards.filter(isNonlandCard).length;
+  let fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "milled")) {
+        // whose:"opponent" — the MILLING player must be an opponent of this watcher's controller.
+        if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(milledByPlayer)) continue;
+        // The filtered count this trigger cares about: nonland-only or every milled card.
+        const matchCount = d.milledFilter === "nonland" ? nonlandCount : cards.length;
+        if (matchCount === 0) continue; // no matching card milled → this descriptor doesn't fire
+        const context = { milledByPlayer, milledCount: cards.length, nonlandMilledCount: nonlandCount };
+        // PER-CARD fires once per matching card (CR 701.13a — each milled card is a distinct object); BATCH
+        // fires exactly once for the whole event. makePendingTrigger is re-called so each is a distinct object.
+        const times = d.perCard ? matchCount : 1;
+        for (let i = 0; i < times; i++) fired.push(makePendingTrigger(d, watcher, null, context));
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
 /** Does the cast spell match a cast trigger's modeled spell-type filter? */
 function spellMatchesFilter(filter, spellCard) {
   const t = typeStr(spellCard);
@@ -1210,6 +1462,21 @@ function spellMatchesFilter(filter, spellCard) {
   if (typeof filter === "string" && filter.startsWith("subtype:")) {
     const sub = filter.slice(8);
     return new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t);
+  }
+  // PARAMETERIZED object filters: typed-list (ANY listed type/subtype on the line, CR 205.2), the X-spell
+  // printed-cost test (CR 107.3), and the mana-value threshold (CR 202.3).
+  if (filter && typeof filter === "object") {
+    switch (filter.kind) {
+      case "typed":
+        return filter.words.some((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t));
+      case "hasX":
+        return /\{x\}/i.test(String(spellCard?.mana ?? spellCard?.mana_cost ?? ""));
+      case "manaValue": {
+        const mv = spellManaValue(spellCard);
+        return filter.op === "gte" ? mv >= filter.value : mv <= filter.value;
+      }
+      default: return false;
+    }
   }
   switch (filter) {
     case "any": return true;
@@ -1291,9 +1558,27 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [] }) 
   // just incremented the caster's count BEFORE this call, and spells are cast one at a time, so it equals
   // exactly 2 on the 2nd cast of the turn (reset for all seats at untap → fires again next turn). Fires for
   // the CASTER's own watchers only (scope "you"), so no whose gate is needed — never on an opponent's cast.
-  if (state.players[casterId]?.spellsCastThisTurn === 2) {
+  const castCount = state.players[casterId]?.spellsCastThisTurn;
+  if (castCount === 2) {
     for (const watcher of triggerSourcesOf(state, casterId)) {
       for (const d of detectTriggers(watcher.card).filter((x) => x.event === "castSecond")) {
+        fired.push(makePendingTrigger(d, watcher, null, context));
+      }
+    }
+  }
+  // TRIG-CASTNTH (CR 601): "Whenever (you|an opponent) casts (your|their) <Nth> spell each turn." The count
+  // just incremented in applyCastSpell is the CASTER's running total, so it equals descriptor.nth EXACTLY
+  // ONCE this turn (the off-by-one trap: the count is already post-increment, so an Nth trigger compares ===
+  // nth, NOT > nth-1 — a single fire on the Nth cast). A "you" watcher fires only when its controller IS the
+  // caster; an "opponent" watcher fires only when the caster is one of the watcher's opponents (so each
+  // opponent's Mind's Dilation fires once on that opponent's Nth cast). Scanned across ALL seats so opponent
+  // watchers see the cast. The PAYOFF still must parse HIGH at flush to fire natively.
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "castNth")) {
+        if (castCount !== d.nth) continue;
+        if (d.whose === "you" && casterId !== watcher.controller) continue;
+        if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(casterId)) continue;
         fired.push(makePendingTrigger(d, watcher, null, context));
       }
     }

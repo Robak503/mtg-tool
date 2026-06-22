@@ -224,7 +224,14 @@ function devotionPips(card, color) {
   }
   return n;
 }
-// Resolved numeric amount: a board count (`amountCount`) × a per-unit value (FOR-EACH "gain 2 life for
-// each X" → per 2; DMG-SCALE damage = the count itself → per defaults to 1), computed at resolution;
-// else the X-amount (`amountX` → ctx.xValue) or the printed numeric amount.
-export const resolveScaledAmount = (state, atom, ctx) => (atom.amountCount ? countForSpec(state, ctx, atom.amountCount) * (atom.amountCount.per ?? 1) : effectiveAmount(atom, ctx));
+// Resolved numeric amount: a CONTEXT number (`countContext` — a trigger-context magnitude like the dying
+// creature's power, DIES-TRIGGER-RESOURCE-PAYOFFS: "gain life … equal to its power" = ctx.dyingPower;
+// mirrors the create-named-token / draw / rad countContext path), floored at 0 and a clean no-op when the
+// ctx key is absent (a spell / non-dies context → 0, never a fabricated count); else a board count
+// (`amountCount`) × a per-unit value (FOR-EACH "gain 2 life for each X" → per 2; DMG-SCALE damage = the
+// count itself → per defaults to 1), computed at resolution; else the X-amount (`amountX` → ctx.xValue) or
+// the printed numeric amount.
+export const resolveScaledAmount = (state, atom, ctx) =>
+  atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
+    : atom.amountCount ? countForSpec(state, ctx, atom.amountCount) * (atom.amountCount.per ?? 1)
+      : effectiveAmount(atom, ctx);
