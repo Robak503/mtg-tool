@@ -42,7 +42,7 @@ import {
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
-import { checkStepTriggers, checkAttackTriggers, checkCardDrawnTriggers } from "./triggers.js";
+import { checkStepTriggers, checkAttackTriggers, checkCardDrawnTriggers, checkLeavesTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -450,7 +450,12 @@ export function resolveTopOfStack(state) {
  * trigger) would sit unflushed past the next priority window.
  */
 export function finalizeStackResolution(state) {
-  let next = flushTriggers(state, { chooseTargets: chooseTriggerTargets });
+  // SELF-LTB (Wave 4) — drain any LTB/leave events a resolution queued (gameState.detachPermanentFromAll
+  // records them; the death paths drain via checkDiesTriggers, but a non-death battlefield exit — an Aura
+  // bounced/exiled, or a direct Disenchant on an Aura whose effect path skipped checkDiesTriggers — reaches
+  // here unflushed). Idempotent: a no-op when the queue is already empty, so it never double-fires.
+  let next = checkLeavesTriggers(state);
+  next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   if (grantsPriority(next.step)) {
     next = resetPriorityLoop(next);
   }

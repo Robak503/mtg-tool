@@ -952,9 +952,24 @@ function auraResidueClauses(card) {
     const c = clause.toLowerCase().trim();
     if (/^enchant\b/.test(c)) continue;                       // the Enchant keyword line
     if (touchesAttachedCreature(c, "enchanted")) continue;    // a creature-bonus clause
+    if (isSelfPigReturnClause(c)) continue;                   // SELF-LTB: the modeled Aura self-PiG-return trigger
     out.push(clause);
   }
   return out;
+}
+
+// SELF-LTB (Wave 4) — the EXACT Aura self-PiG-return trigger the engine now plays end-to-end (Rancor:
+// "When this Aura is put into a graveyard from the battlefield, return it to its owner's hand."). When the
+// Aura's host leaves (or the Aura is destroyed) gameState records a leave event, triggers.checkLeavesTriggers
+// fires the self-return atom, and the Aura goes from its owner's graveyard back to hand. So this clause is no
+// longer residue. Anchored EXACTLY to the modeled shape (mirrors selfReturn.js's detector + clause parser) —
+// a rider ("…at the beginning of the next end step" = a delayed return, "…and draw a card") leaves residue and
+// keeps the Aura body-only (CREED all-or-nothing). The optional leading "(reminder)" was stripped by the
+// caller's lowercase/trim only; abilityClauses already drops parenthetical reminders.
+const SELF_PIG_RETURN_CLAUSE_RE =
+  /^when this aura is put into a graveyard from the battlefield, return it to its owner's hand\.?$/i;
+function isSelfPigReturnClause(clause) {
+  return SELF_PIG_RETURN_CLAUSE_RE.test(String(clause || "").trim());
 }
 
 /**

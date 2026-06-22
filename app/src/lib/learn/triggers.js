@@ -548,9 +548,17 @@ const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+)?|gains .+
 // rider/compound ("…on it. Draw a card") leaves it untouched → LOW → Arbiter (a SAFE false-negative).
 const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on it$/i;
 
+// SELF-LTB (Wave 4) — the EXACT "return it to its owner's hand" effect clause for the self-LTB family
+// (Rancor Aura PiG-return + Sword of the Realms equipped-creature-dies-return). Whole-clause anchored, so a
+// rider ("…at the beginning of the next end step" = a DELAYED return, Resurrection Orb; "…draw a card") leaves
+// residue → the marker isn't applied → the program stays LOW → Arbiter (a SAFE false-negative).
+const SELF_RETURN_IT_RE = /^return it to its owner's hand$/i;
+
 // ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
-// is `(condition, cardName, typeLine) => TriggerDescriptorClassification | null` and is consulted by
-// detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep priority).
+// is `(condition, cardName, typeLine, effectClause) => TriggerDescriptorClassification | null` and is
+// consulted by detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep
+// priority). `effectClause` (4th arg, added by SELF-LTB) is the trigger's first same-line effect sentence,
+// so a detector can gate on BOTH condition and effect; a condition-only detector ignores it.
 // Empty by default — a no-op until a slice registers one — so existing classification is untouched.
 const _triggerDetectors = [];
 export function registerTriggerDetector(fn) {
@@ -588,7 +596,11 @@ export function detectTriggers(card) {
       // inputs classifyCondition does (condition text, card name, type line).
       if (!cls) {
         for (const d of _triggerDetectors) {
-          const r = d(split.condition, card.name, card.type || card.type_line);
+          // The 4th arg (the trigger's effect text) lets an effect-sensitive detector gate on BOTH the
+          // condition AND the effect — e.g. SELF-LTB classifies "equipped creature dies" ONLY when the
+          // effect is "return it to its owner's hand", so "equipped creature dies, draw a card" stays
+          // unmatched (CREED). Pre-existing condition-only detectors simply ignore the extra arg.
+          const r = d(split.condition, card.name, card.type || card.type_line, split.effectClause);
           if (r) { cls = r; break; }
         }
       }
@@ -619,6 +631,15 @@ export function detectTriggers(card) {
         // as the pump (a NON-self trigger's "it" is the OTHER triggering creature, never the source) +
         // the whole-clause anchor, so the parser's self-counter atom (target:"self") models it.
         effectClause = effectClause.replace(/ on it$/i, " on this creature");
+      } else if (cls.selfReturnKind && SELF_RETURN_IT_RE.test(effectClause)) {
+        // SELF-LTB (Wave 4) — "return it to its owner's hand" where the returned object has ALREADY LEFT the
+        // battlefield (it's in a graveyard): the Aura self-PiG-return (Rancor — "it" = the Aura) or the
+        // equipped-creature-dies-return (Sword of the Realms — "it" = the dead creature). DISTINCT from the
+        // live self-bounce (Zephyr Spirit's "When this creature blocks, return it …" — the source is still on
+        // the battlefield), so it must NOT collapse to the existing bounce. Rewrite to a kind-tagged marker
+        // phrase that ONLY the selfReturnClauseParser models → the self-return atom (graveyard → owner's hand).
+        // Gated on cls.selfReturnKind (set ONLY by the two narrow detectors), so no other trigger is touched.
+        effectClause = `[self-return:${cls.selfReturnKind}] ${effectClause}`;
       }
       out.push({
         event: cls.event,
@@ -630,6 +651,7 @@ export function detectTriggers(card) {
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
+        selfReturnKind: cls.selfReturnKind,   // SELF-LTB: "self" (Aura PiG) | "attached" (equipped-creature-dies)
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         effect: parseTriggerEffect(effectClause),
@@ -716,6 +738,16 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
         && triggeringPermanent.controller === sourcePermanent.controller
         && creaturePower(triggeringPermanent, state) >= (descriptor.powerThreshold || 0);
+    case "equippedCreature":
+      // SELF-LTB (Wave 4) — the EQUIPPED-creature-dies scope (Sword of the Realms: "Whenever equipped
+      // creature dies, return it to its owner's hand"). Fires ONLY when the dead creature (triggeringPermanent,
+      // a CR-603.10a look-back) was the equipment's host. The equipment's OWN `attachedTo` is already null by
+      // the time checkDiesTriggers runs (destroyLethalCreatures detached it when the host moved to the
+      // graveyard), so the linkage is read from the dead creature's look-back `attachments` (captured in
+      // destroyLethalCreatures BEFORE the detach): the source equipment fired iff its id is in that list.
+      return !!triggeringPermanent
+        && Array.isArray(triggeringPermanent.attachments)
+        && triggeringPermanent.attachments.includes(sourcePermanent.id);
     default:
       return false;
   }
@@ -727,6 +759,11 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
     triggeringPermanentId: triggeringPermanent?.id,
     triggeringCardName: triggeringPermanent?.card?.name,
     triggeringController: triggeringPermanent?.controller,
+    // SELF-LTB (Wave 4): the triggering object's CARD id + token-ness, so a self-return resolver can locate
+    // the exact card now sitting in a graveyard (the perm id is stale once it left the battlefield) and skip
+    // a token (CR 111.7 — a token ceases to exist, never returns to a hand). Harmless extra fields otherwise.
+    triggeringCardId: triggeringPermanent?.card?.id,
+    triggeringCardIsToken: !!triggeringPermanent?.card?.token,
     ...triggeringContext,
   };
   return {
@@ -866,20 +903,63 @@ export function checkPermanentEntersTriggers(state, enteredPerm) {
 }
 
 export function checkDiesTriggers(state, dead) {
-  if (!dead || !dead.length) return state;
+  // SELF-LTB (Wave 4): drain any "leaves the battlefield" events queued by gameState.detachPermanentFromAll
+  // FIRST (every death path runs destroyLethalCreatures → moveCardToZone → detach, then checkDiesTriggers),
+  // so an orphaned Aura's PiG-return trigger (Rancor) is enqueued alongside the creature's dies triggers.
+  let state2 = checkLeavesTriggers(state);
+  if (!dead || !dead.length) return state2;
   let fired = [];
   for (const d of dead) {
     if (!d?.card) continue;
-    const lookBack = { id: d.id, controller: d.controller, card: d.card };
-    fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
-    for (const pid of Object.keys(state.players)) {
-      for (const watcher of triggerSourcesOf(state, pid)) {
-        fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack }));
+    // SELF-LTB: carry the dead creature's former `attachments` ids on the look-back so the
+    // equippedCreature scope (Sword of the Realms) can match its watcher (CR 603.10a look-back).
+    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [] };
+    fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+    for (const pid of Object.keys(state2.players)) {
+      for (const watcher of triggerSourcesOf(state2, pid)) {
+        fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack }));
       }
     }
   }
-  if (!fired.length) return state;
-  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+  if (!fired.length) return state2;
+  return { ...state2, pendingTriggers: [...(state2.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * SELF-LTB (Wave 4) — fire "leaves the battlefield" (LTB / put-into-a-graveyard) triggers for the
+ * permanents gameState.detachPermanentFromAll recorded on `state.pendingLeaveEvents` (a plain-JSON look-back
+ * list: `{ id, controller, card, toGraveyard }`, CR 603.6e/603.10a), then ALWAYS CLEAR the queue (idempotent
+ * — a second call sees an empty list). gameState can't import triggers.js (circular-import hazard), so the
+ * emit-side only records data and this triggers-side drains it. Each leave fires its OWN watcher (a self-LTB
+ * trigger like Rancor's PiG-return — the only "ltb" detector today, so a plain creature/equipment leaving
+ * matches nothing and is a no-op). This is the GENERIC LTB emitter the brief asks for (Wave-5
+ * LTB-counter-relocation, The Ozolith, reuses it without re-plumbing). Pure; appends to pendingTriggers.
+ *
+ * The look-back is BOTH sourcePermanent and triggeringPermanent (the self pattern, mirroring
+ * checkDiesTriggers' self path) so scopeMatches' "self" fires and the resolver gets the leaving object's
+ * card in context (makePendingTrigger threads triggeringCardId/triggeringController). A token leaving carries
+ * no return semantics — the resolver self-guards on card.token (CR 111.7), so emitting it here is harmless.
+ */
+export function checkLeavesTriggers(state) {
+  const events = state.pendingLeaveEvents || [];
+  if (!events.length) return state;
+  // Always clear the queue, whether or not anything matched, so events never leak across SBA checks.
+  const cleared = { ...state, pendingLeaveEvents: [] };
+  let fired = [];
+  for (const e of events) {
+    if (!e?.card) continue;
+    // The ONLY "ltb" trigger modeled today is the Aura self-PiG-return (Rancor), whose printed condition is
+    // "is put INTO A GRAVEYARD from the battlefield" (CR 700.4 — NOT a bounce/exile). So fire "ltb" only for a
+    // graveyard exit; a bounce/exile leave is recorded (so the queue is generic + Wave-5-ready) but not fired
+    // here — it matches no current detector, and firing it would WRONGLY return a bounced Aura (a false
+    // positive). A future generic "leaves the battlefield" consumer (Ozolith) keys on the recorded events
+    // regardless of toGraveyard via its own handling.
+    if (!e.toGraveyard) continue;
+    const lookBack = { id: e.id, controller: e.controller, card: e.card };
+    fired = fired.concat(triggersForEvent(cleared, { event: "ltb", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+  }
+  if (!fired.length) return cleared;
+  return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
 }
 
 /**
