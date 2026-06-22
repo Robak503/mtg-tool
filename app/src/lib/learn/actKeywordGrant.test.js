@@ -2,7 +2,7 @@
  * Integration tests for ACT-KW-GRANT — a creature's "{cost}: This creature gains <KEYWORD> until end of
  * turn" self keyword-grant activated ability (and the same shape on a trigger). The parser produces a
  * `{op:"pump", target:"self", grantKeywords}` atom; the existing pump resolver applies a layer-6 keyword
- * grant to the SOURCE (CR 109.2) for the turn, reusing the combat-trick grant path. The enforced
+ * grant to the SOURCE (CR 113.7) for the turn, reusing the combat-trick grant path. The enforced
  * GRANTABLE_COMBAT_KEYWORDS allowlist is the false-positive guard.
  */
 

@@ -251,7 +251,7 @@ function splitClauses(oracle) {
     if (/^creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // SELF pump + keyword grant ("This creature gets +1/+0 and gains trample until end of turn" / "This
     // creature gains flying and vigilance until end of turn") — the " and " is INTERNAL to the one
-    // self-grant instruction (CR 109.2 "this creature" = the source), NOT a top-level effect boundary.
+    // self-grant instruction (CR 113.7 "this creature" = the source), NOT a top-level effect boundary.
     // Keep the whole sentence so parseExtendedAtom binds the self pump + every granted keyword together
     // (ACT-KW-GRANT). All-or-nothing anchored, so an un-grantable keyword just fails to match → low.
     if (/^this creature (?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
@@ -541,7 +541,7 @@ const COUNT_SUBTYPE = {
 // TARGET-CONTROLLED ("…that player controls" — Cavern-Hoard, who:"target", the damaged/target player) permanent
 // counts. Left false for every legacy caller so those scopes can never widen an existing count source.
 // ===== COUNT-OTHER ===== (WALT #365) a leading "other " on a "<X> you control" count EXCLUDES the source
-// permanent itself (CR 109.2 — "other" = every object but this one): "draw a card for each OTHER Dinosaur
+// permanent itself (CR 113.7 — "other" = every object but this one): "draw a card for each OTHER Dinosaur
 // you control" (Earthshaker Dreadmaw) counts every Dinosaur you control but itself. Strip "other ", parse
 // the base source, and tag `excludeSelf` so countForSpec drops the source from the tally. Gated to a
 // CONTROLLER-scoped permanent count (who undefined) — "other" on a hand/graveyard/experience/opponent
@@ -741,7 +741,7 @@ function parseExtendedAtom(s) {
   // ===== DRAW-METRIC ("for each [other]") ===== (WAVE2b) controller-DRAW for-each / equal-to-number matchers.
   // The parseCountSource wrapper handles a leading "other " self-exclusion uniformly (excludeSelf, gated to a
   // controller-scoped permanent count) — "draw a card for each OTHER Dinosaur you control" excludes the source
-  // permanent (CR 109.2). No per-matcher opt-in is needed (the wrapper is the single source of that behavior).
+  // permanent (CR 113.7). No per-matcher opt-in is needed (the wrapper is the single source of that behavior).
   mfe = t.match(/^(?:you )?draw (a|\d+) cards? for each (.+)$/);
   if (mfe) {
     const src = parseCountSource(mfe[2]);
@@ -1256,7 +1256,7 @@ function parseExtendedAtom(s) {
     return (kws && countSpec) ? { op: "pump", scope: "youControl", ptDeltaCount: countSpec, grantKeywords: kws } : null;
   }
   // SELF-reference pump (trigger / activated vocabulary) — "this creature gets +N/+N until end of
-  // turn" refers to the ability's SOURCE (CR 109.2 — "this creature" = the source permanent). NOT
+  // turn" refers to the ability's SOURCE (CR 113.7 — "this creature" = the source permanent). NOT
   // a chosen target (target:"self", no targetType → stays non-targeted), so it routes natively on
   // the trigger-flush + activated paths, which thread the source permanent id into ctx.sourceId.
   // A spell never produces this (its text isn't "this creature"); if a self atom somehow lacks a
@@ -1264,7 +1264,7 @@ function parseExtendedAtom(s) {
   m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
   // SELF keyword grant (+ optional P/T) — "this creature [gets +N/+N and ]gains KW[ and KW] until end of
-  // turn" grants the SOURCE (CR 109.2) the keyword(s), layer-6 endOfTurn. The keyword form of the self
+  // turn" grants the SOURCE (CR 113.7) the keyword(s), layer-6 endOfTurn. The keyword form of the self
   // pump above; reuses the combat-trick GRANTABLE allowlist (parseGrantedKeywords — the enforced,
   // layer-aware set IS the FP guard, so an un-enforced keyword → null → low → Arbiter) + the self-pump
   // resolver path (atomTargets → selfTargets → ctx.sourceId). Used by "{cost}: this creature gains …"
@@ -1279,7 +1279,7 @@ function parseExtendedAtom(s) {
     const kws = parseGrantedKeywords(m[1]);
     return kws ? { op: "pump", target: "self", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
-  // SELF-BOUNCE — "return this creature to its owner's hand" (the ability source, CR 109.2). Non-targeted
+  // SELF-BOUNCE — "return this creature to its owner's hand" (the ability source, CR 113.7). Non-targeted
   // (target:"self", no targetType): atomTargets → selfTargets → ctx.sourceId. applyZoneMove handles
   // target:"self" through atomTargets/selfTargets; the controller serves as the owner proxy (zones.js
   // line 24 — consistent with the targeted-bounce form). Never a fabricated move: if ctx.sourceId is

@@ -1,6 +1,6 @@
 /**
  * Self-reference trigger/activated vocabulary — "this creature gets +N/+N until end of turn" and
- * "put a +1/+1 counter on this creature" refer to the ability's SOURCE (CR 109.2). Modeled with a
+ * "put a +1/+1 counter on this creature" refer to the ability's SOURCE (CR 113.7). Modeled with a
  * `target:"self"` atom (no targetType → non-targeted), resolved against ctx.sourceId threaded from
  * the trigger flush + activated dispatcher. Covers: the parser shapes, the resolver binding to the
  * source (and no-op with no source), the trigger-flush integration, and native coverage.

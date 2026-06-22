@@ -108,7 +108,7 @@ export function applyPumpEffect(state, atom, ctx) {
 export function applyAnimateEffect(state, atom, ctx) {
   let next = state;
   // A man-land's activated ability animates ITSELF (PR3): target:"self" → the activating permanent via
-  // ctx.sourceId. Resolved directly, NOT through selfTargets — that gates on a PRINTED creature (CR 109.2
+  // ctx.sourceId. Resolved directly, NOT through selfTargets — that gates on a PRINTED creature (CR 113.7
   // self-pump) and would reject a land that is BECOMING a creature. A spell's animate targets a chosen
   // land (type:"permanent", enumerateTargets land path); skip a chosen target that left the battlefield
   // between cast and resolution (a missing-id effect is inert; filtering keeps the log honest).

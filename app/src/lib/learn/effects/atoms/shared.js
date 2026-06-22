@@ -92,7 +92,7 @@ export const atomTargets = (state, atom, ctx) => {
 
 /**
  * The trigger/activated SOURCE permanent as a target list (for a "this creature gets …" self
- * effect, CR 109.2). ctx.sourceId is threaded from the trigger flush / activated dispatcher; a
+ * effect, CR 113.7). ctx.sourceId is threaded from the trigger flush / activated dispatcher; a
  * spell has no source permanent, so a self atom there resolves to [] (a no-op, never a fabricated
  * effect). Only a CREATURE source is returned — "this creature" implies a creature.
  */
@@ -157,7 +157,7 @@ export function countForSpec(state, ctx, spec) {
   if (!player) return 0;
   if (spec.kind === "cardsInHand") return (player.hand || []).length;
   // ===== COUNT-OTHER / DRAW-METRIC ("other") ===== a leading "other" on the count sets `spec.excludeSelf`,
-  // which drops the effect's SOURCE permanent (CR 109.2) — "for each OTHER <X> you control" (#365) / the
+  // which drops the effect's SOURCE permanent (CR 113.7) — "for each OTHER <X> you control" (#365) / the
   // greatest power/toughness "among OTHER creatures you control" (DRAW-METRIC + MANA Arbor Adherent). The
   // source id is whichever the call path threads (ctx.sourceId for a trigger/activated ability, ctx.source for
   // the mana path) — see isExcludedSelf. A plain spell threads neither → nothing excluded (no "other" referent);
@@ -192,7 +192,7 @@ export function countForSpec(state, ctx, spec) {
   return 0;
 }
 
-// COUNT-OTHER / DRAW-METRIC / MANA "among OTHER" exclusion (CR 109.2): `spec.excludeSelf` drops the effect's
+// COUNT-OTHER / DRAW-METRIC / MANA "among OTHER" exclusion (CR 113.7): `spec.excludeSelf` drops the effect's
 // SOURCE permanent. The source id is whichever the call path threads — ctx.sourceId (a trigger/activated
 // ability: #365 COUNT-OTHER + DRAW-METRIC) or ctx.source?.id (the mana path, where ctx.source is the tapped
 // permanent — Arbor Adherent). A spell threads neither → nothing excluded (no "other" referent). Note we do

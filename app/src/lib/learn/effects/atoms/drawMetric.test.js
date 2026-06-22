@@ -5,7 +5,7 @@
  *   1. "Draw cards equal to the greatest power/toughness among creatures you control" — the count is a
  *      board MAX resolved AT RESOLUTION (greatestPower/ToughnessYouControl in countForSpec), layer-aware.
  *   2. "Draw a card for each OTHER <X> you control" — the source permanent is excluded from the count
- *      (CR 109.2), via the `excludeSelf` flag the parseCountSource "other" wrapper sets (#365 COUNT-OTHER;
+ *      (CR 113.7), via the `excludeSelf` flag the parseCountSource "other" wrapper sets (#365 COUNT-OTHER;
  *      DRAW-METRIC unified onto it — gated to a controller-scoped permanent count).
  *
  * Covers: the parser atom shape + confidence for both forms; countForSpec resolution of the two new metric
@@ -77,7 +77,7 @@ describe("DRAW-METRIC — parser ('for each other <X> you control', excludeSelf)
   it("the 'other' wrapper is shared — a 'for each other' GAIN-LIFE form is also HIGH with excludeSelf (#365)", () => {
     // parseCountSource's "other" → excludeSelf wrapper is universal (gated to a controller-scoped permanent
     // count), so the sibling gain-life for-each matcher inherits it too — "gain N life for each OTHER creature
-    // you control" excludes the source (CR 109.2). This is the merged #365 behavior, not a draw-only opt-in.
+    // you control" excludes the source (CR 113.7). This is the merged #365 behavior, not a draw-only opt-in.
     expect(conf(I("You gain 2 life for each other creature you control."))).toBe("high");
     expect(atom0(I("You gain 2 life for each other creature you control.")))
       .toMatchObject({ op: "gain-life", amountCount: { kind: "permanentsYouControl", cardType: "creature", excludeSelf: true } });
@@ -105,7 +105,7 @@ describe("DRAW-METRIC — countForSpec resolution (greatest power/toughness)", (
 });
 
 describe("DRAW-METRIC — countForSpec resolution (excludeSelf 'other')", () => {
-  it("'other Dinosaur you control': 3 other Dinos + the source → 3 (source excluded via ctx.sourceId, CR 109.2)", () => {
+  it("'other Dinosaur you control': 3 other Dinos + the source → 3 (source excluded via ctx.sourceId, CR 113.7)", () => {
     const src = creature("src");
     const others = [creature("d1"), creature("d2"), creature("d3")];
     const s = stateWith([src, ...others]);
@@ -121,7 +121,7 @@ describe("DRAW-METRIC — countForSpec resolution (excludeSelf 'other')", () => 
     expect(countForSpec(s, ctx, { kind: "permanentsYouControl", subtype: "Dinosaur", excludeSelf: true })).toBe(2);
   });
 
-  it("'other' excludes the SOURCE, not a different triggering permanent (CR 109.2 — only the ability's source)", () => {
+  it("'other' excludes the SOURCE, not a different triggering permanent (CR 113.7 — only the ability's source)", () => {
     // A non-self trigger: source is "src" (the watcher), triggeringPermanentId is a DIFFERENT permanent.
     // "other" excludes the source only; the unrelated triggering permanent is still counted.
     const s = stateWith([creature("src"), creature("trig"), creature("d1")]);
