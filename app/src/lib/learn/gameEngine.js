@@ -592,6 +592,21 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       return { payload: { resolver: "manual" }, targets: [] };
     }
   }
+  // CREED (CLAUDE.md §1.2 — never fabricate): a trigger that reaches here WITH an effect clause but
+  // carrying the legacy naive `trigger.effect` payload is one we could NOT faithfully resolve — it has an
+  // intervening-if (the `clause && !interveningIf` guard above skipped the rich path) or is a HIGH modal
+  // (excluded from both rich-path returns). The naive payload applies a substring-matched small effect
+  // (parseTriggerEffect → applyTriggerEffect: draw/loseLife/gainLife) UNCONDITIONALLY: checkInterveningIf
+  // is NOT wired into the live resolution path, so the condition is IGNORED, and any "may"/"if you do"
+  // rider is dropped. That fabricates an effect the card doesn't have (e.g. Boundary Lands Ranger drawing
+  // a card with no power-4 creature; an "each opponent's upkeep, if that player has ≤1 card, they lose 4
+  // life" draining unconditionally). Route such a trigger to the Arbiter no-op (false-negative SAFE).
+  // (Wiring checkInterveningIf to fire the 3 modeled condition shapes natively is a tracked enhancement;
+  // until then the WHOLE conditional trigger stays non-native rather than mis-resolve.) A genuinely
+  // clause-less trigger, or one with a non-naive faithful payload, keeps its pre-set payload.
+  if (clause && trigger.payload?.resolver === "trigger.effect") {
+    return { payload: { resolver: "manual" }, targets: [] };
+  }
   return { payload: trigger.payload || {}, targets: trigger.targets || [] };
 }
 

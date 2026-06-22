@@ -20,7 +20,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { checkStepTriggers, detectTriggers } from "./triggers.js";
 import { detectPhaseTrigger } from "./triggerScheduler.js";
-import { runStepActions } from "./gameEngine.js";
+import { runStepActions, resolveTopOfStack } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPlayerState } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -214,5 +214,63 @@ describe("regression: Koma 'each upkeep' (whose:any) unaffected", () => {
       const out = checkStepTriggers(podWithKoma(seat), "upkeep");
       expect(pendingCount(out), `Koma should fire on ${seat}'s upkeep`).toBe(1);
     }
+  });
+});
+
+// ─── 7. RESOLUTION-LEVEL correctness — the CREED FP guard ─────────────────────────
+// Emitting a phase trigger is only half the story: it must RESOLVE faithfully. A trigger whose effect
+// we can't fully model (an intervening-if we don't evaluate at the live resolution path, or a "may …
+// if you do" rider) must route to the Arbiter no-op — NEVER fabricate via the legacy naive
+// `trigger.effect` payload (parseTriggerEffect substring-matches a small draw/loseLife/gainLife and
+// applies it UNCONDITIONALLY). This is the FP the adversarial review caught (Boundary Lands Ranger drew
+// a card with no power-4 creature). buildTriggerStack now routes a clause-bearing naive-payload trigger
+// to resolver "manual". These tests RESOLVE the stack and assert the OUTCOME, not just the emission.
+describe("resolution: conditional phase triggers must NOT fabricate (CREED)", () => {
+  // An intervening-if combat-begin draw. With NO power-4 creature the real card draws ZERO; the OLD
+  // naive fallback drew a card regardless (the confirmed FP).
+  const COND_DRAW = {
+    id: "c-cond",
+    name: "Testfall Conditional Draw",
+    type: "Enchantment",
+    oracle: "At the beginning of combat on your turn, if you control a creature with power 4 or greater, draw a card.",
+  };
+  // An UNCONDITIONAL, fully-modeled combat-begin draw — proves the fix does NOT over-suppress a
+  // legitimately-native phase trigger (it still resolves via the rich effect-program path).
+  const PLAIN_DRAW = {
+    id: "c-plain",
+    name: "Testfall Plain Draw",
+    type: "Enchantment",
+    oracle: "At the beginning of combat on your turn, draw a card.",
+  };
+
+  function combatBeginState(card) {
+    let state = placePerms(
+      stateWith({ phase: "combat", step: "beginning-of-combat", activePlayer: "user", priorityHolder: "user" }),
+      [permObj(card, "user", "p-src")],
+    );
+    // controller library has a card to draw; hand starts empty so a draw is observable
+    state = { ...state, players: { ...state.players, user: { ...state.players.user, library: [{ id: "lib-x", name: "Card" }], hand: [] } } };
+    return state;
+  }
+
+  it("FP GUARD — an intervening-if combat-begin trigger fires but resolves to a NO-OP (no draw)", () => {
+    const out = runStepActions(combatBeginState(COND_DRAW));
+    const trig = triggerOnStack(out);
+    expect(trig, "the trigger still goes on the stack").toBeTruthy();
+    // The fix: a clause-bearing naive-payload (intervening-if) trigger routes to the Arbiter no-op.
+    expect(trig.payload.resolver).toBe("manual");
+    // …and resolving it draws NOTHING (the card stays in the library, hand stays empty).
+    const resolved = resolveTopOfStack(out);
+    expect(resolved.players.user.hand).toHaveLength(0);
+    expect(resolved.players.user.library.map((c) => c.id)).toContain("lib-x");
+  });
+
+  it("no over-suppression — an UNCONDITIONAL modeled combat-begin draw DOES resolve (draws)", () => {
+    const out = runStepActions(combatBeginState(PLAIN_DRAW));
+    const trig = triggerOnStack(out);
+    expect(trig).toBeTruthy();
+    expect(trig.payload.resolver).toBe("effect-program");
+    const resolved = resolveTopOfStack(out);
+    expect(resolved.players.user.hand.map((c) => c.id)).toContain("lib-x");
   });
 });
