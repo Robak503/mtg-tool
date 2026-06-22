@@ -61,6 +61,17 @@ summarizes the notable changes.
   Skinwing, Strandwalker, Mirran Bardiche, Vulshok Splitter…). A complex equipped-creature ability (Mortarpod's
   granted sacrifice) still stays on the Arbiter (CREED).
 
+- **Blocker-qualifier evasion enforced (EVASION-QUALIFIER):** "can't be blocked by [qualifier]" restrictions
+  on individual attackers now parse and enforce at the pair level in `canBlockAttacker`. Qualifiers supported:
+  **color** (Dauthi Horror, Sootwalkers, Wandering Mind — can't be blocked by white/blue/…), **keyword**
+  (Gnat Alley Creeper — flying; Zuo Ci — horsemanship), **power threshold** (Giltgrove Stalker — power 2 or
+  less; Lydia Frye — power 3 or greater), **subtype** (Bog Rats — Walls; Rubblebelt Runner — creature tokens;
+  dinosaur/human/saproling variants), and **token** identity. These clauses now count toward native-body
+  classification in the coverage metric. Safety boundary: "more than one creature" (Charging Rhino) is
+  set-level combat enforcement (like menace) and stays on the Arbiter; compound "A or B" qualifiers, team-grant
+  forms ("creatures you control can't be blocked by…"), conditional clauses ("as long as / until"), and
+  dynamic "greater power" (no integer anchor) are all excluded. **+30 cards**.
+
 - **Landfall triggers fire (LANDFALL — foundation):** "Landfall — Whenever a land you control enters, &lt;payoff&gt;"
   is now a real engine event — playing a land fires it, and the clean payoffs resolve natively (Tatyova's
   gain-life + draw, Rampaging Baloths' Beast token, Jaddi Offshoot's lifegain, the Zendikar landfall family).
