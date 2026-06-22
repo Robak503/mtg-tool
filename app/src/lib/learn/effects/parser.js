@@ -540,60 +540,75 @@ const COUNT_SUBTYPE = {
 // admits OPPONENT-scoped ("…your opponents control" — Dockside, who:"opponents", summed over all opponents) and
 // TARGET-CONTROLLED ("…that player controls" — Cavern-Hoard, who:"target", the damaged/target player) permanent
 // counts. Left false for every legacy caller so those scopes can never widen an existing count source.
-function parseCountSource(phrase, { allowTarget = false, allowScopes = false } = {}) {
-  const p = String(phrase).trim().replace(/\.\s*$/, "");
+function parseCountSource(phrase, { allowTarget = false, allowScopes = false, allowExcludeSource = false } = {}) {
+  let p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
+  // ===== DRAW-METRIC ("other") ===== (WAVE2b) a leading "other " excludes the SOURCE permanent from the
+  // count (CR 109.2 — "other <X> you control" never counts the permanent generating the effect). Gated by
+  // `allowExcludeSource` (passed ONLY by the FOR-EACH / metric DRAW matchers, mirroring the allowTarget /
+  // allowScopes opt-in pattern) so NO existing caller's behavior changes — a gain-life / lose-life / damage
+  // / token matcher that doesn't opt in still routes "other …" to the Arbiter (mass-targetType-drift-trap).
+  // Stripped FIRST so it composes with every count branch below; countForSpec honors `excludeSource` by
+  // skipping ctx.sourceId / ctx.triggeringPermanentId. Only the leading word is stripped.
+  let excludeSource = false;
+  if (allowExcludeSource && /^other /.test(p)) { excludeSource = true; p = p.replace(/^other /, ""); }
+  const withExclude = (spec) => (spec && excludeSource ? { ...spec, excludeSource: true } : spec);
   // ===== TREASURE-MAKER ===== OPPONENT-scoped union "artifacts and enchantments your opponents control"
   // (Dockside Extortionist's X). Curated exact phrase only; countForSpec sums it over every opponent. Checked
   // FIRST so "your opponents control" wins before the controller-scoped "you control" branches.
   if (allowScopes && /^artifacts and enchantments your opponents control$/.test(p)) {
-    return { kind: "permanentsYouControl", cardTypes: ["artifact", "enchantment"], who: "opponents" };
+    return withExclude({ kind: "permanentsYouControl", cardTypes: ["artifact", "enchantment"], who: "opponents" });
   }
   // ===== TREASURE-MAKER ===== OPPONENT-scoped single-type "<creatures|lands|artifacts|enchantments> your
   // opponents control" — summed over all opponents (Cavern-Hoard's cast-cost "artifacts an opponent controls"
   // is a separate cost mechanic; this covers the for-each/X token sources). Anchored to the curated card types.
   if (allowScopes && (m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) your opponents control$/))) {
-    return { kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "opponents" };
+    return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "opponents" });
   }
   // ===== TREASURE-MAKER ===== TARGET-CONTROLLED "<creatures|lands|artifacts|enchantments> that player controls"
   // — the player just dealt combat damage ("create a Treasure token for each artifact that player controls",
   // Cavern-Hoard Dragon). who:"target" → countForSpec reads the spell target or, on a combat-damage trigger,
   // ctx.damagedPlayerId. Curated card types, anchored — "an opponent" / "each player" don't match (→ low).
   if (allowScopes && (m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) that player controls$/))) {
-    return { kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "target" };
+    return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "target" });
   }
   if ((m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) you control$/))) {
-    return { kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]] };
+    return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]] });
   }
   if ((m = p.match(/^(mountains?|forests?|islands?|swamps?|plains) you control$/))) {
-    return { kind: "permanentsYouControl", subtype: COUNT_BASIC_SUBTYPE[m[1]] };
+    return withExclude({ kind: "permanentsYouControl", subtype: COUNT_BASIC_SUBTYPE[m[1]] });
   }
-  if (/^cards? in your hand$/.test(p)) return { kind: "cardsInHand" };
+  if (/^cards? in your hand$/.test(p)) return withExclude({ kind: "cardsInHand" });
   // ===== OPPONENT-SCOPED ===== "cards in that player's hand" — the count is the SPELL'S TARGET player's
   // hand (CR: "that player" = the targeted player), as in "deals damage to target player equal to the
   // number of cards in that player's hand" (Sudden Impact, Gaze of Adamaro, Storm Seeker). who:"target"
   // tells countForSpec to count the target player, not the controller. Only the bare phrase; "a player's"
   // / "an opponent's" / "each player's" don't match (→ low).
-  if (allowTarget && /^cards? in that player's hand$/.test(p)) return { kind: "cardsInHand", who: "target" };
+  if (allowTarget && /^cards? in that player's hand$/.test(p)) return withExclude({ kind: "cardsInHand", who: "target" });
   // ===== FOR-EACH ===== cards in YOUR graveyard, optionally filtered by ONE card type. Controller-scoped
   // ("your graveyard"); "a graveyard" / "their graveyard" / "that player's graveyard" reject (→ low).
   if ((m = p.match(/^(?:(creature|artifact|land|instant|sorcery|enchantment|planeswalker) )?cards? in your graveyard$/))) {
-    return m[1] ? { kind: "cardsInGraveyard", cardType: COUNT_GY_TYPE[m[1]] } : { kind: "cardsInGraveyard" };
+    return withExclude(m[1] ? { kind: "cardsInGraveyard", cardType: COUNT_GY_TYPE[m[1]] } : { kind: "cardsInGraveyard" });
   }
   // ===== COUNT SUBTYPES ===== "<Subtype>(s) you control" — a single curated permanent subtype (Goblin /
   // Elf / Treasure / Shrine / Gate …). Checked AFTER the card-type + basic-land-subtype branches so those
   // win their words; a single word not in the allowlist → null → low. (A multi-word or qualified subtype
   // count fails the `^…$` anchor → low.)
   if ((m = p.match(/^([a-z]+) you control$/)) && COUNT_SUBTYPE[m[1]]) {
-    return { kind: "permanentsYouControl", subtype: COUNT_SUBTYPE[m[1]] };
+    return withExclude({ kind: "permanentsYouControl", subtype: COUNT_SUBTYPE[m[1]] });
   }
-  // ===== OVERRUN-X ===== a MAX-reduction, not a count: the single greatest layer-resolved power among the
-  // controller's creatures (Overwhelming Stampede "+X/+X where X is the greatest power among creatures you
-  // control"). countForSpec computes it at resolution; an EMPTY board → 0 (a safe +0/+0, never fabricated).
-  if (/^greatest power among creatures you control$/.test(p)) return { kind: "greatestPowerYouControl" };
+  // ===== OVERRUN-X / DRAW-METRIC ===== a MAX-reduction, not a count: the single greatest layer-resolved
+  // power (Overwhelming Stampede "+X/+X where X is the greatest power among creatures you control") or
+  // greatest toughness (DRAW-METRIC "draw cards equal to the greatest toughness among creatures you
+  // control") among the controller's creatures. countForSpec computes it at resolution; an EMPTY board → 0
+  // (a safe 0, never fabricated). "other " is meaningless on a board MAX (it's still the same max if the
+  // source is excluded only when the source IS the unique max) — but excludeSource is honored uniformly so
+  // the flag never silently no-ops a phrasing that carried it.
+  if (/^greatest power among creatures you control$/.test(p)) return withExclude({ kind: "greatestPowerYouControl" });
+  if (/^greatest toughness among creatures you control$/.test(p)) return withExclude({ kind: "greatestToughnessYouControl" });
   // ===== EXPERIENCE ===== the controller's experience counter total. "experience counters you have" is the
   // bare canonical form; "the controller has" is a rare alternate phrasing on non-Toph cards.
-  if (/^experience counters? (?:you have|the controller has)$/.test(p)) return { kind: "experienceCounters" };
+  if (/^experience counters? (?:you have|the controller has)$/.test(p)) return withExclude({ kind: "experienceCounters" });
   return null;
 }
 
@@ -674,14 +689,32 @@ function parseExtendedAtom(s) {
   // unmodeled count source (parseCountSource → null) drops the whole clause to low → Arbiter. Numeric
   // per only. The effects are non-targeted (targetType:null), so they route the same on a spell or a
   // trigger; the count is always the CONTROLLER's (ctx.controller).
-  let mfe = t.match(/^(?:you )?draw (a|\d+) cards? for each (.+)$/);
+  // ===== DRAW-METRIC ===== (WAVE2b) "draw cards equal to the greatest power/toughness among <count source>"
+  // — the draw count is the single greatest layer-resolved power (Soul's Majesty, Garruk, Caller of Beasts'
+  // "greatest power") or toughness among the count source's creatures, computed at resolution via
+  // parseCountSource + countForSpec (greatestPower/ToughnessYouControl, MAX-reduction). per:1 — the metric IS
+  // the amount. An empty board → 0 (a safe FN, never fabricated). An unmodeled tail (parseCountSource → null)
+  // drops the clause to low → Arbiter. Checked BEFORE the "for each"/"number of" draw matchers (it's a
+  // distinct "greatest … among" phrasing). LANDMINE: a card whose OTHER clause is unmodeled (Rishkar's
+  // Expertise free-cast, Return of the Wildspeaker modal) stays non-native overall — making this DRAW clause
+  // HIGH does not flip it (the clause split keeps the unmodeled sibling, which routes the card low).
+  let mfe = t.match(/^(?:you )?draw cards equal to the (greatest (?:power|toughness) among .+)$/);
   if (mfe) {
-    const src = parseCountSource(mfe[2]);
+    const src = parseCountSource(mfe[1]);
+    return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
+  }
+  // ===== DRAW-METRIC ("for each other") ===== (WAVE2b) only the controller-DRAW for-each / equal-to-number
+  // matchers opt into the "other " self-exclusion (allowExcludeSource) — "draw a card for each OTHER
+  // Dinosaur you control" (excludes the source permanent, CR 109.2). The sibling gain-life / lose-life /
+  // token matchers below do NOT opt in, so their "other" forms stay LOW (unchanged).
+  mfe = t.match(/^(?:you )?draw (a|\d+) cards? for each (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[2], { allowExcludeSource: true });
     return src ? { op: "draw", amountCount: { ...src, per: mfe[1] === "a" ? 1 : parseInt(mfe[1], 10) }, targetType: null } : null;
   }
   mfe = t.match(/^(?:you )?draw cards equal to the number of (.+)$/);
   if (mfe) {
-    const src = parseCountSource(mfe[1]);
+    const src = parseCountSource(mfe[1], { allowExcludeSource: true });
     return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
   }
   mfe = t.match(/^(?:you )?gain (\d+) life for each (.+)$/);

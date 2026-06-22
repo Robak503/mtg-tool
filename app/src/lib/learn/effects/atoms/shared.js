@@ -156,21 +156,30 @@ export function countForSpec(state, ctx, spec) {
   const player = playerId ? state?.players?.[playerId] : null;
   if (!player) return 0;
   if (spec.kind === "cardsInHand") return (player.hand || []).length;
-  if (spec.kind === "permanentsYouControl") return (player.battlefield || []).filter((perm) => countMatches(perm.card, spec)).length;
+  // ===== DRAW-METRIC ("other") ===== (WAVE2b) `excludeSource` (set by parseCountSource on a leading "other")
+  // skips the permanent generating the effect (CR 109.2). The source is the trigger/activated SOURCE
+  // (ctx.sourceId) or the trigger's permanent (ctx.triggeringPermanentId); on a plain spell both are
+  // undefined, so nothing is excluded (a spell has no "other" referent). A permanent count + battlefield
+  // MAX both honor it; the cardsInHand / experience kinds have no per-permanent identity, so the flag is a
+  // safe no-op there.
+  const isSourcePerm = (perm) => spec.excludeSource && perm?.id != null && (perm.id === ctx.sourceId || perm.id === ctx.triggeringPermanentId);
+  if (spec.kind === "permanentsYouControl") return (player.battlefield || []).filter((perm) => !isSourcePerm(perm) && countMatches(perm.card, spec)).length;
   // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
   // ===== EXPERIENCE ===== the controller's experience counter total (Toph, Command Beacon, etc.)
   if (spec.kind === "experienceCounters") return (player.experience || 0);
-  // ===== OVERRUN-X / MANA-VARIABLE ===== a MAX-reduction: the single greatest layer-resolved power among
-  // the controller's creatures (Overwhelming Stampede; Bighorner Rancher / Selvala mana). Reads
-  // creaturePower (layer-aware) so prior buffs/counters count; an empty board → 0 (a safe +0/+0 or 0 mana).
-  // MANA-VARIABLE: `excludeSelf` (the "among OTHER creatures …" form) drops the ctx.source permanent — used
-  // by Arbor Adherent's second line. Existing callers pass no excludeSelf, so their result is unchanged.
+  // ===== OVERRUN-X / MANA-VARIABLE / DRAW-METRIC ===== a MAX-reduction: the single greatest layer-resolved
+  // power among the controller's creatures (Overwhelming Stampede; Bighorner Rancher / Selvala mana; "draw
+  // cards equal to the greatest power among creatures you control"). Reads creaturePower (layer-aware) so prior
+  // buffs/counters count; an empty board → 0. The "among OTHER creatures …" form excludes the source — via
+  // `excludeSelf` (MANA, ctx.source) or `excludeSource` (DRAW-METRIC, ctx.sourceId/triggeringPermanentId);
+  // greatestPtAmong honors whichever is set. Existing callers pass neither, so their result is unchanged.
   if (spec.kind === "greatestPowerYouControl") {
     return greatestPtAmong(state, player, spec, ctx, creaturePower);
   }
-  // ===== MANA-VARIABLE ===== the single greatest layer-resolved TOUGHNESS among the controller's creatures
-  // (Arbor Adherent — "among OTHER creatures", so excludeSelf is set). Mirrors greatestPowerYouControl.
+  // ===== MANA-VARIABLE / DRAW-METRIC ===== the single greatest layer-resolved TOUGHNESS among the controller's
+  // creatures (Arbor Adherent mana "among OTHER creatures" → excludeSelf; DRAW-METRIC greatest-toughness draw).
+  // Mirrors greatestPowerYouControl through the same exclude-aware helper.
   if (spec.kind === "greatestToughnessYouControl") {
     return greatestPtAmong(state, player, spec, ctx, creatureToughness);
   }
@@ -183,14 +192,19 @@ export function countForSpec(state, ctx, spec) {
   return 0;
 }
 
-// MANA-VARIABLE — the greatest layer-resolved P/T among the controller's creatures, honoring
-// `excludeSelf` (drop ctx.source — the "among OTHER creatures" form). `read` = creaturePower or
-// creatureToughness. Empty (or self-only with excludeSelf) → 0.
+// MANA-VARIABLE / DRAW-METRIC — the greatest layer-resolved P/T among the controller's creatures, honoring
+// the "among OTHER creatures" exclusion via EITHER flag: `excludeSelf` (MANA, drops ctx.source) or
+// `excludeSource` (DRAW-METRIC, drops ctx.sourceId / triggeringPermanentId). `read` = creaturePower or
+// creatureToughness. Empty (or self-only with an exclude flag) → 0.
 function greatestPtAmong(state, player, spec, ctx, read) {
-  const selfId = spec.excludeSelf ? ctx?.source?.id : null;
+  const isExcluded = (perm) =>
+    perm?.id != null && (
+      (spec.excludeSelf && perm.id === ctx?.source?.id) ||
+      (spec.excludeSource && (perm.id === ctx?.sourceId || perm.id === ctx?.triggeringPermanentId))
+    );
   return (player.battlefield || [])
     .filter((perm) => /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || "")))
-    .filter((perm) => !(selfId != null && perm.id === selfId))
+    .filter((perm) => !isExcluded(perm))
     .reduce((mx, perm) => Math.max(mx, read(perm, state)), 0);
 }
 
