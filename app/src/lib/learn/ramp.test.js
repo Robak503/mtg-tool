@@ -48,12 +48,12 @@ describe("parser — battlefield-destination tutor (RAMP-1)", () => {
     expect(isHigh("Search your library for a snow land card, put it onto the battlefield tapped, then shuffle.")).toBe(true);
   });
 
-  it("RAMP-SPLIT: the split-destination fetch is now native; 'up to three' / non-land battlefield fetches still stay LOW → Arbiter", () => {
-    // NOTE: the bare "up to two <land> → battlefield" multi-fetch (Explosive Vegetation / Skyshroud Claim)
-    // is MODELED by RAMP-MULTI; the split destination (Cultivate / Kodama's Reach) is MODELED by RAMP-SPLIT.
-    // "up to three" + the non-land cheat stay low:
+  it("RAMP-SPLIT: the split-destination fetch is native; WAVE-2b widens the bare multi-fetch to up-to-N; the non-land battlefield cheat still stays LOW → Arbiter", () => {
+    // NOTE: the bare "up to N <land> → battlefield" multi-fetch (Explosive Vegetation / Skyshroud Claim at
+    // N=2; Nissa's Renewal / Seedguide Ash at N=3) is MODELED by RAMP-MULTI; the split destination (Cultivate
+    // / Kodama's Reach) is MODELED by RAMP-SPLIT. The non-land cheat-into-play stays low:
     expect(isHigh("Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.")).toBe(true);  // Kodama's Reach (split) — RAMP-SPLIT
-    expect(isHigh("Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.")).toBe(false);                       // "up to three" (only "up to two" modeled)
+    expect(isHigh("Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.")).toBe(true);                        // WAVE-2b UP-TO-N — "up to three" land fetch now native
     expect(isHigh("Search your library for a green creature card, put it onto the battlefield, then shuffle.")).toBe(false);                                      // Natural Order (non-land cheat)
   });
 

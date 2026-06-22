@@ -335,18 +335,28 @@ const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
 
 /**
- * P3.2 tutor filter ALLOWLIST — the type / supertype / land-subtype words the engine can
- * match against a card's type line by literal containment (each word appears verbatim in
- * a real type line). A filter built only from these words is modeled; ANY other word
- * ("nonland", "permanent", "with", "named", a number, an un-listed creature subtype like
- * "dragon") makes the filter unmodeled → the tutor drops to low → Arbiter, so the engine
- * never silently mis-matches a filter it doesn't truly understand. (Creature-subtype
- * tribal tutors are a deliberate fast-follow once the subtype vocabulary is curated.)
+ * P3.2 tutor filter ALLOWLIST — the type / supertype / land-subtype / curated-creature-subtype words
+ * the engine can match against a card's type line by literal containment (each word appears verbatim
+ * in a real type line). A filter built only from these words is modeled; ANY other word ("nonland",
+ * "permanent", "with", "named", a number, an un-listed subtype) makes the filter unmodeled → the
+ * tutor drops to low → Arbiter, so the engine never silently mis-matches a filter it doesn't truly
+ * understand.
+ *
+ * WAVE-2b TUTOR — the curated CREATURE-SUBTYPE block below is admitted ONLY for to-HAND / to-TOP
+ * tutors (parseTutorFilter is shared, but the LAND-guard on the to-battlefield paths — RAMP-1/MULTI/
+ * SPLIT — requires every group be guaranteed-land, which no creature subtype is, so a subtype tutor
+ * can never cheat a non-land into play). Each word appears verbatim as a subtype in the corpus type
+ * line ("Creature — Dragon"), so `\bdragon\b` matches exactly the subtyped creatures (CR 205.3m).
  */
 const TUTOR_FILTER_WORDS = new Set([
   "basic", "legendary", "snow", "land", "creature", "artifact", "enchantment",
   "instant", "sorcery", "planeswalker", "battle", "plains", "island", "swamp",
   "mountain", "forest", "equipment", "aura",
+  // Curated creature subtypes (tribal tutors — to-hand/to-top only). Each is a real creature subtype
+  // that (a) has at least one "search your library for a <subtype> card" tutor in the corpus and (b)
+  // appears verbatim ONLY in the subtype portion of a type line (verified zero collision with any
+  // non-subtyped card), so `\b<subtype>\b` containment matches exactly the subtyped creatures.
+  "dragon", "merfolk", "dinosaur", "goblin", "wizard", "elf", "sliver", "vampire",
 ]);
 // ===== RAMP-TYPED ===== the five basic LAND TYPES (CR 305.6). A tutor-filter group naming any of
 // these is GUARANTEED to fetch a LAND — verified against the bundled corpus: ZERO non-land cards
@@ -371,6 +381,22 @@ function parseTutorFilter(phrase) {
   if (groups.length === 0 || groups.some((g) => g.length === 0)) return null;
   for (const g of groups) for (const w of g) if (!TUTOR_FILTER_WORDS.has(w)) return null;
   return { groups };
+}
+// WAVE-2b TUTOR — UP-TO-N word→number for the multi-fetch ramp tutors ("up to two/three/four/five").
+const UP_TO_N_WORD = { two: 2, three: 3, four: 4, five: 5 };
+/**
+ * WAVE-2b TUTOR — parse a tutor's optional MANA-VALUE constraint clause (the bit AFTER "card":
+ * "with mana value 2 or less" → {max:2}; "with mana value 3" → {exact:3}). Returns null when there's
+ * no MV clause (an undefined capture group) — a clean "no MV cap". Only "or less" / exact are modeled
+ * (Spellseeker MV<=2, Trophy Mage MV=3); a "with mana value N or greater" / "X" / any other comparator
+ * never matches the capturing regex, so the whole tutor stays low → Arbiter (CREED — never a mis-cap).
+ */
+function parseTutorMv(capture) {
+  if (capture === undefined || capture === null) return null;
+  const m = String(capture).match(/^(\d+)( or less)?$/);
+  if (!m) return null; // an unmodeled comparator → caller drops the tutor to low
+  const n = parseInt(m[1], 10);
+  return m[2] ? { max: n } : { exact: n };
 }
 
 /**
@@ -514,12 +540,14 @@ const COUNT_SUBTYPE = {
 // admits OPPONENT-scoped ("…your opponents control" — Dockside, who:"opponents", summed over all opponents) and
 // TARGET-CONTROLLED ("…that player controls" — Cavern-Hoard, who:"target", the damaged/target player) permanent
 // counts. Left false for every legacy caller so those scopes can never widen an existing count source.
-// ===== COUNT-OTHER ===== (WALT) a leading "other " on a "<X> you control" count EXCLUDES the source
+// ===== COUNT-OTHER ===== (WALT #365) a leading "other " on a "<X> you control" count EXCLUDES the source
 // permanent itself (CR 109.2 — "other" = every object but this one): "draw a card for each OTHER Dinosaur
 // you control" (Earthshaker Dreadmaw) counts every Dinosaur you control but itself. Strip "other ", parse
-// the base source, and tag `excludeSelf` so countForSpec drops ctx.sourceId from the tally. Gated to a
+// the base source, and tag `excludeSelf` so countForSpec drops the source from the tally. Gated to a
 // CONTROLLER-scoped permanent count (who undefined) — "other" on a hand/graveyard/experience/opponent
 // source has no battlefield self to exclude, so it routes to the Arbiter (safe FN) instead of guessing.
+// (WAVE-2b DRAW-METRIC unified onto this excludeSelf wrapper — the earlier excludeSource/allowExcludeSource
+// path was redundant; "for each other <X>" is exactly this permanentsYouControl-scoped exclusion.)
 function parseCountSource(phrase, opts = {}) {
   const raw = String(phrase).trim().replace(/\.\s*$/, "");
   const om = raw.match(/^other (.+)$/);
@@ -532,57 +560,63 @@ function parseCountSource(phrase, opts = {}) {
 function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = {}) {
   const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
+  const withExclude = (spec) => spec; // "other" exclusion is handled by the parseCountSource wrapper (excludeSelf)
   // ===== TREASURE-MAKER ===== OPPONENT-scoped union "artifacts and enchantments your opponents control"
   // (Dockside Extortionist's X). Curated exact phrase only; countForSpec sums it over every opponent. Checked
   // FIRST so "your opponents control" wins before the controller-scoped "you control" branches.
   if (allowScopes && /^artifacts and enchantments your opponents control$/.test(p)) {
-    return { kind: "permanentsYouControl", cardTypes: ["artifact", "enchantment"], who: "opponents" };
+    return withExclude({ kind: "permanentsYouControl", cardTypes: ["artifact", "enchantment"], who: "opponents" });
   }
   // ===== TREASURE-MAKER ===== OPPONENT-scoped single-type "<creatures|lands|artifacts|enchantments> your
   // opponents control" — summed over all opponents (Cavern-Hoard's cast-cost "artifacts an opponent controls"
   // is a separate cost mechanic; this covers the for-each/X token sources). Anchored to the curated card types.
   if (allowScopes && (m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) your opponents control$/))) {
-    return { kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "opponents" };
+    return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "opponents" });
   }
   // ===== TREASURE-MAKER ===== TARGET-CONTROLLED "<creatures|lands|artifacts|enchantments> that player controls"
   // — the player just dealt combat damage ("create a Treasure token for each artifact that player controls",
   // Cavern-Hoard Dragon). who:"target" → countForSpec reads the spell target or, on a combat-damage trigger,
   // ctx.damagedPlayerId. Curated card types, anchored — "an opponent" / "each player" don't match (→ low).
   if (allowScopes && (m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) that player controls$/))) {
-    return { kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "target" };
+    return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "target" });
   }
   if ((m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) you control$/))) {
-    return { kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]] };
+    return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]] });
   }
   if ((m = p.match(/^(mountains?|forests?|islands?|swamps?|plains) you control$/))) {
-    return { kind: "permanentsYouControl", subtype: COUNT_BASIC_SUBTYPE[m[1]] };
+    return withExclude({ kind: "permanentsYouControl", subtype: COUNT_BASIC_SUBTYPE[m[1]] });
   }
-  if (/^cards? in your hand$/.test(p)) return { kind: "cardsInHand" };
+  if (/^cards? in your hand$/.test(p)) return withExclude({ kind: "cardsInHand" });
   // ===== OPPONENT-SCOPED ===== "cards in that player's hand" — the count is the SPELL'S TARGET player's
   // hand (CR: "that player" = the targeted player), as in "deals damage to target player equal to the
   // number of cards in that player's hand" (Sudden Impact, Gaze of Adamaro, Storm Seeker). who:"target"
   // tells countForSpec to count the target player, not the controller. Only the bare phrase; "a player's"
   // / "an opponent's" / "each player's" don't match (→ low).
-  if (allowTarget && /^cards? in that player's hand$/.test(p)) return { kind: "cardsInHand", who: "target" };
+  if (allowTarget && /^cards? in that player's hand$/.test(p)) return withExclude({ kind: "cardsInHand", who: "target" });
   // ===== FOR-EACH ===== cards in YOUR graveyard, optionally filtered by ONE card type. Controller-scoped
   // ("your graveyard"); "a graveyard" / "their graveyard" / "that player's graveyard" reject (→ low).
   if ((m = p.match(/^(?:(creature|artifact|land|instant|sorcery|enchantment|planeswalker) )?cards? in your graveyard$/))) {
-    return m[1] ? { kind: "cardsInGraveyard", cardType: COUNT_GY_TYPE[m[1]] } : { kind: "cardsInGraveyard" };
+    return withExclude(m[1] ? { kind: "cardsInGraveyard", cardType: COUNT_GY_TYPE[m[1]] } : { kind: "cardsInGraveyard" });
   }
   // ===== COUNT SUBTYPES ===== "<Subtype>(s) you control" — a single curated permanent subtype (Goblin /
   // Elf / Treasure / Shrine / Gate …). Checked AFTER the card-type + basic-land-subtype branches so those
   // win their words; a single word not in the allowlist → null → low. (A multi-word or qualified subtype
   // count fails the `^…$` anchor → low.)
   if ((m = p.match(/^([a-z]+) you control$/)) && COUNT_SUBTYPE[m[1]]) {
-    return { kind: "permanentsYouControl", subtype: COUNT_SUBTYPE[m[1]] };
+    return withExclude({ kind: "permanentsYouControl", subtype: COUNT_SUBTYPE[m[1]] });
   }
-  // ===== OVERRUN-X ===== a MAX-reduction, not a count: the single greatest layer-resolved power among the
-  // controller's creatures (Overwhelming Stampede "+X/+X where X is the greatest power among creatures you
-  // control"). countForSpec computes it at resolution; an EMPTY board → 0 (a safe +0/+0, never fabricated).
-  if (/^greatest power among creatures you control$/.test(p)) return { kind: "greatestPowerYouControl" };
+  // ===== OVERRUN-X / DRAW-METRIC ===== a MAX-reduction, not a count: the single greatest layer-resolved
+  // power (Overwhelming Stampede "+X/+X where X is the greatest power among creatures you control") or
+  // greatest toughness (DRAW-METRIC "draw cards equal to the greatest toughness among creatures you
+  // control") among the controller's creatures. countForSpec computes it at resolution; an EMPTY board → 0
+  // (a safe 0, never fabricated). A leading "other " on a board MAX is gated out by the parseCountSource
+  // wrapper (excludeSelf is restricted to permanentsYouControl), so a "greatest … among other creatures"
+  // phrasing routes to the Arbiter rather than silently dropping the flag — a safe FN.
+  if (/^greatest power among creatures you control$/.test(p)) return withExclude({ kind: "greatestPowerYouControl" });
+  if (/^greatest toughness among creatures you control$/.test(p)) return withExclude({ kind: "greatestToughnessYouControl" });
   // ===== EXPERIENCE ===== the controller's experience counter total. "experience counters you have" is the
   // bare canonical form; "the controller has" is a rare alternate phrasing on non-Toph cards.
-  if (/^experience counters? (?:you have|the controller has)$/.test(p)) return { kind: "experienceCounters" };
+  if (/^experience counters? (?:you have|the controller has)$/.test(p)) return withExclude({ kind: "experienceCounters" });
   return null;
 }
 
@@ -631,6 +665,33 @@ function parseExtendedAtom(s) {
   const radTgtM = t.match(/^target (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
   if (radTgtM) return { op: "rad", amount: SMALL_NUM[radTgtM[2]] ?? parseInt(radTgtM[2], 10), who: "target", targetType: radTgtM[1] };
 
+  // ===== CDMG-PLAYER-PAYOFF ===== combat-damage-to-a-player payoffs whose ACTOR/COUNT is the trigger
+  // referent the combat-damage trigger carries in ctx ({damagedPlayerId, combatDamageAmount} — set by
+  // triggers.checkCombatDamageTriggers, flushed into baseParams.context by gameEngine.buildTriggerStack,
+  // the SAME path Wave-1's treasure "create that many tokens" used). These are NON-targeted (the damaged
+  // player is the trigger's referent, not a chosen target) so they carry targetType:null and route natively
+  // on the trigger flush (programNeedsChosenTarget → false) AND clean-no-op as a spell (no ctx.damagedPlayerId
+  // / combatDamageAmount → 0). All anchored ^…$ — any trailing rider ("…, then discard a card" / "…if they
+  // don't have any rad counters" / "…or planeswalker") leaves text past the anchor → low → Arbiter (CREED:
+  // never a dropped clause). NON-combat referents resolve to 0 / a clean skip, never a fabricated count.
+  //   (a) "draw that many cards" (Starwinder/Cold-Eyed Selkie "you may"-wrapped, Fear of Failed Tests /
+  //       Glint-Eye Nephilim bare): the count is the triggering combat-damage amount. The leading "you may"
+  //       wrapper is peeled by parseClauseToAtom's α2 (stamping optional:true); the inner bare form lands
+  //       here. Keep the optional anchor too so a raw "you may draw that many cards" passed directly still
+  //       stamps optional (the parser is also called clause-first in tests). Anchored — "draw that many
+  //       cards, then discard a card" (April) keeps its tail and fails the $ → low.
+  const cdmgDrawM = t.match(/^(you may )?draw that many cards$/);
+  if (cdmgDrawM) return { op: "draw", countContext: "combatDamageAmount", optional: !!cdmgDrawM[1], targetType: null };
+  //   (b) "they get N rad counters" (Glowing One) / "that player gets N rad counters" — a FIXED-N rad grant
+  //       to the just-damaged player. who:"damagedPlayer" reads ctx.damagedPlayerId (absent → clean no-op).
+  //       A trailing intervening-if ("…if they don't have any rad counters", Vexing Radgull) keeps its tail
+  //       and fails the $ → low → Arbiter (the conditional branch stays UNMODELED — never half-resolved).
+  const cdmgRadFixedM = t.match(/^(?:they|that player) gets? (\d+|a|an|one|two|three|four|five) rad counters?$/);
+  if (cdmgRadFixedM) return { op: "rad", who: "damagedPlayer", amount: SMALL_NUM[cdmgRadFixedM[1]] ?? parseInt(cdmgRadFixedM[1], 10), targetType: null };
+  //   (c) "they get that many rad counters" (Infesting Radroach) — the count IS the combat-damage amount.
+  const cdmgRadDynM = t.match(/^(?:they|that player) gets? that many rad counters$/);
+  if (cdmgRadDynM) return { op: "rad", who: "damagedPlayer", countContext: "combatDamageAmount", targetType: null };
+
   // ===== DMG-SCALE ===== (WALT-DMG-SCALE) "<source> deals damage to <target> equal to the number of
   // <count source>" — the damage AMOUNT is a board count resolved at resolution (`amountCount`), not a
   // printed number (Massive Raid, Spitting Earth, Outnumber, Feedback Bolt). Reuses the existing
@@ -663,7 +724,25 @@ function parseExtendedAtom(s) {
   // unmodeled count source (parseCountSource → null) drops the whole clause to low → Arbiter. Numeric
   // per only. The effects are non-targeted (targetType:null), so they route the same on a spell or a
   // trigger; the count is always the CONTROLLER's (ctx.controller).
-  let mfe = t.match(/^(?:you )?draw (a|\d+) cards? for each (.+)$/);
+  // ===== DRAW-METRIC ===== (WAVE2b) "draw cards equal to the greatest power/toughness among <count source>"
+  // — the draw count is the single greatest layer-resolved power (Soul's Majesty, Garruk, Caller of Beasts'
+  // "greatest power") or toughness among the count source's creatures, computed at resolution via
+  // parseCountSource + countForSpec (greatestPower/ToughnessYouControl, MAX-reduction). per:1 — the metric IS
+  // the amount. An empty board → 0 (a safe FN, never fabricated). An unmodeled tail (parseCountSource → null)
+  // drops the clause to low → Arbiter. Checked BEFORE the "for each"/"number of" draw matchers (it's a
+  // distinct "greatest … among" phrasing). LANDMINE: a card whose OTHER clause is unmodeled (Rishkar's
+  // Expertise free-cast, Return of the Wildspeaker modal) stays non-native overall — making this DRAW clause
+  // HIGH does not flip it (the clause split keeps the unmodeled sibling, which routes the card low).
+  let mfe = t.match(/^(?:you )?draw cards equal to the (greatest (?:power|toughness) among .+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[1]);
+    return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
+  }
+  // ===== DRAW-METRIC ("for each [other]") ===== (WAVE2b) controller-DRAW for-each / equal-to-number matchers.
+  // The parseCountSource wrapper handles a leading "other " self-exclusion uniformly (excludeSelf, gated to a
+  // controller-scoped permanent count) — "draw a card for each OTHER Dinosaur you control" excludes the source
+  // permanent (CR 109.2). No per-matcher opt-in is needed (the wrapper is the single source of that behavior).
+  mfe = t.match(/^(?:you )?draw (a|\d+) cards? for each (.+)$/);
   if (mfe) {
     const src = parseCountSource(mfe[2]);
     return src ? { op: "draw", amountCount: { ...src, per: mfe[1] === "a" ? 1 : parseInt(mfe[1], 10) }, targetType: null } : null;
@@ -699,21 +778,59 @@ function parseExtendedAtom(s) {
     return src ? { op: "lose-life", who: "controller", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
   }
 
-  // Tutor — "Search your library for a/an [<FILTER>] card, [reveal it,] [and] put it into
-  // your hand[, then shuffle]." HAND destination only, single card. The filter is OPTIONAL:
-  // an UNFILTERED "search for a card" (Demonic Tutor) is modeled too (the picker shows the
+  // Tutor — "Search your library for a/an [<FILTER>] card[ with mana value N[ or less]], [reveal it,]
+  // [and] put it into your hand[, then shuffle]." HAND destination only, single card. The filter is
+  // OPTIONAL: an UNFILTERED "search for a card" (Demonic Tutor) is modeled too (the picker shows the
   // whole library / the auto-pick takes the best). A FILTERED phrase must be ALLOWLISTED
-  // (parseTutorFilter); an unmodeled filter ("nonland", "named X", "with mana value") /
-  // multi-card ("two", "up to N") / battlefield/top destination all fail the anchor → low →
-  // Arbiter. The fetched card is chosen at resolution (player picker, or auto-pick).
-  const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // (parseTutorFilter); WAVE-2b adds an optional MANA-VALUE constraint ("with mana value 2 or less" —
+  // Spellseeker; "with mana value 3" — Trophy Mage) parsed by parseTutorMv and carried on filter.mv —
+  // candidates are MV-filtered UPSTREAM (applyTutor + autoPickTutorCandidate), never just in the picker.
+  // An unmodeled filter ("nonland", "named X") / unmodeled MV comparator ("or greater"/"X") / multi-card
+  // ("two", "up to N") / battlefield/top destination all fail the anchor or the parse → low → Arbiter.
+  // The fetched card is chosen at resolution (player picker, or auto-pick).
+  const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (tm) {
     const phrase = tm[1]; // undefined for an unfiltered "a card"
+    const mvCapture = tm[2]; // undefined when there's no "with mana value …"
+    // An MV clause was WRITTEN but its comparator isn't modeled → low (CREED: never silently drop the cap).
+    const mv = parseTutorMv(mvCapture);
+    if (mvCapture !== undefined && mv === null) return null;
     if (phrase === undefined) {
-      return { op: "tutor", filter: null, filterLabel: "card", destination: "hand", targetType: null };
+      // Unfiltered by TYPE, but possibly MV-capped ("a card with mana value 3" — rare, modeled the same).
+      const filter = mv ? { groups: [], mv } : null;
+      const label = mv ? `card with mana value ${mvCapture}` : "card";
+      return { op: "tutor", filter, filterLabel: label, destination: "hand", targetType: null };
     }
-    const filter = parseTutorFilter(phrase);
-    return filter ? { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "hand", targetType: null } : null;
+    const base = parseTutorFilter(phrase);
+    if (!base) return null;
+    const filter = mv ? { ...base, mv } : base;
+    const label = mv ? `${phrase} card with mana value ${mvCapture}` : `${phrase} card`;
+    return { op: "tutor", filter, filterLabel: label, destination: "hand", targetType: null };
+  }
+  // WAVE-2b FETCH-TO-TOP — "Search your library for a/an [<FILTER>] card, [reveal it,] then shuffle and
+  // put (it|that card|the card) on top." (Vampiric / Mystical / Worldly / Sylvan / Personal / Enlightened
+  // Tutor; the tribal to-top tutors Merrow Harbinger / Forerunner of the Legion / Elvish Harbinger.) The
+  // card is fetched to the TOP of the library AFTER a shuffle (CR 701.19e: shuffle first so the chosen
+  // card survives, THEN place it on top — resolveTutorChoice's destination==="top" ordering). Same
+  // OPTIONAL allowlisted filter + optional MV cap as the to-hand tutor. A rider in the SAME sentence
+  // (Vampiric's "You lose 2 life" is a SEPARATE sentence, split off by splitClauses, so it doesn't reach
+  // here) or a multi-card "any number" / "up to N" fails the single-card anchor → low → Arbiter.
+  const ttm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: (?:then|and))* shuffle(?: your library)? and put (?:it|that card|the card) on top\.?$/);
+  if (ttm) {
+    const phrase = ttm[1];
+    const mvCapture = ttm[2];
+    const mv = parseTutorMv(mvCapture);
+    if (mvCapture !== undefined && mv === null) return null;
+    if (phrase === undefined) {
+      const filter = mv ? { groups: [], mv } : null;
+      const label = mv ? `card with mana value ${mvCapture}` : "card";
+      return { op: "tutor", filter, filterLabel: label, destination: "top", targetType: null };
+    }
+    const base = parseTutorFilter(phrase);
+    if (!base) return null;
+    const filter = mv ? { ...base, mv } : base;
+    const label = mv ? `${phrase} card with mana value ${mvCapture}` : `${phrase} card`;
+    return { op: "tutor", filter, filterLabel: label, destination: "top", targetType: null };
   }
   // RAMP-1 / RAMP-TYPED — battlefield-destination LAND tutor: "Search your library for a <LAND> card,
   // put (it|that card) onto the battlefield[ tapped], then shuffle." (Rampant Growth "a basic land card",
@@ -745,23 +862,26 @@ function parseExtendedAtom(s) {
     }
     return null; // a non-land / unmodeled-filter / ambiguous-basic battlefield tutor → low → Arbiter
   }
-  // RAMP-MULTI — "Search your library for UP TO TWO <LAND> cards, put them onto the battlefield[ tapped],
+  // RAMP-MULTI — "Search your library for UP TO N <LAND> cards, put them onto the battlefield[ tapped],
   // then shuffle." (Explosive Vegetation / Skyshroud Claim / Ranger's Path / Migration Path / Nissa's
-  // Expedition). Modeled as a tutor fetching UP TO TWO matching lands (`remaining:2`) — the resolver chains a
-  // second single-pick from the still-legal candidates (the driver loop drains it: AI auto-picks both, a human
-  // gets two pickers), entering each land the same way, shuffling once at the end. Same LAND-guard +
-  // ambiguous-basic guard as RAMP-1/RAMP-TYPED. A SPLIT destination (Cultivate "put one onto the battlefield
-  // and the other into your hand"), "up to THREE", a non-land fetch, or any trailing rider (Hour of Promise
-  // "Then if you control three or more Deserts …") fails the exact anchor → low → Arbiter.
-  const mf = t.match(/^search your library for up to two ([a-z][a-z ,]*?) cards,? put them onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  // Expedition at N=2; WAVE-2b UP-TO-N adds N=3..5 — Nissa's Renewal / Seedguide Ash / Horizon Boughs
+  // "up to three basic land cards"). Modeled as a tutor fetching UP TO N matching lands (`remaining:N`) —
+  // the resolver chains a single-pick from the still-legal candidates per fetch (the driver loop drains it:
+  // AI auto-picks all, a human gets N pickers), entering each land the same way, shuffling once at the end.
+  // Same LAND-guard + ambiguous-basic guard as RAMP-1/RAMP-TYPED. A SPLIT destination (Cultivate "put one
+  // onto the battlefield and the other into your hand"), a non-land fetch, or any trailing rider (Hour of
+  // Promise "Then if you control three or more Deserts …" — Nissa's Renewal's "You gain 7 life" is a
+  // SEPARATE sentence, split off, so it doesn't reach here) fails the exact anchor → low → Arbiter.
+  const mf = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards,? put them onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (mf) {
-    const phrase = mf[1];
+    const phrase = mf[2];
+    const count = UP_TO_N_WORD[mf[1]];
     const filter = parseTutorFilter(phrase);
     const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
     const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
     const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
     if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
-      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[2], remaining: 2, targetType: null };
+      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[3], remaining: count, targetType: null };
     }
     return null; // a non-land / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
   }
@@ -850,6 +970,22 @@ function parseExtendedAtom(s) {
   // filter is checked at enumeration (spellMatchesCounterFilter) + resolution (counterFilterMatches); both
   // gained the matching case. A different list / order / 2-way subset fails the exact anchor → low → Arbiter.
   if (/^counter target enchantment, instant, or sorcery spell$/.test(t)) return { op: "counter", spellFilter: "enchantmentInstantSorcery", targetType: "spell" };
+  // CNT-MV-EXACT (WAVE 2b) — "Counter target spell with mana value N" (Mental Misstep N=1, Spell Snare N=2).
+  // EXACT equality on the target spell's mana value (CR 701.5a + 202.3) — NOT "or less"/"or greater". The
+  // anchored "$" rejects the inequality variants (Disdainful Stroke "4 or greater", Thoughtbind "4 or less",
+  // Minor Misstep "1 or less"), which must stay low → Arbiter (a different comparison would be a confidently-
+  // wrong counter). `exactMv` is checked at enumeration (spellMatchesCounterFilter) + resolution
+  // (counterFilterMatches); the spellFilter stays "any" (no type restriction layered on the MV test).
+  {
+    const mv = /^counter target spell with mana value (\d+)$/.exec(t);
+    if (mv) return { op: "counter", spellFilter: "any", targetType: "spell", exactMv: parseInt(mv[1], 10) };
+  }
+  // CNT-ACP (WAVE 2b) — "Counter target artifact, creature, or planeswalker spell" (Strix Serenade's lead;
+  // it then carries the Swan-Song-style "Its controller creates a 2/2 Bird" rider via matchCounterController-
+  // Rider, so this lead parse must succeed for that card to flip native). The 3-way union reads the FRONT-FACE
+  // type only (CR 712.4a — counterFilterMatches/spellMatchesCounterFilter split " // "). A different list /
+  // order / 2-way subset fails the exact anchor → low → Arbiter (no existing filter is loosened).
+  if (/^counter target artifact, creature, or planeswalker spell$/.test(t)) return { op: "counter", spellFilter: "artifactCreaturePlaneswalker", targetType: "spell" };
   // SOFT-CNT — a "soft" counter: "Counter target [noncreature|creature] spell unless its controller pays
   // {N}." (Force Spike / Mana Leak / Mana Tithe / Spell Pierce / Stubborn Denial / Daze / Quench / …).
   // Extends the hard-counter atom with an `unlessPay` FIXED-generic escape resolved at counter resolution:
@@ -862,6 +998,23 @@ function parseExtendedAtom(s) {
   {
     const sc = /^counter target (noncreature |creature )?spell unless its controller pays \{(\d+)\}$/.exec(t);
     if (sc) return { op: "counter", spellFilter: sc[1] ? sc[1].trim() : "any", targetType: "spell", unlessPay: parseInt(sc[2], 10) };
+  }
+  // SOFT-CNT-X (WAVE 2b) — the {X} soft counter: "Counter target [noncreature|creature] spell unless its
+  // controller pays {X}." (Clash of Wills, Syncopate's family). The {X} here is the COUNTERSPELL'S own cast
+  // {X} (Clash of Wills's mana cost is {X}{U}), bound at the counter's resolution from ctx.xValue — applyCounter
+  // computes the generic tax = max(0, ctx.xValue) and routes the SAME pay-or-be-countered pending-choice as
+  // the fixed soft counter. The literal "{x}" in the text only appears on cards whose own cost carries X, so
+  // it's its own gate; the resolver floors at 0 (CR 107.3, an X=0 demand the controller trivially "pays").
+  // ANCHORED to a bare "{x}" with no rider — an "{X} and you gain X life", a "{X}, where X is …", a non-mana
+  // additional cost, or a modal bullet all leave residue → fail the anchor → low → Arbiter. Storm (Flusterstorm)
+  // rides on the card's keyword text, NOT this clause, so it's never half-modeled by a copy fabrication.
+  {
+    const scx = /^counter target (noncreature |creature )?spell unless its controller pays \{x\}$/.exec(t);
+    // `countX:true` marks this as an X-spell ONLY so the cast path (parser xSpell + legalChoices X-cast branch)
+    // enumerates affordable X values and threads the chosen X into ctx.xValue. The counter resolver ignores
+    // countX (it reads ctx.xValue for unlessPayX); no count-of-X tokens are created. Without this the spell
+    // would resolve at X=0 (a free pass the controller always "pays") — a confidently-wrong always-survives.
+    if (scx) return { op: "counter", spellFilter: scx[1] ? scx[1].trim() : "any", targetType: "spell", unlessPayX: true, countX: true };
   }
   // Graveyard recursion (CR 608) — "Return target <X> card from your graveyard to your hand" (Raise Dead,
   // Regrowth, Eternal Witness's ETB, Argivian Find…). The target is a CARD in the CASTER'S OWN graveyard
@@ -1484,6 +1637,21 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     }
   }
 
+  // ===== ETB-FIGHT (CR 701.12) ===== "[this creature|it] fights (up to one) target creature you don't
+  // control" (Kogla, Apex Altisaur, Kogla and Yidaro modal). The SOURCE creature and the chosen creature
+  // each deal damage equal to their power to the other, simultaneously (resolver fightCreature). The head
+  // is accepted DIRECTLY here ("it" / "this creature") — triggers.js' it→this-creature rewrite is NOT
+  // touched. ANCHORED to the bare "creature you don't control" form: "another target creature" (Ulvenwald
+  // Tracker — needs a SECOND chosen creature, not the source), a "target creature you control" (Prey
+  // Upon's own-side half), or any rider leaves residue → fails the `$` anchor → low → Arbiter, never a
+  // mis-wired one-sided fight. restrictions:{controller:opponent} so atomTargets/enumeration only offers
+  // an enemy creature; optionalTarget for "up to one" (0-or-1, declinable → clean no-op).
+  {
+    const fm = s.toLowerCase().replace(/[’]/g, "'")
+      .match(/^(?:this creature|it) fights (up to one )?target creature you don't control$/);
+    if (fm) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: !!fm[1] };
+  }
+
   // Extended atoms (anchored ALLOWLIST) before the legacy parse.
   const ext = parseExtendedAtom(s);
   if (ext && KNOWN.has(ext.op)) return ext;
@@ -1669,10 +1837,24 @@ function matchCounterControllerRider(oracle) {
   const m = stripReminder(oracle).trim().match(/^(counter target .+? spell)\.\s+its controller (.+?)\.?$/i);
   if (!m) return null;
   const lead = parseExtendedAtom(m[1].trim());
-  if (!lead || lead.op !== "counter" || lead.unlessPay != null) return null; // hard counter only (defer soft+rider)
+  if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only (defer soft+rider)
   const rider = parseControllerRider(m[2].trim().toLowerCase());
   if (!rider) return null;                                                    // unmodeled rider → low → Arbiter
   return { atom: { ...lead, controllerRider: rider }, rest: "" };
+}
+// CNT-EXILE-INSTEAD (WAVE 2b) — "Counter target <filter> spell. If that spell is countered this way, exile it
+// instead of putting it into its owner's graveyard." (Deny Existence "creature", Dissipate-style). The lead
+// reuses the counter grammar (so a lead filter the grammar doesn't model — Deny the Divine's "creature or
+// enchantment", Faerie Trickery's "non-Faerie" — fails the lead parse → null → low → Arbiter, ALL-OR-NOTHING).
+// The countered spell goes to EXILE not the graveyard (applyCounter reads atom.exileInstead). Spans two
+// sentences (the "If that spell …" rider would be shattered by splitClauses), so it's matched up front as ONE
+// collapsed atom. ANCHORED — a hard-counter lead only; the soft-counter path's pay-decision isn't composed here.
+function matchCounterExileInstead(oracle) {
+  const m = stripReminder(oracle).trim().match(/^(counter target .+? spell)\. if that spell is countered this way, exile it instead of putting it into its owner's graveyard\.?$/i);
+  if (!m) return null;
+  const lead = parseExtendedAtom(m[1].trim());
+  if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only
+  return { atom: { ...lead, exileInstead: true }, rest: "" };
 }
 
 // δ-2 impulse-dig — spelled cardinals the "top <N> cards" template uses (2-10; bigger digs are rare).
@@ -1918,12 +2100,17 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // a `controllerRider` (resolved to the countered spell's controller).
   const ccr = matchCounterControllerRider(oracle);
   if (ccr) return collapsed(ccr);
+  // CNT-EXILE-INSTEAD — "Counter target <filter> spell. If that spell is countered this way, exile it instead
+  // of putting it into its owner's graveyard." → ONE counter atom carrying `exileInstead` (applyCounter exiles
+  // the countered spell instead of routing it to the graveyard).
+  const cei = matchCounterExileInstead(oracle);
+  if (cei) return collapsed(cei);
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
-    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)))) {
+    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms))) {
       const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
@@ -1958,7 +2145,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // ambiguity blocked. (α2 review — tightened from "any optional in a multi-atom program drops".) Shared with
   // the collapsed-template path via `optionalsFormSuffix` so both HIGH paths enforce the same invariant.
   const optionalScopeOk = optionalsFormSuffix(atoms);
-  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op))) {
+  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(atoms)) {
     // Drop a redundant `shuffle` atom that immediately follows a `tutor` (the tutor
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.
@@ -2007,6 +2194,17 @@ export function parseEffectClause(oracle, cardType = "", opts = {}) {
  * "high" must be a deliberate, reviewed change — the `parser.test.js` corpus pins
  * every "must drop to low" oracle as a merge gate.
  */
+// ETB-FIGHT (CR 701.12) gate: a `fight` atom binds its fighter to ctx.sourceId (the permanent whose
+// triggered/activated ability it is), so it is only correct as the SOLE atom of its (sub)program. When a
+// `fight` clause appears ALONGSIDE other atoms it is the anaphoric SPELL form — "Target creature you control
+// gets +X/+Y. It fights target creature you don't control." (Epic Confrontation / Savage Smash / Swift Kick)
+// — where "it" is the PUMPED target, NOT the source: the fighter would be mis-bound, and a spell threads no
+// sourceId so the fight silently no-ops (a half-resolve). Force such a program LOW (→ Arbiter) — the whole
+// spell stays non-native (CREED; the chosen-fighter spell form is a future, separate model).
+function fightAtomMisplaced(atoms) {
+  return Array.isArray(atoms) && atoms.some(a => a.op === "fight") && atoms.length !== 1;
+}
+
 export function programConfidence(program) {
   if (!program) return "low";
   // An additional cost the cast path can't pay must never let a card claim HIGH (CREED — a spell that
@@ -2017,7 +2215,7 @@ export function programConfidence(program) {
   if (program.structure === "modal") {
     const modes = program.modal?.modes;
     if (!Array.isArray(modes) || modes.length < 2) return "low";
-    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)))
+    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms))
       ? "high" : "low";
   }
   if (!Array.isArray(program.atoms) || program.atoms.length === 0) return "low";
@@ -2026,6 +2224,7 @@ export function programConfidence(program) {
   // No printed card needs discover-not-last today; this guards the invariant as the vocabulary widens.
   const di = program.atoms.findIndex(a => a.op === "discover");
   if (di !== -1 && di !== program.atoms.length - 1) return "low";
+  if (fightAtomMisplaced(program.atoms)) return "low";
   return program.atoms.every(a => KNOWN.has(a.op)) ? "high" : "low";
 }
 
@@ -2112,6 +2311,11 @@ export function atomTargetIntent(atom) {
     case "destroy":
     case "exile":
     case "counter":
+    case "fight":
+      // ETB-FIGHT — the target is "target creature you DON'T control" (enemy-side). LOAD-BEARING for the
+      // trigger path: every fight card is an ETB/Enrage TRIGGER, so without this the HIGH-parsing fight
+      // program would have an ambiguous-intent atom → programTriggerTargetsResolvable false → the trigger
+      // silently routes to the Arbiter (a forbidden no-op fabrication path) instead of firing natively.
       return "enemy";
     case "tap":
       // TAP-TARGET-CREATURE: "you control" restriction targets own creatures (e.g. Magus of the Arena);

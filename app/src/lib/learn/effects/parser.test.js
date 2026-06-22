@@ -667,6 +667,47 @@ describe("parseEffectProgram — tutor (P3.2)", () => {
   });
 });
 
+// WAVE-2b TUTOR — FETCH-TO-TOP + MV/subtype filters. New HIGH shapes; the unmodeled neighbors are pinned
+// LOW in MUST_DROP_TO_LOW (or-greater MV, "any number"/multi to top, on-the-bottom destination).
+describe("parseEffectProgram — WAVE-2b tutor (FETCH-TO-TOP + filters)", () => {
+  const S = (oracle, type = "Sorcery") => parseEffectProgram({ type, oracle });
+  it("FETCH-TO-TOP: 'then shuffle and put that card on top' → destination 'top' (Vampiric/Mystical/Worldly)", () => {
+    expect(S("Search your library for a card, then shuffle and put that card on top. You lose 2 life.", "Instant").atoms)
+      .toEqual([
+        { op: "tutor", filter: null, filterLabel: "card", destination: "top", targetType: null },
+        { op: "lose-life", amount: 2, who: "controller", targetType: null },
+      ]);
+    expect(S("Search your library for an instant or sorcery card, reveal it, then shuffle and put that card on top.", "Instant").atoms[0])
+      .toMatchObject({ op: "tutor", destination: "top", filter: { groups: [["instant"], ["sorcery"]] } });
+    // 'put THE card on top' (Worldly/Sylvan/Personal Tutor) is also matched.
+    expect(S("Search your library for a creature card, reveal it, then shuffle and put the card on top.", "Instant").atoms[0])
+      .toMatchObject({ op: "tutor", destination: "top", filter: { groups: [["creature"]] } });
+  });
+  it("MV FILTER: 'with mana value N or less' → {max:N}; 'with mana value N' → {exact:N}", () => {
+    expect(S("Search your library for an instant or sorcery card with mana value 2 or less, reveal it, put it into your hand, then shuffle.").atoms[0].filter)
+      .toEqual({ groups: [["instant"], ["sorcery"]], mv: { max: 2 } }); // Spellseeker
+    expect(S("Search your library for an artifact card with mana value 3, reveal it, put it into your hand, then shuffle.").atoms[0].filter)
+      .toEqual({ groups: [["artifact"]], mv: { exact: 3 } }); // Trophy Mage
+  });
+  it("SUBTYPE FILTER: a curated creature subtype tutor flips HIGH (Goblin Matron / Elvish Harbinger to top)", () => {
+    expect(S("Search your library for a Dragon card, reveal it, put it into your hand, then shuffle.").atoms[0])
+      .toMatchObject({ op: "tutor", destination: "hand", filter: { groups: [["dragon"]] } });
+    expect(S("Search your library for a goblin card, reveal that card, put it into your hand, then shuffle.").atoms[0].filter)
+      .toEqual({ groups: [["goblin"]] });
+    expect(S("Search your library for an elf card, reveal it, then shuffle and put that card on top.").atoms[0])
+      .toMatchObject({ op: "tutor", destination: "top", filter: { groups: [["elf"]] } });
+  });
+  it("UP-TO-N: the bare both-to-battlefield land fetch widens to up-to-(two|three|four|five)", () => {
+    expect(S("Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle. You gain 7 life.").atoms)
+      .toEqual([
+        { op: "tutor", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card", destination: "battlefield", entersTapped: true, remaining: 3, targetType: null },
+        { op: "gain-life", amount: 7, targetType: null },
+      ]); // Nissa's Renewal
+    expect(S("Search your library for up to five Forest cards, put them onto the battlefield tapped, then shuffle.").atoms[0])
+      .toMatchObject({ op: "tutor", remaining: 5, destination: "battlefield" });
+  });
+});
+
 // RAMP-SPLIT (Cultivate / Kodama's Reach) — "up to two basic land cards … put one onto the battlefield
 // tapped and the other into your hand". Models the SPLIT destination the bare RAMP-MULTI can't: an ordered
 // destinations sequence (battlefield-tapped, then hand). Whole-card (the oracle IS only this effect → native).
@@ -728,14 +769,14 @@ const MUST_DROP_TO_LOW = [
   // are pinned HIGH in MUST_STAY_HIGH + the dedicated describe block below). The
   // anchored allowlist drops anything that isn't EXACTLY a bare "Counter target
   // [noncreature|creature]? spell". ──
-  "Counter target spell unless its controller pays {X}.",       // Clash of Wills — variable {X} tax stays low (SOFT-CNT models fixed {N} only)
+  // (Clash of Wills "unless its controller pays {X}" is now HIGH — WAVE 2b SOFT-CNT-X, pinned in counterGrammar.test.js)
   "Counter target spell unless its controller pays {1} for each card in your hand.", // tax
   "Counter target spell or ability.",                            // "or ability" — not a bare spell target
   "Counter target activated or triggered ability.",              // an ability is not a spell
   "Counter up to two target spells.",                            // "up to two" cardinality unmodeled
-  "Counter target spell with mana value 3 or less.",             // mana-value rider unmodeled
-  "Counter target creature or planeswalker spell.",              // "or planeswalker" — not the modeled filter
-  "Counter target spell. If that spell is countered this way, exile it instead.", // replacement rider
+  "Counter target spell with mana value 3 or less.",             // mana-value INEQUALITY rider (WAVE 2b models EXACT "mana value N" only)
+  "Counter target creature or planeswalker spell.",              // "or planeswalker" — not a modeled filter (only artifact,creature,or planeswalker is)
+  "Counter target spell. If that spell is countered this way, exile it instead.", // replacement rider — the SHORT form (no "of putting it into its owner's graveyard") stays low
   // ── P3.1 corpus-confirmed riders (REAL Scryfall cards the sweep verified stay LOW) ──
   "Counter target artifact or enchantment spell.",                     // Annul — unmodeled filter
   "Counter target spell. Its controller mills four cards.",            // Countermand — unmodeled mill rider
@@ -744,12 +785,19 @@ const MUST_DROP_TO_LOW = [
   "Choose two —\n• Draw a card.\n• Untap all lands you control, then add {G} for each.", // a choose-two with an UNMODELED mode → whole card low (all-or-nothing across modes)
   "Counter target spell you don't control.",                           // Counterflux — "you don't control" unmodeled
   // ── P3.2 tutor — shapes that must STAY low (unmodeled filter / destination / count) ──
-  "Search your library for a Dragon card, reveal it, put it into your hand, then shuffle.",        // creature subtype (deferred)
-  "Search your library for a creature card with mana value 3 or less, put it into your hand, then shuffle.", // mana-value rider
+  // (WAVE-2b modeled the Dragon-subtype, the "mana value N [or less]" cap, and the bare up-to-three
+  //  land-to-battlefield fetch — those are now pinned HIGH in the WAVE-2b describe block; the near-miss
+  //  neighbors below remain LOW.)
+  "Search your library for an artifact card with mana value 3 or greater, reveal it, put it into your hand, then shuffle.", // WAVE-2b: an UNMODELED MV comparator ("or greater") stays low (CREED — never a wrong cap)
+  "Search your library for a creature card with mana value x or less, put it into your hand, then shuffle.", // WAVE-2b: a non-numeric MV ("X") stays low
+  "Search your library for any number of Goblin cards, reveal them, then shuffle and put those cards on top in any order.", // WAVE-2b FETCH-TO-TOP is single-card; "any number" (Goblin Recruiter) stays low
+  "Search your library for a card, then shuffle and put that card on the bottom.", // WAVE-2b: an unmodeled "on the bottom" destination stays low
+  "Search your library for up to three creature cards, put them onto the battlefield tapped, then shuffle.", // WAVE-2b UP-TO-N keeps the LAND-guard: a non-land multi-fetch stays low
   "Search your library for a green creature card, put it onto the battlefield, then shuffle.",  // RAMP-1 restricts battlefield fetch to LANDS; a creature cheat-into-play (Natural Order) stays low
   "Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.",  // RAMP-TYPED: AMBIGUOUS-basic union (Quandrix Cultivator) — "basic" must distribute but the split can't prove it → Arbiter
-  // RAMP-MULTI models the bare "up to two <land> → battlefield"; RAMP-SPLIT models the Cultivate split; "up to THREE" stays low.
-  "Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",  // RAMP-MULTI models "up to two"; "up to three" stays low
+  // RAMP-MULTI models the bare "up to N <land> → battlefield"; RAMP-SPLIT models the Cultivate "one … the
+  // other" split (intrinsically two) — an "up to THREE" SPLIT (one-and-the-other) stays low.
+  "Search your library for up to three basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.",  // RAMP-SPLIT is two-only; "up to three" split stays low
   // RIDER-REMOVAL — the UNMODELED controller-riders that must stay LOW (the lead removal is modeled, but an
   // all-or-nothing card never fires the removal while silently dropping the rider).
   "Destroy target creature. Its controller loses 2 life.",                                            // lose-life rider (Sip of Hemlock)
@@ -989,6 +1037,13 @@ const MUST_STAY_HIGH = [
   "Counter target creature spell. Create a 2/2 blue Illusion creature token.",  // Summoner's Bane (counter + token)
   "Counter target spell and Suffocating Blast deals 3 damage to target creature.", // Suffocating Blast (dual-target)
   "Choose one —\n• You gain 5 life.\n• Counter target spell.\n• Target creature gets -2/-2 until end of turn.", // Dromar's Charm
+  // WAVE 2b counter-grammar extensions (resolution/coverage pinned in counterGrammar.test.js):
+  "Counter target spell with mana value 1.",                                    // Mental Misstep — CNT-MV-EXACT
+  "Counter target spell with mana value 2.",                                    // Spell Snare — CNT-MV-EXACT
+  "Counter target artifact, creature, or planeswalker spell.",                  // CNT-ACP 3-way union (Strix Serenade's lead)
+  "Counter target artifact, creature, or planeswalker spell. Its controller creates a 2/2 blue Bird creature token with flying.", // Strix Serenade (union + rider)
+  "Counter target spell unless its controller pays {X}.",                       // Clash of Wills — SOFT-CNT-X
+  "Counter target creature spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.", // Deny Existence — CNT-EXILE-INSTEAD
   // P3.2 corpus-confirmed tutors (REAL Scryfall cards the sweep verified — modeled filters):
   "Search your library for a creature card, reveal that card, put it into your hand, then shuffle.",        // Eladamri's Call
   "Search your library for an artifact card, reveal it, put it into your hand, then shuffle.",              // Fabricate

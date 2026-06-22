@@ -17,9 +17,16 @@ import { resolveScaledAmount, isCreatureCard } from "./shared.js";
  * player. amountX (an {X}-draw) still reads ctx.xValue for the controller form; the each/target forms are
  * numeric-only at the parser (an "{X}" each/target draw fails the anchor → Arbiter), so effectiveAmount is
  * a plain number there. An eliminated/removed player id is skipped (no throw).
+ *
+ * CDMG-PLAYER-PAYOFF — `countContext` reads a trigger-context number ("draw that many cards" = the combat-
+ * damage amount the combat-damage trigger carries as ctx.combatDamageAmount; Starwinder, Glint-Eye Nephilim).
+ * It floors at 0 (never forced to 1) and is a clean no-op as a spell / non-combat trigger (no such ctx key →
+ * draw 0), never a fabricated count. Mirrors the create-named-token countContext path verbatim.
  */
 function applyDrawAtom(state, atom, ctx) {
-  const amount = resolveScaledAmount(state, atom, ctx); // FOR-EACH: count × per (else amountX / printed)
+  const amount = atom.countContext
+    ? Math.max(0, ctx[atom.countContext] || 0) // CDMG-PLAYER-PAYOFF — "draw that many cards" (combatDamageAmount), floor 0
+    : resolveScaledAmount(state, atom, ctx); // FOR-EACH: count × per (else amountX / printed)
   if (atom.who === "eachPlayer") {
     let next = state;
     for (const pid of Object.keys(state.players)) {
