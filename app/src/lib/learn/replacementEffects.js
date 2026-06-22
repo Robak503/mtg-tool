@@ -43,12 +43,21 @@ function oracleOf(card) {
 export function doublerProfile(card) {
   const o = oracleOf(card);
   if (!o) return null;
+  // CLASS doublers are LEVEL-gated (Innkeeper's Talent: the doubling is its Level-3 ability). The runtime layer
+  // can't track Class levels, so an always-on doubler would over-apply from Level 1 — a forbidden FP. Skip the
+  // whole card (FN-safe: under-model the rare Class doubler rather than mis-resolve every counter while it's
+  // under-leveled).
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  if (/\bclass\b/.test(type)) return null;
   let counter = null;
   let token = null;
   let halvesOpponents = false;
   for (const raw of o.split(".")) {
     const s = raw.trim();
     if (!s) continue;
+    // Temporal/date-gated clause (Hosting Season Secret Lair "While it's October …") — the layer can't evaluate
+    // the calendar gate, so applying the doubler unconditionally is an FP. Skip the sentence (FN-safe).
+    if (/while it'?s /.test(s)) continue;
     // Counter-placement clause — both PASSIVE ("[+1/+1] counters would be put on …", Branching Evolution /
     // Hardened Scales / Primal Vigor / Corpsejack) and ACTIVE ("[you] would put one or more counters on …",
     // Doubling Season / Vorinclex).
@@ -62,14 +71,22 @@ export function doublerProfile(card) {
         halvesOpponents = true;
       } else {
         const kind = /\+1\/\+1 counters?/.test(s) ? "+1/+1" : "any";
-        // "you control" / "you would put" / "your team controls" → you-scope; neither → global (Primal Vigor
-        // "on a creature"). "your team controls" (Pir, Imaginative Rascal) == you-scope: this engine only runs
-        // 1v1 (Standard) + 4P FFA (Commander) — there are NO teammates in any supported mode, so "your team" is
-        // exactly you. Without this, Pir's +1 additive falls through to global and wrongly boosts an OPPONENT's
-        // counters (a forbidden CREED replacement-layer FP — caught at the WAVE-3a merge gate).
-        const scope = (/you control/.test(s) || /you would put/.test(s) || /your team controls?/.test(s)) ? "you" : "global";
-        if (/twice that many/.test(s)) counter = { op: "multiply", factor: 2, kind, scope };
-        else if (/that many plus (one|1)/.test(s)) counter = { op: "additive", factor: 1, kind, scope };
+        // SCOPE — must be EXPLICIT, never a blind "else global":
+        //  • you-scope: "you control" / "you would put" / "your team controls" (Pir — this engine has NO
+        //    teammates in 1v1/FFA, so "your team" == you; without this Pir's +1 leaked onto opponents).
+        //  • global: ONLY a genuinely generic recipient ("on a/each/any creature|permanent|planeswalker|
+        //    player|spacecraft|planet", e.g. Primal Vigor "put on a creature").
+        //  • neither → a SELF-NAME recipient ("would be put on Mowu") or other restricted form. Modeling that
+        //    as global would leak the doubler onto EVERY player (Mowu's +1 hitting all counters) — a forbidden
+        //    FP. Leave scope null → no counter profile (FN-safe: a self-only doubler is under-modeled, never
+        //    over-applied).
+        let scope = null;
+        if (/you control/.test(s) || /you would put/.test(s) || /your team controls?/.test(s)) scope = "you";
+        else if (/\b(?:put on|on) (?:a|an|each|any|that) (?:creature|permanent|planeswalker|player|spacecraft|planet)\b/.test(s)) scope = "global";
+        if (scope) {
+          if (/twice that many/.test(s)) counter = { op: "multiply", factor: 2, kind, scope };
+          else if (/that many plus (one|1)/.test(s)) counter = { op: "additive", factor: 1, kind, scope };
+        }
       }
     }
     if (tokenCreate && /twice that many/.test(s)) {

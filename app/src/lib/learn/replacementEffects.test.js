@@ -28,6 +28,13 @@ const TEXT = {
   // "your team controls" and fell through to global, leaking Pir's +1 onto opponents' counters. In this engine
   // (1v1 + FFA only, no teammates) "your team" == you, so Pir is you-scoped.
   pir: ["Legendary Creature — Human", "Partner with Toothy, Imaginary Friend (When this creature enters, target player may put Toothy into their hand from their library, then shuffle.)\nIf one or more counters would be put on a permanent your team controls, that many plus one of each of those kinds of counters are put on that permanent instead."],
+  // ── Idle-audit (full 33-card runtime-surface scan) false-detection guards ──
+  // Mowu: a SELF-NAME doubler ("put on Mowu") — must NOT be read as global (would leak +1 onto EVERY creature).
+  mowu: ["Legendary Creature — Dog", "Vigilance, trample\nIf one or more +1/+1 counters would be put on Mowu, that many plus one +1/+1 counters are put on it instead."],
+  // Innkeeper's Talent: the doubler is the LEVEL-3 Class ability — must NOT apply unconditionally (Class type skip).
+  innkeepersTalent: ["Enchantment — Class", "(Gain the next level as a sorcery to add its ability.)\nAt the beginning of combat on your turn, put a +1/+1 counter on target creature you control.\n{G}: Level 2\nPermanents you control with counters on them have ward {1}.\n{3}{G}: Level 3\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead."],
+  // Hosting Season: a DATE-gated Secret Lair joke — the "While it's October …" calendar gate can't be evaluated, so skip.
+  hostingSeason: ["Enchantment", "While it's October 25th, 2024, whenever you cast your commander, create a token that's a copy of it except it isn't legendary.\nWhile it's October 26th or 27th, 2024, if one or more tokens would be created under your control, instead twice that many tokens are created and each of them enters with a +1/+1 counter on it.\nOn any other date, both abilities apply."],
 };
 const cardOf = (k) => ({ name: k, type: TEXT[k][0], oracle: TEXT[k][1] });
 const permOf = (k, controller) => ({ id: `dbl-${k}`, controller, card: cardOf(k), counters: {} });
@@ -66,6 +73,16 @@ describe("doublerProfile / isPureDoubler — detection over real text", () => {
   it("a non-doubler card returns null", () => {
     expect(doublerProfile({ type: "Creature", oracle: "Flying" })).toBeNull();
     expect(isPureDoubler({ type: "Creature", oracle: "Flying" })).toBe(false);
+  });
+  it("false-detection guards (idle full-surface audit): self-name / Class-level / date-gated doublers do NOT mis-detect", () => {
+    // Mowu "put on Mowu" is self-only — must NOT become a global doubler (that leaked +1 onto everyone's counters).
+    expect(doublerProfile(cardOf("mowu"))?.counter ?? null).toBeNull();
+    expect(applyCounterDoubling(stateWith(permOf("mowu", "me")), "me", "+1/+1", 1)).toBe(1);  // own creatures: NOT boosted
+    expect(applyCounterDoubling(stateWith(permOf("mowu", "me")), "opp", "+1/+1", 1)).toBe(1); // opponents: NOT boosted
+    // Innkeeper's Talent — Class (the doubler is its Level-3 ability); the layer can't track levels → skip entirely.
+    expect(doublerProfile(cardOf("innkeepersTalent"))).toBeNull();
+    // Hosting Season — date-gated; the "While it's October …" gate can't be evaluated → no token doubler.
+    expect(doublerProfile(cardOf("hostingSeason"))?.token ?? null).toBeNull();
   });
 });
 
