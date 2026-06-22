@@ -1111,6 +1111,16 @@ function parseExtendedAtom(s) {
     const kws = parseGrantedKeywords(m[1]);
     return kws ? { op: "pump", target: "self", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // SELF-BOUNCE — "return this creature to its owner's hand" (the ability source, CR 109.2). Non-targeted
+  // (target:"self", no targetType): atomTargets → selfTargets → ctx.sourceId. applyZoneMove handles
+  // target:"self" through atomTargets/selfTargets; the controller serves as the owner proxy (zones.js
+  // line 24 — consistent with the targeted-bounce form). Never a fabricated move: if ctx.sourceId is
+  // absent or the permanent left the battlefield, selfTargets returns [] → the loop is a no-op.
+  if (/^return this creature to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
+  // SELF-SACRIFICE — "sacrifice this creature" (the ability source). Non-targeted (target:"self").
+  // applySacrifice early-exits for target:"self" via sacrificeCreatureEffect(ctx.controller, ctx.sourceId).
+  // No fabrication risk: absent sourceId → sacrificeCreatureEffect early-returns a no-op log event.
+  if (/^sacrifice this creature$/.test(t)) return { op: "sacrifice", target: "self" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   // COUNTER-TARGET-OWN — "put a +1/+1 counter on target creature you control" (Merfolk Skydiver, Kujar
