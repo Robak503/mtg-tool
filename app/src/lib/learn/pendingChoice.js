@@ -242,20 +242,38 @@ export function setPendingDiscardChoice(state, { controller, remaining, candidat
  * (and can afford it), the spell SURVIVES; otherwise it's countered. The caster's continuation rides on
  * `pendingChoice.resume` (attached by runProgram). FIFO: one choice at a time.
  */
-export function setPendingSoftCounterChoice(state, { controller, amount, spellId, spellName = null, sourceName = null }) {
+export function setPendingSoftCounterChoice(state, { controller, amount, cost = null, spellId, spellName = null, sourceName = null }) {
   if (state.pendingChoice) return state;
-  const next = logEvent(state, { kind: "soft-counter-pending", controller, amount, spellName, sourceName });
+  // `amount` is the legacy FIXED-GENERIC cost (Force Spike / Mana Leak / generic-mana ward). `cost` is the
+  // KW-WARD-PR2 STRUCTURED cost descriptor ({kind:"mana",mana} | {kind:"life",life}) — when present it
+  // overrides `amount` at settle (resolveSoftCounterChoice branches on it). For logging, surface the
+  // headline number either way so the banner reads sensibly.
+  const logAmount = cost ? wardCostHeadline(cost) : amount;
+  const next = logEvent(state, { kind: "soft-counter-pending", controller, amount: logAmount, spellName, sourceName });
   return {
     ...next,
     pendingChoice: {
       kind: "soft-counter",
       controller,
       amount,
+      ...(cost ? { cost } : {}),
       spellId,
       spellName,
       sourceName,
     },
   };
+}
+
+/** A short human number for a structured ward cost, for the pending-choice log banner. */
+function wardCostHeadline(cost) {
+  if (cost?.kind === "life") return cost.life;
+  if (cost?.kind === "mana") {
+    const m = cost.mana || {};
+    const colored = ["W", "U", "B", "R", "G", "C"].reduce((s, c) => s + (m[c] || 0), 0);
+    const hybrid = Array.isArray(m.hybrid) ? m.hybrid.length : 0;
+    return (m.generic || 0) + colored + hybrid;
+  }
+  return cost?.amount ?? null;
 }
 
 /**
