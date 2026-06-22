@@ -102,6 +102,19 @@ function splitTriggerSentence(inner) {
       pos = next + 1;
     }
   }
+  // TYPED-CAST-LIST guard — a "cast a <A>, <B>, or <C> spell" condition (Sram: "cast an Aura, Equipment, or
+  // Vehicle spell") puts a comma INSIDE the condition, before the word "spell". The prefix "you cast an
+  // Aura" already has the "cast" event verb, so the loop above stops at that first comma and TRUNCATES the
+  // type list — leaving a partial condition + a garbled effect. The cast condition only ends at "…spell", so
+  // when the chosen split prefix is a cast clause that hasn't reached "spell" yet, advance to the first
+  // comma AFTER "spell". Gated to the cast case (prefix has "cast", lacks "spell"); other triggers unchanged.
+  if (/\bcasts?\b/.test(inner.slice(0, splitIdx)) && !/\bspell\b/.test(inner.slice(0, splitIdx))) {
+    const spellIdx = inner.search(/\bspell\b/);
+    if (spellIdx !== -1) {
+      const afterSpell = inner.indexOf(",", spellIdx);
+      if (afterSpell !== -1) splitIdx = afterSpell;
+    }
+  }
   const condition = inner.slice(0, splitIdx).trim();
   let rest = inner.slice(splitIdx + 1).trim();
   let interveningIf = null;
@@ -251,7 +264,13 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\bor another\b/.test(c)) return null;
   if (/\bdealt damage by\b/.test(c)) return null;
   if (/\bthe player with\b/.test(c)) return null;
-  if (/\b(?:with|while|during|named)\b/.test(c)) return null;
+  // The "with …" rejection guards scope-INEXPRESSIBLE restrictions ("with a +1/+1 counter on it"). Two cast
+  // shapes use "with" but are PRECISELY checkable on the cast spell itself — "cast a spell with {X} in its
+  // mana cost" (printed-cost test) and "cast a spell with mana value N or greater/less" (CR 202.3). Exempt
+  // ONLY those exact anchored shapes here so they reach the cast matchers below; everything else "with …"
+  // still routes to the Arbiter (a SAFE false-negative). The shapes are re-anchored at their matchers.
+  const castWithExempt = /^(?:you|an opponent|a player|each player) casts? an? spell with (?:\{x\} in its mana cost|mana value \d+ or (?:greater|more|less|fewer))$/.test(c);
+  if (!castWithExempt && /\b(?:with|while|during|named)\b/.test(c)) return null;
 
   // The subject is mapped ONLY to a scope scopeMatches can ENFORCE (bare, or the controller
   // restriction); any other restriction (keyword/type/power/named/token) → null → UNDETECTED, so
@@ -440,7 +459,41 @@ function classifyCondition(condRaw, cardName, cardType) {
   // other trailing text stays UNDETECTED → Arbiter. Fires via checkCastTriggers when the caster's
   // spellsCastThisTurn reaches 2 (reset for all seats at untap); whose:"any" + scan only the caster.
   if (/^you cast your second spell (?:each|this) turn$/.test(c)) return { event: "castSecond", scope: "you", whose: "any" };
-  const castM = c.match(/^(you|an opponent|a player|each player) casts?\s+(?:an?|your|its|their)?\s*([a-z- ]*?)\s*spell$/);
+  // TRIG-CASTNTH — "cast your <ordinal> spell each turn" generalized to the off-by-one-safe Nth-per-turn
+  // event (CR 601, spells cast one at a time → spellsCastThisTurn equals N exactly once per turn). Covers the
+  // controller form ("you cast your first/third spell each turn" — Rashmi) AND the opponent form ("an
+  // opponent casts their first spell each turn" — Mind's Dilation). BARE form ONLY — a spell-type rider
+  // ("…first noncreature spell") fails the `$` anchor → UNDETECTED → Arbiter (never an over-fire). The
+  // PAYOFF still has to parse HIGH to fire (Rashmi's reveal/free-cast does not → stays non-native; the
+  // detection is correct but the whole card routes to the Arbiter, a SAFE false-negative). checkCastTriggers
+  // reads the CASTER's count. (The bare "second" form stays its own castSecond event for stable identity.)
+  const nthM = c.match(/^(you|an opponent) casts? (?:your|their) (first|second|third) spell (?:each|this) turn$/);
+  if (nthM) {
+    const nth = nthM[2] === "first" ? 1 : nthM[2] === "second" ? 2 : 3;
+    const whose = nthM[1] === "you" ? "you" : "opponent";
+    return { event: "castNth", scope: "castWatcher", whose, nth };
+  }
+  // X-SPELL cast trigger — "cast a spell with {X} in its mana cost" (CR 107.3 / 601.2b). The {X} and "mana
+  // cost" land AFTER "spell", so this never matches the generic "…spell$" matcher; it's its own anchored
+  // form. spellFilter:{ kind:"hasX" } → spellMatchesFilter inspects the cast spell's printed mana cost.
+  // (Zaxara's token-with-X-counters PAYOFF is owned by the xCastToken.js targeted hook; here a non-HIGH
+  // payoff just no-ops through buildTriggerStack — no double token. A simple payoff like "draw a card" fires.)
+  const xCastM = c.match(/^(you|an opponent|a player|each player) casts? an? spell with \{x\} in its mana cost$/);
+  if (xCastM) {
+    const whose = /you/.test(xCastM[1]) ? "you" : /opponent/.test(xCastM[1]) ? "opponent" : "any";
+    return { event: "cast", scope: "castWatcher", whose, spellFilter: { kind: "hasX" } };
+  }
+  // MANA-VALUE-THRESHOLD cast trigger — "cast a spell with mana value N or greater/less" (CR 202.3). Like
+  // the X form, the "with mana value …" rider is AFTER "spell", so it's an anchored standalone form. The
+  // comparison reads the cast spell's mana value at cast time. "or more"/"or greater" → >= N; "or
+  // less"/"or fewer" → <= N. An "exactly N" or unbounded variant isn't in this shape → UNDETECTED.
+  const mvCastM = c.match(/^(you|an opponent|a player|each player) casts? an? spell with mana value (\d+) or (greater|more|less|fewer)$/);
+  if (mvCastM) {
+    const whose = /you/.test(mvCastM[1]) ? "you" : /opponent/.test(mvCastM[1]) ? "opponent" : "any";
+    const op = /greater|more/.test(mvCastM[3]) ? "gte" : "lte";
+    return { event: "cast", scope: "castWatcher", whose, spellFilter: { kind: "manaValue", op, value: parseInt(mvCastM[2], 10) } };
+  }
+  const castM = c.match(/^(you|an opponent|a player|each player) casts?\s+(?:an?|your|its|their)?\s*([a-z,\- ]*?)\s*spell$/);
   if (castM) {
     const whose = /you/.test(castM[1]) ? "you" : /opponent/.test(castM[1]) ? "opponent" : "any";
     const spellFilter = castSpellFilter(castM[2].trim());
@@ -501,7 +554,20 @@ function castSpellFilter(text) {
   // type line (Elf/Dog/Dragon/Adventure/Aura spells; tribal cast payoffs). A multi-word phrase, color, or
   // denylisted word → null → undetected → Arbiter (a SAFE false-negative). Serialized as "subtype:Name".
   if (/^[a-z]+$/.test(f) && !NON_SUBTYPE_CAST_WORDS.has(f)) return `subtype:${f.charAt(0).toUpperCase() + f.slice(1)}`;
-  return null; // color / multi-word / denylisted category → unmodeled
+  // TYPED-LIST — an "A, B, or C" list of type words ("Aura, Equipment, or Vehicle" — Sram). Split on
+  // commas / "or" / "and", strip a leftover leading "or "/"and " (the Oxford comma ", or" leaves "or
+  // vehicle" when the comma split fires first), and require EVERY word to be a real type/subtype token (NOT
+  // denylisted — same NON_SUBTYPE_CAST_WORDS gate as the single-word path, so a color/category word in the
+  // list rejects the whole filter → null → Arbiter). The cast spell matches if its type line carries ANY
+  // listed word (CR 205.2), exactly how "Aura, Equipment, or Vehicle" reads. Serialized as a typed object.
+  const words = f
+    .split(/\s*,\s*|\s+or\s+|\s+and\s+/)
+    .map((w) => w.trim().replace(/^(?:or|and)\s+/, ""))
+    .filter(Boolean);
+  if (words.length >= 2 && words.every((w) => /^[a-z]+$/.test(w) && !NON_SUBTYPE_CAST_WORDS.has(w))) {
+    return { kind: "typed", words: words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)) };
+  }
+  return null; // color / multi-word non-type / denylisted category → unmodeled
 }
 
 /**
@@ -625,6 +691,7 @@ export function detectTriggers(card) {
         scope: cls.scope,
         whose: cls.whose,
         spellFilter: cls.spellFilter,         // cast triggers only (undefined otherwise)
+        nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
         subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF only (e.g. "Dinosaur" for Pantlaza)
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
@@ -1077,6 +1144,13 @@ export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
+/** The cast spell's mana value: prefer a numeric cmc/mana_value, else 0 (a missing cost can't pass a >=N gate). */
+function spellManaValue(spellCard) {
+  if (typeof spellCard?.cmc === "number") return spellCard.cmc;
+  if (typeof spellCard?.mana_value === "number") return spellCard.mana_value;
+  return 0;
+}
+
 /** Does the cast spell match a cast trigger's modeled spell-type filter? */
 function spellMatchesFilter(filter, spellCard) {
   const t = typeStr(spellCard);
@@ -1085,6 +1159,21 @@ function spellMatchesFilter(filter, spellCard) {
   if (typeof filter === "string" && filter.startsWith("subtype:")) {
     const sub = filter.slice(8);
     return new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t);
+  }
+  // PARAMETERIZED object filters: typed-list (ANY listed type/subtype on the line, CR 205.2), the X-spell
+  // printed-cost test (CR 107.3), and the mana-value threshold (CR 202.3).
+  if (filter && typeof filter === "object") {
+    switch (filter.kind) {
+      case "typed":
+        return filter.words.some((w) => new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(t));
+      case "hasX":
+        return /\{x\}/i.test(String(spellCard?.mana ?? spellCard?.mana_cost ?? ""));
+      case "manaValue": {
+        const mv = spellManaValue(spellCard);
+        return filter.op === "gte" ? mv >= filter.value : mv <= filter.value;
+      }
+      default: return false;
+    }
   }
   switch (filter) {
     case "any": return true;
@@ -1166,9 +1255,27 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [] }) 
   // just incremented the caster's count BEFORE this call, and spells are cast one at a time, so it equals
   // exactly 2 on the 2nd cast of the turn (reset for all seats at untap → fires again next turn). Fires for
   // the CASTER's own watchers only (scope "you"), so no whose gate is needed — never on an opponent's cast.
-  if (state.players[casterId]?.spellsCastThisTurn === 2) {
+  const castCount = state.players[casterId]?.spellsCastThisTurn;
+  if (castCount === 2) {
     for (const watcher of triggerSourcesOf(state, casterId)) {
       for (const d of detectTriggers(watcher.card).filter((x) => x.event === "castSecond")) {
+        fired.push(makePendingTrigger(d, watcher, null, context));
+      }
+    }
+  }
+  // TRIG-CASTNTH (CR 601): "Whenever (you|an opponent) casts (your|their) <Nth> spell each turn." The count
+  // just incremented in applyCastSpell is the CASTER's running total, so it equals descriptor.nth EXACTLY
+  // ONCE this turn (the off-by-one trap: the count is already post-increment, so an Nth trigger compares ===
+  // nth, NOT > nth-1 — a single fire on the Nth cast). A "you" watcher fires only when its controller IS the
+  // caster; an "opponent" watcher fires only when the caster is one of the watcher's opponents (so each
+  // opponent's Mind's Dilation fires once on that opponent's Nth cast). Scanned across ALL seats so opponent
+  // watchers see the cast. The PAYOFF still must parse HIGH at flush to fire natively.
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "castNth")) {
+        if (castCount !== d.nth) continue;
+        if (d.whose === "you" && casterId !== watcher.controller) continue;
+        if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(casterId)) continue;
         fired.push(makePendingTrigger(d, watcher, null, context));
       }
     }
