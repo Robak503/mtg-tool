@@ -514,7 +514,22 @@ const COUNT_SUBTYPE = {
 // admits OPPONENT-scoped ("…your opponents control" — Dockside, who:"opponents", summed over all opponents) and
 // TARGET-CONTROLLED ("…that player controls" — Cavern-Hoard, who:"target", the damaged/target player) permanent
 // counts. Left false for every legacy caller so those scopes can never widen an existing count source.
-function parseCountSource(phrase, { allowTarget = false, allowScopes = false } = {}) {
+// ===== COUNT-OTHER ===== (WALT) a leading "other " on a "<X> you control" count EXCLUDES the source
+// permanent itself (CR 109.2 — "other" = every object but this one): "draw a card for each OTHER Dinosaur
+// you control" (Earthshaker Dreadmaw) counts every Dinosaur you control but itself. Strip "other ", parse
+// the base source, and tag `excludeSelf` so countForSpec drops ctx.sourceId from the tally. Gated to a
+// CONTROLLER-scoped permanent count (who undefined) — "other" on a hand/graveyard/experience/opponent
+// source has no battlefield self to exclude, so it routes to the Arbiter (safe FN) instead of guessing.
+function parseCountSource(phrase, opts = {}) {
+  const raw = String(phrase).trim().replace(/\.\s*$/, "");
+  const om = raw.match(/^other (.+)$/);
+  if (!om) return baseCountSource(raw, opts);
+  const base = baseCountSource(om[1], opts);
+  if (!base || base.kind !== "permanentsYouControl" || base.who) return null;
+  return { ...base, excludeSelf: true };
+}
+
+function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = {}) {
   const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
   // ===== TREASURE-MAKER ===== OPPONENT-scoped union "artifacts and enchantments your opponents control"
