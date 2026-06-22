@@ -657,6 +657,33 @@ function parseExtendedAtom(s) {
   const radTgtM = t.match(/^target (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
   if (radTgtM) return { op: "rad", amount: SMALL_NUM[radTgtM[2]] ?? parseInt(radTgtM[2], 10), who: "target", targetType: radTgtM[1] };
 
+  // ===== CDMG-PLAYER-PAYOFF ===== combat-damage-to-a-player payoffs whose ACTOR/COUNT is the trigger
+  // referent the combat-damage trigger carries in ctx ({damagedPlayerId, combatDamageAmount} — set by
+  // triggers.checkCombatDamageTriggers, flushed into baseParams.context by gameEngine.buildTriggerStack,
+  // the SAME path Wave-1's treasure "create that many tokens" used). These are NON-targeted (the damaged
+  // player is the trigger's referent, not a chosen target) so they carry targetType:null and route natively
+  // on the trigger flush (programNeedsChosenTarget → false) AND clean-no-op as a spell (no ctx.damagedPlayerId
+  // / combatDamageAmount → 0). All anchored ^…$ — any trailing rider ("…, then discard a card" / "…if they
+  // don't have any rad counters" / "…or planeswalker") leaves text past the anchor → low → Arbiter (CREED:
+  // never a dropped clause). NON-combat referents resolve to 0 / a clean skip, never a fabricated count.
+  //   (a) "draw that many cards" (Starwinder/Cold-Eyed Selkie "you may"-wrapped, Fear of Failed Tests /
+  //       Glint-Eye Nephilim bare): the count is the triggering combat-damage amount. The leading "you may"
+  //       wrapper is peeled by parseClauseToAtom's α2 (stamping optional:true); the inner bare form lands
+  //       here. Keep the optional anchor too so a raw "you may draw that many cards" passed directly still
+  //       stamps optional (the parser is also called clause-first in tests). Anchored — "draw that many
+  //       cards, then discard a card" (April) keeps its tail and fails the $ → low.
+  const cdmgDrawM = t.match(/^(you may )?draw that many cards$/);
+  if (cdmgDrawM) return { op: "draw", countContext: "combatDamageAmount", optional: !!cdmgDrawM[1], targetType: null };
+  //   (b) "they get N rad counters" (Glowing One) / "that player gets N rad counters" — a FIXED-N rad grant
+  //       to the just-damaged player. who:"damagedPlayer" reads ctx.damagedPlayerId (absent → clean no-op).
+  //       A trailing intervening-if ("…if they don't have any rad counters", Vexing Radgull) keeps its tail
+  //       and fails the $ → low → Arbiter (the conditional branch stays UNMODELED — never half-resolved).
+  const cdmgRadFixedM = t.match(/^(?:they|that player) gets? (\d+|a|an|one|two|three|four|five) rad counters?$/);
+  if (cdmgRadFixedM) return { op: "rad", who: "damagedPlayer", amount: SMALL_NUM[cdmgRadFixedM[1]] ?? parseInt(cdmgRadFixedM[1], 10), targetType: null };
+  //   (c) "they get that many rad counters" (Infesting Radroach) — the count IS the combat-damage amount.
+  const cdmgRadDynM = t.match(/^(?:they|that player) gets? that many rad counters$/);
+  if (cdmgRadDynM) return { op: "rad", who: "damagedPlayer", countContext: "combatDamageAmount", targetType: null };
+
   // ===== DMG-SCALE ===== (WALT-DMG-SCALE) "<source> deals damage to <target> equal to the number of
   // <count source>" — the damage AMOUNT is a board count resolved at resolution (`amountCount`), not a
   // printed number (Massive Raid, Spitting Earth, Outnumber, Feedback Bolt). Reuses the existing
