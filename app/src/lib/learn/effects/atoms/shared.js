@@ -6,7 +6,7 @@
  * engine, type predicates, and the token descriptor word sets.
  */
 
-import { findPermanent, creaturePower } from "../../gameState.js";
+import { findPermanent, creaturePower, opponentsOf } from "../../gameState.js";
 
 export const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 // ===== TOKENS ===== descriptor words that are SUPERTYPES / CARD TYPES, not creature subtypes —
@@ -114,6 +114,15 @@ export const effectiveAmount = (atom, ctx) => (atom.amountX ? ctx.xValue || 0 : 
 export function countMatches(card, spec) {
   const type = String(card?.type || card?.type_line || "");
   if (spec.subtype) return new RegExp(`\\b${spec.subtype}\\b`).test(type);   // basic-land subtype (Mountain…)
+  // ===== TREASURE-MAKER ===== a UNION of card types — "artifacts and enchantments" (Dockside Extortionist).
+  // A permanent matching ANY listed type counts ONCE (CR 305.4: an Artifact Creature that's also an
+  // Enchantment still counts as one permanent). Each type is word-anchored, exactly like the single-type form.
+  if (Array.isArray(spec.cardTypes)) {
+    return spec.cardTypes.some((ct) => {
+      const T = ct.charAt(0).toUpperCase() + ct.slice(1);
+      return new RegExp(`\\b${T}\\b`).test(type);
+    });
+  }
   if (spec.cardType) {
     const T = spec.cardType.charAt(0).toUpperCase() + spec.cardType.slice(1); // creature → Creature
     return new RegExp(`\\b${T}\\b`).test(type);
@@ -121,10 +130,29 @@ export function countMatches(card, spec) {
   return false;
 }
 export function countForSpec(state, ctx, spec) {
+  // ===== TREASURE-MAKER ===== who:"opponents" sums the spec over ALL of the controller's opponents
+  // ("the number of artifacts and enchantments your opponents control" — Dockside Extortionist). The
+  // per-opponent count reuses the SAME spec (kind + cardType[s]/subtype) against each opponent's
+  // battlefield, summed. Only permanentsYouControl is opponent-scopeable today (the parser only emits
+  // who:"opponents" for that kind); any other kind under who:"opponents" sums 0 (a safe no-op).
+  if (spec.who === "opponents") {
+    let total = 0;
+    for (const oppId of opponentsOf(state, ctx.controller)) {
+      const opp = state?.players?.[oppId];
+      if (!opp) continue;
+      if (spec.kind === "permanentsYouControl") total += (opp.battlefield || []).filter((perm) => countMatches(perm.card, spec)).length;
+    }
+    return total;
+  }
   // ===== OPPONENT-SCOPED ===== who:"target" counts the SPELL'S TARGET player ("…equal to the number of
-  // cards in that player's hand" — Sudden Impact); everything else counts the controller (the common case).
-  // A missing player target → 0 (a safe no-op, never silently the controller's hand).
-  const playerId = spec.who === "target" ? ctx.targets?.find((t) => t.type === "player")?.id : ctx.controller;
+  // cards in that player's hand" — Sudden Impact) OR, on a combat-damage trigger with no explicit target,
+  // the DAMAGED player ("for each artifact that player controls" — Cavern-Hoard Dragon, where "that player"
+  // is the player just dealt combat damage, carried as ctx.damagedPlayerId). The explicit spell target wins
+  // when present (Sudden Impact path is byte-unchanged); else the damaged player. Everything else counts the
+  // controller (the common case). A missing player → 0 (a safe no-op, never silently the controller's count).
+  const playerId = spec.who === "target"
+    ? (ctx.targets?.find((t) => t.type === "player")?.id ?? ctx.damagedPlayerId)
+    : ctx.controller;
   const player = playerId ? state?.players?.[playerId] : null;
   if (!player) return 0;
   if (spec.kind === "cardsInHand") return (player.hand || []).length;

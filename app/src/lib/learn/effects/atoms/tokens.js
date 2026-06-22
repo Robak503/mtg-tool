@@ -136,20 +136,35 @@ export function applyCreateNamedToken(state, atom, ctx) {
   const spec = NAMED_TOKENS[atom.token];
   if (!spec) return state;
   let next = state;
-  const count = Math.max(1, atom.count || 1);
+  // ===== TREASURE-MAKER ===== the count, mirroring applyCreateToken (the typed-token resolver). DYNAMIC
+  // forms resolve AT RESOLUTION (CR 608.2g — a count-derived value is locked as the effect resolves, not at
+  // cast/flush): `countFor` is a board count (countForSpec — Dockside "X = artifacts+enchantments your
+  // opponents control"; Cavern-Hoard "for each artifact that player controls"); `countX` reads the chosen
+  // {X} (ctx.xValue); `countContext` reads a trigger-context number (Old Gnawbone "that many" =
+  // ctx.combatDamageAmount, carried by the combat-damage trigger). A 0 dynamic count mints ZERO tokens
+  // (CR 107.3 — a clean no-op, NOT forced to 1); a FIXED count is floored at 1.
+  const count = atom.countFor
+    ? Math.max(0, countForSpec(next, ctx, atom.countFor))
+    : atom.countX ? Math.max(0, ctx.xValue || 0)
+      : atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
+        : Math.max(1, atom.count || 1);
   const mintedIds = [];
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
     next = minted.state;
     const card = { id: `tok-${minted.id}`, name: spec.name, type: spec.type, oracle: spec.oracle, token: true };
-    const perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
+    // ===== TREASURE-MAKER ===== a "tapped" rider (Generous Plunderer's "a tapped Treasure token") enters
+    // the token TAPPED, so it's NOT a mana source until it untaps (manaSources skips perm.tapped + the
+    // Treasure ability requires {T}). It still ENTERS, so it fires artifact-ETB watchers exactly like an
+    // untapped one (fireTokenEnterTriggers below).
+    const perm = createPermanent({ id: minted.id, card, controller: ctx.controller, tapped: !!atom.tapped });
     const player = next.players[ctx.controller];
     next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, perm] } } };
     mintedIds.push(minted.id);
   }
   // ETB (CR 603.6a) — each named artifact token fires artifact-ETB watchers (see fireTokenEnterTriggers).
   next = fireTokenEnterTriggers(next, mintedIds);
-  return logEvent(next, { kind: "spell-effect", effect: "create-named-token", token: atom.token, count, controller: ctx.controller });
+  return logEvent(next, { kind: "spell-effect", effect: "create-named-token", token: atom.token, count, tapped: !!atom.tapped, controller: ctx.controller });
 }
 
 export const tokenResolvers = {

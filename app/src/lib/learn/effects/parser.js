@@ -258,6 +258,14 @@ function splitClauses(oracle) {
     // MULTI-COLOR descriptor ("black and green Insect") carries an internal " and " that must not be
     // split off, so keep the whole "create … creature token (with|for each) …" sentence together.
     if (/^create .*\bcreature tokens?\b (?:with|for each) .+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ===== TREASURE-MAKER ===== a DYNAMIC-count named artifact token ("Create X Treasure tokens, where X
+    // is the number of artifacts and enchantments your opponents control" — Dockside; "Create a Treasure
+    // token for each artifact that player controls" — Cavern-Hoard) carries an internal " and " (the
+    // "artifacts and enchantments" union) and a ", where X is …" count tail that are INTERNAL to the one
+    // create-token instruction, NOT a top-level effect boundary. Keep the whole sentence so parseExtendedAtom
+    // binds the count source to the token. All-or-nothing anchored downstream (an unmodeled count source →
+    // null → low → Arbiter), so keeping too much together can only fail to match, never a wrong partial.
+    if (/^create (?:x|a|an|one) (?:treasure|clue|food|gold) tokens?(?:,? where x is | for each ).+$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
     // KW[ and KW]] [until end of turn]" — the " and " inside a multi-keyword rider ("with reach and haste")
     // is INTERNAL to the one animate instruction, not a top-level boundary. Keep the whole sentence so
@@ -485,9 +493,33 @@ const COUNT_SUBTYPE = {
 // DMG-SCALE matcher, which also requires a single-player target. Every other caller (the controller-scoped
 // FOR-EACH draw/gain-life/lose-life/create-token matchers) leaves it false, so "that player" — which has no
 // referent in a controller effect — routes to the Arbiter instead of silently resolving to 0.
-function parseCountSource(phrase, { allowTarget = false } = {}) {
+//
+// ===== TREASURE-MAKER ===== `allowScopes` (passed ONLY by the create-named-token dynamic matcher) additionally
+// admits OPPONENT-scoped ("…your opponents control" — Dockside, who:"opponents", summed over all opponents) and
+// TARGET-CONTROLLED ("…that player controls" — Cavern-Hoard, who:"target", the damaged/target player) permanent
+// counts. Left false for every legacy caller so those scopes can never widen an existing count source.
+function parseCountSource(phrase, { allowTarget = false, allowScopes = false } = {}) {
   const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
+  // ===== TREASURE-MAKER ===== OPPONENT-scoped union "artifacts and enchantments your opponents control"
+  // (Dockside Extortionist's X). Curated exact phrase only; countForSpec sums it over every opponent. Checked
+  // FIRST so "your opponents control" wins before the controller-scoped "you control" branches.
+  if (allowScopes && /^artifacts and enchantments your opponents control$/.test(p)) {
+    return { kind: "permanentsYouControl", cardTypes: ["artifact", "enchantment"], who: "opponents" };
+  }
+  // ===== TREASURE-MAKER ===== OPPONENT-scoped single-type "<creatures|lands|artifacts|enchantments> your
+  // opponents control" — summed over all opponents (Cavern-Hoard's cast-cost "artifacts an opponent controls"
+  // is a separate cost mechanic; this covers the for-each/X token sources). Anchored to the curated card types.
+  if (allowScopes && (m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) your opponents control$/))) {
+    return { kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "opponents" };
+  }
+  // ===== TREASURE-MAKER ===== TARGET-CONTROLLED "<creatures|lands|artifacts|enchantments> that player controls"
+  // — the player just dealt combat damage ("create a Treasure token for each artifact that player controls",
+  // Cavern-Hoard Dragon). who:"target" → countForSpec reads the spell target or, on a combat-damage trigger,
+  // ctx.damagedPlayerId. Curated card types, anchored — "an opponent" / "each player" don't match (→ low).
+  if (allowScopes && (m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) that player controls$/))) {
+    return { kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]], who: "target" };
+  }
   if ((m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) you control$/))) {
     return { kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]] };
   }
@@ -1059,7 +1091,31 @@ function parseExtendedAtom(s) {
   // is a DIFFERENT set scope:youControl would wrongly buff in full). Numeric N only (no X).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
-  // ===== TOKENS ===== T2 named artifact tokens — "Create [N] <Treasure|Clue|Food|Gold> token(s)".
+  // ===== TREASURE-MAKER ===== DYNAMIC-count named artifact tokens. The COUNT resolves AT RESOLUTION (the
+  // resolver reads it via countForSpec / ctx), never baked at parse — so a board mutated between cast and
+  // resolution counts correctly (Dockside). All three forms share the four-token allowlist + ETB seam with
+  // the fixed-count atom; an unmodeled count source → null → low → Arbiter (never a fabricated count).
+  //   (a) "create X <tok> tokens, where X is [equal to] [the number of] <count source>" — Dockside Extortionist
+  //       (X = artifacts+enchantments your opponents control). countFor scopes via parseCountSource(allowScopes).
+  m = t.match(/^create x (treasure|clue|food|gold) tokens,? where x is (?:equal to )?(?:the number of )?(.+)$/);
+  if (m) {
+    const countFor = parseCountSource(m[2], { allowScopes: true });
+    return countFor ? { op: "create-named-token", token: m[1], countFor, targetType: null } : null;
+  }
+  //   (b) "create a/an/one <tok> token for each <count source>" — one token per source-unit (Cavern-Hoard
+  //       Dragon: "a Treasure token for each artifact that player controls", who:"target" = the damaged player).
+  m = t.match(/^create (?:a|an|one) (treasure|clue|food|gold) tokens? for each (.+)$/);
+  if (m) {
+    const countFor = parseCountSource(m[2], { allowScopes: true });
+    return countFor ? { op: "create-named-token", token: m[1], countFor, targetType: null } : null;
+  }
+  //   (c) "create that many <tok> tokens" — the count is the triggering combat-damage amount (Old Gnawbone:
+  //       "Whenever a creature you control deals combat damage to a player, create that many Treasure tokens").
+  //       The combat-damage trigger ctx carries combatDamageAmount; the resolver reads ctx.countContext.
+  //       "that many" with no combat-damage context resolves to 0 (a clean no-op), never a fabricated count.
+  m = t.match(/^create that many (treasure|clue|food|gold) tokens$/);
+  if (m) return { op: "create-named-token", token: m[1], countContext: "combatDamageAmount", targetType: null };
+  // ===== TOKENS ===== T2 named artifact tokens — "Create [a tapped] [N] <Treasure|Clue|Food|Gold> token(s)".
   // Each enters as a REAL artifact permanent carrying its printed ability, so the existing subsystems
   // drive it end-to-end: Treasure/Gold are mana sources the mana model SACRIFICES on use (one-shot
   // any-color ramp — manaModel.manaProduction flags `sacrifices`), Clue/Food activate on the stack via
@@ -1067,11 +1123,15 @@ function parseExtendedAtom(s) {
   // these four: Blood (its ability needs a "Discard a card" cost we don't model), Map ("explore" + a
   // sorcery-speed target), and Powerstone (restricted "can't pay for nonartifact" mana) are LEFT OUT —
   // their cost/effect/restriction is unmodeled, so a card making them stays low → Arbiter (CREED: never
-  // a token whose ability the engine would silently ignore). A "tapped" rider ("Create a tapped Treasure
-  // token") or a count word + extra text breaks the `$` anchor → low (entering tapped is a different
-  // behavior — it can't be cracked until it untaps). Numeric/spelled N only.
-  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (treasure|clue|food|gold) tokens?$/);
-  if (m) return { op: "create-named-token", token: m[2], count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
+  // a token whose ability the engine would silently ignore). ===== TREASURE-MAKER ===== an OPTIONAL leading
+  // "tapped" adjective ("Create a tapped Treasure token", Generous Plunderer) mints the token TAPPED (not a
+  // mana source until it untaps — manaSources skips perm.tapped). Numeric/spelled N only.
+  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(treasure|clue|food|gold) tokens?$/);
+  if (m) {
+    const atom = { op: "create-named-token", token: m[3], count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
+    if (m[2]) atom.tapped = true; // only stamp the flag when present, so the untapped atom shape is unchanged
+    return atom;
+  }
   // ===== KWACT-INVEST ===== "Investigate" is the keyword action for "create a Clue token" (CR 701.x);
   // "Investigate N times" = N Clue tokens. Alias it to the shipped create-named-token(clue) atom (the Clue
   // enters as a real artifact with its "{2}, Sacrifice: Draw a card" ability). FIRST-PERSON ONLY: the bare
