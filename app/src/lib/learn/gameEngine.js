@@ -48,6 +48,7 @@ import { parseEffectClause, programConfidence, programNeedsChosenTarget, program
 import { expandCastChoices } from "./effects/targeting.js";
 import { applyFadeVanishUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
+import { applyMothmanRadOnAttack } from "./mothmanRad.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -298,6 +299,10 @@ export function runStepActions(state) {
     // for the same flush below. Fired AFTER checkAttackTriggers so its draw lands after the normal attack-
     // trigger enqueue, and its own sub-triggers ride the line-302 flush.
     next = applyUrDragonAttackTriggers(next);
+    // The Wise Mothman "enters or attacks → each player gets a rad counter" — attack half (#319-style hook;
+    // the ETB half rides checkEnterTriggers). Grants rad synchronously for each Mothman in the attacker
+    // batch; a no-op when none is attacking. See mothmanRad.js for the compound-event-guard rationale.
+    next = applyMothmanRadOnAttack(next);
   }
 
   if (grantsPriority(next.step)) {
