@@ -36,8 +36,8 @@ import {
   addPoison,
 } from "./gameState.js";
 import { checkDiesTriggers, checkCardDrawnTriggers } from "./triggers.js";
-import { permanentHasKeyword } from "./layers.js";
-import { parseProtectionColors, protectionApplies } from "./protection.js";
+import { permanentHasKeyword, permanentProtectionColors } from "./layers.js";
+import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
@@ -344,8 +344,9 @@ export function canBeTargetedBy(state, perm, controllerOfPerm, casterId, sourceC
   // QUALITY-based, not controller-based (unlike hexproof/ward) — a red spell can't target a creature with
   // protection from red even if cast by the creature's OWN controller. `sourceColors` is the casting
   // spell's colors (threaded from the cast-target enumeration); empty for paths not yet threaded (a safe
-  // false-negative — trigger/ability/equip targeting is PR3). Printed protection only (granted is PR3).
-  if (sourceColors.length && protectionApplies(parseProtectionColors(perm.card), sourceColors)) return false;
+  // false-negative — trigger/ability targeting). Read LAYER-AWARE so protection GRANTED by an attached
+  // Equipment/Aura (the Captain America Swords) is honored, not just printed protection.
+  if (sourceColors.length && protectionApplies(permanentProtectionColors(state, perm.id), sourceColors)) return false;
   return true;
 }
 

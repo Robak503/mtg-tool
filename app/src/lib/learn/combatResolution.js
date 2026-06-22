@@ -45,8 +45,8 @@ import {
   addCounter,
   addPoison,
 } from "./gameState.js";
-import { permanentHasKeyword, permanentColors } from "./layers.js";
-import { parseProtectionColors, protectionApplies } from "./protection.js";
+import { permanentHasKeyword, permanentColors, permanentProtectionColors } from "./layers.js";
+import { protectionApplies } from "./protection.js";
 import { checkDiesTriggers, checkCombatDamageTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers } from "./triggers.js";
 
 // KW-POISON (toxic — CR 702.180a): the toxic VALUE N. The keyword reminder text spells the number
@@ -149,12 +149,12 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     }
   };
   // KW-PROTECTION (CR 702.16e): damage from a source of the stated color is PREVENTED. `targetId` is the
-  // creature taking damage; `sourceColors` is the dealer's colors. Read from the pre-step board (printed
-  // protection). A prevented blocker/attacker takes NO marked damage, NO -1/-1 counters, and grants NO
-  // lifelink — the call sites skip dealing entirely (CR 702.16e + the trample assignment in 702.19e).
+  // creature taking damage; `sourceColors` is the dealer's colors. Read LAYER-AWARE so PRINTED protection
+  // AND protection GRANTED by an attached Equipment/Aura (the Captain America Swords) both apply. A
+  // prevented blocker/attacker takes NO marked damage, NO -1/-1 counters, and grants NO lifelink — the
+  // call sites skip dealing entirely (CR 702.16e + the trample assignment in 702.19e).
   const protectionPrevents = (targetId, sourceColors) => {
-    const lk = findPermanent(state, targetId);
-    return lk ? protectionApplies(parseProtectionColors(lk.permanent.card), sourceColors) : false;
+    return protectionApplies(permanentProtectionColors(state, targetId), sourceColors);
   };
 
   // Attackers deal.

@@ -35,6 +35,7 @@ import {
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { parseStaticAbilities, parseAttachedBonus } from "./staticAbilityParser.js";
+import { parseProtectionColors } from "./protection.js";
 
 // ─── Dynamic P/T functions (CR 613 CDA-style values; code, NEVER stored in state) ─
 
@@ -103,9 +104,17 @@ function subtypesOf(card) {
 // ({ kind:"permanentsYouControl", cardType|subtype }) — the magnitude of a "for each <X> you control"
 // static self-buff. Word-bounded match on the type line. Local (no gameState import). 0 on an unknown spec.
 function countSelfSpecOnBoard(state, perm, spec) {
-  if (!spec || spec.kind !== "permanentsYouControl" || !perm) return 0;
+  if (!spec || !perm) return 0;
   const player = state?.players?.[perm.controller];
   if (!player) return 0;
+  // EQUIP-DYNAMIC-PT: distinct WUBRG colors among the controller's battlefield (Conqueror's Flail
+  // "+1/+1 for each color among permanents you control"). A colorless permanent contributes none.
+  if (spec.kind === "colorsAmongPermanents") {
+    const cols = new Set();
+    for (const p of player.battlefield || []) for (const c of colorsOf(p.card)) cols.add(c);
+    return cols.size;
+  }
+  if (spec.kind !== "permanentsYouControl") return 0;
   const needle = spec.cardType || spec.subtype;
   if (!needle) return 0;
   const re = new RegExp(`\\b${needle}\\b`);
@@ -589,6 +598,29 @@ export function permanentHasKeyword(state, permanentId, keyword) {
     else if (e.op.layerOp === "removeKeyword") has = false;
   }
   return has;
+}
+
+/**
+ * EQUIP-PROTECTION (CR 702.16, layer 6) — the set of COLORS a permanent has "protection from" right now:
+ * its PRINTED protection-from-color (parseProtectionColors on the card) UNIONED with GRANTED protection
+ * from layer-6 `addProtection` continuous effects (a Captain America Sword's "Equipped creature … has
+ * protection from black and from green", scoped to attachedTo by staticEffectsOf). Returns a Set of
+ * WUBRG letters. There is no protection-REMOVAL form in scope, so a simple union is CR-correct (613.7).
+ *
+ * This is the LAYER-AWARE replacement for reading parseProtectionColors(card) directly at the three
+ * enforcement sites (combat damage / block / targeting) — so a grant via an attached Equipment/Aura is
+ * honored exactly like printed protection, and DISAPPEARS the instant the equipment unattaches (the
+ * staticEffectsOf bonus is keyed on attachedTo). Short-circuits to the printed set on an effect-free board.
+ */
+export function permanentProtectionColors(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return new Set();
+  const set = new Set(parseProtectionColors(perm.card));
+  const board = collectContinuousEffects(state);
+  if (board.length === 0) return set;
+  const l6 = board.filter(e => e.layer === 6 && e.op?.layerOp === "addProtection" && effectAffects(e, perm, state));
+  for (const e of l6) for (const c of e.op.colors || []) set.add(String(c).toUpperCase());
+  return set;
 }
 
 /** Effective colors (after layer 5). */
