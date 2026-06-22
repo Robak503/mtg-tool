@@ -393,9 +393,16 @@ export function entersWithMetricCounters(card) {
 export function entersTapped(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
   for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
-    if (!/\benters (?:the battlefield )?tapped\b/i.test(sentence)) continue;
+    const m = /\benters (?:the battlefield )?tapped\b/i.exec(sentence);
+    if (!m) continue;
     // Any conditionality / choice / alternative in the SAME sentence → not the bare form → leave untapped.
     if (/\b(?:unless|if|may|choose|reveal|instead|could|would|rather|or|as long as|you control|you don't|you do)\b/i.test(sentence)) return false;
+    // A TRAILING rider after "tapped" ("…tapped AND attacking", "…tapped, THEN you draw a card") carries
+    // additional, possibly-unmodeled text that the coverage tapRe strip would silently drop along with the
+    // tapped clause → an over-credit. Reject it (CREED: a false negative is safe; the card stays body-only
+    // until the rider is modeled too). Only "and"/"then" AFTER "tapped" count — a leading multi-subject
+    // join ("X and Y enter tapped") is left to the conditional denylist above.
+    if (/\b(?:and|then)\b/i.test(sentence.slice(m.index + m[0].length))) return false;
     return true;
   }
   return false;

@@ -31,7 +31,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { detectTriggers, stripTriggerAbilityLabel } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -468,26 +468,34 @@ export function classifyCard(card) {
       : entersWithMetricCounters(card)
         ? oracle.replace(/[^.]*enters (?:the battlefield )?with [^.]*\+1\/\+1 counters?[^.]*\.?/i, " ")
         : oracle;
-  if (isKeywordOnly(baseOracle, card?.name)) return "native-body";
+  // ENTERS-TAPPED: actionDispatcher handles unconditional "enters tapped" via entersTapped() — credit it
+  // here by stripping that sentence from the oracle so it doesn't block coverage on cards whose remaining
+  // text is fully modeled (triggers / activated / static / mixed). etCard propagates the stripped oracle
+  // through all downstream checks; etOracle combines with baseOracle for the keyword-only gate.
+  const tapRe = /[^\n.]*\benters (?:the battlefield )?tapped\b[^\n.]*\.?\n?/gi;
+  const isTapped = entersTapped(card);
+  const etOracle = isTapped ? baseOracle.replace(tapRe, "\n").trim() : baseOracle;
+  const etCard = isTapped ? { ...card, oracle: oracle.replace(tapRe, "\n").trim() } : card;
+  if (isKeywordOnly(etOracle, card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
-  if (hasManaAbility(oracle) && manaCardResidueModeled(card, oracle)) return "native-mana";
+  if (hasManaAbility(oracle) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
   // Single-mechanism tiers first (the informative labels), then the composite catch-all for
   // multi-ability creatures whose pieces are each modeled but span types.
-  if (permanentTriggersCovered(card)) return "native-trigger";   // P2.8: body + only-routing triggers
-  if (permanentActivatedCovered(card)) return "native-activated"; // P2.9: body + only-modeled activated abilities
-  if (staticAbilitiesCoverCard(card, isKeywordOnly)) return "native-static"; // P2.10: body + only-modeled static anthems
-  if (permanentEquipmentCovered(card)) return "native-equipment"; // attach: Equip + a clean equipped-creature bonus
+  if (permanentTriggersCovered(etCard)) return "native-trigger";   // P2.8: body + only-routing triggers
+  if (permanentActivatedCovered(etCard)) return "native-activated"; // P2.9: body + only-modeled activated abilities
+  if (staticAbilitiesCoverCard(etCard, isKeywordOnly)) return "native-static"; // P2.10: body + only-modeled static anthems
+  if (permanentEquipmentCovered(etCard)) return "native-equipment"; // attach: Equip + a clean equipped-creature bonus
   // ADDITIVE registry seam (WAVE 0): a future slice registers a coverage classifier instead of editing
   // this dispatch body. Each classifier is `(card) => tier | null` consulted ONLY after all the inline
   // single-mechanism tiers (which keep priority) and BEFORE the composite catch-all — so a new tier
   // slots in without touching the existing order. The first classifier to return a truthy tier wins.
   // Empty by default, an exact no-op (the loop body never runs), so existing classification is untouched.
   for (const c of COVERAGE_CLASSIFIERS) {
-    const t = c(card);
+    const t = c(etCard);
     if (t) return t;
   }
-  if (permanentFullyCovered(card)) return "native-mixed";        // composite: modeled trigger + activated + static together
+  if (permanentFullyCovered(etCard)) return "native-mixed";        // composite: modeled trigger + activated + static together
   return "body-only";
 }
 

@@ -220,6 +220,46 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Wizard", "{T}: This creature deals 1 damage to any target.\nWhenever you cast an instant or sorcery spell, untap this creature."))).toBe("body-only");
   });
 
+  // ENTERS-TAPPED credit — actionDispatcher handles unconditional "enters tapped" in the engine;
+  // coverage.js strips it from the oracle so it doesn't block credit for otherwise-modeled cards.
+  it("ENTERS-TAPPED: a keyword-only body with 'enters tapped' is native-body", () => {
+    expect(classifyCard(C("Creature — Zombie", "This creature enters tapped."))).toBe("native-body");
+    expect(classifyCard(C("Creature — Bird", "Flying\nThis creature enters tapped."))).toBe("native-body");
+    expect(classifyCard(C("Artifact", "This artifact enters tapped.", { name: "Moss Diamond" }))).toBe("native-body");
+  });
+  it("ENTERS-TAPPED: an enters-tapped card with a modeled ETB trigger is native-trigger", () => {
+    // Spare Supplies shape: enters tapped + draws a card on ETB
+    expect(classifyCard(C("Artifact", "This artifact enters tapped.\nWhen this artifact enters, draw a card.", { name: "Spare Supplies" }))).toBe("native-trigger");
+  });
+  it("ENTERS-TAPPED: a conditional 'enters tapped unless' is NOT stripped (entersTapped() returns false)", () => {
+    // Conditional forms must NOT get the metric credit — the engine has no 'unless' handler.
+    expect(classifyCard(C("Land", "This land enters tapped unless you control two or more Plains.\n{T}: Add {W}.", { name: "Sejiri Steppe" }))).not.toBe("native-body");
+  });
+  it("ENTERS-TAPPED FP-GUARD: a TRAILING 'and …'/'then …' rider after 'tapped' is NOT stripped (stays body-only)", () => {
+    // The tapRe strip swallows the WHOLE enters-tapped sentence, so an unmodeled rider joined by
+    // "and"/"then" would be silently dropped → over-credit. entersTapped() now rejects the trailing
+    // rider so the rider keeps the card body-only (CREED: false-negative safe).
+    expect(classifyCard(C("Creature — Zombie", "This creature enters tapped and doesn't untap during your untap step."))).not.toBe("native-body");
+    expect(classifyCard(C("Creature — Beast", "This creature enters tapped and you lose 1 life."))).not.toBe("native-body");
+    expect(classifyCard(C("Creature — Goblin", "This creature enters tapped, then each opponent draws a card."))).not.toBe("native-body");
+    // A clean multi-line ('enters tapped.' as its own sentence) still credits — the rider must TRAIL the clause.
+    expect(classifyCard(C("Creature — Bird", "Flying\nThis creature enters tapped."))).toBe("native-body");
+  });
+
+  // TRIG-DMG-TO-OPPONENT — non-combat "deals damage to a player/an opponent" (Vedalken Heretic family).
+  // Mapped to combatDamageToPlayer: in the simulator all creature damage is combat, so the event fires
+  // correctly when this creature attacks and connects.
+  it("TRIG-DMG-TO-OPPONENT: 'Whenever this creature deals damage to an opponent, draw' is native-trigger", () => {
+    expect(classifyCard(C("Creature — Merfolk", "Whenever this creature deals damage to an opponent, you may draw a card.", { name: "Vedalken Heretic" }))).toBe("native-trigger");
+    expect(classifyCard(C("Creature — Bird", "Flying\nWhenever this creature deals damage to an opponent, draw a card.", { name: "Thieving Magpie" }))).toBe("native-trigger");
+    expect(classifyCard(C("Creature — Fish", "Whenever this creature deals damage to a player, draw a card.", { name: "Thieving Otter" }))).toBe("native-trigger");
+  });
+  it("TRIG-DMG-TO-OPPONENT: a trailing qualifier ('or planeswalker') stays body-only", () => {
+    // The anchored pattern requires the condition to END at 'to a player'/'to an opponent' — a
+    // trailing qualifier leaves residue → UNDETECTED → body-only (safe false-negative).
+    expect(classifyCard(C("Creature — Elf", "Whenever this creature deals damage to a player or planeswalker, draw a card."))).toBe("body-only");
+  });
+
   it("a planeswalker is arbiter-pw", () => {
     expect(classifyCard(C("Legendary Planeswalker — Jace", "+1: Draw a card."))).toBe("arbiter-pw");
   });
