@@ -384,7 +384,9 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [])
     for (const obj of state.stack || []) {
       if (obj.kind !== "spell") continue;
       if (/can't be countered/i.test(String(obj.source?.oracle || obj.source?.oracle_text || ""))) continue;
-      if (!spellMatchesCounterFilter(obj, effect.spellFilter)) continue;
+      // `effect` rides in so CNT-MV-EXACT (Mental Misstep / Spell Snare) can require the target spell's mana
+      // value EQUAL effect.exactMv at enumeration — an MV-mismatched spell is simply not offered as a target.
+      if (!spellMatchesCounterFilter(obj, effect.spellFilter, effect)) continue;
       out.push({ type: "spell", id: obj.id, name: obj.source?.name });
     }
   };
@@ -498,14 +500,19 @@ export function handCardMatches(card, hf) {
   return true;
 }
 
-/** Does a spell on the stack match a counter's spellFilter (CR 701.5a)? */
-function spellMatchesCounterFilter(stackObj, filter) {
+/** Does a spell on the stack match a counter's spellFilter (CR 701.5a)? `atom` carries CNT-MV-EXACT's exactMv. */
+function spellMatchesCounterFilter(stackObj, filter, atom = null) {
   // Front-face type only — a split/MDFC spell's enriched type line is "Front // Back".
   const type = String(stackObj?.source?.type || stackObj?.source?.type_line || "").split(" // ")[0];
+  // CNT-MV-EXACT (WAVE 2b) — Mental Misstep / Spell Snare: the target spell's mana value must EQUAL atom.exactMv
+  // (NOT "or less"/"or greater"). An absent cost reads MV 0 (CR 202.3). Mirrors counterFilterMatches at resolution.
+  if (atom?.exactMv != null && (stackObj?.source?.cmc ?? stackObj?.source?.mana_value ?? 0) !== atom.exactMv) return false;
   if (filter === "noncreature") return !/Creature/.test(type);
   if (filter === "creature") return /Creature/.test(type);
   // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors counterFilterMatches at resolution).
   if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
+  // CNT-ACP (WAVE 2b) — Strix Serenade's "artifact, creature, or planeswalker" union (front-face).
+  if (filter === "artifactCreaturePlaneswalker") return /\b(?:Artifact|Creature|Planeswalker)\b/.test(type);
   return true; // "any"
 }
 

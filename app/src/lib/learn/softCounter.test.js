@@ -44,8 +44,8 @@ describe("parser — soft-counter atom (fixed-{N} only)", () => {
     expect(atomsOf("Counter target spell.")).toEqual([{ op: "counter", spellFilter: "any", targetType: "spell" }]);
   });
 
-  it("CREED: {X} / variable / rider / modal / other-filter soft counters stay LOW → Arbiter", () => {
-    expect(isHigh("Counter target spell unless its controller pays {X}.")).toBe(false);                                   // Clash of Wills
+  it("CREED: variable / rider / modal / other-filter soft counters stay LOW → Arbiter", () => {
+    // NOTE: the bare-{X} soft counter (Clash of Wills) is now HIGH (WAVE 2b SOFT-CNT-X) — covered in softCounterX.test.js.
     expect(isHigh("Counter target spell unless its controller pays {2} plus an additional {2} for each card named Rune Snag in each graveyard.")).toBe(false); // Rune Snag
     expect(isHigh("Counter target spell unless its controller pays {1}. That player discards a card.")).toBe(false);      // Frightful Delusion (rider)
     expect(isHigh("Counter target spell unless its controller pays {1} and 1 life.")).toBe(false);                        // Mundungu (non-mana cost)
@@ -178,8 +178,8 @@ describe("coverage — clean soft counters are native-spell; variable/rider stay
     expect(classifyCard({ name: "Force Spike", type: "Instant", oracle: "Counter target spell unless its controller pays {1}." })).toBe("native-spell");
     expect(classifyCard({ name: "Spell Pierce", type: "Instant", oracle: "Counter target noncreature spell unless its controller pays {2}." })).toBe("native-spell");
   });
-  it("Clash of Wills ({X}) / Rune Snag (variable) are NOT native", () => {
-    expect(classifyCard({ name: "Clash of Wills", type: "Instant", oracle: "Counter target spell unless its controller pays {X}." })).not.toBe("native-spell");
+  it("Clash of Wills ({X}) is now native (WAVE 2b SOFT-CNT-X); Rune Snag (variable) stays Arbiter", () => {
+    expect(classifyCard({ name: "Clash of Wills", type: "Instant", oracle: "Counter target spell unless its controller pays {X}." })).toBe("native-spell");
     expect(classifyCard({ name: "Rune Snag", type: "Instant", oracle: "Counter target spell unless its controller pays {2} plus an additional {2} for each card named Rune Snag in each graveyard." })).not.toBe("native-spell");
   });
 });

@@ -28,12 +28,19 @@ import { applyControllerRider } from "./removal.js";
 // Front-face type only (CR 712.4a) — for a split/MDFC spell the enriched type line is the
 // combined "Front // Back", so the creature/noncreature filter must read the front half.
 const counterTypeLine = (card) => String(card?.type || card?.type_line || "").split(" // ")[0];
-export function counterFilterMatches(card, filter) {
+// CNT-MV-EXACT (WAVE 2b) — Mental Misstep / Spell Snare: the target spell's mana value must EQUAL
+// atom.exactMv (NOT "or less"/"or greater"). A spell with no cmc reads 0 (CR 202.3 — an absent cost is MV 0).
+const counterMvOk = (card, atom) =>
+  atom == null || atom.exactMv == null || (card?.cmc ?? card?.mana_value ?? 0) === atom.exactMv;
+export function counterFilterMatches(card, filter, atom = null) {
   const type = counterTypeLine(card);
+  if (!counterMvOk(card, atom)) return false; // CNT-MV-EXACT — fails the MV test → not a legal counter target
   if (filter === "noncreature") return !/Creature/.test(type);
   if (filter === "creature") return /Creature/.test(type);
   // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors spellMatchesCounterFilter for enumeration).
   if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
+  // CNT-ACP (WAVE 2b) — Strix Serenade's 3-way "artifact, creature, or planeswalker" union (front-face).
+  if (filter === "artifactCreaturePlaneswalker") return /\b(?:Artifact|Creature|Planeswalker)\b/.test(type);
   return true; // "any"
 }
 /**
@@ -43,7 +50,7 @@ export function counterFilterMatches(card, filter) {
  * hard counter (applyCounter) AND the SOFT-CNT pay-decline path (runProgram.resolveSoftCounterChoice) so
  * the two can't drift on how a spell is countered.
  */
-export function counterSpellById(state, spellId, { via = null } = {}) {
+export function counterSpellById(state, spellId, { via = null, exileInstead = false } = {}) {
   const idx = (state.stack || []).findIndex((o) => o.id === spellId && o.kind === "spell");
   if (idx === -1) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: spellId });
   const targetObj = state.stack[idx];
@@ -51,14 +58,18 @@ export function counterSpellById(state, spellId, { via = null } = {}) {
   const controller = targetObj.controller;
   const newStack = [...state.stack.slice(0, idx), ...state.stack.slice(idx + 1)];
   const player = state.players[controller];
+  // CNT-EXILE-INSTEAD (WAVE 2b) — Deny Existence et al. route the countered spell to its owner's EXILE zone
+  // instead of the graveyard (CR 701.5a + the card's "exile it instead" rider). Otherwise it's the graveyard.
   const next = {
     ...state,
     stack: newStack,
     players: player
-      ? { ...state.players, [controller]: { ...player, graveyard: [...player.graveyard, card] } }
+      ? { ...state.players, [controller]: exileInstead
+          ? { ...player, exile: [...(player.exile || []), card] }
+          : { ...player, graveyard: [...player.graveyard, card] } }
       : state.players,
   };
-  return logEvent(next, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, ...(via && { via }) });
+  return logEvent(next, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, ...(exileInstead && { exiled: true }), ...(via && { via }) });
 }
 
 function applyCounter(state, atom, ctx) {
@@ -73,28 +84,33 @@ function applyCounter(state, atom, ctx) {
     }
     const targetObj = next.stack[idx];
     const card = targetObj.source;
-    if (!counterFilterMatches(card, atom.spellFilter)) {
+    // The atom rides into the filter so CNT-MV-EXACT (Mental Misstep / Spell Snare) can re-check the
+    // target spell's mana value here, mirroring the enumeration-time check (spellMatchesCounterFilter).
+    if (!counterFilterMatches(card, atom.spellFilter, atom)) {
       next = logEvent(next, { kind: "spell-effect", effect: "counter-fizzle", targetId: t.id });
       continue;
     }
-    // SOFT-CNT — "unless its controller pays {N}": don't counter yet. Flag the TARGETED spell's
-    // controller's pay-or-be-countered choice (runProgram attaches the resume + suspends; the driver
-    // settles it via resolveSoftCounterChoice — pay {N} → spell survives, else countered). The parser
-    // produces exactly ONE spell target per counter atom, so set the choice and stop the loop.
-    if (atom.unlessPay != null && !next.pendingChoice) {
+    // SOFT-CNT — "unless its controller pays {N}" (FIXED) or "{X}" (SOFT-CNT-X, the counterspell's own cast
+    // {X}, read from ctx.xValue floored at 0 — CR 107.3). Don't counter yet: flag the TARGETED spell's
+    // controller's pay-or-be-countered choice (runProgram attaches the resume + suspends; the driver settles
+    // it via resolveSoftCounterChoice — pay → spell survives, else countered). The parser produces exactly
+    // ONE spell target per counter atom, so set the choice and stop the loop.
+    if ((atom.unlessPay != null || atom.unlessPayX) && !next.pendingChoice) {
+      const amount = atom.unlessPayX ? Math.max(0, ctx.xValue || 0) : atom.unlessPay;
       return setPendingSoftCounterChoice(next, {
         controller: targetObj.controller,
-        amount: atom.unlessPay,
+        amount,
         spellId: t.id,
         spellName: card?.name || null,
         sourceName: ctx.cardName || null,
       });
     }
-    // SOFT-COUNTER-RIDER — capture the COUNTERED spell's controller, counter it, then apply the rider to
-    // THAT player (An Offer's Treasures / Swan Song's Bird go to whoever's spell was countered, not the
-    // caster). The rider only fires when the counter actually happens (a fizzle above skips it).
+    // SOFT-COUNTER-RIDER — capture the COUNTERED spell's controller, counter it (CNT-EXILE-INSTEAD routes it to
+    // exile not the graveyard), then apply the rider to THAT player (An Offer's Treasures / Swan Song's Bird go
+    // to whoever's spell was countered, not the caster). The rider only fires when the counter actually happens
+    // (a fizzle above skips it).
     const riderController = targetObj.controller;
-    next = counterSpellById(next, t.id);
+    next = counterSpellById(next, t.id, { exileInstead: !!atom.exileInstead });
     if (atom.controllerRider && next.players?.[riderController]) {
       next = applyControllerRider(next, atom.controllerRider, { controller: riderController, power: 0 }, ctx);
     }

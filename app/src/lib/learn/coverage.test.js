@@ -102,11 +102,12 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Sorcery", "Sudden Impact deals damage to target player equal to the number of cards in that player's hand.", { name: "Sudden Impact" }))).toBe("native-spell"); // the target player's hand now modeled (WALT-COUNT-OPP)
     expect(classifyCard(C("Instant", "Incite deals damage to target creature equal to the number of creatures they control.", { name: "Incite" }))).toBe("arbiter-spell"); // opponent's PERMANENTS still bounce
   });
-  it("P3.1 / SOFT-CNT: bare + fixed-{N} 'unless pays' counters are native-spell; a variable/rider counter bounces to arbiter-spell", () => {
+  it("P3.1 / SOFT-CNT: bare + fixed-{N} + {X} 'unless pays' counters are native-spell; a variable-tax rider bounces to arbiter-spell", () => {
     expect(classifyCard(C("Instant", "Counter target spell.", { name: "Counterspell" }))).toBe("native-spell");
     expect(classifyCard(C("Instant", "Counter target noncreature spell.", { name: "Negate" }))).toBe("native-spell");
     expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {3}.", { name: "Mana Leak" }))).toBe("native-spell");      // SOFT-CNT — fixed {N} now modeled
-    expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {X}.", { name: "Clash of Wills" }))).toBe("arbiter-spell"); // variable {X} stays Arbiter
+    expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {X}.", { name: "Clash of Wills" }))).toBe("native-spell"); // SOFT-CNT-X (WAVE 2b) — the {X} is the counterspell's own cast X
+    expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {1} for each card in your hand.", { name: "Foil-ish" }))).toBe("arbiter-spell"); // a VARIABLE tax (not a clean {X}) stays Arbiter
   });
   it("a 'search → hand → shuffle' tutor is native-spell; RAMP-1: a single-land 'onto the battlefield' fetch is native too, multi-land/non-land bounce", () => {
     expect(classifyCard(C("Sorcery", "Search your library for a creature card, reveal it, put it into your hand, then shuffle.", { name: "Eladamri's Call" }))).toBe("native-spell");

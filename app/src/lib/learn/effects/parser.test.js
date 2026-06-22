@@ -733,14 +733,14 @@ const MUST_DROP_TO_LOW = [
   // are pinned HIGH in MUST_STAY_HIGH + the dedicated describe block below). The
   // anchored allowlist drops anything that isn't EXACTLY a bare "Counter target
   // [noncreature|creature]? spell". ──
-  "Counter target spell unless its controller pays {X}.",       // Clash of Wills — variable {X} tax stays low (SOFT-CNT models fixed {N} only)
+  // (Clash of Wills "unless its controller pays {X}" is now HIGH — WAVE 2b SOFT-CNT-X, pinned in counterGrammar.test.js)
   "Counter target spell unless its controller pays {1} for each card in your hand.", // tax
   "Counter target spell or ability.",                            // "or ability" — not a bare spell target
   "Counter target activated or triggered ability.",              // an ability is not a spell
   "Counter up to two target spells.",                            // "up to two" cardinality unmodeled
-  "Counter target spell with mana value 3 or less.",             // mana-value rider unmodeled
-  "Counter target creature or planeswalker spell.",              // "or planeswalker" — not the modeled filter
-  "Counter target spell. If that spell is countered this way, exile it instead.", // replacement rider
+  "Counter target spell with mana value 3 or less.",             // mana-value INEQUALITY rider (WAVE 2b models EXACT "mana value N" only)
+  "Counter target creature or planeswalker spell.",              // "or planeswalker" — not a modeled filter (only artifact,creature,or planeswalker is)
+  "Counter target spell. If that spell is countered this way, exile it instead.", // replacement rider — the SHORT form (no "of putting it into its owner's graveyard") stays low
   // ── P3.1 corpus-confirmed riders (REAL Scryfall cards the sweep verified stay LOW) ──
   "Counter target artifact or enchantment spell.",                     // Annul — unmodeled filter
   "Counter target spell. Its controller mills four cards.",            // Countermand — unmodeled mill rider
@@ -994,6 +994,13 @@ const MUST_STAY_HIGH = [
   "Counter target creature spell. Create a 2/2 blue Illusion creature token.",  // Summoner's Bane (counter + token)
   "Counter target spell and Suffocating Blast deals 3 damage to target creature.", // Suffocating Blast (dual-target)
   "Choose one —\n• You gain 5 life.\n• Counter target spell.\n• Target creature gets -2/-2 until end of turn.", // Dromar's Charm
+  // WAVE 2b counter-grammar extensions (resolution/coverage pinned in counterGrammar.test.js):
+  "Counter target spell with mana value 1.",                                    // Mental Misstep — CNT-MV-EXACT
+  "Counter target spell with mana value 2.",                                    // Spell Snare — CNT-MV-EXACT
+  "Counter target artifact, creature, or planeswalker spell.",                  // CNT-ACP 3-way union (Strix Serenade's lead)
+  "Counter target artifact, creature, or planeswalker spell. Its controller creates a 2/2 blue Bird creature token with flying.", // Strix Serenade (union + rider)
+  "Counter target spell unless its controller pays {X}.",                       // Clash of Wills — SOFT-CNT-X
+  "Counter target creature spell. If that spell is countered this way, exile it instead of putting it into its owner's graveyard.", // Deny Existence — CNT-EXILE-INSTEAD
   // P3.2 corpus-confirmed tutors (REAL Scryfall cards the sweep verified — modeled filters):
   "Search your library for a creature card, reveal that card, put it into your hand, then shuffle.",        // Eladamri's Call
   "Search your library for an artifact card, reveal it, put it into your hand, then shuffle.",              // Fabricate
