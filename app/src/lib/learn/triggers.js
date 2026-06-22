@@ -90,7 +90,13 @@ function splitTriggerSentence(inner) {
   // EVENT_VERBS: verbs that appear in trigger CONDITIONS. If the text before the first comma
   // lacks one, that comma is inside a card name ("Pantlaza, Sun's Vanguard or another Dinosaur
   // you control enters …") — advance to the next comma that yields an event-verb condition.
-  const hasEventVerb = (s) => /\b(?:enters|dies|attacks|blocks|deals|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning)\b/.test(s);
+  // MILL-ON-EVENT (Wave 3b): "milled"/"mills" are condition verbs ("one or more nonland cards are milled",
+  // "a player mills a nonland card"). Without them, the advance-past-name-commas loop below would wrongly
+  // skip the real condition boundary — for "one or more nonland cards are milled, draw a card, …" the FIRST
+  // comma's left side lacks a (pre-mill) event verb, so the loop would advance to the comma after "draw a
+  // card" (matching "draws? a"), swallowing the first effect sentence INTO the condition. Listing the mill
+  // verbs anchors the split at the correct comma.
+  const hasEventVerb = (s) => /\b(?:enters|dies|attacks|blocks|deals|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning|milled|mills)\b/.test(s);
   let splitIdx = inner.indexOf(",");
   if (splitIdx === -1) return null;
   if (!hasEventVerb(inner.slice(0, splitIdx))) {
@@ -534,6 +540,27 @@ function classifyCondition(condRaw, cardName, cardType) {
     const spellFilter = castSpellFilter(castM[2].trim());
     if (spellFilter) return { event: "cast", scope: "castWatcher", whose, spellFilter };
   }
+  // ===== MILL-ON-EVENT (Wave 3b, CR 701.13a — milling cards is a SINGLE game event) ===== Two corpus
+  // templates, both classified to the shared "milled" event (fired by checkMilledTriggers off the real
+  // mill chokepoints — the mill effect atom + the inherent radiation ability):
+  //   BATCH ("one or more [nonland] cards are milled") — fires ONCE per mill event regardless of how many
+  //     cards were milled (Mirelurk Queen, Screeching Scorchbeast, The Wise Mothman). perCard:false.
+  //   PER-CARD ("a player|an opponent mills a [nonland] card") — fires once per MATCHING card milled (CR
+  //     701.13a — each milled card is a distinct object, so a payoff phrased per-card fires per-card;
+  //     Glowing One "you gain 1 life" per nonland, Infesting Radroach). perCard:true.
+  // `milledFilter` = "nonland" gates on the milled card's FRONT-face type (checkMilledTriggers), null = any
+  // card. `whose` = "any" ("a player") or "opponent" (the milling player must be an opponent of the
+  // watcher's controller — Infesting Radroach). Anchored end-to-end: a TYPE-filtered variant ("one or more
+  // CREATURE cards are milled", "mills one or more cards" rider) or any other shape leaves residue → null →
+  // Arbiter (a SAFE false-negative; CLAUDE.md §1.2). This is the trigger BIND only — the milled-card payoffs
+  // (rad/draw/counter/token) already exist; an effect that can't parse HIGH (a "once each turn"/scaling
+  // rider) still routes the WHOLE trigger to the Arbiter at flush (buildTriggerStack), never a partial.
+  let milledM = c.match(/^one or more (nonland )?cards are milled$/);
+  if (milledM) return { event: "milled", scope: "milled", whose: "any", perCard: false, milledFilter: milledM[1] ? "nonland" : null };
+  milledM = c.match(/^(a player|an opponent) mills (?:a|an|one) (nonland )?card$/);
+  if (milledM) {
+    return { event: "milled", scope: "milled", whose: /opponent/.test(milledM[1]) ? "opponent" : "any", perCard: true, milledFilter: milledM[2] ? "nonland" : null };
+  }
   return null;
 }
 
@@ -756,6 +783,8 @@ export function detectTriggers(card) {
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
+        perCard: cls.perCard,                 // MILL-ON-EVENT: true = per-card ("mills a card"), false = once-per-event ("one or more … are milled")
+        milledFilter: cls.milledFilter,       // MILL-ON-EVENT: "nonland" | null (which milled cards count)
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         effect: parseTriggerEffect(effectClause),
@@ -793,6 +822,12 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;
     case "you":
       return true; // step / lifegain / cardDrawn / youAttack triggers — `whose` gates ownership
+    case "milled":
+      // MILL-ON-EVENT — a player-mill event has NO triggering PERMANENT (the milled cards are library
+      // objects, not permanents); the milling-player `whose` gate is applied in checkMilledTriggers, which
+      // scans ALL players' watchers directly. Always matches here (like "you"): the event already proved a
+      // mill happened, and the filter (nonland) + whose gate are enforced at the checkMilledTriggers site.
+      return true;
     case "eachCreature":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent);
     case "eachOtherCreature":
@@ -1216,6 +1251,61 @@ function spellManaValue(spellCard) {
   if (typeof spellCard?.cmc === "number") return spellCard.cmc;
   if (typeof spellCard?.mana_value === "number") return spellCard.mana_value;
   return 0;
+}
+
+/** MILL-ON-EVENT — front-face type line (CR 712.4a / 712.8a). A card in the library has ONLY its front-face
+ * characteristics, so an MDFC whose BACK is a land (Malakir Rebirth // Malakir Mire) is a NONLAND when milled.
+ * Mirrors gameState.frontFaceTypeLine (kept local so triggers.js stays a leaf — no gameState type import). */
+function frontFaceType(card) {
+  const faces = card?.card_faces;
+  const raw = Array.isArray(faces) && faces.length > 0
+    ? String(faces[0]?.type_line || faces[0]?.type || "")
+    : String(card?.type || card?.type_line || "");
+  return raw.split("//")[0];
+}
+function isNonlandCard(card) {
+  return !/\bLand\b/.test(frontFaceType(card));
+}
+
+/**
+ * MILL-ON-EVENT (Wave 3b, CR 701.13a) — enqueue "milled" triggers for ONE player-mill event. `milledCards`
+ * is the ordered batch of card objects that just moved from `milledByPlayer`'s library to their graveyard
+ * (captured by the caller — the mill effect atom or the inherent radiation ability — BEFORE/at the mill so
+ * the front-face type is readable). Fires every battlefield/emblem watcher of EVERY player, because the
+ * corpus triggers watch mills globally ("one or more nonland cards are milled" / "a player mills …"):
+ *   - BATCH descriptors (perCard:false) fire ONCE for this event when ≥1 matching card was milled (CR
+ *     701.13a — milling is a single event; the count rides the context for an amount-aware payoff).
+ *   - PER-CARD descriptors (perCard:true) fire ONCE PER matching card milled (each milled card is its own
+ *     object — Glowing One's "you gain 1 life" per nonland is N separate triggers).
+ * `milledFilter:"nonland"` counts only nonland cards (front-face); null counts all. The `whose:"opponent"`
+ * gate (Infesting Radroach) requires the MILLING player to be an opponent of the watcher's controller.
+ * Pure — appends to pendingTriggers; the effect rides the normal flush → buildTriggerStack path, so a
+ * payoff that can't parse HIGH (a "once each turn"/scaling/conditional rider) routes the WHOLE trigger to
+ * the Arbiter no-op, never a partial (CLAUDE.md §1.2). No-op on an empty/missing mill (a clean library no-op).
+ */
+export function checkMilledTriggers(state, { milledByPlayer, milledCards } = {}) {
+  const cards = Array.isArray(milledCards) ? milledCards : [];
+  if (!milledByPlayer || !state.players?.[milledByPlayer] || cards.length === 0) return state;
+  const nonlandCount = cards.filter(isNonlandCard).length;
+  let fired = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const watcher of triggerSourcesOf(state, pid)) {
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "milled")) {
+        // whose:"opponent" — the MILLING player must be an opponent of this watcher's controller.
+        if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(milledByPlayer)) continue;
+        // The filtered count this trigger cares about: nonland-only or every milled card.
+        const matchCount = d.milledFilter === "nonland" ? nonlandCount : cards.length;
+        if (matchCount === 0) continue; // no matching card milled → this descriptor doesn't fire
+        const context = { milledByPlayer, milledCount: cards.length, nonlandMilledCount: nonlandCount };
+        // PER-CARD fires once per matching card (CR 701.13a — each milled card is a distinct object); BATCH
+        // fires exactly once for the whole event. makePendingTrigger is re-called so each is a distinct object.
+        const times = d.perCard ? matchCount : 1;
+        for (let i = 0; i < times; i++) fired.push(makePendingTrigger(d, watcher, null, context));
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
 }
 
 /** Does the cast spell match a cast trigger's modeled spell-type filter? */

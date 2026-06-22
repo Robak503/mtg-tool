@@ -42,7 +42,7 @@ import {
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
-import { checkStepTriggers, checkAttackTriggers, checkCardDrawnTriggers } from "./triggers.js";
+import { checkStepTriggers, checkAttackTriggers, checkCardDrawnTriggers, checkMilledTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -269,8 +269,16 @@ export function runStepActions(state) {
       // share step "main"); applyRadiation no-ops at 0 counters. The postcombat main gets no automatic action.
       if (state.phase === "precombat-main") {
         const radBefore = state.players[state.activePlayer]?.radCounters || 0;
+        // MILL-ON-EVENT (Wave 3b): the radiation ability is the SECOND real mill chokepoint (the rad payoff
+        // mills `rad` cards — CR 728.1). applyRadiation lives in gameState.js, which can't import triggers.js
+        // (cycle), so the milled-trigger bind fires HERE at the caller. Snapshot the cards it WILL mill (top
+        // N, bounded by library size — the same Math.min applyRadiation uses) BEFORE the mill so their
+        // front-face types are readable, then fire the bind for the active player's mill event after.
+        const libBefore = state.players[state.activePlayer]?.library || [];
+        const radMilled = libBefore.slice(0, Math.min(radBefore, libBefore.length));
         next = applyRadiation(next, { playerId: state.activePlayer });
         if (radBefore > 0) next = logEvent(next, { kind: "radiation", phase: state.phase, player: state.activePlayer, radCounters: radBefore });
+        if (radMilled.length > 0) next = checkMilledTriggers(next, { milledByPlayer: state.activePlayer, milledCards: radMilled });
       }
       next = logEvent(next, { kind: "step", phase: state.phase, step: state.step, player: state.activePlayer });
       break;
