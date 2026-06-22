@@ -1033,11 +1033,11 @@ function opponentsCantActAgainst(state, playerId) {
   // `playerId` must be one of the active player's opponents for the "your opponents" scope to apply.
   if (!opponentsOf(state, active).includes(playerId)) return { cantCast: false };
 
-  const sources = [
-    ...(activePlayer.battlefield || []),                                            // permanents — { card, attachedTo, … }
-    ...((activePlayer.command || []).map((card) => ({ card, attachedTo: null }))),  // bare card objects
-  ];
-  for (const perm of sources) {
+  // A static "your opponents can't cast …" ability functions ONLY while its source is on the battlefield
+  // (CR 113.6) — NOT from the command zone. So scan only the battlefield: a creature-commander carrying this
+  // clause (Dragonlord Dromoka, Kutzil, Myrel) imposes nothing while it sits in the command zone. None of the
+  // cant-cast cards have command-zone-functioning wording, so the command zone is never scanned here.
+  for (const perm of (activePlayer.battlefield || [])) {
     const d = cantCastDescriptorOf(perm.card);
     if (!d) continue;
     if (d.attachedGated && !perm.attachedTo) continue; // an unattached Conqueror's Flail imposes nothing

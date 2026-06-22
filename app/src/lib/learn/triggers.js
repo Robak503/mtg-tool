@@ -723,13 +723,17 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
     case "self":
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;
     case "equippedCreature":
-      // EQUIP-RIDER (WAVE 4) — the source is the EQUIPMENT; the trigger fires ONLY when the permanent that
-      // caused the event (the attacker that connected / declared) IS the creature this Equipment is attached
-      // to. Gated on sourcePermanent.attachedTo, so it NEVER fires when the equipment is unattached
-      // (attachedTo null) and NEVER fires off another of the controller's attackers on a multi-equipment
-      // board — the per-equipped-creature correctness the slice requires. This invariant relies on ATTACH
-      // only permitting an own-creature host (resolvers.js), so the equipped creature is always friendly.
-      return !!triggeringPermanent && triggeringPermanent.id === sourcePermanent.attachedTo;
+      // EQUIP (WAVE 4) — the source is the EQUIPMENT; the trigger fires ONLY when the triggering permanent IS
+      // this equipment's host. TWO linkages, unified (both Wave-4 equippedCreature descriptors share this scope):
+      //   (a) EQUIP-RIDER (attack / combat-damage): while ATTACHED the host is sourcePermanent.attachedTo.
+      //   (b) SELF-LTB equipped-creature-dies-return (Sword of the Realms): on the host's DEATH the equipment is
+      //       ALREADY detached (attachedTo null by the time checkDiesTriggers runs), so the linkage is read from
+      //       the dead creature's CR-603.10a look-back `attachments` (captured before the detach).
+      // Never fires when unattached off an unrelated attacker (attachedTo null AND not in its attachments). The
+      // per-equipped-creature correctness relies on ATTACH permitting only an own-creature host (resolvers.js).
+      return !!triggeringPermanent
+        && (triggeringPermanent.id === sourcePermanent.attachedTo
+            || (Array.isArray(triggeringPermanent.attachments) && triggeringPermanent.attachments.includes(sourcePermanent.id)));
     case "you":
       return true; // step / lifegain / cardDrawn / youAttack triggers — `whose` gates ownership
     case "eachCreature":
@@ -789,16 +793,6 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
         && triggeringPermanent.controller === sourcePermanent.controller
         && creaturePower(triggeringPermanent, state) >= (descriptor.powerThreshold || 0);
-    case "equippedCreature":
-      // SELF-LTB (Wave 4) — the EQUIPPED-creature-dies scope (Sword of the Realms: "Whenever equipped
-      // creature dies, return it to its owner's hand"). Fires ONLY when the dead creature (triggeringPermanent,
-      // a CR-603.10a look-back) was the equipment's host. The equipment's OWN `attachedTo` is already null by
-      // the time checkDiesTriggers runs (destroyLethalCreatures detached it when the host moved to the
-      // graveyard), so the linkage is read from the dead creature's look-back `attachments` (captured in
-      // destroyLethalCreatures BEFORE the detach): the source equipment fired iff its id is in that list.
-      return !!triggeringPermanent
-        && Array.isArray(triggeringPermanent.attachments)
-        && triggeringPermanent.attachments.includes(sourcePermanent.id);
     default:
       return false;
   }

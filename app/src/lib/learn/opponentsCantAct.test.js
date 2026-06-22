@@ -145,6 +145,14 @@ describe("OPPONENTS-CANT-ACT — cast suppression", () => {
     const state = twoPlayerState({ activePlayer: "ai", abolisherController: "ai", abolisher: null, bolt });
     expect(filterActions(legalActionsForPlayer(state, "user"), "cast-spell")).toHaveLength(1);
   });
+
+  it("FP GUARD — a cant-cast CREATURE-COMMANDER in the COMMAND ZONE imposes nothing (CR 113.6)", () => {
+    // Grand Abolisher (a creature) sitting in the AI's command zone, NOT yet cast onto the battlefield, must
+    // NOT suppress the user's casts — a static ability functions only while its source is on the battlefield.
+    const state = twoPlayerState({ activePlayer: "ai", abolisherController: "ai", abolisher: null, bolt });
+    state.players.ai = { ...state.players.ai, command: [GRAND_ABOLISHER] };
+    expect(filterActions(legalActionsForPlayer(state, "user"), "cast-spell")).toHaveLength(1);
+  });
 });
 
 describe("OPPONENTS-CANT-ACT — activated-ability half (Grand Abolisher) is enforced by own-turn gating", () => {

@@ -124,6 +124,18 @@ const NON_SUBTYPE_ANTHEM_WORDS = new Set([
 // NON_SUBTYPE_ANTHEM_WORDS, which the cost-reduction recognizer reuses alongside this set.
 const NON_SUBTYPE_COST_FILTER_WORDS = new Set(["noncreature", "historic", "permanent", "spell", "spells"]);
 
+// GROUP-KEYWORD-GRANT (Wave 4): NON-CREATURE permanent/token SUBTYPES. The bare-subtype anthem selector
+// ("<Subtype>s you control have <keyword>") restricts to cardTypes:["Creature"], so granting a keyword to a
+// NON-creature subtype (Vehicles/Foods/Treasures/Equipment/Clues) selects ZERO creatures at runtime (crew is
+// not modeled, and Food/Treasure/Clue/Equipment are never creatures) — claiming the card native would be a
+// CREED false positive (Aeronaut Admiral "Vehicles you control have flying"). Excluded here → no descriptor →
+// the card stays body-only (safe FN). Singular forms (the guard de-pluralizes the subject before testing).
+const NON_CREATURE_SUBTYPES = new Set([
+  "vehicle", "food", "treasure", "equipment", "clue", "aura", "powerstone", "blood", "gold", "map", "junk",
+  "incubator", "saga", "fortification", "contraption", "attraction", "role", "case", "class", "lesson",
+  "background", "dungeon", "shard", "sticker", "plane", "phenomenon", "scheme", "conspiracy",
+]);
+
 // STATIC-COST-REDUCTION (card-TYPE reducers): the card-type words that ARE real type-line tokens, so a
 // "<word> spells you cast cost {N} less to cast" reducer (Foundry Inspector → "Artifact"; Marauding Raptor
 // → "Creature") DOES reduce — the emitted "Artifact"/"Creature" feeds costReductionForSpell's word-bounded
@@ -886,7 +898,9 @@ function parseCreatureSelector(c) {
     if (word.endsWith("ies")) candidates.push(word.slice(0, -3) + "y");
     if (word.endsWith("ves")) candidates.push(word.slice(0, -3) + "f");
     if (word.endsWith("s")) candidates.push(word.slice(0, -1));
-    if (!candidates.some((w) => NON_SUBTYPE_ANTHEM_WORDS.has(w)) && !PERMANENT_TYPE_CARD_TYPES[word]) {
+    // Also exclude NON-creature permanent/token subtypes (Vehicle/Food/Treasure/…): a Creature-restricted grant
+    // on them selects zero creatures (crew unmodeled) → a false native (Aeronaut Admiral). Stays body-only.
+    if (!candidates.some((w) => NON_SUBTYPE_ANTHEM_WORDS.has(w) || NON_CREATURE_SUBTYPES.has(w)) && !PERMANENT_TYPE_CARD_TYPES[word]) {
       return {
         mode: "dynamic",
         selector: { controllerScope: "you", cardTypes: ["Creature"], subtypes: [normalizeSubtype(word)] },

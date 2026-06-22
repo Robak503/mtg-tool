@@ -66,6 +66,16 @@ describe("GROUP-GRANT (A) — subtype-without-\"creatures\" selector", () => {
     expect(parseStaticAbilities({ name: "x", oracle: "Planeswalkers you control have flying." })).toEqual([]);
   });
 
+  it("FP guard: a NON-CREATURE SUBTYPE subject (Vehicle/Food/Treasure/Equipment/Clue) drops — selects no creature", () => {
+    // A Creature-restricted grant on a non-creature subtype reaches ZERO permanents (crew unmodeled; Food/
+    // Treasure/Clue/Equipment are never creatures), so claiming native would be a CREED FP (Aeronaut Admiral).
+    for (const sub of ["Vehicles", "Foods", "Treasures", "Equipment", "Clues"]) {
+      expect(parseStaticAbilities({ name: "x", oracle: `${sub} you control have flying.` }), sub).toEqual([]);
+    }
+    // Whole-card: Aeronaut Admiral ("Flying / Vehicles you control have flying.") stays body-only, NOT native-static.
+    expect(classifyCard({ type: "Creature — Human Pilot", name: "Aeronaut Admiral", oracle: "Flying\nVehicles you control have flying." })).toBe("body-only");
+  });
+
   it("all-or-nothing: a non-grantable keyword drops the WHOLE subtype clause (CREED)", () => {
     expect(parseStaticAbilities({ name: "x", oracle: "Dragons you control have ward {1}." })).toEqual([]);
     expect(parseStaticAbilities({ name: "x", oracle: "Wraiths you control have protection from Ring-bearers." })).toEqual([]);
