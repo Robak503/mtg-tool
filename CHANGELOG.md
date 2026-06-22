@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Plain cycling credited as native (KW-CYCLING):** "Cycling {cost}" is a fully-enforced activated
+  ability (actionDispatcher.applyCycle — CR 702.29: pay the mana cost, discard the card, draw a card).
+  The credit is tightened to **"cycling {cost}"** (the keyword followed by a brace mana cost), mirroring
+  the engine's `parseCyclingCost` exactly — so a line merely *starting* with "cycling " that is NOT an
+  activated cycling ability stays body-only. In particular **Fluctuator** ("Cycling abilities you
+  activate cost {2} less to activate" — a static cost-reducer) and cycle-trigger cards are correctly
+  NOT credited. Typecycling variants (landcycling/plainscycling/…) and cycle-trigger residue also stay
+  body-only (safe false-negative). **+33 cards** (Sandbar Serpent, Yoked Plowbeast, Primoc Escapee,
+  Wasteland Scorpion, Macetail Hystrodon, Darkwatch Elves, Lava Serpent, and more).
+
 - **Self-referential bounce + sacrifice trigger effects (TRIG-EFFECT-ATOMS):** two new non-targeted
   self-reference atoms for trigger effects — **SELF-BOUNCE** ("return this creature to its owner's
   hand" → `op:"bounce", target:"self"`) and **SELF-SACRIFICE** ("sacrifice this creature" →

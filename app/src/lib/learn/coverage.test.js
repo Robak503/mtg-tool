@@ -80,6 +80,30 @@ describe("classifyCard — tiers", () => {
     // Reminder text is stripped first (CR 207.2), so a keyword printed with its reminder still classifies clean.
     expect(classifyCard(C("Creature — Goblin", "Menace (This creature can't be blocked except by two or more creatures.)"))).toBe("native-body");
   });
+  // KW-CYCLING: plain "cycling {cost}" is ENFORCED (actionDispatcher.applyCycle pays the cost,
+  // discards, draws). Only plain "cycling" is credited — typecycling variants and cycle-trigger
+  // cards must NOT be claimed native (parseCyclingCost returns null for them; they are body-only).
+  it("KW-CYCLING MUST_STAY_HIGH: plain cycling-only body is native-body", () => {
+    expect(classifyCard(C("Creature — Beast", "Cycling {2}"))).toBe("native-body");
+    expect(classifyCard(C("Creature — Bird", "Flying\nCycling {2}"))).toBe("native-body");
+    expect(classifyCard(C("Creature — Zombie", "Deathtouch\nCycling {B}"))).toBe("native-body");
+  });
+  it("KW-CYCLING FP-GUARD: cycle-trigger card and typecycling are NOT native-body", () => {
+    // A cycle trigger leaves non-keyword residue → isKeywordOnly → false → body-only (safe false-negative).
+    expect(classifyCard(C("Creature — Drake", "Flying\nCycling {2}\nWhenever you cycle this card, draw a card."))).not.toBe("native-body");
+    // Typecycling ("landcycling", "plainscycling", etc.) does NOT start with "cycling " — not credited.
+    expect(classifyCard(C("Creature — Serpent", "Landcycling {2}"))).not.toBe("native-body");
+    expect(classifyCard(C("Creature — Elemental", "Plainscycling {2}"))).not.toBe("native-body");
+  });
+  it("KW-CYCLING FP-GUARD: a line merely STARTING with 'cycling ' but not 'cycling {cost}' stays body-only (Fluctuator)", () => {
+    // Fluctuator (Artifact): "Cycling abilities you activate cost {2} less to activate." — a static
+    // cost-reducer, NOT an activated cycling ability. The engine's parseCyclingCost returns null (no
+    // brace cost right after "cycling"), so the credit must too. The old broad startsWith("cycling ")
+    // wrongly flipped it native-body — this pins the tightened "cycling {cost}" rule.
+    const fluctuator = classifyCard(C("Artifact", "Cycling abilities you activate cost {2} less to activate.", { name: "Fluctuator" }));
+    expect(fluctuator).not.toBe("native-body");
+    expect(NATIVE_TIERS.has(fluctuator)).toBe(false);
+  });
   // FIX-PW-LAND-ORDER: a Land Planeswalker (Wrenn and One) with unmodeled loyalty must hit the
   // planeswalker gate, NOT the land tier — else it's mis-counted native-`land` despite unmodeled abilities.
   it("FIX-PW-LAND-ORDER: a Land Planeswalker with unmodeled loyalty is NOT native-land", () => {
