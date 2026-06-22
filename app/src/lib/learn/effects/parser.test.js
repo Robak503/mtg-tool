@@ -1046,7 +1046,7 @@ const MUST_STAY_HIGH = [
   // ── OVERRUN-X — count-scaled team pump: "+X/+X where X is <count source>" (Dex). ──
   "Until end of turn, creatures you control gain trample and get +X/+X, where X is the greatest power among creatures you control.", // Overwhelming Stampede
   "Creatures you control gain trample and get +X/+X until end of turn, where X is the number of creatures you control.",             // Craterhoof Behemoth's ETB clause
-  // ── Scry / surveil (CR 701.18 / 701.43) — numeric standalone + ". "-separated multi-clause. ──
+  // ── Scry / surveil (CR 701.22 / 701.25) — numeric standalone + ". "-separated multi-clause. ──
   "Scry 2.",                                                                      // standalone scry
   "Surveil 1.",                                                                   // standalone surveil
   "Surveil 1. Draw a card.",                                                      // multi-clause (sentence-split)

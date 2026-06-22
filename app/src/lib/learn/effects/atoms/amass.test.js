@@ -1,5 +1,5 @@
 /**
- * amass.test.js — AMASS (CR 701.43) atom + clause parser (slice AMASS-ARMY).
+ * amass.test.js — AMASS (CR 701.47) atom + clause parser (slice AMASS-ARMY).
  *
  * Covers: a no-Army amass MINTS exactly one 0/0 token that survives as an N/N (counters stamped in the
  * SAME event before the lethal SBA); a repeated amass REUSES the existing Army (the #1 FP guard — never a
@@ -64,7 +64,7 @@ describe("AMASS resolver — Army already present (REUSE, the #1 FP guard)", () 
     expect(armies(s)[0].counters["+1/+1"]).toBe(2);              // counters grew 1 → 2
   });
 
-  it("a DIFFERENT-subtype amass on an existing Army appends the new subtype to its type line (CR 701.43c)", () => {
+  it("a DIFFERENT-subtype amass on an existing Army appends the new subtype to its type line (CR 701.47a)", () => {
     let s = amass(baseState(), { subtype: "Orc", amount: 1 });
     s = amass(s, { subtype: "Sliver", amount: 1 });              // "It's also a Sliver."
     expect(armies(s)).toHaveLength(1);                            // STILL one Army, not a new Sliver token

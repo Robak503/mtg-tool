@@ -1,5 +1,5 @@
 /**
- * manifest.test.js — the manifest-dread effect atom (MKM, CR 701.34).
+ * manifest.test.js — the manifest-dread effect atom (MKM, CR 701.62).
  *
  * Proves: top-2 → one face-down 2/2 on the battlefield + the other in the graveyard (library shrinks by 2);
  * the face-down reads 2/2 / no keywords EVEN when faceUpCard is a 5/5 flyer (no leak); a +1/+1 counter makes
@@ -102,7 +102,7 @@ describe("manifest-dread — face-down hides the real card (no leak)", () => {
   });
 });
 
-describe("manifest-dread — LTB unwrap (CR 701.34d / 110.5)", () => {
+describe("manifest-dread — LTB unwrap (CR 701.40 / 110.5)", () => {
   it("a face-down that DIES deposits the REAL card in the owner's graveyard, never a nameless 2/2", () => {
     const lib = [card("hero", { type: "Creature — Soldier", power: 3, toughness: 3 }), card("filler")];
     let out = applyManifestDread(gameWith(lib), { op: "manifest-dread" }, CTX);

@@ -137,7 +137,7 @@ export function applyCreateNamedToken(state, atom, ctx) {
   if (!spec) return state;
   let next = state;
   // ===== TREASURE-MAKER ===== the count, mirroring applyCreateToken (the typed-token resolver). DYNAMIC
-  // forms resolve AT RESOLUTION (CR 608.2g — a count-derived value is locked as the effect resolves, not at
+  // forms resolve AT RESOLUTION (CR 608.2h — a count-derived value is locked as the effect resolves, not at
   // cast/flush): `countFor` is a board count (countForSpec — Dockside "X = artifacts+enchantments your
   // opponents control"; Cavern-Hoard "for each artifact that player controls"); `countX` reads the chosen
   // {X} (ctx.xValue); `countContext` reads a trigger-context number (Old Gnawbone "that many" =

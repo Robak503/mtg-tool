@@ -4,7 +4,7 @@
  * of creatures you control." (Overwhelming Stampede, Craterhoof Behemoth's ETB clause, Pathbreaker Ibex).
  * Extends the numeric Overrun team pump (scope:"youControl") with a +X/+X delta that is a BOARD COUNT
  * computed at resolution (`ptDeltaCount`, via parseCountSource + countForSpec) — reusing the combat-trick
- * pump loop + layer-aware keyword grant verbatim. X is LOCKED pre-buff (CR 608.2g): every creature gets the
+ * pump loop + layer-aware keyword grant verbatim. X is LOCKED pre-buff (CR 608.2h): every creature gets the
  * SAME +X/+X. A FILTERED team ("…with flying"), an unmodeled count source, or an un-grantable keyword
  * ("indestructible", deferred on the combat-trick path) keeps the card LOW → Arbiter (never a half-scaled
  * native). The AI HOLDS it like every team pump (programContainsTeamPump).

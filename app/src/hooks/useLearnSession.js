@@ -293,7 +293,7 @@ export default function useLearnSession() {
   }, [state.sessionId]);
 
   /**
-   * Submit the player's scry/surveil reorder (CR 701.18 / 701.43). `keep` is the ordered list of
+   * Submit the player's scry/surveil reorder (CR 701.22 / 701.25). `keep` is the ordered list of
    * top-card ids to keep on top; everything else among the looked-at cards goes to the bottom
    * (scry) or graveyard (surveil). Applies the reorder + resumes the spell server-side.
    */

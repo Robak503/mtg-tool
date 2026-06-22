@@ -425,7 +425,7 @@ export function resolveDiscardChoice(state, cardId) {
 }
 
 /**
- * Settle a scry/surveil choice (CR 701.18 / 701.43): apply the reorder — `keepIdsOrdered` stay on
+ * Settle a scry/surveil choice (CR 701.22 / 701.25): apply the reorder — `keepIdsOrdered` stay on
  * top in that order, the rest of the looked-at cards go to the bottom (scry) / graveyard (surveil)
  * — then RESUME the suspended program. A null/empty keep list moves everything away; an omitted
  * decision (the auto-keep-all default is supplied by the driver) keeps all on top. Hidden-info safe.

@@ -1,5 +1,5 @@
 /**
- * Scry / surveil (CR 701.18 / 701.43) — peek the top N of your library and reorder: keep any on
+ * Scry / surveil (CR 701.22 / 701.25) — peek the top N of your library and reorder: keep any on
  * top (in any order), put the rest on the bottom (scry) or into your graveyard (surveil). A
  * resolution-time interactive choice (pendingChoice "scry-surveil"). Covers: the parser, the
  * library reorder (keep-all / keep-none / keep-subset-reordered), surveil → graveyard, the empty-

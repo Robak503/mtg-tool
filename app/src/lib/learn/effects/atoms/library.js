@@ -106,7 +106,7 @@ export function applyTutor(state, atom, ctx) {
 }
 
 /**
- * Scry / surveil (CR 701.18 / 701.43) — flag a resolution-time CHOICE: peek the top N of the
+ * Scry / surveil (CR 701.22 / 701.25) — flag a resolution-time CHOICE: peek the top N of the
  * controller's library and set state.pendingChoice (runProgram pauses the program here, like a
  * tutor). The driver surfaces a keep/move picker (the player) or auto-keeps-all (Expert/opponent);
  * resolveScryChoice (runProgram) applies the reorder + resumes. An empty library is a logged no-op.

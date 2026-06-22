@@ -4,7 +4,7 @@
  * The fixed-count named-token factory (Treasure/Clue/Food/Gold) already shipped. This slice adds:
  *   - a "tapped" rider (Generous Plunderer's "a tapped Treasure token") — enters tapped, NOT a mana
  *     source until it untaps;
- *   - DYNAMIC counts resolved AT RESOLUTION (CR 608.2g), never baked at parse:
+ *   - DYNAMIC counts resolved AT RESOLUTION (CR 608.2h), never baked at parse:
  *       countFor   — a board count via countForSpec: "X = artifacts and enchantments your opponents
  *                    control" (Dockside Extortionist, who:"opponents", summed over the pod) and
  *                    "for each artifact that player controls" (Cavern-Hoard Dragon, who:"target" = the

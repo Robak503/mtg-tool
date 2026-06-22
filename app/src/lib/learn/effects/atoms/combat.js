@@ -44,7 +44,7 @@ export function applyPumpEffect(state, atom, ctx) {
   // X-pump ("+X/+X until end of turn") binds both pips to the chosen X (ctx.xValue);
   // a fixed pump reads its printed ptDelta.
   const x = ctx.xValue || 0;
-  // OVERRUN-X — a count-scaled team pump locks +X/+X to a BOARD COUNT at resolution (CR 608.2g), e.g.
+  // OVERRUN-X — a count-scaled team pump locks +X/+X to a BOARD COUNT at resolution (CR 608.2h), e.g.
   // Overwhelming Stampede's "greatest power among creatures you control". Computed from `state` (pre-pump,
   // before the loop below adds any P/T effect), so X reads the un-buffed board. Takes precedence over the
   // X-cost pump (amountX → ctx.xValue) and the printed ptDelta; 0 (empty board) is a valid +0/+0, not null.

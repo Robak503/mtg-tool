@@ -444,7 +444,7 @@ export default function LearnView({
           <CloneCopyPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyCloneChoice} />
         </div>
       )}
-      {/* Interactive scry/surveil → keep/move the top N (CR 701.18 / 701.43). Same side-sheet. */}
+      {/* Interactive scry/surveil → keep/move the top N (CR 701.22 / 701.25). Same side-sheet. */}
       {session.board && decision?.kind === "scry-surveil" && (
         <div style={tutorSheetStyle(LINE, BG2)}>
           <ScrySurveilPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyScryChoice} />
@@ -1589,7 +1589,7 @@ function CloneCopyPanel({ decision, cfg, colors, fontFamily, onChoose }) {
 }
 
 /**
- * Interactive scry / surveil (CR 701.18 / 701.43) — the player sees the top N cards of their own
+ * Interactive scry / surveil (CR 701.22 / 701.25) — the player sees the top N cards of their own
  * library and decides which to keep on top (and in what order) vs move away: to the bottom (scry)
  * or the graveyard (surveil). Submits the ordered keep-list via session.applyScryChoice. Same
  * non-blocking side-sheet as the tutor/clone pickers.

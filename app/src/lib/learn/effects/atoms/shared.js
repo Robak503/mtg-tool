@@ -106,7 +106,7 @@ export function selfTargets(state, ctx) {
 export const effectiveAmount = (atom, ctx) => (atom.amountX ? ctx.xValue || 0 : atom.amount);
 
 // ===== DMG-SCALE ===== (WALT-DMG-SCALE) a board-count amount (`amountCount`, set by parseCountSource)
-// is computed AT RESOLUTION from the CONTROLLER's current board/hand (CR 608.2g — a count-derived value
+// is computed AT RESOLUTION from the CONTROLLER's current board/hand (CR 608.2h — a count-derived value
 // is locked as the spell resolves, not at cast). Slice 1 sources: permanents you control by card TYPE
 // (creature/land/artifact/enchantment) or basic-land SUBTYPE (Mountain/Forest/Island/Plains/Swamp), or
 // cards in your hand. The matcher (countMatches) reads the same `card.type` line as isCreatureCard, so an

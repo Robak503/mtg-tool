@@ -80,7 +80,7 @@ export function setPendingCloneChoice(state, { controller, candidates, sourceNam
 }
 
 /**
- * Flag a scry/surveil awaiting the player's keep-on-top / move-away decision (CR 701.18 / 701.43).
+ * Flag a scry/surveil awaiting the player's keep-on-top / move-away decision (CR 701.22 / 701.25).
  * `cards` is the top N of the controller's library, top-first, as `{ id, name }` (public to the
  * controller — they're looking at their own library). `mode` is "scry" (rest → bottom) or
  * "surveil" (rest → graveyard). Like the tutor, `runProgram` records the suspended-program

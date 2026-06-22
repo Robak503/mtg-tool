@@ -52,8 +52,8 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...tokenResolvers,   // create-token, create-named-token
   ...libraryResolvers, // tutor, shuffle, scry, surveil, impulse-dig, discover, mill
   ...handResolvers,    // discard-chosen, discard
-  ...manifestResolvers, // manifest-dread (MKM, CR 701.34) — top-2 → one face-down 2/2, other → graveyard
-  ...amassResolvers,   // amass (CR 701.43) — grow/mint the controller's Army (Orcish Bowmasters, Lazotep Sliver)
+  ...manifestResolvers, // manifest-dread (MKM, CR 701.62) — top-2 → one face-down 2/2, other → graveyard
+  ...amassResolvers,   // amass (CR 701.47) — grow/mint the controller's Army (Orcish Bowmasters, Lazotep Sliver)
 });
 
 /**

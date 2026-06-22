@@ -3,7 +3,7 @@
  *
  * The player resolved an interactive choice — a tutor's "search your library for a card"
  * (`tutor-search`), a clone's "which creature to copy" (`clone-search`, CR 707), or a scry/surveil
- * reorder (`scry-surveil`, CR 701.18 / 701.43). `applyPendingChoice` dispatches by the pending
+ * reorder (`scry-surveil`, CR 701.22 / 701.25). `applyPendingChoice` dispatches by the pending
  * choice's kind; the resolution resumes/finishes it + re-derives the next decision.
  *
  * Body:

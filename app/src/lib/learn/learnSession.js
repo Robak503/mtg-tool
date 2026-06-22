@@ -603,7 +603,7 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
         current = { ...current, state: settleCloneChoice(current.state, autoPickCloneCandidate(current.state, pc)) };
         continue;
       }
-      // Scry / surveil (CR 701.18 / 701.43): the player's OWN reorder surfaces a keep/move picker;
+      // Scry / surveil (CR 701.22 / 701.25): the player's OWN reorder surfaces a keep/move picker;
       // Expert autopilot + an opponent's scry KEEP ALL on top (a legal, deterministic default — a
       // board-aware "bin a land when flooded" heuristic is a future refinement).
       if (pc.kind === "scry-surveil") {
@@ -1015,7 +1015,7 @@ export function applyCloneChoice(session, choice) {
 }
 
 /**
- * The player resolved a `scry-surveil` decision (CR 701.18 / 701.43). `choice.keep` is the ordered
+ * The player resolved a `scry-surveil` decision (CR 701.22 / 701.25). `choice.keep` is the ordered
  * list of top-card ids to keep on top; everything else among the looked-at cards goes to the bottom
  * (scry) or the graveyard (surveil). Applies the reorder + resumes, then re-derives the next
  * decision. Returns { session, decision } like advanceUntilDecision.

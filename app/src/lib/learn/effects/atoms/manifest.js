@@ -1,7 +1,7 @@
 /**
- * effects/atoms/manifest.js — the manifest-dread effect atom (MKM keyword action, CR 701.34).
+ * effects/atoms/manifest.js — the manifest-dread effect atom (MKM keyword action, CR 701.62).
  *
- * MANIFEST DREAD (CR 701.34g): look at the top TWO cards of the controller's library, put ONE onto the
+ * MANIFEST DREAD (CR 701.62a): look at the top TWO cards of the controller's library, put ONE onto the
  * battlefield FACE DOWN as a 2/2 colorless nameless creature with no abilities, and put the OTHER into the
  * controller's graveyard. (A face-down manifest can be turned face up for its mana cost if it's a creature
  * card — that turn-up is NOT modeled here; the manifest plays as a vanilla 2/2 until it leaves.)
@@ -9,11 +9,11 @@
  * THE FACE-DOWN PERMANENT (CR 708.2): its `card` snapshot is the nameless 2/2 — name "", power 2, toughness 2,
  * type "Creature", keywords []  and NO subtypes — so every reader (combat, SBA, ETB scope, lords) sees a plain
  * 2/2 and can NEVER leak the real card's name / P/T / abilities / subtypes. The REAL card lives ONLY under
- * `permanent.faceUpCard`. When the face-down LEAVES the battlefield it becomes that real card again (CR 701.34d
+ * `permanent.faceUpCard`. When the face-down LEAVES the battlefield it becomes that real card again (CR 701.40
  * / 110.5) — the unwrap lives at the single battlefield-exit chokepoint, gameState.moveCardToZone (it reads
  * `faceDown && faceUpCard`), so a dies / bounce / exile / tuck all deposit the printed card, not the 2/2.
  *
- * It is NOT a token (CR 701.34a — a manifest is a real card put onto the battlefield face down), so `token`
+ * It is NOT a token (CR 701.40a — a manifest is a real card put onto the battlefield face down), so `token`
  * is never set: it doesn't vanish as an SBA and unwraps to a real card on leave.
  *
  * v1 auto-pick (CREED — a never-wrong engine pick, keeping the slice off runProgram's pendingChoice path):
@@ -37,7 +37,7 @@ function isCreatureCard(card) {
 }
 
 /**
- * Put `realCard` onto the controller's battlefield FACE DOWN as a nameless 2/2 (CR 701.34g / 708.2). The real
+ * Put `realCard` onto the controller's battlefield FACE DOWN as a nameless 2/2 (CR 701.40a / 708.2). The real
  * card is removed from the library and stashed ONLY under `faceUpCard`; the permanent's `card` is the 2/2
  * face-down snapshot. Fires ETB watchers (a manifest ENTERS — Soul Warden / Impact Tremors see a creature
  * enter; subtype-ETB scopes do NOT, the face-down has no subtypes), then runs the lethal SBA (a counter could
@@ -82,9 +82,9 @@ export function manifestCard(state, controller, realCard) {
 }
 
 /**
- * applyManifestDread (CR 701.34) — manifest dread for ctx.controller. Look at the top min(2, library) cards;
+ * applyManifestDread (CR 701.62) — manifest dread for ctx.controller. Look at the top min(2, library) cards;
  * manifest one face down (auto-pick the first creature card else the first), the other → graveyard. 0 cards is
- * a logged no-op; 1 card is manifested with no graveyard half (CR 701.34g — only one card is looked at).
+ * a logged no-op; 1 card is manifested with no graveyard half (CR 701.62a — only one card is looked at).
  */
 export function applyManifestDread(state, atom, ctx) {
   const controller = ctx.controller;

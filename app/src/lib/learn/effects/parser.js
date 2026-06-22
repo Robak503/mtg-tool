@@ -465,7 +465,7 @@ function parseTokenKeywords(phrase) {
 }
 
 // ===== DMG-SCALE / FOR-EACH ===== a board-count SOURCE — the "X" in "equal to the number of X" (and,
-// later, "for each X"). Returns a `countSpec` the resolver computes AT RESOLUTION (CR 608.2g — a
+// later, "for each X"). Returns a `countSpec` the resolver computes AT RESOLUTION (CR 608.2h — a
 // count-derived value is locked as the spell/ability resolves), or null for an unmodeled source (→ low
 // → Arbiter). Slice 1 (WALT-DMG-SCALE) admits only CONTROLLER-scoped counts: permanents YOU control by
 // card TYPE (creature/land/artifact/enchantment) or basic-land SUBTYPE (the CLOSED set Mountain/Forest/
@@ -1261,7 +1261,7 @@ function parseExtendedAtom(s) {
     const kws = parseTokenKeywords(m[5]);
     return kws ? { ...base, keywords: kws } : null;
   }
-  // Scry / surveil (CR 701.18 / 701.43) — look at the top N of YOUR library and reorder: keep any
+  // Scry / surveil (CR 701.22 / 701.25) — look at the top N of YOUR library and reorder: keep any
   // on top (in any order), put the rest on the bottom (scry) or into your graveyard (surveil). A
   // resolution-time INTERACTIVE choice (the player decides; AI/Expert keep all on top) — non-
   // targeted, so it routes natively as a spell, trigger, or activated ability. Numeric N only; a

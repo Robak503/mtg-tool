@@ -1,7 +1,7 @@
 /**
  * effects/atoms/amass.js — AMASS (CR 701.x) atom + its clause parser.
  *
- * AMASS N <Subtype> (CR 701.43): "If you control an Army, put N +1/+1 counters on it and it becomes
+ * AMASS N <Subtype> (CR 701.47): "If you control an Army, put N +1/+1 counters on it and it becomes
  * the named subtype too. Otherwise, create a 0/0 black <Subtype> Army creature token, then put N +1/+1
  * counters on it." — as ONE event (Orcish Bowmasters "amass Orcs 1", Lazotep Sliver "amass Slivers 2",
  * Saruman's Trickery "Counter target spell. Amass Orcs 1.").
@@ -32,13 +32,13 @@ function withControllerBattlefield(state, controller, mapper) {
 // hooks gameState.addCounter intercepts an amass exactly as it does a hardcast +1/+1 grant.
 const PLUS_ONE = "+1/+1";
 
-/** A battlefield permanent IS an Army (CR 701.43c) iff its type line carries the Army creature subtype. */
+/** A battlefield permanent IS an Army (CR 701.47a) iff its type line carries the Army creature subtype. */
 function isArmy(perm) {
   return /\bArmy\b/.test(String(perm?.card?.type || perm?.card?.type_line || ""));
 }
 
 /**
- * AMASS N <Subtype> (CR 701.43). `atom.subtype` is the SINGULAR creature subtype ("Sliver"/"Orc"/…);
+ * AMASS N <Subtype> (CR 701.47). `atom.subtype` is the SINGULAR creature subtype ("Sliver"/"Orc"/…);
  * `atom.amount` is a fixed count (floored at 1 like every fixed count), or `atom.countX` reads the
  * chosen {X} (ctx.xValue, floored at 0 — CR 107.3, a 0-count is a clean no-op). Routes ALL counters
  * through gameState.addCounter (the shared path) — no private counter mutation.
@@ -50,7 +50,7 @@ export function applyAmass(state, atom, ctx) {
   const me = ctx.controller;
   let next = state;
 
-  // (1) If the controller already controls an Army, ADD the counters to it and (CR 701.43c) give it the
+  // (1) If the controller already controls an Army, ADD the counters to it and (CR 701.47a) give it the
   // named subtype too — REUSE, never recreate (the #1 FP guard: repeated amass grows the SAME token).
   const player = next.players?.[me];
   if (!player) return next;
