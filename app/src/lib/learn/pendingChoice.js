@@ -21,9 +21,17 @@ import { logEvent } from "./gameState.js";
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library" }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", destinations = null }) {
   if (state.pendingChoice) return state;
-  const next = logEvent(state, { kind: "tutor-search-pending", controller, count: candidates.length, sourceName, destination });
+  // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ORDERED per-fetch destination sequence; its HEAD applies to
+  // THIS pick (so the fetch path + picker label read destination/entersTapped unchanged), the tail rides on
+  // destinations for the next chained pick. A found-only-one keeps the head (battlefield tapped, per the
+  // Cultivate/Kodama rulings). Absent -> the uniform single/multi destination path.
+  const destSeq = Array.isArray(destinations) && destinations.length ? destinations : null;
+  const destHead = destSeq ? destSeq[0] : null;
+  const effDestination = destHead ? (destHead.zone === "battlefield" ? "battlefield" : "hand") : (destination === "battlefield" ? "battlefield" : "hand");
+  const effTapped = destHead ? !!destHead.tapped : !!entersTapped;
+  const next = logEvent(state, { kind: "tutor-search-pending", controller, count: candidates.length, sourceName, destination: effDestination });
   return {
     ...next,
     pendingChoice: {
@@ -35,12 +43,16 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       // LAND-FROM-HAND — which zone the chosen card comes FROM: "library" (every search; default + shuffles)
       // or "hand" (Growth Spiral's "put a land from your hand onto the battlefield"; no shuffle).
       sourceZone: sourceZone === "hand" ? "hand" : "library",
-      // RAMP-1 — where the chosen card goes: "hand" (P3.2 tutor) or "battlefield" (+ entersTapped, ramp).
-      destination: destination === "battlefield" ? "battlefield" : "hand",
-      entersTapped: !!entersTapped,
+      // RAMP-1 — where the chosen card goes: "hand" (P3.2 tutor) or "battlefield" (+ entersTapped, ramp). For
+      // RAMP-SPLIT these reflect the CURRENT pick (the head of the destinations sequence).
+      destination: effDestination,
+      entersTapped: effTapped,
       // RAMP-MULTI — how many fetches are still to make (Explosive Vegetation / Skyshroud Claim = 2). The
       // resolver chains the next pick while this is > 1, so the picker surfaces once per fetch.
       remaining: Math.max(1, remaining),
+      // RAMP-SPLIT — the remaining ORDERED destination sequence (head = this pick); resolveTutorChoice advances
+      // it per chained fetch. Null on the uniform path. Plain JSON (serialize-safe per this module's mandate).
+      destinations: destSeq,
     },
   };
 }

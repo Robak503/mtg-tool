@@ -459,6 +459,41 @@ describe("interactive tutor — resolution-time choice (pause / resume)", () => 
     expect(out.players.user.life).toBe(before + 2); // resumed → gained 2
   });
 
+  // RAMP-SPLIT (Cultivate / Kodama's Reach) — a 2-fetch tutor with a per-pick destination split: pick 1 ->
+  // battlefield tapped, pick 2 -> hand. The resolver advances the destinations sequence per chained pick.
+  const splitTutor = () => stackObj(high([{
+    op: "tutor", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card",
+    remaining: 2, destinations: [{ zone: "battlefield", tapped: true }, { zone: "hand" }], targetType: null,
+  }]));
+  it("RAMP-SPLIT pauses with the FIRST destination (battlefield tapped) as the current pick", () => {
+    const out = runEffectProgram(withLibrary([lib("f1", "Forest", "Basic Land — Forest"), lib("f2", "Island", "Basic Land — Island")]), splitTutor());
+    expect(out.pendingChoice).toMatchObject({ kind: "tutor-search", destination: "battlefield", entersTapped: true, remaining: 2 });
+    expect(out.pendingChoice.destinations).toEqual([{ zone: "battlefield", tapped: true }, { zone: "hand" }]);
+  });
+  it("RAMP-SPLIT: pick 1 -> battlefield TAPPED, then re-suspends for pick 2 -> HAND", () => {
+    const paused = runEffectProgram(withLibrary([lib("f1", "Forest", "Basic Land — Forest"), lib("f2", "Island", "Basic Land — Island")]), splitTutor());
+    const afterFirst = resolveTutorChoice(paused, "f1");
+    const bf = afterFirst.players.user.battlefield;
+    expect(bf.map((p) => p.card.name)).toEqual(["Forest"]);
+    expect(bf[0].tapped).toBe(true);
+    expect(afterFirst.pendingChoice).toMatchObject({ kind: "tutor-search", destination: "hand", remaining: 1 });
+    expect(afterFirst.pendingChoice.destinations).toEqual([{ zone: "hand" }]);
+    const afterSecond = resolveTutorChoice(afterFirst, "f2");
+    expect(afterSecond.players.user.hand.map((c) => c.name)).toEqual(["Island"]);
+    expect(afterSecond.players.user.battlefield.map((p) => p.card.name)).toEqual(["Forest"]);
+    expect(afterSecond.pendingChoice).toBeUndefined();
+  });
+  it("RAMP-SPLIT found-only-one -> the single land goes onto the battlefield TAPPED (Cultivate/Kodama ruling)", () => {
+    const paused = runEffectProgram(withLibrary([lib("f1", "Forest", "Basic Land — Forest")]), splitTutor());
+    const afterFirst = resolveTutorChoice(paused, "f1");
+    expect(afterFirst.players.user.battlefield.map((p) => p.card.name)).toEqual(["Forest"]);
+    expect(afterFirst.players.user.battlefield[0].tapped).toBe(true);
+    const afterSecond = resolveTutorChoice(afterFirst, null);
+    expect(afterSecond.players.user.hand).toHaveLength(0);
+    expect(afterSecond.players.user.battlefield.map((p) => p.card.name)).toEqual(["Forest"]);
+    expect(afterSecond.pendingChoice).toBeUndefined();
+  });
+
   it("the shuffle atom keeps the same card set deterministically (serialize-stable)", () => {
     const cards = Array.from({ length: 6 }, (_, i) => lib(`c${i}`, `C${i}`, "Instant"));
     const shuf = (st) => runEffectProgram(st, stackObj(high([{ op: "shuffle", targetType: null }])));

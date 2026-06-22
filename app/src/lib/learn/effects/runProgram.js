@@ -169,6 +169,9 @@ export function resolveTutorChoice(state, cardId) {
     next = setPendingTutorChoice(next, {
       controller: pc.controller, candidates: rest, sourceName: pc.sourceName, filterLabel: pc.filterLabel,
       destination: pc.destination, entersTapped: pc.entersTapped, remaining, sourceZone,
+      // RAMP-SPLIT — advance the ordered destination sequence so the NEXT pick uses the next destination
+      // (Cultivate: pick 1 -> battlefield tapped, pick 2 -> hand). Null on the uniform single/multi path.
+      destinations: Array.isArray(pc.destinations) ? pc.destinations.slice(1) : null,
     });
     return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
   }

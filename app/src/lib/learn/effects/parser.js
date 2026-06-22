@@ -702,6 +702,30 @@ function parseExtendedAtom(s) {
     }
     return null; // a non-land / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
   }
+  // RAMP-SPLIT (Cultivate / Kodama's Reach) — "Search your library for up to two <LAND> cards, reveal those
+  // cards, put one onto the battlefield tapped and the other into your hand, then shuffle." TWO fetches with
+  // DIFFERENT destinations: an ORDERED destinations sequence (first -> battlefield tapped, second -> hand) that
+  // resolveTutorChoice consumes per chained pick. A found-only-one takes the head (battlefield tapped) — exactly
+  // the Cultivate/Kodama rulings (CR 701.23b: a search may find fewer; CR 701.24b: put the found cards, then
+  // shuffle). Same LAND-guard + ambiguous-basic guard as RAMP-1/RAMP-MULTI. "up to two" + the literal split
+  // phrasing ONLY — the bare both-to-battlefield "up to two" is RAMP-MULTI above; "up to three" or a trailing
+  // rider fails this anchor → low → Arbiter.
+  const spm = t.match(/^search your library for up to two ([a-z][a-z ,]*?) cards,? reveal those cards,? put one onto the battlefield( tapped)? and the other into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (spm) {
+    const phrase = spm[1];
+    const filter = parseTutorFilter(phrase);
+    const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
+    const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
+    const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
+    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
+      return {
+        op: "tutor", filter, filterLabel: `${phrase} card`, remaining: 2,
+        destinations: [{ zone: "battlefield", tapped: !!spm[2] }, { zone: "hand" }],
+        targetType: null,
+      };
+    }
+    return null; // a non-land / unmodeled-filter / ambiguous-basic split-fetch → low → Arbiter
+  }
   // LAND-FROM-HAND (Growth Spiral "Draw a card. You may put a land card from your hand onto the
   // battlefield." — the draw is a separate clause). A controller-scoped optional land drop sourced from the
   // HAND (not the library), entering UNTAPPED, no shuffle. Reuses the tutor pending-choice seam via

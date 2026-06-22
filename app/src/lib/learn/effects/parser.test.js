@@ -666,6 +666,50 @@ describe("parseEffectProgram — tutor (P3.2)", () => {
   });
 });
 
+// RAMP-SPLIT (Cultivate / Kodama's Reach) — "up to two basic land cards … put one onto the battlefield
+// tapped and the other into your hand". Models the SPLIT destination the bare RAMP-MULTI can't: an ordered
+// destinations sequence (battlefield-tapped, then hand). Whole-card (the oracle IS only this effect → native).
+describe("parseEffectProgram — RAMP-SPLIT (Cultivate / Kodama's Reach)", () => {
+  const S = (oracle) => parseEffectProgram({ type: "Sorcery", oracle });
+  const CULTIVATE = "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.";
+  it("parses Cultivate to a 2-fetch tutor with a battlefield-tapped then hand destination split", () => {
+    expect(S(CULTIVATE).atoms).toEqual([{
+      op: "tutor",
+      filter: { groups: [["basic", "land"]] },
+      filterLabel: "basic land card",
+      remaining: 2,
+      destinations: [{ zone: "battlefield", tapped: true }, { zone: "hand" }],
+      targetType: null,
+    }]);
+    expect(programConfidence(S(CULTIVATE))).toBe("high");
+  });
+  it("Kodama's Reach (Arcane sorcery, identical oracle) parses the same", () => {
+    const p = S("Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.");
+    expect(p.atoms).toHaveLength(1);
+    expect(p.atoms[0]).toMatchObject({ op: "tutor", remaining: 2, destinations: [{ zone: "battlefield", tapped: true }, { zone: "hand" }] });
+  });
+  it("the destinations length matches remaining (the resolver advances them in lockstep)", () => {
+    const a = S(CULTIVATE).atoms[0];
+    expect(a.destinations).toHaveLength(a.remaining);
+  });
+  // FP guards — near-misses that must STAY low → Arbiter (CREED: a wrong split is worse than deferral).
+  it("a NON-LAND split fetch stays low (no creature cheat-into-play)", () => {
+    const p = S("Search your library for up to two creature cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.");
+    expect(programConfidence(p)).toBe("low");
+    expect(p.atoms).toHaveLength(0);
+  });
+  it("an up-to-THREE split stays low (cardinality unmodeled)", () => {
+    const p = S("Search your library for up to three basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.");
+    expect(programConfidence(p)).toBe("low");
+    expect(p.atoms).toHaveLength(0);
+  });
+  it("an AMBIGUOUS-basic union split stays low (the basic distribution is unproven)", () => {
+    const p = S("Search your library for up to two basic Forest or Island cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.");
+    expect(programConfidence(p)).toBe("low");
+    expect(p.atoms).toHaveLength(0);
+  });
+});
+
 // THE FAIL-SAFE GATE. Every near-miss / unmodeled instant-or-sorcery MUST drop to
 // a low-confidence, ZERO-atom program (→ Arbiter seam). Crucially this includes
 // oracles the LOOSE legacy regexes over-match (e.g. "destroy target creature
@@ -703,9 +747,8 @@ const MUST_DROP_TO_LOW = [
   "Search your library for a creature card with mana value 3 or less, put it into your hand, then shuffle.", // mana-value rider
   "Search your library for a green creature card, put it onto the battlefield, then shuffle.",  // RAMP-1 restricts battlefield fetch to LANDS; a creature cheat-into-play (Natural Order) stays low
   "Search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.",  // RAMP-TYPED: AMBIGUOUS-basic union (Quandrix Cultivator) — "basic" must distribute but the split can't prove it → Arbiter
-  // RAMP-MULTI models the bare "up to two <land> → battlefield"; the SPLIT destination + "up to THREE" stay low.
-  "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", // Cultivate (split destination)
-  "Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",  // RAMP-MULTI models "up to two" only
+  // RAMP-MULTI models the bare "up to two <land> → battlefield"; RAMP-SPLIT models the Cultivate split; "up to THREE" stays low.
+  "Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.",  // RAMP-MULTI models "up to two"; "up to three" stays low
   // RIDER-REMOVAL — the UNMODELED controller-riders that must stay LOW (the lead removal is modeled, but an
   // all-or-nothing card never fires the removal while silently dropping the rider).
   "Destroy target creature. Its controller loses 2 life.",                                            // lose-life rider (Sip of Hemlock)
