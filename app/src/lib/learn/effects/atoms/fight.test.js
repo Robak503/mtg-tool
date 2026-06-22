@@ -164,4 +164,16 @@ describe("ETB-FIGHT parser", () => {
   it("atomTargetIntent({op:'fight', targetType:'creature'}) === 'enemy' (load-bearing trigger route)", () => {
     expect(atomTargetIntent({ op: "fight", targetType: "creature" })).toBe("enemy");
   });
+
+  // FP GUARD (adversarial review): the fight atom binds its fighter to ctx.sourceId, so it is only correct as
+  // the SOLE atom. A pump-then-fight SPELL ("Target creature you control gets +X/+Y. It fights …") splits into
+  // [pump, fight] where "it" is the PUMPED target, not the source — fightAtomMisplaced forces the whole program
+  // LOW (→ Arbiter) so the spell never half-resolves (pump applies, fight silently no-ops on a sourceId-less spell).
+  it("CREED — a pump-then-fight SPELL stays LOW (fight not the sole atom)", () => {
+    // Epic Confrontation (Sorcery), Swift Kick (Instant) — real printed cards the bare matcher over-matched.
+    expect(parseEffectClause("Target creature you control gets +1/+2 until end of turn. It fights target creature you don't control.", "Sorcery").confidence).toBe("low");
+    expect(parseEffectClause("Target creature you control gets +2/+0 until end of turn. It fights target creature you don't control.", "Instant").confidence).toBe("low");
+    // …but a SOLE fight clause (the ETB/triggered-ability form) is still HIGH on the same Instant trigger cardType.
+    expect(parseEffectClause("It fights target creature you don't control.", "Instant").confidence).toBe("high");
+  });
 });

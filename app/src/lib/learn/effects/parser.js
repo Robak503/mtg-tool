@@ -2092,7 +2092,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // parses fully (all-or-nothing across modes).
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
-    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)))) {
+    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms))) {
       const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
@@ -2127,7 +2127,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // ambiguity blocked. (α2 review — tightened from "any optional in a multi-atom program drops".) Shared with
   // the collapsed-template path via `optionalsFormSuffix` so both HIGH paths enforce the same invariant.
   const optionalScopeOk = optionalsFormSuffix(atoms);
-  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op))) {
+  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(atoms)) {
     // Drop a redundant `shuffle` atom that immediately follows a `tutor` (the tutor
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.
@@ -2176,6 +2176,17 @@ export function parseEffectClause(oracle, cardType = "", opts = {}) {
  * "high" must be a deliberate, reviewed change — the `parser.test.js` corpus pins
  * every "must drop to low" oracle as a merge gate.
  */
+// ETB-FIGHT (CR 701.12) gate: a `fight` atom binds its fighter to ctx.sourceId (the permanent whose
+// triggered/activated ability it is), so it is only correct as the SOLE atom of its (sub)program. When a
+// `fight` clause appears ALONGSIDE other atoms it is the anaphoric SPELL form — "Target creature you control
+// gets +X/+Y. It fights target creature you don't control." (Epic Confrontation / Savage Smash / Swift Kick)
+// — where "it" is the PUMPED target, NOT the source: the fighter would be mis-bound, and a spell threads no
+// sourceId so the fight silently no-ops (a half-resolve). Force such a program LOW (→ Arbiter) — the whole
+// spell stays non-native (CREED; the chosen-fighter spell form is a future, separate model).
+function fightAtomMisplaced(atoms) {
+  return Array.isArray(atoms) && atoms.some(a => a.op === "fight") && atoms.length !== 1;
+}
+
 export function programConfidence(program) {
   if (!program) return "low";
   // An additional cost the cast path can't pay must never let a card claim HIGH (CREED — a spell that
@@ -2186,7 +2197,7 @@ export function programConfidence(program) {
   if (program.structure === "modal") {
     const modes = program.modal?.modes;
     if (!Array.isArray(modes) || modes.length < 2) return "low";
-    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)))
+    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms))
       ? "high" : "low";
   }
   if (!Array.isArray(program.atoms) || program.atoms.length === 0) return "low";
@@ -2195,6 +2206,7 @@ export function programConfidence(program) {
   // No printed card needs discover-not-last today; this guards the invariant as the vocabulary widens.
   const di = program.atoms.findIndex(a => a.op === "discover");
   if (di !== -1 && di !== program.atoms.length - 1) return "low";
+  if (fightAtomMisplaced(program.atoms)) return "low";
   return program.atoms.every(a => KNOWN.has(a.op)) ? "high" : "low";
 }
 
