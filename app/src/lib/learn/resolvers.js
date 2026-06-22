@@ -29,6 +29,7 @@ import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { entersWithPlusCounters, entersWithXCounters, entersTapped } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
+import { applyCounterDoubling } from "./replacementEffects.js"; // Wave-3 doubler (leaf): enters-with-counters bypasses addCounter, so double here
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
 // in P2.2 so the effect interpreter can share it without an import cycle).
@@ -104,25 +105,30 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // classifies native and the SBA only kills walkers that entered with one. Use castsAsPlaneswalker
   // (front-face) so a creature-front DFC entering as its creature side never gets a spurious loyalty
   // counter from its planeswalker back face.
+  // Wave-3 doubler (CR 616): enters-with-counter writes bypass gameState.addCounter (the permanent is not yet
+  // on the battlefield), so each routes through applyCounterDoubling directly. `state` here is pre-entry — it
+  // has the controller's doublers (Doubling Season etc.) but NOT this permanent (a permanent never doubles its
+  // OWN entry counters, CR 616 — the replacement must already exist). Recipient = the entering permanent's
+  // controller. A "+1/+1"-only doubler is skipped for loyalty/fade; Doubling Season (any counter) doubles them.
   if (castsAsPlaneswalker(card)) {
     const loy = startingLoyalty(card);
-    if (loy != null) perm.counters = { ...perm.counters, loyalty: loy };
+    if (loy != null) perm.counters = { ...perm.counters, loyalty: applyCounterDoubling(state, controller, "loyalty", loy) };
   }
   // CR 614.1c + 122.6a: "~ enters with N +1/+1 counters on it" — a replacement that adds the counters AS the
   // permanent enters, so its P/T is correct from turn 1 (Kavu Primarch, Avatar of the Resolute…). Only the
   // bare, unconditional, literal-N form (entersWithPlusCounters guards out kicker / "for each" / "where X").
   const plusCounters = entersWithPlusCounters(card);
-  if (plusCounters > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + plusCounters };
+  if (plusCounters > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", plusCounters) };
   // ENTERS-WITH-X: "this creature enters with X +1/+1 counters on it" — X is the value paid for the {X}
   // cost (threaded as opts.xValue from the cast). A hydra cast for X=5 enters as a real 5/5+, not a 0/0
   // that dies to the lethal-toughness SBA. Guarded by entersWithXCounters so only the literal-X form gets it.
   if (opts.xValue > 0 && entersWithXCounters(card)) {
-    perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + opts.xValue };
+    perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", opts.xValue) };
   }
   // KW-FADING (CR 702.32a) / KW-VANISHING (CR 702.63a): enters with N fade / time counters; the upkeep
   // remove-or-sacrifice runs in gameEngine (applyFadeVanishUpkeep).
   const fade = entersWithFadeCounters(card);
-  if (fade && fade.n > 0) perm.counters = { ...perm.counters, [fade.type]: (perm.counters[fade.type] || 0) + fade.n };
+  if (fade && fade.n > 0) perm.counters = { ...perm.counters, [fade.type]: (perm.counters[fade.type] || 0) + applyCounterDoubling(state, controller, fade.type, fade.n) };
   let next = {
     ...s3,
     players: {

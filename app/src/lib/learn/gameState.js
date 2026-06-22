@@ -29,6 +29,7 @@
 import { printedPower, printedToughness, counterPtDelta } from "./ptPrimitive.js";
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { hasKeyword } from "./keywords.js";
+import { applyCounterDoubling } from "./replacementEffects.js"; // Wave-3 counter-doubler replacement (leaf, no cycle)
 
 // ─── ID generation ────────────────────────────────────────────────────────────
 
@@ -915,9 +916,17 @@ export function untapAll(state, { playerId }) {
 export function addCounter(state, { permanentId, type, amount = 1 }) {
   if (typeof type !== "string" || !type) throw new Error("addCounter: type required");
   if (!Number.isInteger(amount)) throw new Error("addCounter: amount must be integer");
+  // Wave-3 doubler replacement (CR 616): the recipient controller's counter doublers (Doubling Season,
+  // Hardened Scales, Branching Evolution, Vorinclex, …) replace the placed amount. Resolved HERE — the central
+  // counter-mutation chokepoint — so every caller (counters.js applyAddCounter/proliferate, amass existing-Army,
+  // combat/spellEffects -1/-1, actionDispatcher fade) inherits the doubling without its own wiring. A "+1/+1"-only
+  // doubler is skipped for other counter types; floors at 0. (The three enters-with-counter sites that bypass
+  // addCounter — resolvers.js / tokens.js / amass.js mint — call applyCounterDoubling directly.)
+  const lk = findPermanent(state, permanentId);
+  const placed = lk ? applyCounterDoubling(state, lk.controller, type, amount) : amount;
   return updatePermanent(state, permanentId, p => ({
     ...p,
-    counters: { ...p.counters, [type]: (p.counters[type] || 0) + amount },
+    counters: { ...p.counters, [type]: (p.counters[type] || 0) + placed },
   }));
 }
 
