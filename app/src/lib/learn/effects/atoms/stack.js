@@ -44,18 +44,21 @@ export function counterFilterMatches(card, filter, atom = null) {
   return true; // "any"
 }
 /**
- * Counter the spell with id `spellId` on the stack (CR 701.5a): remove it from the stack → its
- * controller's graveyard, logging the counter (an optional `via` tag, e.g. "soft-counter", records HOW).
- * A spell no longer on the stack (left mid-resolution) is a logged fizzle, never an error. Shared by the
- * hard counter (applyCounter) AND the SOFT-CNT pay-decline path (runProgram.resolveSoftCounterChoice) so
- * the two can't drift on how a spell is countered.
+ * Counter the spell — or ABILITY — with id `spellId` on the stack (CR 701.5a): remove it from the stack,
+ * logging the counter (an optional `via` tag, e.g. "soft-counter", records HOW). A SPELL goes to its
+ * controller's graveyard (or exile, exileInstead); a countered ACTIVATED/TRIGGERED ABILITY is not a card
+ * and goes to no zone — it simply leaves the stack and ceases to exist (CR 701.5a). An object no longer on
+ * the stack (left mid-resolution) is a logged fizzle, never an error. Shared by the hard counter
+ * (applyCounter) AND the SOFT-CNT pay-decline path (runProgram.resolveSoftCounterChoice — KW-WARD-PR2 also
+ * routes a warded ABILITY here) so the paths can't drift.
  */
 export function counterSpellById(state, spellId, { via = null, exileInstead = false } = {}) {
-  const idx = (state.stack || []).findIndex((o) => o.id === spellId && o.kind === "spell");
+  const idx = (state.stack || []).findIndex((o) => o.id === spellId);
   if (idx === -1) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: spellId });
   const targetObj = state.stack[idx];
   const card = targetObj.source;
   const controller = targetObj.controller;
+  const isSpell = targetObj.kind === "spell"; // an ability is not a card → no zone change on counter
   const newStack = [...state.stack.slice(0, idx), ...state.stack.slice(idx + 1)];
   const player = state.players[controller];
   // CNT-EXILE-INSTEAD (WAVE 2b) — Deny Existence et al. route the countered spell to its owner's EXILE zone
@@ -63,7 +66,7 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   const next = {
     ...state,
     stack: newStack,
-    players: player
+    players: (isSpell && player)
       ? { ...state.players, [controller]: exileInstead
           ? { ...player, exile: [...(player.exile || []), card] }
           : { ...player, graveyard: [...player.graveyard, card] } }

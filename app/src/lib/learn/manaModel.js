@@ -494,9 +494,29 @@ export function canAfford(pool, sources, cost) {
 export function payGenericMana(state, playerId, amount) {
   const n = Math.max(0, Math.trunc(Number(amount) || 0));
   if (n === 0) return { state, paid: true };
+  return payManaCost(state, playerId, { generic: n });
+}
+
+/**
+ * KW-WARD-PR2 — pay an ARBITRARY mana cost (colored / hybrid / generic, the full `planPayment` cost shape)
+ * from `playerId`'s pool + untapped sources. Generalizes payGenericMana (which now delegates here) so a
+ * non-all-generic ward — `Ward {1}{U}`, `Ward {W/U}` — can be paid exactly like a cast cost, never as a
+ * generic approximation (which would mis-charge the wrong color = a CREED false positive). Same contract as
+ * payGenericMana: `{ state, paid }`, `paid:false` with state UNCHANGED when unaffordable, never fabricated
+ * mana. A zero / empty cost is a trivial `paid:true`. The corpus has no true colored-mana ward today
+ * (only Minthara's `Ward {X}`, which stays unmodeled) — this exists so the cost form is COMPLETE, not
+ * partial, the moment such a card is played.
+ */
+export function payManaCost(state, playerId, cost) {
+  const c = cost || {};
+  const empty =
+    !(c.generic > 0) &&
+    !MANA_COLORS.some((col) => (c[col] || 0) > 0) && // MANA_COLORS includes C (colorless pip)
+    !(Array.isArray(c.hybrid) && c.hybrid.length);
+  if (empty) return { state, paid: true };
   const player = state?.players?.[playerId];
   if (!player) return { state, paid: false };
-  const plan = planPayment(player.manaPool, manaSources(state, playerId), { generic: n });
+  const plan = planPayment(player.manaPool, manaSources(state, playerId), c);
   if (!plan) return { state, paid: false };
   let next = state;
   for (const tap of plan.taps) {
@@ -504,7 +524,7 @@ export function payGenericMana(state, playerId, amount) {
     if (tap.sacrifices) {
       const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
       next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
-      // SAC-TREASURE: cracking a one-shot Treasure/Gold to pay generic mana fires "whenever you sacrifice an artifact/permanent".
+      // SAC-TREASURE: cracking a one-shot Treasure/Gold to pay mana fires "whenever you sacrifice an artifact/permanent".
       if (sacPerm) next = checkSacrificeTriggers(next, playerId, { id: sacPerm.id, controller: playerId, card: sacPerm.card });
     } else {
       next = tapPermanent(next, tap.permanentId);
@@ -512,7 +532,7 @@ export function payGenericMana(state, playerId, amount) {
   }
   const topped = next.players[playerId].manaPool;
   const nextPool = {};
-  for (const c of Object.keys(topped)) nextPool[c] = (topped[c] || 0) - (plan.spend?.[c] || 0);
+  for (const col of Object.keys(topped)) nextPool[col] = (topped[col] || 0) - (plan.spend?.[col] || 0);
   next = { ...next, players: { ...next.players, [playerId]: { ...next.players[playerId], manaPool: nextPool } } };
   return { state: next, paid: true };
 }

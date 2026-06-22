@@ -53,7 +53,7 @@ import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
 import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
-import { wardTaxForSpell } from "./ward.js";
+import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { entersWithFadeCounters } from "./fading.js";
 import { applyXCastTokenTriggers } from "./xCastToken.js";
 
@@ -449,7 +449,7 @@ function applyCastSpell(state, action) {
   if (wardTax) {
     next = setPendingSoftCounterChoice(next, {
       controller: action.playerId,
-      amount: wardTax.amount,
+      cost: wardTax.cost, // KW-WARD-PR2: structured cost (mana | life); settle pays it by kind
       spellId: stkId,
       spellName: card.name,
       sourceName: wardTax.wardName,
@@ -618,6 +618,21 @@ function applyActivateAbility(state, action) {
   // the stack now (ABOVE the ability, so they resolve first — CR 603.3b), exactly as the cast path
   // flushes cast triggers. A no-op when nothing triggered (the pre-γ1 common case).
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
+  // KW-WARD-PR2 (CR 702.21a): ward triggers on a spell OR an ABILITY an opponent controls — so an
+  // opponent's activated/triggered ability targeting a single ward permanent raises the same pay-or-be-
+  // countered choice as the cast path. An Equip ability targets the activator's OWN creature (controller
+  // == caster), so wardTaxForStackObject returns null there — no false ward on equipping your own creature.
+  // Skipped if a trigger above already set a pendingChoice (no-ops on an occupied slot — safe FN).
+  const abilityWardTax = wardTaxForStackObject(next, stackObject);
+  if (abilityWardTax) {
+    next = setPendingSoftCounterChoice(next, {
+      controller: action.playerId,
+      cost: abilityWardTax.cost,
+      spellId: stkId,
+      spellName: perm.card?.name,
+      sourceName: abilityWardTax.wardName,
+    });
+  }
   // Activating a (non-mana) ability uses the stack — restart the priority loop at the
   // active player (CR 117.1c), exactly like casting a spell.
   return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };

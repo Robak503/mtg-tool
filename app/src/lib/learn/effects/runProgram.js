@@ -25,10 +25,10 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness } from "../gameState.js";
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, loseLife } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
-import { canAfford, manaSources, payGenericMana } from "../manaModel.js";
+import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 
 /**
  * The targets that belong to the atom at `atomIndex`. P2.5 multi-clause / modal /
@@ -511,15 +511,44 @@ export function resolveOptionalChoice(state, doIt) {
 }
 
 /**
- * ===== SOFT-CNT ===== — decide whether an AI / Expert (no picker) pays {N} to save its spell from a soft
- * counter. Heuristic: PAY IF ABLE (the controller protects its own spell when it has the mana). `canAfford`
- * checks the pool + untapped sources for the fixed generic — if it can't afford it, return false (the spell
- * is countered). A board-aware "decline to save a worthless spell / don't tap out for {6}" refinement is a
- * future enhancement; pay-if-able is always a LEGAL choice (CR 601 — paying optional costs), never wrong.
+ * KW-WARD-PR2 — can `playerId` afford the soft-counter's STRUCTURED ward cost? Mirrors the affordability
+ * half of settleSoftCounterCost (below) without mutating, so autoPick and settle never disagree.
+ */
+function canAffordWardCost(state, playerId, cost) {
+  const player = state.players?.[playerId];
+  if (!player) return false;
+  if (cost.kind === "life") return (player.life ?? 0) >= cost.life; // CR 119.4 — pay life only if you have it
+  if (cost.kind === "mana") return canAfford(player.manaPool, manaSources(state, playerId), cost.mana);
+  return false;
+}
+
+/**
+ * KW-WARD-PR2 — pay the soft-counter's STRUCTURED ward cost, returning { state, paid }. Mana → payManaCost
+ * (taps sources / cracks Treasures, full colored+hybrid shape). Life → loseLife when life >= N (CR 119.4),
+ * else unpaid (state UNCHANGED — never fabricated). Same contract as payGenericMana.
+ */
+function settleSoftCounterCost(state, playerId, cost) {
+  if (cost.kind === "mana") return payManaCost(state, playerId, cost.mana);
+  if (cost.kind === "life") {
+    const player = state.players?.[playerId];
+    if (!player || (player.life ?? 0) < cost.life) return { state, paid: false };
+    return { state: loseLife(state, { playerId, amount: cost.life }), paid: true };
+  }
+  return { state, paid: false };
+}
+
+/**
+ * ===== SOFT-CNT ===== — decide whether an AI / Expert (no picker) pays the cost to save its spell from a
+ * soft counter. Heuristic: PAY IF ABLE (the controller protects its own spell when it can). For a plain
+ * generic soft counter (Force Spike / Mana Leak / generic-mana ward) the cost is the fixed `amount`; for a
+ * KW-WARD-PR2 structured `cost` (colored mana / life) it's the descriptor. If unaffordable, return false
+ * (the spell is countered). A board-aware "decline to save a worthless spell / don't tap out / don't pay 5
+ * life" refinement is a future enhancement; pay-if-able is always a LEGAL choice (CR 601), never wrong.
  */
 export function autoPickSoftCounterPay(state, pc) {
   const player = state.players?.[pc?.controller];
   if (!player) return false; // controller gone → can't pay → countered
+  if (pc.cost) return canAffordWardCost(state, pc.controller, pc.cost);
   return canAfford(player.manaPool, manaSources(state, pc.controller), { generic: pc.amount || 0 });
 }
 
@@ -535,19 +564,23 @@ export function resolveSoftCounterChoice(state, pay) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "soft-counter") return state;
   let next = clearPendingChoice(state);
-  const onStack = (next.stack || []).some((o) => o.id === pc.spellId && o.kind === "spell");
+  // The threatened object may be a SPELL (counterspell soft-counter / cast-path ward) or, for a
+  // KW-WARD-PR2 ability-targeting ward, an activated/triggered ABILITY — both are countered by id.
+  const onStack = (next.stack || []).some((o) => o.id === pc.spellId && (o.kind === "spell" || o.kind === "activated-ability" || o.kind === "triggered-ability"));
   if (!onStack) {
     next = logEvent(next, { kind: "spell-effect", effect: "soft-counter-fizzle", spellId: pc.spellId });
     return resumeAfterChoice(next, pc);
   }
   let paid = false;
   if (pay && next.players?.[pc.controller]) {
-    const r = payGenericMana(next, pc.controller, pc.amount);
+    // KW-WARD-PR2: a structured `cost` (colored mana / life ward) is paid by settleSoftCounterCost; the
+    // legacy fixed-generic soft counter (Force Spike / Mana Leak / generic-mana ward) stays on payGenericMana.
+    const r = pc.cost ? settleSoftCounterCost(next, pc.controller, pc.cost) : payGenericMana(next, pc.controller, pc.amount);
     next = r.state;
     paid = r.paid;
   }
   if (paid) {
-    next = logEvent(next, { kind: "spell-effect", effect: "soft-counter-paid", controller: pc.controller, amount: pc.amount, spellName: pc.spellName });
+    next = logEvent(next, { kind: "spell-effect", effect: "soft-counter-paid", controller: pc.controller, amount: pc.amount, cost: pc.cost || null, spellName: pc.spellName });
   } else {
     next = counterSpellById(next, pc.spellId, { via: "soft-counter" });
   }
