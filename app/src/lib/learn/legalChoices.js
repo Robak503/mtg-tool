@@ -31,6 +31,7 @@
 
 import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
 import { canAfford, manaSources, manaProduction } from "./manaModel.js";
+import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf } from "./layers.js";
 import { collectCostReducers, costReductionForSpell } from "./staticAbilityParser.js";
@@ -631,13 +632,20 @@ function actionsTapForMana(state, playerId) {
     const isCreature = /Creature/.test(String(perm.card?.type || perm.card?.type_line || ""));
     // Granted Haste counts here too (a lord that hastes your mana dorks).
     if (isCreature && perm.summoningSick && !permanentHasKeyword(state, perm.id, "Haste")) continue;
+    // MANA-VARIABLE: a count-derived amount (Gaea's Cradle / Karametra / Bighorner) is resolved LIVE
+    // against the board (CR 608.2g), floored at 0. Skip the source entirely when it would tap for 0 —
+    // never offer a pointless 0-mana tap (e.g. Gaea's Cradle with no creatures).
+    const amount = prod.amountSpec
+      ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, prod.amountSpec))
+      : prod.amount;
+    if (amount <= 0) continue;
     for (const color of prod.colors) {
       actions.push({
         kind: "tap-for-mana",
         playerId,
         permanentId: perm.id,
         color,
-        amount: prod.amount,
+        amount,
         sacrifices: !!prod.sacrifices,   // one-shot Treasure/Gold — applyTapForMana sacrifices it (TOK-2)
         name: perm.card.name,
       });

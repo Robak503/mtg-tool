@@ -5,8 +5,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { manaProduction, manaSources, canAfford, planPayment } from "./manaModel.js";
+import { manaProduction, manaSources, canAfford, planPayment, _internals } from "./manaModel.js";
 import { parseManaCost } from "./legalChoices.js";
+import { classifyCard } from "./coverage.js";
 
 function lib(card) {
   return { id: card.id || `c-${card.name}`, ...card };
@@ -120,6 +121,123 @@ describe("manaProduction", () => {
     expect(manaProduction({ name: "Eldrazi Spawn", type: "Token Creature — Eldrazi Spawn", oracle: "Sacrifice this token: Add {C}.", token: true })).toEqual({ colors: ["C"], amount: 1, sacrifices: true, requiresTap: false });
     // A self-granting lord (Gemhide IS a Sliver) is NOT a create-token clause → left intact (real source).
     expect(manaProduction({ name: "Gemhide Sliver", type: "Creature — Sliver", oracle: "All Sliver creatures have \"{T}: Add one mana of any color.\"" })).toMatchObject({ colors: ["W", "U", "B", "R", "G"], amount: 1 });
+  });
+});
+
+// ─── MANA-VARIABLE (wave2a) — count-derived tap-for-mana amount ────────────────
+// THE FP this lane closes: parseAddClause used to grab the lone {G}/{C} and DROP "for each creature" /
+// "equal to devotion" / "equal to greatest power" — Gaea's Cradle / Karametra's Acolyte / Bighorner et al
+// produced ONE mana at runtime while classified native-mana. The variable branch maps the metric to a
+// countForSpec spec (amount:0 placeholder), resolved LIVE in manaSources. An UNMODELED metric → null.
+
+describe("parseAddClause — variable amount (MANA-VARIABLE)", () => {
+  const { parseAddClause } = _internals;
+
+  it("maps 'Add {G} for each creature you control' to a permanentsYouControl spec (NOT amount 1)", () => {
+    expect(parseAddClause("{T}: Add {G} for each creature you control."))
+      .toEqual({ colors: ["G"], amount: 0, amountSpec: { kind: "permanentsYouControl", cardType: "creature" } });
+  });
+
+  it("maps 'Add an amount of {G} equal to your devotion to green' to a devotion spec", () => {
+    expect(parseAddClause("{T}: Add an amount of {G} equal to your devotion to green."))
+      .toEqual({ colors: ["G"], amount: 0, amountSpec: { kind: "devotion", color: "G" } });
+  });
+
+  it("maps 'greatest power among creatures you control' (NO 'other') WITHOUT excludeSelf", () => {
+    expect(parseAddClause("{T}: Add an amount of {G} equal to the greatest power among creatures you control."))
+      .toEqual({ colors: ["G"], amount: 0, amountSpec: { kind: "greatestPowerYouControl" } });
+  });
+
+  it("maps an 'Add X mana …, where X is the number of enchantments you control' shape (Sanctum Weaver)", () => {
+    expect(parseAddClause("{T}: Add X mana of any one color, where X is the number of enchantments you control."))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: { kind: "permanentsYouControl", cardType: "enchantment" } });
+  });
+
+  it("picks the variable line over a fixed any-color line on the SAME card (Arbor Adherent) — excludeSelf", () => {
+    expect(parseAddClause("{T}: Add one mana of any color.\n{T}: Add X mana of any one color, where X is the greatest toughness among other creatures you control."))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: { kind: "greatestToughnessYouControl", excludeSelf: true } });
+  });
+
+  it("returns null for an UNRECOGNIZED metric — NEVER a fabricated amount:1 (CREED)", () => {
+    expect(parseAddClause("{T}: Add {G} for each zombie an opponent controls.")).toBeNull();
+    expect(parseAddClause("{T}: Add X mana, where X is the number of zombies target opponent controls.")).toBeNull();
+    // Selvala's "in any combination of colors" is deliberately deferred (not the single-color model).
+    expect(parseAddClause("{G}, {T}: Add X mana in any combination of colors, where X is the greatest power among creatures you control.")).toBeNull();
+  });
+
+  it("leaves a fixed-amount clause untouched (no connector → no variable branch)", () => {
+    expect(parseAddClause("{T}: Add {G}.")).toEqual({ colors: ["G"], amount: 1 });
+    expect(parseAddClause("{T}: Add {C}{C}.")).toEqual({ colors: ["C"], amount: 2 });
+    expect(parseAddClause("{T}: Add one mana of any color.")).toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 1 });
+  });
+});
+
+describe("manaProduction — variable amount carries amountSpec (placeholder amount 0)", () => {
+  it("Gaea's Cradle (land): {G} + a creature-count spec, amount placeholder 0", () => {
+    expect(manaProduction({ name: "Gaea's Cradle", type: "Legendary Land", oracle: "{T}: Add {G} for each creature you control." }))
+      .toEqual({ colors: ["G"], amount: 0, amountSpec: { kind: "permanentsYouControl", cardType: "creature" }, requiresTap: true });
+  });
+  it("an unmodeled-metric NON-LAND mana ability produces NO source (null), never fabricated mana", () => {
+    expect(manaProduction({ name: "Fake Dork", type: "Creature — Elf Druid", oracle: "{T}: Add X mana, where X is the number of zombies target opponent controls." })).toBeNull();
+  });
+});
+
+describe("manaSources — resolves a count-derived amount LIVE (MANA-VARIABLE)", () => {
+  const lib = (card) => ({ id: card.id || `c-${card.name}`, ...card });
+  const perm = (card, { id, tapped = false, summoningSick = false } = {}) =>
+    ({ id: id || `perm-${card.name}`, card: lib(card), tapped, summoningSick });
+  const bf = (perms) => ({ players: { user: { battlefield: perms } } });
+  const find = (state, id) => manaSources(state, "user").find((s) => s.permanentId === id);
+
+  const cradle = (id) => perm({ name: "Gaea's Cradle", type: "Legendary Land", oracle: "{T}: Add {G} for each creature you control." }, { id });
+  const bear = (id) => perm({ name: "Bear", type: "Creature — Bear", oracle: "", power: "2", toughness: "2" }, { id });
+
+  it("Gaea's Cradle on a 3-creature board → amount 3 (NOT 1)", () => {
+    const s = bf([cradle("cr"), bear("b1"), bear("b2"), bear("b3")]);
+    expect(find(s, "cr")).toMatchObject({ permanentId: "cr", colors: ["G"], amount: 3 });
+  });
+
+  it("Gaea's Cradle on an EMPTY board → amount 0 (NOT 1)", () => {
+    const s = bf([cradle("cr")]);
+    expect(find(s, "cr")).toMatchObject({ permanentId: "cr", colors: ["G"], amount: 0 });
+  });
+
+  it("Karametra's Acolyte → devotion to green (count {G} pips you control)", () => {
+    // Acolyte's own cost {2}{G} = 1 green pip; two more permanents add {G} and {G}{G} = 3 → total 4.
+    const aco = perm({ name: "Karametra's Acolyte", type: "Creature — Human Druid", mana_cost: "{2}{G}", oracle: "{T}: Add an amount of {G} equal to your devotion to green." }, { id: "aco" });
+    const g1 = perm({ name: "G1", type: "Creature — Elf", mana_cost: "{G}", oracle: "" }, { id: "g1" });
+    const g2 = perm({ name: "G2", type: "Creature — Elf", mana_cost: "{G}{G}", oracle: "" }, { id: "g2" });
+    expect(find(bf([aco, g1, g2]), "aco")).toMatchObject({ colors: ["G"], amount: 4 });
+  });
+
+  it("Bighorner Rancher → greatest power among creatures, INCLUDING self (no 'other')", () => {
+    const big = perm({ name: "Bighorner Rancher", type: "Creature — Human Ranger", mana_cost: "{4}{G}", power: "6", toughness: "6", oracle: "{T}: Add an amount of {G} equal to the greatest power among creatures you control." }, { id: "big" });
+    const weak = perm({ name: "Weak", type: "Creature — Bird", power: "3", toughness: "3", oracle: "" }, { id: "w" });
+    // Self power 6 is the max → 6 (self counted).
+    expect(find(bf([big, weak]), "big")).toMatchObject({ colors: ["G"], amount: 6 });
+  });
+
+  it("Arbor Adherent → greatest toughness among OTHER creatures (excludes self)", () => {
+    const arbor = perm({ name: "Arbor Adherent", type: "Creature — Dog Druid", power: "1", toughness: "9", oracle: "{T}: Add one mana of any color.\n{T}: Add X mana of any one color, where X is the greatest toughness among other creatures you control." }, { id: "arb" });
+    const wall = perm({ name: "Wall", type: "Creature — Wall", power: "0", toughness: "4", oracle: "" }, { id: "wall" });
+    // Self toughness 9 is EXCLUDED ('other') → max is the Wall's 4.
+    expect(find(bf([arbor, wall]), "arb")).toMatchObject({ amount: 4 });
+    // Arbor alone (only self, excluded) → 0.
+    expect(find(bf([arbor]), "arb")).toMatchObject({ amount: 0 });
+  });
+
+  it("a resolved-0 variable source can't fabricate mana via planPayment (amount ?? 1 floor, not || 1)", () => {
+    // Gaea's Cradle on an empty board resolves to 0; it must NOT be able to pay even {G}.
+    const sources = manaSources(bf([cradle("cr")]), "user");
+    expect(canAfford({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }, sources, parseManaCost("{G}"))).toBe(false);
+  });
+});
+
+describe("classifyCard — an UNMODELED variable-mana metric is NOT native-mana", () => {
+  it("an 'Add X mana, where X is <unrecognized>' card stays non-native (not native-mana)", () => {
+    // hasManaAbility already rejects the "Add X mana" form; parseAddClause returns null too.
+    const tier = classifyCard({ type: "Creature — Elf Druid", oracle: "{T}: Add X mana, where X is the number of zombies target opponent controls.", name: "Fake Dork", mana: "{1}{G}" });
+    expect(tier).not.toBe("native-mana");
   });
 });
 
