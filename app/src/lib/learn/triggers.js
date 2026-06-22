@@ -1040,10 +1040,19 @@ export function checkDiesTriggers(state, dead) {
   for (const d of dead) {
     if (!d?.card) continue;
     const lookBack = { id: d.id, controller: d.controller, card: d.card };
-    fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+    // DIES-TRIGGER-RESOURCE-PAYOFFS: the dying creature's last-known POWER (CR 603.6e), captured at the
+    // SBA/destroy/sacrifice look-back BEFORE the permanent left the battlefield. Threaded as ctx.dyingPower
+    // so a "<payoff> equal to its power" dies-trigger (Goldvein Hydra Treasures, Lifeblood Hydra gain+draw,
+    // Feral Ghoul rad) reads the real on-board power. ONLY the SOURCE's OWN dies-trigger ("when THIS creature
+    // dies") references "its power"; a surviving watcher ("whenever a creature dies") that reads a magnitude
+    // off the triggering creature would also want it, so it's carried on both fires (a watcher that doesn't
+    // use it simply ignores the ctx key). A dead entry with no captured power (PW SBA, an unsized CDA) carries
+    // `undefined` → the payoff resolves to 0 (a clean no-op, never a fabricated count).
+    const diesCtx = d.power != null ? { dyingPower: d.power } : {};
+    fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
     for (const pid of Object.keys(state.players)) {
       for (const watcher of triggerSourcesOf(state, pid)) {
-        fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack }));
+        fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
       }
     }
   }
