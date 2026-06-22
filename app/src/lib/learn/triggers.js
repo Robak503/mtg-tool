@@ -25,6 +25,7 @@ import {
   logEvent,
 } from "./gameState.js";
 import { hasKeyword } from "./keywords.js";
+import { applyMothmanRadOnEnter } from "./mothmanRad.js";
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7 };
 function parseCount(word) {
@@ -723,14 +724,20 @@ function triggerSourcesOf(state, pid) {
  */
 export function checkEnterTriggers(state, enteredPerm) {
   if (!enteredPerm) return state;
+  // The Wise Mothman "enters or attacks → each player gets a rad counter": detectTriggers' compound-event
+  // guard Arbiter-routes this disjunction, so the rad bump is applied here at the single ETB-fire chokepoint
+  // (#319-style targeted hook in mothmanRad.js). Fires only when the ENTERED permanent itself carries the
+  // trigger — a no-op for every other card and for other creatures' entries. See mothmanRad.js for the
+  // double-fire coordination note if the guard ever learns this disjunction.
+  const s = applyMothmanRadOnEnter(state, enteredPerm);
   let fired = [];
-  for (const pid of Object.keys(state.players)) {
-    for (const watcher of triggerSourcesOf(state, pid)) {
-      fired = fired.concat(triggersForEvent(state, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm }));
+  for (const pid of Object.keys(s.players)) {
+    for (const watcher of triggerSourcesOf(s, pid)) {
+      fired = fired.concat(triggersForEvent(s, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm }));
     }
   }
-  if (!fired.length) return state;
-  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+  if (!fired.length) return s;
+  return { ...s, pendingTriggers: [...(s.pendingTriggers || []), ...fired] };
 }
 
 /**
