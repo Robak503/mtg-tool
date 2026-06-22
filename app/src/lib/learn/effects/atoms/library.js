@@ -38,14 +38,30 @@ export function tutorManaValue(card) {
   }
   return mv;
 }
-/** Does a library card match a tutor's filter? A null filter (unfiltered "a card") matches ALL. */
+/** Does a library card match a tutor's filter? A null filter (unfiltered "a card") matches ALL.
+ *
+ * WAVE-2b TUTOR — a filter can additionally carry an MV constraint (`filter.mv`: {max:N} for
+ * Spellseeker's "mana value 2 or less", {exact:N} for Trophy Mage's "mana value 3"). The MV gate is
+ * applied UPSTREAM here, so applyTutor's candidate list (and therefore autoPickTutorCandidate's pool,
+ * which reads only those candidates) is already MV-filtered — never just narrowed in the picker. Both
+ * the TYPE groups (if any) AND the MV cap must hold. An empty groups list (`{ groups: [], mv }`) is a
+ * type-unfiltered, MV-only filter ("a card with mana value 3"): every type matches, the MV gate decides. */
 export function cardMatchesTutorFilter(card, filter) {
-  if (!filter || !Array.isArray(filter.groups) || filter.groups.length === 0) return true;
+  if (!filter) return true;
+  // MV gate first (cheap, and applies even when there are no type groups). tutorManaValue reads the
+  // card's cmc/mana_value/mana_cost — the same MV the discover/auto-pick paths use, so it's consistent.
+  if (filter.mv) {
+    const mv = tutorManaValue(card);
+    if (typeof filter.mv.max === "number" && mv > filter.mv.max) return false;
+    if (typeof filter.mv.exact === "number" && mv !== filter.mv.exact) return false;
+  }
+  const groups = Array.isArray(filter.groups) ? filter.groups : [];
+  if (groups.length === 0) return true; // type-unfiltered (null filter handled above; MV-only filter falls here)
   // Match the FRONT face only: a library card has just its front-face characteristics
   // (CR 712.4a), but the enriched type line is the COMBINED "Front // Back" for an MDFC —
   // so a [artifact] tutor must NOT match a card whose FRONT is a land and back an artifact.
   const type = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
-  return filter.groups.some((group) => group.every((w) => new RegExp(`\\b${w}\\b`).test(type)));
+  return groups.some((group) => group.every((w) => new RegExp(`\\b${w}\\b`).test(type)));
 }
 /** A deterministic PRNG (mulberry32) so the shuffle is serialize-stable (no Math.random). */
 function deterministicRng(seed) {
@@ -93,9 +109,12 @@ export function applyTutor(state, atom, ctx) {
     sourceZone,
     sourceName: ctx.cardName || null,
     filterLabel: atom.filterLabel || null,
-    // RAMP-1 — destination "battlefield" (+ entersTapped) puts the fetched card onto the battlefield
-    // instead of the hand (Rampant Growth / Farhaven Elf). Defaults to "hand" (the P3.2 tutor).
-    destination: atom.destination === "battlefield" ? "battlefield" : "hand",
+    // WAVE-2b TUTOR — thread the structured filter so the auto-pick can defensively re-apply the type/MV gate.
+    filter: atom.filter || null,
+    // RAMP-1 — destination "battlefield" (+ entersTapped) puts the fetched card onto the battlefield instead
+    // of the hand (Rampant Growth / Farhaven Elf). WAVE-2b FETCH-TO-TOP adds "top" (shuffle-then-place-on-top
+    // — Vampiric/Mystical Tutor). Defaults to "hand" (the P3.2 tutor); setPendingTutorChoice coerces.
+    destination: atom.destination === "battlefield" ? "battlefield" : atom.destination === "top" ? "top" : "hand",
     entersTapped: !!atom.entersTapped,
     // RAMP-MULTI — "up to two": fetch up to `remaining` matching lands (resolveTutorChoice chains the rest).
     remaining: atom.remaining || 1,

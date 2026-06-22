@@ -21,7 +21,7 @@ import { logEvent } from "./gameState.js";
  * library). FIFO: one pending choice at a time (the driver settles it before the
  * next atom/spell resolves, so this guard is belt-and-braces).
  */
-export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", destinations = null }) {
+export function setPendingTutorChoice(state, { controller, candidates, sourceName = null, filterLabel = null, filter = null, destination = "hand", entersTapped = false, remaining = 1, sourceZone = "library", destinations = null }) {
   if (state.pendingChoice) return state;
   // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ORDERED per-fetch destination sequence; its HEAD applies to
   // THIS pick (so the fetch path + picker label read destination/entersTapped unchanged), the tail rides on
@@ -29,7 +29,12 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
   // Cultivate/Kodama rulings). Absent -> the uniform single/multi destination path.
   const destSeq = Array.isArray(destinations) && destinations.length ? destinations : null;
   const destHead = destSeq ? destSeq[0] : null;
-  const effDestination = destHead ? (destHead.zone === "battlefield" ? "battlefield" : "hand") : (destination === "battlefield" ? "battlefield" : "hand");
+  // WAVE-2b FETCH-TO-TOP — the destination is one of three known zones: "battlefield" (+ entersTapped, ramp),
+  // "top" (shuffle-then-place-on-top — Vampiric/Mystical/Worldly Tutor), or "hand" (the default P3.2 tutor).
+  // A RAMP-SPLIT destSeq head is only ever battlefield/hand (Cultivate/Kodama), so "top" only arrives via the
+  // plain `destination` param. Any unrecognized value falls back to "hand" (safe — the most conservative zone).
+  const coerce = (d) => (d === "battlefield" ? "battlefield" : d === "top" ? "top" : "hand");
+  const effDestination = destHead ? coerce(destHead.zone) : coerce(destination);
   const effTapped = destHead ? !!destHead.tapped : !!entersTapped;
   const next = logEvent(state, { kind: "tutor-search-pending", controller, count: candidates.length, sourceName, destination: effDestination });
   return {
@@ -40,6 +45,11 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
       candidates,
       sourceName,
       filterLabel,
+      // WAVE-2b TUTOR — the STRUCTURED filter (`{ groups, mv? }`, plain JSON) carried alongside candidates
+      // so autoPickTutorCandidate can DEFENSIVELY re-apply the type/MV gate (Spellseeker MV<=2, Trophy Mage
+      // MV=3) — candidates are already filtered upstream by applyTutor, but threading the filter keeps the
+      // auto-pick robust if a future caller ever populates candidates without pre-filtering. Null = no filter.
+      filter: filter || null,
       // LAND-FROM-HAND — which zone the chosen card comes FROM: "library" (every search; default + shuffles)
       // or "hand" (Growth Spiral's "put a land from your hand onto the battlefield"; no shuffle).
       sourceZone: sourceZone === "hand" ? "hand" : "library",
