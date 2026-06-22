@@ -426,6 +426,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   // "each player draws a card" became modeled); the guard also retires the pre-existing Burning Sun
   // Cavalry false-positive. (The "blocks or becomes blocked" compound is a separate, unexposed case.)
   if (/\battacks\b/.test(c) && /\bblocks\b/.test(c)) return null;
+  // ===== ATTACKS-ALONE (sole-attacker restriction guard, CR 508.4a) ===== "attacks alone" fires ONLY when
+  // exactly one creature is attacking. The engine has NO sole-attacker gate, so the non-anchored
+  // "a creature you control" match below would silently DROP "alone" and fire on EVERY attacker (Black
+  // Panther / Agent 13 would grant their bonus whenever any creature attacks — a confident over-fire FP,
+  // CLAUDE.md §1.2). Leave it UNDETECTED → the card routes to body-only/Arbiter (SAFE false-negative) until
+  // an attacks-alone system exists. Also neutralizes Exalted's "attacks alone" reminder text. Caught by the
+  // WAVE-3b adversarial sweep + a full-surface scan (this also retired the pre-existing Agent 13 FP).
+  if (/\battacks\b/.test(c) && /\balone\b/.test(c)) return null;
   if (/\battacks\b/.test(c)) {
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     if (/a creature you control/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };

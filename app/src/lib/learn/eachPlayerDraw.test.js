@@ -135,6 +135,17 @@ describe("trigger gate — each-player draw routes natively; target-player draw 
     expect(classifyCard(howlingGolem)).not.toBe("native-trigger");
     expect(classifyCard(attacksOnly)).toBe("native-trigger");
   });
+  it("an 'attacks ALONE' trigger is NOT native — the dropped sole-attacker restriction (CR 508.4a) would over-fire", () => {
+    // Black Panther / Agent 13: "Whenever a creature you control attacks alone, …" fires ONLY when exactly
+    // one creature attacks. The engine has no sole-attacker gate, so the non-anchored "a creature you control"
+    // match would drop "alone" and fire on every attacker. The guard routes these to body-only (safe FN).
+    const blackPanther = { type: "Legendary Creature — Human Warrior Hero", name: "Black Panther, Claws of Bast", oracle: "Lifelink\nWhenever a creature you control attacks alone, put a +1/+1 counter on it." };
+    const agent13 = { type: "Legendary Creature — Human", name: "Agent 13, Sharon Carter", oracle: "Whenever a creature you control attacks alone, investigate." };
+    const bareAttacks = { type: "Enchantment", name: "Gleam-like", oracle: "Whenever a creature you control attacks, put a +1/+1 counter on it." };
+    expect(classifyCard(blackPanther)).not.toBe("native-trigger"); // body-only — restriction can't be modeled
+    expect(classifyCard(agent13)).not.toBe("native-trigger");
+    expect(classifyCard(bareAttacks)).toBe("native-trigger");      // a bare "attacks" (no qualifier) stays native
+  });
 });
 
 describe("AI — HOLDS a target-player draw (never gifts cards), can play symmetric each-player draw", () => {
