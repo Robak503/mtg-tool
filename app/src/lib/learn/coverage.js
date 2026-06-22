@@ -37,6 +37,7 @@ import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loy
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
+import { isPureDoubler } from "./replacementEffects.js"; // Wave-3: pure counter/token doublers classify native-static
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -490,3 +491,11 @@ export function coverageSummary(cards) {
   }
   return { total, native, pct: total ? Math.round((native / total) * 100) : 0, tiers, gap };
 }
+
+// ─── WAVE 3 — pure counter/token doublers classify native-static ───────────────────────────────
+// A replacement-static Enchantment whose entire text is doubling clauses (Doubling Season, Parallel Lives,
+// Anointed Procession, Branching Evolution, Primal Vigor) is fully modeled by the Wave-3 replacement layer
+// (replacementEffects.js). Registered via the additive Wave-0 seam, consulted after the single-mechanism tiers
+// and before the composite catch-all. Mondrak / Vorinclex / Corpsejack (creature/activated bodies) are excluded
+// by isPureDoubler and stay body-only (CREED whole-card).
+registerCoverageClassifier((card) => (isPureDoubler(card) ? "native-static" : null));
