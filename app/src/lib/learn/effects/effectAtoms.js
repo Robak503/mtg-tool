@@ -1071,6 +1071,9 @@ function applyTutor(state, atom, ctx) {
     entersTapped: !!atom.entersTapped,
     // RAMP-MULTI — "up to two": fetch up to `remaining` matching lands (resolveTutorChoice chains the rest).
     remaining: atom.remaining || 1,
+    // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ordered per-fetch destination sequence; setPendingTutorChoice
+    // derives this pick's destination from its head and carries the tail to the next chained fetch.
+    destinations: Array.isArray(atom.destinations) ? atom.destinations : null,
   });
 }
 
