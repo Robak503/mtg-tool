@@ -35,6 +35,7 @@ import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, par
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
+import { winConditionParseable } from "./effects/atoms/winGame.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
 
@@ -151,7 +152,18 @@ export function spellIsNative(card) {
  * classifier, so the trigger-routing rule can't drift between them.
  */
 function triggerRoutesNatively(d) {
-  if (!d.effectClause || d.interveningIf) return false; // intervening-if → not routed
+  if (!d.effectClause) return false;
+  if (d.interveningIf) {
+    // UPKEEP-WIN (Wave 3b, CR 603.4) — the ONLY intervening-if trigger the runtime routes natively: a
+    // single win-game atom ("you win the game") whose threshold is in the strict evaluator's vocabulary
+    // (Revel in Riches / Felidar Sovereign / Knuckles). gameEngine.buildTriggerStack fires it when the
+    // condition is met (and re-checks on resolution); an unparseable threshold → Arbiter, so the metric
+    // mirrors that by requiring winConditionParseable. Every OTHER intervening-if trigger → not routed.
+    const cp = parseEffectClause(d.effectClause, "Instant");
+    const a = cp?.atoms?.length === 1 ? cp.atoms[0] : null;
+    return !!a && a.op === "win-game" && a.who === "controller"
+      && programConfidence(cp) === "high" && winConditionParseable(d.interveningIf);
+  }
   const p = parseEffectClause(d.effectClause, "Instant");
   // Mirror buildTriggerStack's α1 ALLOWLIST EXACTLY: a HIGH non-modal trigger routes natively only
   // when every chosen-target atom is intent-resolvable (the enemy/own chooser can place it on a

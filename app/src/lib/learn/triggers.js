@@ -55,7 +55,10 @@ function isLandPerm(perm) {
  * and the detected-trigger count must agree, or a landfall card mis-classifies. Currently just "Landfall —".
  */
 export function stripTriggerAbilityLabel(oracle) {
-  return String(oracle || "").replace(/^(?:landfall|constellation|eerie|heroic|magecraft)\s*[—–-]\s*/gim, "");
+  // "treasure hunter" is Knuckles the Echidna's flavor ability-word label on its upkeep-win trigger
+  // ("Treasure Hunter — At the beginning of your upkeep, …"). Like the others it's CR 207.2c flavor with
+  // no rules meaning; stripping it lets the boundary-anchored trigger regex see the bare "At the beginning".
+  return String(oracle || "").replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter)\s*[—–-]\s*/gim, "");
 }
 
 // ─── Detection ────────────────────────────────────────────────────────────────

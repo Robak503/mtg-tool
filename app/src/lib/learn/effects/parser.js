@@ -37,6 +37,7 @@ import { ATOM_RESOLVERS } from "./effectAtoms.js";
 // the BOTTOM of this file, after CLAUSE_PARSERS is defined.
 import { manifestClauseParser } from "./atoms/manifest.js";
 import { amassClauseParser } from "./atoms/amass.js";
+import { winGameClauseParser } from "./atoms/winGame.js";
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers } from "../triggers.js";
@@ -2431,6 +2432,13 @@ export function atomTargetIntent(atom) {
       // animate card is a trigger today, so this only future-proofs the trigger-flush chooser; the cast
       // path picks the target interactively.
       return "own";
+    case "win-game":
+      // UPKEEP-WIN — "target player loses the game" (Door to Nothingness) is unambiguously enemy-side:
+      // you'd never make yourself lose. (The "you win the game" form is non-targeted → null above.) No
+      // win-game card is a TRIGGER with a chosen target today (the upkeep-win family wins the CONTROLLER,
+      // no target), so this future-proofs the trigger-flush chooser; the cast/activated path picks the
+      // target interactively.
+      return "enemy";
     case "bounce":
     case "tuck":
       // Could target own OR enemy permanents — the trigger-flush chooser can't pick a side, so a tuck
@@ -2515,3 +2523,5 @@ export function programContainsFog(program) {
 // "manifest dread" and "amass <Subtype> N" clauses resolve to their KNOWN atoms everywhere.
 registerClauseParser(manifestClauseParser);
 registerClauseParser(amassClauseParser);
+// UPKEEP-WIN (Wave 3b) — "you win the game" / "target player loses the game" → the win-game atom.
+registerClauseParser(winGameClauseParser);
