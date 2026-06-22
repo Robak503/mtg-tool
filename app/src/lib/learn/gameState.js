@@ -601,7 +601,13 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     // A clone leaving the battlefield reverts to its ORIGINAL card (CR 707.2 — the copy effect
     // only applied on the battlefield; in the graveyard/exile/hand it's the printed card again).
     // `printedCard` is set only on a permanent that entered as a copy; normal permanents use card.
-    const card = permanent.printedCard || permanent.card;
+    // MANIFEST-DREAD — a FACE-DOWN manifest (CR 701.34d / 110.5) is a nameless 2/2 permanent whose
+    // REAL card is stashed under `faceUpCard`; when it LEAVES the battlefield it becomes that real card
+    // again (the graveyard/exile/hand sees the printed card, NEVER the nameless 2/2). Unwraps when moving
+    // to any non-battlefield zone; a blink (→ battlefield) keeps the same permanent so it stays face-down.
+    const card = (permanent.faceDown && permanent.faceUpCard && toZone !== "battlefield")
+      ? permanent.faceUpCard
+      : (permanent.printedCard || permanent.card);
 
     const nextSource = [...sourceList.slice(0, index), ...sourceList.slice(index + 1)];
     let nextDest;
