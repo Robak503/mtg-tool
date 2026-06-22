@@ -81,7 +81,11 @@ describe("restriction guard — only restrictions scopeMatches can ENFORCE are d
   it("an UNENFORCEABLE restriction (keyword/type) stays UNDETECTED; controller restrictions get an enforcing scope", () => {
     // A keyword/type filter the matcher can't check → undetected (safe no-op, never an over-fire).
     expect(T("Whenever a creature with flying dies, put a +1/+1 counter on this creature.")).toEqual([]);
-    expect(T("Whenever a nontoken creature you control dies, put a +1/+1 counter on this creature.")).toEqual([]);
+    // NONTOKEN-SUBJECT (wave3b) — "nontoken" IS a scope-enforceable restriction (gated on !card.token in
+    // scopeMatches), so the controller-scoped form is now DETECTED with a creatureYouControl + nontokenFilter
+    // descriptor (was a safe FN before the slice landed).
+    expect(T("Whenever a nontoken creature you control dies, put a +1/+1 counter on this creature.")[0])
+      .toMatchObject({ event: "dies", scope: "creatureYouControl", nontokenFilter: true });
     // Controller restrictions are detected with a scope scopeMatches enforces (#8b).
     expect(T("Whenever a creature an opponent controls dies, put a +1/+1 counter on this creature.")[0]).toMatchObject({ event: "dies", scope: "creatureOpponentControls" });
     expect(T("Whenever another creature you control enters, put a +1/+1 counter on this creature.")[0]).toMatchObject({ event: "etb", scope: "otherCreatureYouControl" });

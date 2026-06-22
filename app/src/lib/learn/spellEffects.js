@@ -617,7 +617,11 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
     // CREATURE going to the graveyard "dies" (CR 700.4), so only creatures feed the dies-trigger
     // look-back (captured BEFORE the move, CR 603.10a); destroying a land/artifact fires no dies.
     if (isCreature(lk.permanent.card)) {
-      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
+      // DIES-TRIGGER-RESOURCE-PAYOFFS: capture the dying creature's layer-aware POWER here (CR 603.6e),
+      // BEFORE the moveCardToZone below removes it from the battlefield, so a destroy-spell kill still feeds
+      // a "<payoff> equal to its power" dies-trigger the real on-board power (mirrors destroyLethalCreatures).
+      const pw = creaturePower(lk.permanent, next);
+      dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card, power: Number.isFinite(pw) ? pw : null });
     }
     next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: t.id });
   }

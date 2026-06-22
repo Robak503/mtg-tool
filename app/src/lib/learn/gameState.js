@@ -1099,8 +1099,18 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
   const regenerated = []; // REGEN (CR 701.15) — creatures whose destruction a regen shield replaces this SBA
   // Look-back snapshot (CR 603.10a): by the time dies-triggers are checked the permanent is
   // already in the graveyard, so its last-known characteristics travel with the `dead` entry.
-  const markDead = (pid, perm) =>
-    dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature", card: perm.card });
+  // DIES-TRIGGER-RESOURCE-PAYOFFS: capture the dying creature's POWER here too (CR 603.6e — a
+  // dies-trigger that reads "its power" uses the creature's last-known power AS IT EXISTED ON THE
+  // BATTLEFIELD just before it left). `creaturePower(perm, state)` reads the full layer-aware value
+  // (counters + anthems + pumps) BECAUSE this runs inside the loop over the ORIGINAL pre-move `state`
+  // (the perm is still on the battlefield) — captured BEFORE the moveCardToZone look-back below, so a
+  // Goldvein/Lifeblood/Feral-Ghoul "equal to its power" payoff sees the real on-board power, never the
+  // post-death printed-only value. Non-finite (CDA "*" not yet captured) → null (the payoff no-ops to 0,
+  // never a fabricated count).
+  const markDead = (pid, perm) => {
+    const pw = creaturePower(perm, state);
+    dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature", card: perm.card, power: Number.isFinite(pw) ? pw : null });
+  };
   for (const [pid, player] of Object.entries(state.players)) {
     for (const perm of player.battlefield) {
       // Layer-aware creature-ness (WALT-ANIMATE): an animated land/man-land is subject to the
