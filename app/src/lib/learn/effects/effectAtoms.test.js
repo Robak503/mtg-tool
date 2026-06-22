@@ -124,3 +124,38 @@ describe("effectAtoms — create-named-token (TOK-2)", () => {
     expect(after.players.user.battlefield).toHaveLength(0);
   });
 });
+
+// ===== SELF-BOUNCE — "return this creature to its owner's hand" =====
+// atom: { op:"bounce", target:"self" } with ctx.sourceId threaded from the trigger flush.
+describe("effectAtoms — SELF-BOUNCE (bounce with target:'self')", () => {
+  it("moves the source permanent from battlefield to hand", () => {
+    const perm = cr("Ravenous Squirrel", "sq", "user");
+    const state = st({ userBf: [perm] });
+    const after = resolveAtom(state, { op: "bounce", target: "self" }, { controller: "user", targets: [], sourceId: "sq" });
+    expect(after.players.user.battlefield).toHaveLength(0);
+    expect(after.players.user.hand.map(c => c.name)).toContain("Ravenous Squirrel");
+  });
+  it("no-op when sourceId is absent (stale trigger flush — never throws)", () => {
+    const state = st({ userBf: [] });
+    const after = resolveAtom(state, { op: "bounce", target: "self" }, { controller: "user", targets: [] });
+    expect(after.players.user.battlefield).toHaveLength(0);
+    expect(after.players.user.hand).toHaveLength(0);
+  });
+});
+
+// ===== SELF-SACRIFICE — "sacrifice this creature" =====
+// atom: { op:"sacrifice", target:"self" } with ctx.sourceId threaded from the trigger flush.
+describe("effectAtoms — SELF-SACRIFICE (sacrifice with target:'self')", () => {
+  it("moves the source permanent from battlefield to graveyard (dies)", () => {
+    const perm = cr("Doomed Traveler", "dt", "user");
+    const state = st({ userBf: [perm] });
+    const after = resolveAtom(state, { op: "sacrifice", target: "self" }, { controller: "user", targets: [], sourceId: "dt" });
+    expect(after.players.user.battlefield).toHaveLength(0);
+    expect(after.players.user.graveyard.map(c => c.name)).toContain("Doomed Traveler");
+  });
+  it("no-op when sourceId is absent (never throws)", () => {
+    const state = st({ userBf: [] });
+    const after = resolveAtom(state, { op: "sacrifice", target: "self" }, { controller: "user", targets: [] });
+    expect(after.players.user.battlefield).toHaveLength(0);
+  });
+});

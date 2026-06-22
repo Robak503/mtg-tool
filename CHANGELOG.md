@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Self-referential bounce + sacrifice trigger effects (TRIG-EFFECT-ATOMS):** two new non-targeted
+  self-reference atoms for trigger effects — **SELF-BOUNCE** ("return this creature to its owner's
+  hand" → `op:"bounce", target:"self"`) and **SELF-SACRIFICE** ("sacrifice this creature" →
+  `op:"sacrifice", target:"self"`). `atomTargets → selfTargets → ctx.sourceId` (no chosen target;
+  routes natively on every trigger path). `applySacrifice` early-exits for `target:"self"` via
+  `sacrificeCreatureEffect(ctx.controller, ctx.sourceId)`. Both forms are fully anchored — any rider
+  or qualifier fails `$` → null → Arbiter. The large yield (+164 cards) is amplified by PUMP-TGT-CTRL
+  (already in master) having opened many formerly multi-gap cards to single-gap. **+164 cards**.
+
 - **General-corpus coverage batch (7 slices):** drained the parked Cindy backlog after the lane
   reopened — **COUNTER-TARGET-OWN** ("put a ±1/±1 counter on target creature you control", own-only
   target enumeration incl. Baleful Ammit's −1/−1), **TOKEN-BARE-MULTICOLOR** (bare multi-color token

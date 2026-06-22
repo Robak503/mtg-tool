@@ -1388,3 +1388,43 @@ describe("parseEffectProgram — PUMP-TGT-CTRL controller-qualified pump/grant",
     expect(a?.restrictions).toBeUndefined();
   });
 });
+
+// ===== SELF-BOUNCE — "return this creature to its owner's hand" =====
+describe("parseEffectProgram — SELF-BOUNCE self-referential bounce atom", () => {
+  const hi = (o) => expect(programConfidence(parseEffectClause(o, "Instant"))).toBe("high");
+  const lo = (o) => expect(programConfidence(parseEffectClause(o, "Instant"))).not.toBe("high");
+  const atomOf = (o) => (parseEffectClause(o, "Instant") || {}).atoms?.[0];
+
+  it("'return this creature to its owner's hand' → HIGH, non-targeted self atom", () => {
+    hi("return this creature to its owner's hand");
+    const a = atomOf("return this creature to its owner's hand");
+    expect(a).toMatchObject({ op: "bounce", target: "self" });
+    expect(a?.targetType).toBeUndefined();
+  });
+  it("trigger path routes natively (no chosen target → programNeedsChosenTarget false)", () => {
+    const p = parseEffectClause("return this creature to its owner's hand", "Instant");
+    expect(programNeedsChosenTarget(p)).toBe(false);
+  });
+  it("MUST STAY LOW: forms with extra text after the exact anchor (FP-GUARD)", () => {
+    lo("return this creature and all tokens to their owners' hands"); // multi-permanent, doesn't match $ anchor
+    lo("return this creature to its owner's hand unless its controller pays {2}"); // conditional rider — fails $ anchor
+  });
+});
+
+// ===== SELF-SACRIFICE — "sacrifice this creature" =====
+describe("parseEffectProgram — SELF-SACRIFICE self-referential sacrifice atom", () => {
+  const hi = (o) => expect(programConfidence(parseEffectClause(o, "Instant"))).toBe("high");
+  const lo = (o) => expect(programConfidence(parseEffectClause(o, "Instant"))).not.toBe("high");
+  const atomOf = (o) => (parseEffectClause(o, "Instant") || {}).atoms?.[0];
+
+  it("'sacrifice this creature' → HIGH, non-targeted self atom", () => {
+    hi("sacrifice this creature");
+    const a = atomOf("sacrifice this creature");
+    expect(a).toMatchObject({ op: "sacrifice", target: "self" });
+    expect(a?.targetType).toBeUndefined();
+  });
+  it("MUST STAY LOW: forms with riders or conditions (FP-GUARD)", () => {
+    lo("sacrifice this creature unless you pay {2}"); // conditional, complex
+    lo("sacrifice this creature at the beginning of the next end step"); // deferred trigger
+  });
+});
