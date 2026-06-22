@@ -1,10 +1,10 @@
 /**
- * effects/atoms/combat.js — combat / P-T / animation atoms (pump, animate, earthbend, tap, untap,
+ * effects/atoms/combat.js — combat / P-T / animation atoms (fight, pump, animate, earthbend, tap, untap,
  * regenerate). Hosts applyTapEffect (tap/untap).
  */
 
-import { addContinuousEffect, permanentIsCreature } from "../../layers.js";
-import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield } from "../../gameState.js";
+import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from "../../layers.js";
+import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 
@@ -189,7 +189,62 @@ export function applyEarthbend(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "earthbend", count: n, targets: [land.id] });
 }
 
+/**
+ * ETB-FIGHT (CR 701.12) — "[this creature|it] fights (up to one) target creature you don't control."
+ * Two creatures fight: each deals damage EQUAL TO ITS POWER to the other, SIMULTANEOUSLY (CR 701.12a).
+ * The SOURCE is the fighting creature (ctx.sourceId, threaded from the ETB/Enrage trigger flush — these
+ * are all triggered abilities in the corpus, never a spell). The chosen creature is the single target.
+ *
+ * SIMULTANEITY is the cardinal invariant: both damage amounts are LOCKED from the PRE-fight (layer-aware,
+ * at-resolution) power BEFORE any damage is marked, then both marks are stamped, and a SINGLE lethal SBA
+ * pass runs. Calling applyDamageEffect twice in sequence would run the SBA between the two hits — a
+ * source killed by the first hit would never deal back, breaking the two-way "each deals damage to the
+ * other" (CR 701.12c — a creature that has left the battlefield still dealt its locked-in damage).
+ *
+ * Deathtouch (CR 702.2c): any damage from a deathtouch source is lethal — we collect both fighters into
+ * the `deathtouched` Set passed to destroyLethalCreatures (the same arg pattern combat damage uses), so a
+ * deathtouch source kills any-toughness target (and vice versa) on the single SBA pass. Power floors at 0
+ * (a 0-power fighter marks nothing — markCombatDamage is a no-op at 0 and CR 701.12b deals no damage).
+ *
+ * "up to one target" / no legal target on the battlefield → the loop never runs → a clean no-op (never a
+ * fabricated fight). The source having left the battlefield between trigger and resolution leaves srcPow
+ * unreadable → no-op (CR 701.12: nothing fights). Single-target in the corpus; the loop is general.
+ */
+export function fightCreature(state, atom, ctx) {
+  const sourceLk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  const source = sourceLk?.permanent;
+  const targets = atomTargets(state, atom, ctx);
+  let next = state;
+  let acted = false;
+  const deathtouched = new Set();
+  const hitIds = [];
+  for (const t of targets) {
+    if (t.type !== "creature") continue;
+    const targetLk = findPermanent(next, t.id);
+    if (!source || !targetLk) continue; // source/target left the battlefield → nothing fights (CR 701.12)
+    // Lock BOTH amounts from the PRE-fight, layer-aware power (CR 701.12a, read at resolution), floored at 0.
+    const srcPow = Math.max(0, creaturePower(source, next));
+    const tgtPow = Math.max(0, creaturePower(targetLk.permanent, next));
+    // Deathtouch is read PRE-fight too (a fighter killed by the simultaneous damage still dealt its damage
+    // deathtouch-flagged); reuse the layer-aware keyword read so a GRANTED deathtouch counts.
+    if (permanentHasKeyword(next, ctx.sourceId, "Deathtouch")) deathtouched.add(t.id);
+    if (permanentHasKeyword(next, t.id, "Deathtouch")) deathtouched.add(ctx.sourceId);
+    // Mark BOTH hits before any SBA runs — simultaneity (CR 701.12a). markCombatDamage is a no-op at 0.
+    if (srcPow > 0) next = markCombatDamage(next, { permanentId: t.id, amount: srcPow });
+    if (tgtPow > 0) next = markCombatDamage(next, { permanentId: ctx.sourceId, amount: tgtPow });
+    hitIds.push(t.id, ctx.sourceId);
+    acted = true;
+  }
+  if (acted) {
+    // A SINGLE lethal SBA pass over BOTH fighters (deathtouch honored), then dies-triggers once.
+    const lethal = destroyLethalCreatures(next, deathtouched);
+    next = checkDiesTriggers(lethal.state, lethal.dead);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "fight", source: ctx.sourceId || null, targets: hitIds });
+}
+
 export const combatResolvers = {
+  "fight": fightCreature, // ETB-FIGHT (CR 701.12) — source + target creature deal damage = power to each other, simultaneously
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
   "animate": (state, atom, ctx) => applyAnimateEffect(state, atom, ctx),
   "earthbend": applyEarthbend, // EARTHBEND N (Toph) — permanently animate a land you control + N +1/+1 counters

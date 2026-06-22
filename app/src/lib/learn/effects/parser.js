@@ -1459,6 +1459,21 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     }
   }
 
+  // ===== ETB-FIGHT (CR 701.12) ===== "[this creature|it] fights (up to one) target creature you don't
+  // control" (Kogla, Apex Altisaur, Kogla and Yidaro modal). The SOURCE creature and the chosen creature
+  // each deal damage equal to their power to the other, simultaneously (resolver fightCreature). The head
+  // is accepted DIRECTLY here ("it" / "this creature") — triggers.js' it→this-creature rewrite is NOT
+  // touched. ANCHORED to the bare "creature you don't control" form: "another target creature" (Ulvenwald
+  // Tracker — needs a SECOND chosen creature, not the source), a "target creature you control" (Prey
+  // Upon's own-side half), or any rider leaves residue → fails the `$` anchor → low → Arbiter, never a
+  // mis-wired one-sided fight. restrictions:{controller:opponent} so atomTargets/enumeration only offers
+  // an enemy creature; optionalTarget for "up to one" (0-or-1, declinable → clean no-op).
+  {
+    const fm = s.toLowerCase().replace(/[’]/g, "'")
+      .match(/^(?:this creature|it) fights (up to one )?target creature you don't control$/);
+    if (fm) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: !!fm[1] };
+  }
+
   // Extended atoms (anchored ALLOWLIST) before the legacy parse.
   const ext = parseExtendedAtom(s);
   if (ext && KNOWN.has(ext.op)) return ext;
@@ -2087,6 +2102,11 @@ export function atomTargetIntent(atom) {
     case "destroy":
     case "exile":
     case "counter":
+    case "fight":
+      // ETB-FIGHT — the target is "target creature you DON'T control" (enemy-side). LOAD-BEARING for the
+      // trigger path: every fight card is an ETB/Enrage TRIGGER, so without this the HIGH-parsing fight
+      // program would have an ambiguous-intent atom → programTriggerTargetsResolvable false → the trigger
+      // silently routes to the Arbiter (a forbidden no-op fabrication path) instead of firing natively.
       return "enemy";
     case "tap":
       // TAP-TARGET-CREATURE: "you control" restriction targets own creatures (e.g. Magus of the Arena);
