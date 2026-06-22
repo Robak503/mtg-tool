@@ -6,7 +6,7 @@
  * engine, type predicates, and the token descriptor word sets.
  */
 
-import { findPermanent, creaturePower, opponentsOf } from "../../gameState.js";
+import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 
 export const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 // ===== TOKENS ===== descriptor words that are SUPERTYPES / CARD TYPES, not creature subtypes —
@@ -156,18 +156,28 @@ export function countForSpec(state, ctx, spec) {
   const player = playerId ? state?.players?.[playerId] : null;
   if (!player) return 0;
   if (spec.kind === "cardsInHand") return (player.hand || []).length;
-  if (spec.kind === "permanentsYouControl") return (player.battlefield || []).filter((perm) => countMatches(perm.card, spec)).length;
+  // ===== DRAW-METRIC ("other") ===== (WAVE2b) `excludeSource` (set by parseCountSource on a leading "other")
+  // skips the permanent generating the effect (CR 109.2). The source is the trigger/activated SOURCE
+  // (ctx.sourceId) or the trigger's permanent (ctx.triggeringPermanentId); on a plain spell both are
+  // undefined, so nothing is excluded (a spell has no "other" referent). A permanent count + battlefield
+  // MAX both honor it; the cardsInHand / experience kinds have no per-permanent identity, so the flag is a
+  // safe no-op there.
+  const isSourcePerm = (perm) => spec.excludeSource && perm?.id != null && (perm.id === ctx.sourceId || perm.id === ctx.triggeringPermanentId);
+  if (spec.kind === "permanentsYouControl") return (player.battlefield || []).filter((perm) => !isSourcePerm(perm) && countMatches(perm.card, spec)).length;
   // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
   // ===== EXPERIENCE ===== the controller's experience counter total (Toph, Command Beacon, etc.)
   if (spec.kind === "experienceCounters") return (player.experience || 0);
-  // ===== OVERRUN-X ===== a MAX-reduction: the single greatest layer-resolved power among the controller's
-  // creatures (Overwhelming Stampede). Reads creaturePower (layer-aware) so prior buffs/counters count; an
-  // empty board → 0 (a safe +0/+0). Computed BEFORE applyPumpEffect adds the +X/+X, so X is the pre-buff max.
-  if (spec.kind === "greatestPowerYouControl") {
+  // ===== OVERRUN-X / DRAW-METRIC ===== a MAX-reduction: the single greatest layer-resolved power
+  // (Overwhelming Stampede) or toughness (DRAW-METRIC "draw cards equal to the greatest toughness among
+  // creatures you control") among the controller's creatures. Reads creaturePower/creatureToughness
+  // (layer-aware) so prior buffs/counters count; an empty board → 0 (a safe 0). For the power form on a pump,
+  // computed BEFORE applyPumpEffect adds the +X/+X, so X is the pre-buff max. excludeSource skips the source.
+  if (spec.kind === "greatestPowerYouControl" || spec.kind === "greatestToughnessYouControl") {
+    const metric = spec.kind === "greatestToughnessYouControl" ? creatureToughness : creaturePower;
     return (player.battlefield || [])
-      .filter((perm) => /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || "")))
-      .reduce((mx, perm) => Math.max(mx, creaturePower(perm, state)), 0);
+      .filter((perm) => !isSourcePerm(perm) && /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || "")))
+      .reduce((mx, perm) => Math.max(mx, metric(perm, state)), 0);
   }
   return 0;
 }
