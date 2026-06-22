@@ -340,6 +340,13 @@ export function permanentEquipmentCovered(card) {
     const c = clause.toLowerCase().trim();
     if (!c) continue;
     if (modeledEquipLine.test(c)) continue;
+    // A leftover trigger-shaped clause (When/Whenever/At) is an UNCOUNTED trigger and must NOT be whitelisted
+    // by the "equipped creature" clause below. When two triggers share a line (Novel Nunchaku: "When this
+    // Equipment enters, attach it … . When you do, equipped creature fights …"), the noTrig strip's regex
+    // consumes the period terminating the FIRST trigger, so the reflexive "When you do, …" sentence loses its
+    // boundary char → allTriggerSentencesModeled's count misses it (shaped==detected==1) → it survives here.
+    // Its fight clause parses LOW (unmodeled). Reject it → body-only (FN-safe, no partial flip — CREED).
+    if (/^(?:when|whenever|at)\b/i.test(c)) return false;
     if (/\bequipped creature\b/.test(c) || /^it\b/.test(c) || /^that creature\b/.test(c)) continue;
     // LIVING WEAPON / FOR MIRRODIN! — the keyword's "enters → make a token → attach to it" ETB is modeled
     // in enterPermanent (resolvers.js), and the equipped-creature bonus buffs the token. The bare keyword
