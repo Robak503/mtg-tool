@@ -3,6 +3,7 @@
  */
 
 import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId } from "../../gameState.js";
+import { tokenMultiplier, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec } from "./shared.js";
 
@@ -73,14 +74,20 @@ export function applyCreateToken(state, atom, ctx) {
   // X-token spell (Secure the Wastes). ===== FOR-EACH ===== (WALT-FOREACH-TOK) `countFor` is a BOARD count
   // resolved at resolution ("a token for each creature you control" — Avenger of Zendikar). Both X=0 and a
   // 0 board count mint zero tokens (CR 107.3 — a clean no-op, NOT forced to 1); a fixed count is floored at 1.
-  const count = atom.countFor
+  const baseCount = atom.countFor
     ? Math.max(0, countForSpec(next, ctx, atom.countFor))
     : atom.countX ? Math.max(0, ctx.xValue || 0) : Math.max(1, atom.count || 1);
+  // Wave-3 token doubler (CR 616 — Doubling Season / Parallel Lives / Anointed Procession / Primal Vigor /
+  // Mondrak): the NUMBER of tokens created under the controller's control is multiplied. Computed once here
+  // (a minted token is never itself a doubler), so the count doubles without per-token recursion.
+  const count = baseCount * tokenMultiplier(next, ctx.controller);
   // ENTERS-WITH-COUNTERS: a token that enters with N +1/+1 counters (Zaxara's "0/0 Hydra with X counters").
   // `amount` is a resolved count; `countX` reads the chosen {X} (ctx.xValue). Applied BEFORE the lethal SBA
-  // so a 0/0 token with counters survives as a real N/N instead of dying immediately (CR 704.5f).
+  // so a 0/0 token with counters survives as a real N/N instead of dying immediately (CR 704.5f). The counters
+  // bypass addCounter (the token is minted locally), so the Wave-3 counter doubler is applied here, once.
   const ewc = atom.entersWithCounters;
-  const counterN = ewc ? Math.max(0, ewc.countX ? (ctx.xValue || 0) : (ewc.amount || 0)) : 0;
+  const counterBase = ewc ? Math.max(0, ewc.countX ? (ctx.xValue || 0) : (ewc.amount || 0)) : 0;
+  const counterN = counterBase > 0 ? applyCounterDoubling(next, ctx.controller, ewc.type || "+1/+1", counterBase) : 0;
   const mintedIds = [];
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
@@ -143,11 +150,14 @@ export function applyCreateNamedToken(state, atom, ctx) {
   // {X} (ctx.xValue); `countContext` reads a trigger-context number (Old Gnawbone "that many" =
   // ctx.combatDamageAmount, carried by the combat-damage trigger). A 0 dynamic count mints ZERO tokens
   // (CR 107.3 — a clean no-op, NOT forced to 1); a FIXED count is floored at 1.
-  const count = atom.countFor
+  const baseCount = atom.countFor
     ? Math.max(0, countForSpec(next, ctx, atom.countFor))
     : atom.countX ? Math.max(0, ctx.xValue || 0)
       : atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
         : Math.max(1, atom.count || 1);
+  // Wave-3 token doubler (CR 616): a "create one or more tokens" doubler (Doubling Season / Parallel Lives /
+  // Anointed Procession) doubles named artifact tokens (Treasure/Clue/Food/Gold) too. Multiplied once here.
+  const count = baseCount * tokenMultiplier(next, ctx.controller);
   const mintedIds = [];
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");

@@ -31,13 +31,14 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { detectTriggers, stripTriggerAbilityLabel } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, entersWithPlusCounters, entersWithXCounters } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 import { winConditionParseable } from "./effects/atoms/winGame.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
+import { isPureDoubler } from "./replacementEffects.js"; // Wave-3: pure counter/token doublers classify native-static
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -426,11 +427,19 @@ export function classifyCard(card) {
   // classifies native-body. The card-level guard never strips a conditional/variable form (those return 0).
   // ENTERS-WITH-X: a hydra "enters with X +1/+1 counters" is modeled too (the resolver adds the chosen X
   // at ETB) — strip that sentence so a hydra whose only non-keyword text is enters-with-X classifies native.
+  // ETB-XCOUNTERS-FROM-METRIC: enters with +1/+1 counters whose count is a board metric ("for each other
+  // creature you control" — Squad Captain; "X = greatest power among other creatures" — Prime Speaker Zegana)
+  // is modeled too (the resolver resolves the metric via countForSpec at ETB). Strip that one sentence when
+  // entersWithMetricCounters confirmed one of its two exact shapes, so a card whose only non-keyword text is the
+  // metric enters-with clause classifies native-body (Squad Captain = Vigilance + metric → native-body). Cards
+  // with extra unmodeled text (Sheriff's Plot; Zegana's draw trigger) keep their other clauses → not stripped here.
   const baseOracle = entersWithPlusCounters(card) > 0
     ? oracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
     : entersWithXCounters(card)
       ? oracle.replace(/[^.]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.]*\.?/i, " ")
-      : oracle;
+      : entersWithMetricCounters(card)
+        ? oracle.replace(/[^.]*enters (?:the battlefield )?with [^.]*\+1\/\+1 counters?[^.]*\.?/i, " ")
+        : oracle;
   if (isKeywordOnly(baseOracle, card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
@@ -502,3 +511,11 @@ export function coverageSummary(cards) {
   }
   return { total, native, pct: total ? Math.round((native / total) * 100) : 0, tiers, gap };
 }
+
+// ─── WAVE 3 — pure counter/token doublers classify native-static ───────────────────────────────
+// A replacement-static Enchantment whose entire text is doubling clauses (Doubling Season, Parallel Lives,
+// Anointed Procession, Branching Evolution, Primal Vigor) is fully modeled by the Wave-3 replacement layer
+// (replacementEffects.js). Registered via the additive Wave-0 seam, consulted after the single-mechanism tiers
+// and before the composite catch-all. Mondrak / Vorinclex / Corpsejack (creature/activated bodies) are excluded
+// by isPureDoubler and stay body-only (CREED whole-card).
+registerCoverageClassifier((card) => (isPureDoubler(card) ? "native-static" : null));

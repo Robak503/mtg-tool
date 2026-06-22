@@ -17,6 +17,7 @@
  */
 
 import { logEvent, destroyLethalCreatures, createPermanent, mintId, addCounter } from "../../gameState.js";
+import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): the new-Army mint stamps counters directly, bypassing addCounter
 import { checkDiesTriggers } from "../../triggers.js";
 import { fireTokenEnterTriggers } from "./tokens.js";
 
@@ -85,7 +86,14 @@ export function applyAmass(state, atom, ctx) {
     token: true,
   };
   let perm = createPermanent({ id: minted.id, card, controller: me });
-  if (amount > 0) perm = { ...perm, counters: { ...perm.counters, [PLUS_ONE]: (perm.counters?.[PLUS_ONE] || 0) + amount } };
+  // Wave-3 doubler (CR 616): the amass +1/+1 counters bypass addCounter (stamped on the freshly-minted token),
+  // so route them through applyCounterDoubling — Branching Evolution / Doubling Season double an amass too. (The
+  // existing-Army path above uses addCounter and is already doubler-aware. The Army-token creation itself is the
+  // singleton amass mint, not a "create N tokens" event, so it is deliberately not token-doubled.)
+  if (amount > 0) {
+    const n = applyCounterDoubling(next, me, PLUS_ONE, amount);
+    perm = { ...perm, counters: { ...perm.counters, [PLUS_ONE]: (perm.counters?.[PLUS_ONE] || 0) + n } };
+  }
   next = withControllerBattlefield(next, me, (bf) => [...bf, perm]);
 
   // ETB (CR 603.6a) — the token ENTERED, so it fires "enters" watchers (Soul Warden / Impact Tremors /
