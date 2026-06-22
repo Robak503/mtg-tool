@@ -27,6 +27,7 @@ import { combatResolvers } from "./atoms/combat.js";
 import { handResolvers } from "./atoms/hand.js";
 import { stackResolvers } from "./atoms/stack.js";
 import { miscResolvers } from "./atoms/misc.js";
+import { amassResolvers } from "./atoms/amass.js";
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken } from "./atoms/tokens.js";
@@ -50,6 +51,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...tokenResolvers,   // create-token, create-named-token
   ...libraryResolvers, // tutor, shuffle, scry, surveil, impulse-dig, discover, mill
   ...handResolvers,    // discard-chosen, discard
+  ...amassResolvers,   // amass (CR 701.43) — grow/mint the controller's Army (Orcish Bowmasters, Lazotep Sliver)
 });
 
 /**
