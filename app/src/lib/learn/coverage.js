@@ -39,6 +39,8 @@ import { winConditionParseable } from "./effects/atoms/winGame.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
 import { isPureDoubler } from "./replacementEffects.js"; // Wave-3: pure counter/token doublers classify native-static
+import { marksDamageToCreature, ENDSTEP_COUNTER } from "./wolverine.js"; // Wave-5a: Wolverine whole-card runtime hook
+import { parseDamageReplacements } from "./damageReplacements.js"; // Wave-5a: source-scoped damage doubler parser
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -519,3 +521,32 @@ export function coverageSummary(cards) {
 // and before the composite catch-all. Mondrak / Vorinclex / Corpsejack (creature/activated bodies) are excluded
 // by isPureDoubler and stay body-only (CREED whole-card).
 registerCoverageClassifier((card) => (isPureDoubler(card) ? "native-static" : null));
+
+// ─── WAVE 5a — Wolverine, Best There Is (the damage-replacement keystone) ──────────────────────────────────
+// All THREE clauses modeled (CREED all-or-nothing): the source-scoped double-all-damage replacement
+// (damageReplacements.js), the end-step "+1/+1 if dealt damage to another creature this turn" intervening-if
+// counter (wolverine.js), and the {1}{G} regenerate activated ability (effects/abilities.js after self-name
+// normalization). classifyWolverine returns "native-mixed" only when all three parse AND no residue remains;
+// null for every other card. A targeted single-card flip (the #353/#356 pattern) via the additive seam.
+const WOLVERINE_DOUBLE_CLAUSE = /unrivaled lethality\s*[—–-]\s*double all damage [^.]*would deal\.?/i;
+const WOLVERINE_REGEN_CLAUSE = /\{1\}\{g\}:\s*regenerate [^.]*\.?/i;
+function classifyWolverine(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  if (!/creature/.test(type)) return null;
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  if (!oracle) return null;
+  // (1) source-scoped double-all-damage replacement modeled (damageReplacements.js).
+  if (!parseDamageReplacements(card).length) return null;
+  // (2) end-step "+1/+1 if dealt damage to another creature" intervening-if clause present (wolverine.js).
+  if (!marksDamageToCreature(card)) return null;
+  // (3) the {1}{G} regenerate activated ability modeled (effects/abilities, after self-name normalization).
+  if (!parseActivatedAbilities(card).some((a) => a.modeled && /regenerate/i.test(a.effectClause || ""))) return null;
+  // No fourth, unmodeled clause: strip the three modeled clauses + reminder text, confirm empty (CREED).
+  const residue = oracle.replace(/\([^)]*\)/g, " ")
+    .replace(WOLVERINE_DOUBLE_CLAUSE, " ")
+    .replace(ENDSTEP_COUNTER, " ")
+    .replace(WOLVERINE_REGEN_CLAUSE, " ")
+    .replace(/[\s.]+/g, " ").trim();
+  return residue.length > 0 ? null : "native-mixed";
+}
+registerCoverageClassifier((card) => classifyWolverine(card));
