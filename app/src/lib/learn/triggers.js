@@ -278,6 +278,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   // exact text before the event verb.
   if (/\benters\b/.test(c) && !/\benters (the battlefield )?(tapped|with|as)\b/.test(c)) {
     if (selfRef) return { event: "etb", scope: "self", whose: "any" };
+    // NONTOKEN-SUBJECT ETB (wave3b) — "a nontoken creature you control enters" (Guardian Project / The
+    // Great Henge / Blessed Sanctuary) and "a nontoken <Subtype> you control enters" (Sosuke's Summons —
+    // "create a 1/1 green Snake"). Same scope-expressible nontoken restriction (CR 111.1) as the dies
+    // analog above: nontokenFilter:true GATES on the entering permanent's token-ness in scopeMatches, so
+    // a TOKEN of the matching kind entering does NOT fire. Controller-scoped only; the bare "enters" is
+    // matched (the tapped/with/as guard above already excluded the static-replacement shapes). Checked
+    // BEFORE the another-subtype / creatureSubjectScope matchers, which don't recognize "nontoken".
+    const etbSubjRaw = subjectBefore(c, "enters");
+    if (etbSubjRaw === "a nontoken creature you control") return { event: "etb", scope: "creatureYouControl", whose: "any", nontokenFilter: true };
+    const ntSubEtb = etbSubjRaw.match(/^a nontoken ([a-z]{3,}) you control$/);
+    if (ntSubEtb && !NON_SUBTYPE_ETB_WORDS.has(ntSubEtb[1])) {
+      return { event: "etb", scope: "subtypeYouControl", whose: "any", subtypeFilter: ntSubEtb[1].charAt(0).toUpperCase() + ntSubEtb[1].slice(1), nontokenFilter: true };
+    }
     // ANOTHER-SUBTYPE ETB — "another <type/subtype> [you control] enters" (Elvish Vanguard / Youthful Valkyrie /
     // Arcbound Crusher families). A single-word type that typeStr can enforce; NON_SUBTYPE_ETB_WORDS rejects
     // supertypes, meta words, and colors whose typeStr check would silently never fire (CREED FP guard).
@@ -295,6 +308,28 @@ function classifyCondition(condRaw, cardName, cardType) {
   }
   if (/\bdies\b/.test(c)) {
     if (selfRef) return { event: "dies", scope: "self", whose: "any" };
+    // NONTOKEN-SUBJECT dies (wave3b) — "a nontoken creature you control dies" (Remembrance / Open the
+    // Graves / Ulvenwald Mysteries — the token-recursion family) and "a nontoken <Subtype> you control
+    // dies" (Lazotep Sliver — "amass Slivers 2"). The "nontoken" qualifier is a SCOPE-EXPRESSIBLE
+    // restriction (the dead permanent must NOT be a token, CR 111.1 — checked via card.token in
+    // scopeMatches), so it's carved out HERE rather than rejected. nontokenFilter:true GATES firing on
+    // the dead permanent's token-ness; without the gate a token of the matching kind dying would fire
+    // (the #1 FP — Lazotep's own amass-minted Sliver Army token dying would re-fire its amass). Anchored
+    // controller-scoped ONLY ("you control"): the scope below enforces both the controller AND the
+    // nontoken gate; a no-controller form ("a nontoken creature dies", Mimic Vat) stays UNDETECTED (its
+    // eachCreature scope can't carry the controller-agnostic nontoken check cleanly) → Arbiter (SAFE FN).
+    // Checked BEFORE the bare creatureSubjectScope / subtype matchers because those don't see "nontoken".
+    const ntCreatureDies = c.match(/^a nontoken creature you control dies$/);
+    if (ntCreatureDies) return { event: "dies", scope: "creatureYouControl", whose: "any", nontokenFilter: true };
+    // The NON_SUBTYPE_ETB_WORDS denylist (shared with the ETB path) rejects a meta-word subject
+    // ("permanent"/"planeswalker"/a color) whose typeStr-substring scope check would silently never fire —
+    // claiming native on a do-nothing trigger is a CREED FP. "artifact"/"enchantment" are NOT denylisted
+    // (real type-line tokens — Replication Specialist's "nontoken artifact"). Zero live corpus hits today;
+    // the guard keeps the path robust against future additions, matching the ETB matcher's hygiene.
+    const ntSubDies = c.match(/^a nontoken ([a-z]{3,}) you control dies$/);
+    if (ntSubDies && !NON_SUBTYPE_ETB_WORDS.has(ntSubDies[1])) {
+      return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: ntSubDies[1].charAt(0).toUpperCase() + ntSubDies[1].slice(1), nontokenFilter: true };
+    }
     const scope = creatureSubjectScope(subjectBefore(c, "dies"));
     if (scope) return { event: "dies", scope, whose: "any" };
     // SUBTYPE dies (tribal payoffs — Laid to Rest / Slimefoot / Crossway Troublemakers). Single-word
@@ -694,6 +729,7 @@ export function detectTriggers(card) {
         nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
         subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF only (e.g. "Dinosaur" for Pantlaza)
+        nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
@@ -721,6 +757,14 @@ export function hasTriggerFor(card, event) {
 // ─── Matching ──────────────────────────────────────────────────────────────────
 
 function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
+  // NONTOKEN-SUBJECT gate (wave3b, CR 111.1) — "a nontoken creature/<Subtype> you control dies/enters"
+  // (Lazotep Sliver, Remembrance, Guardian Project). The "nontoken" qualifier EXCLUDES token permanents:
+  // a token of the matching kind triggering must NOT fire. A created token's card carries `token: true`
+  // (tokenFactory / amass / resolvers convention); a real card has no such flag. This gate runs BEFORE the
+  // scope switch so it composes with whichever scope (creatureYouControl / subtypeYouControl) the descriptor
+  // chose. Load-bearing FP guard: without it Lazotep's OWN amass-minted Sliver Army token (a Sliver, so the
+  // subtypeYouControl scope would match it) dying would re-fire its amass — a confident wrong fire.
+  if (descriptor.nontokenFilter && triggeringPermanent?.card?.token) return false;
   switch (descriptor.scope) {
     case "self":
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;
