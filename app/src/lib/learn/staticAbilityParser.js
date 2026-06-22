@@ -50,10 +50,22 @@ const COLOR_WORDS = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
  * at its start, so a buff pattern can't match mid-sentence.
  */
 function abilityClauses(oracle) {
-  return String(oracle)
-    .split(/[\n.;]+/)
-    .map(s => s.trim())
-    .filter(Boolean);
+  // QUOTE-AWARE split: a granted QUOTED ability ("All Slivers have \"{T}: Add one mana of any color.\"")
+  // carries sentence punctuation (./;) INSIDE the quotes that must NOT split the clause — otherwise the
+  // grant is shredded into "… have \"{T}: Add …" + a dangling "\"". Walk the text, tracking double-quote
+  // depth (straight " and curly “ ”), and only break on \n / . / ; when OUTSIDE a quote. Behavior-identical
+  // to the old `/[\n.;]+/` split for any text with no quotes (the common case).
+  const text = String(oracle);
+  const out = [];
+  let buf = "";
+  let inQuote = false;
+  for (const ch of text) {
+    if (ch === '"' || ch === "“" || ch === "”") { inQuote = ch === "”" ? false : (ch === "“" ? true : !inQuote); buf += ch; continue; }
+    if (!inQuote && (ch === "\n" || ch === "." || ch === ";")) { if (buf.trim()) out.push(buf.trim()); buf = ""; continue; }
+    buf += ch;
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out;
 }
 
 /** Parse a signed integer like "+1" / "-1" / "+2". */
@@ -149,6 +161,58 @@ function parseSelfCountSource(phrase) {
   // CR — a colorless permanent contributes no color). layers.countSelfSpecOnBoard evaluates the Set size.
   if (/^colors? among permanents you control$/.test(p)) return { kind: "colorsAmongPermanents" };
   return null;
+}
+
+/**
+ * GROUP-GRANT — parse the QUOTED text of a granted ability into a serializable, FIXED-amount mana spec
+ * `{ colors, amount }`, or null. The modeled subset MIRRORS manaModel.parseAddClause's fixed (non-variable)
+ * branches EXACTLY so a granted ability taps for the same thing a printed one would (CREED #17 — the granted
+ * ability must itself be fully modeled). Requires a `{T}:` (tap) cost and an `Add …` effect:
+ *   "{T}: Add one mana of any color."        → { colors:["W","U","B","R","G"], amount:1 }   (Gemhide/Manaweft)
+ *   "{T}: Add N mana of any one color."      → { colors:[5 colors], amount:N }
+ *   "{T}: Add {G}." / "{T}: Add {W} or {U}." → fixed pips ("or" = a choice ⇒ amount 1)
+ * DELIBERATELY EXCLUDED (→ null → grant stays non-native, a safe FN): any VARIABLE/X amount ("Add X mana …",
+ * "for each"/"equal to" — those resolve against the GRANTER's board, wrong scope for a recipient), a
+ * sacrifice-for-mana cost, or any non-mana / triggered / activated-non-mana quoted ability. The recipient is
+ * a real permanent that taps the granted ability, so a {T} cost is correct; a non-{T} mana grant is rare and
+ * left unmodeled. Pure; no engine import (manaModel reads this spec, not vice-versa, so no cycle).
+ */
+function parseGrantedManaSpec(quoted) {
+  const q = String(quoted || "");
+  // Must be a {T}: Add … ability — left-of-colon tap cost, right-of-colon "Add" effect. A {Q}/cost-with-mana
+  // or sacrifice-cost ability is out of the modeled subset.
+  const ci = q.indexOf(":");
+  if (ci === -1) return null;
+  const cost = q.slice(0, ci);
+  const effect = q.slice(ci + 1);
+  // The cost must be EXACTLY a {T} tap — nothing else. A rider cost ("{T}, Pay 1 life: Add …" — Forgotten
+  // Monument; "{T}, Sacrifice …") is NOT modeled by the granted-tap source, and silently dropping it would
+  // grant FREE mana (a CREED FP). Allow only "{t}" + whitespace/commas in the cost.
+  if (!/\{t\}/i.test(cost)) return null;                      // require a {T} tap cost
+  if (cost.replace(/\{t\}/ig, "").replace(/[\s,]/g, "") !== "") return null; // any extra cost (life/sac/pips) → reject
+  if (!/\badd\b/i.test(effect)) return null;                  // must be a mana ("Add …") ability
+  if (/\bx\b/i.test(effect) || /\bfor each\b|\bequal to\b/i.test(effect)) return null; // VARIABLE → wrong scope
+  // A SPENDING RESTRICTION on the produced mana ("Spend this mana only to cast …" — Clement/Charitable
+  // Drafter; "This mana can't be spent to cast …" — Battery Bearer) is NOT modeled (the mana pool is
+  // unrestricted), so dropping it would grant unrestricted mana the card actually restricts (a CREED FP).
+  // Reject the whole grant — the recipient keeps no fabricated all-purpose mana.
+  if (/\bspend this mana\b|\bthis mana can'?t be spent\b|\bcan'?t be spent\b|\bonly to (?:cast|pay|activate)\b/i.test(effect)) return null;
+  // "Add N mana of any one color" — N spelled or digit; "Add … mana of any color" — amount 1.
+  let mm = effect.match(/\badd\s+(one|two|three|four|five|\d+)\s+mana of any one color\b/i);
+  if (mm) {
+    const amount = _ENTER_NUM[mm[1].toLowerCase()] ?? parseInt(mm[1], 10);
+    if (Number.isFinite(amount) && amount > 0) return { colors: ["W", "U", "B", "R", "G"], amount };
+    return null;
+  }
+  if (/\badd\b[^.]*\bmana of any( one)? color\b/i.test(effect)) {
+    return { colors: ["W", "U", "B", "R", "G"], amount: 1 };
+  }
+  // Fixed pips: "Add {G}" / "Add {C}{C}" (concat = sum) / "Add {W} or {U}" ("or" = choice, amount 1).
+  const symbols = [...effect.matchAll(/\{([WUBRGC])\}/gi)].map((x) => x[1].toUpperCase());
+  if (symbols.length === 0) return null;
+  const unique = [...new Set(symbols)];
+  if (/\bor\b/i.test(effect)) return { colors: unique, amount: 1 };
+  return { colors: unique, amount: symbols.length };
 }
 
 /**
@@ -464,6 +528,39 @@ function parseClause(clause, out, selfName) {
     }
   }
 
+  // ── GROUP-GRANT granted quoted MANA ability (Gemhide/Manaweft Sliver, Enduring Vitality) ────────────
+  // "<selector> have \"{T}: Add <mana>\"" mints a MANA ability onto every matching permanent (CR 113.7 — a
+  // granted ability functions on the recipient). The ONLY granted-ability kind modeled here is a MANA
+  // ability whose quoted "Add …" text resolves through the SAME parser the real mana system uses
+  // (parseGrantedManaSpec, mirroring manaModel.parseAddClause's modeled subset) — so a granted instance taps
+  // for EXACTLY what a printed one would (CREED #17: the granted ability must itself be fully modeled, or
+  // the whole grant stays non-native). A quoted TRIGGERED / ACTIVATED-non-mana / regenerate / X-scaling
+  // ability does NOT match → no descriptor → the card stays body-only (a safe FN). The selector reuses
+  // parseCreatureSelector ("All Slivers"/"Sliver creatures you control"/"creatures you control" + the
+  // determiner self in/exclude). The emitted op carries a serializable {colors, amount} spec; layers exposes
+  // the matched descriptors and manaModel reads the spec — manaModel never re-parses the text, so the
+  // classification gate and the runtime production can't drift. Anchored on the quoted-string shape, so a
+  // creature-bonus / aura "has \"…\"" tail elsewhere never false-matches.
+  {
+    const grantQ = clause.match(/^(.+?)\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i);
+    if (grantQ) {
+      const selector = parseCreatureSelector(grantQ[1].toLowerCase() + " have");
+      const manaSpec = selector ? parseGrantedManaSpec(grantQ[2]) : null;
+      if (selector && manaSpec) {
+        out.push({
+          layer: 6,
+          op: { layerOp: "addAbility", grant: { kind: "mana", spec: manaSpec } },
+          affects: selector,
+          duration: { kind: "permanent" },
+        });
+      }
+      // A quoted-ability grant we matched the SHAPE of but can't fully model (no selector, or a
+      // non-mana / unmodeled quoted ability) produces NO descriptor — the whole clause stays body-only
+      // (CREED). Return either way: a "have \"…\"" clause is never ALSO a plain keyword/anthem grant.
+      return;
+    }
+  }
+
   // ── TRUNK-SELFBUFF: a STATIC self-buff scaled by a board count (layer 7c dynamic) ──
   // "This creature gets +X/+Y for each <countsource>" (Nim Lasher, Benalish Honor Guard…). A CONTINUOUS
   // effect, so it's exempt from the `for each` guard below — but ONLY this exact self-referential static
@@ -758,6 +855,43 @@ function parseCreatureSelector(c) {
       mode: "dynamic",
       selector: { controllerScope: "you", cardTypes: ["Creature"], subtypes: [normalizeSubtype(m[1])] },
     };
+  }
+
+  // GROUP-GRANT subtype-without-"creatures": "<Subtype> you control (get|gain|has|have) …" — the bare-plural
+  // tribal templating with NO "creatures" word ("Dragons you control have indestructible" — Call the Spirit
+  // Dragons; "Slivers you control have double strike and haste" — Thrumming Hivepool). The "<Subtype>
+  // creatures you control" form is caught just above; the "(all|other|each) <Subtype> you control"
+  // determiner form (which makes "creatures" optional) is caught at the top of this fn. This branch fills the
+  // remaining hole: a determiner-less bare subtype. STILL Creature-restricted (cardTypes:["Creature"]) so a
+  // word that happens to be a card-type ("Artifacts you control have …") routes to the non-creature
+  // indestructible grant, not here. NON_SUBTYPE_ANTHEM_WORDS excludes board-state/quality/type/determiner
+  // words (so "Attacking … " / "Token … " / "Artifact … " never fabricate a subtype grant that selects
+  // nobody). A genuinely-bogus subtype simply selects no creatures (a safe FN). No excludeSelf: a bare
+  // (determiner-less) subtype includes the source if it shares the type ("Slivers you control" includes a
+  // Sliver granter); the "Other <Subtype>" exclusion is the determiner form above.
+  m = c.match(/^([a-z]+)\s+you control\s+(?:gets?|gains?|has|have)\b/);
+  if (m) {
+    const word = m[1];
+    // NON_SUBTYPE_ANTHEM_WORDS lists SINGULAR forms (token/nontoken/legendary/artifact/…); a bare-plural
+    // subject ("Tokens you control" / "Artifacts you control") must be excluded too, so test the word AND
+    // its de-pluralized form. PERMANENT_TYPE_CARD_TYPES catches the plural card-type words directly
+    // (artifacts/enchantments/lands/permanents) — those route to the non-creature indestructible grant, not
+    // a (zero-selecting) creature-subtype grant. Without this guard "Tokens you control have haste" would
+    // fabricate a "Token"-subtype grant that selects no creature yet flips the card native (a CREED FP).
+    // Exclude a non-subtype subject by testing the word AND its de-pluralized forms against the SINGULAR
+    // exclusion set — "-ies"→"-y" (legendaries→legendary), "-ves"→"-f", and plain "-s" (tokens→token). A
+    // real creature subtype (Sliver/Dragon/Ally/Wolf) is never in NON_SUBTYPE_ANTHEM_WORDS, so the
+    // de-pluralized candidates can never wrongly exclude one.
+    const candidates = [word];
+    if (word.endsWith("ies")) candidates.push(word.slice(0, -3) + "y");
+    if (word.endsWith("ves")) candidates.push(word.slice(0, -3) + "f");
+    if (word.endsWith("s")) candidates.push(word.slice(0, -1));
+    if (!candidates.some((w) => NON_SUBTYPE_ANTHEM_WORDS.has(w)) && !PERMANENT_TYPE_CARD_TYPES[word]) {
+      return {
+        mode: "dynamic",
+        selector: { controllerScope: "you", cardTypes: ["Creature"], subtypes: [normalizeSubtype(word)] },
+      };
+    }
   }
 
   // Generic anthem: "creatures you control [get|have]"

@@ -32,7 +32,7 @@
 
 import { MANA_COLORS, addMana, moveCardToZone, tapPermanent, findPermanent } from "./gameState.js";
 import { checkSacrificeTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice
-import { permanentHasKeyword } from "./layers.js";
+import { permanentHasKeyword, grantedManaSpecsFor } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { parseAuraLandManaBonus } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST: extra mana from a "tapped for mana" aura (leaf: static parser → keywords only)
 
@@ -345,7 +345,18 @@ export function manaSources(state, playerId) {
   const sources = [];
   for (const perm of player.battlefield) {
     if (perm.tapped) continue;
-    const prod = manaProduction(perm.card);
+    let prod = manaProduction(perm.card);
+    // GROUP-GRANT: a permanent with NO own mana ability can have a {T}: Add … MANA ability GRANTED by a lord
+    // (Gemhide/Manaweft "All Slivers have \"{T}: Add one mana of any color\"" — every OTHER Sliver gains it).
+    // DEDUP (the double-grant landmine): when the permanent ALREADY produces mana from its OWN card, keep the
+    // own source and SKIP the grant — the granter (a Sliver) self-includes via "All Slivers", and manaModel
+    // already reads its quoted text as its own source (the test-pinned Gemhide self-production). Granting it
+    // again would tap it twice. A recipient with its own DIFFERENT ability also keeps only its own (a safe
+    // under-count, never a fabricated extra tap). So the grant only ever ADDS a source where there was none.
+    if (!prod) {
+      const granted = grantedManaSpecsFor(state, perm.id);
+      if (granted.length) prod = { colors: granted[0].colors, amount: granted[0].amount, requiresTap: true };
+    }
     if (!prod) continue;
     const isCreature = /Creature/.test(typeLineOf(perm.card));
     // GRANTED Haste counts (read through the layer engine), not just printed — a mana dork
