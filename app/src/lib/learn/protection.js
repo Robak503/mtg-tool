@@ -2,21 +2,26 @@
  * protection.js — KW-PROTECTION enforcement (CR 702.16), quality = COLOR.
  *
  * "Protection from [quality]" is DEBT: the permanent can't be Damaged by / Enchanted-or-Equipped by /
- * Blocked by / Targeted by a source with the quality. PR1 enforces the two sub-rules that reuse seams
- * already built, for the common quality (a color):
- *   - DAMAGE (702.16e): damage from a source of the stated color is PREVENTED → 0 dealt.
+ * Blocked by / Targeted by a source with the quality. For the common quality (a color), THREE of the four
+ * sub-rules are enforced:
+ *   - DAMAGE (702.16e): combat damage from a source of the stated color is PREVENTED → 0 dealt.
  *   - BLOCK  (702.16f): an ATTACKING creature with protection from a color can't be blocked by a
  *                       creature of that color.
- * TARGET (702.16b — needs the spell/ability's color threaded into the targeting check) and
- * ENCHANT/EQUIP (702.16c/d — Aura/Equipment attach + the SBA) are deferred to PR2 (safe false-negatives —
- * protection stays a PARTIAL interim-FP there, never mis-resolved). Non-color qualities (artifacts,
- * creatures, "everything", a card name, the chosen color) are NOT parsed here → unenforced, also safe.
+ *   - TARGET (702.16b): can't be targeted by a spell of that color (the spell's color is threaded into
+ *                       the targeting check via legalChoices → enumerateTargets → canBeTargetedBy).
+ * The ENCHANT/EQUIP axis (702.16c/d — a same-color Aura/Equipment can't legally attach) is NOT enforced
+ * (a safe false-negative; no in-deck consumer needs it). Non-color qualities (artifacts, creatures,
+ * "everything", a card name, instants/sorceries, a dynamic "chosen"/"commander color identity") are NOT
+ * parsed here → unenforced, also safe.
  *
- * Protection is already claimed in COVERED_KEYWORDS (a silent no-op until now); this is pure enforcement,
- * so there's no coverage.js change — the metric is unchanged but now honest for the colors it covers.
+ * parseProtectionColors reads PRINTED text only and SKIPS granted/conditional protection (so the printed
+ * axis can't over-fire). GRANTED protection-from-color (a Captain America Sword's "Equipped creature has
+ * protection from black and from green") is modeled LAYER-AWARE: staticAbilityParser emits a layer-6
+ * addProtection op, and layers.permanentProtectionColors unions printed + granted. The three enforcement
+ * sites above read permanentProtectionColors(state, id), NOT parseProtectionColors(card), so a grant via
+ * an attached Equipment/Aura is honored exactly like a printed one and vanishes when it unattaches.
  *
- * Pure: regex + a Set intersection. The colors are read from PRINTED text (parseProtectionColors on the
- * card) — GRANTED protection ("gains protection from red") is PR2.
+ * Pure: regex + a Set intersection.
  */
 
 const COLOR_WORD = { white: "W", blue: "U", black: "B", red: "R", green: "G" };

@@ -144,6 +144,10 @@ function parseSelfCountSource(phrase) {
   let m;
   if ((m = p.match(/^(creatures?|artifacts?|lands?|enchantments?) you control$/))) return { kind: "permanentsYouControl", cardType: SELF_COUNT_CARDTYPE[m[1]] };
   if ((m = p.match(/^(plains|islands?|swamps?|mountains?|forests?) you control$/))) return { kind: "permanentsYouControl", subtype: SELF_COUNT_BASIC[m[1]] };
+  // EQUIP-DYNAMIC-PT: "color(s) among permanents you control" — the count of DISTINCT WUBRG colors among the
+  // controller's battlefield (Conqueror's Flail "+1/+1 for each color among permanents you control",
+  // CR — a colorless permanent contributes no color). layers.countSelfSpecOnBoard evaluates the Set size.
+  if (/^colors? among permanents you control$/.test(p)) return { kind: "colorsAmongPermanents" };
   return null;
 }
 
@@ -842,24 +846,92 @@ export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
   return true;
 }
 
+// EQUIP-PROTECTION: parse a "protection from <color>[ and from <color>]…" grant tail (the Captain America
+// Swords' STATIC protection). Returns the WUBRG color letters, or null if the quality is NON-COLOR
+// ("protection from instants and from sorceries" — Sword of Wealth and Power) or DYNAMIC ("from each color
+// that's not in your commander's color identity" — Commander's Plate). CREED: a non-color/dynamic quality
+// returns null so the whole attached bonus drops (all-or-nothing) — never a half-modeled grant. Only a
+// pure static color list flips. Anchored on "protection from …" through the end of the (already
+// clause-split, already reminder-free) tail.
+function parseAttachedProtectionColors(tail) {
+  const m = String(tail).match(/^protection from (.+)$/);
+  if (!m) return null;
+  const colors = [];
+  // The quality list is "<q> and from <q>" / "<q> and <q>"; keep only single recognized color words.
+  for (const part of m[1].split(/\band from\b|\band\b/)) {
+    const q = part.trim().replace(/[^a-z ]/g, "").trim();
+    if (!q) continue;
+    if (!COLOR_WORDS[q]) return null;                  // non-color / dynamic quality → whole bonus drops (safe FN)
+    colors.push(COLOR_WORDS[q]);
+  }
+  return colors.length ? colors : null;
+}
+
 /**
  * Parse one "<subject> creature gets +X/+Y [and has KW…]" / "<subject> creature has KW…"
  * clause (subject = "equipped" for Equipment, "enchanted" for an Aura) into layer
  * descriptors, or null if the clause carries ANYTHING we don't model. ALL-OR-NOTHING (the
- * clause must reduce EXACTLY to a +N/+N P/T mod and/or grantable keywords) so a rider
- * ("can't be blocked", "is a 4/4") is never silently dropped.
+ * clause must reduce EXACTLY to a +N/+N P/T mod and/or grantable keywords/granted protection)
+ * so a rider ("can't be blocked", "is a 4/4") is never silently dropped.
+ *
+ * Beyond the fixed "+N/+N and has <keyword>" form this also models:
+ *   - EQUIP-DYNAMIC-PT  "gets +X/+Y for each <metric>" (Conqueror's Flail → ptModifyDynamicCount, 7c);
+ *   - EQUIP-BASE-PT-SET "has base power and toughness N/N" (literal CDA-style set, layer 7b);
+ *   - EQUIP-LOSES-KW    "gets +N/+N and loses <combat keyword>" (Colossus Hammer → layer-6 removeKeyword);
+ *   - EQUIP-PROTECTION  "has protection from <color>…" (Captain America Swords → layer-6 addProtection).
  */
 function parseAttachedClause(c, subject) {
   let rest = c.replace(new RegExp(`^${subject} creature\\s+`), "").trim();
   const out = [];
+
+  // EQUIP-BASE-PT-SET (layer 7b): "has base power and toughness N/N" (literal). A DYNAMIC form
+  // ("…N/N, where X is your life total") has trailing residue after the N/N and is NOT matched here, so
+  // the all-or-nothing tail check below rejects it (Aettir and Priwen stays body-only — safe FN, no
+  // fabricated CDA). Anchored to the whole clause (no other bonus composes with a base-P/T set in the
+  // modeled corpus). applyLayer7 already applies sublayer 7b.
+  const baseSet = rest.match(/^(?:has|have)\s+base power and toughness\s+(\d+)\/(\d+)$/);
+  if (baseSet) {
+    return [{ layer: 7, sublayer: "7b", op: { power: parseInt(baseSet[1], 10), toughness: parseInt(baseSet[2], 10) }, duration: { kind: "permanent" } }];
+  }
+
+  // EQUIP-DYNAMIC-PT (layer 7c): "gets +X/+Y for each <metric>" (Conqueror's Flail). The metric must be a
+  // modeled count source (parseSelfCountSource); an unmodeled metric → null → whole bonus drops (safe FN).
+  // Matched BEFORE the fixed +N/+N so the "for each" tail isn't truncated. The dynamic count is evaluated in
+  // applyLayer7 against the ATTACHED creature, whose controller == the equipment controller (ATTACH forbids
+  // attaching to another player's creature, resolvers.js), so "you control" reads the right player.
+  const dynPt = rest.match(/^gets?\s+([+-]\d+)\/([+-]\d+)\s+for each\s+(.+)$/);
+  if (dynPt) {
+    const countSpec = parseSelfCountSource(dynPt[3]);
+    if (!countSpec) return null;                       // unmodeled metric → whole bonus drops
+    return [{ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyDynamicCount", countSpec, perPower: signed(dynPt[1]), perToughness: signed(dynPt[2]) }, duration: { kind: "permanent" } }];
+  }
+
   const ptMatch = rest.match(/^gets?\s+([+-]\d+)\/([+-]\d+)\b/);
   if (ptMatch) {
     out.push({ layer: 7, sublayer: "7c", op: { layerOp: "ptModify", power: signed(ptMatch[1]), toughness: signed(ptMatch[2]) }, duration: { kind: "permanent" } });
     rest = rest.slice(ptMatch[0].length).trim().replace(/^and\s+/, "").trim(); // "+1/+1 and has flying"
+    // EQUIP-LOSES-KW (layer 6 removeKeyword): "+N/+N and loses <combat keyword>" (Colossus Hammer "loses
+    // flying"). Only a known combat keyword removes; an unknown/ungrantable word leaves residue → the tail
+    // check below rejects the whole clause (CREED). keywordSet applies removeKeyword (last-wins, 613.9).
+    const losesMatch = rest.match(/^loses\s+(.+)$/);
+    if (losesMatch) {
+      const kw = losesMatch[1].trim().replace(/[^a-z ]/g, "").trim();
+      if (!GRANTABLE_KEYWORDS.has(kw)) return null;    // only a modeled combat keyword may be removed
+      out.push({ layer: 6, op: { layerOp: "removeKeyword", keyword: canonicalKeyword(kw) }, duration: { kind: "permanent" } });
+      rest = "";
+    }
   }
   if (rest) {
     const haveMatch = rest.match(/^(?:has|have)\s+(.+)$/);
-    if (!haveMatch) return null;                       // residue that isn't a keyword grant
+    if (!haveMatch) return null;                       // residue that isn't a keyword/protection grant
+    // EQUIP-PROTECTION: a "protection from <color>…" grant occupies the WHOLE have-tail (protection lists
+    // join with "and from", which the keyword splitter would mangle). Detect it first; a non-color/dynamic
+    // quality returns null → whole bonus drops (Commander's Plate, Sword of Wealth and Power stay body-only).
+    const protColors = parseAttachedProtectionColors(haveMatch[1].trim());
+    if (protColors) {
+      out.push({ layer: 6, op: { layerOp: "addProtection", colors: protColors }, duration: { kind: "permanent" } });
+      return out.length ? out : null;
+    }
     const words = haveMatch[1].split(/,|\band\b/).map(w => w.trim().replace(/[^a-z ]/g, "").trim()).filter(Boolean);
     if (words.length === 0) return null;
     for (const w of words) {
