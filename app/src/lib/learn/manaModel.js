@@ -30,10 +30,11 @@
  * legalChoices, and layers imports none of these modules so that edge is acyclic too.
  */
 
-import { MANA_COLORS, addMana, moveCardToZone, tapPermanent } from "./gameState.js";
+import { MANA_COLORS, addMana, moveCardToZone, tapPermanent, findPermanent } from "./gameState.js";
 import { checkSacrificeTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice
 import { permanentHasKeyword } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
+import { parseAuraLandManaBonus } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST: extra mana from a "tapped for mana" aura (leaf: static parser → keywords only)
 
 // ─── Card → mana production ────────────────────────────────────────────────────
 
@@ -302,6 +303,30 @@ export function manaProduction(card) {
   return null;
 }
 
+// ─── AURA-LAND-MANA-BOOST ───────────────────────────────────────────────────────
+
+/**
+ * The EXTRA mana an "Enchant land" mana-boost Aura (Wild Growth / Overgrowth / Fertile Ground)
+ * adds when its host LAND taps for mana — as `[{ colors, amount }, …]`, one entry per attached
+ * boost-Aura, or `[]`. This is a TRIGGERED MANA ABILITY (CR 605.1b): it resolves INLINE alongside
+ * the land's own mana, so it rides on the land source rather than being its own tappable source —
+ * the LAND taps; the Aura is NOT tapped or consumed and fires every time. Reads the host's
+ * `attachments` (permanent ids) and parses each attached Aura's boost clause. Pure.
+ *
+ * Used by BOTH read-sites (manaSources / legalChoices.actionsTapForMana) through this single helper
+ * so the auto-pay planner and the explicit tap can't drift (the CREED two-sites invariant).
+ */
+export function landAuraManaBonus(state, landPerm) {
+  const out = [];
+  for (const attId of landPerm?.attachments || []) {
+    const lk = findPermanent(state, attId);
+    if (!lk) continue;
+    const bonus = parseAuraLandManaBonus(lk.permanent?.card);
+    if (bonus) out.push({ colors: [...bonus.colors], amount: bonus.amount });
+  }
+  return out;
+}
+
 // ─── Battlefield → available sources ───────────────────────────────────────────
 
 /**
@@ -309,6 +334,10 @@ export function manaProduction(card) {
  * `{ permanentId, colors, amount }`. Lands + non-creature rocks have no
  * summoning-sickness gate; creature dorks are excluded while summoning sick
  * (unless they have Haste).
+ *
+ * AURA-LAND-MANA-BOOST: a land carrying a mana-boost Aura also reports `bonus: [{colors,amount},…]`
+ * — the additional mana that appears INLINE when this source taps (it doesn't tap the Aura). The
+ * planner (planPayment) credits it on tap; the bonus is NOT a separate tappable source.
  */
 export function manaSources(state, playerId) {
   const player = state?.players?.[playerId];
@@ -338,7 +367,11 @@ export function manaSources(state, playerId) {
     const amount = prod.amountSpec
       ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, prod.amountSpec))
       : prod.amount;
-    sources.push({ permanentId: perm.id, colors: prod.colors, amount, sacrifices: !!prod.sacrifices });
+    // AURA-LAND-MANA-BOOST: a LAND carrying a mana-boost Aura yields extra mana inline on tap. Only
+    // lands enchant-eligible for these auras, but the helper is a no-op for non-lands (no attachments
+    // parse to a land-mana bonus), so it's cheap + safe to call unconditionally.
+    const bonus = landAuraManaBonus(state, perm);
+    sources.push({ permanentId: perm.id, colors: prod.colors, amount, sacrifices: !!prod.sacrifices, ...(bonus.length ? { bonus } : {}) });
   }
   return sources;
 }
@@ -381,54 +414,87 @@ export function planPayment(pool, sources, cost) {
       colors: s.colors.filter(c => COLOR_SET.has(c)),
       amount: s.amount ?? 1,
       sacrifices: !!s.sacrifices,   // one-shot source (Treasure/Gold) — the commit path sacrifices it
+      // AURA-LAND-MANA-BOOST: extra mana produced INLINE when this source (a land) taps — each entry
+      // {colors, amount}. Credited on tap; the bonus is part of the land tap, never a separate tap.
+      bonus: Array.isArray(s.bonus) ? s.bonus.map(b => ({ colors: b.colors.filter(c => COLOR_SET.has(c)), amount: b.amount })).filter(b => b.amount > 0 && b.colors.length) : [],
       used: false,
     }))
     .filter(s => s.amount > 0);
   const taps = [];
   const spendOne = (color) => { working[color] -= 1; spend[color] += 1; };
 
-  // Tap the most-constrained untapped source that can make `color`.
+  // AURA-LAND-MANA-BOOST: a source's full producible-color set = its OWN colors ∪ every boost-Aura
+  // bonus's colors (the bonus mana appears INLINE when the land taps, CR 605.1b). So a Forest carrying
+  // Fertile Ground ("additional one mana of any color") can satisfy an OFF-color pip via the bonus,
+  // even though the Forest's own mana is only {G}. A bonus is never independently tappable — it rides
+  // on the same land tap, so the colors merge per-SOURCE here, not as a separate source.
+  const sourceCanMake = (s, color) =>
+    s.colors.includes(color) || s.bonus.some(b => b.colors.includes(color));
+
+  // Tap a source, assigning `wantColor` (if given) from whichever component can make it, then crediting
+  // every other component greedily to a STILL-NEEDED color (cost minus spend minus working), else its
+  // first color. Records the chosen primary `color` + `bonus` picks on the tap so the commit path
+  // (commitManaTaps / payGenericMana) adds the identical mana — no planner/commit divergence. Returns
+  // the assigned `wantColor` (or the primary's chosen color for a generic tap). Every choice is a legal
+  // mana the source genuinely produces — never fabricated; surplus floats.
+  const tapSource = (s, wantColor) => {
+    s.used = true;
+    // Components: the primary land mana (one chosen color from s.colors) + each bonus entry.
+    const components = [{ colors: s.colors, amount: s.amount, primary: true }, ...s.bonus.map(b => ({ colors: b.colors, amount: b.amount, primary: false }))];
+    let primaryColor = null;
+    const bonusPicks = [];
+    let assigned = false;
+    const pickColor = (comp) => {
+      // If we still owe `wantColor` and this component can make it, spend it there first.
+      if (!assigned && wantColor && comp.colors.includes(wantColor)) { assigned = true; return wantColor; }
+      // Else prefer a color the cost STILL needs (helps later pips), else the component's first color.
+      const needed = comp.colors.find(c => (cost[c] || 0) - (spend[c] || 0) - (working[c] || 0) > 0);
+      return needed || comp.colors[0];
+    };
+    for (const comp of components) {
+      const color = pickColor(comp);
+      working[color] += comp.amount;
+      if (comp.primary) primaryColor = color;
+      else bonusPicks.push({ color, amount: comp.amount });
+    }
+    taps.push({ permanentId: s.permanentId, color: primaryColor, amount: s.amount, ...(s.sacrifices && { sacrifices: true }), ...(bonusPicks.length && { bonus: bonusPicks }) });
+    return wantColor && assigned ? wantColor : primaryColor;
+  };
+
+  // Tap the most-constrained untapped source that can make `color` (via own mana OR a boost-Aura bonus).
   const tapForColor = (color) => {
     let best = -1;
     let bestLen = Infinity;
     for (let i = 0; i < avail.length; i++) {
       const s = avail[i];
-      if (s.used || !s.colors.includes(color)) continue;
-      if (s.colors.length < bestLen) {
-        bestLen = s.colors.length;
-        best = i;
-      }
+      if (s.used || !sourceCanMake(s, color)) continue;
+      // Constraint = how many distinct colors this source can make (own ∪ bonus); the least-flexible wins.
+      const flex = new Set([...s.colors, ...s.bonus.flatMap(b => b.colors)]).size;
+      if (flex < bestLen) { bestLen = flex; best = i; }
     }
     if (best === -1) return false;
-    const s = avail[best];
-    s.used = true;
-    working[color] += s.amount;
-    taps.push({ permanentId: s.permanentId, color, amount: s.amount, ...(s.sacrifices && { sacrifices: true }) });
+    tapSource(avail[best], color);
     return true;
   };
 
-  // Tap any remaining source (for generic). Returns the color it produced. Prefers a REPEATABLE
-  // source over a one-shot sacrifice source (Treasure/Gold) so we never crack a Treasure for generic
-  // while an untapped land/rock could pay it — a play-quality refinement, not a legality change.
+  // Tap any remaining source (for generic). Returns a color it produced. Prefers a REPEATABLE source
+  // over a one-shot sacrifice source (Treasure/Gold) so we never crack a Treasure for generic while an
+  // untapped land/rock could pay it — a play-quality refinement, not a legality change.
   const tapAny = () => {
     for (const preferSac of [false, true]) {
       for (const s of avail) {
         if (s.used || s.colors.length === 0 || !!s.sacrifices !== preferSac) continue;
-        const color = s.colors[0];
-        s.used = true;
-        working[color] += s.amount;
-        taps.push({ permanentId: s.permanentId, color, amount: s.amount, ...(s.sacrifices && { sacrifices: true }) });
-        return color;
+        return tapSource(s, null);
       }
     }
     return null;
   };
 
-  // 1. Colored + colorless pips, scarcest color first. Scarcity = how many
-  // sources (plus current pool) can produce it; paying the scarce color first
-  // avoids stranding the only source of a color on a more-flexible pip.
+  // 1. Colored + colorless pips, scarcest color first. Scarcity = how many sources (plus current pool)
+  // can produce it; paying the scarce color first avoids stranding the only source of a color on a
+  // more-flexible pip. A source counts toward a color it can make via its own mana OR a boost bonus.
   const producerCount = (color) =>
-    (working[color] || 0) + avail.filter(s => !s.used && s.colors.includes(color)).length;
+    (working[color] || 0) + avail.filter(s => !s.used && sourceCanMake(s, color)).length;
   const coloredNeeded = ["W", "U", "B", "R", "G", "C"].filter(c => (cost[c] || 0) > 0);
   coloredNeeded.sort((a, b) => producerCount(a) - producerCount(b));
 
@@ -521,6 +587,10 @@ export function payManaCost(state, playerId, cost) {
   let next = state;
   for (const tap of plan.taps) {
     next = addMana(next, { playerId, color: tap.color, amount: tap.amount });
+    // AURA-LAND-MANA-BOOST: float the boost-Aura mana that appears inline when this land taps (the
+    // Aura is NOT tapped/consumed). The planner already chose the bonus color(s) and counted them in
+    // `spend`, so adding them here keeps the topped pool == what the plan spent.
+    for (const b of tap.bonus || []) next = addMana(next, { playerId, color: b.color, amount: b.amount });
     if (tap.sacrifices) {
       const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
       next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });

@@ -1039,6 +1039,103 @@ export function isNativeAura(card) {
   return auraResidueClauses(card).length === 0;
 }
 
+// ─── AURA-LAND-MANA-BOOST ───────────────────────────────────────────────────────
+//
+// A second, SEPARATE native gate for land-enchant Auras whose ONLY effect is a mana boost
+// (Wild Growth / Overgrowth / Fertile Ground). These enchant a LAND, not a creature, so they
+// fall outside isNativeAura (which requires the "creature" subject + a P/T/keyword bonus). The
+// boost is a TRIGGERED MANA ABILITY (CR 605.1b) — it resolves INLINE when the land taps for mana,
+// never on the stack — so the runtime hooks the MANA-PRODUCTION path (manaModel.landAuraManaBonus),
+// NOT triggers.js. This gate + parseAuraLandManaBonus are the single source of truth shared by the
+// runtime (legalChoices/actionDispatcher/manaModel) and the coverage metric, so they can't drift.
+//
+// The grammar is deliberately NARROW (a self-contained micro-parser so this module stays a leaf —
+// it must NOT import manaModel): exactly the verified template
+//   "Whenever enchanted land is tapped for mana, its controller adds an additional <X>"
+// where <X> is fixed colored pips ({G}, {G}{G}, {C}…) or "one mana of any color". Anything else —
+// "two mana in any combination of colors" (Market Festival), "of the chosen color" (Utopia Sprawl /
+// Shimmerwilds), "for each …" (Elvish Guidance), a subtype-restricted "enchanted Forest" — returns
+// null → the Aura stays NON-native (a clean false-negative, never a fabricated/partial boost).
+
+const MANA_AURA_COLOR_LETTERS = new Set(["W", "U", "B", "R", "G", "C"]);
+
+/**
+ * The mana an "Enchant land" Aura adds WHEN THE ENCHANTED LAND TAPS FOR MANA, as
+ * `{ colors: string[], amount: number }`, or null if the Aura isn't a (modeled) land mana boost.
+ *   "…adds an additional {G}"                    → { colors: ["G"], amount: 1 }
+ *   "…adds an additional {G}{G}"                 → { colors: ["G"], amount: 2 }  (same color, concat)
+ *   "…adds an additional one mana of any color"  → { colors: ["W","U","B","R","G"], amount: 1 }
+ * `colors` is the SET of colors the bonus can be; `amount` is how many of ONE chosen color it adds
+ * (the any-color form lets the controller choose at tap time — modeled in manaModel). Pure; anchored
+ * whole-clause. NOTE: only the bare-"land" enchant subject flows native (manaAuraEnchantSubject);
+ * this fn parses the boost clause regardless of subject so a caller can inspect it.
+ */
+export function parseAuraLandManaBonus(card) {
+  if (!isAuraCard(card)) return null;
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  for (const clause of abilityClauses(oracle)) {
+    const m = clause.trim().toLowerCase().match(
+      /^whenever enchanted (?:land|forest) is tapped for mana, its controller adds an additional (.+)$/,
+    );
+    if (!m) continue;
+    const tail = m[1].trim();
+    // Any-color form (fixed amount 1). "one mana of any color" only — "X mana", "two mana in any
+    // combination", "of the chosen color" are NOT this form and fall through to null.
+    if (/^one mana of any color$/.test(tail)) {
+      return { colors: ["W", "U", "B", "R", "G"], amount: 1 };
+    }
+    // Fixed colored/colorless pips ("{g}", "{g}{g}", "{c}"). The clause must be EXACTLY the pip run —
+    // any extra word ("two mana…", "{g} for each…") leaves residue → null.
+    const pipOnly = tail.replace(/\s+/g, "");
+    if (/^(?:\{[wubrgc]\})+$/.test(pipOnly)) {
+      const symbols = [...pipOnly.matchAll(/\{([wubrgc])\}/g)].map((x) => x[1].toUpperCase());
+      const unique = [...new Set(symbols)];
+      // A multi-color fixed run ("{G}{U}") isn't this slice's single-chosen-color model → leave non-native.
+      if (unique.length === 1 && unique.every((c) => MANA_AURA_COLOR_LETTERS.has(c))) {
+        return { colors: unique, amount: symbols.length };
+      }
+      return null;
+    }
+    return null; // an unmodeled boost tail (combination/chosen-color/for-each) — non-native
+  }
+  return null;
+}
+
+/**
+ * Clauses on a land-enchant mana Aura that are NEITHER the "Enchant …" line NOR the modeled
+ * "tapped for mana" boost line. A non-empty residue means the Aura carries something we DON'T model
+ * (an ETB trigger — Verdant Haven; a sac ability — Wolfwillow Haven; an extra static on the land —
+ * Trace of Abundance "has shroud"), so isNativeManaAura must reject it (all-or-nothing, safe FN).
+ */
+function manaAuraResidueClauses(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  const out = [];
+  for (const clause of abilityClauses(oracle)) {
+    const c = clause.toLowerCase().trim();
+    if (/^enchant\b/.test(c)) continue;                                   // the Enchant keyword line
+    if (/^whenever enchanted (?:land|forest) is tapped for mana,/.test(c)) continue; // the modeled boost line
+    out.push(clause);
+  }
+  return out;
+}
+
+/**
+ * Is this a land-enchant Aura the engine plays END-TO-END natively as a mana boost? ALL of:
+ *   1. type line is an Aura,
+ *   2. it enchants EXACTLY "land" (bare — a subtype-restricted "Enchant Forest" stays non-native:
+ *      Utopia Sprawl also needs an as-enters color choice, deferred),
+ *   3. `parseAuraLandManaBonus` yields a modeled fixed/any-color boost, AND
+ *   4. there is NO residual clause (no ETB trigger / sac ability / extra land-static we'd drop).
+ * Separate from isNativeAura (the creature path) — the creature gate is left BYTE-IDENTICAL. Single
+ * source of truth for runtime + metric. Pure.
+ */
+export function isNativeManaAura(card) {
+  if (!isAuraCard(card)) return false;
+  if (auraEnchantSubject(card) !== "land") return false;
+  if (!parseAuraLandManaBonus(card)) return false;
+  return manaAuraResidueClauses(card).length === 0;
+}
+
 /**
  * Granular helpers for the COMPOSITE coverage classifier (coverage.permanentFullyCovered),
  * which subtracts trigger + activated clauses itself before checking the static residue —
