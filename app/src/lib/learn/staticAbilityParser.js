@@ -899,6 +899,21 @@ export function parseAttachedBonus(card, subjectOverride) {
   let saw = false;
   for (const clause of abilityClauses(oracle)) {
     const c = clause.toLowerCase();
+    // A TRIGGER sentence about the equipped creature ("Whenever equipped creature attacks/deals combat
+    // damage, …" — Argentum Armor, Goldvein Pick, the Swords) is NOT a static bonus clause: it touches the
+    // creature but is handled entirely by the trigger system (detectTriggers + the equippedCreature scope).
+    // Skip it here so it doesn't poison the all-or-nothing static parse — the runtime applies the P/T/keyword
+    // bonus via the layer engine AND fires the trigger independently. This mirrors coverage.permanentEquipment-
+    // Covered, which strips trigger sentences before parsing the bonus, so the metric and runtime can't drift.
+    // (A GRANTED quoted ability — "Equipped creature … has \"Whenever …\"" — starts with the SUBJECT, not a
+    // bare When/Whenever/At, so it is NOT skipped: parseAttachedClause returns null on it → the whole bonus
+    // still drops, keeping The Reaver Cleaver body-only.)
+    // EQUIPMENT-ONLY: equipment nativeness is gated by coverage.permanentEquipmentCovered, which independently
+    // requires every trigger sentence to ROUTE natively (allTriggerSentencesModeled) — so skipping the trigger
+    // here can't over-claim. The AURA gate (isNativeAura) has NO such trigger-routing check; it relies on this
+    // parse failing to keep a triggered-ability aura non-native (the auras-grant-trigger slice is separate), so
+    // for the "enchanted" subject we keep the original all-or-nothing behavior (a trigger line poisons it → []).
+    if (subject === "equipped" && /^(?:when|whenever|at)\b/.test(c.trim())) continue;
     if (!touchesAttachedCreature(c, subject)) continue;          // the card's own body — ignore
     const parsed = c.startsWith(`${subject} creature`) ? parseAttachedClause(c, subject) : null;
     if (!parsed) return [];                                       // a creature clause we can't fully model

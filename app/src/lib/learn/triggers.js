@@ -47,15 +47,39 @@ function isLandPerm(perm) {
   return /Land/.test(typeStr(perm?.card));
 }
 
+// EQUIP-RIDER / Marvel-flavor labels (WAVE 4) — crossover-set flavor names that sit in the ability-word
+// slot ("Genius Industrialist — Whenever Iron Man attacks, …"; "... Catch — At the beginning of combat …").
+// They have NO rules meaning (like a CR 207.2c ability word), but unlike landfall/constellation/etc. they
+// are arbitrary card-specific names, so they're enumerated EXPLICITLY rather than by an open-ended
+// "<Word> — " strip — the corpus has 337 distinct real ability-word labels (Raid, Delirium, Metalcraft, …)
+// many of which carry an intervening-if condition, so a blanket strip would mis-normalize hundreds of cards
+// and drift the metric. Each label here is verified against oracle-index.json to be pure flavor with the
+// trigger's condition written out in full after it. Stripping the label lets the boundary-anchored trigger
+// regex see the bare "Whenever/At …" so the auto-attach (Catch) fires; cards whose RIDER is unmodeled
+// (Iron Man's compound sac-tutor, Knuckles, Cap's Throw) still stay body-only (the effect, not the label,
+// gates nativeness). Lowercased (the strip runs case-insensitively).
+const FLAVOR_TRIGGER_LABELS = [
+  "catch", "genius industrialist", "treasure hunter",
+];
+const FLAVOR_LABEL_RE = new RegExp(
+  // optional leading "... " (Cap's "... Catch"), then a flavor label, then the dash before a trigger keyword.
+  `^(?:\\.\\.\\.\\s*)?(?:${FLAVOR_TRIGGER_LABELS.join("|")})\\s*[—–-]\\s*(?=(?:when|whenever|at)\\b)`,
+  "gim",
+);
+
 /**
  * Strip a leading ability-word label that precedes a trigger keyword ("Landfall — Whenever …"). Ability
  * words (CR 207.2c) are flavor with no rules meaning; the label otherwise sits between the line start and
  * "Whenever", so the boundary-anchored trigger regex (here AND coverage.js's TRIGGER_SENTENCE_RE / residue
  * strip) never matches. Exported so the coverage metric normalizes IDENTICALLY — the shaped-sentence count
- * and the detected-trigger count must agree, or a landfall card mis-classifies. Currently just "Landfall —".
+ * and the detected-trigger count must agree, or a landfall card mis-classifies. Handles the standard CR
+ * 207.2c words PLUS an explicit set of crossover-set flavor labels (FLAVOR_LABEL_RE), each anchored on a
+ * trailing trigger-keyword lookahead so it can only consume a true label, never real rules text.
  */
 export function stripTriggerAbilityLabel(oracle) {
-  return String(oracle || "").replace(/^(?:landfall|constellation|eerie|heroic|magecraft)\s*[—–-]\s*/gim, "");
+  return String(oracle || "")
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft)\s*[—–-]\s*/gim, "")
+    .replace(FLAVOR_LABEL_RE, "");
 }
 
 // ─── Detection ────────────────────────────────────────────────────────────────
@@ -366,6 +390,16 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\battacks\b/.test(c)) {
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     if (/a creature you control/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };
+    // EQUIP-RIDER attacks (WAVE 4) — "Whenever EQUIPPED CREATURE attacks, <effect>" (Argentum Armor /
+    // Ultima Weapon / Mjolnir attack payloads). The watcher is the EQUIPMENT; the attacker is the
+    // triggering permanent, so the scope fires ONLY when the attacker IS this equipment's attached
+    // creature (scopeMatches "equippedCreature": triggeringPermanent.id === sourcePermanent.attachedTo).
+    // EXACTLY anchored to the bare form: a rider variant ("attacks alone" — Bilbo's Ring / Sigil of Valor;
+    // "attacks the player with the most life" — Seraphic Greatsword; "attacks or blocks" — already caught
+    // by the attacks-or-blocks guard above) leaves residue → UNDETECTED → Arbiter (a SAFE false-negative,
+    // never an over-fire across the 57 corpus "equipped creature attacks" cards). whose:"any" — combat is
+    // not turn-scoped here; checkAttackTriggers only sources the active player's permanents anyway.
+    if (/^equipped creature attacks$/.test(c)) return { event: "attacks", scope: "equippedCreature", whose: "any" };
     // SUBTYPE attacks (tribal payoffs — Utvara Hellkite / Sanctum Seeker / Grolnok). Single-word subtype
     // filter reusing subtypeYouControl; checkAttackTriggers threads the attacker as triggeringPermanent.
     const atkSub = c.match(/^a ([a-z]{3,}) you control attacks$/);
@@ -391,6 +425,15 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\bdeals combat damage to a player$/.test(c)) {
     if (selfRef) return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
     if (/a creature you control/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any" };
+    // EQUIP-RIDER combat-damage (WAVE 4) — "Whenever EQUIPPED CREATURE deals combat damage to a player,
+    // <effect>" (Goldvein Pick / The Reaver Cleaver Treasure riders, the Swords' combat-damage payloads).
+    // The watcher is the EQUIPMENT; the attacker that connected is the triggering permanent, so the
+    // "equippedCreature" scope fires ONLY when that attacker IS this equipment's attached creature. The
+    // outer guard is already END-anchored on "a player", so the qualified "…to a player or planeswalker"
+    // (The Reaver Cleaver's GRANTED ability, Beamtown Beatstick "…or battle") never enters this block →
+    // UNDETECTED → Arbiter (a SAFE false-negative, never an over-fire). whose:"any" like the per-attacker
+    // self/creatureYouControl forms above.
+    if (/^equipped creature deals combat damage to a player$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
     // SUBTYPE combat-damage (tribal payoffs — Curious Altisaur "Whenever a Dinosaur you control deals
     // combat damage to a player, draw a card"). A single-word creature SUBTYPE filter, reusing the
     // subtypeYouControl scope (controller + type-line substring; the attacker is threaded as
@@ -657,6 +700,14 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   switch (descriptor.scope) {
     case "self":
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;
+    case "equippedCreature":
+      // EQUIP-RIDER (WAVE 4) — the source is the EQUIPMENT; the trigger fires ONLY when the permanent that
+      // caused the event (the attacker that connected / declared) IS the creature this Equipment is attached
+      // to. Gated on sourcePermanent.attachedTo, so it NEVER fires when the equipment is unattached
+      // (attachedTo null) and NEVER fires off another of the controller's attackers on a multi-equipment
+      // board — the per-equipped-creature correctness the slice requires. This invariant relies on ATTACH
+      // only permitting an own-creature host (resolvers.js), so the equipped creature is always friendly.
+      return !!triggeringPermanent && triggeringPermanent.id === sourcePermanent.attachedTo;
     case "you":
       return true; // step / lifegain / cardDrawn / youAttack triggers — `whose` gates ownership
     case "eachCreature":

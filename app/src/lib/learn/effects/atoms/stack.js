@@ -139,6 +139,27 @@ function applySelfAttach(state, atom, ctx) {
   return next;
 }
 
+/**
+ * EQUIP-AUTO-ATTACH (WAVE 4) — the REVERSE of self-attach: the SOURCE is a CREATURE (Captain America's
+ * "Catch" trigger, Cloud, Sokka) and the chosen TARGET is an Equipment the controller controls, attached
+ * ONTO the source via the shared `attachPermanent` helper (equipId = the chosen equipment, targetId = the
+ * source creature ctx.sourceId). The same mechanism Equip / self-attach use, so the equipped-creature
+ * static bonus lights up immediately. The atom is OPTIONAL ("up to one target Equipment") — buildTriggerStack
+ * enumerates the controller's equipment, and with NONE on the board the targeted trigger is removed from the
+ * stack (CR 603.3c), a clean no-op (never a fabricated attach). No source / target gone → attachPermanent
+ * no-ops.
+ */
+function applyAttachToSelf(state, atom, ctx) {
+  if (!ctx.sourceId) return state;
+  let next = state;
+  for (const t of ctx.targets || []) {
+    if (!t?.id) continue;
+    next = attachPermanent(next, { equipId: t.id, targetId: ctx.sourceId });
+    next = logEvent(next, { kind: "spell-effect", effect: "equip-attach", equipId: t.id, targetId: ctx.sourceId, controller: ctx.controller });
+  }
+  return next;
+}
+
 export const stackResolvers = {
   "deal-damage": (state, atom, ctx) =>
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an
@@ -146,4 +167,5 @@ export const stackResolvers = {
     applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType: atom.targetType, targets: ctx.targets, source: { id: ctx.sourceId } }),
   "counter": applyCounter,
   "self-attach": applySelfAttach, // ETB-EQUIP-ATTACH — auto-attach an Equipment to a creature you control
+  "attach-to-self": applyAttachToSelf, // EQUIP-AUTO-ATTACH — attach a chosen Equipment you control onto the source creature
 };
