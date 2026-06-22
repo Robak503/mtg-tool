@@ -181,7 +181,7 @@ function selfNormalizeOracle(oracle, name) {
 
 const _ENTER_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 /**
- * TRUNK-ENTERSCOUNTERS (CR 614.1f) — the FIXED number of +1/+1 counters a permanent "enters with N +1/+1
+ * TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a; static per 603.6d) — the FIXED number of +1/+1 counters a permanent "enters with N +1/+1
  * counters on it", or 0. ONLY the bare, unconditional, literal-N form: a kicker / "for each" / "where X" /
  * conditional ("if …") variant returns 0 (the variable/gated magnitude isn't modeled → the permanent enters
  * as its printed body and the card stays body-only → Arbiter; never a fabricated counter count). The SINGLE
@@ -221,7 +221,7 @@ export function entersWithXCounters(card) {
 }
 
 /**
- * TRUNK-ENTERSTAPPED (CR 614.1g) — does this permanent enter the battlefield tapped, unconditionally? True
+ * TRUNK-ENTERSTAPPED (CR 614.1c; static per 603.6d) — does this permanent enter the battlefield tapped, unconditionally? True
  * ONLY for the bare "~ enters tapped" with NO condition/choice in the same sentence: a check-/fast-land
  * ("enters tapped unless you control …"), a reveal-land ("if you don't, ~ enters tapped"), or any
  * may/choose/instead form returns false (the gate isn't evaluated → the permanent enters UNTAPPED, the

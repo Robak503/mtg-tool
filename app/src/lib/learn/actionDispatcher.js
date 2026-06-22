@@ -204,7 +204,7 @@ function applyPlayLand(state, action) {
     cardId: action.cardId,
     becomePermanent: true,
   });
-  // TRUNK-ENTERSTAPPED (CR 614.1g): a tapland (Temple / Triome / karoo / bounce land / tapped dual) enters
+  // TRUNK-ENTERSTAPPED (CR 614.1c): a tapland (Temple / Triome / karoo / bounce land / tapped dual) enters
   // tapped, so it can't be tapped for mana the turn it's played. The freshly-minted land is the last
   // permanent on the battlefield (moveCardToZone pushes it). Only the BARE, unconditional form (entersTapped)
   // — a check/fast/reveal/shock land's gated tap is left untapped (the gate isn't evaluated; CREED-safe).

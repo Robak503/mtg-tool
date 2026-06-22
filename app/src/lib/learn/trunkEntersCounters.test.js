@@ -1,5 +1,5 @@
 /**
- * TRUNK-ENTERSCOUNTERS (CR 614.1f) — "~ enters with N +1/+1 counters on it" adds the counters AS the
+ * TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) — "~ enters with N +1/+1 counters on it" adds the counters AS the
  * permanent enters, so its P/T is right from turn 1 (Kavu Primarch, Baloth Gorger, Llanowar Elite…). The
  * resolver applies it; the coverage classifier credits a single-line such card native-body — both off the
  * SAME entersWithPlusCounters helper (so the metric never over-claims a card the engine plays wrong). Only

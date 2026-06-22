@@ -27,7 +27,7 @@ import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram } from "./effects/runProgram.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithXCounters, entersTapped } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1f) + TRUNK-ENTERSTAPPED (CR 614.1g) + ENTERS-WITH-X
+import { entersWithPlusCounters, entersWithXCounters, entersTapped } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
@@ -108,7 +108,7 @@ export function enterPermanent(state, card, controller, opts = {}) {
     const loy = startingLoyalty(card);
     if (loy != null) perm.counters = { ...perm.counters, loyalty: loy };
   }
-  // CR 614.1f: "~ enters with N +1/+1 counters on it" — a replacement that adds the counters AS the
+  // CR 614.1c + 122.6a: "~ enters with N +1/+1 counters on it" — a replacement that adds the counters AS the
   // permanent enters, so its P/T is correct from turn 1 (Kavu Primarch, Avatar of the Resolute…). Only the
   // bare, unconditional, literal-N form (entersWithPlusCounters guards out kicker / "for each" / "where X").
   const plusCounters = entersWithPlusCounters(card);

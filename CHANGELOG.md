@@ -126,13 +126,13 @@ their Hydra tokens), multi-land ramp, "its controller" rider removal/counters, a
   does NOT save from 0-toughness, sacrifice, or exile (those aren't destruction), and a filtered/off-type or
   unmodeled-cost regen (discard-to-regenerate, "regenerate target artifact") stays on the Arbiter.
 
-- **Creatures enter with their +1/+1 counters (TRUNK-ENTERSCOUNTERS, CR 614.1f):** "~ enters with N +1/+1
+- **Creatures enter with their +1/+1 counters (TRUNK-ENTERSCOUNTERS, CR 614.1c + 122.6a):** "~ enters with N +1/+1
   counters on it" (Kavu Primarch, Baloth Gorger, Llanowar Elite, Academy Drake…) now adds those counters as
   the creature enters, so it has the **right power/toughness from the moment it hits the battlefield** — 94
   creatures that used to enter as their printed (too-small) body now play correctly. (Conditional/kicker/"for
   each" variants stay on the Arbiter — only the fixed, unconditional form is modeled.)
 
-- **Taplands enter tapped (TRUNK-ENTERSTAPPED, CR 614.1g):** "~ enters tapped" (Temples, Triomes, karoos,
+- **Taplands enter tapped (TRUNK-ENTERSTAPPED, CR 614.1c):** "~ enters tapped" (Temples, Triomes, karoos,
   bounce lands, tapped duals — and a few tapped artifacts/creatures like Moss Diamond) now actually enters
   the battlefield **tapped**, so it can't be tapped for mana the turn it's played. 579 cards now have correct
   mana timing — which the goldfish/cEDH sims depend on. (Check / fast / reveal / shock / creature-lands whose

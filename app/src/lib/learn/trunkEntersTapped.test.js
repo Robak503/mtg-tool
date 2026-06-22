@@ -1,5 +1,5 @@
 /**
- * TRUNK-ENTERSTAPPED (CR 614.1g) — "~ enters tapped" (Temples, Triomes, karoos, bounce lands, tapped duals,
+ * TRUNK-ENTERSTAPPED (CR 614.1c) — "~ enters tapped" (Temples, Triomes, karoos, bounce lands, tapped duals,
  * a handful of tapped artifacts/creatures) now actually enters the battlefield TAPPED, so it can't be tapped
  * for mana the turn it's played — correct mana timing, which the sims depend on. Only the BARE, unconditional
  * form: a check / fast / reveal / shock land's gated tap is left untapped (the gate isn't evaluated — the

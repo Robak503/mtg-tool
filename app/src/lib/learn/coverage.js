@@ -408,7 +408,7 @@ export function classifyCard(card) {
   // generic classifiers (its copy clause isn't a trigger/static/mana ability they'd recognize).
   if (isCloneCard(card)) return "native-clone";
   // Permanent (creature / artifact / enchantment / battle): the body always works.
-  // TRUNK-ENTERSCOUNTERS: the modeled "enters with N +1/+1 counters" replacement (CR 614.1f) is covered — the
+  // TRUNK-ENTERSCOUNTERS: the modeled "enters with N +1/+1 counters" replacement (CR 614.1c + 122.6a) is covered — the
   // resolver adds the counters on enter. Strip that one sentence from the residue (derived from the SAME
   // entersWithPlusCounters the engine uses), so a card whose only non-keyword text is enters-with-counters
   // classifies native-body. The card-level guard never strips a conditional/variable form (those return 0).
