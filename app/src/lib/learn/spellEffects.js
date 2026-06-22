@@ -470,6 +470,18 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [])
       }
     }
   }
+  // EQUIP-AUTO-ATTACH (WAVE 4) — "target Equipment you control" (Captain America's "Catch" auto-attach,
+  // Cloud, Sokka). Only the controller's own Equipment permanents are legal; canBeTargetedBy keeps a
+  // shroud/protection edge case honest. The attach-to-self atom binds this chosen equipment onto the
+  // source creature (ctx.sourceId).
+  else if (effect.targetType === "equipmentYouControl") {
+    for (const perm of state.players[controllerId]?.battlefield || []) {
+      if (/\bEquipment\b/.test(String(perm.card?.type || perm.card?.type_line || ""))
+          && canBeTargetedBy(state, perm, controllerId, controllerId, sourceColors)) {
+        out.push({ type: "permanent", id: perm.id, controller: controllerId, name: perm.card?.name });
+      }
+    }
+  }
   else if (effect.targetType === "player") addPlayers();
   else if (effect.targetType === "any") { addCreatures(); addPlayers(); addPlaneswalkers(); }
   else if (effect.targetType === "creatureOrPlaneswalker") { addCreatures(); addPlaneswalkers(); }

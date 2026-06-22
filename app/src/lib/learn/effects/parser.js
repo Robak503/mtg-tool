@@ -1124,6 +1124,28 @@ function parseExtendedAtom(s) {
   if (/^attach it to target creature you control$/.test(t)) {
     return { op: "self-attach", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
   }
+  // EQUIP-AUTO-ATTACH (WAVE 4) — the REVERSE of self-attach: a CREATURE's ability "attach up to one target
+  // Equipment you control to <self>" (Captain America's "Catch" combat-begin trigger; Cloud "to it"; Sokka,
+  // Swordmaster "to Sokka"). The SOURCE is the creature (bound via ctx.sourceId at resolution); the chosen
+  // target is an Equipment YOU control, attached ONTO the source. "up to one" = the target is OPTIONAL, so an
+  // empty board (no equipment to attach) is a clean no-op, never a fizzle. Anchored on a SELF destination —
+  // "it"/"him"/"her" (a pronoun back-reference to the source) OR a bare proper-name with NO target/creature/
+  // controller words — so the NON-self forms ("to target creature you control" — Brass Squire / Kor Outfitter;
+  // "to that creature" — Kemba / Sokka and Suki, where the host is the ENTERING permanent not the source;
+  // "to target Rebel/attacking creature you control" — Barret / Raubahn) DON'T match and stay on their own
+  // (un)modeled path. The destination guard rejects any phrase containing target/creature/control/rebel/ally/
+  // attacking/that, leaving only a self-pronoun or a name. equipmentYouControl is enumerated controller-scoped.
+  const ats = t.match(/^attach up to one target equipment you control to (.+)$/);
+  if (ats) {
+    const dest = ats[1].trim();
+    const SELF_PRONOUN = /^(it|him|her|them)$/.test(dest);
+    const NON_SELF = /\b(target|creature|control|rebel|ally|allies|attacking|that|each|another|other|up to)\b/.test(dest);
+    if (SELF_PRONOUN || !NON_SELF) {
+      // optionalTarget: "up to one target Equipment" is a cast-time 0-or-1 target — targeting.expandAtoms
+      // offers a DECLINE so an empty board (no equipment to attach) is a clean no-op, never a fizzle.
+      return { op: "attach-to-self", targetType: "equipmentYouControl", optionalTarget: true };
+    }
+  }
   // Combat-trick pump + keyword grant: "target creature gets +N/+N and gains KW[, KW][ and KW]
   // until end of turn" — a layer-7c P/T bump AND layer-6 keyword grant(s), both endOfTurn. The
   // granted keywords must ALL be in the enforced+layer-aware GRANTABLE set (parseGrantedKeywords),
@@ -2361,6 +2383,12 @@ export function atomTargetIntent(atom) {
     case "self-attach":
       // ETB-EQUIP-ATTACH — the Equipment attaches to "target creature YOU CONTROL", so the trigger-flush
       // chooser stays on the controller's own side (the host is always friendly; never an enemy creature).
+      return "own";
+    case "attach-to-self":
+      // EQUIP-AUTO-ATTACH (WAVE 4) — the REVERSE of self-attach: the source is a CREATURE (Captain America)
+      // and the chosen target is "target Equipment YOU CONTROL", attached onto the source. Own-side (you
+      // attach your own equipment to your own creature), so Cap's combat-begin "Catch" trigger routes
+      // natively and the chooser only ever picks the controller's own equipment.
       return "own";
     case "animate":
       // WALT-ANIMATE — you animate your OWN land into a creature to attack/block (own-side buff). No
