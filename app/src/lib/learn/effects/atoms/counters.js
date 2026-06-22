@@ -6,14 +6,22 @@ import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounte
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
 
-/** RAD (CR 728) — give rad counter(s) to the controller / each player / each opponent / a target player.
- * Fixed-N grants only (the parser routes variable / "for each" / scaled forms to the Arbiter, so no
- * resolveScaledAmount). The inherent radiation ability (gameEngine, at each player's precombat main) does the
- * mill + life-loss + counter-removal. Mirrors applyLoseLife's who-resolution; non-targeted, so identical on a
- * spell or a trigger. A missing / eliminated player is a clean skip. */
+/** RAD (CR 728) — give rad counter(s) to the controller / each player / each opponent / a target player /
+ * the just-damaged player. Fixed-N grants, OR a `countContext` dynamic count (CDMG-PLAYER-PAYOFF — "they get
+ * that many rad counters" = ctx.combatDamageAmount, floored at 0, never forced to 1; the parser still routes
+ * "for each" / X / scaled forms to the Arbiter). The inherent radiation ability (gameEngine, at each player's
+ * precombat main) does the mill + life-loss + counter-removal. Mirrors applyLoseLife's who-resolution;
+ * non-targeted, so identical on a spell or a trigger. A missing / eliminated player is a clean skip.
+ *
+ * who:"damagedPlayer" (CDMG-PLAYER-PAYOFF — Glowing One "they get four rad counters", Infesting Radroach
+ * "they get that many rad counters") reads ctx.damagedPlayerId, the player just dealt combat damage (carried
+ * by triggers.checkCombatDamageTriggers). Absent (a spell / non-combat trigger) → a clean no-op (0), never a
+ * fabricated grant or a wrong recipient. */
 export function applyRad(state, atom, ctx) {
   let next = state;
-  const amount = Math.max(0, atom.amount || 0);
+  const amount = atom.countContext
+    ? Math.max(0, ctx[atom.countContext] || 0) // CDMG-PLAYER-PAYOFF — "that many" = combatDamageAmount, floor 0
+    : Math.max(0, atom.amount || 0);
   if (amount === 0) return next;
   if (atom.who === "eachPlayer") {
     for (const pid of Object.keys(next.players)) {
@@ -27,6 +35,10 @@ export function applyRad(state, atom, ctx) {
     for (const t of ctx.targets || []) {
       if (t.type === "player" && next.players[t.id]) next = addRadCounters(next, { playerId: t.id, amount });
     }
+  } else if (atom.who === "damagedPlayer") {
+    // The just-damaged player (CR — the combat-damage trigger's referent). Absent → clean no-op.
+    const pid = ctx.damagedPlayerId;
+    if (pid && next.players[pid]) next = addRadCounters(next, { playerId: pid, amount });
   } else {
     next = addRadCounters(next, { playerId: ctx.controller, amount });
   }
