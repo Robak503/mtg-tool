@@ -39,9 +39,13 @@ describe("parser — multi-land battlefield ramp (RAMP-MULTI)", () => {
     expect(isHigh("Search your library for up to two land cards, put them onto the battlefield tapped, then shuffle.")).toBe(true); // Hour of Promise body / Primeval Titan clause ("land")
   });
 
-  it("RAMP-SPLIT: the split-destination fetch is now native; 'up to three' / non-land / ambiguous-basic / rider multi-fetches still stay LOW → Arbiter", () => {
+  it("RAMP-SPLIT: the split-destination fetch is now native; WAVE-2b widens the bare multi-fetch to up-to-N (N=3..5); non-land / ambiguous-basic / rider multi-fetches still stay LOW → Arbiter", () => {
     expect(isHigh("Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.")).toBe(true); // Cultivate (split) — RAMP-SPLIT
-    expect(isHigh("Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.")).toBe(false);                   // up to three
+    // WAVE-2b UP-TO-N — the bare both-to-battlefield "up to three" land fetch is now native (Nissa's Renewal /
+    // Seedguide Ash / Horizon Boughs). (The SPLIT "up to three, put one … and the other …" is still LOW — its
+    // "one … the other" phrasing is intrinsically two; pinned low in parser.test.js.)
+    expect(atomsOf("Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle."))
+      .toEqual([{ op: "tutor", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card", destination: "battlefield", entersTapped: true, remaining: 3, targetType: null }]);
     expect(isHigh("Search your library for up to two creature cards, put them onto the battlefield, then shuffle.")).toBe(false);                              // non-land
     expect(isHigh("Search your library for up to two basic Forest or Island cards, put them onto the battlefield, then shuffle.")).toBe(false);                // ambiguous-basic union
     expect(isHigh("Search your library for up to two land cards, put them onto the battlefield tapped, then shuffle. Then if you control three or more Deserts, create two 2/2 black Zombie creature tokens.")).toBe(false); // Hour of Promise (rider)

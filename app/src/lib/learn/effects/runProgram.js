@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { canAfford, manaSources, payGenericMana } from "../manaModel.js";
 
@@ -124,7 +124,13 @@ export function autoPickTutorCandidate(state, pendingChoice) {
   const zone = pendingChoice.sourceZone === "hand" ? "hand" : "library";
   const lib = state.players?.[pendingChoice.controller]?.[zone] || [];
   const byId = new Map(lib.map((c) => [c.id, c]));
-  const cards = (pendingChoice.candidates || []).map((c) => byId.get(c.id)).filter(Boolean);
+  // WAVE-2b TUTOR — DEFENSIVELY re-apply the structured filter (type groups + MV cap — Spellseeker MV<=2,
+  // Trophy Mage MV=3). Candidates are already filtered upstream by applyTutor, so this is a belt-and-braces
+  // guard that the auto-pick can never select an off-filter card even if a future caller skips pre-filtering.
+  const cards = (pendingChoice.candidates || [])
+    .map((c) => byId.get(c.id))
+    .filter(Boolean)
+    .filter((c) => cardMatchesTutorFilter(c, pendingChoice.filter));
   if (cards.length === 0) return null;
   const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
   return [...cards].sort((a, b) =>
@@ -149,11 +155,35 @@ export function resolveTutorChoice(state, cardId) {
   // `sourceZone` is the zone the card moves FROM: "hand" (Growth Spiral) or "library" (every search).
   const sourceZone = pc.sourceZone === "hand" ? "hand" : "library";
   const inSource = cardId && (next.players?.[pc.controller]?.[sourceZone] || []).some((c) => c.id === cardId);
-  const destination = pc.destination === "battlefield" ? "battlefield" : "hand";
+  // WAVE-2b FETCH-TO-TOP — three destinations: "battlefield" (ramp), "top" (Vampiric/Mystical Tutor —
+  // shuffle FIRST, then place the chosen card on top, CR 701.19e, so it survives the shuffle), "hand" (default).
+  const destination = pc.destination === "battlefield" ? "battlefield" : pc.destination === "top" ? "top" : "hand";
+  let topAlreadyShuffled = false;
   if (inSource) {
     if (destination === "battlefield") {
       // RAMP-1 — the fetched card enters the battlefield (tapped per the card), firing ETB triggers.
       next = enterCardFromZone(next, { playerId: pc.controller, cardId, fromZone: sourceZone, tapped: !!pc.entersTapped }).state;
+    } else if (destination === "top") {
+      // FETCH-TO-TOP (CR 701.19e — "shuffle and put that card on top"): SHUFFLE the library FIRST (the chosen
+      // card is still in it), THEN reposition it to index 0 (the top) so it lands on top AFTER the shuffle
+      // (never shuffled back into the deck). A from-hand "to top" is never printed (sourceZone is always
+      // "library" here). `topAlreadyShuffled` suppresses the trailing CR-701.19e shuffle below, which would
+      // otherwise re-randomize the card off the top. (moveCardToZone can't do a SAME-zone library→library
+      // move — the spread would re-add the card — so the reposition is an explicit splice-to-front here.)
+      next = shuffleControllerLibrary(next, pc.controller);
+      const shuffledLib = next.players[pc.controller].library;
+      const chosen = shuffledLib.find((c) => c.id === cardId);
+      next = {
+        ...next,
+        players: {
+          ...next.players,
+          [pc.controller]: {
+            ...next.players[pc.controller],
+            library: [chosen, ...shuffledLib.filter((c) => c.id !== cardId)],
+          },
+        },
+      };
+      topAlreadyShuffled = true;
     } else {
       next = moveCardToZone(next, { playerId: pc.controller, fromZone: sourceZone, toZone: "hand", cardId });
     }
@@ -168,6 +198,7 @@ export function resolveTutorChoice(state, cardId) {
     const rest = (pc.candidates || []).filter((c) => c.id !== cardId);
     next = setPendingTutorChoice(next, {
       controller: pc.controller, candidates: rest, sourceName: pc.sourceName, filterLabel: pc.filterLabel,
+      filter: pc.filter, // WAVE-2b — carry the structured filter so chained picks keep the auto-pick gate
       destination: pc.destination, entersTapped: pc.entersTapped, remaining, sourceZone,
       // RAMP-SPLIT — advance the ordered destination sequence so the NEXT pick uses the next destination
       // (Cultivate: pick 1 -> battlefield tapped, pick 2 -> hand). Null on the uniform single/multi path.
@@ -175,8 +206,9 @@ export function resolveTutorChoice(state, cardId) {
     });
     return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
   }
-  // A library search shuffles afterward (CR 701.19e); a from-HAND put (LAND-FROM-HAND) doesn't touch the library.
-  if (sourceZone === "library") next = shuffleControllerLibrary(next, pc.controller);
+  // A library search shuffles afterward (CR 701.19e); a from-HAND put (LAND-FROM-HAND) doesn't touch the
+  // library; a FETCH-TO-TOP already shuffled-then-placed above, so re-shuffling would knock the card off top.
+  if (sourceZone === "library" && !topAlreadyShuffled) next = shuffleControllerLibrary(next, pc.controller);
   next = logEvent(next, { kind: "spell-effect", effect: "tutor", controller: pc.controller, found: !!inSource, destination });
 
   return resumeAfterChoice(next, pc);
