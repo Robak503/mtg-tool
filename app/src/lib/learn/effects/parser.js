@@ -38,6 +38,7 @@ import { ATOM_RESOLVERS } from "./effectAtoms.js";
 import { manifestClauseParser } from "./atoms/manifest.js";
 import { amassClauseParser } from "./atoms/amass.js";
 import { winGameClauseParser } from "./atoms/winGame.js";
+import { counterClausesParser } from "./atoms/counterClauses.js";
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers } from "../triggers.js";
@@ -2525,3 +2526,6 @@ registerClauseParser(manifestClauseParser);
 registerClauseParser(amassClauseParser);
 // UPKEEP-WIN (Wave 3b) — "you win the game" / "target player loses the game" → the win-game atom.
 registerClauseParser(winGameClauseParser);
+// COUNTERS-ON-EVENT (Wave 3b) — "put a +1/+1 counter on the triggering creature" → the add-counter atom
+// (routed through gameState.addCounter, so the Wave-3 doubler applies). Wired here per the slice contract.
+registerClauseParser(counterClausesParser);
