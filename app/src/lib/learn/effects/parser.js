@@ -835,6 +835,22 @@ function parseExtendedAtom(s) {
   // filter is checked at enumeration (spellMatchesCounterFilter) + resolution (counterFilterMatches); both
   // gained the matching case. A different list / order / 2-way subset fails the exact anchor → low → Arbiter.
   if (/^counter target enchantment, instant, or sorcery spell$/.test(t)) return { op: "counter", spellFilter: "enchantmentInstantSorcery", targetType: "spell" };
+  // CNT-MV-EXACT (WAVE 2b) — "Counter target spell with mana value N" (Mental Misstep N=1, Spell Snare N=2).
+  // EXACT equality on the target spell's mana value (CR 701.5a + 202.3) — NOT "or less"/"or greater". The
+  // anchored "$" rejects the inequality variants (Disdainful Stroke "4 or greater", Thoughtbind "4 or less",
+  // Minor Misstep "1 or less"), which must stay low → Arbiter (a different comparison would be a confidently-
+  // wrong counter). `exactMv` is checked at enumeration (spellMatchesCounterFilter) + resolution
+  // (counterFilterMatches); the spellFilter stays "any" (no type restriction layered on the MV test).
+  {
+    const mv = /^counter target spell with mana value (\d+)$/.exec(t);
+    if (mv) return { op: "counter", spellFilter: "any", targetType: "spell", exactMv: parseInt(mv[1], 10) };
+  }
+  // CNT-ACP (WAVE 2b) — "Counter target artifact, creature, or planeswalker spell" (Strix Serenade's lead;
+  // it then carries the Swan-Song-style "Its controller creates a 2/2 Bird" rider via matchCounterController-
+  // Rider, so this lead parse must succeed for that card to flip native). The 3-way union reads the FRONT-FACE
+  // type only (CR 712.4a — counterFilterMatches/spellMatchesCounterFilter split " // "). A different list /
+  // order / 2-way subset fails the exact anchor → low → Arbiter (no existing filter is loosened).
+  if (/^counter target artifact, creature, or planeswalker spell$/.test(t)) return { op: "counter", spellFilter: "artifactCreaturePlaneswalker", targetType: "spell" };
   // SOFT-CNT — a "soft" counter: "Counter target [noncreature|creature] spell unless its controller pays
   // {N}." (Force Spike / Mana Leak / Mana Tithe / Spell Pierce / Stubborn Denial / Daze / Quench / …).
   // Extends the hard-counter atom with an `unlessPay` FIXED-generic escape resolved at counter resolution:
@@ -847,6 +863,23 @@ function parseExtendedAtom(s) {
   {
     const sc = /^counter target (noncreature |creature )?spell unless its controller pays \{(\d+)\}$/.exec(t);
     if (sc) return { op: "counter", spellFilter: sc[1] ? sc[1].trim() : "any", targetType: "spell", unlessPay: parseInt(sc[2], 10) };
+  }
+  // SOFT-CNT-X (WAVE 2b) — the {X} soft counter: "Counter target [noncreature|creature] spell unless its
+  // controller pays {X}." (Clash of Wills, Syncopate's family). The {X} here is the COUNTERSPELL'S own cast
+  // {X} (Clash of Wills's mana cost is {X}{U}), bound at the counter's resolution from ctx.xValue — applyCounter
+  // computes the generic tax = max(0, ctx.xValue) and routes the SAME pay-or-be-countered pending-choice as
+  // the fixed soft counter. The literal "{x}" in the text only appears on cards whose own cost carries X, so
+  // it's its own gate; the resolver floors at 0 (CR 107.3, an X=0 demand the controller trivially "pays").
+  // ANCHORED to a bare "{x}" with no rider — an "{X} and you gain X life", a "{X}, where X is …", a non-mana
+  // additional cost, or a modal bullet all leave residue → fail the anchor → low → Arbiter. Storm (Flusterstorm)
+  // rides on the card's keyword text, NOT this clause, so it's never half-modeled by a copy fabrication.
+  {
+    const scx = /^counter target (noncreature |creature )?spell unless its controller pays \{x\}$/.exec(t);
+    // `countX:true` marks this as an X-spell ONLY so the cast path (parser xSpell + legalChoices X-cast branch)
+    // enumerates affordable X values and threads the chosen X into ctx.xValue. The counter resolver ignores
+    // countX (it reads ctx.xValue for unlessPayX); no count-of-X tokens are created. Without this the spell
+    // would resolve at X=0 (a free pass the controller always "pays") — a confidently-wrong always-survives.
+    if (scx) return { op: "counter", spellFilter: scx[1] ? scx[1].trim() : "any", targetType: "spell", unlessPayX: true, countX: true };
   }
   // Graveyard recursion (CR 608) — "Return target <X> card from your graveyard to your hand" (Raise Dead,
   // Regrowth, Eternal Witness's ETB, Argivian Find…). The target is a CARD in the CASTER'S OWN graveyard
@@ -1644,10 +1677,24 @@ function matchCounterControllerRider(oracle) {
   const m = stripReminder(oracle).trim().match(/^(counter target .+? spell)\.\s+its controller (.+?)\.?$/i);
   if (!m) return null;
   const lead = parseExtendedAtom(m[1].trim());
-  if (!lead || lead.op !== "counter" || lead.unlessPay != null) return null; // hard counter only (defer soft+rider)
+  if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only (defer soft+rider)
   const rider = parseControllerRider(m[2].trim().toLowerCase());
   if (!rider) return null;                                                    // unmodeled rider → low → Arbiter
   return { atom: { ...lead, controllerRider: rider }, rest: "" };
+}
+// CNT-EXILE-INSTEAD (WAVE 2b) — "Counter target <filter> spell. If that spell is countered this way, exile it
+// instead of putting it into its owner's graveyard." (Deny Existence "creature", Dissipate-style). The lead
+// reuses the counter grammar (so a lead filter the grammar doesn't model — Deny the Divine's "creature or
+// enchantment", Faerie Trickery's "non-Faerie" — fails the lead parse → null → low → Arbiter, ALL-OR-NOTHING).
+// The countered spell goes to EXILE not the graveyard (applyCounter reads atom.exileInstead). Spans two
+// sentences (the "If that spell …" rider would be shattered by splitClauses), so it's matched up front as ONE
+// collapsed atom. ANCHORED — a hard-counter lead only; the soft-counter path's pay-decision isn't composed here.
+function matchCounterExileInstead(oracle) {
+  const m = stripReminder(oracle).trim().match(/^(counter target .+? spell)\. if that spell is countered this way, exile it instead of putting it into its owner's graveyard\.?$/i);
+  if (!m) return null;
+  const lead = parseExtendedAtom(m[1].trim());
+  if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only
+  return { atom: { ...lead, exileInstead: true }, rest: "" };
 }
 
 // δ-2 impulse-dig — spelled cardinals the "top <N> cards" template uses (2-10; bigger digs are rare).
@@ -1893,6 +1940,11 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // a `controllerRider` (resolved to the countered spell's controller).
   const ccr = matchCounterControllerRider(oracle);
   if (ccr) return collapsed(ccr);
+  // CNT-EXILE-INSTEAD — "Counter target <filter> spell. If that spell is countered this way, exile it instead
+  // of putting it into its owner's graveyard." → ONE counter atom carrying `exileInstead` (applyCounter exiles
+  // the countered spell instead of routing it to the graveyard).
+  const cei = matchCounterExileInstead(oracle);
+  if (cei) return collapsed(cei);
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).
