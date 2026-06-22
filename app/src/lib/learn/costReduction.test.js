@@ -61,17 +61,17 @@ describe("STATIC-COST-REDUCTION — parser marker", () => {
 // ─── 2. Parser exclusions: never claim native for a non-type-line subject ────────
 
 describe("STATIC-COST-REDUCTION — excluded subjects stay body-only (safe FN)", () => {
-  // Each subject below is filtered (color / card-type / supertype / "noncreature") so it produces NO
-  // marker — its word-bounded type-line match would never fire, so a native claim would be a false
-  // positive. The clause stays unmodeled (body-only) instead.
+  // Each subject below is filtered (color / supertype / "noncreature" / over-broad "permanent") so it
+  // produces NO marker — its word-bounded type-line match would never fire, so a native claim would be a
+  // false positive. The clause stays unmodeled (body-only) instead. NOTE: real card-TYPE words
+  // (Artifact/Creature/Enchantment/Instant/Sorcery) are NO LONGER excluded — they ARE type-line tokens and
+  // reduce correctly (covered by the card-TYPE reducer block below).
   const cases = [
     ["color (Red — Ruby Medallion)", "Red spells you cast cost {1} less to cast."],
     ["noncreature", "Noncreature spells you cast cost {1} less to cast."],
-    ["card type (Artifact — Foundry Inspector)", "Artifact spells you cast cost {1} less to cast."],
-    ["card type (Enchantment — Starfield Mystic)", "Enchantment spells you cast cost {1} less to cast."],
     ["supertype (Legendary — Kethis)", "Legendary spells you cast cost {1} less to cast."],
-    ["generic 'creature'", "Creature spells you cast cost {1} less to cast."],
     ["colorless (Ugin)", "Colorless spells you cast cost {2} less to cast."],
+    ["over-broad 'permanent' (not a type-line token)", "Permanent spells you cast cost {1} less to cast."],
     ["compound 'instant and sorcery'", "Instant and sorcery spells you cast cost {1} less to cast."],
     ["'{X} less' (non-numeric)", "Dragon spells you cast cost {X} less to cast."],
     ["a trailing rider breaks the anchor", "Dragon spells you cast cost {1} less to cast for each Mountain you control."],
@@ -82,6 +82,55 @@ describe("STATIC-COST-REDUCTION — excluded subjects stay body-only (safe FN)",
       expect(descriptors.some((d) => d.costReduction)).toBe(false);
     });
   }
+});
+
+// ─── 2b. card-TYPE reducers (Foundry Inspector, Marauding Raptor) ────────────────
+// A card-TYPE word (Artifact/Creature/Enchantment/Instant/Sorcery) IS a real type-line token, so
+// "<Type> spells you cast cost {N} less to cast" reduces via the word-bounded \b<word>\b type-line match
+// (every card's type line begins with its card type). These are blocked on the ANTHEM/lord path (a
+// card-TYPE anthem selects zero creatures — Tempered Steel FP), but for cost reduction they're correct.
+
+describe("STATIC-COST-REDUCTION — card-TYPE reducers (Foundry Inspector / Marauding Raptor)", () => {
+  it("Foundry Inspector ('Artifact spells …') → an Artifact/1 cost-reduction marker", () => {
+    const foundry = { name: "Foundry Inspector", type: "Artifact Creature — Construct", oracle: "Artifact spells you cast cost {1} less to cast." };
+    expect(parseStaticAbilities(foundry)).toEqual([{ costReduction: { subtype: "Artifact", amount: 1 } }]);
+  });
+
+  it("Marauding Raptor's reducer clause → a Creature/1 marker (its ETB-damage clause adds no static descriptor)", () => {
+    const raptor = {
+      name: "Marauding Raptor", type: "Creature — Dinosaur",
+      oracle: "Creature spells you cast cost {1} less to cast.\nWhenever another creature you control enters, this creature deals 2 damage to it. If a Dinosaur is dealt damage this way, this creature gets +2/+0 until end of turn.",
+    };
+    expect(parseStaticAbilities(raptor)).toEqual([{ costReduction: { subtype: "Creature", amount: 1 } }]);
+  });
+
+  it("'Enchantment spells …' (Starfield Mystic-style) → an Enchantment/1 marker", () => {
+    expect(parseStaticAbilities({ type: "Enchantment", oracle: "Enchantment spells you cast cost {1} less to cast." }))
+      .toEqual([{ costReduction: { subtype: "Enchantment", amount: 1 } }]);
+  });
+
+  it("a Creature reducer discounts a Creature spell, not an Instant; colored pips never reduced; floors at {0}", () => {
+    const reducers = [{ subtype: "Creature", amount: 1 }];
+    expect(costReductionForSpell(reducers, { type: "Creature — Bear" })).toBe(1); // a creature is reduced
+    expect(costReductionForSpell(reducers, { type: "Instant" })).toBe(0);         // an instant is not
+    // The reducer only ever trims GENERIC mana — costReductionForSpell returns a count; the cast site floors
+    // it (CR 601.2f). An Artifact reducer matches an Artifact Creature spell (type-line substring).
+    expect(costReductionForSpell([{ subtype: "Artifact", amount: 2 }], { type: "Artifact Creature — Golem" })).toBe(2);
+  });
+
+  it("Marauding Raptor stays NON-native (its ETB-damage clause is uncovered) even though the reducer is collected", () => {
+    const raptor = {
+      name: "Marauding Raptor", type: "Creature — Dinosaur",
+      oracle: "Creature spells you cast cost {1} less to cast.\nWhenever another creature you control enters, this creature deals 2 damage to it. If a Dinosaur is dealt damage this way, this creature gets +2/+0 until end of turn.",
+    };
+    expect(collectCostReducers([raptor])).toEqual([{ subtype: "Creature", amount: 1 }]);
+    expect(classifyCard(raptor)).not.toBe("native-static");
+  });
+
+  it("Foundry Inspector (single covered clause + vanilla body) flips to native-static", () => {
+    const foundry = { name: "Foundry Inspector", type: "Artifact Creature — Construct", oracle: "Artifact spells you cast cost {1} less to cast." };
+    expect(classifyCard(foundry)).toBe("native-static");
+  });
 });
 
 // ─── 3. collectCostReducers / costReductionForSpell ─────────────────────────────

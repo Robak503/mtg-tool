@@ -112,6 +112,18 @@ const NON_SUBTYPE_ANTHEM_WORDS = new Set([
 // NON_SUBTYPE_ANTHEM_WORDS, which the cost-reduction recognizer reuses alongside this set.
 const NON_SUBTYPE_COST_FILTER_WORDS = new Set(["noncreature", "historic", "permanent", "spell", "spells"]);
 
+// STATIC-COST-REDUCTION (card-TYPE reducers): the card-type words that ARE real type-line tokens, so a
+// "<word> spells you cast cost {N} less to cast" reducer (Foundry Inspector → "Artifact"; Marauding Raptor
+// → "Creature") DOES reduce — the emitted "Artifact"/"Creature" feeds costReductionForSpell's word-bounded
+// \b<word>\b type-line match (every card's type line starts with its card type). This is a SEPARATE additive
+// allow-set scoped ONLY to the cost-reduction recognizers (crM/emM): "artifact"/"creature"/"enchantment"
+// live in NON_SUBTYPE_ANTHEM_WORDS to block them on the ANTHEM/lord path (a card-TYPE anthem selects zero
+// creatures — Tempered Steel FP), but for cost reduction the type-line match is correct. "instant"/"sorcery"
+// already passed the guard (not in any exclusion set); listing them here is explicit, not a behavior change.
+// DELIBERATELY EXCLUDES "permanent"/"noncreature"/"historic"/"spell" — those are NOT type-line tokens, so a
+// word-bound match would reduce nothing (a false positive) → they stay in NON_SUBTYPE_COST_FILTER_WORDS.
+const COST_REDUCTION_CARDTYPE_WORDS = new Set(["artifact", "creature", "enchantment", "instant", "sorcery"]);
+
 // ─── TRUNK-SELFBUFF: count-scaled self static buff ──────────────────────────────
 // A continuous (layer-7c) self-buff whose magnitude is a board count — "this creature gets +X/+Y for each
 // <countsource>" (Nim Lasher, Benalish Honor Guard…). The layer engine re-evaluates the count each P/T
@@ -333,7 +345,12 @@ function parseClause(clause, out, selfName) {
   const crM = c.match(/^([a-z]+) spells (?:you cast )?cost \{(\d+)\} less to cast$/);
   if (crM) {
     const word = crM[1];
-    if (!NON_SUBTYPE_ANTHEM_WORDS.has(word) && !COLOR_WORDS[word] && !NON_SUBTYPE_COST_FILTER_WORDS.has(word)) {
+    // A card-TYPE reducer (Foundry Inspector "Artifact …", Marauding Raptor "Creature …") reduces via the
+    // type-line match, so it's allowed even though card-type words are blocked on the anthem path. A real
+    // creature/spell subtype (Dragon/Hydra/Goblin) still passes the original guard; a color / supertype /
+    // non-type-line word stays body-only.
+    if (COST_REDUCTION_CARDTYPE_WORDS.has(word) ||
+        (!NON_SUBTYPE_ANTHEM_WORDS.has(word) && !COLOR_WORDS[word] && !NON_SUBTYPE_COST_FILTER_WORDS.has(word))) {
       out.push({ costReduction: { subtype: normalizeSubtype(word), amount: parseInt(crM[2], 10) } });
     }
     return; // a cost-reduction clause — handled (or intentionally dropped to body-only)
@@ -358,7 +375,10 @@ function parseClause(clause, out, selfName) {
   const emM = c.match(/^eminence\s*[—–-]\s*as long as .+ is in the command zone or on the battlefield, other ([a-z]+) spells you cast cost \{(\d+)\} less to cast$/);
   if (emM) {
     const word = emM[1];
-    if (!NON_SUBTYPE_ANTHEM_WORDS.has(word) && !COLOR_WORDS[word] && !NON_SUBTYPE_COST_FILTER_WORDS.has(word)) {
+    // Same card-TYPE allow-set as the base reducer above, for consistency (an eminence card-type reducer
+    // reduces via the type-line match too); a real subtype still passes the original guard.
+    if (COST_REDUCTION_CARDTYPE_WORDS.has(word) ||
+        (!NON_SUBTYPE_ANTHEM_WORDS.has(word) && !COLOR_WORDS[word] && !NON_SUBTYPE_COST_FILTER_WORDS.has(word))) {
       out.push({ costReduction: { subtype: normalizeSubtype(word), amount: parseInt(emM[2], 10), fromCommandZone: true, excludeSelf: true, sourceName: selfName || null } });
     }
     return; // an eminence cost-reduction clause — handled (or intentionally dropped to body-only)
@@ -528,6 +548,21 @@ function parseClause(clause, out, selfName) {
     }
   }
 
+  // ── STATIC-ANTHEM keyword-grant ALL-OR-NOTHING GUARD (CLAUDE.md §1.2) ────────
+  // The anthem keyword pass below is NOT all-or-nothing on its own: extractKeywords silently DROPS any
+  // segment that isn't a grantable keyword and still emits the grantable ones. So a clause like
+  // "Creatures you control have flying, …, and protection from black and from red" (Akroma's Memorial)
+  // would grant flying/first-strike/… while DROPPING the protection — a partial flip = a FORBIDDEN false
+  // positive (also Avatar of Slaughter / Hellraiser Goblin "attack each combat if able"; Giant Ankheg
+  // "ward {2}"). Hoisted ABOVE both the P/T pass and the keyword pass because the P2.10 combined "get
+  // +X/+Y and have <tail>" pushes the layer-7c P/T descriptor BEFORE the keyword pass — so a lossy tail
+  // must prevent BOTH descriptors, not just the keyword one. If the "have <tail>" carries ANY segment that
+  // isn't a grantable keyword, the WHOLE clause stays body-only (a clean false-negative).
+  const haveMatch = c.match(/\b(?:have|has)\s+(.+)$/);
+  if (haveMatch && parseCreatureSelector(c) && haveTailHasNonGrantable(haveMatch[1])) {
+    return;
+  }
+
   // ── P/T anthems / lords (layer 7c, 613.4c) ──────────────────────────────────
   // "get +X/+Y" with explicit signs is the anthem/lord signature.
   const ptMatch = c.match(/\bgets?\s+([+-]\d+)\/([+-]\d+)\b/);
@@ -550,8 +585,8 @@ function parseClause(clause, out, selfName) {
   }
 
   // ── Keyword grants (layer 6, 613.1f) ────────────────────────────────────────
-  // "<selector> have <keyword>[ and <keyword>...]"
-  const haveMatch = c.match(/\b(?:have|has)\s+(.+)$/);
+  // "<selector> have <keyword>[ and <keyword>...]" — the all-or-nothing guard above already returned on a
+  // lossy tail, so by here every segment IS a grantable keyword.
   if (haveMatch) {
     const affects = parseCreatureSelector(c);
     if (affects) {
@@ -566,6 +601,22 @@ function parseClause(clause, out, selfName) {
       }
     }
   }
+}
+
+/**
+ * STATIC-ANTHEM all-or-nothing test: split a "have <tail>" into the SAME comma/"and" segments
+ * extractKeywords uses, cleaned identically (drop non-[a-z ] chars so "ward {2}" → "ward"). True if ANY
+ * non-empty cleaned segment is NOT a grantable keyword — i.e. modeling this clause would silently drop
+ * real text ("protection from black", "attack each combat if able", "ward"). The caller then leaves the
+ * WHOLE clause body-only. Mirrors extractKeywords' cleaning so good/bad classification can't drift.
+ */
+function haveTailHasNonGrantable(tail) {
+  for (const raw of String(tail).split(/,|\band\b/)) {
+    const word = raw.trim().replace(/[^a-z ]/g, "").trim();
+    if (!word) continue;
+    if (!GRANTABLE_KEYWORDS.has(word)) return true;
+  }
+  return false;
 }
 
 /**

@@ -78,6 +78,66 @@ describe("parseStaticAbilities — keyword grants", () => {
   });
 });
 
+// ── STATIC-ANTHEM keyword-grant ALL-OR-NOTHING FP FIX ───────────────────────────────────────────────
+// The keyword pass used to DROP a non-grantable segment and still emit the grantable ones — a partial flip
+// is a FORBIDDEN false positive. Now: if the "have <tail>" carries ANY non-grantable segment, the WHOLE
+// clause stays body-only (no keyword AND no P/T descriptor — the P2.10 combined clause leaks otherwise).
+describe("parseStaticAbilities — keyword-grant all-or-nothing (FP fix)", () => {
+  it("Akroma's Memorial: '… have flying, …, and protection from black and from red' → ZERO descriptors (protection drops the whole clause)", () => {
+    const oracle = "Creatures you control have flying, first strike, vigilance, trample, haste, and protection from black and from red.";
+    const c = card("Akroma's Memorial", oracle, "Legendary Artifact");
+    expect(parseStaticAbilities(c)).toHaveLength(0);    // not even the grantable kws leak
+    expect(classifyCard(c)).not.toBe("native-static");  // body-only, not a partial-flip FP
+  });
+
+  it("Avatar of Slaughter: 'All creatures have double strike and attack each combat if able' → ZERO descriptors", () => {
+    const c = card("Avatar of Slaughter", "All creatures have double strike and attack each combat if able.", "Creature — Avatar");
+    expect(parseStaticAbilities(c)).toHaveLength(0);
+    expect(classifyCard(c)).not.toBe("native-static");
+  });
+
+  it("Hellraiser Goblin: 'Creatures you control have haste and attack each combat if able' → ZERO descriptors", () => {
+    const c = card("Hellraiser Goblin", "Creatures you control have haste and attack each combat if able.", "Creature — Goblin Berserker");
+    expect(parseStaticAbilities(c)).toHaveLength(0);
+    expect(classifyCard(c)).not.toBe("native-static");
+  });
+
+  it("Giant Ankheg: 'Other creatures you control have trample and ward {2}' → ZERO descriptors (ward not grantable)", () => {
+    const c = card("Giant Ankheg", "Other creatures you control have trample and ward {2}.", "Creature — Insect");
+    expect(parseStaticAbilities(c)).toHaveLength(0);
+  });
+
+  it("combined P2.10 clause is guarded WHOLE: '… get +1/+1 and have flying and protection from red' → NO P/T leak, NO keyword leak", () => {
+    const c = card("Lossy Lord", "Creatures you control get +1/+1 and have flying and protection from red.", "Enchantment");
+    expect(parseStaticAbilities(c)).toHaveLength(0); // neither the +1/+1 nor the flying survives
+  });
+
+  // REGRESSION — clean tails (every segment grantable) must STILL parse natively.
+  it("Cloudshredder-style 'have flying and haste' still grants both keywords", () => {
+    const d = parseStaticAbilities(card("Cloudshredder Sliver", "Sliver creatures you control have flying and haste.", "Creature — Sliver"));
+    expect(d.map(e => e.op.keyword).sort()).toEqual(["Flying", "Haste"]);
+  });
+
+  it("Galerider-style 'have flying' still grants the one keyword", () => {
+    const d = parseStaticAbilities(card("Galerider Sliver", "Sliver creatures you control have flying.", "Creature — Sliver"));
+    expect(d).toHaveLength(1);
+    expect(d[0].op.keyword).toBe("Flying");
+  });
+
+  it("clean combined '… get +1/+1 and have first strike' still emits BOTH descriptors (Field Marshal)", () => {
+    const d = parseStaticAbilities(card("Field Marshal", "Other Soldier creatures get +1/+1 and have first strike.", "Creature — Soldier"));
+    expect(d.find(e => e.op.layerOp === "ptModify")).toBeTruthy();
+    expect(d.find(e => e.op.layerOp === "addKeyword").op.keyword).toBe("First strike");
+  });
+
+  it("a pure P/T anthem with NO 'have' tail is unaffected (Muscle/Sinew — 'All Sliver creatures get +1/+1')", () => {
+    const d = parseStaticAbilities(card("Sinew Sliver", "All Sliver creatures get +1/+1.", "Creature — Sliver"));
+    expect(d).toHaveLength(1);
+    expect(d[0].op).toEqual({ layerOp: "ptModify", power: 1, toughness: 1 });
+    expect(d[0].affects.selector.subtypes).toEqual(["Sliver"]);
+  });
+});
+
 describe("parseStaticAbilities — NO-DETERMINER tribal anthem ('<Subtype> creatures you control …')", () => {
   it("keyword grant: 'Sliver creatures you control have flying.' (no 'all/other/each')", () => {
     const d = parseStaticAbilities(card("Galerider Sliver", "Sliver creatures you control have flying.", "Creature — Sliver"));
