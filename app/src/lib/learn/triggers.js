@@ -761,6 +761,13 @@ export function triggersForEvent(state, { event, sourcePermanent, triggeringPerm
   for (const d of descriptors) {
     if (!scopeMatches(d, sourcePermanent, triggeringPermanent, state)) continue;
     if (d.whose === "yours" && sourcePermanent.controller !== state.activePlayer) continue;
+    // PHASE-TRIGGER (Wave 1): "At the beginning of each opponent's upkeep" — fire ONLY on an OPPONENT's
+    // upkeep, never the source controller's own (CR 603.2b). The shared "upkeep" event also carries
+    // whose:"yours" ("your upkeep") and whose:"any" ("each upkeep"); this branch excludes the
+    // controller's own upkeep, the #1 false positive for the each-opponent shape (Viseling, Davriel,
+    // Price of Knowledge). When the active player isn't an opponent of the source's controller (i.e. it
+    // IS the controller, or a non-opponent in some future multiplayer wrinkle), skip.
+    if (d.whose === "opponents" && !opponentsOf(state, sourcePermanent.controller).includes(state.activePlayer)) continue;
     out.push(makePendingTrigger(d, sourcePermanent, triggeringPermanent, triggeringContext));
   }
   return out;
@@ -1234,3 +1241,14 @@ export function applyTriggerEffect(state, { effect, controller, targets = [] }) 
       return logEvent(next, { kind: "trigger-effect-unresolved", controller, effect });
   }
 }
+
+// ─── PHASE-TRIGGER-FRAMEWORK (Wave 1) registration ──────────────────────────────
+// Register the phase/step detector for the four step-kinds the inline classifyCondition doesn't cover
+// (combat-on-your-turn, each-combat, first-main-phase, each-opponent's-upkeep). Done HERE — at the
+// BOTTOM of triggers.js, after registerTriggerDetector + _triggerDetectors are defined — so it has
+// GLOBAL visibility: every importer of triggers.js (runtime AND the coverage metric) sees the detector.
+// The import is hoisted; triggerScheduler.js defines only pure functions (no top-level register call)
+// and references opponentsOf only at call-time, so this import is load-safe (no TDZ cycle). The module
+// must NOT also self-register — registering both here and there would push the detector twice.
+import { detectPhaseTrigger } from "./triggerScheduler.js";
+registerTriggerDetector(detectPhaseTrigger);

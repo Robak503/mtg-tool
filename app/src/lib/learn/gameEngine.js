@@ -292,7 +292,17 @@ export function runStepActions(state) {
   if (next.step === "upkeep") next = checkStepTriggers(next, "upkeep");
   else if (next.step === "draw") next = checkStepTriggers(next, "draw");
   else if (next.step === "end") next = checkStepTriggers(next, "endStep");
-  else if (next.step === "declare-blockers") {
+  // PHASE-TRIGGER-FRAMEWORK (Wave 1): emit the two phase-boundary triggers the spine detected but never
+  // fired. detectPhaseTrigger (registered in triggers.js) classifies them; checkStepTriggers fires any
+  // event generically (triggersForEvent matches on descriptor.event). Wired alongside the existing step
+  // emissions and BEFORE the priority/flush block below so they ride the same flush onto the stack.
+  //  - combatBegin: at the beginning-of-combat step. whose:"yours" ("...on your turn") gates to the active
+  //    player in triggersForEvent; whose:"any" ("each combat", Unnatural Growth) fires regardless of turn.
+  //  - firstMain: at the PRECOMBAT main only (gate on phase — both main phases share step "main"); else it
+  //    would fire twice (a postcombat-main double-fire is the landmine here).
+  else if (next.step === "beginning-of-combat") next = checkStepTriggers(next, "combatBegin");
+  if (next.phase === "precombat-main" && next.step === "main") next = checkStepTriggers(next, "firstMain");
+  if (next.step === "declare-blockers") {
     next = checkAttackTriggers(next);
     // The Ur-Dragon variable-count attack trigger (a targeted #319-style hook the compiler can't reach):
     // resolves draw-that-many + may-cheat-a-permanent synchronously, enqueuing its cardDrawn/ETB sub-triggers
