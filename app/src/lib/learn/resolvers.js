@@ -27,9 +27,10 @@ import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram } from "./effects/runProgram.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithXCounters, entersTapped } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X
+import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { applyCounterDoubling } from "./replacementEffects.js"; // Wave-3 doubler (leaf): enters-with-counters bypasses addCounter, so double here
+import { countForSpec } from "./effects/atoms/shared.js"; // ETB-XCOUNTERS-FROM-METRIC: resolve a board-metric counter count (leaf: shared → gameState only)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
 // in P2.2 so the effect interpreter can share it without an import cycle).
@@ -129,6 +130,19 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // remove-or-sacrifice runs in gameEngine (applyFadeVanishUpkeep).
   const fade = entersWithFadeCounters(card);
   if (fade && fade.n > 0) perm.counters = { ...perm.counters, [fade.type]: (perm.counters[fade.type] || 0) + applyCounterDoubling(state, controller, fade.type, fade.n) };
+  // ETB-XCOUNTERS-FROM-METRIC (CR 614.1c + 122.6a + 608.2h): enters with +1/+1 counters whose count is a BOARD
+  // METRIC — Squad Captain / Sheriff of Safe Passage ("for each other creature you control"), Prime Speaker
+  // Zegana ("X = greatest power among other creatures"). The metric is resolved AT THIS MOMENT against the
+  // PRE-ENTRY state (the permanent isn't on the battlefield yet, so "other" excludes it naturally; sourceId is
+  // threaded for CR 113.7 correctness regardless). Like the fixed-N / enters-with-X writes above, this bypasses
+  // gameState.addCounter, so it routes the result through applyCounterDoubling (the Wave-3 doubler) explicitly.
+  // A 0-metric leaves a 0/0 that correctly dies to the lethal-toughness SBA (no fabricated floor).
+  const metricCtr = entersWithMetricCounters(card);
+  if (metricCtr) {
+    const ctx = { controller, sourceId: permId };
+    const raw = metricCtr.fixed + metricCtr.perUnit * countForSpec(state, ctx, metricCtr.metric);
+    if (raw > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", raw) };
+  }
   let next = {
     ...s3,
     players: {
