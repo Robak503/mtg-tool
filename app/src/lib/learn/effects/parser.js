@@ -258,6 +258,18 @@ function splitClauses(oracle) {
     // MULTI-COLOR descriptor ("black and green Insect") carries an internal " and " that must not be
     // split off, so keep the whole "create … creature token (with|for each) …" sentence together.
     if (/^create .*\bcreature tokens?\b (?:with|for each) .+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // ===== TOKENS ===== TOK-MULTICOLOR: a BARE vanilla creature token whose color is a CONJUNCTION
+    // ("black and red Goblin", "green and white Human Citizen") carries an internal " and " between the
+    // two color words — INTERNAL to the one create-token instruction, NOT a top-level effect boundary.
+    // Without this it splits into "create a 1/1 black" + "red Goblin creature token", both unparseable
+    // → low. The shape is anchored: count, P/T, then a descriptor of ONLY letters/slashes/spaces, ending
+    // EXACTLY at "creature token(s)" ($). Two distinct tokens joined by " and " ("…Beast creature token
+    // and a 1/1 white Soldier creature token") put a second "<P/T>" with digits in the descriptor slot →
+    // `[a-z/ ]+` can't span them → no match → still split into two atoms (no regression). Color isn't
+    // tracked on tokens (tokenTypeLine drops every color word incl. the connector "and"), so a multicolor
+    // token is modeled identically to a mono-color one — same accepted fidelity as the already-native
+    // "white Soldier", no NEW gap. A trailing rider ("…token, then draw a card") fails the $ anchor → splits.
+    if (/^create (?:a|an|one|two|three|four|five|\d+) \d+\/\d+ [a-z/ ]+ creature tokens?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
     // KW[ and KW]] [until end of turn]" — the " and " inside a multi-keyword rider ("with reach and haste")
     // is INTERNAL to the one animate instruction, not a top-level boundary. Keep the whole sentence so

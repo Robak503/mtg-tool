@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Multi-color creature tokens parse natively (TOK-MULTICOLOR):** a bare vanilla creature token
+  whose color is a conjunction ("Create a 1/1 **black and red** Goblin creature token", "1/1 **green
+  and white** Human Citizen") was being split on the internal " and " into two unparseable fragments
+  → routed to the Arbiter. The clause-keeper now holds a single-token sentence together (anchored to
+  end exactly at "creature token", so two distinct tokens joined by " and " — whose second carries its
+  own P/T digits — still split correctly, no regression). Color isn't tracked on tokens, so a
+  multi-color token is modeled identically to the already-native mono-color ones. Flips ETB creatures
+  (Elder Auntie, News Helicopter, Preening Champion), token spells, and activated-ability tokens
+  corpus-wide. **+15 cards**.
+
 - **"Each opponent discards a card" trigger effect modeled (EACHOP-DISCARD):** non-targeted mass
   discard aimed at all opponents (Burglar Rat, Noxious Toad, Cackling Fiend, Liliana's Specter,
   Elderfang Disciple, Elvish Doomsayer, Virus Beetle, + more) is now a first-class effect atom

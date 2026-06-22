@@ -444,6 +444,23 @@ describe("parseEffectProgram — create-token (P2.6)", () => {
     expect(parseEffectProgram(I("Create two 2/2 green Bear creature tokens.")).atoms[0])
       .toMatchObject({ op: "create-token", count: 2, power: 2, toughness: 2 });
   });
+  // ===== TOKENS ===== TOK-MULTICOLOR: a BARE (no with/for-each suffix) multicolor creature token's
+  // internal " and " between two colors must NOT be split off — it parses as ONE create-token atom.
+  // Color isn't tracked (tokenTypeLine drops every color word incl. "and"), so the descriptor keeps the
+  // conjunction harmlessly. The single-token cards (Elder Auntie, News Helicopter, Preening Champion).
+  it("TOK-MULTICOLOR: a bare multi-color creature token parses HIGH as one atom (internal 'and' not severed)", () => {
+    expect(parseEffectProgram(I("Create a 1/1 black and red Goblin creature token.")).atoms)
+      .toEqual([{ op: "create-token", count: 1, power: 1, toughness: 1, descriptor: "black and red goblin", targetType: null }]);
+    expect(parseEffectProgram(I("Create a 1/1 green and white Human Citizen creature token.")).atoms[0])
+      .toMatchObject({ op: "create-token", power: 1, toughness: 1, descriptor: "green and white human citizen" });
+  });
+  it("TOK-MULTICOLOR MUST_DROP_TO_LOW: two distinct tokens joined by ' and ', or an unmodeled rider, stay low", () => {
+    const conf = (txt) => programConfidence(parseEffectProgram(I(txt)));
+    // Two SEPARATE tokens: the second carries its own "<P/T>" (digits) in the descriptor slot → [a-z/ ]+
+    // can't span it → the clause-keeper doesn't fire → it splits, and the verb-less second piece drops to low.
+    expect(conf("Create a 3/3 green Beast creature token and a 1/1 white Soldier creature token.")).toBe("low");
+    expect(conf("Create a 2/2 black Zombie creature token with decayed.")).toBe("low"); // decayed unmodeled → Arbiter
+  });
   // ===== FOR-EACH ===== (WALT-FOREACH-TOK) "create a <P/T> <descriptor> creature token for each <source>"
   // — ONE token per source-unit; the count is a board count (countFor), resolved at resolution.
   it("FOREACH-TOK MUST_STAY_HIGH: a token per source-unit (creatures / Forests / cards in hand / graveyard)", () => {
