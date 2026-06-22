@@ -117,8 +117,9 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Sorcery", "Search your library for a basic land card, put it onto the battlefield tapped, then shuffle.", { name: "Rampant Growth" }))).toBe("native-spell");
     // RAMP-MULTI: a bare "up to two <land> → battlefield" multi-fetch (Explosive Vegetation) is now native too.
     expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.", { name: "Explosive Vegetation" }))).toBe("native-spell");
-    // Still Arbiter: a SPLIT-destination fetch (Cultivate) and a non-land cheat-into-play (Natural Order).
-    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", { name: "Cultivate" }))).toBe("arbiter-spell");
+    // RAMP-SPLIT: the Cultivate/Kodama split-destination fetch is now native (one -> battlefield tapped, other -> hand; found-one -> battlefield tapped per the rulings).
+    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", { name: "Cultivate" }))).toBe("native-spell");
+    // Still Arbiter: a non-land cheat-into-play (Natural Order).
     expect(classifyCard(C("Sorcery", "Search your library for a green creature card, put it onto the battlefield, then shuffle.", { name: "Natural Order" }))).toBe("arbiter-spell");
   });
   it("a permanent with abilities is body-only (body works, ability doesn't yet)", () => {

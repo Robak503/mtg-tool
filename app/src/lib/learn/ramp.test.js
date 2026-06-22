@@ -48,10 +48,11 @@ describe("parser — battlefield-destination tutor (RAMP-1)", () => {
     expect(isHigh("Search your library for a snow land card, put it onto the battlefield tapped, then shuffle.")).toBe(true);
   });
 
-  it("CREED: split-destination / 'up to three' / non-land battlefield fetches stay LOW → Arbiter", () => {
+  it("RAMP-SPLIT: the split-destination fetch is now native; 'up to three' / non-land battlefield fetches still stay LOW → Arbiter", () => {
     // NOTE: the bare "up to two <land> → battlefield" multi-fetch (Explosive Vegetation / Skyshroud Claim)
-    // is now MODELED by RAMP-MULTI (rampMulti.test.js). The SPLIT destination + non-land cheat stay low:
-    expect(isHigh("Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.")).toBe(false); // Kodama's Reach (split)
+    // is MODELED by RAMP-MULTI; the split destination (Cultivate / Kodama's Reach) is MODELED by RAMP-SPLIT.
+    // "up to three" + the non-land cheat stay low:
+    expect(isHigh("Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.")).toBe(true);  // Kodama's Reach (split) — RAMP-SPLIT
     expect(isHigh("Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.")).toBe(false);                       // "up to three" (only "up to two" modeled)
     expect(isHigh("Search your library for a green creature card, put it onto the battlefield, then shuffle.")).toBe(false);                                      // Natural Order (non-land cheat)
   });
@@ -114,9 +115,9 @@ describe("coverage — ramp flips native across every path; landmines bounce", (
     expect(classifyCard(C("Creature — Elf Scout", "When this creature enters the battlefield, you may search your library for a basic land card, reveal it, put it into your hand, then shuffle.", "Sylvan Ranger"))).toBe("native-trigger");
   });
 
-  it("CREED: split-destination and non-land battlefield fetches stay Arbiter (multi-land 'up to two' is now RAMP-MULTI)", () => {
-    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", "Cultivate"))).toBe("arbiter-spell"); // split destination
-    expect(classifyCard(C("Instant", "Search your library for a green creature card, put it onto the battlefield, then shuffle.", "Natural Order"))).toBe("arbiter-spell");
+  it("RAMP-SPLIT: the split-destination Cultivate fetch is now native; the non-land battlefield cheat stays Arbiter (multi-land 'up to two' is RAMP-MULTI)", () => {
+    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", "Cultivate"))).toBe("native-spell"); // RAMP-SPLIT — one -> battlefield tapped, other -> hand
+    expect(classifyCard(C("Instant", "Search your library for a green creature card, put it onto the battlefield, then shuffle.", "Natural Order"))).toBe("arbiter-spell"); // non-land cheat
   });
 });
 

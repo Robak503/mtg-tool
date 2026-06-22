@@ -39,8 +39,8 @@ describe("parser — multi-land battlefield ramp (RAMP-MULTI)", () => {
     expect(isHigh("Search your library for up to two land cards, put them onto the battlefield tapped, then shuffle.")).toBe(true); // Hour of Promise body / Primeval Titan clause ("land")
   });
 
-  it("CREED: split-destination / 'up to three' / non-land / rider multi-fetches stay LOW → Arbiter", () => {
-    expect(isHigh("Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.")).toBe(false); // Cultivate (split)
+  it("RAMP-SPLIT: the split-destination fetch is now native; 'up to three' / non-land / ambiguous-basic / rider multi-fetches still stay LOW → Arbiter", () => {
+    expect(isHigh("Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.")).toBe(true); // Cultivate (split) — RAMP-SPLIT
     expect(isHigh("Search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle.")).toBe(false);                   // up to three
     expect(isHigh("Search your library for up to two creature cards, put them onto the battlefield, then shuffle.")).toBe(false);                              // non-land
     expect(isHigh("Search your library for up to two basic Forest or Island cards, put them onto the battlefield, then shuffle.")).toBe(false);                // ambiguous-basic union
@@ -88,7 +88,7 @@ describe("coverage — RAMP-MULTI staples flip native; landmines bounce", () => 
     expect(classifyCard(C("Sorcery", "Search your library for up to two Forest cards, put them onto the battlefield tapped, then shuffle.", "Ranger's Path"))).toBe("native-spell");
     expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle.\nCycling {2} ({2}, Discard this card: Draw a card.)", "Migration Path"))).toBe("native-spell");
   });
-  it("CREED: the split-destination Cultivate family stays Arbiter", () => {
-    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", "Cultivate"))).toBe("arbiter-spell");
+  it("RAMP-SPLIT: the split-destination Cultivate family is now native", () => {
+    expect(classifyCard(C("Sorcery", "Search your library for up to two basic land cards, reveal those cards, put one onto the battlefield tapped and the other into your hand, then shuffle.", "Cultivate"))).toBe("native-spell");
   });
 });
