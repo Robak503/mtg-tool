@@ -553,12 +553,19 @@ describe("parseEffectProgram — named artifact tokens (TOK-2)", () => {
     expect(p.confidence).toBe("high");
     expect(p.atoms.map(a => a.op)).toEqual(["draw", "create-named-token"]);
   });
-  it("MUST_DROP_TO_LOW: unmodeled named tokens (Blood/Map/Powerstone) + a tapped/filtered rider", () => {
+  it("MUST_DROP_TO_LOW: unmodeled named tokens (Blood/Map/Powerstone) + an unmodeled count source", () => {
     expect(programConfidence(parseEffectProgram(I("Create a Blood token.")))).toBe("low");      // discard cost unmodeled
     expect(programConfidence(parseEffectProgram(I("Create a Map token.")))).toBe("low");        // explore + sorcery-speed target unmodeled
     expect(programConfidence(parseEffectProgram(I("Create a Powerstone token.")))).toBe("low"); // restricted mana unmodeled
-    expect(programConfidence(parseEffectProgram(I("Create a tapped Treasure token.")))).toBe("low"); // enters tapped → different behavior
-    expect(programConfidence(parseEffectProgram(I("Create a Treasure token for each opponent.")))).toBe("low"); // 'for each' rider
+    // ===== TREASURE-MAKER ===== "for each <unmodeled source>" matches the shape but the source ("opponent")
+    // isn't a count source → null → low (never a fabricated count); same for a bare "where X is …" gibberish.
+    expect(programConfidence(parseEffectProgram(I("Create a Treasure token for each opponent.")))).toBe("low");
+  });
+  // ===== TREASURE-MAKER ===== tapped + dynamic-count named tokens are now NATIVE (see tokenFactoryDynamic.test.js).
+  it("tapped Treasure token is native (enters tapped)", () => {
+    const p = parseEffectProgram(I("Create a tapped Treasure token."));
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "create-named-token", token: "treasure", count: 1, tapped: true });
   });
 });
 
