@@ -35,6 +35,7 @@ import {
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { parseStaticAbilities, parseAttachedBonus } from "./staticAbilityParser.js";
+import { parseProtectionColors } from "./protection.js";
 
 // ─── Dynamic P/T functions (CR 613 CDA-style values; code, NEVER stored in state) ─
 
@@ -103,9 +104,17 @@ function subtypesOf(card) {
 // ({ kind:"permanentsYouControl", cardType|subtype }) — the magnitude of a "for each <X> you control"
 // static self-buff. Word-bounded match on the type line. Local (no gameState import). 0 on an unknown spec.
 function countSelfSpecOnBoard(state, perm, spec) {
-  if (!spec || spec.kind !== "permanentsYouControl" || !perm) return 0;
+  if (!spec || !perm) return 0;
   const player = state?.players?.[perm.controller];
   if (!player) return 0;
+  // EQUIP-DYNAMIC-PT: distinct WUBRG colors among the controller's battlefield (Conqueror's Flail
+  // "+1/+1 for each color among permanents you control"). A colorless permanent contributes none.
+  if (spec.kind === "colorsAmongPermanents") {
+    const cols = new Set();
+    for (const p of player.battlefield || []) for (const c of colorsOf(p.card)) cols.add(c);
+    return cols.size;
+  }
+  if (spec.kind !== "permanentsYouControl") return 0;
   const needle = spec.cardType || spec.subtype;
   if (!needle) return 0;
   const re = new RegExp(`\\b${needle}\\b`);
@@ -591,6 +600,29 @@ export function permanentHasKeyword(state, permanentId, keyword) {
   return has;
 }
 
+/**
+ * EQUIP-PROTECTION (CR 702.16, layer 6) — the set of COLORS a permanent has "protection from" right now:
+ * its PRINTED protection-from-color (parseProtectionColors on the card) UNIONED with GRANTED protection
+ * from layer-6 `addProtection` continuous effects (a Captain America Sword's "Equipped creature … has
+ * protection from black and from green", scoped to attachedTo by staticEffectsOf). Returns a Set of
+ * WUBRG letters. There is no protection-REMOVAL form in scope, so a simple union is CR-correct (613.7).
+ *
+ * This is the LAYER-AWARE replacement for reading parseProtectionColors(card) directly at the three
+ * enforcement sites (combat damage / block / targeting) — so a grant via an attached Equipment/Aura is
+ * honored exactly like printed protection, and DISAPPEARS the instant the equipment unattaches (the
+ * staticEffectsOf bonus is keyed on attachedTo). Short-circuits to the printed set on an effect-free board.
+ */
+export function permanentProtectionColors(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return new Set();
+  const set = new Set(parseProtectionColors(perm.card));
+  const board = collectContinuousEffects(state);
+  if (board.length === 0) return set;
+  const l6 = board.filter(e => e.layer === 6 && e.op?.layerOp === "addProtection" && effectAffects(e, perm, state));
+  for (const e of l6) for (const c of e.op.colors || []) set.add(String(c).toUpperCase());
+  return set;
+}
+
 /** Effective colors (after layer 5). */
 export function permanentColors(state, permanentId) {
   return deriveCharacteristics(state, permanentId).colors;
@@ -615,6 +647,32 @@ export function permanentTypes(state, permanentId) {
  */
 export function permanentIsCreature(state, permanentId) {
   return permanentTypes(state, permanentId).types.includes("Creature");
+}
+
+/**
+ * GROUP-GRANT — the MANA-ability specs another permanent's static ability GRANTS this permanent (a Sliver
+ * lord's "All Slivers have \"{T}: Add …\"" — Gemhide/Manaweft, Enduring Vitality). Walks the same continuous
+ * -effect collection the layer engine uses, filters to layer-6 `addAbility` grants of kind "mana" that
+ * AFFECT this permanent (selector match via the shared `effectAffects`, so self in/exclude + controller
+ * scope + subtype are all honored), and returns the serializable `{colors, amount}` specs (parsed once by
+ * staticAbilityParser — manaModel reads these, never re-parses, so the classifier and runtime can't drift).
+ * Returns [] when no grant applies. Pure. Used by manaModel.manaSources / legalChoices.actionsTapForMana to
+ * offer a recipient the tap-for-mana source it gained — kept HERE (not manaModel) because only this module
+ * owns `effectAffects`/`matchesSelector`, and exposing the raw specs avoids a layers→manaModel import cycle.
+ */
+export function grantedManaSpecsFor(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return [];
+  const board = collectContinuousEffects(state);
+  if (board.length === 0) return [];
+  const specs = [];
+  for (const e of board) {
+    if (e.layer !== 6 || e.op?.layerOp !== "addAbility") continue;
+    if (e.op.grant?.kind !== "mana" || !e.op.grant.spec) continue;
+    if (!effectAffects(e, perm, state)) continue;
+    specs.push(e.op.grant.spec);
+  }
+  return specs;
 }
 
 /**

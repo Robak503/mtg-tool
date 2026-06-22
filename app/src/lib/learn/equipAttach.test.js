@@ -71,7 +71,11 @@ describe("coverage — auto-attach equipment is native-equipment", () => {
   });
   it("CREED: a UEOT-grant rider (Squire's Lightblade) stays body-only; a NON-routing trigger stays body-only", () => {
     expect(classifyCard(C("Squire's Lightblade", "When this Equipment enters, attach it to target creature you control. That creature gains first strike until end of turn.\nEquipped creature gets +1/+1.\nEquip {2}"))).toBe("body-only");
-    // an equipment whose trigger is an unmodeled event/effect doesn't route → not over-claimed.
-    expect(classifyCard(C("Weird Gear", "Whenever equipped creature deals combat damage to a player, you draw a card and you lose 1 life.\nEquipped creature gets +1/+1.\nEquip {2}"))).toBe("body-only");
+    // an equipment whose equipped-creature trigger is a MULTI-CLAUSE rider that doesn't fully model
+    // ("…discards a card and you untap all lands you control") doesn't route → stays body-only (WAVE 4:
+    // the equippedCreature scope is now DETECTED, so the non-routing gate is the all-or-nothing effect
+    // parse, not the old undetected-event accident). A fully-modeled rider (draw + lose-life, a Treasure)
+    // DOES flip native — that's correct, not an over-claim.
+    expect(classifyCard(C("Sword of Toil", "Whenever equipped creature deals combat damage to a player, that player discards a card and you untap all lands you control.\nEquipped creature gets +1/+1.\nEquip {2}"))).toBe("body-only");
   });
 });

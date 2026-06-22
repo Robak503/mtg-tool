@@ -47,18 +47,42 @@ function isLandPerm(perm) {
   return /Land/.test(typeStr(perm?.card));
 }
 
+// EQUIP-RIDER / Marvel-flavor labels (WAVE 4) — crossover-set flavor names that sit in the ability-word
+// slot ("Genius Industrialist — Whenever Iron Man attacks, …"; "... Catch — At the beginning of combat …").
+// They have NO rules meaning (like a CR 207.2c ability word), but unlike landfall/constellation/etc. they
+// are arbitrary card-specific names, so they're enumerated EXPLICITLY rather than by an open-ended
+// "<Word> — " strip — the corpus has 337 distinct real ability-word labels (Raid, Delirium, Metalcraft, …)
+// many of which carry an intervening-if condition, so a blanket strip would mis-normalize hundreds of cards
+// and drift the metric. Each label here is verified against oracle-index.json to be pure flavor with the
+// trigger's condition written out in full after it. Stripping the label lets the boundary-anchored trigger
+// regex see the bare "Whenever/At …" so the auto-attach (Catch) fires; cards whose RIDER is unmodeled
+// (Iron Man's compound sac-tutor, Knuckles, Cap's Throw) still stay body-only (the effect, not the label,
+// gates nativeness). Lowercased (the strip runs case-insensitively).
+const FLAVOR_TRIGGER_LABELS = [
+  "catch", "genius industrialist", "treasure hunter",
+];
+const FLAVOR_LABEL_RE = new RegExp(
+  // optional leading "... " (Cap's "... Catch"), then a flavor label, then the dash before a trigger keyword.
+  `^(?:\\.\\.\\.\\s*)?(?:${FLAVOR_TRIGGER_LABELS.join("|")})\\s*[—–-]\\s*(?=(?:when|whenever|at)\\b)`,
+  "gim",
+);
+
 /**
  * Strip a leading ability-word label that precedes a trigger keyword ("Landfall — Whenever …"). Ability
  * words (CR 207.2c) are flavor with no rules meaning; the label otherwise sits between the line start and
  * "Whenever", so the boundary-anchored trigger regex (here AND coverage.js's TRIGGER_SENTENCE_RE / residue
  * strip) never matches. Exported so the coverage metric normalizes IDENTICALLY — the shaped-sentence count
- * and the detected-trigger count must agree, or a landfall card mis-classifies. Currently just "Landfall —".
+ * and the detected-trigger count must agree, or a landfall card mis-classifies. Handles the standard CR
+ * 207.2c words PLUS an explicit set of crossover-set flavor labels (FLAVOR_LABEL_RE), each anchored on a
+ * trailing trigger-keyword lookahead so it can only consume a true label, never real rules text.
  */
 export function stripTriggerAbilityLabel(oracle) {
   // "treasure hunter" is Knuckles the Echidna's flavor ability-word label on its upkeep-win trigger
   // ("Treasure Hunter — At the beginning of your upkeep, …"). Like the others it's CR 207.2c flavor with
   // no rules meaning; stripping it lets the boundary-anchored trigger regex see the bare "At the beginning".
-  return String(oracle || "").replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter)\s*[—–-]\s*/gim, "");
+  return String(oracle || "")
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter)\s*[—–-]\s*/gim, "")
+    .replace(FLAVOR_LABEL_RE, "");
 }
 
 // ─── Detection ────────────────────────────────────────────────────────────────
@@ -437,6 +461,16 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\battacks\b/.test(c)) {
     if (selfRef) return { event: "attacks", scope: "self", whose: "any" };
     if (/a creature you control/.test(c)) return { event: "attacks", scope: "creatureYouControl", whose: "any" };
+    // EQUIP-RIDER attacks (WAVE 4) — "Whenever EQUIPPED CREATURE attacks, <effect>" (Argentum Armor /
+    // Ultima Weapon / Mjolnir attack payloads). The watcher is the EQUIPMENT; the attacker is the
+    // triggering permanent, so the scope fires ONLY when the attacker IS this equipment's attached
+    // creature (scopeMatches "equippedCreature": triggeringPermanent.id === sourcePermanent.attachedTo).
+    // EXACTLY anchored to the bare form: a rider variant ("attacks alone" — Bilbo's Ring / Sigil of Valor;
+    // "attacks the player with the most life" — Seraphic Greatsword; "attacks or blocks" — already caught
+    // by the attacks-or-blocks guard above) leaves residue → UNDETECTED → Arbiter (a SAFE false-negative,
+    // never an over-fire across the 57 corpus "equipped creature attacks" cards). whose:"any" — combat is
+    // not turn-scoped here; checkAttackTriggers only sources the active player's permanents anyway.
+    if (/^equipped creature attacks$/.test(c)) return { event: "attacks", scope: "equippedCreature", whose: "any" };
     // SUBTYPE attacks (tribal payoffs — Utvara Hellkite / Sanctum Seeker / Grolnok). Single-word subtype
     // filter reusing subtypeYouControl; checkAttackTriggers threads the attacker as triggeringPermanent.
     const atkSub = c.match(/^a ([a-z]{3,}) you control attacks$/);
@@ -462,6 +496,15 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\bdeals combat damage to a player$/.test(c)) {
     if (selfRef) return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
     if (/a creature you control/.test(c)) return { event: "combatDamageToPlayer", scope: "creatureYouControl", whose: "any" };
+    // EQUIP-RIDER combat-damage (WAVE 4) — "Whenever EQUIPPED CREATURE deals combat damage to a player,
+    // <effect>" (Goldvein Pick / The Reaver Cleaver Treasure riders, the Swords' combat-damage payloads).
+    // The watcher is the EQUIPMENT; the attacker that connected is the triggering permanent, so the
+    // "equippedCreature" scope fires ONLY when that attacker IS this equipment's attached creature. The
+    // outer guard is already END-anchored on "a player", so the qualified "…to a player or planeswalker"
+    // (The Reaver Cleaver's GRANTED ability, Beamtown Beatstick "…or battle") never enters this block →
+    // UNDETECTED → Arbiter (a SAFE false-negative, never an over-fire). whose:"any" like the per-attacker
+    // self/creatureYouControl forms above.
+    if (/^equipped creature deals combat damage to a player$/.test(c)) return { event: "combatDamageToPlayer", scope: "equippedCreature", whose: "any" };
     // SUBTYPE combat-damage (tribal payoffs — Curious Altisaur "Whenever a Dinosaur you control deals
     // combat damage to a player, draw a card"). A single-word creature SUBTYPE filter, reusing the
     // subtypeYouControl scope (controller + type-line substring; the attacker is threaded as
@@ -687,6 +730,12 @@ const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+)?|gains .+
 // rider/compound ("…on it. Draw a card") leaves it untouched → LOW → Arbiter (a SAFE false-negative).
 const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on it$/i;
 
+// SELF-LTB (Wave 4) — the EXACT "return it to its owner's hand" effect clause for the self-LTB family
+// (Rancor Aura PiG-return + Sword of the Realms equipped-creature-dies-return). Whole-clause anchored, so a
+// rider ("…at the beginning of the next end step" = a DELAYED return, Resurrection Orb; "…draw a card") leaves
+// residue → the marker isn't applied → the program stays LOW → Arbiter (a SAFE false-negative).
+const SELF_RETURN_IT_RE = /^return it to its owner's hand$/i;
+
 // WAVE 3b COUNTERS-ON-EVENT — the NON-SELF triggering-referent counter. A NON-self attack / combat-damage
 // trigger ("Whenever a creature you control deals combat damage to a player, put a +1/+1 counter on THAT
 // CREATURE" — Sphere Grid; "…attacks, put a +1/+1 counter on IT") names the TRIGGERING permanent (CR
@@ -704,8 +753,10 @@ const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\
 const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl"]);
 
 // ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
-// is `(condition, cardName, typeLine) => TriggerDescriptorClassification | null` and is consulted by
-// detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep priority).
+// is `(condition, cardName, typeLine, effectClause) => TriggerDescriptorClassification | null` and is
+// consulted by detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep
+// priority). `effectClause` (4th arg, added by SELF-LTB) is the trigger's first same-line effect sentence,
+// so a detector can gate on BOTH condition and effect; a condition-only detector ignores it.
 // Empty by default — a no-op until a slice registers one — so existing classification is untouched.
 const _triggerDetectors = [];
 export function registerTriggerDetector(fn) {
@@ -743,7 +794,11 @@ export function detectTriggers(card) {
       // inputs classifyCondition does (condition text, card name, type line).
       if (!cls) {
         for (const d of _triggerDetectors) {
-          const r = d(split.condition, card.name, card.type || card.type_line);
+          // The 4th arg (the trigger's effect text) lets an effect-sensitive detector gate on BOTH the
+          // condition AND the effect — e.g. SELF-LTB classifies "equipped creature dies" ONLY when the
+          // effect is "return it to its owner's hand", so "equipped creature dies, draw a card" stays
+          // unmatched (CREED). Pre-existing condition-only detectors simply ignore the extra arg.
+          const r = d(split.condition, card.name, card.type || card.type_line, split.effectClause);
           if (r) { cls = r; break; }
         }
       }
@@ -774,6 +829,15 @@ export function detectTriggers(card) {
         // as the pump (a NON-self trigger's "it" is the OTHER triggering creature, never the source) +
         // the whole-clause anchor, so the parser's self-counter atom (target:"self") models it.
         effectClause = effectClause.replace(/ on it$/i, " on this creature");
+      } else if (cls.selfReturnKind && SELF_RETURN_IT_RE.test(effectClause)) {
+        // SELF-LTB (Wave 4) — "return it to its owner's hand" where the returned object has ALREADY LEFT the
+        // battlefield (it's in a graveyard): the Aura self-PiG-return (Rancor — "it" = the Aura) or the
+        // equipped-creature-dies-return (Sword of the Realms — "it" = the dead creature). DISTINCT from the
+        // live self-bounce (Zephyr Spirit's "When this creature blocks, return it …" — the source is still on
+        // the battlefield), so it must NOT collapse to the existing bounce. Rewrite to a kind-tagged marker
+        // phrase that ONLY the selfReturnClauseParser models → the self-return atom (graveyard → owner's hand).
+        // Gated on cls.selfReturnKind (set ONLY by the two narrow detectors), so no other trigger is touched.
+        effectClause = `[self-return:${cls.selfReturnKind}] ${effectClause}`;
       } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && NONSELF_COUNTER_REF_RE.test(effectClause)) {
         // WAVE 3b COUNTERS-ON-EVENT: a NON-self attack/combat-damage trigger's "…put a +1/+1 counter on IT
         // / on THAT CREATURE" — the referent is the TRIGGERING permanent (CR 608.2c), not the source.
@@ -794,6 +858,7 @@ export function detectTriggers(card) {
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
+        selfReturnKind: cls.selfReturnKind,   // SELF-LTB: "self" (Aura PiG) | "attached" (equipped-creature-dies)
         perCard: cls.perCard,                 // MILL-ON-EVENT: true = per-card ("mills a card"), false = once-per-event ("one or more … are milled")
         milledFilter: cls.milledFilter,       // MILL-ON-EVENT: "nonland" | null (which milled cards count)
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
@@ -831,6 +896,18 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   switch (descriptor.scope) {
     case "self":
       return !triggeringPermanent || triggeringPermanent.id === sourcePermanent.id;
+    case "equippedCreature":
+      // EQUIP (WAVE 4) — the source is the EQUIPMENT; the trigger fires ONLY when the triggering permanent IS
+      // this equipment's host. TWO linkages, unified (both Wave-4 equippedCreature descriptors share this scope):
+      //   (a) EQUIP-RIDER (attack / combat-damage): while ATTACHED the host is sourcePermanent.attachedTo.
+      //   (b) SELF-LTB equipped-creature-dies-return (Sword of the Realms): on the host's DEATH the equipment is
+      //       ALREADY detached (attachedTo null by the time checkDiesTriggers runs), so the linkage is read from
+      //       the dead creature's CR-603.10a look-back `attachments` (captured before the detach).
+      // Never fires when unattached off an unrelated attacker (attachedTo null AND not in its attachments). The
+      // per-equipped-creature correctness relies on ATTACH permitting only an own-creature host (resolvers.js).
+      return !!triggeringPermanent
+        && (triggeringPermanent.id === sourcePermanent.attachedTo
+            || (Array.isArray(triggeringPermanent.attachments) && triggeringPermanent.attachments.includes(sourcePermanent.id)));
     case "you":
       return true; // step / lifegain / cardDrawn / youAttack triggers — `whose` gates ownership
     case "milled":
@@ -907,6 +984,11 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
     triggeringPermanentId: triggeringPermanent?.id,
     triggeringCardName: triggeringPermanent?.card?.name,
     triggeringController: triggeringPermanent?.controller,
+    // SELF-LTB (Wave 4): the triggering object's CARD id + token-ness, so a self-return resolver can locate
+    // the exact card now sitting in a graveyard (the perm id is stale once it left the battlefield) and skip
+    // a token (CR 111.7 — a token ceases to exist, never returns to a hand). Harmless extra fields otherwise.
+    triggeringCardId: triggeringPermanent?.card?.id,
+    triggeringCardIsToken: !!triggeringPermanent?.card?.token,
     ...triggeringContext,
   };
   return {
@@ -1046,29 +1128,73 @@ export function checkPermanentEntersTriggers(state, enteredPerm) {
 }
 
 export function checkDiesTriggers(state, dead) {
-  if (!dead || !dead.length) return state;
+  // SELF-LTB (Wave 4): drain any "leaves the battlefield" events queued by gameState.detachPermanentFromAll
+  // FIRST (every death path runs destroyLethalCreatures → moveCardToZone → detach, then checkDiesTriggers),
+  // so an orphaned Aura's PiG-return trigger (Rancor) is enqueued alongside the creature's dies triggers.
+  let state2 = checkLeavesTriggers(state);
+  if (!dead || !dead.length) return state2;
   let fired = [];
   for (const d of dead) {
     if (!d?.card) continue;
-    const lookBack = { id: d.id, controller: d.controller, card: d.card };
-    // DIES-TRIGGER-RESOURCE-PAYOFFS: the dying creature's last-known POWER (CR 603.6e), captured at the
-    // SBA/destroy/sacrifice look-back BEFORE the permanent left the battlefield. Threaded as ctx.dyingPower
-    // so a "<payoff> equal to its power" dies-trigger (Goldvein Hydra Treasures, Lifeblood Hydra gain+draw,
-    // Feral Ghoul rad) reads the real on-board power. ONLY the SOURCE's OWN dies-trigger ("when THIS creature
-    // dies") references "its power"; a surviving watcher ("whenever a creature dies") that reads a magnitude
-    // off the triggering creature would also want it, so it's carried on both fires (a watcher that doesn't
-    // use it simply ignores the ctx key). A dead entry with no captured power (PW SBA, an unsized CDA) carries
-    // `undefined` → the payoff resolves to 0 (a clean no-op, never a fabricated count).
+    // SELF-LTB (Wave 4): carry the dead creature's former `attachments` ids on the look-back so the
+    // equippedCreature scope (Sword of the Realms) can match its watcher (CR 603.10a look-back).
+    // DIES-TRIGGER-RESOURCE-PAYOFFS (Wave 3b): also carry the dying creature's last-known POWER (CR 603.6e),
+    // captured at the SBA/destroy/sacrifice look-back BEFORE the permanent left the battlefield. Threaded as
+    // ctx.dyingPower so a "<payoff> equal to its power" dies-trigger (Goldvein Hydra Treasures, Lifeblood
+    // Hydra gain+draw, Feral Ghoul rad) reads the real on-board power. ONLY the SOURCE's OWN dies-trigger
+    // ("when THIS creature dies") references "its power"; a surviving watcher ("whenever a creature dies")
+    // that reads a magnitude off the triggering creature would also want it, so it's carried on both fires
+    // (a watcher that doesn't use it simply ignores the ctx key). A dead entry with no captured power (PW SBA,
+    // an unsized CDA) carries `undefined` → the payoff resolves to 0 (a clean no-op, never a fabricated count).
+    // All fires read `state2` (post-checkLeavesTriggers, consistent with the return below).
+    const lookBack = { id: d.id, controller: d.controller, card: d.card, attachments: d.attachments || [] };
     const diesCtx = d.power != null ? { dyingPower: d.power } : {};
-    fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
-    for (const pid of Object.keys(state.players)) {
-      for (const watcher of triggerSourcesOf(state, pid)) {
-        fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
+    fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
+    for (const pid of Object.keys(state2.players)) {
+      for (const watcher of triggerSourcesOf(state2, pid)) {
+        fired = fired.concat(triggersForEvent(state2, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack, triggeringContext: diesCtx }));
       }
     }
   }
-  if (!fired.length) return state;
-  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+  if (!fired.length) return state2;
+  return { ...state2, pendingTriggers: [...(state2.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * SELF-LTB (Wave 4) — fire "leaves the battlefield" (LTB / put-into-a-graveyard) triggers for the
+ * permanents gameState.detachPermanentFromAll recorded on `state.pendingLeaveEvents` (a plain-JSON look-back
+ * list: `{ id, controller, card, toGraveyard }`, CR 603.6e/603.10a), then ALWAYS CLEAR the queue (idempotent
+ * — a second call sees an empty list). gameState can't import triggers.js (circular-import hazard), so the
+ * emit-side only records data and this triggers-side drains it. Each leave fires its OWN watcher (a self-LTB
+ * trigger like Rancor's PiG-return — the only "ltb" detector today, so a plain creature/equipment leaving
+ * matches nothing and is a no-op). This is the GENERIC LTB emitter the brief asks for (Wave-5
+ * LTB-counter-relocation, The Ozolith, reuses it without re-plumbing). Pure; appends to pendingTriggers.
+ *
+ * The look-back is BOTH sourcePermanent and triggeringPermanent (the self pattern, mirroring
+ * checkDiesTriggers' self path) so scopeMatches' "self" fires and the resolver gets the leaving object's
+ * card in context (makePendingTrigger threads triggeringCardId/triggeringController). A token leaving carries
+ * no return semantics — the resolver self-guards on card.token (CR 111.7), so emitting it here is harmless.
+ */
+export function checkLeavesTriggers(state) {
+  const events = state.pendingLeaveEvents || [];
+  if (!events.length) return state;
+  // Always clear the queue, whether or not anything matched, so events never leak across SBA checks.
+  const cleared = { ...state, pendingLeaveEvents: [] };
+  let fired = [];
+  for (const e of events) {
+    if (!e?.card) continue;
+    // The ONLY "ltb" trigger modeled today is the Aura self-PiG-return (Rancor), whose printed condition is
+    // "is put INTO A GRAVEYARD from the battlefield" (CR 700.4 — NOT a bounce/exile). So fire "ltb" only for a
+    // graveyard exit; a bounce/exile leave is recorded (so the queue is generic + Wave-5-ready) but not fired
+    // here — it matches no current detector, and firing it would WRONGLY return a bounced Aura (a false
+    // positive). A future generic "leaves the battlefield" consumer (Ozolith) keys on the recorded events
+    // regardless of toGraveyard via its own handling.
+    if (!e.toGraveyard) continue;
+    const lookBack = { id: e.id, controller: e.controller, card: e.card };
+    fired = fired.concat(triggersForEvent(cleared, { event: "ltb", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+  }
+  if (!fired.length) return cleared;
+  return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };
 }
 
 /**

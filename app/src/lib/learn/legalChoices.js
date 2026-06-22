@@ -30,11 +30,11 @@
  */
 
 import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
-import { canAfford, manaSources, manaProduction } from "./manaModel.js";
+import { canAfford, manaSources, manaProduction, landAuraManaBonus } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
-import { permanentHasKeyword, permanentIsCreature, colorsOf } from "./layers.js";
-import { collectCostReducers, costReductionForSpell } from "./staticAbilityParser.js";
+import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor } from "./layers.js";
+import { collectCostReducers, costReductionForSpell, cantCastDescriptorOf } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -42,7 +42,7 @@ import { expandCastChoices } from "./effects/targeting.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { parseActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost } from "./effects/abilities.js";
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, entersWithXCounters } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, entersWithXCounters } from "./staticAbilityParser.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -585,6 +585,20 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       continue;
     }
 
+    // AURA-LAND-MANA-BOOST (CR 303.4): a land-enchant mana Aura (Wild Growth / Overgrowth / Fertile
+    // Ground) is a targeted permanent spell that chooses the LAND it enchants. "Enchant land" has no
+    // controller restriction, but the only USEFUL target is one of the caster's OWN lands (enchanting an
+    // opponent's land just ramps them), so we offer own lands only (a safe, useful subset). Once
+    // attached, the boost mana appears inline whenever that land taps (manaModel.landAuraManaBonus).
+    if (isNativeManaAura(card)) {
+      const targets = enumerateTargets(state, playerId, { targetType: "land", restrictions: [{ kind: "controller", who: "you" }] }, colorsOf(card));
+      if (targets.length === 0) continue;
+      for (const t of targets) {
+        actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
+      }
+      continue;
+    }
+
     if (effectNeedsTarget(effect)) {
       // Targeted spell: one cast action per legal target (the action-expansion
       // pattern, same as multi-defender combat). No legal target → can't cast.
@@ -627,7 +641,14 @@ function actionsTapForMana(state, playerId) {
   const actions = [];
   for (const perm of player.battlefield) {
     if (perm.tapped) continue;
-    const prod = manaProduction(perm.card);
+    let prod = manaProduction(perm.card);
+    // GROUP-GRANT: a permanent with no own mana ability can have a {T}: Add … ability GRANTED by a lord
+    // (Gemhide/Manaweft). DEDUP mirrors manaSources — the grant only adds a source where the permanent has
+    // none of its own (the granter keeps its own quoted-text source; granting again would double it).
+    if (!prod) {
+      const granted = grantedManaSpecsFor(state, perm.id);
+      if (granted.length) prod = { colors: granted[0].colors, amount: granted[0].amount };
+    }
     if (!prod) continue;
     const isCreature = /Creature/.test(String(perm.card?.type || perm.card?.type_line || ""));
     // Granted Haste counts here too (a lord that hastes your mana dorks).
@@ -639,6 +660,13 @@ function actionsTapForMana(state, playerId) {
       ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, prod.amountSpec))
       : prod.amount;
     if (amount <= 0) continue;
+    // AURA-LAND-MANA-BOOST: a land carrying a mana-boost Aura yields extra mana INLINE when it taps
+    // (the Aura is NOT tapped). landAuraManaBonus is the SAME helper manaSources/planPayment use, so
+    // the explicit tap and the auto-pay planner can't drift (the CREED two-sites invariant). Each
+    // bonus entry chooses its color here (a fixed-color uses its color; an any-color picks its first —
+    // the explicit-tap learner play just floats the mana, no future-cost lookahead).
+    const bonusSources = landAuraManaBonus(state, perm);
+    const bonus = bonusSources.map(b => ({ color: b.colors[0], amount: b.amount }));
     for (const color of prod.colors) {
       actions.push({
         kind: "tap-for-mana",
@@ -647,6 +675,7 @@ function actionsTapForMana(state, playerId) {
         color,
         amount,
         sacrifices: !!prod.sacrifices,   // one-shot Treasure/Gold — applyTapForMana sacrifices it (TOK-2)
+        ...(bonus.length ? { bonus } : {}),
         name: perm.card.name,
       });
     }
@@ -977,6 +1006,46 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
   return actions;
 }
 
+// ─── OPPONENTS-CANT-ACT (Grand Abolisher / Voice of Victory / Conqueror's Flail) ────────────────────────
+
+/**
+ * The cant-act restriction currently imposed on `playerId` by OTHER players' static abilities (CR 720 /
+ * CR 116 — "your opponents can't cast spells [or activate abilities of artifacts, creatures, or
+ * enchantments] during your turn"). Returns `{ cantCast }`.
+ *
+ * A descriptor on player P's permanent (battlefield or command zone) suppresses P's OPPONENTS' casts — but
+ * ONLY during P's turn (state.activePlayer === P), the "during your turn" window. So we look at the CURRENT
+ * active player; if it isn't `playerId` and that active player controls a cant-act source AND `playerId` is
+ * one of their opponents, `playerId`'s casts are suppressed. Attachment-gated sources (Conqueror's Flail)
+ * count ONLY while the source permanent is actually attached (attachedTo set) — re-checked live, NOT at
+ * parse time, so an unattached Flail imposes nothing. The controller is never restricted by their OWN
+ * source (we only suppress the active player's opponents), so this never locks your own casts.
+ *
+ * Only cast suppression is returned: the activated-ability half (Grand Abolisher) is already enforced by
+ * the engine's own-turn-only activation gating — see the call site in legalActionsForPlayer.
+ */
+function opponentsCantActAgainst(state, playerId) {
+  const active = state.activePlayer;
+  // The window is the active player's turn; only the ACTIVE opponent's source can restrict us right now.
+  if (!active || active === playerId) return { cantCast: false };
+  const activePlayer = state.players?.[active];
+  if (!activePlayer) return { cantCast: false };
+  // `playerId` must be one of the active player's opponents for the "your opponents" scope to apply.
+  if (!opponentsOf(state, active).includes(playerId)) return { cantCast: false };
+
+  // A static "your opponents can't cast …" ability functions ONLY while its source is on the battlefield
+  // (CR 113.6) — NOT from the command zone. So scan only the battlefield: a creature-commander carrying this
+  // clause (Dragonlord Dromoka, Kutzil, Myrel) imposes nothing while it sits in the command zone. None of the
+  // cant-cast cards have command-zone-functioning wording, so the command zone is never scanned here.
+  for (const perm of (activePlayer.battlefield || [])) {
+    const d = cantCastDescriptorOf(perm.card);
+    if (!d) continue;
+    if (d.attachedGated && !perm.attachedTo) continue; // an unattached Conqueror's Flail imposes nothing
+    return { cantCast: true };
+  }
+  return { cantCast: false };
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -1007,16 +1076,33 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   const attackerIds = declaredAttackers ?? (state.combat?.attackers || []).map(a => a.permanentId);
   const actions = [];
 
+  // OPPONENTS-CANT-ACT: what an active opponent's static (Grand Abolisher / Voice of Victory / a fitted
+  // Conqueror's Flail) forbids THIS player from doing right now (CR 720). `cantCast` drops every cast
+  // action (spells + command-zone casts) while it is the controller's turn.
+  //
+  // CREED — the activated-ability half (Grand Abolisher's "or activate abilities of artifacts, creatures,
+  // or enchantments") is ALREADY fully enforced, NOT silently dropped: the engine offers activated/mana/
+  // loyalty/cycling abilities ONLY on the acting player's own main phase (every such generator early-returns
+  // when state.activePlayer !== playerId — see actionsTapForMana/actionsActivateAbility/actionsActivateLoyalty/
+  // actionsCycleFromHand). So during the abolisher controller's turn an opponent can ONLY cast spells (and act
+  // in combat) — they already cannot activate ANY ability of ANY permanent. Grand Abolisher's lock is thus a
+  // strict subset of a restriction the engine already imposes; honoring it needs only the cast suppression
+  // here, and both clauses of the card are respected. (`includeActivated` on the descriptor remains the
+  // record of the modeled scope and gates the coverage flip.)
+  const { cantCast } = opponentsCantActAgainst(state, playerId);
+
   // Pass priority — always available IF the player has priority.
   if (state.priorityHolder === playerId) {
     actions.push(actionPassPriority(playerId));
   }
 
   // Lands, spells, mana.
-  actions.push(...actionsPlayLand(state, playerId));
-  actions.push(...actionsCastSpell(state, playerId));
-  actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
-  actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (CR 702.139)
+  actions.push(...actionsPlayLand(state, playerId)); // playing a land is NOT casting a spell — never suppressed
+  if (!cantCast) {
+    actions.push(...actionsCastSpell(state, playerId));
+    actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
+  }
+  actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsActivateAbility(state, playerId));
   actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw

@@ -48,12 +48,12 @@ import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.
 import { manaSources, planPayment } from "./manaModel.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
-import { isAuraCard, isNativeAura, entersTapped } from "./staticAbilityParser.js";
+import { isAuraCard, isNativeAura, isNativeManaAura, entersTapped } from "./staticAbilityParser.js";
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
 import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
-import { wardTaxForSpell } from "./ward.js";
+import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { entersWithFadeCounters } from "./fading.js";
 import { applyXCastTokenTriggers } from "./xCastToken.js";
 
@@ -155,6 +155,10 @@ function commitManaTaps(state, playerId, taps) {
   let working = state;
   for (const tap of taps || []) {
     working = addMana(working, { playerId, color: tap.color, amount: tap.amount });
+    // AURA-LAND-MANA-BOOST: the boost-Aura mana that appears INLINE when this land taps (the Aura is
+    // NOT tapped/consumed). planPayment chose the bonus color(s) and counted them in plan.spend, so
+    // adding them here keeps the topped pool == the plan's spend (no divergence → no stranded mana).
+    for (const b of tap.bonus || []) working = addMana(working, { playerId, color: b.color, amount: b.amount });
     if (tap.sacrifices) {
       const sacPerm = working.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
       working = moveCardToZone(working, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
@@ -354,6 +358,12 @@ function applyCastSpell(state, action) {
     // to the targeted creature. The target id is the battlefield permanent chosen at cast.
     const targetId = targets[0]?.id;
     payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card, controller: action.playerId, targetId } };
+  } else if (isNativeManaAura(card)) {
+    // AURA-LAND-MANA-BOOST (Wild Growth / Overgrowth / Fertile Ground): an Aura enchanting a LAND. Same
+    // AURA_ETB resolver, but the target is a LAND (the resolver re-checks the type per the card). Once
+    // attached, manaModel.landAuraManaBonus adds the extra mana inline when the land taps (CR 605.1b).
+    const targetId = targets[0]?.id;
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card, controller: action.playerId, targetId } };
   } else if (isAuraCard(card)) {
     // An Aura we can't model end-to-end (enchants a non-creature / restricted subject, or
     // carries an unmodeled bonus/ability). Route to the Arbiter seam rather than entering a
@@ -449,7 +459,7 @@ function applyCastSpell(state, action) {
   if (wardTax) {
     next = setPendingSoftCounterChoice(next, {
       controller: action.playerId,
-      amount: wardTax.amount,
+      cost: wardTax.cost, // KW-WARD-PR2: structured cost (mana | life); settle pays it by kind
       spellId: stkId,
       spellName: card.name,
       sourceName: wardTax.wardName,
@@ -480,6 +490,9 @@ function applyTapForMana(state, action) {
   // Add the mana, then TAP a repeatable source or SACRIFICE a one-shot Treasure/Gold (action.sacrifices,
   // set by legalChoices.actionsTapForMana) — the same one-shot discipline as the auto-pay commit path.
   let next = addMana(state, { playerId: action.playerId, color: action.color, amount: action.amount || 1 });
+  // AURA-LAND-MANA-BOOST: float the boost-Aura mana that appears INLINE when this land taps (CR 605.1b)
+  // — the Aura is NOT tapped/consumed. action.bonus is set by legalChoices.actionsTapForMana.
+  for (const b of action.bonus || []) next = addMana(next, { playerId: action.playerId, color: b.color, amount: b.amount });
   if (action.sacrifices) {
     next = moveCardToZone(next, { playerId: action.playerId, fromZone: "battlefield", toZone: "graveyard", cardId: action.permanentId });
     // SAC-TREASURE: cracking a one-shot Treasure/Gold for mana IS a sacrifice (CR 701.21) → fire
@@ -618,6 +631,21 @@ function applyActivateAbility(state, action) {
   // the stack now (ABOVE the ability, so they resolve first — CR 603.3b), exactly as the cast path
   // flushes cast triggers. A no-op when nothing triggered (the pre-γ1 common case).
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
+  // KW-WARD-PR2 (CR 702.21a): ward triggers on a spell OR an ABILITY an opponent controls — so an
+  // opponent's activated/triggered ability targeting a single ward permanent raises the same pay-or-be-
+  // countered choice as the cast path. An Equip ability targets the activator's OWN creature (controller
+  // == caster), so wardTaxForStackObject returns null there — no false ward on equipping your own creature.
+  // Skipped if a trigger above already set a pendingChoice (no-ops on an occupied slot — safe FN).
+  const abilityWardTax = wardTaxForStackObject(next, stackObject);
+  if (abilityWardTax) {
+    next = setPendingSoftCounterChoice(next, {
+      controller: action.playerId,
+      cost: abilityWardTax.cost,
+      spellId: stkId,
+      spellName: perm.card?.name,
+      sourceName: abilityWardTax.wardName,
+    });
+  }
   // Activating a (non-mana) ability uses the stack — restart the priority loop at the
   // active player (CR 117.1c), exactly like casting a spell.
   return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };

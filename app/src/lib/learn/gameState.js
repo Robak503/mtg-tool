@@ -627,7 +627,9 @@ export function moveCardToZone(state, { playerId, fromZone, toZone, cardId, beco
     }));
     // Leaving the battlefield: detach this permanent from its host and unattach anything
     // on it (CR 704.5n/704.5q). A blink (→ battlefield) keeps attachments out of scope here.
-    return toZone === "battlefield" ? result : detachPermanentFromAll(result, permanent);
+    // SELF-LTB: pass whether this exit is to a graveyard so detachPermanentFromAll's leave-event
+    // look-back records `toGraveyard` correctly (Rancor's self-PiG-return keys on it).
+    return toZone === "battlefield" ? result : detachPermanentFromAll(result, permanent, toZone === "graveyard");
   }
 
   // Non-battlefield source: cardId is matched against card.id (caller's
@@ -833,12 +835,32 @@ export function attachPermanent(state, { equipId, targetId }) {
 }
 
 /**
+ * SELF-LTB (Wave 4) — record a "leaves the battlefield" look-back event (CR 603.6e/603.10a) on
+ * `state.pendingLeaveEvents` so a triggers-importing drainer (triggers.checkDiesTriggers →
+ * checkLeavesTriggers) can fire LTB/PiG triggers WITHOUT gameState importing triggers.js (the circular-
+ * import hazard the brief flags). The look-back snapshot is the permanent as it LAST existed on the
+ * battlefield, since by trigger-resolution time it's already in the graveyard. Pure; the event is plain
+ * JSON so serialize→restore replays identically. `toGraveyard` distinguishes a graveyard exit (Rancor's
+ * PiG) from a non-graveyard exit (bounce/exile) — the Aura self-PiG-return detector keys on the former.
+ */
+function recordLeaveEvent(state, permanent, toGraveyard) {
+  if (!permanent?.card) return state;
+  const ev = { id: permanent.id, controller: permanent.controller, card: permanent.card, toGraveyard: !!toGraveyard };
+  return { ...state, pendingLeaveEvents: [...(state.pendingLeaveEvents || []), ev] };
+}
+
+/**
  * Detach a permanent as it LEAVES the battlefield (CR 704.5n / 704.5q): drop it from its
  * host's `attachments`, and clear `attachedTo` on everything attached to IT. Pure.
+ *
+ * SELF-LTB (Wave 4): also records a leave event (recordLeaveEvent) for the leaving permanent AND for
+ * each Aura it orphans to a graveyard — the single chokepoint every battlefield exit passes through
+ * (moveCardToZone calls this on any non-battlefield move). `toGy` marks whether the leaving permanent is
+ * itself headed to a graveyard (passed by moveCardToZone); the orphaned Aura is always graveyard-bound.
  */
-export function detachPermanentFromAll(state, permanent) {
+export function detachPermanentFromAll(state, permanent, toGy = false) {
   if (!permanent) return state;
-  let next = state;
+  let next = recordLeaveEvent(state, permanent, toGy);
   if (permanent.attachedTo) {
     next = updatePermanentSafe(next, permanent.attachedTo, p => ({ ...p, attachments: (p.attachments || []).filter(id => id !== permanent.id) }));
   }
@@ -848,6 +870,9 @@ export function detachPermanentFromAll(state, permanent) {
     // CR 704.5n: an AURA that loses its host can't stay on the battlefield — it's put into
     // its owner's graveyard. An Equipment just becomes unattached (stays on the battlefield).
     if (/\bAura\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) {
+      // The orphaned Aura's own leave event is recorded by the recursive detachPermanentFromAll that
+      // moveCardToZone(→ graveyard) invokes on it (the top-of-function recordLeaveEvent) — so do NOT record
+      // it here too (that double-fired Rancor's PiG-return). The single chokepoint is the recursion.
       next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: attId });
     } else {
       next = updatePermanentSafe(next, attId, p => ({ ...p, attachedTo: null }));
@@ -1099,7 +1124,12 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
   const regenerated = []; // REGEN (CR 701.15) — creatures whose destruction a regen shield replaces this SBA
   // Look-back snapshot (CR 603.10a): by the time dies-triggers are checked the permanent is
   // already in the graveyard, so its last-known characteristics travel with the `dead` entry.
-  // DIES-TRIGGER-RESOURCE-PAYOFFS: capture the dying creature's POWER here too (CR 603.6e — a
+  // SELF-LTB (Wave 4): the look-back also carries the dead creature's `attachments` ids (the
+  // equipment/aura that WERE on it at death) — captured here BEFORE destroyLethalCreatures' move loop
+  // detaches them — so the "Whenever equipped creature dies, return it to its owner's hand" trigger
+  // (Sword of the Realms) can match its watcher (an equipment whose id is in this list) even though the
+  // equipment's own `attachedTo` is already null by the time checkDiesTriggers runs.
+  // DIES-TRIGGER-RESOURCE-PAYOFFS (Wave 3b): capture the dying creature's POWER here too (CR 603.6e — a
   // dies-trigger that reads "its power" uses the creature's last-known power AS IT EXISTED ON THE
   // BATTLEFIELD just before it left). `creaturePower(perm, state)` reads the full layer-aware value
   // (counters + anthems + pumps) BECAUSE this runs inside the loop over the ORIGINAL pre-move `state`
@@ -1109,7 +1139,14 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
   // never a fabricated count).
   const markDead = (pid, perm) => {
     const pw = creaturePower(perm, state);
-    dead.push({ controller: pid, id: perm.id, name: perm.card?.name || "creature", card: perm.card, power: Number.isFinite(pw) ? pw : null });
+    dead.push({
+      controller: pid,
+      id: perm.id,
+      name: perm.card?.name || "creature",
+      card: perm.card,
+      attachments: [...(perm.attachments || [])],
+      power: Number.isFinite(pw) ? pw : null,
+    });
   };
   for (const [pid, player] of Object.entries(state.players)) {
     for (const perm of player.battlefield) {

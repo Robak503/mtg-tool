@@ -7,19 +7,31 @@
  * targetability in enumerateTargets). So ward never touches `canBeTargetedBy`; it fires AFTER a
  * target is chosen.
  *
- * REUSE: the "counter unless its controller pays {N}" machinery already exists as the SOFT-COUNTER
+ * REUSE: the "counter unless its controller pays [cost]" machinery already exists as the SOFT-COUNTER
  * path (effectAtoms.applyCounter `unlessPay` → pendingChoice "soft-counter" → resolveSoftCounterChoice
  * + the driver/AI settle + the UI). Ward is a thin trigger that raises the SAME pendingChoice with the
- * spell's controller as the payer and the ward cost as the amount — so the decision, the AI heuristic,
- * the UI panel, and the counter are all inherited, not rebuilt.
+ * spell/ability's controller as the payer and the ward cost as the cost — so the decision, the AI
+ * heuristic, the UI panel, and the counter are all inherited, not rebuilt.
  *
- * SCOPE (PR1): mana ward costs whose pips are ALL generic ({2}, {1}, {3}, {4} — ~142 of the 213 ward
- * cards), because the soft-counter `amount` is a generic number. A colored/hybrid ward ({1}{U}) or a
- * non-mana ward (—Pay 3 life / —Discard a card / —Sacrifice) parses to null here and is left
- * UNENFORCED (a safe false-negative — ward stays a partial interim-FP for those, never mis-resolved).
- * A spell targeting 2+ opponent ward permanents is also left unenforced (each ward is its own trigger,
- * CR 702.21c; summing them would be an approximation) — the single-ward case is the overwhelming norm.
- * Abilities/triggered-ability targeting (vs spell targeting) is PR2.
+ * SCOPE — PR1 (shipped): all-generic mana ward ({2}, {1}, {3}, {4}). PR2 (this slice) adds:
+ *   - COLORED / HYBRID mana ward ({1}{U}, {W/U}) — parsed to a full mana cost and paid via payManaCost
+ *     (the soft-counter settle now carries a structured `cost`, not a bare generic). No corpus card uses
+ *     this today (the only non-all-generic mana ward is Minthara's `Ward {X}`, which stays null), but
+ *     the path is COMPLETE so such a card resolves correctly the moment it appears — never a generic
+ *     approximation that mis-charges a color (a CREED false positive).
+ *   - LIFE ward ("Ward—Pay N life") — 19 corpus cards. Paid deterministically (loseLife) when the payer
+ *     has >= N life (CR 119.4); declined otherwise → countered. No card/permanent CHOICE is involved, so
+ *     it threads through the binary soft-counter pay-or-decline pause unchanged.
+ *   - ABILITY targeting (vs only spell targeting). Activated/triggered abilities go on the stack with
+ *     targets, so an opponent's ABILITY targeting a ward permanent now raises the ward tax too.
+ *
+ * STILL OUT (safe false-negatives, returned as null = unenforced, never mis-resolved):
+ *   - DISCARD / SACRIFICE ward ("Ward—Discard a card" / "Ward—Sacrifice a creature") — paying these
+ *     requires the payer to CHOOSE a card/permanent, which the binary soft-counter pay-or-decline pause
+ *     cannot express without a second nested pending-choice (high-blast-radius shared-infra change for 0
+ *     in-deck and ~20 corpus cards). Left unenforced rather than half-built.
+ *   - {X} ward (Minthara) — the cost is a value the ATTACKER would choose; no soft-counter shape for it.
+ *   - A spell/ability targeting 2+ opponent ward permanents (each ward is its own trigger, CR 702.21c).
  *
  * Pure: regex + board reads, no mutation.
  */
@@ -27,42 +39,92 @@
 import { findPermanent } from "./gameState.js";
 import { permanentHasKeyword } from "./layers.js";
 
+const SINGLE_COLORS = new Set(["W", "U", "B", "R", "G"]);
+
 /**
- * The ward cost printed on a card, as a generic-mana amount — or null when it isn't an all-generic
- * mana ward (colored/hybrid mana and non-mana costs are out of PR1 scope, returned as null = unenforced).
- * "Ward {2}" → { generic: 2 }; "Ward {1}{U}" / "Ward—Pay 3 life" → null.
+ * Parse the pips of a mana ward cost (everything after "Ward ") into the planPayment cost shape, or null
+ * if ANY pip isn't a known mana symbol (digit / single color / C / hybrid). {X}/{Y}/{Z} → null (the
+ * attacker-chosen value is unmodeled). Mirrors legalChoices.parseManaCost's grammar but is inlined to keep
+ * ward.js a leaf (importing legalChoices would pull the whole cast graph + risk a cycle).
  */
-export function parseWardCost(card) {
-  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
-  // The mana form is "Ward {…}"; the non-mana forms use an em-dash ("Ward—Pay 3 life") and won't match.
-  // Pips must be DIRECTLY adjacent ({1}{U}) — no `\s*` between them, or a greedy match would cross the
-  // newline after "Ward {2}" and swallow the NEXT ability's mana ("{1}{R}{G}, Exile…" → a false colored
-  // read on Wilson, Ardent Bear / Pippin). A mana cost never has whitespace inside it, so this is exact.
-  const m = oracle.match(/\bward\s+(\{[^}]+\}(?:\{[^}]+\})*)/i);
-  if (!m) return null;
-  const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
-  if (pips.length && pips.every((p) => /^\d+$/.test(p))) {
-    return { generic: pips.reduce((sum, p) => sum + parseInt(p, 10), 0) };
+function parseWardManaPips(pipStrings) {
+  const cost = { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] };
+  for (const raw of pipStrings) {
+    const pip = raw.trim().toUpperCase();
+    if (/^\d+$/.test(pip)) { cost.generic += parseInt(pip, 10); continue; }
+    if (SINGLE_COLORS.has(pip)) { cost[pip] += 1; continue; }
+    if (pip === "C") { cost.C += 1; continue; }
+    // Hybrid "{W/U}" / "{2/W}" — every option must be a digit or a single color (drop a "/P" phyrexian
+    // marker, which the planner pays as colored). A phyrexian-only "{U/P}" reduces to ["U"].
+    if (pip.includes("/")) {
+      const parts = pip.split("/").map((p) => p.trim()).filter((p) => p && p !== "P");
+      if (parts.length && parts.every((p) => /^\d+$/.test(p) || SINGLE_COLORS.has(p) || p === "C")) {
+        cost.hybrid.push(parts);
+        continue;
+      }
+      return null; // unrecognized hybrid option
+    }
+    return null; // {X}, snow {S}, or any unknown symbol → unmodeled ward
   }
-  return null; // colored / hybrid / {X} ward — PR2 (the soft-counter amount is generic-only)
+  return cost;
 }
 
 /**
- * If `spellObj` (a stack object) targets EXACTLY ONE permanent that (a) is controlled by an opponent of
- * the spell's controller and (b) has ward with an all-generic mana cost, return { amount, wardName };
- * otherwise null. Used to raise a soft-counter (pay-or-be-countered) against the caster.
+ * The ward cost printed on a card, as a STRUCTURED descriptor — or null when it's a form this slice does
+ * not enforce (discard/sacrifice/{X} ward, or no ward at all).
+ *   - mana: { kind: "mana", mana: <planPayment cost> }    ("Ward {2}", "Ward {1}{U}", "Ward {W/U}")
+ *   - life: { kind: "life", life: N }                      ("Ward—Pay 3 life")
+ * Discard / sacrifice / {X} → null (a safe false-negative; see the file header).
  */
-export function wardTaxForSpell(state, spellObj) {
-  const caster = spellObj?.controller;
+export function parseWardCost(card) {
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+
+  // NON-MANA forms use an em-dash or hyphen: "Ward—Pay 3 life" / "Ward — Discard a card".
+  // LIFE is the one non-mana form this slice pays (no card/permanent choice). Anchor on the digit+life.
+  const lifeM = oracle.match(/\bward\s*[—-]\s*pay\s+(\d+)\s+life/i);
+  if (lifeM) return { kind: "life", life: parseInt(lifeM[1], 10) };
+  // Discard / sacrifice ward — recognized but UNENFORCED (needs a payer choice). Return null = safe FN.
+  if (/\bward\s*[—-]\s*(discard|sacrifice)/i.test(oracle)) return null;
+
+  // MANA form: "Ward {…}". Pips must be DIRECTLY adjacent ({1}{U}) — no `\s*` between them, or a greedy
+  // match would cross the newline after "Ward {2}" and swallow the NEXT ability's mana ("{1}{R}{G},
+  // Exile…" → a false colored read on Wilson, Ardent Bear / Pippin). A mana cost never has whitespace
+  // inside it, so this is exact.
+  const m = oracle.match(/\bward\s+(\{[^}]+\}(?:\{[^}]+\})*)/i);
+  if (!m) return null;
+  const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  if (!pips.length) return null;
+  const mana = parseWardManaPips(pips);
+  if (!mana) return null; // {X} / unknown symbol → unmodeled
+  return { kind: "mana", mana };
+}
+
+/**
+ * If `stackObj` (a stack object — spell OR activated/triggered ability) targets EXACTLY ONE permanent
+ * that (a) is controlled by an opponent of the object's controller and (b) has ward with a cost this
+ * slice can pay (mana or life), return { cost, wardName }; otherwise null. Used to raise a soft-counter
+ * (pay-or-be-countered) against the object's controller. CR 702.21a: ward fires on a spell OR an ability
+ * an opponent controls — both go on the stack with `controller` + `targets` here.
+ */
+export function wardTaxForStackObject(state, stackObj) {
+  const caster = stackObj?.controller;
   if (!caster) return null;
-  const wardTargets = (spellObj.targets || []).filter((t) => {
+  const wardTargets = (stackObj.targets || []).filter((t) => {
     if (!t || (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker")) return false;
     const lk = findPermanent(state, t.id);
     return lk && lk.controller !== caster && permanentHasKeyword(state, t.id, "Ward");
   });
-  if (wardTargets.length !== 1) return null; // 0 → no ward; 2+ → PR2 (separate triggers), safe FN
+  if (wardTargets.length !== 1) return null; // 0 → no ward; 2+ → separate triggers (CR 702.21c), safe FN
   const lk = findPermanent(state, wardTargets[0].id);
   const cost = parseWardCost(lk?.permanent?.card);
-  if (!cost) return null;
-  return { amount: cost.generic, wardName: lk.permanent.card?.name || null };
+  if (!cost) return null; // discard/sacrifice/{X} ward → unenforced
+  return { cost, wardName: lk.permanent.card?.name || null };
+}
+
+/**
+ * Back-compat alias — the spell-cast path's name for wardTaxForStackObject (a spell IS a stack object).
+ * Kept so the cast wiring + existing tests read naturally.
+ */
+export function wardTaxForSpell(state, spellObj) {
+  return wardTaxForStackObject(state, spellObj);
 }

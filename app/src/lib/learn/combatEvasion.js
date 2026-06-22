@@ -30,8 +30,7 @@
  * a team grant) falls through unrecognized → the body stays body-only / the card routes to the
  * Arbiter (false-negative SAFE), never a half-enforced false positive.
  */
-import { permanentHasKeyword, permanentColors, permanentTypes } from "./layers.js";
-import { parseProtectionColors } from "./protection.js";
+import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
 
 // Basic-landwalk keyword → the land subtype that switches it on.
@@ -152,9 +151,9 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   }
 
   // Protection from a color (CR 702.16f): an ATTACKING creature with protection from a color can't be
-  // blocked by a creature of that color. Printed protection only (granted protection is PR2). Layer-aware
-  // blocker colors so a granted/removed color counts.
-  const attProtColors = parseProtectionColors(aCard);
+  // blocked by a creature of that color. Layer-aware on BOTH sides: the attacker's protection (printed OR
+  // granted by an attached Equipment/Aura) AND the blocker's colors (a granted/removed color counts).
+  const attProtColors = permanentProtectionColors(state, attackerId);
   if (attProtColors.size > 0) {
     for (const c of permColorSet(state, blockerId)) {
       if (attProtColors.has(c)) return false;
