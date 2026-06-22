@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
-import { canAfford, manaSources, manaProduction } from "./manaModel.js";
+import { canAfford, manaSources, manaProduction, landAuraManaBonus } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf } from "./layers.js";
@@ -42,7 +42,7 @@ import { expandCastChoices } from "./effects/targeting.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { parseActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost } from "./effects/abilities.js";
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, entersWithXCounters } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, entersWithXCounters } from "./staticAbilityParser.js";
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -585,6 +585,20 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       continue;
     }
 
+    // AURA-LAND-MANA-BOOST (CR 303.4): a land-enchant mana Aura (Wild Growth / Overgrowth / Fertile
+    // Ground) is a targeted permanent spell that chooses the LAND it enchants. "Enchant land" has no
+    // controller restriction, but the only USEFUL target is one of the caster's OWN lands (enchanting an
+    // opponent's land just ramps them), so we offer own lands only (a safe, useful subset). Once
+    // attached, the boost mana appears inline whenever that land taps (manaModel.landAuraManaBonus).
+    if (isNativeManaAura(card)) {
+      const targets = enumerateTargets(state, playerId, { targetType: "land", restrictions: [{ kind: "controller", who: "you" }] }, colorsOf(card));
+      if (targets.length === 0) continue;
+      for (const t of targets) {
+        actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
+      }
+      continue;
+    }
+
     if (effectNeedsTarget(effect)) {
       // Targeted spell: one cast action per legal target (the action-expansion
       // pattern, same as multi-defender combat). No legal target → can't cast.
@@ -639,6 +653,13 @@ function actionsTapForMana(state, playerId) {
       ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, prod.amountSpec))
       : prod.amount;
     if (amount <= 0) continue;
+    // AURA-LAND-MANA-BOOST: a land carrying a mana-boost Aura yields extra mana INLINE when it taps
+    // (the Aura is NOT tapped). landAuraManaBonus is the SAME helper manaSources/planPayment use, so
+    // the explicit tap and the auto-pay planner can't drift (the CREED two-sites invariant). Each
+    // bonus entry chooses its color here (a fixed-color uses its color; an any-color picks its first —
+    // the explicit-tap learner play just floats the mana, no future-cost lookahead).
+    const bonusSources = landAuraManaBonus(state, perm);
+    const bonus = bonusSources.map(b => ({ color: b.colors[0], amount: b.amount }));
     for (const color of prod.colors) {
       actions.push({
         kind: "tap-for-mana",
@@ -647,6 +668,7 @@ function actionsTapForMana(state, playerId) {
         color,
         amount,
         sacrifices: !!prod.sacrifices,   // one-shot Treasure/Gold — applyTapForMana sacrifices it (TOK-2)
+        ...(bonus.length ? { bonus } : {}),
         name: perm.card.name,
       });
     }

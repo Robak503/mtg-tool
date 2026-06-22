@@ -31,7 +31,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { detectTriggers, stripTriggerAbilityLabel } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, entersWithPlusCounters, entersWithXCounters } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, entersWithPlusCounters, entersWithXCounters } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -403,7 +403,15 @@ export function classifyCard(card) {
   // Aura doesn't have). An Aura is EITHER fully native (enter + attach + a clean
   // enchanted-creature bonus, no residue) OR body-only — whose cast routes to the Arbiter
   // seam, never a do-nothing permanent. Exhaustive + first, so no Aura slips into a wrong tier.
-  if (isAuraCard(card)) return isNativeAura(card) ? "native-aura" : "body-only";
+  // AURA-LAND-MANA-BOOST: a land-enchant Aura whose only effect is a "tapped for mana" boost (Wild
+  // Growth / Overgrowth / Fertile Ground) enters + attaches to a land and adds mana inline when it
+  // taps (manaModel.landAuraManaBonus). Checked before the creature-aura gate (single source of truth
+  // — isNativeManaAura), so the metric credits EXACTLY the cards the runtime plays natively, no
+  // over-claim: an Aura that is neither a clean creature-aura nor a clean mana-aura stays body-only.
+  if (isAuraCard(card)) {
+    if (isNativeManaAura(card)) return "native-mana-aura";
+    return isNativeAura(card) ? "native-aura" : "body-only";
+  }
   // A clone (CR 707) — a creature whose WHOLE text is "enters as a copy of a creature" — now
   // plays natively (it suspends on a copy-choice and enters as a snapshot). Checked before the
   // generic classifiers (its copy clause isn't a trigger/static/mana ability they'd recognize).
@@ -443,7 +451,7 @@ export function classifyCard(card) {
   return "body-only";
 }
 
-export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-clone", "native-mixed", "native-planeswalker"]);
+export const NATIVE_TIERS = new Set(["land", "native-mana", "native-body", "native-spell", "native-trigger", "native-activated", "native-static", "native-equipment", "native-aura", "native-mana-aura", "native-clone", "native-mixed", "native-planeswalker"]);
 export const isNativeTier = (tier) => NATIVE_TIERS.has(tier);
 
 // Mechanism buckets for the gap (priority-ordered; first match wins) — the roadmap.

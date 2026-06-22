@@ -27,7 +27,7 @@ import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram } from "./effects/runProgram.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
-import { entersWithPlusCounters, entersWithXCounters, entersTapped } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X
+import { entersWithPlusCounters, entersWithXCounters, entersTapped, isNativeManaAura } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + AURA-LAND-MANA-BOOST
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { applyCounterDoubling } from "./replacementEffects.js"; // Wave-3 doubler (leaf): enters-with-counters bypasses addCounter, so double here
 
@@ -276,7 +276,12 @@ export const RESOLVERS = Object.freeze({
     if (!card || !controller) return resolveManual(state, obj);
     const tgt = findPermanent(state, targetId);
     const tgtType = String(tgt?.permanent?.card?.type || tgt?.permanent?.card?.type_line || "");
-    if (!tgt || !/Creature/.test(tgtType)) {
+    // AURA-LAND-MANA-BOOST: a land-enchant mana Aura (Wild Growth / Overgrowth / Fertile Ground) must
+    // still be attached to a LAND at resolution; every other native Aura enchants a Creature. The
+    // required target type follows the card (single source of truth — isNativeManaAura), so the
+    // creature path stays byte-identical.
+    const requiredType = isNativeManaAura(card) ? /Land/ : /Creature/;
+    if (!tgt || !requiredType.test(tgtType)) {
       return logEvent(state, { kind: "spell-fizzle", source: card?.name, reason: "aura target illegal", controller });
     }
     return enterPermanent(state, card, controller, { attachTo: targetId });
