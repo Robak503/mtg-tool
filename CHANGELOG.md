@@ -8,16 +8,6 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
-- **"Put a counter on target creature you control" trigger effects modeled (COUNTER-TARGET-OWN):**
-  "put a +1/+1 counter on target creature you control" (Merfolk Skydiver, Kujar Seedsculptor, Yotian
-  Dissident, Odric's Outrider, Ornery Kudu, Channeler Initiate, Spinal Centipede, Simian Simulacrum,
-  + more) and the -1/-1 drawback form (Baleful Ammit, "put a -1/-1 counter on target creature you
-  control") are now modeled as `targetType:"creatureYouControl"`. The new targetType restricts
-  `enumerateTargets` to own-side creatures only, and `atomTargetIntent` always returns `"own"`
-  regardless of counter sign — so Baleful Ammit's -1/-1 routes natively to the controller's creature
-  instead of triggering the bare-form heuristic (which would mis-route to an opponent). The bare
-  "target creature" forms (+1/+1 and -1/-1) are unchanged. **+17 cards** (18.9% → 19.0%).
-
 - **"Each opponent discards a card" trigger effect modeled (EACHOP-DISCARD):** non-targeted mass
   discard aimed at all opponents (Burglar Rat, Noxious Toad, Cackling Fiend, Liliana's Specter,
   Elderfang Disciple, Elvish Doomsayer, Virus Beetle, + more) is now a first-class effect atom
