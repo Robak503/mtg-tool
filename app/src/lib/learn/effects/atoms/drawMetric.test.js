@@ -5,13 +5,13 @@
  *   1. "Draw cards equal to the greatest power/toughness among creatures you control" — the count is a
  *      board MAX resolved AT RESOLUTION (greatestPower/ToughnessYouControl in countForSpec), layer-aware.
  *   2. "Draw a card for each OTHER <X> you control" — the source permanent is excluded from the count
- *      (CR 109.2), via the `excludeSource` flag parseCountSource now sets (gated by allowExcludeSource so
- *      ONLY the DRAW matchers opt in — sibling gain-life/token "other" forms stay LOW, unchanged).
+ *      (CR 109.2), via the `excludeSelf` flag the parseCountSource "other" wrapper sets (#365 COUNT-OTHER;
+ *      DRAW-METRIC unified onto it — gated to a controller-scoped permanent count).
  *
  * Covers: the parser atom shape + confidence for both forms; countForSpec resolution of the two new metric
- * kinds (5-power board → 5; toughness variant; empty board → 0); excludeSource skipping ctx.sourceId
- * (3 other Dinos + source → 3); and an end-to-end resolveAtom draw (the controller's hand grows by the
- * resolved metric). The "other" strip is gated, so a non-opting matcher is unaffected.
+ * kinds (5-power board → 5; toughness variant; empty board → 0); excludeSelf skipping the source
+ * (3 other Dinos + source → 3, via ctx.sourceId or the mana-path ctx.source); and an end-to-end resolveAtom
+ * draw (the controller's hand grows by the resolved metric).
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -61,21 +61,26 @@ describe("DRAW-METRIC — parser (greatest power/toughness among creatures you c
   });
 });
 
-describe("DRAW-METRIC — parser ('for each other <X> you control', excludeSource)", () => {
-  it("'draw a card for each other Dinosaur you control' → HIGH with excludeSource on the spec", () => {
+describe("DRAW-METRIC — parser ('for each other <X> you control', excludeSelf)", () => {
+  it("'draw a card for each other Dinosaur you control' → HIGH with excludeSelf on the spec", () => {
     expect(atom0(S("Draw a card for each other Dinosaur you control.")))
-      .toMatchObject({ op: "draw", amountCount: { kind: "permanentsYouControl", subtype: "Dinosaur", excludeSource: true, per: 1 } });
+      .toMatchObject({ op: "draw", amountCount: { kind: "permanentsYouControl", subtype: "Dinosaur", excludeSelf: true, per: 1 } });
     expect(conf(S("Draw a card for each other Dinosaur you control."))).toBe("high");
   });
 
-  it("the NON-'other' draw is byte-unchanged (no excludeSource flag)", () => {
+  it("the NON-'other' draw is byte-unchanged (no excludeSelf flag)", () => {
     const a = atom0(S("Draw a card for each Dinosaur you control."));
     expect(a).toMatchObject({ op: "draw", amountCount: { kind: "permanentsYouControl", subtype: "Dinosaur", per: 1 } });
-    expect(a.amountCount.excludeSource).toBeUndefined();
+    expect(a.amountCount.excludeSelf).toBeUndefined();
   });
 
-  it("the strip is GATED to the draw matchers — a 'for each other' GAIN-LIFE form stays LOW (unchanged)", () => {
-    expect(conf(I("You gain 2 life for each other creature you control."))).toBe("low");
+  it("the 'other' wrapper is shared — a 'for each other' GAIN-LIFE form is also HIGH with excludeSelf (#365)", () => {
+    // parseCountSource's "other" → excludeSelf wrapper is universal (gated to a controller-scoped permanent
+    // count), so the sibling gain-life for-each matcher inherits it too — "gain N life for each OTHER creature
+    // you control" excludes the source (CR 109.2). This is the merged #365 behavior, not a draw-only opt-in.
+    expect(conf(I("You gain 2 life for each other creature you control."))).toBe("high");
+    expect(atom0(I("You gain 2 life for each other creature you control.")))
+      .toMatchObject({ op: "gain-life", amountCount: { kind: "permanentsYouControl", cardType: "creature", excludeSelf: true } });
   });
 });
 
@@ -99,27 +104,35 @@ describe("DRAW-METRIC — countForSpec resolution (greatest power/toughness)", (
   });
 });
 
-describe("DRAW-METRIC — countForSpec resolution (excludeSource 'other')", () => {
-  it("'other Dinosaur you control': 3 other Dinos + the source → 3 (source excluded, CR 109.2)", () => {
+describe("DRAW-METRIC — countForSpec resolution (excludeSelf 'other')", () => {
+  it("'other Dinosaur you control': 3 other Dinos + the source → 3 (source excluded via ctx.sourceId, CR 109.2)", () => {
     const src = creature("src");
     const others = [creature("d1"), creature("d2"), creature("d3")];
     const s = stateWith([src, ...others]);
     const ctx = { controller: "user", targets: [], sourceId: "src" };
-    // WITHOUT excludeSource the count is all 4; WITH it the source is skipped → 3.
+    // WITHOUT excludeSelf the count is all 4; WITH it the source is skipped → 3.
     expect(countForSpec(s, ctx, { kind: "permanentsYouControl", subtype: "Dinosaur" })).toBe(4);
-    expect(countForSpec(s, ctx, { kind: "permanentsYouControl", subtype: "Dinosaur", excludeSource: true })).toBe(3);
+    expect(countForSpec(s, ctx, { kind: "permanentsYouControl", subtype: "Dinosaur", excludeSelf: true })).toBe(3);
   });
 
-  it("excludeSource also honors triggeringPermanentId (the trigger's own permanent)", () => {
-    const s = stateWith([creature("trig"), creature("d1"), creature("d2")]);
-    const ctx = { controller: "user", targets: [], triggeringPermanentId: "trig" };
-    expect(countForSpec(s, ctx, { kind: "permanentsYouControl", subtype: "Dinosaur", excludeSource: true })).toBe(2);
+  it("excludeSelf also honors the mana-path ctx.source (the tapped permanent object)", () => {
+    const s = stateWith([creature("src"), creature("d1"), creature("d2")]);
+    const ctx = { controller: "user", targets: [], source: { id: "src" } };
+    expect(countForSpec(s, ctx, { kind: "permanentsYouControl", subtype: "Dinosaur", excludeSelf: true })).toBe(2);
   });
 
-  it("on a SPELL (no sourceId / triggeringPermanentId) excludeSource is a no-op — counts all", () => {
+  it("'other' excludes the SOURCE, not a different triggering permanent (CR 109.2 — only the ability's source)", () => {
+    // A non-self trigger: source is "src" (the watcher), triggeringPermanentId is a DIFFERENT permanent.
+    // "other" excludes the source only; the unrelated triggering permanent is still counted.
+    const s = stateWith([creature("src"), creature("trig"), creature("d1")]);
+    const ctx = { controller: "user", targets: [], sourceId: "src", triggeringPermanentId: "trig" };
+    expect(countForSpec(s, ctx, { kind: "permanentsYouControl", subtype: "Dinosaur", excludeSelf: true })).toBe(2);
+  });
+
+  it("on a SPELL (no source) excludeSelf is a no-op — counts all", () => {
     const s = stateWith([creature("d1"), creature("d2"), creature("d3")]);
     const ctx = { controller: "user", targets: [] };
-    expect(countForSpec(s, ctx, { kind: "permanentsYouControl", subtype: "Dinosaur", excludeSource: true })).toBe(3);
+    expect(countForSpec(s, ctx, { kind: "permanentsYouControl", subtype: "Dinosaur", excludeSelf: true })).toBe(3);
   });
 });
 

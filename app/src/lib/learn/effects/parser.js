@@ -609,9 +609,9 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = 
   // power (Overwhelming Stampede "+X/+X where X is the greatest power among creatures you control") or
   // greatest toughness (DRAW-METRIC "draw cards equal to the greatest toughness among creatures you
   // control") among the controller's creatures. countForSpec computes it at resolution; an EMPTY board → 0
-  // (a safe 0, never fabricated). "other " is meaningless on a board MAX (it's still the same max if the
-  // source is excluded only when the source IS the unique max) — but excludeSource is honored uniformly so
-  // the flag never silently no-ops a phrasing that carried it.
+  // (a safe 0, never fabricated). A leading "other " on a board MAX is gated out by the parseCountSource
+  // wrapper (excludeSelf is restricted to permanentsYouControl), so a "greatest … among other creatures"
+  // phrasing routes to the Arbiter rather than silently dropping the flag — a safe FN.
   if (/^greatest power among creatures you control$/.test(p)) return withExclude({ kind: "greatestPowerYouControl" });
   if (/^greatest toughness among creatures you control$/.test(p)) return withExclude({ kind: "greatestToughnessYouControl" });
   // ===== EXPERIENCE ===== the controller's experience counter total. "experience counters you have" is the
