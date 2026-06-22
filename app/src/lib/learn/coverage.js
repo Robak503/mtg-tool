@@ -76,6 +76,10 @@ export const COVERED_KEYWORDS = [
   // the upkeep remove-or-sacrifice (gameEngine → fading.applyFadeVanishUpkeep), CR 702.32a / 702.63a.
   // "fading N" / "vanishing N" match via the startsWith check.
   "fading", "vanishing",
+  // KW-CYCLING is NOT a generic startsWith keyword — see reCyclingCost in isKeywordOnly. The generic
+  // `startsWith("cycling ")` rule would mis-credit any line opening with "cycling " (e.g. Fluctuator's
+  // static "Cycling abilities you activate cost {2} less to activate"), so cycling is gated to the
+  // exact "cycling {cost}" activated-ability shape the engine actually enforces (parseCyclingCost).
 ];
 
 const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
@@ -100,9 +104,18 @@ export function isKeywordOnly(oracle, name) {
   const clauses = t.split(/[,;.!?\n]|\band\b/).map((c) => c.trim()).filter(Boolean);
   return clauses.every((c) =>
     COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)) ||
-    isEnforcedEvasionClause(c),
+    isEnforcedEvasionClause(c) ||
+    reCyclingCost.test(c),
   );
 }
+
+// KW-CYCLING — credit a clause ONLY when it's "cycling {cost}" (the keyword + one or more brace mana
+// symbols), mirroring the engine's parseCyclingCost (effects/abilities.js) EXACTLY so the metric never
+// over-claims past what actionDispatcher.applyCycle enforces. A bare "cycling " prefix is NOT enough:
+// Fluctuator's static "cycling abilities you activate cost {2} less to activate" has no brace cost
+// immediately after "cycling" → no match → body-only. Typecycling (landcycling/plainscycling/…) never
+// starts with "cycling " and a cycle-trigger leaves residue, so both already stay body-only.
+const reCyclingCost = /^cycling (?:\{[^}]+\})+$/;
 
 /**
  * True when a permanent's tap produces mana — the mana system taps rocks/dorks
