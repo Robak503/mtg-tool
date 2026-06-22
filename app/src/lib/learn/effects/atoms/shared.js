@@ -87,6 +87,7 @@ export const atomTargets = (state, atom, ctx) => {
   if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller);
   if (atom.target === "self") return selfTargets(state, ctx);
+  if (atom.target === "thatCreature") return triggeringTargets(state, ctx);
   return ctx.targets || [];
 };
 
@@ -99,6 +100,20 @@ export const atomTargets = (state, atom, ctx) => {
 export function selfTargets(state, ctx) {
   const lk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
   return lk && isCreatureCard(lk.permanent.card) ? [{ type: "creature", id: ctx.sourceId, controller: lk.controller }] : [];
+}
+
+/**
+ * TRIG-PRONOUN-IT — the TRIGGERING permanent as a target list (for the NON-SELF "it"/"that creature"
+ * pronoun in a trigger effect, CR 608.2c — the object the ability triggered on, NOT the source).
+ * ctx.triggeringPermanentId is threaded FLAT by the trigger flush (runEffectProgram spreads
+ * trigger.context). A spell has no triggering permanent → [] (a no-op, never a fabricated effect).
+ * Only a CREATURE referent is returned. Mirrors counters.triggeringCreatureTargets so pump / bounce
+ * share the WAVE-3b counter path's referent resolution (one convention: target:"thatCreature").
+ */
+export function triggeringTargets(state, ctx) {
+  const id = ctx.triggeringPermanentId;
+  const lk = id ? findPermanent(state, id) : null;
+  return lk && isCreatureCard(lk.permanent.card) ? [{ type: "creature", id, controller: lk.controller }] : [];
 }
 
 // An X-amount atom (`amountX:true`, set by the parser for an {X}-cost spell) reads
