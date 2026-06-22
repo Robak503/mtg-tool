@@ -227,7 +227,7 @@ export function runStepActions(state) {
     case "cleanup":
       next = emptyManaPools(next);
       next = clearCombatDamage(next); // combat damage wears off at end of turn
-  next = clearWolverineTurnFlags(next); // WOLVERINE clause 2: reset the per-turn dealt-damage flag (CR 514.2)
+      next = clearWolverineTurnFlags(next); // WOLVERINE clause 2: reset the per-turn dealt-damage flag (CR 514.2)
       // "Until end of turn" continuous effects wear off here (CR 514.2) — pump
       // (Giant Growth etc.) registered as endOfTurn-duration layer effects expire.
       next = expireContinuousEffects(next, { atCleanupOfTurn: next.turn });

@@ -312,7 +312,9 @@ describe("trigger-damage path", () => {
     const baseline = applyTriggerEffect(s, { effect: { kind: "damage", targetType: "eachOpponent", amount: 3 }, controller: "user" });
     const withSource = applyTriggerEffect(s, { effect: { kind: "damage", targetType: "eachOpponent", amount: 3 }, controller: "user", sourcePermanentId: bear.id });
     expect(baseline.players.ai.life).toBe(37); // 40 - 3, un-doubled
-    expect(withSource.players.ai.life).toBe(37); // threading source changes nothing without a doubler
+    // CREED proof (MUST-FIX 3): with no doubler on the board, threading sourcePermanentId must change NOTHING.
+    // Full state+log equality between the two runs — not a single-field spot-check.
+    expect(withSource).toStrictEqual(baseline);
   });
 
   it("a Wolverine-sourced eachOpponent trigger doubles the damage to each opponent", () => {
@@ -350,7 +352,23 @@ describe("life loss is NEVER doubled (the landmine — guards 1 & 4)", () => {
 
 // ─── THE CREED PROOF: byte-identical on a board with NO damage-replacement ───────────
 describe("byte-identical negative (the CREED proof)", () => {
-  it("a vanilla-only board never triggers the consult and resolves identically", () => {
+  // The CREED proof (seam-plan section 3 test 12 / section 7): the damage-replacement SYSTEM must be a pure
+  // no-op on a board with NO doubler. We assert FULL player-state equality (toStrictEqual) against the
+  // pre-resolution baseline with ONLY the documented combat outcome applied — not a per-field spot-check —
+  // plus zero new-system artifact (Wolverine flag / doubled / replacement log) anywhere.
+  it("an unblocked vanilla attacker: full player-state byte-identical except the exact life delta", () => {
+    const bear = vanilla("Bear", 2, 2, "user");
+    const s = makeState({ userBf: [bear] }, { attackers: [{ permanentId: bear.id, attackingPlayer: "user", defender: "ai" }], blockers: [] });
+    expect(boardHasDamageReplacement(s)).toBe(false);
+    const before = structuredClone(s);
+    const out = resolveCombatDamage(s);
+    const expected = structuredClone(before.players);
+    expected.ai.life = 38; // 40 - 2, un-doubled
+    expect(out.players).toStrictEqual(expected);
+    expect(out.log.some((e) => /wolverine|double|replace/i.test(String(e.kind)))).toBe(false);
+  });
+
+  it("a blocked attacker: full player-state byte-identical except the blocker's marked damage", () => {
     const att = vanilla("Grizzly", 4, 4, "user");
     const blk = vanilla("Wall", 0, 5, "ai");
     const s = makeState({ userBf: [att], aiBf: [blk] }, {
@@ -358,20 +376,28 @@ describe("byte-identical negative (the CREED proof)", () => {
       blockers: [{ blockerId: blk.id, blockingPlayer: "ai", attackerId: att.id }],
     });
     expect(boardHasDamageReplacement(s)).toBe(false);
+    const before = structuredClone(s);
     const out = resolveCombatDamage(s);
-    // The exact pre-seam numbers: 4 dmg < 5 toughness → Wall survives, attacker takes 0 back, no life lost.
-    expect(out.players.ai.life).toBe(40);
-    expect(out.players.ai.battlefield.map((p) => p.card.name)).toEqual(["Wall"]);
-    const wall = out.players.ai.battlefield[0];
-    expect(wall.damageMarked).toBe(4); // un-doubled
-    // No combat-damage-prevented / replacement log noise — the step ran the ordinary path.
-    expect(out.log.some((e) => e.kind === "wolverine-endstep-counter")).toBe(false);
+    // 4 dmg < 5 toughness → Wall survives marked 4 (un-doubled); attacker takes 0 back; no life lost.
+    const expected = structuredClone(before.players);
+    expected.ai.battlefield[0].damageMarked = 4;
+    expect(out.players).toStrictEqual(expected);
+    expect(out.log.some((e) => /wolverine|double|replace/i.test(String(e.kind)))).toBe(false);
   });
+});
 
-  it("an unblocked vanilla attacker deals exactly its power (no doubling)", () => {
-    const bear = vanilla("Bear", 2, 2, "user");
-    const s = makeState({ userBf: [bear] }, { attackers: [{ permanentId: bear.id, attackingPlayer: "user", defender: "ai" }], blockers: [] });
-    expect(resolveCombatDamage(s).players.ai.life).toBe(38);
+// ─── MUST-FIX 1: synthesized-on-read — the doubler vanishes when its permanent leaves ────────────────
+describe("synthesized-on-read doubler (MUST-FIX 1)", () => {
+  it("the doubler stops the instant Wolverine leaves the battlefield (no stored entry, no removal hook)", () => {
+    const w = wolverine("user", 3, 3);
+    const withW = makeState({ userBf: [w] }, { attackers: [{ permanentId: w.id, attackingPlayer: "user", defender: "ai" }], blockers: [] });
+    expect(boardHasDamageReplacement(withW)).toBe(true);
+    expect(resolveCombatDamage(withW).players.ai.life).toBe(40 - 6); // 3 doubled while Wolverine is on the board
+    // Wolverine gone → the synthesized scan finds no doubler → a different source deals base (un-doubled) damage.
+    const bear = vanilla("Bear", 3, 3, "user");
+    const without = makeState({ userBf: [bear] }, { attackers: [{ permanentId: bear.id, attackingPlayer: "user", defender: "ai" }], blockers: [] });
+    expect(boardHasDamageReplacement(without)).toBe(false);
+    expect(resolveCombatDamage(without).players.ai.life).toBe(40 - 3); // 3, un-doubled — the doubler did not persist
   });
 });
 

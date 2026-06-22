@@ -13,7 +13,7 @@
  * it is structurally immune.
  *
  * STORAGE MODEL (MUST-FIX 1 — synthesized-on-read). A "double all damage" static
- * ability of a permanent (CR 603.3e / 611.2) exists exactly while that permanent
+ * ability of a permanent (CR 604.1) exists exactly while that permanent
  * is on the battlefield: no registration event, no duration, and it must VANISH
  * the instant the permanent leaves. So `isDamageReplacement` SCANS the
  * battlefield for permanents whose CARD carries the parsed doubler — the same
