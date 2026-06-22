@@ -8,6 +8,20 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **General-corpus coverage batch (7 slices):** drained the parked Cindy backlog after the lane
+  reopened — **COUNTER-TARGET-OWN** ("put a ±1/±1 counter on target creature you control", own-only
+  target enumeration incl. Baleful Ammit's −1/−1), **TOKEN-BARE-MULTICOLOR** (bare multi-color token
+  clauses like "a green and white Citizen" no longer mis-split), **TAP-TARGET-CREATURE** ("tap target
+  creature" with controller / power / toughness / mana-value / flying restrictions; riders bounce to
+  the Arbiter), **GATED-GY-EXT** (graveyard-typed-count gates incl. Descend "permanent card" + Fear
+  added / menace un-stale-d as grantable combat keywords, both enforced via `permanentHasKeyword`),
+  **CAST-HEROIC** (heroic CR 702.35 + magecraft's cast half CR 702.173), **TRIG-COND-ETB-SUBTYPE**
+  ("another &lt;subtype&gt; you control enters" tribal ETB, denylist-guarded), **PUMP-TGT-CTRL**
+  (controller-qualified "target creature you control/an opponent controls gets +N/+N and gains KW").
+  All anchored, all-or-nothing, un-grantable keywords (hexproof/indestructible) still route to the
+  Arbiter. CREED-verified (Clyde spot-review + a 9-agent adversarial pass); KW-CYCLING + TRIG-MISC
+  held out for a false-positive fix.
+
 - **"Each opponent discards a card" trigger effect modeled (EACHOP-DISCARD):** non-targeted mass
   discard aimed at all opponents (Burglar Rat, Noxious Toad, Cackling Fiend, Liliana's Specter,
   Elderfang Disciple, Elvish Doomsayer, Virus Beetle, + more) is now a first-class effect atom

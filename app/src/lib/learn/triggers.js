@@ -55,7 +55,7 @@ function isLandPerm(perm) {
  * and the detected-trigger count must agree, or a landfall card mis-classifies. Currently just "Landfall —".
  */
 export function stripTriggerAbilityLabel(oracle) {
-  return String(oracle || "").replace(/^(?:landfall|constellation|eerie)\s*[—–-]\s*/gim, "");
+  return String(oracle || "").replace(/^(?:landfall|constellation|eerie|heroic|magecraft)\s*[—–-]\s*/gim, "");
 }
 
 // ─── Detection ────────────────────────────────────────────────────────────────
@@ -259,6 +259,18 @@ function classifyCondition(condRaw, cardName, cardType) {
   // exact text before the event verb.
   if (/\benters\b/.test(c) && !/\benters (the battlefield )?(tapped|with|as)\b/.test(c)) {
     if (selfRef) return { event: "etb", scope: "self", whose: "any" };
+    // ANOTHER-SUBTYPE ETB — "another <type/subtype> [you control] enters" (Elvish Vanguard / Youthful Valkyrie /
+    // Arcbound Crusher families). A single-word type that typeStr can enforce; NON_SUBTYPE_ETB_WORDS rejects
+    // supertypes, meta words, and colors whose typeStr check would silently never fire (CREED FP guard).
+    // "creature" stays in the denylist → falls through to creatureSubjectScope below (existing handling).
+    // "artifact" / "enchantment" / "land" are NOT in the denylist — typeStr includes them literally.
+    const etbSubj = subjectBefore(c, "enters");
+    const anotherSubM = etbSubj.match(/^another ([a-z]+)(?: you control)?$/);
+    if (anotherSubM && !NON_SUBTYPE_ETB_WORDS.has(anotherSubM[1])) {
+      const sub = anotherSubM[1].charAt(0).toUpperCase() + anotherSubM[1].slice(1);
+      const youControl = /you control$/.test(etbSubj.trim());
+      return { event: "etb", scope: youControl ? "otherSubtypeYouControl" : "otherSubtypeAnywhere", whose: "any", subtypeFilter: sub };
+    }
     const scope = creatureSubjectScope(subjectBefore(c, "enters"));
     if (scope) return { event: "etb", scope, whose: "any" };
   }
@@ -397,6 +409,23 @@ function classifyCondition(condRaw, cardName, cardType) {
     return { event: "combatDamageBatch", scope: "you", whose: "any" };
   }
 
+  // HEROIC (CR 702.35) — "Whenever you cast a spell that targets this creature, <effect>".
+  // Fires when the controller casts any spell that has this permanent as a chosen target. The
+  // scope is "self" (this permanent only); the engine fires it in checkCastTriggers by scanning
+  // the cast spell's targets array for permanents with heroic descriptors. Anchored: a rider
+  // ("that targets this creature and another target", a creature-type restriction) stays
+  // UNDETECTED → Arbiter (a safe false-negative; never an over-fire).
+  if (/^you cast a spell that targets this creature$/.test(c))
+    return { event: "heroic", scope: "self", whose: "you" };
+
+  // MAGECRAFT (CR 702.173) — "Whenever you cast or copy an instant or sorcery spell, <effect>".
+  // Routes to the existing cast event + instantSorcery filter; "copy" is a separate CR 706.10
+  // event not yet tracked, so the copy half is a safe false-negative (never over-fires).
+  // checkCastTriggers already handles event:"cast" whose:"you" spellFilter:"instantSorcery",
+  // so magecraft gets the CAST half for free. Anchored bare form only.
+  if (/^you cast or copy an instant or sorcery spell$/.test(c))
+    return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: "instantSorcery" };
+
   // Cast-spell triggers (CR 603.2, the spell-cast event). The WHOLE condition must reduce
   // to "(you|an opponent|a player|each player) cast(s) a[n] <filter> spell" — ANCHORED, so a
   // trailing rider ("… spell that targets …", "… spell from your graveyard", "… spell during
@@ -443,6 +472,20 @@ const NON_SUBTYPE_CAST_WORDS = new Set([
   // never fire → a do-nothing native = FP (Hans, cycle 44 — the denylist leaked; concrete proof the
   // subtype-allowlist infra is worth building).
   "alliterative",
+]);
+
+// ANOTHER-SUBTYPE ETB: words that are NOT a creature subtype or permanents type — type/supertype/meta words
+// whose typeStr inclusion check would never fire (claiming native while the trigger silently never fires = FP).
+// "artifact", "enchantment", "land" are intentionally OMITTED — typeStr covers them faithfully
+// ("Artifact", "Enchantment", "Land" appear literally in type lines). "creature" routes via creatureSubjectScope.
+const NON_SUBTYPE_ETB_WORDS = new Set([
+  "creature", "permanent", "spell", "planeswalker", "battle",
+  "historic", "legendary", "colorless", "snow", "nonland", "noncreature",
+  "nontoken", "token", "nonlegendary",
+  "white", "blue", "black", "red", "green", // colors (never in type line)
+  "another", "your", "this", "that", "each", "every",
+  // CR-defined umbrella terms — not type-line tokens; typeStr check would silently never fire (FP).
+  "outlaw", // CR 203.4c: {Assassin, Mercenary, Pirate, Rogue, Warlock}
 ]);
 
 /** Map the words between "cast a[n]" and "spell" to a MODELED spell filter, or null. */
@@ -652,6 +695,20 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
         && (typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "")
             || (triggeringPermanent.id === sourcePermanent.id
                 && typeStr(sourcePermanent.card).includes(descriptor.subtypeFilter || "")));
+    case "otherSubtypeYouControl":
+      // "another <SUBTYPE> you control enters" (Youthful Valkyrie / Champion of the Perished family).
+      // Fires when a non-self permanent the source's controller controls carries the subtype in its type line.
+      // Unlike subtypeYouControl (Pantlaza — "NAME or another SUBTYPE"), this NEVER self-triggers (id check).
+      return !!triggeringPermanent
+        && triggeringPermanent.id !== sourcePermanent.id
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "");
+    case "otherSubtypeAnywhere":
+      // "another <SUBTYPE> enters" — no controller restriction (Elvish Vanguard / Kavu Monarch / Arcbound Crusher).
+      // Fires when any permanent from any controller carries the subtype, excluding the source itself.
+      return !!triggeringPermanent
+        && triggeringPermanent.id !== sourcePermanent.id
+        && typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "");
     case "creatureYouControlPower":
       // POWER-THRESHOLD ETB — the entering creature you control with LAYER-RESOLVED power ≥ N (counters +
       // anthems included; checkEnterTriggers fires after the permanent + its enters-with counters are on
@@ -1054,7 +1111,7 @@ function prowessDescriptor() {
  * fabricated). Context carries the cast spell's name + type for future referential
  * effects. Pure — appends to pendingTriggers and returns new state.
  */
-export function checkCastTriggers(state, { spellCard, casterId }) {
+export function checkCastTriggers(state, { spellCard, casterId, targets = [] }) {
   if (!spellCard) return state;
   const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard) };
   let fired = [];
@@ -1067,6 +1124,23 @@ export function checkCastTriggers(state, { spellCard, casterId }) {
         if (!spellMatchesFilter(d.spellFilter, spellCard)) continue;
         fired.push(makePendingTrigger(d, watcher, null, context));
       }
+    }
+  }
+  // HEROIC (CR 702.35): for each targeted battlefield permanent that the CASTER controls,
+  // fire any heroic triggers on that permanent. Targets are the cast-time chosen targets
+  // threaded from applyCastSpell; scope:"self" + whose:"you" — only fires when the caster
+  // controls the targeted permanent (self-targeting spells like "target creature you control
+  // gets +2/+2" are the primary heroic enablers).
+  for (const target of targets) {
+    if (!target?.id) continue;
+    let targetPerm = null;
+    for (const pid of Object.keys(state.players)) {
+      targetPerm = (state.players[pid]?.battlefield || []).find(p => p.id === target.id);
+      if (targetPerm) break;
+    }
+    if (!targetPerm || targetPerm.controller !== casterId) continue;
+    for (const d of detectTriggers(targetPerm.card).filter(x => x.event === "heroic")) {
+      fired.push(makePendingTrigger(d, targetPerm, null, context));
     }
   }
   // ===== TRIG-PROWESS (CR 702.108) ===== Prowess is a printed keyword = "Whenever you cast a noncreature

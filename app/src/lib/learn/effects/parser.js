@@ -242,7 +242,7 @@ function splitClauses(oracle) {
     // trample until end of turn"), or grants several keywords ("gains flying and vigilance"),
     // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence
     // as one clause so parseExtendedAtom binds the pump + grant to the SAME target.
-    if (/^target creature (?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    if (/^target creature (?:(?:you control|an opponent controls) )?(?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // Overrun-style TEAM pump + keyword grant ("Creatures you control get +3/+3 and gain
     // trample until end of turn"): the " and " between the P/T bump and the grant is INTERNAL
     // to one team-pump instruction, not a top-level effect boundary. Keep the whole sentence so
@@ -274,6 +274,14 @@ function splitClauses(oracle) {
     // binds the count source to the token. All-or-nothing anchored downstream (an unmodeled count source →
     // null → low → Arbiter), so keeping too much together can only fail to match, never a wrong partial.
     if (/^create (?:x|a|an|one) (?:treasure|clue|food|gold) tokens?(?:,? where x is | for each ).+$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TOKEN-BARE-MULTICOLOR — "create a 1/1 green and white Citizen creature token" (no "with"/"for each"
+    // suffix) and its "you may create …" optional form (upkeep token triggers like Creakwood Liege).
+    // The multi-color descriptor ("green and white") carries an INTERNAL " and " that the top-level
+    // splitter (line 288) would cut, orphaning "white Citizen creature token" as an unparsed fragment.
+    // Keep the whole bare-create sentence so the create-token regex matches the full color+type descriptor;
+    // `parseClauseToAtom` then peels the "you may" wrapper before matching. Anchored to $ so
+    // "…token and draw a card" (ending "card") still splits at " and " — only the bare form is protected.
+    if (/^(?:you may )?create\b.*\bcreature tokens?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
     // KW[ and KW]] [until end of turn]" — the " and " inside a multi-keyword rider ("with reach and haste")
     // is INTERNAL to the one animate instruction, not a top-level boundary. Keep the whole sentence so
@@ -859,8 +867,33 @@ function parseExtendedAtom(s) {
   // Zombify, Breath of Life). CREATURE only; "the battlefield under your control" / "tapped" / "with a
   // +1/+1 counter" / a non-creature card filter fails the exact anchor → low → Arbiter.
   if (/^return target creature card from your graveyard to the battlefield$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
-  // Targeted (single "target creature", no restriction — the anchor keeps it exact).
-  if (/^tap target creature$/.test(t)) return { op: "tap", targetType: "creature" };
+  // TAP-TARGET-CREATURE — "tap target creature [restriction]" (Fiend Binder, Captivating Unicorn,
+  // Court Street Denizen, Kor Line-Slinger, Storm Front, Dromoka Dunecaster, …). Standard controller
+  // qualifiers (an opponent controls / defending player controls / you don't control → opponent;
+  // you control → own), power/toughness/mana-value numeric restrictions, and flying presence/absence.
+  // Anchored to $ so "tap target creature, then return…" (Cyclopean Snare's bounce rider) and
+  // "unless its controller pays…" (Vectis Dominator / Rhystic Deluge) fall through → low → Arbiter.
+  // "defending player controls" maps to controller:opponent — in practice the defending player is
+  // always an opponent; this is a conservative false-negative rather than an enemy mis-tap (safe).
+  {
+    const tapM = t.match(/^tap target creature(?:\s+(an opponent controls|defending player controls|you don't control|you control|with power (\d+) or less|with power (\d+) or (?:greater|more)|with toughness (\d+) or less|with mana value (\d+) or (?:greater|more)|without flying|with flying))?\.?$/);
+    if (tapM) {
+      const qual = tapM[1];
+      const restrictions = [];
+      if (qual === "an opponent controls" || qual === "defending player controls" || qual === "you don't control")
+        restrictions.push({ kind: "controller", who: "opponent" });
+      else if (qual === "you control")
+        restrictions.push({ kind: "controller", who: "you" });
+      else if (tapM[2]) restrictions.push({ kind: "power", op: "<=", value: parseInt(tapM[2], 10) });
+      else if (tapM[3]) restrictions.push({ kind: "power", op: ">=", value: parseInt(tapM[3], 10) });
+      else if (tapM[4]) restrictions.push({ kind: "toughness", op: "<=", value: parseInt(tapM[4], 10) });
+      else if (tapM[5]) restrictions.push({ kind: "manaValue", op: ">=", value: parseInt(tapM[5], 10) });
+      else if (qual === "without flying") restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: true });
+      else if (qual === "with flying") restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: false });
+      // qual undefined → bare "tap target creature" → no restrictions (any creature)
+      return { op: "tap", targetType: "creature", restrictions };
+    }
+  }
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
   if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
@@ -936,6 +969,24 @@ function parseExtendedAtom(s) {
   if (pg) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  // PUMP-TGT-CTRL — "target creature you control / an opponent controls gets +N/+N [and gains KW]
+  // until end of turn" / "gains KW until end of turn". Encodes the controller restriction using the
+  // existing P2.4 restriction-array format ({ kind:"controller", who:"you"|"opponent" }), honored by
+  // enumerateTargets so only the controller's own creatures (or opponents') are legal targets.
+  // All-or-nothing anchored: an un-grantable keyword still drops the whole clause → low → Arbiter.
+  let pctrl = t.match(/^target creature (you control|an opponent controls) gets ([+-]\d+)\/([+-]\d+)(?: and gains (.+))? until end of turn$/);
+  if (pctrl) {
+    const who = pctrl[1] === "you control" ? "you" : "opponent";
+    const kws = pctrl[4] ? parseGrantedKeywords(pctrl[4]) : null;
+    if (pctrl[4] && !kws) return null; // un-grantable keyword → low → Arbiter
+    return { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: parseInt(pctrl[2], 10), t: parseInt(pctrl[3], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
+  pctrl = t.match(/^target creature (you control|an opponent controls) gains (.+) until end of turn$/);
+  if (pctrl) {
+    const who = pctrl[1] === "you control" ? "you" : "opponent";
+    const kws = parseGrantedKeywords(pctrl[2]);
+    return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
   // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
   // KW[ and KW]]" (Animate Land, Hydroform, Vivify; the "still a land" reminder already stripped above).
@@ -1062,6 +1113,13 @@ function parseExtendedAtom(s) {
   }
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
+  // COUNTER-TARGET-OWN — "put a +1/+1 counter on target creature you control" (Merfolk Skydiver, Kujar
+  // Seedsculptor, Yotian Dissident, Baleful Ammit's -1/-1 ETB drawback, …). The "you control" filter
+  // restricts the target to the controller's own creatures: targetType:"creatureYouControl" signals both
+  // enumerateTargets (only own-side creatures offered) and atomTargetIntent (always "own", overriding the
+  // counterType check so Baleful Ammit's -1/-1 form also routes natively to the controller's creature).
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature you control$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl" };
   // SELF-reference +1/+1 / -1/-1 counter — "put a +1/+1 counter on this creature" (the source).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
@@ -2029,7 +2087,12 @@ export function atomTargetIntent(atom) {
     case "destroy":
     case "exile":
     case "counter":
+      return "enemy";
     case "tap":
+      // TAP-TARGET-CREATURE: "you control" restriction targets own creatures (e.g. Magus of the Arena);
+      // all other tap forms (opponent controls, defending player, power/toughness, flying) target an
+      // enemy creature. The restriction check mirrors the add-counter you-control override pattern.
+      if (atom.restrictions?.some(r => r.kind === "controller" && r.who === "you")) return "own";
       return "enemy";
     case "lose-life":
       // DEATH-DRAIN-TARGETED — "target player/opponent loses N life" is enemy-side like targeted damage:
@@ -2052,6 +2115,11 @@ export function atomTargetIntent(atom) {
     case "pump":
       return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
     case "add-counter":
+      // COUNTER-TARGET-OWN: "you control" restriction overrides the counterType heuristic so that
+      // Baleful Ammit's "-1/-1 on target creature you control" still picks the controller's own creature
+      // (not an opponent's, as bare -1/-1 would). The restriction is authoritative; counterType is a
+      // fallback for the UNFILTERED "target creature" form only.
+      if (atom.targetType === "creatureYouControl") return "own";
       return (typeof atom.counterType === "string" && atom.counterType.trim().startsWith("-")) ? "enemy" : "own";
     case "untap":
     case "return-from-graveyard":

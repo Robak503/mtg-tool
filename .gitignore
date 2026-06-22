@@ -7,6 +7,12 @@ node_modules/
 # state). Not project config — kept local so it can't be committed by accident.
 .claude/
 
+# Agent scratch / sandbox dirs (auto-created by /cso, /codex, CTO-review runs and
+# similar — duplicate-source scratch + debug scripts). NEVER commit (a stray
+# `.cto_sandbox/` was 41k untracked lines tempting a "Create PR" against master).
+.cto_sandbox/
+.claire/
+
 # Next.js
 app/.next/
 app/out/
