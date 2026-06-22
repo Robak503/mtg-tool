@@ -39,6 +39,8 @@ import { checkDiesTriggers, checkCardDrawnTriggers } from "./triggers.js";
 import { permanentHasKeyword, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
+import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
+import { armDamageToCreatureFlag } from "./wolverine.js";
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
@@ -645,6 +647,17 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
 export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null }) {
   let next = state;
   const amount = Math.max(0, rawAmount || 0);
+  // DAMAGE-REPLACEMENT (CR 614 — Wolverine "double all damage", Furnace of Rath …). Finalize the per-target
+  // amount AFTER the infect/wither reroute below (the magnitude IS doubled; the keyword only changes the FORM)
+  // and BEFORE hitPlayer/hitCreature/adjustLoyalty. Gated on the board carrying a replacement, so an ordinary
+  // burn spell is byte-for-byte. `source` is the permanent dealing the damage (an activated/triggered ability's
+  // own permanent; a spell has no permanent source → source-self doublers don't match, a safe FN). Never a hook
+  // on loseLife. 120.8 zero-guard is re-checked (`> 0`) AFTER doubling at each hit below.
+  const dmgConsult = boardHasDamageReplacement(next)
+    ? (raw, targetKind, targetId) => raw > 0
+      ? consultDamageAmount(next, { sourceId: source?.id ?? null, sourceController: source?.controller ?? controller, amount: raw, targetKind, targetId, isCombat: false })
+      : raw
+    : (raw) => raw;
   // KW-POISON (CR 702.90 infect / 702.79 wither): a source with infect/wither replaces ALL the damage it
   // deals — NOT just combat — to a creature as that many -1/-1 counters, and (infect only) to a player as
   // that many poison counters. `source.id` is the permanent dealing the damage (ctx.sourceId, threaded for
@@ -653,12 +666,27 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // false-negative, never an FP). Gated on the keyword, so every ordinary burn source is byte-for-byte.
   const sourceInfect = source?.id ? permanentHasKeyword(next, source.id, "Infect") : false;
   const sourceWither = source?.id ? permanentHasKeyword(next, source.id, "Wither") : false;
-  const hitPlayer = (s, pid) => sourceInfect
-    ? addPoison(s, { playerId: pid, amount })
-    : loseLife(s, { playerId: pid, amount });
-  const hitCreature = (s, permId) => (sourceInfect || sourceWither)
-    ? addCounter(s, { permanentId: permId, type: "-1/-1", amount })
-    : markCombatDamage(s, { permanentId: permId, amount });
+  const hitPlayer = (s, pid) => {
+    // DAMAGE-REPLACEMENT: double the magnitude per target. Infect still REPLACES life loss with poison —
+    // the doubled magnitude becomes that many poison counters (CR 614 doubles the amount; CR 702.90a changes
+    // the form). 120.8: only deal if >0 after doubling.
+    const dealt = dmgConsult(amount, "player", pid);
+    if (dealt <= 0) return s;
+    return sourceInfect
+      ? addPoison(s, { playerId: pid, amount: dealt })
+      : loseLife(s, { playerId: pid, amount: dealt });
+  };
+  const hitCreature = (s, permId) => {
+    const dealt = dmgConsult(amount, "creature", permId);
+    if (dealt <= 0) return s;
+    let out = (sourceInfect || sourceWither)
+      ? addCounter(s, { permanentId: permId, type: "-1/-1", amount: dealt })
+      : markCombatDamage(s, { permanentId: permId, amount: dealt });
+    // WOLVERINE clause 2: a non-combat damage source (an ability) that hits another creature arms the
+    // per-turn flag too (the oracle says "dealt damage", not "combat damage"). No-op for non-Wolverine sources.
+    if (source) out = armDamageToCreatureFlag(out, source, permId);
+    return out;
+  };
   // A 0-damage effect deals no damage (no marks, no counters, no poison — CR 120.8); guard so an infect
   // source can't stamp a stray "-1/-1": 0 counter. The lethal SBA + log below still run for parity.
   if (amount > 0) {
@@ -686,7 +714,11 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
         else if (t.type === "creature" && findPermanent(next, t.id)) next = hitCreature(next, t.id);
         // PW-6: damage to a planeswalker removes that many loyalty counters (CR 120.3c), not life. Infect
         // doesn't touch planeswalkers (it replaces damage to creatures/players only) — loyalty as normal.
-        else if (t.type === "planeswalker" && findPermanent(next, t.id)) next = adjustLoyalty(next, { permanentId: t.id, delta: -amount });
+        // DAMAGE-REPLACEMENT (CR 120.3c): loyalty uses the DOUBLED amount.
+        else if (t.type === "planeswalker" && findPermanent(next, t.id)) {
+          const dealt = dmgConsult(amount, "planeswalker", t.id);
+          if (dealt > 0) next = adjustLoyalty(next, { permanentId: t.id, delta: -dealt });
+        }
       }
     }
   }

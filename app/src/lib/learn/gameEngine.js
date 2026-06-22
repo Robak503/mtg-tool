@@ -49,6 +49,7 @@ import { expandCastChoices } from "./effects/targeting.js";
 import { applyFadeVanishUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { applyMothmanRadOnAttack } from "./mothmanRad.js";
+import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
@@ -226,6 +227,7 @@ export function runStepActions(state) {
     case "cleanup":
       next = emptyManaPools(next);
       next = clearCombatDamage(next); // combat damage wears off at end of turn
+      next = clearWolverineTurnFlags(next); // WOLVERINE clause 2: reset the per-turn dealt-damage flag (CR 514.2)
       // "Until end of turn" continuous effects wear off here (CR 514.2) — pump
       // (Giant Growth etc.) registered as endOfTurn-duration layer effects expire.
       next = expireContinuousEffects(next, { atCleanupOfTurn: next.turn });
@@ -300,7 +302,15 @@ export function runStepActions(state) {
   if (next.step === "upkeep") next = applyFadeVanishUpkeep(next);
   if (next.step === "upkeep") next = checkStepTriggers(next, "upkeep");
   else if (next.step === "draw") next = checkStepTriggers(next, "draw");
-  else if (next.step === "end") next = checkStepTriggers(next, "endStep");
+  else if (next.step === "end") {
+    next = checkStepTriggers(next, "endStep");
+    // WOLVERINE clause 2 (CR 603.4 intervening-if): "at the beginning of each end step, if Wolverine dealt
+    // damage to another creature this turn, put a +1/+1 counter on him." Routed through addCounter so the
+    // Wave-3 counter-doubler composes. A #353-style targeted hook (the templating is unique to Wolverine);
+    // checked here because the intervening-if condition isn't in the generic trigger vocabulary. No-op when
+    // no armed Wolverine is on the board → byte-identical.
+    next = applyWolverineEndStep(next);
+  }
   // PHASE-TRIGGER-FRAMEWORK (Wave 1): emit the two phase-boundary triggers the spine detected but never
   // fired. detectPhaseTrigger (registered in triggers.js) classifies them; checkStepTriggers fires any
   // event generically (triggersForEvent matches on descriptor.event). Wired alongside the existing step

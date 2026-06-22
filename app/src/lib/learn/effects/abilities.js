@@ -28,6 +28,32 @@ function stripReminder(text) {
   return String(text || "").replace(/\([^)]*\)/g, " ").replace(/[ \t]+/g, " ");
 }
 
+/**
+ * Self-name normalization (CR 201.4 — a card referring to itself by name means THIS object). An activated
+ * effect like "Regenerate Wolverine." means "Regenerate this permanent" — the engine's effect parser anchors
+ * the self-regen / self-pump atoms on "this creature"/"this permanent", so map the card's OWN name (full and
+ * the pre-comma short name, e.g. "Wolverine, Best There Is" → "Wolverine") onto "this creature" before
+ * parsing. Word-bounded, longest-first, so it only ever rewrites the literal self-name (never a substring of
+ * another word). A card with no name, or whose clause doesn't mention it, is returned unchanged.
+ */
+function escapeRe(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function normalizeSelfName(clause, card) {
+  const name = String(card?.name || "").trim();
+  if (!name) return clause;
+  const forms = [name];
+  const short = name.split(",")[0].trim();
+  if (short && short !== name) forms.push(short);
+  // Longest first so the full name is consumed before the short prefix.
+  forms.sort((a, b) => b.length - a.length);
+  let out = clause;
+  for (const f of forms) {
+    out = out.replace(new RegExp(`\\b${escapeRe(f)}\\b`, "g"), "this creature");
+  }
+  return out;
+}
+
 /** A single pip the engine's mana model understands. {X}/{Q}/{S}/{E} are deliberately NOT mana. */
 function pipIsMana(pipRaw) {
   const P = String(pipRaw).trim().toUpperCase();
@@ -197,7 +223,9 @@ export function parseActivatedAbilities(card) {
     let program = null;
     let effectHigh = false;
     if (cost && !isManaEffect) {
-      program = parseEffectClause(effectClause, "Instant");
+      // CR 201.4: rewrite the card's own name → "this creature" so a self-referential effect
+      // ("Regenerate Wolverine.") matches the engine's self-anchored atoms.
+      program = parseEffectClause(normalizeSelfName(effectClause, card), "Instant");
       effectHigh = !!program && programConfidence(program) === "high" && program.structure !== "modal" && !program.xSpell;
     }
     out.push({

@@ -26,6 +26,7 @@ import {
 } from "./gameState.js";
 import { hasKeyword } from "./keywords.js";
 import { applyMothmanRadOnEnter } from "./mothmanRad.js";
+import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7 };
 function parseCount(word) {
@@ -1012,7 +1013,9 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
     // leaf (resolvers.js imports applyTriggerEffect from here in PR-6).
     payload: {
       resolver: "trigger.effect",
-      params: { effect: descriptor.effect, controller, targets: [], context },
+      // MUST-FIX 3: thread the SOURCE permanent (the ability's own permanent — the one DEALING the damage) so
+      // a damage trigger can route through the damage-replacement consult source-scoped. Serializable id only.
+      params: { effect: descriptor.effect, controller, targets: [], context, sourcePermanentId: sourcePermanent.id },
     },
   };
 }
@@ -1629,12 +1632,26 @@ export function checkInterveningIf(state, pendingTrigger) {
  * damage-to-each-opponent). Targeted damage triggers are Phase-2 and resolve as
  * an honest "unresolved" log, never fabricated.
  */
-export function applyTriggerEffect(state, { effect, controller, targets = [] }) {
+export function applyTriggerEffect(state, { effect, controller, targets = [], sourcePermanentId = null }) {
   // `context` (the look-back snapshot) is accepted by callers but unused by the
   // Phase-1 effect vocabulary; targeted/contextual effects in Phase 2 will read it.
   if (!effect) return state; // fail-safe: unrecognized → no-op
   const amt = Math.max(0, effect.amount || 0);
   let next = state;
+  // DAMAGE-REPLACEMENT (CR 614, MUST-FIX 3): a triggered DAMAGE effect's source is the ability's own permanent
+  // (`sourcePermanentId`, threaded by the resolver). Finalize the per-opponent amount through the consult,
+  // source-scoped. Gated on the board carrying a replacement so a non-Wolverine eachOpponent trigger is
+  // byte-identical (consult returns the raw amount → the same loseLife with the same number). This is the ONLY
+  // damage path here; "loseLife"/"gainLife" are life CHANGES, not damage, and never consult (guard 4).
+  const dmgConsult = (raw, targetId) => {
+    if (raw <= 0 || !boardHasDamageReplacement(next)) return raw;
+    const src = sourcePermanentId ? findPermanent(next, sourcePermanentId) : null;
+    return consultDamageAmount(next, {
+      sourceId: sourcePermanentId,
+      sourceController: src?.controller ?? controller,
+      amount: raw, targetKind: "player", targetId, isCombat: false,
+    });
+  };
   switch (effect.kind) {
     case "gainLife":
       if (next.players[controller]) next = gainLife(next, { playerId: controller, amount: amt });
@@ -1651,7 +1668,9 @@ export function applyTriggerEffect(state, { effect, controller, targets = [] }) 
       return logEvent(next, { kind: "trigger-effect", effect: "draw", controller, amount: effect.amount });
     case "damage":
       if (effect.targetType === "eachOpponent") {
-        for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = loseLife(next, { playerId: opp, amount: amt });
+        for (const opp of opponentsOf(next, controller)) {
+          if (next.players[opp]) next = loseLife(next, { playerId: opp, amount: dmgConsult(amt, opp) });
+        }
         return logEvent(next, { kind: "trigger-effect", effect: "damage", controller, targetType: "eachOpponent", amount: amt });
       }
       return logEvent(next, { kind: "trigger-effect-unresolved", controller, effect, targets });
