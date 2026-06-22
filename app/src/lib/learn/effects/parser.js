@@ -37,9 +37,10 @@ import { ATOM_RESOLVERS } from "./effectAtoms.js";
 // the BOTTOM of this file, after CLAUSE_PARSERS is defined.
 import { manifestClauseParser } from "./atoms/manifest.js";
 import { amassClauseParser } from "./atoms/amass.js";
+import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfReturn.js";
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
-import { detectTriggers } from "../triggers.js";
+import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -2450,3 +2451,10 @@ export function programContainsFog(program) {
 // "manifest dread" and "amass <Subtype> N" clauses resolve to their KNOWN atoms everywhere.
 registerClauseParser(manifestClauseParser);
 registerClauseParser(amassClauseParser);
+registerClauseParser(selfReturnClauseParser);
+// SELF-LTB (Wave 4) — the self-return trigger detector rides the SAME parser.js wiring point as the clause
+// parsers (parser.js imports both registerTriggerDetector and detectTriggers), so it's installed before any
+// classification can read the WeakMap cache. Detects the Aura self-PiG-return + equipped-creature-dies-return
+// CONDITIONS; detectTriggers then rewrites their "return it to its owner's hand" effect to the marker the
+// clause parser above models.
+registerTriggerDetector(selfReturnTriggerDetector);
