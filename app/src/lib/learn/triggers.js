@@ -548,6 +548,22 @@ const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+)?|gains .+
 // rider/compound ("…on it. Draw a card") leaves it untouched → LOW → Arbiter (a SAFE false-negative).
 const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on it$/i;
 
+// WAVE 3b COUNTERS-ON-EVENT — the NON-SELF triggering-referent counter. A NON-self attack / combat-damage
+// trigger ("Whenever a creature you control deals combat damage to a player, put a +1/+1 counter on THAT
+// CREATURE" — Sphere Grid; "…attacks, put a +1/+1 counter on IT") names the TRIGGERING permanent (CR
+// 608.2c — a pronoun in later text refers to the object the ability triggered on), NOT the source — so
+// the self "it"→"this creature" rewrite above is WRONG here (it would target
+// the source). Instead, for a NON-self scope ONLY, normalize the referent → the canonical sentinel "the
+// triggering creature", which the WAVE-3b clause parser (effects/atoms/counterClauses.js) binds to
+// ctx.triggeringPermanentId. The sentinel is a phrase that appears in ZERO printed oracle text, so a
+// SPELL's anaphoric "it"/"that creature" (Big Play / Puncture Bolt / Miraculous Recovery) is NEVER
+// rewritten (it isn't a non-self trigger) and stays LOW → Arbiter (CREED — no fabricated/mis-bound counter).
+// ±1/±1 only (the enforced counter kinds); whole-clause anchored, so a rider/compound leaves it untouched.
+const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
+// The NON-self scopes for which a bare "it"/"that creature" referent is the TRIGGERING permanent: the
+// "a creature you control" / "a <Subtype> you control" attack + combat-damage watchers (Sphere Grid family).
+const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl"]);
+
 // ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
 // is `(condition, cardName, typeLine) => TriggerDescriptorClassification | null` and is consulted by
 // detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep priority).
@@ -619,6 +635,13 @@ export function detectTriggers(card) {
         // as the pump (a NON-self trigger's "it" is the OTHER triggering creature, never the source) +
         // the whole-clause anchor, so the parser's self-counter atom (target:"self") models it.
         effectClause = effectClause.replace(/ on it$/i, " on this creature");
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && NONSELF_COUNTER_REF_RE.test(effectClause)) {
+        // WAVE 3b COUNTERS-ON-EVENT: a NON-self attack/combat-damage trigger's "…put a +1/+1 counter on IT
+        // / on THAT CREATURE" — the referent is the TRIGGERING permanent (CR 608.2c), not the source.
+        // Normalize → the sentinel "the triggering creature" so the WAVE-3b clause parser binds it to
+        // ctx.triggeringPermanentId. Gated to the non-self triggering scopes (the spell anaphor never
+        // reaches here) + the whole-clause anchor (a rider stays untouched → LOW → Arbiter), CREED-safe.
+        effectClause = effectClause.replace(/ on (?:it|that creature)$/i, " on the triggering creature");
       }
       out.push({
         event: cls.event,
