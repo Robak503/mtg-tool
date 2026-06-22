@@ -615,7 +615,7 @@ export function detectTriggers(card) {
       if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
         effectClause = effectClause.replace(/^it /i, "this creature ");
       } else if (cls.scope === "self" && SELF_COUNTER_IT_RE.test(effectClause)) {
-        // IT-COUNTER: "…put a +1/+1 counter on IT" — "it" is the source (CR 109.2). Same self-scope gate
+        // IT-COUNTER: "…put a +1/+1 counter on IT" — "it" is the source (CR 113.7). Same self-scope gate
         // as the pump (a NON-self trigger's "it" is the OTHER triggering creature, never the source) +
         // the whole-clause anchor, so the parser's self-counter atom (target:"self") models it.
         effectClause = effectClause.replace(/ on it$/i, " on this creature");

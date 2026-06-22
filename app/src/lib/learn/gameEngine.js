@@ -556,7 +556,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // target to mis-pick). This SUBSUMES the old counter / chosen-permanent-removal denylist AND
     // closes the latent first-legal-friendly hazard on unrestricted creature-destroy / damage triggers.
     if (program && programConfidence(program) === "high" && program.structure !== "modal" && (!programNeedsChosenTarget(program) || programTriggerTargetsResolvable(program))) {
-      // sourceId = the trigger's SOURCE permanent (CR 109.2) — lets a "this creature gets …" /
+      // sourceId = the trigger's SOURCE permanent (CR 113.7) — lets a "this creature gets …" /
       // "put a +1/+1 counter on this creature" self atom resolve to the source on the non-targeted path.
       const baseParams = { program, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId };
       if (!programNeedsChosenTarget(program)) {

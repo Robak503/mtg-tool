@@ -144,7 +144,7 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
  * A removed sacrificer / no creatures is a clean no-op; the caster's riders resume after the whole chain settles.
  */
 function applySacrifice(state, atom, ctx) {
-  // SELF-SACRIFICE — "sacrifice this creature" (the trigger source, CR 109.2 + CR 701.21).
+  // SELF-SACRIFICE — "sacrifice this creature" (the trigger source, CR 113.7 + CR 701.21).
   // target:"self" with ctx.sourceId: the source permanent sacrifices itself. Uses
   // sacrificeCreatureEffect directly (bypasses the edict chooser chain — the victim is fixed).
   // No-op if ctx.sourceId is absent or the permanent already left the battlefield (stale source).

@@ -1346,7 +1346,7 @@ describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + AD
 });
 
 // ===== ACT-KW-GRANT — self keyword-grant (activated/trigger effect, via parseEffectClause) =====
-// "This creature [gets +N/+N and ]gains <KW> until end of turn" grants the SOURCE (CR 109.2) the
+// "This creature [gets +N/+N and ]gains <KW> until end of turn" grants the SOURCE (CR 113.7) the
 // keyword(s) for the turn, reusing the combat-trick GRANTABLE_COMBAT_KEYWORDS allowlist (the enforced,
 // layer-aware set IS the false-positive guard). A keyword the engine doesn't enforce (indestructible /
 // hexproof / protection / ward) → null → low → Arbiter (never a grant the engine can't honor).

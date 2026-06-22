@@ -2,7 +2,7 @@
  * COUNT-OTHER (WALT) — "for each OTHER <X> you control" excludes the source permanent itself.
  *
  * A leading "other " on a controller-scoped count source ("draw a card for each other Dinosaur you
- * control" — Earthshaker Dreadmaw) means "every <X> you control but this one" (CR 109.2). The parser
+ * control" — Earthshaker Dreadmaw) means "every <X> you control but this one" (CR 113.7). The parser
  * tags the count spec `excludeSelf`; countForSpec drops ctx.sourceId from the tally at resolution. This
  * is a pure additive widening of the existing count engine — every non-"other" count source is
  * byte-identical, and "other" on a non-battlefield source (hand/graveyard) routes to the Arbiter (safe
