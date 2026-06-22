@@ -28,6 +28,7 @@ import { handResolvers } from "./atoms/hand.js";
 import { stackResolvers } from "./atoms/stack.js";
 import { miscResolvers } from "./atoms/misc.js";
 import { manifestResolvers } from "./atoms/manifest.js";
+import { amassResolvers } from "./atoms/amass.js";
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken } from "./atoms/tokens.js";
@@ -52,6 +53,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...libraryResolvers, // tutor, shuffle, scry, surveil, impulse-dig, discover, mill
   ...handResolvers,    // discard-chosen, discard
   ...manifestResolvers, // manifest-dread (MKM, CR 701.34) — top-2 → one face-down 2/2, other → graveyard
+  ...amassResolvers,   // amass (CR 701.43) — grow/mint the controller's Army (Orcish Bowmasters, Lazotep Sliver)
 });
 
 /**
