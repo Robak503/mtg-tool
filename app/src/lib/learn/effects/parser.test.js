@@ -1368,9 +1368,11 @@ describe("parseEffectProgram — PUMP-TGT-CTRL controller-qualified pump/grant",
     const a = atomOf("target creature you control gets +1/+1 and gains vigilance until end of turn");
     expect(a).toMatchObject({ ptDelta: { p: 1, t: 1 }, grantKeywords: ["Vigilance"], restrictions: [{ kind: "controller", who: "you" }] });
   });
-  it("MUST stay LOW: un-grantable keywords (hexproof, menace, indestructible) still drop the clause", () => {
+  it("menace is now GRANTABLE (GATED-GY-EXT #343 — enforced at combat resolution, CR 509.1c) → HIGH", () => {
+    hi("target creature you control gains menace until end of turn");
+  });
+  it("MUST stay LOW: un-grantable keywords (hexproof, indestructible) still drop the clause", () => {
     lo("target creature you control gains hexproof until end of turn");
-    lo("target creature you control gains menace until end of turn");
     lo("target creature you control gets +1/+0 and gains indestructible until end of turn");
     lo("target creature an opponent controls gains hexproof until end of turn");
   });
