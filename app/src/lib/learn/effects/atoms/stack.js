@@ -1,0 +1,133 @@
+/**
+ * effects/atoms/stack.js — stack / damage / attach atoms (counter, self-attach, deal-damage).
+ * Imports applyControllerRider from removal.js (DAG: removal <- stack) for the soft-counter rider.
+ */
+
+import { applyDamageEffect } from "../../spellEffects.js";
+import { logEvent, attachPermanent } from "../../gameState.js";
+import { setPendingSoftCounterChoice } from "../../pendingChoice.js";
+import { resolveScaledAmount } from "./shared.js";
+import { applyControllerRider } from "./removal.js";
+
+/**
+ * P3.1 counter (CR 701.5a) — counter the target spell(s) on the stack. The targeted
+ * spell is removed from the stack and put into its controller's graveyard WITHOUT
+ * resolving: no atoms run, no permanent enters, no effect, no triggers. This is the
+ * stack-removal mechanic — the FIRST atom that mutates the stack rather than the
+ * battlefield/players.
+ *
+ * Fail-safe (CR 608.2b): if the target already left the stack (it resolved, or a
+ * higher counter got it first), the counter fizzles for that target — a logged no-op,
+ * never an error, never a fabricated effect. A defensive re-check of the SPELL-TYPE
+ * filter (creature/noncreature) runs here (it held at cast time + a spell's type can't
+ * change on the stack). The on-card "can't be countered" exclusion (CR 701.5e) is
+ * enforced at ENUMERATION only (spellEffects.enumerateTargets) — sufficient because the
+ * engine models no effect that grants uncounterability after a target is chosen, and
+ * on-card text is immutable, so an uncounterable spell can never reach this atom.
+ */
+// Front-face type only (CR 712.4a) — for a split/MDFC spell the enriched type line is the
+// combined "Front // Back", so the creature/noncreature filter must read the front half.
+const counterTypeLine = (card) => String(card?.type || card?.type_line || "").split(" // ")[0];
+export function counterFilterMatches(card, filter) {
+  const type = counterTypeLine(card);
+  if (filter === "noncreature") return !/Creature/.test(type);
+  if (filter === "creature") return /Creature/.test(type);
+  // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors spellMatchesCounterFilter for enumeration).
+  if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
+  return true; // "any"
+}
+/**
+ * Counter the spell with id `spellId` on the stack (CR 701.5a): remove it from the stack → its
+ * controller's graveyard, logging the counter (an optional `via` tag, e.g. "soft-counter", records HOW).
+ * A spell no longer on the stack (left mid-resolution) is a logged fizzle, never an error. Shared by the
+ * hard counter (applyCounter) AND the SOFT-CNT pay-decline path (runProgram.resolveSoftCounterChoice) so
+ * the two can't drift on how a spell is countered.
+ */
+export function counterSpellById(state, spellId, { via = null } = {}) {
+  const idx = (state.stack || []).findIndex((o) => o.id === spellId && o.kind === "spell");
+  if (idx === -1) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: spellId });
+  const targetObj = state.stack[idx];
+  const card = targetObj.source;
+  const controller = targetObj.controller;
+  const newStack = [...state.stack.slice(0, idx), ...state.stack.slice(idx + 1)];
+  const player = state.players[controller];
+  const next = {
+    ...state,
+    stack: newStack,
+    players: player
+      ? { ...state.players, [controller]: { ...player, graveyard: [...player.graveyard, card] } }
+      : state.players,
+  };
+  return logEvent(next, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, ...(via && { via }) });
+}
+
+function applyCounter(state, atom, ctx) {
+  let next = state;
+  for (const t of ctx.targets || []) {
+    if (t.type !== "spell") continue;
+    const idx = next.stack.findIndex((o) => o.id === t.id && o.kind === "spell");
+    if (idx === -1) {
+      // Target already off the stack → illegal target, the counter does nothing here.
+      next = logEvent(next, { kind: "spell-effect", effect: "counter-fizzle", targetId: t.id });
+      continue;
+    }
+    const targetObj = next.stack[idx];
+    const card = targetObj.source;
+    if (!counterFilterMatches(card, atom.spellFilter)) {
+      next = logEvent(next, { kind: "spell-effect", effect: "counter-fizzle", targetId: t.id });
+      continue;
+    }
+    // SOFT-CNT — "unless its controller pays {N}": don't counter yet. Flag the TARGETED spell's
+    // controller's pay-or-be-countered choice (runProgram attaches the resume + suspends; the driver
+    // settles it via resolveSoftCounterChoice — pay {N} → spell survives, else countered). The parser
+    // produces exactly ONE spell target per counter atom, so set the choice and stop the loop.
+    if (atom.unlessPay != null && !next.pendingChoice) {
+      return setPendingSoftCounterChoice(next, {
+        controller: targetObj.controller,
+        amount: atom.unlessPay,
+        spellId: t.id,
+        spellName: card?.name || null,
+        sourceName: ctx.cardName || null,
+      });
+    }
+    // SOFT-COUNTER-RIDER — capture the COUNTERED spell's controller, counter it, then apply the rider to
+    // THAT player (An Offer's Treasures / Swan Song's Bird go to whoever's spell was countered, not the
+    // caster). The rider only fires when the counter actually happens (a fizzle above skips it).
+    const riderController = targetObj.controller;
+    next = counterSpellById(next, t.id);
+    if (atom.controllerRider && next.players?.[riderController]) {
+      next = applyControllerRider(next, atom.controllerRider, { controller: riderController, power: 0 }, ctx);
+    }
+  }
+  return next;
+}
+
+/**
+ * ETB-EQUIP-ATTACH — "attach it to target creature you control" (CR 301.5 / 701.3). "It" is the SOURCE
+ * Equipment (ctx.sourceId, the permanent whose ETB trigger fired), so this attaches the equipment to the
+ * chosen creature via the shared `attachPermanent` helper — the SAME mechanism the Equip activated ability
+ * uses, so the equipped-creature static bonus (parseAttachedBonus, applied by the layer engine when
+ * `attachedTo` is set) lights up immediately. The target is enumerated as a creature the controller
+ * controls (the parser's controller:you restriction), and atomTargetIntent("self-attach")="own" keeps the
+ * trigger-flush chooser on the controller's own side. No source / target gone → attachPermanent no-ops
+ * (never a fabricated attach).
+ */
+function applySelfAttach(state, atom, ctx) {
+  if (!ctx.sourceId) return state;
+  let next = state;
+  for (const t of ctx.targets || []) {
+    if (!t?.id) continue;
+    next = attachPermanent(next, { equipId: ctx.sourceId, targetId: t.id });
+    next = logEvent(next, { kind: "spell-effect", effect: "equip-attach", equipId: ctx.sourceId, targetId: t.id, controller: ctx.controller });
+  }
+  return next;
+}
+
+export const stackResolvers = {
+  "deal-damage": (state, atom, ctx) =>
+    // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an
+    // infect/wither source's non-combat damage routes to -1/-1 counters / poison in applyDamageEffect.
+    applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType: atom.targetType, targets: ctx.targets, source: { id: ctx.sourceId } }),
+  "counter": applyCounter,
+  "self-attach": applySelfAttach, // ETB-EQUIP-ATTACH — auto-attach an Equipment to a creature you control
+};

@@ -1255,6 +1255,16 @@ function parseExtendedAtom(s) {
   return null;
 }
 
+// ADDITIVE registry seam (WAVE 0): module-level list of extra clause parsers. A parser is
+// `(clause, ctx) => Atom | null` (ctx = { cardType, hasX }) consulted by parseClauseToAtom AFTER
+// parseExtendedAtom returns null and BEFORE the legacy parse (the inline paths keep priority). Empty
+// by default — a no-op until a slice registers one — so existing clause parsing is untouched.
+const CLAUSE_PARSERS = [];
+export function registerClauseParser(fn) {
+  if (typeof fn !== "function") throw new Error("clause parser must be a function");
+  CLAUSE_PARSERS.push(fn);
+}
+
 /**
  * Parse ONE clause into an atom (+ its target restrictions), or null when the
  * clause carries anything we don't model. The creature-target ALLOWLIST
@@ -1326,6 +1336,16 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
   // Extended atoms (anchored ALLOWLIST) before the legacy parse.
   const ext = parseExtendedAtom(s);
   if (ext && KNOWN.has(ext.op)) return ext;
+
+  // ADDITIVE registry seam (WAVE 0): a future slice registers a clause parser instead of editing this
+  // dispatch body. Each parser is `(clause, ctx) => Atom | null` (ctx = { cardType, hasX }) and runs
+  // ONLY after parseExtendedAtom returns null and BEFORE the legacy parse — so the existing extended
+  // and legacy paths keep priority. The first parser to return a truthy atom wins. Empty by default,
+  // an exact no-op (the loop body never runs), so existing parsing is untouched.
+  for (const p of CLAUSE_PARSERS) {
+    const a = p(s, { cardType, hasX });
+    if (a) return a;
+  }
 
   const sub = { type: cardType, oracle: s };
   const atom = legacyToAtom(parseSpellEffect(sub));

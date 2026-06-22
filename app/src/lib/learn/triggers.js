@@ -505,6 +505,16 @@ const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+)?|gains .+
 // rider/compound ("…on it. Draw a card") leaves it untouched → LOW → Arbiter (a SAFE false-negative).
 const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on it$/i;
 
+// ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
+// is `(condition, cardName, typeLine) => TriggerDescriptorClassification | null` and is consulted by
+// detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep priority).
+// Empty by default — a no-op until a slice registers one — so existing classification is untouched.
+const _triggerDetectors = [];
+export function registerTriggerDetector(fn) {
+  if (typeof fn !== "function") throw new Error("detector must be a function");
+  _triggerDetectors.push(fn);
+}
+
 /**
  * All triggered abilities printed on a card, as serializable TriggerDescriptors.
  * Cached by card identity (the regex pass runs once per distinct card object).
@@ -527,7 +537,18 @@ export function detectTriggers(card) {
       const inner = m[2].trim();
       const split = splitTriggerSentence(inner);
       if (!split) continue;
-      const cls = classifyCondition(split.condition, card.name, card.type || card.type_line);
+      let cls = classifyCondition(split.condition, card.name, card.type || card.type_line);
+      // ADDITIVE registry seam (WAVE 0): a future slice registers a condition detector instead of
+      // editing this dispatch body. The inline classifyCondition keeps priority — the registry runs
+      // ONLY when it returns falsy, and the first detector to return a truthy descriptor wins. An
+      // empty registry is an exact no-op (the loop body never runs). Each detector gets the same
+      // inputs classifyCondition does (condition text, card name, type line).
+      if (!cls) {
+        for (const d of _triggerDetectors) {
+          const r = d(split.condition, card.name, card.type || card.type_line);
+          if (r) { cls = r; break; }
+        }
+      }
       if (!cls) continue;
       // Extend the effect with the trigger's remaining SAME-LINE sentences (reminder text stripped)
       // so the parser sees its WHOLE effect. A triggered ability's effect is one oracle line, so we
