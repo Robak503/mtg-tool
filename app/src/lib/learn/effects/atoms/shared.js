@@ -6,7 +6,7 @@
  * engine, type predicates, and the token descriptor word sets.
  */
 
-import { findPermanent, creaturePower, opponentsOf } from "../../gameState.js";
+import { findPermanent, creaturePower, creatureToughness, opponentsOf } from "../../gameState.js";
 
 export const TOKEN_COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "and"]);
 // ===== TOKENS ===== descriptor words that are SUPERTYPES / CARD TYPES, not creature subtypes —
@@ -161,15 +161,48 @@ export function countForSpec(state, ctx, spec) {
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
   // ===== EXPERIENCE ===== the controller's experience counter total (Toph, Command Beacon, etc.)
   if (spec.kind === "experienceCounters") return (player.experience || 0);
-  // ===== OVERRUN-X ===== a MAX-reduction: the single greatest layer-resolved power among the controller's
-  // creatures (Overwhelming Stampede). Reads creaturePower (layer-aware) so prior buffs/counters count; an
-  // empty board → 0 (a safe +0/+0). Computed BEFORE applyPumpEffect adds the +X/+X, so X is the pre-buff max.
+  // ===== OVERRUN-X / MANA-VARIABLE ===== a MAX-reduction: the single greatest layer-resolved power among
+  // the controller's creatures (Overwhelming Stampede; Bighorner Rancher / Selvala mana). Reads
+  // creaturePower (layer-aware) so prior buffs/counters count; an empty board → 0 (a safe +0/+0 or 0 mana).
+  // MANA-VARIABLE: `excludeSelf` (the "among OTHER creatures …" form) drops the ctx.source permanent — used
+  // by Arbor Adherent's second line. Existing callers pass no excludeSelf, so their result is unchanged.
   if (spec.kind === "greatestPowerYouControl") {
-    return (player.battlefield || [])
-      .filter((perm) => /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || "")))
-      .reduce((mx, perm) => Math.max(mx, creaturePower(perm, state)), 0);
+    return greatestPtAmong(state, player, spec, ctx, creaturePower);
+  }
+  // ===== MANA-VARIABLE ===== the single greatest layer-resolved TOUGHNESS among the controller's creatures
+  // (Arbor Adherent — "among OTHER creatures", so excludeSelf is set). Mirrors greatestPowerYouControl.
+  if (spec.kind === "greatestToughnessYouControl") {
+    return greatestPtAmong(state, player, spec, ctx, creatureToughness);
+  }
+  // ===== MANA-VARIABLE ===== devotion to a color (Karametra's Acolyte): the number of mana symbols of that
+  // color in the mana costs of permanents the controller controls (CR 700.5 — a hybrid/Phyrexian pip
+  // containing the color counts too). The source itself counts (it's on the battlefield with its own cost).
+  if (spec.kind === "devotion") {
+    return (player.battlefield || []).reduce((sum, perm) => sum + devotionPips(perm.card, spec.color), 0);
   }
   return 0;
+}
+
+// MANA-VARIABLE — the greatest layer-resolved P/T among the controller's creatures, honoring
+// `excludeSelf` (drop ctx.source — the "among OTHER creatures" form). `read` = creaturePower or
+// creatureToughness. Empty (or self-only with excludeSelf) → 0.
+function greatestPtAmong(state, player, spec, ctx, read) {
+  const selfId = spec.excludeSelf ? ctx?.source?.id : null;
+  return (player.battlefield || [])
+    .filter((perm) => /\bCreature\b/.test(String(perm.card?.type || perm.card?.type_line || "")))
+    .filter((perm) => !(selfId != null && perm.id === selfId))
+    .reduce((mx, perm) => Math.max(mx, read(perm, state)), 0);
+}
+
+// MANA-VARIABLE — count mana-symbol pips of `color` (a WUBRG letter) in a card's mana cost. Each pip
+// `{…}` whose content (split on "/" for hybrid/Phyrexian) includes the color counts once (CR 700.5).
+function devotionPips(card, color) {
+  const cost = String(card?.mana || card?.mana_cost || "");
+  let n = 0;
+  for (const pip of cost.match(/\{[^}]+\}/g) || []) {
+    if (pip.slice(1, -1).split("/").includes(color)) n += 1;
+  }
+  return n;
 }
 // Resolved numeric amount: a board count (`amountCount`) × a per-unit value (FOR-EACH "gain 2 life for
 // each X" → per 2; DMG-SCALE damage = the count itself → per defaults to 1), computed at resolution;

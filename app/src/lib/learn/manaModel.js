@@ -33,6 +33,7 @@
 import { MANA_COLORS, addMana, moveCardToZone, tapPermanent } from "./gameState.js";
 import { checkSacrificeTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice
 import { permanentHasKeyword } from "./layers.js";
+import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 
 // ─── Card → mana production ────────────────────────────────────────────────────
 
@@ -80,20 +81,94 @@ function hasHaste(card) {
   return /\bhaste\b/i.test(oracleOf(card));
 }
 
+// ===== MANA-VARIABLE (wave2a) ===== map a metric TAIL (the text after "Add … {C}/X mana") to a
+// `countForSpec` spec. ANCHORED to a curated set of known metrics ONLY; an unrecognized metric
+// returns null so the caller leaves the card NON-NATIVE (CREED: never a fabricated amount). The
+// returned spec is consumed by countForSpec(state, {controller, source}, spec) at resolution
+// (CR 608.2g — a count-derived mana amount is computed when the ability resolves, not at cast).
+//
+// `tail` includes the connector ("for each …", "equal to …", "where X is …"), which is normalized
+// away first so the SAME metric body matches regardless of which connector introduced it.
+const VAR_COLOR_WORD = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+function parseManaMetric(tail) {
+  // Strip the leading connector + any "the/your/an amount of" filler so the body is the bare metric.
+  const t = String(tail || "")
+    .trim().replace(/\.$/, "").replace(/\s+/g, " ").toLowerCase()
+    .replace(/^(?:for each|equal to|where x is)\s+/, "")
+    .replace(/^(?:the|your|an amount of)\s+/, "");
+
+  // "<type> you control" (from "for each creature you control") or "number of <type>s you control"
+  // (from "equal to the number of enchantments you control") → permanents of a card TYPE.
+  let m = t.match(/^(?:number of )?([a-z]+?)s? you control$/);
+  if (m) {
+    const cardType = m[1];
+    if (["creature", "artifact", "enchantment", "land", "planeswalker"].includes(cardType)) {
+      return { kind: "permanentsYouControl", cardType };
+    }
+    return null;
+  }
+
+  // "greatest power among (other) creatures you control" → max layer-resolved power.
+  m = t.match(/^greatest power among (other )?creatures you control$/);
+  if (m) return { kind: "greatestPowerYouControl", ...(m[1] ? { excludeSelf: true } : {}) };
+
+  // "greatest toughness among (other) creatures you control" → max layer-resolved toughness.
+  // (Only the "other" form exists on real cards — Bighorner's life clause / Arbor Adherent.)
+  m = t.match(/^greatest toughness among (other )?creatures you control$/);
+  if (m) return { kind: "greatestToughnessYouControl", ...(m[1] ? { excludeSelf: true } : {}) };
+
+  // "devotion to <color>" (from "equal to your devotion to green") → count of that color's
+  // mana-symbol pips across permanents you control.
+  m = t.match(/^devotion to (white|blue|black|red|green)$/);
+  if (m) return { kind: "devotion", color: VAR_COLOR_WORD[m[1]] };
+
+  return null;
+}
+
 /**
- * Parse the first "Add ..." mana clause out of oracle text into
- * `{ colors, amount }`, or null if there's no mana production.
+ * Parse the first "Add ..." mana clause out of oracle text into `{ colors, amount }`, or a
+ * VARIABLE-amount clause into `{ colors, amount: 0, amountSpec }`, or null if there's no
+ * (modeled) mana production.
  *
- *   "Add {G}"                       → { colors: ["G"], amount: 1 }
- *   "Add {C}{C}"                    → { colors: ["C"], amount: 2 }  (concat, same color)
- *   "{T}: Add {W} or {U}."          → { colors: ["W","U"], amount: 1 }  ("or" = choice)
- *   "Add one mana of any color."    → { colors: ["W","U","B","R","G"], amount: 1 }
- *   "Add a +1/+1 counter"           → null (no mana symbols)
+ *   "Add {G}"                          → { colors: ["G"], amount: 1 }
+ *   "Add {C}{C}"                       → { colors: ["C"], amount: 2 }  (concat, same color)
+ *   "{T}: Add {W} or {U}."             → { colors: ["W","U"], amount: 1 }  ("or" = choice)
+ *   "Add one mana of any color."       → { colors: ["W","U","B","R","G"], amount: 1 }
+ *   "Add {G} for each creature …"      → { colors: ["G"], amount: 0, amountSpec:{…} }
+ *   "Add X mana of any one color, where X is the number of enchantments …"
+ *                                      → { colors:[5], amount: 0, amountSpec:{…} }
+ *   "Add a +1/+1 counter"              → null (no mana symbols)
+ *   "Add {G} for each <unrecognized>"  → null (unmodeled metric — card stays NON-NATIVE)
  */
 function parseAddClause(oracle) {
   if (!/\badd\b/i.test(oracle)) return null;
 
-  // "Add ... mana of any color" → any of the five colors.
+  // ===== MANA-VARIABLE — checked FIRST so the bigger variable ability wins over a small fixed/any-
+  // color one on the SAME card (Arbor Adherent has a line-1 "Add one mana of any color" AND a line-2
+  // variable "Add X mana …, where X is …"; the variable line is the modeled one). Each shape is
+  // anchored at the metric. An unmodeled metric → null (NOT amount:1) → the card stays non-native.
+
+  // Shape A — fixed color symbol(s) + a "for each"/"equal to" connector introducing the metric:
+  // "Add (an amount of )?{C}… (for each|equal to) <metric>". The connector + metric is captured whole
+  // and parseManaMetric normalizes the connector away.
+  let v = oracle.match(/\bAdd (?:an amount of )?((?:\{[WUBRGC]\})+)(?: mana)? ((?:for each|equal to) [^.]+)/i);
+  if (v) {
+    const symbols = [...v[1].matchAll(/\{([WUBRGC])\}/gi)].map(x => x[1].toUpperCase());
+    const spec = parseManaMetric(v[2]);
+    if (spec && symbols.length) return { colors: [...new Set(symbols)], amount: 0, amountSpec: spec };
+    return null; // unmodeled metric (or no symbol) — non-native, never a fabricated fallback
+  }
+
+  // Shape B — "Add X mana (of any one color | of any color)?, where X is <metric>". "in any
+  // combination of colors" (Selvala) is deliberately NOT matched here → falls through to null below.
+  v = oracle.match(/\bAdd X mana(?: of any(?: one)? color)?, (where X is [^.]+)/i);
+  if (v) {
+    const spec = parseManaMetric(v[1]);
+    if (spec) return { colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: spec };
+    return null; // unmodeled metric — non-native
+  }
+
+  // "Add ... mana of any color" → any of the five colors (fixed amount 1).
   if (/add\b[^.]*\bmana of any( one)? color/i.test(oracle)) {
     return { colors: ["W", "U", "B", "R", "G"], amount: 1 };
   }
@@ -254,7 +329,16 @@ export function manaSources(state, playerId) {
     const usableWhileSick = prod.sacrifices && !prod.requiresTap;
     if (isCreature && perm.summoningSick && !usableWhileSick
         && !permanentHasKeyword(state, perm.id, "Haste")) continue;
-    sources.push({ permanentId: perm.id, colors: prod.colors, amount: prod.amount, sacrifices: !!prod.sacrifices });
+    // MANA-VARIABLE: a count-derived amount (Gaea's Cradle "for each creature", Karametra "devotion",
+    // Bighorner "greatest power", …) is resolved LIVE against the controller's board (CR 608.2g),
+    // floored at 0 — never the parser's amount:0 placeholder. ctx.source = this permanent so an
+    // excludeSelf metric ("greatest … among OTHER creatures") drops it. A repeatable tap source with
+    // a resolved amount of 0 still appears (it's a legal-but-pointless tap); the action layer
+    // (actionsTapForMana) skips offering a 0-mana tap.
+    const amount = prod.amountSpec
+      ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, prod.amountSpec))
+      : prod.amount;
+    sources.push({ permanentId: perm.id, colors: prod.colors, amount, sacrifices: !!prod.sacrifices });
   }
   return sources;
 }
@@ -287,13 +371,19 @@ export function planPayment(pool, sources, cost) {
   const working = {};
   for (const c of MANA_COLORS) working[c] = pool?.[c] || 0;
 
-  const avail = sources.map(s => ({
-    permanentId: s.permanentId,
-    colors: s.colors.filter(c => COLOR_SET.has(c)),
-    amount: s.amount || 1,
-    sacrifices: !!s.sacrifices,   // one-shot source (Treasure/Gold) — the commit path sacrifices it
-    used: false,
-  }));
+  // `amount ?? 1` (NOT `|| 1`): a hand-built source with NO amount field defaults to 1 (the legacy
+  // contract), but a resolved variable source with an explicit amount of 0 (Gaea's Cradle / Sanctum
+  // Weaver on an empty board) must NOT be floored UP to 1 — that would fabricate mana (MANA-VARIABLE
+  // CREED). A non-positive source produces nothing right now, so drop it from the payable set.
+  const avail = sources
+    .map(s => ({
+      permanentId: s.permanentId,
+      colors: s.colors.filter(c => COLOR_SET.has(c)),
+      amount: s.amount ?? 1,
+      sacrifices: !!s.sacrifices,   // one-shot source (Treasure/Gold) — the commit path sacrifices it
+      used: false,
+    }))
+    .filter(s => s.amount > 0);
   const taps = [];
   const spendOne = (color) => { working[color] -= 1; spend[color] += 1; };
 
