@@ -4,7 +4,23 @@
 
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, addPoison, addExperience, addRadCounters } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
-import { atomTargets } from "./shared.js";
+import { atomTargets, isCreatureCard } from "./shared.js";
+
+/**
+ * WAVE 3b COUNTERS-ON-EVENT — the TRIGGERING-PERMANENT referent ("…on that creature" / non-self "…on
+ * it", target:"thatCreature"; the pronoun refers to the object the ability triggered on, CR 608.2c;
+ * counter placement CR 122.6). The trigger flush threads ctx.triggeringPermanentId (the
+ * creature whose event fired the trigger — e.g. the attacker that dealt combat damage for Sphere Grid).
+ * Returns a single-creature target list, or [] when the referent is absent (a spell, or the triggering
+ * permanent already left the battlefield) — a clean no-op, never a fabricated counter. Mirrors
+ * selfTargets: only a CREATURE referent is honored ("that creature" implies a creature).
+ */
+function triggeringCreatureTargets(state, ctx) {
+  const lk = ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId) : null;
+  return lk && isCreatureCard(lk.permanent.card)
+    ? [{ type: "creature", id: ctx.triggeringPermanentId, controller: lk.controller }]
+    : [];
+}
 
 /** RAD (CR 728) — give rad counter(s) to the controller / each player / each opponent / a target player /
  * the just-damaged player. Fixed-N grants, OR a `countContext` dynamic count (CDMG-PLAYER-PAYOFF — "they get
@@ -49,7 +65,10 @@ export function applyRad(state, atom, ctx) {
  * ("put a +1/+1 counter on this creature", atom.target "self"; CR 122.1). */
 export function applyAddCounter(state, atom, ctx) {
   let next = state;
-  const targets = atomTargets(state, atom, ctx);
+  // WAVE 3b — the triggering-permanent referent ("…on that creature" / non-self "…on it") resolves to
+  // ctx.triggeringPermanentId (CR 608.2c); every other form goes through the shared atomTargets dispatch
+  // (self / chosen target / team). Absent referent → [] → a clean no-op (CREED, never a fabricated counter).
+  const targets = atom.target === "thatCreature" ? triggeringCreatureTargets(state, ctx) : atomTargets(state, atom, ctx);
   for (const t of targets) {
     if (t.type === "creature" && findPermanent(next, t.id)) {
       next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount: atom.amount || 1 });
