@@ -62,8 +62,12 @@ export function doublerProfile(card) {
         halvesOpponents = true;
       } else {
         const kind = /\+1\/\+1 counters?/.test(s) ? "+1/+1" : "any";
-        // "you control" / "you would put" → you-scope; neither → global (Primal Vigor "on a creature").
-        const scope = (/you control/.test(s) || /you would put/.test(s)) ? "you" : "global";
+        // "you control" / "you would put" / "your team controls" → you-scope; neither → global (Primal Vigor
+        // "on a creature"). "your team controls" (Pir, Imaginative Rascal) == you-scope: this engine only runs
+        // 1v1 (Standard) + 4P FFA (Commander) — there are NO teammates in any supported mode, so "your team" is
+        // exactly you. Without this, Pir's +1 additive falls through to global and wrongly boosts an OPPONENT's
+        // counters (a forbidden CREED replacement-layer FP — caught at the WAVE-3a merge gate).
+        const scope = (/you control/.test(s) || /you would put/.test(s) || /your team controls?/.test(s)) ? "you" : "global";
         if (/twice that many/.test(s)) counter = { op: "multiply", factor: 2, kind, scope };
         else if (/that many plus (one|1)/.test(s)) counter = { op: "additive", factor: 1, kind, scope };
       }

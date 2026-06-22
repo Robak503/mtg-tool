@@ -24,6 +24,10 @@ const TEXT = {
   vorinclex: ["Legendary Creature — Phyrexian Praetor", "Trample, haste\nIf you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.\nIf an opponent would put one or more counters on a permanent or player, they put half that many of each of those kinds of counters on that permanent or player instead, rounded down."],
   corpsejack: ["Creature — Fungus", "If one or more +1/+1 counters would be put on a creature you control, twice that many +1/+1 counters are put on it instead."],
   mondrak: ["Legendary Creature — Phyrexian Horror", "If one or more tokens would be created under your control, twice that many of those tokens are created instead.\n{1}{W/P}{W/P}, Sacrifice two other artifacts and/or creatures: Put an indestructible counter on Mondrak."],
+  // Pir, Imaginative Rascal — "your team controls" additive doubler. Caught a gate FP: the scope regex missed
+  // "your team controls" and fell through to global, leaking Pir's +1 onto opponents' counters. In this engine
+  // (1v1 + FFA only, no teammates) "your team" == you, so Pir is you-scoped.
+  pir: ["Legendary Creature — Human", "Partner with Toothy, Imaginary Friend (When this creature enters, target player may put Toothy into their hand from their library, then shuffle.)\nIf one or more counters would be put on a permanent your team controls, that many plus one of each of those kinds of counters are put on that permanent instead."],
 };
 const cardOf = (k) => ({ name: k, type: TEXT[k][0], oracle: TEXT[k][1] });
 const permOf = (k, controller) => ({ id: `dbl-${k}`, controller, card: cardOf(k), counters: {} });
@@ -55,6 +59,9 @@ describe("doublerProfile / isPureDoubler — detection over real text", () => {
     // Vorinclex's "if you would put …" self-clause IS a you-scope multiply (that is what self-doubles its
     // controller's counters through the central path); the opponent clause is the separate halvesOpponents flag.
     expect(doublerProfile(cardOf("vorinclex")).counter).toMatchObject({ op: "multiply", kind: "any", scope: "you" });
+    // Pir "your team controls" → you-scope additive (the gate-FP fix); a creature + Partner body → not pure.
+    expect(doublerProfile(cardOf("pir")).counter).toMatchObject({ op: "additive", kind: "any", scope: "you" });
+    expect(isPureDoubler(cardOf("pir"))).toBe(false);
   });
   it("a non-doubler card returns null", () => {
     expect(doublerProfile({ type: "Creature", oracle: "Flying" })).toBeNull();
@@ -76,6 +83,10 @@ describe("applyCounterDoubling — factor math (CR 616.1e greedy-max)", () => {
   });
   it("a you-scope doubler never affects an opponent's counters (the forbidden FP)", () => {
     expect(applyCounterDoubling(stateWith(permOf("doublingSeason", "opp")), "me", "+1/+1", 1)).toBe(1);
+  });
+  it("Pir 'your team controls' is you-scope: boosts its controller, NEVER an opponent (gate-caught FP regression)", () => {
+    expect(applyCounterDoubling(stateWith(permOf("pir", "me")), "me", "+1/+1", 1)).toBe(2);  // your counter: base + 1
+    expect(applyCounterDoubling(stateWith(permOf("pir", "me")), "opp", "+1/+1", 1)).toBe(1);  // opponent's: UNCHANGED
   });
   it("a GLOBAL doubler (Primal Vigor) affects everyone", () => {
     expect(applyCounterDoubling(stateWith(permOf("primalVigor", "opp")), "me", "+1/+1", 1)).toBe(2);
