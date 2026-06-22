@@ -292,7 +292,17 @@ export function runStepActions(state) {
   if (next.step === "upkeep") next = checkStepTriggers(next, "upkeep");
   else if (next.step === "draw") next = checkStepTriggers(next, "draw");
   else if (next.step === "end") next = checkStepTriggers(next, "endStep");
-  else if (next.step === "declare-blockers") {
+  // PHASE-TRIGGER-FRAMEWORK (Wave 1): emit the two phase-boundary triggers the spine detected but never
+  // fired. detectPhaseTrigger (registered in triggers.js) classifies them; checkStepTriggers fires any
+  // event generically (triggersForEvent matches on descriptor.event). Wired alongside the existing step
+  // emissions and BEFORE the priority/flush block below so they ride the same flush onto the stack.
+  //  - combatBegin: at the beginning-of-combat step. whose:"yours" ("...on your turn") gates to the active
+  //    player in triggersForEvent; whose:"any" ("each combat", Unnatural Growth) fires regardless of turn.
+  //  - firstMain: at the PRECOMBAT main only (gate on phase — both main phases share step "main"); else it
+  //    would fire twice (a postcombat-main double-fire is the landmine here).
+  else if (next.step === "beginning-of-combat") next = checkStepTriggers(next, "combatBegin");
+  if (next.phase === "precombat-main" && next.step === "main") next = checkStepTriggers(next, "firstMain");
+  if (next.step === "declare-blockers") {
     next = checkAttackTriggers(next);
     // The Ur-Dragon variable-count attack trigger (a targeted #319-style hook the compiler can't reach):
     // resolves draw-that-many + may-cheat-a-permanent synchronously, enqueuing its cardDrawn/ETB sub-triggers
@@ -581,6 +591,21 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     if (program.structure !== "modal" && (programConfidence(program) === "low" || (programNeedsChosenTarget(program) && !programTriggerTargetsResolvable(program)))) {
       return { payload: { resolver: "manual" }, targets: [] };
     }
+  }
+  // CREED (CLAUDE.md §1.2 — never fabricate): a trigger that reaches here WITH an effect clause but
+  // carrying the legacy naive `trigger.effect` payload is one we could NOT faithfully resolve — it has an
+  // intervening-if (the `clause && !interveningIf` guard above skipped the rich path) or is a HIGH modal
+  // (excluded from both rich-path returns). The naive payload applies a substring-matched small effect
+  // (parseTriggerEffect → applyTriggerEffect: draw/loseLife/gainLife) UNCONDITIONALLY: checkInterveningIf
+  // is NOT wired into the live resolution path, so the condition is IGNORED, and any "may"/"if you do"
+  // rider is dropped. That fabricates an effect the card doesn't have (e.g. Boundary Lands Ranger drawing
+  // a card with no power-4 creature; an "each opponent's upkeep, if that player has ≤1 card, they lose 4
+  // life" draining unconditionally). Route such a trigger to the Arbiter no-op (false-negative SAFE).
+  // (Wiring checkInterveningIf to fire the 3 modeled condition shapes natively is a tracked enhancement;
+  // until then the WHOLE conditional trigger stays non-native rather than mis-resolve.) A genuinely
+  // clause-less trigger, or one with a non-naive faithful payload, keeps its pre-set payload.
+  if (clause && trigger.payload?.resolver === "trigger.effect") {
+    return { payload: { resolver: "manual" }, targets: [] };
   }
   return { payload: trigger.payload || {}, targets: trigger.targets || [] };
 }
