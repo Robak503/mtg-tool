@@ -33,7 +33,7 @@ import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameStat
 import { canAfford, manaSources, manaProduction } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
-import { permanentHasKeyword, permanentIsCreature, colorsOf } from "./layers.js";
+import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor } from "./layers.js";
 import { collectCostReducers, costReductionForSpell } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
@@ -627,7 +627,14 @@ function actionsTapForMana(state, playerId) {
   const actions = [];
   for (const perm of player.battlefield) {
     if (perm.tapped) continue;
-    const prod = manaProduction(perm.card);
+    let prod = manaProduction(perm.card);
+    // GROUP-GRANT: a permanent with no own mana ability can have a {T}: Add … ability GRANTED by a lord
+    // (Gemhide/Manaweft). DEDUP mirrors manaSources — the grant only adds a source where the permanent has
+    // none of its own (the granter keeps its own quoted-text source; granting again would double it).
+    if (!prod) {
+      const granted = grantedManaSpecsFor(state, perm.id);
+      if (granted.length) prod = { colors: granted[0].colors, amount: granted[0].amount };
+    }
     if (!prod) continue;
     const isCreature = /Creature/.test(String(perm.card?.type || perm.card?.type_line || ""));
     // Granted Haste counts here too (a lord that hastes your mana dorks).

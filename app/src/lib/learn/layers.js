@@ -618,6 +618,32 @@ export function permanentIsCreature(state, permanentId) {
 }
 
 /**
+ * GROUP-GRANT — the MANA-ability specs another permanent's static ability GRANTS this permanent (a Sliver
+ * lord's "All Slivers have \"{T}: Add …\"" — Gemhide/Manaweft, Enduring Vitality). Walks the same continuous
+ * -effect collection the layer engine uses, filters to layer-6 `addAbility` grants of kind "mana" that
+ * AFFECT this permanent (selector match via the shared `effectAffects`, so self in/exclude + controller
+ * scope + subtype are all honored), and returns the serializable `{colors, amount}` specs (parsed once by
+ * staticAbilityParser — manaModel reads these, never re-parses, so the classifier and runtime can't drift).
+ * Returns [] when no grant applies. Pure. Used by manaModel.manaSources / legalChoices.actionsTapForMana to
+ * offer a recipient the tap-for-mana source it gained — kept HERE (not manaModel) because only this module
+ * owns `effectAffects`/`matchesSelector`, and exposing the raw specs avoids a layers→manaModel import cycle.
+ */
+export function grantedManaSpecsFor(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return [];
+  const board = collectContinuousEffects(state);
+  if (board.length === 0) return [];
+  const specs = [];
+  for (const e of board) {
+    if (e.layer !== 6 || e.op?.layerOp !== "addAbility") continue;
+    if (e.op.grant?.kind !== "mana" || !e.op.grant.spec) continue;
+    if (!effectAffects(e, perm, state)) continue;
+    specs.push(e.op.grant.spec);
+  }
+  return specs;
+}
+
+/**
  * Convenience used by tests/explain: the ordered effects that apply to a
  * permanent (layer asc, then CDA-first, then timestamp). Pure.
  */
