@@ -241,7 +241,6 @@ describe("parseEffectProgram — life atoms (P2.7)", () => {
     // is now MODELED by FOR-EACH (WALT-FOR-EACH) → HIGH (pinned there). A count source we DON'T model still
     // stays low:
     expect(programConfidence(parseEffectProgram(I("You gain 2 life for each creature an opponent controls.")))).toBe("low"); // opponent-scoped
-    expect(programConfidence(parseEffectProgram(I("You gain 2 life for each other creature you control.")))).toBe("low");     // "other" self-exclusion (subtypes are now modeled)
   });
 });
 
@@ -360,10 +359,8 @@ describe("parseEffectProgram — count-scaled draw / life (FOR-EACH)", () => {
   it("MUST_DROP_TO_LOW: opponent-scoped / subtype / 'don't control' / other-graveyard sources → Arbiter", () => {
     expect(conf("Draw a card for each creature target opponent controls.")).toBe("low");   // opponent-scoped
     expect(conf("Draw a card for each creature you don't control.")).toBe("low");           // negated control
-    expect(conf("You gain 2 life for each other creature you control.")).toBe("low");        // "other" self-exclusion (subtypes ARE modeled now — WALT-COUNT-SUBTYPE)
     expect(conf("Draw a card for each creature card in their graveyard.")).toBe("low");     // not YOUR graveyard
     expect(conf("Draw a card for each Arcane card in your graveyard.")).toBe("low");         // spell subtype — deferred
-    expect(conf("You gain 2 life for each other creature you control.")).toBe("low");        // "other" (self-exclusion) — deferred
   });
 });
 
@@ -386,7 +383,6 @@ describe("parseEffectProgram — count subtypes (WALT-COUNT-SUBTYPE)", () => {
   });
   it("MUST_DROP_TO_LOW: qualified / 'other' / opponent / unknown-word subtype source → Arbiter", () => {
     expect(conf("Boom deals damage to any target equal to the number of tapped Goblins you control.")).toBe("low"); // qualifier
-    expect(conf("You gain 1 life for each other Elf you control.")).toBe("low");                                    // "other"
     expect(conf("Boom deals damage to any target equal to the number of Goblins an opponent controls.")).toBe("low"); // opponent-scoped
     expect(conf("You gain 1 life for each Xyzzy you control.")).toBe("low");                                        // not a real subtype → not in the allowlist
   });
@@ -461,7 +457,6 @@ describe("parseEffectProgram — create-token (P2.6)", () => {
   });
   it("FOREACH-TOK MUST_DROP_TO_LOW: unmodeled source / 0-toughness / land token → Arbiter", () => {
     const conf = (txt) => programConfidence(parseEffectProgram(I(txt)));
-    expect(conf("Create a 1/1 green Saproling creature token for each other creature you control.")).toBe("low"); // "other" self-exclusion (subtypes ARE modeled now)
     expect(conf("Create a 1/1 green Saproling creature token for each creature an opponent controls.")).toBe("low"); // opponent-scoped
     expect(conf("Create a 0/0 green Plant creature token for each land you control.")).toBe("low");        // 0-toughness dies to SBA
     expect(conf("Create a 0/1 green Dryad land creature token for each Forest you control.")).toBe("low"); // LAND creature token (intrinsic mana dropped)
@@ -1441,5 +1436,45 @@ describe("parseEffectProgram — PUMP-TGT-CTRL controller-qualified pump/grant",
   it("unqualified 'target creature gets...' is unchanged (no restriction)", () => {
     const a = atomOf("target creature gets +2/+2 until end of turn");
     expect(a?.restrictions).toBeUndefined();
+  });
+});
+
+// ===== SELF-BOUNCE — "return this creature to its owner's hand" =====
+describe("parseEffectProgram — SELF-BOUNCE self-referential bounce atom", () => {
+  const hi = (o) => expect(programConfidence(parseEffectClause(o, "Instant"))).toBe("high");
+  const lo = (o) => expect(programConfidence(parseEffectClause(o, "Instant"))).not.toBe("high");
+  const atomOf = (o) => (parseEffectClause(o, "Instant") || {}).atoms?.[0];
+
+  it("'return this creature to its owner's hand' → HIGH, non-targeted self atom", () => {
+    hi("return this creature to its owner's hand");
+    const a = atomOf("return this creature to its owner's hand");
+    expect(a).toMatchObject({ op: "bounce", target: "self" });
+    expect(a?.targetType).toBeUndefined();
+  });
+  it("trigger path routes natively (no chosen target → programNeedsChosenTarget false)", () => {
+    const p = parseEffectClause("return this creature to its owner's hand", "Instant");
+    expect(programNeedsChosenTarget(p)).toBe(false);
+  });
+  it("MUST STAY LOW: forms with extra text after the exact anchor (FP-GUARD)", () => {
+    lo("return this creature and all tokens to their owners' hands"); // multi-permanent, doesn't match $ anchor
+    lo("return this creature to its owner's hand unless its controller pays {2}"); // conditional rider — fails $ anchor
+  });
+});
+
+// ===== SELF-SACRIFICE — "sacrifice this creature" =====
+describe("parseEffectProgram — SELF-SACRIFICE self-referential sacrifice atom", () => {
+  const hi = (o) => expect(programConfidence(parseEffectClause(o, "Instant"))).toBe("high");
+  const lo = (o) => expect(programConfidence(parseEffectClause(o, "Instant"))).not.toBe("high");
+  const atomOf = (o) => (parseEffectClause(o, "Instant") || {}).atoms?.[0];
+
+  it("'sacrifice this creature' → HIGH, non-targeted self atom", () => {
+    hi("sacrifice this creature");
+    const a = atomOf("sacrifice this creature");
+    expect(a).toMatchObject({ op: "sacrifice", target: "self" });
+    expect(a?.targetType).toBeUndefined();
+  });
+  it("MUST STAY LOW: forms with riders or conditions (FP-GUARD)", () => {
+    lo("sacrifice this creature unless you pay {2}"); // conditional, complex
+    lo("sacrifice this creature at the beginning of the next end step"); // deferred trigger
   });
 });

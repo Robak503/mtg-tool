@@ -540,19 +540,27 @@ const COUNT_SUBTYPE = {
 // admits OPPONENT-scoped ("…your opponents control" — Dockside, who:"opponents", summed over all opponents) and
 // TARGET-CONTROLLED ("…that player controls" — Cavern-Hoard, who:"target", the damaged/target player) permanent
 // counts. Left false for every legacy caller so those scopes can never widen an existing count source.
-function parseCountSource(phrase, { allowTarget = false, allowScopes = false, allowExcludeSource = false } = {}) {
-  let p = String(phrase).trim().replace(/\.\s*$/, "");
+// ===== COUNT-OTHER ===== (WALT #365) a leading "other " on a "<X> you control" count EXCLUDES the source
+// permanent itself (CR 109.2 — "other" = every object but this one): "draw a card for each OTHER Dinosaur
+// you control" (Earthshaker Dreadmaw) counts every Dinosaur you control but itself. Strip "other ", parse
+// the base source, and tag `excludeSelf` so countForSpec drops the source from the tally. Gated to a
+// CONTROLLER-scoped permanent count (who undefined) — "other" on a hand/graveyard/experience/opponent
+// source has no battlefield self to exclude, so it routes to the Arbiter (safe FN) instead of guessing.
+// (WAVE-2b DRAW-METRIC unified onto this excludeSelf wrapper — the earlier excludeSource/allowExcludeSource
+// path was redundant; "for each other <X>" is exactly this permanentsYouControl-scoped exclusion.)
+function parseCountSource(phrase, opts = {}) {
+  const raw = String(phrase).trim().replace(/\.\s*$/, "");
+  const om = raw.match(/^other (.+)$/);
+  if (!om) return baseCountSource(raw, opts);
+  const base = baseCountSource(om[1], opts);
+  if (!base || base.kind !== "permanentsYouControl" || base.who) return null;
+  return { ...base, excludeSelf: true };
+}
+
+function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = {}) {
+  const p = String(phrase).trim().replace(/\.\s*$/, "");
   let m;
-  // ===== DRAW-METRIC ("other") ===== (WAVE2b) a leading "other " excludes the SOURCE permanent from the
-  // count (CR 109.2 — "other <X> you control" never counts the permanent generating the effect). Gated by
-  // `allowExcludeSource` (passed ONLY by the FOR-EACH / metric DRAW matchers, mirroring the allowTarget /
-  // allowScopes opt-in pattern) so NO existing caller's behavior changes — a gain-life / lose-life / damage
-  // / token matcher that doesn't opt in still routes "other …" to the Arbiter (mass-targetType-drift-trap).
-  // Stripped FIRST so it composes with every count branch below; countForSpec honors `excludeSource` by
-  // skipping ctx.sourceId / ctx.triggeringPermanentId. Only the leading word is stripped.
-  let excludeSource = false;
-  if (allowExcludeSource && /^other /.test(p)) { excludeSource = true; p = p.replace(/^other /, ""); }
-  const withExclude = (spec) => (spec && excludeSource ? { ...spec, excludeSource: true } : spec);
+  const withExclude = (spec) => spec; // "other" exclusion is handled by the parseCountSource wrapper (excludeSelf)
   // ===== TREASURE-MAKER ===== OPPONENT-scoped union "artifacts and enchantments your opponents control"
   // (Dockside Extortionist's X). Curated exact phrase only; countForSpec sums it over every opponent. Checked
   // FIRST so "your opponents control" wins before the controller-scoped "you control" branches.
@@ -730,18 +738,18 @@ function parseExtendedAtom(s) {
     const src = parseCountSource(mfe[1]);
     return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
   }
-  // ===== DRAW-METRIC ("for each other") ===== (WAVE2b) only the controller-DRAW for-each / equal-to-number
-  // matchers opt into the "other " self-exclusion (allowExcludeSource) — "draw a card for each OTHER
-  // Dinosaur you control" (excludes the source permanent, CR 109.2). The sibling gain-life / lose-life /
-  // token matchers below do NOT opt in, so their "other" forms stay LOW (unchanged).
+  // ===== DRAW-METRIC ("for each [other]") ===== (WAVE2b) controller-DRAW for-each / equal-to-number matchers.
+  // The parseCountSource wrapper handles a leading "other " self-exclusion uniformly (excludeSelf, gated to a
+  // controller-scoped permanent count) — "draw a card for each OTHER Dinosaur you control" excludes the source
+  // permanent (CR 109.2). No per-matcher opt-in is needed (the wrapper is the single source of that behavior).
   mfe = t.match(/^(?:you )?draw (a|\d+) cards? for each (.+)$/);
   if (mfe) {
-    const src = parseCountSource(mfe[2], { allowExcludeSource: true });
+    const src = parseCountSource(mfe[2]);
     return src ? { op: "draw", amountCount: { ...src, per: mfe[1] === "a" ? 1 : parseInt(mfe[1], 10) }, targetType: null } : null;
   }
   mfe = t.match(/^(?:you )?draw cards equal to the number of (.+)$/);
   if (mfe) {
-    const src = parseCountSource(mfe[1], { allowExcludeSource: true });
+    const src = parseCountSource(mfe[1]);
     return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
   }
   mfe = t.match(/^(?:you )?gain (\d+) life for each (.+)$/);
@@ -1271,6 +1279,16 @@ function parseExtendedAtom(s) {
     const kws = parseGrantedKeywords(m[1]);
     return kws ? { op: "pump", target: "self", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // SELF-BOUNCE — "return this creature to its owner's hand" (the ability source, CR 109.2). Non-targeted
+  // (target:"self", no targetType): atomTargets → selfTargets → ctx.sourceId. applyZoneMove handles
+  // target:"self" through atomTargets/selfTargets; the controller serves as the owner proxy (zones.js
+  // line 24 — consistent with the targeted-bounce form). Never a fabricated move: if ctx.sourceId is
+  // absent or the permanent left the battlefield, selfTargets returns [] → the loop is a no-op.
+  if (/^return this creature to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
+  // SELF-SACRIFICE — "sacrifice this creature" (the ability source). Non-targeted (target:"self").
+  // applySacrifice early-exits for target:"self" via sacrificeCreatureEffect(ctx.controller, ctx.sourceId).
+  // No fabrication risk: absent sourceId → sacrificeCreatureEffect early-returns a no-op log event.
+  if (/^sacrifice this creature$/.test(t)) return { op: "sacrifice", target: "self" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   // COUNTER-TARGET-OWN — "put a +1/+1 counter on target creature you control" (Merfolk Skydiver, Kujar
