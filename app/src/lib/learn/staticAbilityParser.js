@@ -384,6 +384,43 @@ function parseClause(clause, out, selfName) {
     return; // an eminence cost-reduction clause — handled (or intentionally dropped to body-only)
   }
 
+  // ── OPPONENTS-CANT-ACT (Grand Abolisher; Voice of Victory; Conqueror's Flail rider) ────────────────────
+  // "Your opponents can't cast spells during your turn." / "During your turn, your opponents can't cast
+  // spells or activate abilities of artifacts, creatures, or enchantments." A STATIC restriction (CR 720,
+  // CR 116) keyed off the CONTROLLER'S turn that suppresses each OPPONENT'S actions — NOT a cost, NOT a
+  // layer effect. Emitted as a coverage MARKER ({ cantCast } with NO `affects`/`op`), so the layer engine
+  // ignores it (layers.effectAffects bails on a missing `affects`); legalChoices reads it at the action
+  // -enumeration site via the opponent scan. Two forms (the order of the "during your turn" clause varies):
+  //   • cast-only  → includeActivated:false (Voice of Victory, Conqueror's Flail rider).
+  //   • cast + activated abilities OF ARTIFACTS/CREATURES/ENCHANTMENTS → includeActivated:true (Grand
+  //     Abolisher). CRITICAL CR scope: it does NOT stop mana abilities of LANDS, loyalty abilities, or
+  //     abilities of other permanent types — modeling only the cast half would silently DROP the activated
+  //     -ability half (a CREED partial flip), so the descriptor must carry includeActivated and the gate
+  //     must enforce it. The "during your turn" window is mandatory (a windowless "opponents can't cast"
+  //     is a different, far rarer card — Teferi's Protection tier — and stays UNDETECTED here, safe FN).
+  // ANCHORED ^…$ on the whole clause so any rider variant stays body-only (Arbiter).
+  const cantActM = c.match(
+    /^(?:during your turn,\s*)?your opponents can't cast spells(?: or activate abilities of artifacts, creatures,? (?:and|or) enchantments)?(?:\s+during your turn)?$/,
+  );
+  if (cantActM) {
+    // Require the "during your turn" window to appear on exactly one side (prefix or suffix), never neither.
+    if (/during your turn/.test(c)) {
+      out.push({ cantCast: { window: "yourTurn", includeActivated: /activate abilities of/.test(c) } });
+    }
+    return;
+  }
+
+  // ── OPPONENTS-CANT-ACT, attachment-gated (Conqueror's Flail) ───────────────────────────────────────────
+  // "As long as this Equipment is attached to a creature, your opponents can't cast spells during your turn."
+  // Same restriction, but ACTIVE only while the Equipment is attached (attachedGated). legalChoices re-checks
+  // the source permanent's attachedTo at evaluation time (NOT parse time) — an UNATTACHED Flail must not lock
+  // opponents out. selfNormalizeOracle rewrites the card's own name, but "this Equipment" is the templated
+  // self-reference here, matched literally. Cast-only (no activated-ability half on the attachment-gated form).
+  if (/^as long as this equipment is attached to a creature, your opponents can't cast spells during your turn$/.test(c)) {
+    out.push({ cantCast: { window: "yourTurn", includeActivated: false, attachedGated: true } });
+    return;
+  }
+
   // ── COUNTER-PAYOFF (Herald of Secret Streams): "(each|all) creature(s) you control with a +1/+1 counter
   // on it/them can't be blocked" → a layer-6 unblockable grant, gated PER-CREATURE (dynamic) on having a
   // +1/+1 counter via the selector's requiresCounter; combat reads the granted "unblockable". Only the bare
@@ -815,6 +852,19 @@ export function costReductionForSpell(reducers, spellCard) {
     if (sub && new RegExp(`\\b${sub}\\b`).test(typeLine)) total += r.amount || 0;
   }
   return total;
+}
+
+/**
+ * OPPONENTS-CANT-ACT: the cant-act restriction a single card grants its controller, or null. Reads the
+ * card's `{ cantCast }` static marker (parsed via parseStaticAbilities). At most one cant-act clause per
+ * card in the modeled corpus, so the FIRST match wins. Pure — the attachment / turn-window gating lives in
+ * the legalChoices scan (it needs the live permanent + state), this just exposes the parsed descriptor.
+ */
+export function cantCastDescriptorOf(card) {
+  for (const d of parseStaticAbilities(card)) {
+    if (d.cantCast) return d.cantCast;
+  }
+  return null;
 }
 
 /**
