@@ -37,6 +37,7 @@ function reportCorpus() {
   const gapExamples = {};
   let total = 0;
   let native = 0;
+  const ranked = []; // PLAY-WEIGHTED: {rank, covered} per card carrying an edhrec_rank (Commander popularity)
   for (const raw of allCards()) {
     let c;
     try { c = publicCard(raw); } catch { continue; }
@@ -50,6 +51,7 @@ function reportCorpus() {
       gap[b] = (gap[b] || 0) + 1;
       (gapExamples[b] = gapExamples[b] || new Set()).add(c.name);
     }
+    if (Number.isInteger(raw.edhrec_rank)) ranked.push({ rank: raw.edhrec_rank, covered: isNativeTier(t) || t === "land" });
   }
   const pct = total ? Math.round((native / total) * 1000) / 10 : 0;
   console.log("=== CORPUS-WIDE NATIVE COVERAGE (the north-star metric) ===");
@@ -61,6 +63,20 @@ function reportCorpus() {
   console.log("\n  CORPUS GAP: unmodeled cards by mechanism (the corpus-primary roadmap signal)");
   for (const [b, n] of Object.entries(gap).sort((a, c) => c[1] - a[1])) {
     console.log(`  ${String(n).padStart(6)}  ${b}\n            e.g. ${[...(gapExamples[b] || [])].slice(0, 5).join(", ")}`);
+  }
+  console.log("");
+
+  // PLAY-WEIGHTED COVERAGE — "do the cards people actually PLAY work?" The flat corpus % treats a
+  // never-played junk card the same as Sol Ring; this weights by real Commander play (edhrec_rank,
+  // lower = more played). "playable" = native OR land (lands run trivially). This is the number that
+  // tracks whether real decks function — the practical finish line for a usable tool.
+  ranked.sort((a, b) => a.rank - b.rank);
+  console.log("=== PLAY-WEIGHTED COVERAGE (top-N most-played by edhrec_rank — the real-deck signal) ===");
+  for (const n of [1000, 2500, 5000, 10000]) {
+    const band = ranked.slice(0, n);
+    const cov = band.filter((x) => x.covered).length;
+    const p = band.length ? Math.round((cov / band.length) * 1000) / 10 : 0;
+    console.log(`  top ${String(n).padStart(5)} played: ${String(p).padStart(4)}% playable  (${cov}/${band.length})`);
   }
   console.log("");
 }
