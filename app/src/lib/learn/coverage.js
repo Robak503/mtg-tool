@@ -357,6 +357,16 @@ function manaCardResidueModeled(card, oracle) {
   return !isLevelGatedOracle(oracle) && allTriggerSentencesModeled(card, oracle);
 }
 
+// ADDITIVE registry seam (WAVE 0): module-level list of extra coverage classifiers. A classifier is
+// `(card) => tier | null` consulted by classifyCard AFTER all inline single-mechanism tiers and BEFORE
+// the composite catch-all (the inline tiers keep priority). Empty by default — a no-op until a slice
+// registers one — so existing classification is untouched.
+const COVERAGE_CLASSIFIERS = [];
+export function registerCoverageClassifier(fn) {
+  if (typeof fn !== "function") throw new Error("coverage classifier must be a function");
+  COVERAGE_CLASSIFIERS.push(fn);
+}
+
 /**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
@@ -419,6 +429,15 @@ export function classifyCard(card) {
   if (permanentActivatedCovered(card)) return "native-activated"; // P2.9: body + only-modeled activated abilities
   if (staticAbilitiesCoverCard(card, isKeywordOnly)) return "native-static"; // P2.10: body + only-modeled static anthems
   if (permanentEquipmentCovered(card)) return "native-equipment"; // attach: Equip + a clean equipped-creature bonus
+  // ADDITIVE registry seam (WAVE 0): a future slice registers a coverage classifier instead of editing
+  // this dispatch body. Each classifier is `(card) => tier | null` consulted ONLY after all the inline
+  // single-mechanism tiers (which keep priority) and BEFORE the composite catch-all — so a new tier
+  // slots in without touching the existing order. The first classifier to return a truthy tier wins.
+  // Empty by default, an exact no-op (the loop body never runs), so existing classification is untouched.
+  for (const c of COVERAGE_CLASSIFIERS) {
+    const t = c(card);
+    if (t) return t;
+  }
   if (permanentFullyCovered(card)) return "native-mixed";        // composite: modeled trigger + activated + static together
   return "body-only";
 }

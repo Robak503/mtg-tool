@@ -1,0 +1,117 @@
+/**
+ * effects/atoms/zones.js — zone-movement atoms (bounce, tuck, exile-plain, return-from-graveyard,
+ * reanimate). Also hosts the shared enterCardFromZone helper (reanimation + library ramp).
+ */
+
+import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone } from "../../gameState.js";
+import { checkEnterTriggers, checkLandfallTriggers } from "../../triggers.js";
+import { atomTargets } from "./shared.js";
+
+/** Move creature(s) battlefield → hand (bounce), → exile, or → library (TUCK — top via toTop, else
+ * bottom) — chosen targets, or ALL creatures for a mass `exile all creatures` (targetType "eachCreature"). */
+export function applyZoneMove(state, atom, ctx, toZone, toTop = false) {
+  let next = state;
+  const targets = atomTargets(state, atom, ctx);
+  for (const t of targets) {
+    // "creature" (bounce/exile-creature + mass eachCreature), "permanent" (targeted non-creature
+    // exile — Oblivion Ring-style, incl. a land/artifact within a union target), or "planeswalker"
+    // (PW-7). moveCardToZone detaches any Aura/Equip.
+    if (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") continue;
+    const lk = findPermanent(next, t.id);
+    if (lk) {
+      // TUCK uses the card's controller as the owner proxy (consistent with bounce's "owner's hand");
+      // toTop prepends to the library (top), else moveCardToZone appends (bottom).
+      next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone, cardId: t.id, toTop });
+    }
+  }
+  // Exile is NOT "dies" (CR 700.4 — dies = to graveyard), so no dies triggers fire. Tuck → library.
+  const effect = toZone === "exile" ? "exile" : toZone === "library" ? "tuck" : "bounce";
+  return logEvent(next, { kind: "spell-effect", effect, targets: targets.map(t => t.id) });
+}
+
+/**
+ * Graveyard recursion (CR 608) — move the targeted card(s) from the CASTER'S graveyard to their
+ * hand (Raise Dead / Regrowth). The target was chosen at cast time from the caster's own
+ * graveyard (a public zone). Fail-safe (CR 608.2b): if the targeted card already left the
+ * graveyard, that target does nothing — a logged no-op, never a throw. Hidden-info safe: the
+ * card was already visible in the graveyard, so logging the move reveals nothing new.
+ */
+export function applyReturnFromGraveyard(state, atom, ctx) {
+  let next = state;
+  const returned = [];
+  for (const t of ctx.targets || []) {
+    if (t.type !== "graveyardCard") continue;
+    const gy = next.players[ctx.controller]?.graveyard || [];
+    if (!gy.some((c) => c.id === t.id)) continue; // target left the graveyard — no-op (CR 608.2b)
+    next = moveCardToZone(next, { playerId: ctx.controller, fromZone: "graveyard", toZone: "hand", cardId: t.id });
+    returned.push(t.id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "return-from-graveyard", controller: ctx.controller, targets: returned });
+}
+
+/**
+ * Reanimation (β-3b, CR 608) — "Return target creature card from your graveyard to the battlefield"
+ * (Resurrection / Zombify / Breath of Life). Like return-from-graveyard but the chosen card enters the
+ * battlefield as a permanent UNDER THE CASTER'S CONTROL (becomePermanent), and its ETB triggers fire
+ * (checkEnterTriggers, flushed by the resolution finalizer). Target left the graveyard → no-op (CR
+ * 608.2b). Tokens were excluded at enumeration (not a card). "to your HAND" stays return-from-graveyard;
+ * a rider ("tapped", "under your control", "with a +1/+1 counter") fails the exact anchor → Arbiter.
+ */
+/**
+ * Enter `cardId` from `fromZone` (graveyard / library) onto `playerId`'s battlefield as a permanent
+ * under their control, then fire its ETB triggers (checkEnterTriggers; the resolution finalizer flushes
+ * them). MIRRORS resolvers.enterPermanent's setup (deterministic perm id + the CR 613.7e layer timestamp
+ * + enteredOnTurn + creature summoning sickness) — it can't call enterPermanent directly because
+ * resolvers→runProgram→effectAtoms would cycle. `tapped` enters it tapped (RAMP-1 — Rampant Growth's
+ * basic enters tapped). Returns `{ state, entered }`: entered:false (state unchanged) when the card isn't
+ * in the zone (CR 608.2b — it left). Shared by reanimation (β-3b, graveyard) and battlefield ramp (RAMP-1,
+ * library) so the two enter-a-found-card paths can't drift.
+ */
+export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false }) {
+  const player = state.players[playerId];
+  if (!player) return { state, entered: false };
+  const card = (player[fromZone] || []).find((c) => c.id === cardId);
+  if (!card) return { state, entered: false };
+  const { id: permId, state: s2 } = mintId(state, "perm");
+  const ts = s2.timestampCounter || 0;
+  const isCreatureCard = /Creature/.test(String(card?.type || card?.type_line || ""));
+  const perm = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped }), enteredOnTurn: s2.turn, timestamp: ts };
+  const p = s2.players[playerId];
+  let next = {
+    ...s2,
+    timestampCounter: ts + 1,
+    players: { ...s2.players, [playerId]: { ...p,
+      [fromZone]: p[fromZone].filter((c) => c.id !== cardId),
+      battlefield: [...p.battlefield, perm],
+    } },
+  };
+  next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: playerId });
+  // ETB fires for any entry; LANDFALL (CR 603 — a triggered ability, ability word CR 207.2c) ALSO fires
+  // when the entering permanent is a LAND — a
+  // RAMP/fetch that puts a land onto the battlefield (Cultivate, Rampant Growth, Kodama's Reach) is a
+  // landfall event, not just an ETB. Without this, landfall payoffs (Lotus Cobra, Tatyova, Rampaging
+  // Baloths) silently miss every ramp-fetched land. checkLandfallTriggers self-gates via isLandPerm, so a
+  // reanimated/fetched CREATURE never fires it — only a land does. (Sibling of the play-land ETB fix.)
+  next = checkEnterTriggers(next, perm);
+  next = checkLandfallTriggers(next, perm);
+  return { state: next, entered: true };
+}
+
+export function applyReanimate(state, atom, ctx) {
+  let next = state;
+  const reanimated = [];
+  for (const t of ctx.targets || []) {
+    if (t.type !== "graveyardCard") continue;
+    const r = enterCardFromZone(next, { playerId: ctx.controller, cardId: t.id, fromZone: "graveyard" });
+    next = r.state;
+    if (r.entered) reanimated.push(t.id); // skipped (entered:false) = target left the graveyard (CR 608.2b)
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "reanimate", controller: ctx.controller, targets: reanimated });
+}
+
+export const zoneResolvers = {
+  "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
+  "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
+  "return-from-graveyard": applyReturnFromGraveyard,
+  "reanimate": applyReanimate,
+};
