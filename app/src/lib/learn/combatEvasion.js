@@ -26,12 +26,42 @@
  * Defender (702.3b) is enforced in legalChoices.actionsDeclareAttacker (can't attack).
  *
  * Only BARE printed shapes are recognized. A conditional / compound variant the chokepoint can't
- * faithfully honor ("can't be blocked by creatures with flying", "can't be blocked except by …",
- * a team grant) falls through unrecognized → the body stays body-only / the card routes to the
- * Arbiter (false-negative SAFE), never a half-enforced false positive.
+ * faithfully honor (a team grant, a condition like "coven"/"snow", "can't be blocked except by …")
+ * falls through unrecognized → the body stays body-only / the card routes to the Arbiter
+ * (false-negative SAFE), never a half-enforced false positive.
+ *
+ * EVASION-QUALIFIER (this PR): parsed text restrictions on the attacker — "can't be blocked by":
+ *   Color:   "… by white/blue/black/red/green creatures"  → blocker must lack that color
+ *   Keyword: "… by creatures with flying/horsemanship"    → blocker must lack that keyword
+ *   Power:   "… by creatures with power N or less/greater" → blocker power restriction
+ *   Subtype: "… by <Subtype>s" / "… by creature tokens"  → blocker type restriction
+ * Each restriction is SELF-ONLY ("this creature" / card-name normalized) and unconditional (no
+ * "as long as", "until end of turn", "if" riders). parseAttackerRestrictions() returns an array
+ * of restriction objects; canBlockAttacker() short-circuits on the first match. Compound "A or B"
+ * restrictions (e.g., "can't be blocked by knights or walls") are not parsed — all-or-nothing
+ * (safe false-negative). Team grants and set-level "more than one creature" are also excluded here.
  */
 import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
+
+// ── EVASION-QUALIFIER constants ──
+// Color words → WUBRG letters (for "can't be blocked by white creatures").
+const BLOCKER_COLOR_WORDS = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+
+// Keywords recognized in "can't be blocked by creatures with [keyword]". Allowlist only;
+// a novel keyword that requires complex checking stays a safe false-negative.
+const BLOCKER_KEYWORD_WORDS = new Set(["flying", "horsemanship"]);
+
+// Creature-type WORDS that appear in "can't be blocked by [Subtype]s" (lowercase, singular or
+// irregular plural) → the REAL MTG creature subtype to test against the blocker. NOT exhaustive —
+// the parser de-pluralizes and checks these so an unlisted type stays body-only (safe FN). Listed =
+// confirmed in corpus. Most map to themselves; "oxen" is the IRREGULAR plural of "Ox" (Ox Drover:
+// "can't be blocked by Oxen" — the real subtype on the Ox token is "Ox", not "Oxen"), so it MUST map
+// to "Ox" or the runtime branch is dead. "token" is special-cased ("creature tokens" = any token).
+const BLOCKER_SUBTYPE_TO_TYPE = {
+  wall: "Wall", human: "Human", dinosaur: "Dinosaur", saproling: "Saproling", ox: "Ox", oxen: "Ox",
+};
+const BLOCKER_SUBTYPE_TOKENS = new Set(Object.keys(BLOCKER_SUBTYPE_TO_TYPE));
 
 // Basic-landwalk keyword → the land subtype that switches it on.
 const BASIC_WALK = [
@@ -57,10 +87,84 @@ function selfOracle(card) {
   return t;
 }
 
+/**
+ * Parse EVASION-QUALIFIER restrictions from a self-creature card (uses `selfOracle` — name
+ * already normalized). Returns an array of restriction objects; empty array = no restrictions.
+ * Each restriction:
+ *   { kind:"color",   color:"W"|"U"|"B"|"R"|"G" }
+ *   { kind:"keyword", keyword:"Flying"|"Horsemanship" }
+ *   { kind:"power",   op:"le"|"ge", n:number }
+ *   { kind:"subtype", subtype:"Wall"|… }
+ *   { kind:"token" }  — "creature tokens"
+ *
+ * Safety contract: ONLY self-subject unconditional clauses — the subject must be "this creature"
+ * (after name-normalization), the clause must not contain "as long as"/"if"/"until"/"except",
+ * and compound "or" restrictions are rejected whole (safe FN).
+ */
+function parseAttackerRestrictions(card) {
+  const oracle = selfOracle(card);
+  const restrictions = [];
+  // Match sentences/lines; "this creature can't be blocked by <qualifier>" at sentence boundary.
+  // "it can't be blocked by …" is also normalized to "this creature" by selfOracle? No — selfOracle
+  // replaces the CARD NAME with "this creature", not "it". Accept both.
+  const RE_CLAUSE = /(?:^|[\n.;])\s*(this creature|it) can't be blocked by ([^.;\n]+?)(?:\.|$)/gi;
+  let m;
+  while ((m = RE_CLAUSE.exec(oracle)) !== null) {
+    const raw = m[2].trim().toLowerCase().replace(/['']/g, "'");
+    // Reject conditional qualifiers ("as long as …", "if …", "until …", "this turn").
+    if (/\bas long as\b|\bif\b|\buntil\b|\bthis turn\b|\bexcept\b/.test(raw)) continue;
+
+    // "creatures with [keyword]" — flying, horsemanship (no "or" in these phrases)
+    const kwM = raw.match(/^creatures? with (\w+)$/);
+    if (kwM && BLOCKER_KEYWORD_WORDS.has(kwM[1])) {
+      restrictions.push({ kind: "keyword", keyword: kwM[1][0].toUpperCase() + kwM[1].slice(1) });
+      continue;
+    }
+
+    // "creatures with power N or less/greater" — "or" here is part of the power-comparison
+    // syntax, NOT a compound qualifier, so check BEFORE the generic "or" rejection below.
+    const powLeM = raw.match(/^creatures? with power (\d+) or less$/);
+    if (powLeM) { restrictions.push({ kind: "power", op: "le", n: parseInt(powLeM[1], 10) }); continue; }
+    const powGeM = raw.match(/^creatures? with power (\d+) or greater$/);
+    if (powGeM) { restrictions.push({ kind: "power", op: "ge", n: parseInt(powGeM[1], 10) }); continue; }
+    // "creatures with greater power" — dynamic comparison (relative to attacker's power); skip (safe FN).
+
+    // Reject compound "or" qualifiers ("knights or walls", "black and/or red") — can't model both.
+    if (/\bor\b/.test(raw)) continue;
+
+    // "creature tokens" (token creatures)
+    if (/^creature tokens?$/.test(raw)) { restrictions.push({ kind: "token" }); continue; }
+
+    // "[Color] creatures"
+    const colM = raw.match(/^(\w+) creatures?$/);
+    if (colM) {
+      const code = BLOCKER_COLOR_WORDS[colM[1]];
+      if (code) { restrictions.push({ kind: "color", color: code }); continue; }
+      // "[Subtype] creatures" or "[Subtype]s" — de-pluralize, check known list
+      const sub = colM[1];
+      if (BLOCKER_SUBTYPE_TOKENS.has(sub)) {
+        restrictions.push({ kind: "subtype", subtype: BLOCKER_SUBTYPE_TO_TYPE[sub] });
+        continue;
+      }
+    }
+
+    // Bare "[Subtype]s" (e.g., "Walls", "Dinosaurs")
+    const subtypeM = raw.match(/^(\w+)s?$/) || raw.match(/^(\w+)$/);
+    if (subtypeM) {
+      const singular = subtypeM[1].replace(/ves$/, "f").replace(/ies$/, "y").replace(/s$/, "");
+      if (BLOCKER_SUBTYPE_TOKENS.has(singular)) {
+        restrictions.push({ kind: "subtype", subtype: BLOCKER_SUBTYPE_TO_TYPE[singular] });
+        continue;
+      }
+    }
+    // Anything else — skip (safe FN, the card stays body-only if the restriction can't be modeled)
+  }
+  return restrictions;
+}
+
 // A clause asserted of the creature ITSELF (subject "this creature"/"it"), at a sentence
-// boundary, ending exactly at the clause — so a trailing qualifier ("can't be blocked BY creatures
-// with flying", "… except by Walls") and team grants ("creatures you control can't be blocked")
-// never match.
+// boundary, ending exactly at the clause — so a trailing qualifier and team grants ("creatures you
+// control can't be blocked") never match.
 const reBareUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked\s*(?:\.|$)/;
 const reCantBlock = /(?:^|[\n.;])\s*(?:this creature|it) can't block\s*(?:\.|$)/;
 const reBlockOnlyFlying = /(?:^|[\n.;])\s*(?:this creature|it) can block only creatures with flying\s*(?:\.|$)/;
@@ -73,14 +177,38 @@ export function isCanBlockOnlyFlyers(card) { return reBlockOnlyFlying.test(selfO
 // an evasion form THIS file enforces? The clause arrives already lowercased, reminder-stripped, and
 // name-normalized to "this creature". The keyword-WORD forms (menace/skulk/fear/intimidate/
 // horsemanship) are matched by COVERED_KEYWORDS itself; this only adds the basic-landwalk words and
-// the three text-clause forms, so a keyword-only body carrying them is honestly native.
+// the text-clause forms (including EVASION-QUALIFIER shapes), so a keyword-only body carrying them
+// is honestly native.
 const reLandwalkWord = /^(?:plains|island|swamp|mountain|forest)walk$/;
+
+// EVASION-QUALIFIER: "can't be blocked by" clause shapes the engine now enforces.
+// Matches: "this creature can't be blocked by [color] creatures", "… by creatures with [keyword]",
+// "… by creatures with power N or less/greater", "… by [Subtype]s/creature tokens".
+// Does NOT match bare "can't be blocked" (caught above), compound "or" forms, or conditional riders.
+const COLOR_WORDS_RE = Object.keys(BLOCKER_COLOR_WORDS).join("|");
+const reEvasionQualifier = new RegExp(
+  "^(?:this creature|it) can't be blocked by " +
+  "(?:" +
+    // color: "white/blue/… creatures"
+    `(?:${COLOR_WORDS_RE}) creatures?` +
+    // keyword: "creatures with flying/horsemanship"
+    `|creatures? with (?:${[...BLOCKER_KEYWORD_WORDS].join("|")})` +
+    // power: "creatures with power N or less/greater"
+    "|creatures? with power \\d+ or (?:less|greater)" +
+    // token: "creature tokens"
+    "|creature tokens?" +
+    // subtype: "Walls/Dinosaurs/…" (bare plural/singular)
+    `|(?:${[...BLOCKER_SUBTYPE_TOKENS].join("|")})s?` +
+  ")$"
+);
+
 export function isEnforcedEvasionClause(clause) {
   const c = String(clause || "").trim();
   if (reLandwalkWord.test(c)) return true;
   if (/^(?:this creature |it )?can't be blocked$/.test(c)) return true;
   if (/^(?:this creature |it )?can't block$/.test(c)) return true;
   if (/^(?:this creature |it )?can block only creatures with flying$/.test(c)) return true;
+  if (reEvasionQualifier.test(c)) return true;
   return false;
 }
 
@@ -174,6 +302,31 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   if (permanentHasKeyword(state, attackerId, "Intimidate")) {
     const shares = [...permColorSet(state, attackerId)].some((c) => permColorSet(state, blockerId).has(c));
     if (!(isArtifactPerm(state, blockerId) || shares)) return false;
+  }
+
+  // EVASION-QUALIFIER — parsed "can't be blocked by [qualifier]" text restrictions (CR 509.1b;
+  // these are static abilities that restrict which creatures may block, applied as blockers are
+  // declared). Restrictions parsed once per attacker card; the restriction list is order-independent.
+  const restrictions = parseAttackerRestrictions(aCard);
+  if (restrictions.length > 0) {
+    const bColors = permColorSet(state, blockerId);
+    const bTypes = permanentTypes(state, blockerId);
+    const bSubtypes = new Set((bTypes?.subtypes || []).map((s) => String(s).toLowerCase()));
+    // A token is flagged on the CARD (`card.token`, set by every token minter — tokens.js / amass.js
+    // / resolvers.js). NOT a permanent-level `isToken` field (which the engine never sets).
+    const bIsToken = bLook.permanent?.card?.token === true;
+    const bPow = creaturePower(bLook.permanent, state);
+
+    for (const r of restrictions) {
+      if (r.kind === "color" && bColors.has(r.color)) return false;
+      if (r.kind === "keyword" && permanentHasKeyword(state, blockerId, r.keyword)) return false;
+      if (r.kind === "power") {
+        if (r.op === "le" && bPow <= r.n) return false;
+        if (r.op === "ge" && bPow >= r.n) return false;
+      }
+      if (r.kind === "token" && bIsToken) return false;
+      if (r.kind === "subtype" && bSubtypes.has(r.subtype.toLowerCase())) return false;
+    }
   }
 
   return true;
