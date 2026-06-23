@@ -35,10 +35,27 @@ describe("α1 — atomTargetIntent", () => {
     expect(atomTargetIntent({ op: "untap", targetType: "creature" })).toBe("own");
     expect(atomTargetIntent({ op: "return-from-graveyard", targetType: "graveyardCard" })).toBe("own");
   });
-  it("bounce / unknown → ambiguous; non-chosen-target → null", () => {
-    expect(atomTargetIntent({ op: "bounce", targetType: "creature" })).toBe("ambiguous");
-    expect(atomTargetIntent({ op: "mystery", targetType: "creature" })).toBe("ambiguous");
+  it("bounce/tuck/discard/draw/regen: enemy or own depending on op; unknown → ambiguous", () => {
+    // ETB-BOUNCE — bare creature/artifact/land/permanent target is always enemy-side (Man-o'-War etc.)
+    expect(atomTargetIntent({ op: "bounce", targetType: "creature" })).toBe("enemy");
+    expect(atomTargetIntent({ op: "bounce", targetType: "artifact" })).toBe("enemy");
+    expect(atomTargetIntent({ op: "bounce", targetType: "land" })).toBe("enemy");
+    // bounce with "YouControl" filter stays own-side (self-protective bounce)
+    expect(atomTargetIntent({ op: "bounce", targetType: "creatureYouControl" })).toBe("own");
+    // ETB-TUCK — "put target creature on top of its owner's library" is enemy
+    expect(atomTargetIntent({ op: "tuck", targetType: "creature" })).toBe("enemy");
+    // discard — harmful, enemy-side (Rottenheart Ghoul, Kemuri-Onna)
+    expect(atomTargetIntent({ op: "discard", who: "target", targetType: "player" })).toBe("enemy");
+    expect(atomTargetIntent({ op: "discard", who: "target", targetType: "opponent" })).toBe("enemy");
+    // draw — beneficial, own-side (Saltwater Stalwart)
+    expect(atomTargetIntent({ op: "draw", who: "target", targetType: "player" })).toBe("own");
+    // non-targeted draw (no targetType) → null
     expect(atomTargetIntent({ op: "draw", amount: 1, targetType: null })).toBe(null);
+    // regenerate — protective, own-side (Horizon Seed)
+    expect(atomTargetIntent({ op: "regenerate", targetType: "creature" })).toBe("own");
+    // truly unknown op still returns ambiguous
+    expect(atomTargetIntent({ op: "mystery", targetType: "creature" })).toBe("ambiguous");
+    // non-chosen-target atoms → null
     expect(atomTargetIntent({ op: "deal-damage", targetType: "eachOpponent" })).toBe(null);
     expect(atomTargetIntent({ op: "pump", target: "self", ptDelta: { p: 1, t: 0 } })).toBe(null);
   });
@@ -49,7 +66,10 @@ describe("α1 — programTriggerTargetsResolvable (the flush allowlist)", () => 
     expect(programTriggerTargetsResolvable(parseEffectProgram(I("Destroy target creature.")))).toBe(true);
     expect(programTriggerTargetsResolvable(parseEffectProgram(I("Counter target spell.")))).toBe(true);
     expect(programTriggerTargetsResolvable(parseEffectProgram(I("Draw a card.")))).toBe(true);
-    expect(programTriggerTargetsResolvable(parseEffectProgram(I("Return target creature to its owner's hand.")))).toBe(false);
+    // bounce is now "enemy" for bare creature targets → resolvable on the trigger path
+    expect(programTriggerTargetsResolvable(parseEffectProgram(I("Return target creature to its owner's hand.")))).toBe(true);
+    // "target player sacrifices a creature" stays ambiguous (player ≠ opponent)
+    expect(programTriggerTargetsResolvable({ confidence: "high", structure: "sequence", atoms: [{ op: "sacrifice", targetType: "player" }] })).toBe(false);
     expect(programTriggerTargetsResolvable(null)).toBe(false);
   });
 });
