@@ -325,17 +325,23 @@ function classifyCondition(condRaw, cardName, cardType) {
     if (ntSubEtb && !NON_SUBTYPE_ETB_WORDS.has(ntSubEtb[1])) {
       return { event: "etb", scope: "subtypeYouControl", whose: "any", subtypeFilter: ntSubEtb[1].charAt(0).toUpperCase() + ntSubEtb[1].slice(1), nontokenFilter: true };
     }
-    // ANOTHER-SUBTYPE ETB — "another <type/subtype> [you control] enters" (Elvish Vanguard / Youthful Valkyrie /
-    // Arcbound Crusher families). A single-word type that typeStr can enforce; NON_SUBTYPE_ETB_WORDS rejects
-    // supertypes, meta words, and colors whose typeStr check would silently never fire (CREED FP guard).
+    // ANOTHER-SUBTYPE ETB — "another [nontoken] <type/subtype> [you control] enters" (Elvish Vanguard /
+    // Youthful Valkyrie / Arcbound Crusher families; the NONTOKEN form is Miirym, Sentinel Wyrm — "another
+    // nontoken Dragon you control enters"). A single-word type that typeStr can enforce; NON_SUBTYPE_ETB_WORDS
+    // rejects supertypes, meta words, and colors whose typeStr check would silently never fire (CREED FP guard).
     // "creature" stays in the denylist → falls through to creatureSubjectScope below (existing handling).
-    // "artifact" / "enchantment" / "land" are NOT in the denylist — typeStr includes them literally.
+    // "artifact" / "enchantment" / "land" are NOT in the denylist — typeStr includes them literally. The OPTIONAL
+    // "nontoken" qualifier sets nontokenFilter:true (CR 111.1 — gated on the entering permanent's token-ness in
+    // scopeMatches), which is ALSO the load-bearing non-recurse guard for Miirym's token-copy (its own minted
+    // token copy is token:true → the gate skips it → no infinite loop).
     const etbSubj = subjectBefore(c, "enters");
-    const anotherSubM = etbSubj.match(/^another ([a-z]+)(?: you control)?$/);
-    if (anotherSubM && !NON_SUBTYPE_ETB_WORDS.has(anotherSubM[1])) {
-      const sub = anotherSubM[1].charAt(0).toUpperCase() + anotherSubM[1].slice(1);
+    const anotherSubM = etbSubj.match(/^another (nontoken )?([a-z]+)(?: you control)?$/);
+    if (anotherSubM && !NON_SUBTYPE_ETB_WORDS.has(anotherSubM[2])) {
+      const sub = anotherSubM[2].charAt(0).toUpperCase() + anotherSubM[2].slice(1);
       const youControl = /you control$/.test(etbSubj.trim());
-      return { event: "etb", scope: youControl ? "otherSubtypeYouControl" : "otherSubtypeAnywhere", whose: "any", subtypeFilter: sub };
+      const desc = { event: "etb", scope: youControl ? "otherSubtypeYouControl" : "otherSubtypeAnywhere", whose: "any", subtypeFilter: sub };
+      if (anotherSubM[1]) desc.nontokenFilter = true; // "another nontoken <Subtype>" (Miirym)
+      return desc;
     }
     const scope = creatureSubjectScope(subjectBefore(c, "enters"));
     if (scope) return { event: "etb", scope, whose: "any" };

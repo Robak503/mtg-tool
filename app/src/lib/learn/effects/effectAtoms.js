@@ -33,7 +33,7 @@ import { selfReturnResolvers } from "./atoms/selfReturn.js";
 import { winGameResolvers } from "./atoms/winGame.js";
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
-export { applyCreateToken } from "./atoms/tokens.js";
+export { applyCreateToken, applyCreateTokenCopy } from "./atoms/tokens.js";
 export { enterCardFromZone } from "./atoms/zones.js";
 export { sacrificeCreatureEffect, advanceSacrificeChain } from "./atoms/removal.js";
 export { applyProliferate } from "./atoms/counters.js";

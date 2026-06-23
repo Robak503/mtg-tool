@@ -5,6 +5,7 @@
 import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId } from "../../gameState.js";
 import { tokenMultiplier, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
+import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec } from "./shared.js";
 
 /**
@@ -177,7 +178,95 @@ export function applyCreateNamedToken(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "create-named-token", token: atom.token, count, tapped: !!atom.tapped, controller: ctx.controller });
 }
 
+/**
+ * ===== TOKEN-COPY ===== (Wave 5b) create-token-copy (CR 707.1 — "Some effects create a token that's
+ * a copy of another object"). DISTINCT from cloneCopy.js's enters-AS-a-copy (Clone replaces a permanent's
+ * own enter): this MINTS a brand-new token whose card IS the copy-source's copiable card.
+ *
+ * COPY-SOURCE (atom.copySource), gated to what the engine threads:
+ *   - "self"       → a copy of THIS creature (the ability source, ctx.sourceId — Scute Swarm's 6+ branch).
+ *   - "triggering" → a copy of IT (the triggering permanent, ctx.triggeringPermanentId — Miirym off a
+ *                    nontoken Dragon's entry; the Wave-3b dies-payoff threading convention).
+ *   - "target"     → a copy of a chosen creature (ctx.targets[0]); only used when the atom carries a
+ *                    chosen-target targetType (so legalChoices / the cast path picks it).
+ * No copy source resolvable (e.g. a "self" copy on a spell with no source permanent, or a triggering
+ * source already gone) → ZERO tokens (CR 111.12 — a token that's a copy of a nonexistent object is not
+ * created), never a fabricated body.
+ *
+ * THE COPY: snapshotCopiedCard (CR 707.2) copies the source's PRINTED card as a fresh object — NO counters,
+ * NO auras, NO continuous effects (they live on the permanent, not the card), and strips isCommander. We
+ * stamp token:true (CR 707.1/111 — a token that's a copy IS still a token). token:true is the LOAD-BEARING
+ * non-recurse guard: a nontoken-gated trigger (Miirym's "another NONTOKEN Dragon") sees token:true on the
+ * minted copy and does NOT re-fire (triggers.scopeMatches' nontokenFilter), so one nontoken Dragon entry
+ * mints exactly ONE copy, which mints zero further — no infinite loop.
+ *
+ * COUNT: routed through tokenMultiplier (Wave-3a) so a Doubling-Season-style doubler composes (2^k copies).
+ * The minted copy is itself token:true, so it can never be a doubler — the multiply is computed once here.
+ *
+ * RIDERS (atom.entersTapped / atom.entersAttacking) are COMBAT STATE, not card characteristics, so they're
+ * applied to the PERMANENT, never to the copied card — a TYPE-ADDITION rider (subtype / "4/4 Hero") is
+ * FORBIDDEN here (it would feed the live subtype-ETB/attacks/dies scopes) and the parser routes such a card
+ * non-native instead, so this atom never receives one. "isnt-legendary" (Miirym) is a no-op (the legend
+ * rule is unenforced) and carries no atom field.
+ *
+ * ETB (CR 603.6a): each minted copy ENTERS, so it fires its own ETB triggers + every watcher via the shared
+ * fireTokenEnterTriggers seam (the same path applyCreateToken uses). The lethal SBA then runs (a 0/0 copy
+ * dies), like every other token mint.
+ */
+function resolveCopySource(state, atom, ctx) {
+  if (atom.copySource === "self") return ctx.sourceId ? findPermanent(state, ctx.sourceId)?.permanent : null;
+  if (atom.copySource === "triggering") return ctx.triggeringPermanentId ? findPermanent(state, ctx.triggeringPermanentId)?.permanent : null;
+  if (atom.copySource === "target") {
+    const t = (ctx.targets || []).find((x) => x?.type === "creature") || (ctx.targets || [])[0];
+    return t?.id ? findPermanent(state, t.id)?.permanent : null;
+  }
+  return null;
+}
+
+export function applyCreateTokenCopy(state, atom, ctx) {
+  let next = state;
+  const sourcePerm = resolveCopySource(next, atom, ctx);
+  // CR 111.12 — no copy source (nonexistent / already left) ⇒ no token is created. A clean no-op, never a
+  // fabricated body. (Logged so a self-play trace shows the gated miss rather than a silent nothing.)
+  if (!sourcePerm?.card) {
+    return logEvent(next, { kind: "spell-effect", effect: "create-token-copy", copySource: atom.copySource, count: 0, controller: ctx.controller });
+  }
+  // CR 707.2 — the copiable card (printed values, fresh object, NO counters/auras/continuous effects,
+  // isCommander stripped). cloneCard is undefined: snapshotCopiedCard reads `cloneCard?.id` for the id, so
+  // a per-token id is stamped below instead (two minted copies must never share one id).
+  const copiable = snapshotCopiedCard(sourcePerm, undefined);
+  // Wave-3a token doubler (CR 616): a token-copy is still "a token created", so a doubler multiplies it.
+  // Computed once (the minted copy is token:true, never itself a doubler).
+  const count = Math.max(0, atom.count || 1) * tokenMultiplier(next, ctx.controller);
+  const mintedIds = [];
+  for (let i = 0; i < count; i++) {
+    const minted = mintId(next, "tok");
+    next = minted.state;
+    // token:true is the load-bearing non-recurse guard (Miirym's nontoken gate). isCommander already
+    // stripped by snapshotCopiedCard. Per-token unique id.
+    const card = { ...copiable, id: `tok-${minted.id}`, token: true };
+    const perm = createPermanent({ id: minted.id, card, controller: ctx.controller, tapped: !!atom.entersTapped });
+    const player = next.players[ctx.controller];
+    let entered = perm;
+    // COMBAT-STATE rider (CR 508 — "enters … attacking"): a permanent characteristic of the ENTRY, not the
+    // copied card. Recorded on the permanent so combat reads it; never written to the card (which would leak
+    // into the copiable values). Only the clean tapped/attacking riders reach here (parser-gated).
+    if (atom.entersAttacking) entered = { ...entered, attacking: true };
+    next = { ...next, players: { ...next.players, [ctx.controller]: { ...player, battlefield: [...player.battlefield, entered] } } };
+    mintedIds.push(minted.id);
+  }
+  // ETB (CR 603.6a) — each minted copy fires its own + every watcher's enter triggers (Soul Warden /
+  // subtype-ETB / artifact-ETB). The copy is token:true, so a nontoken-gated watcher (Miirym) is a no-op
+  // on it (no re-trigger loop).
+  next = fireTokenEnterTriggers(next, mintedIds);
+  // A 0/0 copy dies to the lethal SBA (CR 704.5f), after the ETB enqueue — same ordering as applyCreateToken.
+  const r = destroyLethalCreatures(next);
+  next = checkDiesTriggers(r.state, r.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "create-token-copy", copySource: atom.copySource, count, sourceName: sourcePerm.card?.name, controller: ctx.controller });
+}
+
 export const tokenResolvers = {
   "create-token": applyCreateToken,
   "create-named-token": applyCreateNamedToken, // ===== TOKENS ===== T2 Treasure/Clue/Food/Gold
+  "create-token-copy": applyCreateTokenCopy,   // ===== TOKEN-COPY ===== (Wave 5b) CR 707.1 — token that's a copy
 };
