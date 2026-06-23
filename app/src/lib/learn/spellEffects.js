@@ -35,7 +35,7 @@ import {
   addCounter,
   addPoison,
 } from "./gameState.js";
-import { checkDiesTriggers, checkCardDrawnTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers } from "./triggers.js";
 import { permanentHasKeyword, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -676,9 +676,15 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       ? addPoison(s, { playerId: pid, amount: dealt })
       : loseLife(s, { playerId: pid, amount: dealt });
   };
+  // ENRAGE / DAMAGE-RECEIVED (CR 120.6): tally the FINAL amount dealt to each creature this effect so a
+  // dealtDamage trigger fires ONCE per creature with its total (CR 120.8 — only > 0 entries). One entry per
+  // creature here (each is hit at most once per applyDamageEffect), but the map keeps it CR-120.6-faithful
+  // if a future effect hits one creature twice in a call. Reflects the Wave-5a doubler (dmgConsult ran).
+  const dealtToCreature = {};
   const hitCreature = (s, permId) => {
     const dealt = dmgConsult(amount, "creature", permId);
     if (dealt <= 0) return s;
+    dealtToCreature[permId] = (dealtToCreature[permId] || 0) + dealt;
     let out = (sourceInfect || sourceWither)
       ? addCounter(s, { permanentId: permId, type: "-1/-1", amount: dealt })
       : markCombatDamage(s, { permanentId: permId, amount: dealt });
@@ -722,6 +728,11 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       }
     }
   }
+  // ENRAGE / DAMAGE-RECEIVED (CR 120.6) — fire each damaged creature's "Whenever this creature is dealt
+  // damage" trigger ONCE with its total, BEFORE the lethal SBA so the source binds while still on the
+  // battlefield (a creature that then dies to the SBA self-no-ops at resolution — the "must survive"
+  // reminder). Every entry is > 0 (the hitCreature `dealt <= 0` guard), so 0/prevented damage never fires.
+  next = checkDealtDamageTriggers(next, Object.entries(dealtToCreature).map(([creatureId, dealt]) => ({ creatureId, amount: dealt })));
   const dmgResult = destroyLethalCreatures(next);
   next = checkDiesTriggers(dmgResult.state, dmgResult.dead);
   // PW-6: a planeswalker driven to 0 loyalty by the damage is put into the graveyard (CR 704.5i).
