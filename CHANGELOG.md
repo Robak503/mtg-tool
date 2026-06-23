@@ -15,6 +15,14 @@ summarizes the notable changes.
   Man-o'-War, Aether Adept, Voidwielder, Separatist Voidmage, Kiri-Onna, Dispersal Technician,
   Glowing Anemone, Vedalken Dismisser (tuck), Rottenheart Ghoul, Kemuri-Onna, Saltwater Stalwart,
   Horizon Seed. **+12 native-trigger.**
+- **Reminder-text trigger count fix (TRIG-REMINDER-STRIP):** `allTriggerSentencesModeled` now strips
+  reminder text (CR 207.2 — no rules meaning) before counting trigger-shaped sentences. A keyword's
+  reminder can contain a "When …" clause — earthbend's "(… When it dies or is exiled, return it to the
+  battlefield tapped.)" — that the count regex saw as a shaped sentence but `detectTriggers` correctly
+  rejected, inflating the shaped count above the detected count and forcing a false body-only. Stripping
+  the reminder can only lower the shaped count (a real trigger is never printed only in reminder parens),
+  so it's strictly false-negative-safe. Flips Earth Village Ruffians, Haru Hidden Talent, and Toph
+  Earthbending Master to native-trigger. **+3 native-trigger.**
 - **Metalcraft / equipped / combined control-gate statics (GATED-ARTIFACT):** three extensions to the
   existing gated-static machinery: (1) the `Metalcraft —` ability-word label is now stripped before
   parsing, so pure P/T and keyword Metalcraft cards (Ghalma's Warden, Snapsail Glider, Auriok Edgewright,
