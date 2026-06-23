@@ -49,7 +49,7 @@ import { permanentHasKeyword, permanentColors, permanentProtectionColors } from 
 import { protectionApplies } from "./protection.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
-import { checkDiesTriggers, checkCombatDamageTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkCombatDamageTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers } from "./triggers.js";
 
 // KW-POISON (toxic — CR 702.180a): the toxic VALUE N. The keyword reminder text spells the number
 // out ("Toxic 3"); the Scryfall keywords array only carries the bare word "Toxic", so N is read from
@@ -371,6 +371,20 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // BATCH combat-damage (CR 510.4) — "one or more creatures you control deal combat damage to a player"
   // fires ONCE per controller who connected (not per attacker). Same playerEvents, fired alongside.
   next = checkBatchCombatDamageTriggers(next, playerEvents);
+  // ENRAGE / DAMAGE-RECEIVED (CR 603.2 — "Whenever this creature is dealt damage, …"). The step IS the
+  // damage event (CR 510.2 — all combat damage is dealt simultaneously), so each creature fires EXACTLY
+  // ONCE with its TOTAL this step — never once per attacking/blocking source. dmgToPermanent (marked
+  // damage) and minusCounters (infect/wither — still "damage dealt", CR 120.3 / 702.90b) are the per-
+  // creature tallies, already keyed by creature id (a creature blocked by TWO creatures has ONE summed
+  // entry). Both are post-consult (the Wave-5a doubler already applied), and every recorded amount is > 0
+  // (addDmg's `n > 0` guard), so prevented/0 damage (protection/fog) never produced an entry (CR 120.8).
+  // Fired BEFORE the lethal SBA (the source binds while still on the battlefield); a creature that dies to
+  // the SBA self-no-ops at resolution (the "must survive" reminder, CR 704.5g). The dealtDamage scope is
+  // self-only, so summing both maps into one amount-per-creature is the faithful CR 510.2 single event.
+  const dealtDamageTotals = {};
+  for (const [id, amount] of Object.entries(dmgToPermanent)) dealtDamageTotals[id] = (dealtDamageTotals[id] || 0) + amount;
+  for (const [id, amount] of Object.entries(minusCounters)) dealtDamageTotals[id] = (dealtDamageTotals[id] || 0) + amount;
+  next = checkDealtDamageTriggers(next, Object.entries(dealtDamageTotals).map(([creatureId, amount]) => ({ creatureId, amount })));
 
   // ── SBA: lethal damage (or ANY deathtouch damage) destroys creatures ──
   const { state: afterDeaths, dead } = destroyLethalCreatures(next, deathtouched);

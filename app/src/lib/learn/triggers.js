@@ -81,8 +81,12 @@ export function stripTriggerAbilityLabel(oracle) {
   // "treasure hunter" is Knuckles the Echidna's flavor ability-word label on its upkeep-win trigger
   // ("Treasure Hunter — At the beginning of your upkeep, …"). Like the others it's CR 207.2c flavor with
   // no rules meaning; stripping it lets the boundary-anchored trigger regex see the bare "At the beginning".
+  // "enrage" (CR 207.2c, like landfall) is the ability-word label on the DAMAGE-RECEIVED family
+  // ("Enrage — Whenever this creature is dealt damage, …"). Stripping it lets the boundary-anchored
+  // trigger regex see the bare "Whenever". SHARED with coverage.js so the shaped-sentence count and the
+  // detected-trigger count agree (else an enrage card mis-classifies).
   return String(oracle || "")
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter)\s*[—–-]\s*/gim, "")
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage)\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 
@@ -124,7 +128,10 @@ function splitTriggerSentence(inner) {
   // comma's left side lacks a (pre-mill) event verb, so the loop would advance to the comma after "draw a
   // card" (matching "draws? a"), swallowing the first effect sentence INTO the condition. Listing the mill
   // verbs anchors the split at the correct comma.
-  const hasEventVerb = (s) => /\b(?:enters|dies|attacks|blocks|deals|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning|milled|mills)\b/.test(s);
+  // "dealt" (ENRAGE / DAMAGE-RECEIVED: "this creature is dealt damage") is a CONDITION verb — without it
+  // the advance-past-name-commas loop would skip the real "…is dealt damage," boundary and swallow the
+  // first effect sentence into the condition. (Distinct from "deals" — that's the SOURCE-side event.)
+  const hasEventVerb = (s) => /\b(?:enters|dies|attacks|blocks|deals|dealt|casts?|sacrifice[sd]?|gain(?:s)? life|draws? (?:a|your)|beginning|milled|mills)\b/.test(s);
   let splitIdx = inner.indexOf(",");
   if (splitIdx === -1) return null;
   if (!hasEventVerb(inner.slice(0, splitIdx))) {
@@ -536,6 +543,20 @@ function classifyCondition(condRaw, cardName, cardType) {
   // "…to an opponent who controls…") leaves residue → UNDETECTED → Arbiter (safe false-negative).
   if (/\bdeals? damage to (?:a player|an opponent)$/.test(c) && selfRef) {
     return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
+  }
+
+  // ===== ENRAGE / DAMAGE-RECEIVED (CR 603.2 trigger condition, the ENRAGE family) ===== "Whenever this creature is dealt
+  // damage, …" / "Whenever <name> is dealt damage, …". The SOURCE permanent IS the creature that took the
+  // damage (scope:self) — the "Enrage —" ability-word label (CR 207.2c) is stripped upstream by
+  // stripTriggerAbilityLabel so the bare condition reaches here. checkDealtDamageTriggers emits the event
+  // (combatResolution + applyDamageEffect) ONCE per creature per damage EVENT with the total amount (CR
+  // 510.2 — combat damage is dealt simultaneously, so multiple simultaneous blockers trigger it exactly once; CR 120.8 — no event on 0 damage),
+  // threading ctx.dealtDamageAmount for an amount-scaled payoff (e.g. "add that much mana").
+  // The "is dealt damage BY <…>" form (Sengir family — a DIFFERENT event, the source's own death) is a
+  // distinct shape already rejected by the FIX-TRIG-CONDITION `dealt damage by` guard above, so it never
+  // reaches here. Anchored to the bare self form (END on "damage"): a rider stays UNDETECTED → Arbiter.
+  if (/\bis dealt damage$/.test(c) && selfRef) {
+    return { event: "dealtDamage", scope: "self", whose: "any" };
   }
 
   // HEROIC (CR 702.35) — "Whenever you cast a spell that targets this creature, <effect>".
@@ -1320,6 +1341,43 @@ export function checkCombatDamageTriggers(state, playerEvents) {
       if (watcher.id === attackerPerm.id) continue;
       fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
     }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * ENRAGE / DAMAGE-RECEIVED (CR 603.2 — "Whenever this creature is dealt damage, …") — enqueue the
+ * dealtDamage trigger for every creature that took damage this event. `events` is a list of
+ * `{ creatureId, amount }` collected at the damage-application chokepoint (combatResolution's per-step
+ * damage tally, or applyDamageEffect's per-target hits) — ONE entry per creature with the TOTAL amount
+ * dealt to it this event (CR 510.2 — combat damage dealt simultaneously, so multiple simultaneous sources trigger it EXACTLY ONCE; CR 120.8 —
+ * the caller already excluded 0/prevented damage, so every entry has amount > 0). The trigger is
+ * SELF-scope (the source IS the damaged creature), so only that creature's OWN watcher fires — no other
+ * battlefield watcher is scanned (the modeled enrage shape is self-only; a non-self "whenever a creature
+ * is dealt damage" stays UNDETECTED → Arbiter). ctx.dealtDamageAmount carries the FINAL dealt amount
+ * (already reflecting any Wave-5a damage doubler) for an amount-scaled payoff. Fired BEFORE the lethal SBA
+ * at the call site, so the pending trigger captures while the source still resolves; the counter/effect
+ * resolves at the next priority point — a creature that died to the SBA self-no-ops (selfTargets → [] when
+ * the source left), which IS the "(It must survive the damage to get the counter)" reminder (CR 704.5g
+ * order). Pure — appends to pendingTriggers.
+ */
+export function checkDealtDamageTriggers(state, events) {
+  const hits = (events || []).filter((e) => e && e.creatureId != null && e.amount > 0);
+  if (!hits.length) return state;
+  let fired = [];
+  for (const ev of hits) {
+    const lk = findPermanent(state, ev.creatureId);
+    if (!lk) continue; // the creature already left the battlefield before this fire — no source to bind
+    const perm = lk.permanent;
+    // ctx.dealtDamageAmount is the canonical enrage amount; ctx.combatDamageAmount is its ALIAS so the
+    // existing "that many" countContext atoms (parser binds "draw/create/rad that many" → combatDamageAmount)
+    // scale on an enrage trigger too — in this context "that many" = the damage dealt TO this creature
+    // (Illusory Ambusher "draw that many cards", Hornet Nest, Saber Ants). Per-trigger context, so the alias
+    // never leaks into a combat-damage-to-player payoff fired in the same flush (each carries its own ctx).
+    const context = { dealtDamageAmount: ev.amount, combatDamageAmount: ev.amount };
+    // self ("this creature is dealt damage"): the source and the triggering permanent are the same object.
+    fired = fired.concat(triggersForEvent(state, { event: "dealtDamage", sourcePermanent: perm, triggeringPermanent: perm, triggeringContext: context }));
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
