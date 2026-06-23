@@ -40,6 +40,7 @@ import { amassClauseParser } from "./atoms/amass.js";
 import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfReturn.js";
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { counterClausesParser } from "./atoms/counterClauses.js";
+import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -2593,3 +2594,7 @@ registerClauseParser(winGameClauseParser);
 // COUNTERS-ON-EVENT (Wave 3b) — "put a +1/+1 counter on the triggering creature" → the add-counter atom
 // (routed through gameState.addCounter, so the Wave-3 doubler applies). Wired here per the slice contract.
 registerClauseParser(counterClausesParser);
+// TOKEN-COPY (Wave 5b) — "create a token that's a copy of {this creature | it}" → the create-token-copy
+// atom (copySource self/triggering). EXACT anchors only; an unmodeled rider/scope (type-add, target,
+// counted/filtered copy) leaves it null → low → Arbiter. count routed through the Wave-3a token doubler.
+registerClauseParser(tokenCopyParser);
