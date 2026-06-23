@@ -1,8 +1,8 @@
 /**
- * ENRAGE / DAMAGE-RECEIVED trigger event (CR 120.6 / 207.2c) — "Enrage — Whenever this creature is dealt
+ * ENRAGE / DAMAGE-RECEIVED trigger event (CR 603.2 / 207.2c) — "Enrage — Whenever this creature is dealt
  * damage, <effect>". detectTriggers recognizes the SELF-scope shape (the "Enrage —" ability-word label is
  * stripped, CR 207.2c); combatResolution + applyDamageEffect emit the event ONCE per creature per damage
- * EVENT with the TOTAL amount (CR 120.6 — multiple simultaneous sources trigger it exactly once; CR 120.8 —
+ * EVENT with the TOTAL amount (CR 510.2 — combat damage dealt simultaneously, so multiple simultaneous sources trigger it exactly once; CR 120.8 —
  * never on 0/prevented damage). The effect rides the existing flush → EffectProgram compiler, and a card
  * whose enrage effect is an already-modeled atom flips body-only → native-trigger. Engine-first: the trigger
  * must actually fire + resolve, or the card is a false positive (CLAUDE.md §1.2).

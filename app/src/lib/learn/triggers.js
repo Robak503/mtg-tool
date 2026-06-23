@@ -545,13 +545,13 @@ function classifyCondition(condRaw, cardName, cardType) {
     return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
   }
 
-  // ===== ENRAGE / DAMAGE-RECEIVED (CR 120.6, the ENRAGE family) ===== "Whenever this creature is dealt
+  // ===== ENRAGE / DAMAGE-RECEIVED (CR 603.2 trigger condition, the ENRAGE family) ===== "Whenever this creature is dealt
   // damage, …" / "Whenever <name> is dealt damage, …". The SOURCE permanent IS the creature that took the
   // damage (scope:self) — the "Enrage —" ability-word label (CR 207.2c) is stripped upstream by
   // stripTriggerAbilityLabel so the bare condition reaches here. checkDealtDamageTriggers emits the event
   // (combatResolution + applyDamageEffect) ONCE per creature per damage EVENT with the total amount (CR
-  // 120.6 — multiple simultaneous blockers trigger it exactly once; CR 120.8 — no event on 0 damage),
-  // threading ctx.dealtDamageAmount for an amount-scaled payoff ("put that many +1/+1 counters on it").
+  // 510.2 — combat damage is dealt simultaneously, so multiple simultaneous blockers trigger it exactly once; CR 120.8 — no event on 0 damage),
+  // threading ctx.dealtDamageAmount for an amount-scaled payoff (e.g. "add that much mana").
   // The "is dealt damage BY <…>" form (Sengir family — a DIFFERENT event, the source's own death) is a
   // distinct shape already rejected by the FIX-TRIG-CONDITION `dealt damage by` guard above, so it never
   // reaches here. Anchored to the bare self form (END on "damage"): a rider stays UNDETECTED → Arbiter.
@@ -1347,11 +1347,11 @@ export function checkCombatDamageTriggers(state, playerEvents) {
 }
 
 /**
- * ENRAGE / DAMAGE-RECEIVED (CR 120.6 — "Whenever this creature is dealt damage, …") — enqueue the
+ * ENRAGE / DAMAGE-RECEIVED (CR 603.2 — "Whenever this creature is dealt damage, …") — enqueue the
  * dealtDamage trigger for every creature that took damage this event. `events` is a list of
  * `{ creatureId, amount }` collected at the damage-application chokepoint (combatResolution's per-step
  * damage tally, or applyDamageEffect's per-target hits) — ONE entry per creature with the TOTAL amount
- * dealt to it this event (CR 120.6 — multiple simultaneous sources trigger it EXACTLY ONCE; CR 120.8 —
+ * dealt to it this event (CR 510.2 — combat damage dealt simultaneously, so multiple simultaneous sources trigger it EXACTLY ONCE; CR 120.8 —
  * the caller already excluded 0/prevented damage, so every entry has amount > 0). The trigger is
  * SELF-scope (the source IS the damaged creature), so only that creature's OWN watcher fires — no other
  * battlefield watcher is scanned (the modeled enrage shape is self-only; a non-self "whenever a creature

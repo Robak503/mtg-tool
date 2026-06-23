@@ -676,9 +676,9 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       ? addPoison(s, { playerId: pid, amount: dealt })
       : loseLife(s, { playerId: pid, amount: dealt });
   };
-  // ENRAGE / DAMAGE-RECEIVED (CR 120.6): tally the FINAL amount dealt to each creature this effect so a
+  // ENRAGE / DAMAGE-RECEIVED (CR 603.2): tally the FINAL amount dealt to each creature this effect so a
   // dealtDamage trigger fires ONCE per creature with its total (CR 120.8 — only > 0 entries). One entry per
-  // creature here (each is hit at most once per applyDamageEffect), but the map keeps it CR-120.6-faithful
+  // creature here (each is hit at most once per applyDamageEffect), but the map keeps it one-event-per-creature
   // if a future effect hits one creature twice in a call. Reflects the Wave-5a doubler (dmgConsult ran).
   const dealtToCreature = {};
   const hitCreature = (s, permId) => {
@@ -728,7 +728,7 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
       }
     }
   }
-  // ENRAGE / DAMAGE-RECEIVED (CR 120.6) — fire each damaged creature's "Whenever this creature is dealt
+  // ENRAGE / DAMAGE-RECEIVED (CR 603.2) — fire each damaged creature's "Whenever this creature is dealt
   // damage" trigger ONCE with its total, BEFORE the lethal SBA so the source binds while still on the
   // battlefield (a creature that then dies to the SBA self-no-ops at resolution — the "must survive"
   // reminder). Every entry is > 0 (the hitCreature `dealt <= 0` guard), so 0/prevented damage never fires.
