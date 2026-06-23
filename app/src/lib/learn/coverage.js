@@ -204,7 +204,14 @@ const TRIGGER_SENTENCE_RE = /(?:^|[\n.;]\s*)(?:When|Whenever|At)\b\s+[^.]+\./gi;
 function allTriggerSentencesModeled(card, oracle) {
   // Normalize ability-word labels ("Landfall — Whenever …") IDENTICALLY to detectTriggers, so the
   // shaped-sentence count and the detected-trigger count agree (else a landfall card mis-classifies).
-  const shaped = (stripTriggerAbilityLabel(oracle).match(TRIGGER_SENTENCE_RE) || []).length;
+  // Strip reminder text (CR 207.2 — no rules meaning) BEFORE counting: a keyword's reminder can contain
+  // a "When …" clause that the regex counts as a shaped sentence but is NOT a real trigger (earthbend's
+  // "(…When it dies or is exiled, return it to the battlefield tapped.)" reminder inflates the count on
+  // Earth Village Ruffians / Haru / Toph). detectTriggers rejects the reminder clause (its referent/effect
+  // don't classify), so the shaped count out-runs the detected count → a false body-only. Stripping the
+  // reminder can ONLY lower the shaped count, so it never hides a real unmodeled trigger (those are never
+  // parenthetical) — strictly FN-safe.
+  const shaped = (stripReminder(stripTriggerAbilityLabel(oracle)).match(TRIGGER_SENTENCE_RE) || []).length;
   const detected = detectTriggers(card);
   if (detected.length !== shaped) return false;     // an unrecognized-event trigger sentence
   return detected.every(triggerRoutesNatively);      // every recognized trigger's effect routes
