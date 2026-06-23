@@ -239,6 +239,10 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
 
   // Blocker-side restrictions.
   if (isSelfCantBlock(bCard)) return false;
+  // CANT-BLOCK — a GRANTED "can't block this turn" (Goblin Shortcutter / Crossway Vampire's targeted
+  // trigger → a layer-6 endOfTurn "cantBlock" keyword). Layer-aware via permanentHasKeyword, so it tracks
+  // the temporary grant exactly like the printed restriction above and wears off at cleanup (CR 514.2).
+  if (permanentHasKeyword(state, blockerId, "cantBlock")) return false;
   // "Can block only creatures with flying" is a RESTRICTION (this creature can't block non-flyers),
   // NOT a grant of reach: to actually block a FLYING attacker the blocker still needs flying/reach
   // (CR 702.9b, enforced below). So a non-flying/non-reach "can block only flyers" creature can block

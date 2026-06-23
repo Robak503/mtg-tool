@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **"Target creature can't block this turn" (CANT-BLOCK):** a new `cant-block` atom grants the target
+  creature a layer-6 end-of-turn "cantBlock" restriction, enforced by `combatEvasion.canBlockAttacker`
+  (layer-aware, so it wears off at cleanup like a combat-trick keyword grant). Enemy-side intent — the
+  trigger-flush chooser picks an opponent's creature, since you disable a blocker to push damage. Flips 17
+  permanents to native-trigger (Goblin Shortcutter, Crossway Vampire, Mardu Roughrider, Fervent Cathar,
+  Voldaren Duelist, Unstoppable Ogre, …). Activated-ability cant-block, optional "pay then" riders,
+  restricted/mass targets, and auras with extra text stay on the Arbiter. **+17 native-trigger.**
 - **Explore keyword action (EXPLORE, CR 701.44):** the Ixalan-block explore family now plays natively.
   A new `explore` atom + resolver reveals the top card of the exploring creature's controller's library;
   a land goes to their hand, otherwise a +1/+1 counter is put on the creature and the card is kept on top

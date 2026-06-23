@@ -1201,6 +1201,12 @@ function parseExtendedAtom(s) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
+  // CANT-BLOCK — "target creature can't block this turn" (Goblin Shortcutter, Crossway Vampire, Mardu
+  // Roughrider, Unstoppable Ogre). A layer-6 endOfTurn "cantBlock" grant enforced by combatEvasion.
+  // canBlockAttacker (permanentHasKeyword). ENEMY-side (atomTargetIntent → "enemy"): you disable an
+  // opponent's blocker to push damage, so the trigger-flush chooser picks an opponent's creature. The
+  // apostrophe is already normalized to straight (line ~633), so a single "can't" anchor suffices.
+  if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
   // PUMP-TGT-CTRL — "target creature you control / an opponent controls gets +N/+N [and gains KW]
   // until end of turn" / "gains KW until end of turn". Encodes the controller restriction using the
   // existing P2.4 restriction-array format ({ kind:"controller", who:"you"|"opponent" }), honored by
@@ -2447,6 +2453,11 @@ export function atomTargetIntent(atom) {
       // trigger path: every fight card is an ETB/Enrage TRIGGER, so without this the HIGH-parsing fight
       // program would have an ambiguous-intent atom → programTriggerTargetsResolvable false → the trigger
       // silently routes to the Arbiter (a forbidden no-op fabrication path) instead of firing natively.
+      return "enemy";
+    case "cant-block":
+      // CANT-BLOCK — "target creature can't block this turn" disables an OPPONENT's blocker so your
+      // attacker connects (offensive). The trigger-flush chooser picks an opponent's creature; you'd never
+      // disable your own blocker by choice.
       return "enemy";
     case "tap":
       // TAP-TARGET-CREATURE: "you control" restriction targets own creatures (e.g. Magus of the Arena);
