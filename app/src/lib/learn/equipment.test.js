@@ -71,6 +71,11 @@ describe("coverage — native-equipment tier", () => {
     expect(classifyCard({ type: "Artifact — Equipment", oracle: "Equipped creature gets +2/+2. It can't be blocked.\nEquip {2}", name: "Z" })).toBe("body-only");
     expect(classifyCard({ type: "Artifact — Equipment", oracle: "Equipped creature gets +1/+1. As long as equipped creature is legendary, it gets an additional +2/+2.\nEquip {2}", name: "Tenza" })).toBe("body-only");
     expect(classifyCard({ type: "Artifact — Equipment", oracle: "Indestructible\nEquipped creature gets +5/+5.\nEquip {0}", name: "Stoneforged" })).toBe("body-only");
+    // SAME-LINE REFLEXIVE TRIGGER (Novel Nunchaku): two triggers on one line — the ETB-attach + a reflexive
+    // "When you do, equipped creature fights …". The trigger-strip regex consumes the period after the first,
+    // so the count guard misses the second; it must NOT be whitelisted as an "equipped creature" clause. Its
+    // fight effect is unmodeled → the whole card stays body-only (no partial flip — CREED).
+    expect(classifyCard({ type: "Artifact — Equipment", oracle: "When Novel Nunchaku enters, attach it to target creature you control. When you do, equipped creature fights up to one target creature an opponent controls.\nEquipped creature gets +1/+1.\nEquip {2}", name: "Novel Nunchaku" })).toBe("body-only");
   });
 });
 

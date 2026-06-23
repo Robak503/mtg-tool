@@ -47,6 +47,8 @@ import {
 } from "./gameState.js";
 import { permanentHasKeyword, permanentColors, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
+import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
+import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
 import { checkDiesTriggers, checkCombatDamageTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers } from "./triggers.js";
 
 // KW-POISON (toxic — CR 702.180a): the toxic VALUE N. The keyword reminder text spells the number
@@ -137,6 +139,13 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const poisonGain = {};       // playerId -> count (KW-POISON: infect/toxic combat damage → poison)
   const loyaltyLoss = {};      // planeswalker permanentId -> loyalty removed by combat damage (PW-1)
   const playerEvents = [];
+  // WOLVERINE clause 2 (CR 603.4 intervening-if): record (sourcePerm → creature it dealt damage to) pairs so
+  // the per-turn `dealtDamageToCreatureThisTurn` flag can be armed when `next` is built below. Only pairs whose
+  // SOURCE carries the clause are recorded, so a board without Wolverine collects nothing → byte-identical.
+  const armPairs = [];
+  const recordArm = (sourcePerm, targetCreatureId) => {
+    if (sourcePerm?.card && marksDamageToCreature(sourcePerm.card)) armPairs.push({ source: sourcePerm, targetId: targetCreatureId });
+  };
   // KW-POISON (CR 702.90b infect / 702.79b wither): when the SOURCE has infect or wither, combat
   // damage to a creature is dealt as that many -1/-1 counters, NOT as marked damage (`minus=true`).
   // The damage is still "dealt", so deathtouch (if also present) still marks the creature — no real
@@ -155,6 +164,28 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // call sites skip dealing entirely (CR 702.16e + the trample assignment in 702.19e).
   const protectionPrevents = (targetId, sourceColors) => {
     return protectionApplies(permanentProtectionColors(state, targetId), sourceColors);
+  };
+
+  // ===== DAMAGE-REPLACEMENT consult (CR 614 — Wolverine "double all damage", Furnace of Rath …) =====
+  // Gated on the board carrying ANY replacement: a no-doubler board never calls the consult, so its damage
+  // numbers (and the whole step) are byte-identical to before this seam. The consult finalizes the amount
+  // BEFORE it is recorded (added to dmgToPermanent / spilled to the defender) — never a hook on loseLife.
+  // FRESH per resolveCombatDamage call (MUST-FIX 4): each combat sub-step is its own call, so a double-striker
+  // doubles in BOTH the first-strike and the regular step (per-step doubling, never ×2 "for two steps").
+  const hasReplacement = boardHasDamageReplacement(state);
+  // Finalize a combat damage amount for one source→target event. `targetKind` is "creature" | "player" |
+  // "planeswalker"; `targetId` is the receiving permanent/player. 120.8 zero-guard is re-checked by the
+  // callers (addDmg's `n > 0`, spillToDefender's `amount <= 0`) AFTER this returns.
+  const consultCombat = (rawAmount, sourcePerm, targetKind, targetId) => {
+    if (!hasReplacement || rawAmount <= 0) return rawAmount;
+    return consultDamageAmount(state, {
+      sourceId: sourcePerm?.id ?? null,
+      sourceController: sourcePerm?.controller ?? null,
+      amount: rawAmount,
+      targetKind,
+      targetId,
+      isCombat: true,
+    });
   };
 
   // Attackers deal.
@@ -184,8 +215,8 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       .map(b => combatant(b.blockerId))
       .filter(Boolean);
 
-    const spillToDefender = (amount, trampleFlag) => {
-      if (amount <= 0) return 0;
+    const spillToDefender = (rawAmount, trampleFlag) => {
+      if (rawAmount <= 0) return 0;
       // PW-1: if this attacker is attacking a planeswalker, its damage to the "defender" is removed
       // as loyalty from that walker (CR 120.3c), NOT life from its controller. If the walker has
       // already left the battlefield, the attacker deals no combat damage — it does NOT redirect to
@@ -193,6 +224,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       if (att.defenderPlaneswalkerId) {
         const pw = findPermanent(state, att.defenderPlaneswalkerId);
         if (pw && isPlaneswalker(pw.permanent.card)) {
+          // DAMAGE-REPLACEMENT (CR 120.3c — loyalty uses the DOUBLED amount; the consult runs BEFORE the
+          // loyalty event is constructed). 120.8 zero-guard: doubling never produces 0 from >0, but re-check.
+          const amount = consultCombat(rawAmount, lookup.permanent, "planeswalker", att.defenderPlaneswalkerId);
+          if (amount <= 0) return 0;
           loyaltyLoss[att.defenderPlaneswalkerId] = (loyaltyLoss[att.defenderPlaneswalkerId] || 0) + amount;
           playerEvents.push({ kind: "combat-damage-planeswalker", turn: state.turn, attackerId: att.permanentId, attackingPlayer: att.attackingPlayer, planeswalkerId: att.defenderPlaneswalkerId, amount, ...(trampleFlag ? { trample: true } : {}) });
           return amount;
@@ -201,6 +236,11 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       }
       const defender = att.defender;
       if (defender && state.players[defender]) {
+        // DAMAGE-REPLACEMENT (CR 614): finalize the player-damage amount BEFORE the infect/toxic split and
+        // BEFORE the combat-damage-player event (so 903.10a commander damage accrues the DOUBLED amount —
+        // the 21-rule reads playerEvents.amount). The toxic-N rider is added AFTER and is NOT doubled.
+        const amount = consultCombat(rawAmount, lookup.permanent, "player", defender);
+        if (amount <= 0) return 0;
         // KW-POISON (CR 702.90a infect / 702.180a toxic). Infect REPLACES the life loss with that many
         // poison counters (the player loses NO life). Otherwise normal life loss, PLUS — if the attacker
         // has toxic N — a fixed N poison on top (additive). N is per damage EVENT, so a double-striker
@@ -234,9 +274,15 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
         // Deathtouch makes 1 damage lethal; otherwise lethal = remaining toughness.
         const lethalNeed = deathtouch ? 1 : Math.max(1, creatureToughness(blk.permanent, state) - already);
         const give = Math.min(remaining, lethalNeed);
-        addDmg(blk.permanent.id, give, deathtouch, attackerMinus);
+        // DAMAGE-REPLACEMENT (CR 614 + 702.19e): the attacker ASSIGNS lethal off normal toughness, then each
+        // assigned chunk is doubled as it's DEALT — so `remaining` decrements by the un-doubled `give` (the
+        // assignment math) while the blocker is MARKED (and lifelink credited) the doubled amount. 120.8: a
+        // doubled-from->0 chunk can't appear (give>0), but addDmg's `n > 0` re-guards regardless.
+        const dealtToBlocker = consultCombat(give, lookup.permanent, "creature", blk.permanent.id);
+        addDmg(blk.permanent.id, dealtToBlocker, deathtouch, attackerMinus);
+        if (dealtToBlocker > 0) recordArm(lookup.permanent, blk.permanent.id); // WOLVERINE: attacker dealt to a creature
         remaining -= give;
-        dealt += give;
+        dealt += dealtToBlocker;
       }
       // Trample: leftover beyond all blockers' lethal need spills to the defender.
       if (trample && remaining > 0) dealt += spillToDefender(remaining, true);
@@ -267,8 +313,12 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       // KW-POISON — the BLOCKER is the source here, so its OWN infect/wither reroutes the damage it
       // deals back to the attacker into -1/-1 counters (toxic is player-only, irrelevant blocking).
       const bminus = permanentHasKeyword(state, blk.permanent.id, "Infect") || permanentHasKeyword(state, blk.permanent.id, "Wither");
-      addDmg(att.permanentId, bpow, bdt, bminus);
-      if (blifelink && bpow > 0) lifeGain[blk.permanent.controller] = (lifeGain[blk.permanent.controller] || 0) + bpow;
+      // DAMAGE-REPLACEMENT (CR 614): the BLOCKER is the source here — double its damage to the attacker (and
+      // credit its lifelink off the doubled amount). Source-scoped to the blocker permanent.
+      const bdealt = consultCombat(bpow, blk.permanent, "creature", att.permanentId);
+      addDmg(att.permanentId, bdealt, bdt, bminus);
+      if (bdealt > 0) recordArm(blk.permanent, att.permanentId); // WOLVERINE: blocker dealt to the attacking creature
+      if (blifelink && bdealt > 0) lifeGain[blk.permanent.controller] = (lifeGain[blk.permanent.controller] || 0) + bdealt;
     }
   }
 
@@ -308,6 +358,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   for (const [pwId, amount] of Object.entries(loyaltyLoss)) {
     if (amount > 0 && findPermanent(next, pwId)) next = adjustLoyalty(next, { permanentId: pwId, delta: -amount });
   }
+
+  // WOLVERINE clause 2: arm the per-turn `dealtDamageToCreatureThisTurn` flag for every source that dealt
+  // damage to another creature this step (no-op when armPairs is empty → byte-identical without Wolverine).
+  for (const { source, targetId } of armPairs) next = armDamageToCreatureFlag(next, source, targetId);
 
   // Combat-damage-to-a-player triggers (CR 510.2 — combat damage dealt) — fired off the per-attacker
   // player-damage events BEFORE the lethal SBA so a trading attacker is still present to bind to (it

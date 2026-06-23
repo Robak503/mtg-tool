@@ -173,6 +173,14 @@ function countGraveyardSpec(state, perm, spec) {
 // types in the controller's graveyard (no self-exclusion — a graveyard card is never the gated permanent).
 function gateMet(state, perm, gate) {
   if (!gate) return true;
+  // EQUIPPED gate: any Equipment on the battlefield is attached to this permanent (CR 301.5b).
+  if (gate.kind === "isEquipped") {
+    for (const pid of Object.keys(state?.players || {})) {
+      const bf = state.players[pid]?.battlefield || [];
+      if (bf.some(p => p.attachedTo === perm.id && /\bequipment\b/i.test(p.card?.type || ""))) return true;
+    }
+    return false;
+  }
   const spec = gate.countSpec;
   if (spec?.kind === "cardsInGraveyard" || spec?.kind === "cardTypesInGraveyard") {
     return countGraveyardSpec(state, perm, spec) >= (gate.atLeast || 1);

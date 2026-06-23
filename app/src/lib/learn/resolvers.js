@@ -314,9 +314,10 @@ export const RESOLVERS = Object.freeze({
   // TriggerEffect vocabulary: gain/lose life, draw, damage-to-each-opponent).
   // An unrecognized effect (null) routes to the manual/Arbiter log, never faked.
   [RESOLVER_KEYS.TRIGGER_EFFECT]: (state, obj) => {
-    const { effect, controller, targets = [], context } = obj.payload?.params || {};
+    const { effect, controller, targets = [], context, sourcePermanentId } = obj.payload?.params || {};
     if (!effect) return resolveManual(state, obj);
-    return applyTriggerEffect(state, { effect, controller, context, targets });
+    // MUST-FIX 3: thread the source permanent so a damage trigger routes through the damage-replacement consult.
+    return applyTriggerEffect(state, { effect, controller, context, targets, sourcePermanentId });
   },
 
   // STUB in PR-1: activated abilities are Phase 2.

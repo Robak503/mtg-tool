@@ -68,23 +68,30 @@ describe("EVADE — classifier (which evasion bodies are honestly native)", () =
   });
 
   it("MUST stay body-only — conditional / except / team / extra-ability shapes (no false positive)", () => {
-    // Conditional unblockable — the chokepoint doesn't model the "by creatures with flying" qualifier.
-    expect(classifyCard({ type: "Creature — Rogue", name: "X", oracle: "This creature can't be blocked by creatures with flying." })).toBe("body-only");
+    // "except by" is not a qualifier we model — still body-only.
     expect(classifyCard({ type: "Creature — Beast", name: "X", oracle: "This creature can't be blocked except by Walls." })).toBe("body-only");
     // Team grant (others, not self) — never a self-evasion body.
     expect(classifyCard({ type: "Creature — Lord", name: "X", oracle: "Other creatures you control can't be blocked." })).toBe("body-only");
-    // Unblockable beside an UNMODELED activated ability — one bare evasion clause can't carry it. (The
-    // count source is opponent-scoped, so FOR-EACH leaves the ability unmodeled → still body-only.)
+    // Unblockable beside an UNMODELED activated ability — one bare evasion clause can't carry it.
     expect(classifyCard({ type: "Creature — Rogue", name: "X", oracle: "This creature can't be blocked.\n{2}: Draw a card for each Island an opponent controls." })).toBe("body-only");
+    // "can't be blocked by artifact creatures" — artifact is a CARD TYPE qualifier, not color/keyword/subtype in our set.
+    expect(classifyCard({ type: "Creature — Sprite", name: "X", oracle: "This creature can't be blocked by artifact creatures." })).toBe("body-only");
   });
 
   it("isEnforcedEvasionClause: exact-end matching, no over-broad catch", () => {
     expect(isEnforcedEvasionClause("swampwalk")).toBe(true);
     expect(isEnforcedEvasionClause("this creature can't be blocked")).toBe(true);
     expect(isEnforcedEvasionClause("can't be blocked")).toBe(true);
+    // Bare "can't be blocked by X" WITHOUT "this creature" prefix — still unrecognized (needs subject).
     expect(isEnforcedEvasionClause("can't be blocked by creatures with flying")).toBe(false);
     expect(isEnforcedEvasionClause("creatures you control can't be blocked")).toBe(false);
     expect(isEnforcedEvasionClause("nonbasic landwalk")).toBe(false);
+    // EVASION-QUALIFIER forms (with subject) are recognized:
+    expect(isEnforcedEvasionClause("this creature can't be blocked by creatures with flying")).toBe(true);
+    expect(isEnforcedEvasionClause("this creature can't be blocked by white creatures")).toBe(true);
+    expect(isEnforcedEvasionClause("this creature can't be blocked by creatures with power 3 or less")).toBe(true);
+    expect(isEnforcedEvasionClause("this creature can't be blocked by walls")).toBe(true);
+    expect(isEnforcedEvasionClause("this creature can't be blocked by creature tokens")).toBe(true);
   });
 });
 
@@ -215,5 +222,145 @@ describe("EVADE — defender can't attack (CR 702.3b)", () => {
     const names = filterActions(legalActionsForPlayer(s, "user"), "declare-attacker").map(a => a.name);
     expect(names).toContain("Bear");
     expect(names).not.toContain("Wall of Omens");
+  });
+});
+
+describe("EVADE — EVASION-QUALIFIER: parsed 'can't be blocked by [qualifier]' restrictions", () => {
+  const setup = (attOracle, blockerOpts = {}) => {
+    const att = cr("Attacker", "a", "user", { oracle: attOracle });
+    const blk = cr("Blocker", "b", "ai", blockerOpts);
+    const s = st({ userBf: [att], aiBf: [blk] });
+    return canBlockAttacker(s, "b", "a", "ai");
+  };
+
+  // ── CLASSIFIER: MUST_STAY_HIGH — these bodies flip native-body ──
+  it("MUST_STAY_HIGH: color restriction bodies are native-body", () => {
+    // Dauthi Horror: "This creature can't be blocked by white creatures."
+    expect(classifyCard({ type: "Creature — Shade", name: "Dauthi Horror", oracle: "This creature can't be blocked by white creatures." })).toBe("native-body");
+    // Red + Blue + Black + Green
+    for (const color of ["blue", "black", "red", "green"]) {
+      expect(classifyCard({ type: "Creature — Beast", name: "X", oracle: `This creature can't be blocked by ${color} creatures.` })).toBe("native-body");
+    }
+  });
+
+  it("MUST_STAY_HIGH: keyword restriction bodies are native-body", () => {
+    // Gnat Alley Creeper: "This creature can't be blocked by creatures with flying."
+    expect(classifyCard({ type: "Creature — Human Rogue", name: "Gnat Alley Creeper", oracle: "This creature can't be blocked by creatures with flying." })).toBe("native-body");
+    expect(classifyCard({ type: "Creature — Human", name: "X", oracle: "This creature can't be blocked by creatures with horsemanship." })).toBe("native-body");
+  });
+
+  it("MUST_STAY_HIGH: power restriction bodies are native-body", () => {
+    // Giltgrove Stalker: "This creature can't be blocked by creatures with power 2 or less."
+    expect(classifyCard({ type: "Creature — Elf Scout", name: "Giltgrove Stalker", oracle: "This creature can't be blocked by creatures with power 2 or less." })).toBe("native-body");
+    expect(classifyCard({ type: "Creature — Human", name: "Lydia Frye", oracle: "Lydia Frye can't be blocked by creatures with power 3 or greater." })).toBe("native-body");
+  });
+
+  it("MUST_STAY_HIGH: subtype restriction bodies are native-body", () => {
+    // Bog Rats: "This creature can't be blocked by Walls."
+    expect(classifyCard({ type: "Creature — Rat", name: "Bog Rats", oracle: "This creature can't be blocked by Walls." })).toBe("native-body");
+    // Creature tokens
+    expect(classifyCard({ type: "Creature — Scout", name: "Rubblebelt Runner", oracle: "Rubblebelt Runner can't be blocked by creature tokens." })).toBe("native-body");
+    expect(classifyCard({ type: "Creature — Human", name: "X", oracle: "This creature can't be blocked by Dinosaurs." })).toBe("native-body");
+    expect(classifyCard({ type: "Creature — Insect", name: "X", oracle: "This creature can't be blocked by Humans." })).toBe("native-body");
+  });
+
+  it("MUST_STAY_HIGH: with own-body keywords alongside the restriction", () => {
+    expect(classifyCard({ type: "Creature — Spirit", name: "X", oracle: "Flying\nThis creature can't be blocked by white creatures." })).toBe("native-body");
+    expect(classifyCard({ type: "Creature — Cat", name: "X", oracle: "Trample\nThis creature can't be blocked by creatures with power 4 or greater." })).toBe("native-body");
+  });
+
+  // ── CLASSIFIER: FP-GUARD — must NOT flip (still body-only) ──
+  it("FP-GUARD: 'more than one creature' restriction stays body-only (set-level, not modeled)", () => {
+    // Charging Rhino, Norwood Riders, etc.
+    expect(classifyCard({ type: "Creature — Rhino", name: "Charging Rhino", oracle: "This creature can't be blocked by more than one creature." })).toBe("body-only");
+  });
+
+  it("FP-GUARD: team grants stay body-only", () => {
+    expect(classifyCard({ type: "Creature — Human", name: "Yuan Shao", oracle: "Each creature you control can't be blocked by more than one creature." })).toBe("body-only");
+    expect(classifyCard({ type: "Enchantment", name: "Familiar Ground", oracle: "Each creature you control can't be blocked by more than one creature." })).toBe("body-only");
+  });
+
+  it("FP-GUARD: compound OR restriction stays body-only", () => {
+    // "can't be blocked by Knights or Walls" — compound, not modeled
+    expect(classifyCard({ type: "Creature — Warrior", name: "X", oracle: "This creature can't be blocked by Knights or Walls." })).toBe("body-only");
+  });
+
+  it("FP-GUARD: 'can't be blocked by creatures with greater power' stays body-only (dynamic comparison)", () => {
+    // "greater power" without a fixed N is relative to this creature — not modeled.
+    expect(classifyCard({ type: "Creature — Dinosaur", name: "Prehistoric Pet", oracle: "This creature can't be blocked by creatures with greater power." })).toBe("body-only");
+  });
+
+  it("FP-GUARD: novel unknown qualifiers stay body-only", () => {
+    // Phoebe, Head of S.N.E.A.K.: flavor-text — novel qualifier, safely stays body-only.
+    expect(classifyCard({ type: "Creature — Human Rogue", name: "Phoebe, Head of S.N.E.A.K.", oracle: "Phoebe can't be blocked by creatures with flavor text." })).toBe("body-only");
+    // "can't be blocked by enchanted creatures" — complex type, not in our set
+    expect(classifyCard({ type: "Creature — Cat", name: "X", oracle: "This creature can't be blocked by enchanted creatures." })).toBe("body-only");
+  });
+
+  // ── ENFORCEMENT: canBlockAttacker ──
+  it("color restriction: blocker of restricted color can't block", () => {
+    // attacker: can't be blocked by white; blocker is white → can't block
+    expect(setup("This creature can't be blocked by white creatures.", { colors: ["W"] })).toBe(false);
+    // blocker is blue → can block (not the restricted color)
+    expect(setup("This creature can't be blocked by white creatures.", { colors: ["U"] })).toBe(true);
+    // attacker: can't be blocked by black; black blocker can't block, non-black can
+    expect(setup("This creature can't be blocked by black creatures.", { colors: ["B"] })).toBe(false);
+    expect(setup("This creature can't be blocked by black creatures.", { colors: ["G"] })).toBe(true);
+  });
+
+  it("keyword restriction: blocker with the keyword can't block", () => {
+    // attacker: can't be blocked by creatures with flying; flying blocker can't block
+    expect(setup("This creature can't be blocked by creatures with flying.", { oracle: "Flying" })).toBe(false);
+    // non-flying blocker can block
+    expect(setup("This creature can't be blocked by creatures with flying.", { oracle: "" })).toBe(true);
+    // horsemanship restriction
+    expect(setup("This creature can't be blocked by creatures with horsemanship.", { oracle: "Horsemanship" })).toBe(false);
+    expect(setup("This creature can't be blocked by creatures with horsemanship.", { oracle: "" })).toBe(true);
+  });
+
+  it("power restriction: power-le — blocker with power ≤ N can't block", () => {
+    // attacker: can't be blocked by creatures with power 2 or less
+    expect(setup("This creature can't be blocked by creatures with power 2 or less.", { power: 2 })).toBe(false);  // power 2 ≤ 2
+    expect(setup("This creature can't be blocked by creatures with power 2 or less.", { power: 1 })).toBe(false);  // power 1 ≤ 2
+    expect(setup("This creature can't be blocked by creatures with power 2 or less.", { power: 3 })).toBe(true);   // power 3 > 2 → CAN block
+  });
+
+  it("power restriction: power-ge — blocker with power ≥ N can't block", () => {
+    // attacker: can't be blocked by creatures with power 3 or greater
+    expect(setup("This creature can't be blocked by creatures with power 3 or greater.", { power: 3 })).toBe(false); // power 3 ≥ 3
+    expect(setup("This creature can't be blocked by creatures with power 3 or greater.", { power: 5 })).toBe(false); // power 5 ≥ 3
+    expect(setup("This creature can't be blocked by creatures with power 3 or greater.", { power: 2 })).toBe(true);  // power 2 < 3 → CAN block
+  });
+
+  it("subtype restriction: blocker with matching subtype can't block", () => {
+    const wallCard = cr("Wall of Stone", "b", "ai", { type: "Creature — Wall", oracle: "Defender" });
+    const bearCard = cr("Bear", "b", "ai", { type: "Creature — Bear" });
+    const bogRats = cr("Bog Rats", "a", "user", { oracle: "This creature can't be blocked by Walls." });
+    const s1 = st({ userBf: [bogRats], aiBf: [wallCard] });
+    expect(canBlockAttacker(s1, "b", "a", "ai")).toBe(false);   // Wall can't block Bog Rats
+    const s2 = st({ userBf: [bogRats], aiBf: [bearCard] });
+    expect(canBlockAttacker(s2, "b", "a", "ai")).toBe(true);    // Bear can block fine
+  });
+
+  it("token restriction: creature tokens can't block (real card.token flag, not a fabricated field)", () => {
+    // A REAL token: the flag lives on the CARD (`card.token`), exactly as tokens.js/amass.js mint it.
+    const tokenCreature = { id: "b", card: { name: "Goblin", type: "Token Creature — Goblin", power: 1, toughness: 1, oracle: "", token: true }, controller: "ai", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null };
+    const normCreature = cr("Regular", "b", "ai");
+    const attNamed = cr("Rubblebelt Runner", "a2", "user", { oracle: "Rubblebelt Runner can't be blocked by creature tokens." });
+    const s1 = st({ userBf: [attNamed], aiBf: [tokenCreature] });
+    expect(canBlockAttacker(s1, "b", "a2", "ai")).toBe(false);  // token can't block
+    const s2 = st({ userBf: [attNamed], aiBf: [normCreature] });
+    expect(canBlockAttacker(s2, "b", "a2", "ai")).toBe(true);   // non-token can block
+  });
+
+  it("subtype restriction: 'Oxen' maps to the real subtype 'Ox' (irregular plural — Ox Drover)", () => {
+    // Ox Drover: "This creature can't be blocked by Oxen." The token it makes is a 2/4 Ox — subtype "Ox".
+    const oxBlocker = cr("Ox Token", "b", "ai", { type: "Token Creature — Ox" });
+    const bear = cr("Bear", "b", "ai", { type: "Creature — Bear" });
+    const oxDrover = cr("Ox Drover", "a", "user", { oracle: "This creature can't be blocked by Oxen." });
+    const s1 = st({ userBf: [oxDrover], aiBf: [oxBlocker] });
+    expect(canBlockAttacker(s1, "b", "a", "ai")).toBe(false);   // an Ox can't block (subtype matches)
+    const s2 = st({ userBf: [oxDrover], aiBf: [bear] });
+    expect(canBlockAttacker(s2, "b", "a", "ai")).toBe(true);    // a Bear can block fine
   });
 });

@@ -31,7 +31,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { detectTriggers, stripTriggerAbilityLabel } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -39,6 +39,8 @@ import { winConditionParseable } from "./effects/atoms/winGame.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
 import { isPureDoubler } from "./replacementEffects.js"; // Wave-3: pure counter/token doublers classify native-static
+import { marksDamageToCreature, ENDSTEP_COUNTER } from "./wolverine.js"; // Wave-5a: Wolverine whole-card runtime hook
+import { parseDamageReplacements } from "./damageReplacements.js"; // Wave-5a: source-scoped damage doubler parser
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -76,6 +78,10 @@ export const COVERED_KEYWORDS = [
   // the upkeep remove-or-sacrifice (gameEngine → fading.applyFadeVanishUpkeep), CR 702.32a / 702.63a.
   // "fading N" / "vanishing N" match via the startsWith check.
   "fading", "vanishing",
+  // KW-CYCLING is NOT a generic startsWith keyword — see reCyclingCost in isKeywordOnly. The generic
+  // `startsWith("cycling ")` rule would mis-credit any line opening with "cycling " (e.g. Fluctuator's
+  // static "Cycling abilities you activate cost {2} less to activate"), so cycling is gated to the
+  // exact "cycling {cost}" activated-ability shape the engine actually enforces (parseCyclingCost).
 ];
 
 const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
@@ -100,9 +106,18 @@ export function isKeywordOnly(oracle, name) {
   const clauses = t.split(/[,;.!?\n]|\band\b/).map((c) => c.trim()).filter(Boolean);
   return clauses.every((c) =>
     COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)) ||
-    isEnforcedEvasionClause(c),
+    isEnforcedEvasionClause(c) ||
+    reCyclingCost.test(c),
   );
 }
+
+// KW-CYCLING — credit a clause ONLY when it's "cycling {cost}" (the keyword + one or more brace mana
+// symbols), mirroring the engine's parseCyclingCost (effects/abilities.js) EXACTLY so the metric never
+// over-claims past what actionDispatcher.applyCycle enforces. A bare "cycling " prefix is NOT enough:
+// Fluctuator's static "cycling abilities you activate cost {2} less to activate" has no brace cost
+// immediately after "cycling" → no match → body-only. Typecycling (landcycling/plainscycling/…) never
+// starts with "cycling " and a cycle-trigger leaves residue, so both already stay body-only.
+const reCyclingCost = /^cycling (?:\{[^}]+\})+$/;
 
 /**
  * True when a permanent's tap produces mana — the mana system taps rocks/dorks
@@ -340,6 +355,13 @@ export function permanentEquipmentCovered(card) {
     const c = clause.toLowerCase().trim();
     if (!c) continue;
     if (modeledEquipLine.test(c)) continue;
+    // A leftover trigger-shaped clause (When/Whenever/At) is an UNCOUNTED trigger and must NOT be whitelisted
+    // by the "equipped creature" clause below. When two triggers share a line (Novel Nunchaku: "When this
+    // Equipment enters, attach it … . When you do, equipped creature fights …"), the noTrig strip's regex
+    // consumes the period terminating the FIRST trigger, so the reflexive "When you do, …" sentence loses its
+    // boundary char → allTriggerSentencesModeled's count misses it (shaped==detected==1) → it survives here.
+    // Its fight clause parses LOW (unmodeled). Reject it → body-only (FN-safe, no partial flip — CREED).
+    if (/^(?:when|whenever|at)\b/i.test(c)) return false;
     if (/\bequipped creature\b/.test(c) || /^it\b/.test(c) || /^that creature\b/.test(c)) continue;
     // LIVING WEAPON / FOR MIRRODIN! — the keyword's "enters → make a token → attach to it" ETB is modeled
     // in enterPermanent (resolvers.js), and the equipped-creature bonus buffs the token. The bare keyword
@@ -448,26 +470,34 @@ export function classifyCard(card) {
       : entersWithMetricCounters(card)
         ? oracle.replace(/[^.]*enters (?:the battlefield )?with [^.]*\+1\/\+1 counters?[^.]*\.?/i, " ")
         : oracle;
-  if (isKeywordOnly(baseOracle, card?.name)) return "native-body";
+  // ENTERS-TAPPED: actionDispatcher handles unconditional "enters tapped" via entersTapped() — credit it
+  // here by stripping that sentence from the oracle so it doesn't block coverage on cards whose remaining
+  // text is fully modeled (triggers / activated / static / mixed). etCard propagates the stripped oracle
+  // through all downstream checks; etOracle combines with baseOracle for the keyword-only gate.
+  const tapRe = /[^\n.]*\benters (?:the battlefield )?tapped\b[^\n.]*\.?\n?/gi;
+  const isTapped = entersTapped(card);
+  const etOracle = isTapped ? baseOracle.replace(tapRe, "\n").trim() : baseOracle;
+  const etCard = isTapped ? { ...card, oracle: oracle.replace(tapRe, "\n").trim() } : card;
+  if (isKeywordOnly(etOracle, card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
-  if (hasManaAbility(oracle) && manaCardResidueModeled(card, oracle)) return "native-mana";
+  if (hasManaAbility(oracle) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
   // Single-mechanism tiers first (the informative labels), then the composite catch-all for
   // multi-ability creatures whose pieces are each modeled but span types.
-  if (permanentTriggersCovered(card)) return "native-trigger";   // P2.8: body + only-routing triggers
-  if (permanentActivatedCovered(card)) return "native-activated"; // P2.9: body + only-modeled activated abilities
-  if (staticAbilitiesCoverCard(card, isKeywordOnly)) return "native-static"; // P2.10: body + only-modeled static anthems
-  if (permanentEquipmentCovered(card)) return "native-equipment"; // attach: Equip + a clean equipped-creature bonus
+  if (permanentTriggersCovered(etCard)) return "native-trigger";   // P2.8: body + only-routing triggers
+  if (permanentActivatedCovered(etCard)) return "native-activated"; // P2.9: body + only-modeled activated abilities
+  if (staticAbilitiesCoverCard(etCard, isKeywordOnly)) return "native-static"; // P2.10: body + only-modeled static anthems
+  if (permanentEquipmentCovered(etCard)) return "native-equipment"; // attach: Equip + a clean equipped-creature bonus
   // ADDITIVE registry seam (WAVE 0): a future slice registers a coverage classifier instead of editing
   // this dispatch body. Each classifier is `(card) => tier | null` consulted ONLY after all the inline
   // single-mechanism tiers (which keep priority) and BEFORE the composite catch-all — so a new tier
   // slots in without touching the existing order. The first classifier to return a truthy tier wins.
   // Empty by default, an exact no-op (the loop body never runs), so existing classification is untouched.
   for (const c of COVERAGE_CLASSIFIERS) {
-    const t = c(card);
+    const t = c(etCard);
     if (t) return t;
   }
-  if (permanentFullyCovered(card)) return "native-mixed";        // composite: modeled trigger + activated + static together
+  if (permanentFullyCovered(etCard)) return "native-mixed";        // composite: modeled trigger + activated + static together
   return "body-only";
 }
 
@@ -527,3 +557,32 @@ export function coverageSummary(cards) {
 // and before the composite catch-all. Mondrak / Vorinclex / Corpsejack (creature/activated bodies) are excluded
 // by isPureDoubler and stay body-only (CREED whole-card).
 registerCoverageClassifier((card) => (isPureDoubler(card) ? "native-static" : null));
+
+// ─── WAVE 5a — Wolverine, Best There Is (the damage-replacement keystone) ──────────────────────────────────
+// All THREE clauses modeled (CREED all-or-nothing): the source-scoped double-all-damage replacement
+// (damageReplacements.js), the end-step "+1/+1 if dealt damage to another creature this turn" intervening-if
+// counter (wolverine.js), and the {1}{G} regenerate activated ability (effects/abilities.js after self-name
+// normalization). classifyWolverine returns "native-mixed" only when all three parse AND no residue remains;
+// null for every other card. A targeted single-card flip (the #353/#356 pattern) via the additive seam.
+const WOLVERINE_DOUBLE_CLAUSE = /unrivaled lethality\s*[—–-]\s*double all damage [^.]*would deal\.?/i;
+const WOLVERINE_REGEN_CLAUSE = /\{1\}\{g\}:\s*regenerate [^.]*\.?/i;
+function classifyWolverine(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  if (!/creature/.test(type)) return null;
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  if (!oracle) return null;
+  // (1) source-scoped double-all-damage replacement modeled (damageReplacements.js).
+  if (!parseDamageReplacements(card).length) return null;
+  // (2) end-step "+1/+1 if dealt damage to another creature" intervening-if clause present (wolverine.js).
+  if (!marksDamageToCreature(card)) return null;
+  // (3) the {1}{G} regenerate activated ability modeled (effects/abilities, after self-name normalization).
+  if (!parseActivatedAbilities(card).some((a) => a.modeled && /regenerate/i.test(a.effectClause || ""))) return null;
+  // No fourth, unmodeled clause: strip the three modeled clauses + reminder text, confirm empty (CREED).
+  const residue = oracle.replace(/\([^)]*\)/g, " ")
+    .replace(WOLVERINE_DOUBLE_CLAUSE, " ")
+    .replace(ENDSTEP_COUNTER, " ")
+    .replace(WOLVERINE_REGEN_CLAUSE, " ")
+    .replace(/[\s.]+/g, " ").trim();
+  return residue.length > 0 ? null : "native-mixed";
+}
+registerCoverageClassifier((card) => classifyWolverine(card));

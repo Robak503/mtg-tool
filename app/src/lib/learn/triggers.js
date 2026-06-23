@@ -26,6 +26,7 @@ import {
 } from "./gameState.js";
 import { hasKeyword } from "./keywords.js";
 import { applyMothmanRadOnEnter } from "./mothmanRad.js";
+import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7 };
 function parseCount(word) {
@@ -522,6 +523,14 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^one or more creatures you control deal combat damage to a player$/.test(c)) {
     return { event: "combatDamageBatch", scope: "you", whose: "any" };
   }
+  // TRIG-DMG-TO-OPPONENT — "Whenever <self> deals damage to a player / an opponent" without "combat".
+  // Cards like Vedalken Heretic, Thieving Magpie, Reef Pirates: in the simulator all creature damage
+  // is combat damage, so the combatDamageToPlayer event fires correctly when this creature attacks and
+  // connects. BARE end-anchored form only; a trailing qualifier ("…to a player or planeswalker",
+  // "…to an opponent who controls…") leaves residue → UNDETECTED → Arbiter (safe false-negative).
+  if (/\bdeals? damage to (?:a player|an opponent)$/.test(c) && selfRef) {
+    return { event: "combatDamageToPlayer", scope: "self", whose: "any" };
+  }
 
   // HEROIC (CR 702.35) — "Whenever you cast a spell that targets this creature, <effect>".
   // Fires when the controller casts any spell that has this permanent as a chosen target. The
@@ -752,6 +761,16 @@ const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\
 // "a creature you control" / "a <Subtype> you control" attack + combat-damage watchers (Sphere Grid family).
 const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl"]);
 
+// TRIG-PRONOUN-IT — the NON-SELF pronoun referent for the OTHER effect families (the non-self analogues of
+// the SELF "it" forms): "Whenever a creature you control attacks, IT gets/gains … until end of turn /
+// sacrifice IT / return IT to its owner's hand". "it" is the TRIGGERING permanent (CR 608.2c), not the
+// source — so, exactly like COUNTERS-ON-EVENT above, detectTriggers normalizes the referent → the sentinel
+// "the triggering creature" (which parser.js models as target:"thatCreature" → ctx.triggeringPermanentId).
+// Gated to the non-self triggering scopes + whole-clause anchored, so a SPELL's anaphoric "it" is NEVER
+// rewritten and stays LOW → Arbiter (CREED — sentinel gate). The pump/return shapes reuse the SELF regexes
+// (same clause text under a different scope gate); only "sacrifice it" needs its own anchor.
+const NONSELF_SAC_REF_RE = /^sacrifice it$/i;
+
 // ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
 // is `(condition, cardName, typeLine, effectClause) => TriggerDescriptorClassification | null` and is
 // consulted by detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep
@@ -845,6 +864,21 @@ export function detectTriggers(card) {
         // ctx.triggeringPermanentId. Gated to the non-self triggering scopes (the spell anaphor never
         // reaches here) + the whole-clause anchor (a rider stays untouched → LOW → Arbiter), CREED-safe.
         effectClause = effectClause.replace(/ on (?:it|that creature)$/i, " on the triggering creature");
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && SELF_PUMP_IT_RE.test(effectClause)) {
+        // TRIG-PRONOUN-IT: a NON-self trigger's "IT gets/gains … until end of turn" (Battlegrace Angel —
+        // "Whenever a creature you control attacks, it gains lifelink until end of turn") — "it" is the
+        // TRIGGERING permanent. Sentinel-rewrite the leading "it" so the parser models it as
+        // target:"thatCreature". Same scope gate + whole-clause anchor as COUNTERS-ON-EVENT (a spell
+        // anaphor never reaches here; a rider stays LOW). The parser re-gates the keyword set.
+        effectClause = effectClause.replace(/^it /i, "the triggering creature ");
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && NONSELF_SAC_REF_RE.test(effectClause)) {
+        // TRIG-PRONOUN-IT: "sacrifice IT" → sacrifice the TRIGGERING permanent (CR 608.2c).
+        effectClause = "sacrifice the triggering creature";
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && SELF_RETURN_IT_RE.test(effectClause)) {
+        // TRIG-PRONOUN-IT: "return IT to its owner's hand" → bounce the TRIGGERING permanent (CR 608.2c).
+        // DISTINCT from the SELF-LTB graveyard-return marker (that path is gated on cls.selfReturnKind,
+        // checked earlier in this chain) — here the triggering creature is still on the battlefield.
+        effectClause = "return the triggering creature to its owner's hand";
       }
       out.push({
         event: cls.event,
@@ -1004,7 +1038,9 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
     // leaf (resolvers.js imports applyTriggerEffect from here in PR-6).
     payload: {
       resolver: "trigger.effect",
-      params: { effect: descriptor.effect, controller, targets: [], context },
+      // MUST-FIX 3: thread the SOURCE permanent (the ability's own permanent — the one DEALING the damage) so
+      // a damage trigger can route through the damage-replacement consult source-scoped. Serializable id only.
+      params: { effect: descriptor.effect, controller, targets: [], context, sourcePermanentId: sourcePermanent.id },
     },
   };
 }
@@ -1621,12 +1657,26 @@ export function checkInterveningIf(state, pendingTrigger) {
  * damage-to-each-opponent). Targeted damage triggers are Phase-2 and resolve as
  * an honest "unresolved" log, never fabricated.
  */
-export function applyTriggerEffect(state, { effect, controller, targets = [] }) {
+export function applyTriggerEffect(state, { effect, controller, targets = [], sourcePermanentId = null }) {
   // `context` (the look-back snapshot) is accepted by callers but unused by the
   // Phase-1 effect vocabulary; targeted/contextual effects in Phase 2 will read it.
   if (!effect) return state; // fail-safe: unrecognized → no-op
   const amt = Math.max(0, effect.amount || 0);
   let next = state;
+  // DAMAGE-REPLACEMENT (CR 614, MUST-FIX 3): a triggered DAMAGE effect's source is the ability's own permanent
+  // (`sourcePermanentId`, threaded by the resolver). Finalize the per-opponent amount through the consult,
+  // source-scoped. Gated on the board carrying a replacement so a non-Wolverine eachOpponent trigger is
+  // byte-identical (consult returns the raw amount → the same loseLife with the same number). This is the ONLY
+  // damage path here; "loseLife"/"gainLife" are life CHANGES, not damage, and never consult (guard 4).
+  const dmgConsult = (raw, targetId) => {
+    if (raw <= 0 || !boardHasDamageReplacement(next)) return raw;
+    const src = sourcePermanentId ? findPermanent(next, sourcePermanentId) : null;
+    return consultDamageAmount(next, {
+      sourceId: sourcePermanentId,
+      sourceController: src?.controller ?? controller,
+      amount: raw, targetKind: "player", targetId, isCombat: false,
+    });
+  };
   switch (effect.kind) {
     case "gainLife":
       if (next.players[controller]) next = gainLife(next, { playerId: controller, amount: amt });
@@ -1643,7 +1693,9 @@ export function applyTriggerEffect(state, { effect, controller, targets = [] }) 
       return logEvent(next, { kind: "trigger-effect", effect: "draw", controller, amount: effect.amount });
     case "damage":
       if (effect.targetType === "eachOpponent") {
-        for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = loseLife(next, { playerId: opp, amount: amt });
+        for (const opp of opponentsOf(next, controller)) {
+          if (next.players[opp]) next = loseLife(next, { playerId: opp, amount: dmgConsult(amt, opp) });
+        }
         return logEvent(next, { kind: "trigger-effect", effect: "damage", controller, targetType: "eachOpponent", amount: amt });
       }
       return logEvent(next, { kind: "trigger-effect-unresolved", controller, effect, targets });

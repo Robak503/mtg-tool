@@ -80,6 +80,30 @@ describe("classifyCard — tiers", () => {
     // Reminder text is stripped first (CR 207.2), so a keyword printed with its reminder still classifies clean.
     expect(classifyCard(C("Creature — Goblin", "Menace (This creature can't be blocked except by two or more creatures.)"))).toBe("native-body");
   });
+  // KW-CYCLING: plain "cycling {cost}" is ENFORCED (actionDispatcher.applyCycle pays the cost,
+  // discards, draws). Only plain "cycling" is credited — typecycling variants and cycle-trigger
+  // cards must NOT be claimed native (parseCyclingCost returns null for them; they are body-only).
+  it("KW-CYCLING MUST_STAY_HIGH: plain cycling-only body is native-body", () => {
+    expect(classifyCard(C("Creature — Beast", "Cycling {2}"))).toBe("native-body");
+    expect(classifyCard(C("Creature — Bird", "Flying\nCycling {2}"))).toBe("native-body");
+    expect(classifyCard(C("Creature — Zombie", "Deathtouch\nCycling {B}"))).toBe("native-body");
+  });
+  it("KW-CYCLING FP-GUARD: cycle-trigger card and typecycling are NOT native-body", () => {
+    // A cycle trigger leaves non-keyword residue → isKeywordOnly → false → body-only (safe false-negative).
+    expect(classifyCard(C("Creature — Drake", "Flying\nCycling {2}\nWhenever you cycle this card, draw a card."))).not.toBe("native-body");
+    // Typecycling ("landcycling", "plainscycling", etc.) does NOT start with "cycling " — not credited.
+    expect(classifyCard(C("Creature — Serpent", "Landcycling {2}"))).not.toBe("native-body");
+    expect(classifyCard(C("Creature — Elemental", "Plainscycling {2}"))).not.toBe("native-body");
+  });
+  it("KW-CYCLING FP-GUARD: a line merely STARTING with 'cycling ' but not 'cycling {cost}' stays body-only (Fluctuator)", () => {
+    // Fluctuator (Artifact): "Cycling abilities you activate cost {2} less to activate." — a static
+    // cost-reducer, NOT an activated cycling ability. The engine's parseCyclingCost returns null (no
+    // brace cost right after "cycling"), so the credit must too. The old broad startsWith("cycling ")
+    // wrongly flipped it native-body — this pins the tightened "cycling {cost}" rule.
+    const fluctuator = classifyCard(C("Artifact", "Cycling abilities you activate cost {2} less to activate.", { name: "Fluctuator" }));
+    expect(fluctuator).not.toBe("native-body");
+    expect(NATIVE_TIERS.has(fluctuator)).toBe(false);
+  });
   // FIX-PW-LAND-ORDER: a Land Planeswalker (Wrenn and One) with unmodeled loyalty must hit the
   // planeswalker gate, NOT the land tier — else it's mis-counted native-`land` despite unmodeled abilities.
   it("FIX-PW-LAND-ORDER: a Land Planeswalker with unmodeled loyalty is NOT native-land", () => {
@@ -194,6 +218,46 @@ describe("classifyCard — tiers", () => {
     // the undetected example here uses LTB, which is intentionally never fired → still unrecognized.)
     expect(classifyCard(C("Creature — Cleric", "When this creature enters, draw a card.\nWhen this creature leaves the battlefield, each opponent loses 1 life."))).toBe("body-only");
     expect(classifyCard(C("Creature — Wizard", "{T}: This creature deals 1 damage to any target.\nWhenever you cast an instant or sorcery spell, untap this creature."))).toBe("body-only");
+  });
+
+  // ENTERS-TAPPED credit — actionDispatcher handles unconditional "enters tapped" in the engine;
+  // coverage.js strips it from the oracle so it doesn't block credit for otherwise-modeled cards.
+  it("ENTERS-TAPPED: a keyword-only body with 'enters tapped' is native-body", () => {
+    expect(classifyCard(C("Creature — Zombie", "This creature enters tapped."))).toBe("native-body");
+    expect(classifyCard(C("Creature — Bird", "Flying\nThis creature enters tapped."))).toBe("native-body");
+    expect(classifyCard(C("Artifact", "This artifact enters tapped.", { name: "Moss Diamond" }))).toBe("native-body");
+  });
+  it("ENTERS-TAPPED: an enters-tapped card with a modeled ETB trigger is native-trigger", () => {
+    // Spare Supplies shape: enters tapped + draws a card on ETB
+    expect(classifyCard(C("Artifact", "This artifact enters tapped.\nWhen this artifact enters, draw a card.", { name: "Spare Supplies" }))).toBe("native-trigger");
+  });
+  it("ENTERS-TAPPED: a conditional 'enters tapped unless' is NOT stripped (entersTapped() returns false)", () => {
+    // Conditional forms must NOT get the metric credit — the engine has no 'unless' handler.
+    expect(classifyCard(C("Land", "This land enters tapped unless you control two or more Plains.\n{T}: Add {W}.", { name: "Sejiri Steppe" }))).not.toBe("native-body");
+  });
+  it("ENTERS-TAPPED FP-GUARD: a TRAILING 'and …'/'then …' rider after 'tapped' is NOT stripped (stays body-only)", () => {
+    // The tapRe strip swallows the WHOLE enters-tapped sentence, so an unmodeled rider joined by
+    // "and"/"then" would be silently dropped → over-credit. entersTapped() now rejects the trailing
+    // rider so the rider keeps the card body-only (CREED: false-negative safe).
+    expect(classifyCard(C("Creature — Zombie", "This creature enters tapped and doesn't untap during your untap step."))).not.toBe("native-body");
+    expect(classifyCard(C("Creature — Beast", "This creature enters tapped and you lose 1 life."))).not.toBe("native-body");
+    expect(classifyCard(C("Creature — Goblin", "This creature enters tapped, then each opponent draws a card."))).not.toBe("native-body");
+    // A clean multi-line ('enters tapped.' as its own sentence) still credits — the rider must TRAIL the clause.
+    expect(classifyCard(C("Creature — Bird", "Flying\nThis creature enters tapped."))).toBe("native-body");
+  });
+
+  // TRIG-DMG-TO-OPPONENT — non-combat "deals damage to a player/an opponent" (Vedalken Heretic family).
+  // Mapped to combatDamageToPlayer: in the simulator all creature damage is combat, so the event fires
+  // correctly when this creature attacks and connects.
+  it("TRIG-DMG-TO-OPPONENT: 'Whenever this creature deals damage to an opponent, draw' is native-trigger", () => {
+    expect(classifyCard(C("Creature — Merfolk", "Whenever this creature deals damage to an opponent, you may draw a card.", { name: "Vedalken Heretic" }))).toBe("native-trigger");
+    expect(classifyCard(C("Creature — Bird", "Flying\nWhenever this creature deals damage to an opponent, draw a card.", { name: "Thieving Magpie" }))).toBe("native-trigger");
+    expect(classifyCard(C("Creature — Fish", "Whenever this creature deals damage to a player, draw a card.", { name: "Thieving Otter" }))).toBe("native-trigger");
+  });
+  it("TRIG-DMG-TO-OPPONENT: a trailing qualifier ('or planeswalker') stays body-only", () => {
+    // The anchored pattern requires the condition to END at 'to a player'/'to an opponent' — a
+    // trailing qualifier leaves residue → UNDETECTED → body-only (safe false-negative).
+    expect(classifyCard(C("Creature — Elf", "Whenever this creature deals damage to a player or planeswalker, draw a card."))).toBe("body-only");
   });
 
   it("a planeswalker is arbiter-pw", () => {

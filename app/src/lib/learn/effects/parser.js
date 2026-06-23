@@ -258,6 +258,11 @@ function splitClauses(oracle) {
     // Keep the whole sentence so parseExtendedAtom binds the self pump + every granted keyword together
     // (ACT-KW-GRANT). All-or-nothing anchored, so an un-grantable keyword just fails to match → low.
     if (/^this creature (?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TRIG-PRONOUN-IT — the NON-SELF triggering-permanent analogue of the self pump+grant above: the
+    // detectTriggers sentinel "the triggering creature gets +P/+T and gains KW until end of turn". Same
+    // INTERNAL " and " (one pump+grant instruction on the triggering creature), so keep the whole sentence
+    // for parseExtendedAtom. All-or-nothing anchored; a sentinel-only phrase, never produced by a spell.
+    if (/^the triggering creature (?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ===== TOKENS ===== a keyword token minted with several keywords ("Create a 4/4 white Angel
     // creature token with flying and vigilance") joins them with " and " — INTERNAL to the one
     // create-token instruction, not a top-level effect boundary. Keep the whole sentence so
@@ -1334,6 +1339,29 @@ function parseExtendedAtom(s) {
   // applySacrifice early-exits for target:"self" via sacrificeCreatureEffect(ctx.controller, ctx.sourceId).
   // No fabrication risk: absent sourceId → sacrificeCreatureEffect early-returns a no-op log event.
   if (/^sacrifice this creature$/.test(t)) return { op: "sacrifice", target: "self" };
+  // ===== TRIG-PRONOUN-IT ===== — the NON-SELF triggering-permanent referent: the analogue of the SELF
+  // forms above for a "Whenever a creature you control attacks/…, it gets/gains … / sacrifice it / return
+  // it" trigger (CR 608.2c — the pronoun is the TRIGGERING permanent, NOT the source). detectTriggers
+  // (triggers.js) rewrites the non-self pronoun → the canonical sentinel "the triggering creature" — a
+  // phrase in ZERO printed oracle text — gated to the non-self triggering scopes, so a SPELL's anaphoric
+  // "it" (Big Play / Puncture Bolt / Miraculous Recovery) NEVER reaches these matchers and stays LOW →
+  // Arbiter (CREED — sentinel gate). target:"thatCreature" (no targetType → non-targeted): atomTargets →
+  // triggeringTargets → ctx.triggeringPermanentId. The COUNTER form ("…on the triggering creature") is
+  // served by WAVE-3b's counterClausesParser — NOT duplicated here.
+  m = t.match(/^the triggering creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (m) return { op: "pump", target: "thatCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
+  m = t.match(/^the triggering creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
+  if (m) {
+    const kws = parseGrantedKeywords(m[3]);
+    return kws ? { op: "pump", target: "thatCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, grantKeywords: kws } : null;
+  }
+  m = t.match(/^the triggering creature gains (.+) until end of turn$/);
+  if (m) {
+    const kws = parseGrantedKeywords(m[1]);
+    return kws ? { op: "pump", target: "thatCreature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
+  if (/^sacrifice the triggering creature$/.test(t)) return { op: "sacrifice", target: "thatCreature" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   // COUNTER-TARGET-OWN — "put a +1/+1 counter on target creature you control" (Merfolk Skydiver, Kujar
