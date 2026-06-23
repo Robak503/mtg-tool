@@ -51,6 +51,7 @@ import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { applyMothmanRadOnAttack } from "./mothmanRad.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
+import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 
@@ -597,6 +598,36 @@ function buildTriggerStack(state, trigger, chooseTargets) {
         payload: { resolver: "effect-program", params: { program: boundProgram, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId, targets: [] } },
         targets: [],
       };
+    }
+    // ===== INTERVENING-IF (general board-query, CR 603.4) ===== a NON-win-game conditional trigger whose
+    // condition the STRICT board-query evaluator can read (interveningIf.js). Mirrors the win-game shape:
+    // CR 603.4 FIRST check at flush — null (unparsed) → Arbiter no-op; false (not met) → DROP (never goes
+    // on the stack); true → route the HIGH effect program natively, binding the condition onto params for
+    // the resolution re-check (resolvers EFFECT_PROGRAM re-evaluates, the SECOND CR 603.4 check). The
+    // effect must itself be HIGH + non-modal + target-resolvable (the same α1 allowlist the no-condition
+    // path uses below) — else the conditional trigger stays on the Arbiter (false-negative SAFE).
+    else if (interveningIfParseable(interveningIf)) {
+      const met = evaluateInterveningIf(state, interveningIf, trigger.controller);
+      if (met === null) return { payload: { resolver: "manual" }, targets: [] };
+      if (met !== true) return null; // CR 603.4 — condition not met → the ability never goes on the stack
+      if (condProgram && programConfidence(condProgram) === "high" && condProgram.structure !== "modal"
+        && (!programNeedsChosenTarget(condProgram) || programTriggerTargetsResolvable(condProgram))) {
+        const baseParams = { program: condProgram, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId, condition: interveningIf };
+        if (!programNeedsChosenTarget(condProgram)) {
+          return { payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } }, targets: [] };
+        }
+        const candidates = expandCastChoices(state, trigger.controller, condProgram);
+        if (candidates.length === 0) return null; // no legal target → removed (CR 603.3c)
+        const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program: condProgram, state }) : undefined;
+        if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [] };
+        const choice = (typeof picked === "number" && candidates[picked]) ? candidates[picked]
+          : (picked && Array.isArray(picked.targets)) ? picked
+          : firstLegalChoice(candidates);
+        const targets = choice?.targets || [];
+        return { payload: { resolver: "effect-program", params: { ...baseParams, targets } }, targets };
+      }
+      // Condition met but the effect isn't fully modeled (LOW / ambiguous target) → Arbiter no-op (FN-safe).
+      return { payload: { resolver: "manual" }, targets: [] };
     }
     // Any OTHER intervening-if trigger keeps the existing behavior (falls through to the Arbiter no-op below).
   }

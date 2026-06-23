@@ -25,6 +25,7 @@ import { resolveSpellEffect } from "./spellEffects.js";
 import { applyTriggerEffect, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "./triggers.js";
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram } from "./effects/runProgram.js";
+import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, isNativeManaAura } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + AURA-LAND-MANA-BOOST
@@ -327,7 +328,23 @@ export const RESOLVERS = Object.freeze({
   // when the program is high-confidence; a low-confidence (unmodeled) program runs
   // ZERO atoms and routes to the Arbiter seam (all-or-nothing). Additive — never
   // overloads spell.effect.
-  [RESOLVER_KEYS.EFFECT_PROGRAM]: (state, obj) => runEffectProgram(state, obj),
+  //
+  // INTERVENING-IF (CR 603.4 resolution re-check) — a conditional trigger bound its interveningIf onto
+  // `params.condition` (gameEngine.buildTriggerStack, the general board-query path). Re-evaluate it HERE at
+  // resolution: false (condition no longer met, e.g. the artifact was sacrificed in response) OR null
+  // (unresolved) → the ability does nothing (CR 603.4 — "if false at resolution, it has no effect"). A win-
+  // game atom carries its own condition + re-check inside applyWinGame, so only the GENERAL path sets
+  // params.condition; both re-checks are strict (never fail-open).
+  [RESOLVER_KEYS.EFFECT_PROGRAM]: (state, obj) => {
+    const params = obj.payload?.params;
+    if (params?.condition != null) {
+      const ok = evaluateInterveningIf(state, params.condition, params.controller);
+      if (ok !== true) {
+        return logEvent(state, { kind: "trigger-effect", effect: "intervening-if-not-met", controller: params.controller, condition: params.condition });
+      }
+    }
+    return runEffectProgram(state, obj);
+  },
 
   // Equip/Aura attach (CR 701.3): move the equipment onto the target creature. Re-checks
   // legality at resolution (CR 608.2b) — the source + target must still be on the

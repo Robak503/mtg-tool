@@ -36,6 +36,7 @@ import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 import { winConditionParseable } from "./effects/atoms/winGame.js";
+import { interveningIfParseable } from "./interveningIf.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
 import { isPureDoubler } from "./replacementEffects.js"; // Wave-3: pure counter/token doublers classify native-static
@@ -170,15 +171,22 @@ export function spellIsNative(card) {
 function triggerRoutesNatively(d) {
   if (!d.effectClause) return false;
   if (d.interveningIf) {
-    // UPKEEP-WIN (Wave 3b, CR 603.4) — the ONLY intervening-if trigger the runtime routes natively: a
-    // single win-game atom ("you win the game") whose threshold is in the strict evaluator's vocabulary
-    // (Revel in Riches / Felidar Sovereign / Knuckles). gameEngine.buildTriggerStack fires it when the
-    // condition is met (and re-checks on resolution); an unparseable threshold → Arbiter, so the metric
-    // mirrors that by requiring winConditionParseable. Every OTHER intervening-if trigger → not routed.
     const cp = parseEffectClause(d.effectClause, "Instant");
     const a = cp?.atoms?.length === 1 ? cp.atoms[0] : null;
-    return !!a && a.op === "win-game" && a.who === "controller"
-      && programConfidence(cp) === "high" && winConditionParseable(d.interveningIf);
+    // UPKEEP-WIN (Wave 3b, CR 603.4) — a single win-game atom ("you win the game") whose threshold is in
+    // the strict win evaluator's vocabulary (Revel in Riches / Felidar Sovereign / Knuckles). A win is
+    // modeled exactly (never fail-open) — see winGame.evaluateWinThreshold.
+    if (a && a.op === "win-game" && a.who === "controller"
+      && programConfidence(cp) === "high" && winConditionParseable(d.interveningIf)) return true;
+    // INTERVENING-IF (CR 603.4) — a GENERAL conditional trigger routes natively when (a) its effect program
+    // is HIGH + non-modal + target-resolvable (the same α1 allowlist the non-conditional path uses) AND
+    // (b) its condition is in the strict board-query vocabulary (interveningIfParseable). gameEngine.
+    // buildTriggerStack evaluates the condition at flush (drop if false) and resolvers re-check at
+    // resolution (CR 603.4 second check), so the metric mirrors a routing the runtime actually performs.
+    // An unparseable condition stays body-only (false-negative SAFE — a mis-evaluated condition is an FP).
+    return !!cp && programConfidence(cp) === "high" && cp.structure !== "modal"
+      && (!programNeedsChosenTarget(cp) || programTriggerTargetsResolvable(cp))
+      && interveningIfParseable(d.interveningIf);
   }
   const p = parseEffectClause(d.effectClause, "Instant");
   // Mirror buildTriggerStack's α1 ALLOWLIST EXACTLY: a HIGH non-modal trigger routes natively only
