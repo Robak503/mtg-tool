@@ -8,6 +8,17 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Explore keyword action (EXPLORE, CR 701.40):** the Ixalan-block explore family now plays natively.
+  A new `explore` atom + resolver reveals the top card of the exploring creature's controller's library;
+  a land goes to their hand, otherwise a +1/+1 counter is put on the creature and the card is kept on top
+  (the engine resolves the "back or graveyard" choice deterministically to keep-on-top — a legal option;
+  an interactive picker is a future refinement). detectTriggers rewrites the pronoun "it explores" → the
+  source ("this creature explores") for a self trigger or the triggering creature for a non-self enters
+  watcher (Path of Discovery); Jadelight Ranger's "then it explores again" becomes two explore atoms.
+  Flips 20 permanents to native-trigger (Merfolk Branchwalker, Jadelight Ranger, Emperor's Vanguard,
+  Path of Discovery, Seekers' Squire, Queen's Agent, Siren Lookout, Ixalli's Diviner, …). The variable
+  "explores X times" (Jadelight Spelunker), explore-watchers, and complex riders (Deepfathom Echo's copy
+  clause) stay on the Arbiter. **+20 native-trigger.**
 - **ETB-TARGETED triggered intent fix:** `atomTargetIntent` in the parser now classifies
   bounce/tuck triggers (non-own target) as **enemy** and discard-target-player triggers as
   **enemy**, draw-target-player as **own**, regenerate-target-creature as **own**. The

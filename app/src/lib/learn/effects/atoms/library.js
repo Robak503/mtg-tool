@@ -3,9 +3,9 @@
  * discover, mill).
  */
 
-import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness } from "../../gameState.js";
+import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice } from "../../pendingChoice.js";
-import { countForSpec } from "./shared.js";
+import { countForSpec, isLandCard, isCreatureCard } from "./shared.js";
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
 // a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
@@ -289,6 +289,48 @@ export function applyShuffle(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "shuffle", controller: ctx.controller });
 }
 
+/**
+ * ===== EXPLORE ===== (CR 701.40) — the exploring creature's controller reveals the top card of their
+ * library: a LAND goes to their hand; otherwise a +1/+1 counter is put on the exploring creature and the
+ * card stays on top (the controller's CR 701.40c "back or graveyard" choice — resolved deterministically to
+ * keep-on-top, a legal option; an interactive keep/bin picker is a future refinement, like scry's picker).
+ *
+ * The exploring permanent is the SOURCE (atom.target "self" → ctx.sourceId: Merfolk Branchwalker's ETB) or
+ * the TRIGGERING creature (atom.target "thatCreature" → ctx.triggeringPermanentId: Path of Discovery). The
+ * reveal uses that permanent's CONTROLLER's library; if the permanent has already left the battlefield the
+ * reveal/land-to-hand still happens (no counter then — CR 701.40d) using ctx.controller as the library owner.
+ * "explores N times" runs the whole process N times (Jadelight Ranger's "then it explores again" → 2).
+ * An empty library reveals nothing (a legal no-op). Pure data mutation — serialization-safe.
+ */
+export function applyExplore(state, atom, ctx) {
+  const times = Math.max(1, atom.times || 1);
+  const subjectId = atom.target === "thatCreature" ? ctx.triggeringPermanentId : ctx.sourceId;
+  let next = state;
+  for (let i = 0; i < times; i++) {
+    const lk = subjectId ? findPermanent(next, subjectId) : null;
+    const controller = lk ? lk.controller : ctx.controller;
+    const player = next.players?.[controller];
+    if (!player || (player.library || []).length === 0) {
+      next = logEvent(next, { kind: "spell-effect", effect: "explore", controller, revealed: null });
+      continue; // empty library — the explore reveals nothing (still a legal explore)
+    }
+    const top = player.library[0];
+    if (isLandCard(top)) {
+      next = { ...next, players: { ...next.players, [controller]: {
+        ...player, library: player.library.slice(1), hand: [...(player.hand || []), top],
+      } } };
+      next = logEvent(next, { kind: "spell-effect", effect: "explore", controller, revealed: top.name, land: true });
+    } else {
+      // Nonland → +1/+1 on the exploring creature (only if still on the battlefield), card kept on top.
+      if (lk && isCreatureCard(lk.permanent.card)) {
+        next = addCounter(next, { permanentId: subjectId, type: "+1/+1", amount: 1 });
+      }
+      next = logEvent(next, { kind: "spell-effect", effect: "explore", controller, revealed: top.name, land: false });
+    }
+  }
+  return next;
+}
+
 export const libraryResolvers = {
   "tutor": applyTutor,
   "shuffle": applyShuffle,
@@ -297,4 +339,5 @@ export const libraryResolvers = {
   "impulse-dig": applyImpulseDigAtom,
   "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
   "mill": applyMill,
+  "explore": applyExplore, // ===== EXPLORE ===== (CR 701.40) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
 };

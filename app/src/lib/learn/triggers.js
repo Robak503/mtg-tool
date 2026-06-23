@@ -798,6 +798,14 @@ const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouCont
 // (same clause text under a different scope gate); only "sacrifice it" needs its own anchor.
 const NONSELF_SAC_REF_RE = /^sacrifice it$/i;
 
+// EXPLORE (CR 701.40) — "it explores" / "it explores, then it explores again". "it" is the SOURCE for a
+// SELF trigger (Merfolk Branchwalker's ETB, Emperor's Vanguard's combat-damage) and the TRIGGERING creature
+// for a non-self enters-watcher (Path of Discovery's "Whenever a creature you control enters, it explores").
+// Whole-clause anchored, so a SPELL's anaphoric "it" or any rider/compound (Deepfathom Echo's "…Then you may
+// have it become a copy…") is never rewritten → stays LOW → Arbiter (CREED). The parser maps "this creature
+// explores" → target:"self" and "the triggering creature explores" → target:"thatCreature".
+const EXPLORE_IT_RE = /^it explores(?:, then it explores again)?$/i;
+
 // ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
 // is `(condition, cardName, typeLine, effectClause) => TriggerDescriptorClassification | null` and is
 // consulted by detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep
@@ -906,6 +914,17 @@ export function detectTriggers(card) {
         // DISTINCT from the SELF-LTB graveyard-return marker (that path is gated on cls.selfReturnKind,
         // checked earlier in this chain) — here the triggering creature is still on the battlefield.
         effectClause = "return the triggering creature to its owner's hand";
+      } else if (cls.scope === "self" && EXPLORE_IT_RE.test(effectClause)) {
+        // EXPLORE: "it explores" / "it explores, then it explores again" — "it" is the SOURCE (CR 113.7).
+        // Repeat the SOURCE subject so the sequence parser sees two "this creature explores" clauses (each →
+        // explore self). Same self-scope gate + whole-clause anchor as the pump/counter forms.
+        effectClause = /again/i.test(effectClause)
+          ? "this creature explores, then this creature explores"
+          : "this creature explores";
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && EXPLORE_IT_RE.test(effectClause)) {
+        // EXPLORE non-self (Path of Discovery — "Whenever a creature you control enters, it explores"): "it"
+        // is the TRIGGERING creature (CR 608.2c) → the sentinel the parser maps to target:"thatCreature".
+        effectClause = effectClause.replace(/^it /i, "the triggering creature ");
       }
       out.push({
         event: cls.event,
