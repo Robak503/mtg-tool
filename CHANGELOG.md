@@ -25,6 +25,22 @@ summarizes the notable changes.
   Metalcraft label (Galvanic Blast) stays body-only/Arbiter. Menace is now grantable + enforced at combat
   (GATED-GY-EXT #343), so a gated menace grant flips native; a non-grantable keyword (hexproof) still
   drops the whole clause → LOW per CREED. **+31 cards.**
+- **"It" pronoun in non-self trigger effects (TRIG-PRONOUN-IT):** a non-self trigger that acts on the
+  TRIGGERING permanent via the pronoun "it" — "Whenever a creature you control attacks, **it** gets +2/+2
+  until end of turn" (Fervent Charge), "…enters, **it** gets +2/+0 and gains haste…" (In the Web of War),
+  plus "sacrifice **it**" / "return **it** to its owner's hand" — now routes natively. Built ON the WAVE-3b
+  COUNTERS-ON-EVENT substrate (no fork): `detectTriggers` rewrites the non-self pronoun → the sentinel
+  "the triggering creature" (gated to the non-self triggering scopes), and parser.js models that sentinel
+  as `target:"thatCreature"` → `ctx.triggeringPermanentId` (the same referent the counter form uses; pump
+  and bounce now resolve it through `atomTargets`, sacrifice through an `applySacrifice` early-exit). The
+  counter form itself is unchanged (still served by `counterClausesParser`). **CREED — the sentinel gate:**
+  "the triggering creature" appears in ZERO printed oracle text, so a SPELL's anaphoric "it"/"that creature"
+  (Big Play, Puncture Bolt, Miraculous Recovery) is NEVER rewritten and stays on the Arbiter — closing the
+  false positive the earlier bare-"it" parser approach would have opened. Self-scope "it" (Brazen Wolves)
+  is untouched (still the "this creature" self path). Un-grantable keywords (hexproof) still drop to LOW.
+  Modest yield — most non-self "it" triggers are exalted "attacks alone", which the sole-attacker guard
+  keeps on the Arbiter: **+4 cards** (Fervent Charge, In the Web of War, Atarka World Render, Kragma
+  Warcaller), with a leave-one-out flip-diff confirming **zero** regressions.
 
 - **Plain cycling credited as native (KW-CYCLING):** "Cycling {cost}" is a fully-enforced activated
   ability (actionDispatcher.applyCycle — CR 702.29: pay the mana cost, discard the card, draw a card).

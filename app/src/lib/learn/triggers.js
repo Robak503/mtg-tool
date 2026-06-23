@@ -761,6 +761,16 @@ const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\
 // "a creature you control" / "a <Subtype> you control" attack + combat-damage watchers (Sphere Grid family).
 const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl"]);
 
+// TRIG-PRONOUN-IT — the NON-SELF pronoun referent for the OTHER effect families (the non-self analogues of
+// the SELF "it" forms): "Whenever a creature you control attacks, IT gets/gains … until end of turn /
+// sacrifice IT / return IT to its owner's hand". "it" is the TRIGGERING permanent (CR 608.2c), not the
+// source — so, exactly like COUNTERS-ON-EVENT above, detectTriggers normalizes the referent → the sentinel
+// "the triggering creature" (which parser.js models as target:"thatCreature" → ctx.triggeringPermanentId).
+// Gated to the non-self triggering scopes + whole-clause anchored, so a SPELL's anaphoric "it" is NEVER
+// rewritten and stays LOW → Arbiter (CREED — sentinel gate). The pump/return shapes reuse the SELF regexes
+// (same clause text under a different scope gate); only "sacrifice it" needs its own anchor.
+const NONSELF_SAC_REF_RE = /^sacrifice it$/i;
+
 // ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
 // is `(condition, cardName, typeLine, effectClause) => TriggerDescriptorClassification | null` and is
 // consulted by detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep
@@ -854,6 +864,21 @@ export function detectTriggers(card) {
         // ctx.triggeringPermanentId. Gated to the non-self triggering scopes (the spell anaphor never
         // reaches here) + the whole-clause anchor (a rider stays untouched → LOW → Arbiter), CREED-safe.
         effectClause = effectClause.replace(/ on (?:it|that creature)$/i, " on the triggering creature");
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && SELF_PUMP_IT_RE.test(effectClause)) {
+        // TRIG-PRONOUN-IT: a NON-self trigger's "IT gets/gains … until end of turn" (Battlegrace Angel —
+        // "Whenever a creature you control attacks, it gains lifelink until end of turn") — "it" is the
+        // TRIGGERING permanent. Sentinel-rewrite the leading "it" so the parser models it as
+        // target:"thatCreature". Same scope gate + whole-clause anchor as COUNTERS-ON-EVENT (a spell
+        // anaphor never reaches here; a rider stays LOW). The parser re-gates the keyword set.
+        effectClause = effectClause.replace(/^it /i, "the triggering creature ");
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && NONSELF_SAC_REF_RE.test(effectClause)) {
+        // TRIG-PRONOUN-IT: "sacrifice IT" → sacrifice the TRIGGERING permanent (CR 608.2c).
+        effectClause = "sacrifice the triggering creature";
+      } else if (NONSELF_TRIGGERING_SCOPES.has(cls.scope) && SELF_RETURN_IT_RE.test(effectClause)) {
+        // TRIG-PRONOUN-IT: "return IT to its owner's hand" → bounce the TRIGGERING permanent (CR 608.2c).
+        // DISTINCT from the SELF-LTB graveyard-return marker (that path is gated on cls.selfReturnKind,
+        // checked earlier in this chain) — here the triggering creature is still on the battlefield.
+        effectClause = "return the triggering creature to its owner's hand";
       }
       out.push({
         event: cls.event,

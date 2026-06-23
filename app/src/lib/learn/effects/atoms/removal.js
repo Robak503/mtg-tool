@@ -153,6 +153,16 @@ function applySacrifice(state, atom, ctx) {
   // sacrificeCreatureEffect directly (bypasses the edict chooser chain — the victim is fixed).
   // No-op if ctx.sourceId is absent or the permanent already left the battlefield (stale source).
   if (atom.target === "self") return sacrificeCreatureEffect(state, ctx.controller, ctx.sourceId);
+  // TRIG-PRONOUN-IT — "sacrifice the triggering creature" (the non-self pronoun referent, CR 608.2c): the
+  // permanent that CAUSED the trigger, threaded flat as ctx.triggeringPermanentId by the trigger flush.
+  // Bypasses the edict chooser chain (the victim is fixed). The detectTriggers sentinel rewrite (gated to
+  // the non-self triggering scopes) is the only producer of this atom, so a spell anaphor never reaches it;
+  // an absent id is a clean no-op log, never a fabricated sacrifice.
+  if (atom.target === "thatCreature") {
+    return ctx.triggeringPermanentId
+      ? sacrificeCreatureEffect(state, ctx.controller, ctx.triggeringPermanentId)
+      : logEvent(state, { kind: "spell-effect", effect: "sacrifice", controller: ctx.controller, sacrificed: null });
+  }
   let sacrificers;
   if (atom.who === "eachPlayer") {
     const seen = new Set();

@@ -58,13 +58,16 @@ describe("normalization — self-scope 'it gets/gains … eot' → 'this creatur
       .toBe("this creature gets +0/+2 until end of turn");
   });
 
-  it("CREED: a NON-self scope ('a creature you control attacks, it …') is NEVER rewritten — 'it' is the OTHER creature", () => {
-    // Battlegrace Angel / Fervent Charge shape: the recipient is the triggering creature, not the source.
-    const battlegrace = creature("Battlegrace Angel", 4, 4, "Whenever a creature you control attacks, it gains lifelink until end of turn.");
-    const d = detectTriggers(battlegrace)[0];
+  it("TRIG-PRONOUN-IT: a NON-self 'it' rewrites to the SENTINEL 'the triggering creature', NOT to 'this creature'", () => {
+    // Fervent Charge shape: the recipient is the TRIGGERING creature, not the source — so detectTriggers must
+    // NOT rewrite "it" → "this creature" (the self path). TRIG-PRONOUN-IT instead rewrites it → the sentinel
+    // "the triggering creature" (parser target:"thatCreature" → ctx.triggeringPermanentId), which routes native.
+    const anthem = creature("Anthem", 4, 4, "Whenever a creature you control attacks, it gains lifelink until end of turn.");
+    const d = detectTriggers(anthem)[0];
     expect(d).toMatchObject({ event: "attacks", scope: "creatureYouControl" });
-    expect(d.effectClause).toBe("it gains lifelink until end of turn"); // untouched → stays LOW → Arbiter
-    expect(clauseHigh(d.effectClause)).toBe(false);
+    expect(d.effectClause).toBe("the triggering creature gains lifelink until end of turn"); // sentinel, NOT "this creature"
+    expect(d.effectClause.startsWith("this creature")).toBe(false);
+    expect(clauseHigh(d.effectClause)).toBe(true); // now modeled via TRIG-PRONOUN-IT
   });
 
   it("CREED: a self-scope trigger whose 'it' is NOT a self-pump ('exile it') is left alone", () => {
@@ -102,7 +105,9 @@ describe("coverage — the 'it'-templated self-pump classifies native-trigger", 
     expect(classifyCard(creature("Weathered Sentinels", 3, 3, "Whenever Weathered Sentinels attacks, it gets +3/+3 and gains indestructible until end of turn."))).not.toBe("native-trigger");
   });
 
-  it("CREED: the non-self 'a creature you control attacks, it …' card is NOT native-trigger", () => {
-    expect(classifyCard(creature("Battlegrace Angel", 4, 4, "Whenever a creature you control attacks, it gains lifelink until end of turn."))).not.toBe("native-trigger");
+  it("TRIG-PRONOUN-IT: the non-self 'a creature you control attacks, it …' card IS now native-trigger", () => {
+    // "it" = the triggering creature → target:"thatCreature" (ctx.triggeringPermanentId). Fervent Charge shape.
+    expect(classifyCard(creature("Fervent Charge", 4, 4, "Whenever a creature you control attacks, it gets +2/+2 until end of turn."))).toBe("native-trigger");
+    expect(classifyCard(creature("Anthem", 4, 4, "Whenever a creature you control attacks, it gains lifelink until end of turn."))).toBe("native-trigger");
   });
 });
