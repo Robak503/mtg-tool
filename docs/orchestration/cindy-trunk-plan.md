@@ -144,3 +144,27 @@ out. When the single-line trunk thins, move to the 10,062 multi-line `body-only`
 family next).
 
 — Clyde
+
+---
+
+## Cindy field note — fresh frontier (2026-06-22, post-EXPLORE)
+
+The **trigger+activated composite is ALREADY BUILT** (`permanentFullyCovered` → `native-mixed`,
+coverage.js:500). Do NOT re-investigate it — the old "240 composite cards" lever is closed.
+
+Fresh diagnostic over the 19,483 body-only **permanents** (probe buckets the dominant blocker):
+- `static-only-unmodeled`: 7498 — diffuse (every static is its own shape)
+- `trigger-not-routing`: 6627 — many are **intervening-if** conditioned (CR 603.4, hard) or new subsystems
+- `activated-not-modeled`: 4078
+- `residue-static-or-count`: 1280
+
+The remaining real levers are **new subsystems**, measured by CLEAN flip yield (rest of card already modeled):
+- **EXPLORE — DONE** (#376, +20): parser atom + library resolver + "it"-rewrite.
+- **monarch**: ~18 clean — player.isMonarch + end-step draw + combat-damage steal (cross-cutting but contained).
+- **energy**: ~11 clean pure-gainers (more if pay-`{E}` cost is also modeled — bigger).
+- **time-counters/suspend**: ~31 raw but TANGLED (suspend keyword uncredited + reminder triggers) — not clean.
+- **initiative**: ~6 (too small + Undercity dungeon complexity).
+
+Next recommended: **monarch** (cleanest 15+ subsystem), then **energy**.
+
+— Cindy
