@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **ETB-TARGETED triggered intent fix:** `atomTargetIntent` in the parser now classifies
+  bounce/tuck triggers (non-own target) as **enemy** and discard-target-player triggers as
+  **enemy**, draw-target-player as **own**, regenerate-target-creature as **own**. The
+  trigger-flush chooser picks the correct side automatically for the whole ETB-removal family:
+  Man-o'-War, Aether Adept, Voidwielder, Separatist Voidmage, Kiri-Onna, Dispersal Technician,
+  Glowing Anemone, Vedalken Dismisser (tuck), Rottenheart Ghoul, Kemuri-Onna, Saltwater Stalwart,
+  Horizon Seed. **+12 native-trigger.**
 - **Metalcraft / equipped / combined control-gate statics (GATED-ARTIFACT):** three extensions to the
   existing gated-static machinery: (1) the `Metalcraft —` ability-word label is now stripped before
   parsing, so pure P/T and keyword Metalcraft cards (Ghalma's Warden, Snapsail Glider, Auriok Edgewright,

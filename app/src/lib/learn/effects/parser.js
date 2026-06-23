@@ -2500,9 +2500,28 @@ export function atomTargetIntent(atom) {
       return "enemy";
     case "bounce":
     case "tuck":
-      // Could target own OR enemy permanents — the trigger-flush chooser can't pick a side, so a tuck
-      // TRIGGER stays non-native; SAFE on the cast/activated path (player/AI picks the target).
+      // ETB-BOUNCE / ETB-TUCK — triggered bounce and tuck effects target an OPPONENT's permanent.
+      // "YouControl" forms (rare) bounce own permanents (self-protective). Bare "creature" / "artifact" /
+      // "land" / "permanent" targets are offensive (Man-o'-War, Aether Adept, Vedalken Dismisser,
+      // Dispersal Technician, Glowing Anemone). The trigger-flush chooser picks an opponent's permanent
+      // for non-own targets, which is correct for the entire ETB-removal family.
+      if (tt.includes("YouControl") || tt.includes("youControl") || tt === "self") return "own";
+      return "enemy";
+    case "discard":
+    case "discard-chosen":
+      // "target player/opponent discards" — harmful, enemy-side (Rottenheart Ghoul, Kemuri-Onna).
+      // The controller never targets themselves with a discard trigger.
+      if (tt === "player" || tt === "opponent") return "enemy";
       return "ambiguous";
+    case "draw":
+      // "target player draws N cards" (Saltwater Stalwart: combatDamage → target player draws) —
+      // beneficial draw, own-side: the controller always targets themselves to draw.
+      if (tt === "player") return "own";
+      return "ambiguous";
+    case "regenerate":
+      // "Regenerate target creature" (Horizon Seed: cast Spirit/Arcane → regenerate target creature) —
+      // protective, own-side: you regenerate your own creatures.
+      return "own";
     default:
       return "ambiguous";
   }

@@ -118,12 +118,14 @@ describe("resolution — the right player(s) draw N from their own library", () 
   });
 });
 
-describe("trigger gate — each-player draw routes natively; target-player draw → Arbiter", () => {
-  it("an ETB 'each player draws a card' is native-trigger; an attack 'target player draws' is not", () => {
+describe("trigger gate — each-player draw and target-player draw both route natively", () => {
+  it("an ETB 'each player draws a card' and an attack 'target player draws' both native-trigger", () => {
+    // symmetric: each player draws — non-targeted, always native
     const symmetric = { type: "Creature — Wizard", name: "Mind Sharer", oracle: "When this creature enters, each player draws a card." };
+    // targeted: 'target player draws' — own-side (controller targets themselves), now routes natively (ETB-TARGETED)
     const targeted = { type: "Creature — Rogue", name: "Gifter", oracle: "Whenever this creature attacks, target player draws a card." };
     expect(classifyCard(symmetric)).toBe("native-trigger");
-    expect(classifyCard(targeted)).not.toBe("native-trigger");
+    expect(classifyCard(targeted)).toBe("native-trigger");
   });
   it("a COMPOUND 'attacks or blocks' trigger is NOT native — the dropped 'or blocks' half would mis-fire", () => {
     // Howling Golem: modeling the each-player-draw effect would otherwise expose the compound-combat
