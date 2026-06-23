@@ -8,6 +8,24 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **Metalcraft / equipped / combined control-gate statics (GATED-ARTIFACT):** three extensions to the
+  existing gated-static machinery: (1) the `Metalcraft —` ability-word label is now stripped before
+  parsing, so pure P/T and keyword Metalcraft cards (Ghalma's Warden, Snapsail Glider, Auriok Edgewright,
+  Spiraling Duelist, Vedalken Infiltrator, Chrome Steed, Ardent Recruit, Carapace Forger, Razorfield
+  Rhino, Ezuri's Brigade, Auriok Sunchaser) route through the existing GATED-SELFBUFF / GATED-KEYWORD
+  machinery. (2) A new combined form `"gets +P/+T and has <kw> as long as you control …"` (prefix and
+  suffix) routes through `emitGatedEffect`, adding creature-subtype gates (Beast, Bird, Dinosaur,
+  Dragon, Faerie, Giant) and artifact / enchantment control gates (Aerial Engineer, Goblin Tomb Raider,
+  Gravblade Heavy, Scrapyard Mongrel, Dhund Operative, Skirk Outrider, Thrash of Raptors, Kithkin
+  Greatheart, Dragonloft Idol, Boggart Sprite-Chaser, Blood-Cursed Knight, Cloudreach Cavalry).
+  (3) A new `{ kind:"isEquipped" }` gate type — `gateMet` scans the battlefield for an Equipment with
+  `attachedTo === this permanent` — handles `Skyhunter Cub`, `Dwarfhold Champion`, `Leonin Den-Guard`,
+  `Kor Duelist`, `Auriok Glaivemaster`, `Kitesail Apprentice`, `Sunspear Shikari`, `Leonin Lightbringer`.
+  The Metalcraft strip is gated to permanent (creature) statics only — an instant/sorcery using the
+  Metalcraft label (Galvanic Blast) stays body-only/Arbiter. Menace is now grantable + enforced at combat
+  (GATED-GY-EXT #343), so a gated menace grant flips native; a non-grantable keyword (hexproof) still
+  drops the whole clause → LOW per CREED. **+31 cards.**
+
 - **Plain cycling credited as native (KW-CYCLING):** "Cycling {cost}" is a fully-enforced activated
   ability (actionDispatcher.applyCycle — CR 702.29: pay the mana cost, discard the card, draw a card).
   The credit is tightened to **"cycling {cost}"** (the keyword followed by a brace mana cost), mirroring
@@ -29,7 +47,6 @@ summarizes the notable changes.
   non-combat form (Vedalken Heretic, Thieving Magpie, Thieving Otter, Looter il-Kor, Lu Xun, …) is now
   a recognised trigger mapped to `combatDamageToPlayer`; in the simulator all creature damage is combat
   damage so the event fires correctly. **+28 cards total**.
-
 
 - **Self-referential bounce + sacrifice trigger effects (TRIG-EFFECT-ATOMS):** two new non-targeted
   self-reference atoms for trigger effects — **SELF-BOUNCE** ("return this creature to its owner's

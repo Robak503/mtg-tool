@@ -483,7 +483,10 @@ function emitGatedEffect(out, effRaw, gate) {
  * cost-reducer can stamp `sourceName` for its excludeSelf ("other ~ spells") guard.
  */
 function parseClause(clause, out, selfName) {
-  const c = clause.toLowerCase();
+  // Strip flavor ability-word labels (CR 207.2c — they carry no rules meaning).
+  // Metalcraft/Threshold/Delirium appear on STATIC clauses; the GY path re-strips
+  // Threshold/Delirium below (no-op after this) for clarity.
+  const c = clause.toLowerCase().replace(/^(?:metalcraft|threshold|delirium)\s*[—–-]\s*/, "");
 
   // ── STATIC-COST-REDUCTION (Dragonspeaker Shaman → The Ur-Dragon; Gargos → Zaxara) ──────────────────
   // "<Subtype> spells you cast cost {N} less to cast" reduces the GENERIC portion of the matching spell's
@@ -705,6 +708,29 @@ function parseClause(clause, out, selfName) {
     if (gm) { emitGatedKeywords(out, gm[1], gm[2], gm[3]); return; }
     gm = c.match(new RegExp(`^as long as ${GATE}, (?:this creature|it) has (.+)$`));
     if (gm) { emitGatedKeywords(out, gm[3], gm[1], gm[2]); return; }
+    // ── GATED-ARTIFACT / COMBINED: "gets P/T and has kw as long as you control …" ─────────────────────────
+    // The PURE-P/T and PURE-KEYWORD forms above fall through to here on the COMBINED clause (they each
+    // demand either "gets" OR "has" alone). emitGatedEffect handles the P/T-THEN-keyword parsing and
+    // drops any non-grantable keyword or rider → LOW (CREED). parseControlGateSource rejects multi-word
+    // types ("multicolored permanent", "red or white") → null → nothing emitted → safe false-negative.
+    gm = c.match(new RegExp(`^(?:this creature|it) (gets .+? and has .+?) as long as ${GATE}$`));
+    if (gm) {
+      const gate = parseControlGateSource(gm[2], gm[3]);
+      if (gate) emitGatedEffect(out, gm[1], gate);
+      return;
+    }
+    gm = c.match(new RegExp(`^as long as ${GATE}, (?:this creature|it) (gets .+ and has .+)$`));
+    if (gm) {
+      const gate = parseControlGateSource(gm[1], gm[2]);
+      if (gate) emitGatedEffect(out, gm[3], gate);
+      return;
+    }
+    // ── EQUIPPED GATE: "as long as this creature is equipped, it gets/has …" ────────────────────────────
+    // Equipment attachment is tracked per-permanent (permanent.attachedTo); gateMet handles { kind:"isEquipped" }
+    // by scanning the battlefield for an Equipment whose attachedTo === this permanent's id. emitGatedEffect
+    // applies the same CREED guard: menace/non-grantable keywords → nothing emitted → card stays LOW.
+    gm = c.match(/^as long as (?:this creature|it) is equipped, (?:this creature|it) (.+)$/);
+    if (gm) { emitGatedEffect(out, gm[1], { kind: "isEquipped" }); return; }
     // ── GATED-GY: a self P/T buff and/or keyword grant gated on a GRAVEYARD count (threshold / delirium) ──
     // Strip the flavor ability-word label first (CR 207.2c — "Threshold —" / "Delirium —" / "Descend N —"
     // carry no rules meaning), find the graveyard-count gate, then emit via the shared emitter (a rider →
