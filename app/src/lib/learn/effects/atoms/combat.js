@@ -243,6 +243,29 @@ export function fightCreature(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "fight", source: ctx.sourceId || null, targets: hitIds });
 }
 
+/**
+ * CANT-BLOCK — "target creature can't block this turn" (Goblin Shortcutter, Crossway Vampire, Mardu
+ * Roughrider, …). A layer-6 endOfTurn grant of the "cantBlock" keyword; combatEvasion.canBlockAttacker
+ * reads it via permanentHasKeyword (layer-aware) and refuses the block, so it wears off at cleanup (CR
+ * 514.2) exactly like a combat-trick keyword grant. ENEMY-side (you disable an opponent's blocker to push
+ * damage), so atomTargetIntent → "enemy" and the trigger-flush chooser picks an opponent's creature.
+ */
+export function applyCantBlock(state, atom, ctx) {
+  const targets = atomTargets(state, atom, ctx);
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
+  const dur = { kind: "endOfTurn", turn: next.turn };
+  for (const target of targets) {
+    if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
+    next = addContinuousEffect(next, {
+      layer: 6, op: { layerOp: "addKeyword", keyword: "cantBlock" },
+      affects: { mode: "fixed", permanentIds: [target.id] },
+      duration: dur, source: src,
+    }).state;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "cant-block", targets: targets.map(t => t.id) });
+}
+
 export const combatResolvers = {
   "fight": fightCreature, // ETB-FIGHT (CR 701.12) — source + target creature deal damage = power to each other, simultaneously
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
@@ -251,4 +274,5 @@ export const combatResolvers = {
   "regenerate": applyRegenerate, // REGEN (CR 701.15) — set a regeneration shield on self / target creature
   "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
+  "cant-block": applyCantBlock, // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
 };

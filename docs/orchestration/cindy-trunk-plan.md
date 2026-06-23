@@ -168,3 +168,30 @@ The remaining real levers are **new subsystems**, measured by CLEAN flip yield (
 Next recommended: **monarch** (cleanest 15+ subsystem), then **energy**.
 
 — Cindy
+
+---
+
+## Cindy field note — refined frontier (2026-06-22, post-CANT-BLOCK)
+
+CANT-BLOCK shipped (#377, +17: "target creature can't block this turn" → layer-6 cantBlock grant).
+
+MONARCH was DROPPED: tight yield only ~9 (most "become monarch" cards bundle unmodeled monarch-conditional
+statics/triggers — "as long as you're the monarch…", "whenever you become the monarch…") and the subsystem
+is cross-cutting (player state + end-step draw + combat steal). Not a clean ≥10 slice. Same for energy
+(~11 raw, but pure-gainers only; spenders need pay-{E}).
+
+A "one-atom-away" scan (2412 body-only permanents — residue empty, count matches, activated modeled, only
+a non-routing trigger blocks) ranks the highest-yield SINGLE atoms. Top clean single-atom levers remaining:
+- **intervening-if (THE BIG ONE):** "draw a card" (25), "put +1/+1 on this" (19), "you gain N life" (12)
+  are all HIGH-routing effects blocked ONLY by an intervening-if condition (CR 603.4). 56+ in the top-3
+  alone; likely 200+ total. The lever: a CONDITION EVALUATOR ("if you control an artifact", "if you control
+  another Spirit", "if a creature died this turn") + route the trigger when the condition is parseable.
+  High-yield but needs care (mis-eval = FP). Build incrementally, simplest conditions first.
+- "that player discards a card" (Specters, 9) — reuses ctx.damagedPlayerId (already threaded for rad).
+- "this creature deals N damage to you" (8) — upkeep self-damage drawback (Juzám Djinn family).
+- "sacrifice a creature" (8, Demon upkeep), "bolster N" (7).
+
+Next recommended: **intervening-if subsystem** (measure the simple-condition subset first; biggest lever
+by far), or the clean small atoms (discard-damaged-player / self-damage) if intervening-if is too risky.
+
+— Cindy
