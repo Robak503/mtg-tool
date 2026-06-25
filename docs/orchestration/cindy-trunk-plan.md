@@ -195,3 +195,34 @@ Next recommended: **intervening-if subsystem** (measure the simple-condition sub
 by far), or the clean small atoms (discard-damaged-player / self-damage) if intervening-if is too risky.
 
 — Cindy
+
+---
+
+## Cindy field note — intervening-if started (2026-06-22, post-INTERVENING-IF)
+
+INTERVENING-IF v1 shipped (#378, +31): a strict board-query evaluator (interveningIf.js, leaf module) +
+buildTriggerStack flush gate + resolvers resolution re-check (CR 603.4) + coverage credit. Also fixed a
+latent runtime fail-open (conditional triggers fired unconditionally before).
+
+v1 SCOPE (done): "you control a/an/N <type/subtype>", tapped/untapped/token filters, "no <type>", graveyard
+card-counts. DENYLIST: "commander" (designation, not a type — would silently count 0; a forbidden FP).
+
+NEXT increments of the intervening-if lever (each adds ~5-15 more, all currently → Arbiter, FN-safe):
+- TURN-EVENT history (~25): "a creature died this turn" (3), "an opponent lost life this turn" (5),
+  "you gained N or more life this turn" (5), "you descended this turn" (4), "you attacked this turn",
+  "a planeswalker entered this turn", "another creature entered this turn". NEEDS per-turn event flags
+  on state (some may already exist — check state for life-gained-this-turn / creature-died-this-turn
+  trackers before building). This is the biggest remaining intervening-if chunk.
+- COLOR permanents (~6): "you control a blue/black/green permanent" — needs a reliable permanent-color
+  source (printed colors / layer-aware). Multicolored (1).
+- POWER comparisons (~5): "you control a creature with power N or greater" — layer-aware power query.
+- STATE flags: monarch, city's blessing (need those subsystems first).
+
+Other clean small single-atom levers (from the one-atom-away scan, NOT intervening-if):
+- "that player discards a card" (Specters, ~9) — reuses ctx.damagedPlayerId.
+- "this creature deals N damage to you" (~8) — upkeep self-damage drawback (Juzám Djinn).
+
+Next recommended: **intervening-if TURN-EVENT increment** (check existing per-turn trackers first), or the
+Specters discard atom if turn-event tracking isn't already wired.
+
+— Cindy

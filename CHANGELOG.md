@@ -8,6 +8,17 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+- **General intervening-if conditional triggers (CR 603.4):** a new strict board-query evaluator
+  (`interveningIf.js`) lets a conditional trigger ("When this enters, **if you control an artifact**, draw
+  a card") play natively. It reads the controller's-board conditions the corpus most often gates on —
+  "you control a/an/N <type/subtype>", tapped/untapped/token filters, "you control no <type>", and
+  graveyard card-counts. `gameEngine.buildTriggerStack` evaluates the condition at flush (drops the trigger
+  if false — CR 603.4 first check) and `resolvers` re-check at resolution (second check), mirroring the
+  existing win-game intervening-if machinery. This also fixes a latent runtime fail-open (these triggers
+  previously fired unconditionally). Flips 31 permanents to native-trigger (Scholar of Stars, Saruli
+  Gatekeepers, Gixian Skullflayer, Dundoolin Weaver, Shoreline Salvager, …). Turn-event history ("a
+  creature died this turn"), power comparisons, color/state-flag conditions, and designations ("you control
+  a commander" — not a card type) stay on the Arbiter, strictly never fail-open. **+31 native-trigger.**
 - **"Target creature can't block this turn" (CANT-BLOCK):** a new `cant-block` atom grants the target
   creature a layer-6 end-of-turn "cantBlock" restriction, enforced by `combatEvasion.canBlockAttacker`
   (layer-aware, so it wears off at cleanup like a combat-trick keyword grant). Enemy-side intent — the
