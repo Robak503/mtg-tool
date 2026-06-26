@@ -36,7 +36,9 @@ function oracleOf(card) {
   return String(card?.oracle || card?.oracle_text || "");
 }
 function manaOf(card) {
-  return String(card?.mana || card?.mana_cost || "");
+  // Empty top-level cost falls through to the front face (DFC/MDFC store the castable cost on
+  // card_faces[0]) — mirrors legalChoices.manaCostOf so a snapshot never shows a DFC as costless.
+  return String(card?.mana || card?.mana_cost || card?.card_faces?.[0]?.mana_cost || "");
 }
 
 /** A card in a hidden-order zone (hand/graveyard/exile/command) — no board state. */

@@ -217,8 +217,14 @@ function isSorcerySpeed(card) {
 
 function manaCostOf(card) {
   if (!card) return "";
-  if (typeof card.mana === "string") return card.mana;
-  if (typeof card.mana_cost === "string") return card.mana_cost;
+  // An EMPTY cost STRING is not a real cost. A DFC / MDFC / transform card leaves the top-level
+  // mana_cost "" and carries the castable cost on card_faces[0] (you cast it from its front face,
+  // CR 712.4a). The old `typeof === "string"` guards returned that "" early — so such a card read
+  // as FREE TO CAST. Skip empties (and a non-string mana) and fall through to the front face before
+  // giving up. A genuinely costless card (suspend-only spell, token) has no face cost either, so it
+  // still returns "" — correct (it has no mana cost).
+  if (card.mana && typeof card.mana === "string") return card.mana;
+  if (card.mana_cost && typeof card.mana_cost === "string") return card.mana_cost;
   if (Array.isArray(card.card_faces) && card.card_faces[0]) {
     return card.card_faces[0].mana_cost || card.card_faces[0].mana || "";
   }
