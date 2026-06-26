@@ -19,6 +19,7 @@ import {
   legalActionsForPlayer,
   groupActionsByKind,
   filterActions,
+  _internals,
 } from "./legalChoices.js";
 
 function makeCard({ id, name, type, mana, keywords = [] }) {
@@ -421,5 +422,35 @@ describe("groupActionsByKind + filterActions", () => {
     ];
     expect(filterActions(actions, "cast-spell")).toHaveLength(1);
     expect(filterActions(actions, "play-land")[0].name).toBe("Forest");
+  });
+});
+
+describe("manaCostOf — DFC front-face fallback (free-cast guard)", () => {
+  const { manaCostOf } = _internals;
+
+  it("reads an enriched .mana cost", () => {
+    expect(manaCostOf({ mana: "{1}{G}" })).toBe("{1}{G}");
+  });
+
+  it("reads a raw mana_cost when .mana is absent", () => {
+    expect(manaCostOf({ mana_cost: "{G}" })).toBe("{G}");
+  });
+
+  it("falls through an EMPTY top-level mana_cost to the front face (DFC) — not free", () => {
+    // A transform/MDFC card: top-level mana_cost is "" and the castable cost lives on card_faces[0].
+    // Before the fix, the empty string was returned early and the card read as 0-cost.
+    const dfc = { mana_cost: "", card_faces: [{ mana_cost: "{2}{R}" }, { mana_cost: "" }] };
+    expect(manaCostOf(dfc)).toBe("{2}{R}");
+  });
+
+  it("falls through an empty .mana AND empty mana_cost to the front face", () => {
+    const dfc = { mana: "", mana_cost: "", card_faces: [{ mana_cost: "{W}{U}" }] };
+    expect(manaCostOf(dfc)).toBe("{W}{U}");
+  });
+
+  it("returns '' for a genuinely costless card (no face cost) — still correctly free", () => {
+    // A suspend-only spell / token has no cost anywhere; "" is the right answer.
+    expect(manaCostOf({ mana_cost: "", card_faces: [] })).toBe("");
+    expect(manaCostOf({ name: "Ancestral Vision" })).toBe("");
   });
 });
