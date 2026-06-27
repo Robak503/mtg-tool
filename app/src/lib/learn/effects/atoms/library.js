@@ -6,6 +6,7 @@
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard } from "./shared.js";
+import { NUM_WORD } from "../parseHelpers.js"; // seam batch 11: shared number-word map (leaf, cycle-free) for mill
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
 // a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
@@ -371,6 +372,24 @@ export function libraryKeywordClauseParser(clause) {
   if (m) return { op: "scry", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^surveil (\d+)$/);
   if (m) return { op: "surveil", amount: parseInt(m[1], 10), targetType: null };
+  return null;
+}
+
+/**
+ * MILL clause parser (CR 701.13) — migrated from parseExtendedAtom (seam batch 11 / Wave A6).
+ * Top N of a library to its graveyard. Non-targeted only: "you mill N" (controller) / "each opponent mills N"
+ * / "each player mills N" (mutually-exclusive anchors). "TARGET player mills N" is deferred (a targeted mill
+ * on a trigger could first-legal the controller); a variable "mills X cards" isn't matched → low → Arbiter.
+ * Pure (no parser.js import — cycle-safe); uses the shared NUM_WORD leaf map.
+ */
+export function millClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  let m = t.match(/^(?:you )?mill (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
+  m = t.match(/^each opponent mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  m = t.match(/^each player mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   return null;
 }
 

@@ -41,7 +41,7 @@ import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfR
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
-import { exploreClauseParser, libraryKeywordClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil)
+import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill)
 import { SMALL_NUM, NUM_WORD, parseCountSource } from "./parseHelpers.js"; // seam batch 2/4: shared number-word maps + count-source machinery in a leaf (matchers import cycle-free)
 import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/counters.js"; // seam batch 3
 import { earthbendClauseParser, combatKeywordClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate)
@@ -1306,19 +1306,7 @@ function parseExtendedAtom(s) {
     return kws ? { ...base, keywords: kws } : null;
   }
   // ===== SCRY + SURVEIL ===== migrated to atoms/library.libraryKeywordClauseParser (seam batch 6 / Wave A1).
-  // Mill (CR 701.13) — top N of a library to its graveyard. Non-targeted only: "you mill N" (self-
-  // mill, for graveyard decks) and "each opponent mills N". "TARGET player mills N" (Glimpse the
-  // Unthinkable) is deferred — a targeted mill on a TRIGGER would first-legal-target the controller
-  // (mill yourself), the same hazard the counter atom gates, so we keep mill non-targeted for now.
-  m = t.match(/^(?:you )?mill (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
-  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
-  m = t.match(/^each opponent mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
-  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
-  // ===== EACH-PLAYER ===== (EP-3) symmetric mill — "Each player mills N cards" (Winds of Rebuke rider,
-  // Mind Funeral-adjacent). NON-targeted, so safe on a trigger. A variable "mills X cards" (Dread Summons)
-  // isn't matched (no numeric/spelled N) → low → Arbiter, so an X-mill is never under-modeled to a fixed N.
-  m = t.match(/^each player mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
-  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
+  // ===== MILL ===== migrated to atoms/library.millClauseParser (seam batch 11 / Wave A6).
   // ===== EACH-PLAYER ===== draw — extend the ACTOR of a draw beyond the controller. The controller-only
   // form ("draw N cards") stays on the legacy path (parseSpellEffect — "draws", a different subject, is
   // intentionally not matched there). These two add: EVERY player draws ("Each player draws N cards" —
@@ -2399,3 +2387,6 @@ registerClauseParser(miscClauseParser);
 registerClauseParser(attachClauseParser);
 // TUCK (seam batch 10 / Wave A5) — migrated to atoms/zones.tuckClauseParser (whole-clause-anchored). program-diff = 0.
 registerClauseParser(tuckClauseParser);
+// MILL (seam batch 11 / Wave A6) — migrated to atoms/library.millClauseParser (3 mutually-exclusive
+// who-scoped branches; NUM_WORD leaf). program-diff = 0.
+registerClauseParser(millClauseParser);
