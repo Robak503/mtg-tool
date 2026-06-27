@@ -45,6 +45,7 @@ import { exploreClauseParser, libraryKeywordClauseParser } from "./atoms/library
 import { SMALL_NUM, NUM_WORD, parseCountSource } from "./parseHelpers.js"; // seam batch 2/4: shared number-word maps + count-source machinery in a leaf (matchers import cycle-free)
 import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/counters.js"; // seam batch 3
 import { earthbendClauseParser, combatKeywordClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate)
+import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -1428,31 +1429,7 @@ function parseExtendedAtom(s) {
   // each-sacrifice path). CR: "another player" / "other player" = any player who isn't you.
   m = t.match(/^each (?:opponent|other player) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
   if (m) return { op: "sacrifice", who: "eachOpponent", what: "creature" };
-  // ===== FOG ===== (FOG-1, CR 615 prevention) — "Prevent all combat damage that would be dealt this
-  // turn" (Fog, Darkness, Holy Day, Root Snare). A turn-scoped one-shot latch: the resolver stamps the
-  // turn onto state and combatResolution skips ALL combat damage that turn (CR 510.4 — both the first-
-  // strike and regular steps). Non-targeted, self-expiring (keyed to the turn). ALL-OR-NOTHING anchored:
-  // a FILTERED prevention ("…by creatures you don't control / by attacking creatures / with power N+",
-  // "…except combat damage that…") leaves trailing text → fails `$` → low → Arbiter (the latch can't
-  // honor a filter); a keyword-cost rider (Flashback / Cycling / Buyback) or a "for each" tail splits
-  // into its own unmodeled clause → low. Only the bare whole-turn prevention is modeled.
-  if (/^prevent all combat damage that would be dealt this turn$/.test(t)) return { op: "fog", targetType: null };
-  // ===== DIVIDE ===== (MT-1) — "<name> deals N damage divided as you choose among any number of target
-  // <creatures and/or players | creatures | targets | players>" (Boulderfall, Mythos of Vadrok, Meteor
-  // Swarm). NOT cast-time-targeted (the cartesian "any number of targets × division" would explode the
-  // action list — see targeting.js): NO `targetType`, so it routes as a non-targeted spell and the DIVISION
-  // (which targets get how much) is a RESOLUTION-time pending-choice (the controller assigns; the AI/Expert
-  // auto-distributes — runProgram.autoPickDivideDistribution). `group` is the legal target set. The card-name
-  // prefix is tolerated like the legacy loose damage parse. Numeric N only here (an {X} divide is a fast-
-  // follow); a bounded "one or two targets" (Electrolyze) or a rider both leave the `$` anchor → low.
-  // NOTE: `divide-damage` is intentionally NOT yet in effectAtoms.ATOM_RESOLVERS — until the resolver +
-  // picker + driver + UI all land, KNOWN.has("divide-damage") is false, so this atom is DROPPED → the card
-  // stays low → Arbiter (no premature native-but-unplayable false positive). Activated in the final step.
-  m = t.match(/^.+ deals (\d+) damage divided as you choose among (any number of target creatures and\/or players|any number of target creatures|any number of targets|any number of target players)$/);
-  if (m) {
-    const GROUP = { "any number of target creatures and/or players": "anyTarget", "any number of target creatures": "creatures", "any number of targets": "anyTarget", "any number of target players": "players" };
-    return { op: "divide-damage", amount: parseInt(m[1], 10), group: GROUP[m[2]] };
-  }
+  // ===== FOG + DIVIDE-DAMAGE ===== migrated to atoms/misc.miscClauseParser (seam batch 8 / Wave A3).
   return null;
 }
 
@@ -2452,3 +2429,7 @@ registerClauseParser(libraryKeywordClauseParser);
 // COMBAT KEYWORDS (seam batch 7 / Wave A2) — tap/untap/cant-block/regenerate migrated to
 // atoms/combat.combatKeywordClauseParser (all whole-clause-anchored). program-diff = 0.
 registerClauseParser(combatKeywordClauseParser);
+// MISC (seam batch 8 / Wave A3) — fog + divide-damage migrated to atoms/misc.miscClauseParser
+// (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
+// CLAUSE_PARSERS position preserves order). program-diff = 0.
+registerClauseParser(miscClauseParser);

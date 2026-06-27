@@ -96,6 +96,27 @@ export function applyDivideDamage(state, atom, ctx) {
   return setPendingDivideChoice(state, { controller: ctx.controller, amount, candidates, group, sourceName: ctx.cardName });
 }
 
+/**
+ * Misc clause parsers (migrated from parseExtendedAtom, seam batch 8 / Wave A3):
+ *   - fog: "prevent all combat damage that would be dealt this turn" (bare whole-turn prevention only; a
+ *     filtered/keyword-rider form leaves trailing text → low → Arbiter).
+ *   - divide-damage: "<source> deals N damage divided as you choose among <target group>" (N is fixed;
+ *     group ∈ creatures / players / anyTarget). divide-damage IS in ATOM_RESOLVERS (resolver+picker wired),
+ *     so it routes native; a bounded "one or two targets" or any rider fails `$` → low.
+ * Both whole-clause-anchored, mutually exclusive. Pure (no parser.js import — cycle-safe); normalizes the
+ * clause exactly as parseExtendedAtom does. Registered via registerClauseParser in parser.js.
+ */
+export function miscClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  if (/^prevent all combat damage that would be dealt this turn$/.test(t)) return { op: "fog", targetType: null };
+  const m = t.match(/^.+ deals (\d+) damage divided as you choose among (any number of target creatures and\/or players|any number of target creatures|any number of targets|any number of target players)$/);
+  if (m) {
+    const GROUP = { "any number of target creatures and/or players": "anyTarget", "any number of target creatures": "creatures", "any number of targets": "anyTarget", "any number of target players": "players" };
+    return { op: "divide-damage", amount: parseInt(m[1], 10), group: GROUP[m[2]] };
+  }
+  return null;
+}
+
 export const miscResolvers = {
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
