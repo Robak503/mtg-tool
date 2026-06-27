@@ -154,7 +154,7 @@ function stripCastKeywordLines(text) {
  */
 function rewriteAmountX(clause) {
   const damage = /(deals?\s+)X(\s+damage\b)/i;
-  const draw = /(\bdraw\s+)X(\s+cards?\b)/i;
+  const draw = /(\bdraws?\s+)X(\s+cards?\b)/i; // "draws?" covers the each-player/target form ("target player draws X cards", "each player draws X cards") in addition to the controller "draw X cards"
   const pump = /(\bgets\s+)\+X\/\+X\b/i;
   if (damage.test(clause)) return clause.replace(damage, (_, a, b) => `${a}1${b}`);
   if (draw.test(clause)) return clause.replace(draw, (_, a, b) => `${a}1${b}`);
@@ -642,6 +642,10 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       // so reject it → low → Arbiter rather than emit a broken atom. (Numeric-N divide is modeled directly.)
       if (base.op === "divide-damage") return null;
       const atom = { op: base.op, targetType: base.targetType, amountX: true };
+      // Preserve the actor binding (`who`) for an X-amount effect aimed at someone other than the controller —
+      // "target player draws X cards" (who:"target") / "each player draws X cards" (who:"eachPlayer"). Without
+      // this the X-draw would silently resolve for the CONTROLLER (a confidently-wrong native, CREED §FP).
+      if (base.who) atom.who = base.who;
       if (base.restrictions) atom.restrictions = base.restrictions;
       if (base.duration) atom.duration = base.duration;
       // Carry a non-targetType binding (a self pump's target:"self") so an X-cost self atom can't

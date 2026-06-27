@@ -101,6 +101,52 @@ describe("X-spell cast → pay → resolve (end-to-end)", () => {
   });
 });
 
+// ===== X-DRAW (actor-aware) ===== "Target player draws X cards" (Braingeyser/Stroke of Genius) and
+// "Each player draws X cards" (Prosperity) — the X amount flows through the SAME pay-fixed+X pipeline,
+// and the draw lands on the TARGET / EVERY player (not the controller). Proves the parser's amountX path
+// now preserves `who` AND the resolver reads ctx.xValue for the each/target forms (previously Arbiter).
+describe("X-DRAW actor-aware cast → pay → resolve", () => {
+  const island = (id) => ({ id, card: { name: "Island", type: "Basic Land — Island", oracle: "" }, controller: "user", tapped: false, summoningSick: false, counters: {}, damageMarked: 0, attachments: [], attachedTo: null });
+  const lib = (who, n) => Array.from({ length: n }, (_, i) => ({ id: `${who}-lib${i}`, name: `Forest`, type: "Basic Land — Forest", oracle: "" }));
+  function drawState(spell, userLands, userLib, aiLib) {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    return { ...s, activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main", stack: [],
+      players: { ...s.players,
+        user: { ...s.players.user, hand: [spell], battlefield: Array.from({ length: userLands }, (_, i) => island(`i${i}`)), library: lib("u", userLib) },
+        ai: { ...s.players.ai, library: lib("a", aiLib) } } };
+  }
+
+  it("Braingeyser X=3 at the OPPONENT: the opponent draws exactly 3 (controller draws 0)", () => {
+    const braingeyser = { id: "bg", name: "Braingeyser", type: "Sorcery", mana: "{X}{U}{U}", oracle: "Target player draws X cards." };
+    const state = drawState(braingeyser, 5, 4, 9); // {X}{U}{U}, X=3 → {3}{U}{U} = 5 Islands
+    const action = legalActionsForPlayer(state, "user").find(
+      a => a.kind === "cast-spell" && a.xValue === 3 && a.targets?.[0]?.id === "ai" && a.targets?.[0]?.type === "player",
+    );
+    expect(action).toBeTruthy();
+    const afterCast = dispatchAction(state, action);
+    expect(afterCast.players.user.battlefield.filter(p => p.tapped)).toHaveLength(5); // {U}{U} + {3}
+    const uHand = afterCast.players.user.hand.length, aHand = afterCast.players.ai.hand.length;
+    const resolved = resolveTopOfStack(afterCast);
+    expect(resolved.players.ai.hand.length).toBe(aHand + 3);     // TARGET drew X=3
+    expect(resolved.players.ai.library.length).toBe(6);          // 9 − 3
+    expect(resolved.players.user.hand.length).toBe(uHand);       // controller drew nothing
+    expect(resolved.pendingArbiter).toBeUndefined();
+  });
+
+  it("Prosperity X=2: EVERY player draws exactly 2", () => {
+    const prosperity = { id: "pr", name: "Prosperity", type: "Sorcery", mana: "{X}{U}", oracle: "Each player draws X cards." };
+    const state = drawState(prosperity, 3, 5, 5); // {X}{U}, X=2 → {2}{U} = 3 Islands
+    const action = legalActionsForPlayer(state, "user").find(a => a.kind === "cast-spell" && a.xValue === 2);
+    expect(action).toBeTruthy();
+    const afterCast = dispatchAction(state, action);
+    const uHand = afterCast.players.user.hand.length, aHand = afterCast.players.ai.hand.length;
+    const resolved = resolveTopOfStack(afterCast);
+    expect(resolved.players.user.hand.length).toBe(uHand + 2);
+    expect(resolved.players.ai.hand.length).toBe(aHand + 2);
+    expect(resolved.pendingArbiter).toBeUndefined();
+  });
+});
+
 // ===== TOKENS ===== T3 — an X-COUNT token spell (Secure the Wastes, {X}{W}: "Create X 1/1 white
 // Warrior creature tokens") makes EXACTLY X tokens, with the chosen X bound + paid through the same
 // pipeline as an X-damage spell.

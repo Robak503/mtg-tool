@@ -180,6 +180,14 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   / create-emblem) — different shape, deferred. **Couplings that MUST co-extract:** destroy⇄exile · rfg⇄reanimate ·
   gain-life⇄lose-life · draw⇄discard-each-player.
 
+  ## 🟢 PHASE 1 RESUMED (Colton green-lit X-with-target → full self-direction 2026-06-27)
+  - Colton: *"do option 1 [X-with-target] then make all future decision based on your own recommendation … do everything you can without me i trust you."* Loop un-paused; autonomous deck-grind running.
+  - **WAVE: X-DRAW-TARGET (+3 native) — SHIPPED.** "Target player draws X cards" (Braingeyser, Stroke of Genius) + "Each player draws X cards" (Prosperity) now native.
+    - **KEY FINDING that changed the plan:** the RECON called X-with-target a "medium engine build (needs X-cast path)". WRONG for the draw subset — the X-cast machinery (legalChoices enumerates X + threads `ctx.xValue`; `resolveScaledAmount` reads it; `applyDrawAtom` already loops `ctx.targets` for `who:target` / every player for `who:eachPlayer`) was **already complete**. The ONLY gaps were two parser bugs: (1) `rewriteAmountX`'s draw regex `(\bdraw\s+)X` didn't match "draw**s** X"; (2) the parser's amountX path **dropped `who`** (would've drawn for the controller = FP). 2-line recognition fix on the existing seam, no engine work. *(X-burn-to-target — Fireball/Banefire — is a separate slice; its damage path needs the chosen-target enumeration the draw path didn't.)*
+    - **Gate (full CREED):** flip-diff **+3 IN / 0 OUT / 0 collateral** (baseline 6abdcfc). All 3 oracle-verified (bare forms, no rider). **2 new end-to-end resolution tests** in `xSpell.integration.test.js` prove the TARGET draws X (controller draws 0) + EACH player draws X via the real cast→pay→resolve pipeline. Adversarial surface: all **111** `draws X` cards enumerated — only the 3 bare forms flip; every rider form (Blue Sun's Zenith shuffle-back, Damnable Pact lose-X-life, Commander's Insight, all "where X is [board count]" computed-X) correctly stays Arbiter (FN-safe boundary = exactly the bare clause). **4224 tests green, lint clean.** Stale `misc.js` comment ("each/target X → Arbiter") corrected.
+    - **Impact:** corpus 7125→**7128 (20.9%)**; aggregate decks **56% (835/1500, +1 — Zaxara 57→58%, Colton's X-spell deck).**
+  - **Next (self-directed):** `clause-frontier --decks` → the most tractable deck-leverage clause that reuses an existing engine family; full CREED flip-diff discipline; ship only fully-verified flips. Escalate only when tractable deck waves are exhausted (big-new-engine families remain) or a deck hits NO-ARBITER.
+
 ## Transition safety (do NOT create a throughput gap)
 - Builder faculty chats **keep running** until Phase 2 proves one clean wave. The old build never stops before
   the new one works.

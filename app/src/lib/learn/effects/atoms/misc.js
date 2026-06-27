@@ -15,9 +15,10 @@ import { NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 2
  *   - "target" ("Target player draws N cards" — Opportunity / Ancestral Recall) — the chosen player(s) draw.
  * Each drawing player goes through applyDrawEffect, the SINGLE source of truth for a draw (shared with the
  * legacy cast path), so the each/target forms are byte-identical to a controller draw, just for a different
- * player. amountX (an {X}-draw) still reads ctx.xValue for the controller form; the each/target forms are
- * numeric-only at the parser (an "{X}" each/target draw fails the anchor → Arbiter), so effectiveAmount is
- * a plain number there. An eliminated/removed player id is skipped (no throw).
+ * player. amountX (an {X}-draw) reads ctx.xValue for EVERY actor form — controller, each-player, and
+ * target ("Target player draws X cards" = Braingeyser/Stroke of Genius; "Each player draws X cards" =
+ * Prosperity) — because the parser's amountX path preserves `who` and resolveScaledAmount resolves the
+ * bound X regardless of actor. An eliminated/removed player id is skipped (no throw).
  *
  * CDMG-PLAYER-PAYOFF — `countContext` reads a trigger-context number ("draw that many cards" = the combat-
  * damage amount the combat-damage trigger carries as ctx.combatDamageAmount; Starwinder, Glint-Eye Nephilim).
