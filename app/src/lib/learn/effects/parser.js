@@ -26,7 +26,7 @@
  * NOT import gameState, resolvers, or the runner — so it can't introduce a cycle.
  */
 
-import { parseSpellEffect, parseCreatureTargetRestrictions, parseGraveyardFilter } from "../spellEffects.js";
+import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js"; // parseGraveyardFilter moved to atoms/zones.graveyardReturnClauseParser (seam batch 16)
 import { isNonChosenTargetType } from "../targetTypes.js";
 import { ATOM_RESOLVERS } from "./effectAtoms.js";
 // WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
@@ -47,7 +47,7 @@ import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser } 
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate)
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
 import { attachClauseParser, dealDamageScaledClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count)
-import { tuckClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck)
+import { tuckClauseParser, graveyardReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -648,25 +648,10 @@ function parseExtendedAtom(s) {
     // would resolve at X=0 (a free pass the controller always "pays") — a confidently-wrong always-survives.
     if (scx) return { op: "counter", spellFilter: scx[1] ? scx[1].trim() : "any", targetType: "spell", unlessPayX: true, countX: true };
   }
-  // Graveyard recursion (CR 608) — "Return target <X> card from your graveyard to your hand" (Raise Dead,
-  // Regrowth, Eternal Witness's ETB, Argivian Find…). The target is a CARD in the CASTER'S OWN graveyard
-  // (a PUBLIC zone), chosen at cast time like any target — so it flows through the normal cast-time target
-  // enumeration, NO resolution-time picker. REG-1: the card-type filter <X> is parsed by parseGraveyardFilter
-  // — a single basic type, an " or "-union, "permanent", or unfiltered "card" (any) is modeled; a subtype /
-  // color / negation / intersection / "historic" → null → low. The exact "$" anchor still rejects multi-card
-  // ("up to two", plural "cards"), another zone ("from a graveyard"), and any trailing rider. The "to your
-  // hand" destination = return-from-graveyard; "to the battlefield" = β-3b reanimation (enters + fires ETB).
-  {
-    const gm = /^return target (.*?)card from your graveyard to your hand$/.exec(t);
-    if (gm) {
-      const cardFilter = parseGraveyardFilter(gm[1]);
-      if (cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter };
-    }
-  }
-  // β-3b reanimation — "Return target creature card from your graveyard to the battlefield" (Resurrection,
-  // Zombify, Breath of Life). CREATURE only; "the battlefield under your control" / "tapped" / "with a
-  // +1/+1 counter" / a non-creature card filter fails the exact anchor → low → Arbiter.
-  if (/^return target creature card from your graveyard to the battlefield$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
+  // ===== GRAVEYARD-RETURN (return-from-graveyard ⇄ reanimate) ===== co-extracted to
+  // atoms/zones.graveyardReturnClauseParser (seam batch 16 / Wave C). The coupling pair sharing the
+  // `^return target … from your graveyard` prefix — to-hand (return-from-graveyard, parseGraveyardFilter) +
+  // to-battlefield (reanimate, creature-only), order preserved. parseGraveyardFilter now imported there.
   // ===== TAP + UNTAP ===== migrated to atoms/combat.combatKeywordClauseParser (seam batch 7 / Wave A2).
   if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
@@ -2017,6 +2002,11 @@ registerClauseParser(animateClauseParser);
 // to the number of …", which no earlier registered parser matches and (verified) no later parseExtendedAtom
 // branch matches before the legacyToAtom tail → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(dealDamageScaledClauseParser);
+// GRAVEYARD-RETURN (seam batch 16 / Wave C) — return-from-graveyard ⇄ reanimate co-extracted to
+// atoms/zones.graveyardReturnClauseParser (one parser, original first-match order: to-hand then to-battlefield).
+// The "return target … from your graveyard …" clauses match no earlier registered parser and (verified) no
+// later parseExtendedAtom branch → the inline→CLAUSE_PARSERS move is behavior-identical.
+registerClauseParser(graveyardReturnClauseParser);
 // MISC (seam batch 8 / Wave A3) — fog + divide-damage migrated to atoms/misc.miscClauseParser
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.

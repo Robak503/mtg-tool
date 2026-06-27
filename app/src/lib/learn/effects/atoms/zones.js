@@ -6,6 +6,7 @@
 import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone } from "../../gameState.js";
 import { checkEnterTriggers, checkLandfallTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
+import { parseGraveyardFilter } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser
 
 /** Move creature(s) battlefield → hand (bounce), → exile, or → library (TUCK — top via toTop, else
  * bottom) — chosen targets, or ALL creatures for a mass `exile all creatures` (targetType "eachCreature"). */
@@ -123,6 +124,31 @@ export function tuckClauseParser(clause) {
     const TT = { "creature": "creature", "permanent": "permanent", "nonland permanent": "nonlandPermanent", "creature or land": "creatureOrLand", "artifact or creature": "creatureOrArtifact" };
     return { op: "tuck", targetType: TT[tk[1]], where: tk[2] === "top" ? "top" : "bottom" };
   }
+  return null;
+}
+
+/**
+ * GRAVEYARD-RETURN clause parser (CR 608) — co-extracted from parseExtendedAtom (seam batch 16 / Wave C). The
+ * coupling pair that shares the `^return target … from your graveyard` prefix, order preserved (return-to-hand
+ * first, reanimate second):
+ *   return-from-graveyard — "return target <X> card from your graveyard to your hand" (Raise Dead, Regrowth,
+ *     Eternal Witness). Target is a card in the CASTER'S OWN graveyard, chosen at cast time (no resolution-time
+ *     picker). The card-type filter <X> is parsed by parseGraveyardFilter — a basic type / " or "-union /
+ *     "permanent" / unfiltered "card"; a subtype / color / negation / intersection / "historic" → null → low.
+ *   reanimate — "return target creature card from your graveyard to the battlefield" (Resurrection, Zombify).
+ *     CREATURE only; "under your control" / "tapped" / "+1/+1 counter" / non-creature filter fails → low.
+ * The exact "$" anchor rejects multi-card ("up to two", plural), another zone ("from a graveyard"), and any
+ * trailing rider. Pure; uses parseGraveyardFilter from spellEffects (leaf-safe, like stack.js's applyDamageEffect
+ * import). Registered via registerClauseParser in parser.js.
+ */
+export function graveyardReturnClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const gm = /^return target (.*?)card from your graveyard to your hand$/.exec(t);
+  if (gm) {
+    const cardFilter = parseGraveyardFilter(gm[1]);
+    if (cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter };
+  }
+  if (/^return target creature card from your graveyard to the battlefield$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
   return null;
 }
 
