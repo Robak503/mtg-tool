@@ -36,8 +36,8 @@
 - **add-counter** (counters.js; 5 +1/+1 branches 1233-1277; SMALL_NUM; interleaved w/ bounce/sacrifice/pump/regen).
 - **sacrifice** (removal.js; self 1208 + triggering 1231 + EDICTS 1467-1485; no shared helper; 2 far regions).
 - **destroy + exile** (removal.js; SHARE the `^(destroy|exile) target …` regex @993-1005 emitting both via rm[1] → CO-EXTRACT; plus mass forms destroy 1128/1137, exile 956/1129; local TT maps).
-- **create-named-token** (tokens.js; contiguous 1278-1338; parseCountSource+SMALL_NUM+NUM_WORD; order matters — dynamic-count anchors before fixed-N).
-- **create-token** (tokens.js; 1361-1393; parseCountSource+SMALL_NUM+parseTokenManaAbility+parseTokenKeywords; inline toughness<1 & land guards must travel).
+- ✅ **create-named-token** (atoms/tokens.createNamedTokenClauseParser; batch 18 `6c4b25e`, program-diff=0) — the contiguous Treasure/Clue/Food/Gold family (6 matchers: dynamic-X / for-each / that-many / dies-power / fixed-N / investigate, dynamic-count before fixed-N, order preserved; parseCountSource+SMALL_NUM+NUM_WORD leaf imported into tokens.js).
+- **create-token** (tokens.js; ~846-878; parseCountSource+SMALL_NUM+parseTokenManaAbility+parseTokenKeywords; inline toughness<1 & land guards must travel). ⚠️ NEEDS A HELPER-LEAF BATCH FIRST: parseTokenManaAbility (parser.js:400) + parseTokenKeywords (parser.js:421) are parser.js-local AND parseTokenKeywords is still used by the token-keyword matcher at parser.js:~1196 — extract both to a leaf (gated byte-identical) BEFORE lifting create-token, so both parser.js:1196 and tokens.js import from the leaf (tokens.js can't import parser.js — TDZ cycle).
 
 ### Wave D — OUT OF parseExtendedAtom scope (standalone up-front matchers, different `{atom,rest}` shape). Defer — separate seam.
 - **impulse-dig** (`matchImpulseDig` ~1829; DIG_NUM local + parseTutorFilter) · **discard-chosen** (`matchHandDisruption` ~1716; HAND_FILTER_MAP) · **create-emblem** (`matchEmblem` ~1957; emblemAbilityModeled + stripReminder). Each is a whole-helper relocation, not an if/else lift.
