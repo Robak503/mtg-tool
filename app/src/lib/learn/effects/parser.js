@@ -44,6 +44,7 @@ import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { exploreClauseParser } from "./atoms/library.js"; // seam batch 1: EXPLORE matcher migrated out of parseExtendedAtom
 import { SMALL_NUM, NUM_WORD, parseCountSource } from "./parseHelpers.js"; // seam batch 2/4: shared number-word maps + count-source machinery in a leaf (matchers import cycle-free)
 import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/counters.js"; // seam batch 3
+import { earthbendClauseParser } from "./atoms/combat.js"; // seam batch 5
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -510,19 +511,7 @@ function parseExtendedAtom(s) {
 
   // ===== PROLIFERATE ===== migrated to atoms/counters.proliferateClauseParser (seam batch 3).
 
-  // ===== EARTHBEND ===== (WALT, Toph) "earthbend N" — a keyword action: permanently animate a land you
-  // control into a 0/0 Elemental creature with haste (still a land) + N +1/+1 counters (effectAtoms.
-  // applyEarthbend). Two forms:
-  //   Literal-N: "earthbend 2" — atom.count carries the printed value.
-  //   Count-source: "earthbend X, where X is the number of <count source>" — atom.countSource carries the
-  //   spec; applyEarthbend reads it at resolution via countForSpec (EARTHBEND-PR3, Toph attack trigger).
-  const ebM = t.match(/^earthbend (\d+|a|an|one|two|three|four|five)$/);
-  if (ebM) return { op: "earthbend", count: SMALL_NUM[ebM[1]] ?? parseInt(ebM[1], 10), targetType: null };
-  const ebXM = t.match(/^earthbend x,?\s+where x is (?:equal to )?(?:the number of )?(.+)$/);
-  if (ebXM) {
-    const src = parseCountSource(ebXM[1]);
-    if (src) return { op: "earthbend", countSource: src, targetType: null };
-  }
+  // ===== EARTHBEND ===== migrated to atoms/combat.earthbendClauseParser (seam batch 5).
 
   // ===== EXPLORE ===== migrated to atoms/library.exploreClauseParser (seam batch 1 — registered via
   // registerClauseParser at file bottom; the CLAUSE_PARSERS dispatch is behavior-identical here because the
@@ -2509,3 +2498,6 @@ registerClauseParser(exploreClauseParser);
 // inline→CLAUSE_PARSERS move is behavior-identical (proven byte-identical by program-fingerprint).
 registerClauseParser(proliferateClauseParser);
 registerClauseParser(gainExperienceClauseParser);
+// EARTHBEND (seam batch 5) — migrated to atoms/combat.earthbendClauseParser (whole-clause-anchored; uses the
+// SMALL_NUM + parseCountSource parseHelpers leaf). program-fingerprint byte-identical.
+registerClauseParser(earthbendClauseParser);

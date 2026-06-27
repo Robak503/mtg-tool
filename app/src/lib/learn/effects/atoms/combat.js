@@ -7,6 +7,7 @@ import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from ".
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
+import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // seam batch 5: shared parse helpers (leaf, cycle-free)
 
 /** Tap / untap target creature(s) (CR 701.26). */
 export function applyTapEffect(state, atom, ctx, tap) {
@@ -264,6 +265,25 @@ export function applyCantBlock(state, atom, ctx) {
     }).state;
   }
   return logEvent(next, { kind: "spell-effect", effect: "cant-block", targets: targets.map(t => t.id) });
+}
+
+/**
+ * EARTHBEND clause parser (WALT, Toph) — migrated from parser.js parseExtendedAtom (seam batch 5).
+ * "earthbend N" — a keyword action: permanently animate a land you control into a 0/0 Elemental with haste
+ * (still a land) + N +1/+1 counters (applyEarthbend). Two forms: Literal-N ("earthbend 2" → atom.count) and
+ * Count-source ("earthbend X, where X is the number of <count source>" → atom.countSource, read at resolution
+ * via countForSpec, EARTHBEND-PR3). Pure (no parser.js import); uses the shared SMALL_NUM + parseCountSource leaf.
+ */
+export function earthbendClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const ebM = t.match(/^earthbend (\d+|a|an|one|two|three|four|five)$/);
+  if (ebM) return { op: "earthbend", count: SMALL_NUM[ebM[1]] ?? parseInt(ebM[1], 10), targetType: null };
+  const ebXM = t.match(/^earthbend x,?\s+where x is (?:equal to )?(?:the number of )?(.+)$/);
+  if (ebXM) {
+    const src = parseCountSource(ebXM[1]);
+    if (src) return { op: "earthbend", countSource: src, targetType: null };
+  }
+  return null;
 }
 
 export const combatResolvers = {
