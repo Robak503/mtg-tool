@@ -4,7 +4,7 @@
 > 🤖 **AUTONOMOUS RUN — live · no action needed from Colton** · master `20f58ca`
 > **Phase: parser.js seam migration (INFRASTRUCTURE).** 7 seam batches shipped (explore · proliferate · gain-experience · count-source-leaf · earthbend · library-keywords · combat-keywords), **all program-diff = 0** (byte-identical — provably zero behavior change). 4222 tests green, lint clean. Seam progress ≈ Wave A 2/7 + the leaf; full map `docs/orchestration/seam-migration-map.md`.
 > **Cards: 20.8% native (7,113) — FLAT BY DESIGN.** The seam is a *refactor* (it reorganizes recognition into collision-free modules); it adds **0 cards** on purpose. Card growth resumes when builders push new PRs OR post-seam coverage work begins — the seam is the *gate to scaling* card-adding (GO-AFTER-SEAM). _If you'd rather see the card number move now, say so and I'll interleave new-coverage batches (each adds cards, FP-gated)._
-> **FP-hunt (standing, every ~5 batches/idle):** keyword gate honest ✓ (fixed fading/vanishing false-alarm) · 16 trigger compound suspects = 0 FPs · 195 spell suspects sweep in flight.
+> **FP-hunt (standing, every ~5 batches/idle):** ✅ full live-coverage sweep CLEAN — **0 real card FPs.** Keyword gate honest (fixed fading/vanishing false-alarm) · 16 trigger compound suspects = 0 FPs · **196 spell suspects = 0 FPs** (5-agent refute-fan-out; all benign cast-props/costs/folded-riders/single-atom-multi-sentence). Detail in `fp-watch.md`.
 > **Next:** Wave A3 (fog/divide-damage → misc).
 <!-- AUTORUN:END -->
 
