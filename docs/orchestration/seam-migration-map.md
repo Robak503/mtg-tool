@@ -17,7 +17,7 @@
 | ✅A4 | self-attach · attach-to-self | atoms/stack.js | attach-to-self: local-var | DONE batch 9 `79cd743`, program-diff=0 (fall-through preserved via return-null) |
 | ✅A5 | tuck | atoms/zones.js | local-var | DONE batch 10 `7167e70`, program-diff=0 |
 | ✅A6 | mill | atoms/library.js | NUM_WORD (leaf) | DONE batch 11 `2560c6e`, program-diff=0 |
-| A7 | counter | atoms/stack.js | local-var (mv/sc/scx) | 8 returns in ONE run (848-907), mixed bare-if + brace-blocks; tails disambiguate |
+| ⏸️A7 | counter | atoms/stack.js | local-var (mv/sc/scx) | **DEFERRED — needs order-handling** (batch 12 attempt reverted; program-diff=16). The 8 bare `^counter…$` branches are entangled with rider-folding in the DISPATCH (`matchCounterControllerRider` + `exileInstead` detection) that strips the trailing sentence BEFORE the bare anchor matches then re-attaches `controllerRider`/`exileInstead` to the atom (Swan Song, Strix Serenade, An Offer You Can't Refuse, Deny Existence). Extracting only the bare branches → those riders' clauses fail the `$` → 16 cards drop to low. To migrate: move the rider-folding machinery WITH counter (or have the dispatch feed the clause parser the rider-stripped clause + re-attach). A dedicated batch, not a clean lift. |
 
 ### Wave B — HELPER-LEAF extractions first, THEN the family (each its own gated batch).
 - **B1: `parseGrantedKeywords` → parseHelpers leaf** (parser.js-local @~421), then **pump** (atoms/combat.js; also needs parseCountSource[leaf] for OVERRUN-X). pump = MOST fragmented (14 branches 1041-1229, interleaved w/ cant-block/animate/destroy/bounce/add-counter) — extract op:"pump" returns only.

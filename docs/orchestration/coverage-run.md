@@ -117,11 +117,13 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   deps, resolver home, risk, couplings, and the readiness-ranked Wave A→D order). Execute it top-down; re-grep
   `op:"<op>"` each batch (line numbers drift). ✅A1 library-keywords (batch 6 `d45aaa4`) · ✅A2 combat-keywords
   (batch 7 `fb7b5a4`) · ✅A3 fog/divide-damage → misc (batch 8 `11d4b68`) · ✅A4 self-attach/attach-to-self →
-  stack (batch 9 `79cd743`) · ✅A5 tuck → zones (batch 10 `7167e70`) · ✅A6 mill → library (batch 11 `2560c6e`).
-  **NEXT = Wave A7 (last of Wave A): counter → atoms/stack.js** — 8 `op:"counter"` returns in ONE run (~848-907 on
-  master, re-grep), mixed bare-if + 3 brace-blocks (mv/sc/scx local vars); pull all 8, no shared helper, tails
-  disambiguate. **Then FP-hunt (cadence — ~batch 12 reached)**, then Wave B (helper leaf parseGrantedKeywords→pump,
-  tutor helpers→tutor) · Wave C (interleaved families: lose/gain-life, draw+discard, rad, destroy⇄exile, …). Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
+  stack (batch 9 `79cd743`) · ✅A5 tuck → zones (batch 10 `7167e70`) · ✅A6 mill → library (batch 11 `2560c6e`) ·
+  ⏸️A7 counter **DEFERRED** (batch-12 attempt reverted, program-diff=16 — rider-folding entanglement; see map). **Wave A
+  done (6 shipped, A7 deferred).** **NEXT = FP-hunt** (cadence due — ~5 batches since the last full hunt: qa-sweep +
+  allowlist-guard + runtime-fingerprint drift, adversarially confirm, fix/log). Then **Wave B** (helper-leaf
+  extractions: parseGrantedKeywords→pump, tutor helpers→tutor) · Wave C (interleaved families: lose/gain-life,
+  draw+discard, rad player-grant, destroy⇄exile, add-counter, create-token(s), animate, deal-damage, rfg⇄reanimate,
+  sacrifice). Note: pump/tutor (Wave B) are the LAST big monolith chunks; after them parseExtendedAtom is largely drained. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
   deal-damage / return-from-graveyard⇄reanimate / sacrifice). Wave D = standalone matchers (impulse-dig / discard-chosen
   / create-emblem) — different shape, deferred. **Couplings that MUST co-extract:** destroy⇄exile · rfg⇄reanimate ·
