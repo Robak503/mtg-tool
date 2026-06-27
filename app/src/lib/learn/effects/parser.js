@@ -50,7 +50,7 @@ import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, ani
 import { miscClauseParser, drawEachPlayerClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
 import { attachClauseParser, dealDamageScaledClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count)
-import { tuckClauseParser, graveyardReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate)
+import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -576,18 +576,10 @@ function parseExtendedAtom(s) {
   // `^return target … from your graveyard` prefix — to-hand (return-from-graveyard, parseGraveyardFilter) +
   // to-battlefield (reanimate, creature-only), order preserved. parseGraveyardFilter now imported there.
   // ===== TAP + UNTAP ===== migrated to atoms/combat.combatKeywordClauseParser (seam batch 7 / Wave A2).
-  if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
+  // ===== BOUNCE (target creature + β-3 non-creature permanent) ===== migrated to atoms/zones.bounceClauseParser
+  // (seam batch 24 / Wave C; co-located with self + triggering bounce). NOT rider-folding-entangled (the rider
+  // dispatch is exile/destroy-only), so this lifts cleanly.
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
-  // β-3 — bounce a NON-creature permanent ("Return target permanent / nonland permanent / artifact …
-  // to its owner's hand" — Boomerang, Eye of Nowhere, Void Snare). The bounce resolver (applyZoneMove)
-  // already handles a "permanent" target and the enumerator already offers the #192 permanent types;
-  // a controller restriction composes exactly like the destroy/exile path. A rider/filter → low → Arbiter.
-  const bp = t.match(/^return target (nonland permanent|permanent|artifact|enchantment|land)(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
-  if (bp) {
-    const TT = { "permanent": "permanent", "nonland permanent": "nonlandPermanent", "artifact": "artifact", "enchantment": "enchantment", "land": "land" };
-    const restrictions = bp[2] ? [{ kind: "controller", who: /^you control$/.test(bp[2]) ? "you" : "opponent" }] : [];
-    return { op: "bounce", targetType: TT[bp[1]], restrictions };
-  }
   // ===== TUCK ===== migrated to atoms/zones.tuckClauseParser (seam batch 10 / Wave A5).
   // Targeted NON-CREATURE permanent removal (Disenchant / Naturalize / Stone Rain / "Destroy
   // target permanent"). CREATURE removal keeps its dedicated path (the richer creature-restriction
@@ -657,7 +649,7 @@ function parseExtendedAtom(s) {
   // target:"self" through atomTargets/selfTargets; the controller serves as the owner proxy (zones.js
   // line 24 — consistent with the targeted-bounce form). Never a fabricated move: if ctx.sourceId is
   // absent or the permanent left the battlefield, selfTargets returns [] → the loop is a no-op.
-  if (/^return this creature to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
+  // ===== BOUNCE (self) ===== "return this creature to its owner's hand" migrated to atoms/zones.bounceClauseParser (seam batch 24 / Wave C).
   // ===== SELF-SACRIFICE ===== "sacrifice this creature" migrated to atoms/removal.sacrificeEdictClauseParser
   // (seam batch 22 / Wave C — co-located with the triggering + edict sac forms).
   // ===== TRIG-PRONOUN-IT ===== — the NON-SELF triggering-permanent referent: the analogue of the SELF
@@ -670,7 +662,7 @@ function parseExtendedAtom(s) {
   // triggeringTargets → ctx.triggeringPermanentId. The COUNTER form ("…on the triggering creature") is
   // served by WAVE-3b's counterClausesParser — NOT duplicated here.
   // ===== PUMP (triggering creature) ===== migrated to pumpClauseParser (batch 12c).
-  if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
+  // ===== BOUNCE (triggering) ===== "return the triggering creature to its owner's hand" migrated to atoms/zones.bounceClauseParser (seam batch 24 / Wave C).
   // ===== SACRIFICE (triggering) ===== "sacrifice the triggering creature" migrated to
   // atoms/removal.sacrificeEdictClauseParser (seam batch 22 / Wave C).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
@@ -1762,6 +1754,10 @@ registerClauseParser(dealDamageScaledClauseParser);
 // The "return target … from your graveyard …" clauses match no earlier registered parser and (verified) no
 // later parseExtendedAtom branch → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(graveyardReturnClauseParser);
+// BOUNCE (seam batch 24 / Wave C) — all 4 bounce matchers (target creature + β-3 non-creature permanent +
+// self + triggering) co-extracted to atoms/zones.bounceClauseParser, original first-match order. NOT in the
+// rider-folding dispatch (exile/destroy-only), so unlike destroy⇄exile this lifts byte-identical.
+registerClauseParser(bounceClauseParser);
 // LIFE (seam batch 17 / Wave C) — gain-life ⇄ lose-life co-extracted to atoms/life.lifeClauseParser (scaled
 // for-each cluster + fixed-N cluster, one parser, original first-match order; parseCountSource leaf). The
 // draw for-each branches stay inline above (disjoint "draw …" anchor). The life clauses match no earlier

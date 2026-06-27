@@ -152,6 +152,33 @@ export function graveyardReturnClauseParser(clause) {
   return null;
 }
 
+/**
+ * BOUNCE clause parser ("return … to its owner's hand" → applyZoneMove to hand) — co-extracted from
+ * parseExtendedAtom (seam batch 24 / Wave C). All four bounce matchers, original first-match order:
+ *   1. "return target creature to its owner's hand" → bounce/creature
+ *   2. β-3 "return target <nonland permanent|permanent|artifact|enchantment|land>[ <control>] to its owner's
+ *      hand" (bp) — non-creature permanent bounce + the controller restriction (you control / opponent)
+ *   3. "return this creature to its owner's hand" → target:"self" (the ability source, CR 113.7)
+ *   4. "return the triggering creature to its owner's hand" → target:"thatCreature" (CR 608.2c; detectTriggers
+ *      rewrites the non-self pronoun to this sentinel before it reaches here)
+ * A rider / filter / different zone fails the exact anchor → low → Arbiter. NOT in the rider-folding dispatch
+ * (matchRemovalControllerRider is exile/destroy-only), so this lifts cleanly. Pure (no helper). Registered via
+ * registerClauseParser in parser.js.
+ */
+export function bounceClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
+  const bp = t.match(/^return target (nonland permanent|permanent|artifact|enchantment|land)(?: (an opponent controls|you don't control|you control))? to its owner's hand$/);
+  if (bp) {
+    const TT = { "permanent": "permanent", "nonland permanent": "nonlandPermanent", "artifact": "artifact", "enchantment": "enchantment", "land": "land" };
+    const restrictions = bp[2] ? [{ kind: "controller", who: /^you control$/.test(bp[2]) ? "you" : "opponent" }] : [];
+    return { op: "bounce", targetType: TT[bp[1]], restrictions };
+  }
+  if (/^return this creature to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
+  if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
+  return null;
+}
+
 export const zoneResolvers = {
   "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
