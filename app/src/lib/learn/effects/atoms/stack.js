@@ -163,6 +163,34 @@ function applyAttachToSelf(state, atom, ctx) {
   return next;
 }
 
+/**
+ * Equip-attach clause parsers (migrated from parseExtendedAtom, seam batch 9 / Wave A4):
+ *   - self-attach: "attach it to target creature you control" — an Equipment's ETB auto-attach ("it" = the
+ *     source Equipment via ctx.sourceId; host enumerated controller:you).
+ *   - attach-to-self: "attach up to one target equipment you control to <self>" — a creature attaching a
+ *     chosen Equipment onto itself. The destination guard accepts only a self-pronoun (it/him/her/them) OR a
+ *     bare proper-name (no target/creature/control/rebel/ally/attacking/that/each/another/other/up-to word);
+ *     a NON-self destination DECLINES → returns null so the clause continues to later parsers (preserves the
+ *     inline fall-through). optionalTarget — an empty board is a clean no-op.
+ * Pure (no parser.js import — cycle-safe); normalizes the clause exactly as parseExtendedAtom does.
+ */
+export function attachClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  if (/^attach it to target creature you control$/.test(t)) {
+    return { op: "self-attach", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+  }
+  const ats = t.match(/^attach up to one target equipment you control to (.+)$/);
+  if (ats) {
+    const dest = ats[1].trim();
+    const SELF_PRONOUN = /^(it|him|her|them)$/.test(dest);
+    const NON_SELF = /\b(target|creature|control|rebel|ally|allies|attacking|that|each|another|other|up to)\b/.test(dest);
+    if (SELF_PRONOUN || !NON_SELF) {
+      return { op: "attach-to-self", targetType: "equipmentYouControl", optionalTarget: true };
+    }
+  }
+  return null;
+}
+
 export const stackResolvers = {
   "deal-damage": (state, atom, ctx) =>
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an

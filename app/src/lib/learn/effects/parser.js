@@ -46,6 +46,7 @@ import { SMALL_NUM, NUM_WORD, parseCountSource } from "./parseHelpers.js"; // se
 import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/counters.js"; // seam batch 3
 import { earthbendClauseParser, combatKeywordClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate)
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
+import { attachClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self)
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -963,37 +964,7 @@ function parseExtendedAtom(s) {
     const restrictions = rm[3] ? [{ kind: "controller", who: /^you control$/.test(rm[3]) ? "you" : "opponent" }] : [];
     return { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
   }
-  // ETB-EQUIP-ATTACH — "attach it to target creature you control" (Living-Weapon-style auto-attach on an
-  // Equipment's ETB trigger — Bramble Armor, Scavenged Blade, Maul of the Skyclaves). "it" is the SOURCE
-  // Equipment (bound at resolution via ctx.sourceId), so the only chosen target is the host creature,
-  // enumerated with the controller:you restriction. The equipped-creature static bonus is already modeled
-  // (parseAttachedBonus), so the whole card lights up. The exact anchor rejects a rider ("That creature
-  // gains <KW> until end of turn", a 2nd clause) → low → Arbiter (CLAUDE.md §1.2, never a partial).
-  if (/^attach it to target creature you control$/.test(t)) {
-    return { op: "self-attach", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
-  }
-  // EQUIP-AUTO-ATTACH (WAVE 4) — the REVERSE of self-attach: a CREATURE's ability "attach up to one target
-  // Equipment you control to <self>" (Captain America's "Catch" combat-begin trigger; Cloud "to it"; Sokka,
-  // Swordmaster "to Sokka"). The SOURCE is the creature (bound via ctx.sourceId at resolution); the chosen
-  // target is an Equipment YOU control, attached ONTO the source. "up to one" = the target is OPTIONAL, so an
-  // empty board (no equipment to attach) is a clean no-op, never a fizzle. Anchored on a SELF destination —
-  // "it"/"him"/"her" (a pronoun back-reference to the source) OR a bare proper-name with NO target/creature/
-  // controller words — so the NON-self forms ("to target creature you control" — Brass Squire / Kor Outfitter;
-  // "to that creature" — Kemba / Sokka and Suki, where the host is the ENTERING permanent not the source;
-  // "to target Rebel/attacking creature you control" — Barret / Raubahn) DON'T match and stay on their own
-  // (un)modeled path. The destination guard rejects any phrase containing target/creature/control/rebel/ally/
-  // attacking/that, leaving only a self-pronoun or a name. equipmentYouControl is enumerated controller-scoped.
-  const ats = t.match(/^attach up to one target equipment you control to (.+)$/);
-  if (ats) {
-    const dest = ats[1].trim();
-    const SELF_PRONOUN = /^(it|him|her|them)$/.test(dest);
-    const NON_SELF = /\b(target|creature|control|rebel|ally|allies|attacking|that|each|another|other|up to)\b/.test(dest);
-    if (SELF_PRONOUN || !NON_SELF) {
-      // optionalTarget: "up to one target Equipment" is a cast-time 0-or-1 target — targeting.expandAtoms
-      // offers a DECLINE so an empty board (no equipment to attach) is a clean no-op, never a fizzle.
-      return { op: "attach-to-self", targetType: "equipmentYouControl", optionalTarget: true };
-    }
-  }
+  // ===== SELF-ATTACH + ATTACH-TO-SELF ===== migrated to atoms/stack.attachClauseParser (seam batch 9 / Wave A4).
   // Combat-trick pump + keyword grant: "target creature gets +N/+N and gains KW[, KW][ and KW]
   // until end of turn" — a layer-7c P/T bump AND layer-6 keyword grant(s), both endOfTurn. The
   // granted keywords must ALL be in the enforced+layer-aware GRANTABLE set (parseGrantedKeywords),
@@ -2433,3 +2404,7 @@ registerClauseParser(combatKeywordClauseParser);
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.
 registerClauseParser(miscClauseParser);
+// EQUIP-ATTACH (seam batch 9 / Wave A4) — self-attach + attach-to-self migrated to atoms/stack.attachClauseParser
+// (whole-clause-anchored; attach-to-self returns null when its self-destination guard declines, preserving the
+// inline fall-through). program-diff = 0.
+registerClauseParser(attachClauseParser);
