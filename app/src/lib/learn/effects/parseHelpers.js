@@ -7,7 +7,7 @@
  * matcher-registry seam migrates families out of parseExtendedAtom and they need a shared dep here.
  */
 
-import { GRANTABLE_COMBAT_KEYWORDS, canonicalCombatKeyword } from "../keywords.js"; // for parseGrantedKeywords (keywords.js is a zero-import leaf — cycle-safe)
+import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js"; // for parseGrantedKeywords + the token helpers (keywords.js is a zero-import leaf — cycle-safe)
 
 // Spelled cardinals a..five (with the "a"/"an" article forms). The canonical small-count word map the
 // parseExtendedAtom matchers use as `SMALL_NUM[word] ?? parseInt(word, 10)`.
@@ -226,4 +226,52 @@ export function parseTutorMv(capture) {
   if (!m) return null; // an unmodeled comparator → caller drops the tutor to low
   const n = parseInt(m[1], 10);
   return m[2] ? { max: n } : { exact: n };
+}
+
+// ===== TOKEN HELPERS (seam batch 19 — moved from parser.js so atoms/tokens.js can import them cycle-free) =====
+// The clean inline mana ability a minted creature-token may carry ("{T}: Add {G}", "{T}, Sacrifice this token:
+// Add one mana of any color", …). A rider/restriction/non-mana effect fails the regex → null → the token (and
+// its whole card) drops to low → Arbiter (CREED: never a mis-resolved native).
+const TOKEN_MANA_ABILITY = /^(?:\{t\}(?:, sacrifice this (?:token|creature|artifact))?|sacrifice this (?:token|creature|artifact)): add (\{[wubrgc]\}(?: or \{[wubrgc]\})?|\{([wubrgc])\}\{\2\}|one mana of any color)$/i;
+/** Canonical Oracle casing for a (lowercased) clean mana ability — readability only; the mana model
+ *  reads it case-insensitively. Uppercases mana pips and the {T} symbol, capitalizes Sacrifice/Add. */
+function canonicalizeManaAbility(lower) {
+  return lower
+    .replace(/\{([wubrgc])\}/gi, (_, c) => `{${c.toUpperCase()}}`)
+    .replace(/^\{t\}/i, "{T}")
+    .replace(/, sacrifice this/i, ", Sacrifice this")
+    .replace(/^sacrifice this/i, "Sacrifice this")
+    .replace(/: add /i, ": Add ");
+}
+/**
+ * Parse a token's quoted ability (the text after "with"/"It has", including the surrounding quotes)
+ * into the canonical mana-ability oracle string to stamp on the minted token, or null if it isn't a
+ * CLEAN mana ability (any rider/restriction/non-mana effect). Tolerates straight or curly quotes and a
+ * trailing period.
+ */
+export function parseTokenManaAbility(quotedWithQuotes) {
+  const inner = String(quotedWithQuotes).trim()
+    .replace(/^["“'](.*)["”']$/s, "$1")  // strip surrounding quotes (straight or curly)
+    .trim().replace(/\.\s*$/, "");        // strip a trailing period
+  if (!TOKEN_MANA_ABILITY.test(inner)) return null;
+  return canonicalizeManaAbility(inner);
+}
+// Canonical case for the non-combat keywords a token may carry (combat ones come from canonicalCombatKeyword).
+const TOKEN_KEYWORD_CANON = { indestructible: "Indestructible" };
+/**
+ * Parse a keyword-token's "with …" phrase ("flying", "flying and vigilance", "first strike, deathtouch, and
+ * lifelink") into canonical keyword names, or null if ANY word is outside the enforced+layer-aware GRANTABLE
+ * STATIC set (combat keywords + indestructible). ALL-OR-NOTHING: one unmodeled keyword drops the whole token to
+ * null → low → Arbiter, never a fake/partial token. A trailing period (single-sentence clause) is tolerated.
+ */
+export function parseTokenKeywords(phrase) {
+  const words = String(phrase).replace(/\.\s*$/, "").split(/,|\band\b/).map((w) => w.trim()).filter(Boolean);
+  if (words.length === 0) return null;
+  const out = [];
+  for (const w of words) {
+    const lw = w.toLowerCase();
+    if (!GRANTABLE_STATIC_KEYWORDS.has(lw)) return null;
+    out.push(TOKEN_KEYWORD_CANON[lw] || canonicalCombatKeyword(w));
+  }
+  return out;
 }

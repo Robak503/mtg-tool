@@ -43,14 +43,13 @@ import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token: Treasure/Clue/Food/Gold family)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
-import { SMALL_NUM, NUM_WORD, parseCountSource, parseTutorFilter } from "./parseHelpers.js"; // seam batch 2/4: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter still used by the rd reveal-dig block. parseGrantedKeywords now used only inside atoms/combat (pump + animate, batch 12c/14); tutor MV/land/up-to-N helpers only inside atoms/library.tutorClauseParser
+import { SMALL_NUM, NUM_WORD, parseCountSource, parseTutorFilter, parseTokenManaAbility, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenManaAbility/parseTokenKeywords (still-inline create-token + token-keyword matchers) used here
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad player-grant)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate)
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
 import { attachClauseParser, dealDamageScaledClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count)
 import { tuckClauseParser, graveyardReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
-import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 
@@ -381,55 +380,12 @@ function splitClauses(oracle) {
 // chosen color × amount" contract mis-resolves as 2-of-one-color. A CHOICE ("{R} or {G}") is amount 1
 // (correct). No corpus token uses a different-color concat today; this keeps one Arbiter-routed if it
 // ever ships (CREED: never a mis-resolved native).
-const TOKEN_MANA_ABILITY = /^(?:\{t\}(?:, sacrifice this (?:token|creature|artifact))?|sacrifice this (?:token|creature|artifact)): add (\{[wubrgc]\}(?: or \{[wubrgc]\})?|\{([wubrgc])\}\{\2\}|one mana of any color)$/i;
-/** Canonical Oracle casing for a (lowercased) clean mana ability — readability only; the mana model
- *  reads it case-insensitively. Uppercases mana pips and the {T} symbol, capitalizes Sacrifice/Add. */
-function canonicalizeManaAbility(lower) {
-  return lower
-    .replace(/\{([wubrgc])\}/gi, (_, c) => `{${c.toUpperCase()}}`)
-    .replace(/^\{t\}/i, "{T}")
-    .replace(/, sacrifice this/i, ", Sacrifice this")
-    .replace(/^sacrifice this/i, "Sacrifice this")
-    .replace(/: add /i, ": Add ");
-}
-/**
- * Parse a token's quoted ability (the text after "with"/"It has", including the surrounding quotes)
- * into the canonical mana-ability oracle string to stamp on the minted token, or null if it isn't a
- * CLEAN mana ability (any rider/restriction/non-mana effect). Tolerates straight or curly quotes and a
- * trailing period.
- */
-function parseTokenManaAbility(quotedWithQuotes) {
-  const inner = String(quotedWithQuotes).trim()
-    .replace(/^["“'](.*)["”']$/s, "$1")  // strip surrounding quotes (straight or curly)
-    .trim().replace(/\.\s*$/, "");        // strip a trailing period
-  if (!TOKEN_MANA_ABILITY.test(inner)) return null;
-  return canonicalizeManaAbility(inner);
-}
+// ===== TOKEN HELPERS ===== parseTokenManaAbility (+ TOKEN_MANA_ABILITY / canonicalizeManaAbility) and
+// parseTokenKeywords (+ TOKEN_KEYWORD_CANON) moved to ./parseHelpers.js (seam batch 19 — a leaf so the
+// create-token clause parser in atoms/tokens.js can import them cycle-free; still used by the still-inline
+// create-token + token-keyword matchers below). Imported at the top of this file.
 
-// ===== TOKENS =====
-// Canonical case for the non-combat keywords a token may carry (combat ones come from
-// canonicalCombatKeyword). Title-cased so the minted token's keywords array matches Scryfall.
-const TOKEN_KEYWORD_CANON = { indestructible: "Indestructible" };
-/**
- * Parse a keyword-token's "with …" phrase ("flying", "flying and vigilance", "first strike,
- * deathtouch, and lifelink") into canonical keyword names, or null if ANY word is outside the
- * enforced+layer-aware GRANTABLE STATIC set (combat keywords + indestructible — each ENFORCED
- * read-layer-aware, so a printed-on-token instance behaves exactly like one on a real creature).
- * ALL-OR-NOTHING: one unmodeled keyword (menace — unenforced; an inline ability; a number) drops
- * the whole token to null → low → Arbiter, never a fake/partial token. A trailing period (from a
- * single-sentence clause) is tolerated.
- */
-function parseTokenKeywords(phrase) {
-  const words = String(phrase).replace(/\.\s*$/, "").split(/,|\band\b/).map((w) => w.trim()).filter(Boolean);
-  if (words.length === 0) return null;
-  const out = [];
-  for (const w of words) {
-    const lw = w.toLowerCase();
-    if (!GRANTABLE_STATIC_KEYWORDS.has(lw)) return null;
-    out.push(TOKEN_KEYWORD_CANON[lw] || canonicalCombatKeyword(w));
-  }
-  return out;
-}
+// (parseTokenKeywords moved to ./parseHelpers.js with parseTokenManaAbility — see the seam batch 19 note above.)
 
 // ===== DMG-SCALE / FOR-EACH count sources ===== migrated to effects/parseHelpers.parseCountSource
 // (seam batch 4 — the self-contained count-source cluster + its COUNT_* maps live in the leaf now, so the
