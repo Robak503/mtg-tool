@@ -41,6 +41,7 @@ import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfR
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
+import { createNamedTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token: Treasure/Clue/Food/Gold family)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseTutorFilter } from "./parseHelpers.js"; // seam batch 2/4: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter still used by the rd reveal-dig block. parseGrantedKeywords now used only inside atoms/combat (pump + animate, batch 12c/14); tutor MV/land/up-to-N helpers only inside atoms/library.tutorClauseParser
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad player-grant)
@@ -760,67 +761,11 @@ function parseExtendedAtom(s) {
   // is a DIFFERENT set scope:youControl would wrongly buff in full). Numeric N only (no X).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
-  // ===== TREASURE-MAKER ===== DYNAMIC-count named artifact tokens. The COUNT resolves AT RESOLUTION (the
-  // resolver reads it via countForSpec / ctx), never baked at parse — so a board mutated between cast and
-  // resolution counts correctly (Dockside). All three forms share the four-token allowlist + ETB seam with
-  // the fixed-count atom; an unmodeled count source → null → low → Arbiter (never a fabricated count).
-  //   (a) "create X <tok> tokens, where X is [equal to] [the number of] <count source>" — Dockside Extortionist
-  //       (X = artifacts+enchantments your opponents control). countFor scopes via parseCountSource(allowScopes).
-  m = t.match(/^create x (treasure|clue|food|gold) tokens,? where x is (?:equal to )?(?:the number of )?(.+)$/);
-  if (m) {
-    const countFor = parseCountSource(m[2], { allowScopes: true });
-    return countFor ? { op: "create-named-token", token: m[1], countFor, targetType: null } : null;
-  }
-  //   (b) "create a/an/one <tok> token for each <count source>" — one token per source-unit (Cavern-Hoard
-  //       Dragon: "a Treasure token for each artifact that player controls", who:"target" = the damaged player).
-  m = t.match(/^create (?:a|an|one) (treasure|clue|food|gold) tokens? for each (.+)$/);
-  if (m) {
-    const countFor = parseCountSource(m[2], { allowScopes: true });
-    return countFor ? { op: "create-named-token", token: m[1], countFor, targetType: null } : null;
-  }
-  //   (c) "create that many <tok> tokens" — the count is the triggering combat-damage amount (Old Gnawbone:
-  //       "Whenever a creature you control deals combat damage to a player, create that many Treasure tokens").
-  //       The combat-damage trigger ctx carries combatDamageAmount; the resolver reads ctx.countContext.
-  //       "that many" with no combat-damage context resolves to 0 (a clean no-op), never a fabricated count.
-  m = t.match(/^create that many (treasure|clue|food|gold) tokens$/);
-  if (m) return { op: "create-named-token", token: m[1], countContext: "combatDamageAmount", targetType: null };
-  // ===== DIES-TRIGGER-RESOURCE-PAYOFFS ===== "create a number of [tapped] <tok> tokens equal to its power"
-  // (Goldvein Hydra: "When this creature dies, create a number of tapped Treasure tokens equal to its power").
-  // The count is the dying creature's last-known power (CR 603.6e), carried as ctx.dyingPower by
-  // checkDiesTriggers; the resolver reads ctx.countContext. An OPTIONAL "tapped" adjective mints the tokens
-  // TAPPED (Goldvein's Treasures enter tapped). NON-dies context → no ctx.dyingPower → 0 tokens (a clean
-  // no-op, never a fabricated count). Anchored to $ — any trailing rider → low → Arbiter.
-  m = t.match(/^create a number of (tapped )?(treasure|clue|food|gold) tokens equal to its power$/);
-  if (m) {
-    const atom = { op: "create-named-token", token: m[2], countContext: "dyingPower", targetType: null };
-    if (m[1]) atom.tapped = true;
-    return atom;
-  }
-  // ===== TOKENS ===== T2 named artifact tokens — "Create [a tapped] [N] <Treasure|Clue|Food|Gold> token(s)".
-  // Each enters as a REAL artifact permanent carrying its printed ability, so the existing subsystems
-  // drive it end-to-end: Treasure/Gold are mana sources the mana model SACRIFICES on use (one-shot
-  // any-color ramp — manaModel.manaProduction flags `sacrifices`), Clue/Food activate on the stack via
-  // the γ1 self-sac activated-ability path ({2}[,{T}],Sac → draw / gain 3 life). The ALLOWLIST is exactly
-  // these four: Blood (its ability needs a "Discard a card" cost we don't model), Map ("explore" + a
-  // sorcery-speed target), and Powerstone (restricted "can't pay for nonartifact" mana) are LEFT OUT —
-  // their cost/effect/restriction is unmodeled, so a card making them stays low → Arbiter (CREED: never
-  // a token whose ability the engine would silently ignore). ===== TREASURE-MAKER ===== an OPTIONAL leading
-  // "tapped" adjective ("Create a tapped Treasure token", Generous Plunderer) mints the token TAPPED (not a
-  // mana source until it untaps — manaSources skips perm.tapped). Numeric/spelled N only.
-  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(treasure|clue|food|gold) tokens?$/);
-  if (m) {
-    const atom = { op: "create-named-token", token: m[3], count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
-    if (m[2]) atom.tapped = true; // only stamp the flag when present, so the untapped atom shape is unchanged
-    return atom;
-  }
-  // ===== KWACT-INVEST ===== "Investigate" is the keyword action for "create a Clue token" (CR 701.x);
-  // "Investigate N times" = N Clue tokens. Alias it to the shipped create-named-token(clue) atom (the Clue
-  // enters as a real artifact with its "{2}, Sacrifice: Draw a card" ability). FIRST-PERSON ONLY: the bare
-  // imperative "Investigate" is the controller investigating; a 3rd-person "<subject> investigates" (each
-  // player / that player) carries a leading subject, so it fails this `^investigate` anchor → low → Arbiter
-  // (never a Clue minted for the wrong player). "Investigate X times" (variable count) breaks the anchor → low.
-  m = t.match(/^investigate(?: (twice|(?:two|three|four|five|six|seven|eight|nine|ten) times))?$/);
-  if (m) return { op: "create-named-token", token: "clue", count: m[1] === "twice" ? 2 : (m[1] ? NUM_WORD[m[1].split(" ")[0]] : 1), targetType: null };
+  // ===== CREATE-NAMED-TOKEN (Treasure/Clue/Food/Gold) ===== migrated to atoms/tokens.createNamedTokenClauseParser
+  // (seam batch 18 / Wave C). The contiguous named-artifact-token family — dynamic-X / for-each / that-many /
+  // dies-power / fixed-N / investigate, original first-match order, parseCountSource+SMALL_NUM+NUM_WORD leaf.
+  // The vanilla creature-token family (create-token) below STAYS inline (disjoint "create N P/T … creature token"
+  // anchor; its parseTokenManaAbility/parseTokenKeywords deps are parser.js-local → a later helper-leaf batch).
   // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)" — a vanilla typed
   // creature token. ===== TOKENS ===== T1 extends the anchor with an OPTIONAL " with <keywords>"
   // suffix (Bird/Thopter/Angel "with flying [and vigilance]"). The keyword phrase must reduce
@@ -1976,6 +1921,12 @@ registerClauseParser(graveyardReturnClauseParser);
 // draw for-each branches stay inline above (disjoint "draw …" anchor). The life clauses match no earlier
 // registered parser and (verified) no later parseExtendedAtom branch → inline→CLAUSE_PARSERS is behavior-identical.
 registerClauseParser(lifeClauseParser);
+// CREATE-NAMED-TOKEN (seam batch 18 / Wave C) — the Treasure/Clue/Food/Gold token family migrated to
+// atoms/tokens.createNamedTokenClauseParser (6 matchers, original first-match order; parseCountSource+SMALL_NUM+
+// NUM_WORD leaf). The "create … treasure|clue|food|gold token(s)" / "investigate" clauses match no earlier
+// registered parser and (verified) no later parseExtendedAtom branch (create-token's anchor is disjoint) → the
+// inline→CLAUSE_PARSERS move is behavior-identical.
+registerClauseParser(createNamedTokenClauseParser);
 // MISC (seam batch 8 / Wave A3) — fog + divide-damage migrated to atoms/misc.miscClauseParser
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.

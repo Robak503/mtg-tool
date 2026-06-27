@@ -7,6 +7,7 @@ import { tokenMultiplier, applyCounterDoubling } from "../../replacementEffects.
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec } from "./shared.js";
+import { SMALL_NUM, NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 18: shared parse helpers (leaf, cycle-free) for createNamedTokenClauseParser
 
 /**
  * ===== TOKENS ===== Build a token's type line from its descriptor ("colorless thopter artifact"
@@ -263,6 +264,52 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   const r = destroyLethalCreatures(next);
   next = checkDiesTriggers(r.state, r.dead);
   return logEvent(next, { kind: "spell-effect", effect: "create-token-copy", copySource: atom.copySource, count, sourceName: sourcePerm.card?.name, controller: ctx.controller });
+}
+
+/**
+ * CREATE-NAMED-TOKEN clause parser — migrated from parser.js parseExtendedAtom (seam batch 18 / Wave C).
+ * The contiguous named-artifact-token family (Treasure/Clue/Food/Gold only — the modeled allowlist), six
+ * matchers in original first-match order (dynamic-count anchors before fixed-N):
+ *   (a) "create X <tok> tokens, where X is [equal to] [the number of] <src>" (Dockside) — countFor allowScopes
+ *   (b) "create a/an/one <tok> token for each <src>" (Cavern-Hoard Dragon) — countFor allowScopes
+ *   (c) "create that many <tok> tokens" (Old Gnawbone) — countContext combatDamageAmount
+ *   (d) "create a number of [tapped] <tok> tokens equal to its power" (Goldvein Hydra) — countContext dyingPower
+ *   (e) "create [a tapped] [N] <tok> token(s)" (T2 fixed-N; optional leading tapped) — SMALL_NUM
+ *   (f) "investigate[ twice|N times]" (KWACT-INVEST → clue token) — NUM_WORD
+ * An unmodeled count source (parseCountSource → null) drops the whole clause → low → Arbiter (never a fabricated
+ * count). The vanilla creature-token family (create-token) has a DISJOINT "create N P/T … creature token" anchor
+ * and stays inline (its parseTokenManaAbility/parseTokenKeywords deps are parser.js-local, a later leaf batch).
+ * Pure; uses parseCountSource/SMALL_NUM/NUM_WORD from the leaf. Registered via registerClauseParser in parser.js.
+ */
+export function createNamedTokenClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  let m = t.match(/^create x (treasure|clue|food|gold) tokens,? where x is (?:equal to )?(?:the number of )?(.+)$/);
+  if (m) {
+    const countFor = parseCountSource(m[2], { allowScopes: true });
+    return countFor ? { op: "create-named-token", token: m[1], countFor, targetType: null } : null;
+  }
+  m = t.match(/^create (?:a|an|one) (treasure|clue|food|gold) tokens? for each (.+)$/);
+  if (m) {
+    const countFor = parseCountSource(m[2], { allowScopes: true });
+    return countFor ? { op: "create-named-token", token: m[1], countFor, targetType: null } : null;
+  }
+  m = t.match(/^create that many (treasure|clue|food|gold) tokens$/);
+  if (m) return { op: "create-named-token", token: m[1], countContext: "combatDamageAmount", targetType: null };
+  m = t.match(/^create a number of (tapped )?(treasure|clue|food|gold) tokens equal to its power$/);
+  if (m) {
+    const atom = { op: "create-named-token", token: m[2], countContext: "dyingPower", targetType: null };
+    if (m[1]) atom.tapped = true;
+    return atom;
+  }
+  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (tapped )?(treasure|clue|food|gold) tokens?$/);
+  if (m) {
+    const atom = { op: "create-named-token", token: m[3], count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
+    if (m[2]) atom.tapped = true; // only stamp the flag when present, so the untapped atom shape is unchanged
+    return atom;
+  }
+  m = t.match(/^investigate(?: (twice|(?:two|three|four|five|six|seven|eight|nine|ten) times))?$/);
+  if (m) return { op: "create-named-token", token: "clue", count: m[1] === "twice" ? 2 : (m[1] ? NUM_WORD[m[1].split(" ")[0]] : 1), targetType: null };
+  return null;
 }
 
 export const tokenResolvers = {
