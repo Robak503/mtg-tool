@@ -436,6 +436,11 @@ export function pumpClauseParser(clause) {
   }
   tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (tp) return { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) } };
+  // COMBAT-TEAM-PUMP — "attacking|blocking creatures get +N/+N until end of turn" (Trumpet Blast, Hold the
+  // Line). scope:attackingCreatures/blockingCreatures → applyPumpEffect over the current combatants (atomTargets);
+  // whole-clause anchored, so a filtered/rider form fails the `$` → low → Arbiter (FN-safe).
+  const cmb = t.match(/^(attacking|blocking) creatures get ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (cmb) return { op: "pump", scope: cmb[1] === "attacking" ? "attackingCreatures" : "blockingCreatures", ptDelta: { p: parseInt(cmb[2], 10), t: parseInt(cmb[3], 10) } };
   // MASS-DEBUFF — "Creatures your opponents control get -N/-N until end of turn" (Make Obsolete, Suffocating
   // Fumes, Cower in Fear, Turn the Tide, Hysterical Blindness, Hampering Snare). The opponent-side mirror of the
   // youControl TEAM pump: scope:"eachOpponentCreature" → applyPumpEffect over opponentCreatureTargets, the SAME

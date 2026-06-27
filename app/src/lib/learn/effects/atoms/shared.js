@@ -107,6 +107,12 @@ export const atomTargets = (state, atom, ctx) => {
   if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller);
   if (atom.scope === "eachOpponentCreature") return opponentCreatureTargets(state, ctx.controller);
+  // COMBAT-TEAM-PUMP — every ATTACKING / BLOCKING creature right now (Trumpet Blast "attacking creatures
+  // get +1/+0", Hold the Line "blocking creatures get +0/+5"). The set is locked at resolution (CR 611.2c);
+  // combat state lives in state.combat.attackers (permanentId) / .blockers (blockerId), the same source
+  // creatureSatisfiesRestrictions reads for the "attacking"/"blocking" target restriction.
+  if (atom.scope === "attackingCreatures") return massCreatureTargets(state).filter((t) => (state.combat?.attackers || []).some((a) => a.permanentId === t.id));
+  if (atom.scope === "blockingCreatures") return massCreatureTargets(state).filter((t) => (state.combat?.blockers || []).some((b) => b.blockerId === t.id));
   if (atom.target === "self") return selfTargets(state, ctx);
   if (atom.target === "thatCreature") return triggeringTargets(state, ctx);
   return ctx.targets || [];

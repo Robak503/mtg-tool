@@ -836,7 +836,7 @@ const MUST_DROP_TO_LOW = [
   // +N/+N [and gain <enforced kw>] until end of turn" is modeled. A filtered/wrong-scope set,
   // an unenforced granted keyword, or a pure (no-P/T) team grant must stay LOW → Arbiter, so a
   // team buff is never applied to the wrong creatures or fabricated. ──
-  "Attacking creatures get +2/+0 until end of turn.",                  // Trumpet Blast — "attacking" subset, not modeled
+  "Attacking creatures you control get +2/+0 until end of turn.",      // the you-control-filtered attacking subset isn't modeled (bare "attacking creatures" IS — COMBAT-TEAM-PUMP)
   "Other creatures you control get +1/+1 until end of turn.",          // "other" excludes the source — different set
   "Creatures you control with flying get +1/+1 until end of turn.",    // keyword-filtered subset
   "White creatures you control get +1/+1 until end of turn.",          // color-filtered subset
