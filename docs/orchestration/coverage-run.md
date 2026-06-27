@@ -152,10 +152,12 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   ✅ destroy⇄exile SHIPPED w/ rider-folding fix (batch 27 `22c8767`, program-diff=0 — matchRemovalControllerRider resolves its
   rider-stripped lead via `parseExtendedAtom() || destroyExileClauseParser`; the 26 controllerRider cards fold byte-identically;
   also dropped the orphaned `let m`). **RIDER-FOLDING PATTERN PROVEN.** All program-diff=0.
-  **NEXT = A7 counter rider-folding batch — apply the SAME fix: lift the counter matchers to counterClauseParser AND rewire
-  matchCounterControllerRider + matchCounterExileInstead to `parseExtendedAtom() || counterClauseParser`. THEN Phase 2: re-measure
-  residue (`grep -cE 'op: "' parser.js`). STOP+notify Colton if Phase 2 = new coverage work.** Genuinely-fused residue staying
-  inline: cdmg-draw+rad (CDMG-PLAYER-PAYOFF), fight, dying-power templates, Wave-D standalone matchers. FP checkpoint #8 due ~2 batches on. SKIP
+  ✅ counter (A7) SHIPPED w/ rider-folding fix (batch 28 `0830941`, program-diff=0 — counterClauseParser + matchCounterControllerRider/
+  matchCounterExileInstead rewired; A7 RESOLVED). **SEAM SUBSTANTIALLY COMPLETE: parser.js 2642→1673 (−969), 34 clause parsers, every
+  big op-family migrated, both rider-folding ops done.** Residue inline = genuinely-fused CDMG/dies templates + a `fight` singleton +
+  Wave-D `{atom,rest}` standalone matchers (separate mechanism) + legacyToAtom.
+  **NEXT = optional marginal `fight` cleanup; otherwise the GATE-TO-SCALING is open and the next phase = NEW COVERAGE (card-adding,
+  moving the number) which is COLTON'S call — STOP+notify when the seam has no clean byte-identical work left.** FP checkpoint #8 due ~2 batches on. SKIP
   the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
   (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /

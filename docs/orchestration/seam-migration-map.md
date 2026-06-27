@@ -45,6 +45,13 @@
 
 ### Wave C — additional clean ops (post-recon, neighbors migrated)
 - ✅ **bounce** (atoms/zones.bounceClauseParser; batch 24 `d0f385b`, program-diff=0) — all 4 matchers (target creature + β-3 non-creature permanent w/ controller restriction + self + triggering), co-extracted; NOT rider-folding-entangled (the rider dispatch is exile/destroy-only) so it lifted clean.
+- ✅ **counter (A7)** (atoms/stack.counterClauseParser; batch 28 `0830941`, program-diff=0, RIDER-FOLDING) — the full counter-target-spell family (hard + CNT-MV-EXACT + soft unlessPay/unlessPayX); matchCounterControllerRider + matchCounterExileInstead rewired to `parseExtendedAtom() || counterClauseParser`. A7 (deferred since batch 12) RESOLVED via the proven destroy⇄exile pattern.
+
+### SEAM STATUS (post-batch-28): parser.js 2642→1673 lines (−969); 34 registered clause parsers; ALL big op-families migrated. Remaining INLINE (by design / different mechanism):
+- **CDMG-PLAYER-PAYOFF + dies-payoff templates** (draw/rad/gain-life with countContext combatDamageAmount/dyingPower) — genuinely FUSED (mixed ops sharing ctx referents); not separable without behavior change. STAYS.
+- **fight** (1 inline matcher ~669) — a clean-ish singleton; low value, optional follow-up.
+- **Wave D standalone matchers** (discard-chosen / impulse-dig / create-emblem) — return `{atom, rest}` (matched UP FRONT in parseEffectClause, NOT parseExtendedAtom clause parsers) → a SEPARATE seam mechanism, deferred.
+- **legacyToAtom** — the parseSpellEffect fallback path, by design.
 
 ## Couplings (MUST move together)
 - destroy ⇄ exile (one regex emits both). · return-from-graveyard ⇄ reanimate (shared prefix). · gain-life ⇄ lose-life (interleaved clusters). · draw ⇄ discard each-player block.
