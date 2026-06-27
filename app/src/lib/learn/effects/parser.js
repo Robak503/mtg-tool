@@ -49,7 +49,7 @@ import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, a
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
-import { attachClauseParser, dealDamageScaledClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count)
+import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
@@ -481,66 +481,11 @@ function parseExtendedAtom(s) {
   // atomTargetIntent → enemy). First-match order preserved inside the clause parser. Numeric N only (rider → Arbiter).
   // (the `let m` scratch var is gone — its last consumers, the life fixed-N / add-counter / draw / discard / MASS
   // matchers, all migrated to clause parsers; the remaining counter matchers below use their own mv/sc/scx vars.)
-  // Counter target spell (P3.1, CR 701.5a) — targets a SPELL on the stack, not a
-  // permanent/player. Anchored ALLOWLIST: a tax/conditional/modal-target counter
-  // ("…unless its controller pays {3}", "…or ability", "…up to two target spells",
-  // "…with mana value 3 or less", "Counter target creature or planeswalker spell")
-  // all fail the exact anchor → low → Arbiter, so a counter we can't faithfully model
-  // is never confidently wrong. spellFilter is checked against the target's type line
-  // at enumeration + resolution.
-  if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };
-  if (/^counter target noncreature spell$/.test(t)) return { op: "counter", spellFilter: "noncreature", targetType: "spell" };
-  if (/^counter target creature spell$/.test(t)) return { op: "counter", spellFilter: "creature", targetType: "spell" };
-  // SOFT-COUNTER-RIDER — Swan Song's 3-way spell-type filter "enchantment, instant, or sorcery spell". The
-  // filter is checked at enumeration (spellMatchesCounterFilter) + resolution (counterFilterMatches); both
-  // gained the matching case. A different list / order / 2-way subset fails the exact anchor → low → Arbiter.
-  if (/^counter target enchantment, instant, or sorcery spell$/.test(t)) return { op: "counter", spellFilter: "enchantmentInstantSorcery", targetType: "spell" };
-  // CNT-MV-EXACT (WAVE 2b) — "Counter target spell with mana value N" (Mental Misstep N=1, Spell Snare N=2).
-  // EXACT equality on the target spell's mana value (CR 701.5a + 202.3) — NOT "or less"/"or greater". The
-  // anchored "$" rejects the inequality variants (Disdainful Stroke "4 or greater", Thoughtbind "4 or less",
-  // Minor Misstep "1 or less"), which must stay low → Arbiter (a different comparison would be a confidently-
-  // wrong counter). `exactMv` is checked at enumeration (spellMatchesCounterFilter) + resolution
-  // (counterFilterMatches); the spellFilter stays "any" (no type restriction layered on the MV test).
-  {
-    const mv = /^counter target spell with mana value (\d+)$/.exec(t);
-    if (mv) return { op: "counter", spellFilter: "any", targetType: "spell", exactMv: parseInt(mv[1], 10) };
-  }
-  // CNT-ACP (WAVE 2b) — "Counter target artifact, creature, or planeswalker spell" (Strix Serenade's lead;
-  // it then carries the Swan-Song-style "Its controller creates a 2/2 Bird" rider via matchCounterController-
-  // Rider, so this lead parse must succeed for that card to flip native). The 3-way union reads the FRONT-FACE
-  // type only (CR 712.4a — counterFilterMatches/spellMatchesCounterFilter split " // "). A different list /
-  // order / 2-way subset fails the exact anchor → low → Arbiter (no existing filter is loosened).
-  if (/^counter target artifact, creature, or planeswalker spell$/.test(t)) return { op: "counter", spellFilter: "artifactCreaturePlaneswalker", targetType: "spell" };
-  // SOFT-CNT — a "soft" counter: "Counter target [noncreature|creature] spell unless its controller pays
-  // {N}." (Force Spike / Mana Leak / Mana Tithe / Spell Pierce / Stubborn Denial / Daze / Quench / …).
-  // Extends the hard-counter atom with an `unlessPay` FIXED-generic escape resolved at counter resolution:
-  // the targeted spell's controller pays {N} to save it, else it's countered (the pay-decision rides the
-  // pending-choice seam). ANCHORED to a FIXED {N} only — an {X} tax (Clash of Wills, Syncopate), a variable
-  // tax ("plus an additional {2} for each …", Rune Snag), a non-mana cost ("exiles their graveyard", "pays
-  // {1} and 1 life"), a rider ("Draw a card", "If you control a Wizard …"), a modal "•" bullet, or a
-  // "creature or planeswalker" / "instant or sorcery" filter all leave residue → fail the anchor → low →
-  // Arbiter (CLAUDE.md §1.2, never a confidently-wrong partial). The {N} is generic, mirroring the cast path.
-  {
-    const sc = /^counter target (noncreature |creature )?spell unless its controller pays \{(\d+)\}$/.exec(t);
-    if (sc) return { op: "counter", spellFilter: sc[1] ? sc[1].trim() : "any", targetType: "spell", unlessPay: parseInt(sc[2], 10) };
-  }
-  // SOFT-CNT-X (WAVE 2b) — the {X} soft counter: "Counter target [noncreature|creature] spell unless its
-  // controller pays {X}." (Clash of Wills, Syncopate's family). The {X} here is the COUNTERSPELL'S own cast
-  // {X} (Clash of Wills's mana cost is {X}{U}), bound at the counter's resolution from ctx.xValue — applyCounter
-  // computes the generic tax = max(0, ctx.xValue) and routes the SAME pay-or-be-countered pending-choice as
-  // the fixed soft counter. The literal "{x}" in the text only appears on cards whose own cost carries X, so
-  // it's its own gate; the resolver floors at 0 (CR 107.3, an X=0 demand the controller trivially "pays").
-  // ANCHORED to a bare "{x}" with no rider — an "{X} and you gain X life", a "{X}, where X is …", a non-mana
-  // additional cost, or a modal bullet all leave residue → fail the anchor → low → Arbiter. Storm (Flusterstorm)
-  // rides on the card's keyword text, NOT this clause, so it's never half-modeled by a copy fabrication.
-  {
-    const scx = /^counter target (noncreature |creature )?spell unless its controller pays \{x\}$/.exec(t);
-    // `countX:true` marks this as an X-spell ONLY so the cast path (parser xSpell + legalChoices X-cast branch)
-    // enumerates affordable X values and threads the chosen X into ctx.xValue. The counter resolver ignores
-    // countX (it reads ctx.xValue for unlessPayX); no count-of-X tokens are created. Without this the spell
-    // would resolve at X=0 (a free pass the controller always "pays") — a confidently-wrong always-survives.
-    if (scx) return { op: "counter", spellFilter: scx[1] ? scx[1].trim() : "any", targetType: "spell", unlessPayX: true, countX: true };
-  }
+  // ===== COUNTER (target spell) ===== migrated to atoms/stack.counterClauseParser (seam batch 28 / Wave C,
+  // RIDER-FOLDING): the bare hard counters (any/noncreature/creature/enchantment-instant-sorcery/artifact-
+  // creature-planeswalker) + CNT-MV-EXACT + the soft counters (unlessPay {N} / unlessPayX {X}). The rider
+  // dispatch matchCounterControllerRider + matchCounterExileInstead resolve their rider-stripped lead via
+  // parseExtendedAtom() || counterClauseParser, so Strix Serenade / Swan Song / An Offer / Deny Existence fold.
   // ===== GRAVEYARD-RETURN (return-from-graveyard ⇄ reanimate) ===== co-extracted to
   // atoms/zones.graveyardReturnClauseParser (seam batch 16 / Wave C). The coupling pair sharing the
   // `^return target … from your graveyard` prefix — to-hand (return-from-graveyard, parseGraveyardFilter) +
@@ -912,7 +857,7 @@ function matchRemovalControllerRider(oracle) {
 function matchCounterControllerRider(oracle) {
   const m = stripReminder(oracle).trim().match(/^(counter target .+? spell)\.\s+its controller (.+?)\.?$/i);
   if (!m) return null;
-  const lead = parseExtendedAtom(m[1].trim());
+  const lead = parseExtendedAtom(m[1].trim()) || counterClauseParser(m[1].trim()); // counter matchers moved to a clause parser (batch 28)
   if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only (defer soft+rider)
   const rider = parseControllerRider(m[2].trim().toLowerCase());
   if (!rider) return null;                                                    // unmodeled rider → low → Arbiter
@@ -928,7 +873,7 @@ function matchCounterControllerRider(oracle) {
 function matchCounterExileInstead(oracle) {
   const m = stripReminder(oracle).trim().match(/^(counter target .+? spell)\. if that spell is countered this way, exile it instead of putting it into its owner's graveyard\.?$/i);
   if (!m) return null;
-  const lead = parseExtendedAtom(m[1].trim());
+  const lead = parseExtendedAtom(m[1].trim()) || counterClauseParser(m[1].trim()); // counter matchers moved to a clause parser (batch 28)
   if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only
   return { atom: { ...lead, exileInstead: true }, rest: "" };
 }
@@ -1669,6 +1614,12 @@ registerClauseParser(addCounterClauseParser);
 // destroyExileClauseParser, so the controllerRider cards keep folding. The bare clauses match no other registered
 // parser → behavior-identical (this is the entanglement that reverted as batch-bare; the dispatch rewire fixes it).
 registerClauseParser(destroyExileClauseParser);
+// COUNTER (seam batch 28 / Wave C, RIDER-FOLDING) — the counter-target-spell family co-extracted to
+// atoms/stack.counterClauseParser (hard counters + CNT-MV-EXACT + soft unlessPay/unlessPayX). matchCounter-
+// ControllerRider + matchCounterExileInstead resolve their hard-counter lead via parseExtendedAtom() ||
+// counterClauseParser. Distinct from the WAVE-3b counterClausesParser (+1/+1 on the triggering creature); the
+// "counter target … spell" clauses match no other registered parser → behavior-identical (gate-verified).
+registerClauseParser(counterClauseParser);
 // DRAW (for-each / count-scaled) (seam batch 26 / Wave C) — the controller-DRAW count-scaled cluster
 // (greatest-among / for-each / equal-to-number) migrated to atoms/misc.drawForEachClauseParser; parseCountSource
 // leaf. Clean now the life for-each siblings migrated. The clauses match no other registered parser and

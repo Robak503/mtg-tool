@@ -221,6 +221,36 @@ export function dealDamageScaledClauseParser(clause) {
   return null;
 }
 
+/**
+ * COUNTER clause parser (CR 701.5a) — co-extracted from parseExtendedAtom (seam batch 28 / Wave C, RIDER-FOLDING).
+ * The full counter-target-spell family, original first-match order:
+ *   bare hard counters: "counter target spell" (any) / noncreature / creature / "enchantment, instant, or
+ *     sorcery" (Swan Song) / "artifact, creature, or planeswalker" (Strix Serenade lead)
+ *   CNT-MV-EXACT: "counter target spell with mana value N" (Mental Misstep / Spell Snare) — exactMv
+ *   SOFT-CNT: "counter target [noncreature|creature] spell unless its controller pays {N}" — unlessPay (fixed)
+ *   SOFT-CNT-X: "… pays {X}" — unlessPayX + countX (the counterspell's own X, bound at resolution)
+ * All anchored to `$`; a tax/modal/rider/2-way-subset variant fails → low → Arbiter (never a confidently-wrong
+ * partial counter). **Rider-folding:** matchCounterControllerRider + matchCounterExileInstead in parser.js resolve
+ * their rider-stripped lead via `parseExtendedAtom() || counterClauseParser` (the rider regex only matches a HARD
+ * counter lead), so Strix Serenade / Swan Song / An Offer / Deny Existence keep folding. Pure (no helper).
+ * Registered via registerClauseParser in parser.js.
+ */
+export function counterClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  if (/^counter target spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell" };
+  if (/^counter target noncreature spell$/.test(t)) return { op: "counter", spellFilter: "noncreature", targetType: "spell" };
+  if (/^counter target creature spell$/.test(t)) return { op: "counter", spellFilter: "creature", targetType: "spell" };
+  if (/^counter target enchantment, instant, or sorcery spell$/.test(t)) return { op: "counter", spellFilter: "enchantmentInstantSorcery", targetType: "spell" };
+  const mv = /^counter target spell with mana value (\d+)$/.exec(t);
+  if (mv) return { op: "counter", spellFilter: "any", targetType: "spell", exactMv: parseInt(mv[1], 10) };
+  if (/^counter target artifact, creature, or planeswalker spell$/.test(t)) return { op: "counter", spellFilter: "artifactCreaturePlaneswalker", targetType: "spell" };
+  const sc = /^counter target (noncreature |creature )?spell unless its controller pays \{(\d+)\}$/.exec(t);
+  if (sc) return { op: "counter", spellFilter: sc[1] ? sc[1].trim() : "any", targetType: "spell", unlessPay: parseInt(sc[2], 10) };
+  const scx = /^counter target (noncreature |creature )?spell unless its controller pays \{x\}$/.exec(t);
+  if (scx) return { op: "counter", spellFilter: scx[1] ? scx[1].trim() : "any", targetType: "spell", unlessPayX: true, countX: true };
+  return null;
+}
+
 export const stackResolvers = {
   "deal-damage": (state, atom, ctx) =>
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an
