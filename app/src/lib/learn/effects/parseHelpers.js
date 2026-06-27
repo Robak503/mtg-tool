@@ -7,7 +7,7 @@
  * matcher-registry seam migrates families out of parseExtendedAtom and they need a shared dep here.
  */
 
-import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js"; // for parseGrantedKeywords + the token helpers (keywords.js is a zero-import leaf — cycle-safe)
+import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js"; // for parseGrantedKeywords + the token helpers (keywords.js is a zero-import leaf — cycle-safe)
 
 // Spelled cardinals a..five (with the "a"/"an" article forms). The canonical small-count word map the
 // parseExtendedAtom matchers use as `SMALL_NUM[word] ?? parseInt(word, 10)`.
@@ -147,17 +147,20 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = 
 }
 
 /**
- * Parse a combat-trick's granted-keyword phrase ("trample", "flying and vigilance", "first strike,
- * deathtouch, and lifelink") into canonical keyword names, or null if ANY word is outside the enforced+
- * layer-aware GRANTABLE set. ALL-OR-NOTHING: one unmodeled keyword drops the whole grant to null → the
- * clause is unmodeled → low → Arbiter, never a fake/partial grant. Shared by the pump + animate matchers.
+ * Parse a granted-keyword phrase ("trample", "flying and vigilance", "deathtouch and indestructible",
+ * "trample, hexproof, and indestructible") into canonical keyword names, or null if ANY word is outside the
+ * enforced + layer-aware GRANTABLE_STATIC_KEYWORDS set (combat keywords + indestructible + hexproof + shroud
+ * — PUMP-STATIC-GRANT). ALL-OR-NOTHING: one unmodeled keyword (protection/shadow/banding/an ability word)
+ * drops the whole grant to null → the clause is unmodeled → low → Arbiter, never a fake/partial grant. Shared
+ * by the pump + self/team/triggering-creature + activated-grant + animate matchers; every consumer grants via
+ * a layer-6 addKeyword, so all four static keywords are honored layer-aware exactly like a printed one.
  */
 export function parseGrantedKeywords(phrase) {
   const words = String(phrase).split(/,|\band\b/).map((w) => w.trim()).filter(Boolean);
   if (words.length === 0) return null;
   const out = [];
   for (const w of words) {
-    if (!GRANTABLE_COMBAT_KEYWORDS.has(w.toLowerCase())) return null;
+    if (!GRANTABLE_STATIC_KEYWORDS.has(w.toLowerCase())) return null;
     out.push(canonicalCombatKeyword(w));
   }
   return out;

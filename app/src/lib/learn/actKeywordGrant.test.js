@@ -34,8 +34,8 @@ describe("ACT-KW-GRANT — classification (the allowlist is the FP guard)", () =
     expect(classifyCard(creature("Firehoof Cavalry", "{3}{R}: This creature gets +2/+0 and gains trample until end of turn."))).toBe("native-activated");
     expect(classifyCard(creature("X", "{R}: This creature gains menace until end of turn."))).toBe("native-activated");
   });
-  it("NOT native: granting a keyword NOT in GRANTABLE_COMBAT_KEYWORDS stays off the native path", () => {
-    expect(classifyCard(creature("Y", "{R}: This creature gains indestructible until end of turn."))).not.toBe("native-activated");
+  it("NOT native: granting a keyword NOT in GRANTABLE_STATIC_KEYWORDS stays off the native path", () => {
+    expect(classifyCard(creature("Y", "{R}: This creature gains shadow until end of turn."))).not.toBe("native-activated"); // shadow un-grantable (indestructible now IS — PUMP-STATIC-GRANT)
   });
   it("NOT native: an activation-limit trailer the engine can't enforce sinks the ability", () => {
     expect(classifyCard(creature("Z", "{R}: This creature gains flying until end of turn. Activate this ability only once each turn."))).not.toBe("native-activated");

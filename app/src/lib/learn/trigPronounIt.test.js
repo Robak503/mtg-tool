@@ -66,7 +66,7 @@ describe("TRIG-PRONOUN-IT — parser sentinel atoms (target:thatCreature, non-ta
     expect(atomOf("return the triggering creature to its owner's hand")).toMatchObject({ op: "bounce", target: "thatCreature" });
   });
   it("CREED FP-GUARD: un-grantable kw drops the clause; a raw spell anaphor never matches the sentinel", () => {
-    lo("the triggering creature gains hexproof until end of turn"); // hexproof not grantable → LOW
+    lo("the triggering creature gains shadow until end of turn"); // shadow un-grantable (hexproof now IS — PUMP-STATIC-GRANT) → LOW
     lo("it gets +2/+2 until end of turn");                          // raw spell "it" — no sentinel → LOW
     lo("sacrifice it");                                             // raw "it" — only the sentinel is modeled
     lo("return it to its owner's hand");                           // raw "it" — only the sentinel is modeled

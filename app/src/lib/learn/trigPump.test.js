@@ -98,11 +98,12 @@ describe("coverage — the 'it'-templated self-pump classifies native-trigger", 
     expect(classifyCard(creature("Momentum Rumbler", 4, 2, "Whenever Momentum Rumbler attacks, it gains double strike until end of turn."))).toBe("native-trigger");
   });
 
-  it("CREED: an unmodeled keyword grant ('it gains indestructible') stays NON-native (parser re-gate)", () => {
-    // Weathered Sentinels — the normalization runs, but the parser still rejects an unmodeled keyword
-    // set, so the card stays LOW → Arbiter (a SAFE false-negative, never a fabricated grant).
-    expect(clauseHigh(clauseOf(creature("Weathered Sentinels", 3, 3, "Whenever Weathered Sentinels attacks, it gets +3/+3 and gains indestructible until end of turn.")))).toBe(false);
-    expect(classifyCard(creature("Weathered Sentinels", 3, 3, "Whenever Weathered Sentinels attacks, it gets +3/+3 and gains indestructible until end of turn."))).not.toBe("native-trigger");
+  it("CREED: an unmodeled keyword grant ('it gains shadow') stays NON-native (parser re-gate)", () => {
+    // The normalization runs, but the parser still rejects an un-enforced keyword (shadow) set, so the
+    // card stays LOW → Arbiter (a SAFE false-negative, never a fabricated grant). (indestructible/hexproof/
+    // shroud ARE grantable now via PUMP-STATIC-GRANT; shadow remains un-enforced.)
+    expect(clauseHigh(clauseOf(creature("Weathered Sentinels", 3, 3, "Whenever Weathered Sentinels attacks, it gets +3/+3 and gains shadow until end of turn.")))).toBe(false);
+    expect(classifyCard(creature("Weathered Sentinels", 3, 3, "Whenever Weathered Sentinels attacks, it gets +3/+3 and gains shadow until end of turn."))).not.toBe("native-trigger");
   });
 
   it("TRIG-PRONOUN-IT: the non-self 'a creature you control attacks, it …' card IS now native-trigger", () => {

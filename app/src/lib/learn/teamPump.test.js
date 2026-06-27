@@ -61,7 +61,7 @@ describe("parser — team pumps are HIGH; filtered / wrong-scope / unenforced-kw
     low("Creatures you control with flying get +1/+1 until end of turn.");    // keyword-filtered subset
     low("White creatures you control get +1/+1 until end of turn.");          // color-filtered subset
     low("Attacking creatures get +2/+0 until end of turn.");                  // "attacking" subset
-    low("Creatures you control get +1/+1 and gain hexproof until end of turn."); // pump path: parseGrantedKeywords excludes hexproof
+    low("Creatures you control get +1/+1 and gain shadow until end of turn."); // pump path: shadow un-grantable (hexproof now IS — PUMP-STATIC-GRANT)
     low("Creatures you control gain forestwalk until end of turn.");          // GROUP-KEYWORD-GRANT: un-grantable keyword → low
   });
   it("a pure team keyword grant (no P/T) is now native via GROUP-KEYWORD-GRANT", () => {

@@ -55,11 +55,14 @@ export const GRANTABLE_COMBAT_KEYWORDS = new Set(
 //     no false-positive native. This admits the anthem/equipment/token forms (Crystalline Sliver "All
 //     Slivers have shroud", Lightning Greaves "has haste and shroud", Asceticism/Privileged Position
 //     "have hexproof", Deeproot Waters' hexproof Merfolk token, Angelic Overseer's GATED self-grant).
-// Combat TRICKS / pump-grants (effects/parser.js parseGrantedKeywords) intentionally STAY on
-// GRANTABLE_COMBAT_KEYWORDS only — the one-shot until-EOT GROUP-KEYWORD-GRANT (atoms/combat.js) handles
-// the team/permanents "gain hexproof/indestructible until end of turn" form via its own path; a SINGLE-
-// target "gains indestructible until end of turn" instant (Withstand Death) still routes to the Arbiter
-// (a deliberate, test-pinned divergence, not drift).
+// PUMP-STATIC-GRANT: parseGrantedKeywords (effects/parseHelpers.js — the shared gate for pump/self/team/
+// triggering-creature grants + activated-ability grants + animate riders) now uses THIS static set, so a
+// single-target "Target creature gains indestructible until end of turn" (Withstand Death), a combat-trick
+// "+N/+N and gains hexproof" (Blossoming Defense), an activated "{cost}: ~ gains shroud" (Sylvan Safekeeper)
+// all flip native. The until-EOT grant is a layer-6 endOfTurn addKeyword (combat.js applyPumpEffect) honored
+// by isIndestructible / canBeTargetedBy exactly like the GROUP-KEYWORD-GRANT path — the former "not modeled
+// yet" rationale is gone. (The 0-toughness carve-out, CR 704.5f, means a granted indestructible still dies at
+// 0 toughness — handled by gameState.isIndestructible's call-site, matching the cards' own reminder text.)
 export const GRANTABLE_STATIC_KEYWORDS = new Set([...GRANTABLE_COMBAT_KEYWORDS, "indestructible", "hexproof", "shroud"]);
 
 /** Canonical-cased keyword name for a lowercase word ("first strike" → "First strike"). */

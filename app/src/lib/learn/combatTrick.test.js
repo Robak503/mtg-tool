@@ -3,8 +3,9 @@
  * turn" (and the pure "gains [keyword] until end of turn"). The pump atom gains a
  * `grantKeywords` field; applyPumpEffect adds a layer-6 addKeyword endOfTurn effect per
  * granted keyword, so combat reads it layer-aware (exactly like a printed keyword). The
- * grantable set is shared with the Equipment/Aura/anthem path, so only enforced keywords
- * grant; an unmodeled one (indestructible/hexproof/protection) drops the whole clause to Arbiter.
+ * grantable set is shared with the Equipment/Aura/anthem path (GRANTABLE_STATIC_KEYWORDS — combat
+ * keywords + indestructible + hexproof + shroud, all enforced layer-aware via PUMP-STATIC-GRANT), so
+ * only enforced keywords grant; an un-enforced one (shadow/banding/protection) drops the clause to Arbiter.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
@@ -41,8 +42,8 @@ describe("parser — combat-trick keyword grants", () => {
   });
   it("an UNMODELED granted keyword (not enforced) drops the whole clause to Arbiter", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: INSTANT, oracle }))).toBe("low");
-    low("Target creature gains hexproof until end of turn.");
-    low("Target creature gains indestructible until end of turn.");
+    low("Target creature gains shadow until end of turn.");       // shadow un-grantable (hexproof/indestructible now ARE — PUMP-STATIC-GRANT)
+    low("Target creature gains banding until end of turn.");
     low("Target creature gets +2/+2 and gains protection from red until end of turn.");
     low("Target creature gains flying until end of turn. Draw a card if you control a Bird."); // conditional rider
   });
@@ -55,7 +56,7 @@ describe("coverage — native-spell", () => {
   it("a clean combat trick is native-spell; an unmodeled-keyword one is arbiter-spell", () => {
     expect(classifyCard(BLESSING)).toBe("native-spell");
     expect(classifyCard(PURE)).toBe("native-spell");
-    expect(classifyCard({ type: INSTANT, oracle: "Target creature gains hexproof until end of turn.", name: "X" })).toBe("arbiter-spell");
+    expect(classifyCard({ type: INSTANT, oracle: "Target creature gains shadow until end of turn.", name: "X" })).toBe("arbiter-spell");
   });
 });
 
