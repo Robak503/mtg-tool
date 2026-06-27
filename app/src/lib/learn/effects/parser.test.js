@@ -201,7 +201,7 @@ describe("parseEffectProgram — X spells (cost has {X})", () => {
     "Demonfire deals X damage to target creature with power X or less.", // residual non-amount X
     "Exile the top X cards of your library.",                       // exile/mill not modeled
     "Draw X cards. You lose X life.",                               // lose-life not modeled
-    "Hydroid deals X damage to each creature your opponents control.", // qualified mass damage (not bare "each creature")
+    "Hydroid deals X damage to each creature with first strike.", // a non-modeled mass filter (only with/without flying + you/opponents-control are modeled)
   ])("MUST drop to low (X near-miss): %s", (oracle) => {
     const p = parseEffectProgram(IX(oracle));
     expect(programConfidence(p)).toBe("low");
@@ -901,7 +901,7 @@ const MUST_DROP_TO_LOW = [
   // ── P2.5 adversarial-review catches (REAL Scryfall false-highs the multi-clause
   // pass surfaced; pinned so a future parser change can't re-leak them) ──
   "Pyrotechnics deals 1 damage to each creature with first strike.",            // qualified mass damage — only with/without flying is modeled (MASS-FILTERED-DAMAGE), first strike isn't
-  "Blazing Volley deals 1 damage to each creature your opponents control.",     // qualified mass damage
+  "Volley deals 1 damage to each creature with first strike.",                  // a non-modeled mass filter (you/opponents-control + with/without flying ARE modeled)
   "Simoon deals 1 damage to each creature target opponent controls.",           // qualified — must NOT mis-route to "target player"
   "Shadowstorm deals 2 damage to each creature with shadow.",                   // qualified mass damage
   "Pyroclasm deals 3 damage to each creature an opponent controls.",            // qualified — only bare "each creature" is modeled

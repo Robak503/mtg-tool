@@ -252,16 +252,19 @@ export function counterClauseParser(clause) {
 }
 
 /**
- * MASS-FILTERED-DAMAGE clause parser — "<source> deals N damage to each creature with|without flying"
- * (Gale Force / Needle Storm / Squall = with; Seismic Shudder / Tremor = without). Reuses the eachCreature
- * deal-damage path + a hasKeyword restriction (creatureSatisfiesRestrictions filters the mass set, layer-
- * aware). Whole-clause anchored — a "and each player" / kicker / flashback / threshold rider fails the `$`
- * → low → Arbiter (FN-safe). Registered via registerClauseParser in parser.js.
+ * MASS-FILTERED-DAMAGE clause parser — "<source> deals N damage to each creature <filter>" where the filter
+ * is with|without flying (Gale Force / Seismic Shudder) OR you control | your opponents control (Blazing
+ * Volley, Scouring Sands). Reuses the eachCreature deal-damage path + a restriction (hasKeyword / controller)
+ * that creatureSatisfiesRestrictions filters the mass set with (layer-aware). Whole-clause anchored — a "and
+ * each player" / kicker / flashback / threshold rider fails the `$` → low → Arbiter (FN-safe). Registered
+ * via registerClauseParser in parser.js.
  */
 export function massFilteredDamageClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   const m = t.match(/^.+? deals? (\d+) damage to each creature (with|without) flying$/);
   if (m) return { op: "deal-damage", amount: parseInt(m[1], 10), targetType: "eachCreature", restrictions: [{ kind: "hasKeyword", keyword: "flying", negate: m[2] === "without" }] };
+  const cm = t.match(/^.+? deals? (\d+) damage to each creature (you control|your opponents control)$/);
+  if (cm) return { op: "deal-damage", amount: parseInt(cm[1], 10), targetType: "eachCreature", restrictions: [{ kind: "controller", who: cm[2] === "you control" ? "you" : "opponent" }] };
   return null;
 }
 

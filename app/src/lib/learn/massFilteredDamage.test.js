@@ -50,6 +50,22 @@ describe("mass-filtered-damage — resolver filters the wiped set (layer-aware)"
   });
 });
 
+describe("mass-filtered-damage — controller filter (Blazing Volley / Scouring Sands)", () => {
+  it("'each creature your opponents control' → eachCreature + controller:opponent", () => {
+    const p = parseEffectClause("Blazing Volley deals 1 damage to each creature your opponents control.", "Sorcery");
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms).toEqual([{ op: "deal-damage", amount: 1, targetType: "eachCreature", restrictions: [{ kind: "controller", who: "opponent" }] }]);
+  });
+  it("resolver hits only the opponent's creatures", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const mk = (id, ctrl) => createPermanent({ id, card: { id, name: id, type: "Creature — Test", power: 2, toughness: 5 }, controller: ctrl });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [mk("mine", "user")] }, ai: { ...s.players.ai, battlefield: [mk("theirs", "ai")] } } };
+    const after = resolveAtom(s, { op: "deal-damage", amount: 2, targetType: "eachCreature", restrictions: [{ kind: "controller", who: "opponent" }] }, { controller: "user" });
+    expect(dmg(after, "ai", "theirs")).toBe(2);  // opponent's creature hit
+    expect(dmg(after, "user", "mine")).toBe(0);  // your own creature spared
+  });
+});
+
 describe("mass-filtered-damage — coverage flips", () => {
   const C = (name, oracle, type = "Instant", mana = "{1}{R}") => ({ name, oracle, type, keywords: [], mana });
   it("bare + X + trigger forms flip native", () => {
