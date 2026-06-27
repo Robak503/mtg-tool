@@ -142,10 +142,12 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   program-diff=0 — folded into sacrificeEdictClauseParser; SACRIFICE-as-effect FULLY MIGRATED). All program-diff=0.
   ✅ draw each-player slice → atoms/misc.drawEachPlayerClauseParser + discard family → atoms/hand.discardClauseParser
   (batch 23 `b97b052`, program-diff=0 — co-extracted coupling; NUM_WORD import dropped from parser.js). All program-diff=0.
-  **NEXT = SCATTERED destroy⇄exile (re-grep `op:"destroy"`/`op:"exile"` — the shared `^(destroy|exile) target <typelist>`
-  regex + MASS "destroy/exile all creatures" + "exile target creature", interleaved w/ other matchers → removal.js, ONE
-  co-extract parser, ORDER-HANDLING RISKY: gate-revert + log "needs order-handling" if not byte-identical). Then the leftover
-  scattered draw clusters + add-counter [entangled, late].** FP checkpoint #7 due ~batch 28. SKIP
+  ⏸️ destroy⇄exile DEFERRED (batch 24 attempt reverted, program-diff=52 — rider-folding-entangled, SAME class as A7 counter:
+  `applyRemovalWithRider`/`applyControllerRider` strips "its controller …" before the bare anchor + re-attaches controllerRider;
+  a post-parseExtendedAtom clause parser breaks it → 26 cards drop their rider. Needs the rider machinery moved WITH it — a dedicated batch).
+  **NEXT = remaining CLEAN ops: bounce family (bp + self-bounce + β-3 permanent), add-counter (RE-ASSESS — old neighbors pump/sac/regen
+  all migrated now, may be cleaner), draw residue (combat-damage/for-each/dying-power countContext forms). THEN the dedicated
+  RIDER-FOLDING co-extract batch (move applyRemovalWithRider's strip+re-attach into the dispatch so counter + destroy⇄exile both lift).** FP checkpoint #7 due ~batch 28. SKIP
   the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
   (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
