@@ -117,10 +117,11 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   deps, resolver home, risk, couplings, and the readiness-ranked Wave A→D order). Execute it top-down; re-grep
   `op:"<op>"` each batch (line numbers drift). ✅A1 library-keywords (batch 6 `d45aaa4`) · ✅A2 combat-keywords
   (batch 7 `fb7b5a4`) · ✅A3 fog/divide-damage → misc (batch 8 `11d4b68`) · ✅A4 self-attach/attach-to-self →
-  stack (batch 9 `79cd743`) · ✅A5 tuck → zones (batch 10 `7167e70`). **NEXT = Wave A6: mill → atoms/library.js**
-  (NUM_WORD [in leaf]; 3 branches you/eachOpponent/eachPlayer — mutually-exclusive anchors, the eachPlayer one
-  split by a comment from the other two; pull all 3 `op:"mill"` returns). Then A7 (counter → stack; 8 returns in
-  one run 848-907). Then Wave B (helper leaf + pump/tutor) · Wave C (interleaved families). FP-hunt due ~batch 12. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
+  stack (batch 9 `79cd743`) · ✅A5 tuck → zones (batch 10 `7167e70`) · ✅A6 mill → library (batch 11 `2560c6e`).
+  **NEXT = Wave A7 (last of Wave A): counter → atoms/stack.js** — 8 `op:"counter"` returns in ONE run (~848-907 on
+  master, re-grep), mixed bare-if + 3 brace-blocks (mv/sc/scx local vars); pull all 8, no shared helper, tails
+  disambiguate. **Then FP-hunt (cadence — ~batch 12 reached)**, then Wave B (helper leaf parseGrantedKeywords→pump,
+  tutor helpers→tutor) · Wave C (interleaved families: lose/gain-life, draw+discard, rad, destroy⇄exile, …). Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
   deal-damage / return-from-graveyard⇄reanimate / sacrifice). Wave D = standalone matchers (impulse-dig / discard-chosen
   / create-emblem) — different shape, deferred. **Couplings that MUST co-extract:** destroy⇄exile · rfg⇄reanimate ·

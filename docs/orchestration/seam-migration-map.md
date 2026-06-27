@@ -16,7 +16,7 @@
 | ✅A3 | fog · divide-damage | atoms/misc.js | divide-damage: local-var+parseInt | DONE batch 8 `11d4b68`, program-diff=0 |
 | ✅A4 | self-attach · attach-to-self | atoms/stack.js | attach-to-self: local-var | DONE batch 9 `79cd743`, program-diff=0 (fall-through preserved via return-null) |
 | ✅A5 | tuck | atoms/zones.js | local-var | DONE batch 10 `7167e70`, program-diff=0 |
-| A6 | mill | atoms/library.js | NUM_WORD (leaf) | 3 branches, mutually-exclusive anchors; eachPlayer split by a comment |
+| ✅A6 | mill | atoms/library.js | NUM_WORD (leaf) | DONE batch 11 `2560c6e`, program-diff=0 |
 | A7 | counter | atoms/stack.js | local-var (mv/sc/scx) | 8 returns in ONE run (848-907), mixed bare-if + brace-blocks; tails disambiguate |
 
 ### Wave B — HELPER-LEAF extractions first, THEN the family (each its own gated batch).
