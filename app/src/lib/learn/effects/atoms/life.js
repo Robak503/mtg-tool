@@ -7,11 +7,23 @@ import { checkLifegainTriggers } from "../../triggers.js";
 import { resolveScaledAmount } from "./shared.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 17: shared count-source parser (leaf, cycle-free) for the scaled life clauses
 
-/** "You gain N life" (CR 119.3) — the spell's controller gains life. Non-targeted. FOR-EACH: the amount
- *  may be a board count × per (resolveScaledAmount), e.g. "gain 2 life for each creature you control". */
+/** "You gain N life" (CR 119.3) — the spell's controller gains life. FOR-EACH: the amount may be a board
+ *  count × per (resolveScaledAmount), e.g. "gain 2 life for each creature you control". who:"target" — the
+ *  chosen player(s) gain ("Target player gains N life": Soothing Balm, Heroes' Reunion); each travels in
+ *  ctx.targets and fires THAT player's lifegain triggers (mirrors applyLoseLife's targeted form). */
 export function applyGainLife(state, atom, ctx) {
+  let next = state;
   const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
-  let next = gainLife(state, { playerId: ctx.controller, amount });
+  if (atom.who === "target") {
+    for (const t of ctx.targets || []) {
+      if (t.type === "player" && next.players[t.id]) {
+        next = gainLife(next, { playerId: t.id, amount });
+        if (amount > 0) next = checkLifegainTriggers(next, t.id, amount); // the TARGET's "whenever you gain life" triggers (CR 119.3)
+      }
+    }
+    return logEvent(next, { kind: "spell-effect", effect: "gain-life", who: "target", amount });
+  }
+  next = gainLife(next, { playerId: ctx.controller, amount });
   // TRIG-LIFEGAIN (CR 119.3): the controller gained life → fire their "Whenever you gain life" triggers.
   if (amount > 0) next = checkLifegainTriggers(next, ctx.controller, amount);
   return logEvent(next, { kind: "spell-effect", effect: "gain-life", controller: ctx.controller, amount });
@@ -95,6 +107,8 @@ export function lifeClauseParser(clause) {
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
   m = t.match(/^target (player|opponent) loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[2], 10), who: "target", targetType: m[1] };
+  m = t.match(/^target player gains (\d+) life$/);
+  if (m) return { op: "gain-life", amount: parseInt(m[1], 10), who: "target", targetType: "player" }; // LIFE-GAIN-TARGET — applyGainLife who:"target"
   m = t.match(/^each player loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   return null;
