@@ -44,7 +44,10 @@ export function applyReturnFromGraveyard(state, atom, ctx) {
     if (t.type !== "graveyardCard") continue;
     const gy = next.players[ctx.controller]?.graveyard || [];
     if (!gy.some((c) => c.id === t.id)) continue; // target left the graveyard — no-op (CR 608.2b)
-    next = moveCardToZone(next, { playerId: ctx.controller, fromZone: "graveyard", toZone: "hand", cardId: t.id });
+    // GY-TO-TOP: toLibraryTop routes graveyard → TOP of library (Reclaim), else → hand (Raise Dead).
+    next = atom.toLibraryTop
+      ? moveCardToZone(next, { playerId: ctx.controller, fromZone: "graveyard", toZone: "library", cardId: t.id, toTop: true })
+      : moveCardToZone(next, { playerId: ctx.controller, fromZone: "graveyard", toZone: "hand", cardId: t.id });
     returned.push(t.id);
   }
   return logEvent(next, { kind: "spell-effect", effect: "return-from-graveyard", controller: ctx.controller, targets: returned });
@@ -149,6 +152,15 @@ export function graveyardReturnClauseParser(clause) {
     if (cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter };
   }
   if (/^return target creature card from your graveyard to the battlefield$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
+  // GY-TO-TOP — "put target <X> card from your graveyard on top of your library" (Reclaim, Salvage, False
+  // Mourning). Same chosen-graveyard-card target + the return-from-graveyard resolver, but the destination is
+  // the TOP of the library (toLibraryTop → moveCardToZone toZone:"library", toTop). A rider / "the bottom" /
+  // a non-self graveyard fails the `$` → low → Arbiter (FN-safe).
+  const topM = /^put target (.*?)card from your graveyard on top of your library$/.exec(t);
+  if (topM) {
+    const cf = parseGraveyardFilter(topM[1]);
+    if (cf) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: cf, toLibraryTop: true };
+  }
   return null;
 }
 
