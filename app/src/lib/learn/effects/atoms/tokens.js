@@ -7,7 +7,7 @@ import { tokenMultiplier, applyCounterDoubling } from "../../replacementEffects.
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec } from "./shared.js";
-import { SMALL_NUM, NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 18: shared parse helpers (leaf, cycle-free) for createNamedTokenClauseParser
+import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenKeywords } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
 
 /**
  * ===== TOKENS ===== Build a token's type line from its descriptor ("colorless thopter artifact"
@@ -309,6 +309,49 @@ export function createNamedTokenClauseParser(clause) {
   }
   m = t.match(/^investigate(?: (twice|(?:two|three|four|five|six|seven|eight|nine|ten) times))?$/);
   if (m) return { op: "create-named-token", token: "clue", count: m[1] === "twice" ? 2 : (m[1] ? NUM_WORD[m[1].split(" ")[0]] : 1), targetType: null };
+  return null;
+}
+
+/**
+ * CREATE-TOKEN clause parser (vanilla typed creature tokens) — migrated from parser.js parseExtendedAtom
+ * (seam batch 20 / Wave C). Two matchers, original first-match order (for-each before fixed-N):
+ *   mtf (FOR-EACH) — "create a/an/one P/T <descriptor> creature token for each <count source>" (Avenger of
+ *     Zendikar, Garruk Primal Hunter): one token per source-unit, count at resolution (countFor). No "with"
+ *     rider in scope. CREED guards travel: toughness<1 → null (dies to lethal SBA); a LAND creature token →
+ *     null (intrinsic mana dropped); unmodeled count source → null.
+ *   m (FIXED-N + optional "with") — "create N P/T <descriptor> creature token(s) [named X] with <…>": the
+ *     "with" slot is a QUOTED inline mana ability (parseTokenManaAbility → tokenOracle) OR a keyword phrase
+ *     (parseTokenKeywords → keywords[]); the quote disambiguates. Same toughness<1 + land guards. A bare
+ *     unmatched "with" / unmodeled keyword / non-mana quoted ability → null → low → Arbiter.
+ * Pure; uses parseCountSource/SMALL_NUM/parseTokenManaAbility/parseTokenKeywords from the leaf. Registered via
+ * registerClauseParser in parser.js.
+ */
+export function createTokenClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const mtf = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? for each (.+)$/);
+  if (mtf) {
+    const toughness = parseInt(mtf[2], 10);
+    if (toughness < 1) return null;
+    if (/\bland\b/.test(mtf[3])) return null;
+    const countFor = parseCountSource(mtf[4]);
+    return countFor ? { op: "create-token", power: parseInt(mtf[1], 10), toughness, descriptor: mtf[3].trim(), countFor, targetType: null } : null;
+  }
+  const m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?:(?: named [a-z' ]+?)? with (.+))?$/);
+  if (m) {
+    const power = parseInt(m[2], 10);
+    const toughness = parseInt(m[3], 10);
+    if (toughness < 1) return null;  // 0-toughness token dies to the lethal SBA → incomplete capture → Arbiter
+    if (/\bland\b/.test(m[4])) return null;  // a LAND creature token's intrinsic mana would be dropped → Arbiter
+    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), targetType: null };
+    if (m[5] === undefined) return base;
+    // A QUOTED inline ability → clean-mana-ability gate; a non-quoted phrase → the keyword path. The quote disambiguates.
+    if (/^["“']/.test(m[5].trim())) {
+      const tokenOracle = parseTokenManaAbility(m[5]);
+      return tokenOracle ? { ...base, tokenOracle } : null;
+    }
+    const kws = parseTokenKeywords(m[5]);
+    return kws ? { ...base, keywords: kws } : null;
+  }
   return null;
 }
 

@@ -41,9 +41,9 @@ import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfR
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
-import { createNamedTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token: Treasure/Clue/Food/Gold family)
+import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token) + 20 (create-token vanilla creature tokens)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
-import { SMALL_NUM, NUM_WORD, parseCountSource, parseTutorFilter, parseTokenManaAbility, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenManaAbility/parseTokenKeywords (still-inline create-token + token-keyword matchers) used here
+import { SMALL_NUM, NUM_WORD, parseCountSource, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (still-inline token-keyword matcher) used here; parseTokenManaAbility now only inside atoms/tokens.createTokenClauseParser (batch 20)
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad player-grant)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate)
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
@@ -722,61 +722,10 @@ function parseExtendedAtom(s) {
   // dies-power / fixed-N / investigate, original first-match order, parseCountSource+SMALL_NUM+NUM_WORD leaf.
   // The vanilla creature-token family (create-token) below STAYS inline (disjoint "create N P/T … creature token"
   // anchor; its parseTokenManaAbility/parseTokenKeywords deps are parser.js-local → a later helper-leaf batch).
-  // create-token (P2.6): "Create N P/T <colors> <Subtypes> creature token(s)" — a vanilla typed
-  // creature token. ===== TOKENS ===== T1 extends the anchor with an OPTIONAL " with <keywords>"
-  // suffix (Bird/Thopter/Angel "with flying [and vigilance]"). The keyword phrase must reduce
-  // ENTIRELY to the enforced+layer-aware GRANTABLE STATIC set (parseTokenKeywords) — minted into
-  // the token's real keywords[] array so hasKeyword / permanentHasKeyword honor it exactly like a
-  // printed creature's. ANY other rider ("…that's tapped", "…that's an artifact", menace) fails the
-  // keyword allowlist or the anchor → null → low, so nothing is silently dropped.
-  // ===== TOKENS ===== T4 EXTENDS the same "with" slot to accept a QUOTED inline ability ("with
-  // \"<ability>\"") — slice 1 admits only a CLEAN MANA ability (parseTokenManaAbility), stamped on the
-  // minted token as `tokenOracle` so the mana model drives it like Treasure/Gold. An OPTIONAL "named
-  // <Name>" before the ability is tolerated (Llanowar Mentor's "…token named Llanowar Elves with …",
-  // surfaced via the "It has" → "with" rewrite in splitClauses); the cosmetic name is ignored (the
-  // token's mechanical identity is type + P/T + ability, and no card references token names). A bare
-  // "named <Name>" with NO ability still fails the anchor (unchanged → low), so this never silently
-  // flips a named token whose name might matter.
-  // ===== FOR-EACH ===== (WALT-FOREACH-TOK) "create a/an/one <P/T> <descriptor> creature token for each
-  // <count source>" — ONE token per source-unit; the COUNT is a board count resolved at resolution
-  // (`countFor`), reusing parseCountSource + countForSpec (Avenger of Zendikar, Garruk Primal Hunter,
-  // Beacon of Creation, Saproling Symbiosis, Worm Harvest). Mints the same vanilla typed token as the
-  // fixed-count path (no inline ability/keyword in scope here — a "with …" rider isn't admitted, so it
-  // falls through to low). Same CREED guards: a 0-toughness token (dies to the lethal SBA) and a LAND
-  // creature token (intrinsic mana dropped) route to the Arbiter; an unmodeled count source → null → low.
-  const mtf = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? for each (.+)$/);
-  if (mtf) {
-    const toughness = parseInt(mtf[2], 10);
-    if (toughness < 1) return null;
-    if (/\bland\b/.test(mtf[3])) return null;
-    const countFor = parseCountSource(mtf[4]);
-    return countFor ? { op: "create-token", power: parseInt(mtf[1], 10), toughness, descriptor: mtf[3].trim(), countFor, targetType: null } : null;
-  }
-  m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?:(?: named [a-z' ]+?)? with (.+))?$/);
-  if (m) {
-    const power = parseInt(m[2], 10);
-    const toughness = parseInt(m[3], 10);
-    // A toughness-0 token dies to the lethal SBA (CR 704.5f) the instant it enters — so a STANDALONE
-    // "Create N 0/0 …" sentence is always an INCOMPLETE capture of a card that grows them (a +1/+1
-    // counter / anthem rider in text the slim oracle index drops, e.g. Imaginary Friends). Route to
-    // the Arbiter rather than confidently make tokens that vanish. (A 0/1 Eldrazi Spawn is fine — t≥1.)
-    if (toughness < 1) return null;
-    // A LAND creature token (Awaken the Woods' "Forest Dryad land creature", Khalni Garden's Plant…)
-    // carries an INTRINSIC mana ability from its land type ({T}: Add …) that this vanilla mint drops —
-    // so the token would silently lose its tap-for-mana. Route the whole card to the Arbiter rather than
-    // mint a non-producing body (CLAUDE.md §1.2). Surfaced by the TOK-3 X-count sweep (Awaken the Woods).
-    if (/\bland\b/.test(m[4])) return null;
-    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), targetType: null };
-    if (m[5] === undefined) return base;
-    // T4: a QUOTED inline ability → clean-mana-ability gate (else null → low). A non-quoted phrase →
-    // the keyword path (T1). The quote disambiguates the two "with" shapes.
-    if (/^["“']/.test(m[5].trim())) {
-      const tokenOracle = parseTokenManaAbility(m[5]);
-      return tokenOracle ? { ...base, tokenOracle } : null;
-    }
-    const kws = parseTokenKeywords(m[5]);
-    return kws ? { ...base, keywords: kws } : null;
-  }
+  // ===== CREATE-TOKEN (vanilla typed creature tokens) ===== migrated to atoms/tokens.createTokenClauseParser
+  // (seam batch 20 / Wave C). for-each (mtf) + fixed-N (m, with the optional quoted-mana-ability / keyword
+  // "with" slot), original order; toughness<1 + land guards + the quote-vs-keyword disambiguation travel.
+  // Uses parseCountSource/SMALL_NUM/parseTokenManaAbility/parseTokenKeywords from the leaf.
   // ===== SCRY + SURVEIL ===== migrated to atoms/library.libraryKeywordClauseParser (seam batch 6 / Wave A1).
   // ===== MILL ===== migrated to atoms/library.millClauseParser (seam batch 11 / Wave A6).
   // ===== EACH-PLAYER ===== draw — extend the ACTOR of a draw beyond the controller. The controller-only
@@ -1883,6 +1832,12 @@ registerClauseParser(lifeClauseParser);
 // registered parser and (verified) no later parseExtendedAtom branch (create-token's anchor is disjoint) → the
 // inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(createNamedTokenClauseParser);
+// CREATE-TOKEN (seam batch 20 / Wave C) — vanilla typed creature tokens migrated to
+// atoms/tokens.createTokenClauseParser (for-each + fixed-N, order preserved; toughness<1 + land guards +
+// quote-vs-keyword "with" split travel; leaf helpers incl. parseTokenManaAbility/parseTokenKeywords). The
+// "create N P/T … creature token" clauses match no earlier registered parser and (verified) no later
+// parseExtendedAtom branch → the inline→CLAUSE_PARSERS move is behavior-identical.
+registerClauseParser(createTokenClauseParser);
 // MISC (seam batch 8 / Wave A3) — fog + divide-damage migrated to atoms/misc.miscClauseParser
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.
