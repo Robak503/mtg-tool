@@ -301,6 +301,30 @@ export function applyCantBeBlocked(state, atom, ctx) {
 }
 
 /**
+ * SWITCH-PT (CR 613.7e, the engine's layer-7 "7d" sublayer) — "switch [target / this / the triggering]
+ * creature's power and toughness until end of turn" (Twisted Image, Transmutation, About Face; plus the
+ * {T} / ETB / attack-trigger / self forms on permanents — Dwarven Thaumaturgist, Crookclaw Transmuter,
+ * Aquamoeba). A layer-7 sublayer-7d endOfTurn continuous effect; layers.computeDerivedPT already SWAPS
+ * power⇄toughness for every 7d effect, so this atom just records the marker. Wears off at cleanup (CR 514.2)
+ * like every other endOfTurn layer effect. target:"self" / "thatCreature" resolve through atomTargets.
+ */
+export function applySwitchPT(state, atom, ctx) {
+  const targets = atomTargets(state, atom, ctx);
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
+  const dur = { kind: "endOfTurn", turn: next.turn };
+  for (const target of targets) {
+    if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
+    next = addContinuousEffect(next, {
+      layer: 7, sublayer: "7d", op: { layerOp: "switchPT" },
+      affects: { mode: "fixed", permanentIds: [target.id] },
+      duration: dur, source: src,
+    }).state;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "switch-pt", targets: targets.map(t => t.id) });
+}
+
+/**
  * SELF-DAMAGE-BY-POWER (CR 119, a "self-fight") — "Target creature deals damage to itself equal to its
  * power" (Justice Strike, Repentance, Wrack with Madness, Inner Struggle, Kiku's Shadow; Kiku, Night's
  * Flower's activated ability) and the MASS form "Each creature deals damage to itself equal to its power"
@@ -420,6 +444,12 @@ export function combatKeywordClauseParser(clause) {
   // The `$` anchor rejects a qualified "…except by <X>" / conditional form (those stay Arbiter, FN-safe).
   const cbb = t.match(/^target creature( you control)? can't be blocked this turn$/);
   if (cbb) return { op: "cant-be-blocked", targetType: "creature", ...(cbb[1] ? { restrictions: [{ kind: "controller", who: "you" }] } : {}) };
+  // SWITCH-PT — "switch [target / this / the triggering] creature's power and toughness until end of turn"
+  // → a layer-7 sublayer-7d endOfTurn swap (the layer engine already swaps for every 7d effect). The three
+  // referents mirror the pump family: a chosen target, the source ("this creature"), the triggering creature.
+  if (/^switch target creature's power and toughness until end of turn$/.test(t)) return { op: "switch-pt", targetType: "creature" };
+  if (/^switch this creature's power and toughness until end of turn$/.test(t)) return { op: "switch-pt", target: "self" };
+  if (/^switch the triggering creature's power and toughness until end of turn$/.test(t)) return { op: "switch-pt", target: "thatCreature" };
   // SELF-DAMAGE-BY-POWER (a "self-fight") — whole-clause anchored; a rider ("If that creature has flying…"
   // — Cut Propulsion) leaves residue → fails the `$` → low → Arbiter (CREED, FN-safe).
   if (/^target creature deals damage to itself equal to its power$/.test(t)) return { op: "damage-self-power", targetType: "creature" };
@@ -620,6 +650,7 @@ export const combatResolvers = {
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
   "cant-block": applyCantBlock, // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
   "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant
+  "switch-pt": applySwitchPT, // SWITCH-PT — "switch ~ power and toughness until end of turn" → layer-7 sublayer-7d endOfTurn swap
   "grant-keywords-group": applyGrantKeywordsGroup, // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
   "damage-self-power": applyDamageSelfPower, // SELF-DAMAGE-BY-POWER — "target/each creature deals damage to itself equal to its power"
 };

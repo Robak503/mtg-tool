@@ -312,6 +312,10 @@ function splitClauses(oracle) {
     // groupGrantClauseParser sees the full keyword list. All-or-nothing anchored downstream (an un-grantable
     // word → null → low → Arbiter), so keeping too much together can only fail to match, never a wrong partial.
     if (/^(?:creatures|permanents) you control gains?\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // SWITCH-PT — "switch <referent> power and toughness until end of turn": the " and " in "power and
+    // toughness" is INTERNAL to the one swap instruction, NOT a top-level effect boundary. Keep it whole so
+    // combatKeywordClauseParser binds the layer-7d swap (else it shatters into "…power" + "toughness…" → low).
+    if (/^switch (?:target creature's|this creature's|the triggering creature's) power and toughness until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // SELF pump + keyword grant ("This creature gets +1/+0 and gains trample until end of turn" / "This
     // creature gains flying and vigilance until end of turn") — the " and " is INTERNAL to the one
     // self-grant instruction (CR 113.7 "this creature" = the source), NOT a top-level effect boundary.
