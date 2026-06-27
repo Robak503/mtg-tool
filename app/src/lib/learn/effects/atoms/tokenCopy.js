@@ -40,11 +40,24 @@
 // isn't legendary" tail and nothing else. Apostrophes normalized to straight by the caller. "that's"
 // is the contraction-stripped form; the full "that is a copy" is also accepted.
 const TOKEN_COPY_RE = /^create a token that(?:'s| is) a copy of (this creature|it)(?:, except the token isn't legendary)?$/;
+// TOKEN-COPY-TARGET — "create a token that's a copy of target creature you control" (Quasiduplicate,
+// Cackling Counterpart, Self-Reflection, Multiversal Recruitment). The resolver ALREADY supports
+// copySource:"target" (resolveCopySource → ctx.targets[0]); only the recognition was missing. The optional
+// ", except it isn't legendary" tail is a NO-OP (the legend rule is unenforced — no atom field). A
+// type-addition / stat-change "except" (haste, "4/4 Hero", flying) is NOT matched → low → Arbiter (it would
+// change the copy's characteristics). targetType "creature" + the you-control restriction so the cast path /
+// enumerateTargets offers ONLY the controller's own creatures (never an opponent's, which would be illegal).
+const TOKEN_COPY_TARGET_RE = /^create a token that(?:'s| is) a copy of target creature you control(?:, except it isn't legendary)?$/;
 
 export function tokenCopyParser(clause) {
   const t = String(clause).toLowerCase().replace(/[’]/g, "'").trim();
   const m = t.match(TOKEN_COPY_RE);
-  if (!m) return null;
-  const copySource = m[1] === "this creature" ? "self" : "triggering";
-  return { op: "create-token-copy", copySource, count: 1, targetType: null };
+  if (m) {
+    const copySource = m[1] === "this creature" ? "self" : "triggering";
+    return { op: "create-token-copy", copySource, count: 1, targetType: null };
+  }
+  if (TOKEN_COPY_TARGET_RE.test(t)) {
+    return { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+  }
+  return null;
 }

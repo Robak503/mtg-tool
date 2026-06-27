@@ -14,6 +14,7 @@ import { detectTriggers } from "./triggers.js";
 import { enterPermanent } from "./resolvers.js";
 import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
+import { enumerateTargets } from "./spellEffects.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -60,7 +61,35 @@ describe("tokenCopyParser — exact anchors only", () => {
   });
   it("FORBIDDEN: 'another' / counted / filtered copy → null", () => {
     expect(tokenCopyParser("create two tokens that are copies of it")).toBeNull();
-    expect(tokenCopyParser("create a token that's a copy of target creature you control")).toBeNull();
+    // a TARGET-source copy with a stat/characteristic-change rider is still deferred (it would change the copy):
+    expect(tokenCopyParser("create a token that's a copy of target creature you control, except it has haste")).toBeNull();
+    // an UNRESTRICTED target ("target creature", no "you control") is not matched — only the you-control form is:
+    expect(tokenCopyParser("create a token that's a copy of target creature")).toBeNull();
+  });
+});
+
+// ─── 1b. TOKEN-COPY-TARGET — "copy of target creature you control" (Quasiduplicate, Cackling Counterpart,
+// Self-Reflection, Multiversal Recruitment). Recognition-only: the resolver's copySource:"target" branch
+// (ctx.targets[0]) already existed; the parser now emits it with a you-control-restricted creature target. ──
+describe("tokenCopyParser — TARGET source (you control)", () => {
+  it("'copy of target creature you control' → copySource:target + you-control restriction", () => {
+    expect(tokenCopyParser("create a token that's a copy of target creature you control"))
+      .toEqual({ op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] });
+  });
+  it("the ', except it isn't legendary' tail is a recognized no-op (Multiversal Recruitment)", () => {
+    expect(tokenCopyParser("create a token that's a copy of target creature you control, except it isn't legendary")?.copySource).toBe("target");
+  });
+  it("the program needs a chosen target (the cast path picks the creature)", () => {
+    const prog = parseEffectClause("create a token that's a copy of target creature you control", "Instant");
+    expect(programConfidence(prog)).toBe("high");
+    expect(programNeedsChosenTarget(prog)).toBe(true);
+  });
+  it("CREED: enumeration offers ONLY the controller's creatures (the you-control restriction is honored)", () => {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const cr = (id, ctrl) => createPermanent({ id, card: { id: `c-${id}`, name: id, type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: ctrl, summoningSick: false });
+    const s = { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: [cr("mine", "user")] }, ai: { ...s0.players.ai, battlefield: [cr("theirs", "ai")] } } };
+    const atom = { op: "create-token-copy", copySource: "target", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+    expect(enumerateTargets(s, "user", atom).map((t) => t.id)).toEqual(["mine"]); // never the opponent's "theirs"
   });
 });
 
@@ -84,6 +113,16 @@ describe("create-token-copy atom (CR 707.1)", () => {
     const toks = tokensOf(s);
     expect(toks).toHaveLength(1);
     expect(toks[0].card.name).toBe("Drake");
+    expect(toks[0].card.token).toBe(true);
+  });
+
+  it("TARGET: copies the chosen creature (ctx.targets[0]) — Quasiduplicate / Self-Reflection", () => {
+    let s = stateWith([bear("chosen", { name: "Phoenix", power: 5, toughness: 4 })]);
+    s = resolveAll(resolveAtom(s, { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature" }, { controller: "user", targets: [{ type: "creature", id: "chosen" }] }));
+    const toks = tokensOf(s);
+    expect(toks).toHaveLength(1);
+    expect(toks[0].card.name).toBe("Phoenix");
+    expect(toks[0].card.power).toBe(5);
     expect(toks[0].card.token).toBe(true);
   });
 
