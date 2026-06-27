@@ -42,13 +42,13 @@ import { winGameClauseParser } from "./atoms/winGame.js";
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill)
-import { SMALL_NUM, NUM_WORD, parseCountSource } from "./parseHelpers.js"; // seam batch 2/4: shared number-word maps + count-source machinery in a leaf (matchers import cycle-free)
+import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords } from "./parseHelpers.js"; // seam batch 2/4/12b: number-word maps + count-source + granted-keywords in a leaf (matchers import cycle-free)
 import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/counters.js"; // seam batch 3
 import { earthbendClauseParser, combatKeywordClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate)
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
 import { attachClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self)
 import { tuckClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck)
-import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
+import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 
@@ -414,23 +414,8 @@ function parseTutorMv(capture) {
   return m[2] ? { max: n } : { exact: n };
 }
 
-/**
- * Parse a combat-trick's granted-keyword phrase ("trample", "flying and vigilance",
- * "first strike, deathtouch, and lifelink") into canonical keyword names, or null if ANY
- * word is outside the enforced+layer-aware GRANTABLE set (menace / indestructible / hexproof
- * / "protection from red" / …). ALL-OR-NOTHING: one unmodeled keyword drops the whole grant
- * to null → the clause is unmodeled → low → Arbiter, never a fake/partial grant.
- */
-function parseGrantedKeywords(phrase) {
-  const words = String(phrase).split(/,|\band\b/).map((w) => w.trim()).filter(Boolean);
-  if (words.length === 0) return null;
-  const out = [];
-  for (const w of words) {
-    if (!GRANTABLE_COMBAT_KEYWORDS.has(w.toLowerCase())) return null;
-    out.push(canonicalCombatKeyword(w));
-  }
-  return out;
-}
+// parseGrantedKeywords moved to ./parseHelpers.js (seam batch 12b — a leaf the pump matcher module can import
+// cycle-free; also used by the still-inline animate matcher). Imported at the top of this file.
 
 // ===== TOKENS ===== T4 ability-carrying tokens (WALT-TOKEN-ABIL slice 1: MANA abilities).
 // A token minted "with \"<ability>\"" (or the "…token. It has \"<ability>\"" shape, normalized to

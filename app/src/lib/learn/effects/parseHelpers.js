@@ -7,6 +7,8 @@
  * matcher-registry seam migrates families out of parseExtendedAtom and they need a shared dep here.
  */
 
+import { GRANTABLE_COMBAT_KEYWORDS, canonicalCombatKeyword } from "../keywords.js"; // for parseGrantedKeywords (keywords.js is a zero-import leaf — cycle-safe)
+
 // Spelled cardinals a..five (with the "a"/"an" article forms). The canonical small-count word map the
 // parseExtendedAtom matchers use as `SMALL_NUM[word] ?? parseInt(word, 10)`.
 export const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
@@ -142,4 +144,21 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = 
   // bare canonical form; "the controller has" is a rare alternate phrasing on non-Toph cards.
   if (/^experience counters? (?:you have|the controller has)$/.test(p)) return withExclude({ kind: "experienceCounters" });
   return null;
+}
+
+/**
+ * Parse a combat-trick's granted-keyword phrase ("trample", "flying and vigilance", "first strike,
+ * deathtouch, and lifelink") into canonical keyword names, or null if ANY word is outside the enforced+
+ * layer-aware GRANTABLE set. ALL-OR-NOTHING: one unmodeled keyword drops the whole grant to null → the
+ * clause is unmodeled → low → Arbiter, never a fake/partial grant. Shared by the pump + animate matchers.
+ */
+export function parseGrantedKeywords(phrase) {
+  const words = String(phrase).split(/,|\band\b/).map((w) => w.trim()).filter(Boolean);
+  if (words.length === 0) return null;
+  const out = [];
+  for (const w of words) {
+    if (!GRANTABLE_COMBAT_KEYWORDS.has(w.toLowerCase())) return null;
+    out.push(canonicalCombatKeyword(w));
+  }
+  return out;
 }
