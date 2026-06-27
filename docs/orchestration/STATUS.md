@@ -1,11 +1,11 @@
 # 🎛️ Academy Coverage — Live Status
 
 <!-- AUTORUN:START — Clyde refreshes this block every loop fire so Omnath/the dashboard reflects the autonomous run; overwrite the whole block, keep it ~6 lines -->
-> 🤖 **AUTONOMOUS RUN — live · no action needed from Colton** · master `beb5cfc`
-> **Phase: parser.js seam migration (INFRASTRUCTURE).** 14 seam batches shipped (… · PUMP · tutor-helpers-leaf), **all program-diff = 0** (byte-identical — provably zero behavior change). 4222 tests green, lint clean. **Wave A done (6/7; A7 counter deferred). Wave B: B1 (pump) done, B2a (tutor helpers) done; B2b tutor migration next.** Full map `docs/orchestration/seam-migration-map.md`.
+> 🤖 **AUTONOMOUS RUN — live · no action needed from Colton** · master `d0f2890`
+> **Phase: parser.js seam migration (INFRASTRUCTURE).** 15 seam batches shipped (… · PUMP · tutor-helpers-leaf · **TUTOR** — the 6-block ramp/fetch family), **all program-diff = 0** (byte-identical — provably zero behavior change). 4222 tests green, lint clean. **Wave A done (6/7; A7 counter deferred). Wave B COMPLETE (pump + tutor). Next: Wave C (interleaved families).** Full map `docs/orchestration/seam-migration-map.md`.
 > **Cards: 20.8% native (7,113) — FLAT BY DESIGN.** The seam is a *refactor* (it reorganizes recognition into collision-free modules); it adds **0 cards** on purpose. Card growth resumes when builders push new PRs OR post-seam coverage work begins — the seam is the *gate to scaling* card-adding (GO-AFTER-SEAM). _If you'd rather see the card number move now, say so and I'll interleave new-coverage batches (each adds cards, FP-gated)._
-> **FP-hunt (standing, every ~5 batches/idle):** ✅ **0 real card FPs.** Hunt #1 (full): keyword gate fixed + 16 trigger + 196 spell suspects all clean. Hunt #2 (post-Wave-A checkpoint): CLEAN by no-drift proof — all changes since were byte-identical refactors + runtime files untouched, so the suspect surface is provably unchanged. Gate caught & reverted a would-be 16-card counter-rider FP (batch 12). Detail in `fp-watch.md`.
-> **Next:** Wave B2b — tutor → atoms/library.js (6 contiguous blocks; first-match order preserved).
+> **FP-hunt (standing, every ~5 batches/idle):** ✅ **0 real card FPs.** Hunt #1 (full): keyword gate fixed + 16 trigger + 196 spell suspects all clean. Checkpoints #2 (post-Wave-A) & **#3 (post-Wave-B pump+tutor)**: CLEAN by no-drift proof — every change since hunt #1 is a byte-identical seam refactor + the runtime FP surface (manaModel/replacementEffects/combatResolution/doublerProfile) is git-verified untouched, so the suspect surface is provably unchanged. Gate caught & reverted a would-be 16-card counter-rider FP (batch 12). Detail in `fp-watch.md`.
+> **Next:** Wave C — interleaved families (lead with the cleanest contiguous op: rad player-grant block / animate / deal-damage scaled-count), each its own program-diff=0 gated batch.
 <!-- AUTORUN:END -->
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.

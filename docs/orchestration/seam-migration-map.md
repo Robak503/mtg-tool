@@ -23,7 +23,7 @@
 - **B1: ✅ DONE.** parseGrantedKeywords → leaf (batch 12b `7bd7820`) + **✅ pump → atoms/combat.pumpClauseParser
   (batch 12c `483f0ac`, program-diff=0)** — 14 returns / 7 interleaved clusters, the single largest monolith chunk;
   no dispatch-wrapper entanglement (unlike counter), clean byte-identical lift.
-- **B2: `parseTutorFilter`+`parseTutorMv`+`BASIC_LAND_SUBTYPES`+`UP_TO_N_WORD` → leaf** (parser.js-local; shared w/ impulse-dig), then **tutor** (atoms/library.js; contiguous 680-812; overlap-possible: tm/ttm/bfm share `^search your library for a…` prefix, first-match-wins ORDER load-bearing → keep block order tm,ttm,bfm,mf,spm,lfh).
+- **B2: ✅ DONE.** B2a tutor-helpers (`parseTutorFilter`+`parseTutorMv`+`BASIC_LAND_SUBTYPES`+`UP_TO_N_WORD`) → parseHelpers leaf (batch 12d `beb5cfc`); B2b **tutor → atoms/library.tutorClauseParser** (batch 12e `d0f2890`, program-diff=0) — 6 contiguous ordered blocks tm/ttm/bfm/mf/spm/lfh, first-match order preserved inside the parser; clean byte-identical lift (the regex-matched-but-rejected `return null` cases preserve the inline fall-through, like A4 attach). parser.js-local `parseTutorMv`/`BASIC_LAND_SUBTYPES`/`UP_TO_N_WORD` imports dropped (now only in tutorClauseParser); `parseTutorFilter` kept (still used by the rd reveal-dig block). **Wave B COMPLETE.**
 
 ### Wave C — INTERLEAVED families needing parseCountSource (already in leaf) + careful surgical pull.
 - **animate** (combat.js; 2 adjacent blocks 1085-1120; parseGrantedKeywords[B1] + inline COLOR_MAP) — after B1.

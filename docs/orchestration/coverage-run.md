@@ -124,12 +124,16 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   extractions: parseGrantedKeywords→pump, tutor helpers→tutor) · Wave C (interleaved families: lose/gain-life,
   draw+discard, rad player-grant, destroy⇄exile, add-counter, create-token(s), animate, deal-damage, rfg⇄reanimate,
   sacrifice). Note: pump/tutor (Wave B) are the LAST big monolith chunks; after them parseExtendedAtom is largely drained.
-  **Wave B progress:** ✅ B1a parseGrantedKeywords → leaf (12b `7bd7820`) · ✅ B1b pump → atoms/combat (12c
-  `483f0ac`, the biggest chunk) · ✅ B2a tutor-helpers → leaf (12d `beb5cfc`). **NEXT = B2b: migrate tutor →
-  atoms/library.js** (re-grep `op:"tutor"`; 6 contiguous blocks tm fetch-to-hand / ttm fetch-to-top / bfm ramp-1 /
-  mf ramp-multi / spm ramp-split / lfh land-from-hand — FIRST-MATCH ORDER load-bearing, tm/ttm/bfm share the
-  `^search your library for a…` prefix; uses parseTutorFilter/parseTutorMv/BASIC_LAND_SUBTYPES/UP_TO_N_WORD from
-  the leaf). Then Wave C (interleaved families). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
+  **Wave B COMPLETE:** ✅ B1a parseGrantedKeywords → leaf (12b `7bd7820`) · ✅ B1b pump → atoms/combat (12c
+  `483f0ac`, the biggest chunk) · ✅ B2a tutor-helpers → leaf (12d `beb5cfc`) · ✅ B2b tutor → atoms/library.tutorClauseParser
+  (12e `d0f2890`, program-diff=0 — 6 contiguous blocks tm/ttm/bfm/mf/spm/lfh, first-match order preserved; parser.js
+  dropped the now-unused parseTutorMv/BASIC_LAND_SUBTYPES/UP_TO_N_WORD imports, kept parseTutorFilter for the rd block).
+  Also ✅ FP-HUNT CHECKPOINT #3 logged (CLEAN by no-drift proof; runtime FP surface git-verified untouched since hunt #1).
+  **NEXT = Wave C** (interleaved families) — lead with the CLEANEST contiguous op to keep momentum (per the map: rad
+  player-grant block 531/533/535 [SMALL_NUM leaf, marked "clean"]; OR animate [parseGrantedKeywords done + inline COLOR_MAP
+  travels]; OR deal-damage scaled board-count [parseCountSource leaf, standard "N damage" stays via legacyToAtom]). SKIP
+  the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
+  (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
   deal-damage / return-from-graveyard⇄reanimate / sacrifice). Wave D = standalone matchers (impulse-dig / discard-chosen
   / create-emblem) — different shape, deferred. **Couplings that MUST co-extract:** destroy⇄exile · rfg⇄reanimate ·
