@@ -140,9 +140,12 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   (batch 19 `946319f`, program-diff=0 — parseTokenManaAbility+parseTokenKeywords + their deps → parseHelpers leaf;
   parser.js dropped its keywords.js import). ✅ create-token (batch 20 `45c0206`). ✅ sacrifice EDICTS (batch 21 `b66e7e8`) + ✅ sacrifice self/triggering (batch 22 `d5d1d41`,
   program-diff=0 — folded into sacrificeEdictClauseParser; SACRIFICE-as-effect FULLY MIGRATED). All program-diff=0.
-  **NEXT = draw+discard each-player [misc.js/hand.js — re-grep the each-player draw + discard blocks, contiguous pair, co-extract
-  just that pair, NOT the scattered combat-damage/for-each draw clusters]; then SCATTERED destroy⇄exile (re-grep 672/697/729/730/741)
-  [order-handling, try last].** FP checkpoint #7 due ~batch 27. SKIP
+  ✅ draw each-player slice → atoms/misc.drawEachPlayerClauseParser + discard family → atoms/hand.discardClauseParser
+  (batch 23 `b97b052`, program-diff=0 — co-extracted coupling; NUM_WORD import dropped from parser.js). All program-diff=0.
+  **NEXT = SCATTERED destroy⇄exile (re-grep `op:"destroy"`/`op:"exile"` — the shared `^(destroy|exile) target <typelist>`
+  regex + MASS "destroy/exile all creatures" + "exile target creature", interleaved w/ other matchers → removal.js, ONE
+  co-extract parser, ORDER-HANDLING RISKY: gate-revert + log "needs order-handling" if not byte-identical). Then the leftover
+  scattered draw clusters + add-counter [entangled, late].** FP checkpoint #7 due ~batch 28. SKIP
   the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
   (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
