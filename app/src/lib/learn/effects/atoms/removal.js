@@ -189,12 +189,17 @@ function applySacrifice(state, atom, ctx) {
  *   each player sacrifices a creature               → who:"eachPlayer"
  *   each (opponent|other player) sacrifices a creature → who:"eachOpponent"
  * ALL-OR-NOTHING bare "a creature" (count 1, unfiltered) — a count / filtered victim / non-creature / conjoined
- * "and loses N life" fails the exact anchor → low → Arbiter (a wrong-victim sac would be a forbidden FP). The
- * self ("sacrifice this creature") + triggering ("sacrifice the triggering creature") sac matchers stay inline
- * (separate non-contiguous region — a later batch). Pure (no helper). Registered via registerClauseParser.
+ * "and loses N life" fails the exact anchor → low → Arbiter (a wrong-victim sac would be a forbidden FP).
+ * Also handles the SELF + TRIGGERING sac forms (batch 22, lifted from their separate mid-function spots; they
+ * ran earlier than the edicts in parseExtendedAtom, so they stay first here):
+ *   "sacrifice this creature"          → target:"self"        (the ability source via ctx.sourceId)
+ *   "sacrifice the triggering creature" → target:"thatCreature" (the TRIGGERING permanent, CR 608.2c)
+ * Pure (no helper). Registered via registerClauseParser.
  */
 export function sacrificeEdictClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  if (/^sacrifice this creature$/.test(t)) return { op: "sacrifice", target: "self" };
+  if (/^sacrifice the triggering creature$/.test(t)) return { op: "sacrifice", target: "thatCreature" };
   let m = t.match(/^target (player|opponent) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
   if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: "creature" };
   m = t.match(/^each player sacrifices a creature(?: of (?:their|his or her) choice)?$/);

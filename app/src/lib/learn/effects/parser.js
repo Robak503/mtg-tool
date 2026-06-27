@@ -657,10 +657,8 @@ function parseExtendedAtom(s) {
   // line 24 — consistent with the targeted-bounce form). Never a fabricated move: if ctx.sourceId is
   // absent or the permanent left the battlefield, selfTargets returns [] → the loop is a no-op.
   if (/^return this creature to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
-  // SELF-SACRIFICE — "sacrifice this creature" (the ability source). Non-targeted (target:"self").
-  // applySacrifice early-exits for target:"self" via sacrificeCreatureEffect(ctx.controller, ctx.sourceId).
-  // No fabrication risk: absent sourceId → sacrificeCreatureEffect early-returns a no-op log event.
-  if (/^sacrifice this creature$/.test(t)) return { op: "sacrifice", target: "self" };
+  // ===== SELF-SACRIFICE ===== "sacrifice this creature" migrated to atoms/removal.sacrificeEdictClauseParser
+  // (seam batch 22 / Wave C — co-located with the triggering + edict sac forms).
   // ===== TRIG-PRONOUN-IT ===== — the NON-SELF triggering-permanent referent: the analogue of the SELF
   // forms above for a "Whenever a creature you control attacks/…, it gets/gains … / sacrifice it / return
   // it" trigger (CR 608.2c — the pronoun is the TRIGGERING permanent, NOT the source). detectTriggers
@@ -672,7 +670,8 @@ function parseExtendedAtom(s) {
   // served by WAVE-3b's counterClausesParser — NOT duplicated here.
   // ===== PUMP (triggering creature) ===== migrated to pumpClauseParser (batch 12c).
   if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
-  if (/^sacrifice the triggering creature$/.test(t)) return { op: "sacrifice", target: "thatCreature" };
+  // ===== SACRIFICE (triggering) ===== "sacrifice the triggering creature" migrated to
+  // atoms/removal.sacrificeEdictClauseParser (seam batch 22 / Wave C).
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   // COUNTER-TARGET-OWN — "put a +1/+1 counter on target creature you control" (Merfolk Skydiver, Kujar
