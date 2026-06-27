@@ -133,8 +133,11 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   atoms/combat.animateClauseParser (batch 14 `1daa5ef`; parseGrantedKeywords import dropped from parser.js). ✅ deal-damage
   scaled board-count → atoms/stack.dealDamageScaledClauseParser (batch 15 `0bac6f5`, program-diff=0 — DMG-SCALE branch only,
   printed "N damage" stays on legacyToAtom; parseCountSource imported into stack.js, stays in parser.js for FOR-EACH). All program-diff=0.
-  **NEXT = co-extract a Wave C coupling pair** (gain-life⇄lose-life [life.js, interleaved clusters], destroy⇄exile [removal.js, one
-  regex emits both], rfg⇄reanimate [zones.js, shared graveyard prefix]). FP-hunt checkpoint #4 due in ~2 batches. SKIP
+  ✅ rfg⇄reanimate co-extracted → atoms/zones.graveyardReturnClauseParser (batch 16 `6dc6022`, program-diff=0 — shared
+  `^return target … from your graveyard` prefix, to-hand then to-battlefield; parseGraveyardFilter moved to zones.js + dropped
+  from parser.js). **NEXT = FP-hunt checkpoint #4 (DUE — 4 batches since #3; no-drift proof), THEN the next Wave C coupling pair**
+  (gain-life⇄lose-life [life.js, scaled FOR-EACH cluster + fixed-N cluster — interleaved with draw, careful]; destroy⇄exile
+  [removal.js — SCATTERED across ~5 sites with other matchers interleaved, likely needs order-handling, try last]). SKIP
   the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
   (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
