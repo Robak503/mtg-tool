@@ -286,6 +286,40 @@ export function earthbendClauseParser(clause) {
   return null;
 }
 
+/**
+ * Combat keyword clause parsers (migrated from parseExtendedAtom, seam batch 7 / Wave A2):
+ *   - tap target creature [+ controller/power/toughness/mana-value/flying restriction] (anchored to $ so a
+ *     rider like "…, then return" or "unless its controller pays" falls through → low → Arbiter).
+ *   - untap target creature · target creature can't block this turn (cant-block) · regenerate self/target.
+ * All whole-clause-anchored, mutually exclusive. Pure (no parser.js import — cycle-safe); normalizes the clause
+ * exactly as parseExtendedAtom does. Registered via registerClauseParser in parser.js.
+ */
+export function combatKeywordClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const tapM = t.match(/^tap target creature(?:\s+(an opponent controls|defending player controls|you don't control|you control|with power (\d+) or less|with power (\d+) or (?:greater|more)|with toughness (\d+) or less|with mana value (\d+) or (?:greater|more)|without flying|with flying))?\.?$/);
+  if (tapM) {
+    const qual = tapM[1];
+    const restrictions = [];
+    if (qual === "an opponent controls" || qual === "defending player controls" || qual === "you don't control")
+      restrictions.push({ kind: "controller", who: "opponent" });
+    else if (qual === "you control")
+      restrictions.push({ kind: "controller", who: "you" });
+    else if (tapM[2]) restrictions.push({ kind: "power", op: "<=", value: parseInt(tapM[2], 10) });
+    else if (tapM[3]) restrictions.push({ kind: "power", op: ">=", value: parseInt(tapM[3], 10) });
+    else if (tapM[4]) restrictions.push({ kind: "toughness", op: "<=", value: parseInt(tapM[4], 10) });
+    else if (tapM[5]) restrictions.push({ kind: "manaValue", op: ">=", value: parseInt(tapM[5], 10) });
+    else if (qual === "without flying") restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: true });
+    else if (qual === "with flying") restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: false });
+    // qual undefined → bare "tap target creature" → no restrictions (any creature)
+    return { op: "tap", targetType: "creature", restrictions };
+  }
+  if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
+  if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
+  if (/^regenerate (?:this creature|this permanent)$/.test(t)) return { op: "regenerate", target: "self" };
+  if (/^regenerate target creature$/.test(t)) return { op: "regenerate", targetType: "creature" };
+  return null;
+}
+
 export const combatResolvers = {
   "fight": fightCreature, // ETB-FIGHT (CR 701.12) — source + target creature deal damage = power to each other, simultaneously
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),

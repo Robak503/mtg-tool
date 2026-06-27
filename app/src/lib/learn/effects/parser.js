@@ -44,7 +44,7 @@ import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { exploreClauseParser, libraryKeywordClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil)
 import { SMALL_NUM, NUM_WORD, parseCountSource } from "./parseHelpers.js"; // seam batch 2/4: shared number-word maps + count-source machinery in a leaf (matchers import cycle-free)
 import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/counters.js"; // seam batch 3
-import { earthbendClauseParser } from "./atoms/combat.js"; // seam batch 5
+import { earthbendClauseParser, combatKeywordClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate)
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -910,34 +910,7 @@ function parseExtendedAtom(s) {
   // Zombify, Breath of Life). CREATURE only; "the battlefield under your control" / "tapped" / "with a
   // +1/+1 counter" / a non-creature card filter fails the exact anchor → low → Arbiter.
   if (/^return target creature card from your graveyard to the battlefield$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
-  // TAP-TARGET-CREATURE — "tap target creature [restriction]" (Fiend Binder, Captivating Unicorn,
-  // Court Street Denizen, Kor Line-Slinger, Storm Front, Dromoka Dunecaster, …). Standard controller
-  // qualifiers (an opponent controls / defending player controls / you don't control → opponent;
-  // you control → own), power/toughness/mana-value numeric restrictions, and flying presence/absence.
-  // Anchored to $ so "tap target creature, then return…" (Cyclopean Snare's bounce rider) and
-  // "unless its controller pays…" (Vectis Dominator / Rhystic Deluge) fall through → low → Arbiter.
-  // "defending player controls" maps to controller:opponent — in practice the defending player is
-  // always an opponent; this is a conservative false-negative rather than an enemy mis-tap (safe).
-  {
-    const tapM = t.match(/^tap target creature(?:\s+(an opponent controls|defending player controls|you don't control|you control|with power (\d+) or less|with power (\d+) or (?:greater|more)|with toughness (\d+) or less|with mana value (\d+) or (?:greater|more)|without flying|with flying))?\.?$/);
-    if (tapM) {
-      const qual = tapM[1];
-      const restrictions = [];
-      if (qual === "an opponent controls" || qual === "defending player controls" || qual === "you don't control")
-        restrictions.push({ kind: "controller", who: "opponent" });
-      else if (qual === "you control")
-        restrictions.push({ kind: "controller", who: "you" });
-      else if (tapM[2]) restrictions.push({ kind: "power", op: "<=", value: parseInt(tapM[2], 10) });
-      else if (tapM[3]) restrictions.push({ kind: "power", op: ">=", value: parseInt(tapM[3], 10) });
-      else if (tapM[4]) restrictions.push({ kind: "toughness", op: "<=", value: parseInt(tapM[4], 10) });
-      else if (tapM[5]) restrictions.push({ kind: "manaValue", op: ">=", value: parseInt(tapM[5], 10) });
-      else if (qual === "without flying") restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: true });
-      else if (qual === "with flying") restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: false });
-      // qual undefined → bare "tap target creature" → no restrictions (any creature)
-      return { op: "tap", targetType: "creature", restrictions };
-    }
-  }
-  if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
+  // ===== TAP + UNTAP ===== migrated to atoms/combat.combatKeywordClauseParser (seam batch 7 / Wave A2).
   if (/^return target creature to its owner's hand$/.test(t)) return { op: "bounce", targetType: "creature" };
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
   // β-3 — bounce a NON-creature permanent ("Return target permanent / nonland permanent / artifact …
@@ -1035,12 +1008,7 @@ function parseExtendedAtom(s) {
     const kws = parseGrantedKeywords(pg[1]);
     return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
-  // CANT-BLOCK — "target creature can't block this turn" (Goblin Shortcutter, Crossway Vampire, Mardu
-  // Roughrider, Unstoppable Ogre). A layer-6 endOfTurn "cantBlock" grant enforced by combatEvasion.
-  // canBlockAttacker (permanentHasKeyword). ENEMY-side (atomTargetIntent → "enemy"): you disable an
-  // opponent's blocker to push damage, so the trigger-flush chooser picks an opponent's creature. The
-  // apostrophe is already normalized to straight (line ~633), so a single "can't" anchor suffices.
-  if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
+  // ===== CANT-BLOCK ===== migrated to atoms/combat.combatKeywordClauseParser (seam batch 7 / Wave A2).
   // PUMP-TGT-CTRL — "target creature you control / an opponent controls gets +N/+N [and gains KW]
   // until end of turn" / "gains KW until end of turn". Encodes the controller restriction using the
   // existing P2.4 restriction-array format ({ kind:"controller", who:"you"|"opponent" }), honored by
@@ -1247,8 +1215,7 @@ function parseExtendedAtom(s) {
   // (gameState.destroyLethalCreatures + spellEffects.applyDestroyEffect consume it, clear damage, tap). Bare
   // anchored forms ONLY — a filtered/conditional regen ("…you control", "if …", "all creatures") fails `$` →
   // low → Arbiter, never a fabricated shield. No magnitude to get wrong: a shield is a shield.
-  if (/^regenerate (?:this creature|this permanent)$/.test(t)) return { op: "regenerate", target: "self" };
-  if (/^regenerate target creature$/.test(t)) return { op: "regenerate", targetType: "creature" };
+  // ===== REGENERATE ===== migrated to atoms/combat.combatKeywordClauseParser (seam batch 7 / Wave A2).
   // ===== COUNTERS ===== TEAM distribution — "Put N +1/+1 (or -1/-1) counter(s) on each creature you
   // control" (Titania's Boon, Basri's Solidarity, Strength of the Pack N=2). NON-targeted, modeled with
   // the SAME `scope:"youControl"` marker the Overrun-style team pump uses (NOT a targetType — it stays
@@ -2482,3 +2449,6 @@ registerClauseParser(earthbendClauseParser);
 // LIBRARY KEYWORDS (seam batch 6 / Wave A1) — discover/shuffle/scry/surveil migrated to
 // atoms/library.libraryKeywordClauseParser (all whole-clause-anchored, mutually exclusive). program-diff = 0.
 registerClauseParser(libraryKeywordClauseParser);
+// COMBAT KEYWORDS (seam batch 7 / Wave A2) — tap/untap/cant-block/regenerate migrated to
+// atoms/combat.combatKeywordClauseParser (all whole-clause-anchored). program-diff = 0.
+registerClauseParser(combatKeywordClauseParser);
