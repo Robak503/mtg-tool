@@ -47,6 +47,7 @@ import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/cou
 import { earthbendClauseParser, combatKeywordClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate)
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
 import { attachClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self)
+import { tuckClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck)
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -925,19 +926,7 @@ function parseExtendedAtom(s) {
     const restrictions = bp[2] ? [{ kind: "controller", who: /^you control$/.test(bp[2]) ? "you" : "opponent" }] : [];
     return { op: "bounce", targetType: TT[bp[1]], restrictions };
   }
-  // TUCK-1 — bounce-to-library ("put target <perm> on top / the bottom of its owner's library" — Time
-  // Ebb, Griptide, Excommunicate, Temporal Spring, Totally Lost, Temporal Eddy, Run Aground). A removal
-  // that mirrors the bounce op with a library destination; the destination (top|bottom) rides on the
-  // atom and the resolver prepends (top) or appends (bottom) via moveCardToZone's toTop flag. Same
-  // target-type map + enumerator as destroy/bounce (creature / permanent / nonland permanent / the
-  // already-modeled 2-way unions). A creature RESTRICTION ("with power 4 or greater" / "with flying" /
-  // "attacking"), a 3-way union, a positional "Nth from the top", or any rider fails the exact anchor →
-  // low → Arbiter (a clean false-negative; restriction + 3-way are a fast-follow).
-  const tk = t.match(/^put target (creature or land|artifact or creature|nonland permanent|creature|permanent) on (top|the bottom) of its owner's library$/);
-  if (tk) {
-    const TT = { "creature": "creature", "permanent": "permanent", "nonland permanent": "nonlandPermanent", "creature or land": "creatureOrLand", "artifact or creature": "creatureOrArtifact" };
-    return { op: "tuck", targetType: TT[tk[1]], where: tk[2] === "top" ? "top" : "bottom" };
-  }
+  // ===== TUCK ===== migrated to atoms/zones.tuckClauseParser (seam batch 10 / Wave A5).
   // Targeted NON-CREATURE permanent removal (Disenchant / Naturalize / Stone Rain / "Destroy
   // target permanent"). CREATURE removal keeps its dedicated path (the richer creature-restriction
   // parser); this covers artifact / enchantment / land / permanent / nonland permanent / "artifact
@@ -2408,3 +2397,5 @@ registerClauseParser(miscClauseParser);
 // (whole-clause-anchored; attach-to-self returns null when its self-destination guard declines, preserving the
 // inline fall-through). program-diff = 0.
 registerClauseParser(attachClauseParser);
+// TUCK (seam batch 10 / Wave A5) — migrated to atoms/zones.tuckClauseParser (whole-clause-anchored). program-diff = 0.
+registerClauseParser(tuckClauseParser);

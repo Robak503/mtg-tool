@@ -109,6 +109,23 @@ export function applyReanimate(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "reanimate", controller: ctx.controller, targets: reanimated });
 }
 
+/**
+ * TUCK clause parser (migrated from parseExtendedAtom, seam batch 10 / Wave A5).
+ * "put target <creature|permanent|nonland permanent|creature or land|artifact or creature> on (top|the
+ * bottom) of its owner's library" → tuck atom (applyZoneMove → library, top/bottom). A creature restriction,
+ * 3-way union, positional "Nth from the top", or any rider fails the exact anchor → low → Arbiter (clean FN).
+ * Pure (no parser.js import — cycle-safe); normalizes the clause exactly as parseExtendedAtom does.
+ */
+export function tuckClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const tk = t.match(/^put target (creature or land|artifact or creature|nonland permanent|creature|permanent) on (top|the bottom) of its owner's library$/);
+  if (tk) {
+    const TT = { "creature": "creature", "permanent": "permanent", "nonland permanent": "nonlandPermanent", "creature or land": "creatureOrLand", "artifact or creature": "creatureOrArtifact" };
+    return { op: "tuck", targetType: TT[tk[1]], where: tk[2] === "top" ? "top" : "bottom" };
+  }
+  return null;
+}
+
 export const zoneResolvers = {
   "bounce": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "hand"),
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
