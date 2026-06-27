@@ -212,6 +212,8 @@ const MODELED_RESTRICTION_RES = [
   /\bblocking\b/g,
   /\bnon(?:white|blue|black|red|green)\b/g,
   /\bnon(?:artifact|enchantment|land)\b/g,
+  /\bwith flying\b/g,                    // β — anti-flyer removal ("destroy/deal N damage to target creature with flying")
+  /\bwithout flying\b/g,
 ];
 
 export function parseCreatureTargetRestrictions(card) {
@@ -263,6 +265,13 @@ export function parseCreatureTargetRestrictions(card) {
   // type line must NOT contain that card type.
   const ntm = t.match(/\bnon(artifact|enchantment|land)\b/);
   if (ntm) { restrictions.push({ kind: "typeNeg", type: ntm[1] }); t = t.replace(/\bnon(?:artifact|enchantment|land)\b/g, " "); }
+
+  // β — keyword restriction: "creature with flying" / "creature without flying" (the anti-flyer removal
+  // archetype — Pierce the Sky, Plummet, Shredding Winds). hasKeyword is enforced LAYER-AWARE by
+  // creatureSatisfiesRestrictions (with → must have it; without → must not, via negate), so a GRANTED
+  // flying counts. Only "flying" for now (the dominant case); any other keyword stays unmodeled → unclean.
+  if (/\bwith flying\b/.test(t)) { restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: false }); t = t.replace(/\bwith flying\b/g, " "); }
+  else if (/\bwithout flying\b/.test(t)) { restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: true }); t = t.replace(/\bwithout flying\b/g, " "); }
 
   // Strip the base noun + filler; anything left is an UNMODELED qualifier → unclean.
   t = t.replace(/\b(target|a|an|another|other|each|any|creature|creatures|with|that|to|the|is)\b/g, " ").replace(/[^a-z]+/g, " ").trim();

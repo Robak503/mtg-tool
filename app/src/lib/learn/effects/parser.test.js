@@ -892,7 +892,7 @@ const MUST_DROP_TO_LOW = [
   // MIXED — a MODELED restriction next to an UNMODELED one must still drop to low
   // (the residue allowlist rejects the leftover qualifier).
   "Destroy target tapped creature an opponent controls that's attacking.", // tapped+controller modeled, "attacking" not
-  "Destroy target creature you control with flying.",                      // controller modeled, "with flying" not
+  "Destroy target creature you control with first strike.",               // controller modeled, "with first strike" not (only "with flying" is — β anti-flyer)
   "Destroy target creature an opponent controls with mana value 3 or less.", // controller modeled, "mana value" not
   "Destroy target creature with the greatest power.",                       // non-numeric power phrase → not modeled
   // Pump with a keyword-grant rider — the "+X/+Y" matches but the granted keyword

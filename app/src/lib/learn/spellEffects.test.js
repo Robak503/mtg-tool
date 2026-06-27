@@ -98,7 +98,7 @@ describe("parseCreatureTargetRestrictions (P2.4)", () => {
     expect(parseCreatureTargetRestrictions(card("Deals 4 damage to target attacking or blocking creature."))).toMatchObject({ clean: true, restrictions: [{ kind: "combat", value: "either" }] });
   });
   it("is UNCLEAN when an unmodeled qualifier is present (→ Arbiter)", () => {
-    expect(parseCreatureTargetRestrictions(card("Destroy target creature you control with flying.")).clean).toBe(false);
+    expect(parseCreatureTargetRestrictions(card("Destroy target creature you control with first strike.")).clean).toBe(false); // only "with flying" is modeled (β anti-flyer)
     expect(parseCreatureTargetRestrictions(card("Destroy target artifact creature.")).clean).toBe(false);      // positive type, not negation
     expect(parseCreatureTargetRestrictions(card("Destroy target legendary creature.")).clean).toBe(false);     // supertype, unmodeled
     expect(parseCreatureTargetRestrictions(card("Destroy target white or blue creature.")).clean).toBe(false); // color UNION, not a single non-color
