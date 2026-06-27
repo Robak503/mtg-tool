@@ -251,11 +251,26 @@ export function counterClauseParser(clause) {
   return null;
 }
 
+/**
+ * MASS-FILTERED-DAMAGE clause parser — "<source> deals N damage to each creature with|without flying"
+ * (Gale Force / Needle Storm / Squall = with; Seismic Shudder / Tremor = without). Reuses the eachCreature
+ * deal-damage path + a hasKeyword restriction (creatureSatisfiesRestrictions filters the mass set, layer-
+ * aware). Whole-clause anchored — a "and each player" / kicker / flashback / threshold rider fails the `$`
+ * → low → Arbiter (FN-safe). Registered via registerClauseParser in parser.js.
+ */
+export function massFilteredDamageClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const m = t.match(/^.+? deals? (\d+) damage to each creature (with|without) flying$/);
+  if (m) return { op: "deal-damage", amount: parseInt(m[1], 10), targetType: "eachCreature", restrictions: [{ kind: "hasKeyword", keyword: "flying", negate: m[2] === "without" }] };
+  return null;
+}
+
 export const stackResolvers = {
   "deal-damage": (state, atom, ctx) =>
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an
     // infect/wither source's non-combat damage routes to -1/-1 counters / poison in applyDamageEffect.
-    applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType: atom.targetType, targets: ctx.targets, source: { id: ctx.sourceId } }),
+    // MASS-FILTERED-DAMAGE: thread atom.restrictions so an eachCreature wipe can be flying-filtered.
+    applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType: atom.targetType, targets: ctx.targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions }),
   "counter": applyCounter,
   "self-attach": applySelfAttach, // ETB-EQUIP-ATTACH — auto-attach an Equipment to a creature you control
   "attach-to-self": applyAttachToSelf, // EQUIP-AUTO-ATTACH — attach a chosen Equipment you control onto the source creature

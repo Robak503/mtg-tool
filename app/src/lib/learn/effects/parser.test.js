@@ -900,7 +900,7 @@ const MUST_DROP_TO_LOW = [
   "Target creature gets +2/+2 until end of turn with trample.",
   // ── P2.5 adversarial-review catches (REAL Scryfall false-highs the multi-clause
   // pass surfaced; pinned so a future parser change can't re-leak them) ──
-  "Seismic Shudder deals 1 damage to each creature without flying.",            // qualified mass damage (not all creatures)
+  "Pyrotechnics deals 1 damage to each creature with first strike.",            // qualified mass damage — only with/without flying is modeled (MASS-FILTERED-DAMAGE), first strike isn't
   "Blazing Volley deals 1 damage to each creature your opponents control.",     // qualified mass damage
   "Simoon deals 1 damage to each creature target opponent controls.",           // qualified — must NOT mis-route to "target player"
   "Shadowstorm deals 2 damage to each creature with shadow.",                   // qualified mass damage

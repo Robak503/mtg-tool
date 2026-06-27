@@ -662,7 +662,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
   return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented });
 }
 
-export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null }) {
+export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null, restrictions = [] }) {
   let next = state;
   const amount = Math.max(0, rawAmount || 0);
   // DAMAGE-REPLACEMENT (CR 614 — Wolverine "double all damage", Furnace of Rath …). Finalize the per-target
@@ -717,9 +717,12 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
     if (targetType === "eachOpponent") {
       for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = hitPlayer(next, opp);
     } else if (targetType === "eachCreature") {
+      // MASS-FILTERED-DAMAGE: `restrictions` (a hasKeyword flying filter from massFilteredDamageClauseParser)
+      // narrows the wiped set — Gale Force hits only flyers, Tremor only non-flyers. An UNrestricted wipe
+      // (Pyroclasm, restrictions=[]) passes every creature (creatureSatisfiesRestrictions over [] = true).
       for (const pid of Object.keys(next.players)) {
         for (const perm of next.players[pid].battlefield) {
-          if (isCreature(perm.card)) next = hitCreature(next, perm.id);
+          if (isCreature(perm.card) && creatureSatisfiesRestrictions(next, perm, pid, controller, restrictions)) next = hitCreature(next, perm.id);
         }
       }
     } else if (targetType === "eachCreatureAndPlayer") {

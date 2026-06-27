@@ -49,7 +49,7 @@ import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, a
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
-import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding)
+import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
@@ -1605,6 +1605,7 @@ registerClauseParser(animateClauseParser);
 // to the number of …", which no earlier registered parser matches and (verified) no later parseExtendedAtom
 // branch matches before the legacyToAtom tail → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(dealDamageScaledClauseParser);
+registerClauseParser(massFilteredDamageClauseParser); // MASS-FILTERED-DAMAGE — "deals N damage to each creature with/without flying"
 // GRAVEYARD-RETURN (seam batch 16 / Wave C) — return-from-graveyard ⇄ reanimate co-extracted to
 // atoms/zones.graveyardReturnClauseParser (one parser, original first-match order: to-hand then to-battlefield).
 // The "return target … from your graveyard …" clauses match no earlier registered parser and (verified) no
