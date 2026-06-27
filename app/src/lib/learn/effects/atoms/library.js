@@ -351,6 +351,29 @@ export function exploreClauseParser(clause) {
   return null;
 }
 
+/**
+ * Library keyword-action clause parsers (migrated from parseExtendedAtom, seam batch 6 / Wave A1):
+ *   - discover N (LCI, CR 701.x) — exile-top-until-nonland-MV≤N, cast free / to hand (applyDiscoverAtom +
+ *     the action-layer cast-free/to-hand decision). FIXED numeric N only.
+ *   - discover X = "that creature's toughness" (Pantlaza) — X read at resolution from ctx.triggeringPermanentId.
+ *   - standalone "[then] shuffle [your library]" (CR 103.2) — shuffles the controller's library.
+ *   - scry N / surveil N (numeric only; a variable/modal form leaves the anchor → low → Arbiter).
+ * All non-targeted, whole-clause-anchored. Pure (no parser.js import — cycle-safe); normalizes the clause
+ * exactly as parseExtendedAtom does. Registered via registerClauseParser in parser.js.
+ */
+export function libraryKeywordClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const dsc = t.match(/^discover (\d+)$/);
+  if (dsc) return { op: "discover", amount: parseInt(dsc[1], 10), targetType: null };
+  if (/^discover x, where x is that creature's toughness$/.test(t)) return { op: "discover", amountToughnessOfTrigger: true, targetType: null };
+  if (/^(?:then |and )?shuffle(?: your library)?$/.test(t)) return { op: "shuffle", targetType: null };
+  let m = t.match(/^scry (\d+)$/);
+  if (m) return { op: "scry", amount: parseInt(m[1], 10), targetType: null };
+  m = t.match(/^surveil (\d+)$/);
+  if (m) return { op: "surveil", amount: parseInt(m[1], 10), targetType: null };
+  return null;
+}
+
 export const libraryResolvers = {
   "tutor": applyTutor,
   "shuffle": applyShuffle,

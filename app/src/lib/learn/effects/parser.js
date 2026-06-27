@@ -41,7 +41,7 @@ import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfR
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
-import { exploreClauseParser } from "./atoms/library.js"; // seam batch 1: EXPLORE matcher migrated out of parseExtendedAtom
+import { exploreClauseParser, libraryKeywordClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil)
 import { SMALL_NUM, NUM_WORD, parseCountSource } from "./parseHelpers.js"; // seam batch 2/4: shared number-word maps + count-source machinery in a leaf (matchers import cycle-free)
 import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/counters.js"; // seam batch 3
 import { earthbendClauseParser } from "./atoms/combat.js"; // seam batch 5
@@ -810,21 +810,7 @@ function parseExtendedAtom(s) {
   if (lfh) {
     return { op: "tutor", sourceZone: "hand", filter: { groups: [["land"]] }, filterLabel: "land card from your hand", destination: "battlefield", entersTapped: !!lfh[1], targetType: null };
   }
-  // DISCOVER (LCI, CR 701.x) — "Discover N": exile cards from the top until a NONLAND with mana value <= N
-  // is exiled, then cast it FREE or put it into your hand (the rest to the bottom in a random order).
-  // Resolved by applyDiscoverAtom + the action-layer cast-free/to-hand decision (legalChoices reuses the
-  // cast machinery, so targeting / AI / the stack all behave like a normal cast). FIXED numeric N only;
-  // "discover X, where X is …" (Pantlaza / Hurl into History — a count-scaled X) is a count-source
-  // follow-up → stays low → Arbiter for now.
-  const dsc = t.match(/^discover (\d+)$/);
-  if (dsc) return { op: "discover", amount: parseInt(dsc[1], 10), targetType: null };
-  // PANTLAZA — "discover X, where X is that creature's toughness": X is the TRIGGERING creature's (the
-  // entering Dinosaur's) layer-resolved toughness, read at resolution from ctx.triggeringPermanentId (the
-  // trigger path threads it). Only meaningful inside the Dino-ETB trigger; applyDiscoverAtom computes X.
-  if (/^discover x, where x is that creature's toughness$/.test(t)) return { op: "discover", amountToughnessOfTrigger: true, targetType: null };
-  // A standalone "[then] shuffle [your library]" clause (some cards put it in its own
-  // sentence after the search) — shuffles the controller's library (CR 103.2).
-  if (/^(?:then |and )?shuffle(?: your library)?$/.test(t)) return { op: "shuffle", targetType: null };
+  // ===== DISCOVER + SHUFFLE ===== migrated to atoms/library.libraryKeywordClauseParser (seam batch 6 / Wave A1).
   let m = t.match(/^(?:you )?gain (\d+) life$/);
   if (m) return { op: "gain-life", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^(?:you )?lose (\d+) life$/);
@@ -1391,15 +1377,7 @@ function parseExtendedAtom(s) {
     const kws = parseTokenKeywords(m[5]);
     return kws ? { ...base, keywords: kws } : null;
   }
-  // Scry / surveil (CR 701.22 / 701.25) — look at the top N of YOUR library and reorder: keep any
-  // on top (in any order), put the rest on the bottom (scry) or into your graveyard (surveil). A
-  // resolution-time INTERACTIVE choice (the player decides; AI/Expert keep all on top) — non-
-  // targeted, so it routes natively as a spell, trigger, or activated ability. Numeric N only; a
-  // variable "scry X" / a modal "scry 1 or 2" leaves the anchor → low → Arbiter.
-  m = t.match(/^scry (\d+)$/);
-  if (m) return { op: "scry", amount: parseInt(m[1], 10), targetType: null };
-  m = t.match(/^surveil (\d+)$/);
-  if (m) return { op: "surveil", amount: parseInt(m[1], 10), targetType: null };
+  // ===== SCRY + SURVEIL ===== migrated to atoms/library.libraryKeywordClauseParser (seam batch 6 / Wave A1).
   // Mill (CR 701.13) — top N of a library to its graveyard. Non-targeted only: "you mill N" (self-
   // mill, for graveyard decks) and "each opponent mills N". "TARGET player mills N" (Glimpse the
   // Unthinkable) is deferred — a targeted mill on a TRIGGER would first-legal-target the controller
@@ -2501,3 +2479,6 @@ registerClauseParser(gainExperienceClauseParser);
 // EARTHBEND (seam batch 5) — migrated to atoms/combat.earthbendClauseParser (whole-clause-anchored; uses the
 // SMALL_NUM + parseCountSource parseHelpers leaf). program-fingerprint byte-identical.
 registerClauseParser(earthbendClauseParser);
+// LIBRARY KEYWORDS (seam batch 6 / Wave A1) — discover/shuffle/scry/surveil migrated to
+// atoms/library.libraryKeywordClauseParser (all whole-clause-anchored, mutually exclusive). program-diff = 0.
+registerClauseParser(libraryKeywordClauseParser);
