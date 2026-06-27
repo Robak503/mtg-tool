@@ -8,6 +8,7 @@ import { logEvent, attachPermanent } from "../../gameState.js";
 import { setPendingSoftCounterChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
+import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 
 /**
  * P3.1 counter (CR 701.5a) — counter the target spell(s) on the stack. The targeted
@@ -187,6 +188,35 @@ export function attachClauseParser(clause) {
     if (SELF_PRONOUN || !NON_SELF) {
       return { op: "attach-to-self", targetType: "equipmentYouControl", optionalTarget: true };
     }
+  }
+  return null;
+}
+
+/**
+ * DMG-SCALE clause parser (WALT-DMG-SCALE) — migrated from parser.js parseExtendedAtom (seam batch 15 / Wave C).
+ * "<source> deals damage to <target> equal to the number of <count source>" — the damage AMOUNT is a board
+ * count resolved at resolution (`amountCount`), not a printed number (Massive Raid, Spitting Earth, Outnumber,
+ * Feedback Bolt). Reuses the deal-damage atom + targeting verbatim; only the amount is new. TIGHT target
+ * ALLOWLIST (the bare, fully-modeled forms) so a restricted target never mis-resolves to the unrestricted set;
+ * an unmodeled count source (parseCountSource → null) drops the whole clause → low → Arbiter. The standard
+ * printed "N damage" form is NOT here — it stays on the legacyToAtom path. "twice the number of" / "in excess
+ * of" don't match the anchor (deliberate deferral — never a half-scaled native). Pure; uses the parseCountSource
+ * leaf. Registered via registerClauseParser in parser.js.
+ */
+export function dealDamageScaledClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const mds = t.match(/^.+? deals? damage to (.+?) equal to the number of (.+)$/);
+  if (mds) {
+    const TT = {
+      "any target": "any", "target creature": "creature", "target player": "player",
+      "target player or planeswalker": "playerOrPlaneswalker",
+      "target creature or planeswalker": "creatureOrPlaneswalker", "each opponent": "eachOpponent",
+    };
+    const targetType = TT[mds[1].trim()];
+    const amountCount = parseCountSource(mds[2], { allowTarget: true });
+    if (!targetType || !amountCount) return null;
+    if (amountCount.who === "target" && targetType !== "player" && targetType !== "playerOrPlaneswalker") return null;
+    return { op: "deal-damage", targetType, amountCount };
   }
   return null;
 }

@@ -46,7 +46,7 @@ import { SMALL_NUM, NUM_WORD, parseCountSource, parseTutorFilter } from "./parse
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad player-grant)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate)
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
-import { attachClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self)
+import { attachClauseParser, dealDamageScaledClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count)
 import { tuckClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
@@ -498,30 +498,9 @@ function parseExtendedAtom(s) {
     return { op: "rad", who: "eachOpponent", countContext: "dyingPower", targetType: null };
   }
 
-  // ===== DMG-SCALE ===== (WALT-DMG-SCALE) "<source> deals damage to <target> equal to the number of
-  // <count source>" — the damage AMOUNT is a board count resolved at resolution (`amountCount`), not a
-  // printed number (Massive Raid, Spitting Earth, Outnumber, Feedback Bolt). Reuses the existing
-  // deal-damage atom + targeting verbatim; only the amount is new. TIGHT target ALLOWLIST (the bare,
-  // fully-modeled forms) so a RESTRICTED target ("target attacking creature", "each player") never
-  // mis-resolves to the unrestricted set; an unmodeled count source (parseCountSource → null) drops the
-  // whole clause to low → Arbiter. "twice the number of" / "in excess of" don't match the anchor (a
-  // deliberate deferral — never a half-scaled native).
-  const mds = t.match(/^.+? deals? damage to (.+?) equal to the number of (.+)$/);
-  if (mds) {
-    const TT = {
-      "any target": "any", "target creature": "creature", "target player": "player",
-      "target player or planeswalker": "playerOrPlaneswalker",
-      "target creature or planeswalker": "creatureOrPlaneswalker", "each opponent": "eachOpponent",
-    };
-    const targetType = TT[mds[1].trim()];
-    const amountCount = parseCountSource(mds[2], { allowTarget: true });
-    if (!targetType || !amountCount) return null;
-    // who:"target" ("cards in that player's hand") requires a SINGLE-PLAYER target — "that player" = the
-    // targeted player. Pairing it with an each-opponent / creature / any target is incoherent (no single
-    // "that player") → route the whole card to the Arbiter rather than silently count 0.
-    if (amountCount.who === "target" && targetType !== "player" && targetType !== "playerOrPlaneswalker") return null;
-    return { op: "deal-damage", targetType, amountCount };
-  }
+  // ===== DMG-SCALE ===== migrated to atoms/stack.dealDamageScaledClauseParser (seam batch 15 / Wave C). The
+  // count-scaled "<source> deals damage to <target> equal to the number of <count source>" form (Massive Raid /
+  // Spitting Earth / Outnumber); the printed "N damage" form stays on legacyToAtom. Uses parseCountSource (leaf).
 
   // ===== FOR-EACH ===== (WALT-FOR-EACH) a count-scaled NON-TARGETED controller effect: "draw a card for
   // each X", "you gain N life for each X", "each opponent/player/you lose N life for each X" (and the
@@ -2033,6 +2012,11 @@ registerClauseParser(pumpClauseParser);
 // parseGrantedKeywords leaf). The "land becomes a N/N … creature" clauses match no earlier registered parser
 // and (verified) no later parseExtendedAtom branch → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(animateClauseParser);
+// DMG-SCALE (seam batch 15 / Wave C) — the count-scaled deal-damage form migrated to
+// atoms/stack.dealDamageScaledClauseParser (parseCountSource leaf). It anchors on "… deals damage to … equal
+// to the number of …", which no earlier registered parser matches and (verified) no later parseExtendedAtom
+// branch matches before the legacyToAtom tail → the inline→CLAUSE_PARSERS move is behavior-identical.
+registerClauseParser(dealDamageScaledClauseParser);
 // MISC (seam batch 8 / Wave A3) — fog + divide-damage migrated to atoms/misc.miscClauseParser
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.
