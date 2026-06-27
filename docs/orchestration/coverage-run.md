@@ -133,11 +133,12 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   atoms/combat.animateClauseParser (batch 14 `1daa5ef`; parseGrantedKeywords import dropped from parser.js). ✅ deal-damage
   scaled board-count → atoms/stack.dealDamageScaledClauseParser (batch 15 `0bac6f5`, program-diff=0 — DMG-SCALE branch only,
   printed "N damage" stays on legacyToAtom; parseCountSource imported into stack.js, stays in parser.js for FOR-EACH). All program-diff=0.
-  ✅ rfg⇄reanimate co-extracted → atoms/zones.graveyardReturnClauseParser (batch 16 `6dc6022`, program-diff=0 — shared
-  `^return target … from your graveyard` prefix, to-hand then to-battlefield; parseGraveyardFilter moved to zones.js + dropped
-  from parser.js). **NEXT = FP-hunt checkpoint #4 (DUE — 4 batches since #3; no-drift proof), THEN the next Wave C coupling pair**
-  (gain-life⇄lose-life [life.js, scaled FOR-EACH cluster + fixed-N cluster — interleaved with draw, careful]; destroy⇄exile
-  [removal.js — SCATTERED across ~5 sites with other matchers interleaved, likely needs order-handling, try last]). SKIP
+  ✅ rfg⇄reanimate co-extracted → atoms/zones.graveyardReturnClauseParser (batch 16 `6dc6022`). ✅ FP-hunt checkpoint #4 CLEAN
+  (no-drift proof). ✅ gain-life⇄lose-life co-extracted → atoms/life.lifeClauseParser (batch 17 `fe9fb06`, program-diff=0 — scaled
+  for-each + fixed-N clusters, one parser, original order; draw branches stay inline disjoint; parseCountSource into life.js). All program-diff=0.
+  **NEXT = remaining Wave C ops:** destroy⇄exile [removal.js — SCATTERED ~5 sites (672/697/729/730/741) with other matchers
+  interleaved, likely needs order-handling]; draw+discard [misc/hand.js, draw is the MOST scattered]; create-token(s) [tokens.js];
+  sacrifice [removal.js, 2 far regions]. SKIP
   the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
   (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
