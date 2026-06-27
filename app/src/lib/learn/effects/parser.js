@@ -41,8 +41,8 @@ import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfR
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
-import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill)
-import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, BASIC_LAND_SUBTYPES, parseTutorFilter, UP_TO_N_WORD, parseTutorMv } from "./parseHelpers.js"; // seam batch 2/4/12b/12d: shared parse helpers in a leaf (matchers import cycle-free)
+import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
+import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, parseTutorFilter } from "./parseHelpers.js"; // seam batch 2/4/12b: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter still used by the rd reveal-dig block. BASIC_LAND_SUBTYPES/UP_TO_N_WORD/parseTutorMv now used only inside atoms/library.tutorClauseParser (B2e)
 import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/counters.js"; // seam batch 3
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump)
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
@@ -594,149 +594,10 @@ function parseExtendedAtom(s) {
     return src ? { op: "lose-life", who: "controller", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
   }
 
-  // Tutor — "Search your library for a/an [<FILTER>] card[ with mana value N[ or less]], [reveal it,]
-  // [and] put it into your hand[, then shuffle]." HAND destination only, single card. The filter is
-  // OPTIONAL: an UNFILTERED "search for a card" (Demonic Tutor) is modeled too (the picker shows the
-  // whole library / the auto-pick takes the best). A FILTERED phrase must be ALLOWLISTED
-  // (parseTutorFilter); WAVE-2b adds an optional MANA-VALUE constraint ("with mana value 2 or less" —
-  // Spellseeker; "with mana value 3" — Trophy Mage) parsed by parseTutorMv and carried on filter.mv —
-  // candidates are MV-filtered UPSTREAM (applyTutor + autoPickTutorCandidate), never just in the picker.
-  // An unmodeled filter ("nonland", "named X") / unmodeled MV comparator ("or greater"/"X") / multi-card
-  // ("two", "up to N") / battlefield/top destination all fail the anchor or the parse → low → Arbiter.
-  // The fetched card is chosen at resolution (player picker, or auto-pick).
-  const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
-  if (tm) {
-    const phrase = tm[1]; // undefined for an unfiltered "a card"
-    const mvCapture = tm[2]; // undefined when there's no "with mana value …"
-    // An MV clause was WRITTEN but its comparator isn't modeled → low (CREED: never silently drop the cap).
-    const mv = parseTutorMv(mvCapture);
-    if (mvCapture !== undefined && mv === null) return null;
-    if (phrase === undefined) {
-      // Unfiltered by TYPE, but possibly MV-capped ("a card with mana value 3" — rare, modeled the same).
-      const filter = mv ? { groups: [], mv } : null;
-      const label = mv ? `card with mana value ${mvCapture}` : "card";
-      return { op: "tutor", filter, filterLabel: label, destination: "hand", targetType: null };
-    }
-    const base = parseTutorFilter(phrase);
-    if (!base) return null;
-    const filter = mv ? { ...base, mv } : base;
-    const label = mv ? `${phrase} card with mana value ${mvCapture}` : `${phrase} card`;
-    return { op: "tutor", filter, filterLabel: label, destination: "hand", targetType: null };
-  }
-  // WAVE-2b FETCH-TO-TOP — "Search your library for a/an [<FILTER>] card, [reveal it,] then shuffle and
-  // put (it|that card|the card) on top." (Vampiric / Mystical / Worldly / Sylvan / Personal / Enlightened
-  // Tutor; the tribal to-top tutors Merrow Harbinger / Forerunner of the Legion / Elvish Harbinger.) The
-  // card is fetched to the TOP of the library AFTER a shuffle (CR 701.19e: shuffle first so the chosen
-  // card survives, THEN place it on top — resolveTutorChoice's destination==="top" ordering). Same
-  // OPTIONAL allowlisted filter + optional MV cap as the to-hand tutor. A rider in the SAME sentence
-  // (Vampiric's "You lose 2 life" is a SEPARATE sentence, split off by splitClauses, so it doesn't reach
-  // here) or a multi-card "any number" / "up to N" fails the single-card anchor → low → Arbiter.
-  const ttm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: (?:then|and))* shuffle(?: your library)? and put (?:it|that card|the card) on top\.?$/);
-  if (ttm) {
-    const phrase = ttm[1];
-    const mvCapture = ttm[2];
-    const mv = parseTutorMv(mvCapture);
-    if (mvCapture !== undefined && mv === null) return null;
-    if (phrase === undefined) {
-      const filter = mv ? { groups: [], mv } : null;
-      const label = mv ? `card with mana value ${mvCapture}` : "card";
-      return { op: "tutor", filter, filterLabel: label, destination: "top", targetType: null };
-    }
-    const base = parseTutorFilter(phrase);
-    if (!base) return null;
-    const filter = mv ? { ...base, mv } : base;
-    const label = mv ? `${phrase} card with mana value ${mvCapture}` : `${phrase} card`;
-    return { op: "tutor", filter, filterLabel: label, destination: "top", targetType: null };
-  }
-  // RAMP-1 / RAMP-TYPED — battlefield-destination LAND tutor: "Search your library for a <LAND> card,
-  // put (it|that card) onto the battlefield[ tapped], then shuffle." (Rampant Growth "a basic land card",
-  // and — RAMP-TYPED — the typed-basic ramp staples: Nature's Lore / Three Visits "a Forest card", Farseek
-  // "a Plains, Island, Swamp, or Mountain card", and the same clause inside Wood Elves' / Farhaven Elf's
-  // ETB). Reuses the tutor atom + picker; the fetched card enters the battlefield (resolveTutorChoice →
-  // enterCardFromZone, firing ETB). RESTRICTED to LAND fetches — every filter group must be GUARANTEED-land
-  // (it names the literal "land", OR a basic land type, which only lands carry — verified zero non-land
-  // hits in the corpus) — so a non-land cheat-into-play (Natural Order "a creature card") stays OUT of scope
-  // → low → Arbiter. Anchored whole-clause: a rider (Threshold / Domain / Rebound), a multi-land "up to two"
-  // (Skyshroud Claim / Explosive Vegetation — "for up to two …" has no "a/an", fails the anchor), or a split
-  // "to your hand … onto the battlefield" (Cultivate) all fail → low → Arbiter. Comma-unions (Farseek) are
-  // honored by parseTutorFilter's Oxford-comma split; the phrase class allows the union's commas.
-  const bfm = t.match(/^search your library for an? ([a-z][a-z ,]*?) cards?,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
-  if (bfm) {
-    const phrase = bfm[1];
-    const filter = parseTutorFilter(phrase);
-    // A group fetches ONLY lands when it names "land" OR a basic land type (plains/island/swamp/mountain/forest).
-    const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
-    // AMBIGUOUS-BASIC union → Arbiter: "a basic Forest or Island card" (Quandrix Cultivator) means basic
-    // Forest or basic ISLAND — the leading "basic" distributes — but the split yields [["basic","forest"],
-    // ["island"]], whose bare "island" group would over-permissively match a NONBASIC dual (Breeding Pool).
-    // Modeling that distribution is a fast-follow; for now any union where "basic" appears in some-but-not-all
-    // groups drops to low → Arbiter (a clean false-negative, never an illegal-target fetch — CREED).
-    const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
-    const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
-    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
-      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!bfm[2], targetType: null };
-    }
-    return null; // a non-land / unmodeled-filter / ambiguous-basic battlefield tutor → low → Arbiter
-  }
-  // RAMP-MULTI — "Search your library for UP TO N <LAND> cards, put them onto the battlefield[ tapped],
-  // then shuffle." (Explosive Vegetation / Skyshroud Claim / Ranger's Path / Migration Path / Nissa's
-  // Expedition at N=2; WAVE-2b UP-TO-N adds N=3..5 — Nissa's Renewal / Seedguide Ash / Horizon Boughs
-  // "up to three basic land cards"). Modeled as a tutor fetching UP TO N matching lands (`remaining:N`) —
-  // the resolver chains a single-pick from the still-legal candidates per fetch (the driver loop drains it:
-  // AI auto-picks all, a human gets N pickers), entering each land the same way, shuffling once at the end.
-  // Same LAND-guard + ambiguous-basic guard as RAMP-1/RAMP-TYPED. A SPLIT destination (Cultivate "put one
-  // onto the battlefield and the other into your hand"), a non-land fetch, or any trailing rider (Hour of
-  // Promise "Then if you control three or more Deserts …" — Nissa's Renewal's "You gain 7 life" is a
-  // SEPARATE sentence, split off, so it doesn't reach here) fails the exact anchor → low → Arbiter.
-  const mf = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards,? put them onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
-  if (mf) {
-    const phrase = mf[2];
-    const count = UP_TO_N_WORD[mf[1]];
-    const filter = parseTutorFilter(phrase);
-    const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
-    const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
-    const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
-    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
-      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[3], remaining: count, targetType: null };
-    }
-    return null; // a non-land / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
-  }
-  // RAMP-SPLIT (Cultivate / Kodama's Reach) — "Search your library for up to two <LAND> cards, reveal those
-  // cards, put one onto the battlefield tapped and the other into your hand, then shuffle." TWO fetches with
-  // DIFFERENT destinations: an ORDERED destinations sequence (first -> battlefield tapped, second -> hand) that
-  // resolveTutorChoice consumes per chained pick. A found-only-one takes the head (battlefield tapped) — exactly
-  // the Cultivate/Kodama rulings (CR 701.23b: a search may find fewer; CR 701.24b: put the found cards, then
-  // shuffle). Same LAND-guard + ambiguous-basic guard as RAMP-1/RAMP-MULTI. "up to two" + the literal split
-  // phrasing ONLY — the bare both-to-battlefield "up to two" is RAMP-MULTI above; "up to three" or a trailing
-  // rider fails this anchor → low → Arbiter.
-  const spm = t.match(/^search your library for up to two ([a-z][a-z ,]*?) cards,? reveal those cards,? put one onto the battlefield( tapped)? and the other into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
-  if (spm) {
-    const phrase = spm[1];
-    const filter = parseTutorFilter(phrase);
-    const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
-    const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
-    const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
-    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
-      return {
-        op: "tutor", filter, filterLabel: `${phrase} card`, remaining: 2,
-        destinations: [{ zone: "battlefield", tapped: !!spm[2] }, { zone: "hand" }],
-        targetType: null,
-      };
-    }
-    return null; // a non-land / unmodeled-filter / ambiguous-basic split-fetch → low → Arbiter
-  }
-  // LAND-FROM-HAND (Growth Spiral "Draw a card. You may put a land card from your hand onto the
-  // battlefield." — the draw is a separate clause). A controller-scoped optional land drop sourced from the
-  // HAND (not the library), entering UNTAPPED, no shuffle. Reuses the tutor pending-choice seam via
-  // `sourceZone:"hand"` — applyTutor gathers the hand lands, the driver surfaces the same picker / auto-picks,
-  // resolveTutorChoice moves hand→battlefield. LANDS ONLY (the literal "land" type — duals/utility included;
-  // it bypasses the land-per-turn limit, CR — it's "put", not "play"). The "you may" is inherent (the tutor
-  // allows declining → put nothing); a MANDATORY "Put a land …" maps to the same atom (declining a forced put
-  // with no land in hand is a clean no-op). NOT a library search (that's the RAMP-1 path above).
-  const lfh = t.match(/^(?:you may )?put a land card from your hand onto the battlefield( tapped)?\.?$/);
-  if (lfh) {
-    return { op: "tutor", sourceZone: "hand", filter: { groups: [["land"]] }, filterLabel: "land card from your hand", destination: "battlefield", entersTapped: !!lfh[1], targetType: null };
-  }
+  // ===== TUTOR ===== migrated to atoms/library.tutorClauseParser (seam batch 12e / Wave B2b). Six contiguous
+  // ordered blocks (tm fetch-to-hand / ttm fetch-to-top / bfm ramp-1 / mf ramp-multi / spm ramp-split /
+  // lfh land-from-hand). FIRST-MATCH ORDER is load-bearing and preserved inside the clause parser; helpers
+  // (parseTutorFilter/parseTutorMv/BASIC_LAND_SUBTYPES/UP_TO_N_WORD) now live in the parseHelpers leaf (B2a).
   // ===== DISCOVER + SHUFFLE ===== migrated to atoms/library.libraryKeywordClauseParser (seam batch 6 / Wave A1).
   let m = t.match(/^(?:you )?gain (\d+) life$/);
   if (m) return { op: "gain-life", amount: parseInt(m[1], 10), targetType: null };
@@ -2226,3 +2087,8 @@ registerClauseParser(tuckClauseParser);
 // MILL (seam batch 11 / Wave A6) — migrated to atoms/library.millClauseParser (3 mutually-exclusive
 // who-scoped branches; NUM_WORD leaf). program-diff = 0.
 registerClauseParser(millClauseParser);
+// TUTOR (seam batch 12e / Wave B2b) — migrated to atoms/library.tutorClauseParser (6 contiguous ordered
+// blocks tm/ttm/bfm/mf/spm/lfh; FIRST-MATCH ORDER preserved inside the parser; tutor helpers in the
+// parseHelpers leaf). All anchored "search your library…"/"put a land card from your hand…" clauses match no
+// earlier registered parser, so the inline→CLAUSE_PARSERS move is behavior-identical. program-diff = 0.
+registerClauseParser(tutorClauseParser);

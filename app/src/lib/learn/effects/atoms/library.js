@@ -6,7 +6,7 @@
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard } from "./shared.js";
-import { NUM_WORD } from "../parseHelpers.js"; // seam batch 11: shared number-word map (leaf, cycle-free) for mill
+import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
 // a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
@@ -390,6 +390,112 @@ export function millClauseParser(clause) {
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
   m = t.match(/^each player mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
+  return null;
+}
+
+/**
+ * TUTOR clause parser (CR 701.19) — migrated from parseExtendedAtom (seam batch 12e / Wave B2b), verbatim.
+ * SIX contiguous match blocks, FIRST-MATCH ORDER LOAD-BEARING (tm/ttm/bfm share the `^search your library for
+ * a…` prefix; tm fetch-to-hand wins over ttm fetch-to-top wins over bfm ramp-1, and the bare-both "up to two"
+ * mf must precede the split spm — preserve tm,ttm,bfm,mf,spm,lfh exactly):
+ *   tm  — fetch-to-HAND single card (optional allowlisted filter + optional MV cap)
+ *   ttm — fetch-to-TOP single card (shuffle-then-place; same optional filter/MV)
+ *   bfm — RAMP-1 / RAMP-TYPED single LAND to battlefield (guaranteed-land guard + ambiguous-basic guard)
+ *   mf  — RAMP-MULTI up-to-N LANDS to battlefield (same land/ambiguous-basic guard)
+ *   spm — RAMP-SPLIT up-to-two LANDS, one→battlefield-tapped + one→hand (ordered destinations)
+ *   lfh — LAND-FROM-HAND optional put (Growth Spiral) — sourceZone:"hand", lands only, untapped
+ * A regex-matched-but-rejected case (non-land/unmodeled-filter/ambiguous-basic/unmodeled-MV) returns null so
+ * the clause falls through to the rest of the dispatch — identical to the old in-function `return null`.
+ * Pure (no parser.js import — cycle-safe); helpers (parseTutorFilter/parseTutorMv/BASIC_LAND_SUBTYPES/
+ * UP_TO_N_WORD) come from the parseHelpers leaf. Registered via registerClauseParser in parser.js.
+ */
+export function tutorClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // tm — fetch-to-HAND single card.
+  const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (tm) {
+    const phrase = tm[1]; // undefined for an unfiltered "a card"
+    const mvCapture = tm[2]; // undefined when there's no "with mana value …"
+    const mv = parseTutorMv(mvCapture);
+    if (mvCapture !== undefined && mv === null) return null;
+    if (phrase === undefined) {
+      const filter = mv ? { groups: [], mv } : null;
+      const label = mv ? `card with mana value ${mvCapture}` : "card";
+      return { op: "tutor", filter, filterLabel: label, destination: "hand", targetType: null };
+    }
+    const base = parseTutorFilter(phrase);
+    if (!base) return null;
+    const filter = mv ? { ...base, mv } : base;
+    const label = mv ? `${phrase} card with mana value ${mvCapture}` : `${phrase} card`;
+    return { op: "tutor", filter, filterLabel: label, destination: "hand", targetType: null };
+  }
+  // ttm — fetch-to-TOP single card.
+  const ttm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: (?:then|and))* shuffle(?: your library)? and put (?:it|that card|the card) on top\.?$/);
+  if (ttm) {
+    const phrase = ttm[1];
+    const mvCapture = ttm[2];
+    const mv = parseTutorMv(mvCapture);
+    if (mvCapture !== undefined && mv === null) return null;
+    if (phrase === undefined) {
+      const filter = mv ? { groups: [], mv } : null;
+      const label = mv ? `card with mana value ${mvCapture}` : "card";
+      return { op: "tutor", filter, filterLabel: label, destination: "top", targetType: null };
+    }
+    const base = parseTutorFilter(phrase);
+    if (!base) return null;
+    const filter = mv ? { ...base, mv } : base;
+    const label = mv ? `${phrase} card with mana value ${mvCapture}` : `${phrase} card`;
+    return { op: "tutor", filter, filterLabel: label, destination: "top", targetType: null };
+  }
+  // bfm — RAMP-1 / RAMP-TYPED single LAND to battlefield.
+  const bfm = t.match(/^search your library for an? ([a-z][a-z ,]*?) cards?,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (bfm) {
+    const phrase = bfm[1];
+    const filter = parseTutorFilter(phrase);
+    const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
+    const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
+    const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
+    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
+      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!bfm[2], targetType: null };
+    }
+    return null; // a non-land / unmodeled-filter / ambiguous-basic battlefield tutor → low → Arbiter
+  }
+  // mf — RAMP-MULTI up-to-N LANDS to battlefield.
+  const mf = t.match(/^search your library for up to (two|three|four|five) ([a-z][a-z ,]*?) cards,? put them onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (mf) {
+    const phrase = mf[2];
+    const count = UP_TO_N_WORD[mf[1]];
+    const filter = parseTutorFilter(phrase);
+    const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
+    const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
+    const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
+    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
+      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[3], remaining: count, targetType: null };
+    }
+    return null; // a non-land / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
+  }
+  // spm — RAMP-SPLIT up-to-two LANDS, one→battlefield-tapped + one→hand.
+  const spm = t.match(/^search your library for up to two ([a-z][a-z ,]*?) cards,? reveal those cards,? put one onto the battlefield( tapped)? and the other into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (spm) {
+    const phrase = spm[1];
+    const filter = parseTutorFilter(phrase);
+    const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
+    const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
+    const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
+    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
+      return {
+        op: "tutor", filter, filterLabel: `${phrase} card`, remaining: 2,
+        destinations: [{ zone: "battlefield", tapped: !!spm[2] }, { zone: "hand" }],
+        targetType: null,
+      };
+    }
+    return null; // a non-land / unmodeled-filter / ambiguous-basic split-fetch → low → Arbiter
+  }
+  // lfh — LAND-FROM-HAND optional put (Growth Spiral).
+  const lfh = t.match(/^(?:you may )?put a land card from your hand onto the battlefield( tapped)?\.?$/);
+  if (lfh) {
+    return { op: "tutor", sourceZone: "hand", filter: { groups: [["land"]] }, filterLabel: "land card from your hand", destination: "battlefield", entersTapped: !!lfh[1], targetType: null };
+  }
   return null;
 }
 
