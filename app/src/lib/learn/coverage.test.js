@@ -131,7 +131,9 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Instant", "Counter target noncreature spell.", { name: "Negate" }))).toBe("native-spell");
     expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {3}.", { name: "Mana Leak" }))).toBe("native-spell");      // SOFT-CNT — fixed {N} now modeled
     expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {X}.", { name: "Clash of Wills" }))).toBe("native-spell"); // SOFT-CNT-X (WAVE 2b) — the {X} is the counterspell's own cast X
-    expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {1} for each card in your hand.", { name: "Foil-ish" }))).toBe("arbiter-spell"); // a VARIABLE tax (not a clean {X}) stays Arbiter
+    // a count-scaled tax over a SUPPORTED count source is now native (SOFT-CNT-COUNT); an UNSUPPORTED count stays Arbiter:
+    expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {1} for each card in your graveyard.", { name: "Rakshasa's Disdain" }))).toBe("native-spell");
+    expect(classifyCard(C("Instant", "Counter target spell unless its controller pays {1} for each blue permanent you control.", { name: "Spell Syphon" }))).toBe("arbiter-spell"); // color-filtered count unsupported → Arbiter
   });
   it("a 'search → hand → shuffle' tutor is native-spell; RAMP-1: a single-land 'onto the battlefield' fetch is native too, multi-land/non-land bounce", () => {
     expect(classifyCard(C("Sorcery", "Search your library for a creature card, reveal it, put it into your hand, then shuffle.", { name: "Eladamri's Call" }))).toBe("native-spell");

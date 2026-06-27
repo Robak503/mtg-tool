@@ -6,7 +6,7 @@
 import { applyDamageEffect } from "../../spellEffects.js";
 import { logEvent, attachPermanent } from "../../gameState.js";
 import { setPendingSoftCounterChoice } from "../../pendingChoice.js";
-import { resolveScaledAmount } from "./shared.js";
+import { resolveScaledAmount, countForSpec } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 
@@ -99,8 +99,14 @@ function applyCounter(state, atom, ctx) {
     // controller's pay-or-be-countered choice (runProgram attaches the resume + suspends; the driver settles
     // it via resolveSoftCounterChoice — pay → spell survives, else countered). The parser produces exactly
     // ONE spell target per counter atom, so set the choice and stop the loop.
-    if ((atom.unlessPay != null || atom.unlessPayX) && !next.pendingChoice) {
-      const amount = atom.unlessPayX ? Math.max(0, ctx.xValue || 0) : atom.unlessPay;
+    if ((atom.unlessPay != null || atom.unlessPayX || atom.unlessPayCount) && !next.pendingChoice) {
+      // SOFT-CNT-COUNT — "pays {N} for each <count source>" (Rakshasa's Disdain {1}/GY card, Override
+      // {1}/artifact, Oppressive Will {1}/hand card): the tax is per × a board/zone count resolved HERE via
+      // the shared countForSpec (the same primitive the deal-damage-by-count path uses). An unmodeled count
+      // source never reaches this (parseCountSource → null → the clause stayed LOW → Arbiter).
+      const amount = atom.unlessPayCount
+        ? Math.max(0, (atom.unlessPayCount.per || 1) * countForSpec(next, ctx, atom.unlessPayCount.spec))
+        : atom.unlessPayX ? Math.max(0, ctx.xValue || 0) : atom.unlessPay;
       return setPendingSoftCounterChoice(next, {
         controller: targetObj.controller,
         amount,
@@ -257,6 +263,16 @@ export function counterClauseParser(clause) {
   if (sc) return { op: "counter", spellFilter: sc[1] ? sc[1].trim() : "any", targetType: "spell", unlessPay: parseInt(sc[2], 10) };
   const scx = /^counter target (noncreature |creature )?spell unless its controller pays \{x\}$/.exec(t);
   if (scx) return { op: "counter", spellFilter: scx[1] ? scx[1].trim() : "any", targetType: "spell", unlessPayX: true, countX: true };
+  // SOFT-CNT-COUNT — "counter target spell unless its controller pays {N} for each <count source>" (Rakshasa's
+  // Disdain / Countervailing Winds / Circular Logic [GY], Override [artifacts], Oppressive Will [hand]). Reuses
+  // the soft-counter pendingChoice + the shared parseCountSource/countForSpec. An unmodeled count (color-filtered
+  // "blue permanent", Domain, all-battlefield, "revealed/discarded this way") → parseCountSource null → low → Arbiter.
+  const scc = /^counter target (noncreature |creature )?spell unless its controller pays \{(\d+)\} for each (.+)$/.exec(t);
+  if (scc) {
+    const spec = parseCountSource(scc[3]);
+    if (!spec) return null;
+    return { op: "counter", spellFilter: scc[1] ? scc[1].trim() : "any", targetType: "spell", unlessPayCount: { per: parseInt(scc[2], 10), spec } };
+  }
   return null;
 }
 

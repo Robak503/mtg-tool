@@ -183,3 +183,33 @@ describe("coverage — clean soft counters are native-spell; variable/rider stay
     expect(classifyCard({ name: "Rune Snag", type: "Instant", oracle: "Counter target spell unless its controller pays {2} plus an additional {2} for each card named Rune Snag in each graveyard." })).not.toBe("native-spell");
   });
 });
+
+// ===== SOFT-CNT-COUNT ===== "pays {N} for each <count source>" — the tax is per × a board/zone count
+// resolved at the counter's resolution via the shared countForSpec (the deal-damage-by-count primitive).
+describe("soft-counter with a count-scaled tax (SOFT-CNT-COUNT)", () => {
+  it("parses the supported count shapes to unlessPayCount {per, spec}", () => {
+    expect(atomsOf("Counter target spell unless its controller pays {1} for each card in your graveyard."))
+      .toEqual([{ op: "counter", spellFilter: "any", targetType: "spell", unlessPayCount: { per: 1, spec: { kind: "cardsInGraveyard" } } }]);
+    expect(atomsOf("Counter target spell unless its controller pays {1} for each card in your hand."))
+      .toEqual([{ op: "counter", spellFilter: "any", targetType: "spell", unlessPayCount: { per: 1, spec: { kind: "cardsInHand" } } }]);
+    expect(atomsOf("Counter target spell unless its controller pays {1} for each artifact you control."))
+      .toEqual([{ op: "counter", spellFilter: "any", targetType: "spell", unlessPayCount: { per: 1, spec: { kind: "permanentsYouControl", cardType: "artifact" } } }]);
+  });
+  it("Rakshasa's Disdain / Override / Oppressive Will flip native-spell", () => {
+    expect(classifyCard({ name: "Rakshasa's Disdain", type: "Instant", oracle: "Counter target spell unless its controller pays {1} for each card in your graveyard." })).toBe("native-spell");
+    expect(classifyCard({ name: "Override", type: "Instant", oracle: "Counter target spell unless its controller pays {1} for each artifact you control." })).toBe("native-spell");
+  });
+  it("CREED: an UNMODELED count source stays Arbiter (color-filtered / Domain / all-battlefield / event-count)", () => {
+    const low = (o) => expect(programConfidence(parseEffectClause(o, "Instant"))).toBe("low");
+    low("Counter target spell unless its controller pays {1} for each blue permanent you control."); // Spell Syphon
+    low("Counter target spell unless its controller pays {2} for each Wizard on the battlefield.");  // Ixidor's Will (all-battlefield)
+    low("Counter target spell unless its controller pays {3} for each card discarded this way.");     // Rites of Refusal (event)
+  });
+  it("resolver e2e — the pay amount = per × the count (3 cards in the caster's graveyard → tax 3)", () => {
+    const s0 = createGameState({ userDeck: [], aiDeck: [] });
+    const s = { ...s0, stack: [spellOnStack("s1", "Divination", "Sorcery", "ai")],
+      players: { ...s0.players, user: { ...s0.players.user, graveyard: [{ id: "g1" }, { id: "g2" }, { id: "g3" }] } } };
+    const out = resolveAtom(s, { op: "counter", spellFilter: "any", targetType: "spell", unlessPayCount: { per: 1, spec: { kind: "cardsInGraveyard" } } }, { controller: "user", targets: [{ type: "spell", id: "s1" }] });
+    expect(out.pendingChoice).toMatchObject({ kind: "soft-counter", controller: "ai", amount: 3, spellId: "s1" });
+  });
+});

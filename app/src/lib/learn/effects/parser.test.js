@@ -797,7 +797,8 @@ const MUST_DROP_TO_LOW = [
   // anchored allowlist drops anything that isn't EXACTLY a bare "Counter target
   // [noncreature|creature]? spell". ──
   // (Clash of Wills "unless its controller pays {X}" is now HIGH — WAVE 2b SOFT-CNT-X, pinned in counterGrammar.test.js)
-  "Counter target spell unless its controller pays {1} for each card in your hand.", // tax
+  // (a count-tax over a SUPPORTED count — GY/hand/artifacts — is now HIGH: SOFT-CNT-COUNT, pinned in softCounter.test.js)
+  "Counter target spell unless its controller pays {1} for each blue permanent you control.", // tax over an UNSUPPORTED (color-filtered) count → low
   "Counter target spell or ability.",                            // "or ability" — not a bare spell target
   "Counter target activated or triggered ability.",              // an ability is not a spell
   "Counter up to two target spells.",                            // "up to two" cardinality unmodeled
