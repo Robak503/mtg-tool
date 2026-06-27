@@ -152,12 +152,17 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   ✅ destroy⇄exile SHIPPED w/ rider-folding fix (batch 27 `22c8767`, program-diff=0 — matchRemovalControllerRider resolves its
   rider-stripped lead via `parseExtendedAtom() || destroyExileClauseParser`; the 26 controllerRider cards fold byte-identically;
   also dropped the orphaned `let m`). **RIDER-FOLDING PATTERN PROVEN.** All program-diff=0.
-  ✅ counter (A7) SHIPPED w/ rider-folding fix (batch 28 `0830941`, program-diff=0 — counterClauseParser + matchCounterControllerRider/
-  matchCounterExileInstead rewired; A7 RESOLVED). **SEAM SUBSTANTIALLY COMPLETE: parser.js 2642→1673 (−969), 34 clause parsers, every
-  big op-family migrated, both rider-folding ops done.** Residue inline = genuinely-fused CDMG/dies templates + a `fight` singleton +
-  Wave-D `{atom,rest}` standalone matchers (separate mechanism) + legacyToAtom.
-  **NEXT = optional marginal `fight` cleanup; otherwise the GATE-TO-SCALING is open and the next phase = NEW COVERAGE (card-adding,
-  moving the number) which is COLTON'S call — STOP+notify when the seam has no clean byte-identical work left.** FP checkpoint #8 due ~2 batches on. SKIP
+  ✅✅ **CLAUSE-PARSER SEAM MIGRATION COMPLETE (batch 29 census).** `fight` confirmed dispatch-level (parseClauseToAtom, not a
+  parseExtendedAtom branch) → nothing left to extract. The GATE-TO-SCALING (GO-AFTER-SEAM) is OPEN.
+
+  ## 🏁 SEAM MIGRATION — FINAL SUMMARY
+  - **31 seam batches shipped, every one program-diff=0** (byte-identical canonical parseEffectClause output over all 34,160 cards — provably zero behavior change).
+  - **parser.js: 2642 → 1673 lines (−969).** The ~149-branch `parseExtendedAtom` monolith is now a thin dispatcher over **33 co-located per-family clause parsers** in `atoms/*.js` (registered via `registerClauseParser`, resolved in `parseClauseToAtom`).
+  - **Both rider-folding-entangled ops RESOLVED** (counter A7 + destroy⇄exile): the dispatch (`matchRemovalControllerRider`/`matchCounterControllerRider`/`matchCounterExileInstead`) resolves its rider-stripped lead via `parseExtendedAtom() || <clauseParser>`, so controllerRider/exileInstead fold byte-identically.
+  - **FP-clean: 0 real false positives across 8 checkpoints** (#1 full sweep + #2–#8 no-drift proofs). The gate caught + reverted the 2 bare-lift entanglements (counter b12, destroy⇄exile b24) BEFORE they shipped; both re-shipped correctly. **0 bad commits ever reached master.**
+  - **Residue inline (by design / different mechanism, NOT seam targets):** fused CDMG/dies-payoff templates (countContext), dispatch-level fight, Wave-D `{atom,rest}` standalone matchers (a separate infra seam if ever wanted), legacyToAtom fallback.
+
+  **NEXT PHASE = COLTON'S CALL.** Card count stayed FLAT 20.8%/7,113 by design (the seam is a pure refactor). The next phase is NEW COVERAGE — moving the number — which is a strategy change off flat-by-design and Colton's to green-light. Options to put to him: (1) resume new-coverage card-adding (the builders fan back out onto the now-collision-free clause-parser modules); (2) prove ONE clean coverage wave end-to-end on the new seam first; (3) tackle the Wave-D standalone-matcher seam; (4) something else. **Loop STOPPED pending his decision.**
   the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
   (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
