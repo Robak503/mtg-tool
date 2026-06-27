@@ -274,7 +274,13 @@ function splitClauses(oracle) {
     .replace(
       /(\bcreates?\b[^.]*?\btokens?\b[^.]*?)\.\s+it has (["“'])/gi,
       "$1 with $2",
-    );
+    )
+    // PUMP-UNTAP — fold the separate "Untap it." sentence that follows a combat-trick pump ("Target
+    // creature[ you control] gets +N/+N and gains KW until end of turn. Untap it." — Vines of the Recluse,
+    // Acrobatic Leap, Octopus Form) into the pump sentence as " and untap it", so the pumpClauseParser binds
+    // the untap to the SAME single target ("it" = the pumped creature) rather than orphaning it into a
+    // separate, unbindable "untap it" clause. Only a +N/+N-with-keyword pump (the exact combat-trick shape).
+    .replace(/(gets [+-]\d+\/[+-]\d+ and gains [^.]*?\buntil end of turn)\.\s+untap it\b\.?/gi, "$1 and untap it");
   for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
     if (!sentence) continue;
@@ -293,7 +299,7 @@ function splitClauses(oracle) {
     // trample until end of turn"), or grants several keywords ("gains flying and vigilance"),
     // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence
     // as one clause so parseExtendedAtom binds the pump + grant to the SAME target.
-    if (/^target creature (?:(?:you control|an opponent controls) )?(?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    if (/^target creature (?:(?:you control|an opponent controls) )?(?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn(?: and untap it)?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // Overrun-style TEAM pump + keyword grant ("Creatures you control get +3/+3 and gain
     // trample until end of turn"): the " and " between the P/T bump and the grant is INTERNAL
     // to one team-pump instruction, not a top-level effect boundary. Keep the whole sentence so

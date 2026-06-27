@@ -87,6 +87,10 @@ export function applyPumpEffect(state, atom, ctx) {
         duration: dur(), source: src,
       }).state;
     }
+    // PUMP-UNTAP — a combat trick that also untaps its target ("…until end of turn. Untap it." — Vines of
+    // the Recluse, Acrobatic Leap, ambush tricks). The untap is part of the SAME single-target atom (no
+    // second target), so it lands on the pumped creature; a one-shot untap, not a continuous effect.
+    if (atom.untap) next = untapPermanent(next, target.id);
   }
   // A negative pump (-X/-Y, e.g. Disfigure / Last Gasp / Dismember) can drop a
   // creature's DERIVED toughness to <= 0 — run the lethal SBA so it dies at
@@ -409,6 +413,15 @@ export function combatKeywordClauseParser(clause) {
  */
 export function pumpClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // PUMP-UNTAP — splitClauses folds a trailing "Untap it." sentence onto a combat-trick pump as
+  // "…until end of turn and untap it" (the untap targets the SAME pumped creature — "it"). Strip the tail,
+  // re-parse the pure pump, and stamp untap:true so applyPumpEffect untaps the target. Only a SINGLE-target
+  // "target creature[ you control/an opponent controls]" pump carries this (a team/self/mass form never does).
+  const um = t.match(/^(target creature(?: you control| an opponent controls)? gets [+-]\d+\/[+-]\d+ and gains .+ until end of turn) and untap it$/);
+  if (um) {
+    const base = pumpClauseParser(um[1]);
+    return base && base.op === "pump" ? { ...base, untap: true } : null;
+  }
   let pg = t.match(/^target creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
   if (pg) {
     const kws = parseGrantedKeywords(pg[3]);
