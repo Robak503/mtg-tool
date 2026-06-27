@@ -103,7 +103,9 @@ export const atomTargets = (state, atom, ctx) => {
   if (atom.targetType === "eachCreature") return massCreatureTargets(state);
   if (atom.targetType === "eachArtifact") return massPermanentTargets(state, isArtifactCard);
   if (atom.targetType === "eachEnchantment") return massPermanentTargets(state, isEnchantmentCard);
-  if (atom.targetType === "eachLand") return massPermanentTargets(state, isLandCard);
+  if (atom.targetType === "eachLand") return massPermanentTargets(state, atom.landSubtype
+    ? (c) => isLandCard(c) && new RegExp(`\\b${atom.landSubtype}\\b`, "i").test(typeLineStr(c)) // MASS-LAND-SUBTYPE (Boil "destroy all Islands")
+    : isLandCard);
   if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller);
   if (atom.scope === "eachOpponentCreature") return opponentCreatureTargets(state, ctx.controller);

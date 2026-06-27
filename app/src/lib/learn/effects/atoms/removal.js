@@ -247,6 +247,15 @@ export function destroyExileClauseParser(clause) {
     const TT = { "artifacts": "eachArtifact", "enchantments": "eachEnchantment", "lands": "eachLand", "artifacts and enchantments": "eachArtifactOrEnchantment" };
     return { op: "destroy", targetType: TT[m[1]] };
   }
+  // MASS-LAND-SUBTYPE — "destroy all Islands|Swamps|Mountains|Plains|Forests" (Boil, Tsunami, Acid Rain,
+  // Flashfires). Reuses the eachLand destroy with a basic-land-type filter (atomTargets honors landSubtype);
+  // hits every land of that type on every battlefield (basic AND dual). A rider ("…For each land destroyed…"
+  // — Stench of Evil) fails the `$` → low → Arbiter (FN-safe).
+  const ml = t.match(/^destroy all (islands|swamps|mountains|plains|forests)$/);
+  if (ml) {
+    const SUB = { islands: "Island", swamps: "Swamp", mountains: "Mountain", plains: "Plains", forests: "Forest" };
+    return { op: "destroy", targetType: "eachLand", landSubtype: SUB[ml[1]] };
+  }
   return null;
 }
 
