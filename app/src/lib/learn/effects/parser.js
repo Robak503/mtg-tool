@@ -48,6 +48,7 @@ import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, ani
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
 import { attachClauseParser, dealDamageScaledClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count)
 import { tuckClauseParser, graveyardReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate)
+import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -537,57 +538,20 @@ function parseExtendedAtom(s) {
     const src = parseCountSource(mfe[1]);
     return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
   }
-  mfe = t.match(/^(?:you )?gain (\d+) life for each (.+)$/);
-  if (mfe) {
-    const src = parseCountSource(mfe[2]);
-    return src ? { op: "gain-life", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
-  }
-  mfe = t.match(/^(?:you )?gain life equal to the number of (.+)$/);
-  if (mfe) {
-    const src = parseCountSource(mfe[1]);
-    return src ? { op: "gain-life", amountCount: { ...src, per: 1 }, targetType: null } : null;
-  }
-  mfe = t.match(/^each opponent loses (\d+) life for each (.+)$/);
-  if (mfe) {
-    const src = parseCountSource(mfe[2]);
-    return src ? { op: "lose-life", who: "eachOpponent", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
-  }
-  mfe = t.match(/^each player loses (\d+) life for each (.+)$/);
-  if (mfe) {
-    const src = parseCountSource(mfe[2]);
-    return src ? { op: "lose-life", who: "eachPlayer", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
-  }
-  mfe = t.match(/^(?:you )?lose (\d+) life for each (.+)$/);
-  if (mfe) {
-    const src = parseCountSource(mfe[2]);
-    return src ? { op: "lose-life", who: "controller", amountCount: { ...src, per: parseInt(mfe[1], 10) }, targetType: null } : null;
-  }
+  // ===== LIFE (scaled for-each: gain-life ⇄ lose-life) ===== co-extracted to atoms/life.lifeClauseParser
+  // (seam batch 17 / Wave C), with the fixed-N life cluster below. The draw for-each branches above STAY inline
+  // (disjoint "draw …" anchor). Uses parseCountSource (leaf).
 
   // ===== TUTOR ===== migrated to atoms/library.tutorClauseParser (seam batch 12e / Wave B2b). Six contiguous
   // ordered blocks (tm fetch-to-hand / ttm fetch-to-top / bfm ramp-1 / mf ramp-multi / spm ramp-split /
   // lfh land-from-hand). FIRST-MATCH ORDER is load-bearing and preserved inside the clause parser; helpers
   // (parseTutorFilter/parseTutorMv/BASIC_LAND_SUBTYPES/UP_TO_N_WORD) now live in the parseHelpers leaf (B2a).
   // ===== DISCOVER + SHUFFLE ===== migrated to atoms/library.libraryKeywordClauseParser (seam batch 6 / Wave A1).
-  let m = t.match(/^(?:you )?gain (\d+) life$/);
-  if (m) return { op: "gain-life", amount: parseInt(m[1], 10), targetType: null };
-  m = t.match(/^(?:you )?lose (\d+) life$/);
-  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "controller", targetType: null };
-  m = t.match(/^each opponent loses (\d+) life$/);
-  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachOpponent", targetType: null };
-  // DEATH-DRAIN-TARGETED — "target player/opponent loses N life" (Blood Artist, Falkenrath Noble, Vengeful
-  // Bloodwitch, the aristocrats single-target drain). Like targeted DAMAGE (atomTargetIntent → "enemy"), a
-  // life-LOSS aimed at a target is never self-directed — draining yourself is strictly bad — so the trigger-
-  // flush chooser always picks an opponent (no self-drain hazard). who:"target" + a chosen player targetType
-  // so the cast path enumerates a player target and the resolver reads it from ctx.targets (mirrors the
-  // targeted-draw atom). Numeric N only; a "for each"/scaled/rider variant fails the `$` anchor → Arbiter.
-  m = t.match(/^target (player|opponent) loses (\d+) life$/);
-  if (m) return { op: "lose-life", amount: parseInt(m[2], 10), who: "target", targetType: m[1] };
-  // ===== EACH-PLAYER ===== (EP-3) symmetric life loss — "Each player loses N life" (Crushing
-  // Disappointment, Bad Deal). NON-targeted (who:eachPlayer, no targetType), so it resolves the same
-  // on a spell or a trigger — no first-legal self-target hazard. A "for each …" rider (Stronghold
-  // Discipline) or any trailing text fails the `$` anchor → low → Arbiter. Numeric N only.
-  m = t.match(/^each player loses (\d+) life$/);
-  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachPlayer", targetType: null };
+  // ===== LIFE (fixed-N: gain-life ⇄ lose-life) ===== co-extracted to atoms/life.lifeClauseParser (seam batch 17
+  // / Wave C), with the scaled for-each life cluster above. Covers "you gain/lose N life", "each opponent/player
+  // loses N life", and the DEATH-DRAIN-TARGETED "target player|opponent loses N life" (who:"target", offensive —
+  // atomTargetIntent → enemy). First-match order preserved inside the clause parser. Numeric N only (rider → Arbiter).
+  let m;
   // Counter target spell (P3.1, CR 701.5a) — targets a SPELL on the stack, not a
   // permanent/player. Anchored ALLOWLIST: a tax/conditional/modal-target counter
   // ("…unless its controller pays {3}", "…or ability", "…up to two target spells",
@@ -2007,6 +1971,11 @@ registerClauseParser(dealDamageScaledClauseParser);
 // The "return target … from your graveyard …" clauses match no earlier registered parser and (verified) no
 // later parseExtendedAtom branch → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(graveyardReturnClauseParser);
+// LIFE (seam batch 17 / Wave C) — gain-life ⇄ lose-life co-extracted to atoms/life.lifeClauseParser (scaled
+// for-each cluster + fixed-N cluster, one parser, original first-match order; parseCountSource leaf). The
+// draw for-each branches stay inline above (disjoint "draw …" anchor). The life clauses match no earlier
+// registered parser and (verified) no later parseExtendedAtom branch → inline→CLAUSE_PARSERS is behavior-identical.
+registerClauseParser(lifeClauseParser);
 // MISC (seam batch 8 / Wave A3) — fog + divide-damage migrated to atoms/misc.miscClauseParser
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.
