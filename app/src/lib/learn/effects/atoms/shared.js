@@ -76,8 +76,28 @@ export function controllerCreatureTargets(state, controller) {
 }
 
 /**
+ * Every creature the controller's OPPONENTS control right now (MASS-DEBUFF scope `scope:"eachOpponentCreature"`:
+ * "Creatures your opponents control get -N/-N until end of turn" — Make Obsolete / Suffocating Fumes / Cower in
+ * Fear). The opponent-side mirror of controllerCreatureTargets; gathered AT RESOLUTION (CR 611.2c — the set is
+ * fixed when the one-shot begins). In this engine's 1v1 + 4P-FFA formats opponentsOf = every player but the
+ * controller, so this is exactly the printed "your opponents control" set.
+ */
+export function opponentCreatureTargets(state, controller) {
+  const out = [];
+  for (const oppId of opponentsOf(state, controller)) {
+    const opp = state.players?.[oppId];
+    if (!opp) continue;
+    for (const perm of opp.battlefield) {
+      if (isCreatureCard(perm.card)) out.push({ type: "creature", id: perm.id, controller: oppId });
+    }
+  }
+  return out;
+}
+
+/**
  * The atom's effective target list: every creature for a mass atom (`eachCreature`), every
- * creature the controller controls for a team pump (`scope:"youControl"`), else the chosen targets.
+ * creature the controller controls for a team pump (`scope:"youControl"`), every creature the
+ * opponents control for a mass debuff (`scope:"eachOpponentCreature"`), else the chosen targets.
  */
 export const atomTargets = (state, atom, ctx) => {
   if (atom.targetType === "eachCreature") return massCreatureTargets(state);
@@ -86,6 +106,7 @@ export const atomTargets = (state, atom, ctx) => {
   if (atom.targetType === "eachLand") return massPermanentTargets(state, isLandCard);
   if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller);
+  if (atom.scope === "eachOpponentCreature") return opponentCreatureTargets(state, ctx.controller);
   if (atom.target === "self") return selfTargets(state, ctx);
   if (atom.target === "thatCreature") return triggeringTargets(state, ctx);
   return ctx.targets || [];

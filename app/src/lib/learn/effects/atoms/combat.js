@@ -363,6 +363,13 @@ export function pumpClauseParser(clause) {
   }
   tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (tp) return { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) } };
+  // MASS-DEBUFF — "Creatures your opponents control get -N/-N until end of turn" (Make Obsolete, Suffocating
+  // Fumes, Cower in Fear, Turn the Tide, Hysterical Blindness, Hampering Snare). The opponent-side mirror of the
+  // youControl TEAM pump: scope:"eachOpponentCreature" → applyPumpEffect over opponentCreatureTargets, the SAME
+  // per-creature fixed-effect + lethal-SBA path the eachCreature/-X-X wipe uses. Whole-clause anchored — a filter
+  // ("creatures your opponents control with flying"), a rider, or a non-opponent scope fails the `$` → low → Arbiter.
+  const od = t.match(/^creatures your opponents control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (od) return { op: "pump", scope: "eachOpponentCreature", ptDelta: { p: parseInt(od[1], 10), t: parseInt(od[2], 10) } };
   const ox = t.match(/^(?:until end of turn, )?creatures you control gain (.+?) and get \+x\/\+x(?: until end of turn)?, where x is (.+?)$/);
   if (ox) {
     const kws = parseGrantedKeywords(ox[1]);
