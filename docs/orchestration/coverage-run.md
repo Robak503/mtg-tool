@@ -100,11 +100,14 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
    are NOT a stop — the run resumes from git + this file on the next session.
 
 ### Seam family migration queue (easy → hard; reorder freely as the gate dictates)
-- ✅ explore · ✅ proliferate · ✅ gain-experience (batches 1–3).
-- **NEXT:** count-source machinery (`parseCountSource` + `baseCountSource` + `COUNT_TYPE/BASIC_SUBTYPE/GY_TYPE/SUBTYPE`)
-  → the parseHelpers leaf (self-contained cluster; parser.js still uses `parseCountSource` at the FOR-EACH matchers,
-  so it imports it back). Then **earthbend** (combat.js; needs SMALL_NUM + parseCountSource) and **rad** (counters.js;
-  SMALL_NUM only; its branches are scattered across the cdmg section — pull only the `op:"rad"` returns).
+- ✅ explore · ✅ proliferate · ✅ gain-experience (batches 1–3) · ✅ count-source machinery → parseHelpers leaf
+  (batch 4, `01065a9`; program-diff = 0).
+- **NEXT:** **earthbend** (combat.js; needs SMALL_NUM + parseCountSource — both now in the leaf; contiguous block at
+  parseExtendedAtom ~643-655). Then **rad** (counters.js; SMALL_NUM only) — NOTE its branches are SCATTERED and
+  interleaved with the cdmg-draw / dies-payoff matchers (parseExtendedAtom ~665-719); the clean "rad family" is the
+  3 contiguous player-grant branches (`each/you/target … gets N rad counters`); the cdmg/dies rad variants belong
+  with a future cdmg-payoff / dies-payoff family, NOT rad — migrate only the contiguous player-grant block, leave
+  the trigger-referent variants in place (gate proves byte-identical either way).
 - **Then singletons** (whole-clause-anchored, low overlap): fog · surveil · scry · shuffle · discover · tuck · tap · untap.
 - **Then mid families:** life (lose-life/gain-life) · hand (draw/discard/bounce) · removal (destroy/exile/deal-damage).
 - **Then the big, complex-regex families LAST** (higher double-match risk; each strictly gated): pump · tutor · counter ·
