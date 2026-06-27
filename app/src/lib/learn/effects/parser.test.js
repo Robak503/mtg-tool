@@ -236,7 +236,7 @@ describe("parseEffectProgram — life atoms (P2.7)", () => {
     // damage). A COMPOUND whose OTHER half is unmodeled (the bare "loses 2 life" sub-clause, no subject) still
     // drops the whole program to low (all-or-nothing).
     expect(programConfidence(parseEffectProgram(I("Target player loses 2 life.")))).toBe("high");
-    expect(programConfidence(parseEffectProgram(I("Target player draws two cards and loses 2 life.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Target player draws three cards, loses 3 life, and gets three poison counters.")))).toBe("low"); // poison + comma-chain (bare "draws N and loses M life" is now native: DRAW-LOSE-SUBJECT)
     // NOTE: a CONTROLLER count-scaled life ("for each creature you control" / "equal to the number of …")
     // is now MODELED by FOR-EACH (WALT-FOR-EACH) → HIGH (pinned there). A count source we DON'T model still
     // stays low:
@@ -260,7 +260,7 @@ describe("parseEffectProgram — each-player / target-player draw", () => {
   });
   it("keeps riders / variable / dynamic counts low (anchored allowlist holds)", () => {
     const low = (o) => expect(programConfidence(parseEffectProgram(I(o)))).toBe("low");
-    low("Target player draws two cards and loses 2 life.");       // Painful Lesson — bare "loses 2 life" unmodeled
+    low("Target player draws three cards, loses 3 life, and gets three poison counters."); // Caress — poison + comma-chain (bare "draws N and loses M life" now native: DRAW-LOSE-SUBJECT)
     low("Target player draws X cards.");                          // Stroke of Genius — variable count
     low("Each player draws X cards.");                            // Prosperity — variable count
     low("Each player draws a card for each creature card in their graveyard."); // dynamic count

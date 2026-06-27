@@ -280,7 +280,13 @@ function splitClauses(oracle) {
     // Acrobatic Leap, Octopus Form) into the pump sentence as " and untap it", so the pumpClauseParser binds
     // the untap to the SAME single target ("it" = the pumped creature) rather than orphaning it into a
     // separate, unbindable "untap it" clause. Only a +N/+N-with-keyword pump (the exact combat-trick shape).
-    .replace(/(gets [+-]\d+\/[+-]\d+ and gains [^.]*?\buntil end of turn)\.\s+untap it\b\.?/gi, "$1 and untap it");
+    .replace(/(gets [+-]\d+\/[+-]\d+ and gains [^.]*?\buntil end of turn)\.\s+untap it\b\.?/gi, "$1 and untap it")
+    // DRAW-LOSE-SUBJECT — "Target player draws N cards and loses M life" (Sign in Blood, Blood Pact, Painful
+    // Lesson, Harrowing Journey) shares ONE subject across the conjunction; the top-level " and " split would
+    // orphan "loses M life" (no subject → unmodeled). Inject the subject into the 2nd half so both halves parse
+    // with their EXISTING who:"target" atoms (draw + lose-life). A trailing rider (", and gets poison" /
+    // ", loses … and gets") doesn't match the contiguous "and loses \d+ life" → stays Arbiter (FN-safe).
+    .replace(/(target player draws \w+ cards?) and (loses \d+ life)/gi, "$1. Target player $2");
   for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
     if (!sentence) continue;

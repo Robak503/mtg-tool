@@ -61,7 +61,7 @@ describe("parser — each/target player draw is HIGH; the controller form is unc
   });
   it("riders / variable counts stay low → Arbiter (anchored allowlist)", () => {
     const low = (o) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle: o }))).toBe("low");
-    low("Target player draws two cards and loses 2 life."); // Painful Lesson
+    low("Target player draws three cards, loses 3 life, and gets three poison counters."); // Caress — poison + comma-chain (the bare "draws N and loses M life" is now native: DRAW-LOSE-SUBJECT)
     low("Target player draws X cards.");                    // Stroke of Genius
     low("Each player draws X cards.");                      // Prosperity
     low("Each player draws a card for each creature card in their graveyard."); // Nature's Resurgence
