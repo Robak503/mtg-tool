@@ -162,3 +162,68 @@ export function parseGrantedKeywords(phrase) {
   }
   return out;
 }
+
+/**
+ * P3.2 tutor filter ALLOWLIST — the type / supertype / land-subtype / curated-creature-subtype words
+ * the engine can match against a card's type line by literal containment (each word appears verbatim
+ * in a real type line). A filter built only from these words is modeled; ANY other word ("nonland",
+ * "permanent", "with", "named", a number, an un-listed subtype) makes the filter unmodeled → the
+ * tutor drops to low → Arbiter, so the engine never silently mis-matches a filter it doesn't truly
+ * understand.
+ *
+ * WAVE-2b TUTOR — the curated CREATURE-SUBTYPE block below is admitted ONLY for to-HAND / to-TOP
+ * tutors (parseTutorFilter is shared, but the LAND-guard on the to-battlefield paths — RAMP-1/MULTI/
+ * SPLIT — requires every group be guaranteed-land, which no creature subtype is, so a subtype tutor
+ * can never cheat a non-land into play). Each word appears verbatim as a subtype in the corpus type
+ * line ("Creature — Dragon"), so `\bdragon\b` matches exactly the subtyped creatures (CR 205.3m).
+ */
+const TUTOR_FILTER_WORDS = new Set([
+  "basic", "legendary", "snow", "land", "creature", "artifact", "enchantment",
+  "instant", "sorcery", "planeswalker", "battle", "plains", "island", "swamp",
+  "mountain", "forest", "equipment", "aura",
+  // Curated creature subtypes (tribal tutors — to-hand/to-top only). Each is a real creature subtype
+  // that (a) has at least one "search your library for a <subtype> card" tutor in the corpus and (b)
+  // appears verbatim ONLY in the subtype portion of a type line (verified zero collision with any
+  // non-subtyped card), so `\b<subtype>\b` containment matches exactly the subtyped creatures.
+  "dragon", "merfolk", "dinosaur", "goblin", "wizard", "elf", "sliver", "vampire",
+]);
+// ===== RAMP-TYPED ===== the five basic LAND TYPES (CR 305.6). A tutor-filter group naming any of
+// these is GUARANTEED to fetch a LAND — verified against the bundled corpus: ZERO non-land cards
+// carry a basic land type on their front face — so the battlefield-destination ramp tutor (RAMP-1,
+// below) can safely accept a TYPED-BASIC fetch (Nature's Lore "a Forest card", Farseek "a Plains,
+// Island, Swamp, or Mountain card") alongside the literal "basic land" phrase, without a non-land
+// cheat-into-play ever slipping through the land-guard.
+export const BASIC_LAND_SUBTYPES = new Set(["plains", "island", "swamp", "mountain", "forest"]);
+/**
+ * Parse a tutor's filter phrase (the words between "for a/an" and "card") into
+ * `{ groups }` — an OR of AND-groups: "instant or sorcery" → [["instant"],["sorcery"]],
+ * "basic land" → [["basic","land"]]. Returns null if ANY word is outside the allowlist
+ * (→ the tutor is unmodeled → low). A card matches if ANY group's words ALL appear in
+ * its type line (effectAtoms.cardMatchesTutorFilter).
+ */
+export function parseTutorFilter(phrase) {
+  // Split a union into AND-groups on " or " AND comma-lists (Oxford comma): "Plains, Island, Swamp,
+  // or Mountain" → 4 groups (RAMP-TYPED's typed-basic union, Farseek). The ", or " separator is tried
+  // BEFORE a bare ", " so the final Oxford-comma item isn't left with a stray leading "or". Backward-
+  // compatible: phrases with no comma ("basic land", "instant or sorcery") split exactly as before.
+  const groups = String(phrase).trim().split(/,\s*or\s+|,\s*|\s+or\s+/).map((g) => g.trim().split(/\s+/).filter(Boolean));
+  if (groups.length === 0 || groups.some((g) => g.length === 0)) return null;
+  for (const g of groups) for (const w of g) if (!TUTOR_FILTER_WORDS.has(w)) return null;
+  return { groups };
+}
+// WAVE-2b TUTOR — UP-TO-N word→number for the multi-fetch ramp tutors ("up to two/three/four/five").
+export const UP_TO_N_WORD = { two: 2, three: 3, four: 4, five: 5 };
+/**
+ * WAVE-2b TUTOR — parse a tutor's optional MANA-VALUE constraint clause (the bit AFTER "card":
+ * "with mana value 2 or less" → {max:2}; "with mana value 3" → {exact:3}). Returns null when there's
+ * no MV clause (an undefined capture group) — a clean "no MV cap". Only "or less" / exact are modeled
+ * (Spellseeker MV<=2, Trophy Mage MV=3); a "with mana value N or greater" / "X" / any other comparator
+ * never matches the capturing regex, so the whole tutor stays low → Arbiter (CREED — never a mis-cap).
+ */
+export function parseTutorMv(capture) {
+  if (capture === undefined || capture === null) return null;
+  const m = String(capture).match(/^(\d+)( or less)?$/);
+  if (!m) return null; // an unmodeled comparator → caller drops the tutor to low
+  const n = parseInt(m[1], 10);
+  return m[2] ? { max: n } : { exact: n };
+}
