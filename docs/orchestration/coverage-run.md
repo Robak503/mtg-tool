@@ -65,14 +65,18 @@ The scripts are committed, so the orchestrator invokes them itself — no agent 
   delivered by the one-chat pipeline and is seam-independent.
   - ✅ **Batch 1 (`312a273`): EXPLORE migrated** → `atoms/library.exploreClauseParser`. program-diff = 0,
     4222 tests green. Methodology PROVEN — extract → register → program-fingerprint byte-identical → ship.
+  - ✅ **Batch 2 (`d91c72b`): parseHelpers leaf** — `SMALL_NUM`/`NUM_WORD` extracted to `effects/parseHelpers.js`
+    (pure, imports nothing) so matcher modules can consume them cycle-free. program-diff = 0.
+  - ✅ **Batch 3 (`4173dd7`): PROLIFERATE + GAIN-EXPERIENCE migrated** → `atoms/counters.js`; gain-experience is
+    the first family to consume the parseHelpers leaf (proves the cycle-free pattern). program-diff = 0.
   - **Key insight:** a migrated branch moves from the inline (priority) path to the `CLAUSE_PARSERS`
     (post-`parseExtendedAtom`) path, so it is behavior-safe ONLY when its clauses match no other matcher;
     `program-fingerprint` proves that per batch. Whole-clause-anchored families are safe; overlapping ones need
     order-preserving handling.
-  - **NEXT enabler:** most families (earthbend/rad/gain-experience/library/life/counters) share helpers
-    (`SMALL_NUM`, `parseCountSource`, `parseCreatureTargetRestrictions`, …) defined IN parser.js. A matchers
-    module can't import parser.js (TDZ cycle), so extract those helpers to a leaf module first (itself gated
-    byte-identical), then migrate the bigger families cycle-free.
+  - **NEXT:** earthbend + rad need the count-source machinery (`parseCountSource` + its `COUNT_*` maps) —
+    extract that to the parseHelpers leaf as a (bigger) batch, then migrate earthbend/rad. The big families
+    (pump/tutor/counter/draw/bounce) have more complex regexes with double-match potential — migrate each
+    behind the program-fingerprint gate, which refuses anything that isn't a true byte-identical no-op.
 - **Phase 2 — prove ONE clean wave** end-to-end through the consolidated machine (build → fingerprint verify →
   gate → ff-merge) on real cards. **Only after this passes do faculties wind down.**
 - **Phase 3 — widen fan-out** on disjoint atom-families (collision-free post-seam).
