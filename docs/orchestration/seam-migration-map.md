@@ -43,6 +43,9 @@
 ### Wave D — OUT OF parseExtendedAtom scope (standalone up-front matchers, different `{atom,rest}` shape). Defer — separate seam.
 - **impulse-dig** (`matchImpulseDig` ~1829; DIG_NUM local + parseTutorFilter) · **discard-chosen** (`matchHandDisruption` ~1716; HAND_FILTER_MAP) · **create-emblem** (`matchEmblem` ~1957; emblemAbilityModeled + stripReminder). Each is a whole-helper relocation, not an if/else lift.
 
+### Wave C — additional clean ops (post-recon, neighbors migrated)
+- ✅ **bounce** (atoms/zones.bounceClauseParser; batch 24 `d0f385b`, program-diff=0) — all 4 matchers (target creature + β-3 non-creature permanent w/ controller restriction + self + triggering), co-extracted; NOT rider-folding-entangled (the rider dispatch is exile/destroy-only) so it lifted clean.
+
 ## Couplings (MUST move together)
 - destroy ⇄ exile (one regex emits both). · return-from-graveyard ⇄ reanimate (shared prefix). · gain-life ⇄ lose-life (interleaved clusters). · draw ⇄ discard each-player block.
 

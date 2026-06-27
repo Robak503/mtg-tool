@@ -145,9 +145,10 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   ⏸️ destroy⇄exile DEFERRED (batch 24 attempt reverted, program-diff=52 — rider-folding-entangled, SAME class as A7 counter:
   `applyRemovalWithRider`/`applyControllerRider` strips "its controller …" before the bare anchor + re-attaches controllerRider;
   a post-parseExtendedAtom clause parser breaks it → 26 cards drop their rider. Needs the rider machinery moved WITH it — a dedicated batch).
-  **NEXT = remaining CLEAN ops: bounce family (bp + self-bounce + β-3 permanent), add-counter (RE-ASSESS — old neighbors pump/sac/regen
-  all migrated now, may be cleaner), draw residue (combat-damage/for-each/dying-power countContext forms). THEN the dedicated
-  RIDER-FOLDING co-extract batch (move applyRemovalWithRider's strip+re-attach into the dispatch so counter + destroy⇄exile both lift).** FP checkpoint #7 due ~batch 28. SKIP
+  ✅ bounce family → atoms/zones.bounceClauseParser (batch 24 `d0f385b`, program-diff=0 — NOT rider-entangled, clean lift).
+  **NEXT = remaining CLEAN ops: add-counter (RE-ASSESS — old neighbors pump/sac/regen all migrated now, may be cleaner), draw
+  residue (combat-damage/for-each/dying-power countContext forms). THEN the dedicated RIDER-FOLDING co-extract batch (move
+  applyRemovalWithRider's strip+re-attach into the dispatch so counter + destroy⇄exile both lift), then Phase 2.** FP checkpoint #7 due this/next batch. SKIP
   the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
   (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
