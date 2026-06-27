@@ -269,6 +269,40 @@ export function applyCantBlock(state, atom, ctx) {
 }
 
 /**
+ * SELF-DAMAGE-BY-POWER (CR 119, a "self-fight") — "Target creature deals damage to itself equal to its
+ * power" (Justice Strike, Repentance, Wrack with Madness, Inner Struggle, Kiku's Shadow; Kiku, Night's
+ * Flower's activated ability) and the MASS form "Each creature deals damage to itself equal to its power"
+ * (Solar Blaze, Wave of Reckoning). Mirrors fightCreature's proven shape: lock each creature's LAYER-AWARE
+ * power at resolution (CR 608.2, floored at 0), mark that much damage on it (markCombatDamage only adds to
+ * damageMarked — no triggers fired, so this is non-combat damage exactly like fight), then a SINGLE lethal
+ * SBA pass + dies-triggers over the whole set (mass = simultaneous, CR 704.7). A creature with deathtouch
+ * dealing damage to itself dies regardless of toughness (CR 702.2e); 0 power = no damage, a clean no-op.
+ * Real damage (not "destroy"), so indestructible survives, prevention/regeneration apply, and the lethal
+ * SBA reads derived toughness — the correct model. EXPORTED + registered as "damage-self-power".
+ */
+export function applyDamageSelfPower(state, atom, ctx) {
+  const targets = atomTargets(state, atom, ctx);
+  let next = state;
+  const deathtouched = new Set();
+  let acted = false;
+  for (const t of targets) {
+    if (t.type !== "creature") continue;
+    const lk = findPermanent(next, t.id);
+    if (!lk) continue; // left the battlefield between cast and resolution → nothing happens to it
+    const pow = Math.max(0, creaturePower(lk.permanent, next));
+    if (pow <= 0) continue; // a 0-power creature deals no damage to itself (CR 120.8) — clean no-op
+    if (permanentHasKeyword(next, t.id, "Deathtouch")) deathtouched.add(t.id); // self-deathtouch is lethal
+    next = markCombatDamage(next, { permanentId: t.id, amount: pow });
+    acted = true;
+  }
+  if (acted) {
+    const lethal = destroyLethalCreatures(next, deathtouched);
+    next = checkDiesTriggers(lethal.state, lethal.dead);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "damage-self-power", targets: targets.map((t) => t.id) });
+}
+
+/**
  * GROUP-KEYWORD-GRANT (CR 611.2c, layer 6) — a ONE-SHOT spell that grants keyword(s) to a GROUP until end
  * of turn: "Creatures you control gain trample/indestructible until end of turn" (Crash Through, Unbreakable
  * Formation) and "Permanents you control gain hexproof and indestructible until end of turn" (Heroic
@@ -350,6 +384,10 @@ export function combatKeywordClauseParser(clause) {
   }
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
+  // SELF-DAMAGE-BY-POWER (a "self-fight") — whole-clause anchored; a rider ("If that creature has flying…"
+  // — Cut Propulsion) leaves residue → fails the `$` → low → Arbiter (CREED, FN-safe).
+  if (/^target creature deals damage to itself equal to its power$/.test(t)) return { op: "damage-self-power", targetType: "creature" };
+  if (/^each creature deals damage to itself equal to its power$/.test(t)) return { op: "damage-self-power", targetType: "eachCreature" };
   if (/^regenerate (?:this creature|this permanent)$/.test(t)) return { op: "regenerate", target: "self" };
   if (/^regenerate target creature$/.test(t)) return { op: "regenerate", targetType: "creature" };
   return null;
@@ -532,4 +570,5 @@ export const combatResolvers = {
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
   "cant-block": applyCantBlock, // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
   "grant-keywords-group": applyGrantKeywordsGroup, // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
+  "damage-self-power": applyDamageSelfPower, // SELF-DAMAGE-BY-POWER — "target/each creature deals damage to itself equal to its power"
 };
