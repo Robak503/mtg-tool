@@ -207,6 +207,8 @@ const MODELED_RESTRICTION_RES = [
   /\btapped\b/g,
   /\bpower \d+ or less\b/g,
   /\bpower \d+ or (?:greater|more)\b/g,
+  /\btoughness \d+ or less\b/g,
+  /\btoughness \d+ or (?:greater|more)\b/g,
   /\battacking or blocking\b/g,         // β-1 (order before the singles so the phrase is removed whole)
   /\battacking\b/g,
   /\bblocking\b/g,
@@ -248,6 +250,13 @@ export function parseCreatureTargetRestrictions(card) {
   if (pm) { restrictions.push({ kind: "power", op: "<=", value: parseInt(pm[1], 10) }); t = t.replace(/\bpower \d+ or less\b/g, " "); }
   pm = t.match(/\bpower (\d+) or (?:greater|more)\b/);
   if (pm) { restrictions.push({ kind: "power", op: ">=", value: parseInt(pm[1], 10) }); t = t.replace(/\bpower \d+ or (?:greater|more)\b/g, " "); }
+
+  // Toughness N or less / N or greater (Collar the Culprit / Strangling Soot) — mirrors power; enforced
+  // LAYER-AWARE by creatureSatisfiesRestrictions (creatureToughness), so a pumped/debuffed toughness counts.
+  let tm = t.match(/\btoughness (\d+) or less\b/);
+  if (tm) { restrictions.push({ kind: "toughness", op: "<=", value: parseInt(tm[1], 10) }); t = t.replace(/\btoughness \d+ or less\b/g, " "); }
+  tm = t.match(/\btoughness (\d+) or (?:greater|more)\b/);
+  if (tm) { restrictions.push({ kind: "toughness", op: ">=", value: parseInt(tm[1], 10) }); t = t.replace(/\btoughness \d+ or (?:greater|more)\b/g, " "); }
 
   // β-1 — combat state ("attacking" / "blocking" / "attacking or blocking"; the phrase is stripped whole
   // so its internal "or" doesn't leave a residue). The target must currently be in the named combat role.
