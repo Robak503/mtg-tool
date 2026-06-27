@@ -136,11 +136,11 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   ✅ rfg⇄reanimate co-extracted → atoms/zones.graveyardReturnClauseParser (batch 16 `6dc6022`). ✅ FP-hunt checkpoint #4 CLEAN
   (no-drift proof). ✅ gain-life⇄lose-life co-extracted → atoms/life.lifeClauseParser (batch 17 `fe9fb06`, program-diff=0 — scaled
   for-each + fixed-N clusters, one parser, original order; draw branches stay inline disjoint; parseCountSource into life.js). All program-diff=0.
-  ✅ create-named-token (Treasure/Clue/Food/Gold) → atoms/tokens.createNamedTokenClauseParser (batch 18 `6c4b25e`, program-diff=0
-  — 6 contiguous matchers, order preserved, leaf helpers). **NEXT = remaining Wave C ops:** token-helper leaf
-  (parseTokenManaAbility[parser.js:400]+parseTokenKeywords[parser.js:421] → leaf — REQUIRED before create-token, since
-  parseTokenKeywords is also used at parser.js:~1196 and tokens.js can't import parser.js) then create-token; sacrifice
-  [removal.js, 2 far regions]; SCATTERED destroy⇄exile (672/697/729/730/741) + draw+discard [order-handling, try last]. SKIP
+  ✅ create-named-token → atoms/tokens.createNamedTokenClauseParser (batch 18 `6c4b25e`). ✅ token-helper leaf
+  (batch 19 `946319f`, program-diff=0 — parseTokenManaAbility+parseTokenKeywords + their deps → parseHelpers leaf;
+  parser.js dropped its keywords.js import). All program-diff=0. **NEXT = create-token (NOW UNBLOCKED — tokens.js ~846-878,
+  for-each mtf + fixed-N m, toughness<1 + land guards travel, import token helpers from leaf); then sacrifice
+  [removal.js, 2 far regions]; SCATTERED destroy⇄exile (672/697/729/730/741) + draw+discard [order-handling, try last].** SKIP
   the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
   (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
