@@ -840,8 +840,8 @@ const MUST_DROP_TO_LOW = [
   "Other creatures you control get +1/+1 until end of turn.",          // "other" excludes the source — different set
   "Creatures you control with flying get +1/+1 until end of turn.",    // keyword-filtered subset
   "White creatures you control get +1/+1 until end of turn.",          // color-filtered subset
-  "Creatures you control get +1/+1 and gain hexproof until end of turn.", // hexproof not grantable/enforced
-  "Creatures you control gain trample until end of turn.",             // pure team keyword grant (no P/T) — deferred
+  "Creatures you control get +1/+1 and gain hexproof until end of turn.", // pump-path grant: parseGrantedKeywords excludes hexproof → low
+  "Creatures you control gain forestwalk until end of turn.",          // GROUP-KEYWORD-GRANT: an un-grantable keyword → still low (the bare "gain trample/hexproof/indestructible" form is now native)
   // OVERRUN-X — count-scaled team pump ("…gain trample and get +X/+X, where X is <count>"): a FILTERED team,
   // an unmodeled count source, or an un-grantable keyword stays LOW → Arbiter (never a half-scaled native).
   "Until end of turn, creatures you control with flying gain trample and get +X/+X, where X is the greatest power among creatures you control.",        // filtered subset

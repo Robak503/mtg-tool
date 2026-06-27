@@ -8,6 +8,7 @@ import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPer
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { SMALL_NUM, parseCountSource, parseGrantedKeywords } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
+import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
 
 /** Tap / untap target creature(s) (CR 701.26). */
 export function applyTapEffect(state, atom, ctx, tap) {
@@ -268,6 +269,40 @@ export function applyCantBlock(state, atom, ctx) {
 }
 
 /**
+ * GROUP-KEYWORD-GRANT (CR 611.2c, layer 6) — a ONE-SHOT spell that grants keyword(s) to a GROUP until end
+ * of turn: "Creatures you control gain trample/indestructible until end of turn" (Crash Through, Unbreakable
+ * Formation) and "Permanents you control gain hexproof and indestructible until end of turn" (Heroic
+ * Intervention). The set is LOCKED at resolution (CR 611.2c) — a permanent that enters later this turn does
+ * NOT gain the keyword — so we snapshot the controller's permanents NOW and grant via a layer-6 `addKeyword`
+ * with `affects.mode:"fixed"` over that frozen id list (a later-entering creature is excluded for free).
+ * `creaturesYouControl` → only creatures (membership read at resolution, permanentIsCreature); `permanents-
+ * YouControl` → ALL permanents (so indestructible protects your lands/artifacts from a wipe — Heroic). Each
+ * granted keyword is enforced LAYER-AWARE by the same readers a printed keyword uses (canBeTargetedBy for
+ * hexproof/shroud, isIndestructible for indestructible, combatEvasion for the combat keywords), so a granted
+ * instance behaves exactly like a printed one. Wears off at cleanup via expireContinuousEffects (CR 514.2).
+ */
+export function applyGrantKeywordsGroup(state, atom, ctx) {
+  const ctrl = ctx.controller;
+  if (!ctrl || !state.players?.[ctrl]) return state;
+  const bf = state.players[ctrl].battlefield || [];
+  const ids = atom.scope === "permanentsYouControl"
+    ? bf.map((p) => p.id)                                            // ALL your permanents (Heroic Intervention)
+    : bf.filter((p) => permanentIsCreature(state, p.id)).map((p) => p.id); // creaturesYouControl
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
+  const dur = { kind: "endOfTurn", turn: next.turn };
+  for (const kw of atom.grantKeywords || []) {
+    if (!ids.length) break;
+    next = addContinuousEffect(next, {
+      layer: 6, op: { layerOp: "addKeyword", keyword: kw },
+      affects: { mode: "fixed", permanentIds: ids },                // fixed-set array — effectAffects matches by includes()
+      duration: dur, source: src,
+    }).state;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "grant-keywords-group", controller: ctrl, scope: atom.scope, keywords: atom.grantKeywords, targets: ids });
+}
+
+/**
  * EARTHBEND clause parser (WALT, Toph) — migrated from parser.js parseExtendedAtom (seam batch 5).
  * "earthbend N" — a keyword action: permanently animate a land you control into a 0/0 Elemental with haste
  * (still a land) + N +1/+1 counters (applyEarthbend). Two forms: Literal-N ("earthbend 2" → atom.count) and
@@ -404,6 +439,45 @@ export function pumpClauseParser(clause) {
 }
 
 /**
+ * GROUP-KEYWORD-GRANT keyword vocab — the static-grant set (combat keywords + indestructible) PLUS hexproof
+ * and shroud. hexproof/shroud are admitted HERE (not in the shared GRANTABLE_STATIC_KEYWORDS the anthem path
+ * uses) because their enforcement is COMPLETE + layer-aware — `canBeTargetedBy` honors a granted instance, and
+ * targeting-exclusion is the ENTIRETY of what the keywords do (no partial behavior → no false-positive native).
+ * Scoping them to this one-shot path keeps the anthem path byte-identical (zero blast radius). ALL-OR-NOTHING:
+ * one unmodeled word (protection from …, an ability word, a non-keyword) drops the whole clause → Arbiter (FN-safe).
+ */
+const GROUP_GRANTABLE_KEYWORDS = new Set([...GRANTABLE_STATIC_KEYWORDS, "hexproof", "shroud"]);
+const GROUP_KEYWORD_CANON = { indestructible: "Indestructible", hexproof: "Hexproof", shroud: "Shroud" };
+function parseGroupGrantKeywords(phrase) {
+  const words = String(phrase).split(/,|\band\b/).map((w) => w.trim()).filter(Boolean);
+  if (words.length === 0) return null;
+  const out = [];
+  for (const w of words) {
+    const lw = w.toLowerCase();
+    if (!GROUP_GRANTABLE_KEYWORDS.has(lw)) return null;
+    out.push(GROUP_KEYWORD_CANON[lw] || canonicalCombatKeyword(lw));
+  }
+  return out;
+}
+
+/**
+ * GROUP-KEYWORD-GRANT clause parser — "(creatures|permanents) you control gain <keyword[ and keyword]> until
+ * end of turn" (Crash Through, Unbreakable Formation, Heroic Intervention). Whole-clause anchored: a rider
+ * (Addendum/populate/2nd sentence), a color-choice (protection from the chosen color), a filter (white/Sliver
+ * creatures you control), or an un-grantable keyword fails the `$` / the keyword gate → null → Arbiter (CREED,
+ * FN-safe). Emits a scope-bearing atom (no targetType → non-targeting → no chosen target). Pure (no parser.js
+ * import). Registered via registerClauseParser in parser.js.
+ */
+export function groupGrantClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const m = t.match(/^(creatures|permanents) you control gains? (.+) until end of turn$/);
+  if (!m) return null;
+  const kws = parseGroupGrantKeywords(m[2]);
+  if (!kws) return null;
+  return { op: "grant-keywords-group", scope: m[1] === "permanents" ? "permanentsYouControl" : "creaturesYouControl", grantKeywords: kws };
+}
+
+/**
  * ANIMATE clause parser (WALT-ANIMATE) — migrated from parser.js parseExtendedAtom (seam batch 14 / Wave C),
  * verbatim. TWO adjacent blocks, order preserved:
  *   anm — "[until end of turn,] target land becomes a N/N [subtype] creature [with KW[ and KW]]" (Animate
@@ -459,4 +533,5 @@ export const combatResolvers = {
   "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
   "cant-block": applyCantBlock, // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
+  "grant-keywords-group": applyGrantKeywordsGroup, // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
 };

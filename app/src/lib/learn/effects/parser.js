@@ -46,7 +46,7 @@ import { sacrificeEdictClauseParser, destroyExileClauseParser } from "./atoms/re
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
 import { SMALL_NUM, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); SMALL_NUM (cdmg rad) + parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; NUM_WORD/parseCountSource now only inside migrated clause parsers (batch 23/26)
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1)
-import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate)
+import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
 import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding)
@@ -263,6 +263,12 @@ function splitClauses(oracle) {
     // parseExtendedAtom binds the controller-scoped pump + grant together (plural subject →
     // "gain", no trailing s).
     if (/^creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // GROUP-KEYWORD-GRANT — "(Creatures|Permanents) you control gain <kw> and <kw> until end of turn"
+    // (Heroic Intervention "hexproof and indestructible"): the " and " joins a KEYWORD LIST, INTERNAL to
+    // one group-grant instruction, NOT a top-level effect boundary. Keep the whole sentence so
+    // groupGrantClauseParser sees the full keyword list. All-or-nothing anchored downstream (an un-grantable
+    // word → null → low → Arbiter), so keeping too much together can only fail to match, never a wrong partial.
+    if (/^(?:creatures|permanents) you control gains?\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // SELF pump + keyword grant ("This creature gets +1/+0 and gains trample until end of turn" / "This
     // creature gains flying and vigilance until end of turn") — the " and " is INTERNAL to the one
     // self-grant instruction (CR 113.7 "this creature" = the source), NOT a top-level effect boundary.
@@ -1588,6 +1594,7 @@ registerClauseParser(combatKeywordClauseParser);
 // PUMP (seam batch 12c / Wave B1b) — the most fragmented op (14 returns, 7 interleaved clusters) migrated to
 // atoms/combat.pumpClauseParser; branch order preserved. program-diff = 0 (gate-verified).
 registerClauseParser(pumpClauseParser);
+registerClauseParser(groupGrantClauseParser); // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
 // ANIMATE (seam batch 14 / Wave C) — WALT-ANIMATE (target land) + man-land self-animate migrated to
 // atoms/combat.animateClauseParser (2 adjacent blocks, order preserved; inline COLOR helpers travel; uses the
 // parseGrantedKeywords leaf). The "land becomes a N/N … creature" clauses match no earlier registered parser

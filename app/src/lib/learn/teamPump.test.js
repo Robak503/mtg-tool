@@ -61,8 +61,14 @@ describe("parser — team pumps are HIGH; filtered / wrong-scope / unenforced-kw
     low("Creatures you control with flying get +1/+1 until end of turn.");    // keyword-filtered subset
     low("White creatures you control get +1/+1 until end of turn.");          // color-filtered subset
     low("Attacking creatures get +2/+0 until end of turn.");                  // "attacking" subset
-    low("Creatures you control get +1/+1 and gain hexproof until end of turn."); // hexproof not grantable
-    low("Creatures you control gain trample until end of turn.");             // pure team grant (deferred)
+    low("Creatures you control get +1/+1 and gain hexproof until end of turn."); // pump path: parseGrantedKeywords excludes hexproof
+    low("Creatures you control gain forestwalk until end of turn.");          // GROUP-KEYWORD-GRANT: un-grantable keyword → low
+  });
+  it("a pure team keyword grant (no P/T) is now native via GROUP-KEYWORD-GRANT", () => {
+    expect(parseEffectProgram({ type: INSTANT, oracle: "Creatures you control gain trample until end of turn." }).atoms)
+      .toEqual([{ op: "grant-keywords-group", scope: "creaturesYouControl", grantKeywords: ["Trample"] }]);
+    expect(parseEffectProgram({ type: INSTANT, oracle: "Permanents you control gain hexproof and indestructible until end of turn." }).atoms)
+      .toEqual([{ op: "grant-keywords-group", scope: "permanentsYouControl", grantKeywords: ["Hexproof", "Indestructible"] }]);
   });
 });
 
