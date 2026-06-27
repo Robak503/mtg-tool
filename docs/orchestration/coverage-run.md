@@ -94,6 +94,14 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
    seam merge. `npm test` ("Tests N passed") + lint green before push.
 4. **Record + re-arm:** update this file's batch list, commit (explicit paths) + ff-push, delete temp worktree/files,
    then ScheduleWakeup with the same continuation prompt. Keep going until a STOP condition.
+4b. **FP-HUNT cadence (standing — the CREED is the whole point, not just the seam gate).** The seam batches are
+   byte-identical refactors (can't add/fix FPs). Separately, every ~5 batches (or whenever the seam queue is idle),
+   run a real FP-hunt on the LIVE coverage: `node scripts/qa-sweep.mjs` (+ `keywords`/`spells`/`triggers` arms) and
+   `node scripts/allowlist-guard.mjs` + `runtime-fingerprint` drift vs a recent master. Confirm suspects adversarially
+   (refute-prompted fan-out OK — Colton approved read-only agents); a CONFIRMED FP (native card that drops a clause /
+   mis-resolves / over-fires) → fix at the gate (tighten matcher + regression test + program-fingerprint/flip-diff) or
+   log to fp-watch.md / retired-fp-ledger.md. A NEW builder PR's coverage always gets the full FP gate (this is the
+   integrator job, never skipped). Log the sweep outcome in fp-watch.md so the cadence is auditable.
 5. **STOP conditions (surface to Colton, do NOT proceed):** a RELEASE tag is warranted (heads-up + proof first —
    never auto-tag the signed .exe) · a genuine architectural fork with no obvious answer · two consecutive
    families fail the gate for the same structural reason (precedence design needs a human call). Usage-limit kills
