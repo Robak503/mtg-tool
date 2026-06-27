@@ -101,13 +101,13 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
 
 ### Seam family migration queue (easy → hard; reorder freely as the gate dictates)
 - ✅ explore · ✅ proliferate · ✅ gain-experience (batches 1–3) · ✅ count-source machinery → parseHelpers leaf
-  (batch 4, `01065a9`; program-diff = 0).
-- **NEXT:** **earthbend** (combat.js; needs SMALL_NUM + parseCountSource — both now in the leaf; contiguous block at
-  parseExtendedAtom ~643-655). Then **rad** (counters.js; SMALL_NUM only) — NOTE its branches are SCATTERED and
-  interleaved with the cdmg-draw / dies-payoff matchers (parseExtendedAtom ~665-719); the clean "rad family" is the
-  3 contiguous player-grant branches (`each/you/target … gets N rad counters`); the cdmg/dies rad variants belong
-  with a future cdmg-payoff / dies-payoff family, NOT rad — migrate only the contiguous player-grant block, leave
-  the trigger-referent variants in place (gate proves byte-identical either way).
+  (batch 4, `01065a9`) · ✅ earthbend → atoms/combat (batch 5, `2405dfb`). All program-diff = 0.
+- **NEXT:** **rad** (counters.js; SMALL_NUM only) — its branches are SCATTERED/interleaved with the cdmg-draw /
+  dies-payoff matchers in parseExtendedAtom; the clean "rad family" is the 3 CONTIGUOUS player-grant branches
+  (`each/you/target … gets N rad counters`). The cdmg/dies rad variants (`they/that player gets … rad counters`,
+  `each opponent gets … rad counters equal to its power`) belong with a future cdmg-payoff/dies-payoff family, NOT
+  rad — migrate only the contiguous player-grant block; leave the trigger-referent variants inline (the gate proves
+  byte-identical either way).
 - **Then singletons** (whole-clause-anchored, low overlap): fog · surveil · scry · shuffle · discover · tuck · tap · untap.
 - **Then mid families:** life (lose-life/gain-life) · hand (draw/discard/bounce) · removal (destroy/exile/deal-damage).
 - **Then the big, complex-regex families LAST** (higher double-match risk; each strictly gated): pump · tutor · counter ·
