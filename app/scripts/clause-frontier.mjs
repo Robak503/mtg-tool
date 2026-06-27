@@ -12,13 +12,42 @@
  * Read-only / local-only (needs MTG_APP_ROOT → a tree carrying the oracle index). Reuses the SAME
  * classify + parse the runtime uses, so the census is faithful.
  */
-import { allCards, publicCard } from "../src/lib/server/cardIndex.js";
+import fs from "node:fs";
+import path from "node:path";
+import { allCards, publicCard, lookupCard } from "../src/lib/server/cardIndex.js";
 import { classifyCard, isNativeTier } from "../src/lib/learn/coverage.js";
 import { parseEffectClause } from "../src/lib/learn/effects/parser.js";
 
 const args = process.argv.slice(2);
 const ONLY = args.includes("--spell") ? "spell" : args.includes("--perm") ? "perm" : "all";
-const MIN = (() => { const i = args.indexOf("--min"); return i >= 0 ? parseInt(args[i + 1], 10) || 8 : 8; })();
+const DECKS = args.includes("--decks"); // census ONLY cards in the saved profile decks (the deck-targeted phase-1 frontier)
+const MIN = (() => { const i = args.indexOf("--min"); return i >= 0 ? parseInt(args[i + 1], 10) || 8 : (DECKS ? 2 : 8); })();
+
+// Deck-card source (mirrors measure-coverage loadDecks/enrich): every distinct card across saved profile decks,
+// with which deck names use it — so the frontier can rank clauses by DECK-card leverage.
+function deckCards() {
+  const profilesDir = path.join("data", "profiles");
+  const byName = new Map(); // name -> { type, oracle, name, decks:Set }
+  let dirs = [];
+  try { dirs = fs.readdirSync(profilesDir).filter((d) => d.startsWith("prof_")); } catch { return []; }
+  for (const dir of dirs) {
+    const file = path.join(profilesDir, dir, "decks.local.json");
+    if (!fs.existsSync(file)) continue;
+    let doc; try { doc = JSON.parse(fs.readFileSync(file, "utf8")); } catch { continue; }
+    const decks = Array.isArray(doc) ? doc : (doc.decks || Object.values(doc).find(Array.isArray) || []);
+    for (const dk of decks) {
+      for (const entry of dk.cards || []) {
+        if (entry.section === "Sideboard" || entry.section === "Tokens") continue;
+        const found = lookupCard(entry.name); if (!found) continue;
+        const c = publicCard(found);
+        let e = byName.get(c.name);
+        if (!e) { e = { type: c.type, oracle: c.oracle, name: c.name, decks: new Set() }; byName.set(c.name, e); }
+        if (dk.name) e.decks.add(dk.name);
+      }
+    }
+  }
+  return [...byName.values()];
+}
 
 function isRealCard(c) {
   const t = c.type || "";
@@ -44,13 +73,15 @@ function sentenceCount(s) {
   return String(s || "").split(/(?<=[.!])\s+(?=[A-Z(])/).filter((p) => p.trim()).length;
 }
 
-const buckets = new Map(); // normTail -> { cards:Set, single:bool, sample:[], spell:0, perm:0 }
+function* candidates() {
+  if (DECKS) { for (const c of deckCards()) yield c; return; }
+  for (const raw of allCards()) { let c; try { c = publicCard(raw); } catch { continue; } if (isRealCard(c)) yield c; }
+}
+
+const buckets = new Map(); // normTail -> { cards:Set, single:bool, sample:[], spell:0, perm:0, decks:Set }
 let nonNative = 0, withTail = 0, singleTail = 0;
 
-for (const raw of allCards()) {
-  let c;
-  try { c = publicCard(raw); } catch { continue; }
-  if (!isRealCard(c)) continue;
+for (const c of candidates()) {
   const t = classifyCard(c);
   if (isNativeTier(t) || t === "land" || t === "playable-pw") continue;
   const spell = isSpellType(c.type);
@@ -67,24 +98,25 @@ for (const raw of allCards()) {
   const key = norm(tail, c.name);
   if (!key) continue;
   let b = buckets.get(key);
-  if (!b) { b = { cards: new Set(), single, sample: [], spell: 0, perm: 0 }; buckets.set(key, b); }
+  if (!b) { b = { cards: new Set(), single, sample: [], spell: 0, perm: 0, decks: new Set() }; buckets.set(key, b); }
   b.cards.add(c.name);
   if (single) b.single = true;
   if (spell) b.spell++; else b.perm++;
+  for (const d of (c.decks || [])) b.decks.add(d);
   if (b.sample.length < 6 && !b.sample.includes(c.name)) b.sample.push(c.name);
 }
 
 const ranked = [...buckets.entries()]
-  .map(([k, b]) => ({ k, n: b.cards.size, single: b.single, spell: b.spell, perm: b.perm, sample: b.sample }))
+  .map(([k, b]) => ({ k, n: b.cards.size, single: b.single, spell: b.spell, perm: b.perm, sample: b.sample, decks: [...b.decks] }))
   .sort((a, b) => b.n - a.n);
 
-console.log(`=== CLAUSE FRONTIER (${ONLY}) — non-native=${nonNative}, with-unparsed-tail=${withTail}, single-sentence-tail=${singleTail} ===\n`);
+console.log(`=== CLAUSE FRONTIER (${ONLY}${DECKS ? " · DECKS" : ""}) — non-native=${nonNative}, with-unparsed-tail=${withTail}, single-sentence-tail=${singleTail} ===\n`);
 console.log(`--- TOP single-sentence tails (the "one clause from native" trunk; n = distinct cards), min ${MIN} ---`);
 let shown = 0;
 for (const r of ranked) {
   if (!r.single || r.n < MIN) continue;
   console.log(`  ${String(r.n).padStart(4)}  [${r.spell ? "S" : ""}${r.perm ? "P" : ""}]  ${r.k}`);
-  console.log(`        e.g. ${r.sample.join(", ")}`);
+  console.log(`        e.g. ${r.sample.join(", ")}${DECKS ? `   « ${r.decks.length} deck(s): ${r.decks.slice(0, 6).join(", ")}` : ""}`);
   if (++shown >= 50) break;
 }
 console.log(`\n--- TOP all tails incl. multi-sentence (context), min ${MIN} ---`);
