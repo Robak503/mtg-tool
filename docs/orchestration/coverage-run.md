@@ -149,10 +149,13 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   (batch 25 `e91d031`, program-diff=0 — 5 branches, clean now interleavers migrated). All program-diff=0.
   ✅ draw for-each/count-scaled → atoms/misc.drawForEachClauseParser (batch 26 `a0ec535`, program-diff=0 — clean now life siblings migrated;
   parseCountSource+NUM_WORD imports dropped from parser.js). All program-diff=0. Wave C clean ops EXHAUSTED.
-  **NEXT = the dedicated RIDER-FOLDING co-extract batch (rewire matchRemovalControllerRider/matchCounterControllerRider so A7 counter +
-  destroy⇄exile lift together — the last big structural piece, gate-verified; revert+log if not byte-identical). THEN Phase 2: re-measure
-  residue (`grep -cE 'op: "' parser.js` + list parseExtendedAtom vs legacyToAtom leftovers). STOP+notify Colton if Phase 2 = new coverage work.**
-  Genuinely-fused residue staying inline: cdmg-draw+rad (CDMG-PLAYER-PAYOFF), fight, dying-power templates, Wave-D standalone matchers. FP checkpoint #8 due ~3 batches on. SKIP
+  ✅ destroy⇄exile SHIPPED w/ rider-folding fix (batch 27 `22c8767`, program-diff=0 — matchRemovalControllerRider resolves its
+  rider-stripped lead via `parseExtendedAtom() || destroyExileClauseParser`; the 26 controllerRider cards fold byte-identically;
+  also dropped the orphaned `let m`). **RIDER-FOLDING PATTERN PROVEN.** All program-diff=0.
+  **NEXT = A7 counter rider-folding batch — apply the SAME fix: lift the counter matchers to counterClauseParser AND rewire
+  matchCounterControllerRider + matchCounterExileInstead to `parseExtendedAtom() || counterClauseParser`. THEN Phase 2: re-measure
+  residue (`grep -cE 'op: "' parser.js`). STOP+notify Colton if Phase 2 = new coverage work.** Genuinely-fused residue staying
+  inline: cdmg-draw+rad (CDMG-PLAYER-PAYOFF), fight, dying-power templates, Wave-D standalone matchers. FP checkpoint #8 due ~2 batches on. SKIP
   the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
   (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
