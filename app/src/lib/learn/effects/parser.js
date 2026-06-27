@@ -42,6 +42,7 @@ import { winGameClauseParser } from "./atoms/winGame.js";
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { exploreClauseParser } from "./atoms/library.js"; // seam batch 1: EXPLORE matcher migrated out of parseExtendedAtom
+import { SMALL_NUM, NUM_WORD } from "./parseHelpers.js"; // seam batch 2: shared number-word maps in a leaf (matchers can import cycle-free)
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -340,9 +341,8 @@ function splitClauses(oracle) {
  * Currently the NON-TARGETED life atoms; targeted ones (tap/bounce/exile/counters)
  * land in a later sub-step alongside the targeting wiring.
  */
-const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
-// Spelled cardinals up to ten — mill amounts ("Mill three cards", "Mill ten cards") are spelled out.
-const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+// SMALL_NUM + NUM_WORD moved to ./parseHelpers.js (seam batch 2 — a leaf the matcher modules can import
+// without the parser.js TDZ cycle). Imported at the top of this file.
 
 /**
  * P3.2 tutor filter ALLOWLIST — the type / supertype / land-subtype / curated-creature-subtype words
