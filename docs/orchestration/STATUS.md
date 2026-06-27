@@ -1,11 +1,11 @@
 # 🎛️ Academy Coverage — Live Status
 
 <!-- AUTORUN:START — Clyde refreshes this block every loop fire so Omnath/the dashboard reflects the autonomous run; overwrite the whole block, keep it ~6 lines -->
-> 🤖 **AUTONOMOUS RUN — live · no action needed from Colton** · master `11d4b68`
-> **Phase: parser.js seam migration (INFRASTRUCTURE).** 8 seam batches shipped (explore · proliferate · gain-experience · count-source-leaf · earthbend · library-keywords · combat-keywords · fog/divide-damage), **all program-diff = 0** (byte-identical — provably zero behavior change). 4222 tests green, lint clean. Seam progress: Wave A 3/7 done + the leaf; full map `docs/orchestration/seam-migration-map.md`.
+> 🤖 **AUTONOMOUS RUN — live · no action needed from Colton** · master `79cd743`
+> **Phase: parser.js seam migration (INFRASTRUCTURE).** 9 seam batches shipped (… + fog/divide-damage · self-attach/attach-to-self), **all program-diff = 0** (byte-identical — provably zero behavior change). 4222 tests green, lint clean. Seam progress: Wave A 4/7 done + the leaf; full map `docs/orchestration/seam-migration-map.md`.
 > **Cards: 20.8% native (7,113) — FLAT BY DESIGN.** The seam is a *refactor* (it reorganizes recognition into collision-free modules); it adds **0 cards** on purpose. Card growth resumes when builders push new PRs OR post-seam coverage work begins — the seam is the *gate to scaling* card-adding (GO-AFTER-SEAM). _If you'd rather see the card number move now, say so and I'll interleave new-coverage batches (each adds cards, FP-gated)._
 > **FP-hunt (standing, every ~5 batches/idle):** ✅ full live-coverage sweep CLEAN — **0 real card FPs.** Keyword gate honest (fixed fading/vanishing false-alarm) · 16 trigger compound suspects = 0 FPs · **196 spell suspects = 0 FPs** (5-agent refute-fan-out; all benign cast-props/costs/folded-riders/single-atom-multi-sentence). Detail in `fp-watch.md`.
-> **Next:** Wave A4 (self-attach/attach-to-self → stack).
+> **Next:** Wave A5 (tuck → zones).
 <!-- AUTORUN:END -->
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.

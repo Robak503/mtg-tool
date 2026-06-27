@@ -14,7 +14,7 @@
 | ✅A1 | discover · shuffle · scry · surveil | atoms/library.js | local-var/parseInt only | DONE batch 6 `d45aaa4`, program-diff=0 |
 | ✅A2 | regenerate · untap · cant-block · tap | atoms/combat.js | tap: local-var; rest none | DONE batch 7 `fb7b5a4`, program-diff=0 |
 | ✅A3 | fog · divide-damage | atoms/misc.js | divide-damage: local-var+parseInt | DONE batch 8 `11d4b68`, program-diff=0 |
-| A4 | self-attach · attach-to-self | atoms/stack.js | attach-to-self: local-var | attach-to-self has FALL-THROUGH (no-return continues) — preserve conditional-return semantics |
+| ✅A4 | self-attach · attach-to-self | atoms/stack.js | attach-to-self: local-var | DONE batch 9 `79cd743`, program-diff=0 (fall-through preserved via return-null) |
 | A5 | tuck | atoms/zones.js | local-var | single brace-block, inline TT map |
 | A6 | mill | atoms/library.js | NUM_WORD (leaf) | 3 branches, mutually-exclusive anchors; eachPlayer split by a comment |
 | A7 | counter | atoms/stack.js | local-var (mv/sc/scx) | 8 returns in ONE run (848-907), mixed bare-if + brace-blocks; tails disambiguate |

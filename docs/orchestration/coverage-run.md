@@ -116,10 +116,10 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
 - **📋 FULL MAP: `docs/orchestration/seam-migration-map.md`** (4-agent recon — every remaining op's branch lines,
   deps, resolver home, risk, couplings, and the readiness-ranked Wave A→D order). Execute it top-down; re-grep
   `op:"<op>"` each batch (line numbers drift). ✅A1 library-keywords (batch 6 `d45aaa4`) · ✅A2 combat-keywords
-  (batch 7 `fb7b5a4`) · ✅A3 fog/divide-damage → misc (batch 8 `11d4b68`). **NEXT = Wave A4: self-attach ·
-  attach-to-self → atoms/stack.js** (mind attach-to-self's FALL-THROUGH: its inner guard can decline and must
-  continue, not return). Then A5 (tuck → zones) · A6 (mill → library) · A7 (counter → stack). Then Wave B (helper
-  leaf + pump/tutor) · Wave C (interleaved families). Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
+  (batch 7 `fb7b5a4`) · ✅A3 fog/divide-damage → misc (batch 8 `11d4b68`) · ✅A4 self-attach/attach-to-self →
+  stack (batch 9 `79cd743`). **NEXT = Wave A5: tuck → atoms/zones.js** (single brace-block, inline TT map, local-var).
+  Then A6 (mill → library; NUM_WORD, interleaved) · A7 (counter → stack; 8 returns in one run). Then Wave B (helper
+  leaf + pump/tutor) · Wave C (interleaved families). FP-hunt due ~batch 12 (cadence ~every 5). Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
   deal-damage / return-from-graveyard⇄reanimate / sacrifice). Wave D = standalone matchers (impulse-dig / discard-chosen
   / create-emblem) — different shape, deferred. **Couplings that MUST co-extract:** destroy⇄exile · rfg⇄reanimate ·
