@@ -1434,6 +1434,11 @@ export function atomTargetIntent(atom) {
       // attacker connects (offensive). The trigger-flush chooser picks an opponent's creature; you'd never
       // disable your own blocker by choice.
       return "enemy";
+    case "cant-be-blocked":
+      // CANT-BE-BLOCKED — "target creature can't be blocked this turn" makes YOUR attacker unblockable to
+      // push damage (own-side), the mirror of cant-block. A trigger-flush chooser picks the controller's
+      // own creature; making an opponent's creature unblockable would be self-defeating.
+      return "own";
     case "tap":
       // TAP-TARGET-CREATURE: "you control" restriction targets own creatures (e.g. Magus of the Arena);
       // all other tap forms (opponent controls, defending player, power/toughness, flying) target an

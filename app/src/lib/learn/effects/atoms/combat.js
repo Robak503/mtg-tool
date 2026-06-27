@@ -278,6 +278,29 @@ export function applyCantBlock(state, atom, ctx) {
 }
 
 /**
+ * CANT-BE-BLOCKED — "target creature can't be blocked this turn" (Infiltrate, Artful Dodge, Trailblazer,
+ * Slip Through Space). The MIRROR of CANT-BLOCK: a layer-6 endOfTurn grant of the "unblockable" keyword.
+ * combatEvasion.canBlockAttacker already refuses EVERY block of a creature with a granted "unblockable"
+ * (the Herald of Secret Streams precedent), read layer-aware so it wears off at cleanup (CR 514.2). OWN-side
+ * (you make YOUR attacker unblockable to push damage); the optional "you control" form restricts targeting.
+ */
+export function applyCantBeBlocked(state, atom, ctx) {
+  const targets = atomTargets(state, atom, ctx);
+  let next = state;
+  const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
+  const dur = { kind: "endOfTurn", turn: next.turn };
+  for (const target of targets) {
+    if (target.type !== "creature" || !findPermanent(next, target.id)) continue;
+    next = addContinuousEffect(next, {
+      layer: 6, op: { layerOp: "addKeyword", keyword: "unblockable" },
+      affects: { mode: "fixed", permanentIds: [target.id] },
+      duration: dur, source: src,
+    }).state;
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "cant-be-blocked", targets: targets.map(t => t.id) });
+}
+
+/**
  * SELF-DAMAGE-BY-POWER (CR 119, a "self-fight") — "Target creature deals damage to itself equal to its
  * power" (Justice Strike, Repentance, Wrack with Madness, Inner Struggle, Kiku's Shadow; Kiku, Night's
  * Flower's activated ability) and the MASS form "Each creature deals damage to itself equal to its power"
@@ -393,6 +416,10 @@ export function combatKeywordClauseParser(clause) {
   }
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
+  // CANT-BE-BLOCKED — "target creature[ you control] can't be blocked this turn" (Infiltrate, Artful Dodge).
+  // The `$` anchor rejects a qualified "…except by <X>" / conditional form (those stay Arbiter, FN-safe).
+  const cbb = t.match(/^target creature( you control)? can't be blocked this turn$/);
+  if (cbb) return { op: "cant-be-blocked", targetType: "creature", ...(cbb[1] ? { restrictions: [{ kind: "controller", who: "you" }] } : {}) };
   // SELF-DAMAGE-BY-POWER (a "self-fight") — whole-clause anchored; a rider ("If that creature has flying…"
   // — Cut Propulsion) leaves residue → fails the `$` → low → Arbiter (CREED, FN-safe).
   if (/^target creature deals damage to itself equal to its power$/.test(t)) return { op: "damage-self-power", targetType: "creature" };
@@ -592,6 +619,7 @@ export const combatResolvers = {
   "tap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, true),
   "untap": (state, atom, ctx) => applyTapEffect(state, atom, ctx, false),
   "cant-block": applyCantBlock, // CANT-BLOCK — "target creature can't block this turn" → layer-6 endOfTurn cantBlock grant
+  "cant-be-blocked": applyCantBeBlocked, // CANT-BE-BLOCKED — "target creature can't be blocked this turn" → layer-6 endOfTurn unblockable grant
   "grant-keywords-group": applyGrantKeywordsGroup, // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
   "damage-self-power": applyDamageSelfPower, // SELF-DAMAGE-BY-POWER — "target/each creature deals damage to itself equal to its power"
 };
