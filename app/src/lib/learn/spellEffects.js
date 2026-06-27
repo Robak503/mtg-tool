@@ -416,10 +416,16 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [])
   // … — see parseGraveyardFilter). The graveyard is a public zone, so this is a normal cast-time target
   // choice; cardMatchesGraveyardFilter applies the front-face (CR 712.4a) type discipline.
   const addGraveyardCards = () => {
-    for (const card of state.players[controllerId]?.graveyard || []) {
-      if (card.token) continue; // a token is not a "card" (CR 111 / 608.2b) — never a legal target
-      if (!cardMatchesGraveyardFilter(card, effect.cardFilter)) continue;
-      out.push({ type: "graveyardCard", id: card.id, controller: controllerId, name: card?.name });
+    // Default: the CASTER'S OWN graveyard ("your graveyard" — return-from-graveyard / reanimate / GY-TO-TOP).
+    // GY-EXILE sets effect.anyGraveyard ("a graveyard") → offer cards from EVERY player's graveyard, each
+    // stamped with its OWNER as `controller` so the resolver exiles it from the right graveyard.
+    const pids = effect.anyGraveyard ? Object.keys(state.players) : [controllerId];
+    for (const pid of pids) {
+      for (const card of state.players[pid]?.graveyard || []) {
+        if (card.token) continue; // a token is not a "card" (CR 111 / 608.2b) — never a legal target
+        if (!cardMatchesGraveyardFilter(card, effect.cardFilter)) continue;
+        out.push({ type: "graveyardCard", id: card.id, controller: pid, name: card?.name });
+      }
     }
   };
   // δ-1b hand disruption: the target is an OPPONENT (a player), chosen at cast WITHOUT seeing their hand

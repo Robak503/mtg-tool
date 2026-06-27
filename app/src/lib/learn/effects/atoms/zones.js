@@ -54,6 +54,27 @@ export function applyReturnFromGraveyard(state, atom, ctx) {
 }
 
 /**
+ * GY-EXILE (CR 608) — "exile target card from a graveyard" (Coffin Purge, Cremate, Purify the Grave, Fade
+ * from Memory). UNLIKE return-from-graveyard (the caster's OWN graveyard), the target is a card in ANY
+ * player's graveyard (a public zone), chosen at cast; it is moved graveyard → exile from its OWNER's
+ * graveyard (t.controller, stamped at enumeration). Fail-safe (CR 608.2b): a target that already left its
+ * graveyard is a logged no-op, never a throw. The graveyard is public, so logging the move leaks nothing.
+ */
+export function applyExileFromGraveyard(state, atom, ctx) {
+  let next = state;
+  const exiled = [];
+  for (const t of ctx.targets || []) {
+    if (t.type !== "graveyardCard") continue;
+    const owner = t.controller; // the graveyard's owner, set at enumeration (may be an opponent)
+    const gy = next.players[owner]?.graveyard || [];
+    if (!gy.some((c) => c.id === t.id)) continue; // target left the graveyard — no-op (CR 608.2b)
+    next = moveCardToZone(next, { playerId: owner, fromZone: "graveyard", toZone: "exile", cardId: t.id });
+    exiled.push(t.id);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "exile-from-graveyard", controller: ctx.controller, targets: exiled });
+}
+
+/**
  * Reanimation (β-3b, CR 608) — "Return target creature card from your graveyard to the battlefield"
  * (Resurrection / Zombify / Breath of Life). Like return-from-graveyard but the chosen card enters the
  * battlefield as a permanent UNDER THE CASTER'S CONTROL (becomePermanent), and its ETB triggers fire
@@ -161,6 +182,11 @@ export function graveyardReturnClauseParser(clause) {
     const cf = parseGraveyardFilter(topM[1]);
     if (cf) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter: cf, toLibraryTop: true };
   }
+  // GY-EXILE — "exile target card from a graveyard" (Coffin Purge, Cremate, Purify the Grave, Fade from
+  // Memory). ANY player's graveyard (anyGraveyard → enumerate every graveyard), destination exile. The exact
+  // `$` anchor rejects "from your graveyard" (the caster-only forms above), "up to N"/plural, a type-filtered
+  // variant, or a trailing rider → low → Arbiter (FN-safe). cardFilter "any" matches every graveyard card.
+  if (/^exile target card from a graveyard$/.test(t)) return { op: "exile-from-graveyard", targetType: "graveyardCard", anyGraveyard: true, cardFilter: "any" };
   return null;
 }
 
@@ -196,4 +222,5 @@ export const zoneResolvers = {
   "tuck": (state, atom, ctx) => applyZoneMove(state, atom, ctx, "library", atom.where === "top"),
   "return-from-graveyard": applyReturnFromGraveyard,
   "reanimate": applyReanimate,
+  "exile-from-graveyard": applyExileFromGraveyard,
 };
