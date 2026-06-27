@@ -5,6 +5,7 @@
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, addPoison, addExperience, addRadCounters } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, isCreatureCard } from "./shared.js";
+import { SMALL_NUM } from "../parseHelpers.js"; // seam batch 3: shared number-word map (leaf, cycle-free)
 
 /**
  * WAVE 3b COUNTERS-ON-EVENT — the TRIGGERING-PERMANENT referent ("…on that creature" / non-self "…on
@@ -134,6 +135,32 @@ export function applyGainExperience(state, atom, ctx) {
   const pid = ctx.controller;
   if (!state.players?.[pid]) return state;
   return addExperience(state, { playerId: pid, amount: count });
+}
+
+/**
+ * PROLIFERATE clause parser (CR 701.27) — migrated from parser.js parseExtendedAtom (seam batch 3).
+ * A standalone keyword action: "proliferate" / "proliferate again" → one proliferate; "proliferate twice"
+ * (Contagion Engine) → times:2. A proliferate with a rider in the same clause keeps the rider via the normal
+ * clause split, so the exact-match never silently drops trailing text. Pure (no parser.js import — cycle-safe).
+ */
+export function proliferateClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  if (/^proliferate twice$/.test(t)) return { op: "proliferate", times: 2, targetType: null };
+  if (/^proliferate( again)?$/.test(t)) return { op: "proliferate", targetType: null };
+  return null;
+}
+
+/**
+ * GAIN-EXPERIENCE clause parser (EARTHBEND-PR3, Toph landfall) — migrated from parser.js parseExtendedAtom
+ * (seam batch 3). "you get an experience counter" / "you get N experience counters" → the gain-experience
+ * atom (increments player.experience). Non-targeted, infallible. Pure; uses the shared SMALL_NUM leaf map.
+ */
+export function gainExperienceClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  if (/^you get an experience counter$/.test(t)) return { op: "gain-experience", count: 1, targetType: null };
+  const m = t.match(/^you get (\d+|one|two|three|four|five) experience counters?$/);
+  if (m) return { op: "gain-experience", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: null };
+  return null;
 }
 
 export const counterResolvers = {

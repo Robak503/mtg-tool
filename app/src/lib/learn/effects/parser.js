@@ -43,6 +43,7 @@ import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { exploreClauseParser } from "./atoms/library.js"; // seam batch 1: EXPLORE matcher migrated out of parseExtendedAtom
 import { SMALL_NUM, NUM_WORD } from "./parseHelpers.js"; // seam batch 2: shared number-word maps in a leaf (matchers can import cycle-free)
+import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/counters.js"; // seam batch 3
 import { GRANTABLE_COMBAT_KEYWORDS, GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../keywords.js";
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
@@ -633,12 +634,7 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = 
 function parseExtendedAtom(s) {
   const t = s.toLowerCase().replace(/[’]/g, "'"); // normalize curly apostrophe
 
-  // ===== PROLIFERATE ===== (WALT, CR 701.27) a standalone keyword action — "Proliferate" / "proliferate
-  // again". The resolver (effectAtoms.applyProliferate) auto-picks the never-harmful counters. "Proliferate
-  // twice" (Contagion Engine) runs it twice (times:2). A "proliferate" with a rider in the same clause
-  // keeps the rider via the normal clause split, so this exact-match never silently drops trailing text.
-  if (/^proliferate twice$/.test(t)) return { op: "proliferate", times: 2, targetType: null };
-  if (/^proliferate( again)?$/.test(t)) return { op: "proliferate", targetType: null };
+  // ===== PROLIFERATE ===== migrated to atoms/counters.proliferateClauseParser (seam batch 3).
 
   // ===== EARTHBEND ===== (WALT, Toph) "earthbend N" — a keyword action: permanently animate a land you
   // control into a 0/0 Elemental creature with haste (still a land) + N +1/+1 counters (effectAtoms.
@@ -658,11 +654,7 @@ function parseExtendedAtom(s) {
   // registerClauseParser at file bottom; the CLAUSE_PARSERS dispatch is behavior-identical here because the
   // explore clauses are whole-clause-anchored and match no other matcher — proven by program-fingerprint).
 
-  // ===== GAIN-EXPERIENCE ===== (EARTHBEND-PR3, Toph landfall) "you get an experience counter" / "N counters"
-  // — increments the controller's experience counter total (player.experience). Non-targeted, infallible.
-  if (/^you get an experience counter$/.test(t)) return { op: "gain-experience", count: 1, targetType: null };
-  const expM = t.match(/^you get (\d+|one|two|three|four|five) experience counters?$/);
-  if (expM) return { op: "gain-experience", count: SMALL_NUM[expM[1]] ?? parseInt(expM[1], 10), targetType: null };
+  // ===== GAIN-EXPERIENCE ===== migrated to atoms/counters.gainExperienceClauseParser (seam batch 3).
 
   // ===== RAD ===== (CR 728) "<who> gets N rad counter(s)" — a player-counter grant (The Wise Mothman:
   // "each player gets a rad counter"). The inherent radiation ability (gameEngine, at each player's
@@ -2638,3 +2630,8 @@ registerClauseParser(tokenCopyParser);
 // the inline (priority) path to the CLAUSE_PARSERS (post-extended) path is behavior-identical — the explore
 // clauses match no other matcher. Acceptance proven by program-fingerprint byte-identical over 34,160 cards.
 registerClauseParser(exploreClauseParser);
+// PROLIFERATE + GAIN-EXPERIENCE (seam batch 3) — migrated verbatim out of parseExtendedAtom into
+// atoms/counters (co-located with applyProliferate / applyGainExperience). Whole-clause-anchored, so the
+// inline→CLAUSE_PARSERS move is behavior-identical (proven byte-identical by program-fingerprint).
+registerClauseParser(proliferateClauseParser);
+registerClauseParser(gainExperienceClauseParser);
