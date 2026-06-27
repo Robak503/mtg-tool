@@ -32,7 +32,7 @@
 - **lose-life + gain-life** (life.js; scaled[parseCountSource]+fixed-N clusters at 644-667 & 828-847; gain/lose interleave each other → CO-EXTRACT the life family together).
 - **draw** (misc.js; MOST scattered 552-1429; parseCountSource+NUM_WORD; 3 clusters incl. combat-damage + for-each + each-player) — co-handle with discard's each-player block.
 - **discard** (hand.js; 1440-1455; NUM_WORD; interleaved w/ draw each-player above).
-- **rad** (counters.js; player-grant block 531/533/535 clean; cdmg 559/562 + dies 581 variants belong to a future cdmg/dies-payoff family — pull ONLY the contiguous player-grant block per ledger; SMALL_NUM[leaf]).
+- ✅ **rad** (atoms/counters.radClauseParser; batch 13 `2c0e967`, program-diff=0) — pulled ONLY the contiguous player-grant block (each/you/target "gets N rad counters", SMALL_NUM leaf). The cdmg (who:damagedPlayer) + dies (power-scaled) rad variants STAY inline with the CDMG-PLAYER-PAYOFF family (disjoint they/that-player anchor → no collision; deferred to a future cdmg/dies-payoff family batch).
 - **add-counter** (counters.js; 5 +1/+1 branches 1233-1277; SMALL_NUM; interleaved w/ bounce/sacrifice/pump/regen).
 - **sacrifice** (removal.js; self 1208 + triggering 1231 + EDICTS 1467-1485; no shared helper; 2 far regions).
 - **destroy + exile** (removal.js; SHARE the `^(destroy|exile) target …` regex @993-1005 emitting both via rm[1] → CO-EXTRACT; plus mass forms destroy 1128/1137, exile 956/1129; local TT maps).
