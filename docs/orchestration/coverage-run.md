@@ -57,12 +57,22 @@ The scripts are committed, so the orchestrator invokes them itself — no agent 
 
 ## Phase sequence
 - **Phase 0 — DONE** (master `65088f8`): consolidate + commit the guard kit (the 4 tools above).
-- **Phase 1 — NEXT: the parser.js matcher-registry seam.** Lift the ~149 inline `parseExtendedAtom` branches
-  into registered `CLAUSE_PARSERS` modules in **small batches**, mirroring the `atoms/*.js` resolver families.
+- **Phase 1 — IN PROGRESS: the parser.js matcher-registry seam.** Lift the ~149 inline `parseExtendedAtom`
+  branches into registered `CLAUSE_PARSERS` modules in **small batches**, mirroring the `atoms/*.js` families.
   **Acceptance per batch = `program-fingerprint` byte-identical over all 34,160 cards** (a pure refactor) —
-  this mechanically proves the "priority order preserved exactly" requirement the tier diff cannot. The seam
-  is the throughput gate for wide fan-out; the integrator-wall win (concurrent verify, serial ff-push) is
-  already delivered by the one-chat pipeline and is seam-independent.
+  mechanically proves the "priority order preserved exactly" requirement the tier diff cannot. The seam is the
+  throughput gate for wide fan-out; the integrator-wall win (concurrent verify, serial ff-push) is already
+  delivered by the one-chat pipeline and is seam-independent.
+  - ✅ **Batch 1 (`312a273`): EXPLORE migrated** → `atoms/library.exploreClauseParser`. program-diff = 0,
+    4222 tests green. Methodology PROVEN — extract → register → program-fingerprint byte-identical → ship.
+  - **Key insight:** a migrated branch moves from the inline (priority) path to the `CLAUSE_PARSERS`
+    (post-`parseExtendedAtom`) path, so it is behavior-safe ONLY when its clauses match no other matcher;
+    `program-fingerprint` proves that per batch. Whole-clause-anchored families are safe; overlapping ones need
+    order-preserving handling.
+  - **NEXT enabler:** most families (earthbend/rad/gain-experience/library/life/counters) share helpers
+    (`SMALL_NUM`, `parseCountSource`, `parseCreatureTargetRestrictions`, …) defined IN parser.js. A matchers
+    module can't import parser.js (TDZ cycle), so extract those helpers to a leaf module first (itself gated
+    byte-identical), then migrate the bigger families cycle-free.
 - **Phase 2 — prove ONE clean wave** end-to-end through the consolidated machine (build → fingerprint verify →
   gate → ff-merge) on real cards. **Only after this passes do faculties wind down.**
 - **Phase 3 — widen fan-out** on disjoint atom-families (collision-free post-seam).
