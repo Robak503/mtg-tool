@@ -42,9 +42,9 @@ import { winGameClauseParser } from "./atoms/winGame.js";
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
-import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, parseTutorFilter } from "./parseHelpers.js"; // seam batch 2/4/12b: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter still used by the rd reveal-dig block. BASIC_LAND_SUBTYPES/UP_TO_N_WORD/parseTutorMv now used only inside atoms/library.tutorClauseParser (B2e)
+import { SMALL_NUM, NUM_WORD, parseCountSource, parseTutorFilter } from "./parseHelpers.js"; // seam batch 2/4: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter still used by the rd reveal-dig block. parseGrantedKeywords now used only inside atoms/combat (pump + animate, batch 12c/14); tutor MV/land/up-to-N helpers only inside atoms/library.tutorClauseParser
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad player-grant)
-import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump)
+import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate)
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
 import { attachClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self)
 import { tuckClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck)
@@ -736,51 +736,10 @@ function parseExtendedAtom(s) {
   // ===== PUMP (target creature) ===== migrated to atoms/combat.pumpClauseParser (seam batch 12c / Wave B1b).
   // ===== CANT-BLOCK ===== migrated to atoms/combat.combatKeywordClauseParser (seam batch 7 / Wave A2).
   // ===== PUMP (target creature you control / an opponent controls) ===== migrated to pumpClauseParser (batch 12c).
-  // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
-  // KW[ and KW]]" (Animate Land, Hydroform, Vivify; the "still a land" reminder already stripped above).
-  // Modeled as layer-4 type-ADD (Creature + optional subtype) + layer-7b P/T-SET + layer-6 keyword grants,
-  // all until end of turn (applyAnimateEffect). "becomes a creature" is additive by default — the land
-  // stays a land (0 non-additive land-animates in the corpus) — so the additive layer-4 is always correct.
-  // REQUIRES until-end-of-turn (prefix or suffix); a PERMANENT animate, a color-set ("becomes a black
-  // creature"), a counter-scaled 0/0, or an un-grantable keyword fails the anchor → low → Arbiter. A "must
-  // be blocked this turn if able" (Lure) rider lives in its OWN sentence → unparsed clause → low (a
-  // half-modeled native is forbidden; the whole card routes to the Arbiter instead).
-  const anm = t.match(/^(until end of turn, )?target land becomes a (\d+)\/(\d+)(?: ([a-z]+))? creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
-  if (anm) {
-    if (!anm[1] && !anm[6]) return null;  // a PERMANENT animate (no until-end-of-turn) is not modeled → Arbiter
-    const COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "multicolored"]);
-    if (anm[4] && COLOR_WORDS.has(anm[4])) return null;  // "becomes a black creature" SETS color (layer 5) — not modeled → Arbiter
-    const grantKeywords = anm[5] ? parseGrantedKeywords(anm[5]) : [];
-    if (anm[5] && !grantKeywords) return null;  // an un-grantable rider keyword drops the whole clause → Arbiter
-    const subtypes = anm[4] ? [anm[4].charAt(0).toUpperCase() + anm[4].slice(1)] : [];
-    return { op: "animate", targetType: "land", power: parseInt(anm[2], 10), toughness: parseInt(anm[3], 10), subtypes, grantKeywords, duration: "endOfTurn" };
-  }
-  // ===== WALT-ANIMATE PR3 ===== MAN-LAND self-animate: a land's ACTIVATED ability animates ITSELF
-  // ("{1}: This land becomes a 3/3 green Ape creature with trample until end of turn" — Treetop Village,
-  // Faerie Conclave, the Restless cycle, …). Self-reference ("this land" = the source, resolved via
-  // ctx.sourceId → target:"self"). The middle between "N/N" and "creature" is the set color(s) (layer 5),
-  // creature subtype(s) (layer 4), and an added card type like artifact (layer 4). Routes to LOW → Arbiter:
-  // a non-grantable keyword (menace/infect), "with all creature types" (changeling — Mutavault), a "can't
-  // be blocked"/Lure rider (its own sentence → unparsed clause — Creeping Tar Pit), or any middle token
-  // that isn't a color / artifact / plain subtype word. REQUIRES until-end-of-turn (the modeled subset).
-  const anmSelf = t.match(/^(until end of turn, )?this land becomes a (\d+)\/(\d+) (.*?)creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
-  if (anmSelf) {
-    if (!anmSelf[1] && !anmSelf[6]) return null;  // a PERMANENT animate (no until-end-of-turn) → Arbiter
-    const COLOR_MAP = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
-    const capHyphen = (w) => w.split("-").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join("-");
-    const colors = [], subtypes = [], cardTypes = [];
-    let ok = true;
-    for (const w of (anmSelf[4] || "").trim().split(/\s+/).filter(x => x && x !== "and")) {
-      if (COLOR_MAP[w]) colors.push(COLOR_MAP[w]);
-      else if (w === "artifact" || w === "enchantment") cardTypes.push(capHyphen(w));
-      else if (/^[a-z][a-z-]*$/.test(w)) subtypes.push(capHyphen(w));  // a creature subtype (Ape / Faerie / Assembly-Worker)
-      else { ok = false; break; }  // an unrecognized middle token — don't risk a mis-model → Arbiter
-    }
-    if (!ok) return null;
-    const grantKeywords = anmSelf[5] ? parseGrantedKeywords(anmSelf[5]) : [];
-    if (anmSelf[5] && !grantKeywords) return null;  // un-grantable rider (menace/infect/"all creature types") → Arbiter
-    return { op: "animate", target: "self", power: parseInt(anmSelf[2], 10), toughness: parseInt(anmSelf[3], 10), colors, subtypes, cardTypes, grantKeywords, duration: "endOfTurn" };
-  }
+  // ===== WALT-ANIMATE + MAN-LAND self-animate ===== migrated to atoms/combat.animateClauseParser (seam batch
+  // 14 / Wave C). Two adjacent blocks (anm "target land becomes a N/N … creature" + anmSelf "this land becomes
+  // a N/N <colors/subtypes/types> creature") — layer-4 type-add + layer-7b P/T-set + layer-6 grants, endOfTurn
+  // only; the inline COLOR_WORDS/COLOR_MAP/capHyphen helpers travel with them. Uses parseGrantedKeywords (leaf).
   // MASS effects (board wipes) — UNFILTERED "all creatures" only. Resolve to the SAME atoms
   // with the `eachCreature` scope (no chosen target; programNeedsChosenTarget excludes it),
   // so they hit every creature on every battlefield. A FILTERED wipe ("all creatures with
@@ -2069,6 +2028,11 @@ registerClauseParser(combatKeywordClauseParser);
 // PUMP (seam batch 12c / Wave B1b) — the most fragmented op (14 returns, 7 interleaved clusters) migrated to
 // atoms/combat.pumpClauseParser; branch order preserved. program-diff = 0 (gate-verified).
 registerClauseParser(pumpClauseParser);
+// ANIMATE (seam batch 14 / Wave C) — WALT-ANIMATE (target land) + man-land self-animate migrated to
+// atoms/combat.animateClauseParser (2 adjacent blocks, order preserved; inline COLOR helpers travel; uses the
+// parseGrantedKeywords leaf). The "land becomes a N/N … creature" clauses match no earlier registered parser
+// and (verified) no later parseExtendedAtom branch → the inline→CLAUSE_PARSERS move is behavior-identical.
+registerClauseParser(animateClauseParser);
 // MISC (seam batch 8 / Wave A3) — fog + divide-damage migrated to atoms/misc.miscClauseParser
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.

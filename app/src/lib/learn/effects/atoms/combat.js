@@ -396,6 +396,53 @@ export function pumpClauseParser(clause) {
   return null;
 }
 
+/**
+ * ANIMATE clause parser (WALT-ANIMATE) — migrated from parser.js parseExtendedAtom (seam batch 14 / Wave C),
+ * verbatim. TWO adjacent blocks, order preserved:
+ *   anm — "[until end of turn,] target land becomes a N/N [subtype] creature [with KW[ and KW]]" (Animate
+ *         Land / Hydroform / Vivify). layer-4 type-ADD + layer-7b P/T-SET + layer-6 grants, all endOfTurn.
+ *         REQUIRES until-end-of-turn (prefix or suffix); a permanent animate / color-set / un-grantable
+ *         keyword fails → null → Arbiter.
+ *   anmSelf — MAN-LAND self-animate "[until end of turn,] this land becomes a N/N <colors/subtypes/types>
+ *         creature [with KW[ and KW]] [until end of turn]" (Treetop Village, the Restless cycle). The middle
+ *         tokens are colors (layer 5) / artifact|enchantment (layer 4) / creature subtypes (layer 4); an
+ *         unrecognized middle token, un-grantable keyword, or permanent animate → null → Arbiter.
+ * Both REQUIRE until-end-of-turn (the modeled subset). Pure; uses parseGrantedKeywords from the leaf.
+ * Registered via registerClauseParser in parser.js.
+ */
+export function animateClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const anm = t.match(/^(until end of turn, )?target land becomes a (\d+)\/(\d+)(?: ([a-z]+))? creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
+  if (anm) {
+    if (!anm[1] && !anm[6]) return null;  // a PERMANENT animate (no until-end-of-turn) is not modeled → Arbiter
+    const COLOR_WORDS = new Set(["white", "blue", "black", "red", "green", "colorless", "multicolored"]);
+    if (anm[4] && COLOR_WORDS.has(anm[4])) return null;  // "becomes a black creature" SETS color (layer 5) — not modeled → Arbiter
+    const grantKeywords = anm[5] ? parseGrantedKeywords(anm[5]) : [];
+    if (anm[5] && !grantKeywords) return null;  // an un-grantable rider keyword drops the whole clause → Arbiter
+    const subtypes = anm[4] ? [anm[4].charAt(0).toUpperCase() + anm[4].slice(1)] : [];
+    return { op: "animate", targetType: "land", power: parseInt(anm[2], 10), toughness: parseInt(anm[3], 10), subtypes, grantKeywords, duration: "endOfTurn" };
+  }
+  const anmSelf = t.match(/^(until end of turn, )?this land becomes a (\d+)\/(\d+) (.*?)creature(?: with ([a-z, ]+?))?(?: in addition to its other types)?( until end of turn)?$/);
+  if (anmSelf) {
+    if (!anmSelf[1] && !anmSelf[6]) return null;  // a PERMANENT animate (no until-end-of-turn) → Arbiter
+    const COLOR_MAP = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+    const capHyphen = (w) => w.split("-").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join("-");
+    const colors = [], subtypes = [], cardTypes = [];
+    let ok = true;
+    for (const w of (anmSelf[4] || "").trim().split(/\s+/).filter(x => x && x !== "and")) {
+      if (COLOR_MAP[w]) colors.push(COLOR_MAP[w]);
+      else if (w === "artifact" || w === "enchantment") cardTypes.push(capHyphen(w));
+      else if (/^[a-z][a-z-]*$/.test(w)) subtypes.push(capHyphen(w));  // a creature subtype (Ape / Faerie / Assembly-Worker)
+      else { ok = false; break; }  // an unrecognized middle token — don't risk a mis-model → Arbiter
+    }
+    if (!ok) return null;
+    const grantKeywords = anmSelf[5] ? parseGrantedKeywords(anmSelf[5]) : [];
+    if (anmSelf[5] && !grantKeywords) return null;  // un-grantable rider (menace/infect/"all creature types") → Arbiter
+    return { op: "animate", target: "self", power: parseInt(anmSelf[2], 10), toughness: parseInt(anmSelf[3], 10), colors, subtypes, cardTypes, grantKeywords, duration: "endOfTurn" };
+  }
+  return null;
+}
+
 export const combatResolvers = {
   "fight": fightCreature, // ETB-FIGHT (CR 701.12) — source + target creature deal damage = power to each other, simultaneously
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
