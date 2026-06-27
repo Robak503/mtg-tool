@@ -138,10 +138,10 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   for-each + fixed-N clusters, one parser, original order; draw branches stay inline disjoint; parseCountSource into life.js). All program-diff=0.
   ✅ create-named-token → atoms/tokens.createNamedTokenClauseParser (batch 18 `6c4b25e`). ✅ token-helper leaf
   (batch 19 `946319f`, program-diff=0 — parseTokenManaAbility+parseTokenKeywords + their deps → parseHelpers leaf;
-  parser.js dropped its keywords.js import). ✅ create-token → atoms/tokens.createTokenClauseParser (batch 20 `45c0206`, program-diff=0 — for-each+fixed-N,
-  guards+with-split travel; parseTokenManaAbility import dropped from parser.js). All program-diff=0. **NEXT = sacrifice
-  [removal.js, self+triggering+EDICTS — 2 far regions, one contiguous region/batch]; then SCATTERED destroy⇄exile
-  (672/697/729/730/741) + draw+discard [order-handling, try last].** FP checkpoint #6 due ~batch 24. SKIP
+  parser.js dropped its keywords.js import). ✅ create-token → atoms/tokens.createTokenClauseParser (batch 20 `45c0206`). ✅ sacrifice EDICTS → atoms/removal.sacrificeEdictClauseParser
+  (batch 21 `b66e7e8`, program-diff=0 — target/each-player/each-opponent, the last matchers in parseExtendedAtom). All program-diff=0.
+  **NEXT = sacrifice self/triggering (removal.js, non-contiguous mid-function pair — co-extract or one-each); then draw+discard
+  each-player [misc/hand.js contiguous pair]; SCATTERED destroy⇄exile (672/697/729/730/741) [order-handling, try last].** FP checkpoint #7 due ~batch 27. SKIP
   the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
   (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
