@@ -44,17 +44,23 @@ export const GRANTABLE_COMBAT_KEYWORDS = new Set(
   COMBAT_KEYWORDS.map((k) => k.toLowerCase()).filter((k) => !NON_GRANTABLE.has(k)),
 );
 
-// Keywords the STATIC grant path (anthems/lords + attached Equipment/Auras) may grant —
-// the combat set PLUS non-combat keywords whose runtime effect is ENFORCED and read
-// layer-aware. "indestructible" qualifies now that the destroy effect (CR 702.12b) and the
-// lethal-damage SBA (CR 704.5g) both consult permanentHasKeyword via gameState.isIndestructible,
-// so a GRANTED instance is honored exactly like a printed one (Darksteel Plate's "Equipped
-// creature has indestructible", Avacyn's "Other permanents you control have indestructible").
-// Combat TRICKS (effects/parser.js) intentionally STAY on GRANTABLE_COMBAT_KEYWORDS only — an
-// until-end-of-turn indestructible grant is a valid future add, but isn't modeled yet, so a
-// "gains indestructible until end of turn" instant still routes to the Arbiter (a deliberate,
-// test-pinned divergence, not drift).
-export const GRANTABLE_STATIC_KEYWORDS = new Set([...GRANTABLE_COMBAT_KEYWORDS, "indestructible"]);
+// Keywords the STATIC grant path (anthems/lords + attached Equipment/Auras + minted tokens) may grant —
+// the combat set PLUS non-combat keywords whose runtime effect is ENFORCED and read layer-aware:
+//   - "indestructible": the destroy effect (CR 702.12b) + the lethal-damage SBA (CR 704.5g) both consult
+//     permanentHasKeyword via gameState.isIndestructible (Darksteel Plate, Avacyn).
+//   - "hexproof" / "shroud" (STATIC-HEXPROOF-SHROUD): targeting is gated by canBeTargetedBy
+//     (spellEffects.js), read LAYER-AWARE over continuousEffects — a GRANTED instance is honored exactly
+//     like a printed one. Targeting-exclusion is the ENTIRETY of what these keywords do (hexproof =
+//     untargetable by opponents, shroud = by anyone), so granting them is COMPLETE — no partial behavior,
+//     no false-positive native. This admits the anthem/equipment/token forms (Crystalline Sliver "All
+//     Slivers have shroud", Lightning Greaves "has haste and shroud", Asceticism/Privileged Position
+//     "have hexproof", Deeproot Waters' hexproof Merfolk token, Angelic Overseer's GATED self-grant).
+// Combat TRICKS / pump-grants (effects/parser.js parseGrantedKeywords) intentionally STAY on
+// GRANTABLE_COMBAT_KEYWORDS only — the one-shot until-EOT GROUP-KEYWORD-GRANT (atoms/combat.js) handles
+// the team/permanents "gain hexproof/indestructible until end of turn" form via its own path; a SINGLE-
+// target "gains indestructible until end of turn" instant (Withstand Death) still routes to the Arbiter
+// (a deliberate, test-pinned divergence, not drift).
+export const GRANTABLE_STATIC_KEYWORDS = new Set([...GRANTABLE_COMBAT_KEYWORDS, "indestructible", "hexproof", "shroud"]);
 
 /** Canonical-cased keyword name for a lowercase word ("first strike" → "First strike"). */
 export function canonicalCombatKeyword(lower) {

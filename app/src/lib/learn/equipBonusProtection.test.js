@@ -69,8 +69,8 @@ describe("parseAttachedClause — EQUIP-LOSES-KW (+N/+N and loses <combat keywor
       { layer: 6, op: { layerOp: "removeKeyword", keyword: "Flying" }, duration: { kind: "permanent" } },
     ]);
   });
-  it("'loses <unmodeled keyword>' drops the whole bonus (only a known combat keyword may be removed)", () => {
-    expect(parseEquipmentBonus({ oracle: "Equipped creature gets +1/+1 and loses hexproof.\nEquip {2}" })).toEqual([]);
+  it("'loses <unmodeled keyword>' drops the whole bonus (only a known grantable keyword may be removed)", () => {
+    expect(parseEquipmentBonus({ oracle: "Equipped creature gets +1/+1 and loses shadow.\nEquip {2}" })).toEqual([]);
   });
 });
 

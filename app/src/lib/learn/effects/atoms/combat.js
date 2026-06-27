@@ -439,14 +439,12 @@ export function pumpClauseParser(clause) {
 }
 
 /**
- * GROUP-KEYWORD-GRANT keyword vocab — the static-grant set (combat keywords + indestructible) PLUS hexproof
- * and shroud. hexproof/shroud are admitted HERE (not in the shared GRANTABLE_STATIC_KEYWORDS the anthem path
- * uses) because their enforcement is COMPLETE + layer-aware — `canBeTargetedBy` honors a granted instance, and
- * targeting-exclusion is the ENTIRETY of what the keywords do (no partial behavior → no false-positive native).
- * Scoping them to this one-shot path keeps the anthem path byte-identical (zero blast radius). ALL-OR-NOTHING:
- * one unmodeled word (protection from …, an ability word, a non-keyword) drops the whole clause → Arbiter (FN-safe).
+ * GROUP-KEYWORD-GRANT keyword vocab — the shared static-grant set (combat keywords + indestructible +
+ * hexproof + shroud; STATIC-HEXPROOF-SHROUD admitted those last two once their enforcement was proven
+ * complete + layer-aware). ALL-OR-NOTHING: one unmodeled word (protection from …, an ability word, a
+ * non-keyword) drops the whole clause → Arbiter (FN-safe).
  */
-const GROUP_GRANTABLE_KEYWORDS = new Set([...GRANTABLE_STATIC_KEYWORDS, "hexproof", "shroud"]);
+const GROUP_GRANTABLE_KEYWORDS = GRANTABLE_STATIC_KEYWORDS;
 const GROUP_KEYWORD_CANON = { indestructible: "Indestructible", hexproof: "Hexproof", shroud: "Shroud" };
 function parseGroupGrantKeywords(phrase) {
   const words = String(phrase).split(/,|\band\b/).map((w) => w.trim()).filter(Boolean);

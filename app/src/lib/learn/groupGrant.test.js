@@ -143,7 +143,8 @@ describe("GROUP-GRANT (B) — granted quoted MANA ability (parse + CREED gate)",
     expect(classifyCard({ type: "Creature — Sliver", name: "Gemhide Sliver", oracle: 'All Slivers have "{T}: Add one mana of any color."' })).toBe("native-mana");
     expect(classifyCard({ type: "Creature — Sliver", name: "Manaweft Sliver", oracle: 'Sliver creatures you control have "{T}: Add one mana of any color."' })).toBe("native-mana");
     expect(classifyCard({ type: "Creature — Sliver", name: "Crypt Sliver", oracle: 'All Slivers have "{T}: Regenerate target Sliver."' })).toBe("body-only");
-    expect(classifyCard({ type: "Creature — Sliver", name: "Crystalline Sliver", oracle: "All Slivers have shroud." })).toBe("body-only");
+    // STATIC-HEXPROOF-SHROUD: "All Slivers have shroud" is now native-static (shroud admitted to the grant set).
+    expect(classifyCard({ type: "Creature — Sliver", name: "Crystalline Sliver", oracle: "All Slivers have shroud." })).toBe("native-static");
   });
 });
 
