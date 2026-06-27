@@ -331,6 +331,26 @@ export function applyExplore(state, atom, ctx) {
   return next;
 }
 
+/**
+ * EXPLORE clause parser (CR 701.44) — migrated from parser.js parseExtendedAtom (seam batch 1).
+ * A keyword action on the SOURCE / TRIGGERING creature: reveal the top card of the controller's library;
+ * a LAND → its owner's hand; otherwise put a +1/+1 counter on the exploring creature and keep the card on
+ * top (a legal CR 701.44a "back or graveyard" choice — resolved deterministically to keep-on-top; an
+ * interactive keep/bin picker is a future refinement, mirroring scry's picker). detectTriggers rewrites the
+ * pronoun "it" → "this creature" (a SELF trigger: Merfolk Branchwalker, Emperor's Vanguard) or "the
+ * triggering creature" (a non-self enters-watcher: Path of Discovery); Jadelight Ranger's "it explores, then
+ * it explores again" → two "this creature explores" clauses, modeled as two explore atoms by the sequence
+ * parser. "explores X times" (a variable count, Jadelight Spelunker) is deliberately NOT matched → LOW →
+ * Arbiter (FN-safe). Pure (no parser.js import — cycle-safe); normalizes the clause exactly as
+ * parseExtendedAtom does, then whole-clause-anchored matches. Registered via registerClauseParser in parser.js.
+ */
+export function exploreClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'"); // normalize curly apostrophe (parseExtendedAtom parity)
+  if (/^this creature explores$/.test(t)) return { op: "explore", target: "self", targetType: null };
+  if (/^the triggering creature explores$/.test(t)) return { op: "explore", target: "thatCreature", targetType: null };
+  return null;
+}
+
 export const libraryResolvers = {
   "tutor": applyTutor,
   "shuffle": applyShuffle,
