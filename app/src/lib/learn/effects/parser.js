@@ -139,7 +139,7 @@ function stripUncounterableRider(text) {
 // legalChoices/actionDispatcher actually discards-and-draws), so the spell counts native honestly. The
 // `^…cycling` anchor never matches "plainscycling"/"landcycling" — typecycling stays unstripped (its
 // search variant routes to the Arbiter until the tutor atom covers it).
-const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{)[^\n]*$/gim;
+const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*\{)[^\n]*$/gim;
 function stripCastKeywordLines(text) {
   return String(text || "").replace(CAST_KEYWORD_LINE, " ");
 }
