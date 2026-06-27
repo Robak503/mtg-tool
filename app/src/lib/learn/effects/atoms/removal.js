@@ -209,6 +209,47 @@ export function sacrificeEdictClauseParser(clause) {
   return null;
 }
 
+/**
+ * DESTROY ⇄ EXILE clause parser — co-extracted from parseExtendedAtom (seam batch 27 / Wave C, RIDER-FOLDING).
+ * All five destroy/exile matchers, original first-match order:
+ *   1. "exile target creature" → exile/creature
+ *   2. shared `(destroy|exile) target <typelist>[ <control>]` (rm) — singles + permanent-TYPE unions + the
+ *      controller restriction; emits destroy OR exile via rm[1]. typelist excludes bare "creature" (the
+ *      legacy parseSpellEffect path serves "destroy/exile target creature").
+ *   3. "destroy all creatures" → destroy/eachCreature   4. "exile all creatures" → exile/eachCreature
+ *   5. "destroy all <artifacts|enchantments|lands|artifacts and enchantments>" → typed mass destroy
+ * UNFILTERED mass only. The `cannotRegenerate` re-stamp on the destroy-all atom happens in the parseEffectClause
+ * wrapper (outside this matcher), unchanged. **Rider-folding:** matchRemovalControllerRider in parser.js (the
+ * "Its controller …" dispatch) resolves its rider-stripped lead via parseExtendedAtom() || this parser, so the
+ * controllerRider cards (Beast Within / Generous Gift / Assassin's Trophy / Swords / Buy Your Silence …) keep
+ * folding even though the bare matchers now live here. Pure (no helper). Registered via registerClauseParser.
+ */
+export function destroyExileClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
+  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control))?$/);
+  if (rm) {
+    const TT = {
+      "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
+      "nonland permanent": "nonlandPermanent", "artifact or enchantment": "artifactOrEnchantment",
+      "creature or enchantment": "creatureOrEnchantment", "creature or land": "creatureOrLand",
+      "creature or artifact": "creatureOrArtifact", "artifact or land": "artifactOrLand",
+      "enchantment or land": "enchantmentOrLand",
+      "creature or planeswalker": "creatureOrPlaneswalker", "planeswalker": "planeswalker", // PW-7
+    };
+    const restrictions = rm[3] ? [{ kind: "controller", who: /^you control$/.test(rm[3]) ? "you" : "opponent" }] : [];
+    return { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
+  }
+  if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
+  if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
+  const m = t.match(/^destroy all (artifacts and enchantments|artifacts|enchantments|lands)$/);
+  if (m) {
+    const TT = { "artifacts": "eachArtifact", "enchantments": "eachEnchantment", "lands": "eachLand", "artifacts and enchantments": "eachArtifactOrEnchantment" };
+    return { op: "destroy", targetType: TT[m[1]] };
+  }
+  return null;
+}
+
 export const removalResolvers = {
   "destroy": (state, atom, ctx) =>
     atom.controllerRider

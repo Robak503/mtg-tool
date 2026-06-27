@@ -42,7 +42,7 @@ import { winGameClauseParser } from "./atoms/winGame.js";
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token) + 20 (create-token vanilla creature tokens)
-import { sacrificeEdictClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts)
+import { sacrificeEdictClauseParser, destroyExileClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
 import { SMALL_NUM, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); SMALL_NUM (cdmg rad) + parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; NUM_WORD/parseCountSource now only inside migrated clause parsers (batch 23/26)
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1)
@@ -479,7 +479,8 @@ function parseExtendedAtom(s) {
   // / Wave C), with the scaled for-each life cluster above. Covers "you gain/lose N life", "each opponent/player
   // loses N life", and the DEATH-DRAIN-TARGETED "target player|opponent loses N life" (who:"target", offensive —
   // atomTargetIntent → enemy). First-match order preserved inside the clause parser. Numeric N only (rider → Arbiter).
-  let m;
+  // (the `let m` scratch var is gone — its last consumers, the life fixed-N / add-counter / draw / discard / MASS
+  // matchers, all migrated to clause parsers; the remaining counter matchers below use their own mv/sc/scx vars.)
   // Counter target spell (P3.1, CR 701.5a) — targets a SPELL on the stack, not a
   // permanent/player. Anchored ALLOWLIST: a tax/conditional/modal-target counter
   // ("…unless its controller pays {3}", "…or ability", "…up to two target spells",
@@ -548,34 +549,12 @@ function parseExtendedAtom(s) {
   // ===== BOUNCE (target creature + β-3 non-creature permanent) ===== migrated to atoms/zones.bounceClauseParser
   // (seam batch 24 / Wave C; co-located with self + triggering bounce). NOT rider-folding-entangled (the rider
   // dispatch is exile/destroy-only), so this lifts cleanly.
-  if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
   // ===== TUCK ===== migrated to atoms/zones.tuckClauseParser (seam batch 10 / Wave A5).
-  // Targeted NON-CREATURE permanent removal (Disenchant / Naturalize / Stone Rain / "Destroy
-  // target permanent"). CREATURE removal keeps its dedicated path (the richer creature-restriction
-  // parser); this covers artifact / enchantment / land / permanent / nonland permanent / "artifact
-  // or enchantment", with the SAME 3 controller restrictions the creature path models, enforced at
-  // enumeration. A different filter ("artifact creature", "tapped artifact"), a non-controller
-  // restriction, or a rider (a 2nd clause — Beast Within's "Its controller creates …") fails the
-  // exact anchor → low → Arbiter. The new targetType is gated OUT of the trigger flush
-  // (programContainsChosenPermanentRemoval) — first-legal could hit the controller's OWN permanent,
-  // a forbidden mis-application; safe on the cast path where the player/AI choose the target.
-  // β-2 adds the compound permanent-TYPE UNIONS ("X or Y", both already-modeled permanent types) to the
-  // alternation — listed BEFORE the singles so the longer phrase wins. PW-7: planeswalkers are now
-  // targetable, so "creature or planeswalker" / "planeswalker" are admitted (Hero's Downfall, Vraska's
-  // Contempt, Murderous Rider…), enumerated via addPlaneswalkers.
-  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control))?$/);
-  if (rm) {
-    const TT = {
-      "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
-      "nonland permanent": "nonlandPermanent", "artifact or enchantment": "artifactOrEnchantment",
-      "creature or enchantment": "creatureOrEnchantment", "creature or land": "creatureOrLand",
-      "creature or artifact": "creatureOrArtifact", "artifact or land": "artifactOrLand",
-      "enchantment or land": "enchantmentOrLand",
-      "creature or planeswalker": "creatureOrPlaneswalker", "planeswalker": "planeswalker", // PW-7
-    };
-    const restrictions = rm[3] ? [{ kind: "controller", who: /^you control$/.test(rm[3]) ? "you" : "opponent" }] : [];
-    return { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
-  }
+  // ===== DESTROY ⇄ EXILE ===== migrated to atoms/removal.destroyExileClauseParser (seam batch 27 / Wave C,
+  // RIDER-FOLDING): exile-target-creature + the shared `(destroy|exile) target <typelist>[ <control>]` (rm,
+  // singles + permanent-TYPE unions + PW-7) + the MASS wipes (below). matchRemovalControllerRider resolves its
+  // rider-stripped lead via parseExtendedAtom() || destroyExileClauseParser, so the "Its controller …" cards
+  // (Beast Within / Generous Gift / Assassin's Trophy / Swords / Buy Your Silence …) still fold their rider.
   // ===== SELF-ATTACH + ATTACH-TO-SELF ===== migrated to atoms/stack.attachClauseParser (seam batch 9 / Wave A4).
   // Combat-trick pump + keyword grant: "target creature gets +N/+N and gains KW[, KW][ and KW]
   // until end of turn" — a layer-7c P/T bump AND layer-6 keyword grant(s), both endOfTurn. The
@@ -588,27 +567,9 @@ function parseExtendedAtom(s) {
   // 14 / Wave C). Two adjacent blocks (anm "target land becomes a N/N … creature" + anmSelf "this land becomes
   // a N/N <colors/subtypes/types> creature") — layer-4 type-add + layer-7b P/T-set + layer-6 grants, endOfTurn
   // only; the inline COLOR_WORDS/COLOR_MAP/capHyphen helpers travel with them. Uses parseGrantedKeywords (leaf).
-  // MASS effects (board wipes) — UNFILTERED "all creatures" only. Resolve to the SAME atoms
-  // with the `eachCreature` scope (no chosen target; programNeedsChosenTarget excludes it),
-  // so they hit every creature on every battlefield. A FILTERED wipe ("all creatures with
-  // flying", "all creatures you don't control", "all non-Dragon creatures") fails the exact
-  // anchor → low → Arbiter, since `eachCreature` would wrongly hit the unfiltered set. The
-  // "they can't be regenerated" rider was already stripped from `t` (MTG-001); the parseEffectClause
-  // wrapper re-stamps `cannotRegenerate` on this destroy atom so the rider is still honored.
-  if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
-  if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
-  // MASS-NC — the UNFILTERED non-creature board wipes ("Destroy all artifacts / enchantments / lands /
-  // artifacts and enchantments" — Shatterstorm, Tranquility, Armageddon, Creeping Corrosion, Back to
-  // Nature). Same shape as the creature wipe, a typed mass scope: the resolver enumerates every permanent
-  // of that type on every battlefield and routes it through the generic applyDestroyEffect (indestructible
-  // honored; an artifact/enchantment CREATURE still dies + fires its dies-triggers). A FILTERED wipe ("all
-  // nonbasic lands", "all artifacts you control", "all enchantments with mana value 3 or less") fails the
-  // exact anchor → low → Arbiter — `eachArtifact`/etc. would wrongly hit the whole unfiltered set.
-  m = t.match(/^destroy all (artifacts and enchantments|artifacts|enchantments|lands)$/);
-  if (m) {
-    const TT = { "artifacts": "eachArtifact", "enchantments": "eachEnchantment", "lands": "eachLand", "artifacts and enchantments": "eachArtifactOrEnchantment" };
-    return { op: "destroy", targetType: TT[m[1]] };
-  }
+  // ===== DESTROY ⇄ EXILE (MASS wipes) ===== migrated to atoms/removal.destroyExileClauseParser (seam batch 27 /
+  // Wave C): "destroy/exile all creatures" + typed non-creature wipes ("destroy all artifacts|enchantments|
+  // lands|artifacts and enchantments"), UNFILTERED only. The cannotRegenerate re-stamp is in the parseEffectClause wrapper (unchanged).
   // ===== PUMP (each creature mass) ===== migrated to pumpClauseParser (batch 12c).
   // ===== PUMP (TEAM — creatures you control) ===== migrated to pumpClauseParser (batch 12c).
   // ===== PUMP (OVERRUN-X count-scaled team) ===== migrated to pumpClauseParser (batch 12c).
@@ -931,7 +892,11 @@ function parseControllerRider(t) {
 function matchRemovalControllerRider(oracle) {
   const m = stripReminder(oracle).trim().match(/^((?:exile|destroy) target .+?)\.\s+its controller (.+?)\.?$/i);
   if (!m) return null;
-  const lead = parseExtendedAtom(m[1].trim());
+  // The bare destroy/exile lead now lives in atoms/removal.destroyExileClauseParser (seam batch 27), so resolve
+  // the rider-stripped lead via parseExtendedAtom() OR that clause parser — keeping the controllerRider fold
+  // byte-identical even though the matchers left parseExtendedAtom. (matchRemovalControllerRider only ever sees a
+  // destroy/exile lead, so the direct call is exactly right.)
+  const lead = parseExtendedAtom(m[1].trim()) || destroyExileClauseParser(m[1].trim());
   if (!lead || (lead.op !== "exile" && lead.op !== "destroy")) return null; // lead must be a modeled removal
   const rider = parseControllerRider(m[2].trim().toLowerCase());
   if (!rider) return null;                                                   // unmodeled rider → low → Arbiter
@@ -1698,6 +1663,12 @@ registerClauseParser(bounceClauseParser);
 // first-match order; SMALL_NUM leaf. Distinct anchors from the WAVE-3b triggering-counter parser + the
 // resolution-time doubler → no overlap; the clauses match no other registered parser → behavior-identical.
 registerClauseParser(addCounterClauseParser);
+// DESTROY ⇄ EXILE (seam batch 27 / Wave C, RIDER-FOLDING) — the 5 destroy/exile matchers (exile-creature +
+// shared (destroy|exile) target <typelist> + MASS wipes) co-extracted to atoms/removal.destroyExileClauseParser.
+// The rider-folding dispatch (matchRemovalControllerRider) now resolves its lead via parseExtendedAtom() ||
+// destroyExileClauseParser, so the controllerRider cards keep folding. The bare clauses match no other registered
+// parser → behavior-identical (this is the entanglement that reverted as batch-bare; the dispatch rewire fixes it).
+registerClauseParser(destroyExileClauseParser);
 // DRAW (for-each / count-scaled) (seam batch 26 / Wave C) — the controller-DRAW count-scaled cluster
 // (greatest-among / for-each / equal-to-number) migrated to atoms/misc.drawForEachClauseParser; parseCountSource
 // leaf. Clean now the life for-each siblings migrated. The clauses match no other registered parser and
