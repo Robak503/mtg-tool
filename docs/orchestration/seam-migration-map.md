@@ -27,7 +27,7 @@
 
 ### Wave C — INTERLEAVED families needing parseCountSource (already in leaf) + careful surgical pull.
 - ✅ **animate** (atoms/combat.animateClauseParser; batch 14 `1daa5ef`, program-diff=0) — 2 adjacent blocks (anm target-land + anmSelf man-land self-animate), order preserved; inline COLOR_WORDS/COLOR_MAP/capHyphen travel with them; parseGrantedKeywords from leaf. parser.js dropped the now-unused parseGrantedKeywords import (only atoms/combat uses it: pump + animate).
-- **deal-damage** (stack.js; DMG-SCALE board-count 592-607; parseCountSource; standard "N damage" stays via legacyToAtom — leave it).
+- ✅ **deal-damage** (atoms/stack.dealDamageScaledClauseParser; batch 15 `0bac6f5`, program-diff=0) — DMG-SCALE board-count branch only ("… deals damage to … equal to the number of …", parseCountSource leaf imported into stack.js); the printed "N damage" form stays on legacyToAtom. Order-safe: moving DMG-SCALE past the FOR-EACH block changed nothing (gate-verified).
 - **return-from-graveyard + reanimate** (zones.js; 916-926; share `^return target … from graveyard` prefix → CO-EXTRACT both; parseGraveyardFilter from spellEffects.js, importable).
 - **lose-life + gain-life** (life.js; scaled[parseCountSource]+fixed-N clusters at 644-667 & 828-847; gain/lose interleave each other → CO-EXTRACT the life family together).
 - **draw** (misc.js; MOST scattered 552-1429; parseCountSource+NUM_WORD; 3 clusters incl. combat-damage + for-each + each-player) — co-handle with discard's each-player block.
