@@ -48,6 +48,11 @@ const ENFORCED_KEYWORDS = new Set([
   // PLAYER damage → poison counters (toxic N adds on top), with the 10-poison loss SBA (gameState.addPoison,
   // CR 704.5c / 702.90b infect / 702.79b wither / 702.180a toxic). Engine-first — Hans-verified board-loop.
   "infect", "wither", "toxic",
+  // KW-FADING / KW-VANISHING (#311): fading.js enforces enters-with-N-fade/time-counters (entersWithFadeCounters,
+  // wired in actionDispatcher ETB) + the upkeep remove-or-sacrifice (applyFadeVanishUpkeep via gameEngine),
+  // CR 702.32a / 702.63a. (This allowlist was stale — the keywords shipped enforced but were never added here,
+  // so qa-sweep falsely flagged them as NEW over-claims; verified enforced before adding.)
+  "fading", "vanishing",
 ]);
 const ALLOWED_UNENFORCED = new Set(["flash", "changeling", "devoid"]); // safe: timing/identity, never mis-resolve a body
 // INTERIM-FP: unenforced TODAY but knowingly KEPT claimed native while enforcement is built (enforce-don't-drop
