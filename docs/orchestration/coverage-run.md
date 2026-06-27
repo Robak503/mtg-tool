@@ -102,16 +102,16 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
 ### Seam family migration queue (easy → hard; reorder freely as the gate dictates)
 - ✅ explore · ✅ proliferate · ✅ gain-experience (batches 1–3) · ✅ count-source machinery → parseHelpers leaf
   (batch 4, `01065a9`) · ✅ earthbend → atoms/combat (batch 5, `2405dfb`). All program-diff = 0.
-- **NEXT:** **rad** (counters.js; SMALL_NUM only) — its branches are SCATTERED/interleaved with the cdmg-draw /
-  dies-payoff matchers in parseExtendedAtom; the clean "rad family" is the 3 CONTIGUOUS player-grant branches
-  (`each/you/target … gets N rad counters`). The cdmg/dies rad variants (`they/that player gets … rad counters`,
-  `each opponent gets … rad counters equal to its power`) belong with a future cdmg-payoff/dies-payoff family, NOT
-  rad — migrate only the contiguous player-grant block; leave the trigger-referent variants inline (the gate proves
-  byte-identical either way).
-- **Then singletons** (whole-clause-anchored, low overlap): fog · surveil · scry · shuffle · discover · tuck · tap · untap.
-- **Then mid families:** life (lose-life/gain-life) · hand (draw/discard/bounce) · removal (destroy/exile/deal-damage).
-- **Then the big, complex-regex families LAST** (higher double-match risk; each strictly gated): pump · tutor · counter ·
-  create-named-token · sacrifice · animate. The gate refuses any that aren't a true no-op.
+- **📋 FULL MAP: `docs/orchestration/seam-migration-map.md`** (4-agent recon — every remaining op's branch lines,
+  deps, resolver home, risk, couplings, and the readiness-ranked Wave A→D order). Execute it top-down; re-grep
+  `op:"<op>"` each batch (line numbers drift). **NEXT = Wave A1: discover · shuffle · scry · surveil → atoms/library.js**
+  (all clean, anchored, local-var/parseInt only — one module, lowest risk). Then A2 (regenerate/untap/cant-block/tap →
+  combat) · A3 (fog/divide-damage → misc) · A4 (self-attach/attach-to-self → stack) · A5 (tuck → zones) · A6 (mill) ·
+  A7 (counter). Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
+  families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
+  deal-damage / return-from-graveyard⇄reanimate / sacrifice). Wave D = standalone matchers (impulse-dig / discard-chosen
+  / create-emblem) — different shape, deferred. **Couplings that MUST co-extract:** destroy⇄exile · rfg⇄reanimate ·
+  gain-life⇄lose-life · draw⇄discard-each-player.
 
 ## Transition safety (do NOT create a throughput gap)
 - Builder faculty chats **keep running** until Phase 2 proves one clean wave. The old build never stops before
