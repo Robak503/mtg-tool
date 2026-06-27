@@ -129,10 +129,12 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   (12e `d0f2890`, program-diff=0 — 6 contiguous blocks tm/ttm/bfm/mf/spm/lfh, first-match order preserved; parser.js
   dropped the now-unused parseTutorMv/BASIC_LAND_SUBTYPES/UP_TO_N_WORD imports, kept parseTutorFilter for the rd block).
   Also ✅ FP-HUNT CHECKPOINT #3 logged (CLEAN by no-drift proof; runtime FP surface git-verified untouched since hunt #1).
-  **Wave C STARTED:** ✅ rad player-grant → atoms/counters.radClauseParser (batch 13 `2c0e967`, program-diff=0 — pulled
-  ONLY the contiguous each/you/target block; cdmg/dies rad variants stay inline with CDMG-PLAYER-PAYOFF, disjoint anchor).
-  **NEXT = next CLEANEST Wave C op:** animate [combat.js, parseGrantedKeywords done + inline COLOR_MAP travels]; OR
-  deal-damage scaled board-count [stack.js, parseCountSource leaf, standard "N damage" stays via legacyToAtom]. SKIP
+  **Wave C IN PROGRESS:** ✅ rad player-grant → atoms/counters.radClauseParser (batch 13 `2c0e967`, program-diff=0 — pulled
+  ONLY the contiguous each/you/target block; cdmg/dies rad variants stay inline). ✅ animate → atoms/combat.animateClauseParser
+  (batch 14 `1daa5ef`, program-diff=0 — anm target-land + anmSelf man-land, COLOR helpers travel; parseGrantedKeywords import
+  dropped from parser.js, now only atoms/combat uses it).
+  **NEXT = next CLEANEST Wave C op:** deal-damage scaled board-count [stack.js, parseCountSource leaf, standard "N damage"
+  stays via legacyToAtom]. SKIP
   the entangled ones first (add-counter interleaved w/ bounce/sac; counter A7 deferred). Co-extract couplings together
   (destroy⇄exile, rfg⇄reanimate, gain-life⇄lose-life, draw⇄discard-each-player). counter (A7) still deferred. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /

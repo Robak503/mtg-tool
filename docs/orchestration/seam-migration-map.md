@@ -26,7 +26,7 @@
 - **B2: ✅ DONE.** B2a tutor-helpers (`parseTutorFilter`+`parseTutorMv`+`BASIC_LAND_SUBTYPES`+`UP_TO_N_WORD`) → parseHelpers leaf (batch 12d `beb5cfc`); B2b **tutor → atoms/library.tutorClauseParser** (batch 12e `d0f2890`, program-diff=0) — 6 contiguous ordered blocks tm/ttm/bfm/mf/spm/lfh, first-match order preserved inside the parser; clean byte-identical lift (the regex-matched-but-rejected `return null` cases preserve the inline fall-through, like A4 attach). parser.js-local `parseTutorMv`/`BASIC_LAND_SUBTYPES`/`UP_TO_N_WORD` imports dropped (now only in tutorClauseParser); `parseTutorFilter` kept (still used by the rd reveal-dig block). **Wave B COMPLETE.**
 
 ### Wave C — INTERLEAVED families needing parseCountSource (already in leaf) + careful surgical pull.
-- **animate** (combat.js; 2 adjacent blocks 1085-1120; parseGrantedKeywords[B1] + inline COLOR_MAP) — after B1.
+- ✅ **animate** (atoms/combat.animateClauseParser; batch 14 `1daa5ef`, program-diff=0) — 2 adjacent blocks (anm target-land + anmSelf man-land self-animate), order preserved; inline COLOR_WORDS/COLOR_MAP/capHyphen travel with them; parseGrantedKeywords from leaf. parser.js dropped the now-unused parseGrantedKeywords import (only atoms/combat uses it: pump + animate).
 - **deal-damage** (stack.js; DMG-SCALE board-count 592-607; parseCountSource; standard "N damage" stays via legacyToAtom — leave it).
 - **return-from-graveyard + reanimate** (zones.js; 916-926; share `^return target … from graveyard` prefix → CO-EXTRACT both; parseGraveyardFilter from spellEffects.js, importable).
 - **lose-life + gain-life** (life.js; scaled[parseCountSource]+fixed-N clusters at 644-667 & 828-847; gain/lose interleave each other → CO-EXTRACT the life family together).
