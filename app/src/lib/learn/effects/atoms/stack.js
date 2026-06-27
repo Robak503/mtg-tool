@@ -205,19 +205,28 @@ export function attachClauseParser(clause) {
  */
 export function dealDamageScaledClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
-  const mds = t.match(/^.+? deals? damage to (.+?) equal to the number of (.+)$/);
-  if (mds) {
-    const TT = {
-      "any target": "any", "target creature": "creature", "target player": "player",
-      "target player or planeswalker": "playerOrPlaneswalker",
-      "target creature or planeswalker": "creatureOrPlaneswalker", "each opponent": "eachOpponent",
-    };
-    const targetType = TT[mds[1].trim()];
-    const amountCount = parseCountSource(mds[2], { allowTarget: true });
+  const TT = {
+    "any target": "any", "target creature": "creature", "target player": "player",
+    "target player or planeswalker": "playerOrPlaneswalker",
+    "target creature or planeswalker": "creatureOrPlaneswalker", "each opponent": "eachOpponent",
+  };
+  const build = (targetPhrase, countPhrase) => {
+    const targetType = TT[String(targetPhrase).trim()];
+    const amountCount = parseCountSource(countPhrase, { allowTarget: true });
     if (!targetType || !amountCount) return null;
+    // a "that player's hand" count is only meaningful against a targeted player (CR — "that player")
     if (amountCount.who === "target" && targetType !== "player" && targetType !== "playerOrPlaneswalker") return null;
     return { op: "deal-damage", targetType, amountCount };
-  }
+  };
+  // OLD word order: "<source> deals damage TO <target> equal to the number of <count>" (Massive Raid, Spitting Earth).
+  const mds = t.match(/^.+? deals? damage to (.+?) equal to the number of (.+)$/);
+  if (mds) return build(mds[1], mds[2]);
+  // DMG-SCALE-2 — MODERN word order: "<source> deals damage equal to the number of <count> TO <target>"
+  // (Cabaretti Charm, Coordinated Maneuver, Bumi Bash modes). The count is non-greedy so the FIRST " to
+  // <allowlisted target>" wins; a multi-count ("…plus the number of Equipment…", Slash of Light) or an
+  // unmodeled count → parseCountSource null → low → Arbiter. Emits the SAME amountCount atom (resolver shared).
+  const mds2 = t.match(/^.+? deals? damage equal to the number of (.+?) to (target creature|any target|target player|target player or planeswalker|target creature or planeswalker|each opponent)$/);
+  if (mds2) return build(mds2[2], mds2[1]);
   return null;
 }
 

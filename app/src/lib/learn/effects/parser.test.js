@@ -431,6 +431,33 @@ describe("parseEffectProgram — board-count damage (DMG-SCALE)", () => {
   });
 });
 
+// ===== DMG-SCALE-2 ===== the MODERN word order "deals damage equal to the number of <count> TO <target>"
+// (count BEFORE target) — Cabaretti Charm, Coordinated Maneuver, Ultimate Alliance, Eivor, Cat-Gator. Emits
+// the SAME amountCount deal-damage atom as the old "to <target> equal to …" order (resolver shared).
+describe("parseEffectProgram — board-count damage MODERN word order (DMG-SCALE-2)", () => {
+  const atom0 = (txt) => parseEffectProgram(I(txt)).atoms[0];
+  const conf = (txt) => programConfidence(parseEffectProgram(I(txt)));
+  it("MUST_STAY_HIGH: count-before-target across modeled targets + count sources", () => {
+    expect(atom0("Ultimate Alliance deals damage equal to the number of creatures you control to target creature."))
+      .toMatchObject({ op: "deal-damage", targetType: "creature", amountCount: { kind: "permanentsYouControl", cardType: "creature" } });
+    expect(atom0("X deals damage equal to the number of creatures you control to target creature or planeswalker."))
+      .toMatchObject({ op: "deal-damage", targetType: "creatureOrPlaneswalker", amountCount: { kind: "permanentsYouControl", cardType: "creature" } });
+    expect(atom0("Eivor deals damage equal to the number of Equipment you control to each opponent."))
+      .toMatchObject({ op: "deal-damage", targetType: "eachOpponent", amountCount: { kind: "permanentsYouControl", subtype: "Equipment" } });
+    expect(atom0("Cat-Gator deals damage equal to the number of Swamps you control to any target."))
+      .toMatchObject({ op: "deal-damage", targetType: "any", amountCount: { kind: "permanentsYouControl", subtype: "Swamp" } });
+  });
+  it("a modal card flips when EVERY mode models (Cabaretti Charm / Coordinated Maneuver)", () => {
+    expect(conf("Choose one —\n• X deals damage equal to the number of creatures you control to target creature or planeswalker.\n• Destroy target enchantment.")).toBe("high");
+  });
+  it("MUST_DROP_TO_LOW: a multi-count 'plus' / a multiplier / an unmodeled-mode modal stays Arbiter", () => {
+    expect(conf("Slash of Light deals damage equal to the number of creatures you control plus the number of Equipment you control to target creature.")).toBe("low"); // double count
+    expect(conf("X deals damage equal to twice the number of creatures you control to target creature.")).toBe("low"); // multiplier
+    // a modal where one mode is an unmodeled target ("land creature or nonbasic land") stays low (all-or-nothing)
+    expect(conf("Choose one —\n• X deals damage equal to the number of lands you control to target creature.\n• Destroy target land creature or nonbasic land.")).toBe("low");
+  });
+});
+
 // P2.6 — CREATE-TOKEN. Single-color creature tokens; a non-creature token / inline-ability
 // rider / "tapped" rider stays low. ===== TOKENS ===== T1 adds keyword tokens (with flying …).
 describe("parseEffectProgram — create-token (P2.6)", () => {
