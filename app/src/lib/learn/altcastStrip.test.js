@@ -50,3 +50,50 @@ describe("altcast-strip — CREED: a kept/payoff rider keeps the card on the Arb
     expect(classifyCard(S("Sleep of the Dead", "Tap target creature. It doesn't untap during its controller's next untap step.\nEscape—{2}{U}, Exile three other cards from your graveyard. (You may cast this card from your graveyard for its escape cost.)", "Sorcery", "{1}{U}"))).not.toMatch(/^native/);
   });
 });
+
+/**
+ * ALTCAST-STRIP-2 — the alternate-COST / alternate-TIMING family: spectacle / prowl / surge / miracle (a
+ * different cost/timing to cast, body identical for the normal cast) and awaken (ESCAPE-CLASS — the
+ * `Awaken N—{cost}` bonus is conditional on the awaken cast, so the normal-cast resolution is the body
+ * alone; not offering awaken is a SAFE FN). Same vacuous-line precedent, zero new resolver.
+ */
+const SPECTACLE = (cost) => `\nSpectacle ${cost} (You may cast this spell for its spectacle cost rather than its mana cost if an opponent lost life this turn.)`;
+const PROWL = (cost) => `\nProwl ${cost} (You may cast this for its prowl cost if you dealt combat damage to a player this turn with a Rogue.)`;
+const SURGE = (cost) => `\nSurge ${cost} (You may cast this spell for its surge cost if you or a teammate has cast another spell this turn.)`;
+const MIRACLE = (cost) => `\nMiracle ${cost} (You may cast this card for its miracle cost when you draw it if it's the first card you drew this turn.)`;
+const AWAKEN = (n, cost) => `\nAwaken ${n}—${cost} (If you cast this spell for ${cost}, also put ${n} +1/+1 counters on target land you control and it becomes a 0/0 Elemental creature with haste. It's still a land.)`;
+
+describe("altcast-strip-2 — alt-cost / alt-timing keyword lines are vacuous for the normal cast", () => {
+  it("surge bodies flip native (target-draw; uncounterable counter)", () => {
+    expect(classifyCard(S("Comparative Analysis", "Target player draws two cards." + SURGE("{2}{U}"), "Instant", "{3}{U}"))).toBe("native-spell");
+    expect(classifyCard(S("Overwhelming Denial", "This spell can't be countered.\nCounter target spell." + SURGE("{U}{U}"), "Instant", "{3}{U}"))).toBe("native-spell");
+  });
+  it("miracle bodies flip native (burn; X-token; tuck)", () => {
+    expect(classifyCard(S("Thunderous Wrath", "Thunderous Wrath deals 5 damage to any target." + MIRACLE("{R}"), "Sorcery", "{4}{R}{R}"))).toBe("native-spell");
+    expect(classifyCard(S("Entreat the Angels", "Create X 4/4 white Angel creature tokens with flying." + MIRACLE("{X}{W}{W}"), "Sorcery", "{X}{W}{W}{W}"))).toBe("native-spell");
+    expect(classifyCard(S("Vanishment", "Put target nonland permanent on top of its owner's library." + MIRACLE("{U}"), "Sorcery", "{3}{U}"))).toBe("native-spell");
+  });
+  it("awaken bodies flip native — the awaken bonus is gated on the awaken cast (bounce; destroy c-or-pw; counter; opp mass dmg; tapped-restriction)", () => {
+    expect(classifyCard(S("Clutch of Currents", "Return target creature to its owner's hand." + AWAKEN(3, "{4}{U}"), "Sorcery", "{U}"))).toBe("native-spell");
+    expect(classifyCard(S("Ruinous Path", "Destroy target creature or planeswalker." + AWAKEN(4, "{5}{B}{B}"), "Sorcery", "{2}{B}{B}"))).toBe("native-spell");
+    expect(classifyCard(S("Scatter to the Winds", "Counter target spell." + AWAKEN(3, "{4}{U}{U}"), "Instant", "{1}{U}{U}"))).toBe("native-spell");
+    expect(classifyCard(S("Boiling Earth", "Boiling Earth deals 1 damage to each creature your opponents control." + AWAKEN(4, "{6}{R}"), "Sorcery", "{1}{R}"))).toBe("native-spell");
+    expect(classifyCard(S("Sheer Drop", "Destroy target tapped creature." + AWAKEN(3, "{5}{W}"), "Sorcery", "{3}{W}"))).toBe("native-spell");
+  });
+  it("spectacle / prowl lines are stripped too (proven on a modeled synthetic body)", () => {
+    expect(classifyCard(S("Skewer the Critics", "Skewer the Critics deals 3 damage to any target." + SPECTACLE("{R}"), "Sorcery", "{2}{R}"))).toBe("native-spell");
+    expect(classifyCard(S("Morsel Theft", "Target player loses 2 life and you gain 2 life." + PROWL("{1}{B}"), "Instant", "{3}{B}"))).toBe("native-spell");
+  });
+});
+
+describe("altcast-strip-2 — CREED: a kept/payoff rider or modal add-cost keeps the card on the Arbiter", () => {
+  it("a surge-cost-paid PAYOFF rider in the body stays arbiter even though the surge line is stripped (Crush of Tentacles)", () => {
+    expect(classifyCard(S("Crush of Tentacles", "Return all nonland permanents to their owners' hands. If this spell's surge cost was paid, create an 8/8 blue Octopus creature token." + SURGE("{3}{U}{U}"), "Sorcery", "{5}{U}{U}"))).not.toMatch(/^native/);
+  });
+  it("the `Awaken N—` anchor does NOT strip a face-name line ('Awaken the Blood Avatar - Sorcery') — unmodeled body stays arbiter", () => {
+    expect(classifyCard(S("Awaken the Blood Avatar", "Awaken the Blood Avatar - Sorcery {6}{B}{R}\nAs an additional cost to cast this spell, you may sacrifice any number of creatures. This spell costs {2} less to cast for each creature sacrificed this way.\nEach opponent sacrifices a creature of their choice. Create a 3/6 black and red Avatar creature token with haste.", "Sorcery", "{6}{B}{R}"))).not.toMatch(/^native/);
+  });
+  it("a spree card (modal additional costs that add effects) stays arbiter (Lively Dirge)", () => {
+    expect(classifyCard(S("Lively Dirge", "Spree (Choose one or more additional costs.)\n+ {1} — Search your library for a card, put it into your graveyard, then shuffle.\n+ {2} — Return up to two creature cards with total mana value 4 or less from your graveyard to the battlefield.", "Sorcery", "{X}{B}"))).not.toMatch(/^native/);
+  });
+});

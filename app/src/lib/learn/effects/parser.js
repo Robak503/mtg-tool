@@ -147,7 +147,19 @@ function stripUncounterableRider(text) {
 // keyword line is vacuous → stripped. The recast itself stays a SAFE false-negative (the engine won't offer
 // the GY cast). Any escape PAYOFF rider ("if this spell was cast for its escape cost, …") lives in the BODY,
 // not on the keyword line, so it self-gates the card to the Arbiter — stripping the line cannot fabricate it.
-const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*\{|jump-start\b|retrace\b|escape\s*[—–-])[^\n]*$/gim;
+//
+// ALTCAST-STRIP-2 — the alternate-COST / alternate-TIMING family: spectacle ("cast for spectacle cost if an
+// opponent lost life"), prowl ("…if you dealt combat damage with a Rogue"), surge ("…if you/a teammate cast
+// another spell"), miracle ("cast for miracle cost when you draw it"). Each is purely a different way/cost/
+// timing to cast; the BODY resolves identically on a normal cast, so the line is vacuous → stripped. awaken
+// is the ESCAPE-CLASS: `Awaken N—{cost}` carries a bonus ("If you cast this for awaken, ALSO put N counters
+// on a land and it becomes a creature") that is CONDITIONAL on the awaken cast, so for a normal cast the body
+// alone is the complete resolution (not offering awaken is a SAFE FN, exactly like escape's exile cost). The
+// `awaken\s+\d+\s*[—–-]` anchor (number + dash) matches "Awaken 3—{4}{U}{U}" but NOT the MDFC face header
+// "Awaken the Blood Avatar - Sorcery". DELIBERATELY EXCLUDES kicker (its kicked effect lives in the body →
+// the card self-gates anyway), spree (modal additional costs that ADD effects), and bestow/dash/evoke/blitz
+// (those add a kept effect / change the card's mode → NOT vacuous).
+const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*\{|jump-start\b|retrace\b|escape\s*[—–-]|spectacle\s*\{|prowl\s*\{|surge\s*\{|miracle\s*\{|awaken\s+\d+\s*[—–-])[^\n]*$/gim;
 // MADNESS_LINE needs a TIGHTER anchor than the others: a madness line can be COMPOUND
 // ("Madness {R}, cycling {1}{R}, kicker {2}{R}, buyback {4}{R}" — Blast from the Past), and buyback's
 // kept "return to hand as it resolves" effect lives ONLY on that line. A greedy `[^\n]*$` strip would drop
