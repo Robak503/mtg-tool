@@ -11,7 +11,7 @@
 ### Wave A — CLEAN singletons/groups (no shared-helper, anchored, low overlap). Batch by resolver module.
 | batch | ops | module | deps | notes |
 |---|---|---|---|---|
-| A1 | discover · shuffle · scry · surveil | atoms/library.js | local-var/parseInt only | all clean, anchored ^…$; one module |
+| ✅A1 | discover · shuffle · scry · surveil | atoms/library.js | local-var/parseInt only | DONE batch 6 `d45aaa4`, program-diff=0 |
 | A2 | regenerate · untap · cant-block · tap | atoms/combat.js | tap: local-var; rest none | all clean one-liners/brace-blocks |
 | A3 | fog · divide-damage | atoms/misc.js | divide-damage: local-var+parseInt | clean; divide-damage is the LAST branch before `return null` |
 | A4 | self-attach · attach-to-self | atoms/stack.js | attach-to-self: local-var | attach-to-self has FALL-THROUGH (no-return continues) — preserve conditional-return semantics |
