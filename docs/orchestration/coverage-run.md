@@ -92,8 +92,11 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
    `origin/master` (baseline via `git worktree add --detach <sha>`). **Not byte-identical → DO NOT SHIP:** revert
    the batch, log the family as "needs order-handling" here, move to the next family. Never force a non-identical
    seam merge. `npm test` ("Tests N passed") + lint green before push.
-4. **Record + re-arm:** update this file's batch list, commit (explicit paths) + ff-push, delete temp worktree/files,
-   then ScheduleWakeup with the same continuation prompt. Keep going until a STOP condition.
+4. **Record + re-arm:** update this file's batch list AND refresh the `<!-- AUTORUN -->` block at the TOP of
+   STATUS.md (the dashboard data source Omnath renders, so Colton can watch without interfering) — overwrite the
+   whole block: master SHA, batches shipped, the FLAT-BY-DESIGN card note (the seam adds 0 cards — never imply
+   card growth from a refactor), FP-hunt status, next batch. Commit (explicit paths) + ff-push, delete temp
+   worktree/files, then ScheduleWakeup with the same continuation prompt. Keep going until a STOP condition.
 4b. **FP-HUNT cadence (standing — the CREED is the whole point, not just the seam gate).** The seam batches are
    byte-identical refactors (can't add/fix FPs). Separately, every ~5 batches (or whenever the seam queue is idle),
    run a real FP-hunt on the LIVE coverage: `node scripts/qa-sweep.mjs` (+ `keywords`/`spells`/`triggers` arms) and
