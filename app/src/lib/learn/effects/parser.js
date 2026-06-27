@@ -43,7 +43,7 @@ import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords, parseTutorFilter } from "./parseHelpers.js"; // seam batch 2/4/12b: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter still used by the rd reveal-dig block. BASIC_LAND_SUBTYPES/UP_TO_N_WORD/parseTutorMv now used only inside atoms/library.tutorClauseParser (B2e)
-import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/counters.js"; // seam batch 3
+import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad player-grant)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump)
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
 import { attachClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self)
@@ -446,20 +446,10 @@ function parseExtendedAtom(s) {
 
   // ===== GAIN-EXPERIENCE ===== migrated to atoms/counters.gainExperienceClauseParser (seam batch 3).
 
-  // ===== RAD ===== (CR 728) "<who> gets N rad counter(s)" — a player-counter grant (The Wise Mothman:
-  // "each player gets a rad counter"). The inherent radiation ability (gameEngine, at each player's
-  // precombat main) does the mill + life-loss + counter-removal based on the count. Fixed-N only
-  // ("a"/"an"/"one".."five"/digit); a "for each" / X / scaled / "you MAY get" / "that player"-referent
-  // variant fails the `$` anchor → low → Arbiter (safe FN). NON-targeted forms (each player / each opponent
-  // / you) carry no targetType — they resolve identically on a spell or a trigger. The TARGETED form
-  // ("target player/opponent gets N") rides who:"target" + a player targetType — offensive only
-  // (atomTargetIntent → "enemy", parallel to targeted lose-life: you never rad yourself by choice).
-  const radEachM = t.match(/^each (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
-  if (radEachM) return { op: "rad", amount: SMALL_NUM[radEachM[2]] ?? parseInt(radEachM[2], 10), who: radEachM[1] === "opponent" ? "eachOpponent" : "eachPlayer", targetType: null };
-  const radYouM = t.match(/^you get (\d+|a|an|one|two|three|four|five) rad counters?$/);
-  if (radYouM) return { op: "rad", amount: SMALL_NUM[radYouM[1]] ?? parseInt(radYouM[1], 10), who: "controller", targetType: null };
-  const radTgtM = t.match(/^target (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
-  if (radTgtM) return { op: "rad", amount: SMALL_NUM[radTgtM[2]] ?? parseInt(radTgtM[2], 10), who: "target", targetType: radTgtM[1] };
+  // ===== RAD (player-grant) ===== migrated to atoms/counters.radClauseParser (seam batch 13 / Wave C). The
+  // contiguous player-grant block (each player/opponent / you / target player/opponent "gets N rad counters",
+  // fixed-N, SMALL_NUM leaf). The combat-damage / dies rad variants (who:"damagedPlayer" / power-scaled) stay
+  // below with the CDMG-PLAYER-PAYOFF family — they share that family's ctx referents, not this clean block.
 
   // ===== CDMG-PLAYER-PAYOFF ===== combat-damage-to-a-player payoffs whose ACTOR/COUNT is the trigger
   // referent the combat-damage trigger carries in ctx ({damagedPlayerId, combatDamageAmount} — set by
@@ -2062,6 +2052,11 @@ registerClauseParser(exploreClauseParser);
 // inline→CLAUSE_PARSERS move is behavior-identical (proven byte-identical by program-fingerprint).
 registerClauseParser(proliferateClauseParser);
 registerClauseParser(gainExperienceClauseParser);
+// RAD player-grant (seam batch 13 / Wave C) — each/you/target "gets N rad counters" migrated to
+// atoms/counters.radClauseParser. The clauses match no earlier registered parser and (verified) no later
+// parseExtendedAtom branch — the cdmg rad variants require "they"/"that player", a disjoint anchor — so the
+// inline→CLAUSE_PARSERS move is behavior-identical. program-diff = 0 (gate-verified).
+registerClauseParser(radClauseParser);
 // EARTHBEND (seam batch 5) — migrated to atoms/combat.earthbendClauseParser (whole-clause-anchored; uses the
 // SMALL_NUM + parseCountSource parseHelpers leaf). program-fingerprint byte-identical.
 registerClauseParser(earthbendClauseParser);

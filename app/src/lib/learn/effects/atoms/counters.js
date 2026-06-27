@@ -163,6 +163,27 @@ export function gainExperienceClauseParser(clause) {
   return null;
 }
 
+/**
+ * RAD clause parser (CR 728) — migrated from parser.js parseExtendedAtom (seam batch 13 / Wave C). ONLY the
+ * contiguous player-grant block: "each player/opponent gets N rad counters" / "you get N rad counters" /
+ * "target player/opponent gets N rad counters". Fixed-N only (a/an/one..five/digit). Non-targeted forms carry
+ * targetType:null (resolve the same on spell or trigger); the targeted form rides who:"target" + a player
+ * targetType (offensive only — atomTargetIntent → "enemy"). A "for each"/X/scaled/"you may"/conditional variant
+ * fails the `$` anchor → low → Arbiter (FN-safe). The combat-damage / dies rad variants ("they/that player gets
+ * N rad counters", who:"damagedPlayer"; "each opponent gets … equal to its power", who:"eachOpponent") stay in
+ * parseExtendedAtom with the rest of the CDMG-PLAYER-PAYOFF family. Pure; uses the shared SMALL_NUM leaf map.
+ */
+export function radClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const radEachM = t.match(/^each (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
+  if (radEachM) return { op: "rad", amount: SMALL_NUM[radEachM[2]] ?? parseInt(radEachM[2], 10), who: radEachM[1] === "opponent" ? "eachOpponent" : "eachPlayer", targetType: null };
+  const radYouM = t.match(/^you get (\d+|a|an|one|two|three|four|five) rad counters?$/);
+  if (radYouM) return { op: "rad", amount: SMALL_NUM[radYouM[1]] ?? parseInt(radYouM[1], 10), who: "controller", targetType: null };
+  const radTgtM = t.match(/^target (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
+  if (radTgtM) return { op: "rad", amount: SMALL_NUM[radTgtM[2]] ?? parseInt(radTgtM[2], 10), who: "target", targetType: radTgtM[1] };
+  return null;
+}
+
 export const counterResolvers = {
   "add-counter": applyAddCounter,
   "gain-experience": applyGainExperience, // EARTHBEND-PR3 — "you get an experience counter" (Toph landfall)
