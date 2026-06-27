@@ -1,11 +1,11 @@
 # 🎛️ Academy Coverage — Live Status
 
 <!-- AUTORUN:START — Clyde refreshes this block every loop fire so Omnath/the dashboard reflects the autonomous run; overwrite the whole block, keep it ~6 lines -->
-> 🤖 **AUTONOMOUS RUN — live · no action needed from Colton** · master `7bd7820`
-> **Phase: parser.js seam migration (INFRASTRUCTURE).** 12 seam batches shipped (… · mill · parseGrantedKeywords-leaf), **all program-diff = 0** (byte-identical — provably zero behavior change). 4222 tests green, lint clean. **Wave A done (6/7; A7 counter DEFERRED — gate caught a rider entanglement, auto-reverted). Wave B started: B1a parseGrantedKeywords→leaf done; pump next.** Full map `docs/orchestration/seam-migration-map.md`.
+> 🤖 **AUTONOMOUS RUN — live · no action needed from Colton** · master `483f0ac`
+> **Phase: parser.js seam migration (INFRASTRUCTURE).** 13 seam batches shipped (… · parseGrantedKeywords-leaf · **PUMP** — the most fragmented op, 14 returns/7 clusters, the single biggest monolith chunk), **all program-diff = 0** (byte-identical — provably zero behavior change). 4222 tests green, lint clean. **Wave A done (6/7; A7 counter deferred). Wave B: B1a+B1b done; B2 tutor next.** Full map `docs/orchestration/seam-migration-map.md`.
 > **Cards: 20.8% native (7,113) — FLAT BY DESIGN.** The seam is a *refactor* (it reorganizes recognition into collision-free modules); it adds **0 cards** on purpose. Card growth resumes when builders push new PRs OR post-seam coverage work begins — the seam is the *gate to scaling* card-adding (GO-AFTER-SEAM). _If you'd rather see the card number move now, say so and I'll interleave new-coverage batches (each adds cards, FP-gated)._
 > **FP-hunt (standing, every ~5 batches/idle):** ✅ **0 real card FPs.** Hunt #1 (full): keyword gate fixed + 16 trigger + 196 spell suspects all clean. Hunt #2 (post-Wave-A checkpoint): CLEAN by no-drift proof — all changes since were byte-identical refactors + runtime files untouched, so the suspect surface is provably unchanged. Gate caught & reverted a would-be 16-card counter-rider FP (batch 12). Detail in `fp-watch.md`.
-> **Next:** Wave B1b — pump → atoms/combat.js (the most fragmented op; highest-risk lift, gate is the net).
+> **Next:** Wave B2 — tutor (extract tutor helpers → leaf, then tutor → library).
 <!-- AUTORUN:END -->
 
 > **The one-glance board.** Clyde (integrator) keeps this file fresh every integration cycle (the data source); **Iris** renders it as a visual in her own chat. Owner attribution comes from the `feat/<task>-<name>` claim-branch suffix.
