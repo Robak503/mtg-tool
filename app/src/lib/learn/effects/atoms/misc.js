@@ -3,7 +3,7 @@
  */
 
 import { applyDrawEffect } from "../../spellEffects.js";
-import { logEvent, addEmblem } from "../../gameState.js";
+import { logEvent, addEmblem, addMana } from "../../gameState.js";
 import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, isCreatureCard } from "./shared.js";
 import { NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 23 (NUM_WORD, each-player draw) + 26 (parseCountSource, for-each draw)
@@ -111,6 +111,16 @@ export function applyDivideDamage(state, atom, ctx) {
 export function miscClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   if (/^prevent all combat damage that would be dealt this turn$/.test(t)) return { op: "fog", targetType: null };
+  // RITUAL-MANA — "Add {C}{C}{C}" (Dark Ritual, Pyretic Ritual, Seething Song, Channel the Suns). A spell that
+  // adds basic mana to the controller's pool (applyAddMana → addMana per color). PURE basic symbols only —
+  // {X}, hybrid/Phyrexian, snow {S}, or a rider ("Add {R}{R}{R}. Spend this mana only on…") fails the anchor →
+  // low → Arbiter (FN-safe; a restricted-use ritual would over-credit if modeled as plain mana).
+  const rit = t.match(/^add ((?:\{[wubrgc]\})+)$/);
+  if (rit) {
+    const mana = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
+    for (const sym of rit[1].match(/\{([wubrgc])\}/g)) mana[sym.replace(/[{}]/g, "").toUpperCase()]++;
+    return { op: "add-mana", mana, targetType: null };
+  }
   const m = t.match(/^.+ deals (\d+) damage divided as you choose among (any number of target creatures and\/or players|any number of target creatures|any number of targets|any number of target players)$/);
   if (m) {
     const GROUP = { "any number of target creatures and/or players": "anyTarget", "any number of target creatures": "creatures", "any number of targets": "anyTarget", "any number of target players": "players" };
@@ -168,8 +178,23 @@ export function drawForEachClauseParser(clause) {
   return null;
 }
 
+/**
+ * RITUAL-MANA (CR 605 / 106.4) — a spell that adds basic mana to the controller's pool (Dark Ritual "Add
+ * {B}{B}{B}"). Adds each color via addMana; the pool empties at end of step/phase as usual, so the mana is
+ * usable for a same-window cast (ramp). Only the BARE add-basic-mana form is modeled (the parser rejects
+ * restricted-use riders / {X} / hybrid), so this never over-credits a "spend only on…" ritual.
+ */
+export function applyAddMana(state, atom, ctx) {
+  let next = state;
+  for (const color of Object.keys(atom.mana || {})) {
+    if (atom.mana[color] > 0) next = addMana(next, { playerId: ctx.controller, color, amount: atom.mana[color] });
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "add-mana", controller: ctx.controller, mana: atom.mana });
+}
+
 export const miscResolvers = {
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
+  "add-mana": applyAddMana, // RITUAL-MANA — "Add {C}{C}{C}" adds basic mana to the controller's pool
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
   "create-emblem": applyCreateEmblem, // ===== EMBLEM ===== (PW-5) "you get an emblem with '[modeled static]'"
   // ===== DIVIDE ===== (MT-1) — split N damage among any number of targets via a resolution-time picker.
