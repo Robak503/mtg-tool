@@ -81,6 +81,35 @@ The scripts are committed, so the orchestrator invokes them itself — no agent 
   gate → ff-merge) on real cards. **Only after this passes do faculties wind down.**
 - **Phase 3 — widen fan-out** on disjoint atom-families (collision-free post-seam).
 
+## Autonomous loop (Colton granted a long unattended run 2026-06-26 — "see how far you can go")
+Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by this file + git. Protocol:
+1. **Re-derive state:** `git fetch origin --prune`; confirm clean tree on the session branch; read this file's
+   Phase-1 batch list (what's done / next) + `gh pr list --state open` (new builder PRs).
+2. **Pick ONE action (priority order):** (a) a NEW builder PR (#381+) opened → integrate it through the gate
+   (tier + program + runtime fingerprints as applicable, adversarial sweep on a wave, `npm test`+lint, ff-merge);
+   (b) else → migrate the NEXT seam family (queue below); (c) else if seam done → Phase 2 (prove one wave).
+3. **Gate (hard):** for a seam batch, `program-fingerprint` MUST be byte-identical over 34,160 vs the pre-batch
+   `origin/master` (baseline via `git worktree add --detach <sha>`). **Not byte-identical → DO NOT SHIP:** revert
+   the batch, log the family as "needs order-handling" here, move to the next family. Never force a non-identical
+   seam merge. `npm test` ("Tests N passed") + lint green before push.
+4. **Record + re-arm:** update this file's batch list, commit (explicit paths) + ff-push, delete temp worktree/files,
+   then ScheduleWakeup with the same continuation prompt. Keep going until a STOP condition.
+5. **STOP conditions (surface to Colton, do NOT proceed):** a RELEASE tag is warranted (heads-up + proof first —
+   never auto-tag the signed .exe) · a genuine architectural fork with no obvious answer · two consecutive
+   families fail the gate for the same structural reason (precedence design needs a human call). Usage-limit kills
+   are NOT a stop — the run resumes from git + this file on the next session.
+
+### Seam family migration queue (easy → hard; reorder freely as the gate dictates)
+- ✅ explore · ✅ proliferate · ✅ gain-experience (batches 1–3).
+- **NEXT:** count-source machinery (`parseCountSource` + `baseCountSource` + `COUNT_TYPE/BASIC_SUBTYPE/GY_TYPE/SUBTYPE`)
+  → the parseHelpers leaf (self-contained cluster; parser.js still uses `parseCountSource` at the FOR-EACH matchers,
+  so it imports it back). Then **earthbend** (combat.js; needs SMALL_NUM + parseCountSource) and **rad** (counters.js;
+  SMALL_NUM only; its branches are scattered across the cdmg section — pull only the `op:"rad"` returns).
+- **Then singletons** (whole-clause-anchored, low overlap): fog · surveil · scry · shuffle · discover · tuck · tap · untap.
+- **Then mid families:** life (lose-life/gain-life) · hand (draw/discard/bounce) · removal (destroy/exile/deal-damage).
+- **Then the big, complex-regex families LAST** (higher double-match risk; each strictly gated): pump · tutor · counter ·
+  create-named-token · sacrifice · animate. The gate refuses any that aren't a true no-op.
+
 ## Transition safety (do NOT create a throughput gap)
 - Builder faculty chats **keep running** until Phase 2 proves one clean wave. The old build never stops before
   the new one works.
