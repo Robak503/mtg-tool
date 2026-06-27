@@ -184,6 +184,34 @@ export function radClauseParser(clause) {
   return null;
 }
 
+/**
+ * ADD-COUNTER (+1/+1 ⇄ -1/-1) clause parser — migrated from parseExtendedAtom (seam batch 25 / Wave C). The
+ * five contiguous (now neighbor-free — pump/sac/regen/bounce all migrated) ±1/+1-counter matchers, original
+ * first-match order:
+ *   "put N +1/+1 counters on target creature"               → targetType:"creature"
+ *   "… on target creature you control"                      → targetType:"creatureYouControl" (own-side)
+ *   "… on this creature"                                    → target:"self" (the source)
+ *   "… on up to one target creature"                        → targetType:"creature", optionalTarget (CR 115.1b)
+ *   "… on each creature you control"                        → scope:"youControl" (non-targeted team)
+ * Numeric/spelled N only (SMALL_NUM leaf); a filter/variable-X/multi-target leaves trailing text → low → Arbiter.
+ * The resolution-time +1/+1 DOUBLER (applyCounterDoubling) and the WAVE-3b "on the triggering creature" parser
+ * (counterClausesParser) are SEPARATE — no overlap with these anchors. Pure. Registered via registerClauseParser.
+ */
+export function addCounterClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  let m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature you control$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl" };
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on up to one target creature$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature", optionalTarget: true };
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
+  return null;
+}
+
 export const counterResolvers = {
   "add-counter": applyAddCounter,
   "gain-experience": applyGainExperience, // EARTHBEND-PR3 — "you get an experience counter" (Toph landfall)

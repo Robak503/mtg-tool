@@ -45,7 +45,7 @@ import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/t
 import { sacrificeEdictClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
 import { SMALL_NUM, parseCountSource, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (still-inline token-keyword matcher) used here; NUM_WORD now only inside the migrated draw/discard/mill clause parsers (batch 23)
-import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad player-grant)
+import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate)
 import { miscClauseParser, drawEachPlayerClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
@@ -665,32 +665,8 @@ function parseExtendedAtom(s) {
   // ===== BOUNCE (triggering) ===== "return the triggering creature to its owner's hand" migrated to atoms/zones.bounceClauseParser (seam batch 24 / Wave C).
   // ===== SACRIFICE (triggering) ===== "sacrifice the triggering creature" migrated to
   // atoms/removal.sacrificeEdictClauseParser (seam batch 22 / Wave C).
-  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
-  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
-  // COUNTER-TARGET-OWN — "put a +1/+1 counter on target creature you control" (Merfolk Skydiver, Kujar
-  // Seedsculptor, Yotian Dissident, Baleful Ammit's -1/-1 ETB drawback, …). The "you control" filter
-  // restricts the target to the controller's own creatures: targetType:"creatureYouControl" signals both
-  // enumerateTargets (only own-side creatures offered) and atomTargetIntent (always "own", overriding the
-  // counterType check so Baleful Ammit's -1/-1 form also routes natively to the controller's creature).
-  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature you control$/);
-  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creatureYouControl" };
-  // SELF-reference +1/+1 / -1/-1 counter — "put a +1/+1 counter on this creature" (the source).
-  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on this creature$/);
-  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), target: "self" };
-  // ===== COUNTERS ===== OPTIONAL single target — "Put N +1/+1 (or -1/-1) counter(s) on up to one
-  // target creature" (The Wandering Emperor, Basri, Scale the Heights). Identical to the modeled
-  // bare-target counter (above), but the target is OPTIONAL (CR 115.1b — "up to one" → choose 0 or 1):
-  // the `optionalTarget` flag tells targeting.expandAtoms to ALSO offer a no-target cast, so the spell/
-  // ability stays castable with an empty board and the chooser/player can decline. (DISTINCT from the
-  // α2 `optional` flag, which is a resolution-time "you may take this whole effect" yes/no — here the
-  // 0-or-1 TARGET is chosen at cast/flush, CR 601.2c/603.3c, then resolved mandatorily; no yes/no.) The
-  // resolver loops `ctx.targets`, so a declined cast (targets [] ) is a clean no-op — never a fabricated
-  // counter. Bare unfiltered "target creature" ONLY: any filter ("…you control", "…an opponent
-  // controls", a creature subtype) or the multi-target "each of up to two target creatures" leaves
-  // trailing text → fails `$` → low → Arbiter. Numeric N only (no X). Intent is side-resolvable (+1/+1
-  // own, -1/-1 enemy via atomTargetIntent), so it routes natively on the trigger path too.
-  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on up to one target creature$/);
-  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature", optionalTarget: true };
+  // ===== ADD-COUNTER (±1/+1 on target/own/self/up-to-one) ===== migrated to atoms/counters.addCounterClauseParser
+  // (seam batch 25 / Wave C; co-located with the each-creature-you-control team form below). SMALL_NUM leaf.
   // ===== REGEN (CR 701.15) ===== "Regenerate this creature/permanent" (the SOURCE — the activated
   // "{cost}: Regenerate ~" that dominates the corpus, or a one-shot) sets up a regeneration shield; "Regenerate
   // target creature" shields the chosen creature. The shield replaces the NEXT destruction this turn
@@ -698,18 +674,8 @@ function parseExtendedAtom(s) {
   // anchored forms ONLY — a filtered/conditional regen ("…you control", "if …", "all creatures") fails `$` →
   // low → Arbiter, never a fabricated shield. No magnitude to get wrong: a shield is a shield.
   // ===== REGENERATE ===== migrated to atoms/combat.combatKeywordClauseParser (seam batch 7 / Wave A2).
-  // ===== COUNTERS ===== TEAM distribution — "Put N +1/+1 (or -1/-1) counter(s) on each creature you
-  // control" (Titania's Boon, Basri's Solidarity, Strength of the Pack N=2). NON-targeted, modeled with
-  // the SAME `scope:"youControl"` marker the Overrun-style team pump uses (NOT a targetType — it stays
-  // non-targeted across programNeedsChosenTarget / atomTargetSpec / legalChoices). The resolver's
-  // `atomTargets` already routes `scope:"youControl"` -> controllerCreatureTargets (the controller's
-  // creatures gathered AT RESOLUTION, CR 611.2c), and applyAddCounter reuses the single-target counter
-  // loop verbatim — the -1/-1 lethal SBA included. ALL-OR-NOTHING anchored: any filter ("…you control
-  // with flying", "…other than this creature", "…with a +1/+1 counter on it", "…that entered this turn")
-  // or a variable "X counters" leaves trailing text -> fails `$` -> low -> Arbiter (the filtered subset
-  // is a DIFFERENT set scope:youControl would wrongly buff in full). Numeric N only (no X).
-  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
-  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
+  // ===== ADD-COUNTER (±1/+1 TEAM — each creature you control) ===== migrated to
+  // atoms/counters.addCounterClauseParser (seam batch 25 / Wave C; scope:"youControl", non-targeted). SMALL_NUM leaf.
   // ===== CREATE-NAMED-TOKEN (Treasure/Clue/Food/Gold) ===== migrated to atoms/tokens.createNamedTokenClauseParser
   // (seam batch 18 / Wave C). The contiguous named-artifact-token family — dynamic-X / for-each / that-many /
   // dies-power / fixed-N / investigate, original first-match order, parseCountSource+SMALL_NUM+NUM_WORD leaf.
@@ -1758,6 +1724,11 @@ registerClauseParser(graveyardReturnClauseParser);
 // self + triggering) co-extracted to atoms/zones.bounceClauseParser, original first-match order. NOT in the
 // rider-folding dispatch (exile/destroy-only), so unlike destroy⇄exile this lifts byte-identical.
 registerClauseParser(bounceClauseParser);
+// ADD-COUNTER (seam batch 25 / Wave C) — the 5 ±1/+1-counter matchers (target / target-you-control / self /
+// up-to-one-target / each-creature-you-control) co-extracted to atoms/counters.addCounterClauseParser, original
+// first-match order; SMALL_NUM leaf. Distinct anchors from the WAVE-3b triggering-counter parser + the
+// resolution-time doubler → no overlap; the clauses match no other registered parser → behavior-identical.
+registerClauseParser(addCounterClauseParser);
 // LIFE (seam batch 17 / Wave C) — gain-life ⇄ lose-life co-extracted to atoms/life.lifeClauseParser (scaled
 // for-each cluster + fixed-N cluster, one parser, original first-match order; parseCountSource leaf). The
 // draw for-each branches stay inline above (disjoint "draw …" anchor). The life clauses match no earlier
