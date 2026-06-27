@@ -181,6 +181,29 @@ function applySacrifice(state, atom, ctx) {
   return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid })), sourceName: ctx.cardName });
 }
 
+/**
+ * SACRIFICE-EDICT clause parser (CR 701.16) — migrated from parser.js parseExtendedAtom (seam batch 21 / Wave C).
+ * The contiguous EDICT block (each sacrificer gives up ONE creature of their choice; resolved through
+ * applySacrifice → advanceSacrificeChain), three matchers in original first-match order:
+ *   target (player|opponent) sacrifices a creature  → who via targetType (offensive edict)
+ *   each player sacrifices a creature               → who:"eachPlayer"
+ *   each (opponent|other player) sacrifices a creature → who:"eachOpponent"
+ * ALL-OR-NOTHING bare "a creature" (count 1, unfiltered) — a count / filtered victim / non-creature / conjoined
+ * "and loses N life" fails the exact anchor → low → Arbiter (a wrong-victim sac would be a forbidden FP). The
+ * self ("sacrifice this creature") + triggering ("sacrifice the triggering creature") sac matchers stay inline
+ * (separate non-contiguous region — a later batch). Pure (no helper). Registered via registerClauseParser.
+ */
+export function sacrificeEdictClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  let m = t.match(/^target (player|opponent) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
+  if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: "creature" };
+  m = t.match(/^each player sacrifices a creature(?: of (?:their|his or her) choice)?$/);
+  if (m) return { op: "sacrifice", who: "eachPlayer", what: "creature" };
+  m = t.match(/^each (?:opponent|other player) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
+  if (m) return { op: "sacrifice", who: "eachOpponent", what: "creature" };
+  return null;
+}
+
 export const removalResolvers = {
   "destroy": (state, atom, ctx) =>
     atom.controllerRider

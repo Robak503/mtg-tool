@@ -42,6 +42,7 @@ import { winGameClauseParser } from "./atoms/winGame.js";
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token) + 20 (create-token vanilla creature tokens)
+import { sacrificeEdictClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (still-inline token-keyword matcher) used here; parseTokenManaAbility now only inside atoms/tokens.createTokenClauseParser (batch 20)
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad player-grant)
@@ -768,36 +769,10 @@ function parseExtendedAtom(s) {
   // leaves trailing text → fails `$` → low → Arbiter. ("Discard your hand" is a different shape → low.)
   m = t.match(/^(?:you )?discard (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
-  // ===== EDICTS ===== (sacrifice as an EFFECT; sacrifice as a COST is γ1/γ1b in abilities.js)
-  // "Target player/opponent sacrifices a creature [of their choice]" (Diabolic Edict / Cruel Edict). The
-  // SACRIFICING player — the TARGET — chooses which creature (CR 701.16; the modern Oracle templating
-  // spells this out as "of their choice", an OPTIONAL suffix here so the bare form still matches), so this
-  // resolves through the resolution-time pending-choice seam (applySacrifice → setPendingSacrificeChoice):
-  // the human picks via a panel, an AI sacs its least valuable. `targetType` "player" offers EVERY player
-  // (an edict can hit yourself, legal-but-pointless; the AI only ever edicts an opponent), "opponent"
-  // offers opponents only. ALL-OR-NOTHING: exactly "a creature" (count 1, unfiltered). A count ("two
-  // creatures" — Dead Drop), a FILTERED victim ("with the greatest power", "you don't control"), a
-  // non-creature ("a permanent"), or a conjoined "and loses N life" (Geth's Verdict — the TARGET loses
-  // the life, an actor we don't model) fails the exact anchor / all-or-nothing gate → low → Arbiter.
-  m = t.match(/^target (player|opponent) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
-  if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: "creature" };
-  // ED-2 — each-player / each-opponent sacrifice (each sacrificer gives up ONE creature of their choice, CR
-  // 701.16). NON-targeted (no targetType — every player / every opponent), resolved through the SAME chain
-  // as the target edict (applySacrifice → advanceSacrificeChain). Non-targeted ⇒ programNeedsChosenTarget
-  // false ⇒ also routes on the trigger path. Bare "a creature" ONLY: a count ("two creatures" — Barter in
-  // Blood), a non-creature ("a land", "an artifact", "a permanent"), a filter / union ("creature or
-  // planeswalker", "with the greatest power", "nontoken"), "all", or an X leaves trailing text → fails `$`
-  // → low → Arbiter (those are NOT this slice — a wrong-victim sac would be a forbidden false positive).
-  // (Controller-sac "Sacrifice a creature." is intentionally NOT modeled here: it has ~0 standalone corpus
-  // yield, and the α2 "you may" wrapper would then flip "You may sacrifice a creature." HIGH through an
-  // untested optional+sacrifice-chain composition — deferred to keep that pin LOW. See parser.test.js.)
-  m = t.match(/^each player sacrifices a creature(?: of (?:their|his or her) choice)?$/);
-  if (m) return { op: "sacrifice", who: "eachPlayer", what: "creature" };
-  // "each opponent" and "each other player" are the SAME sacrificer set (every player but the controller) in
-  // FFA / 1v1 — Grave Pact / Butcher of Malakir's death-edict. Both → eachOpponent (the resolver's non-self
-  // each-sacrifice path). CR: "another player" / "other player" = any player who isn't you.
-  m = t.match(/^each (?:opponent|other player) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
-  if (m) return { op: "sacrifice", who: "eachOpponent", what: "creature" };
+  // ===== SACRIFICE-EDICTS ===== migrated to atoms/removal.sacrificeEdictClauseParser (seam batch 21 / Wave C).
+  // The contiguous edict block (target player/opponent / each player / each opponent "sacrifices a creature"),
+  // ALL-OR-NOTHING bare "a creature", original order. The self + triggering sac matchers stay inline above
+  // (separate non-contiguous region — a later batch). sacrifice-as-a-COST is γ1/γ1b in abilities.js, untouched.
   // ===== FOG + DIVIDE-DAMAGE ===== migrated to atoms/misc.miscClauseParser (seam batch 8 / Wave A3).
   return null;
 }
@@ -1838,6 +1813,11 @@ registerClauseParser(createNamedTokenClauseParser);
 // "create N P/T … creature token" clauses match no earlier registered parser and (verified) no later
 // parseExtendedAtom branch → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(createTokenClauseParser);
+// SACRIFICE-EDICTS (seam batch 21 / Wave C) — the contiguous edict block migrated to
+// atoms/removal.sacrificeEdictClauseParser (target / each-player / each-opponent "sacrifices a creature",
+// original order). These were the LAST matchers in parseExtendedAtom, so nothing ran after them; the clauses
+// match no earlier registered parser → the inline→CLAUSE_PARSERS move is behavior-identical.
+registerClauseParser(sacrificeEdictClauseParser);
 // MISC (seam batch 8 / Wave A3) — fog + divide-damage migrated to atoms/misc.miscClauseParser
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.
