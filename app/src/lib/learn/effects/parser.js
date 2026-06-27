@@ -139,9 +139,26 @@ function stripUncounterableRider(text) {
 // legalChoices/actionDispatcher actually discards-and-draws), so the spell counts native honestly. The
 // `^…cycling` anchor never matches "plainscycling"/"landcycling" — typecycling stays unstripped (its
 // search variant routes to the Arbiter until the tutor atom covers it).
-const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*\{)[^\n]*$/gim;
+//
+// ALTCAST-STRIP (flashback insight generalized): jump-start / retrace / escape are ALL just from-graveyard
+// recast options — `Jump-start` (recast from GY paying the mana cost + discarding a card), `Retrace` (recast
+// from GY discarding a land), `Escape—{cost}, Exile N cards` (recast from GY paying an exile cost). NONE
+// changes the spell's resolution when it is cast NORMALLY from hand, so the body resolves identically and the
+// keyword line is vacuous → stripped. The recast itself stays a SAFE false-negative (the engine won't offer
+// the GY cast). Any escape PAYOFF rider ("if this spell was cast for its escape cost, …") lives in the BODY,
+// not on the keyword line, so it self-gates the card to the Arbiter — stripping the line cannot fabricate it.
+const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*\{|jump-start\b|retrace\b|escape\s*[—–-])[^\n]*$/gim;
+// MADNESS_LINE needs a TIGHTER anchor than the others: a madness line can be COMPOUND
+// ("Madness {R}, cycling {1}{R}, kicker {2}{R}, buyback {4}{R}" — Blast from the Past), and buyback's
+// kept "return to hand as it resolves" effect lives ONLY on that line. A greedy `[^\n]*$` strip would drop
+// it → an FP (the card would flip native without the buyback return). So madness is stripped ONLY when its
+// line is madness-ALONE: the cost, an optional reminder paren, then end-of-line. A compound keyword line
+// (comma + another keyword after the cost) does NOT match and stays intact → the card keeps its non-vacuous
+// rider and correctly routes to the Arbiter. Madness itself (cast-from-exile on discard) is vacuous for the
+// normal cast, so a madness-alone body resolves identically.
+const MADNESS_LINE = /^[ \t]*madness\s*(?:\{[^}]*\})+[ \t]*(?:\([^\n]*\))?[ \t]*$/gim;
 function stripCastKeywordLines(text) {
-  return String(text || "").replace(CAST_KEYWORD_LINE, " ");
+  return String(text || "").replace(CAST_KEYWORD_LINE, " ").replace(MADNESS_LINE, " ");
 }
 
 /**
