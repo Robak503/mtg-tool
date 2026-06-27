@@ -20,7 +20,11 @@
 | ⏸️A7 | counter | atoms/stack.js | local-var (mv/sc/scx) | **DEFERRED — needs order-handling** (batch 12 attempt reverted; program-diff=16). The 8 bare `^counter…$` branches are entangled with rider-folding in the DISPATCH (`matchCounterControllerRider` + `exileInstead` detection) that strips the trailing sentence BEFORE the bare anchor matches then re-attaches `controllerRider`/`exileInstead` to the atom (Swan Song, Strix Serenade, An Offer You Can't Refuse, Deny Existence). Extracting only the bare branches → those riders' clauses fail the `$` → 16 cards drop to low. To migrate: move the rider-folding machinery WITH counter (or have the dispatch feed the clause parser the rider-stripped clause + re-attach). A dedicated batch, not a clean lift. |
 
 ### Wave B — HELPER-LEAF extractions first, THEN the family (each its own gated batch).
-- **B1: `parseGrantedKeywords` → parseHelpers leaf** (parser.js-local @~421), then **pump** (atoms/combat.js; also needs parseCountSource[leaf] for OVERRUN-X). pump = MOST fragmented (14 branches 1041-1229, interleaved w/ cant-block/animate/destroy/bounce/add-counter) — extract op:"pump" returns only.
+- **B1: ✅ `parseGrantedKeywords` → parseHelpers leaf DONE (batch 12b `7bd7820`, program-diff=0).** **NEXT: pump** →
+  atoms/combat.js (uses parseGrantedKeywords[leaf] + parseCountSource[leaf] for OVERRUN-X). pump = MOST fragmented
+  (14 branches ~1025-1213 now, re-grep — interleaved w/ cant-block/animate/destroy/bounce/add-counter) — extract
+  ONLY op:"pump" returns; keep the variant order (target/eachCreature/youControl/self/thatCreature). Highest-risk
+  Wave-B migration — the gate is the safety net (counter already proved it catches entanglement).
 - **B2: `parseTutorFilter`+`parseTutorMv`+`BASIC_LAND_SUBTYPES`+`UP_TO_N_WORD` → leaf** (parser.js-local; shared w/ impulse-dig), then **tutor** (atoms/library.js; contiguous 680-812; overlap-possible: tm/ttm/bfm share `^search your library for a…` prefix, first-match-wins ORDER load-bearing → keep block order tm,ttm,bfm,mf,spm,lfh).
 
 ### Wave C — INTERLEAVED families needing parseCountSource (already in leaf) + careful surgical pull.

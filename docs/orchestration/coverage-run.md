@@ -123,7 +123,10 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   allowlist-guard + runtime-fingerprint drift, adversarially confirm, fix/log). Then **Wave B** (helper-leaf
   extractions: parseGrantedKeywords→pump, tutor helpers→tutor) · Wave C (interleaved families: lose/gain-life,
   draw+discard, rad player-grant, destroy⇄exile, add-counter, create-token(s), animate, deal-damage, rfg⇄reanimate,
-  sacrifice). Note: pump/tutor (Wave B) are the LAST big monolith chunks; after them parseExtendedAtom is largely drained. Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
+  sacrifice). Note: pump/tutor (Wave B) are the LAST big monolith chunks; after them parseExtendedAtom is largely drained.
+  **Wave B progress:** ✅ B1a parseGrantedKeywords → leaf (batch 12b `7bd7820`). **NEXT = pump → atoms/combat.js**
+  (re-grep `op:"pump"`; 14 fragmented branches, extract only pump returns; uses parseGrantedKeywords+parseCountSource
+  leaf; HIGHEST-risk Wave-B lift — gate is the net). Then B2 (tutor helpers → leaf, then tutor → library). Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
   deal-damage / return-from-graveyard⇄reanimate / sacrifice). Wave D = standalone matchers (impulse-dig / discard-chosen
   / create-emblem) — different shape, deferred. **Couplings that MUST co-extract:** destroy⇄exile · rfg⇄reanimate ·
