@@ -44,10 +44,11 @@ import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token) + 20 (create-token vanilla creature tokens)
 import { sacrificeEdictClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
-import { SMALL_NUM, NUM_WORD, parseCountSource, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (still-inline token-keyword matcher) used here; parseTokenManaAbility now only inside atoms/tokens.createTokenClauseParser (batch 20)
+import { SMALL_NUM, parseCountSource, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (still-inline token-keyword matcher) used here; NUM_WORD now only inside the migrated draw/discard/mill clause parsers (batch 23)
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad player-grant)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate)
-import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
+import { miscClauseParser, drawEachPlayerClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice)
+import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
 import { attachClauseParser, dealDamageScaledClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count)
 import { tuckClauseParser, graveyardReturnClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
@@ -728,46 +729,12 @@ function parseExtendedAtom(s) {
   // Uses parseCountSource/SMALL_NUM/parseTokenManaAbility/parseTokenKeywords from the leaf.
   // ===== SCRY + SURVEIL ===== migrated to atoms/library.libraryKeywordClauseParser (seam batch 6 / Wave A1).
   // ===== MILL ===== migrated to atoms/library.millClauseParser (seam batch 11 / Wave A6).
-  // ===== EACH-PLAYER ===== draw — extend the ACTOR of a draw beyond the controller. The controller-only
-  // form ("draw N cards") stays on the legacy path (parseSpellEffect — "draws", a different subject, is
-  // intentionally not matched there). These two add: EVERY player draws ("Each player draws N cards" —
-  // Vision Skeins) and a CHOSEN player draws ("Target player draws N cards" — Opportunity, Ancestral
-  // Recall, Inspiration, Overflowing Insight). Anchored ALLOWLIST: a rider ("…and loses 2 life" — Painful
-  // Lesson splits, its bare "loses 2 life" stays unmodeled → low), a variable count ("draws X cards" /
-  // "draws cards equal to …"), or any trailing text fails the `$` anchor → low → Arbiter. Numeric N only.
-  // who:"target" carries targetType:"player" so the cast path enumerates a player target; who:"eachPlayer"
-  // is non-targeted (a trigger can auto-resolve it). Discard / lose-life / mill are sibling EACH-PLAYER
-  // slices; sacrifice is the Edicts builder's, never here.
-  m = t.match(/^each player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
-  if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
-  m = t.match(/^target player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
-  if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
-  // ===== EACH-PLAYER ===== discard (EP-2) — the DISCARDING player chooses which cards (CR 701.8), so this
-  // resolves through the resolution-time pending-choice CHAIN (one single-card pick per card, per
-  // discarder; the driver pauses a human discarder + auto-discards an AI's cheapest). who:"target" carries
-  // targetType:"player" (the cast path enumerates a player target — Mind Rot / Fugue); who:"eachPlayer" is
-  // non-targeted (Delirium Skeins). Anchored ALLOWLIST — a bare numeric count ONLY. "discards N cards at
-  // random" (Hymn to Tourach — no choice, RNG), "discards X cards" (Mind Twist), "discards their hand"
-  // (Wit's End — a different amount shape), "discards half the cards" (Rush of Dread), or any trailing
-  // rider ("…, mills a card, and loses 1 life" — Mind Drain; "…then loses 4 life" — Strongarm Tactics)
-  // fails the `$` anchor → low → Arbiter. A compound where EVERY clause is independently modeled
-  // ("…discards two cards. Scry 2." — Fill with Fright) still composes HIGH via the multi-clause parser.
-  m = t.match(/^target player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
-  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
-  m = t.match(/^each player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
-  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
-  // EACHOP-DISCARD — "Each opponent discards a card" (Liliana's Specter, Burglar Rat, Cackling Fiend,
-  // Noxious Toad). Non-targeted mass scope (targetType:null), parallel to "each opponent mills N" / "each
-  // opponent loses N life". Route natively; the resolver walks opponentsOf via the shared discard chain.
-  m = t.match(/^each opponent discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
-  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
-  // LOOT-1 — the CONTROLLER discards (the "loot" half of draw-then-discard: Faithless Looting, Careful
-  // Study, Catalog). "Discard N cards" (imperative) / "You discard N cards" = the caster discards, CHOOSING
-  // which (CR 701.8 → the discard chain, who:"controller"). "Draw N cards, then discard M cards" composes
-  // via the multi-clause splitter. Numeric/spelled N only; "at random" (engine-chosen, not player-chosen)
-  // leaves trailing text → fails `$` → low → Arbiter. ("Discard your hand" is a different shape → low.)
-  m = t.match(/^(?:you )?discard (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
-  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
+  // ===== DRAW (each-player slice) ===== migrated to atoms/misc.drawEachPlayerClauseParser (seam batch 23 / Wave
+  // C) — "each player draws N cards" + "target player draws N cards" only; the controller-only / combat-damage /
+  // for-each / dying-power draw forms stay (legacy path + their own inline matchers). NUM_WORD leaf.
+  // ===== DISCARD ===== migrated to atoms/hand.discardClauseParser (seam batch 23 / Wave C) — the full who-scoped
+  // discard family (target / each player / each opponent / controller "discards N cards"), numeric N only, NUM_WORD
+  // leaf; the discarding player chooses (CR 701.8 → the discard chain). Coupled with the draw slice above.
   // ===== SACRIFICE-EDICTS ===== migrated to atoms/removal.sacrificeEdictClauseParser (seam batch 21 / Wave C).
   // The contiguous edict block (target player/opponent / each player / each opponent "sacrifices a creature"),
   // ALL-OR-NOTHING bare "a creature", original order. The self + triggering sac matchers stay inline above
@@ -1817,6 +1784,12 @@ registerClauseParser(createTokenClauseParser);
 // original order). These were the LAST matchers in parseExtendedAtom, so nothing ran after them; the clauses
 // match no earlier registered parser → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(sacrificeEdictClauseParser);
+// DRAW (each-player slice) + DISCARD family (seam batch 23 / Wave C) — co-extracted coupling: the each-player/
+// target draw forms → atoms/misc.drawEachPlayerClauseParser, the who-scoped discard family → atoms/hand.discardClauseParser
+// (separate resolver homes, two sibling parsers). NUM_WORD leaf. The clauses match no earlier registered parser and
+// (verified) no later parseExtendedAtom branch → the inline→CLAUSE_PARSERS move is behavior-identical.
+registerClauseParser(drawEachPlayerClauseParser);
+registerClauseParser(discardClauseParser);
 // MISC (seam batch 8 / Wave A3) — fog + divide-damage migrated to atoms/misc.miscClauseParser
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.

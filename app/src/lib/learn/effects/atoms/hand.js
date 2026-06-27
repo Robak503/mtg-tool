@@ -6,6 +6,7 @@ import { handCardMatches } from "../../spellEffects.js";
 import { logEvent, opponentsOf, moveCardToZone } from "../../gameState.js";
 import { setPendingHandDiscardChoice, setPendingDiscardChoice } from "../../pendingChoice.js";
 import { effectiveAmount } from "./shared.js";
+import { NUM_WORD } from "../parseHelpers.js"; // seam batch 23: shared number-word map (leaf, cycle-free) for the discard family
 
 /**
  * δ-1b targeted hand disruption (CR 701.8 discard) — Duress / Thoughtseize / Inquisition / Coercion /
@@ -111,6 +112,27 @@ export function applyDiscard(state, atom, ctx) {
   }
   const queue = discarders.map((pid) => ({ playerId: pid, remaining: amount }));
   return advanceDiscardChain(state, { queue, sourceName: ctx.cardName || null });
+}
+
+/**
+ * DISCARD clause parser — migrated from parseExtendedAtom (seam batch 23 / Wave C). The full who-scoped discard
+ * family, original first-match order: target player (who:"target", targetType:"player") / each player
+ * (who:"eachPlayer") / each opponent (who:"eachOpponent") / controller ("[you] discard N cards"). Numeric/spelled
+ * N only — "at random" / "X" / "their hand" / "half" / any trailing rider fails the `$` anchor → low → Arbiter
+ * (the victim chooses, CR 701.8 — the resolver walks the discard chain). Pure; uses the NUM_WORD leaf. Registered
+ * via registerClauseParser in parser.js.
+ */
+export function discardClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  let m = t.match(/^target player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
+  m = t.match(/^each player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
+  m = t.match(/^each opponent discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  m = t.match(/^(?:you )?discard (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
+  return null;
 }
 
 export const handResolvers = {

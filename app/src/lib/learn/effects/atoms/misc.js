@@ -6,6 +6,7 @@ import { applyDrawEffect } from "../../spellEffects.js";
 import { logEvent, addEmblem } from "../../gameState.js";
 import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, isCreatureCard } from "./shared.js";
+import { NUM_WORD } from "../parseHelpers.js"; // seam batch 23: shared number-word map (leaf, cycle-free) for the each-player draw slice
 
 /**
  * Draw (CR 120) — the ACTOR is the atom's `who`:
@@ -114,6 +115,23 @@ export function miscClauseParser(clause) {
     const GROUP = { "any number of target creatures and/or players": "anyTarget", "any number of target creatures": "creatures", "any number of targets": "anyTarget", "any number of target players": "players" };
     return { op: "divide-damage", amount: parseInt(m[1], 10), group: GROUP[m[2]] };
   }
+  return null;
+}
+
+/**
+ * DRAW (each-player slice) clause parser — migrated from parseExtendedAtom (seam batch 23 / Wave C). ONLY the
+ * actor-extended forms beyond the controller: "each player draws N cards" (who:"eachPlayer", non-targeted) +
+ * "target player draws N cards" (who:"target", targetType:"player"). Numeric/spelled N only; a rider / variable
+ * count / trailing text fails the `$` anchor → low → Arbiter. The controller-only "draw N cards" stays on the
+ * legacy path, and the combat-damage / for-each / dying-power draw clusters stay inline (different shapes).
+ * Pure; uses the NUM_WORD leaf. Registered via registerClauseParser in parser.js.
+ */
+export function drawEachPlayerClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  let m = t.match(/^each player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
+  m = t.match(/^target player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
   return null;
 }
 
