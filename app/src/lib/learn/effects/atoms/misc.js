@@ -126,6 +126,23 @@ export function miscClauseParser(clause) {
     const GROUP = { "any number of target creatures and/or players": "anyTarget", "any number of target creatures": "creatures", "any number of targets": "anyTarget", "any number of target players": "players" };
     return { op: "divide-damage", amount: parseInt(m[1], 10), group: GROUP[m[2]] };
   }
+  // DIVIDE-BOUNDED — "deals N damage divided as you choose among one or two / one, two, or three TARGETS"
+  // (Arc Lightning, Twin Bolt, Forked Bolt, Flames of the Firebrand, Chandra's Pyrohelix). Reuses the SAME
+  // divide-damage resolver/picker, no picker change: the printed cap (2 or 3 targets) is enforced FOR FREE
+  // because the picker requires ≥1 damage per chosen target and the total is `amount` — so as long as
+  // amount ≤ maxTargets, the effective target count can never exceed the printed bound, making it behave
+  // identically to the unbounded `any number` group. When amount > maxTargets (Forked Lightning N=4, max 3;
+  // Sundering Stroke N=7) the bound WOULD bite and the unbounded picker would over-target → return null →
+  // low → Arbiter (CREED: never emit an over-targeting divide). A "… target creatures with flying" (Aerial
+  // Volley) leaves residue past `$` → no match → Arbiter (the resolver's `creatures` group can't filter).
+  const b = t.match(/^.+ deals (\d+) damage divided as you choose among (one or two|one, two, or three) (targets|target creatures|target players)$/);
+  if (b) {
+    const amount = parseInt(b[1], 10);
+    const maxTargets = b[2] === "one or two" ? 2 : 3;
+    if (amount > maxTargets) return null;
+    const GROUP = { "targets": "anyTarget", "target creatures": "creatures", "target players": "players" };
+    return { op: "divide-damage", amount, group: GROUP[b[3]] };
+  }
   return null;
 }
 

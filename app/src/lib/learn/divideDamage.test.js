@@ -101,10 +101,53 @@ describe("MT-1 parser + coverage — divide-damage is native (the card-name pref
       .toMatchObject({ op: "divide-damage", amount: 4, group: "creatures" });
     expect(classifyCard(I("Boulderfall deals 5 damage divided as you choose among any number of targets.", "{4}{R}"))).toBe("native-spell");
   });
-  it("MUST_DROP_TO_LOW: a bounded count, an X-divide (no numeric N), or a rider stays low → Arbiter", () => {
+  it("MUST_DROP_TO_LOW: an over-cap bounded count, a flying-restricted group, an X-divide, or a rider stays low → Arbiter", () => {
     const low = (o, m) => expect(programConfidence(parseEffectProgram(I(o, m)))).toBe("low");
-    low("Electrolyze deals 2 damage divided as you choose among one or two targets.", "{1}{U}{R}"); // bounded "one or two"
+    // bounded N ≤ cap is now native (DIVIDE-BOUNDED) — but these bounded forms still drop to low:
+    low("Forked Lightning deals 4 damage divided as you choose among one, two, or three target creatures.", "{2}{R}{R}"); // N(4) > maxTargets(3): the picker can't enforce the 3-target cap → low (CREED)
+    low("Aerial Volley deals 3 damage divided as you choose among one, two, or three target creatures with flying.", "{1}{W}"); // restricted creatures group (with flying) — the resolver can't filter → residue → low
     low("Conflagrate deals X damage divided as you choose among any number of targets.", "{X}{X}{R}"); // X (not numeric) — fast-follow
     low("Rolling Thunder deals X damage divided as you choose among any number of target creatures and/or players.", "{X}{X}{R}");
+  });
+});
+
+// ===== DIVIDE-BOUNDED ===== "deals N damage divided as you choose among one or two / one, two, or three
+// TARGETS" (Arc Lightning, Twin Bolt, Electrolyze, Flames of the Firebrand). Reuses the SAME resolver/picker
+// with NO picker change: when amount ≤ the printed cap, the picker's "≥1 per chosen target, total = amount"
+// rule already makes the effective target count ≤ amount ≤ cap, so it behaves identically to the unbounded
+// `any number` group. amount > cap (Forked Lightning N=4) is rejected so the picker can never over-target.
+describe("DIVIDE-BOUNDED — native when amount ≤ the printed target cap (reuses the divide picker)", () => {
+  const C = (oracle, type = "Sorcery", mana = "{1}{R}") => ({ type, mana, oracle, name: oracle.split(" ")[0] });
+  it("'one, two, or three targets' (N=3) and 'one or two targets' (N=2) parse to the divide atom + go native", () => {
+    expect(parseEffectProgram(C("Arc Lightning deals 3 damage divided as you choose among one, two, or three targets.")).atoms)
+      .toEqual([{ op: "divide-damage", amount: 3, group: "anyTarget" }]);
+    expect(parseEffectProgram(C("Twin Bolt deals 2 damage divided as you choose among one or two targets.", "Instant", "{1}{R}")).atoms)
+      .toEqual([{ op: "divide-damage", amount: 2, group: "anyTarget" }]);
+    expect(classifyCard(C("Arc Lightning deals 3 damage divided as you choose among one, two, or three targets."))).toBe("native-spell");
+    // a trailing modeled clause rides along (Electrolyze = divide + draw)
+    expect(classifyCard(C("Electrolyze deals 2 damage divided as you choose among one or two targets.\nDraw a card.", "Instant", "{1}{U}{R}"))).toBe("native-spell");
+  });
+  it("the 'target creatures' / 'target players' bounded groups map correctly", () => {
+    expect(parseEffectProgram(C("Spark deals 3 damage divided as you choose among one, two, or three target creatures.")).atoms[0]).toMatchObject({ op: "divide-damage", amount: 3, group: "creatures" });
+    expect(parseEffectProgram(C("Spark deals 2 damage divided as you choose among one or two target players.")).atoms[0]).toMatchObject({ op: "divide-damage", amount: 2, group: "players" });
+  });
+  it("CREED: amount > cap stays low (Forked Lightning N=4 > 3); a flying restriction leaves residue → low", () => {
+    expect(programConfidence(parseEffectProgram(C("Forked Lightning deals 4 damage divided as you choose among one, two, or three target creatures.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(C("Aerial Volley deals 3 damage divided as you choose among one, two, or three target creatures with flying.", "Instant", "{1}{W}")))).toBe("low");
+  });
+  it("a bounded creature with the divide as a death/activated ability flips (Gang of Devils, Mogg Mob)", () => {
+    expect(classifyCard({ name: "Gang of Devils", type: "Creature — Devil", mana: "{4}{R}", power: 3, toughness: 3, oracle: "When this creature dies, it deals 3 damage divided as you choose among one, two, or three targets." })).toBe("native-trigger");
+    expect(classifyCard({ name: "Mogg Mob", type: "Creature — Goblin", mana: "{3}{R}", power: 1, toughness: 1, oracle: "Sacrifice this creature: It deals 3 damage divided as you choose among one, two, or three targets." })).toBe("native-activated");
+  });
+  it("cap invariant e2e — 2 damage among ≤2 targets: a 3rd assigned target gets 0 (total caps at amount)", () => {
+    const s0 = state({ aiBf: [creature("A", 0, 5, "ai"), creature("B", 0, 5, "ai"), creature("C", 0, 5, "ai")], aiLife: 40 });
+    const s = applyDivideDamage(s0, { op: "divide-damage", amount: 2, group: "creatures" }, { controller: "user" });
+    const id = (n) => s.players.ai.battlefield.find((p) => p.card.name === n).id;
+    // try to spread 1 onto THREE creatures — only 2 damage exists, so the 3rd gets nothing (effective targets ≤ 2 = the printed cap)
+    const out = resolveDivideChoice(s, [{ id: id("A"), type: "creature", amount: 1 }, { id: id("B"), type: "creature", amount: 1 }, { id: id("C"), type: "creature", amount: 1 }]);
+    const dmg = (n) => { const p = out.players.ai.battlefield.find((q) => q.card.name === n); return p ? p.damageMarked : null; };
+    expect(dmg("A")).toBe(1);
+    expect(dmg("B")).toBe(1);
+    expect(dmg("C")).toBe(0); // capped — the 3rd target got 0, so only 2 effective targets (≤ the "one or two" bound)
   });
 });
