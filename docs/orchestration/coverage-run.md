@@ -104,9 +104,10 @@ Each wakeup re-enters FRESH (no memory of the prior turn) and is fully driven by
   (batch 4, `01065a9`) · ✅ earthbend → atoms/combat (batch 5, `2405dfb`). All program-diff = 0.
 - **📋 FULL MAP: `docs/orchestration/seam-migration-map.md`** (4-agent recon — every remaining op's branch lines,
   deps, resolver home, risk, couplings, and the readiness-ranked Wave A→D order). Execute it top-down; re-grep
-  `op:"<op>"` each batch (line numbers drift). ✅A1 discover/shuffle/scry/surveil → library (batch 6 `d45aaa4`).
-  **NEXT = Wave A2: regenerate · untap · cant-block · tap → atoms/combat.js** (all clean). Then A3 (fog/divide-damage →
-  misc) · A4 (self-attach/attach-to-self → stack) · A5 (tuck → zones) · A6 (mill) · A7 (counter). Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
+  `op:"<op>"` each batch (line numbers drift). ✅A1 library-keywords (batch 6 `d45aaa4`) · ✅A2 combat-keywords
+  (batch 7 `fb7b5a4`). **NEXT = Wave A3: fog · divide-damage → atoms/misc.js** (clean; divide-damage is the LAST
+  branch before `return null`). Then A4 (self-attach/attach-to-self → stack; mind attach-to-self fall-through) ·
+  A5 (tuck → zones) · A6 (mill → library) · A7 (counter → stack). Wave B = helper-leaf extractions (parseGrantedKeywords→pump; tutor helpers→tutor). Wave C = interleaved
   families (rad player-grant block / life / draw+discard / destroy⇄exile / add-counter / create-token(s) / animate /
   deal-damage / return-from-graveyard⇄reanimate / sacrifice). Wave D = standalone matchers (impulse-dig / discard-chosen
   / create-emblem) — different shape, deferred. **Couplings that MUST co-extract:** destroy⇄exile · rfg⇄reanimate ·
