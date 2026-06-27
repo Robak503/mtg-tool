@@ -44,7 +44,7 @@ import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill)
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseGrantedKeywords } from "./parseHelpers.js"; // seam batch 2/4/12b: number-word maps + count-source + granted-keywords in a leaf (matchers import cycle-free)
 import { proliferateClauseParser, gainExperienceClauseParser } from "./atoms/counters.js"; // seam batch 3
-import { earthbendClauseParser, combatKeywordClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate)
+import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump)
 import { miscClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage)
 import { attachClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self)
 import { tuckClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck)
@@ -943,36 +943,9 @@ function parseExtendedAtom(s) {
   // until end of turn" — a layer-7c P/T bump AND layer-6 keyword grant(s), both endOfTurn. The
   // granted keywords must ALL be in the enforced+layer-aware GRANTABLE set (parseGrantedKeywords),
   // else the whole clause is unmodeled → low → Arbiter (no fake/partial grant).
-  let pg = t.match(/^target creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
-  if (pg) {
-    const kws = parseGrantedKeywords(pg[3]);
-    return kws ? { op: "pump", targetType: "creature", ptDelta: { p: parseInt(pg[1], 10), t: parseInt(pg[2], 10) }, grantKeywords: kws } : null;
-  }
-  // Pure keyword grant (no P/T): "target creature gains KW[ and KW] until end of turn".
-  pg = t.match(/^target creature gains (.+) until end of turn$/);
-  if (pg) {
-    const kws = parseGrantedKeywords(pg[1]);
-    return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
-  }
+  // ===== PUMP (target creature) ===== migrated to atoms/combat.pumpClauseParser (seam batch 12c / Wave B1b).
   // ===== CANT-BLOCK ===== migrated to atoms/combat.combatKeywordClauseParser (seam batch 7 / Wave A2).
-  // PUMP-TGT-CTRL — "target creature you control / an opponent controls gets +N/+N [and gains KW]
-  // until end of turn" / "gains KW until end of turn". Encodes the controller restriction using the
-  // existing P2.4 restriction-array format ({ kind:"controller", who:"you"|"opponent" }), honored by
-  // enumerateTargets so only the controller's own creatures (or opponents') are legal targets.
-  // All-or-nothing anchored: an un-grantable keyword still drops the whole clause → low → Arbiter.
-  let pctrl = t.match(/^target creature (you control|an opponent controls) gets ([+-]\d+)\/([+-]\d+)(?: and gains (.+))? until end of turn$/);
-  if (pctrl) {
-    const who = pctrl[1] === "you control" ? "you" : "opponent";
-    const kws = pctrl[4] ? parseGrantedKeywords(pctrl[4]) : null;
-    if (pctrl[4] && !kws) return null; // un-grantable keyword → low → Arbiter
-    return { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: parseInt(pctrl[2], 10), t: parseInt(pctrl[3], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
-  }
-  pctrl = t.match(/^target creature (you control|an opponent controls) gains (.+) until end of turn$/);
-  if (pctrl) {
-    const who = pctrl[1] === "you control" ? "you" : "opponent";
-    const kws = parseGrantedKeywords(pctrl[2]);
-    return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
-  }
+  // ===== PUMP (target creature you control / an opponent controls) ===== migrated to pumpClauseParser (batch 12c).
   // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
   // KW[ and KW]]" (Animate Land, Hydroform, Vivify; the "still a land" reminder already stripped above).
   // Modeled as layer-4 type-ADD (Creature + optional subtype) + layer-7b P/T-SET + layer-6 keyword grants,
@@ -1039,63 +1012,10 @@ function parseExtendedAtom(s) {
     const TT = { "artifacts": "eachArtifact", "enchantments": "eachEnchantment", "lands": "eachLand", "artifacts and enchantments": "eachArtifactOrEnchantment" };
     return { op: "destroy", targetType: TT[m[1]] };
   }
-  m = t.match(/^(?:all creatures|each creature) gets? ([+-]\d+)\/([+-]\d+) until end of turn$/);
-  if (m) return { op: "pump", targetType: "eachCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
-  // TEAM pump — "Creatures you control get +N/+N [and gain KW[, KW][ and KW]] until end of turn"
-  // (Trumpet Blast, Inspired Charge, Overrun). A controller-scoped one-shot: it pumps EXACTLY the
-  // creatures the caster controls AS IT RESOLVES (CR 611.2c — the set is locked when the effect
-  // begins, NOT continuously re-evaluated like a static anthem). Modeled with the `scope:"youControl"`
-  // marker (NOT a targetType — it's non-targeted, so it stays non-targeted across every
-  // targetType-keyed path: programNeedsChosenTarget, atomTargetSpec, legalChoices). The resolver
-  // (effectAtoms.applyPumpEffect) locks in the controller's creature ids and adds one fixed
-  // layer-7c P/T effect (+ layer-6 keyword grant) per creature — reusing the combat-trick pump
-  // loop verbatim. A FILTERED team pump ("creatures you control with flying", "other creatures you
-  // control") fails the exact anchor → low → Arbiter (scope:youControl would hit the wrong set).
-  let tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) and gain (.+) until end of turn$/);
-  if (tp) {
-    const kws = parseGrantedKeywords(tp[3]);
-    return kws ? { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) }, grantKeywords: kws } : null;
-  }
-  tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
-  if (tp) return { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) } };
-  // ===== OVERRUN-X ===== count-scaled team pump — "[Until end of turn,] creatures you control gain KW[ and
-  // KW] and get +X/+X[ until end of turn], where X is <count source>." (Overwhelming Stampede — greatest
-  // power; Craterhoof Behemoth's ETB clause — number of creatures). Same controller-scoped one-shot as the
-  // numeric Overrun team pump (scope:"youControl", set locked at resolution, CR 611.2c), but the +X/+X delta
-  // is a BOARD COUNT computed at resolution (`ptDeltaCount`, via parseCountSource + countForSpec), NOT a
-  // printed number. The keyword(s) must be GRANTABLE (parseGrantedKeywords) AND the count source modeled,
-  // else → low → Arbiter (never a half-scaled native). EOT prefix or suffix both fold to the endOfTurn
-  // duration applyPumpEffect already applies.
-  let ox = t.match(/^(?:until end of turn, )?creatures you control gain (.+?) and get \+x\/\+x(?: until end of turn)?, where x is (.+?)$/);
-  if (ox) {
-    const kws = parseGrantedKeywords(ox[1]);
-    const countSpec = parseCountSource(ox[2].replace(/^the /, "").replace(/^number of /, ""));
-    return (kws && countSpec) ? { op: "pump", scope: "youControl", ptDeltaCount: countSpec, grantKeywords: kws } : null;
-  }
-  // SELF-reference pump (trigger / activated vocabulary) — "this creature gets +N/+N until end of
-  // turn" refers to the ability's SOURCE (CR 113.7 — "this creature" = the source permanent). NOT
-  // a chosen target (target:"self", no targetType → stays non-targeted), so it routes natively on
-  // the trigger-flush + activated paths, which thread the source permanent id into ctx.sourceId.
-  // A spell never produces this (its text isn't "this creature"); if a self atom somehow lacks a
-  // source it resolves to a no-op, never a fabricated pump.
-  m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
-  if (m) return { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
-  // SELF keyword grant (+ optional P/T) — "this creature [gets +N/+N and ]gains KW[ and KW] until end of
-  // turn" grants the SOURCE (CR 113.7) the keyword(s), layer-6 endOfTurn. The keyword form of the self
-  // pump above; reuses the combat-trick GRANTABLE allowlist (parseGrantedKeywords — the enforced,
-  // layer-aware set IS the FP guard, so an un-enforced keyword → null → low → Arbiter) + the self-pump
-  // resolver path (atomTargets → selfTargets → ctx.sourceId). Used by "{cost}: this creature gains …"
-  // activated abilities (ACT-KW-GRANT) and "When this attacks, this creature gains …" triggers alike.
-  m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
-  if (m) {
-    const kws = parseGrantedKeywords(m[3]);
-    return kws ? { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, grantKeywords: kws } : null;
-  }
-  m = t.match(/^this creature gains (.+) until end of turn$/);
-  if (m) {
-    const kws = parseGrantedKeywords(m[1]);
-    return kws ? { op: "pump", target: "self", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
-  }
+  // ===== PUMP (each creature mass) ===== migrated to pumpClauseParser (batch 12c).
+  // ===== PUMP (TEAM — creatures you control) ===== migrated to pumpClauseParser (batch 12c).
+  // ===== PUMP (OVERRUN-X count-scaled team) ===== migrated to pumpClauseParser (batch 12c).
+  // ===== PUMP (self / "this creature") ===== migrated to pumpClauseParser (batch 12c).
   // SELF-BOUNCE — "return this creature to its owner's hand" (the ability source, CR 113.7). Non-targeted
   // (target:"self", no targetType): atomTargets → selfTargets → ctx.sourceId. applyZoneMove handles
   // target:"self" through atomTargets/selfTargets; the controller serves as the owner proxy (zones.js
@@ -1115,18 +1035,7 @@ function parseExtendedAtom(s) {
   // Arbiter (CREED — sentinel gate). target:"thatCreature" (no targetType → non-targeted): atomTargets →
   // triggeringTargets → ctx.triggeringPermanentId. The COUNTER form ("…on the triggering creature") is
   // served by WAVE-3b's counterClausesParser — NOT duplicated here.
-  m = t.match(/^the triggering creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
-  if (m) return { op: "pump", target: "thatCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
-  m = t.match(/^the triggering creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
-  if (m) {
-    const kws = parseGrantedKeywords(m[3]);
-    return kws ? { op: "pump", target: "thatCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, grantKeywords: kws } : null;
-  }
-  m = t.match(/^the triggering creature gains (.+) until end of turn$/);
-  if (m) {
-    const kws = parseGrantedKeywords(m[1]);
-    return kws ? { op: "pump", target: "thatCreature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
-  }
+  // ===== PUMP (triggering creature) ===== migrated to pumpClauseParser (batch 12c).
   if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
   if (/^sacrifice the triggering creature$/.test(t)) return { op: "sacrifice", target: "thatCreature" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
@@ -2362,6 +2271,9 @@ registerClauseParser(libraryKeywordClauseParser);
 // COMBAT KEYWORDS (seam batch 7 / Wave A2) — tap/untap/cant-block/regenerate migrated to
 // atoms/combat.combatKeywordClauseParser (all whole-clause-anchored). program-diff = 0.
 registerClauseParser(combatKeywordClauseParser);
+// PUMP (seam batch 12c / Wave B1b) — the most fragmented op (14 returns, 7 interleaved clusters) migrated to
+// atoms/combat.pumpClauseParser; branch order preserved. program-diff = 0 (gate-verified).
+registerClauseParser(pumpClauseParser);
 // MISC (seam batch 8 / Wave A3) — fog + divide-damage migrated to atoms/misc.miscClauseParser
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.

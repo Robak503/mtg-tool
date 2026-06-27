@@ -7,7 +7,7 @@ import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from ".
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
-import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // seam batch 5: shared parse helpers (leaf, cycle-free)
+import { SMALL_NUM, parseCountSource, parseGrantedKeywords } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 
 /** Tap / untap target creature(s) (CR 701.26). */
 export function applyTapEffect(state, atom, ctx, tap) {
@@ -317,6 +317,82 @@ export function combatKeywordClauseParser(clause) {
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
   if (/^regenerate (?:this creature|this permanent)$/.test(t)) return { op: "regenerate", target: "self" };
   if (/^regenerate target creature$/.test(t)) return { op: "regenerate", targetType: "creature" };
+  return null;
+}
+
+/**
+ * PUMP clause parser (migrated from parseExtendedAtom, seam batch 12c / Wave B1b) — the most fragmented op.
+ * All `^…$`-anchored pump forms, in the SAME first-match order as the inline chain (mutually exclusive, but
+ * order preserved for safety): target-creature [+kw], target-creature-you-control/opponent [+kw], each-creature
+ * mass, creatures-you-control TEAM [+kw], OVERRUN-X (count-scaled), self [+kw / kw-only], triggering-creature
+ * [+kw / kw-only]. Granted keywords ALL-OR-NOTHING via parseGrantedKeywords (leaf); OVERRUN-X count via
+ * parseCountSource (leaf). Pure (no parser.js import — cycle-safe); normalizes the clause exactly as
+ * parseExtendedAtom does. Registered via registerClauseParser in parser.js.
+ */
+export function pumpClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  let pg = t.match(/^target creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
+  if (pg) {
+    const kws = parseGrantedKeywords(pg[3]);
+    return kws ? { op: "pump", targetType: "creature", ptDelta: { p: parseInt(pg[1], 10), t: parseInt(pg[2], 10) }, grantKeywords: kws } : null;
+  }
+  pg = t.match(/^target creature gains (.+) until end of turn$/);
+  if (pg) {
+    const kws = parseGrantedKeywords(pg[1]);
+    return kws ? { op: "pump", targetType: "creature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  let pctrl = t.match(/^target creature (you control|an opponent controls) gets ([+-]\d+)\/([+-]\d+)(?: and gains (.+))? until end of turn$/);
+  if (pctrl) {
+    const who = pctrl[1] === "you control" ? "you" : "opponent";
+    const kws = pctrl[4] ? parseGrantedKeywords(pctrl[4]) : null;
+    if (pctrl[4] && !kws) return null;
+    return { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: parseInt(pctrl[2], 10), t: parseInt(pctrl[3], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
+  pctrl = t.match(/^target creature (you control|an opponent controls) gains (.+) until end of turn$/);
+  if (pctrl) {
+    const who = pctrl[1] === "you control" ? "you" : "opponent";
+    const kws = parseGrantedKeywords(pctrl[2]);
+    return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  let m = t.match(/^(?:all creatures|each creature) gets? ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (m) return { op: "pump", targetType: "eachCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
+  let tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) and gain (.+) until end of turn$/);
+  if (tp) {
+    const kws = parseGrantedKeywords(tp[3]);
+    return kws ? { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) }, grantKeywords: kws } : null;
+  }
+  tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (tp) return { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) } };
+  const ox = t.match(/^(?:until end of turn, )?creatures you control gain (.+?) and get \+x\/\+x(?: until end of turn)?, where x is (.+?)$/);
+  if (ox) {
+    const kws = parseGrantedKeywords(ox[1]);
+    const countSpec = parseCountSource(ox[2].replace(/^the /, "").replace(/^number of /, ""));
+    return (kws && countSpec) ? { op: "pump", scope: "youControl", ptDeltaCount: countSpec, grantKeywords: kws } : null;
+  }
+  m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (m) return { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
+  m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
+  if (m) {
+    const kws = parseGrantedKeywords(m[3]);
+    return kws ? { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, grantKeywords: kws } : null;
+  }
+  m = t.match(/^this creature gains (.+) until end of turn$/);
+  if (m) {
+    const kws = parseGrantedKeywords(m[1]);
+    return kws ? { op: "pump", target: "self", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  m = t.match(/^the triggering creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (m) return { op: "pump", target: "thatCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
+  m = t.match(/^the triggering creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
+  if (m) {
+    const kws = parseGrantedKeywords(m[3]);
+    return kws ? { op: "pump", target: "thatCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, grantKeywords: kws } : null;
+  }
+  m = t.match(/^the triggering creature gains (.+) until end of turn$/);
+  if (m) {
+    const kws = parseGrantedKeywords(m[1]);
+    return kws ? { op: "pump", target: "thatCreature", ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
   return null;
 }
 
