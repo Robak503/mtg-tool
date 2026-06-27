@@ -44,10 +44,10 @@ import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token) + 20 (create-token vanilla creature tokens)
 import { sacrificeEdictClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
-import { SMALL_NUM, parseCountSource, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (still-inline token-keyword matcher) used here; NUM_WORD now only inside the migrated draw/discard/mill clause parsers (batch 23)
+import { SMALL_NUM, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); SMALL_NUM (cdmg rad) + parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; NUM_WORD/parseCountSource now only inside migrated clause parsers (batch 23/26)
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate)
-import { miscClauseParser, drawEachPlayerClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice)
+import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
 import { attachClauseParser, dealDamageScaledClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
@@ -462,41 +462,10 @@ function parseExtendedAtom(s) {
   // count-scaled "<source> deals damage to <target> equal to the number of <count source>" form (Massive Raid /
   // Spitting Earth / Outnumber); the printed "N damage" form stays on legacyToAtom. Uses parseCountSource (leaf).
 
-  // ===== FOR-EACH ===== (WALT-FOR-EACH) a count-scaled NON-TARGETED controller effect: "draw a card for
-  // each X", "you gain N life for each X", "each opponent/player/you lose N life for each X" (and the
-  // "<effect> equal to the number of X" phrasing for draw/gain). The amount is a board count × a per-unit
-  // value (`amountCount.per`), computed at resolution (reuses parseCountSource + resolveScaledAmount). An
-  // unmodeled count source (parseCountSource → null) drops the whole clause to low → Arbiter. Numeric
-  // per only. The effects are non-targeted (targetType:null), so they route the same on a spell or a
-  // trigger; the count is always the CONTROLLER's (ctx.controller).
-  // ===== DRAW-METRIC ===== (WAVE2b) "draw cards equal to the greatest power/toughness among <count source>"
-  // — the draw count is the single greatest layer-resolved power (Soul's Majesty, Garruk, Caller of Beasts'
-  // "greatest power") or toughness among the count source's creatures, computed at resolution via
-  // parseCountSource + countForSpec (greatestPower/ToughnessYouControl, MAX-reduction). per:1 — the metric IS
-  // the amount. An empty board → 0 (a safe FN, never fabricated). An unmodeled tail (parseCountSource → null)
-  // drops the clause to low → Arbiter. Checked BEFORE the "for each"/"number of" draw matchers (it's a
-  // distinct "greatest … among" phrasing). LANDMINE: a card whose OTHER clause is unmodeled (Rishkar's
-  // Expertise free-cast, Return of the Wildspeaker modal) stays non-native overall — making this DRAW clause
-  // HIGH does not flip it (the clause split keeps the unmodeled sibling, which routes the card low).
-  let mfe = t.match(/^(?:you )?draw cards equal to the (greatest (?:power|toughness) among .+)$/);
-  if (mfe) {
-    const src = parseCountSource(mfe[1]);
-    return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
-  }
-  // ===== DRAW-METRIC ("for each [other]") ===== (WAVE2b) controller-DRAW for-each / equal-to-number matchers.
-  // The parseCountSource wrapper handles a leading "other " self-exclusion uniformly (excludeSelf, gated to a
-  // controller-scoped permanent count) — "draw a card for each OTHER Dinosaur you control" excludes the source
-  // permanent (CR 113.7). No per-matcher opt-in is needed (the wrapper is the single source of that behavior).
-  mfe = t.match(/^(?:you )?draw (a|\d+) cards? for each (.+)$/);
-  if (mfe) {
-    const src = parseCountSource(mfe[2]);
-    return src ? { op: "draw", amountCount: { ...src, per: mfe[1] === "a" ? 1 : parseInt(mfe[1], 10) }, targetType: null } : null;
-  }
-  mfe = t.match(/^(?:you )?draw cards equal to the number of (.+)$/);
-  if (mfe) {
-    const src = parseCountSource(mfe[1]);
-    return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
-  }
+  // ===== DRAW (for-each / count-scaled) ===== migrated to atoms/misc.drawForEachClauseParser (seam batch 26 /
+  // Wave C). The non-targeted controller-DRAW count-scaled cluster — "draw cards equal to the greatest
+  // power/toughness among X" (DRAW-METRIC, checked first) + "draw N cards for each X" + "draw cards equal to the
+  // number of X". Now a clean contiguous lift (the life for-each siblings migrated in batch 17). parseCountSource leaf.
   // ===== LIFE (scaled for-each: gain-life ⇄ lose-life) ===== co-extracted to atoms/life.lifeClauseParser
   // (seam batch 17 / Wave C), with the fixed-N life cluster below. The draw for-each branches above STAY inline
   // (disjoint "draw …" anchor). Uses parseCountSource (leaf).
@@ -1729,6 +1698,11 @@ registerClauseParser(bounceClauseParser);
 // first-match order; SMALL_NUM leaf. Distinct anchors from the WAVE-3b triggering-counter parser + the
 // resolution-time doubler → no overlap; the clauses match no other registered parser → behavior-identical.
 registerClauseParser(addCounterClauseParser);
+// DRAW (for-each / count-scaled) (seam batch 26 / Wave C) — the controller-DRAW count-scaled cluster
+// (greatest-among / for-each / equal-to-number) migrated to atoms/misc.drawForEachClauseParser; parseCountSource
+// leaf. Clean now the life for-each siblings migrated. The clauses match no other registered parser and
+// (verified) no later parseExtendedAtom branch → behavior-identical.
+registerClauseParser(drawForEachClauseParser);
 // LIFE (seam batch 17 / Wave C) — gain-life ⇄ lose-life co-extracted to atoms/life.lifeClauseParser (scaled
 // for-each cluster + fixed-N cluster, one parser, original first-match order; parseCountSource leaf). The
 // draw for-each branches stay inline above (disjoint "draw …" anchor). The life clauses match no earlier

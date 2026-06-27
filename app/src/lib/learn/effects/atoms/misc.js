@@ -6,7 +6,7 @@ import { applyDrawEffect } from "../../spellEffects.js";
 import { logEvent, addEmblem } from "../../gameState.js";
 import { setPendingDivideChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, isCreatureCard } from "./shared.js";
-import { NUM_WORD } from "../parseHelpers.js"; // seam batch 23: shared number-word map (leaf, cycle-free) for the each-player draw slice
+import { NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 23 (NUM_WORD, each-player draw) + 26 (parseCountSource, for-each draw)
 
 /**
  * Draw (CR 120) — the ACTOR is the atom's `who`:
@@ -132,6 +132,38 @@ export function drawEachPlayerClauseParser(clause) {
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^target player draws (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "draw", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "target", targetType: "player" };
+  return null;
+}
+
+/**
+ * DRAW (for-each / count-scaled) clause parser — migrated from parseExtendedAtom (seam batch 26 / Wave C). The
+ * non-targeted controller-DRAW count-scaled forms (now a clean contiguous cluster — the life for-each siblings
+ * migrated in batch 17), original first-match order:
+ *   "draw cards equal to the greatest power/toughness among <src>" (DRAW-METRIC — Soul's Majesty/Garruk) → per:1
+ *   "draw N cards for each <src>"                                  → amountCount.per = N (a→1)
+ *   "draw cards equal to the number of <src>"                      → per:1
+ * The amount is a board count × per, computed at resolution (parseCountSource + resolveScaledAmount). The
+ * greatest-among form is checked FIRST (distinct "greatest … among" phrasing). An unmodeled count source
+ * (parseCountSource → null) drops the clause → low → Arbiter. Non-targeted (targetType:null). Pure; uses the
+ * parseCountSource leaf. Registered via registerClauseParser in parser.js.
+ */
+export function drawForEachClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  let mfe = t.match(/^(?:you )?draw cards equal to the (greatest (?:power|toughness) among .+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[1]);
+    return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
+  }
+  mfe = t.match(/^(?:you )?draw (a|\d+) cards? for each (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[2]);
+    return src ? { op: "draw", amountCount: { ...src, per: mfe[1] === "a" ? 1 : parseInt(mfe[1], 10) }, targetType: null } : null;
+  }
+  mfe = t.match(/^(?:you )?draw cards equal to the number of (.+)$/);
+  if (mfe) {
+    const src = parseCountSource(mfe[1]);
+    return src ? { op: "draw", amountCount: { ...src, per: 1 }, targetType: null } : null;
+  }
   return null;
 }
 
