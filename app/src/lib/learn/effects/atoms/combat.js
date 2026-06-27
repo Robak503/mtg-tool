@@ -51,8 +51,13 @@ export function applyPumpEffect(state, atom, ctx) {
   // before the loop below adds any P/T effect), so X reads the un-buffed board. Takes precedence over the
   // X-cost pump (amountX → ctx.xValue) and the printed ptDelta; 0 (empty board) is a valid +0/+0, not null.
   const scaled = atom.ptDeltaCount ? Math.max(0, countForSpec(state, ctx, atom.ptDeltaCount)) : null;
-  const power = scaled != null ? scaled : (atom.amountX ? x : atom.ptDelta?.p || 0);
-  const toughness = scaled != null ? scaled : (atom.amountX ? x : atom.ptDelta?.t || 0);
+  // amountX → the chosen X (ctx.xValue) scales the pump. amountXSlot ("p"/"t") marks WHICH stat is the
+  // +X for an ASYMMETRIC X-pump ("+X/+0" → slot "p", "+0/+X" → slot "t"); the OTHER stat reads its
+  // printed ptDelta. An absent slot = symmetric +X/+X (both stats = X) — the original behavior.
+  const xP = atom.amountX && (!atom.amountXSlot || atom.amountXSlot === "p");
+  const xT = atom.amountX && (!atom.amountXSlot || atom.amountXSlot === "t");
+  const power = scaled != null ? scaled : (xP ? x : atom.ptDelta?.p || 0);
+  const toughness = scaled != null ? scaled : (xT ? x : atom.ptDelta?.t || 0);
   // Chosen targets for a single-creature pump (Giant Growth), EVERY creature for a mass
   // "All creatures get -X/-X until end of turn" (atom.targetType "eachCreature" — Infest /
   // Languish), or the controller's creatures for a TEAM pump (atom.scope "youControl" — Overrun

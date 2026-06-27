@@ -184,10 +184,18 @@ function stripCastKeywordLines(text) {
 function rewriteAmountX(clause) {
   const damage = /(deals?\s+)X(\s+damage\b)/i;
   const draw = /(\bdraws?\s+)X(\s+cards?\b)/i; // "draws?" covers the each-player/target form ("target player draws X cards", "each player draws X cards") in addition to the controller "draw X cards"
-  const pump = /(\bgets\s+)\+X\/\+X\b/i;
-  if (damage.test(clause)) return clause.replace(damage, (_, a, b) => `${a}1${b}`);
-  if (draw.test(clause)) return clause.replace(draw, (_, a, b) => `${a}1${b}`);
-  if (pump.test(clause)) return clause.replace(pump, (_, a) => `${a}+1/+1`);
+  const pumpSym = /(\bgets\s+)\+X\/\+X\b/i;
+  // ASYMMETRIC X-pump (X-PUMP-ASYM): ONE pip is +X, the other a printed value — "+X/+0" / "+X/+2"
+  // (slot "p") and "+0/+X" / "+2/+X" (slot "t"). The non-X pip MUST be a digit (so these can never
+  // match the symmetric +X/+X handled above). The caller carries the printed ptDelta + amountXSlot so
+  // the resolver scales only the marked pip; the other reads its printed value.
+  const pumpXP = /(\bgets\s+\+)X(\/[+]\d+\b)/i;
+  const pumpXT = /(\bgets\s+[+]\d+\/[+])X\b/i;
+  if (damage.test(clause)) return { clause: clause.replace(damage, (_, a, b) => `${a}1${b}`), xSlot: null };
+  if (draw.test(clause)) return { clause: clause.replace(draw, (_, a, b) => `${a}1${b}`), xSlot: null };
+  if (pumpSym.test(clause)) return { clause: clause.replace(pumpSym, (_, a) => `${a}+1/+1`), xSlot: null };
+  if (pumpXP.test(clause)) return { clause: clause.replace(pumpXP, (_, a, b) => `${a}1${b}`), xSlot: "p" };
+  if (pumpXT.test(clause)) return { clause: clause.replace(pumpXT, (_, a) => `${a}1`), xSlot: "t" };
   return null;
 }
 
@@ -666,8 +674,9 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       delete atom.count;
       return atom;
     }
-    const rewritten = rewriteAmountX(s);
-    if (rewritten) {
+    const rw = rewriteAmountX(s);
+    if (rw) {
+      const rewritten = rw.clause;
       if (/\bX\b/.test(rewritten)) return null;
       const base = parseClauseToAtom(cardType, rewritten, false);
       if (!base) return null;
@@ -689,6 +698,10 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       // card reaches this (a spell never says "this creature"); it keeps the self-binding
       // invariant from regressing (adversarial-review hardening).
       if (base.target) atom.target = base.target;
+      // ASYMMETRIC X-pump — carry the printed ptDelta + which pip scales with X (rw.xSlot). The resolver
+      // applies ctx.xValue to the marked pip and the printed ptDelta to the other ("+X/+0" → +X power, +0
+      // toughness). Symmetric +X/+X (xSlot null) keeps the original ptDelta-less shape (resolver = X both).
+      if (rw.xSlot && base.op === "pump") { atom.ptDelta = base.ptDelta; atom.amountXSlot = rw.xSlot; }
       return atom;
     }
   }
