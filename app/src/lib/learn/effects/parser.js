@@ -45,7 +45,7 @@ import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/t
 import { sacrificeEdictClauseParser, destroyExileClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
 import { SMALL_NUM, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); SMALL_NUM (cdmg rad) + parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; NUM_WORD/parseCountSource now only inside migrated clause parsers (batch 23/26)
-import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1)
+import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
@@ -1010,6 +1010,29 @@ function matchImpulseDig(oracle) {
 }
 
 /**
+ * CHOSEN-TYPE DRAW (CR 614.12) — Distant Melody "Choose a creature type. Draw a card for each permanent you
+ * control of that type." Two sentences whose effect spans them (the count refers back to the chosen type), so
+ * it's matched up front as ONE draw atom like the other collapsed templates. The draw count is a
+ * `chosenTypePermanents` board count (shared.countForSpec): the self-play engine resolves the choice OPTIMALLY
+ * — the greatest, over every creature subtype present, of the controller's permanents of that subtype
+ * (changelings count for all) — so the magnitude is deterministic + never an over/under-count. Whole-string
+ * anchored ("Choose a creature type. Draw a card for each permanent you control of that type." + an optional
+ * trailing period); any rider/variant leaves residue (→ rest), which `collapsed` runs through the normal
+ * pipeline (an unmodeled rider → LOW → Arbiter, never a partial). The "for each permanent … of that type"
+ * phrasing is unique to the chosen-type chooser, so this never false-matches a static count source.
+ */
+function matchChooseTypeDraw(oracle) {
+  const m = String(oracle).match(
+    /^choose a creature type\. draw a card for each permanent you control of that type\.?\s*/i,
+  );
+  if (!m) return null;
+  return {
+    atom: { op: "draw", amountCount: { kind: "chosenTypePermanents", per: 1 }, targetType: null },
+    rest: oracle.slice(m[0].length).trim(),
+  };
+}
+
+/**
  * Parse a card into an EffectProgram, or null.
  *
  * Returns null ONLY when the card is NOT an instant/sorcery with oracle text
@@ -1217,6 +1240,10 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (hd) return collapsed(hd);
   const dig = matchImpulseDig(oracle);
   if (dig) return collapsed(dig);
+  // CHOSEN-TYPE DRAW (Distant Melody) — "Choose a creature type. Draw a card for each permanent you control
+  // of that type." spans two sentences, so it's collapsed up front to one chosen-type-count draw atom.
+  const ctd = matchChooseTypeDraw(oracle);
+  if (ctd) return collapsed(ctd);
   const emb = matchEmblem(oracle);
   if (emb) return collapsed(emb);
   // ===== DIES-TRIGGER-RESOURCE-PAYOFFS ===== Lifeblood Hydra "you gain life and draw cards equal to its
@@ -1713,6 +1740,10 @@ registerClauseParser(bounceClauseParser);
 // first-match order; SMALL_NUM leaf. Distinct anchors from the WAVE-3b triggering-counter parser + the
 // resolution-time doubler → no overlap; the clauses match no other registered parser → behavior-identical.
 registerClauseParser(addCounterClauseParser);
+// ADD-NAMED-COUNTER-SELF (CHOSEN-TYPE) — "put a <name> counter on this artifact/permanent" (Door of Destinies'
+// cast trigger). A NAMED (non-±1/+1) counter on the SOURCE permanent of any type, resolved via ctx.sourceId.
+// Anchored end-to-end; distinct subject ("this artifact/permanent" vs addCounter's "this creature") → no overlap.
+registerClauseParser(addNamedCounterSelfClauseParser);
 // DESTROY ⇄ EXILE (seam batch 27 / Wave C, RIDER-FOLDING) — the 5 destroy/exile matchers (exile-creature +
 // shared (destroy|exile) target <typelist> + MASS wipes) co-extracted to atoms/removal.destroyExileClauseParser.
 // The rider-folding dispatch (matchRemovalControllerRider) now resolves its lead via parseExtendedAtom() ||

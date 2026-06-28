@@ -146,7 +146,15 @@ function isFollowupSentence(sentence) {
   const t = String(sentence).trim().toLowerCase();
   if (!t) return false;
   if (/^(when|whenever|at)\b/.test(t)) return false; // a SECOND trigger, not this one's effect
-  if (t.includes(":")) return false;                  // an activated ability
+  // A SEQUENTIAL / CONDITIONAL continuation ("Then if it has eight or more …, remove all … and create eight …
+  // tokens … with \"{T}: Add …\"" — Replicating Ring) is part of THIS trigger's effect even though it embeds a
+  // quoted (token-)ability whose colon would otherwise look like a separate activated ability. Appending it
+  // lets the all-or-nothing parser see the WHOLE compound effect → it parses LOW (the conditional token-maker
+  // is unmodeled) → the trigger stays body-only, instead of routing the truncated lead ("put a counter …")
+  // natively and SILENTLY DROPPING the payoff (a CREED FP). A "then"/"if"-led sentence is never itself a
+  // card-level activated ability (those never begin with then/if), so this can't swallow a real one.
+  if (/^(then|if)\b/.test(t)) return true;
+  if (t.includes(":")) return false;                  // an activated ability (or a quoted granted-ability descriptor — modeled by its own atom)
   return true;                                         // any other same-line sentence continues the effect
 }
 
@@ -2031,7 +2039,14 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [] }) 
       for (const d of descriptors) {
         if (d.whose === "you" && casterId !== watcher.controller) continue;
         if (d.whose === "opponent" && !opponentsOf(state, watcher.controller).includes(casterId)) continue;
-        if (!spellMatchesFilter(d.spellFilter, spellCard)) continue;
+        // CHOSEN-TYPE cast filter (Door of Destinies) — the cast spell must carry the WATCHER's stored
+        // chosenType (CR 614.12). spellMatchesFilter has no watcher, so it's resolved here via
+        // permHasChosenType (subtype OR changeling); an unset chosenType yields false (a SAFE no-op).
+        if (d.spellFilter && d.spellFilter.kind === "chosenType") {
+          if (!permHasChosenType(spellCard, watcher.chosenType)) continue;
+        } else if (!spellMatchesFilter(d.spellFilter, spellCard)) {
+          continue;
+        }
         fired.push(makePendingTrigger(d, watcher, null, context));
       }
     }
@@ -2200,6 +2215,25 @@ function detectChosenTypeEntersOrAttacks(condition) {
   return null;
 }
 registerTriggerDetector(detectChosenTypeEntersOrAttacks);
+
+// ─── CHOSEN-TYPE CAST detector (Door of Destinies) ──────────────────────────────
+// "Whenever you cast a spell of the chosen type, put a charge counter on this artifact." A CAST trigger
+// whose spell filter is the SOURCE's stored chosenType (CR 614.12 — picked at ETB). The inline cast matcher
+// anchors on "…spell$" so the "of the chosen type" rider leaves residue → classifyCondition returns falsy →
+// this registry detector reaches the condition. It maps to the normal cast event with a `{ kind:"chosenType" }`
+// filter; checkCastTriggers resolves that filter against the WATCHER's chosenType via permHasChosenType (the
+// filter alone can't — spellMatchesFilter has no watcher). The "you cast" scope means it fires only for the
+// source's controller. CREED ANCHOR: matched ONLY on the EXACT bare shape, end-anchored; a different caster
+// ("an opponent…"), an extra rider, or a qualified spell phrase leaves residue → no match → Arbiter (a SAFE
+// false-negative, never an over-fire). The effect ("put a charge counter on this artifact") still has to parse
+// HIGH (triggerRoutesNatively → the add-named-counter-self atom) for the card to flip native.
+function detectChosenTypeCast(condition) {
+  if (/^you cast a spell of the chosen type$/.test(String(condition).toLowerCase().trim())) {
+    return { event: "cast", scope: "castWatcher", whose: "you", spellFilter: { kind: "chosenType" } };
+  }
+  return null;
+}
+registerTriggerDetector(detectChosenTypeCast);
 
 // ─── PHASE-TRIGGER-FRAMEWORK (Wave 1) registration ──────────────────────────────
 // Register the phase/step detector for the four step-kinds the inline classifyCondition doesn't cover

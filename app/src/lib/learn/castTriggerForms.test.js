@@ -68,10 +68,15 @@ describe("Nth-spell-per-turn detection (generalized castSecond)", () => {
 // ─── CREED guards (no over-fire / no false flip) ─────────────────────────────────
 
 describe("CREED guards — riders / unmodeled filters stay UNDETECTED", () => {
-  it("'of the chosen type' / 'from your graveyard' / color stay undetected", () => {
-    expect(castDescriptors("Whenever you cast a spell of the chosen type, put a charge counter on this artifact.")).toHaveLength(0);
+  it("'from your graveyard' rider / color filter stay undetected", () => {
     expect(castDescriptors("Whenever you cast a Dragon creature spell from your graveyard, it gains haste.")).toHaveLength(0);
     expect(castDescriptors("Whenever you cast a red spell, draw a card.")).toHaveLength(0);
+  });
+  it("CHOSEN-TYPE cast (Door of Destinies) IS now detected with a chosenType filter", () => {
+    // The "of the chosen type" filter is resolved against the WATCHER's stored chosenType in checkCastTriggers
+    // (permHasChosenType) — see chosenTypeAnthem.test.js for the end-to-end fire/no-fire behavior.
+    expect(castDescriptors("Whenever you cast a spell of the chosen type, put a charge counter on this artifact.")[0])
+      .toMatchObject({ event: "cast", whose: "you", spellFilter: { kind: "chosenType" } });
   });
   it("the bare any / instant-sorcery / noncreature filters are unchanged (no regression)", () => {
     expect(castDescriptors("Whenever you cast a spell, return target permanent to its owner's hand.")[0]).toMatchObject({ whose: "you", spellFilter: "any" });

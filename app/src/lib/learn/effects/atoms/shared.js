@@ -173,6 +173,43 @@ export function countMatches(card, spec) {
   }
   return false;
 }
+
+// CHOSEN-TYPE (CR 614.12) spell-time count — Distant Melody ("Choose a creature type. Draw a card for each
+// permanent you control of that type."). The self-play engine has no interactive picker, so the OPTIMAL +
+// deterministic resolution is: the chosen type is the one that MAXIMIZES the draw — i.e. the count equals the
+// greatest, over every creature subtype present among the controller's permanents, of the number of permanents
+// the controller controls of that subtype. A CHANGELING (CR 702.73a — every creature type) counts toward EVERY
+// candidate type, so it's added to the max once any candidate exists (and is the floor when only changelings
+// are present). This exactly matches what a player maximizing the draw would pick, so it's never an over- or
+// under-count. Reads the card type line directly (no engine import). 0 when the controller controls no
+// creature-typed permanent (a safe floor — no fabricated draw).
+function permanentSubtypes(card) {
+  const line = String(card?.type || card?.type_line || "");
+  if (!/Creature/.test(line)) return [];
+  const dash = line.indexOf("—");
+  if (dash === -1) return [];
+  return line.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
+}
+function cardIsChangeling(card) {
+  // Reminder-text-tolerant: the printed keyword "changeling" (CR 702.73a) appears in the oracle text.
+  return /\bchangeling\b/i.test(String(card?.oracle || card?.oracle_text || ""));
+}
+function chosenTypePermanentsCount(player) {
+  const bf = player?.battlefield || [];
+  // Tally per-subtype counts; a changeling is tracked separately and added to every candidate (and forms the
+  // floor when it's the only creature-typed permanent — "creature type" still has to be chosen, CR 614.12).
+  const tally = new Map();
+  let changelings = 0;
+  for (const perm of bf) {
+    const card = perm.card;
+    if (cardIsChangeling(card)) { changelings += 1; continue; }
+    for (const sub of permanentSubtypes(card)) tally.set(sub, (tally.get(sub) || 0) + 1);
+  }
+  if (tally.size === 0) return changelings; // only changelings (or nothing) → that count (0 if none)
+  let best = 0;
+  for (const n of tally.values()) best = Math.max(best, n + changelings);
+  return best;
+}
 export function countForSpec(state, ctx, spec) {
   // ===== TREASURE-MAKER ===== who:"opponents" sums the spec over ALL of the controller's opponents
   // ("the number of artifacts and enchantments your opponents control" — Dockside Extortionist). The
@@ -209,6 +246,11 @@ export function countForSpec(state, ctx, spec) {
   if (spec.kind === "permanentsYouControl") {
     return (player.battlefield || []).filter((perm) => countMatches(perm.card, spec) && !isExcludedSelf(perm, spec, ctx)).length;
   }
+  // ===== CHOSEN-TYPE (Distant Melody) ===== "permanent you control of that type" where the type was chosen
+  // at resolution (CR 614.12). The self-play engine maximizes the draw — the count is the greatest, over every
+  // creature subtype present, of the controller's permanents of that subtype (changelings count for all). See
+  // chosenTypePermanentsCount. Deterministic + optimal, so never an over/under-count.
+  if (spec.kind === "chosenTypePermanents") return chosenTypePermanentsCount(player);
   // ===== FOR-EACH ===== cards in the controller's graveyard (raw card objects), optionally one card type.
   if (spec.kind === "cardsInGraveyard") return (player.graveyard || []).filter((c) => (spec.cardType ? countMatches(c, spec) : true)).length;
   // ===== EXPERIENCE ===== the controller's experience counter total (Toph, Command Beacon, etc.)

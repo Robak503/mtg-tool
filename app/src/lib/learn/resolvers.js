@@ -32,6 +32,7 @@ import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, 
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { applyCounterDoubling } from "./replacementEffects.js"; // Wave-3 doubler (leaf): enters-with-counters bypasses addCounter, so double here
 import { countForSpec } from "./effects/atoms/shared.js"; // ETB-XCOUNTERS-FROM-METRIC: resolve a board-metric counter count (leaf: shared → gameState only)
+import { hasKeyword } from "./keywords.js"; // CHOSEN-TYPE ETB counter (Banner of Kinship): changeling counts as the chosen type (leaf module)
 
 // Re-export the P2.1 seam marker from its leaf module (it moved out of this file
 // in P2.2 so the effect interpreter can share it without an import cycle).
@@ -98,6 +99,27 @@ function creatureSubtypesOf(card) {
   const dash = ts.indexOf("—");
   if (dash === -1) return [];
   return ts.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
+}
+
+// CHOSEN-TYPE membership (CR 614.12) — does a permanent's `card` carry the creature type `chosenType`?
+// Subtype word-bounded on the type line OR a changeling (CR 702.73a). Mirrors triggers.permHasChosenType +
+// layers.permHasChosenTypeLayer (kept local so resolvers stays leaf-ish). Unset chosenType → false.
+function cardHasChosenType(card, chosenType) {
+  if (!chosenType || !card) return false;
+  if (hasKeyword(card, "changeling")) return true;
+  return creatureSubtypesOf(card).some((s) => s.toLowerCase() === String(chosenType).toLowerCase());
+}
+
+// CHOSEN-TYPE ETB COUNTER (CR 614.1c + 122.6a) — Banner of Kinship: "This artifact enters with a
+// <name> counter on it for each creature you control of the chosen type." Detects the exact bare clause
+// and returns the counter NAME, or null. Anchored to "for each creature you control of the chosen type" so
+// only Banner's shape (and any future twin) matches; a different metric/counter → null → no counter (a SAFE
+// false-negative — the card would then not classify native and route to the Arbiter). Pairs with the
+// CHOSEN-TYPE COUNT-ANTHEM static (Banner's other clause).
+const CHOSEN_TYPE_ETB_COUNTER_RE = /enters (?:the battlefield )?with (?:a|an|one) ([a-z]+) counter on it for each creature you control of the chosen type/i;
+function entersWithChosenTypeCounter(card) {
+  const m = String(card?.oracle || card?.oracle_text || "").match(CHOSEN_TYPE_ETB_COUNTER_RE);
+  return m ? { counterType: m[1].toLowerCase() } : null;
 }
 
 /**
@@ -204,6 +226,17 @@ export function enterPermanent(state, card, controller, opts = {}) {
   // re-picked. Read by the chosenTypeYouControl trigger scope (triggers.js). An interactive picker is a future
   // refinement; the deterministic auto-pick is correct + sufficient for self-play.
   if (choosesCreatureTypeOnEnter(card)) perm.chosenType = autoPickCreatureType(state, controller);
+  // CHOSEN-TYPE ETB COUNTER (CR 614.1c + 122.6a) — Banner of Kinship enters with a <name> counter for each
+  // creature the controller controls of the chosen type. Runs AFTER the chosenType auto-pick above so the
+  // metric uses the just-picked type; `state` is pre-entry (the artifact isn't a creature, so it's never
+  // self-counted regardless). Like the other enters-with-counter writes, the permanent isn't on the
+  // battlefield yet, so this bypasses gameState.addCounter and routes the count through applyCounterDoubling
+  // (a non-"+1/+1" counter is skipped by a +1/+1-only doubler; Doubling Season would double it, CR 616).
+  const chosenCtr = entersWithChosenTypeCounter(card);
+  if (chosenCtr && perm.chosenType) {
+    const n = (player.battlefield || []).filter((p) => cardHasChosenType(p.card, perm.chosenType)).length;
+    if (n > 0) perm.counters = { ...perm.counters, [chosenCtr.counterType]: (perm.counters[chosenCtr.counterType] || 0) + applyCounterDoubling(state, controller, chosenCtr.counterType, n) };
+  }
   let next = {
     ...s3,
     players: {

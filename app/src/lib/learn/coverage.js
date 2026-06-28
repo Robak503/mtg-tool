@@ -766,3 +766,57 @@ function classifyWolverine(card) {
   return residue.length > 0 ? null : "native-mixed";
 }
 registerCoverageClassifier((card) => classifyWolverine(card));
+
+// ─── CHOSEN-TYPE COUNT-ANTHEM — Banner of Kinship / Door of Destinies (cross-deck) ──────────────────────────
+// A choose-a-creature-type artifact whose payoff is a counter-scaled anthem on the chosen-type creatures the
+// controller controls. WHOLE-CARD (CREED all-or-nothing) — every clause must be modeled:
+//   • "As this artifact enters, choose a creature type." — the ETB auto-pick (resolvers.autoPickCreatureType
+//     stores perm.chosenType); a setup replacement, not a trigger, so it's stripped like the Kindred chooser.
+//   • the COUNT-ANTHEM static "Creatures you control of the chosen type get +X/+Y for each <name> counter on
+//     this artifact." — the new layer-7c chosen-type dynamic-count (clauseProducesStatic confirms it parses).
+//   • EITHER a Banner ETB-counter replacement ("This artifact enters with a <name> counter on it for each
+//     creature you control of the chosen type." — resolvers.entersWithChosenTypeCounter), OR a Door cast
+//     trigger ("Whenever you cast a spell of the chosen type, put a <name> counter on this artifact." — the
+//     chosenType cast detector + the add-named-counter-self atom, which must route HIGH).
+// Returns native-mixed (Door = trigger + static) / native-static (Banner = ETB replacement + static), or null
+// for everything else. A targeted single-card flip via the additive seam (the #353/#356 / classifyWolverine
+// pattern), so it can never cause collateral: it returns null unless ALL chosen-type clauses match AND no
+// residue remains. Mechanism-keyed (not name-keyed), so a future twin of either flips automatically.
+const CHOSEN_TYPE_CHOOSER_RE = /\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/i;
+const CHOSEN_TYPE_ANTHEM_RE = /creatures you control of the chosen type get \+\d+\/\+\d+ for each [a-z]+ counter on this artifact\.?/i;
+const CHOSEN_TYPE_ETB_COUNTER_RE = /this artifact enters (?:the battlefield )?with (?:a|an|one) [a-z]+ counter on it for each creature you control of the chosen type\.?/i;
+function classifyChosenTypeAnthem(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  if (!/artifact/.test(type)) return null;
+  const oracle = stripReminder(String(card?.oracle ?? card?.oracle_text ?? ""));
+  if (!oracle) return null;
+  // (1) the ETB chosen-type chooser must be present (it's what makes "of the chosen type" meaningful).
+  if (!CHOSEN_TYPE_CHOOSER_RE.test(oracle)) return null;
+  // (2) the count-anthem static must parse to a modeled descriptor (the layer-7c chosen-type dynamic count).
+  if (!CHOSEN_TYPE_ANTHEM_RE.test(oracle)) return null;
+  if (!clauseProducesStatic("Creatures you control of the chosen type get +1/+1 for each charge counter on this artifact")) return null;
+  // (3) the counter SOURCE half — EXACTLY ONE of: a Banner ETB replacement, or a Door cast trigger. The two
+  // shapes are mutually exclusive; a card with BOTH (or NEITHER) → Arbiter.
+  const hasEtbCounter = CHOSEN_TYPE_ETB_COUNTER_RE.test(oracle);
+  const triggers = detectTriggers(card);
+  // BANNER: the counter is an ETB replacement, so there must be NO triggers at all (the chooser + ETB counter
+  // are replacements, never When/Whenever/At). Any trigger present means it's not the bare Banner shape →
+  // Arbiter (this rejects a Banner-shape with an extra ETB/cast trigger, even one that routes — CREED).
+  // DOOR: the counter is added by EXACTLY ONE cast trigger that routes natively (→ the add-named-counter-self
+  // atom), and there is NO ETB counter. Any other trigger / a second trigger → Arbiter.
+  const isBanner = hasEtbCounter && triggers.length === 0;
+  const isDoor = !hasEtbCounter && triggers.length === 1 && triggers[0].event === "cast" && triggerRoutesNatively(triggers[0]);
+  if (!isBanner && !isDoor) return null;          // not a clean single-source chosen-type anthem → Arbiter
+  // (4) NO residue: strip the chooser, the anthem, the ETB-counter (Banner), and the single cast trigger
+  // sentence (Door); nothing else may remain (a rider/extra ability keeps the card on the Arbiter — CREED).
+  // For Banner triggers.length===0, so the trigger strip is a no-op; for Door it removes the one cast trigger.
+  const residue = oracle
+    .replace(CHOSEN_TYPE_CHOOSER_RE, " ")
+    .replace(CHOSEN_TYPE_ANTHEM_RE, " ")
+    .replace(CHOSEN_TYPE_ETB_COUNTER_RE, " ")
+    .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
+    .replace(/[\s.]+/g, " ").trim();
+  if (residue.length > 0) return null;
+  return isDoor ? "native-mixed" : "native-static";
+}
+registerCoverageClassifier((card) => classifyChosenTypeAnthem(card));

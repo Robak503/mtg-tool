@@ -212,8 +212,41 @@ export function addCounterClauseParser(clause) {
   return null;
 }
 
+/**
+ * ADD-NAMED-COUNTER-SELF (CR 122.1) — put one NAMED (non-±1/+1) counter on the SOURCE permanent itself
+ * ("put a charge counter on this artifact" — Door of Destinies' cast trigger). The source is read from
+ * ctx.sourceId (threaded by the trigger flush, CR 113.7) and may be ANY permanent type (an artifact, an
+ * enchantment…), unlike applyAddCounter/selfTargets which honor only a CREATURE self. A named counter
+ * (charge/fellowship/…) is never a P/T counter, so no lethal-SBA pass is needed. Absent source → a clean
+ * no-op (the artifact already left the battlefield), never a fabricated counter. Goes through
+ * gameState.addCounter so a counter doubler (Doubling Season, CR 616) still applies (a +1/+1-only doubler
+ * is skipped for a non-+1/+1 counter inside addCounter).
+ */
+export function applyAddNamedCounterSelf(state, atom, ctx) {
+  const lk = ctx.sourceId ? findPermanent(state, ctx.sourceId) : null;
+  if (!lk) return state;
+  const next = addCounter(state, { permanentId: ctx.sourceId, type: atom.counterType, amount: atom.amount || 1 });
+  return logEvent(next, { kind: "spell-effect", effect: "add-named-counter-self", counterType: atom.counterType, amount: atom.amount || 1, targets: [ctx.sourceId] });
+}
+
+// ADD-NAMED-COUNTER-SELF parser — "put a <name> counter on this (artifact|permanent)". Anchored end-to-end;
+// the counter NAME must be a single bare word that is NOT a ±1/+1 form (those are owned by addCounterClauseParser
+// above and route to the creature-only self path). Numeric/spelled N supported. A different subject ("on this
+// creature" → addCounter), a filter, or a rider → no match → low → Arbiter (a SAFE false-negative). This is the
+// piece that makes Door of Destinies' "Whenever you cast a spell of the chosen type, put a charge counter on
+// this artifact" trigger resolve natively. Pure. Registered via registerClauseParser.
+export function addNamedCounterSelfClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  const m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on this (?:artifact|permanent)$/);
+  if (!m) return null;
+  // ±1/+1 forms are spelled with digits + slash and never match [a-z]+; this guard is belt-and-suspenders.
+  if (/^[+-]?1\/[+-]?1$/.test(m[2])) return null;
+  return { op: "add-named-counter-self", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10) };
+}
+
 export const counterResolvers = {
   "add-counter": applyAddCounter,
+  "add-named-counter-self": applyAddNamedCounterSelf, // CHOSEN-TYPE cast trigger (Door of Destinies): named counter on the source artifact
   "gain-experience": applyGainExperience, // EARTHBEND-PR3 — "you get an experience counter" (Toph landfall)
   "rad": applyRad, // RAD (CR 728) — "each/target player gets N rad counter(s)" (The Wise Mothman); engine mills + drains at precombat main
   "proliferate": applyProliferate, // PROLIFERATE (CR 701.27) — add one of each counter kind to never-harmful picks

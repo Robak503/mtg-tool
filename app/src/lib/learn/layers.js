@@ -100,6 +100,21 @@ function subtypesOf(card) {
   return line.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
 }
 
+// CHOSEN-TYPE membership (CR 614.12, the Kindred Discovery family) — does `card` carry the creature
+// type `chosenType`? True for a word-bounded subtype match on the type line OR a Changeling (CR 702.73a,
+// every creature type). An unset/empty chosenType is false (a SAFE no-op — never an over-buff on an
+// unknown type, CLAUDE.md §1.2). Inlined here (mirroring triggers.permHasChosenType) so layers stays a
+// leaf — importing it from triggers.js would create a layers→triggers dependency.
+function permHasChosenTypeLayer(card, chosenType) {
+  if (!chosenType || !card) return false;
+  if (hasKeyword(card, "changeling")) return true;
+  const line = typeLineOf(card);
+  const dash = line.indexOf("—");
+  const subtypes = dash === -1 ? "" : line.slice(dash + 1);
+  const esc = String(chosenType).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${esc}\\b`).test(subtypes);
+}
+
 // TRUNK-SELFBUFF: count the controller's permanents matching a self count spec
 // ({ kind:"permanentsYouControl", cardType|subtype }) — the magnitude of a "for each <X> you control"
 // static self-buff. Word-bounded match on the type line. Local (no gameState import). 0 on an unknown spec.
@@ -363,6 +378,11 @@ function matchesSelector(selector, candidate, sourcePerm) {
   // COUNTER-PAYOFF: a per-permanent counter gate (Herald of Secret Streams — "creatures you control WITH
   // A +1/+1 COUNTER on it …"). Re-evaluated each collection, so the grant tracks the counter dynamically.
   if (selector.requiresCounter && (candidate.counters?.[selector.requiresCounter] || 0) <= 0) return false;
+  // CHOSEN-TYPE anthem (CR 614.12 — Banner of Kinship / Door of Destinies "Creatures you control of the
+  // chosen type …"). The candidate must carry the SOURCE permanent's stored chosenType (subtype OR
+  // changeling). controllerScope:"you" above already restricted to the source's controller. An unset
+  // chosenType (malformed source) yields false → the anthem touches nobody (a SAFE no-op).
+  if (selector.chosenTypeOfSource && !permHasChosenTypeLayer(candidate.card, sourcePerm?.chosenType)) return false;
   return true;
 }
 
@@ -456,10 +476,20 @@ function applyLayer7(state, perm, l7Effects) {
         toughness += d.toughness || 0;
       }
     } else if (e.op.layerOp === "ptModifyDynamicCount") {
-      // TRUNK-SELFBUFF: magnitude = a live board count × per-unit ("gets +X/+Y for each <countsource>").
-      // Self-scoped (affects:self) — the count is read for THIS permanent's controller, re-evaluated here
-      // every P/T computation (so it tracks the board live).
-      const n = countSelfSpecOnBoard(state, perm, e.op.countSpec);
+      // CHOSEN-TYPE anthem (CR 614.12 — Banner of Kinship / Door of Destinies): magnitude = the number of
+      // <named> counters on the SOURCE artifact ("for each fellowship/charge counter on this artifact"),
+      // not a board count. Read from the effect's source permanent (e.source.permanentId), re-evaluated
+      // every P/T computation so the anthem tracks the counter live. A missing source → 0 (no buff).
+      let n;
+      if (e.op.countSpec?.kind === "countersOnSource") {
+        const src = e.source?.permanentId ? findPerm(state, e.source.permanentId) : null;
+        n = src ? (src.counters?.[e.op.countSpec.counterType] || 0) : 0;
+      } else {
+        // TRUNK-SELFBUFF: magnitude = a live board count × per-unit ("gets +X/+Y for each <countsource>").
+        // The count is read for THIS permanent (its controller / its type line for the excludeSelf case),
+        // re-evaluated here every P/T computation (so it tracks the board live).
+        n = countSelfSpecOnBoard(state, perm, e.op.countSpec);
+      }
       power += n * (e.op.perPower || 0);
       toughness += n * (e.op.perToughness || 0);
     } else if (e.op.layerOp === "ptModifyGated") {

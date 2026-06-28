@@ -802,6 +802,39 @@ function parseClause(clause, out, selfName) {
     }
   }
 
+  // ── CHOSEN-TYPE COUNT-ANTHEM (layer 7c dynamic) — Banner of Kinship / Door of Destinies ──────────────
+  // "Creatures you control of the chosen type get +1/+1 for each <name> counter on this artifact." The
+  // anthem applies to creatures the SOURCE's controller controls that carry the source's stored chosenType
+  // (CR 614.12 — picked at ETB, resolvers.autoPickCreatureType; subtype OR changeling, layers.matchesSelector
+  // chosenTypeOfSource), scaled by the number of <name> counters on the SOURCE artifact itself (layers'
+  // ptModifyDynamicCount countersOnSource branch reads e.source's counters live). Both halves re-evaluate
+  // every P/T computation, so the buff tracks the counter and the chosen type with NO ETB snapshot. The
+  // counter NAME is captured (fellowship / charge) so the count reads the exact counter the card uses.
+  // Whole-clause anchored end-to-end ("…on this artifact"); a rider or a different count source → no match →
+  // the clause falls through (NO descriptor here) and the card stays Arbiter (CREED: a magnitude we can't
+  // evaluate would over/under-buff). Placed BEFORE the static-only "for each" guard and the generic group
+  // count-anthem (whose parseCreatureSelector/parseSelfCountSource don't recognize the chosen-type subject
+  // or the counter-on-source magnitude). The card-name was normalized to "this artifact" only if it equals
+  // the printed name; the printed text already says "this artifact", so the literal anchor is correct.
+  {
+    const ctM = c.match(/^creatures you control of the chosen type get \+(\d+)\/\+(\d+) for each ([a-z]+) counter on this artifact$/);
+    if (ctM) {
+      out.push({
+        layer: 7,
+        sublayer: "7c",
+        op: {
+          layerOp: "ptModifyDynamicCount",
+          countSpec: { kind: "countersOnSource", counterType: ctM[3] },
+          perPower: parseInt(ctM[1], 10),
+          perToughness: parseInt(ctM[2], 10),
+        },
+        affects: { mode: "dynamic", selector: { controllerScope: "you", cardTypes: ["Creature"], chosenTypeOfSource: true } },
+        duration: { kind: "permanent" },
+      });
+      return;
+    }
+  }
+
   // ── GROUP COUNT-ANTHEM (layer 7c dynamic) — "<group> get +N/+N for each <live-board count-source>" ──
   // Sliver Legion ("All Sliver creatures get +1/+1 for each other Sliver on the battlefield") + tribal
   // count-lords. The SAME dynamic-count layer the SELF count-buff (above) uses, applied to a GROUP
