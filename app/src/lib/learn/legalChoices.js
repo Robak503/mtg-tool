@@ -29,7 +29,7 @@
  * no fetch.
  */
 
-import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
+import { getZone, opponentOf, opponentsOf, totalAvailableMana, findPermanent } from "./gameState.js";
 import { canAfford, manaSources, manaProduction, landAuraManaBonus, applyAuraManaGrantSupplement } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
@@ -40,7 +40,7 @@ import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTar
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
-import { parseActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost } from "./effects/abilities.js";
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { isNativeAura, isNativeManaAura, entersWithXCounters } from "./staticAbilityParser.js";
 
@@ -704,6 +704,19 @@ function actionsTapForMana(state, playerId) {
  * ignore this kind (like tap-for-mana) so they never loop on it. Instant-speed timing
  * is a later refinement.
  */
+// GRANTED-ACTIVATED (subsystem 1 phase 1b): the activated abilities an Aura confers on its host creature.
+// Walks the host's attachments (mirroring landAuraManaBonus) and parses each grant's quoted ability via
+// the canonical parseGrantedActivatedAbilities, so cost/effect/modeled match a printed ability exactly.
+function grantedActivatedForHost(state, hostPerm) {
+  if (!hostPerm?.attachments?.length) return [];
+  const out = [];
+  for (const attId of hostPerm.attachments) {
+    const lk = findPermanent(state, attId);
+    if (lk?.permanent?.card) out.push(...parseGrantedActivatedAbilities(lk.permanent.card));
+  }
+  return out;
+}
+
 function actionsActivateAbility(state, playerId) {
   if (state.activePlayer !== playerId) return [];
   if (state.priorityHolder !== playerId) return [];
@@ -711,7 +724,12 @@ function actionsActivateAbility(state, playerId) {
   const player = state.players[playerId];
   const actions = [];
   for (const perm of player.battlefield) {
-    const abilities = parseActivatedAbilities(perm.card);
+    // GRANTED-ACTIVATED (subsystem 1 phase 1b): an Aura on this creature can confer an activated ability
+    // ("Enchanted creature has \"{T}: …\""). The granted descriptors are enumerated HERE on the host, so
+    // tapSelf taps the host and the effect's "this creature"/"you" bind to the host/controller at resolution.
+    const printed = parseActivatedAbilities(perm.card);
+    const granted = grantedActivatedForHost(state, perm);
+    const abilities = granted.length ? [...printed, ...granted] : printed;
     if (!abilities.length) continue;
     const isCreaturePerm = isCreature(perm.card);
     for (const ab of abilities) {

@@ -30,7 +30,7 @@
 
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { detectTriggers, stripTriggerAbilityLabel } from "./triggers.js";
-import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -417,6 +417,27 @@ export function registerCoverageClassifier(fn) {
   COVERAGE_CLASSIFIERS.push(fn);
 }
 
+// GRANTED-ACTIVATED AURA (subsystem 1 phase 1b) — an Aura whose ONLY body is granting the enchanted
+// creature one-or-more activated abilities, every one fully modeled (cost in the modeled subset + effect
+// parses HIGH, via parseGrantedActivatedAbilities). The runtime enumerates these on the host and resolves
+// them through the existing dispatcher (legalChoices.grantedActivatedForHost). All-or-nothing: a rider
+// (an ETB trigger, a restriction, a sacrifice clause, an unmodeled second ability) leaves residue → the
+// card stays Arbiter, never a partially-modeled grant (CREED).
+function isNativeActivatedGrantAura(card) {
+  if (!isAuraCard(card)) return false;
+  const granted = parseGrantedActivatedAbilities(card);
+  if (!granted.length || !granted.every((a) => a.modeled)) return false;
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  for (const rawLine of oracle.split(/\n+/)) {
+    const t = rawLine.trim();
+    if (!t) continue;
+    if (/^enchant\b/i.test(t)) continue;                                                  // the Enchant keyword line
+    if (/^enchanted creature\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i.test(t)) continue;  // a granted-ability line
+    return false;                                                                          // any other clause = residue
+  }
+  return true;
+}
+
 /**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
@@ -463,6 +484,11 @@ export function classifyCard(card) {
     // Harmony; Settlement / Sheltered Aerie) — the host gains a clean tap-for-mana source through the existing
     // grantedManaSpecsFor runtime (creature = no-own-prod fallback; land = the dominating-grant supplement).
     if (isNativeManaGrantAura(card)) return "native-mana-aura";
+    // GRANTED-ACTIVATED (subsystem 1 phase 1b): "Enchanted creature has \"{cost}: {effect}\"" (Hermetic
+    // Study, Midnight Covenant, Sadistic Obsession) — the host gains an activated ability the runtime
+    // enumerates + resolves (legalChoices.grantedActivatedForHost). All-or-nothing: every granted ability
+    // modeled AND no other body clause (a rider keeps it Arbiter).
+    if (isNativeActivatedGrantAura(card)) return "native-activated";
     return isNativeAura(card) ? "native-aura" : "body-only";
   }
   // A clone (CR 707) — a creature whose WHOLE text is "enters as a copy of a creature" — now

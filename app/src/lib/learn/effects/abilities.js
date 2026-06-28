@@ -255,3 +255,34 @@ export function parseActivatedAbilities(card) {
   }
   return out;
 }
+
+const GRANTED_ACTIVATED_LINE = /^enchanted creature\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
+
+/**
+ * GRANTED activated abilities (subsystem 1 phase 1b) — an Aura that grants the enchanted CREATURE an
+ * activated ability: "Enchanted creature has \"{T}: This creature deals 1 damage to any target.\""
+ * (Hermetic Study), "\"{B}: This creature gets +1/+1 until end of turn.\"" (Midnight Covenant). The
+ * QUOTED ability text is parsed through the SAME parseActivatedAbilities path, so its cost / effect /
+ * `modeled` flag / target shape are identical to a printed ability — the runtime + coverage can't drift.
+ *
+ * The descriptors are enumerated by the caller ON THE HOST permanent (legalChoices), so "this creature"
+ * / "you" in the granted effect bind to the host / its controller at resolution (sourceId = host). A
+ * granted MANA ability (phase 1a, the tap-for-mana path) and a granted TRIGGERED ability (a different
+ * runtime — phase 1c) are NOT returned here. Pure; card-based (no state). Returns [] for a non-grant card.
+ */
+export function parseGrantedActivatedAbilities(card) {
+  const oracle = stripReminder(card?.oracle || card?.oracle_text || "");
+  if (!oracle.trim()) return [];
+  const out = [];
+  for (const rawLine of oracle.split(/\n+/)) {
+    const m = rawLine.trim().match(GRANTED_ACTIVATED_LINE);
+    if (!m) continue;
+    const quoted = m[1].trim();
+    if (/^(?:when|whenever|at the beginning)/i.test(quoted)) continue;   // granted TRIGGERED ability → phase 1c
+    for (const ab of parseActivatedAbilities({ name: "Granted", type: "Creature", oracle: quoted })) {
+      if (ab.isManaEffect) continue;                                     // granted MANA ability → phase 1a path
+      out.push({ ...ab, granted: true, index: 1000 + out.length });
+    }
+  }
+  return out;
+}
