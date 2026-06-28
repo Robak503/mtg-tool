@@ -90,8 +90,10 @@ describe("BUSHIDO keyword (subsystem 2) — synthesis + firing", () => {
     expect(classifyCard(cr("Devoted Retainer", "Bushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)"))).toBe("native-body");
     expect(classifyCard(cr("Numai Outcast", BUSHIDO2 + "\n{B}, Pay 5 life: Regenerate this creature."))).toBe("native-activated");
   });
-  it("FN boundary: RAMPAGE (per-blocker scaling) stays Arbiter", () => {
-    expect(classifyCard(cr("Craw Giant", "Trample\nRampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)"))).toBe("body-only");
+  it("FN boundary: a still-unmodeled combat keyword (flanking) stays Arbiter", () => {
+    // (RAMPAGE is now modeled — see the RAMPAGE describe block; flanking's "blocked by a creature without
+    // flanking → -1/-1" restricted form is NOT modeled, so it stays a meaningful pin.)
+    expect(classifyCard(cr("Flanker", "Flanking (Whenever a creature without flanking blocks this creature, that creature gets -1/-1 until end of turn.)"))).toBe("body-only");
   });
   it("runtime: a bushido ATTACKER that becomes blocked gets +N/+N", () => {
     let s = combatState(BUSHIDO2);
@@ -104,5 +106,33 @@ describe("BUSHIDO keyword (subsystem 2) — synthesis + firing", () => {
     s = resolveTopOfStack(flushTriggers(checkBlockTriggers(s)));
     expect(permanentPower(s, "blk")).toBe(2);     // 1/3 blocker + Bushido 1
     expect(permanentToughness(s, "blk")).toBe(4);
+  });
+});
+
+describe("RAMPAGE keyword (subsystem 2) — dynamic per-blocker pump", () => {
+  const RAMP2 = "Trample\nRampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)";
+  // a Rampage attacker blocked by `n` creatures
+  function rampCombat(n) {
+    const atk = createPermanent({ id: "atk", card: { name: "Craw", type: "Creature — Giant", power: 6, toughness: 4, oracle: RAMP2 }, controller: "user" });
+    const bf = [], blockers = [];
+    for (let i = 0; i < n; i++) { bf.push(createPermanent({ id: `b${i}`, card: { name: `B${i}`, type: "Creature — Bear", power: 1, toughness: 1, oracle: "" }, controller: "ai" })); blockers.push({ attackerId: "atk", blockerId: `b${i}` }); }
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    return { ...s, activePlayer: "user", priorityHolder: "user", phase: "combat", step: "declare-blockers", combat: { attackers: [{ permanentId: "atk", attackingPlayer: "user", defender: "ai" }], blockers }, players: { ...s.players, user: { ...s.players.user, battlefield: [atk] }, ai: { ...s.players.ai, battlefield: bf } } };
+  }
+  it("recognition: Rampage N → native (Trample + Rampage both modeled keywords)", () => {
+    expect(classifyCard({ name: "Craw Giant", type: "Creature — Giant", power: 6, toughness: 4, oracle: RAMP2 })).toBe("native-body");
+  });
+  it("blocked by exactly ONE → no creature beyond the first → no trigger (CR 702.23a)", () => {
+    expect((checkBlockTriggers(rampCombat(1)).pendingTriggers || [])).toHaveLength(0);
+  });
+  it("blocked by TWO → +N×1 (6/4 → 8/6)", () => {
+    let s = resolveTopOfStack(flushTriggers(checkBlockTriggers(rampCombat(2))));
+    expect(permanentPower(s, "atk")).toBe(8);
+    expect(permanentToughness(s, "atk")).toBe(6);
+  });
+  it("blocked by THREE → +N×2 (6/4 → 10/8)", () => {
+    let s = resolveTopOfStack(flushTriggers(checkBlockTriggers(rampCombat(3))));
+    expect(permanentPower(s, "atk")).toBe(10);
+    expect(permanentToughness(s, "atk")).toBe(8);
   });
 });

@@ -976,6 +976,20 @@ export function detectTriggers(card) {
       optional: false, sourceText: `Bushido ${n}`,
     });
   }
+  // RAMPAGE (subsystem 2) — KEYWORD→TRIGGER synthesis (CR 702.23a — "Whenever this creature becomes blocked,
+  // it gets +N/+N until end of turn for each creature blocking it beyond the first."). This descriptor is for
+  // COVERAGE/recognition only — a REPRESENTATIVE +N/+N pump that routes natively; the RUNTIME amount is
+  // DYNAMIC (N × blockers-beyond-the-first) and is computed + fired in checkBlockTriggers (never via this
+  // descriptor / triggersForEvent), so there is no double-fire.
+  const rampage = oracle.match(/\brampage (\d+)\b/i);
+  if (rampage) {
+    const n = parseInt(rampage[1], 10);
+    out.push({
+      event: "rampage", scope: "self", whose: "any",
+      effect: null, effectClause: `this creature gets +${n}/+${n} until end of turn`,
+      optional: false, sourceText: `Rampage ${n}`,
+    });
+  }
   _detectCache.set(card, out);
   return out;
 }
@@ -1439,6 +1453,23 @@ export function checkBlockTriggers(state) {
     const lk = findPermanent(state, id);
     if (!lk) continue;
     fired = fired.concat(triggersForEvent(state, { event: "blocksOrBecomesBlocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: {} }));
+  }
+  // RAMPAGE (subsystem 2, CR 702.23a) — a Rampage N attacker blocked by ≥2 creatures gets +N/+N "for each
+  // creature blocking it beyond the first" = N × (blockerCount − 1). The amount is DYNAMIC, so fire a
+  // fire-time descriptor directly via makePendingTrigger (the detectTriggers "rampage" descriptor is
+  // coverage-only). Blocked by exactly 1 → 0 creatures beyond the first → no pump, no trigger (CR 702.23a).
+  const blockerCount = {};
+  for (const b of blockers) if (b?.attackerId) blockerCount[b.attackerId] = (blockerCount[b.attackerId] || 0) + 1;
+  for (const [attId, count] of Object.entries(blockerCount)) {
+    if (count < 2) continue;
+    const lk = findPermanent(state, attId);
+    if (!lk) continue;
+    const ramp = String(lk.permanent.card?.oracle || lk.permanent.card?.oracle_text || "").match(/\brampage (\d+)\b/i);
+    if (!ramp) continue;
+    const amt = parseInt(ramp[1], 10) * (count - 1);
+    if (amt <= 0) continue;
+    const descriptor = { event: "rampage", scope: "self", whose: "any", effect: null, effectClause: `this creature gets +${amt}/+${amt} until end of turn`, optional: false, sourceText: `Rampage ${ramp[1]}` };
+    fired.push(makePendingTrigger(descriptor, lk.permanent, lk.permanent, {}));
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };

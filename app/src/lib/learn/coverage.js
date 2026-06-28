@@ -79,11 +79,12 @@ export const COVERED_KEYWORDS = [
   // the upkeep remove-or-sacrifice (gameEngine → fading.applyFadeVanishUpkeep), CR 702.32a / 702.63a.
   // "fading N" / "vanishing N" match via the startsWith check.
   "fading", "vanishing",
-  // BUSHIDO (subsystem 2) — ENFORCED: the keyword's triggered ability (CR 702.46a — "blocks or becomes
-  // blocked → +N/+N this turn") is synthesized in detectTriggers + fired by checkBlockTriggers. "bushido N"
-  // matches via the startsWith check; allTriggerSentencesModeled bumps the shaped count for it. (RAMPAGE is
-  // NOT here — its per-blocker scaling isn't modeled yet, so it stays Arbiter.)
-  "bushido",
+  // BUSHIDO / RAMPAGE (subsystem 2) — ENFORCED: the keyword's triggered ability is synthesized in
+  // detectTriggers + fired by checkBlockTriggers. Bushido (CR 702.46a — "blocks or becomes blocked → +N/+N
+  // this turn") + Rampage (CR 702.23a — "becomes blocked → +N/+N for each blocker beyond the first", a
+  // DYNAMIC amount computed at fire time). "bushido N" / "rampage N" match via the startsWith check;
+  // allTriggerSentencesModeled bumps the shaped count for each.
+  "bushido", "rampage",
   // KW-CYCLING is NOT a generic startsWith keyword — see reCyclingCost in isKeywordOnly. The generic
   // `startsWith("cycling ")` rule would mis-credit any line opening with "cycling " (e.g. Fluctuator's
   // static "Cycling abilities you activate cost {2} less to activate"), so cycling is gated to the
@@ -227,8 +228,8 @@ function allTriggerSentencesModeled(card, oracle) {
   // BUSHIDO (subsystem 2): detectTriggers synthesizes a trigger from the "Bushido N" KEYWORD (its real
   // trigger sentence lives in stripped reminder text, so it never counts as a shaped sentence). Bump the
   // shaped count for it so shaped === detected holds (the synthesized trigger is validated like any other).
-  const bushidoShaped = /\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0;
-  const shaped = (stripReminder(stripTriggerAbilityLabel(oracle)).match(TRIGGER_SENTENCE_RE) || []).length + bushidoShaped;
+  const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0);
+  const shaped = (stripReminder(stripTriggerAbilityLabel(oracle)).match(TRIGGER_SENTENCE_RE) || []).length + kwTrigShaped;
   const detected = detectTriggers(card);
   if (detected.length !== shaped) return false;     // an unrecognized-event trigger sentence
   return detected.every(triggerRoutesNatively);      // every recognized trigger's effect routes
