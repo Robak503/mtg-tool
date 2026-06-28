@@ -108,6 +108,12 @@ export const atomTargets = (state, atom, ctx) => {
     : isLandCard);
   if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
   if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller);
+  // DICE-ROLL multi-target (CR 603.7 reflexive payoff — Ancient Bronze Dragon's "put X +1/+1 counters on
+  // each of up to two TARGET creatures"). Modeled as a controller-scoped optimal pick: a +1/+1 counter is
+  // purely beneficial, so the controller buffs up to two of ITS OWN creatures (never an opponent's). The
+  // first two in battlefield order — deterministic + serialize-stable, matching the engine's first-legal
+  // target philosophy; fewer than two creatures → buff whatever's there (a clean partial, never fabricated).
+  if (atom.scope === "upToTwoYouControl") return controllerCreatureTargets(state, ctx.controller).slice(0, 2);
   if (atom.scope === "eachOpponentCreature") return opponentCreatureTargets(state, ctx.controller);
   // COMBAT-TEAM-PUMP — every ATTACKING / BLOCKING creature right now (Trumpet Blast "attacking creatures
   // get +1/+0", Hold the Line "blocking creatures get +0/+5"). The set is locked at resolution (CR 611.2c);

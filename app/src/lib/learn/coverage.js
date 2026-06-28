@@ -247,7 +247,17 @@ export function permanentTriggersCovered(card) {
     // above and never reaches here).
     .replace(/\b(?:you )?create a number of [^.]*? equal to the result\b\.?\s*/gi, " ")
     .replace(/\b(?:you )?draw cards equal to the result\b\.?\s*/gi, " ")
-    .replace(/\byou have no maximum hand size for the rest of the game\b\.?\s*/gi, " ");
+    .replace(/\byou have no maximum hand size for the rest of the game\b\.?\s*/gi, " ")
+    // REFLEXIVE TRIGGER (CR 603.7) — a "When you do[ this/so], <reflexive>." sentence is part of the PRECEDING
+    // trigger's effect: detectTriggers folds it into that trigger's effectClause, and it parses HIGH in
+    // allTriggerSentencesModeled above (proven before this residue check runs — an UNmodeled reflexive fails
+    // that gate and never reaches here). The trigger regex stops at the period BEFORE "When you do", so the
+    // reflexive sentence survives as apparent residue. Strip it so the card reads keyword-only. Covers BOTH the
+    // dice-result reflexive (Ancient Bronze Dragon: "…where X is the result") AND the general mandatory-primary
+    // reflexive (Faebloom-style permanent triggers). FN-safe: the HIGH gate above already vouched the whole
+    // trigger effect is modeled, so stripping its reflexive tail can only reveal the keyword-only body — it can
+    // never hide a genuinely unmodeled sentence (those are not "When you do"-led and fail the gate first).
+    .replace(/\bwhen you do(?:\s+this|\s+so)?,?\s+[^.]*\.?\s*/gi, " ");
   return isKeywordOnly(residue, card?.name);
 }
 

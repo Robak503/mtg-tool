@@ -1275,6 +1275,60 @@ function matchDiesGainDrawByPower(oracle) {
   ] };
 }
 
+/**
+ * ===== REFLEXIVE TRIGGER (CR 603.7) ===== "<primary>. When you do[ this/so], <reflexive>." — a reflexive
+ * triggered ability set up by the resolution of the primary effect, triggering off the event that resolution
+ * causes ("when you do" = "when the immediately-preceding instruction's action happens"). Per CR 603.7 the
+ * reflexive goes on the stack as its OWN triggered ability; the self-play engine models that faithfully by
+ * running its atoms as the SEQUENTIAL TAIL of the primary's program — which is behavior-identical here BECAUSE
+ * the fold is gated to the safe sub-case (below): the primary ALWAYS happens, so the reflexive ALWAYS fires,
+ * and the reflexive's target choice is independent of any window between the two (no intervening-priority
+ * effect can change it). The roll-d20 reflexive (Ancient Bronze Dragon) is folded UPSTREAM in detectTriggers
+ * (its halves are LOW alone — bare roll / orphan diceResult — and only the concatenation is HIGH, a distinct
+ * shape); this matcher handles the GENERAL case where BOTH halves parse HIGH on their own (Faebloom Trick:
+ * "Create two 1/1 blue Faerie tokens with flying. When you do, tap target creature an opponent controls.").
+ *
+ * CREED (CLAUDE.md §1.2) — fold ONLY when EVERY guard holds, else null → the "When you do" sentence stays an
+ * unmodeled clause → LOW → Arbiter (a SAFE false-negative):
+ *  - The PRIMARY is MANDATORY (no `optional` atom). An OPTIONAL primary ("you may create a Treasure token.
+ *    When you do, …" — Generous Plunderer) MUST NOT fold: a sequential tail would fire the reflexive even
+ *    when the controller DECLINES the "may" — a confident WRONG play (the cardinal FP). The whole card then
+ *    stays body-only/Arbiter.
+ *  - Both halves are HIGH + NON-MODAL.
+ *  - The REFLEXIVE is SELF-CONTAINED: it must not lead with a primary-object referent ("it"/"they"/"that …"
+ *    — Back for More's "it fights …") whose binding the sequential interpreter can't supply correctly here,
+ *    and it must not be an xSpell shape (an {X} cost on the reflexive would mis-bind). A reflexive that reads
+ *    a context value (the dice result) is the roll case, handled upstream — never reaches this matcher.
+ * Anchored to a SINGLE "when you do" (a chained second reflexive leaves residue → no match). Returns the
+ * concatenated { atoms } (primary then reflexive) so the caller emits one HIGH sequence, or null.
+ */
+function matchReflexiveTrigger(oracle, cardType, hasX) {
+  const s = stripReminder(oracle).trim();
+  // Split on the FIRST " when you do[ this/so][,] " connective (case-insensitive). Require text on both sides.
+  const m = s.match(/^(.+?\S)\.\s+when you do(?:\s+this|\s+so)?\s*,?\s+(.+?)\.?$/i);
+  if (!m) return null;
+  const primaryText = m[1].trim();
+  const reflexiveText = m[2].trim();
+  // The reflexive must not carry a SECOND reflexive/trigger or lead with an unbound primary-object referent.
+  if (/\bwhen you do\b/i.test(reflexiveText)) return null;          // a chained 2nd reflexive — not modeled
+  if (/^(?:it|they|that|those|this)\b/i.test(reflexiveText)) return null; // primary-object referent (e.g. "it fights")
+  const primary = parseEffectClauseImpl(primaryText, cardType, { hasX });
+  if (!primary || programConfidence(primary) !== "high" || primary.structure === "modal") return null;
+  // MANDATORY-primary gate: an optional primary ("you may …") must not fold (a declined "may" would still
+  // fire the reflexive). xSpell primary is allowed (X binds at cast); but reject if the PRIMARY is itself an
+  // xSpell here only when the reflexive also needs X (kept simple — neither half xSpell, see below).
+  if ((primary.atoms || []).some(a => a.optional)) return null;
+  const reflexive = parseEffectClauseImpl(reflexiveText, cardType, { hasX: false });
+  if (!reflexive || programConfidence(reflexive) !== "high" || reflexive.structure === "modal") return null;
+  // Conservative: neither half may be an xSpell (an {X} amount would bind ambiguously across the fold), and
+  // the reflexive must not itself carry an optional atom mid-sequence that a later atom could wrongly force
+  // (optionalsFormSuffix on the COMBINED sequence enforces the α2 invariant at the call site too).
+  if (primary.xSpell || reflexive.xSpell) return null;
+  const atoms = [...(primary.atoms || []), ...(reflexive.atoms || [])];
+  if (!atoms.every(a => KNOWN.has(a.op)) || !optionalsFormSuffix(atoms)) return null;
+  return { atoms };
+}
+
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (!oracle) return null;
   // MTG-001 — strip the "can't be regenerated" rider from the PARSE TEXT only, so the lead effect (the
@@ -1346,6 +1400,16 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const dgd = matchDiesGainDrawByPower(oracle);
   if (dgd && dgd.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: dgd.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== REFLEXIVE TRIGGER (CR 603.7) ===== "<primary>. When you do, <reflexive>." — fold the reflexive as
+  // the sequential tail of the (mandatory, always-firing) primary. matchReflexiveTrigger applies every CREED
+  // guard (mandatory primary, both halves HIGH, self-contained reflexive); a fold returns the combined atoms,
+  // else null → falls through to the normal pipeline where the "When you do" clause stays unmodeled → LOW →
+  // Arbiter. Checked before the clause splitter (which would shatter the "When you do, …" sentence). xSpell
+  // false (the matcher rejects an xSpell half), so amount-X binding is unaffected.
+  const rfx = matchReflexiveTrigger(oracle, cardType, hasX);
+  if (rfx) {
+    return makeProgram({ confidence: "high", atoms: rfx.atoms, xSpell: false, unparsedTail: null });
   }
   // RIDER-REMOVAL — "Exile/Destroy target X. Its controller <rider>." parses to ONE removal atom carrying
   // a `controllerRider` (resolved to the target's controller). The two sentences span the clause splitter,

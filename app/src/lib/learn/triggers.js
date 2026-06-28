@@ -169,6 +169,32 @@ function isFollowupSentence(sentence) {
 }
 
 /**
+ * REFLEXIVE TRIGGER fold (CR 603.7 — a delayed/reflexive ability created by the resolution of a prior
+ * effect). Recognize a "When you do[ this/so], <effect>" sentence whose reflexive SOURCE is a just-resolved
+ * "roll a d20" (Ancient Bronze/Brass Dragon: "…roll a d20. When you do, <payoff>, where X is the result").
+ * Returns the bare <effect> (the "When you do," prefix stripped) to FOLD into the rolling trigger's program,
+ * or null when the accumulated effect doesn't END in a roll.
+ *
+ * Why gated to the roll source (CREED, CLAUDE.md §1.2): the roll is MANDATORY and choice-free, so the
+ * reflexive ALWAYS fires — folding <effect> as the next clause of a sequential program (the roll stamps
+ * state.diceRoll; the payoff reads it via the diceResult count) is faithful. An OPTIONAL / cost-gated
+ * reflexive ("you may pay {1}{R}. When you do, …"; "you may sacrifice a creature. When you do, …") must
+ * NOT be folded — a sequential fold would fire the payoff even after the action is declined/failed, a
+ * confident WRONG play. Those keep returning false here (the accumulated effect ends in the optional action,
+ * not a roll) → the sentence is treated as a separate trigger (isFollowupSentence rejects it) and the whole
+ * card stays body-only / Arbiter (a SAFE false-negative). Whole-card safety also holds downstream: the
+ * parser re-gates the folded program (an unmodeled <effect> → LOW → Arbiter) and the diceResult CREED gate
+ * (parser.diceRollSequenceOk) independently pairs every roll with its payoff. The single corpus cards this
+ * folds today are the two reflexive Ancient Dragons (verified by a "roll a d20. when you do" sweep).
+ */
+const ROLL_REFLEXIVE_SOURCE_RE = /roll a d20\.?\s*$/i;
+function reflexiveEffectAfterRoll(accumulatedEffect, sentence) {
+  if (!ROLL_REFLEXIVE_SOURCE_RE.test(String(accumulatedEffect).trim())) return null;
+  const m = String(sentence).trim().match(/^when you do(?:\s+this|\s+so)?\s*,?\s+(.+)$/i);
+  return m ? m[1].trim() : null;
+}
+
+/**
  * Split "<condition>, <effect>" (the text after the leading keyword, sans the
  * trailing period) into its parts, peeling off an "if <cond>," intervening
  * clause (CR 603.4) when present.
@@ -1067,6 +1093,24 @@ export function detectTriggers(card) {
       for (const sent of sameLine.split(/\.\s+|\.\s*$|;\s+/)) {
         const s = sent.trim();
         if (!s) continue;
+        // REFLEXIVE TRIGGER (CR 603.7) — a "When you do, <effect>" right after a "roll a d20" is the
+        // delayed/reflexive ability the roll's resolution creates. Fold its <effect> into THIS trigger's
+        // program (the roll stamps state.diceRoll; the diceResult payoff reads it). Gated to the roll source,
+        // so an optional-action reflexive is never mis-folded (see reflexiveEffectAfterRoll). Checked BEFORE
+        // isFollowupSentence (which rejects any "When…"-led sentence), so the reflexive payoff is no longer
+        // dropped. An unmodeled <effect> still drops the whole program LOW → Arbiter (parser re-gate).
+        const reflexive = reflexiveEffectAfterRoll(effectClause, s);
+        if (reflexive !== null) { effectClause += `. ${reflexive}`; continue; }
+        // GENERAL REFLEXIVE (CR 603.7) — a "When you do[ this/so], …" sentence that is NOT the roll case
+        // (handled above). Append it RAW (keep the "When you do" connective) so the parser's whole-shape
+        // matchReflexiveTrigger gate decides whether to fold it: it folds ONLY when the primary is MANDATORY
+        // (so the reflexive always fires) and both halves parse HIGH + self-contained — else the whole
+        // program stays LOW → Arbiter. Appending raw (vs. stripping like the roll path) lets the parser see
+        // "<primary>. When you do, <reflexive>" and apply that gate; an OPTIONAL primary (Generous Plunderer's
+        // "you may create a Treasure token") is rejected there, so the reflexive never fires after a declined
+        // "may". Checked BEFORE isFollowupSentence (which would otherwise break the loop on the "When"-led
+        // sentence and silently drop the reflexive — the latent FP this closes).
+        if (/^when you do(?:\s+this|\s+so)?\b/i.test(s)) { effectClause += `. ${s}`; continue; }
         if (!isFollowupSentence(s)) break;
         effectClause += `. ${s}`;
       }
