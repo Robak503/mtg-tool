@@ -224,6 +224,21 @@ export function dealDamageScaledClauseParser(clause) {
     if (amountCount.who === "target" && targetType !== "player" && targetType !== "playerOrPlaneswalker") return null;
     return { op: "deal-damage", targetType, amountCount };
   };
+  // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== "<source> deals damage equal to the triggering creature's
+  // power to <target>" — the AMOUNT is the TRIGGERING (entering) creature's layer-aware power at resolution
+  // (Terror of the Peaks: "Whenever another creature you control enters, this creature deals damage equal to
+  // that creature's power to any target"). "the triggering creature's power" is the SENTINEL detectTriggers
+  // rewrites "that creature's power" to (gated to the ETB entering-creature scopes — see triggers.js), so a
+  // SPELL's anaphoric "that creature's power" (Grab the Reins / Rakdos Joins Up — a sacrificed-creature fling,
+  // a DIFFERENT referent) never reaches this matcher and stays low → Arbiter (CREED — sentinel gate). Reuses the
+  // deal-damage atom + the TIGHT target allowlist verbatim; only the amount source is new (amountCount → the
+  // shared countForSpec triggeringPower kind, read off ctx.triggeringPermanentId). who:"target" cards never use
+  // this form (the count is a creature's power, not a player's hand), so no who-vs-targetType guard is needed.
+  const sst = t.match(/^.+? deals? damage equal to the triggering creature's (power|toughness) to (target creature|any target|target player|target player or planeswalker|target creature or planeswalker|each opponent)$/);
+  if (sst) {
+    const targetType = TT[sst[2]];
+    return targetType ? { op: "deal-damage", targetType, amountCount: { kind: sst[1] === "power" ? "triggeringPower" : "triggeringToughness", per: 1 } } : null;
+  }
   // OLD word order: "<source> deals damage TO <target> equal to the number of <count>" (Massive Raid, Spitting Earth).
   const mds = t.match(/^.+? deals? damage to (.+?) equal to the number of (.+)$/);
   if (mds) return build(mds[1], mds[2]);

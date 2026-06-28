@@ -962,7 +962,9 @@ const MUST_DROP_TO_LOW = [
   "Put a +1/+1 counter on each creature you control other than this creature.", // Dawnstrike Vanguard — excludes the source
   "Put a +1/+1 counter on each creature you control with a +1/+1 counter on it.", // Patron of the Valiant — counter-filtered subset
   "Put a +1/+1 counter on each creature you control that entered this turn.", // Raucous Entertainer — entered-this-turn subset
-  "Put X +1/+1 counters on each creature you control, where X is the number of Elves you control.", // Voja — variable X (+ "where X is" rider)
+  // (Voja's "…on each creature you control, where X is the number of Elves you control" is now MODELED by the
+  // DYNAMIC-COUNT keystone — a board-count countFor via the shared countForSpec; see dynamicCount.test.js.)
+  "Put a +1/+1 counter on each creature you control with toughness 3 or greater.", // toughness-filtered subset (still LOW)
   "Put a -1/-1 counter on each creature you don't control.",                // Liliana's Influence — WRONG scope ("don't control")
   "Put a +1/+1 counter on each creature target player controls.",           // Practiced Offense — target player, not the controller
   "Put a -1/-1 counter on each creature.",                                  // Soul Snuffers — ALL creatures (not "you control"); not this slice

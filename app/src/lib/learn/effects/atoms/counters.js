@@ -4,8 +4,8 @@
 
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, addPoison, addExperience, addRadCounters } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
-import { atomTargets, isCreatureCard } from "./shared.js";
-import { SMALL_NUM } from "../parseHelpers.js"; // seam batch 3: shared number-word map (leaf, cycle-free)
+import { atomTargets, isCreatureCard, countForSpec } from "./shared.js";
+import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // seam batch 3: shared number-word map (leaf, cycle-free) + DYNAMIC-COUNT board-count source
 
 /**
  * WAVE 3b COUNTERS-ON-EVENT — the TRIGGERING-PERMANENT referent ("…on that creature" / non-self "…on
@@ -70,9 +70,16 @@ export function applyAddCounter(state, atom, ctx) {
   // ctx.triggeringPermanentId (CR 608.2c); every other form goes through the shared atomTargets dispatch
   // (self / chosen target / team). Absent referent → [] → a clean no-op (CREED, never a fabricated counter).
   const targets = atom.target === "thatCreature" ? triggeringCreatureTargets(state, ctx) : atomTargets(state, atom, ctx);
+  // DYNAMIC-COUNT (keystone): `countFor` is a count resolved AT RESOLUTION (CR 608.2h) via the SHARED
+  // countForSpec — a board tally ("put X +1/+1 counters on target creature, where X is the number of lands you
+  // control" — Will of the Sultai; "…on each creature you control … the number of Elves you control" — Voja) or
+  // a source-stat ("equal to that creature's power"). A 0 count adds NO counters (a clean no-op, never forced to
+  // 1); a FIXED count floors at 1. Computed ONCE here (state pre-mutation), then applied to every target. The
+  // amount auto-routes through addCounter's central doubler hook, so the Wave-3 counter doubler still composes.
+  const amount = atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor)) : (atom.amount || 1);
   for (const t of targets) {
-    if (t.type === "creature" && findPermanent(next, t.id)) {
-      next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount: atom.amount || 1 });
+    if (amount > 0 && t.type === "creature" && findPermanent(next, t.id)) {
+      next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount });
     }
   }
   // -1/-1 counters lower DERIVED toughness — run the lethal SBA so a creature it
@@ -81,7 +88,7 @@ export function applyAddCounter(state, atom, ctx) {
     const r = destroyLethalCreatures(next);
     next = checkDiesTriggers(r.state, r.dead);
   }
-  return logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount: atom.amount || 1, targets: targets.map(t => t.id) });
+  return logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount, targets: targets.map(t => t.id) });
 }
 
 // PROLIFERATE (CR 701.27): "choose any number of permanents and/or players that have a counter on them,
@@ -199,6 +206,34 @@ export function radClauseParser(clause) {
  */
 export function addCounterClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // ===== DYNAMIC-COUNT (keystone) ===== "put X/a number of +1/+1 counters on <target / target you control /
+  // each you control>, where X is [equal to] the number of <src>" / "… equal to the number of <src>" — the
+  // COUNT is a board tally resolved at resolution via the shared parseCountSource→countForSpec (Will of the
+  // Sultai "lands you control", Antarctic Research Base "artifacts you control", Voja "Elves you control" [each],
+  // Southern Air Temple "Shrines you control" [each], Lasyd Prowler "land cards in your graveyard", Kratos
+  // "experience counters you have"). Checked BEFORE the fixed-N matchers (those are `$`-anchored, so a where-/
+  // equal-to clause never reaches them anyway; order is for clarity). An UNMODELED count source (parseCountSource
+  // → null) drops the whole clause → low → Arbiter (the `src ? … : null`) — never a fabricated/guessed count.
+  // Only +1/+1 (the enforced positive form) — a dynamic -1/-1 count is not in scope (no such clean corpus card),
+  // and the regex's `\+1\/\+1` excludes it. The SCOPE is exact: target / target-you-control / each-you-control.
+  const SCOPE_FIELD = {
+    "target creature": { targetType: "creature" },
+    "target creature you control": { targetType: "creatureYouControl" },
+    "each creature you control": { scope: "youControl" },
+  };
+  const dynCounter = (type, scopePhrase, srcPhrase) => {
+    const src = parseCountSource(srcPhrase);
+    // an UNMODELED count source → null (the whole clause routes low → Arbiter, never a guessed count, CREED)
+    return src ? { op: "add-counter", counterType: type, countFor: src, ...SCOPE_FIELD[scopePhrase] } : null;
+  };
+  // word order A — "where X is [equal to] the number of <src>"; word order B — "equal to the number of <src>".
+  // Both lead with the VARIABLE "X" / "a number of" (a literal-N count uses the fixed-N matchers below). Once a
+  // dynamic shape matches the regex, the clause is dynamic — so a null count source returns null (Arbiter), it
+  // NEVER falls through to a fixed matcher (which would mis-read the leading "X"/"a number of" as a count).
+  let dm = t.match(/^put (?:x|a number of) ([+-]1\/[+-]1) counters? on (target creature you control|target creature|each creature you control),? where x is (?:equal to )?the number of (.+)$/);
+  if (dm) return dynCounter(dm[1], dm[2], dm[3]);
+  dm = t.match(/^put (?:x|a number of) ([+-]1\/[+-]1) counters? on (target creature you control|target creature|each creature you control) equal to the number of (.+)$/);
+  if (dm) return dynCounter(dm[1], dm[2], dm[3]);
   let m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature you control$/);

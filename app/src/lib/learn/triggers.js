@@ -882,6 +882,27 @@ const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\
 // "a creature you control" / "a <Subtype> you control" attack + combat-damage watchers (Sphere Grid family).
 const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl"]);
 
+// ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== an ETB trigger whose payoff MAGNITUDE is "that creature's
+// power/toughness" — the ENTERING creature's stat (CR 608.2c — the object the ability triggered on): Terror of
+// the Peaks "deals damage equal to that creature's power", Verdant Sun's Avatar "gain life equal to that
+// creature's toughness". On an `etb` event the `triggeringPermanent` IS the entering creature for every scope
+// below (checkEnterTriggers threads enteredPerm), so "that creature" is unambiguously ctx.triggeringPermanentId.
+// We rewrite "that creature's <stat>" → the SENTINEL "the triggering creature's <stat>" (a phrase in ZERO
+// printed oracle text) which the damage/life clause parsers map to the shared countForSpec triggering-stat kind.
+// CREED — the gate is (etb event) AND (an entering-creature scope): a SPELL's "that creature's power" (Grab the
+// Reins / Rakdos Joins Up — a SACRIFICED-creature fling, a different referent) is not an etb trigger, so it is
+// NEVER rewritten and stays LOW → Arbiter. A non-etb trigger (combat-damage / dies, where "that creature" may be
+// the damaged/dying creature) is excluded too — only the proven entering-creature referent is admitted here.
+// SURGICAL — the regex matches ONLY the two payoff shapes this keystone models (DEALS DAMAGE = / GAIN LIFE =
+// "that creature's <stat>"), never a blanket "that creature's stat": "discover X, where X is that creature's
+// toughness" (Pantlaza — handled natively by its OWN library.js exact-match parser that reads the RAW phrase)
+// must be left untouched, so the rewrite is anchored to the deal-damage / gain-life verbs that precede the stat.
+const STAT_PAYOFF_REF_RE = /\bdeals? damage equal to that creature's (?:power|toughness)\b|\bgain life equal to that creature's (?:power|toughness)\b/i;
+const ETB_ENTERING_CREATURE_SCOPES = new Set([
+  "creatureYouControl", "otherCreatureYouControl", "subtypeYouControl",
+  "eachCreature", "eachOtherCreature", "creatureOpponentControls",
+]);
+
 // TRIG-PRONOUN-IT — the NON-SELF pronoun referent for the OTHER effect families (the non-self analogues of
 // the SELF "it" forms): "Whenever a creature you control attacks, IT gets/gains … until end of turn /
 // sacrifice IT / return IT to its owner's hand". "it" is the TRIGGERING permanent (CR 608.2c), not the
@@ -1135,6 +1156,17 @@ export function detectTriggers(card) {
         // CANT_REGEN_TEST on the full oracle and stamps cannotRegenerate on the destroy atom. The detector
         // gated nativeness on this exact "destroy that creature" prefix, so no other effect reaches this rewrite.
         effectClause = effectClause.replace(/^destroy that creature/i, "destroy the triggering creature");
+      } else if (cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) && STAT_PAYOFF_REF_RE.test(effectClause)) {
+        // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== an ETB trigger paying off "that creature's
+        // power/toughness" — the ENTERING creature's stat (Terror of the Peaks damage, Verdant Sun's Avatar
+        // life). On `etb` the triggering permanent IS the entering creature, so "that creature" is unambiguously
+        // ctx.triggeringPermanentId. Rewrite → the sentinel "the triggering creature's <stat>" the damage/life
+        // clause parsers map to the shared triggeringPower/triggeringToughness count kind. Gated to the etb event
+        // + an entering-creature scope (a SPELL fling's "that creature's power" / a non-etb referent never reaches
+        // here), so this only GIVES the parser the chance to model it — the parser still re-gates the whole shape.
+        // The replace is verb-anchored (deals damage = / gain life =) so it touches ONLY the payoff stat, never a
+        // co-occurring discover-X "that creature's toughness" (Pantlaza keeps its own native exact-match parse).
+        effectClause = effectClause.replace(/\b(deals? damage equal to|gain life equal to) that creature's (power|toughness)\b/gi, "$1 the triggering creature's $2");
       }
       out.push({
         event: cls.event,

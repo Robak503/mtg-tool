@@ -225,6 +225,32 @@ export function countForSpec(state, ctx, spec) {
     }
     return total;
   }
+  // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== a count read off a single CREATURE referent's
+  // LAYER-AWARE power/toughness AT RESOLUTION (CR 608.2h), NOT a player or board tally — the shared "equal to
+  // its/that creature's power/toughness" count source that feeds tokens / counters / damage / life uniformly.
+  // The referent is whichever the spec names, threaded by the trigger flush / effect program (runProgram ctx):
+  //   triggeringPower / triggeringToughness → ctx.triggeringPermanentId — the TRIGGERING creature (CR 608.2c):
+  //     the ENTERING creature on an ETB trigger (Terror of the Peaks "deals damage equal to that creature's
+  //     power"; Verdant Sun's Avatar "gain life equal to that creature's toughness"). The detector rewrites the
+  //     non-self "that creature's <stat>" → the sentinel the parser maps here, gated to the ETB entering-creature
+  //     scopes, so a SPELL's anaphoric "that creature" never reaches it (CREED — sentinel gate).
+  //   sourcePower / sourceToughness → ctx.sourceId — the ABILITY'S OWN permanent ("this creature's <stat>").
+  // creaturePower/creatureToughness are layer-aware (counters + anthems counted) and read at resolution. An
+  // ABSENT referent (a spell / the permanent already left the battlefield) or a NON-creature → 0 (a clean no-op,
+  // CR 107.3 — never a fabricated count). Computed BEFORE the player lookup (these read a permanent, not a player).
+  const STAT_KIND = {
+    triggeringPower: { id: "triggeringPermanentId", read: creaturePower },
+    triggeringToughness: { id: "triggeringPermanentId", read: creatureToughness },
+    sourcePower: { id: "sourceId", read: creaturePower },
+    sourceToughness: { id: "sourceId", read: creatureToughness },
+  };
+  const stat = STAT_KIND[spec.kind];
+  if (stat) {
+    const refId = ctx?.[stat.id];
+    const lk = refId ? findPermanent(state, refId) : null;
+    if (!lk || !/\bCreature\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) return 0;
+    return Math.max(0, stat.read(lk.permanent, state));
+  }
   // ===== OPPONENT-SCOPED ===== who:"target" counts the SPELL'S TARGET player ("…equal to the number of
   // cards in that player's hand" — Sudden Impact) OR, on a combat-damage trigger with no explicit target,
   // the DAMAGED player ("for each artifact that player controls" — Cavern-Hoard Dragon, where "that player"

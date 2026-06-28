@@ -74,6 +74,16 @@ export function applyLoseLife(state, atom, ctx) {
  */
 export function lifeClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== "you gain life equal to the triggering creature's
+  // toughness/power" — the amount is the TRIGGERING (entering) creature's layer-aware toughness/power at
+  // resolution (Verdant Sun's Avatar "Whenever this creature or another creature you control enters, you gain
+  // life equal to that creature's toughness"; the Archon of Redemption "…power" family). "the triggering
+  // creature's …" is the SENTINEL detectTriggers rewrites "that creature's …" to (gated to the ETB
+  // entering-creature scopes), so a SPELL's anaphoric "that creature's toughness" never reaches this matcher
+  // and stays low → Arbiter (CREED — sentinel gate). amountCount → the shared countForSpec triggering-stat kind
+  // (read off ctx.triggeringPermanentId); resolveScaledAmount computes it (× per:1). who:"controller" (you gain).
+  const sst = t.match(/^(?:you )?gain life equal to the triggering creature's (toughness|power)$/);
+  if (sst) return { op: "gain-life", amountCount: { kind: sst[1] === "toughness" ? "triggeringToughness" : "triggeringPower", per: 1 }, targetType: null };
   let mfe = t.match(/^(?:you )?gain (\d+) life for each (.+)$/);
   if (mfe) {
     const src = parseCountSource(mfe[2]);
