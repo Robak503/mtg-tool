@@ -586,9 +586,15 @@ export function classifyCard(card) {
   // entersWithMetricCounters confirmed one of its two exact shapes, so a card whose only non-keyword text is the
   // metric enters-with clause classifies native-body (Squad Captain = Vigilance + metric → native-body). Cards
   // with extra unmodeled text (Sheriff's Plot; Zegana's draw trigger) keep their other clauses → not stripped here.
+  // MULTI-X GUARD (CR 107.3): a cost with more than one {X} pip ({X}{X} — Walking Ballista) is NOT modeled —
+  // the cost machinery (parseManaCost.hasX + the legalChoices xCost = generic + X path) treats every {X} as a
+  // SINGLE X, so a {X}{X} card underpays (pays X, owes 2X). The X→counters resolver assumes one X feeds the
+  // counters. So only credit enters-with-X when the cost has EXACTLY one X pip; a multi-X card stays body-only
+  // (Arbiter) until the double-X cost subsystem lands. CREED: a miss is safe, an underpaid cast is forbidden.
+  const xPipCount = (String(card?.mana || card?.mana_cost || "").match(/\{[XYZ]\}/gi) || []).length;
   const baseOracle = entersWithPlusCounters(card) > 0
     ? oracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
-    : entersWithXCounters(card)
+    : entersWithXCounters(card) && xPipCount === 1
       ? oracle.replace(/[^.]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.]*\.?/i, " ")
       : entersWithMetricCounters(card)
         ? oracle.replace(/[^.]*enters (?:the battlefield )?with [^.]*\+1\/\+1 counters?[^.]*\.?/i, " ")
@@ -597,10 +603,18 @@ export function classifyCard(card) {
   // here by stripping that sentence from the oracle so it doesn't block coverage on cards whose remaining
   // text is fully modeled (triggers / activated / static / mixed). etCard propagates the stripped oracle
   // through all downstream checks; etOracle combines with baseOracle for the keyword-only gate.
+  // The enters-with-counters strip (baseOracle) must ALSO flow into etCard so the downstream
+  // trigger/activated/static/mixed gates don't re-see the (already-modeled, already-credited) enters-with
+  // sentence as unmodeled residue. Without this a hydra like Goldvein (enters-with-X + a modeled dies→Treasure
+  // trigger) failed permanentTriggersCovered on the leftover enters-with-X line and fell to body-only, even
+  // though every one of its clauses is modeled. etCard now carries the counter-stripped oracle exactly as it
+  // already carries the tap-stripped one.
   const tapRe = /[^\n.]*\benters (?:the battlefield )?tapped\b[^\n.]*\.?\n?/gi;
   const isTapped = entersTapped(card);
   const etOracle = isTapped ? baseOracle.replace(tapRe, "\n").trim() : baseOracle;
-  const etCard = isTapped ? { ...card, oracle: oracle.replace(tapRe, "\n").trim() } : card;
+  const etCard = baseOracle !== oracle || isTapped
+    ? { ...card, oracle: (isTapped ? baseOracle.replace(tapRe, "\n") : baseOracle).trim() }
+    : card;
   if (isKeywordOnly(etOracle, card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
