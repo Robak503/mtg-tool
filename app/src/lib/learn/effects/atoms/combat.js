@@ -255,6 +255,85 @@ export function fightCreature(state, atom, ctx) {
 }
 
 /**
+ * Resolve the TWO chosen creatures of a two-target fight / one-way-damage atom from ctx.targets. Unlike
+ * the source-bound `fight` (fighter = ctx.sourceId), the SPELL/activated forms — "Target creature you
+ * control fights target creature you don't control" (Prey Upon, Pounce) and "Target creature you control
+ * deals damage equal to its power to target creature you don't control" (Aggressive Instinct, Rabid Bite)
+ * — pick BOTH creatures as targets. The cast-time enumerator (targeting.expandAtoms) tags them with a
+ * `role`: the controller's creature is `"fighter"` (the dealer), the enemy is `"target"` (the dealee).
+ * Returns { fighter, target } LiveRefs ({ permanent, controller }) or nulls. Falls back to positional order
+ * (fighter first) for an untagged target list — defensive; the live paths always role-tag.
+ */
+function fightPairRefs(state, ctx) {
+  const ts = (ctx.targets || []).filter(t => t.type === "creature");
+  let fighterT = ts.find(t => t.role === "fighter");
+  let targetT = ts.find(t => t.role === "target");
+  if (!fighterT && !targetT) { fighterT = ts[0]; targetT = ts[1]; } // untagged → positional (fighter, then dealee)
+  // CR 701.12 / "another target creature": the two must be DISTINCT objects. If a malformed input gave the
+  // same id for both, drop the second so we never make a creature fight itself (a no-op on the missing half).
+  if (fighterT && targetT && fighterT.id === targetT.id) targetT = undefined;
+  return {
+    fighter: fighterT ? findPermanent(state, fighterT.id) : null,
+    target: targetT ? findPermanent(state, targetT.id) : null,
+  };
+}
+
+/**
+ * FIGHT-PAIR (CR 701.12) — the TWO-CHOSEN-TARGET fight: "Target creature you control fights target creature
+ * you don't control" (Prey Upon, Pounce, Khalni Ambush) and the any-side "Target creature fights another
+ * target creature" (Clash of Titans, Blood Feud). Both chosen creatures deal damage EQUAL TO THEIR POWER to
+ * each other SIMULTANEOUSLY — identical invariant to source-bound `fight` (CR 701.12a): lock both layer-aware
+ * powers at resolution (floored at 0), read deathtouch pre-fight, mark BOTH hits before any SBA, then a SINGLE
+ * lethal SBA pass + dies-triggers once. The ONLY difference from `fight` is that the first fighter comes from
+ * a chosen target (role "fighter"), not ctx.sourceId. A missing/illegal half (a target left the battlefield,
+ * "up to one" declined) → clean no-op (CR 701.12: nothing fights), never fabricated damage.
+ */
+export function applyFightPair(state, atom, ctx) {
+  const { fighter, target } = fightPairRefs(state, ctx);
+  if (!fighter || !target) {
+    return logEvent(state, { kind: "spell-effect", effect: "fight-pair", targets: [] });
+  }
+  const aPow = Math.max(0, creaturePower(fighter.permanent, state)); // CR 701.12a — read at resolution
+  const bPow = Math.max(0, creaturePower(target.permanent, state));
+  const deathtouched = new Set();
+  // Deathtouch read PRE-fight (a fighter killed by the simultaneous damage still dealt its damage); layer-aware.
+  if (permanentHasKeyword(state, fighter.permanent.id, "Deathtouch")) deathtouched.add(target.permanent.id);
+  if (permanentHasKeyword(state, target.permanent.id, "Deathtouch")) deathtouched.add(fighter.permanent.id);
+  let next = state;
+  if (aPow > 0) next = markCombatDamage(next, { permanentId: target.permanent.id, amount: aPow });
+  if (bPow > 0) next = markCombatDamage(next, { permanentId: fighter.permanent.id, amount: bPow });
+  const lethal = destroyLethalCreatures(next, deathtouched); // SINGLE simultaneous SBA pass (CR 701.12a)
+  next = checkDiesTriggers(lethal.state, lethal.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "fight-pair", targets: [fighter.permanent.id, target.permanent.id] });
+}
+
+/**
+ * DAMAGE-TARGET-POWER (CR 119) — the ONE-WAY "fight": "Target creature you control deals damage equal to its
+ * power to target creature you don't control" (Aggressive Instinct, Rabid Bite). ONLY the `fighter` (the
+ * dealer, role "fighter") deals — the dealee (role "target") does NOT deal back (the asymmetry vs fight-pair).
+ * Lock the dealer's layer-aware power at resolution (floored at 0), mark that much on the dealee (non-combat
+ * damage — markCombatDamage only adds damageMarked, fires no combat triggers), then a lethal SBA + dies once.
+ * Deathtouch from the dealer makes any nonzero damage lethal (CR 702.2c). A 0-power dealer / a missing half →
+ * clean no-op. (The trample-excess rider of Ram Through is NOT modeled here — that card stays Arbiter.)
+ */
+export function applyDamageTargetPower(state, atom, ctx) {
+  const { fighter, target } = fightPairRefs(state, ctx);
+  if (!fighter || !target) {
+    return logEvent(state, { kind: "spell-effect", effect: "damage-target-power", targets: [] });
+  }
+  const pow = Math.max(0, creaturePower(fighter.permanent, state)); // CR 608.2 — read at resolution
+  if (pow <= 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "damage-target-power", targets: [target.permanent.id] });
+  }
+  const deathtouched = new Set();
+  if (permanentHasKeyword(state, fighter.permanent.id, "Deathtouch")) deathtouched.add(target.permanent.id);
+  let next = markCombatDamage(state, { permanentId: target.permanent.id, amount: pow });
+  const lethal = destroyLethalCreatures(next, deathtouched);
+  next = checkDiesTriggers(lethal.state, lethal.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "damage-target-power", targets: [target.permanent.id] });
+}
+
+/**
  * CANT-BLOCK — "target creature can't block this turn" (Goblin Shortcutter, Crossway Vampire, Mardu
  * Roughrider, …). A layer-6 endOfTurn grant of the "cantBlock" keyword; combatEvasion.canBlockAttacker
  * reads it via permanentHasKeyword (layer-aware) and refuses the block, so it wears off at cleanup (CR
@@ -674,4 +753,6 @@ export const combatResolvers = {
   "switch-pt": applySwitchPT, // SWITCH-PT — "switch ~ power and toughness until end of turn" → layer-7 sublayer-7d endOfTurn swap
   "grant-keywords-group": applyGrantKeywordsGroup, // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
   "damage-self-power": applyDamageSelfPower, // SELF-DAMAGE-BY-POWER — "target/each creature deals damage to itself equal to its power"
+  "fight-pair": applyFightPair, // FIGHT-PAIR (CR 701.12) — two CHOSEN creatures (fighter + target) deal damage = power to each other, simultaneously
+  "damage-target-power": applyDamageTargetPower, // DAMAGE-TARGET-POWER (CR 119) — one-way: only the chosen fighter deals damage = its power to the chosen target
 };

@@ -69,11 +69,24 @@ function atomTargetSpec(atom) {
 
 /** Legal targets for one atom, each tagged with its `atomIndex`; null if non-targeted.
  * `sourceColors` (the casting spell's colors) is threaded to enumerateTargets for KW-PROTECTION
- * targeting (CR 702.16b) — empty on the trigger-flush / ability paths (a safe FN, PR-later). */
+ * targeting (CR 702.16b) — empty on the trigger-flush / ability paths (a safe FN, PR-later).
+ * A `role` (FIGHT-PAIR / DAMAGE-TARGET-POWER) rides along so the runner/resolver can tell the chosen
+ * fighter (the dealer) from the chosen target (the dealee) — both targets share the atomIndex. */
 function atomTargets(state, controllerId, atom, atomIndex, sourceColors = []) {
   const spec = atomTargetSpec(atom);
   if (!spec) return null;
-  return enumerateTargets(state, controllerId, spec, sourceColors).map(t => ({ ...t, atomIndex }));
+  return enumerateTargets(state, controllerId, spec, sourceColors).map(t => ({ ...t, atomIndex, ...(atom.role ? { role: atom.role } : {}) }));
+}
+
+/** The SECONDARY target option list for a TWO-CHOSEN-TARGET atom (FIGHT-PAIR / DAMAGE-TARGET-POWER) — the
+ * chosen FIGHTER ("target creature you control"), distinct restrictions from the primary (enemy) target.
+ * Returns null when the atom has no secondary spec (the single-target case — unchanged). Both option lists
+ * carry the SAME atomIndex (one atom) but different `role`, so targetsForAtom routes both to the resolver. */
+function secondaryAtomTargets(state, controllerId, atom, atomIndex, sourceColors = []) {
+  if (!atom?.secondaryTargetType) return null;
+  const spec = atomTargetSpec({ op: atom.op, targetType: atom.secondaryTargetType, restrictions: atom.secondaryRestrictions || [] });
+  if (!spec) return null;
+  return enumerateTargets(state, controllerId, spec, sourceColors).map(t => ({ ...t, atomIndex, role: atom.secondaryRole || "fighter" }));
 }
 
 /**
@@ -85,6 +98,9 @@ function atomTargets(state, controllerId, atom, atomIndex, sourceColors = []) {
  */
 function expandAtoms(state, controllerId, atoms, sourceColors = []) {
   const perAtom = [];
+  // atomIndexes that carry a two-target pair (FIGHT-PAIR / DAMAGE-TARGET-POWER) — the fighter + target of
+  // ONE such atom must be DISTINCT creatures (CR 701.12 / "another target creature"); enforced post-combine.
+  const pairAtomIdx = [];
   for (let i = 0; i < atoms.length; i++) {
     const atom = atoms[i];
     const tagged = atomTargets(state, controllerId, atom, i, sourceColors);
@@ -98,6 +114,14 @@ function expandAtoms(state, controllerId, atoms, sourceColors = []) {
     }
     if (tagged.length === 0) return null;     // a required target has no legal pick
     perAtom.push(tagged);
+    // TWO-CHOSEN-TARGET (FIGHT-PAIR / DAMAGE-TARGET-POWER): also enumerate the SECONDARY target (the chosen
+    // fighter "you control"). Both lists share atomIndex i; distinctness is enforced after the cartesian.
+    const secondary = secondaryAtomTargets(state, controllerId, atom, i, sourceColors);
+    if (secondary !== null) {
+      if (secondary.length === 0) return null; // the fighter half has no legal pick → uncastable
+      perAtom.push(secondary);
+      pairAtomIdx.push(i);
+    }
   }
   if (perAtom.length === 0) return [[]];
 
@@ -112,6 +136,15 @@ function expandAtoms(state, controllerId, atoms, sourceColors = []) {
       if (next.length >= MAX_CAST_EXPANSIONS) break;
     }
     combos = next;
+  }
+  // DISTINCTNESS — drop any combo where a pair atom's two creatures are the same object (CR 701.12 — a
+  // creature can't fight itself; "another target creature" demands two distinct). Keeps every other combo.
+  if (pairAtomIdx.length) {
+    combos = combos.filter(combo => pairAtomIdx.every(idx => {
+      const pair = combo.filter(t => t.atomIndex === idx);
+      return pair.length < 2 || new Set(pair.map(t => t.id)).size === pair.length;
+    }));
+    if (combos.length === 0) return null; // only self-pairings were possible → no legal cast
   }
   return combos;
 }

@@ -27,7 +27,7 @@
 
 import { detectArchetype } from "../goldfish.js";
 import { filterActions } from "./legalChoices.js";
-import { opponentsOf } from "./gameState.js";
+import { opponentsOf, findPermanent } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 import { programContainsCounter, programContainsMassRemoval, programContainsTeamPump, programContainsFog, atomTargetIntent } from "./effects/parser.js";
@@ -208,6 +208,40 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
       });
       if (oppActions.length === 0) continue; // no clean opponent target → the edict fizzles / is multi-target; hold
       chosen = oppActions.reduce((best, a) => (creatureCount(a.targets[0].id) > creatureCount(best.targets[0].id) ? a : best), oppActions[0]);
+    } else if ((actions[0].program?.atoms || []).some(a => a.op === "fight-pair" || a.op === "damage-target-power")) {
+      // TWO-CHOSEN-TARGET fight (Prey Upon / Pounce = fight-pair; Aggressive Instinct / Rabid Bite =
+      // one-way damage-target-power): each cast action carries a role-tagged pair — a `fighter` (the AI's
+      // own creature, the dealer) + a `target` (the creature it hits). The generic chooser below can't
+      // score a two-target program (null legacy `effect`), so pick here. Discipline: the fighter must be
+      // the AI's OWN creature and the target an ENEMY (never aim it at our own board), and the fight must
+      // KILL the enemy (fighter power ≥ enemy toughness) — and for the two-way fight-pair the fighter must
+      // SURVIVE (enemy power < fighter toughness) so we never trade our creature into a worse one. Among
+      // qualifying casts, hit the biggest enemy; if none qualifies, HOLD (a miss only costs a card, never a
+      // wrong play). CREED — a confidently-bad fight (suicide / friendly-fire) is never offered.
+      const oneWay = (actions[0].program.atoms).some(a => a.op === "damage-target-power");
+      const enemies = new Set(opponentsOf(state, aiPlayerId));
+      const lk = (id) => findPermanent(state, id)?.permanent;
+      const good = [];
+      for (const a of actions) {
+        const fighterT = (a.targets || []).find(t => t.role === "fighter");
+        const targetT = (a.targets || []).find(t => t.role === "target");
+        if (!fighterT || !targetT) continue;
+        if (fighterT.controller !== aiPlayerId) continue;            // our fighter must be ours
+        if (!enemies.has(targetT.controller)) continue;              // the victim must be an opponent's
+        const fp = lk(fighterT.id), tp = lk(targetT.id);
+        if (!fp || !tp) continue;
+        const fPow = Math.max(0, permanentPower(state, fighterT.id));
+        const tTou = Math.max(0, permanentToughness(state, targetT.id));
+        const tPow = Math.max(0, permanentPower(state, targetT.id));
+        const fTou = Math.max(0, permanentToughness(state, fighterT.id));
+        const fDeath = permanentHasKeyword(state, fighterT.id, "Deathtouch");
+        const kills = (fDeath && fPow > 0) || (tTou > 0 && fPow >= tTou); // lethal to the enemy
+        if (!kills) continue;
+        if (!oneWay && tPow >= fTou) continue;                        // fight-pair: our fighter would die → skip
+        good.push({ a, enemyPow: tPow });
+      }
+      if (good.length === 0) continue;                               // no profitable fight → hold
+      chosen = good.sort((x, y) => y.enemyPow - x.enemyPow)[0].a;    // kill the biggest threat
     } else if (actions.some(a => a.targets?.length)) {
       // A targeted spell: only cast on a good ENEMY target. chooseAITarget filters to
       // enemies for the scorable legacy effects (damage/destroy); for spells it can't

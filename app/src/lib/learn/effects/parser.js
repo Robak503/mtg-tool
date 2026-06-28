@@ -751,6 +751,53 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     if (fm) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: !!fm[1] };
   }
 
+  // ===== FIGHT-PAIR / DAMAGE-TARGET-POWER (CR 701.12 / 119) ===== the TWO-CHOSEN-TARGET forms — the
+  // SPELL/activated shape where the FIGHTER (the dealer) is itself a chosen target, NOT the source:
+  //   "Target creature you control fights target creature you don't control"            (Prey Upon, Pounce)
+  //   "Target creature you control deals damage equal to its power to target creature you don't control"
+  //                                                                                       (Aggressive Instinct, Rabid Bite)
+  //   "Target creature fights another target creature"  (any-side, distinct)             (Clash of Titans, Blood Feud)
+  // The atom carries TWO target specs: the PRIMARY (the enemy "you don't control" — role "target") plus a
+  // `secondaryTargetType`/`secondaryRestrictions`/`secondaryRole:"fighter"` for the dealer ("you control").
+  // expandAtoms enumerates BOTH (cartesian, DISTINCT ids), the AI cast-path aims a real fighter at a killable
+  // enemy, and the resolver (applyFightPair / applyDamageTargetPower) reads the fighter from the role-tagged
+  // target. ANCHORED whole-clause (`$`) so any rider ("…If it has trample…", a pump prefix, the planeswalker
+  // "creature or planeswalker") leaves residue → no match → low → Arbiter (CREED, never a half-resolve).
+  {
+    const t = s.toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "");
+    // The enemy half is worded "you don't control" OR the equivalent "an opponent controls" — both pin the
+    // target to an opponent's creature (CR 109.5 / 702 — same controller restriction). One alternation, one
+    // restriction. (Anything else after — "or planeswalker", a trample/excess rider — fails the `$` → Arbiter.)
+    const ENEMY = "target creature (?:you don't control|an opponent controls)";
+    // (a) "target creature you control fights target creature you don't control / an opponent controls" (two-way)
+    let m = t.match(new RegExp(`^target creature you control fights ${ENEMY}$`));
+    if (m) return {
+      op: "fight-pair", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
+      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
+    };
+    // (b) "target creature you control deals damage equal to its power to target creature you don't control" (one-way)
+    m = t.match(new RegExp(`^target creature you control deals damage equal to its power to ${ENEMY}$`));
+    if (m) return {
+      op: "damage-target-power", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
+      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
+    };
+    // (c) "target creature fights another target creature"  (any-side, the two must be DISTINCT — CR 701.12)
+    m = t.match(/^target creature fights another target creature$/);
+    if (m) return {
+      op: "fight-pair", targetType: "creature", restrictions: [], role: "target",
+      secondaryTargetType: "creature", secondaryRestrictions: [], secondaryRole: "fighter", distinct: true,
+    };
+    // (d) "target creature you control fights another target creature" (Ulvenwald Tracker) — the FIGHTER is
+    // yours; the dealee is ANY OTHER creature ("another" → distinct, CR 701.12). The dealee carries no
+    // controller restriction (it may legally be your own), but the cast-path AI still aims it at an enemy
+    // (its two-target chooser only offers the enemy as the `target` role) and a human picks interactively.
+    m = t.match(/^target creature you control fights another target creature$/);
+    if (m) return {
+      op: "fight-pair", targetType: "creature", restrictions: [], role: "target",
+      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter", distinct: true,
+    };
+  }
+
   // Extended atoms (anchored ALLOWLIST) before the legacy parse.
   const ext = parseExtendedAtom(s);
   if (ext && KNOWN.has(ext.op)) return ext;
@@ -1486,6 +1533,16 @@ export function atomTargetIntent(atom) {
   const tt = atom.targetType;
   if (!tt || isNonChosenTargetType(tt)) return null;
   switch (atom.op) {
+    case "fight-pair":
+    case "damage-target-power":
+      // FIGHT-PAIR / DAMAGE-TARGET-POWER (the TWO-CHOSEN-TARGET fight) — a SINGLE atom that needs BOTH an
+      // "own" creature (the fighter/dealer) AND an "enemy" creature (the target). The intent model is ONE
+      // value per atom, which can't express two opposite sides, so report "ambiguous" — that gates the
+      // shape OUT of the auto-target paths that assume one side per atom: the trigger flush
+      // (programTriggerTargetsResolvable → false → Arbiter) and the loyalty-AI safety check (rejects
+      // ambiguous). The shape is handled explicitly on the CAST path (opponentAI two-target chooser) where
+      // each role gets its own side; a human picks both interactively. CREED — never a blind mis-target.
+      return "ambiguous";
     case "deal-damage":
     case "destroy":
     case "exile":
