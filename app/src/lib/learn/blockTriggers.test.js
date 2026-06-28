@@ -83,3 +83,26 @@ describe("BLOCK triggers (subsystem 2) — runtime fires at declare-blockers", (
     expect((checkBlockTriggers(s).pendingTriggers || [])).toHaveLength(0);
   });
 });
+
+describe("BUSHIDO keyword (subsystem 2) — synthesis + firing", () => {
+  const BUSHIDO2 = "Bushido 2 (Whenever this creature blocks or becomes blocked, it gets +2/+2 until end of turn.)";
+  it("recognition: the Bushido N keyword classifies native (keyword-only / + modeled riders)", () => {
+    expect(classifyCard(cr("Devoted Retainer", "Bushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)"))).toBe("native-body");
+    expect(classifyCard(cr("Numai Outcast", BUSHIDO2 + "\n{B}, Pay 5 life: Regenerate this creature."))).toBe("native-activated");
+  });
+  it("FN boundary: RAMPAGE (per-blocker scaling) stays Arbiter", () => {
+    expect(classifyCard(cr("Craw Giant", "Trample\nRampage 2 (Whenever this creature becomes blocked, it gets +2/+2 until end of turn for each creature blocking it beyond the first.)"))).toBe("body-only");
+  });
+  it("runtime: a bushido ATTACKER that becomes blocked gets +N/+N", () => {
+    let s = combatState(BUSHIDO2);
+    s = resolveTopOfStack(flushTriggers(checkBlockTriggers(s)));
+    expect(permanentPower(s, "atk")).toBe(4);     // 2/2 + Bushido 2
+    expect(permanentToughness(s, "atk")).toBe(4);
+  });
+  it("runtime: a bushido BLOCKER gets +N/+N (fires in the blocker role too)", () => {
+    let s = combatState("", "Bushido 1 (Whenever this creature blocks or becomes blocked, it gets +1/+1 until end of turn.)");
+    s = resolveTopOfStack(flushTriggers(checkBlockTriggers(s)));
+    expect(permanentPower(s, "blk")).toBe(2);     // 1/3 blocker + Bushido 1
+    expect(permanentToughness(s, "blk")).toBe(4);
+  });
+});

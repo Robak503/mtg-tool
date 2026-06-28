@@ -961,6 +961,21 @@ export function detectTriggers(card) {
       });
     }
   }
+  // BUSHIDO (subsystem 2) — KEYWORD→TRIGGER synthesis. "Bushido N" is a keyword whose triggered ability
+  // lives in REMINDER parens (CR 702.46a — "Whenever this creature blocks or becomes blocked, it gets
+  // +N/+N until end of turn."), which the boundary-anchored regex above can't match (a "(" isn't a
+  // sentence boundary). Synthesize the descriptor directly off the keyword so it FIRES (checkBlockTriggers
+  // fires the combined "blocksOrBecomesBlocked" event for both the blocker and the blocked-attacker role)
+  // and coverage counts it (allTriggerSentencesModeled bumps the shaped count for the keyword to match).
+  const bushido = oracle.match(/\bbushido (\d+)\b/i);
+  if (bushido) {
+    const n = parseInt(bushido[1], 10);
+    out.push({
+      event: "blocksOrBecomesBlocked", scope: "self", whose: "any",
+      effect: null, effectClause: `this creature gets +${n}/+${n} until end of turn`,
+      optional: false, sourceText: `Bushido ${n}`,
+    });
+  }
   _detectCache.set(card, out);
   return out;
 }
@@ -1413,6 +1428,17 @@ export function checkBlockTriggers(state) {
     const lk = findPermanent(state, b.attackerId);
     if (!lk) continue;
     fired = fired.concat(triggersForEvent(state, { event: "becomesBlocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: {} }));
+  }
+  // BUSHIDO (subsystem 2) — the combined "blocks OR becomes blocked" event fires for a creature in EITHER
+  // role: each blocker AND each blocked attacker. Deduped across both roles so a creature that somehow
+  // blocks AND is blocked the same combat still fires its bushido once (CR 702.46a — one event).
+  const seenEither = new Set();
+  for (const id of [...seenBlocker, ...seenAttacker]) {
+    if (seenEither.has(id)) continue;
+    seenEither.add(id);
+    const lk = findPermanent(state, id);
+    if (!lk) continue;
+    fired = fired.concat(triggersForEvent(state, { event: "blocksOrBecomesBlocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: {} }));
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
