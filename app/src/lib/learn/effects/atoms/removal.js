@@ -226,6 +226,14 @@ export function sacrificeEdictClauseParser(clause) {
  */
 export function destroyExileClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // TRIG-PRONOUN destroy (the triggering permanent, CR 608.2c) — "destroy the triggering creature" (Toxin
+  // Sliver's "destroy that creature"; detectTriggers rewrites the non-self pronoun → this sentinel before it
+  // reaches here, mirroring bounceClauseParser's "return the triggering creature …" form). target:"thatCreature"
+  // → atomTargets/triggeringTargets → ctx.triggeringPermanentId (the damaged creature). The "can't be
+  // regenerated" rider is re-stamped onto this destroy atom by the parseEffectClause wrapper (CANT_REGEN_TEST
+  // matches "that creature can't be regenerated"). Only the detectTriggers sentinel produces this clause, so a
+  // spell anaphor never reaches it; an absent id is a clean no-op (applyDestroyEffect over an empty target list).
+  if (/^destroy the triggering creature$/.test(t)) return { op: "destroy", target: "thatCreature" };
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
   const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control))?$/);
   if (rm) {

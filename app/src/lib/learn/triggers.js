@@ -869,6 +869,34 @@ function detectSubtypeGlobalCombatDamage(condRaw, _cardName, _typeLine, effectRa
   return { event: "combatDamageToPlayer", scope: "subtypeGlobal", whose: "any", subtypeFilter: filter, itsController: true };
 }
 
+// GLOBAL SUBTYPE combat-damage-TO-A-CREATURE (Toxin Sliver) — "Whenever a <Subtype> deals combat damage to
+// a CREATURE, destroy that creature[. It can't be regenerated]". DISTINCT from the to-a-PLAYER form
+// (Synapse/Brood) in TWO ways:
+//   1. The triggering EVENT is combat damage dealt to a CREATURE (a source→creature-target pairing), fired by
+//      checkCombatDamageToCreatureTriggers off combatResolution's per-pair creature-damage events.
+//   2. The effect ("destroy THAT creature") acts on the DAMAGED creature, not the dealing creature's
+//      controller — so the trigger threads the DAMAGED creature as the triggering permanent (→
+//      ctx.triggeringPermanentId → "destroy the triggering creature" → thatCreature target), while the SUBTYPE
+//      check is on the DEALING creature (scope:"subtypeGlobalToCreature" reads ctx.dealingPermanentId).
+// CREED: fires ONLY when (a) the condition is the bare GLOBAL form (END-anchored on "a creature"; "you control"
+// — Sosuke / Quest for the Gemblades — or any rider fails the anchor, a SAFE false-negative) AND (b) the effect
+// BEGINS with "destroy that creature" (the only effect this scope models; "destroy that creature at end of
+// combat" — Sosuke's delayed form — is left to the same all-or-nothing follow-up gate that drops an unmodeled
+// rider to the Arbiter). parseSubtypeList rejects a card-TYPE word ("a creature deals …" — Quest) → no
+// over-fire. The "destroyThatCreature" flag is recognition-only; the actual destroy rides the rewritten effect
+// clause + the existing cannotRegenerate re-stamp (CANT_REGEN_TEST matches "that creature can't be regenerated").
+function detectSubtypeGlobalCombatDamageToCreature(condRaw, _cardName, _typeLine, effectRaw) {
+  const c = String(condRaw || "").toLowerCase().trim();
+  const eff = String(effectRaw || "").toLowerCase().trim();
+  const m = c.match(/^a ((?:[a-z]+,\s*)*(?:or\s+|and\s+)?[a-z]{3,}) deals combat damage to a creature$/);
+  if (!m) return null;
+  if (/\byou control\b/.test(c)) return null;          // the you-control form (Sosuke / Quest) is a different scope, not modeled here
+  if (!/^destroy that creature\b/.test(eff)) return null; // only the destroy-that-creature effect shape (CREED gate)
+  const filter = parseSubtypeList(m[1]);
+  if (!filter) return null;                            // a card-TYPE word / non-subtype → Arbiter (no over-fire)
+  return { event: "combatDamageToCreature", scope: "subtypeGlobalToCreature", whose: "any", subtypeFilter: filter, destroyThatCreature: true };
+}
+
 // ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
 // is `(condition, cardName, typeLine, effectClause) => TriggerDescriptorClassification | null` and is
 // consulted by detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep
@@ -997,6 +1025,17 @@ export function detectTriggers(card) {
         // (the same draw/create atoms the YOU-control forms use). The detector already gated nativeness on
         // this exact "its controller" prefix, so a different beneficiary phrase never reaches this rewrite.
         effectClause = effectClause.replace(/^its controller /i, "you ");
+      } else if (cls.scope === "subtypeGlobalToCreature" && cls.destroyThatCreature) {
+        // GLOBAL SUBTYPE combat-damage-to-a-creature (Toxin Sliver — "Whenever a Sliver deals combat damage to
+        // a creature, destroy THAT creature. It can't be regenerated."). "that creature" is the DAMAGED creature
+        // (CR 608.2c — the object the ability triggered on), threaded as the pending trigger's triggering
+        // permanent by checkCombatDamageToCreatureTriggers (→ ctx.triggeringPermanentId). Rewrite the leading
+        // "destroy that creature" → the canonical "destroy the triggering creature" sentinel so the destroy
+        // clause parser binds it to thatCreature (the same path TRIG-PRONOUN sac/bounce use). The trailing "It
+        // can't be regenerated." follow-up is appended verbatim above; the parseEffectClause wrapper re-detects
+        // CANT_REGEN_TEST on the full oracle and stamps cannotRegenerate on the destroy atom. The detector
+        // gated nativeness on this exact "destroy that creature" prefix, so no other effect reaches this rewrite.
+        effectClause = effectClause.replace(/^destroy that creature/i, "destroy the triggering creature");
       }
       out.push({
         event: cls.event,
@@ -1007,6 +1046,7 @@ export function detectTriggers(card) {
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
         subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF only (e.g. "Dinosaur" for Pantlaza)
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
+        destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
@@ -1147,6 +1187,16 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
         && (subtypeFilterMatches(triggeringPermanent.card, descriptor.subtypeFilter)
             || (triggeringPermanent.id === sourcePermanent.id
                 && subtypeFilterMatches(sourcePermanent.card, descriptor.subtypeFilter)));
+    case "subtypeGlobalToCreature":
+      // GLOBAL SUBTYPE combat-damage-TO-A-CREATURE (Toxin Sliver — "Whenever a Sliver deals combat damage to a
+      // creature, destroy that creature"). UNLIKE every other combat-damage scope, the `triggeringPermanent`
+      // here is the DAMAGED creature (the destroy target → ctx.triggeringPermanentId), NOT the subtype-bearing
+      // dealer. The authoritative SUBTYPE check is on the DEALING creature and is done in the scan
+      // (checkCombatDamageToCreatureTriggers) BEFORE firing — so this scope only confirms the destroy target
+      // (the damaged creature) still exists as a creature. A null/non-creature triggering permanent → no fire
+      // (a clean no-op; never a fabricated destroy). The scan's subtype gate (parseSubtypeList exact) is what
+      // prevents an over-fire on a non-member dealer; this guards the target side.
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent);
     case "otherSubtypeYouControl":
       // "another <SUBTYPE> you control enters" (Youthful Valkyrie / Champion of the Perished family).
       // Fires when a non-self permanent the source's controller controls carries the subtype in its type line.
@@ -1616,6 +1666,58 @@ export function checkCombatDamageTriggers(state, playerEvents) {
 }
 
 /**
+ * GLOBAL SUBTYPE combat-damage-TO-A-CREATURE (CR 510.2 — combat damage dealt) — enqueue "Whenever a
+ * <Subtype> deals combat damage to a creature, destroy that creature" triggers (Toxin Sliver). Driven by
+ * combatResolution's `creatureDamageEvents` (one `{ dealerId, dealerController, damagedCreatureId }` per
+ * source→creature combat-damage pairing this step), so it fires exactly when a real creature took combat
+ * damage from a creature. UNLIKE checkCombatDamageTriggers (player damage), the trigger watches the DEALING
+ * creature's subtype but its effect ("destroy THAT creature") acts on the DAMAGED creature — so we thread the
+ * DAMAGED creature as the triggering permanent (→ ctx.triggeringPermanentId → "destroy the triggering
+ * creature" → thatCreature) and gate the SUBTYPE here on the DEALER. The subject is ANY player's
+ * matching-subtype creature (GLOBAL — no "you control"), so scan EVERY player's sources. The authoritative
+ * subtype check (parseSubtypeList exact) is here on the dealer, so a non-member dealer never fires (no
+ * over-fire). The DEALER's controller is threaded as the beneficiary (CR 608.2c — "that creature" resolves for
+ * the dealing creature's controller; the destroy itself is controller-agnostic, but the beneficiary keeps the
+ * pending trigger's `controller` correct). The dealer can itself be a global watcher (self-inclusion is moot —
+ * its own subtype is checked the same way). Called BEFORE the lethal SBA at the call site, like the player path
+ * (a trading dealer is still present to bind to). Pure — appends to pendingTriggers.
+ */
+export function checkCombatDamageToCreatureTriggers(state, creatureDamageEvents) {
+  const hits = (creatureDamageEvents || []).filter((e) => e && e.dealerId != null && e.damagedCreatureId != null);
+  if (!hits.length) return state;
+  let fired = [];
+  for (const ev of hits) {
+    const dealerLk = findPermanent(state, ev.dealerId);
+    const damagedLk = findPermanent(state, ev.damagedCreatureId);
+    if (!dealerLk || !damagedLk) continue; // dealer/target already left the battlefield → no binding
+    const dealerPerm = dealerLk.permanent;
+    const damagedPerm = damagedLk.permanent;
+    for (const pid of Object.keys(state.players || {})) {
+      for (const watcher of triggerSourcesOf(state, pid)) {
+        // SUBTYPE gate on the DEALER (authoritative): only fire watchers whose subtype filter the dealing
+        // creature carries. detectTriggers caches descriptors, so read them once per watcher.
+        const descriptors = detectTriggers(watcher.card).filter((d) => d.event === "combatDamageToCreature" && d.scope === "subtypeGlobalToCreature");
+        if (!descriptors.length) continue;
+        for (const d of descriptors) {
+          if (!subtypeFilterMatches(dealerPerm.card, d.subtypeFilter)) continue; // a non-member dealer → no fire
+          // triggeringPermanent = the DAMAGED creature (the destroy target → ctx.triggeringPermanentId).
+          // scopeMatches("subtypeGlobalToCreature") confirms it's a creature; the SUBTYPE gate above (on the
+          // DEALER) is the authoritative one. We call makePendingTrigger DIRECTLY (not via triggersForEvent) for
+          // two reasons: (1) the subtype here is checked on the DEALER, not the triggeringPermanent, so
+          // triggersForEvent's scope path can't carry it; (2) the 5th arg sets `controller` = the DEALER's
+          // controller (CR 608.2c — "that creature" resolves for the dealing creature's controller). The
+          // dealingPermanentId rides the context for completeness. One descriptor per push (a distinct object).
+          if (!scopeMatches(d, watcher, damagedPerm, state)) continue;
+          fired.push(makePendingTrigger(d, watcher, damagedPerm, { dealingPermanentId: ev.dealerId }, ev.dealerController));
+        }
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
  * ENRAGE / DAMAGE-RECEIVED (CR 603.2 — "Whenever this creature is dealt damage, …") — enqueue the
  * dealtDamage trigger for every creature that took damage this event. `events` is a list of
  * `{ creatureId, amount }` collected at the damage-application chokepoint (combatResolution's per-step
@@ -2053,3 +2155,9 @@ registerTriggerDetector(detectPhaseTrigger);
 // falsy, which it does for the global form (the inline combat-damage block returns only for the you-control
 // shapes), so this is purely additive (no existing classification changes).
 registerTriggerDetector(detectSubtypeGlobalCombatDamage);
+// GLOBAL SUBTYPE combat-damage-TO-A-CREATURE ("a <Subtype> deals combat damage to a creature, destroy that
+// creature" — Toxin Sliver). Registered here (defined above, no import) so every importer — runtime AND the
+// coverage metric — sees it. Consulted only after the inline classifyCondition returns falsy, which it does for
+// the to-a-creature form (the inline combat-damage block returns only for the to-a-PLAYER you-control shapes),
+// so this is purely additive (no existing classification changes).
+registerTriggerDetector(detectSubtypeGlobalCombatDamageToCreature);

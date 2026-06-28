@@ -49,7 +49,7 @@ import { permanentHasKeyword, permanentColors, permanentProtectionColors } from 
 import { protectionApplies } from "./protection.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
-import { checkDiesTriggers, checkCombatDamageTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers } from "./triggers.js";
 
 // KW-POISON (toxic — CR 702.180a): the toxic VALUE N. The keyword reminder text spells the number
 // out ("Toxic 3"); the Scryfall keywords array only carries the bare word "Toxic", so N is read from
@@ -145,6 +145,17 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   const armPairs = [];
   const recordArm = (sourcePerm, targetCreatureId) => {
     if (sourcePerm?.card && marksDamageToCreature(sourcePerm.card)) armPairs.push({ source: sourcePerm, targetId: targetCreatureId });
+  };
+  // GLOBAL SUBTYPE combat-damage-to-a-creature (Toxin Sliver) — record (dealing creature → damaged creature)
+  // pairs so checkCombatDamageToCreatureTriggers can fire "Whenever a <Subtype> deals combat damage to a
+  // creature, destroy that creature". UNGATED (unlike recordArm's Wolverine gate): every creature-vs-creature
+  // combat-damage hit is recorded with its dealer + the dealer's controller + the damaged creature, then the
+  // trigger scan applies the exact subtype gate. Only collected when `dealtToTarget > 0` (CR 120.8 — a
+  // 0/prevented hit isn't "combat damage dealt"). Keyed nowhere — a flat list, deduped implicitly by the
+  // per-hit semantics (one entry per source→target this step; the trigger fires per pair, matching CR 510.2).
+  const creatureDamagePairs = [];
+  const recordCreatureDamage = (sourcePerm, damagedCreatureId, dealt) => {
+    if (dealt > 0 && sourcePerm?.id != null) creatureDamagePairs.push({ dealerId: sourcePerm.id, dealerController: sourcePerm.controller, damagedCreatureId });
   };
   // KW-POISON (CR 702.90b infect / 702.79b wither): when the SOURCE has infect or wither, combat
   // damage to a creature is dealt as that many -1/-1 counters, NOT as marked damage (`minus=true`).
@@ -281,6 +292,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
         const dealtToBlocker = consultCombat(give, lookup.permanent, "creature", blk.permanent.id);
         addDmg(blk.permanent.id, dealtToBlocker, deathtouch, attackerMinus);
         if (dealtToBlocker > 0) recordArm(lookup.permanent, blk.permanent.id); // WOLVERINE: attacker dealt to a creature
+        recordCreatureDamage(lookup.permanent, blk.permanent.id, dealtToBlocker); // SUBTYPE-GLOBAL→CREATURE (Toxin): attacker → blocker
         remaining -= give;
         dealt += dealtToBlocker;
       }
@@ -318,6 +330,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
       const bdealt = consultCombat(bpow, blk.permanent, "creature", att.permanentId);
       addDmg(att.permanentId, bdealt, bdt, bminus);
       if (bdealt > 0) recordArm(blk.permanent, att.permanentId); // WOLVERINE: blocker dealt to the attacking creature
+      recordCreatureDamage(blk.permanent, att.permanentId, bdealt); // SUBTYPE-GLOBAL→CREATURE (Toxin): blocker → attacker
       if (blifelink && bdealt > 0) lifeGain[blk.permanent.controller] = (lifeGain[blk.permanent.controller] || 0) + bdealt;
     }
   }
@@ -368,6 +381,13 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // triggered at the damage event; abilities that triggered on combat damage go on the stack after the
   // SBA, CR 510.3a). They land in pendingTriggers; flushTriggers stacks them at the next priority point.
   next = checkCombatDamageTriggers(next, playerEvents);
+  // GLOBAL SUBTYPE combat-damage-TO-A-CREATURE (Toxin Sliver — "Whenever a Sliver deals combat damage to a
+  // creature, destroy that creature"). Fired off the (dealer → damaged-creature) pairs collected above, BEFORE
+  // the lethal SBA so both the dealer and the damaged creature are still on the battlefield to bind to (the
+  // destroy resolves at the next priority point; a damaged creature that the lethal SBA already removed
+  // self-no-ops at resolution — thatCreature → [] when it's gone). No-op without a Toxin-style watcher (the
+  // collected pairs are inert until the trigger scan finds a matching subtype-global watcher).
+  next = checkCombatDamageToCreatureTriggers(next, creatureDamagePairs);
   // BATCH combat-damage (CR 510.4) — "one or more creatures you control deal combat damage to a player"
   // fires ONCE per controller who connected (not per attacker). Same playerEvents, fired alongside.
   next = checkBatchCombatDamageTriggers(next, playerEvents);

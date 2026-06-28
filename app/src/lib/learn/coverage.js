@@ -249,9 +249,16 @@ export function permanentTriggersCovered(card) {
   // Also strip the "Do this only once each turn." frequency rider — it's part of the trigger's effect
   // (the parser models it via the oncePerTurn flag), but the trigger regex stops at the first period,
   // leaving the rider as apparent residue (Pantlaza, Sun's Vanguard).
+  // Likewise the "(It|That creature|They|Those creatures) can't be regenerated." rider — it's part of a
+  // DESTROY trigger's effect (the parser re-detects it via CANT_REGEN_TEST and stamps cannotRegenerate on the
+  // destroy atom, so the WHOLE effect parses HIGH in allTriggerSentencesModeled above), but the trigger regex
+  // stops at the first period after "destroy that creature.", leaving the rider as apparent residue (Toxin
+  // Sliver — "destroy that creature. It can't be regenerated."). Anchored to the exact regen-rider subjects
+  // (the same anchor parser.js uses), so it can only consume a true follow-up rider — strictly FN-safe.
   const residue = stripTriggerAbilityLabel(card.oracle || "")
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
-    .replace(/\bDo this only once each turn\b\.?\s*/gi, " ");
+    .replace(/\bDo this only once each turn\b\.?\s*/gi, " ")
+    .replace(/\b(?:they|it|that creature|those creatures) can'?t be regenerated\b\.?\s*/gi, " ");
   return isKeywordOnly(residue, card?.name);
 }
 
