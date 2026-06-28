@@ -77,8 +77,10 @@ describe("static-hexproof-shroud — a granted instance is honored by canBeTarge
 
 // ─── 3. CREED non-flips ────────────────────────────────────────────────────────────
 describe("static-hexproof-shroud — CREED: un-enforced keyword / quoted ability stay Arbiter", () => {
-  it("a quoted granted ability ('All Slivers have \"{T}: ...\"') stays body-only", () => {
-    expect(classifyCard({ type: "Creature — Sliver", name: "Crypt Sliver", oracle: 'All Slivers have "{T}: Regenerate target Sliver."' })).toBe("body-only");
+  it("a quoted granted ability with an UNMODELED body ('All Slivers have \"{T}: Tap target permanent.\"') stays body-only", () => {
+    // Telekinetic Sliver — a "tap TARGET PERMANENT" body is still unmodeled (the regenerate-target-SUBTYPE +
+    // pay-life self-bounce bodies DO flip now; this keeps a genuinely-unmodeled body as the CREED boundary).
+    expect(classifyCard({ type: "Creature — Sliver", name: "Telekinetic Sliver", oracle: 'All Slivers have "{T}: Tap target permanent."' })).toBe("body-only");
   });
   it("an un-enforced keyword (shadow) anthem stays body-only", () => {
     expect(classifyCard({ type: "Creature — Sliver", name: "Shadow Sliver", oracle: "All Sliver creatures have shadow." })).toBe("body-only");

@@ -10,8 +10,14 @@
  * RECIPIENT (not the granter).
  *
  * CREED boundaries proven here:
- *  - the quoted body must be FULLY MODELED — a TARGETED / X-scaling body (Telekinetic "{T}: Tap target
- *    permanent", Crypt "Regenerate target Sliver", Magma's X-pump) stays body-only → Arbiter (safe FN);
+ *  - the quoted body must be FULLY MODELED — a still-unmodeled body (Telekinetic "{T}: Tap target
+ *    permanent", Magma's X-scaling pump) stays body-only → Arbiter (safe FN);
+ *  - SUBTYPE-REGEN (added later): a SUBTYPE-targeted regenerate IS modeled — Crypt "{T}: Regenerate target
+ *    Sliver" + Poultice "{2}, {T}: …" now flip native-static; the granted ability offers ONLY Slivers as
+ *    targets (the subtype restriction) and regenerates the chosen one;
+ *  - SELF-PERMANENT-BOUNCE (added later): Hibernation "Pay 2 life: Return this permanent to its owner's
+ *    hand" flips native-static — the Pay-N-life cost + the "this permanent" self-bounce both model, and the
+ *    bounce returns the RECIPIENT to hand;
  *  - the selector scopes correctly — a non-matching permanent (a Bear under an "All Slivers" grant) does
  *    NOT gain the ability;
  *  - "this permanent" / the {T}/sacrifice COST bind to the recipient: regenerate shields the recipient (not
@@ -51,9 +57,16 @@ describe("GROUP-ACTIVATED grant (queue 1) — recognition", () => {
     // "Sliver creatures you control have …" selector form
     expect(classifyCard(sliver("Variant", 'Sliver creatures you control have "{B}: Regenerate this permanent."'))).toBe("native-static");
   });
-  it("FN boundary — a TARGETED / X-scaling / triggered body stays Arbiter (body-only, CREED)", () => {
+  it("SUBTYPE-REGEN / SELF-PERMANENT-BOUNCE — a modeled SUBTYPE-targeted regen / pay-life self-bounce → native-static", () => {
+    // Crypt / Poultice: "{T}: Regenerate target Sliver" — a SUBTYPE-restricted target IS modeled (offers only
+    // Slivers; regenerates the chosen one). Hibernation: "Pay 2 life: Return this permanent to its owner's hand".
+    expect(classifyCard(sliver("Crypt Sliver", 'All Slivers have "{T}: Regenerate target Sliver."'))).toBe("native-static");
+    expect(classifyCard(sliver("Poultice Sliver", 'All Slivers have "{2}, {T}: Regenerate target Sliver."'))).toBe("native-static");
+    expect(classifyCard(sliver("Hibernation Sliver", 'All Slivers have "Pay 2 life: Return this permanent to its owner\'s hand."'))).toBe("native-static");
+  });
+  it("FN boundary — a still-unmodeled TARGETED / X-scaling / triggered body stays Arbiter (body-only, CREED)", () => {
     expect(classifyCard(sliver("Telekinetic Sliver", 'All Slivers have "{T}: Tap target permanent."'))).toBe("body-only");
-    expect(classifyCard(sliver("Crypt Sliver", 'All Slivers have "{T}: Regenerate target Sliver."'))).toBe("body-only");
+    // Magma stays body-only — an X-scaling pump ("+X/+0 where X = the number of Slivers") is NOT modeled (PARK).
     expect(classifyCard(sliver("Magma Sliver", 'All Slivers have "{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield."'))).toBe("body-only");
     // a GROUP-granted TRIGGERED body is deferred (group-triggered = a later slice)
     expect(classifyCard(sliver("Tempered Sliver", 'Sliver creatures you control have "Whenever this creature deals combat damage to a player, put a +1/+1 counter on it."'))).toBe("body-only");
@@ -118,6 +131,56 @@ describe("GROUP-ACTIVATED grant (queue 1) — 'this permanent' / cost bind to th
     d = resolveTopOfStack(d);
     expect(d.players.ai.battlefield.find((p) => p.id === "enemy")).toBeUndefined();     // 2/2 took 2 → dead
     expect(d.players.user.battlefield.find((p) => p.id === "recip")).toBeUndefined();   // recipient sacrificed (cost)
+  });
+});
+
+describe("GROUP-ACTIVATED grant — SUBTYPE-REGEN (Crypt Sliver: {T}: Regenerate target Sliver)", () => {
+  // un-summoning-sick every battlefield permanent so the {T} cost is payable (the board() helper defaults
+  // creatures to summoningSick).
+  const wake = (s) => ({ ...s, players: { ...s.players, user: { ...s.players.user, battlefield: s.players.user.battlefield.map((p) => ({ ...p, summoningSick: false })) } } });
+
+  it("offers the regen ONLY targeting Slivers — never the non-Sliver Bear", () => {
+    const s = wake(board('All Slivers have "{T}: Regenerate target Sliver."'));
+    const a = acts(s);
+    const targets = [...new Set(a.flatMap((x) => (x.targets || []).map((t) => t.id)))].sort();
+    expect(targets).toContain("granter");
+    expect(targets).toContain("recip");
+    expect(targets).not.toContain("bear");   // the SUBTYPE restriction excludes the Bear from the target set
+  });
+
+  it("a Sliver taps ({T}) to regenerate a TARGET Sliver (the granter shields the recipient)", () => {
+    const s = wake(board('All Slivers have "{T}: Regenerate target Sliver."'));
+    const act = acts(s).find((x) => x.permanentId === "granter" && x.targets?.some((t) => t.id === "recip"));
+    expect(act).toBeTruthy();
+    let d = dispatchAction(s, act);
+    d = resolveTopOfStack(d);
+    const recip = d.players.user.battlefield.find((p) => p.id === "recip");
+    const granter = d.players.user.battlefield.find((p) => p.id === "granter");
+    expect((recip.regenShields || 0)).toBeGreaterThan(0);   // the TARGET Sliver is shielded
+    expect(granter.tapped).toBe(true);                       // the {T} cost tapped the activator
+  });
+});
+
+describe("GROUP-ACTIVATED grant — SELF-PERMANENT-BOUNCE (Hibernation Sliver: Pay 2 life: Return this permanent…)", () => {
+  it("the ability is offered on every Sliver, NOT the Bear (selector scope)", () => {
+    const s = board('All Slivers have "Pay 2 life: Return this permanent to its owner\'s hand."');
+    const ids = acts(s).map((a) => a.permanentId);
+    expect(ids).toContain("granter");
+    expect(ids).toContain("recip");
+    expect(ids).not.toContain("bear");
+  });
+
+  it("a Sliver pays 2 life to bounce ITSELF (the RECIPIENT) to its owner's hand; the granter is untouched", () => {
+    const s = board('All Slivers have "Pay 2 life: Return this permanent to its owner\'s hand."');
+    const life0 = s.players.user.life;
+    const onRecip = acts(s).find((a) => a.permanentId === "recip");
+    expect(onRecip).toBeTruthy();
+    let d = dispatchAction(s, onRecip);
+    d = resolveTopOfStack(d);
+    expect(d.players.user.battlefield.find((p) => p.id === "recip")).toBeUndefined();        // recipient left the battlefield
+    expect(d.players.user.battlefield.find((p) => p.id === "granter")).toBeTruthy();         // the granter is untouched
+    expect(d.players.user.hand.some((c) => c.name === "Plain Sliver")).toBe(true);           // the recipient is now in hand (bounced)
+    expect(d.players.user.life).toBe(life0 - 2);                                             // the Pay-2-life cost was paid
   });
 });
 

@@ -348,6 +348,15 @@ function creatureSatisfiesRestrictions(state, perm, pid, casterId, restrictions)
       const hasKw = permanentHasKeyword(state, perm.id, r.keyword);
       if (r.negate && hasKw) return false;  // "without flying" → must NOT have flying
       if (!r.negate && !hasKw) return false; // "with flying" → must have flying
+    } else if (r.kind === "subtype") {
+      // SUBTYPE-TARGET (CR 205.3) — "target <Subtype>" (e.g. "Regenerate target Sliver", Crypt Sliver's
+      // group-granted ability). A creature subtype is a proper noun appearing verbatim ONLY in the subtype
+      // portion of a type line ("Creature — Sliver"), so a word-bounded, case-insensitive containment test
+      // matches exactly the subtyped creatures. The matcher (combatKeywordClauseParser) only emits a CURATED
+      // creature-subtype word, so this never mis-matches a color/card-type word. Front-face only (CR 712.4a):
+      // a DFC's combined "Front // Back" line would wrongly match a back-face subtype.
+      const tl = String(perm.card?.type || perm.card?.type_line || "").split(" // ")[0];
+      if (!new RegExp(`\\b${r.subtype}\\b`, "i").test(tl)) return false;
     }
   }
   return true;

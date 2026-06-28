@@ -212,7 +212,7 @@ export function bounceClauseParser(clause) {
     const restrictions = bp[2] ? [{ kind: "controller", who: /^you control$/.test(bp[2]) ? "you" : "opponent" }] : [];
     return { op: "bounce", targetType: TT[bp[1]], restrictions };
   }
-  if (/^return this creature to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
+  if (/^return this (?:creature|permanent) to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
   if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
   return null;
 }

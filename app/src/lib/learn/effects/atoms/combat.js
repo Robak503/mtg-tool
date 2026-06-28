@@ -456,8 +456,29 @@ export function combatKeywordClauseParser(clause) {
   if (/^each creature deals damage to itself equal to its power$/.test(t)) return { op: "damage-self-power", targetType: "eachCreature" };
   if (/^regenerate (?:this creature|this permanent)$/.test(t)) return { op: "regenerate", target: "self" };
   if (/^regenerate target creature$/.test(t)) return { op: "regenerate", targetType: "creature" };
+  // SUBTYPE-REGEN (CR 205.3 / 701.15) — "regenerate target <Subtype>" (Crypt/Poultice Sliver's group-granted
+  // "{T}: Regenerate target Sliver"; printed Black Poplar Shaman "Regenerate target Treefolk", etc.). A
+  // CURATED creature-subtype word only (REGEN_TARGET_SUBTYPES) — so a color ("regenerate target green
+  // creature"), a card type ("artifact"/"permanent"), or a control rider ("creature you control") never
+  // matches here (those stay → low → Arbiter, FN-safe, as before). The subtype rides as a target restriction
+  // (enumerateTargets → creatureSatisfiesRestrictions kind:"subtype"), so the runtime offers + regenerates
+  // ONLY the matching subtype — never a fabricated/illegal target. addRegenShield already handles the
+  // resulting targetType:"creature" target list, so no resolver change is needed.
+  const rsM = t.match(/^regenerate target ([a-z]+)$/);
+  if (rsM && REGEN_TARGET_SUBTYPES.has(rsM[1])) {
+    return { op: "regenerate", targetType: "creature", restrictions: [{ kind: "subtype", subtype: rsM[1] }] };
+  }
   return null;
 }
+
+// SUBTYPE-REGEN — the CURATED creature subtypes that appear after "regenerate target <X>" in the corpus
+// (verified: each appears verbatim ONLY in the subtype portion of a type line — zero left-of-dash collisions —
+// so a `\b<subtype>\b` containment match in creatureSatisfiesRestrictions hits exactly the subtyped creatures,
+// CR 205.3m). CURATED (not generic) per the CREED: a non-subtype word (a color/card-type) can never reach the
+// restriction. Singular surface form only — "regenerate target <X>" is always singular in the corpus.
+const REGEN_TARGET_SUBTYPES = new Set([
+  "sliver", "samurai", "fungus", "zombie", "treefolk", "insect", "beast", "elephant", "golem", "shade",
+]);
 
 /**
  * PUMP clause parser (migrated from parseExtendedAtom, seam batch 12c / Wave B1b) — the most fragmented op.

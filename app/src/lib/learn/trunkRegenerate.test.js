@@ -29,10 +29,21 @@ describe("REGEN — parser (bare anchored forms only)", () => {
     expect(parseEffectClause("regenerate this permanent").atoms).toEqual([{ op: "regenerate", target: "self" }]);
     expect(parseEffectClause("regenerate target creature").atoms).toEqual([{ op: "regenerate", targetType: "creature" }]);
   });
+  it("SUBTYPE-REGEN — 'regenerate target <curated subtype>' → a subtype-restricted creature target", () => {
+    // Crypt/Poultice Sliver's group-granted body, and printed Black Poplar Shaman (Treefolk), Krosan Warchief
+    // (Beast), Boneknitter (Zombie). The subtype rides as a target restriction so enumeration offers only the
+    // subtyped creatures.
+    expect(parseEffectClause("regenerate target sliver").atoms).toEqual([{ op: "regenerate", targetType: "creature", restrictions: [{ kind: "subtype", subtype: "sliver" }] }]);
+    expect(parseEffectClause("regenerate target treefolk").atoms).toEqual([{ op: "regenerate", targetType: "creature", restrictions: [{ kind: "subtype", subtype: "treefolk" }] }]);
+    expect(parseEffectClause("regenerate target beast").atoms).toEqual([{ op: "regenerate", targetType: "creature", restrictions: [{ kind: "subtype", subtype: "beast" }] }]);
+  });
   it("does NOT recognize filtered / off-type regenerate (→ Arbiter, CREED-safe)", () => {
     expect(parseEffectClause("regenerate target creature you control").atoms).toEqual([]);
     expect(parseEffectClause("regenerate target artifact").atoms).toEqual([]);
     expect(parseEffectClause("regenerate all creatures you control").atoms).toEqual([]);
+    // a COLOR-qualified target ("green creature") and an un-curated noun are NOT a subtype → stay Arbiter.
+    expect(parseEffectClause("regenerate target green creature").atoms).toEqual([]);
+    expect(parseEffectClause("regenerate target permanent").atoms).toEqual([]);
   });
 });
 

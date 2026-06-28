@@ -124,9 +124,11 @@ describe("GROUP-GRANT (B) — granted quoted MANA ability (parse + CREED gate)",
       .toEqual({ colors: ["G"], amount: 2 });
   });
 
-  it("CREED: a quoted ability that is NOT a fully-modeled mana ability does NOT emit a grant", () => {
-    // regenerate (activated, non-mana), a triggered ability, and an X-scaling ability all stay non-native
-    expect(parseStaticAbilities({ name: "Crypt Sliver", oracle: 'All Slivers have "{T}: Regenerate target Sliver."' })).toEqual([]);
+  it("CREED: a quoted ability with an UNMODELED body does NOT emit a grant", () => {
+    // An unmodeled-body grant emits NOTHING: a tap-target-permanent body (Telekinetic), a triggered ability,
+    // and an X-scaling pump all stay non-native. (The regenerate-target-SUBTYPE + pay-life self-bounce bodies
+    // DO emit an activated grant now — see groupActivatedGrant.test.js; these are the still-unmodeled ones.)
+    expect(parseStaticAbilities({ name: "Telekinetic Sliver", oracle: 'All Slivers have "{T}: Tap target permanent."' })).toEqual([]);
     expect(parseStaticAbilities({ name: "Tempered Sliver", oracle: 'Sliver creatures you control have "Whenever this creature deals combat damage to a player, put a +1/+1 counter on it."' })).toEqual([]);
     expect(parseStaticAbilities({ name: "Magma Sliver", oracle: 'All Slivers have "{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield."' })).toEqual([]);
   });
@@ -139,10 +141,12 @@ describe("GROUP-GRANT (B) — granted quoted MANA ability (parse + CREED gate)",
     expect(parseStaticAbilities({ name: "Forgotten Monument", oracle: 'Other Caves you control have "{T}, Pay 1 life: Add one mana of any color."' })).toEqual([]);
   });
 
-  it("classification: Gemhide/Manaweft stay native-mana; a non-mana grant stays body-only", () => {
+  it("classification: Gemhide/Manaweft stay native-mana; an UNMODELED-body grant stays body-only", () => {
     expect(classifyCard({ type: "Creature — Sliver", name: "Gemhide Sliver", oracle: 'All Slivers have "{T}: Add one mana of any color."' })).toBe("native-mana");
     expect(classifyCard({ type: "Creature — Sliver", name: "Manaweft Sliver", oracle: 'Sliver creatures you control have "{T}: Add one mana of any color."' })).toBe("native-mana");
-    expect(classifyCard({ type: "Creature — Sliver", name: "Crypt Sliver", oracle: 'All Slivers have "{T}: Regenerate target Sliver."' })).toBe("body-only");
+    // A still-unmodeled body (tap target permanent) stays body-only. (Crypt's regenerate-target-Sliver body
+    // now flips native-static via the activated-grant path — proven in groupActivatedGrant.test.js.)
+    expect(classifyCard({ type: "Creature — Sliver", name: "Telekinetic Sliver", oracle: 'All Slivers have "{T}: Tap target permanent."' })).toBe("body-only");
     // STATIC-HEXPROOF-SHROUD: "All Slivers have shroud" is now native-static (shroud admitted to the grant set).
     expect(classifyCard({ type: "Creature — Sliver", name: "Crystalline Sliver", oracle: "All Slivers have shroud." })).toBe("native-static");
   });
