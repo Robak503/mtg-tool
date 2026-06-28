@@ -1112,18 +1112,22 @@ function parseClause(clause, out, selfName) {
     }
   }
 
-  // ── STATIC-ANTHEM keyword-grant ALL-OR-NOTHING GUARD (CLAUDE.md §1.2) ────────
-  // The anthem keyword pass below is NOT all-or-nothing on its own: extractKeywords silently DROPS any
+  // ── STATIC-ANTHEM keyword/protection-grant ALL-OR-NOTHING GUARD (CLAUDE.md §1.2) ────────
+  // The anthem grant pass below is NOT all-or-nothing on its own: a naive extractor silently DROPS any
   // segment that isn't a grantable keyword and still emits the grantable ones. So a clause like
   // "Creatures you control have flying, …, and protection from black and from red" (Akroma's Memorial)
   // would grant flying/first-strike/… while DROPPING the protection — a partial flip = a FORBIDDEN false
   // positive (also Avatar of Slaughter / Hellraiser Goblin "attack each combat if able"; Giant Ankheg
-  // "ward {2}"). Hoisted ABOVE both the P/T pass and the keyword pass because the P2.10 combined "get
-  // +X/+Y and have <tail>" pushes the layer-7c P/T descriptor BEFORE the keyword pass — so a lossy tail
-  // must prevent BOTH descriptors, not just the keyword one. If the "have <tail>" carries ANY segment that
-  // isn't a grantable keyword, the WHOLE clause stays body-only (a clean false-negative).
+  // "ward {2}"). parseAnthemHaveTail is the SINGLE all-or-nothing oracle: it returns the modeled
+  // { keywords, protColors } ONLY if EVERY segment is a grantable keyword OR a pure protection-from-COLOR
+  // span (CR 702.16 — the same layer-6 addProtection the EQUIP/Aura path emits, enforced layer-aware by
+  // layers.permanentProtectionColors over the dynamic anthem `affects`). null ⇒ a lossy/unmodeled tail.
+  // Hoisted ABOVE both the P/T pass and the keyword pass because the P2.10 combined "get +X/+Y and have
+  // <tail>" pushes the layer-7c P/T descriptor BEFORE the grant pass — so a lossy tail must prevent BOTH
+  // descriptors, not just the grant one. A lossy "have <tail>" leaves the WHOLE clause body-only (clean FN).
   const haveMatch = c.match(/\b(?:have|has)\s+(.+)$/);
-  if (haveMatch && parseCreatureSelector(c) && haveTailHasNonGrantable(haveMatch[1])) {
+  const anthemGrant = haveMatch && parseCreatureSelector(c) ? parseAnthemHaveTail(haveMatch[1]) : null;
+  if (haveMatch && parseCreatureSelector(c) && !anthemGrant) {
     return;
   }
 
@@ -1148,57 +1152,72 @@ function parseClause(clause, out, selfName) {
     }
   }
 
-  // ── Keyword grants (layer 6, 613.1f) ────────────────────────────────────────
-  // "<selector> have <keyword>[ and <keyword>...]" — the all-or-nothing guard above already returned on a
-  // lossy tail, so by here every segment IS a grantable keyword.
-  if (haveMatch) {
+  // ── Keyword + protection grants (layer 6, 613.1f / CR 702.16) ────────────────
+  // "<selector> have <keyword>[ and <keyword>…][ and protection from <color>…]" — the all-or-nothing guard
+  // above already returned on a lossy tail, so `anthemGrant` here holds the FULLY-modeled { keywords,
+  // protColors } (every segment was a grantable keyword or a pure protection-from-COLOR span). Each keyword
+  // → a layer-6 addKeyword; the protection colors → ONE layer-6 addProtection — both carrying the SAME
+  // anthem `affects` selector, so layers.permanentProtectionColors (which reads addProtection through the
+  // identical effectAffects the keyword ops use) confers the protection to exactly the selected creatures
+  // (yours only for "you control"; symmetric for "all/each"). Akroma's Memorial / Righteous War /
+  // Absolute Grace+Law all flip here; the protection is enforced at the same three sites a printed/Equipment
+  // protection is (combat damage / block / targeting).
+  if (haveMatch && anthemGrant) {
     const affects = parseCreatureSelector(c);
     if (affects) {
-      const kws = extractKeywords(haveMatch[1]);
-      for (const kw of kws) {
-        out.push({
-          layer: 6,
-          op: { layerOp: "addKeyword", keyword: kw },
-          affects,
-          duration: { kind: "permanent" },
-        });
+      for (const kw of anthemGrant.keywords) {
+        out.push({ layer: 6, op: { layerOp: "addKeyword", keyword: kw }, affects, duration: { kind: "permanent" } });
+      }
+      if (anthemGrant.protColors.length) {
+        out.push({ layer: 6, op: { layerOp: "addProtection", colors: anthemGrant.protColors }, affects, duration: { kind: "permanent" } });
       }
     }
   }
 }
 
 /**
- * STATIC-ANTHEM all-or-nothing test: split a "have <tail>" into the SAME comma/"and" segments
- * extractKeywords uses, cleaned identically (drop non-[a-z ] chars so "ward {2}" → "ward"). True if ANY
- * non-empty cleaned segment is NOT a grantable keyword — i.e. modeling this clause would silently drop
- * real text ("protection from black", "attack each combat if able", "ward"). The caller then leaves the
- * WHOLE clause body-only. Mirrors extractKeywords' cleaning so good/bad classification can't drift.
+ * STATIC-ANTHEM all-or-nothing tail parser (CLAUDE.md §1.2). Reduce an anthem "have <tail>" to the
+ * FULLY-modeled { keywords:[canonical…], protColors:[WUBRG…] }, or null if ANY part is unmodeled (so the
+ * caller leaves the WHOLE clause body-only — a clean false-negative, never a partial flip). Two modeled
+ * segment kinds, in one pass so the good/bad decision and the emitted descriptors can't drift:
+ *   1. a grantable KEYWORD (flying, trample, indestructible, …) — comma/"and"-separated;
+ *   2. a single PROTECTION-FROM-COLOR span ("protection from black", "… and from red" — CR 702.16g),
+ *      validated via parseAttachedProtectionColors (the SAME pure-color parser the EQUIP/Aura path uses,
+ *      which rejects a non-color/dynamic quality → null → whole tail unmodeled).
+ * The protection span always trails (every corpus anthem — Akroma's Memorial / Righteous War / Absolute
+ * Grace+Law — ends in it), and its internal "and from"/"and" must NOT be read as keyword separators, so
+ * it's sliced off FIRST (anchored at "protection from") and the REMAINDER is the keyword list. A leftover
+ * non-keyword segment (a quoted ability, "ward {2}", "attack each combat if able", a NON-color protection)
+ * ⇒ null. At most ONE protection span is modeled (a second "protection from …" elsewhere ⇒ null).
  */
-function haveTailHasNonGrantable(tail) {
-  for (const raw of String(tail).split(/,|\band\b/)) {
+function parseAnthemHaveTail(tail) {
+  let s = String(tail).trim();
+  let protColors = [];
+  const pm = s.match(/\bprotection from\b/i);
+  if (pm) {
+    // Everything from "protection from" onward is the protection span (it runs to the clause end). Validate
+    // it as a PURE color list; a non-color/dynamic quality → null (whole tail unmodeled, CREED-safe FN).
+    const protSpan = s.slice(pm.index).trim().replace(/[,\s]+$/, "");
+    const parsed = parseAttachedProtectionColors(protSpan);
+    if (!parsed) return null;
+    protColors = parsed;
+    // The keyword remainder is the text BEFORE the protection span, minus the trailing ", and"/"and"/","
+    // connector that joined it ("flying, …, haste, and protection from …" → "flying, …, haste").
+    s = s.slice(0, pm.index).replace(/[,\s]+$/, "").replace(/\s+and$/i, "").replace(/[,\s]+$/, "").trim();
+    // A SECOND "protection from …" inside the remainder is not modeled (only one span) → bail.
+    if (/\bprotection from\b/i.test(s)) return null;
+  }
+  // Whatever remains must be exactly a grantable-keyword list; ANY other segment ⇒ null (the WHOLE tail is
+  // unmodeled). An empty remainder is fine when a protection span was present (a protection-only grant).
+  const keywords = [];
+  for (const raw of s.split(/,|\band\b/)) {
     const word = raw.trim().replace(/[^a-z ]/g, "").trim();
     if (!word) continue;
-    if (!GRANTABLE_KEYWORDS.has(word)) return true;
+    if (!GRANTABLE_KEYWORDS.has(word)) return null;
+    keywords.push(canonicalKeyword(word));
   }
-  return false;
-}
-
-/**
- * Pull granted keyword names out of a "have <...>" tail, validated against the
- * grantable set. "flying and vigilance" → ["Flying","Vigilance"]; unknown words
- * are dropped (never fabricated). Returns canonical-cased keyword names.
- */
-function extractKeywords(tail) {
-  const found = [];
-  // Split on commas / "and" so "flying, first strike, and trample" parses.
-  for (const raw of tail.split(/,|\band\b/)) {
-    const word = raw.trim().replace(/[^a-z ]/g, "").trim();
-    if (!word) continue;
-    if (GRANTABLE_KEYWORDS.has(word)) {
-      found.push(canonicalKeyword(word));
-    }
-  }
-  return found;
+  if (keywords.length === 0 && protColors.length === 0) return null; // nothing recognized
+  return { keywords, protColors };
 }
 
 const canonicalKeyword = canonicalCombatKeyword;

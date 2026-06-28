@@ -113,11 +113,28 @@ describe("parseStaticAbilities — Unlock Ability ability-word label (Sphere Gri
 // is a FORBIDDEN false positive. Now: if the "have <tail>" carries ANY non-grantable segment, the WHOLE
 // clause stays body-only (no keyword AND no P/T descriptor — the P2.10 combined clause leaks otherwise).
 describe("parseStaticAbilities — keyword-grant all-or-nothing (FP fix)", () => {
-  it("Akroma's Memorial: '… have flying, …, and protection from black and from red' → ZERO descriptors (protection drops the whole clause)", () => {
+  // STATIC-ANTHEM PROTECTION-GRANT: a "have <tail>" mixing grantable keywords with a PROTECTION-FROM-COLOR
+  // span is now MODELED (the protection reuses the enforced layer-6 addProtection op — see
+  // anthemProtection.test.js for the runtime enforcement). The former all-or-nothing FN ("protection drops
+  // the whole clause") is gone for the COLOR case; a NON-color/dynamic protection or any OTHER non-grantable
+  // segment (afflict, ward, "attack each combat if able") still drops the whole clause.
+  it("Akroma's Memorial: '… have flying, …, and protection from black and from red' → 5 keyword grants + 1 addProtection(B,R)", () => {
     const oracle = "Creatures you control have flying, first strike, vigilance, trample, haste, and protection from black and from red.";
     const c = card("Akroma's Memorial", oracle, "Legendary Artifact");
-    expect(parseStaticAbilities(c)).toHaveLength(0);    // not even the grantable kws leak
-    expect(classifyCard(c)).not.toBe("native-static");  // body-only, not a partial-flip FP
+    const d = parseStaticAbilities(c);
+    expect(d.filter((e) => e.op.layerOp === "addKeyword").map((e) => e.op.keyword).sort())
+      .toEqual(["First strike", "Flying", "Haste", "Trample", "Vigilance"]);
+    const prot = d.find((e) => e.op.layerOp === "addProtection");
+    expect(prot.op.colors).toEqual(["B", "R"]);
+    expect(prot.affects.selector).toEqual({ controllerScope: "you", cardTypes: ["Creature"] });
+    expect(classifyCard(c)).toBe("native-static"); // a CLEAN flip — every segment of the whole card is modeled
+  });
+
+  it("a NON-color anthem protection quality STILL drops the whole clause (model both or neither)", () => {
+    // Sword-of-Wealth-and-Power phrasing on an anthem: "protection from instants and from sorceries" is unmodeled.
+    const c = card("X", "Creatures you control have flying and protection from instants and from sorceries.", "Enchantment");
+    expect(parseStaticAbilities(c)).toHaveLength(0);
+    expect(classifyCard(c)).not.toBe("native-static");
   });
 
   it("Avatar of Slaughter: 'All creatures have double strike and attack each combat if able' → ZERO descriptors", () => {
@@ -137,9 +154,19 @@ describe("parseStaticAbilities — keyword-grant all-or-nothing (FP fix)", () =>
     expect(parseStaticAbilities(c)).toHaveLength(0);
   });
 
-  it("combined P2.10 clause is guarded WHOLE: '… get +1/+1 and have flying and protection from red' → NO P/T leak, NO keyword leak", () => {
-    const c = card("Lossy Lord", "Creatures you control get +1/+1 and have flying and protection from red.", "Enchantment");
+  it("combined P2.10 clause is guarded WHOLE on a LOSSY tail: '… get +1/+1 and have flying and ward {2}' → NO P/T leak, NO keyword leak", () => {
+    // ward {2} is not grantable → the whole clause (P/T + keyword) drops. (The protection-from-COLOR variant
+    // is now MODELED — see the clean case below — so this uses a genuinely-unmodeled tail segment.)
+    const c = card("Lossy Lord", "Creatures you control get +1/+1 and have flying and ward {2}.", "Enchantment");
     expect(parseStaticAbilities(c)).toHaveLength(0); // neither the +1/+1 nor the flying survives
+  });
+
+  it("combined P2.10 clause with a CLEAN protection tail: '… get +1/+1 and have flying and protection from red' → P/T + keyword + addProtection", () => {
+    const c = card("Sun Lord", "Creatures you control get +1/+1 and have flying and protection from red.", "Enchantment");
+    const d = parseStaticAbilities(c);
+    expect(d.find((e) => e.op.layerOp === "ptModify").op).toEqual({ layerOp: "ptModify", power: 1, toughness: 1 });
+    expect(d.find((e) => e.op.layerOp === "addKeyword").op.keyword).toBe("Flying");
+    expect(d.find((e) => e.op.layerOp === "addProtection").op.colors).toEqual(["R"]);
   });
 
   // REGRESSION — clean tails (every segment grantable) must STILL parse natively.
