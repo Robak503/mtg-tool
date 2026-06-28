@@ -40,6 +40,27 @@ function oracleOf(card) {
 function typeStr(card) {
   return String(card?.type || card?.type_line || "");
 }
+
+// SUBTYPE filter — a single creature subtype ("Dinosaur") OR a list ("Kraken, Leviathan, Octopus, or
+// Serpent"). Parses "<A>, <B>, … or/and <C>" → array of capitalized subtypes; a single word → that word
+// (back-compatible with the existing single-subtype scope). Rejects (→ null → the trigger stays Arbiter) a
+// list containing a card-TYPE word (creature/permanent/artifact/…) since those would match every permanent
+// (an over-fire); a real subtype list never includes them. Used so a multi-subtype tribal trigger (Spawning
+// Kraken — "a Kraken, Leviathan, Octopus, or Serpent you control deals combat damage") matches ANY member.
+const NON_SUBTYPE_FILTER_WORDS = new Set(["creature", "creatures", "permanent", "permanents", "artifact", "artifacts", "enchantment", "enchantments", "land", "lands", "token", "tokens", "spell", "spells", "player", "players", "card", "cards"]);
+function parseSubtypeList(s) {
+  const parts = String(s).split(/,|\bor\b|\band\b/).map((w) => w.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  if (parts.some((w) => !/^[a-z]{3,}$/i.test(w) || NON_SUBTYPE_FILTER_WORDS.has(w.toLowerCase()))) return null;
+  const caps = parts.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+  return caps.length === 1 ? caps[0] : caps;
+}
+// Does a card's type line carry the subtype filter (single string OR any of a list)?
+function subtypeFilterMatches(card, filter) {
+  if (!filter) return false;
+  const ts = typeStr(card);
+  return Array.isArray(filter) ? filter.some((s) => ts.includes(s)) : ts.includes(filter);
+}
 function isCreaturePerm(perm) {
   return /Creature/.test(typeStr(perm?.card));
 }
@@ -532,8 +553,14 @@ function classifyCondition(condRaw, cardName, cardType) {
     // subtypeYouControl scope (controller + type-line substring; the attacker is threaded as
     // triggeringPermanent by combatResolution). Anchored single word, len >= 3 — "creature" is already
     // handled above; any other shape leaves residue → undetected → Arbiter (never an over-fire).
-    const cdSub = c.match(/^a ([a-z]{3,}) you control deals combat damage to a player$/);
-    if (cdSub) return { event: "combatDamageToPlayer", scope: "subtypeYouControl", whose: "any", subtypeFilter: cdSub[1].charAt(0).toUpperCase() + cdSub[1].slice(1) };
+    // Single subtype (Curious Altisaur) OR a multi-subtype LIST (Spawning Kraken — "a Kraken, Leviathan,
+    // Octopus, or Serpent you control deals combat damage to a player"). parseSubtypeList returns a string
+    // for one word (unchanged) or an array for a list; the subtypeYouControl matcher checks ANY member.
+    const cdSub = c.match(/^a ((?:[a-z]+,\s*)*(?:or\s+|and\s+)?[a-z]{3,}) you control deals combat damage to a player$/);
+    if (cdSub) {
+      const filter = parseSubtypeList(cdSub[1]);
+      if (filter) return { event: "combatDamageToPlayer", scope: "subtypeYouControl", whose: "any", subtypeFilter: filter };
+    }
   }
   // BATCH combat-damage (CR 510.4 — all combat damage is dealt as ONE event). "Whenever one or more
   // creatures you control deal combat damage to a player, <effect>" fires ONCE per combat regardless of
@@ -1066,9 +1093,9 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       // death / damage / attack — a forbidden false positive (Hans, cycle 42; widened to attacks/dies #335).
       return !!triggeringPermanent
         && triggeringPermanent.controller === sourcePermanent.controller
-        && (typeStr(triggeringPermanent.card).includes(descriptor.subtypeFilter || "")
+        && (subtypeFilterMatches(triggeringPermanent.card, descriptor.subtypeFilter)
             || (triggeringPermanent.id === sourcePermanent.id
-                && typeStr(sourcePermanent.card).includes(descriptor.subtypeFilter || "")));
+                && subtypeFilterMatches(sourcePermanent.card, descriptor.subtypeFilter)));
     case "otherSubtypeYouControl":
       // "another <SUBTYPE> you control enters" (Youthful Valkyrie / Champion of the Perished family).
       // Fires when a non-self permanent the source's controller controls carries the subtype in its type line.
