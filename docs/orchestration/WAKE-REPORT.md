@@ -41,6 +41,9 @@
   - `Benevolent Hydra` — "another creature you control" counter doubler applies to ITSELF too (the "another" self-exclusion is dropped; `applyCounterDoubling` only gets the controller id, not the recipient permanent id). Tiny over-buff on Benevolent Hydra itself. Fixing needs a recipient-id arg threaded through the counter pipeline.
   - `Caradora, Heart of Alacria` / similar "creature or Vehicle you control" — applies to all your permanents, a slight super-set. Both stay non-native (mixed bodies), so no metric FP — logged for when the doubler pipeline gains recipient-identity precision.
 
+## 🔨 IN PROGRESS
+- **Choose-type CONSUMERS — delegated to a build sub-agent (fire 9→10, background, isolated worktree).** Building the tractable ones of: Banner of Kinship + Door of Destinies (cross-deck dynamic-counter anthems of the chosen type) · Distant Melody + For the Ancestors (spell-level choose-type). Reuses the Wave-5 chosenType primitive + the COUNT-ANTHEM machinery; agent triages tractability + parks the hard ones. I verify independently (flip-diff + runtime anthem-scaling/count; gate) before integrating.
+
 ## 🧩 CHOOSE-TYPE — next slices (the primitive now exists; these consumers remain)
 The `chosenType` state primitive shipped (Wave 5). Remaining choose-type consumers, each a future delegate-and-verify slice (reads `perm.chosenType` / the spell's chosen type):
 - **Banner of Kinship / Door of Destinies** — "creatures of the chosen type get +1/+1 [for each counter]" — dynamic-counter-scaled anthem (layer-7c). Door also has a cast-trigger charge counter.
