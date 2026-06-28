@@ -1474,6 +1474,48 @@ export function isNativeManaAura(card) {
 }
 
 /**
+ * GRANTED-MANA-ABILITY AURA (creature host) — an Aura that grants the enchanted CREATURE a fully-modeled
+ * tap-for-mana ability ("Enchanted creature has \"{T}: Add one mana of any color.\"" — Multani's Harmony).
+ * Returns the `{colors, amount}` spec (via the CREED-guarded parseGrantedManaSpec) or null. This slice is
+ * CREATURE-host only: the enchanted creature has no own mana production, so manaSources grants the host the
+ * tap through the EXISTING grantedManaSpecsFor runtime (the same path group grants use), with ZERO planner
+ * change. The LAND-host form (Settlement/Sheltered Aerie) is deferred — a land already produces mana, so the
+ * grant is deduped away (a safe under-count) until manaSources learns to SUPPLEMENT an existing producer.
+ */
+export function parseAuraGrantedManaAbility(card) {
+  if (!isAuraCard(card)) return null;
+  if (auraEnchantSubject(card) !== "creature") return null;
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  for (const clause of abilityClauses(oracle)) {
+    const m = clause.trim().match(/^enchanted creature (?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i);
+    if (!m) continue;
+    const spec = parseGrantedManaSpec(m[1]);
+    if (spec) return spec;
+  }
+  return null;
+}
+
+// Residue for a creature-host granted-mana Aura: every body clause that ISN'T the Enchant line or the
+// modeled grant clause. A rider (an ETB trigger — Karametra's Favor "draw a card"; a restriction — Utopia
+// Vow "can't attack or block") leaves residue → the card stays non-native (all-or-nothing, CREED).
+function creatureManaGrantResidueClauses(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  const out = [];
+  for (const clause of abilityClauses(oracle)) {
+    const c = clause.toLowerCase().trim();
+    if (/^enchant\b/.test(c)) continue;                                                       // Enchant keyword line
+    if (/^enchanted creature (?:has|have)\s+["“][^"”]*\{t\}[^"”]*add[^"”]*["”]\s*\.?$/.test(c)) continue; // the modeled grant
+    out.push(clause);
+  }
+  return out;
+}
+
+export function isNativeCreatureManaGrantAura(card) {
+  if (!parseAuraGrantedManaAbility(card)) return false;
+  return creatureManaGrantResidueClauses(card).length === 0;
+}
+
+/**
  * Granular helpers for the COMPOSITE coverage classifier (coverage.permanentFullyCovered),
  * which subtracts trigger + activated clauses itself before checking the static residue —
  * so it needs the per-clause static test + the leveler guard, not the whole-card wrapper.

@@ -34,7 +34,7 @@ import {
   counterPtDelta,
 } from "./ptPrimitive.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
-import { parseStaticAbilities, parseAttachedBonus } from "./staticAbilityParser.js";
+import { parseStaticAbilities, parseAttachedBonus, parseAuraGrantedManaAbility } from "./staticAbilityParser.js";
 import { parseProtectionColors } from "./protection.js";
 
 // ─── Dynamic P/T functions (CR 613 CDA-style values; code, NEVER stored in state) ─
@@ -229,6 +229,21 @@ export function staticEffectsOf(state, permanent) {
   if (permanent.attachedTo) {
     for (const e of parseAttachedBonus(card)) {
       partials.push({ ...e, affects: { mode: "fixed", permanentIds: [permanent.attachedTo] } });
+    }
+    // GRANTED-MANA-ABILITY AURA (creature host): "Enchanted creature has \"{T}: Add …\"" (Multani's Harmony)
+    // grants the enchanted creature a fully-modeled tap-for-mana ability. Emit it as a layer-6 addAbility
+    // grant FIXED to the host so grantedManaSpecsFor → manaSources offers the host the tap (the same runtime
+    // path group grants use). parseAttachedBonus drops this clause (parseAttachedClause can't model a granted
+    // ability), so it's additive — no double-count. Runtime fires whenever attached, independent of the
+    // card's native classification (a ridered Aura still grants the mana; its rider is handled separately).
+    const grantedMana = parseAuraGrantedManaAbility(card);
+    if (grantedMana) {
+      partials.push({
+        layer: 6,
+        op: { layerOp: "addAbility", grant: { kind: "mana", spec: grantedMana } },
+        affects: { mode: "fixed", permanentIds: [permanent.attachedTo] },
+        duration: { kind: "permanent" },
+      });
     }
   }
   if (!partials.length) return [];
