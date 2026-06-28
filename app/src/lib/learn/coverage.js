@@ -255,8 +255,14 @@ export function permanentTriggersCovered(card) {
   // stops at the first period after "destroy that creature.", leaving the rider as apparent residue (Toxin
   // Sliver — "destroy that creature. It can't be regenerated."). Anchored to the exact regen-rider subjects
   // (the same anchor parser.js uses), so it can only consume a true follow-up rider — strictly FN-safe.
+  // CHOSEN-TYPE (CR 614.12, Kindred Discovery) — "As this enchantment enters, choose a creature type." is a
+  // setup replacement, NOT a When/Whenever/At trigger, so the trigger strip leaves it as residue. It's modeled
+  // by the ETB auto-pick (resolvers.autoPickCreatureType stores perm.chosenType), so strip it here too. SAFE:
+  // this runs only AFTER allTriggerSentencesModeled passed — an anthem/cost-reducer chooser (Shared Triumph,
+  // Urza's Incubator) has NO modeled trigger, so it returns false at the triggers gates above and never reaches here.
   const residue = stripTriggerAbilityLabel(card.oracle || "")
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
+    .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")
     .replace(/\bDo this only once each turn\b\.?\s*/gi, " ")
     .replace(/\b(?:they|it|that creature|those creatures) can'?t be regenerated\b\.?\s*/gi, " ");
   return isKeywordOnly(residue, card?.name);

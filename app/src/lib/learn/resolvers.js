@@ -81,6 +81,59 @@ function livingWeaponToken(card) {
   return null;
 }
 
+// CHOSEN-TYPE state primitive (Kindred Discovery family) — does this card say "As <it> enters, choose a
+// creature type"? Anchored to the bare creature-type chooser (CR 614.12 — a choose-a-type-as-it-enters
+// replacement). NOT "choose a card type / land type / planeswalker type" (a different chooser the engine
+// doesn't model), and NOT an activated/spell-level "Choose a creature type" (those carry no "as ~ enters").
+const CHOOSE_CREATURE_TYPE_ETB_RE = /\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b/i;
+function choosesCreatureTypeOnEnter(card) {
+  return CHOOSE_CREATURE_TYPE_ETB_RE.test(String(card?.oracle || card?.oracle_text || ""));
+}
+
+// The creature subtypes printed on a card's type line (the words after the "—", CR 205.3a). [] for a card
+// with no subtype dash. Lower-level than layers.subtypesOf (kept local so resolvers stays leaf-ish).
+function creatureSubtypesOf(card) {
+  const ts = String(card?.type || card?.type_line || "");
+  if (!/Creature/.test(ts)) return [];
+  const dash = ts.indexOf("—");
+  if (dash === -1) return [];
+  return ts.slice(dash + 1).trim().split(/\s+/).filter(Boolean);
+}
+
+/**
+ * AUTO-PICK the creature type for a "choose a creature type as it enters" permanent (CR 614.12) in this
+ * SELF-PLAY engine — there is NO interactive picker, the AI deterministically chooses. Heuristic: the
+ * MOST-COMMON creature subtype among the controller's creatures, looked up in priority order:
+ *   1. the controller's BATTLEFIELD creatures (the board the chooser is actually paying off),
+ *   2. else the controller's LIBRARY/deck creatures (what the deck is built around — the right pick when the
+ *      chooser lands before the tribe does),
+ *   3. else a safe FALLBACK ("Human" — the single most-common creature type in Magic; a non-null type keeps
+ *      the stored state well-formed so a future tribal entry can still match, never an over-fire by itself).
+ * Ties break ALPHABETICALLY so the pick is deterministic + serialize-stable (no Map-iteration-order reliance).
+ * `state` is the PRE-entry state (the chooser isn't on the battlefield yet), so an Enchantment chooser never
+ * counts itself and a creature-form chooser doesn't double-count its own (not-yet-entered) subtype.
+ */
+function autoPickCreatureType(state, controller) {
+  const player = state.players[controller];
+  const tally = new Map();
+  const add = (cards) => {
+    for (const c of cards || []) {
+      for (const sub of creatureSubtypesOf(c.card || c)) tally.set(sub, (tally.get(sub) || 0) + 1);
+    }
+  };
+  add(player?.battlefield);
+  if (tally.size === 0) add(player?.library);
+  if (tally.size === 0) return "Human";
+  // Highest count wins; alphabetical tiebreak for determinism.
+  let best = null;
+  let bestN = -1;
+  for (const sub of [...tally.keys()].sort()) {
+    const n = tally.get(sub);
+    if (n > bestN) { best = sub; bestN = n; }
+  }
+  return best;
+}
+
 export function enterPermanent(state, card, controller, opts = {}) {
   const player = state.players[controller];
   if (!player) return state;
@@ -144,6 +197,13 @@ export function enterPermanent(state, card, controller, opts = {}) {
     const raw = metricCtr.fixed + metricCtr.perUnit * countForSpec(state, ctx, metricCtr.metric);
     if (raw > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", raw) };
   }
+  // CHOSEN-TYPE state primitive (CR 614.12, Kindred Discovery family) — "As ~ enters, choose a creature
+  // type": the self-play engine auto-picks the controller's most-common creature subtype (autoPickCreatureType
+  // reads the PRE-entry `state`) and stores it DURABLY on the permanent as `chosenType`. Plain string, so it
+  // serializes with the trivial JSON pass-through (serialization.js) and PERSISTS — set ONCE here at ETB, never
+  // re-picked. Read by the chosenTypeYouControl trigger scope (triggers.js). An interactive picker is a future
+  // refinement; the deterministic auto-pick is correct + sufficient for self-play.
+  if (choosesCreatureTypeOnEnter(card)) perm.chosenType = autoPickCreatureType(state, controller);
   let next = {
     ...s3,
     players: {

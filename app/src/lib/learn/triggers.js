@@ -65,6 +65,22 @@ function isCreaturePerm(perm) {
   return /Creature/.test(typeStr(perm?.card));
 }
 
+// CHOSEN-TYPE membership (Kindred Discovery's "of the chosen type") — does `card` carry the chosen creature
+// type? True when its type line includes the subtype word-bounded (CR 205.3 — subtypes live after the "—")
+// OR the card is a Changeling (CR 702.73a — every creature type, so it ALWAYS counts). `chosenType` is the
+// durable type picked at ETB and stored on the watching permanent; an unset/empty chosenType yields false
+// (a SAFE no-op — never an over-fire on an unknown type, CLAUDE.md §1.2). Word-bounded so "Elf" matches
+// "Creature — Elf Warrior" but not a substring; escaped for any regex-special subtype text.
+function permHasChosenType(card, chosenType) {
+  if (!chosenType || !card) return false;
+  if (hasKeyword(card, "changeling")) return true;
+  const ts = typeStr(card);
+  const dash = ts.indexOf("—");
+  const subtypes = dash === -1 ? "" : ts.slice(dash + 1);
+  const esc = String(chosenType).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${esc}\\b`).test(subtypes);
+}
+
 function isLandPerm(perm) {
   return /Land/.test(typeStr(perm?.card));
 }
@@ -1218,6 +1234,19 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
         && triggeringPermanent.controller === sourcePermanent.controller
         && creaturePower(triggeringPermanent, state) >= (descriptor.powerThreshold || 0);
+    case "chosenTypeYouControl":
+      // CHOSEN-TYPE scope (Kindred Discovery) — the DYNAMIC analogue of subtypeYouControl: the subtype is
+      // NOT printed on the card; it's the creature type chosen AT ETB and stored durably on the SOURCE
+      // permanent (`sourcePermanent.chosenType`, set by resolvers.enterPermanent's auto-pick, serialized as
+      // plain data). Fires when the triggering creature is controlled by the source's controller AND carries
+      // the chosen type — by type-line subtype OR Changeling (CR 702.73a — every creature type). CREED FP
+      // guard: if chosenType was never set (a malformed/look-back source), permHasChosenType is false → the
+      // trigger never fires (a SAFE no-op, never an over-fire on an unknown type). A non-chosen-type creature
+      // entering/attacking does NOT match (the subtype check is exact). Self-inclusion is natural — the source
+      // is an Enchantment, never a creature of the chosen type, so it never self-fires.
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && permHasChosenType(triggeringPermanent.card, sourcePermanent.chosenType);
     default:
       return false;
   }
@@ -1388,6 +1417,11 @@ export function checkEnterTriggers(state, enteredPerm) {
   for (const pid of Object.keys(s.players)) {
     for (const watcher of triggerSourcesOf(s, pid)) {
       fired = fired.concat(triggersForEvent(s, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm }));
+      // CHOSEN-TYPE (Kindred Discovery) — the "enters" half of its "of the chosen type enters or attacks"
+      // trigger. The entering permanent is the triggering creature; the chosenTypeYouControl scope gates on
+      // the watcher's stored chosenType + the entering creature's subtype/changeling. Same ETB chokepoint
+      // as the etb fire, so it shares the single-fire guarantee (CR 603.6a). A no-op for any non-watcher.
+      fired = fired.concat(triggersForEvent(s, { event: "chosenTypeEntersOrAttacks", sourcePermanent: watcher, triggeringPermanent: enteredPerm }));
     }
   }
   if (!fired.length) return s;
@@ -1548,6 +1582,12 @@ export function checkAttackTriggers(state) {
     const context = { defenderId: a.defender };
     // self ("this attacks") + the attacker's own "creature you control attacks"
     fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    // CHOSEN-TYPE (Kindred Discovery) — the "attacks" half. The attacking player's watchers (Kindred is an
+    // Enchantment they control) fire when this attacker is a creature they control of the chosen type. Same
+    // attacker batch as the "attacks" event above (CR 508.3), so it can't drift from the per-attacker fire.
+    for (const watcher of triggerSourcesOf(state, a.attackingPlayer)) {
+      fired = fired.concat(triggersForEvent(state, { event: "chosenTypeEntersOrAttacks", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    }
     // other watchers the attacking player controls
     for (const watcher of triggerSourcesOf(state, a.attackingPlayer)) {
       if (watcher.id === attackerPerm.id) continue;
@@ -2138,6 +2178,28 @@ export function applyTriggerEffect(state, { effect, controller, targets = [], so
       return logEvent(next, { kind: "trigger-effect-unresolved", controller, effect });
   }
 }
+
+// ─── CHOSEN-TYPE-ENTERS-OR-ATTACKS detector (Kindred Discovery) ─────────────────
+// "Whenever a creature you control of the chosen type enters or attacks, draw a card." — a COMPOUND-event
+// (enters OR attacks) trigger whose subject is filtered by a DYNAMIC creature type (chosen at ETB, stored on
+// the permanent as `chosenType`). classifyCondition's compound-event guard (eventVerbs >= 2 on enters+attacks)
+// Arbiter-routes it, so the registry seam reaches this detector. We map it to ONE descriptor on a synthetic
+// `chosenTypeEntersOrAttacks` event that BOTH checkEnterTriggers and checkAttackTriggers fire (the scope —
+// chosenTypeYouControl — reads the source's stored chosenType + the triggering creature's subtype/changeling).
+//
+// CREED ANCHOR: matched ONLY on the EXACT bare Kindred shape, end-anchored — "a creature you control of the
+// chosen type enters or attacks". A qualified subject ("a nontoken creature …" — Molten Echoes is enters-only
+// and stays Arbiter; "another creature …" — Bloodline Pretender is enters-only), a different/extra event, or
+// any rider leaves residue → no match → Arbiter (a SAFE false-negative, never an over-fire). The effect still
+// has to parse HIGH (triggerRoutesNatively) for the card to flip — "draw a card" does; an unmodeled payoff
+// keeps the whole card body-only. The "enters or attacks" disjunction order is fixed by the printed text.
+function detectChosenTypeEntersOrAttacks(condition) {
+  if (/^a creature you control of the chosen type enters or attacks$/.test(String(condition).toLowerCase().trim())) {
+    return { event: "chosenTypeEntersOrAttacks", scope: "chosenTypeYouControl", whose: "any" };
+  }
+  return null;
+}
+registerTriggerDetector(detectChosenTypeEntersOrAttacks);
 
 // ─── PHASE-TRIGGER-FRAMEWORK (Wave 1) registration ──────────────────────────────
 // Register the phase/step detector for the four step-kinds the inline classifyCondition doesn't cover
