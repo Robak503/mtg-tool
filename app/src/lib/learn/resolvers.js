@@ -26,7 +26,7 @@ import { applyTriggerEffect, checkDiesTriggers, checkEnterTriggers, checkPermane
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram } from "./effects/runProgram.js";
 import { evaluateInterveningIf } from "./interveningIf.js";
-import { isCloneCard, parseCloneSpec, cloneCandidates, snapshotCopiedCard } from "./cloneCopy.js";
+import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, isNativeManaAura } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + AURA-LAND-MANA-BOOST
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
@@ -303,14 +303,16 @@ export function isPermanentSpell(card) {
 export function resolveCloneChoice(state, chosenPermId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "clone-search") return state;
-  const { cloneCard, controller } = pc.resume || {};
+  const { cloneCard, controller, riders = [] } = pc.resume || {};
   let next = clearPendingChoice(state);
   if (!cloneCard || !controller) return next;
 
   const chosen = chosenPermId ? findPermanent(next, chosenPermId) : null;
   const chosenIsCreature = chosen && /Creature/.test(String(chosen.permanent.card?.type || chosen.permanent.card?.type_line || ""));
   if (chosen && chosenIsCreature) {
-    const copied = snapshotCopiedCard(chosen.permanent, cloneCard);
+    // Snapshot the copiable values + apply the "except …" copy modifications (CR 707.9): added
+    // subtype, granted keyword, set P/T, conditional vanishing all bake into the copy's card.
+    const copied = snapshotCopiedCard(chosen.permanent, cloneCard, riders);
     next = enterPermanent(next, copied, controller, { printedCard: cloneCard });
   } else {
     // Declined, or the target is gone/illegal — the clone enters as itself (a 0/0).
@@ -357,13 +359,18 @@ export const RESOLVERS = Object.freeze({
     // enters as itself (a 0/0 → dies), so we only pause when there's something to copy.
     if (isCloneCard(card)) {
       const spec = parseCloneSpec(card);
-      const candidates = cloneCandidates(state, controller, spec.scope);
+      // MV-LIMITED clone (Mockingbird): "copy any creature with mana value ≤ the mana spent to cast
+      // this". The cap = the clone's fixed pips + the value paid for {X} (threaded as xValue). null
+      // for an unrestricted clone. The candidate list is filtered here so the picker only ever offers
+      // legal targets; the riders ride in the resume so resolveCloneChoice applies them to the copy.
+      const mvCap = cloneMvCap(card, spec, xValue);
+      const candidates = cloneCandidates(state, controller, spec.scope, mvCap);
       if (candidates.length > 0) {
         return setPendingCloneChoice(state, {
           controller,
           candidates,
           sourceName: card?.name || null,
-          resume: { cloneCard: card, controller },
+          resume: { cloneCard: card, controller, riders: spec.riders },
         });
       }
       // No creature to copy: the clone enters as itself (a 0/0) and dies (CR 704.5f).

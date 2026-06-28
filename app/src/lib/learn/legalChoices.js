@@ -48,6 +48,7 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { isNativeAura, isNativeManaAura, entersWithXCounters } from "./staticAbilityParser.js";
+import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -624,7 +625,11 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // atom, so the xSpell branch above never fires — but the player still chooses X at cast (CR 601.2b).
     // Offer each AFFORDABLE X≥1 (a 0/0 hydra dies to the SBA instantly, so X=0 is never surfaced); the
     // dispatcher threads xValue into PERMANENT_ETB, which adds the counters so it enters at its real P/T.
-    if (cost.hasX && entersWithXCounters(card)) {
+    // X-COST CLONE (Mockingbird {X}{U}): an {X}-cost clone also chooses X at cast (CR 601.2b) — X sets the
+    // "mana spent" the MV cap reads (cloneMvCap). Without this branch the cast would pay X=0 implicitly (an
+    // underpayment FP) and the cap would be wrong. Same per-X emission as a hydra; resolveCloneChoice reads
+    // xValue from the resume. (X≥1 here; X=0 — copy a 1-drop — is a safe false-negative, never surfaced.)
+    if (cost.hasX && (entersWithXCounters(card) || isCloneCard(card))) {
       const xValues = affordableXValues(state, playerId, cost);
       if (xValues.length === 0) continue; // can't afford even X=1 → not usefully castable
       for (const x of xValues) {
