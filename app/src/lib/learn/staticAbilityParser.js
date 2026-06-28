@@ -594,8 +594,14 @@ function emitGatedEffect(out, effRaw, gate) {
 function parseClause(clause, out, selfName) {
   // Strip flavor ability-word labels (CR 207.2c — they carry no rules meaning).
   // Metalcraft/Threshold/Delirium appear on STATIC clauses; the GY path re-strips
-  // Threshold/Delirium below (no-op after this) for clarity.
-  const c = clause.toLowerCase().replace(/^(?:metalcraft|threshold|delirium)\s*[—–-]\s*/, "");
+  // Threshold/Delirium below (no-op after this) for clarity. "Unlock Ability" is the
+  // FF set's CR 207.2c ability word on Sphere Grid's static ("Unlock Ability — Creatures
+  // you control with +1/+1 counters on them have reach and trample.") — pure flavor (the
+  // ruling refers to "Sphere Grid's last ability"; the static is unconditional, the label
+  // is not a functional gate), so stripping it lets the bare static match. Enumerated (not
+  // an open-ended "<Word> —" strip) for the same reason the trigger-side strip is: a blanket
+  // strip would mis-normalize the 337 real ability-word labels that carry conditions.
+  const c = clause.toLowerCase().replace(/^(?:metalcraft|threshold|delirium|unlock ability)\s*[—–-]\s*/, "");
 
   // ── STATIC-COST-REDUCTION (Dragonspeaker Shaman → The Ur-Dragon; Gargos → Zaxara) ──────────────────
   // "<Subtype> spells you cast cost {N} less to cast" reduces the GENERIC portion of the matching spell's

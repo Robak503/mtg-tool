@@ -78,6 +78,36 @@ describe("parseStaticAbilities — keyword grants", () => {
   });
 });
 
+// ── STATIC ABILITY-WORD LABEL strip (CR 207.2c) ─────────────────────────────────────────────────────
+// An ability word is italic flavor with NO rules meaning; the static line after it is the real ability.
+// parseClause strips an ENUMERATED set of static ability-word labels (metalcraft/threshold/delirium +
+// "unlock ability", the FF set's word on Sphere Grid) so the bare static matches. Enumerated, NOT an
+// open-ended "<Word> —" strip — a blanket strip would mis-normalize the 337 real ability words that carry
+// intervening-if conditions. Sphere Grid's ruling refers to "Sphere Grid's last ability"; the static is
+// unconditional (the label is pure flavor, not a functional gate), so the strip is CREED-safe.
+describe("parseStaticAbilities — Unlock Ability ability-word label (Sphere Grid)", () => {
+  it("strips 'Unlock Ability —' so the static grant parses identically to the label-less line", () => {
+    const labelled = parseStaticAbilities(card("Sphere Grid", "Unlock Ability — Creatures you control with +1/+1 counters on them have reach and trample.", "Enchantment"));
+    const bare = parseStaticAbilities(card("X", "Creatures you control with +1/+1 counters on them have reach and trample.", "Enchantment"));
+    expect(labelled).toEqual(bare);
+    const kws = labelled.map(e => e.op.keyword).sort();
+    expect(kws).toEqual(["Reach", "Trample"]);
+    // the grant is gated on a +1/+1 counter (the trigger's payoff), not a blanket team buff
+    expect(labelled[0].affects.selector.requiresCounter).toBe("+1/+1");
+  });
+
+  it("Sphere Grid (full card) classifies native-mixed — combat-damage trigger + the unlocked static both modeled", () => {
+    const sphereGrid = "Whenever a creature you control deals combat damage to a player, put a +1/+1 counter on that creature.\nUnlock Ability — Creatures you control with +1/+1 counters on them have reach and trample.";
+    expect(classifyCard({ name: "Sphere Grid", type: "Enchantment", oracle: sphereGrid })).toBe("native-mixed");
+  });
+
+  it("CREED: a NON-ability-word label on a static stays body-only (the strip is enumerated, not blanket)", () => {
+    // An arbitrary "<Word> —" prefix is NOT an ability word; it must NOT be stripped, so the static never matches.
+    expect(parseStaticAbilities(card("X", "Foo Bar — Creatures you control have reach and trample.", "Enchantment"))).toHaveLength(0);
+    expect(classifyCard({ name: "X", type: "Enchantment", oracle: "Foo Bar — Creatures you control have reach and trample." })).not.toBe("native-static");
+  });
+});
+
 // ── STATIC-ANTHEM keyword-grant ALL-OR-NOTHING FP FIX ───────────────────────────────────────────────
 // The keyword pass used to DROP a non-grantable segment and still emit the grantable ones — a partial flip
 // is a FORBIDDEN false positive. Now: if the "have <tail>" carries ANY non-grantable segment, the WHOLE

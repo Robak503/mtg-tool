@@ -6,8 +6,10 @@
  */
 import { describe, it, expect } from "vitest";
 import { parseStaticAbilities } from "./staticAbilityParser.js";
-import { createGameState, createPermanent } from "./gameState.js";
+import { createGameState, createPermanent, findPermanent, _resetIdsForTests } from "./gameState.js";
 import { permanentHasKeyword } from "./layers.js";
+import { resolveCombatDamage } from "./combatResolution.js";
+import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "./gameEngine.js";
 
 const TRAMPLE_ANTHEM = "Creatures you control with +1/+1 counters on them have trample.";
 
@@ -31,9 +33,13 @@ describe("counter-payoff keyword anthem — parse", () => {
     expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have shadow." })).toHaveLength(0);
     expect(parseStaticAbilities({ name: "X", oracle: "Creatures you control with +1/+1 counters on them have trample and shadow." })).toHaveLength(0);
   });
-  it("a conditional / label prefix does NOT match (safe FN — the condition isn't modeled)", () => {
+  it("a real CONDITIONAL prefix does NOT match (safe FN — the condition isn't modeled)", () => {
     expect(parseStaticAbilities({ name: "Inspiring Paladin", oracle: "During your turn, creatures you control with +1/+1 counters on them have first strike." })).toHaveLength(0);
-    expect(parseStaticAbilities({ name: "Sphere Grid", oracle: "Unlock Ability — Creatures you control with +1/+1 counters on them have reach and trample." })).toHaveLength(0);
+  });
+  it("Sphere Grid's 'Unlock Ability —' ability-word label IS stripped (CR 207.2c flavor, not a condition) → the grant IS modeled", () => {
+    // "Unlock Ability" is the FF set's ability word; the static is unconditional (the ruling refers to
+    // "Sphere Grid's last ability"). parseClause's enumerated label strip reveals the bare counter-gated grant.
+    expect(parseStaticAbilities({ name: "Sphere Grid", oracle: "Unlock Ability — Creatures you control with +1/+1 counters on them have reach and trample." }).map((e) => e.op.keyword).sort()).toEqual(["Reach", "Trample"]);
   });
 });
 
@@ -49,5 +55,30 @@ describe("counter-payoff trample — combat (dynamic per-creature gate)", () => 
     expect(permanentHasKeyword(st, without.id, "Trample")).toBe(false);     // my no-counter creature
     expect(permanentHasKeyword(st, badge.id, "Trample")).toBe(false);       // Badgermole itself has no counter
     expect(permanentHasKeyword(st, foe.id, "Trample")).toBe(false);         // opponent's (not "you control")
+  });
+});
+
+// SPHERE GRID — the full card composes: the combat-damage trigger puts a +1/+1 counter on the attacker,
+// which UNLOCKS the counter-gated reach+trample static on that same creature. Proves the "Unlock Ability"
+// label strip isn't merely metric-native — the trigger payoff + the unlocked grant both resolve in-engine.
+describe("Sphere Grid — combat-damage counter UNLOCKS the reach+trample static (end-to-end)", () => {
+  const resolveAll = (s) => { let st = s, g = 0; while ((st.stack || []).length && g++ < 25) st = resolveTopOfStack(st); return st; };
+  it("an attacker that connects gains a +1/+1 counter, then has reach + trample (it had neither before)", () => {
+    _resetIdsForTests();
+    const grid = createPermanent({ id: "grid", card: { id: "cgrid", name: "Sphere Grid", type: "Enchantment", oracle: "Whenever a creature you control deals combat damage to a player, put a +1/+1 counter on that creature.\nUnlock Ability — Creatures you control with +1/+1 counters on them have reach and trample." }, controller: "user", summoningSick: false });
+    const atk = createPermanent({ id: "atk", card: { id: "catk", name: "Bruiser", type: "Creature — Beast", power: 3, toughness: 3, oracle: "" }, controller: "user", summoningSick: false });
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = { ...s, step: "combat-damage", phase: "combat", combat: { attackers: [{ permanentId: "atk", attackingPlayer: "user", defender: "ai" }], blockers: [] },
+      players: { ...s.players, user: { ...s.players.user, battlefield: [grid, atk], life: 40 }, ai: { ...s.players.ai, life: 40 } } };
+    // BEFORE: no counter → the static doesn't apply.
+    expect(permanentHasKeyword(s, "atk", "Trample")).toBe(false);
+    expect(permanentHasKeyword(s, "atk", "Reach")).toBe(false);
+    s = resolveCombatDamage(s);
+    expect(s.players.ai.life).toBe(37);                                    // 3 combat damage landed → trigger condition met
+    s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+    const p = findPermanent(s, "atk").permanent;
+    expect(p.counters["+1/+1"]).toBe(1);                                   // the trigger put the counter on the attacker
+    expect(permanentHasKeyword(s, "atk", "Trample")).toBe(true);          // → unlocked the static
+    expect(permanentHasKeyword(s, "atk", "Reach")).toBe(true);
   });
 });
