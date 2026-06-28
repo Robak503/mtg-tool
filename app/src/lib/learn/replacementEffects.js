@@ -32,6 +32,13 @@ function oracleOf(card) {
   return String(card?.oracle ?? card?.oracle_text ?? card?.text ?? "").toLowerCase();
 }
 
+// A doubler's RECIPIENT must be GENERIC (the noun right after the determiner is creature/permanent/artifact/…),
+// never a subtype list. A "you"-scoped doubler whose recipient is a subtype ("an Army, Goblin, or Orc you
+// control" — Mauhúr) would otherwise over-apply to EVERY permanent the controller has, since the runtime layer
+// only tracks the controller, not the recipient's subtype — a forbidden over-fire. Requiring a generic recipient
+// drops the counter profile for such cards (FN-safe: the runtime never over-fires, and the card stays non-native).
+const RECIPIENT_GENERIC = /\bon (?:a|an|each|any|that|another)\s+(?:(?:nontoken|target|other)\s+)*(?:creature|permanent|artifact|planeswalker|enchantment|land|battle|player|spacecraft|planet)\b/;
+
 /**
  * Classify a single permanent's card into its doubler profile, or null. Parses by sentence so a card with
  * BOTH a counter clause and a token clause (Doubling Season / Primal Vigor / Vorinclex) is captured fully.
@@ -81,7 +88,9 @@ export function doublerProfile(card) {
         //    FP. Leave scope null → no counter profile (FN-safe: a self-only doubler is under-modeled, never
         //    over-applied).
         let scope = null;
-        if (/you control/.test(s) || /you would put/.test(s) || /your team controls?/.test(s)) scope = "you";
+        // "you" scope requires a GENERIC recipient (RECIPIENT_GENERIC) — a subtype-restricted recipient
+        // ("Army, Goblin, or Orc you control") would over-fire onto every permanent you control.
+        if (RECIPIENT_GENERIC.test(s) && (/you control/.test(s) || /you would put/.test(s) || /your team controls?/.test(s))) scope = "you";
         else if (/\b(?:put on|on) (?:a|an|each|any|that) (?:creature|permanent|planeswalker|player|spacecraft|planet)\b/.test(s)) scope = "global";
         if (scope) {
           if (/twice that many/.test(s)) counter = { op: "multiply", factor: 2, kind, scope };
@@ -121,6 +130,44 @@ export function isPureDoubler(card) {
     if (!counterClause && !tokenClause) return false; // an unmodeled non-doubling sentence → not a pure doubler
   }
   return true;
+}
+
+/**
+ * Is sentence `s` (already lowercased) a doubler clause the runtime MODELS? SINGLE SOURCE OF TRUTH shared with
+ * the coverage residue-strip so "what we strip from the card for the whole-card check" can never drift from
+ * "what the runtime actually applies". Mirrors doublerProfile's clause logic: the your-side counter multiply/
+ * additive (generic recipient + you/global scope), the Vorinclex opponent-counter HALVE, and the token-creation
+ * doubler. A token-HALVE (Halving Season "an opponent would create … half that many … tokens") is NOT modeled
+ * (tokenMultiplier has no halving) → returns false → the clause is NOT stripped → the card stays non-native.
+ */
+export function isModeledDoublerSentence(s) {
+  const counterPut = /counters? would be put on/.test(s) || /would put (?:one or more )?counters? on/.test(s);
+  if (counterPut) {
+    if (/(an opponent would put|an opponent controls)/.test(s) && /half that many/.test(s)) return true; // opponent counter-halve
+    if (/twice that many/.test(s) || /that many plus (one|1)/.test(s)) {
+      const youScope = RECIPIENT_GENERIC.test(s) && (/you control/.test(s) || /you would put/.test(s) || /your team controls?/.test(s));
+      const globalScope = /\b(?:put on|on) (?:a|an|each|any|that) (?:creature|permanent|planeswalker|player|spacecraft|planet)\b/.test(s);
+      return youScope || globalScope;
+    }
+  }
+  if ((/(?:create|creates) one or more tokens?/.test(s) || /one or more tokens? would be created/.test(s)) && /twice that many/.test(s)) return true;
+  return false;
+}
+
+/**
+ * Strip every MODELED doubler sentence from `oracle`, IN PLACE, for the coverage whole-card residue check.
+ * Removes ONLY the doubler sentence(s), preserving every other character/structure — crucially the reminder-text
+ * parentheticals (a split-and-rejoin reflow mangles "(… . … .)" and breaks downstream reminder-stripping, which
+ * over-permits the residue check — e.g. Solid Ground's earthbend reminder). Each `…sentence.` is tested by
+ * isModeledDoublerSentence; a match is excised (its leading separator kept), everything else passes through
+ * untouched. Only removes what the runtime applies — an unmodeled doubler-shaped clause (token-halve) survives
+ * as residue, keeping its card off the native tier (CREED).
+ */
+export function stripModeledDoublerClauses(oracle) {
+  return String(oracle || "").replace(
+    /(^|[\n.]\s*)([^.\n]*\.)/g,
+    (m, sep, sentence) => (isModeledDoublerSentence(sentence.trim().toLowerCase()) ? sep : m),
+  );
 }
 
 /** Every (ownerId, profile) doubler permanent across ALL battlefields. */

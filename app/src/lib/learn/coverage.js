@@ -39,7 +39,7 @@ import { winConditionParseable } from "./effects/atoms/winGame.js";
 import { interveningIfParseable } from "./interveningIf.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
-import { isPureDoubler } from "./replacementEffects.js"; // Wave-3: pure counter/token doublers classify native-static
+import { isPureDoubler, doublerProfile, stripModeledDoublerClauses } from "./replacementEffects.js"; // counter/token doublers → native (full-card)
 import { marksDamageToCreature, ENDSTEP_COUNTER } from "./wolverine.js"; // Wave-5a: Wolverine whole-card runtime hook
 import { parseDamageReplacements } from "./damageReplacements.js"; // Wave-5a: source-scoped damage doubler parser
 
@@ -690,13 +690,29 @@ export function coverageSummary(cards) {
   return { total, native, pct: total ? Math.round((native / total) * 100) : 0, tiers, gap };
 }
 
-// ─── WAVE 3 — pure counter/token doublers classify native-static ───────────────────────────────
-// A replacement-static Enchantment whose entire text is doubling clauses (Doubling Season, Parallel Lives,
-// Anointed Procession, Branching Evolution, Primal Vigor) is fully modeled by the Wave-3 replacement layer
-// (replacementEffects.js). Registered via the additive Wave-0 seam, consulted after the single-mechanism tiers
-// and before the composite catch-all. Mondrak / Vorinclex / Corpsejack (creature/activated bodies) are excluded
-// by isPureDoubler and stay body-only (CREED whole-card).
-registerCoverageClassifier((card) => (isPureDoubler(card) ? "native-static" : null));
+// ─── COUNTER/TOKEN DOUBLER — full-card coverage (generalizes the pure-doubler seam) ─────────────
+// A card carrying a runtime-modeled doubler (doublerProfile → applyCounterDoubling / tokenMultiplier, consulted
+// at every counter-placement and token-mint regardless of tier) is native when its NON-doubler text is fully
+// modeled too (CREED whole-card). Three cases:
+//   • pure doubler Enchantment (Doubling Season, Branching Evolution, Primal Vigor) → native-static (unchanged).
+//   • doubler on a vanilla/keyword body (Corpsejack 4/4; Vorinclex trample,haste; Adrix & Nev Ward {2}) →
+//     native-static — the doubler is the only ability and the runtime already applies it.
+// A doubler MIXED with OTHER abilities (a trigger / activated / static beyond the doubler) is deliberately NOT
+// flipped here yet: composing the doubler-static with the composite gate (permanentFullyCovered) tripped a
+// reminder-stripping inconsistency (it passed Solid Ground's earthbend-ETB while the equivalent permanent-
+// trigger gate keeps Badgermole Cub body-only) — until that's reconciled and the co-ability is positively
+// verified, a mixed-doubler card stays body-only (FN-safe). ANY non-keyword residue → null.
+// The Mauhúr-style subtype-recipient over-fire is excluded upstream (doublerProfile returns no counter profile),
+// so it never reaches here. Registered via the additive WAVE-0 seam (after single-mechanism tiers, before the
+// composite catch-all).
+function doublerCardTier(card) {
+  if (!doublerProfile(card)) return null;
+  if (isPureDoubler(card)) return "native-static";
+  const stripped = stripModeledDoublerClauses(card?.oracle || "");
+  if (isKeywordOnly(stripped, card?.name)) return "native-static"; // doubler + vanilla/keyword body only
+  return null;
+}
+registerCoverageClassifier(doublerCardTier);
 
 // GROUP-ACTIVATED grant (queue 1) — inject the modeled-body gate into staticAbilityParser's group-grant
 // emission (it can't import parseActivatedAbilities directly — a load-time cycle through the atoms registry).
