@@ -43,6 +43,7 @@
  */
 import { permanentHasKeyword, permanentColors, permanentTypes, permanentProtectionColors } from "./layers.js";
 import { findPermanent, creaturePower } from "./gameState.js";
+import { hasKeyword } from "./keywords.js";
 
 // ── EVASION-QUALIFIER constants ──
 // Color words → WUBRG letters (for "can't be blocked by white creatures").
@@ -162,6 +163,48 @@ function parseAttackerRestrictions(card) {
   return restrictions;
 }
 
+// ── GROUP-EVASION (Shifting Sliver) ──
+// "Slivers can't be blocked except by Slivers." — a BOARD-WIDE static (every creature of the named
+// subtype, all controllers) that lets a creature of that subtype be blocked ONLY by another creature
+// of that subtype. The ONLY modeled form is the canonical TRIBAL self-referential shape where the
+// attacker-subtype and the allowed-blocker-subtype are the SAME word (the "only X can block X" lord
+// pattern Shifting Sliver prints). A different-subtype form ("Slivers can't be blocked except by
+// Walls") or a controller-scoped / conditional variant is NOT this shape → null (safe FN, the card
+// stays body-only). Anchored whole-clause; the subject is the bare plural subtype (no "this creature").
+// CR 509.1b: this is a static that restricts which creatures may be declared as blockers.
+const reGroupBlockableOnlyBy = /^([a-z]+)s can't be blocked except by \1s$/;
+
+/**
+ * Parse a GROUP "can't be blocked except by <same subtype>" static from a card. Returns the canonical
+ * creature subtype (e.g. "Sliver") whose members may be blocked only by that subtype, or null when the
+ * card carries no such static. Reminder-stripped + lowercased + name-normalized via selfOracle (the
+ * subject is a bare plural, so name-normalization is a harmless no-op here). The captured subtype is
+ * de-pluralized (the regex matches "<word>s ... \1s") and Capitalized for the layer-aware subtype test.
+ */
+export function blockableOnlyBySubtypeOf(card) {
+  const oracle = selfOracle(card);
+  for (const clause of oracle.split(/(?:^|[\n.;])\s*/)) {
+    const m = clause.trim().match(reGroupBlockableOnlyBy);
+    if (m) return m[1].charAt(0).toUpperCase() + m[1].slice(1);
+  }
+  return null;
+}
+
+/**
+ * Layer-aware "is this permanent of creature subtype `subtype`?" for GROUP-EVASION. True when the
+ * permanent's effective (layer-4) subtypes include it OR the card has CHANGELING (CR 702.73a — a
+ * changeling is EVERY creature type, so it counts as a Sliver for "blocked only by Slivers"). The
+ * changeling clause prevents a CREED false negative (disallowing a legal block by a changeling, a wrong
+ * play). `subtype` is the Capitalized canonical form; the compare is case-insensitive.
+ */
+function permIsSubtype(state, permId, subtype) {
+  const want = String(subtype).toLowerCase();
+  const subs = (permanentTypes(state, permId)?.subtypes || []).map((s) => String(s).toLowerCase());
+  if (subs.includes(want)) return true;
+  const lk = findPermanent(state, permId);
+  return !!lk?.permanent?.card && hasKeyword(lk.permanent.card, "changeling");
+}
+
 // A clause asserted of the creature ITSELF (subject "this creature"/"it"), at a sentence
 // boundary, ending exactly at the clause — so a trailing qualifier and team grants ("creatures you
 // control can't be blocked") never match.
@@ -209,6 +252,9 @@ export function isEnforcedEvasionClause(clause) {
   if (/^(?:this creature |it )?can't block$/.test(c)) return true;
   if (/^(?:this creature |it )?can block only creatures with flying$/.test(c)) return true;
   if (reEvasionQualifier.test(c)) return true;
+  // GROUP-EVASION (Shifting Sliver): "<subtype>s can't be blocked except by <same subtype>s" — enforced
+  // board-wide in canBlockAttacker. Only the same-subtype tribal form (the regex's \1 backreference).
+  if (reGroupBlockableOnlyBy.test(c)) return true;
   return false;
 }
 
@@ -330,6 +376,19 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
       }
       if (r.kind === "token" && bIsToken) return false;
       if (r.kind === "subtype" && bSubtypes.has(r.subtype.toLowerCase())) return false;
+    }
+  }
+
+  // GROUP-EVASION (Shifting Sliver) — a board-wide "Slivers can't be blocked except by Slivers" static
+  // (CR 509.1b). Scan every battlefield permanent for the static; for each subtype S it names, if the
+  // ATTACKER is of S then the BLOCKER must ALSO be of S, else the block is illegal. Layer-aware on both
+  // sides (permIsSubtype honors granted/removed subtypes + changeling). Multiple distinct statics compose
+  // (each adds its own restriction). Permissive when no such static is in play (the common case).
+  for (const pid of Object.keys(state.players || {})) {
+    for (const perm of state.players[pid]?.battlefield || []) {
+      const sub = blockableOnlyBySubtypeOf(perm?.card);
+      if (!sub) continue;
+      if (permIsSubtype(state, attackerId, sub) && !permIsSubtype(state, blockerId, sub)) return false;
     }
   }
 

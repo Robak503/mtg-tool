@@ -37,6 +37,7 @@ import {
   addPoison,
 } from "./gameState.js";
 import { checkDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers } from "./triggers.js";
+import { uncounterableSubtypesOnBattlefield } from "./staticAbilityParser.js";
 import { permanentHasKeyword, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
@@ -411,10 +412,32 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [])
   // not spells), filtered by the counter's spellFilter (any/noncreature/creature).
   // An on-card uncounterable spell (CR 701.5e) is excluded — conservative: granted/
   // external "can't be countered" isn't modeled, but the on-card case is never wrong.
+  // CANT-BE-COUNTERED (Root Sliver) — the subtypes whose spells a battlefield static makes uncounterable
+  // ("Sliver spells can't be countered"), gathered once across every player's battlefield. A stack spell
+  // whose TYPE LINE carries one of these subtypes is excluded as a counter target below. Empty in the common
+  // case (no such static in play) → zero behavior change. CR 701.5e: the spell simply can't be countered.
+  const uncounterableSubs = (() => {
+    const cards = [];
+    for (const pid of Object.keys(state.players || {})) {
+      for (const perm of state.players[pid]?.battlefield || []) if (perm?.card) cards.push(perm.card);
+    }
+    return uncounterableSubtypesOnBattlefield(cards);
+  })();
   const addStackSpells = () => {
     for (const obj of state.stack || []) {
       if (obj.kind !== "spell") continue;
       if (/can't be countered/i.test(String(obj.source?.oracle || obj.source?.oracle_text || ""))) continue;
+      // CANT-BE-COUNTERED (Root Sliver): a board static "<Subtype> spells can't be countered" protects any
+      // stack spell whose type line carries that subtype (word-bounded, like the cost-reduction match — every
+      // card's type line starts with its type, and a subtype follows the em-dash). Off-type spells unaffected.
+      if (uncounterableSubs.size) {
+        const typeLine = String(obj.source?.type || obj.source?.type_line || "").toLowerCase();
+        let protectedSpell = false;
+        for (const sub of uncounterableSubs) {
+          if (new RegExp(`\\b${sub.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(typeLine)) { protectedSpell = true; break; }
+        }
+        if (protectedSpell) continue;
+      }
       // `effect` rides in so CNT-MV-EXACT (Mental Misstep / Spell Snare) can require the target spell's mana
       // value EQUAL effect.exactMv at enumeration — an MV-mismatched spell is simply not offered as a target.
       if (!spellMatchesCounterFilter(obj, effect.spellFilter, effect)) continue;

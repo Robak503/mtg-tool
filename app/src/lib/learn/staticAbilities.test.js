@@ -214,8 +214,10 @@ describe("static coverage — reminder text (CR 207.2) doesn't block a fully-mod
     expect(classifyCard({ ...c, type: "Creature — Sliver" })).toBe("native-static");
   });
   it("a real functional rider (not a reminder) still keeps the card body-only", () => {
-    // "Whenever …" is genuine residue, not parenthetical reminder → not covered.
-    const c = card("Tempered Sliver", 'Sliver creatures you control have "Whenever this creature deals combat damage to a player, put a +1/+1 counter on it."', "Creature — Sliver");
+    // A group-granted TRIGGERED body whose EFFECT does not route natively (reanimate-on-death) is genuine
+    // residue, not a parenthetical reminder → the validator emits nothing → not covered. (Tempered Sliver's
+    // combat-damage→+1/+1-counter body DOES route now — see groupTriggeredGrant.test.js.)
+    const c = card("Reanimator Sliver", 'Sliver creatures you control have "When this creature dies, return it to the battlefield under your control."', "Creature — Sliver");
     expect(classifyCard({ ...c, type: "Creature — Sliver" })).not.toBe("native-static");
   });
 });

@@ -54,6 +54,7 @@ import { permanentHasKeyword } from "./layers.js";
 import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
+import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
 import { entersWithFadeCounters } from "./fading.js";
 import { applyXCastTokenTriggers } from "./xCastToken.js";
 
@@ -465,6 +466,20 @@ function applyCastSpell(state, action) {
       sourceName: wardTax.wardName,
     });
   }
+  // DIFFUSION SLIVER (group-ward analogue): an opponent's spell targeting a single Sliver creature the
+  // Diffusion controller controls raises the SAME pay-{2}-or-be-countered soft-counter (groupWard.js).
+  // setPendingSoftCounterChoice no-ops on an occupied slot, so a ward tax already raised above takes
+  // precedence (the rarer overlap under-applies one tax — a safe FN). No-op when no Diffusion is in play.
+  const diffusionTax = groupWardTaxForSpell(next, stackObject);
+  if (diffusionTax) {
+    next = setPendingSoftCounterChoice(next, {
+      controller: action.playerId,
+      cost: diffusionTax.cost,
+      spellId: stkId,
+      spellName: card.name,
+      sourceName: diffusionTax.wardName,
+    });
+  }
   // Restart priority loop at active player after the spell goes on
   // the stack (per CR 117.1c).
   return {
@@ -644,6 +659,19 @@ function applyActivateAbility(state, action) {
       spellId: stkId,
       spellName: perm.card?.name,
       sourceName: abilityWardTax.wardName,
+    });
+  }
+  // DIFFUSION SLIVER (group-ward analogue) — an opponent's ABILITY targeting a single Sliver the Diffusion
+  // controller controls raises the same soft-counter (CR: Diffusion fires on a spell OR ability). Same
+  // occupied-slot no-op precedence as the cast path. No-op when no Diffusion is in play.
+  const abilityDiffusionTax = groupWardTaxForStackObject(next, stackObject);
+  if (abilityDiffusionTax) {
+    next = setPendingSoftCounterChoice(next, {
+      controller: action.playerId,
+      cost: abilityDiffusionTax.cost,
+      spellId: stkId,
+      spellName: perm.card?.name,
+      sourceName: abilityDiffusionTax.wardName,
     });
   }
   // Activating a (non-mana) ability uses the stack — restart the priority loop at the

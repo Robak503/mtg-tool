@@ -25,6 +25,7 @@ import {
   logEvent,
 } from "./gameState.js";
 import { hasKeyword } from "./keywords.js";
+import { grantedTriggeredQuotedFor } from "./layers.js";
 import { applyMothmanRadOnEnter } from "./mothmanRad.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 
@@ -1338,6 +1339,24 @@ function grantedTriggersForHost(state, hostPerm) {
   return out;
 }
 
+// GROUP-GRANT (Tempered Sliver) — the triggered descriptors a board static GRANTS this permanent ("Sliver
+// creatures you control have \"Whenever this creature deals combat damage to a player, put a +1/+1 counter on
+// it.\""). layers.grantedTriggeredQuotedFor returns the raw quoted bodies that AFFECT this permanent (selector
+// -matched); each is parsed via the SAME detectTriggers a printed trigger uses, so event/scope/effectClause
+// are identical. Fired on the RECIPIENT (sourcePermanent) — "this creature"/source bind to it, never the
+// granter. Empty when no group grant applies (the common case). Mirrors grantedTriggersForHost.
+function grantedTriggersForGroup(state, perm) {
+  const quoted = grantedTriggeredQuotedFor(state, perm.id);
+  if (!quoted.length) return [];
+  const out = [];
+  for (const q of quoted) {
+    for (const d of detectTriggers({ name: perm.card?.name || "GroupGranted", type: "Creature", oracle: q })) {
+      out.push({ ...d, granted: true });
+    }
+  }
+  return out;
+}
+
 /**
  * The PendingTriggers that fire for `event` from `sourcePermanent`, given the
  * object that caused the event (`triggeringPermanent`, may === source for
@@ -1351,7 +1370,10 @@ export function triggersForEvent(state, { event, sourcePermanent, triggeringPerm
   // ability. Merge the host's granted descriptors so they fire on the host's event exactly like printed
   // ones (source = host → "this creature"/source bind to the host). Additive — the printed path is untouched.
   const granted = grantedTriggersForHost(state, sourcePermanent).filter(d => d.event === event);
-  let descriptors = granted.length ? [...printed, ...granted] : printed;
+  // GROUP-GRANT (Tempered Sliver): a board static grants this permanent a triggered ability. Merge those
+  // descriptors too so they fire on the recipient's event exactly like printed/attached ones. Additive.
+  const groupGranted = grantedTriggersForGroup(state, sourcePermanent).filter(d => d.event === event);
+  let descriptors = (granted.length || groupGranted.length) ? [...printed, ...granted, ...groupGranted] : printed;
   // SCOPE FILTER (subtypeGlobal de-dup): checkCombatDamageTriggers fires the per-attacker self + the
   // attacking-player watcher paths EXCLUDING subtypeGlobal, then runs a single all-players scan that
   // INCLUDES only subtypeGlobal — so a global watcher controlled by the attacking player fires exactly

@@ -773,6 +773,32 @@ export function grantedActivatedQuotedFor(state, permanentId) {
 }
 
 /**
+ * GROUP-GRANT — the quoted TRIGGERED-ability TEXTS another permanent's static GRANTS this permanent (a Sliver
+ * lord's "Sliver creatures you control have \"Whenever this creature deals combat damage to a player, put a
+ * +1/+1 counter on it.\"" — Tempered Sliver). Mirrors grantedActivatedQuotedFor: walks the same continuous-
+ * effect collection, filters to layer-6 `addAbility` grants of kind "triggered" that AFFECT this permanent
+ * (selector match via the shared effectAffects, so self in/exclude + subtype + controller scope are honored),
+ * and returns the raw quoted strings. triggers.grantedTriggersForGroup parses each via detectTriggers (the
+ * SAME parser the printed/Aura paths use) and merges the descriptors onto THIS permanent in triggersForEvent —
+ * so "this creature"/source bind to the RECIPIENT, exactly like a printed trigger. Returns [] when no grant
+ * applies. Pure. Kept HERE (not triggers.js) because only this module owns effectAffects/matchesSelector.
+ */
+export function grantedTriggeredQuotedFor(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return [];
+  const board = collectContinuousEffects(state);
+  if (board.length === 0) return [];
+  const out = [];
+  for (const e of board) {
+    if (e.layer !== 6 || e.op?.layerOp !== "addAbility") continue;
+    if (e.op.grant?.kind !== "triggered" || !e.op.grant.quoted) continue;
+    if (!effectAffects(e, perm, state)) continue;
+    out.push(e.op.grant.quoted);
+  }
+  return out;
+}
+
+/**
  * Convenience used by tests/explain: the ordered effects that apply to a
  * permanent (layer asc, then CDA-first, then timestamp). Pure.
  */

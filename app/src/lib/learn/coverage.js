@@ -28,15 +28,17 @@
  * parsers the runtime uses so the metric stays honest.
  */
 
-import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
+import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
-import { winConditionParseable } from "./effects/atoms/winGame.js";
-import { interveningIfParseable } from "./interveningIf.js";
+// triggerRoutesNatively (+ the group-triggered-grant validator) extracted to triggerRouting.js — its
+// transitive deps (parseEffectClause / program* / winConditionParseable / interveningIfParseable) live there.
+import { triggerRoutesNatively, isModeledGroupTriggeredBody } from "./triggerRouting.js";
+import { isNativeGroupWard } from "./groupWard.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
 import { isPureDoubler, doublerProfile, stripModeledDoublerClauses } from "./replacementEffects.js"; // counter/token doublers → native (full-card)
@@ -172,40 +174,10 @@ export function spellIsNative(card) {
  * INTERVENING-IF trigger (CR 603.4, condition unevaluated at flush) are NOT routed by
  * the engine, so they do NOT count as native.
  */
-/**
- * Does ONE detected trigger route natively through the flush stage? HIGH, non-modal,
- * non-intervening-if EffectProgram — the exact gate `gameEngine.buildTriggerStack` uses.
- * The single source of truth for both `permanentTriggersCovered` and the composite
- * classifier, so the trigger-routing rule can't drift between them.
- */
-function triggerRoutesNatively(d) {
-  if (!d.effectClause) return false;
-  if (d.interveningIf) {
-    const cp = parseEffectClause(d.effectClause, "Instant");
-    const a = cp?.atoms?.length === 1 ? cp.atoms[0] : null;
-    // UPKEEP-WIN (Wave 3b, CR 603.4) — a single win-game atom ("you win the game") whose threshold is in
-    // the strict win evaluator's vocabulary (Revel in Riches / Felidar Sovereign / Knuckles). A win is
-    // modeled exactly (never fail-open) — see winGame.evaluateWinThreshold.
-    if (a && a.op === "win-game" && a.who === "controller"
-      && programConfidence(cp) === "high" && winConditionParseable(d.interveningIf)) return true;
-    // INTERVENING-IF (CR 603.4) — a GENERAL conditional trigger routes natively when (a) its effect program
-    // is HIGH + non-modal + target-resolvable (the same α1 allowlist the non-conditional path uses) AND
-    // (b) its condition is in the strict board-query vocabulary (interveningIfParseable). gameEngine.
-    // buildTriggerStack evaluates the condition at flush (drop if false) and resolvers re-check at
-    // resolution (CR 603.4 second check), so the metric mirrors a routing the runtime actually performs.
-    // An unparseable condition stays body-only (false-negative SAFE — a mis-evaluated condition is an FP).
-    return !!cp && programConfidence(cp) === "high" && cp.structure !== "modal"
-      && (!programNeedsChosenTarget(cp) || programTriggerTargetsResolvable(cp))
-      && interveningIfParseable(d.interveningIf);
-  }
-  const p = parseEffectClause(d.effectClause, "Instant");
-  // Mirror buildTriggerStack's α1 ALLOWLIST EXACTLY: a HIGH non-modal trigger routes natively only
-  // when every chosen-target atom is intent-resolvable (the enemy/own chooser can place it on a
-  // correct side). An AMBIGUOUS targeting atom (bounce) stays in the gap, not native — so the metric
-  // never claims a routing the runtime won't perform.
-  return !!p && programConfidence(p) === "high" && p.structure !== "modal"
-    && (!programNeedsChosenTarget(p) || programTriggerTargetsResolvable(p));
-}
+// triggerRoutesNatively — does ONE detected trigger route natively through the flush stage (HIGH, non-modal,
+// target-resolvable, with the intervening-if / upkeep-win carve-outs)? EXTRACTED to triggerRouting.js (a leaf)
+// as the SINGLE source of truth, so the runtime group-triggered-grant validator consults the identical gate
+// and can't drift from the metric. Imported above; used by permanentTriggersCovered + the composite classifier.
 
 // The When/Whenever/At sentence shape (matches detectTriggers' grammar). Used to COUNT
 // trigger-shaped sentences so an UNMODELED-event trigger ("Whenever you cast …", "…put
@@ -737,6 +709,24 @@ registerCoverageClassifier(doublerCardTier);
 // Slivers have \"{2}: Regenerate this permanent.\"") classifies native-static via staticAbilitiesCoverCard,
 // and legalChoices offers the ability on every affected permanent (layers.grantedActivatedQuotedFor).
 registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
+
+// GROUP-TRIGGERED grant (Tempered Sliver) — inject the modeled-body gate into staticAbilityParser's
+// group-triggered-grant emission. A quoted body is a valid group-triggered grant iff it parses to one-or-more
+// triggers (detectTriggers) that ALL route natively (triggerRoutesNatively — the SAME gate the Aura/Equipment
+// granted-triggered path uses). With this registered, a card whose only non-keyword text is a fully-modeled
+// group-triggered grant ("Sliver creatures you control have \"Whenever this creature deals combat damage to a
+// player, put a +1/+1 counter on it.\"") classifies native-static via staticAbilitiesCoverCard, and
+// triggers.triggersForEvent fires the granted trigger on every affected permanent (layers.grantedTriggeredQuotedFor).
+registerGroupTriggeredBodyValidator(isModeledGroupTriggeredBody);
+
+// DIFFUSION SLIVER (group-ward analogue) — a card whose whole text is the modeled group-ward trigger
+// ("Whenever a Sliver creature you control becomes the target of a spell or ability an opponent controls,
+// counter that spell or ability unless its controller pays {2}") classifies native-trigger. detectTriggers has
+// no "becomes the target" event, so permanentTriggersCovered/permanentFullyCovered leave it body-only (count
+// mismatch) — this registry classifier (consulted before the composite catch-all) credits it, mirroring how
+// the runtime enforces it (actionDispatcher's groupWardTax at the cast/ability chokepoints reuses the ward
+// soft-counter). isNativeGroupWard is all-or-nothing (any rider → body-only), so the credit is honest.
+registerCoverageClassifier((card) => (isNativeGroupWard(card) ? "native-trigger" : null));
 
 // ─── WAVE 5a — Wolverine, Best There Is (the damage-replacement keystone) ──────────────────────────────────
 // All THREE clauses modeled (CREED all-or-nothing): the source-scoped double-all-damage replacement

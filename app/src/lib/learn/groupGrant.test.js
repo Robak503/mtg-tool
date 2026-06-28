@@ -125,11 +125,15 @@ describe("GROUP-GRANT (B) — granted quoted MANA ability (parse + CREED gate)",
   });
 
   it("CREED: a quoted ability with an UNMODELED body does NOT emit a grant", () => {
-    // An unmodeled-body grant emits NOTHING: a tap-target-permanent body (Telekinetic), a triggered ability,
-    // and an X-scaling pump all stay non-native. (The regenerate-target-SUBTYPE + pay-life self-bounce bodies
-    // DO emit an activated grant now — see groupActivatedGrant.test.js; these are the still-unmodeled ones.)
+    // An unmodeled-body grant emits NOTHING: a tap-target-permanent body (Telekinetic), a triggered ability
+    // whose EFFECT doesn't route natively, and an X-scaling pump all stay non-native. (The regenerate-target-
+    // SUBTYPE + pay-life self-bounce activated bodies DO emit a grant now — see groupActivatedGrant.test.js; the
+    // Tempered Sliver combat-damage→+1/+1-counter TRIGGERED body DOES emit a triggered grant now — see
+    // groupTriggeredGrant.test.js. These are the still-unmodeled ones.)
     expect(parseStaticAbilities({ name: "Telekinetic Sliver", oracle: 'All Slivers have "{T}: Tap target permanent."' })).toEqual([]);
-    expect(parseStaticAbilities({ name: "Tempered Sliver", oracle: 'Sliver creatures you control have "Whenever this creature deals combat damage to a player, put a +1/+1 counter on it."' })).toEqual([]);
+    // A triggered body whose EFFECT is unmodeled (reanimate-on-death) → no descriptor (the trigger detects but
+    // does not route natively, so the group-triggered validator rejects it).
+    expect(parseStaticAbilities({ name: "Test Reanimator Sliver", oracle: 'Sliver creatures you control have "When this creature dies, return it to the battlefield under your control."' })).toEqual([]);
     expect(parseStaticAbilities({ name: "Magma Sliver", oracle: 'All Slivers have "{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield."' })).toEqual([]);
   });
 

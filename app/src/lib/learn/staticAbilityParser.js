@@ -36,6 +36,19 @@ export function registerGroupActivatedBodyValidator(fn) {
   _groupActivatedBodyValidator = typeof fn === "function" ? fn : null;
 }
 
+// GROUP-TRIGGERED grant validator (injected — CR 113.7). Whether a quoted group-grant body that is a
+// TRIGGERED ability ("Sliver creatures you control have \"Whenever this creature deals combat damage to a
+// player, put a +1/+1 counter on it.\"" — Tempered Sliver) is FULLY MODELED is decided by detectTriggers +
+// the same triggerRoutesNatively gate the Aura/Equipment granted-triggered path uses. Same cycle-avoidance
+// as the activated validator: registered at load by coverage.js (which owns triggerRoutesNatively). Until
+// registered the emission is skipped (the grant stays body-only — a safe FN). The runtime that FIRES the
+// granted trigger (triggers.grantedTriggersForGroup) is independent of this gate; this only governs whether
+// the static EMITS a grant descriptor at all, keeping classifier + runtime from over-claiming an unmodeled body.
+let _groupTriggeredBodyValidator = null;
+export function registerGroupTriggeredBodyValidator(fn) {
+  _groupTriggeredBodyValidator = typeof fn === "function" ? fn : null;
+}
+
 // The grantable-keyword set + canonical-caser live in keywords.js as the SINGLE source of truth,
 // so a granted keyword can never be one the engine doesn't enforce. The STATIC path (this module:
 // anthems/lords + attached Equipment/Auras) uses the static superset — the combat keywords PLUS
@@ -712,6 +725,36 @@ function parseClause(clause, out, selfName) {
     return;
   }
 
+  // ── CANT-BE-COUNTERED (Root Sliver; Dosan the Falling Leaf-style) ──────────────────────────────────────
+  // Two STATIC uncounterability shapes (CR 701.5e), emitted as coverage MARKERS ({ cantBeCountered } with NO
+  // `affects`/`op`, so the layer engine ignores them — effectAffects bails on a missing `affects`); the
+  // counter-target enumeration (spellEffects.enumerateTargets) reads them at the stack so a protected spell is
+  // never offered as a counter target.
+  //   • SELF — "this spell can't be countered" (Root Sliver clause 1; the name was normalized to "this
+  //     creature" upstream, but this clause uses the literal "this spell", untouched). Marker scope:"self".
+  //     The RUNTIME for the source's OWN cast is already handled by enumerateTargets' substring check on the
+  //     spell's own oracle (Root Sliver's text contains "can't be countered"); this marker exists only so the
+  //     CLAUSE classifies as a modeled static (not residue) when the card is on the battlefield.
+  //   • SUBTYPE — "<Subtype> spells can't be countered" (Root Sliver clause 2). A BOARD static: while the
+  //     source is on the battlefield, any spell whose TYPE LINE carries that subtype is uncounterable.
+  //     SUBTYPE-ONLY (same filter family as cost-reduction): a color / supertype / non-type-line word would
+  //     never word-match a type line, so claiming native while protecting nothing is a CREED FP → those stay
+  //     body-only (safe FN). "Creature"/"instant"/… ARE type-line tokens (allowed); the subject before
+  //     "spells" is singular, so normalizeSubtype just canonicalizes case.
+  if (/^this spell can't be countered$/.test(c)) {
+    out.push({ cantBeCountered: { scope: "self" } });
+    return;
+  }
+  const cbcM = c.match(/^([a-z]+) spells can't be countered$/);
+  if (cbcM) {
+    const word = cbcM[1];
+    if (COST_REDUCTION_CARDTYPE_WORDS.has(word) ||
+        (!NON_SUBTYPE_ANTHEM_WORDS.has(word) && !COLOR_WORDS[word] && !NON_SUBTYPE_COST_FILTER_WORDS.has(word))) {
+      out.push({ cantBeCountered: { subtype: normalizeSubtype(word) } });
+    }
+    return; // a cant-be-countered clause — handled (or intentionally dropped to body-only)
+  }
+
   // ── COUNTER-PAYOFF (Herald of Secret Streams): "(each|all) creature(s) you control with a +1/+1 counter
   // on it/them can't be blocked" → a layer-6 unblockable grant, gated PER-CREATURE (dynamic) on having a
   // +1/+1 counter via the selector's requiresCounter; combat reads the granted "unblockable". Only the bare
@@ -770,6 +813,7 @@ function parseClause(clause, out, selfName) {
       const selector = parseCreatureSelector(grantQ[1].toLowerCase() + " have");
       const quoted = grantQ[2];
       const manaSpec = selector ? parseGrantedManaSpec(quoted) : null;
+      const isTriggeredBody = /^(?:when|whenever|at)\b/i.test(quoted.trim());
       if (selector && manaSpec) {
         out.push({
           layer: 6,
@@ -777,7 +821,24 @@ function parseClause(clause, out, selfName) {
           affects: selector,
           duration: { kind: "permanent" },
         });
-      } else if (selector && !/^(?:when|whenever|at the beginning)/i.test(quoted.trim())) {
+      } else if (selector && isTriggeredBody) {
+        // GROUP-GRANT granted quoted TRIGGERED ability ("Sliver creatures you control have \"Whenever this
+        // creature deals combat damage to a player, put a +1/+1 counter on it.\"" — Tempered Sliver). The
+        // quoted body must parse to FULLY-MODELED, natively-routing trigger(s) through detectTriggers +
+        // triggerRoutesNatively — the SAME gate the Aura/Equipment granted-triggered path uses (CREED #17:
+        // model the whole quoted ability or emit nothing). The emitted op carries the quoted TEXT
+        // (serializable); triggers.grantedTriggersForGroup parses it (the SAME detectTriggers) and fires it
+        // ON EACH affected permanent — so "this creature"/source bind to the RECIPIENT, never the granter.
+        // Unregistered validator or an unmodeled body → NO descriptor → the card stays body-only (a safe FN).
+        if (_groupTriggeredBodyValidator && _groupTriggeredBodyValidator(quoted)) {
+          out.push({
+            layer: 6,
+            op: { layerOp: "addAbility", grant: { kind: "triggered", quoted } },
+            affects: selector,
+            duration: { kind: "permanent" },
+          });
+        }
+      } else if (selector && !isTriggeredBody) {
         // GROUP-GRANT granted quoted ACTIVATED ability ("All Slivers have \"{2}: Regenerate this permanent.\""
         // — Clot Sliver; "\"{2}, Sacrifice this permanent: Draw a card.\"" — Mnemonic; "\"Sacrifice this
         // permanent: You gain 3 life.\"" — Darkheart). The quoted body must parse to a FULLY-MODELED, non-mana
@@ -788,7 +849,7 @@ function parseClause(clause, out, selfName) {
         // The emitted op carries the quoted TEXT (serializable); layers.grantedActivatedQuotedFor returns it
         // to legalChoices, which parses it (the SAME parser) and enumerates the ability ON EACH affected
         // permanent — so "this permanent"/"this creature"/the {T}/sacrifice cost bind to the RECIPIENT, never
-        // the granter. Triggered bodies (When/Whenever/At) are deferred (group-triggered = a later slice).
+        // the granter. Triggered bodies (When/Whenever/At) are handled by the dedicated branch above.
         // The injected validator (see registerGroupActivatedBodyValidator) confirms the quoted body parses to
         // a fully-modeled, non-mana activated ability via parseActivatedAbilities — the SAME parser a printed
         // ability uses (CREED #17). Unregistered or unmodeled → NO descriptor → the card stays body-only (FN).
@@ -1393,6 +1454,24 @@ export function cantCastDescriptorOf(card) {
     if (d.cantCast) return d.cantCast;
   }
   return null;
+}
+
+/**
+ * CANT-BE-COUNTERED — the SUBTYPE uncounterability statics among a set of permanent cards (each card's
+ * "<Subtype> spells can't be countered" → the `cantBeCountered.subtype` marker). Returns a lowercase Set of
+ * subtypes whose spells are uncounterable while these permanents are on the battlefield. The SELF-scope
+ * "this spell can't be countered" marker is NOT a battlefield static (it only mattered while the source was a
+ * spell), so it's excluded here. Pure; hoisted ONCE per counter-target enumeration. Used by
+ * spellEffects.enumerateTargets to keep a protected Sliver spell off the counter-target list.
+ */
+export function uncounterableSubtypesOnBattlefield(permanentCards) {
+  const subs = new Set();
+  for (const card of permanentCards || []) {
+    for (const d of parseStaticAbilities(card)) {
+      if (d.cantBeCountered?.subtype) subs.add(String(d.cantBeCountered.subtype).toLowerCase());
+    }
+  }
+  return subs;
 }
 
 /**

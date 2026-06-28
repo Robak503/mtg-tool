@@ -52,6 +52,18 @@ import { applyMothmanRadOnAttack } from "./mothmanRad.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
+import { registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
+import { isModeledGroupTriggeredBody } from "./triggerRouting.js";
+
+// GROUP-TRIGGERED grant (Tempered Sliver) — RUNTIME registration of the modeled-body gate into
+// staticAbilityParser's group-triggered emission. The trigger-firing path (combatResolution / checkXTriggers →
+// triggersForEvent → grantedTriggersForGroup → layers.collectContinuousEffects → parseStaticAbilities) flows
+// through gameEngine but NOT coverage.js, so without this the group-triggered grant descriptor would never be
+// emitted at runtime (the validator would be null) and the granted trigger would silently never fire — a CREED
+// false negative. coverage.js registers the SAME shared validator for the classification path; the two
+// registrations are idempotent (identical function), mirroring registerGroupActivatedBodyValidator (coverage +
+// legalChoices). The validator itself lives in triggerRouting.js so metric + runtime share one definition.
+registerGroupTriggeredBodyValidator(isModeledGroupTriggeredBody);
 
 const EMPTY_COMBAT = { attackers: [], blockers: [] };
 

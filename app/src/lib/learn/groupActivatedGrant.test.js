@@ -68,8 +68,9 @@ describe("GROUP-ACTIVATED grant (queue 1) — recognition", () => {
     expect(classifyCard(sliver("Telekinetic Sliver", 'All Slivers have "{T}: Tap target permanent."'))).toBe("body-only");
     // Magma stays body-only — an X-scaling pump ("+X/+0 where X = the number of Slivers") is NOT modeled (PARK).
     expect(classifyCard(sliver("Magma Sliver", 'All Slivers have "{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield."'))).toBe("body-only");
-    // a GROUP-granted TRIGGERED body is deferred (group-triggered = a later slice)
-    expect(classifyCard(sliver("Tempered Sliver", 'Sliver creatures you control have "Whenever this creature deals combat damage to a player, put a +1/+1 counter on it."'))).toBe("body-only");
+    // a GROUP-granted TRIGGERED body whose EFFECT does not route natively (reanimate-on-death) stays body-only
+    // (the Tempered Sliver combat-damage→+1/+1-counter body IS modeled now — see groupTriggeredGrant.test.js).
+    expect(classifyCard(sliver("Test Reanimator Sliver", 'Sliver creatures you control have "When this creature dies, return it to the battlefield under your control."'))).toBe("body-only");
   });
 });
 
