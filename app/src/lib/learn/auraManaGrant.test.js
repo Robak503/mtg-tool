@@ -16,7 +16,7 @@
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { parseAuraGrantedManaAbility, isNativeCreatureManaGrantAura } from "./staticAbilityParser.js";
+import { parseAuraGrantedManaAbility, isNativeManaGrantAura } from "./staticAbilityParser.js";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 import { grantedManaSpecsFor } from "./layers.js";
 import { manaSources } from "./manaModel.js";
@@ -48,19 +48,25 @@ describe("AURA-MANA-GRANT (1a) — recognition", () => {
   it("Multani's Harmony: clean creature-host grant → native-mana-aura", () => {
     const c = aura("Multani's Harmony", 'Enchant creature\nEnchanted creature has "{T}: Add one mana of any color."');
     expect(parseAuraGrantedManaAbility(c)).toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 1 });
-    expect(isNativeCreatureManaGrantAura(c)).toBe(true);
+    expect(isNativeManaGrantAura(c)).toBe(true);
     expect(classifyCard(c)).toBe("native-mana-aura");
+  });
+
+  it("LAND host: 'Enchanted land has \"{T}: Add …\"' → native-mana-aura (Settlement / Sheltered Aerie)", () => {
+    expect(classifyCard(aura("Settlement", 'Enchant Land\nEnchanted land has "{T}: Add one mana of any color."'))).toBe("native-mana-aura");
+    const aerie = aura("Sheltered Aerie", 'Enchant land\nEnchanted land has "{T}: Add two mana of any one color."');
+    expect(parseAuraGrantedManaAbility(aerie)).toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 2 });
+    expect(classifyCard(aerie)).toBe("native-mana-aura");
   });
 
   it("residue gate: a RIDER keeps the card non-native (all-or-nothing, CREED)", () => {
     // restriction rider
     expect(classifyCard(aura("Utopia Vow", 'Enchant creature\nEnchanted creature can\'t attack or block.\nEnchanted creature has "{T}: Add one mana of any color."'))).toBe("body-only");
-    // ETB-trigger rider
+    // ETB-trigger rider (creature + land forms)
     expect(classifyCard(aura("Karametra's Favor", 'Enchant creature\nWhen this Aura enters, draw a card.\nEnchanted creature has "{T}: Add one mana of any color."'))).toBe("body-only");
-  });
-
-  it("LAND host is deferred (a land already produces mana → grant would no-op)", () => {
-    expect(classifyCard(aura("Settlement", 'Enchant Land\nEnchanted land has "{T}: Add one mana of any color."'))).toBe("body-only");
+    expect(classifyCard(aura("Abundant Growth", 'Enchant land\nWhen this Aura enters, draw a card.\nEnchanted land has "{T}: Add one mana of any color."'))).toBe("body-only");
+    // sacrifice-draw rider
+    expect(classifyCard(aura("Unbridled Growth", 'Enchant land\nEnchanted land has "{T}: Add one mana of any color."\nSacrifice this Aura: Draw a card.'))).toBe("body-only");
   });
 
   it("CREED guards on the granted ability: spend-restriction / cost-rider / variable reject", () => {
@@ -70,10 +76,11 @@ describe("AURA-MANA-GRANT (1a) — recognition", () => {
   });
 });
 
-describe("AURA-MANA-GRANT (1a) — runtime grant", () => {
+describe("AURA-MANA-GRANT (1a) — creature-host runtime grant", () => {
   it("the enchanted creature gains the tap-for-mana source (grantedManaSpecsFor + manaSources)", () => {
     const s = stateWith(attached(aura("Multani's Harmony", 'Enchant creature\nEnchanted creature has "{T}: Add one mana of any color."')));
-    expect(grantedManaSpecsFor(s, "host")).toEqual([{ colors: ["W", "U", "B", "R", "G"], amount: 1 }]);
+    // the aura-emitted spec carries the via:"attached" supplement marker (group grants do NOT)
+    expect(grantedManaSpecsFor(s, "host")).toEqual([{ colors: ["W", "U", "B", "R", "G"], amount: 1, via: "attached" }]);
     const src = manaSources(s, "user").find((x) => x.permanentId === "host");
     expect(src).toMatchObject({ permanentId: "host", colors: ["W", "U", "B", "R", "G"], amount: 1 });
     // legalChoices offers the tap action for the un-sick host
@@ -86,11 +93,58 @@ describe("AURA-MANA-GRANT (1a) — runtime grant", () => {
     expect(manaSources(s, "user").some((x) => x.permanentId === "host")).toBe(false);
   });
 
-  it("a host with its OWN mana ability is not double-counted (grant only adds where there was none)", () => {
-    // Host already taps for {G} via its own text — the grant is deduped (keep own; safe under-count, no double tap).
+  it("a creature mana-dork enchanted with the aura UPGRADES to the dominating grant (one source, no double-tap)", () => {
+    // Host already taps for {G}; the aura grants any-color×1, which dominates → the single tap upgrades to
+    // any-color. ONE source record (the creature has one {T}; no fabricated extra tap).
     const s = stateWith(attached(aura("Multani's Harmony", 'Enchant creature\nEnchanted creature has "{T}: Add one mana of any color."'), { hostOracle: "{T}: Add {G}." }));
     const hostSources = manaSources(s, "user").filter((x) => x.permanentId === "host");
     expect(hostSources).toHaveLength(1);
-    expect(hostSources[0].colors).toEqual(["G"]); // own ability kept; no fabricated extra tap
+    expect(hostSources[0].colors).toEqual(["W", "U", "B", "R", "G"]);
+    expect(hostSources[0].amount).toBe(1);
+  });
+});
+
+// An attached mana-grant Aura on a LAND that already produces its own mana (the supplement case).
+function landWithAura(auraCard, { landName = "Forest", landOracle = "({T}: Add {G}.)", landType = "Basic Land — Forest" } = {}) {
+  const a = createPermanent({ id: "aura", card: auraCard, controller: "user" });
+  a.attachedTo = "land";
+  const land = createPermanent({ id: "land", card: { name: landName, type: landType, oracle: landOracle }, controller: "user" });
+  land.attachments = ["aura"];
+  return [a, land];
+}
+
+describe("AURA-MANA-GRANT (1a) — land-host supplement", () => {
+  it("Settlement upgrades the enchanted land's single tap to any-color (dominating grant)", () => {
+    const s = stateWith(landWithAura(aura("Settlement", 'Enchant Land\nEnchanted land has "{T}: Add one mana of any color."')));
+    const src = manaSources(s, "user").filter((x) => x.permanentId === "land");
+    expect(src).toHaveLength(1);                              // ONE record — the land has one {T}
+    expect(src[0].colors).toEqual(["W", "U", "B", "R", "G"]);
+    expect(src[0].amount).toBe(1);
+  });
+
+  it("Sheltered Aerie upgrades to two-of-any-one-color (amount dominates)", () => {
+    const s = stateWith(landWithAura(aura("Sheltered Aerie", 'Enchant land\nEnchanted land has "{T}: Add two mana of any one color."')));
+    const src = manaSources(s, "user").find((x) => x.permanentId === "land");
+    expect(src.colors).toEqual(["W", "U", "B", "R", "G"]);
+    expect(src.amount).toBe(2);                               // {colors,amount}=2 means "2 mana of ONE chosen color"
+  });
+
+  it("CREED — a GROUP grant (Gemhide self-include) is NOT supplemented (no marker, no double)", () => {
+    // Gemhide's own quoted text makes IT a source; its "All Slivers have …" grant is UNMARKED → the supplement
+    // never fires on the granter, so it stays a single any-color source (the dedup the marker preserves).
+    const gem = createPermanent({ id: "gem", card: { name: "Gemhide Sliver", type: "Creature — Sliver", power: 1, toughness: 1, oracle: 'All Slivers have "{T}: Add one mana of any color."' }, controller: "user", summoningSick: false });
+    const s = stateWith([gem]);
+    const src = manaSources(s, "user").filter((x) => x.permanentId === "gem");
+    expect(src).toHaveLength(1);
+    expect(src[0].colors).toEqual(["W", "U", "B", "R", "G"]);
+    expect(src[0].amount).toBe(1);                            // not doubled to 2; not mis-upgraded
+  });
+
+  it("non-dominating own ability is kept (a {C}{C} land granted any-color×1 stays {C}{C} — safe under-count)", () => {
+    // own = {C}{C} (amount 2, colorless); grant = any-color×1. Neither dominates (C ∉ WUBRG; 1 < 2) → keep own.
+    const s = stateWith(landWithAura(aura("Settlement", 'Enchant Land\nEnchanted land has "{T}: Add one mana of any color."'), { landName: "Cloudpost", landOracle: "{T}: Add {C}{C}.", landType: "Land" }));
+    const src = manaSources(s, "user").find((x) => x.permanentId === "land");
+    expect(src.colors).toEqual(["C"]);
+    expect(src.amount).toBe(2);
   });
 });

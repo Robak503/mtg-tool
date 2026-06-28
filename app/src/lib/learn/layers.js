@@ -240,7 +240,10 @@ export function staticEffectsOf(state, permanent) {
     if (grantedMana) {
       partials.push({
         layer: 6,
-        op: { layerOp: "addAbility", grant: { kind: "mana", spec: grantedMana } },
+        // `via:"attached"` marks this as a genuinely-distinct aura ability (not a group/self grant) so
+        // manaSources may SUPPLEMENT a host that already produces mana (a LAND) — see
+        // applyAuraManaGrantSupplement; a group grant lacks the marker and never supplements.
+        op: { layerOp: "addAbility", grant: { kind: "mana", spec: { ...grantedMana, via: "attached" } } },
         affects: { mode: "fixed", permanentIds: [permanent.attachedTo] },
         duration: { kind: "permanent" },
       });

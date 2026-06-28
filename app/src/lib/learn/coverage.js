@@ -31,7 +31,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { detectTriggers, stripTriggerAbilityLabel } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeCreatureManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -459,9 +459,10 @@ export function classifyCard(card) {
   // over-claim: an Aura that is neither a clean creature-aura nor a clean mana-aura stays body-only.
   if (isAuraCard(card)) {
     if (isNativeManaAura(card)) return "native-mana-aura";
-    // GRANTED-MANA-ABILITY (creature host): "Enchanted creature has \"{T}: Add …\"" (Multani's Harmony) —
-    // the host gains a clean tap-for-mana source through the existing grantedManaSpecsFor runtime.
-    if (isNativeCreatureManaGrantAura(card)) return "native-mana-aura";
+    // GRANTED-MANA-ABILITY (creature OR land host): "Enchanted creature/land has \"{T}: Add …\"" (Multani's
+    // Harmony; Settlement / Sheltered Aerie) — the host gains a clean tap-for-mana source through the existing
+    // grantedManaSpecsFor runtime (creature = no-own-prod fallback; land = the dominating-grant supplement).
+    if (isNativeManaGrantAura(card)) return "native-mana-aura";
     return isNativeAura(card) ? "native-aura" : "body-only";
   }
   // A clone (CR 707) — a creature whose WHOLE text is "enters as a copy of a creature" — now

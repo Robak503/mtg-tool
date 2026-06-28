@@ -1474,20 +1474,24 @@ export function isNativeManaAura(card) {
 }
 
 /**
- * GRANTED-MANA-ABILITY AURA (creature host) — an Aura that grants the enchanted CREATURE a fully-modeled
- * tap-for-mana ability ("Enchanted creature has \"{T}: Add one mana of any color.\"" — Multani's Harmony).
- * Returns the `{colors, amount}` spec (via the CREED-guarded parseGrantedManaSpec) or null. This slice is
- * CREATURE-host only: the enchanted creature has no own mana production, so manaSources grants the host the
- * tap through the EXISTING grantedManaSpecsFor runtime (the same path group grants use), with ZERO planner
- * change. The LAND-host form (Settlement/Sheltered Aerie) is deferred — a land already produces mana, so the
- * grant is deduped away (a safe under-count) until manaSources learns to SUPPLEMENT an existing producer.
+ * GRANTED-MANA-ABILITY AURA (creature OR land host) — an Aura that grants the enchanted CREATURE or LAND a
+ * fully-modeled tap-for-mana ability ("Enchanted creature has \"{T}: Add one mana of any color.\"" — Multani's
+ * Harmony; "Enchanted land has \"{T}: Add two mana of any one color.\"" — Settlement / Sheltered Aerie).
+ * Returns the `{colors, amount}` spec (via the CREED-guarded parseGrantedManaSpec) or null.
+ *   - CREATURE host: the creature has no own mana production → manaSources grants the tap through the
+ *     EXISTING grantedManaSpecsFor runtime (the `if (!prod)` fallback, the same path group grants use).
+ *   - LAND host: a land already produces its own mana, so the grant SUPPLEMENTS — manaSources upgrades the
+ *     land's single-tap output to the granted spec when it strictly dominates (any-color ⊇ one own color,
+ *     amount ≥). The emitted layer-6 effect is marked `via:"attached"` so the supplement applies ONLY to a
+ *     genuinely-distinct aura ability, never to a group grant (Gemhide self-include must not double-tap).
  */
 export function parseAuraGrantedManaAbility(card) {
   if (!isAuraCard(card)) return null;
-  if (auraEnchantSubject(card) !== "creature") return null;
+  const subj = auraEnchantSubject(card);
+  if (subj !== "creature" && subj !== "land") return null;
   const oracle = String(card?.oracle || card?.oracle_text || "");
   for (const clause of abilityClauses(oracle)) {
-    const m = clause.trim().match(/^enchanted creature (?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i);
+    const m = clause.trim().match(/^enchanted (?:creature|land) (?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i);
     if (!m) continue;
     const spec = parseGrantedManaSpec(m[1]);
     if (spec) return spec;
@@ -1495,24 +1499,25 @@ export function parseAuraGrantedManaAbility(card) {
   return null;
 }
 
-// Residue for a creature-host granted-mana Aura: every body clause that ISN'T the Enchant line or the
-// modeled grant clause. A rider (an ETB trigger — Karametra's Favor "draw a card"; a restriction — Utopia
-// Vow "can't attack or block") leaves residue → the card stays non-native (all-or-nothing, CREED).
-function creatureManaGrantResidueClauses(card) {
+// Residue for a granted-mana Aura: every body clause that ISN'T the Enchant line or the modeled grant
+// clause. A rider (an ETB trigger — Karametra's Favor "draw a card"; a restriction — Utopia Vow "can't
+// attack or block"; Unbridled Growth's "Sacrifice this Aura: draw") leaves residue → the card stays
+// non-native (all-or-nothing, CREED).
+function manaGrantResidueClauses(card) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
   const out = [];
   for (const clause of abilityClauses(oracle)) {
     const c = clause.toLowerCase().trim();
-    if (/^enchant\b/.test(c)) continue;                                                       // Enchant keyword line
-    if (/^enchanted creature (?:has|have)\s+["“][^"”]*\{t\}[^"”]*add[^"”]*["”]\s*\.?$/.test(c)) continue; // the modeled grant
+    if (/^enchant\b/.test(c)) continue;                                                              // Enchant keyword line
+    if (/^enchanted (?:creature|land) (?:has|have)\s+["“][^"”]*\{t\}[^"”]*add[^"”]*["”]\s*\.?$/.test(c)) continue; // the modeled grant
     out.push(clause);
   }
   return out;
 }
 
-export function isNativeCreatureManaGrantAura(card) {
+export function isNativeManaGrantAura(card) {
   if (!parseAuraGrantedManaAbility(card)) return false;
-  return creatureManaGrantResidueClauses(card).length === 0;
+  return manaGrantResidueClauses(card).length === 0;
 }
 
 /**

@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentOf, opponentsOf, totalAvailableMana } from "./gameState.js";
-import { canAfford, manaSources, manaProduction, landAuraManaBonus } from "./manaModel.js";
+import { canAfford, manaSources, manaProduction, landAuraManaBonus, applyAuraManaGrantSupplement } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor } from "./layers.js";
@@ -654,6 +654,8 @@ function actionsTapForMana(state, playerId) {
     if (!prod) {
       const granted = grantedManaSpecsFor(state, perm.id);
       if (granted.length) prod = { colors: granted[0].colors, amount: granted[0].amount };
+    } else {
+      prod = applyAuraManaGrantSupplement(state, perm, prod);   // AURA-MANA-GRANT supplement — mirrors manaSources (two-sites invariant)
     }
     if (!prod) continue;
     const isCreature = /Creature/.test(String(perm.card?.type || perm.card?.type_line || ""));

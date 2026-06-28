@@ -354,6 +354,34 @@ export function landAuraManaBonus(state, landPerm) {
   return out;
 }
 
+/**
+ * AURA-MANA-GRANT SUPPLEMENT — an Aura that grants its HOST a tap-for-mana ability ("Enchanted land has
+ * \"{T}: Add one mana of any color.\"" — Settlement / Sheltered Aerie) gives a host that ALREADY produces
+ * mana (a LAND) a SECOND {T} ability. The host taps ONCE and picks the best, so its single-tap output
+ * upgrades to the granted spec WHEN that spec strictly dominates the host's own production: the granted
+ * colors are a superset of the own colors (any-color ⊇ one own color) AND the granted amount ≥ own amount.
+ * Otherwise (neither dominates — a {C}{C} land granted "Add {G}") the own ability is kept (a safe
+ * under-count, never an overclaim). Only grants MARKED `via:"attached"` supplement — a group grant
+ * (Gemhide self-include, unmarked) must NOT upgrade the granter's own source (it would mis-model a double).
+ * The host still produces ONE record (one tap), so this never fabricates an extra tap. Pure.
+ *
+ * Shared by manaSources + legalChoices.actionsTapForMana (the CREED two-sites invariant — the auto-pay
+ * planner and the explicit tap must read the same effective production).
+ */
+export function applyAuraManaGrantSupplement(state, perm, prod) {
+  if (!prod || prod.amountSpec) return prod;          // only fixed-amount own producers (lands/rocks) supplement
+  const ownColors = prod.colors || [];
+  for (const g of grantedManaSpecsFor(state, perm.id)) {
+    if (g.via !== "attached") continue;               // only a genuinely-distinct aura ability supplements
+    const gColors = g.colors || [];
+    const superset = gColors.length >= ownColors.length && ownColors.every((c) => gColors.includes(c));
+    if (superset && (g.amount ?? 0) >= (prod.amount ?? 0)) {
+      return { ...prod, colors: [...gColors], amount: g.amount };
+    }
+  }
+  return prod;
+}
+
 // ─── Battlefield → available sources ───────────────────────────────────────────
 
 /**
@@ -383,6 +411,8 @@ export function manaSources(state, playerId) {
     if (!prod) {
       const granted = grantedManaSpecsFor(state, perm.id);
       if (granted.length) prod = { colors: granted[0].colors, amount: granted[0].amount, requiresTap: true };
+    } else {
+      prod = applyAuraManaGrantSupplement(state, perm, prod);   // AURA-MANA-GRANT: a land's own tap upgrades to a dominating aura grant
     }
     if (!prod) continue;
     const isCreature = /Creature/.test(typeLineOf(perm.card));
