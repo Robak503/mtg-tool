@@ -36,6 +36,9 @@
   - `Benevolent Hydra` — "another creature you control" counter doubler applies to ITSELF too (the "another" self-exclusion is dropped; `applyCounterDoubling` only gets the controller id, not the recipient permanent id). Tiny over-buff on Benevolent Hydra itself. Fixing needs a recipient-id arg threaded through the counter pipeline.
   - `Caradora, Heart of Alacria` / similar "creature or Vehicle you control" — applies to all your permanents, a slight super-set. Both stay non-native (mixed bodies), so no metric FP — logged for when the doubler pipeline gains recipient-identity precision.
 
+## 🔨 IN PROGRESS
+- **GRANTED-ACTIVATED Sliver grants — delegated to a build sub-agent (fire 7, background, isolated worktree).** Extend the existing #266 group-activated-grant system (Bonescythe/Sentinel keyword-grants already native) to "All Slivers have \"{T}: Regenerate target Sliver\"" (Crypt Sliver) + "\"Pay 2 life: Return this to hand\"" (Hibernation Sliver) [+ Magma if X-scaling tractable, else park]. On completion I verify independently (my flip-diff = only intended cards; a runtime probe that the granted ability resolves on a Sliver; gate) before integrating. Park-per-card if a granted cost/effect isn't modeled (a targeted granted ability or X-scaling may not be representable → clean park).
+
 ## 🚧 BLOCKERS
 - **⚠️ DIRECT PUSH TO `master` IS PERMISSION-BLOCKED (harness auto-mode classifier).** It can't see that my standing orders authorize Clyde as single-writer to master, so `git push origin HEAD:master` is denied. **Adaptation:** the night's waves accumulate on branch **`claude/ecstatic-feynman-5fa8a1`** → **PR [#381](https://github.com/Robak503/mtg-tool/pull/381)** (each wave committed + fully gated + adversarially verified; always green). **MORNING ACTION (pick one):**
   1. **Fast-forward merge PR #381** — it's ff-clean off master, every wave gated. (Recommended — simplest, preserves the per-wave history.)
