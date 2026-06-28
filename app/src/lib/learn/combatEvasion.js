@@ -212,9 +212,20 @@ const reBareUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked\
 const reCantBlock = /(?:^|[\n.;])\s*(?:this creature|it) can't block\s*(?:\.|$)/;
 const reBlockOnlyFlying = /(?:^|[\n.;])\s*(?:this creature|it) can block only creatures with flying\s*(?:\.|$)/;
 
+// RAD-CONDITIONAL UNBLOCKABLE (CR 509.1b + CR 728) — "This creature can't be blocked as long as defending
+// player has a rad counter." A self-subject conditional evasion static whose condition reads the DEFENDING
+// player's rad-counter total LIVE (enforced in canBlockAttacker against state.players[defenderId].radCounters),
+// so it switches on/off exactly as the defender's rad counters come and go. Corpus-UNIQUE to Nightkin Ambusher
+// (a single-card shape, verified by a full-corpus sweep), so this is a targeted, anchored matcher — never a
+// generic conditional-unblockable parser (every OTHER "as long as …" rider stays a SAFE false-negative,
+// rejected by parseAttackerRestrictions' conditional guard). The clause prints "a rad counter" = the 1+ test.
+const reRadConditionalUnblockable = /(?:^|[\n.;])\s*(?:this creature|it) can't be blocked as long as defending player has a rad counter\s*(?:\.|$)/;
+
 export function isSelfUnblockable(card) { return reBareUnblockable.test(selfOracle(card)); }
 export function isSelfCantBlock(card) { return reCantBlock.test(selfOracle(card)); }
 export function isCanBlockOnlyFlyers(card) { return reBlockOnlyFlying.test(selfOracle(card)); }
+/** Nightkin Ambusher — unblockable while the DEFENDING player has ≥1 rad counter (corpus-unique). */
+export function isRadConditionalUnblockable(card) { return reRadConditionalUnblockable.test(selfOracle(card)); }
 
 // ── Classifier helper (coverage.isKeywordOnly): does ONE normalized keyword-only clause read as
 // an evasion form THIS file enforces? The clause arrives already lowercased, reminder-stripped, and
@@ -252,6 +263,9 @@ export function isEnforcedEvasionClause(clause) {
   if (/^(?:this creature |it )?can't block$/.test(c)) return true;
   if (/^(?:this creature |it )?can block only creatures with flying$/.test(c)) return true;
   if (reEvasionQualifier.test(c)) return true;
+  // RAD-CONDITIONAL UNBLOCKABLE (Nightkin Ambusher) — credited here so a body whose only non-keyword text is
+  // this conditional evasion static is honestly native; canBlockAttacker enforces the rad-counter condition.
+  if (/^(?:this creature |it )?can't be blocked as long as defending player has a rad counter$/.test(c)) return true;
   // GROUP-EVASION (Shifting Sliver): "<subtype>s can't be blocked except by <same subtype>s" — enforced
   // board-wide in canBlockAttacker. Only the same-subtype tribal form (the regex's \1 backreference).
   if (reGroupBlockableOnlyBy.test(c)) return true;
@@ -300,6 +314,12 @@ export function canBlockAttacker(state, blockerId, attackerId, defenderId) {
   // Streams: "each creature you control with a +1/+1 counter can't be blocked" → a layer-6 grant, read
   // layer-aware so it tracks the +1/+1 counter dynamically).
   if (isSelfUnblockable(aCard) || permanentHasKeyword(state, attackerId, "unblockable")) return false;
+
+  // RAD-CONDITIONAL UNBLOCKABLE (Nightkin Ambusher, CR 728) — unblockable WHILE the DEFENDING player has
+  // ≥1 rad counter. Read LIVE from the defender's current rad total (per-defender → 4P-correct, mirrors the
+  // basic-landwalk per-defender gate above), so it correctly turns OFF the moment the defender's rad counters
+  // are gone (e.g. milled away by their radiation ability) and never blocks for the wrong opponent in a pod.
+  if (isRadConditionalUnblockable(aCard) && (state.players?.[defenderId]?.radCounters || 0) > 0) return false;
 
   // Basic landwalk — gated by the DEFENDING player's lands (per-defender → 4P-correct).
   for (const [walk, subtype] of BASIC_WALK) {
