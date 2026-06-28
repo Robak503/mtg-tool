@@ -29,7 +29,7 @@
  */
 
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
-import { detectTriggers, stripTriggerAbilityLabel } from "./triggers.js";
+import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
@@ -460,6 +460,32 @@ function isNativeActivatedGrantEquipment(card) {
   return sawEquip;                                                                            // must actually be equippable
 }
 
+// GRANTED-TRIGGERED AURA/EQUIPMENT (subsystem 1 phase 1c) — an Aura/Equipment whose ONLY body is granting
+// the host creature a triggered ability ("Enchanted creature has \"Whenever this creature deals combat
+// damage to a player, you may draw a card.\"" — Sixth Sense; "\"At the beginning of your upkeep, create a
+// 1/1 …\"" — Commander's Authority). The runtime (triggers.triggersForEvent) fires these on the host's
+// event. All-or-nothing: every granted trigger routes natively (triggerRoutesNatively) AND no other body
+// clause (an Equip line is allowed for equipment; any rider — a P/T bonus, a second unmodeled trigger, a
+// restriction — keeps the card Arbiter).
+function isNativeTriggerGrantAuraOrEquipment(card) {
+  const ty = String(card?.type || "");
+  const isAura = /\bAura\b/.test(ty);
+  const isEquip = /\bequipment\b/i.test(ty);
+  if (!isAura && !isEquip) return false;
+  const granted = parseGrantedTriggeredAbilities(card);
+  if (!granted.length || !granted.every(triggerRoutesNatively)) return false;
+  let sawEquip = !isEquip;                                                                  // auras need no Equip line
+  for (const rawLine of stripReminder(String(card?.oracle || card?.oracle_text || "")).split(/\n+/)) {
+    const t = rawLine.trim();
+    if (!t) continue;
+    if (/^enchant\b/i.test(t)) continue;                                                    // the Enchant keyword line
+    if (/^equip\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i.test(t)) { sawEquip = true; continue; }    // a modeled Equip cost
+    if (/^(?:enchanted|equipped) creature\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i.test(t)) continue; // a granted-ability line
+    return false;                                                                            // any other clause = residue
+  }
+  return sawEquip;
+}
+
 /**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
@@ -511,6 +537,9 @@ export function classifyCard(card) {
     // enumerates + resolves (legalChoices.grantedActivatedForHost). All-or-nothing: every granted ability
     // modeled AND no other body clause (a rider keeps it Arbiter).
     if (isNativeActivatedGrantAura(card)) return "native-activated";
+    // GRANTED-TRIGGERED (1c): "Enchanted creature has \"Whenever/At …\"" (Sixth Sense, Commander's Authority)
+    // — the host gains a triggered ability the runtime fires on the host's event (triggers.triggersForEvent).
+    if (isNativeTriggerGrantAuraOrEquipment(card)) return "native-trigger";
     return isNativeAura(card) ? "native-aura" : "body-only";
   }
   // A clone (CR 707) — a creature whose WHOLE text is "enters as a copy of a creature" — now
@@ -555,6 +584,7 @@ export function classifyCard(card) {
   if (permanentActivatedCovered(etCard)) return "native-activated"; // P2.9: body + only-modeled activated abilities
   if (staticAbilitiesCoverCard(etCard, isKeywordOnly)) return "native-static"; // P2.10: body + only-modeled static anthems
   if (isNativeActivatedGrantEquipment(etCard)) return "native-equipment"; // 1b: Equip + a granted activated ability on the host
+  if (isNativeTriggerGrantAuraOrEquipment(etCard)) return "native-trigger"; // 1c: Equip + a granted triggered ability on the host
   if (permanentEquipmentCovered(etCard)) return "native-equipment"; // attach: Equip + a clean equipped-creature bonus
   // ADDITIVE registry seam (WAVE 0): a future slice registers a coverage classifier instead of editing
   // this dispatch body. Each classifier is `(card) => tier | null` consulted ONLY after all the inline

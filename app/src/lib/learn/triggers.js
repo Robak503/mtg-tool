@@ -1091,6 +1091,45 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
   };
 }
 
+const GRANTED_ABILITY_LINE = /^(?:enchanted|equipped) creature\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
+
+/**
+ * GRANTED triggered abilities (subsystem 1 phase 1c) — an Aura/Equipment that grants the enchanted/equipped
+ * CREATURE a triggered ability: "Enchanted creature has \"Whenever this creature deals combat damage to a
+ * player, you may draw a card.\"" (Sixth Sense), "\"At the beginning of your upkeep, create a 1/1 …\""
+ * (Commander's Authority). The QUOTED trigger text is parsed through the SAME detectTriggers path as a
+ * printed trigger, so event / scope / whose / effectClause are identical — the runtime fires it and coverage
+ * gates it without drift. Merged onto the HOST in triggersForEvent (sourcePermanent = host), so the trigger
+ * fires on the host's event and "this creature"/source bind to the host. Pure; card-based; [] for non-grant.
+ */
+export function parseGrantedTriggeredAbilities(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  if (!oracle.trim()) return [];
+  const out = [];
+  for (const rawLine of oracle.split(/\n+/)) {
+    const m = rawLine.trim().match(GRANTED_ABILITY_LINE);
+    if (!m) continue;
+    const quoted = m[1].trim();
+    if (!/^(?:when|whenever|at)\b/i.test(quoted)) continue;             // only a TRIGGERED quoted ability
+    for (const d of detectTriggers({ name: "Granted", type: "Creature", oracle: quoted })) {
+      out.push({ ...d, granted: true });
+    }
+  }
+  return out;
+}
+
+// The granted triggered descriptors an Aura/Equipment confers on its host (walks the host's attachments,
+// mirroring grantedActivatedForHost). Each is treated as if printed on the host by triggersForEvent.
+function grantedTriggersForHost(state, hostPerm) {
+  if (!hostPerm?.attachments?.length) return [];
+  const out = [];
+  for (const attId of hostPerm.attachments) {
+    const lk = findPermanent(state, attId);
+    if (lk?.permanent?.card) out.push(...parseGrantedTriggeredAbilities(lk.permanent.card));
+  }
+  return out;
+}
+
 /**
  * The PendingTriggers that fire for `event` from `sourcePermanent`, given the
  * object that caused the event (`triggeringPermanent`, may === source for
@@ -1099,7 +1138,12 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
  */
 export function triggersForEvent(state, { event, sourcePermanent, triggeringPermanent = null, triggeringContext = {} }) {
   if (!sourcePermanent?.card) return [];
-  const descriptors = detectTriggers(sourcePermanent.card).filter(d => d.event === event);
+  const printed = detectTriggers(sourcePermanent.card).filter(d => d.event === event);
+  // GRANTED-TRIGGERED (subsystem 1 phase 1c): an Aura/Equipment on this permanent confers a triggered
+  // ability. Merge the host's granted descriptors so they fire on the host's event exactly like printed
+  // ones (source = host → "this creature"/source bind to the host). Additive — the printed path is untouched.
+  const granted = grantedTriggersForHost(state, sourcePermanent).filter(d => d.event === event);
+  const descriptors = granted.length ? [...printed, ...granted] : printed;
   if (!descriptors.length) return [];
   const out = [];
   for (const d of descriptors) {
