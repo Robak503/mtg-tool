@@ -185,6 +185,14 @@ function parseSelfCountSource(phrase) {
   // controller's battlefield (Conqueror's Flail "+1/+1 for each color among permanents you control",
   // CR — a colorless permanent contributes no color). layers.countSelfSpecOnBoard evaluates the Set size.
   if (/^colors? among permanents you control$/.test(p)) return { kind: "colorsAmongPermanents" };
+  // SUBTYPE on the battlefield (ALL controllers, no "you control") — "(other )?<Subtype> on the battlefield"
+  // (Sliver Legion "for each other Sliver on the battlefield"). "other" → excludeSelf (each counter excludes
+  // itself). A LIVE board count (never zero-by-default) — so it's non-hollow, unlike a "counter on this
+  // permanent" source whose counter-placement may be unmodeled. "creature on the battlefield" counts every
+  // creature (the \b match on "Creature" in the type line); a real creature subtype counts that tribe.
+  if ((m = p.match(/^(other )?([a-z][a-z]+) on the battlefield$/))) {
+    return { kind: "subtypeOnBattlefield", subtype: m[2].charAt(0).toUpperCase() + m[2].slice(1), excludeSelf: !!m[1] };
+  }
   return null;
 }
 
@@ -782,6 +790,38 @@ function parseClause(clause, out, selfName) {
     }
   }
 
+  // ── GROUP COUNT-ANTHEM (layer 7c dynamic) — "<group> get +N/+N for each <live-board count-source>" ──
+  // Sliver Legion ("All Sliver creatures get +1/+1 for each other Sliver on the battlefield") + tribal
+  // count-lords. The SAME dynamic-count layer the SELF count-buff (above) uses, applied to a GROUP
+  // (affects: selector) and re-evaluated per affected creature. Placed BEFORE the static-only guard (which
+  // bails on "for each"); guarded here against triggered/activated/one-shot so only a STATIC anthem flips.
+  // parseSelfCountSource must recognize the source as a LIVE-BOARD count (subtype on the battlefield) — a
+  // counter-on-source / unmodeled source → NO descriptor → body-only (CREED: a magnitude we can't evaluate,
+  // or whose counter-placement isn't modeled, would over/under-buff). The SELECTOR's excludeSelf (who is
+  // buffed) and the COUNT's excludeSelf (the "other" magnitude) are independent: Sliver Legion buffs ALL
+  // Slivers incl. itself, each by (#Slivers − 1). Whole-clause anchored; a rider after the count → no match
+  // → body-only. RETURN after (handled or dropped) so the flat-anthem pass never emits a WRONG fixed buff.
+  if (
+    !/^(?:when|whenever|at)\b/.test(c) && !/\bwhenever\b/.test(c) && !c.includes(":") &&
+    !/\buntil end of turn\b/.test(c) && !/\bthis turn\b/.test(c)
+  ) {
+    const caM = c.match(/^(.+?) gets? ([+-]\d+)\/([+-]\d+) for each (.+)$/);
+    if (caM && !/^(?:this creature|it)\b/.test(caM[1])) {   // the self form is handled above
+      const affects = parseCreatureSelector(c);
+      const countSpec = parseSelfCountSource(caM[4]);
+      if (affects && countSpec) {
+        out.push({
+          layer: 7,
+          sublayer: "7c",
+          op: { layerOp: "ptModifyDynamicCount", countSpec, perPower: signed(caM[2]), perToughness: signed(caM[3]) },
+          affects,
+          duration: { kind: "permanent" },
+        });
+      }
+      return;
+    }
+  }
+
   // ── STATIC-ONLY GUARD (CLAUDE.md §1.2: a miss is safe; a false grant is forbidden) ──
   // A continuous effect is created only by a STATIC ability. Bail on any marker of a
   // triggered / activated / one-shot / variable / conditional ability so we never
@@ -1240,6 +1280,12 @@ function parseAttachedClause(c, subject) {
   if (dynPt) {
     const countSpec = parseSelfCountSource(dynPt[3]);
     if (!countSpec) return null;                       // unmodeled metric → whole bonus drops
+    // A subtypeOnBattlefield ("for each [other] X on the battlefield") count is evaluated against the ATTACHED
+    // CREATURE, but its "other" excludes the AURA/EQUIPMENT SOURCE — which the creature-scoped count eval can't
+    // see, so it would over-count the source itself (Ancestral Mask "+2/+2 for each OTHER enchantment" counted
+    // the Mask → 6/6 not 4/4). Drop it → body-only → Arbiter (safe FN). This source is correct only on the
+    // SELF / GROUP-anthem paths, where the counting permanent IS a candidate member.
+    if (countSpec.kind === "subtypeOnBattlefield") return null;
     return [{ layer: 7, sublayer: "7c", op: { layerOp: "ptModifyDynamicCount", countSpec, perPower: signed(dynPt[1]), perToughness: signed(dynPt[2]) }, duration: { kind: "permanent" } }];
   }
 

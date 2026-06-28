@@ -105,6 +105,21 @@ function subtypesOf(card) {
 // static self-buff. Word-bounded match on the type line. Local (no gameState import). 0 on an unknown spec.
 function countSelfSpecOnBoard(state, perm, spec) {
   if (!spec || !perm) return 0;
+  // SUBTYPE on the battlefield — ALL players' battlefields (Sliver Legion "for each other Sliver on the
+  // battlefield"). `excludeSelf` (the "other" form) drops the counting permanent if it carries the subtype,
+  // so a board of N Slivers gives each Sliver a count of N-1. Word-bounded type-line match (so "Sliver"
+  // hits "Creature — Sliver" but not a substring). All-players because the clause has no "you control".
+  if (spec.kind === "subtypeOnBattlefield") {
+    const needle = spec.subtype;
+    if (!needle) return 0;
+    const re = new RegExp(`\\b${needle}\\b`);
+    let n = 0;
+    for (const pl of Object.values(state?.players || {})) {
+      for (const p of pl.battlefield || []) if (re.test(typeLineOf(p.card))) n += 1;
+    }
+    if (spec.excludeSelf && re.test(typeLineOf(perm.card))) n -= 1;
+    return Math.max(0, n);
+  }
   const player = state?.players?.[perm.controller];
   if (!player) return 0;
   // EQUIP-DYNAMIC-PT: distinct WUBRG colors among the controller's battlefield (Conqueror's Flail

@@ -312,11 +312,22 @@ describe("anti-fabrication guards (CLAUDE.md §1.2)", () => {
   });
 
   // ── Variable / conditional magnitude must be a clean MISS, never a flat buff ──
-  it("does NOT fabricate a flat buff from a 'for each' lord (Sliver Legion)", () => {
-    // Sliver Legion: "Other Slivers get +1/+1 for each other Sliver on the
-    // battlefield." A flat +1/+1 would be the WRONG magnitude — a forbidden false
-    // grant. Until variable-count ops exist, it must parse to nothing.
-    expect(parseStaticAbilities(card("Sliver Legion", "Other Slivers get +1/+1 for each other Sliver on the battlefield.", "Creature — Sliver"))).toEqual([]);
+  it("models a 'for each <subtype> on the battlefield' lord as a DYNAMIC count, NOT a fabricated flat buff (Sliver Legion)", () => {
+    // Sliver Legion: "All Sliver creatures get +1/+1 for each other Sliver on the battlefield." Now modeled
+    // as a layer-7c ptModifyDynamicCount whose magnitude scales with the live board (subtypeOnBattlefield,
+    // excludeSelf) — a FLAT +1/+1 would be the WRONG magnitude (a forbidden false grant). The anti-fabrication
+    // intent holds: a fixed ptModify is NEVER emitted; the magnitude is always the live count.
+    const descs = parseStaticAbilities(card("Sliver Legion", "All Sliver creatures get +1/+1 for each other Sliver on the battlefield.", "Legendary Creature — Sliver"));
+    expect(descs).toHaveLength(1);
+    expect(descs[0].op.layerOp).toBe("ptModifyDynamicCount");
+    expect(descs[0].op.countSpec).toEqual({ kind: "subtypeOnBattlefield", subtype: "Sliver", excludeSelf: true });
+    expect(descs.some((d) => d.op?.layerOp === "ptModify")).toBe(false);   // no fabricated FLAT buff
+  });
+
+  it("does NOT fabricate a buff from a 'for each <counter> on this' lord (unmodeled count source → Arbiter)", () => {
+    // A counter-on-source count whose counter-placement isn't modeled would read 0 → a hollow do-nothing
+    // flip; it stays unmodeled. The anti-fabrication guard, re-pointed at a still-unmodeled count source.
+    expect(parseStaticAbilities(card("Joraga Warcaller", "Other Elf creatures you control get +1/+1 for each +1/+1 counter on this creature.", "Creature — Elf Warrior"))).toEqual([]);
   });
 
   it("does NOT fabricate an unconditional buff from an 'as long as' anthem", () => {
