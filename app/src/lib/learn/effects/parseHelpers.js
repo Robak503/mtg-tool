@@ -109,6 +109,16 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = 
   if ((m = p.match(/^(creatures?|lands?|artifacts?|enchantments?) you control$/))) {
     return withExclude({ kind: "permanentsYouControl", cardType: COUNT_TYPE[m[1]] });
   }
+  // ===== POWER-QUALIFIED CREATURE COUNT ===== "creatures you control with power N or {greater|more}" — the
+  // count of the controller's creatures whose LAYER-AWARE power (read at resolution via creaturePower in
+  // countForSpec) is ≥ N (The Boulder, Ready to Rumble: "earthbend X, where X is the number of creatures you
+  // control with power 4 or greater"; Dragonhawk's impulse count). A power threshold is layer-aware (counters/
+  // anthems count), so it is applied in countForSpec, not the type-line-only countMatches. Only the "with power
+  // N or greater/more" form is admitted; any other qualifier ("or less", "with toughness …") fails the anchor
+  // → null → low → Arbiter (CREED — never an unmodeled filter silently counted).
+  if ((m = p.match(/^creatures? you control with power (\d+) or (?:greater|more)$/))) {
+    return withExclude({ kind: "permanentsYouControl", cardType: "creature", powerAtLeast: Number(m[1]) });
+  }
   if ((m = p.match(/^(mountains?|forests?|islands?|swamps?|plains) you control$/))) {
     return withExclude({ kind: "permanentsYouControl", subtype: COUNT_BASIC_SUBTYPE[m[1]] });
   }

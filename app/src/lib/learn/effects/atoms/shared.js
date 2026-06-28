@@ -277,7 +277,14 @@ export function countForSpec(state, ctx, spec) {
   // the mana path) — see isExcludedSelf. A plain spell threads neither → nothing excluded (no "other" referent);
   // the cardsInHand / experience kinds have no per-permanent identity, so the flag is a safe no-op there.
   if (spec.kind === "permanentsYouControl") {
-    return (player.battlefield || []).filter((perm) => countMatches(perm.card, spec) && !isExcludedSelf(perm, spec, ctx)).length;
+    // POWER-QUALIFIED ("creatures you control with power N or greater" — The Boulder): a power threshold is
+    // LAYER-AWARE (counters + anthems count), so it's applied here against creaturePower read at resolution
+    // (CR 608.2h), not in the type-line-only countMatches. Absent → no threshold (the plain count is unchanged).
+    return (player.battlefield || []).filter((perm) =>
+      countMatches(perm.card, spec)
+      && !isExcludedSelf(perm, spec, ctx)
+      && (spec.powerAtLeast == null || creaturePower(perm, state) >= spec.powerAtLeast),
+    ).length;
   }
   // ===== CHOSEN-TYPE (Distant Melody) ===== "permanent you control of that type" where the type was chosen
   // at resolution (CR 614.12). The self-play engine maximizes the draw — the count is the greatest, over every
