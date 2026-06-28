@@ -27,9 +27,13 @@
 
 ---
 
-## 🔭 NEXT LEVERS (my ranked queue — highest 13-deck payoff, CREED-gateable)
-1. **Counter/token doubler full-card coverage** (IN FLIGHT) — Mothman/Koma/Toph laggards.
-2. **CHOOSE-A-CREATURE-TYPE** (`CHOOSE-TYPE-PERSIST`) — gates Sliver (highest-native) + Ur-Dragon/Pantlaza; durable chosen-type state primitive + anthem/draw consumers. Bigger subsystem.
-3. **TREASURE-MAKER trigger coverage** — Vihaan (whole deck) + Ur-Dragon/Cap/Zaxara; trig-shapes detected but the "create Treasure" effect isn't a covered atom. Token + sac-for-mana subsystem.
-4. **Combat-damage→draw trigger** (Toski/Bident/Synapse/Enduring Curiosity) — cross-deck, moderate.
-5. **Power-scaled draw** (Rishkar's/Wildspeaker/Soul's Majesty) — rider-blocked (free-cast/modal), needs the rider modeled first.
+## 🔭 NEXT LEVERS (ranked; with live scouting intel so the next fire acts immediately)
+1. **EARTHBEND ETB cluster → native (Toph laggard, ~7 cards).** Earthbend IS runtime-complete (`applyEarthbend` in `effects/atoms/combat.js`, `parseEffectClause("earthbend N")`=HIGH, 21 tests). The cards (Badgermole Cub, Earthbending Student, Earth Kingdom General, Bumi, Toph, Solid Ground, Earthbender Ascension…) are body-only because **`permanentTriggersCovered` does NOT `stripReminder` before its residue check** (unlike `permanentFullyCovered`), so the earthbend reminder "(Target land… When it dies…)" survives as fake residue. ⚠️ NON-TRIVIAL: there's an unresolved inconsistency — `permanentFullyCovered(Badgermole)` is ALSO false despite stripping reminders, while a doubler-stripped Solid Ground passed it (that was the wave-1 FP). **Untangle the two gates' reminder handling carefully with a FULL-corpus flip-diff before flipping** (broad change — adding stripReminder to permanentTriggersCovered touches every trigger card). High payoff, needs full context.
+2. **TREASURE-MAKER trigger coverage** — Vihaan (whole deck) + Ur-Dragon/Cap/Zaxara. Triggers are DETECTED but "create a Treasure token" isn't a covered trigger-effect atom (Captain Lannery/Grim Hireling/Professional Face-Breaker/Mahadi all `trigCovered=false`). Token-with-mana-ability + sac-for-mana subsystem. Biggest single-deck lever (Vihaan).
+3. **CHOOSE-A-CREATURE-TYPE** (`CHOOSE-TYPE-PERSIST`) — gates Sliver (highest-native) + Ur-Dragon/Pantlaza; durable chosen-type state primitive + anthem/draw/cost consumers. ~10 cards. State-primitive subsystem.
+4. **dies-subject "…or planeswalker you control"** — TINY but clean: extend the dies-trigger subject detector (effect already modeled — Zulaport/Blood Artist/Elas il-Kor are native). Flips Cruel Celebrant (Vihaan) + maybe Rising Populace; corpus-wide only 3 cards match, Ajani's Last Stand stays body-only (optional+sac). Low ROI alone — bundle with another dies/ETB-subject pass.
+
+## 🔎 SCOUTING NOTES (don't re-investigate — already checked this session)
+- **combat-damage→draw ROUTES natively** (Reconnaissance Mission is native-trigger). But every 13-deck candidate has a genuinely-unmodeled RIDER: Bident (force-attack activated), Enduring Curiosity (enduring dies-return, conf=low), Starwinder (Warp), Marcus (conditional draw/counter, conf=low). Synapse Sliver + Coastal Piracy = detection gaps ("a Sliver…its controller" / "to an opponent"). NOT a clean wave.
+- **Aristocrat dies-drain is mostly DONE** (Zulaport, Blood Artist, Bastion of Remembrance, Corpse Knight, Elas il-Kor all native-trigger). Remaining body-only = riders or the "or planeswalker" subject gap (#4 above).
+- **Power-scaled draw** (Rishkar's ×4/Wildspeaker ×3/Inspiring Call ×4) = highest cross-deck count but ALL rider-blocked (free-cast / modal / indestructible-rider). Each needs its specific rider modeled — not one clean wave.
