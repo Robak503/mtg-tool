@@ -841,6 +841,34 @@ const NONSELF_SAC_REF_RE = /^sacrifice it$/i;
 // explores" → target:"self" and "the triggering creature explores" → target:"thatCreature".
 const EXPLORE_IT_RE = /^it explores(?:, then it explores again)?$/i;
 
+// GLOBAL SUBTYPE combat-damage-to-a-player (Synapse Sliver / Brood Sliver) — "Whenever a <Subtype> deals
+// combat damage to a player, ITS CONTROLLER may <effect>". DISTINCT from the subtypeYouControl form (Spawning
+// Kraken — "a … you control deals …") in TWO ways modeled by this detector:
+//   1. GLOBAL subject — NO "you control": the trigger fires off ANY player's matching-subtype creature, so
+//      scope:"subtypeGlobal" omits the controller gate (scopeMatches + the all-players scan in
+//      checkCombatDamageTriggers).
+//   2. "its controller" beneficiary — the effect resolves for the DEALING creature's controller, threaded as
+//      the pending trigger's beneficiary override; the effectClause's leading "its controller" is rewritten
+//      to "you" so the payoff parser binds to that controller.
+// CREED: this detector ONLY fires the descriptor when (a) the condition is the bare global form (END-anchored
+// on "a player"; a rider/qualifier — "…or planeswalker", "…you control", "…an opponent controls" — fails the
+// anchor and the whole card stays non-native, a SAFE false-negative) AND (b) the effect BEGINS with "its
+// controller" (the only beneficiary shape this scope models). A global subject with a different beneficiary
+// ("you draw", "each player draws") falls through to non-native rather than mis-resolve. parseSubtypeList
+// rejects a card-TYPE word ("a creature deals …") → null → no over-fire. Returned descriptor carries
+// itsController:true so triggersForEvent applies the beneficiary override (every other scope passes null).
+function detectSubtypeGlobalCombatDamage(condRaw, _cardName, _typeLine, effectRaw) {
+  const c = String(condRaw || "").toLowerCase().trim();
+  const eff = String(effectRaw || "").toLowerCase().trim();
+  const m = c.match(/^a ((?:[a-z]+,\s*)*(?:or\s+|and\s+)?[a-z]{3,}) deals combat damage to a player$/);
+  if (!m) return null;
+  if (/\byou control\b/.test(c)) return null;          // the you-control form is handled inline (subtypeYouControl)
+  if (!/^its controller\b/.test(eff)) return null;     // only the dealer-controller beneficiary shape (CREED gate)
+  const filter = parseSubtypeList(m[1]);
+  if (!filter) return null;                            // a card-TYPE word / non-subtype → Arbiter (no over-fire)
+  return { event: "combatDamageToPlayer", scope: "subtypeGlobal", whose: "any", subtypeFilter: filter, itsController: true };
+}
+
 // ADDITIVE registry seam (WAVE 0): module-level list of extra trigger-condition detectors. A detector
 // is `(condition, cardName, typeLine, effectClause) => TriggerDescriptorClassification | null` and is
 // consulted by detectTriggers ONLY after the inline classifyCondition returns falsy (inline matchers keep
@@ -960,6 +988,15 @@ export function detectTriggers(card) {
         // EXPLORE non-self (Path of Discovery — "Whenever a creature you control enters, it explores"): "it"
         // is the TRIGGERING creature (CR 608.2c) → the sentinel the parser maps to target:"thatCreature".
         effectClause = effectClause.replace(/^it /i, "the triggering creature ");
+      } else if (cls.scope === "subtypeGlobal" && cls.itsController) {
+        // GLOBAL SUBTYPE "its controller" (Synapse/Brood Sliver — "Whenever a Sliver deals combat damage to a
+        // player, ITS CONTROLLER may draw / create …"). The beneficiary is the DEALING creature's controller
+        // (CR 608.2c — "its controller" refers to the object the ability triggered on), threaded as the
+        // pending trigger's `controller` by checkCombatDamageTriggers' beneficiary override. Rewrite the
+        // leading "its controller" → "you" so the effect parser models the payoff against that controller
+        // (the same draw/create atoms the YOU-control forms use). The detector already gated nativeness on
+        // this exact "its controller" prefix, so a different beneficiary phrase never reaches this rewrite.
+        effectClause = effectClause.replace(/^its controller /i, "you ");
       }
       out.push({
         event: cls.event,
@@ -969,6 +1006,7 @@ export function detectTriggers(card) {
         nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
         subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF only (e.g. "Dinosaur" for Pantlaza)
+        itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
@@ -1096,6 +1134,19 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
         && (subtypeFilterMatches(triggeringPermanent.card, descriptor.subtypeFilter)
             || (triggeringPermanent.id === sourcePermanent.id
                 && subtypeFilterMatches(sourcePermanent.card, descriptor.subtypeFilter)));
+    case "subtypeGlobal":
+      // GLOBAL SUBTYPE combat-damage (Synapse Sliver / Brood Sliver — "Whenever a Sliver deals combat damage
+      // to a player, its controller may …"). UNLIKE subtypeYouControl there is NO "you control": the subject
+      // is ANY player's matching-subtype creature, so the controller gate is intentionally ABSENT — the
+      // trigger fires off an opponent's Sliver too (the beneficiary is then that opponent, threaded as the
+      // pending trigger's controller by checkCombatDamageTriggers via the dealer-controller override). Fires
+      // when the triggering permanent carries the subtype, with the same source self-inclusion hedge as
+      // subtypeYouControl (the source's OWN matching damage). The subtypeFilter is exact (parseSubtypeList
+      // rejects a card-TYPE word), so a non-member creature dealing damage does NOT fire — no over-fire.
+      return !!triggeringPermanent
+        && (subtypeFilterMatches(triggeringPermanent.card, descriptor.subtypeFilter)
+            || (triggeringPermanent.id === sourcePermanent.id
+                && subtypeFilterMatches(sourcePermanent.card, descriptor.subtypeFilter)));
     case "otherSubtypeYouControl":
       // "another <SUBTYPE> you control enters" (Youthful Valkyrie / Champion of the Perished family).
       // Fires when a non-self permanent the source's controller controls carries the subtype in its type line.
@@ -1122,8 +1173,14 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
   }
 }
 
-function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, triggeringContext) {
-  const controller = sourcePermanent.controller;
+function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, triggeringContext, beneficiary = null) {
+  // BENEFICIARY OVERRIDE (subtypeGlobal — Synapse/Brood Sliver "its controller may …"): the effect resolves
+  // for the DEALING creature's controller, NOT the watcher's controller. The `controller` field is what
+  // buildTriggerStack threads into the effect program's `controller` (the "you" the rewritten effect binds
+  // to) AND what applyTriggerEffect uses for "who:controller" — so overriding it here makes "its controller
+  // may draw" / "its controller may create" resolve for the dealer's controller. Defaults to the source's
+  // controller (every other scope), so this is a no-op except where checkCombatDamageTriggers passes one.
+  const controller = beneficiary || sourcePermanent.controller;
   const context = {
     triggeringPermanentId: triggeringPermanent?.id,
     triggeringCardName: triggeringPermanent?.card?.name,
@@ -1200,14 +1257,19 @@ function grantedTriggersForHost(state, hostPerm) {
  * self-triggers) and any event extras (e.g. { defenderId }). Pure — returns data,
  * does not enqueue.
  */
-export function triggersForEvent(state, { event, sourcePermanent, triggeringPermanent = null, triggeringContext = {} }) {
+export function triggersForEvent(state, { event, sourcePermanent, triggeringPermanent = null, triggeringContext = {}, beneficiary = null, scopeFilter = null }) {
   if (!sourcePermanent?.card) return [];
   const printed = detectTriggers(sourcePermanent.card).filter(d => d.event === event);
   // GRANTED-TRIGGERED (subsystem 1 phase 1c): an Aura/Equipment on this permanent confers a triggered
   // ability. Merge the host's granted descriptors so they fire on the host's event exactly like printed
   // ones (source = host → "this creature"/source bind to the host). Additive — the printed path is untouched.
   const granted = grantedTriggersForHost(state, sourcePermanent).filter(d => d.event === event);
-  const descriptors = granted.length ? [...printed, ...granted] : printed;
+  let descriptors = granted.length ? [...printed, ...granted] : printed;
+  // SCOPE FILTER (subtypeGlobal de-dup): checkCombatDamageTriggers fires the per-attacker self + the
+  // attacking-player watcher paths EXCLUDING subtypeGlobal, then runs a single all-players scan that
+  // INCLUDES only subtypeGlobal — so a global watcher controlled by the attacking player fires exactly
+  // once (via the global scan, with the dealer-controller beneficiary), never twice. Inert when unset.
+  if (typeof scopeFilter === "function") descriptors = descriptors.filter(d => scopeFilter(d.scope));
   if (!descriptors.length) return [];
   const out = [];
   for (const d of descriptors) {
@@ -1220,7 +1282,11 @@ export function triggersForEvent(state, { event, sourcePermanent, triggeringPerm
     // Price of Knowledge). When the active player isn't an opponent of the source's controller (i.e. it
     // IS the controller, or a non-opponent in some future multiplayer wrinkle), skip.
     if (d.whose === "opponents" && !opponentsOf(state, sourcePermanent.controller).includes(state.activePlayer)) continue;
-    out.push(makePendingTrigger(d, sourcePermanent, triggeringPermanent, triggeringContext));
+    // BENEFICIARY OVERRIDE: only the subtypeGlobal "its controller" descriptors carry one (set by
+    // checkCombatDamageTriggers = the dealing creature's controller). Every other descriptor passes null →
+    // makePendingTrigger falls back to the source's controller, so this is inert for all existing scopes.
+    const ben = (d.scope === "subtypeGlobal" && d.itsController) ? beneficiary : null;
+    out.push(makePendingTrigger(d, sourcePermanent, triggeringPermanent, triggeringContext, ben));
   }
   return out;
 }
@@ -1516,17 +1582,33 @@ export function checkCombatDamageTriggers(state, playerEvents) {
   const hits = (playerEvents || []).filter((e) => e.kind === "combat-damage-player");
   if (!hits.length) return state;
   let fired = [];
+  // subtypeGlobal is fired ONLY by the dedicated all-players scan below (with the dealer-controller
+  // beneficiary), so the per-attacker self + attacking-player paths EXCLUDE it — preventing a double-fire
+  // for a global watcher the attacking player happens to control.
+  const notGlobal = (scope) => scope !== "subtypeGlobal";
   for (const ev of hits) {
     const lk = findPermanent(state, ev.attackerId);
     if (!lk) continue;
     const attackerPerm = lk.permanent;
     const context = { damagedPlayerId: ev.defender, combatDamageAmount: ev.amount };
     // self ("this creature deals combat damage to a player")
-    fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context }));
+    fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: attackerPerm, triggeringPermanent: attackerPerm, triggeringContext: context, scopeFilter: notGlobal }));
     // the attacking player's "a creature you control deals combat damage to a player" watchers
     for (const watcher of triggerSourcesOf(state, ev.attackingPlayer)) {
       if (watcher.id === attackerPerm.id) continue;
-      fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
+      fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context, scopeFilter: notGlobal }));
+    }
+    // GLOBAL SUBTYPE watchers (Synapse/Brood Sliver — "Whenever a Sliver deals combat damage to a player,
+    // ITS CONTROLLER may …"). The subject is ANY player's matching-subtype creature, so scan EVERY player's
+    // sources (not just the attacking player's), firing ONLY subtypeGlobal descriptors. The effect resolves
+    // for the DEALING creature's controller (ev.attackingPlayer), threaded as the beneficiary override — so
+    // an OPPONENT's Sliver connecting makes that OPPONENT (not the watcher's controller) the beneficiary.
+    // The attacker itself can be a global watcher (self-inclusion via scopeMatches), so it is NOT excluded
+    // here (it isn't double-fired: the self/attacking-player paths above skip subtypeGlobal entirely).
+    for (const pid of Object.keys(state.players || {})) {
+      for (const watcher of triggerSourcesOf(state, pid)) {
+        fired = fired.concat(triggersForEvent(state, { event: "combatDamageToPlayer", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context, beneficiary: ev.attackingPlayer, scopeFilter: (scope) => scope === "subtypeGlobal" }));
+      }
     }
   }
   if (!fired.length) return state;
@@ -1965,3 +2047,9 @@ export function applyTriggerEffect(state, { effect, controller, targets = [], so
 // must NOT also self-register — registering both here and there would push the detector twice.
 import { detectPhaseTrigger } from "./triggerScheduler.js";
 registerTriggerDetector(detectPhaseTrigger);
+// GLOBAL SUBTYPE combat-damage ("a <Subtype> deals combat damage to a player, its controller may …" —
+// Synapse/Brood Sliver). Registered here (defined above in this module, no import) so every importer —
+// runtime AND the coverage metric — sees it. Consulted only after the inline classifyCondition returns
+// falsy, which it does for the global form (the inline combat-damage block returns only for the you-control
+// shapes), so this is purely additive (no existing classification changes).
+registerTriggerDetector(detectSubtypeGlobalCombatDamage);
