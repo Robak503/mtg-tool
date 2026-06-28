@@ -23,6 +23,19 @@
 
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "./keywords.js";
 
+// GROUP-ACTIVATED grant validator (injected — CR 113.7). Whether a quoted group-grant body ("All Slivers
+// have \"{2}: Regenerate this permanent.\"") is a FULLY-MODELED activated ability is decided by
+// parseActivatedAbilities, which lives in effects/abilities.js → effects/parser.js → (back to this module):
+// a STATIC import would form a load-time cycle through the atoms registry and crash module eval. So the
+// check is REGISTERED at load by the modules that own it (coverage.js for classification, legalChoices.js
+// for the runtime), mirroring registerCoverageClassifier. Until registered the emission is skipped (a group
+// grant simply stays body-only — a safe FN), so a parseClause caller that loads neither consumer is never
+// given a half-modeled grant.
+let _groupActivatedBodyValidator = null;
+export function registerGroupActivatedBodyValidator(fn) {
+  _groupActivatedBodyValidator = typeof fn === "function" ? fn : null;
+}
+
 // The grantable-keyword set + canonical-caser live in keywords.js as the SINGLE source of truth,
 // so a granted keyword can never be one the engine doesn't enforce. The STATIC path (this module:
 // anthems/lords + attached Equipment/Auras) uses the static superset — the combat keywords PLUS
@@ -636,7 +649,8 @@ function parseClause(clause, out, selfName) {
     const grantQ = clause.match(/^(.+?)\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i);
     if (grantQ) {
       const selector = parseCreatureSelector(grantQ[1].toLowerCase() + " have");
-      const manaSpec = selector ? parseGrantedManaSpec(grantQ[2]) : null;
+      const quoted = grantQ[2];
+      const manaSpec = selector ? parseGrantedManaSpec(quoted) : null;
       if (selector && manaSpec) {
         out.push({
           layer: 6,
@@ -644,9 +658,32 @@ function parseClause(clause, out, selfName) {
           affects: selector,
           duration: { kind: "permanent" },
         });
+      } else if (selector && !/^(?:when|whenever|at the beginning)/i.test(quoted.trim())) {
+        // GROUP-GRANT granted quoted ACTIVATED ability ("All Slivers have \"{2}: Regenerate this permanent.\""
+        // — Clot Sliver; "\"{2}, Sacrifice this permanent: Draw a card.\"" — Mnemonic; "\"Sacrifice this
+        // permanent: You gain 3 life.\"" — Darkheart). The quoted body must parse to a FULLY-MODELED, non-mana
+        // activated ability through parseActivatedAbilities — the SAME parser a PRINTED ability uses — so a
+        // granted instance behaves identically (CREED #17: model the whole quoted ability or emit nothing).
+        // A TARGETED / X-scaling / otherwise-unmodeled body (Telekinetic "{T}: Tap target permanent", Magma's
+        // X-pump) parses modeled=false → NO descriptor → the whole card stays body-only (a safe FN → Arbiter).
+        // The emitted op carries the quoted TEXT (serializable); layers.grantedActivatedQuotedFor returns it
+        // to legalChoices, which parses it (the SAME parser) and enumerates the ability ON EACH affected
+        // permanent — so "this permanent"/"this creature"/the {T}/sacrifice cost bind to the RECIPIENT, never
+        // the granter. Triggered bodies (When/Whenever/At) are deferred (group-triggered = a later slice).
+        // The injected validator (see registerGroupActivatedBodyValidator) confirms the quoted body parses to
+        // a fully-modeled, non-mana activated ability via parseActivatedAbilities — the SAME parser a printed
+        // ability uses (CREED #17). Unregistered or unmodeled → NO descriptor → the card stays body-only (FN).
+        if (_groupActivatedBodyValidator && _groupActivatedBodyValidator(quoted)) {
+          out.push({
+            layer: 6,
+            op: { layerOp: "addAbility", grant: { kind: "activated", quoted } },
+            affects: selector,
+            duration: { kind: "permanent" },
+          });
+        }
       }
-      // A quoted-ability grant we matched the SHAPE of but can't fully model (no selector, or a
-      // non-mana / unmodeled quoted ability) produces NO descriptor — the whole clause stays body-only
+      // A quoted-ability grant we matched the SHAPE of but can't fully model (no selector, or a non-mana /
+      // unmodeled / triggered quoted ability) produces NO descriptor — the whole clause stays body-only
       // (CREED). Return either way: a "have \"…\"" clause is never ALSO a plain keyword/anthem grant.
       return;
     }

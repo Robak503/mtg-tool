@@ -702,6 +702,32 @@ export function grantedManaSpecsFor(state, permanentId) {
 }
 
 /**
+ * GROUP-GRANT — the quoted ACTIVATED-ability TEXTS another permanent's static GRANTS this permanent (a Sliver
+ * lord's "All Slivers have \"{2}: Regenerate this permanent.\"" — Clot/Mnemonic/Darkheart Sliver). Mirrors
+ * grantedManaSpecsFor: walks the same continuous-effect collection, filters to layer-6 `addAbility` grants of
+ * kind "activated" that AFFECT this permanent (selector match via the shared effectAffects, so self in/exclude
+ * + subtype + controller scope are honored), and returns the raw quoted strings. legalChoices parses each via
+ * parseActivatedAbilities (the SAME parser staticAbilityParser gated the emission on) and enumerates the
+ * ability ON THIS permanent — so "this permanent"/"this creature"/the {T}/sacrifice cost bind to the RECIPIENT
+ * (permanentId), exactly like a printed activated ability. Returns [] when no grant applies. Pure. Kept HERE
+ * (not legalChoices) because only this module owns effectAffects/matchesSelector.
+ */
+export function grantedActivatedQuotedFor(state, permanentId) {
+  const perm = findPerm(state, permanentId);
+  if (!perm) return [];
+  const board = collectContinuousEffects(state);
+  if (board.length === 0) return [];
+  const out = [];
+  for (const e of board) {
+    if (e.layer !== 6 || e.op?.layerOp !== "addAbility") continue;
+    if (e.op.grant?.kind !== "activated" || !e.op.grant.quoted) continue;
+    if (!effectAffects(e, perm, state)) continue;
+    out.push(e.op.grant.quoted);
+  }
+  return out;
+}
+
+/**
  * Convenience used by tests/explain: the ordered effects that apply to a
  * permanent (layer asc, then CDA-first, then timestamp). Pure.
  */

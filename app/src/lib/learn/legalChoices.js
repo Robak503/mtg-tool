@@ -33,14 +33,19 @@ import { getZone, opponentOf, opponentsOf, totalAvailableMana, findPermanent } f
 import { canAfford, manaSources, manaProduction, landAuraManaBonus, applyAuraManaGrantSupplement } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
-import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor } from "./layers.js";
-import { collectCostReducers, costReductionForSpell, cantCastDescriptorOf } from "./staticAbilityParser.js";
+import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
+import { collectCostReducers, costReductionForSpell, cantCastDescriptorOf, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
-import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, isModeledGroupActivatedBody } from "./effects/abilities.js";
+
+// GROUP-ACTIVATED grant (queue 1) — register the modeled-body gate so the runtime path (a SIM that imports
+// legalChoices but not coverage) still emits + enumerates group-activated grants. Idempotent with coverage.js's
+// identical registration; see registerGroupActivatedBodyValidator in staticAbilityParser.js.
+registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { isNativeAura, isNativeManaAura, entersWithXCounters } from "./staticAbilityParser.js";
 
@@ -728,7 +733,16 @@ function actionsActivateAbility(state, playerId) {
     // ("Enchanted creature has \"{T}: …\""). The granted descriptors are enumerated HERE on the host, so
     // tapSelf taps the host and the effect's "this creature"/"you" bind to the host/controller at resolution.
     const printed = parseActivatedAbilities(perm.card);
-    const granted = grantedActivatedForHost(state, perm);
+    // GRANTED-ACTIVATED — abilities conferred on this permanent by (a) an Aura/Equipment ATTACHED to it
+    // ("Enchanted creature has \"…\""), and (b) a GROUP static ("All Slivers have \"{2}: Regenerate this
+    // permanent.\"" — Clot Sliver). The group grants come from layers.grantedActivatedQuotedFor (selector-
+    // matched) as raw quoted text, parsed HERE via the SAME parseActivatedAbilities as printed/attachment
+    // grants, so cost/effect/modeled/binding are identical and enumerated ON THIS permanent — "this permanent"
+    // binds to perm.id (the recipient), the {T}/sacrifice cost taps/sacs perm, never the granter.
+    const groupGranted = grantedActivatedQuotedFor(state, perm.id)
+      .flatMap((q) => parseActivatedAbilities({ name: perm.card?.name || "GroupGranted", type: "Creature", oracle: q }))
+      .filter((a) => a.modeled && !a.isManaEffect);
+    const granted = [...grantedActivatedForHost(state, perm), ...groupGranted];
     const abilities = granted.length ? [...printed, ...granted] : printed;
     if (!abilities.length) continue;
     const isCreaturePerm = isCreature(perm.card);

@@ -287,3 +287,16 @@ export function parseGrantedActivatedAbilities(card) {
   }
   return out;
 }
+
+/**
+ * GROUP-GRANT (CR 113.7) — whether a quoted group-grant body ("{2}: Regenerate this permanent.", "{2},
+ * Sacrifice this permanent: Draw a card.") is a FULLY-MODELED, non-mana ACTIVATED ability. The single CREED
+ * gate staticAbilityParser registers its group-activated emission with (registerGroupActivatedBodyValidator)
+ * AND that legalChoices filters the runtime enumeration on — single-sourced here, over the SAME
+ * parseActivatedAbilities a printed ability uses, so classification and runtime can't drift. A targeted/
+ * X-scaling/otherwise-unmodeled body returns false → no grant emitted, none offered (a safe FN → Arbiter).
+ */
+export function isModeledGroupActivatedBody(quoted) {
+  const abs = parseActivatedAbilities({ name: "GroupGranted", type: "Creature", oracle: String(quoted || "") });
+  return abs.length > 0 && abs.every((a) => a.modeled && !a.isManaEffect);
+}

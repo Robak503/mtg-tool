@@ -30,8 +30,8 @@
 
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities } from "./triggers.js";
-import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped } from "./staticAbilityParser.js";
+import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody } from "./effects/abilities.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -692,6 +692,13 @@ export function coverageSummary(cards) {
 // and before the composite catch-all. Mondrak / Vorinclex / Corpsejack (creature/activated bodies) are excluded
 // by isPureDoubler and stay body-only (CREED whole-card).
 registerCoverageClassifier((card) => (isPureDoubler(card) ? "native-static" : null));
+
+// GROUP-ACTIVATED grant (queue 1) — inject the modeled-body gate into staticAbilityParser's group-grant
+// emission (it can't import parseActivatedAbilities directly — a load-time cycle through the atoms registry).
+// With this registered, a card whose only non-keyword text is a fully-modeled group-activated grant ("All
+// Slivers have \"{2}: Regenerate this permanent.\"") classifies native-static via staticAbilitiesCoverCard,
+// and legalChoices offers the ability on every affected permanent (layers.grantedActivatedQuotedFor).
+registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 
 // ─── WAVE 5a — Wolverine, Best There Is (the damage-replacement keystone) ──────────────────────────────────
 // All THREE clauses modeled (CREED all-or-nothing): the source-scoped double-all-damage replacement
