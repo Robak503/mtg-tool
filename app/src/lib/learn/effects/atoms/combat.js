@@ -10,11 +10,23 @@ import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { SMALL_NUM, parseCountSource, parseGrantedKeywords } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
 
-/** Tap / untap target creature(s) (CR 701.26). */
+/** Tap / untap target creature(s) OR land(s) (CR 701.26). The CREATURE form is the original (a chosen
+ * `type:"creature"` target). UNTAP-LAND (Voyaging Satyr "{T}: Untap target land") targets a LAND: the
+ * enumerated target carries `type:"permanent"` (spellEffects.addPermanents tags every non-creature permanent
+ * "permanent"), so we accept that AND re-verify the LIVE permanent is actually a land by its type line before
+ * untapping — never untap a non-land for an untap-land atom (CREED: a mis-applied effect is a forbidden FP).
+ * A creature/permanent that has left the battlefield (findPermanent → null) is skipped (CR 608.2b fizzle). */
 export function applyTapEffect(state, atom, ctx, tap) {
   let next = state;
+  const wantsLand = atom?.targetType === "land";
   for (const t of ctx.targets || []) {
-    if (t.type === "creature" && findPermanent(next, t.id)) next = tap ? tapPermanent(next, t.id) : untapPermanent(next, t.id);
+    const lk = findPermanent(next, t.id);
+    if (!lk) continue;
+    const isLand = /\bland\b/i.test(typeLineStr(lk.permanent.card));
+    // UNTAP-LAND: only act on a land target (verified live). CREATURE form: only act on a creature target.
+    const ok = wantsLand ? isLand : t.type === "creature";
+    if (!ok) continue;
+    next = tap ? tapPermanent(next, t.id) : untapPermanent(next, t.id);
   }
   return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: (ctx.targets || []).map(t => t.id) });
 }
@@ -518,6 +530,11 @@ export function combatKeywordClauseParser(clause) {
     return { op: "tap", targetType: "creature", restrictions };
   }
   if (/^untap target creature$/.test(t)) return { op: "untap", targetType: "creature" };
+  // UNTAP-LAND (Voyaging Satyr "{T}: Untap target land") — a single chosen land. targetType "land" routes
+  // through PERMANENT_PREDICATES.land in enumerateTargets (so any land on any battlefield is a legal target),
+  // and applyTapEffect re-verifies the live permanent is a land before untapping. Whole-clause anchored ($) so
+  // a qualified form ("untap target land you control", "untap X target lands") stays Arbiter (a safe FN).
+  if (/^untap target land$/.test(t)) return { op: "untap", targetType: "land" };
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
   // CANT-BE-BLOCKED — "target creature[ you control] can't be blocked this turn" (Infiltrate, Artful Dodge).
   // The `$` anchor rejects a qualified "…except by <X>" / conditional form (those stay Arbiter, FN-safe).

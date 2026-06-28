@@ -731,6 +731,30 @@ function parseClause(clause, out, selfName) {
     return;
   }
 
+  // ── EXTRA-LAND-DROPS (Exploration; Azusa, Lost but Seeking) ────────────────────────────────────────────
+  // "You may play [an additional|N additional] land[s] on each of your turns." A static that RAISES the
+  // controller's per-turn land-play allowance (CR 305.2 — normally one; CR 505.5b lets an effect grant more).
+  // Emitted as a coverage MARKER ({ extraLandDrops: N } with NO `affects`/`op`), so the layer engine ignores
+  // it (layers.effectAffects bails on a missing `affects`); legalChoices.actionsPlayLand + the dispatcher's
+  // applyPlayLand read it (extraLandDropsForPlayer) and compute the allowance = 1 + Σ extraLandDrops across the
+  // controller's battlefield + command zone. SELF-ONLY ("your turns") is the modeled scope — the SYMMETRIC
+  // "each player may play an additional land on each of their turns" (Rites of Flourishing, Ghirapur Orrery)
+  // grants the allowance to OPPONENTS too, which the player-only allowance reader doesn't model, so it stays
+  // body-only (safe FN). "any number of lands" (Fastbond — its own damage rider) and the one-shot SORCERY
+  // "up to three additional lands this turn" (Summer Bloom — not a permanent static) also stay non-native.
+  // Anchored ^…$ so a card carrying ANY other clause (Aesi's landfall draw, Oracle of Mul Daya's top-of-
+  // library, Dryad's type-changing static, Wayward Swordtooth's ascend) lands here for ITS extra-land clause
+  // but the OTHER clause is unmodeled residue → staticAbilitiesCoverCard returns false → the whole card stays
+  // body-only (CREED all-or-nothing). "an"/"one".."ten" + a numeric "2 additional" are all parsed to N.
+  const eldM = c.match(/^you may play (an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) additional lands? on each of your turns$/);
+  if (eldM) {
+    const w = eldM[1];
+    const NWORDS = { an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+    const n = /^\d+$/.test(w) ? parseInt(w, 10) : (NWORDS[w] || 0);
+    if (n > 0) out.push({ extraLandDrops: n });
+    return; // an extra-land-drop clause — handled (or intentionally dropped to body-only when n is unparsed)
+  }
+
   // ── CANT-BE-COUNTERED (Root Sliver; Dosan the Falling Leaf-style) ──────────────────────────────────────
   // Two STATIC uncounterability shapes (CR 701.5e), emitted as coverage MARKERS ({ cantBeCountered } with NO
   // `affects`/`op`, so the layer engine ignores them — effectAffects bails on a missing `affects`); the
@@ -1460,6 +1484,21 @@ export function cantCastDescriptorOf(card) {
     if (d.cantCast) return d.cantCast;
   }
   return null;
+}
+
+/**
+ * EXTRA-LAND-DROPS — the number of ADDITIONAL land plays this one card grants its controller (Exploration → 1,
+ * Azusa → 2), or 0. Reads the card's `{ extraLandDrops }` static markers (parsed via parseStaticAbilities) and
+ * sums them (a card has at most one such clause in the modeled corpus, but summing is harmless + future-proof).
+ * Pure — the per-player allowance (1 + Σ across the battlefield + command zone) is computed at the land-play
+ * site (legalChoices.actionsPlayLand + actionDispatcher.applyPlayLand), this just exposes the per-card delta.
+ */
+export function extraLandDropsOf(card) {
+  let n = 0;
+  for (const d of parseStaticAbilities(card)) {
+    if (typeof d.extraLandDrops === "number") n += d.extraLandDrops;
+  }
+  return n;
 }
 
 /**

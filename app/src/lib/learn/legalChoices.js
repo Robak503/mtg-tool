@@ -34,7 +34,7 @@ import { canAfford, manaSources, manaProduction, landAuraManaBonus, applyAuraMan
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, costReductionForSpell, selfCostReductionMetric, cantCastDescriptorOf, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
+import { collectCostReducers, costReductionForSpell, selfCostReductionMetric, cantCastDescriptorOf, extraLandDropsOf, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -270,10 +270,31 @@ function actionPassPriority(playerId) {
   return { kind: "pass-priority", playerId };
 }
 
+/**
+ * EXTRA-LAND-DROPS (CR 305.2 / 505.5b) — the number of lands `playerId` may play THIS turn = the base one
+ * (CR 305.2) PLUS the additional plays granted by every static they control ("You may play an additional land
+ * on each of your turns" — Exploration → +1; Azusa → +2). Sums extraLandDropsOf across the player's BATTLEFIELD
+ * and COMMAND ZONE (a creature-commander like Azusa grants nothing while it sits in the command zone — it must
+ * be on the battlefield — so the command-zone scan finds nothing for it; the scan is there only for a future
+ * command-zone-functioning grant, mirroring the cost-reducer two-zone pattern). The SINGLE source of truth for
+ * the per-turn land allowance — both the action gate (actionsPlayLand) and the dispatcher gate (applyPlayLand)
+ * call this, so they can't drift (the CREED two-sites invariant). Pure; ≥ 1 always.
+ */
+export function landDropAllowance(state, playerId) {
+  const player = state.players[playerId];
+  if (!player) return 1;
+  let extra = 0;
+  for (const perm of player.battlefield || []) extra += extraLandDropsOf(perm.card);
+  // Command-zone entries are BARE card objects (no { card } wrapper), like the cost-reducer scan. No modeled
+  // extra-land card functions from the command zone today, so this contributes 0 — but kept for symmetry.
+  for (const card of player.command || []) extra += extraLandDropsOf(card);
+  return 1 + extra;
+}
+
 function actionsPlayLand(state, playerId) {
   if (!canCastSorcerySpeed(state, playerId)) return [];
   const player = state.players[playerId];
-  if (player.landsPlayedThisTurn >= 1) return [];
+  if (player.landsPlayedThisTurn >= landDropAllowance(state, playerId)) return [];
 
   return player.hand
     .filter(card => isLand(card))

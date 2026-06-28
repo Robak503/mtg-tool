@@ -49,6 +49,7 @@ import { manaSources, planPayment } from "./manaModel.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura, isNativeManaAura, entersTapped } from "./staticAbilityParser.js";
+import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
 import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers } from "./triggers.js";
@@ -196,7 +197,10 @@ function applyPassPriority(state) {
 function applyPlayLand(state, action) {
   const player = state.players[action.playerId];
   if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
-  if (player.landsPlayedThisTurn >= 1) {
+  // EXTRA-LAND-DROPS (CR 305.2 / 505.5b): the allowance is 1 + every "play an additional land" static the
+  // player controls (Exploration → 2, Azusa → 3). Same reader the action gate (legalChoices) uses, so the two
+  // sites can't drift (the CREED two-sites invariant) — a turbo-land board can legally play its extra lands.
+  if (player.landsPlayedThisTurn >= landDropAllowance(state, action.playerId)) {
     throw new DispatcherError("Already played a land this turn", "LAND_PER_TURN");
   }
   const card = findCardInHand(state, action.playerId, action.cardId);
