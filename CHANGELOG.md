@@ -8,6 +8,23 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-06-27
+
+- **Coverage engine — 29 clean recognition/reuse waves (+439 cards native; corpus 20.8% → 22.1%, 7,113 →
+  7,552 / 34,160).** A sustained orchestrated pass that grew the local rules engine's native coverage with
+  zero false positives and zero regressions (every wave gated by a 0-OUT tier-fingerprint flip-diff, oracle
+  verification of every flipped card, and a dedicated test). New card behaviors that now play natively in the
+  simulator include: the full vacuous alternate-cast keyword family (flashback / jump-start / retrace /
+  escape / madness / spectacle / prowl / surge / miracle / awaken); X-pumps (symmetric and asymmetric
+  +X/+0); bounded and board-count damage division; deal-damage / draw / gain-life / token counts scaled by a
+  board or zone count; "exile target card from a graveyard"; "create a token that's a copy of target creature
+  you control"; combat tricks that untap; "can't be blocked this turn"; switch power and toughness;
+  count-scaled soft counters ("unless its controller pays {N} for each …"); "draws N cards and loses M
+  life"; and the wheel ("each player discards their hand, then draws N") — **Wheel of Fortune, Reforge the
+  Soul, and Wheel of Fate now resolve natively.** Effects that need a still-unbuilt subsystem (granted quoted
+  abilities, multi-target enumeration, becomes-blocked triggers, must-attack, floating damage-replacement)
+  continue to route safely to the Arbiter.
+
 - **General intervening-if conditional triggers (CR 603.4):** a new strict board-query evaluator
   (`interveningIf.js`) lets a conditional trigger ("When this enters, **if you control an artifact**, draw
   a card") play natively. It reads the controller's-board conditions the corpus most often gates on —
