@@ -23,6 +23,7 @@ import {
   moveCardToZone,
   findPermanent,
   markCombatDamage,
+  markExileIfDies,
   destroyLethalCreatures,
   logEvent,
   opponentsOf,
@@ -668,7 +669,7 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
   return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented });
 }
 
-export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null, restrictions = [] }) {
+export function applyDamageEffect(state, { controller, amount: rawAmount, targetType, targets = [], source = null, restrictions = [], exileIfWouldDie = false }) {
   let next = state;
   const amount = Math.max(0, rawAmount || 0);
   // DAMAGE-REPLACEMENT (CR 614 — Wolverine "double all damage", Furnace of Rath …). Finalize the per-target
@@ -760,6 +761,15 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // battlefield (a creature that then dies to the SBA self-no-ops at resolution — the "must survive"
   // reminder). Every entry is > 0 (the hitCreature `dealt <= 0` guard), so 0/prevented damage never fires.
   next = checkDealtDamageTriggers(next, Object.entries(dealtToCreature).map(([creatureId, dealt]) => ({ creatureId, amount: dealt })));
+  // EXILE-IF-DIES (subsystem 3): "If that creature would die this turn, exile it instead." — flag each
+  // damaged creature target BEFORE the lethal SBA so destroyLethalCreatures reroutes it to exile (the
+  // marker self-expires by turn). Single-target only (the rider says "that creature"); applies whether the
+  // damage is lethal now or it dies later this turn.
+  if (exileIfWouldDie) {
+    for (const t of targets) {
+      if (t.type === "creature" && findPermanent(next, t.id)) next = markExileIfDies(next, { permanentId: t.id, turn: next.turn });
+    }
+  }
   const dmgResult = destroyLethalCreatures(next);
   next = checkDiesTriggers(dmgResult.state, dmgResult.dead);
   // PW-6: a planeswalker driven to 0 loyalty by the damage is put into the graveyard (CR 704.5i).

@@ -63,6 +63,12 @@ import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 export const KNOWN_ATOM_OPS = Object.freeze(Object.keys(ATOM_RESOLVERS));
 const KNOWN = new Set(KNOWN_ATOM_OPS);
 
+// EXILE-IF-DIES rider (subsystem 3) — the single-creature death-replacement "If that creature would die
+// this turn, exile it instead." (Lava Coil / Magma Spray / Puncturing Blow). Matched in the clause loop
+// and folded onto the preceding deal-damage-to-target-creature atom (never its own atom). Reminder text is
+// already stripped by splitClauses. The "dealt damage this way" mass form is a SEPARATE (deferred) shape.
+const EXILE_IF_DIES_RIDER_RE = /^if that creature would die this turn, exile it instead$/i;
+
 // ONCE-PER-TURN — the atom ops whose resolver actually enforces the "Do this only once each turn"
 // frequency latch (state.onceTriggersFiredThisTurn). Only these may carry the rider and stay HIGH; any
 // other effect with the rider would silently over-fire (its resolver ignores the flag) → forced LOW.
@@ -1257,7 +1263,21 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   let allParsed = clauses.length > 0;
   for (const clause of clauses) {
     const atom = parseClauseToAtom(cardType, clause, hasX);
-    if (!atom) { allParsed = false; break; }
+    if (!atom) {
+      // EXILE-IF-DIES rider (subsystem 3) — "If that creature would die this turn, exile it instead."
+      // (Lava Coil, Magma Spray, Puncturing Blow): a floating death-replacement scoped to the single
+      // creature the spell just damaged. FOLD it onto the immediately-preceding deal-damage-to-target-
+      // creature atom as `exileIfWouldDie` (the damage resolver marks the target so the lethal SBA exiles
+      // it instead of sending it to the graveyard). Coupled strip+flag — the clause is only absorbed when
+      // it directly follows that atom, so a HIGH program never silently drops the exile (CREED). A rider
+      // without a preceding creature-damage atom stays unmodeled → the whole spell drops to Arbiter.
+      const prev = atoms[atoms.length - 1];
+      if (EXILE_IF_DIES_RIDER_RE.test(clause) && prev && prev.op === "deal-damage" && prev.targetType === "creature") {
+        prev.exileIfWouldDie = true;
+        continue;
+      }
+      allParsed = false; break;
+    }
     atoms.push(atom);
   }
   // α2 forward guard: an `optional` atom ("you may <effect>") scopes ONLY its own clause. The hazard is an

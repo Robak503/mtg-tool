@@ -1087,6 +1087,16 @@ export function markCombatDamage(state, { permanentId, amount }) {
   return updatePermanent(state, permanentId, p => ({ ...p, damageMarked: (p.damageMarked || 0) + amount }));
 }
 
+// EXILE-IF-DIES (subsystem 3) — flag a creature so the lethal SBA (destroyLethalCreatures) sends it to
+// EXILE instead of the graveyard if it would die on `turn`. Models the floating death-replacement "If that
+// creature would die this turn, exile it instead" (Lava Coil / Magma Spray / Puncturing Blow). The flag
+// stores the turn it applies to, so it SELF-EXPIRES — destroyLethalCreatures honors it ONLY when
+// `exileIfDiesTurn === state.turn`, so a creature surviving this turn dies normally on any later turn (no
+// stale-flag exile, no end-of-turn cleanup pass needed).
+export function markExileIfDies(state, { permanentId, turn }) {
+  return updatePermanent(state, permanentId, p => ({ ...p, exileIfDiesTurn: turn }));
+}
+
 /** Wipe marked damage off every permanent (combat damage wears off at cleanup). Also expires unused
  * regeneration shields (CR 701.15 — the replacement lasts "this turn" only), since both are turn-scoped
  * cleanup state cleared at the same step. */
@@ -1146,6 +1156,10 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
       card: perm.card,
       attachments: [...(perm.attachments || [])],
       power: Number.isFinite(pw) ? pw : null,
+      // EXILE-IF-DIES (subsystem 3): a creature flagged "if it would die this turn, exile it instead" goes
+      // to EXILE instead of the graveyard — but ONLY this turn (the flag stores the turn it applies to, so
+      // it self-expires; a stale flag from a prior turn is ignored).
+      exileInstead: perm.exileIfDiesTurn === state.turn,
     });
   };
   for (const [pid, player] of Object.entries(state.players)) {
@@ -1178,7 +1192,10 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
   }
   let next = state;
   for (const d of dead) {
-    next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone: "graveyard", cardId: d.id });
+    // EXILE-IF-DIES (subsystem 3): the death-replacement reroutes a flagged creature to exile (CR 614 — a
+    // replacement effect; "exile it instead" of the graveyard). All other deaths go to the graveyard.
+    const toZone = d.exileInstead ? "exile" : "graveyard";
+    next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone, cardId: d.id });
   }
   for (const pid of regenerated) next = regeneratePermanent(next, pid); // CR 701.15a — clear damage + tap, survive
   return { state: next, dead };

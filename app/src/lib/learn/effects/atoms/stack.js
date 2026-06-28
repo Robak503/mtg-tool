@@ -298,7 +298,9 @@ export const stackResolvers = {
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an
     // infect/wither source's non-combat damage routes to -1/-1 counters / poison in applyDamageEffect.
     // MASS-FILTERED-DAMAGE: thread atom.restrictions so an eachCreature wipe can be flying-filtered.
-    applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType: atom.targetType, targets: ctx.targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions }),
+    // EXILE-IF-DIES (subsystem 3): thread atom.exileIfWouldDie so the damaged creature is marked for the
+    // dies→exile replacement (Lava Coil / Magma Spray).
+    applyDamageEffect(state, { controller: ctx.controller, amount: resolveScaledAmount(state, atom, ctx), targetType: atom.targetType, targets: ctx.targets, source: { id: ctx.sourceId }, restrictions: atom.restrictions, exileIfWouldDie: atom.exileIfWouldDie }),
   "counter": applyCounter,
   "self-attach": applySelfAttach, // ETB-EQUIP-ATTACH — auto-attach an Equipment to a creature you control
   "attach-to-self": applyAttachToSelf, // EQUIP-AUTO-ATTACH — attach a chosen Equipment you control onto the source creature
