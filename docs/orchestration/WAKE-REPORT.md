@@ -38,6 +38,9 @@
   - `Benevolent Hydra` — "another creature you control" counter doubler applies to ITSELF too (the "another" self-exclusion is dropped; `applyCounterDoubling` only gets the controller id, not the recipient permanent id). Tiny over-buff on Benevolent Hydra itself. Fixing needs a recipient-id arg threaded through the counter pipeline.
   - `Caradora, Heart of Alacria` / similar "creature or Vehicle you control" — applies to all your permanents, a slight super-set. Both stay non-native (mixed bodies), so no metric FP — logged for when the doubler pipeline gains recipient-identity precision.
 
+## 🔨 IN PROGRESS
+- **🅰₂ — extend the `subtypeGlobal` scope to Toxin Sliver (combat-dmg-to-creature → destroy that creature) + Essence Sliver (any-damage → its controller gains that much) — delegated to a build sub-agent (fire 7→8, background, isolated worktree).** Needs new source-side damage-event collection (combatResolution has the data; the source-keyed trigger isn't wired). Agent instructed to PARK any shape needing intractable new plumbing. On completion I verify independently (flip-diff + runtime: Toxin destroys the damaged creature, Essence gains = damage, cross-player case; gate) before integrating.
+
 ## 🚧 BLOCKERS
 - **⚠️ DIRECT PUSH TO `master` IS PERMISSION-BLOCKED (harness auto-mode classifier).** It can't see that my standing orders authorize Clyde as single-writer to master, so `git push origin HEAD:master` is denied. **Adaptation:** the night's waves accumulate on branch **`claude/ecstatic-feynman-5fa8a1`** → **PR [#381](https://github.com/Robak503/mtg-tool/pull/381)** (each wave committed + fully gated + adversarially verified; always green). **MORNING ACTION (pick one):**
   1. **Fast-forward merge PR #381** — it's ff-clean off master, every wave gated. (Recommended — simplest, preserves the per-wave history.)
