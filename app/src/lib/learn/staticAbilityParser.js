@@ -72,8 +72,20 @@ function abilityClauses(oracle) {
   const out = [];
   let buf = "";
   let inQuote = false;
+  let parenDepth = 0;
   for (const ch of text) {
+    // QUOTE-AWARE (see above): a quoted granted ability keeps its internal punctuation. Checked FIRST so a
+    // paren INSIDE a quote (rare) is treated as quoted text, not reminder.
     if (ch === '"' || ch === "“" || ch === "”") { inQuote = ch === "”" ? false : (ch === "“" ? true : !inQuote); buf += ch; continue; }
+    // PAREN-AWARE reminder drop (CR 207.2). Reminder text is parenthetical and must be removed BEFORE the
+    // sentence split — a MULTI-sentence reminder ("…your opponents control. It can attack and {T}…" —
+    // Swiftfoot Boots) has internal periods that would otherwise shred the clause and orphan the 2nd reminder
+    // sentence as fake residue (a false-negative that left Swiftfoot Boots / Whispersilk Cloak body-only while
+    // single-sentence-reminder twins like Lightning Greaves flipped). Drop all chars while inside parens and
+    // never split there. This realizes abilityClauses' documented intent ("drops parenthetical reminders").
+    if (!inQuote && ch === "(") { parenDepth++; continue; }
+    if (!inQuote && ch === ")") { if (parenDepth > 0) parenDepth--; continue; }
+    if (parenDepth > 0) continue;
     if (!inQuote && (ch === "\n" || ch === "." || ch === ";")) { if (buf.trim()) out.push(buf.trim()); buf = ""; continue; }
     buf += ch;
   }
