@@ -530,22 +530,43 @@ function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderI
  * attacker. Standard: the actions carry no defenderId (the dispatcher fills the
  * lone opponent), so this returns the profitable subset.
  */
+// MUST-ATTACK (subsystem 4, CR 508.1a) — does THIS card carry a self "attacks each combat/turn if able"
+// requirement? Normalize the card name → "this creature" (so "Crazed Goblin attacks each combat if able"
+// matches), then require the bare self subject — a GROUP form ("creatures you control attack…", "each
+// creature attacks…", "attacking creatures…") is excluded (it's not a self requirement on this permanent).
+function selfMustAttack(card) {
+  const o = String(card?.oracle || card?.oracle_text || "");
+  if (!/attacks each (?:combat|turn) if able/i.test(o)) return false;
+  const name = String(card?.name || "").split(" //")[0].trim();
+  const t = name ? o.replace(new RegExp(name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"), "this creature") : o;
+  return /\bthis creature attacks each (?:combat|turn) if able\b/i.test(t);
+}
+
 export function pickAttackPlan(state, aiPlayerId, attackerActions) {
   if (!Array.isArray(attackerActions) || attackerActions.length === 0) return [];
   const hasDefenderChoice = attackerActions.some(a => a.defenderId);
   const target = chooseDefender(state, aiPlayerId);
   const chosen = selectProfitableAttackers(state, aiPlayerId, attackerActions, target);
+  // MUST-ATTACK (subsystem 4, CR 508.1a) — a creature that "attacks each combat/turn if able" MUST be
+  // declared if it can. It's already in attackerActions (the eligible set, i.e. "able"), so force-include
+  // it regardless of the profitability filter (the racer would otherwise illegally hold back an
+  // unprofitable must-attacker). The chooseDefender/walker focus still picks ITS target below.
+  const forced = new Set(
+    attackerActions
+      .filter(a => selfMustAttack(state.players?.[aiPlayerId]?.battlefield?.find(p => p.id === a.permanentId)?.card))
+      .map(a => a.permanentId),
+  );
 
   if (!hasDefenderChoice) {
     // Standard: one action per creature, no defenderId. Can't evaluate → swing all.
     if (chosen === null) return pickAllAttackers(attackerActions);
-    return attackerActions.filter(a => chosen.has(a.permanentId));
+    return attackerActions.filter(a => chosen.has(a.permanentId) || forced.has(a.permanentId));
   }
 
   // Commander: focus the chosen target, one action per attacking creature.
   const byPermanent = new Map();
   for (const a of attackerActions) {
-    if (chosen !== null && !chosen.has(a.permanentId)) continue;
+    if (chosen !== null && !chosen.has(a.permanentId) && !forced.has(a.permanentId)) continue;
     if (!byPermanent.has(a.permanentId)) byPermanent.set(a.permanentId, []);
     byPermanent.get(a.permanentId).push(a);
   }

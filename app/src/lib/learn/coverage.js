@@ -114,7 +114,11 @@ export function isKeywordOnly(oracle, name) {
   return clauses.every((c) =>
     COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)) ||
     isEnforcedEvasionClause(c) ||
-    reCyclingCost.test(c),
+    reCyclingCost.test(c) ||
+    // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
+    // name was already normalized to "this creature" above). ENFORCED in opponentAI.pickAttackPlan (the
+    // creature is force-declared as an attacker when able), so it's a modeled static, not residue.
+    /^this creature attacks each (?:combat|turn) if able$/.test(c),
   );
 }
 
