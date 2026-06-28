@@ -42,8 +42,10 @@ describe("BURN-2 — MUST_STAY_LOW: riders/structures we don't model → Arbiter
   it("a 'deals N to you' self-damage rider (Char) stays low", () => {
     expect(programConfidence(parseEffectProgram(I("X deals 3 damage to any target. X deals 1 damage to you.")))).toBe("low");
   });
-  it("a replacement rider ('would die … exile it instead') stays low", () => {
-    expect(programConfidence(parseEffectProgram(I("X deals 3 damage to any target. If a creature dealt damage this way would die this turn, exile it instead.")))).toBe("low");
+  it("an UNMODELED replacement rider ('would die … shuffle into library instead') stays low", () => {
+    // NOTE: the "exile it instead" death-replacement is now modeled (subsystem 3 DAMAGE-DIE-EXILE); this
+    // guard tracks a STILL-unmodeled die-replacement (shuffle-into-library) so it stays a meaningful pin.
+    expect(programConfidence(parseEffectProgram(I("X deals 3 damage to any target. If a creature dealt damage this way would die this turn, its owner shuffles it into their library instead.")))).toBe("low");
   });
   it("a variable damage amount stays low (except now-modeled DMG-SCALE controller counts)", () => {
     // NOTE: "deals damage equal to the number of <permanents you control / cards in your hand>" is now

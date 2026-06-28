@@ -50,11 +50,11 @@ describe("DAMAGE-DIE-EXILE (subsystem 3) — parser fold", () => {
     expect(classifyCard(spell("Lava Coil", "Lava Coil deals 4 damage to target creature. If that creature would die this turn, exile it instead."))).toBe("native-spell");
     expect(classifyCard(spell("Puncturing Blow", "Puncturing Blow deals 5 damage to target creature. If that creature would die this turn, exile it instead."))).toBe("native-spell");
   });
-  it("FN boundary — an unmodeled rider or the mass 'dealt damage this way' form stays Arbiter", () => {
+  it("FN boundary — an unmodeled rider keeps the spell Arbiter", () => {
     // a mana-add rider between the damage and the exile clause keeps the spell unmodeled (Narset's Rebuke)
     expect(programConfidence(parseEffectProgram(spell("Narset's Rebuke", "Narset's Rebuke deals 5 damage to target creature. Add {U}{R}{W}. If that creature would die this turn, exile it instead.")))).toBe("low");
-    // the mass form ("a creature dealt damage this way") is a different, deferred shape
-    expect(programConfidence(parseEffectProgram(spell("Pillar of Flame", "Pillar of Flame deals 2 damage to any target. If a creature dealt damage this way would die this turn, exile it instead.")))).toBe("low");
+    // X-burn-to-any-target is unmodeled UPSTREAM (the X-damage cast path), so the exile rider can't promote it (Demonfire)
+    expect(programConfidence(parseEffectProgram(spell("Demonfire", "Demonfire deals X damage to any target. If a creature dealt damage this way would die this turn, exile it instead.")))).toBe("low");
   });
 });
 
@@ -85,5 +85,45 @@ describe("DAMAGE-DIE-EXILE (subsystem 3) — runtime", () => {
     s = { ...s, turn: 6, players: { ...s.players, ai: { ...s.players.ai, battlefield: s.players.ai.battlefield.map((p) => (p.id === "vic" ? { ...p, damageMarked: 5 } : p)) } } };
     s = destroyLethalCreatures(s).state;
     expect(zoneOf(s)).toBe("graveyard");                         // marker was for turn 5, ignored on turn 6
+  });
+});
+
+describe("DAMAGE-DIE-EXILE (subsystem 3) — MASS 'dealt damage this way' form", () => {
+  const mk = (id, toughness, ctrl) => createPermanent({ id, card: { id, name: id, type: "Creature — Bear", power: 2, toughness, oracle: "" }, controller: ctrl });
+  const zoneAcross = (s, id) => {
+    for (const pid of ["user", "ai"]) for (const z of ["battlefield", "graveyard", "exile"]) {
+      if ((s.players[pid][z] || []).some((c) => c.id === id || c.card?.id === id)) return `${pid}.${z}`;
+    }
+    return "gone";
+  };
+
+  it("parser folds the mass rider onto any-target / each-creature deal-damage atoms", () => {
+    expect(parseEffectProgram(spell("Pillar of Flame", "Pillar of Flame deals 2 damage to any target. If a creature dealt damage this way would die this turn, exile it instead.")).atoms)
+      .toEqual([{ op: "deal-damage", amount: 2, targetType: "any", exileIfWouldDie: true }]);
+    expect(parseEffectProgram(spell("Anger of the Gods", "Anger of the Gods deals 3 damage to each creature. If a creature dealt damage this way would die this turn, exile it instead.")).atoms)
+      .toEqual([{ op: "deal-damage", amount: 3, targetType: "eachCreature", exileIfWouldDie: true }]);
+  });
+
+  it("recognition: Anger of the Gods / Pillar of Flame classify native-spell", () => {
+    expect(classifyCard(spell("Anger of the Gods", "Anger of the Gods deals 3 damage to each creature. If a creature dealt damage this way would die this turn, exile it instead."))).toBe("native-spell");
+    expect(classifyCard(spell("Pillar of Flame", "Pillar of Flame deals 2 damage to any target. If a creature dealt damage this way would die this turn, exile it instead."))).toBe("native-spell");
+  });
+
+  it("runtime: a board wipe exiles ONLY the creatures it killed, both sides; survivors stay", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = { ...s, turn: 3, players: { ...s.players, user: { ...s.players.user, battlefield: [mk("small", 2, "user"), mk("big", 5, "user")] }, ai: { ...s.players.ai, battlefield: [mk("opp", 1, "ai")] } } };
+    s = applyDamageEffect(s, { controller: "user", amount: 3, targetType: "eachCreature", exileIfWouldDie: true });
+    expect(zoneAcross(s, "small")).toBe("user.exile");           // 2/2 died → exiled
+    expect(zoneAcross(s, "opp")).toBe("ai.exile");               // opponent's 1/1 died → exiled
+    expect(zoneAcross(s, "big")).toBe("user.battlefield");       // 5/5 survived 3 damage
+  });
+
+  it("CREED: an un-damaged creature is never exiled (only the dealtToCreature set is marked)", () => {
+    // any-target burn at a PLAYER damages no creature → no creature is marked/exiled
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = { ...s, turn: 3, players: { ...s.players, user: { ...s.players.user, battlefield: [mk("mine", 2, "user")] }, ai: { ...s.players.ai, life: 20 } } };
+    s = applyDamageEffect(s, { controller: "user", amount: 2, targetType: "any", targets: [{ type: "player", id: "ai" }], exileIfWouldDie: true });
+    expect(zoneAcross(s, "mine")).toBe("user.battlefield");      // untouched creature stays
+    expect(s.players.ai.life).toBe(18);
   });
 });

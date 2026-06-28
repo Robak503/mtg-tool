@@ -761,14 +761,14 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   // battlefield (a creature that then dies to the SBA self-no-ops at resolution — the "must survive"
   // reminder). Every entry is > 0 (the hitCreature `dealt <= 0` guard), so 0/prevented damage never fires.
   next = checkDealtDamageTriggers(next, Object.entries(dealtToCreature).map(([creatureId, dealt]) => ({ creatureId, amount: dealt })));
-  // EXILE-IF-DIES (subsystem 3): "If that creature would die this turn, exile it instead." — flag each
-  // damaged creature target BEFORE the lethal SBA so destroyLethalCreatures reroutes it to exile (the
-  // marker self-expires by turn). Single-target only (the rider says "that creature"); applies whether the
-  // damage is lethal now or it dies later this turn.
+  // EXILE-IF-DIES (subsystem 3): "If that creature would die this turn, exile it instead." (single-target)
+  // / "If a creature dealt damage this way would die this turn, exile it instead." (mass). Flag exactly the
+  // creatures THIS effect actually damaged — `dealtToCreature` is the per-creature hit set built above, so
+  // this is correct for the single target AND the mass forms (any-target / each-creature) and NEVER marks a
+  // creature the spell didn't hit. Done BEFORE the lethal SBA so destroyLethalCreatures reroutes them to
+  // exile; the marker self-expires by turn (applies whether lethal now or the creature dies later this turn).
   if (exileIfWouldDie) {
-    for (const t of targets) {
-      if (t.type === "creature" && findPermanent(next, t.id)) next = markExileIfDies(next, { permanentId: t.id, turn: next.turn });
-    }
+    for (const permId of Object.keys(dealtToCreature)) next = markExileIfDies(next, { permanentId: permId, turn: next.turn });
   }
   const dmgResult = destroyLethalCreatures(next);
   next = checkDiesTriggers(dmgResult.state, dmgResult.dead);

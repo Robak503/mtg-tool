@@ -63,11 +63,15 @@ import { detectTriggers, registerTriggerDetector } from "../triggers.js";
 export const KNOWN_ATOM_OPS = Object.freeze(Object.keys(ATOM_RESOLVERS));
 const KNOWN = new Set(KNOWN_ATOM_OPS);
 
-// EXILE-IF-DIES rider (subsystem 3) — the single-creature death-replacement "If that creature would die
-// this turn, exile it instead." (Lava Coil / Magma Spray / Puncturing Blow). Matched in the clause loop
-// and folded onto the preceding deal-damage-to-target-creature atom (never its own atom). Reminder text is
-// already stripped by splitClauses. The "dealt damage this way" mass form is a SEPARATE (deferred) shape.
+// EXILE-IF-DIES rider (subsystem 3) — a damage-linked death-replacement folded onto the preceding
+// deal-damage atom (never its own atom; reminder text already stripped by splitClauses).
+//  • SINGLE-TARGET: "If that creature would die this turn, exile it instead." (Lava Coil / Magma Spray /
+//    Puncturing Blow) — only onto a deal-damage-to-TARGET-CREATURE atom ("that creature" = the one target).
+//  • MASS "dealt damage this way": "If a creature dealt damage this way would die this turn, exile it
+//    instead." (Pillar of Flame / Anger of the Gods / Yamabushi's Flame) — onto ANY deal-damage atom
+//    (any-target / each-creature); the resolver exiles exactly the creatures THIS spell actually damaged.
 const EXILE_IF_DIES_RIDER_RE = /^if that creature would die this turn, exile it instead$/i;
+const EXILE_IF_DIES_MASS_RE = /^if a creature dealt damage this way would die this turn, exile it instead$/i;
 
 // ONCE-PER-TURN — the atom ops whose resolver actually enforces the "Do this only once each turn"
 // frequency latch (state.onceTriggersFiredThisTurn). Only these may carry the rider and stay HIGH; any
@@ -1272,7 +1276,9 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
       // it directly follows that atom, so a HIGH program never silently drops the exile (CREED). A rider
       // without a preceding creature-damage atom stays unmodeled → the whole spell drops to Arbiter.
       const prev = atoms[atoms.length - 1];
-      if (EXILE_IF_DIES_RIDER_RE.test(clause) && prev && prev.op === "deal-damage" && prev.targetType === "creature") {
+      if (prev && prev.op === "deal-damage"
+        && ((EXILE_IF_DIES_RIDER_RE.test(clause) && prev.targetType === "creature")   // single-target "that creature"
+          || EXILE_IF_DIES_MASS_RE.test(clause))) {                                    // mass "a creature dealt damage this way"
         prev.exileIfWouldDie = true;
         continue;
       }
