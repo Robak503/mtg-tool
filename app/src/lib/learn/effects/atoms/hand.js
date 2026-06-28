@@ -87,8 +87,11 @@ export function advanceDiscardChain(state, { queue, sourceName = null }) {
  * deterministic). A zero/empty amount or no live target is a clean logged no-op.
  */
 export function applyDiscard(state, atom, ctx) {
-  const amount = effectiveAmount(atom, ctx);
-  if (!Number.isFinite(amount) || amount <= 0) {
+  // DISCARD-HAND — "discards their hand" / "discard your hand" (atom.all): the WHOLE hand goes, no choice.
+  // Routed through the SAME chain with remaining = Infinity, so advanceDiscardChain's "hand.length <= remaining"
+  // branch pitches every card inline (no pause — there's nothing to keep). The fixed-amount guard is skipped.
+  const amount = atom.all ? Infinity : effectiveAmount(atom, ctx);
+  if (!atom.all && (!Number.isFinite(amount) || amount <= 0)) {
     return logEvent(state, { kind: "spell-effect", effect: "discard", who: atom.who || "target", amount: 0 });
   }
   let discarders;
@@ -132,6 +135,13 @@ export function discardClauseParser(clause) {
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
   m = t.match(/^(?:you )?discard (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
+  // DISCARD-HAND — "discards their hand" / "discard your hand" (the WHOLE hand, no count). The chain pitches
+  // it all (atom.all → remaining Infinity). Unlocks the wheel (Wheel of Fortune / Reforge the Soul) when paired
+  // with the existing each-player draw, and "discard your hand, then draw N" (Dangerous Wager). A rider
+  // ("unless they pay 7 life" Tyrannize / "for each card discarded …") fails the `$` anchor → low → Arbiter.
+  if (/^each player discards their hand$/.test(t)) return { op: "discard", who: "eachPlayer", targetType: null, all: true };
+  if (/^target player discards their hand$/.test(t)) return { op: "discard", who: "target", targetType: "player", all: true };
+  if (/^(?:you )?discard your hand$/.test(t)) return { op: "discard", who: "controller", targetType: null, all: true };
   return null;
 }
 

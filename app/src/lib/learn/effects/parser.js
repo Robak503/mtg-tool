@@ -286,7 +286,11 @@ function splitClauses(oracle) {
     // orphan "loses M life" (no subject → unmodeled). Inject the subject into the 2nd half so both halves parse
     // with their EXISTING who:"target" atoms (draw + lose-life). A trailing rider (", and gets poison" /
     // ", loses … and gets") doesn't match the contiguous "and loses \d+ life" → stays Arbiter (FN-safe).
-    .replace(/(target player draws \w+ cards?) and (loses \d+ life)/gi, "$1. Target player $2");
+    .replace(/(target player draws \w+ cards?) and (loses \d+ life)/gi, "$1. Target player $2")
+    // WHEEL — "Each player discards their hand, then draws N cards" (Wheel of Fortune, Reforge the Soul, Wheel
+    // of Fate): the ", then" split orphans "draws N cards" of its "each player" subject. Inject it so the draw
+    // half parses with the EXISTING draw who:"eachPlayer" atom (the discard-hand half is a new all-mode atom).
+    .replace(/(each player discards their hand), then (draws \w+ cards?)/gi, "$1. Each player $2");
   for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
     if (!sentence) continue;

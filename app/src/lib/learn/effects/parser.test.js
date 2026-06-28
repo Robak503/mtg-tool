@@ -290,12 +290,12 @@ describe("parseEffectProgram — each-player / target-player discard (EP-2)", ()
     const low = (o) => expect(programConfidence(parseEffectProgram(I(o)))).toBe("low");
     low("Target player discards two cards at random.");                          // Hymn to Tourach — RNG, no choice
     low("Target player discards X cards at random.");                            // Mind Twist — variable + RNG
-    low("Target player discards their hand.");                                   // Wit's End — different amount shape (deferred)
+    low("Target player discards their hand unless they pay 7 life.");            // Tyrannize — unless-pay (bare "discards their hand" now native: DISCARD-HAND)
     low("Target opponent discards half the cards in their hand, rounded up.");   // Rush of Dread — dynamic count
     low("Target opponent discards two cards, mills a card, and loses 1 life.");  // Mind Drain — unmodeled riders
     low("Each player discards a card, then loses 1 life.");                      // Strongarm-ish — life rider
     low("Target opponent discards two cards.");                                  // opponent form deferred this slice
-    low("Each player discards their hand, then draws seven cards.");             // Wheel of Fortune — "their hand" + variable draw
+    low("Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way."); // Windfall — greatest-discarded count (bare wheel now native: WHEEL)
   });
 });
 
@@ -790,7 +790,7 @@ const MUST_DROP_TO_LOW = [
   // → low; and a vacuous-keyword card whose BODY is unmodeled also stays low (all-or-nothing). ──
   "Target creature gets +1/+0 until end of turn.\nRebound",                     // rebound — NOT vacuous (recasts) → not stripped → low
   "Target player discards a card.\nCipher",                                     // cipher — NOT vacuous (encodes) → not stripped → low
-  "Suspend 4—{1}{R}\nEach player discards their hand, then draws seven cards.", // Wheel of Fate — suspend stripped, but the body is unmodeled → low
+  "Suspend 4—{1}{R}\nReturn all creature cards from your graveyard to the battlefield.", // Living-End-ish — suspend stripped, the MASS-reanimation body is unmodeled → low (the wheel body is now native: WHEEL)
   "Foretell {3}{B}{B}\nReturn all creature cards from your graveyard to the battlefield.", // foretell stripped, but the MASS-reanimation body is unmodeled → low
   // ── P3.1 counter target spell — the riders that must STAY low (the modeled shapes
   // are pinned HIGH in MUST_STAY_HIGH + the dedicated describe block below). The
@@ -999,12 +999,12 @@ const MUST_DROP_TO_LOW = [
   // the "target opponent" form (deferred — 0 clean cards this slice), or any unmodeled rider drops to low.
   "Target player discards two cards at random.",                                // Hymn to Tourach — RNG, no choice
   "Target player discards X cards at random.",                                  // Mind Twist — variable + RNG
-  "Target player discards their hand.",                                         // Wit's End — different amount shape (deferred)
+  "Discard your hand, then draw four cards. For each card discarded this way, creatures you control get +1/+0 until end of turn.", // Pyretic Charge — event-count pump rider (bare "discard your hand" now native: DISCARD-HAND)
   "Target player discards their hand unless they pay 7 life.",                  // Tyrannize — conditional
   "Target opponent discards two cards, mills a card, and loses 1 life.",        // Mind Drain — unmodeled riders
   "Each player discards a card, then loses 1 life.",                            // Strongarm Tactics-ish — life rider
   "Target opponent discards two cards.",                                        // opponent form deferred this slice
-  "Each player discards their hand, then draws seven cards.",                   // Wheel of Fortune — "their hand" + variable draw
+  "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.", // Windfall — greatest-discarded count (bare wheel now native: WHEEL)
 ];
 
 describe("parseEffectProgram — MUST drop to low (the CI merge gate)", () => {
@@ -1214,7 +1214,7 @@ describe("parseEffectProgram — KWSTRIP-1 (vacuous cast-keyword line strip)", (
       .toEqual([{ op: "draw", amount: 1, targetType: null }]);                         // Evermind
   });
   it("strips ONLY the keyword line — a suspend body's own unmodeled text keeps the card low", () => {
-    expect(programConfidence(parseEffectProgram(I("Suspend 4—{1}{R}\nEach player discards their hand, then draws seven cards.")))).toBe("low");
+    expect(programConfidence(parseEffectProgram(I("Suspend 4—{1}{R}\nReturn all creature cards from your graveyard to the battlefield.")))).toBe("low"); // suspend stripped, MASS-reanimation body unmodeled → low
   });
   it("does NOT strip a non-vacuous keyword (rebound / cipher) — the card stays low → Arbiter", () => {
     expect(programConfidence(parseEffectProgram(I("Target creature gets +1/+0 until end of turn.\nRebound")))).toBe("low");
