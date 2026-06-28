@@ -159,3 +159,27 @@ describe("GRANTED-ACTIVATED (1b) — equipment host", () => {
     expect(d.players.ai.battlefield.find((p) => p.id === "enemy")).toBeUndefined();
   });
 });
+
+// ─── CREED count guard: every grant LINE must be a modeled grant of the gate's kind [ISSUE 3] ────────────
+describe("GRANTED grants — count guard: a mixed-kind co-grant routes to the Arbiter", () => {
+  // parseGrantedActivatedAbilities returns only ACTIVATED grants and parseGrantedTriggeredAbilities only
+  // TRIGGERED grants. A card with a MODELED grant of one kind + a SKIPPED grant of another kind would
+  // whitelist the skipped "… creature has \"…\"" line as residue and flip native — silently dropping it
+  // (a hollow flip: an ability that claims native coverage but does nothing on the gate's path). The
+  // grant-LINE-count === parsed-grant-count guard makes any skipped co-grant residue → Arbiter (a SAFE FN).
+  const mix = (o) => ({ name: "Mix", type: "Enchantment — Aura", oracle: o });
+  it("activated gate: activated grant + a non-activated co-grant → Arbiter (not native-activated)", () => {
+    expect(classifyCard(mix('Enchant creature\nEnchanted creature has "{B}: This creature gets +1/+1 until end of turn."\nEnchanted creature has "Whenever this creature deals combat damage to a player, you draw a card."'))).toBe("body-only");
+    expect(classifyCard(mix('Enchant creature\nEnchanted creature has "{B}: This creature gets +1/+1 until end of turn."\nEnchanted creature has "{T}: Add {G}."'))).toBe("body-only");
+  });
+  it("triggered gate: triggered grant + a non-triggered co-grant → Arbiter (not native-trigger)", () => {
+    // + UNMODELED activated co-grant (untap-self) — the concrete hollow flip the guard closes
+    expect(classifyCard(mix('Enchant creature\nEnchanted creature has "Whenever this creature deals combat damage to a player, you draw a card."\nEnchanted creature has "{5}: Untap this creature."'))).toBe("body-only");
+    expect(classifyCard(mix('Enchant creature\nEnchanted creature has "Whenever this creature attacks, you gain 1 life."\nEnchanted creature has "{T}: Add {G}."'))).toBe("body-only");
+    expect(classifyCard(equip("ActTrigEquip", 'Equipped creature has "{T}: This creature deals 2 damage to any target."\nEquipped creature has "Whenever this creature attacks, draw a card."\nEquip {2}'))).toBe("body-only");
+  });
+  it("a clean SINGLE-KIND multi-grant still flips native (no false-negative on legit cards)", () => {
+    // two modeled TRIGGERED grants — both parsed, count matches → native-trigger
+    expect(classifyCard(mix('Enchant creature\nEnchanted creature has "Whenever this creature attacks, you gain 1 life."\nEnchanted creature has "Whenever this creature dies, draw a card."'))).toBe("native-trigger");
+  });
+});

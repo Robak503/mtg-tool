@@ -19,7 +19,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { parseAuraGrantedManaAbility, isNativeManaGrantAura } from "./staticAbilityParser.js";
 import { createGameState, createPermanent, _resetIdsForTests } from "./gameState.js";
 import { grantedManaSpecsFor } from "./layers.js";
-import { manaSources } from "./manaModel.js";
+import { manaSources, manaProduction } from "./manaModel.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { classifyCard } from "./coverage.js";
 
@@ -112,6 +112,28 @@ function landWithAura(auraCard, { landName = "Forest", landOracle = "({T}: Add {
   land.attachments = ["aura"];
   return [a, land];
 }
+
+describe("AURA-MANA-GRANT (1a) — CREED: the Aura is never its OWN source (ISSUE 1 regression)", () => {
+  // An Aura's double-quoted "{T}: Add …" survives stripReminder (parens-only). Before the Aura-scoped
+  // quoted-grant strip, parseAddClause minted the AURA ITSELF as a phantom mana source — so an attached
+  // Multani's Harmony reported TWO any-color sources (the host grant + the phantom aura), letting a single
+  // Aura pay a 2-pip cost. The grant belongs to the HOST (grantedManaSpecsFor), never the Aura.
+  it("manaProduction of a mana-grant Aura is null (creature- and land-host forms)", () => {
+    expect(manaProduction(aura("Multani's Harmony", 'Enchant creature\nEnchanted creature has "{T}: Add one mana of any color."'))).toBeNull();
+    expect(manaProduction(aura("Settlement", 'Enchant Land\nEnchanted land has "{T}: Add one mana of any color."'))).toBeNull();
+  });
+
+  it("a Gemhide-style CREATURE self-grant still self-produces (the strip is Aura-scoped only)", () => {
+    const gem = { name: "Gemhide Sliver", type: "Creature — Sliver", power: 1, toughness: 1, oracle: 'All Slivers have "{T}: Add one mana of any color."' };
+    expect(manaProduction(gem)).toMatchObject({ colors: ["W", "U", "B", "R", "G"], amount: 1 });
+  });
+
+  it("on the battlefield the attached Aura contributes NO source of its own — only the host does", () => {
+    const s = stateWith(attached(aura("Multani's Harmony", 'Enchant creature\nEnchanted creature has "{T}: Add one mana of any color."')));
+    expect(manaSources(s, "user").some((x) => x.permanentId === "aura")).toBe(false);   // no phantom aura source
+    expect(manaSources(s, "user").filter((x) => x.permanentId === "host")).toHaveLength(1); // exactly one (the host grant)
+  });
+});
 
 describe("AURA-MANA-GRANT (1a) — land-host supplement", () => {
   it("Settlement upgrades the enchanted land's single tap to any-color (dominating grant)", () => {

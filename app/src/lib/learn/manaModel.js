@@ -304,9 +304,18 @@ export function manaProduction(card) {
   // mana production must not be fabricated from the ability of a token it makes (Blisterpod is not a
   // sac-for-{C} source; its Eldrazi Spawn is). The minted TOKEN's own oracle (unquoted "Sacrifice this
   // token: Add {C}") has no create-token context, so it's untouched and still reads as a real source.
-  const oracleForAdd = isLandCard
+  let oracleForAdd = isLandCard
     ? oracleOf(card)
     : stripCreatedTokenAbilities(stripReminder(oracleOf(card)));
+  // AURA self-source guard (subsystem 1 / CREED): an Aura's quoted granted ability ("Enchanted creature
+  // has \"{T}: Add one mana of any color.\"" — Multani's Harmony; "Enchanted land has \"{T}: Add …\"" —
+  // Settlement) is conferred to the HOST (read at runtime via layers.grantedManaSpecsFor), NOT the Aura's
+  // OWN production. stripReminder only removes (parens), so the double-quoted grant survives and parseAddClause
+  // would mint the AURA itself as a phantom mana source — double-counting the granted spec. Strip the quoted
+  // grant for Aura-type cards so the Aura is never its own source. AURA-SCOPED: a CREATURE that self-includes
+  // via its own quoted text (Gemhide/Manaweft Sliver "All Slivers have \"{T}: Add …\"") legitimately
+  // self-produces and is left intact (Gemhide is a Creature, not an Aura — test-pinned).
+  if (/\bAura\b/.test(typeLineOf(card))) oracleForAdd = oracleForAdd.replace(/["“][^"”]*["”]/g, " ");
   // A NON-LAND repeatable mana source must have an ACTIVATED mana ability ("<cost>: Add …"). A triggered/ETB/
   // landfall/upkeep/death or spell-effect "Add …" (no colon) is a ONE-SHOT and must NOT mint a standing source
   // (the Hidden Herbalists phantom-mana FP — manaSources tapped it every turn for free). GATE on the existence

@@ -442,11 +442,18 @@ function isNativeActivatedGrantAura(card) {
   const granted = parseGrantedActivatedAbilities(card);
   if (!granted.length || !granted.every((a) => a.modeled)) return false;
   const oracle = String(card?.oracle || card?.oracle_text || "");
+  const grantLineRe = /^enchanted creature\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i;
+  // COUNT GUARD (CREED): every grant line must be one of the parsed activated grants. parseGrantedActivated-
+  // Abilities deliberately SKIPS granted-TRIGGERED ("Whenever …") and granted-MANA ("{T}: Add …") quoted
+  // abilities, so a card with such a line would have it whitelisted as a grant line below yet never modeled —
+  // a silently-dropped clause. Require grant-line count === parsed count so any skipped grant is residue.
+  const grantLines = oracle.split(/\n+/).filter((l) => grantLineRe.test(l.trim())).length;
+  if (grantLines !== granted.length) return false;
   for (const rawLine of oracle.split(/\n+/)) {
     const t = rawLine.trim();
     if (!t) continue;
     if (/^enchant\b/i.test(t)) continue;                                                  // the Enchant keyword line
-    if (/^enchanted creature\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i.test(t)) continue;  // a granted-ability line
+    if (grantLineRe.test(t)) continue;                                                     // a granted-ability line
     return false;                                                                          // any other clause = residue
   }
   return true;
@@ -463,12 +470,19 @@ function isNativeActivatedGrantEquipment(card) {
   if (!/\bequipment\b/i.test(String(card?.type || ""))) return false;
   const granted = parseGrantedActivatedAbilities(card);
   if (!granted.length || !granted.every((a) => a.modeled)) return false;
+  const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
+  const grantLineRe = /^equipped creature\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i;
+  // COUNT GUARD (CREED, mirrors the aura gate): a granted-TRIGGERED / granted-MANA "Equipped creature has …"
+  // line is skipped by parseGrantedActivatedAbilities but would be whitelisted below — require grant-line
+  // count === parsed count so any skipped grant counts as residue (keeps the card on the Arbiter).
+  const grantLines = oracle.split(/\n+/).filter((l) => grantLineRe.test(l.trim())).length;
+  if (grantLines !== granted.length) return false;
   let sawEquip = false;
-  for (const rawLine of stripReminder(String(card?.oracle || card?.oracle_text || "")).split(/\n+/)) {
+  for (const rawLine of oracle.split(/\n+/)) {
     const t = rawLine.trim();
     if (!t) continue;
     if (/^equip\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i.test(t)) { sawEquip = true; continue; }    // a modeled Equip cost
-    if (/^equipped creature\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i.test(t)) continue;     // a granted-ability line
+    if (grantLineRe.test(t)) continue;                                                       // a granted-ability line
     return false;                                                                            // any other clause = residue
   }
   return sawEquip;                                                                            // must actually be equippable
@@ -488,13 +502,22 @@ function isNativeTriggerGrantAuraOrEquipment(card) {
   if (!isAura && !isEquip) return false;
   const granted = parseGrantedTriggeredAbilities(card);
   if (!granted.length || !granted.every(triggerRoutesNatively)) return false;
+  const oracle = stripReminder(String(card?.oracle || card?.oracle_text || ""));
+  const grantLineRe = /^(?:enchanted|equipped) creature\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i;
+  // COUNT GUARD (CREED, mirrors the activated-grant gates): parseGrantedTriggeredAbilities only returns the
+  // TRIGGERED grants; an activated / mana / unmodeled co-grant ("Enchanted creature has \"{5}: Untap …\"")
+  // is whitelisted as a grant line below yet never routed — a silently-dropped ability while claiming native
+  // coverage. Require grant-line count === parsed-triggered count so any non-triggered co-grant is residue
+  // (sends the card to the Arbiter; a genuinely all-modeled multi-kind grant under-counts — a SAFE FN).
+  const grantLines = oracle.split(/\n+/).filter((l) => grantLineRe.test(l.trim())).length;
+  if (grantLines !== granted.length) return false;
   let sawEquip = !isEquip;                                                                  // auras need no Equip line
-  for (const rawLine of stripReminder(String(card?.oracle || card?.oracle_text || "")).split(/\n+/)) {
+  for (const rawLine of oracle.split(/\n+/)) {
     const t = rawLine.trim();
     if (!t) continue;
     if (/^enchant\b/i.test(t)) continue;                                                    // the Enchant keyword line
     if (/^equip\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i.test(t)) { sawEquip = true; continue; }    // a modeled Equip cost
-    if (/^(?:enchanted|equipped) creature\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i.test(t)) continue; // a granted-ability line
+    if (grantLineRe.test(t)) continue;                                                       // a granted-ability line
     return false;                                                                            // any other clause = residue
   }
   return sawEquip;

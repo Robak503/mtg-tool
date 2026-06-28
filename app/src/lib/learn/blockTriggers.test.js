@@ -14,7 +14,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { checkBlockTriggers } from "./triggers.js";
-import { flushTriggers, resolveTopOfStack } from "./gameEngine.js";
+import { flushTriggers, resolveTopOfStack, nextStep } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 import { permanentPower, permanentToughness } from "./layers.js";
 import { classifyCard } from "./coverage.js";
@@ -81,6 +81,40 @@ describe("BLOCK triggers (subsystem 2) — runtime fires at declare-blockers", (
   it("no blockers → no fire", () => {
     const s = { ...combatState("Whenever this creature becomes blocked, you gain 2 life."), combat: { attackers: [], blockers: [] } };
     expect((checkBlockTriggers(s).pendingTriggers || [])).toHaveLength(0);
+  });
+});
+
+describe("BLOCK triggers (subsystem 2) — fire through the REAL loop (nextStep) [ISSUE 2 regression]", () => {
+  // The unit tests above call checkBlockTriggers() directly — but the SIM loop never does. Combat advances
+  // through nextStep (passPriority's chokepoint). Before the fix, nextStep never called checkBlockTriggers,
+  // so every block trigger was a HOLLOW flip: recognized native, but inert in a real game. These tests drive
+  // the actual chokepoint so a regression that stops firing on the real path fails loudly.
+  it("leaving declare-blockers fires the becomes-blocked trigger onto the stack + holds priority", () => {
+    const s0 = combatState("Whenever this creature becomes blocked, it gets +1/+1 until end of turn.");
+    const s1 = nextStep(s0);
+    expect(s1.step).toBe("declare-blockers");             // HELD for resolution, not advanced past
+    expect((s1.stack || []).length).toBe(1);              // the trigger is on the stack
+    expect(s1.priorityHolder).toBe(s1.activePlayer);      // priority back to active so it resolves before damage
+    expect(s1.combat._blockTriggersFired).toBe(true);     // fire-once guard set
+    const s2 = resolveTopOfStack(s1);
+    expect(permanentPower(s2, "atk")).toBe(3);            // +1/+1 actually landed
+    expect(permanentToughness(s2, "atk")).toBe(3);
+  });
+
+  it("a plain combat (no block trigger) advances past declare-blockers with an empty stack", () => {
+    const s1 = nextStep(combatState("", ""));
+    expect(s1.step).not.toBe("declare-blockers");          // advanced
+    expect((s1.stack || []).length).toBe(0);
+  });
+
+  it("does NOT re-fire — a second nextStep after resolution advances instead of re-triggering (no infinite loop, no double effect)", () => {
+    const s0 = combatState("Whenever this creature becomes blocked, you gain 2 life.");
+    const s1 = nextStep(s0);                               // fires, holds in declare-blockers
+    const s2 = resolveTopOfStack(s1);                      // life 22, stack empty, flag still set
+    const s3 = nextStep(s2);                               // flag set → must advance, not re-fire
+    expect(s3.step).not.toBe("declare-blockers");
+    expect((s3.stack || []).length).toBe(0);
+    expect(s3.players.user.life).toBe(22);                // no double gain
   });
 });
 

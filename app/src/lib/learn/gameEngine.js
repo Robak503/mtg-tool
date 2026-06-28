@@ -324,9 +324,9 @@ export function runStepActions(state) {
   if (next.phase === "precombat-main" && next.step === "main") next = checkStepTriggers(next, "firstMain");
   if (next.step === "declare-blockers") {
     next = checkAttackTriggers(next);
-    // BLOCK triggers (subsystem 2) — each blocker's "Whenever this creature blocks" + each blocked
-    // attacker's "Whenever this creature becomes blocked"; enqueued here, flushed at the priority block below.
-    next = checkBlockTriggers(next);
+    // NOTE (subsystem 2): block / becomes-blocked / bushido / rampage triggers do NOT fire here — at the
+    // declare-blockers STEP ENTRY combat.blockers is still empty (blocks are declared DURING the step). They
+    // fire in nextStep when LEAVING declare-blockers (blockers fully declared) so they resolve before damage.
     // The Ur-Dragon variable-count attack trigger (a targeted #319-style hook the compiler can't reach):
     // resolves draw-that-many + may-cheat-a-permanent synchronously, enqueuing its cardDrawn/ETB sub-triggers
     // for the same flush below. Fired AFTER checkAttackTriggers so its draw lands after the normal attack-
@@ -356,6 +356,22 @@ export function runStepActions(state) {
  * automatic effects applied + priority granted if applicable.
  */
 export function nextStep(state) {
+  // BLOCK TRIGGERS (subsystem 2, CR 509.4): when LEAVING declare-blockers, blocks are now fully declared
+  // (combat.blockers populated by applyDeclareBlocker). Fire block / becomes-blocked / bushido / rampage
+  // triggers and flush them onto the stack BEFORE advancing — so they resolve (with priority) ahead of
+  // combat damage, exactly like attack triggers. Guard with combat._blockTriggersFired so it fires ONCE
+  // per combat (the flag rides combat state and is cleared when combat resets to EMPTY_COMBAT at end-of-
+  // combat). If any trigger enqueues, HOLD in declare-blockers (priority back to the active player) for
+  // resolution instead of advancing to the damage step; if none, advance from the flag-marked state.
+  if (state.step === "declare-blockers" && !state.combat?._blockTriggersFired) {
+    let s = checkBlockTriggers(state);
+    s = { ...s, combat: { ...(s.combat || {}), _blockTriggersFired: true } };
+    s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+    if ((s.stack?.length || 0) > (state.stack?.length || 0)) {
+      return { ...s, priorityHolder: s.activePlayer, consecutivePasses: 0 };
+    }
+    return runStepActions(advanceStep(s));
+  }
   return runStepActions(advanceStep(state));
 }
 
