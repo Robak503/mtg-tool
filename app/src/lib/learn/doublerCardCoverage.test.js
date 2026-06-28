@@ -44,6 +44,13 @@ describe("doubler full-card coverage — honest flips to native", () => {
     expect(classifyCard(card("hardenedScales"))).toBe("native-static");
     expect(classifyCard(card("primalVigor"))).toBe("native-static");
   });
+  it("flips a doubler MIXED with another fully-modeled ability to native-mixed", () => {
+    // Solid Ground = "When this enchantment enters, earthbend 3." + an additive +1/+1 counter doubler.
+    // Both resolve: the earthbend ETB fires + animates a land + places counters (verified end-to-end), and
+    // the doubler is the runtime replacement. permanentFullyCovered on the doubler-stripped card confirms the
+    // remaining earthbend-ETB clause routes natively, so the WHOLE card is modeled → native-mixed.
+    expect(classifyCard(card("solidGround"))).toBe("native-mixed");
+  });
 });
 
 describe("doubler full-card coverage — CREED FN-safe non-flips (body-only)", () => {
@@ -51,7 +58,6 @@ describe("doubler full-card coverage — CREED FN-safe non-flips (body-only)", (
     expect(classifyCard(card("windingConstrictor"))).toBe("body-only"); // 2nd clause = player-counter doubling (unmodeled)
     expect(classifyCard(card("loadingZone"))).toBe("body-only");        // Warp (alt-cast) unmodeled
     expect(classifyCard(card("highScore"))).toBe("body-only");          // end-step intervening-if draw not covered
-    expect(classifyCard(card("solidGround"))).toBe("body-only");        // earthbend ETB not a clean composite flip
     expect(classifyCard(card("mondrak"))).toBe("body-only");            // activated indestructible-counter ability
     expect(classifyCard(card("halvingSeason"))).toBe("body-only");      // token-HALVE not modeled (tokenMultiplier has no halve)
   });

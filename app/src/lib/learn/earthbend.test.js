@@ -9,6 +9,8 @@ import { applyEarthbend } from "./effects/effectAtoms.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { createGameState, createPermanent } from "./gameState.js";
 import { permanentIsCreature, permanentPower, permanentToughness, permanentHasKeyword, permanentTypes } from "./layers.js";
+import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "./gameEngine.js";
+import { checkEnterTriggers } from "./triggers.js";
 
 describe("earthbend parser", () => {
   it("'earthbend 2' → a literal-N earthbend atom", () => {
@@ -53,5 +55,25 @@ describe("applyEarthbend — permanent land-animation + counters", () => {
     const s = createGameState({ userDeck: [], aiDeck: [] });
     const bare = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [] } } };
     expect(() => applyEarthbend(bare, { count: 2 }, { controller: "user" })).not.toThrow();
+  });
+});
+
+// END-TO-END: an "When this enters, earthbend N" TRIGGER fires through the real flush→resolve path (not just
+// the atom in isolation) — the load-bearing proof that an ETB earthbend card (Solid Ground, Toph cluster)
+// genuinely resolves natively, so classifying it native is honest (CREED), not a do-nothing claim.
+describe("earthbend ETB trigger — end-to-end resolution", () => {
+  it("a creature's 'When this enters, earthbend 1' animates a land + places the counter via the stack", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const land = createPermanent({ id: "ebt-forest", card: { name: "Forest", type: "Basic Land — Forest", oracle: "" }, controller: "user" });
+    const src = createPermanent({ id: "ebt-src", card: { name: "EB Source", type: "Creature — Human", power: 2, toughness: 2, oracle: "When this creature enters, earthbend 1." }, controller: "user", summoningSick: true });
+    s = { ...s, activePlayer: "user", players: { ...s.players, user: { ...s.players.user, battlefield: [land, src], life: 40 } } };
+    s = checkEnterTriggers(s, src);                                  // the ETB earthbend goes on the stack
+    s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+    let guard = 0; while ((s.stack || []).length && guard++ < 30) s = resolveTopOfStack(s);
+    const out = s.players.user.battlefield.find((p) => p.id === "ebt-forest");
+    expect(out).toBeTruthy();
+    expect(out.counters?.["+1/+1"]).toBe(1);                          // the earthbend counter was actually placed
+    expect(permanentIsCreature(s, "ebt-forest")).toBe(true);          // the land is now a creature (layer-4 animation)
+    expect(permanentTypes(s, "ebt-forest").types).toContain("Land");  // still a land
   });
 });

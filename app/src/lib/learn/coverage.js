@@ -697,19 +697,23 @@ export function coverageSummary(cards) {
 //   • pure doubler Enchantment (Doubling Season, Branching Evolution, Primal Vigor) → native-static (unchanged).
 //   • doubler on a vanilla/keyword body (Corpsejack 4/4; Vorinclex trample,haste; Adrix & Nev Ward {2}) →
 //     native-static — the doubler is the only ability and the runtime already applies it.
-// A doubler MIXED with OTHER abilities (a trigger / activated / static beyond the doubler) is deliberately NOT
-// flipped here yet: composing the doubler-static with the composite gate (permanentFullyCovered) tripped a
-// reminder-stripping inconsistency (it passed Solid Ground's earthbend-ETB while the equivalent permanent-
-// trigger gate keeps Badgermole Cub body-only) — until that's reconciled and the co-ability is positively
-// verified, a mixed-doubler card stays body-only (FN-safe). ANY non-keyword residue → null.
+//   • doubler MIXED with other abilities that are EACH independently modeled (a routing trigger / modeled
+//     activated / modeled static) → native-mixed, self-guarded by permanentFullyCovered on the doubler-stripped
+//     card. (Solid Ground = earthbend-ETB + additive counter doubler; earthbend ETB resolves end-to-end —
+//     verified by an ETB→flush→resolve probe that placed the +1/+1 counter on the animated land. The wave-1
+//     worry that this was an FP was a MISDIAGNOSIS: Badgermole Cub etc. stay body-only because of their OWN
+//     unmodeled SECOND abilities (tap-for-mana / mass-counter / CDA-power), NOT a reminder-strip bug.)
+// ANY unmodeled residue (Warp on Loading Zone/Exalted Sunborn, an unmodeled activated on Mondrak, the token-
+// HALVE of Halving Season) → null → stays Arbiter/body-only.
 // The Mauhúr-style subtype-recipient over-fire is excluded upstream (doublerProfile returns no counter profile),
 // so it never reaches here. Registered via the additive WAVE-0 seam (after single-mechanism tiers, before the
 // composite catch-all).
 function doublerCardTier(card) {
   if (!doublerProfile(card)) return null;
   if (isPureDoubler(card)) return "native-static";
-  const stripped = stripModeledDoublerClauses(card?.oracle || "");
-  if (isKeywordOnly(stripped, card?.name)) return "native-static"; // doubler + vanilla/keyword body only
+  const strippedOracle = stripModeledDoublerClauses(card?.oracle || "");
+  if (isKeywordOnly(strippedOracle, card?.name)) return "native-static"; // doubler + vanilla/keyword body
+  if (permanentFullyCovered({ ...card, oracle: strippedOracle })) return "native-mixed"; // doubler + other modeled abilities
   return null;
 }
 registerCoverageClassifier(doublerCardTier);
