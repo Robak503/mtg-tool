@@ -31,6 +31,7 @@ import { manifestResolvers } from "./atoms/manifest.js";
 import { amassResolvers } from "./atoms/amass.js";
 import { selfReturnResolvers } from "./atoms/selfReturn.js";
 import { winGameResolvers } from "./atoms/winGame.js";
+import { rollResolvers } from "./atoms/roll.js";
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken, applyCreateTokenCopy } from "./atoms/tokens.js";
@@ -58,6 +59,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...amassResolvers,   // amass (CR 701.47) — grow/mint the controller's Army (Orcish Bowmasters, Lazotep Sliver)
   ...selfReturnResolvers, // self-return (Wave 4 SELF-LTB) — Rancor PiG-return + Sword-of-the-Realms equipped-dies-return
   ...winGameResolvers, // win-game (UPKEEP-WIN, CR 104.2a) — "you win the game" / "target player loses the game"
+  ...rollResolvers,    // roll-d20 (DICE-ROLL, CR 726) — Ancient Dragons roll → result-scaled token/draw payoff
 });
 
 /**

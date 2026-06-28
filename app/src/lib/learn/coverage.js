@@ -236,7 +236,18 @@ export function permanentTriggersCovered(card) {
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")
     .replace(/\bDo this only once each turn\b\.?\s*/gi, " ")
-    .replace(/\b(?:they|it|that creature|those creatures) can'?t be regenerated\b\.?\s*/gi, " ");
+    .replace(/\b(?:they|it|that creature|those creatures) can'?t be regenerated\b\.?\s*/gi, " ")
+    // DICE-ROLL (CR 726) — the result-scaled payoff sentences that FOLLOW a combat-damage trigger's "roll a
+    // d20." are part of THAT trigger's effect (detectTriggers folds them into the effectClause, which parses
+    // HIGH in allTriggerSentencesModeled above — proven before this residue check runs), but the trigger
+    // regex stops at the first period after "…roll a d20.", leaving the payoff as apparent residue (Ancient
+    // Gold/Silver/Copper Dragon). Strip the modeled payoff forms + the vacuous "no maximum hand size" rider
+    // so the WHOLE card reads keyword-only. Anchored to the exact result-scaled shapes the parser models, so
+    // they can only consume a true modeled follow-up (FN-safe; an UNmodeled die payoff fails the HIGH gate
+    // above and never reaches here).
+    .replace(/\b(?:you )?create a number of [^.]*? equal to the result\b\.?\s*/gi, " ")
+    .replace(/\b(?:you )?draw cards equal to the result\b\.?\s*/gi, " ")
+    .replace(/\byou have no maximum hand size for the rest of the game\b\.?\s*/gi, " ");
   return isKeywordOnly(residue, card?.name);
 }
 

@@ -251,6 +251,13 @@ export function countForSpec(state, ctx, spec) {
     if (!lk || !/\bCreature\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) return 0;
     return Math.max(0, stat.read(lk.permanent, state));
   }
+  // ===== DICE-ROLL (CR 726) ===== the result of a just-rolled die (Ancient Dragons "equal to the result").
+  // The roll-d20 atom stamps state.diceRoll (a uniform 1–20) IMMEDIATELY before this payoff atom resolves, so
+  // this reads the rolled value. The parser gates a diceResult spec to a clause directly following a roll-d20
+  // in the same program, so the value is always freshly written before this read (never stale). An ABSENT
+  // roll → 0 (a clean no-op, CR 107.3 — never a fabricated count). Read off STATE (the inter-atom channel),
+  // not a player/board tally, so it's computed BEFORE the player lookup below.
+  if (spec.kind === "diceResult") return Math.max(0, state?.diceRoll || 0);
   // ===== OPPONENT-SCOPED ===== who:"target" counts the SPELL'S TARGET player ("…equal to the number of
   // cards in that player's hand" — Sudden Impact) OR, on a combat-damage trigger with no explicit target,
   // the DAMAGED player ("for each artifact that player controls" — Cavern-Hoard Dragon, where "that player"

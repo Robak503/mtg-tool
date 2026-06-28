@@ -113,6 +113,11 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = 
     return withExclude({ kind: "permanentsYouControl", subtype: COUNT_BASIC_SUBTYPE[m[1]] });
   }
   if (/^cards? in your hand$/.test(p)) return withExclude({ kind: "cardsInHand" });
+  // ===== DICE-ROLL (CR 726) ===== "the result" of a just-rolled die (Ancient Gold/Silver/Copper Dragon —
+  // "create/draw … equal to the result"). countForSpec reads the rolled value off state.diceRoll, stamped by
+  // the preceding roll-d20 atom. The parser only admits this count when a roll-d20 directly precedes the
+  // payoff in the same program (CREED gate, parser assembly), so "the result" never binds without a roll.
+  if (/^the result$/.test(p)) return withExclude({ kind: "diceResult" });
   // ===== OPPONENT-SCOPED ===== "cards in that player's hand" — the count is the SPELL'S TARGET player's
   // hand (CR: "that player" = the targeted player), as in "deals damage to target player equal to the
   // number of cards in that player's hand" (Sudden Impact, Gaze of Adamaro, Storm Seeker). who:"target"

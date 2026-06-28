@@ -39,6 +39,7 @@ import { manifestClauseParser } from "./atoms/manifest.js";
 import { amassClauseParser } from "./atoms/amass.js";
 import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfReturn.js";
 import { winGameClauseParser } from "./atoms/winGame.js";
+import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/roll.js"; // DICE-ROLL (CR 726) — roll a d20 + result-scaled token/draw payoff (Ancient Dragons)
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token) + 20 (create-token vanilla creature tokens)
@@ -130,6 +131,19 @@ function stripRegenerationRider(text) {
  */
 function stripUncounterableRider(text) {
   return String(text || "").replace(/\bthis spell can'?t be countered(?: by spells or abilities)?\b\.?/gi, " ");
+}
+
+/**
+ * Drop the "You have no maximum hand size for the rest of the game." rider — VACUOUS in this engine, exactly
+ * like the uncounterable rider above. The cleanup-step discard-to-max-hand-size is NOT implemented
+ * (gameEngine cleanup is a documented placeholder; the narrator only describes the discard), so a player
+ * never discards down to a maximum regardless of this static — the resolution is IDENTICAL whether or not
+ * the parser sees this clause. Stripping it (rather than failing the all-or-nothing gate) lets Ancient Silver
+ * Dragon's "roll a d20. Draw cards equal to the result." parse natively. Anchored to the exact sentence only.
+ * (If a future slice implements cleanup discard, this strip must be revisited — the static would then matter.)
+ */
+function stripNoMaxHandSizeRider(text) {
+  return String(text || "").replace(/\byou have no maximum hand size for the rest of the game\b\.?/gi, " ");
 }
 
 /**
@@ -232,6 +246,35 @@ function makeProgram({ confidence, structure = "sequence", atoms = [], modal = n
 function optionalsFormSuffix(atoms) {
   const i = atoms.findIndex((a) => a.optional);
   return i === -1 || atoms.slice(i).every((a) => a.optional);
+}
+
+// DICE-ROLL CREED gate — a `diceResult` count source (kind:"diceResult" on countFor/amountCount) reads
+// state.diceRoll, which is ONLY stamped by a roll-d20 atom. So an atom carrying a diceResult count is correct
+// ONLY when a roll-d20 atom PRECEDES it in the same program (else the read would silently resolve to 0 — a
+// dropped-payoff FP, CREED). Conversely a roll-d20 with NO following diceResult payoff is a bare die roll we
+// don't model the outcome of (the result would do nothing) → also forced low. Both invariants here: every
+// roll-d20 is followed by ≥1 diceResult payoff, and every diceResult payoff is preceded by a roll-d20.
+function usesDiceResult(atom) {
+  return atom?.countFor?.kind === "diceResult" || atom?.amountCount?.kind === "diceResult";
+}
+function diceRollSequenceOk(atoms) {
+  let rolled = false;
+  let sawRoll = false;
+  let sawPayoffAfterRoll = false;
+  for (const a of atoms) {
+    if (a?.op === "roll-d20") {
+      // A roll must be followed by its payoff; a roll already pending without a payoff yet is fine until end.
+      rolled = true; sawRoll = true; continue;
+    }
+    if (usesDiceResult(a)) {
+      if (!rolled) return false;     // a diceResult payoff with no preceding roll → drop
+      sawPayoffAfterRoll = true;
+      rolled = false;                // the payoff consumed the roll
+    }
+  }
+  if (sawRoll && rolled) return false; // a trailing roll-d20 with no payoff after it → drop (unmodeled outcome)
+  if (sawRoll && !sawPayoffAfterRoll) return false;
+  return true;
 }
 
 /**
@@ -1243,6 +1286,9 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // Drop the vacuous "This spell can't be countered" rider too — uncounterability is enforced at the
   // counter-target enumerator, not the effect program, so honoring it yields the identical resolution.
   oracle = stripUncounterableRider(oracle);
+  // DICE-ROLL — drop the vacuous "no maximum hand size" rider (Ancient Silver Dragon) so the roll+draw body
+  // parses; cleanup discard-to-max is unimplemented, so the resolution is identical (see stripNoMaxHandSizeRider).
+  oracle = stripNoMaxHandSizeRider(oracle);
   // KWSTRIP-1 — drop a vacuous cast-keyword line (foretell / suspend / splice onto arcane / recover /
   // harmonize / basic landcycling) so the spell's BODY parses; the normal-cast resolution is identical.
   oracle = stripCastKeywordLines(oracle);
@@ -1320,7 +1366,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // parses fully (all-or-nothing across modes).
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
-    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms))) {
+    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms))) {
       const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
@@ -1371,7 +1417,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // ambiguity blocked. (α2 review — tightened from "any optional in a multi-atom program drops".) Shared with
   // the collapsed-template path via `optionalsFormSuffix` so both HIGH paths enforce the same invariant.
   const optionalScopeOk = optionalsFormSuffix(atoms);
-  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(atoms)) {
+  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(atoms) && diceRollSequenceOk(atoms)) {
     // Drop a redundant `shuffle` atom that immediately follows a `tutor` (the tutor
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.
@@ -1737,6 +1783,14 @@ registerClauseParser(selfReturnClauseParser);
 registerTriggerDetector(selfReturnTriggerDetector);
 // UPKEEP-WIN (Wave 3b) — "you win the game" / "target player loses the game" → the win-game atom.
 registerClauseParser(winGameClauseParser);
+// DICE-ROLL (CR 726) — "roll a d20" → the roll-d20 atom; "create/draw … equal to the result" → a token/draw
+// atom whose count is the diceResult (read off state.diceRoll). Registered as a PAIR: the roll-d20 stamps the
+// result, the immediately-following payoff atom reads it. The result-scaled payoff parser needs the
+// parseTokenKeywords leaf (the typed-token "with flying" form) — injected here (the registry calls parsers
+// with 2 args). Ancient Gold/Silver/Copper Dragon; the reflexive "when you do" dragons (Bronze/Brass) are
+// NOT modeled (no reflexive-trigger seam) → they stay body-only (a SAFE false-negative, CREED).
+registerClauseParser(rollDieClauseParser);
+registerClauseParser((clause, ctx) => resultScaledPayoffClauseParser(clause, ctx, { parseTokenKeywords }));
 // COUNTERS-ON-EVENT (Wave 3b) — "put a +1/+1 counter on the triggering creature" → the add-counter atom
 // (routed through gameState.addCounter, so the Wave-3 doubler applies). Wired here per the slice contract.
 registerClauseParser(counterClausesParser);
