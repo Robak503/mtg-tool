@@ -7,19 +7,23 @@
  * then the following payoff atom's count source {kind:"diceResult"} reads that value at resolution. The scaled
  * amount IS the rolled value.
  *
- * Cards modeled (the 3 non-reflexive Ancient Dragons):
+ * Cards modeled (the 3 non-reflexive Ancient Dragons + Bronze via the REFLEXIVE-TRIGGER seam):
  *   - Ancient Gold Dragon   — roll → create N 1/1 blue Faerie Dragon tokens WITH FLYING (typed creature token).
  *   - Ancient Copper Dragon — roll → create N Treasure tokens (named artifact token).
  *   - Ancient Silver Dragon — roll → draw N cards (+ the vacuous "no maximum hand size" rider, stripped).
+ *   - Ancient Bronze Dragon — roll → "When you do, put X +1/+1 counters on each of up to two target creatures,
+ *     where X is the result." The REFLEXIVE-TRIGGER seam (CR 603.7) folds the "When you do, …" payoff into the
+ *     roll's program (detectTriggers, gated to the roll source); the up-to-two-target buff is a controller-
+ *     scoped optimal pick (scope:"upToTwoYouControl") since a +1/+1 counter is purely beneficial.
  *
- * PARKED (reflexive "When you do, …" — no reflexive-trigger seam in the engine): Ancient Bronze Dragon
- * (roll → reflexive +1/+1 counters on up to two targets) and Ancient Brass Dragon (roll → reflexive total-MV
- * graveyard reanimation). Both stay body-only — a SAFE false-negative (CREED: whole card or nothing).
+ * PARKED (reflexive total-MV graveyard reanimation — a budget-constrained mass-reanimation selection not yet
+ * modeled): Ancient Brass Dragon. The reflexive seam folds its payoff too, but the reanimation clause parses
+ * LOW → the lone roll fails the diceResult pairing gate → body-only (a SAFE false-negative, CREED).
  *
  * CREED exercised: the roll picks a real uniform value (seeded → reproducible; different seeds hit different
  * values across the full 1–20 range); the payoff scales EXACTLY with the roll (proven across seeds); an absent
  * roll → 0 (a clean no-op, never a fabricated count); a `diceResult` count with no preceding roll-d20 in the
- * program → LOW (the parser gate); the reflexive dragons stay LOW → body-only.
+ * program → LOW (the parser gate); an OPTIONAL-action reflexive is NOT folded (the gate); Brass stays LOW → body-only.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { resolveAtom } from "../effectAtoms.js";
@@ -28,7 +32,7 @@ import { runEffectProgram } from "../runProgram.js";
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget } from "../parser.js";
 import { classifyCard } from "../../coverage.js";
 import { detectTriggers } from "../../triggers.js";
-import { _resetIdsForTests, createGameState, createPermanent } from "../../gameState.js";
+import { _resetIdsForTests, createGameState, createPermanent, findPermanent } from "../../gameState.js";
 import { checkCombatDamageTriggers } from "../../triggers.js";
 import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "../../gameEngine.js";
 
@@ -111,10 +115,10 @@ describe("DICE-ROLL — classification (native vs PARKED)", () => {
   it("Ancient Silver Dragon → native-trigger (roll → draw; vacuous 'no max hand size' stripped)", () => {
     expect(classifyCard({ name: "Ancient Silver Dragon", type: ELDER, oracle: ORACLE.silver })).toBe("native-trigger");
   });
-  it("Ancient Bronze Dragon → body-only (reflexive 'when you do' — PARKED, CREED-safe FN)", () => {
-    expect(classifyCard({ name: "Ancient Bronze Dragon", type: ELDER, oracle: ORACLE.bronze })).toBe("body-only");
+  it("Ancient Bronze Dragon → native-trigger (REFLEXIVE seam: roll → +1/+1 counters on up to two)", () => {
+    expect(classifyCard({ name: "Ancient Bronze Dragon", type: ELDER, oracle: ORACLE.bronze })).toBe("native-trigger");
   });
-  it("Ancient Brass Dragon → body-only (reflexive total-MV reanimation — PARKED, CREED-safe FN)", () => {
+  it("Ancient Brass Dragon → body-only (reflexive total-MV reanimation — still PARKED, CREED-safe FN)", () => {
     expect(classifyCard({ name: "Ancient Brass Dragon", type: ELDER, oracle: ORACLE.brass })).toBe("body-only");
   });
 });
@@ -148,11 +152,42 @@ describe("DICE-ROLL — parser (the trigger effect program)", () => {
     expect(p.atoms).toHaveLength(2); // the vacuous static produced NO atom
   });
 
+  it("Bronze: effect → [roll-d20, add-counter +1/+1 / countFor diceResult / scope upToTwoYouControl], HIGH, no chosen target", () => {
+    const p = effProg(ORACLE.bronze);
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "roll-d20", sides: 20 });
+    expect(p.atoms[1]).toMatchObject({ op: "add-counter", counterType: "+1/+1", countFor: { kind: "diceResult" }, scope: "upToTwoYouControl" });
+    // The "up to two TARGET creatures" buff resolves controller-scoped (a beneficial pick), so NO chosen target.
+    expect(programNeedsChosenTarget(p)).toBe(false);
+    expect(p.atoms).toHaveLength(2);
+  });
+
   it("'You have no maximum hand size for the rest of the game.' alone is VACUOUS → not its own atom (stripped)", () => {
     // As a bare spell it strips to empty → no atoms (low, an empty program) — confirms the strip, not a fabricated atom.
     const p = parseEffectProgram(I("Draw cards equal to the result. You have no maximum hand size for the rest of the game."));
     // This bare clause has a diceResult draw with NO preceding roll → the CREED gate forces LOW.
     expect(programConfidence(p)).toBe("low");
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// REFLEXIVE-TRIGGER seam (CR 603.7) — "When you do, …" folds after a roll; NOT after an optional action
+// ────────────────────────────────────────────────────────────────────────────
+describe("DICE-ROLL — reflexive-trigger seam (the 'When you do, …' fold)", () => {
+  it("folds Bronze's reflexive payoff into the ONE rolling trigger (not a dropped second trigger)", () => {
+    const dets = detectTriggers({ name: "Ancient Bronze Dragon", type: ELDER, oracle: ORACLE.bronze });
+    expect(dets).toHaveLength(1); // one combat-damage trigger, not a stray "you do" second trigger
+    expect(dets[0].event).toBe("combatDamageToPlayer");
+    expect(dets[0].effectClause).toMatch(/^roll a d20\. put X \+1\/\+1 counters on each of up to two target creatures, where X is the result$/i);
+  });
+
+  it("does NOT fold an OPTIONAL-action reflexive (CREED — a declined action must not fire its payoff)", () => {
+    // "you may pay {1}. When you do, draw a card." — the action is OPTIONAL, so a sequential fold could draw
+    // even when the payment is declined. The seam is gated to the (mandatory) roll source, so this stays UNfolded.
+    const oracle = "Whenever this creature attacks, you may pay {1}. When you do, draw a card.";
+    const dets = detectTriggers({ name: "Optional Reflexive", type: "Creature — Test", oracle });
+    // The attack trigger's effect must NOT have swallowed the reflexive "draw a card" payoff.
+    for (const d of dets) expect(d.effectClause).not.toMatch(/draw a card/i);
   });
 });
 
@@ -224,6 +259,43 @@ describe("DICE-ROLL — runtime (the payoff scales with the rolled value)", () =
     s = resolveAtom(s, payoff, { controller: "user", targets: [] });
     expect(treasures(s)).toBe(0);
   });
+
+  // ── Bronze: the reflexive +1/+1 payoff buffs up to TWO of the controller's creatures by the rolled value ──
+  const bear = (id) => createPermanent({ id, card: { id: "c" + id, name: id, type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "user", summoningSick: false });
+  const plusOne = (s, id) => (findPermanent(s, id)?.permanent?.counters?.["+1/+1"]) || 0;
+
+  it("Bronze: the first two of the controller's creatures each get (roll) +1/+1 counters; a third gets none", () => {
+    const program = prog(ORACLE.bronze);
+    const rolls = new Set();
+    for (const seed of [0, 1, 2]) {
+      const s0 = stateWith({ seed, user: [bear("A"), bear("B"), bear("C")] });
+      const obj = { source: { name: "D" }, payload: { params: { program, controller: "user", targets: [], context: { damagedPlayerId: "ai", combatDamageAmount: 5 } } } };
+      const s = runEffectProgram(s0, obj);
+      expect(plusOne(s, "A")).toBe(s.diceRoll); // first two in battlefield order
+      expect(plusOne(s, "B")).toBe(s.diceRoll);
+      expect(plusOne(s, "C")).toBe(0);          // "up to TWO" — the third is untouched
+      expect(s.diceRoll).toBeGreaterThanOrEqual(1);
+      rolls.add(s.diceRoll);
+    }
+    expect(rolls.size).toBeGreaterThan(1); // different seeds → different rolls (real RNG), payoff scales each time
+  });
+
+  it("Bronze: INJECTED roll selects the counter amount (forced diceRoll → exact +1/+1 count)", () => {
+    const payoff = prog(ORACLE.bronze).atoms[1]; // add-counter / countFor diceResult / scope upToTwoYouControl
+    for (const forced of [1, 10, 20]) {
+      let s = { ...stateWith({ user: [bear("A"), bear("B")] }), diceRoll: forced };
+      s = resolveAtom(s, payoff, { controller: "user", targets: [] });
+      expect(plusOne(s, "A")).toBe(forced);
+      expect(plusOne(s, "B")).toBe(forced);
+    }
+  });
+
+  it("Bronze: with NO creatures the payoff is a clean no-op (no fabricated counters, no crash)", () => {
+    const payoff = prog(ORACLE.bronze).atoms[1];
+    let s = { ...stateWith({}), diceRoll: 7 }; // controller battlefield is empty in stateWith default
+    s = resolveAtom(s, payoff, { controller: "user", targets: [] });
+    expect(s.players.user.battlefield.length).toBe(0); // nothing to buff → nothing happens
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -267,5 +339,20 @@ describe("DICE-ROLL — END-TO-END via the real combat-damage-to-a-player flush"
     const toks = tokensOf(s);
     expect(toks.length).toBe(s.diceRoll);
     if (toks.length) expect(toks[0].card.keywords).toEqual(["Flying"]);
+  });
+
+  it("Ancient Bronze Dragon dealing combat damage rolls a d20 and puts that many +1/+1 counters on up to two of its creatures", () => {
+    const drg = dragon("Ancient Bronze Dragon", ORACLE.bronze, { id: "bronze", power: 9, toughness: 9 });
+    const ally = createPermanent({ id: "ally", card: { id: "c-ally", name: "Ally", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "user", summoningSick: false });
+    let s = stateWith({ seed: 4, user: [drg, ally] });
+    s = checkCombatDamageTriggers(s, [{ kind: "combat-damage-player", attackerId: "bronze", attackingPlayer: "user", defender: "ai", amount: 9 }]);
+    expect((s.pendingTriggers || []).length).toBe(1);
+    s = flush(s);
+    expect(s.diceRoll).toBeGreaterThanOrEqual(1);
+    expect(s.diceRoll).toBeLessThanOrEqual(20);
+    // first two of the controller's creatures in battlefield order = the dragon + the ally; each gets (roll) counters
+    const ctr = (id) => (findPermanent(s, id)?.permanent?.counters?.["+1/+1"]) || 0;
+    expect(ctr("bronze")).toBe(s.diceRoll);
+    expect(ctr("ally")).toBe(s.diceRoll);
   });
 });

@@ -247,7 +247,16 @@ export function permanentTriggersCovered(card) {
     // above and never reaches here).
     .replace(/\b(?:you )?create a number of [^.]*? equal to the result\b\.?\s*/gi, " ")
     .replace(/\b(?:you )?draw cards equal to the result\b\.?\s*/gi, " ")
-    .replace(/\byou have no maximum hand size for the rest of the game\b\.?\s*/gi, " ");
+    .replace(/\byou have no maximum hand size for the rest of the game\b\.?\s*/gi, " ")
+    // DICE-ROLL REFLEXIVE payoff (CR 603.7 — Ancient Bronze Dragon) — "…roll a d20. When you do, put X +1/+1
+    // counters on each of up to two target creatures, where X is the result." detectTriggers folds the
+    // "When you do, …" reflexive into the trigger's effectClause (it parses HIGH in allTriggerSentencesModeled
+    // above — proven before this residue check runs), but the trigger regex stops at "…roll a d20.", leaving
+    // the "When you do, …" sentence as apparent residue. Strip the modeled diceResult reflexive form so the
+    // card reads keyword-only. Anchored to the "When you do, … where X is the result" shape; FN-safe — an
+    // UNmodeled reflexive payoff (e.g. Ancient Brass Dragon's total-MV reanimation, still parked) fails the
+    // HIGH gate above so permanentTriggersCovered returns before this strip ever runs.
+    .replace(/\bwhen you do, [^.]*?where x is the result\b\.?\s*/gi, " ");
   return isKeywordOnly(residue, card?.name);
 }
 

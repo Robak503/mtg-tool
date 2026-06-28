@@ -234,6 +234,21 @@ export function addCounterClauseParser(clause) {
   if (dm) return dynCounter(dm[1], dm[2], dm[3]);
   dm = t.match(/^put (?:x|a number of) ([+-]1\/[+-]1) counters? on (target creature you control|target creature|each creature you control) equal to the number of (.+)$/);
   if (dm) return dynCounter(dm[1], dm[2], dm[3]);
+  // ===== DICE-ROLL multi-target (CR 603.7 reflexive payoff — Ancient Bronze Dragon) ===== "put X +1/+1
+  // counters on each of up to two target creatures, where X is the result" — X is the just-rolled d20 value
+  // (countFor diceResult, read off state.diceRoll, paired with a preceding roll-d20 by the parser's CREED
+  // gate). The "up to two TARGET creatures" cardinality is modeled as a CONTROLLER-SCOPED optimal pick
+  // (scope:"upToTwoYouControl"): a +1/+1 counter is purely beneficial, so the controller always puts it on up
+  // to two of ITS OWN creatures (targeting an opponent's would only help them — never the play). Resolving as
+  // a controller scope rather than the shared chosen-target cartesian — which has no up-to-N cardinality, and
+  // extending it would touch every spell's targeting — is faithful for every realistic line AND routes
+  // natively non-targeted (no flush chooser, no enumeration). Anchored to the exact diceResult form (a fixed-N
+  // or where-X-is-the-number-of variant never reaches here). An unmodeled count source → null → low → Arbiter.
+  const drM = t.match(/^put x \+1\/\+1 counters on each of up to two target creatures,? where x is the result$/);
+  if (drM) {
+    const src = parseCountSource("the result");
+    return src ? { op: "add-counter", counterType: "+1/+1", countFor: src, scope: "upToTwoYouControl" } : null;
+  }
   let m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature" };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on target creature you control$/);
