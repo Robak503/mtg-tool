@@ -123,8 +123,17 @@ export function stripTriggerAbilityLabel(oracle) {
   // ("Enrage — Whenever this creature is dealt damage, …"). Stripping it lets the boundary-anchored
   // trigger regex see the bare "Whenever". SHARED with coverage.js so the shaped-sentence count and the
   // detected-trigger count agree (else an enrage card mis-classifies).
+  // "raid" (CR 207.2c) is the ability-word label on the attacked-this-turn family ("Raid — At end of combat
+  // on your turn, if you attacked this turn, …" — Rose, Cutthroat Raider; "Raid — When this enters, if you
+  // attacked …"). Stripping it lets the boundary-anchored shaped-sentence counter SEE the Raid trigger
+  // sentence — load-bearing for CREED: without it, a Raid trigger whose event/effect is UNMODELED (Rose's
+  // end-of-combat create-Junk-per-opponent-attacked) is hidden from the shaped count, so a SEPARATE modeled
+  // ability (Rose's "sacrifice a Junk → add {R}") could mis-credit the whole card native while the Raid
+  // ability silently does nothing. Stripping can only RAISE the shaped count toward the true total (it never
+  // hides a trigger), so it's strictly FN-safe + closes the false-positive. A Raid trigger that IS modeled
+  // (a bare ETB/upkeep effect) stays native exactly as before — the strip only reveals it to the counter.
   return String(oracle || "")
-    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage)\s*[—–-]\s*/gim, "")
+    .replace(/^(?:landfall|constellation|eerie|heroic|magecraft|treasure hunter|enrage|raid)\s*[—–-]\s*/gim, "")
     .replace(FLAVOR_LABEL_RE, "");
 }
 
@@ -489,12 +498,37 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^you draw your second card (?:each|this) turn$/.test(c)) return { event: "drawSecond", scope: "you", whose: "any" };
   // TRIG-SACRIFICE — "Whenever you sacrifice a <permanent|creature|artifact>" (the sac'd thing is always
   // YOURS, so the scope is an EXACT type-predicate on the sacrificed permanent, checked in
-  // checkSacrificeTriggers — NOT a scopeMatches scope). Only the three type-checkable subjects classify; a
-  // SUBTYPE ("a Clue/Food/Treasure"), token, land, or "creature you control"-style restriction subject →
-  // null → Arbiter (SAFE — a restriction the engine can't check exactly, CLAUDE.md §1.2). "another"
-  // excludes the source permanent. The generic dies/etb subject mapper (creatureSubjectScope) is the model.
+  // checkSacrificeTriggers — NOT a scopeMatches scope). The three type-checkable card-TYPE subjects classify
+  // with sacScope = the type word; a "creature you control"-style restriction subject → null → Arbiter (SAFE
+  // — a restriction the engine can't check exactly, CLAUDE.md §1.2). "another" excludes the source permanent.
   const sacM = c.match(/^you sacrifice (a|an|another) (permanent|creature|artifact)$/);
   if (sacM) return { event: "sacrifice", scope: "you", whose: "any", sacScope: sacM[2], sacAnother: sacM[1] === "another" };
+  // TRIG-SACRIFICE SUBTYPE — "Whenever you sacrifice a <Subtype>" (Captain Lannery Storm "sacrifice a
+  // Treasure"; the artifact-token subtypes Clue/Food/Gold; tribal "sacrifice a Goblin/Saproling"). The sac'd
+  // permanent's TYPE LINE is checked for the subtype word in checkSacrificeTriggers (sacScopeMatches' subtype
+  // branch) — an EXACT word-bounded predicate, so a non-matching sac never fires (no over-fire). Carried as
+  // sacSubtype (a capitalized single-word subtype) distinct from the card-TYPE sacScope above. A multi-word /
+  // restricted subject ("a Treasure you control", "a creature token") leaves residue → fails the `$` anchor →
+  // null → Arbiter. NON_SUBTYPE_ETB_WORDS rejects a meta/supertype/color word (those are card-TYPE or
+  // un-type-line-checkable; "creature"/"permanent"/"artifact" are handled by the card-TYPE matcher above), so
+  // a subject the type-line scan can't faithfully restrict stays on the Arbiter (CREED FP guard).
+  const sacSubM = c.match(/^you sacrifice (a|an|another) ([a-z]{3,})$/);
+  if (sacSubM && !NON_SUBTYPE_ETB_WORDS.has(sacSubM[2])) {
+    return { event: "sacrifice", scope: "you", whose: "any", sacSubtype: sacSubM[2].charAt(0).toUpperCase() + sacSubM[2].slice(1), sacAnother: sacSubM[1] === "another" };
+  }
+  // ===== TOKEN-CHANGE (CR 111 / 701.7) ===== "Whenever you create a token", "Whenever you sacrifice a
+  // token", or the compound "Whenever you create or sacrifice a token" (Mirkwood Bats, Marionette Master-
+  // style payoffs). Modeled as ONE descriptor (event:"tokenChange") carrying which sub-events it responds to
+  // (onCreate / onSacrifice) — so a single shaped trigger sentence maps to ONE detected descriptor (the
+  // coverage tally stays 1:1) yet can fire from BOTH the token-mint chokepoint (checkTokenCreatedTriggers)
+  // and the sac chokepoint (checkTokenSacrificedTriggers). Each token created/sacrificed is a SEPARATE event
+  // (CR 111.1 — each token is its own object), so the dedicated checkers fire the descriptor ONCE PER token.
+  // BARE form ONLY ("a token", no type/subtype/"nontoken" filter) — a filtered variant ("a creature token",
+  // "an artifact token", "a Treasure") leaves residue → null → Arbiter (a SAFE false-negative; the engine
+  // can't faithfully scope which tokens count). "you" subject only (the controller's own create/sac).
+  if (/^you create or sacrifice a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: true, onSacrifice: true };
+  if (/^you create a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: true, onSacrifice: false };
+  if (/^you sacrifice a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: false, onSacrifice: true };
   // ===== YOU ATTACK ===== "you attack" (the bare condition for "Whenever you attack, …" — fires ONCE
   // per combat when the controller declares any attacker). Different from "attacks" (per-attacker scope):
   // "you attack" is a controller-scoped once-per-combat event (Toph, Earthbending Master's second trigger).
@@ -866,6 +900,35 @@ const NONSELF_SAC_REF_RE = /^sacrifice it$/i;
 // explores" → target:"self" and "the triggering creature explores" → target:"thatCreature".
 const EXPLORE_IT_RE = /^it explores(?:, then it explores again)?$/i;
 
+// SELF-NAME-REF (CR 201.4) — a SELF-scope trigger that names its OWN source by name in the effect rather than
+// the pronoun "it" ("Whenever you sacrifice a Treasure, Captain Lannery Storm gets +1/+0 until end of turn";
+// "Whenever this creature attacks, <Name> gets +2/+2 …"). The full name AND the legendary short name (the
+// portion before the first comma, CR 201.4) both refer to the source. detectTriggers rewrites a LEADING
+// self-name → "this creature" so the parser's self atom (target:"self") models it, exactly like the "it"
+// rewrite. SELF SCOPE ONLY — a non-self trigger never names the SOURCE in this slot. Anchored on a leading
+// name + a self-effect VERB (gets/gains/deals — the modeled self-effect shapes), so a name appearing mid-clause
+// or before an unmodeled verb is left untouched → the program stays LOW → Arbiter (CREED — no mis-bound effect).
+// Returns null when the effect doesn't begin with the source's name (the common case — most effects use "it"
+// or have no self-subject), making this a pure promotion.
+const SELF_NAME_EFFECT_VERB_RE = /^(?:gets [+-]\d+\/[+-]\d+|gains |deals )/i;
+function rewriteSelfNameToThisCreature(effectClause, cardName) {
+  const eff = String(effectClause || "");
+  const fullName = String(cardName || "").trim();
+  if (!fullName) return effectClause;
+  // Candidate self-references, longest first (so the full name wins over the short name when both lead).
+  const shortName = fullName.split(",")[0].trim();
+  const candidates = shortName && shortName !== fullName ? [fullName, shortName] : [fullName];
+  for (const nm of candidates) {
+    if (nm.length < 3) continue; // a 1-2 char "name" is too ambiguous to anchor on (never a real legend short name)
+    const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = eff.match(new RegExp(`^${esc}\\s+(.+)$`, "i"));
+    // Only rewrite when what FOLLOWS the name is a modeled self-effect verb — otherwise the name might be a
+    // coincidental prefix of unrelated text and rewriting could mis-bind (CREED). The parser re-gates anyway.
+    if (m && SELF_NAME_EFFECT_VERB_RE.test(m[1])) return `this creature ${m[1]}`;
+  }
+  return effectClause;
+}
+
 // GLOBAL SUBTYPE combat-damage-to-a-player (Synapse Sliver / Brood Sliver) — "Whenever a <Subtype> deals
 // combat damage to a player, ITS CONTROLLER may <effect>". DISTINCT from the subtypeYouControl form (Spawning
 // Kraken — "a … you control deals …") in TWO ways modeled by this detector:
@@ -992,9 +1055,20 @@ export function detectTriggers(card) {
       // ("Whenever a creature you control attacks, it gets…") the "it" is the OTHER triggering
       // creature, not the source — rewriting there would mis-pump the source, a forbidden false
       // positive. The whole-clause anchor leaves any rider/compound untouched (→ stays LOW → Arbiter).
+      // SELF-NAME-REF (CR 201.4) — the source names ITSELF in the effect ("Whenever you sacrifice a Treasure,
+      // Captain Lannery Storm gets +1/+0 …"; "Whenever this creature attacks, <Name> gets +2/+2 …"). UNLIKE the
+      // pronoun "it" (whose referent depends on scope — the SOURCE for a self trigger, the TRIGGERING permanent
+      // otherwise), a literal self-NAME is UNAMBIGUOUS: it always refers to the named permanent = the SOURCE,
+      // for ANY trigger scope. So this rewrite is scope-INDEPENDENT (it runs for the sacrifice/attack/etc.
+      // triggers whose scope isn't "self"). Rewrite a leading full/short self-name → "this creature" so the
+      // parser's self atom (target:"self" → sourceId) binds it. A pure promotion (clause unchanged unless it
+      // leads with the source's name + a modeled self-effect verb). Run BEFORE the "it" chain — a name and "it"
+      // are different leading tokens, so they never conflict. The parser re-gates the effect (LOW → Arbiter).
+      effectClause = rewriteSelfNameToThisCreature(effectClause, card.name);
       if (cls.scope === "self" && SELF_PUMP_IT_RE.test(effectClause)) {
         effectClause = effectClause.replace(/^it /i, "this creature ");
-      } else if (cls.scope === "self" && SELF_COUNTER_IT_RE.test(effectClause)) {
+      }
+      if (cls.scope === "self" && SELF_COUNTER_IT_RE.test(effectClause)) {
         // IT-COUNTER: "…put a +1/+1 counter on IT" — "it" is the source (CR 113.7). Same self-scope gate
         // as the pump (a NON-self trigger's "it" is the OTHER triggering creature, never the source) +
         // the whole-clause anchor, so the parser's self-counter atom (target:"self") models it.
@@ -1075,7 +1149,10 @@ export function detectTriggers(card) {
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
+        sacSubtype: cls.sacSubtype,           // TRIG-SACRIFICE SUBTYPE: capitalized subtype (e.g. "Treasure") — type-line scan
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
+        onCreate: cls.onCreate,               // TOKEN-CHANGE: responds to a token being created (Mirkwood Bats)
+        onSacrifice: cls.onSacrifice,         // TOKEN-CHANGE: responds to a token being sacrificed
         selfReturnKind: cls.selfReturnKind,   // SELF-LTB: "self" (Aura PiG) | "attached" (equipped-creature-dies)
         perCard: cls.perCard,                 // MILL-ON-EVENT: true = per-card ("mills a card"), false = once-per-event ("one or more … are milled")
         milledFilter: cls.milledFilter,       // MILL-ON-EVENT: "nonland" | null (which milled cards count)
@@ -1902,6 +1979,15 @@ export function checkCardDrawnTriggers(state, drawingPlayerId, count = 1) {
  */
 function sacScopeMatches(d, watcher, sacrificed) {
   if (d.sacAnother && sacrificed.id === watcher.id) return false;
+  // SUBTYPE sac scope (Captain Lannery Storm "sacrifice a Treasure") — the sac'd permanent's TYPE LINE must
+  // carry the subtype word-bounded (CR 205.3 — subtypes follow the "—"; a substring check would mis-match,
+  // e.g. "Treasure" within a longer word). A Treasure token's type line is "Token Artifact — Treasure", so
+  // it matches; any non-matching sac does not fire (no over-fire). Word-bounded + escaped for safety.
+  if (d.sacSubtype) {
+    const ts = String(sacrificed.card?.type || sacrificed.card?.type_line || "");
+    const esc = String(d.sacSubtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`\\b${esc}\\b`).test(ts);
+  }
   switch (d.sacScope) {
     case "permanent": return true;
     case "creature": return isCreaturePerm(sacrificed);
@@ -1922,11 +2008,44 @@ function sacScopeMatches(d, watcher, sacrificed) {
  */
 export function checkSacrificeTriggers(state, sacrificingPlayerId, sacrificed) {
   if (!sacrificed?.card || !state.players?.[sacrificingPlayerId]) return state;
+  // TOKEN-CHANGE on-sacrifice (Mirkwood Bats) — a sacrificed TOKEN fires every tokenChange watcher with
+  // onSacrifice. Checked at the SAME sac chokepoints as the type-scope sac triggers above (this function is
+  // called from all four — the effect/edict sac, the cost sac, and the Treasure-crack-for-mana sac), so a
+  // sacrificed Treasure TOKEN drains for Mirkwood Bats. Gated on the sac'd card's token-ness (CR 111.1) — a
+  // NON-token sacrifice never fires it (no over-fire). One firing per sac call (each sac is one token event).
+  const sacIsToken = !!sacrificed.card?.token;
   let fired = [];
   for (const watcher of triggerSourcesOf(state, sacrificingPlayerId)) {
     for (const d of detectTriggers(watcher.card).filter((x) => x.event === "sacrifice")) {
       if (!sacScopeMatches(d, watcher, sacrificed)) continue;
       fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
+    }
+    if (sacIsToken) {
+      for (const d of detectTriggers(watcher.card).filter((x) => x.event === "tokenChange" && x.onSacrifice)) {
+        fired.push(makePendingTrigger(d, watcher, sacrificed, {}));
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * TOKEN-CHANGE on-create (Mirkwood Bats) — enqueue tokenChange triggers (onCreate) for the player who just
+ * created `numCreated` tokens. Fired at the token-mint chokepoints (the create-token / create-named-token /
+ * create-token-copy atoms, via fireTokenCreatedTriggers in atoms/tokens.js) AFTER the tokens are on the
+ * battlefield. Each token created is a SEPARATE event (CR 111.1 — each token is its own object; Bloomburrow
+ * ruling — creating multiple tokens at once triggers Mirkwood Bats that many times), so the descriptor fires
+ * ONCE PER token. Scans ONLY the creating player's watchers (the "you create" subject). Pure — appends to
+ * pendingTriggers. A 0 / missing count is a clean no-op.
+ */
+export function checkTokenCreatedTriggers(state, creatingPlayerId, numCreated = 1) {
+  if (!creatingPlayerId || !(numCreated > 0) || !state.players?.[creatingPlayerId]) return state;
+  let fired = [];
+  for (const watcher of triggerSourcesOf(state, creatingPlayerId)) {
+    const descriptors = detectTriggers(watcher.card).filter((x) => x.event === "tokenChange" && x.onCreate);
+    for (const d of descriptors) {
+      for (let i = 0; i < numCreated; i++) fired.push(makePendingTrigger(d, watcher, watcher, {}));
     }
   }
   if (!fired.length) return state;

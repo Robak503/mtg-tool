@@ -36,11 +36,17 @@ describe("TRIG-SACRIFICE — detection (scope mapping)", () => {
     expect(detectTriggers(GEARDRAKE())[0]).toMatchObject({ event: "sacrifice", sacScope: "artifact", sacAnother: false });
   });
 
-  it("does NOT detect a SUBTYPE subject (Clue/Food/Treasure) nor a restriction — they route to the Arbiter", () => {
-    expect(detectTriggers(card("x", "Tracker", "Creature", "Whenever you sacrifice a Clue, draw a card.")).some(d => d.event === "sacrifice")).toBe(false);
-    expect(detectTriggers(card("x", "Y", "Creature", "Whenever you sacrifice a Treasure, you gain 1 life.")).some(d => d.event === "sacrifice")).toBe(false);
-    // a trailing restriction ("…a creature you control") leaves residue past the anchor → undetected
+  it("DOES detect a SUBTYPE subject (Clue/Treasure) as a sacSubtype scope (TRIG-SACRIFICE SUBTYPE slice)", () => {
+    // The Treasure-economy slice added subtype sac scopes — "sacrifice a Clue/Treasure" now classifies with
+    // sacSubtype (the sac'd permanent's type line is matched), so Graf Mole / Captain Lannery Storm flip native.
+    expect(detectTriggers(card("x", "Tracker", "Creature", "Whenever you sacrifice a Clue, draw a card.")).find(d => d.event === "sacrifice")).toMatchObject({ sacSubtype: "Clue" });
+    expect(detectTriggers(card("x", "Y", "Creature", "Whenever you sacrifice a Treasure, you gain 1 life.")).find(d => d.event === "sacrifice")).toMatchObject({ sacSubtype: "Treasure" });
+  });
+  it("does NOT detect a RESTRICTED subject ('a creature you control') — residue past the anchor → Arbiter", () => {
+    // a trailing restriction leaves residue past the anchor → undetected (the engine can't scope it exactly)
     expect(detectTriggers(card("x", "Z", "Creature", "Whenever you sacrifice a creature you control, draw a card.")).some(d => d.event === "sacrifice")).toBe(false);
+    // "a token" is NOT a sac SUBTYPE — it's the dedicated tokenChange event (denylisted in the subtype matcher)
+    expect(detectTriggers(card("x", "T", "Creature", "Whenever you sacrifice a token, draw a card.")).some(d => d.event === "sacrifice")).toBe(false);
   });
 });
 

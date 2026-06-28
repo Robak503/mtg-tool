@@ -4,7 +4,7 @@
 
 import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintId } from "../../gameState.js";
 import { tokenMultiplier, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter
-import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
+import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
 import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec } from "./shared.js";
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenKeywords } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
@@ -50,6 +50,15 @@ export function tokenTypeLine(descriptor) {
 // like a Servo/Thopter AND a named artifact token like Treasure/Clue/Food/Gold fire "whenever an artifact
 // you control enters"). Both helpers are scope-gated and pure (enqueue only), so firing both on every
 // minted token can never over-fire — a non-artifact creature token is a no-op for the perm-enters pass.
+//
+// TOKEN-CHANGE on-create (Mirkwood Bats — "Whenever you create … a token, each opponent loses 1 life"):
+// each minted token is also a token-CREATED event (CR 111.1 — each token is its own object), DISTINCT from
+// the ETB watchers above (Mirkwood Bats triggers on CREATION, not entry — it fires even for a token created
+// elsewhere, and an existing creature ETBing is NOT a creation). Fired here at the single shared mint
+// chokepoint so ALL five token sources (create-token / create-named-token / create-token-copy / amass /
+// manifest) cover it uniformly, ONCE PER token, scanning each token's actual CONTROLLER (read off the minted
+// permanent, so this stays controller-agnostic). checkTokenCreatedTriggers is scope-gated + pure (a no-op
+// when no tokenChange watcher exists — the overwhelming common case), so it can never over-fire.
 export function fireTokenEnterTriggers(state, mintedIds) {
   let next = state;
   for (const id of mintedIds) {
@@ -57,6 +66,7 @@ export function fireTokenEnterTriggers(state, mintedIds) {
     if (!found?.permanent) continue;
     next = checkEnterTriggers(next, found.permanent);
     next = checkPermanentEntersTriggers(next, found.permanent);
+    next = checkTokenCreatedTriggers(next, found.permanent.controller, 1);
   }
   return next;
 }
