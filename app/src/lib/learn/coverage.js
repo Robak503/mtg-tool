@@ -31,7 +31,7 @@
 import { parseEffectProgram, parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -820,3 +820,59 @@ function classifyChosenTypeAnthem(card) {
   return isDoor ? "native-mixed" : "native-static";
 }
 registerCoverageClassifier((card) => classifyChosenTypeAnthem(card));
+
+// ─── SELF-METRIC COST-REDUCTION — Ghalta, Primal Hunger (cross-deck big-mana payoff) ────────────────────────
+// A permanent SPELL whose only non-keyword text is a modeled self cost-reduction ("This spell costs {X} less to
+// cast, where X is <board metric>") + keyword(s). The reduction is applied at the cast site (legalChoices.
+// selfCostReductionForSpell reads the live metric), and the body is vanilla/keyword-only — so the card plays
+// fully natively. WHOLE-CARD (CREED): strip the self-cost sentence (+ reminder) and the remainder must be
+// keyword-only with NO trigger / activated / static residue. Ghalta = self-cost(total power) + Trample →
+// native-body. The Great Henge / Cavern-Hoard Dragon / Excalibur DON'T flip here — their extra clauses (a
+// mana ability + ETB trigger; a combat-damage trigger; Equip + bonus) leave residue → null (still arbiter for
+// classification, but the runtime STILL reduces their cast — a safe FN on the flip, a true win at the table).
+// A targeted single-mechanism flip via the additive seam: returns null unless the metric parses AND no residue
+// remains, so it can never cause collateral. Mechanism-keyed (any future self-metric + keyword card flips too).
+const SELF_COST_SENTENCE_RE = /this spell costs \{x\} less to cast,? where x is [^.]*\.?/i;
+function classifySelfCostReduction(card) {
+  if (!selfCostReductionMetric(card)) return null; // no MODELED self-metric clause
+  // Strip reminder + the self-cost sentence; the remainder must be keyword-only (Trample) with no other ability.
+  const stripped = stripReminder(String(card?.oracle ?? card?.oracle_text ?? "")).replace(SELF_COST_SENTENCE_RE, " ");
+  if (detectTriggers({ ...card, oracle: stripped }).length > 0) return null;       // a trigger remains → not bare
+  if (parseActivatedAbilities({ ...card, oracle: stripped }).length > 0) return null; // an activated ability remains
+  if (!isKeywordOnly(stripped, card?.name)) return null;                            // any other residue → arbiter
+  return "native-body";
+}
+registerCoverageClassifier((card) => classifySelfCostReduction(card));
+
+// ─── CHOSEN-TYPE COST-REDUCTION — Urza's Incubator (Joe/Colton tribal artifacts) ───────────────────────────
+// A choose-a-creature-type artifact whose ONLY payoff is a chosen-type cost reducer ("Creature spells [you
+// cast] of the chosen type cost {N} less to cast"). WHOLE-CARD (CREED): exactly two modeled clauses —
+//   • "As this artifact enters, choose a creature type." (the ETB auto-pick → perm.chosenType, a setup
+//     replacement, stripped like the Kindred/Banner chooser), and
+//   • the chosen-type reducer (parseStaticAbilities emits its { costReduction: { chosenType } } marker —
+//     clauseProducesStatic confirms it parses; legalChoices applies it at the cast site).
+// NOTHING else may remain — Herald's Horn (an extra upkeep look-trigger) and Gathering Stone (an ETB/upkeep
+// trigger) keep residue → null (their reducer STILL applies at runtime; only the flip is withheld — a safe FN).
+// Returns native-static, or null. Additive-seam single-mechanism flip; mechanism-keyed (a future bare twin
+// flips automatically). The card-type-chooser variants (Cloud Key / Umori / Stenn — "choose a CARD type") are
+// NOT matched (the chooser RE wants a CREATURE type) and stay body-only, since that chooser is unmodeled.
+const CT_COST_REDUCER_RE = /creature spells (?:you cast )?of the chosen type cost \{\d+\} less to cast\.?/i;
+function classifyChosenTypeCostReducer(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  if (!/artifact/.test(type)) return null;
+  const oracle = stripReminder(String(card?.oracle ?? card?.oracle_text ?? ""));
+  if (!oracle) return null;
+  if (!CHOSEN_TYPE_CHOOSER_RE.test(oracle)) return null;           // the ETB creature-type chooser must be present
+  if (!CT_COST_REDUCER_RE.test(oracle)) return null;              // the chosen-type reducer must be present
+  if (!clauseProducesStatic("Creature spells of the chosen type cost {1} less to cast")) return null; // it parses to a marker
+  // NO residue: strip the chooser + the reducer; nothing else may remain (Herald's upkeep trigger / Gathering
+  // Stone's triggers keep residue → arbiter). A trigger present at all is residue.
+  if (detectTriggers(card).length > 0) return null;
+  const residue = oracle
+    .replace(CHOSEN_TYPE_CHOOSER_RE, " ")
+    .replace(CT_COST_REDUCER_RE, " ")
+    .replace(/[\s.]+/g, " ").trim();
+  if (residue.length > 0) return null;
+  return "native-static";
+}
+registerCoverageClassifier((card) => classifyChosenTypeCostReducer(card));

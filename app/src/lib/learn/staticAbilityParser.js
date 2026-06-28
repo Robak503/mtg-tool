@@ -173,6 +173,35 @@ const NON_CREATURE_SUBTYPES = new Set([
 // word-bound match would reduce nothing (a false positive) → they stay in NON_SUBTYPE_COST_FILTER_WORDS.
 const COST_REDUCTION_CARDTYPE_WORDS = new Set(["artifact", "creature", "enchantment", "instant", "sorcery"]);
 
+// COLOR-COST-REDUCTION — parse a color cost-reducer clause into { colors:[WUBRG…], amount } | null. Two shapes:
+//   • "each spell you cast that's <color>[ or <color>]… costs {N} less to cast"  (Goblin Anarchomancer — red or green)
+//   • "<color> spells you cast cost {N} less to cast"                            (Ruby Medallion — single color)
+// The color list is a UNION (a spell is reduced if ANY listed color matches, CR 105.2). DELIBERATELY rejects a
+// mixed quality ("that's red or an artifact"), a "noncreature"/"historic" filter, or a "{X}/colored mana"
+// amount → null → the clause stays body-only (CREED FN-safe). Pure; the WUBRG letters feed costReductionForSpell.
+function parseColorCostReduction(clause) {
+  const c = String(clause);
+  // Shape A — "each spell you cast that's <colorlist> costs {N} less to cast"; else
+  // Shape B — "<colorlist> spells you cast cost {N} less to cast" (single or "X or Y" color).
+  const m = c.match(/^each spell you cast that's ([a-z ,]+?) costs \{(\d+)\} less to cast$/)
+    || c.match(/^([a-z ,]+?) spells you cast cost \{(\d+)\} less to cast$/);
+  if (!m) return null;
+  const colorPhrase = m[1];
+  const amount = parseInt(m[2], 10);
+  // The color phrase must reduce to ONLY recognized color words joined by "or"/","/spaces — a single non-color
+  // token (a subtype, "noncreature", "artifact") means it's not a pure color reducer → reject (the subtype path
+  // already handles a real subtype/card-type; this path is ONLY for colors).
+  const tokens = colorPhrase.split(/\bor\b|,/).map((t) => t.trim()).filter(Boolean);
+  if (tokens.length === 0) return null;
+  const colors = [];
+  for (const t of tokens) {
+    const letter = COLOR_WORDS[t];
+    if (!letter) return null;          // a non-color token → not a pure color reducer
+    if (!colors.includes(letter)) colors.push(letter);
+  }
+  return { colors, amount };
+}
+
 // ─── TRUNK-SELFBUFF: count-scaled self static buff ──────────────────────────────
 // A continuous (layer-7c) self-buff whose magnitude is a board count — "this creature gets +X/+Y for each
 // <countsource>" (Nim Lasher, Benalish Honor Guard…). The layer engine re-evaluates the count each P/T
@@ -414,6 +443,40 @@ export function entersWithMetricCounters(card) {
   return null;
 }
 
+// ─── SELF-METRIC-COST-REDUCTION (CR 601.2f) — "This spell costs {X} less to cast, where X is <metric>" ───
+// A spell that reduces its OWN cast cost by a live board metric, read at cast announce (CR 601.2f); the spell's
+// mana value is UNCHANGED (CR 202.3 — MV is the printed mana cost). The {X} here is NOT an {X} in the mana cost
+// (Ghalta is {10}{G}{G}); it's the magnitude of the generic-only reduction. legalChoices reads this descriptor
+// at the cast site, computes the metric against the LIVE board, and floors the generic at {0} (the colored pips
+// are NEVER reduced). The serializable `metric` is one of FOUR fully-reducible board sources — every other
+// "where X is …" phrasing → null → the card stays body-only (Arbiter; never an unknown/fabricated reduction):
+//   • "the total power of creatures you control"                 → { kind: "totalPowerYouControl" }      (Ghalta)
+//   • "the greatest power among creatures you control"           → { kind: "greatestPowerYouControl" }   (The Great Henge — reuses countForSpec)
+//   • "the greatest number of artifacts an opponent controls"    → { kind: "greatestArtifactsAnOpponentControls" } (Cavern-Hoard Dragon)
+//   • "the total mana value of historic permanents you control"  → { kind: "totalManaValueHistoricYouControl" } (Excalibur; historic = artifact/legendary/Saga, CR 702.149a)
+// Anchored ^…$ on the (reminder-stripped) sentence so a rider / "for each" / unmodeled metric stays non-native
+// (FN-safe). Leaf (no engine import): legalChoices.selfCostReductionForSpell evaluates the metric.
+const SELF_COST_METRICS = [
+  [/^this spell costs \{x\} less to cast, where x is the total power of creatures you control$/, { kind: "totalPowerYouControl" }],
+  [/^this spell costs \{x\} less to cast, where x is the greatest power among creatures you control$/, { kind: "greatestPowerYouControl" }],
+  [/^this spell costs \{x\} less to cast, where x is the greatest number of artifacts an opponent controls$/, { kind: "greatestArtifactsAnOpponentControls" }],
+  [/^this spell costs \{x\} less to cast, where x is the total mana value of historic permanents you control$/, { kind: "totalManaValueHistoricYouControl" }],
+];
+export function selfCostReductionMetric(card) {
+  // Reminder text ("(Artifacts, legendaries, and Sagas are historic.)" — Excalibur) is parenthetical (CR 207.2)
+  // and must be stripped before the anchored match, else the trailing reminder breaks the `$` anchor.
+  const oracle = String(card?.oracle || card?.oracle_text || "").replace(/\([^)]*\)/g, " ");
+  for (const sentence of oracle.split(/(?<=\.)\s+|\n+/)) {
+    const s = sentence.trim().toLowerCase().replace(/\.\s*$/, "");
+    if (!s.startsWith("this spell costs")) continue;
+    for (const [re, metric] of SELF_COST_METRICS) {
+      if (re.test(s)) return metric;
+    }
+    return null; // a "This spell costs …" clause we couldn't reduce to a modeled metric → body-only (Arbiter)
+  }
+  return null;
+}
+
 /**
  * TRUNK-ENTERSTAPPED (CR 614.1c; static per 603.6d) — does this permanent enter the battlefield tapped, unconditionally? True
  * ONLY for the bare "~ enters tapped" with NO condition/choice in the same sentence: a check-/fast-land
@@ -539,11 +602,17 @@ function parseClause(clause, out, selfName) {
     const word = crM[1];
     // A card-TYPE reducer (Foundry Inspector "Artifact …", Marauding Raptor "Creature …") reduces via the
     // type-line match, so it's allowed even though card-type words are blocked on the anthem path. A real
-    // creature/spell subtype (Dragon/Hydra/Goblin) still passes the original guard; a color / supertype /
+    // creature/spell subtype (Dragon/Hydra/Goblin) still passes the original guard; a supertype /
     // non-type-line word stays body-only.
     if (COST_REDUCTION_CARDTYPE_WORDS.has(word) ||
         (!NON_SUBTYPE_ANTHEM_WORDS.has(word) && !COLOR_WORDS[word] && !NON_SUBTYPE_COST_FILTER_WORDS.has(word))) {
       out.push({ costReduction: { subtype: normalizeSubtype(word), amount: parseInt(crM[2], 10) } });
+    } else if (COLOR_WORDS[word]) {
+      // COLOR-COST-REDUCTION (single color — "Red spells you cast cost {1} less", Ruby Medallion): no longer a
+      // safe-FN drop — emitted as a color reducer keyed on WUBRG (costReductionForSpell tests the spell's
+      // colors). The "you cast" form only is matched here (a "you cast"-less symmetric color reducer is rarer
+      // and stays body-only). A non-color excluded word (supertype/noncreature/permanent) still drops to body-only.
+      if (/\byou cast\b/.test(crM[0])) out.push({ costReduction: { colors: [COLOR_WORDS[word]], amount: parseInt(crM[2], 10) } });
     }
     return; // a cost-reduction clause — handled (or intentionally dropped to body-only)
   }
@@ -574,6 +643,36 @@ function parseClause(clause, out, selfName) {
       out.push({ costReduction: { subtype: normalizeSubtype(word), amount: parseInt(emM[2], 10), fromCommandZone: true, excludeSelf: true, sourceName: selfName || null } });
     }
     return; // an eminence cost-reduction clause — handled (or intentionally dropped to body-only)
+  }
+
+  // ── CHOSEN-TYPE COST-REDUCTION (Urza's Incubator; Herald's Horn) ────────────────────────────────────
+  // "Creature spells [you cast] of the chosen type cost {N} less to cast" — reduces the GENERIC portion (CR
+  // 601.2f), floored at {0}; MV unchanged (CR 202.3). Matches a spell that carries the SOURCE permanent's
+  // stored chosenType (CR 614.12 — picked at ETB, resolvers.autoPickCreatureType → perm.chosenType). Emitted
+  // as a { costReduction } marker with `chosenType: true` so collectCostReducers can pair it with its SOURCE
+  // permanent's chosenType at the cast site (the type isn't known at parse time). REQUIRES the "Creature
+  // spells" lead — every modeled chosen-type *creature* reducer is creature-typed (Incubator/Herald), and
+  // permHasChosenType tests a CREATURE subtype, so a "Spells … of the chosen type" (Cloud Key — CARD-type
+  // chooser, NOT a creature type) must NOT match here (its chooser is unmodeled → it stays body-only, a safe
+  // FN). "you cast" is optional (Incubator omits it; Herald includes it). Anchored ^…$.
+  const ctcrM = c.match(/^creature spells (?:you cast )?of the chosen type cost \{(\d+)\} less to cast$/);
+  if (ctcrM) {
+    out.push({ costReduction: { chosenType: true, amount: parseInt(ctcrM[1], 10) } });
+    return;
+  }
+
+  // ── COLOR COST-REDUCTION (Goblin Anarchomancer; Goblin Electromancer is instant/sorcery-only, not here) ──
+  // "Each spell you cast that's <color>[ or <color>]… costs {N} less to cast" (Anarchomancer = red OR green).
+  // Reduces the GENERIC portion (CR 601.2f), floored at {0}; MV unchanged (CR 202.3). Matches a spell whose
+  // colors (layers.colorsOf — Scryfall colors, CR 105) intersect the listed colors. A SPELL is "red or green"
+  // if it is red OR green (the colors are a union, CR 105.2 — a card can be multiple colors). Emitted as a
+  // { costReduction } marker carrying the WUBRG letters; costReductionForSpell tests the spell's colors.
+  // SUPPORTS the "<Color> spells you cast cost {N} less" form too (Ruby Medallion — previously excluded as a
+  // safe FN; now MODELED). Anchored ^…$; a non-color quality ("noncreature", "historic") never matches.
+  const colorReducer = parseColorCostReduction(c);
+  if (colorReducer) {
+    out.push({ costReduction: colorReducer });
+    return;
   }
 
   // ── OPPONENTS-CANT-ACT (Grand Abolisher; Voice of Victory; Conqueror's Flail rider) ────────────────────
@@ -1196,38 +1295,91 @@ export function parseStaticAbilities(card) {
  * reducer: an eminence reducer also functions on the battlefield (CR 113.6 — "command zone OR on the
  * battlefield"), so it isn't filtered out there.
  */
-export function collectCostReducers(permanentCards, { commandZone = false } = {}) {
+export function collectCostReducers(permanents, { commandZone = false } = {}) {
   const reducers = [];
-  for (const card of permanentCards || []) {
+  for (const entry of permanents || []) {
+    // An entry is either a battlefield PERMANENT ({ card, chosenType, … }) or a BARE card (command zone). A
+    // chosen-type reducer needs the SOURCE permanent's stored chosenType (set at ETB), captured here so the
+    // type — unknown at parse time — pairs with the reducer at the cast site.
+    const card = entry?.card || entry;
+    const chosenType = entry?.chosenType || null;
     for (const d of parseStaticAbilities(card)) {
       if (!d.costReduction) continue;
       if (commandZone && !d.costReduction.fromCommandZone) continue; // only eminence reaches from the command zone
-      reducers.push(d.costReduction);
+      // Stamp the source's chosenType onto a chosen-type reducer so costReductionForSpell can match the spell's
+      // type line against it. A chosen-type reducer whose source has NO chosenType (never resolved its ETB
+      // chooser) is INERT — keep it (the match guard returns 0), never fabricate a type.
+      reducers.push(d.costReduction.chosenType ? { ...d.costReduction, sourceChosenType: chosenType } : d.costReduction);
     }
   }
   return reducers;
 }
 
+// CHOSEN-TYPE membership (CR 614.12, mirrors triggers.permHasChosenType / resolvers.cardHasChosenType — kept
+// local so this module stays a leaf). A spell carries the chosen type if its type line has that creature
+// subtype (word-bounded) OR it's a changeling (CR 702.73a — every creature type). Unset type → false.
+function spellHasChosenType(spellCard, chosenType) {
+  if (!chosenType || !spellCard) return false;
+  const kws = Array.isArray(spellCard.keywords) ? spellCard.keywords.map((k) => String(k).toLowerCase()) : [];
+  if (kws.includes("changeling") || /\bchangeling\b/i.test(String(spellCard.oracle || spellCard.oracle_text || ""))) return true;
+  const ts = String(spellCard.type || spellCard.type_line || "");
+  const dash = ts.indexOf("—");
+  if (dash === -1) return false;
+  const esc = String(chosenType).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${esc}\\b`, "i").test(ts.slice(dash + 1));
+}
+
 /**
  * STATIC-COST-REDUCTION: the total GENERIC-mana reduction a set of `reducers` (from collectCostReducers)
- * grant `spellCard`, summed across every reducer whose subtype appears (word-bounded) in the spell's TYPE
- * LINE. Matching the type line — not the name — means a creature/Tribal spell of that subtype matches while
- * an off-type spell that merely mentions the subtype in its name (e.g. "Beast Within") never does. Generic
- * -only and floored by the caller at the cast site (CR 601.2f); the mana value is never touched (CR 202.3).
- * Pure; 0 when nothing applies.
+ * grant `spellCard`, summed across every reducer that matches the spell. A reducer matches by:
+ *   • subtype     — its `subtype` appears (word-bounded) in the spell's TYPE LINE (Dragonspeaker → a Dragon).
+ *   • colors      — any of its WUBRG `colors` is a color of the spell (Goblin Anarchomancer → a red OR green
+ *                   spell; Ruby Medallion → a red spell). CR 105.2 — the spell's colors are a set.
+ *   • chosenType  — the SOURCE permanent's stored `sourceChosenType` (CR 614.12) appears in the spell's type
+ *                   line, or the spell is a changeling (Urza's Incubator → a creature of the chosen type).
+ * Matching the type line (not the name) means a creature/Tribal spell of that subtype matches while an off-type
+ * spell that merely NAMES the subtype (e.g. "Beast Within") never does. Generic-only and floored by the caller
+ * at the cast site (CR 601.2f); the mana value is never touched (CR 202.3). Pure; 0 when nothing applies.
  */
 export function costReductionForSpell(reducers, spellCard) {
+  if (!reducers?.length || !spellCard) return 0;
   const typeLine = String(spellCard?.type || spellCard?.type_line || "").toLowerCase();
-  if (!typeLine || !reducers?.length) return 0;
   const spellName = spellCard?.name;
+  let spellColors = null; // lazily derived only when a color reducer is present
   let total = 0;
   for (const r of reducers) {
     // EMINENCE "OTHER <subtype> spells": never reduce the source card's own cast (The Ur-Dragon casting itself).
     if (r.excludeSelf && r.sourceName && spellName && r.sourceName === spellName) continue;
-    const sub = String(r.subtype || "").toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    if (sub && new RegExp(`\\b${sub}\\b`).test(typeLine)) total += r.amount || 0;
+    if (r.subtype) {
+      if (!typeLine) continue;
+      const sub = String(r.subtype).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (sub && new RegExp(`\\b${sub}\\b`).test(typeLine)) total += r.amount || 0;
+    } else if (Array.isArray(r.colors)) {
+      if (spellColors === null) spellColors = colorsOfSpell(spellCard);
+      if (r.colors.some((col) => spellColors.includes(col))) total += r.amount || 0;
+    } else if (r.chosenType) {
+      // The reducer applies only to its CONTROLLER's spells (the "you cast" framing); the cast site only ever
+      // passes the casting player's own reducers, so no controller re-check is needed here.
+      if (spellHasChosenType(spellCard, r.sourceChosenType)) total += r.amount || 0;
+    }
   }
   return total;
+}
+
+// A spell's colors as WUBRG letters (Scryfall `colors` array, else derived from mana-cost pips). Local mirror
+// of layers.colorsOf — kept here so this leaf module needs no engine import (a {W/U} hybrid pip counts both).
+const _WUBRG = ["W", "U", "B", "R", "G"];
+function colorsOfSpell(card) {
+  if (Array.isArray(card?.colors)) return card.colors.map((c) => String(c).toUpperCase());
+  const cost = String(card?.mana || card?.mana_cost || "");
+  const out = [];
+  for (const pip of cost.match(/\{[^}]+\}/g) || []) {
+    for (const part of pip.slice(1, -1).split("/")) {
+      const up = part.toUpperCase();
+      if (_WUBRG.includes(up) && !out.includes(up)) out.push(up);
+    }
+  }
+  return out;
 }
 
 /**

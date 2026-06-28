@@ -61,16 +61,17 @@ describe("STATIC-COST-REDUCTION — parser marker", () => {
 // ─── 2. Parser exclusions: never claim native for a non-type-line subject ────────
 
 describe("STATIC-COST-REDUCTION — excluded subjects stay body-only (safe FN)", () => {
-  // Each subject below is filtered (color / supertype / "noncreature" / over-broad "permanent") so it
+  // Each subject below is filtered (supertype / "noncreature" / over-broad "permanent" / non-color word) so it
   // produces NO marker — its word-bounded type-line match would never fire, so a native claim would be a
   // false positive. The clause stays unmodeled (body-only) instead. NOTE: real card-TYPE words
   // (Artifact/Creature/Enchantment/Instant/Sorcery) are NO LONGER excluded — they ARE type-line tokens and
-  // reduce correctly (covered by the card-TYPE reducer block below).
+  // reduce correctly (covered by the card-TYPE reducer block below). COLOR words (Red/Green) are ALSO no longer
+  // excluded — they emit a COLOR reducer now (see the COLOR-COST-REDUCTION block below); only NON-color, NON-
+  // type-line subjects stay excluded. "colorless" is NOT a WUBRG color, so it stays excluded here.
   const cases = [
-    ["color (Red — Ruby Medallion)", "Red spells you cast cost {1} less to cast."],
     ["noncreature", "Noncreature spells you cast cost {1} less to cast."],
     ["supertype (Legendary — Kethis)", "Legendary spells you cast cost {1} less to cast."],
-    ["colorless (Ugin)", "Colorless spells you cast cost {2} less to cast."],
+    ["colorless (Ugin) — not a WUBRG color", "Colorless spells you cast cost {2} less to cast."],
     ["over-broad 'permanent' (not a type-line token)", "Permanent spells you cast cost {1} less to cast."],
     ["compound 'instant and sorcery'", "Instant and sorcery spells you cast cost {1} less to cast."],
     ["'{X} less' (non-numeric)", "Dragon spells you cast cost {X} less to cast."],
@@ -173,8 +174,10 @@ describe("STATIC-COST-REDUCTION — coverage", () => {
     expect(classifyCard(DRAGONSPEAKER())).toBe("native-static");
   });
 
-  it("Ruby Medallion (color → excluded → uncovered clause) stays non-native", () => {
-    expect(classifyCard(RUBY_MEDALLION())).not.toBe("native-static");
+  it("Ruby Medallion (single-color reducer on a vanilla artifact) now flips to native-static", () => {
+    // COLOR-COST-REDUCTION: "Red spells you cast cost {1} less to cast." is now MODELED (the color reducer),
+    // so its only clause is covered → native-static (previously a safe FN that stayed body-only).
+    expect(classifyCard(RUBY_MEDALLION())).toBe("native-static");
   });
 
   it("Gargos stays non-native (its fight trigger is uncovered) even though its Hydra reducer is collected", () => {

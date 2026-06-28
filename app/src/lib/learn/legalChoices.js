@@ -29,12 +29,12 @@
  * no fetch.
  */
 
-import { getZone, opponentOf, opponentsOf, totalAvailableMana, findPermanent } from "./gameState.js";
+import { getZone, opponentOf, opponentsOf, totalAvailableMana, findPermanent, creaturePower } from "./gameState.js";
 import { canAfford, manaSources, manaProduction, landAuraManaBonus, applyAuraManaGrantSupplement } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
-import { collectCostReducers, costReductionForSpell, cantCastDescriptorOf, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
+import { collectCostReducers, costReductionForSpell, selfCostReductionMetric, cantCastDescriptorOf, registerGroupActivatedBodyValidator } from "./staticAbilityParser.js";
 import { canBlockAttacker, attackerHasMenace } from "./combatEvasion.js";
 import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTargetRestrictions, canBeTargetedBy } from "./spellEffects.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
@@ -358,6 +358,60 @@ function actionsCompanion(state, playerId) {
   return [{ kind: "companion-to-hand", playerId, cardId: companion.id, name: companion.name, cost, cmc: 3 }];
 }
 
+// SELF-METRIC-COST-REDUCTION (CR 601.2f) — the generic-mana reduction a spell grants ITS OWN cast via a
+// "This spell costs {X} less to cast, where X is <metric>" clause (Ghalta / The Great Henge / Cavern-Hoard
+// Dragon / Excalibur). selfCostReductionMetric parses the clause to a serializable metric kind (or null); this
+// evaluates that kind against the LIVE board (read at cast announce). Generic-only + floored by the caller; the
+// mana value is untouched (CR 202.3). 0 when the card has no self-metric clause. The four modeled metrics:
+//   • totalPowerYouControl            — Σ live power of the controller's creatures (layer-aware creaturePower).
+//   • greatestPowerYouControl         — the single greatest live power (reuses countForSpec — same as the draw/mana path).
+//   • greatestArtifactsAnOpponentControls — the MAX, over the controller's opponents, of that opponent's artifact count.
+//   • totalManaValueHistoricYouControl — Σ MV of the controller's HISTORIC permanents (artifact / legendary / Saga, CR 702.149a).
+function selfCostReductionForSpell(state, playerId, card) {
+  const metric = selfCostReductionMetric(card);
+  if (!metric) return 0;
+  const player = state.players[playerId];
+  if (!player) return 0;
+  switch (metric.kind) {
+    case "totalPowerYouControl":
+      return (player.battlefield || [])
+        .filter((p) => /\bCreature\b/.test(typeLineOf(p.card)))
+        .reduce((sum, p) => sum + Math.max(0, creaturePower(p, state)), 0); // CR 107.1b — a negative power contributes 0 to a "total power" count
+    case "greatestPowerYouControl":
+      return countForSpec(state, { controller: playerId }, { kind: "greatestPowerYouControl" });
+    case "greatestArtifactsAnOpponentControls": {
+      let best = 0;
+      for (const oppId of opponentsOf(state, playerId)) {
+        const opp = state.players[oppId];
+        if (!opp) continue;
+        const n = (opp.battlefield || []).filter((p) => /\bArtifact\b/.test(typeLineOf(p.card))).length;
+        if (n > best) best = n;
+      }
+      return best;
+    }
+    case "totalManaValueHistoricYouControl":
+      return (player.battlefield || [])
+        .filter((p) => isHistoricPermanent(p.card))
+        .reduce((sum, p) => sum + manaValueOf(p.card), 0);
+    default:
+      return 0;
+  }
+}
+
+// HISTORIC (CR 702.149a) — an artifact, a legendary permanent, OR a Saga. Used by the Excalibur self-metric.
+function isHistoricPermanent(card) {
+  const t = typeLineOf(card);
+  return /\bArtifact\b/.test(t) || /\bLegendary\b/.test(t) || /\bSaga\b/.test(t);
+}
+
+// A permanent's mana value (CR 202.3 — the printed mana cost). Prefer the card's numeric `cmc` (Scryfall), else
+// compute it from the mana-cost string. The commander tax / cost reducers never change MV, so the printed cost
+// is correct.
+function manaValueOf(card) {
+  if (typeof card?.cmc === "number" && Number.isFinite(card.cmc)) return card.cmc;
+  return totalCmc(parseManaCost(manaCostOf(card)));
+}
+
 // Shared cast-action builder for a player's castable zone (hand or command). `taxFn(card)` returns the
 // extra GENERIC mana to add to the printed cost (CR 903.8 commander tax); null = untaxed. `fromZone`
 // rides on every emitted action so the dispatcher splices the card out of the correct zone at cast.
@@ -381,7 +435,9 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   const costReducers = freeCast
     ? []
     : [
-        ...collectCostReducers((player.battlefield || []).map((p) => p.card)),
+        // Pass the battlefield PERMANENTS (not bare cards) so a CHOSEN-TYPE reducer (Urza's Incubator) can pair
+        // with its source permanent's stored chosenType; collectCostReducers reads `.card` + `.chosenType`.
+        ...collectCostReducers(player.battlefield || []),
         ...collectCostReducers(player.command || [], { commandZone: true }),
       ];
 
@@ -403,11 +459,16 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     } else {
       const tax = taxFn ? taxFn(card) : 0;
       if (tax) cost = { ...cost, generic: (cost.generic || 0) + tax };
-      // STATIC-COST-REDUCTION (CR 601.2f): subtype reducers ("Dragon spells you cast cost {2} less to cast"
-      // — Dragonspeaker Shaman) reduce the GENERIC portion only, floored at {0}. Applied AFTER the commander
-      // tax (both adjust the cost to pay) and BEFORE affordability + the {X} branch, so an X-spell's base is
-      // reduced before {X} is added. printedCmc (the mana value) is untouched (CR 202.3).
-      const reduction = costReductionForSpell(costReducers, card);
+      // STATIC-COST-REDUCTION (CR 601.2f): subtype / color / chosen-type reducers ("Dragon spells you cast
+      // cost {2} less" — Dragonspeaker; "red or green" — Goblin Anarchomancer; "of the chosen type" — Urza's
+      // Incubator) reduce the GENERIC portion only, floored at {0}. SELF-METRIC reduction ("This spell costs
+      // {X} less to cast, where X is <board metric>" — Ghalta, The Great Henge, Cavern-Hoard Dragon, Excalibur)
+      // is the spell discounting ITS OWN cast by a LIVE board count, read here at cast announce (CR 601.2f).
+      // Both are generic-only (the colored pips are NEVER reduced — Math.max(0, …) floors the generic, the pips
+      // are untouched). Applied AFTER the commander tax (both adjust the cost to pay) and BEFORE affordability +
+      // the {X} branch, so an X-spell's base is reduced before {X}. printedCmc (the mana value) is untouched (CR
+      // 202.3). The self-metric reads the casting player's board (creature power / artifact counts / historic MV).
+      const reduction = costReductionForSpell(costReducers, card) + selfCostReductionForSpell(state, playerId, card);
       if (reduction) cost = { ...cost, generic: Math.max(0, (cost.generic || 0) - reduction) };
     }
     // Castable if the pool PLUS what untapped lands/rocks/dorks could produce
