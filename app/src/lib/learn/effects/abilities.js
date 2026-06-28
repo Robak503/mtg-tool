@@ -256,12 +256,13 @@ export function parseActivatedAbilities(card) {
   return out;
 }
 
-const GRANTED_ACTIVATED_LINE = /^enchanted creature\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
+const GRANTED_ACTIVATED_LINE = /^(?:enchanted|equipped) creature\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
 
 /**
- * GRANTED activated abilities (subsystem 1 phase 1b) — an Aura that grants the enchanted CREATURE an
- * activated ability: "Enchanted creature has \"{T}: This creature deals 1 damage to any target.\""
- * (Hermetic Study), "\"{B}: This creature gets +1/+1 until end of turn.\"" (Midnight Covenant). The
+ * GRANTED activated abilities (subsystem 1 phase 1b) — an Aura/Equipment that grants the enchanted/equipped
+ * CREATURE an activated ability: "Enchanted creature has \"{T}: This creature deals 1 damage to any
+ * target.\"" (Hermetic Study), "\"{B}: This creature gets +1/+1 until end of turn.\"" (Midnight Covenant),
+ * "Equipped creature has \"{T}: This creature deals 2 damage to any target.\"" (Bow of the Hunter). The
  * QUOTED ability text is parsed through the SAME parseActivatedAbilities path, so its cost / effect /
  * `modeled` flag / target shape are identical to a printed ability — the runtime + coverage can't drift.
  *

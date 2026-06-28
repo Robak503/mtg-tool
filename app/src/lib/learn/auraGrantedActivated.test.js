@@ -123,3 +123,39 @@ describe("GRANTED-ACTIVATED (1b) — runtime: the host can activate the granted 
     expect(acts(s)).toHaveLength(0);
   });
 });
+
+// ─── EQUIPMENT host (subsystem 1 phase 1b, second slice) ────────────────────────
+
+const equip = (name, oracle) => ({ name, type: "Artifact — Equipment", oracle });
+// A host creature with an attached Equipment granting an activated ability.
+function equipped(equipOracle, { aiBf = [], pool = { W: 9, U: 9, B: 9, R: 9, G: 9, C: 9 } } = {}) {
+  const host = createPermanent({ id: "host", card: { name: "Host Bear", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "user", summoningSick: false });
+  const eq = createPermanent({ id: "eq", card: { name: "Equip", type: "Artifact — Equipment", oracle: equipOracle }, controller: "user" });
+  eq.attachedTo = "host";
+  host.attachments = ["eq"];
+  const base = createGameState({ userDeck: [], aiDeck: [] });
+  return {
+    ...base, activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main",
+    players: { ...base.players, user: { ...base.players.user, battlefield: [host, eq], manaPool: pool }, ai: { ...base.players.ai, battlefield: aiBf } },
+  };
+}
+
+describe("GRANTED-ACTIVATED (1b) — equipment host", () => {
+  it("recognition: Equip + a modeled granted activated ability → native-equipment", () => {
+    expect(classifyCard(equip("Bow of the Hunter", 'Equipped creature has "{T}: This creature deals 2 damage to any target."\nEquip {2}'))).toBe("native-equipment");
+    expect(classifyCard(equip("Witches' Eye", 'Equipped creature has "{1}, {T}: Scry 1."\nEquip {1}'))).toBe("native-equipment");
+  });
+  it("recognition FN: a rider keeps the equipment Arbiter (Heavy Arbalest 'doesn\\'t untap')", () => {
+    expect(classifyCard(equip("Heavy Arbalest", 'Equipped creature doesn\'t untap during its controller\'s untap step.\nEquipped creature has "{T}: This creature deals 2 damage to any target."\nEquip {4}'))).toBe("body-only");
+  });
+  it("runtime: the equipped creature activates the granted ability — taps the HOST, deals 2 (kills a 2/2)", () => {
+    const s = equipped('Equipped creature has "{T}: This creature deals 2 damage to any target."\nEquip {2}', { aiBf: [enemy("enemy", 2, 2)] });
+    const atEnemy = acts(s).find((x) => x.targets?.[0]?.id === "enemy");
+    expect(atEnemy).toMatchObject({ permanentId: "host", tapSelf: true });
+    let d = dispatchAction(s, atEnemy);
+    expect(d.players.user.battlefield.find((p) => p.id === "host").tapped).toBe(true);   // the HOST taps, not the equipment
+    expect(d.players.user.battlefield.find((p) => p.id === "eq").tapped).toBeFalsy();
+    d = resolveTopOfStack(d);
+    expect(d.players.ai.battlefield.find((p) => p.id === "enemy")).toBeUndefined();
+  });
+});

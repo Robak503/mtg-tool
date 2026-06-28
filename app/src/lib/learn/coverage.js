@@ -438,6 +438,28 @@ function isNativeActivatedGrantAura(card) {
   return true;
 }
 
+// GRANTED-ACTIVATED EQUIPMENT (subsystem 1 phase 1b) — an Equipment whose ONLY body is a modeled Equip
+// cost + one-or-more granted activated abilities on the equipped creature ("Equipped creature has \"{T}:
+// This creature deals 2 damage to any target.\"" — Bow of the Hunter, Viridian Longbow, Siren Song Lyre).
+// The runtime (legalChoices.grantedActivatedForHost) already enumerates these on the equipped host. Gated
+// SEPARATELY from permanentEquipmentCovered (which requires a P/T/keyword equipped-creature BONUS these
+// have none of). All-or-nothing: every granted ability modeled + a modeled Equip line + NO other clause
+// (a P/T bonus, a trigger, an unmodeled equip variant, a self-keyword → residue → Arbiter).
+function isNativeActivatedGrantEquipment(card) {
+  if (!/\bequipment\b/i.test(String(card?.type || ""))) return false;
+  const granted = parseGrantedActivatedAbilities(card);
+  if (!granted.length || !granted.every((a) => a.modeled)) return false;
+  let sawEquip = false;
+  for (const rawLine of stripReminder(String(card?.oracle || card?.oracle_text || "")).split(/\n+/)) {
+    const t = rawLine.trim();
+    if (!t) continue;
+    if (/^equip\s*(?:[—–-])?\s*(?:\{[^}]+\})+$/i.test(t)) { sawEquip = true; continue; }    // a modeled Equip cost
+    if (/^equipped creature\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i.test(t)) continue;     // a granted-ability line
+    return false;                                                                            // any other clause = residue
+  }
+  return sawEquip;                                                                            // must actually be equippable
+}
+
 /**
  * Classify one card into a coverage tier. Input: { type, oracle, mana, name }
  * (the `publicCard` shape — type is the type line, oracle the full oracle text).
@@ -532,6 +554,7 @@ export function classifyCard(card) {
   if (permanentTriggersCovered(etCard)) return "native-trigger";   // P2.8: body + only-routing triggers
   if (permanentActivatedCovered(etCard)) return "native-activated"; // P2.9: body + only-modeled activated abilities
   if (staticAbilitiesCoverCard(etCard, isKeywordOnly)) return "native-static"; // P2.10: body + only-modeled static anthems
+  if (isNativeActivatedGrantEquipment(etCard)) return "native-equipment"; // 1b: Equip + a granted activated ability on the host
   if (permanentEquipmentCovered(etCard)) return "native-equipment"; // attach: Equip + a clean equipped-creature bonus
   // ADDITIVE registry seam (WAVE 0): a future slice registers a coverage classifier instead of editing
   // this dispatch body. Each classifier is `(card) => tier | null` consulted ONLY after all the inline
