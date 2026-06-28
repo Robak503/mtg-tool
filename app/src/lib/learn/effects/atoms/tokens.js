@@ -327,7 +327,11 @@ export function createNamedTokenClauseParser(clause) {
  * registerClauseParser in parser.js.
  */
 export function createTokenClauseParser(clause) {
-  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // A leading "you " is a redundant subject — the token's controller is ALWAYS the effect's controller
+  // (CR 111.1), so "you create …" ≡ "create …". The conjoined payload form ("you create a … token and …",
+  // e.g. Sword of Body and Mind) carries it on the first sub-clause; strip it so the create anchors below
+  // bind. Strictly a PROMOTION (can only let an already-low clause parse) — never changes a token's owner.
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/^you create /, "create ");
   const mtf = t.match(/^create (?:a|an|one) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens? for each (.+)$/);
   if (mtf) {
     const toughness = parseInt(mtf[2], 10);

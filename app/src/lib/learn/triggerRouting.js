@@ -19,6 +19,32 @@ import { interveningIfParseable } from "./interveningIf.js";
 import { detectTriggers } from "./triggers.js";
 
 /**
+ * COMBAT-DAMAGE REFERENT GATE (CR 510 — the just-damaged player / dealt amount). Some atoms bind to a damage
+ * event's referent rather than a chosen target, and each referent is supplied by a SPECIFIC set of events:
+ *   - who:"damagedPlayer" (Sword of Body and Mind "that player mills ten cards"; the rad CDMG payoffs) reads
+ *     ctx.damagedPlayerId, set ONLY by combatDamageToPlayer (triggers.checkCombatDamageTriggers).
+ *   - countContext:"combatDamageAmount" ("draw/create that many", the rad "that many") reads ctx.combat-
+ *     DamageAmount, set by combatDamageToPlayer AND by dealtDamage (checkDealtDamageTriggers aliases the
+ *     enrage amount to combatDamageAmount, so "Whenever this creature is dealt damage, draw that many cards"
+ *     — Illusory Ambusher — resolves). NOT set by combatDamageBatch (ctx = {batchController}) or any other event.
+ * On an event that DOESN'T supply the referent — a CAST trigger ("Whenever an opponent casts a spell, that
+ * player mills two cards", Memory Erosion), an ETB, an upkeep — the program parses HIGH but its referent is
+ * UNSET, so the clause would SILENTLY DROP at resolution (a FORBIDDEN dropped-clause FP, CREED). Gate it per
+ * referent: the trigger routes natively only when EVERY referent its atoms carry is supplied by the event.
+ * Both the metric (triggerRoutesNatively) and the runtime (gameEngine.buildTriggerStack) consult this, so they
+ * can't drift. A trigger whose event can't supply a referent stays on the Arbiter (a SAFE false-negative). Pure.
+ */
+const DAMAGED_PLAYER_EVENTS = new Set(["combatDamageToPlayer"]);
+const COMBAT_DAMAGE_AMOUNT_EVENTS = new Set(["combatDamageToPlayer", "dealtDamage"]);
+export function combatDamageReferentSatisfied(program, event) {
+  for (const a of program?.atoms || []) {
+    if (a?.who === "damagedPlayer" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
+    if (a?.countContext === "combatDamageAmount" && !COMBAT_DAMAGE_AMOUNT_EVENTS.has(event)) return false;
+  }
+  return true;
+}
+
+/**
  * Does ONE detected trigger route natively through the flush stage? HIGH, non-modal,
  * non-intervening-if EffectProgram — the exact gate `gameEngine.buildTriggerStack` uses.
  * The single source of truth for `permanentTriggersCovered`, the composite classifier, AND the
@@ -42,15 +68,19 @@ export function triggerRoutesNatively(d) {
     // An unparseable condition stays body-only (false-negative SAFE — a mis-evaluated condition is an FP).
     return !!cp && programConfidence(cp) === "high" && cp.structure !== "modal"
       && (!programNeedsChosenTarget(cp) || programTriggerTargetsResolvable(cp))
+      && combatDamageReferentSatisfied(cp, d.event)
       && interveningIfParseable(d.interveningIf);
   }
   const p = parseEffectClause(d.effectClause, "Instant");
   // Mirror buildTriggerStack's α1 ALLOWLIST EXACTLY: a HIGH non-modal trigger routes natively only
   // when every chosen-target atom is intent-resolvable (the enemy/own chooser can place it on a
   // correct side). An AMBIGUOUS targeting atom (bounce) stays in the gap, not native — so the metric
-  // never claims a routing the runtime won't perform.
+  // never claims a routing the runtime won't perform. The combat-damage-referent gate keeps a
+  // who:"damagedPlayer" / "that many" program native ONLY on a combat-damage event (else its referent
+  // is unset → the clause would silently drop; Memory Erosion's CAST "that player mills" stays Arbiter).
   return !!p && programConfidence(p) === "high" && p.structure !== "modal"
-    && (!programNeedsChosenTarget(p) || programTriggerTargetsResolvable(p));
+    && (!programNeedsChosenTarget(p) || programTriggerTargetsResolvable(p))
+    && combatDamageReferentSatisfied(p, d.event);
 }
 
 /**

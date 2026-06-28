@@ -277,6 +277,13 @@ export function applyMill(state, atom, ctx) {
     for (const pid of Object.keys(next.players)) next = millOnePlayer(next, pid, amount);
   } else if (atom.who === "eachOpponent") {
     for (const opp of opponentsOf(next, ctx.controller)) next = millOnePlayer(next, opp, amount);
+  } else if (atom.who === "damagedPlayer") {
+    // CDMG-MILL (Sword of Body and Mind) — the player the equipped creature just dealt combat damage to
+    // (ctx.damagedPlayerId, carried by checkCombatDamageTriggers). Absent / eliminated referent (a spell, a
+    // non-combat trigger, a player who left the game) → mill nobody (a clean no-op, never a fabrication —
+    // mirrors the rad damagedPlayer resolver's guard).
+    const pid = ctx.damagedPlayerId;
+    if (pid && next.players?.[pid]) next = millOnePlayer(next, pid, amount);
   } else {
     next = millOnePlayer(next, ctx.controller, amount);
   }
@@ -380,6 +387,11 @@ export function libraryKeywordClauseParser(clause) {
  * Top N of a library to its graveyard. Non-targeted only: "you mill N" (controller) / "each opponent mills N"
  * / "each player mills N" (mutually-exclusive anchors). "TARGET player mills N" is deferred (a targeted mill
  * on a trigger could first-legal the controller); a variable "mills X cards" isn't matched → low → Arbiter.
+ * CDMG-MILL (the Sword of Body and Mind payload): "that player mills N" / "they mill N" — the just-damaged
+ * player (who:"damagedPlayer"), mirroring the rad CDMG-PLAYER-PAYOFF subject vocabulary in parser.js. This is
+ * NON-targeted (the referent is the combat-damage event's damagedPlayer, not a chosen target), so it routes on
+ * a trigger flush with no first-legal hazard and clean-no-ops as a spell (no ctx.damagedPlayerId → applyMill's
+ * damagedPlayer branch mills nobody). A FIXED-N count only (a variable "mills X" stays low → Arbiter).
  * Pure (no parser.js import — cycle-safe); uses the shared NUM_WORD leaf map.
  */
 export function millClauseParser(clause) {
@@ -390,6 +402,8 @@ export function millClauseParser(clause) {
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
   m = t.match(/^each player mills (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
+  m = t.match(/^(?:that player|they) mills? (\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "mill", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "damagedPlayer", targetType: null };
   return null;
 }
 

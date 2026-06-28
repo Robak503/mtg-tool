@@ -214,8 +214,10 @@ describe("coverage — clean equipment flips and CREED negatives", () => {
   it("CREED: The Reaver Cleaver (granted quoted ability) stays body-only", () => {
     expect(classifyCard(EQ("The Reaver Cleaver", "Equipped creature gets +1/+1 and has trample and \"Whenever this creature deals combat damage to a player or planeswalker, create that many Treasure tokens.\"\nEquip {3}", "Legendary Artifact — Equipment"))).toBe("body-only");
   });
-  it("CREED: a multi-clause Sword rider stays body-only", () => {
-    // Sword of Feast and Famine: protection (ungrantable here) + a multi-clause combat-damage rider.
+  it("CREED: a Sword rider with an UNMODELED payload clause stays body-only", () => {
+    // Sword of Feast and Famine: the +2/+2 + protection static IS modeled, but the combat-damage payload
+    // "that player discards a card and you untap all lands you control" has an unmodeled half ("untap all
+    // lands you control"), so the whole payload parses LOW → the Sword stays body-only (no partial flip).
     expect(classifyCard(EQ("Sword of Feast and Famine", "Equipped creature gets +2/+2 and has protection from black and from green.\nWhenever equipped creature deals combat damage to a player, that player discards a card and you untap all lands you control.\nEquip {2}"))).toBe("body-only");
   });
   it("CREED: Captain America stays NON-native (his 'Throw' activated ability is unmodeled)", () => {

@@ -53,7 +53,7 @@ import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
 import { registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
-import { isModeledGroupTriggeredBody } from "./triggerRouting.js";
+import { isModeledGroupTriggeredBody, combatDamageReferentSatisfied } from "./triggerRouting.js";
 
 // GROUP-TRIGGERED grant (Tempered Sliver) — RUNTIME registration of the modeled-body gate into
 // staticAbilityParser's group-triggered emission. The trigger-firing path (combatResolution / checkXTriggers →
@@ -642,7 +642,8 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       if (met === null) return { payload: { resolver: "manual" }, targets: [] };
       if (met !== true) return null; // CR 603.4 — condition not met → the ability never goes on the stack
       if (condProgram && programConfidence(condProgram) === "high" && condProgram.structure !== "modal"
-        && (!programNeedsChosenTarget(condProgram) || programTriggerTargetsResolvable(condProgram))) {
+        && (!programNeedsChosenTarget(condProgram) || programTriggerTargetsResolvable(condProgram))
+        && combatDamageReferentSatisfied(condProgram, trigger.descriptor?.event)) {
         const baseParams = { program: condProgram, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId, condition: interveningIf };
         if (!programNeedsChosenTarget(condProgram)) {
           return { payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } }, targets: [] };
@@ -677,7 +678,8 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // first-legal friendly target (CLAUDE.md §1.2). Non-targeted programs always route (no chosen
     // target to mis-pick). This SUBSUMES the old counter / chosen-permanent-removal denylist AND
     // closes the latent first-legal-friendly hazard on unrestricted creature-destroy / damage triggers.
-    if (program && programConfidence(program) === "high" && program.structure !== "modal" && (!programNeedsChosenTarget(program) || programTriggerTargetsResolvable(program))) {
+    if (program && programConfidence(program) === "high" && program.structure !== "modal" && (!programNeedsChosenTarget(program) || programTriggerTargetsResolvable(program))
+      && combatDamageReferentSatisfied(program, trigger.descriptor?.event)) {
       // sourceId = the trigger's SOURCE permanent (CR 113.7) — lets a "this creature gets …" /
       // "put a +1/+1 counter on this creature" self atom resolve to the source on the non-targeted path.
       const baseParams = { program, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId };
@@ -709,8 +711,11 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     //   - HIGH but carries an AMBIGUOUS chosen target (e.g. bounce) the α1 chooser can't place on a
     //     provably-correct side — firing it with first-legal could hit the controller's OWN
     //     permanent. Explicit no-op (→ Arbiter); false-negative SAFE.
+    //   - HIGH but carries a COMBAT-DAMAGE referent (who:"damagedPlayer" / "that many") on a NON-combat
+    //     event (Memory Erosion's CAST "that player mills two cards"): the referent is unset, so resolving
+    //     it would silently drop the clause. Explicit no-op (→ Arbiter); false-negative SAFE (CREED).
     // (MODAL / intervening-if still use the fallback below — that's deliberate.)
-    if (program.structure !== "modal" && (programConfidence(program) === "low" || (programNeedsChosenTarget(program) && !programTriggerTargetsResolvable(program)))) {
+    if (program.structure !== "modal" && (programConfidence(program) === "low" || (programNeedsChosenTarget(program) && !programTriggerTargetsResolvable(program)) || !combatDamageReferentSatisfied(program, trigger.descriptor?.event))) {
       return { payload: { resolver: "manual" }, targets: [] };
     }
   }
