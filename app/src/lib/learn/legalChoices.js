@@ -40,7 +40,13 @@ import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTar
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
-import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, isModeledGroupActivatedBody } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parsePlotCost, isModeledGroupActivatedBody } from "./effects/abilities.js";
+// PLOT (CR 702.171): the runtime offers a card the plot special action ONLY when its NON-plot text is
+// fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
+// the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
+// cards flip natively (no duplicated native-determination to drift). coverage.js does NOT import legalChoices
+// (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
+import { classifyCard, isNativeTier } from "./coverage.js";
 
 // GROUP-ACTIVATED grant (queue 1) — register the modeled-body gate so the runtime path (a SIM that imports
 // legalChoices but not coverage) still emits + enumerates group-activated grants. Idempotent with coverage.js's
@@ -953,6 +959,63 @@ function actionsCycleFromHand(state, playerId) {
 }
 
 /**
+ * PLOT (CR 702.171) — `plotPlayable` is the runtime CREED gate: a card may use the plot special action
+ * (and later be cast free from exile) ONLY when (a) it has a clean modeled plot cost (parsePlotCost) AND
+ * (b) its NON-plot text is fully native — classifyCard strips the plot line internally, so a native tier
+ * means every remaining clause is modeled. Lands can't be plotted (CR 702.171a — nonland only); classifyCard
+ * returns the native "land" tier for them, so they're excluded explicitly. A partially-modeled plot card
+ * (intervening-if ETB, unmodeled spell, plot-granting body) fails this gate → never offered plot, never
+ * silently dropping its unmodeled text — it routes to the Arbiter as a normal hand card (whole-card CREED).
+ */
+function plotPlayable(card) {
+  if (!card) return false;
+  if (isLand(card)) return false;
+  if (!parsePlotCost(card)) return false;
+  return isNativeTier(classifyCard(card));
+}
+
+/**
+ * PLOT step 1 — the plot SPECIAL ACTION (CR 702.171a): any time you could cast a sorcery you may pay the
+ * plot cost and exile the card face-up from your hand. Offer one `plot` action per plotPlayable hand card
+ * whose plot cost the player can afford. Sorcery-speed + own-main + empty-stack + priority (canCastSorcerySpeed,
+ * matching "Plot only as a sorcery"). An X plot cost would need the X-choice expansion (none in the corpus) →
+ * skipped (safe under-offer). The dispatcher (applyPlot) pays the cost and moves hand → exile, stamping the
+ * plotted card with the turn it was plotted so it can't be cast the SAME turn (CR 702.171b).
+ */
+function actionsPlotFromHand(state, playerId) {
+  if (!canCastSorcerySpeed(state, playerId)) return [];
+  const player = state.players[playerId];
+  const actions = [];
+  for (const card of player.hand) {
+    if (!plotPlayable(card)) continue;
+    const cost = parseManaCost(parsePlotCost(card));
+    if (cost.hasX) continue; // an X plot cost would need the X-choice expansion (none in the corpus)
+    if (!canAfford(player.manaPool, manaSources(state, playerId), cost)) continue;
+    actions.push({ kind: "plot", playerId, cardId: card.id, name: card.name, cost, cmc: totalCmc(cost) });
+  }
+  return actions;
+}
+
+/**
+ * PLOT step 2 — cast a PLOTTED card from exile for FREE (CR 702.171b): on a turn AFTER the one it was
+ * plotted, you may cast it as a sorcery without paying its mana cost. Reuses the shared cast builder with
+ * fromZone "exile" + freeCast=true (the EXACT machinery DISCOVER uses to free-cast from exile — same
+ * target/mode/additional-cost enumeration, same applyCastSpell resolution), so a plotted creature enters
+ * via PERMANENT_ETB and a plotted spell resolves through the effect-program interpreter, identically to a
+ * hand-cast. GATES (CREED): only a card stamped `_plotted` whose `_plottedTurn !== state.turn` (NOT this
+ * turn — CR 702.171b), and ONLY at sorcery speed (freeCast bypasses the builder's timing gate, so it's
+ * enforced here — "cast it as a sorcery"). Once per turn per card is enforced naturally: the card leaves
+ * exile onto the stack when cast, so it can't be cast again.
+ */
+function actionsCastPlottedFromExile(state, playerId) {
+  if (!canCastSorcerySpeed(state, playerId)) return [];
+  const player = state.players[playerId];
+  const plotted = (player.exile || []).filter(c => c && c._plotted && c._plottedTurn !== state.turn);
+  if (plotted.length === 0) return [];
+  return castActionsFromZone(state, playerId, plotted, "exile", null, true);
+}
+
+/**
  * Loyalty abilities (`[+N]/[−N]/[0]: effect`, CR 606) — PW-1 framework + PW-2 HYBRID. A planeswalker's
  * controller may activate ONE loyalty ability of it per turn (CR 606.3 — "only if no player has
  * previously activated a loyalty ability of that permanent that turn"), only any time they could cast
@@ -1228,8 +1291,10 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   if (!cantCast) {
     actions.push(...actionsCastSpell(state, playerId));
     actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
+    actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.171b): cast a plotted card free
   }
   actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)
+  actions.push(...actionsPlotFromHand(state, playerId));  // PLOT step 1 (CR 702.171a): exile from hand for the plot cost — a SPECIAL action, not casting
   actions.push(...actionsTapForMana(state, playerId));
   actions.push(...actionsActivateAbility(state, playerId));
   actions.push(...actionsCycleFromHand(state, playerId)); // KW-CYCLING: discard a hand card to draw

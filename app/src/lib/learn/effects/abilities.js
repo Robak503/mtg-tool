@@ -173,6 +173,30 @@ export function parseCyclingCost(card) {
 }
 
 /**
+ * PLOT (CR 702.171) — "Plot {cost}" is a special action: any time you could cast a sorcery you may pay
+ * the plot cost and exile the card face-up from your hand ("plotted"); on a LATER turn you may cast it
+ * from exile WITHOUT paying its mana cost (CR 702.171b). Returns the plot mana-cost STRING the caller
+ * feeds to parseManaCost, or null when plot isn't a clean modeled action for this card.
+ *
+ * GATES (a false-negative is SAFE; a fabricated/partial plot is FORBIDDEN — CLAUDE.md §1.2):
+ *   • Only a printed "Plot {cost}" line (line-anchored, mana-only cost). A non-mana plot cost would
+ *     match nothing → null.
+ *   • A "when/whenever … plot" TRIGGER (e.g. a future "whenever you plot a card" watcher) is unmodeled
+ *     → gate the whole card to null, exactly like the cycling-trigger gate. BROAD on purpose.
+ *   • A card that GRANTS plot to OTHER cards ("… has plot", "you may plot … from the top of your
+ *     library" — Fblthp, Lost on the Range) is NOT a self-plot card: its "plot" mentions never begin a
+ *     line as "Plot {cost}", so the cost regex doesn't match → null. (Its unmodeled granting body also
+ *     keeps it non-native, so it's never offered — defense in depth.)
+ */
+export function parsePlotCost(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  // Any "When/Whenever … plot" trigger within a clause is an unmodeled plot trigger — gate the card.
+  if (/\b(?:when|whenever)\b[^.]*\bplot/i.test(oracle)) return null;
+  const m = oracle.match(/(?:^|\n)\s*plot\s+((?:\{[^}]+\})+)/i);
+  return m ? m[1] : null;
+}
+
+/**
  * All activated-ability lines on a permanent, as serializable descriptors. Each entry:
  *   { index, raw, costStr, effectClause, manaPips, tapSelf, costModeled, isManaEffect,
  *     program, modeled, needsTarget }

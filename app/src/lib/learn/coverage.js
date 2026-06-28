@@ -30,7 +30,7 @@
 
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities } from "./triggers.js";
-import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -157,7 +157,16 @@ export function hasManaAbility(oracle) {
 
 /** True when an instant/sorcery resolves fully through the EffectProgram interpreter. */
 export function spellIsNative(card) {
-  const program = parseEffectProgram({ type: card.type, oracle: card.oracle, mana: card.mana, name: card.name });
+  // PLOT (CR 702.171): an instant/sorcery can carry a "Plot {cost}" alternate-cast line. It's a modeled
+  // special action (exile at sorcery speed for the plot cost, cast FREE later), and a plotted spell resolves
+  // through the SAME cast path — so the spell is native iff its actual EFFECT is native. Strip the plot line
+  // (when parsePlotCost confirms a clean modeled cost) before parsing, so the bare "Plot {cost}" residue
+  // doesn't drag an otherwise-HIGH spell down to LOW. parsePlotCost is null for plot-trigger / plot-granting
+  // cards, so those are never stripped (CREED whole-card).
+  const oracle = parsePlotCost(card)
+    ? String(card.oracle || "").replace(/(?:^|\n)[^\n]*\bplot\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n")
+    : card.oracle;
+  const program = parseEffectProgram({ type: card.type, oracle, mana: card.mana, name: card.name });
   return !!program && programConfidence(program) === "high";
 }
 
@@ -613,13 +622,26 @@ export function classifyCard(card) {
   // counters. So only credit enters-with-X when the cost has EXACTLY one X pip; a multi-X card stays body-only
   // (Arbiter) until the double-X cost subsystem lands. CREED: a miss is safe, an underpaid cast is forbidden.
   const xPipCount = (String(card?.mana || card?.mana_cost || "").match(/\{[XYZ]\}/gi) || []).length;
+  // PLOT (CR 702.171): "Plot {cost}" is a modeled alternate cast-timing special action (the runtime
+  // exiles the card at sorcery speed for the plot cost, then casts it FREE from exile on a later turn —
+  // legalChoices.actionsPlotFromHand / actionsCastPlottedFromExile). A plotted card resolves through the
+  // SAME applyCastSpell path a hand-cast uses, so the card is native iff its NON-plot text is native.
+  // Strip the whole "Plot {cost} (reminder…)" LINE (line-anchored, reminder parens and all) when
+  // parsePlotCost confirms a clean modeled plot cost — so a card whose only other text is modeled (Sheriff
+  // = metric counters; Spinewoods Paladin = Trample + ETB gain-life) classifies native, exactly the cards
+  // the runtime will plot + flip natively. parsePlotCost returns null for a "when/whenever … plot" trigger
+  // and for plot-GRANTING cards (Fblthp), so neither is stripped (CREED whole-card). Applied FIRST so the
+  // counter/tap strips and every downstream gate see the plot-free residue.
+  const plotStrippedOracle = parsePlotCost(card)
+    ? oracle.replace(/(?:^|\n)[^\n]*\bplot\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n")
+    : oracle;
   const baseOracle = entersWithPlusCounters(card) > 0
-    ? oracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
+    ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
     : entersWithXCounters(card) && xPipCount === 1
-      ? oracle.replace(/[^.]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.]*\.?/i, " ")
+      ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.]*\.?/i, " ")
       : entersWithMetricCounters(card)
-        ? oracle.replace(/[^.]*enters (?:the battlefield )?with [^.]*\+1\/\+1 counters?[^.]*\.?/i, " ")
-        : oracle;
+        ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with [^.]*\+1\/\+1 counters?[^.]*\.?/i, " ")
+        : plotStrippedOracle;
   // ENTERS-TAPPED: actionDispatcher handles unconditional "enters tapped" via entersTapped() — credit it
   // here by stripping that sentence from the oracle so it doesn't block coverage on cards whose remaining
   // text is fully modeled (triggers / activated / static / mixed). etCard propagates the stripped oracle

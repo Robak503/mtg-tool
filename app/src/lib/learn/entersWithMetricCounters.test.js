@@ -112,9 +112,12 @@ describe("ETB-XCOUNTERS-FROM-METRIC — coverage: a card whose only ability is t
     expect(classifyCard({ type: "Creature — Beast", name: "Test Beast", mana: "{4}{G}",
       oracle: "This creature enters with a +1/+1 counter on it for each Forest you control." })).toBe("native-body");
   });
-  it("Sheriff (metric + UNMODELED Plot) stays body-only — all-or-nothing (CREED whole-card)", () => {
+  it("Sheriff (metric + MODELED Plot, CR 702.171) classifies native-body — plot is its only other clause", () => {
+    // Plot is now a modeled special action (plot.test.js): classifyCard strips the "Plot {cost}" line, and a
+    // card whose only remaining text is the modeled metric-counter clause is native-body. (Pre-plot this was
+    // body-only — the whole-card gate held it because plot was unmodeled.)
     expect(classifyCard({ type: "Creature — Human Knight", name: "Sheriff of Safe Passage", mana: "{1}{W}",
-      oracle: "This creature enters with a +1/+1 counter on it plus an additional +1/+1 counter on it for each other creature you control.\nPlot {1}{W}" })).toBe("body-only");
+      oracle: "This creature enters with a +1/+1 counter on it plus an additional +1/+1 counter on it for each other creature you control.\nPlot {1}{W}" })).toBe("native-body");
   });
   it("an UNMODELED metric (Sunburst) does NOT flip — stays body-only", () => {
     expect(classifyCard({ type: "Artifact Creature — Construct", name: "Sunburst Bot", mana: "{5}",

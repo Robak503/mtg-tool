@@ -908,6 +908,45 @@ function applyDiscoverToHand(state, action) {
   return logEvent(rest, { kind: "discover-to-hand", playerId: action.playerId, cardName: action.name || null });
 }
 
+// PLOT (CR 702.171a) — the plot SPECIAL ACTION: pay the plot mana cost, then exile the card FACE-UP from
+// hand ("plotted"). A special action does NOT use the stack (CR 116.2g) and does NOT pass priority. The
+// plotted card is stamped `_plotted` + `_plottedTurn` (the turn it was plotted) so legalChoices won't offer
+// it for a free cast until a LATER turn (CR 702.171b). No discard/sacrifice — the card exiles ITSELF as the
+// action's effect (legalChoices only offered this for a plotPlayable card, so the card it becomes when later
+// cast is fully modeled — no unmodeled text is silently parked in exile).
+function applyPlot(state, action) {
+  const player = state.players[action.playerId];
+  if (!player) throw new DispatcherError(`Unknown player ${action.playerId}`, "BAD_PLAYER");
+  const card = player.hand.find(c => c.id === action.cardId);
+  if (!card) throw new DispatcherError(`Plot card ${action.cardId} not in hand`, "CARD_NOT_IN_HAND");
+
+  // Pay the plot MANA cost (CR 702.171a — the plot cost is paid as the special action is taken).
+  const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
+  if (!plan) throw new DispatcherError("Cannot pay the plot cost", "MANA_SHORT");
+  let working = commitManaTaps(state, action.playerId, plan.taps);
+  const toppedPool = working.players[action.playerId].manaPool;
+  const nextPool = {};
+  for (const c of Object.keys(toppedPool)) nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
+  working = { ...working, players: { ...working.players, [action.playerId]: { ...working.players[action.playerId], manaPool: nextPool } } };
+
+  // Exile the card face-up (hand → exile), then stamp the plotted markers onto the exiled copy. The turn
+  // stamp is what enforces "not the turn it was plotted" — legalChoices.actionsCastPlottedFromExile compares
+  // `_plottedTurn !== state.turn`, so the same monotonic turn counter gates the delayed cast (no per-turn
+  // reset flag to wire). moveCardToZone carries the same card object, so we re-find it in exile and flag it.
+  working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "exile", cardId: action.cardId });
+  const exile = working.players[action.playerId].exile;
+  const idx = exile.findIndex(c => c.id === action.cardId);
+  const flaggedExile = [...exile];
+  flaggedExile[idx] = { ...exile[idx], _plotted: true, _plottedTurn: state.turn };
+  working = { ...working, players: { ...working.players, [action.playerId]: { ...working.players[action.playerId], exile: flaggedExile } } };
+
+  let next = logEvent(working, { kind: "plot", playerId: action.playerId, cardName: card.name, cost: action.cost });
+  // A special action doesn't use the stack or pass priority (CR 116.2g / 117.3c) — the actor keeps priority
+  // and the pass-in-succession chain resets (a stale consecutivePasses must not end the step early). Mirrors
+  // applyCompanionToHand / applyPlayLand (the other non-stack active-window actions).
+  return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
+}
+
 const HANDLERS = {
   "pass-priority": applyPassPriority,
   "play-land": applyPlayLand,
@@ -915,6 +954,7 @@ const HANDLERS = {
   "tap-for-mana": applyTapForMana,
   "activate-ability": applyActivateAbility,
   "cycle": applyCycle, // KW-CYCLING: discard a hand card to draw
+  "plot": applyPlot,   // PLOT (CR 702.171a): exile a hand card face-up for the plot cost (special action)
   "activate-loyalty": applyActivateLoyalty,
   "declare-attacker": applyDeclareAttacker,
   "declare-blocker": applyDeclareBlocker,
