@@ -256,7 +256,12 @@ export function parseActivatedAbilities(card) {
   return out;
 }
 
-const GRANTED_ACTIVATED_LINE = /^(?:enchanted|equipped) creature\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
+// Host = the enchanted/equipped CREATURE (Aura/Equipment) OR an enchanted LAND (a land-enchanting Aura that
+// grants the land an activated ability — Squirrel Nest "Enchanted land has \"{T}: Create a 1/1 …\"", Caustic
+// Tar, Barbed Field). The quoted body is parsed identically; the caller enumerates it on the host permanent
+// (a land taps for its {T} cost with no summoning-sickness gate). A land-MANA grant ("{T}: Add …") is the
+// phase-1a path and is filtered out by isManaEffect below, so this never double-counts a mana land-aura.
+const GRANTED_ACTIVATED_LINE = /^(?:enchanted|equipped) (?:creature|land)\s+(?:has|have)\s+["“]([^"”]+)["”]\s*\.?$/i;
 
 /**
  * GRANTED activated abilities (subsystem 1 phase 1b) — an Aura/Equipment that grants the enchanted/equipped

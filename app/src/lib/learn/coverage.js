@@ -442,7 +442,12 @@ function isNativeActivatedGrantAura(card) {
   const granted = parseGrantedActivatedAbilities(card);
   if (!granted.length || !granted.every((a) => a.modeled)) return false;
   const oracle = String(card?.oracle || card?.oracle_text || "");
-  const grantLineRe = /^enchanted creature\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i;
+  // Host = the enchanted CREATURE (Hermetic Study) OR an enchanted LAND (Squirrel Nest "Enchanted land has
+  // \"{T}: Create a 1/1 …\"", Caustic Tar, Barbed Field) — the runtime (grantedActivatedForHost via the
+  // land-extended GRANTED_ACTIVATED_LINE) enumerates the granted ability on the land, which taps for its {T}
+  // cost with no summoning-sickness gate. A land-MANA grant ("{T}: Add …") is native-mana-aura (phase 1a),
+  // not this tier (parseGrantedActivatedAbilities filters isManaEffect), so the two never overlap.
+  const grantLineRe = /^enchanted (?:creature|land)\s+(?:has|have)\s+["“][^"”]+["”]\s*\.?$/i;
   // COUNT GUARD (CREED): every grant line must be one of the parsed activated grants. parseGrantedActivated-
   // Abilities deliberately SKIPS granted-TRIGGERED ("Whenever …") and granted-MANA ("{T}: Add …") quoted
   // abilities, so a card with such a line would have it whitelisted as a grant line below yet never modeled —
