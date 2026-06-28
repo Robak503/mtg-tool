@@ -42,7 +42,7 @@ import {
 import { resolveCombatDamage } from "./combatResolution.js";
 import { manaDoesNotEmpty } from "./cardEffects.js";
 import { getResolver } from "./resolvers.js";
-import { checkStepTriggers, checkAttackTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers } from "./triggers.js";
+import { checkStepTriggers, checkAttackTriggers, checkBlockTriggers, checkCardDrawnTriggers, checkLeavesTriggers, checkMilledTriggers } from "./triggers.js";
 import { expireContinuousEffects } from "./layers.js";
 import { parseEffectClause, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable, atomTargetIntent } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
@@ -324,6 +324,9 @@ export function runStepActions(state) {
   if (next.phase === "precombat-main" && next.step === "main") next = checkStepTriggers(next, "firstMain");
   if (next.step === "declare-blockers") {
     next = checkAttackTriggers(next);
+    // BLOCK triggers (subsystem 2) — each blocker's "Whenever this creature blocks" + each blocked
+    // attacker's "Whenever this creature becomes blocked"; enqueued here, flushed at the priority block below.
+    next = checkBlockTriggers(next);
     // The Ur-Dragon variable-count attack trigger (a targeted #319-style hook the compiler can't reach):
     // resolves draw-that-many + may-cheat-a-permanent synchronously, enqueuing its cardDrawn/ETB sub-triggers
     // for the same flush below. Fired AFTER checkAttackTriggers so its draw lands after the normal attack-

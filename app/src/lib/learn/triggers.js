@@ -498,7 +498,15 @@ function classifyCondition(condRaw, cardName, cardType) {
   // a restriction the engine can't enforce. The bare-blocks branch below would DROP both and fire the
   // (modeled) self-pump on ANY plain block — a confident WRONG partial. Leave any non-bare self-block
   // UNDETECTED → Arbiter, mirroring the attacks-or-blocks guard. A self-pump on a plain block stays native.
-  if (/\bbecomes blocked\b/.test(c)) return null;
+  if (/\bbecomes blocked\b/.test(c)) {
+    // BECOMES-BLOCKED (subsystem 2): the BARE self form "Whenever this creature becomes blocked, …" is
+    // modeled — checkBlockTriggers fires it for each attacker that got blocked. A COMPOUND ("blocks or
+    // becomes blocked" — bushido; names the SECOND "blocks" event) or a RESTRICTED form ("becomes blocked
+    // by one or more X creatures" — rampage; an unenforceable per-blocker restriction) does NOT end on the
+    // bare phrase and/or also names "blocks" → stays UNDETECTED → Arbiter (SAFE FN), mirroring bare-blocks.
+    if (selfRef && /\bbecomes blocked\s*$/.test(c.trim()) && !/\bblocks\b/.test(c)) return { event: "becomesBlocked", scope: "self", whose: "any" };
+    return null;
+  }
   if (/\bblocks\b/.test(c) && selfRef && !/\bblocks\s*$/.test(c.trim())) return null;
   if (/\bblocks\b/.test(c) && selfRef) return { event: "blocks", scope: "self", whose: "any" };
 
@@ -1373,6 +1381,38 @@ export function checkAttackTriggers(state) {
       if (watcher.id === attackerPerm.id) continue;
       fired = fired.concat(triggersForEvent(state, { event: "attacks", sourcePermanent: watcher, triggeringPermanent: attackerPerm, triggeringContext: context }));
     }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * BLOCK triggers (subsystem 2) — at the declare-blockers step, enqueue the SELF block triggers the spine
+ * detected but never fired: each BLOCKER's "Whenever this creature blocks, …" (CR 509.1a) and each ATTACKER
+ * that became blocked's "Whenever this creature becomes blocked, …" (CR 509.1h). Both are scope:"self" (the
+ * only modeled block-trigger shape — classifyCondition leaves compound/restricted forms undetected), so the
+ * source IS the triggering permanent. Each creature fires AT MOST ONCE (a creature blocking/blocked by
+ * several is still one "blocks"/"becomes blocked" event — CR 509.1; deduped by id). Mirrors checkAttackTriggers; pure.
+ */
+export function checkBlockTriggers(state) {
+  const blockers = state.combat?.blockers || [];
+  if (!blockers.length) return state;
+  let fired = [];
+  const seenBlocker = new Set();
+  for (const b of blockers) {
+    if (!b?.blockerId || seenBlocker.has(b.blockerId)) continue;
+    seenBlocker.add(b.blockerId);
+    const lk = findPermanent(state, b.blockerId);
+    if (!lk) continue;
+    fired = fired.concat(triggersForEvent(state, { event: "blocks", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: {} }));
+  }
+  const seenAttacker = new Set();
+  for (const b of blockers) {
+    if (!b?.attackerId || seenAttacker.has(b.attackerId)) continue;
+    seenAttacker.add(b.attackerId);
+    const lk = findPermanent(state, b.attackerId);
+    if (!lk) continue;
+    fired = fired.concat(triggersForEvent(state, { event: "becomesBlocked", sourcePermanent: lk.permanent, triggeringPermanent: lk.permanent, triggeringContext: {} }));
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
