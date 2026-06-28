@@ -158,10 +158,26 @@ describe("ETB triggers via the full EffectProgram (P2.8)", () => {
     expect(afterSpell.log.some((e) => e.kind === "trigger-removed-no-target")).toBe(true);
   });
 
-  it("a MODAL 'choose one' ETB does NOT use EFFECT_PROGRAM — routing it would silently pick one mode (gameEngine gate: structure !== modal)", () => {
-    // Without a chosen mode, the interpreter would resolve modes[undefined] →
-    // zero atoms, silently dropping the ability. The gate must keep the fallback.
-    const c = creature("Chooser", "When Chooser enters, choose one — draw a card; or you gain 3 life.", { id: "card-ch" });
+  it("a MODAL 'choose one' ETB (all modes modeled) routes through EFFECT_PROGRAM with a chosen mode (CR 700.2)", () => {
+    // Modal-trigger flush seam: the controller's chosen mode rides onto the payload as `chosenMode`, and the
+    // executor resolves ONLY that mode's atoms — a mode the controller didn't pick never fires. The default
+    // flush chooser picks the first legal mode (mode 0 = draw a card); the OTHER mode (gain 3 life) must NOT happen.
+    const before = createGameState({ userDeck: [], aiDeck: [] }).players.user.life;
+    const c = creature("Chooser", "When Chooser enters, choose one —\n• Draw a card.\n• You gain 3 life.", { id: "card-ch" });
+    const afterSpell = castAndResolveSpell(c, { players: { ...createGameState({ userDeck: [], aiDeck: [] }).players, user: { ...createGameState({ userDeck: [], aiDeck: [] }).players.user, library: [{ id: "lib-z", name: "Z" }] } } });
+    expect(afterSpell.stack[0].kind).toBe("triggered-ability");
+    expect(afterSpell.stack[0].payload.resolver).toBe("effect-program");
+    expect(afterSpell.stack[0].payload.params.chosenMode).toBe(0); // mode 0 (draw) chosen
+    const after = resolveTopOfStack(afterSpell);
+    expect(after.players.user.hand.some((c) => c.id === "lib-z")).toBe(true); // drew the card (mode 0)
+    expect(after.players.user.life).toBe(before); // did NOT gain life (mode 1 not chosen)
+  });
+
+  it("a MODAL ETB with an UNMODELED mode does NOT route natively — the whole card stays on the Arbiter (CREED)", () => {
+    // CREED all-or-nothing: one unparseable mode (here a non-modeled "investigate twice for each…") drops the
+    // whole modal to LOW, so it must NOT resolve via EFFECT_PROGRAM (resolving a modeled mode would risk firing a
+    // mode the player would never pick, or silently dropping the unmodeled one).
+    const c = creature("Partial", "When Partial enters, choose one —\n• Draw a card.\n• Each player reveals their hand, then you choose a noncreature card from it.", { id: "card-pt" });
     const afterSpell = castAndResolveSpell(c);
     expect(afterSpell.stack[0].kind).toBe("triggered-ability");
     expect(afterSpell.stack[0].payload.resolver).not.toBe("effect-program");

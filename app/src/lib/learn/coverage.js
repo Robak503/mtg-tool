@@ -241,7 +241,17 @@ export function permanentTriggersCovered(card) {
   // by the ETB auto-pick (resolvers.autoPickCreatureType stores perm.chosenType), so strip it here too. SAFE:
   // this runs only AFTER allTriggerSentencesModeled passed — an anthem/cost-reducer chooser (Shared Triumph,
   // Urza's Incubator) has NO modeled trigger, so it returns false at the triggers gates above and never reaches here.
+  // MODAL TRIGGER (CR 700.2) — a "choose one/two/… —" trigger's modes are bulleted (•) lines that SPAN the
+  // first period, so the trigger-sentence strip below (anchored `[^.]+\.`) can't consume the whole block: the
+  // lead-in line ("When …, choose one —") ends with "—", not a period, and bullets 2+ would survive as
+  // apparent residue (Knight of Autumn, Titan of Industry). Strip the FULL modal-trigger block FIRST, anchored
+  // to a trigger keyword + a modal lead-in + its consecutive bullet (•) lines: `(When|Whenever|At) … choose
+  // one/two/… —` then every `\n•…` line. The trigger-keyword anchor means this can only consume a real modal
+  // TRIGGER — never a modal ACTIVATED ability ("{2}: Choose one —", led by a cost) or a leveler, which is the
+  // FP this anchoring avoids. FN-safe: allTriggerSentencesModeled passed above (every trigger, modal included,
+  // is fully modeled), so removing a modal trigger's own block can only reveal the keyword-only body.
   const residue = stripTriggerAbilityLabel(card.oracle || "")
+    .replace(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^\n]*?\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-][^\n]*(?:\n\s*•[^\n]*)+/gi, " ")
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")
     .replace(/\bDo this only once each turn\b\.?\s*/gi, " ")

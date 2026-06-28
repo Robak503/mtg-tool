@@ -158,12 +158,16 @@ describe("classifyCard — tiers", () => {
     expect(classifyCard(C("Creature — Wizard", "When this creature enters the battlefield, destroy target creature."))).toBe("native-trigger");
     // P3.2: an ETB tutor (Trophy Mage shape) routes its search through the flush → native.
     expect(classifyCard(C("Creature — Wizard", "When this creature enters, search your library for an artifact card, reveal it, put it into your hand, then shuffle."))).toBe("native-trigger");
+    // MODAL TRIGGER (CR 700.2): a "choose one/two/… —" trigger whose EVERY mode is modeled now routes natively
+    // (the flush picks a sensible mode; the executor resolves only that mode). Both bulleted and inline forms.
+    expect(classifyCard(C("Creature — Wizard", "When this creature enters, choose one —\n• Draw a card.\n• You gain 3 life."))).toBe("native-trigger");
+    expect(classifyCard(C("Creature — Elemental", "When this creature enters, choose two —\n• Draw a card.\n• You gain 3 life.\n• Each opponent loses 2 life."))).toBe("native-trigger");
+    // CREED all-or-nothing: a modal trigger with ONE unmodeled mode stays body-only (can't half-resolve a mode).
+    expect(classifyCard(C("Creature — Wizard", "When this creature enters, choose one —\n• Draw a card.\n• Each player reveals their hand, then you choose a noncreature card from it."))).toBe("body-only");
     // Still body-only: an UNMODELED static (a conditional anthem the parser refuses to
-    // fabricate), unmodeled activated, a MODAL trigger (the engine won't silently pick a
-    // mode), or an intervening-if trigger (condition unevaluated).
+    // fabricate), unmodeled activated, or an intervening-if trigger (condition unevaluated).
     expect(classifyCard(C("Enchantment", "Creatures you control get +2/+2 as long as you control a Forest."))).toBe("body-only");
     expect(classifyCard(C("Creature — Knight", "When this enters, draw a card. {2}, {T}: Draw a card."))).toBe("body-only"); // extra activated text
-    expect(classifyCard(C("Creature — Wizard", "When this enters, choose one — draw a card; or you gain 3 life."))).toBe("body-only"); // modal → fallback
     // Intervening-if (CR 603.4) is NOT routed by the engine, so it must NOT count native.
     expect(classifyCard(C("Creature — Cleric", "When this creature enters, if you control another creature, draw a card."))).toBe("body-only");
     // α1 ETB-TARGETED: bounce/tuck triggers are now "enemy" (target opponent's creature) and route

@@ -72,13 +72,20 @@ export function triggerRoutesNatively(d) {
       && interveningIfParseable(d.interveningIf);
   }
   const p = parseEffectClause(d.effectClause, "Instant");
-  // Mirror buildTriggerStack's α1 ALLOWLIST EXACTLY: a HIGH non-modal trigger routes natively only
-  // when every chosen-target atom is intent-resolvable (the enemy/own chooser can place it on a
-  // correct side). An AMBIGUOUS targeting atom (bounce) stays in the gap, not native — so the metric
-  // never claims a routing the runtime won't perform. The combat-damage-referent gate keeps a
-  // who:"damagedPlayer" / "that many" program native ONLY on a combat-damage event (else its referent
-  // is unset → the clause would silently drop; Memory Erosion's CAST "that player mills" stays Arbiter).
-  return !!p && programConfidence(p) === "high" && p.structure !== "modal"
+  // Mirror buildTriggerStack's α1 ALLOWLIST EXACTLY: a HIGH trigger routes natively only when every
+  // chosen-target atom is intent-resolvable (the enemy/own chooser can place it on a correct side). An
+  // AMBIGUOUS targeting atom (bounce) stays in the gap, not native — so the metric never claims a routing
+  // the runtime won't perform. The combat-damage-referent gate keeps a who:"damagedPlayer" / "that many"
+  // program native ONLY on a combat-damage event (else its referent is unset → the clause would silently
+  // drop; Memory Erosion's CAST "that player mills" stays Arbiter).
+  // MODAL (CR 700.2): a "choose one/two/… —" trigger routes natively iff EVERY mode is modeled (the parser's
+  // all-or-nothing modal gate → HIGH only when every mode's atoms are known; one unmodeled mode → LOW, not
+  // native) AND every mode's targets are resolvable (programTriggerTargetsResolvable flattens across modes).
+  // buildTriggerStack's modal branch fires exactly under these conditions (AI picks a sensible mode at flush),
+  // so dropping the old `structure !== "modal"` exclusion keeps the metric in lockstep with the runtime —
+  // never an over-claim (a partially-modeled modal is LOW and excluded; an ambiguous-mode modal fails the
+  // resolvable gate and stays on the Arbiter).
+  return !!p && programConfidence(p) === "high"
     && (!programNeedsChosenTarget(p) || programTriggerTargetsResolvable(p))
     && combatDamageReferentSatisfied(p, d.event);
 }

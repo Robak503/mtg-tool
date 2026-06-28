@@ -195,6 +195,35 @@ function reflexiveEffectAfterRoll(accumulatedEffect, sentence) {
 }
 
 /**
+ * MODAL TRIGGER effect extraction (CR 700.2). A modal triggered ability's effect is a "choose one/two/
+ * one or more/… —" lead-in FOLLOWED by bulleted (•) mode lines. The main trigger regex captures only up
+ * to the FIRST period, which falls INSIDE the first bullet — so the naive effectClause keeps just mode 0
+ * and silently drops the rest (a forbidden partial). When the trigger's effect begins with a modal
+ * lead-in, re-extract the WHOLE block from the raw oracle: the lead line + every consecutive `•` line.
+ * The block ends at the first line that isn't a bullet (a separate ability) or end-of-text. parseEffectClause
+ * then sees all modes, so the parser's all-or-nothing modal gate (every mode modeled → HIGH, else LOW)
+ * applies to the COMPLETE card — never a half-resolved modal. Returns the full block, or null if the effect
+ * isn't a modal lead-in (caller keeps the naive clause). Pure.
+ */
+const MODAL_LEAD_RE = /^choose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-]/i;
+const MODAL_LEAD_SCAN_RE = /\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-]/i;
+function extractModalEffectBlock(oracle, searchFrom, effectClause) {
+  if (!MODAL_LEAD_RE.test(String(effectClause || "").trim())) return null;
+  const tail = oracle.slice(searchFrom);
+  const m = MODAL_LEAD_SCAN_RE.exec(tail);
+  if (!m) return null;
+  const start = searchFrom + m.index;
+  const lines = oracle.slice(start).split("\n");
+  const block = [lines[0]];
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim().startsWith("•")) block.push(lines[i]);
+    else break;
+  }
+  // Need at least one bullet line — a bare "choose one —" with no modes isn't a modal effect we can resolve.
+  return block.length > 1 ? block.join("\n") : null;
+}
+
+/**
  * Split "<condition>, <effect>" (the text after the leading keyword, sans the
  * trailing period) into its parts, peeling off an "if <cond>," intervening
  * clause (CR 603.4) when present.
@@ -1089,6 +1118,16 @@ export function detectTriggers(card) {
       // unmodeled follow-up then drops the whole program to low → Arbiter, instead of firing the
       // first effect natively and dropping the rest (a forbidden partial application).
       let effectClause = split.effectClause;
+      // MODAL TRIGGER (CR 700.2): when the effect is a "choose one/two/… —" lead-in, the naive clause holds
+      // only mode 0 (the regex stopped at the first bullet's period). Re-extract the FULL bulleted block so
+      // parseEffectClause sees every mode and its all-or-nothing modal gate covers the WHOLE card. The block
+      // is self-contained (lead + all bullets), so it bypasses BOTH the same-line follow-up loop (which would
+      // mis-append bullet text) AND the leading-sentence referent rewrites below (which target a non-modal
+      // clause's pronouns; modal modes carry their own self/that referents the parser handles).
+      const modalBlock = extractModalEffectBlock(oracle, m.index, effectClause);
+      if (modalBlock !== null) {
+        effectClause = modalBlock;
+      } else {
       const sameLine = oracle.slice(re.lastIndex).split("\n")[0].replace(/\([^)]*\)/g, " ");
       for (const sent of sameLine.split(/\.\s+|\.\s*$|;\s+/)) {
         const s = sent.trim();
@@ -1114,6 +1153,11 @@ export function detectTriggers(card) {
         if (!isFollowupSentence(s)) break;
         effectClause += `. ${s}`;
       }
+      }
+      // The leading-sentence referent rewrites below operate on a single non-modal effect sentence's
+      // pronouns; a modal block's modes carry their own self/that/triggering referents (handled inside
+      // the parser per mode), so skip the whole chain when the effect is the re-extracted modal block.
+      if (modalBlock === null) {
       // TRIG-PUMP-1: for a SELF-scope trigger only, normalize a leading "it" → "this creature" when
       // the WHOLE effect is the self-pump shape (SELF_PUMP_IT_RE), so the parser's self-pump atom
       // (target:"self") models it. Gated on `cls.scope === "self"`: in a NON-self trigger
@@ -1212,6 +1256,7 @@ export function detectTriggers(card) {
         // co-occurring discover-X "that creature's toughness" (Pantlaza keeps its own native exact-match parse).
         effectClause = effectClause.replace(/\b(deals? damage equal to|gain life equal to) that creature's (power|toughness)\b/gi, "$1 the triggering creature's $2");
       }
+      } // end if (modalBlock === null) — modal blocks skip the leading-sentence referent rewrites
       out.push({
         event: cls.event,
         scope: cls.scope,

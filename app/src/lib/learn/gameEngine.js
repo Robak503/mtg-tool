@@ -703,6 +703,37 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       const targets = choice?.targets || [];
       return { payload: { resolver: "effect-program", params: { ...baseParams, targets } }, targets };
     }
+    // ===== MODAL TRIGGER (CR 700.2) ===== a "choose one/two/one or more/… —" triggered ability where EVERY
+    // mode parses HIGH (the parser's all-or-nothing modal gate — one unmodeled mode → LOW → handled below)
+    // AND every mode's chosen-target atoms are intent-resolvable (the α1 allowlist, flattened across modes by
+    // programTriggerTargetsResolvable — an ambiguous mode keeps the WHOLE card on the Arbiter). The CONTROLLER
+    // chooses the mode (CR 601.3b / 700.2); here the AI picks a sensible legal one: expandCastChoices enumerates
+    // (mode × legal-target-combo) candidates — a mode with no legal target is simply NOT offered (CR 700.2d) —
+    // and the enemy/own chooser picks the first candidate whose targets all sit on their atom's correct side.
+    // The chosen mode + its targets ride onto the EFFECT_PROGRAM payload as `chosenMode`; the executor
+    // (runProgram.programAtoms) resolves ONLY that mode's atoms, so a mode the player didn't pick never fires.
+    if (program && programConfidence(program) === "high" && program.structure === "modal"
+      && (!programNeedsChosenTarget(program) || programTriggerTargetsResolvable(program))
+      && combatDamageReferentSatisfied(program, trigger.descriptor?.event)) {
+      const candidates = expandCastChoices(state, trigger.controller, program);
+      // No mode is castable (every mode needs a target none of which is legal) → the ability is removed
+      // from the stack (CR 603.3c / 700.2d). A non-targeted mode is always castable, so this only fires
+      // when EVERY mode is fully target-gated and unsatisfiable.
+      if (candidates.length === 0) return null;
+      const picked = typeof chooseTargets === "function" ? chooseTargets(candidates, { trigger, program, state }) : undefined;
+      // No mode resolves to a provably-correct-side target (every mode is targeted + mis-sideable) → Arbiter
+      // no-op rather than risk friendly fire (false-negative SAFE). A non-targeted mode would be a safe
+      // candidate, so this only happens when no safe mode exists at all.
+      if (picked === NO_SAFE_TARGET) return { payload: { resolver: "manual" }, targets: [] };
+      const choice = (typeof picked === "number" && candidates[picked]) ? candidates[picked]
+        : (picked && (Array.isArray(picked.targets) || picked.chosenMode != null)) ? picked
+        : firstLegalChoice(candidates);
+      const targets = choice?.targets || [];
+      return {
+        payload: { resolver: "effect-program", params: { program, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId, chosenMode: choice.chosenMode, targets } },
+        targets,
+      };
+    }
     // Route to a NO-OP (NOT the unanchored legacy fallback, which would sub-phrase-match a partial)
     // when, non-modal, the program is either:
     //   - LOW = a trigger whose effect ISN'T fully modeled (an unmodeled clause or a follow-up like
@@ -757,9 +788,6 @@ export function chooseTriggerTargets(candidates, info) {
   const controller = info?.trigger?.controller;
   const program = info?.program;
   if (!state || !controller || !candidates?.length) return undefined;
-  const atoms = program?.structure === "modal"
-    ? (program.modal?.modes || []).flatMap((m) => m.atoms || [])
-    : (program?.atoms || []);
   let enemies;
   try { enemies = new Set(opponentsOf(state, controller)); } catch { return undefined; }
   const sideOf = (t) => {
@@ -767,13 +795,26 @@ export function chooseTriggerTargets(candidates, info) {
     if (t.type === "spell") return (state.stack || []).find((o) => o.id === t.id)?.controller;
     return t.controller; // creature / permanent / graveyardCard
   };
-  const targetOk = (t) => {
+  // The atom set a candidate's targets index into (t.atomIndex). For a MODAL program the atomIndex is
+  // scoped to the chosen mode(s) EXACTLY as the executor (runProgram.programAtoms) reads them, so resolve
+  // per-candidate: a choose-ONE candidate (chosenMode = int) indexes that single mode's LOCAL atoms; a
+  // choose-TWO candidate (chosenMode = int[]) indexes the ASCENDING-mode concatenation (global, matching
+  // expandCastChoices' enumeration). A non-modal program uses its flat atoms. Mismatching these would test
+  // the WRONG atom's intent — a CREED hazard (a removal mode mis-classified as a buff → friendly fire).
+  const modes = program?.modal?.modes || [];
+  const atomsFor = (cand) => {
+    if (program?.structure !== "modal") return program?.atoms || [];
+    const cm = cand?.chosenMode;
+    if (Array.isArray(cm)) return cm.flatMap((k) => modes[k]?.atoms || []);
+    return modes[cm]?.atoms || [];
+  };
+  const targetOk = (atoms) => (t) => {
     const intent = atomTargetIntent(atoms[t.atomIndex]);
     if (intent === "enemy") { const s = sideOf(t); return s != null && enemies.has(s); }
     if (intent === "own") return sideOf(t) === controller;
     return true; // null/ambiguous: ambiguous is gated upstream; null = a non-targeting atom
   };
-  return candidates.find((c) => (c.targets || []).every(targetOk)) || NO_SAFE_TARGET;
+  return candidates.find((c) => (c.targets || []).every(targetOk(atomsFor(c)))) || NO_SAFE_TARGET;
 }
 
 /**
