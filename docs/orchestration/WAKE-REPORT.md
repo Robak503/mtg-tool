@@ -3,6 +3,19 @@
 > Colton reads this first. Single source of "what happened overnight." Updated every wave.
 > Loop RESUMED 2026-06-28 from the PAUSE (`2497730`) via the deck-focus `/loop`. One owner chat (me), CREED-absolute, park-don't-stop.
 
+## ☀️ MORNING TL;DR + DECISION MENU
+**Shipped overnight: +4 native, 0 FPs, 1 runtime FP fixed.** Corpus 7,717→7,721; 13-deck realism 32.9→33.4% (276/827). All on **PR [#381](https://github.com/Robak503/mtg-tool/pull/381)** (master push is permission-blocked — see Blockers). Gate green (4511 tests, lint clean) at every step.
+
+**The honest finding (4 fires of scouting):** the *clean single-fire flip board* for the 13 decks is **exhausted**. The engine already ROUTES the easy shapes (doublers, treasure-creation, combat-dmg→draw, aristocrat-drain); every remaining 13-deck card is blocked by an unmodeled RIDER or needs a real subsystem. Further native progress = **multi-PR subsystem builds**, not quick flips.
+
+**👉 TWO THINGS I NEED FROM YOU (unblock the rest of the grind):**
+1. **Push permission** — either ff-merge PR #381 or add a Bash allow-rule for `git push origin HEAD:master`, so waves auto-integrate (Blockers §).
+2. **Greenlight ONE subsystem** for me to build next (each is multi-PR; I'll build CREED-clean):
+   - **🅰 ALL-SUBTYPE-DAMAGE WATCHER** (recommended first — SOLO-buildable, no design call). "Whenever a Sliver deals [combat] damage to a player/creature, <effect on its controller>" → flips Essence Sliver / Synapse Sliver / Toxin Sliver (+ corpus). Effects already modeled; just a new global trigger-detection + firing. Sliver deck (highest-native, closest to 100%).
+   - **🅱 CHOOSE-A-CREATURE-TYPE** (highest value, but NEEDS A DESIGN CALL): greenfield state primitive — gates the Sliver deck's last tribal payoffs (Banner of Kinship, Door of Destinies, Kindred Discovery) + Ur-Dragon/Pantlaza. **Design call: which creature type should the sim auto-pick at ETB?** (deck-dominant type? I'd default to that.) Plus dynamic-counter-scaled anthems = layer-7c work.
+   - **🅲 TREASURE-SAC effects** — the sac COST is buildable, but the card EFFECTS are unmodeled (impulse-`low`, control-change, X-cost −X/−X). Lower ROI until those effects are built.
+   - Default if you say nothing: I'll build 🅰, then revisit.
+
 **Live baseline at resume (re-censused from AppData decks.local.json):**
 - Corpus: **22.5% native (7,717)**. 13-deck non-land realism: **32.9% (272/827, 555 left)**.
 - Worst→best: Wolverine 16.9 · Mothman 18.5 · Kellan 23.4 · Cap America 28.1 · Rograkh 28.6 · Ur-Dragon 28.6 · Pantlaza 30.6 · Toph 31.1 · Zaxara 33.3 · Vihaan 37.1 · Omnath 38.1 · Koma 53.2 · Sliver 61.9.
