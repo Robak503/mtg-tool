@@ -44,6 +44,7 @@ import { stripCreatedTokenAbilities } from "./manaModel.js";
 import { isPureDoubler, doublerProfile, stripModeledDoublerClauses } from "./replacementEffects.js"; // counter/token doublers → native (full-card)
 import { marksDamageToCreature, ENDSTEP_COUNTER } from "./wolverine.js"; // Wave-5a: Wolverine whole-card runtime hook
 import { parseDamageReplacements } from "./damageReplacements.js"; // Wave-5a: source-scoped damage doubler parser
+import { parseXCastTokenTrigger } from "./xCastToken.js"; // X-CAST-TOKEN commander (Zaxara) — runtime hook lives in actionDispatcher (applyXCastTokenTriggers)
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -973,3 +974,68 @@ function classifyChosenTypeCostReducer(card) {
   return "native-static";
 }
 registerCoverageClassifier((card) => classifyChosenTypeCostReducer(card));
+
+// ─── X-CAST-TOKEN COMMANDER — Zaxara, the Exemplary (Sultai X-spell deck commander) ──────────────────────────
+// "Whenever you cast a spell with {X} in its mana cost, create a 0/0 green Hydra creature token, then put X
+// +1/+1 counters on it." The general trigger compiler can't route this: detectTriggers sees the cast trigger
+// but its effect ("create a 0/0 token, then put X +1/+1 counters") parses LOW (the 0/0 dies-to-SBA guard in
+// createTokenClauseParser rejects toughness 0, and the "then put X …" rider isn't a token-clause shape), AND
+// the generic cast-trigger flush path (checkCastTriggers) carries NO xValue — so a routed copy would mint a
+// 0/0 that dies. Instead the runtime fires a DEDICATED hook (actionDispatcher → applyXCastTokenTriggers,
+// xCastToken.js) right after checkCastTriggers, threading the cast's chosen X (action.xValue) so the token
+// enters as a REAL X/X (proven end-to-end in xCastToken.test.js + zaxaraHydras.test.js). This classifier
+// credits the card the runtime already plays — the #353/#356/classifyWolverine additive-seam pattern (a
+// targeted single-card flip that returns null unless EVERY clause matches AND no residue remains, so it can
+// never cause collateral). Mechanism-keyed (not name-keyed), so a future twin flips automatically.
+//
+// CREED — whole card, all clauses modeled:
+//   • the X-cast token trigger (parseXCastTokenTrigger, anchored to the exact "create <count> <P>/<T>
+//     <descriptor> token, then put X +1/+1 counters on it/them" shape) → applyXCastTokenTriggers;
+//   • the {T} mana ability ("Add two mana of any one color") → the native-mana runtime. NOTE the amount
+//     under-production ("two" → 1 mana) is a CORPUS-WIDE manaModel.js gap (manaProduction's "mana of any
+//     [one] color" branch hardcodes amount 1) that already credits Black Lotus / Goldspan Dragon / Jeweled
+//     Lotus / Gilded Lotus et al. as native-mana — Zaxara is in the same boat, not held to a stricter bar
+//     (flagged for the manaModel owner; out of this layer's scope);
+//   • Deathtouch — an ENFORCED COVERED_KEYWORD.
+// All-or-nothing: strip the X-cast trigger sentence; NO other detected trigger may remain (a second unmodeled
+// trigger → null), every remaining activated ability must be the mana ability (a non-mana activated → null),
+// and the keyword/mana residue must be keyword-only (any other static/text → null). Returns native-mixed
+// (mana + trigger + keyword body) or null.
+const XCAST_TOKEN_SENTENCE_RE = /whenever you cast a spell with \{x\} in its mana cost, create (?:a|an|one|two|three|four|five|\d+) \d+\/\d+ .+? creature tokens?, then put x \+1\/\+1 counters? on (?:it|them)\.?/i;
+function classifyXCastTokenCommander(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  // The hook fires on a battlefield permanent the caster controls — only a permanent (creature here) qualifies.
+  // An instant/sorcery / land / PW is handled by the dispatch above and never reaches the registry seam, but
+  // gate defensively so this never claims a non-permanent.
+  if (/\b(instant|sorcery|land)\b/.test(type) || !/\b(creature|artifact|enchantment)\b/.test(type)) return null;
+  if (!parseXCastTokenTrigger(card)) return null;                 // not the exact X-cast-token shape → not ours
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  // Strip the X-cast trigger sentence; nothing else trigger-shaped may remain (a second, unmodeled trigger
+  // would be silently dropped — a FORBIDDEN FP). detectTriggers on the stripped card must be empty.
+  const noTrig = { ...card, oracle: oracle.replace(XCAST_TOKEN_SENTENCE_RE, "\n") };
+  if (detectTriggers(noTrig).length > 0) return null;            // a second trigger remains → Arbiter
+  // Every remaining activated ability must be a mana ability (the native-mana runtime taps it). A non-mana
+  // activated ability (modeled or not) → residue → Arbiter (CREED whole-card). parseActivatedAbilities skips
+  // mana abilities' effect modeling (a mana effect isn't a stack effect → modeled:false), so we can't lean on
+  // `.modeled`; instead require hasManaAbility AND that stripping the mana line(s) + trigger leaves keyword-only.
+  if (!hasManaAbility(noTrig.oracle)) return null;               // the {T}: Add … mana ability must be present
+  // EVERY remaining activated ability must be a MANA ability (effect right-of-colon adds mana). A NON-mana
+  // activated ability (a sac-drain, a pinger, a tutor) is residue the runtime won't play through this tier —
+  // crediting it would be a FORBIDDEN dropped-ability FP. parseActivatedAbilities marks a mana ability
+  // modeled:false (its effect is a mana ability, not a stack effect), so we can't use `.modeled`; gate on the
+  // effect text instead (mirrors hasManaAbility's "Add …" shape). Reminder stripped first (a keyword reminder
+  // can carry a colon). Any activated line whose effect is NOT a mana "Add …" → null.
+  for (const line of stripReminder(noTrig.oracle).split(/\n+/)) {
+    if (!isActivatedAbilityLine(line)) continue;                 // not an activated ability → handled by the keyword gate below
+    if (!hasManaAbility(line.slice(line.indexOf(":") + 1))) return null; // a non-mana activated ability remains → Arbiter (CREED)
+  }
+  // Strip reminder + the X-cast trigger + every (now-confirmed-mana) activated-ability line; the remainder
+  // must be keyword-only (Deathtouch).
+  const manaStripped = stripReminder(noTrig.oracle)
+    .split(/\n+/)
+    .filter((line) => !isActivatedAbilityLine(line))            // drop the "{T}: Add …" mana line(s) — all verified mana above
+    .join("\n");
+  if (!isKeywordOnly(manaStripped, card?.name)) return null;     // any non-keyword static/text residue → Arbiter
+  return "native-mixed";                                         // mana ability + X-cast token trigger + keyword body
+}
+registerCoverageClassifier((card) => classifyXCastTokenCommander(card));
