@@ -300,7 +300,12 @@ export function applyCreateTokenCopy(state, atom, ctx) {
  * Pure; uses parseCountSource/SMALL_NUM/NUM_WORD from the leaf. Registered via registerClauseParser in parser.js.
  */
 export function createNamedTokenClauseParser(clause) {
-  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // A leading "you " is a redundant subject — the token's controller is ALWAYS the effect's controller
+  // (CR 111.1), so "you create …" ≡ "create …". A combat-damage trigger states it that way ("…you create a
+  // Treasure token for each artifact that player controls" — Cavern-Hoard Dragon). Strip it so the create
+  // anchors below bind, exactly as createTokenClauseParser already does for the vanilla-token family. Strictly
+  // a PROMOTION (can only let an already-low clause parse) — never changes a token's owner.
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/^you create /, "create ");
   let m = t.match(/^create x (treasure|clue|food|gold) tokens,? where x is (?:equal to )?(?:the number of )?(.+)$/);
   if (m) {
     const countFor = parseCountSource(m[2], { allowScopes: true });

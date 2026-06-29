@@ -49,6 +49,11 @@ function typeStr(card) {
 // (an over-fire); a real subtype list never includes them. Used so a multi-subtype tribal trigger (Spawning
 // Kraken — "a Kraken, Leviathan, Octopus, or Serpent you control deals combat damage") matches ANY member.
 const NON_SUBTYPE_FILTER_WORDS = new Set(["creature", "creatures", "permanent", "permanents", "artifact", "artifacts", "enchantment", "enchantments", "land", "lands", "token", "tokens", "spell", "spells", "player", "players", "card", "cards"]);
+// FIRST-WORD SELF-REF stopwords (classifyCondition) — a legendary "<First> the <Epithet>" name self-refers by
+// its first word, but a name LEADING with one of these isn't using it as the self-name ("The Ur-Dragon" →
+// "the" self-refers by the full name, already matched). Articles only; a real first-word self-name (Smaug,
+// Gandalf, Atraxa-style space names) is never one of these. Lowercased (the candidate is lowercased upstream).
+const FIRST_WORD_SELF_STOPWORDS = new Set(["the", "a", "an", "of", "and"]);
 function parseSubtypeList(s) {
   const parts = String(s).split(/,|\bor\b|\band\b/).map((w) => w.trim()).filter(Boolean);
   if (!parts.length) return null;
@@ -324,7 +329,19 @@ function classifyCondition(condRaw, cardName, cardType) {
   const shortName = isLegendary ? nameL.split(",")[0].trim() : "";
   const shortNameRef = shortName.length >= 3 && shortName !== nameL
     && new RegExp(`\\b${shortName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(c);
-  const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL)) || shortNameRef;
+  // FIRST-WORD SELF-REF (CR 201.4) — a LEGENDARY whose name has NO comma but DOES have a space (the
+  // "<First> the <Epithet>" style — "Smaug the Magnificent", "Gandalf the Grey") refers to itself by its
+  // FIRST word ("Whenever Smaug attacks, he deals …"). The comma-short-name branch above can't see it (its
+  // split is comma-only, so shortName === full name → no match), so such a self-trigger goes UNDETECTED →
+  // the whole card wrongly routes to the Arbiter. Take the first whitespace token, gated tightly to keep an
+  // article / common word from over-matching unrelated condition text: legendary, ≥4 chars, NOT a leading
+  // stopword (so "The Ur-Dragon" → "the" never matches — its self-ref is the full name, already handled),
+  // distinct from the full name, and present word-bounded in the condition. Conservative by design (a false
+  // negative is SAFE; a false positive is forbidden — CLAUDE.md §1.2).
+  const firstWord = isLegendary && !nameL.includes(",") && /\s/.test(nameL) ? nameL.split(/\s+/)[0] : "";
+  const firstWordRef = firstWord.length >= 4 && firstWord !== nameL && !FIRST_WORD_SELF_STOPWORDS.has(firstWord)
+    && new RegExp(`\\b${firstWord.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(c);
+  const selfRef = /\bthis\b/.test(c) || (nameL && c.includes(nameL)) || shortNameRef || firstWordRef;
 
   // ===== COMPOUND self-event guard (CREED, CLAUDE.md §1.2) ===== A condition that names TWO trigger
   // events — "enters or leaves the battlefield" (Brandywine Farmer), "enters or dies" (Vinereap Mentor),

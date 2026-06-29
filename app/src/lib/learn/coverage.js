@@ -712,7 +712,18 @@ export function classifyCard(card) {
   // abilities resolve identically — the unmodeled scaler can never mis-resolve (THE CREED, Ninjutsu precedent).
   // Without this, the bare "Affinity for Slivers" line is unmodeled residue → body-only despite the group-keyword
   // grant + upkeep token trigger both being fully modeled (→ native-mixed once stripped).
-  const plotStrippedOracle = stripCostOnlyKeywordLines(plotStrippedRaw);
+  const costOnlyStrippedOracle = stripCostOnlyKeywordLines(plotStrippedRaw);
+  // SELF-COST-REDUCTION (CR 601.2f) — "This spell costs {X} less to cast, where X is …" is a CAST-cost modifier
+  // the runtime applies at the cast site (selfCostReductionMetric → the legalChoices cost path) regardless of
+  // the card's coverage tier, EXACTLY like the Affinity/Convoke cost-only keywords stripped above. Strip the
+  // modeled self-metric sentence so a permanent whose ONLY other text is modeled (Cavern-Hoard Dragon = Flying,
+  // trample, haste + a combat-damage Treasure trigger) reaches the trigger/mixed gates on its bare body and
+  // classifies native — the runtime still reduces its cast. Gated to the EXACT modeled shape (selfCostReductionMetric);
+  // an unmodeled cost line never matches → no strip → stays Arbiter (CREED whole-card). classifySelfCostReduction
+  // (the keyword-only flip) is unaffected — it runs its own strip on the raw oracle for the no-trigger case.
+  const plotStrippedOracle = selfCostReductionMetric(card)
+    ? costOnlyStrippedOracle.replace(SELF_COST_SENTENCE_RE, " ")
+    : costOnlyStrippedOracle;
   const baseOracle = entersWithPlusCounters(card) > 0
     ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
     : entersWithXCounters(card) && xPipCount === 1
