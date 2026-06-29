@@ -1,0 +1,164 @@
+/**
+ * selfPlayDecks.js — load + enrich decks into the shape the self-play runner wants.
+ *
+ * Shared by BOTH the /api/self-play route and the headless self-play.cjs CLI so the
+ * deck→runner transformation lives in exactly one place. Local-first: decks come
+ * from the on-disk profile `decks.local.json` files and every card is enriched from
+ * the bundled local oracle index (cardIndex via enrichDeck) — zero network.
+ *
+ * A deck store entry is `{ id, name, cards: [{ qty, name, section }], ... }`. The
+ * engine wants individual enriched card objects split by section (mainboard vs
+ * Commander vs Companion). The split logic mirrors LearnView.deckToCardArray /
+ * commandersOf / companionOf so self-play decks are built byte-for-byte the way The
+ * Academy builds them from the UI.
+ */
+
+import fs from "node:fs/promises";
+
+import { profilesRegistryPath, isValidProfileId, profilePath } from "./paths.js";
+import { enrichDeck } from "./learnDeckEnrich.js";
+import path from "node:path";
+
+// Sections that never enter the library as mainboard cards (mirrors LearnView).
+const NON_MAINBOARD = new Set(["Sideboard", "Tokens", "Commander", "Companion"]);
+
+/** Expand a deck-store entry's mainboard into individual blank card objects. */
+function deckToCardArray(deck) {
+  if (!deck?.cards) return [];
+  const out = [];
+  for (const entry of deck.cards) {
+    if (NON_MAINBOARD.has(entry.section)) continue;
+    for (let i = 0; i < (entry.qty || 1); i++) {
+      out.push({
+        id: `${deck.id || "deck"}-${entry.name}-${i}`,
+        name: entry.name,
+        type: entry.type || "",
+        mana: entry.mana || "",
+        oracle: entry.oracle || "",
+      });
+    }
+  }
+  return out;
+}
+
+/** Pull the Commander section into commander card objects (mirrors commandersOf). */
+function commandersOf(deck) {
+  if (!deck?.cards) return [];
+  return deck.cards
+    .filter((c) => c.section === "Commander")
+    .map((c) => ({
+      id: `cmd-${deck.id || "deck"}-${c.name}`,
+      name: c.name,
+      type: c.type || "Legendary Creature",
+      mana: c.mana || "",
+    }));
+}
+
+/** Pull the single Companion (mirrors companionOf); null when none. */
+function companionOf(deck) {
+  if (!deck?.cards) return null;
+  const row = deck.cards.find((c) => c.section === "Companion");
+  if (!row) return null;
+  return { id: `comp-${deck.id || "deck"}-${row.name}`, name: row.name };
+}
+
+/**
+ * Turn one deck-store entry into an ENRICHED runner deck:
+ *   { id, name, cards: card[], commanders: card[], companion: card|null }
+ * Pure aside from the local-index lookup inside enrichDeck (no network).
+ */
+export function toRunnerDeck(deck) {
+  const enrichOne = (c) => (c ? enrichDeck([c])[0] || null : null);
+  return {
+    id: deck.id || deck.name,
+    name: deck.name || deck.id || "Untitled deck",
+    cards: enrichDeck(deckToCardArray(deck)),
+    commanders: enrichDeck(commandersOf(deck)),
+    companion: enrichOne(companionOf(deck)),
+  };
+}
+
+/** Parse a decks.local.json blob into a normalised deck array (mirrors /api/decks). */
+function decksFromBlob(parsed) {
+  const decks = Array.isArray(parsed) ? parsed : parsed?.decks;
+  return Array.isArray(decks) ? decks : [];
+}
+
+/**
+ * Read every profile's decks.local.json and return all raw deck-store entries
+ * across the install, each tagged with its owning profileId. Used by the CLI to
+ * sweep the full 13-deck training set (which spans two profiles). Reads via the
+ * profiles registry — no active-profile dependency.
+ *
+ * @returns {Promise<Array<{profileId, ...deck}>>}
+ */
+export async function loadAllProfileDecks() {
+  let registryRaw;
+  try {
+    registryRaw = await fs.readFile(profilesRegistryPath(), "utf8");
+  } catch {
+    return []; // no registry yet
+  }
+  let reg;
+  try {
+    reg = JSON.parse(registryRaw);
+  } catch {
+    return [];
+  }
+  const profiles = Array.isArray(reg?.profiles) ? reg.profiles : [];
+  const registryDir = path.dirname(profilesRegistryPath());
+
+  const all = [];
+  for (const p of profiles) {
+    if (!isValidProfileId(p?.id)) continue;
+    const file = path.join(registryDir, "profiles", p.id, "decks.local.json");
+    let raw;
+    try {
+      raw = await fs.readFile(file, "utf8");
+    } catch {
+      continue; // a profile with no decks file
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    for (const deck of decksFromBlob(parsed)) {
+      all.push({ profileId: p.id, ...deck });
+    }
+  }
+  return all;
+}
+
+/**
+ * Read the ACTIVE profile's decks.local.json (via profilePath, the same path
+ * /api/decks uses) into raw deck-store entries. Returns [] when absent/unreadable.
+ */
+export async function decksForActiveProfile() {
+  let raw;
+  try {
+    raw = await fs.readFile(profilePath("decks.local.json"), "utf8");
+  } catch {
+    return [];
+  }
+  try {
+    return decksFromBlob(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Resolve a list of raw deck-store entries by id from a pool. Preserves the order
+ * of `ids`. Unknown ids are skipped (the caller decides whether to error).
+ */
+export function selectDecksByIds(pool, ids) {
+  const byId = new Map(pool.map((d) => [d.id, d]));
+  const out = [];
+  for (const id of ids) {
+    const d = byId.get(id);
+    if (d) out.push(d);
+  }
+  return out;
+}
