@@ -1480,6 +1480,14 @@ export function isComplete(session) {
   return session?.status !== "active";
 }
 
+// ─── Reusable SBA primitives (for the play-API seam) ─────────────────────────
+// gameApi.js's gameStatus() derives the over/winner/draw verdict from the SAME
+// loss/win rules the session driver uses — so the two can't drift. These are the
+// single source of truth for "is this player dead?" (CR 104.3a / 704.5a life≤0,
+// 704.5c ten poison, 903.10a / 704.6c 21 commander damage) and "has this player
+// won?" (CR 104.2a wonGame flag). Exported, not duplicated.
+export { isPlayerDead, hasWonGame };
+
 // ─── Test helpers ────────────────────────────────────────────────────────────
 
 /**
