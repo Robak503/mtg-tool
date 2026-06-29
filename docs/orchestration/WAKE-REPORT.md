@@ -1,51 +1,48 @@
 # 🌅 WAKE REPORT — overnight Clyde grind (2026-06-28 → 06-29)
 
-> Colton reads this first. Single source of "what happened overnight." One owner chat (me), CREED-absolute, park-don't-stop, ~4.5min loop cadence, 2-3 build sub-agents always in flight (delegate-and-verify: a fresh-context sub-agent builds in an isolated worktree → I re-verify with my own flip-diff + runtime probe + full gate before integrating to master).
+> Colton reads this first. One owner chat (me), CREED-absolute, park-don't-stop, ~4.5min loop, 2-3 build sub-agents in flight (delegate-and-verify: a fresh-context sub-agent builds in an isolated worktree → I re-verify with my own flip-diff + runtime probe + full gate before integrating to master). COMMS-check (`memory/COMMS.md`, the Clyde↔Omnath channel) runs first every loop fire.
 
 ## ☀️ MORNING TL;DR
-**Two releases + the entire learn-to-play engine seam, shipped overnight. 0 false positives.**
+**THREE releases + the complete learn-to-play engine, and Omnath's AI flywheel is LIVE. 0 false positives all night.**
 
-- 🚀 **v0.48.0 PUBLISHED** — the **Sim Center** (full top-level section: cross-profile deck setup, run self-play offline, save/browse breakage reports, bank training data) + the self-play stress-test + ~200 coverage cards. Your `.exe` auto-updates to it.
-- 🚀 **v0.49.0 TAGGED (CI building → will publish)** — the **learn-to-play engine seam is COMPLETE**: the play-API (`gameApi.js`), decisive self-play (opt-in time-pressure), seeded-shuffle for varied repeats, and the **pluggable decide-loop + full-trajectory recording** — the seam Omnath's pilots plug into. Plus **+92 native cards** (cost-strip seam unblocked ~59 already-modeled spells, filtered mass-counter, subtype-scoped triggers, Putrefy/Blasphemous Act…).
-- 🧠 **The learn-to-play division of labor is locked + executing.** You + Omnath own the pilots; I own the engine. Omnath already built the pilot module (`omnath-tools/pilots/decide.mjs`, 18 self-tests green) and I built + shipped all 3 engine-side seam items. **He can wire his pilots into the live seam right now** (instructions posted in `memory/COMMS.md`).
+- 🚀 **v0.48.0 PUBLISHED** — the **Sim Center** (offline self-play stress-test, save/browse reports, bank training data) + ~200 coverage cards.
+- 🚀 **v0.49.0 PUBLISHED** — the **learn-to-play engine seam**: play-API (`gameApi.js`), decisive self-play (time-pressure), seeded-shuffle, the **pluggable decide-loop + full-trajectory recording**. +92 native.
+- 🚀 **v0.50.0 TAGGED (CI building)** — **pilot-seam hardening + self-play data quality**: mulligan-as-decide, +6 fixes (below).
+- 🧠 **THE FLYWHEEL IS LIVE.** Omnath built the pilot modules, wired them into the live seam, and ran it end-to-end: **pilots → decisive game → 746 trajectory rows → mode-tagged case memory.** Both model axes (playbook + temperament) differentiate sensibly. The machine he + you designed is turning.
 
-**Metrics:** corpus native ~23.5% · 13-deck realism climbing · gate ~5080 green + lint clean at every step · **0 FPs shipped** (every wave flip-diffed both directions for 0 regressions). Releases: v0.48.0 live, v0.49.0 building.
-
----
-
-## 🟢 DECISION MENU (nothing is blocking — I keep going either way; your input just steers)
-1. **The riskier core-path learn-to-play slices — build unattended, or wait for you?** Item #3 (decide-loop) v1 routes the *enumerated* decisions (main/combat/X/modal/targets) — pilots can already pilot the core game. The remaining decision-type gaps are **mulligan** (building now — clean, self-contained), then **yes/no unify** (tutor/scry/edict → decide) and **trigger-order**. Those last two touch core resolution paths (bigger blast radius). I'll keep them CREED-tight + independently verified (same pattern that's shipped 0 FPs all night), but tell me if you'd rather I hold them for when you're around. **Default: I proceed carefully.**
-2. **v0.49.0 publish** — I'll confirm the CI published + auto-update reaches you (no action needed).
-3. **Omnath may reply in `COMMS.md`** to my seam/adapter notes; I check it first thing every loop fire and act on it.
-
-## 🔭 WHAT'S IN FLIGHT (→ v0.50.0)
-- **Coverage round 4** (safe frontier, effects layer) — more native cards toward 100%.
-- **Mulligan slice** — surface the London mulligan keep/ship as a `decide` call (opt-in, default byte-identical).
-- Then: the other decision-type slices + coverage → 100% (item #4).
+**Metrics:** corpus native ~23.6% · **0 FPs shipped** · gate green + lint clean at every step · ✅ **holistic double-check passed** (whole session: **+147 native, 0 regressions**). Your `.exe` auto-updates through v0.50.0.
 
 ---
 
-## ✅ SHIPPED OVERNIGHT (all on master, verified, 0 FPs)
-**Release v0.48.0 (published):** Sim Center section · self-play stress-test (offline headless deck-vs-deck → per-card breakage `.txt`) · ~200 coverage cards across ~22 mechanic levers (cost-reduction, Sliver tribal, fight, Treasure, dynamic-count, plot, modal/reflexive triggers, X-spells…) · trajectory-recorder groundwork.
+## 🟢 DECISION MENU (nothing blocking — steering only)
+1. **Remaining decide-loop slices — build unattended or wait for you?** Pilots already control the *enumerated* decisions (main/combat/X/modal/targets/mulligan). Left: **yes/no-unify** (tutor/scry/edict → decide) + **trigger-order**. They touch core resolution (bigger blast radius). Omnath said he'll flag if his pilots' skill expression actually needs them — so far the flywheel works without them. **Default: I hold them unless he asks, and grind coverage instead.**
+2. **v0.50.0 publish** — I'll confirm CI published + auto-update reaches you (no action needed).
+3. **Tabled (low priority):** the STATUS.md AUTORUN block is bloated (cosmetic; doesn't affect runtime). PW loyalty-mana phantom (FN-safe, future dedicated lane).
 
-**Release v0.49.0 (tagged, building):**
-- **Seeded-shuffle** — repeat self-play games of the same matchup now genuinely vary (real data volume).
-- **Breakage round 2 (+70)** — sim-driven; a cost-reduction-*sentence* parser fix unblocked ~59 already-modeled counterspells/board-wipes/burn + Putrefy/Blasphemous Act/Smell Fear.
-- **gameApi.js** (learn-to-play item #1) — the stable play-API: `legalActions`/`applyAction`(security-gated)/`gameStatus`/`observe`.
-- **Stalemate/time-pressure** (item #2) — stalled self-play resolves to a *real* win/loss (escalating clock past a generous turn-60 soft cap, above the 49-turn natural max); a true timeout is honestly tagged + excluded from training (**never a fabricated winner**). Opt-in, default byte-identical.
-- **Coverage round 3 (+22)** — filtered mass-counter + subtype-scoped ETB/dies triggers (aristocrats/tribal: Cordial Vampire, Indulgent Aristocrat…).
-- **Decide-loop + full-trajectory recording** (item #3 KEYSTONE) — pluggable `decide({state,legalActions,seat,pilot})→action` at every enumerated decision + per-decision trajectory tagged by pilot. **Default byte-identical** (proven 3 ways). The runner exposes a `pilots` map adapter — where Omnath's `decide.mjs` injects.
+## 🔭 IN FLIGHT (→ v0.51.0)
+- **Coverage round 5** — frontier/breakage-driven on the 13 decks (the safe frontier is THINNING after rounds 1-4, so expect a small clean wave or an honest "dry" report).
 
-## 🤝 LEARN-TO-PLAY — the split (locked) + status
-- **You + Omnath own:** pilot design (vectors, 6 playbooks, temperaments, Player 13), the decision-logic module on the engine seam, offline validation. **Omnath's module is BUILT** (`omnath-tools/pilots/`, 18 self-tests green).
-- **I own (engine-side):** ✅ gameApi · ✅ decisive self-play · ✅ decide-loop+recording · ⏳ coverage→100%. Plus the follow-on decision-type slices (mulligan in flight).
-- **Seam contract LOCKED** (`decide({state,legalActions,seat,pilot})→action`; pilot = `{playbook, temperament}`; 6 playbooks; full trajectory). I audited & answered Omnath's key question — **combat/targeting are already pilotable today** (his recon was off on that), so item #3 was a refactor, not a rebuild.
-- **`memory/COMMS.md`** is our live async channel (I check it first every loop fire); the adapter wiring instructions for his pilots are posted there.
+---
 
-## 🅿️ PARKED (correctly Arbiter-domain / need attended design)
-- Self-play stalemate: only the safety-net for genuine stalls; the real decks already close decisively on their own at Expert (don't drag to draws) — the clock just compresses the tail.
-- Coverage parks: batch-dies "one or more creatures die" (CR 603.3a once-per-batch — high blast radius, needs attended care), hard counters / tutors / free-cast-from-commander / phase-out / storm / extra-turns (correct Arbiter domain).
-- The riskier decide-loop slices (yes/no-unify, trigger-order) — see Decision Menu #1.
+## ✅ SHIPPED OVERNIGHT (all on master, each independently flip-diffed 0-regressions + gated)
+**v0.48.0:** Sim Center · self-play stress-test (offline → per-card breakage `.txt`) · ~200 coverage cards · trajectory recorder.
+**v0.49.0:** seeded-shuffle · breakage round 2 (+70, cost-strip seam) · `gameApi.js` play-API · decisive self-play (time-pressure, timeout→excluded, no fabricated W) · coverage round 3 (+22) · **the decide-loop + full-trajectory recording** (the keystone; default byte-identical).
+**v0.50.0 (the pilot-seam hardening batch):**
+- **Mulligan** as a pluggable decide call (London keep/ship; CR 103.5).
+- **Q3 fix** — trajectory recording silently produced 0 rows (serializer choked on `undefined` action fields); Omnath was blocked on it, now fixed → his case-mining works.
+- **Empty-stack counterspell legality** (CR 601.2c) — engine no longer offers casting a counter at nothing (Remand/Cryptic/Force of Will).
+- **Phantom mana removed** — "Sacrifice X: Add mana" no longer treated as free repeatable mana (58 phantom sources corrected, 0 real dorks dropped).
+- **Starting-player alternation** — batch self-play balances who's on the play + records it (un-bias training data).
+- **result.winnerSeat** now reported at the top level (was "(none)").
+- **Coverage round 4 (+9)** — Phoenix self-return + counter-on-creature.
+
+## 🤝 LEARN-TO-PLAY — the split + status
+- **You + Omnath own the pilots** (6 playbooks × temperaments, decision-logic module, offline validation). **Built + validated:** `omnath-tools/pilots/` (decide.mjs, 18 self-tests; case memory mined from real games).
+- **I own engine-side:** ✅ gameApi · ✅ decisive self-play · ✅ decide-loop+recording · ✅ mulligan · ✅ all the data-quality fixes from his validation (Q3, counters, mana, seat-bias, winnerSeat) · ⏳ coverage→100%.
+- **Seam contract locked**; pilots inject via `runSelfPlayBatch({ pilots, recordDecisions, timePressure })`. Omnath's two validation FYIs both handled; his new counter-legality flag fixed.
+
+## 🅿️ PARKED (correct — Arbiter-domain or needs attended design)
+batch-dies (CR 603.3a once-per-batch — high blast radius), activation-frequency caps (needs legalChoices), state/keyword anthems, "if you do" reflexive-payment, hard counters/tutors/free-cast/storm/extra-turns. The yes/no-unify + trigger-order decide slices (see Decision Menu #1).
 
 ## 🚧 BLOCKERS
-- **None.** Direct push to master works; releases cut cleanly via tag → CI. (The old PR #381 push-permission blocker from the earlier coverage phase is long resolved.)
+- **None.** Push to master + tag-cut releases both work cleanly.
