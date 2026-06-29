@@ -242,6 +242,73 @@ function activatedManaText(oracle) {
   return null;
 }
 
+// The COST (left of the colon) of every ACTIVATED mana line ("<cost>: Add …"), in oracle order. The first
+// entry is the line manaProduction MODELS (parseAddClause / manaAbilityRequiresTap read the first "Add").
+function activatedManaCosts(oracle) {
+  const costs = [];
+  for (const line of String(oracle || "").split(/\n+/)) {
+    const ci = line.indexOf(":");
+    if (ci === -1) continue;
+    if (/\badd\b/i.test(line.slice(ci + 1))) costs.push(line.slice(0, ci));
+  }
+  return costs;
+}
+
+// Can the SIM actually PAY this activation cost when it taps a standing mana source? True for a {T} cost
+// (tap — gated by summoning sickness), a self-SACRIFICE (cracked on use, flagged `sacrifices`), or a PURE
+// MANA cost ({…} symbols + {Q}, nothing else — a mana FILTER the sim pays from its pool, e.g. Prismite
+// "{2}: Add one mana of any color", Pili-Pala "{2}, {Q}: …"). These three are the only repeatable/standing
+// costs the mana subsystem models — everything else (a non-self sacrifice, pay-life, discard, remove-counter,
+// exile, tap-OTHER-permanents, return-to-hand) is a resource the sim doesn't spend.
+function manaCostModelable(cost) {
+  if (/\{t\}/i.test(cost)) return true;                    // {T}: a tap dork (summoning-sickness gated)
+  if (/\bsacrifice (?:this|~)\b/i.test(cost)) return true; // self-sac one-shot (Treasure/Gold) — cracked on use
+  return cost.replace(/\{[^}]*\}/g, "").replace(/[\s,]/g, "") === ""; // pure-mana / {Q} filter (payable from pool)
+}
+
+// Is the cost an UNPAYABLE, non-repeatable CONSUMABLE the sim can't spend — so registering its "Add …" as a
+// free, tapless, standing source would mint PHANTOM mana every turn? The named consumable set: a non-self
+// SACRIFICE (Utopia Mycon "Sacrifice a Saproling", Ashnod's Altar "Sacrifice a creature"), PAY N LIFE
+// (Treasonous Ogre), DISCARD (Skirge Familiar), REMOVE A COUNTER (Cryptic Trilobite — a FINITE counter pool
+// the sim would treat as infinite), EXILE-as-cost (Simian Spirit Guide — also never a battlefield source),
+// TAP-OTHER permanents (Heritage Druid convoke-style — the sim doesn't tap the other Elves), or RETURN-to-hand
+// (Grinning Ignus). Excludes self-sac (the Treasure case, handled by `sacrifices`) and a {T} cost (a real dork).
+function manaCostConsumable(cost) {
+  if (/\{t\}/i.test(cost)) return false;
+  if (/\bsacrifice (?:this|~)\b/i.test(cost)) return false;
+  return (
+    /\bsacrifice\b/i.test(cost) ||
+    /\bpay\b[^]*\blife\b/i.test(cost) ||
+    /\bdiscard\b/i.test(cost) ||
+    /\bremove\b[^]*\bcounter/i.test(cost) ||
+    /\bexile\b/i.test(cost) ||
+    /\btap\b/i.test(cost) ||
+    /\breturn\b[^]*\bhand\b/i.test(cost)
+  );
+}
+
+/**
+ * PHANTOM-MANA (consumable-cost) GATE. True when a NON-LAND's activated "Add …" ability is paid by a
+ * CONSUMABLE / non-repeatable cost the sim can't spend (a non-self sacrifice / pay-life / discard /
+ * remove-counter / exile / tap-other / return-to-hand) AND it has NO modelable mana line at all (no real
+ * {T}: dork, self-sac, or pure-mana filter). Such a source is NOT a free, tapless, repeatable standing
+ * source — without this gate manaSources read e.g. Utopia Mycon's "Sacrifice a Saproling: Add {C}{C}" as
+ * free mana every turn, so the self-play sim paid with PHANTOM mana (dirtying training data). Mirrors the
+ * earlier TRIGGERED/ETB phantom gate (activatedManaText): RUNTIME-ONLY — classifyCard never calls
+ * manaProduction, so the native-mana tier is unchanged; this fixes only the sim's runtime mana.
+ *
+ * FN-safe: gates ONLY when EVERY activated mana line is unpayable, so a card with a real {T}: / pure-mana
+ * line keeps that source. A mana FILTER ({mana}: Add) and a {T}: dork are never consumable → never gated.
+ * "Put a -0/-1 counter" (Wall of Roots, a real once-per-turn dork) is NOT "remove a counter" → kept. A
+ * planeswalker loyalty cost (+N/−N) is not in the consumable set → PWs are left for a dedicated lane.
+ */
+function manaAbilityCostUnpayable(oracle) {
+  const costs = activatedManaCosts(oracle);
+  if (!costs.length) return false;            // no activated mana line — handled by the activatedManaText gate
+  if (costs.some(manaCostModelable)) return false; // a real tap / self-sac / pure-mana line exists → keep it
+  return manaCostConsumable(costs[0]);        // the modeled (first) line is an unpayable consumable resource
+}
+
 /**
  * Remove the QUOTED ability a card confers on a TOKEN it CREATES ("Create a … token with \"…\"" or the
  * two-sentence "…token[ named N]. It has \"…\"" form, normalized here to the "with" form) — that ability
@@ -323,7 +390,14 @@ export function manaProduction(card) {
   // (Arbor Adherent's variable line, Prismatic Lens' any-color line, etc. — unchanged). Lands keep raw-oracle
   // parsing (intrinsic/reminder-printed mana + the colorless fallback).
   const fromOracle = parseAddClause(oracleForAdd);
-  const isActivatedSource = isLandCard || activatedManaText(oracleForAdd) != null;
+  // A NON-LAND activated mana ability must also be PAYABLE by the sim as a standing source. An ability whose
+  // only cost is a CONSUMABLE/non-repeatable resource the sim can't spend — a non-self sacrifice (Utopia Mycon
+  // "Sacrifice a Saproling: Add {C}{C}"), pay-life, discard, remove-counter, exile, tap-OTHER, return-to-hand —
+  // is NOT a free, tapless, repeatable source. Reading it minted PHANTOM mana the self-play sim "paid" every
+  // turn for free (dirtying training data). Gate it like the TRIGGERED/ETB phantom case above. Lands are exempt
+  // (raw-oracle parsing + their colorless fallback). RUNTIME-ONLY: classifyCard never calls manaProduction.
+  const isActivatedSource =
+    isLandCard || (activatedManaText(oracleForAdd) != null && !manaAbilityCostUnpayable(oracleForAdd));
   if (fromOracle && isActivatedSource) {
     const requiresTap = manaAbilityRequiresTap(oracleForAdd);
     return manaAbilitySacrificesSelf(oracleForAdd)

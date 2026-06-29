@@ -122,6 +122,55 @@ describe("manaProduction", () => {
     expect(manaSources(bf([hh]), "user")).toEqual([]); // not offered as a standing source
   });
 
+  // ===== PHANTOM-SOURCE GUARD 2 (consumable cost) ===== a NON-LAND activated "Add …" whose cost is a
+  // CONSUMABLE / non-repeatable resource the sim CAN'T spend — a non-self sacrifice, pay-life, discard,
+  // remove-counter, exile, tap-OTHER, return-to-hand — is NOT a free, tapless, repeatable standing source.
+  // Reading it minted PHANTOM mana the self-play sim "paid" every turn for free (task_cda672bc, coverage r4).
+  // Full-corpus audit: 58 phantom sources removed, 0 genuine {T}: dorks / {mana}: filters dropped, 0 classify
+  // change (classifyCard never calls manaProduction — this is the sim's runtime mana only).
+  it("does NOT read a SACRIFICE-cost (non-self) 'Add' as a standing source — Utopia Mycon / Ashnod's Altar", () => {
+    // Utopia Mycon: "Sacrifice a Saproling: Add …" — sacrifices something ELSE, so it's NOT the self-sac
+    // Treasure case (no `sacrifices` flag, requiresTap:false). The sim doesn't sac a Saproling → phantom mana.
+    expect(manaProduction({ name: "Utopia Mycon", type: "Creature — Fungus", oracle: "At the beginning of your upkeep, put a spore counter on this creature.\nRemove three spore counters from this creature: Create a 1/1 green Saproling creature token.\nSacrifice a Saproling: Add one mana of any color." })).toBeNull();
+    expect(manaProduction({ name: "Ashnod's Altar", type: "Artifact", oracle: "Sacrifice a creature: Add {C}{C}." })).toBeNull();
+    expect(manaProduction({ name: "Krark-Clan Ironworks", type: "Artifact", oracle: "Sacrifice an artifact: Add {C}{C}." })).toBeNull();
+    // …and it isn't offered as a standing tappable source either (the runtime path, not just manaProduction).
+    const um = permanent({ name: "Utopia Mycon", type: "Creature — Fungus", oracle: "Sacrifice a Saproling: Add one mana of any color." }, { id: "um" });
+    expect(manaSources(bf([um]), "user")).toEqual([]);
+  });
+  it("does NOT read a PAY-LIFE / DISCARD / REMOVE-COUNTER cost 'Add' as a standing source", () => {
+    expect(manaProduction({ name: "Treasonous Ogre", type: "Creature — Ogre Shaman", oracle: "Pay 3 life: Add {R}." })).toBeNull();
+    expect(manaProduction({ name: "Skirge Familiar", type: "Creature — Phyrexian Imp", oracle: "Flying\nDiscard a card: Add {B}." })).toBeNull();
+    // Remove-counter: a FINITE counter pool the sim would mistreat as infinite free mana.
+    expect(manaProduction({ name: "Cryptic Trilobite", type: "Creature — Trilobite", oracle: "This creature enters with X +1/+1 counters on it.\nRemove a +1/+1 counter from this creature: Add {C}{C}. Spend this mana only to activate abilities.\n{1}, {T}: Put a +1/+1 counter on this creature." })).toBeNull();
+  });
+  it("STILL reads a pure-mana {N}: filter and a real {T}: dork (consumable gate must not touch them)", () => {
+    // A mana FILTER (pure mana cost, no {T}) is payable from the pool — kept exactly as before.
+    expect(manaProduction({ name: "Prismite", type: "Artifact Creature — Golem", oracle: "{2}: Add one mana of any color." }))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 1, requiresTap: false });
+    expect(manaProduction({ name: "Bog Initiate", type: "Creature — Human Wizard", oracle: "{1}: Add {B}." }))
+      .toEqual({ colors: ["B"], amount: 1, requiresTap: false });
+    // A real {T}: dork is untouched (requiresTap:true, no `sacrifices`).
+    expect(manaProduction({ name: "Llanowar Elves", type: "Creature — Elf Druid", oracle: "{T}: Add {G}." }))
+      .toEqual({ colors: ["G"], amount: 1, requiresTap: true });
+    // Self-sac one-shot (Treasure) is unchanged — flagged sacrifices, cracked on use (not gated).
+    expect(manaProduction({ name: "Gold", type: "Token Artifact — Gold", oracle: "Sacrifice this artifact: Add one mana of any color." }))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 1, sacrifices: true, requiresTap: false });
+    // "Put a -0/-1 counter" (Wall of Roots) is NOT "remove a counter" — a real once-per-turn dork, kept.
+    expect(manaProduction({ name: "Wall of Roots", type: "Creature — Plant Wall", oracle: "Defender\nPut a -0/-1 counter on this creature: Add {G}. Activate only once each turn." }))
+      .toEqual({ colors: ["G"], amount: 1, requiresTap: false });
+  });
+  it("KEEPS the real {T}: line on a card that ALSO has a consumable-cost mana line (FN-safe)", () => {
+    // Phyrexian Tower: "{T}: Add {C}" (real) + "{T}, Sacrifice a creature: Add {B}{B}". A modelable line
+    // exists, so the source is kept (models the first {T}: {C} line) — the gate only fires when EVERY
+    // activated mana line is unpayable. (Land here, but the all-lines-unpayable guard is the point.)
+    expect(manaProduction({ name: "Phyrexian Tower", type: "Legendary Land", oracle: "{T}: Add {C}.\n{T}, Sacrifice a creature: Add {B}{B}." }))
+      .toEqual({ colors: ["C"], amount: 1, requiresTap: true });
+    // A non-land with a consumable line FIRST but a real {T}: line too keeps the source (no phantom drop).
+    expect(manaProduction({ name: "Hybrid Test Dork", type: "Creature — Test", oracle: "Sacrifice a creature: Add {R}.\n{T}: Add {G}." }))
+      .not.toBeNull();
+  });
+
   // ===== TOKENS ===== T4 FP fix — a card's OWN mana must not be fabricated from a TOKEN's ability stated
   // in MAIN text ("…token with \"…Add…\"" / "…token. It has \"…Add…\""). Without this, an Eldrazi Spawn-
   // maker reads as a sac-for-{C} source it isn't (the engine would offer "sacrifice Blisterpod for {C}").
