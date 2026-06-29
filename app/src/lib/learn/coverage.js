@@ -29,6 +29,7 @@
  */
 
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
+import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
@@ -183,9 +184,15 @@ export function spellIsNative(card) {
   // (when parsePlotCost confirms a clean modeled cost) before parsing, so the bare "Plot {cost}" residue
   // doesn't drag an otherwise-HIGH spell down to LOW. parsePlotCost is null for plot-trigger / plot-granting
   // cards, so those are never stripped (CREED whole-card).
-  const oracle = parsePlotCost(card)
+  const plotStripped = parsePlotCost(card)
     ? String(card.oracle || "").replace(/(?:^|\n)[^\n]*\bplot\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n")
     : card.oracle;
+  // CONVOKE / AFFINITY (cost-only keywords): strip the standalone keyword line so the spell's EFFECT is parsed
+  // on its own. The runtime hard-casts at full printed cost and resolves the body identically — the unmodeled
+  // discount can never mis-resolve (THE CREED, mirroring the Ninjutsu/Cycling cost gates). Harmonized Crescendo
+  // ("Convoke\nChoose a creature type. Draw a card for each permanent you control of that type.") then parses
+  // HIGH on its chosen-type count-draw atom → native-spell.
+  const oracle = stripCostOnlyKeywordLines(plotStripped);
   const program = parseEffectProgram({ type: card.type, oracle, mana: card.mana, name: card.name });
   if (!program || programConfidence(program) !== "high") return false;
   // COMBAT-REFERENT SPELL GUARD (CR 510) — an atom whose referent is the just-combat-damaged player
@@ -683,9 +690,16 @@ export function classifyCard(card) {
   // the runtime will plot + flip natively. parsePlotCost returns null for a "when/whenever … plot" trigger
   // and for plot-GRANTING cards (Fblthp), so neither is stripped (CREED whole-card). Applied FIRST so the
   // counter/tap strips and every downstream gate see the plot-free residue.
-  const plotStrippedOracle = parsePlotCost(card)
+  const plotStrippedRaw = parsePlotCost(card)
     ? oracle.replace(/(?:^|\n)[^\n]*\bplot\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n")
     : oracle;
+  // CONVOKE / AFFINITY on a PERMANENT spell (Thrumming Hivepool — "Affinity for Slivers"): strip the cost-only
+  // keyword line so the downstream trigger/static/mixed gates see the body alone. Affinity changes only the
+  // cast cost (the artifact ALSO has a printed {6}); the runtime hard-casts at full cost and the permanent's
+  // abilities resolve identically — the unmodeled scaler can never mis-resolve (THE CREED, Ninjutsu precedent).
+  // Without this, the bare "Affinity for Slivers" line is unmodeled residue → body-only despite the group-keyword
+  // grant + upkeep token trigger both being fully modeled (→ native-mixed once stripped).
+  const plotStrippedOracle = stripCostOnlyKeywordLines(plotStrippedRaw);
   const baseOracle = entersWithPlusCounters(card) > 0
     ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
     : entersWithXCounters(card) && xPipCount === 1

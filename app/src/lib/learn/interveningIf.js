@@ -100,14 +100,61 @@ function controllerBoard(state, controllerId) {
   return state?.players?.[controllerId]?.battlefield || [];
 }
 
+// ===== SAME-NAME ETB (Guardian Project, CR 603.4 + 201.2) ====================================
+// "it doesn't have the same name as another creature you control or a creature card in your graveyard"
+// — a per-PERMANENT condition keyed on the entering creature (the trigger's triggeringPermanent). True
+// iff NO OTHER creature you control AND NO creature card in your graveyard shares the entering creature's
+// name. CR 201.2: two objects have "the same name" when they share an English name string (a nameless /
+// empty-name token can't match a real card). "another creature you control" (CR 109.1 / 113.7 — "another"
+// excludes the object itself) → exclude the entering permanent by id when scanning the battlefield. The
+// graveyard half is a plain name+creature-card scan (the entering permanent is never in the graveyard, so
+// no self-exclusion needed there). The entering permanent is supplied via `ctx.triggeringPermanentId`
+// (checkEnterTriggers threads enteredPerm), resolved against the controller's battlefield.
+const SAME_NAME_ETB_RE = /^it doesn't have the same name as another creature you control or a creature card in your graveyard$/;
+
+function isCreatureCard(card) {
+  return /\bcreature\b/i.test(typeStr(card));
+}
+// A permanent is a creature when its (layer-aware-irrelevant for this name gate) printed type line says so.
+// Reading the card's type line is sufficient here: the same-name gate compares the entering creature against
+// OTHER creatures — a non-creature permanent sharing the name (rare) shouldn't block the draw (CR cares about
+// "another CREATURE you control"). Mirrors isCreatureCard so on-field and graveyard checks stay consistent.
+function isCreaturePermLocal(perm) {
+  return /\bcreature\b/i.test(typeStr(perm?.card));
+}
+
 /**
  * Evaluate an intervening-if condition for `controllerId` against `state`.
  * Returns true / false (the condition's truth) or null (outside the modeled vocabulary → caller must
  * treat as "can't confirm": the trigger does NOT route natively / does NOT fire).
+ *
+ * `context` (optional) carries the trigger's runtime context — notably `triggeringPermanentId`, the
+ * entering permanent for an ETB trigger — needed by per-permanent conditions (the SAME-NAME ETB shape).
+ * Pure board-count conditions ignore it, so existing callers (which omit it) are unaffected.
  */
-export function evaluateInterveningIf(state, condition, controllerId) {
+export function evaluateInterveningIf(state, condition, controllerId, context = null) {
   const c = String(condition || "").toLowerCase().trim();
   if (!state?.players?.[controllerId]) return false; // controller gone → condition unmet
+
+  // SAME-NAME ETB (Guardian Project) — needs the entering permanent from the trigger context.
+  if (SAME_NAME_ETB_RE.test(c)) {
+    const triggeringId = context?.triggeringPermanentId;
+    if (!triggeringId) return null; // no entering permanent in context → can't confirm (FN-safe; never fail-open)
+    const board = controllerBoard(state, controllerId);
+    const entering = board.find((p) => p.id === triggeringId);
+    // The entering permanent must be findable + named to evaluate (CR 201.2 — comparison is by name string).
+    const name = entering?.card?.name ?? entering?.name;
+    if (!entering || !name) return null; // can't read the entering creature's name → can't confirm (FN-safe)
+    const nm = String(name).toLowerCase();
+    // (a) another creature you control with the same name (exclude the entering permanent itself — "another")
+    const dupOnField = board.some((p) =>
+      p.id !== triggeringId && isCreaturePermLocal(p) && String(p.card?.name ?? p.name ?? "").toLowerCase() === nm);
+    if (dupOnField) return false;
+    // (b) a creature CARD in your graveyard with the same name
+    const gy = state.players[controllerId].graveyard || [];
+    const dupInGy = gy.some((card) => isCreatureCard(card) && String(card?.name ?? "").toLowerCase() === nm);
+    return !dupInGy; // "doesn't have the same name as …" → true when NEITHER duplicate exists
+  }
 
   // "you control no <filter>"  → count == 0
   let m = c.match(/^you control no (.+)$/);
@@ -149,6 +196,11 @@ export function evaluateInterveningIf(state, condition, controllerId) {
  * metric never claims a routing the engine won't perform.
  */
 export function interveningIfParseable(condition) {
-  const probe = { players: { __probe__: { battlefield: [], graveyard: [] } } };
-  return evaluateInterveningIf(probe, condition, "__probe__") !== null;
+  // The probe board carries a synthetic entering permanent (id "__entering__", a named creature) so a
+  // per-PERMANENT shape (SAME-NAME ETB) returns a boolean here instead of null-for-missing-context. A pure
+  // board-count shape ignores the extra permanent and a non-creature name, so its truth on the empty-ish
+  // board is unchanged. An unparseable condition still returns null → false.
+  const entering = { id: "__entering__", card: { name: "__probe_name__", type: "Creature" } };
+  const probe = { players: { __probe__: { battlefield: [entering], graveyard: [] } } };
+  return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__" }) !== null;
 }

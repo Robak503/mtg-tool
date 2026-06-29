@@ -16,6 +16,43 @@ export const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five:
 // Spelled cardinals up to ten — mill amounts ("Mill three cards", "Mill ten cards") are spelled out.
 export const NUM_WORD = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
 
+// ===== COST-ONLY KEYWORD LINES (CONVOKE / AFFINITY) — strip-before-parse, mirroring the Ninjutsu/Cycling
+// metric rationale (coverage.js) =====================================================================
+// CONVOKE (CR 702.51) and AFFINITY (CR 702.40) are pure cost-REDUCTION abilities: they change ONLY how much
+// the spell costs to cast, never WHAT it does on resolution. Every card carrying one ALSO has a normal printed
+// mana cost, so the engine can hard-cast it at full price and resolve its body 100% CORRECTLY — the only
+// unmodeled part is the optional discount (tapping creatures for convoke / the per-permanent affinity scaler),
+// which can NEVER mis-resolve / mis-count / drop a payoff clause / mis-scope / fabricate (THE CREED). This is
+// the SAME safe trade the Ninjutsu and Cycling cost gates already make: an unmodeled optional CASTING-COST
+// adjustment is invisible to the effect.
+//
+// These appear as their OWN leading oracle line, almost always with a reminder-text parenthetical:
+//   "Convoke (Your creatures can help cast this spell. …)"          (Harmonized Crescendo, Stoke the Flames)
+//   "Affinity for Slivers (This spell costs {1} less to cast …)"    (Thrumming Hivepool; also "Affinity for artifacts")
+// Anchored ^…(line)…$ on the bare keyword (+ the "for <noun>" affinity tail) plus an OPTIONAL reminder paren,
+// so the strip can ONLY consume a true cost-keyword line — never a sentence that merely mentions the word
+// (none exist in the corpus for these two: convoke/affinity are only ever the keyword itself). Leaves the rest
+// of the card untouched for the normal parser/classifier, which then sees a clean effect/body.
+const COST_ONLY_KEYWORD_LINE = /^(?:convoke|affinity for [a-z]+)(?:\s*\([^)]*\))?\s*$/i;
+
+/**
+ * Strip standalone CONVOKE / AFFINITY cost-keyword lines from an oracle string (line-anchored). Returns the
+ * oracle with those whole lines removed; a no-op when none are present. Pure/leaf — used by the coverage
+ * classifier (spellIsNative for convoke spells; the permanent path for affinity permanents) so an
+ * otherwise-fully-modeled card isn't dragged to LOW/body-only by a cost-only keyword the runtime ignores
+ * (it hard-casts at full cost). CREED-safe per the rationale above.
+ */
+export function stripCostOnlyKeywordLines(oracle) {
+  const lines = String(oracle || "").split("\n");
+  const kept = lines.filter((ln) => !COST_ONLY_KEYWORD_LINE.test(ln.trim()));
+  return kept.length === lines.length ? String(oracle || "") : kept.join("\n").trim();
+}
+
+/** True iff the oracle carries at least one standalone CONVOKE / AFFINITY cost-keyword line. */
+export function hasCostOnlyKeywordLine(oracle) {
+  return String(oracle || "").split("\n").some((ln) => COST_ONLY_KEYWORD_LINE.test(ln.trim()));
+}
+
 // ===== DMG-SCALE / FOR-EACH ===== a board-count SOURCE — the "X" in "equal to the number of X" (and,
 // later, "for each X"). Returns a `countSpec` the resolver computes AT RESOLUTION (CR 608.2h — a
 // count-derived value is locked as the spell/ability resolves), or null for an unmodeled source (→ low

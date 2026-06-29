@@ -640,7 +640,9 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // effect must itself be HIGH + non-modal + target-resolvable (the same α1 allowlist the no-condition
     // path uses below) — else the conditional trigger stays on the Arbiter (false-negative SAFE).
     else if (interveningIfParseable(interveningIf)) {
-      const met = evaluateInterveningIf(state, interveningIf, trigger.controller);
+      // Pass trigger.context so a per-PERMANENT condition (SAME-NAME ETB — Guardian Project) can read the
+      // entering permanent (ctx.triggeringPermanentId). Board-count conditions ignore it.
+      const met = evaluateInterveningIf(state, interveningIf, trigger.controller, trigger.context);
       if (met === null) return { payload: { resolver: "manual" }, targets: [] };
       if (met !== true) return null; // CR 603.4 — condition not met → the ability never goes on the stack
       if (condProgram && programConfidence(condProgram) === "high" && condProgram.structure !== "modal"

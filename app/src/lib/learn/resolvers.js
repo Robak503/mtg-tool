@@ -438,7 +438,9 @@ export const RESOLVERS = Object.freeze({
   [RESOLVER_KEYS.EFFECT_PROGRAM]: (state, obj) => {
     const params = obj.payload?.params;
     if (params?.condition != null) {
-      const ok = evaluateInterveningIf(state, params.condition, params.controller);
+      // Pass params.context (the bound trigger context) so a per-PERMANENT condition (SAME-NAME ETB —
+      // Guardian Project) re-reads the entering permanent at resolution (CR 603.4 second check).
+      const ok = evaluateInterveningIf(state, params.condition, params.controller, params.context);
       if (ok !== true) {
         return logEvent(state, { kind: "trigger-effect", effect: "intervening-if-not-met", controller: params.controller, condition: params.condition });
       }
