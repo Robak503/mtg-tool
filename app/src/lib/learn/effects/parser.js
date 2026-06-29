@@ -105,11 +105,14 @@ function stripReminder(text) {
   return String(text || "").replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
 }
 
-// MTG-001 — the "(They|It|That creature|Those creatures) can't be regenerated." rider. Anchored to these
-// subject forms only, so a damage rider ("a creature dealt damage this way can't be regenerated this turn"
-// — Incinerate) does NOT match. STRIP (CANT_REGEN_STRIP) and DETECT (CANT_REGEN_TEST) are derived from one
-// source so they can never drift: whatever the parse text strips, the parseEffectClause wrapper must detect.
-const CANT_REGEN_SUBJECTS = /\b(?:they|it|that creature|those creatures) can'?t be regenerated\b/;
+// MTG-001 — the "(They|It|That creature|Those creatures|A creature destroyed this way|Creatures destroyed this
+// way) can't be regenerated." rider. Anchored to these subject forms only, so a DAMAGE rider ("a creature dealt
+// damage this way can't be regenerated this turn" — Incinerate) does NOT match (it requires "DESTROYED this way",
+// not "dealt damage this way"). The "destroyed this way" forms cover Damn / Decree of Pain / In Garruk's Wake's
+// single ("Destroy target creature. A creature destroyed this way can't be regenerated.") + mass ("Destroy all
+// creatures. …") riders. STRIP (CANT_REGEN_STRIP) and DETECT (CANT_REGEN_TEST) are derived from one source so
+// they can never drift: whatever the parse text strips, the parseEffectClause wrapper must detect.
+const CANT_REGEN_SUBJECTS = /\b(?:they|it|that creature|those creatures|a creature destroyed this way|creatures destroyed this way) can'?t be regenerated\b/;
 const CANT_REGEN_STRIP = new RegExp(CANT_REGEN_SUBJECTS.source + "\\.?", "gi");
 const CANT_REGEN_TEST = new RegExp(CANT_REGEN_SUBJECTS.source, "i");
 /**

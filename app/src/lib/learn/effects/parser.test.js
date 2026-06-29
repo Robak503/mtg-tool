@@ -1118,6 +1118,8 @@ const MUST_STAY_HIGH = [
   // ── Mass effects (board wipes) — UNFILTERED "all creatures", modeled this slice. ──
   "Destroy all creatures.",                                                     // Day of Judgment
   "Destroy all creatures. They can't be regenerated.",                          // Wrath of God / Damnation (regen rider stripped)
+  "Destroy target creature. A creature destroyed this way can't be regenerated.", // Damn (non-Overload half) — "a creature destroyed this way" regen rider stripped + re-stamped (single form)
+  "Destroy all creatures. Creatures destroyed this way can't be regenerated.",   // mass "creatures destroyed this way" regen rider stripped + re-stamped
   "Exile all creatures.",                                                        // mass exile
   "All creatures get -2/-2 until end of turn.",                                  // Infest
   "Each creature gets -1/-1 until end of turn.",                                 // singular phrasing
