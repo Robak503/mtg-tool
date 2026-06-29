@@ -29,6 +29,7 @@ import {
   MANA_COLORS,
   nextInTurnOrder,
   drawCards,
+  putCardsOnBottom,
   resetTurnCounters,
   resetCardsDrawnAllPlayers,
   resetSpellsCastAllPlayers,
@@ -876,10 +877,138 @@ export function flushTriggers(state, { chooseTargets } = {}) {
 
 // ─── Game start helper ───────────────────────────────────────────────────────
 
+// London mulligan starting hand size (CR 103.4 — normally seven). A seat can take
+// mulligans until its opening hand would be ZERO cards (CR 103.5), i.e. it may ship
+// at most STARTING_HAND_SIZE times (the 7th keep bottoms all 7 → 0 cards). The cap is
+// a real-rules floor, not an arbitrary safety latch.
+const STARTING_HAND_SIZE = 7;
+
+/**
+ * Run the London mulligan keep/ship phase for ONE seat (opt-in; default path never
+ * calls this). CR 103.5 (London variant): the seat already has its opening 7. We
+ * repeatedly OFFER a keep/ship decision; on SHIP we shuffle the hand back into the
+ * library, redraw 7, and increment that seat's mulligan count; on KEEP we put N cards
+ * on the bottom where N = the number of ships taken (the London "bottom N on keep").
+ *
+ * The decision is surfaced through the SAME pluggable seam shape the in-game decide
+ * uses: `decideMulligan({ state, legalActions, seat, pilot }) -> action`, where
+ * legalActions is `[{kind:"mulligan-keep"}, {kind:"mulligan-ship"}]`. A return that is
+ * NOT one of those two → treated as KEEP (the safe default: never strands the game, never
+ * over-mulligans on a garbage/learned pilot). A throw is swallowed → KEEP. Deterministic
+ * given a seed (the redraw reshuffles via the threaded rngSeed).
+ *
+ * BOTTOM-N v1 (auto): on keep after N ships we bottom the LAST N cards drawn (the tail of
+ * the hand). This is a legal, deterministic London bottom (CR 103.5 lets the player choose
+ * the order/which cards — "any order"). TODO(mulligan-bottom-picker): make the bottom-N an
+ * INTERACTIVE decide point (a human picker / a value-heuristic pilot choice) — a future
+ * follow-on, NOT built here. Until then the tail-bottom keeps the deck-size invariant and
+ * never fabricates a different rule.
+ *
+ * DECK-SIZE INVARIANT (asserted by the caller's tests): library.length + hand.length is
+ * conserved across every ship (shuffle-in then redraw is a pure move) and across the keep
+ * bottom (a pure hand→library move). No card is lost or duplicated.
+ *
+ * `recordMulligan` (optional) is invoked once per DECISION (keep or ship) with
+ * { turn:0, seat, pilot, decision:"keep"|"ship", mulligans } so the trajectory recorder
+ * can tag the pre-game mulligan choices by pilot. Append-only + crash-isolated.
+ */
+function runMulliganPhaseForSeat(state, seat, { decideMulligan, pilot = null, recordMulligan = null }) {
+  let next = state;
+  let ships = 0; // = the seat's mulligan count; bottom this many on keep (CR 103.5 London)
+
+  // Offer keep/ship until the seat keeps or hits the zero-hand floor (CR 103.5).
+  for (;;) {
+    const legalActions = [{ kind: "mulligan-keep" }, { kind: "mulligan-ship" }];
+    let action;
+    try {
+      action = decideMulligan({ state: next, legalActions, seat, pilot });
+    } catch (err) {
+      // A throwing pilot must never abort game setup — default to KEEP.
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn(`[learn] decideMulligan threw (keeping): ${err?.message || err}`);
+      }
+      action = { kind: "mulligan-keep" };
+    }
+    // Anything that isn't a clean "mulligan-ship" → KEEP (the safe default — a garbage /
+    // out-of-set / learned-pilot return can never force an extra mulligan or strand setup).
+    const wantsShip = action && action.kind === "mulligan-ship";
+
+    // Record the decision (opt-in, crash-isolated).
+    if (typeof recordMulligan === "function") {
+      try {
+        recordMulligan({ turn: 0, seat, pilot, decision: wantsShip ? "ship" : "keep", mulligans: ships });
+      } catch (err) {
+        if (typeof console !== "undefined" && console.warn) {
+          console.warn(`[learn] recordMulligan threw (ignored): ${err?.message || err}`);
+        }
+      }
+    }
+
+    if (!wantsShip) {
+      // KEEP — bottom `ships` cards (London). Bottom the LAST `ships` drawn (the tail);
+      // see TODO(mulligan-bottom-picker) above. Zero ships → no bottoming (a kept first 7).
+      if (ships > 0) {
+        const hand = next.players[seat]?.hand || [];
+        const bottomIds = hand.slice(Math.max(0, hand.length - ships)).map((c) => c.id);
+        next = putCardsOnBottom(next, { playerId: seat, cardIds: bottomIds });
+        next = logEvent(next, { kind: "mulligan-keep", player: seat, mulligans: ships, bottomed: bottomIds.length });
+      } else {
+        next = logEvent(next, { kind: "mulligan-keep", player: seat, mulligans: 0, bottomed: 0 });
+      }
+      // Stamp the seat's final mulligan count (a metric the recorder/UI reads).
+      next = { ...next, players: { ...next.players, [seat]: { ...next.players[seat], mulligans: ships, hasMulliganed: ships > 0 } } };
+      return next;
+    }
+
+    // SHIP — but never below a zero-card opening hand (CR 103.5 floor): once the seat has
+    // shipped STARTING_HAND_SIZE times, the next keep would bottom all 7 → 0 cards, and no
+    // further mulligan is allowed. Treat a ship request at the floor as a forced KEEP.
+    if (ships >= STARTING_HAND_SIZE) {
+      const hand = next.players[seat]?.hand || [];
+      const bottomIds = hand.slice(Math.max(0, hand.length - ships)).map((c) => c.id);
+      next = putCardsOnBottom(next, { playerId: seat, cardIds: bottomIds });
+      next = logEvent(next, { kind: "mulligan-keep", player: seat, mulligans: ships, bottomed: bottomIds.length, forcedFloor: true });
+      next = { ...next, players: { ...next.players, [seat]: { ...next.players[seat], mulligans: ships, hasMulliganed: true } } };
+      return next;
+    }
+
+    // Shuffle the hand back into the library, redraw a fresh STARTING_HAND_SIZE, count the
+    // mulligan. shuffleControllerLibrary advances the threaded rngSeed so the redraw is
+    // deterministic per seed and serialize-stable. Move-only ⇒ deck-size invariant holds.
+    const hand = next.players[seat]?.hand || [];
+    next = putCardsOnBottom(next, { playerId: seat, cardIds: hand.map((c) => c.id) }); // hand → library
+    next = shuffleControllerLibrary(next, seat);
+    // Reset cardsDrawnThisTurn so the redraw doesn't inflate it (the opening draw is not a
+    // "draw this turn"); the original deal already set it via drawCards, so zero it first.
+    next = { ...next, players: { ...next.players, [seat]: { ...next.players[seat], cardsDrawnThisTurn: 0 } } };
+    next = drawCards(next, { playerId: seat, count: STARTING_HAND_SIZE });
+    next = logEvent(next, { kind: "mulligan-ship", player: seat, mulligans: ships + 1 });
+    ships += 1;
+  }
+}
+
+/**
+ * Resolve the caller's `mulligan` option into a concrete config — or null when the
+ * feature is OFF (the default-off, byte-identical path). Accepts:
+ *   - falsy / no `decide`  → null (OFF; startGame keeps the dealt 7 exactly as before)
+ *   - { decide, pilots?, recordMulligan? }  → the active config
+ * `decide` is the per-call mulligan decider; `pilots` (optional) is a per-seat
+ * `{ [seatId]: pilotIdentity }` map for recorder tagging. Pure.
+ */
+function resolveMulligan(mulligan) {
+  if (!mulligan || typeof mulligan.decide !== "function") return null;
+  return {
+    decide: mulligan.decide,
+    pilots: mulligan.pilots || null,
+    recordMulligan: typeof mulligan.recordMulligan === "function" ? mulligan.recordMulligan : null,
+  };
+}
+
 /**
  * Run the start-of-game routine: stamp startingPlayer (needed by
  * draw-step skip), OPTIONALLY shuffle every library (seeded — see below),
- * draw 7, then apply the untap step's automatic effects so the game opens
+ * draw 7, OPTIONALLY run the London mulligan keep/ship phase (opt-in — see
+ * below), then apply the untap step's automatic effects so the game opens
  * at the first priority window.
  *
  * SEEDED OPENING SHUFFLE (opt-in, default-preserving):
@@ -895,11 +1024,22 @@ export function flushTriggers(state, { chooseTargets } = {}) {
  *     enabler for the Sim Center). Shuffle order is turnOrder so the seed→game
  *     mapping is stable across runs.
  *
- * Caller is expected to handle London mulligan via gameState helpers
- * before calling startGame — startGame assumes the opening hands are
- * already locked in.
+ * LONDON MULLIGAN (opt-in, default-preserving — CR 103.5):
+ *   - `mulligan` omitted / no `.decide` (default): NO mulligan is surfaced. The
+ *     dealt opening 7s are KEPT exactly as today — this path is BYTE-IDENTICAL to
+ *     the pre-slice engine (the Academy / human play / the whole corpus rely on it).
+ *   - `mulligan = { decide, pilots?, recordMulligan? }` provided: after dealing 7,
+ *     each seat (in turn order) runs the London keep/ship loop via
+ *     runMulliganPhaseForSeat — ship ⇒ shuffle hand in, redraw 7, count it; keep ⇒
+ *     bottom N (the mulligan count) cards. A pilot opts in here; the engine never
+ *     imports a pilot. Per CR 103.5 the declarations are simultaneous; v1 resolves
+ *     each seat in turn order (correct outcome — no cross-seat dependency in the
+ *     redraw/bottom), which is sufficient for self-play and human play.
+ *
+ * When `mulligan` is OFF this function is byte-identical to before: the caller is
+ * then expected to have already locked opening hands (or accept the dealt 7).
  */
-export function startGame(state, { skipMulliganDraw = false, seed = null } = {}) {
+export function startGame(state, { skipMulliganDraw = false, seed = null, mulligan = null } = {}) {
   let next = { ...state, startingPlayer: state.activePlayer };
   if (seed != null) {
     // Stamp the deterministic seed, then shuffle each seat in turn order. shuffleControllerLibrary
@@ -915,6 +1055,18 @@ export function startGame(state, { skipMulliganDraw = false, seed = null } = {})
     // user + ai (unchanged); Commander deals all four pod members.
     for (const playerId of (state.turnOrder || Object.keys(state.players))) {
       next = drawCards(next, { playerId, count: 7 });
+    }
+    // London mulligan (opt-in). OFF (mulliganCfg null) ⇒ the dealt 7s are kept untouched —
+    // byte-identical to before. ON ⇒ each seat runs the keep/ship loop in turn order.
+    const mulliganCfg = resolveMulligan(mulligan);
+    if (mulliganCfg) {
+      for (const playerId of (state.turnOrder || Object.keys(state.players))) {
+        next = runMulliganPhaseForSeat(next, playerId, {
+          decideMulligan: mulliganCfg.decide,
+          pilot: mulliganCfg.pilots ? (mulliganCfg.pilots[playerId] || null) : null,
+          recordMulligan: mulliganCfg.recordMulligan,
+        });
+      }
     }
   }
   next = logEvent(next, { kind: "game-start", startingPlayer: state.activePlayer });

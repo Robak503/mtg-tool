@@ -87,11 +87,14 @@ export function outcomeLabelForSeat(seatId, result) {
  *   or an object to override { softCapTurn, lifeLossStep }. The DRAW it removes is the
  *   useless-label outcome (0.5 for every seat) the value-function recorder can't learn from.
  * @param {object} [args.pilots]  THE EXTERNAL-DECIDE ADAPTER POINT (Learn-to-Play item #3).
- *   A `{ [seatId]: { decide, playbook?, temperament? } }` map. For the seat whose turn it
- *   is, that seat's `decide({ state, legalActions, seat, pilot }) -> action` is called at
- *   every enumerated choice; `playbook`/`temperament` are recorded as the pilot identity.
- *   Omnath's `omnath-tools/pilots/decide.mjs` (NOT in this repo) is injected HERE by the
- *   caller — this module never imports it. A seat with no pilot (or no `decide`) plays the
+ *   A `{ [seatId]: { decide, decideMulligan?, playbook?, temperament? } }` map. For the seat
+ *   whose turn it is, that seat's `decide({ state, legalActions, seat, pilot }) -> action` is
+ *   called at every enumerated choice; `playbook`/`temperament` are recorded as the pilot
+ *   identity. A seat's optional `decideMulligan({ state, legalActions, seat, pilot }) -> action`
+ *   (legalActions = [{kind:"mulligan-keep"},{kind:"mulligan-ship"}]) drives that seat's PRE-GAME
+ *   London mulligan (CR 103.5); a seat with no `decideMulligan` keeps its opening 7 (the default,
+ *   byte-identical). Omnath's `omnath-tools/pilots/decide.mjs` (NOT in this repo) is injected HERE
+ *   by the caller — this module never imports it. A seat with no pilot (or no `decide`) plays the
  *   exact default autopilot (byte-identical). Default {} ⇒ every seat is the default pilot.
  * @param {boolean} [args.recordDecisions]  OPT-IN (default false): also capture the
  *   per-DECISION trajectory (one row per enumerated choice: turn, seat, pilot, features,
@@ -135,9 +138,55 @@ export function runSelfPlayGame({
   recordTrajectory = false,
   seed = null,
   timePressure = false, // default OFF here (a single game is byte-identical); runSelfPlayBatch turns it ON.
-  pilots = {}, // EXTERNAL-DECIDE ADAPTER: { [seatId]: { decide, playbook?, temperament? } }; {} ⇒ all-default play.
+  pilots = {}, // EXTERNAL-DECIDE ADAPTER: { [seatId]: { decide, decideMulligan?, playbook?, temperament? } }; {} ⇒ all-default play.
   recordDecisions = false, // opt-in per-DECISION (policy) trajectory; default OFF ⇒ byte-identical.
 } = {}) {
+  // Per-seat pilot identity ({playbook,temperament} | null) — used by both the in-game decide
+  // router/recorder below AND the pre-game mulligan config. Defined up here so the mulligan
+  // config can be assembled before createLearnSession (the mulligan runs at game start).
+  const pilotIdentity = (seat) => {
+    const p = pilots?.[seat];
+    return p ? { playbook: p.playbook ?? null, temperament: p.temperament ?? null } : null;
+  };
+
+  // ── Pre-game London mulligan (opt-in, CR 103.5) ──────────────────────────────
+  //
+  // A seat opts into the mulligan by giving its pilot a `decideMulligan`. When ANY seat
+  // has one, we build a `mulligan` config for createLearnSession → startGame: a routed
+  // decide that, given the seat being offered keep/ship, calls THAT seat's decideMulligan
+  // (a seat without one returns "keep" ⇒ it keeps its dealt 7, byte-identical). When NO
+  // seat has a decideMulligan we pass no `mulligan` at all, so game start is byte-identical
+  // to the pre-slice engine (the dealt 7s are kept untouched). The mulligan decisions are
+  // recorded into the per-DECISION trajectory (turn 0, tagged by pilot) when recordDecisions
+  // is on, so a pilot's pre-game choices ride alongside its in-game ones.
+  const hasAnyMulliganPilot = pilots && Object.values(pilots).some((p) => typeof p?.decideMulligan === "function");
+  const mulliganRows = [];
+  const mulliganConfig = hasAnyMulliganPilot
+    ? {
+        decide: ({ state, legalActions, seat, pilot }) => {
+          const p = pilots?.[seat];
+          if (typeof p?.decideMulligan !== "function") return { kind: "mulligan-keep" }; // no mull pilot → keep the 7
+          return p.decideMulligan({ state, legalActions, seat, pilot });
+        },
+        pilots: Object.fromEntries((Object.keys(pilots || {})).map((seat) => [seat, pilotIdentity(seat)])),
+        recordMulligan: recordDecisions
+          ? (row) => {
+              // One row per mulligan DECISION (keep/ship), shaped like an in-game decision row:
+              // turn 0, the seat's pilot identity, and a small mulligan-decision action descriptor.
+              // No features (there is no in-game board pre-turn-1); the recorder/consumer can treat
+              // a turn-0 row as the pre-game mulligan stream.
+              mulliganRows.push({
+                turn: 0,
+                seat: row.seat,
+                pilot: pilotIdentity(row.seat),
+                phase: "mulligan",
+                action: { kind: `mulligan-${row.decision}`, mulligans: row.mulligans },
+              });
+            }
+          : null,
+      }
+    : null;
+
   // Build the Expert session. createLearnSession validates deck shape and throws
   // on bad input; we surface that as a `setup-error` result rather than letting it
   // abort an entire batch — one un-runnable pairing must not kill the run.
@@ -154,6 +203,7 @@ export function runSelfPlayGame({
       difficulty: "expert",
       mode,
       seed,
+      mulligan: mulliganConfig, // null ⇒ no mulligan surfaced (byte-identical game start)
     });
   } catch (error) {
     return {
@@ -198,10 +248,7 @@ export function runSelfPlayGame({
   // for that seat). When NO seat has a pilot we pass no `decide` at all, so play is fully
   // byte-identical to the pre-refactor loop.
   const hasAnyPilot = pilots && Object.values(pilots).some((p) => typeof p?.decide === "function");
-  const pilotIdentity = (seat) => {
-    const p = pilots?.[seat];
-    return p ? { playbook: p.playbook ?? null, temperament: p.temperament ?? null } : null;
-  };
+  // pilotIdentity is defined once above (the mulligan config needs it before session build).
   const routedDecide = hasAnyPilot
     ? ({ state, legalActions, seat }) => {
         const p = pilots?.[seat];
@@ -312,7 +359,9 @@ export function runSelfPlayGame({
         return null; // a non-terminal/edge state ⇒ no winner; never a throw that aborts the run
       }
     })();
-    base.decisionTrajectory = { mode, result, winnerSeat, trainingWeight, rows: decisionRows };
+    // Pre-game London mulligan decisions (turn 0, captured at game start) lead the row stream,
+    // followed by the in-game enumerated decisions — one continuous per-decision policy trace.
+    base.decisionTrajectory = { mode, result, winnerSeat, trainingWeight, rows: [...mulliganRows, ...decisionRows] };
   }
 
   if (!recordTrajectory) return base;
@@ -419,11 +468,13 @@ export function buildPairings(deckCount, mode = "commander") {
  *     never a fabricated winner. Pass false to recover the old draw-at-cap behavior, or an
  *     object to override { softCapTurn, lifeLossStep }. NOT a Magic rule — a training device.
  * @param {object} [opts.pilots]  EXTERNAL-DECIDE ADAPTER (item #3): a per-SEAT
- *     `{ [seatId]: { decide, playbook?, temperament? } }` map (seatIds are the engine seats
- *     — "user", "ai" for Standard; "user","ai1","ai2","ai3" for Commander). Passed straight
- *     through to every game's runSelfPlayGame. Omnath's pilot module is injected HERE by the
- *     caller; the runner never imports it. Default {} ⇒ every seat plays the default autopilot
- *     (byte-identical). The same map applies to all pairings (positional seats are stable).
+ *     `{ [seatId]: { decide, decideMulligan?, playbook?, temperament? } }` map (seatIds are the
+ *     engine seats — "user", "ai" for Standard; "user","ai1","ai2","ai3" for Commander). Passed
+ *     straight through to every game's runSelfPlayGame, including each seat's optional
+ *     `decideMulligan` (the pre-game London keep/ship; a seat without one keeps its 7). Omnath's
+ *     pilot module is injected HERE by the caller; the runner never imports it. Default {} ⇒ every
+ *     seat plays the default autopilot AND keeps its opening 7 (byte-identical). The same map
+ *     applies to all pairings (positional seats are stable).
  * @param {boolean} [opts.recordDecisions]  OPT-IN (default false): record the per-DECISION
  *     (policy) trajectory for every game (passes through to runSelfPlayGame.recordDecisions).
  *     Each game's `.decisionTrajectory` is tagged with `deckIds`/`seatNames` for attribution.

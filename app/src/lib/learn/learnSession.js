@@ -78,6 +78,12 @@ function generateSessionId() {
  *                      Omitted (default) ⇒ deck-list order, byte-identical to
  *                      the pre-seed engine. Self-play passes a distinct seed
  *                      per game so repeats vary.
+ *   mulligan         — OPT-IN London mulligan config (default null ⇒ NO mulligan
+ *                      surfaced; the dealt opening 7s are kept, BYTE-IDENTICAL to
+ *                      before). When provided as `{ decide, pilots?, recordMulligan? }`,
+ *                      each seat runs the London keep/ship phase (CR 103.5) at game
+ *                      start via startGame → runMulliganPhaseForSeat. A pilot opts in
+ *                      here; the engine never imports a pilot. See startGame's docs.
  *
  * Throws on missing decks, invalid difficulty, invalid mode, or a
  * commander pod that isn't exactly 3 decks.
@@ -94,6 +100,7 @@ export function createLearnSession({
   activePlayer = "user",
   mode = "standard",
   seed = null, // opt-in seeded opening shuffle (default null ⇒ deck-list order, byte-identical to before)
+  mulligan = null, // opt-in London mulligan (default null ⇒ keep the dealt 7, byte-identical); { decide, pilots?, recordMulligan? }
 } = {}) {
   if (!Array.isArray(userDeck) || userDeck.length === 0) {
     throw new Error("createLearnSession: userDeck must be a non-empty array");
@@ -140,7 +147,7 @@ export function createLearnSession({
       mode,
     });
   }
-  state = startGame(state, { seed });
+  state = startGame(state, { seed, mulligan });
 
   return {
     id: generateSessionId(),
