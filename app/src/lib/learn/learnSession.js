@@ -516,8 +516,19 @@ function settleDiscardChoice(state, cardId) {
  * A safety cap (1000 ticks) protects against engine bugs that could
  * otherwise spin forever. Hitting the cap surfaces an "engine-stuck"
  * decision so the UI can show a meaningful error.
+ *
+ * OPT-IN OBSERVER (Learn-to-Play Track-1a): `onTurnStart` is a read-only callback
+ * invoked `onTurnStart(state, turnNumber)` once each time the game enters a NEW
+ * `state.turn` (the turn boundary — including the first turn), BEFORE that turn's
+ * actions are applied. It exists solely to let the self-play trajectory recorder
+ * snapshot per-turn features WITHOUT re-implementing the loop. It is `null` by
+ * default, so when it is not supplied this function's behavior is BYTE-IDENTICAL to
+ * before (no extra work, no state change). The observer is read-only by contract:
+ * it never receives a mutable handle that feeds back into the engine, its return
+ * value is ignored, and a throw from it is swallowed (logged via console.warn) so a
+ * faulty observer can never corrupt or abort a real game.
  */
-export function advanceUntilDecision(session, { archetype = null } = {}) {
+export function advanceUntilDecision(session, { archetype = null, onTurnStart = null } = {}) {
   if (session.status !== "active") {
     return {
       session,
@@ -533,8 +544,28 @@ export function advanceUntilDecision(session, { archetype = null } = {}) {
   let current = session;
   let ticks = 0;
 
+  // Turn-boundary observer state (opt-in). `lastObservedTurn` starts at null so the
+  // FIRST loop iteration fires the observer for the opening turn, then once per
+  // subsequent turn increment. Entirely inert when onTurnStart is null.
+  const observe = typeof onTurnStart === "function";
+  let lastObservedTurn = null;
+
   while (ticks < SAFETY_CAP) {
     ticks += 1;
+
+    // Opt-in turn-boundary snapshot. Fires when state.turn first reaches a new
+    // value (turn-start, before this turn's actions). Read-only + crash-isolated:
+    // a throw here is swallowed so it can never abort a real game.
+    if (observe && current.state && current.state.turn !== lastObservedTurn) {
+      lastObservedTurn = current.state.turn;
+      try {
+        onTurnStart(current.state, current.state.turn);
+      } catch (err) {
+        if (typeof console !== "undefined" && console.warn) {
+          console.warn(`[learn] onTurnStart observer threw (ignored): ${err?.message || err}`);
+        }
+      }
+    }
 
     // SBA check before every priority window.
     current = recordOutcomeIfChanged(current);

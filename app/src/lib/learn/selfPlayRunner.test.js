@@ -7,12 +7,19 @@
  */
 
 import { describe, expect, it, beforeEach, vi } from "vitest";
+import os from "node:os";
+import path from "node:path";
+import fs from "node:fs/promises";
 import { _resetIdsForTests } from "./gameState.js";
 import {
   runSelfPlayGame,
   runSelfPlayBatch,
   buildPairings,
+  outcomeLabelForSeat,
+  trajectoriesToJsonl,
+  writeTrajectoriesJsonl,
 } from "./selfPlayRunner.js";
+import { FEATURE_KEYS } from "./gameFeatures.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -115,5 +122,122 @@ describe("runSelfPlayBatch", () => {
     expect(games.length).toBe(1);
     expect(games[0].meta.seatNames).toEqual(["A", "B", "C", "D"]);
     expect(["user-wins", "ai-wins", "draw"]).toContain(games[0].result);
+  });
+});
+
+// ─── Learn-to-Play Track-1a: trajectory recording ──────────────────────────────
+
+describe("outcomeLabelForSeat — the value target", () => {
+  it("labels the winner 1, the loser 0, a draw/turn-limit 0.5, a non-completion null", () => {
+    expect(outcomeLabelForSeat("user", "user-wins")).toBe(1);
+    expect(outcomeLabelForSeat("ai", "user-wins")).toBe(0);
+    expect(outcomeLabelForSeat("user", "ai-wins")).toBe(0);
+    expect(outcomeLabelForSeat("ai", "ai-wins")).toBe(1);
+    expect(outcomeLabelForSeat("user", "draw")).toBe(0.5);
+    expect(outcomeLabelForSeat("ai1", "turn-limit")).toBe(0.5);
+    expect(outcomeLabelForSeat("user", "engine-stuck")).toBeNull();
+    expect(outcomeLabelForSeat("user", "setup-error")).toBeNull();
+  });
+});
+
+describe("runSelfPlayGame with recordTrajectory", () => {
+  it("OFF by default: result is byte-identical and carries NO trajectory field", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const plain = runSelfPlayGame({ deckA: aggroDeck("u"), deckB: aggroDeck("a"), mode: "standard" });
+    warn.mockRestore();
+    log.mockRestore();
+    expect(plain.trajectory).toBeUndefined();
+    expect(["user-wins", "ai-wins", "draw"]).toContain(plain.result);
+  });
+
+  it("ON: emits per-turn, per-seat feature rows labeled with each seat's eventual outcome", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const game = runSelfPlayGame({
+      deckA: aggroDeck("u"),
+      deckB: aggroDeck("a"),
+      mode: "standard",
+      recordTrajectory: true,
+    });
+    warn.mockRestore();
+    log.mockRestore();
+
+    expect(["user-wins", "ai-wins", "draw"]).toContain(game.result);
+    expect(game.trajectory).toBeTruthy();
+    expect(game.trajectory.mode).toBe("standard");
+
+    // One entry per seat (Standard = user + ai), each with rows + an outcome label.
+    const seats = game.trajectory.seats;
+    expect(seats.map((s) => s.seat).sort()).toEqual(["ai", "user"]);
+
+    for (const s of seats) {
+      expect(s.rows.length).toBeGreaterThan(0); // captured at least the opening turn
+      // The outcome is a REAL value target tied to the real result.
+      expect([0, 0.5, 1, null]).toContain(s.outcome);
+      // Turns are positive integers; the first row is an early turn.
+      expect(s.rows[0].turn).toBeGreaterThan(0);
+      // Each row is a full feature object.
+      const f = s.rows[0].features;
+      for (const k of FEATURE_KEYS) expect(Number.isFinite(f[k])).toBe(true);
+    }
+
+    // A decisive game labels the two seats oppositely (1 vs 0); the labels are consistent
+    // with the result token (no fabricated win).
+    if (game.result === "user-wins") {
+      expect(seats.find((s) => s.seat === "user").outcome).toBe(1);
+      expect(seats.find((s) => s.seat === "ai").outcome).toBe(0);
+    } else if (game.result === "ai-wins") {
+      expect(seats.find((s) => s.seat === "user").outcome).toBe(0);
+      expect(seats.find((s) => s.seat === "ai").outcome).toBe(1);
+    } else {
+      expect(seats.every((s) => s.outcome === 0.5)).toBe(true);
+    }
+
+    // is_active_player must be set on SOME row for each seat (each takes turns).
+    expect(seats.find((s) => s.seat === "user").rows.some((r) => r.features.is_active_player === 1)).toBe(true);
+  });
+});
+
+describe("runSelfPlayBatch with record + the JSONL writer", () => {
+  it("flattens trajectories to one JSONL line per (game, seat, turn) and writes atomically", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const decks = ["A", "B"].map((n) => ({ id: n, name: n, cards: aggroDeck(n) }));
+    const batch = runSelfPlayBatch(decks, { mode: "standard", record: true });
+    warn.mockRestore();
+    log.mockRestore();
+
+    expect(batch.games.length).toBe(1);
+    expect(batch.games[0].trajectory.deckIds).toEqual(["A", "B"]);
+
+    const jsonl = trajectoriesToJsonl(batch);
+    const lines = jsonl.trim().split("\n");
+    expect(lines.length).toBeGreaterThan(0);
+
+    // Every line is valid JSON with the expected training-pair shape.
+    const sample = JSON.parse(lines[0]);
+    expect(sample).toHaveProperty("seat");
+    expect(sample).toHaveProperty("turn");
+    expect(sample).toHaveProperty("outcome");
+    expect(sample).toHaveProperty("deckId");
+    expect(sample).toHaveProperty("features");
+    expect(["A", "B"]).toContain(sample.deckId);
+    expect(Number.isFinite(sample.features.own_life)).toBe(true);
+
+    // The writer drops to disk (inject a tmp dir so paths.js isn't needed).
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "traj-test-"));
+    const outPath = await writeTrajectoriesJsonl(batch, { dir: tmpDir, fileName: "t.jsonl" });
+    expect(outPath).toBe(path.join(tmpDir, "t.jsonl"));
+    const written = await fs.readFile(outPath, "utf8");
+    expect(written.trim().split("\n").length).toBe(lines.length);
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("writes nothing (returns null) when there are no recorded trajectories", async () => {
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "traj-empty-"));
+    const out = await writeTrajectoriesJsonl({ games: [] }, { dir: tmpDir });
+    expect(out).toBeNull();
+    await fs.rm(tmpDir, { recursive: true, force: true });
   });
 });

@@ -24,6 +24,29 @@
  */
 
 import { createLearnSession, advanceUntilDecision } from "./learnSession.js";
+import { featurizeState } from "./gameFeatures.js";
+
+/**
+ * Map a terminal self-play `result` token to a per-seat VALUE LABEL for the value-
+ * function training substrate: the WINNER's seat gets 1, a loser 0, a draw/turn-limit
+ * 0.5 for every seat (no winner, no loser). `seatId` is the engine seat ("user" |
+ * "ai" | "ai1".."ai3"); `result` is runSelfPlayGame's mapped result.
+ *
+ * Honest by construction: only "user-wins"/"ai-wins" produce a 1, and ONLY for the
+ * seat that actually won — every other live outcome (draw, turn-limit) is 0.5, and a
+ * non-completion (engine-stuck/dispatch-error/setup-error) returns null so those rows
+ * are dropped rather than mislabeled (you can't learn "who won" from a game that
+ * never finished). Standard maps user→"user", ai→"ai"; Commander's winning seat is
+ * "user" for a user-wins and — since the engine reports a pod win as the surviving
+ * seat via status — currently only distinguishes the user seat vs the rest (a finer
+ * per-ai-seat winner label is a follow-up noted in the recorder docs).
+ */
+export function outcomeLabelForSeat(seatId, result) {
+  if (result === "user-wins") return seatId === "user" ? 1 : 0;
+  if (result === "ai-wins") return seatId === "user" ? 0 : 1;
+  if (result === "draw" || result === "turn-limit") return 0.5;
+  return null; // engine-stuck / dispatch-error / setup-error / unexpected → don't fabricate a label
+}
 
 /**
  * Run ONE self-play game between two enriched decks (Standard 1v1) and return a
@@ -38,7 +61,11 @@ import { createLearnSession, advanceUntilDecision } from "./learnSession.js";
  *                                            or [card[],card[],card[]] (Commander)
  * @param {string} [args.mode]     "standard" | "commander" (default "standard")
  * @param {object} [args.meta]     identity passthrough (deck names/ids) for reports
- * @returns {{ result, status, reason, turns, ticks, log, meta, error? }}
+ * @param {boolean} [args.recordTrajectory]  OPT-IN (default false): also capture a
+ *   per-turn, per-seat feature trajectory for value-function training. OFF by default
+ *   so normal runs are byte-identical. When true, the result gains a `trajectory`
+ *   field (see the @returns trajectory shape).
+ * @returns {{ result, status, reason, turns, ticks, log, meta, error?, trajectory? }}
  *   result — "user-wins" | "ai-wins" | "draw" | "engine-stuck" | "dispatch-error"
  *            | "setup-error" (the report treats the last three as non-completions)
  *   status — the raw session.status (active/user-wins/ai-wins/draw)
@@ -46,6 +73,11 @@ import { createLearnSession, advanceUntilDecision } from "./learnSession.js";
  *   turns  — final turn number reached
  *   ticks  — engine ticks consumed (advanceUntilDecision loop iterations) when known
  *   log    — the raw append-only state.log (per-turn/phase keyed breakage signals)
+ *   trajectory (only when recordTrajectory) — {
+ *       mode, result,
+ *       seats: [ { seat, outcome, rows: [ { turn, features } ] } ]
+ *     } — one row per (seat, turn boundary); `features` is a featurizeState object,
+ *     `outcome` is that seat's eventual value label (1 win / 0 loss / 0.5 draw).
  */
 export function runSelfPlayGame({
   deckA,
@@ -57,6 +89,7 @@ export function runSelfPlayGame({
   opponentCompanions = null,
   mode = "standard",
   meta = {},
+  recordTrajectory = false,
 } = {}) {
   // Build the Expert session. createLearnSession validates deck shape and throws
   // on bad input; we surface that as a `setup-error` result rather than letting it
@@ -87,12 +120,31 @@ export function runSelfPlayGame({
     };
   }
 
+  // Trajectory capture (opt-in). When recording, we snapshot features for EVERY seat
+  // at each turn boundary via the engine's read-only onTurnStart observer — the engine
+  // is NOT modified (the observer hook is a default-off param) and runs to termination
+  // exactly as normal; we only read state. Seats come from state.turnOrder so both
+  // Standard (user/ai) and Commander (user/ai1..ai3) are covered. The {seat: rows[]}
+  // map is filled during the game, then labeled with each seat's outcome afterward.
+  const seatRows = new Map(); // seatId → [{ turn, features }]
+  const onTurnStart = recordTrajectory
+    ? (state, turnNumber) => {
+        const seats = state.turnOrder || Object.keys(state.players || {});
+        for (const seat of seats) {
+          if (!seatRows.has(seat)) seatRows.set(seat, []);
+          // featurizeState is pure (reads state, mutates nothing) — safe inside the
+          // read-only observer. One row per (seat, turn) = one (features → win) pair.
+          seatRows.get(seat).push({ turn: turnNumber, features: featurizeState(state, seat) });
+        }
+      }
+    : null;
+
   // Drive to termination. advanceUntilDecision NEVER throws on engine bugs — it
   // returns a structured engine-stuck / dispatch-error decision — but we still
   // guard the call so a truly unexpected throw is reported honestly, not hidden.
   let advanced;
   try {
-    advanced = advanceUntilDecision(session);
+    advanced = advanceUntilDecision(session, recordTrajectory ? { onTurnStart } : undefined);
   } catch (error) {
     return {
       result: "dispatch-error",
@@ -128,7 +180,7 @@ export function runSelfPlayGame({
     result = `unexpected:${decision.kind}`;
   }
 
-  return {
+  const base = {
     result,
     status: out.status,
     reason: decision.reason ?? null,
@@ -136,6 +188,24 @@ export function runSelfPlayGame({
     ticks,
     log,
     meta,
+  };
+
+  if (!recordTrajectory) return base;
+
+  // Label every captured row with its seat's EVENTUAL outcome (CR-honest value target:
+  // 1 won / 0 lost / 0.5 draw). A turn-limit draw is read off `reason` so it labels 0.5
+  // rather than null. A non-completion (engine-stuck/dispatch-error) yields a null label
+  // for every seat → those rows carry outcome:null so a consumer can drop the unfinished
+  // game instead of training on a fabricated win/loss.
+  const labelResult = result === "draw" && base.reason === "turn-limit" ? "turn-limit" : result;
+  const seats = [];
+  for (const [seat, rows] of seatRows.entries()) {
+    seats.push({ seat, outcome: outcomeLabelForSeat(seat, labelResult), rows });
+  }
+
+  return {
+    ...base,
+    trajectory: { mode, result, reason: base.reason, seats },
   };
 }
 
@@ -208,11 +278,15 @@ export function buildPairings(deckCount, mode = "commander") {
  *     NOTE (Pass A): repeats are currently identical games (no seeded shuffle yet) —
  *     gamesPer>1 is wired for a v2 seeded-shuffle follow-up and de-duplicates to 1
  *     here to avoid reporting fake repeat coverage.
+ * @param {boolean} [opts.record]  OPT-IN (default false): record a per-turn feature
+ *     trajectory for every game (passes recordTrajectory through to runSelfPlayGame).
+ *     OFF by default so existing batch behavior is unchanged. Each game's `.trajectory`
+ *     is tagged with `deckIds`/`seatNames` so the writer can attribute every row.
  * @returns {{ games: object[], deckList: object[], mode, pairings }}
  *     games — one runSelfPlayGame result per game, each tagged with .meta
  *             { mode, deckNames, seatNames, userDeckName }
  */
-export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1 } = {}) {
+export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, record = false } = {}) {
   const decks = Array.isArray(deckList) ? deckList : [];
   const pairings = buildPairings(decks.length, mode);
   // Pass A: identical-game repeats add nothing (deterministic engine). Cap at 1 so
@@ -223,6 +297,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1 } 
   for (const pairing of pairings) {
     const seatDecks = pairing.seats.map((i) => decks[i]);
     const seatNames = seatDecks.map((d) => d?.name || d?.id || "Unknown deck");
+    const seatIds = seatDecks.map((d) => d?.id || d?.name || "unknown");
     for (let r = 0; r < repeats; r++) {
       const meta = {
         mode,
@@ -243,6 +318,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1 } 
           opponentCompanions: oppDecks.map((d) => d?.companion || null),
           mode,
           meta,
+          recordTrajectory: record,
         });
       } else {
         const [a, b] = seatDecks;
@@ -255,11 +331,97 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1 } 
           opponentCompanions: b?.companion || null,
           mode,
           meta,
+          recordTrajectory: record,
         });
+      }
+      // Attribute each trajectory to its decks so JSONL rows carry deck identity. The
+      // seat order matches state.turnOrder (user first, then ai/ai1..), so seat→deck
+      // is positional and stable.
+      if (record && game.trajectory) {
+        game.trajectory.deckIds = seatIds;
+        game.trajectory.seatNames = seatNames;
       }
       games.push(game);
     }
   }
 
   return { games, deckList: decks, mode, pairings };
+}
+
+/**
+ * Flatten a batch's recorded trajectories into JSONL — one line per (game, seat, turn)
+ * = one (state-features → eventual-win) training pair. PURE (string in, string out):
+ * the I/O lives in `writeTrajectoriesJsonl` so this is unit-testable without disk.
+ *
+ * Each line is a JSON object:
+ *   { game, seat, deckId, turn, outcome, features }
+ * Rows from non-completed games (outcome === null) are SKIPPED — never write a
+ * fabricated win/loss label. Returns "" when there is nothing to write.
+ *
+ * @param {object} batch  the runSelfPlayBatch(..., { record:true }) return
+ */
+export function trajectoriesToJsonl(batch) {
+  const lines = [];
+  const games = batch?.games || [];
+  for (let gi = 0; gi < games.length; gi++) {
+    const traj = games[gi].trajectory;
+    if (!traj || !Array.isArray(traj.seats)) continue;
+    const deckIds = traj.deckIds || [];
+    traj.seats.forEach((s, si) => {
+      if (s.outcome == null) return; // unfinished game → drop (no honest label)
+      for (const row of s.rows || []) {
+        lines.push(JSON.stringify({
+          game: gi,
+          mode: traj.mode,
+          result: traj.result,
+          seat: s.seat,
+          deckId: deckIds[si] ?? null,
+          turn: row.turn,
+          outcome: s.outcome,
+          features: row.features,
+        }));
+      }
+    });
+  }
+  return lines.length ? lines.join("\n") + "\n" : "";
+}
+
+/**
+ * Write a recorded batch's trajectories as a JSONL file under the active profile's
+ * self-play data namespace (`profilePath("self-play/trajectories")`). Atomic
+ * (temp + rename on the same volume, mirroring atomicJson.js) so a crash mid-write
+ * never leaves a torn file. Creates the directory if needed. Returns the absolute
+ * path written, or null when there were no labeled rows to write (nothing recorded /
+ * only unfinished games).
+ *
+ * Kept here (not in a route) so the offline CLI/self-play loop can persist training
+ * data directly; the dynamic imports keep this module loadable in pure-logic tests
+ * (the recorder + featurizer) that never touch the filesystem or paths registry.
+ *
+ * @param {object} batch       runSelfPlayBatch(..., { record:true }) return
+ * @param {object} [opts]
+ * @param {string} [opts.fileName]  override the output file name (default timestamped)
+ * @param {string} [opts.dir]       override the output directory (tests inject a tmp dir;
+ *                                  defaults to profilePath("self-play/trajectories"))
+ */
+export async function writeTrajectoriesJsonl(batch, { fileName = null, dir = null } = {}) {
+  const body = trajectoriesToJsonl(batch);
+  if (!body) return null;
+
+  const fs = await import("node:fs/promises");
+  const path = await import("node:path");
+
+  let outDir = dir;
+  if (!outDir) {
+    const { profilePath } = await import("../server/paths.js");
+    outDir = profilePath("self-play", "trajectories");
+  }
+  const name = fileName || `trajectories-${Date.now()}.jsonl`;
+  const filePath = path.join(outDir, name);
+
+  await fs.mkdir(outDir, { recursive: true });
+  const tmp = `${filePath}.tmp.${process.pid}.${Date.now()}`;
+  await fs.writeFile(tmp, body, "utf8");
+  await fs.rename(tmp, filePath);
+  return filePath;
 }
