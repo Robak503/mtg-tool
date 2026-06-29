@@ -47,7 +47,6 @@ describe("parser — soft-counter atom (fixed-{N} only)", () => {
   it("CREED: variable / rider / modal / other-filter soft counters stay LOW → Arbiter", () => {
     // NOTE: the bare-{X} soft counter (Clash of Wills) is now HIGH (WAVE 2b SOFT-CNT-X) — covered in softCounterX.test.js.
     expect(isHigh("Counter target spell unless its controller pays {2} plus an additional {2} for each card named Rune Snag in each graveyard.")).toBe(false); // Rune Snag
-    expect(isHigh("Counter target spell unless its controller pays {1}. That player discards a card.")).toBe(false);      // Frightful Delusion (rider)
     expect(isHigh("Counter target spell unless its controller pays {1} and 1 life.")).toBe(false);                        // Mundungu (non-mana cost)
     expect(isHigh("Counter target instant or sorcery spell unless its controller pays {1}.")).toBe(false);               // Disrupt (filter not in any/noncreature/creature)
     expect(isHigh("Counter target creature or planeswalker spell unless its controller pays {3}.")).toBe(false);         // Reject
@@ -181,6 +180,14 @@ describe("coverage — clean soft counters are native-spell; variable/rider stay
   it("Clash of Wills ({X}) is now native (WAVE 2b SOFT-CNT-X); Rune Snag (variable) stays Arbiter", () => {
     expect(classifyCard({ name: "Clash of Wills", type: "Instant", oracle: "Counter target spell unless its controller pays {X}." })).toBe("native-spell");
     expect(classifyCard({ name: "Rune Snag", type: "Instant", oracle: "Counter target spell unless its controller pays {2} plus an additional {2} for each card named Rune Snag in each graveyard." })).not.toBe("native-spell");
+  });
+  // CREED — Frightful Delusion's "That player discards a card" is a back-reference to the COUNTERED SPELL'S
+  // controller, not the combat-damage referent the discard atom binds (who:"damagedPlayer"). The program now
+  // parses HIGH (counter + discard both modeled), but a SPELL never supplies ctx.damagedPlayerId, so the discard
+  // would silently drop at resolution — the spellIsNative combat-referent guard keeps the whole card on the
+  // Arbiter (a SAFE false-negative; the CDMG-discard slice flips the combat-TRIGGER cards, never this spell).
+  it("CREED — Frightful Delusion (counter + 'that player discards' spell back-reference) stays arbiter-spell", () => {
+    expect(classifyCard({ name: "Frightful Delusion", type: "Instant", mana: "{1}{B}", oracle: "Counter target spell unless its controller pays {1}. That player discards a card." })).toBe("arbiter-spell");
   });
 });
 

@@ -105,6 +105,14 @@ export function applyDiscard(state, atom, ctx) {
       .filter((pid) => state.players?.[pid] && !seen.has(pid) && seen.add(pid));
   } else if (atom.who === "eachOpponent") {
     discarders = opponentsOf(state, ctx.controller).filter((pid) => state.players?.[pid]);
+  } else if (atom.who === "damagedPlayer") {
+    // CDMG-DISCARD (Chilling Apparition / Blazing Specter / Dimir Cutpurse) — the player the source just dealt
+    // combat damage to (ctx.damagedPlayerId, carried by checkCombatDamageTriggers, the SAME referent the mill /
+    // rad / token-factory damagedPlayer resolvers read). Absent / eliminated referent (a spell, a non-combat
+    // trigger, a player who left the game) → discard nobody (a clean logged no-op, never a fabrication — mirrors
+    // applyMill's damagedPlayer guard). The discarder chooses their own card via the chain (CR 701.8).
+    const pid = ctx.damagedPlayerId;
+    discarders = pid && state.players?.[pid] ? [pid] : [];
   } else {
     discarders = (ctx.targets || [])
       .filter((t) => t.type === "player" && state.players?.[t.id])
@@ -133,6 +141,19 @@ export function discardClauseParser(clause) {
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachPlayer", targetType: null };
   m = t.match(/^each opponent discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "eachOpponent", targetType: null };
+  // ===== CDMG-PLAYER-PAYOFF ===== "that player discards N cards" — the just-combat-damaged player (the
+  // damagedPlayer referent the combat-damage trigger carries in ctx.damagedPlayerId, set by triggers.check-
+  // CombatDamageTriggers). Mirrors the rad/mill damagedPlayer subjects (Sword of Body and Mind's mill; the rad
+  // CDMG payoffs): NON-targeted (targetType:null → routes natively on the combat-damage trigger flush,
+  // programNeedsChosenTarget → false) and a clean no-op outside a combat-damage event (applyDiscard's damaged-
+  // Player branch discards nobody when ctx.damagedPlayerId is absent — never a fabrication). The routing gate's
+  // combatDamageReferentSatisfied (triggerRouting.js) admits this ONLY on combatDamageToPlayer/dealtDamage, so
+  // an upkeep "that player discards a card" (Necrogen Mists' upkeep referent) can NEVER route here and mis-scope.
+  // Anchored ^…$ — "that player discards THAT card" (the reveal-then-discard discard-chosen family, Gix's Caress)
+  // wants "that card" not "a/N cards" and never matches; a rider ("…and you untap all lands", Sword of Feast and
+  // Famine) keeps its tail → low → Arbiter (CREED: never a dropped clause). Discarder chooses (CR 701.8 chain).
+  m = t.match(/^that player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
+  if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "damagedPlayer", targetType: null };
   m = t.match(/^(?:you )?discard (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
   // DISCARD-HAND — "discards their hand" / "discard your hand" (the WHOLE hand, no count). The chain pitches

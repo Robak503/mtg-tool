@@ -167,7 +167,19 @@ export function spellIsNative(card) {
     ? String(card.oracle || "").replace(/(?:^|\n)[^\n]*\bplot\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n")
     : card.oracle;
   const program = parseEffectProgram({ type: card.type, oracle, mana: card.mana, name: card.name });
-  return !!program && programConfidence(program) === "high";
+  if (!program || programConfidence(program) !== "high") return false;
+  // COMBAT-REFERENT SPELL GUARD (CR 510) — an atom whose referent is the just-combat-damaged player
+  // (who:"damagedPlayer") or the combat-damage amount (countContext:"combatDamageAmount") is supplied ONLY by
+  // a combat-damage trigger (ctx.damagedPlayerId / ctx.combatDamageAmount, set by checkCombatDamageTriggers).
+  // A SPELL never supplies them, so such an atom would SILENTLY DROP at resolution (a FORBIDDEN dropped-clause
+  // FP, CREED). This mirrors triggerRouting.combatDamageReferentSatisfied (which gates the TRIGGER path) for
+  // the spell path: a "That player discards a card" follow-on after a counter (Frightful Delusion) or a
+  // damage spell (Ozai's Cruelty) — where "that player" is a back-reference to the countered-spell controller
+  // / damaged target, NOT the combat referent — keeps the whole spell on the Arbiter (a SAFE false-negative).
+  for (const a of program.atoms || []) {
+    if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount") return false;
+  }
+  return true;
 }
 
 /**
