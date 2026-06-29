@@ -42,6 +42,7 @@ import ChatPanel from "./mtg/ChatPanel";
 import SessionSidebar from "./mtg/SessionSidebar";
 import FeedbackPanel from "./mtg/FeedbackPanel";
 import LearnView from "./mtg/LearnView";
+import SimCenter from "./mtg/SimCenter";
 import CollectionView from "./mtg/CollectionView";
 import UpdatesModal from "./mtg/UpdatesModal";
 import PodBalanceModal from "./mtg/PodBalanceModal";
@@ -1302,6 +1303,13 @@ export default function MTGAssistant() {
             ):centerView==="learn"?(
               <LearnView
                 savedDecks={savedDecks}
+                cfg={cfg}
+                colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD}}
+                fontFamily={F}
+                setCenterView={setCenterView}
+              />
+            ):centerView==="sim"?(
+              <SimCenter
                 cfg={cfg}
                 colors={{BG, BG2, BG3, LINE, TEXT, MUTED, GOLD}}
                 fontFamily={F}

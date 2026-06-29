@@ -25,7 +25,6 @@
 import { useEffect, useState } from "react";
 import useLearnSession from "../../hooks/useLearnSession";
 import LearnBoard from "./LearnBoard";
-import SelfPlayPanel from "./SelfPlayPanel";
 import StabilityBadge from "./StabilityBadge";
 import { fetchArbiterTrace } from "../../lib/arbiterUtils";
 
@@ -97,10 +96,10 @@ export default function LearnView({
   cfg,
   colors,
   fontFamily,
+  setCenterView,
 }) {
   const { BG, BG2, BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
   const session = useLearnSession();
-  const [academyTab, setAcademyTab] = useState("play"); // "play" | "stress"
   const [mode, setMode] = useState("standard");
   const [userDeckId, setUserDeckId] = useState("");
   const [oppIds, setOppIds] = useState(["", "", ""]); // up to 3 opponents (Commander)
@@ -176,41 +175,30 @@ export default function LearnView({
           <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
             The Academy
             <StabilityBadge level="preview" title="Preview — the Academy is early and still being built out" />
-            <span style={{ display: "inline-flex", gap: 4, marginLeft: 6 }}>
-              {[
-                { key: "play", label: "Learn to Play" },
-                { key: "stress", label: "Stress Test" },
-              ].map((t) => {
-                const on = academyTab === t.key;
-                return (
-                  <button
-                    key={t.key}
-                    type="button"
-                    onClick={() => setAcademyTab(t.key)}
-                    style={{
-                      padding: "4px 12px",
-                      fontSize: 12,
-                      fontFamily,
-                      border: `1px solid ${on ? cfg?.border || GOLD : LINE}`,
-                      background: on ? cfg?.dim || BG2 : "transparent",
-                      color: on ? cfg?.color || GOLD : MUTED,
-                      borderRadius: 6,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {t.label}
-                  </button>
-                );
-              })}
-            </span>
           </span>
-          {session.status === "starting" && <span style={{ fontSize: 12, color: MUTED }}>starting…</span>}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+            {setCenterView && (
+              <button
+                type="button"
+                onClick={() => setCenterView("sim")}
+                title="The self-play stress test is now its own Sim Center section"
+                style={{
+                  padding: "4px 12px",
+                  fontSize: 12,
+                  fontFamily,
+                  border: `1px solid ${LINE}`,
+                  background: "transparent",
+                  color: MUTED,
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Stress test → Sim Center
+              </button>
+            )}
+            {session.status === "starting" && <span style={{ fontSize: 12, color: MUTED }}>starting…</span>}
+          </span>
         </header>
-        {academyTab === "stress" ? (
-          <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
-            <SelfPlayPanel savedDecks={savedDecks} cfg={cfg} colors={colors} fontFamily={fontFamily} />
-          </div>
-        ) : (
         <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
           <div style={{ maxWidth: 640, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
             <p style={{ fontSize: 14, color: TEXT, lineHeight: 1.5 }}>
@@ -356,7 +344,6 @@ export default function LearnView({
             )}
           </div>
         </div>
-        )}
       </div>
     );
   }

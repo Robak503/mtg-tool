@@ -25,6 +25,22 @@ function postReq(body) {
   });
 }
 
+function getReq(query = "") {
+  return new Request(`http://localhost/api/self-play${query}`);
+}
+
+// Silence the engine's verbose console during a run, then restore.
+async function runPost(body) {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const log = vi.spyOn(console, "log").mockImplementation(() => {});
+  try {
+    return await route.POST(postReq(body));
+  } finally {
+    warn.mockRestore();
+    log.mockRestore();
+  }
+}
+
 const dataDirPath = () => path.join(tmpDir, "data");
 
 // Build a deck-store entry whose cards already carry engine shape, so the route's
@@ -75,11 +91,7 @@ describe("/api/self-play", () => {
   });
 
   it("runs a commander pod, returns the report, and writes the .txt to disk", async () => {
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const log = vi.spyOn(console, "log").mockImplementation(() => {});
-    const resp = await route.POST(postReq({ deckIds: ["a", "b", "c", "d"], mode: "commander" }));
-    warn.mockRestore();
-    log.mockRestore();
+    const resp = await runPost({ deckIds: ["a", "b", "c", "d"], mode: "commander" });
 
     expect(resp.status).toBe(200);
     const body = await resp.json();
@@ -94,5 +106,88 @@ describe("/api/self-play", () => {
     const onDisk = await fs.readFile(path.join(dataDirPath(), "self-play", body.file), "utf8");
     expect(onDisk).toContain("MTG Tool — Self-Play Stress Test");
     expect(onDisk).toBe(body.report);
+  });
+
+  it("scope:pod trims a >4 selection to a single Commander table", async () => {
+    // Add a 5th deck so an all-pairings run would build 2 pods; pod scope → 1.
+    const decksFile = JSON.parse(await fs.readFile(path.join(dataDirPath(), "decks.local.json"), "utf8"));
+    decksFile.decks.push(shapedDeck("e", "Deck E"));
+    await fs.writeFile(path.join(dataDirPath(), "decks.local.json"), JSON.stringify(decksFile), "utf8");
+
+    const resp = await runPost({ deckIds: ["a", "b", "c", "d", "e"], mode: "commander", scope: "pod" });
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.games).toBe(1); // single pod, not two
+    expect(body.deckNames).toEqual(["Deck A", "Deck B", "Deck C", "Deck D"]);
+  });
+});
+
+describe("/api/self-play GET — deck picker + history + stats", () => {
+  it("lists the cross-profile deck picker (id/name/profile) by default", async () => {
+    const resp = await route.GET(getReq());
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(Array.isArray(body.decks)).toBe(true);
+    // No registry in this fixture → loadAllProfileDecks reads nothing, so the list
+    // is empty (honest: the picker only lists profile-registered decks). The shape
+    // is still correct, which is what the UI relies on.
+    expect(body).toHaveProperty("decks");
+  });
+
+  it("lists saved reports after a run, newest-first, with metadata", async () => {
+    const post = await runPost({ deckIds: ["a", "b", "c", "d"], mode: "commander" });
+    const { file } = await post.json();
+
+    const resp = await route.GET(getReq("?action=reports"));
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(Array.isArray(body.reports)).toBe(true);
+    const entry = body.reports.find((r) => r.file === file);
+    expect(entry).toBeTruthy();
+    expect(entry.mode).toBe("commander");
+    expect(entry.deckNames).toEqual(["Deck A", "Deck B", "Deck C", "Deck D"]);
+    expect(typeof entry.games).toBe("number");
+    expect(typeof entry.breakages).toBe("number");
+  });
+
+  it("reads one saved report verbatim via ?action=report&file", async () => {
+    const post = await runPost({ deckIds: ["a", "b", "c", "d"], mode: "commander" });
+    const { file, report } = await post.json();
+
+    const resp = await route.GET(getReq(`?action=report&file=${encodeURIComponent(file)}`));
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body.file).toBe(file);
+    expect(body.report).toBe(report);
+  });
+
+  it("rejects a path-traversal report file name", async () => {
+    const resp = await route.GET(getReq("?action=report&file=..%2F..%2Fsecret.txt"));
+    expect(resp.status).toBe(400);
+  });
+
+  it("404s an unknown report file", async () => {
+    const resp = await route.GET(getReq("?action=report&file=self-play-nope.txt"));
+    expect(resp.status).toBe(404);
+  });
+
+  it("reports zero banked-trajectory stats before any record run", async () => {
+    const resp = await route.GET(getReq("?action=stats"));
+    expect(resp.status).toBe(200);
+    const body = await resp.json();
+    expect(body).toEqual({ games: 0, rows: 0, files: 0 });
+  });
+
+  it("banks a trajectory JSONL when record:true and counts it in stats", async () => {
+    const post = await runPost({ deckIds: ["a", "b", "c", "d"], mode: "commander", record: true });
+    expect(post.status).toBe(200);
+    const body = await post.json();
+    // A completed pod yields labeled rows → a JSONL file is written.
+    expect(body.trajectoryFile).toMatch(/\.jsonl$/);
+    expect(body.trajectoryRows).toBeGreaterThan(0);
+
+    const stats = await (await route.GET(getReq("?action=stats"))).json();
+    expect(stats.files).toBe(1);
+    expect(stats.rows).toBe(body.trajectoryRows);
   });
 });

@@ -132,6 +132,38 @@ export async function loadAllProfileDecks() {
 }
 
 /**
+ * Cross-profile deck PICKER list — every deck across every profile reduced to the
+ * minimal shape the Sim Center's deck selector needs: `{ id, name, profile }`,
+ * where `profile` is the owning profile's display NAME (not its id). Built by
+ * joining loadAllProfileDecks() against the profiles registry's id→name map.
+ *
+ * Local-first + honest: reads only the on-disk registry + profile deck files (no
+ * network), and a deck whose profile is missing from the registry falls back to
+ * its raw profileId so it's never silently dropped from the list.
+ *
+ * @returns {Promise<Array<{ id: string, name: string, profile: string }>>}
+ */
+export async function listAllProfileDecks() {
+  // id → display name from the registry (best-effort; absence → fall back to id).
+  const nameById = new Map();
+  try {
+    const reg = JSON.parse(await fs.readFile(profilesRegistryPath(), "utf8"));
+    for (const p of Array.isArray(reg?.profiles) ? reg.profiles : []) {
+      if (p?.id) nameById.set(p.id, p.name || p.id);
+    }
+  } catch {
+    // no registry yet → every deck shows its raw profileId as the group label
+  }
+
+  const decks = await loadAllProfileDecks();
+  return decks.map((d) => ({
+    id: d.id,
+    name: d.name || d.id || "Untitled deck",
+    profile: nameById.get(d.profileId) || d.profileId || "Unknown",
+  }));
+}
+
+/**
  * Read the ACTIVE profile's decks.local.json (via profilePath, the same path
  * /api/decks uses) into raw deck-store entries. Returns [] when absent/unreadable.
  */

@@ -115,6 +115,14 @@ export default function Sidebar({
           <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700}}>The Academy</div><div style={{fontSize:10,opacity:.65}}>Learn to play · 1v1 &amp; 4P</div></div>
           <StabilityBadge level="preview" />
         </button>
+        <button
+          style={{width:"100%",padding:"8px 10px",borderRadius:6,border:`1px solid ${LINE}`,background:"transparent",color:MUTED,cursor:"pointer",textAlign:"left",fontFamily,display:"flex",alignItems:"center",gap:8}}
+          onClick={()=>{setCenterView("sim");if(mobile)setMobileTab("chat");}}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}} aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/><circle cx="7" cy="14" r="1"/><circle cx="17" cy="7" r="1"/></svg>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700}}>Sim Center</div><div style={{fontSize:10,opacity:.65}}>Self-play · stress test · data</div></div>
+          <StabilityBadge level="beta" />
+        </button>
       </div>
 
       <div>
