@@ -23,7 +23,7 @@
 ## 🔭 NOW: RESPONSIVE MODE (coverage frontier mined out)
 Coverage rounds 2-8 are done + shipped (v0.51.0). The tractable per-deck + clean-corpus levers are mined — further blind rounds would be diminishing one-offs or subsystem-blocked, so I've **stopped spawning coverage agents** (token discipline + the remaining work needs your prioritization, below). I'm now in **responsive mode**: every loop fire I check `COMMS.md` and fix anything Omnath's self-play surfaces (that's the high-value frontier now — his findings drove the counter-legality + phantom-mana fixes tonight), confirm releases published, and keep this report current. I'll resume proactive building the moment there's a clean lever, your go-ahead on a subsystem, or a new request.
 
-**Clean one-offs left on the table** (small, will pick up if asked): Yuriko's commander trigger (reveal→MV-drain), the compound deal-damage+gain-life shared-X corpus pattern (~6 cards).
+**✅ Yuriko's commander trigger now NATIVE** (master `0669085`, banks for v0.52.0) — the worst training deck's commander, reveal→mana-value-drain modeled faithfully (reused the roll-d20 mid-resolution-value precedent), flip-diff = exactly 1, 0 regressions. The last clean deck-value lever — so I'm now genuinely **idle-responsive**: watching COMMS for Omnath + awaiting your direction. The only remaining deferred one-off (compound deal-damage+gain-life shared-X, ~6 corpus cards, more invasive) and everything else (attended subsystems above) are better done with you steering — I won't spawn them blind.
 
 ---
 
