@@ -145,6 +145,54 @@ describe("atom fail-safes", () => {
   });
 });
 
+// SELF-DIES-RETURN (frontier round 4, the Phoenix shape) — "When this creature dies, return it to its owner's
+// hand." The creature DIED, so "it" (CR 608.2c) is the dead creature in its owner's graveyard — the SAME
+// graveyard→hand self-return the Aura-PiG / equipped-creature cases perform. Gated to the dies EVENT so a LIVE
+// self-bounce (Zephyr Spirit "When this creature blocks, return it…") is never mis-routed here.
+const PHOENIX_ORACLE = "Flying\nWhen this creature dies, return it to its owner's hand.";
+const phoenixCard = (id = "phx-card") => ({ id, name: "Shivan Phoenix", type: "Creature — Phoenix", oracle: PHOENIX_ORACLE });
+
+describe("SELF-DIES-RETURN (Phoenix shape)", () => {
+  it("'When this creature dies, return it…' → a dies self trigger, effect rewritten to the [self-return:self] marker", () => {
+    const [d] = detectTriggers(phoenixCard()).filter((t) => t.event === "dies");
+    expect(d).toMatchObject({ event: "dies", scope: "self" });
+    expect(d.effectClause).toBe("[self-return:self] return it to its owner's hand");
+  });
+
+  it("engine (CREED core) — the dead Phoenix goes from the graveyard back to its owner's HAND, exactly once", () => {
+    let s = baseState();
+    const phx = createPermanent({ id: "phx", card: { ...phoenixCard(), power: 6, toughness: 6 }, controller: "user", summoningSick: false });
+    s = withBattlefield(s, "user", [phx]);
+    s = markLethal(s, "user", "phx");
+
+    const lethal = destroyLethalCreatures(s);
+    s = checkDiesTriggers(lethal.state, lethal.dead);
+    expect(s.players.user.graveyard.map((c) => c.name)).toContain("Shivan Phoenix"); // in GY pre-resolution
+
+    s = resolveAll(s);
+    expect(s.players.user.hand.map((c) => c.name)).toEqual(["Shivan Phoenix"]);            // returned to OWNER's hand
+    expect(s.players.user.graveyard.map((c) => c.name)).not.toContain("Shivan Phoenix");   // not left in / duplicated
+    expect(s.players.user.battlefield.find((p) => p.id === "phx")).toBeFalsy();            // not back on the battlefield
+  });
+
+  it("coverage — the Phoenix shape classifies native-trigger", () => {
+    expect(classifyCard(phoenixCard())).toBe("native-trigger");
+    // a no-keyword variant (Mortus Strider) too
+    expect(classifyCard({ name: "Mortus Strider", type: "Creature — Spirit", oracle: "When this creature dies, return it to its owner's hand." })).toBe("native-trigger");
+  });
+
+  it("CREED anti-FP — a LIVE self-bounce on a NON-dies event (Zephyr Spirit 'blocks') is NOT rewritten and stays body-only", () => {
+    const [d] = detectTriggers({ name: "Zephyr Spirit", type: "Creature — Spirit", oracle: "When this creature blocks, return it to its owner's hand." });
+    expect(d.event).toBe("blocks");
+    expect(d.effectClause).toBe("return it to its owner's hand");   // NOT the [self-return:self] marker
+    expect(classifyCard({ name: "Zephyr Spirit", type: "Creature — Spirit", oracle: "When this creature blocks, return it to its owner's hand." })).toBe("body-only");
+  });
+
+  it("CREED anti-FP — a RIDER on the dies-return ('…then draw a card') leaves residue → body-only", () => {
+    expect(classifyCard({ name: "Rider Phoenix", type: "Creature — Phoenix", oracle: "When this creature dies, return it to its owner's hand, then draw a card." })).toBe("body-only");
+  });
+});
+
 describe("coverage", () => {
   it("Rancor classifies native-aura (the PiG clause is now modeled, not residue)", () => {
     expect(classifyCard({ name: "Rancor", type: "Enchantment — Aura", oracle: RANCOR_ORACLE })).toBe("native-aura");

@@ -1222,6 +1222,24 @@ export function detectTriggers(card) {
         // as the pump (a NON-self trigger's "it" is the OTHER triggering creature, never the source) +
         // the whole-clause anchor, so the parser's self-counter atom (target:"self") models it.
         effectClause = effectClause.replace(/ on it$/i, " on this creature");
+      } else if (cls.event === "dies" && cls.scope === "self" && SELF_RETURN_IT_RE.test(effectClause)) {
+        // SELF-DIES-RETURN (frontier round 4, the Phoenix shape) — "When this creature dies, return it to its
+        // owner's hand." (Shivan Phoenix, Immortal Phoenix, Mortus Strider, Weatherseed Treefolk). The
+        // creature DIED, so "it" (CR 608.2c — the object the ability triggered on) is the dead creature, now
+        // sitting in its owner's graveyard — exactly the graveyard→hand self-return the applySelfReturn
+        // resolver already performs for the Aura-PiG / equipped-creature-dies cases (it reads ctx.triggering-
+        // CardId + ctx.triggeringController, which checkDiesTriggers threads as the DEAD creature). So reuse
+        // the SAME kind-tagged marker as "self".
+        //
+        // CRITICAL GATE — event === "dies": a self-scope "return it" on a LIVE event (Zephyr Spirit's "When
+        // this creature BLOCKS, return it to its owner's hand"; an attacks-trigger) is a battlefield→hand
+        // BOUNCE (the creature is still on the battlefield), NOT a graveyard return — routing THAT here would
+        // look for the card in the graveyard and no-op (a dropped clause, a forbidden FP). Restricting to the
+        // dies event (the only self event where the source is already in the graveyard) keeps this correct;
+        // the live self-bounce stays unrewritten → LOW → Arbiter (a SAFE false-negative). The whole-clause
+        // SELF_RETURN_IT_RE anchor ($) means a rider on the return ("…tapped", "…then draw") never matches →
+        // body-only (CREED all-or-nothing).
+        effectClause = `[self-return:self] ${effectClause}`;
       } else if (cls.selfReturnKind && SELF_RETURN_IT_RE.test(effectClause)) {
         // SELF-LTB (Wave 4) — "return it to its owner's hand" where the returned object has ALREADY LEFT the
         // battlefield (it's in a graveyard): the Aura self-PiG-return (Rancor — "it" = the Aura) or the

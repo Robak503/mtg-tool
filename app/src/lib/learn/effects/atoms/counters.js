@@ -321,15 +321,23 @@ export function applyAddNamedCounterSelf(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "add-named-counter-self", counterType: atom.counterType, amount: atom.amount || 1, targets: [ctx.sourceId] });
 }
 
-// ADD-NAMED-COUNTER-SELF parser — "put a <name> counter on this (artifact|permanent)". Anchored end-to-end;
-// the counter NAME must be a single bare word that is NOT a ±1/+1 form (those are owned by addCounterClauseParser
-// above and route to the creature-only self path). Numeric/spelled N supported. A different subject ("on this
-// creature" → addCounter), a filter, or a rider → no match → low → Arbiter (a SAFE false-negative). This is the
-// piece that makes Door of Destinies' "Whenever you cast a spell of the chosen type, put a charge counter on
-// this artifact" trigger resolve natively. Pure. Registered via registerClauseParser.
+// ADD-NAMED-COUNTER-SELF parser — "put a <name> counter on this (artifact|permanent|creature)". Anchored
+// end-to-end; the counter NAME must be a single bare word that is NOT a ±1/+1 form (those are owned by
+// addCounterClauseParser above and route to the creature-only self path). Numeric/spelled N supported.
+//
+// SELF-NAMED-CREATURE (frontier round 4): a creature self-counter — "put a spore counter on this creature"
+// (the Thallid upkeep, CR 122.1; Door of Destinies' "this artifact" is the same atom). The ±1/+1 self form
+// stays on addCounter (target:"self", which runs the lethal-SBA / doubler / counters-placed-watcher passes
+// a ±1/+1 needs); a NAMED counter is never a P/T counter, so applyAddNamedCounterSelf (sourceId, any
+// permanent type — the resolver already creature-agnostic) is exactly right and needs no SBA pass. Adding
+// "creature" here only routes the named (non-±1/+1) form, so it can never steal a ±1/+1 self clause from
+// addCounter (the [a-z]+ NAME never matches "+1/+1", belt-and-suspenders below). A filter / rider / "on this
+// creature for each …" → no match → low → Arbiter (a SAFE false-negative). Pure. Registered via
+// registerClauseParser. This is the piece that makes "At the beginning of your upkeep, put a spore counter on
+// this creature" (Thallid) — and Door of Destinies' charge-counter cast trigger — resolve natively.
 export function addNamedCounterSelfClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
-  const m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on this (?:artifact|permanent)$/);
+  const m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([a-z]+) counters? on this (?:artifact|permanent|creature)$/);
   if (!m) return null;
   // ±1/+1 forms are spelled with digits + slash and never match [a-z]+; this guard is belt-and-suspenders.
   if (/^[+-]?1\/[+-]?1$/.test(m[2])) return null;
