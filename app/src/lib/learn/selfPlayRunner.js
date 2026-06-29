@@ -356,6 +356,18 @@ export function runSelfPlayGame({
   const isCleanResult = result === "user-wins" || result === "ai-wins" || result === "draw";
   const trainingWeight = isCleanResult ? 1 : 0;
 
+  // The winning engine seat (CR 104.2a) from the SAME gameStatus the play-API exposes — computed
+  // ONCE so the top-level result and the decisionTrajectory summary can't drift (Omnath FYI #1: the
+  // top-level winnerSeat was absent, surfacing as "(none)", while decisionTrajectory carried it).
+  // null on a draw/timeout/non-completion.
+  const winnerSeat = (() => {
+    try {
+      return gameStatus(out.state)?.winnerSeat ?? null;
+    } catch {
+      return null; // a non-terminal/edge state ⇒ no winner; never a throw that aborts the run
+    }
+  })();
+
   const base = {
     result,
     status: out.status,
@@ -365,6 +377,8 @@ export function runSelfPlayGame({
     log,
     meta,
     trainingWeight,
+    // The winning engine seat (or null) — top-level so callers don't have to dig into decisionTrajectory.
+    winnerSeat,
     // The seat that was ON THE PLAY (CR 103.7a). Read off the engine's stamped startingPlayer —
     // its own source of truth — so training/analysis can account for the position edge. "user"
     // on the default path; whatever startSeat requested otherwise.
@@ -378,17 +392,10 @@ export function runSelfPlayGame({
   // timeout/non-completion — a forced-timeout game yields rows with weight 0, never a
   // fabricated W/L. Rows are append-only with stably-serialized actions (no engine handle).
   if (recordDecisions) {
-    const winnerSeat = (() => {
-      try {
-        return gameStatus(out.state)?.winnerSeat ?? null;
-      } catch {
-        return null; // a non-terminal/edge state ⇒ no winner; never a throw that aborts the run
-      }
-    })();
     // Pre-game London mulligan decisions (turn 0, captured at game start) lead the row stream,
     // followed by the in-game enumerated decisions — one continuous per-decision policy trace.
-    // onThePlay rides in the summary so policy analysis can de-bias for the position edge.
-    base.decisionTrajectory = { mode, result, winnerSeat, trainingWeight, onThePlay: base.onThePlay, rows: [...mulliganRows, ...decisionRows] };
+    // winnerSeat/onThePlay reuse the top-level values (computed above) so the summary can't drift.
+    base.decisionTrajectory = { mode, result, winnerSeat: base.winnerSeat, trainingWeight, onThePlay: base.onThePlay, rows: [...mulliganRows, ...decisionRows] };
   }
 
   if (!recordTrajectory) return base;

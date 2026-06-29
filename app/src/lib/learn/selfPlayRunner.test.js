@@ -437,6 +437,24 @@ describe("runSelfPlayGame startSeat (CR 103.7a — who is on the play)", () => {
     expect(firstDraw.player).toBe("ai2");
     expect(firstDraw.skipped).toBe("first-turn-draw");
   });
+
+  it("exposes winnerSeat at the top level, consistent with decisionTrajectory (Omnath FYI #1)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const game = runSelfPlayGame({ deckA: aggroDeck("u"), deckB: aggroDeck("a"), mode: "standard", seed: 7, timePressure: true, recordDecisions: true });
+    warn.mockRestore();
+    log.mockRestore();
+    // winnerSeat is now a first-class field on the result (was absent → surfaced as "(none)").
+    expect("winnerSeat" in game).toBe(true);
+    // …and never drifts from the decisionTrajectory summary (single source).
+    expect(game.winnerSeat).toBe(game.decisionTrajectory.winnerSeat);
+    // a decisive result names a seat; a draw/timeout is null.
+    if (game.result === "user-wins" || game.result === "ai-wins") {
+      expect(game.winnerSeat).not.toBeNull();
+    } else {
+      expect(game.winnerSeat).toBeNull();
+    }
+  });
 });
 
 describe("runSelfPlayBatch alternateStart — balanced, deterministic seating", () => {
