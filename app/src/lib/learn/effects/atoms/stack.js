@@ -4,9 +4,9 @@
  */
 
 import { applyDamageEffect } from "../../spellEffects.js";
-import { logEvent, attachPermanent } from "../../gameState.js";
+import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf } from "../../gameState.js";
 import { setPendingSoftCounterChoice } from "../../pendingChoice.js";
-import { resolveScaledAmount, countForSpec } from "./shared.js";
+import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
 
@@ -308,7 +308,43 @@ export function massFilteredDamageClauseParser(clause) {
   return null;
 }
 
+/**
+ * ===== SOURCE-POWER-FANOUT (Chandra's Ignition, CR 701) ===== the CHOSEN target creature (you control) deals
+ * damage equal to ITS layer-aware power to each OTHER creature (every creature on every battlefield except the
+ * source) AND each opponent. All the damage is dealt by the source simultaneously, so it's ONE applyDamageEffect
+ * call with the fan-out target list + source:{id:sourceCreatureId} (so a source-scoped damage doubler / infect
+ * / wither on the chosen creature applies through the shared primitive, identical to every other damage atom).
+ * The source's power is read BEFORE the damage (CR 608.2h — locked as the effect resolves); a source that left
+ * the battlefield between cast and resolution, or a non-creature target, is a clean no-op (no fabricated damage).
+ * The source EXCLUDES itself from the creature set ("each OTHER creature", CR 113.7) but still hits opponents.
+ */
+function applySourcePowerFanout(state, atom, ctx) {
+  // The chosen target creature is the damage source (a single creature you control — the parser's
+  // targetType:"creature" + controller:you restriction; the cast/flush path binds exactly one).
+  const chosen = (ctx.targets || []).find((t) => t.type === "creature");
+  const lk = chosen?.id ? findPermanent(state, chosen.id) : null;
+  if (!lk || !isCreatureCard(lk.permanent.card)) {
+    return logEvent(state, { kind: "spell-effect", effect: "source-power-fanout", controller: ctx.controller, amount: 0 });
+  }
+  const sourceId = chosen.id;
+  const amount = Math.max(0, creaturePower(lk.permanent, state)); // CR 608.2h — locked at resolution
+  // Fan-out targets: every OTHER creature on every battlefield (exclude the source), then every opponent.
+  const targets = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const perm of (state.players[pid].battlefield || [])) {
+      if (perm.id !== sourceId && isCreatureCard(perm.card)) targets.push({ type: "creature", id: perm.id });
+    }
+  }
+  for (const opp of opponentsOf(state, ctx.controller)) {
+    if (state.players[opp]) targets.push({ type: "player", id: opp });
+  }
+  // ONE damage event from the source (CR — dealt simultaneously). source:{id} threads the source-scoped
+  // damage-replacement / infect / wither hook, exactly like every other deal-damage atom.
+  return applyDamageEffect(state, { controller: ctx.controller, amount, targets, source: { id: sourceId } });
+}
+
 export const stackResolvers = {
+  "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent
   "deal-damage": (state, atom, ctx) =>
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an
     // infect/wither source's non-combat damage routes to -1/-1 counters / poison in applyDamageEffect.

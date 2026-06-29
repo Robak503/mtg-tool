@@ -777,8 +777,59 @@ export function animateClauseParser(clause) {
   return null;
 }
 
+/**
+ * ===== SET-BASE-PT-TEAM (Biomass Mutation) ===== "Creatures you control have base power and toughness X/X
+ * until end of turn." A layer-7b base-P/T SET (CR 613.4b — overwrites base P/T, BELOW +1/+1 counters in 7c
+ * and switches in 7d) applied to EVERY creature the controller controls, value = the chosen X (ctx.xValue).
+ * The set is per-creature fixed AT RESOLUTION (CR 611.2c — the affected set is locked when the one-shot
+ * begins, not re-evaluated as creatures enter later), so it mirrors the team-pump gatherer. endOfTurn → worn
+ * off at cleanup (CR 514.2). A 0/0 set (X=0) drops every creature's toughness to 0 → the lethal SBA wipes the
+ * controller's board (CR 704.5f) — faithful (Biomass Mutation for X=0 is a one-sided board wipe). Reuses the
+ * SAME layer machinery + lethal SBA as applyAnimateEffect's 7b set.
+ */
+export function applySetBasePtTeam(state, atom, ctx) {
+  let next = state;
+  const value = Math.max(0, atom.amountX ? (ctx.xValue || 0) : (atom.value || 0));
+  const player = next.players?.[ctx.controller];
+  if (!player) return next;
+  // The controller's creatures, locked at resolution (CR 611.2c). Read the type line directly (a base-P/T set
+  // hits every creature you control — no subtype/other filter for the modeled forms).
+  const targets = (player.battlefield || []).filter((perm) => /\bCreature\b/.test(typeLineStr(perm.card))).map((perm) => perm.id);
+  const src = { kind: "resolution", permanentId: null, cardName: ctx.cardName || null };
+  const dur = () => ({ kind: "endOfTurn", turn: next.turn });
+  for (const id of targets) {
+    next = addContinuousEffect(next, {
+      layer: 7, sublayer: "7b",
+      op: { layerOp: "ptSet", power: value, toughness: value },
+      affects: { mode: "fixed", permanentIds: [id] },
+      duration: dur(), source: src,
+    }).state;
+  }
+  // A 0/0 set (X=0) is lethal → run the SBA so those creatures die at resolution (CR 704.5f), mirroring pump/animate.
+  const lethal = destroyLethalCreatures(next);
+  next = checkDiesTriggers(lethal.state, lethal.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "set-base-pt-team", value, targets });
+}
+
+/**
+ * SET-BASE-PT-TEAM clause parser — "creatures you control have base power and toughness X/X until end of turn"
+ * (Biomass Mutation). The {X} cost spell's chosen X sets every controlled creature's base P/T (layer 7b). Only
+ * the X/X form is modeled (a literal "N/N" team base-set is a fast-follow, not in the breakage set); a filter
+ * ("nonland creatures you control"), a different scope, or a rider fails the `$` anchor → null → low → Arbiter
+ * (CREED). hasX-gated by the caller (the clause carries the literal "x/x"). Pure. Registered via registerClauseParser.
+ */
+export function setBasePtTeamClauseParser(clause, ctx = {}) {
+  if (!ctx.hasX) return null; // only an {X}-cost spell sets X/X here (the literal "x/x" comes from the cost)
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  if (/^creatures you control have base power and toughness x\/x until end of turn$/.test(t)) {
+    return { op: "set-base-pt-team", scope: "youControl", amountX: true };
+  }
+  return null;
+}
+
 export const combatResolvers = {
   "fight": fightCreature, // ETB-FIGHT (CR 701.12) — source + target creature deal damage = power to each other, simultaneously
+  "set-base-pt-team": applySetBasePtTeam, // SET-BASE-PT-TEAM (Biomass Mutation) — team layer-7b base-P/T set to X/X until end of turn
   "pump": (state, atom, ctx) => applyPumpEffect(state, atom, ctx),
   "animate": (state, atom, ctx) => applyAnimateEffect(state, atom, ctx),
   "earthbend": applyEarthbend, // EARTHBEND N (Toph) — permanently animate a land you control + N +1/+1 counters

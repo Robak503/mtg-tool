@@ -1373,10 +1373,16 @@ describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + AD
     // Reckoner's Bargain — gain life equal to the sacrificed creature's toughness.
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice a creature.\nDraw two cards, then you gain life equal to the sacrificed creature's toughness.")))).toBe("low");
   });
-  it("MUST DROP TO LOW: an unmodeled cost shape (count / compound type / 'another') is NOT stripped", () => {
+  it("MUST DROP TO LOW: an unmodeled cost shape (count / 'another') is NOT stripped", () => {
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice two creatures.\nDraw two cards.")))).toBe("low");
-    expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice an artifact or creature.\nDraw a card.")))).toBe("low");
     expect(programConfidence(parseEffectProgram(I("As an additional cost to cast this spell, sacrifice another creature.\nDraw a card.")))).toBe("low");
+  });
+  it("ADDCOST-1 union MUST STAY HIGH: 'sacrifice an artifact or creature' is modeled (Deadly Dispute / Costly Plunder)", () => {
+    // The "artifact or creature" union sac cost is enforced as one sacType ("artifactOrCreature"); a victim
+    // matching EITHER type pays it (legalChoices.sacTypeMatches). The effect (Draw a card) is modeled → HIGH.
+    const p = parseEffectProgram(I("As an additional cost to cast this spell, sacrifice an artifact or creature.\nDraw a card."));
+    expect(programConfidence(p)).toBe("high");
+    expect(p.additionalCosts).toEqual([{ kind: "sacrifice", sacType: "artifactOrCreature" }]);
   });
   it("ADDCOST-2 MUST STAY HIGH: discard-a-card + pay-N-life costs parse HIGH with the right cost descriptor", () => {
     // Thrill of Possibility — discard a card, draw two.

@@ -138,7 +138,34 @@ export function lifeClauseParser(clause) {
   return null;
 }
 
+/**
+ * ===== DRAIN-X (Exsanguinate) ===== "Each opponent loses X life. You gain life equal to the life lost this
+ * way." (CR 118.10) — each opponent loses the chosen X (ctx.xValue), and the controller gains the SUM of life
+ * ACTUALLY lost. "Life lost this way" counts the full amount each player lost regardless of going below 0
+ * (CR 118.10 — losing 5 from 2 life is still 5 life lost), so the gain = X × (number of opponents who were
+ * present to lose). Computed from the loss applied (X per living opponent), so an eliminated/missing opponent
+ * contributes nothing (a clean count, never fabricated). Fires each opponent's life-loss path (loseLife) and
+ * the controller's lifegain triggers on the total. X=0 (cast for free / X chosen 0) drains nothing and gains
+ * nothing (CR 107.3). The amount comes ONLY from amountX → ctx.xValue (the matcher is X-gated); no fixed form.
+ */
+export function applyDrainEachOpponent(state, atom, ctx) {
+  let next = state;
+  const per = Math.max(0, atom.amountX ? (ctx.xValue || 0) : (atom.amount || 0));
+  let lost = 0;
+  for (const opp of opponentsOf(next, ctx.controller)) {
+    if (!next.players[opp]) continue;
+    next = loseLife(next, { playerId: opp, amount: per });
+    lost += per; // CR 118.10 — life lost is the full amount, even past 0
+  }
+  if (lost > 0) {
+    next = gainLife(next, { playerId: ctx.controller, amount: lost });
+    next = checkLifegainTriggers(next, ctx.controller, lost); // CR 119.3 — the controller's "whenever you gain life"
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "drain-each-opponent", controller: ctx.controller, per, lost });
+}
+
 export const lifeResolvers = {
   "gain-life": applyGainLife,
   "lose-life": applyLoseLife,
+  "drain-each-opponent": applyDrainEachOpponent, // DRAIN-X (Exsanguinate) — each opp loses X, you gain the total drained
 };

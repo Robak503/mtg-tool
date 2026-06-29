@@ -47,7 +47,7 @@ import { sacrificeEdictClauseParser, destroyExileClauseParser } from "./atoms/re
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
 import { SMALL_NUM, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); SMALL_NUM (cdmg rad) + parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; NUM_WORD/parseCountSource now only inside migrated clause parsers (batch 23/26)
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
-import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT
+import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
 import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE
@@ -457,6 +457,17 @@ function splitClauses(oracle) {
     // one mass-destroy target, not a top-level effect boundary. Keep the whole sentence so the recognizer
     // binds the combined eachArtifactOrEnchantment scope. Anchored to the exact bare form.
     if (/^destroy all artifacts and enchantments$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // SOURCE-POWER-FANOUT (Chandra's Ignition) — "target creature you control deals damage equal to its power
+    // to each other creature and each opponent": the " and " between "each other creature" and "each opponent"
+    // is INTERNAL to the one fan-out target, NOT a top-level effect boundary. Keep the whole sentence so
+    // parseClauseToAtom binds the combined fan-out (the SOURCE-POWER-FANOUT matcher). Anchored to the exact
+    // bare form (a rider/qualifier doesn't match → splits → low → Arbiter, FN-safe).
+    if (/^target creature you control deals damage equal to its power to each other creature and each opponent$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // SET-BASE-PT-TEAM (Biomass Mutation) — "creatures you control have base power and toughness X/X until end
+    // of turn": the " and " inside "base power and toughness" is INTERNAL to the one base-P/T-set instruction,
+    // NOT a top-level effect boundary. Keep the whole sentence so setBasePtTeamClauseParser binds it (else it
+    // shatters into "…base power" + "toughness X/X…" → low). Anchored to the exact X/X form.
+    if (/^creatures you control have base power and toughness x\/x until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split
@@ -865,6 +876,22 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     };
   }
 
+  // ===== SOURCE-POWER-FANOUT (Chandra's Ignition) ===== "Target creature you control deals damage equal to
+  // its power to each other creature and each opponent." The CHOSEN target creature (you control) is the
+  // damage SOURCE; the amount is THAT creature's layer-aware power at resolution; the damage fans out to every
+  // OTHER creature on every battlefield (excluding the source — "each other creature") AND every opponent (CR
+  // — "each opponent"). One chosen target (the source) + an auto fan-out, so targetType:"creature" (a chosen
+  // target) with the controller:you restriction; the resolver reads the chosen creature's power and hits the
+  // rest. Whole-clause anchored ($) — a "creature you control" only (Chandra targets your own creature); a
+  // rider / a different scope ("each other creature and each player", "any target") leaves residue → no match
+  // → low → Arbiter (CREED — never a mis-scoped or fixed-amount fan-out).
+  {
+    const fo = s.toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "");
+    if (/^target creature you control deals damage equal to its power to each other creature and each opponent$/.test(fo)) {
+      return { op: "source-power-fanout", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+    }
+  }
+
   // Extended atoms (anchored ALLOWLIST) before the legacy parse.
   const ext = parseExtendedAtom(s);
   if (ext && KNOWN.has(ext.op)) return ext;
@@ -1199,7 +1226,10 @@ function matchChooseTypeDraw(oracle) {
 // creature or artifact"), or "another" (a spell has no source permanent to exclude) doesn't match → the
 // sentence is left in place → the card stays LOW.
 const ADDITIONAL_COST_RE = /\bas an additional cost to cast this spell,\s*([^.]+)\.\s*/i;
-const SAC_COST_RE = /^sacrifice (?:a|an) (creature|permanent|artifact|enchantment|land)$/i;
+// ADDCOST-1 sac victims — single types PLUS the "artifact or creature" UNION (Deadly Dispute, Deadly
+// Dispute-style "sacrifice an artifact or creature"). The union is enforced as one sacType key
+// ("artifactOrCreature"); legalChoices.sacTypeMatches offers a victim matching EITHER type.
+const SAC_COST_RE = /^sacrifice (?:a|an) (artifact or creature|creature or artifact|creature|permanent|artifact|enchantment|land)$/i;
 const PAYLIFE_COST_RE = /^pay (\d+) life$/i;                        // ADDCOST-2 — no-choice life cost
 const DISCARD_COST_RE = /^discard (?:a|an|one) card$/i;             // ADDCOST-2 — N=1 only ("two cards"/"X cards"/"your hand" deferred)
 const SUPPORTED_ADDITIONAL_COST_KINDS = new Set(["sacrifice", "payLife", "discard"]);
@@ -1222,7 +1252,13 @@ function extractAdditionalCosts(oracle) {
   const life = PAYLIFE_COST_RE.exec(phrase);
   const disc = DISCARD_COST_RE.exec(phrase);
   let cost, selfRef = null;
-  if (sac) { cost = { kind: "sacrifice", sacType: sac[1].toLowerCase() }; selfRef = /\bsacrificed\b/i; }
+  if (sac) {
+    // Canonicalize the "artifact or creature" / "creature or artifact" union to one sacType key.
+    const raw = sac[1].toLowerCase();
+    const sacType = (raw === "artifact or creature" || raw === "creature or artifact") ? "artifactOrCreature" : raw;
+    cost = { kind: "sacrifice", sacType };
+    selfRef = /\bsacrificed\b/i;
+  }
   else if (life) { cost = { kind: "payLife", amount: parseInt(life[1], 10) }; }       // no-choice: deduct N at cast
   else if (disc) { cost = { kind: "discard", count: 1 }; selfRef = /\bdiscarded\b/i; } // N=1; "two cards"/X deferred
   else return { costs: null, rest: oracle };                   // unmodeled cost-type / count / compound → LOW
@@ -1326,6 +1362,40 @@ function matchDiesGainDrawByPower(oracle) {
     { op: "gain-life", countContext: "dyingPower", targetType: null },
     { op: "draw", countContext: "dyingPower", targetType: null },
   ] };
+}
+
+/**
+ * ===== DRAIN-X (Exsanguinate / Gray Merchant-style life swing) ===== "Each opponent loses X life. You gain
+ * life equal to the life lost this way." — the SECOND sentence's amount is the SUM of life actually lost by
+ * the first (CR 118.10 — "this way"), so the top-level sentence split would shatter it into ["each opponent
+ * loses X life" (→ lose-life eachOpponent), "you gain life equal to the life lost this way" (an UNMODELED
+ * referent)], silently dropping the linked lifegain — a forbidden partial. Collapse the whole compound up
+ * front to ONE `drain-each-opponent` atom: the resolver loses X (= ctx.xValue, an {X} spell) from each
+ * opponent AND gains the total it actually drained. Only the X-cost form (amountX) is matched here; a FIXED-N
+ * "each opponent loses 3 life. You gain that much life." is a fast-follow (not in the breakage set). Anchored
+ * ^…$ on the two-sentence shape (a trailing rider leaves residue → no match → low → Arbiter). Returns { atom }.
+ * Gated to hasX by the caller so a non-X spell never reaches this (an absent X would drain 0 — a clean no-op).
+ */
+function matchDrainEachOpponentX(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/\s+/g, " ");
+  if (!/^each opponent loses x life\. you gain life equal to the life lost this way\.?$/.test(s)) return null;
+  return { atom: { op: "drain-each-opponent", amountX: true, targetType: null } };
+}
+
+/**
+ * ===== BLOOD-MONEY (mass destroy + Treasure-per-nontoken-destroyed) ===== "Destroy all creatures. For each
+ * nontoken creature destroyed this way, you create a tapped Treasure token." The second sentence's count
+ * ("destroyed this way") is the set the FIRST destroyed — a back-reference the top-level sentence split would
+ * shatter (the "for each … destroyed this way" half has no standalone count source), silently dropping the
+ * Treasures. Collapse the whole compound up front to ONE mass-destroy-treasure-per-nontoken atom: the resolver
+ * wipes the board (shared destroy) and creates one tapped Treasure per nontoken creature it actually destroyed.
+ * Anchored ^…$ on the exact two-sentence shape (a "can't be regenerated" rider would be stripped upstream; any
+ * other rider leaves residue → no match → low → Arbiter, CREED). Returns { atom }.
+ */
+function matchMassDestroyTreasurePerNontoken(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/\s+/g, " ").replace(/\.$/, "");
+  if (!/^destroy all creatures\. for each nontoken creature destroyed this way, you create a tapped treasure token$/.test(s)) return null;
+  return { atom: { op: "mass-destroy-treasure-per-nontoken", targetType: "eachCreature" } };
 }
 
 /**
@@ -1453,6 +1523,23 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const dgd = matchDiesGainDrawByPower(oracle);
   if (dgd && dgd.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: dgd.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== DRAIN-X (Exsanguinate) ===== "Each opponent loses X life. You gain life equal to the life lost this
+  // way." → ONE drain-each-opponent atom (the lifegain is the actual total drained, computed at resolution).
+  // Gated to an {X}-cost spell (the matcher requires the literal "X"). xSpell:true so the cast path enumerates X.
+  if (hasX) {
+    const drx = matchDrainEachOpponentX(oracle);
+    if (drx && KNOWN.has(drx.atom.op)) {
+      return makeProgram({ confidence: "high", atoms: [drx.atom], xSpell: true, unparsedTail: null });
+    }
+  }
+  // ===== BLOOD-MONEY ===== "Destroy all creatures. For each nontoken creature destroyed this way, you create a
+  // tapped Treasure token." → ONE mass-destroy-treasure-per-nontoken atom (the Treasure count is the nontoken
+  // creatures actually destroyed, computed at resolution). The "can't be regenerated" rider (none on Blood
+  // Money) is already stripped above; the atom inherits no cannotRegenerate. Not an X spell.
+  const bm = matchMassDestroyTreasurePerNontoken(oracle);
+  if (bm && KNOWN.has(bm.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [bm.atom], xSpell: false, unparsedTail: null });
   }
   // ===== REFLEXIVE TRIGGER (CR 603.7) ===== "<primary>. When you do, <reflexive>." — fold the reflexive as
   // the sequential tail of the (mandatory, always-firing) primary. matchReflexiveTrigger applies every CREED
@@ -1752,6 +1839,12 @@ export function atomTargetIntent(atom) {
       return tt === "opponent" ? "enemy" : "ambiguous";
     case "pump":
       return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
+    case "source-power-fanout":
+      // SOURCE-POWER-FANOUT (Chandra's Ignition) — the CHOSEN target is "creature YOU CONTROL" (the damage
+      // source); the harmful fan-out hits OTHER creatures + opponents automatically. So the chosen target is
+      // own-side (you point it at your own biggest creature). No fanout card is a trigger today; this future-
+      // proofs the trigger-flush chooser to pick the controller's own creature, never an enemy's.
+      return "own";
     case "add-counter":
       // COUNTER-TARGET-OWN: "you control" restriction overrides the counterType heuristic so that
       // Baleful Ammit's "-1/-1 on target creature you control" still picks the controller's own creature
@@ -1848,7 +1941,9 @@ export function programContainsMassRemoval(program) {
   const atoms = program.structure === "modal"
     ? (program.modal?.modes || []).flatMap(m => m.atoms || [])
     : (program.atoms || []);
-  return atoms.some(a => MASS_WIPE_SCOPES.has(a.targetType) && ["destroy", "exile", "pump"].includes(a.op));
+  // BLOOD-MONEY — mass-destroy-treasure-per-nontoken is a symmetric board wipe too (it destroys all creatures);
+  // include it so the AI HOLDS it like Wrath (the Treasure upside doesn't make a blind self-wipe a good play).
+  return atoms.some(a => MASS_WIPE_SCOPES.has(a.targetType) && ["destroy", "exile", "pump", "mass-destroy-treasure-per-nontoken"].includes(a.op));
 }
 
 /**
@@ -1943,6 +2038,7 @@ registerClauseParser(combatKeywordClauseParser);
 // atoms/combat.pumpClauseParser; branch order preserved. program-diff = 0 (gate-verified).
 registerClauseParser(pumpClauseParser);
 registerClauseParser(groupGrantClauseParser); // GROUP-KEYWORD-GRANT — "(creatures|permanents) you control gain KW until end of turn"
+registerClauseParser(setBasePtTeamClauseParser); // SET-BASE-PT-TEAM (Biomass Mutation) — "creatures you control have base power and toughness X/X until end of turn"
 // ANIMATE (seam batch 14 / Wave C) — WALT-ANIMATE (target land) + man-land self-animate migrated to
 // atoms/combat.animateClauseParser (2 adjacent blocks, order preserved; inline COLOR helpers travel; uses the
 // parseGrantedKeywords leaf). The "land becomes a N/N … creature" clauses match no earlier registered parser

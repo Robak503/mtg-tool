@@ -35,11 +35,23 @@ export const isLandCard = (card) => /\bLand\b/.test(typeLineStr(card));
  * targeted spell uses, so dies-triggers fire once for the simultaneous deaths (CR 700.4 /
  * 603.10a captured pre-move in applyDestroyEffect; one lethal SBA in applyPumpEffect).
  */
-export function massCreatureTargets(state) {
+export function massCreatureTargets(state, opts = {}) {
+  // CRUX — an optional creature-SUBTYPE filter ("destroy all Dragon creatures" / "all non-Dragon creatures",
+  // Crux of Fate). A creature subtype is a proper noun that appears verbatim ONLY in the subtype portion of a
+  // type line ("Creature — Dragon"), so a word-bounded, case-insensitive containment test selects exactly the
+  // subtyped creatures (CR 205.3m; mirrors creatureSatisfiesRestrictions' subtype branch). `subtypeNegate`
+  // flips it to "every creature that is NOT that subtype". The subtype comes from the curated parser allowlist,
+  // so it's a real, collision-free MTG subtype — pure type-line read (no state), so this stays a strict leaf.
+  const subRe = opts.subtypeFilter ? new RegExp(`\\b${String(opts.subtypeFilter).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
   const out = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
-      if (isCreatureCard(perm.card)) out.push({ type: "creature", id: perm.id, controller: pid });
+      if (!isCreatureCard(perm.card)) continue;
+      if (subRe) {
+        const has = subRe.test(typeLineStr(perm.card).split(" // ")[0]); // front face only (CR 712.4a)
+        if (opts.subtypeNegate ? has : !has) continue;
+      }
+      out.push({ type: "creature", id: perm.id, controller: pid });
     }
   }
   return out;
@@ -109,7 +121,9 @@ export function opponentCreatureTargets(state, controller) {
  * opponents control for a mass debuff (`scope:"eachOpponentCreature"`), else the chosen targets.
  */
 export const atomTargets = (state, atom, ctx) => {
-  if (atom.targetType === "eachCreature") return massCreatureTargets(state);
+  // CRUX — a subtype-filtered mass set ("destroy all Dragon creatures" / "all non-Dragon creatures"). The bare
+  // "destroy all creatures" wipe carries no subtypeFilter, so it passes EVERY creature (unchanged byte-for-byte).
+  if (atom.targetType === "eachCreature") return massCreatureTargets(state, { subtypeFilter: atom.subtypeFilter, subtypeNegate: atom.subtypeNegate });
   if (atom.targetType === "eachArtifact") return massPermanentTargets(state, isArtifactCard);
   if (atom.targetType === "eachEnchantment") return massPermanentTargets(state, isEnchantmentCard);
   if (atom.targetType === "eachLand") return massPermanentTargets(state, atom.landSubtype

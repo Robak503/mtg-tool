@@ -9,7 +9,7 @@ import { applyDestroyEffect } from "../../spellEffects.js";
 import { logEvent, gainLife, opponentsOf, findPermanent, moveCardToZone, creaturePower } from "../../gameState.js";
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
-import { atomTargets, isCreatureCard } from "./shared.js";
+import { atomTargets, isCreatureCard, massCreatureTargets } from "./shared.js";
 import { applyCreateToken, applyCreateNamedToken } from "./tokens.js";
 import { applyTutor } from "./library.js";
 import { applyZoneMove } from "./zones.js";
@@ -264,10 +264,64 @@ export function destroyExileClauseParser(clause) {
     const SUB = { islands: "Island", swamps: "Swamp", mountains: "Mountain", plains: "Plains", forests: "Forest" };
     return { op: "destroy", targetType: "eachLand", landSubtype: SUB[ml[1]] };
   }
+  // CRUX — subtype-filtered creature wipe: "destroy all <Subtype> creatures" / "destroy all non-<Subtype>
+  // creatures" (Crux of Fate's two modes: "all Dragon creatures" / "all non-Dragon creatures"; Tranquil Path,
+  // Engineered Plague-style typed wipes). Reuses the eachCreature destroy with a creature-subtype filter
+  // (atomTargets → massCreatureTargets honors subtypeFilter/subtypeNegate, a pure type-line read). The subtype
+  // must be in the CURATED allowlist (a word that appears verbatim ONLY in the subtype portion of a type line —
+  // no left-of-dash collision — so the `\b` match selects exactly the subtyped creatures, CR 205.3m). A
+  // non-curated word fails → null → low → Arbiter (CREED: never a fabricated/mis-scoped wipe). The cannotRegenerate
+  // re-stamp (a "can't be regenerated" rider) is applied by the parseEffectClause wrapper, unchanged.
+  const mc = t.match(/^destroy all (non-?)?([a-z]+) creatures$/);
+  if (mc) {
+    const sub = MASS_CREATURE_SUBTYPES[mc[2]];
+    if (sub) return { op: "destroy", targetType: "eachCreature", subtypeFilter: sub, subtypeNegate: !!mc[1] };
+  }
   return null;
 }
 
+// CRUX — curated creature subtypes that appear after "destroy all [non-]<X> creatures" in the corpus. Each is a
+// proper-noun subtype that occurs verbatim ONLY in the subtype portion of a type line (zero left-of-dash
+// collisions), so a `\b<subtype>\b` containment match in massCreatureTargets hits exactly the subtyped creatures
+// (CR 205.3m). CURATED (not generic) per the CREED — a non-subtype word (a color / card type / "other") can
+// never reach the filter. Singular surface form (the oracle says "all Dragon creatures", singular subtype).
+const MASS_CREATURE_SUBTYPES = {
+  dragon: "Dragon", zombie: "Zombie", goblin: "Goblin", elf: "Elf", merfolk: "Merfolk", sliver: "Sliver",
+  vampire: "Vampire", angel: "Angel", demon: "Demon",
+};
+
+/**
+ * ===== BLOOD-MONEY (mass destroy + Treasure-per-nontoken-destroyed) ===== "Destroy all creatures. For each
+ * nontoken creature destroyed this way, you create a tapped Treasure token." The Treasure count is the number
+ * of NONTOKEN creatures THIS effect actually destroyed (CR — "destroyed this way"), so it's NOT the size of
+ * the board: an indestructible / regen-shielded creature isn't destroyed (no Treasure), and a TOKEN creature
+ * is destroyed but doesn't count (nontoken). Faithful + robust: snapshot the nontoken-creature ids BEFORE the
+ * wipe, run the SHARED applyDestroyEffect mass destroy (so indestructible / regeneration / dies-triggers are
+ * handled identically to any board wipe), then count how many of those snapshotted ids actually LEFT the
+ * battlefield — that's the exact "destroyed this way" nontoken count. Create that many TAPPED Treasures under
+ * the controller via the shared applyCreateNamedToken. A "can't be regenerated" rider (cannotRegenerate) is
+ * honored by applyDestroyEffect; none on Blood Money, but threaded for parity.
+ */
+function applyMassDestroyTreasurePerNontoken(state, atom, ctx) {
+  // Snapshot the nontoken-creature ids on every battlefield BEFORE the wipe (CR — "destroyed this way").
+  const nontokenIds = [];
+  for (const pid of Object.keys(state.players)) {
+    for (const perm of (state.players[pid].battlefield || [])) {
+      if (isCreatureCard(perm.card) && !perm.card?.token) nontokenIds.push(perm.id);
+    }
+  }
+  // Shared mass destroy (every creature). Indestructible / regen survivors stay → they won't be counted below.
+  let next = applyDestroyEffect(state, { controller: ctx.controller, targets: massCreatureTargets(state), cannotRegenerate: atom.cannotRegenerate });
+  // Count the snapshotted nontoken creatures that actually LEFT the battlefield (= destroyed this way).
+  const destroyedNontoken = nontokenIds.filter((id) => !findPermanent(next, id)).length;
+  if (destroyedNontoken > 0) {
+    next = applyCreateNamedToken(next, { op: "create-named-token", token: "treasure", count: destroyedNontoken, tapped: true, targetType: null }, ctx);
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "mass-destroy-treasure-per-nontoken", controller: ctx.controller, treasures: destroyedNontoken });
+}
+
 export const removalResolvers = {
+  "mass-destroy-treasure-per-nontoken": applyMassDestroyTreasurePerNontoken, // BLOOD-MONEY — destroy all creatures + a tapped Treasure per nontoken creature destroyed
   "destroy": (state, atom, ctx) =>
     atom.controllerRider
       ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Beast Within / Generous Gift / Assassin's Trophy

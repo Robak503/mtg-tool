@@ -214,6 +214,8 @@ function sacTypeMatches(card, type) {
   if (type === "artifact") return t.includes("Artifact");
   if (type === "enchantment") return t.includes("Enchantment");
   if (type === "land") return t.includes("Land");
+  // ADDCOST-1 union — "sacrifice an artifact or creature" (Deadly Dispute): a victim matching EITHER type.
+  if (type === "artifactOrCreature") return t.includes("Artifact") || t.includes("Creature");
   return false;
 }
 function isSorcerySpeed(card) {
