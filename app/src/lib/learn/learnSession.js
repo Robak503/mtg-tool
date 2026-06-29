@@ -725,6 +725,59 @@ export function serializeAction(action) {
   return JSON.parse(_stableActionKey(action));
 }
 
+// ─── Pluggable DECIDE for resolution-time pendingChoices (YES/NO-UNIFY) ──────────
+//
+// The enumerated-action seam above (resolveDecideAction) routes a PRIORITY-WINDOW pick
+// through the pluggable `decide`. The interactive `state.pendingChoice` (a tutor search,
+// a clone copy-pick, an edict sacrifice, a hand-discard, an impulse-dig, an each-player
+// discard, an optional "you may", a commander-return, a soft-counter pay) is a SEPARATE
+// seam that, for an AI/Expert seat, auto-resolves via autoPick* with no pilot input. This
+// unifies them: a pendingChoice's real legal candidates are normalized into a small
+// `legalActions` set, handed to the SAME `decide` (so a pilot controls these choices too),
+// and the picked candidate is applied via the EXISTING settler.
+//
+// CREED — DEFAULT BYTE-IDENTICAL: when no `decide` AND no `recordDecision` is supplied (the
+// Academy / human / every existing test / default self-play), this returns the auto-pick
+// `fallback` UNTOUCHED with zero extra allocation (the offered set is never built). The
+// settler then runs on the exact auto-pick value — byte-for-byte the pre-slice path. A
+// pilot only alters the choice when it opts in; an out-of-set / deferring / throwing return
+// falls back to the auto-pick (resolveDecideAction's set-membership guard), so a learned or
+// garbage pilot can never inject an illegal candidate or crash the resolution.
+//
+// The normalized action's `choiceKind` tags the choice; its payload field carries the chosen
+// id/value (`candidateId` for a pick-one, `value` for a yes/no). `buildOffered()` is called
+// LAZILY (only when a decide/recorder is present) to produce the real legal-candidate
+// actions; `fallbackAction` is the normalized form of the auto-pick (so a no-/bad-pilot path
+// resolves to the identical auto-pick value). Returns the chosen normalized action; the
+// caller reads `picked.candidateId` / `picked.value` and feeds it to the settler.
+function decidePendingChoice({ decide, state, seat, pilot, recordDecision, buildOffered, fallbackAction }) {
+  // Pure pass-through when neither a pilot nor a recorder is engaged — the byte-identical
+  // default. Skipping buildOffered() here keeps the default path allocation-free.
+  if (typeof decide !== "function" && typeof recordDecision !== "function") return fallbackAction;
+  const offered = buildOffered();
+  return resolveDecideAction({ decide, state, offered, seat, pilot, fallbackAction, recordDecision });
+}
+
+/** Normalized legal-candidate actions for a PICK-ONE pendingChoice (tutor / clone / hand-
+ *  discard / impulse-dig / sacrifice / discard): one action per real candidate id, plus an
+ *  optional find-nothing/decline action when the choice permits it (tutor & clone — CR
+ *  701.19f / a "you may" copy). The ids come straight from `pc.candidates`, so every offered
+ *  action maps to a candidate the settler accepts; nothing is fabricated. */
+function pendingPickActions(pc, { allowDecline = false } = {}) {
+  const actions = (pc.candidates || []).map((c) => ({ kind: "pending-choice", choiceKind: pc.kind, candidateId: c.id }));
+  if (allowDecline) actions.push({ kind: "pending-choice", choiceKind: pc.kind, candidateId: null });
+  return actions;
+}
+
+/** Normalized legal actions for a YES/NO pendingChoice (optional-effect / commander-return /
+ *  soft-counter): exactly the two legal answers. */
+function pendingYesNoActions(pc) {
+  return [
+    { kind: "pending-choice", choiceKind: pc.kind, value: true },
+    { kind: "pending-choice", choiceKind: pc.kind, value: false },
+  ];
+}
+
 /**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
@@ -919,18 +972,32 @@ export function advanceUntilDecision(
     if (current.state.pendingChoice) {
       const pc = current.state.pendingChoice;
       const pause = pc.controller === "user" && current.difficulty !== "expert";
+      // YES/NO-UNIFY — the seat that OWNS the resolution-time choice (CR: the controller of the
+      // tutor / clone / edict-victim / discarder / etc.). It, not the priority holder, is who the
+      // pilot routes through and whom the decision is recorded against. The decide router (per-seat
+      // pilots) keys off this seat; a null/deferring/garbage pilot return falls back to the auto-pick.
+      const choiceSeat = pc.controller;
       // Clone copy-choice (CR 707.9): the player's OWN clone surfaces a copy PICKER; Expert
-      // autopilot + an opponent's clone auto-pick the best creature (no panel).
+      // autopilot + an opponent's clone auto-pick the best creature (no panel). A pilot may pick a
+      // different legal copy target (or decline a "you may" copy); default = the auto-pick, byte-identical.
       if (pc.kind === "clone-search") {
         if (pause) {
           return { session: current, decision: { kind: "clone-search", ...pc } };
         }
-        current = { ...current, state: settleCloneChoice(current.state, autoPickCloneCandidate(current.state, pc)) };
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingPickActions(pc, { allowDecline: true }),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickCloneCandidate(current.state, pc) },
+        });
+        current = { ...current, state: settleCloneChoice(current.state, picked.candidateId) };
         continue;
       }
       // Scry / surveil (CR 701.22 / 701.25): the player's OWN reorder surfaces a keep/move picker;
       // Expert autopilot + an opponent's scry KEEP ALL on top (a legal, deterministic default — a
       // board-aware "bin a land when flooded" heuristic is a future refinement).
+      // YES/NO-UNIFY DEFERRED (FN-safe): the choice is an ORDERED keep-subset (2^N orderings of the
+      // looked-at cards), not a pick-one — it doesn't normalize cleanly into a small legalActions set,
+      // so it stays on the auto-pick. A future slice can offer the orderings explicitly.
       if (pc.kind === "scry-surveil") {
         if (pause) {
           return { session: current, decision: { kind: "scry-surveil", ...pc } };
@@ -945,7 +1012,12 @@ export function advanceUntilDecision(
         if (pause) {
           return { session: current, decision: { kind: "optional-effect", ...pc } };
         }
-        current = { ...current, state: settleOptionalChoice(current.state, true) };
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: true },
+        });
+        current = { ...current, state: settleOptionalChoice(current.state, picked.value) };
         continue;
       }
       // CMD-RETURN (CR 903.9) — a commander in a dead zone: the human's OWN commander surfaces a yes/no
@@ -955,7 +1027,12 @@ export function advanceUntilDecision(
         if (pause) {
           return { session: current, decision: { kind: "commander-return", ...pc } };
         }
-        current = { ...current, state: settleCommanderReturnChoice(current.state, true) };
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: true },
+        });
+        current = { ...current, state: settleCommanderReturnChoice(current.state, picked.value) };
         continue;
       }
       // δ-1b — hand disruption (Duress / Thoughtseize / …): the spell already targeted ONE opponent at
@@ -966,7 +1043,12 @@ export function advanceUntilDecision(
         if (pause) {
           return { session: current, decision: { kind: "hand-discard", ...pc } };
         }
-        current = { ...current, state: settleHandDiscardChoice(current.state, autoPickHandDiscardCandidate(current.state, pc)) };
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingPickActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickHandDiscardCandidate(current.state, pc) },
+        });
+        current = { ...current, state: settleHandDiscardChoice(current.state, picked.candidateId) };
         continue;
       }
       // δ-2 — impulse-dig (Anticipate / Strategic Planning): the player's OWN dig surfaces a pick-one
@@ -976,7 +1058,12 @@ export function advanceUntilDecision(
         if (pause) {
           return { session: current, decision: { kind: "impulse-dig", ...pc } };
         }
-        current = { ...current, state: settleImpulseDigChoice(current.state, autoPickTutorCandidate(current.state, pc)) };
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingPickActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickTutorCandidate(current.state, pc) },
+        });
+        current = { ...current, state: settleImpulseDigChoice(current.state, picked.candidateId) };
         continue;
       }
       // ===== EDICTS ===== — sacrifice choice (Diabolic Edict / Cruel Edict / Geth's Verdict). pc.controller
@@ -986,7 +1073,12 @@ export function advanceUntilDecision(
         if (pause) {
           return { session: current, decision: { kind: "sacrifice-choice", ...pc } };
         }
-        current = { ...current, state: settleSacrificeChoice(current.state, autoPickSacrificeCandidate(current.state, pc)) };
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingPickActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickSacrificeCandidate(current.state, pc) },
+        });
+        current = { ...current, state: settleSacrificeChoice(current.state, picked.candidateId) };
         continue;
       }
       // ===== EACH-PLAYER ===== discard (Mind Rot / Fugue / Delirium Skeins). pc.controller is the
@@ -997,12 +1089,20 @@ export function advanceUntilDecision(
         if (pause) {
           return { session: current, decision: { kind: "discard", ...pc } };
         }
-        current = { ...current, state: settleDiscardChoice(current.state, autoPickDiscardCandidate(current.state, pc)) };
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingPickActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickDiscardCandidate(current.state, pc) },
+        });
+        current = { ...current, state: settleDiscardChoice(current.state, picked.candidateId) };
         continue;
       }
       // ===== DIVIDE ===== (MT-1) — divide-damage / distribute-counters. pc.controller is the CASTER (the
       // divider), so `pause` pauses a human caster (they assign via the picker) and auto-distributes for an
       // AI / Expert (greedy-kill split). Resolving applies the split + finalizes the stack.
+      // YES/NO-UNIFY DEFERRED (FN-safe): the choice is a DISTRIBUTION of N damage/counters across the
+      // targets (a multiset partition), not a pick-one — it doesn't normalize into a small legalActions
+      // set, so it stays on the auto-pick. A future slice can enumerate candidate distributions.
       if (pc.kind === "divide-damage") {
         if (pause) {
           return { session: current, decision: { kind: "divide-damage", ...pc } };
@@ -1022,14 +1122,28 @@ export function advanceUntilDecision(
           const affordable = autoPickSoftCounterPay(current.state, pc);
           return { session: current, decision: { kind: "soft-counter", ...pc, affordable } };
         }
-        current = { ...current, state: settleSoftCounterChoice(current.state, autoPickSoftCounterPay(current.state, pc)) };
+        // Default = pay iff affordable (byte-identical). A pilot may decline an affordable pay (let the
+        // spell be countered) or "pay" when broke — settleSoftCounterChoice never fabricates mana, so an
+        // unaffordable pay still counters the spell (CR-honest), never an illegal free save.
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickSoftCounterPay(current.state, pc) },
+        });
+        current = { ...current, state: settleSoftCounterChoice(current.state, picked.value) };
         continue;
       }
-      // Tutor library search.
+      // Tutor library search. A pilot may fetch a different legal candidate (or find nothing — CR
+      // 701.19f); default = the auto-pick (highest-MV), byte-identical.
       if (pause) {
         return { session: current, decision: { kind: "tutor-search", ...pc } };
       }
-      current = { ...current, state: settleTutorChoice(current.state, autoPickTutorCandidate(current.state, pc)) };
+      const tutorPick = decidePendingChoice({
+        decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+        buildOffered: () => pendingPickActions(pc, { allowDecline: true }),
+        fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickTutorCandidate(current.state, pc) },
+      });
+      current = { ...current, state: settleTutorChoice(current.state, tutorPick.candidateId) };
       continue;
     }
 
