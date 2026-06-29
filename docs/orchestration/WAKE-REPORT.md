@@ -24,6 +24,16 @@
 
 ---
 
+## 📊 13-DECK COVERAGE STATE + REMAINING WORK (realism gate, round 7)
+Per-deck native %: Ur-Dragon 66 · Toph 65 · Pantlaza 62 · Kinnan 56 · Kellan 55 · Mothman 54 · Cap America 54 · Wolverine 53 · **Yuriko 51** (worst). Aggregate ~57%, corpus ~23.7%. *(Note: the live profile deck set has evolved since the old 13-list — Yuriko + Kinnan are now present.)*
+
+**The tractable per-deck frontier is nearly mined.** Coverage rounds 2-7 took the systematic levers (cost-strip, mass-counter, subtype-triggers, Phoenix-return, power-intervening-if, combat-discard, and Yuriko's ninjutsu). The remaining laggard gaps are now mostly:
+- **(a) Arbiter-domain** — counters / tutors / free-cast / extra-turns (esp. Yuriko's cEDH tail). Correctly deferred; not buildable CREED-clean.
+- **(b) Attended SUBSYSTEMS** (each its own multi-PR build — **your call which to prioritize**): soulbond · cumulative upkeep · clone-on-ETB · devotion · trigger-doubling (Roaming Throne) · monarch · energy · suspend · RAD (Mothman) · damage-doubling (Wolverine).
+- **(c) One-off slices** (buildable, low-yield). The best one: **Yuriko's own commander trigger** (reveal top card → each opponent loses life = its mana value) — worth building (commanders should be native).
+
+I'll keep taking clean one-off/keyword levers where decks have them; once they're gone I downshift to responsive-only (won't burn tokens on subsystem-blocked rounds — those need your prioritization).
+
 ## ✅ SHIPPED OVERNIGHT (all on master, each independently flip-diffed 0-regressions + gated)
 **v0.48.0:** Sim Center · self-play stress-test (offline → per-card breakage `.txt`) · ~200 coverage cards · trajectory recorder.
 **v0.49.0:** seeded-shuffle · breakage round 2 (+70, cost-strip seam) · `gameApi.js` play-API · decisive self-play (time-pressure, timeout→excluded, no fabricated W) · coverage round 3 (+22) · **the decide-loop + full-trajectory recording** (the keystone; default byte-identical).
