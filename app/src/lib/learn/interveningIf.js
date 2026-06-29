@@ -1,7 +1,9 @@
 /**
  * interveningIf.js — a STRICT board-query evaluator for triggered-ability intervening-if conditions
- * (CR 603.4). A LEAF module: it imports nothing from sibling engine modules (pure functions over `state`),
- * so gameEngine / resolvers / coverage can all consult it without an import cycle.
+ * (CR 603.4). Near-LEAF: its ONLY engine import is the layer-aware `creaturePower` reader from gameState.js
+ * (for the power-qualified creature query) — a deliberately one-directional edge: gameState's transitive
+ * closure (ptPrimitive / layers / staticAbilityParser / protection / keywords) never imports interveningIf,
+ * so no cycle is introduced and gameEngine / resolvers / coverage can still consult this without one.
  *
  * CR 603.4 — an intervening-if is checked at BOTH the trigger event (flush, before the ability goes on the
  * stack) AND on resolution. If the condition is false at either point, the ability does nothing. So the
@@ -20,10 +22,16 @@
  *   "you control a/an/<N> or more tapped/untapped <filter>" (a tapped creature, two or more tapped creatures)
  *   "you control a/an/<N> or more token(s)"               (three or more tokens)
  *   "you control no <filter>"                             (no untapped lands, no Snakes)
+ *   "you control a/an/<N> or more creature(s) with power N or {greater|more}" (Colossal Majesty, Garruk's
+ *      Uprising, Beastbond Outcaster) — a LAYER-AWARE power query (counters + anthems count), evaluated
+ *      against creaturePower at flush AND resolution, mirroring the `powerAtLeast` count-source vocabulary.
  *   "[there are|you have] <N> or more <type> cards in your graveyard" (three or more creature cards …)
- * DEFERRED to the Arbiter (stay LOW): color/multicolored permanents, power comparisons, turn-event history
- * ("a creature died this turn"), state flags (monarch, city's blessing) — each a future increment.
+ * DEFERRED to the Arbiter (stay LOW): color/multicolored permanents, other power comparisons ("power N or
+ * less", toughness), turn-event history ("a creature died this turn"), state flags (monarch, city's
+ * blessing) — each a future increment.
  */
+
+import { creaturePower } from "./gameState.js"; // layer-aware power reader (counters + anthems) — one-way edge, no cycle
 
 // ─── cardinal vocabulary ────────────────────────────────────────────────────────
 const NUM_WORD = {
@@ -42,12 +50,16 @@ function typeStr(card) {
   return String(card?.type || card?.type_line || "");
 }
 
-// Does a permanent match a parsed FILTER ({ kind, word, state })?
-function permMatchesFilter(perm, filter) {
+// Does a permanent match a parsed FILTER ({ kind, word, state, powerAtLeast })? `state` (the game state) is
+// threaded only for the layer-aware power read; it's unused by the type/token/tapped gates.
+function permMatchesFilter(perm, filter, state) {
   if (!perm) return false;
   // tapped/untapped state gate
   if (filter.state === "tapped" && !perm.tapped) return false;
   if (filter.state === "untapped" && perm.tapped) return false;
+  // POWER gate (layer-aware: counters + anthems count, read at flush AND resolution like the powerAtLeast
+  // count-source). Only stamped on a creature filter (parseFilter requires kind:"type" word:"Creature").
+  if (filter.powerAtLeast != null && !(creaturePower(perm, state) >= filter.powerAtLeast)) return false;
   if (filter.kind === "all") return true;                  // "permanent(s)"
   if (filter.kind === "token") return !!(perm.token || perm.card?.token);
   // type/subtype containment: whole-word, Title-cased singular ("creatures" → \bCreature\b)
@@ -68,7 +80,13 @@ function parseFilter(phrase) {
   let state = null;
   const sm = p.match(/^(tapped|untapped)\s+(.+)$/);
   if (sm) { state = sm[1]; p = sm[2].trim(); }
-  // must be a single word now (no riders like "with power 4 or greater", "you control", "named ...")
+  // POWER-QUALIFIED CREATURE — "creature(s) with power N or {greater|more}" (Colossal Majesty et al). Mirrors
+  // the `powerAtLeast` count-source vocabulary EXACTLY: only "creature(s)", only the "N or greater/more" form
+  // (a "power N or less" / "toughness …" qualifier fails the anchor → null → Arbiter, CREED). The power is
+  // read LAYER-AWARE at evaluation (permMatchesFilter → creaturePower). Combinable with a tapped/untapped state.
+  const pm = p.match(/^creatures? with power (\d+) or (?:greater|more)$/);
+  if (pm) return { kind: "type", word: "Creature", state, powerAtLeast: parseInt(pm[1], 10) };
+  // must be a single word now (no riders like "you control", "named ...", or an unmodeled power/toughness rider)
   if (!/^[a-z]+$/.test(p)) return null;
   const singular = p.replace(/s$/, "");
   if (NON_TYPE_WORDS.has(singular) || NON_TYPE_WORDS.has(p)) return null; // a designation, not a type → Arbiter
@@ -96,7 +114,7 @@ export function evaluateInterveningIf(state, condition, controllerId) {
   if (m) {
     const filter = parseFilter(m[1]);
     if (!filter) return null;
-    return controllerBoard(state, controllerId).filter((p) => permMatchesFilter(p, filter)).length === 0;
+    return controllerBoard(state, controllerId).filter((p) => permMatchesFilter(p, filter, state)).length === 0;
   }
 
   // "you control a/an/<N> or more <filter>"
@@ -106,7 +124,7 @@ export function evaluateInterveningIf(state, condition, controllerId) {
     if (n == null) return null;
     const filter = parseFilter(m[2]);
     if (!filter) return null;
-    return controllerBoard(state, controllerId).filter((p) => permMatchesFilter(p, filter)).length >= n;
+    return controllerBoard(state, controllerId).filter((p) => permMatchesFilter(p, filter, state)).length >= n;
   }
 
   // "[there are|you have] <N> or more <type> cards in your graveyard"

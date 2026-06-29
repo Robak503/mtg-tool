@@ -22,6 +22,7 @@ export default [
       "data/**",
       "public/**",
       "scripts/**", // CommonJS build/sync scripts — separate concern
+      ".cto_sandbox/**", // agent scratch/sandbox dir (already gitignored per repo .gitignore; not project source)
       "**/*.cjs",
       "frontend-placeholder/**",
       "next.config.mjs",

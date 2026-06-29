@@ -58,8 +58,12 @@ describe("PLOT — the metric (classifyCard strips the plot line; a clean body f
     expect(classifyCard(SPINEWOODS)).toBe("native-trigger");
   });
   it("a plot card whose OTHER text is unmodeled (intervening-if ETB) stays body-only — whole-card CREED", () => {
-    expect(classifyCard({ type: "Creature — Human Druid", name: "Beastbond Outcaster", mana: "{2}{G}",
-      oracle: "When this creature enters, if you control a creature with power 4 or greater, draw a card.\nPlot {1}{G} (You may pay {1}{G} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)" })).toBe("body-only");
+    // A turn-event intervening-if ("if a creature died this turn") is outside the modeled board-query
+    // vocabulary, so the ETB trigger doesn't route → the whole card stays body-only despite the modeled plot
+    // line. (Beastbond Outcaster's "power 4 or greater" condition IS now modeled and flips native — see
+    // interveningIf.test.js; here we need a still-unmodeled condition to prove the whole-card CREED gate.)
+    expect(classifyCard({ type: "Creature — Human Druid", name: "Testfall Plot Druid", mana: "{2}{G}",
+      oracle: "When this creature enters, if a creature died this turn, draw a card.\nPlot {1}{G} (You may pay {1}{G} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)" })).toBe("body-only");
   });
   it("parsePlotCost returns the plot mana cost for a real plot line", () => {
     expect(parsePlotCost(SHERIFF)).toBe("{1}{W}");
@@ -107,8 +111,11 @@ describe("PLOT step 1 — the special action (exile from hand for the plot cost)
   });
 
   it("is NOT offered for a card whose non-plot text is unmodeled (intervening-if ETB) — whole-card CREED", () => {
-    const beast = { id: "b1", name: "Beastbond Outcaster", type: "Creature — Human Druid", mana: "{2}{G}",
-      oracle: "When this creature enters, if you control a creature with power 4 or greater, draw a card.\nPlot {1}{G} (You may pay {1}{G} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)" };
+    // A turn-event intervening-if ("if a creature died this turn") stays unmodeled, so the card is body-only
+    // and plot is withheld (whole-card CREED). Beastbond Outcaster's "power 4 or greater" is now modeled and
+    // WOULD be offered — so this guard uses a still-unmodeled condition (see interveningIf.test.js for the flip).
+    const beast = { id: "b1", name: "Testfall Plot Druid", type: "Creature — Human Druid", mana: "{2}{G}",
+      oracle: "When this creature enters, if a creature died this turn, draw a card.\nPlot {1}{G} (You may pay {1}{G} and exile this card from your hand. Cast it as a sorcery on a later turn without paying its mana cost. Plot only as a sorcery.)" };
     expect(filterActions(legalActionsForPlayer(plotState({ hand: [beast], lands: [forest("f1"), forest("f2"), forest("f3")] }), "user"), "plot")).toHaveLength(0);
   });
 
