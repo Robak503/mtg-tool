@@ -8,6 +8,24 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-06-29
+
+### Added
+- **Mulligan in self-play** — pilots can make London mulligan keep/ship decisions (opt-in; normal Academy games unchanged).
+
+### Fixed
+- **Cleaner self-play simulation — better training data for the future "play-to-win" model:**
+  - The simulator no longer offers casting a counterspell with nothing on the stack (an illegal play it would otherwise waste, CR 601.2c) — covers Remand / Cryptic Command / Force of Will and similar.
+  - Removed phantom mana: an ability like "Sacrifice a creature: Add mana" is no longer treated as free, always-available mana (58 such phantom sources corrected; real mana dorks/filters untouched).
+  - Self-play now alternates which player is on the play, so batch training data isn't seat-position-biased; each game records who led.
+  - Trajectory recording no longer silently failed on actions with empty fields, and the game result now reports the winning seat consistently.
+
+### Improved
+- **~9 more cards play natively** (Phoenix-style return-on-death triggers; "put a counter on this creature" abilities).
+
+### Internal
+- Learn-to-play seam hardening from end-to-end validation: the flywheel (pilots → self-play game → trajectory → mode-tagged case memory) is running. Holistic regression check across the session: +147 native, 0 regressions.
+
 ## [0.49.0] - 2026-06-29
 
 ### Added
