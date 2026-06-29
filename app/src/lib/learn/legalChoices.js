@@ -40,6 +40,7 @@ import { parseSpellEffect, enumerateTargets, effectNeedsTarget, parseCreatureTar
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { expandCastChoices } from "./effects/targeting.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
+import { counterClauseParser } from "./effects/atoms/stack.js";
 import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDropsTrigger, parseCyclingCost, parsePlotCost, isModeledGroupActivatedBody } from "./effects/abilities.js";
 // PLOT (CR 702.171): the runtime offers a card the plot special action ONLY when its NON-plot text is
 // fully native — i.e. classifyCard (which strips the plot line internally) returns a native tier. Reusing
@@ -442,6 +443,38 @@ function manaValueOf(card) {
   return totalCmc(parseManaCost(manaCostOf(card)));
 }
 
+// COUNTER-NO-TARGET GATE (CR 601.2c) — the spellFilter of a stack-targeting counter clause on an
+// instant/sorcery, or null. A spell whose target requirement is a SPELL ON THE STACK ("counter target
+// [noncreature|creature|…] spell", incl. soft/MV-exact forms) can't legally be cast with no legal target
+// (CR 601.2c). HIGH single-/multi-atom counters already self-gate via expandCastChoices (the program path
+// `continue`s before the no-target fall-through), so this exists for the LOW-confidence counters (Remand,
+// Cryptic Command, Force of Will, Daze, Stubborn Denial, …) whose unmodeled rider/alt-cost drops the
+// program below HIGH — they currently fall through to the no-target `else` and are wrongly OFFERED at an
+// empty stack. Detection reuses the canonical, anchored counterClauseParser (so the spellFilter discipline
+// can't drift): split the oracle on sentence / line / bullet / em-dash boundaries (mirroring how the parser
+// segments clauses) and return the first fragment that parses to a `counter` atom targeting a spell.
+//   FN-SAFE: a counter clause the parser can't anchor-match (Disallow / Voidslime "counter target spell,
+//   activated ability, or triggered ability" — which can target an ABILITY, so a spell needn't be present)
+//   returns null → behavior UNCHANGED. Restricted to instant/sorcery so a CREATURE/permanent whose counter
+//   lives in a triggered ability (Mystic Snake "When this enters, counter target spell") is never gated —
+//   its cast needs no stack target (the counter fires from the ETB trigger at resolution).
+function counterSpellTargetFilter(card) {
+  const type = typeLineOf(card);
+  if (!type.includes("Instant") && !type.includes("Sorcery")) return null; // cast-time counters only
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  if (!/counter target .*?spell/i.test(oracle)) return null;               // cheap pre-filter
+  const fragments = oracle
+    .replace(/\([^)]*\)/g, " ")    // strip reminder text
+    .split(/[\n.]|•|—/)            // sentences / lines / modal bullets / em-dash mode headers
+    .map((s) => s.replace(/^[\s•-]+/, "").trim())
+    .filter(Boolean);
+  for (const frag of fragments) {
+    const atom = counterClauseParser(frag);
+    if (atom && atom.op === "counter" && atom.targetType === "spell") return atom.spellFilter || "any";
+  }
+  return null;
+}
+
 // Shared cast-action builder for a player's castable zone (hand or command). `taxFn(card)` returns the
 // extra GENERIC mana to add to the printed cost (CR 903.8 commander tax); null = untaxed. `fromZone`
 // rides on every emitted action so the dispatcher splices the card out of the correct zone at cast.
@@ -723,7 +756,23 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true });
       }
     } else {
-      actions.push({ ...base, targets: [], needsTargets: false });
+      // COUNTER-NO-TARGET GATE (CR 601.2c): a LOW-confidence counter that reached this no-target
+      // fall-through (its unmodeled rider/alt-cost kept the program below HIGH so the self-gating program
+      // path was skipped) still targets a SPELL ON THE STACK — it is uncastable with no legal target.
+      // Enumerate legal stack targets via the clause's own spellFilter (so a restricted counter only counts
+      // spells it can legally hit) and offer one cast per legal target; an empty / no-legal-target stack →
+      // not offered. The spell still routes to the Arbiter at resolution (LOW), but is no longer OFFERED at
+      // nothing. (HIGH counters never reach here — they `continue` from the program branch above.)
+      const counterFilter = counterSpellTargetFilter(card);
+      if (counterFilter != null) {
+        const stackTargets = enumerateTargets(state, playerId, { kind: "counter", targetType: "spell", spellFilter: counterFilter }, colorsOf(card));
+        if (stackTargets.length === 0) continue;       // no legal spell on the stack → can't cast (CR 601.2c)
+        for (const t of stackTargets) {
+          actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true });
+        }
+      } else {
+        actions.push({ ...base, targets: [], needsTargets: false });
+      }
     }
   }
   return actions;
