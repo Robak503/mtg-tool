@@ -147,8 +147,10 @@ describe("discover — parser + coverage pins", () => {
     // RIDERS / unmodeled → never native (no over-claim):
     expect(classifyCard(c3("Sorcery", "Discover 6. If the discovered card's mana value is 6 or greater, create three Treasure tokens.", "Hit the Mother Lode"))).toBe("arbiter-spell");
     expect(classifyCard(c3("Creature — Dinosaur", "When this creature enters, discover 3, then you may cast the card.", "Weird Rider"))).toBe("body-only");
-    // CREED: a NON-discover once-per-turn effect must NOT flip native (its resolver ignores the gate → would over-fire):
-    expect(classifyCard(c3("Enchantment", "At the beginning of your upkeep, draw a card. Do this only once each turn.", "Bad Once"))).toBe("body-only");
+    // CREED: an effect whose resolver does NOT honor the once-per-turn gate must NOT flip native (it would
+    // over-fire). `draw` + `gain-life` now DO honor it (COUNTERS-PLACED slice — Terrasymbiosis/EKG), so the
+    // guard uses `create-token`, which is NOT in ONCE_PER_TURN_HONORED.
+    expect(classifyCard(c3("Enchantment", "At the beginning of your upkeep, create a 1/1 white Soldier creature token. Do this only once each turn.", "Bad Once"))).toBe("body-only");
   });
 });
 
@@ -286,12 +288,16 @@ describe("Pantlaza piece [c] — once-per-turn gate + full card classification",
     expect(prog.atoms[0]).toMatchObject({ op: "discover", amountToughnessOfTrigger: true, oncePerTurn: true });
   });
 
-  it("CREED: a NON-discover once-per-turn effect stays LOW (the resolver wouldn't honor the gate → would over-fire)", () => {
-    // Only `discover` honors the oncePerTurn latch. A draw/token/life effect carrying this rider must NOT
-    // flip HIGH — its resolver ignores the flag, so it would fire every turn (a forbidden false positive).
-    expect(programConfidence(parseEffectClause("Draw a card. Do this only once each turn.", "Sorcery"))).toBe("low");
+  it("ONCE-PER-TURN — only an HONORED-op effect parses HIGH with the rider; others stay LOW (no over-fire)", () => {
+    // The ONCE_PER_TURN_HONORED ops (discover, draw, gain-life) carry a per-source latch their resolver
+    // enforces, so they may keep the program HIGH with the rider. `draw` + `gain-life` joined the set for the
+    // COUNTERS-PLACED slice (Terrasymbiosis "draw that many cards. Do this only once each turn.", Earth
+    // Kingdom General "gain that much life. …") — their atoms honor `oncePerTurn` (gate key `${sourceId}_<op>`).
+    expect(programConfidence(parseEffectClause("Draw a card. Do this only once each turn.", "Sorcery"))).toBe("high");
+    expect(programConfidence(parseEffectClause("You gain 2 life. Do this only once each turn.", "Sorcery"))).toBe("high");
+    // A token effect's resolver does NOT honor the gate → must stay LOW (it would over-fire every turn — a
+    // forbidden false positive).
     expect(programConfidence(parseEffectClause("Create a 1/1 white Soldier creature token. Do this only once each turn.", "Sorcery"))).toBe("low");
-    expect(programConfidence(parseEffectClause("You gain 2 life. Do this only once each turn.", "Sorcery"))).toBe("low");
   });
 
   it("a fixed 'Discover N. Do this only once each turn.' also flips HIGH with the gate", () => {

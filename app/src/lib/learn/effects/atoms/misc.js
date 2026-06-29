@@ -26,24 +26,37 @@ import { NUM_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 2
  * draw 0), never a fabricated count. Mirrors the create-named-token countContext path verbatim.
  */
 function applyDrawAtom(state, atom, ctx) {
+  // ONCE-PER-TURN gate (COUNTERS-PLACED — Terrasymbiosis "draw that many cards. Do this only once each turn."):
+  // if this source already fired its once-per-turn draw this turn, suppress it (a safe no-op — the trigger
+  // resolved, but the draw is skipped per CR's frequency restriction). Mirrors applyDiscoverAtom's latch; only
+  // the controller-draw form carries oncePerTurn (the corpus once-per-turn draws are all "you draw").
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_draw`;
+    if ((state.onceTriggersFiredThisTurn || {})[gateKey]) return state;
+  }
   const amount = atom.countContext
-    ? Math.max(0, ctx[atom.countContext] || 0) // CDMG-PLAYER-PAYOFF — "draw that many cards" (combatDamageAmount), floor 0
+    ? Math.max(0, ctx[atom.countContext] || 0) // CDMG-PLAYER-PAYOFF / COUNTERS-PLACED — "draw that many cards", floor 0
     : resolveScaledAmount(state, atom, ctx); // FOR-EACH: count × per (else amountX / printed)
+  let next;
   if (atom.who === "eachPlayer") {
-    let next = state;
+    next = state;
     for (const pid of Object.keys(state.players)) {
       if (next.players[pid]) next = applyDrawEffect(next, { controller: pid, amount });
     }
-    return next;
-  }
-  if (atom.who === "target") {
-    let next = state;
+  } else if (atom.who === "target") {
+    next = state;
     for (const t of ctx.targets || []) {
       if (t.type === "player" && next.players[t.id]) next = applyDrawEffect(next, { controller: t.id, amount });
     }
-    return next;
+  } else {
+    next = applyDrawEffect(state, { controller: ctx.controller, amount });
   }
-  return applyDrawEffect(state, { controller: ctx.controller, amount });
+  // Set the once-per-turn latch (regardless of the drawn count — the effect ran, so the gate is consumed).
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_draw`;
+    next = { ...next, onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [gateKey]: true } };
+  }
+  return next;
 }
 
 /**

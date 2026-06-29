@@ -3,7 +3,8 @@
  */
 
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, addPoison, addExperience, addRadCounters } from "../../gameState.js";
-import { checkDiesTriggers } from "../../triggers.js";
+import { checkDiesTriggers, checkCounterPlacedTriggers } from "../../triggers.js";
+import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
 import { atomTargets, isCreatureCard, countForSpec } from "./shared.js";
 import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // seam batch 3: shared number-word map (leaf, cycle-free) + DYNAMIC-COUNT board-count source
 
@@ -77,8 +78,20 @@ export function applyAddCounter(state, atom, ctx) {
   // 1); a FIXED count floors at 1. Computed ONCE here (state pre-mutation), then applied to every target. The
   // amount auto-routes through addCounter's central doubler hook, so the Wave-3 counter doubler still composes.
   const amount = atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor)) : (atom.amount || 1);
+  // COUNTERS-PLACED watcher (CR 122.6): tally the ACTUAL number of +1/+1 counters this event places, split by
+  // whether the recipient creature is controlled by the PLACER (ctx.controller) or anyone. The placed amount
+  // is computed via the SAME applyCounterDoubling addCounter applies (Doubling Season / Hardened Scales /
+  // Vorinclex), read against PRE-mutation `next` so every target sees the same replacement world — so the
+  // count "that many"/"that much" reflects what actually landed (Terrasymbiosis with Doubling Season draws the
+  // DOUBLED count). Only +1/+1 (the wording is "+1/+1 counters"); a -1/-1 placement never feeds this watcher.
+  let placedOnYours = 0, placedOnAny = 0;
   for (const t of targets) {
     if (amount > 0 && t.type === "creature" && findPermanent(next, t.id)) {
+      if (atom.counterType === "+1/+1") {
+        const placed = applyCounterDoubling(next, t.controller, "+1/+1", amount);
+        placedOnAny += placed;
+        if (t.controller === ctx.controller) placedOnYours += placed;
+      }
       next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount });
     }
   }
@@ -88,7 +101,14 @@ export function applyAddCounter(state, atom, ctx) {
     const r = destroyLethalCreatures(next);
     next = checkDiesTriggers(r.state, r.dead);
   }
-  return logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount, targets: targets.map(t => t.id) });
+  next = logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount, targets: targets.map(t => t.id) });
+  // Fire the placer's "Whenever you put one or more +1/+1 counters on a creature [you control]" triggers
+  // ONCE for this whole event (CR 122.6), controller-scoped to ctx.controller, "that many" = the placed count.
+  // A clean no-op when no +1/+1 landed on a creature (placedOnAny === 0) or no such watcher exists.
+  if (placedOnAny > 0) {
+    next = checkCounterPlacedTriggers(next, { placingPlayerId: ctx.controller, placedOnYours, placedOnAny });
+  }
+  return next;
 }
 
 // PROLIFERATE (CR 701.27): "choose any number of permanents and/or players that have a counter on them,

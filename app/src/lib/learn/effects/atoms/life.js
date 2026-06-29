@@ -12,6 +12,14 @@ import { parseCountSource } from "../parseHelpers.js"; // seam batch 17: shared 
  *  chosen player(s) gain ("Target player gains N life": Soothing Balm, Heroes' Reunion); each travels in
  *  ctx.targets and fires THAT player's lifegain triggers (mirrors applyLoseLife's targeted form). */
 export function applyGainLife(state, atom, ctx) {
+  // ONCE-PER-TURN gate (COUNTERS-PLACED — Earth Kingdom General "gain that much life. Do this only once each
+  // turn."): if this source already fired its once-per-turn gain-life this turn, suppress it (safe no-op — the
+  // trigger resolved, but the gain is skipped per CR's frequency restriction). Mirrors applyDiscoverAtom's
+  // latch; only the controller "you gain" form carries oncePerTurn (the once-per-turn life corpus is "you gain").
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_gain-life`;
+    if ((state.onceTriggersFiredThisTurn || {})[gateKey]) return state;
+  }
   let next = state;
   const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
   if (atom.who === "target") {
@@ -26,7 +34,13 @@ export function applyGainLife(state, atom, ctx) {
   next = gainLife(next, { playerId: ctx.controller, amount });
   // TRIG-LIFEGAIN (CR 119.3): the controller gained life → fire their "Whenever you gain life" triggers.
   if (amount > 0) next = checkLifegainTriggers(next, ctx.controller, amount);
-  return logEvent(next, { kind: "spell-effect", effect: "gain-life", controller: ctx.controller, amount });
+  next = logEvent(next, { kind: "spell-effect", effect: "gain-life", controller: ctx.controller, amount });
+  // Set the once-per-turn latch (regardless of the gained amount — the effect ran, so the gate is consumed).
+  if (atom.oncePerTurn) {
+    const gateKey = `${ctx.sourceId || ""}_gain-life`;
+    next = { ...next, onceTriggersFiredThisTurn: { ...(next.onceTriggersFiredThisTurn || {}), [gateKey]: true } };
+  }
+  return next;
 }
 
 /** "You lose N life" / "Each opponent loses N life" / "Each player loses N life" (CR 119.3). Non-targeted.

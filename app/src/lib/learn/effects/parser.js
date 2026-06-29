@@ -77,7 +77,11 @@ const EXILE_IF_DIES_MASS_RE = /^if a creature dealt damage this way would die th
 // ONCE-PER-TURN — the atom ops whose resolver actually enforces the "Do this only once each turn"
 // frequency latch (state.onceTriggersFiredThisTurn). Only these may carry the rider and stay HIGH; any
 // other effect with the rider would silently over-fire (its resolver ignores the flag) → forced LOW.
-const ONCE_PER_TURN_HONORED = new Set(["discover"]);
+// `draw` + `gain-life` honor it via the SAME per-source latch (gate key `${ctx.sourceId}_<op>`) — added for
+// the COUNTERS-PLACED payoffs (Terrasymbiosis "draw that many cards. Do this only once each turn.", Earth
+// Kingdom General "gain that much life. Do this only once each turn."). The latch is per-SOURCE + per-OP, so
+// two different once-per-turn effects on the same source (none in the corpus today) wouldn't collide.
+const ONCE_PER_TURN_HONORED = new Set(["discover", "draw", "gain-life"]);
 
 function typeOf(card) {
   return String(card?.type || card?.type_line || "");
@@ -544,6 +548,19 @@ function parseExtendedAtom(s) {
   //       cards, then discard a card" (April) keeps its tail and fails the $ → low.
   const cdmgDrawM = t.match(/^(you may )?draw that many cards$/);
   if (cdmgDrawM) return { op: "draw", countContext: "combatDamageAmount", optional: !!cdmgDrawM[1], targetType: null };
+  // ===== COUNTERS-PLACED PAYOFF ===== "draw that many counters-placed cards" / "gain that much counters-placed
+  // life" — the event-specific sentinels detectTriggers rewrites a counters-placed trigger's "draw that many
+  // cards" / "gain that much life" to (gated to the countersPlaced event). The count is the number of +1/+1
+  // counters placed in that event (ctx.countersPlaced), read via countContext (resolveScaledAmount / the draw
+  // resolver's countContext branch). NON-targeted (targetType:null → routes natively on the trigger flush) and
+  // a clean no-op as a spell (no ctx.countersPlaced → 0, never a fabricated count). The leading "you may" is
+  // peeled by parseClauseToAtom's α2 (stamping optional:true); the inner bare sentinel lands here. The
+  // once-per-turn rider ("Do this only once each turn.", Terrasymbiosis / Earth Kingdom General) is handled by
+  // the ONCE-PER-TURN wrapper above — draw + gain-life are in ONCE_PER_TURN_HONORED, so the latch is honored.
+  const cpDrawM = t.match(/^(you may )?draw that many counters-placed cards$/);
+  if (cpDrawM) return { op: "draw", countContext: "countersPlaced", optional: !!cpDrawM[1], targetType: null };
+  const cpLifeM = t.match(/^(you may )?gain that much counters-placed life$/);
+  if (cpLifeM) return { op: "gain-life", countContext: "countersPlaced", optional: !!cpLifeM[1], targetType: null };
   //   (b) "they get N rad counters" (Glowing One) / "that player gets N rad counters" — a FIXED-N rad grant
   //       to the just-damaged player. who:"damagedPlayer" reads ctx.damagedPlayerId (absent → clean no-op).
   //       A trailing intervening-if ("…if they don't have any rad counters", Vexing Radgull) keeps its tail

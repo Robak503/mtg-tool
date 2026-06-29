@@ -584,6 +584,24 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^you create or sacrifice a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: true, onSacrifice: true };
   if (/^you create a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: true, onSacrifice: false };
   if (/^you sacrifice a token$/.test(c)) return { event: "tokenChange", scope: "you", whose: "any", onCreate: false, onSacrifice: true };
+  // ===== COUNTERS-PLACED (CR 122.1 / 121.6) ===== "Whenever you put one or more +1/+1 counters on a
+  // creature you control" (Terrasymbiosis, Stocking the Pantry, Casey Jones) / "…on a creature" (Earth
+  // Kingdom General — ANY creature, not just yours). The TRIGGERING player is YOU (the source's controller),
+  // and the event fires ONCE per counter-placement EVENT (CR 122.6 — counters are placed as one event),
+  // NOT once per counter, with "that many"/"that much" = the NUMBER of +1/+1 counters placed in that event.
+  // Fired at the +1/+1 placement chokepoint (applyAddCounter → checkCounterPlacedTriggers), controller-scoped
+  // (only the placer's watchers are scanned — exactly like the token-mint hook). The "that many" referent is
+  // threaded as ctx.countersPlaced; the draw/gain-life payoffs read it via countContext (resolveScaledAmount).
+  //
+  // BARE +1/+1 form ONLY. CREED — a RESTRICTED subject leaves residue → null → Arbiter (a SAFE false-negative;
+  // the engine can't faithfully scope it): "on ANOTHER creature" (Knight of Wundagore — source-exclusion),
+  // "on another COLORLESS creature" (Omarthis), "on this creature" (Exemplar — that's the self IT-COUNTER path),
+  // "on one or more other Heroes" (Invisible Woman — subtype filter). Also EXACTLY "one or more" / fixed
+  // count word — a SINGULAR "put a +1/+1 counter on a creature" (Ant-Man) would fire on a 1-counter event but
+  // its "that many"-less payoff (create a token) is a SEPARATE slice, so it's left out here (no over-claim).
+  // scope:"creatureYouControl" = count only counters on creatures the placer controls; scope:"creature" = any.
+  if (/^you put one or more \+1\/\+1 counters on a creature you control$/.test(c)) return { event: "countersPlaced", scope: "creatureYouControl", whose: "any" };
+  if (/^you put one or more \+1\/\+1 counters on a creature$/.test(c)) return { event: "countersPlaced", scope: "creature", whose: "any" };
   // ===== YOU ATTACK ===== "you attack" (the bare condition for "Whenever you attack, …" — fires ONCE
   // per combat when the controller declares any attacker). Different from "attacks" (per-attacker scope):
   // "you attack" is a controller-scoped once-per-combat event (Toph, Earthbending Master's second trigger).
@@ -914,6 +932,14 @@ const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+)?|gains .+
 // (parser.js: "…counters? on this creature$", target:"self") with "it"; whole-clause anchored, so a
 // rider/compound ("…on it. Draw a card") leaves it untouched → LOW → Arbiter (a SAFE false-negative).
 const SELF_COUNTER_IT_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on it$/i;
+
+// COUNTERS-PLACED — the EXACT "that many"/"that much" payoff shapes a counters-placed trigger rewrites to an
+// event-specific sentinel (so the count binds ctx.countersPlaced, not combatDamageAmount). Anchored to the
+// bare payoff (with the optional "you may" wrapper) OR that payoff followed ONLY by the modeled "Do this only
+// once each turn." rider — the effectClause already has the same-line follow-up appended by the time this runs
+// (Terrasymbiosis / Earth Kingdom General both carry it). A DIFFERENT trailing rider ("draw that many cards,
+// then discard") leaves residue → no match → no rewrite → LOW → Arbiter (a SAFE false-negative).
+const COUNTERS_PLACED_PAYOFF_RE = /^(?:you may )?(?:draw that many cards|gain that much life)(?:\.\s*do this only once each turn)?\.?$/i;
 
 // SELF-LTB (Wave 4) — the EXACT "return it to its owner's hand" effect clause for the self-LTB family
 // (Rancor Aura PiG-return + Sword of the Realms equipped-creature-dies-return). Whole-clause anchored, so a
@@ -1255,6 +1281,19 @@ export function detectTriggers(card) {
         // The replace is verb-anchored (deals damage = / gain life =) so it touches ONLY the payoff stat, never a
         // co-occurring discover-X "that creature's toughness" (Pantlaza keeps its own native exact-match parse).
         effectClause = effectClause.replace(/\b(deals? damage equal to|gain life equal to) that creature's (power|toughness)\b/gi, "$1 the triggering creature's $2");
+      } else if (cls.event === "countersPlaced" && COUNTERS_PLACED_PAYOFF_RE.test(effectClause)) {
+        // ===== COUNTERS-PLACED "that many" / "that much" ===== a "Whenever you put one or more +1/+1 counters
+        // …" trigger's "you may draw that many cards" (Terrasymbiosis) / "you may gain that much life" (Earth
+        // Kingdom General) — the magnitude is the NUMBER OF COUNTERS placed in the event (ctx.countersPlaced),
+        // NOT a combat-damage amount. Rewrite the bare phrase → an event-specific sentinel the parser maps to
+        // countContext:"countersPlaced", so it never collides with the combat-damage "draw that many cards"
+        // (which binds combatDamageAmount). Gated to the countersPlaced event + a whole-clause anchor (a rider
+        // leaves residue → the sentinel doesn't match → LOW → Arbiter), so this only GIVES the parser the
+        // chance to model it; the parser still re-gates the optional/once-per-turn shape. The optional "you may"
+        // wrapper survives untouched (it's peeled by the parser's α2 / honored by the once-per-turn gate).
+        effectClause = effectClause
+          .replace(/\bdraw that many cards\b/i, "draw that many counters-placed cards")
+          .replace(/\bgain that much life\b/i, "gain that much counters-placed life");
       }
       } // end if (modalBlock === null) — modal blocks skip the leading-sentence referent rewrites
       out.push({
@@ -2167,6 +2206,39 @@ export function checkTokenCreatedTriggers(state, creatingPlayerId, numCreated = 
     const descriptors = detectTriggers(watcher.card).filter((x) => x.event === "tokenChange" && x.onCreate);
     for (const d of descriptors) {
       for (let i = 0; i < numCreated; i++) fired.push(makePendingTrigger(d, watcher, watcher, {}));
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
+ * COUNTERS-PLACED on-event (CR 122.1 / 122.6) — enqueue "Whenever you put one or more +1/+1 counters on a
+ * creature [you control]" triggers for the player who just placed them. Fired at the +1/+1 placement
+ * chokepoint (counters.js applyAddCounter, AFTER the counters are on the creatures), passing:
+ *   - `placingPlayerId` — the controller resolving the counter-placement spell/ability ("you" in the
+ *     trigger; CR — the trigger watches YOUR placements, so a placement BY an opponent never fires your
+ *     ability). ONLY this player's watchers are scanned (controller-scoped, like checkTokenCreatedTriggers).
+ *   - `placedOnYours` — total +1/+1 counters this event put on creatures the PLACER controls.
+ *   - `placedOnAny`   — total +1/+1 counters this event put on ANY creature (the placer's + others').
+ * CR 122.6: a single counter-placement is ONE event regardless of how many counters or which creatures, so
+ * the descriptor fires EXACTLY ONCE per call (not per counter, not per creature) — distinct from the per-token
+ * checkTokenCreatedTriggers. "that many"/"that much" rides as ctx.countersPlaced (the scope's matching count).
+ * The scope:"creatureYouControl" trigger fires with count=placedOnYours (only when >0); scope:"creature" with
+ * count=placedOnAny. Pure — appends to pendingTriggers; a 0 count for a scope is a clean skip (that trigger
+ * didn't see a qualifying placement). The effect rides the normal flush → buildTriggerStack path, so a payoff
+ * that can't parse HIGH routes the WHOLE trigger to the Arbiter no-op, never a partial.
+ */
+export function checkCounterPlacedTriggers(state, { placingPlayerId, placedOnYours = 0, placedOnAny = 0 } = {}) {
+  if (!placingPlayerId || !state.players?.[placingPlayerId]) return state;
+  if (!(placedOnAny > 0)) return state; // no +1/+1 counter actually placed on a creature → no event
+  let fired = [];
+  for (const watcher of triggerSourcesOf(state, placingPlayerId)) {
+    for (const d of detectTriggers(watcher.card).filter((x) => x.event === "countersPlaced")) {
+      // The count this scope cares about: own-creatures-only ("on a creature you control") or any creature.
+      const count = d.scope === "creatureYouControl" ? placedOnYours : placedOnAny;
+      if (!(count > 0)) continue; // this scope saw no qualifying counter → it doesn't fire (clean skip)
+      fired.push(makePendingTrigger(d, watcher, watcher, { countersPlaced: count }));
     }
   }
   if (!fired.length) return state;
