@@ -151,6 +151,59 @@ describe("DAMAGE = the triggering creature's power (Terror of the Peaks)", () =>
 });
 
 // ────────────────────────────────────────────────────────────────────────────
+// DAMAGE = a BOARD COUNT, "where X is" word order (DMG-SCALE-3) — Scourge of Valkas / Dragon Tempest
+// "deals X damage to <target>, where X is the number of <count>". Reuses parseCountSource (so unmodeled
+// counts stay LOW) + the deal-damage amountCount resolver (same as Massive Raid / the modern word order).
+// ────────────────────────────────────────────────────────────────────────────
+describe("DAMAGE = a board count, 'where X is' word order (Scourge of Valkas / Dragon Tempest)", () => {
+  const CLAUSE = "it deals X damage to any target, where X is the number of Dragons you control";
+
+  it("parses → deal-damage / amountCount permanentsYouControl(Dragon), HIGH", () => {
+    const p = parseEffectProgram(I(CLAUSE));
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "deal-damage", targetType: "any", amountCount: { kind: "permanentsYouControl", subtype: "Dragon" } });
+  });
+
+  it("RUNTIME: 3 Dragons → 3 damage (ai 40→37), read AT RESOLUTION; DYNAMIC (a 4th Dragon raises it)", () => {
+    const atom = atom0(I(CLAUSE));
+    const three = [creature("d1", { subtype: "Dragon" }), creature("d2", { subtype: "Dragon" }), creature("d3", { subtype: "Dragon" })];
+    let s = stateWith({ user: three });
+    s = resolveAtom(s, atom, { controller: "user", sourceId: "d1", targets: [{ type: "player", id: "ai" }] });
+    expect(s.players.ai.life).toBe(37); // 40 - 3
+    // a 4th Dragon added before resolution scales the damage (count read at resolution, not parse)
+    let s4 = stateWith({ user: [...three, creature("d4", { subtype: "Dragon" })] });
+    s4 = resolveAtom(s4, atom, { controller: "user", sourceId: "d1", targets: [{ type: "player", id: "ai" }] });
+    expect(s4.players.ai.life).toBe(36); // 40 - 4
+  });
+
+  it("RUNTIME CREED: 0 Dragons → 0 damage (clean no-op, never forced to 1)", () => {
+    const atom = atom0(I(CLAUSE));
+    let s = stateWith({ user: [creature("notdragon", { subtype: "Beast" })] });
+    s = resolveAtom(s, atom, { controller: "user", sourceId: "notdragon", targets: [{ type: "player", id: "ai" }] });
+    expect(s.players.ai.life).toBe(40);
+  });
+
+  it("Scourge of Valkas classifies native (the real card — ETB damage trigger + its {R} pump activated)", () => {
+    const card = { name: "Scourge of Valkas", type: "Creature — Dragon", oracle: "Flying\nWhenever this creature or another Dragon you control enters, it deals X damage to any target, where X is the number of Dragons you control.\n{R}: This creature gets +1/+0 until end of turn." };
+    expect(classifyCard(card)).toMatch(/^native-/);
+  });
+
+  it("CREED: a COMPOUND 'and you gain X life' card stays LOW (the lifegain is never silently dropped)", () => {
+    // Consuming Corruption — the where-X regex requires the count immediately after the target, so the
+    // intervening " and you gain X life" breaks the anchor → no match → low → Arbiter (whole-card-or-nothing).
+    expect(conf(I("Consuming Corruption deals X damage to target creature or planeswalker and you gain X life, where X is the number of Swamps you control."))).toBe("low");
+  });
+
+  it("CREED: an UNMODELED count source ('colors of mana spent') stays LOW → Arbiter (never a guessed count)", () => {
+    expect(conf(I("Kaleidoscorch deals X damage to any target, where X is the number of colors of mana spent to cast this spell."))).toBe("low");
+  });
+
+  it("CREED: 'that player's hand' has no anaphoric player on this form → LOW (not a silent 0)", () => {
+    expect(conf(I("It deals X damage to any target, where X is the number of cards in that player's hand."))).toBe("low");
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
 // LIFE = that creature's toughness/power (Verdant Sun's Avatar, Archon of Redemption family)
 // ────────────────────────────────────────────────────────────────────────────
 describe("LIFE = the triggering creature's toughness/power (Verdant Sun's Avatar)", () => {

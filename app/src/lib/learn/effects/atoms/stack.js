@@ -248,6 +248,22 @@ export function dealDamageScaledClauseParser(clause) {
   // unmodeled count → parseCountSource null → low → Arbiter. Emits the SAME amountCount atom (resolver shared).
   const mds2 = t.match(/^.+? deals? damage equal to the number of (.+?) to (target creature|any target|target player|target player or planeswalker|target creature or planeswalker|each opponent)$/);
   if (mds2) return build(mds2[2], mds2[1]);
+  // DMG-SCALE-3 — "where X is" word order: "<source> deals X damage to <target>, where X is [equal to] the
+  // number of <count>" (Scourge of Valkas / Dragon Tempest "…to any target, where X is the number of Dragons
+  // you control"; Tribal Flames, Profane Prayers, Sparksmith, Gempalm Incinerator, Tendrils of Corruption).
+  // The literal "X damage" (not a printed "N damage") is the anchor that keeps the fixed-N form on the
+  // legacyToAtom path; the TARGET is the TIGHT allowlist (so a restricted target never widens), and the count
+  // routes through the SAME parseCountSource → an unmodeled source ("colors of mana spent", "permanents with
+  // oil counters") → null → low → Arbiter (CREED FN-safe). Emits the SAME amountCount atom (resolver shared).
+  // allowTarget stays OFF here: every "where X is" card scales by a board/graveyard count, never "that player's
+  // hand" (which only appears in the legacy "deals damage to target player equal to…" word order), so a "that
+  // player's hand" referent has no anaphoric player on this form and must route to the Arbiter — not silently 0.
+  const mds3 = t.match(/^.+? deals? x damage to (target creature|any target|target player|target player or planeswalker|target creature or planeswalker|each opponent),? where x is (?:equal to )?the number of (.+)$/);
+  if (mds3) {
+    const targetType = TT[mds3[1]];
+    const amountCount = parseCountSource(mds3[2]);
+    return targetType && amountCount ? { op: "deal-damage", targetType, amountCount } : null;
+  }
   return null;
 }
 
