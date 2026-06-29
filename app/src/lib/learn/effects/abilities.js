@@ -107,6 +107,19 @@ export function parseAbilityCost(costStr) {
     // ("a creature or planeswalker") doesn't match → null (deferred), keeping the all-or-nothing gate.
     const sacOtherM = /^sacrifice (a|an|another) (creature|permanent|artifact|enchantment|land)$/i.exec(item);
     if (sacOtherM) { sacOther = { type: sacOtherM[2].toLowerCase(), another: /^another$/i.test(sacOtherM[1]) }; continue; }
+    // γ1b-SUBTYPE — "Sacrifice a/an/another <Subtype>" (Koma "Sacrifice another Serpent"; Goblin Sledder
+    // "Sacrifice a Goblin"; Strands of Night "Sacrifice a Swamp"; Wand of the Elements "Sacrifice an Island"):
+    // a CHOICE cost scoped to a SUBTYPE rather than a base card type. The victim is any PERMANENT you control
+    // whose type line carries that subtype — so it works uniformly for a CREATURE subtype (Goblin/Serpent), a
+    // LAND subtype (Swamp/Island — those sac a LAND, never a creature, so scoping to "creature" would make the
+    // cost unpayable yet still count native: a CREED metric over-claim), or an artifact subtype. type:"permanent"
+    // + the subtype filter is exactly CR-correct (CR 701.16 — sacrifice a permanent you control matching the
+    // description); legalChoices' sacTypeMatches narrows on the subtype and the leave-trigger fail-safe still
+    // applies. Gated to a SINGLE Capitalized word (a real subtype is one capitalized token on the type line)
+    // NOT a base card type (those are the case-insensitive branch above) — so a lowercase noun or a compound
+    // phrase ("a creature or planeswalker") never matches → null (deferred), preserving the all-or-nothing gate.
+    const sacSubM = /^[Ss]acrifice (a|an|another) ([A-Z][a-z]+)$/.exec(item);
+    if (sacSubM) { sacOther = { type: "permanent", subtype: sacSubM[2].toLowerCase(), another: /^another$/i.test(sacSubM[1]) }; continue; }
     const pips = [...item.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
     if (pips.length === 0) return null;                          // a wordy item we don't model → unmodeled
     if (item.replace(/\{[^}]+\}/g, "").trim() !== "") return null; // leftover text around the pips → unmodeled
@@ -206,6 +219,28 @@ export function parsePlotCost(card) {
  * don't model (those stay in the coverage gap rather than being mis-detected). `modeled`
  * is the gate the runtime offers on; the coverage metric reads the full list.
  */
+/**
+ * MODAL-ACTIVATED line-join (CR 602.1 / 700.2): a "Choose one —" modal activated ability prints each mode on
+ * its OWN bullet line ("Sacrifice another Serpent: Choose one —\n• Tap target permanent. …\n• Koma gains …" —
+ * Koma). Fold a continuation line that starts with a bullet "•" back onto the preceding line, so the ability's
+ * full modal effect ("Choose one — • … • …") is ONE line: the parser sees the whole modal effect, and the
+ * coverage residue strips (permanentActivatedCovered / permanentFullyCovered) drop the whole ability as one
+ * activated-ability line instead of leaving the mode bullets as apparent residue. Only a LEADING-bullet line
+ * is folded (a real new ability / keyword / trigger line never starts with "•"), so this can't merge two
+ * distinct abilities — strictly a promotion for the split modal layout. SINGLE SOURCE OF TRUTH for both the
+ * parser and the coverage metric, so they can't drift. Input is the (reminder-stripped) oracle; returns the
+ * trimmed, folded, non-empty lines.
+ */
+export function foldModalBulletLines(oracle) {
+  const rawLines = String(oracle || "").split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const lines = [];
+  for (const l of rawLines) {
+    if (/^•/.test(l) && lines.length) lines[lines.length - 1] += ` ${l}`;
+    else lines.push(l);
+  }
+  return lines;
+}
+
 export function parseActivatedAbilities(card) {
   const oracle = stripReminder(card?.oracle || card?.oracle_text || "");
   if (!oracle.trim()) return [];
@@ -214,8 +249,7 @@ export function parseActivatedAbilities(card) {
   const sacUnsafe = sacrificeDropsTrigger(card?.oracle || card?.oracle_text || "");
   const out = [];
   let index = 0;
-  for (const rawLine of oracle.split(/\n+/)) {
-    const line = rawLine.trim();
+  for (const line of foldModalBulletLines(oracle)) {
     if (!line) continue;
     // "Equip {cost}" — the attach activated ability (CR 702.6); no colon, the cost is mana
     // and the effect is to attach to a creature you control (the ATTACH resolver, not an
@@ -250,7 +284,15 @@ export function parseActivatedAbilities(card) {
       // CR 201.4: rewrite the card's own name → "this creature" so a self-referential effect
       // ("Regenerate Wolverine.") matches the engine's self-anchored atoms.
       program = parseEffectClause(normalizeSelfName(effectClause, card), "Instant");
-      effectHigh = !!program && programConfidence(program) === "high" && program.structure !== "modal" && !program.xSpell;
+      // MODAL-ACTIVATED (CR 602.1 / 700.2 — Koma "Sacrifice another Serpent: Choose one — …"): a "Choose one"
+      // modal effect IS playable here. The runtime offers ONE action per mode (legalChoices →
+      // expandCastChoices expands mode × target combos, stamping chosenMode) and the dispatcher executes the
+      // chosen mode's atoms (applyActivateAbility threads chosenMode → runProgram), exactly like a modal
+      // SPELL — so a HIGH modal program is no longer silently dropped. X-modes stay excluded (the activated
+      // X-choice expansion isn't wired); a "Choose two/one or more" modal also rides this (expandCastChoices
+      // handles the mode-combinations). The all-or-nothing modal HIGH gate (every mode parses) already
+      // guarantees no mode is silently un-modeled, so this can't half-resolve.
+      effectHigh = !!program && programConfidence(program) === "high" && !program.xSpell;
     }
     out.push({
       index: index++,

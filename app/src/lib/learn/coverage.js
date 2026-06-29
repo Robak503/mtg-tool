@@ -31,7 +31,7 @@
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities } from "./triggers.js";
-import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, foldModalBulletLines } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -366,10 +366,11 @@ export function permanentActivatedCovered(card) {
   // A single unmodeled ability (unmodeled cost OR effect, incl. complex mana abilities)
   // leaves the card in the gap — all-or-nothing, mirroring the all-or-nothing runtime.
   if (!abilities.every((a) => a.modeled)) return false;
-  // Drop reminder, then every activated-ability-shaped line (the same shape the parser detects).
+  // Drop reminder, FOLD modal-ability bullet lines onto their "Choose one —" ability line (so a multi-line
+  // modal activated ability — Koma — is stripped as ONE line, not left as mode-bullet residue; same fold the
+  // parser uses), then drop every activated-ability-shaped line (the same shape the parser detects).
   // The remainder (keywords, and any trigger/static text) must be keyword-only/empty.
-  const residue = stripReminder(card.oracle || "")
-    .split(/\n+/)
+  const residue = foldModalBulletLines(stripReminder(card.oracle || ""))
     .filter((line) => !isActivatedAbilityLine(line))
     .join("\n");
   return isKeywordOnly(residue, card?.name);
@@ -408,9 +409,10 @@ export function permanentFullyCovered(card) {
   // Residue: drop trigger sentences (anchored, the detectTriggers grammar) + activated-ability
   // lines (the same shape the parser detects, incl. γ1 word-costs), then every remaining clause
   // must be a modeled static or keyword-only — no unmodeled trigger/static/other text survives.
+  // FOLD modal-ability bullet lines first (Koma's "Choose one — \n• … \n• …"), so a multi-line modal
+  // activated ability strips as ONE line rather than leaving its mode bullets as apparent residue.
   const afterTriggers = oracle.replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n");
-  const afterActivated = stripReminder(afterTriggers)
-    .split(/\n+/)
+  const afterActivated = foldModalBulletLines(stripReminder(afterTriggers))
     .filter((line) => !isActivatedAbilityLine(line))
     .join("\n");
   for (const clause of afterActivated.split(/[\n.;]+/).map((s) => s.trim()).filter(Boolean)) {

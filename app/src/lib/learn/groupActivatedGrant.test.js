@@ -65,7 +65,9 @@ describe("GROUP-ACTIVATED grant (queue 1) — recognition", () => {
     expect(classifyCard(sliver("Hibernation Sliver", 'All Slivers have "Pay 2 life: Return this permanent to its owner\'s hand."'))).toBe("native-static");
   });
   it("FN boundary — a still-unmodeled TARGETED / X-scaling / triggered body stays Arbiter (body-only, CREED)", () => {
-    expect(classifyCard(sliver("Telekinetic Sliver", 'All Slivers have "{T}: Tap target permanent."'))).toBe("body-only");
+    // A tutor body stays body-only. (Telekinetic Sliver's "{T}: Tap target permanent" now flips native-static —
+    // tap-target-permanent is modeled — so it's no longer the boundary; an unparseable tutor body is.)
+    expect(classifyCard(sliver("Tutor Sliver", 'All Slivers have "{T}: Search your library for a card, then shuffle."'))).toBe("body-only");
     // Magma stays body-only — an X-scaling pump ("+X/+0 where X = the number of Slivers") is NOT modeled (PARK).
     expect(classifyCard(sliver("Magma Sliver", 'All Slivers have "{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield."'))).toBe("body-only");
     // a GROUP-granted TRIGGERED body whose EFFECT does not route natively (reanimate-on-death) stays body-only

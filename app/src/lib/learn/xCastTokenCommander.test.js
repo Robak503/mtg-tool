@@ -1,6 +1,6 @@
 /**
  * xCastTokenCommander.test.js — Zaxara, the Exemplary flips to NATIVE (coverage) and her X-cast Hydra
- * actually enters as a real X/X via the real cast dispatch; plus Koma, Cosmos Serpent's PARK pin.
+ * actually enters as a real X/X via the real cast dispatch; plus a pin that Koma, Cosmos Serpent is now native.
  *
  * ZAXARA (BUILT → native-mixed): the classifier (coverage.classifyXCastTokenCommander, an additive-seam
  *   single-card flip mirroring classifyWolverine) credits the card the runtime already plays. Her three
@@ -15,11 +15,10 @@
  *       xCastToken.js) threads the cast's chosen X so the 0/0 enters as a real X/X (the generic cast-trigger
  *       flush carries no xValue, so this can't ride the normal path).
  *
- * KOMA (PARKED → body-only): the "Sacrifice another Serpent: Choose one —" modal ACTIVATED ability is
- *   genuinely un-modelable in this layer — it needs FOUR absent subsystems (subtype sac-costs;
- *   modal-activated routing; a "tap target permanent" atom; and an "activated abilities can't be activated
- *   this turn" continuous restriction with NO precedent). A faked flip would be a forbidden FP, so Koma
- *   stays SAFE as body-only. This test pins that park so a future careless flip is caught.
+ * KOMA (NOW NATIVE → native-mixed): the four subsystems the park used to wait on all shipped — subtype
+ *   sac-costs, modal-activated routing, a "tap target permanent" atom, and the "activated abilities can't be
+ *   activated this turn" continuous restriction. Koma's full per-ability runtime coverage lives in koma.test.js;
+ *   this file keeps a lightweight native-classification pin (the inverse of the old park pin).
  *
  * Real oracle text (verified vs the bundled Scryfall oracle_cards.json), verbatim.
  */
@@ -134,14 +133,14 @@ describe("X-CAST-TOKEN COMMANDER — runtime: Zaxara's X-cast makes a real X/X H
   });
 });
 
-describe("X-CAST-TOKEN COMMANDER — Koma, Cosmos Serpent stays PARKED (body-only)", () => {
-  // The sac-modal activated ability ("Sacrifice another Serpent: Choose one — • Tap target permanent. Its
-  // activated abilities can't be activated this turn. • Koma gains indestructible until end of turn.") needs
-  // four subsystems this layer doesn't have (subtype sac-cost; modal-activated routing; tap-target-permanent;
-  // an "activated abilities can't be activated this turn" continuous restriction). Faking the flip would be a
-  // forbidden FP — Koma stays SAFE as body-only until those land. This pin guards against a careless flip.
-  it("Koma, Cosmos Serpent → body-only (the sac-modal activated ability is unmodeled)", () => {
-    expect(classifyCard(KOMA)).toBe("body-only");
-    expect(isNativeTier(classifyCard(KOMA))).toBe(false);
+describe("X-CAST-TOKEN COMMANDER — Koma, Cosmos Serpent is now NATIVE", () => {
+  // The four subsystems the old park waited on all shipped: subtype sac-cost ("Sacrifice another Serpent"),
+  // modal-activated routing ("Choose one — …"), the tap-target-permanent atom, and the "activated abilities
+  // can't be activated this turn" continuous restriction. Each ability's runtime is verified end-to-end in
+  // koma.test.js; this is the classification pin (the inverse of the old park pin — a regression to body-only
+  // would now be the failure).
+  it("Koma, Cosmos Serpent → native-mixed (all three abilities modeled)", () => {
+    expect(classifyCard(KOMA)).toBe("native-mixed");
+    expect(isNativeTier(classifyCard(KOMA))).toBe(true);
   });
 });

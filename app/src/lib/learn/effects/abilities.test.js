@@ -151,8 +151,18 @@ describe("parseActivatedAbilities — effect gating", () => {
     const [a] = one("{2}, {T}: Search your library for a card, then shuffle.");
     expect(a.modeled).toBe(false);
   });
-  it("does NOT model a MODAL effect (a mode would be silently picked)", () => {
+  it("MODELS a MODAL effect — the runtime offers one action per mode (chosenMode), CR 700.2", () => {
+    // MODAL-ACTIVATED: legalChoices → expandCastChoices expands one cast per (mode × target combo) and stamps
+    // chosenMode; the dispatcher runs the chosen mode's atoms. So a "Choose one" modal activated ability is
+    // genuinely playable (no mode is silently picked) — exactly like a modal SPELL. The all-or-nothing modal
+    // HIGH gate (every mode parses) keeps an unmodeled mode from sneaking through (pinned below).
     const [a] = one("{T}: Choose one — Draw a card; or you gain 2 life.");
+    expect(a.modeled).toBe(true);
+    expect(a.program.structure).toBe("modal");
+    expect(a.program.modal.modes).toHaveLength(2);
+  });
+  it("does NOT model a modal whose one mode is unmodeled (all-or-nothing across modes)", () => {
+    const [a] = one("{T}: Choose one — Draw a card; or search your library for a card, then shuffle.");
     expect(a.modeled).toBe(false);
   });
   it("marks a TARGETED effect as needsTarget", () => {

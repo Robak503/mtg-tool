@@ -125,12 +125,13 @@ describe("GROUP-GRANT (B) — granted quoted MANA ability (parse + CREED gate)",
   });
 
   it("CREED: a quoted ability with an UNMODELED body does NOT emit a grant", () => {
-    // An unmodeled-body grant emits NOTHING: a tap-target-permanent body (Telekinetic), a triggered ability
-    // whose EFFECT doesn't route natively, and an X-scaling pump all stay non-native. (The regenerate-target-
-    // SUBTYPE + pay-life self-bounce activated bodies DO emit a grant now — see groupActivatedGrant.test.js; the
-    // Tempered Sliver combat-damage→+1/+1-counter TRIGGERED body DOES emit a triggered grant now — see
-    // groupTriggeredGrant.test.js. These are the still-unmodeled ones.)
-    expect(parseStaticAbilities({ name: "Telekinetic Sliver", oracle: 'All Slivers have "{T}: Tap target permanent."' })).toEqual([]);
+    // An unmodeled-body grant emits NOTHING: a tutor body, a triggered ability whose EFFECT doesn't route
+    // natively, and an X-scaling pump all stay non-native. (The regenerate-target-SUBTYPE + pay-life
+    // self-bounce activated bodies DO emit a grant now — see groupActivatedGrant.test.js; the Tempered Sliver
+    // combat-damage→+1/+1-counter TRIGGERED body DOES emit a triggered grant now — see
+    // groupTriggeredGrant.test.js; a "{T}: Tap target permanent" body now flips too — tap-target-permanent is
+    // modeled. These are the still-unmodeled ones.)
+    expect(parseStaticAbilities({ name: "Tutor Sliver", oracle: 'All Slivers have "{T}: Search your library for a card, then shuffle."' })).toEqual([]);
     // A triggered body whose EFFECT is unmodeled (reanimate-on-death) → no descriptor (the trigger detects but
     // does not route natively, so the group-triggered validator rejects it).
     expect(parseStaticAbilities({ name: "Test Reanimator Sliver", oracle: 'Sliver creatures you control have "When this creature dies, return it to the battlefield under your control."' })).toEqual([]);
@@ -148,9 +149,9 @@ describe("GROUP-GRANT (B) — granted quoted MANA ability (parse + CREED gate)",
   it("classification: Gemhide/Manaweft stay native-mana; an UNMODELED-body grant stays body-only", () => {
     expect(classifyCard({ type: "Creature — Sliver", name: "Gemhide Sliver", oracle: 'All Slivers have "{T}: Add one mana of any color."' })).toBe("native-mana");
     expect(classifyCard({ type: "Creature — Sliver", name: "Manaweft Sliver", oracle: 'Sliver creatures you control have "{T}: Add one mana of any color."' })).toBe("native-mana");
-    // A still-unmodeled body (tap target permanent) stays body-only. (Crypt's regenerate-target-Sliver body
-    // now flips native-static via the activated-grant path — proven in groupActivatedGrant.test.js.)
-    expect(classifyCard({ type: "Creature — Sliver", name: "Telekinetic Sliver", oracle: 'All Slivers have "{T}: Tap target permanent."' })).toBe("body-only");
+    // A still-unmodeled body (a tutor) stays body-only. (Telekinetic Sliver's tap-target-permanent body now
+    // flips native-static — tap-target-permanent is modeled — so a tutor body is the boundary example.)
+    expect(classifyCard({ type: "Creature — Sliver", name: "Tutor Sliver", oracle: 'All Slivers have "{T}: Search your library for a card, then shuffle."' })).toBe("body-only");
     // STATIC-HEXPROOF-SHROUD: "All Slivers have shroud" is now native-static (shroud admitted to the grant set).
     expect(classifyCard({ type: "Creature — Sliver", name: "Crystalline Sliver", oracle: "All Slivers have shroud." })).toBe("native-static");
   });

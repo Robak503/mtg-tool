@@ -207,17 +207,30 @@ function isLand(card)        { return typeLineOf(card).includes("Land"); }
 function isInstant(card)     { return typeLineOf(card).includes("Instant"); }
 function isCreature(card)    { return typeLineOf(card).includes("Creature"); }
 
-/** γ1b — does a permanent match a "Sacrifice a/an/another <type>" cost's type? "permanent" = any. */
-function sacTypeMatches(card, type) {
-  if (type === "permanent") return true;
+/** γ1b — does a permanent match a "Sacrifice a/an/another <type>" cost's type? "permanent" = any.
+ * γ1b-SUBTYPE — an optional `subtype` (lowercased, Koma "Sacrifice another Serpent"; "Sacrifice a Swamp")
+ * additionally requires the victim's type line to carry that subtype (the segment after the "—" em dash,
+ * CR 205.3). The parser emits type:"permanent" for a subtype sac (a subtype can sit on a creature, a land, or
+ * an artifact), so baseOk is true and the subtype gate does the narrowing — a permanent without the subtype is
+ * excluded, exactly as the cost demands. */
+function sacTypeMatches(card, type, subtype = null) {
+  if (type === "permanent" && !subtype) return true;
   const t = typeLineOf(card);
-  if (type === "creature") return t.includes("Creature");
-  if (type === "artifact") return t.includes("Artifact");
-  if (type === "enchantment") return t.includes("Enchantment");
-  if (type === "land") return t.includes("Land");
-  // ADDCOST-1 union — "sacrifice an artifact or creature" (Deadly Dispute): a victim matching EITHER type.
-  if (type === "artifactOrCreature") return t.includes("Artifact") || t.includes("Creature");
-  return false;
+  const baseOk =
+    type === "permanent" ? true :
+    type === "creature" ? t.includes("Creature") :
+    type === "artifact" ? t.includes("Artifact") :
+    type === "enchantment" ? t.includes("Enchantment") :
+    type === "land" ? t.includes("Land") :
+    // ADDCOST-1 union — "sacrifice an artifact or creature" (Deadly Dispute): a victim matching EITHER type.
+    type === "artifactOrCreature" ? (t.includes("Artifact") || t.includes("Creature")) :
+    false;
+  if (!baseOk) return false;
+  if (!subtype) return true;
+  // Subtype lives after the em dash ("Legendary Creature — Serpent"); match it word-bounded, case-insensitive.
+  const dash = t.indexOf("—");
+  const subtypeStr = (dash >= 0 ? t.slice(dash + 1) : "").toLowerCase();
+  return new RegExp(`\\b${subtype.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(subtypeStr);
 }
 function isSorcerySpeed(card) {
   const type = typeLineOf(card);
@@ -889,6 +902,12 @@ function actionsActivateAbility(state, playerId) {
     const granted = [...grantedActivatedForHost(state, perm), ...groupGranted];
     const abilities = granted.length ? [...printed, ...granted] : printed;
     if (!abilities.length) continue;
+    // LOCK-ACTIVATED (Koma mode 1 — "Its activated abilities can't be activated this turn"): a permanent
+    // under the layer-6 "activatedAbilitiesLocked" grant (applyTapEffect, end-of-turn duration) can't have
+    // ANY of its activated abilities activated this turn (CR 603-style continuous restriction). Mana abilities
+    // route through the no-stack mana path, not here, so this gate covers the stack-activated abilities the
+    // restriction targets; the grant auto-expires at cleanup, so the suppression is exactly one turn.
+    if (permanentHasKeyword(state, perm.id, "activatedAbilitiesLocked")) continue;
     const isCreaturePerm = isCreature(perm.card);
     for (const ab of abilities) {
       if (!ab.modeled) continue;
@@ -942,7 +961,7 @@ function actionsActivateAbility(state, playerId) {
       if (ab.sacOther) {
         sacVictims = player.battlefield.filter((v) =>
           (!ab.sacOther.another || v.id !== perm.id) &&
-          sacTypeMatches(v.card, ab.sacOther.type) &&
+          sacTypeMatches(v.card, ab.sacOther.type, ab.sacOther.subtype || null) &&
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
         );
         if (sacVictims.length === 0) continue; // no legal sacrifice available → the cost can't be paid

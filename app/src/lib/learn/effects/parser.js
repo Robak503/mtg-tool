@@ -359,6 +359,13 @@ function splitClauses(oracle) {
     // the untap to the SAME single target ("it" = the pumped creature) rather than orphaning it into a
     // separate, unbindable "untap it" clause. Only a +N/+N-with-keyword pump (the exact combat-trick shape).
     .replace(/(gets [+-]\d+\/[+-]\d+ and gains [^.]*?\buntil end of turn)\.\s+untap it\b\.?/gi, "$1 and untap it")
+    // TAP-PERMANENT-LOCK — fold Koma's separate "Its activated abilities can't be activated this turn."
+    // sentence that follows "Tap target permanent." into the tap sentence as " and its activated abilities
+    // …", so combatKeywordClauseParser binds the activated-ability LOCK to the SAME single target ("Its" =
+    // the tapped permanent) rather than orphaning it into a separate, unbindable clause (the same fold as
+    // PUMP-UNTAP above). Anchored to the exact tap-permanent + rider pair, so it can only PROMOTE Koma's
+    // already-low mode, never regress another card.
+    .replace(/(tap target permanent)\.\s+its activated abilities can't be activated this turn\.?/gi, "$1 and its activated abilities can't be activated this turn")
     // DRAW-LOSE-SUBJECT — "Target player draws N cards and loses M life" (Sign in Blood, Blood Pact, Painful
     // Lesson, Harrowing Journey) shares ONE subject across the conjunction; the top-level " and " split would
     // orphan "loses M life" (no subject → unmodeled). Inject the subject into the 2nd half so both halves parse
@@ -489,6 +496,13 @@ function splitClauses(oracle) {
     // NOT a top-level effect boundary. Keep the whole sentence so setBasePtTeamClauseParser binds it (else it
     // shatters into "…base power" + "toughness X/X…" → low). Anchored to the exact X/X form.
     if (/^creatures you control have base power and toughness x\/x until end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TAP-PERMANENT-LOCK (Koma) — the normalize fold above joined "Tap target permanent. Its activated
+    // abilities can't be activated this turn." into one sentence with an internal " and "; that " and " is
+    // INTERNAL to the one tap+lock instruction ("Its" = the tapped permanent), NOT a top-level effect
+    // boundary. Keep the whole sentence so combatKeywordClauseParser binds the tap + activated-lock to the
+    // SAME single target (else the top-level split below shatters it into "tap target permanent" + an
+    // unbindable "its activated abilities …" → low). Anchored to the exact folded form.
+    if (/^tap target permanent and its activated abilities can't be activated this turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split

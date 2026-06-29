@@ -10,23 +10,41 @@ import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
 import { SMALL_NUM, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
 
-/** Tap / untap target creature(s) OR land(s) (CR 701.26). The CREATURE form is the original (a chosen
- * `type:"creature"` target). UNTAP-LAND (Voyaging Satyr "{T}: Untap target land") targets a LAND: the
- * enumerated target carries `type:"permanent"` (spellEffects.addPermanents tags every non-creature permanent
- * "permanent"), so we accept that AND re-verify the LIVE permanent is actually a land by its type line before
- * untapping — never untap a non-land for an untap-land atom (CREED: a mis-applied effect is a forbidden FP).
- * A creature/permanent that has left the battlefield (findPermanent → null) is skipped (CR 608.2b fizzle). */
+/** Tap / untap target creature(s), land(s), OR any permanent (CR 701.26). The CREATURE form is the original
+ * (a chosen `type:"creature"` target). UNTAP-LAND (Voyaging Satyr "{T}: Untap target land") targets a LAND;
+ * TAP-PERMANENT (Koma "Tap target permanent.") targets ANY permanent — both enumerate targets tagged
+ * `type:"permanent"` (spellEffects.addPermanents tags every non-creature permanent "permanent"; a creature is
+ * tagged "creature"), so for the land form we re-verify the LIVE permanent is actually a land by its type line
+ * before acting (never untap a non-land for an untap-land atom — CREED: a mis-applied effect is a forbidden
+ * FP). A creature/permanent that has left the battlefield (findPermanent → null) is skipped (CR 608.2b fizzle).
+ *
+ * LOCK-ACTIVATED (Koma mode 1 — "Its activated abilities can't be activated this turn"): when atom.lockActivated
+ * is set, the tapped permanent ALSO gets a layer-6 keyword grant ("activatedAbilitiesLocked", duration
+ * end-of-turn) that legalChoices.actionsActivateAbility checks to suppress its activated abilities for the rest
+ * of the turn (the same continuous-effect + auto-expire pattern as cant-block). Folded into the tap atom (one
+ * target, "Its" = the just-tapped permanent), so there's no cross-atom "it" reference to resolve. */
 export function applyTapEffect(state, atom, ctx, tap) {
   let next = state;
   const wantsLand = atom?.targetType === "land";
+  const wantsPermanent = atom?.targetType === "permanent";
   for (const t of ctx.targets || []) {
     const lk = findPermanent(next, t.id);
     if (!lk) continue;
     const isLand = /\bland\b/i.test(typeLineStr(lk.permanent.card));
-    // UNTAP-LAND: only act on a land target (verified live). CREATURE form: only act on a creature target.
-    const ok = wantsLand ? isLand : t.type === "creature";
+    // UNTAP-LAND: only act on a land target (verified live). TAP-PERMANENT: act on ANY live permanent.
+    // CREATURE form: only act on a creature target.
+    const ok = wantsLand ? isLand : wantsPermanent ? true : t.type === "creature";
     if (!ok) continue;
     next = tap ? tapPermanent(next, t.id) : untapPermanent(next, t.id);
+    if (tap && atom?.lockActivated) {
+      next = addContinuousEffect(next, {
+        layer: 6,
+        op: { layerOp: "addKeyword", keyword: "activatedAbilitiesLocked" },
+        affects: { mode: "fixed", permanentIds: [t.id] },
+        duration: { kind: "endOfTurn", turn: next.turn },
+        source: { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null },
+      }).state;
+    }
   }
   return logEvent(next, { kind: "spell-effect", effect: tap ? "tap" : "untap", targets: (ctx.targets || []).map(t => t.id) });
 }
@@ -512,6 +530,18 @@ export function earthbendClauseParser(clause) {
  */
 export function combatKeywordClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // TAP-PERMANENT (Koma "Tap target permanent. Its activated abilities can't be activated this turn.") — a
+  // single chosen permanent of ANY type. The bare form taps it; the Koma rider ALSO locks its activated
+  // abilities for the turn (a layer-6 keyword grant the runtime enforces in legalChoices + auto-expires at
+  // cleanup). The lock is folded into the SAME tap atom (one target, "Its" = the tapped permanent), exactly
+  // like the pump+untap combined atom — no cross-atom "it" reference. Whole-clause anchored ($) so any other
+  // rider falls through → low → Arbiter (CREED: model the whole clause or nothing).
+  // The bare form OR the lock rider (splitClauses folds Koma's ". Its activated abilities can't be activated
+  // this turn." into "… and its activated abilities can't be activated this turn", so it arrives as one clause).
+  const tapPermM = t.match(/^tap target permanent( and its activated abilities can't be activated this turn)?\.?$/);
+  if (tapPermM) {
+    return { op: "tap", targetType: "permanent", restrictions: [], ...(tapPermM[1] ? { lockActivated: true } : {}) };
+  }
   const tapM = t.match(/^tap target creature(?:\s+(an opponent controls|defending player controls|you don't control|you control|with power (\d+) or less|with power (\d+) or (?:greater|more)|with toughness (\d+) or less|with mana value (\d+) or (?:greater|more)|without flying|with flying))?\.?$/);
   if (tapM) {
     const qual = tapM[1];

@@ -73,7 +73,10 @@ export function fireTokenEnterTriggers(state, mintedIds) {
 
 export function applyCreateToken(state, atom, ctx) {
   let next = state;
-  const { type, name } = tokenTypeLine(atom.descriptor);
+  const { type, name: derivedName } = tokenTypeLine(atom.descriptor);
+  // NAMED-TOKEN (CR 111.4): a parsed "named X" suffix (atom.name) overrides the subtype-derived name (Koma's
+  // Coil, not "Serpent"). Cosmetic to the rules — the subtype on the type line still drives every interaction.
+  const name = atom.name || derivedName;
   // CHANGELING (CR 702.73a) — a "with changeling" token is EVERY creature type. Carry "Changeling" as a real
   // keyword so hasKeyword(card,"changeling") is true (combat/ward subtype checks, layer selectors) AND so the
   // keyword-derived oracle below contains "changeling" (cardIsChangeling, the tribal-count path). Prepended,
@@ -355,17 +358,25 @@ export function createTokenClauseParser(clause) {
     const countFor = parseCountSource(mtf[4]);
     return countFor ? { op: "create-token", power: parseInt(mtf[1], 10), toughness, descriptor: mtf[3].trim(), countFor, targetType: null } : null;
   }
-  const m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?:(?: named [a-z' ]+?)? with (.+))?$/);
+  // NAMED-TOKEN (CR 111.4) — a typed creature token can carry a printed name ("…creature token named Koma's
+  // Coil", Koma/Ur-Dragon-style). The name is captured into atom.name (applyCreateToken stamps it on the
+  // minted permanent), but it's PURELY cosmetic to the rules — the token's subtype (from the descriptor)
+  // drives every tribal/sac/layer interaction, never its name. Allowing the "named X" suffix INDEPENDENTLY
+  // of the "with" rider is a strict PROMOTION (it can only let an already-near-HIGH clause parse): the old
+  // regex only accepted "named X" when followed by "with (.+)", so a bare "…token named X" (no "with") fell
+  // to LOW. The name group is non-capturing-anchored and the "with" group stays optional + separate.
+  const m = t.match(/^create (a|an|one|two|three|four|five|\d+) (\d+)\/(\d+) ([a-z/ ]+?) creature tokens?(?: named ([a-z' ]+?))?(?: with (.+))?$/);
   if (m) {
     const power = parseInt(m[2], 10);
     const toughness = parseInt(m[3], 10);
     if (toughness < 1) return null;  // 0-toughness token dies to the lethal SBA → incomplete capture → Arbiter
     if (/\bland\b/.test(m[4])) return null;  // a LAND creature token's intrinsic mana would be dropped → Arbiter
-    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), targetType: null };
-    if (m[5] === undefined) return base;
+    const tokenName = m[5] ? m[5].trim().split(/\s+/).map(cap).join(" ") : null; // title-case the parsed name (it was lowercased upstream)
+    const base = { op: "create-token", count: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), power, toughness, descriptor: m[4].trim(), ...(tokenName ? { name: tokenName } : {}), targetType: null };
+    if (m[6] === undefined) return base;
     // A QUOTED inline ability → clean-mana-ability gate; a non-quoted phrase → the keyword path. The quote disambiguates.
-    if (/^["“']/.test(m[5].trim())) {
-      const tokenOracle = parseTokenManaAbility(m[5]);
+    if (/^["“']/.test(m[6].trim())) {
+      const tokenOracle = parseTokenManaAbility(m[6]);
       return tokenOracle ? { ...base, tokenOracle } : null;
     }
     // CHANGELING (CR 702.73a — the token is EVERY creature type): "with changeling" is an ability-defining
@@ -375,7 +386,7 @@ export function createTokenClauseParser(clause) {
     // cardIsChangeling (and thus every tribal counter, layer selector, combat/ward subtype check) treats it
     // as all creature types. Any OTHER keywords alongside ("with flying and changeling") still go through
     // parseTokenKeywords; an unmodeled companion keyword → null → low (CREED — whole token or nothing).
-    const withPhrase = m[5];
+    const withPhrase = m[6];
     if (/\bchangeling\b/i.test(withPhrase)) {
       const remainder = withPhrase.replace(/\bchangeling\b/i, "").replace(/\b(and|,)\b/gi, " ").replace(/\s+/g, " ").trim();
       if (remainder) {
@@ -384,7 +395,7 @@ export function createTokenClauseParser(clause) {
       }
       return { ...base, changeling: true };
     }
-    const kws = parseTokenKeywords(m[5]);
+    const kws = parseTokenKeywords(m[6]);
     return kws ? { ...base, keywords: kws } : null;
   }
   return null;
