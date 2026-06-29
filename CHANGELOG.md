@@ -8,6 +8,32 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-06-29
+
+### Added
+- **Self-play "pilot" engine seam — the learn-to-play foundation.** The self-play loop can now be driven by
+  external decision modules ("pilots"): a stable play-API (legal moves / apply-action / game-status / observe)
+  plus a pluggable decision hook at every enumerated decision point (main plays, attacks, blocks, X-costs,
+  modal choices) and full per-decision trajectory recording. This is the foundation for teaching the simulator
+  to play to win. Fully opt-in — default self-play and your normal Academy games are byte-identical to before.
+- **Decisive self-play games (opt-in time-pressure).** A stalled self-play game now resolves to a real
+  win/loss via an escalating clock past a *generous* soft cap (turn 60 — above the longest natural game)
+  instead of dragging to a draw, producing clean training labels. A game that still times out is honestly
+  tagged and excluded from training — never a fabricated winner. Off by default; your games are unaffected.
+- **Varied self-play repeats (seeded shuffle).** Running multiple self-play games of the same matchup now
+  produces genuinely different games (seeded library shuffle), so the Sim Center can generate real data volume.
+
+### Improved
+- **~90 more cards play natively in the simulator** (toward 100% on the test decks): a cost-reduction-sentence
+  parser fix that unblocked ~59 already-modeled counterspells/board-wipes/burn (Vanquish the Horde, Mystical
+  Dispute, Titanic Brawl…), plus filtered mass-counter & subtype-scoped triggers (aristocrats/tribal: Cordial
+  Vampire, Indulgent Aristocrat…), Putrefy, Blasphemous Act, Smell Fear, and more — every wave flip-diffed for
+  0 regressions + gated, **zero false positives shipped**.
+
+### Internal
+- Learn-to-play division of labor locked with the strategy side: the pilot decision modules + offline
+  memory-mining live outside the app and inject through the new self-play seam.
+
 ## [0.48.0] - 2026-06-28
 
 ### Added
