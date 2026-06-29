@@ -74,7 +74,12 @@ export function fireTokenEnterTriggers(state, mintedIds) {
 export function applyCreateToken(state, atom, ctx) {
   let next = state;
   const { type, name } = tokenTypeLine(atom.descriptor);
-  const keywords = Array.isArray(atom.keywords) ? atom.keywords : [];
+  // CHANGELING (CR 702.73a) — a "with changeling" token is EVERY creature type. Carry "Changeling" as a real
+  // keyword so hasKeyword(card,"changeling") is true (combat/ward subtype checks, layer selectors) AND so the
+  // keyword-derived oracle below contains "changeling" (cardIsChangeling, the tribal-count path). Prepended,
+  // then deduped, so it composes with any other granted keyword without duplicating.
+  const baseKeywords = Array.isArray(atom.keywords) ? atom.keywords : [];
+  const keywords = atom.changeling ? [...new Set(["Changeling", ...baseKeywords])] : baseKeywords;
   // ===== TOKENS ===== T4 ability-carrying tokens — a token minted with `atom.tokenOracle` (slice 1: a
   // CLEAN mana ability, gated by parser.parseTokenManaAbility) carries that ability as its real oracle
   // text, so the existing subsystems drive it with no special-casing: a "{T}: Add {G}" dork and a
@@ -362,6 +367,22 @@ export function createTokenClauseParser(clause) {
     if (/^["“']/.test(m[5].trim())) {
       const tokenOracle = parseTokenManaAbility(m[5]);
       return tokenOracle ? { ...base, tokenOracle } : null;
+    }
+    // CHANGELING (CR 702.73a — the token is EVERY creature type): "with changeling" is an ability-defining
+    // keyword, NOT a grantable static, so it can't ride the parseTokenKeywords path (that would stamp an
+    // inert "Changeling" keyword without granting the types). Peel it off → atom.changeling, which
+    // applyCreateToken honors by minting a token whose oracle carries "Changeling" so hasKeyword /
+    // cardIsChangeling (and thus every tribal counter, layer selector, combat/ward subtype check) treats it
+    // as all creature types. Any OTHER keywords alongside ("with flying and changeling") still go through
+    // parseTokenKeywords; an unmodeled companion keyword → null → low (CREED — whole token or nothing).
+    const withPhrase = m[5];
+    if (/\bchangeling\b/i.test(withPhrase)) {
+      const remainder = withPhrase.replace(/\bchangeling\b/i, "").replace(/\b(and|,)\b/gi, " ").replace(/\s+/g, " ").trim();
+      if (remainder) {
+        const kws = parseTokenKeywords(remainder);
+        return kws ? { ...base, keywords: kws, changeling: true } : null;
+      }
+      return { ...base, changeling: true };
     }
     const kws = parseTokenKeywords(m[5]);
     return kws ? { ...base, keywords: kws } : null;

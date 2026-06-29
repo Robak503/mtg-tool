@@ -155,17 +155,9 @@ describe("ZAXARA-HYDRAS — PARKED: hydras with an unmodeled rider stay body-onl
       type: "Creature — Hydra", mana: "{X}{G}{G}",
       oracle: "This creature enters with X +1/+1 counters on it.\nAt the beginning of your upkeep, double the number of +1/+1 counters on this creature.\nThis creature has trample as long as it has ten or more +1/+1 counters on it.",
     },
-    "Voracious Hydra (ETB modal double/fight)": {
-      type: "Creature — Hydra", mana: "{X}{G}{G}",
-      oracle: "Trample\nThis creature enters with X +1/+1 counters on it.\nWhen this creature enters, choose one —\n• Double the number of +1/+1 counters on this creature.\n• This creature fights target creature you don't control.",
-    },
     "Hydroid Krasis (cast-trigger half-X life/draw)": {
       type: "Creature — Beast Jellyfish Hydra", mana: "{X}{G}{U}",
       oracle: "When you cast this spell, you gain half X life and draw half X cards. Round down each time.\nFlying, trample\nThis creature enters with X +1/+1 counters on it.",
-    },
-    "Mossborn Hydra (landfall→double counters)": {
-      type: "Creature — Elemental Hydra", mana: "{2}{G}",
-      oracle: "Trample\nThis creature enters with a +1/+1 counter on it.\nLandfall — Whenever a land you control enters, double the number of +1/+1 counters on this creature.",
     },
     "Nyxborn Hydra (Bestow Aura)": {
       type: "Creature Enchantment — Hydra", mana: "{X}{G}",

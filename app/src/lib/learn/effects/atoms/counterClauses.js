@@ -50,6 +50,18 @@ const SMALL_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 // produces it; a spell's raw "it" / "that creature" never reaches this matcher (CREED — sentinel gate).
 const TRIGGERING_CREATURE_COUNTER = /^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on the triggering creature$/;
 
+// DOUBLE-COUNTERS (CR 121) — "double the number of +1/+1 counters on this creature" (Voracious Hydra's
+// modal ETB; Primordial/Kalonian/Mossborn upkeep/attack/landfall doublers). Doubling = adding THIS-MANY
+// more counters of the same kind, where the magnitude is read AT RESOLUTION off the SOURCE's live counter
+// bag (countForSpec kind:"countersOnSource"). Modeled as a self-targeted add-counter with that dynamic
+// count: the recipient is the ability's own permanent (target:"self" → ctx.sourceId, selfTargets), and the
+// placement routes through addCounter's central doubler hook so an external counter-doubler (Doubling
+// Season) further multiplies per CR 616. Restricted to +1/+1 (the only fully layer-enforced kind, mirroring
+// the rest of this file); the recipient phrase is restricted to "this creature" (the source self-referent —
+// "on each creature you control" is a DIFFERENT, board-wide doubling that this single-target atom can't
+// model, so it stays LOW → Arbiter, an FN-safe park). Anchored start-to-end: a rider leaves residue → null.
+const DOUBLE_COUNTERS_SELF = /^double the number of (\+1\/\+1) counters on this creature$/;
+
 /**
  * Pure clause parser for the WAVE 3b non-self triggering-permanent counter referent. `clause` arrives
  * reminder-stripped from parseClauseToAtom; we lowercase + normalize the curly apostrophe for robustness.
@@ -59,11 +71,23 @@ const TRIGGERING_CREATURE_COUNTER = /^put (a|an|one|two|three|four|five|\d+) ([+
 export function counterClausesParser(clause) {
   const t = String(clause).toLowerCase().replace(/[’]/g, "'").trim();
   const m = t.match(TRIGGERING_CREATURE_COUNTER);
-  if (!m) return null;
-  return {
-    op: "add-counter",
-    counterType: m[2],
-    amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10),
-    target: "thatCreature",
-  };
+  if (m) {
+    return {
+      op: "add-counter",
+      counterType: m[2],
+      amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10),
+      target: "thatCreature",
+    };
+  }
+  // DOUBLE-COUNTERS — net-double the source's own +1/+1 counters via a self-targeted dynamic-count add.
+  const dm = t.match(DOUBLE_COUNTERS_SELF);
+  if (dm) {
+    return {
+      op: "add-counter",
+      counterType: dm[1],
+      target: "self",
+      countFor: { kind: "countersOnSource", counterType: dm[1] },
+    };
+  }
+  return null;
 }

@@ -171,12 +171,13 @@ export function expandCastChoices(state, controllerId, program, sourceColors = [
       });
       return out;
     }
-    // MODAL-2 "Choose two" / "one or both": one cast per (mode-COMBINATION × target-combo). Each
-    // combination's atoms are concatenated in ASCENDING mode order (matching programAtoms' execution
+    // MODAL-2/N "Choose two" / "one or both" / "one or more": one cast per (mode-COMBINATION × target-combo).
+    // Each combination's atoms are concatenated in ASCENDING mode order (matching programAtoms' execution
     // order), and targets are enumerated over that concatenation so their atomIndex tags are GLOBAL +
-    // aligned. chosenMode = an ARRAY of mode indices. `upTo` ("one or both") also offers single-mode
-    // picks (sizes 1..chooseCount); a plain "Choose two" offers exactly `chooseCount`-sized combos.
-    const sizes = program.modal?.upTo ? range(1, chooseCount) : [chooseCount];
+    // aligned. chosenMode = an ARRAY of mode indices. `upTo` ("one or both") and `atLeastOne` ("one or more")
+    // both offer every subset size 1..chooseCount (chooseCount = the mode count for "one or more"); a plain
+    // "Choose two" offers exactly `chooseCount`-sized combos.
+    const sizes = (program.modal?.upTo || program.modal?.atLeastOne) ? range(1, chooseCount) : [chooseCount];
     const out = [];
     for (const size of sizes) {
       for (const combo of kCombinations(modes.length, size)) {

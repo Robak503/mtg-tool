@@ -893,12 +893,28 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
 }
 
 /**
- * Modal prefix — "Choose one —" (P2.5) plus MODAL-2's "Choose two —" / "Choose one or both —". The
- * capture groups carry the count: group 1 = one|two (the MAX modes to pick), group 2 = " or both" (the
- * "fewer is allowed" / upTo form). "choose up to N" / "choose two or more" etc. don't match → stay low
- * (the executor only resolves a FIXED-or-one-or-both pick; anything else routes to the Arbiter).
+ * Modal prefix — "Choose one —" (P2.5) plus MODAL-2's "Choose two —" / "Choose one or both —" and the
+ * MODAL-N "Choose one or more —" (any non-empty subset, CR 700.2 — Black Market Connections, Outlaws'
+ * Merriment). The capture groups carry the count: group 1 = one|two (the MAX modes to pick), group 2 =
+ * " or both" (the upTo form), group 3 = " or more" (the atLeastOne form, attached to "one"). "choose up to
+ * N" / "choose two or more" / "choose three" etc. still don't match → stay low (the executor only resolves
+ * the fixed / one-or-both / one-or-more picks; anything else routes to the Arbiter).
  */
-const MODAL_RE = /^choose (one|two)( or both)?\s*[—–-]\s*/i;
+const MODAL_RE = /^choose (one|two)( or both| or more)?\s*[—–-]\s*/i;
+
+// MODE-NAME PREFIX (CR 700.2g — many modal cards label each mode "• <Name> — <effect>": Charms/Commands,
+// Pip-Boy 3000 "Sort Inventory — …", Black Market Connections "Hire a Mercenary — …"). The name is purely
+// flavor; the effect is everything after the FIRST " — ". Strip a LEADING label: a Title-Case first word,
+// then 0–4 more words that are either Title-Case OR a short lowercase connective (a/an/and/of/the/or/to/in/
+// on), then an em/en dash with surrounding spaces, with the effect after it starting with a capital or "(".
+// Anchored at the start (a mid-effect dash is never touched); the label carries NO sentence punctuation
+// (`[A-Za-z'/]` only) and is ≤5 words, so ordinary effect text ("Destroy target …", "Target player …")
+// never matches (no leading " — " before its first verb). Leaves a non-labeled mode untouched.
+const MODE_NAME_WORD = "(?:[A-Z][A-Za-z'/]*|a|an|and|of|the|or|to|in|on)";
+const MODE_NAME_PREFIX = new RegExp(`^[A-Z][A-Za-z'/]*(?: ${MODE_NAME_WORD}){0,4}\\s+[—–]\\s+(?=[A-Z(])`);
+function stripModeNamePrefix(part) {
+  return part.replace(MODE_NAME_PREFIX, "");
+}
 
 /**
  * Parse a modal prefix into `{ chooseCount, upTo, modes:[{label, atoms}] }`, or null if not modal, or
@@ -913,15 +929,28 @@ function parseModal(cardType, oracle, hasX = false) {
   const stripped = stripReminder(oracle);
   const m = stripped.match(MODAL_RE);
   if (!m) return null;
-  const orBoth = !!m[2];
-  const chooseCount = (orBoth || m[1].toLowerCase() === "two") ? 2 : 1;
-  const upTo = orBoth; // "one or both" → pick 1 or 2; "choose one"/"choose two" → an exact count
+  const tail = (m[2] || "").toLowerCase();
+  const orBoth = tail === " or both";
+  const orMore = tail === " or more"; // "choose one or more" → MODAL-N (any non-empty subset, CR 700.2)
   const rest = stripped.slice(m[0].length).trim();
+  // "one or more" modes ARE bullet-separated in every printed case; the " or "-fallback split (used only
+  // for un-bulleted two-mode charms) would wrongly shred a "one or more" mode's effect text, so require
+  // bullets for the MODAL-N form (a non-bulleted "one or more" → null → low, an FN-safe park).
+  if (orMore && !rest.includes("•")) return null;
   const rawModes = rest.includes("•")
     ? rest.split("•")
     : rest.split(/\s*;\s*or\s+|\s+\bor\b\s+/i);
-  const parts = rawModes.map(p => p.replace(/^[•\s]+/, "").replace(/\.\s*$/, "").trim()).filter(Boolean);
+  // Strip the leading bullet/space, the optional "• <Name> — " mode-name label (CR 700.2g flavor), and a
+  // trailing period from each mode before parsing its effect clauses.
+  const parts = rawModes
+    .map(p => stripModeNamePrefix(p.replace(/^[•\s]+/, "").trim()).replace(/\.\s*$/, "").trim())
+    .filter(Boolean);
   if (parts.length < 2) return null;
+  // chooseCount = the MAX modes pickable: 2 for "two"/"one or both"; ALL modes for "one or more"; else 1.
+  // (Resolved after parts is known so "one or more" can size to the actual mode count.)
+  const chooseCount = orMore ? parts.length : (orBoth || m[1].toLowerCase() === "two") ? 2 : 1;
+  const upTo = orBoth; // "one or both" → pick 1 or 2 (of exactly 2)
+  const atLeastOne = orMore; // "one or more" → pick any 1..N subset
 
   const modes = [];
   for (const part of parts) {
@@ -933,14 +962,14 @@ function parseModal(cardType, oracle, hasX = false) {
       if (!atom) { ok = false; break; }
       atoms.push(atom);
     }
-    if (!ok) return { chooseCount, upTo, modes: null }; // an unmodeled mode → low
+    if (!ok) return { chooseCount, upTo, atLeastOne, modes: null }; // an unmodeled mode → low
     modes.push({ label: part, atoms });
   }
   // Count must be satisfiable: can't pick more modes than exist, and "one or both" is specifically a
   // TWO-mode card (1 or 2 of exactly 2). An unsatisfiable count → modes:null → low (never a wrong pick).
-  if (chooseCount > modes.length) return { chooseCount, upTo, modes: null };
-  if (orBoth && modes.length !== 2) return { chooseCount, upTo, modes: null };
-  return { chooseCount, upTo, modes };
+  if (chooseCount > modes.length) return { chooseCount, upTo, atLeastOne, modes: null };
+  if (orBoth && modes.length !== 2) return { chooseCount, upTo, atLeastOne, modes: null };
+  return { chooseCount, upTo, atLeastOne, modes };
 }
 
 // δ-1 hand disruption — the filter phrase between "you choose a/an" and "card" mapped to a modeled

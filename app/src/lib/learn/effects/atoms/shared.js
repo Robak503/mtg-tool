@@ -257,6 +257,21 @@ export function countForSpec(state, ctx, spec) {
     if (!lk || !/\bCreature\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) return 0;
     return Math.max(0, stat.read(lk.permanent, state));
   }
+  // ===== COUNTERS-ON-SOURCE (DOUBLE-COUNTERS) ===== the number of counters of a given kind CURRENTLY on
+  // the ability's OWN permanent (ctx.sourceId), read AT RESOLUTION off the live counter bag. Feeds "double
+  // the number of +1/+1 counters on this creature" (Voracious Hydra's modal ETB): an add-counter atom that
+  // adds THIS-MANY more of the same kind nets a double (CR 121 — placing N more where N is the current
+  // count). The recipient is the same source (target:"self"), and the placement still routes through
+  // addCounter's doubler hook, so a counter-doubler (Doubling Season) further multiplies the placed amount
+  // per CR 616 — faithful. Reads the EXACT stored count (never fabricated): an absent source (the permanent
+  // already left the battlefield) or zero counters → 0 → a clean no-op (no counters added). Computed BEFORE
+  // the player lookup (this reads a permanent's counter bag, not a player/board tally).
+  if (spec.kind === "countersOnSource") {
+    const refId = ctx?.sourceId;
+    const lk = refId ? findPermanent(state, refId) : null;
+    if (!lk) return 0;
+    return Math.max(0, lk.permanent.counters?.[spec.counterType] || 0);
+  }
   // ===== DICE-ROLL (CR 726) ===== the result of a just-rolled die (Ancient Dragons "equal to the result").
   // The roll-d20 atom stamps state.diceRoll (a uniform 1–20) IMMEDIATELY before this payoff atom resolves, so
   // this reads the rolled value. The parser gates a diceResult spec to a clause directly following a roll-d20

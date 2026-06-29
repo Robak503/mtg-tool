@@ -368,8 +368,15 @@ function matchesSelector(selector, candidate, sourcePerm) {
     if (!selector.cardTypes.every(t => line.includes(t))) return false;
   }
   if (selector.subtypes) {
-    const subs = subtypesOf(candidate.card).map(s => s.toLowerCase());
-    if (!selector.subtypes.some(st => subs.includes(String(st).toLowerCase()))) return false;
+    // CHANGELING (CR 702.73a — every creature type) matches ANY subtype selector, so a tribal lord/anthem
+    // ("Other Slivers you control get +1/+1") buffs a changeling (printed, or a "with changeling" token from
+    // the create-token path). Mirrors the 6 other changeling-aware subtype checks (combatEvasion, groupWard,
+    // resolvers, triggers, staticAbilityParser, permHasChosenTypeLayer) so changeling-ness is honored
+    // uniformly. A SAFE widening: only a creature already carrying the changeling keyword newly matches.
+    if (!hasKeyword(candidate.card, "changeling")) {
+      const subs = subtypesOf(candidate.card).map(s => s.toLowerCase());
+      if (!selector.subtypes.some(st => subs.includes(String(st).toLowerCase()))) return false;
+    }
   }
   if (selector.colors) {
     const cols = colorsOf(candidate.card);
