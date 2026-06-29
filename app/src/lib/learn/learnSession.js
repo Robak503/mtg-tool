@@ -45,6 +45,7 @@ import {
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
+import { featurizeState } from "./gameFeatures.js";
 import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickSoftCounterPay, resolveSoftCounterChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
@@ -596,6 +597,121 @@ function settleDiscardChoice(state, cardId) {
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
+// ─── Pluggable decision-maker (Learn-to-Play item #3 — the pilot seam) ──────────
+//
+// THE KEYSTONE: the self-play loop enumerates a set of `legalActions` at every real
+// choice (the priority window — main plays, declare-attackers, declare-blockers,
+// X-cost, modal; and the resolution-time DISCOVER choice), then asks a `decide`
+// callback to pick ONE of them:
+//
+//     decide({ state, legalActions, seat, pilot }) -> action   (∈ legalActions)
+//
+// This is the ONE place an external "pilot" module (Omnath's omnath-tools/pilots/
+// decide.mjs, NOT in this repo) plugs in. The caller injects it via runSelfPlayGame's
+// `decide` option (the documented adapter point); the loop never imports it.
+//
+// CREED — DEFAULT IS BYTE-IDENTICAL: when no `decide` is supplied, the loop runs the
+// EXACT pre-refactor code path (makeDecision → its picked action), so play is byte-for-
+// byte unchanged for the Academy, human play, and every existing test. `decide` only
+// alters which action is chosen AT an auto-decided window — the engine still advances
+// ITSELF (untap/upkeep/draw/stack) and still surfaces a human "ask" exactly as before.
+//
+// SAFETY: a `decide` return that is NOT in the offered set is rejected and we fall back
+// to the default pick (`fallbackAction`) — a learned/garbage pilot can never inject an
+// illegal or fabricated move, and never crash the loop.
+
+/** The DEFAULT decider: today's exact pick. `makeDecision` already resolved the action
+ *  for this seat (via opponentAI.pickAction for an AI/Expert seat); defaultDecide simply
+ *  returns it, so routing through the decide seam with no pilot is a pure pass-through. */
+export function defaultDecide({ fallbackAction = null } = {}) {
+  return fallbackAction;
+}
+
+/**
+ * Set-membership validation for a pilot's returned action against the OFFERED set
+ * (the exact `legalActions` array handed to `decide` this window — not a recomputed
+ * set, so it matches precisely what the pilot saw). Uses the same canonical-key deep
+ * compare gameApi.isLegalAction uses, kept local to avoid a learnSession↔gameApi import
+ * cycle. Returns true iff `action` is structurally identical to one offered action.
+ */
+function actionInOfferedSet(action, offered) {
+  if (!action || typeof action !== "object") return false;
+  const target = _stableActionKey(action);
+  for (const cand of offered) {
+    if (_stableActionKey(cand) === target) return true;
+  }
+  return false;
+}
+
+/** JSON.stringify with object keys sorted recursively (arrays keep order) — a canonical
+ *  key so two structurally-equal action objects compare equal regardless of key order.
+ *  Mirrors gameApi.js's stableStringify; duplicated (not imported) to avoid the cycle. */
+function _stableActionKey(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(_stableActionKey).join(",")}]`;
+  const keys = Object.keys(value).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${_stableActionKey(value[k])}`).join(",")}}`;
+}
+
+/**
+ * Resolve which action to apply at an auto-decided window, honoring the pluggable
+ * `decide`. The pre-refactor default (`decide` null) returns `fallbackAction` UNTOUCHED
+ * — the exact action makeDecision/pickAction chose — so play is byte-identical. When a
+ * `decide` IS supplied, it picks among `offered`; an out-of-set / throwing return falls
+ * back to `fallbackAction` (never a fabricated or illegal move, never a crash).
+ *
+ * Also records a full-trajectory row when `recordDecision` is supplied: one
+ * { turn, seat, pilot, features, action } per decide call (the policy-training
+ * substrate). Recording is opt-in and pure (featurizeState reads, mutates nothing);
+ * default (no recorder) adds zero overhead.
+ */
+function resolveDecideAction({ decide, state, offered, seat, pilot, fallbackAction, recordDecision }) {
+  let chosen = fallbackAction;
+  if (typeof decide === "function") {
+    let candidate;
+    try {
+      candidate = decide({ state, legalActions: offered, seat, pilot });
+    } catch (err) {
+      // A throwing pilot must never abort a real game — fall back to the default pick.
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn(`[learn] decide() threw (using default pick): ${err?.message || err}`);
+      }
+      candidate = undefined;
+    }
+    // Validate against the OFFERED set (not a recomputed set) — exactly what the pilot saw.
+    chosen = actionInOfferedSet(candidate, offered) ? candidate : fallbackAction;
+  }
+  if (typeof recordDecision === "function" && chosen) {
+    try {
+      recordDecision({
+        turn: state.turn,
+        seat,
+        pilot: pilot ? { playbook: pilot.playbook ?? null, temperament: pilot.temperament ?? null } : null,
+        features: featurizeState(state, seat),
+        action: serializeAction(chosen),
+      });
+    } catch (err) {
+      // Recording is observational — a faulty recorder can never corrupt or abort a game.
+      if (typeof console !== "undefined" && console.warn) {
+        console.warn(`[learn] recordDecision threw (ignored): ${err?.message || err}`);
+      }
+    }
+  }
+  return chosen;
+}
+
+/**
+ * A STABLE, JSON-serializable descriptor of a chosen action for the trajectory. Actions
+ * are already small plain objects (kind + scalar payload, occasional small arrays/nested
+ * plain objects — no functions, no cycles), so a structured clone via canonical JSON is
+ * exact and append-safe. We never store an engine handle, so a recorded row can't feed
+ * back into or mutate the engine. Pure.
+ */
+function serializeAction(action) {
+  if (!action || typeof action !== "object") return action ?? null;
+  return JSON.parse(_stableActionKey(action));
+}
+
 /**
  * The driver. Given an active session, advance the engine until the
  * user has a real decision (kind: "ask") OR the game ends. AI
@@ -629,8 +745,28 @@ function settleDiscardChoice(state, cardId) {
  * never a "leader wins at the cap" call. It is NOT a Magic rule (no CR); see the
  * TIME_PRESSURE_DEFAULTS block above. OFF by default ⇒ this function is byte-identical
  * to before for the Academy and every existing test (the loop still draws at the cap).
+ *
+ * PLUGGABLE DECIDE (`decide`, default null ⇒ the pre-refactor pick — Learn-to-Play item
+ * #3, the pilot seam): at every auto-decided priority window (and the resolution-time
+ * DISCOVER choice), the loop enumerates `legalActions` and calls
+ *   decide({ state, legalActions, seat, pilot }) -> action   (∈ legalActions)
+ * to pick ONE. NULL ⇒ the loop uses the action makeDecision/pickAction already chose, so
+ * play is BYTE-IDENTICAL. An out-of-set / throwing return falls back to that default pick
+ * (never an illegal/fabricated move, never a crash). `pilot` (default null) is opaque
+ * identity passed straight to decide + recorded ({playbook, temperament}). The human
+ * "ask" path is untouched — decide fires only where the engine would auto-decide.
+ *
+ * FULL-TRAJECTORY RECORDING (`recordDecision`, default null ⇒ off): when supplied, the
+ * loop appends one row per decide call —
+ *   { turn, seat, pilot:{playbook,temperament}, features: featurizeState(state, seat), action }
+ * — the POLICY-training substrate (which action from which state). Append-only + pure
+ * (featurizeState reads, mutates nothing); the action is a stable JSON descriptor with no
+ * engine handle. Default (no recorder) ⇒ zero overhead, byte-identical.
  */
-export function advanceUntilDecision(session, { archetype = null, onTurnStart = null, timePressure = null } = {}) {
+export function advanceUntilDecision(
+  session,
+  { archetype = null, onTurnStart = null, timePressure = null, decide = null, pilot = null, recordDecision = null } = {},
+) {
   // Resolve the opt-in clock once (null ⇒ OFF ⇒ no behavior change anywhere below).
   const timeCfg = resolveTimePressure(timePressure);
   if (session.status !== "active") {
@@ -750,7 +886,13 @@ export function advanceUntilDecision(session, { archetype = null, onTurnStart = 
       if (dDecision.kind === "ask") {
         return { session: current, decision: dDecision };
       }
-      const dAction = dDecision.action || dActions.find((a) => a.kind === "discover-to-hand") || dActions[0];
+      // The pre-refactor default pick (byte-identical when no decide). The pluggable
+      // decide may substitute another offered action; an out-of-set return falls back here.
+      const dFallback = dDecision.action || dActions.find((a) => a.kind === "discover-to-hand") || dActions[0];
+      const dAction = resolveDecideAction({
+        decide, state: current.state, offered: dActions, seat: dc, pilot,
+        fallbackAction: dFallback, recordDecision,
+      });
       current = dAction
         ? { ...current, state: dispatchAction(current.state, dAction) }
         : { ...current, state: (({ pendingDiscover: _drop, ...rest }) => rest)(current.state) }; // defensive: never stall
@@ -949,14 +1091,23 @@ export function advanceUntilDecision(session, { archetype = null, onTurnStart = 
       continue;
     }
 
+    // Pluggable decide: pick among the OFFERED legalActions. With no decide this is the
+    // exact action makeDecision/pickAction chose (byte-identical); a pilot may substitute
+    // another offered action, and an out-of-set / throwing return falls back to it. Also
+    // records the full-trajectory row (when recordDecision is set) for THIS decision.
+    const chosenAction = resolveDecideAction({
+      decide, state, offered: actions, seat: actor, pilot,
+      fallbackAction: decision.action, recordDecision,
+    });
+
     try {
-      const newState = dispatchAction(state, decision.action);
+      const newState = dispatchAction(state, chosenAction);
       // Anti-loop latch (defense-in-depth behind the combat exclusion fix): a
       // non-pass action that leaves the progress signature unchanged did
       // nothing meaningful. Rather than re-applying the same no-op forever,
       // force a pass to move the game forward.
       if (
-        decision.action.kind !== "pass-priority" &&
+        chosenAction.kind !== "pass-priority" &&
         progressSignature(newState) === progressSignature(state)
       ) {
         current = {
@@ -971,7 +1122,7 @@ export function advanceUntilDecision(session, { archetype = null, onTurnStart = 
         phase: state.phase,
         step: state.step,
         actor,
-        action: decision.action,
+        action: chosenAction,
         auto: true,
         reasoning: decision.metadata?.reasoning,
       };

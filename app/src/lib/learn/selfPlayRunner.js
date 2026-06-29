@@ -28,6 +28,7 @@
 
 import { createLearnSession, advanceUntilDecision } from "./learnSession.js";
 import { featurizeState } from "./gameFeatures.js";
+import { gameStatus } from "./gameApi.js";
 
 /**
  * Map a terminal self-play `result` token to a per-seat VALUE LABEL for the value-
@@ -85,7 +86,18 @@ export function outcomeLabelForSeat(seatId, result) {
  *   training mechanism only. Pass false to disable (recover the old draw-at-cap behavior),
  *   or an object to override { softCapTurn, lifeLossStep }. The DRAW it removes is the
  *   useless-label outcome (0.5 for every seat) the value-function recorder can't learn from.
- * @returns {{ result, status, reason, turns, ticks, log, meta, trainingWeight, error?, trajectory? }}
+ * @param {object} [args.pilots]  THE EXTERNAL-DECIDE ADAPTER POINT (Learn-to-Play item #3).
+ *   A `{ [seatId]: { decide, playbook?, temperament? } }` map. For the seat whose turn it
+ *   is, that seat's `decide({ state, legalActions, seat, pilot }) -> action` is called at
+ *   every enumerated choice; `playbook`/`temperament` are recorded as the pilot identity.
+ *   Omnath's `omnath-tools/pilots/decide.mjs` (NOT in this repo) is injected HERE by the
+ *   caller — this module never imports it. A seat with no pilot (or no `decide`) plays the
+ *   exact default autopilot (byte-identical). Default {} ⇒ every seat is the default pilot.
+ * @param {boolean} [args.recordDecisions]  OPT-IN (default false): also capture the
+ *   per-DECISION trajectory (one row per enumerated choice: turn, seat, pilot, features,
+ *   action) — the POLICY-training substrate, distinct from the per-turn VALUE substrate
+ *   `recordTrajectory` captures. When true, the result gains a `decisionTrajectory` field.
+ * @returns {{ result, status, reason, turns, ticks, log, meta, trainingWeight, error?, trajectory?, decisionTrajectory? }}
  *   result — "user-wins" | "ai-wins" | "draw" | "timeout" | "engine-stuck"
  *            | "dispatch-error" | "setup-error" (the report treats stuck/error as
  *            non-completions; `timeout` is an honest, separately-counted non-result)
@@ -102,6 +114,13 @@ export function outcomeLabelForSeat(seatId, result) {
  *       seats: [ { seat, outcome, rows: [ { turn, features } ] } ]
  *     } — one row per (seat, turn boundary); `features` is a featurizeState object,
  *     `outcome` is that seat's eventual value label (1 win / 0 loss / 0.5 draw).
+ *   decisionTrajectory (only when recordDecisions) — {
+ *       mode, result, winnerSeat, trainingWeight,
+ *       rows: [ { turn, seat, pilot:{playbook,temperament}, features, action } ]
+ *     } — one row per ENUMERATED DECISION (the policy substrate): the state features +
+ *     the chosen action + which pilot chose it. `winnerSeat`/`result`/`trainingWeight`
+ *     are the final game outcome (trainingWeight 0 for a timeout/non-completion). Actions
+ *     serialize stably (plain JSON, no engine handle); append-only, no circular refs.
  */
 export function runSelfPlayGame({
   deckA,
@@ -116,6 +135,8 @@ export function runSelfPlayGame({
   recordTrajectory = false,
   seed = null,
   timePressure = false, // default OFF here (a single game is byte-identical); runSelfPlayBatch turns it ON.
+  pilots = {}, // EXTERNAL-DECIDE ADAPTER: { [seatId]: { decide, playbook?, temperament? } }; {} ⇒ all-default play.
+  recordDecisions = false, // opt-in per-DECISION (policy) trajectory; default OFF ⇒ byte-identical.
 } = {}) {
   // Build the Expert session. createLearnSession validates deck shape and throws
   // on bad input; we surface that as a `setup-error` result rather than letting it
@@ -167,12 +188,54 @@ export function runSelfPlayGame({
       }
     : null;
 
-  // Assemble the opt-in driver options. Both default-off knobs (the trajectory observer
-  // and the time-pressure clock) are passed only when requested; when neither is set the
-  // object is `{}` and advanceUntilDecision behaves byte-identically to its bare form.
+  // ── Pluggable per-seat pilots + per-DECISION trajectory ──────────────────────
+  //
+  // THE ADAPTER POINT: `pilots[seat].decide` is the external pilot for that seat (Omnath's
+  // omnath-tools/pilots/decide.mjs is injected via this `pilots` map — never imported here).
+  // advanceUntilDecision takes ONE `decide`; we hand it a thin router that, given the seat
+  // whose turn it is, calls THAT seat's pilot. A seat with no pilot (or no .decide) returns
+  // undefined ⇒ advanceUntilDecision falls back to the default autopilot pick (byte-identical
+  // for that seat). When NO seat has a pilot we pass no `decide` at all, so play is fully
+  // byte-identical to the pre-refactor loop.
+  const hasAnyPilot = pilots && Object.values(pilots).some((p) => typeof p?.decide === "function");
+  const pilotIdentity = (seat) => {
+    const p = pilots?.[seat];
+    return p ? { playbook: p.playbook ?? null, temperament: p.temperament ?? null } : null;
+  };
+  const routedDecide = hasAnyPilot
+    ? ({ state, legalActions, seat }) => {
+        const p = pilots?.[seat];
+        if (typeof p?.decide !== "function") return undefined; // no pilot for this seat → default pick
+        return p.decide({ state, legalActions, seat, pilot: pilotIdentity(seat) });
+      }
+    : null;
+
+  // Per-decision (policy) trajectory: one row per enumerated choice. The recorder gets the
+  // seat, so it stamps the PER-SEAT pilot identity (advanceUntilDecision's single `pilot`
+  // param can't carry per-seat identity). PURE + append-only; the action is already a stable
+  // serialized descriptor by the time it reaches here (resolveDecideAction serialized it).
+  const decisionRows = [];
+  const recordDecision = recordDecisions
+    ? (row) => {
+        decisionRows.push({
+          turn: row.turn,
+          seat: row.seat,
+          pilot: pilotIdentity(row.seat), // per-seat identity (null when that seat is the default pilot)
+          features: row.features,
+          action: row.action,
+        });
+      }
+    : null;
+
+  // Assemble the opt-in driver options. Every default-off knob (the per-turn observer, the
+  // time-pressure clock, the pluggable decide, and the per-decision recorder) is passed only
+  // when requested; when none are set the object is `{}` and advanceUntilDecision behaves
+  // byte-identically to its bare form.
   const advanceOpts = {};
   if (recordTrajectory) advanceOpts.onTurnStart = onTurnStart;
   if (timePressure) advanceOpts.timePressure = timePressure;
+  if (routedDecide) advanceOpts.decide = routedDecide;
+  if (recordDecision) advanceOpts.recordDecision = recordDecision;
 
   // Drive to termination. advanceUntilDecision NEVER throws on engine bugs — it
   // returns a structured engine-stuck / dispatch-error decision — but we still
@@ -234,6 +297,23 @@ export function runSelfPlayGame({
     meta,
     trainingWeight,
   };
+
+  // Per-DECISION (policy) trajectory (opt-in, independent of recordTrajectory). Attach the
+  // full row list + the FINAL game outcome the task specifies: { result, winnerSeat,
+  // trainingWeight }. winnerSeat comes from the SAME gameStatus the play-API exposes (so it
+  // can't drift); it's null on a draw/timeout/non-completion. trainingWeight is 0 for a
+  // timeout/non-completion — a forced-timeout game yields rows with weight 0, never a
+  // fabricated W/L. Rows are append-only with stably-serialized actions (no engine handle).
+  if (recordDecisions) {
+    const winnerSeat = (() => {
+      try {
+        return gameStatus(out.state)?.winnerSeat ?? null;
+      } catch {
+        return null; // a non-terminal/edge state ⇒ no winner; never a throw that aborts the run
+      }
+    })();
+    base.decisionTrajectory = { mode, result, winnerSeat, trainingWeight, rows: decisionRows };
+  }
 
   if (!recordTrajectory) return base;
 
@@ -338,11 +418,20 @@ export function buildPairings(deckCount, mode = "commander") {
  *     game that still hits the cap is an honest `timeout` (trainingWeight:0, no W/L label),
  *     never a fabricated winner. Pass false to recover the old draw-at-cap behavior, or an
  *     object to override { softCapTurn, lifeLossStep }. NOT a Magic rule — a training device.
+ * @param {object} [opts.pilots]  EXTERNAL-DECIDE ADAPTER (item #3): a per-SEAT
+ *     `{ [seatId]: { decide, playbook?, temperament? } }` map (seatIds are the engine seats
+ *     — "user", "ai" for Standard; "user","ai1","ai2","ai3" for Commander). Passed straight
+ *     through to every game's runSelfPlayGame. Omnath's pilot module is injected HERE by the
+ *     caller; the runner never imports it. Default {} ⇒ every seat plays the default autopilot
+ *     (byte-identical). The same map applies to all pairings (positional seats are stable).
+ * @param {boolean} [opts.recordDecisions]  OPT-IN (default false): record the per-DECISION
+ *     (policy) trajectory for every game (passes through to runSelfPlayGame.recordDecisions).
+ *     Each game's `.decisionTrajectory` is tagged with `deckIds`/`seatNames` for attribution.
  * @returns {{ games: object[], deckList: object[], mode, pairings }}
  *     games — one runSelfPlayGame result per game, each tagged with .meta
  *             { mode, deckNames, seatNames, userDeckName } and a trainingWeight
  */
-export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true } = {}) {
+export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true, pilots = {}, recordDecisions = false } = {}) {
   const decks = Array.isArray(deckList) ? deckList : [];
   const pairings = buildPairings(decks.length, mode);
   // Seeded shuffle makes repeats REAL: each game gets a distinct seed, so gamesPer>1
@@ -388,6 +477,8 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
           recordTrajectory: record,
           seed,
           timePressure,
+          pilots,
+          recordDecisions,
         });
       } else {
         const [a, b] = seatDecks;
@@ -403,6 +494,8 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
           recordTrajectory: record,
           seed,
           timePressure,
+          pilots,
+          recordDecisions,
         });
       }
       // Attribute each trajectory to its decks so JSONL rows carry deck identity. The
@@ -411,6 +504,12 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
       if (record && game.trajectory) {
         game.trajectory.deckIds = seatIds;
         game.trajectory.seatNames = seatNames;
+      }
+      // Same attribution for the per-decision (policy) trajectory: a positional seat→deck map
+      // (rows already carry the seat id, so a consumer can join row.seat → deck via this map).
+      if (recordDecisions && game.decisionTrajectory) {
+        game.decisionTrajectory.deckIds = seatIds;
+        game.decisionTrajectory.seatNames = seatNames;
       }
       games.push(game);
     }
