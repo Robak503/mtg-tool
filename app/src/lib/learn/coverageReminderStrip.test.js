@@ -54,13 +54,16 @@ describe("TRIG-REMINDER-STRIP — earthbend cards flip native-trigger", () => {
 });
 
 describe("TRIG-REMINDER-STRIP — CREED: a real (non-reminder) unmodeled trigger still blocks", () => {
-  it("a second trigger with an unmodeled event keeps the card body-only (count mismatch survives the strip)", () => {
-    // "draw seven cards" on upkeep is a shaped+detected sentence whose effect routes; but the
-    // SECOND clause here is a real, non-reminder trigger whose event is modeled but effect is NOT —
-    // it must keep the card out of native-trigger.  (Reminder strip only removes parenthetical text.)
+  it("a second trigger with an unmodeled effect keeps the card body-only (count mismatch survives the strip)", () => {
+    // The dies → earthbend 2 trigger routes natively; but the SECOND clause is a real, non-reminder trigger
+    // whose effect is NOT modeled — it must keep the card out of native-trigger.  (Reminder strip only removes
+    // parenthetical text.)  The unmodeled effect here is an optional-mana-payment with an UNMODELED payoff
+    // ("that player exchanges hands with you") — the OPTIONAL-MANA-PAYMENT matcher models a "you may pay {cost}.
+    // If you do, <effect>" only when <effect> is modeled, so this whole-card body-only pin also guards that
+    // matcher's CREED boundary (an unmodeled payoff never flips the card).
     const card = C(
       "Synthetic Test",
-      "When this creature dies, earthbend 2. (Target land you control becomes a 0/0 creature with haste that's still a land.)\nAt the beginning of your upkeep, you may pay {3}. If you do, draw a card.",
+      "When this creature dies, earthbend 2. (Target land you control becomes a 0/0 creature with haste that's still a land.)\nAt the beginning of your upkeep, you may pay {3}. If you do, that player exchanges hands with you.",
     );
     expect(classifyCard(card)).not.toBe("native-trigger");
   });

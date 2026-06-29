@@ -46,7 +46,7 @@ import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { featurizeState } from "./gameFeatures.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickSoftCounterPay, resolveSoftCounterChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -496,6 +496,16 @@ function settleDivideChoice(state, distribution) {
 // resolves on its own when reached, or the counter's own program finishes). Mirrors settleDivideChoice.
 function settleSoftCounterChoice(state, pay) {
   const next = resolveSoftCounterChoice(state, pay);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// ===== OPTIONAL-MANA-PAYMENT ===== (CR 603.7c) — settle a "you may pay {cost}. If you do, <effect>" pay-or-
+// decline decision: the controller pays the cost (payoff runs) or declines/can't afford (nothing runs), then
+// the program resumes — which may itself set ANOTHER choice (a scry payoff), so guard pendingChoice before
+// flushing. finalizeStackResolution then flushes any triggers the payoff enqueued (CR 603.3). Mirrors
+// settleSoftCounterChoice / settleOptionalChoice.
+function settleOptionalManaPaymentChoice(state, pay) {
+  const next = resolveOptionalManaPaymentChoice(state, pay);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -1133,6 +1143,26 @@ export function advanceUntilDecision(
         current = { ...current, state: settleSoftCounterChoice(current.state, picked.value) };
         continue;
       }
+      // ===== OPTIONAL-MANA-PAYMENT ===== (CR 603.7c) — "you may pay {cost}. If you do, <effect>" (Lifecrafter's
+      // Bestiary / Mind's Eye / Inheritance / …). pc.controller is the player whose trigger/ability it is (who
+      // pays + decides), so `pause` pauses a human and auto-decides an AI (pay-if-able). Default = pay iff
+      // affordable (the modeled payoffs — draw a card — are beneficial); a pilot may decline, and an
+      // unaffordable "pay" runs no payoff (payManaCost never fabricates mana — CR 119). Resolving pays-or-skips
+      // then finalizes the stack.
+      if (pc.kind === "optional-mana-payment") {
+        if (pause) {
+          // Enrich with affordability so the picker can disable "Pay" when the human can't cover the cost.
+          const affordable = autoPickOptionalManaPayment(current.state, pc);
+          return { session: current, decision: { kind: "optional-mana-payment", ...pc, affordable } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalManaPayment(current.state, pc) },
+        });
+        current = { ...current, state: settleOptionalManaPaymentChoice(current.state, picked.value) };
+        continue;
+      }
       // Tutor library search. A pilot may fetch a different legal candidate (or find nothing — CR
       // 701.19f); default = the auto-pick (highest-MV), byte-identical.
       if (pause) {
@@ -1586,6 +1616,41 @@ export function applySoftCounterChoice(session, choice) {
 }
 
 /**
+ * ===== OPTIONAL-MANA-PAYMENT ===== (CR 603.7c) — the player chose to pay {cost} (and run the payoff) or not,
+ * for a "you may pay {cost}. If you do, <effect>" (Lifecrafter's Bestiary / Mind's Eye / …). `choice.pay` is
+ * the yes/no. resolveOptionalManaPaymentChoice charges the mana + runs the payoff (or skips it if declined /
+ * unaffordable — payManaCost never fabricates mana), then resumes + re-derives. A double-submit (nothing
+ * pending) re-derives. Mirrors applySoftCounterChoice.
+ */
+export function applyOptionalManaPaymentChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "optional-mana-payment") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const pay = choice?.pay === true || choice === true;
+  let newState;
+  try {
+    newState = settleOptionalManaPaymentChoice(session.state, pay);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "optional-mana-payment-choice", paid: pay },
+    auto: false,
+    reasoning: "user-chose-optional-mana-payment",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
  * The player resolved an `optional-effect` decision ("you may <effect>", α2). `choice.take` is the
  * yes/no. Runs-or-skips the paused atom, resumes the program, then re-derives the next decision.
  * Returns { session, decision } like advanceUntilDecision.
@@ -1864,6 +1929,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "discard") return applyDiscardChoice(session, choice);
   if (kind === "divide-damage") return applyDivideChoice(session, choice);
   if (kind === "soft-counter") return applySoftCounterChoice(session, choice);
+  if (kind === "optional-mana-payment") return applyOptionalManaPaymentChoice(session, choice);
   return applyTutorChoice(session, choice);
 }
 

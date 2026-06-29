@@ -316,6 +316,15 @@ export function permanentTriggersCovered(card) {
     // trigger effect is modeled, so stripping its reflexive tail can only reveal the keyword-only body — it can
     // never hide a genuinely unmodeled sentence (those are not "When you do"-led and fail the gate first).
     .replace(/\bwhen you do(?:\s+this|\s+so)?,?\s+[^.]*\.?\s*/gi, " ")
+    // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. If you do, <effect>." is ONE trigger effect:
+    // detectTriggers appends the "If you do, <effect>" sentence to the effectClause, and the whole thing parses
+    // HIGH in allTriggerSentencesModeled above (proven before this residue check runs — an unmodeled payoff /
+    // an {X} cost fails that gate and never reaches here). The trigger regex stops at the period after "…you may
+    // pay {cost}.", leaving the "If you do, <effect>." sentence as apparent residue. Strip it so the card reads
+    // keyword-only (Lifecrafter's Bestiary, Inheritance, Mind's Eye, Horizon/Origin/Panic Spellbomb, Urza's
+    // Miter, Symmetry Matrix, Pedantic Learning). Anchored to the "if you do" lead so it can only consume a true
+    // optional-payment tail — FN-safe (the HIGH gate above already vouched the whole trigger effect is modeled).
+    .replace(/\bif you do,?\s+[^.]*\.?\s*/gi, " ")
     // REVEAL-TOP-DRAIN-BY-MV (Yuriko, the Tiger's Shadow) — the drain sentence "Each opponent loses life
     // equal to that card's mana value." FOLLOWS the reveal sentence in the SAME trigger's effect (detectTriggers
     // appends it to the effectClause, which parses HIGH in allTriggerSentencesModeled above — proven before this

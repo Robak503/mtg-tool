@@ -588,6 +588,68 @@ export function resolveSoftCounterChoice(state, pay) {
 }
 
 /**
+ * ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== — decide whether an AI / Expert (no picker) takes the optional
+ * "you may pay {cost}. If you do, <effect>" payment. Heuristic: PAY IF ABLE (the modeled payoffs — draw a card
+ * — are beneficial, so paying is the sensible default). Affordability is checked via the SAME planPayment the
+ * settle uses (canAfford over pool + sources), so autoPick and settle never disagree. A board-aware "decline
+ * when the card isn't worth the mana / don't tap out" refinement is a future enhancement; pay-if-able is always
+ * a LEGAL choice (CR 601), never wrong. Returns false when the controller is gone or can't afford the cost.
+ */
+export function autoPickOptionalManaPayment(state, pc) {
+  const player = state.players?.[pc?.controller];
+  if (!player) return false;
+  const cost = pc?.cost;
+  if (cost?.kind !== "mana") return false; // only the modeled mana form pays
+  return canAfford(player.manaPool, manaSources(state, pc.controller), cost.mana || {});
+}
+
+/**
+ * ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== — settle a "you may pay {cost}. If you do, <effect>" pay-or-
+ * decline decision: if `pay` AND the controller can afford the cost, charge the mana (payManaCost — taps their
+ * sources, full colored shape) and RUN the payoff atoms (the parser validated them HIGH + targetless); else do
+ * NOTHING (declined, or unaffordable — payManaCost never fabricates mana, CR 119 — so the payoff never runs on
+ * a failed pay, the cardinal CREED guarantee). Then RESUME the suspended program. A payoff atom that itself
+ * sets a choice (a "scry"/"draw then scry" payoff) chains its resume onto ours (mirrors resolveOptionalChoice).
+ * Eliminated-controller guard (the pause can outlive the SBA that removes them, CR 800.4a). Logged either way.
+ */
+export function resolveOptionalManaPaymentChoice(state, pay) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "optional-mana-payment") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail, no resume
+  let paid = false;
+  if (pay && pc.cost?.kind === "mana") {
+    const r = payManaCost(next, pc.controller, pc.cost.mana || {});
+    next = r.state;
+    paid = r.paid;
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "optional-mana-payment", controller: pc.controller, paid, sourceName: pc.sourceName || null });
+  if (paid) {
+    // Run the payoff atoms in printed order. Each is HIGH + targetless (parser-validated), so an empty
+    // targets list is correct; thread the resume's context/sourceId so a context-dependent payoff resolves.
+    const r = pc.resume || {};
+    const atoms = pc.effectAtoms || [];
+    for (let i = 0; i < atoms.length; i++) {
+      const ctx = { ...(r.context || {}), controller: pc.controller, targets: [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
+      const after = resolveAtom(next, atoms[i], ctx);
+      if (after == null) {
+        return markPendingArbiter(next, { source: { name: pc.sourceName }, payload: { params: r } }, `optional-mana-payment payoff atom "${atoms[i]?.op}" had no resolver`);
+      }
+      next = after;
+      // A payoff atom set a resolution-time choice (scry/surveil) — chain its resume onto the program's, so
+      // the remaining payoff atoms AND the program after this choice both run. The settler (resolveScryChoice
+      // etc.) re-enters via resumeAfterChoice; we re-run the rest of the payoff once it returns is NOT needed
+      // here because the chained resume points at the PROGRAM continuation (nextAtomIndex), and the draw-family
+      // payoffs are single-atom — a multi-atom payoff with a mid-pause is not in the corpus yet (a SAFE gap).
+      if (next.pendingChoice && !next.pendingChoice.resume) {
+        return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
+      }
+    }
+  }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
  * Resume a suspended effect program after a resolution-time choice settled (shared by the tutor +
  * scry/surveil + optional paths): re-enter the program at the recorded `nextAtomIndex` so the atoms
  * AFTER the choice run (e.g. the "draw a card" in "Scry 1, then draw a card").

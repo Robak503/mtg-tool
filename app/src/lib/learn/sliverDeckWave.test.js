@@ -167,6 +167,15 @@ describe("Guardian Project — SAME-NAME ETB intervening-if (CR 603.4 + 201.2) �
   });
 });
 
+describe("Lifecrafter's Bestiary — OPTIONAL-MANA-PAYMENT (CR 603.7c) → native-trigger", () => {
+  // The upkeep scry was already native; modeling the cast-trigger "you may pay {G}. If you do, draw a card."
+  // (the optional-mana-payment reflexive) flips the WHOLE Slivers-deck card. Both triggers now route natively.
+  const CARD = { name: "Lifecrafter's Bestiary", type: "Artifact", mana: "{3}", oracle: "At the beginning of your upkeep, scry 1.\nWhenever you cast a creature spell, you may pay {G}. If you do, draw a card." };
+  it("classifies native-trigger", () => {
+    expect(classifyCard(CARD)).toBe("native-trigger");
+  });
+});
+
 // ───────────────────────────────────────────────────────────────────────────────
 // PARKED — pin the Arbiter-domain tail (whole-card or park; a future flip must be deliberate)
 // ───────────────────────────────────────────────────────────────────────────────
@@ -174,7 +183,9 @@ describe("Slivers PARK pins — these remain non-native until their blocker subs
   const cases = [
     ["Bident of Thassa", "Legendary Enchantment Artifact", "{2}{U}{U}", "Whenever a creature you control deals combat damage to a player, you may draw a card.\n{1}{U}, {T}: Creatures your opponents control attack this turn if able.", "body-only"], // force-attack-opponents activated = goad-class, unmodeled
     ["Damn", "Sorcery", "{B}{B}", "Destroy target creature. A creature destroyed this way can't be regenerated.\nOverload {2}{W}{W} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")", "arbiter-spell"], // Overload modal cast (target→each), unmodeled
-    ["Lifecrafter's Bestiary", "Artifact", "{3}", "At the beginning of your upkeep, scry 1.\nWhenever you cast a creature spell, you may pay {G}. If you do, draw a card.", "body-only"], // optional-mana-payment reflexive, unmodeled
+    // NOTE: Lifecrafter's Bestiary FLIPPED to native-trigger (OPTIONAL-MANA-PAYMENT, CR 603.7c) — its upkeep
+    // scry was already native; modeling "you may pay {G}. If you do, draw a card." flips the WHOLE card. The
+    // positive pin moved to the "Slivers native" block below.
     ["Essence Sliver", "Creature — Sliver", "{3}{W}", "Whenever a Sliver deals damage, its controller gains that much life.", "body-only"], // source-keyed lifegain subsystem
     ["Magma Sliver", "Creature — Sliver", "{3}{R}", "All Slivers have \"{T}: Target Sliver creature gets +X/+0 until end of turn, where X is the number of Slivers on the battlefield.\"", "body-only"], // granted dynamic-X pump
     ["Lazotep Sliver", "Creature — Zombie Sliver", "{3}{B}", "Sliver creatures you control have afflict 2. (Whenever a creature with afflict 2 becomes blocked, defending player loses 2 life.)\nWhenever a nontoken Sliver you control dies, amass Slivers 2. (Put two +1/+1 counters on an Army you control. It's also a Sliver. If you don't control an Army, create a 0/0 black Sliver Army creature token first.)", "body-only"], // afflict keyword grant

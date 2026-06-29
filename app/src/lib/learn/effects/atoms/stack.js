@@ -5,7 +5,7 @@
 
 import { applyDamageEffect } from "../../spellEffects.js";
 import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf } from "../../gameState.js";
-import { setPendingSoftCounterChoice } from "../../pendingChoice.js";
+import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
@@ -359,7 +359,27 @@ function applySourcePowerFanout(state, atom, ctx) {
   return applyDamageEffect(state, { controller: ctx.controller, amount, targets, source: { id: sourceId } });
 }
 
+/**
+ * ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== "you may pay {cost}. if you do, <effect>." — flag the
+ * controller's pay-or-decline choice instead of resolving the payoff outright (the parser already validated
+ * the cost is fixed mana + the payoff is a HIGH, targetless, non-modal program). The CONTROLLER (ctx.controller
+ * — the player whose trigger/ability this is) is who pays + decides, so the driver's `pause = pc.controller
+ * === "user"` rule pauses a human and auto-decides an AI (pay-if-able). runProgram attaches the resume +
+ * suspends; resolveOptionalManaPaymentChoice settles it (PAY → payManaCost + run the payoff atoms; DECLINE →
+ * nothing). The payoff atoms ride on the choice as plain JSON (serialize-safe). FIFO-guarded by the setter.
+ */
+function applyOptionalManaPayment(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time (belt-and-braces; setter re-guards)
+  return setPendingOptionalManaPaymentChoice(state, {
+    controller: ctx.controller,
+    cost: atom.cost,
+    effectAtoms: atom.effectAtoms || [],
+    sourceName: ctx.cardName || null,
+  });
+}
+
 export const stackResolvers = {
+  "optional-mana-payment": applyOptionalManaPayment, // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. if you do, <effect>"
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent
   "deal-damage": (state, atom, ctx) =>
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an

@@ -264,6 +264,32 @@ export function setPendingSoftCounterChoice(state, { controller, amount, cost = 
   };
 }
 
+/**
+ * ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== — flag an optional "you may pay {cost}. If you do, <effect>"
+ * awaiting the CONTROLLER's pay-or-decline decision (Lifecrafter's Bestiary / Mind's Eye / Inheritance / …).
+ * When the atom resolves it flags this instead of running the payoff: `controller` is the player whose
+ * trigger/ability it is (the one who pays), so the driver's `pause = pc.controller === "user"` rule pauses a
+ * human and auto-decides an AI (pay-if-able). `cost` is the STRUCTURED mana cost descriptor ({kind:"mana",mana}
+ * — the same shape KW-WARD-PR2 uses, paid by payManaCost). `effectAtoms` is the parsed payoff program's atoms
+ * (plain JSON), run by resolveOptionalManaPaymentChoice ONLY if the controller pays (and can afford it —
+ * payManaCost never fabricates mana). The continuation rides on `pendingChoice.resume` (attached by runProgram).
+ * FIFO: one choice at a time.
+ */
+export function setPendingOptionalManaPaymentChoice(state, { controller, cost, effectAtoms = [], sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "optional-mana-payment-pending", controller, amount: wardCostHeadline(cost), sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "optional-mana-payment",
+      controller,
+      cost,
+      effectAtoms,
+      sourceName,
+    },
+  };
+}
+
 /** A short human number for a structured ward cost, for the pending-choice log banner. */
 function wardCostHeadline(cost) {
   if (cost?.kind === "life") return cost.life;

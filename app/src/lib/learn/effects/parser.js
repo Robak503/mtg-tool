@@ -1488,6 +1488,76 @@ function matchMassDestroyTreasurePerNontoken(oracle) {
   return { atom: { op: "mass-destroy-treasure-per-nontoken", targetType: "eachCreature" } };
 }
 
+// ===== OPTIONAL-MANA-PAYMENT (CR 603.7c — the "pay {cost}" reflexive) ===== the single-color/generic mana
+// pips of an optional-pay cost, parsed into the planPayment cost shape — or null if ANY pip isn't a known
+// FIXED mana symbol (digit / single color / {C} / hybrid). {X}/{Y}/{Z} → null (Shanna's "{X}" is unmodeled:
+// the chosen X + its life cap aren't in this slice). Mirrors ward.js' parseWardManaPips / legalChoices'
+// parseManaCost grammar but is INLINED to keep parser.js a leaf (importing legalChoices would cycle —
+// legalChoices already imports parser.js).
+function parseFixedManaPips(pipStrings) {
+  const cost = { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] };
+  const SINGLE = new Set(["W", "U", "B", "R", "G"]);
+  for (const raw of pipStrings) {
+    const pip = String(raw).trim().toUpperCase();
+    if (/^\d+$/.test(pip)) { cost.generic += parseInt(pip, 10); continue; }
+    if (SINGLE.has(pip)) { cost[pip] += 1; continue; }
+    if (pip === "C") { cost.C += 1; continue; }
+    if (pip.includes("/")) {
+      const parts = pip.split("/").map((p) => p.trim()).filter((p) => p && p !== "P");
+      if (parts.length && parts.every((p) => /^\d+$/.test(p) || SINGLE.has(p) || p === "C")) { cost.hybrid.push(parts); continue; }
+      return null; // unrecognized hybrid option
+    }
+    return null; // {X} / snow {S} / any unknown symbol → unmodeled
+  }
+  return cost;
+}
+
+/**
+ * ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== "You may pay {cost}. If you do, <effect>." — an OPTIONAL mana
+ * payment whose payoff resolves ONLY if the controller pays (Lifecrafter's Bestiary "you may pay {G}. If you
+ * do, draw a card."; Mind's Eye / Inheritance / Horizon-Origin-Panic Spellbomb / Urza's Miter / Symmetry
+ * Matrix / Pedantic Learning). The two sentences SPAN the clause splitter (the bare "you may pay {cost}" is a
+ * COST, gated to null by the α2 wrapper at parseClauseToAtom line ~794; "if you do, <effect>" is a back-
+ * reference with no standalone meaning), so it's collapsed up front to ONE `optional-mana-payment` atom whose
+ * resolver SUSPENDS on a real pay/decline choice (runProgram.resolveOptionalManaPaymentChoice — pay → deduct
+ * the mana via the shared payManaCost + run the payoff atoms; decline → nothing). This is DISTINCT from the
+ * "When you do" REFLEXIVE (matchReflexiveTrigger / triggers.js' general-reflexive append) — that connective is
+ * a reflexive triggered ability the optional-primary gate deliberately blocks (diceRoll.test.js pins it LOW);
+ * "If you do" is a same-resolution CONDITIONAL the payment gates, so it's modeled HERE.
+ *
+ * CREED (CLAUDE.md §1.2) — collapse ONLY when EVERY guard holds, else null → the clause stays unmodeled → LOW
+ * → Arbiter (a SAFE false-negative):
+ *  - The COST is a FIXED mana cost (parseFixedManaPips). An {X} cost (Shanna's "pay {X}. … draw X cards. X
+ *    can't be greater than the life you gained") → null (the X + the cap clause are unmodeled).
+ *  - The PAYOFF parses HIGH + NON-MODAL on its own, every atom KNOWN, and is SELF-CONTAINED: NO chosen-target
+ *    atom (programNeedsChosenTarget false) — the draw-family payoffs are targetless, and a targeted payoff
+ *    (Ant-Man's "put a +1/+1 counter on target creature") would need target wiring threaded through the pay-
+ *    choice this slice doesn't build, so it stays LOW. NOT an xSpell (an {X} amount in the payoff would bind
+ *    ambiguously). Modeled payoffs other than draw register automatically as their atoms become KNOWN.
+ *  - Whole-string anchored ^…$ on the single "you may pay … if you do, …" shape — any rider / a second
+ *    "if you do" / a chained reflexive leaves residue → no match → LOW → Arbiter. Returns { atom } or null.
+ */
+function matchOptionalManaPayment(oracle, cardType) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  // "you may pay {pips}. if you do, <effect>" — the cost is one-or-more directly-adjacent mana pips.
+  const m = s.match(/^you may pay\s+(\{[^}]+\}(?:\{[^}]+\})*)\.\s*if you do,?\s+(.+)$/i);
+  if (!m) return null;
+  const pips = (m[1].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  if (!pips.length) return null;
+  const mana = parseFixedManaPips(pips);
+  if (!mana) return null;                                            // {X} / unknown symbol → unmodeled cost
+  const payoffText = m[2].trim();
+  if (/\bif you do\b/i.test(payoffText)) return null;                // a SECOND "if you do" — not modeled
+  const payoff = parseEffectClauseImpl(payoffText, cardType, { hasX: false });
+  if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
+  const inner = payoff.atoms || [];
+  if (inner.length === 0 || !inner.every((a) => KNOWN.has(a.op))) return null;
+  // SELF-CONTAINED gate (CREED): a chosen-target payoff would need its target threaded through the pay-choice
+  // (unbuilt) → keep it LOW. The draw-family payoffs are targetless (programNeedsChosenTarget false).
+  if (programNeedsChosenTarget(payoff)) return null;
+  return { atom: { op: "optional-mana-payment", cost: { kind: "mana", mana }, effectAtoms: inner, targetType: null } };
+}
+
 /**
  * ===== REFLEXIVE TRIGGER (CR 603.7) ===== "<primary>. When you do[ this/so], <reflexive>." — a reflexive
  * triggered ability set up by the resolution of the primary effect, triggering off the event that resolution
@@ -1650,6 +1720,16 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const rfx = matchReflexiveTrigger(oracle, cardType, hasX);
   if (rfx) {
     return makeProgram({ confidence: "high", atoms: rfx.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== "You may pay {cost}. If you do, <effect>." → ONE
+  // optional-mana-payment atom (the resolver suspends on a real pay/decline; payManaCost charges the cost, the
+  // payoff atoms run only on PAY). Checked before the clause splitter (which would shatter the two sentences:
+  // "you may pay {cost}" gates to null as a cost, "if you do, <effect>" is a standalone-meaningless back-
+  // reference). matchOptionalManaPayment applies every CREED guard (fixed cost, HIGH non-modal targetless
+  // payoff); a match returns the single atom (op KNOWN → HIGH), else null → the clause stays LOW → Arbiter.
+  const omp = matchOptionalManaPayment(oracle, cardType);
+  if (omp && KNOWN.has(omp.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [omp.atom], xSpell: false, unparsedTail: null });
   }
   // RIDER-REMOVAL — "Exile/Destroy target X. Its controller <rider>." parses to ONE removal atom carrying
   // a `controllerRider` (resolved to the target's controller). The two sentences span the clause splitter,

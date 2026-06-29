@@ -885,9 +885,8 @@ const MUST_DROP_TO_LOW = [
   // combo (a splitClauses follow-up) stays LOW → Arbiter. (A "you may scry 2" is now an OPTIONAL
   // scry — pinned HIGH in MUST_STAY_HIGH, α2.)
   "Scry X.",                                                            // variable amount — deferred
-  // α2 — "you may" wraps an OPTIONAL effect, but a "you may PAY <cost>" (kicker) is a COST, not an
-  // optional effect → stays LOW; likewise "you may <unmodeled effect>".
-  "You may pay {2}. If you do, draw a card.",                          // optional COST (kicker) — deferred
+  // α2 — "you may" wraps an OPTIONAL effect, but a "you may <unmodeled effect>" stays LOW. (A bare "you may
+  // pay {cost}. If you do, <modeled-effect>" is now HIGH — OPTIONAL-MANA-PAYMENT, CR 603.7c — see MUST_STAY_HIGH.)
   "You may sacrifice a creature.",                                      // optional UNMODELED effect — deferred
   "You may draw a card and gain 2 life.",                              // conjoined "you may X and Y" — optionality scope ambiguous → low (α2 forward guard)
   // ── GRAVEYARD RECURSION (return-from-graveyard) — single-target "return target <X> card from YOUR
@@ -1042,6 +1041,15 @@ const MUST_STAY_HIGH = [
   // modeled (the resolver offers a yes/no, never resolves it as mandatory). FLIPPED from low. ──
   "You may draw a card.",                                                       // optional draw
   "You may scry 2.",                                                            // optional scry (chains to the reorder)
+  // ── OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. If you do, <modeled-effect>" is ONE atom
+  // whose resolver SUSPENDS on a real pay/decline (pay → deduct mana + run the payoff; decline → nothing).
+  // FLIPPED from low (the cost-only "you may pay {cost}" gate is unchanged; only the full conditional flips).
+  // An {X} cost / an unmodeled payoff / a "When you do" reflexive / a chosen-target payoff stay LOW (pinned
+  // in MUST_DROP_TO_LOW + optionalManaPayment.test.js). ──
+  "You may pay {2}. If you do, draw a card.",                                    // Lifecrafter/Mind's Eye family (generic)
+  "You may pay {G}. If you do, draw a card.",                                    // colored cost
+  "You may pay {1}. If you do, you gain 1 life.",                                // gain-life payoff (Soul Net)
+  "You may pay {1}. If you do, scry 2.",                                         // scry payoff (Eyes of the Watcher; chains to reorder)
   // ── "This spell can't be countered" is a VACUOUS rider (uncounterability is enforced at the
   // counter-target enumerator, not the effect program) — stripped so the modeled effect parses. ──
   "This spell can't be countered. Destroy all creatures.",                      // Supreme Verdict
