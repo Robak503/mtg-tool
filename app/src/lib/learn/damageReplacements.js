@@ -96,6 +96,39 @@ function escapeRe(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Strip the damage-replacement SENTENCE(S) this card carries — the whole sentence each
+ * parseDamageReplacements regex anchors on, so a coverage classifier can confirm the rest of the card is
+ * keyword-only. Mirrors parseDamageReplacements' three shapes EXACTLY (same anchors), extended to the whole
+ * sentence (up to the terminating period) so the trailing "instead." / scope tail is removed too. Returns the
+ * oracle with those sentences blanked; a no-op for the overwhelming majority of cards (no replacement clause).
+ *
+ * CREED: this strips ONLY a sentence parseDamageReplacements would have matched (so the runtime models it), and
+ * the caller still validates the REMAINDER is keyword-only — a card with any other unmodeled clause keeps that
+ * residue and stays body-only. Used by coverage.classifyDamageReplacementBody (Twinflame Tyrant et al.).
+ */
+export function stripDamageReplacementClauses(oracle, card) {
+  let t = String(oracle ?? "");
+  if (!t) return t;
+  const name = String(card?.name ?? "");
+  const shortName = name.split(",")[0].trim();
+  // SOURCE-SCOPED self ("Double all damage <NAME>/this creature/it would deal …."), whole sentence.
+  if (shortName) {
+    t = t.replace(
+      new RegExp(`double all damage (?:that )?(?:${escapeRe(name)}|${escapeRe(shortName)}|this creature|this permanent|it) would deal[^.]*\\.?`, "i"),
+      " ",
+    );
+  }
+  // SOURCE-SCOPED controller-wide (Furnace-of-Rath "you control" family), whole sentence — BOTH the
+  // "if a source you control would deal damage … deals double …" shape and the "double the damage … sources you
+  // control would deal" shape.
+  t = t.replace(/if a source you control would deal damage[^.]*deals? double[^.]*\.?/i, " ");
+  t = t.replace(/double (?:the )?damage[^.]*sources? you control would deal[^.]*\.?/i, " ");
+  // TARGET-SCOPED (affected player), whole sentence.
+  t = t.replace(/if a source would deal damage to you[^.]*deals? double[^.]*\.?/i, " ");
+  return t;
+}
+
 // ─── Synthesized-on-read scan ──────────────────────────────────────────────────
 
 /**

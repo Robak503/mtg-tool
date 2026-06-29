@@ -44,8 +44,10 @@ import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
 import { isPureDoubler, doublerProfile, stripModeledDoublerClauses } from "./replacementEffects.js"; // counter/token doublers → native (full-card)
 import { marksDamageToCreature, ENDSTEP_COUNTER } from "./wolverine.js"; // Wave-5a: Wolverine whole-card runtime hook
-import { parseDamageReplacements } from "./damageReplacements.js"; // Wave-5a: source-scoped damage doubler parser
+import { parseDamageReplacements, stripDamageReplacementClauses } from "./damageReplacements.js"; // Wave-5a: source-scoped damage doubler parser + clause stripper
 import { parseXCastTokenTrigger } from "./xCastToken.js"; // X-CAST-TOKEN commander (Zaxara) — runtime hook lives in actionDispatcher (applyXCastTokenTriggers)
+import { parseUrDragonAttackTrigger } from "./urDragonAttack.js"; // UR-DRAGON commander — runtime hook lives in gameEngine (applyUrDragonAttackTriggers)
+import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -1064,3 +1066,88 @@ function classifyXCastTokenCommander(card) {
   return "native-mixed";                                         // mana ability + X-cast token trigger + keyword body
 }
 registerCoverageClassifier((card) => classifyXCastTokenCommander(card));
+
+// ─── UR-DRAGON COMMANDER — The Ur-Dragon (the TIER-1 Dragon-tribal pod commander) ───────────────────────────
+// "Eminence — As long as The Ur-Dragon is in the command zone or on the battlefield, other Dragon spells you
+//  cast cost {1} less to cast.  Flying.  Whenever one or more Dragons you control attack, draw that many cards,
+//  then you may put a permanent card from your hand onto the battlefield."
+// The general trigger compiler can't route the attack trigger: the condition uses the PLURAL verb "attack"
+// (detectTriggers is anchored on singular "attacks"), the effect is a combat-derived VARIABLE count ("draw THAT
+// MANY"), and "put a permanent card from your hand onto the battlefield" isn't in the trigger-effect vocabulary
+// at all — so detectTriggers returns [] (verified) and a re-parse on flush would fail. The runtime fires a
+// DEDICATED hook instead (gameEngine → applyUrDragonAttackTriggers, urDragonAttack.js), which draws one card per
+// attacking Dragon, fires the cardDrawn sub-triggers, then puts the best permanent from hand onto the battlefield
+// and fires its ETB (proven end-to-end in urDragonAttack.test.js). The Eminence cost-reduction is ALSO fully
+// modeled: parseStaticAbilities emits a { costReduction: { subtype:"Dragon", amount:1, fromCommandZone:true,
+// excludeSelf:true } } marker (staticAbilityParser line ~655), and legalChoices applies it at the cast site from
+// the command zone (the commander's home). So the runtime plays EVERY clause of this card — this classifier
+// credits exactly what the engine already does, the additive-seam single-card pattern (the classifyWolverine /
+// classifyXCastTokenCommander #353/#356 precedent: returns null unless EVERY clause matches AND no residue
+// remains, so it can never cause collateral). Mechanism-keyed (the attack-trigger templating + the eminence
+// shape), not name-keyed — but the corpus sweep already proved both shapes are UNIQUE to The Ur-Dragon among
+// the relevant cards, so this is effectively its single-card hook (exactly as urDragonAttack.js is).
+//
+// CREED — whole card, all clauses modeled:
+//   • the variable-count attack trigger (parseUrDragonAttackTrigger) → applyUrDragonAttackTriggers;
+//   • the Eminence Dragon cost-reduction (the parseStaticAbilities { costReduction, fromCommandZone } marker);
+//   • Flying — an ENFORCED COVERED_KEYWORD.
+// All-or-nothing: the attack trigger must parse, the eminence marker must be present, NO other detected trigger
+// may remain after stripping the attack sentence (detectTriggers returns [] for the whole card, but gate
+// defensively), and the residue after stripping the eminence sentence + the attack sentence must be keyword-only.
+const UR_DRAGON_ATTACK_SENTENCE_RE =
+  /whenever one or more [a-z]+ you control attack, draw that many cards, then you may put a permanent card from your hand onto the battlefield\.?/i;
+const UR_DRAGON_EMINENCE_SENTENCE_RE =
+  /eminence\s*[—–-]\s*as long as .+? is in the command zone or on the battlefield, other [a-z]+ spells you cast cost \{\d+\} less to cast\.?/i;
+function classifyUrDragon(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  // The attack hook reads the controller's battlefield permanents — only a creature qualifies (the commander is
+  // a Legendary Creature). Gate defensively so this never claims a non-creature.
+  if (!/creature/.test(type)) return null;
+  if (!parseUrDragonAttackTrigger(card)) return null;            // not the exact variable-count attack shape → not ours
+  // The Eminence cost-reduction must parse to a command-zone subtype reducer (what the runtime applies at cast).
+  const statics = parseStaticAbilities(card);
+  if (!statics.some((s) => s?.costReduction?.fromCommandZone && s.costReduction.subtype)) return null;
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  // Strip the attack-trigger sentence; NO other detected trigger may remain (a second, unmodeled trigger would be
+  // silently dropped — a FORBIDDEN FP). detectTriggers already returns [] for the whole card (the plural-attack
+  // trigger isn't recognized), so this is belt-and-suspenders: anything it DID detect is unmodeled residue.
+  const noTrig = { ...card, oracle: oracle.replace(UR_DRAGON_ATTACK_SENTENCE_RE, "\n") };
+  if (detectTriggers(noTrig).length > 0) return null;           // a recognized trigger remains → Arbiter (CREED)
+  // Strip reminder + the eminence sentence + the attack sentence; the remainder must be keyword-only (Flying).
+  const residueOracle = stripReminder(oracle)
+    .replace(UR_DRAGON_EMINENCE_SENTENCE_RE, " ")
+    .replace(UR_DRAGON_ATTACK_SENTENCE_RE, " ");
+  if (!isKeywordOnly(residueOracle, card?.name)) return null;   // any non-keyword static/text residue → Arbiter
+  return "native-mixed";                                        // eminence cost-reduction + attack trigger + keyword body
+}
+registerCoverageClassifier((card) => classifyUrDragon(card));
+
+// ─── DAMAGE-REPLACEMENT BODY — source-scoped damage doublers (Twinflame Tyrant; generalizes Wolverine's seam) ─
+// A permanent whose ONLY non-keyword text is one-or-more MODELED damage-replacement clauses (parseDamageReplacements
+// → the synthesized-on-read consult in combatResolution.js / spellEffects.js, applied at every damage-amount
+// finalization regardless of tier). The replacement appears/vanishes with the permanent for free (no ETB/LTB
+// hook), so the card plays its full effect natively the instant it's on the battlefield. classifyWolverine
+// requires ALL THREE of Wolverine's clauses (doubler + end-step counter + regen); this is the simpler general
+// case — the doubler is the ONLY ability beyond keywords. Twinflame Tyrant = Flying + "If a source you control
+// would deal damage to an opponent or a permanent an opponent controls, it deals double that damage instead."
+// → source-controller-scoped multiply×2 → native-static.
+// CREED whole-card / additive-seam single-mechanism flip: strip the modeled damage-replacement sentence(s) +
+// reminder; the remainder MUST be keyword-only AND carry NO trigger / activated residue (a card with an extra
+// unmodeled ability keeps that residue → null). Mechanism-keyed (a future doubler-on-a-keyword-body flips too).
+// Returns null unless parseDamageReplacements matched AND no residue remains, so it can never cause collateral.
+function classifyDamageReplacementBody(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  // The consult reads battlefield permanents — only a permanent qualifies (an instant/sorcery damage doubler is a
+  // one-shot, not a synthesized-on-read static, and is handled by the spell path; gate to permanents here).
+  if (/\b(instant|sorcery)\b/.test(type) || !/\b(creature|artifact|enchantment|battle)\b/.test(type)) return null;
+  if (!parseDamageReplacements(card).length) return null;             // no modeled damage-replacement clause → not ours
+  const oracle = String(card?.oracle ?? card?.oracle_text ?? "");
+  // Strip the modeled replacement sentence(s); nothing trigger/activated-shaped may remain (would be dropped — FP).
+  const stripped = stripDamageReplacementClauses(oracle, card);
+  const strippedCard = { ...card, oracle: stripped };
+  if (detectTriggers(strippedCard).length > 0) return null;          // a trigger remains → Arbiter (CREED)
+  if (parseActivatedAbilities(strippedCard).length > 0) return null; // an activated ability remains → Arbiter
+  if (!isKeywordOnly(stripped, card?.name)) return null;             // any other static/text residue → Arbiter
+  return "native-static";                                            // damage-replacement static + keyword body
+}
+registerCoverageClassifier((card) => classifyDamageReplacementBody(card));

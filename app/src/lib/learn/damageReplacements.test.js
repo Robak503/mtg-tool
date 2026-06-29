@@ -13,6 +13,7 @@ import {
   applyDamageReplacements,
   consultDamageAmount,
   boardHasDamageReplacement,
+  stripDamageReplacementClauses,
 } from "./damageReplacements.js";
 import { classifyCard } from "./coverage.js";
 import { parseActivatedAbilities } from "./effects/abilities.js";
@@ -482,5 +483,61 @@ describe("coverage classification", () => {
   it("a Wolverine-like card with a 4th unmodeled clause stays body-only (CREED)", () => {
     const card = { ...wolverine("user").card, oracle: WOLVERINE_ORACLE + "\nWhenever Wolverine attacks, you draw three cards and exile your library." };
     expect(classifyCard(card)).toBe("body-only");
+  });
+});
+
+// ─── classifyDamageReplacementBody — the general doubler-on-a-keyword-body flip (Twinflame Tyrant) ────────────
+const TWINFLAME_ORACLE =
+  "Flying\nIf a source you control would deal damage to an opponent or a permanent an opponent controls, it deals double that damage instead.";
+function twinflame(controller, extra = {}) {
+  const card = { id: "twinflame-card", name: "Twinflame Tyrant", power: 4, toughness: 4, type_line: "Creature — Dragon", mana_cost: "{4}{R}{R}", oracle: TWINFLAME_ORACLE };
+  return { ...createPermanent({ card, controller }), ...extra };
+}
+
+describe("classifyDamageReplacementBody — Twinflame Tyrant (the general doubler-body seam)", () => {
+  it("Twinflame Tyrant → native-static (Flying + a source-controller-scoped damage doubler, nothing else)", () => {
+    expect(classifyCard(twinflame("user").card)).toBe("native-static");
+  });
+
+  it("the modeled doubler is the SAME clause the runtime consult applies (parseDamageReplacements matches)", () => {
+    const entries = parseDamageReplacements(twinflame("user").card);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toEqual({ op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you" } });
+  });
+
+  it("RUNTIME: with Twinflame on the battlefield, its controller's damage to an opponent is DOUBLED", () => {
+    const tt = twinflame("user");
+    const src = vanilla("Bolt Source", 1, 1, "user");
+    const state = makeState({ userBf: [tt, src] });
+    // Source the controller controls dealing to a player → ×2 (controller-scoped). This is the consult the
+    // combat/spell damage paths call; the static appears on-read with the permanent (no registration).
+    const { amount } = applyDamageReplacements(state, { sourceId: src.id, sourceController: "user", amount: 5, targetKind: "player", targetId: "ai" });
+    expect(amount).toBe(10);
+  });
+
+  it("CREED: a doubler-body with an EXTRA unmodeled trigger stays body-only (residue guard)", () => {
+    const card = { ...twinflame("user").card, oracle: TWINFLAME_ORACLE + "\nWhenever this creature dies, each opponent loses 3 life." };
+    expect(classifyCard(card)).toBe("body-only");
+  });
+
+  it("CREED: a doubler-body with an EXTRA unmodeled activated ability stays body-only (residue guard)", () => {
+    const card = { ...twinflame("user").card, oracle: TWINFLAME_ORACLE + "\n{2}{R}: This creature gets +1/+0 until end of turn and gains menace and you scry two." };
+    expect(classifyCard(card)).toBe("body-only");
+  });
+
+  it("Wolverine (a self-scoped doubler with 2 other clauses) is NOT stolen by this seam — stays native-mixed", () => {
+    // classifyWolverine is registered FIRST and matches all three clauses → native-mixed; this seam's
+    // residue guard would reject Wolverine anyway (the end-step counter + regen are residue here).
+    expect(classifyCard(wolverine("user").card)).toBe("native-mixed");
+  });
+
+  it("an instant damage-doubler does NOT flip via this seam (permanents only — the consult is battlefield-scoped)", () => {
+    const inst = { name: "Fork Lightning", type_line: "Instant", oracle: "If a source you control would deal damage, it deals double that damage instead." };
+    expect(classifyCard(inst)).not.toBe("native-static");
+  });
+
+  it("stripDamageReplacementClauses removes exactly the modeled sentence, leaving the keyword body", () => {
+    const stripped = stripDamageReplacementClauses(TWINFLAME_ORACLE, twinflame("user").card).replace(/\s+/g, " ").trim();
+    expect(stripped.toLowerCase()).toBe("flying");
   });
 });

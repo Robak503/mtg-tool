@@ -6,8 +6,12 @@
  * A targeted #319-style runtime hook (Cindy's compiler can't reach the plural-verb condition, the
  * "that many" variable count, or the cheat-permanent effect). Engine-first: the trigger must actually
  * draw the right count + cheat the right permanent + fire its ETB, or the card is a false positive.
- * The hook is RUNTIME-ONLY — it deliberately does NOT flip the coverage metric (metric honesty, like
- * xCastToken/Zaxara): classifyCard stays non-native while the runtime plays the card correctly.
+ *
+ * METRIC (TIER-1 pod): with EVERY clause of the commander now modeled — the Eminence Dragon cost-reduction
+ * (staticAbilityParser's { costReduction, fromCommandZone } marker, applied at the cast site), Flying (an
+ * enforced keyword), and this attack trigger (the runtime hook below) — coverage.classifyUrDragon credits
+ * The Ur-Dragon native-mixed (the classifyWolverine / classifyXCastTokenCommander additive-seam pattern).
+ * The flip is HONEST: it credits exactly the card the runtime already plays end-to-end (proven below).
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -215,9 +219,21 @@ describe("Ur-Dragon attack trigger — end-to-end through the engine (runStepAct
   });
 });
 
-describe("Ur-Dragon attack trigger — CREED: runtime-only, metric stays honest (no FP flip)", () => {
-  it("classifyCard(The Ur-Dragon) stays NON-native (the hook delivers playability, not a metric over-count)", () => {
+describe("Ur-Dragon — coverage flip (every clause modeled → native-mixed, the TIER-1 pod commander)", () => {
+  it("classifyCard(The Ur-Dragon) is native-mixed (Eminence cost-reduction + Flying + the attack-trigger hook)", () => {
     const cls = classifyCard({ name: "The Ur-Dragon", type: "Legendary Creature — Dragon Avatar", mana: "{4}{W}{U}{B}{R}{G}", oracle: UR_ORACLE });
-    expect(["native", "native-trigger", "native-body"]).not.toContain(cls);
+    expect(cls).toBe("native-mixed");
+  });
+  it("CREED: the flip needs ALL clauses — strip the Eminence line (cost-reduction gone) → NOT native", () => {
+    // Without the modeled Eminence cost-reduction, classifyUrDragon returns null (its eminence-required guard),
+    // and the bare attack trigger + Flying isn't recognized by any other native tier → body-only (a safe FN).
+    const noEminence = "Flying\nWhenever one or more Dragons you control attack, draw that many cards, then you may put a permanent card from your hand onto the battlefield.";
+    const cls = classifyCard({ name: "The Ur-Dragon", type: "Legendary Creature — Dragon Avatar", mana: "{4}{W}{U}{B}{R}{G}", oracle: noEminence });
+    expect(cls).toBe("body-only");
+  });
+  it("CREED: an extra unmodeled clause keeps the card off native (residue guard)", () => {
+    const withRider = UR_ORACLE + "\nWhenever you gain life, scry 1.";
+    const cls = classifyCard({ name: "The Ur-Dragon", type: "Legendary Creature — Dragon Avatar", mana: "{4}{W}{U}{B}{R}{G}", oracle: withRider });
+    expect(cls).toBe("body-only");
   });
 });
