@@ -290,6 +290,47 @@ export function applyMill(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "mill", who: atom.who || "controller", amount });
 }
 
+/**
+ * ===== REVEAL-TOP-TO-HAND (Yuriko) ===== "reveal the top card of your library and put that card into your
+ * hand" (CR 701.18 reveal + CR 121 put-to-hand). Functionally a draw — reveal is public-info and the card
+ * goes to the controller's hand — BUT it ALSO captures the revealed card's MANA VALUE so a FOLLOWING drain
+ * atom can read it (Yuriko: "Each opponent loses life equal to that card's mana value"). This is the exact
+ * mid-resolution value-capture pattern roll-d20 uses: the atom stamps the value on `state.revealedCardMV`,
+ * and the next atom's count source `{kind:"revealedCardMV"}` reads it (countForSpec). The parser GATES that
+ * count source to a clause directly following a reveal-top-to-hand in the same program (revealTopSequenceOk),
+ * so the read can never occur without its reveal first writing the value — and the value is overwritten by
+ * the next reveal, never read stale. An EMPTY library reveals nothing → MV stamped 0 (a clean no-op, the
+ * drain is 0 — never a fabricated value). The card goes to the SOURCE's controller (ctx.controller, the
+ * Ninja's controller threaded by the trigger flush). Pure data mutation (state.revealedCardMV is a plain
+ * number) so a game serialized mid-resolution restores byte-identical.
+ *
+ * NOTE: this captures the EXACT revealed card's MV (via tutorManaValue — the same MV the tutor/discover/
+ * dice paths use), never a guess or board count, so the drain magnitude is always the real drawn card's MV.
+ */
+export function applyRevealTopToHand(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players?.[controller];
+  if (!player) return state;
+  const lib = player.library || [];
+  if (lib.length === 0) {
+    // Empty library — nothing to reveal. Stamp MV 0 so a following drain is a clean no-op (never fabricated).
+    const next = { ...state, revealedCardMV: 0 };
+    return logEvent(next, { kind: "spell-effect", effect: "reveal-top-to-hand", controller, revealed: null });
+  }
+  const top = lib[0];
+  const mv = tutorManaValue(top);
+  let next = {
+    ...state,
+    revealedCardMV: mv,
+    players: {
+      ...state.players,
+      [controller]: { ...player, library: lib.slice(1), hand: [...(player.hand || []), top] },
+    },
+  };
+  // Reveal is public info (the card is named in the log); the put-to-hand is the same library→hand move a draw makes.
+  return logEvent(next, { kind: "spell-effect", effect: "reveal-top-to-hand", controller, revealed: top.name, mv });
+}
+
 /** P3.2 shuffle — "[then] shuffle [your library]" as its own clause (CR 103.2). */
 export function applyShuffle(state, atom, ctx) {
   if (!state.players[ctx.controller]) return state;
@@ -522,4 +563,5 @@ export const libraryResolvers = {
   "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
   "mill": applyMill,
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
+  "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.
 };

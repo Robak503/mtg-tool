@@ -302,6 +302,15 @@ export function countForSpec(state, ctx, spec) {
   // roll → 0 (a clean no-op, CR 107.3 — never a fabricated count). Read off STATE (the inter-atom channel),
   // not a player/board tally, so it's computed BEFORE the player lookup below.
   if (spec.kind === "diceResult") return Math.max(0, state?.diceRoll || 0);
+  // ===== REVEALED-CARD-MV (Yuriko) ===== the MANA VALUE of the card a reveal-top-to-hand atom JUST revealed
+  // (Yuriko, the Tiger's Shadow: "reveal the top card of your library and put that card into your hand. Each
+  // opponent loses life equal to that card's mana value"). The reveal-top-to-hand atom stamps state.revealedCardMV
+  // (the EXACT revealed card's MV) IMMEDIATELY before this payoff atom resolves, mirroring roll-d20 / diceResult.
+  // The parser GATES a revealedCardMV count to a clause directly following a reveal-top-to-hand in the same program
+  // (revealTopSequenceOk), so the value is always freshly written before this read (never stale). An ABSENT reveal
+  // (a spell / no reveal ran) → 0 (a clean no-op, CR 107.3 — never a fabricated count). Read off STATE (the inter-
+  // atom channel), not a player/board tally, so it's computed BEFORE the player lookup below.
+  if (spec.kind === "revealedCardMV") return Math.max(0, state?.revealedCardMV || 0);
   // ===== OPPONENT-SCOPED ===== who:"target" counts the SPELL'S TARGET player ("…equal to the number of
   // cards in that player's hand" — Sudden Impact) OR, on a combat-damage trigger with no explicit target,
   // the DAMAGED player ("for each artifact that player controls" — Cavern-Hoard Dragon, where "that player"

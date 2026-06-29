@@ -281,6 +281,27 @@ function diceRollSequenceOk(atoms) {
   return true;
 }
 
+// REVEAL-TOP-MV CREED gate (Yuriko) — a `revealedCardMV` count source (kind:"revealedCardMV" on
+// amountCount/countFor) reads state.revealedCardMV, which is ONLY stamped by a reveal-top-to-hand atom. So an
+// atom carrying a revealedCardMV count is correct ONLY when a reveal-top-to-hand atom PRECEDES it in the same
+// program (else the read would silently resolve to 0 — a dropped-magnitude FP, CREED). Mirrors
+// diceRollSequenceOk: every revealedCardMV payoff is preceded by a reveal-top-to-hand. (A bare reveal-top-to-
+// hand with NO following revealedCardMV payoff is fine — it's just a public-info draw, harmless; only the
+// COUNT read needs the gate, unlike the dice roll whose bare result would do nothing.) Today this only fires
+// via the collapsed matchRevealTopDrainByMv (which emits the pair together), so the gate is belt-and-braces —
+// but it keeps the inter-atom-value convention airtight if a future slice composes the count elsewhere.
+function usesRevealedCardMV(atom) {
+  return atom?.countFor?.kind === "revealedCardMV" || atom?.amountCount?.kind === "revealedCardMV";
+}
+function revealTopSequenceOk(atoms) {
+  let revealed = false;
+  for (const a of atoms) {
+    if (a?.op === "reveal-top-to-hand") { revealed = true; continue; }
+    if (usesRevealedCardMV(a) && !revealed) return false; // a revealedCardMV payoff with no preceding reveal → drop
+  }
+  return true;
+}
+
 /**
  * Markers that mean a clause carries semantics we do NOT model — a rider, an
  * unmodeled restriction, a variable amount, a conditional, a different actor.
@@ -1406,6 +1427,38 @@ function matchDrainEachOpponentX(oracle) {
 }
 
 /**
+ * ===== REVEAL-TOP-DRAIN-BY-MV (Yuriko, the Tiger's Shadow) ===== "Reveal the top card of your library and put
+ * that card into your hand. Each opponent loses life equal to that card's mana value." The SECOND sentence's
+ * amount ("that card's mana value") is a value generated MID-RESOLUTION by the first sentence (the revealed
+ * card's MV) — NOT a board-state count — so the top-level sentence split would shatter it into ["reveal … and
+ * put … into your hand" (an UNMODELED reveal-to-hand clause; its " and " also mis-splits), "each opponent loses
+ * life equal to that card's mana value" (an UNMODELED "equal to that card" referent)], silently dropping the
+ * linked drain — a forbidden partial. Collapse the whole compound up front to TWO atoms whose SEQUENCE threads
+ * the captured MV (the exact roll-d20 → diceResult pattern):
+ *   1. reveal-top-to-hand — reveals the top card → controller's hand AND stamps its MV on state.revealedCardMV.
+ *   2. lose-life who:"eachOpponent" amountCount:{kind:"revealedCardMV"} — each opponent loses THAT captured MV,
+ *      read at resolution via countForSpec (state.revealedCardMV). Each OPPONENT (not the controller) loses it,
+ *      so it's correct in 1v1 AND multiplayer (applyLoseLife enumerates opponentsOf).
+ * Both atoms are KNOWN (reveal-top-to-hand + lose-life), so the whole compound resolves natively or not at all
+ * (no partial). revealTopSequenceOk (the caller's HIGH gate) independently re-checks the reveal precedes the MV
+ * read. Whole-string anchored ^…$ (curly apostrophe normalized) — any rider/variant leaves residue → no match →
+ * low → Arbiter (CREED). The "reveal … put that card into your hand. each opponent loses life equal to that
+ * card's mana value" phrasing is corpus-unique to Yuriko's family, so it never false-matches another effect.
+ * Returns { atoms }.
+ */
+function matchRevealTopDrainByMv(oracle) {
+  const s = stripReminder(oracle).trim().toLowerCase().replace(/[’]/g, "'").replace(/\s+/g, " ").replace(/\.$/, "");
+  // "that card" / "the card" — both printed wordings for the just-revealed card (Yuriko prints "that card").
+  if (!/^reveal the top card of your library and put (?:that card|the card|it) into your hand\. each opponent loses life equal to (?:that card's|the card's|its) mana value$/.test(s)) {
+    return null;
+  }
+  return { atoms: [
+    { op: "reveal-top-to-hand", targetType: null },
+    { op: "lose-life", who: "eachOpponent", amountCount: { kind: "revealedCardMV", per: 1 }, targetType: null },
+  ] };
+}
+
+/**
  * ===== BLOOD-MONEY (mass destroy + Treasure-per-nontoken-destroyed) ===== "Destroy all creatures. For each
  * nontoken creature destroyed this way, you create a tapped Treasure token." The second sentence's count
  * ("destroyed this way") is the set the FIRST destroyed — a back-reference the top-level sentence split would
@@ -1556,6 +1609,16 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
       return makeProgram({ confidence: "high", atoms: [drx.atom], xSpell: true, unparsedTail: null });
     }
   }
+  // ===== REVEAL-TOP-DRAIN-BY-MV (Yuriko) ===== "Reveal the top card … put that card into your hand. Each
+  // opponent loses life equal to that card's mana value." → reveal-top-to-hand (stamps the drawn card's MV on
+  // state.revealedCardMV) + lose-life eachOpponent reading that MV via amountCount:{kind:"revealedCardMV"}. The
+  // two-sentence span (the drain reads a mid-resolution value the reveal produced) would shatter under the
+  // clause splitter, so it's collapsed up front. HIGH iff both atoms are KNOWN (they are) AND the reveal
+  // precedes the MV read (revealTopSequenceOk) — else low → Arbiter (no partial). Not an X spell.
+  const rtm = matchRevealTopDrainByMv(oracle);
+  if (rtm && rtm.atoms.every(a => KNOWN.has(a.op)) && revealTopSequenceOk(rtm.atoms)) {
+    return makeProgram({ confidence: "high", atoms: rtm.atoms, xSpell: false, unparsedTail: null });
+  }
   // ===== BLOOD-MONEY ===== "Destroy all creatures. For each nontoken creature destroyed this way, you create a
   // tapped Treasure token." → ONE mass-destroy-treasure-per-nontoken atom (the Treasure count is the nontoken
   // creatures actually destroyed, computed at resolution). The "can't be regenerated" rider (none on Blood
@@ -1593,7 +1656,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // parses fully (all-or-nothing across modes).
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
-    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms))) {
+    if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms))) {
       const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
@@ -1644,7 +1707,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // ambiguity blocked. (α2 review — tightened from "any optional in a multi-atom program drops".) Shared with
   // the collapsed-template path via `optionalsFormSuffix` so both HIGH paths enforce the same invariant.
   const optionalScopeOk = optionalsFormSuffix(atoms);
-  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(atoms) && diceRollSequenceOk(atoms)) {
+  if (allParsed && atoms.length > 0 && optionalScopeOk && atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(atoms) && diceRollSequenceOk(atoms) && revealTopSequenceOk(atoms)) {
     // Drop a redundant `shuffle` atom that immediately follows a `tutor` (the tutor
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.

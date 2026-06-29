@@ -307,7 +307,16 @@ export function permanentTriggersCovered(card) {
     // reflexive (Faebloom-style permanent triggers). FN-safe: the HIGH gate above already vouched the whole
     // trigger effect is modeled, so stripping its reflexive tail can only reveal the keyword-only body — it can
     // never hide a genuinely unmodeled sentence (those are not "When you do"-led and fail the gate first).
-    .replace(/\bwhen you do(?:\s+this|\s+so)?,?\s+[^.]*\.?\s*/gi, " ");
+    .replace(/\bwhen you do(?:\s+this|\s+so)?,?\s+[^.]*\.?\s*/gi, " ")
+    // REVEAL-TOP-DRAIN-BY-MV (Yuriko, the Tiger's Shadow) — the drain sentence "Each opponent loses life
+    // equal to that card's mana value." FOLLOWS the reveal sentence in the SAME trigger's effect (detectTriggers
+    // appends it to the effectClause, which parses HIGH in allTriggerSentencesModeled above — proven before this
+    // residue check runs), but the trigger regex stops at the first period after "…put that card into your hand.",
+    // leaving the drain as apparent residue. Strip the EXACT modeled drain shape ("that card's"/"the card's"/"its"
+    // mana value) so the card reads keyword-only (leaving only the ninjutsu line, handled by isKeywordOnly).
+    // Anchored to the modeled wording, so it can only consume a true modeled follow-up (FN-safe — an UNmodeled
+    // drain variant fails the HIGH gate above and never reaches here). Curly apostrophe tolerated.
+    .replace(/\beach opponent loses life equal to (?:that card['’]s|the card['’]s|its) mana value\b\.?\s*/gi, " ");
   return isKeywordOnly(residue, card?.name);
 }
 
