@@ -234,6 +234,73 @@ describe("parseAddClause — variable amount (MANA-VARIABLE)", () => {
   });
 });
 
+// ─── MANA-AMOUNT — "Add <N> mana of any (one) color" parses the QUANTITY word ────
+// Was a systemic runtime bug: this branch hardcoded amount:1, so the sim under-produced for every
+// multi-mana any-color source (Black Lotus tapped for 1, not 3; Zaxara for 1, not 2). Runtime-only —
+// classifyCard never calls manaProduction, so the native-mana tier is unchanged (proven by a full-corpus
+// flip-diff = 0 IN / 0 OUT). FN-safe: an unquantified/unrecognized phrasing (or a bare X with no metric)
+// stays 1 — never a fabricated over-count.
+describe("manaProduction — MANA-AMOUNT (quantity word in 'Add N mana of any color')", () => {
+  const { parseAddClause } = _internals;
+
+  it("Zaxara — 'Add two mana of any one color' → amount 2 (the headline self-play bug)", () => {
+    expect(manaProduction({ name: "Zaxara, the Exemplary", type: "Legendary Creature — Nightmare Hydra", oracle: "Deathtouch\n{T}: Add two mana of any one color.\nWhenever you cast a spell with {X} in its mana cost, create a 0/0 green Hydra creature token, then put X +1/+1 counters on it." }))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 2, requiresTap: true });
+    // …and through the parser directly (the unit the fix lives in).
+    expect(parseAddClause("{T}: Add two mana of any one color.").amount).toBe(2);
+  });
+
+  it("Gilded Lotus — 'Add three mana of any one color' → amount 3", () => {
+    expect(manaProduction({ name: "Gilded Lotus", type: "Artifact", oracle: "{T}: Add three mana of any one color." }))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 3, requiresTap: true });
+    expect(parseAddClause("{T}: Add three mana of any one color.").amount).toBe(3);
+  });
+
+  it("Black Lotus — '{T}, Sacrifice this: Add three mana of any one color' → amount 3, one-shot", () => {
+    expect(manaProduction({ name: "Black Lotus", type: "Artifact", oracle: "{T}, Sacrifice this artifact: Add three mana of any one color." }))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 3, sacrifices: true, requiresTap: true });
+  });
+
+  it("covers the full corpus number-word range: four (Blacker Lotus) and ten (The Aetherspark)", () => {
+    expect(parseAddClause("{T}: Tear this artifact into pieces. Add four mana of any one color. Remove the pieces from the game.").amount).toBe(4);
+    expect(parseAddClause("−10: Add ten mana of any one color.").amount).toBe(10);
+    // a literal DIGIT works too ("Add 1 mana of any color" — Unknown Event Shores' second ability).
+    expect(parseAddClause("{1}, {T}: Add 1 mana of any color.").amount).toBe(1);
+  });
+
+  it("an UNQUANTIFIED any-color clause stays amount 1 (FN-safe — 'one' and the no-number form)", () => {
+    expect(parseAddClause("{T}: Add one mana of any color.").amount).toBe(1);
+    expect(parseAddClause("{T}: Add one mana of any one color.").amount).toBe(1);
+    expect(parseAddClause("{T}: Add mana of any color.").amount).toBe(1);
+  });
+
+  it("does NOT touch single-color dorks / concatenated symbols / {N}: filters", () => {
+    // a {T}: dork is amount 1, untouched.
+    expect(parseAddClause("{T}: Add {G}.")).toEqual({ colors: ["G"], amount: 1 });
+    // concatenated same-color = count, untouched (not an any-color clause).
+    expect(parseAddClause("{T}: Add {C}{C}.")).toEqual({ colors: ["C"], amount: 2 });
+    // a pure-mana FILTER ("{2}: Add one mana of any color" — Prismite) stays amount 1, no tap.
+    expect(manaProduction({ name: "Prismite", type: "Artifact Creature — Golem", oracle: "{2}: Add one mana of any color." }))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 1, requiresTap: false });
+  });
+
+  it("the VARIABLE 'Add X mana …, where X is <metric>' branch still WINS (precedence intact)", () => {
+    // Shape B (amountSpec) must take precedence over the fixed number-word branch — the number-word
+    // parse must NOT swallow or reorder the dynamic-X case.
+    expect(parseAddClause("{T}: Add X mana of any one color, where X is the number of enchantments you control."))
+      .toEqual({ colors: ["W", "U", "B", "R", "G"], amount: 0, amountSpec: { kind: "permanentsYouControl", cardType: "enchantment" } });
+    // a bare "Add X mana of any one color" with NO metric → 1 (FN-safe, never fabricates the unknown X).
+    expect(parseAddClause("{T}: Add X mana of any one color.").amount).toBe(1);
+  });
+
+  it("Zaxara taps for 2 as a live source (manaSources runtime, not just the parser)", () => {
+    const zax = permanent({ name: "Zaxara, the Exemplary", type: "Legendary Creature — Nightmare Hydra", oracle: "Deathtouch\n{T}: Add two mana of any one color." }, { id: "zax" });
+    const [src] = manaSources(bf([zax]), "user");
+    expect(src).toMatchObject({ permanentId: "zax", amount: 2 });
+    expect(src.colors).toEqual(["W", "U", "B", "R", "G"]);
+  });
+});
+
 describe("manaProduction — variable amount carries amountSpec (placeholder amount 0)", () => {
   it("Gaea's Cradle (land): {G} + a creature-count spec, amount placeholder 0", () => {
     expect(manaProduction({ name: "Gaea's Cradle", type: "Legendary Land", oracle: "{T}: Add {G} for each creature you control." }))

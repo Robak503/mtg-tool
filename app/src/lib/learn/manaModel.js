@@ -91,6 +91,22 @@ function hasHaste(card) {
 // `tail` includes the connector ("for each …", "equal to …", "where X is …"), which is normalized
 // away first so the SAME metric body matches regardless of which connector introduced it.
 const VAR_COLOR_WORD = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+
+// ===== MANA-AMOUNT — the FIXED quantity in "Add <N> mana of any (one) color". The number-word range that
+// actually appears in the corpus (survey: one 585 · two 34 · three 23 · four 2 · ten 2 · a bare digit 1×;
+// five included defensively). Returns the integer, or null when the token is NOT a recognized fixed
+// quantity — most importantly "x" (a VARIABLE amount: "Add X mana of any one color, where X is …" is
+// handled by Shape B / left non-native; a bare "Add X mana …" with no metric must stay 1, never fabricate
+// X). Any other word (or none) → null so the caller keeps the FN-safe default of 1 (CREED: an unquantified
+// or unrecognized phrasing under-counts to 1, never over-counts). Pure string→int.
+const NUMBER_WORD = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+function parseFixedQuantity(token) {
+  const w = String(token || "").trim().toLowerCase();
+  if (/^\d+$/.test(w)) return parseInt(w, 10);   // a literal digit ("Add 1 mana of any color")
+  if (w in NUMBER_WORD) return NUMBER_WORD[w];    // a number word ("two", "three", … "ten")
+  return null;                                     // "x" or anything else → caller defaults to 1 (never fabricate)
+}
+
 function parseManaMetric(tail) {
   // Strip the leading connector + any "the/your/an amount of" filler so the body is the bare metric.
   const t = String(tail || "")
@@ -169,8 +185,21 @@ function parseAddClause(oracle) {
     return null; // unmodeled metric — non-native
   }
 
-  // "Add ... mana of any color" → any of the five colors (fixed amount 1).
-  if (/add\b[^.]*\bmana of any( one)? color/i.test(oracle)) {
+  // "Add <N> mana of any (one) color" → any of the five colors, amount = the QUANTITY word. The token
+  // immediately before "mana of any …" is captured and parsed by parseFixedQuantity: "two"→2 (Zaxara),
+  // "three"→3 (Black Lotus / Gilded Lotus), a digit→that number, an UNQUANTIFIED/unrecognized form (or a
+  // bare "X" with no metric) → 1 (FN-safe default — never fabricate). Previously this hardcoded amount:1,
+  // so the sim under-produced for every multi-mana any-color source (~60 corpus cards incl. the Lotuses,
+  // Zaxara, Goldspan's Treasure). RUNTIME-ONLY: classifyCard never calls manaProduction, so the native-mana
+  // tier is unchanged — this corrects only the runtime AMOUNT. The X-with-metric forms ("Add X mana …,
+  // where X is …") already matched Shape B above (amountSpec), so they never reach here.
+  let any = oracle.match(/add\b[^.]*?\b(\S+)\s+mana of any(?: one)? color/i);
+  if (any) {
+    const n = parseFixedQuantity(any[1]);
+    return { colors: ["W", "U", "B", "R", "G"], amount: n == null ? 1 : n };
+  }
+  // The no-quantity form ("Add mana of any color") — keep the original FN-safe amount:1.
+  if (/add\b[^.]*\bmana of any(?: one)? color/i.test(oracle)) {
     return { colors: ["W", "U", "B", "R", "G"], amount: 1 };
   }
 
