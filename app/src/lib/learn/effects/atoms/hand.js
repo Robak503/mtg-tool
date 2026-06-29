@@ -5,7 +5,7 @@
 import { handCardMatches } from "../../spellEffects.js";
 import { logEvent, opponentsOf, moveCardToZone } from "../../gameState.js";
 import { setPendingHandDiscardChoice, setPendingDiscardChoice } from "../../pendingChoice.js";
-import { effectiveAmount } from "./shared.js";
+import { resolveScaledAmount } from "./shared.js";
 import { NUM_WORD } from "../parseHelpers.js"; // seam batch 23: shared number-word map (leaf, cycle-free) for the discard family
 
 /**
@@ -90,7 +90,10 @@ export function applyDiscard(state, atom, ctx) {
   // DISCARD-HAND — "discards their hand" / "discard your hand" (atom.all): the WHOLE hand goes, no choice.
   // Routed through the SAME chain with remaining = Infinity, so advanceDiscardChain's "hand.length <= remaining"
   // branch pitches every card inline (no pause — there's nothing to keep). The fixed-amount guard is skipped.
-  const amount = atom.all ? Infinity : effectiveAmount(atom, ctx);
+  // resolveScaledAmount handles the fixed-N / X-spell paths (effectiveAmount) AND the dynamic
+  // countContext path (CDMG-DISCARD-SCALED — "that player discards that many cards" = ctx.combat-
+  // DamageAmount, floored at 0 / clean no-op when absent). The atom.all whole-hand discard skips it.
+  const amount = atom.all ? Infinity : resolveScaledAmount(state, atom, ctx);
   if (!atom.all && (!Number.isFinite(amount) || amount <= 0)) {
     return logEvent(state, { kind: "spell-effect", effect: "discard", who: atom.who || "target", amount: 0 });
   }
@@ -154,6 +157,16 @@ export function discardClauseParser(clause) {
   // Famine) keeps its tail → low → Arbiter (CREED: never a dropped clause). Discarder chooses (CR 701.8 chain).
   m = t.match(/^that player discards (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "damagedPlayer", targetType: null };
+  // CDMG-DISCARD-SCALED — "that player discards that many cards" / "they discard that many cards" (Dreamstealer,
+  // Needle Specter): the count IS the combat-damage amount (ctx.combatDamageAmount). Mirrors the rad "that many"
+  // damagedPlayer sibling EXACTLY (counters.js countContext path) — NON-targeted (targetType:null → routes on the
+  // combat-damage trigger flush) and a clean no-op outside a combat-damage event (resolveScaledAmount → 0 when
+  // ctx.combatDamageAmount is absent; applyDiscard's amount<=0 guard logs a no-op, never a fabricated discard).
+  // combatDamageReferentSatisfied (triggerRouting.js) admits countContext:"combatDamageAmount" ONLY on the
+  // combatDamageToPlayer/dealtDamage events, so a non-combat "they discard that many cards" can never mis-scope.
+  if (/^(?:that player|they) discards? that many cards?$/.test(t)) {
+    return { op: "discard", countContext: "combatDamageAmount", who: "damagedPlayer", targetType: null };
+  }
   m = t.match(/^(?:you )?discard (\d+|a|one|two|three|four|five|six|seven|eight|nine|ten) cards?$/);
   if (m) return { op: "discard", amount: NUM_WORD[m[1]] ?? parseInt(m[1], 10), who: "controller", targetType: null };
   // DISCARD-HAND — "discards their hand" / "discard your hand" (the WHOLE hand, no count). The chain pitches

@@ -104,6 +104,32 @@ describe("classifyCard — tiers", () => {
     expect(fluctuator).not.toBe("native-body");
     expect(NATIVE_TIERS.has(fluctuator)).toBe(false);
   });
+  // KW-NINJUTSU (CR 702.49): "ninjutsu {cost}" is an ALTERNATIVE cast cost (return an unblocked attacker → the
+  // ninja enters tapped and attacking). It is NOT enforced by the engine, but every ninja ALSO carries a normal
+  // mana cost, so the engine hard-casts it and resolves its body CORRECTLY — crediting the cost line is honest
+  // under the metric-is-decoupled rule (classifyCard has zero runtime consumers) and never mis-resolves a clause.
+  // The rest of the card is still validated all-or-nothing, so a ninja with an UNMODELED other ability stays body-only.
+  it("KW-NINJUTSU MUST_STAY_HIGH: ninjutsu cost line is keyword-only residue (vanilla / keyword body → native)", () => {
+    // Dokuchi Shadow-Walker — ninjutsu + nothing else → native-body.
+    expect(classifyCard(C("Creature — Ogre Ninja", "Ninjutsu {3}{B} ({3}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)", { name: "Dokuchi Shadow-Walker", mana: "{4}{B}{B}" }))).toBe("native-body");
+    // Mukotai Ambusher — ninjutsu + Lifelink (keyword) → native-body.
+    expect(classifyCard(C("Artifact Creature — Rat Ninja", "Ninjutsu {1}{B} ({1}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nLifelink", { name: "Mukotai Ambusher", mana: "{3}{B}" }))).toBe("native-body");
+    // Ninja of the Deep Hours — ninjutsu + a MODELED combat-damage trigger ("you may draw a card") → native-trigger.
+    expect(classifyCard(C("Creature — Human Ninja", "Ninjutsu {1}{U} ({1}{U}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, you may draw a card.", { name: "Ninja of the Deep Hours", mana: "{3}{U}" }))).toBe("native-trigger");
+    // Commander ninjutsu prefix is credited too (the cost-line form only — Yuriko's OWN trigger is unmodeled, see FP-GUARD).
+    expect(isKeywordOnly("commander ninjutsu {u}{b}")).toBe(true);
+    expect(isKeywordOnly("library ninjutsu {1}{u}")).toBe(true);
+  });
+  it("KW-NINJUTSU FP-GUARD: a ninja whose OTHER ability is unmodeled stays body-only (residue gate holds)", () => {
+    // Silver-Fur Master — ninjutsu + a STATIC cost-reducer + an anthem → unmodeled residue → body-only.
+    expect(classifyCard(C("Creature — Rat Ninja", "Ninjutsu {U}{B} ({U}{B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nNinjutsu abilities you activate cost {1} less to activate.\nOther Ninja and Rogue creatures you control get +1/+1.", { name: "Silver-Fur Master", mana: "{U}{B}" }))).not.toBe("native-body");
+    // Skullsnatcher — ninjutsu + an UNMODELED graveyard-exile combat-damage trigger → body-only.
+    expect(classifyCard(C("Creature — Rat Ninja", "Ninjutsu {B} ({B}, Return an unblocked attacker you control to hand: Put this card onto the battlefield from your hand tapped and attacking.)\nWhenever this creature deals combat damage to a player, exile up to two target cards from that player's graveyard.", { name: "Skullsnatcher", mana: "{1}{B}" }))).toBe("body-only");
+    // The static cost-reducer / grant lines are NOT credited as a bare ninjutsu cost.
+    expect(isKeywordOnly("ninjutsu abilities you activate cost {1} less to activate")).toBe(false);
+    expect(isKeywordOnly("each creature card in your hand has ninjutsu {1}{u}{b}")).toBe(false);
+    expect(isKeywordOnly("whenever you activate a ninjutsu ability")).toBe(false);
+  });
   // FIX-PW-LAND-ORDER: a Land Planeswalker (Wrenn and One) with unmodeled loyalty must hit the
   // planeswalker gate, NOT the land tier — else it's mis-counted native-`land` despite unmodeled abilities.
   it("FIX-PW-LAND-ORDER: a Land Planeswalker with unmodeled loyalty is NOT native-land", () => {

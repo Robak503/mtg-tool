@@ -162,3 +162,94 @@ describe("CDMG-DISCARD — END-TO-END via the real combat-damage trigger flush",
     expect(handSize(s, "user")).toBe(0); // the controller's hand untouched
   });
 });
+
+/**
+ * ===== CDMG-DISCARD-SCALED ===== "That player discards THAT MANY cards" — the count IS the combat-damage
+ * amount (ctx.combatDamageAmount), mirroring the rad "that many rad counters" damagedPlayer sibling EXACTLY
+ * (counters.js countContext path). Cards: Dreamstealer (Eternalized token), Needle Specter. applyDiscard now
+ * resolves the count via resolveScaledAmount (the shared countContext helper) instead of effectiveAmount.
+ *
+ * CREED pins:
+ *   - the parser admits ONLY "that player|they discards that many cards" → who:"damagedPlayer", countContext:
+ *     "combatDamageAmount", NON-targeted (targetType:null → routes natively on the combat-damage flush).
+ *   - the count is the ACTUAL combat damage; an absent combatDamageAmount (a spell / non-combat trigger) → 0 →
+ *     a clean no-op (the amount<=0 guard), never a fabricated discard.
+ *   - combatDamageReferentSatisfied admits countContext:"combatDamageAmount" ONLY on combatDamageToPlayer/
+ *     dealtDamage, so a non-combat "they discard that many cards" can never route here and mis-scope.
+ */
+describe("CDMG-DISCARD-SCALED — parser", () => {
+  it("'that player discards that many cards' → discard / damagedPlayer / countContext combatDamageAmount, NON-targeted", () => {
+    const p = parseEffectProgram({ type: "Instant", oracle: "That player discards that many cards." });
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "discard", who: "damagedPlayer", countContext: "combatDamageAmount", targetType: null });
+    expect(p.atoms[0].amount).toBeUndefined();   // dynamic, not a printed N
+    expect(programNeedsChosenTarget(p)).toBe(false);
+  });
+  it("'they discard that many cards' (the bare-pronoun form) parses identically", () => {
+    const p = parseEffectProgram({ type: "Instant", oracle: "They discard that many cards." });
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "discard", who: "damagedPlayer", countContext: "combatDamageAmount" });
+  });
+});
+
+describe("CDMG-DISCARD-SCALED — resolver (count = combatDamageAmount)", () => {
+  const atom = () => parseEffectProgram({ type: "Instant", oracle: "That player discards that many cards." }).atoms[0];
+
+  it("discards combatDamageAmount cards from the DAMAGED player (3 damage → up to 3 pitched)", () => {
+    let s = stateWith({ userHand: [hc("u1", "Mine")], aiHand: [hc("a1", "A", 1), hc("a2", "B", 2), hc("a3", "C", 3), hc("a4", "D", 4)] });
+    // 4-card hand, 3 damage → a real choice (4 > 3); auto-settle the chain of single picks.
+    s = resolveAtom(s, atom(), { controller: "user", targets: [], damagedPlayerId: "ai", combatDamageAmount: 3 });
+    let g = 0; while (s.pendingChoice?.kind === "discard" && g++ < 10) s = resolveDiscardChoice(s, autoPickDiscardCandidate(s, s.pendingChoice));
+    expect(handSize(s, "ai")).toBe(1);     // 4 − 3 = 1 left
+    expect(handSize(s, "user")).toBe(1);   // controller untouched
+  });
+
+  it("absent combatDamageAmount (a spell / non-combat trigger) → 0 → clean no-op, no fabrication", () => {
+    let s = stateWith({ aiHand: [hc("a1", "Keep"), hc("a2", "Keep2")] });
+    expect(() => { s = resolveAtom(s, atom(), { controller: "user", targets: [], damagedPlayerId: "ai" }); }).not.toThrow();
+    expect(handSize(s, "ai")).toBe(2);     // combatDamageAmount unset → 0 → nobody discarded
+    expect(s.pendingChoice?.kind).not.toBe("discard");
+  });
+
+  it("0 combat damage → clean no-op (the amount<=0 guard)", () => {
+    let s = stateWith({ aiHand: [hc("a1", "Keep")] });
+    s = resolveAtom(s, atom(), { controller: "user", targets: [], damagedPlayerId: "ai", combatDamageAmount: 0 });
+    expect(handSize(s, "ai")).toBe(1);
+  });
+});
+
+describe("CDMG-DISCARD-SCALED — coverage classification", () => {
+  it("Needle Specter (wither + combat-damage → discard that many) classifies native-trigger", () => {
+    expect(classifyCard({ name: "Needle Specter", type: "Creature — Specter", mana: "{2}{B}{B}",
+      oracle: "Flying\nWither (This deals damage to creatures in the form of -1/-1 counters.)\nWhenever this creature deals combat damage to a player, that player discards that many cards." })).toBe("native-trigger");
+  });
+  it("Dreamstealer's Eternalized-token oracle (menace + scaled discard, no Eternalize) classifies native-trigger", () => {
+    expect(classifyCard({ name: "Dreamstealer", type: "Creature — Human Wizard", mana: "{1}{B}",
+      oracle: "Menace\nWhenever Dreamstealer deals combat damage to a player, that player discards that many cards." })).toBe("native-trigger");
+  });
+  it("CREED — the PRINTED Dreamstealer (with Eternalize) stays body-only (Eternalize unmodeled, residue gate holds)", () => {
+    expect(classifyCard({ name: "Dreamstealer", type: "Creature — Human Wizard", mana: "{1}{B}",
+      oracle: "Menace\nWhenever this creature deals combat damage to a player, that player discards that many cards.\nEternalize {4}{B}{B} ({4}{B}{B}, Exile this card from your graveyard: Create a token that's a copy of it, except it's a 4/4 black Zombie Human Wizard with no mana cost. Eternalize only as a sorcery.)" })).toBe("body-only");
+  });
+});
+
+describe("CDMG-DISCARD-SCALED — END-TO-END via the real combat-damage trigger flush", () => {
+  it("Needle Specter dealing 2 combat damage makes the damaged player discard 2", () => {
+    const spec = createPermanent({
+      id: "needle",
+      card: { id: "c-needle", name: "Needle Specter", type: "Creature — Specter", power: 2, toughness: 2,
+        oracle: "Flying\nWhenever this creature deals combat damage to a player, that player discards that many cards." },
+      controller: "user", summoningSick: false,
+    });
+    let s = stateWith({ user: [spec], aiHand: [hc("a1", "A", 6), hc("a2", "B", 1), hc("a3", "C", 3)] });
+    s = checkCombatDamageTriggers(s, [{ kind: "combat-damage-player", attackerId: "needle", attackingPlayer: "user", defender: "ai", amount: 2 }]);
+    expect((s.pendingTriggers || []).length).toBe(1);
+    s = flushTriggers(s, { chooseTargets: chooseTriggerTargets });
+    let g = 0;
+    while ((s.stack || []).length && g++ < 30) s = resolveTopOfStack(s);
+    while (s.pendingChoice?.kind === "discard" && g++ < 30) s = resolveDiscardChoice(s, autoPickDiscardCandidate(s, s.pendingChoice));
+    while ((s.stack || []).length && g++ < 60) s = resolveTopOfStack(s);
+    expect(handSize(s, "ai")).toBe(1);   // 3 − 2 = 1 (discarded exactly the combat-damage amount)
+    expect(handSize(s, "user")).toBe(0); // controller untouched
+  });
+});

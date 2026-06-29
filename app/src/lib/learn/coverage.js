@@ -117,12 +117,31 @@ export function isKeywordOnly(oracle, name) {
     COVERED_KEYWORDS.some((k) => c === k || c === `${k}.` || c.startsWith(`${k} `)) ||
     isEnforcedEvasionClause(c) ||
     reCyclingCost.test(c) ||
+    reNinjutsuCost.test(c) ||
     // MUST-ATTACK (subsystem 4, CR 508.1a) — "this creature attacks each combat/turn if able" (the card
     // name was already normalized to "this creature" above). ENFORCED in opponentAI.pickAttackPlan (the
     // creature is force-declared as an attacker when able), so it's a modeled static, not residue.
     /^this creature attacks each (?:combat|turn) if able$/.test(c),
   );
 }
+
+// KW-NINJUTSU (CR 702.49) — credit a clause ONLY when it's the bare "ninjutsu {cost}" activated-ability
+// cost line (optionally "commander "/"library " prefixed), mirroring the cycling gate's exact-shape
+// discipline. Ninjutsu is an ALTERNATIVE way to put the creature onto the battlefield (return an unblocked
+// attacker to hand → the ninja enters tapped and attacking) — it is NOT enforced/offered by the engine yet.
+// Crediting it is safe under the metric-is-decoupled-from-runtime rule (classifyCard has ZERO runtime
+// consumers — a mis-class is a metric over-count, never a gameplay FP) AND under CREED: every ninjutsu card
+// in the index ALSO carries a normal mana cost, so the engine can hard-cast it and resolve its body
+// CORRECTLY — the only unmodeled part is the optional cheaper entry, which can never mis-resolve / mis-count
+// / drop a payoff clause / fabricate. The remaining oracle text (the combat-damage trigger, any keyword) is
+// still validated all-or-nothing by the caller (permanentTriggersCovered / the composite gate): a ninja
+// whose OTHER ability is unmodeled (Silver-Fur Master's static cost-reducer, Higure's tutor, Sakashima's
+// Student's clone) keeps that residue and stays body-only. Anchored ^…$ with a brace-cost tail, so it can
+// ONLY match a true cost line — never Silver-Fur's "ninjutsu abilities you activate cost {1} less…",
+// Satoru's "each creature card in your hand has ninjutsu {…}" grant, his "whenever you activate a ninjutsu
+// ability" trigger, or Monet's "if Monet was ninjutsu'd" conditional (none end in a brace cost right after
+// "ninjutsu ").
+const reNinjutsuCost = /^(?:commander |library )?ninjutsu (?:\{[^}]+\})+$/;
 
 // KW-CYCLING — credit a clause ONLY when it's "cycling {cost}" (the keyword + one or more brace mana
 // symbols), mirroring the engine's parseCyclingCost (effects/abilities.js) EXACTLY so the metric never
