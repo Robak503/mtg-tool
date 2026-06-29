@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-06-29
+
+### Improved
+- **~33 more cards play natively in the simulator** (toward 100% on the test decks): power-qualified
+  intervening-if conditions (Garruk's Uprising across 4 decks), combat-damage discard (Specters / Larceny),
+  **Ninjutsu** (a dozen ninja creatures — the Yuriko deck rose 49% → 51%), Phoenix-style return-on-death,
+  "put a counter on this creature" triggers, and count-scaled damage (Scourge of Valkas). Every wave
+  flip-diffed for 0 regressions + gated, **zero false positives shipped** — and 2 latent false positives
+  (counter-back-reference spells mis-read as combat-referent) were caught and closed.
+
 ## [0.50.0] - 2026-06-29
 
 ### Added
