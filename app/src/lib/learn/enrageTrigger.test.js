@@ -90,6 +90,9 @@ describe("ENRAGE — modeled-atom enrage cards flip to native-trigger", () => {
     ["Polyraptor", "Enrage — Whenever this creature is dealt damage, create a token that’s a copy of this creature."],
     // STEP 5 — basic-land tutor IS modeled, so Ranging Raptors legitimately flips too.
     ["Ranging Raptors", "Enrage — Whenever this creature is dealt damage, you may search your library for a basic land card, put it onto the battlefield tapped, then shuffle."],
+    // FRONTIER round 3 — the FILTERED MASS-COUNTER scope ("each OTHER creature you control", CR 113.7 self-exclude)
+    // is now modeled (counters.js add-counter scope:youControl excludeSource), so Bellowing Aegisaur flips too.
+    ["Bellowing Aegisaur", "Enrage — Whenever this creature is dealt damage, put a +1/+1 counter on each other creature you control."],
   ];
   for (const [name, oracle] of cases) {
     it(`${name} → native-trigger`, () => {
@@ -106,7 +109,6 @@ describe("ENRAGE — unmodeled-effect enrage cards stay non-native (all-or-nothi
     ["Silverclad Ferocidons (each opponent sacrifices)", "Enrage — Whenever this creature is dealt damage, each opponent sacrifices a permanent of their choice."],
     ["Vrondiss (token with its own ability)", "Enrage — Whenever Vrondiss is dealt damage, you may create a 5/4 red and green Dragon Spirit creature token with \"When this token deals damage, sacrifice it.\""],
     ["Cacophodon (untap not routed)", "Enrage — Whenever this creature is dealt damage, untap target permanent."],
-    ["Bellowing Aegisaur (each OTHER creature — unmodeled scope)", "Enrage — Whenever this creature is dealt damage, put a +1/+1 counter on each other creature you control."],
   ];
   for (const [label, oracle] of cases) {
     it(`${label} stays body-only`, () => {

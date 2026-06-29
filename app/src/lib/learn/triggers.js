@@ -460,6 +460,20 @@ function classifyCondition(condRaw, cardName, cardType) {
       if (anotherSubM[1]) desc.nontokenFilter = true; // "another nontoken <Subtype>" (Miirym)
       return desc;
     }
+    // BARE-SUBTYPE ETB — "a/an <Subtype> you control enters" (Bishop of Wings "an Angel you control enters",
+    // the tribal ETB payoffs — Cleric/Soldier/Goblin gain-life/draw/token). The DIES analog ("a <Subtype> you
+    // control dies", line ~496) already exists; this is the symmetric ETB form. Maps to subtypeYouControl, whose
+    // runtime gate (scopeMatches) fires only when the ENTERING permanent's type line carries the subtype AND it's
+    // controlled by the source's controller — so the metric credits EXACTLY the cards the runtime plays. The
+    // single subtype word is gated by NON_SUBTYPE_FILTER_WORDS (stricter than the ETB denylist: excludes
+    // artifact/enchantment/land/creature/etc., whose .includes-substring match would over-fire), so only a real
+    // single-word subtype passes; a card-TYPE word, a multi-word/restricted subject, or "another …" (handled
+    // above) fails → UNDETECTED → Arbiter (CREED FN-safe). Checked AFTER another-subtype + before the bare
+    // creatureSubjectScope (which doesn't recognize a subtype word).
+    const etbSubM = etbSubj.match(/^an? ([a-z]{3,}) you control$/);
+    if (etbSubM && !NON_SUBTYPE_FILTER_WORDS.has(etbSubM[1])) {
+      return { event: "etb", scope: "subtypeYouControl", whose: "any", subtypeFilter: etbSubM[1].charAt(0).toUpperCase() + etbSubM[1].slice(1) };
+    }
     const scope = creatureSubjectScope(subjectBefore(c, "enters"));
     if (scope) return { event: "etb", scope, whose: "any" };
   }
@@ -493,8 +507,8 @@ function classifyCondition(condRaw, cardName, cardType) {
     // subtype filter reusing subtypeYouControl; checkDiesTriggers threads the dead creature as
     // triggeringPermanent. The with/while/during/named/or-another guards above already rejected the
     // restricted shapes, so this only captures the clean "a <Subtype> you control dies" form.
-    const diesSub = c.match(/^a ([a-z]{3,}) you control dies$/);
-    if (diesSub) return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: diesSub[1].charAt(0).toUpperCase() + diesSub[1].slice(1) };
+    const diesSub = c.match(/^an? ([a-z]{3,}) you control dies$/);
+    if (diesSub && !NON_SUBTYPE_FILTER_WORDS.has(diesSub[1])) return { event: "dies", scope: "subtypeYouControl", whose: "any", subtypeFilter: diesSub[1].charAt(0).toUpperCase() + diesSub[1].slice(1) };
   }
   // LANDFALL (CR 603 — landfall is an ability word, CR 207.2c, for a TRIGGERED ability; NOT a replacement
   // effect, so not CR 614) — "Landfall — Whenever a land you control enters" /

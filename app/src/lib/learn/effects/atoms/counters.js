@@ -6,7 +6,7 @@ import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounte
 import { checkDiesTriggers, checkCounterPlacedTriggers } from "../../triggers.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
 import { atomTargets, isCreatureCard, countForSpec } from "./shared.js";
-import { SMALL_NUM, parseCountSource } from "../parseHelpers.js"; // seam batch 3: shared number-word map (leaf, cycle-free) + DYNAMIC-COUNT board-count source
+import { SMALL_NUM, parseCountSource, COUNT_SUBTYPE } from "../parseHelpers.js"; // seam batch 3: shared number-word map (leaf, cycle-free) + DYNAMIC-COUNT board-count source + curated MTG-subtype allowlist (filtered mass-counter scope)
 
 /**
  * WAVE 3b COUNTERS-ON-EVENT — the TRIGGERING-PERMANENT referent ("…on that creature" / non-self "…on
@@ -279,6 +279,28 @@ export function addCounterClauseParser(clause) {
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), targetType: "creature", optionalTarget: true };
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each creature you control$/);
   if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl" };
+  // ===== FILTERED MASS-COUNTER (the youControl team-counter, the two scope narrowings the pump path already
+  // models) ===== The resolver is ALREADY built: scope:"youControl" routes through controllerCreatureTargets,
+  // which honors excludeSource (CR 113.7) + subtypeFilter (word-bounded \b against the type line) — the SAME
+  // gatherer the team-pump "other creatures / <Subtype>s you control" parser feeds. So this only emits those
+  // fields; no resolver change. Two clean forms, whole-clause anchored ($) so any rider / variable count /
+  // un-curated word fails → null → low → Arbiter (FN-safe, never a wrong partial):
+  //   • "each OTHER creature you control"        → excludeSource:true (Ridgescale Tusker, Web-Warriors, The Falcon)
+  //   • "each <Subtype>/<artifact|enchantment> creature you control" → subtypeFilter (Cordial Vampire = Vampire;
+  //     Steel Overseer = Artifact creature). The subtype/type word maps through the curated COUNT_SUBTYPE
+  //     allowlist OR the two single-word card-type qualifiers (artifact/enchantment), so the \b match in
+  //     controllerCreatureTargets credits EXACTLY that subtyped/typed set — a non-curated word ("Villain",
+  //     "Fractal", "tapped"/"attacking"/"colorless"/"land creature") returns null and stays on the Arbiter (CREED).
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each other creature you control$/);
+  if (m) return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl", excludeSource: true };
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each ([a-z]+) creature you control$/);
+  if (m && (m[3] === "artifact" || m[3] === "enchantment")) {
+    return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl", subtypeFilter: m[3].charAt(0).toUpperCase() + m[3].slice(1) };
+  }
+  m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each ([a-z]+) you control$/);
+  if (m && COUNT_SUBTYPE[m[3]]) {
+    return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl", subtypeFilter: COUNT_SUBTYPE[m[3]] };
+  }
   return null;
 }
 
