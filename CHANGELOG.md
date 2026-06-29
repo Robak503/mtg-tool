@@ -8,6 +8,27 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-06-28
+
+### Added
+- **Sim Center** — a new top-level section (Sidebar → TRAIN, beside The Academy) for stress-testing your
+  decks. Pick decks across profiles, run the engine against itself **entirely offline** (no network, no
+  cloud), and get a ranked per-card report of what the simulator can't fully model yet. Save reports, browse
+  past runs, and optionally bank training data. Powered by a new headless self-play runner + breakage report.
+
+### Improved
+- **~200 more cards now play natively in the simulator.** New/extended mechanics include cost-reduction,
+  Sliver tribal (group-evasion / can't-be-countered / group-triggered-grant / group-ward), two-target fight,
+  Treasure economy, dynamic counts, plot, modal & reflexive triggers, land-economy, X-spells (Exsanguinate,
+  Biomass Mutation…), team-pump scopes, and more. The 13 test decks' native-play coverage rose ~33% → ~40%,
+  with **zero false positives shipped** (every wave flip-diffed for 0 regressions + gated).
+- Closed two latent false-positive classes in card resolution (mis-event referent triggers; optional-reflexive
+  partial-resolves) and removed a do-nothing native (Mardu Warshrieker).
+
+### Internal
+- Learn-to-play groundwork: a self-play **trajectory recorder** (board state → eventual outcome) that lets
+  every self-play game double as training data for a future "play to win" model. Opt-in, fully offline.
+
 ## [0.47.0] - 2026-06-27
 
 - **Coverage engine — 29 clean recognition/reuse waves (+439 cards native; corpus 20.8% → 22.1%, 7,113 →
