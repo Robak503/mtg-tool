@@ -51,6 +51,7 @@ import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { applyMothmanRadOnAttack } from "./mothmanRad.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
+import { shuffleControllerLibrary } from "./effects/atoms/library.js"; // seeded opening shuffle (reuses the threaded-rngSeed mulberry32 path; library.js never imports gameEngine → no cycle)
 import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
 import { registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
 import { isModeledGroupTriggeredBody, combatDamageReferentSatisfied } from "./triggerRouting.js";
@@ -877,16 +878,38 @@ export function flushTriggers(state, { chooseTargets } = {}) {
 
 /**
  * Run the start-of-game routine: stamp startingPlayer (needed by
- * draw-step skip), shuffle libraries (caller-supplied rng), draw 7,
- * then apply the untap step's automatic effects so the game opens at
- * the first priority window.
+ * draw-step skip), OPTIONALLY shuffle every library (seeded — see below),
+ * draw 7, then apply the untap step's automatic effects so the game opens
+ * at the first priority window.
+ *
+ * SEEDED OPENING SHUFFLE (opt-in, default-preserving):
+ *   - `seed` omitted (default): libraries are NOT shuffled here — each stays
+ *     in deck-list order. This keeps every existing caller and test byte-
+ *     identical (the ~250-case corpus asserts deck-order opening hands).
+ *   - `seed` provided: stamp `state.rngSeed = seed` and shuffle EACH seat's
+ *     library deterministically via shuffleControllerLibrary (the existing
+ *     threaded-rngSeed mulberry32 Fisher-Yates — CR 103.2 / 701.19e, uniform,
+ *     no card lost/duplicated). Same seed ⇒ byte-identical game (reproducible
+ *     for debugging); different seeds ⇒ different opening draws + game. This is
+ *     what lets self-play repeat a pairing with REAL variety (the "most data"
+ *     enabler for the Sim Center). Shuffle order is turnOrder so the seed→game
+ *     mapping is stable across runs.
  *
  * Caller is expected to handle London mulligan via gameState helpers
  * before calling startGame — startGame assumes the opening hands are
  * already locked in.
  */
-export function startGame(state, { skipMulliganDraw = false } = {}) {
+export function startGame(state, { skipMulliganDraw = false, seed = null } = {}) {
   let next = { ...state, startingPlayer: state.activePlayer };
+  if (seed != null) {
+    // Stamp the deterministic seed, then shuffle each seat in turn order. shuffleControllerLibrary
+    // advances rngSeed after each shuffle (an LCG step), so seat N is shuffled with a seed derived
+    // deterministically from the prior — same `seed` ⇒ identical multi-seat shuffle, serialize-stable.
+    next = { ...next, rngSeed: seed >>> 0 };
+    for (const playerId of (state.turnOrder || Object.keys(state.players))) {
+      next = shuffleControllerLibrary(next, playerId);
+    }
+  }
   if (!skipMulliganDraw) {
     // Deal opening hands to every seat in turn order. Standard draws
     // user + ai (unchanged); Commander deals all four pod members.

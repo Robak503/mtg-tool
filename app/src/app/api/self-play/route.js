@@ -8,7 +8,7 @@
  *     {
  *       deckIds:    string[],   // deck-store ids to include (required, >= 1)
  *       mode?:      "commander" | "standard",   // default "commander"
- *       gamesPer?:  number,     // repeats per pairing (Pass A: capped at 1, see runner)
+ *       gamesPer?:  number,     // repeats per pairing; each repeat gets a distinct shuffle seed (real variety)
  *       allProfiles?: boolean,  // when true, resolve deckIds across ALL profiles (the
  *                               // 13-deck set spans two); default = active profile only
  *       record?:    boolean     // OPT-IN: also bank a per-turn training trajectory

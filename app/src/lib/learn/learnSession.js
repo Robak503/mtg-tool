@@ -72,6 +72,11 @@ function generateSessionId() {
  *                        Commander: array of 3 per-opponent commander arrays
  *   difficulty       — "beginner" | "intermediate" | "expert"
  *   activePlayer     — optional player id (default "user")
+ *   seed             — optional integer; when given, every seat's library is
+ *                      shuffled deterministically (same seed ⇒ same game).
+ *                      Omitted (default) ⇒ deck-list order, byte-identical to
+ *                      the pre-seed engine. Self-play passes a distinct seed
+ *                      per game so repeats vary.
  *
  * Throws on missing decks, invalid difficulty, invalid mode, or a
  * commander pod that isn't exactly 3 decks.
@@ -87,6 +92,7 @@ export function createLearnSession({
   difficulty = "beginner",
   activePlayer = "user",
   mode = "standard",
+  seed = null, // opt-in seeded opening shuffle (default null ⇒ deck-list order, byte-identical to before)
 } = {}) {
   if (!Array.isArray(userDeck) || userDeck.length === 0) {
     throw new Error("createLearnSession: userDeck must be a non-empty array");
@@ -133,7 +139,7 @@ export function createLearnSession({
       mode,
     });
   }
-  state = startGame(state);
+  state = startGame(state, { seed });
 
   return {
     id: generateSessionId(),

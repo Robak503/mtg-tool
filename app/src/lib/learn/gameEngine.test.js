@@ -427,6 +427,88 @@ describe("startGame", () => {
   });
 });
 
+describe("startGame — opt-in seeded opening shuffle", () => {
+  // The deck-list order of a fresh user library: the full 60-card id sequence the
+  // deck enters in. We compare opening hand + remaining library against this.
+  function deckOrder(prefix, n = 60) {
+    return makeDeck(n, prefix).map((c) => c.id);
+  }
+
+  it("NO seed: library stays in deck-list order (default byte-identical) — hand is the top 7", () => {
+    let state = createGameState({ userDeck: makeDeck(60, "U"), aiDeck: makeDeck(60, "A") });
+    state = startGame(state); // no seed
+    const order = deckOrder("U");
+    // The top 7 went to hand in order; the rest remain in order.
+    expect(state.players.user.hand.map((c) => c.id)).toEqual(order.slice(0, 7));
+    expect(state.players.user.library.map((c) => c.id)).toEqual(order.slice(7));
+    // rngSeed is untouched by the default path (still the createGameState default).
+    expect(state.rngSeed).toBe(0);
+  });
+
+  it("WITH seed: the library is shuffled — full 60-card order differs but the SAME cards survive (no loss/dup, size invariant)", () => {
+    const seed = 12345;
+    let plain = createGameState({ userDeck: makeDeck(60, "U"), aiDeck: makeDeck(60, "A") });
+    plain = startGame(plain);
+    let shuf = createGameState({ userDeck: makeDeck(60, "U"), aiDeck: makeDeck(60, "A") });
+    shuf = startGame(shuf, { seed });
+
+    const plainAll = [...plain.players.user.hand, ...plain.players.user.library].map((c) => c.id);
+    const shufAll = [...shuf.players.user.hand, ...shuf.players.user.library].map((c) => c.id);
+
+    // Size invariant: hand 7 + library 53 = 60 cards.
+    expect(shuf.players.user.hand).toHaveLength(7);
+    expect(shuf.players.user.library).toHaveLength(53);
+    expect(shufAll).toHaveLength(60);
+    // Order differs from deck-list order (the shuffle actually reordered the deck).
+    expect(shufAll).not.toEqual(plainAll);
+    // …but it's a PERMUTATION of the exact same 60 cards — nothing lost or duplicated.
+    expect([...shufAll].sort()).toEqual([...plainAll].sort());
+    expect(new Set(shufAll).size).toBe(60);
+  });
+
+  it("deterministic: the SAME seed produces a byte-identical game setup (reproducible)", () => {
+    const seed = 777;
+    let a = createGameState({ userDeck: makeDeck(60, "U"), aiDeck: makeDeck(60, "A") });
+    a = startGame(a, { seed });
+    let b = createGameState({ userDeck: makeDeck(60, "U"), aiDeck: makeDeck(60, "A") });
+    b = startGame(b, { seed });
+
+    expect(a.players.user.hand.map((c) => c.id)).toEqual(b.players.user.hand.map((c) => c.id));
+    expect(a.players.user.library.map((c) => c.id)).toEqual(b.players.user.library.map((c) => c.id));
+    expect(a.players.ai.hand.map((c) => c.id)).toEqual(b.players.ai.hand.map((c) => c.id));
+  });
+
+  it("two DIFFERENT seeds produce different opening hands (real variety)", () => {
+    let a = createGameState({ userDeck: makeDeck(60, "U"), aiDeck: makeDeck(60, "A") });
+    a = startGame(a, { seed: 1 });
+    let b = createGameState({ userDeck: makeDeck(60, "U"), aiDeck: makeDeck(60, "A") });
+    b = startGame(b, { seed: 2 });
+    expect(a.players.user.hand.map((c) => c.id)).not.toEqual(b.players.user.hand.map((c) => c.id));
+  });
+
+  it("every seat is shuffled, not just the user (Commander pod)", () => {
+    const seed = 4242;
+    let plain = createGameState({
+      mode: "commander",
+      userDeck: makeDeck(60, "U"),
+      opponentDecks: [makeDeck(60, "A"), makeDeck(60, "B"), makeDeck(60, "C")],
+    });
+    plain = startGame(plain);
+    let shuf = createGameState({
+      mode: "commander",
+      userDeck: makeDeck(60, "U"),
+      opponentDecks: [makeDeck(60, "A"), makeDeck(60, "B"), makeDeck(60, "C")],
+    });
+    shuf = startGame(shuf, { seed });
+    for (const pid of ["user", "ai1", "ai2", "ai3"]) {
+      const plainHand = plain.players[pid].hand.map((c) => c.id);
+      const shufHand = shuf.players[pid].hand.map((c) => c.id);
+      expect(shufHand).not.toEqual(plainHand); // each seat got shuffled
+      expect(shuf.players[pid].hand).toHaveLength(7);
+    }
+  });
+});
+
 describe("integration — full turn cycle", () => {
   it("completes turn 1 with no actions and lands on turn 2 untap", () => {
     let state = createGameState({

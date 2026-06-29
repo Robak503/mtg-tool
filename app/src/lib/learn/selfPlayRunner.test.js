@@ -123,6 +123,49 @@ describe("runSelfPlayBatch", () => {
     expect(games[0].meta.seatNames).toEqual(["A", "B", "C", "D"]);
     expect(["user-wins", "ai-wins", "draw"]).toContain(games[0].result);
   });
+
+  it("gamesPer>1 produces that many games (no cap) — seeded shuffle makes repeats REAL", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const decks = [{ id: "u", name: "U", cards: aggroDeck("u") }, { id: "a", name: "A", cards: aggroDeck("a") }];
+    const { games } = runSelfPlayBatch(decks, { mode: "standard", gamesPer: 3 });
+    warn.mockRestore();
+    log.mockRestore();
+
+    expect(games.length).toBe(3); // the old cap is gone — all 3 repeats ran
+    // Each game carries a DISTINCT seed (the per-game derivation, recorded on meta).
+    const seeds = games.map((g) => g.meta.seed);
+    expect(new Set(seeds).size).toBe(3);
+    expect(seeds.every((s) => Number.isInteger(s))).toBe(true);
+  });
+
+  it("a 3-game self-play batch yields 3 DISTINCT games (different opening draws and/or game lines)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const decks = [{ id: "u", name: "U", cards: aggroDeck("u") }, { id: "a", name: "A", cards: aggroDeck("a") }];
+    const { games } = runSelfPlayBatch(decks, { mode: "standard", gamesPer: 3 });
+    warn.mockRestore();
+    log.mockRestore();
+
+    // Fingerprint each game by its full event log (the engine records every action). Distinct
+    // shuffles ⇒ distinct draws ⇒ distinct logs. At minimum the three logs must not all match.
+    const fingerprints = games.map((g) => JSON.stringify(g.log));
+    expect(new Set(fingerprints).size).toBeGreaterThan(1);
+  });
+
+  it("baseSeed makes the whole batch reproducible run-to-run (same baseSeed ⇒ same games)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const decks = [{ id: "u", name: "U", cards: aggroDeck("u") }, { id: "a", name: "A", cards: aggroDeck("a") }];
+    const a = runSelfPlayBatch(decks, { mode: "standard", gamesPer: 3, baseSeed: 99 });
+    const b = runSelfPlayBatch(decks, { mode: "standard", gamesPer: 3, baseSeed: 99 });
+    warn.mockRestore();
+    log.mockRestore();
+
+    expect(a.games.map((g) => g.meta.seed)).toEqual(b.games.map((g) => g.meta.seed));
+    // Same seeds ⇒ byte-identical game lines.
+    expect(a.games.map((g) => JSON.stringify(g.log))).toEqual(b.games.map((g) => JSON.stringify(g.log)));
+  });
 });
 
 // ─── Learn-to-Play Track-1a: trajectory recording ──────────────────────────────

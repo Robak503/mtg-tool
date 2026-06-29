@@ -358,9 +358,9 @@ export default function SimCenter({ cfg, colors, fontFamily }) {
             </label>
 
             {gamesPer > 1 && (
-              <span style={{ fontSize: 11, color: "#e8c285", lineHeight: 1.5, maxWidth: 360 }}>
-                ⓘ Repeats are identical games for now — seeded-shuffle for variety ships in a follow-up,
-                so &gt;1 won&rsquo;t add new coverage yet.
+              <span style={{ fontSize: 11, color: MUTED, lineHeight: 1.5, maxWidth: 360 }}>
+                ⓘ Each repeat shuffles the decks with a distinct seed, so every game plays out
+                differently — more games means more coverage.
               </span>
             )}
           </section>

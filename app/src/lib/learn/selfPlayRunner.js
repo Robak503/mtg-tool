@@ -18,9 +18,12 @@
  * handing decks here); a blank deck plays blank cards, which is the honest fail
  * mode, never fabricated behaviour.
  *
- * SCOPE (Pass A): games are deterministic per pairing — the engine's shuffle is
- * not seeded here, so a given (deckA, deckB) pairing replays the same game every
- * run. Seeded-shuffle for repeat-variety is a v2 follow-up (see runSelfPlayBatch).
+ * REPEAT VARIETY (seeded shuffle): a single game with no `seed` is deterministic
+ * per pairing (deck-list order — useful for an exact reproduction). runSelfPlayBatch
+ * passes a DISTINCT seed per game (baseSeed + a per-game counter), so gamesPer>1
+ * produces genuinely different opening draws and game lines — real repeat coverage,
+ * the "most data" enabler for the Sim Center / learn-to-play. A fixed baseSeed keeps
+ * the whole batch reproducible run-to-run (same baseSeed ⇒ same set of games).
  */
 
 import { createLearnSession, advanceUntilDecision } from "./learnSession.js";
@@ -65,6 +68,11 @@ export function outcomeLabelForSeat(seatId, result) {
  *   per-turn, per-seat feature trajectory for value-function training. OFF by default
  *   so normal runs are byte-identical. When true, the result gains a `trajectory`
  *   field (see the @returns trajectory shape).
+ * @param {number} [args.seed]  OPT-IN seeded opening shuffle. Omitted (default) ⇒
+ *   deck-list order (every replay of a pairing is identical). Provided ⇒ each seat's
+ *   library is shuffled deterministically (same seed ⇒ same game, reproducible;
+ *   different seeds ⇒ different game). runSelfPlayBatch passes a distinct seed per
+ *   game so gamesPer>1 yields genuinely different games (real repeat coverage).
  * @returns {{ result, status, reason, turns, ticks, log, meta, error?, trajectory? }}
  *   result — "user-wins" | "ai-wins" | "draw" | "engine-stuck" | "dispatch-error"
  *            | "setup-error" (the report treats the last three as non-completions)
@@ -90,6 +98,7 @@ export function runSelfPlayGame({
   mode = "standard",
   meta = {},
   recordTrajectory = false,
+  seed = null,
 } = {}) {
   // Build the Expert session. createLearnSession validates deck shape and throws
   // on bad input; we surface that as a `setup-error` result rather than letting it
@@ -106,6 +115,7 @@ export function runSelfPlayGame({
       opponentCompanions,
       difficulty: "expert",
       mode,
+      seed,
     });
   } catch (error) {
     return {
@@ -275,9 +285,12 @@ export function buildPairings(deckCount, mode = "commander") {
  * @param {object} [opts]
  * @param {string} [opts.mode]      "commander" | "standard" (default "commander")
  * @param {number} [opts.gamesPer]  repeat each pairing this many times (default 1).
- *     NOTE (Pass A): repeats are currently identical games (no seeded shuffle yet) —
- *     gamesPer>1 is wired for a v2 seeded-shuffle follow-up and de-duplicates to 1
- *     here to avoid reporting fake repeat coverage.
+ *     Each repeat gets a DISTINCT shuffle seed (baseSeed + a per-game counter), so
+ *     gamesPer>1 yields genuinely different games — real repeat coverage, not the
+ *     fake-identical repeats the old cap guarded against.
+ * @param {number} [opts.baseSeed]  base for per-game seed derivation (default 1).
+ *     Same baseSeed ⇒ the whole batch reproduces run-to-run; bump it for a fresh
+ *     independent sweep over the same decks.
  * @param {boolean} [opts.record]  OPT-IN (default false): record a per-turn feature
  *     trajectory for every game (passes recordTrajectory through to runSelfPlayGame).
  *     OFF by default so existing batch behavior is unchanged. Each game's `.trajectory`
@@ -286,12 +299,17 @@ export function buildPairings(deckCount, mode = "commander") {
  *     games — one runSelfPlayGame result per game, each tagged with .meta
  *             { mode, deckNames, seatNames, userDeckName }
  */
-export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, record = false } = {}) {
+export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false } = {}) {
   const decks = Array.isArray(deckList) ? deckList : [];
   const pairings = buildPairings(decks.length, mode);
-  // Pass A: identical-game repeats add nothing (deterministic engine). Cap at 1 so
-  // the report never overcounts. v2 seeded shuffle will honour gamesPer>1.
-  const repeats = gamesPer > 1 ? 1 : Math.max(1, gamesPer | 0);
+  // Seeded shuffle makes repeats REAL: each game gets a distinct seed, so gamesPer>1
+  // explores different shuffles of the same pairing instead of banking identical games.
+  const repeats = Math.max(1, gamesPer | 0);
+
+  // A monotonic per-game counter folded into baseSeed → every game in the batch gets a
+  // unique, deterministic seed. Same baseSeed ⇒ the whole batch reproduces run-to-run.
+  let gameIndex = 0;
+  const base = (Number.isFinite(baseSeed) ? baseSeed : 1) >>> 0;
 
   const games = [];
   for (const pairing of pairings) {
@@ -299,12 +317,18 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, r
     const seatNames = seatDecks.map((d) => d?.name || d?.id || "Unknown deck");
     const seatIds = seatDecks.map((d) => d?.id || d?.name || "unknown");
     for (let r = 0; r < repeats; r++) {
+      // Distinct per-game seed. The large odd stride keeps consecutive seeds far apart in
+      // the mulberry32 stream so neighbouring games don't share near-identical opening draws.
+      const seed = ((base + Math.imul(gameIndex, 2654435761)) >>> 0);
+      gameIndex += 1;
       const meta = {
         mode,
         seatNames,
         deckNames: seatNames,
         userDeckName: seatNames[0],
         padded: !!pairing.padded,
+        seed, // record the per-game seed so a specific game can be reproduced exactly
+        repeat: r,
       };
       let game;
       if (mode === "commander") {
@@ -319,6 +343,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, r
           mode,
           meta,
           recordTrajectory: record,
+          seed,
         });
       } else {
         const [a, b] = seatDecks;
@@ -332,6 +357,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, r
           mode,
           meta,
           recordTrajectory: record,
+          seed,
         });
       }
       // Attribute each trajectory to its decks so JSONL rows carry deck identity. The
