@@ -18,6 +18,8 @@ import {
   outcomeLabelForSeat,
   trajectoriesToJsonl,
   writeTrajectoriesJsonl,
+  startSeatForGame,
+  engineSeatsForMode,
 } from "./selfPlayRunner.js";
 import { FEATURE_KEYS } from "./gameFeatures.js";
 
@@ -336,5 +338,175 @@ describe("runSelfPlayBatch with record + the JSONL writer", () => {
     const out = await writeTrajectoriesJsonl({ games: [] }, { dir: tmpDir });
     expect(out).toBeNull();
     await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+});
+
+// ─── STARTING-PLAYER ALTERNATION (de-bias self-play seating) ────────────────────
+//
+// The on-the-play seat had been pinned to "user", so a mirror always handed that seat
+// the position edge ⇒ seat-position-biased training data. These cover: the seat picker
+// is deterministic + round-robin (balanced); the default single game stays byte-identical
+// (user on the play); a non-default starting seat correctly takes the CR 103.7a first-turn
+// draw-skip; the result records the on-the-play seat; and a batch is balanced + reproducible.
+
+describe("startSeatForGame / engineSeatsForMode — deterministic round-robin seat picker", () => {
+  it("lists the engine seats for each mode in turn order", () => {
+    expect(engineSeatsForMode("standard")).toEqual(["user", "ai"]);
+    expect(engineSeatsForMode("commander")).toEqual(["user", "ai1", "ai2", "ai3"]);
+  });
+
+  it("game 0 always leads with 'user' (matches the historical first-game seating)", () => {
+    expect(startSeatForGame("standard", 0)).toBe("user");
+    expect(startSeatForGame("commander", 0)).toBe("user");
+  });
+
+  it("round-robins over the mode's seats, wrapping", () => {
+    expect([0, 1, 2, 3, 4].map((i) => startSeatForGame("standard", i)))
+      .toEqual(["user", "ai", "user", "ai", "user"]);
+    expect([0, 1, 2, 3, 4, 5].map((i) => startSeatForGame("commander", i)))
+      .toEqual(["user", "ai1", "ai2", "ai3", "user", "ai1"]);
+  });
+
+  it("is deterministic — a given (mode, index) always yields the same seat", () => {
+    for (const i of [0, 1, 7, 13, 100]) {
+      expect(startSeatForGame("commander", i)).toBe(startSeatForGame("commander", i));
+    }
+  });
+});
+
+describe("runSelfPlayGame startSeat (CR 103.7a — who is on the play)", () => {
+  it("defaults to 'user' on the play and is BYTE-IDENTICAL to an explicit startSeat:'user'", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    // Same seed ⇒ deterministic; default (no startSeat) vs explicit "user" must match exactly.
+    const dflt = runSelfPlayGame({ deckA: aggroDeck("u"), deckB: aggroDeck("a"), mode: "standard", seed: 42 });
+    const explicitUser = runSelfPlayGame({ deckA: aggroDeck("u"), deckB: aggroDeck("a"), mode: "standard", seed: 42, startSeat: "user" });
+    warn.mockRestore();
+    log.mockRestore();
+
+    expect(dflt.onThePlay).toBe("user");
+    expect(explicitUser.onThePlay).toBe("user");
+    // Full game line byte-identical (the opt-in path with the default seat == pre-slice path).
+    expect(JSON.stringify(dflt.log)).toBe(JSON.stringify(explicitUser.log));
+    expect(dflt.result).toBe(explicitUser.result);
+    // game-start stamps user; user's turn-1 draw is the one skipped.
+    expect(dflt.log.find((e) => e.kind === "game-start").startingPlayer).toBe("user");
+    const firstDraw = dflt.log.find((e) => e.kind === "step" && e.step === "draw");
+    expect(firstDraw.player).toBe("user");
+    expect(firstDraw.skipped).toBe("first-turn-draw");
+  });
+
+  it("a non-default starting seat takes the first-turn draw-skip (the skip FOLLOWS the seat)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const aiFirst = runSelfPlayGame({ deckA: aggroDeck("u"), deckB: aggroDeck("a"), mode: "standard", seed: 42, startSeat: "ai" });
+    warn.mockRestore();
+    log.mockRestore();
+
+    expect(aiFirst.onThePlay).toBe("ai");
+    // game-start stamps the chosen seat as startingPlayer.
+    expect(aiFirst.log.find((e) => e.kind === "game-start").startingPlayer).toBe("ai");
+    // The FIRST draw step is the skip, and it's AI's draw that's skipped (not user's).
+    const firstDraw = aiFirst.log.find((e) => e.kind === "step" && e.step === "draw");
+    expect(firstDraw.player).toBe("ai");
+    expect(firstDraw.skipped).toBe("first-turn-draw");
+    // It still reaches a real terminal result (rotation wraps from the non-default seat).
+    expect(["user-wins", "ai-wins", "draw"]).toContain(aiFirst.result);
+  });
+
+  it("records onThePlay even on a setup-error (null — the game never started)", () => {
+    const game = runSelfPlayGame({ deckA: [], deckB: aggroDeck("a"), mode: "standard", startSeat: "ai" });
+    expect(game.result).toBe("setup-error");
+    expect(game.onThePlay).toBeNull();
+  });
+
+  it("commander: a non-default pod seat (ai2) is on the play and skips its first draw", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const game = runSelfPlayGame({
+      deckA: aggroDeck("u"),
+      opponentDecks: [aggroDeck("a1"), aggroDeck("a2"), aggroDeck("a3")],
+      mode: "commander",
+      seed: 9,
+      startSeat: "ai2",
+    });
+    warn.mockRestore();
+    log.mockRestore();
+    expect(game.onThePlay).toBe("ai2");
+    const firstDraw = game.log.find((e) => e.kind === "step" && e.step === "draw");
+    expect(firstDraw.player).toBe("ai2");
+    expect(firstDraw.skipped).toBe("first-turn-draw");
+  });
+});
+
+describe("runSelfPlayBatch alternateStart — balanced, deterministic seating", () => {
+  function decksN(names) {
+    return names.map((n) => ({ id: n, name: n, cards: aggroDeck(n), commanders: [] }));
+  }
+
+  it("ON by default: a standard batch is BALANCED across seats (≈ half each) and records the seat", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    // 4 decks ⇒ 6 pairings; gamesPer 4 ⇒ 24 games. Round-robin ⇒ exactly 12 user / 12 ai.
+    const batch = runSelfPlayBatch(decksN(["A", "B", "C", "D"]), { mode: "standard", gamesPer: 4, baseSeed: 7 });
+    warn.mockRestore();
+    log.mockRestore();
+
+    const counts = {};
+    for (const g of batch.games) counts[g.onThePlay] = (counts[g.onThePlay] || 0) + 1;
+    expect(batch.games.length).toBe(24);
+    expect(counts).toEqual({ user: 12, ai: 12 }); // perfectly balanced
+    // meta.startSeat is recorded and matches the result's onThePlay for every game.
+    expect(batch.games.every((g) => g.meta.startSeat === g.onThePlay)).toBe(true);
+    // Game 0 still leads with user (historical seating preserved as the batch anchor).
+    expect(batch.games[0].onThePlay).toBe("user");
+  });
+
+  it("ON by default: a commander batch is balanced across all four pod seats", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    // 8 decks ⇒ 2 pods; gamesPer 4 ⇒ 8 games. Round-robin over 4 seats ⇒ 2 each.
+    const batch = runSelfPlayBatch(decksN(["A", "B", "C", "D", "E", "F", "G", "H"]), { mode: "commander", gamesPer: 4, baseSeed: 3 });
+    warn.mockRestore();
+    log.mockRestore();
+
+    const counts = {};
+    for (const g of batch.games) counts[g.onThePlay] = (counts[g.onThePlay] || 0) + 1;
+    expect(batch.games.length).toBe(8);
+    expect(counts).toEqual({ user: 2, ai1: 2, ai2: 2, ai3: 2 });
+  });
+
+  it("seating is DETERMINISTIC per baseSeed (same baseSeed ⇒ same on-the-play sequence)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const decks = decksN(["A", "B", "C", "D"]);
+    const a = runSelfPlayBatch(decks, { mode: "standard", gamesPer: 4, baseSeed: 7 });
+    const b = runSelfPlayBatch(decks, { mode: "standard", gamesPer: 4, baseSeed: 7 });
+    warn.mockRestore();
+    log.mockRestore();
+    expect(a.games.map((g) => g.onThePlay)).toEqual(b.games.map((g) => g.onThePlay));
+  });
+
+  it("alternateStart:false pins every game to user-on-the-play (the pre-slice batch path)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const batch = runSelfPlayBatch(decksN(["A", "B"]), { mode: "standard", gamesPer: 3, baseSeed: 7, alternateStart: false });
+    warn.mockRestore();
+    log.mockRestore();
+    expect(batch.games.every((g) => g.onThePlay === "user")).toBe(true);
+    expect(batch.games.every((g) => g.meta.startSeat === null)).toBe(true);
+  });
+
+  it("the recorded onThePlay is independent of WHO won (result names the winning deck/seat, onThePlay the position)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const batch = runSelfPlayBatch(decksN(["A", "B"]), { mode: "standard", gamesPer: 4, baseSeed: 11 });
+    warn.mockRestore();
+    log.mockRestore();
+    // Every game records a concrete on-the-play seat from the mode's seat set, regardless of result.
+    for (const g of batch.games) {
+      expect(["user", "ai"]).toContain(g.onThePlay);
+      expect(["user-wins", "ai-wins", "draw", "timeout"]).toContain(g.result);
+    }
   });
 });

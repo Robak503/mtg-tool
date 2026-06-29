@@ -78,6 +78,17 @@ export function outcomeLabelForSeat(seatId, result) {
  *   library is shuffled deterministically (same seed ⇒ same game, reproducible;
  *   different seeds ⇒ different game). runSelfPlayBatch passes a distinct seed per
  *   game so gamesPer>1 yields genuinely different games (real repeat coverage).
+ * @param {string} [args.startSeat]  OPT-IN: which engine seat is ON THE PLAY (the
+ *   first turn, skipping its first draw per CR 103.7a). Omitted/null (default) ⇒ "user"
+ *   is on the play — BYTE-IDENTICAL to the pre-slice engine (Academy / human play / the
+ *   whole corpus rely on user-first). Provided ⇒ that seat is stamped as state.activePlayer,
+ *   so startGame stamps it as startingPlayer and the CR 103.7a first-turn draw-skip follows
+ *   it automatically (the engine keys the skip off state.startingPlayer, not a hardcoded
+ *   "user"). The seat must be a real engine seat for the mode ("user"/"ai" for Standard;
+ *   "user"/"ai1"/"ai2"/"ai3" for Commander); an unknown id falls through to createLearnSession's
+ *   validation. Turn order is unchanged (it wraps from whichever seat starts), and win-detection
+ *   is seat-identity based, so the result token still names which DECK won regardless of who
+ *   was on the play. runSelfPlayBatch rotates this across a batch (balanced positions).
  * @param {boolean|object} [args.timePressure]  OPT-IN self-play "game clock" (default
  *   true here — self-play WANTS decisive endings; see below). When on, a symmetric,
  *   deterministic per-turn life drain past a soft cap forces stalling games to end W/L
@@ -100,10 +111,14 @@ export function outcomeLabelForSeat(seatId, result) {
  *   per-DECISION trajectory (one row per enumerated choice: turn, seat, pilot, features,
  *   action) — the POLICY-training substrate, distinct from the per-turn VALUE substrate
  *   `recordTrajectory` captures. When true, the result gains a `decisionTrajectory` field.
- * @returns {{ result, status, reason, turns, ticks, log, meta, trainingWeight, error?, trajectory?, decisionTrajectory? }}
+ * @returns {{ result, status, reason, turns, ticks, log, meta, trainingWeight, onThePlay, error?, trajectory?, decisionTrajectory? }}
  *   result — "user-wins" | "ai-wins" | "draw" | "timeout" | "engine-stuck"
  *            | "dispatch-error" | "setup-error" (the report treats stuck/error as
  *            non-completions; `timeout` is an honest, separately-counted non-result)
+ *   onThePlay — the engine seat that was ON THE PLAY (went first, skipped its first draw
+ *            per CR 103.7a). "user" by default; whatever `startSeat` requested otherwise.
+ *            Read off the stamped state.startingPlayer (the engine's own source of truth),
+ *            so analysis/training can account for position bias. null only on setup-error.
  *   status — the raw session.status (active/user-wins/ai-wins/draw/timeout)
  *   reason — game-over reason ("timeout" / "turn-limit" / a win condition) OR the stuck reason
  *   turns  — final turn number reached
@@ -137,6 +152,7 @@ export function runSelfPlayGame({
   meta = {},
   recordTrajectory = false,
   seed = null,
+  startSeat = null, // which seat is ON THE PLAY; null ⇒ "user" (byte-identical). runSelfPlayBatch rotates it across a batch.
   timePressure = false, // default OFF here (a single game is byte-identical); runSelfPlayBatch turns it ON.
   pilots = {}, // EXTERNAL-DECIDE ADAPTER: { [seatId]: { decide, decideMulligan?, playbook?, temperament? } }; {} ⇒ all-default play.
   recordDecisions = false, // opt-in per-DECISION (policy) trajectory; default OFF ⇒ byte-identical.
@@ -203,6 +219,10 @@ export function runSelfPlayGame({
       difficulty: "expert",
       mode,
       seed,
+      // Starting seat (CR 103.7a). When null we omit it so createLearnSession's "user" default
+      // applies — BYTE-IDENTICAL game start. When set, that seat becomes state.activePlayer, so
+      // startGame stamps it as startingPlayer and the first-turn draw-skip follows it.
+      ...(startSeat != null ? { activePlayer: startSeat } : {}),
       mulligan: mulliganConfig, // null ⇒ no mulligan surfaced (byte-identical game start)
     });
   } catch (error) {
@@ -215,6 +235,7 @@ export function runSelfPlayGame({
       log: [],
       meta,
       trainingWeight: 0, // a non-completion is never a learnable row
+      onThePlay: null, // the game never started → no seat was on the play
       error: error?.message || String(error),
     };
   }
@@ -300,6 +321,7 @@ export function runSelfPlayGame({
       log: session.state?.log || [],
       meta,
       trainingWeight: 0, // a non-completion is never a learnable row
+      onThePlay: session.state?.startingPlayer ?? null, // the game DID start; report who led
       error: error?.message || String(error),
     };
   }
@@ -343,6 +365,10 @@ export function runSelfPlayGame({
     log,
     meta,
     trainingWeight,
+    // The seat that was ON THE PLAY (CR 103.7a). Read off the engine's stamped startingPlayer —
+    // its own source of truth — so training/analysis can account for the position edge. "user"
+    // on the default path; whatever startSeat requested otherwise.
+    onThePlay: out.state?.startingPlayer ?? null,
   };
 
   // Per-DECISION (policy) trajectory (opt-in, independent of recordTrajectory). Attach the
@@ -361,7 +387,8 @@ export function runSelfPlayGame({
     })();
     // Pre-game London mulligan decisions (turn 0, captured at game start) lead the row stream,
     // followed by the in-game enumerated decisions — one continuous per-decision policy trace.
-    base.decisionTrajectory = { mode, result, winnerSeat, trainingWeight, rows: [...mulliganRows, ...decisionRows] };
+    // onThePlay rides in the summary so policy analysis can de-bias for the position edge.
+    base.decisionTrajectory = { mode, result, winnerSeat, trainingWeight, onThePlay: base.onThePlay, rows: [...mulliganRows, ...decisionRows] };
   }
 
   if (!recordTrajectory) return base;
@@ -380,7 +407,7 @@ export function runSelfPlayGame({
 
   return {
     ...base,
-    trajectory: { mode, result, reason: base.reason, seats },
+    trajectory: { mode, result, reason: base.reason, onThePlay: base.onThePlay, seats },
   };
 }
 
@@ -441,6 +468,32 @@ export function buildPairings(deckCount, mode = "commander") {
 }
 
 /**
+ * The engine seat ids for a mode, in turn order — the exact seats createGameState/
+ * buildStandardSeats / buildCommanderSeats produce. Standard = the two-seat toggle;
+ * Commander = the four-seat pod. Used to pick which seat is on the play.
+ */
+export function engineSeatsForMode(mode) {
+  return mode === "commander" ? ["user", "ai1", "ai2", "ai3"] : ["user", "ai"];
+}
+
+/**
+ * Pick which engine seat is ON THE PLAY for game `index` of a batch — a deterministic
+ * round-robin over the mode's seats (`engineSeatsForMode`). Game 0 → "user" (so the
+ * first game of any batch matches the historical user-first seating), game 1 → the next
+ * seat, wrapping. Round-robin is BALANCED by construction: across N games each seat leads
+ * ⌊N/seatCount⌋ or ⌈N/seatCount⌉ times — the position edge is shared evenly, which is the
+ * whole point (unbiased training data). Deterministic + pure: a given (mode, index) always
+ * yields the same seat, so a seeded batch replays its seating exactly. `index` should be the
+ * SAME monotonic per-game counter that derives each game's seed, so seed and starting-seat
+ * are locked together and a single game reproduces from its recorded { seed, startSeat }.
+ */
+export function startSeatForGame(mode, index) {
+  const seats = engineSeatsForMode(mode);
+  const i = Number.isFinite(index) ? Math.abs(index | 0) : 0;
+  return seats[i % seats.length];
+}
+
+/**
  * Run a full self-play batch over a list of enriched decks.
  *
  * @param {Array<object>} deckList  each entry: {
@@ -478,11 +531,24 @@ export function buildPairings(deckCount, mode = "commander") {
  * @param {boolean} [opts.recordDecisions]  OPT-IN (default false): record the per-DECISION
  *     (policy) trajectory for every game (passes through to runSelfPlayGame.recordDecisions).
  *     Each game's `.decisionTrajectory` is tagged with `deckIds`/`seatNames` for attribution.
+ * @param {boolean} [opts.alternateStart]  DEFAULT TRUE for batches — rotate which SEAT is
+ *     ON THE PLAY (CR 103.7a) across the batch so the position edge isn't pinned to one seat.
+ *     Without it, "user" is always on the play and, in a mirror, that seat's first-turn /
+ *     untap-then-act tempo edge makes it win every game ⇒ seat-position-BIASED training data.
+ *     ON, game k's starting seat is startSeatForGame(mode, k) — a deterministic round-robin
+ *     over the mode's seats (balanced: each seat leads ≈1/seatCount of the games), locked to
+ *     the SAME per-game counter that derives the seed (so a batch replays its seating exactly,
+ *     and a single game reproduces from its recorded { seed, startSeat }). Game 0 still leads
+ *     with "user", matching the historical first game. Pass false to pin every game to user-on-
+ *     the-play (the pre-slice batch behavior). The chosen seat is recorded on meta.startSeat and
+ *     the result's onThePlay. Turn order is unchanged; win-detection is seat-identity based, so
+ *     the result still names which DECK won regardless of who led.
  * @returns {{ games: object[], deckList: object[], mode, pairings }}
  *     games — one runSelfPlayGame result per game, each tagged with .meta
- *             { mode, deckNames, seatNames, userDeckName } and a trainingWeight
+ *             { mode, deckNames, seatNames, userDeckName, startSeat } and a trainingWeight,
+ *             plus an `onThePlay` field naming the seat that led (CR 103.7a)
  */
-export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true, pilots = {}, recordDecisions = false } = {}) {
+export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true, pilots = {}, recordDecisions = false, alternateStart = true } = {}) {
   const decks = Array.isArray(deckList) ? deckList : [];
   const pairings = buildPairings(decks.length, mode);
   // Seeded shuffle makes repeats REAL: each game gets a distinct seed, so gamesPer>1
@@ -500,9 +566,17 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
     const seatNames = seatDecks.map((d) => d?.name || d?.id || "Unknown deck");
     const seatIds = seatDecks.map((d) => d?.id || d?.name || "unknown");
     for (let r = 0; r < repeats; r++) {
+      // The monotonic per-game counter drives BOTH the seed and (when alternating) the
+      // starting seat, so the two are locked together and a single game reproduces from its
+      // recorded { seed, startSeat }. Captured before the increment.
+      const idx = gameIndex;
       // Distinct per-game seed. The large odd stride keeps consecutive seeds far apart in
       // the mulberry32 stream so neighbouring games don't share near-identical opening draws.
-      const seed = ((base + Math.imul(gameIndex, 2654435761)) >>> 0);
+      const seed = ((base + Math.imul(idx, 2654435761)) >>> 0);
+      // Which seat is ON THE PLAY for this game. alternateStart (default) ⇒ a deterministic
+      // round-robin over the mode's seats (balanced across the batch; game 0 leads with "user").
+      // OFF ⇒ null, which runSelfPlayGame treats as "user" ⇒ BYTE-IDENTICAL to the pre-slice batch.
+      const startSeat = alternateStart ? startSeatForGame(mode, idx) : null;
       gameIndex += 1;
       const meta = {
         mode,
@@ -511,6 +585,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
         userDeckName: seatNames[0],
         padded: !!pairing.padded,
         seed, // record the per-game seed so a specific game can be reproduced exactly
+        startSeat, // the seat put on the play (null ⇒ default user-first); reproduces seating exactly
         repeat: r,
       };
       let game;
@@ -527,6 +602,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
           meta,
           recordTrajectory: record,
           seed,
+          startSeat,
           timePressure,
           pilots,
           recordDecisions,
@@ -544,6 +620,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
           meta,
           recordTrajectory: record,
           seed,
+          startSeat,
           timePressure,
           pilots,
           recordDecisions,
