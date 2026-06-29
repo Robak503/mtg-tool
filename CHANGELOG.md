@@ -8,6 +8,30 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-06-29
+
+### Added
+- **The first self-play pod is ready.** All four decks of a diverse first pod — Slivers, Koma, Zaxara, and
+  The Ur-Dragon — now play natively, **commanders included**, so the simulator can run a full 4-deck game with
+  real archetype variety (tribal / ramp / X-spells / Dragons) instead of mirrors.
+- **The pilot decision seam is complete** — the simulator's pilots now make *every* in-game decision (main plays,
+  attacks, blocks, X-costs, modal, mulligan, and tutor/scry/sacrifice/edict choices), not just the obvious ones.
+
+### Improved
+- **~150 more cards play natively** (toward 100% on the test decks): three commanders modeled (Yuriko — reveal→
+  mana-value drain; Zaxara — X-cast Hydras; Koma — subtype sacrifice-cost / modal abilities / tap-permanent),
+  the optional-mana-payment effect ("you may pay {cost}: draw" — Mind's Eye, Spellbombs, Lifecrafter's Bestiary…),
+  Convoke/Affinity cost handling, power-conditional triggers, combat-damage discard, and more. Colton's 6 personal
+  decks were added to the test set.
+- **Accurate mana.** "Add two/three mana of any color" (Black Lotus, Jeweled Lotus, Gilded Lotus, Goldspan Dragon,
+  Zaxara…) now produces the right amount in the simulator (was always 1); removed phantom mana from sacrifice-cost
+  abilities; counterspells are no longer cast at an empty stack.
+
+### Internal
+- Every wave flip-diffed for 0 regressions + gated; **zero false positives**. The learn-to-play flywheel
+  (pilots → self-play game → trajectory → mode-tagged case memory) is validated end-to-end; this release makes the
+  first real 4-deck pod self-play-trustworthy.
+
 ## [0.51.0] - 2026-06-29
 
 ### Improved
