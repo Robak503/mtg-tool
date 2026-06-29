@@ -110,10 +110,13 @@ function expandAtoms(state, controllerId, atoms, sourceColors = []) {
       // option — so the cast is legal even with zero legal targets, and real targets come BEFORE
       // the decline so the trigger chooser / UI prefer an actual target over the no-op decline.
       perAtom.push([...tagged, DECLINE]);
-      continue;
+      // NOTE: optional PRIMARY (e.g. fight-pair "fights up to one …" — Smell Fear) falls through to the
+      // SECONDARY block below so the MANDATORY fighter ("you control") is still enumerated. A declined
+      // primary leaves only the fighter in the combo; applyFightPair no-ops a fighter with no enemy.
+    } else {
+      if (tagged.length === 0) return null;   // a required target has no legal pick
+      perAtom.push(tagged);
     }
-    if (tagged.length === 0) return null;     // a required target has no legal pick
-    perAtom.push(tagged);
     // TWO-CHOSEN-TARGET (FIGHT-PAIR / DAMAGE-TARGET-POWER): also enumerate the SECONDARY target (the chosen
     // fighter "you control"). Both lists share atomIndex i; distinctness is enforced after the cartesian.
     const secondary = secondaryAtomTargets(state, controllerId, atom, i, sourceColors);

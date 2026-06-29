@@ -847,11 +847,18 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     // target to an opponent's creature (CR 109.5 / 702 — same controller restriction). One alternation, one
     // restriction. (Anything else after — "or planeswalker", a trample/excess rider — fails the `$` → Arbiter.)
     const ENEMY = "target creature (?:you don't control|an opponent controls)";
-    // (a) "target creature you control fights target creature you don't control / an opponent controls" (two-way)
-    let m = t.match(new RegExp(`^target creature you control fights ${ENEMY}$`));
+    // (a) "target creature you control fights [up to one] target creature you don't control / an opponent
+    // controls" (two-way). The optional "up to one" (Smell Fear: "Target creature you control fights up to one
+    // target creature you don't control.") makes the ENEMY a 0-or-1 target (CR 115.1b) — the controller's
+    // creature (the secondary fighter) is still mandatory. optionalTarget flags the PRIMARY (enemy) target;
+    // expandAtoms offers a decline option for it while still enumerating the mandatory fighter, and applyFightPair
+    // treats a declined enemy as a clean no-op (a creature with no opponent to fight does nothing — no fabricated
+    // self-fight). Anchored `$` so any rider still fails → Arbiter.
+    let m = t.match(new RegExp(`^target creature you control fights (up to one )?${ENEMY}$`));
     if (m) return {
       op: "fight-pair", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
       secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
+      ...(m[1] ? { optionalTarget: true } : {}),
     };
     // (b) "target creature you control deals damage equal to its power to target creature you don't control" (one-way)
     m = t.match(new RegExp(`^target creature you control deals damage equal to its power to ${ENEMY}$`));
@@ -1270,9 +1277,25 @@ function extractAdditionalCosts(oracle) {
   return { costs: [cost], rest };
 }
 
+// SELF-COST-REDUCTION sentence (CR 601.2f) — "This spell costs {N} less to cast …" reduces the spell's CAST
+// cost only; it is NEVER a resolution effect (the mana value and the on-stack effect are untouched, CR 202.3).
+// So for the EFFECT program it is pure residue — strip it before parsing so an otherwise-modeled spell isn't
+// dragged LOW by a cast-cost line the resolver never runs (Blasphemous Act: "This spell costs {1} less to cast
+// for each creature on the battlefield. Blasphemous Act deals 13 damage to each creature." → the strip leaves
+// the bare modeled mass-burn). Anchored to a sentence that STARTS with "this spell costs {" and contains "less
+// to cast", so it can only ever consume a real cast-cost-reduction sentence — never resolution text (which
+// never opens with "This spell costs {"). The actual reduction is applied independently at the cast site by
+// legalChoices.selfCostReductionForSpell (which reads the raw card oracle, not this program), so stripping it
+// here cannot drop a modeled reduction. An UNmodeled reduction metric simply isn't applied at cast (the engine
+// pays full price — a SAFE limitation), but the effect now resolves natively instead of routing to the Arbiter.
+const SELF_COST_REDUCTION_SENTENCE_RE = /this spell costs \{[^}]+\} less to cast[^.]*\.\s*/gi;
+function stripSelfCostReduction(oracle) {
+  return String(oracle || "").replace(SELF_COST_REDUCTION_SENTENCE_RE, " ").trim();
+}
+
 export function parseEffectProgram(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
-  const oracle = oracleOf(card);
+  const oracle = stripSelfCostReduction(oracleOf(card));
   const { costs, rest } = extractAdditionalCosts(oracle);
   // A spell that is BOTH an X-spell AND carries an additional cost is a compound we defer — the cast-path
   // X-value expansion and the victim expansion don't yet compose — so parse the FULL oracle and let the

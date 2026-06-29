@@ -235,13 +235,19 @@ export function destroyExileClauseParser(clause) {
   // spell anaphor never reaches it; an absent id is a clean no-op (applyDestroyEffect over an empty target list).
   if (/^destroy the triggering creature$/.test(t)) return { op: "destroy", target: "thatCreature" };
   if (/^exile target creature$/.test(t)) return { op: "exile", targetType: "creature" };
-  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control))?$/);
+  // The two-type UNION list admits BOTH printed word-orders for the artifact/creature union — "creature or
+  // artifact" (the order most cards print) AND "artifact or creature" (Putrefy: "Destroy target artifact or
+  // creature. It can't be regenerated." — the cannotRegenerate rider is re-stamped by the parseEffectClause
+  // wrapper). Both map to the SAME `creatureOrArtifact` targetType (the union predicate is order-free — it
+  // matches a permanent that is a Creature OR an Artifact), so the alias can never mis-scope; zones.js's
+  // bounce/tuck matchers already accept "artifact or creature" for the identical union.
+  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
       "nonland permanent": "nonlandPermanent", "artifact or enchantment": "artifactOrEnchantment",
       "creature or enchantment": "creatureOrEnchantment", "creature or land": "creatureOrLand",
-      "creature or artifact": "creatureOrArtifact", "artifact or land": "artifactOrLand",
+      "creature or artifact": "creatureOrArtifact", "artifact or creature": "creatureOrArtifact", "artifact or land": "artifactOrLand",
       "enchantment or land": "enchantmentOrLand",
       "creature or planeswalker": "creatureOrPlaneswalker", "planeswalker": "planeswalker", // PW-7
     };
