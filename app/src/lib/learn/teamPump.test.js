@@ -57,9 +57,11 @@ describe("parser — team pumps are HIGH; filtered / wrong-scope / unenforced-kw
   });
   it("a filtered / wrong-scope / unenforced-keyword team pump is low", () => {
     const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: INSTANT, oracle }))).toBe("low");
-    low("Other creatures you control get +1/+1 until end of turn.");          // excludes the source — different set
+    // NOTE: "Other creatures you control …" (excludeSource) and "<curated-Subtype>s you control …"
+    // (subtypeFilter) are now HIGH — see teamPumpScope.test.js (TEAM-PUMP-SCOPE). What stays LOW:
     low("Creatures you control with flying get +1/+1 until end of turn.");    // keyword-filtered subset
     low("White creatures you control get +1/+1 until end of turn.");          // color-filtered subset
+    low("Vehicles you control get +1/+1 until end of turn.");                 // a NON-curated subtype word → low
     low("Attacking creatures you control get +2/+0 until end of turn.");      // you-control-filtered attacking subset (bare "attacking creatures" IS native — COMBAT-TEAM-PUMP)
     low("Creatures you control get +1/+1 and gain shadow until end of turn."); // pump path: shadow un-grantable (hexproof now IS — PUMP-STATIC-GRANT)
     low("Creatures you control gain forestwalk until end of turn.");          // GROUP-KEYWORD-GRANT: un-grantable keyword → low
@@ -76,7 +78,10 @@ describe("coverage — clean team pumps are native-spell", () => {
   it("plain + combo classify native-spell; a filtered one is arbiter-spell", () => {
     expect(classifyCard(CHARGE)).toBe("native-spell");
     expect(classifyCard(OVERRUN)).toBe("native-spell");
-    expect(classifyCard({ type: INSTANT, name: "X", oracle: "Other creatures you control get +1/+1 until end of turn." })).toBe("arbiter-spell");
+    // "Other creatures …" (excludeSource) is now modeled → native-spell (TEAM-PUMP-SCOPE).
+    expect(classifyCard({ type: INSTANT, name: "X", oracle: "Other creatures you control get +1/+1 until end of turn." })).toBe("native-spell");
+    // A keyword-FILTERED team pump is still unmodeled → Arbiter.
+    expect(classifyCard({ type: INSTANT, name: "X", oracle: "Creatures you control with flying get +1/+1 until end of turn." })).toBe("arbiter-spell");
   });
 });
 

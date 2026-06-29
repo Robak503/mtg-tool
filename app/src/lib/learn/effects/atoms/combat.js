@@ -7,7 +7,7 @@ import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from ".
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
-import { SMALL_NUM, parseCountSource, parseGrantedKeywords } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
+import { SMALL_NUM, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
 
 /** Tap / untap target creature(s) OR land(s) (CR 701.26). The CREATURE form is the original (a chosen
@@ -628,6 +628,26 @@ export function pumpClauseParser(clause) {
   }
   tp = t.match(/^creatures you control get ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (tp) return { op: "pump", scope: "youControl", ptDelta: { p: parseInt(tp[1], 10), t: parseInt(tp[2], 10) } };
+  // TEAM-PUMP-SCOPE — the two scoped variants of the youControl team pump, sharing applyPumpEffect's
+  // controllerCreatureTargets gatherer (set locked at resolution, CR 611.2c; endOfTurn → cleanup wear-off):
+  //   • "OTHER creatures you control get …"  → excludeSource:true (CR 113.7 — every creature but the source)
+  //   • "<Subtype>s you control [other than this creature] get …" → subtypeFilter (curated COUNT_SUBTYPE only)
+  // Both honor an optional "and gain <KW>…" grant. Whole-clause anchored ($) so a rider / unmodeled scope /
+  // un-grantable keyword / non-curated subtype fails → null → low → Arbiter (FN-safe, never a wrong partial).
+  let to = t.match(/^other creatures you control get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
+  if (to) {
+    const kws = to[3] ? parseGrantedKeywords(to[3]) : null;
+    if (to[3] && !kws) return null;
+    return { op: "pump", scope: "youControl", excludeSource: true, ptDelta: { p: parseInt(to[1], 10), t: parseInt(to[2], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
+  let ts = t.match(/^([a-z]+) you control(?: (other than this creature))? get ([+-]\d+)\/([+-]\d+)(?: and gain (.+))? until end of turn$/);
+  if (ts) {
+    const subtype = COUNT_SUBTYPE[ts[1]];
+    if (!subtype) return null; // a non-curated word ("creatures" handled above; anything else → low/Arbiter)
+    const kws = ts[5] ? parseGrantedKeywords(ts[5]) : null;
+    if (ts[5] && !kws) return null;
+    return { op: "pump", scope: "youControl", subtypeFilter: subtype, ...(ts[2] ? { excludeSource: true } : {}), ptDelta: { p: parseInt(ts[3], 10), t: parseInt(ts[4], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
   // COMBAT-TEAM-PUMP — "attacking|blocking creatures get +N/+N until end of turn" (Trumpet Blast, Hold the
   // Line). scope:attackingCreatures/blockingCreatures → applyPumpEffect over the current combatants (atomTargets);
   // whole-clause anchored, so a filtered/rider form fails the `$` → low → Arbiter (FN-safe).

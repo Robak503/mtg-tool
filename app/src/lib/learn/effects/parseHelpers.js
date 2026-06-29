@@ -37,7 +37,11 @@ const COUNT_GY_TYPE = { creature: "creature", artifact: "artifact", land: "land"
 // can never be mis-matched (CREED): every entry is a real MTG subtype, and a qualified count ("tapped
 // Goblin you control") still fails the `^…$` anchor → low. The irregular plurals (Elves/Allies/Wolves) are
 // listed explicitly so the canonical form fed to countMatches is correct.
-const COUNT_SUBTYPE = {
+// Exported for the TEAM-PUMP-SCOPE parser (atoms/combat.js): a "<Subtype>s you control … until end of
+// turn" team pump admits a subtype filter ONLY when it's in this same curated, collision-free allowlist,
+// so the pump resolver's `\b<Subtype>\b` type-line match credits exactly the subtyped creatures (CREED —
+// a non-subtype word can never be mis-matched). Single source of truth shared with parseCountSource.
+export const COUNT_SUBTYPE = {
   // creature tribes
   goblin: "Goblin", goblins: "Goblin", elf: "Elf", elves: "Elf", ally: "Ally", allies: "Ally",
   wizard: "Wizard", wizards: "Wizard", cat: "Cat", cats: "Cat", vampire: "Vampire", vampires: "Vampire",

@@ -373,6 +373,13 @@ function splitClauses(oracle) {
     // parseExtendedAtom binds the controller-scoped pump + grant together (plural subject →
     // "gain", no trailing s).
     if (/^creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TEAM-PUMP-SCOPE — the "other creatures" (excludes the source) and "<Subtype>s you control [other than
+    // this creature]" (subtype-filtered) variants of the Overrun-style team pump + keyword grant ("Other
+    // creatures you control get +2/+2 and gain trample until end of turn" — End-Raze Forerunners; "Dinosaurs
+    // you control other than this creature get +1/+1 and gain flying until end of turn" — Triceraton Commander).
+    // The " and gain …" is INTERNAL to the one team-pump instruction (same as the unfiltered form above), NOT a
+    // top-level boundary — keep the whole sentence so parseExtendedAtom binds the scoped pump + grant together.
+    if (/^(?:other creatures|[a-z]+s) you control (?:other than this creature )?get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // GROUP-KEYWORD-GRANT — "(Creatures|Permanents) you control gain <kw> and <kw> until end of turn"
     // (Heroic Intervention "hexproof and indestructible"): the " and " joins a KEYWORD LIST, INTERNAL to
     // one group-grant instruction, NOT a top-level effect boundary. Keep the whole sentence so

@@ -860,14 +860,16 @@ const MUST_DROP_TO_LOW = [
   // must NOT parse high with a partial grant — the whole clause is unmodeled → Arbiter.
   "Target creature gains trample and draws a card until end of turn.", // "draws a card" is not a keyword
   "Target creature gains flying and gets +2/+2 until end of turn.",    // mixed ordering, one token non-keyword
-  // ── TEAM pump (scope:youControl) — only the EXACT unfiltered "creatures you control get
-  // +N/+N [and gain <enforced kw>] until end of turn" is modeled. A filtered/wrong-scope set,
-  // an unenforced granted keyword, or a pure (no-P/T) team grant must stay LOW → Arbiter, so a
-  // team buff is never applied to the wrong creatures or fabricated. ──
+  // ── TEAM pump (scope:youControl) — the unfiltered "creatures you control get +N/+N …", the
+  // "OTHER creatures you control …" (excludeSource), and the "<curated-Subtype>s you control …"
+  // (subtypeFilter) forms are modeled (TEAM-PUMP-SCOPE). A keyword/color/attacking-filtered set, a
+  // NON-curated subtype, an unenforced granted keyword, or a pure (no-P/T) team grant must stay LOW
+  // → Arbiter, so a team buff is never applied to the wrong creatures or fabricated. ──
   "Attacking creatures you control get +2/+0 until end of turn.",      // the you-control-filtered attacking subset isn't modeled (bare "attacking creatures" IS — COMBAT-TEAM-PUMP)
-  "Other creatures you control get +1/+1 until end of turn.",          // "other" excludes the source — different set
   "Creatures you control with flying get +1/+1 until end of turn.",    // keyword-filtered subset
-  "White creatures you control get +1/+1 until end of turn.",          // color-filtered subset
+  "White creatures you control get +1/+1 until end of turn.",          // color-filtered subset (a color is not a curated subtype)
+  "Vehicles you control get +1/+1 until end of turn.",                 // a NON-curated subtype word → low (only COUNT_SUBTYPE entries are admitted)
+  "Other creatures you control get +1/+1 and gain protection from red until end of turn.", // un-grantable keyword on the OTHER-scope pump → low
   "Creatures you control get +1/+1 and gain shadow until end of turn.", // pump-path grant: shadow un-grantable → low (hexproof now grantable — PUMP-STATIC-GRANT)
   "Creatures you control gain forestwalk until end of turn.",          // GROUP-KEYWORD-GRANT: an un-grantable keyword → still low (the bare "gain trample/hexproof/indestructible" form is now native)
   // OVERRUN-X — count-scaled team pump ("…gain trample and get +X/+X, where X is <count>"): a FILTERED team,
@@ -1255,6 +1257,29 @@ describe("parseEffectProgram — team pump (scope:youControl)", () => {
   it("is not flagged as mass removal (a team pump is not a wipe)", () => {
     const p = parseEffectProgram(I("Creatures you control get +2/+2 until end of turn."));
     expect(programContainsTeamPump(p)).toBe(true);
+  });
+  // ── TEAM-PUMP-SCOPE — the "other creatures" (excludeSource, CR 113.7) and "<Subtype>s you control
+  // [other than this creature]" (curated subtypeFilter) variants, both still scope:youControl. ──
+  it("models 'OTHER creatures you control get +N/+N until end of turn' with excludeSource", () => {
+    const p = parseEffectProgram(I("Other creatures you control get +1/+1 until end of turn."));
+    expect(p).toMatchObject({ confidence: "high", atoms: [{ op: "pump", scope: "youControl", excludeSource: true, ptDelta: { p: 1, t: 1 } }] });
+    expect(programContainsTeamPump(p)).toBe(true);            // still an AI-held team pump
+  });
+  it("binds the 'OTHER creatures … and gain <kw>' combo (excludeSource + grant)", () => {
+    const p = parseEffectProgram(I("Other creatures you control get +2/+2 and gain vigilance and trample until end of turn."));
+    expect(p).toMatchObject({ confidence: "high", atoms: [{ op: "pump", scope: "youControl", excludeSource: true, ptDelta: { p: 2, t: 2 }, grantKeywords: ["Vigilance", "Trample"] }] });
+  });
+  it("models a curated-SUBTYPE team pump ('Dinosaurs you control get +N/+N …') with subtypeFilter", () => {
+    const p = parseEffectProgram(I("Dinosaurs you control get +4/+4 until end of turn."));
+    expect(p).toMatchObject({ confidence: "high", atoms: [{ op: "pump", scope: "youControl", subtypeFilter: "Dinosaur", ptDelta: { p: 4, t: 4 } }] });
+    expect(p.atoms[0].excludeSource).toBeUndefined();        // no "other than" → includes the source
+  });
+  it("models the SUBTYPE + 'other than this creature' + grant combo (Triceraton's attack pump)", () => {
+    const p = parseEffectProgram(I("Dinosaurs you control other than this creature get +1/+1 and gain flying until end of turn."));
+    expect(p).toMatchObject({ confidence: "high", atoms: [{ op: "pump", scope: "youControl", subtypeFilter: "Dinosaur", excludeSource: true, ptDelta: { p: 1, t: 1 }, grantKeywords: ["Flying"] }] });
+  });
+  it("a NON-curated subtype word stays low → Arbiter (only COUNT_SUBTYPE entries admitted)", () => {
+    expect(programConfidence(parseEffectProgram(I("Vehicles you control get +1/+1 until end of turn.")))).toBe("low");
   });
 });
 

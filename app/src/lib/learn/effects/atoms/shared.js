@@ -67,11 +67,20 @@ export function massPermanentTargets(state, matches) {
  * RESOLUTION so applyPumpEffect locks the set into per-creature fixed effects (CR 611.2c — a
  * one-shot effect's set is fixed when it begins, NOT re-evaluated as creatures enter later).
  */
-export function controllerCreatureTargets(state, controller) {
+export function controllerCreatureTargets(state, controller, opts = {}) {
   const player = state.players?.[controller];
   if (!player) return [];
+  // TEAM-PUMP-SCOPE — two optional narrowings of the controller's creatures, both fixed AT RESOLUTION:
+  //   • excludeSource (CR 113.7 "OTHER creatures you control") drops the pump's own source permanent.
+  //   • subtypeFilter ("<Subtype>s you control") keeps only creatures whose type line carries that
+  //     subtype, word-bounded (\b) so "Elf" matches "Creature — Elf Warrior" but never a substring.
+  //     The subtype comes from the curated COUNT_SUBTYPE allowlist (parser-side), so it's a real,
+  //     collision-free MTG subtype — the \b match credits exactly the subtyped creatures (CREED).
+  const subRe = opts.subtypeFilter ? new RegExp(`\\b${opts.subtypeFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`) : null;
   return player.battlefield
     .filter((perm) => isCreatureCard(perm.card))
+    .filter((perm) => !(opts.excludeSource && perm.id === opts.sourceId))
+    .filter((perm) => !subRe || subRe.test(typeLineStr(perm.card)))
     .map((perm) => ({ type: "creature", id: perm.id, controller }));
 }
 
@@ -107,7 +116,7 @@ export const atomTargets = (state, atom, ctx) => {
     ? (c) => isLandCard(c) && new RegExp(`\\b${atom.landSubtype}\\b`, "i").test(typeLineStr(c)) // MASS-LAND-SUBTYPE (Boil "destroy all Islands")
     : isLandCard);
   if (atom.targetType === "eachArtifactOrEnchantment") return massPermanentTargets(state, (c) => isArtifactCard(c) || isEnchantmentCard(c));
-  if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller);
+  if (atom.scope === "youControl") return controllerCreatureTargets(state, ctx.controller, { excludeSource: atom.excludeSource, sourceId: ctx.sourceId, subtypeFilter: atom.subtypeFilter });
   // DICE-ROLL multi-target (CR 603.7 reflexive payoff — Ancient Bronze Dragon's "put X +1/+1 counters on
   // each of up to two TARGET creatures"). Modeled as a controller-scoped optimal pick: a +1/+1 counter is
   // purely beneficial, so the controller buffs up to two of ITS OWN creatures (never an opponent's). The
