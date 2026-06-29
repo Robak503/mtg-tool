@@ -328,6 +328,92 @@ function recordOutcomeIfChanged(session) {
 // rather than spinning to the tick cap.
 const MAX_TURNS = 100;
 
+// ─── Self-play time pressure (OPT-IN; NOT a Magic rule) ────────────────────────
+//
+// THE STALEMATE PROBLEM: the code-AI doesn't reliably CLOSE games, so most Expert
+// self-play games drift to MAX_TURNS and end as a DRAW. A draw labels every seat 0.5
+// (outcomeLabelForSeat) — useless for learning to WIN. This block adds an OPT-IN
+// "game clock" that forces decisive endings so recorded games carry clean W/L labels.
+//
+// IMPORTANT — this is a SELF-PLAY TRAINING MECHANISM, not real Magic. There is NO CR
+// citation here: real MTG has no turn-based life decay and no metric tiebreak. It is
+// OFF by default (timePressure null/false), so the Academy / human play and every
+// existing test see BYTE-IDENTICAL behavior (the loop still draws at MAX_TURNS). Only
+// the offline self-play runner turns it on.
+//
+// FAIRNESS (CREED): the clock is SYMMETRIC — the SAME rule applies to every seat. Each
+// turn past the soft cap, the ACTIVE player (whoever's turn it is) loses escalating
+// life. Because turns rotate through all seats, no seat is singled out; the loser is
+// simply whoever's life runs out first — a REAL state-based-action death (a true loss),
+// not a fabricated call. It is fully DETERMINISTIC (a pure function of turn number), so
+// a seeded game replays identically. A game that STILL reaches MAX_TURNS is reported as
+// an honest `timeout` (no W/L label, down-weighted) — we NEVER relabel a stall as a win.
+const TIME_PRESSURE_DEFAULTS = Object.freeze({
+  // Turns of normal, unpenalized play before the clock engages. Deliberately set ABOVE
+  // the natural length of a real game so the clock bites only genuine STALLS (a lock, a
+  // pure-land board, an AI that can't close) — never a legitimate long, grindy win. In a
+  // 288-game self-play sweep of the real decks the longest natural game was turn 49; 60
+  // clears that with headroom, honoring the "inevitability / long grindy wins" archetype
+  // (we must not flip the winner of a real turn-40 grind). MAX_TURNS (100) stays the
+  // generous hard backstop above this.
+  softCapTurn: 60,
+  // Per-turn escalation step. On turn (softCapTurn + k) the active player loses
+  // k * lifeLossStep life at turn start. The cumulative drain grows quadratically, so even
+  // a 40-life commander seat is squeezed to a REAL lethal (life ≤ 0 SBA) well before
+  // MAX_TURNS — the decisive ending is an honest death, never a fabricated call. 4 is brisk
+  // but not a one-turn cliff (a stalled seat still gets a few escalating turns to try to win).
+  lifeLossStep: 4,
+});
+
+/**
+ * Resolve the caller's `timePressure` option into a concrete, validated config — or
+ * null when the feature is OFF. Accepts:
+ *   - falsy (null/false/undefined)  → null (OFF; default-off path, byte-identical)
+ *   - true                          → the defaults above
+ *   - an object                     → defaults with any provided overrides
+ * Bad numeric overrides fall back to the default (never NaN/negative, which would
+ * corrupt the clock). Pure.
+ */
+function resolveTimePressure(timePressure) {
+  if (!timePressure) return null;
+  if (timePressure === true) return { ...TIME_PRESSURE_DEFAULTS };
+  const softCapTurn = Number.isInteger(timePressure.softCapTurn) && timePressure.softCapTurn > 0
+    ? timePressure.softCapTurn
+    : TIME_PRESSURE_DEFAULTS.softCapTurn;
+  const lifeLossStep = Number.isFinite(timePressure.lifeLossStep) && timePressure.lifeLossStep > 0
+    ? timePressure.lifeLossStep
+    : TIME_PRESSURE_DEFAULTS.lifeLossStep;
+  return { softCapTurn, lifeLossStep };
+}
+
+/**
+ * Apply the time-pressure "game clock" to the ACTIVE player at the start of a turn.
+ * On turn (softCapTurn + k) for k ≥ 1, the active player loses k * lifeLossStep life;
+ * before the soft cap (k ≤ 0) it's a no-op (returns state unchanged → no churn). The
+ * loss is logged as a `time-pressure` event so a self-play game's clock damage is
+ * auditable (and distinguishable from real combat/spell life loss). PURE: returns a
+ * new state, mutates nothing. Symmetric by construction — the SAME formula runs for
+ * whichever seat is active, every turn.
+ *
+ * WHY A LIFE DRAIN AND NOT A FABRICATED WINNER: the loss routes through normal life,
+ * so when a seat crosses 0 it dies via the SAME state-based-action path as any other
+ * lethal (recordOutcomeIfChanged → life ≤ 0 → that seat loses). The decisive ending is
+ * a REAL loss, never a "leader wins at the cap" call. The clock simply pulls the real
+ * lethal forward so a stall resolves honestly instead of timing out. A game that still
+ * reaches MAX_TURNS is reported as an honest `timeout` (down-weighted), NOT a fake W/L.
+ */
+function applyTimePressure(state, cfg) {
+  if (!cfg) return state;
+  const k = state.turn - cfg.softCapTurn;
+  if (k <= 0) return state;
+  const active = state.activePlayer;
+  const player = state.players?.[active];
+  if (!player) return state;
+  const amount = k * cfg.lifeLossStep;
+  const next = loseLife(state, { playerId: active, amount });
+  return logEvent(next, { kind: "time-pressure", player: active, turn: state.turn, amount });
+}
+
 /**
  * A cheap fingerprint of "meaningful progress." If an actor takes a non-pass
  * action that leaves this unchanged, the action did nothing and the driver
@@ -533,8 +619,20 @@ function settleDiscardChoice(state, cardId) {
  * it never receives a mutable handle that feeds back into the engine, its return
  * value is ignored, and a throw from it is swallowed (logged via console.warn) so a
  * faulty observer can never corrupt or abort a real game.
+ *
+ * OPT-IN SELF-PLAY TIME PRESSURE (`timePressure`, default null ⇒ OFF): when supplied
+ * (the offline self-play runner sets it), a symmetric, deterministic "game clock"
+ * drains the active player's life each turn past a soft cap so stalling games reach
+ * REAL lethal (a true SBA loss → W/L) instead of drifting to MAX_TURNS as a useless
+ * 0.5-labeled draw. It does NOT fabricate a winner: a game that STILL reaches the hard
+ * cap ends as a distinct, honest `timeout` (no W/L label, trainingWeight:0 downstream),
+ * never a "leader wins at the cap" call. It is NOT a Magic rule (no CR); see the
+ * TIME_PRESSURE_DEFAULTS block above. OFF by default ⇒ this function is byte-identical
+ * to before for the Academy and every existing test (the loop still draws at the cap).
  */
-export function advanceUntilDecision(session, { archetype = null, onTurnStart = null } = {}) {
+export function advanceUntilDecision(session, { archetype = null, onTurnStart = null, timePressure = null } = {}) {
+  // Resolve the opt-in clock once (null ⇒ OFF ⇒ no behavior change anywhere below).
+  const timeCfg = resolveTimePressure(timePressure);
   if (session.status !== "active") {
     return {
       session,
@@ -550,25 +648,40 @@ export function advanceUntilDecision(session, { archetype = null, onTurnStart = 
   let current = session;
   let ticks = 0;
 
-  // Turn-boundary observer state (opt-in). `lastObservedTurn` starts at null so the
-  // FIRST loop iteration fires the observer for the opening turn, then once per
-  // subsequent turn increment. Entirely inert when onTurnStart is null.
+  // Turn-boundary state (opt-in observer + opt-in time-pressure clock). Starts at null
+  // so the FIRST loop iteration fires for the opening turn, then once per subsequent
+  // turn increment. Entirely inert when neither the observer nor time pressure is on.
   const observe = typeof onTurnStart === "function";
-  let lastObservedTurn = null;
+  let lastTurnBoundary = null;
 
   while (ticks < SAFETY_CAP) {
     ticks += 1;
 
-    // Opt-in turn-boundary snapshot. Fires when state.turn first reaches a new
-    // value (turn-start, before this turn's actions). Read-only + crash-isolated:
-    // a throw here is swallowed so it can never abort a real game.
-    if (observe && current.state && current.state.turn !== lastObservedTurn) {
-      lastObservedTurn = current.state.turn;
-      try {
-        onTurnStart(current.state, current.state.turn);
-      } catch (err) {
-        if (typeof console !== "undefined" && console.warn) {
-          console.warn(`[learn] onTurnStart observer threw (ignored): ${err?.message || err}`);
+    // Turn boundary — fires when state.turn first reaches a new value (turn-start,
+    // before this turn's actions). Used for BOTH the opt-in observer snapshot AND the
+    // opt-in time-pressure clock. `lastTurnBoundary` starts null so it triggers once
+    // per turn, including the opening turn. Entirely inert when both are off.
+    if (current.state && current.state.turn !== lastTurnBoundary) {
+      lastTurnBoundary = current.state.turn;
+
+      // Opt-in time-pressure clock. Applied to the ACTIVE player at turn start so the
+      // life loss is in effect for THIS turn and is immediately seen by the SBA check
+      // below (a clock kill resolves on the same iteration). Pure + deterministic;
+      // a no-op before the soft cap and entirely skipped when timeCfg is null.
+      if (timeCfg) {
+        current = { ...current, state: applyTimePressure(current.state, timeCfg) };
+      }
+
+      // Opt-in observer snapshot. Read-only + crash-isolated: a throw here is swallowed
+      // so it can never abort a real game. Fires AFTER the clock so a recorded feature
+      // row reflects the post-clock life total (the value the engine will actually act on).
+      if (observe) {
+        try {
+          onTurnStart(current.state, current.state.turn);
+        } catch (err) {
+          if (typeof console !== "undefined" && console.warn) {
+            console.warn(`[learn] onTurnStart observer threw (ignored): ${err?.message || err}`);
+          }
         }
       }
     }
@@ -765,18 +878,30 @@ export function advanceUntilDecision(session, { archetype = null, onTurnStart = 
       continue;
     }
 
-    // Turn-limit stalemate: end as a draw with diagnostics, not a scary
-    // "engine stuck". A dev warning fires so a draw that's really a bug (the
-    // AI never closing) is visible rather than silently "normal".
+    // Turn-limit stalemate: end with diagnostics, not a scary "engine stuck". A dev
+    // warning fires so a too-long game (the AI never closing) is visible, not silently
+    // "normal".
+    //
+    // OUTCOME DEPENDS ON THE OPT-IN CLOCK:
+    //   - time pressure OFF (default): status "draw" — BYTE-IDENTICAL to before. The
+    //     Academy / every existing test still draws at the cap.
+    //   - time pressure ON: status "timeout" — a DISTINCT, honest fourth outcome. We do
+    //     NOT fabricate a W/L by a metric "leader wins at the cap" call (that would inject
+    //     the exact label noise this work removes). A timeout is honestly a timeout: it is
+    //     mapped to NO value label and carries trainingWeight:0 downstream, so the recorder
+    //     down-weights/excludes it. The clock's job is to make games reach REAL lethal
+    //     (a true SBA loss) BEFORE the cap; a game that still times out is dropped, not
+    //     relabeled. MAX_TURNS stays generous so legitimate long, grindy games finish.
     if (current.state.turn > MAX_TURNS) {
+      const status = timeCfg ? "timeout" : "draw";
       if (typeof console !== "undefined" && console.warn) {
-        console.warn(`[learn] turn limit (${MAX_TURNS}) reached at turn ${current.state.turn} — ending as a draw`);
+        console.warn(`[learn] turn limit (${MAX_TURNS}) reached at turn ${current.state.turn} — ending as a ${status}`);
       }
       return {
-        session: { ...current, status: "draw", endedAt: new Date().toISOString() },
+        session: { ...current, status, endedAt: new Date().toISOString() },
         decision: {
           kind: "game-over",
-          reason: "turn-limit",
+          reason: timeCfg ? "timeout" : "turn-limit",
           diagnostic: { turn: current.state.turn, phase: current.state.phase, step: current.state.step },
         },
       };

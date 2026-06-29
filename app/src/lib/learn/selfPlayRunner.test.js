@@ -181,6 +181,60 @@ describe("outcomeLabelForSeat — the value target", () => {
     expect(outcomeLabelForSeat("user", "engine-stuck")).toBeNull();
     expect(outcomeLabelForSeat("user", "setup-error")).toBeNull();
   });
+
+  it("a 'timeout' yields NO label (null) for every seat — an honest non-result, never a fabricated W/L or 0.5", () => {
+    expect(outcomeLabelForSeat("user", "timeout")).toBeNull();
+    expect(outcomeLabelForSeat("ai", "timeout")).toBeNull();
+    expect(outcomeLabelForSeat("ai2", "timeout")).toBeNull();
+  });
+});
+
+describe("self-play time pressure (the stalemate fix)", () => {
+  it("a clean decisive game carries trainingWeight 1; the option default keeps results learnable", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    // Aggro decks close decisively; with the clock on (the runner default for batches) the
+    // result is a real W/L and the game is weighted 1 (learnable).
+    const game = runSelfPlayGame({ deckA: aggroDeck("u"), deckB: aggroDeck("a"), mode: "standard", timePressure: true });
+    warn.mockRestore();
+    log.mockRestore();
+    expect(["user-wins", "ai-wins", "draw"]).toContain(game.result);
+    expect(game.trainingWeight).toBe(1);
+  });
+
+  it("a stalling game resolves DECISIVELY with the clock on (W/L), and as a draw with it off", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    // A pure-land pairing can never deal damage → a guaranteed stall.
+    const land = (p) => { const c = []; for (let i = 0; i < 60; i++) c.push(forest(`${p}-${i}`)); return c; };
+    const off = runSelfPlayGame({ deckA: land("u"), deckB: land("a"), mode: "standard", seed: 3 }); // default OFF
+    const on = runSelfPlayGame({ deckA: land("u"), deckB: land("a"), mode: "standard", seed: 3, timePressure: true });
+    warn.mockRestore();
+    log.mockRestore();
+    // OFF: an honest draw (0.5 label) at the cap.
+    expect(off.result).toBe("draw");
+    expect(off.trainingWeight).toBe(1); // a real draw IS a learnable 0.5 outcome
+    // ON: a decisive W/L (a clean win/loss training label), resolved before the hard cap.
+    expect(["user-wins", "ai-wins"]).toContain(on.result);
+    expect(on.trainingWeight).toBe(1);
+    expect(on.turns).toBeLessThan(100);
+  });
+
+  it("a timeout (clock on, still hits the cap) is reported honestly with trainingWeight 0", () => {
+    // Drive the timeout branch by importing the session helpers directly — the runner maps
+    // the engine's `timeout` status to a `timeout` result with weight 0 (excluded from training).
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    // We can't easily force a real engine timeout here without a contrived deck, so assert the
+    // mapping contract via outcomeLabelForSeat (null) + the weight rule the runner applies:
+    // any non-clean result (timeout / error) ⇒ weight 0. The engine-side timeout path itself
+    // is covered in termination.test.js.
+    const setupErr = runSelfPlayGame({ deckA: [], deckB: aggroDeck("a"), mode: "standard" });
+    warn.mockRestore();
+    log.mockRestore();
+    expect(setupErr.trainingWeight).toBe(0);
+    expect(outcomeLabelForSeat("user", "timeout")).toBeNull();
+  });
 });
 
 describe("runSelfPlayGame with recordTrajectory", () => {

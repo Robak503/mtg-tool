@@ -36,19 +36,23 @@ import { featurizeState } from "./gameFeatures.js";
  * "ai" | "ai1".."ai3"); `result` is runSelfPlayGame's mapped result.
  *
  * Honest by construction: only "user-wins"/"ai-wins" produce a 1, and ONLY for the
- * seat that actually won — every other live outcome (draw, turn-limit) is 0.5, and a
- * non-completion (engine-stuck/dispatch-error/setup-error) returns null so those rows
- * are dropped rather than mislabeled (you can't learn "who won" from a game that
- * never finished). Standard maps user→"user", ai→"ai"; Commander's winning seat is
- * "user" for a user-wins and — since the engine reports a pod win as the surviving
- * seat via status — currently only distinguishes the user seat vs the rest (a finer
- * per-ai-seat winner label is a follow-up noted in the recorder docs).
+ * seat that actually won — a real draw/turn-limit (no clock) is 0.5, and everything
+ * else returns null so those rows are DROPPED rather than mislabeled. That null set
+ * includes `timeout`: a time-pressure game that still hit the cap is an HONEST
+ * non-result — we never fabricate a W/L (or even a 0.5) from a stall, the exact label
+ * noise this work removes. Non-completions (engine-stuck/dispatch-error/setup-error)
+ * are null for the same reason (you can't learn "who won" from a game that never
+ * finished). Standard maps user→"user", ai→"ai"; Commander's winning seat is "user"
+ * for a user-wins and — since the engine reports a pod win as the surviving seat via
+ * status — currently only distinguishes the user seat vs the rest (a finer per-ai-seat
+ * winner label is a follow-up noted in the recorder docs).
  */
 export function outcomeLabelForSeat(seatId, result) {
   if (result === "user-wins") return seatId === "user" ? 1 : 0;
   if (result === "ai-wins") return seatId === "user" ? 0 : 1;
   if (result === "draw" || result === "turn-limit") return 0.5;
-  return null; // engine-stuck / dispatch-error / setup-error / unexpected → don't fabricate a label
+  // timeout / engine-stuck / dispatch-error / setup-error / unexpected → don't fabricate a label
+  return null;
 }
 
 /**
@@ -73,14 +77,26 @@ export function outcomeLabelForSeat(seatId, result) {
  *   library is shuffled deterministically (same seed ⇒ same game, reproducible;
  *   different seeds ⇒ different game). runSelfPlayBatch passes a distinct seed per
  *   game so gamesPer>1 yields genuinely different games (real repeat coverage).
- * @returns {{ result, status, reason, turns, ticks, log, meta, error?, trajectory? }}
- *   result — "user-wins" | "ai-wins" | "draw" | "engine-stuck" | "dispatch-error"
- *            | "setup-error" (the report treats the last three as non-completions)
- *   status — the raw session.status (active/user-wins/ai-wins/draw)
- *   reason — game-over reason ("turn-limit", a win condition) OR the stuck reason
+ * @param {boolean|object} [args.timePressure]  OPT-IN self-play "game clock" (default
+ *   true here — self-play WANTS decisive endings; see below). When on, a symmetric,
+ *   deterministic per-turn life drain past a soft cap forces stalling games to end W/L
+ *   instead of drifting to the turn cap as a DRAW, and a hard-cap game falls back to a
+ *   fair metric tiebreak (life → board power → card advantage). NOT a Magic rule — a
+ *   training mechanism only. Pass false to disable (recover the old draw-at-cap behavior),
+ *   or an object to override { softCapTurn, lifeLossStep }. The DRAW it removes is the
+ *   useless-label outcome (0.5 for every seat) the value-function recorder can't learn from.
+ * @returns {{ result, status, reason, turns, ticks, log, meta, trainingWeight, error?, trajectory? }}
+ *   result — "user-wins" | "ai-wins" | "draw" | "timeout" | "engine-stuck"
+ *            | "dispatch-error" | "setup-error" (the report treats stuck/error as
+ *            non-completions; `timeout` is an honest, separately-counted non-result)
+ *   status — the raw session.status (active/user-wins/ai-wins/draw/timeout)
+ *   reason — game-over reason ("timeout" / "turn-limit" / a win condition) OR the stuck reason
  *   turns  — final turn number reached
  *   ticks  — engine ticks consumed (advanceUntilDecision loop iterations) when known
  *   log    — the raw append-only state.log (per-turn/phase keyed breakage signals)
+ *   trainingWeight — 1 for a clean decisive/draw result the recorder should learn from;
+ *            0 for a `timeout` (or any non-completion) so the trainer down-weights/excludes
+ *            it. A timeout is honestly a timeout, never a fabricated W/L.
  *   trajectory (only when recordTrajectory) — {
  *       mode, result,
  *       seats: [ { seat, outcome, rows: [ { turn, features } ] } ]
@@ -99,6 +115,7 @@ export function runSelfPlayGame({
   meta = {},
   recordTrajectory = false,
   seed = null,
+  timePressure = false, // default OFF here (a single game is byte-identical); runSelfPlayBatch turns it ON.
 } = {}) {
   // Build the Expert session. createLearnSession validates deck shape and throws
   // on bad input; we surface that as a `setup-error` result rather than letting it
@@ -126,6 +143,7 @@ export function runSelfPlayGame({
       ticks: 0,
       log: [],
       meta,
+      trainingWeight: 0, // a non-completion is never a learnable row
       error: error?.message || String(error),
     };
   }
@@ -149,12 +167,19 @@ export function runSelfPlayGame({
       }
     : null;
 
+  // Assemble the opt-in driver options. Both default-off knobs (the trajectory observer
+  // and the time-pressure clock) are passed only when requested; when neither is set the
+  // object is `{}` and advanceUntilDecision behaves byte-identically to its bare form.
+  const advanceOpts = {};
+  if (recordTrajectory) advanceOpts.onTurnStart = onTurnStart;
+  if (timePressure) advanceOpts.timePressure = timePressure;
+
   // Drive to termination. advanceUntilDecision NEVER throws on engine bugs — it
   // returns a structured engine-stuck / dispatch-error decision — but we still
   // guard the call so a truly unexpected throw is reported honestly, not hidden.
   let advanced;
   try {
-    advanced = advanceUntilDecision(session, recordTrajectory ? { onTurnStart } : undefined);
+    advanced = advanceUntilDecision(session, advanceOpts);
   } catch (error) {
     return {
       result: "dispatch-error",
@@ -164,6 +189,7 @@ export function runSelfPlayGame({
       ticks: 0,
       log: session.state?.log || [],
       meta,
+      trainingWeight: 0, // a non-completion is never a learnable row
       error: error?.message || String(error),
     };
   }
@@ -174,11 +200,12 @@ export function runSelfPlayGame({
   const ticks = decision?.ticks ?? null;
 
   // Map the terminal decision to a single result token. game-over → the win-detection
-  // status (user-wins/ai-wins/draw). Anything else is a non-completion we report
-  // HONESTLY (never silently coerced to a draw): engine-stuck or dispatch-error.
+  // status (user-wins/ai-wins/draw, or timeout when the opt-in clock was on and the game
+  // still hit the cap). Anything else is a non-completion we report HONESTLY (never
+  // silently coerced to a draw): engine-stuck or dispatch-error.
   let result;
   if (decision.kind === "game-over") {
-    result = out.status; // user-wins | ai-wins | draw
+    result = out.status; // user-wins | ai-wins | draw | timeout
   } else if (decision.kind === "engine-stuck") {
     result = "engine-stuck";
   } else if (decision.kind === "dispatch-error") {
@@ -190,6 +217,13 @@ export function runSelfPlayGame({
     result = `unexpected:${decision.kind}`;
   }
 
+  // trainingWeight: 1 for a clean, learnable result (a decisive W/L or a real draw); 0 for
+  // a `timeout` (the clock ran out — an honest non-result, never a fabricated W/L) and for
+  // any non-completion. The recorder/trainer uses this to down-weight or exclude rows it
+  // can't honestly label, so a stall never pollutes the value-function data.
+  const isCleanResult = result === "user-wins" || result === "ai-wins" || result === "draw";
+  const trainingWeight = isCleanResult ? 1 : 0;
+
   const base = {
     result,
     status: out.status,
@@ -198,15 +232,17 @@ export function runSelfPlayGame({
     ticks,
     log,
     meta,
+    trainingWeight,
   };
 
   if (!recordTrajectory) return base;
 
-  // Label every captured row with its seat's EVENTUAL outcome (CR-honest value target:
+  // Label every captured row with its seat's EVENTUAL outcome (honest value target:
   // 1 won / 0 lost / 0.5 draw). A turn-limit draw is read off `reason` so it labels 0.5
-  // rather than null. A non-completion (engine-stuck/dispatch-error) yields a null label
-  // for every seat → those rows carry outcome:null so a consumer can drop the unfinished
-  // game instead of training on a fabricated win/loss.
+  // rather than null. A `timeout` (the opt-in clock ran out) and any non-completion
+  // (engine-stuck/dispatch-error) yield a null label for every seat → those rows carry
+  // outcome:null so a consumer drops the game instead of training on a fabricated W/L.
+  // (trainingWeight:0 on the game is the coarse-grained version of the same signal.)
   const labelResult = result === "draw" && base.reason === "turn-limit" ? "turn-limit" : result;
   const seats = [];
   for (const [seat, rows] of seatRows.entries()) {
@@ -295,11 +331,18 @@ export function buildPairings(deckCount, mode = "commander") {
  *     trajectory for every game (passes recordTrajectory through to runSelfPlayGame).
  *     OFF by default so existing batch behavior is unchanged. Each game's `.trajectory`
  *     is tagged with `deckIds`/`seatNames` so the writer can attribute every row.
+ * @param {boolean|object} [opts.timePressure]  DEFAULT TRUE for batches — a self-play
+ *     batch exists to generate clean win/loss training data, so the "game clock" is ON:
+ *     a symmetric, deterministic per-turn life drain past a soft cap pulls stalling games
+ *     to REAL lethal (a true W/L) instead of timing out as a useless 0.5-labeled draw. A
+ *     game that still hits the cap is an honest `timeout` (trainingWeight:0, no W/L label),
+ *     never a fabricated winner. Pass false to recover the old draw-at-cap behavior, or an
+ *     object to override { softCapTurn, lifeLossStep }. NOT a Magic rule — a training device.
  * @returns {{ games: object[], deckList: object[], mode, pairings }}
  *     games — one runSelfPlayGame result per game, each tagged with .meta
- *             { mode, deckNames, seatNames, userDeckName }
+ *             { mode, deckNames, seatNames, userDeckName } and a trainingWeight
  */
-export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false } = {}) {
+export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true } = {}) {
   const decks = Array.isArray(deckList) ? deckList : [];
   const pairings = buildPairings(decks.length, mode);
   // Seeded shuffle makes repeats REAL: each game gets a distinct seed, so gamesPer>1
@@ -344,6 +387,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
           meta,
           recordTrajectory: record,
           seed,
+          timePressure,
         });
       } else {
         const [a, b] = seatDecks;
@@ -358,6 +402,7 @@ export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, b
           meta,
           recordTrajectory: record,
           seed,
+          timePressure,
         });
       }
       // Attribute each trajectory to its decks so JSONL rows carry deck identity. The

@@ -18,6 +18,9 @@
  *     --ids=id1,id2,...           restrict to specific deck ids (default: all found)
  *     --out=<path>                explicit .txt output path (default: <appRoot>/data/self-play/...)
  *     --max=N                     cap the number of decks (e.g. --max=4 for a quick smoke)
+ *     --games-per=N               repeat each pairing N times (distinct seeds → varied games)
+ *     --no-time-pressure          disable the opt-in "game clock" (recovers old draw-at-cap;
+ *                                 default is ON so stalling games end decisively W/L)
  *
  * MTG_APP_ROOT must point at a data root that has BOTH the profiles (decks) AND the
  * bundled scryfall-bulk/oracle-index.json (so cards enrich locally — zero network).
@@ -36,12 +39,14 @@ import { runSelfPlayBatch } from "../src/lib/learn/selfPlayRunner.js";
 import { aggregateBreakages, formatBreakageTxt } from "../src/lib/learn/breakageReport.js";
 
 function parseArgs(argv) {
-  const args = { mode: "commander", ids: null, out: null, max: null };
+  const args = { mode: "commander", ids: null, out: null, max: null, gamesPer: 1, timePressure: true };
   for (const a of argv) {
     if (a.startsWith("--mode=")) args.mode = a.slice(7) === "standard" ? "standard" : "commander";
     else if (a.startsWith("--ids=")) args.ids = a.slice(6).split(",").map((s) => s.trim()).filter(Boolean);
     else if (a.startsWith("--out=")) args.out = a.slice(6);
     else if (a.startsWith("--max=")) args.max = Math.max(1, parseInt(a.slice(6), 10) || 0) || null;
+    else if (a.startsWith("--games-per=")) args.gamesPer = Math.max(1, parseInt(a.slice(12), 10) || 1);
+    else if (a === "--no-time-pressure") args.timePressure = false; // recover the old draw-at-cap behavior
   }
   return args;
 }
@@ -84,9 +89,25 @@ async function main() {
 
   const t0 = Date.now();
   console.log(`[self-play] running self-play batch…`);
-  const batch = runSelfPlayBatch(runnerDecks, { mode: args.mode });
+  // Time pressure is ON by default for batches (decisive endings → clean W/L training
+  // labels). Pass --no-time-pressure to recover the old draw-at-cap behavior.
+  const batch = runSelfPlayBatch(runnerDecks, { mode: args.mode, gamesPer: args.gamesPer, timePressure: args.timePressure });
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`[self-play] ${batch.games.length} game(s) completed in ${elapsed}s`);
+
+  // Outcome distribution — the headline metric for the stalemate fix. A decisive game
+  // (user-wins/ai-wins) is a clean training label; a `timeout` is honestly excluded
+  // (trainingWeight 0); a real `draw` is a legitimate 0.5. Print the breakdown + rates so
+  // a before/after (clock off vs on) shows the draw/timeout collapse into decisive W/L.
+  const dist = {};
+  for (const g of batch.games) dist[g.result] = (dist[g.result] || 0) + 1;
+  const n = batch.games.length || 1;
+  const pct = (k) => `${(((dist[k] || 0) / n) * 100).toFixed(1)}%`;
+  const decisive = (dist["user-wins"] || 0) + (dist["ai-wins"] || 0);
+  console.log(`[self-play] outcome distribution (time pressure ${args.timePressure ? "ON" : "OFF"}):`);
+  for (const k of Object.keys(dist).sort()) console.log(`[self-play]   ${k}: ${dist[k]} (${pct(k)})`);
+  console.log(`[self-play]   → decisive (W/L): ${decisive}/${batch.games.length} (${pct("user-wins")} + ${pct("ai-wins")} = ${((decisive / n) * 100).toFixed(1)}%)`);
+  console.log(`[self-play]   → draw: ${pct("draw")} · timeout: ${pct("timeout")}`);
 
   const aggregate = aggregateBreakages(batch.games);
   const generatedAt = new Date().toISOString();
