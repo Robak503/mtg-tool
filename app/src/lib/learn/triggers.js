@@ -25,8 +25,8 @@ import {
   logEvent,
   recordCreatureDeaths,
 } from "./gameState.js";
-import { hasKeyword } from "./keywords.js";
-import { grantedTriggeredQuotedFor } from "./layers.js";
+import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
+import { grantedTriggeredQuotedFor, permanentHasKeyword } from "./layers.js";
 import { applyMothmanRadOnEnter } from "./mothmanRad.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 
@@ -67,6 +67,28 @@ function subtypeFilterMatches(card, filter) {
   if (!filter) return false;
   const ts = typeStr(card);
   return Array.isArray(filter) ? filter.some((s) => ts.includes(s)) : ts.includes(filter);
+}
+
+// QUALIFIED-ETB KEYWORD-FILTER (Dragon Tempest "a creature you control with flying enters"; Waterkin Shaman;
+// Arcades "with defender") — the SET of keywords the ETB filter may gate on. Restricted to keywords whose
+// presence on the entering creature is RELIABLY checkable via permanentHasKeyword (printed at an ability-word
+// position + layer-6 addKeyword grants + counters): the modeled combat keywords (COMBAT_KEYWORDS — the single
+// source of truth) PLUS "defender" (a real, ability-word-position keyword permanentHasKeyword reads exactly;
+// Arcades is the only live filter on it). The filter only needs to faithfully ANSWER "does the entering
+// creature have <kw>?" — it does NOT enforce the keyword's gameplay — so any keyword permanentHasKeyword reads
+// correctly is admissible. A scope-INEXPRESSIBLE quality ("with power equal to its toughness", "with the
+// chosen rarity/name/border", "with flavor text" — the Ineffable Blessing / Symmetry Matrix family) is NOT in
+// this set, so it never matches the keyword-filter parser below → the trigger stays UNDETECTED → Arbiter
+// (CREED FN-safe — never an over-fire on a quality the engine can't check).
+const FILTERABLE_ETB_KEYWORDS = new Set([...COMBAT_KEYWORDS.map((k) => k.toLowerCase()), "defender"]);
+// Parse the keyword token from "a creature you control with <kw> enters" — returns the canonical lowercase
+// keyword iff it's a single admissible keyword, else null (so a multi-word / inexpressible quality falls
+// through to the FIX-TRIG-CONDITION "with …" reject → Arbiter). Anchored to the EXACT subject shape.
+function parseEtbKeywordFilter(subject) {
+  const m = String(subject).match(/^a creature you control with ([a-z' ]+)$/i);
+  if (!m) return null;
+  const kw = m[1].trim().toLowerCase();
+  return FILTERABLE_ETB_KEYWORDS.has(kw) ? kw : null;
 }
 function isCreaturePerm(perm) {
   return /Creature/.test(typeStr(perm?.card));
@@ -431,6 +453,22 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/\benters(?:\s+the battlefield)?\s*$/.test(c)) {
     const powM = subjectBefore(c, "enters").match(/^a creature you control with power (\d+) or greater$/);
     if (powM) return { event: "etb", scope: "creatureYouControlPower", whose: "any", powerThreshold: parseInt(powM[1], 10) };
+  }
+
+  // ===== KEYWORD-FILTER ETB (Dragon Tempest "a creature you control with flying enters, it gains haste …";
+  // Waterkin Shaman; Arcades "with defender") ===== Like the POWER-THRESHOLD carve-out above, the "with <kw>"
+  // here is a SCOPE-EXPRESSIBLE restriction the engine can faithfully CHECK at ETB (permanentHasKeyword reads
+  // the entering creature's printed + layer-6-granted + counter keywords), so it's admitted BEFORE the generic
+  // FIX-TRIG-CONDITION "with …" reject below. parseEtbKeywordFilter gates the keyword to FILTERABLE_ETB_KEYWORDS
+  // (the modeled combat keywords + defender) — a scope-INEXPRESSIBLE quality ("with the chosen name", "with
+  // power equal to its toughness", "with flavor text" — Ineffable Blessing / Symmetry Matrix) returns null →
+  // the trigger falls through to the reject → Arbiter (CREED FN-safe; never an over-fire on an uncheckable
+  // quality). scopeMatches gates creatureYouControlKeyword on hasKeyword(entering) + controller; the effect's
+  // entering-creature pronoun ("it gains haste …") is bound via TRIG-PRONOUN-IT (the scope is in both
+  // NONSELF_TRIGGERING_SCOPES and ETB_ENTERING_CREATURE_SCOPES).
+  if (/\benters(?:\s+the battlefield)?\s*$/.test(c)) {
+    const kwFilter = parseEtbKeywordFilter(subjectBefore(c, "enters"));
+    if (kwFilter) return { event: "etb", scope: "creatureYouControlKeyword", whose: "any", keywordFilter: kwFilter };
   }
 
   // ===== COMPOUND-SUBJECT guard (CREED, CLAUDE.md §1.2; Rod QA #1 FIX-TRIG-CONDITION, the "or another"
@@ -1067,7 +1105,7 @@ const SELF_RETURN_IT_RE = /^return it to its owner's hand$/i;
 const NONSELF_COUNTER_REF_RE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
 // The NON-self scopes for which a bare "it"/"that creature" referent is the TRIGGERING permanent: the
 // "a creature you control" / "a <Subtype> you control" attack + combat-damage watchers (Sphere Grid family).
-const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl"]);
+const NONSELF_TRIGGERING_SCOPES = new Set(["creatureYouControl", "subtypeYouControl", "creatureYouControlKeyword"]);
 
 // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== an ETB trigger whose payoff MAGNITUDE is "that creature's
 // power/toughness" — the ENTERING creature's stat (CR 608.2c — the object the ability triggered on): Terror of
@@ -1088,6 +1126,7 @@ const STAT_PAYOFF_REF_RE = /\bdeals? damage equal to that creature's (?:power|to
 const ETB_ENTERING_CREATURE_SCOPES = new Set([
   "creatureYouControl", "otherCreatureYouControl", "subtypeYouControl",
   "eachCreature", "eachOtherCreature", "creatureOpponentControls",
+  "creatureYouControlKeyword",  // KEYWORD-FILTER ETB (Waterkin Shaman counter-on-it; Dragon Tempest "it gains haste")
 ]);
 
 // ETB-ENTERING-PRONOUN — the COUNTER + PUMP-KEYWORD pronoun referent for an ETB enters-watcher. On an `etb`
@@ -1473,6 +1512,7 @@ export function detectTriggers(card) {
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
         powerThreshold: cls.powerThreshold,   // POWER-THRESHOLD ETB only (N for "power N or greater")
+        keywordFilter: cls.keywordFilter,     // KEYWORD-FILTER ETB only (lowercase keyword for "with <kw>" — Dragon Tempest "flying")
         sacScope: cls.sacScope,               // TRIG-SACRIFICE: "permanent"|"creature"|"artifact" (sacrifice triggers only)
         sacSubtype: cls.sacSubtype,           // TRIG-SACRIFICE SUBTYPE: capitalized subtype (e.g. "Treasure") — type-line scan
         sacAnother: cls.sacAnother,           // TRIG-SACRIFICE: true for "another <subject>" — excludes the source
@@ -1692,6 +1732,18 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
         && triggeringPermanent.controller === sourcePermanent.controller
         && creaturePower(triggeringPermanent, state) >= (descriptor.powerThreshold || 0);
+    case "creatureYouControlKeyword":
+      // KEYWORD-FILTER ETB (Dragon Tempest "a creature you control with flying enters …"; Waterkin Shaman;
+      // Arcades "with defender") — the entering creature you control that HAS the filter keyword. Mirrors the
+      // power-threshold scope but gates on permanentHasKeyword (LAYER-AWARE — printed at an ability-word
+      // position + layer-6 addKeyword grants + counters), so a creature GRANTED flying by an anthem/equipment
+      // and then entering fires it exactly like a printed flier, and a non-matching creature's entry does NOT
+      // fire (the forbidden FP this gate prevents). checkEnterTriggers fires after the permanent + its
+      // enters-with effects settle, so the keyword read is accurate at ETB; `state` is threaded through
+      // scopeMatches. The controller gate keeps it to the source controller's creatures ("you control").
+      return !!triggeringPermanent && isCreaturePerm(triggeringPermanent)
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && permanentHasKeyword(state, triggeringPermanent.id, descriptor.keywordFilter);
     case "chosenTypeYouControl":
       // CHOSEN-TYPE scope (Kindred Discovery) — the DYNAMIC analogue of subtypeYouControl: the subtype is
       // NOT printed on the card; it's the creature type chosen AT ETB and stored durably on the SOURCE
