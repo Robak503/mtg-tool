@@ -354,3 +354,87 @@ describe("ED-2 trigger path — a non-targeted each-player/each-opponent sac rou
     expect(classifyCard(gravePact)).toBe("native-trigger");
   });
 });
+
+// ═══ PERMANENT-EDICT — "sacrifices a permanent of their choice" (Silverclad Ferocidons, Martyr's Bond,
+// Possessed Portal, the Rishadan pirates). Same chain as the creature edict, but the victim pool is ALL the
+// sacrificer's permanents (what:"permanent"), so a land/artifact/enchantment is a legal sacrifice. ═══
+const PERM_NONCREATURE = (id, name, controller, type = "Artifact", cmc = 1) =>
+  createPermanent({ id, card: { id, name, type, mana: `{${cmc}}`, cmc, oracle: "" }, controller });
+
+describe("PERMANENT-EDICT parser/coverage — 'sacrifices a permanent' is native with what:'permanent'", () => {
+  it("each-opponent / each-player / target forms parse to a what:'permanent' sacrifice atom", () => {
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Each opponent sacrifices a permanent of their choice." }).atoms)
+      .toEqual([{ op: "sacrifice", who: "eachOpponent", what: "permanent" }]);
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Each player sacrifices a permanent of their choice." }).atoms)
+      .toEqual([{ op: "sacrifice", who: "eachPlayer", what: "permanent" }]);
+    expect(parseEffectProgram({ type: INSTANT, oracle: "Target opponent sacrifices a permanent of their choice." }).atoms)
+      .toEqual([{ op: "sacrifice", targetType: "opponent", what: "permanent" }]);
+  });
+  it("the bare form without 'of their choice' also parses", () => {
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Each opponent sacrifices a permanent." }).atoms)
+      .toEqual([{ op: "sacrifice", who: "eachOpponent", what: "permanent" }]);
+  });
+  it("ANTI-FP: count / typed / filtered / conjoined permanent edicts stay LOW → Arbiter", () => {
+    const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
+    low("Each opponent sacrifices two permanents.");                              // a count
+    low("Each opponent sacrifices a nonland permanent.");                         // filtered (the existing pin, line 84)
+    low("Each opponent sacrifices an artifact or creature.");                     // a type union
+    low("Each opponent sacrifices a permanent and loses 1 life.");                // conjoined life-loss
+    low("Target player sacrifices a permanent with the highest mana value.");     // filtered victim
+    low("Each player sacrifices a land of their choice.");                        // a typed (non-"permanent") victim — still LOW
+  });
+});
+
+describe("PERMANENT-EDICT resolution — the sacrificer may give up ANY permanent (land/artifact), not just a creature", () => {
+  function runChain(s, card, controller = "user") {
+    const program = parseEffectProgram(card);
+    const stk = { id: "stk-pe", kind: "spell", source: { name: card.name, oracle: card.oracle }, controller, targets: [], cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller, targets: [] } } };
+    let next = runEffectProgram(s, stk);
+    while (next.pendingChoice?.kind === "sacrifice-choice") next = resolveSacrificeChoice(next, autoPickSacrificeCandidate(next, next.pendingChoice));
+    return next;
+  }
+  const PERM_EACH_OPP = { id: "pe", name: "Test Perm Edict", type: SORCERY, mana: "{1}{B}", oracle: "Each opponent sacrifices a permanent of their choice." };
+
+  it("an opponent whose ONLY permanent is an artifact (no creatures) is forced to sacrifice the artifact", () => {
+    // The creature edict would skip this opponent (no creatures); the permanent edict forces the artifact.
+    const s = state({ aiBf: [PERM_NONCREATURE("art1", "Sol Ring-ish", "ai")] });
+    const after = runChain(s, PERM_EACH_OPP);
+    expect(after.pendingChoice).toBeUndefined();
+    expect(after.players.ai.battlefield).toHaveLength(0);
+    expect(after.players.ai.graveyard.map((c) => c.id)).toEqual(["art1"]);
+  });
+  it("the candidate pool offers BOTH a creature and a non-creature permanent (≥2 = a real choice)", () => {
+    const s = state({ aiBf: [creaPerm("a1", "Bear", "ai", 2, 2), PERM_NONCREATURE("art1", "Trinket", "ai")] });
+    const program = parseEffectProgram(PERM_EACH_OPP);
+    const stk = { id: "stk-pe", kind: "spell", source: { name: PERM_EACH_OPP.name }, controller: "user", targets: [], cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: "user", targets: [] } } };
+    const paused = runEffectProgram(s, stk);
+    expect(paused.pendingChoice).toMatchObject({ kind: "sacrifice-choice", controller: "ai" });
+    expect(paused.pendingChoice.candidates.map((c) => c.id).sort()).toEqual(["a1", "art1"]); // BOTH offered
+  });
+  it("a creatureless, permanent-less opponent is a clean no-op", () => {
+    const after = runChain(state({ aiBf: [] }), PERM_EACH_OPP);
+    expect(after.pendingChoice).toBeUndefined();
+    expect(after.players.ai.graveyard).toHaveLength(0);
+  });
+  it("CREATURE edict (what:'creature') still ignores a non-creature permanent (no regression)", () => {
+    // The same board under a CREATURE edict must NOT touch the artifact (the legacy pool is unchanged).
+    const s = state({ aiBf: [PERM_NONCREATURE("art1", "Trinket", "ai")] });
+    const after = runChain(s, EACH_OPP); // EACH_OPP = "Each opponent sacrifices a creature of their choice."
+    expect(after.players.ai.graveyard).toHaveLength(0);
+    expect(after.players.ai.battlefield.map((p) => p.id)).toEqual(["art1"]);
+  });
+});
+
+describe("PERMANENT-EDICT real card — Silverclad Ferocidons (Enrage → each opponent sacrifices a permanent)", () => {
+  it("classifies native-trigger (enrage damage-received trigger + the permanent-edict effect)", () => {
+    const silverclad = { type: "Creature — Dinosaur", name: "Silverclad Ferocidons", mana: "{5}{R}{R}",
+      oracle: "Enrage — Whenever this creature is dealt damage, each opponent sacrifices a permanent of their choice." };
+    expect(classifyCard(silverclad)).toBe("native-trigger");
+  });
+  it("a plain ETB 'each opponent sacrifices a permanent' is native-trigger too (reusable, non-targeted)", () => {
+    const etb = { type: "Creature — Horror", name: "Perm-Edict-ETB", oracle: "When this creature enters, each opponent sacrifices a permanent of their choice." };
+    expect(classifyCard(etb)).toBe("native-trigger");
+  });
+});

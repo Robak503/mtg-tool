@@ -104,9 +104,9 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
 }
 
 /**
- * ===== EDICTS ===== — walk the sacrifice CHAIN (CR 701.21 — each sacrificing player chooses which creature
- * to give up). `queue` is the remaining sacrificers, head-first, each `{ playerId }` (one creature apiece —
- * the modeled "sacrifices a creature" forms). For each in turn:
+ * ===== EDICTS ===== — walk the sacrifice CHAIN (CR 701.21 — each sacrificing player chooses what to give
+ * up). `queue` is the remaining sacrificers, head-first, each `{ playerId, what? }` (one permanent apiece —
+ * `what:"creature"` default | `what:"permanent"` for the any-permanent forms). For each in turn:
  *   - eliminated / no creature → drop and move on (a clean no-op; you can't sacrifice what you don't have).
  *   - exactly 1 creature → FORCED sacrifice (no real choice): pitch it inline (dies triggers fire), move on.
  *   - ≥2 creatures → a REAL choice: pause via setPendingSacrificeChoice for THIS sacrificer (the driver
@@ -124,28 +124,35 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
     const head = q[0];
     const player = next.players?.[head.playerId];
     if (!player) { q = q.slice(1); continue; } // sacrificer left the game (CR 800.4a) → skip
-    const creatures = (player.battlefield || [])
-      .filter((p) => isCreatureCard(p.card))
+    // VICTIM POOL — `head.what` selects which permanents this sacrificer may give up (CR 701.16). Default
+    // "creature" (every legacy edict + a head with no `what`, so the migrated creature edicts are byte-stable);
+    // "permanent" broadens to ALL the sacrificer's permanents (Silverclad Ferocidons etc.). The chooser is
+    // their controller and every candidate is public, so a permanent pool is hidden-info-safe. sacrificeCreatureEffect
+    // already sacrifices ANY permanent correctly (it gates dies-triggers on isCreatureCard, fires sacrifice-triggers
+    // for all), so no resolver change is needed — only the pool the chooser sees.
+    const candidates = (player.battlefield || [])
+      .filter((p) => (head.what === "permanent" ? true : isCreatureCard(p.card)))
       .map((p) => ({ id: p.id, name: p.card?.name }));
-    if (creatures.length === 0) { q = q.slice(1); continue; } // no creature → can't sacrifice → skip
-    if (creatures.length === 1) {
-      next = sacrificeCreatureEffect(next, head.playerId, creatures[0].id); // forced — sole legal pick
+    if (candidates.length === 0) { q = q.slice(1); continue; } // nothing to sacrifice → can't → skip
+    if (candidates.length === 1) {
+      next = sacrificeCreatureEffect(next, head.playerId, candidates[0].id); // forced — sole legal pick
       q = q.slice(1);
       continue;
     }
-    // ≥2 — a real choice: pause for THIS sacrificer's pick, carrying the rest of the queue.
-    return setPendingSacrificeChoice(next, { controller: head.playerId, candidates: creatures, queue: q, sourceName });
+    // ≥2 — a real choice: pause for THIS sacrificer's pick, carrying the rest of the queue (each head keeps its own `what`).
+    return setPendingSacrificeChoice(next, { controller: head.playerId, candidates, queue: q, sourceName });
   }
   return next;
 }
 
 /**
  * EDICTS — sacrifice-as-an-effect, resolved through the chain above. The SACRIFICING player chooses which
- * creature (CR 701.21), never the caster. `atom.who` selects the sacrificers:
+ * permanent (CR 701.16/701.21), never the caster. `atom.who` selects the sacrificers:
  *   - "target" (default, #214) — the player(s) targeted at cast (Diabolic Edict / Cruel Edict / Geth's Verdict).
  *   - "eachPlayer" (Innocent Blood / Reign of the Pit) — every player, the controller first (APNAP-stable).
  *   - "eachOpponent" (Liliana's Triumph / Skull Storm) — every opponent.
- * A removed sacrificer / no creatures is a clean no-op; the caster's riders resume after the whole chain settles.
+ * `atom.what` selects the victim pool: "creature" (default) or "permanent" (Silverclad Ferocidons — any permanent).
+ * A removed sacrificer / an empty pool is a clean no-op; the caster's riders resume after the whole chain settles.
  */
 function applySacrifice(state, atom, ctx) {
   // SELF-SACRIFICE — "sacrifice this creature" (the trigger source, CR 113.7 + CR 701.21).
@@ -178,7 +185,10 @@ function applySacrifice(state, atom, ctx) {
   if (sacrificers.length === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "sacrifice", who: atom.who || "target", sacrificers: 0 });
   }
-  return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid })), sourceName: ctx.cardName });
+  // Thread `atom.what` ("creature" default | "permanent") onto each queue head so advanceSacrificeChain builds
+  // the right victim pool, and a re-entry from resolveSacrificeChoice (queue.slice(1)) preserves it per-sacrificer.
+  const what = atom.what === "permanent" ? "permanent" : "creature";
+  return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid, what })), sourceName: ctx.cardName });
 }
 
 /**
@@ -188,8 +198,9 @@ function applySacrifice(state, atom, ctx) {
  *   target (player|opponent) sacrifices a creature  → who via targetType (offensive edict)
  *   each player sacrifices a creature               → who:"eachPlayer"
  *   each (opponent|other player) sacrifices a creature → who:"eachOpponent"
- * ALL-OR-NOTHING bare "a creature" (count 1, unfiltered) — a count / filtered victim / non-creature / conjoined
- * "and loses N life" fails the exact anchor → low → Arbiter (a wrong-victim sac would be a forbidden FP).
+ * plus the PERMANENT-EDICT twins ("sacrifices a permanent of their choice" → what:"permanent", any-permanent pool).
+ * ALL-OR-NOTHING bare "a creature"/"a permanent" (count 1, unfiltered) — a count / filtered victim / typed
+ * ("an artifact") / conjoined "and loses N life" fails the exact anchor → low → Arbiter (a wrong-victim sac FP).
  * Also handles the SELF + TRIGGERING sac forms (batch 22, lifted from their separate mid-function spots; they
  * ran earlier than the edicts in parseExtendedAtom, so they stay first here):
  *   "sacrifice this creature"          → target:"self"        (the ability source via ctx.sourceId)
@@ -206,6 +217,20 @@ export function sacrificeEdictClauseParser(clause) {
   if (m) return { op: "sacrifice", who: "eachPlayer", what: "creature" };
   m = t.match(/^each (?:opponent|other player) sacrifices a creature(?: of (?:their|his or her) choice)?$/);
   if (m) return { op: "sacrifice", who: "eachOpponent", what: "creature" };
+  // PERMANENT-EDICT (CR 701.16) — "sacrifices a permanent of their choice" (Silverclad Ferocidons, Martyr's
+  // Bond, Possessed Portal, the Rishadan pirates, Crack the Earth). The SACRIFICING player chooses ANY
+  // permanent they control, not just a creature — so the victim pool is broadened to ALL their permanents in
+  // advanceSacrificeChain (what:"permanent"). Genuinely resolvable + hidden-info-safe: each sacrificer's
+  // permanents are public and the chooser IS their controller; an empty board is a clean no-op. ALL-OR-NOTHING
+  // bare "a permanent" (count 1, unfiltered) — a count / typed ("an artifact or creature") / conjoined victim
+  // fails the exact anchor → low → Arbiter (a wrong-victim sac would be a forbidden FP, CREED). The optional
+  // "of their/his or her choice" suffix mirrors the creature matchers (Magic prints both forms).
+  m = t.match(/^target (player|opponent) sacrifices a permanent(?: of (?:their|his or her) choice)?$/);
+  if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: "permanent" };
+  m = t.match(/^each player sacrifices a permanent(?: of (?:their|his or her) choice)?$/);
+  if (m) return { op: "sacrifice", who: "eachPlayer", what: "permanent" };
+  m = t.match(/^each (?:opponent|other player) sacrifices a permanent(?: of (?:their|his or her) choice)?$/);
+  if (m) return { op: "sacrifice", who: "eachOpponent", what: "permanent" };
   return null;
 }
 

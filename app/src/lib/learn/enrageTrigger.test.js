@@ -106,7 +106,9 @@ describe("ENRAGE — unmodeled-effect enrage cards stay non-native (all-or-nothi
     ["Stalwart Speartail (perpetual = Alchemy)", "Enrage — Whenever Stalwart Speartail is dealt damage, other Dinosaurs you control and Dinosaur cards in your hand and library perpetually get +1/+1.\nWhenever Stalwart Speartail attacks, Stalwart Speartail deals 1 damage to each creature and each planeswalker."],
     ["Indoraptor (random opponent + unless-sac)", "Menace\nEnrage — Whenever Indoraptor is dealt damage, choose an opponent at random. Indoraptor deals damage equal to its power to that player unless they sacrifice a nontoken creature of their choice."],
     ["Trapjaw Tyrant (exile-until-leaves)", "Enrage — Whenever this creature is dealt damage, exile target creature an opponent controls until this creature leaves the battlefield."],
-    ["Silverclad Ferocidons (each opponent sacrifices)", "Enrage — Whenever this creature is dealt damage, each opponent sacrifices a permanent of their choice."],
+    // NOTE: Silverclad Ferocidons ("each opponent sacrifices a permanent of their choice") is now NATIVE via
+    // the PERMANENT-EDICT subsystem (effects/atoms/removal.js — the what:"permanent" victim pool); see its
+    // native-trigger pin in edicts.test.js. It was previously an unmodeled-enrage example here — premise stale.
     ["Vrondiss (token with its own ability)", "Enrage — Whenever Vrondiss is dealt damage, you may create a 5/4 red and green Dragon Spirit creature token with \"When this token deals damage, sacrifice it.\""],
     ["Cacophodon (untap not routed)", "Enrage — Whenever this creature is dealt damage, untap target permanent."],
   ];
