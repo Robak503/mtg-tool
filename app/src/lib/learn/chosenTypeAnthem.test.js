@@ -74,9 +74,12 @@ describe("CHOSEN-TYPE COUNT-ANTHEM — classification", () => {
     expect(classifyCard(MELODY)).toBe("native-spell");
   });
 
-  it("CREED FN boundary — an anthem chooser with NO modeled counter source stays body-only (Shared Triumph)", () => {
+  it("a FLAT anthem chooser (no counter source) now flips native-static via the flat branch (Shared Triumph)", () => {
+    // Was body-only when only the COUNTER-scaled anthem existed; the chosenTypeFlatAnthem branch now models the
+    // fixed-magnitude "Creatures of the chosen type get +1/+1" form. This count-anthem classifier is unaffected
+    // (its CHOSEN_TYPE_ANTHEM_RE requires a trailing "for each <name> counter", which Shared Triumph lacks).
     const shared = { name: "Shared Triumph", type: "Enchantment", oracle: "As this enchantment enters, choose a creature type.\nCreatures of the chosen type get +1/+1." };
-    expect(classifyCard(shared)).toBe("body-only");
+    expect(classifyCard(shared)).toBe("native-static");
   });
   it("CREED FN boundary — a Banner-shape with an extra UNMODELED clause stays body-only (no partial flip)", () => {
     const ridered = {

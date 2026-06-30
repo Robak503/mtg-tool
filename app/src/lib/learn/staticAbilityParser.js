@@ -1455,6 +1455,30 @@ function parseCreatureSelector(c) {
     }
   }
 
+  // CHOSEN-TYPE FLAT ANTHEM (CR 614.12) — "creatures [you control] of the chosen type get|have …". The flat
+  // (fixed-magnitude) sibling of the COUNT-anthem branch above (Banner/Door's "… for each <name> counter on
+  // this artifact"), this is the bare lord the ETB chooser sets up: Rally the Ranks ("Creatures you control
+  // of the chosen type get +1/+1"), Obelisk of Urd (+2/+2), Shared Triumph ("Creatures of the chosen type get
+  // +1/+1" — ALL players, no "you control"), Steely Resolve ("… have shroud"). The selector carries
+  // chosenTypeOfSource:true so layers.matchesSelector pairs the buffed creature against the SOURCE permanent's
+  // stored chosenType (subtype OR changeling, CR 702.73a) — picked at ETB by resolvers.autoPickCreatureType.
+  // controllerScope is "you" only when the clause says "you control" (Rally/Obelisk); the determiner-less "…
+  // of the chosen type" (Shared Triumph) is symmetric ("each"), matching the printed all-players reach. Placed
+  // BEFORE the generic "creatures you control" / bare-"creatures" patterns: those would NOT match (the "of the
+  // chosen type" span sits between "creatures[ you control]" and the verb, so their anchors fail), and even if
+  // one did it would emit a WRONG all-creatures anthem with no chosen-type restriction (a CREED over-buff). An
+  // unset chosenType on the source → matchesSelector returns false for everyone → a SAFE no-op (CLAUDE.md §1.2).
+  {
+    const ctFlat = c.match(/^creatures?\s+(you control\s+)?of the chosen type\s+(?:gets?|gains?|has|have)\b/);
+    if (ctFlat) {
+      const controllerScope = ctFlat[1] ? "you" : "each";
+      return {
+        mode: "dynamic",
+        selector: { controllerScope, cardTypes: ["Creature"], chosenTypeOfSource: true },
+      };
+    }
+  }
+
   // Generic anthem: "creatures you control [get|have]"
   if (/^creatures?\s+you control\s+(?:gets?|gains?|has|have)\b/.test(c)) {
     return {

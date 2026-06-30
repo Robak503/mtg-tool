@@ -71,13 +71,17 @@ describe("Kindred Discovery — classification", () => {
     expect(classifyCard(bloodline)).toBe("body-only");
   });
 
-  it("FN boundary — an anthem chooser ('Creatures of the chosen type get +1/+1') stays body-only (Shared Triumph)", () => {
-    const shared = {
-      name: "Shared Triumph",
+  it("FN boundary — an UNMODELED anthem chooser ('All creatures of the chosen type get -1/-1') stays body-only (Engineered Plague)", () => {
+    // The flat chosen-type anthem branch (chosenTypeFlatAnthem) deliberately models only the determiner-LESS
+    // "Creatures [you control] of the chosen type …" form; an "All …" determiner debuff is NOT modeled, so the
+    // chooser without a modeled trigger stays body-only — this trigger primitive never claims it. (The flat
+    // POSITIVE-anthem flips — Shared Triumph / Rally the Ranks — are asserted in chosenTypeFlatAnthem.test.js.)
+    const plague = {
+      name: "Engineered Plague",
       type: "Enchantment",
-      oracle: "As this enchantment enters, choose a creature type.\nCreatures of the chosen type get +1/+1.",
+      oracle: "As this enchantment enters, choose a creature type.\nAll creatures of the chosen type get -1/-1.",
     };
-    expect(classifyCard(shared)).toBe("body-only");
+    expect(classifyCard(plague)).toBe("body-only");
   });
 });
 

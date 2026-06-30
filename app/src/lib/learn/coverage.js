@@ -1097,6 +1097,65 @@ function classifyChosenTypeAnthem(card) {
 }
 registerCoverageClassifier((card) => classifyChosenTypeAnthem(card));
 
+// ─── CHOSEN-TYPE FLAT ANTHEM — Rally the Ranks / Shared Triumph / Obelisk of Urd / Steely Resolve ──────────
+// A choose-a-creature-type permanent whose ONLY payoff is a FIXED-magnitude (non-counter) anthem on the
+// chosen-type creatures: "Creatures [you control] of the chosen type get +N/+N" or "… have <keyword>". The
+// flat sibling of the COUNT-anthem above (Banner/Door's "… for each <name> counter"). WHOLE-CARD (CREED) —
+// exactly two modeled clauses:
+//   • "As this <permanent> enters, choose a creature type." — the ETB auto-pick (resolvers.autoPickCreatureType
+//     → perm.chosenType, a setup replacement, stripped like the Kindred/Banner chooser), and
+//   • the flat anthem static — the new parseCreatureSelector chosen-type branch emits a layer-7c ptModify
+//     (P/T) and/or a layer-6 addKeyword carrying selector.chosenTypeOfSource:true, paired at runtime against
+//     the SOURCE's stored chosenType by layers.matchesSelector (subtype OR changeling, CR 702.73a). The buff
+//     is enforced at the same sites a tribal-lord anthem is (permanentPower/Toughness, permanentHasKeyword
+//     read layer-aware), restricted to the chosen type the controller (or all players, for the determiner-less
+//     "Creatures of the chosen type …") controls. clauseProducesStatic confirms the exact printed clause parses.
+// NOTHING else may remain — Vanquisher's Banner (an extra cast trigger), Icon of Ancestry / Patchwork Banner
+// (an activated ability), Morophon (a WUBRG cost-reduction rider) keep residue → null (their anthem STILL
+// applies at runtime; only the FLIP is withheld — a safe FN). Returns native-static, or null. Additive-seam
+// single-mechanism flip (the classifyWolverine / classifyChosenTypeAnthem pattern), mechanism-keyed (a future
+// bare twin flips automatically). DESCRIPTOR-DRIVEN, not regex-substring: the gate is that parseStaticAbilities
+// actually EMITS a chosen-type anthem descriptor for the WHOLE card — so an "Other creatures … of the chosen
+// type get +1/+1" (Morophon, a determiner/exclude-self form the flat branch doesn't model → no descriptor) can
+// never be credited off a substring match. A non-grantable keyword tail ("have protection from …") likewise
+// emits no descriptor → null (whole card stays Arbiter — never a partial flip).
+// The anthem-clause anchor is ^…(determiner-less) — "creatures [you control] of the chosen type get/have …";
+// it deliberately does NOT include the leading "other/all/each" (those are NOT modeled here), so the residue
+// strip leaves an "Other …" clause intact → non-keyword residue → null.
+const CT_FLAT_ANTHEM_CLAUSE_RE = /^creatures?\s+(?:you control\s+)?of the chosen type (?:gets?|gains?|have|has)\b[^.]*\.?/i;
+function classifyChosenTypeFlatAnthem(card) {
+  const oracle = stripReminder(String(card?.oracle ?? card?.oracle_text ?? ""));
+  if (!oracle) return null;
+  // (1) the ETB chosen-type chooser must be present (it's what gives "of the chosen type" a value).
+  if (!CHOSEN_TYPE_CHOOSER_RE.test(oracle)) return null;
+  // (2) the WHOLE card must actually parse a chosen-type anthem descriptor (selector.chosenTypeOfSource:true —
+  // the flat ptModify and/or addKeyword from the parseCreatureSelector branch). This is the load-bearing CREED
+  // gate: it credits ONLY a card whose printed anthem the parser truly models (a "for each … counter" COUNT
+  // form also carries chosenTypeOfSource, but classifyChosenTypeAnthem owns it and runs first; this fn's
+  // residue strip below would also reject a count form — its "for each … counter" tail survives as residue).
+  const statics = parseStaticAbilities(card);
+  if (!statics.some((d) => d?.affects?.selector?.chosenTypeOfSource === true)) return null;
+  // (3) NO other ability — no trigger (Vanquisher's Banner's draw trigger), no activated ability (Icon /
+  // Patchwork's {T} abilities); the remainder after stripping the chooser + the FLAT anthem clause(s) must be
+  // keyword-only. Strip per-clause (anchored ^) so an "Other …"/COUNT anthem clause is NOT consumed → residue.
+  if (detectTriggers(card).length > 0) return null;
+  if (parseActivatedAbilities(card).length > 0) return null;
+  const residue = oracle
+    .split(/\n+/)
+    .filter((line) => {
+      const t = line.trim();
+      if (!t) return false;
+      if (CHOSEN_TYPE_CHOOSER_RE.test(t)) return false;        // drop the ETB chooser line
+      if (CT_FLAT_ANTHEM_CLAUSE_RE.test(t)) return false;       // drop the flat chosen-type anthem line
+      return true;                                              // anything else is residue
+    })
+    .join(" ")
+    .replace(/[\s.]+/g, " ").trim();
+  if (residue.length > 0 && !isKeywordOnly(residue, card?.name)) return null;
+  return "native-static";
+}
+registerCoverageClassifier((card) => classifyChosenTypeFlatAnthem(card));
+
 // ─── SELF-METRIC COST-REDUCTION — Ghalta, Primal Hunger (cross-deck big-mana payoff) ────────────────────────
 // A permanent SPELL whose only non-keyword text is a modeled self cost-reduction ("This spell costs {X} less to
 // cast, where X is <board metric>") + keyword(s). The reduction is applied at the cast site (legalChoices.
