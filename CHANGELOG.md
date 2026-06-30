@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.80.0] - 2026-06-30
+
+### Improved
+- **Variable-X mana augments (+2 native).** "Whenever you tap a land/creature for mana, add {X}" (Groundchuck &
+  Dirtbag) and "{T}: Add X mana of any one color, where X is <a modeled board count>" (Sanctum Weaver → Mothman
+  54→55%). Deck-mover surveys confirmed Kinnan (cEDH) is at its clean Arbiter ceiling — its tail is
+  counterspells/tutors/Rhystic-tax, all Arbiter-domain. Flip-diffed both directions (2 gained, 0 lost,
+  deterministic), full gate (6,269 tests) green, 0 false positives.
+
+
 ## [0.79.0] - 2026-06-30
 
 ### Improved
