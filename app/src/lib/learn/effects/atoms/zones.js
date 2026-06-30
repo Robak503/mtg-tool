@@ -88,27 +88,42 @@ export function applyExileFromGraveyard(state, atom, ctx) {
  * them). MIRRORS resolvers.enterPermanent's setup (deterministic perm id + the CR 613.7e layer timestamp
  * + enteredOnTurn + creature summoning sickness) — it can't call enterPermanent directly because
  * resolvers→runProgram→effectAtoms would cycle. `tapped` enters it tapped (RAMP-1 — Rampant Growth's
- * basic enters tapped). Returns `{ state, entered }`: entered:false (state unchanged) when the card isn't
- * in the zone (CR 608.2b — it left). Shared by reanimation (β-3b, graveyard) and battlefield ramp (RAMP-1,
- * library) so the two enter-a-found-card paths can't drift.
+ * basic enters tapped). `fromPlayerId` (default `playerId`) is the player whose zone HOLDS the card — for
+ * "put target creature card from a/an opponent's graveyard onto the battlefield UNDER YOUR CONTROL"
+ * (Reanimate / Hymn of Rebirth / Ashen Powder, CR 608) the card lives in another player's graveyard but
+ * the permanent enters under the CASTER's control; the card is removed from fromPlayerId's zone and the
+ * permanent is added to playerId's battlefield. When fromPlayerId === playerId (the common own-graveyard /
+ * own-library case) this is exactly the original single-player move. Returns `{ state, entered }`:
+ * entered:false (state unchanged) when the card isn't in the source zone (CR 608.2b — it left). Shared by
+ * reanimation (β-3b, graveyard) and battlefield ramp (RAMP-1, library) so the two enter-a-found-card paths
+ * can't drift.
  */
-export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false }) {
-  const player = state.players[playerId];
-  if (!player) return { state, entered: false };
-  const card = (player[fromZone] || []).find((c) => c.id === cardId);
+export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = false, fromPlayerId = playerId }) {
+  const owner = state.players[fromPlayerId];
+  const controllerPlayer = state.players[playerId];
+  if (!owner || !controllerPlayer) return { state, entered: false };
+  const card = (owner[fromZone] || []).find((c) => c.id === cardId);
   if (!card) return { state, entered: false };
   const { id: permId, state: s2 } = mintId(state, "perm");
   const ts = s2.timestampCounter || 0;
   const isCreatureCard = /Creature/.test(String(card?.type || card?.type_line || ""));
   const perm = { ...createPermanent({ id: permId, card, controller: playerId, summoningSick: isCreatureCard, tapped }), enteredOnTurn: s2.turn, timestamp: ts };
-  const p = s2.players[playerId];
+  // Remove the card from its OWNER's source zone (fromPlayerId), then add the new permanent to the
+  // CONTROLLER's battlefield (playerId). Build both player updates from s2 so a same-player move (the
+  // common case, fromPlayerId === playerId) composes into one object and a cross-player move (reanimation
+  // from an opponent's graveyard) updates the two distinct players without clobbering either.
+  const srcZoneList = (s2.players[fromPlayerId][fromZone] || []).filter((c) => c.id !== cardId);
+  const ctrlBattlefield = [...s2.players[playerId].battlefield, perm];
+  const playersPatch = fromPlayerId === playerId
+    ? { [playerId]: { ...s2.players[playerId], [fromZone]: srcZoneList, battlefield: ctrlBattlefield } }
+    : {
+        [fromPlayerId]: { ...s2.players[fromPlayerId], [fromZone]: srcZoneList },
+        [playerId]: { ...s2.players[playerId], battlefield: ctrlBattlefield },
+      };
   let next = {
     ...s2,
     timestampCounter: ts + 1,
-    players: { ...s2.players, [playerId]: { ...p,
-      [fromZone]: p[fromZone].filter((c) => c.id !== cardId),
-      battlefield: [...p.battlefield, perm],
-    } },
+    players: { ...s2.players, ...playersPatch },
   };
   next = logEvent(next, { kind: "permanent-enters", cardName: card?.name, controller: playerId });
   // ETB fires for any entry; LANDFALL (CR 603 — a triggered ability, ability word CR 207.2c) ALSO fires
@@ -136,7 +151,14 @@ export function applyReanimate(state, atom, ctx) {
   const reanimated = [];
   for (const t of ctx.targets || []) {
     if (t.type !== "graveyardCard") continue;
-    const r = enterCardFromZone(next, { playerId: ctx.controller, cardId: t.id, fromZone: "graveyard" });
+    // "from your graveyard" → the card lives in (and is removed from) the CASTER's graveyard. "from a
+    // graveyard" (anyGraveyard) / "from an opponent's graveyard" (opponentGraveyard) → it lives in the
+    // TARGET's owner graveyard (t.controller, stamped at enumeration, possibly an opponent), but enters
+    // under the CASTER's control. fromPlayerId routes the removal to the right graveyard; playerId (the
+    // caster) always gets the entering permanent.
+    const crossZone = atom.anyGraveyard || atom.opponentGraveyard;
+    const fromPlayerId = crossZone ? (t.controller || ctx.controller) : ctx.controller;
+    const r = enterCardFromZone(next, { playerId: ctx.controller, cardId: t.id, fromZone: "graveyard", fromPlayerId });
     next = r.state;
     if (r.entered) reanimated.push(t.id); // skipped (entered:false) = target left the graveyard (CR 608.2b)
   }
@@ -182,6 +204,15 @@ export function graveyardReturnClauseParser(clause) {
     if (cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter };
   }
   if (/^return target creature card from your graveyard to the battlefield$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature" };
+  // REANIMATE-FROM-ANY (CR 608) — the Reanimate-family phrasing "put target creature card from a graveyard
+  // onto the battlefield under your control" (Hymn of Rebirth, Endless Obedience, Vat Emergence's first
+  // clause) and the opponent-scoped "from an opponent's graveyard" (Ashen Powder). UNLIKE the own-graveyard
+  // reanimate above, the card may live in ANOTHER player's graveyard (enumerated via anyGraveyard /
+  // opponentGraveyard), yet always enters under the CASTER's control (applyReanimate's fromPlayerId routes
+  // the removal to the target's owner). CREATURE only; "tapped" / "with a +N counter" / a life-loss /
+  // indestructible / proliferate rider fails the exact `$` anchor → low → Arbiter (CREED whole-card).
+  if (/^put target creature card from a graveyard onto the battlefield under your control$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true };
+  if (/^put target creature card from an opponent's graveyard onto the battlefield under your control$/.test(t)) return { op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", opponentGraveyard: true };
   // GY-TO-TOP — "put target <X> card from your graveyard on top of your library" (Reclaim, Salvage, False
   // Mourning). Same chosen-graveyard-card target + the return-from-graveyard resolver, but the destination is
   // the TOP of the library (toLibraryTop → moveCardToZone toZone:"library", toTop). A rider / "the bottom" /

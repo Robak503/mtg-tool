@@ -57,8 +57,11 @@ function atomTargetSpec(atom) {
   // P3.1 counter: a spell-target spec carries the spellFilter for stack-spell enumeration.
   if (tt === "spell") return { kind: "counter", targetType: "spell", spellFilter: atom.spellFilter || "any" };
   // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so
-  // enumerateTargets surfaces only the caster's matching graveyard cards.
-  if (tt === "graveyardCard") return { kind: "return-gy", targetType: "graveyardCard", cardFilter: atom.cardFilter || "any" };
+  // enumerateTargets surfaces only the matching graveyard cards. anyGraveyard (Reanimate / Hymn of
+  // Rebirth — "from a graveyard") widens the scope to EVERY player's graveyard; opponentGraveyard
+  // (Ashen Powder — "from an opponent's graveyard") scopes it to opponents only. Absent → the caster's
+  // own graveyard (the default return-from-graveyard / own-graveyard reanimate).
+  if (tt === "graveyardCard") return { kind: "return-gy", targetType: "graveyardCard", cardFilter: atom.cardFilter || "any", anyGraveyard: atom.anyGraveyard, opponentGraveyard: atom.opponentGraveyard };
   // A PLAYER-target atom — δ-1b hand disruption (opponent) and EDICTS sacrifice (player/opponent).
   // Enumerated purely by targetType ("opponent" → opponents, "player" → every player); the victim's
   // hand/creature is chosen at RESOLUTION, not enumeration, so the spec carries no extra filter. The

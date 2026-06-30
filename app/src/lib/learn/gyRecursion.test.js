@@ -117,6 +117,98 @@ describe("β-3b — reanimation (Return target creature card from your graveyard
   });
 });
 
+// REANIMATE-FROM-ANY (CR 608) — the Reanimate-family phrasing "put target creature card from a/an opponent's
+// graveyard onto the battlefield under your control". UNLIKE the own-graveyard reanimate above the card may
+// live in ANOTHER player's graveyard, yet always enters under the CASTER's control.
+const HYMN_OF_REBIRTH = { id: "c-hymn", name: "Hymn of Rebirth", type: SORCERY, mana: "{3}{G}{W}", oracle: "Put target creature card from a graveyard onto the battlefield under your control." };
+const ASHEN_POWDER = { id: "c-ashen", name: "Ashen Powder", type: SORCERY, mana: "{3}{B}{B}", oracle: "Put target creature card from an opponent's graveyard onto the battlefield under your control." };
+
+describe("REANIMATE-FROM-ANY — \"put target creature card from a / an opponent's graveyard onto the battlefield under your control\"", () => {
+  it("parses the any-graveyard + opponent-graveyard reanimate atoms; both classify native-spell", () => {
+    expect(parseEffectProgram(HYMN_OF_REBIRTH).atoms).toEqual([{ op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", anyGraveyard: true }]);
+    expect(parseEffectProgram(ASHEN_POWDER).atoms).toEqual([{ op: "reanimate", targetType: "graveyardCard", cardFilter: "creature", opponentGraveyard: true }]);
+    expect(classifyCard(HYMN_OF_REBIRTH)).toBe("native-spell");
+    expect(classifyCard(ASHEN_POWDER)).toBe("native-spell");
+  });
+
+  it("Endless Obedience (Convoke + the put clause) is native-spell — the cost-only keyword is stripped", () => {
+    // Convoke is a cost-only keyword (the runtime hard-casts at full cost), so the bare put clause parses HIGH.
+    const endless = { type: SORCERY, name: "Endless Obedience", mana: "{4}{B}", oracle: "Convoke (Your creatures can help cast this spell. Each creature you tap while casting this spell pays for {1} or one mana of that creature's color.)\nPut target creature card from a graveyard onto the battlefield under your control." };
+    expect(classifyCard(endless)).toBe("native-spell");
+  });
+
+  it("any-graveyard enumeration offers creature cards from EVERY player's graveyard (tokens/lands excluded)", () => {
+    const s = boardState({
+      userGy: [gyCreature("u-bear", "Bear"), gyLand("u-forest", "Forest"), gyToken("u-tok", "Token")],
+      aiGy: [gyCreature("a-bear", "Enemy Bear"), gyLand("a-mtn", "Mountain")],
+    });
+    const t = enumerateTargets(s, "user", parseEffectProgram(HYMN_OF_REBIRTH).atoms[0]);
+    expect(t.map((x) => x.id).sort()).toEqual(["a-bear", "u-bear"].sort());     // both players' creature CARDS
+    expect(t.find((x) => x.id === "a-bear").controller).toBe("ai");             // stamped with its GY owner
+    expect(t.find((x) => x.id === "u-bear").controller).toBe("user");
+  });
+
+  it("opponent-graveyard enumeration offers ONLY the opponent's creature cards (never the caster's own)", () => {
+    const s = boardState({
+      userGy: [gyCreature("u-bear", "Bear")],
+      aiGy: [gyCreature("a-bear", "Enemy Bear"), gyLand("a-mtn", "Mountain")],
+    });
+    const t = enumerateTargets(s, "user", parseEffectProgram(ASHEN_POWDER).atoms[0]);
+    expect(t.map((x) => x.id)).toEqual(["a-bear"]);                              // only the opponent's creature card
+    expect(t.every((x) => x.controller === "ai")).toBe(true);
+  });
+
+  it("RUNTIME — reanimates a creature from the OPPONENT's graveyard: it enters under the CASTER's control + fires its ETB", () => {
+    const visionary = { id: "vis", name: "Visionary", type: "Creature — Elf", power: 1, toughness: 1, oracle: "When this creature enters, draw a card." };
+    let s = boardState({ aiGy: [visionary], hand: [{ ...ASHEN_POWDER, id: "ap" }], pool: { C: 6, B: 2 } });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, library: [{ id: "lib-1", name: "Card" }] } } };
+    const cast = legalActionsForPlayer(s, "user").filter((a) => a.kind === "cast-spell" && a.cardId === "ap");
+    expect(cast.flatMap((a) => (a.targets || []).map((t) => t.id))).toEqual(["vis"]);  // the live cast path enumerates the opponent's gy creature
+    s = resolveAll(dispatchAction(s, cast[0]));
+    expect(s.players.user.battlefield.some((p) => p.card?.id === "vis")).toBe(true);   // entered under the CASTER's control
+    expect(s.players.ai.graveyard.some((c) => c.id === "vis")).toBe(false);             // removed from the OPPONENT's graveyard
+    expect(s.players.user.hand.some((c) => c.id === "lib-1")).toBe(true);              // its ETB "draw a card" FIRED for the caster
+  });
+
+  it("RUNTIME — reanimates a creature from the CASTER's OWN graveyard via the any-graveyard form (Hymn of Rebirth)", () => {
+    const bear = gyCreature("u-bear", "Grizzly Bears");
+    let s = boardState({ userGy: [bear], hand: [{ ...HYMN_OF_REBIRTH, id: "h" }], pool: { C: 6, G: 1, W: 1 } });
+    const cast = legalActionsForPlayer(s, "user").filter((a) => a.kind === "cast-spell" && a.cardId === "h");
+    expect(cast.flatMap((a) => (a.targets || []).map((t) => t.id))).toEqual(["u-bear"]);
+    s = resolveAll(dispatchAction(s, cast[0]));
+    expect(s.players.user.battlefield.some((p) => p.card?.id === "u-bear")).toBe(true);
+    expect(s.players.user.graveyard.some((c) => c.id === "u-bear")).toBe(false);        // left the caster's own graveyard
+  });
+
+  it("a target that left the graveyard is a clean no-op (CR 608.2b — no throw, nothing enters)", () => {
+    let s = boardState({ aiGy: [] });
+    const prog = parseEffectProgram(ASHEN_POWDER);
+    const after = resolveAll({ ...s, stack: [{ id: "stk", kind: "spell", source: ASHEN_POWDER, controller: "user",
+      payload: { resolver: "effect-program", params: { program: prog, controller: "user", targets: [{ type: "graveyardCard", id: "gone", controller: "ai" }] } } }] });
+    expect(after.players.user.battlefield).toHaveLength(0);
+    expect(after.players.ai.battlefield).toHaveLength(0);
+  });
+
+  // CREED anti-FP pins — every RIDER beyond the bare put clause must keep the WHOLE card on the Arbiter.
+  it("CREED: a put-from-graveyard with a RIDER stays arbiter-spell (whole-card or PARK)", () => {
+    const low = (oracle) => expect(classifyCard({ type: SORCERY, name: "X", mana: "{2}{B}", oracle })).toBe("arbiter-spell");
+    low("Put target creature card from a graveyard onto the battlefield under your control. You lose life equal to that card's mana value.");          // Reanimate — life-loss rider
+    low("Put target creature card from a graveyard onto the battlefield under your control. It gains indestructible. If it's your turn, scry 2.");      // Fated Return
+    low("Put target creature card from a graveyard onto the battlefield under your control. That creature is a black Zombie in addition to its other colors and types."); // Rise from the Grave — type-change rider
+    low("Put target creature card from a graveyard onto the battlefield under your control tapped.");                                                   // "tapped" rider
+    low("Put target creature card from a graveyard onto the battlefield under your control with a corpse counter on it.");                              // counter rider
+    low("Put target artifact card from a graveyard onto the battlefield under your control.");                                                          // non-creature filter
+    low("Put target creature card from your graveyard onto the battlefield under your control.");                                                       // "your graveyard" + this phrasing is NOT a modeled own-gy shape (the modeled own form is "return … to the battlefield")
+  });
+
+  it("CREED: a reanimate-from-ANY TRIGGER routes to the Arbiter (ambiguous side — a safe FN), unlike own-gy reanimate", () => {
+    // The any/opponent-graveyard scope can't promise the trigger-flush chooser a provably-correct side, so a
+    // permanent with such a trigger stays arbiter-trigger (never a confident mis-target). Own-gy reanimate is unchanged (native).
+    expect(classifyCard({ type: "Creature — Demon", name: "AnyReanimator", oracle: "When this creature enters, put target creature card from a graveyard onto the battlefield under your control." })).not.toBe("native-trigger");
+    expect(classifyCard({ type: "Creature — Cleric", name: "OwnReanimator", oracle: "When this creature enters, return target creature card from your graveyard to the battlefield." })).toBe("native-trigger");
+  });
+});
+
 describe("coverage — clean graveyard recursion is native-spell", () => {
   it("Raise Dead + Regrowth + a widened type filter classify native-spell; a subtype filter is arbiter-spell", () => {
     expect(classifyCard(RAISE_DEAD)).toBe("native-spell");

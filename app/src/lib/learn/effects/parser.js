@@ -2115,11 +2115,17 @@ export function atomTargetIntent(atom) {
       return (typeof atom.counterType === "string" && atom.counterType.trim().startsWith("-")) ? "enemy" : "own";
     case "untap":
     case "return-from-graveyard":
-    case "reanimate":
-      // The target is a card in the CASTER'S OWN graveyard — always own-side, so a reanimation TRIGGER
-      // ("When this enters, return target creature card from your graveyard to the battlefield") routes
+      // The target is a card in the CASTER'S OWN graveyard — always own-side, so a recursion TRIGGER
+      // ("When this enters, return target creature card from your graveyard to your hand") routes
       // natively (programTriggerTargetsResolvable → true; the chooser's only candidates are own-gy cards).
       return "own";
+    case "reanimate":
+      // OWN-graveyard reanimate ("from your graveyard") is own-side, so a reanimation TRIGGER routes
+      // natively. But the REANIMATE-FROM-ANY forms ("from a graveyard" / "from an opponent's graveyard")
+      // enumerate across other players' graveyards — the one-value-per-atom intent model can't promise the
+      // flush chooser a provably-correct side, so report "ambiguous" → such a TRIGGER routes to the Arbiter
+      // (a SAFE false-negative). The cast path is unaffected (it enumerates + picks interactively / by AI).
+      return (atom.anyGraveyard || atom.opponentGraveyard) ? "ambiguous" : "own";
     case "self-attach":
       // ETB-EQUIP-ATTACH — the Equipment attaches to "target creature YOU CONTROL", so the trigger-flush
       // chooser stays on the controller's own side (the host is always friendly; never an enemy creature).
