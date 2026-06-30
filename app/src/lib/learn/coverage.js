@@ -57,6 +57,7 @@ import { parseUrDragonAttackTrigger } from "./urDragonAttack.js"; // UR-DRAGON c
 import { parseVihaanCombatAnimate } from "./vihaanAnimate.js"; // VIHAAN commander — runtime hook lives in gameEngine (applyVihaanCombatAnimate)
 import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runtime hook lives in gameEngine (applySeedbornUntap)
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
+import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -686,6 +687,22 @@ export function classifyCard(card) {
     if (planeswalkerNativelyCovered(card)) return "native-planeswalker"; // every loyalty ability modeled (counts native)
     if (planeswalkerPlayable(card)) return "playable-pw";                // PW-2 hybrid: plays, some abilities → Arbiter (NOT counted native)
     return "arbiter-pw";                                                 // unmodeled static/trigger residue → whole card to the Arbiter
+  }
+  // ADVENTURE (CR 715) — Bonecrusher Giant // Stomp et al. MUST be intercepted HERE, before the
+  // instant/sorcery branch below: an Adventure card's COMBINED type line is "Creature — … // Instant/
+  // Sorcery — Adventure", so `/\b(instant|sorcery)\b/.test(type)` would match and mis-route the whole card
+  // to spellIsNative on the COMBINED oracle (→ arbiter-spell, never reaching the registry classifier). The
+  // additive-seam registry runs only AFTER this branch, so the seam alone can't catch it. classifyAdventure
+  // splits the two faces and credits native-mixed iff BOTH halves are modeled (all-or-nothing CREED); a
+  // non-adventure card or an unmodeled half returns null and we fall through to the normal dispatch.
+  {
+    const advTier = classifyAdventure(card);
+    if (advTier) return advTier;
+    // An adventure card that DIDN'T flip native (one half unmodeled) must NOT fall into the instant/sorcery
+    // branch (which would mis-parse the combined oracle). It's a permanent (the creature half enters the
+    // battlefield) whose adventure-spell or creature ability is unmodeled → body-only (the creature still
+    // plays; the unmodeled half routes to the Arbiter at cast). parseAdventureCard is the gate.
+    if (parseAdventureCard(card)) return "body-only";
   }
   if (/\bland\b/.test(type)) return "land";
   // A DFC with a planeswalker BACK face but a non-PW front (Jace, Vryn's Prodigy; Valki // Tibalt)
@@ -1384,3 +1401,39 @@ function classifySeedbornUntap(card) {
   return "native-static";                                       // the during-each-other-untap-step untap static
 }
 registerCoverageClassifier((card) => classifySeedbornUntap(card));
+
+// ─── ADVENTURE (CR 715) — Bonecrusher Giant // Stomp et al. (HIGH corpus yield, ~150 cards) ──────────────────
+// An Adventure card has a CREATURE half and an instant/sorcery "Adventure" half (CR 715.1). From hand you may
+// cast EITHER half (CR 715.3); casting the Adventure half resolves its spell effect, then EXILES the card (CR
+// 715.3d), and while exiled you may cast the CREATURE half from exile at its own cost (CR 715.3e). The runtime
+// plays the WHOLE flow (legalChoices.actionsCastAdventureFromHand offers both faces' casts; the adventure spell
+// resolves through the EFFECT_PROGRAM interpreter and the card lands in adventure-exile; the creature is then
+// castable from exile via actionsCastCreatureFromAdventureExile → applyCastSpell → PERMANENT_ETB), so this
+// classifier credits exactly what the engine plays end-to-end.
+//
+// CREED — whole card, BOTH halves modeled (the adventure.js shape module splits the combined publicCard oracle):
+//   • the CREATURE half is a native tier — classifyCard on the creature-face VIEW returns a native tier. This
+//     reuses EVERY existing creature classifier (keyword body, ETB/dies trigger, modeled activated/static,
+//     enters-with-counters, …), so a creature half with an unmodeled ability fails here and the WHOLE card
+//     stays body-only. classifyCard is mutually recursive with this classifier, but ONLY ever on a SINGLE-FACE
+//     view (no "//" in the projected type) — parseAdventureCard returns null for a single face, so the recursion
+//     terminates immediately (a face view never re-enters this Adventure branch).
+//   • the ADVENTURE half's instant/sorcery effect is native — spellIsNative on the adventure-face VIEW (its
+//     EffectProgram parses HIGH with no combat-referent atom; the "(Then exile this card…)" reminder is stripped
+//     by parseAdventureCard so it never drags the program down).
+// All-or-nothing: either half unmodeled → null → the card stays body-only (a SAFE false-negative; never a
+// partial flip that silently drops the unmodeled half — THE CREED). Returns "native-mixed" (a composite of a
+// modeled creature body + a modeled spell), or null. Mechanism-keyed (the layout), so every clean Adventure
+// card in the corpus flips automatically — this is a GENERAL subsystem, not a single-card hook.
+//
+// NOTE: called INLINE at the TOP of classifyCard (before the instant/sorcery branch), NOT via the additive
+// registry seam — the seam runs only after the instant/sorcery branch, which would mis-route the combined
+// adventure type line first. It's a plain function declaration (hoisted), so the early call resolves it.
+function classifyAdventure(card) {
+  const parsed = parseAdventureCard(card);
+  if (!parsed) return null;                                       // not an instant/sorcery-adventure card → not ours
+  const { creature, adventure } = faceViews(parsed);
+  if (!isNativeTier(classifyCard(creature))) return null;         // the creature half's body/abilities must be modeled
+  if (!spellIsNative(adventure)) return null;                     // the adventure half's spell effect must be modeled
+  return "native-mixed";                                          // both halves modeled — the engine plays the whole card
+}

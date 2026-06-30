@@ -56,6 +56,7 @@ registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { isNativeAura, isNativeManaAura, entersWithXCounters } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
+import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 
 // ─── Mana cost parser + can-afford check ──────────────────────────────────────
 
@@ -1132,6 +1133,60 @@ function actionsCastPlottedFromExile(state, playerId) {
 }
 
 /**
+ * ADVENTURE step 1 — cast the ADVENTURE (instant/sorcery) HALF from hand (CR 715.3). Offered ONLY for an
+ * Adventure card whose BOTH halves are modeled (classifyCard returns a native tier — the metric's own
+ * authority, so the runtime and coverage can't disagree; a card with an unmodeled half is body-only and is
+ * NEVER offered, so we never silently drop the unmodeled half — THE CREED). We project the card onto its
+ * ADVENTURE face (adventureFaceCard — same id, the adventure half's type/oracle/mana) and run it through the
+ * shared cast builder, so the adventure spell's cost / X / modal / targets / additional costs are enumerated
+ * EXACTLY like any instant/sorcery (instant-vs-sorcery timing comes from the projected type line). Each emitted
+ * cast-spell action is stamped `adventureCast: true` + carries the projected `faceCard`, so the dispatcher
+ * (applyCastSpell) resolves the adventure spell's effect and then EXILES the card with `_onAdventure` (CR
+ * 715.3d) — instead of the card just vanishing as a normal instant/sorcery does.
+ */
+function actionsCastAdventureFromHand(state, playerId) {
+  const player = state.players[playerId];
+  const actions = [];
+  for (const card of player.hand) {
+    if (!isAdventureCard(card)) continue;
+    if (!isNativeTier(classifyCard(card))) continue;            // CREED: both halves modeled, else never offer
+    const face = adventureFaceCard(card);                       // project onto the adventure (instant/sorcery) half
+    if (!face) continue;
+    // Reuse the shared builder on the single projected face (same id) — cost/X/modal/target/timing enumeration
+    // is identical to a normal instant/sorcery cast. fromZone "hand", not free (the adventure cost is paid).
+    for (const a of castActionsFromZone(state, playerId, [face], "hand", null)) {
+      actions.push({ ...a, adventureCast: true, faceCard: face });
+    }
+  }
+  return actions;
+}
+
+/**
+ * ADVENTURE step 2 — cast the CREATURE HALF from adventure-exile (CR 715.3e). After the adventure spell
+ * resolved, the card sits in exile flagged `_onAdventure`; while it's there the owner may cast the creature
+ * half at its OWN mana cost (NOT free — unlike plot/discover). We project the card onto its CREATURE face
+ * (creatureFaceCard — same id, the creature half's type/oracle/mana/P-T) and run it through the shared cast
+ * builder with fromZone "exile" (sorcery-speed, since a creature is sorcery-speed — enforced by the builder's
+ * timing gate via the projected creature type line). Each action carries the projected `faceCard` so
+ * applyCastSpell enters the CREATURE (via PERMANENT_ETB), not the combined card. Once cast it leaves exile, so
+ * it can't be double-cast. The exiled card stays castable across turns (CR 715.3e — no turn restriction).
+ */
+function actionsCastCreatureFromAdventureExile(state, playerId) {
+  const player = state.players[playerId];
+  const onAdventure = (player.exile || []).filter(c => c && c._onAdventure);
+  if (onAdventure.length === 0) return [];
+  const actions = [];
+  for (const card of onAdventure) {
+    const face = creatureFaceCard(card);                        // project onto the creature half
+    if (!face) continue;
+    for (const a of castActionsFromZone(state, playerId, [face], "exile", null)) {
+      actions.push({ ...a, faceCard: face });
+    }
+  }
+  return actions;
+}
+
+/**
  * Loyalty abilities (`[+N]/[−N]/[0]: effect`, CR 606) — PW-1 framework + PW-2 HYBRID. A planeswalker's
  * controller may activate ONE loyalty ability of it per turn (CR 606.3 — "only if no player has
  * previously activated a loyalty ability of that permanent that turn"), only any time they could cast
@@ -1415,6 +1470,8 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastSpell(state, playerId));
     actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
     actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.171b): cast a plotted card free
+    actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
+    actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3e): cast the creature half from exile
   }
   actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)
   actions.push(...actionsPlotFromHand(state, playerId));  // PLOT step 1 (CR 702.171a): exile from hand for the plot cost — a SPECIAL action, not casting

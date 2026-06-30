@@ -303,6 +303,28 @@ export function isPermanentSpell(card) {
 }
 
 /**
+ * ADVENTURE (CR 715.3d): put the just-resolved adventure card into its owner's exile, flagged `_onAdventure`
+ * so legalChoices offers the CREATURE half as a cast from exile. `card` is the FULL combined card (it left
+ * hand at cast and lived only on the stack object); we clear any prior _onAdventure stamp defensively and add
+ * it. Idempotent on the flag. Pure (returns new state). No SBA/trigger fires from this move (it's a spell
+ * leaving the stack to exile, not a permanent leaving the battlefield).
+ */
+export function applyAdventureExile(state, { playerId, card }) {
+  if (!card || !playerId) return state;
+  const player = state.players?.[playerId];
+  if (!player) return state;
+  const exiledCard = { ...card, _onAdventure: true };
+  const next = {
+    ...state,
+    players: {
+      ...state.players,
+      [playerId]: { ...player, exile: [...(player.exile || []), exiledCard] },
+    },
+  };
+  return logEvent(next, { kind: "adventure-exile", playerId, cardName: card.name });
+}
+
+/**
  * Settle a pending clone copy-choice (CR 707): the clone enters the battlefield. With a chosen
  * creature still on the battlefield, it enters AS A COPY — its `card` becomes the source's
  * copiable values (CR 707.2) and its ORIGINAL card is stashed as `printedCard` (restored on
@@ -485,10 +507,24 @@ export const RESOLVERS = Object.freeze({
       // Guardian Project) re-reads the entering permanent at resolution (CR 603.4 second check).
       const ok = evaluateInterveningIf(state, params.condition, params.controller, params.context);
       if (ok !== true) {
-        return logEvent(state, { kind: "trigger-effect", effect: "intervening-if-not-met", controller: params.controller, condition: params.condition });
+        // ADVENTURE: even a condition-not-met adventure spell still EXILES the card (CR 715.3d — the card is
+        // exiled as the spell finishes resolving regardless of whether the effect did anything). Apply the
+        // exile before returning so the creature half stays castable from exile.
+        const skipped = logEvent(state, { kind: "trigger-effect", effect: "intervening-if-not-met", controller: params.controller, condition: params.condition });
+        return params.adventureExile ? applyAdventureExile(skipped, params.adventureExile) : skipped;
       }
     }
-    return runEffectProgram(state, obj);
+    const next = runEffectProgram(state, obj);
+    // ADVENTURE (CR 715.3d): the adventure spell's card goes to EXILE (not the graveyard like a normal
+    // instant/sorcery), flagged `_onAdventure` so the creature half is castable from exile. We append the FULL
+    // card (params.adventureExile.card) to the controller's exile here, after the program ran. The card left
+    // hand at cast and lives only on the stack object, so this is the move into exile — there's no graveyard
+    // disposition to redirect (the engine doesn't track resolved instant/sorcery cards into the graveyard).
+    // NOTE: if the program SUSPENDED on a resolution-time choice (a tutor — Fertile Footsteps), `next` carries
+    // a pendingChoice and the rest of the atoms run on resume; the exile is applied now regardless. That's safe
+    // for the whole clean adventure set — no clean adventure effect targets/references its own card, so the
+    // card sitting in exile during the pause changes nothing (verified by the corpus audit).
+    return params?.adventureExile ? applyAdventureExile(next, params.adventureExile) : next;
   },
 
   // Equip/Aura attach (CR 701.3): move the equipment onto the target creature. Re-checks

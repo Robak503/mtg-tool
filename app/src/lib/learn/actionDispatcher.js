@@ -277,6 +277,14 @@ function applyCastSpell(state, action) {
   const card = (state.players[action.playerId]?.[fromZone] || []).find(c => c.id === action.cardId) || null;
   if (!card) throw new DispatcherError(`Card ${action.cardId} not in ${fromZone}`, "CARD_NOT_IN_ZONE");
 
+  // ADVENTURE (CR 715): when casting an Adventure card's FACE (`action.faceCard` — the adventure
+  // instant/sorcery half from hand, or the creature half from adventure-exile), every cast-as-this-card
+  // decision below (the `program` parse fallback, isPermanentSpell / isAura / castsAsPlaneswalker payload
+  // routing, the stack `source`) must reflect the FACE, not the combined card the zone holds (whose type line
+  // mixes Creature + Instant/Sorcery and would mis-route). The card is still spliced out of its zone by id.
+  // For a normal cast faceCard is undefined and castCard === card (byte-identical behavior).
+  const castCard = action.faceCard || card;
+
   // DISCOVER / free-cast (CR 601.2b — "cast without paying its mana cost"): skip the mana plan + payment
   // entirely when `action.freeCast` is set. ONLY the mana cost is waived — the ADDITIONAL costs below
   // (sacrifice / pay-life / discard) still apply, exactly as CR requires. Otherwise pay normally.
@@ -321,7 +329,9 @@ function applyCastSpell(state, action) {
   // FAIL-FAST: a program that REQUIRES a cost but arrived without the matching choice is an upstream bug —
   // THROW rather than cast cost-free (silently skipping a cost is the cardinal false-positive failure,
   // CLAUDE.md §1.2). `program` is hoisted here and reused for the payload below (single parse).
-  const program = action.program || parseEffectProgram(card);
+  // ADVENTURE: parse the FACE (castCard), not the combined card — a creature face has no program (null), so
+  // the payload routes through isPermanentSpell; an adventure-spell face carries action.program already.
+  const program = action.program || parseEffectProgram(castCard);
   for (const ac of program?.additionalCosts || []) {
     if (ac.kind === "sacrifice") {
       if (!action.sacCreatureId) throw new DispatcherError("Spell requires an additional sacrifice cost but no victim was chosen", "ADDCOST_UNPAID");
@@ -358,23 +368,23 @@ function applyCastSpell(state, action) {
   const targets = action.targets || [];
 
   let payload;
-  if (isNativeAura(card)) {
+  if (isNativeAura(castCard)) {
     // Aura (CR 303.4f): resolve via the AURA_ETB resolver — enter the battlefield attached
     // to the targeted creature. The target id is the battlefield permanent chosen at cast.
     const targetId = targets[0]?.id;
-    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card, controller: action.playerId, targetId } };
-  } else if (isNativeManaAura(card)) {
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId } };
+  } else if (isNativeManaAura(castCard)) {
     // AURA-LAND-MANA-BOOST (Wild Growth / Overgrowth / Fertile Ground): an Aura enchanting a LAND. Same
     // AURA_ETB resolver, but the target is a LAND (the resolver re-checks the type per the card). Once
     // attached, manaModel.landAuraManaBonus adds the extra mana inline when the land taps (CR 605.1b).
     const targetId = targets[0]?.id;
-    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card, controller: action.playerId, targetId } };
-  } else if (isAuraCard(card)) {
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId } };
+  } else if (isAuraCard(castCard)) {
     // An Aura we can't model end-to-end (enchants a non-creature / restricted subject, or
     // carries an unmodeled bonus/ability). Route to the Arbiter seam rather than entering a
     // do-nothing unattached permanent — honest about the gap, never a silent no-op.
-    payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "aura (unmodeled enchant or bonus)" } };
-  } else if (castsAsPlaneswalker(card)) {
+    payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "aura (unmodeled enchant or bonus)" } };
+  } else if (castsAsPlaneswalker(castCard)) {
     // A card that casts AS a planeswalker (front face — so a creature-front DFC falls through to the
     // permanent/creature path and enters as its creature side, PW-1 review P2.1). Only a FULLY-
     // modeled walker (every loyalty ability HIGH, no unmodeled static/trigger residue) enters the
@@ -387,24 +397,29 @@ function applyCastSpell(state, action) {
     // loyalty abilities resolve natively if modeled, else route to the Arbiter AT ACTIVATION. Only a
     // walker with unmodeled static/triggered text (which can't be hybrid-routed) goes whole-card to
     // the Arbiter at cast.
-    payload = planeswalkerPlayable(card)
-      ? { resolver: RESOLVER_KEYS.PERMANENT_ETB, params: { card, controller: action.playerId } }
-      : { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "planeswalker (unmodeled static/triggered ability)" } };
+    payload = planeswalkerPlayable(castCard)
+      ? { resolver: RESOLVER_KEYS.PERMANENT_ETB, params: { card: castCard, controller: action.playerId } }
+      : { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "planeswalker (unmodeled static/triggered ability)" } };
   } else if (program) {
     // P2.5: thread the cast-time choices (chosenMode for modal, xValue for X-spells)
     // frozen onto the action so resolution is deterministic + serializable.
     const params = { program, controller: action.playerId, targets, cardId: card.id };
     if (action.chosenMode != null) params.chosenMode = action.chosenMode;
     if (action.xValue != null) params.xValue = action.xValue;
+    // ADVENTURE (CR 715.3d): after the adventure spell's effect resolves, the card is EXILED (not put into
+    // the graveyard like a normal instant/sorcery). Stash the FULL card + its owner on the payload so the
+    // EFFECT_PROGRAM resolver appends it to exile flagged `_onAdventure` (the creature half is then castable
+    // from exile). Only set on an adventure cast — a normal spell carries no adventureExile and is unaffected.
+    if (action.adventureCast) params.adventureExile = { playerId: action.playerId, card };
     payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
-  } else if (isPermanentSpell(card)) {
+  } else if (isPermanentSpell(castCard)) {
     // ENTERS-WITH-X: a hydra cast for {X} threads its chosen X so PERMANENT_ETB adds X +1/+1 counters
     // (it enters at its real P/T, not a 0/0 that dies to the SBA).
-    const params = { card, controller: action.playerId };
+    const params = { card: castCard, controller: action.playerId };
     if (action.xValue != null) params.xValue = action.xValue;
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params };
   } else {
-    payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: card.name, reason: "instant-or-sorcery (no recognized effect)" } };
+    payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "instant-or-sorcery (no recognized effect)" } };
   }
 
   // Mint a deterministic stack id; thread the advanced state (working2) so idSeq
@@ -413,7 +428,7 @@ function applyCastSpell(state, action) {
   const stackObject = createStackObject({
     id: stkId,
     kind: "spell",
-    source: card,
+    source: castCard, // ADVENTURE: the FACE being cast (its name drives cast-trigger matching + the log)
     controller: action.playerId,
     targets,
     cost: action.cost,
@@ -441,7 +456,7 @@ function applyCastSpell(state, action) {
   next = logEvent(next, {
     kind: "cast-spell",
     playerId: action.playerId,
-    cardName: card.name,
+    cardName: castCard.name, // ADVENTURE: log the face being cast (the adventure or the creature half)
     cost: action.cost,
   });
   // Cast-spell triggers (CR 603.2): the spell is now on the stack, so "whenever you/an
@@ -449,7 +464,7 @@ function applyCastSpell(state, action) {
   // not at a later checkpoint, so they resolve BEFORE the spell — correct order, and the
   // right thing for any future referential effect).
   next = recordSpellCast(next, { playerId: action.playerId }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
-  next = checkCastTriggers(next, { spellCard: card, casterId: action.playerId, targets, xValue: action.xValue }); // SELF-CAST: thread the chosen X so a "When you cast this spell" half-X/X payoff (Hydroid Krasis) resolves at the real X
+  next = checkCastTriggers(next, { spellCard: castCard, casterId: action.playerId, targets, xValue: action.xValue }); // SELF-CAST: thread the chosen X so a "When you cast this spell" half-X/X payoff (Hydroid Krasis) resolves at the real X; ADVENTURE: the FACE cast (so "cast an Adventure spell" matches)
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // ZAXARA X-CAST: casting a spell with {X} → each of the caster's "cast a spell with {X} → make a token
   // with X +1/+1 counters" permanents makes its Hydra token (a real X/X). The general trigger compiler
