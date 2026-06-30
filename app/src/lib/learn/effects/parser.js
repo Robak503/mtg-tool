@@ -45,6 +45,7 @@ import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token) + 20 (create-token vanilla creature tokens)
 import { sacrificeEdictClauseParser, destroyExileClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
+import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { SMALL_NUM, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); SMALL_NUM (cdmg rad) + parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; NUM_WORD/parseCountSource now only inside migrated clause parsers (batch 23/26)
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
@@ -2314,3 +2315,12 @@ registerClauseParser(millClauseParser);
 // parseHelpers leaf). All anchored "search your library…"/"put a land card from your hand…" clauses match no
 // earlier registered parser, so the inline→CLAUSE_PARSERS move is behavior-identical. program-diff = 0.
 registerClauseParser(tutorClauseParser);
+// PUT-FROM-HAND ("put a/up to N/any number of creature|permanent card(s) from your hand onto the battlefield")
+// — registered AFTER the tutor parser so the land-from-hand `lfh` form keeps priority (the two are mutually
+// exclusive: this parser rejects a LAND filter). Reuses the tutor sourceZone:"hand"→battlefield seam, so the
+// emitted op:"tutor" atoms resolve through the SAME applyTutor/resolveTutorChoice path already proven by
+// land-from-hand (hand→battlefield move, ETB fires, no mana/stack). Dramatic Entrance / Last March of the Ents
+// flip native-spell; the activated/triggered forms (Elvish Piper, Quicksilver Amulet, Root Elemental) flip via
+// their respective tiers once the put clause is modeled. program-diff audited (additive — only the previously-
+// unmodeled put-from-hand creature/permanent clauses flip; land-from-hand + library tutors unchanged).
+registerClauseParser(putFromHandClauseParser);

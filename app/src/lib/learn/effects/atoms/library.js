@@ -51,7 +51,13 @@ export function tutorManaValue(card) {
  * applied UPSTREAM here, so applyTutor's candidate list (and therefore autoPickTutorCandidate's pool,
  * which reads only those candidates) is already MV-filtered — never just narrowed in the picker. Both
  * the TYPE groups (if any) AND the MV cap must hold. An empty groups list (`{ groups: [], mv }`) is a
- * type-unfiltered, MV-only filter ("a card with mana value 3"): every type matches, the MV gate decides. */
+ * type-unfiltered, MV-only filter ("a card with mana value 3"): every type matches, the MV gate decides.
+ *
+ * PUT-FROM-HAND — a filter can ALSO carry a COLOR constraint (`filter.colors`: e.g. ["green"] for Dramatic
+ * Entrance's "a green creature card", ["nonwhite"] for a negated color). The gate reads the card's enriched
+ * `colors` array (cardIndex stamps it on every real card; CR 105 / 202.2). A `green` color requires the card
+ * to BE that color; `nonwhite` requires the card NOT be that color. A card lacking a `colors` array fails a
+ * positive color gate (FN-safe — never a fabricated match; the rare un-enriched stub stays out of the pool). */
 export function cardMatchesTutorFilter(card, filter) {
   if (!filter) return true;
   // MV gate first (cheap, and applies even when there are no type groups). tutorManaValue reads the
@@ -60,6 +66,26 @@ export function cardMatchesTutorFilter(card, filter) {
     const mv = tutorManaValue(card);
     if (typeof filter.mv.max === "number" && mv > filter.mv.max) return false;
     if (typeof filter.mv.exact === "number" && mv !== filter.mv.exact) return false;
+  }
+  // COLOR gate (PUT-FROM-HAND) — applied upstream like MV so applyTutor's candidate pool is already
+  // color-filtered. Each entry is a single-color word ("green") or its negation ("nonwhite"). A positive
+  // word requires membership in the card's colors; a "non<color>" requires absence. ALL listed constraints
+  // must hold (currently only a single color is ever produced; the loop keeps it future-proof).
+  if (Array.isArray(filter.colors) && filter.colors.length) {
+    const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+    const cardColors = Array.isArray(card?.colors) ? card.colors : null;
+    for (const spec of filter.colors) {
+      const neg = spec.startsWith("non");
+      const colorWord = neg ? spec.slice(3) : spec;
+      const letter = COLOR_LETTER[colorWord];
+      if (!letter) return false; // an unknown color word never matches (defensive; the parser only emits the five)
+      const has = cardColors ? cardColors.includes(letter) : false; // no colors array → treat as not-that-color
+      if (neg) {
+        if (has) return false; // "nonwhite" excludes a white card
+      } else {
+        if (!has) return false; // "green" requires the card be green (a colorless / un-enriched card fails — FN-safe)
+      }
+    }
   }
   const groups = Array.isArray(filter.groups) ? filter.groups : [];
   if (groups.length === 0) return true; // type-unfiltered (null filter handled above; MV-only filter falls here)

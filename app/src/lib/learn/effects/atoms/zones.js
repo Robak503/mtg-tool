@@ -4,7 +4,7 @@
  */
 
 import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone } from "../../gameState.js";
-import { checkEnterTriggers, checkLandfallTriggers } from "../../triggers.js";
+import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
 import { parseGraveyardFilter } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser
 
@@ -119,6 +119,15 @@ export function enterCardFromZone(state, { playerId, cardId, fromZone, tapped = 
   // reanimated/fetched CREATURE never fires it — only a land does. (Sibling of the play-land ETB fix.)
   next = checkEnterTriggers(next, perm);
   next = checkLandfallTriggers(next, perm);
+  // PERM-ENTERS (artifact-ETB / enchantment-ETB watchers) — enterPermanent (resolvers.js) fires this
+  // immediately after checkEnterTriggers, but this non-cast entry path historically did not, so a
+  // reanimated / ramped / put-from-hand ARTIFACT or ENCHANTMENT silently missed "whenever an artifact
+  // you control enters" (Reckless Fireweaver) / "whenever an enchantment you control enters"
+  // (Constellation) payoffs. PUT-FROM-HAND needs it (an artifact card put from hand — Copper Gnomes,
+  // Quicksilver Amulet targets — must trigger artifact-ETB watchers). checkPermanentEntersTriggers
+  // self-gates on the entering permanent's type, so a creature/land entry is a no-op here. Pure addition —
+  // it can only fire correctly-owed triggers that the canonical enter path already fires.
+  next = checkPermanentEntersTriggers(next, perm);
   return { state: next, entered: true };
 }
 
