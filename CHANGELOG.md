@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.67.0] - 2026-06-30
+
+### Improved
+- **Qualified-ETB keyword-grant + Storm (+8 native).** "Whenever a creature with [keyword] you control enters,
+  [grant]" (Dragon Tempest for Ur-Dragon, Waterkin Shaman) and the Storm keyword (Empty the Warrens, Chatterstorm,
+  Weather the Storm, Radstorm, Sprouting Vines, Hunting Pack). Flip-diffed both directions (8 gained, 0 lost),
+  full gate (5,840 tests) green, 0 false positives.
+
 ## [0.66.0] - 2026-06-30
 
 ### Improved
