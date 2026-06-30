@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.71.0] - 2026-06-30
+
+### Improved
+- **Kicker + sac-cost / sorcery-restricted activated abilities (+60 native — the biggest wave).** The Kicker
+  keyword (Academy Drake, Llanowar Elite, Stronghold Confessor…) and activated abilities gated by a "Sacrifice N
+  Treasures/Clues/Food" cost or an "activate only as a sorcery" timing rider (Ruthless Knave, Tamiyo's Journal,
+  Greta, Dimir Guildmage, the Skullbomb cycle, +40 more). Flip-diffed both directions (60 gained, 0 lost), full
+  gate (5,978 tests) green, 0 false positives.
+
 ## [0.70.0] - 2026-06-30
 
 ### Improved
