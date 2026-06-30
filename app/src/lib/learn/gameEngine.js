@@ -50,6 +50,7 @@ import { expandCastChoices } from "./effects/targeting.js";
 import { applyFadeVanishUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
 import { applyVihaanCombatAnimate } from "./vihaanAnimate.js";
+import { applySeedbornUntap } from "./seedbornUntap.js";
 import { applyMothmanRadOnAttack } from "./mothmanRad.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
@@ -219,6 +220,13 @@ export function runStepActions(state) {
       next = resetSpellsCastAllPlayers(next); // TRIG-CAST2: ditto for "cast your second spell each turn"
       next = { ...next, onceTriggersFiredThisTurn: {} }; // ONCE-PER-TURN: clear per-source discover gates (Pantlaza, etc.)
       next = untapAll(next, { playerId: state.activePlayer });
+      // SEEDBORN-UNTAP (a targeted #319-style hook the trigger compiler can't reach): Seedborn Muse —
+      // "Untap all permanents you control during each other player's untap step" — gives its controller an
+      // ADDITIONAL untap during every OTHER player's untap step. There is no untap-others atom / "during each
+      // other player's untap step" event in the vocabulary, so a dedicated synchronous hook untaps each
+      // non-active watcher-controller's permanents here, right after the active player's own turn-based untap.
+      // A no-op when no Seedborn-style watcher is on any non-active player's board (seedbornUntap.js).
+      next = applySeedbornUntap(next, state.activePlayer);
       next = logEvent(next, { kind: "step", phase: "beginning", step: "untap", player: state.activePlayer });
       break;
 

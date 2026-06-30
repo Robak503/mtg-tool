@@ -55,6 +55,7 @@ import { parseDamageReplacements, stripDamageReplacementClauses } from "./damage
 import { parseXCastTokenTrigger } from "./xCastToken.js"; // X-CAST-TOKEN commander (Zaxara) — runtime hook lives in actionDispatcher (applyXCastTokenTriggers)
 import { parseUrDragonAttackTrigger } from "./urDragonAttack.js"; // UR-DRAGON commander — runtime hook lives in gameEngine (applyUrDragonAttackTriggers)
 import { parseVihaanCombatAnimate } from "./vihaanAnimate.js"; // VIHAAN commander — runtime hook lives in gameEngine (applyVihaanCombatAnimate)
+import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runtime hook lives in gameEngine (applySeedbornUntap)
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
@@ -1336,3 +1337,41 @@ function classifyOmnathLocus(card) {
   return "native-static";                                       // green-mana retention + dynamic +1/+1-per-green
 }
 registerCoverageClassifier((card) => classifyOmnathLocus(card));
+
+// ─── SEEDBORN-UNTAP — Seedborn Muse (the Omnath / mono-green ramp untap engine) ──────────────────────────────
+// "Untap all permanents you control during each other player's untap step."
+// ONE static ability that genuinely resolves at runtime through a DEDICATED untap-step hook (gameEngine.
+// runStepActions → case "untap" → applySeedbornUntap, seedbornUntap.js): during every OTHER player's untap
+// step, the watcher's controller untaps all THEIR permanents too. The general parser can't route it (no
+// "during each other player's untap step" event in detectTriggers, no untap-others atom in the effect
+// vocabulary), so this classifier credits EXACTLY what the engine plays — the additive-seam single-card
+// pattern (the classifyWolverine / classifyVihaan #319 precedent: returns null unless the static matches AND
+// no residue remains, so it can never cause collateral). Mechanism-keyed (the exact templating), not name-keyed.
+//
+// CREED — whole card, the one ability modeled:
+//   • the untap static (isSeedbornUntap → applySeedbornUntap).
+// All-or-nothing: the static must be present on THIS card; NO trigger or activated ability may remain (a
+// detected one would be unmodeled residue the runtime won't play through this tier — a FORBIDDEN dropped-
+// ability FP); and the residue after stripping the untap sentence must be keyword-only (Seedborn Muse is a
+// vanilla body, so the residue must be EMPTY). A card that ALSO carries an anthem / second ability (Murkfiend
+// Liege — "Other green creatures you control get +1/+1") keeps that residue → null → stays body-only.
+// Returns native-static or null.
+const SEEDBORN_UNTAP_SENTENCE_RE =
+  /untap all permanents you control during each other player'?s untap step\.?/i;
+function classifySeedbornUntap(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  // The hook untaps a battlefield permanent's controller — only a permanent (Seedborn Muse is a creature)
+  // qualifies. Gate defensively so this never claims an instant/sorcery/land/PW.
+  if (/\b(instant|sorcery|land)\b/.test(type) || !/\b(creature|artifact|enchantment)\b/.test(type)) return null;
+  if (!isSeedbornUntap(card)) return null;                       // not the exact untap-others static → not ours
+  const oracle = stripReminder(String(card?.oracle ?? card?.oracle_text ?? ""));
+  // Neither half is a trigger or activated ability — a detected one is unmodeled residue (CREED). Belt-and-suspenders.
+  if (detectTriggers(card).length > 0) return null;
+  if (parseActivatedAbilities(card).length > 0) return null;
+  // Strip the modeled untap sentence; the remainder must be keyword-only (Seedborn is vanilla → EMPTY). An
+  // anthem / second ability (Murkfiend Liege) leaves residue → null → Arbiter.
+  const residue = oracle.replace(SEEDBORN_UNTAP_SENTENCE_RE, " ");
+  if (!isKeywordOnly(residue, card?.name)) return null;         // any non-keyword static/text residue → Arbiter
+  return "native-static";                                       // the during-each-other-untap-step untap static
+}
+registerCoverageClassifier((card) => classifySeedbornUntap(card));
