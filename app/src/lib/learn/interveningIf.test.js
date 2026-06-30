@@ -114,6 +114,82 @@ describe("interveningIfParseable — shape gate", () => {
   });
 });
 
+// ─── 1b. OPPONENT-COMPARISON + CONTROL-ANOTHER-SUBTYPE (new families) ────────────────
+// A 2-player state where the OPPONENT (ai) board/life/hand can be set independently of the controller's.
+function withOpp({ user = {}, ai = {} } = {}) {
+  const s = createGameState({ userDeck: [], aiDeck: [] });
+  return { ...s, players: {
+    ...s.players,
+    user: { ...s.players.user, battlefield: [], graveyard: [], hand: [], ...user },
+    ai: { ...s.players.ai, battlefield: [], graveyard: [], hand: [], ...ai },
+  } };
+}
+const card = (id, type, over = {}) => ({ id, name: id, type, ...over });
+const oppPerm = (id, type) => createPermanent({ id, card: card(id, type), controller: "ai" });
+// the entering (triggering) permanent, controlled by the user — for the "another <subtype>" self-exclusion
+const enterPerm = (id, type) => createPermanent({ id, card: card(id, type), controller: "user" });
+
+describe("evaluateInterveningIf — opponent-comparison (an opponent <X> more than you)", () => {
+  it("'controls more lands than you' — true only when an opponent strictly leads", () => {
+    const COND = "an opponent controls more lands than you";
+    // you: 2 lands, opp: 3 lands → opp leads → true
+    expect(evaluateInterveningIf(withOpp({
+      user: { battlefield: [perm("ul1", "Basic Land — Forest"), perm("ul2", "Basic Land — Forest")] },
+      ai: { battlefield: [oppPerm("al1", "Basic Land — Island"), oppPerm("al2", "Basic Land — Island"), oppPerm("al3", "Basic Land — Island")] },
+    }), COND, "user")).toBe(true);
+    // tie (2 vs 2) is NOT "more" → false (strict >)
+    expect(evaluateInterveningIf(withOpp({
+      user: { battlefield: [perm("ul1", "Basic Land — Forest"), perm("ul2", "Basic Land — Forest")] },
+      ai: { battlefield: [oppPerm("al1", "Basic Land — Island"), oppPerm("al2", "Basic Land — Island")] },
+    }), COND, "user")).toBe(false);
+    // you ahead → false
+    expect(evaluateInterveningIf(withOpp({
+      user: { battlefield: [perm("ul1", "Basic Land — Forest"), perm("ul2", "Basic Land — Forest")] },
+      ai: { battlefield: [oppPerm("al1", "Basic Land — Island")] },
+    }), COND, "user")).toBe(false);
+  });
+  it("'has more life / cards in hand than you'", () => {
+    expect(evaluateInterveningIf(withOpp({ user: { life: 20 }, ai: { life: 25 } }), "an opponent has more life than you", "user")).toBe(true);
+    expect(evaluateInterveningIf(withOpp({ user: { life: 25 }, ai: { life: 20 } }), "an opponent has more life than you", "user")).toBe(false);
+    expect(evaluateInterveningIf(withOpp({ user: { hand: [card("h1", "X")] }, ai: { hand: [card("a1", "X"), card("a2", "X")] } }), "an opponent has more cards in hand than you", "user")).toBe(true);
+  });
+  it("'controls more creatures than you' counts only creatures (a Land doesn't inflate)", () => {
+    const COND = "an opponent controls more creatures than you";
+    expect(evaluateInterveningIf(withOpp({
+      user: { battlefield: [perm("uc", "Creature — Bear")] },
+      ai: { battlefield: [oppPerm("ac1", "Creature — Goblin"), oppPerm("aland", "Basic Land — Island")] },
+    }), COND, "user")).toBe(false); // 1 vs 1 creature (the land doesn't count) → not more
+  });
+});
+
+describe("evaluateInterveningIf — control-another-subtype (CR 113.7 + 205.3m)", () => {
+  const ENTER = "__entering__";
+  // a board carrying the entering permanent + extra creatures; ctx threads the entering id (like SAME-NAME ETB)
+  const ctx = { triggeringPermanentId: ENTER };
+  it("true only when ANOTHER (non-entering) creature of that subtype is controlled", () => {
+    const entering = enterPerm(ENTER, "Creature — Elf Warrior");
+    // only the entering Elf → "another Elf" is FALSE (CR 113.7 — itself doesn't count)
+    expect(evaluateInterveningIf(withBoard([entering]), "you control another Elf", "user", ctx)).toBe(false);
+    // a second Elf present → TRUE
+    const otherElf = perm("e2", "Creature — Elf");
+    expect(evaluateInterveningIf(withBoard([entering, otherElf]), "you control another Elf", "user", ctx)).toBe(true);
+    // a Goblin doesn't satisfy "another Elf"
+    expect(evaluateInterveningIf(withBoard([entering, perm("g", "Creature — Goblin")]), "you control another Elf", "user", ctx)).toBe(false);
+  });
+  it("a non-creature permanent sharing the subtype word does NOT count (must be a creature)", () => {
+    const entering = enterPerm(ENTER, "Creature — Spirit");
+    // an enchantment "Spirit" (rare) isn't "another Spirit" creature
+    expect(evaluateInterveningIf(withBoard([entering, perm("ench", "Enchantment — Spirit")]), "you control another Spirit", "user", ctx)).toBe(false);
+  });
+  it("a non-curated subtype word ('outlaw' is a designation, not a creature type) → null (Arbiter, CREED)", () => {
+    const entering = enterPerm(ENTER, "Creature — Human Mercenary");
+    expect(evaluateInterveningIf(withBoard([entering]), "you control another outlaw", "user", ctx)).toBe(null);
+  });
+  it("no entering permanent in context → null (can't confirm 'another', FN-safe)", () => {
+    expect(evaluateInterveningIf(withBoard([perm("e", "Creature — Elf")]), "you control another Elf", "user")).toBe(null);
+  });
+});
+
 // ─── 2. Coverage flips ────────────────────────────────────────────────────────────
 describe("intervening-if — coverage: conditional triggers flip native-trigger", () => {
   it("ETB conditional draw / lifegain / counter → native-trigger", () => {
@@ -172,5 +248,62 @@ describe("intervening-if — runtime: condition gates the trigger (CR 603.4)", (
   it("POWER condition NOT met (only a 2/2) → never goes on the stack (no draw)", () => {
     const small = perm("sm", "Creature — Bird", { card: { id: "sm", name: "Bird", type: "Creature — Bird", power: "2", toughness: "2" } });
     expect(runConditionalDraw({ board: [small], condition: "you control a creature with power 4 or greater" })).toBe(0);
+  });
+});
+
+// ─── 4. New families: coverage flips + runtime firing ───────────────────────────────
+describe("opponent-comparison + control-another-subtype — coverage: real cards flip native-trigger", () => {
+  it("control-another-subtype ETB → native-trigger (Dwynen's Elite / Ghitu Journeymage / Apothecary Geist / Resistance Squad)", () => {
+    expect(classifyCard(C("Dwynen's Elite", "When this creature enters, if you control another Elf, create a 1/1 green Elf Warrior creature token.", "Creature — Elf Warrior"))).toBe("native-trigger");
+    expect(classifyCard(C("Ghitu Journeymage", "When this creature enters, if you control another Wizard, this creature deals 2 damage to each opponent.", "Creature — Human Wizard"))).toBe("native-trigger");
+    expect(classifyCard(C("Apothecary Geist", "Flying\nWhen this creature enters, if you control another Spirit, you gain 3 life.", "Creature — Spirit"))).toBe("native-trigger");
+    expect(classifyCard(C("Resistance Squad", "When this creature enters, if you control another Human, draw a card.", "Creature — Human Soldier"))).toBe("native-trigger");
+  });
+  it("opponent-comparison ETB → native-trigger (Loyal Warhound / Ticket Tortoise)", () => {
+    expect(classifyCard(C("Loyal Warhound", "Vigilance\nWhen this creature enters, if an opponent controls more lands than you, search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle.", "Creature — Dog"))).toBe("native-trigger");
+    expect(classifyCard(C("Ticket Tortoise", "Defender\nWhen this creature enters, if an opponent controls more lands than you, you create a Treasure token.", "Artifact Creature — Turtle"))).toBe("native-trigger");
+  });
+  it("CREED: a non-curated subtype ('another outlaw') or untracked metric stays body-only", () => {
+    expect(classifyCard(C("Mine Raider", "When this creature enters, if you control another outlaw, create a Treasure token.", "Creature — Human Rogue"))).not.toMatch(/^native/);
+    expect(classifyCard(C("Spell Counter", "When this creature enters, if an opponent controls more spells than you, draw a card.", "Creature — Bird"))).not.toMatch(/^native/);
+  });
+});
+
+describe("opponent-comparison + control-another-subtype — runtime gates the trigger (CR 603.4)", () => {
+  // Drive a real conditional ETB end-to-end with an opponent board, asserting the draw fires only when met.
+  function runConditional({ condition, userBoard = [], aiBoard = [], userLife = 20, aiLife = 20, entering = null }) {
+    let st = createGameState({ userDeck: [], aiDeck: [] });
+    const lib = [{ id: "topcard", name: "Forest", type: "Basic Land — Forest" }];
+    st = { ...st, players: { ...st.players,
+      user: { ...st.players.user, battlefield: userBoard, library: lib, hand: [], life: userLife },
+      ai: { ...st.players.ai, battlefield: aiBoard, life: aiLife },
+    } };
+    st = { ...st, pendingTriggers: [{
+      event: "etb", source: { name: "Probe", permanentId: entering || "src" }, controller: "user",
+      descriptor: { event: "etb", scope: "self", whose: "any", effectClause: "draw a card", interveningIf: condition },
+      context: entering ? { triggeringPermanentId: entering } : {}, targets: [], payload: {},
+    }] };
+    let out = flushTriggers(st, { chooseTargets: chooseTriggerTargets });
+    while (out.stack.length) out = resolveTopOfStack(out);
+    return out.players.user.hand.length;
+  }
+  it("opponent-comparison MET (opp has more lands) → fires", () => {
+    expect(runConditional({ condition: "an opponent controls more lands than you",
+      userBoard: [perm("ul", "Basic Land — Forest")],
+      aiBoard: [oppPerm("al1", "Basic Land — Island"), oppPerm("al2", "Basic Land — Island")] })).toBe(1);
+  });
+  it("opponent-comparison NOT met (you lead) → never goes on the stack", () => {
+    expect(runConditional({ condition: "an opponent controls more lands than you",
+      userBoard: [perm("ul1", "Basic Land — Forest"), perm("ul2", "Basic Land — Forest")],
+      aiBoard: [oppPerm("al1", "Basic Land — Island")] })).toBe(0);
+  });
+  it("control-another-subtype MET (a second Elf besides the entering one) → fires", () => {
+    const entering = enterPerm("ent", "Creature — Elf");
+    expect(runConditional({ condition: "you control another Elf", entering: "ent",
+      userBoard: [entering, perm("e2", "Creature — Elf")] })).toBe(1);
+  });
+  it("control-another-subtype NOT met (only the entering Elf) → never goes on the stack (CR 113.7)", () => {
+    const entering = enterPerm("ent", "Creature — Elf");
+    expect(runConditional({ condition: "you control another Elf", entering: "ent", userBoard: [entering] })).toBe(0);
   });
 });

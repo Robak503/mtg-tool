@@ -197,13 +197,15 @@ describe("coverage — typed-basic ramp flips native; the rider-shelled cards bo
     // Clean ETB ramp creatures (no rider) route native-trigger.
     expect(classifyCard(C("Creature — Elf Scout", "When this creature enters, search your library for a Forest card, put that card onto the battlefield, then shuffle.", "Wood Elves"))).toBe("native-trigger");
     expect(classifyCard(C("Creature — Soldier", "When this creature enters, you may search your library for a Plains card, put it onto the battlefield tapped, then shuffle.", "Kor Cartographer"))).toBe("native-trigger");
+    // OPPONENT-COMPARISON intervening-if (now modeled — an existential board-count vs each opponent, CR 603.4):
+    // Loyal Warhound / Knight of the White Orchid ramp gated on "an opponent controls more lands than you".
+    expect(classifyCard(C("Creature — Dog", "Vigilance\nWhen this creature enters, if an opponent controls more lands than you, search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle.", "Loyal Warhound"))).toBe("native-trigger");
+    expect(classifyCard(C("Creature — Human Knight", "First strike\nWhen this creature enters, if an opponent controls more lands than you, you may search your library for a Plains card, put it onto the battlefield, then shuffle.", "Knight of the White Orchid"))).toBe("native-trigger");
   });
 
   it("CREED: typed-ramp cards wrapped in an unmodeled clause stay out of native", () => {
     // Quandrix Cultivator — ambiguous-basic union → the clause itself drops to Arbiter.
     expect(classifyCard(C("Creature — Turtle Druid", "When this creature enters, you may search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.", "Quandrix Cultivator"))).not.toBe("native-trigger");
-    // Loyal Warhound / Knight of the White Orchid — an INTERVENING-IF gate the flush stage doesn't evaluate.
-    expect(classifyCard(C("Creature — Dog", "Vigilance\nWhen this creature enters, if an opponent controls more lands than you, search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle.", "Loyal Warhound"))).not.toBe("native-trigger");
     // Karametra — a devotion-based static ("isn't a creature") the engine doesn't model.
     expect(classifyCard(C("Legendary Enchantment Creature — God", "Indestructible\nAs long as your devotion to green and white is less than seven, Karametra isn't a creature.\nWhenever you cast a creature spell, you may search your library for a Forest or Plains card, put it onto the battlefield tapped, then shuffle.", "Karametra, God of Harvests"))).not.toBe("native-trigger");
     // Aerial Surveyor — a Crew ability + an intervening-if attack trigger; not a clean native.

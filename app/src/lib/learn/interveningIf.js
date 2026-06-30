@@ -26,9 +26,15 @@
  *      Uprising, Beastbond Outcaster) — a LAYER-AWARE power query (counters + anthems count), evaluated
  *      against creaturePower at flush AND resolution, mirroring the `powerAtLeast` count-source vocabulary.
  *   "[there are|you have] <N> or more <type> cards in your graveyard" (three or more creature cards …)
+ *   "an opponent controls more <lands|creatures|artifacts|enchantments> than you" (Knight of the White
+ *      Orchid, Loyal Warhound, Ticket Tortoise, Linvala) — an existential board-count compare vs each
+ *      opponent (CR 104.3a); and "an opponent has more <life|cards in hand> than you" (Linvala).
+ *   "you control another <Subtype>" (Dwynen's Elite "another Elf", Ghitu Journeymage "another Wizard",
+ *      Apothecary Geist "another Spirit", Resistance Squad "another Human") — a CURATED creature subtype,
+ *      excluding the entering permanent (CR 113.7), keyed on ctx.triggeringPermanentId like SAME-NAME ETB.
  * DEFERRED to the Arbiter (stay LOW): color/multicolored permanents, other power comparisons ("power N or
- * less", toughness), turn-event history ("a creature died this turn"), state flags (monarch, city's
- * blessing) — each a future increment.
+ * less", toughness), turn-event history ("a creature died this turn"), cast-decision flags (kicker/tribute/
+ * bargain), state flags (monarch, city's blessing) — each a future increment.
  */
 
 import { creaturePower } from "./gameState.js"; // layer-aware power reader (counters + anthems) — one-way edge, no cycle
@@ -99,6 +105,53 @@ function parseFilter(phrase) {
 function controllerBoard(state, controllerId) {
   return state?.players?.[controllerId]?.battlefield || [];
 }
+
+// Opponent ids = every seat that ISN'T the controller. Computed inline from the live player map (NOT via
+// gameState.opponentsOf, which assertPlayer-throws on the synthetic probe id used by interveningIfParseable).
+// Stable order (Object.keys); used only for "an opponent <comparison> than you" (an existential over opponents),
+// so order doesn't affect the result. A 1-seat probe board yields no opponents → the comparison is vacuously
+// false there, which is exactly what interveningIfParseable wants (a parseable shape returns a boolean, not null).
+function opponentIds(state, controllerId) {
+  return Object.keys(state?.players || {}).filter((id) => id !== controllerId);
+}
+
+// ===== OPPONENT-COMPARISON (CR 603.4 board query — the "behind on a resource" ramp/payoff family) =========
+// "an opponent <controls more X | has more Y> than you" — TRUE iff AT LEAST ONE opponent's tally strictly
+// exceeds the controller's (CR 104.3a — each opponent is compared independently; "an opponent" = the existential).
+// METRIC kinds (each a count the live state exposes directly, never fabricated):
+//   controls more <permanent-type>  → battlefield permanents of that card type (lands/creatures/artifacts/
+//                                      enchantments), a word-anchored type-line read (reuses parseFilter).
+//   has more life                   → player.life
+//   has more cards in hand          → player.hand.length
+// Strictly LAYER-IRRELEVANT (a pure count/total compare), so it's read identically at flush AND resolution.
+const OPP_CONTROLS_MORE_RE = /^an opponent controls more (lands|creatures|artifacts|enchantments) than you$/;
+const OPP_HAS_MORE_RE = /^an opponent has more (life|cards in hand) than you$/;
+
+function controllerMetric(state, controllerId, kind) {
+  const player = state?.players?.[controllerId];
+  if (!player) return 0;
+  if (kind === "life") return player.life || 0;
+  if (kind === "cards in hand") return (player.hand || []).length;
+  // a permanent-type count — word-anchored type-line match (singular Title-case), mirroring parseFilter
+  const word = kind.replace(/s$/, "");
+  const re = new RegExp(`\\b${word.charAt(0).toUpperCase() + word.slice(1)}\\b`, "i");
+  return (player.battlefield || []).filter((p) => re.test(typeStr(p.card))).length;
+}
+
+// ===== CONTROL-ANOTHER-SUBTYPE (CR 603.4 + 113.7 — "another" excludes the trigger source) =================
+// "you control another <Subtype>" (Dwynen's Elite "another Elf", Ghitu Journeymage "another Wizard", Apothecary
+// Geist "another Spirit", Resistance Squad "another Human") — TRUE iff the controller controls a creature of that
+// subtype OTHER THAN the entering permanent (the trigger's triggeringPermanent, threaded as ctx.triggeringPermanentId
+// exactly like SAME-NAME ETB). The subtype must be in the CURATED creature-subtype allowlist (a proper noun that
+// appears verbatim ONLY in the subtype portion of a type line — no left-of-dash collision — so a `\b<sub>\b`
+// type-line containment selects exactly the subtyped creatures, CR 205.3m). A non-curated word ("Outlaw" is a
+// DESIGNATION, not a creature type; a color; a card type) is NOT in the set → null → Arbiter (CREED: never a
+// mis-scoped / fabricated tribal gate). Mirrors the curated MASS_CREATURE_SUBTYPES allowlist discipline.
+const CTRL_ANOTHER_SUBTYPE_RE = /^you control another ([a-z]+)$/;
+const CONTROL_SUBTYPE_ALLOW = new Set([
+  "elf", "wizard", "spirit", "human", "goblin", "dragon", "zombie", "vampire", "merfolk", "warrior",
+  "knight", "soldier", "cleric", "angel", "demon", "sliver", "dinosaur", "bird", "snake", "cat",
+]);
 
 // ===== SAME-NAME ETB (Guardian Project, CR 603.4 + 201.2) ====================================
 // "it doesn't have the same name as another creature you control or a creature card in your graveyard"
@@ -184,6 +237,31 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const re = new RegExp(`\\b${word}\\b`, "i");
     const gy = state.players[controllerId].graveyard || [];
     return gy.filter((card) => re.test(typeStr(card))).length >= n;
+  }
+
+  // "an opponent controls more <lands|creatures|artifacts|enchantments> than you"
+  m = c.match(OPP_CONTROLS_MORE_RE);
+  if (m) {
+    const mine = controllerMetric(state, controllerId, m[1]);
+    return opponentIds(state, controllerId).some((oid) => controllerMetric(state, oid, m[1]) > mine);
+  }
+  // "an opponent has more <life|cards in hand> than you"
+  m = c.match(OPP_HAS_MORE_RE);
+  if (m) {
+    const mine = controllerMetric(state, controllerId, m[1]);
+    return opponentIds(state, controllerId).some((oid) => controllerMetric(state, oid, m[1]) > mine);
+  }
+
+  // "you control another <Subtype>" — a curated creature subtype, OTHER THAN the entering permanent (CR 113.7)
+  m = c.match(CTRL_ANOTHER_SUBTYPE_RE);
+  if (m) {
+    const sub = m[1];
+    if (!CONTROL_SUBTYPE_ALLOW.has(sub)) return null; // non-creature-type word (designation/color) → Arbiter (CREED)
+    const triggeringId = context?.triggeringPermanentId;
+    if (!triggeringId) return null; // "another" needs the entering permanent to exclude → can't confirm (FN-safe)
+    const re = new RegExp(`\\b${sub.charAt(0).toUpperCase() + sub.slice(1)}\\b`, "i");
+    return controllerBoard(state, controllerId).some((p) =>
+      p.id !== triggeringId && isCreaturePermLocal(p) && re.test(typeStr(p.card)));
   }
 
   return null; // outside the modeled vocabulary → not native / not fired (never fail-open)
