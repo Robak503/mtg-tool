@@ -1142,7 +1142,14 @@ const _detectCache = new WeakMap();
  * the parser still re-gates the keyword set (an unmodeled keyword → LOW), so this only GIVES the
  * parser the chance to model it — it never asserts coverage on its own.
  */
-const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+)?|gains .+) until end of turn$/i;
+// FOR-EACH tail (TRIG-PUMP-COUNT) — a count-scaled self-pump states a per-unit ±P/±P that multiplies by a
+// board count AFTER "until end of turn": "it gets +1/+1 until end of turn FOR EACH land you control"
+// (Rampaging Brontodon). The pronoun-rewrite branches below operate on the LEADING "it" only (tail-agnostic
+// `^it ` replace), and the parser re-gates the whole clause (the for-each pump matcher demands a parseable
+// count source + a symmetric per-unit delta, else LOW → Arbiter), so admitting the optional tail here only
+// GIVES the parser the chance to model it — never asserts coverage. A pump-grant ("and gains KW") form has no
+// "for each" tail in printed text, so the optional tail rides the pure ±P/±P branch only.
+const SELF_PUMP_IT_RE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+?)?|gains .+?) until end of turn(?: for each .+)?$/i;
 
 // IT-COUNTER — the self-COUNTER analogue of SELF_PUMP_IT_RE: a SELF-scope trigger states its +1/+1 (or
 // -1/-1) counter on its own source with the pronoun "it" — "Whenever this creature attacks, put a +1/+1

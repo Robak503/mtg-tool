@@ -89,7 +89,7 @@ export function applyPumpEffect(state, atom, ctx) {
   // Overwhelming Stampede's "greatest power among creatures you control". Computed from `state` (pre-pump,
   // before the loop below adds any P/T effect), so X reads the un-buffed board. Takes precedence over the
   // X-cost pump (amountX → ctx.xValue) and the printed ptDelta; 0 (empty board) is a valid +0/+0, not null.
-  const scaled = atom.ptDeltaCount ? Math.max(0, countForSpec(state, ctx, atom.ptDeltaCount)) : null;
+  const scaled = atom.ptDeltaCount ? Math.max(0, countForSpec(state, ctx, atom.ptDeltaCount) * (atom.ptDeltaCount.per ?? 1)) : null;
   // amountX → the chosen X (ctx.xValue) scales the pump. amountXSlot ("p"/"t") marks WHICH stat is the
   // +X for an ASYMMETRIC X-pump ("+X/+0" → slot "p", "+0/+X" → slot "t"); the OTHER stat reads its
   // printed ptDelta. An absent slot = symmetric +X/+X (both stats = X) — the original behavior.
@@ -739,6 +739,20 @@ export function pumpClauseParser(clause) {
     const kws = parseGrantedKeywords(ox[1]);
     const countSpec = parseCountSource(ox[2].replace(/^the /, "").replace(/^number of /, ""));
     return (kws && countSpec) ? { op: "pump", scope: "youControl", ptDeltaCount: countSpec, grantKeywords: kws } : null;
+  }
+  // SELF FOR-EACH PUMP (TRIG-PUMP-COUNT) — a count-scaled self-pump: "this creature gets +N/+N until end of
+  // turn for each <count source>" (Rampaging Brontodon "+1/+1 … for each land you control"). The detector's
+  // SELF_PUMP_IT_RE rewrote the leading "it" → "this creature" (self scope) before this runs. SYMMETRIC +N/+N
+  // ONLY (the per-unit multiplier is the SAME for power + toughness): the count × N feeds applyPumpEffect's
+  // ptDeltaCount.per path (countForSpec resolves the board count at resolution — CR 608.2h — and the layer-7c
+  // pump reads it). An ASYMMETRIC "+2/+0 for each …" (distinct per-stat multipliers) fails this anchor → null →
+  // low → Arbiter (a SAFE false-negative — never a mis-scaled stat). count source via parseCountSource (leaf):
+  // an unmodeled source ("for each card type among …") → null → low. NEGATIVE per (-N/-N for each) is admitted
+  // symmetrically; the lethal-SBA in applyPumpEffect already covers a debuff to 0 toughness.
+  m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) until end of turn for each (.+)$/);
+  if (m && m[1] === m[2]) {
+    const countSpec = parseCountSource(m[3]);
+    return countSpec ? { op: "pump", target: "self", ptDeltaCount: { ...countSpec, per: parseInt(m[1], 10) } } : null;
   }
   m = t.match(/^this creature gets ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", target: "self", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
