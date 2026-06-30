@@ -329,12 +329,34 @@ function parseControlGateSource(quant, typePhrase) {
   return { countSpec: { kind: "permanentsYouControl", subtype: sub }, atLeast, excludeSelf };
 }
 
+// FIRST-WORD self-ref stopwords (mirror of triggers.FIRST_WORD_SELF_STOPWORDS) — a leading article/conjunction
+// is never a legend's self-reference first word ("The Ur-Dragon" → self-ref is the full name), so it must not be
+// rewritten to "this creature" and over-match unrelated text.
+const FIRST_WORD_SELF_STOPWORDS_STATIC = new Set(["the", "a", "an", "of", "and"]);
+
 /**
  * Replace the card's OWN name with "this creature" so a name-based self-reference ("Nim Lasher gets +1/+0
  * …", common on older cards) reads the same as modern "This creature gets …" templating. Word-bounded on
- * the FULL name only (never a partial), so it can't touch an unrelated card's name in the text.
+ * the FULL name (never a partial), so it can't touch an unrelated card's name in the text.
+ *
+ * SHORT-NAME / FIRST-WORD self-ref (CR 201.4) — a LEGENDARY card refers to itself by the part of its name
+ * before the first comma ("Molimo" for "Molimo, Maro-Sorcerer") or, when its name has no comma but does have
+ * a space, by its first word ("Braulios" for "Braulios of Pheres Band"). The full-name rewrite alone misses
+ * those, so a self-static templated with the short/first-word form (the standard for legends — every CDA-self
+ * creature is templated this way) stays UNNORMALIZED → unrecognized → body-only. Apply the SAME guards the
+ * trigger path uses (triggers.classifyCondition): legendary-only; short name ≥ 3 chars; first word ≥ 4 chars
+ * and not a leading stopword. Word-bounded + longest-first (full name before short before first word), so it
+ * only ever rewrites the literal self-name (never a substring of another word). Conservative by design — a
+ * non-legendary card, or a too-short name, is left to the full-name rewrite only (a safe false-negative).
+ *
+ * TRIBE-WORD GUARD (CREED, CLAUDE.md §1.2): a candidate short/first-word form that is ALSO the card's own
+ * creature SUBTYPE is a TRIBE reference, NOT a self-reference — "Sliver Legion" ("All Sliver creatures get
+ * +1/+1 …") and "Sliver Hivelord" ("Sliver creatures you control have indestructible") use "Sliver" as the
+ * tribe, so rewriting it to "this creature" would SHRED the anthem ("All this creature creatures …") and DROP
+ * those tribal lords from native (a regression the full corpus flip-diff caught). Skip any candidate form
+ * that appears as a subtype on the card's own type line; the full name is always still rewritten.
  */
-function selfNormalizeOracle(oracle, name) {
+function selfNormalizeOracle(oracle, name, type) {
   // Strip parenthetical reminder text (CR 207.2 — reminder text is never functional) so a fully-modeled
   // static isn't judged "uncovered" by its own reminder ("Sliver creatures you control have double strike.
   // (They deal both first-strike and regular combat damage.)"). Removing it changes NO behavior — the
@@ -342,8 +364,33 @@ function selfNormalizeOracle(oracle, name) {
   // (staticAbilitiesCoverCard) see that the card's real text is fully modeled. Scoped to static parsing.
   let o = String(oracle || "").replace(/\([^)]*\)/g, " ");
   if (!name) return o;
-  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return o.replace(new RegExp(`\\b${esc}\\b`, "g"), "this creature");
+  // Candidate self-name forms, longest first so the full name is consumed before any short prefix.
+  const forms = [name];
+  const isLegendary = /legendary/i.test(String(type || ""));
+  if (isLegendary) {
+    // The card's OWN creature subtypes (right of the em-dash), lowercased — a candidate form matching one of
+    // these is a tribe word, never a self-reference (TRIBE-WORD GUARD above).
+    const tl = String(type || "");
+    const dash = tl.indexOf("—");
+    const ownSubtypes = new Set(dash === -1 ? [] : tl.slice(dash + 1).trim().toLowerCase().split(/\s+/).filter(Boolean));
+    const short = name.split(",")[0].trim();
+    if (short.length >= 3 && short !== name && !ownSubtypes.has(short.toLowerCase())) forms.push(short);
+    // First-word form only when the name has NO comma but DOES have a space (the "<First> the <Epithet>" /
+    // "<First> of <Place>" style) — gated ≥4 chars + stopword guard + tribe-word guard, matching the trigger path.
+    if (!name.includes(",") && /\s/.test(name)) {
+      const firstWord = name.split(/\s+/)[0];
+      if (firstWord.length >= 4 && firstWord !== name
+          && !FIRST_WORD_SELF_STOPWORDS_STATIC.has(firstWord.toLowerCase())
+          && !ownSubtypes.has(firstWord.toLowerCase())) {
+        forms.push(firstWord);
+      }
+    }
+  }
+  forms.sort((a, b) => b.length - a.length);
+  for (const f of forms) {
+    o = o.replace(new RegExp(`\\b${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "g"), "this creature");
+  }
+  return o;
 }
 
 const _ENTER_NUM = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
@@ -899,6 +946,38 @@ function parseClause(clause, out, selfName) {
     }
   }
 
+  // ── CDA-SELF-P/T-BY-COUNT: a characteristic-defining ability SETTING self P/T from a live board count ──
+  // "[this creature]'s power and toughness are each equal to the number of <X> you control" — a CDA (CR
+  // 613.4a / 604.3), layer 7a, that SETS both base power and toughness to a LIVE count (Dakkon Blackblade /
+  // Molimo / Flora Colossus — lands; Scion of the Wild / Crusader of Odric — creatures). DISTINCT from the
+  // 7c "gets +X/+Y for each" self-buff below (that ADDS to the printed body; this SETS the */* base). The
+  // card name was normalized to "this creature" upstream, so "Dakkon Blackblade's power and toughness …"
+  // reads "this creature's power and toughness …". The count source must be one parseSelfCountSource models
+  // (lands / creatures / artifacts / enchantments / a basic-land subtype) → a serializable
+  // { kind:"permanentsYouControl", cardType|subtype } spec that layers.countSelfSpecOnBoard evaluates every
+  // P/T computation (recursion-safe — a plain type-line scan, never deriveCharacteristics). An UNMODELED
+  // count ("Spirits", "+1/+1 counters on lands", "permanents", a qualified/opponent count) → NO descriptor
+  // → the card stays body-only (Arbiter; CREED — a miss is safe, a fabricated/wrong base across 75 such
+  // creatures is forbidden). Anchored ^…$ on the whole clause: a trailing rider would break the anchor and
+  // fall through to body-only. Placed BEFORE the 7c "for each" block so the SET form is tried first.
+  {
+    const cdaM = c.match(/^this creature's power and toughness are each equal to the number of (.+) you control$/);
+    if (cdaM) {
+      const countSpec = parseSelfCountSource(`${cdaM[1]} you control`);
+      if (countSpec) {
+        out.push({
+          layer: 7,
+          sublayer: "7a",
+          isCDA: true,
+          op: { layerOp: "ptSetDynamicCount", countSpec, setPower: true, setToughness: true },
+          affects: { mode: "self" },
+          duration: { kind: "permanent" },
+        });
+      }
+      return; // a CDA self-P/T clause — handled (or intentionally dropped to body-only on an unmodeled count)
+    }
+  }
+
   // ── TRUNK-SELFBUFF: a STATIC self-buff scaled by a board count (layer 7c dynamic) ──
   // "This creature gets +X/+Y for each <countsource>" (Nim Lasher, Benalish Honor Guard…). A CONTINUOUS
   // effect, so it's exempt from the `for each` guard below — but ONLY this exact self-referential static
@@ -1385,7 +1464,7 @@ function isLevelGated(oracle) {
 export function parseStaticAbilities(card) {
   const rawOracle = String(card?.oracle || card?.oracle_text || "");
   if (!rawOracle || isLevelGated(rawOracle)) return [];
-  const oracle = selfNormalizeOracle(rawOracle, card?.name); // TRUNK-SELFBUFF: name-based self-ref → "this creature"
+  const oracle = selfNormalizeOracle(rawOracle, card?.name, card?.type || card?.type_line); // TRUNK-SELFBUFF: name-based self-ref → "this creature"
   const out = [];
   for (const clause of abilityClauses(oracle)) {
     parseClause(clause, out, card?.name); // name → EMINENCE excludeSelf sourceName
@@ -1552,7 +1631,7 @@ export function uncounterableSubtypesOnBattlefield(permanentCards) {
  */
 export function staticAbilitiesCoverCard(card, isKeywordOnlyClause) {
   if (parseStaticAbilities(card).length === 0) return false; // none, or leveler-gated
-  const oracle = selfNormalizeOracle(String(card?.oracle || card?.oracle_text || ""), card?.name); // match the runtime's name-normalized parse
+  const oracle = selfNormalizeOracle(String(card?.oracle || card?.oracle_text || ""), card?.name, card?.type || card?.type_line); // match the runtime's name-normalized parse
   for (const clause of abilityClauses(oracle)) {
     const produced = [];
     parseClause(clause, produced, card?.name);

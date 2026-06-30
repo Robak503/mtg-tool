@@ -499,7 +499,20 @@ function applyLayer7(state, perm, l7Effects) {
   let basePower = printedPower(perm);
   let baseToughness = printedToughness(perm);
 
-  // 7a — characteristic-defining P/T (none modeled in Phase 1; reserved).
+  // 7a — characteristic-defining P/T (CR 613.4a; 604.3 — a CDA applies in layer 7a and is NEVER on the
+  // stack). CDA-SELF-P/T-BY-COUNT: "[this creature]'s power and toughness are each equal to the number of
+  // <X> you control" SETS the base from a LIVE board count (Dakkon Blackblade / Molimo / Flora Colossus —
+  // lands; Scion of the Wild / Crusader of Odric — creatures). The count is read THIS computation via the
+  // SAME countSelfSpecOnBoard the layer-7c count-buff uses (a plain type-line board scan — recursion-safe,
+  // never deriveCharacteristics), so it tracks the board both directions (a land enters → grows; a land
+  // leaves → shrinks). CDAs have no inter-CDA dependency in the modeled set; apply each in timestamp order.
+  // `setPower`/`setToughness` flags gate which characteristic the CDA defines (the modeled form sets both).
+  for (const e of l7Effects.filter(e => e.sublayer === "7a").sort(byTimestamp)) {
+    if (e.op?.layerOp !== "ptSetDynamicCount") continue;
+    const n = countSelfSpecOnBoard(state, perm, e.op.countSpec);
+    if (e.op.setPower) basePower = n;
+    if (e.op.setToughness) baseToughness = n;
+  }
   // 7b — set base P/T ("base power/toughness becomes X/Y").
   for (const e of l7Effects.filter(e => e.sublayer === "7b").sort(byTimestamp)) {
     if (e.op.power != null) basePower = e.op.power;
