@@ -1241,6 +1241,12 @@ function parseControllerRider(t) {
   // token; reuses applyCreateNamedToken). The parenthetical reminder is stripped before this runs.
   m = t.match(/^creates (a|two|three|four|five) (treasure|clue|food|gold) tokens?$/);
   if (m) return { kind: "createNamedToken", token: m[2], count: RIDER_COUNT[m[1]] };
+  // CNT-DRAW-RIDER (Dream Fracture) — "draws a card" / "draws N cards" (the COUNTERED spell's controller draws,
+  // applied to the captured controller via the drawCards rider). Only the unconditional, fixed-count form (no
+  // "may", no "up to", no delayed "at the beginning of …") — a delayed/optional draw (Arcane Denial) leaves the
+  // anchor unmatched → null → low → Arbiter. Used only on the counter-rider path (a removal never says "draws").
+  m = t.match(/^draws (a|two|three|four|five) cards?$/);
+  if (m) return { kind: "drawCards", count: RIDER_COUNT[m[1]] };
   // Path to Exile / Assassin's Trophy — "may search their library for a basic land card, put it/that card
   // onto the battlefield[ tapped], then shuffle". Reuses the RAMP-1 battlefield tutor scoped to that player;
   // the optional "may" is the tutor's find-nothing (identical to how Farhaven Elf's "you may search" models).
@@ -1299,21 +1305,26 @@ function matchRemovalDamageRider(oracle) {
   if (dm[1]) damageRider.onlyIfNonbasic = true;                              // Molten Rain — "If that land was nonbasic,"
   return { atom: { ...lead, damageRider }, rest: "" };
 }
-// SOFT-COUNTER-RIDER — "Counter target <filter> spell. Its controller <rider>." (An Offer You Can't Refuse
-// "creates two Treasure tokens", Swan Song "creates a 2/2 blue Bird … with flying"). The lead reuses the
-// counter grammar (spellFilter incl. the 3-way enchantment/instant/sorcery); the rider rides on the atom and
-// is applied at resolution to the COUNTERED spell's controller (captured in applyCounter). The parenthetical
-// token reminder is stripped. ALL-OR-NOTHING: an unmodeled rider, a soft-counter ("unless pays {N}", which
-// the lead grammar returns WITH unlessPay — rejected here so the rider+pay interaction isn't half-modeled),
-// or a non-counter lead → null → low → Arbiter.
+// SOFT-COUNTER-RIDER — "Counter target <filter> spell. Its controller <rider>.[ <tail>]" (An Offer You Can't
+// Refuse "creates two Treasure tokens", Swan Song "creates a 2/2 blue Bird … with flying", Dream Fracture "draws
+// a card. Draw a card."). The lead reuses the counter grammar (spellFilter incl. the 3-way enchantment/instant/
+// sorcery); the rider rides on the atom and is applied at resolution to the COUNTERED spell's controller
+// (captured in applyCounter). The parenthetical token reminder is stripped. The rider capture stops at the FIRST
+// sentence period — any FURTHER sentences (Dream Fracture's caster-side "Draw a card.") are returned as `rest` so
+// collapsed() parses them as additional atoms (ALL-OR-NOTHING — an unmodeled tail drops the whole card to LOW).
+// ALL-OR-NOTHING: an unmodeled rider, a soft-counter ("unless pays {N}", which the lead grammar returns WITH
+// unlessPay — rejected here so the rider+pay interaction isn't half-modeled), or a non-counter lead → null → low
+// → Arbiter.
 function matchCounterControllerRider(oracle) {
-  const m = stripReminder(oracle).trim().match(/^(counter target .+? spell)\.\s+its controller (.+?)\.?$/i);
+  // Non-greedy rider capture to the first "." — a `rest` (the trailing caster-side clause[s]) is parsed by collapsed().
+  // The filter words are OPTIONAL ((?:.+? )?) so the bare "Counter target spell" form (Dream Fracture) matches too.
+  const m = stripReminder(oracle).trim().match(/^(counter target (?:.+? )?spell)\.\s+its controller ([^.]+?)\.(.*)$/i);
   if (!m) return null;
   const lead = parseExtendedAtom(m[1].trim()) || counterClauseParser(m[1].trim()); // counter matchers moved to a clause parser (batch 28)
   if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only (defer soft+rider)
   const rider = parseControllerRider(m[2].trim().toLowerCase());
   if (!rider) return null;                                                    // unmodeled rider → low → Arbiter
-  return { atom: { ...lead, controllerRider: rider }, rest: "" };
+  return { atom: { ...lead, controllerRider: rider }, rest: (m[3] || "").trim() };
 }
 // CNT-EXILE-INSTEAD (WAVE 2b) — "Counter target <filter> spell. If that spell is countered this way, exile it
 // instead of putting it into its owner's graveyard." (Deny Existence "creature", Dissipate-style). The lead
@@ -1323,11 +1334,29 @@ function matchCounterControllerRider(oracle) {
 // sentences (the "If that spell …" rider would be shattered by splitClauses), so it's matched up front as ONE
 // collapsed atom. ANCHORED — a hard-counter lead only; the soft-counter path's pay-decision isn't composed here.
 function matchCounterExileInstead(oracle) {
-  const m = stripReminder(oracle).trim().match(/^(counter target .+? spell)\. if that spell is countered this way, exile it instead of putting it into its owner's graveyard\.?$/i);
+  const m = stripReminder(oracle).trim().match(/^(counter target (?:.+? )?spell)\. if that spell is countered this way, exile it instead of putting it into its owner's graveyard\.?$/i);
   if (!m) return null;
   const lead = parseExtendedAtom(m[1].trim()) || counterClauseParser(m[1].trim()); // counter matchers moved to a clause parser (batch 28)
   if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only
   return { atom: { ...lead, exileInstead: true }, rest: "" };
+}
+// CNT-ZONE-REDIRECT (CROSS-COUNTER) — "Counter target <filter> spell. If that spell is countered this way, put
+// it into its owner's hand|on top of its owner's library instead of into that player's graveyard.[ <tail>]"
+// (Remand → owner's hand + "Draw a card."; Memory Lapse → top of owner's library). The lead reuses the counter
+// grammar; the redirect sets counterDest on the atom (applyCounter → counterSpellById routes the countered card
+// to that zone instead of the graveyard). Any FURTHER sentences (Remand's "Draw a card.") are returned as `rest`
+// for collapsed() to parse as additional atoms (ALL-OR-NOTHING — an unmodeled tail drops the whole card to LOW).
+// Tried AFTER matchCounterExileInstead (disjoint anchors — that one says "exile it instead", this one "put it
+// into its owner's hand / on top of its owner's library instead"). Hard-counter lead only (the soft-counter
+// pay-decision isn't composed here). The two-sentence span would be shattered by splitClauses, so it's matched
+// up front like the exile-instead form.
+function matchCounterZoneRedirect(oracle) {
+  const m = stripReminder(oracle).trim().match(/^(counter target (?:.+? )?spell)\. if that spell is countered this way, put it (into its owner's hand|on top of its owner's library) instead of into that player's graveyard\.(.*)$/i);
+  if (!m) return null;
+  const lead = parseExtendedAtom(m[1].trim()) || counterClauseParser(m[1].trim());
+  if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only
+  const counterDest = /hand/i.test(m[2]) ? "hand" : "library-top";
+  return { atom: { ...lead, counterDest }, rest: (m[3] || "").trim() };
 }
 
 // δ-2 impulse-dig — spelled cardinals the "top <N> cards" template uses (2-10; bigger digs are rare).
@@ -2104,6 +2133,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // the countered spell instead of routing it to the graveyard).
   const cei = matchCounterExileInstead(oracle);
   if (cei) return collapsed(cei);
+  // CNT-ZONE-REDIRECT — "Counter target <filter> spell. If that spell is countered this way, put it into its
+  // owner's hand|on top of its owner's library instead of into that player's graveyard.[ Draw a card.]" → ONE
+  // counter atom carrying `counterDest` (applyCounter routes the countered card to that zone), plus any trailing
+  // caster-side clauses (Remand's draw) folded by collapsed(). Remand → hand, Memory Lapse → library top.
+  const czr = matchCounterZoneRedirect(oracle);
+  if (czr) return collapsed(czr);
 
   // Modal "Choose one —": each mode is its own sub-program. HIGH iff every mode
   // parses fully (all-or-nothing across modes).

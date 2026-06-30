@@ -82,16 +82,33 @@ export function counterFilterMatches(card, filter, atom = null) {
   if (filter === "artifactCreaturePlaneswalker") return /\b(?:Artifact|Creature|Planeswalker)\b/.test(type);
   return true; // "any"
 }
+// CNT-ZONE-REDIRECT (CROSS-COUNTER) — the zone a countered SPELL is put into (CR 701.5a + the card's "instead
+// of into its owner's graveyard" rider). Default "graveyard"; "exile" (Deny Existence), "hand" (Remand —
+// returned to its owner's hand), "library-top" (Memory Lapse — put on top of its owner's library). Append for
+// graveyard/exile/hand; PREPEND for library-top (index 0 = the TOP of the library, where drawCards slices from).
+// A countered cast spell's controller IS its owner (the engine only models normal casts), so the controller is
+// the correct zone owner here — matching CR's "its owner's <zone>".
+function placeCounteredCard(player, card, dest) {
+  switch (dest) {
+    case "exile":        return { ...player, exile: [...(player.exile || []), card] };
+    case "hand":         return { ...player, hand: [...(player.hand || []), card] };
+    case "library-top":  return { ...player, library: [card, ...(player.library || [])] };
+    default:             return { ...player, graveyard: [...player.graveyard, card] };
+  }
+}
+
 /**
  * Counter the spell — or ABILITY — with id `spellId` on the stack (CR 701.5a): remove it from the stack,
  * logging the counter (an optional `via` tag, e.g. "soft-counter", records HOW). A SPELL goes to its
- * controller's graveyard (or exile, exileInstead); a countered ACTIVATED/TRIGGERED ABILITY is not a card
- * and goes to no zone — it simply leaves the stack and ceases to exist (CR 701.5a). An object no longer on
- * the stack (left mid-resolution) is a logged fizzle, never an error. Shared by the hard counter
- * (applyCounter) AND the SOFT-CNT pay-decline path (runProgram.resolveSoftCounterChoice — KW-WARD-PR2 also
- * routes a warded ABILITY here) so the paths can't drift.
+ * controller's graveyard by default, or to the zone named by `counterDest` ("exile"/"hand"/"library-top" —
+ * the CNT-ZONE-REDIRECT riders: Deny Existence / Remand / Memory Lapse); a countered ACTIVATED/TRIGGERED
+ * ABILITY is not a card and goes to no zone — it simply leaves the stack and ceases to exist (CR 701.5a). An
+ * object no longer on the stack (left mid-resolution) is a logged fizzle, never an error. Shared by the hard
+ * counter (applyCounter) AND the SOFT-CNT pay-decline path (runProgram.resolveSoftCounterChoice — KW-WARD-PR2
+ * also routes a warded ABILITY here) so the paths can't drift. `exileInstead` is kept as a back-compat alias
+ * for counterDest:"exile".
  */
-export function counterSpellById(state, spellId, { via = null, exileInstead = false } = {}) {
+export function counterSpellById(state, spellId, { via = null, exileInstead = false, counterDest = null } = {}) {
   const idx = (state.stack || []).findIndex((o) => o.id === spellId);
   if (idx === -1) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: spellId });
   const targetObj = state.stack[idx];
@@ -100,18 +117,17 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   const isSpell = targetObj.kind === "spell"; // an ability is not a card → no zone change on counter
   const newStack = [...state.stack.slice(0, idx), ...state.stack.slice(idx + 1)];
   const player = state.players[controller];
-  // CNT-EXILE-INSTEAD (WAVE 2b) — Deny Existence et al. route the countered spell to its owner's EXILE zone
-  // instead of the graveyard (CR 701.5a + the card's "exile it instead" rider). Otherwise it's the graveyard.
+  const dest = counterDest || (exileInstead ? "exile" : "graveyard"); // exileInstead → counterDest:"exile" alias
   const next = {
     ...state,
     stack: newStack,
     players: (isSpell && player)
-      ? { ...state.players, [controller]: exileInstead
-          ? { ...player, exile: [...(player.exile || []), card] }
-          : { ...player, graveyard: [...player.graveyard, card] } }
+      ? { ...state.players, [controller]: placeCounteredCard(player, card, dest) }
       : state.players,
   };
-  return logEvent(next, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, ...(exileInstead && { exiled: true }), ...(via && { via }) });
+  // Log the destination (`dest`) for any non-graveyard zone; keep the legacy `exiled:true` flag for the exile
+  // case so existing log assertions stay green (back-compat with CNT-EXILE-INSTEAD's original log shape).
+  return logEvent(next, { kind: "spell-effect", effect: "counter", targetId: spellId, cardName: card?.name, controller, ...(dest !== "graveyard" && { dest }), ...(dest === "exile" && { exiled: true }), ...(via && { via }) });
 }
 
 function applyCounter(state, atom, ctx) {
@@ -153,12 +169,13 @@ function applyCounter(state, atom, ctx) {
         sourceName: ctx.cardName || null,
       });
     }
-    // SOFT-COUNTER-RIDER — capture the COUNTERED spell's controller, counter it (CNT-EXILE-INSTEAD routes it to
-    // exile not the graveyard), then apply the rider to THAT player (An Offer's Treasures / Swan Song's Bird go
-    // to whoever's spell was countered, not the caster). The rider only fires when the counter actually happens
-    // (a fizzle above skips it).
+    // SOFT-COUNTER-RIDER — capture the COUNTERED spell's controller, counter it (CNT-ZONE-REDIRECT routes it to
+    // exile / its owner's hand / top of its owner's library instead of the graveyard — Deny Existence / Remand /
+    // Memory Lapse), then apply the rider to THAT player (An Offer's Treasures / Swan Song's Bird / Dream
+    // Fracture's draw go to whoever's spell was countered, not the caster). The rider only fires when the counter
+    // actually happens (a fizzle above skips it).
     const riderController = targetObj.controller;
-    next = counterSpellById(next, t.id, { exileInstead: !!atom.exileInstead });
+    next = counterSpellById(next, t.id, { exileInstead: !!atom.exileInstead, counterDest: atom.counterDest || null });
     if (atom.controllerRider && next.players?.[riderController]) {
       next = applyControllerRider(next, atom.controllerRider, { controller: riderController, power: 0 }, ctx);
     }

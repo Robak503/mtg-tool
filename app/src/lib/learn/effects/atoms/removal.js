@@ -6,7 +6,7 @@
  */
 
 import { applyDestroyEffect, applyDamageEffect } from "../../spellEffects.js";
-import { logEvent, gainLife, opponentsOf, findPermanent, moveCardToZone, creaturePower } from "../../gameState.js";
+import { logEvent, gainLife, drawCards, opponentsOf, findPermanent, moveCardToZone, creaturePower } from "../../gameState.js";
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
 import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets } from "./shared.js";
@@ -94,6 +94,12 @@ export function applyControllerRider(state, rider, cap, ctx) {
     // An Offer You Can't Refuse — N named artifact tokens (Treasure/Clue/Food/Gold) under the captured controller.
     const tokenAtom = { op: "create-named-token", token: rider.token, count: rider.count, targetType: null };
     return applyCreateNamedToken(state, tokenAtom, { ...ctx, controller: cap.controller });
+  }
+  if (rider.kind === "drawCards") {
+    // CNT-DRAW-RIDER (Dream Fracture) — the COUNTERED spell's controller draws N (CR 121.2). Scoped to the
+    // captured controller via the shared drawCards (deck-out is an SBA — drawCards draws as many as remain).
+    const next = drawCards(state, { playerId: cap.controller, count: Math.max(0, rider.count || 0) });
+    return logEvent(next, { kind: "spell-effect", effect: "rider-draw", controller: cap.controller, amount: Math.max(0, rider.count || 0) });
   }
   if (rider.kind === "rampBasic") {
     // Reuse the RAMP-1 battlefield tutor (basic land → battlefield), scoped to the TARGET's controller — their

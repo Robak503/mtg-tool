@@ -64,7 +64,9 @@ describe("CROSS-COUNTER parser — new spell-filters parse HIGH to a counter ato
     expect(isHigh("Counter target instant or sorcery spell.")).toBe(false);                 // not a modeled type-union (Quash / Test of Talents)
     expect(isHigh("Counter target instant spell unless its controller pays {1}.")).toBe(false); // soft rider on a type filter (Disrupt-shape)
     expect(isHigh("Counter target spell with mana value 4 or greater unless its controller pays {1}.")).toBe(false); // soft rider on the MV-cmp filter
-    expect(isHigh("Counter target blue spell. Its controller draws a card.")).toBe(false);   // controller rider unmodeled here
+    // NOTE: "Its controller draws a card" IS now a modeled counter-rider (Dream Fracture, COUNTER-RIDER slice);
+    // keep the CREED probe on a still-unmodeled controller rider (discard) so the guard stays meaningful.
+    expect(isHigh("Counter target blue spell. Its controller discards a card.")).toBe(false); // controller rider unmodeled here
     expect(isHigh("Counter target instant or sorcery spell that targets you.")).toBe(false); // Psychic Rebuttal extra restriction
   });
 });
@@ -88,7 +90,7 @@ describe("CROSS-COUNTER native coverage — the clean cards flip native-spell, r
   it("CREED — counters with an UNMODELED rider/filter in these families stay arbiter-spell", () => {
     expect(I("Counter target instant or sorcery spell.")).toBe("arbiter-spell");              // Quash (unmodeled type-union)
     expect(I("Counter target instant spell. Its controller loses 2 life.")).toBe("arbiter-spell"); // controller-rider unmodeled
-    expect(I("Counter target blue spell. Its controller draws a card.")).toBe("arbiter-spell");    // controller-rider unmodeled
+    expect(I("Counter target blue spell. Its controller discards a card.")).toBe("arbiter-spell"); // controller-rider unmodeled (draw IS modeled — Dream Fracture)
     // NOTE: "Counter target spell with mana value 4 or greater. Draw a card." is correctly native-spell — BOTH
     // the counter and the draw are fully modeled (the multi-clause parser composes them). That is not an FP; it's
     // an honestly-playable card, so it is intentionally NOT asserted parked here.
