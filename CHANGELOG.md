@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.64.0] - 2026-06-30
+
+### Improved
+- **Reanimate-from-any-graveyard + reflexive-sac-by-subtype (+5 native).** "Put target creature card from a/an
+  opponent's graveyard onto the battlefield under your control" (Hymn of Rebirth, Ashen Powder, Endless Obedience,
+  Vat Emergence) and "you may sacrifice a Food/Treasure/Blood; if you do, [effect]" (Wedding Security). Flip-diffed
+  both directions, 0 regressions, full gate (5,714 tests) green, 0 false positives.
+
 ## [0.63.0] - 2026-06-30
 
 ### Improved
