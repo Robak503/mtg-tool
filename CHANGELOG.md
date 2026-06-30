@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.69.0] - 2026-06-30
+
+### Improved
+- **Bestow + controller-life-threshold conditions (+19 native).** The Theros bestow mechanic — enchantment
+  creatures castable as an Aura, both modes end-to-end (the Nyxborn cycle, Hopeful Eidolon, Boon Satyr,
+  Chromanticore + more) — and "if you have N or less/more life" upkeep conditions (Convalescent Care,
+  Convalescence). Flip-diffed both directions (19 gained, 0 lost), full gate (5,879 tests) green, 0 false positives.
+
 ## [0.68.0] - 2026-06-30
 
 ### Improved
