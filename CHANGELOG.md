@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-06-29
+
+### Improved
+- **Cross-deck subsystems + deck cleanup (+18 native).** Pantlaza permanent-edict (Silverclad Ferocidons),
+  library-tutor-to-battlefield (Wargate, Nature's Rhythm, Chord of Calling), and subtype-restricted targeting
+  (Otepec Huntmaster, Human Frailty + 10 corpus tribal cards — Krosan Groundshaker, Veteran Cathar, Firewake
+  Sliver…). Flip-diffed both directions, 0 regressions, full gate (5,594 tests) green, 0 false positives.
+
 ## [0.59.0] - 2026-06-29
 
 ### Improved
