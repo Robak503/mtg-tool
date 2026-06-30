@@ -32,6 +32,10 @@ Grinding the priority decks toward **100% native** (your confirmed target) all n
 | v0.77 | **Deck-movers** — ramp-multi-X tutor (Omnath) + mass-bounce (Koma) (+4) |
 | v0.78 | Deck-movers — Balefire Dragon (Ur-Dragon) + Primordial Hydra (Zaxara) + **deterministic flip-diff gate** (+2) |
 | v0.79 | Deck-movers — card-type anthem (Toph) + count-scaled attack pump (Pantlaza) (+10) |
+| v0.80 | Variable-X mana augments (Groundchuck, Sanctum Weaver → Mothman) (+2) |
+| v0.81 | **Cross-deck counter spell-filters** (type/MV/color) + causative pump (+30) |
+| v0.82 | MV-filtered exile/destroy removal (Despark, Smother…) (+13) |
+| v0.83 | Counter-riders (Remand/Memory Lapse/Dream Fracture) (+7) |
 
 ## 📊 DECK STANDINGS (native %, realism gate — as of v0.79)
 | Deck | Start of session | Now |
@@ -45,9 +49,9 @@ Grinding the priority decks toward **100% native** (your confirmed target) all n
 | Toph, Earthbending Master | 65 | **71** |
 | Pantlaza, Sun-Favored | 62 | **68** |
 
-**Aggregate: 1016/1500 deck-slots native (68%, up from 64% at session start). Corpus north-star: 25.3% native (8628 real cards, +393 overnight).**
+**Aggregate: 1018/1500 deck-slots native (68%, up from 64% at session start). Corpus north-star: 25.4% native (8680 real cards, +445 since reset).**
 
-_Note: corpus (the north-star — "play almost all of Magic natively") climbs steadily each wave; the priority decks have reached their practical plateau — only deck-specific hard tails remain (modal/alt-cast/opponent-choice/Arbiter-domain), each worth 1-2 cards. The corpus-subsystem grind grows the broad metric efficiently; pushing individual decks to ~100% would need per-card deck-specific work at low cards/agent. 30 releases shipped overnight (v0.54→v0.79), zero false positives throughout. Late-night pivot to DECK-MOVERS (survey a deck's own non-native tail → build one clean blocker) is now nudging the priority decks directly. NEW since last brief: (a) classifyCard determinism root-caused — it IS deterministic; flip-diff phantoms were multi-printing tier conflicts, fixed by a tier-fingerprint dedup (v0.78) + regression test; (b) the Edit/Write env-bug that hits agents also hit this session (edits mis-routed to MAIN) — caught + recovered, now editing via Bash; (c) the 6 stale dirty worktrees still await your force-remove call._
+_Note: corpus (the north-star — "play almost all of Magic natively") climbs steadily each wave; the priority decks have reached their practical plateau — only deck-specific hard tails remain (modal/alt-cast/opponent-choice/Arbiter-domain), each worth 1-2 cards. The corpus-subsystem grind grows the broad metric efficiently; pushing individual decks to ~100% would need per-card deck-specific work at low cards/agent. 30 releases shipped (v0.54→v0.83), zero false positives throughout. GRIND PAUSED at Colton's request (clean wind-down). Late finding: INTERACTION is the productive frontier — the counter system genuinely resolves at runtime, and counter spell-filters (+30) / MV-filtered removal (+13) / counter-riders (+7) were the biggest recent cross-deck waves. Low decks (Kinnan/Mothman/Yuriko) confirmed at Arbiter ceilings. See WAKE-REPORT.md for the full resume anchor._
 
 Reality check: cheap per-deck wins are mostly done; further climb comes from **cross-deck subsystems** (each lifts several decks). Practical ceilings land ~85-88% with targeted builds; the last ~10-15% is genuine hard-tail (modal/double-X/opponent-choice) — building toward 100% means grinding those too, per your call.
 
