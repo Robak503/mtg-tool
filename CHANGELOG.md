@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.65.0] - 2026-06-30
+
+### Improved
+- **Adventure mechanic + deaths-this-turn count (+35 native).** 34 Adventure cards now play both halves
+  end-to-end (Brazen Borrower, Beanstalk Giant, Faerie Guidemother, the Adventure Dragon cycle…) and a
+  deaths-this-turn counter (Mahadi, Body Count + corpus aristocrats). Flip-diffed both directions (35 gained
+  native, 0 lost), full gate (5,753 tests) green, 0 false positives.
+
 ## [0.64.0] - 2026-06-30
 
 ### Improved
