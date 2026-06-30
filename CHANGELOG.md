@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.83.0] - 2026-06-30
+
+### Improved
+- **Counter-riders (+7 native).** Counter + zone-redirect (Remand → hand, Memory Lapse → library top) and counter +
+  draw (Dream Fracture, Introduction to Annihilation, Dissipate, Lapse of Certainty, Assert Authority). Soft "counter
+  unless pay {X}" (Mana Leak) confirmed already native + runtime-resolved. Flip-diffed both directions (7 gained, 0
+  lost), full gate (6,324 tests) green, 0 false positives.
+
+
 ## [0.82.0] - 2026-06-30
 
 ### Improved
