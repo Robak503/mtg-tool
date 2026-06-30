@@ -840,7 +840,10 @@ const MUST_DROP_TO_LOW = [
   "Search your library for a card named Lightning Bolt, put it into your hand, then shuffle.",      // by-name
   "Draw a card and search your library for a creature card and put it into your hand.",             // leading-effect leak (review catch) — must NOT parse HIGH as [draw]
   "Destroy target creature unless its controller pays {2}.",   // legacy over-matches → MUST drop
-  "Destroy target artifact with mana value 3 or less.",         // unmodeled MV restriction on a permanent → MUST drop
+  // NOTE: the BARE MV-filtered removal "Destroy/Exile target <type> with mana value N or greater/less" is NOW native
+  // (MV-FILTERED removal — Despark / Fragmentize / Eliminate; pinned in mvFilteredRemoval.test.js + MUST_STAY_HIGH
+  // below). Only an MV restriction CONJOINED with another unmodeled clause (a controller phrase, see line ~928) stays
+  // low — the `$`-anchored MV matcher rejects the conjunction, all-or-nothing.
   // NOTE: "Destroy target nonbasic land. It deals 2 damage to that land's controller." (a Molten Rain shape) is NOW
   // native — the DESTROY-DAMAGE-RIDER fold models the destroy + the damage-to-the-target's-controller rider (pinned
   // in atoms/destroyDamageRider.test.js). Only the Pillage UNION below stays low ("artifact or nonbasic land" is unmodeled).
@@ -1040,6 +1043,14 @@ const MUST_STAY_HIGH = [
   "Destroy target nonbasic land.",                                              // nonbasicLand — excludes basics (CR 205.4a)
   "Destroy target noncreature permanent.",                                      // noncreaturePermanent — any non-creature permanent
   "Destroy target nonbasic land. It can't be regenerated.",                     // the "can't be regenerated" rider is re-stamped (still HIGH)
+  // ── MV-FILTERED removal — "(Exile|Destroy) target <type> with mana value N or greater/less" (CR 202.3). The MV
+  // rides as a `manaValue` target restriction, ENFORCED at enumeration for creature/permanent/planeswalker targets
+  // (creatureSatisfiesRestrictions + the addPermanents/addPlaneswalkers honoring). Despark / Eliminate / Fragmentize
+  // family; pinned in mvFilteredRemoval.test.js. An MV-X / converge / controller-conjoined form stays LOW. ──
+  "Exile target permanent with mana value 4 or greater.",                       // Despark
+  "Destroy target creature or planeswalker with mana value 3 or less.",         // Eliminate (MV on both halves)
+  "Destroy target artifact or enchantment with mana value 4 or less.",          // Fragmentize
+  "Exile target creature with mana value 3 or less.",                           // Death in the Family (bare creature + MV)
   "Destroy target attacking creature.",                                         // combat: attacking (Immolating Glare)
   "Deals 4 damage to target attacking or blocking creature.",                   // combat: either, on the damage path
   "Lightning Bolt deals 3 damage to any target.",

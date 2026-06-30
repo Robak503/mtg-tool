@@ -356,6 +356,27 @@ export function destroyExileClauseParser(clause) {
     const restrictions = rm[3] ? [{ kind: "controller", who: /^you control$/.test(rm[3]) ? "you" : "opponent" }] : [];
     return { op: rm[1] === "destroy" ? "destroy" : "exile", targetType: TT[rm[2]], restrictions };
   }
+  // MV-FILTERED removal (CR 202.3 / 700.6 — mana value as a number) — "(exile|destroy) target <typelist> with mana
+  // value N or (greater|less)". The MV-gated single-target removal staples: Despark ("permanent … 4 or greater"),
+  // Eliminate ("creature or planeswalker … 3 or less"), Epic Downfall / Kin-Tree Severance ("creature"/"permanent …
+  // 3 or greater"), Death in the Family ("creature … 3 or less"), Fragmentize / Natural State ("artifact or
+  // enchantment … N or less"). The MV rides as a `manaValue` target restriction (the SAME restriction kind the
+  // tap-target-creature path already enforces via creatureSatisfiesRestrictions — reused here for permanent targets
+  // by enumerateTargets.addPermanents), so removal offers + removes ONLY a permanent whose mana value satisfies the
+  // comparison — never an out-of-band target (THE CREED, enforced at enumeration). The typelist ADMITS bare
+  // "creature" here (UNLIKE the unfiltered `rm` above, which excludes it for the legacy parseSpellEffect path —
+  // that path models NO restriction, so an MV-filtered bare-creature removal must route through this branch to be
+  // enforced). A printed controller restriction ("an opponent controls") would fail the `$` anchor → low → Arbiter
+  // (none in the corpus carry both; ALL-OR-NOTHING, FN-safe). cmc reads the slim-index numeric mana value (CR 202.3).
+  const mvm = t.match(/^(destroy|exile) target (creature or planeswalker|artifact or enchantment|creature|permanent|artifact|enchantment|planeswalker) with mana value (\d+) or (greater|more|less)$/);
+  if (mvm) {
+    const TT = {
+      "creature": "creature", "permanent": "permanent", "artifact": "artifact", "enchantment": "enchantment",
+      "planeswalker": "planeswalker", "creature or planeswalker": "creatureOrPlaneswalker", "artifact or enchantment": "artifactOrEnchantment",
+    };
+    const op = /^(greater|more)$/.test(mvm[4]) ? ">=" : "<=";
+    return { op: mvm[1] === "destroy" ? "destroy" : "exile", targetType: TT[mvm[2]], restrictions: [{ kind: "manaValue", op, value: parseInt(mvm[3], 10) }] };
+  }
   if (/^destroy all creatures$/.test(t)) return { op: "destroy", targetType: "eachCreature" };
   if (/^exile all creatures$/.test(t)) return { op: "exile", targetType: "eachCreature" };
   const m = t.match(/^destroy all (artifacts and enchantments|artifacts|enchantments|lands)$/);

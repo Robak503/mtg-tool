@@ -528,8 +528,6 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [])
     artifactOrLand: (tl) => /\bArtifact\b|\bLand\b/.test(tl),
     enchantmentOrLand: (tl) => /\bEnchantment\b|\bLand\b/.test(tl),
   };
-  const controllerOk = (pid) => restrictions.every((r) =>
-    r.kind !== "controller" || (r.who === "you" ? pid === controllerId : pid !== controllerId));
   const addPermanents = (pred) => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
@@ -540,19 +538,30 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [])
         // DFCs: they're simply not offered to native non-creature removal (a SAFE omission, never a
         // wrong target). The spell still routes to the Arbiter if a DFC is its only would-be target.
         if (tl.includes(" // ")) continue;
-        if (pred(tl) && controllerOk(pid) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
+        // MV-FILTERED removal (Despark / Fragmentize) — a non-creature permanent target can now carry a
+        // `manaValue` restriction (CR 202.3). Enforce the FULL restriction set via creatureSatisfiesRestrictions
+        // (type-agnostic for the controller/manaValue/tapped kinds the permanent-removal parsers emit — it reads
+        // card.cmc / tapped / controller, none creature-specific), which SUBSUMES the controllerOk check used
+        // before. The power/toughness/combat/colorNeg/subtype kinds never reach here (only creature-target parsers
+        // emit them), so this can't mis-handle a permanent. Without this, an MV restriction on a permanent target
+        // would be silently ignored → an illegal (wrong-MV) target offered → a forbidden FP (CREED).
+        if (pred(tl) && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
           out.push({ type: "permanent", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }
     }
   };
   // PW-6: a live planeswalker (carries a loyalty counter, PW-1 ETB) is a legal target for damage
-  // (and other "any target" effects). Honors the controller restriction so "… an opponent controls"
-  // never offers your own walker. Damage to it is removed as loyalty (applyDamageEffect, CR 120.3c).
+  // (and other "any target" effects). Honors the FULL restriction set via creatureSatisfiesRestrictions
+  // (subsumes the controller restriction so "… an opponent controls" never offers your own walker, AND the
+  // MV-FILTERED removal manaValue restriction — Eliminate "creature or planeswalker with mana value 3 or
+  // less", Despark hitting a planeswalker — reads card.cmc, type-agnostic). The creature-only kinds
+  // (power/toughness/combat/colorNeg/subtype) are never emitted for a planeswalker-bearing targetType, so this
+  // can't mis-handle a walker. Damage to it is removed as loyalty (applyDamageEffect, CR 120.3c).
   const addPlaneswalkers = () => {
     for (const pid of Object.keys(state.players)) {
       for (const perm of state.players[pid].battlefield) {
-        if (perm.counters?.loyalty != null && controllerOk(pid) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
+        if (perm.counters?.loyalty != null && creatureSatisfiesRestrictions(state, perm, pid, controllerId, restrictions) && canBeTargetedBy(state, perm, pid, controllerId, sourceColors)) {
           out.push({ type: "planeswalker", id: perm.id, controller: pid, name: perm.card?.name });
         }
       }
