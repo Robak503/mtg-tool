@@ -104,6 +104,13 @@ export const COVERED_KEYWORDS = [
   // DYNAMIC amount computed at fire time). "bushido N" / "rampage N" match via the startsWith check;
   // allTriggerSentencesModeled bumps the shaped count for each.
   "bushido", "rampage",
+  // CASCADE (CR 702.85) — ENFORCED: the keyword's triggered ability is synthesized in detectTriggers (a selfCast
+  // `cascade` trigger) + fired by checkCastTriggers (dig the library to a cheaper nonland, park the free-cast/
+  // decline decision at the action layer). A SINGLE "cascade" line matches via the `=== "cascade"` check; the
+  // shaped count is bumped in allTriggerSentencesModeled. DOUBLE cascade ("Cascade, cascade") is NOT modeled
+  // (it digs twice) and is explicitly REJECTED by isKeywordOnly's double-cascade guard, so it never reads
+  // keyword-only here despite splitting into two "cascade" clauses on the comma.
+  "cascade",
   // KW-CYCLING is NOT a generic startsWith keyword — see reCyclingCost in isKeywordOnly. The generic
   // `startsWith("cycling ")` rule would mis-credit any line opening with "cycling " (e.g. Fluctuator's
   // static "Cycling abilities you activate cost {2} less to activate"), so cycling is gated to the
@@ -121,6 +128,10 @@ const stripReminder = (s) => String(s || "").replace(/\([^)]*\)/g, " ");
  */
 export function isKeywordOnly(oracle, name) {
   let t = stripReminder(oracle).toLowerCase().replace(/[’']/g, "'");
+  // DOUBLE CASCADE (CR 702.85) — "Cascade, cascade[, …]" digs MULTIPLE times and is NOT modeled (CREED — one
+  // dig would silently drop the rest). It splits into two covered "cascade" clauses on the comma, so guard it
+  // explicitly: a multi-instance cascade line is never keyword-only (Apex Devastator / Maelstrom Wanderer).
+  if (/\bcascade,\s*cascade\b/.test(t)) return false;
   if (name) {
     const n = String(name).toLowerCase().replace(/[’']/g, "'").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     if (n) t = t.replace(new RegExp(`\\b${n}\\b`, "g"), "this creature");
@@ -227,6 +238,36 @@ export function spellIsNative(card) {
     if (programNeedsChosenTarget(bodyProgram) && !programTriggerTargetsResolvable(bodyProgram)) return false;
     return true;
   }
+  // CASCADE (CR 702.85): an instant/sorcery can carry the "Cascade" KEYWORD ("Cascade (When you cast this spell,
+  // exile cards … a nonland card that costs less. You may cast it without paying its mana cost. …)"). Like Storm
+  // it's a triggered ability modeled SEPARATELY from the spell's own effect (triggers.detectTriggers synthesizes
+  // a selfCast cascade trigger; the runtime fires it in checkCastTriggers, digs, and parks the free-cast/decline
+  // decision). So a cascade spell is native iff (a) the cascade trigger routes natively (the `cascade` atom is
+  // HIGH + non-targeted) AND (b) its NON-cascade body is itself native. Strip the whole "Cascade (…reminder…)"
+  // LINE before parsing the body (the bare "Cascade" residue would drag an otherwise-HIGH spell to LOW — the
+  // keyword carries no parseable atom of its own). Anchored on the canonical self-cascade reminder signature so a
+  // card merely NAMED "…Cascade" without the keyword is untouched, and DOUBLE cascade ("Cascade, cascade" — Call
+  // Forth the Tempest, Throes of Chaos) is excluded (it digs twice; modeling one dig would silently drop the
+  // rest → CREED). Checked before the cost-only/Plot strips so the body gate is cascade-aware. CREED: an
+  // unmodeled body → not native (the whole card stays Arbiter, never a partial).
+  if (/\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(String(card.oracle || ""))
+    && !/\bcascade,\s*cascade\b/i.test(String(card.oracle || ""))) {
+    const cascadeTrigs = detectTriggers(card).filter((d) => d.cascade);
+    if (!cascadeTrigs.length || !cascadeTrigs.every(triggerRoutesNatively)) return false; // dig mechanism not modeled → Arbiter
+    // Strip the Cascade keyword LINE (the line carrying the reminder), then parse the bare body. It must be HIGH
+    // (and non-cascade — the cascade atom is the trigger's payload, never part of the spell's own program).
+    const cascadeStripped = String(card.oracle || "")
+      .split("\n")
+      .filter((line) => !/\bexile a nonland card that costs less\b/i.test(line) && line.replace(/\([^)]*\)/g, "").trim().toLowerCase() !== "cascade")
+      .join("\n").trim();
+    const bodyProgram = parseEffectProgram({ type: card.type, oracle: stripCostOnlyKeywordLines(cascadeStripped), mana: card.mana, name: card.name });
+    if (!bodyProgram || programConfidence(bodyProgram) !== "high") return false;
+    // Same combat-referent guard as the normal spell path (a spell never supplies the combat-damage referent).
+    for (const a of bodyProgram.atoms || []) {
+      if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.who === "defendingPlayer") return false;
+    }
+    return true;
+  }
   // PLOT (CR 702.171): an instant/sorcery can carry a "Plot {cost}" alternate-cast line. It's a modeled
   // special action (exile at sorcery speed for the plot cost, cast FREE later), and a plotted spell resolves
   // through the SAME cast path — so the spell is native iff its actual EFFECT is native. Strip the plot line
@@ -310,8 +351,15 @@ function allTriggerSentencesModeled(card, oracle) {
   // sentence lives in stripped reminder text, so it never counts as a shaped sentence). Bump the shaped count so
   // shaped === detected holds (the synthesized trigger is validated like any other). Keyed on the reminder
   // signature that survives in the RAW oracle (stripReminder removes it from the counting text, so test it before).
+  // CASCADE (CR 702.85): detectTriggers synthesizes a selfCast trigger from the "Cascade" KEYWORD when the card
+  // carries the canonical self-cascade reminder ("When you cast this spell, exile cards … a nonland card that
+  // costs less") AND is NOT a double-cascade ("Cascade, cascade" — those stay on the Arbiter). Its real trigger
+  // sentence lives in stripped reminder text, so it never counts as a shaped sentence — bump the shaped count by
+  // 1 so shaped === detected holds. Keyed on the RAW oracle (stripReminder removes the signature, so test before).
+  const cascadeKw = /\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(oracle)
+    && !/\bcascade,\s*cascade\b/i.test(oracle) ? 1 : 0;
   const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
-    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0);
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0) + cascadeKw;
   const shaped = (stripReminder(stripTriggerAbilityLabel(oracle)).match(TRIGGER_SENTENCE_RE) || []).length + kwTrigShaped;
   const detected = detectTriggers(card);
   if (detected.length !== shaped) return false;     // an unrecognized-event trigger sentence

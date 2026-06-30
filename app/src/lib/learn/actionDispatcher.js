@@ -974,6 +974,14 @@ function applyCastSpellMaybeDiscover(state, action) {
     const { pendingFreeCast: _drop, ...rest } = next;
     return rest;
   }
+  // CASCADE (CR 702.85a) — a free-cast cast resolving a pendingCascade decision clears the flag (the "may" was
+  // taken; the found card left exile onto the stack). The legalActionsForPlayer short-circuit guarantees that
+  // while pendingCascade is set the ONLY cast actions offered are the free-cast-from-exile ones, so this never
+  // clears the flag on an unrelated cast. Mirrors the discover free-cast-from-exile clear above.
+  if (state.pendingCascade && action.freeCast && action.fromZone === "exile") {
+    const { pendingCascade: _drop, ...rest } = next;
+    return rest;
+  }
   return next;
 }
 
@@ -996,6 +1004,25 @@ function applyDiscoverToHand(state, action) {
   }
   const { pendingDiscover: _drop, ...rest } = next;
   return logEvent(rest, { kind: "discover-to-hand", playerId: action.playerId, cardName: action.name || null });
+}
+
+// CASCADE (CR 702.85a) — decline the optional cascade cast ("You may cast it …"): the parked (exiled) found
+// card joins "the rest" on the BOTTOM of the library (moveCardToZone exile→library appends, i.e. bottom), then
+// clear the pending decision. This is the ONE behavioral difference from discover-to-hand (which puts the found
+// card in hand): cascade bottoms it. A vanished card (defensive) just clears the flag. The actor keeps priority
+// and the pass chain resets (a non-stack decision resolution), mirroring discover-to-hand / free-cast-decline.
+function applyCascadeDecline(state, action) {
+  if (!state.pendingCascade || state.pendingCascade.controller !== action.playerId) {
+    const { pendingCascade: _drop, ...rest } = state; // defensive: stale/foreign decline → just clear
+    return rest;
+  }
+  let next = state;
+  const cardId = action.cardId ?? state.pendingCascade.cardId;
+  if ((state.players[action.playerId]?.exile || []).some((c) => c.id === cardId)) {
+    next = moveCardToZone(state, { playerId: action.playerId, fromZone: "exile", toZone: "library", cardId }); // → bottom (CR 702.85a)
+  }
+  const { pendingCascade: _drop, ...rest } = next;
+  return logEvent(rest, { kind: "cascade-decline", playerId: action.playerId });
 }
 
 // PLOT (CR 702.171a) — the plot SPECIAL ACTION: pay the plot mana cost, then exile the card FACE-UP from
@@ -1051,6 +1078,7 @@ const HANDLERS = {
   "companion-to-hand": applyCompanionToHand, // CMD-COMPANION (CR 702.139)
   "discover-to-hand": applyDiscoverToHand,   // DISCOVER: take the found card instead of casting it free
   "free-cast-decline": applyFreeCastDecline, // FREE-CAST (CR 601.2b): decline the optional "you may cast …"
+  "cascade-decline": applyCascadeDecline,    // CASCADE (CR 702.85a): decline the free cast → found card to the bottom of the library
 };
 
 /**

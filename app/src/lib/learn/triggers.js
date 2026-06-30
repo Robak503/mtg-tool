@@ -1665,6 +1665,33 @@ export function detectTriggers(card) {
       optional: false, sourceText: "Storm",
     });
   }
+  // CASCADE (CR 702.85) — KEYWORD→TRIGGER synthesis, the STORM precedent exactly. "Cascade" is a keyword whose
+  // triggered ability lives in REMINDER parens ("(When you cast this spell, exile cards from the top of your
+  // library until you exile a nonland card that costs less. You may cast it without paying its mana cost. Put
+  // the exiled cards on the bottom in a random order.)"), so the boundary-anchored When/Whenever/At regex above
+  // can't reach it (the "(" before "When" isn't a sentence boundary). Synthesize a SELF-CAST descriptor off the
+  // keyword's CANONICAL reminder signature (CR 702.85a) so the runtime fires it (checkCastTriggers' self-cast
+  // block, threading the cascading spell's mana value into context.cascadeSpellMv) and coverage counts it
+  // (allTriggerSentencesModeled bumps the shaped count for the keyword). The effectClause is the synthetic
+  // sentinel cascadeClauseParser maps to the non-targeted `cascade` atom, so triggerRoutesNatively gates it
+  // HIGH + non-targeted. `cascade:true` is the marker the cast-path threading keys on; scope:"self"/whose:"you"
+  // matches the existing self-cast contract (the spell is always on the stack under the caster).
+  //
+  // SINGLE cascade only (CREED — model the WHOLE card or PARK). A "Cascade, cascade" / "Cascade, cascade, …"
+  // card (Apex Devastator, Maelstrom Wanderer, Call Forth the Tempest) digs MULTIPLE times ("Then do it again");
+  // modeling one dig would silently drop the rest, so those stay body-only → Arbiter (the `cascade, cascade`
+  // exclusion). The signature anchors on "When you cast THIS spell" (CR 702.85a), so a GRANT — "the next/first
+  // spell you cast … has cascade" (The First Sliver, Imoti, Maelstrom Nexus) whose reminder says "When you
+  // (next|cast that/your first) …", never "this spell" — never matches (the grant's own coverage is judged
+  // separately). The keyword can sit on a creature, an instant/sorcery, an artifact, or an enchantment.
+  if (/\bwhen you cast this spell, exile cards from the top of your library until you exile a nonland card that costs less\b/i.test(oracle)
+    && !/\bcascade,\s*cascade\b/i.test(oracle)) {
+    out.push({
+      event: "selfCast", scope: "self", whose: "you", cascade: true,
+      effect: null, effectClause: "cascade through your library",
+      optional: false, sourceText: "Cascade",
+    });
+  }
   _detectCache.set(card, out);
   return out;
 }
@@ -2706,6 +2733,27 @@ function spellManaValue(spellCard) {
   return 0;
 }
 
+/**
+ * CASCADE (CR 702.85a) — the cascading spell's OWN mana value, the cap the dig measures "costs less" against.
+ * Prefers a numeric cmc/mana_value, else SUMS the pips of the printed mana cost (CR 202.3) so a test/runtime
+ * card carrying only a `mana`/`mana_cost` string still resolves a correct cap — the same MV arithmetic
+ * tutorManaValue (library.js) uses, replicated here so triggers.js stays a leaf (no library import / cycle).
+ * {X}/{Y}/{Z} count 0 (CR 202.3b — X is 0 on the stack outside its own cost context); a 2-generic hybrid pip
+ * ({2/W}) counts its largest component (CR 202.3f); a colored/phyrexian pip counts 1.
+ */
+function cascadingSpellManaValue(spellCard) {
+  if (typeof spellCard?.cmc === "number") return spellCard.cmc;
+  if (typeof spellCard?.mana_value === "number") return spellCard.mana_value;
+  let mv = 0;
+  for (const sym of String(spellCard?.mana || spellCard?.mana_cost || "").matchAll(/\{([^}]+)\}/g)) {
+    const s = sym[1];
+    if (/^\d+$/.test(s)) mv += parseInt(s, 10);
+    else if (/^[XYZ]$/i.test(s)) mv += 0;
+    else { const lead = s.match(/^(\d+)/); mv += lead ? parseInt(lead[1], 10) : 1; }
+  }
+  return mv;
+}
+
 /** MILL-ON-EVENT — front-face type line (CR 712.4a / 712.8a). A card in the library has ONLY its front-face
  * characteristics, so an MDFC whose BACK is a land (Malakir Rebirth // Malakir Mire) is a NONLAND when milled.
  * Mirrors gameState.frontFaceTypeLine (kept local so triggers.js stays a leaf — no gameState type import). */
@@ -2919,9 +2967,17 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   // buildTriggerStack via trigger.context); a non-storm self-cast trigger sets none → byte-identical.
   const stormCount = Math.max(0, (state.players[casterId]?.spellsCastThisTurn || 0) - 1);
   const stormStackObj = stackObjectId ? (state.stack || []).find((o) => o.id === stackObjectId) : null;
+  // CASCADE (CR 702.85a) — the dig stops at the first nonland card that "costs less" than the CASCADING spell,
+  // i.e. mana value STRICTLY LESS than the spell's own mana value (CR 702.85a — measured against the spell on
+  // the stack). Snapshot that mana value HERE at cast (off the spell card, the same MV reader the discover/tutor
+  // paths use) and thread it onto the cascade trigger's context so applyCascadeAtom reads a concrete cap at
+  // resolution — never re-derived, serialize-stable. A non-cascade self-cast trigger sets none → byte-identical.
+  const cascadeSpellMv = cascadingSpellManaValue(spellCard);
   for (const d of detectTriggers(spellCard).filter((x) => x.event === "selfCast")) {
     const extra = d.stormCopy
       ? { stormCount, stormSourcePayload: stormStackObj?.payload || null, stormSourceCard: { name: spellCard.name } }
+      : d.cascade
+      ? { cascadeSpellMv }
       : {};
     fired.push(makePendingTrigger(d, selfCastSource, null, { ...context, xValue, ...extra }));
   }

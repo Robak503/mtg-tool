@@ -391,6 +391,17 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null } = {}
     return pick || actions.find(a => a.kind === "discover-to-hand") || actions[0] || null;
   }
 
+  // CASCADE (CR 702.85) — a pending cascade decision short-circuits everything (legalChoices offers ONLY the
+  // free-cast-from-exile options + a decline). Cast the found card free if pickCastAction likes the cast (a free
+  // permanent body, or a spell with a good enemy target — cascade is virtually always pure upside, so the AI
+  // takes it); it HOLDS counters / declines a targetless or self-harmful cast → fall through to the decline
+  // (found card → bottom). Never returns null (there is no pass mid-resolution). Mirrors the discover branch.
+  if (state.pendingCascade && state.pendingCascade.controller === aiPlayerId) {
+    const castOpts = filterActions(actions, "cast-spell");
+    const pick = castOpts.length ? pickCastAction(state, aiPlayerId, castOpts, archetype) : null;
+    return pick || actions.find(a => a.kind === "cascade-decline") || actions[0] || null;
+  }
+
   // Combat is a batch decision, but the driver applies one action per tick.
   // We compute the plan and return its first still-legal choice; declared
   // attackers/blockers are excluded from the legal set next tick (attackers

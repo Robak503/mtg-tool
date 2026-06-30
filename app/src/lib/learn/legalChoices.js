@@ -447,6 +447,23 @@ function actionsFreeCastDecision(state, playerId) {
   return [...castActions, decline];
 }
 
+// CASCADE (CR 702.85a) — the decision for a card found by cascade (parked in exile, state.pendingCascade): CAST
+// IT FREE (full target/mode/additional-cost enumeration via the shared builder with freeCast=true, fromZone
+// "exile" — so targeting / the stack / cast triggers / AI all reuse the normal cast path; X is forced to 0 per
+// CR 601.2b) OR DECLINE (the "may" — the found card joins "the rest" on the BOTTOM of the library). This differs
+// from discover's two options only in the non-cast branch: discover puts the found card in HAND, cascade bottoms
+// it (CR 702.85a — "Put the exiled cards on the bottom in a random order"). Both clear pendingCascade in the
+// dispatcher. An unmodeled found card still offers a (no-op) free-cast — the engine's consistent behavior for
+// any unmodeled spell, identical to discover.
+function actionsCascadeDecision(state, playerId) {
+  const pc = state.pendingCascade;
+  if (!pc || pc.controller !== playerId) return [];
+  const card = (state.players[playerId]?.exile || []).find((c) => c.id === pc.cardId);
+  const decline = { kind: "cascade-decline", playerId, cardId: pc.cardId };
+  if (!card) return [decline]; // defensive: the card vanished from exile → only the (no-op) decline remains
+  return [...castActionsFromZone(state, playerId, [card], "exile", null, true), decline];
+}
+
 // CMD-CAST (CR 903.8) — a player may cast a commander they own FROM the command zone; it costs an
 // additional {2} for each PREVIOUS time they've cast it from the command zone this game (the "commander
 // tax"). This mirrors hand-casting EXACTLY (same timing / affordability / target / X / modal / additional
@@ -1633,6 +1650,13 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // free-cast atom is the last atom of its program, so a discover and a free-cast never coexist.)
   if (state.pendingFreeCast) {
     return state.pendingFreeCast.controller === playerId ? actionsFreeCastDecision(state, playerId) : [];
+  }
+  // CASCADE (CR 702.85) — a pending cascade decision short-circuits normal priority IDENTICALLY to discover /
+  // free-cast: the cast-it-free / decline choice is made mid-resolution (no one else acts), so return ONLY the
+  // cascade actions for the controller; an empty list for everyone else. All three pendings are FIFO — each
+  // parking atom is the last atom of its program — so a cascade never coexists with a discover or a free-cast.
+  if (state.pendingCascade) {
+    return state.pendingCascade.controller === playerId ? actionsCascadeDecision(state, playerId) : [];
   }
   // Default the declared-attackers list from live combat state, so the
   // session driver gets blocker candidates without threading it explicitly.

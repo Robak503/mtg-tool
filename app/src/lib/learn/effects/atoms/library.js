@@ -299,6 +299,70 @@ export function applyDiscoverAtom(state, atom, ctx) {
   return result;
 }
 
+/**
+ * ===== CASCADE ===== (CR 702.85, the Storm/Discover keyword-trigger precedent) — "Cascade (When you cast this
+ * spell, exile cards from the TOP of your library until you exile a NONLAND card that costs LESS. You may cast
+ * it without paying its mana cost. Put the exiled cards on the bottom in a random order.)". This atom is the
+ * synthesized cascade trigger's payload (triggers.detectTriggers emits a selfCast `cascade:true` descriptor;
+ * checkCastTriggers threads the cascading spell's mana value onto ctx.cascadeSpellMv at cast). It DIGS the
+ * controller's library exiling from the top until it exiles a nonland card with mana value STRICTLY LESS than
+ * the cascading spell's (CR 702.85a — "costs less"), parks that card in `state.pendingCascade` for the
+ * controller's CAST-IT-FREE-or-DECLINE decision (resolved at the ACTION layer: legalChoices offers a free-cast
+ * action — reusing the cast machinery so target selection / the stack / cast triggers / AI behave EXACTLY like
+ * a normal cast — plus a decline action that bottoms the found card). EVERY other exiled card (lands + nonlands
+ * with MV >= the cap) goes to the BOTTOM of the library in a RANDOM order (deterministic, via the threaded
+ * rngSeed — the same Fisher-Yates discover uses). A WHIFF (no card with MV < cap, e.g. a 0-MV cascade spell or
+ * an all-too-expensive library) bottoms everything exiled and sets no decision (never fabricated). The found
+ * card sits in EXILE until the decision resolves; a decline then bottoms it too (CR 702.85a — "the rest").
+ *
+ * The cap is ctx.cascadeSpellMv, snapshotted at cast (`?? 0` — a missing cap, never the real path, is treated
+ * as 0 so the dig whiffs rather than fabricating an uncapped hit; a genuine MV-0 spell also whiffs since no card
+ * can cost < 0 — CR-correct, a cascade spell that costs nothing finds nothing). Pure data mutation (no closures)
+ * so a game serialized mid-cascade restores intact.
+ */
+export function applyCascadeAtom(state, atom, ctx) {
+  const controller = ctx.controller;
+  const player = state.players[controller];
+  if (!player) return state; // controller eliminated mid-resolution → clean no-op (CR 800.4a)
+  const cap = Math.max(0, ctx.cascadeSpellMv ?? 0); // "costs less" than the cascading spell (CR 702.85a)
+  const lib = player.library || [];
+  let foundIdx = -1;
+  for (let i = 0; i < lib.length; i++) {
+    const c = lib[i];
+    const isLand = /\bLand\b/.test(String(c.type || c.type_line || ""));
+    if (!isLand && tutorManaValue(c) < cap) { foundIdx = i; break; } // STRICTLY less (CR 702.85a)
+  }
+  const end = foundIdx === -1 ? lib.length : foundIdx + 1;
+  const found = foundIdx === -1 ? null : lib[foundIdx];
+  // Everything exiled EXCEPT the found card goes to the bottom in random order; cards below the found one are
+  // untouched and remain the new top of the library (CR 702.85a — only the exiled cards are bottomed).
+  const rest = lib.slice(0, end).filter((c) => c !== found);
+  const remaining = lib.slice(end);
+  // Deterministic Fisher-Yates of `rest` (CR "random order"), advancing the threaded seed exactly like
+  // shuffleControllerLibrary / discover so a serialized game restores byte-identical (no Math.random).
+  const seed = (state.rngSeed ?? 0) >>> 0;
+  const rng = deterministicRng(seed);
+  const shuffledRest = [...rest];
+  for (let i = shuffledRest.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffledRest[i], shuffledRest[j]] = [shuffledRest[j], shuffledRest[i]];
+  }
+  let next = {
+    ...state,
+    rngSeed: ((Math.imul(seed, 1664525) + 1013904223) >>> 0),
+    players: {
+      ...state.players,
+      [controller]: {
+        ...player,
+        library: [...remaining, ...shuffledRest],
+        exile: found ? [...(player.exile || []), found] : (player.exile || []),
+      },
+    },
+  };
+  if (found) next = { ...next, pendingCascade: { controller, cardId: found.id, mv: tutorManaValue(found), cap } };
+  return logEvent(next, { kind: "spell-effect", effect: "cascade", controller, cap, found: !!found });
+}
+
 /** Mill ONE player `count` cards (CR 701.13), then fire the MILL-ON-EVENT trigger bind for that player's
  * mill (CR 701.13a — one event per mill instruction). Captures the ACTUAL milled cards (top N, bounded by
  * library size) BEFORE the move so checkMilledTriggers can read their front-face types. A no-op mill (empty
@@ -468,6 +532,22 @@ export function libraryKeywordClauseParser(clause) {
   if (m) return { op: "scry", amount: parseInt(m[1], 10), targetType: null };
   m = t.match(/^surveil (\d+)$/);
   if (m) return { op: "surveil", amount: parseInt(m[1], 10), targetType: null };
+  return null;
+}
+
+/**
+ * CASCADE (CR 702.85) clause parser — the SYNTHETIC effect clause triggers.detectTriggers emits for the Cascade
+ * KEYWORD ("cascade through your library"). It is NOT printed oracle text — Cascade's real trigger lives in
+ * stripped reminder parens — so this matcher is anchored EXACTLY to the synthesized sentinel and to nothing in
+ * the printed corpus (no real card says "cascade through your library" as parseable text; the printed line is
+ * the reminder, stripped before clause parsing). Emits a NON-targeted `cascade` atom (no targetType →
+ * programNeedsChosenTarget=false → the trigger routes natively via the α1 non-targeted path); the cascading
+ * spell's mana value rides on ctx (threaded at cast — ctx.cascadeSpellMv). A different shape never matches →
+ * no atom → the card stays on the Arbiter (CREED FN-safe). Pure. Registered via registerClauseParser in parser.js.
+ */
+export function cascadeClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "").trim();
+  if (t === "cascade through your library") return { op: "cascade", targetType: null };
   return null;
 }
 
@@ -642,6 +722,7 @@ export const libraryResolvers = {
   "surveil": (state, atom, ctx) => applyScrySurveilAtom(state, atom, ctx, "surveil"),
   "impulse-dig": applyImpulseDigAtom,
   "discover": applyDiscoverAtom, // ===== DISCOVER ===== exile-top-until-nonland-MV<=N → park for cast-free/hand (action layer). Pantlaza + Primordial Gnawer flip native-trigger (PR #325 + PANTLAZA PR2).
+  "cascade": applyCascadeAtom, // ===== CASCADE (CR 702.85) ===== exile-top-until-nonland-MV<spell-MV → park for cast-free/decline (action layer). The Cascade keyword (Bloodbraid Elf, Shardless Agent, …) flips native via the synthesized selfCast trigger.
   "mill": applyMill,
   "explore": applyExplore, // ===== EXPLORE ===== (CR 701.44) reveal top: land→hand, else +1/+1 + keep-on-top. Ixalan ETB family flips native-trigger.
   "reveal-top-to-hand": applyRevealTopToHand, // ===== REVEAL-TOP-TO-HAND (Yuriko) ===== reveal top → hand + stamp its MV (state.revealedCardMV) for a following drain.

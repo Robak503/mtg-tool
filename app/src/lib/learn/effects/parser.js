@@ -47,7 +47,7 @@ import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/t
 import { sacrificeEdictClauseParser, destroyExileClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding)
 import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
-import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
+import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { SMALL_NUM, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); SMALL_NUM (cdmg rad) + parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; NUM_WORD/parseCountSource now only inside migrated clause parsers (batch 23/26)
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
@@ -2045,6 +2045,12 @@ export function programConfidence(program) {
   // before the decision. Every Expertise-cycle card prints it last (lead effect, then the free-cast tail).
   const fi = program.atoms.findIndex(a => a.op === "free-cast");
   if (fi !== -1 && fi !== program.atoms.length - 1) return "low";
+  // CASCADE (CR 702.85) must likewise be the LAST atom: its cast-free/decline decision resolves at the ACTION
+  // layer AFTER the program finishes (mirrors discover / free-cast), so any atom after it would wrongly run
+  // before the decision. The synthesized cascade trigger program is the lone `cascade` atom, so this is a
+  // belt-and-braces guard as the vocabulary widens.
+  const ci = program.atoms.findIndex(a => a.op === "cascade");
+  if (ci !== -1 && ci !== program.atoms.length - 1) return "low";
   if (fightAtomMisplaced(program.atoms)) return "low";
   return program.atoms.every(a => KNOWN.has(a.op)) ? "high" : "low";
 }
@@ -2390,6 +2396,7 @@ registerClauseParser(earthbendClauseParser);
 // LIBRARY KEYWORDS (seam batch 6 / Wave A1) — discover/shuffle/scry/surveil migrated to
 // atoms/library.libraryKeywordClauseParser (all whole-clause-anchored, mutually exclusive). program-diff = 0.
 registerClauseParser(libraryKeywordClauseParser);
+registerClauseParser(cascadeClauseParser); // CASCADE (CR 702.85) — the synthesized "cascade through your library" keyword sentinel
 // COMBAT KEYWORDS (seam batch 7 / Wave A2) — tap/untap/cant-block/regenerate migrated to
 // atoms/combat.combatKeywordClauseParser (all whole-clause-anchored). program-diff = 0.
 registerClauseParser(combatKeywordClauseParser);
