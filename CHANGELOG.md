@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.79.0] - 2026-06-30
+
+### Improved
+- **Deck-movers — Toph + Pantlaza (+10 native).** A card-type creature anthem ("Artifact/Enchantment/Land creatures
+  you control get/have …" — Tempered Steel, Master of Etherium, Chief of the Foundry, Earthbending Student) and a
+  count-scaled attack self-pump ("gets +N/+N until end of turn for each …" — Rampaging Brontodon, Timbermaw Larva,
+  Creeping Trailblazer). Moves Toph and Pantlaza. Flip-diffed both directions (10 gained, 0 lost, deterministic),
+  full gate (6,250 tests) green, 0 false positives.
+
+
 ## [0.78.0] - 2026-06-30
 
 ### Improved
