@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.55.0] - 2026-06-29
+
+### Improved
+- **+13 more cards native** across the priority decks, via three effect-modeling waves: attack-trigger life-drain
+  (Silent Skimmer, Leeching Sliver, Agate-Blade Assassin, Campaign of Vengeance), a draw-equal-to-target's-power
+  scaler (Soul's Majesty), and ETB "intervening if" board conditions (Linvala the Preserver, Knight of the White
+  Orchid, Loyal Warhound, Dwynen's Elite, Ghitu Journeymage, Apothecary Geist…). Every wave flip-diffed both
+  directions for 0 regressions, full gate (5,472 tests) green, zero false positives.
+
 ## [0.54.0] - 2026-06-29
 
 ### Added
