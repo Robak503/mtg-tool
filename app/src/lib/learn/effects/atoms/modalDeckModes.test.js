@@ -199,10 +199,13 @@ describe("MODAL-DECK-MODES — CREED guards (near-miss variants STAY low → Arb
     // even though changeling itself is modeled (a grantable companion like flying WOULD compose — tested above).
     low("Create a 3/2 colorless Shapeshifter creature token with changeling and shadow");
   });
-  it("Primordial Hydra stays body-only (its conditional-trample static rider is still unmodeled)", () => {
+  it("Primordial Hydra → native-mixed (upkeep doubler routes AND the conditional-trample static is now modeled)", () => {
+    // Was body-only while the "has trample as long as it has ten or more +1/+1 counters on it" rider was
+    // unmodeled; the SELF-COUNTER-GATED KEYWORD lever (selfCounterGatedKeyword.test.js) now models that static
+    // as a layer-6 gated addKeyword, so every clause is covered and the composite gate flips it to native-mixed.
     expect(classifyCard({
       name: "Primordial Hydra", type: "Creature — Hydra", mana: "{X}{G}{G}",
       oracle: "This creature enters with X +1/+1 counters on it.\nAt the beginning of your upkeep, double the number of +1/+1 counters on this creature.\nThis creature has trample as long as it has ten or more +1/+1 counters on it.",
-    })).toBe("body-only");
+    })).toBe("native-mixed");
   });
 });

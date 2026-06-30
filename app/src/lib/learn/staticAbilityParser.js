@@ -606,6 +606,25 @@ function parseGraveyardGate(clause) {
 }
 
 /**
+ * SELF-COUNTER-GATE — recognize a "as long as it has <N> or more +1/+1 counters on it" gate in a
+ * (label-stripped, lowercased, self-name-normalized) clause; return { gate, match } | null. The card's own
+ * name was rewritten to "this creature" upstream (selfNormalizeOracle), so the self-reference is always "it"
+ * here (the clause is "this creature has <kw> as long as it has N or more +1/+1 counters on it" — the leading
+ * subject is consumed by the caller's `(?:this creature|it) has (.+?)` capture, leaving "it" inside the gate).
+ *   "as long as it has <N> or more +1/+1 counters on it" → countersOnSelf "+1/+1" ≥ N
+ * Primordial Hydra (trample at 10), Taborax, Hope's Demise (lifelink at 5). gateMet reads the permanent's own
+ * +1/+1 pile and re-evaluates live (CR 613.7), so the keyword appears/disappears as the count crosses N.
+ * Only the bare +1/+1 form is modeled — any other counter kind / qualified threshold → null → LOW (safe FN).
+ */
+function parseSelfCounterGate(clause) {
+  const m = String(clause).match(/as long as it has (\w+) or more \+1\/\+1 counters on it/);
+  if (!m) return null;
+  const n = GY_NUMWORD[m[1]] ?? parseInt(m[1], 10);
+  if (!(n > 0)) return null;
+  return { gate: { countSpec: { kind: "countersOnSelf", counterType: "+1/+1" }, atLeast: n, excludeSelf: false }, match: m[0] };
+}
+
+/**
  * Emit the descriptor(s) for a gated SELF effect — "[this creature] gets +X/+Y[ and has <kw>…]" or
  * "[this creature] has <kw>…" — gated on `gate`. Gate-SOURCE-AGNOSTIC: the same emitter serves the GATED-GY
  * graveyard-count gate (and could serve the control gate). STRICT (CREED): the effect must reduce EXACTLY to a
@@ -1067,6 +1086,18 @@ function parseClause(clause, out, selfName) {
     if (gy) {
       const eff = gyClause.replace(gy.match, "").replace(/^[\s,]+|[\s,]+$/g, "");
       emitGatedEffect(out, eff, gy.gate);
+      return;
+    }
+    // ── SELF-COUNTER-GATE: a self P/T buff and/or keyword grant gated on THIS permanent's own +1/+1 counter
+    // count ("this creature has trample as long as it has ten or more +1/+1 counters on it" — Primordial Hydra;
+    // "…has lifelink as long as it has five or more +1/+1 counters on it" — Taborax). Same shared emitter as the
+    // control/graveyard gates (a P/T-or-keyword effect + a strict rider guard → nothing → LOW). gateMet reads
+    // the permanent's own counters and re-evaluates live. The control-gate matchers above never fire here (they
+    // need "you control"); the line-1190 "as long as" catch-all bail is BELOW this, so the clause is handled here.
+    const scg = parseSelfCounterGate(c);
+    if (scg) {
+      const eff = c.replace(scg.match, "").replace(/^[\s,]+|[\s,]+$/g, "");
+      emitGatedEffect(out, eff, scg.gate);
       return;
     }
   }

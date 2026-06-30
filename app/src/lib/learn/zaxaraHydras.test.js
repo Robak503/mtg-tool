@@ -261,10 +261,9 @@ describe("ZAXARA-HYDRAS — PARKED: hydras with an unmodeled rider stay body-onl
       type: "Creature — Hydra", mana: "{X}{G}{G}",
       oracle: "This creature enters with X +1/+1 counters on it.\nIf one or more +1/+1 counters would be put on another creature you control, that many plus one +1/+1 counters are put on it instead.\n{T}, Remove a +1/+1 counter from this creature: Put a +1/+1 counter on another target creature you control.",
     },
-    "Primordial Hydra (upkeep→double counters)": {
-      type: "Creature — Hydra", mana: "{X}{G}{G}",
-      oracle: "This creature enters with X +1/+1 counters on it.\nAt the beginning of your upkeep, double the number of +1/+1 counters on this creature.\nThis creature has trample as long as it has ten or more +1/+1 counters on it.",
-    },
+    // Primordial Hydra FLIPPED native-mixed via the SELF-COUNTER-GATED KEYWORD lever (its "has trample as long
+    // as it has ten or more +1/+1 counters on it" conditional-keyword static is now modeled; the upkeep
+    // counter-doubler already routed) — moved out of PARKED to the BUILT section below.
     // Hydroid Krasis FLIPPED native via the SELF-CAST trigger subsystem (its "When you cast this spell" half-X
     // gain/draw is now modeled) — moved out of PARKED to the BUILT section below.
     "Nyxborn Hydra (Bestow Aura)": {

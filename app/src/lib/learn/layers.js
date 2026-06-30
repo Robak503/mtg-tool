@@ -220,6 +220,14 @@ function gateMet(state, perm, gate) {
   if (spec?.kind === "cardsInGraveyard" || spec?.kind === "cardTypesInGraveyard") {
     return countGraveyardSpec(state, perm, spec) >= (gate.atLeast || 1);
   }
+  // SELF-COUNTER-GATED KEYWORD (CR 613.1f-adjacent, layer 6) — a keyword/buff this permanent has "as long as
+  // it has N or more <counterType> counters on it" (Primordial Hydra's trample-at-10, Taborax's lifelink-at-5).
+  // Read THIS permanent's own counter pile directly (per-permanent, like the keyword-counter seed) and compare
+  // to the threshold. Re-evaluated every keyword/P-T read via gateMet, so the grant turns on the instant the
+  // count crosses N and off if the count later drops (CR 613.7 continuous). No board scan — recursion-safe.
+  if (spec?.kind === "countersOnSelf") {
+    return (perm.counters?.[spec.counterType] || 0) >= (gate.atLeast || 1);
+  }
   let n = countSelfSpecOnBoard(state, perm, spec);
   if (gate.excludeSelf && matchesCountSpec(perm, spec)) n -= 1;
   return n >= (gate.atLeast || 1);
