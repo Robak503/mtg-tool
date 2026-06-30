@@ -8,6 +8,20 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.78.0] - 2026-06-30
+
+### Improved
+- **Deck-movers — Ur-Dragon 72→73, Zaxara 79→80 (+2 native).** Balefire Dragon (combat-damage mass-sweep to the
+  damaged player's creatures) and Primordial Hydra (self-counter-gated trample at ten counters). Flip-diffed both
+  directions (2 gained, 0 lost, deterministic), full gate (6,223 tests) green.
+
+### Fixed
+- **Deterministic tier classification + flip-diff gate.** Locked classifyCard's determinism for the RAMP-MULTI-X
+  ramp tutors (Boundless Realms, Traverse the Outlands) with a 200×-plus cross-card-state regression test, and
+  hardened `tier-fingerprint.mjs` to emit one deterministic tier per card NAME (native-wins) — eliminating phantom
+  GAINED/LOST flip-diff entries from the few multi-printing cards whose printings classify to different tiers
+  (Everythingamajig, Red Herring, Unquenchable Fury).
+
 ## [0.77.0] - 2026-06-30
 
 ### Improved
