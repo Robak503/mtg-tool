@@ -42,9 +42,13 @@
  *   "it was kicked" (CR 702.33e) — the kicker ETB-trigger condition (Goblin Ruinblaster, Torch Slinger,
  *      Heartstabber Mosquito …): a per-PERMANENT cast-decision flag read off the entering permanent's
  *      `wasKicked` (stamped by resolvers.enterPermanent on a kicked cast), keyed on ctx.triggeringPermanentId.
+ *   "tribute wasn't paid" / "tribute was paid" (CR 702.96e) — the Tribute ETB-trigger condition (Pharagax
+ *      Giant, Ornitharch, Nessian Demolok, Snake of the Golden Grove …): a per-PERMANENT decision flag read
+ *      off the entering permanent's `tributePaid` (stamped by resolvers.enterPermanent when the opponent
+ *      chose at ETB), keyed on ctx.triggeringPermanentId exactly like the kicked flag.
  * DEFERRED to the Arbiter (stay LOW): color/multicolored permanents, other power comparisons ("power N or
  * less", toughness), OTHER turn-event history (a NON-creature died, "you gained life this turn", attacked),
- * subtype-scoped death counts ("a Zubera died"), the OTHER cast-decision flags (tribute/bargain), state flags
+ * subtype-scoped death counts ("a Zubera died"), the OTHER cast-decision flags (bargain), state flags
  * (monarch, city's blessing) — each a future increment.
  */
 
@@ -192,6 +196,22 @@ const CONTROL_SUBTYPE_ALLOW = new Set([
 // fail-open). This closes the kicker entry in the DEFERRED list (cast-decision flags) for the ETB-trigger shape.
 const KICKED_ETB_RE = /^it was kicked$/;
 
+// ===== TRIBUTE ETB (CR 702.96e + 603.4) ======================================================
+// "tribute wasn't paid" / "tribute was paid" — the intervening-if on a Tribute creature's ETB trigger
+// ("When this creature enters, if tribute wasn't paid, <effect>" — Pharagax Giant, Ornitharch, Nessian
+// Demolok, Snake of the Golden Grove …). Like the kicked flag, this is a per-PERMANENT decision flag, NOT a
+// board query: it reads whether the OPPONENT chose to pay tribute (put N +1/+1 counters on the entering
+// creature) AS it entered. resolvers.enterPermanent stamps `perm.tributePaid` (true = an opponent paid →
+// the counters were added; false = every opponent declined → the "if tribute wasn't paid" effect runs)
+// EXACTLY when the card carries Tribute (parseTribute); a non-tribute permanent leaves it undefined. Keyed
+// on the entering permanent (ctx.triggeringPermanentId) like KICKED_ETB, so it reads identically at the flush
+// check (the permanent is on the battlefield when ETB triggers flush) AND the resolution re-check (CR 603.4
+// second check). The flag is a definite boolean once tribute resolves, so "wasn't paid" → !tributePaid and
+// "was paid" → tributePaid; a missing entering permanent or an unstamped flag → null (can't confirm → the
+// trigger stays unrouted / on the Arbiter — FN-safe, never fail-open). Straight + curly apostrophe tolerated.
+const TRIBUTE_NOT_PAID_RE = /^tribute wasn['’]t paid$/;
+const TRIBUTE_PAID_RE = /^tribute was paid$/;
+
 // ===== SAME-NAME ETB (Guardian Project, CR 603.4 + 201.2) ====================================
 // "it doesn't have the same name as another creature you control or a creature card in your graveyard"
 // — a per-PERMANENT condition keyed on the entering creature (the trigger's triggeringPermanent). True
@@ -259,6 +279,22 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const entering = board.find((p) => p.id === triggeringId);
     if (!entering) return null;      // entering permanent already gone → can't confirm (FN-safe)
     return entering.wasKicked === true; // a normal (un-kicked) cast leaves wasKicked unset → false (CR 603.4 drop)
+  }
+
+  // TRIBUTE ETB (CR 702.96e) — "tribute wasn't paid" / "tribute was paid": read the entering permanent's
+  // tributePaid flag (a per-PERMANENT decision flag, stamped by resolvers.enterPermanent as perm.tributePaid
+  // = true when an opponent paid tribute / false when every opponent declined, set AS the creature entered).
+  // Keyed on the entering permanent (ctx.triggeringPermanentId) like KICKED_ETB, so it reads identically at
+  // flush (the permanent is on the battlefield when ETB triggers flush) AND resolution (CR 603.4 second check).
+  // A definite boolean once tribute resolves; an unstamped flag (a non-tribute permanent, or the entering
+  // permanent already gone) → null (can't confirm → FN-safe, never fail-open — the trigger stays unrouted).
+  if (TRIBUTE_NOT_PAID_RE.test(c) || TRIBUTE_PAID_RE.test(c)) {
+    const triggeringId = context?.triggeringPermanentId;
+    if (!triggeringId) return null; // no entering permanent in context → can't confirm (FN-safe; never fail-open)
+    const board = controllerBoard(state, controllerId);
+    const entering = board.find((p) => p.id === triggeringId);
+    if (!entering || typeof entering.tributePaid !== "boolean") return null; // not a resolved-tribute permanent → can't confirm (FN-safe)
+    return TRIBUTE_NOT_PAID_RE.test(c) ? entering.tributePaid === false : entering.tributePaid === true;
   }
 
   // "you control no <filter>"  → count == 0
@@ -355,8 +391,10 @@ export function interveningIfParseable(condition) {
   // The probe board carries a synthetic entering permanent (id "__entering__", a named creature) so a
   // per-PERMANENT shape (SAME-NAME ETB) returns a boolean here instead of null-for-missing-context. A pure
   // board-count shape ignores the extra permanent and a non-creature name, so its truth on the empty-ish
-  // board is unchanged. An unparseable condition still returns null → false.
-  const entering = { id: "__entering__", card: { name: "__probe_name__", type: "Creature" } };
+  // board is unchanged. An unparseable condition still returns null → false. The probe also stamps a
+  // definite `tributePaid` boolean so the TRIBUTE ETB shape returns a boolean here (the runtime stamps it
+  // for real on every tribute permanent); a non-tribute board-shape ignores the extra field.
+  const entering = { id: "__entering__", card: { name: "__probe_name__", type: "Creature" }, tributePaid: false };
   const probe = { players: { __probe__: { battlefield: [entering], graveyard: [] } } };
   return evaluateInterveningIf(probe, condition, "__probe__", { triggeringPermanentId: "__entering__" }) !== null;
 }

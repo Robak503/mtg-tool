@@ -61,6 +61,7 @@ import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the emin
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
 import { parseKickerCounterCreature, parseKickerEtbCreature } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
+import { parseTributeCreature } from "./tribute.js"; // TRIBUTE (CR 702.96) — ETB opponent-choice (pay N +1/+1 counters OR the "if tribute wasn't paid" effect); runtime hook in resolvers.enterPermanent. Leaf (no back-import, acyclic).
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -1122,6 +1123,28 @@ registerCoverageClassifier((card) => (parseKickerCounterCreature(card, isKeyword
 // routes to the Arbiter only when actually kicked). Returns the body's tier (native-trigger / native-mixed).
 registerCoverageClassifier((card) => {
   const spec = parseKickerEtbCreature(card, classifyCard, isNativeTier);
+  return spec ? spec.bodyTier : null;
+});
+
+// ─── TRIBUTE (CR 702.96) — Eldrazi-Theros ETB opponent-choice (counters vs the "if tribute wasn't paid" effect) ─
+// A CREATURE with a clean "Tribute N" keyword whose BODY — the Tribute line stripped — is ALREADY native under
+// the existing cascade: a keyword-only base body plus a single "When this creature enters, if tribute wasn't
+// paid, <effect>" ETB trigger whose <effect> is fully modeled (Pharagax Giant = damage-to-each-opponent;
+// Ornitharch = create-tokens; Nessian Demolok = destroy target noncreature; Shrike Harpy = edict; Snake of
+// the Golden Grove = gain-life; Thunder Brute / Fanatic of Xenagos = self-pump). The runtime makes it
+// genuinely work: resolvers.enterPermanent resolves the opponent's decision AS the creature enters (pay → add
+// N +1/+1 counters + stamp tributePaid=true; decline → tributePaid=false), and the "if tribute wasn't paid"
+// ETB trigger fires its payoff through the normal checkEnterTriggers → buildTriggerStack path, gated on the
+// "tribute wasn't paid" intervening-if (interveningIf.js) reading that per-permanent flag — exactly how
+// KICKER's "it was kicked" trigger reads wasKicked. parseTributeCreature strips the line and RE-CLASSIFIES the
+// bare body via classifyCard (injected → tribute.js stays a leaf), crediting the SAME tier the body earns. The
+// recursion is bounded (the stripped body has no Tribute line → null on the inner call, like parseKickerEtbCreature).
+// All-or-nothing (THE CREED): an unmodeled if-not effect (gain control — Siren; a granted dies-trigger —
+// Flame-Wreathed Phoenix; an optional fight — Nessian Wilds Ravager) → the bare body isn't native → null →
+// body-only. SINGLE source of truth — resolvers.enterPermanent reads parseTribute too, so the metric credits
+// EXACTLY the cards the engine plays. Returns the body's tier (native-trigger / native-mixed).
+registerCoverageClassifier((card) => {
+  const spec = parseTributeCreature(card, classifyCard, isNativeTier);
   return spec ? spec.bodyTier : null;
 });
 

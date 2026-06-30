@@ -20,7 +20,7 @@
  * PR-2 and the cast path emits these payloads in PR-3.
  */
 
-import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty } from "./gameState.js";
+import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf } from "./gameState.js";
 import { resolveSpellEffect } from "./spellEffects.js";
 import { applyTriggerEffect, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "./triggers.js";
 import { markPendingArbiter } from "./pendingArbiter.js";
@@ -31,6 +31,7 @@ import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, isNativeManaAura } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + AURA-LAND-MANA-BOOST
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
 import { entersWithKickedCounters } from "./kicker.js"; // KICKER (CR 702.33e) — "If this creature was kicked, it enters with N +1/+1 counters"; added only when opts.kicked
+import { parseTribute, decideTribute, tributeIfNotClause } from "./tribute.js"; // TRIBUTE (CR 702.96) — opponent ETB choice: pay N +1/+1 counters OR the "if tribute wasn't paid" effect fires (leaf, acyclic)
 import { applyCounterDoubling } from "./replacementEffects.js"; // Wave-3 doubler (leaf): enters-with-counters bypasses addCounter, so double here
 import { countForSpec } from "./effects/atoms/shared.js"; // ETB-XCOUNTERS-FROM-METRIC: resolve a board-metric counter count (leaf: shared → gameState only)
 import { hasKeyword } from "./keywords.js"; // CHOSEN-TYPE ETB counter (Banner of Kinship): changeling counts as the chosen type (leaf module)
@@ -272,6 +273,26 @@ export function enterPermanent(state, card, controller, opts = {}) {
   if (chosenCtr && perm.chosenType) {
     const n = (player.battlefield || []).filter((p) => cardHasChosenType(p.card, perm.chosenType)).length;
     if (n > 0) perm.counters = { ...perm.counters, [chosenCtr.counterType]: (perm.counters[chosenCtr.counterType] || 0) + applyCounterDoubling(state, controller, chosenCtr.counterType, n) };
+  }
+  // TRIBUTE (CR 702.96a) — "As this creature enters, an opponent of your choice may put N +1/+1 counters on
+  // it." The controller's chosen opponent decides AS the creature enters (decideTribute — a deterministic
+  // value heuristic: pay to deny a HARMFUL "if tribute wasn't paid" effect, decline to deny the controller
+  // free counters when that effect is pure upside). The decision is stamped DURABLY on the permanent as a
+  // boolean `tributePaid` (plain JSON → serializes via the trivial pass-through), read back by the
+  // "tribute wasn't paid"/"tribute was paid" intervening-if (interveningIf.js, keyed on ctx.triggeringPermanentId)
+  // so the "if tribute wasn't paid" ETB trigger (checkEnterTriggers → buildTriggerStack below) fires its payoff
+  // at BOTH the flush check and the resolution re-check (CR 603.4) EXACTLY when tribute wasn't paid — the same
+  // way KICKER's wasKicked flag drives "it was kicked". When PAID, N +1/+1 counters are added AS the creature
+  // enters (its bigger P/T is correct from turn 1), through applyCounterDoubling like every other enters-with-
+  // counter write (Doubling Season doubles the tribute counters too, CR 616). With NO opponent to decide (a
+  // solitaire/test board), tribute can't be paid → declined (CR 702.96a — "an opponent of your choice"; none
+  // exists → the if-not effect runs), the safe default. A non-tribute permanent leaves tributePaid undefined.
+  const trib = parseTribute(card);
+  if (trib) {
+    const hasOpponent = opponentsOf(state, controller).some((oid) => state.players?.[oid]);
+    const paid = hasOpponent ? decideTribute(tributeIfNotClause(card)) : false;
+    perm.tributePaid = paid;
+    if (paid && trib.n > 0) perm.counters = { ...perm.counters, "+1/+1": (perm.counters["+1/+1"] || 0) + applyCounterDoubling(state, controller, "+1/+1", trib.n) };
   }
   // ETB-XVALUE THREADING (HALF-X-CREATE-TOKENS): durably store the chosen {X} paid for this permanent's
   // {X} cost (opts.xValue, threaded from the cast — same source the enters-with-X-counters write above reads)
