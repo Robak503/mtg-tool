@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.70.0] - 2026-06-30
+
+### Improved
+- **Modal multi-sentence modes + chosen-type anthems (+14 native).** "Choose one —" modes that span sentences
+  now parse fully (Maestros Charm, Supreme Will, Agate Assault, Poison the Waters…) and chosen-type flat anthems
+  (Rally the Ranks, Obelisk of Urd, Shared Triumph, Cover of Darkness, Steely Resolve). Flip-diffed both directions
+  (14 gained, 0 lost), full gate (5,917 tests) green, 0 false positives.
+
 ## [0.69.0] - 2026-06-30
 
 ### Improved
