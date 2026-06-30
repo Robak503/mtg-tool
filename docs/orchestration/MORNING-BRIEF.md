@@ -19,22 +19,26 @@ Grinding the priority decks toward **100% native** (your confirmed target) all n
 | v0.64 | Reanimate-from-any-graveyard + reflexive-sac-by-subtype (+5) |
 | v0.65 | **Adventure mechanic** (34 cards) + deaths-this-turn count (+35) |
 | v0.66 | Mana-multiplier (Nyxbloom) + Annihilator (+3) |
+| v0.67 | Qualified-ETB keyword-grant (Dragon Tempest) + Storm keyword (+8) |
+| v0.68 | Targeted-Storm copies (Grapeshot/Tendrils) + half-X-create-tokens (Goose Mother) (+9) |
+| v0.69 | Bestow (Theros, 17 cards) + controller-life-threshold conditions (+19) |
+| v0.70 | Modal multi-sentence modes + chosen-type anthems (+14) |
 
-## 📊 DECK STANDINGS (native %, realism gate — as of v0.66)
+## 📊 DECK STANDINGS (native %, realism gate — as of v0.70)
 | Deck | Start of session | Now |
 |---|---|---|
 | Sliver Hivelord | 91 | **92** |
 | Vihaan, Goldwaker | 76 | **83** |
 | Koma, Cosmos Serpent | 74 | **81** |
-| Zaxara, the Exemplary | 73 | **78** |
-| Omnath, Locus of Mana | 66 | **74** |
-| The Ur-Dragon | 70 | **71** |
+| Zaxara, the Exemplary | 73 | **79** |
+| Omnath, Locus of Mana | 66 | **75** |
+| The Ur-Dragon | 70 | **72** |
 | Toph, Earthbending Master | 65 | **70** |
 | Pantlaza, Sun-Favored | 62 | **67** |
 
-**Aggregate: 1006/1500 deck-slots native (67%, up from 64% at session start). Corpus north-star: 24.6% native (8397 real cards, +162 overnight).**
+**Aggregate: 1009/1500 deck-slots native (67%, up from 64% at session start). Corpus north-star: 24.7% native (8447 real cards, +212 overnight).**
 
-_Note: corpus climbs steadily each wave; the priority decks now climb slowly (1-2 cards/wave) as only their deck-specific hard tails remain — modal/alt-cast/Arbiter-domain. 13 releases shipped overnight (v0.54→v0.66)._
+_Note: corpus (the north-star — "play almost all of Magic natively") climbs steadily each wave; the priority decks have reached their practical plateau — only deck-specific hard tails remain (modal/alt-cast/opponent-choice/Arbiter-domain), each worth 1-2 cards. The corpus-subsystem grind grows the broad metric efficiently; pushing individual decks to ~100% would need per-card deck-specific work at low cards/agent. 21 releases shipped overnight (v0.54→v0.70), zero false positives throughout._
 
 Reality check: cheap per-deck wins are mostly done; further climb comes from **cross-deck subsystems** (each lifts several decks). Practical ceilings land ~85-88% with targeted builds; the last ~10-15% is genuine hard-tail (modal/double-X/opponent-choice) — building toward 100% means grinding those too, per your call.
 
