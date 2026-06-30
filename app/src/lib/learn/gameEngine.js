@@ -50,6 +50,7 @@ import { parseEffectClause, programConfidence, programNeedsChosenTarget, program
 import { expandCastChoices } from "./effects/targeting.js";
 import { applyFadeVanishUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
+import { applyAnnihilatorTriggers } from "./annihilator.js";
 import { applyVihaanCombatAnimate } from "./vihaanAnimate.js";
 import { applySeedbornUntap } from "./seedbornUntap.js";
 import { applyMothmanRadOnAttack } from "./mothmanRad.js";
@@ -369,6 +370,13 @@ export function runStepActions(state) {
     // the ETB half rides checkEnterTriggers). Grants rad synchronously for each Mothman in the attacker
     // batch; a no-op when none is attacking. See mothmanRad.js for the compound-event-guard rationale.
     next = applyMothmanRadOnAttack(next);
+    // KW-ANNIHILATOR (CR 702.86a): "Whenever this creature attacks, defending player sacrifices N permanents."
+    // A #319-style combat hook reusing the SHIPPED edict sacrifice chain — each attacking annihilator obligates
+    // its defending player to sacrifice N permanents of their choice (pooled into one FIFO-safe chain). The
+    // human defender gets a real picker via the learnSession sacrifice-choice loop; an AI auto-sacs its weakest.
+    // May set state.pendingChoice (a human pick), which the session driver settles before combat advances.
+    // No-op when no annihilator is attacking. See annihilator.js for the multi-attacker FIFO rationale.
+    next = applyAnnihilatorTriggers(next);
   }
 
   if (grantsPriority(next.step)) {

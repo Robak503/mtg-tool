@@ -55,6 +55,7 @@ import { parseDamageReplacements, stripDamageReplacementClauses } from "./damage
 import { parseXCastTokenTrigger } from "./xCastToken.js"; // X-CAST-TOKEN commander (Zaxara) — runtime hook lives in actionDispatcher (applyXCastTokenTriggers)
 import { parseUrDragonAttackTrigger } from "./urDragonAttack.js"; // UR-DRAGON commander — runtime hook lives in gameEngine (applyUrDragonAttackTriggers)
 import { parseVihaanCombatAnimate } from "./vihaanAnimate.js"; // VIHAAN commander — runtime hook lives in gameEngine (applyVihaanCombatAnimate)
+import { parseAnnihilator } from "./annihilator.js"; // KW-ANNIHILATOR (CR 702.86a) — runtime hook lives in gameEngine (applyAnnihilatorTriggers)
 import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runtime hook lives in gameEngine (applySeedbornUntap)
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
@@ -1454,3 +1455,46 @@ function classifyAdventure(card) {
   if (!spellIsNative(adventure)) return null;                     // the adventure half's spell effect must be modeled
   return "native-mixed";                                          // both halves modeled — the engine plays the whole card
 }
+
+// ─── KW-ANNIHILATOR (CR 702.86a) — the Eldrazi forced-mass-sacrifice attack keyword ─────────────────────────
+// "Annihilator N" = "Whenever this creature attacks, defending player sacrifices N permanents."  ENFORCED at
+// runtime by applyAnnihilatorTriggers (annihilator.js → wired into gameEngine at the declare-blockers step):
+// each attacking annihilator obligates its defending player to sacrifice N permanents of their choice, driven
+// through the SHIPPED edict sacrifice chain (a human defender picks; an AI auto-sacs its weakest). So a creature
+// whose ENTIRE remaining body is otherwise modeled plays its whole card natively the instant it attacks.
+//
+// CREED — whole card, all clauses modeled (the classifyWolverine / classifyUrDragon / classifyVihaan #353/#356
+// additive-seam precedent: returns null unless EVERY clause matches AND no residue remains, so it can never
+// cause collateral). Mechanism-keyed (the annihilator keyword + an otherwise keyword-only body), NOT name-keyed:
+//   • annihilator must be present (parseAnnihilator) — the credited mechanism the runtime hook enforces;
+//   • the card carries NO other triggered ability — detectTriggers(card) must be EMPTY. Annihilator itself is
+//     not a detected trigger (its reminder's "Whenever this creature attacks…" doesn't classify to any event —
+//     verified), so a non-empty result means a SECOND, unmodeled trigger (Ulamog's "When you cast this spell…",
+//     Kozilek's "When … is put into a graveyard …") → null → the whole Eldrazi titan PARKS to the Arbiter;
+//   • after stripping the annihilator keyword line(s), the remaining oracle must be keyword-only (isKeywordOnly)
+//     — so a vanilla body (the cheap Annihilator 1/2 Eldrazi) or a keyword body (Flying/trample/…) flips, but
+//     any extra static / activated / one-shot text (indestructible-granting auras of text, "exile" payoffs,
+//     devoid is already a covered keyword) that ISN'T a covered keyword keeps residue → null → Arbiter.
+// All-or-nothing — an unmodeled clause leaves the card body-only (a SAFE false-negative), never a partial flip
+// that silently drops it. Returns "native-trigger" (annihilator is, mechanically, an enforced triggered
+// ability + an otherwise keyword body), or null. Gate to creatures (the keyword only ever appears on creatures).
+//
+// Strips ONLY the bare keyword token "annihilator N" (+ optional trailing comma/period), leaving any other
+// keyword in the same comma-list intact for isKeywordOnly to validate. The card name is normalized to "this
+// creature" by isKeywordOnly itself, so a self-named keyword line still reads as covered.
+const ANNIHILATOR_KEYWORD_STRIP = /(?:^|\n|, |; )annihilator\s+\d+\s*(?=$|[\n,;.])/gi;
+function classifyAnnihilator(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  if (!/creature/.test(type)) return null;                        // annihilator is a creature-only keyword
+  if (!parseAnnihilator(card)) return null;                       // no annihilator keyword → not ours
+  // No OTHER triggered ability may ride along (annihilator isn't a detected trigger — see header). A second
+  // detected trigger is unmodeled residue the runtime won't play through this tier → FORBIDDEN dropped-ability
+  // FP. This is what PARKS Ulamog / Kozilek (their cast / GY-shuffle triggers).
+  if (detectTriggers(card).length > 0) return null;
+  // Strip reminder (CR 207.2) + the annihilator keyword line(s); the remainder must be keyword-only (vanilla or
+  // evergreen keywords). A non-keyword static/activated/one-shot clause keeps residue → null → Arbiter.
+  const residue = stripReminder(String(card?.oracle ?? card?.oracle_text ?? "")).replace(ANNIHILATOR_KEYWORD_STRIP, " ");
+  if (!isKeywordOnly(residue, card?.name)) return null;
+  return "native-trigger";                                        // enforced annihilator trigger + an otherwise keyword body
+}
+registerCoverageClassifier((card) => classifyAnnihilator(card));
