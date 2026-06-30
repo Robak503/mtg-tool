@@ -89,6 +89,18 @@ export function parseDamageReplacements(card) {
     out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "target" } });
   }
 
+  // SOURCE-SCOPED, controller-wide BUT gated to creatures that ENTERED THIS TURN (Neriv, Heart of the Storm):
+  // "If a creature you control that entered this turn would deal damage, it deals twice that much damage instead."
+  // This is NARROWER than the controller-wide Furnace shape above — only damage whose SOURCE is one of your
+  // creatures that entered the battlefield THIS turn is doubled. Crediting it with the bare controller-wide scope
+  // would over-fire (doubling damage from creatures out for several turns) — a FORBIDDEN over-application FP — so
+  // it carries its own `enteredThisTurn` scope flag, consumed by buildSourceFilter (which re-reads the live source
+  // permanent's enteredOnTurn). Anchored to the WHOLE unique templating ("twice that much", not "double that
+  // damage") so it can't collide with the Furnace/Wolverine/Twinflame shapes; corpus-unique to Neriv.
+  if (/if a creature you control that entered this turn would deal damage,? it deals twice that much damage instead/i.test(oracle)) {
+    out.push({ op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you", enteredThisTurn: true } });
+  }
+
   return out;
 }
 
@@ -126,6 +138,8 @@ export function stripDamageReplacementClauses(oracle, card) {
   t = t.replace(/double (?:the )?damage[^.]*sources? you control would deal[^.]*\.?/i, " ");
   // TARGET-SCOPED (affected player), whole sentence.
   t = t.replace(/if a source would deal damage to you[^.]*deals? double[^.]*\.?/i, " ");
+  // SOURCE-SCOPED entered-this-turn (Neriv), whole sentence — mirrors the parse anchor above.
+  t = t.replace(/if a creature you control that entered this turn would deal damage,? it deals twice that much damage instead[^.]*\.?/i, " ");
   return t;
 }
 
@@ -192,7 +206,24 @@ export function buildSourceFilter(entry, _state) {
     return (event) => event?.sourceId != null && event.sourceId === entry.permanentId;
   }
   if (scope.controller === "you") {
-    // Controller-wide: any source the entry's controller controls.
+    // Controller-wide: any source the entry's controller controls. When the entry is gated to creatures that
+    // ENTERED THIS TURN (Neriv), additionally require the live SOURCE permanent to have entered on the current
+    // turn — re-read from state (an inline battlefield scan, mirroring collectDamageReplacements; keeps this a
+    // pure leaf with no gameState import). A source whose enteredOnTurn !== state.turn (or that can't be found —
+    // e.g. an already-left source) is NOT doubled, so the replacement can never over-fire on a stale creature.
+    if (scope.enteredThisTurn) {
+      return (event) => {
+        if (event?.sourceController == null || event.sourceController !== entry.permanentController) return false;
+        if (event.sourceId == null) return false;
+        const turn = _state?.turn;
+        let src = null;
+        for (const pid of Object.keys(_state?.players || {})) {
+          src = (_state.players[pid].battlefield || []).find((p) => p.id === event.sourceId);
+          if (src) break;
+        }
+        return !!src && src.enteredOnTurn === turn;
+      };
+    }
     return (event) => event?.sourceController != null
       && event.sourceController === entry.permanentController;
   }

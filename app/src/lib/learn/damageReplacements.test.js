@@ -541,3 +541,91 @@ describe("classifyDamageReplacementBody — Twinflame Tyrant (the general double
     expect(stripped.toLowerCase()).toBe("flying");
   });
 });
+
+// ─── Neriv, Heart of the Storm — controller-wide doubler GATED to creatures that entered this turn ──────────
+const NERIV_ORACLE =
+  "Flying\nIf a creature you control that entered this turn would deal damage, it deals twice that much damage instead.";
+function neriv(controller, power = 4, toughness = 4, extra = {}) {
+  const card = {
+    id: "neriv-card",
+    name: "Neriv, Heart of the Storm",
+    power, toughness,
+    type_line: "Legendary Creature — Spirit Dragon",
+    mana_cost: "{2}{R}{R}",
+    oracle: NERIV_ORACLE,
+  };
+  return { ...createPermanent({ card, controller }), ...extra };
+}
+
+describe("Neriv entered-this-turn doubler (parse + scope)", () => {
+  it("parses the controller-wide entered-this-turn shape (NOT the bare Furnace scope)", () => {
+    expect(parseDamageReplacements(neriv("user").card)).toEqual([
+      { op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you", enteredThisTurn: true } },
+    ]);
+  });
+
+  it("does NOT collide with the Furnace 'source you control … double' shape (that stays controller-wide, un-gated)", () => {
+    const furnace = { name: "Furnace-ish", oracle: "If a source you control would deal damage, it deals double that damage instead." };
+    expect(parseDamageReplacements(furnace)).toEqual([
+      { op: { op: "multiply", factor: 2 }, scope: { side: "source", controller: "you" } },
+    ]);
+  });
+
+  it("buildSourceFilter fires ONLY for a same-controller source that entered THIS turn", () => {
+    const entry = { ...parseDamageReplacements(neriv("user").card)[0], permanentId: "neriv-id", permanentController: "user" };
+    const state = {
+      turn: 5,
+      players: { user: { battlefield: [{ id: "fresh", enteredOnTurn: 5 }, { id: "stale", enteredOnTurn: 2 }] } },
+    };
+    const filt = buildSourceFilter(entry, state);
+    expect(filt({ sourceId: "fresh", sourceController: "user", amount: 3 })).toBe(true);   // entered this turn
+    expect(filt({ sourceId: "stale", sourceController: "user", amount: 3 })).toBe(false);  // entered a prior turn
+    expect(filt({ sourceId: "fresh", sourceController: "ai", amount: 3 })).toBe(false);    // not your source
+    expect(filt({ sourceId: "ghost", sourceController: "user", amount: 3 })).toBe(false);  // source not on battlefield
+  });
+});
+
+describe("Neriv combat doubling (entered-this-turn only — the CREED over-fire guard)", () => {
+  it("a creature that entered THIS turn deals DOUBLE; a stale creature deals normal", () => {
+    const n = neriv("user", 4, 4, { enteredOnTurn: 0 });          // Neriv itself is old (irrelevant — it's the static source)
+    const fresh = vanilla("Freshling", 3, 3, "user", { enteredOnTurn: 3 }); // makeState turn === 3 → entered this turn
+    const stale = vanilla("Oldling", 2, 2, "user", { enteredOnTurn: 1 });   // entered a prior turn → normal damage
+    const s = makeState({ userBf: [n, fresh, stale] }, {
+      attackers: [
+        { permanentId: fresh.id, attackingPlayer: "user", defender: "ai" },
+        { permanentId: stale.id, attackingPlayer: "user", defender: "ai" },
+      ],
+      blockers: [],
+    });
+    const out = resolveCombatDamage(s);
+    // fresh: 3 × 2 = 6 doubled; stale: 2 normal. 40 - 6 - 2 = 32.
+    expect(out.players.ai.life).toBe(32);
+  });
+
+  it("CREED: a creature out since a PRIOR turn is NEVER doubled (no over-fire on a stale board)", () => {
+    const n = neriv("user", 4, 4, { enteredOnTurn: 0 });
+    const stale = vanilla("Veteran", 5, 5, "user", { enteredOnTurn: 1 });
+    const s = makeState({ userBf: [n, stale] }, {
+      attackers: [{ permanentId: stale.id, attackingPlayer: "user", defender: "ai" }],
+      blockers: [],
+    });
+    const out = resolveCombatDamage(s);
+    expect(out.players.ai.life).toBe(35); // 40 - 5 (NOT doubled)
+  });
+});
+
+describe("Neriv classification", () => {
+  it("classifies native-static (entered-this-turn doubler + Flying body — whole card modeled)", () => {
+    expect(classifyCard(neriv("user").card)).toBe("native-static");
+  });
+
+  it("CREED: an extra unmodeled trigger keeps it body-only (residue guard)", () => {
+    const card = { ...neriv("user").card, oracle: NERIV_ORACLE + "\nWhenever this creature attacks, draw a card and you gain the game." };
+    expect(classifyCard(card)).toBe("body-only");
+  });
+
+  it("stripDamageReplacementClauses leaves exactly the keyword body", () => {
+    const stripped = stripDamageReplacementClauses(NERIV_ORACLE, neriv("user").card).replace(/\s+/g, " ").trim();
+    expect(stripped.toLowerCase()).toBe("flying");
+  });
+});
