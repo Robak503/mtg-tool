@@ -821,7 +821,12 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     // cast-or-decline decision offered by legalChoices after the atom parks the candidates), NOT as an
     // optional-effect yes/no pause in runEffectProgram. Stamping `optional` would double-prompt (a yes/no
     // before the cast-or-decline), so the free-cast atom is left un-optional — its "may" is the decline.
-    return inner.op === "free-cast" ? inner : { ...inner, optional: true };
+    // ONE-SHOT EXTRA-LAND (CR 505.5b) — same shape: "you may play an additional land this turn" grants the
+    // OPTION to play more lands, realized at the LAND-PLAY step (the player chooses whether to use the bigger
+    // budget; CR 601.3e doesn't force the extra play). It's costless upside with no resolution-time decision,
+    // so the atom is left UN-optional too — otherwise Explore ("…land this turn. Draw a card.") would become
+    // optional-then-mandatory and fail the optionalsFormSuffix suffix rule, dropping a clean card to Arbiter.
+    return (inner.op === "free-cast" || inner.op === "play-extra-land-this-turn") ? inner : { ...inner, optional: true };
   }
 
   // X-amount variant (only for an {X}-cost spell). Rewrite the X in the AMOUNT slot

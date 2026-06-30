@@ -72,6 +72,32 @@ function applyFog(state, atom, ctx) {
 }
 
 /**
+ * ===== ONE-SHOT EXTRA-LAND ===== (CR 505.5b / 305.2) — "You may play [an|up to N] additional land[s] this
+ * turn." A RESOLVING effect (Explore, Summer Bloom, Urban Evolution) that RAISES the controller's per-turn
+ * land-play budget for THIS turn only. Bumps player.extraLandsThisTurn by atom.amount; legalChoices
+ * .landDropAllowance adds that budget (1 + Σ static-extra + extraLandsThisTurn), and resetTurnCounters zeroes
+ * it each of the player's turns, so it never persists like the static "each of your turns" form. The "may"
+ * is satisfied for free — granting the OPTION to play more lands costs nothing and is never a downside (the
+ * player simply chooses whether to use the bigger budget at the land-play step), so no yes/no pause is needed
+ * (CR 601.3e — a player isn't forced to play the extra land). Non-targeted; a removed controller is a clean
+ * no-op. `atom.amount ?? 1` (not `|| 1`) so a parsed +0 — impossible from the anchored parser, but
+ * defensively — would add exactly 0, never a fabricated land.
+ */
+function applyPlayExtraLandThisTurn(state, atom, ctx) {
+  const player = state.players?.[ctx.controller];
+  if (!player) return state; // removed/eliminated controller → clean no-op
+  const add = atom.amount ?? 1;
+  const next = {
+    ...state,
+    players: {
+      ...state.players,
+      [ctx.controller]: { ...player, extraLandsThisTurn: (player.extraLandsThisTurn || 0) + add },
+    },
+  };
+  return logEvent(next, { kind: "spell-effect", effect: "play-extra-land-this-turn", controller: ctx.controller, amount: add });
+}
+
+/**
  * ===== EMBLEM ===== (PW-5, CR 114) — "You get an emblem with '[ability]'." Give the controller an
  * emblem carrying the quoted ability text (addEmblem). The parser only emits this atom when the
  * ability is a modeled static (a clean anthem the layer engine can apply); the emblem's effect then
@@ -124,6 +150,25 @@ export function applyDivideDamage(state, atom, ctx) {
 export function miscClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
   if (/^prevent all combat damage that would be dealt this turn$/.test(t)) return { op: "fog", targetType: null };
+  // ONE-SHOT EXTRA-LAND (CR 505.5b) — "[you may] play [an|up to N] additional land[s] this turn." A resolving
+  // SELF one-shot land-budget bump (Explore +1, Summer Bloom "up to three" → +3, Urban Evolution +1). The
+  // parser's α2 wrapper PEELS the leading "you may" before this runs (and leaves the atom UN-optional — the
+  // "may" is realized at the land-play step, where the player chooses whether to use the bigger budget, NOT as
+  // a resolution yes/no; granting the option is costless upside), so the canonical match is the PEELED form;
+  // the optional leading "you may" is tolerated for a direct clause-first call (tests). Whole-clause anchored
+  // ($) — a rider, a "from your graveyard"/"exiled this way" qualifier, or the SYMMETRIC "each player may play
+  // …" leaves residue → no match → low → Arbiter (CREED: the budget reader is controller-only, so a symmetric
+  // grant must never model as a self-only bump). The variable "X additional lands" form (Nahiri's Lithoforming)
+  // has no fixed N → not matched → its whole card stays non-native (safe FN). "an"/"one".."ten" + a numeric "2
+  // additional", with or without the "up to" cap (the cap is irrelevant to the budget — you may always play
+  // FEWER lands; CR 601.3e), all parse to N.
+  const eld = t.match(/^(?:you may )?play (?:up to )?(an|one|two|three|four|five|six|seven|eight|nine|ten|\d+) additional lands? this turn$/);
+  if (eld) {
+    const W = { an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+    const n = /^\d+$/.test(eld[1]) ? parseInt(eld[1], 10) : (W[eld[1]] || 0);
+    if (n > 0) return { op: "play-extra-land-this-turn", amount: n, targetType: null };
+    return null; // unparsed N → low → Arbiter (never a fabricated 0-land budget)
+  }
   // RITUAL-MANA — "Add {C}{C}{C}" (Dark Ritual, Pyretic Ritual, Seething Song, Channel the Suns). A spell that
   // adds basic mana to the controller's pool (applyAddMana → addMana per color). PURE basic symbols only —
   // {X}, hybrid/Phyrexian, snow {S}, or a rider ("Add {R}{R}{R}. Spend this mana only on…") fails the anchor →
@@ -243,6 +288,7 @@ export const miscResolvers = {
   "draw": applyDrawAtom, // ===== EACH-PLAYER ===== who-aware: controller / eachPlayer / target player
   "add-mana": applyAddMana, // RITUAL-MANA — "Add {C}{C}{C}" adds basic mana to the controller's pool
   "fog": applyFog, // ===== FOG ===== (FOG-1) prevent all combat damage this turn — a turn-scoped latch
+  "play-extra-land-this-turn": applyPlayExtraLandThisTurn, // ===== ONE-SHOT EXTRA-LAND ===== (CR 505.5b) bump the controller's per-turn land budget (Explore/Summer Bloom/Urban Evolution); reset each turn
   "create-emblem": applyCreateEmblem, // ===== EMBLEM ===== (PW-5) "you get an emblem with '[modeled static]'"
   // ===== DIVIDE ===== (MT-1) — split N damage among any number of targets via a resolution-time picker.
   // Wired end-to-end: applyDivideDamage → setPendingDivideChoice → driver (AI auto-distributes /

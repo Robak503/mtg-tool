@@ -371,6 +371,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     experience: 0,
     radCounters: 0,           // RAD (CR 728): rad counters a player has; the inherent radiation ability (applyRadiation) mills + drains at their precombat main
     landsPlayedThisTurn: 0,
+    extraLandsThisTurn: 0,    // ONE-SHOT-EXTRA-LAND (CR 505.5b / 305.2): the per-turn land-play budget RAISED by a resolving "you may play [N] additional land[s] this turn" effect (Explore → +1, Summer Bloom → +3). landDropAllowance adds it; resetTurnCounters zeroes it each of the player's turns.
     cardsDrawnThisTurn: 0,
     spellsCastThisTurn: 0,    // TRIG-CAST2: "cast your second spell each turn" — incremented at the cast chokepoint, reset for all seats at untap
     hasMulliganed: false,
@@ -1239,6 +1240,7 @@ export function resetTurnCounters(state, { playerId }) {
   return withPlayer(state, playerId, p => ({
     ...p,
     landsPlayedThisTurn: 0,
+    extraLandsThisTurn: 0,  // ONE-SHOT-EXTRA-LAND: the resolving "additional land this turn" budget is per-turn; reset alongside landsPlayedThisTurn so it never carries into a later turn (CR 505.5b — "this turn" only).
     cardsDrawnThisTurn: 0,
   }));
 }

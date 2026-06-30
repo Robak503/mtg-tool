@@ -9,8 +9,9 @@
  *
  * CREED all-or-nothing: only a clean SELF-ONLY extra-land static flips on its OWN (Exploration/Azusa →
  * native-static). The SYMMETRIC form ("each player may play an additional land …" — Rites of Flourishing,
- * Ghirapur Orrery), "any number of lands" (Fastbond), the one-shot sorcery ("up to three additional lands this
- * turn" — Summer Bloom), and any card carrying a second UNmodeled clause (Oracle of Mul Daya's top-of-library,
+ * Ghirapur Orrery) and "any number of lands" (Fastbond) stay body-only here; the one-shot sorcery form ("up to
+ * three additional lands this turn" — Summer Bloom) is now native via the ONE-SHOT-EXTRA-LAND subsystem (see
+ * extraLandThisTurn.test.js). Any card carrying a second UNmodeled clause (Oracle of Mul Daya's top-of-library,
  * Dryad's type static, Wayward's ascend) stay body-only — a fabricated extra land play / mis-count is a
  * forbidden false positive. Aesi (extra-land static + a MODELED landfall optional-draw) now composes to
  * native-mixed via the LANDFALL-composite fix — see landfall.test.js.
@@ -90,7 +91,12 @@ describe("EXTRA-LAND-DROPS — classifyCard", () => {
     expect(classifyCard(RITES)).toBe("body-only");
     expect(classifyCard(GHIRAPUR)).toBe("body-only");
     expect(classifyCard(FASTBOND)).toBe("body-only");
-    expect(classifyCard(SUMMER_BLOOM)).toBe("arbiter-spell"); // a sorcery, not a permanent
+    // Summer Bloom (the one-shot "play up to three additional lands this turn" sorcery) is NO LONGER an
+    // arbiter-spell — the ONE-SHOT-EXTRA-LAND subsystem now models the resolving form natively (see
+    // extraLandThisTurn.test.js). It's not a permanent STATIC (this file's domain), so its extraLandDropsOf
+    // is still 0; only its RESOLVING effect (the play-extra-land-this-turn atom) flips it.
+    expect(classifyCard(SUMMER_BLOOM)).toBe("native-spell");
+    expect(extraLandDropsOf(SUMMER_BLOOM)).toBe(0); // still NOT a static extra-land permanent
   });
 });
 
