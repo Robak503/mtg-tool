@@ -50,9 +50,10 @@ describe("parser — targeted non-creature permanent removal", () => {
     // RIDER-REMOVAL (riderRemoval.test.js) — its rider is modeled. An UNMODELED controller-rider still drops:
     expect(programConfidence(parseEffectProgram(I("Destroy target permanent. Its controller loses 2 life.")))).toBe("low"); // lose-life rider (unmodeled)
     expect(programConfidence(parseEffectProgram(I("Destroy target artifact, creature, enchantment, or land.")))).toBe("low"); // four-type list
-    // NONBASIC-LAND / NONCREATURE-PERMANENT are NOW modeled (see their describe block below); a conjoined damage
-    // rider (Molten Rain) or a nonbasic union (Pillage "artifact or nonbasic land") still fails the anchor → low.
-    expect(programConfidence(parseEffectProgram(I("Destroy target nonbasic land. It deals 2 damage to that land's controller.")))).toBe("low"); // Molten Rain — damage rider
+    // NONBASIC-LAND / NONCREATURE-PERMANENT are NOW modeled (see their describe block below). A damage-to-the-
+    // target's-controller rider is ALSO modeled now (DESTROY-DAMAGE-RIDER, atoms/destroyDamageRider.test.js), so a
+    // "destroy target nonbasic land. It deals 2 damage to that land's controller." flips NATIVE. The Pillage
+    // "artifact or nonbasic land" UNION stays low (that union targetType is unmodeled).
     expect(programConfidence(parseEffectProgram(I("Destroy target artifact or nonbasic land. It can't be regenerated.")))).toBe("low"); // Pillage — nonbasic union (unmodeled)
   });
 });
@@ -132,8 +133,10 @@ describe("DESTROY-TARGET — nonbasic land + noncreature permanent (Goblin Ruinb
     // NEW: the kicked-ETB creatures the gap was parking (Goblin Ruinblaster / Mold Shambler) now flip native-trigger.
     expect(classifyCard(S("Goblin Ruinblaster", "Kicker {R}\nHaste\nWhen this creature enters, if it was kicked, destroy target nonbasic land.", "Creature — Goblin Shaman", "{2}{R}"))).toBe("native-trigger");
     expect(classifyCard(S("Mold Shambler", "Kicker {1}{G}\nWhen this creature enters, if it was kicked, destroy target noncreature permanent.", "Creature — Beast", "{4}{G}"))).toBe("native-trigger");
-    // CREED PARK: a damage rider (Molten Rain) / a nonbasic union (Pillage) keep the WHOLE card on the Arbiter.
-    expect(classifyCard(S("Molten Rain", "Destroy target nonbasic land. Molten Rain deals 2 damage to that land's controller.", "Sorcery", "{2}{R}"))).toBe("arbiter-spell");
+    // NEW: a damage-to-the-target's-controller rider is modeled now (DESTROY-DAMAGE-RIDER, atoms/destroyDamageRider.test.js),
+    // so a nonbasic-land destroy + that rider (Molten Rain) flips native. The Pillage "artifact or nonbasic land" UNION
+    // still PARKS on the Arbiter (that union targetType is unmodeled, CREED — never a partial).
+    expect(classifyCard(S("Molten Rain", "Destroy target nonbasic land. Molten Rain deals 2 damage to that land's controller.", "Sorcery", "{2}{R}"))).toBe("native-spell");
     expect(classifyCard(S("Pillage", "Destroy target artifact or nonbasic land. It can't be regenerated.", "Sorcery", "{1}{R}{R}"))).toBe("arbiter-spell");
   });
 });

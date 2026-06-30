@@ -841,7 +841,9 @@ const MUST_DROP_TO_LOW = [
   "Draw a card and search your library for a creature card and put it into your hand.",             // leading-effect leak (review catch) — must NOT parse HIGH as [draw]
   "Destroy target creature unless its controller pays {2}.",   // legacy over-matches → MUST drop
   "Destroy target artifact with mana value 3 or less.",         // unmodeled MV restriction on a permanent → MUST drop
-  "Destroy target nonbasic land. It deals 2 damage to that land's controller.", // Molten Rain — the nonbasic-land destroy IS modeled, but the damage rider drops the whole card
+  // NOTE: "Destroy target nonbasic land. It deals 2 damage to that land's controller." (a Molten Rain shape) is NOW
+  // native — the DESTROY-DAMAGE-RIDER fold models the destroy + the damage-to-the-target's-controller rider (pinned
+  // in atoms/destroyDamageRider.test.js). Only the Pillage UNION below stays low ("artifact or nonbasic land" is unmodeled).
   "Destroy target artifact or nonbasic land.",                  // Pillage union — "artifact or nonbasic land" is an unmodeled union (the bare "nonbasic land" IS modeled, see MUST_STAY_HIGH)
   "Destroy target white or blue creature.",                     // β-1 models a single non<color>, NOT a color UNION → MUST drop
   "Destroy target legendary creature.",                         // unmodeled "legendary" supertype → MUST drop

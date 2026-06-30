@@ -5,7 +5,7 @@
  * would create a cycle).
  */
 
-import { applyDestroyEffect } from "../../spellEffects.js";
+import { applyDestroyEffect, applyDamageEffect } from "../../spellEffects.js";
 import { logEvent, gainLife, opponentsOf, findPermanent, moveCardToZone, creaturePower } from "../../gameState.js";
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
@@ -31,23 +31,50 @@ export function applyRemovalWithRider(state, atom, ctx) {
   // single-target in the corpus, but the loop is general).
   const captures = [];
   for (const t of targets) {
-    if (t.type !== "creature" && t.type !== "permanent" && t.type !== "planeswalker") continue;
+    // The damageRider lead can be ANY destroyed permanent (artifact / enchantment / land / creature), so capture
+    // for every removable type; the controllerRider corpus only uses creature/permanent/planeswalker leads, but
+    // accepting "artifact"/"enchantment"/"land" here is harmless (those riders never attach to them).
+    if (!["creature", "permanent", "planeswalker", "artifact", "enchantment", "land"].includes(t.type)) continue;
     const lk = findPermanent(state, t.id);
-    if (lk) captures.push({ controller: lk.controller, power: Math.max(0, creaturePower(lk.permanent, state)) });
+    // DESTROY-DAMAGE-RIDER (Molten Rain) — capture whether the target LAND is NONBASIC *before* the destroy (same
+    // type-line predicate as the nonbasicLand targetType: a Land lacking the Basic supertype, CR 205.4a). Read
+    // off the pre-removal state so the condition reflects the land that was actually destroyed.
+    if (lk) {
+      const tl = lk.permanent?.card?.type || "";
+      captures.push({ controller: lk.controller, power: Math.max(0, creaturePower(lk.permanent, state)), nonbasic: /\bLand\b/.test(tl) && !/\bBasic\b/.test(tl) });
+    }
   }
   // Perform the removal through the shared resolver (exile → applyZoneMove, destroy → applyDestroyEffect).
   let next = atom.op === "exile"
     ? applyZoneMove(state, atom, ctx, "exile")
     : applyDestroyEffect(state, { controller: ctx.controller, targets, cannotRegenerate: atom.cannotRegenerate });
-  // Apply the rider to each captured controller.
+  // Apply the rider(s) to each captured controller. A removal can carry a controllerRider (Beast Within) OR a
+  // damageRider (Smash to Smithereens / Molten Rain) — never both in the corpus, but both are applied if present.
   for (const cap of captures) {
     if (!next.players?.[cap.controller]) continue; // controller eliminated mid-resolution → skip (CR 800.4a)
-    next = applyControllerRider(next, atom.controllerRider, cap, ctx);
-    // A rampBasic rider suspends the program (a tutor pending-choice scoped to that player); stop the loop
-    // so a (theoretical) second target can't clobber the pending choice — the runner resumes from here.
-    if (next.pendingChoice && !next.pendingChoice.resume) break;
+    if (atom.controllerRider) {
+      next = applyControllerRider(next, atom.controllerRider, cap, ctx);
+      // A rampBasic rider suspends the program (a tutor pending-choice scoped to that player); stop the loop
+      // so a (theoretical) second target can't clobber the pending choice — the runner resumes from here.
+      if (next.pendingChoice && !next.pendingChoice.resume) break;
+    }
+    if (atom.damageRider) next = applyDamageRider(next, atom.damageRider, cap, ctx);
   }
   return next;
+}
+
+/**
+ * DESTROY-DAMAGE-RIDER — the SPELL deals `rider.amount` damage to the captured target-controller `cap` (CR — the
+ * second sentence's "that <noun>'s controller"). Routes through the SHARED applyDamageEffect (a player target),
+ * so life loss / poison / damage replacement / lifegain-from-loss interactions are identical to any burn spell.
+ * Molten Rain's `onlyIfNonbasic` gates the damage on the destroyed land having been nonbasic (captured pre-removal);
+ * an unconditional rider (Smash to Smithereens / Melt Terrain) always deals. The damage is dealt even when the
+ * destroy itself failed on an indestructible target (CR — the second sentence resolves regardless), exactly like
+ * the controllerRider's unconditional token; `?? false` reads the flag so its absence means "always deal".
+ */
+export function applyDamageRider(state, rider, cap, ctx) {
+  if ((rider.onlyIfNonbasic ?? false) && !cap.nonbasic) return state; // Molten Rain — basic land destroyed → no damage
+  return applyDamageEffect(state, { controller: ctx.controller, amount: rider.amount, targets: [{ type: "player", id: cap.controller }], source: { id: ctx.sourceId } });
 }
 
 /** Apply a single RIDER-REMOVAL controller-rider to the captured target-controller `cap`. */
@@ -404,8 +431,8 @@ function applyMassDestroyTreasurePerNontoken(state, atom, ctx) {
 export const removalResolvers = {
   "mass-destroy-treasure-per-nontoken": applyMassDestroyTreasurePerNontoken, // BLOOD-MONEY — destroy all creatures + a tapped Treasure per nontoken creature destroyed
   "destroy": (state, atom, ctx) =>
-    atom.controllerRider
-      ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Beast Within / Generous Gift / Assassin's Trophy
+    (atom.controllerRider || atom.damageRider)
+      ? applyRemovalWithRider(state, atom, ctx) // RIDER-REMOVAL — Beast Within / Generous Gift / Assassin's Trophy / Smash to Smithereens / Molten Rain
       : applyDestroyEffect(state, { controller: ctx.controller, targets: atomTargets(state, atom, ctx), cannotRegenerate: atom.cannotRegenerate }), // MTG-001 — honor the "can't be regenerated" rider
   "exile": (state, atom, ctx) =>
     atom.controllerRider

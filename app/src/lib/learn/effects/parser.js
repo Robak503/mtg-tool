@@ -1232,6 +1232,44 @@ function matchRemovalControllerRider(oracle) {
   if (!rider) return null;                                                   // unmodeled rider → low → Arbiter
   return { atom: { ...lead, controllerRider: rider }, rest: "" };
 }
+// ===== DESTROY-DAMAGE-RIDER ===== — targeted DESTROY whose SECOND sentence is the SPELL ITSELF dealing damage
+// to the TARGET's controller (CR — "that <noun>'s controller" = the just-destroyed permanent's controller):
+// Smash to Smithereens ("Destroy target artifact. Smash to Smithereens deals 3 damage to that artifact's
+// controller."), Destructive Revelry (artifact or enchantment, 2), Melt Terrain / Poison the Well (land, 2),
+// Consign to the Pit (creature, 2). This is the damage-dealing twin of matchRemovalControllerRider's
+// "Its controller <rider>" fold: the lead reuses the SAME shared removal grammar (parseExtendedAtom ||
+// destroyExileClauseParser — so every modeled targetType rides along, but the typed-land leads "Plains or
+// Island"/"Mountain" the grammar doesn't model fail the lead parse → null → Arbiter, ALL-OR-NOTHING), and the
+// damage rides on the atom as `damageRider` (applied at RESOLUTION to the captured target-controller through
+// the SAME applyDamageEffect every burn spell uses — so triggers/replacements/lifeloss are handled identically).
+// The damage is UNCONDITIONAL by default; the ONE modeled condition is Molten Rain's "If that land was nonbasic,
+// …" (`onlyIfNonbasic`) — evaluated by capturing the target land's nonbasic-ness BEFORE the destroy (the same
+// type-line predicate the nonbasicLand targetType uses). Any OTHER condition (Icequake's "if that land was a
+// snow land" — snow isn't tracked at resolution; Unlicensed Disintegration's "if you control an artifact" — a
+// board-state gate) fails the anchor → null → low → Arbiter (whole-card CREED, never a partial that fires
+// damage that shouldn't, or drops the condition).
+// The damage rider = an OPTIONAL nonbasic condition (the ONLY modeled condition) + the SELF name + "deals N
+// damage to that/the <noun>'s controller". The self-name is `[a-z'][a-z' ]*?` — letters/apostrophe/space only,
+// NO comma — so it can't swallow ANOTHER leading conditional clause ("If that land was a snow land,",
+// "If you control an artifact,"): those carry a comma the self-name can't cross, and they aren't the modeled
+// nonbasic prefix → the whole rider fails the anchor → null → Arbiter (CREED — never fire damage gated on an
+// unmodeled condition). Anchored ^…$ over the rider sentence.
+const DAMAGE_RIDER_RE =
+  /^(?:(if that land was nonbasic), )?[a-z'][a-z' ]*? deals (\d+) damage to (?:that|the) (?:artifact|creature|enchantment|permanent|land)(?:'s)? controller$/i;
+function matchRemovalDamageRider(oracle) {
+  // The lead destroy + the second sentence. The rider portion is captured greedily to end-of-string, then
+  // validated by DAMAGE_RIDER_RE (which enforces the comma-free self-name, so an unmodeled "If …, X deals …"
+  // condition can't pass even though the outer .+? captured it).
+  const m = stripReminder(oracle).trim().replace(/[’]/g, "'").match(/^(destroy target .+?)\.\s+(.+? deals \d+ damage to (?:that|the) (?:artifact|creature|enchantment|permanent|land)(?:'s)? controller)\.?$/i);
+  if (!m) return null;
+  const lead = parseExtendedAtom(m[1].trim()) || destroyExileClauseParser(m[1].trim());
+  if (!lead || lead.op !== "destroy") return null;                           // DESTROY lead only (no exile form in the corpus)
+  const dm = m[2].trim().match(DAMAGE_RIDER_RE);
+  if (!dm) return null;                                                       // an unmodeled condition / shape → low → Arbiter
+  const damageRider = { amount: parseInt(dm[2], 10) };
+  if (dm[1]) damageRider.onlyIfNonbasic = true;                              // Molten Rain — "If that land was nonbasic,"
+  return { atom: { ...lead, damageRider }, rest: "" };
+}
 // SOFT-COUNTER-RIDER — "Counter target <filter> spell. Its controller <rider>." (An Offer You Can't Refuse
 // "creates two Treasure tokens", Swan Song "creates a 2/2 blue Bird … with flying"). The lead reuses the
 // counter grammar (spellFilter incl. the 3-way enchantment/instant/sorcery); the rider rides on the atom and
@@ -2021,6 +2059,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   // so it's matched up front like the other collapsed templates.
   const rcr = matchRemovalControllerRider(oracle);
   if (rcr) return collapsed(rcr);
+  // DESTROY-DAMAGE-RIDER — "Destroy target X. [If that land was nonbasic, ]<SELF> deals N damage to that X's
+  // controller." → ONE destroy atom carrying a `damageRider` (resolved to the target's controller via the shared
+  // applyDamageEffect). The two sentences span the clause splitter, so it's matched up front like the controller
+  // rider. Tried AFTER matchRemovalControllerRider (disjoint anchors — that one ends "its controller <rider>",
+  // this one "<self> deals N damage to that/the <noun> controller"), so neither can claim the other's cards.
+  const rdr = matchRemovalDamageRider(oracle);
+  if (rdr) return collapsed(rdr);
   // SOFT-COUNTER-RIDER — "Counter target <filter> spell. Its controller <rider>." → ONE counter atom carrying
   // a `controllerRider` (resolved to the countered spell's controller).
   const ccr = matchCounterControllerRider(oracle);
