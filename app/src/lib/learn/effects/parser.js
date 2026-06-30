@@ -1095,16 +1095,20 @@ function parseModal(cardType, oracle, hasX = false) {
 
   const modes = [];
   for (const part of parts) {
-    const clauses = splitClauses(part);
-    const atoms = [];
-    let ok = clauses.length > 0;
-    for (const clause of clauses) {
-      const atom = parseClauseToAtom(cardType, clause, hasX);
-      if (!atom) { ok = false; break; }
-      atoms.push(atom);
-    }
-    if (!ok) return { chooseCount, upTo, atLeastOne, modes: null }; // an unmodeled mode → low
-    modes.push({ label: part, atoms });
+    // Parse each mode through the FULL clause machinery (parseEffectClauseImpl), not a bare
+    // splitClauses/parseClauseToAtom loop — so a MULTI-SENTENCE mode whose effect spans sentences resolves
+    // natively instead of shattering. The up-front matchers in parseEffectClauseImpl (impulse-dig "Look at
+    // the top N … Put one … the rest …", the exile-if-dies removal rider "… deals N damage to target
+    // creature. If that creature would die this turn, exile it instead.", counter-unless, reflexive, etc.)
+    // are exactly the riders a Charm/Command mode carries (Maestros Charm, Supreme Will, Suplex, Agate
+    // Assault, Confounding Riddle). CREED is preserved — all-or-nothing: a mode that doesn't parse HIGH (or
+    // is itself a nested modal, which the per-mode executor doesn't model) drops the WHOLE card to low →
+    // Arbiter (modes:null). hasX flows through so an {X}-cost modal's X-mode binds its amount.
+    const inner = parseEffectClauseImpl(part, cardType, { hasX });
+    const ok = inner && inner.structure !== "modal" && programConfidence(inner) === "high"
+      && Array.isArray(inner.atoms) && inner.atoms.length > 0;
+    if (!ok) return { chooseCount, upTo, atLeastOne, modes: null }; // an unmodeled / nested-modal mode → low
+    modes.push({ label: part, atoms: inner.atoms });
   }
   // Count must be satisfiable: can't pick more modes than exist, and "one or both" is specifically a
   // TWO-mode card (1 or 2 of exactly 2). An unsatisfiable count → modes:null → low (never a wrong pick).
