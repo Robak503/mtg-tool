@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-06-29
+
+### Improved
+- **Deck-driven cleanup + two reusable alt-cast levers.** Koma 76→77% (Irenicus's Vile Duplication — token-copy
+  with a keyword-grant rider) and Vihaan 77→79% (Damn, Exalted Sunborn). The Overload (CR 702.96) and Warp
+  (CR 702.176) cast-keyword strips also flipped **+22 more corpus cards** (Cyclonic Rift, Mizzium Mortars,
+  Vandalblast, Nova Hellkite, Starbreach Whale…) — **+24 native total**. Flip-diffed both directions, 0
+  regressions, full gate (5,489 tests) green, zero false positives.
+
 ## [0.55.0] - 2026-06-29
 
 ### Improved
