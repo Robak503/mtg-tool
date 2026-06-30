@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.76.0] - 2026-06-30
+
+### Improved
+- **Fight-another + destroy-damage riders (+8 native).** Source-bound "[this] fights another target creature"
+  (Nessian Wilds Ravager, Territorial Allosaurus, Atzocan Archer) and destroy-target + "deals N damage to that
+  permanent's controller" (Smash to Smithereens, Destructive Revelry, Molten Rain, Poison the Well…). Flip-diffed
+  both directions (8 gained, 0 lost), full gate (6,183 tests) green, 0 false positives.
+
 ## [0.75.0] - 2026-06-30
 
 ### Improved
