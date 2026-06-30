@@ -405,6 +405,20 @@ function splitClauses(oracle) {
     .replace(
       /^(.*?\bhalf x\b.*?)\.\s*round (down|up) each time\.?\s*$/i,
       (_, body, dir) => `${body.replace(/\bhalf x\b(\s+\w+)/gi, `half x$1 rounded ${dir.toLowerCase()}`)}.`,
+    )
+    // RAMP-MULTI-X TWO-SENTENCE FOLD — Traverse the Outlands prints the X-count clause and the put clause as
+    // TWO sentences ("…search your library for up to X basic land cards, where X is the greatest power among
+    // creatures you control. Put those cards onto the battlefield tapped, then shuffle."). The sentence split
+    // would sever the "Put those cards…" instruction from its "search…where X is…" antecedent — leaving the
+    // search clause without a destination AND orphaning a bare, unbindable "Put those cards…" fragment. Fold
+    // the period into a comma so the whole thing stays ONE "search your library…" clause (the search anchor
+    // below keeps it intact), which the mfx tutor matcher then parses as a single RAMP-MULTI-X atom. Anchored
+    // to the EXACT "search…for up to X…cards, where X is…. Put those cards onto the battlefield" pair, so it
+    // can only PROMOTE this already-low two-sentence shape — a one-sentence form (Boundless Realms) and any
+    // other "Put those cards" usage are byte-identical / untouched.
+    .replace(
+      /(search your library for up to x [a-z][a-z ,]*? cards,? where x is [^.]+?)\.\s+(put those cards onto the battlefield)/gi,
+      "$1, $2",
     );
   for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();

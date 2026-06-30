@@ -25,12 +25,21 @@
  *   for the optional-effect decision (CR — it IS a "you may"), then resolves. Classifies native-trigger.
  *   Collateral: Kazuul Warlord ("each Ally creature you control").
  *
+ * BUILD D — RAMP-MULTI-X (Traverse the Outlands). "Search your library for up to X basic land cards, where X
+ *   is the greatest power among creatures you control. Put those cards onto the battlefield tapped, then
+ *   shuffle." The X is a fetch CARDINALITY resolved at resolution via countForSpec (reusing parseCountSource's
+ *   greatestPowerYouControl / permanentsYouControl resolvers and the RAMP-MULTI land guard). Two pieces: a
+ *   splitClauses fold that joins Traverse's two-sentence count+put form into ONE "search…" clause, and an mfx
+ *   tutor matcher that emits a `countFor` tutor; applyTutor computes `remaining = countForSpec(...)`.
+ *   Classifies native-spell. Collateral: Boundless Realms ("X = number of lands you control"). An unmodeled
+ *   count source (Harvest Season "tapped creatures", Celebrate "different powers") stays LOW → Arbiter.
+ *
  * CREED throughout: a qualified / wrong-referent / unmodeled form stays NON-native (safe false-negative),
  * never a fabricated or mis-applied effect.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { parseEffectClause, atomTargetIntent } from "./effects/parser.js";
+import { parseEffectClause, atomTargetIntent, parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
 import { detectTriggers } from "./triggers.js";
 import { triggerRoutesNatively } from "./triggerRouting.js";
@@ -38,7 +47,8 @@ import { enumerateTargets } from "./spellEffects.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
-import { resolveOptionalChoice } from "./effects/runProgram.js";
+import { resolveOptionalChoice, resolveTutorChoice, autoPickTutorCandidate } from "./effects/runProgram.js";
+import { resolveAtom } from "./effects/effectAtoms.js";
 import { enterPermanent } from "./resolvers.js";
 import { permanentHasKeyword } from "./layers.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
@@ -215,5 +225,101 @@ describe("OMNATH BUILD C — SUBTYPE-MASS-COUNTER (Avenger of Zendikar)", () => 
 
   it("CREED — a non-curated subtype mass-counter ('each Villain creature you control') stays low", () => {
     expect(parseEffectClause("put a +1/+1 counter on each Villain creature you control.", "Creature").confidence).toBe("low");
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════════════════
+// BUILD D — RAMP-MULTI-X (Traverse the Outlands)
+// ══════════════════════════════════════════════════════════════════════════════════════════
+const TRAVERSE = {
+  id: "c-to", name: "Traverse the Outlands", type: "Sorcery", mana: "{4}{G}",
+  oracle: "Search your library for up to X basic land cards, where X is the greatest power among creatures you control. Put those cards onto the battlefield tapped, then shuffle.",
+};
+const BOUNDLESS = {
+  id: "c-br", name: "Boundless Realms", type: "Sorcery", mana: "{5}{G}",
+  oracle: "Search your library for up to X basic land cards, where X is the number of lands you control, put them onto the battlefield tapped, then shuffle.",
+};
+const forestLib = (id) => ({ id, name: "Forest", type: "Basic Land — Forest", oracle: "" });
+const islandLib = (id) => ({ id, name: "Island", type: "Basic Land — Island", oracle: "" });
+const bearLib = { id: "bl", name: "Grizzly Bears", type: "Creature — Bear", oracle: "" };
+
+describe("OMNATH BUILD D — RAMP-MULTI-X (Traverse the Outlands)", () => {
+  it("Traverse's two-sentence count+put form parses HIGH → tutor with countFor greatestPowerYouControl, tapped", () => {
+    const p = parseEffectProgram(TRAVERSE);
+    expect(p.confidence).toBe("high");
+    expect(p.atoms).toEqual([{
+      op: "tutor", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card",
+      destination: "battlefield", entersTapped: true, countFor: { kind: "greatestPowerYouControl" }, targetType: null,
+    }]);
+  });
+  it("Boundless Realms (one-sentence, X = number of lands you control) is collateral native", () => {
+    const p = parseEffectProgram(BOUNDLESS);
+    expect(p.confidence).toBe("high");
+    expect(p.atoms).toEqual([{
+      op: "tutor", filter: { groups: [["basic", "land"]] }, filterLabel: "basic land card",
+      destination: "battlefield", entersTapped: true, countFor: { kind: "permanentsYouControl", cardType: "land" }, targetType: null,
+    }]);
+  });
+  it("both classify native-spell", () => {
+    expect(classifyCard(TRAVERSE)).toBe("native-spell");
+    expect(classifyCard(BOUNDLESS)).toBe("native-spell");
+  });
+
+  it("CREED — an unmodeled count source stays LOW → Arbiter (never a fabricated/mis-scoped fetch count)", () => {
+    // Harvest Season — "tapped creatures you control" is not a modeled count source.
+    expect(programConfidence(parseEffectProgram({ type: "Sorcery", mana: "{X}{G}", name: "Harvest Season",
+      oracle: "Search your library for up to X basic land cards, where X is the number of tapped creatures you control, put those cards onto the battlefield tapped, then shuffle." }))).toBe("low");
+    // Celebrate the Harvest — "different powers among creatures you control".
+    expect(programConfidence(parseEffectProgram({ type: "Sorcery", mana: "{2}{G}", name: "Celebrate the Harvest",
+      oracle: "Search your library for up to X basic land cards, where X is the number of different powers among creatures you control. Put those cards onto the battlefield tapped, then shuffle." }))).toBe("low");
+  });
+  it("CREED — a NON-basic / NON-land X-fetch with a modeled count stays LOW (the land guard holds)", () => {
+    // creature-card fetch → not a land → low (would be a forbidden any-permanent search)
+    expect(programConfidence(parseEffectProgram({ type: "Sorcery", mana: "{2}{G}", name: "Fake Creature Fetch",
+      oracle: "Search your library for up to X creature cards, where X is the number of lands you control, put them onto the battlefield tapped, then shuffle." }))).toBe("low");
+    // ambiguous-basic union ("basic Forest or Island") → low, same guard as RAMP-MULTI
+    expect(programConfidence(parseEffectProgram({ type: "Sorcery", mana: "{2}{G}", name: "Fake Ambiguous",
+      oracle: "Search your library for up to X basic Forest or Island cards, where X is the number of lands you control, put them onto the battlefield tapped, then shuffle." }))).toBe("low");
+  });
+
+  it("runtime — greatest power 3 → fetches up to 3 basics, all tapped, library shrinks by 3", () => {
+    const atom = parseEffectProgram(TRAVERSE).atoms[0];
+    // Board: a 3/3 (greatest power = 3). Library: 4 forests + a bear.
+    const big = createPermanent({ id: "p-big", card: { id: "c-big", name: "Big Beast", type: "Creature — Beast", power: 3, toughness: 3, oracle: "" }, controller: "user" });
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [big], library: [forestLib("f1"), forestLib("f2"), forestLib("f3"), forestLib("f4"), bearLib] } } };
+    s = resolveAtom(s, atom, { controller: "user", targets: [], cardName: "Traverse the Outlands" });
+    expect(s.pendingChoice).toMatchObject({ kind: "tutor-search", remaining: 3, destination: "battlefield", entersTapped: true });
+    let g = 0;
+    while (s.pendingChoice?.kind === "tutor-search" && g++ < 10) s = resolveTutorChoice(s, autoPickTutorCandidate(s, s.pendingChoice));
+    const fetched = s.players.user.battlefield.filter((p) => /Land/.test(p.card.type));
+    expect(fetched).toHaveLength(3);                                  // exactly greatest-power = 3
+    expect(fetched.every((p) => p.tapped)).toBe(true);               // all tapped
+    expect(s.players.user.library.filter((c) => /Land/.test(c.type))).toHaveLength(1); // 4 → 1 forest left
+  });
+
+  it("runtime — EMPTY board → greatest power 0 → fetches NOTHING (no fabricated land)", () => {
+    const atom = parseEffectProgram(TRAVERSE).atoms[0];
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [], library: [forestLib("f1"), forestLib("f2")] } } };
+    s = resolveAtom(s, atom, { controller: "user", targets: [], cardName: "Traverse the Outlands" });
+    // remaining 0 → no tutor-search pending, nothing fetched
+    let g = 0;
+    while (s.pendingChoice?.kind === "tutor-search" && g++ < 10) s = resolveTutorChoice(s, autoPickTutorCandidate(s, s.pendingChoice));
+    expect(s.players.user.battlefield.filter((p) => /Land/.test(p.card.type))).toHaveLength(0);
+    expect(s.players.user.library).toHaveLength(2);                   // untouched
+  });
+
+  it("runtime — fewer legal basics than X: fetches only what exists (Traverse never fabricates a land)", () => {
+    const atom = parseEffectProgram(TRAVERSE).atoms[0];
+    const big = createPermanent({ id: "p-big", card: { id: "c-big", name: "Big Beast", type: "Creature — Beast", power: 5, toughness: 5, oracle: "" }, controller: "user" });
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    // greatest power 5, but only 2 basics in the library
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, battlefield: [big], library: [forestLib("f1"), islandLib("i1"), bearLib] } } };
+    s = resolveAtom(s, atom, { controller: "user", targets: [], cardName: "Traverse the Outlands" });
+    expect(s.pendingChoice).toMatchObject({ remaining: 5 });
+    let g = 0;
+    while (s.pendingChoice?.kind === "tutor-search" && g++ < 12) s = resolveTutorChoice(s, autoPickTutorCandidate(s, s.pendingChoice));
+    expect(s.players.user.battlefield.filter((p) => /Land/.test(p.card.type))).toHaveLength(2); // only the 2 that existed
   });
 });

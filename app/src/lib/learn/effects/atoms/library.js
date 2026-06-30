@@ -6,7 +6,7 @@
 import { logEvent, opponentsOf, findPermanent, shuffleLibrary, millCards, applyImpulseDig, creatureToughness, addCounter } from "../../gameState.js";
 import { setPendingTutorChoice, setPendingScryChoice, setPendingImpulseDigChoice } from "../../pendingChoice.js";
 import { countForSpec, isLandCard, isCreatureCard } from "./shared.js";
-import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers
+import { NUM_WORD, parseTutorFilter, parseTutorMv, BASIC_LAND_SUBTYPES, UP_TO_N_WORD, parseCountSource } from "../parseHelpers.js"; // seam batch 11 (NUM_WORD) + 12b/12d (tutor helpers leaf) — cycle-free shared parse helpers
 // MILL-ON-EVENT (Wave 3b): the mill atom is one of the two real mill chokepoints, so it enqueues the
 // "milled" trigger bind. checkDiesTriggers is imported by sibling atoms (counters/combat/manifest) without
 // a cycle, so importing checkMilledTriggers from the same leaf triggers.js module is equally safe (the
@@ -152,6 +152,17 @@ export function applyTutor(state, atom, ctx) {
   const effFilter = atom.filter?.mvCapX
     ? { ...atom.filter, mv: { max: Math.max(0, ctx.xValue ?? 0) } }
     : atom.filter;
+  // RAMP-MULTI-X — resolve the dynamic fetch cardinality (Traverse the Outlands / Boundless Realms) ONCE from
+  // the board source. Math.max(0, …) clamps an empty/zero board to 0 (never a fabricated count). When the count
+  // is 0 ("search for up to 0 cards" — e.g. Traverse with no creatures), the search fetches NOTHING: a logged
+  // no-op + a shuffle (CR 701.19e — you still searched, so a library search shuffles), NEVER coerced up to 1
+  // by setPendingTutorChoice's Math.max(1, …) RAMP guard. A static-`remaining` / non-countFor tutor is
+  // untouched (this branch is countFor-only).
+  const dynCount = atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor)) : null;
+  if (dynCount === 0) {
+    const shuffled = sourceZone === "library" ? shuffleControllerLibrary(state, controller) : state;
+    return logEvent(shuffled, { kind: "spell-effect", effect: "tutor", found: false, destination: atom.destination || "hand", controller });
+  }
   const candidates = (player[sourceZone] || [])
     .filter((c) => cardMatchesTutorFilter(c, effFilter))
     .map((c) => ({ id: c.id, name: c.name }));
@@ -171,7 +182,10 @@ export function applyTutor(state, atom, ctx) {
     destination: atom.destination === "battlefield" ? "battlefield" : atom.destination === "top" ? "top" : "hand",
     entersTapped: !!atom.entersTapped,
     // RAMP-MULTI — "up to two": fetch up to `remaining` matching lands (resolveTutorChoice chains the rest).
-    remaining: atom.remaining || 1,
+    // RAMP-MULTI-X — `countFor` resolves the fetch cardinality (computed above as dynCount; a 0 short-circuits
+    // to the no-op return before this point, so here dynCount is ≥1). A static `remaining` wins when present;
+    // otherwise the dynamic count; otherwise the default 1.
+    remaining: dynCount ?? (atom.remaining ?? 1),
     // RAMP-SPLIT (Cultivate / Kodama's Reach) — an ordered per-fetch destination sequence; setPendingTutorChoice
     // derives this pick's destination from its head and carries the tail to the next chained fetch.
     destinations: Array.isArray(atom.destinations) ? atom.destinations : null,
@@ -689,6 +703,31 @@ export function tutorClauseParser(clause, ctx = {}) {
       return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mf[3], remaining: count, targetType: null };
     }
     return null; // a non-land / unmodeled-filter / ambiguous-basic multi-fetch → low → Arbiter
+  }
+  // mfx — RAMP-MULTI-X up-to-X LANDS to battlefield, count from a board source (Traverse the Outlands "X =
+  // greatest power among creatures you control"; Boundless Realms "X = number of lands you control"). The X is
+  // a CARDINALITY (how many to fetch), resolved at resolution via countForSpec — mirrors the for-each token
+  // count path (createTokenClauseParser mtf), reusing the same parseCountSource resolver and the same
+  // RAMP-MULTI land guard as `mf` above. Two sentences (the count clause ends in a period, then "Put those
+  // cards…") arrive as ONE clause; the regex spans both. The count phrase is normalized the same way the
+  // dynamic-token parser does — an optional leading "the" and "number of" are stripped before parseCountSource,
+  // which wants the bare board phrase ("lands you control", "greatest power among creatures you control"). An
+  // unmodeled count source (parseCountSource → null — e.g. "number of tapped creatures you control") drops the
+  // whole clause → low → Arbiter (CREED: a fetch count is NEVER fabricated, and X is never silently treated as
+  // a fixed number). Non-basic-land / ambiguous-basic filters reject via the shared guard, exactly like `mf`.
+  const mfx = t.match(/^search your library for up to x ([a-z][a-z ,]*?) cards,? where x is (?:the )?(?:number of )?(.+?)[.,]?\s*(?:then |and )?put (?:them|those cards) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+  if (mfx) {
+    const phrase = mfx[1];
+    const countFor = parseCountSource(mfx[2], { allowScopes: true });
+    if (!countFor) return null; // unmodeled count source → low → Arbiter (never a fabricated fetch count)
+    const filter = parseTutorFilter(phrase);
+    const guaranteedLand = (g) => g.includes("land") || g.some((w) => BASIC_LAND_SUBTYPES.has(w));
+    const someBasic = filter && filter.groups.some((g) => g.includes("basic"));
+    const allBasic = filter && filter.groups.every((g) => g.includes("basic"));
+    if (filter && filter.groups.every(guaranteedLand) && !(someBasic && !allBasic)) {
+      return { op: "tutor", filter, filterLabel: `${phrase} card`, destination: "battlefield", entersTapped: !!mfx[3], countFor, targetType: null };
+    }
+    return null; // a non-land / unmodeled-filter / ambiguous-basic X-fetch → low → Arbiter
   }
   // spm — RAMP-SPLIT up-to-two LANDS, one→battlefield-tapped + one→hand.
   const spm = t.match(/^search your library for up to two ([a-z][a-z ,]*?) cards,? reveal those cards,? put one onto the battlefield( tapped)? and the other into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
