@@ -139,10 +139,16 @@ describe("KICKER coverage — CREED anti-FP: deferred shapes stay body-only / ar
   it("Multikicker (variable scaler) stays body-only", () => {
     expect(classifyCard({ name: "Skitter Eel", type: "Creature — Fish", mana: "{3}{U}", oracle: "Multikicker {2}\nThis creature enters with two +1/+1 counters on it for each time it was kicked." })).toBe("body-only");
   });
-  it("a kicked ETB-TRIGGER whose EFFECT is unmodeled (destroy target nonbasic land) stays body-only — the kicker→trigger routing fires, but the land-destroy atom isn't modeled (whole-card CREED)", () => {
-    // The "it was kicked" intervening-if now routes (interveningIf.js), but "destroy target nonbasic land"
-    // parses LOW (no modeled destroy-nonbasic-land atom), so the whole card stays body-only — never a partial.
-    expect(classifyCard({ name: "Goblin Ruinblaster", type: "Creature — Goblin Shaman", mana: "{2}{R}", oracle: "Kicker {R}\nHaste\nWhen this creature enters, if it was kicked, destroy target nonbasic land." })).toBe("body-only");
+  it("a kicked ETB-TRIGGER whose EFFECT IS now modeled (destroy target nonbasic land) flips native-trigger — the kicker→trigger routing fires AND the land-destroy atom resolves (Goblin Ruinblaster)", () => {
+    // The "it was kicked" intervening-if routes (interveningIf.js), and "destroy target nonbasic land" now parses
+    // HIGH (DESTROY-TARGET nonbasicLand atom), so the whole kicked-ETB creature is native (formerly body-only).
+    expect(classifyCard({ name: "Goblin Ruinblaster", type: "Creature — Goblin Shaman", mana: "{2}{R}", oracle: "Kicker {R}\nHaste\nWhen this creature enters, if it was kicked, destroy target nonbasic land." })).toBe("native-trigger");
+  });
+  it("a kicked ETB-TRIGGER whose EFFECT is STILL unmodeled (destroy target nonbasic land + a damage rider) stays body-only — the destroy atom models, but the conjoined damage rider drags the program LOW (whole-card CREED)", () => {
+    // Anti-FP pin (preserves the deferred-shape coverage the Goblin Ruinblaster pin used to give): a Molten-Rain-
+    // style conjoined "…It deals 2 damage to that land's controller" rider fails the exact destroy anchor → LOW →
+    // the whole kicked-ETB creature stays body-only (never a partial that silently drops the damage rider).
+    expect(classifyCard({ name: "Molten Hellkite", type: "Creature — Dragon", mana: "{4}{R}", oracle: "Kicker {R}\nWhen this creature enters, if it was kicked, destroy target nonbasic land. It deals 2 damage to that land's controller." })).toBe("body-only");
   });
   it("a kicked ETB-TRIGGER whose target-intent is unresolvable (target player sacrifices a creature) stays body-only", () => {
     // Gatekeeper of Malakir: the sacrifice atom parses HIGH but its chosen target isn't intent-resolvable

@@ -266,11 +266,20 @@ export function destroyExileClauseParser(clause) {
   // wrapper). Both map to the SAME `creatureOrArtifact` targetType (the union predicate is order-free — it
   // matches a permanent that is a Creature OR an Artifact), so the alias can never mis-scope; zones.js's
   // bounce/tuck matchers already accept "artifact or creature" for the identical union.
-  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control))?$/);
+  // NONBASIC-LAND / NONCREATURE-PERMANENT (CR 205.4a / 205.2 — a "nonbasic land" lacks the Basic supertype; a
+  // "noncreature permanent" is any permanent that isn't a Creature). The land-destruction staple ("destroy
+  // target nonbasic land" — Goblin Ruinblaster, Sinkhole-type body) and the broad "destroy target noncreature
+  // permanent" (Mold Shambler) reuse the SAME destroy machinery — only the targetType's eligibility predicate
+  // differs (added to PERMANENT_PREDICATES in spellEffects.js). Both are exact single-target anchors; a damage
+  // rider (Molten Rain) or a printed union with nonbasic ("artifact or nonbasic land" — Pillage) fails the `$`
+  // → low → Arbiter (whole-card CREED, never a partial). The "can't be regenerated" rider is re-stamped onto
+  // this destroy atom by the parseEffectClause wrapper, exactly like the other destroy filters.
+  const rm = t.match(/^(destroy|exile) target (artifact or enchantment|creature or enchantment|creature or land|creature or artifact|artifact or creature|creature or planeswalker|artifact or land|enchantment or land|nonland permanent|noncreature permanent|nonbasic land|artifact|enchantment|land|permanent|planeswalker)(?: (an opponent controls|you don't control|you control))?$/);
   if (rm) {
     const TT = {
       "artifact": "artifact", "enchantment": "enchantment", "land": "land", "permanent": "permanent",
-      "nonland permanent": "nonlandPermanent", "artifact or enchantment": "artifactOrEnchantment",
+      "nonland permanent": "nonlandPermanent", "noncreature permanent": "noncreaturePermanent",
+      "nonbasic land": "nonbasicLand", "artifact or enchantment": "artifactOrEnchantment",
       "creature or enchantment": "creatureOrEnchantment", "creature or land": "creatureOrLand",
       "creature or artifact": "creatureOrArtifact", "artifact or creature": "creatureOrArtifact", "artifact or land": "artifactOrLand",
       "enchantment or land": "enchantmentOrLand",

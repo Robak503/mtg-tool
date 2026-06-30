@@ -841,7 +841,8 @@ const MUST_DROP_TO_LOW = [
   "Draw a card and search your library for a creature card and put it into your hand.",             // leading-effect leak (review catch) — must NOT parse HIGH as [draw]
   "Destroy target creature unless its controller pays {2}.",   // legacy over-matches → MUST drop
   "Destroy target artifact with mana value 3 or less.",         // unmodeled MV restriction on a permanent → MUST drop
-  "Destroy target nonbasic land.",                              // unmodeled "nonbasic" qualifier → MUST drop
+  "Destroy target nonbasic land. It deals 2 damage to that land's controller.", // Molten Rain — the nonbasic-land destroy IS modeled, but the damage rider drops the whole card
+  "Destroy target artifact or nonbasic land.",                  // Pillage union — "artifact or nonbasic land" is an unmodeled union (the bare "nonbasic land" IS modeled, see MUST_STAY_HIGH)
   "Destroy target white or blue creature.",                     // β-1 models a single non<color>, NOT a color UNION → MUST drop
   "Destroy target legendary creature.",                         // unmodeled "legendary" supertype → MUST drop
   // FILTERED board wipes — `eachCreature` would wrongly hit the UNFILTERED set, so the exact
@@ -1029,6 +1030,12 @@ const MUST_STAY_HIGH = [
   // type / "legendary" / keyword filter still drops to low (pinned in MUST_DROP_TO_LOW). ──
   "Destroy target nonblack creature.",                                          // color negation (Doom Blade)
   "Destroy target nonartifact creature.",                                       // type negation (Go for the Throat)
+  // ── DESTROY-TARGET nonbasic land + noncreature permanent — the land-destruction staple (Sinkhole /
+  // Goblin Ruinblaster body / Stone Rain family) + the broad noncreature-permanent removal (Mold Shambler).
+  // Reuse the destroy machinery; the predicate (nonbasicLand / noncreaturePermanent) is in PERMANENT_PREDICATES. ──
+  "Destroy target nonbasic land.",                                              // nonbasicLand — excludes basics (CR 205.4a)
+  "Destroy target noncreature permanent.",                                      // noncreaturePermanent — any non-creature permanent
+  "Destroy target nonbasic land. It can't be regenerated.",                     // the "can't be regenerated" rider is re-stamped (still HIGH)
   "Destroy target attacking creature.",                                         // combat: attacking (Immolating Glare)
   "Deals 4 damage to target attacking or blocking creature.",                   // combat: either, on the damage path
   "Lightning Bolt deals 3 damage to any target.",

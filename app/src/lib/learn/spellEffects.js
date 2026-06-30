@@ -512,6 +512,15 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [])
     plains: (tl) => /\bLand\b/.test(tl) && /\bPlains\b/.test(tl),
     permanent: () => true,
     nonlandPermanent: (tl) => !/\bLand\b/.test(tl),
+    // NONCREATURE-PERMANENT (Mold Shambler "destroy target noncreature permanent") — any permanent that is
+    // not a Creature. addPermanents only iterates battlefield permanents, so the not-a-Creature test alone
+    // is the full predicate (mirrors nonlandPermanent). An Artifact/Enchantment CREATURE (\bCreature\b) is
+    // correctly excluded; a land/artifact/enchantment/planeswalker is eligible.
+    noncreaturePermanent: (tl) => !/\bCreature\b/.test(tl),
+    // NONBASIC-LAND (Goblin Ruinblaster / Sinkhole-type "destroy target nonbasic land") — a Land WITHOUT the
+    // Basic supertype (CR 205.4a). Both a Land type line AND the absence of the Basic supertype are required,
+    // so a basic land (type line "Basic Land — …") is excluded and a non-land bearing neither word never matches.
+    nonbasicLand: (tl) => /\bLand\b/.test(tl) && !/\bBasic\b/.test(tl),
     artifactOrEnchantment: (tl) => /\bArtifact\b|\bEnchantment\b/.test(tl),
     creatureOrEnchantment: (tl) => /\bCreature\b|\bEnchantment\b/.test(tl), // β-2 type unions
     creatureOrLand: (tl) => /\bCreature\b|\bLand\b/.test(tl),

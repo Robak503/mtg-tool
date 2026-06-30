@@ -49,8 +49,92 @@ describe("parser — targeted non-creature permanent removal", () => {
     // NOTE: Beast Within ("Its controller creates a 3/3 green Beast creature token") now flips NATIVE via
     // RIDER-REMOVAL (riderRemoval.test.js) — its rider is modeled. An UNMODELED controller-rider still drops:
     expect(programConfidence(parseEffectProgram(I("Destroy target permanent. Its controller loses 2 life.")))).toBe("low"); // lose-life rider (unmodeled)
-    expect(programConfidence(parseEffectProgram(I("Destroy target artifact, creature, enchantment, or land.")))).toBe("low"); // Vindicate-style list
-    expect(programConfidence(parseEffectProgram(I("Destroy target nonbasic land.")))).toBe("low"); // unmodeled qualifier
+    expect(programConfidence(parseEffectProgram(I("Destroy target artifact, creature, enchantment, or land.")))).toBe("low"); // four-type list
+    // NONBASIC-LAND / NONCREATURE-PERMANENT are NOW modeled (see their describe block below); a conjoined damage
+    // rider (Molten Rain) or a nonbasic union (Pillage "artifact or nonbasic land") still fails the anchor → low.
+    expect(programConfidence(parseEffectProgram(I("Destroy target nonbasic land. It deals 2 damage to that land's controller.")))).toBe("low"); // Molten Rain — damage rider
+    expect(programConfidence(parseEffectProgram(I("Destroy target artifact or nonbasic land. It can't be regenerated.")))).toBe("low"); // Pillage — nonbasic union (unmodeled)
+  });
+});
+
+describe("DESTROY-TARGET — nonbasic land + noncreature permanent (Goblin Ruinblaster / Mold Shambler / Stone Rain family)", () => {
+  // A board spanning every permanent kind so the new predicates' CREED edges are pinned:
+  //   basic land (must be EXCLUDED by nonbasicLand), nonbasic dual land, artifact, enchantment, a creature
+  //   (must be EXCLUDED by noncreaturePermanent), and a planeswalker (a noncreature permanent, INCLUDED).
+  const nbBoard = () => {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    const pw = createPermanent({ id: "apw", card: { id: "apw", name: "FoeWalker", type: "Planeswalker — Test" }, controller: "ai" });
+    return {
+      ...s,
+      players: {
+        ...s.players,
+        user: { ...s.players.user, battlefield: [perm("ubasic", "Forest", "Basic Land — Forest", "user")] },
+        ai: {
+          ...s.players.ai,
+          battlefield: [
+            perm("anb", "Overgrown Tomb", "Land — Swamp Forest", "ai"), // nonbasic dual land
+            perm("aa", "FoeArt", "Artifact", "ai"),
+            perm("ae", "FoeEnch", "Enchantment", "ai"),
+            perm("ac", "FoeBear", "Creature — Bear", "ai"),
+            { ...pw, counters: { loyalty: 3 } },
+          ],
+        },
+      },
+    };
+  };
+
+  it("parser — both new targetTypes parse HIGH; the regen rider re-stamps; creature/land stay on their own paths", () => {
+    expect(parseEffectProgram(I("Destroy target nonbasic land.")).atoms).toEqual([{ op: "destroy", targetType: "nonbasicLand", restrictions: [] }]);
+    expect(parseEffectProgram(I("Destroy target noncreature permanent.")).atoms).toEqual([{ op: "destroy", targetType: "noncreaturePermanent", restrictions: [] }]);
+    // controller restriction threads through
+    expect(parseEffectProgram(I("Destroy target nonbasic land an opponent controls.")).atoms)
+      .toEqual([{ op: "destroy", targetType: "nonbasicLand", restrictions: [{ kind: "controller", who: "opponent" }] }]);
+    // the parseEffectClause wrapper re-stamps "can't be regenerated" onto the nonbasic-land destroy
+    expect(parseEffectProgram(I("Destroy target nonbasic land. It can't be regenerated.")).atoms)
+      .toEqual([{ op: "destroy", targetType: "nonbasicLand", restrictions: [], cannotRegenerate: true }]);
+    expect(programConfidence(parseEffectProgram(I("Destroy target nonbasic land.")))).toBe("high");
+    expect(programConfidence(parseEffectProgram(I("Destroy target noncreature permanent.")))).toBe("high");
+  });
+
+  it("enumeration (CREED edges) — nonbasicLand EXCLUDES basics; noncreaturePermanent EXCLUDES creatures", () => {
+    const s = nbBoard();
+    // nonbasicLand: only the nonbasic dual (anb); the Basic Land — Forest (ubasic) is NOT offered.
+    const nbLand = enumerateTargets(s, "user", { kind: "destroy", targetType: "nonbasicLand", restrictions: [] }).map((t) => t.id);
+    expect(nbLand).toEqual(["anb"]);
+    expect(nbLand).not.toContain("ubasic"); // CREED — a basic land can never be hit by "nonbasic land"
+    // noncreaturePermanent: every non-creature permanent (land + artifact + enchantment + planeswalker); NOT the Bear.
+    const ncPerm = enumerateTargets(s, "user", { kind: "destroy", targetType: "noncreaturePermanent", restrictions: [] }).map((t) => t.id).sort();
+    expect(ncPerm).toEqual(["aa", "ae", "anb", "apw", "ubasic"]);
+    expect(ncPerm).not.toContain("ac"); // CREED — a creature can never be hit by "noncreature permanent"
+    // controller restriction narrows nonbasicLand to the opponent's (here anb already is the only nonbasic)
+    expect(enumerateTargets(s, "user", { kind: "destroy", targetType: "nonbasicLand", restrictions: [{ kind: "controller", who: "opponent" }] }).map((t) => t.id)).toEqual(["anb"]);
+  });
+
+  it("runtime — destroy GENUINELY removes the chosen nonbasic land / noncreature permanent (it leaves play)", () => {
+    // nonbasic land → graveyard (no dies look-back — not a creature)
+    let s = applyDestroyEffect(nbBoard(), { controller: "user", targets: [{ type: "permanent", id: "anb" }] });
+    expect(s.players.ai.battlefield.some((p) => p.id === "anb")).toBe(false);
+    expect(s.players.ai.graveyard.map((c) => c.id)).toContain("anb");
+    // noncreature permanent (the enchantment) → graveyard
+    s = applyDestroyEffect(nbBoard(), { controller: "user", targets: [{ type: "permanent", id: "ae" }] });
+    expect(s.players.ai.battlefield.some((p) => p.id === "ae")).toBe(false);
+    expect(s.players.ai.graveyard.map((c) => c.id)).toContain("ae");
+  });
+
+  it("clean single-destroy cards flip native (Stone Rain / Vindicate / Goblin Ruinblaster / Mold Shambler); riders PARK", () => {
+    const S = (name, oracle, type, mana) => ({ name, type, mana, oracle });
+    // Already-native land/permanent staples (regression guard — must stay native):
+    expect(classifyCard(S("Stone Rain", "Destroy target land.", "Sorcery", "{2}{R}"))).toBe("native-spell");
+    expect(classifyCard(S("Vindicate", "Destroy target permanent.", "Sorcery", "{1}{W}{B}"))).toBe("native-spell");
+    // NEW: the nonbasic-land + noncreature-permanent single-destroy cards now flip native.
+    expect(classifyCard(S("Sinkhole", "Destroy target nonbasic land.", "Sorcery", "{B}{B}"))).toBe("native-spell");
+    expect(classifyCard(S("Mold Shambler base", "Destroy target noncreature permanent.", "Sorcery", "{3}{G}"))).toBe("native-spell");
+    // NEW: the kicked-ETB creatures the gap was parking (Goblin Ruinblaster / Mold Shambler) now flip native-trigger.
+    expect(classifyCard(S("Goblin Ruinblaster", "Kicker {R}\nHaste\nWhen this creature enters, if it was kicked, destroy target nonbasic land.", "Creature — Goblin Shaman", "{2}{R}"))).toBe("native-trigger");
+    expect(classifyCard(S("Mold Shambler", "Kicker {1}{G}\nWhen this creature enters, if it was kicked, destroy target noncreature permanent.", "Creature — Beast", "{4}{G}"))).toBe("native-trigger");
+    // CREED PARK: a damage rider (Molten Rain) / a nonbasic union (Pillage) keep the WHOLE card on the Arbiter.
+    expect(classifyCard(S("Molten Rain", "Destroy target nonbasic land. Molten Rain deals 2 damage to that land's controller.", "Sorcery", "{2}{R}"))).toBe("arbiter-spell");
+    expect(classifyCard(S("Pillage", "Destroy target artifact or nonbasic land. It can't be regenerated.", "Sorcery", "{1}{R}{R}"))).toBe("arbiter-spell");
   });
 });
 
