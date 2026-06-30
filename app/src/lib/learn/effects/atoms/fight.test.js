@@ -154,10 +154,10 @@ describe("ETB-FIGHT parser", () => {
     expect(program.atoms[0]).toMatchObject({ op: "fight", optionalTarget: false });
   });
 
-  it("'another target creature' / a 'you control' fight stays LOW (Arbiter — CREED, never one-sided)", () => {
-    // Ulvenwald Tracker needs a SECOND chosen creature, not the source — out of the anchored allowlist.
-    expect(parseEffectClause("It fights another target creature.", "Creature").confidence).toBe("low");
-    // The own-side half (Prey Upon) is enemy-agnostic — the anchor demands "you don't control".
+  it("a 'you control' source-bound fight stays LOW (Arbiter — CREED, never one-sided)", () => {
+    // The own-side half (Prey Upon) is enemy-agnostic — the source head only accepts "you don't control"
+    // (the bare enemy form) or "another target creature" (the source-bound distinct form below). A bare
+    // "you control" dealee on a source head never appears in the corpus and stays LOW.
     expect(parseEffectClause("It fights target creature you control.", "Creature").confidence).toBe("low");
   });
 
@@ -175,5 +175,76 @@ describe("ETB-FIGHT parser", () => {
     expect(parseEffectClause("Target creature you control gets +2/+0 until end of turn. It fights target creature you don't control.", "Instant").confidence).toBe("low");
     // …but a SOLE fight clause (the ETB/triggered-ability form) is still HIGH on the same Instant trigger cardType.
     expect(parseEffectClause("It fights target creature you don't control.", "Instant").confidence).toBe("high");
+  });
+});
+
+// ===== SOURCE-BOUND "FIGHT ANOTHER TARGET CREATURE" (CR 701.12) =====
+// "[this creature|it] fights another target creature" (Brash Taunter's activated ability, Territorial
+// Allosaurus' kicked-ETB, Atzocan Archer's "you may have it fight …", Nessian Wilds Ravager's tribute
+// if-not). Fighter = the SOURCE (ctx.sourceId); "another" = the dealee must be DISTINCT from the source.
+describe("ETB-FIGHT — source-bound 'another target creature' parse (CR 701.12)", () => {
+  it("'This creature fights another target creature.' → HIGH source-bound fight (Brash Taunter / Territorial Allosaurus)", () => {
+    const p = parseEffectClause("This creature fights another target creature.", "Creature");
+    expect(p.confidence).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "fight", targetType: "creature", optionalTarget: false, distinct: true });
+    // restricted to an enemy dealee → enumeration EXCLUDES the source (a creature never fights itself).
+    expect(p.atoms[0].restrictions).toContainEqual({ kind: "controller", who: "opponent" });
+  });
+
+  it("'It fights another target creature.' → HIGH (the it→this-creature head, source-bound)", () => {
+    const p = parseEffectClause("It fights another target creature.", "Creature");
+    expect(p.confidence).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "fight", distinct: true });
+  });
+
+  it("'you may have it fight another target creature' → HIGH + optional (Atzocan Archer; α2 peels 'you may')", () => {
+    const p = parseEffectClause("You may have it fight another target creature.", "Creature");
+    expect(p.confidence).toBe("high");
+    // α2 stamps optional:true on the peeled inner fight atom → a real yes/no, never mandatory.
+    expect(p.atoms[0]).toMatchObject({ op: "fight", optional: true, distinct: true });
+  });
+
+  it("'you may have this creature fight another target creature' → HIGH + optional (Nessian Wilds Ravager if-not)", () => {
+    const p = parseEffectClause("You may have this creature fight another target creature.", "Creature");
+    expect(p.confidence).toBe("high");
+    expect(p.atoms[0]).toMatchObject({ op: "fight", optional: true, distinct: true });
+  });
+
+  it("CREED — a source-bound 'fight another' SPELL with a pump rider stays LOW (fight not the sole atom)", () => {
+    // fightAtomMisplaced forces the WHOLE program LOW when fight isn't the sole atom — never a half-resolve.
+    expect(parseEffectClause("Target creature you control gets +2/+2 until end of turn. It fights another target creature.", "Sorcery").confidence).toBe("low");
+  });
+});
+
+describe("ETB-FIGHT — source-bound 'another' RUNTIME (CR 701.12)", () => {
+  it("a 4/4 fights another 2/2 → both deal power-damage; the 2/2 dies, the 4/4 survives (Territorial Allosaurus)", () => {
+    const src = creature("src", "Allosaurus", 4, 4, {}, "user");
+    const tgt = creature("tgt", "Goat", 2, 2, {}, "ai");
+    const s = fight(board([src], [tgt]), { sourceId: "src", targetId: "tgt" });
+    expect(onBf(s, "ai", "tgt")).toBe(false);     // 2/2 took 4 → lethal
+    expect(onBf(s, "user", "src")).toBe(true);    // 4/4 took 2 < 4 → survives
+    expect(findPermanent(s, "src").permanent.damageMarked).toBe(2); // took the dealee's power back
+  });
+
+  it("a 3/3 fights another 3/3 → BOTH die on one SBA pass (mutual lethality)", () => {
+    const src = creature("src", "Taunter", 3, 3, {}, "user");
+    const tgt = creature("tgt", "Rival", 3, 3, {}, "ai");
+    const s = fight(board([src], [tgt]), { sourceId: "src", targetId: "tgt" });
+    expect(onBf(s, "ai", "tgt")).toBe(false);
+    expect(onBf(s, "user", "src")).toBe(false);   // the source dies too — two-way, simultaneous
+    expect(inGy(s, "user", "Taunter")).toBe(true);
+    expect(inGy(s, "ai", "Rival")).toBe(true);
+  });
+
+  it("'another' (CR 701.12) — the source can NEVER fight itself even if its own id is fed as the target", () => {
+    // Defense in depth: a malformed ctx that aims the source at itself is a clean no-op (no self-damage).
+    const src = creature("src", "Solo", 5, 5, {}, "user");
+    const s = resolveAtom(
+      board([src], []),
+      { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], distinct: true },
+      { controller: "user", sourceId: "src", targets: [{ type: "creature", id: "src", controller: "user" }] },
+    );
+    expect(onBf(s, "user", "src")).toBe(true);            // still alive
+    expect(findPermanent(s, "src").permanent.damageMarked || 0).toBe(0); // no fabricated self-damage
   });
 });

@@ -270,6 +270,7 @@ export function fightCreature(state, atom, ctx) {
   const hitIds = [];
   for (const t of targets) {
     if (t.type !== "creature") continue;
+    if (t.id === ctx.sourceId) continue; // "another target creature" (CR 701.12) — a creature never fights itself
     const targetLk = findPermanent(next, t.id);
     if (!source || !targetLk) continue; // source/target left the battlefield → nothing fights (CR 701.12)
     // Lock BOTH amounts from the PRE-fight, layer-aware power (CR 701.12a, read at resolution), floored at 0.

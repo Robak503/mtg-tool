@@ -930,6 +930,27 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     if (fm) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: !!fm[1] };
   }
 
+  // ===== ETB-FIGHT — SOURCE-BOUND "ANOTHER" (CR 701.12) ===== "[this creature|it] fights another target
+  // creature" (Brash Taunter's activated ability, Territorial Allosaurus' kicked-ETB, Atzocan Archer's
+  // "you may have it fight …", Nessian Wilds Ravager's tribute if-not). DISTINCT shape from the fight-pair
+  // forms above: the subject is the SOURCE ("this creature"|"it" → fighter = ctx.sourceId, resolver
+  // fightCreature), NOT a chosen "target creature you control" (the fight-pair (d) Ulvenwald Tracker case,
+  // which starts with "target creature" and can never reach this source-anchored head). "another" (CR
+  // 701.12) means the dealee must be DISTINCT from the source — modeled by restrictions:{controller:opponent}
+  // (the source is the controller's, so an opponent-only enumeration EXCLUDES it; the cast/flush chooser
+  // also aims an enemy via atomTargetIntent→"enemy"). Narrowing the dealee to enemies is a SAFE
+  // false-negative vs the strict CR "any other creature" (you'd never choose to fight your own creature),
+  // and fightCreature additionally skips a source==target id (defense in depth). The causative head
+  // "have [this creature|it] fight another target creature" is the inner of "you may have it fight …" after
+  // α2 peels the "you may" wrapper (parseClauseToAtom recurses; α2 then stamps optional:true) — Atzocan
+  // Archer / Nessian Wilds Ravager. Whole-clause anchored ($) so any rider leaves residue → low → Arbiter;
+  // fightAtomMisplaced still forces the WHOLE program LOW unless this fight is the SOLE atom (no half-resolve).
+  {
+    const fa = s.toLowerCase().replace(/[’]/g, "'")
+      .match(/^(?:have (?:this creature|it) fight|(?:this creature|it) fights) another target creature$/);
+    if (fa) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: false, distinct: true };
+  }
+
   // ===== FIGHT-PAIR / DAMAGE-TARGET-POWER (CR 701.12 / 119) ===== the TWO-CHOSEN-TARGET forms — the
   // SPELL/activated shape where the FIGHTER (the dealer) is itself a chosen target, NOT the source:
   //   "Target creature you control fights target creature you don't control"            (Prey Upon, Pounce)
