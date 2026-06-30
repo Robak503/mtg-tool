@@ -42,13 +42,21 @@ export function massCreatureTargets(state, opts = {}) {
   // subtyped creatures (CR 205.3m; mirrors creatureSatisfiesRestrictions' subtype branch). `subtypeNegate`
   // flips it to "every creature that is NOT that subtype". The subtype comes from the curated parser allowlist,
   // so it's a real, collision-free MTG subtype — pure type-line read (no state), so this stays a strict leaf.
-  const subRe = opts.subtypeFilter ? new RegExp(`\\b${String(opts.subtypeFilter).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i") : null;
+  //
+  // MULTI-SUBTYPE — `subtypeFilter` may be an ARRAY of subtypes (Whelming Wave's mass bounce "except for
+  // Krakens, Leviathans, Octopuses, and Serpents"). A creature matches the filter if it carries ANY one of the
+  // listed subtypes (OR-union, word-bounded per subtype); `subtypeNegate` then keeps every creature carrying
+  // NONE of them. A single string keeps its exact original one-subtype behavior (byte-for-byte unchanged below
+  // — `subRes` is a one-element array, the .some() reduces to that single test).
+  const subList = opts.subtypeFilter == null ? null : (Array.isArray(opts.subtypeFilter) ? opts.subtypeFilter : [opts.subtypeFilter]);
+  const subRes = subList ? subList.map((s) => new RegExp(`\\b${String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i")) : null;
   const out = [];
   for (const pid of Object.keys(state.players)) {
     for (const perm of state.players[pid].battlefield) {
       if (!isCreatureCard(perm.card)) continue;
-      if (subRe) {
-        const has = subRe.test(typeLineStr(perm.card).split(" // ")[0]); // front face only (CR 712.4a)
+      if (subRes) {
+        const face = typeLineStr(perm.card).split(" // ")[0]; // front face only (CR 712.4a)
+        const has = subRes.some((re) => re.test(face)); // carries ANY listed subtype
         if (opts.subtypeNegate ? has : !has) continue;
       }
       out.push({ type: "creature", id: perm.id, controller: pid });

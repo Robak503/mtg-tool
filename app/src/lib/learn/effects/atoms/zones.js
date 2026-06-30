@@ -254,7 +254,56 @@ export function bounceClauseParser(clause) {
   }
   if (/^return this (?:creature|permanent) to its owner's hand$/.test(t)) return { op: "bounce", target: "self" };
   if (/^return the triggering creature to its owner's hand$/.test(t)) return { op: "bounce", target: "thatCreature" };
+  // MASS-BOUNCE — "return all creatures to their owners' hands" (Evacuation, CR 707-free; the bounce mirror of
+  // the eachCreature mass DESTROY/EXILE in removal.js). Routes through the SAME bounce resolver (applyZoneMove
+  // → atomTargets → massCreatureTargets returns every creature; each card moves to its OWN owner's hand). An
+  // UNFILTERED whole-board bounce — a token returned this way ceases to exist (CR 111.7 — handled by the
+  // hand-zone move), exactly like a token swept by Evacuation. A rider (Faerie Slumber Party's token payoff,
+  // Turtles in Time's shuffle-and-draw + self-exile) is a separate clause that stays LOW → Arbiter (whole-card
+  // CREED, no partial).
+  if (/^return all creatures to their owners' hands$/.test(t)) return { op: "bounce", targetType: "eachCreature" };
+  // MASS-BOUNCE-EXCEPT — the tribal-protected mass bounce "return all creatures to their owners' hands except
+  // for <Subtype>s[, <Subtype>s, … and <Subtype>s]" (Whelming Wave: "…except for Krakens, Leviathans,
+  // Octopuses, and Serpents."). Reuses the eachCreature bounce with a MULTI-subtype NEGATE filter
+  // (massCreatureTargets honors an array subtypeFilter + subtypeNegate: keep every creature carrying NONE of the
+  // listed subtypes). Every printed exclusion word must be in the curated, collision-free allowlist below — a
+  // non-curated word fails the gate → null → low → Arbiter (CREED: never a fabricated/mis-scoped sweep).
+  const me = t.match(/^return all creatures to their owners' hands except for (.+)$/);
+  if (me) {
+    const subs = parseExceptSubtypes(me[1]);
+    if (subs) return { op: "bounce", targetType: "eachCreature", subtypeFilter: subs, subtypeNegate: true };
+  }
   return null;
+}
+
+// Curated, collision-free creature subtypes that may appear in a mass-bounce "except for …" exclusion list.
+// Each is a word that appears verbatim ONLY in the subtype portion of a type line (never left-of-dash), so the
+// word-bounded \b containment test in massCreatureTargets selects exactly the subtyped creatures (CR 205.3m).
+// Verified collision-free against the bundled corpus. A LOCAL literal (leaf discipline — no cross-atom import).
+const BOUNCE_EXCEPT_SUBTYPES = {
+  kraken: "Kraken", leviathan: "Leviathan", octopus: "Octopus", serpent: "Serpent", merfolk: "Merfolk",
+};
+
+// Parse a printed "<Subtype>s, <Subtype>s, … and <Subtype>s" exclusion list (plural, Oxford-comma "and"
+// separated, the singular MTG subtype carried by a trailing "s") into an array of canonical subtype names, or
+// null if ANY word isn't in the curated allowlist (→ caller PARKs the whole card). Strips a trailing period.
+function parseExceptSubtypes(listStr) {
+  const cleaned = String(listStr || "").replace(/\.$/, "").trim();
+  // Split on commas and " and " (covers "A and B", "A, B, and C", "A, B and C").
+  const words = cleaned.split(/,\s*and\s+|,\s*|\s+and\s+/).map((w) => w.trim()).filter(Boolean);
+  if (!words.length) return null;
+  const out = [];
+  for (const w of words) {
+    // Singularize the printed plural: prefer "-es"→"" ("octopuses"→"octopus"), else "-s"→"" ("krakens"→
+    // "kraken"). Try the exact word first (so a non-plural printing still resolves), then each singular form;
+    // the allowlist lookup is the real gate, so an over-aggressive strip can't admit a wrong subtype.
+    const canon = BOUNCE_EXCEPT_SUBTYPES[w]
+      || BOUNCE_EXCEPT_SUBTYPES[w.replace(/es$/, "")]
+      || BOUNCE_EXCEPT_SUBTYPES[w.replace(/s$/, "")];
+    if (!canon) return null; // unmodeled / non-curated subtype → PARK the whole card (CREED)
+    if (!out.includes(canon)) out.push(canon);
+  }
+  return out;
 }
 
 export const zoneResolvers = {

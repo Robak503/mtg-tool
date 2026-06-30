@@ -529,6 +529,15 @@ function splitClauses(oracle) {
     // one mass-destroy target, not a top-level effect boundary. Keep the whole sentence so the recognizer
     // binds the combined eachArtifactOrEnchantment scope. Anchored to the exact bare form.
     if (/^destroy all artifacts and enchantments$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // MASS-BOUNCE-EXCEPT (Whelming Wave) — "return all creatures to their owners' hands except for Krakens,
+    // Leviathans, Octopuses, and Serpents": the trailing " and " joins the LAST creature SUBTYPE in the
+    // exclusion list, INTERNAL to one mass-bounce target, NOT a top-level effect boundary. Keep the whole
+    // sentence so bounceClauseParser sees the full "except for <Subtype>s … and <Subtype>s" list (else the
+    // split below shatters it into a bounce-all + an unbindable "Serpents" fragment). All-or-nothing anchored
+    // downstream (a non-curated subtype → null → low → Arbiter), so keeping too much together can only fail to
+    // match, never a confident wrong partial. Anchored to the except-for form (the plain unfiltered
+    // "return all creatures to their owners' hands" — Evacuation — has no " and ", so it splits cleanly already).
+    if (/^return all creatures to their owners['’] hands except for .+$/i.test(sentence)) { clauses.push(sentence); continue; }
     // SOURCE-POWER-FANOUT (Chandra's Ignition) — "target creature you control deals damage equal to its power
     // to each other creature and each opponent": the " and " between "each other creature" and "each opponent"
     // is INTERNAL to the one fan-out target, NOT a top-level effect boundary. Keep the whole sentence so
