@@ -52,7 +52,7 @@ import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HA
 import { SMALL_NUM, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); SMALL_NUM (cdmg rad) + parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; NUM_WORD/parseCountSource now only inside migrated clause parsers (batch 23/26)
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
-import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled)
+import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
 import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
@@ -390,7 +390,21 @@ function splitClauses(oracle) {
     // WHEEL — "Each player discards their hand, then draws N cards" (Wheel of Fortune, Reforge the Soul, Wheel
     // of Fate): the ", then" split orphans "draws N cards" of its "each player" subject. Inject it so the draw
     // half parses with the EXISTING draw who:"eachPlayer" atom (the discard-hand half is a new all-mode atom).
-    .replace(/(each player discards their hand), then (draws \w+ cards?)/gi, "$1. Each player $2");
+    .replace(/(each player discards their hand), then (draws \w+ cards?)/gi, "$1. Each player $2")
+    // SELF-CAST HALF-X ROUNDING (CR 107.3) — a TRAILING "Round down/up each time." directive governs every
+    // "half X" magnitude in the SAME effect (Hydroid Krasis: "you gain half X life and draw half X cards.
+    // Round down each time."). The directive is its own sentence, so the sentence split would orphan it into an
+    // unparsed clause (→ low) AND leave each "half X" half without its rounding rule. Fold the rounding inline
+    // onto each "half X <noun>" occurrence ("half X life" → "half X life rounded down"), then strip the now-
+    // redundant directive sentence — so the per-clause half-X parser sees a self-contained "gain half X life
+    // rounded down" / "draw half X cards rounded down". Gated to the EXACT "(round down|round up) each time"
+    // wording (the only corpus form for the BOTH-halves directive); a per-clause ", rounded up" (Contaminated
+    // Drink) is untouched (it's already inline). Anchored + idempotent on its own output; a card without the
+    // trailing directive is byte-identical.
+    .replace(
+      /^(.*?\bhalf x\b.*?)\.\s*round (down|up) each time\.?\s*$/i,
+      (_, body, dir) => `${body.replace(/\bhalf x\b(\s+\w+)/gi, `half x$1 rounded ${dir.toLowerCase()}`)}.`,
+    );
   for (let sentence of normalized.split(/(?:\.\s+|;\s*)/)) {
     sentence = sentence.replace(/\.\s*$/, "").trim();
     if (!sentence) continue;
@@ -2340,6 +2354,11 @@ registerClauseParser(counterClauseParser);
 // leaf. Clean now the life for-each siblings migrated. The clauses match no other registered parser and
 // (verified) no later parseExtendedAtom branch → behavior-identical.
 registerClauseParser(drawForEachClauseParser);
+// SELF-CAST HALF-X (CR 107.3) — the "gain half X life" / "draw half X cards rounded down/up" halves of a "When
+// you cast this spell" trigger on an {X}-cost spell (Hydroid Krasis). Gated on ctx.hasX + the rounding suffix the
+// splitClauses fold attaches; amountX + halve → the existing effectiveAmount resolution. Disjoint from the bare
+// "draw X cards" (no "half"/"rounded") and the rad half-X (different op) → behavior-identical for every other card.
+registerClauseParser(selfCastHalfXClauseParser);
 // LIFE (seam batch 17 / Wave C) — gain-life ⇄ lose-life co-extracted to atoms/life.lifeClauseParser (scaled
 // for-each cluster + fixed-N cluster, one parser, original first-match order; parseCountSource leaf). The
 // draw for-each branches stay inline above (disjoint "draw …" anchor). The life clauses match no earlier

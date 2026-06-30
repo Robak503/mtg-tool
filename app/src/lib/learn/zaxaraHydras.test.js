@@ -139,6 +139,67 @@ describe("ZAXARA-HYDRAS — DOUBLE-X cost (CR 107.3): a {X}{X} enters-with-X car
   });
 });
 
+describe("ZAXARA-HYDRAS — SELF-CAST trigger (CR 603.2): Hydroid Krasis flips native (half-X gain/draw modeled)", () => {
+  // Real oracle (verified vs the bundled local index), verbatim. The "When you cast this spell" trigger is the
+  // SPELL's OWN cast trigger — distinct from the battlefield WATCHERS the rest of the cast pipeline handles. The
+  // half-X gain/draw payoff resolves at the cast's X (threaded via context.xValue); Flying/trample + enters-with-X
+  // are independently modeled, so the WHOLE card is CREED-clean.
+  const HYDROID = {
+    name: "Hydroid Krasis", type: "Creature — Jellyfish Hydra Beast", mana: "{X}{G}{U}", power: 0, toughness: 0,
+    oracle: "When you cast this spell, you gain half X life and draw half X cards. Round down each time.\nFlying, trample\nThis creature enters with X +1/+1 counters on it.",
+  };
+  it("classifies native-trigger (self-cast half-X gain/draw + Flying/trample + enters-with-X)", () => {
+    expect(classifyCard(HYDROID)).toBe("native-trigger");
+  });
+
+  // RUNTIME — cast for X, the self-cast trigger goes on the stack ABOVE the spell (resolves FIRST, CR 603.3b):
+  // gain floor(X/2) life + draw floor(X/2) cards, then the creature enters as a real X/X.
+  const castForX = (X) => {
+    _resetIdsForTests();
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const card = { ...HYDROID, id: "hk" };
+    const library = Array.from({ length: 20 }, (_, i) => ({ id: `l${i}`, name: "Forest", type: "Land", oracle: "" }));
+    s = {
+      ...s,
+      phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: { ...s.players, user: { ...s.players.user, hand: [card], library, manaPool: { ...s.players.user.manaPool, G: 2, U: 2, C: 20 } } },
+    };
+    const life0 = s.players.user.life;
+    const cast = legalActionsForPlayer(s, "user").find((a) => a.kind === "cast-spell" && a.cardId === "hk" && a.xValue === X);
+    expect(cast, `an X=${X} cast was offered`).toBeTruthy();
+    s = dispatchAction(s, cast);
+    // The stack carries the spell with the self-cast trigger ON TOP — resolve the trigger first.
+    s = resolveTopOfStack(s);
+    const lifeGained = s.players.user.life - life0;
+    const cardsDrawn = s.players.user.hand.length; // hand was emptied by the cast; now = cards drawn by the trigger
+    // Resolve the spell — the creature enters at X/X.
+    s = resolveTopOfStack(s);
+    const perm = s.players.user.battlefield.find((p) => p.card.id === "hk");
+    return { s, perm, lifeGained, cardsDrawn };
+  };
+
+  it("X=6 (even): gain 3 life, draw 3 cards, enters a 6/6", () => {
+    const { s, perm, lifeGained, cardsDrawn } = castForX(6);
+    expect(lifeGained).toBe(3);
+    expect(cardsDrawn).toBe(3);
+    expect(perm.counters["+1/+1"]).toBe(6);
+    expect(permanentPower(s, perm.id)).toBe(6);
+    expect(permanentToughness(s, perm.id)).toBe(6);
+  });
+  it("X=5 (odd, rounds down): gain 2 life, draw 2 cards, enters a 5/5", () => {
+    const { s, perm, lifeGained, cardsDrawn } = castForX(5);
+    expect(lifeGained).toBe(2); // floor(5/2)
+    expect(cardsDrawn).toBe(2);
+    expect(permanentPower(s, perm.id)).toBe(5);
+  });
+  it("X=1 (the floor, rounds down to 0): gain 0 life, draw 0 cards, enters a 1/1", () => {
+    const { s, perm, lifeGained, cardsDrawn } = castForX(1);
+    expect(lifeGained).toBe(0); // floor(1/2) — never fabricates a 1
+    expect(cardsDrawn).toBe(0);
+    expect(permanentPower(s, perm.id)).toBe(1);
+  });
+});
+
 describe("ZAXARA-HYDRAS — PARKED: hydras with an unmodeled rider stay body-only (the strip never masks it)", () => {
   const parked = {
     "Hungering Hydra (can't-be-blocked-by->1 + dealt-damage→counters)": {
@@ -157,10 +218,8 @@ describe("ZAXARA-HYDRAS — PARKED: hydras with an unmodeled rider stay body-onl
       type: "Creature — Hydra", mana: "{X}{G}{G}",
       oracle: "This creature enters with X +1/+1 counters on it.\nAt the beginning of your upkeep, double the number of +1/+1 counters on this creature.\nThis creature has trample as long as it has ten or more +1/+1 counters on it.",
     },
-    "Hydroid Krasis (cast-trigger half-X life/draw)": {
-      type: "Creature — Beast Jellyfish Hydra", mana: "{X}{G}{U}",
-      oracle: "When you cast this spell, you gain half X life and draw half X cards. Round down each time.\nFlying, trample\nThis creature enters with X +1/+1 counters on it.",
-    },
+    // Hydroid Krasis FLIPPED native via the SELF-CAST trigger subsystem (its "When you cast this spell" half-X
+    // gain/draw is now modeled) — moved out of PARKED to the BUILT section below.
     "Nyxborn Hydra (Bestow Aura)": {
       type: "Creature Enchantment — Hydra", mana: "{X}{G}",
       oracle: "Bestow {X}{G}{G}\nReach, trample\nThis permanent enters with X +1/+1 counters on it.\nEnchanted creature gets +1/+1 for each +1/+1 counter on this Aura and has reach and trample.",

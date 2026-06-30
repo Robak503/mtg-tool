@@ -271,6 +271,29 @@ export function drawForEachClauseParser(clause) {
 }
 
 /**
+ * SELF-CAST HALF-X (CR 107.3) — the controller-side "gain half X life" / "draw half X cards" magnitudes of a
+ * "When you cast this spell" trigger on an {X}-cost spell (Hydroid Krasis: "you gain half X life and draw half
+ * X cards. Round down each time."). Each half = floor/ceil(X/2): amountX:true makes applyGainLife / applyDrawAtom
+ * read ctx.xValue via resolveScaledAmount, and halve ("floor"/"ceil") rounds it (the resolution machinery —
+ * effectiveAmount in shared.js — already supports amountX + halve; this is the missing PARSE side). The cast's X
+ * is threaded into the trigger's effect program by the SELF-CAST runtime (checkCastTriggers → context.xValue →
+ * buildTriggerStack → params.xValue), so off a spell with no X (ctx.xValue absent) it's a clean 0 — never a
+ * fabricated magnitude. CREED: gated on ctx.hasX (an {X} cost) + the EXACT "rounded down/up" suffix the
+ * splitClauses fold attaches from the trailing "Round down each time." directive; a bare "half X" with no stated
+ * rounding (ambiguous) or a non-X spell leaves the clause unmatched → low → Arbiter. The ", rounded up" inline
+ * form (Contaminated Drink's rad) is a DIFFERENT op and unaffected. Registered via registerClauseParser.
+ */
+export function selfCastHalfXClauseParser(clause, ctx = {}) {
+  if (!ctx.hasX) return null;
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").trim();
+  let m = t.match(/^(?:you )?gain half x life rounded (down|up)$/);
+  if (m) return { op: "gain-life", amountX: true, halve: m[1] === "up" ? "ceil" : "floor", targetType: null };
+  m = t.match(/^(?:you )?draw half x cards? rounded (down|up)$/);
+  if (m) return { op: "draw", amountX: true, halve: m[1] === "up" ? "ceil" : "floor", targetType: null };
+  return null;
+}
+
+/**
  * RITUAL-MANA (CR 605 / 106.4) — a spell that adds basic mana to the controller's pool (Dark Ritual "Add
  * {B}{B}{B}"). Adds each color via addMana; the pool empties at end of step/phase as usual, so the mana is
  * usable for a same-window cast (ramp). Only the BARE add-basic-mana form is modeled (the parser rejects

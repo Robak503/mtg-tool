@@ -13,11 +13,13 @@
  * threads to the effect program (ctx.xValue), so the rad count is ceil(X/2) at resolution — verified both even
  * and odd. This flips it arbiter-spell → native-spell.
  *
+ * BUILT later (the SELF-CAST trigger subsystem — see zaxaraHydras.test.js): Hydroid Krasis. Its "When you cast
+ * THIS spell, you gain half X life and draw half X cards. Round down each time." is the SPELL's own cast trigger;
+ * the self-cast event (checkCastTriggers' self-cast block) now fires it, threading the cast's X so the half-X
+ * gain/draw resolves. It is therefore NO LONGER a parked anti-FP pin here.
+ *
  * PARKED — every OTHER "half X" corpus card stays non-native on an independent, NON-half-X blocker (so the
  * half-X build can never fabricate a native flip on its own; the parked anti-FP pins below prove it):
- *   • Hydroid Krasis — "When you cast THIS spell, …" is a SELF-cast trigger; the engine has no self-cast
- *     trigger event (checkCastTriggers fires only battlefield WATCHERS), so detectTriggers sees ZERO triggers
- *     and the cast-time gain/draw is never wired. (Unbuilt event, not half-X.)
  *   • Wan Shi Tong, Librarian — its ETB half-X draw would resolve, BUT its 2nd trigger ("Whenever an opponent
  *     searches their library, …") is UNDETECTED, so allTriggerSentencesModeled fails (detected≠shaped). Also,
  *     an ETB trigger doesn't thread the cast's {X} (checkEnterTriggers carries no xValue) — a second gap.
@@ -153,10 +155,6 @@ describe("HALF-X — Contaminated Drink resolves at runtime: draw X + ceil(X/2) 
 // ── CREED anti-FP pins — every PARKED half-X card stays non-native on its own blocker ──
 describe("HALF-X — PARKED: the other 'half X' cards stay non-native (the build can't fabricate a flip)", () => {
   const parked = {
-    "Hydroid Krasis (self-cast trigger event unbuilt)": {
-      name: "Hydroid Krasis", type: "Creature — Jellyfish Hydra Beast", mana: "{X}{G}{U}", power: 0, toughness: 0,
-      oracle: "When you cast this spell, you gain half X life and draw half X cards. Round down each time.\nFlying, trample\nThis creature enters with X +1/+1 counters on it.",
-    },
     "Wan Shi Tong, Librarian (opponent-search trigger undetected)": {
       name: "Wan Shi Tong, Librarian", type: "Legendary Creature — Bird Spirit", mana: "{X}{U}{U}", power: 0, toughness: 0,
       oracle: "Flash\nFlying, vigilance\nWhen Wan Shi Tong enters, put X +1/+1 counters on him. Then draw half X cards, rounded down.\nWhenever an opponent searches their library, put a +1/+1 counter on Wan Shi Tong and draw a card.",

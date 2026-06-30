@@ -362,7 +362,15 @@ export function permanentTriggersCovered(card) {
     // mana value) so the card reads keyword-only (leaving only the ninjutsu line, handled by isKeywordOnly).
     // Anchored to the modeled wording, so it can only consume a true modeled follow-up (FN-safe — an UNmodeled
     // drain variant fails the HIGH gate above and never reaches here). Curly apostrophe tolerated.
-    .replace(/\beach opponent loses life equal to (?:that card['’]s|the card['’]s|its) mana value\b\.?\s*/gi, " ");
+    .replace(/\beach opponent loses life equal to (?:that card['’]s|the card['’]s|its) mana value\b\.?\s*/gi, " ")
+    // SELF-CAST HALF-X ROUNDING (CR 107.3) — a trailing "Round down/up each time." directive is part of the
+    // self-cast trigger's effect (it governs the "half X" magnitudes the parser models via the halve flag, so
+    // the WHOLE effect parses HIGH in allTriggerSentencesModeled above — proven before this residue check runs),
+    // but the trigger regex stops at the first period after "…draw half X cards.", leaving the directive sentence
+    // as apparent residue (Hydroid Krasis). Strip the EXACT wording so the card reads keyword-only (leaving only
+    // Flying/trample + the enters-with-X line, both handled by isKeywordOnly). FN-safe: anchored to the exact
+    // directive, and the HIGH gate above already vouched the half-X effect is modeled.
+    .replace(/\bround (?:down|up) each time\b\.?\s*/gi, " ");
   return isKeywordOnly(residue, card?.name);
 }
 

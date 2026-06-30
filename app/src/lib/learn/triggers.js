@@ -1483,6 +1483,13 @@ export function detectTriggers(card) {
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
         effect: parseTriggerEffect(effectClause),
+        // SELF-CAST (CR 603.2): an {X}-cost spell's "When you cast this spell" trigger pays off the cast's X
+        // (Hydroid Krasis "gain half X life and draw half X cards"). The effect-clause parsers gate X-amount
+        // shapes on hasX (an {X} cost), but the trigger-effect parse sites (triggerRoutesNatively + the flush
+        // buildTriggerStack) parse the bare clause with no card context. Stamp effectHasX off the card's printed
+        // mana cost so BOTH sites pass hasX:true → the half-X gain/draw clauses parse HIGH. Gated to selfCast so
+        // no other trigger's effect parse changes (additive; every other descriptor leaves effectHasX undefined).
+        effectHasX: cls.event === "selfCast" && /\{x\}/i.test(String(card.mana || card.mana_cost || "")),
         // Raw effect text so the flush stage (gameEngine, which can import the parser
         // without the triggers→parser→effectAtoms→triggers cycle) can parse it into a
         // full EffectProgram. P2.8 routes the rich-parsed program through the
@@ -2621,7 +2628,7 @@ function prowessDescriptor() {
  * fabricated). Context carries the cast spell's name + type for future referential
  * effects. Pure — appends to pendingTriggers and returns new state.
  */
-export function checkCastTriggers(state, { spellCard, casterId, targets = [] }) {
+export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null }) {
   if (!spellCard) return state;
   const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard) };
   let fired = [];
@@ -2700,6 +2707,22 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [] }) 
         fired.push(makePendingTrigger(d, watcher, null, context));
       }
     }
+  }
+  // ===== SELF-CAST (CR 603.2 + 601.2) ===== the SPELL's OWN "When you cast this spell, <effect>" trigger
+  // (Hydroid Krasis, Desolation Twin, the Eldrazi cast-payoffs). Unlike every watcher above, the source is
+  // the spell being cast — not a battlefield permanent — so it's fired HERE off spellCard directly (the same
+  // non-watcher cast handling heroic/prowess use). detectSelfCast (the registered detector) yields the
+  // event:"selfCast" descriptor with the effectClause; we enqueue ONE pending trigger whose source is the
+  // spell, threading the cast's chosen X into context.xValue so a half-X / X-amount payoff resolves at the
+  // real X (buildTriggerStack reads context.xValue into the EFFECT_PROGRAM params). It goes on the stack
+  // ABOVE the spell and resolves first (flushTriggers runs immediately after this in applyCastSpell), CR-correct.
+  // A minimal source descriptor (the spell's id/card) is enough — the modeled payoffs (gain/draw/create-token)
+  // are controller effects that never read the source permanent; an unmodeled payoff still drops to the
+  // Arbiter no-op at flush (buildTriggerStack's α1 gate). No `whose` gate is needed: a self-cast trigger is
+  // always the caster's own (the spell is on the stack under casterId), so the effect's controller IS casterId.
+  const selfCastSource = { id: spellCard.id, card: spellCard, controller: casterId };
+  for (const d of detectTriggers(spellCard).filter((x) => x.event === "selfCast")) {
+    fired.push(makePendingTrigger(d, selfCastSource, null, { ...context, xValue }));
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
@@ -2826,6 +2849,32 @@ function detectChosenTypeCast(condition) {
   return null;
 }
 registerTriggerDetector(detectChosenTypeCast);
+
+// ─── SELF-CAST detector (Hydroid Krasis, Desolation Twin, the Eldrazi cast-payoffs) ──────────────
+// "When you cast THIS spell, <effect>" (CR 603.2 + 601.2 — the SPELL's OWN cast trigger). Distinct from every
+// other cast trigger in this file: those are battlefield WATCHERS ("Whenever you cast a[n] <…> spell, …") that
+// scan permanents at cast (checkCastTriggers). A self-cast trigger lives on the spell being cast — its source is
+// the spell itself, not a permanent — and fires exactly once, as the spell goes on the stack, with the trigger
+// going on the stack ABOVE the spell so it resolves FIRST (CR 603.3b). The runtime path is checkCastTriggers'
+// self-cast block (it already handles the other non-watcher cast cases — heroic/prowess), which enqueues a
+// pending trigger keyed on event:"selfCast" with the cast's chosen X threaded into context.xValue, so a half-X /
+// X-amount payoff (Hydroid's "gain half X life and draw half X cards") resolves at the real X.
+//
+// CREED ANCHOR: matched ONLY on the EXACT bare self-referential condition, end-anchored. The general cast
+// matcher (classifyCondition's castM) returns falsy for "you cast this spell" because "this" is in
+// NON_SUBTYPE_CAST_WORDS (castSpellFilter("this") === null), so this registry detector cleanly owns the shape
+// without colliding with the watcher path. A different caster, a spell-type rider, or any other text fails the
+// `$` anchor → no match → Arbiter (a SAFE false-negative). The effect still has to parse HIGH for the card to
+// flip native (buildTriggerStack re-gates the program), and a card carrying an UNMODELED sibling clause
+// (Emerge / Rebound / Annihilator / the Kozilek graveyard-shuffle trigger) stays body-only via the standard
+// allTriggerSentencesModeled / residue gates — verified by the corpus flip-diff.
+function detectSelfCast(condition) {
+  if (/^you cast this spell$/.test(String(condition).toLowerCase().trim())) {
+    return { event: "selfCast", scope: "self", whose: "you" };
+  }
+  return null;
+}
+registerTriggerDetector(detectSelfCast);
 
 // ─── PHASE-TRIGGER-FRAMEWORK (Wave 1) registration ──────────────────────────────
 // Register the phase/step detector for the four step-kinds the inline classifyCondition doesn't cover

@@ -60,7 +60,7 @@ export function combatDamageReferentSatisfied(program, event) {
 export function triggerRoutesNatively(d) {
   if (!d.effectClause) return false;
   if (d.interveningIf) {
-    const cp = parseEffectClause(d.effectClause, "Instant");
+    const cp = parseEffectClause(d.effectClause, "Instant", { hasX: !!d.effectHasX });
     const a = cp?.atoms?.length === 1 ? cp.atoms[0] : null;
     // UPKEEP-WIN (Wave 3b, CR 603.4) — a single win-game atom ("you win the game") whose threshold is in
     // the strict win evaluator's vocabulary (Revel in Riches / Felidar Sovereign / Knuckles). A win is
@@ -78,7 +78,7 @@ export function triggerRoutesNatively(d) {
       && combatDamageReferentSatisfied(cp, d.event)
       && interveningIfParseable(d.interveningIf);
   }
-  const p = parseEffectClause(d.effectClause, "Instant");
+  const p = parseEffectClause(d.effectClause, "Instant", { hasX: !!d.effectHasX }); // SELF-CAST: an {X}-spell self-cast trigger's half-X/X payoff needs hasX to parse (Hydroid Krasis)
   // Mirror buildTriggerStack's α1 ALLOWLIST EXACTLY: a HIGH trigger routes natively only when every
   // chosen-target atom is intent-resolvable (the enemy/own chooser can place it on a correct side). An
   // AMBIGUOUS targeting atom (bounce) stays in the gap, not native — so the metric never claims a routing

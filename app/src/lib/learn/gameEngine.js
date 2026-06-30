@@ -629,7 +629,7 @@ function buildTriggerStack(state, trigger, chooseTargets) {
   // re-check (the applyWinGame resolver re-evaluates, the SECOND CR 603.4 check, closing the premature-win FP).
   const interveningIf = trigger.descriptor?.interveningIf;
   if (clause && interveningIf) {
-    const condProgram = parseEffectClause(clause, "Instant");
+    const condProgram = parseEffectClause(clause, "Instant", { hasX: !!trigger.descriptor?.effectHasX });
     const winAtom = condProgram?.atoms?.length === 1 ? condProgram.atoms[0] : null;
     if (winAtom && winAtom.op === "win-game" && winAtom.who === "controller" && programConfidence(condProgram) === "high") {
       const met = evaluateWinThreshold(state, interveningIf, trigger.controller);
@@ -690,7 +690,10 @@ function buildTriggerStack(state, trigger, chooseTargets) {
     // effect resolves exactly as a spell would, and the legacy effect parser
     // (spellEffects.parseSpellEffect) only engages for Instant/Sorcery types — so
     // pass "Instant" to unlock draw/damage/destroy off a permanent source.
-    const program = parseEffectClause(clause, "Instant");
+    // SELF-CAST (CR 603.2): descriptor.effectHasX (set only for an {X}-spell self-cast trigger) unlocks the
+    // half-X/X-amount clause parsers so Hydroid Krasis's "gain half X life and draw half X cards" parses HIGH;
+    // every other trigger leaves it undefined → hasX:false → byte-identical.
+    const program = parseEffectClause(clause, "Instant", { hasX: !!trigger.descriptor?.effectHasX });
     // α1 ALLOWLIST: route a HIGH non-modal trigger natively only when every chosen-target atom is
     // intent-resolvable — i.e. the enemy/own chooser (chooseTriggerTargets, wired in at the live
     // flush call-sites) can prove a correct-side pick: removal/damage/counter/tap/-X-X → an opponent,
@@ -703,7 +706,12 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       && combatDamageReferentSatisfied(program, trigger.descriptor?.event)) {
       // sourceId = the trigger's SOURCE permanent (CR 113.7) — lets a "this creature gets …" /
       // "put a +1/+1 counter on this creature" self atom resolve to the source on the non-targeted path.
-      const baseParams = { program, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId };
+      // SELF-CAST (CR 603.2): a "When you cast this spell, …" trigger threads the cast's chosen X via
+      // trigger.context.xValue so a half-X / X-amount payoff (Hydroid Krasis "gain half X life and draw half
+      // X cards") resolves at the real X — runEffectProgram reads params.xValue. A no-op for every other
+      // trigger (none set context.xValue → xValue stays undefined → the FIXED-N / for-each amount resolvers
+      // are byte-identical).
+      const baseParams = { program, controller: trigger.controller, context: trigger.context, sourceId: trigger.source?.permanentId, xValue: trigger.context?.xValue ?? null };
       if (!programNeedsChosenTarget(program)) {
         return { payload: { resolver: "effect-program", params: { ...baseParams, targets: [] } }, targets: [] };
       }
