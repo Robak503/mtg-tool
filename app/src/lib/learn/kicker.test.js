@@ -1,24 +1,30 @@
 /**
- * KICKER (CR 702.33) — optional additional cast cost + a "was-kicked" enters-with-counters payoff.
+ * KICKER (CR 702.33) — optional additional cast cost + a "was-kicked" payoff.
  *
- * Scope (this slice): a CREATURE with a clean single "Kicker {cost}" and the modeled kicked payoff
- * "If this creature was kicked, it enters with N +1/+1 counters on it", whose base body is keyword-only.
- * Both halves are modeled atoms (the keyword-only native-body + the existing enters-with-counters
- * replacement, now gated on the was-kicked flag). End-to-end the engine GENUINELY runs it:
- *   parser           → parseKickerCounterCreature (kicker.js) gates the whole card
- *   coverage         → native-body (the additive seam classifier)
- *   legalChoices     → a normal cast + (when the kicker mana is also affordable) a kicked cast
- *   actionDispatcher → pays the folded cost, threads `kicked` onto PERMANENT_ETB
- *   resolvers        → enterPermanent adds the kicked +1/+1 counters AS the creature enters
+ * Two modeled kicked-payoff shapes share the cast-flag plumbing:
+ *   (1) ENTERS-WITH-COUNTERS (v0.71.0) — a CREATURE whose ONLY non-keyword text is "If this creature was
+ *       kicked, it enters with N +1/+1 counters on it" (parseKickerCounterCreature → native-body). The
+ *       resolver reads opts.kicked directly to add the counters AS it enters.
+ *   (2) KICKED ETB-TRIGGER (v0.73.0) — a CREATURE with "When this creature enters, if it was kicked,
+ *       <effect>" (Goblin Ruinblaster, Torch Slinger, Heartstabber Mosquito …). The kicked flag rides into
+ *       the trigger via the permanent: enterPermanent stamps perm.wasKicked, and the "it was kicked"
+ *       intervening-if (interveningIf.js, CR 603.4) reads it at BOTH the flush check (drop if not kicked)
+ *       and the resolution re-check. parseKickerEtbCreature re-classifies the kicker-line-stripped body
+ *       native iff the kicked effect routes HIGH. The two gates are mutually exclusive (no double-claim).
  *
- * The CREED-critical assertions: a NOT-kicked cast adds NO counters (base body only), a kicked cast adds
- * EXACTLY the printed N, and every deferred shape (multikicker / kicker SPELL effect / an ETB-trigger
- * kicked payoff / an extra unmodeled clause) stays body-only (Arbiter) — never a fabricated native credit.
+ * End-to-end the engine GENUINELY runs both: legalChoices emits a normal cast + (when the kicker mana is also
+ * affordable) a kicked cast; actionDispatcher pays the folded cost + threads `kicked`; the payoff fires only
+ * when kicked. The CREED-critical assertions: a NOT-kicked cast fires NOTHING (no counters / the trigger is
+ * dropped at flush), a kicked cast fires EXACTLY the payoff, and every deferred shape (multikicker / kicker
+ * SPELL effect [PARKED] / an unmodeled kicked effect or unresolvable target / an extra unmodeled body clause)
+ * stays body-only or Arbiter — never a fabricated native credit.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
-import { parseKickerCost, entersWithKickedCounters, parseKickerCounterCreature, stripKickerText } from "./kicker.js";
-import { classifyCard, isKeywordOnly } from "./coverage.js";
+import { parseKickerCost, entersWithKickedCounters, parseKickerCounterCreature, stripKickerText, hasKickedEtbTrigger, parseKickerEtbCreature } from "./kicker.js";
+import { classifyCard, isKeywordOnly, isNativeTier } from "./coverage.js";
+import { evaluateInterveningIf, interveningIfParseable } from "./interveningIf.js";
+import { createPermanent } from "./gameState.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { resolveTopOfStack } from "./gameEngine.js";
@@ -133,11 +139,22 @@ describe("KICKER coverage — CREED anti-FP: deferred shapes stay body-only / ar
   it("Multikicker (variable scaler) stays body-only", () => {
     expect(classifyCard({ name: "Skitter Eel", type: "Creature — Fish", mana: "{3}{U}", oracle: "Multikicker {2}\nThis creature enters with two +1/+1 counters on it for each time it was kicked." })).toBe("body-only");
   });
-  it("a kicked ETB-TRIGGER payoff (destroy target land) stays body-only — the trigger pipeline doesn't read the flag yet", () => {
+  it("a kicked ETB-TRIGGER whose EFFECT is unmodeled (destroy target nonbasic land) stays body-only — the kicker→trigger routing fires, but the land-destroy atom isn't modeled (whole-card CREED)", () => {
+    // The "it was kicked" intervening-if now routes (interveningIf.js), but "destroy target nonbasic land"
+    // parses LOW (no modeled destroy-nonbasic-land atom), so the whole card stays body-only — never a partial.
     expect(classifyCard({ name: "Goblin Ruinblaster", type: "Creature — Goblin Shaman", mana: "{2}{R}", oracle: "Kicker {R}\nHaste\nWhen this creature enters, if it was kicked, destroy target nonbasic land." })).toBe("body-only");
   });
-  it("a kicker SPELL with a kicked effect stays arbiter-spell (the spell-effect pipeline doesn't read the flag yet)", () => {
+  it("a kicked ETB-TRIGGER whose target-intent is unresolvable (target player sacrifices a creature) stays body-only", () => {
+    // Gatekeeper of Malakir: the sacrifice atom parses HIGH but its chosen target isn't intent-resolvable
+    // (programTriggerTargetsResolvable false), so triggerRoutesNatively rejects it → body-only (FN-safe CREED).
+    expect(classifyCard({ name: "Gatekeeper of Malakir", type: "Creature — Vampire Warrior", mana: "{B}{B}", oracle: "Kicker {B}\nWhen this creature enters, if it was kicked, target player sacrifices a creature of their choice." })).toBe("body-only");
+  });
+  it("a kicker SPELL with a kicked effect stays arbiter-spell (the spell-effect kicked pipeline is PARKED — this slice ships only the ETB-trigger payoff)", () => {
     expect(classifyCard({ name: "Runic Shot", type: "Sorcery", mana: "{W}", oracle: "Kicker {U}\nDestroy target tapped creature. If this spell was kicked, scry 2." })).toBe("arbiter-spell");
+  });
+  it("the ETB-kicker gate does NOT claim the enters-with-counters payoff (that's parseKickerCounterCreature's) — no double-claim", () => {
+    expect(parseKickerEtbCreature({ name: "Ardent Soldier", type: "Creature — Human Soldier", mana: "{1}{W}",
+      oracle: "Kicker {2}\nVigilance\nIf this creature was kicked, it enters with a +1/+1 counter on it." }, classifyCard, isNativeTier)).toBeNull();
   });
   it("a kicker creature with an extra unmodeled static stays body-only", () => {
     expect(classifyCard({ name: "Rider", type: "Creature — Beast", mana: "{2}{G}", oracle: "Kicker {3}\nIf this creature was kicked, it enters with two +1/+1 counters on it.\nWhenever this creature attacks, draw a card." })).toBe("body-only");
@@ -243,5 +260,179 @@ describe("KICKER runtime — the AI pays the kicker when it can afford it (decid
   });
   it("picks the normal cast when only the base cost is affordable", () => {
     expect(aiPick(4)).toMatchObject({ kind: "cast-spell", cardId: "c1", kicked: false });
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════
+// KICKED ETB-TRIGGER payoff (v0.73.0) — "When this creature enters, if it was kicked, <effect>".
+//
+// The base body (keyword-only) is already native; the kicked payoff is a TRIGGERED ability gated on the
+// "it was kicked" intervening-if (CR 603.4 + 702.33e). The kicked flag rides into the trigger via the
+// permanent: resolvers.enterPermanent stamps perm.wasKicked on a kicked cast, and interveningIf.evaluate
+// reads it at BOTH the flush check (drop if not kicked) and the resolution re-check. End-to-end:
+//   parser       → parseKickerEtbCreature gates the whole card (re-classifies the kicker-line-stripped body)
+//   coverage     → native-trigger / native-mixed (the body's tier)
+//   legalChoices → a normal cast + (when the kicker mana is also affordable) a kicked cast (no targets — the
+//                  ETB trigger chooses its own at fire time, CR 603.3c)
+//   resolvers    → enterPermanent stamps perm.wasKicked; the ETB trigger fires its payoff ONLY when kicked
+//
+// CREED-critical: a NOT-kicked cast fires NOTHING (the trigger is dropped at flush); a kicked cast fires the
+// payoff exactly once; an unmodeled kicked effect (Goblin Ruinblaster land-destroy) / unresolvable target
+// (Gatekeeper) stays body-only — never a fabricated native credit.
+// ════════════════════════════════════════════════════════════════════════════════════════════════════
+
+// Real printed cards (exact Scryfall oracle text) whose kicked ETB effect IS modeled.
+const HEARTSTABBER_MOSQUITO = { name: "Heartstabber Mosquito", type: "Creature — Insect", mana: "{3}{B}", power: 1, toughness: 1,
+  oracle: "Kicker {2}{B} (You may pay an additional {2}{B} as you cast this spell.)\nFlying\nWhen this creature enters, if it was kicked, destroy target creature." };
+const CITANUL_WOODREADERS = { name: "Citanul Woodreaders", type: "Creature — Human Druid", mana: "{2}{G}", power: 1, toughness: 4,
+  oracle: "Kicker {2}{G} (You may pay an additional {2}{G} as you cast this spell.)\nWhen this creature enters, if it was kicked, draw two cards." };
+const KROSAN_DRUID = { name: "Krosan Druid", type: "Creature — Centaur Druid", mana: "{2}{G}", power: 1, toughness: 4,
+  oracle: "Kicker {4}{G} (You may pay an additional {4}{G} as you cast this spell.)\nWhen this creature enters, if it was kicked, you gain 10 life." };
+const KOR_SANCTIFIERS = { name: "Kor Sanctifiers", type: "Creature — Kor Cleric", mana: "{2}{W}", power: 2, toughness: 2,
+  oracle: "Kicker {W} (You may pay an additional {W} as you cast this spell.)\nWhen this creature enters, if it was kicked, destroy target artifact or enchantment." };
+const CALIGO_SKIN_WITCH = { name: "Caligo Skin-Witch", type: "Creature — Human Wizard", mana: "{1}{B}", power: 1, toughness: 3,
+  oracle: "Kicker {3}{B} (You may pay an additional {3}{B} as you cast this spell.)\nWhen this creature enters, if it was kicked, each opponent discards two cards." };
+const SERGEANT_AT_ARMS = { name: "Sergeant-at-Arms", type: "Creature — Human Soldier", mana: "{2}{W}", power: 3, toughness: 2,
+  oracle: "Kicker {2}{W} (You may pay an additional {2}{W} as you cast this spell.)\nWhen this creature enters, if it was kicked, create two 1/1 white Soldier creature tokens." };
+const TORCH_SLINGER = { name: "Torch Slinger", type: "Creature — Goblin Shaman", mana: "{2}{R}", power: 2, toughness: 2,
+  oracle: "Kicker {1}{R} (You may pay an additional {1}{R} as you cast this spell.)\nWhen this creature enters, if it was kicked, it deals 2 damage to target creature." };
+const EXCAVATION_ELEPHANT = { name: "Excavation Elephant", type: "Creature — Elephant", mana: "{4}{W}", power: 3, toughness: 4,
+  oracle: "Kicker {1}{W} (You may pay an additional {1}{W} as you cast this spell.)\nWhen this creature enters, if it was kicked, return target artifact card from your graveyard to your hand." };
+
+const ETB_KICKERS_NATIVE = [HEARTSTABBER_MOSQUITO, CITANUL_WOODREADERS, KROSAN_DRUID, KOR_SANCTIFIERS, CALIGO_SKIN_WITCH, SERGEANT_AT_ARMS, TORCH_SLINGER, EXCAVATION_ELEPHANT];
+
+describe("KICKED ETB — interveningIf 'it was kicked' (the strict per-permanent flag)", () => {
+  it("is in the parseable vocabulary (so coverage + the flush gate credit it)", () => {
+    expect(interveningIfParseable("it was kicked")).toBe(true);
+  });
+  it("reads the entering permanent's wasKicked flag — true when kicked, false when not", () => {
+    const kicked = createPermanent({ id: "p1", card: { name: "X", type: "Creature" }, controller: "user" });
+    kicked.wasKicked = true;
+    const state = (perm) => ({ players: { user: { battlefield: [perm] } } });
+    expect(evaluateInterveningIf(state(kicked), "it was kicked", "user", { triggeringPermanentId: "p1" })).toBe(true);
+    const normal = createPermanent({ id: "p2", card: { name: "X", type: "Creature" }, controller: "user" });
+    expect(evaluateInterveningIf(state(normal), "it was kicked", "user", { triggeringPermanentId: "p2" })).toBe(false);
+  });
+  it("returns null (FN-safe) with no entering permanent in context — never fail-open", () => {
+    expect(evaluateInterveningIf({ players: { user: { battlefield: [] } } }, "it was kicked", "user", {})).toBeNull();
+  });
+});
+
+describe("KICKED ETB — parser gate hasKickedEtbTrigger / parseKickerEtbCreature", () => {
+  it("detects the kicked ETB-trigger shape (name-printed self-ref normalized)", () => {
+    expect(hasKickedEtbTrigger(HEARTSTABBER_MOSQUITO)).toBe(true);
+    expect(hasKickedEtbTrigger({ name: "Foo", type: "Creature", oracle: "When Foo enters, if it was kicked, draw a card." })).toBe(true);
+    expect(hasKickedEtbTrigger({ name: "X", type: "Creature", oracle: "Flying" })).toBe(false);
+    // the enters-with-counters payoff is NOT an ETB trigger (no When/Whenever lead)
+    expect(hasKickedEtbTrigger(ARDENT_SOLDIER)).toBe(false);
+  });
+  it("returns the kicker cost for each modeled ETB-kicker; null for the counters shape (no double-claim)", () => {
+    for (const c of ETB_KICKERS_NATIVE) {
+      const spec = parseKickerEtbCreature(c, classifyCard, isNativeTier);
+      expect(spec, c.name).not.toBeNull();
+      expect(spec.kickerCost, c.name).toBe(parseKickerCost(c));
+    }
+    expect(parseKickerEtbCreature(ACADEMY_DRAKE, classifyCard, isNativeTier)).toBeNull(); // counters payoff → other gate
+  });
+});
+
+describe("KICKED ETB coverage — the modeled ETB-kicker creatures classify native", () => {
+  for (const c of ETB_KICKERS_NATIVE) {
+    it(`${c.name} → native`, () => {
+      expect(isNativeTier(classifyCard(c))).toBe(true);
+    });
+  }
+});
+
+// ── Runtime: cast → resolve (the kicked ETB trigger GENUINELY fires only when kicked) ───────────────
+function withOppBoard(state, perms) {
+  return { ...state, players: { ...state.players, ai: { ...state.players.ai, battlefield: perms } } };
+}
+function drainStack(s) {
+  let guard = 0;
+  while (s.stack && s.stack.length && guard++ < 30) s = resolveTopOfStack(s);
+  return s;
+}
+
+describe("KICKED ETB runtime — Heartstabber Mosquito destroys a creature ONLY when kicked", () => {
+  const VICTIM = createPermanent({ id: "v1", card: { name: "Grizzly Bears", id: "vc", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "ai" });
+  it("KICKED → the ETB trigger destroys the opponent's creature", () => {
+    let s = withOppBoard(setup({ hand: [{ ...HEARTSTABBER_MOSQUITO, id: "c1" }], mana: { B: 8 } }), [{ ...VICTIM }]);
+    const kicked = casts(s).find((a) => a.cardId === "c1" && a.kicked === true);
+    expect(kicked).toBeTruthy();
+    expect(kicked.cost.generic).toBe(3 + 2);            // {3} base + {2} kicker generic (the {B} is colored)
+    expect(kicked.cmc).toBe(7);                          // CR 202.3b — MV counts the kicker paid
+    s = drainStack(dispatchAction(s, kicked));
+    expect(s.players.ai.battlefield.map((p) => p.card.name)).not.toContain("Grizzly Bears");
+    expect(s.players.ai.graveyard.map((c) => c.name)).toContain("Grizzly Bears");
+    expect(s.players.user.battlefield.map((p) => p.card.name)).toContain("Heartstabber Mosquito");
+  });
+  it("NOT kicked → the ETB trigger does NOT fire (the creature survives), and no kicked cast is even offered", () => {
+    let s = withOppBoard(setup({ hand: [{ ...HEARTSTABBER_MOSQUITO, id: "c1" }], mana: { B: 4 } }), [{ ...VICTIM }]);
+    const mine = casts(s).filter((a) => a.cardId === "c1");
+    expect(mine.map((a) => a.kicked)).toEqual([false]); // can't afford the kicker → only the normal cast
+    s = drainStack(dispatchAction(s, mine[0]));
+    expect(s.players.ai.battlefield.map((p) => p.card.name)).toContain("Grizzly Bears"); // survived
+    expect((s.pendingTriggers || []).length).toBe(0);   // the conditional trigger was dropped at flush (CR 603.4)
+  });
+});
+
+describe("KICKED ETB runtime — Citanul Woodreaders draws two ONLY when kicked", () => {
+  it("KICKED → draws two cards", () => {
+    let s = setup({ hand: [{ ...CITANUL_WOODREADERS, id: "c1" }], mana: { G: 8 } });
+    // give the library something to draw
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, library: [{ id: "L1", name: "Forest", type: "Land" }, { id: "L2", name: "Forest", type: "Land" }, { id: "L3", name: "Forest", type: "Land" }] } } };
+    const handBefore = s.players.user.hand.length; // 1 (the creature)
+    const kicked = casts(s).find((a) => a.cardId === "c1" && a.kicked === true);
+    s = drainStack(dispatchAction(s, kicked));
+    // hand: started with 1 (the creature, now cast → -1) + 2 drawn = 2
+    expect(s.players.user.hand.length).toBe(handBefore - 1 + 2);
+  });
+  it("NOT kicked → draws nothing", () => {
+    let s = setup({ hand: [{ ...CITANUL_WOODREADERS, id: "c1" }], mana: { G: 4 } });
+    s = { ...s, players: { ...s.players, user: { ...s.players.user, library: [{ id: "L1", name: "Forest", type: "Land" }, { id: "L2", name: "Forest", type: "Land" }] } } };
+    const normal = casts(s).find((a) => a.cardId === "c1" && a.kicked === false);
+    s = drainStack(dispatchAction(s, normal));
+    expect(s.players.user.hand.length).toBe(0); // creature cast, no draw
+    expect(s.players.user.library.length).toBe(2); // library untouched
+  });
+});
+
+describe("KICKED ETB runtime — Krosan Druid gains 10 life ONLY when kicked", () => {
+  it("KICKED → +10 life", () => {
+    let s = setup({ hand: [{ ...KROSAN_DRUID, id: "c1" }], mana: { G: 10 } });
+    const lifeBefore = s.players.user.life;
+    const kicked = casts(s).find((a) => a.cardId === "c1" && a.kicked === true);
+    s = drainStack(dispatchAction(s, kicked));
+    expect(s.players.user.life).toBe(lifeBefore + 10);
+  });
+  it("NOT kicked → life unchanged", () => {
+    let s = setup({ hand: [{ ...KROSAN_DRUID, id: "c1" }], mana: { G: 4 } });
+    const lifeBefore = s.players.user.life;
+    const normal = casts(s).find((a) => a.cardId === "c1" && a.kicked === false);
+    s = drainStack(dispatchAction(s, normal));
+    expect(s.players.user.life).toBe(lifeBefore);
+  });
+});
+
+describe("KICKED ETB runtime — the AI pays the kicker for an ETB-trigger payoff when affordable", () => {
+  function aiPickEtb(mana, oppBoard = []) {
+    const base = createGameState({ userDeck: [], aiDeck: [] });
+    const s = {
+      ...base, activePlayer: "ai", priorityHolder: "ai", phase: "precombat-main", step: "main",
+      players: {
+        ...base.players,
+        ai: { ...base.players.ai, hand: [{ ...HEARTSTABBER_MOSQUITO, id: "c1" }], manaPool: { ...base.players.ai.manaPool, B: mana } },
+        user: { ...base.players.user, battlefield: oppBoard },
+      },
+    };
+    return pickAction(s, "ai", legalActionsForPlayer(s, "ai"), { archetype: "midrange" });
+  }
+  it("picks the KICKED cast when the kicker is affordable", () => {
+    const enemy = createPermanent({ id: "e1", card: { name: "Bear", id: "bc", type: "Creature — Bear", power: 2, toughness: 2 }, controller: "user" });
+    expect(aiPickEtb(8, [enemy])).toMatchObject({ kind: "cast-spell", cardId: "c1", kicked: true });
+  });
+  it("picks the normal cast when only the base cost is affordable", () => {
+    expect(aiPickEtb(4)).toMatchObject({ kind: "cast-spell", cardId: "c1", kicked: false });
   });
 });

@@ -39,9 +39,12 @@
  *      history read off the per-turn creature-death tally (gameState.creaturesDiedThisTurn, bumped at the death
  *      chokepoint, reset for all seats at untap). "a creature died" ≡ "1 or more died" (≥1); the cardinal form
  *      compares the all-seats death total (CR 700.4 — any player's creature dying counts) to N.
+ *   "it was kicked" (CR 702.33e) — the kicker ETB-trigger condition (Goblin Ruinblaster, Torch Slinger,
+ *      Heartstabber Mosquito …): a per-PERMANENT cast-decision flag read off the entering permanent's
+ *      `wasKicked` (stamped by resolvers.enterPermanent on a kicked cast), keyed on ctx.triggeringPermanentId.
  * DEFERRED to the Arbiter (stay LOW): color/multicolored permanents, other power comparisons ("power N or
  * less", toughness), OTHER turn-event history (a NON-creature died, "you gained life this turn", attacked),
- * subtype-scoped death counts ("a Zubera died"), cast-decision flags (kicker/tribute/bargain), state flags
+ * subtype-scoped death counts ("a Zubera died"), the OTHER cast-decision flags (tribute/bargain), state flags
  * (monarch, city's blessing) — each a future increment.
  */
 
@@ -177,6 +180,18 @@ const CONTROL_SUBTYPE_ALLOW = new Set([
   "knight", "soldier", "cleric", "angel", "demon", "sliver", "dinosaur", "bird", "snake", "cat",
 ]);
 
+// ===== KICKED ETB (CR 702.33e + 603.4) =======================================================
+// "it was kicked" — the intervening-if on a kicker creature's ETB trigger ("When this creature enters, if it
+// was kicked, <effect>" — Goblin Ruinblaster, Torch Slinger, Heartstabber Mosquito …). A per-PERMANENT
+// cast-decision flag, NOT a board query: it reads whether the ENTERING permanent was cast for its kicker cost.
+// enterPermanent stamps `perm.wasKicked = true` when the cast paid the kicker (resolvers.js, threaded from the
+// kicked cast); a normal cast leaves it unset. Keyed on ctx.triggeringPermanentId exactly like SAME-NAME ETB,
+// so it reads the SAME entering permanent at BOTH the flush check (the permanent is already on the battlefield
+// when ETB triggers flush) AND the resolution re-check (CR 603.4 second check). A non-kicked entry → false
+// (the trigger is dropped / does nothing); a missing entering permanent → null (can't confirm → FN-safe, never
+// fail-open). This closes the kicker entry in the DEFERRED list (cast-decision flags) for the ETB-trigger shape.
+const KICKED_ETB_RE = /^it was kicked$/;
+
 // ===== SAME-NAME ETB (Guardian Project, CR 603.4 + 201.2) ====================================
 // "it doesn't have the same name as another creature you control or a creature card in your graveyard"
 // — a per-PERMANENT condition keyed on the entering creature (the trigger's triggeringPermanent). True
@@ -231,6 +246,19 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     const gy = state.players[controllerId].graveyard || [];
     const dupInGy = gy.some((card) => isCreatureCard(card) && String(card?.name ?? "").toLowerCase() === nm);
     return !dupInGy; // "doesn't have the same name as …" → true when NEITHER duplicate exists
+  }
+
+  // KICKED ETB (CR 702.33e) — "it was kicked": read the entering permanent's was-kicked flag (a per-PERMANENT
+  // cast-decision flag, stamped by resolvers.enterPermanent as perm.wasKicked when the kicker cost was paid).
+  // Keyed on the entering permanent (ctx.triggeringPermanentId) like SAME-NAME ETB, so it reads identically at
+  // flush (the permanent is on the battlefield when ETB triggers flush) AND resolution (CR 603.4 second check).
+  if (KICKED_ETB_RE.test(c)) {
+    const triggeringId = context?.triggeringPermanentId;
+    if (!triggeringId) return null; // no entering permanent in context → can't confirm (FN-safe; never fail-open)
+    const board = controllerBoard(state, controllerId);
+    const entering = board.find((p) => p.id === triggeringId);
+    if (!entering) return null;      // entering permanent already gone → can't confirm (FN-safe)
+    return entering.wasKicked === true; // a normal (un-kicked) cast leaves wasKicked unset → false (CR 603.4 drop)
   }
 
   // "you control no <filter>"  → count == 0

@@ -181,6 +181,14 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // exempts it from the Aura falls-off-to-graveyard SBA (gameState.detachPermanentFromAll) — it stays on
     // the battlefield and becomes a creature again when its host leaves. A non-bestow permanent omits it.
     ...(opts.bestowed ? { bestowed: true } : {}),
+    // KICKER (CR 702.33b/e): stamp the was-kicked flag DURABLY on the permanent when this cast paid the kicker
+    // (opts.kicked, threaded from the kicked cast). Mirrors how `xValue` / `chosenType` persist — a plain
+    // boolean that serializes via the JSON pass-through. Read back by the "it was kicked" intervening-if
+    // (interveningIf.js, keyed on ctx.triggeringPermanentId) so a kicked ETB trigger ("When this creature
+    // enters, if it was kicked, <effect>" — Goblin Ruinblaster) fires its payoff at BOTH the flush check and
+    // the resolution re-check (CR 603.4). The enters-with-+1/+1-counters kicked payoff still reads opts.kicked
+    // directly below — this flag is the ADDITIONAL hook the trigger/spell pipelines need. A normal cast omits it.
+    ...(opts.kicked ? { wasKicked: true } : {}),
   };
   // A planeswalker enters with its starting loyalty as loyalty counters (CR 306.5b). Stored under
   // the generic counters map (`counters.loyalty`) so the 0-loyalty SBA + loyalty costs read it the

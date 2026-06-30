@@ -184,9 +184,10 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
     let chosen = actions[0];
     // KICKER (CR 702.33): a kicker creature is emitted as a normal cast plus — when the kicker mana is also
     // affordable — a `kicked:true` cast (legalChoices only offers the kicked option when payable). For the
-    // modeled kicked payoff (enters with extra +1/+1 counters) the kicked creature is strictly bigger with
-    // the identical body, so paying the kicker is always the higher-value play — prefer it when offered. This
-    // is the AI's "decide yes/no by value": pay when affordable (the kicked action exists), else cast normally.
+    // modeled kicked payoffs (enters with extra +1/+1 counters; or a kicked ETB trigger — destroy a land,
+    // ping a creature, draw cards) the kicked play adds strictly more value with the identical base body, so
+    // paying the kicker is the higher-value play — prefer it when offered. This is the AI's "decide yes/no by
+    // value": pay when affordable (the kicked action exists), else cast normally.
     const kickedAction = actions.find(a => a.kicked === true);
     if (kickedAction) {
       scored.push({ action: kickedAction, score: scoreCastAction(kickedAction, card, archetype), cmc: kickedAction.cmc || 0 });

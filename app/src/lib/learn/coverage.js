@@ -59,7 +59,7 @@ import { parseAnnihilator } from "./annihilator.js"; // KW-ANNIHILATOR (CR 702.8
 import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runtime hook lives in gameEngine (applySeedbornUntap)
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
-import { parseKickerCounterCreature } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked enters-with-counters payoff; runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
+import { parseKickerCounterCreature, parseKickerEtbCreature } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
@@ -1105,6 +1105,25 @@ registerCoverageClassifier((card) => classifyWolverine(card));
 // any extra unmodeled body clause → null), so the credit is honest — exactly the cards the engine plays.
 // isKeywordOnly is passed in (the same predicate the dispatch body uses) to keep kicker.js a leaf module.
 registerCoverageClassifier((card) => (parseKickerCounterCreature(card, isKeywordOnly) ? "native-body" : null));
+
+// ─── KICKER (CR 702.33) — creature kicker whose kicked payoff is an ETB TRIGGER ──────────────────────────────
+// A CREATURE with a clean single "Kicker {cost}" optional cast cost whose kicked payoff is a TRIGGERED ability
+// "When this creature enters, if it was kicked, <effect>" (Goblin Ruinblaster destroy-land, Torch Slinger ping,
+// Heartstabber Mosquito destroy-creature, Citanul Woodreaders draw-two, Krosan Druid gain-10 …). The kicked flag
+// is threaded into the trigger via the "it was kicked" intervening-if (CR 603.4): resolvers.enterPermanent stamps
+// `perm.wasKicked` on a kicked cast, and interveningIf.evaluateInterveningIf reads it at BOTH the flush check
+// (drop if not kicked) and the resolution re-check. parseKickerEtbCreature strips the Kicker LINE and re-classifies
+// the bare body via classifyCard (injected → kicker.js stays a leaf): the body is native iff its kicked ETB
+// trigger routes HIGH AND "it was kicked" is in the strict intervening-if vocabulary — so the metric credits
+// EXACTLY the cards the runtime plays (legalChoices emits the kicked cast; the ETB trigger fires its payoff only
+// when kicked). Distinct from the counter classifier above (parseKickerEtbCreature rejects the counters shape),
+// so no card is double-claimed. All-or-nothing (THE CREED): an unmodeled body clause / kicked effect / a
+// multikicker / variable cost → null → body-only (the engine still hard-casts; the unmodeled kicked payoff
+// routes to the Arbiter only when actually kicked). Returns the body's tier (native-trigger / native-mixed).
+registerCoverageClassifier((card) => {
+  const spec = parseKickerEtbCreature(card, classifyCard, isNativeTier);
+  return spec ? spec.bodyTier : null;
+});
 
 // ─── EMERGE (CR 702.97) — Eldrazi alternative cast cost (sac a creature/artifact, pay reduced) ───────────────
 // An Eldrazi/creature with a clean "Emerge {cost}" (or "Emerge from artifact {cost}") line whose BODY — the

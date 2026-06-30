@@ -48,7 +48,7 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // cards flip natively (no duplicated native-determination to drift). coverage.js does NOT import legalChoices
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
 import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly } from "./coverage.js";
-import { parseKickerCounterCreature } from "./kicker.js"; // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable
+import { parseKickerCounterCreature, parseKickerEtbCreature } from "./kicker.js"; // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant too
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
 
 // GROUP-ACTIVATED grant (queue 1) — register the modeled-body gate so the runtime path (a SIM that imports
@@ -901,7 +901,18 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // These kicker creatures have no effect target (the body is keyword-only), so we own the emission here and
     // `continue`. A free-cast (Discover, CR 601.2b) is cast WITHOUT paying — kicker isn't paid (no kicked
     // option), so only the normal cast is offered (a safe limitation; the base body still resolves).
-    const kickerSpec = parseKickerCounterCreature(card, isKeywordOnly);
+    // KICKED ETB-TRIGGER variant (Goblin Ruinblaster "When this creature enters, if it was kicked, destroy
+    // target nonbasic land") — the kicked payoff is a TRIGGERED ability, not the enters-with-counters
+    // replacement above. Same emission shape (the creature cast itself takes no targets — the ETB trigger
+    // chooses its own target when it goes on the stack, CR 603.3c), so it shares the normal+kicked emission.
+    // The dispatcher threads `kicked` onto PERMANENT_ETB → enterPermanent stamps perm.wasKicked → the "it was
+    // kicked" intervening-if (interveningIf.js) fires the trigger's payoff only on a kicked cast. parseKicker-
+    // EtbCreature re-classifies the kicker-line-stripped body native (the same gate coverage uses), so the
+    // runtime offers the kick EXACTLY when the metric credits it. Checked alongside the counter variant (the
+    // two gates are mutually exclusive — the ETB gate rejects the counters shape — so at most one matches).
+    const counterKicker = parseKickerCounterCreature(card, isKeywordOnly);
+    const etbKicker = !counterKicker ? parseKickerEtbCreature(card, classifyCard, isNativeTier) : null;
+    const kickerSpec = counterKicker || etbKicker;
     if (kickerSpec) {
       actions.push({ ...base, targets: [], needsTargets: false, kicked: false });
       if (!freeCast) {
@@ -915,7 +926,7 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
             targets: [],
             needsTargets: false,
             kicked: true,
-            kickedName: `kicked (+${kickerSpec.kicked.counters} +1/+1)`,
+            kickedName: counterKicker ? `kicked (+${counterKicker.kicked.counters} +1/+1)` : "kicked",
           });
         }
       }

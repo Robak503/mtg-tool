@@ -131,3 +131,76 @@ export function stripKickerText(oracle) {
   t = t.replace(/[^.\n]*\bif this creature was kicked, it enters (?:the battlefield )?with [^.\n]*\+1\/\+1 counters? on it\.?/i, " ");
   return t.trim();
 }
+
+/**
+ * Remove ONLY the "Kicker {cost} (reminder…)" line from an oracle, leaving the rest of the body intact (a
+ * kicked ETB trigger / any keyword line stays). Line-anchored, reminder parens and all — mirrors stripPlot/
+ * stripEmergeLine. Used by parseKickerEtbCreature so the bare body re-classifies on its own merits (the
+ * trigger machinery reads the "if it was kicked" intervening-if). Conservative: a card without a clean kicker
+ * line is returned unchanged.
+ */
+export function stripKickerLineOnly(oracle) {
+  return String(oracle || "")
+    .replace(/(?:^|\n)[^\n]*\bkicker\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n")
+    .trim();
+}
+
+// A kicked ETB trigger ("When this creature enters, if it was kicked, <effect>") — the payoff shape this gate
+// owns. Name-printed self-references ("When Foo enters …") are normalized to "this creature" by the caller
+// before the test, mirroring entersWithKickedCounters. Anchored to the "if it was kicked," intervening-if so
+// it can ONLY match the genuine kicked-ETB shape (not an unconditional ETB, and not the enters-with-counters
+// replacement, which carries no When/Whenever lead). The effect itself is validated downstream (the body must
+// re-classify native — the trigger's effect program must route HIGH), so this is just the shape detector.
+const KICKED_ETB_TRIGGER_RE = /\b(?:when|whenever) this creature enters(?:\s+the battlefield)?,\s*if it was kicked,/i;
+
+/**
+ * Does this card carry a kicked ETB-trigger payoff ("When this creature enters, if it was kicked, <effect>")?
+ * Normalizes the printed name to "this creature" first (like entersWithKickedCounters) so a name-printed
+ * self-reference also matches. Pure text shape check — the effect's modeled-ness is gated separately by the
+ * body re-classification in parseKickerEtbCreature.
+ */
+export function hasKickedEtbTrigger(card) {
+  const oracle = stripReminder(card?.oracle || card?.oracle_text || "");
+  let t = oracle;
+  const nm = String(card?.name || "").trim();
+  if (nm) {
+    const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    t = t.replace(new RegExp(`\\b${esc}\\b`, "g"), "this creature");
+  }
+  return KICKED_ETB_TRIGGER_RE.test(t);
+}
+
+/**
+ * KICKER-ETB-CREATURE — the whole-card gate for a CREATURE whose kicked payoff is an ETB TRIGGER (not the
+ * enters-with-counters replacement parseKickerCounterCreature owns). Returns `{ kickerCost }` when the card is
+ * a CREATURE with (a) a clean single Kicker cost, (b) a kicked ETB trigger ("When this creature enters, if it
+ * was kicked, <effect>"), (c) NO enters-with-counters kicked payoff (that's the other classifier — avoid a
+ * double claim), AND (d) a body — the Kicker LINE stripped — that the injected `classifyStripped` predicate
+ * classifies into a NATIVE tier. Otherwise null.
+ *
+ * `classifyStripped` is `(strippedCard) => tier` (classifyCard, injected to keep kicker.js a leaf); `isNative`
+ * is `(tier) => boolean` (isNativeTier). The stripped card re-runs the FULL native cascade on its bare body —
+ * the kicked ETB trigger is credited iff its effect routes HIGH AND the "it was kicked" intervening-if is in
+ * the strict vocabulary (triggerRouting → interveningIfParseable). So the metric credits EXACTLY the cards the
+ * runtime plays: legalChoices emits the kicked cast, enterPermanent stamps `wasKicked`, the ETB trigger fires
+ * its payoff only when kicked. The recursion is bounded — the stripped body has no Kicker line, so this gate
+ * returns null on the inner classifyCard call (mirrors parseEmergeCard's bounded self-recursion).
+ *
+ * All-or-nothing (THE CREED): an unmodeled body clause / an unmodeled kicked effect / a multikicker / a
+ * variable cost → null → the card stays body-only (the engine still hard-casts it; the unmodeled kicked
+ * payoff routes to the Arbiter only when actually kicked). SINGLE source of truth for the coverage credit AND
+ * the runtime (legalChoices reads parseKickerEtbCreature too).
+ */
+export function parseKickerEtbCreature(card, classifyStripped, isNative) {
+  const type = String(card?.type || card?.type_line || "").toLowerCase();
+  if (!/\bcreature\b/.test(type)) return null;
+  const kickerCost = parseKickerCost(card);
+  if (!kickerCost) return null;
+  if (!hasKickedEtbTrigger(card)) return null;                 // not the ETB-trigger payoff shape
+  if (entersWithKickedCounters(card)) return null;             // the counters payoff is parseKickerCounterCreature's
+  if (typeof classifyStripped !== "function" || typeof isNative !== "function") return null;
+  const stripped = { ...card, oracle: stripKickerLineOnly(card?.oracle || card?.oracle_text || "") };
+  const bodyTier = classifyStripped(stripped);
+  if (!isNative(bodyTier)) return null;                         // the bare body (keyword + kicked ETB trigger) must be native
+  return { kickerCost, bodyTier };
+}
