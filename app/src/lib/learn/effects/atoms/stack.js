@@ -4,7 +4,7 @@
  */
 
 import { applyDamageEffect } from "../../spellEffects.js";
-import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf } from "../../gameState.js";
+import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject } from "../../gameState.js";
 import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
@@ -325,6 +325,24 @@ export function massFilteredDamageClauseParser(clause) {
 }
 
 /**
+ * STORM (CR 702.40) clause parser — the SYNTHETIC effect clause triggers.detectTriggers emits for the Storm
+ * KEYWORD ("copy this spell for each spell cast before it this turn"). It is NOT printed oracle text — Storm's
+ * real trigger lives in stripped reminder parens — so this matcher is anchored EXACTLY to the synthesized
+ * sentinel and to nothing in the printed corpus (no real card says "copy this spell for each spell cast before
+ * it this turn" as parseable text; the printed line is the reminder, stripped before clause parsing). Emits a
+ * non-targeted `copy-spell` atom (no targetType → programNeedsChosenTarget=false → the trigger routes natively
+ * via the α1 non-targeted path); the runtime count + spell snapshot ride on ctx (threaded at cast). A different
+ * shape never matches → no atom → the card stays on the Arbiter (CREED FN-safe). Pure. Registered in parser.js.
+ */
+export function copySpellClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "").trim();
+  if (t === "copy this spell for each spell cast before it this turn") {
+    return { op: "copy-spell", stormCopy: true };
+  }
+  return null;
+}
+
+/**
  * ===== SOURCE-POWER-FANOUT (Chandra's Ignition, CR 701) ===== the CHOSEN target creature (you control) deals
  * damage equal to ITS layer-aware power to each OTHER creature (every creature on every battlefield except the
  * source) AND each opponent. All the damage is dealt by the source simultaneously, so it's ONE applyDamageEffect
@@ -405,7 +423,56 @@ function applyOptionalSacPayment(state, atom, ctx) {
   });
 }
 
+/**
+ * ===== STORM (CR 702.40) ===== — "Storm (When you cast this spell, copy it for each spell cast before it this
+ * turn.)". The Storm keyword's triggered ability (synthesized in triggers.detectTriggers as a selfCast trigger,
+ * since the real trigger lives in stripped reminder text — the BUSHIDO/RAMPAGE keyword→trigger precedent) copies
+ * the storm spell N times, N = the number of spells cast BEFORE it this turn (CR 702.40a). The count + a SNAPSHOT
+ * of the storm spell's resolution payload are threaded onto this trigger's context at cast time
+ * (triggers.checkCastTriggers, off the player's spellsCastThisTurn-1 and the storm spell's stack object), so the
+ * atom is self-contained at resolution and never depends on the original spell still sitting on the stack (it
+ * could have been countered in response to the storm trigger — the copies are independent objects, CR 707.10c).
+ *
+ * Each copy is a NEW stack object carrying the SAME payload (the storm spell's frozen EFFECT_PROGRAM — only
+ * non-targeted instant/sorcery storm spells flip native, so the copy needs no new target choice: a "you may
+ * choose new targets" storm spell stays on the Arbiter because its body is targeted and parks upstream). A copy
+ * is NOT a card (CR 707.10a) — `isCopy`/`token` are stamped so no resolution path tries to move it to a zone;
+ * an instant/sorcery copy resolves its program (create-token / gain-life) then ceases to exist, exactly like the
+ * original except no card disposition (the engine doesn't track resolved instant/sorcery cards to a zone anyway).
+ * The copies go on TOP of the stack (above the still-resolving-later original) and resolve FIRST, CR-correct.
+ *
+ * N=0 (the storm spell is the first spell of the turn) → zero copies, a logged no-op (the original spell still
+ * resolves on its own). A missing snapshot (defensive — never happens off the threaded cast path) → no-op too.
+ * `?? 0` (NOT `|| 0`) reads the count so a genuine 0 is honored, never coerced.
+ */
+function applyCopySpell(state, atom, ctx) {
+  const n = Math.max(0, ctx?.stormCount ?? 0);
+  const sourcePayload = ctx?.stormSourcePayload;
+  if (n <= 0 || !sourcePayload) {
+    return logEvent(state, { kind: "spell-effect", effect: "storm-copy", count: 0, controller: ctx?.controller });
+  }
+  // A copy is not a card (CR 707.10a): flag isCopy + token so no resolution/zone path treats it as a real card.
+  const sourceCard = ctx?.stormSourceCard || { name: ctx?.cardName };
+  let next = state;
+  for (let i = 0; i < n; i++) {
+    const { id, state: s2 } = mintId(next, "stk");
+    next = s2;
+    const copyObj = createStackObject({
+      id,
+      kind: "spell",
+      source: { ...sourceCard, token: true, isCopy: true },
+      controller: ctx.controller,
+      targets: [], // non-targeted storm spells only (a targeted body parks upstream) — copies need no new targets
+      // Deep-ish clone the frozen payload so the copy resolves the SAME program independently of the original.
+      payload: JSON.parse(JSON.stringify(sourcePayload)),
+    });
+    next = { ...next, stack: [...next.stack, { ...copyObj, isCopy: true }] };
+  }
+  return logEvent(next, { kind: "spell-effect", effect: "storm-copy", count: n, controller: ctx.controller, cardName: sourceCard?.name });
+}
+
 export const stackResolvers = {
+  "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
   "optional-mana-payment": applyOptionalManaPayment, // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. if you do, <effect>"
   "optional-sac-payment": applyOptionalSacPayment, // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. if you do, <effect>"
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent

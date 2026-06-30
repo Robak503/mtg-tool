@@ -1569,6 +1569,25 @@ export function detectTriggers(card) {
       optional: false, sourceText: `Rampage ${n}`,
     });
   }
+  // STORM (CR 702.40) — KEYWORD→TRIGGER synthesis. "Storm" is a keyword whose triggered ability lives in
+  // REMINDER parens ("(When you cast this spell, copy it for each spell cast before it this turn. …)"), which
+  // the boundary-anchored When/Whenever/At regex above can't match (the "(" before "When" isn't a sentence
+  // boundary) — the BUSHIDO/RAMPAGE precedent. Synthesize a SELF-CAST descriptor off the keyword so the runtime
+  // fires it (checkCastTriggers' self-cast block, threading the storm count + spell snapshot into context) and
+  // coverage counts it (allTriggerSentencesModeled bumps the shaped count for the keyword to match). The
+  // effectClause is the synthetic sentinel the copySpellClauseParser maps to the non-targeted `copy-spell` atom,
+  // so triggerRoutesNatively gates it HIGH + non-targeted. Anchored on the keyword's reminder signature (the
+  // canonical CR 702.40a text) — robust against a card merely NAMED "…Storm" (Crow Storm, Storm of Memories),
+  // which carries the SAME reminder line and so is correctly detected too (its body coverage is judged
+  // separately). `stormCopy:true` is a marker the cast-path threading keys on. scope:"self"/whose:"you" matches
+  // the existing self-cast contract (the spell is always on the stack under the caster).
+  if (/\bcopy it for each spell cast before it this turn\b/i.test(oracle)) {
+    out.push({
+      event: "selfCast", scope: "self", whose: "you", stormCopy: true,
+      effect: null, effectClause: "copy this spell for each spell cast before it this turn",
+      optional: false, sourceText: "Storm",
+    });
+  }
   _detectCache.set(card, out);
   return out;
 }
@@ -2686,7 +2705,7 @@ function prowessDescriptor() {
  * fabricated). Context carries the cast spell's name + type for future referential
  * effects. Pure — appends to pendingTriggers and returns new state.
  */
-export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null }) {
+export function checkCastTriggers(state, { spellCard, casterId, targets = [], xValue = null, stackObjectId = null }) {
   if (!spellCard) return state;
   const context = { castSpellName: spellCard?.name, castSpellType: typeStr(spellCard) };
   let fired = [];
@@ -2779,8 +2798,20 @@ export function checkCastTriggers(state, { spellCard, casterId, targets = [], xV
   // Arbiter no-op at flush (buildTriggerStack's α1 gate). No `whose` gate is needed: a self-cast trigger is
   // always the caster's own (the spell is on the stack under casterId), so the effect's controller IS casterId.
   const selfCastSource = { id: spellCard.id, card: spellCard, controller: casterId };
+  // STORM (CR 702.40a) — the storm trigger copies the spell N = the number of spells cast BEFORE it this turn.
+  // recordSpellCast (applyCastSpell) just incremented the caster's spellsCastThisTurn to THIS spell's ordinal,
+  // so spells-cast-before-it = that count - 1, snapshotted HERE at cast (deterministic, never re-counted at
+  // resolution — the copies are independent, CR 707.10c). Snapshot the storm spell's frozen resolution payload
+  // off its stack object so the copy atom is self-contained (it survives the original being countered before the
+  // storm trigger resolves). Both ride on the trigger's context (threaded into the EFFECT_PROGRAM params by
+  // buildTriggerStack via trigger.context); a non-storm self-cast trigger sets none → byte-identical.
+  const stormCount = Math.max(0, (state.players[casterId]?.spellsCastThisTurn || 0) - 1);
+  const stormStackObj = stackObjectId ? (state.stack || []).find((o) => o.id === stackObjectId) : null;
   for (const d of detectTriggers(spellCard).filter((x) => x.event === "selfCast")) {
-    fired.push(makePendingTrigger(d, selfCastSource, null, { ...context, xValue }));
+    const extra = d.stormCopy
+      ? { stormCount, stormSourcePayload: stormStackObj?.payload || null, stormSourceCard: { name: spellCard.name } }
+      : {};
+    fired.push(makePendingTrigger(d, selfCastSource, null, { ...context, xValue, ...extra }));
   }
   if (!fired.length) return state;
   return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };

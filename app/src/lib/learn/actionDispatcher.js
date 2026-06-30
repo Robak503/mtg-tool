@@ -464,7 +464,7 @@ function applyCastSpell(state, action) {
   // not at a later checkpoint, so they resolve BEFORE the spell — correct order, and the
   // right thing for any future referential effect).
   next = recordSpellCast(next, { playerId: action.playerId }); // TRIG-CAST2: count this cast BEFORE firing, so "your second spell each turn" sees the running total
-  next = checkCastTriggers(next, { spellCard: castCard, casterId: action.playerId, targets, xValue: action.xValue }); // SELF-CAST: thread the chosen X so a "When you cast this spell" half-X/X payoff (Hydroid Krasis) resolves at the real X; ADVENTURE: the FACE cast (so "cast an Adventure spell" matches)
+  next = checkCastTriggers(next, { spellCard: castCard, casterId: action.playerId, targets, xValue: action.xValue, stackObjectId: stkId }); // SELF-CAST: thread the chosen X so a "When you cast this spell" half-X/X payoff (Hydroid Krasis) resolves at the real X; STORM: thread the spell's stack id so the storm trigger can snapshot its payload to copy; ADVENTURE: the FACE cast (so "cast an Adventure spell" matches)
   next = flushTriggers(next, { chooseTargets: chooseTriggerTargets });
   // ZAXARA X-CAST: casting a spell with {X} → each of the caster's "cast a spell with {X} → make a token
   // with X +1/+1 counters" permanents makes its Hydra token (a real X/X). The general trigger compiler

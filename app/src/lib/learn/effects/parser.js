@@ -54,7 +54,7 @@ import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, a
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
-import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE
+import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, copySpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + STORM (copy-spell)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
@@ -1393,9 +1393,23 @@ function stripSelfCostReduction(oracle) {
   return String(oracle || "").replace(SELF_COST_REDUCTION_SENTENCE_RE, " ").trim();
 }
 
+// STORM (CR 702.40) — strip the whole "Storm (…reminder…)" KEYWORD line before parsing the spell's effect.
+// Storm is a TRIGGERED ability (its own copy-spell trigger, modeled in triggers/coverage), NOT part of the
+// spell's resolution effect — so the body (create-token / gain-life / …) must be parsed on its own. Without the
+// strip, stripReminder leaves a bare "Storm" residue clause that drags an otherwise-HIGH spell to LOW (its
+// effect would then route to the Arbiter no-op at resolution). Line-anchored on the keyword's canonical reminder
+// signature (CR 702.40a) so a card merely NAMED "…Storm" without the keyword is untouched. The runtime cast path
+// (actionDispatcher.applyCastSpell) and the coverage classifier (spellIsNative) BOTH parse through here, so they
+// agree on the body; the storm trigger fires separately (checkCastTriggers) and copies the spell.
+function stripStormKeywordLine(oracle) {
+  return /\bcopy it for each spell cast before it this turn\b/i.test(String(oracle || ""))
+    ? String(oracle).replace(/(?:^|\n)[^\n]*\bcopy it for each spell cast before it this turn\b[^\n]*(?=\n|$)/i, "\n")
+    : oracle;
+}
+
 export function parseEffectProgram(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
-  const oracle = stripSelfCostReduction(oracleOf(card));
+  const oracle = stripStormKeywordLine(stripSelfCostReduction(oracleOf(card)));
   const { costs, rest } = extractAdditionalCosts(oracle);
   // A spell that is BOTH an X-spell AND carries an additional cost is a compound we defer — the cast-path
   // X-value expansion and the victim expansion don't yet compose — so parse the FULL oracle and let the
@@ -2391,6 +2405,7 @@ registerClauseParser(animateClauseParser);
 // branch matches before the legacyToAtom tail → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(dealDamageScaledClauseParser);
 registerClauseParser(massFilteredDamageClauseParser); // MASS-FILTERED-DAMAGE — "deals N damage to each creature with/without flying"
+registerClauseParser(copySpellClauseParser); // STORM (CR 702.40) — the synthesized "copy this spell for each spell cast before it this turn" clause
 // GRAVEYARD-RETURN (seam batch 16 / Wave C) — return-from-graveyard ⇄ reanimate co-extracted to
 // atoms/zones.graveyardReturnClauseParser (one parser, original first-match order: to-hand then to-battlefield).
 // The "return target … from your graveyard …" clauses match no earlier registered parser and (verified) no

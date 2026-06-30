@@ -28,7 +28,7 @@
  * parsers the runtime uses so the metric stays honest.
  */
 
-import { parseEffectProgram, programConfidence } from "./effects/parser.js";
+import { parseEffectProgram, programConfidence, programNeedsChosenTarget } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
@@ -191,6 +191,33 @@ export function hasManaAbility(oracle) {
 
 /** True when an instant/sorcery resolves fully through the EffectProgram interpreter. */
 export function spellIsNative(card) {
+  // STORM (CR 702.40): an instant/sorcery can carry the "Storm" KEYWORD ("Storm (When you cast this spell, copy
+  // it for each spell cast before it this turn. …)"). The keyword is a triggered ability modeled SEPARATELY from
+  // the spell's own effect (triggers.detectTriggers synthesizes a selfCast copy-spell trigger; the runtime fires
+  // it in checkCastTriggers and copies the spell N times). So a storm spell is native iff (a) the storm trigger
+  // routes natively (copy-spell is HIGH + non-targeted) AND (b) its NON-storm body is itself native. parseEffect-
+  // Program strips the whole "Storm (…reminder…)" line internally (the keyword carries no parseable atom of its
+  // own — stripReminder would leave a bare "Storm" residue that drags the body to LOW), so the body program below
+  // is the storm-free body. A TARGETED storm body (Grapeshot — "copy … you may choose new targets") parses HIGH
+  // but a copy of a targeted spell needs new targets the copy atom doesn't choose, so we GATE storm to non-
+  // targeted bodies below. Anchored on the keyword's reminder signature so a card merely NAMED "…Storm" without
+  // the keyword is untouched. Checked FIRST so the body gate is storm-aware. CREED: an unmodeled body → not
+  // native (the whole card stays Arbiter, never a partial).
+  if (/\bcopy it for each spell cast before it this turn\b/i.test(String(card.oracle || ""))) {
+    const stormTrigs = detectTriggers(card).filter((d) => d.stormCopy);
+    if (!stormTrigs.length || !stormTrigs.every(triggerRoutesNatively)) return false; // copy mechanism not modeled → Arbiter
+    // parseEffectProgram strips the Storm keyword line, so this is the spell's BODY program (the same one the
+    // cast path resolves AND the copy atom snapshots). It must be HIGH for the card to flip.
+    const bodyProgram = parseEffectProgram(card);
+    if (!bodyProgram || programConfidence(bodyProgram) !== "high") return false;
+    // STORM-COPY-TARGET GATE (CR 702.40b) — a copy of a TARGETED spell needs new targets the copy-spell atom
+    // doesn't choose (it copies a frozen, non-targeted payload). So storm flips ONLY when the body is non-
+    // targeted (create-token / gain-life — Empty the Warrens, Chatterstorm, Hunting Pack, Weather the Storm); a
+    // targeted body (Grapeshot, Tendrils, Brain Freeze) stays on the Arbiter (a SAFE false-negative, never a
+    // copy that silently drops its targets). programNeedsChosenTarget is the same gate the trigger path uses.
+    if (programNeedsChosenTarget(bodyProgram)) return false;
+    return true;
+  }
   // PLOT (CR 702.171): an instant/sorcery can carry a "Plot {cost}" alternate-cast line. It's a modeled
   // special action (exile at sorcery speed for the plot cost, cast FREE later), and a plotted spell resolves
   // through the SAME cast path — so the spell is native iff its actual EFFECT is native. Strip the plot line
@@ -270,7 +297,12 @@ function allTriggerSentencesModeled(card, oracle) {
   // BUSHIDO (subsystem 2): detectTriggers synthesizes a trigger from the "Bushido N" KEYWORD (its real
   // trigger sentence lives in stripped reminder text, so it never counts as a shaped sentence). Bump the
   // shaped count for it so shaped === detected holds (the synthesized trigger is validated like any other).
-  const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0);
+  // STORM (CR 702.40): detectTriggers synthesizes a selfCast trigger from the "Storm" KEYWORD (its real trigger
+  // sentence lives in stripped reminder text, so it never counts as a shaped sentence). Bump the shaped count so
+  // shaped === detected holds (the synthesized trigger is validated like any other). Keyed on the reminder
+  // signature that survives in the RAW oracle (stripReminder removes it from the counting text, so test it before).
+  const kwTrigShaped = (/\bbushido \d/i.test(stripReminder(oracle)) ? 1 : 0) + (/\brampage \d/i.test(stripReminder(oracle)) ? 1 : 0)
+    + (/\bcopy it for each spell cast before it this turn\b/i.test(oracle) ? 1 : 0);
   const shaped = (stripReminder(stripTriggerAbilityLabel(oracle)).match(TRIGGER_SENTENCE_RE) || []).length + kwTrigShaped;
   const detected = detectTriggers(card);
   if (detected.length !== shaped) return false;     // an unrecognized-event trigger sentence
