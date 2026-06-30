@@ -36,10 +36,17 @@ import { detectTriggers } from "./triggers.js";
  */
 const DAMAGED_PLAYER_EVENTS = new Set(["combatDamageToPlayer"]);
 const COMBAT_DAMAGE_AMOUNT_EVENTS = new Set(["combatDamageToPlayer", "dealtDamage"]);
+// who:"defendingPlayer" (CR 509.1a — the attacked player) reads ctx.defenderId, supplied ONLY by the ATTACKS
+// event (triggers.checkAttackTriggers). On any other event the referent is unset → the clause would silently
+// drop (a FORBIDDEN dropped-clause FP, CREED), so "defending player loses N life" routes natively only off an
+// attacks trigger. ("Whenever this creature attacks, defending player loses 2 life" — Silent Skimmer; the
+// "…and you gain N life" half is a separate who:"controller" atom that resolves on any event.)
+const DEFENDING_PLAYER_EVENTS = new Set(["attacks"]);
 export function combatDamageReferentSatisfied(program, event) {
   for (const a of program?.atoms || []) {
     if (a?.who === "damagedPlayer" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     if (a?.countContext === "combatDamageAmount" && !COMBAT_DAMAGE_AMOUNT_EVENTS.has(event)) return false;
+    if (a?.who === "defendingPlayer" && !DEFENDING_PLAYER_EVENTS.has(event)) return false;
   }
   return true;
 }

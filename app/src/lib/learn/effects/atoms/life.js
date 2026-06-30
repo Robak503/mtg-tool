@@ -31,6 +31,17 @@ export function applyGainLife(state, atom, ctx) {
     }
     return logEvent(next, { kind: "spell-effect", effect: "gain-life", who: "target", amount });
   }
+  if (atom.who === "defendingPlayer") {
+    // DEFENDING-PLAYER (CR 509.1a) — the per-attacker defending player gains (ctx.defenderId, set by
+    // triggers.checkAttackTriggers for the ATTACKS event). Absent → a clean no-op. Fires the defending
+    // player's lifegain triggers (CR 119.3), mirroring the targeted-gain resolver.
+    const pid = ctx.defenderId;
+    if (pid && next.players[pid]) {
+      next = gainLife(next, { playerId: pid, amount });
+      if (amount > 0) next = checkLifegainTriggers(next, pid, amount);
+    }
+    return logEvent(next, { kind: "spell-effect", effect: "gain-life", who: "defendingPlayer", amount });
+  }
   next = gainLife(next, { playerId: ctx.controller, amount });
   // TRIG-LIFEGAIN (CR 119.3): the controller gained life → fire their "Whenever you gain life" triggers.
   if (amount > 0) next = checkLifegainTriggers(next, ctx.controller, amount);
@@ -66,6 +77,12 @@ export function applyLoseLife(state, atom, ctx) {
     for (const t of ctx.targets || []) {
       if (t.type === "player" && next.players[t.id]) next = loseLife(next, { playerId: t.id, amount });
     }
+  } else if (atom.who === "defendingPlayer") {
+    // DEFENDING-PLAYER (CR 509.1a) — the per-attacker defending player, ctx.defenderId (set by
+    // triggers.checkAttackTriggers for the ATTACKS event). Absent (a spell / non-attack trigger) → a clean
+    // no-op, never a fabricated loss or a wrong recipient. Mirrors the damagedPlayer referent resolvers.
+    const pid = ctx.defenderId;
+    if (pid && next.players[pid]) next = loseLife(next, { playerId: pid, amount });
   } else {
     next = loseLife(next, { playerId: ctx.controller, amount });
   }
@@ -135,6 +152,22 @@ export function lifeClauseParser(clause) {
   if (m) return { op: "gain-life", amount: parseInt(m[1], 10), who: "target", targetType: "player" }; // LIFE-GAIN-TARGET — applyGainLife who:"target"
   m = t.match(/^each player loses (\d+) life$/);
   if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "eachPlayer", targetType: null };
+  // ===== DEFENDING-PLAYER (CR 509.1a — the player being attacked) ===== "defending player loses N life" /
+  // "defending player gains N life". who:"defendingPlayer" reads ctx.defenderId, the per-attacker defending
+  // player carried by triggers.checkAttackTriggers (the ATTACKS event referent — distinct from the
+  // combat-damage who:"damagedPlayer"). NON-targeted (the defender is the trigger's referent, not a chosen
+  // target → targetType:null → routes natively on the attack-trigger flush, programNeedsChosenTarget → false),
+  // and a clean no-op outside an attacks trigger (no ctx.defenderId → applyLoseLife's defendingPlayer branch
+  // skips, never a fabricated loss or wrong recipient). The combat-damage referent gate in triggerRouting.js
+  // restricts this referent to the ATTACKS event (a spell / non-attack trigger leaves it unset → Arbiter).
+  // FIXED-N only; a for-each/scaled/rider form ("…equal to the number of …") fails the `$` anchor → Arbiter.
+  // The compound "defending player loses N life and you gain N life" (Brutal Hordechief, Agate-Blade Assassin,
+  // Campaign of Vengeance) splits on "and" upstream — this matcher takes the loss half, the controller "you
+  // gain N life" matcher above takes the gain half.
+  m = t.match(/^defending player loses (\d+) life$/);
+  if (m) return { op: "lose-life", amount: parseInt(m[1], 10), who: "defendingPlayer", targetType: null };
+  m = t.match(/^defending player gains (\d+) life$/);
+  if (m) return { op: "gain-life", amount: parseInt(m[1], 10), who: "defendingPlayer", targetType: null };
   return null;
 }
 

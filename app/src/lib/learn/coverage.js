@@ -215,6 +215,9 @@ export function spellIsNative(card) {
   // / damaged target, NOT the combat referent — keeps the whole spell on the Arbiter (a SAFE false-negative).
   for (const a of program.atoms || []) {
     if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount") return false;
+    // who:"defendingPlayer" (CR 509.1a) is the ATTACKS-event referent (ctx.defenderId) — a spell never supplies
+    // it, so such an atom would silently drop. Keep the spell on the Arbiter (a SAFE false-negative).
+    if (a?.who === "defendingPlayer") return false;
   }
   return true;
 }
