@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.75.0] - 2026-06-30
+
+### Improved
+- **Typed sacrifice edicts + Tribute (+17 native).** "Each opponent / target player sacrifices a land / artifact /
+  enchantment" (Tribute to the Wild, Pharika's Libation, Shattergang Brothers commander…) and the Tribute keyword's
+  enter-with-an-opponent's-choice ETB (Snake of the Golden Grove, Pharagax Giant, Fanatic of Xenagos…). Flip-diffed
+  both directions (17 gained, 0 lost), full gate (6,161 tests) green, 0 false positives.
+
 ## [0.74.0] - 2026-06-30
 
 ### Improved
