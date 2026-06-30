@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-06-29
+
+### Improved
+- **Two more cross-deck subsystems (+17 native).** Double-X cost ({X}{X} now correctly charges 2X — Walking
+  Ballista, Gelatinous Genesis; also closed a latent under-pay on Cryptic Trilobite) and characteristic-defining
+  P/T-by-board-count (Dakkon Blackblade, Molimo, Dungrove Elder, Nightmare + more "power/toughness = lands/
+  creatures you control"). Flip-diffed both directions, 0 regressions, full gate (5,629 tests) green, 0 false positives.
+
 ## [0.60.0] - 2026-06-29
 
 ### Improved
