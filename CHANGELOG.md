@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.59.0] - 2026-06-29
+
+### Improved
+- **Deck-driven cleanup — Toph 67→69%, Ur-Dragon 70→71% (+5 native).** A sacrifice-a-land ramp atom (Roiling
+  Regrowth, Cycle of Renewal + corpus: Foul Spirit, Ruinous Minotaur) and Neriv, Heart of the Storm (doubles
+  damage from creatures that entered this turn). Flip-diffed both directions, 0 regressions, full gate (5,560
+  tests) green, 0 false positives.
+
 ## [0.58.0] - 2026-06-29
 
 ### Improved
