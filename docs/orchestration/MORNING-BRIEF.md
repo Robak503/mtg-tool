@@ -23,12 +23,15 @@ Grinding the priority decks toward **100% native** (your confirmed target) all n
 | v0.68 | Targeted-Storm copies (Grapeshot/Tendrils) + half-X-create-tokens (Goose Mother) (+9) |
 | v0.69 | Bestow (Theros, 17 cards) + controller-life-threshold conditions (+19) |
 | v0.70 | Modal multi-sentence modes + chosen-type anthems (+14) |
+| v0.71 | **Kicker** + sac-cost / sorcery-restricted activated abilities (+60 — biggest wave) |
+| v0.72 | Emerge + subtype-batch combat triggers (Olivia → Vihaan native) (+12) |
+| v0.73 | **Cascade** + kicker kicked-ETB-triggers (+45) |
 
-## 📊 DECK STANDINGS (native %, realism gate — as of v0.70)
+## 📊 DECK STANDINGS (native %, realism gate — as of v0.73)
 | Deck | Start of session | Now |
 |---|---|---|
 | Sliver Hivelord | 91 | **92** |
-| Vihaan, Goldwaker | 76 | **83** |
+| Vihaan, Goldwaker | 76 | **84** |
 | Koma, Cosmos Serpent | 74 | **81** |
 | Zaxara, the Exemplary | 73 | **79** |
 | Omnath, Locus of Mana | 66 | **75** |
@@ -36,9 +39,9 @@ Grinding the priority decks toward **100% native** (your confirmed target) all n
 | Toph, Earthbending Master | 65 | **70** |
 | Pantlaza, Sun-Favored | 62 | **67** |
 
-**Aggregate: 1009/1500 deck-slots native (67%, up from 64% at session start). Corpus north-star: 24.7% native (8447 real cards, +212 overnight).**
+**Aggregate: 1010/1500 deck-slots native (67%, up from 64% at session start). Corpus north-star: 25.1% native (8564 real cards, +329 overnight — crossed 25%).**
 
-_Note: corpus (the north-star — "play almost all of Magic natively") climbs steadily each wave; the priority decks have reached their practical plateau — only deck-specific hard tails remain (modal/alt-cast/opponent-choice/Arbiter-domain), each worth 1-2 cards. The corpus-subsystem grind grows the broad metric efficiently; pushing individual decks to ~100% would need per-card deck-specific work at low cards/agent. 21 releases shipped overnight (v0.54→v0.70), zero false positives throughout._
+_Note: corpus (the north-star — "play almost all of Magic natively") climbs steadily each wave; the priority decks have reached their practical plateau — only deck-specific hard tails remain (modal/alt-cast/opponent-choice/Arbiter-domain), each worth 1-2 cards. The corpus-subsystem grind grows the broad metric efficiently; pushing individual decks to ~100% would need per-card deck-specific work at low cards/agent. 24 releases shipped overnight (v0.54→v0.73), zero false positives throughout._
 
 Reality check: cheap per-deck wins are mostly done; further climb comes from **cross-deck subsystems** (each lifts several decks). Practical ceilings land ~85-88% with targeted builds; the last ~10-15% is genuine hard-tail (modal/double-X/opponent-choice) — building toward 100% means grinding those too, per your call.
 
