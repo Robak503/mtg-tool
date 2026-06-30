@@ -22,6 +22,7 @@ import { tokenResolvers } from "./atoms/tokens.js";
 import { counterResolvers } from "./atoms/counters.js";
 import { zoneResolvers } from "./atoms/zones.js";
 import { removalResolvers } from "./atoms/removal.js";
+import { sacLandResolvers } from "./atoms/sacLand.js";
 import { libraryResolvers } from "./atoms/library.js";
 import { combatResolvers } from "./atoms/combat.js";
 import { handResolvers } from "./atoms/hand.js";
@@ -48,6 +49,7 @@ export { applyDivideDamage } from "./atoms/misc.js";
 export const ATOM_RESOLVERS = Object.freeze({
   ...stackResolvers,   // deal-damage, counter, self-attach
   ...removalResolvers, // destroy, exile, sacrifice
+  ...sacLandResolvers, // sacrifice-land (SAC-LAND-RAMP) — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
   ...miscResolvers,    // draw, fog, create-emblem, divide-damage
   ...combatResolvers,  // pump, animate, earthbend, regenerate, tap, untap
   ...lifeResolvers,    // gain-life, lose-life
