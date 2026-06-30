@@ -989,13 +989,15 @@ const MUST_DROP_TO_LOW = [
   "Target player sacrifices a nonblack creature.",                              // color filter
   "Target opponent sacrifices a nonland permanent.",                            // non-creature victim
   "Target player sacrifices a creature of their choice and loses 1 life.",      // Geth's Verdict — the TARGET loses life (deferred)
-  // ED-2 boundary — each-player / each-opponent sacrifice OUTSIDE the bare "a creature" form stays LOW (a
-  // count / non-creature / type-union / "all" would sacrifice the wrong thing — a forbidden false positive).
+  // ED-2 boundary — each-player / each-opponent sacrifice OUTSIDE the modeled victim pools (creature / permanent
+  // / the TYPED pools land·artifact·enchantment·artifact-or-enchantment) stays LOW (a count / "nontoken" / a
+  // type-union with an unmodeled type / "all" would sacrifice the wrong thing — a forbidden false positive).
+  // The bare TYPED pools ARE native now (see edicts.test.js TYPED-EDICT — Tremble / Simplify / Tribute to the Wild).
   "Each player sacrifices two creatures of their choice.",                      // a count (Barter in Blood / Tergrid's Shadow)
-  "Each player sacrifices a land of their choice.",                             // non-creature victim (Tremble)
+  "Each player sacrifices two lands of their choice.",                          // a count on the TYPED land edict (still LOW)
+  "Each opponent sacrifices a nontoken artifact of their choice.",              // "nontoken" qualifier — token-status not honored (LOW)
   "Each player sacrifices all permanents they control that are one or more colors.", // "all" (All Is Dust)
-  "Each opponent sacrifices a creature or planeswalker of their choice.",       // type UNION (Dark Intimations)
-  "Each opponent sacrifices an artifact.",                                      // non-creature victim (Visions of Ruin)
+  "Each opponent sacrifices a creature or planeswalker of their choice.",       // type UNION incl. planeswalker (Dark Intimations) — unmodeled
   "You sacrifice a creature.",                                                  // controller "you sacrifice" — bare controller-sac deferred (α2-interaction risk)
 
   // ===== EACH-PLAYER ===== discard (EP-2) — only the bare numeric "target/each player discards N cards"

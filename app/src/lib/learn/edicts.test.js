@@ -83,10 +83,10 @@ describe("parser — the edict family is HIGH; the atom targets a PLAYER (victim
     low("Target player sacrifices a nonblack creature.");                        // color filter
     low("Target opponent sacrifices a nonland permanent.");                      // non-creature victim
     low(GETHS);                                                                  // Geth's Verdict — the TARGET loses life (deferred)
-    // ED-2 boundary: each-player/each-opponent are modeled for the BARE "a creature" form only.
+    // ED-2 boundary: each-player/each-opponent are modeled for "a creature"/"a permanent"/the TYPED pools
+    // (land/artifact/enchantment/artifact-or-enchantment). A count / unmodeled union stays LOW.
     low("Each player sacrifices two creatures of their choice.");                // a count
-    low("Each player sacrifices a land of their choice.");                       // non-creature victim (Tremble)
-    low("Each opponent sacrifices a creature or planeswalker of their choice."); // type union (Dark Intimations)
+    low("Each opponent sacrifices a creature or planeswalker of their choice."); // type union incl. planeswalker (Dark Intimations) — NOT a modeled pool
     low("You sacrifice a creature.");                                            // controller "you sacrifice" — bare controller-sac deferred (α2 risk)
   });
 });
@@ -381,7 +381,8 @@ describe("PERMANENT-EDICT parser/coverage — 'sacrifices a permanent' is native
     low("Each opponent sacrifices an artifact or creature.");                     // a type union
     low("Each opponent sacrifices a permanent and loses 1 life.");                // conjoined life-loss
     low("Target player sacrifices a permanent with the highest mana value.");     // filtered victim
-    low("Each player sacrifices a land of their choice.");                        // a typed (non-"permanent") victim — still LOW
+    low("Each opponent sacrifices a nontoken artifact of their choice.");         // a "nontoken" qualifier — NOT a modeled pool (token-status not honored)
+    low("Each opponent sacrifices a creature, an artifact, and a land.");         // a multi-permanent conjunction (Decimate-style)
   });
 });
 
@@ -436,5 +437,119 @@ describe("PERMANENT-EDICT real card — Silverclad Ferocidons (Enrage → each o
   it("a plain ETB 'each opponent sacrifices a permanent' is native-trigger too (reusable, non-targeted)", () => {
     const etb = { type: "Creature — Horror", name: "Perm-Edict-ETB", oracle: "When this creature enters, each opponent sacrifices a permanent of their choice." };
     expect(classifyCard(etb)).toBe("native-trigger");
+  });
+});
+
+// ═══ TYPED-EDICT — "sacrifices a/an <land|artifact|enchantment|artifact or enchantment> of their choice"
+// (Yawning Fissure, Tribute to the Wild, the Baleful Beholder mode). Same chain as the creature/permanent
+// edict, but the victim pool is narrowed to permanents of that TYPE (sacrificePoolMatch, word-anchored type
+// predicates — an Artifact Creature is a legal "artifact" pick; a creature-land a legal "land" pick). ═══
+const YAWNING = { id: "yf", name: "Yawning Fissure", type: SORCERY, mana: "{2}{R}", oracle: "Each opponent sacrifices a land of their choice." };
+const TRIBUTE = { id: "tw", name: "Tribute to the Wild", type: INSTANT, mana: "{1}{G}", oracle: "Each opponent sacrifices an artifact or enchantment of their choice." };
+// A typed non-creature permanent fixture (land / artifact / enchantment), MV drives the auto-pick tiebreak.
+const typedPerm = (id, name, controller, type, cmc = 0) =>
+  createPermanent({ id, card: { id, name, type, mana: cmc ? `{${cmc}}` : "", cmc, oracle: "" }, controller });
+
+describe("TYPED-EDICT parser/coverage — typed each-opponent/each-player/target sacrifices are native", () => {
+  it("each-opponent typed forms parse to the right `what` pool", () => {
+    expect(parseEffectProgram(YAWNING).atoms).toEqual([{ op: "sacrifice", who: "eachOpponent", what: "land" }]);
+    expect(parseEffectProgram(TRIBUTE).atoms).toEqual([{ op: "sacrifice", who: "eachOpponent", what: "artifactOrEnchantment" }]);
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Each opponent sacrifices an artifact of their choice." }).atoms)
+      .toEqual([{ op: "sacrifice", who: "eachOpponent", what: "artifact" }]);
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Each opponent sacrifices an enchantment of their choice." }).atoms)
+      .toEqual([{ op: "sacrifice", who: "eachOpponent", what: "enchantment" }]);
+  });
+  it("each-player and target typed forms parse with the right who/targetType", () => {
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Each player sacrifices a land of their choice." }).atoms)
+      .toEqual([{ op: "sacrifice", who: "eachPlayer", what: "land" }]);
+    expect(parseEffectProgram({ type: INSTANT, oracle: "Target opponent sacrifices an artifact of their choice." }).atoms)
+      .toEqual([{ op: "sacrifice", targetType: "opponent", what: "artifact" }]);
+    expect(parseEffectProgram({ type: INSTANT, oracle: "Target player sacrifices a land." }).atoms)
+      .toEqual([{ op: "sacrifice", targetType: "player", what: "land" }]);
+  });
+  it("the bare form without 'of their choice' also parses (each-opponent land)", () => {
+    expect(parseEffectProgram({ type: SORCERY, oracle: "Each opponent sacrifices a land." }).atoms)
+      .toEqual([{ op: "sacrifice", who: "eachOpponent", what: "land" }]);
+  });
+  it("non-targeted → routes on a trigger (no chosen-target gate)", () => {
+    expect(programNeedsChosenTarget(parseEffectProgram(YAWNING))).toBe(false);
+    expect(programNeedsChosenTarget(parseEffectProgram(TRIBUTE))).toBe(false);
+  });
+  it("Yawning Fissure & Tribute to the Wild classify native-spell", () => {
+    expect(classifyCard(YAWNING)).toBe("native-spell");
+    expect(classifyCard(TRIBUTE)).toBe("native-spell");
+  });
+  it("a typed-edict ETB is native-trigger (reusable, non-targeted)", () => {
+    expect(classifyCard({ type: "Creature — Beholder", name: "Enchantment-Eater", oracle: "When this creature enters, each opponent sacrifices an enchantment of their choice." })).toBe("native-trigger");
+  });
+  it("ANTI-FP: nontoken / count / restricted / conjoined typed edicts stay LOW → Arbiter", () => {
+    const low = (oracle) => expect(programConfidence(parseEffectProgram({ type: SORCERY, oracle }))).toBe("low");
+    low("Each opponent sacrifices a nontoken creature of their choice.");          // nontoken qualifier (token-status not honored)
+    low("Each opponent sacrifices a nontoken artifact of their choice.");          // nontoken qualifier
+    low("Each opponent sacrifices two lands of their choice.");                    // a count
+    low("Each opponent sacrifices a land of their choice for each card in your hand."); // a scaled count rider
+    low("Each opponent sacrifices an artifact. For each artifact sacrificed this way, you create a Treasure token."); // Visions of Ruin (Treasure rider)
+    low("Each opponent sacrifices a multicolored permanent of their choice.");     // a color-filtered victim
+    low("Each opponent sacrifices an artifact and a land of their choice.");       // a multi-type conjunction
+  });
+});
+
+describe("TYPED-EDICT resolution — the sacrificer gives up a permanent OF THAT TYPE, never another type", () => {
+  function runChain(s, card, controller = "user") {
+    const program = parseEffectProgram(card);
+    const stk = { id: "stk-te", kind: "spell", source: { name: card.name, oracle: card.oracle }, controller, targets: [], cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller, targets: [] } } };
+    let next = runEffectProgram(s, stk);
+    while (next.pendingChoice?.kind === "sacrifice-choice") next = resolveSacrificeChoice(next, autoPickSacrificeCandidate(next, next.pendingChoice));
+    return next;
+  }
+
+  it("Yawning Fissure (land): an opponent with a land + creatures sacrifices ONLY the land", () => {
+    const s = state({ aiBf: [creaPerm("a1", "Bear", "ai", 2, 2), typedPerm("L1", "Forest", "ai", "Basic Land — Forest")] });
+    const after = runChain(s, YAWNING);
+    expect(after.pendingChoice).toBeUndefined();                                    // only one land → forced, no pause
+    expect(after.players.ai.graveyard.map((c) => c.id)).toEqual(["L1"]);            // the land, never the creature
+    expect(after.players.ai.battlefield.map((p) => p.id)).toEqual(["a1"]);          // the creature survives
+  });
+  it("Yawning Fissure (land): a landless opponent is a clean no-op (creatures untouched)", () => {
+    const s = state({ aiBf: [creaPerm("a1", "Bear", "ai")] });
+    const after = runChain(s, YAWNING);
+    expect(after.pendingChoice).toBeUndefined();
+    expect(after.players.ai.graveyard).toHaveLength(0);                             // nothing to sacrifice
+    expect(after.players.ai.battlefield.map((p) => p.id)).toEqual(["a1"]);
+  });
+  it("Yawning Fissure spares the CONTROLLER's lands (each-opponent only)", () => {
+    const s = state({ userBf: [typedPerm("uL", "MyLand", "user", "Basic Land — Mountain")], aiBf: [typedPerm("aL", "TheirLand", "ai", "Basic Land — Island")] });
+    const after = runChain(s, YAWNING);
+    expect(after.players.user.battlefield.map((p) => p.id)).toEqual(["uL"]);        // controller keeps their land
+    expect(after.players.ai.graveyard.map((c) => c.id)).toEqual(["aL"]);            // only the opponent sacrifices
+  });
+  it("Tribute to the Wild (artifact OR enchantment): both types are legal picks; a bare creature is not", () => {
+    const s = state({ aiBf: [typedPerm("art", "Trinket", "ai", "Artifact"), typedPerm("ench", "Aura", "ai", "Enchantment"), creaPerm("a1", "Bear", "ai")] });
+    const program = parseEffectProgram(TRIBUTE);
+    const stk = { id: "stk-te", kind: "spell", source: { name: TRIBUTE.name }, controller: "user", targets: [], cost: null,
+      payload: { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params: { program, controller: "user", targets: [] } } };
+    const paused = runEffectProgram(s, stk);
+    expect(paused.pendingChoice).toMatchObject({ kind: "sacrifice-choice", controller: "ai" });
+    expect(paused.pendingChoice.candidates.map((c) => c.id).sort()).toEqual(["art", "ench"]); // the creature is NOT offered
+  });
+  it("Tribute to the Wild: an opponent with ONLY a creature sacrifices nothing (no artifact/enchantment)", () => {
+    const s = state({ aiBf: [creaPerm("a1", "Bear", "ai")] });
+    const after = runChain(s, TRIBUTE);
+    expect(after.players.ai.graveyard).toHaveLength(0);
+    expect(after.players.ai.battlefield.map((p) => p.id)).toEqual(["a1"]);
+  });
+  it("an Artifact Creature is a legal 'artifact' pick (CR 305.4 — it IS an artifact)", () => {
+    const artCrea = createPermanent({ id: "ac", card: { id: "ac", name: "Ornithopter", type: "Artifact Creature — Thopter", mana: "{0}", cmc: 0, power: 0, toughness: 2, oracle: "" }, controller: "ai" });
+    const s = state({ aiBf: [artCrea] });
+    const after = runChain(s, { type: INSTANT, oracle: "Each opponent sacrifices an artifact of their choice." });
+    expect(after.players.ai.graveyard.map((c) => c.id)).toEqual(["ac"]);            // the artifact-creature sacrificed as an artifact
+  });
+  it("a sacrificed-permanent dies trigger still fires for an artifact-creature in a typed pool", () => {
+    const artCrea = createPermanent({ id: "ac", card: { id: "ac", name: "Doomed Bot", type: "Artifact Creature — Construct", mana: "{2}", cmc: 2, power: 1, toughness: 1, oracle: "When Doomed Bot dies, draw a card." }, controller: "ai" });
+    const s = state({ aiBf: [artCrea] });
+    const after = runChain(s, { type: INSTANT, oracle: "Each opponent sacrifices an artifact of their choice." });
+    expect(after.players.ai.graveyard.map((c) => c.id)).toEqual(["ac"]);
+    expect(after.pendingTriggers?.length || 0).toBeGreaterThan(0);                  // dies trigger enqueued
   });
 });

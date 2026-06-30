@@ -62,9 +62,12 @@ describe("SAC-LAND-RAMP — classification (CREED whole-card)", () => {
     expect(classifyCard({ name: "Entish Restoration", type: "Instant", mana: "{2}{G}", oracle: "Sacrifice a land. Search your library for up to two basic land cards, put them onto the battlefield tapped, then shuffle. If you control a creature with power 4 or greater, instead search your library for up to three basic land cards, put them onto the battlefield tapped, then shuffle." })).toBe("arbiter-spell");
   });
 
-  it("CREED — a bare 'Sacrifice two lands' / 'each player sacrifices a land' spell never parses HIGH", () => {
-    expect(isHigh("Sacrifice two lands. Draw a card.")).toBe(false);
-    expect(isHigh("Each player sacrifices a land. Draw a card.")).toBe(false);
+  it("CREED — the controller self-sac 'Sacrifice two lands' / a counted each-player land edict never parses HIGH", () => {
+    expect(isHigh("Sacrifice two lands. Draw a card.")).toBe(false);            // controller self-sac of a COUNT (unmodeled)
+    expect(isHigh("Each player sacrifices two lands. Draw a card.")).toBe(false); // a COUNT on the each-player edict stays LOW
+    // NOTE: "Each player sacrifices a land" (the bare TYPED-EDICT) is now NATIVE (each sacrificer chooses a land,
+    // CR 701.16 — see edicts.test.js TYPED-EDICT); it is the each-player land EDICT, NOT the controller self-sac
+    // land-ramp this module guards. "Each player sacrifices a land. Draw a card." composes HIGH (edict + draw).
   });
 });
 

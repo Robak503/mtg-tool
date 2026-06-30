@@ -9,7 +9,7 @@ import { applyDestroyEffect } from "../../spellEffects.js";
 import { logEvent, gainLife, opponentsOf, findPermanent, moveCardToZone, creaturePower } from "../../gameState.js";
 import { checkDiesTriggers, checkLifegainTriggers, checkSacrificeTriggers } from "../../triggers.js";
 import { setPendingSacrificeChoice } from "../../pendingChoice.js";
-import { atomTargets, isCreatureCard, massCreatureTargets } from "./shared.js";
+import { atomTargets, isCreatureCard, isArtifactCard, isEnchantmentCard, isLandCard, massCreatureTargets } from "./shared.js";
 import { applyCreateToken, applyCreateNamedToken } from "./tokens.js";
 import { applyTutor } from "./library.js";
 import { applyZoneMove } from "./zones.js";
@@ -104,9 +104,30 @@ export function sacrificeCreatureEffect(state, playerId, permId) {
 }
 
 /**
+ * VICTIM-POOL predicate (CR 701.16) — does card `c` belong to the pool a `what`-typed edict lets a sacrificer
+ * give up? "creature" (default / unset, so every legacy creature edict is byte-stable) | "permanent" (any
+ * permanent) | the TYPED pools "land"/"artifact"/"enchantment"/"artifactOrEnchantment". The typed pools use the
+ * SAME word-anchored type predicates the mass-removal atoms use (isLandCard/isArtifactCard/isEnchantmentCard),
+ * so an Artifact Creature is correctly a legal pick for an "artifact" edict (it IS an artifact, CR 305.4) and a
+ * creature-land for a "land" edict. An unknown `what` falls back to the creature pool (defensive — the parser
+ * only ever emits the five known values, so this is never reached at runtime). Pure type-line read (leaf).
+ */
+const SACRIFICE_POOLS = new Set(["creature", "permanent", "land", "artifact", "enchantment", "artifactOrEnchantment"]);
+function sacrificePoolMatch(what, card) {
+  switch (what) {
+    case "permanent": return true;
+    case "land": return isLandCard(card);
+    case "artifact": return isArtifactCard(card);
+    case "enchantment": return isEnchantmentCard(card);
+    case "artifactOrEnchantment": return isArtifactCard(card) || isEnchantmentCard(card);
+    default: return isCreatureCard(card); // "creature" (and the unset default)
+  }
+}
+
+/**
  * ===== EDICTS ===== — walk the sacrifice CHAIN (CR 701.21 — each sacrificing player chooses what to give
  * up). `queue` is the remaining sacrificers, head-first, each `{ playerId, what? }` (one permanent apiece —
- * `what:"creature"` default | `what:"permanent"` for the any-permanent forms). For each in turn:
+ * `what:"creature"` default | `what:"permanent"` for the any-permanent forms | a TYPED pool). For each in turn:
  *   - eliminated / no creature → drop and move on (a clean no-op; you can't sacrifice what you don't have).
  *   - exactly 1 creature → FORCED sacrifice (no real choice): pitch it inline (dies triggers fire), move on.
  *   - ≥2 creatures → a REAL choice: pause via setPendingSacrificeChoice for THIS sacrificer (the driver
@@ -126,12 +147,15 @@ export function advanceSacrificeChain(state, { queue, sourceName = null }) {
     if (!player) { q = q.slice(1); continue; } // sacrificer left the game (CR 800.4a) → skip
     // VICTIM POOL — `head.what` selects which permanents this sacrificer may give up (CR 701.16). Default
     // "creature" (every legacy edict + a head with no `what`, so the migrated creature edicts are byte-stable);
-    // "permanent" broadens to ALL the sacrificer's permanents (Silverclad Ferocidons etc.). The chooser is
-    // their controller and every candidate is public, so a permanent pool is hidden-info-safe. sacrificeCreatureEffect
-    // already sacrifices ANY permanent correctly (it gates dies-triggers on isCreatureCard, fires sacrifice-triggers
-    // for all), so no resolver change is needed — only the pool the chooser sees.
+    // "permanent" broadens to ALL the sacrificer's permanents (Silverclad Ferocidons etc.). The TYPED pools
+    // ("land"/"artifact"/"enchantment"/"artifactOrEnchantment" — Yawning Fissure, Tribute to the Wild, the
+    // Baleful Beholder mode) narrow to exactly the permanents of that type, using the SAME word-anchored type
+    // predicates the mass-removal atoms use (so an Artifact Creature is a legal pick for an "artifact" edict —
+    // it IS an artifact, CR 305.4). The chooser is their controller and every candidate is public, so any pool
+    // is hidden-info-safe. sacrificeCreatureEffect already sacrifices ANY permanent correctly (it gates
+    // dies-triggers on isCreatureCard, fires sacrifice-triggers for all), so only the pool the chooser sees changes.
     const candidates = (player.battlefield || [])
-      .filter((p) => (head.what === "permanent" ? true : isCreatureCard(p.card)))
+      .filter((p) => sacrificePoolMatch(head.what, p.card))
       .map((p) => ({ id: p.id, name: p.card?.name }));
     if (candidates.length === 0) { q = q.slice(1); continue; } // nothing to sacrifice → can't → skip
     if (candidates.length === 1) {
@@ -185,9 +209,10 @@ function applySacrifice(state, atom, ctx) {
   if (sacrificers.length === 0) {
     return logEvent(state, { kind: "spell-effect", effect: "sacrifice", who: atom.who || "target", sacrificers: 0 });
   }
-  // Thread `atom.what` ("creature" default | "permanent") onto each queue head so advanceSacrificeChain builds
-  // the right victim pool, and a re-entry from resolveSacrificeChoice (queue.slice(1)) preserves it per-sacrificer.
-  const what = atom.what === "permanent" ? "permanent" : "creature";
+  // Thread `atom.what` onto each queue head so advanceSacrificeChain builds the right victim pool, and a re-entry
+  // from resolveSacrificeChoice (queue.slice(1)) preserves it per-sacrificer. The known pools pass through
+  // (sacrificePoolMatch interprets them); anything else falls back to "creature" (the byte-stable default).
+  const what = SACRIFICE_POOLS.has(atom.what) ? atom.what : "creature";
   return advanceSacrificeChain(state, { queue: sacrificers.map((pid) => ({ playerId: pid, what })), sourceName: ctx.cardName });
 }
 
@@ -231,6 +256,22 @@ export function sacrificeEdictClauseParser(clause) {
   if (m) return { op: "sacrifice", who: "eachPlayer", what: "permanent" };
   m = t.match(/^each (?:opponent|other player) sacrifices a permanent(?: of (?:their|his or her) choice)?$/);
   if (m) return { op: "sacrifice", who: "eachOpponent", what: "permanent" };
+  // TYPED-EDICT (CR 701.16) — "sacrifices a/an <land|artifact|enchantment|artifact or enchantment>" (Yawning
+  // Fissure: "Each opponent sacrifices a land of their choice."; Tribute to the Wild: "…an artifact or
+  // enchantment of their choice."; the Baleful Beholder "…an enchantment" mode). The sacrificing player chooses
+  // a permanent OF THAT TYPE (advanceSacrificeChain narrows the pool via sacrificePoolMatch). Genuinely
+  // resolvable + hidden-info-safe (each sacrificer's permanents are public, the chooser IS their controller; an
+  // empty-of-that-type board is a clean no-op). The TYPE_POOL map keys the canonical pool name off the matched
+  // phrase. ALL-OR-NOTHING: a count / "nontoken …" / a restriction ("…with flying") / conjoined victim
+  // ("an artifact and a land") fails the exact anchor → low → Arbiter (a wrong-victim sac is a forbidden FP, CREED).
+  const TYPED = "(land|artifact|enchantment|artifact or enchantment)";
+  const TYPE_POOL = { land: "land", artifact: "artifact", enchantment: "enchantment", "artifact or enchantment": "artifactOrEnchantment" };
+  m = t.match(new RegExp(`^target (player|opponent) sacrifices an? ${TYPED}(?: of (?:their|his or her) choice)?$`));
+  if (m) return { op: "sacrifice", targetType: m[1] === "opponent" ? "opponent" : "player", what: TYPE_POOL[m[2]] };
+  m = t.match(new RegExp(`^each player sacrifices an? ${TYPED}(?: of (?:their|his or her) choice)?$`));
+  if (m) return { op: "sacrifice", who: "eachPlayer", what: TYPE_POOL[m[1]] };
+  m = t.match(new RegExp(`^each (?:opponent|other player) sacrifices an? ${TYPED}(?: of (?:their|his or her) choice)?$`));
+  if (m) return { op: "sacrifice", who: "eachOpponent", what: TYPE_POOL[m[1]] };
   return null;
 }
 
