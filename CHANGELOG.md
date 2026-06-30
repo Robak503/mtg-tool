@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.68.0] - 2026-06-30
+
+### Improved
+- **Targeted-Storm copies + half-X-create-tokens (+9 native).** Storm now copies targeted spells with per-copy
+  target choice (Grapeshot, Tendrils of Agony, Scattershot, Hindering Touch, Temporal Fissure, Astral Steel,
+  Reaping the Graves, Volcanic Awakening) and The Goose Mother flips native (half-X Food tokens; ETB triggers now
+  thread the cast's X). Flip-diffed both directions (9 gained, 0 lost), full gate (5,858 tests) green, 0 false positives.
+
 ## [0.67.0] - 2026-06-30
 
 ### Improved
