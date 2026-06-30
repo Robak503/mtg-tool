@@ -58,6 +58,7 @@ import { parseVihaanCombatAnimate } from "./vihaanAnimate.js"; // VIHAAN command
 import { parseAnnihilator } from "./annihilator.js"; // KW-ANNIHILATOR (CR 702.86a) — runtime hook lives in gameEngine (applyAnnihilatorTriggers)
 import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runtime hook lives in gameEngine (applySeedbornUntap)
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
+import { parseGlobalTapManaAugment, stripGlobalTapManaAugment } from "./staticAbilityParser.js"; // GLOBAL-TAP-AUGMENT: "Whenever you tap a <land|creature> for mana, add …" permanent
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
 import { parseKickerCounterCreature, parseKickerEtbCreature } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked payoff (enters-with-counters OR a kicked ETB trigger); runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
@@ -1039,6 +1040,26 @@ function manaMultiplierCardTier(card) {
   return null;
 }
 registerCoverageClassifier(manaMultiplierCardTier);
+
+// ─── GLOBAL TAP-FOR-MANA AUGMENT — full-card coverage (mirrors manaMultiplierCardTier) ──────────────
+// A PERMANENT whose triggered mana ability "Whenever you tap a <land|creature> for mana, add [an
+// additional] <fixed single-color pips>" is runtime-modeled (parseGlobalTapManaAugment →
+// manaModel.globalTapManaAugment, consulted at every tap-for-mana on both read-sites) is native when its
+// NON-augment text is fully modeled too (CREED whole-card). The boost is a triggered MANA ability that
+// resolves inline (no stack, no targets), so it carries no activated/triggered body of its own — the only
+// allowed residue is a modeled keyword (Groundchuck & Dirtbag's "Trample"). Strip the augment line, then
+// require the remainder keyword-only via the SAME isKeywordOnly the other keyword-body tiers use; any
+// non-keyword rider (Leyline of Abundance's opening-hand clause + activated ability, Badgermole Cub's
+// earthbend ETB, Nirkana Revenant's {B} pump — all subtype-gated or rider-dense) survives the strip → null
+// → stays body-only/Arbiter. Registered via the additive WAVE-0 seam (after single-mechanism tiers, before
+// the composite catch-all), so the existing classification order is untouched.
+function globalTapManaAugmentTier(card) {
+  if (!parseGlobalTapManaAugment(card)) return null;
+  const stripped = stripGlobalTapManaAugment(card);
+  if (isKeywordOnly(stripped, card?.name)) return "native-trigger"; // augment + vanilla/keyword body
+  return null;
+}
+registerCoverageClassifier(globalTapManaAugmentTier);
 
 // GROUP-ACTIVATED grant (queue 1) — inject the modeled-body gate into staticAbilityParser's group-grant
 // emission (it can't import parseActivatedAbilities directly — a load-time cycle through the atoms registry).

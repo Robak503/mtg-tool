@@ -2099,6 +2099,76 @@ export function isNativeManaAura(card) {
   return manaAuraResidueClauses(card).length === 0;
 }
 
+// ─── GLOBAL TAP-FOR-MANA AUGMENT (CR 605.1b) ─────────────────────────────────────
+//
+// A PERMANENT (not an Aura) with the controller-scoped triggered mana ability
+//   "Whenever you tap a <land|creature> for mana, add [an additional] <fixed single-color pips>"
+// (Groundchuck & Dirtbag "tap a land … add {G}"; the mana clause of Leyline of Abundance / Badgermole
+// Cub "tap a creature … add an additional {G}"). Mechanically this is the SAME inline triggered-mana
+// boost as the land-enchant Aura (parseAuraLandManaBonus) — it resolves alongside the source's own
+// mana, CR 605.1b — except the boost is sourced by a SEPARATE permanent the controller owns and rides
+// on EVERY land/creature THAT CONTROLLER taps, not just one attached land. The runtime hooks the
+// mana-production path (manaModel.globalTapManaAugment), NOT triggers.js, exactly like the Aura boost.
+//
+// Grammar is deliberately NARROW (a self-contained leaf parser — no manaModel import):
+//   • subject is bare "a land" OR bare "a creature" (a subtype-gated "a Forest"/"a Swamp" — Nissa,
+//     Nirkana Revenant — is NOT this form: the tap site can't faithfully check the tapped land's
+//     subtype here, so those return null → the card stays non-native, a clean false-negative);
+//   • the boost is FIXED single-color pips ({G}, {G}{G}) — "one mana of any type that <perm> produced"
+//     (the doubler form — Mirari's Wake) and "any color" (a choice) are NOT this slice → null;
+//   • "add" and "add an additional" are both accepted (the additional vs. replace wording is identical
+//     mechanically — both ADD the boost mana on top of the source's own production, CR 605.1b).
+const TAP_AUGMENT_COLOR_LETTERS = new Set(["W", "U", "B", "R", "G", "C"]);
+
+/**
+ * The fixed-color mana a "Whenever you tap a <land|creature> for mana, add …" permanent adds when its
+ * controller taps a matching source, as `{ subject: "land"|"creature", colors: string[], amount: number }`,
+ * or null. `colors` is a single-element set (the chosen color is fixed); `amount` is how many of that
+ * color the boost adds per qualifying tap. Pure; anchored whole-clause (reminder-stripped, trailing
+ * period removed by abilityClauses). Parses the clause regardless of the rest of the card so a caller
+ * (coverage) can inspect it; the all-or-nothing residue gate lives in isGlobalTapManaAugment.
+ */
+export function parseGlobalTapManaAugment(card) {
+  // An Aura describes effects on its enchanted permanent, not a self-controlled "you tap" augment, so it's
+  // never this card (its boost is parseAuraLandManaBonus). Excluding it keeps the two parsers disjoint.
+  if (isAuraCard(card)) return null;
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  for (const clause of abilityClauses(oracle)) {
+    const m = clause.trim().toLowerCase().match(
+      /^whenever you tap a (land|creature) for mana, add (?:an additional )?(.+)$/,
+    );
+    if (!m) continue;
+    const subject = m[1];
+    const pipOnly = m[2].trim().replace(/\s+/g, "");
+    // Fixed colored/colorless pips ONLY ("{g}", "{g}{g}"). Any extra word ("one mana of any color",
+    // "one mana of any type that land produced", "{g} for each …") leaves residue → null (non-native).
+    if (!/^(?:\{[wubrgc]\})+$/.test(pipOnly)) return null;
+    const symbols = [...pipOnly.matchAll(/\{([wubrgc])\}/g)].map((x) => x[1].toUpperCase());
+    const unique = [...new Set(symbols)];
+    // A multi-color fixed run ("{G}{U}") isn't this slice's single-color boost model → leave non-native.
+    if (unique.length !== 1 || !unique.every((c) => TAP_AUGMENT_COLOR_LETTERS.has(c))) return null;
+    return { subject, colors: unique, amount: symbols.length };
+  }
+  return null;
+}
+
+/**
+ * The boost clause stripped from a card's oracle, leaving the residual text (the keyword body, etc.) for
+ * the caller (coverage) to validate keyword-only via its own isKeywordOnly. Removing the WHOLE matched
+ * line — "Whenever you tap a <land|creature> for mana, add …" — so a card whose only other text is a
+ * modeled keyword (Groundchuck's "Trample") reduces to keyword-only and flips native, while any non-
+ * keyword rider survives the strip and keeps the card non-native (all-or-nothing, CREED). Returns the
+ * original oracle unchanged when the card isn't an augment (no match). Pure leaf.
+ */
+export function stripGlobalTapManaAugment(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  if (!parseGlobalTapManaAugment(card)) return oracle;
+  return oracle
+    .split(/\n+/)
+    .filter((line) => !/^\s*whenever you tap a (?:land|creature) for mana, add /i.test(line))
+    .join("\n");
+}
+
 // ─── BESTOW (CR 702.103) ─────────────────────────────────────────────────────────
 //
 // A bestow creature (Theros block) is an Enchantment Creature with a "Bestow {cost}" alternative

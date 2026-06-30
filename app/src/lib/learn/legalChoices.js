@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentOf, opponentsOf, totalAvailableMana, findPermanent, creaturePower } from "./gameState.js";
-import { canAfford, manaSources, manaProduction, landAuraManaBonus, applyAuraManaGrantSupplement } from "./manaModel.js";
+import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
@@ -1098,7 +1098,9 @@ function actionsTapForMana(state, playerId) {
     // the explicit tap and the auto-pay planner can't drift (the CREED two-sites invariant). Each
     // bonus entry chooses its color here (a fixed-color uses its color; an any-color picks its first —
     // the explicit-tap learner play just floats the mana, no future-cost lookahead).
-    const bonusSources = landAuraManaBonus(state, perm);
+    // GLOBAL-TAP-AUGMENT mirrors manaSources (the two-sites invariant): a controller-owned "Whenever you
+    // tap a <land|creature> for mana, add …" permanent adds extra fixed-color mana inline on this tap.
+    const bonusSources = [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)];
     const bonus = bonusSources.map(b => ({ color: b.colors[0], amount: b.amount }));
     for (const color of prod.colors) {
       actions.push({

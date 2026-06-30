@@ -34,7 +34,7 @@ import { MANA_COLORS, addMana, moveCardToZone, tapPermanent, findPermanent } fro
 import { checkSacrificeTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice
 import { permanentHasKeyword, grantedManaSpecsFor } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
-import { parseAuraLandManaBonus } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST: extra mana from a "tapped for mana" aura (leaf: static parser → keywords only)
+import { parseAuraLandManaBonus, parseGlobalTapManaAugment } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only)
 import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
 
 // ─── Card → mana production ────────────────────────────────────────────────────
@@ -468,6 +468,38 @@ export function landAuraManaBonus(state, landPerm) {
 }
 
 /**
+ * GLOBAL TAP-FOR-MANA AUGMENT (CR 605.1b) — the extra FIXED-color mana that the controller's "Whenever
+ * you tap a <land|creature> for mana, add …" permanents (Groundchuck & Dirtbag, Leyline of Abundance,
+ * Badgermole Cub) add when `sourcePerm` — a permanent `playerId` is tapping for mana — qualifies. Like the
+ * land-enchant Aura boost, this is a TRIGGERED MANA ABILITY that resolves INLINE (the augment permanent is
+ * NOT tapped; it fires on EVERY qualifying tap). Returns `[{ colors, amount }, …]`, one entry per augment
+ * permanent whose subject ("land"/"creature") matches the tapped source's type, or `[]`.
+ *
+ * Controller-scoped ("Whenever YOU tap …" — CR 605): only `playerId`'s own augment permanents count. The
+ * subject match reads the tapped source's TYPE LINE (a Land matches "land"; a Creature matches "creature"
+ * — a creature-LAND like a manland matches both, exactly as the cards read). Pure.
+ *
+ * Shared by BOTH read-sites (manaSources / legalChoices.actionsTapForMana) through this single helper so
+ * the auto-pay planner and the explicit tap can't drift (the CREED two-sites invariant).
+ */
+export function globalTapManaAugment(state, playerId, sourcePerm) {
+  const player = state?.players?.[playerId];
+  if (!player || !sourcePerm) return [];
+  const srcType = typeLineOf(sourcePerm.card);
+  const srcIsLand = /\bLand\b/.test(srcType);
+  const srcIsCreature = /\bCreature\b/.test(srcType);
+  const out = [];
+  for (const perm of player.battlefield) {
+    const aug = parseGlobalTapManaAugment(perm.card);
+    if (!aug) continue;
+    if (aug.subject === "land" && !srcIsLand) continue;
+    if (aug.subject === "creature" && !srcIsCreature) continue;
+    out.push({ colors: [...aug.colors], amount: aug.amount });
+  }
+  return out;
+}
+
+/**
  * AURA-MANA-GRANT SUPPLEMENT — an Aura that grants its HOST a tap-for-mana ability ("Enchanted land has
  * \"{T}: Add one mana of any color.\"" — Settlement / Sheltered Aerie) gives a host that ALREADY produces
  * mana (a LAND) a SECOND {T} ability. The host taps ONCE and picks the best, so its single-tap output
@@ -563,7 +595,12 @@ export function manaSources(state, playerId) {
     // AURA-LAND-MANA-BOOST: a LAND carrying a mana-boost Aura yields extra mana inline on tap. Only
     // lands enchant-eligible for these auras, but the helper is a no-op for non-lands (no attachments
     // parse to a land-mana bonus), so it's cheap + safe to call unconditionally.
-    const bonus = landAuraManaBonus(state, perm);
+    // GLOBAL-TAP-AUGMENT: a separate "Whenever you tap a <land|creature> for mana, add …" permanent the
+    // controller owns adds extra fixed-color mana inline when this matching source taps (Groundchuck &
+    // Dirtbag, Leyline of Abundance). Both boosts ride on THIS source's tap (neither taps the augmenter),
+    // so they concat into one `bonus` list the planner credits on tap. (MANA-MULTIPLIER applies to the
+    // source's OWN production above; an additive triggered boost is NOT multiplied — CR 605.1b/616.)
+    const bonus = [...landAuraManaBonus(state, perm), ...globalTapManaAugment(state, playerId, perm)];
     sources.push({ permanentId: perm.id, colors: prod.colors, amount, sacrifices: !!prod.sacrifices, ...(bonus.length ? { bonus } : {}) });
   }
   return sources;
