@@ -44,10 +44,27 @@ const TOKEN_COPY_RE = /^create a token that(?:'s| is) a copy of (this creature|i
 // Cackling Counterpart, Self-Reflection, Multiversal Recruitment). The resolver ALREADY supports
 // copySource:"target" (resolveCopySource → ctx.targets[0]); only the recognition was missing. The optional
 // ", except it isn't legendary" tail is a NO-OP (the legend rule is unenforced — no atom field). A
-// type-addition / stat-change "except" (haste, "4/4 Hero", flying) is NOT matched → low → Arbiter (it would
-// change the copy's characteristics). targetType "creature" + the you-control restriction so the cast path /
-// enumerateTargets offers ONLY the controller's own creatures (never an opponent's, which would be illegal).
+// type-addition / stat-change "except" ("4/4 Hero") is NOT matched → low → Arbiter (it would change the
+// copy's characteristics — a subtype feeds the live subtype-ETB/attacks/dies scopes). targetType "creature"
+// + the you-control restriction so the cast path / enumerateTargets offers ONLY the controller's own
+// creatures (never an opponent's, which would be illegal).
 const TOKEN_COPY_TARGET_RE = /^create a token that(?:'s| is) a copy of target creature you control(?:, except it isn't legendary)?$/;
+// TOKEN-COPY-TARGET-KEYWORD — the same target-copy with a MODELED-KEYWORD grant rider on the COPY
+// (Irenicus's Vile Duplication: "…except the token has flying and it isn't legendary."). CR 707.9a — the
+// copy GAINS the granted keyword(s); the resolver threads them through snapshotCopiedCard's addKeyword rider
+// (writes card.keywords, which layers' printedKeywords seeds from), EXACTLY like a clone's "it has flying"
+// rider, so the minted token genuinely flies at runtime. Anchored to "the token has <kw>[ and it isn't
+// legendary]" — the "the token" subject (Irenicus) is DISTINCT from the bare "it has <kw>" form (which stays
+// null → Arbiter: that form pairs with stat/type riders we don't model), keeping the existing CREED pin
+// intact. Every granted keyword must be in GRANTABLE_KEYWORDS (the layer-enforceable set the clone rider also
+// restricts to) — an unmodeled keyword fails the gate → null → low → Arbiter (whole-card CREED, no partial).
+const TOKEN_COPY_TARGET_KEYWORD_RE = /^create a token that(?:'s| is) a copy of target creature you control, except the token has ([a-z' ]+?)(?:,? and it isn't legendary)?$/;
+// Layer-enforceable, layer-GRANTABLE combat keywords (mirrors cloneCopy.js RIDER_KEYWORDS exactly — granting
+// one to a copy behaves like a printed instance). Kept as a local literal so this leaf imports nothing new.
+const GRANTABLE_KEYWORDS = new Set([
+  "flying", "reach", "first strike", "double strike", "trample", "deathtouch",
+  "lifelink", "vigilance", "menace", "haste",
+]);
 
 export function tokenCopyParser(clause) {
   const t = String(clause).toLowerCase().replace(/[’]/g, "'").trim();
@@ -58,6 +75,16 @@ export function tokenCopyParser(clause) {
   }
   if (TOKEN_COPY_TARGET_RE.test(t)) {
     return { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+  }
+  const km = t.match(TOKEN_COPY_TARGET_KEYWORD_RE);
+  if (km) {
+    // Split the granted-keyword list on " and " ("flying and vigilance"); every keyword must be modeled +
+    // grantable, else the whole card is unmodeled → null → low → Arbiter (CREED whole-card, never a partial
+    // copy that silently drops a keyword). The trailing ", and it isn't legendary" no-op is already consumed.
+    const kws = km[1].split(/\s+and\s+/).map((k) => k.trim()).filter(Boolean);
+    if (kws.length && kws.every((k) => GRANTABLE_KEYWORDS.has(k))) {
+      return { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", grantKeywords: kws, restrictions: [{ kind: "controller", who: "you" }] };
+    }
   }
   return null;
 }

@@ -15,6 +15,8 @@ import { enterPermanent } from "./resolvers.js";
 import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 import { enumerateTargets } from "./spellEffects.js";
+import { classifyCard } from "./coverage.js";
+import { hasKeyword } from "./keywords.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -90,6 +92,46 @@ describe("tokenCopyParser — TARGET source (you control)", () => {
     const s = { ...s0, players: { ...s0.players, user: { ...s0.players.user, battlefield: [cr("mine", "user")] }, ai: { ...s0.players.ai, battlefield: [cr("theirs", "ai")] } } };
     const atom = { op: "create-token-copy", copySource: "target", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
     expect(enumerateTargets(s, "user", atom).map((t) => t.id)).toEqual(["mine"]); // never the opponent's "theirs"
+  });
+});
+
+// ─── TOKEN-COPY-KEYWORD rider (Irenicus's Vile Duplication, CR 707.9a) ────────────────────────────────────
+// The target-copy form with a MODELED-KEYWORD grant on the copy ("…except the token has flying and it isn't
+// legendary"). The keyword is threaded through snapshotCopiedCard's addKeyword rider (the SAME path a clone's
+// "it has flying" rider uses → card.keywords → layers' printedKeywords), so the minted token genuinely flies.
+describe("tokenCopyParser — TARGET source + keyword-grant rider (Irenicus's Vile Duplication)", () => {
+  it("'…except the token has flying and it isn't legendary' → grantKeywords:[flying]", () => {
+    expect(tokenCopyParser("create a token that's a copy of target creature you control, except the token has flying and it isn't legendary"))
+      .toEqual({ op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", grantKeywords: ["flying"], restrictions: [{ kind: "controller", who: "you" }] });
+  });
+  it("the ', and it isn't legendary' tail is optional (bare keyword rider still parses)", () => {
+    expect(tokenCopyParser("create a token that's a copy of target creature you control, except the token has flying")?.grantKeywords).toEqual(["flying"]);
+  });
+  it("multiple grantable keywords parse as a list", () => {
+    expect(tokenCopyParser("create a token that's a copy of target creature you control, except the token has flying and trample")?.grantKeywords).toEqual(["flying", "trample"]);
+  });
+  it("CREED: an UN-grantable keyword keeps the whole card null → low → Arbiter (no partial copy)", () => {
+    expect(tokenCopyParser("create a token that's a copy of target creature you control, except the token has flying and ninjutsu")).toBeNull(); // ninjutsu not layer-grantable
+    expect(tokenCopyParser("create a token that's a copy of target creature you control, except the token has hexproof")).toBeNull();           // hexproof not in the combat set
+  });
+  it("CREED: the bare 'it has <kw>' subject (paired with stat/type riders we don't model) stays null", () => {
+    expect(tokenCopyParser("create a token that's a copy of target creature you control, except it has haste")).toBeNull();
+  });
+  it("the full card parses HIGH and classifies native-spell", () => {
+    const C = { type: "Sorcery", mana: "{3}{U}", name: "Irenicus's Vile Duplication", oracle: "Create a token that's a copy of target creature you control, except the token has flying and it isn't legendary." };
+    expect(programConfidence(parseEffectClause(C.oracle, C.type))).toBe("high");
+    expect(classifyCard(C)).toBe("native-spell");
+  });
+  it("RUNTIME: copying a GROUND creature mints a token that genuinely FLIES (CR 707.9a)", () => {
+    let s = stateWith([bear("ground", { name: "Grizzly Bears", power: 2, toughness: 2, oracle: "" })]); // no flying on the source
+    const atom = { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", grantKeywords: ["flying"], restrictions: [{ kind: "controller", who: "you" }] };
+    s = resolveAll(resolveAtom(s, atom, { controller: "user", targets: [{ type: "creature", id: "ground" }] }));
+    const toks = tokensOf(s);
+    expect(toks).toHaveLength(1);
+    expect(toks[0].card.name).toBe("Grizzly Bears");        // the copied card
+    expect(toks[0].card.power).toBe(2);                      // printed P/T
+    expect(hasKeyword(toks[0].card, "flying")).toBe(true);  // …but the COPY gained flying (the rider)
+    expect(toks[0].card.token).toBe(true);
   });
 });
 

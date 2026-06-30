@@ -253,7 +253,14 @@ export function applyCreateTokenCopy(state, atom, ctx) {
   // CR 707.2 — the copiable card (printed values, fresh object, NO counters/auras/continuous effects,
   // isCommander stripped). cloneCard is undefined: snapshotCopiedCard reads `cloneCard?.id` for the id, so
   // a per-token id is stamped below instead (two minted copies must never share one id).
-  const copiable = snapshotCopiedCard(sourcePerm, undefined);
+  // CR 707.9a — a KEYWORD-grant rider (Irenicus's Vile Duplication: "…except the token has flying…") is
+  // applied to the snapshot via the SAME addKeyword rider a clone uses (writes card.keywords → layers'
+  // printedKeywords seeds from it), so the copy genuinely gains the keyword. The parser only ever supplies
+  // layer-grantable keywords (tokenCopy.GRANTABLE_KEYWORDS), so this can never fabricate an unenforced ability.
+  const copyRiders = Array.isArray(atom.grantKeywords) && atom.grantKeywords.length
+    ? [{ kind: "addKeyword", keywords: atom.grantKeywords }]
+    : [];
+  const copiable = snapshotCopiedCard(sourcePerm, undefined, copyRiders);
   // Wave-3a token doubler (CR 616): a token-copy is still "a token created", so a doubler multiplies it.
   // Computed once (the minted copy is token:true, never itself a doubler).
   const count = Math.max(0, atom.count || 1) * tokenMultiplier(next, ctx.controller);

@@ -508,6 +508,14 @@ function splitClauses(oracle) {
     // SAME single target (else the top-level split below shatters it into "tap target permanent" + an
     // unbindable "its activated abilities …" → low). Anchored to the exact folded form.
     if (/^tap target permanent and its activated abilities can't be activated this turn$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // TOKEN-COPY-KEYWORD (Irenicus's Vile Duplication) — "create a token that's a copy of target creature you
+    // control, except the token has flying and it isn't legendary": the " and " joins the granted-keyword rider
+    // to the "it isn't legendary" no-op, INTERNAL to the one copy instruction, NOT a top-level effect boundary.
+    // Keep the whole sentence so tokenCopyParser sees the full "except the token has <kw…> and it isn't legendary"
+    // rider (else the top-level split severs it into a plain copy + an unbindable "it isn't legendary" fragment,
+    // OR drops a multi-keyword grant). All-or-nothing anchored downstream (an un-grantable keyword → null → low →
+    // Arbiter), so keeping too much together can only fail to match, never a confident wrong partial.
+    if (/^create a token that(?:'s| is) a copy of target creature you control, except the token has .+$/i.test(sentence)) { clauses.push(sentence); continue; }
     // Split on a top-level " and " OR a ", then " sequence ("Scry 2, then draw a card" — Preordain;
     // "Draw a card, then discard a card" — loot). The comma is required so an in-effect "then" (a
     // rarity) isn't severed; each split piece is still re-parsed on its own merits, so a mis-split
