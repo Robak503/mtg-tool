@@ -41,7 +41,7 @@ import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 import { triggerRoutesNatively, isModeledGroupTriggeredBody } from "./triggerRouting.js";
 import { isNativeGroupWard } from "./groupWard.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
-import { stripCreatedTokenAbilities } from "./manaModel.js";
+import { stripCreatedTokenAbilities, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
 // name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
 // descriptor), _registry is cardEffects.REGISTRY (the green-mana retention descriptor). Both are leaf
@@ -202,6 +202,34 @@ export function hasManaAbility(oracle) {
   const t = stripCreatedTokenAbilities(stripReminder(oracle));
   return /\badd \{[wubrgcx]/i.test(t) ||
     /\badd (one|two|three|four|five|that much|an amount|\{)/i.test(t);
+}
+
+// VARIABLE-X MANA (the "Add X mana of any one color, where X is <metric>" family — Sanctum Weaver,
+// Matzalantli, Baldur's Gate). `hasManaAbility` above deliberately does NOT match the bare "add x mana"
+// form: an X-amount is native ONLY when the metric is one the RUNTIME can actually compute, else the
+// source produces ZERO mana natively (a genuine over-claim, not a false negative — exactly the trap the
+// FIX-MANA-OVERCLAIM note documents for triggered-mana). So instead of broadening the regex (which would
+// also catch the cards whose metric is unmodeled — Wirewood Channeler's "Elves on the battlefield",
+// Heronblade Elite's "this creature's power", Accomplished Alchemist's "life gained this turn"), we ask
+// the SAME manaProduction the runtime taps: it returns an `amountSpec` ONLY when the connector + metric
+// (parseManaMetric: "<type> you control" / devotion / greatest-power|toughness among creatures you
+// control) is in its vocabulary, and null otherwise. So this credits EXACTLY the variable-X sources the
+// engine produces mana for — metric and runtime in lockstep, never an over-claim (an unmodeled-metric X
+// source stays body-only, a SAFE false-negative). Pure (manaProduction is filesystem-free). The bare
+// "add x mana" guard keeps a non-mana card with a coincidental "X" out (it never reaches manaProduction).
+function hasModeledVariableXMana(card) {
+  // DFC GUARD (CR 712) — a transforming/modal DFC ("Saga // Creature", "Artifact // Land") whose mana
+  // ability lives on the BACK face (The Legend of Kyoshi // Avatar Kyoshi; Matzalantli // The Core) is
+  // cast/played as its FRONT face; the back-face "{T}: Add X mana …" is reachable only AFTER an unmodeled
+  // transform, so crediting it native-mana would be an over-claim (the runtime produces ZERO mana from the
+  // front). manaProduction scans the COMBINED oracle, so it can't tell which face the ability is on — the
+  // type line's "//" is the DFC tell. Exclude every "//" card here (the rare DFC whose FRONT is the mana
+  // source is a SAFE false-negative — under-claim, never an over-claim). CREED.
+  if (/\/\//.test(String(card?.type || card?.type_line || ""))) return false;
+  const oracle = stripCreatedTokenAbilities(stripReminder(String(card?.oracle || card?.oracle_text || "")));
+  if (!/\badd x mana\b/i.test(oracle)) return false;            // not the variable-X form → not this tier
+  const prod = manaProduction(card);
+  return !!prod?.amountSpec;                                     // native ONLY when the runtime models the metric
 }
 
 /** True when an instant/sorcery resolves fully through the EffectProgram interpreter. */
@@ -925,7 +953,10 @@ export function classifyCard(card) {
   if (isKeywordOnly(etOracle, card?.name)) return "native-body";
   // FIX-MANA-OVERCLAIM: a mana source counts native-mana only when its non-mana trigger text is modeled
   // too (else it falls through to the all-or-nothing trigger/activated/mixed gates → body-only/Arbiter).
-  if (hasManaAbility(oracle) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
+  // VARIABLE-X MANA: the "Add X mana … where X is <modeled metric>" form (Sanctum Weaver) is admitted via
+  // hasModeledVariableXMana — gated on manaProduction returning a runtime amountSpec, so an unmodeled-metric
+  // X source (Wirewood Channeler) stays body-only (no over-claim). The same residue gate then applies.
+  if ((hasManaAbility(oracle) || hasModeledVariableXMana(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
   // Single-mechanism tiers first (the informative labels), then the composite catch-all for
   // multi-ability creatures whose pieces are each modeled but span types.
   if (permanentTriggersCovered(etCard)) return "native-trigger";   // P2.8: body + only-routing triggers

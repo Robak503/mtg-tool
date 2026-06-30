@@ -59,6 +59,38 @@ describe("classifyCard — tiers", () => {
     // produces tap/sac mana — so the engine yields ZERO mana from it: a true over-claim, correctly dropped.
     expect(classifyCard(C("Creature — Elemental", "When this creature enters, if you cast it from your hand, add {R}{R}{R}.", { name: "Coal Stoker" }))).not.toBe("native-mana");
   });
+
+  // ===== VARIABLE-X MANA ("Add X mana of any one color, where X is <metric>") ===== the X-amount any-color
+  // dork/rock. hasManaAbility deliberately does NOT match the bare "add x mana" form (it has no fixed
+  // quantity / brace), so this family was body-only despite manaModel modeling the amount. The new
+  // hasModeledVariableXMana gate credits native-mana ONLY when manaProduction returns a runtime amountSpec
+  // — so a card whose metric the runtime computes (a "<type> you control" / greatest-power/toughness /
+  // devotion count) flips, while one whose metric is unmodeled stays body-only (no over-claim — the runtime
+  // would produce ZERO mana). Mirrors the all-or-nothing posture of the FIX-MANA-OVERCLAIM tier above.
+  it("MUST_FLIP: 'Add X mana … where X is the number of <type> you control' is native-mana (Sanctum Weaver)", () => {
+    expect(classifyCard(C("Enchantment Creature — Dryad", "{T}: Add X mana of any one color, where X is the number of enchantments you control.", { name: "Sanctum Weaver" }))).toBe("native-mana");
+    expect(classifyCard(C("Creature — Elf Druid", "{T}: Add X mana of any one color, where X is the number of creatures you control.", { name: "X" }))).toBe("native-mana");
+  });
+  it("MUST_FLIP: 'where X is the greatest power/toughness among creatures you control' is native-mana", () => {
+    expect(classifyCard(C("Creature — Plant", "{T}: Add X mana of any one color, where X is the greatest toughness among other creatures you control.", { name: "Arbor Adherent" }))).toBe("native-mana");
+  });
+  it("MUST_STAY_BODY: an UNMODELED metric (the runtime produces ZERO mana) is NOT native-mana — no over-claim", () => {
+    // "Elves on the battlefield" (a SUBTYPE on the whole battlefield, not "you control"), "this creature's
+    // power", "creature cards in your graveyard", "life gained this turn" — manaProduction returns null for
+    // each, so the source yields no native mana and must stay body-only (a SAFE false-negative).
+    expect(classifyCard(C("Creature — Elf Druid", "{T}: Add X mana of any one color, where X is the number of Elves on the battlefield.", { name: "Wirewood Channeler" }))).not.toBe("native-mana");
+    expect(classifyCard(C("Creature — Bird Soldier", "{T}: Add X mana of any one color, where X is this creature's power.", { name: "Heronblade Elite" }))).not.toBe("native-mana");
+    expect(classifyCard(C("Creature — Plant Druid", "{T}: Add X mana of any one color, where X is the number of creature cards in your graveyard.", { name: "Deathbloom Ritualist" }))).not.toBe("native-mana");
+  });
+  it("DFC GUARD: a transform DFC whose mana ability is on the BACK face is NOT native-mana (Kyoshi // Avatar Kyoshi)", () => {
+    // The card is cast as its Saga FRONT; the back-face "{T}: Add X mana …" is reachable only after an
+    // unmodeled transform, so crediting native-mana is an over-claim. The "//" type line is the DFC tell.
+    expect(classifyCard(C("Enchantment — Saga // Legendary Creature — Avatar", "I — Draw cards equal to the greatest power among creatures you control.\nII — Earthbend X.\nIII — Exile this Saga, then return it to the battlefield transformed under your control.\n//\nLands you control have trample and hexproof.\n{T}: Add X mana of any one color, where X is the greatest power among creatures you control.", { name: "The Legend of Kyoshi // Avatar Kyoshi" }))).not.toBe("native-mana");
+  });
+  it("NO FALSE FLIP: a non-mana 'X' ability ('Draw X cards, where X is …') is never native-mana", () => {
+    expect(classifyCard(C("Creature — Wizard", "{T}: Draw X cards, where X is the number of Wizards you control.", { name: "X" }))).not.toBe("native-mana");
+  });
+
   it("a vanilla or keyword-only creature is native-body", () => {
     expect(classifyCard(C("Creature — Bear", ""))).toBe("native-body");
     expect(classifyCard(C("Creature — Angel", "Flying, vigilance"))).toBe("native-body");
