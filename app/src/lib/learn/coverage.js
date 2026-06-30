@@ -28,7 +28,7 @@
  * parsers the runtime uses so the metric stays honest.
  */
 
-import { parseEffectProgram, programConfidence, programNeedsChosenTarget } from "./effects/parser.js";
+import { parseEffectProgram, programConfidence, programNeedsChosenTarget, programTriggerTargetsResolvable } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
@@ -210,12 +210,19 @@ export function spellIsNative(card) {
     // cast path resolves AND the copy atom snapshots). It must be HIGH for the card to flip.
     const bodyProgram = parseEffectProgram(card);
     if (!bodyProgram || programConfidence(bodyProgram) !== "high") return false;
-    // STORM-COPY-TARGET GATE (CR 702.40b) — a copy of a TARGETED spell needs new targets the copy-spell atom
-    // doesn't choose (it copies a frozen, non-targeted payload). So storm flips ONLY when the body is non-
-    // targeted (create-token / gain-life — Empty the Warrens, Chatterstorm, Hunting Pack, Weather the Storm); a
-    // targeted body (Grapeshot, Tendrils, Brain Freeze) stays on the Arbiter (a SAFE false-negative, never a
-    // copy that silently drops its targets). programNeedsChosenTarget is the same gate the trigger path uses.
-    if (programNeedsChosenTarget(bodyProgram)) return false;
+    // STORM-COPY-TARGET GATE (CR 702.40b / 707.10c) — a copy of a TARGETED spell picks its own targets when
+    // it's put on the stack ("You may choose new targets for the copies"). applyCopySpell re-enumerates a fresh
+    // legal target per copy via the SAME expandCastChoices + enemy/own chooser the trigger path uses, falling
+    // back to the original spell's targets (the CR 707.10c default) when no fresh legal pick exists. So a
+    // targeted body flips ONLY when every chosen-target atom is intent-RESOLVABLE — i.e. the chooser can prove
+    // a correct-side pick for each copy (deal-damage/lose-life → an opponent; a buff → own). This is exactly
+    // programTriggerTargetsResolvable, the gate the trigger-flush path already uses. A targeted body with an
+    // AMBIGUOUS atom (bounce, a fight's two-sided target) stays on the Arbiter — the copy chooser can't place
+    // it safely, so a SAFE false-negative (never a copy that mis-fires or silently drops its targets). NON-
+    // targeted bodies (create-token / gain-life — Empty the Warrens, Chatterstorm) pass trivially (no chosen
+    // target). Grapeshot (deal-damage → any target) + Tendrils of Agony (lose-life → target player) now flip;
+    // Brain Freeze parks regardless — its targeted-mill body parses LOW (caught by the HIGH gate above).
+    if (programNeedsChosenTarget(bodyProgram) && !programTriggerTargetsResolvable(bodyProgram)) return false;
     return true;
   }
   // PLOT (CR 702.171): an instant/sorcery can carry a "Plot {cost}" alternate-cast line. It's a modeled

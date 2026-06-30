@@ -16,14 +16,19 @@
  *   4. Each copy resolves its frozen EFFECT_PROGRAM (create-token / gain-life) independently, then ceases to
  *      exist — exactly like the original except no card disposition.
  *
- * BUILT (whole-card CREED-clean, NON-targeted bodies whose copies need no new targets): Empty the Warrens,
- * Chatterstorm, Hunting Pack (create-token), Weather the Storm (gain-life).
+ * BUILT — NON-targeted bodies (copies need no new targets): Empty the Warrens, Chatterstorm, Hunting Pack
+ * (create-token), Weather the Storm (gain-life).
+ * BUILT — TARGETED bodies (STORM-COPY-TARGET, CR 707.10c "You may choose new targets for the copies"): Grapeshot
+ * ("deals 1 damage to any target") + Tendrils of Agony ("target player loses 2 life and you gain 2 life"). Each
+ * copy re-picks its OWN legal target as it's put on the stack (applyCopySpell → expandCastChoices), aiming at an
+ * opponent (the enemy-side chooser), so N copies of Grapeshot = N separate 1-damage instances each to a chosen
+ * target. The body flips ONLY when every chosen-target atom is intent-resolvable (programTriggerTargetsResolvable).
  *
- * CREED anti-FP pins: a TARGETED-body storm spell (Grapeshot, Tendrils, Brain Freeze) stays on the Arbiter —
- * its copy would need new targets the copy-spell atom doesn't model (STORM-COPY-TARGET GATE). A creature storm
- * spell with an unmodeled anthem (Stormscale Scion / Stormscale Wurm — the Ur-Dragon card) stays body-only. A
- * LOW-body storm spell (Crow Storm — a named token; Dragonstorm — a tutor-to-battlefield) stays Arbiter. Real
- * oracle text (verified vs the bundled local index), verbatim.
+ * CREED anti-FP pins: a targeted-body storm spell whose body parses LOW (Brain Freeze — "target player mills
+ * three cards" isn't a modeled atom) stays on the Arbiter (the HIGH-body gate catches it BEFORE the target gate).
+ * A creature storm spell with an unmodeled anthem (Stormscale Scion / Stormscale Wurm — the Ur-Dragon card) stays
+ * body-only. A LOW-body storm spell (Crow Storm — a named token; Dragonstorm — a tutor-to-battlefield) stays
+ * Arbiter. Real oracle text (verified vs the bundled local index), verbatim.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { classifyCard } from "./coverage.js";
@@ -52,6 +57,15 @@ const HUNTING_PACK = {
 const WEATHER_THE_STORM = {
   name: "Weather the Storm", type: "Instant", mana: "{1}{G}",
   oracle: "You gain 3 life.\nStorm (When you cast this spell, copy it for each spell cast before it this turn.)",
+};
+// TARGETED bodies — copies re-pick a fresh legal target per copy (STORM-COPY-TARGET, CR 707.10c).
+const GRAPESHOT = {
+  name: "Grapeshot", type: "Sorcery", mana: "{1}{R}",
+  oracle: "Grapeshot deals 1 damage to any target.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+};
+const TENDRILS_OF_AGONY = {
+  name: "Tendrils of Agony", type: "Sorcery", mana: "{2}{B}{B}",
+  oracle: "Target player loses 2 life and you gain 2 life.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
 };
 // Non-targeted bodies that ride along: proliferate (Radstorm) + a basic-land tutor-to-hand (Sprouting Vines).
 const RADSTORM = {
@@ -89,19 +103,21 @@ describe("STORM — clean non-targeted storm spells classify native-spell", () =
   }
 });
 
+// STORM-COPY-TARGET (CR 707.10c) — targeted bodies flip native now that each copy re-picks a legal target.
+describe("STORM — targeted-body storm spells classify native-spell (copies choose new targets)", () => {
+  for (const card of [GRAPESHOT, TENDRILS_OF_AGONY]) {
+    it(`${card.name} → native-spell`, () => {
+      expect(classifyCard(card)).toBe("native-spell");
+    });
+  }
+});
+
 // ── classification: CREED anti-FP (parked) ───────────────────────────────────────
 describe("STORM — PARKED: storm spells whose whole card isn't modeled stay non-native", () => {
   const parked = {
-    // TARGETED body — a copy needs new targets the copy-spell atom doesn't choose (STORM-COPY-TARGET GATE).
-    "Grapeshot (targeted body)": {
-      name: "Grapeshot", type: "Sorcery", mana: "{1}{R}",
-      oracle: "Grapeshot deals 1 damage to any target.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
-    },
-    "Tendrils of Agony (targeted body)": {
-      name: "Tendrils of Agony", type: "Sorcery", mana: "{2}{B}{B}",
-      oracle: "Target player loses 2 life and you gain 2 life.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
-    },
-    "Brain Freeze (targeted body)": {
+    // LOW body — "target player mills three cards" isn't a modeled atom, so the HIGH-body gate parks it BEFORE
+    // the target gate is ever consulted (a targeted-mill atom is a separate, larger build). CREED whole-card.
+    "Brain Freeze (LOW targeted-mill body)": {
       name: "Brain Freeze", type: "Instant", mana: "{1}{U}",
       oracle: "Target player mills three cards.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
     },
@@ -238,5 +254,119 @@ describe("STORM — RUNTIME: a tutor-body storm spell copies + each copy fetches
     const tutorLogs = (s.log || []).filter((e) => e.effect === "tutor");
     expect(tutorLogs.length).toBe(3); // original + 2 copies each fetched
     expect(s.players.user.hand.filter((x) => x.name === "Forest").length).toBe(3);
+  });
+});
+
+// ── runtime: TARGETED storm copies each choose a fresh legal target (STORM-COPY-TARGET, CR 707.10c) ──────────
+// Cast a targeted storm spell AIMING THE ORIGINAL AT THE OPPONENT (pick the cast action whose every target is the
+// opponent), then drain the stack. Each copy independently re-picks an opponent target (the enemy-side chooser),
+// so all N+1 resolutions hit the opponent. Returns the post-resolution state. (The CAST-path AI target choice for
+// the ORIGINAL is a separate concern; we pin the original at the opponent so the assertion isolates copy behavior.)
+function castTargetedStormAtOpponent(card, { prior }) {
+  let s = createGameState({ userDeck: [], aiDeck: [] });
+  const c = { ...card, id: "storm1" };
+  s = {
+    ...s,
+    phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+    players: {
+      ...s.players,
+      user: { ...s.players.user, hand: [c], manaPool: { ...s.players.user.manaPool, C: 20, R: 20, G: 20, U: 20, B: 20 }, spellsCastThisTurn: prior },
+    },
+  };
+  const casts = legalActionsForPlayer(s, "user").filter((a) => a.kind === "cast-spell" && a.cardId === "storm1");
+  // The cast whose every target is the opponent ("ai"); fall back to the first cast if none enumerated (defensive).
+  const cast = casts.find((a) => (a.targets || []).length > 0 && (a.targets || []).every((t) => t.id === "ai")) || casts[0];
+  expect(cast, `${card.name}: an opponent-targeting cast offered`).toBeTruthy();
+  s = dispatchAction(s, cast);
+  let guard = 0;
+  while (s.stack.length > 0 && guard++ < 50) s = resolveTopOfStack(s);
+  return s;
+}
+
+describe("STORM — RUNTIME: a TARGETED body copies + each copy hits a chosen target", () => {
+  it("Grapeshot as the 3rd spell (2 before) → 3 × 1 damage to the opponent (original + 2 copies); caster untouched", () => {
+    const start = createGameState({ userDeck: [], aiDeck: [] });
+    const s = castTargetedStormAtOpponent(GRAPESHOT, { prior: 2 });
+    expect(s.stack.length).toBe(0);
+    expect(start.players.ai.life - s.players.ai.life).toBe(3); // original + 2 copies, each 1 damage
+    expect(s.players.user.life).toBe(start.players.user.life); // NO copy aimed at the caster (enemy-side chooser)
+    const copyLog = (s.log || []).find((e) => e.effect === "storm-copy");
+    expect(copyLog?.count).toBe(2); // 2 copies made
+  });
+
+  it("Grapeshot as the 1st spell (0 before) → no copies, 1 damage to the opponent", () => {
+    const start = createGameState({ userDeck: [], aiDeck: [] });
+    const s = castTargetedStormAtOpponent(GRAPESHOT, { prior: 0 });
+    expect(start.players.ai.life - s.players.ai.life).toBe(1); // original only
+    const copyLog = (s.log || []).find((e) => e.effect === "storm-copy");
+    expect(copyLog?.count).toBe(0); // storm count 0 → zero copies
+  });
+
+  it("Tendrils of Agony as the 4th spell (3 before) → opponent loses 2 each (×4 = 8); caster gains 2 each (×4 = 8)", () => {
+    const start = createGameState({ userDeck: [], aiDeck: [] });
+    const s = castTargetedStormAtOpponent(TENDRILS_OF_AGONY, { prior: 3 });
+    expect(s.stack.length).toBe(0);
+    expect(start.players.ai.life - s.players.ai.life).toBe(8); // 4 resolutions × "target player loses 2 life" → opponent
+    expect(s.players.user.life - start.players.user.life).toBe(8); // 4 resolutions × "you gain 2 life" → caster
+    const copyLog = (s.log || []).find((e) => e.effect === "storm-copy");
+    expect(copyLog?.count).toBe(3);
+  });
+
+  // CR 707.10c DEFAULT — when a copy has NO fresh legal target (the only opponent is gone), it keeps the original
+  // spell's target. Here the opponent has left, so the sole legal "target player" is the caster: each copy keeps
+  // the original (caster) target rather than being dropped. Tendrils on a lone caster = lose 2 + gain 2 = net 0
+  // per resolution, so the caster's life is unchanged across all copies (no fabricated drop, no fabricated drain).
+  it("Tendrils with the opponent removed → copies fall back to the original (caster) target (CR 707.10c)", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const c = { ...TENDRILS_OF_AGONY, id: "storm1" };
+    s = {
+      ...s,
+      phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: { user: { ...s.players.user, hand: [c], manaPool: { ...s.players.user.manaPool, C: 20, B: 20 }, spellsCastThisTurn: 2 } }, // ONLY the caster remains
+    };
+    const start = s.players.user.life;
+    const casts = legalActionsForPlayer(s, "user").filter((a) => a.kind === "cast-spell" && a.cardId === "storm1");
+    expect(casts.length).toBeGreaterThan(0);
+    s = dispatchAction(s, casts[0]); // only the caster is a legal target now
+    let guard = 0;
+    while (s.stack.length > 0 && guard++ < 50) s = resolveTopOfStack(s);
+    expect(s.stack.length).toBe(0);
+    expect(s.players.user.life).toBe(start); // lose 2 + gain 2, three times → net 0; copies kept the original target
+    const copyLog = (s.log || []).find((e) => e.effect === "storm-copy");
+    expect(copyLog?.count).toBe(2); // copies were NOT removed — they fell back to the original target
+    expect((s.log || []).some((e) => e.effect === "storm-copy-removed")).toBe(false);
+  });
+});
+
+// STORM-COPY-TARGET — the per-copy chooser is SIDE-AWARE (copyAtomIntent): an OWN-side buff (pump +N/+N) is aimed
+// at the controller's OWN creature, never an opponent's, even when both are legal. Astral Steel ("Target creature
+// gets +1/+2") is the real-card shape; this regression-locks the `pump → own` branch of the inline intent mirror.
+describe("STORM — RUNTIME: an OWN-side buff copy targets the controller's own creature (pump own-preference)", () => {
+  const ASTRAL_STEEL = {
+    name: "Astral Steel", type: "Instant", mana: "{1}{W}",
+    oracle: "Target creature gets +1/+2 until end of turn.\nStorm (When you cast this spell, copy it for each spell cast before it this turn. You may choose new targets for the copies.)",
+  };
+  it("Astral Steel as the 2nd spell (1 before) → the copy buffs the caster's own creature, not the opponent's", () => {
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const c = { ...ASTRAL_STEEL, id: "storm1" };
+    const ownCreature = { id: "mine", name: "Bear", type: "Creature — Bear", power: 2, toughness: 2 };
+    const oppCreature = { id: "theirs", name: "Ogre", type: "Creature — Ogre", power: 3, toughness: 3 };
+    s = {
+      ...s,
+      phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: {
+        ...s.players,
+        user: { ...s.players.user, hand: [c], manaPool: { ...s.players.user.manaPool, C: 20, W: 20 }, battlefield: [{ id: "mine", card: ownCreature, controller: "user", tapped: false }], spellsCastThisTurn: 1 },
+        ai: { ...s.players.ai, battlefield: [{ id: "theirs", card: oppCreature, controller: "ai", tapped: false }] },
+      },
+    };
+    // Cast the original at the OWN creature; resolve only the storm trigger (top) so we can read the copy's target.
+    const casts = legalActionsForPlayer(s, "user").filter((a) => a.kind === "cast-spell" && a.cardId === "storm1");
+    const cast = casts.find((a) => (a.targets || []).every((t) => t.id === "mine")) || casts[0];
+    s = dispatchAction(s, cast);
+    s = resolveTopOfStack(s); // storm trigger → pushes 1 copy
+    const copy = s.stack.find((o) => o.isCopy);
+    expect(copy, "a storm copy was made").toBeTruthy();
+    expect((copy.targets || []).map((t) => t.id)).toEqual(["mine"]); // own-side preference, NOT "theirs"
   });
 });

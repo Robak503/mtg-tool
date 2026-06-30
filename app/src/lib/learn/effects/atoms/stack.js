@@ -9,6 +9,7 @@ import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPe
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
+import { expandCastChoices } from "../targeting.js"; // STORM-COPY-TARGET: re-enumerate a fresh legal target per copy (CR 707.10c). targeting.js is cycle-safe from here (its closure reaches neither atoms/stack nor parser).
 
 /**
  * P3.1 counter (CR 701.5a) — counter the target spell(s) on the stack. The targeted
@@ -423,6 +424,56 @@ function applyOptionalSacPayment(state, atom, ctx) {
   });
 }
 
+// STORM-COPY-TARGET — the enemy/own SIDE of a chosen target, for the per-copy new-target chooser (CR 707.10c).
+// Mirrors gameEngine.chooseTriggerTargets' `sideOf` but is replicated inline so atoms/stack.js stays clear of the
+// stack→gameEngine→parser cycle (gameEngine + parser both transitively import this file). A target carries no
+// controller for a player (its id IS the player) or a spell (resolve via state.stack); a permanent/graveyard-card
+// target carries `.controller`.
+function copyTargetSide(state, t) {
+  if (t?.type === "player") return t.id;
+  if (t?.type === "spell") return (state.stack || []).find((o) => o.id === t.id)?.controller;
+  return t?.controller;
+}
+// STORM-COPY-TARGET — the intended side per chosen-target atom op, a MINIMAL mirror of parser.atomTargetIntent for
+// the ops that can reach a targeted storm body (coverage's programTriggerTargetsResolvable gate keeps an AMBIGUOUS
+// two-sided-target atom — fight-pair / damage-target-power — off this path entirely (programTriggerTargetsResolvable
+// rejects "ambiguous"), so an atom that lands here is single-sided. Returns "enemy" | "own" | null. This is a SUBSET
+// MIRROR of parser.atomTargetIntent, replicated inline to keep atoms/stack.js out of the stack→parser cycle (parser
+// imports this file). To avoid drift it covers ONLY ops whose side is UNCONDITIONAL (no per-atom restriction/counter-
+// sign branch) PLUS the two whose branch is a verbatim copy of atomTargetIntent's (pump's shrink test, tap's
+// you-control test). Each is CR-grounded:
+//   deal-damage / destroy / exile / counter / fight / lose-life / rad / cant-block → enemy (offensive — you aim
+//     these at an opponent; self-targeting would be a wrong play; these have NO own-side targetType variant).
+//   return-from-graveyard / untap → own (the target is in/your own — enumeration only ever offers own anyway).
+//   pump → enemy iff a SHRINK (negative P or T, e.g. -X/-X), else own (verbatim atomTargetIntent).
+//   tap → own only when restricted to "you control", else enemy (verbatim atomTargetIntent).
+// DELIBERATELY OMITTED (their side branches in atomTargetIntent are subtle — add-counter keys on counterType sign /
+// creatureYouControl; bounce on a youControl/self targetType): for those the chooser falls back to the first LEGAL
+// combo (still CR-correct — never a fabricated/illegal target, only side-agnostic). An op NOT listed → null likewise.
+function copyAtomIntent(atom) {
+  if (!atom?.targetType) return null;
+  switch (atom.op) {
+    case "deal-damage":
+    case "destroy":
+    case "exile":
+    case "counter":
+    case "fight":
+    case "lose-life":
+    case "rad":
+    case "cant-block":
+      return "enemy";
+    case "pump":
+      return (atom.ptDelta && ((atom.ptDelta.p || 0) < 0 || (atom.ptDelta.t || 0) < 0)) ? "enemy" : "own";
+    case "tap":
+      return atom.restrictions?.some((r) => r.kind === "controller" && r.who === "you") ? "own" : "enemy";
+    case "return-from-graveyard":
+    case "untap":
+      return "own";
+    default:
+      return null;
+  }
+}
+
 /**
  * ===== STORM (CR 702.40) ===== — "Storm (When you cast this spell, copy it for each spell cast before it this
  * turn.)". The Storm keyword's triggered ability (synthesized in triggers.detectTriggers as a selfCast trigger,
@@ -433,13 +484,22 @@ function applyOptionalSacPayment(state, atom, ctx) {
  * atom is self-contained at resolution and never depends on the original spell still sitting on the stack (it
  * could have been countered in response to the storm trigger — the copies are independent objects, CR 707.10c).
  *
- * Each copy is a NEW stack object carrying the SAME payload (the storm spell's frozen EFFECT_PROGRAM — only
- * non-targeted instant/sorcery storm spells flip native, so the copy needs no new target choice: a "you may
- * choose new targets" storm spell stays on the Arbiter because its body is targeted and parks upstream). A copy
- * is NOT a card (CR 707.10a) — `isCopy`/`token` are stamped so no resolution path tries to move it to a zone;
- * an instant/sorcery copy resolves its program (create-token / gain-life) then ceases to exist, exactly like the
- * original except no card disposition (the engine doesn't track resolved instant/sorcery cards to a zone anyway).
- * The copies go on TOP of the stack (above the still-resolving-later original) and resolve FIRST, CR-correct.
+ * Each copy is a NEW stack object carrying a CLONE of the storm spell's frozen EFFECT_PROGRAM payload. A copy is
+ * NOT a card (CR 707.10a) — `isCopy`/`token` are stamped so no resolution path tries to move it to a zone; an
+ * instant/sorcery copy resolves its program then ceases to exist, exactly like the original except no card
+ * disposition (the engine doesn't track resolved instant/sorcery cards to a zone anyway). The copies go on TOP of
+ * the stack (above the still-resolving-later original) and resolve FIRST, CR-correct.
+ *
+ * STORM-COPY-TARGET (CR 707.10c) — "You may choose new targets for the copies." For a TARGETED body (Grapeshot's
+ * "deals 1 damage to any target", Tendrils of Agony's "target player loses 2 life") each copy picks its OWN fresh
+ * target as it's put on the stack: re-enumerate the body's legal targets HERE off the LIVE board (expandCastChoices,
+ * the same enumerator the cast + trigger paths use), prefer the first combo whose every chosen target sits on its
+ * atom's intended side (enemy for damage/drain — so copies aim at an opponent, never the caster, and the AI can
+ * spread across opponents), else any legal combo, else fall back to the original spell's targets (the CR 707.10c
+ * DEFAULT — keep the same targets when no fresh legal pick exists). A copy whose body needs a target but has NO
+ * legal target on the board is REMOVED (CR 608.2b — it never goes on the stack), never resolved target-less (which
+ * would silently drop the clause — a forbidden FP). A non-targeted body (Empty the Warrens / Weather the Storm)
+ * skips all of this (programNeedsChosenTarget false) and the copy carries empty targets exactly as before.
  *
  * N=0 (the storm spell is the first spell of the turn) → zero copies, a logged no-op (the original spell still
  * resolves on its own). A missing snapshot (defensive — never happens off the threaded cast path) → no-op too.
@@ -453,22 +513,65 @@ function applyCopySpell(state, atom, ctx) {
   }
   // A copy is not a card (CR 707.10a): flag isCopy + token so no resolution/zone path treats it as a real card.
   const sourceCard = ctx?.stormSourceCard || { name: ctx?.cardName };
+  // The body program + the original spell's targets ride on the cloned EFFECT_PROGRAM payload. A targeted body
+  // (resolver:"effect-program" with a chosen-target atom) re-picks per copy; everything else keeps empty targets.
+  const bodyProgram = sourcePayload?.params?.program || null;
+  const originalTargets = sourcePayload?.params?.targets || [];
+  // Whether ANY atom in the body takes a chosen target (drives the per-copy re-enumeration). We re-enumerate when
+  // the body has a targeting atom OR carried original targets — both signal a targeted spell; a non-targeted body
+  // (no targeting atom, no original targets) skips straight to the clone with empty targets (byte-identical to
+  // the pre-targeted STORM behavior for Empty the Warrens / Chatterstorm / Weather the Storm).
+  const bodyHasChosenTarget = (bodyProgram?.atoms || []).some((a) => !!a.targetType) || originalTargets.length > 0;
+  // STORM-COPY-TARGET — pick a fresh legal target combo for one copy off the LIVE state `s`. Prefer all-enemy-side
+  // (per copyAtomIntent), else first legal, else the original spell's targets (CR 707.10c default). Returns null
+  // when the body needs a target but none is legal (the copy is removed, CR 608.2b).
+  const pickCopyTargets = (s) => {
+    if (!bodyHasChosenTarget) return [];
+    let combos;
+    try { combos = expandCastChoices(s, ctx.controller, bodyProgram) || []; } catch { combos = []; }
+    if (combos.length === 0) {
+      // No fresh legal target. CR 707.10c default = keep the original targets — but only if they're STILL legal-
+      // shaped (present). If the original is also empty the copy has no target → remove it (null).
+      return originalTargets.length > 0 ? originalTargets : null;
+    }
+    const sideOk = (combo) => (combo.targets || []).every((t) => {
+      const intent = copyAtomIntent((bodyProgram.atoms || [])[t.atomIndex]);
+      if (intent === "enemy") { const side = copyTargetSide(s, t); return side != null && side !== ctx.controller; }
+      if (intent === "own") return copyTargetSide(s, t) === ctx.controller;
+      return true; // null intent (non-side-constrained atom) — any legal target is fine
+    });
+    const chosen = combos.find(sideOk) || combos[0];
+    return chosen?.targets || [];
+  };
   let next = state;
+  let made = 0;
   for (let i = 0; i < n; i++) {
+    // Re-enumerate against `next` so each copy sees the prior copies (they're on the stack but not yet resolved —
+    // the board is unchanged, so each copy independently re-derives the same enemy-side legal set; deterministic).
+    const copyTargets = pickCopyTargets(next);
+    if (copyTargets === null) {
+      // CR 608.2b — a copy that needs a target with none legal is removed (it never goes on the stack). Log + skip.
+      next = logEvent(next, { kind: "spell-effect", effect: "storm-copy-removed", controller: ctx.controller, cardName: sourceCard?.name, reason: "no legal target" });
+      continue;
+    }
     const { id, state: s2 } = mintId(next, "stk");
     next = s2;
+    // Clone the frozen payload so the copy resolves the SAME program independently of the original, then OVERWRITE
+    // params.targets with this copy's freshly-chosen targets (CR 707.10c) so the interpreter binds them per clause.
+    const clonedPayload = JSON.parse(JSON.stringify(sourcePayload));
+    if (clonedPayload?.params) clonedPayload.params.targets = copyTargets;
     const copyObj = createStackObject({
       id,
       kind: "spell",
       source: { ...sourceCard, token: true, isCopy: true },
       controller: ctx.controller,
-      targets: [], // non-targeted storm spells only (a targeted body parks upstream) — copies need no new targets
-      // Deep-ish clone the frozen payload so the copy resolves the SAME program independently of the original.
-      payload: JSON.parse(JSON.stringify(sourcePayload)),
+      targets: copyTargets, // the copy's chosen targets (empty for a non-targeted body)
+      payload: clonedPayload,
     });
     next = { ...next, stack: [...next.stack, { ...copyObj, isCopy: true }] };
+    made++;
   }
-  return logEvent(next, { kind: "spell-effect", effect: "storm-copy", count: n, controller: ctx.controller, cardName: sourceCard?.name });
+  return logEvent(next, { kind: "spell-effect", effect: "storm-copy", count: made, requested: n, controller: ctx.controller, cardName: sourceCard?.name });
 }
 
 export const stackResolvers = {
