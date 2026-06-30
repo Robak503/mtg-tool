@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-06-29
+
+### Improved
+- **Aristocrats death-trigger + copy-rider subsystems (+5 native).** New death-dispatch infrastructure —
+  planeswalker death + leaves-the-battlefield / put-into-graveyard watchers — lights up Cruel Celebrant,
+  Nadier's Nightblade, and Tablet of Epityr (reusable across every aristocrats deck). Plus copy-with-rider
+  clones: Spark Double (copy a creature or planeswalker + conditional counter) and Second Harvest (copy each
+  token you control). Flip-diffed both directions, 0 regressions, full gate (5,523 tests) green, 0 false positives.
+
 ## [0.56.0] - 2026-06-29
 
 ### Improved
