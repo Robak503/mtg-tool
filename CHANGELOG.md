@@ -8,6 +8,21 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.81.0] - 2026-06-30
+
+### Improved
+- **Cross-deck counter spell-filters + causative single-target pump (+30 native — biggest wave since kicker).**
+  Hard-counters gated by a spell filter — type (Dispel, Annul), mana-value compare (Disdainful Stroke, Spell Snare),
+  color (Gainsay, Ceremonious Rejection) — plus activated/modal/adventure counters; and the causative "have target
+  creature get ±N/±N" pump (Fourth Bridge Prowler → Yuriko 52%, Blightcaster, Painsmith…). Confirmed the counter
+  RUNTIME genuinely resolves (cast → counter a stacked spell → graveyard). Flip-diffed both directions (30 gained, 0
+  lost, deterministic), full gate (6,297 tests) green, 0 false positives.
+
+### Fixed
+- **Counter-target enumeration** now threads the spell's mana-value / color restrictions into the cast-path target
+  spec, so a filtered counter ("counter target spell with mana value 3 or less") is never offered an illegal target.
+
+
 ## [0.80.0] - 2026-06-30
 
 ### Improved
