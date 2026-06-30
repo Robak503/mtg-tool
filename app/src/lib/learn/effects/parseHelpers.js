@@ -90,6 +90,7 @@ export const COUNT_SUBTYPE = {
   pirate: "Pirate", pirates: "Pirate", dinosaur: "Dinosaur", dinosaurs: "Dinosaur", faerie: "Faerie", faeries: "Faerie",
   giant: "Giant", giants: "Giant", saproling: "Saproling", saprolings: "Saproling", insect: "Insect", insects: "Insect",
   boar: "Boar", boars: "Boar", sliver: "Sliver", slivers: "Sliver",
+  plant: "Plant", plants: "Plant",
   // artifact subtypes (incl. the named tokens)
   treasure: "Treasure", treasures: "Treasure", clue: "Clue", clues: "Clue", food: "Food", foods: "Food",
   equipment: "Equipment", powerstone: "Powerstone", powerstones: "Powerstone", construct: "Construct", constructs: "Construct",

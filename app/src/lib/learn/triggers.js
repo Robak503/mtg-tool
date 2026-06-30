@@ -455,6 +455,13 @@ function classifyCondition(condRaw, cardName, cardType) {
     // BEFORE the another-subtype / creatureSubjectScope matchers, which don't recognize "nontoken".
     const etbSubjRaw = subjectBefore(c, "enters");
     if (etbSubjRaw === "a nontoken creature you control") return { event: "etb", scope: "creatureYouControl", whose: "any", nontokenFilter: true };
+    // "ANOTHER nontoken creature you control enters" (Surrak and Goreclaw) — the OTHER-creature analog of the
+    // line above (excludes the source). Same scope-expressible nontoken restriction (CR 111.1); the bare
+    // "another nontoken creature" (no subtype) falls through the another-subtype matcher below because
+    // "creature" is in NON_SUBTYPE_ETB_WORDS, and creatureSubjectScope returns null for "nontoken" — so it is
+    // carved out HERE. nontokenFilter:true + scope otherCreatureYouControl are both already enforced by
+    // scopeMatches (a token entering does NOT fire; the source's own entry is excluded by the id check).
+    if (etbSubjRaw === "another nontoken creature you control") return { event: "etb", scope: "otherCreatureYouControl", whose: "any", nontokenFilter: true };
     const ntSubEtb = etbSubjRaw.match(/^a nontoken ([a-z]{3,}) you control$/);
     if (ntSubEtb && !NON_SUBTYPE_ETB_WORDS.has(ntSubEtb[1])) {
       return { event: "etb", scope: "subtypeYouControl", whose: "any", subtypeFilter: ntSubEtb[1].charAt(0).toUpperCase() + ntSubEtb[1].slice(1), nontokenFilter: true };
@@ -1015,6 +1022,36 @@ const ETB_ENTERING_CREATURE_SCOPES = new Set([
   "eachCreature", "eachOtherCreature", "creatureOpponentControls",
 ]);
 
+// ETB-ENTERING-PRONOUN — the COUNTER + PUMP-KEYWORD pronoun referent for an ETB enters-watcher. On an `etb`
+// event the triggering permanent IS the entering creature for every scope in ETB_ENTERING_CREATURE_SCOPES
+// above (checkEnterTriggers threads enteredPerm — the SAME guarantee the SOURCE-STAT etb rewrite relies on),
+// so "it" / "that creature" in such a trigger's effect is unambiguously the entering creature =
+// ctx.triggeringPermanentId. UNLIKE the single-clause attack/combat-damage forms (whole-clause anchored), an
+// ENTERS-counter effect is often COMPOUND — "Whenever another nontoken creature you control enters, put a
+// +1/+1 counter on it. It gains haste until end of turn." (Surrak and Goreclaw) — so we rewrite per-SENTENCE,
+// applying the same anchored counter / pump-keyword pronoun rewrites to each clause and rejoining. The
+// sentinel "the triggering creature" appears in ZERO printed oracle text, so the WAVE-3b parser binds it to
+// target:"thatCreature"; a SPELL's anaphoric "it" never reaches here (it isn't an etb enters-watcher) →
+// stays LOW → Arbiter (CREED — sentinel gate). All-or-nothing: a clause the anchored patterns can't rewrite
+// is left verbatim, so its raw "it" stays unmodeled → the parser fails the HIGH gate → body-only (never a
+// fabricated / mis-bound effect). Reuses the SAME ±1/±1 counter + pump-keyword cores as the non-self forms.
+const ETB_COUNTER_ON_IT_CLAUSE = /^put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)$/i;
+const ETB_IT_PUMP_CLAUSE = /^it (?:gets [+-]\d+\/[+-]\d+(?: and gains .+)?|gains .+) until end of turn$/i;
+function rewriteEtbEnteringPronoun(effectClause) {
+  return String(effectClause)
+    .split(/\.\s+/)
+    .map((sentence) => {
+      const s = sentence.replace(/\.\s*$/, "").trim();
+      if (ETB_COUNTER_ON_IT_CLAUSE.test(s)) return s.replace(/ on (?:it|that creature)$/i, " on the triggering creature");
+      if (ETB_IT_PUMP_CLAUSE.test(s)) return s.replace(/^it /i, "the triggering creature ");
+      return s; // a clause we don't model is left verbatim → its raw "it" keeps the program LOW (CREED)
+    })
+    .join(". ");
+}
+// True iff the ETB effect carries at least one entering-creature pronoun clause we can rewrite (so we only
+// take this branch when there's something to do — otherwise the chain falls through to SOURCE-STAT etc.).
+const ETB_ENTERING_PRONOUN_RE = /(?:put (?:a|an|one|two|three|four|five|\d+) [+-]1\/[+-]1 counters? on (?:it|that creature)|^it (?:gets|gains)\b|\.\s+it (?:gets|gains)\b)/i;
+
 // TRIG-PRONOUN-IT — the NON-SELF pronoun referent for the OTHER effect families (the non-self analogues of
 // the SELF "it" forms): "Whenever a creature you control attacks, IT gets/gains … until end of turn /
 // sacrifice IT / return IT to its owner's hand". "it" is the TRIGGERING permanent (CR 608.2c), not the
@@ -1319,6 +1356,17 @@ export function detectTriggers(card) {
         // CANT_REGEN_TEST on the full oracle and stamps cannotRegenerate on the destroy atom. The detector
         // gated nativeness on this exact "destroy that creature" prefix, so no other effect reaches this rewrite.
         effectClause = effectClause.replace(/^destroy that creature/i, "destroy the triggering creature");
+      } else if (cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) && ETB_ENTERING_PRONOUN_RE.test(effectClause)) {
+        // ===== ETB-ENTERING-PRONOUN ===== an ETB enters-watcher whose effect puts a +1/+1 counter on / pumps
+        // the ENTERING creature via "it" / "that creature" (Surrak and Goreclaw — "put a +1/+1 counter on it.
+        // It gains haste until end of turn."; The Great Henge — "put a +1/+1 counter on it and draw a card").
+        // On `etb` the triggering permanent IS the entering creature for these scopes (checkEnterTriggers, the
+        // SAME guarantee SOURCE-STAT below relies on), so "it" = ctx.triggeringPermanentId. Rewrite per-sentence
+        // → the sentinel "the triggering creature" the WAVE-3b parser binds to target:"thatCreature" (counter)
+        // / pump target:"thatCreature". Gated to the etb event + an entering-creature scope + an actual pronoun
+        // clause (a SPELL anaphor / a non-enters trigger never reaches here), CREED-safe. All-or-nothing: any
+        // clause the anchored patterns can't rewrite keeps its raw "it" → the parser fails HIGH → body-only.
+        effectClause = rewriteEtbEnteringPronoun(effectClause);
       } else if (cls.event === "etb" && ETB_ENTERING_CREATURE_SCOPES.has(cls.scope) && STAT_PAYOFF_REF_RE.test(effectClause)) {
         // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== an ETB trigger paying off "that creature's
         // power/toughness" — the ENTERING creature's stat (Terror of the Peaks damage, Verdant Sun's Avatar

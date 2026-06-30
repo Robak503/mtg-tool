@@ -292,6 +292,19 @@ export function permanentTriggersCovered(card) {
   // FP this anchoring avoids. FN-safe: allTriggerSentencesModeled passed above (every trigger, modal included,
   // is fully modeled), so removing a modal trigger's own block can only reveal the keyword-only body.
   const residue = stripTriggerAbilityLabel(card.oracle || "")
+    // ETB-ENTERING-PRONOUN tail (Surrak and Goreclaw) — "…put a +1/+1 counter on it. It gains haste until end
+    // of turn." The entering-creature counter trigger's effect SPANS two sentences (a same-line follow-up):
+    // detectTriggers folds the "It gets/gains <kw> until end of turn." sentence into the trigger's effectClause,
+    // and the WHOLE effect parses HIGH in allTriggerSentencesModeled above (proven before this residue check
+    // runs — an unmodeled keyword fails that gate and never reaches here). The trigger-sentence strip below
+    // stops at the first period after "…on it.", leaving the pump sentence as apparent residue. Strip it — but
+    // ONLY when it DIRECTLY FOLLOWS the counter clause ("counter on it/that creature/this creature. It gets/
+    // gains … until end of turn"), so a standalone / differently-referented "It …until end of turn" elsewhere on
+    // the card is NEVER consumed (CREED — the strip can only eat the Surrak counter-then-pump shape, not a
+    // separate ability; 602 corpus cards carry an unrelated "It …EOT" and must be untouched). Run FIRST (before
+    // the When/Whenever strip removes the "counter on it." prefix this anchor needs); the remaining "…counter on
+    // it." stays inside the trigger sentence and is removed by the trigger-sentence strip below.
+    .replace(/(counters? on (?:it|that creature|this creature))\.\s+it (?:gets [+-]\d+\/[+-]\d+(?: and gains [^.]+)?|gains [^.]+) until end of turn\b\.?\s*/gi, "$1. ")
     .replace(/(?:^|[\n.;]\s*)(?:When|Whenever|At)\b[^\n]*?\bchoose (?:one|two|three|four|five|one or more|one or both|up to (?:one|two|three|four|five))\b\s*[—-][^\n]*(?:\n\s*•[^\n]*)+/gi, " ")
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, " ")
     .replace(/\bas\b[^.]*\benters\b[^.]*,\s*choose a creature type\b\.?/gi, " ")
@@ -422,7 +435,16 @@ export function permanentFullyCovered(card) {
   // must be a modeled static or keyword-only — no unmodeled trigger/static/other text survives.
   // FOLD modal-ability bullet lines first (Koma's "Choose one — \n• … \n• …"), so a multi-line modal
   // activated ability strips as ONE line rather than leaving its mode bullets as apparent residue.
-  const afterTriggers = oracle.replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n");
+  // ETB-ENTERING-PRONOUN tail (Surrak and Goreclaw) — strip the "It gets/gains <kw> until end of turn." pump
+  // sentence that a same-line entering-creature trigger folds into its effect (the trigger regex stops at the
+  // first period after "…on it.", leaving it as residue). FN-safe: allTriggerSentencesModeled passed above, so
+  // the whole trigger effect (this tail included) is proven modeled. ONLY strip when it DIRECTLY follows the
+  // counter clause (the Surrak shape) — run BEFORE the trigger-sentence strip (which removes the "counter on
+  // it." prefix this anchor needs), so a standalone "It …EOT" elsewhere is never consumed (CREED; mirrors the
+  // native-trigger residue chain's ordering).
+  const afterTriggers = oracle
+    .replace(/(counters? on (?:it|that creature|this creature))\.\s+it (?:gets [+-]\d+\/[+-]\d+(?: and gains [^.]+)?|gains [^.]+) until end of turn\b\.?\s*/gi, "$1. ")
+    .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n");
   const afterActivated = foldModalBulletLines(stripReminder(afterTriggers))
     .filter((line) => !isActivatedAbilityLine(line))
     .join("\n");

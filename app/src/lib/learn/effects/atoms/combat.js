@@ -23,17 +23,26 @@ import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keyword
  * end-of-turn) that legalChoices.actionsActivateAbility checks to suppress its activated abilities for the rest
  * of the turn (the same continuous-effect + auto-expire pattern as cant-block). Folded into the tap atom (one
  * target, "Its" = the just-tapped permanent), so there's no cross-atom "it" reference to resolve. */
+// UNTAP-BASIC-SUBTYPE (Arbor Elf "{T}: Untap target Forest") — the targetType is a basic land SUBTYPE
+// (forest/island/swamp/mountain/plains, CR 305.6), so re-verify the LIVE permanent carries that subtype in
+// its type line before acting (mirrors the land re-verify; never untap a non-matching permanent — CREED).
+const BASIC_SUBTYPE_TARGET = new Set(["forest", "island", "swamp", "mountain", "plains"]);
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 export function applyTapEffect(state, atom, ctx, tap) {
   let next = state;
   const wantsLand = atom?.targetType === "land";
   const wantsPermanent = atom?.targetType === "permanent";
+  const wantsBasicSubtype = BASIC_SUBTYPE_TARGET.has(atom?.targetType);
   for (const t of ctx.targets || []) {
     const lk = findPermanent(next, t.id);
     if (!lk) continue;
-    const isLand = /\bland\b/i.test(typeLineStr(lk.permanent.card));
-    // UNTAP-LAND: only act on a land target (verified live). TAP-PERMANENT: act on ANY live permanent.
-    // CREATURE form: only act on a creature target.
-    const ok = wantsLand ? isLand : wantsPermanent ? true : t.type === "creature";
+    const tl = typeLineStr(lk.permanent.card);
+    const isLand = /\bland\b/i.test(tl);
+    // UNTAP-LAND: only act on a land target (verified live). UNTAP-BASIC-SUBTYPE: only a land of the named
+    // basic subtype (verified live). TAP-PERMANENT: act on ANY live permanent. CREATURE form: a creature.
+    const ok = wantsBasicSubtype
+      ? isLand && new RegExp(`\\b${cap(atom.targetType)}\\b`).test(tl)
+      : wantsLand ? isLand : wantsPermanent ? true : t.type === "creature";
     if (!ok) continue;
     next = tap ? tapPermanent(next, t.id) : untapPermanent(next, t.id);
     if (tap && atom?.lockActivated) {
@@ -565,6 +574,15 @@ export function combatKeywordClauseParser(clause) {
   // and applyTapEffect re-verifies the live permanent is a land before untapping. Whole-clause anchored ($) so
   // a qualified form ("untap target land you control", "untap X target lands") stays Arbiter (a safe FN).
   if (/^untap target land$/.test(t)) return { op: "untap", targetType: "land" };
+  // UNTAP-BASIC-SUBTYPE (Arbor Elf "{T}: Untap target Forest"; Voyaging Satyr's typed kin) — a single chosen
+  // land of a basic SUBTYPE (CR 305.6). targetType is the lowercased subtype; enumerateTargets routes it
+  // through PERMANENT_PREDICATES.<subtype> (any land of that subtype on any battlefield is legal), and
+  // applyTapEffect re-verifies the live permanent carries the subtype before untapping. Whole-clause anchored
+  // ($) so "untap target basic land" / "untap target Forest you control" / "untap two target Forests" stays
+  // Arbiter (a safe FN). Only the five basic land subtypes (never a creature subtype — a non-land "Forest"
+  // doesn't exist, and the predicate also requires a Land type line).
+  const us = t.match(/^untap target (forest|island|swamp|mountain|plains)$/);
+  if (us) return { op: "untap", targetType: us[1] };
   if (/^target creature can't block this turn$/.test(t)) return { op: "cant-block", targetType: "creature" };
   // CANT-BE-BLOCKED — "target creature[ you control] can't be blocked this turn" (Infiltrate, Artful Dodge).
   // The `$` anchor rejects a qualified "…except by <X>" / conditional form (those stay Arbiter, FN-safe).

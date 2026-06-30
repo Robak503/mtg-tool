@@ -480,6 +480,13 @@ export function enumerateTargets(state, controllerId, effect, sourceColors = [])
     artifact: (tl) => /\bArtifact\b/.test(tl),
     enchantment: (tl) => /\bEnchantment\b/.test(tl),
     land: (tl) => /\bLand\b/.test(tl),
+    // UNTAP-BASIC-SUBTYPE (Arbor Elf "Untap target Forest") — a land of a specific basic subtype (CR 305.6).
+    // BOTH a Land type line AND the subtype are required (a non-land bearing the word can never match).
+    forest: (tl) => /\bLand\b/.test(tl) && /\bForest\b/.test(tl),
+    island: (tl) => /\bLand\b/.test(tl) && /\bIsland\b/.test(tl),
+    swamp: (tl) => /\bLand\b/.test(tl) && /\bSwamp\b/.test(tl),
+    mountain: (tl) => /\bLand\b/.test(tl) && /\bMountain\b/.test(tl),
+    plains: (tl) => /\bLand\b/.test(tl) && /\bPlains\b/.test(tl),
     permanent: () => true,
     nonlandPermanent: (tl) => !/\bLand\b/.test(tl),
     artifactOrEnchantment: (tl) => /\bArtifact\b|\bEnchantment\b/.test(tl),

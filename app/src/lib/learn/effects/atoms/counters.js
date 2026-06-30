@@ -297,6 +297,15 @@ export function addCounterClauseParser(clause) {
   if (m && (m[3] === "artifact" || m[3] === "enchantment")) {
     return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl", subtypeFilter: m[3].charAt(0).toUpperCase() + m[3].slice(1) };
   }
+  // "each <Subtype> creature you control" (Avenger of Zendikar — "each Plant creature you control") — the
+  // subtype-bearing CREATURE form, distinct from the "each <Subtype> you control" form below (which has no
+  // "creature" word, e.g. "each Goblin you control"). The subtype maps through the SAME curated, collision-free
+  // COUNT_SUBTYPE allowlist, so controllerCreatureTargets' \b<Subtype>\b type-line match credits EXACTLY the
+  // subtyped creatures (CREED — a non-curated word → null → low → Arbiter). Checked AFTER artifact/enchantment
+  // (those are card-TYPE qualifiers handled above), BEFORE the no-"creature" subtype form.
+  if (m && COUNT_SUBTYPE[m[3]]) {
+    return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl", subtypeFilter: COUNT_SUBTYPE[m[3]] };
+  }
   m = t.match(/^put (a|an|one|two|three|four|five|\d+) ([+-]1\/[+-]1) counters? on each ([a-z]+) you control$/);
   if (m && COUNT_SUBTYPE[m[3]]) {
     return { op: "add-counter", counterType: m[2], amount: SMALL_NUM[m[1]] ?? parseInt(m[1], 10), scope: "youControl", subtypeFilter: COUNT_SUBTYPE[m[3]] };
