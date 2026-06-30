@@ -32,13 +32,50 @@ import { expandCastChoices } from "../targeting.js"; // STORM-COPY-TARGET: re-en
 const counterTypeLine = (card) => String(card?.type || card?.type_line || "").split(" // ")[0];
 // CNT-MV-EXACT (WAVE 2b) — Mental Misstep / Spell Snare: the target spell's mana value must EQUAL
 // atom.exactMv (NOT "or less"/"or greater"). A spell with no cmc reads 0 (CR 202.3 — an absent cost is MV 0).
-const counterMvOk = (card, atom) =>
-  atom == null || atom.exactMv == null || (card?.cmc ?? card?.mana_value ?? 0) === atom.exactMv;
+// CNT-MV-CMP (CROSS-COUNTER) — Disdainful Stroke / Minor Misstep / Thoughtbind: "mana value N or greater" /
+// "or less" is the INEQUALITY form (atom.minMv / atom.maxMv), checked alongside the exact form. The parser
+// emits at most one of {exactMv, minMv, maxMv} per atom, so testing each independently is correct.
+const counterMvOk = (card, atom) => {
+  if (atom == null) return true;
+  const mv = card?.cmc ?? card?.mana_value ?? 0; // CR 202.3 — an absent cost is MV 0
+  if (atom.exactMv != null && mv !== atom.exactMv) return false;
+  if (atom.minMv != null && !(mv >= atom.minMv)) return false;
+  if (atom.maxMv != null && !(mv <= atom.maxMv)) return false;
+  return true;
+};
+// CNT-COLOR (CROSS-COUNTER) — Gainsay / Frazzle / Ceremonious Rejection / Neutralizing Blast: the target's
+// COLOR. Reads the FRONT-face colors (CR 712.4a): a DFC's combined "Front // Back" type line signals a DFC, so
+// prefer card_faces[0].colors over the (often-stale) top-level field, mirroring spellEffects.colorNeg. FAIL-
+// CLOSED when colors are unresolvable (no array) — never offer/resolve a wrong-color counter (an illegal
+// target is the cardinal sin; a dropped legal target is a safe false-negative). Shared by both filter funcs.
+export function counterColorsOf(card) {
+  const isDfc = / \/\/ /.test(String(card?.type || card?.type_line || ""));
+  const colors = isDfc ? card?.card_faces?.[0]?.colors : card?.colors;
+  return Array.isArray(colors) ? colors : null;
+}
+function counterColorOk(card, atom) {
+  if (atom?.colorFilter == null) return true;
+  const cf = atom.colorFilter;
+  const colors = counterColorsOf(card);
+  if (colors == null) return false; // FAIL-CLOSED — unresolvable colors never match a color-restricted counter
+  if (cf.colorless) return colors.length === 0;       // "counter target colorless spell"
+  if (cf.multicolored) return colors.length >= 2;     // "counter target multicolored spell"
+  if (cf.color) return cf.negate ? !colors.includes(cf.color) : colors.includes(cf.color); // (non)blue, etc.
+  return true;
+}
 export function counterFilterMatches(card, filter, atom = null) {
   const type = counterTypeLine(card);
-  if (!counterMvOk(card, atom)) return false; // CNT-MV-EXACT — fails the MV test → not a legal counter target
+  if (!counterMvOk(card, atom)) return false; // CNT-MV-EXACT / CNT-MV-CMP — fails the MV test → not a legal target
+  if (!counterColorOk(card, atom)) return false; // CNT-COLOR — fails the color test → not a legal target
   if (filter === "noncreature") return !/Creature/.test(type);
   if (filter === "creature") return /Creature/.test(type);
+  // CNT-TYPE (CROSS-COUNTER) — single-type / 2-type-union hard counters (Dispel / Envelop / Artifact Blast /
+  // Annul / Nullify). Each is a word-bounded front-face type test; mirrored in spellMatchesCounterFilter.
+  if (filter === "instant") return /\bInstant\b/.test(type);
+  if (filter === "sorcery") return /\bSorcery\b/.test(type);
+  if (filter === "artifact") return /\bArtifact\b/.test(type);
+  if (filter === "artifactOrEnchantment") return /\b(?:Artifact|Enchantment)\b/.test(type);
+  if (filter === "creatureOrAura") return /\bCreature\b/.test(type) || /\bAura\b/.test(type);
   // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors spellMatchesCounterFilter for enumeration).
   if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
   // CNT-ACP (WAVE 2b) — Strix Serenade's 3-way "artifact, creature, or planeswalker" union (front-face).
@@ -288,8 +325,30 @@ export function counterClauseParser(clause) {
   if (/^counter target noncreature spell$/.test(t)) return { op: "counter", spellFilter: "noncreature", targetType: "spell" };
   if (/^counter target creature spell$/.test(t)) return { op: "counter", spellFilter: "creature", targetType: "spell" };
   if (/^counter target enchantment, instant, or sorcery spell$/.test(t)) return { op: "counter", spellFilter: "enchantmentInstantSorcery", targetType: "spell" };
+  // CNT-TYPE (CROSS-COUNTER) — single-type / 2-type-union HARD counters, no rider (Dispel "instant", Envelop /
+  // Extinguish "sorcery", Artifact Blast "artifact", Annul "artifact or enchantment", Nullify "creature or
+  // Aura"). spellFilter applied at enumeration (spellMatchesCounterFilter) + resolution (counterFilterMatches),
+  // the SAME two-sided discipline as the existing creature/noncreature/3-way filters. Anchored `$` — any tail
+  // (rider/mode/unless-pay) fails → low → Arbiter (FN-safe).
+  if (/^counter target instant spell$/.test(t)) return { op: "counter", spellFilter: "instant", targetType: "spell" };
+  if (/^counter target sorcery spell$/.test(t)) return { op: "counter", spellFilter: "sorcery", targetType: "spell" };
+  if (/^counter target artifact spell$/.test(t)) return { op: "counter", spellFilter: "artifact", targetType: "spell" };
+  if (/^counter target artifact or enchantment spell$/.test(t)) return { op: "counter", spellFilter: "artifactOrEnchantment", targetType: "spell" };
+  if (/^counter target creature or aura spell$/.test(t)) return { op: "counter", spellFilter: "creatureOrAura", targetType: "spell" };
   const mv = /^counter target spell with mana value (\d+)$/.exec(t);
   if (mv) return { op: "counter", spellFilter: "any", targetType: "spell", exactMv: parseInt(mv[1], 10) };
+  // CNT-MV-CMP (CROSS-COUNTER) — "with mana value N or greater" (Disdainful Stroke) / "or less" (Minor Misstep,
+  // Thoughtbind). The INEQUALITY MV form (minMv / maxMv), re-checked at enumeration + resolution like exactMv.
+  const mvCmp = /^counter target spell with mana value (\d+) or (greater|less)$/.exec(t);
+  if (mvCmp) return { op: "counter", spellFilter: "any", targetType: "spell", ...(mvCmp[2] === "greater" ? { minMv: parseInt(mvCmp[1], 10) } : { maxMv: parseInt(mvCmp[1], 10) }) };
+  // CNT-COLOR (CROSS-COUNTER) — "counter target <color> spell" (Gainsay), "non<color>" (Frazzle), "colorless"
+  // (Ceremonious Rejection), "multicolored" (Neutralizing Blast). colorFilter checked at both sites (FAIL-CLOSED
+  // on unresolvable colors). The 5 WUBRG words → their Scryfall color letters; an unlisted color word won't match.
+  const COLOR_LETTER = { white: "W", blue: "U", black: "B", red: "R", green: "G" };
+  if (/^counter target colorless spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell", colorFilter: { colorless: true } };
+  if (/^counter target multicolored spell$/.test(t)) return { op: "counter", spellFilter: "any", targetType: "spell", colorFilter: { multicolored: true } };
+  const col = /^counter target (non)?(white|blue|black|red|green) spell$/.exec(t);
+  if (col) return { op: "counter", spellFilter: "any", targetType: "spell", colorFilter: { color: COLOR_LETTER[col[2]], negate: !!col[1] } };
   if (/^counter target artifact, creature, or planeswalker spell$/.test(t)) return { op: "counter", spellFilter: "artifactCreaturePlaneswalker", targetType: "spell" };
   const sc = /^counter target (noncreature |creature )?spell unless its controller pays \{(\d+)\}$/.exec(t);
   if (sc) return { op: "counter", spellFilter: sc[1] ? sc[1].trim() : "any", targetType: "spell", unlessPay: parseInt(sc[2], 10) };

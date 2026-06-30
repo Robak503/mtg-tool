@@ -802,11 +802,11 @@ const MUST_DROP_TO_LOW = [
   "Counter target spell or ability.",                            // "or ability" — not a bare spell target
   "Counter target activated or triggered ability.",              // an ability is not a spell
   "Counter up to two target spells.",                            // "up to two" cardinality unmodeled
-  "Counter target spell with mana value 3 or less.",             // mana-value INEQUALITY rider (WAVE 2b models EXACT "mana value N" only)
+  // (the mana-value INEQUALITY "with mana value N or less/greater" is now HIGH — CNT-MV-CMP, pinned in counterSpellFilters.test.js)
   "Counter target creature or planeswalker spell.",              // "or planeswalker" — not a modeled filter (only artifact,creature,or planeswalker is)
   "Counter target spell. If that spell is countered this way, exile it instead.", // replacement rider — the SHORT form (no "of putting it into its owner's graveyard") stays low
   // ── P3.1 corpus-confirmed riders (REAL Scryfall cards the sweep verified stay LOW) ──
-  "Counter target artifact or enchantment spell.",                     // Annul — unmodeled filter
+  // (Annul "artifact or enchantment" is now HIGH — CNT-TYPE, pinned in counterSpellFilters.test.js)
   "Counter target spell. Its controller mills four cards.",            // Countermand — unmodeled mill rider
   "Counter target noncreature spell. Its controller loses 2 life.",    // Countersquall — "its controller" subject unmodeled
   "Choose up to two —\n• Draw a card.\n• You gain 3 life.",            // MODAL-2 models "choose two"/"one or both"; "up to N" count stays low

@@ -54,8 +54,19 @@ function kCombinations(n, k) {
 function atomTargetSpec(atom) {
   const tt = atom?.targetType;
   if (!tt || isNonChosenTargetType(tt)) return null;
-  // P3.1 counter: a spell-target spec carries the spellFilter for stack-spell enumeration.
-  if (tt === "spell") return { kind: "counter", targetType: "spell", spellFilter: atom.spellFilter || "any" };
+  // P3.1 counter: a spell-target spec carries the spellFilter for stack-spell enumeration. The MV (exactMv —
+  // Spell Snare / Mental Misstep; minMv/maxMv — Disdainful Stroke / Minor Misstep) and color (colorFilter —
+  // Gainsay / Frazzle / Ceremonious Rejection / Neutralizing Blast) restrictions ride along too, so the cast-
+  // path enumerator (spellEffects.spellMatchesCounterFilter, which reads them off this spec) offers exactly the
+  // legal stack spells — never a wrong-MV/wrong-color target (CR 601.2c + CREED FP-forbidden). Only carry a
+  // field when the atom set it (undefined keys are ignored by the matcher; this keeps the spec minimal).
+  if (tt === "spell") return {
+    kind: "counter", targetType: "spell", spellFilter: atom.spellFilter || "any",
+    ...(atom.exactMv != null && { exactMv: atom.exactMv }),
+    ...(atom.minMv != null && { minMv: atom.minMv }),
+    ...(atom.maxMv != null && { maxMv: atom.maxMv }),
+    ...(atom.colorFilter != null && { colorFilter: atom.colorFilter }),
+  };
   // Graveyard recursion: a graveyard-card target carries the cardFilter (creature/any) so
   // enumerateTargets surfaces only the matching graveyard cards. anyGraveyard (Reanimate / Hymn of
   // Rebirth — "from a graveyard") widens the scope to EVERY player's graveyard; opponentGraveyard

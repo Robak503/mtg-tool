@@ -611,15 +611,43 @@ export function handCardMatches(card, hf) {
   return true;
 }
 
-/** Does a spell on the stack match a counter's spellFilter (CR 701.5a)? `atom` carries CNT-MV-EXACT's exactMv. */
+/**
+ * Does a spell on the stack match a counter's spellFilter (CR 701.5a)? `atom` carries the MV / color
+ * restrictions (exactMv / minMv / maxMv / colorFilter). MIRRORS counterFilterMatches in atoms/stack.js EXACTLY
+ * — the two are kept in lockstep by hand (not delegated) to avoid a spellEffects ↔ atoms/stack import cycle; any
+ * filter added in one MUST be added here. spellEffects is the ENUMERATION side ("is this a legal target to
+ * offer?"); counterFilterMatches is the RESOLUTION side ("does the counter still apply?").
+ */
 function spellMatchesCounterFilter(stackObj, filter, atom = null) {
+  const card = stackObj?.source;
   // Front-face type only — a split/MDFC spell's enriched type line is "Front // Back".
-  const type = String(stackObj?.source?.type || stackObj?.source?.type_line || "").split(" // ")[0];
-  // CNT-MV-EXACT (WAVE 2b) — Mental Misstep / Spell Snare: the target spell's mana value must EQUAL atom.exactMv
-  // (NOT "or less"/"or greater"). An absent cost reads MV 0 (CR 202.3). Mirrors counterFilterMatches at resolution.
-  if (atom?.exactMv != null && (stackObj?.source?.cmc ?? stackObj?.source?.mana_value ?? 0) !== atom.exactMv) return false;
+  const type = String(card?.type || card?.type_line || "").split(" // ")[0];
+  const mv = card?.cmc ?? card?.mana_value ?? 0; // CR 202.3 — an absent cost reads MV 0
+  // CNT-MV-EXACT (WAVE 2b — Mental Misstep / Spell Snare): equal. CNT-MV-CMP (CROSS-COUNTER — Disdainful Stroke /
+  // Minor Misstep / Thoughtbind): minMv (≥) / maxMv (≤). At most one is set per atom; test each independently.
+  if (atom?.exactMv != null && mv !== atom.exactMv) return false;
+  if (atom?.minMv != null && !(mv >= atom.minMv)) return false;
+  if (atom?.maxMv != null && !(mv <= atom.maxMv)) return false;
+  // CNT-COLOR (CROSS-COUNTER — Gainsay / Frazzle / Ceremonious Rejection / Neutralizing Blast): FRONT-face colors
+  // (CR 712.4a), FAIL-CLOSED when unresolvable (never offer a wrong-color counter target). Mirrors counterColorOf.
+  if (atom?.colorFilter != null) {
+    const cf = atom.colorFilter;
+    const isDfc = / \/\/ /.test(String(card?.type || card?.type_line || ""));
+    const colors = isDfc ? card?.card_faces?.[0]?.colors : card?.colors;
+    if (!Array.isArray(colors)) return false;                          // FAIL-CLOSED
+    if (cf.colorless && colors.length !== 0) return false;
+    if (cf.multicolored && colors.length < 2) return false;
+    if (cf.color && (cf.negate ? colors.includes(cf.color) : !colors.includes(cf.color))) return false;
+  }
   if (filter === "noncreature") return !/Creature/.test(type);
   if (filter === "creature") return /Creature/.test(type);
+  // CNT-TYPE (CROSS-COUNTER) — single-type / 2-type-union hard counters (Dispel / Envelop / Artifact Blast /
+  // Annul / Nullify). Word-bounded front-face type tests; mirrors counterFilterMatches at resolution.
+  if (filter === "instant") return /\bInstant\b/.test(type);
+  if (filter === "sorcery") return /\bSorcery\b/.test(type);
+  if (filter === "artifact") return /\bArtifact\b/.test(type);
+  if (filter === "artifactOrEnchantment") return /\b(?:Artifact|Enchantment)\b/.test(type);
+  if (filter === "creatureOrAura") return /\bCreature\b/.test(type) || /\bAura\b/.test(type);
   // SOFT-COUNTER-RIDER — Swan Song's 3-way filter (mirrors counterFilterMatches at resolution).
   if (filter === "enchantmentInstantSorcery") return /\b(?:Enchantment|Instant|Sorcery)\b/.test(type);
   // CNT-ACP (WAVE 2b) — Strix Serenade's "artifact, creature, or planeswalker" union (front-face).

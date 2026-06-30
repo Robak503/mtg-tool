@@ -2,7 +2,8 @@
  * WAVE 2b — counter-grammar extensions on the P3.1 hard-counter atom + the soft-counter machinery:
  *
  *   1. CNT-MV-EXACT  — "Counter target spell with mana value N" (Mental Misstep N=1, Spell Snare N=2).
- *      EXACT mana-value equality (NOT "or less"/"or greater"); the inequality variants stay LOW → Arbiter.
+ *      EXACT mana-value equality. (The "or less"/"or greater" INEQUALITY variants are now modeled too —
+ *      CNT-MV-CMP, v0.81.0 — and pinned in counterSpellFilters.test.js; the bare exact form lives here.)
  *   2. CNT-ACP       — "Counter target artifact, creature, or planeswalker spell" (Strix Serenade's lead;
  *      it carries the Swan-Song "Its controller creates a Bird" rider). 3-way front-face type union.
  *   3. SOFT-CNT-X    — "Counter target spell unless its controller pays {X}" (Clash of Wills). The {X} is the
@@ -53,10 +54,14 @@ describe("CNT-MV-EXACT — parser", () => {
     expect(isHigh("Counter target spell with mana value 1.")).toBe(true);
   });
 
-  it("CREED: 'or less' / 'or greater' inequalities stay LOW → Arbiter", () => {
-    expect(isHigh("Counter target spell with mana value 4 or greater.")).toBe(false); // Disdainful Stroke
-    expect(isHigh("Counter target spell with mana value 4 or less.")).toBe(false);    // Thoughtbind
-    expect(isHigh("Counter target spell with mana value 1 or less.")).toBe(false);    // Minor Misstep
+  it("'or less' / 'or greater' inequalities are now HIGH (CNT-MV-CMP — see counterSpellFilters.test.js)", () => {
+    // The bare-MV-inequality hard counters are modeled (minMv / maxMv); detailed enumeration + resolution +
+    // anti-FP boundary pins live in counterSpellFilters.test.js. Here we only confirm they no longer drop to low.
+    expect(isHigh("Counter target spell with mana value 4 or greater.")).toBe(true); // Disdainful Stroke
+    expect(isHigh("Counter target spell with mana value 4 or less.")).toBe(true);    // Thoughtbind
+    expect(isHigh("Counter target spell with mana value 1 or less.")).toBe(true);    // Minor Misstep
+    // CREED — an inequality with a TRAILING rider (unmodeled) still drops to low → Arbiter.
+    expect(isHigh("Counter target spell with mana value 4 or greater unless its controller pays {2}.")).toBe(false);
   });
 });
 
