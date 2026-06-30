@@ -41,6 +41,10 @@ const typeLine = (card) => String(card?.type || card?.type_line || "");
 // Front-face only (CR 712.4a) — a battlefield permanent shows its front face; a clone copies a
 // transform creature only when its FRONT is a creature.
 const isCreatureCard = (card) => /Creature/.test(typeLine(card).split(" // ")[0]);
+// Front-face planeswalker (CR 712.4a) — a clone with a "creature or planeswalker" scope (Spark Double) may
+// copy a battlefield permanent whose FRONT is a planeswalker; the copy then enters with its starting loyalty
+// (enterPermanent's castsAsPlaneswalker path) plus any conditional loyalty rider.
+const isPlaneswalkerCard = (card) => /Planeswalker/.test(typeLine(card).split(" // ")[0]);
 
 function stripReminder(text) {
   return String(text || "").replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
@@ -76,6 +80,13 @@ export function parseCloneRider(clause) {
   let cl = String(clause || "").toLowerCase().trim().replace(/^and\s+/, "").replace(/\.$/, "").trim();
   if (!cl) return null;
 
+  // "it isn't legendary" (Spark Double) — a NO-OP rider (the legend rule is unenforced by the engine), so it
+  // carries no atom field but IS recognized (returning a no-op kind) so the all-or-nothing rider gate doesn't
+  // park the whole clone over an unenforced-but-harmless modification. Mirrors the tokenCopy isn't-legendary
+  // no-op exactly. Distinct from "it's legendary in addition …" (Sakashima), which ADDS a supertype + pairs
+  // with an unmodeled granted-ability rider — that card parks (it never reaches a clean rider list here).
+  if (/^it (?:isn'?t|is not) legendary$|^it'?s not legendary$/.test(cl)) return { kind: "noop" };
+
   // "it's N/N" — a copy that sets base P/T (Quicksilver Gargantuan). CR 707.9.
   let m = cl.match(/^it'?s (\d+)\/(\d+)$/);
   if (m) return { kind: "setPT", power: parseInt(m[1], 10), toughness: parseInt(m[2], 10) };
@@ -83,6 +94,15 @@ export function parseCloneRider(clause) {
   // "it has vanishing N if that creature doesn't have vanishing" (Flesh Duplicate). CR 707.9a + 702.63a.
   m = cl.match(/^it has vanishing (\d+) if that creature doesn'?t have vanishing$/);
   if (m) return { kind: "grantVanishing", n: parseInt(m[1], 10) };
+
+  // CONDITIONAL ENTERS-WITH-COUNTER (Spark Double, CR 707.9a + 614.1c + 122.6a) — "it enters with an
+  // additional +1/+1 counter on it if it's a creature" / "it enters with an additional loyalty counter on it
+  // if it's a planeswalker". A REPLACEMENT that adds ONE counter to the ENTERING PERMANENT (counters live on
+  // the permanent, not the copiable card), GATED on the copy's resulting card type — so it's applied by the
+  // clone-resolution path (resolveCloneChoice), which knows the copied card, NOT by snapshotCopiedCard.
+  // Anchored to exactly the +1/+1-if-creature and loyalty-if-planeswalker shapes (a literal singular counter).
+  m = cl.match(/^it enters with an additional (\+1\/\+1|loyalty) counter on it if it'?s an? (creature|planeswalker)$/);
+  if (m) return { kind: "entersWithCounterIf", counterType: m[1], n: 1, ifType: m[2] };
 
   // "it's a <Subtype> in addition to its other [creature] types" — add a creature subtype (CR 707.9).
   // Must be a SUBTYPE only; a card-type/supertype change is unmodeled (CARD_TYPES_SUPERTYPES → null).
@@ -128,9 +148,12 @@ export function parseCloneSpec(card) {
   t = stripLeadingKeywords(t);
   // Modern templating is "this creature enter as a copy of …" (no "the battlefield"); the older
   // wording "enter the battlefield as a copy of …" is also accepted ((?: the battlefield)?). The
-  // tail is one of the two clean scopes, optionally + the MV cap, optionally + ", except <rider>".
+  // tail is one of the clean scopes, optionally + the MV cap, optionally + ", except <rider>".
+  // SCOPE "a creature or planeswalker you control" (Spark Double) — the copy may be a planeswalker; the
+  // entry path (enterPermanent castsAsPlaneswalker) gives a copied PW its starting loyalty, and the
+  // conditional counter rider (entersWithCounterIf) adds the +1/+1-if-creature / loyalty-if-planeswalker.
   const m = t.match(
-    /^(?:you may have (?:~|this creature) enter|(?:~|this creature) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|a creature you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
+    /^(?:you may have (?:~|this creature) enter|(?:~|this creature) enters?)(?: the battlefield)? as a copy of (any creature on the battlefield|a creature you control|a creature or planeswalker you control)( with mana value less than or equal to the amount of mana spent to cast this creature)?(?:, except (.+?))?\.?$/,
   );
   if (!m) return null;
 
@@ -147,7 +170,9 @@ export function parseCloneSpec(card) {
   }
   return {
     optional: /^you may\b/.test(t),
-    scope: m[1] === "a creature you control" ? "youControl" : "any",
+    scope: m[1] === "a creature you control" ? "youControl"
+      : m[1] === "a creature or planeswalker you control" ? "youControlCreatureOrPw"
+        : "any",
     mvLimit: !!m[2],
     riders,
   };
@@ -210,13 +235,21 @@ export function cloneMvCap(cloneCard, spec, xValue = 0) {
  * the controller for "you control", and (when `mvCap` is a number) restricted to creatures whose
  * mana value is ≤ the cap (Mockingbird). As `{ id, name }` (battlefield permanent ids). The clone
  * itself isn't on the battlefield yet, so it can't be a candidate.
+ *
+ * SCOPE "youControlCreatureOrPw" (Spark Double) — the controller's CREATURES *and* PLANESWALKERS are both
+ * legal (front-face, CR 712.4a). Both copy correctly: a creature copy enters as the snapshot; a planeswalker
+ * copy enters with its starting loyalty via enterPermanent's castsAsPlaneswalker path. (No MV cap pairs with
+ * this scope in the corpus; the cap filter still applies harmlessly if one ever did.)
  */
 export function cloneCandidates(state, controller, scope, mvCap = null) {
   const out = [];
+  const youControlOnly = scope === "youControl" || scope === "youControlCreatureOrPw";
+  const allowPw = scope === "youControlCreatureOrPw";
   for (const pid of Object.keys(state.players)) {
-    if (scope === "youControl" && pid !== controller) continue;
+    if (youControlOnly && pid !== controller) continue;
     for (const perm of state.players[pid].battlefield) {
-      if (!isCreatureCard(perm.card)) continue;
+      const copiable = isCreatureCard(perm.card) || (allowPw && isPlaneswalkerCard(perm.card));
+      if (!copiable) continue;
       if (mvCap != null && manaValueOfCard(perm.card) > mvCap) continue; // CR 707 head MV filter
       out.push({ id: perm.id, name: perm.card?.name });
     }

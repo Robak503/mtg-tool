@@ -191,6 +191,17 @@ export function enterPermanent(state, card, controller, opts = {}) {
     const loy = startingLoyalty(card);
     if (loy != null) perm.counters = { ...perm.counters, loyalty: applyCounterDoubling(state, controller, "loyalty", loy) };
   }
+  // CLONE CONDITIONAL ENTERS-WITH-COUNTER (Spark Double, CR 707.9a + 614.1c + 122.6a) — an ADDITIONAL counter
+  // the clone-resolution path resolved against the copy's type (+1/+1 for a creature copy, loyalty for a
+  // planeswalker copy). Applied here so it's on the permanent BEFORE the lethal SBA + before ETB triggers fire,
+  // exactly like the other enters-with-counter replacements. Like them it bypasses gameState.addCounter (the
+  // permanent isn't on the battlefield yet), so it routes through applyCounterDoubling (CR 616 — a counter
+  // doubler like Doubling Season multiplies it; a "+1/+1"-only doubler is skipped for loyalty). Layers on TOP
+  // of the starting-loyalty write above for a PW copy (an additional loyalty counter beyond its base loyalty).
+  if (opts.extraCounter && opts.extraCounter.n > 0) {
+    const { type, n } = opts.extraCounter;
+    perm.counters = { ...perm.counters, [type]: (perm.counters[type] || 0) + applyCounterDoubling(state, controller, type, n) };
+  }
   // CR 614.1c + 122.6a: "~ enters with N +1/+1 counters on it" — a replacement that adds the counters AS the
   // permanent enters, so its P/T is correct from turn 1 (Kavu Primarch, Avatar of the Resolute…). Only the
   // bare, unconditional, literal-N form (entersWithPlusCounters guards out kicker / "for each" / "where X").
@@ -308,12 +319,25 @@ export function resolveCloneChoice(state, chosenPermId) {
   if (!cloneCard || !controller) return next;
 
   const chosen = chosenPermId ? findPermanent(next, chosenPermId) : null;
-  const chosenIsCreature = chosen && /Creature/.test(String(chosen.permanent.card?.type || chosen.permanent.card?.type_line || ""));
-  if (chosen && chosenIsCreature) {
-    // Snapshot the copiable values + apply the "except …" copy modifications (CR 707.9): added
-    // subtype, granted keyword, set P/T, conditional vanishing all bake into the copy's card.
-    const copied = snapshotCopiedCard(chosen.permanent, cloneCard, riders);
-    next = enterPermanent(next, copied, controller, { printedCard: cloneCard });
+  // A clone with the "creature or planeswalker" scope (Spark Double) may copy a PLANESWALKER too (front-face,
+  // CR 712.4a). A copied planeswalker enters with its starting loyalty via enterPermanent's castsAsPlaneswalker
+  // path, so it's a real, non-dying permanent (NOT a 0/0). Front-face only: a creature-front DFC copies as its
+  // creature side. (creature-clones still copy creatures; this only WIDENS what a PW-scope clone accepts.)
+  const chosenFrontType = String(chosen?.permanent?.card?.type || chosen?.permanent?.card?.type_line || "").split(" // ")[0];
+  const chosenIsCopiable = chosen && /Creature|Planeswalker/.test(chosenFrontType);
+  if (chosen && chosenIsCopiable) {
+    // Snapshot the copiable values + apply the CARD-LEVEL "except …" copy modifications (CR 707.9): added
+    // subtype, granted keyword, set P/T, conditional vanishing all bake into the copy's card. The
+    // entersWithCounterIf / noop riders are NOT card-level (a counter lives on the permanent; isn't-legendary is
+    // unenforced) — they're filtered out here so snapshotCopiedCard only sees card riders.
+    const cardRiders = riders.filter((r) => r.kind !== "entersWithCounterIf" && r.kind !== "noop");
+    const copied = snapshotCopiedCard(chosen.permanent, cloneCard, cardRiders);
+    // CONDITIONAL ENTERS-WITH-COUNTER (Spark Double, CR 707.9a + 614.1c) — resolve the gate against the COPIED
+    // card's resulting type (creature copy → +1/+1; planeswalker copy → loyalty) and pass the concrete counter
+    // to enterPermanent so it's applied AS the permanent enters (before the lethal SBA + before ETB triggers
+    // see it), exactly like every other enters-with-counter replacement. A non-matching condition adds nothing.
+    const extraCounter = resolveCloneEntersCounter(riders, copied);
+    next = enterPermanent(next, copied, controller, { printedCard: cloneCard, extraCounter });
   } else {
     // Declined, or the target is gone/illegal — the clone enters as itself (a 0/0).
     next = enterPermanent(next, cloneCard, controller);
@@ -322,6 +346,25 @@ export function resolveCloneChoice(state, chosenPermId) {
   // (the copy case finds nothing lethal, so this is a no-op for it).
   const lethal = destroyLethalCreatures(next);
   return checkDiesTriggers(lethal.state, lethal.dead);
+}
+
+/**
+ * CONDITIONAL ENTERS-WITH-COUNTER (Spark Double, CR 707.9a + 614.1c) — given the clone's riders and the
+ * COPIED card, return the single { type, n } counter the matching condition adds (a creature copy gets the
+ * "+1/+1 if it's a creature" rider, a planeswalker copy the "loyalty if it's a planeswalker" rider), or null
+ * when no condition matches. The gate reads the copy's FRONT face (CR 712.4a) via castsAsPlaneswalker /
+ * the Creature type line, so a creature-front DFC copy is treated as a creature. At most one rider matches
+ * (the copy is one type), so the first match wins. Pure card read.
+ */
+function resolveCloneEntersCounter(riders, copiedCard) {
+  const isPw = castsAsPlaneswalker(copiedCard);
+  const isCreature = /\bCreature\b/.test(String(copiedCard?.type || copiedCard?.type_line || "").split(" // ")[0]);
+  for (const r of riders || []) {
+    if (r.kind !== "entersWithCounterIf") continue;
+    if (r.ifType === "creature" && isCreature) return { type: r.counterType, n: r.n };
+    if (r.ifType === "planeswalker" && isPw) return { type: r.counterType, n: r.n };
+  }
+  return null;
 }
 
 /**

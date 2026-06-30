@@ -49,8 +49,11 @@ describe("classifier — pure creature clones only", () => {
     expect(isCloneCard(CLONE)).toBe(true);
     expect(parseCloneSpec(CLONE)).toEqual({ optional: true, scope: "any", mvLimit: false, riders: [] });
     expect(parseCloneSpec(MIRROR)).toEqual({ optional: true, scope: "youControl", mvLimit: false, riders: [] });
-    // An "except" rider (Spark Double / Vizier of Many Faces) is NOT a pure clone (real text).
-    expect(isCloneCard({ name: "Spark Double", type: "Creature — Shapeshifter", oracle: "You may have this creature enter as a copy of a creature or planeswalker you control, except it enters with an additional +1/+1 counter on it if it's a creature, it enters with an additional loyalty counter on it if it's a planeswalker, and it isn't legendary." })).toBe(false);
+    // A clone WITH an "except" rider isn't a PURE clone (riders === []) — but it may still be a modeled clone
+    // (isCloneCard true) when every rider is modeled. Spark Double now IS a modeled clone (COPY-RIDER: pw-scope
+    // + conditional counter riders), so its full coverage lives in the Spark Double describe block below; here
+    // we only assert the PURE-clone shape excludes a ridered card. Vizier of Many Faces (embalm) stays non-clone.
+    expect(parseCloneSpec(CLONE)?.riders).toEqual([]);   // a pure clone carries no riders
     // A SUBTYPE filter ("any Ally creature") is deferred — not a pure clone.
     expect(isCloneCard({ name: "Jwari Shapeshifter", type: "Creature — Shapeshifter Ally", oracle: "You may have this creature enter as a copy of any Ally creature on the battlefield." })).toBe(false);
     // A non-creature copy (Copy Enchantment) and a vanilla creature are not clones.
@@ -171,11 +174,12 @@ describe("AI auto-pick — the biggest creature, deterministically", () => {
 //
 // A clone with an "except …" rider flips native ONLY when EVERY rider sub-clause is a modeled atom
 // (CREED: the whole copy, or body-only/Arbiter). Modeled atoms: add-subtype, grant a modeled
-// keyword, set fixed P/T, conditional vanishing, and (in the head) an MV cap. Built targets:
-// Mockingbird (Rograkh), Flesh Duplicate (Rograkh), Quicksilver Gargantuan (corpus). PARKED: Spark
-// Double (planeswalker scope), Auton Soldier (myriad), Phantasmal Image (becomes-target trigger),
-// Phyrexian Metamorph (artifact scope), Sakashima of a Thousand Faces (other-abilities), Chameleon
-// (Mayhem), Sakashima's Student (Ninjutsu) — each carries an unmodeled mechanic.
+// keyword, set fixed P/T, conditional vanishing, the conditional enters-with-counter (Spark Double),
+// the isn't-legendary no-op, and (in the head) an MV cap. Built targets: Mockingbird (Rograkh), Flesh
+// Duplicate (Rograkh), Quicksilver Gargantuan (corpus), Spark Double (COPY-RIDER — creature-or-pw
+// scope + conditional counter). PARKED: Auton Soldier (myriad), Phantasmal Image (becomes-target
+// trigger), Phyrexian Metamorph (artifact scope), Sakashima the Impostor (granted activated ability),
+// Chameleon (Mayhem GY-recast), Sakashima's Student (Ninjutsu) — each carries an unmodeled mechanic.
 
 // Real Oracle text (reminder text included — the parser strips it).
 const MOCKINGBIRD = { id: "c-mock", name: "Mockingbird", type: "Creature — Bird Bard", mana: "{X}{U}", power: 1, toughness: 1, oracle: "Flying\nYou may have this creature enter as a copy of any creature on the battlefield with mana value less than or equal to the amount of mana spent to cast this creature, except it's a Bird in addition to its other types and it has flying." };
@@ -190,8 +194,18 @@ describe("rider parser (parseCloneRider) — exact modeled atoms only", () => {
     expect(parseCloneRider("it has flying")).toEqual({ kind: "addKeyword", keywords: ["flying"] });
     expect(parseCloneRider("it has flying and vigilance")).toEqual({ kind: "addKeyword", keywords: ["flying", "vigilance"] });
   });
+  it("recognizes the conditional enters-with-counter rider + the isn't-legendary no-op (Spark Double)", () => {
+    // The legend rule is unenforced, so isn't-legendary is a recognized NO-OP (a {kind:"noop"} rider) — it must
+    // NOT park the whole clone (the all-or-nothing gate accepts a no-op). The two conditional counter riders
+    // each gate on the copy's resulting type (resolved at resolution by resolveCloneChoice).
+    expect(parseCloneRider("it isn't legendary")).toEqual({ kind: "noop" });
+    expect(parseCloneRider("it's not legendary")).toEqual({ kind: "noop" });
+    expect(parseCloneRider("it enters with an additional +1/+1 counter on it if it's a creature"))
+      .toEqual({ kind: "entersWithCounterIf", counterType: "+1/+1", n: 1, ifType: "creature" });
+    expect(parseCloneRider("it enters with an additional loyalty counter on it if it's a planeswalker"))
+      .toEqual({ kind: "entersWithCounterIf", counterType: "loyalty", n: 1, ifType: "planeswalker" });
+  });
   it("rejects unmodeled riders → null (whole card PARKs)", () => {
-    expect(parseCloneRider("it isn't legendary")).toBeNull();                         // legend-rule unmodeled
     expect(parseCloneRider("it's an artifact in addition to its other types")).toBeNull(); // card-type change
     expect(parseCloneRider("it's legendary in addition to its other types")).toBeNull();   // supertype change
     expect(parseCloneRider("it has myriad")).toBeNull();                              // unmodeled keyword
@@ -211,8 +225,7 @@ describe("classifier — riders flip ONLY when every clause is modeled", () => {
     expect(parseCloneSpec(QUICKSILVER)).toEqual({ optional: true, scope: "any", mvLimit: false, riders: [{ kind: "setPT", power: 7, toughness: 7 }] });
   });
   it("PARKs every clone carrying an unmodeled rider / scope (real Oracle text)", () => {
-    // Spark Double — copies a creature OR planeswalker (pw-copy unmodeled) + loyalty rider.
-    expect(isCloneCard({ name: "Spark Double", type: "Creature — Illusion", mana: "{3}{U}", oracle: "You may have this creature enter as a copy of a creature or planeswalker you control, except it enters with an additional +1/+1 counter on it if it's a creature, it enters with an additional loyalty counter on it if it's a planeswalker, and it isn't legendary." })).toBe(false);
+    // (Spark Double moved OUT of this list — it's now a modeled clone; see the Spark Double describe block.)
     // Auton Soldier — myriad (unmodeled) + artifact scope rider.
     expect(isCloneCard({ name: "Auton Soldier", type: "Artifact Creature — Alien Soldier", mana: "{4}{U}{U}", oracle: "You may have this creature enter as a copy of any creature on the battlefield, except it isn't legendary, is an artifact in addition to its other types, and has myriad." })).toBe(false);
     // Phyrexian Metamorph — copies an ARTIFACT or creature (artifact-copy scope unmodeled).
@@ -335,5 +348,95 @@ describe("rider resolution — the copy enters as the WHOLE modified card", () =
     expect(JSON.parse(JSON.stringify(s))).toEqual(s);   // resume.riders is plain data
     s = finalizeStackResolution(resolveCloneChoice(s, "a1"));
     expect(JSON.parse(JSON.stringify(s))).toEqual(s);   // the rider-modified card is plain data
+  });
+});
+
+// ── SPARK DOUBLE (COPY-RIDER) — creature-OR-planeswalker scope + the conditional enters-with-counter ────────
+// CR 707.9a + 614.1c + 122.6a: copies a creature OR planeswalker YOU CONTROL, entering with an additional
+// +1/+1 counter (creature copy) or loyalty counter (planeswalker copy), and isn't legendary (an unenforced
+// no-op). Both copy paths resolve genuinely: a creature copy enters as the snapshot + 1 counter; a PW copy
+// enters with its starting loyalty (enterPermanent's castsAsPlaneswalker write) + 1 additional loyalty.
+const SPARK = { id: "c-spark", name: "Spark Double", type: "Creature — Illusion", mana: "{3}{U}", power: 0, toughness: 0, oracle: "You may have this creature enter as a copy of a creature or planeswalker you control, except it enters with an additional +1/+1 counter on it if it's a creature, it enters with an additional loyalty counter on it if it's a planeswalker, and it isn't legendary." };
+const pwCard = (name, loyalty, over = {}) => ({ name, type: `Legendary Planeswalker — ${name}`, loyalty, oracle: over.oracle || "[+1]: Draw a card.", ...over });
+
+describe("Spark Double — classifier + scope + the conditional counter rider", () => {
+  it("is a modeled clone: youControlCreatureOrPw scope + the three riders; classifies native-clone", () => {
+    expect(isCloneCard(SPARK)).toBe(true);
+    expect(parseCloneSpec(SPARK)).toEqual({
+      optional: true,
+      scope: "youControlCreatureOrPw",
+      mvLimit: false,
+      riders: [
+        { kind: "entersWithCounterIf", counterType: "+1/+1", n: 1, ifType: "creature" },
+        { kind: "entersWithCounterIf", counterType: "loyalty", n: 1, ifType: "planeswalker" },
+        { kind: "noop" },
+      ],
+    });
+  });
+
+  it("candidates: the controller's creatures AND planeswalkers; never an opponent's", () => {
+    const s = boardState({
+      user: [
+        createPermanent({ id: "u-cr", card: creature("Mine", 2, 2), controller: "user", summoningSick: false }),
+        createPermanent({ id: "u-pw", card: pwCard("Garruk", 3), controller: "user", summoningSick: false }),
+      ],
+      ai: [createPermanent({ id: "a-cr", card: creature("Theirs", 4, 4), controller: "ai", summoningSick: false })],
+    });
+    expect(cloneCandidates(s, "user", "youControlCreatureOrPw").map((c) => c.id).sort()).toEqual(["u-cr", "u-pw"]);
+  });
+});
+
+describe("Spark Double — runtime: the copy enters with its conditional counter", () => {
+  it("copying a CREATURE: enters as the copy with +1 +1/+1 counter (a 2/2 source → a 3/3 copy)", () => {
+    let s = boardState({
+      user: [createPermanent({ id: "u-bear", card: creature("Grizzly Bears", 2, 2, { type: "Creature — Bear" }), controller: "user", summoningSick: false })],
+      hand: [SPARK], pool: { C: 9, U: 3 },
+    });
+    s = castToChoice(s, "c-spark");
+    expect(s.pendingChoice.kind).toBe("clone-search");
+    expect(s.pendingChoice.candidates.map((c) => c.id)).toEqual(["u-bear"]);
+    s = finalizeStackResolution(resolveCloneChoice(s, "u-bear"));
+    const cl = s.players.user.battlefield.find((p) => p.printedCard);
+    expect(cl.card.name).toBe("Grizzly Bears");
+    expect(cl.counters["+1/+1"]).toBe(1);                                              // the additional counter
+    expect([permanentPower(s, cl.id), permanentToughness(s, cl.id)]).toEqual([3, 3]); // 2/2 base + 1 counter
+    expect(cl.counters.loyalty || 0).toBe(0);                                          // a creature copy gets no loyalty
+    expect(cl.printedCard.name).toBe("Spark Double");                                  // original stashed (CR 707.2)
+    expect(cl.card.token).toBeFalsy();                                                 // a clone is a real permanent, not a token
+  });
+
+  it("copying a PLANESWALKER: enters with its starting loyalty PLUS 1 additional loyalty counter", () => {
+    let s = boardState({
+      user: [createPermanent({ id: "u-pw", card: pwCard("Garruk, Primal Hunter", 3), controller: "user", summoningSick: false })],
+      hand: [SPARK], pool: { C: 9, U: 3 },
+    });
+    s = castToChoice(s, "c-spark");
+    expect(s.pendingChoice.candidates.map((c) => c.id)).toEqual(["u-pw"]);
+    s = finalizeStackResolution(resolveCloneChoice(s, "u-pw"));
+    const cl = s.players.user.battlefield.find((p) => p.printedCard);
+    expect(cl.card.name).toBe("Garruk, Primal Hunter");
+    expect(cl.counters.loyalty).toBe(4);             // base 3 + 1 additional (CR 306.5b + 707.9a)
+    expect(cl.counters["+1/+1"] || 0).toBe(0);       // a planeswalker copy gets no +1/+1
+    expect(findPermanent(s, cl.id)).toBeTruthy();    // a real PW (NOT a dying 0/0)
+  });
+
+  it("declining (you may) / no target → Spark Double enters as a 0/0 and dies (CR 704.5f)", () => {
+    let s = boardState({ hand: [SPARK], pool: { C: 9, U: 3 } });
+    s = castToChoice(s, "c-spark");
+    // No creature/PW to copy → no choice surfaced, the 0/0 entered and died.
+    expect(s.pendingChoice).toBeUndefined();
+    expect(s.players.user.battlefield).toHaveLength(0);
+    expect(s.players.user.graveyard.map((c) => c.name)).toEqual(["Spark Double"]);
+  });
+
+  it("state round-trips through JSON at the choice + after the copy (plain data)", () => {
+    let s = boardState({
+      user: [createPermanent({ id: "u-bear", card: creature("Bear", 2, 2), controller: "user", summoningSick: false })],
+      hand: [SPARK], pool: { C: 9, U: 3 },
+    });
+    s = castToChoice(s, "c-spark");
+    expect(JSON.parse(JSON.stringify(s))).toEqual(s);
+    s = finalizeStackResolution(resolveCloneChoice(s, "u-bear"));
+    expect(JSON.parse(JSON.stringify(s))).toEqual(s);
   });
 });

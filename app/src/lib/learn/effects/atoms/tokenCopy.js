@@ -59,6 +59,17 @@ const TOKEN_COPY_TARGET_RE = /^create a token that(?:'s| is) a copy of target cr
 // intact. Every granted keyword must be in GRANTABLE_KEYWORDS (the layer-enforceable set the clone rider also
 // restricts to) — an unmodeled keyword fails the gate → null → low → Arbiter (whole-card CREED, no partial).
 const TOKEN_COPY_TARGET_KEYWORD_RE = /^create a token that(?:'s| is) a copy of target creature you control, except the token has ([a-z' ]+?)(?:,? and it isn't legendary)?$/;
+// TOKEN-COPY-EACH — "for each token you control, create a token that's a copy of that permanent" (Second
+// Harvest, CR 707.1). DISTINCT from every single-source form above: this copies EACH of the controller's
+// TOKEN permanents once (a per-source for-each), so it carries NO copySource referent (the resolver iterates
+// the controller's token battlefield) and NO targetType (no chosen target — programNeedsChosenTarget stays
+// false, the program routes natively on the spell-resolution path). The resolver (applyCreateTokenCopyEach)
+// snapshots the source-token list up front (CR 608.2 — the copies are created simultaneously, not re-copied)
+// and copies each via the SAME printed snapshot (snapshotCopiedCard, CR 707.2 — no counters/auras). Anchored
+// to the EXACT whole clause (an extra rider would change the copy → it would fail the anchor → null → low →
+// Arbiter, CREED whole-card). "that permanent" is the per-iteration token referent (resolved by the resolver,
+// never first-legal-target picked).
+const TOKEN_COPY_EACH_RE = /^for each token you control, create a token that(?:'s| is) a copy of that permanent$/;
 // Layer-enforceable, layer-GRANTABLE combat keywords (mirrors cloneCopy.js RIDER_KEYWORDS exactly — granting
 // one to a copy behaves like a printed instance). Kept as a local literal so this leaf imports nothing new.
 const GRANTABLE_KEYWORDS = new Set([
@@ -75,6 +86,12 @@ export function tokenCopyParser(clause) {
   }
   if (TOKEN_COPY_TARGET_RE.test(t)) {
     return { op: "create-token-copy", copySource: "target", count: 1, targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+  }
+  // TOKEN-COPY-EACH (Second Harvest) — copy EACH token you control. No copySource / targetType (the resolver
+  // iterates the controller's token battlefield, snapshotting up front). A separate op so it routes to its own
+  // per-source resolver, NOT the single-source applyCreateTokenCopy.
+  if (TOKEN_COPY_EACH_RE.test(t)) {
+    return { op: "create-token-copy-each", targetType: null };
   }
   const km = t.match(TOKEN_COPY_TARGET_KEYWORD_RE);
   if (km) {

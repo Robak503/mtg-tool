@@ -413,8 +413,59 @@ export function createTokenClauseParser(clause) {
   return null;
 }
 
+/**
+ * ===== TOKEN-COPY-EACH ===== (COPY-RIDER) create-token-copy-each — "For each token you control, create a
+ * token that's a copy of that permanent" (Second Harvest, CR 707.1). DISTINCT from applyCreateTokenCopy
+ * (which copies ONE resolved source N times): this copies EACH of the controller's TOKEN permanents once —
+ * a per-source for-each, the source for each minted copy being a DIFFERENT token.
+ *
+ * SNAPSHOT-FIRST (CR 608.2 — the effect copies the tokens present AS IT RESOLVES; the copies are created in a
+ * single batch and are NOT themselves re-copied): the list of token permanents is captured ONCE up front, off
+ * the pre-mint battlefield, so a freshly-minted copy never becomes a copy-source (no doubling, no loop). A
+ * source token's copiable card is the SAME printed snapshot a clone takes (snapshotCopiedCard, CR 707.2 — NO
+ * counters, NO auras, NO continuous effects; isCommander stripped), stamped token:true (a copy of a token is
+ * still a token, CR 707.10a).
+ *
+ * COUNT / DOUBLER: each source token yields "a token" (CR 707.1) — one create-event per source — so the
+ * Wave-3a token doubler (Doubling Season / Parallel Lives) multiplies EACH copy independently (computed once
+ * per source, since a minted copy is token:true and can never itself be a doubler).
+ *
+ * ETB (CR 603.6a): every minted copy fires its own + every watcher's enter triggers via the shared
+ * fireTokenEnterTriggers seam, then the lethal SBA runs (a 0/0 copy dies) — the same ordering as every other
+ * token mint. ZERO source tokens ⇒ ZERO copies (a clean no-op, never a fabricated body).
+ */
+export function applyCreateTokenCopyEach(state, atom, ctx) {
+  let next = state;
+  const player = next.players[ctx.controller];
+  if (!player) return logEvent(next, { kind: "spell-effect", effect: "create-token-copy-each", count: 0, controller: ctx.controller });
+  // CR 608.2 — snapshot the source tokens ONCE, off the pre-mint battlefield, so a minted copy is never itself
+  // re-copied (the copies are created simultaneously). Each source's copiable card is taken now (CR 707.2).
+  const sources = (player.battlefield || []).filter((perm) => perm?.card?.token);
+  const copiables = sources.map((perm) => snapshotCopiedCard(perm, undefined, []));
+  const doubler = tokenMultiplier(next, ctx.controller); // Wave-3a (CR 616) — same for every copy this resolution
+  const mintedIds = [];
+  for (const copiable of copiables) {
+    for (let i = 0; i < doubler; i++) {
+      const minted = mintId(next, "tok");
+      next = minted.state;
+      const card = { ...copiable, id: `tok-${minted.id}`, token: true };
+      const perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
+      const pl = next.players[ctx.controller];
+      next = { ...next, players: { ...next.players, [ctx.controller]: { ...pl, battlefield: [...pl.battlefield, perm] } } };
+      mintedIds.push(minted.id);
+    }
+  }
+  // ETB (CR 603.6a) — each minted copy fires its own + every watcher's enter triggers (the copy is token:true,
+  // so a nontoken-gated watcher is a no-op on it). Then the lethal SBA (a 0/0 copy dies), after the ETB enqueue.
+  next = fireTokenEnterTriggers(next, mintedIds);
+  const r = destroyLethalCreatures(next);
+  next = checkDiesTriggers(r.state, r.dead);
+  return logEvent(next, { kind: "spell-effect", effect: "create-token-copy-each", count: mintedIds.length, controller: ctx.controller });
+}
+
 export const tokenResolvers = {
   "create-token": applyCreateToken,
   "create-named-token": applyCreateNamedToken, // ===== TOKENS ===== T2 Treasure/Clue/Food/Gold
   "create-token-copy": applyCreateTokenCopy,   // ===== TOKEN-COPY ===== (Wave 5b) CR 707.1 — token that's a copy
+  "create-token-copy-each": applyCreateTokenCopyEach, // ===== TOKEN-COPY-EACH ===== (COPY-RIDER) Second Harvest — copy each token you control
 };

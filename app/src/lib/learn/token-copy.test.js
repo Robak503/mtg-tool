@@ -135,8 +135,86 @@ describe("tokenCopyParser — TARGET source + keyword-grant rider (Irenicus's Vi
   });
 });
 
+// ─── 1c. TOKEN-COPY-EACH — "For each token you control, create a token that's a copy of that permanent"
+// (Second Harvest, CR 707.1). A per-source for-each: copies EACH of the controller's TOKEN permanents once.
+// Distinct op (create-token-copy-each) → its own resolver (applyCreateTokenCopyEach), NOT the single-source one.
+describe("tokenCopyParser — TOKEN-COPY-EACH (Second Harvest)", () => {
+  it("'for each token you control, create a token that's a copy of that permanent' → create-token-copy-each", () => {
+    expect(tokenCopyParser("for each token you control, create a token that's a copy of that permanent"))
+      .toEqual({ op: "create-token-copy-each", targetType: null });
+  });
+  it("the non-contracted 'that is a copy' form also matches", () => {
+    expect(tokenCopyParser("for each token you control, create a token that is a copy of that permanent")?.op).toBe("create-token-copy-each");
+  });
+  it("FORBIDDEN: a rider on the copy → null (whole card non-native, CREED)", () => {
+    expect(tokenCopyParser("for each token you control, create a token that's a copy of that permanent, except it has flying")).toBeNull();
+    // a "nontoken" / other-permanent source is a different effect — not matched
+    expect(tokenCopyParser("for each creature you control, create a token that's a copy of that permanent")).toBeNull();
+  });
+  it("the full card parses HIGH (non-targeted) and classifies native-spell", () => {
+    const C = { type: "Instant", mana: "{2}{G}{G}", name: "Second Harvest", oracle: "For each token you control, create a token that's a copy of that permanent." };
+    const prog = parseEffectClause(C.oracle, C.type);
+    expect(programConfidence(prog)).toBe("high");
+    expect(programNeedsChosenTarget(prog)).toBe(false);
+    expect(prog.atoms[0]).toMatchObject({ op: "create-token-copy-each" });
+    expect(classifyCard(C)).toBe("native-spell");
+  });
+});
+
 // ─── 2. The atom resolver ────────────────────────────────────────────────────────
 const bear = (id, over = {}) => createPermanent({ id, card: { id: `c-${id}`, name: over.name || id, type: over.type || "Creature — Bear", power: over.power ?? 3, toughness: over.toughness ?? 3, oracle: over.oracle || "", keywords: over.keywords || [] }, controller: over.controller || "user", summoningSick: false });
+const tokn = (id, over = {}) => createPermanent({ id, card: { id: `c-${id}`, name: over.name || id, type: over.type || "Creature — Beast", power: over.power ?? 2, toughness: over.toughness ?? 2, oracle: over.oracle || "", keywords: over.keywords || [], token: true }, controller: over.controller || "user", summoningSick: false });
+
+describe("create-token-copy-each atom (Second Harvest, CR 707.1)", () => {
+  it("copies EACH token you control once; never a nontoken permanent", () => {
+    let s = stateWith([tokn("t1", { name: "Saproling", power: 1, toughness: 1 }), tokn("t2", { name: "Beast", power: 3, toughness: 3 }), bear("real", { name: "Real Bear", power: 2, toughness: 2 })]);
+    s = resolveAll(resolveAtom(s, { op: "create-token-copy-each", targetType: null }, { controller: "user", targets: [] }));
+    const toks = tokensOf(s);
+    expect(toks).toHaveLength(4);                                          // 2 originals + 2 copies
+    expect(toks.map((t) => t.card.name).sort()).toEqual(["Beast", "Beast", "Saproling", "Saproling"]);
+    expect(toks.some((t) => t.card.name === "Real Bear")).toBe(false);    // the nontoken was NOT copied
+  });
+
+  it("SNAPSHOT-FIRST (CR 608.2): the new copies are not themselves re-copied (no doubling/loop)", () => {
+    let s = stateWith([tokn("t1", { name: "Saproling", power: 1, toughness: 1 })]);
+    s = resolveAll(resolveAtom(s, { op: "create-token-copy-each", targetType: null }, { controller: "user", targets: [] }));
+    // One source token → exactly ONE copy (2 total), NOT a cascade of copies-of-copies.
+    expect(tokensOf(s).filter((t) => t.card.name === "Saproling")).toHaveLength(2);
+  });
+
+  it("does NOT copy counters (CR 707.2): a 0/0 token with counters yields a 0/0 copy that dies", () => {
+    const hydra = { ...tokn("h", { name: "Hydra", power: 0, toughness: 0 }), counters: { "+1/+1": 5 } };
+    let s = stateWith([hydra]);
+    s = resolveAll(resolveAtom(s, { op: "create-token-copy-each", targetType: null }, { controller: "user", targets: [] }));
+    // The original (5 counters → a live 5/5) survives; the copy (printed 0/0, no counters) dies to the lethal SBA.
+    const toks = tokensOf(s);
+    expect(toks).toHaveLength(1);
+    expect(toks[0].id).toBe("h");                       // the original
+    expect(toks[0].counters["+1/+1"]).toBe(5);          // its counters intact
+  });
+
+  it("ZERO source tokens → ZERO copies (a clean no-op, never a fabricated body)", () => {
+    let s = stateWith([bear("real", { name: "Real Bear" })]);   // only a nontoken
+    s = resolveAll(resolveAtom(s, { op: "create-token-copy-each", targetType: null }, { controller: "user", targets: [] }));
+    expect(tokensOf(s)).toHaveLength(0);                          // no token copies minted
+    expect(s.players.user.battlefield).toHaveLength(1);          // the nontoken Real Bear is untouched
+  });
+
+  it("the token doubler (Doubling Season) makes TWO copies of each source token", () => {
+    const ds = createPermanent({ id: "ds", card: { id: "c-ds", name: "Doubling Season", type: "Enchantment", oracle: "If an effect would create one or more tokens under your control, it creates twice that many of those tokens instead." }, controller: "user", summoningSick: false });
+    let s = stateWith([ds, tokn("t1", { name: "Wolf", power: 2, toughness: 2 })]);
+    s = resolveAll(resolveAtom(s, { op: "create-token-copy-each", targetType: null }, { controller: "user", targets: [] }));
+    // 1 source Wolf token → doubler → 2 copies; plus the original = 3 Wolves total.
+    expect(tokensOf(s).filter((t) => t.card.name === "Wolf")).toHaveLength(3);
+  });
+
+  it("each minted copy fires its own ETB trigger on entry (CR 603.6a)", () => {
+    let s = stateWith([tokn("w", { name: "Warden", power: 1, toughness: 1, oracle: "Whenever a creature you control enters, you gain 1 life." })]);
+    // Copying the Warden token mints a Warden token; both the source watcher AND the copy's own watcher fire.
+    s = resolveAll(resolveAtom(s, { op: "create-token-copy-each", targetType: null }, { controller: "user", targets: [] }));
+    expect(s.players.user.life).toBeGreaterThan(40);
+  });
+});
 
 describe("create-token-copy atom (CR 707.1)", () => {
   it("SELF: copies the ability source (ctx.sourceId)", () => {
