@@ -44,6 +44,7 @@ import { protectionApplies } from "./protection.js";
 import { isNonChosenTargetType } from "./targetTypes.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag } from "./wolverine.js";
+import { TARGET_SUBTYPES } from "./effects/parseHelpers.js"; // SUBTYPE-TARGET — curated creature-subtype allowlist (leaf, cycle-safe)
 
 const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
 
@@ -284,6 +285,22 @@ export function parseCreatureTargetRestrictions(card) {
   // flying counts. Only "flying" for now (the dominant case); any other keyword stays unmodeled → unclean.
   if (/\bwith flying\b/.test(t)) { restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: false }); t = t.replace(/\bwith flying\b/g, " "); }
   else if (/\bwithout flying\b/.test(t)) { restrictions.push({ kind: "hasKeyword", keyword: "flying", negate: true }); t = t.replace(/\bwithout flying\b/g, " "); }
+
+  // SUBTYPE-RESTRICTED TARGETING (CR 205.3) — "target <Subtype> creature" (Human Frailty "Destroy target
+  // Human creature"; "Destroy target Goblin creature"). A CURATED creature-subtype word only (TARGET_SUBTYPES)
+  // — so a color ("nongreen" is already stripped above; a bare color word isn't a subtype), a card type, or
+  // any non-subtype word is NOT consumed here and survives as residue → unclean → Arbiter (FN-safe). The
+  // subtype rides as a target restriction (creatureSatisfiesRestrictions kind:"subtype", a word-bound
+  // front-face match), so removal offers + destroys ONLY the subtyped creatures — never an arbitrary creature
+  // (THE CREED). Only ONE subtype is taken (a multi-subtype "Goblin Wizard creature" target — none in corpus —
+  // would leave the second word as residue → unclean, safe). Matched here (lowercased oracle) word-bounded.
+  for (const word of t.split(/\s+/)) {
+    if (TARGET_SUBTYPES.has(word)) {
+      restrictions.push({ kind: "subtype", subtype: word });
+      t = t.replace(new RegExp(`\\b${word}\\b`, "g"), " ");
+      break; // one subtype per target; a second subtype word stays as residue → unclean (CREED, safe)
+    }
+  }
 
   // Strip the base noun + filler; anything left is an UNMODELED qualifier → unclean.
   t = t.replace(/\b(target|a|an|another|other|each|any|creature|creatures|with|that|to|the|is)\b/g, " ").replace(/[^a-z]+/g, " ").trim();

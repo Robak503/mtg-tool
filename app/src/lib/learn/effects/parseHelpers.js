@@ -99,6 +99,26 @@ export const COUNT_SUBTYPE = {
   // land subtypes
   gate: "Gate", gates: "Gate", desert: "Desert", deserts: "Desert", locus: "Locus",
 };
+// ===== SUBTYPE-RESTRICTED TARGETING ===== a CURATED allowlist of CREATURE subtypes that may restrict a
+// CHOSEN target ("target Dinosaur gains haste" — Otepec Huntmaster; "Destroy target Human creature" —
+// Human Frailty). Keyed on the lowercase SINGULAR surface form → the canonical proper-noun subtype; the
+// target enumerator (spellEffects.creatureSatisfiesRestrictions kind:"subtype") then word-bound matches
+// `\b<Subtype>\b` against the target's FRONT-FACE type line, so the legal-target set is EXACTLY the
+// subtyped creatures — never an arbitrary creature (THE CREED: an un-enforced subtype filter is a
+// forbidden target-anything FP). CURATED, not generic: every entry is a real creature subtype that
+// appears verbatim ONLY in the subtype portion of a type line (corpus-verified zero left-of-dash and zero
+// non-creature collisions), so a NON-subtype word after "target" — a color ("target green creature"), a
+// card type ("target artifact creature"), or "permanent" — is never in this set and routes to the Arbiter.
+// SINGULAR only: "target <X>" / "target <X> creature" is always singular in the corpus. CREATURE subtypes
+// only (this slice targets creatures); the non-creature subtypes in COUNT_SUBTYPE (Treasure/Clue/…) are
+// deliberately excluded. Reuses + extends the SAME curated discipline as REGEN_TARGET_SUBTYPES (combat.js).
+export const TARGET_SUBTYPES = new Set([
+  "dinosaur", "human", "goblin", "elf", "wizard", "vampire", "spirit", "zombie", "soldier", "warrior",
+  "knight", "dragon", "beast", "merfolk", "wolf", "bird", "snake", "dog", "elemental", "rat", "pirate",
+  "faerie", "giant", "saproling", "insect", "boar", "sliver", "plant", "minotaur", "orc", "barbarian",
+  "treefolk", "fungus", "samurai", "shade", "elephant", "golem", "ally", "ninja", "cleric", "angel",
+  "phoenix", "rebel", "skeleton", "griffin", "werewolf", "cat", "spider", "eldrazi", "wall",
+]);
 // `allowTarget` admits the TARGET-scoped "cards in that player's hand" (who:"target") — passed ONLY by the
 // DMG-SCALE matcher, which also requires a single-player target. Every other caller (the controller-scoped
 // FOR-EACH draw/gain-life/lose-life/create-token matchers) leaves it false, so "that player" — which has no

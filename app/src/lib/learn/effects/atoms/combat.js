@@ -7,7 +7,7 @@ import { addContinuousEffect, permanentIsCreature, permanentHasKeyword } from ".
 import { logEvent, destroyLethalCreatures, findPermanent, tapPermanent, untapPermanent, addCounter, addRegenShield, creaturePower, markCombatDamage } from "../../gameState.js";
 import { checkDiesTriggers } from "../../triggers.js";
 import { atomTargets, countForSpec, typeLineStr } from "./shared.js";
-import { SMALL_NUM, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
+import { SMALL_NUM, parseCountSource, parseGrantedKeywords, COUNT_SUBTYPE, TARGET_SUBTYPES } from "../parseHelpers.js"; // seam batch 5/12c: shared parse helpers (leaf, cycle-free)
 import { GRANTABLE_STATIC_KEYWORDS, canonicalCombatKeyword } from "../../keywords.js"; // GROUP-KEYWORD-GRANT vocab (keywords.js is a zero-import leaf — cycle-safe)
 
 /** Tap / untap target creature(s), land(s), OR any permanent (CR 701.26). The CREATURE form is the original
@@ -666,6 +666,31 @@ export function pumpClauseParser(clause) {
     const who = pctrl[1] === "you control" ? "you" : "opponent";
     const kws = parseGrantedKeywords(pctrl[2]);
     return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "controller", who }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
+  }
+  // ===== SUBTYPE-RESTRICTED TARGETING (CR 205.3 / 115) ===== a single chosen target restricted to a creature
+  // SUBTYPE — "target <Subtype>[ creature] gets +X/+Y[ and gains KW] until end of turn" / "target <Subtype>[
+  // creature] gains KW until end of turn" (Otepec Huntmaster "{T}: Target Dinosaur gains haste until end of
+  // turn"; the bare "<Subtype>" form omits the "creature" noun — all matching permanents ARE creatures). The
+  // subtype rides as a target restriction (enumerateTargets → creatureSatisfiesRestrictions kind:"subtype"),
+  // so the runtime offers + pumps ONLY the matching subtype — never an arbitrary creature (THE CREED: an
+  // un-enforced subtype filter is a forbidden target-anything FP). targetType stays "creature" so the existing
+  // creature enumeration + applyPumpEffect (target-id based, atomTargets→ctx.targets) handle it with NO resolver
+  // change. CURATED subtype only (TARGET_SUBTYPES) — a color ("target green creature"), a card type, or
+  // "permanent" is NOT in the set → null → low → Arbiter (FN-safe). Checked AFTER the bare/controller-scoped
+  // single-target forms above (a plain "target creature" has no subtype word, so it never reaches here) and
+  // BEFORE the mass/team forms. NO "another"/"you control" here: "another" (CR 113.7) needs source-exclusion the
+  // targeting seam can't yet enforce (→ self-target FP), and a controller clause is a separate restriction — both
+  // forms fall through to low (Anaba/Balthor/Advocate PARK), so only the bare subtype-target shape is credited.
+  let sg = t.match(/^target ([a-z]+)(?: creature)? gets ([+-]\d+)\/([+-]\d+)(?: and gains (.+))? until end of turn$/);
+  if (sg && TARGET_SUBTYPES.has(sg[1])) {
+    const kws = sg[4] ? parseGrantedKeywords(sg[4]) : null;
+    if (sg[4] && !kws) return null;
+    return { op: "pump", targetType: "creature", restrictions: [{ kind: "subtype", subtype: sg[1] }], ptDelta: { p: parseInt(sg[2], 10), t: parseInt(sg[3], 10) }, ...(kws ? { grantKeywords: kws } : {}) };
+  }
+  sg = t.match(/^target ([a-z]+)(?: creature)? gains (.+) until end of turn$/);
+  if (sg && TARGET_SUBTYPES.has(sg[1])) {
+    const kws = parseGrantedKeywords(sg[2]);
+    return kws ? { op: "pump", targetType: "creature", restrictions: [{ kind: "subtype", subtype: sg[1] }], ptDelta: { p: 0, t: 0 }, grantKeywords: kws } : null;
   }
   let m = t.match(/^(?:all creatures|each creature) gets? ([+-]\d+)\/([+-]\d+) until end of turn$/);
   if (m) return { op: "pump", targetType: "eachCreature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) } };
