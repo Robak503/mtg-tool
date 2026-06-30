@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-06-29
+
+### Improved
+- **Deck-driven cleanup — Zaxara 73→75%, Omnath 71→72% (+3 native).** Pongify + Rapid Hybridization (a
+  destroy-and-replace-with-a-token matcher, correcting an old regeneration-era carve-out) and Seedborn Muse
+  (untap your permanents on every other player's untap step). Flip-diffed both directions, 0 regressions, full
+  gate (5,542 tests) green, 0 false positives.
+
 ## [0.57.0] - 2026-06-29
 
 ### Improved
