@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-06-30
+
+### Improved
+- **Mana-multiplier + Annihilator (+3 native).** Tap-for-mana ×N replacement (Mana Reflection, Nyxbloom Ancient
+  for Omnath) and the Annihilator keyword (Ulamog's Crusher). Flip-diffed both directions (3 gained, 0 lost),
+  full gate (5,798 tests) green, 0 false positives.
+
 ## [0.65.0] - 2026-06-30
 
 ### Improved
