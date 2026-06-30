@@ -40,6 +40,7 @@ import { amassClauseParser } from "./atoms/amass.js";
 import { selfReturnClauseParser, selfReturnTriggerDetector } from "./atoms/selfReturn.js";
 import { winGameClauseParser } from "./atoms/winGame.js";
 import { rollDieClauseParser, resultScaledPayoffClauseParser } from "./atoms/roll.js"; // DICE-ROLL (CR 726) — roll a d20 + result-scaled token/draw payoff (Ancient Dragons)
+import { freeCastClauseParser } from "./atoms/freeCast.js"; // FREE-CAST (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle)
 import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token) + 20 (create-token vanilla creature tokens)
@@ -797,7 +798,12 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
   if (mayMatch) {
     if (/^pay\b/i.test(mayMatch[1])) return null;
     const inner = parseClauseToAtom(cardType, mayMatch[1], hasX);
-    return inner ? { ...inner, optional: true } : null;
+    if (!inner) return null;
+    // FREE-CAST (CR 601.2b) — its "you may cast …" optionality is realized at the ACTION layer (the
+    // cast-or-decline decision offered by legalChoices after the atom parks the candidates), NOT as an
+    // optional-effect yes/no pause in runEffectProgram. Stamping `optional` would double-prompt (a yes/no
+    // before the cast-or-decline), so the free-cast atom is left un-optional — its "may" is the decline.
+    return inner.op === "free-cast" ? inner : { ...inner, optional: true };
   }
 
   // X-amount variant (only for an {X}-cost spell). Rewrite the X in the AMOUNT slot
@@ -1884,6 +1890,11 @@ export function programConfidence(program) {
   // No printed card needs discover-not-last today; this guards the invariant as the vocabulary widens.
   const di = program.atoms.findIndex(a => a.op === "discover");
   if (di !== -1 && di !== program.atoms.length - 1) return "low";
+  // FREE-CAST (CR 601.2b) must likewise be the LAST atom: its cast-free/decline decision resolves at the
+  // ACTION layer AFTER the program finishes (mirrors discover), so any atom after it would wrongly run
+  // before the decision. Every Expertise-cycle card prints it last (lead effect, then the free-cast tail).
+  const fi = program.atoms.findIndex(a => a.op === "free-cast");
+  if (fi !== -1 && fi !== program.atoms.length - 1) return "low";
   if (fightAtomMisplaced(program.atoms)) return "low";
   return program.atoms.every(a => KNOWN.has(a.op)) ? "high" : "low";
 }
@@ -2324,3 +2335,8 @@ registerClauseParser(tutorClauseParser);
 // their respective tiers once the put clause is modeled. program-diff audited (additive — only the previously-
 // unmodeled put-from-hand creature/permanent clauses flip; land-from-hand + library tutors unchanged).
 registerClauseParser(putFromHandClauseParser);
+// FREE-CAST (CR 601.2b) — "you may cast a[n] [instant or sorcery] spell with mana value N or less from your
+// hand without paying its mana cost" → the free-cast atom (park eligible hand cards for the action-layer
+// cast-free/decline decision, mirroring discover). Fixed-MV-cap forms only; a variable/relational cap or a
+// multi-cast "any number of spells" stays low → Arbiter. Whole-clause anchored — matches no earlier parser.
+registerClauseParser(freeCastClauseParser);

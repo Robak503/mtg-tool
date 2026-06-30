@@ -374,6 +374,28 @@ function actionsDiscoverDecision(state, playerId) {
   return [...castActionsFromZone(state, playerId, [card], "exile", null, true), toHand];
 }
 
+// FREE-CAST (CR 601.2b) — the decision for "you may cast a spell with mana value N or less from your hand
+// without paying its mana cost" (Rishkar's Expertise et al.), parked in state.pendingFreeCast by the free-cast
+// atom. Offer a FREE-CAST action per still-eligible hand candidate (full target/mode/additional-cost
+// enumeration via the shared builder with freeCast=true, fromZone "hand" — so targeting/AI/the stack all
+// reuse the normal cast path; X is forced to 0 per CR 601.2b) PLUS a DECLINE action (the "may" — CR 601.2b).
+// The candidate ids were captured at resolution; re-validate against the CURRENT hand (a card may have left,
+// e.g. an intervening discard) so a stale id never offers a phantom cast. Both the cast and the decline clear
+// pendingFreeCast in the dispatcher. An unmodeled candidate still offers a (no-op) free-cast — the engine's
+// consistent behavior for any unmodeled spell, identical to discover.
+function actionsFreeCastDecision(state, playerId) {
+  const pf = state.pendingFreeCast;
+  if (!pf || pf.controller !== playerId) return [];
+  const hand = state.players[playerId]?.hand || [];
+  const ids = new Set(pf.candidateIds || []);
+  const candidates = hand.filter((c) => ids.has(c.id));
+  const decline = { kind: "free-cast-decline", playerId };
+  // Every candidate is cast from HAND for free; concatenate each card's enumerated cast actions, then the
+  // decline. A candidate that left the hand is naturally dropped (re-validated above) — never a phantom cast.
+  const castActions = candidates.flatMap((card) => castActionsFromZone(state, playerId, [card], "hand", null, true));
+  return [...castActions, decline];
+}
+
 // CMD-CAST (CR 903.8) — a player may cast a commander they own FROM the command zone; it costs an
 // additional {2} for each PREVIOUS time they've cast it from the command zone this game (the "commander
 // tax"). This mirrors hand-casting EXACTLY (same timing / affordability / target / X / modal / additional
@@ -1329,6 +1351,13 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
   // exactly the two discover actions for the controller; an empty list for everyone else.
   if (state.pendingDiscover) {
     return state.pendingDiscover.controller === playerId ? actionsDiscoverDecision(state, playerId) : [];
+  }
+  // FREE-CAST (CR 601.2b) — a pending free-cast decision short-circuits normal priority IDENTICALLY to
+  // discover: the casting choice is made mid-resolution (no one else acts), so return ONLY the free-cast /
+  // decline actions for the controller; an empty list for everyone else. (Both pendings are FIFO — the
+  // free-cast atom is the last atom of its program, so a discover and a free-cast never coexist.)
+  if (state.pendingFreeCast) {
+    return state.pendingFreeCast.controller === playerId ? actionsFreeCastDecision(state, playerId) : [];
   }
   // Default the declared-attackers list from live combat state, so the
   // session driver gets blocker candidates without threading it explicitly.

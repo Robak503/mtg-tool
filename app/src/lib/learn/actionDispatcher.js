@@ -896,7 +896,27 @@ function applyCastSpellMaybeDiscover(state, action) {
     const { pendingDiscover: _drop, ...rest } = next;
     return rest;
   }
+  // FREE-CAST (CR 601.2b) — a free-cast cast resolving a pendingFreeCast decision clears the flag (the "may"
+  // was taken). The short-circuit in legalActionsForPlayer guarantees that while pendingFreeCast is set the
+  // ONLY cast actions offered are the free-cast ones (action.freeCast), so this never clears the flag on an
+  // unrelated cast. The card was cast FROM HAND, so no fromZone gate is needed beyond the freeCast marker.
+  if (state.pendingFreeCast && action.freeCast) {
+    const { pendingFreeCast: _drop, ...rest } = next;
+    return rest;
+  }
   return next;
+}
+
+// FREE-CAST (CR 601.2b) — decline the optional free-cast ("you may cast …"): clear the pendingFreeCast flag,
+// casting nothing. A no-op beyond clearing the decision (the controller chose not to take the "may"). The
+// actor keeps priority and the pass chain resets, mirroring discover-to-hand (a non-stack decision resolution).
+function applyFreeCastDecline(state, action) {
+  if (!state.pendingFreeCast || state.pendingFreeCast.controller !== action.playerId) {
+    const { pendingFreeCast: _drop, ...rest } = state; // defensive: stale/foreign decline → just clear
+    return rest;
+  }
+  const { pendingFreeCast: _drop, ...rest } = state;
+  return logEvent(rest, { kind: "free-cast-decline", playerId: action.playerId });
 }
 // DISCOVER — put the parked (exiled) found card into the controller's hand; clear the pending decision.
 function applyDiscoverToHand(state, action) {
@@ -960,6 +980,7 @@ const HANDLERS = {
   "declare-blocker": applyDeclareBlocker,
   "companion-to-hand": applyCompanionToHand, // CMD-COMPANION (CR 702.139)
   "discover-to-hand": applyDiscoverToHand,   // DISCOVER: take the found card instead of casting it free
+  "free-cast-decline": applyFreeCastDecline, // FREE-CAST (CR 601.2b): decline the optional "you may cast …"
 };
 
 /**

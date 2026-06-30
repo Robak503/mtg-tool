@@ -32,6 +32,7 @@ import { amassResolvers } from "./atoms/amass.js";
 import { selfReturnResolvers } from "./atoms/selfReturn.js";
 import { winGameResolvers } from "./atoms/winGame.js";
 import { rollResolvers } from "./atoms/roll.js";
+import { freeCastResolvers } from "./atoms/freeCast.js";
 
 // ─── Re-export the public atom symbols (consumers import these from the barrel path) ──────────
 export { applyCreateToken, applyCreateTokenCopy } from "./atoms/tokens.js";
@@ -60,6 +61,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...selfReturnResolvers, // self-return (Wave 4 SELF-LTB) — Rancor PiG-return + Sword-of-the-Realms equipped-dies-return
   ...winGameResolvers, // win-game (UPKEEP-WIN, CR 104.2a) — "you win the game" / "target player loses the game"
   ...rollResolvers,    // roll-d20 (DICE-ROLL, CR 726) — Ancient Dragons roll → result-scaled token/draw payoff
+  ...freeCastResolvers, // free-cast (CR 601.2b) — "you may cast a spell with MV N or less from your hand without paying its mana cost" (Expertise cycle); park for the action-layer cast-free/decline decision
 });
 
 /**
