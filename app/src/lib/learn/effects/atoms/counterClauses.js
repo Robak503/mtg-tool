@@ -62,6 +62,16 @@ const TRIGGERING_CREATURE_COUNTER = /^put (a|an|one|two|three|four|five|\d+) ([+
 // model, so it stays LOW → Arbiter, an FN-safe park). Anchored start-to-end: a rider leaves residue → null.
 const DOUBLE_COUNTERS_SELF = /^double the number of (\+1\/\+1) counters on this creature$/;
 
+// DOUBLE-COUNTERS-EACH (CR 121 + 122.6) — the BOARD-WIDE form: "double the number of +1/+1 counters on EACH
+// creature you control" (Kalonian Hydra's attack trigger; Bristly Bill, She-Hulk, Court of Garenbrig). Unlike
+// the SELF double (one global amount read off the source), this doubles EACH creature's OWN counters — so it
+// can't be a single countForSpec read; it's modeled as a youControl-scoped add-counter carrying a
+// `perTargetDouble` marker, which counters.applyAddCounter resolves PER target (the amount added to a creature
+// = that creature's current +1/+1 count, read pre-mutation, routed through addCounter's doubler hook so
+// Doubling Season composes per target, CR 616). Restricted to +1/+1 (the only fully layer-enforced kind,
+// mirroring the rest of this file). Anchored start-to-end: any rider leaves residue → null → LOW → Arbiter.
+const DOUBLE_COUNTERS_EACH = /^double the number of (\+1\/\+1) counters on each creature you control$/;
+
 /**
  * Pure clause parser for the WAVE 3b non-self triggering-permanent counter referent. `clause` arrives
  * reminder-stripped from parseClauseToAtom; we lowercase + normalize the curly apostrophe for robustness.
@@ -87,6 +97,18 @@ export function counterClausesParser(clause) {
       counterType: dm[1],
       target: "self",
       countFor: { kind: "countersOnSource", counterType: dm[1] },
+    };
+  }
+  // DOUBLE-COUNTERS-EACH — board-wide: net-double EVERY creature-you-control's OWN +1/+1 counters. The
+  // youControl scope gathers the controller's creatures at resolution; perTargetDouble tells applyAddCounter
+  // to add each one's current +1/+1 count to ITSELF (a per-target double, never a single global amount).
+  const dem = t.match(DOUBLE_COUNTERS_EACH);
+  if (dem) {
+    return {
+      op: "add-counter",
+      counterType: dem[1],
+      scope: "youControl",
+      perTargetDouble: dem[1],
     };
   }
   return null;

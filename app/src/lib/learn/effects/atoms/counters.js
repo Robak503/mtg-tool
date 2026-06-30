@@ -78,6 +78,17 @@ export function applyAddCounter(state, atom, ctx) {
   // 1); a FIXED count floors at 1. Computed ONCE here (state pre-mutation), then applied to every target. The
   // amount auto-routes through addCounter's central doubler hook, so the Wave-3 counter doubler still composes.
   const amount = atom.countFor ? Math.max(0, countForSpec(state, ctx, atom.countFor)) : (atom.amount || 1);
+  // PER-TARGET-DOUBLE (CR 121 — board-wide "double the number of +1/+1 counters on EACH creature you control":
+  // Kalonian Hydra's attack trigger, Bristly Bill / She-Hulk / Court of Garenbrig). Unlike the SELF double
+  // (countFor:countersOnSource — one global amount read off the source), the board-wide form doubles EACH
+  // creature's OWN counters: the amount added to a given target = that target's CURRENT count of `perTargetDouble`
+  // counters, read PER target against pre-mutation `next`. Each placement still routes through addCounter's
+  // doubler hook, so Doubling Season composes per target (CR 616). Restricted to +1/+1 (the only enforced kind,
+  // mirroring the rest of this atom); a target with 0 of that counter gets 0 (a clean no-op, never a fabricated
+  // floor). When unset this is a normal fixed/dynamic single `amount` applied uniformly.
+  const amountForTarget = (perm) => atom.perTargetDouble
+    ? Math.max(0, perm?.counters?.[atom.perTargetDouble] || 0)
+    : amount;
   // COUNTERS-PLACED watcher (CR 122.6): tally the ACTUAL number of +1/+1 counters this event places, split by
   // whether the recipient creature is controlled by the PLACER (ctx.controller) or anyone. The placed amount
   // is computed via the SAME applyCounterDoubling addCounter applies (Doubling Season / Hardened Scales /
@@ -86,13 +97,15 @@ export function applyAddCounter(state, atom, ctx) {
   // DOUBLED count). Only +1/+1 (the wording is "+1/+1 counters"); a -1/-1 placement never feeds this watcher.
   let placedOnYours = 0, placedOnAny = 0;
   for (const t of targets) {
-    if (amount > 0 && t.type === "creature" && findPermanent(next, t.id)) {
+    const lk = findPermanent(next, t.id);
+    const addAmt = lk ? amountForTarget(lk.permanent) : 0;
+    if (addAmt > 0 && t.type === "creature" && lk) {
       if (atom.counterType === "+1/+1") {
-        const placed = applyCounterDoubling(next, t.controller, "+1/+1", amount);
+        const placed = applyCounterDoubling(next, t.controller, "+1/+1", addAmt);
         placedOnAny += placed;
         if (t.controller === ctx.controller) placedOnYours += placed;
       }
-      next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount });
+      next = addCounter(next, { permanentId: t.id, type: atom.counterType, amount: addAmt });
     }
   }
   // -1/-1 counters lower DERIVED toughness — run the lethal SBA so a creature it
@@ -101,7 +114,7 @@ export function applyAddCounter(state, atom, ctx) {
     const r = destroyLethalCreatures(next);
     next = checkDiesTriggers(r.state, r.dead);
   }
-  next = logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount, targets: targets.map(t => t.id) });
+  next = logEvent(next, { kind: "spell-effect", effect: "add-counter", counterType: atom.counterType, amount: atom.perTargetDouble ? "perTargetDouble" : amount, targets: targets.map(t => t.id) });
   // Fire the placer's "Whenever you put one or more +1/+1 counters on a creature [you control]" triggers
   // ONCE for this whole event (CR 122.6), controller-scoped to ctx.controller, "that many" = the placed count.
   // A clean no-op when no +1/+1 landed on a creature (placedOnAny === 0) or no such watcher exists.

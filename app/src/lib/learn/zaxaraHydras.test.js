@@ -7,8 +7,9 @@
  *   1. the four CREED-clean flips classify native + actually enter at X/X via the real cast→resolve flow;
  *   2. the MULTI-X guard keeps {X}{X} (Walking Ballista) body-only — parseManaCost/legalChoices treat every
  *      {X} as a single X, so a double-X card underpays; crediting it would be a forbidden FP;
- *   3. the unmodeled-rider hydras (Hungering / Goose Mother / Benevolent / Primordial / Voracious / Hydroid /
- *      Mossborn / Nyxborn / Kalonian) stay body-only — the strip never masks an unmodeled second clause.
+ *   3. the unmodeled-rider hydras (Hungering / Goose Mother / Benevolent / Primordial / Hydroid /
+ *      Nyxborn) stay body-only — the strip never masks an unmodeled second clause. (Voracious / Mossborn /
+ *      Kalonian have since flipped via the counter-doubler levers — see modalDeckModes / kalonianDouble.)
  * Real oracle text (deck_zaxara, verified vs the local index), verbatim.
  */
 import { describe, it, expect } from "vitest";
@@ -162,10 +163,6 @@ describe("ZAXARA-HYDRAS — PARKED: hydras with an unmodeled rider stay body-onl
     "Nyxborn Hydra (Bestow Aura)": {
       type: "Creature Enchantment — Hydra", mana: "{X}{G}",
       oracle: "Bestow {X}{G}{G}\nReach, trample\nThis permanent enters with X +1/+1 counters on it.\nEnchanted creature gets +1/+1 for each +1/+1 counter on this Aura and has reach and trample.",
-    },
-    "Kalonian Hydra (attacks→double counters; literal-4 enters)": {
-      type: "Creature — Hydra", mana: "{3}{G}{G}",
-      oracle: "Trample\nThis creature enters with four +1/+1 counters on it.\nWhenever this creature attacks, double the number of +1/+1 counters on each creature you control.",
     },
   };
   for (const [label, card] of Object.entries(parked)) {

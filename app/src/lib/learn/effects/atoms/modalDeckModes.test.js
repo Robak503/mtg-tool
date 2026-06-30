@@ -182,8 +182,11 @@ describe("MODAL-DECK-MODES — Black Market Connections: changeling token + one-
 
 describe("MODAL-DECK-MODES — CREED guards (near-miss variants STAY low → Arbiter)", () => {
   const low = (clause) => expect(programConfidence(parseEffectClause(clause, "Instant", {}))).toBe("low");
-  it("double the number on EACH creature you control → low (board-wide, not the self atom)", () => {
-    low("Double the number of +1/+1 counters on each creature you control");
+  it("double the number on EACH creature you control → now HIGH (board-wide perTargetDouble lever; see kalonianDouble.test.js)", () => {
+    // Once the SELF self-double shipped, the board-wide form was the next lever (DOUBLE-COUNTERS-EACH): a
+    // youControl-scoped perTargetDouble atom that doubles EACH creature's own counters. It parses HIGH now and
+    // flips Kalonian Hydra native-trigger — so this is no longer the Arbiter-park it was at the self-only stage.
+    expect(programConfidence(parseEffectClause("Double the number of +1/+1 counters on each creature you control", "Instant", {}))).toBe("high");
   });
   it("double -1/-1 counters → low (only +1/+1 is modeled here)", () => {
     low("Double the number of -1/-1 counters on this creature");
