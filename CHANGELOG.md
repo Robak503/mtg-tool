@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.77.0] - 2026-06-30
+
+### Improved
+- **Deck-mover wave — Omnath 75→76, Koma 81→82 (+4 native).** RAMP-MULTI-X land tutors (Traverse the Outlands,
+  Boundless Realms — fetch count drawn from a board source) and mass-bounce (Whelming Wave, with its Kraken/
+  Leviathan/Octopus/Serpent exclusion, + Evacuation) — targeting the two decks' own non-native tails. Flip-diffed
+  both directions (4 gained, 0 lost, verified deterministic across 3 fresh runs), full gate (6,201 tests) green, 0
+  false positives.
+
 ## [0.76.0] - 2026-06-30
 
 ### Improved
