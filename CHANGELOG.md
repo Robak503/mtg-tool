@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.62.0] - 2026-06-30
+
+### Improved
+- **One-shot extra-land + half-X subsystems (+5 native).** "Play an additional land this turn" (Explore, Summer
+  Bloom, Urban Evolution, Scale the Heights) and half-of-a-value amounts (Contaminated Drink — "half X, rounded").
+  Flip-diffed both directions, 0 regressions, full gate (5,663 tests) green, 0 false positives.
+
 ## [0.61.0] - 2026-06-29
 
 ### Improved
