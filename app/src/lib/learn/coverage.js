@@ -443,6 +443,16 @@ export function permanentFullyCovered(card) {
   // must be a modeled static or keyword-only — no unmodeled trigger/static/other text survives.
   // FOLD modal-ability bullet lines first (Koma's "Choose one — \n• … \n• …"), so a multi-line modal
   // activated ability strips as ONE line rather than leaving its mode bullets as apparent residue.
+  // LANDFALL / ability-word label (CR 207.2c) — strip a leading "Landfall —" (constellation, enrage, …)
+  // FIRST, identically to permanentTriggersCovered. Without this the trigger-sentence strip below — anchored
+  // `(?:^|[\n.;]\s*)(When|Whenever|At)` — never matches a landfall trigger ("Landfall — Whenever a land you
+  // control enters, …"), because the "Whenever" sits mid-line after "Landfall — " (not at ^ / after a period),
+  // so the WHOLE landfall sentence survives as apparent residue and a fully-modeled landfall permanent (Aesi =
+  // extra-land static + landfall optional-draw; Bristly Bill = double-counters activated + landfall counter-on-
+  // target) falsely reads body-only. FN-safe: allTriggerSentencesModeled (which label-strips the same way)
+  // passed above, so every label-prefixed trigger is already proven modeled — the strip only reveals the
+  // keyword/static body it was hiding. Mirrors the native-trigger tier's residue chain (line 295).
+  //
   // ETB-ENTERING-PRONOUN tail (Surrak and Goreclaw) — strip the "It gets/gains <kw> until end of turn." pump
   // sentence that a same-line entering-creature trigger folds into its effect (the trigger regex stops at the
   // first period after "…on it.", leaving it as residue). FN-safe: allTriggerSentencesModeled passed above, so
@@ -450,7 +460,7 @@ export function permanentFullyCovered(card) {
   // counter clause (the Surrak shape) — run BEFORE the trigger-sentence strip (which removes the "counter on
   // it." prefix this anchor needs), so a standalone "It …EOT" elsewhere is never consumed (CREED; mirrors the
   // native-trigger residue chain's ordering).
-  const afterTriggers = oracle
+  const afterTriggers = stripTriggerAbilityLabel(oracle)
     .replace(/(counters? on (?:it|that creature|this creature))\.\s+it (?:gets [+-]\d+\/[+-]\d+(?: and gains [^.]+)?|gains [^.]+) until end of turn\b\.?\s*/gi, "$1. ")
     .replace(/(?:^|[\n.;]\s*)(When|Whenever|At)\b[^.]+\./gi, "\n");
   const afterActivated = foldModalBulletLines(stripReminder(afterTriggers))

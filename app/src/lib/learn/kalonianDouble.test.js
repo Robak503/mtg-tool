@@ -126,13 +126,16 @@ describe("DOUBLE-COUNTERS-EACH — CREED guards: only +1/+1 / youControl; other 
   it("the TARGET-creature double stays LOW (a chosen-target form not modeled)", () => {
     low("Double the number of +1/+1 counters on target creature");
   });
-  // The other three corpus cards that use the board-wide double carry an UNMODELED rider, so they stay
-  // body-only (whole-card CREED) — the new atom never masks the monarch / activate-once / cost-reduce text.
-  it("Bristly Bill, Spine Sower stays body-only (its {3}{G}{G} activated ability earns native-activated only once its cost-line residue is clean — the board-double alone doesn't flip it here)", () => {
+  // Bristly Bill = the board-wide double (this activated ability, native-activated) + a MODELED landfall
+  // counter-on-target trigger. It composes to native-mixed via the LANDFALL-composite fix (permanentFully-
+  // Covered now strips the "Landfall —" ability-word label before its trigger-sentence strip — see
+  // landfall.test.js). Court of Garenbrig still carries an UNMODELED rider (monarch + distribute-counters
+  // upkeep), so it stays body-only (whole-card CREED) — the new double atom never masks that text.
+  it("Bristly Bill, Spine Sower is native-mixed (board-double activated + a modeled landfall counter trigger)", () => {
     expect(classifyCard({
       name: "Bristly Bill, Spine Sower", type: "Legendary Creature — Plant Druid", mana: "{1}{G}",
       oracle: "Landfall — Whenever a land you control enters, put a +1/+1 counter on target creature.\n{3}{G}{G}: Double the number of +1/+1 counters on each creature you control.",
-    })).toBe("body-only");
+    })).toBe("native-mixed");
   });
   it("Court of Garenbrig stays body-only (the monarch + distribute-counters upkeep clause is unmodeled)", () => {
     expect(classifyCard({

@@ -7,11 +7,13 @@
  * 1 + Σ). Both gates — the action gate (actionsPlayLand) and the dispatcher gate (applyPlayLand) — read the
  * SAME helper (the CREED two-sites invariant). Classifies native-static.
  *
- * CREED all-or-nothing: only a clean SELF-ONLY extra-land static flips. The SYMMETRIC form ("each player
- * may play an additional land …" — Rites of Flourishing, Ghirapur Orrery), "any number of lands" (Fastbond),
- * the one-shot sorcery ("up to three additional lands this turn" — Summer Bloom), and any card carrying a
- * second unmodeled clause (Aesi's landfall draw, Oracle of Mul Daya, Dryad's type static, Wayward's ascend)
- * stay body-only — a fabricated extra land play / mis-count is a forbidden false positive.
+ * CREED all-or-nothing: only a clean SELF-ONLY extra-land static flips on its OWN (Exploration/Azusa →
+ * native-static). The SYMMETRIC form ("each player may play an additional land …" — Rites of Flourishing,
+ * Ghirapur Orrery), "any number of lands" (Fastbond), the one-shot sorcery ("up to three additional lands this
+ * turn" — Summer Bloom), and any card carrying a second UNmodeled clause (Oracle of Mul Daya's top-of-library,
+ * Dryad's type static, Wayward's ascend) stay body-only — a fabricated extra land play / mis-count is a
+ * forbidden false positive. Aesi (extra-land static + a MODELED landfall optional-draw) now composes to
+ * native-mixed via the LANDFALL-composite fix — see landfall.test.js.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -73,8 +75,14 @@ describe("EXTRA-LAND-DROPS — classifyCard", () => {
     expect(classifyCard(EXPLORATION)).toBe("native-static");
     expect(classifyCard(AZUSA)).toBe("native-static");
   });
+  it("Aesi (extra-land static + a MODELED landfall optional-draw) is native-mixed — both clauses model", () => {
+    // The landfall payoff ("you may draw a card") routes natively (α2 optional → draw), so the composite
+    // classifier (permanentFullyCovered) now combines the extra-land static + the landfall trigger. This was
+    // body-only ONLY because permanentFullyCovered didn't strip the "Landfall —" ability-word label before its
+    // trigger-sentence strip (the LANDFALL-composite fix); the static was always modeled. See landfall.test.js.
+    expect(classifyCard(AESI)).toBe("native-mixed");
+  });
   it("rider / symmetric / one-shot cards stay non-native (CREED all-or-nothing)", () => {
-    expect(classifyCard(AESI)).toBe("body-only");           // landfall-draw rider
     expect(classifyCard(ORACLE_MUL_DAYA)).toBe("body-only"); // top-of-library riders
     expect(classifyCard(DRYAD)).toBe("body-only");           // type-changing static rider
     expect(classifyCard(WAYWARD)).toBe("body-only");         // ascend + can't-attack rider

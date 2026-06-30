@@ -10,12 +10,21 @@
  * with a MODELED payoff flip; a filtered subject ("a basic land", "another land", an opponent's land), an
  * "enters tapped" rider, or an unmodeled payoff (Lotus Cobra's landfall MANA) stays on the Arbiter. The
  * ramp/fetch land-entry path is a follow-up slice (a missed landfall there is a SAFE under-fire).
+ *
+ * LANDFALL-COMPOSITE (Toph TIER-2): a landfall trigger MIXED with another modeled ability (Aesi = extra-land
+ * static + optional-draw; Bristly Bill = double-counters activated + counter-on-target; Maja = anthem + token)
+ * now composes to native-mixed. The blocker was permanentFullyCovered (coverage.js): it didn't stripTrigger-
+ * AbilityLabel before its trigger-sentence strip, so the whole "Landfall — …" sentence survived as residue.
+ * The fix mirrors permanentTriggersCovered (strip the label FIRST). The 6-land token-copy (Scute Swarm) and
+ * the 2nd-resolution doubler (Scythecat Cub) riders are unmodeled → those payoffs parse LOW → stay body-only.
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { detectTriggers, stripTriggerAbilityLabel } from "./triggers.js";
-import { classifyCard } from "./coverage.js";
+import { classifyCard, permanentFullyCovered } from "./coverage.js";
 import { dispatchAction } from "./actionDispatcher.js";
+import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "./gameEngine.js";
+import { resolveOptionalChoice } from "./effects/runProgram.js";
 import { _resetIdsForTests, createGameState, createPermanent } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
@@ -86,5 +95,86 @@ describe("LANDFALL — engine: playing a land FIRES the landfall trigger (CREED 
   it("no watcher → playing a land queues no landfall trigger (clean no-op)", () => {
     const after = playForest(board(creatureCard("Bear", "Flying"), "user"));
     expect((after.pendingTriggers || []).some((t) => t.event === "landfall")).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// LANDFALL-COMPOSITE (Toph TIER-2) — a landfall trigger MIXED with another modeled ability (a static, an
+// activated). The landfall payoff already routed natively (native-trigger tier), but the WHOLE card read
+// body-only because permanentFullyCovered (the composite combiner) didn't strip the "Landfall —" ability-word
+// label before its trigger-sentence strip, so the entire landfall sentence survived as apparent residue. The
+// fix mirrors permanentTriggersCovered: stripTriggerAbilityLabel FIRST. Real Scryfall oracle text.
+// ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+describe("LANDFALL-COMPOSITE — a modeled landfall trigger + another modeled ability flips native-mixed", () => {
+  // Aesi = "You may play an additional land …" (extra-land static) + landfall "you may draw a card" (α2 optional → draw).
+  const AESI = { id: "c-aesi", name: "Aesi, Tyrant of Gyre Strait", type: "Legendary Creature — Serpent", power: 5, toughness: 5, mana: "{4}{G}{U}", oracle: "You may play an additional land on each of your turns.\nLandfall — Whenever a land you control enters, you may draw a card." };
+  // Bristly Bill = landfall "+1/+1 counter on target creature" + "{3}{G}{G}: Double the number of +1/+1 counters on each creature you control" (activated, DOUBLE-COUNTERS-EACH).
+  const BRISTLY_BILL = { id: "c-bb", name: "Bristly Bill, Spine Sower", type: "Legendary Creature — Plant Druid", power: 1, toughness: 1, mana: "{1}{G}", oracle: "Landfall — Whenever a land you control enters, put a +1/+1 counter on target creature.\n{3}{G}{G}: Double the number of +1/+1 counters on each creature you control." };
+  // Maja = anthem static ("Other creatures you control get +1/+1") + landfall "create a 1/1 white Human Warrior creature token".
+  const MAJA = { id: "c-maja", name: "Maja, Bretagard Protector", type: "Legendary Creature — Human Warrior", power: 3, toughness: 3, mana: "{3}{G}{W}", oracle: "Other creatures you control get +1/+1.\nLandfall — Whenever a land you control enters, create a 1/1 white Human Warrior creature token." };
+
+  it("Aesi, Bristly Bill, Maja classify native-mixed (label-stripped composite)", () => {
+    expect(permanentFullyCovered(AESI)).toBe(true);
+    expect(permanentFullyCovered(BRISTLY_BILL)).toBe(true);
+    expect(permanentFullyCovered(MAJA)).toBe(true);
+    expect(classifyCard(AESI)).toBe("native-mixed");
+    expect(classifyCard(BRISTLY_BILL)).toBe("native-mixed");
+    expect(classifyCard(MAJA)).toBe("native-mixed");
+  });
+
+  // ── CREED anti-FP pins: a landfall card whose PAYOFF (or a rider on it) is unmodeled stays body-only ──
+  it("CREED — Lotus Cobra (landfall MANA), Scute Swarm (6-land token-copy rider), Scythecat Cub (2nd-resolution doubler rider) stay body-only", () => {
+    // Lotus Cobra — "add one mana of any color" is a mana payoff the mana model owns; not modeled in the
+    // trigger→effect bridge → the landfall doesn't route → body-only (a fabricated mana is a forbidden FP).
+    expect(classifyCard({ id: "c-cobra", name: "Lotus Cobra", type: "Creature — Snake", power: 2, toughness: 1, mana: "{1}{G}", oracle: "Landfall — Whenever a land you control enters, add one mana of any color." })).toBe("body-only");
+    // Scute Swarm — the "If you control six or more lands, create a token that's a copy of this creature
+    // instead" conditional/token-copy rider is unmodeled → the payoff parses LOW → body-only.
+    expect(classifyCard({ id: "c-scute", name: "Scute Swarm", type: "Creature — Insect", power: 1, toughness: 1, mana: "{2}{G}", oracle: "Landfall — Whenever a land you control enters, create a 1/1 green Insect creature token. If you control six or more lands, create a token that's a copy of this creature instead." })).toBe("body-only");
+    // Scythecat Cub — the "If this is the second time this ability has resolved this turn, double … instead"
+    // per-turn-resolution-count rider is unmodeled → the payoff parses LOW → body-only.
+    expect(classifyCard({ id: "c-scythe", name: "Scythecat Cub", type: "Creature — Cat", power: 2, toughness: 2, mana: "{1}{G}", oracle: "Trample\nLandfall — Whenever a land you control enters, put a +1/+1 counter on target creature you control. If this is the second time this ability has resolved this turn, double the number of +1/+1 counters on that creature instead." })).toBe("body-only");
+  });
+
+  // ── RUNTIME: the landfall genuinely FIRES + the effect happens (CREED — proves the wiring, not just the metric) ──
+  const FOREST = { id: "forest1", name: "Forest", type: "Basic Land — Forest", mana: "" };
+  function boardWith(watcherCard) {
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    return {
+      ...s, phase: "precombat-main", step: "main", priorityHolder: "user", activePlayer: "user", consecutivePasses: 0, startingPlayer: "user",
+      players: { ...s.players, user: { ...s.players.user, hand: [FOREST], library: [{ id: "lib1", name: "Forest", type: "Basic Land — Forest", oracle: "" }], battlefield: [createPermanent({ id: "watcher", card: watcherCard, controller: "user" })] } },
+    };
+  }
+  const playForest = (s) => dispatchAction(s, { kind: "play-land", playerId: "user", cardId: "forest1", name: "Forest" });
+  const resolveAll = (s) => { let g = 0; while ((s.stack || []).length && g++ < 30) s = resolveTopOfStack(s); return s; };
+
+  it("Bristly Bill: playing a land resolves the landfall +1/+1 counter (lands on the only creature)", () => {
+    let s = playForest(boardWith(BRISTLY_BILL));
+    expect((s.pendingTriggers || []).filter((t) => t.event === "landfall")).toHaveLength(1);
+    s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+    const bb = s.players.user.battlefield.find((p) => p.id === "watcher");
+    expect(bb?.counters?.["+1/+1"]).toBe(1); // the counter genuinely landed
+  });
+
+  it("Maja: playing a land resolves the landfall token (a 1/1 Human Warrior enters)", () => {
+    let s = playForest(boardWith(MAJA));
+    expect((s.pendingTriggers || []).filter((t) => t.event === "landfall")).toHaveLength(1);
+    s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+    const warriors = s.players.user.battlefield.filter((p) => p.id !== "watcher" && /Warrior/.test(p.card?.name || ""));
+    expect(warriors).toHaveLength(1); // the token genuinely entered
+  });
+
+  it("Aesi: the landfall optional draw, when TAKEN (the session auto-takes a beneficial 'you may'), draws a card", () => {
+    // The landfall trigger fires + suspends on the α2 optional ("you may draw"); learnSession auto-takes a
+    // beneficial optional for an AI/Expert seat. Drive that auto-take (resolveOptionalChoice(state, true)) and
+    // assert the draw resolves — proving the modeled payoff genuinely fires at runtime (CREED, not just metric).
+    let s = playForest(boardWith(AESI));
+    expect((s.pendingTriggers || []).filter((t) => t.event === "landfall")).toHaveLength(1);
+    s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+    // The optional pauses at resolution; the session-level auto-take answers YES.
+    let guard = 0;
+    while (s.pendingChoice?.kind === "optional-effect" && guard++ < 5) s = resolveAll(resolveOptionalChoice(s, true));
+    // started with 1 card (the Forest) → played it (0) → drew via landfall (1); library 1 → 0.
+    expect(s.players.user.hand).toHaveLength(1);
+    expect(s.players.user.library).toHaveLength(0);
   });
 });
