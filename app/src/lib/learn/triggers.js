@@ -23,6 +23,7 @@ import {
   findPermanent,
   creaturePower,
   logEvent,
+  recordCreatureDeaths,
 } from "./gameState.js";
 import { hasKeyword } from "./keywords.js";
 import { grantedTriggeredQuotedFor } from "./layers.js";
@@ -1951,6 +1952,11 @@ export function checkDiesTriggers(state, dead) {
   // so an orphaned Aura's PiG-return trigger (Rancor) is enqueued alongside the creature's dies triggers.
   let state2 = checkLeavesTriggers(state);
   if (!dead || !dead.length) return state2;
+  // DEATHS-THIS-TURN (CR 700.4): bump each dying creature's controller's per-turn death tally BEFORE firing
+  // dies-triggers, so a dies-triggered "for each creature that died this turn" payoff (and the "if a creature
+  // died this turn" intervening-if) reads the up-to-date count. recordCreatureDeaths excludes exiled-instead /
+  // non-creature look-backs (CR 700.4 — only creatures put into a graveyard "died").
+  state2 = recordCreatureDeaths(state2, dead);
   let fired = [];
   for (const d of dead) {
     if (!d?.card) continue;

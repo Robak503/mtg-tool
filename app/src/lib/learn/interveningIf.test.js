@@ -84,8 +84,9 @@ describe("evaluateInterveningIf — board queries", () => {
 
 describe("evaluateInterveningIf — strict null for unmodeled conditions (CREED)", () => {
   it("turn-event / state-flag / designation conditions return null (Arbiter)", () => {
-    expect(evaluateInterveningIf(withBoard([]), "a creature died this turn", "user")).toBe(null);
+    // NOTE: "a creature died this turn" is now MODELED (DEATHS-THIS-TURN) — covered in its own block below.
     expect(evaluateInterveningIf(withBoard([]), "you gained 3 or more life this turn", "user")).toBe(null);
+    expect(evaluateInterveningIf(withBoard([]), "a Zubera died this turn", "user")).toBe(null); // subtype-scoped death stays Arbiter (CREED)
     expect(evaluateInterveningIf(withBoard([]), "you're the monarch", "user")).toBe(null);
     // POWER near-misses stay null (only "power N or greater/more" is modeled — CREED)
     expect(evaluateInterveningIf(withBoard([]), "you control a creature with power 4 or less", "user")).toBe(null);
@@ -106,10 +107,14 @@ describe("interveningIfParseable — shape gate", () => {
       "you control a creature with power 4 or greater", "you control two or more creatures with power 5 or more"]) {
       expect(interveningIfParseable(c)).toBe(true);
     }
-    for (const c of ["a creature died this turn", "you control a commander", "you control a blue permanent",
+    for (const c of ["you control a commander", "you control a blue permanent",
       "you control a creature with power 4 or less", "you control a creature with toughness 4 or greater",
-      "you're the monarch"]) {
+      "a Zubera died this turn", "you're the monarch"]) {
       expect(interveningIfParseable(c)).toBe(false);
+    }
+    // DEATHS-THIS-TURN now parseable (modeled):
+    for (const c of ["a creature died this turn", "three or more creatures died this turn"]) {
+      expect(interveningIfParseable(c)).toBe(true);
     }
   });
 });
@@ -206,11 +211,22 @@ describe("intervening-if — coverage: conditional triggers flip native-trigger"
     // attack-trigger self-pump gated on the power query (Stampede Rider / Ornery Dilophosaur shape)
     expect(classifyCard(C("Power Pumper", "Whenever this creature attacks, if you control a creature with power 4 or greater, this creature gets +2/+2 until end of turn.", "Creature — Beast"))).toBe("native-trigger");
   });
+  it("DEATHS-THIS-TURN intervening-if → native-trigger (Twinblade Assassins shape)", () => {
+    // Twinblade Assassins — end-step conditional draw gated on "a creature died this turn"
+    expect(classifyCard(C("Twinblade Assassins", "At the beginning of your end step, if a creature died this turn, draw a card.", "Creature — Elf Assassin"))).toBe("native-trigger");
+    // ETB conditional draw gated on the death condition (the deferred plot.test / Turn Event shape, now modeled)
+    expect(classifyCard(C("Turn Event", "When this creature enters, if a creature died this turn, draw a card."))).toBe("native-trigger");
+    // the cardinal-threshold LEADING-if form ("if three or more creatures died this turn, …")
+    expect(classifyCard(C("Threshold Draw", "At the beginning of your end step, if three or more creatures died this turn, draw a card."))).toBe("native-trigger");
+  });
 });
 
 describe("intervening-if — CREED: unparseable conditions stay body-only", () => {
   it("turn-event / designation conditions stay non-native", () => {
-    expect(classifyCard(C("Turn Event", "When this creature enters, if a creature died this turn, draw a card."))).not.toMatch(/^native/);
+    // a NON-death turn event ("you gained life this turn") is still unmodeled → body-only
+    expect(classifyCard(C("Lifegain Event", "When this creature enters, if you gained life this turn, draw a card."))).not.toMatch(/^native/);
+    // a subtype-scoped death ("a Zubera died this turn") stays Arbiter (CREED — never a mis-scoped death count)
+    expect(classifyCard(C("Zubera Event", "When this creature enters, if a Zubera died this turn, draw a card."))).not.toMatch(/^native/);
     expect(classifyCard(C("Cmdr", "When this creature enters, if you control a commander, draw a card."))).not.toMatch(/^native/);
   });
   it("a power-qualified NEAR-MISS (power N or less / toughness) stays body-only — no partial flip", () => {

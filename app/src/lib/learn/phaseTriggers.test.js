@@ -227,15 +227,16 @@ describe("regression: Koma 'each upkeep' (whose:any) unaffected", () => {
 // to resolver "manual". These tests RESOLVE the stack and assert the OUTCOME, not just the emission.
 describe("resolution: conditional phase triggers must NOT fabricate (CREED)", () => {
   // An intervening-if combat-begin draw whose condition is OUTSIDE the modeled board-query vocabulary (a
-  // turn-event — "if a creature died this turn"), so the trigger must route to the Arbiter no-op rather than
-  // the OLD naive fallback that drew a card regardless (the confirmed FP). (A board-query condition like
-  // "if you control a creature with power 4 or greater" IS now modeled and resolves via the effect program —
-  // it's exercised in interveningIf.test.js; here we need a still-unmodeled condition to guard the fallback.)
+  // turn-event — "if you gained life this turn"), so the trigger must route to the Arbiter no-op rather than
+  // the OLD naive fallback that drew a card regardless (the confirmed FP). (Board-query conditions like
+  // "if you control a creature with power 4 or greater" AND the turn-event "if a creature died this turn" are
+  // NOW modeled and resolve via the effect program — exercised in interveningIf.test.js; here we need a
+  // still-unmodeled condition to guard the fallback.)
   const COND_DRAW = {
     id: "c-cond",
     name: "Testfall Conditional Draw",
     type: "Enchantment",
-    oracle: "At the beginning of combat on your turn, if a creature died this turn, draw a card.",
+    oracle: "At the beginning of combat on your turn, if you gained life this turn, draw a card.",
   };
   // An UNCONDITIONAL, fully-modeled combat-begin draw — proves the fix does NOT over-suppress a
   // legitimately-native phase trigger (it still resolves via the rich effect-program path).

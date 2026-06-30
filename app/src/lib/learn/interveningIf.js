@@ -32,9 +32,15 @@
  *   "you control another <Subtype>" (Dwynen's Elite "another Elf", Ghitu Journeymage "another Wizard",
  *      Apothecary Geist "another Spirit", Resistance Squad "another Human") — a CURATED creature subtype,
  *      excluding the entering permanent (CR 113.7), keyed on ctx.triggeringPermanentId like SAME-NAME ETB.
+ *   "[a creature|N or more creatures] died this turn" (Twinblade Assassins, Deathreap Ritual, Bulette, the
+ *      Morbid family; Inga "three or more", Lagomos "five or more", Tallyman "seven or more") — a TURN-EVENT
+ *      history read off the per-turn creature-death tally (gameState.creaturesDiedThisTurn, bumped at the death
+ *      chokepoint, reset for all seats at untap). "a creature died" ≡ "1 or more died" (≥1); the cardinal form
+ *      compares the all-seats death total (CR 700.4 — any player's creature dying counts) to N.
  * DEFERRED to the Arbiter (stay LOW): color/multicolored permanents, other power comparisons ("power N or
- * less", toughness), turn-event history ("a creature died this turn"), cast-decision flags (kicker/tribute/
- * bargain), state flags (monarch, city's blessing) — each a future increment.
+ * less", toughness), OTHER turn-event history (a NON-creature died, "you gained life this turn", attacked),
+ * subtype-scoped death counts ("a Zubera died"), cast-decision flags (kicker/tribute/bargain), state flags
+ * (monarch, city's blessing) — each a future increment.
  */
 
 import { creaturePower } from "./gameState.js"; // layer-aware power reader (counters + anthems) — one-way edge, no cycle
@@ -104,6 +110,13 @@ function parseFilter(phrase) {
 
 function controllerBoard(state, controllerId) {
   return state?.players?.[controllerId]?.battlefield || [];
+}
+
+// DEATHS-THIS-TURN (CR 700.4) — total creatures that died this turn across ALL seats (the sum of every
+// player's per-turn creaturesDiedThisTurn tally). "a creature died this turn" / "N or more creatures died this
+// turn" are unscoped, so any player's creature dying counts. A seat with no tally → 0.
+function deathsThisTurnTotal(state) {
+  return Object.values(state?.players || {}).reduce((sum, pl) => sum + (pl?.creaturesDiedThisTurn || 0), 0);
 }
 
 // Opponent ids = every seat that ISN'T the controller. Computed inline from the live player map (NOT via
@@ -250,6 +263,22 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   if (m) {
     const mine = controllerMetric(state, controllerId, m[1]);
     return opponentIds(state, controllerId).some((oid) => controllerMetric(state, oid, m[1]) > mine);
+  }
+
+  // ===== TURN-EVENT HISTORY (CR 700.4) ===== "[a creature | N or more creatures] died this turn" — read off
+  // the per-turn creature-death tally (gameState.creaturesDiedThisTurn per seat, bumped at the death chokepoint).
+  // "a creature died this turn" is the ≥1 case; the cardinal form ("three or more creatures died this turn")
+  // compares the ALL-SEATS death total to N (CR 700.4 — any player's creature dying counts). Evaluated at flush
+  // AND resolution like every other intervening-if; the counter resets for all seats at untap, so it reads the
+  // current turn's deaths only. A subtype-scoped ("a Zubera died") or "an opponent's creature died" variant
+  // fails the anchor → falls through → null → Arbiter (CREED — never a mis-scoped death count).
+  m = c.match(/^a creature died this turn$/);
+  if (m) return deathsThisTurnTotal(state) >= 1;
+  m = c.match(new RegExp(`^${NUM_RE} or more creatures died this turn$`));
+  if (m) {
+    const n = parseCount(m[1]);
+    if (n == null) return null;
+    return deathsThisTurnTotal(state) >= n;
   }
 
   // "you control another <Subtype>" — a curated creature subtype, OTHER THAN the entering permanent (CR 113.7)

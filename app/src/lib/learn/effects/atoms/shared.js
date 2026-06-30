@@ -269,6 +269,14 @@ export function countForSpec(state, ctx, spec) {
     }
     return total;
   }
+  // ===== DEATHS-THIS-TURN (CR 700.4), all-seats ===== "the number of creatures that died this turn" (Mahadi)
+  // sums EVERY player's per-turn creature-death tally (creaturesDiedThisTurn, bumped at the death chokepoint),
+  // because "a creature that died" is unscoped — any player's creature counts. The controller-scoped variant
+  // ("…under your control") has no scope flag and falls to the player-lookup branch below. A seat with no tally
+  // → 0 (safe). Read off the player tallies (not a board scan), so it's computed before the single-player lookup.
+  if (spec.kind === "creaturesDiedThisTurn" && spec.scope === "all") {
+    return Object.values(state?.players || {}).reduce((sum, pl) => sum + (pl.creaturesDiedThisTurn || 0), 0);
+  }
   // ===== SOURCE-STAT (DYNAMIC-COUNT keystone) ===== a count read off a single CREATURE referent's
   // LAYER-AWARE power/toughness AT RESOLUTION (CR 608.2h), NOT a player or board tally — the shared "equal to
   // its/that creature's power/toughness" count source that feeds tokens / counters / damage / life uniformly.
@@ -355,6 +363,10 @@ export function countForSpec(state, ctx, spec) {
   const player = playerId ? state?.players?.[playerId] : null;
   if (!player) return 0;
   if (spec.kind === "cardsInHand") return (player.hand || []).length;
+  // ===== DEATHS-THIS-TURN (CR 700.4), controller-scoped ===== "creatures that died under your control this
+  // turn" (Body Count) reads THIS player's per-turn creature-death tally only. (The unscoped all-seats sum is
+  // handled by the scope:"all" branch above the player lookup.) Absent tally → 0 (a safe no-op, never fabricated).
+  if (spec.kind === "creaturesDiedThisTurn") return (player.creaturesDiedThisTurn || 0);
   // ===== COUNT-OTHER / DRAW-METRIC ("other") ===== a leading "other" on the count sets `spec.excludeSelf`,
   // which drops the effect's SOURCE permanent (CR 113.7) — "for each OTHER <X> you control" (#365) / the
   // greatest power/toughness "among OTHER creatures you control" (DRAW-METRIC + MANA Arbor Adherent). The

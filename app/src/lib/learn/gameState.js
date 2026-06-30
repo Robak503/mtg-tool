@@ -374,6 +374,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     extraLandsThisTurn: 0,    // ONE-SHOT-EXTRA-LAND (CR 505.5b / 305.2): the per-turn land-play budget RAISED by a resolving "you may play [N] additional land[s] this turn" effect (Explore → +1, Summer Bloom → +3). landDropAllowance adds it; resetTurnCounters zeroes it each of the player's turns.
     cardsDrawnThisTurn: 0,
     spellsCastThisTurn: 0,    // TRIG-CAST2: "cast your second spell each turn" — incremented at the cast chokepoint, reset for all seats at untap
+    creaturesDiedThisTurn: 0, // DEATHS-THIS-TURN (CR 700.4): creatures that DIED (battlefield→graveyard) under this player's control this turn — incremented at the death chokepoint (checkDiesTriggers via recordCreatureDeaths), reset for all seats at untap. Read by "for each creature that died [under your control] this turn" (Mahadi sums all seats / Body Count reads the controller) + the "if a creature died this turn" intervening-if.
     hasMulliganed: false,
   };
 }
@@ -1282,6 +1283,50 @@ export function resetSpellsCastAllPlayers(state) {
   const players = {};
   for (const id of Object.keys(state.players)) {
     players[id] = { ...state.players[id], spellsCastThisTurn: 0 };
+  }
+  return { ...state, players };
+}
+
+/**
+ * DEATHS-THIS-TURN (CR 700.4) — record that one or more creatures DIED, bumping each dying creature's
+ * controller's `creaturesDiedThisTurn`. Called from the single creature-death chokepoint
+ * (triggers.checkDiesTriggers) with that batch's `dead` look-back list, BEFORE the dies-triggers fire — so a
+ * dies-triggered "for each creature that died this turn" payoff (Mahadi at end step) and the
+ * "if a creature died this turn" intervening-if both read the up-to-date running count.
+ *
+ * A creature "dies" only when it's put into a GRAVEYARD from the battlefield (CR 700.4). So this deliberately
+ * EXCLUDES two kinds of `dead` entries that did NOT die:
+ *   - `exileInstead` (EXILE-IF-DIES replacement, CR 614): the creature was exiled instead of being put into a
+ *     graveyard, so it never died — it must not count (a forbidden over-count would be a CREED FP).
+ *   - a non-CREATURE look-back: every checkDiesTriggers caller passes creatures (planeswalker deaths route
+ *     through checkPlaneswalkerDiesTriggers), but the count is guarded on the look-back's card type anyway so
+ *     a stray non-creature can never inflate the tally.
+ * Per-controller storage (not a single global) lets the controller-scoped reader ("…died under your control
+ * this turn" — Body Count) read one seat while the all-seats reader ("…died this turn" — Mahadi) sums them.
+ * An entry with no controller is skipped (a safe no-op). Pure; returns a new state.
+ */
+export function recordCreatureDeaths(state, dead) {
+  if (!Array.isArray(dead) || dead.length === 0) return state;
+  let next = state;
+  for (const d of dead) {
+    if (!d || d.exileInstead || !d.controller || !state.players[d.controller]) continue;
+    if (!/\bCreature\b/.test(String(d.card?.type || d.card?.type_line || ""))) continue; // only creatures count (CR 700.4)
+    next = withPlayer(next, d.controller, (p) => ({ ...p, creaturesDiedThisTurn: (p.creaturesDiedThisTurn || 0) + 1 }));
+  }
+  return next;
+}
+
+/**
+ * DEATHS-THIS-TURN — reset the per-turn creature-death counter for EVERY player at turn start (the death
+ * analogue of resetCardsDrawnAllPlayers / resetSpellsCastAllPlayers). A creature can die on ANY player's turn
+ * (combat, instant-speed removal, a sacrifice cost), so "died this turn" must count per game-turn for all seats
+ * — a stale count from a player's previous turn would mis-feed an end-step "for each creature that died this
+ * turn" / "if a creature died this turn" check. Called alongside the draw/spell resets at untap.
+ */
+export function resetCreatureDeathsAllPlayers(state) {
+  const players = {};
+  for (const id of Object.keys(state.players)) {
+    players[id] = { ...state.players[id], creaturesDiedThisTurn: 0 };
   }
   return { ...state, players };
 }

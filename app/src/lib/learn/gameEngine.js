@@ -33,6 +33,7 @@ import {
   resetTurnCounters,
   resetCardsDrawnAllPlayers,
   resetSpellsCastAllPlayers,
+  resetCreatureDeathsAllPlayers,
   untapAll,
   clearCombatDamage,
   logEvent,
@@ -218,6 +219,7 @@ export function runStepActions(state) {
       next = resetTurnCounters(next, { playerId: state.activePlayer });
       next = resetCardsDrawnAllPlayers(next); // TRIG-DRAW2: "draw your second card each turn" counts every seat's draws this turn
       next = resetSpellsCastAllPlayers(next); // TRIG-CAST2: ditto for "cast your second spell each turn"
+      next = resetCreatureDeathsAllPlayers(next); // DEATHS-THIS-TURN: "for each / if a creature died this turn" counts every seat's deaths this turn
       next = { ...next, onceTriggersFiredThisTurn: {} }; // ONCE-PER-TURN: clear per-source discover gates (Pantlaza, etc.)
       next = untapAll(next, { playerId: state.activePlayer });
       // SEEDBORN-UNTAP (a targeted #319-style hook the trigger compiler can't reach): Seedborn Muse —

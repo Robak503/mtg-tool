@@ -220,6 +220,21 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = 
   // ===== EXPERIENCE ===== the controller's experience counter total. "experience counters you have" is the
   // bare canonical form; "the controller has" is a rare alternate phrasing on non-Toph cards.
   if (/^experience counters? (?:you have|the controller has)$/.test(p)) return withExclude({ kind: "experienceCounters" });
+  // ===== DEATHS-THIS-TURN (CR 700.4) ===== "creature(s) that died this turn" — the count of creatures that
+  // DIED (battlefield→graveyard) this turn, read off the per-turn tally maintained at the death chokepoint.
+  // TWO scopes, both controller-rooted at resolution:
+  //   "creatures that died this turn"                    → scope:"all"  (every seat's deaths summed —
+  //                                                         Mahadi "create a Treasure for each creature that
+  //                                                         died this turn", Gadrak's nontoken variant aside).
+  //   "creatures that died under your control this turn" → controller-only (Body Count "draw a card for each
+  //                                                         creature that died under your control this turn").
+  // PLURAL form only ("creatures that died") — the SINGULAR "a creature died this turn" is an intervening-if
+  // CONDITION (interveningIf.js), never a payoff count. "nontoken creatures that died" (Gadrak/Rise of the
+  // Dread Marn) / "Zubera that died" / "under an opponent's control" all fail this exact-anchor → low → Arbiter
+  // (CREED — never a silently mis-scoped death count). who is intentionally NOT used (the all/controller split
+  // is countForSpec-internal, summing seats vs reading one), so this stays valid for every count consumer.
+  if (/^creatures? that died this turn$/.test(p)) return withExclude({ kind: "creaturesDiedThisTurn", scope: "all" });
+  if (/^creatures? that died under your control this turn$/.test(p)) return withExclude({ kind: "creaturesDiedThisTurn" });
   return null;
 }
 
