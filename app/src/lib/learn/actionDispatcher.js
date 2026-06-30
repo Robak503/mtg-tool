@@ -368,7 +368,15 @@ function applyCastSpell(state, action) {
   const targets = action.targets || [];
 
   let payload;
-  if (isNativeAura(castCard)) {
+  if (action.bestow) {
+    // BESTOW (CR 702.103): the card was cast for its bestow cost as an AURA enchanting the targeted
+    // creature. Same AURA_ETB resolver as a printed Aura, but `bestowed: true` is threaded onto the
+    // entering permanent so (a) layers.staticEffectsOf removes its Creature type while attached and (b)
+    // the falls-off SBA exempts it (it stays on the battlefield + becomes a creature again when its host
+    // leaves). The enchanted-creature bonus is the SAME parseAuraBonus descriptor layers already applies.
+    const targetId = targets[0]?.id;
+    payload = { resolver: RESOLVER_KEYS.AURA_ETB, params: { card: castCard, controller: action.playerId, targetId, bestowed: true } };
+  } else if (isNativeAura(castCard)) {
     // Aura (CR 303.4f): resolve via the AURA_ETB resolver — enter the battlefield attached
     // to the targeted creature. The target id is the battlefield permanent chosen at cast.
     const targetId = targets[0]?.id;

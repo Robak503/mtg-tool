@@ -32,7 +32,7 @@ import { parseEffectProgram, programConfidence, programNeedsChosenTarget, progra
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities } from "./triggers.js";
 import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
-import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
+import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator, parseAuraBonus, parseBestowCost, isEnchantmentCreature } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
@@ -1537,3 +1537,45 @@ function classifyAnnihilator(card) {
   return "native-trigger";                                        // enforced annihilator trigger + an otherwise keyword body
 }
 registerCoverageClassifier((card) => classifyAnnihilator(card));
+
+// ─── BESTOW (CR 702.103) ─────────────────────────────────────────────────────────
+//
+// A bestow creature (Theros) is an Enchantment Creature with a "Bestow {cost}" alt-cast that lets it
+// be cast as an AURA enchanting a creature (granting "+X/+X" and/or a keyword), and it BECOMES A
+// CREATURE again whenever it stops being attached. It plays END-TO-END natively now: both modes work
+// at runtime —
+//   • CREATURE mode: the normal permanent-spell cast (already offered) enters it as a creature.
+//   • AURA mode: legalChoices offers a bestow cast per legal creature target at the bestow cost
+//     (isAuraSpell + bestow:true); the dispatcher routes it through the SAME AURA_ETB resolver, which
+//     enters it attached + flagged `bestowed`. The enchanted-creature bonus is the SAME parseAuraBonus
+//     descriptor a printed Aura uses, applied by layers.staticEffectsOf scoped to attachedTo. While
+//     attached, staticEffectsOf also emits a layer-4 REMOVAL of the Creature type (CR 702.103e — it's
+//     an Aura, not a creature). When the host leaves, the falls-off SBA EXEMPTS a bestowed permanent
+//     (gameState.detachPermanentFromAll): it stays on the battlefield, just unattached → its layer-4
+//     removal lapses and it's a creature again, the bonus disappears (keyed on attachedTo).
+//
+// ALL-OR-NOTHING (CREED — whole card or PARK): native iff (1) it's an Enchantment Creature with a clean
+// Bestow cost, (2) the AURA-mode bonus parses (parseAuraBonus non-empty, itself all-or-nothing — a rider
+// drops the whole bonus), AND (3) the CREATURE-mode body (oracle minus the bestow line + the enchanted-
+// creature bonus clauses) is keyword-only. A bestow card whose creature body has unmodeled abilities, or
+// whose aura bonus has a rider, fails one of these and stays body-only (→ Arbiter at cast). Single source
+// of truth shared with the runtime offer (legalChoices imports isNativeBestow).
+const BESTOW_LINE_RE = /(?:^|\n)[^\n]*\bbestow\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i;
+export function isNativeBestow(card) {
+  if (!isEnchantmentCreature(card)) return false;
+  if (!parseBestowCost(card)) return false;
+  // (2) the aura mode's enchanted-creature bonus must parse clean (all-or-nothing; a rider → []).
+  if (!parseAuraBonus(card).length) return false;
+  // (3) the creature-mode body — everything that ISN'T the bestow line or an enchanted-creature bonus
+  // clause — must be keyword-only (vanilla / evergreen keywords the layer-body already plays). Strip the
+  // bestow LINE, then drop every clause that touches the enchanted creature (those are the parsed aura
+  // bonus, validated in (2)); the remainder is the self body. Reminder text is dropped by isKeywordOnly.
+  const noBestow = stripReminder(String(card?.oracle ?? card?.oracle_text ?? "")).replace(BESTOW_LINE_RE, "\n");
+  const selfBody = equipmentAbilityClauses(noBestow)
+    .filter((cl) => !/enchanted creature/i.test(cl))   // an enchanted-creature clause is aura-mode, not self
+    .join(". ");
+  return isKeywordOnly(selfBody, card?.name);
+}
+// Native tier: a bestow creature plays via the AURA attach machinery (its defining mode), so it shares the
+// "native-aura" tier — the metric counts EXACTLY the bestow cards the runtime attaches + plays natively.
+registerCoverageClassifier((card) => (isNativeBestow(card) ? "native-aura" : null));

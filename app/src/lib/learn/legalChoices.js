@@ -47,14 +47,14 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
 // cards flip natively (no duplicated native-determination to drift). coverage.js does NOT import legalChoices
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
-import { classifyCard, isNativeTier } from "./coverage.js";
+import { classifyCard, isNativeTier, isNativeBestow } from "./coverage.js";
 
 // GROUP-ACTIVATED grant (queue 1) — register the modeled-body gate so the runtime path (a SIM that imports
 // legalChoices but not coverage) still emits + enumerates group-activated grants. Idempotent with coverage.js's
 // identical registration; see registerGroupActivatedBodyValidator in staticAbilityParser.js.
 registerGroupActivatedBodyValidator(isModeledGroupActivatedBody);
 import { parseLoyaltyAbilities, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
-import { isNativeAura, isNativeManaAura, entersWithXCounters } from "./staticAbilityParser.js";
+import { isNativeAura, isNativeManaAura, entersWithXCounters, parseBestowCost } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js"; // X-COST CLONE (Mockingbird): choose X at cast so the MV cap is right
 import { isAdventureCard, adventureFaceCard, creatureFaceCard } from "./adventure.js"; // ADVENTURE (CR 715) — cast either face; pure shape module
 
@@ -782,6 +782,50 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
       }
       continue;
+    }
+
+    // BESTOW (CR 702.103): a bestow creature has an ALTERNATIVE cast cost that turns it into an Aura
+    // spell enchanting a creature (granting "+X/+X" and/or a keyword), becoming a creature again if it
+    // ever stops being attached. We offer the bestow cast ALONGSIDE the normal creature cast (this branch
+    // does NOT `continue` — the iteration falls through to the no-target creature push below, so BOTH
+    // modes are surfaced). Each bestow cast is the SAME shape a native Aura uses (isAuraSpell + a single
+    // creature target) plus `bestow: true`, which the dispatcher routes through AURA_ETB with the
+    // `bestowed` flag (the resolved permanent stays on the battlefield + becomes a creature when its host
+    // leaves, vs the normal Aura falls-off-to-graveyard SBA). Only offered for a fully-native bestow card
+    // (isNativeBestow — both modes clean, CREED). The bestow cost is paid INSTEAD of the printed cost, so
+    // it's parsed + affordability-checked independently of the creature-mode `base.cost` above.
+    const bestowCostStr = isNativeBestow(card) ? parseBestowCost(card) : null;
+    if (bestowCostStr) {
+      let bestowCost = parseManaCost(bestowCostStr);
+      const bestowCmc = totalCmc(bestowCost); // mana value reads the (printed) bestow cost (CR 202.3b) — before the tax
+      // The commander tax + static cost-reducers apply to the alt-cast too (CR 601.2f / 903.8) — mirror
+      // the creature-mode cost adjustments above so a taxed/discounted bestow cast is priced correctly.
+      const tax = freeCast ? 0 : (taxFn ? taxFn(card) : 0);
+      if (tax) bestowCost = { ...bestowCost, generic: (bestowCost.generic || 0) + tax };
+      if (!freeCast) {
+        const reduction = costReductionForSpell(costReducers, card) + selfCostReductionForSpell(state, playerId, card);
+        if (reduction) bestowCost = { ...bestowCost, generic: Math.max(0, (bestowCost.generic || 0) - reduction) };
+      }
+      const canAffordBestow = freeCast || canAfford(player.manaPool, manaSources(state, playerId), bestowCost);
+      // X-cost bestow (Nyxborn Hydra is gated out by isNativeBestow today — its dynamic per-counter bonus
+      // isn't modeled) — so a clean bestow card here never has {X} in its bestow cost; no X enumeration.
+      if (canAffordBestow && !bestowCost.hasX) {
+        const targets = enumerateTargets(state, playerId, { targetType: "creature" }, colorsOf(card));
+        for (const t of targets) {
+          actions.push({
+            ...base,
+            cost: bestowCost,
+            cmc: bestowCmc,
+            targets: [t],
+            targetName: t.name,
+            needsTargets: true,
+            isAuraSpell: true,
+            bestow: true,
+            bestowName: `bestow onto ${t.name}`,
+          });
+        }
+      }
+      // fall through — the normal creature-mode cast is still pushed below
     }
 
     // AURA-LAND-MANA-BOOST (CR 303.4): a land-enchant mana Aura (Wild Growth / Overgrowth / Fertile

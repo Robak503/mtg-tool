@@ -871,12 +871,21 @@ export function detachPermanentFromAll(state, permanent, toGy = false) {
     if (!lk) continue;
     // CR 704.5n: an AURA that loses its host can't stay on the battlefield — it's put into
     // its owner's graveyard. An Equipment just becomes unattached (stays on the battlefield).
-    if (/\bAura\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) {
+    // BESTOW (CR 702.103e): a permanent cast for its bestow cost is an Aura WHILE attached, but when its
+    // host leaves it does NOT fall off to the graveyard — it stays on the battlefield and becomes a
+    // creature again. So a `bestowed` attachment takes the Equipment-like path (clear attachedTo, stay).
+    // Its card type is "Enchantment Creature" (no "Aura" word) so the type test below already routes it
+    // here, but the explicit `bestowed` guard makes the rule intentional + robust to any future change.
+    const isFallingAura = !lk.permanent.bestowed
+      && /\bAura\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""));
+    if (isFallingAura) {
       // The orphaned Aura's own leave event is recorded by the recursive detachPermanentFromAll that
       // moveCardToZone(→ graveyard) invokes on it (the top-of-function recordLeaveEvent) — so do NOT record
       // it here too (that double-fired Rancor's PiG-return). The single chokepoint is the recursion.
       next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: attId });
     } else {
+      // Equipment OR a bestowed permanent: just unattach (CR 702.103e — bestow becomes a creature again,
+      // which it does automatically once attachedTo is null: layers stops emitting its Creature-type removal).
       next = updatePermanentSafe(next, attId, p => ({ ...p, attachedTo: null }));
     }
   }

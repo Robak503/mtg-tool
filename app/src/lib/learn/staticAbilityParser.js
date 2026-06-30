@@ -2010,6 +2010,38 @@ export function isNativeManaAura(card) {
   return manaAuraResidueClauses(card).length === 0;
 }
 
+// ─── BESTOW (CR 702.103) ─────────────────────────────────────────────────────────
+//
+// A bestow creature (Theros block) is an Enchantment Creature with a "Bestow {cost}" alternative
+// cast cost. Cast for its bestow cost, it's an AURA spell with "enchant creature" that grants the
+// enchanted creature "+X/+X" (and/or a keyword) — and BECOMES A CREATURE AGAIN if it ever stops
+// being attached (CR 702.103e). The "enchanted creature gets …" bonus uses the SAME grammar a
+// printed Aura uses, so parseAuraBonus already models it — no second parser. parseBestowCost only
+// extracts the alt-cost; the dual-mode nativeness gate (creature body + aura bonus, both clean) is
+// coverage.isNativeBestow, and the runtime offer + attach reuse the existing Aura cast/attach path.
+
+/**
+ * The "Bestow {cost}" alternative cast cost of a bestow creature, as the raw cost STRING
+ * ("{3}{W}", "{X}{G}{G}"), or null if the card has no bestow line. The clause's reminder text
+ * was already dropped by abilityClauses (paren-aware). Anchored to the EXACT keyword-then-cost
+ * shape so a card merely mentioning "bestow" in other text (none in the real corpus) never
+ * false-matches. Pure leaf — the runtime parses the returned string via legalChoices.parseManaCost.
+ */
+export function parseBestowCost(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  for (const clause of abilityClauses(oracle)) {
+    const m = clause.trim().match(/^bestow\s+((?:\{[^}]+\})+)$/i);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+/** True when the card's type line marks it an Enchantment Creature (the bestow body — CR 702.103a). */
+export function isEnchantmentCreature(card) {
+  const ty = String(card?.type || card?.type_line || "");
+  return /\bEnchantment\b/i.test(ty) && /\bCreature\b/i.test(ty);
+}
+
 /**
  * GRANTED-MANA-ABILITY AURA (creature OR land host) — an Aura that grants the enchanted CREATURE or LAND a
  * fully-modeled tap-for-mana ability ("Enchanted creature has \"{T}: Add one mana of any color.\"" — Multani's

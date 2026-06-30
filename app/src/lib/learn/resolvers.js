@@ -175,6 +175,11 @@ export function enterPermanent(state, card, controller, opts = {}) {
     // ORIGINAL card is stashed here and restored when it leaves the battlefield (CR 707.2 — off
     // the battlefield it's the original card, not the copy). moveCardToZone reads printedCard.
     ...(opts.printedCard ? { printedCard: opts.printedCard } : {}),
+    // BESTOW (CR 702.103): a card cast for its bestow cost enters as an Aura flagged `bestowed`. The flag
+    // (a) drives the layer-4 Creature-type removal in layers.staticEffectsOf while it's attached, and (b)
+    // exempts it from the Aura falls-off-to-graveyard SBA (gameState.detachPermanentFromAll) — it stays on
+    // the battlefield and becomes a creature again when its host leaves. A non-bestow permanent omits it.
+    ...(opts.bestowed ? { bestowed: true } : {}),
   };
   // A planeswalker enters with its starting loyalty as loyalty counters (CR 306.5b). Stored under
   // the generic counters map (`counters.loyalty`) so the 0-loyalty SBA + loyalty costs read it the
@@ -459,7 +464,7 @@ export const RESOLVERS = Object.freeze({
   // resolve — it's put into its owner's graveyard by game rules (CR 608.3b) and never
   // enters (logged, never fabricated). The targetId is a battlefield permanent id.
   [RESOLVER_KEYS.AURA_ETB]: (state, obj) => {
-    const { card, controller, targetId } = obj.payload?.params || {};
+    const { card, controller, targetId, bestowed } = obj.payload?.params || {};
     if (!card || !controller) return resolveManual(state, obj);
     const tgt = findPermanent(state, targetId);
     const tgtType = String(tgt?.permanent?.card?.type || tgt?.permanent?.card?.type_line || "");
@@ -469,9 +474,14 @@ export const RESOLVERS = Object.freeze({
     // creature path stays byte-identical.
     const requiredType = isNativeManaAura(card) ? /Land/ : /Creature/;
     if (!tgt || !requiredType.test(tgtType)) {
+      // BESTOW (CR 702.103g): a bestow spell whose creature target is gone at resolution doesn't enter as
+      // an unattached Aura — it isn't put onto the battlefield at all → owner's graveyard. Same fizzle as
+      // a printed Aura (the spell never resolves into a permanent), so no special case is needed here.
       return logEvent(state, { kind: "spell-fizzle", source: card?.name, reason: "aura target illegal", controller });
     }
-    return enterPermanent(state, card, controller, { attachTo: targetId });
+    // BESTOW: thread `bestowed` so enterPermanent flags the permanent (layer-4 Creature-type removal while
+    // attached + the falls-off SBA exemption). A printed Aura passes bestowed=undefined → identical path.
+    return enterPermanent(state, card, controller, { attachTo: targetId, bestowed });
   },
 
   // P2.1: a recognized-but-unparseable instant/sorcery. No longer a silent

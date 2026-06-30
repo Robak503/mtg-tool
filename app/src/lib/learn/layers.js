@@ -288,6 +288,19 @@ export function staticEffectsOf(state, permanent) {
     for (const e of parseAttachedBonus(card)) {
       partials.push({ ...e, affects: { mode: "fixed", permanentIds: [permanent.attachedTo] } });
     }
+    // BESTOW (CR 702.103e): a bestow permanent is an AURA — NOT a creature — while it's attached. Emit a
+    // layer-4 self removal of the Creature type so combat / the lethal-damage SBA / "creatures you control"
+    // selectors all treat it as the non-creature Aura it currently is. Only while attached: the moment its
+    // host leaves (attachedTo cleared by the SBA exemption) this effect is no longer emitted and it's a
+    // creature again. Gated on the `bestowed` flag so a printed Aura / Equipment is never type-stripped.
+    if (permanent.bestowed) {
+      partials.push({
+        layer: 4,
+        op: { layerOp: "removeCardType", removeType: "Creature" },
+        affects: { mode: "self" },
+        duration: { kind: "permanent" },
+      });
+    }
     // GRANTED-MANA-ABILITY AURA (creature host): "Enchanted creature has \"{T}: Add …\"" (Multani's Harmony)
     // grants the enchanted creature a fully-modeled tap-for-mana ability. Emit it as a layer-6 addAbility
     // grant FIXED to the host so grantedManaSpecsFor → manaSources offers the host the tap (the same runtime
@@ -403,6 +416,15 @@ function effectiveTypeIdentity(candidate, state) {
     if (e.op?.layerOp === "removeTypeWhileDevotionBelow") {
       if (e.affects?.mode === "self" && e.affects.permanentId === candidate.id &&
           devotionToColors(state, candidate.controller, e.op.colors) < (e.op.atLeast || 0)) {
+        types = types.filter(t => t !== e.op.removeType);
+      }
+      continue;
+    }
+    // BESTOW (CR 702.103e): an unconditional self type-removal — while a bestow permanent is attached it's
+    // an Aura, NOT a creature, so any "creatures you control …" selector must skip it (mirrors the God gate
+    // above, but unconditional — being attached is the whole condition, enforced where this effect is emitted).
+    if (e.op?.layerOp === "removeCardType") {
+      if (e.affects?.mode === "self" && e.affects.permanentId === candidate.id) {
         types = types.filter(t => t !== e.op.removeType);
       }
       continue;
@@ -706,6 +728,14 @@ function applyTypeColorLayers(perm, l4, l5, state) {
     // so it commutes with any ADD in the same layer; applied here in the same pass.
     if (e.op?.layerOp === "removeTypeWhileDevotionBelow") {
       if (devotionToColors(state, perm.controller, e.op.colors) < (e.op.atLeast || 0)) types.delete(e.op.removeType);
+      continue;
+    }
+    // BESTOW (CR 702.103e): while attached, a bestow permanent is an Aura and NOT a creature — strip the
+    // Creature type (the effect is only EMITTED while attachedTo is set, so no condition is needed here).
+    // This makes permanentIsCreature/combat/the lethal-damage SBA correctly treat it as a non-creature Aura;
+    // when its host leaves the effect is no longer emitted, so it's a creature again (CR 702.103e).
+    if (e.op?.layerOp === "removeCardType") {
+      types.delete(e.op.removeType);
       continue;
     }
     for (const t of e.op.types || []) types.add(t);
