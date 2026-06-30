@@ -47,6 +47,7 @@ import { marksDamageToCreature, ENDSTEP_COUNTER } from "./wolverine.js"; // Wave
 import { parseDamageReplacements, stripDamageReplacementClauses } from "./damageReplacements.js"; // Wave-5a: source-scoped damage doubler parser + clause stripper
 import { parseXCastTokenTrigger } from "./xCastToken.js"; // X-CAST-TOKEN commander (Zaxara) — runtime hook lives in actionDispatcher (applyXCastTokenTriggers)
 import { parseUrDragonAttackTrigger } from "./urDragonAttack.js"; // UR-DRAGON commander — runtime hook lives in gameEngine (applyUrDragonAttackTriggers)
+import { parseVihaanCombatAnimate } from "./vihaanAnimate.js"; // VIHAAN commander — runtime hook lives in gameEngine (applyVihaanCombatAnimate)
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
@@ -1184,3 +1185,61 @@ function classifyDamageReplacementBody(card) {
   return "native-static";                                            // damage-replacement static + keyword body
 }
 registerCoverageClassifier((card) => classifyDamageReplacementBody(card));
+
+// ─── VIHAAN COMMANDER — Vihaan, Goldwaker (the TIER-2 Mardu Treasure-aristocrats commander) ──────────────────
+// "Other outlaws you control have vigilance and haste.  At the beginning of combat on your turn, you may have
+//  Treasures you control become 3/3 Construct Assassin artifact creatures in addition to their other types
+//  until end of turn."
+// TWO modeled abilities, BOTH genuinely resolving at runtime:
+//   • the OUTLAW ANTHEM — a layer-6 keyword grant (vigilance + haste) scoped to the outlaw meta-type. The
+//     parser emits subtypes:["Outlaw"] (parseCreatureSelector's determiner-anthem branch), and layers.js
+//     matchesSelector expands "Outlaw" → {Assassin, Mercenary, Pirate, Rogue, Warlock} at the match chokepoint,
+//     so every outlaw the controller controls actually gains both keywords (proven in vihaan.test.js). It's a
+//     MODELED static (clauseProducesStatic confirms it parses to the layer-6 grant descriptor).
+//   • the BEGIN-COMBAT MASS-ANIMATE — the begin-combat TRIGGER is detected (triggerScheduler → combatBegin),
+//     but its mass, optional, subject-scoped layer-4 animate effect isn't in the effect vocabulary (no
+//     mass-animate-your-permanents atom), so a DEDICATED hook fires it (gameEngine → applyVihaanCombatAnimate,
+//     vihaanAnimate.js), REUSING the shipped WALT-ANIMATE layer framework to make every Treasure you control a
+//     3/3 Construct Assassin artifact creature (still an artifact) until end of turn (proven end-to-end in
+//     vihaan.test.js). parseVihaanCombatAnimate is anchored to the exact templating.
+// The general compiler can't route the animate (the flush path re-parses the clause and it parses LOW), so this
+// classifier credits exactly what the engine already plays — the additive-seam single-card pattern (the
+// classifyWolverine / classifyXCastTokenCommander / classifyUrDragon #353/#356 precedent: returns null unless
+// EVERY clause matches AND no residue remains, so it can never cause collateral). Mechanism-keyed (the animate
+// templating + the outlaw anthem), not name-keyed.
+//
+// CREED — whole card, all clauses modeled:
+//   • the begin-combat mass-animate (parseVihaanCombatAnimate) → applyVihaanCombatAnimate;
+//   • the outlaw anthem static (clauseProducesStatic on the parsed grant).
+// All-or-nothing: the animate must parse; the anthem must be a modeled static; the combatBegin trigger (the
+// animate's own trigger) must be the ONLY detected trigger; and the residue after stripping the animate
+// trigger sentence + the anthem sentence must be keyword-only (Vihaan's body is vanilla — no other keyword,
+// so the residue must be EMPTY). Returns native-mixed (anthem static + animate trigger) or null.
+const VIHAAN_ANIMATE_SENTENCE_RE =
+  /at the beginning of combat on your turn, you may have treasures you control become \d+\/\d+ [a-z ]+? in addition to their other types until end of turn\.?/i;
+const VIHAAN_ANTHEM_SENTENCE_RE =
+  /other outlaws you control have vigilance and haste\.?/i;
+function classifyVihaan(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  // The animate hook reads the active player's battlefield Treasures; the anthem grants to controlled creatures
+  // — only a creature (the commander is a Legendary Creature) qualifies. Gate defensively.
+  if (!/creature/.test(type)) return null;
+  if (!parseVihaanCombatAnimate(card)) return null;             // not the exact mass-Treasure-animate shape → not ours
+  // The outlaw anthem must parse to a modeled layer-6 keyword-grant static (what the runtime applies).
+  if (!clauseProducesStatic("Other outlaws you control have vigilance and haste")) return null;
+  const oracle = stripReminder(String(card?.oracle ?? card?.oracle_text ?? ""));
+  if (!VIHAAN_ANTHEM_SENTENCE_RE.test(oracle)) return null;     // the anthem sentence must actually be present on THIS card
+  // The combatBegin trigger (the animate's own trigger) is the ONLY trigger this card may carry. A second
+  // detected trigger is residue the runtime won't play through this tier — crediting it would be a FORBIDDEN
+  // dropped-ability FP (CREED). detectTriggers on the WHOLE card must be exactly that one combatBegin trigger.
+  const triggers = detectTriggers(card);
+  if (triggers.length !== 1 || triggers[0].event !== "combatBegin") return null;
+  // Strip reminder + the animate trigger sentence + the anthem sentence; the remainder must be keyword-only
+  // (Vihaan is a vanilla body, so it must be EMPTY). A rider / extra ability keeps residue → null → Arbiter.
+  const residue = oracle
+    .replace(VIHAAN_ANIMATE_SENTENCE_RE, " ")
+    .replace(VIHAAN_ANTHEM_SENTENCE_RE, " ");
+  if (!isKeywordOnly(residue, card?.name)) return null;         // any non-keyword static/text residue → Arbiter
+  return "native-mixed";                                        // outlaw anthem static + begin-combat animate trigger
+}
+registerCoverageClassifier((card) => classifyVihaan(card));

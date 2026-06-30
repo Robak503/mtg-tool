@@ -71,6 +71,11 @@ const STATIC_REGISTRY = {
   ],
 };
 
+// OUTLAW META-TYPE membership (CR 700-series — "outlaw" = the umbrella for these five creature subtypes).
+// Lowercased; consulted by matchesSelector to expand an "Outlaw"-subtype anthem selector (Vihaan, Goldwaker:
+// "Other outlaws you control have vigilance and haste") to its constituent subtypes. NOT a type-line word.
+const OUTLAW_SUBTYPES = ["assassin", "mercenary", "pirate", "rogue", "warlock"];
+
 // ─── Local board helpers (no gameState import → no cycle) ────────────────────────
 
 function findPerm(state, permanentId) {
@@ -348,7 +353,32 @@ export function collectContinuousEffects(state) {
 
 // ─── Affect-spec evaluation (does effect E apply to permanent P?) ───────────────
 
-function matchesSelector(selector, candidate, sourcePerm) {
+// LAYER-AWARE types + subtypes for a candidate WITHOUT recursing into deriveCharacteristics: the printed
+// card types / subtypes UNIONED with those ADDED by FIXED-mode layer-4 type-changing effects that target this
+// permanent (an animate — Vihaan's Treasure → "Construct Assassin artifact CREATURE", a man-land becoming an
+// "Elemental"). Reading ONLY `mode:"fixed"` effects keeps this recursion-free (a fixed affect names
+// permanentIds directly — no selector match needed), so an anthem's cardTypes:["Creature"] / subtypes gate
+// (matchesSelector) can honor an animated permanent's GRANTED Creature type + subtype (CR 613's
+// layer-4-before-layer-6 dependency) without the deriveCharacteristics→collect→matchesSelector cycle a full
+// derive would create. A DYNAMIC-selector layer-4 grant (none ship today) is deliberately NOT consulted here
+// — that would reintroduce the recursion — so it's a SAFE under-read, never an over-match. The `types` are
+// kept original-case (the cardTypes check uses substring inclusion like the printed path); subtypes lowercased.
+function effectiveTypeIdentity(candidate, state) {
+  const types = cardTypesOf(candidate.card);
+  const subtypes = subtypesOf(candidate.card).map(s => s.toLowerCase());
+  if (!state) return { types, subtypes };
+  const board = collectContinuousEffects(state);
+  if (!board.length) return { types, subtypes };
+  for (const e of board) {
+    if (e.layer !== 4) continue;
+    if (e.affects?.mode !== "fixed" || !e.affects.permanentIds?.includes(candidate.id)) continue;
+    for (const t of e.op?.types || []) if (!types.includes(t)) types.push(t);
+    for (const st of e.op?.subtypes || []) subtypes.push(String(st).toLowerCase());
+  }
+  return { types, subtypes };
+}
+
+function matchesSelector(selector, candidate, sourcePerm, state) {
   if (!selector) return false;
   const srcController = sourcePerm?.controller;
   switch (selector.controllerScope) {
@@ -363,9 +393,13 @@ function matchesSelector(selector, candidate, sourcePerm) {
       break;
   }
   if (selector.excludeSelf && sourcePerm && candidate.id === sourcePerm.id) return false;
+  // LAYER-AWARE type identity (printed ∪ fixed layer-4 grants) — computed once for both the cardTypes and the
+  // subtypes gates so an ANIMATED permanent (Vihaan's Treasure → "Construct Assassin artifact creature") is
+  // seen as the Creature/outlaw it has BECOME (CR 613's layer-4-before-layer-6 dependency). Lazily — only when
+  // a type/subtype gate is present (the common color/generic anthem skips it).
+  const ident = (selector.cardTypes || selector.subtypes) ? effectiveTypeIdentity(candidate, state) : null;
   if (selector.cardTypes) {
-    const line = typeLineOf(candidate.card);
-    if (!selector.cardTypes.every(t => line.includes(t))) return false;
+    if (!selector.cardTypes.every(t => ident.types.includes(t))) return false;
   }
   if (selector.subtypes) {
     // CHANGELING (CR 702.73a — every creature type) matches ANY subtype selector, so a tribal lord/anthem
@@ -374,8 +408,17 @@ function matchesSelector(selector, candidate, sourcePerm) {
     // resolvers, triggers, staticAbilityParser, permHasChosenTypeLayer) so changeling-ness is honored
     // uniformly. A SAFE widening: only a creature already carrying the changeling keyword newly matches.
     if (!hasKeyword(candidate.card, "changeling")) {
-      const subs = subtypesOf(candidate.card).map(s => s.toLowerCase());
-      if (!selector.subtypes.some(st => subs.includes(String(st).toLowerCase()))) return false;
+      const subs = ident.subtypes;
+      // OUTLAW META-TYPE (CR 702.x / 700-series — Vihaan, Goldwaker's "Other outlaws you control"): "outlaw"
+      // is NOT a type-line subtype — it's the umbrella for {Assassin, Mercenary, Pirate, Rogue, Warlock}. A
+      // selector subtype of "Outlaw" therefore matches a candidate carrying ANY of those five (OR semantics,
+      // same as a multi-subtype list). Expanded HERE at the match chokepoint (not at parse) so the single
+      // continuous-effect collection honors the meta-type uniformly; non-meta subtypes are unaffected.
+      const wanted = selector.subtypes.flatMap(st => {
+        const lc = String(st).toLowerCase();
+        return lc === "outlaw" ? OUTLAW_SUBTYPES : [lc];
+      });
+      if (!wanted.some(st => subs.includes(st))) return false;
     }
   }
   if (selector.colors) {
@@ -411,7 +454,7 @@ function effectAffects(effect, candidate, state) {
       // An EMBLEM source has no battlefield permanent (and can't leave), so it's never dropped; its
       // "you control" scope resolves against the emblem's controller (PW-5).
       if (effect.source?.kind === "emblem") sourcePerm = { controller: effect.source.controller };
-      return matchesSelector(affects.selector, candidate, sourcePerm);
+      return matchesSelector(affects.selector, candidate, sourcePerm, state);
     }
     default:
       return false;

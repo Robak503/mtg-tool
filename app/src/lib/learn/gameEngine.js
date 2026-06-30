@@ -49,6 +49,7 @@ import { parseEffectClause, programConfidence, programNeedsChosenTarget, program
 import { expandCastChoices } from "./effects/targeting.js";
 import { applyFadeVanishUpkeep } from "./fading.js";
 import { applyUrDragonAttackTriggers } from "./urDragonAttack.js";
+import { applyVihaanCombatAnimate } from "./vihaanAnimate.js";
 import { applyMothmanRadOnAttack } from "./mothmanRad.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags } from "./wolverine.js";
 import { evaluateWinThreshold } from "./effects/atoms/winGame.js";
@@ -335,6 +336,14 @@ export function runStepActions(state) {
   //  - firstMain: at the PRECOMBAT main only (gate on phase — both main phases share step "main"); else it
   //    would fire twice (a postcombat-main double-fire is the landmine here).
   else if (next.step === "beginning-of-combat") next = checkStepTriggers(next, "combatBegin");
+  // VIHAAN-ANIMATE (a targeted #319-style hook the trigger compiler can't reach): at the beginning-of-combat
+  // step, Vihaan, Goldwaker makes every Treasure the ACTIVE player controls a 3/3 Construct Assassin artifact
+  // creature until end of turn — a MASS, optional, subject-scoped layer-4 animate the effect vocabulary can't
+  // model (no mass-animate-your-permanents atom). Applied synchronously via the SHIPPED WALT-ANIMATE layer
+  // framework (vihaanAnimate.js); a no-op when no Vihaan-style watcher is on the active player's board. Fired
+  // right after the combatBegin step trigger so the now-creature Treasures are full combat participants for the
+  // attack/block declarations that follow this step.
+  if (next.step === "beginning-of-combat") next = applyVihaanCombatAnimate(next);
   if (next.phase === "precombat-main" && next.step === "main") next = checkStepTriggers(next, "firstMain");
   if (next.step === "declare-blockers") {
     next = checkAttackTriggers(next);
