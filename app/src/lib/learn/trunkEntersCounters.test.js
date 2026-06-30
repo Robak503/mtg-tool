@@ -54,8 +54,16 @@ describe("TRUNK-ENTERSCOUNTERS — coverage: single-line cards flip native-body"
   it("enters-with-counters + a keyword line is still native-body", () => {
     expect(classifyCard({ type: "Creature — Drake", name: "Academy Drake", mana: "{4}{U}", oracle: "Flying\nAcademy Drake enters with two +1/+1 counters on it." })).toBe("native-body");
   });
-  it("a CONDITIONAL enters-with-counters does NOT flip (stays body-only)", () => {
-    expect(classifyCard({ type: "Creature — Elf", name: "Kicker Elf", mana: "{G}", oracle: "Kicker {2}\nIf this creature was kicked, it enters with two +1/+1 counters on it." })).toBe("body-only");
+  it("a CONDITIONAL (non-kicker) enters-with-counters does NOT flip via THIS helper (entersWithPlusCounters returns 0)", () => {
+    // entersWithPlusCounters guards out the variable form (returns 0). A "for each card in your graveyard"
+    // magnitude is NOT a modeled metric (unlike "artifacts you control") and has no kicker line, so neither
+    // the metric seam nor the KICKER classifier picks it up → stays body-only (the count is unmodeled).
+    expect(classifyCard({ type: "Creature — Elf", name: "Variable Elf", mana: "{G}", oracle: "Variable Elf enters with a +1/+1 counter on it for each card in your graveyard." })).toBe("body-only");
+  });
+  it("KICKER (CR 702.33): a creature with a clean kicker + enters-with-kicked-counters NOW flips native-body", () => {
+    // The base body is keyword-only/vanilla and the kicked payoff reuses the modeled enters-with-counters
+    // replacement (now gated on the was-kicked flag) — both halves modeled, so the whole card is native.
+    expect(classifyCard({ type: "Creature — Elf", name: "Kicker Elf", mana: "{G}", oracle: "Kicker {2}\nIf this creature was kicked, it enters with two +1/+1 counters on it." })).toBe("native-body");
   });
   it("enters-with-counters + an UNMODELED other clause stays body-only (all-or-nothing)", () => {
     expect(classifyCard({ type: "Creature — Horror", name: "Mystery Horror", mana: "{3}{B}", oracle: "Mystery Horror enters with two +1/+1 counters on it.\nMystery Horror's power and toughness are each equal to the number of cards in your opponents' graveyards." })).toBe("body-only");

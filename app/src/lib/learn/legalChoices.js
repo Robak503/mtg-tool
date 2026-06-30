@@ -47,7 +47,8 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // the metric's OWN authority means the runtime and the coverage metric can never disagree about which plot
 // cards flip natively (no duplicated native-determination to drift). coverage.js does NOT import legalChoices
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
-import { classifyCard, isNativeTier, isNativeBestow } from "./coverage.js";
+import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly } from "./coverage.js";
+import { parseKickerCounterCreature } from "./kicker.js"; // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable
 
 // GROUP-ACTIVATED grant (queue 1) — register the modeled-body gate so the runtime path (a SIM that imports
 // legalChoices but not coverage) still emits + enumerates group-activated grants. Idempotent with coverage.js's
@@ -194,6 +195,30 @@ export function totalCmc(cost) {
     + (cost.C || 0)
     + cost.hybrid.length
     + cost.phyrexian.length;
+}
+
+/**
+ * Sum two parsed mana costs into one payable cost (KICKER — fold the kicker pips onto the base cost so the
+ * dispatcher's single mana plan pays the whole thing). Field-by-field: generic + colored + C are added;
+ * hybrid + phyrexian + anyColor pip lists are concatenated. X is NOT combined (the kicker path rejects an
+ * {X} kicker, and a base X-spell never reaches the kicker branch — both `hasX` falses through to false),
+ * so the result is a plain fixed cost. Pure; returns a fresh object (never mutates either input).
+ */
+export function mergeManaCost(base, add) {
+  return {
+    generic: (base.generic || 0) + (add.generic || 0),
+    W: (base.W || 0) + (add.W || 0),
+    U: (base.U || 0) + (add.U || 0),
+    B: (base.B || 0) + (add.B || 0),
+    R: (base.R || 0) + (add.R || 0),
+    G: (base.G || 0) + (add.G || 0),
+    C: (base.C || 0) + (add.C || 0),
+    hasX: !!base.hasX || !!add.hasX,
+    xCount: (base.xCount || 0) + (add.xCount || 0),
+    hybrid: [...(base.hybrid || []), ...(add.hybrid || [])],
+    phyrexian: [...(base.phyrexian || []), ...(add.phyrexian || [])],
+    anyColor: (base.anyColor || 0) + (add.anyColor || 0),
+  };
 }
 
 // ─── Card type predicates ────────────────────────────────────────────────────
@@ -838,6 +863,35 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       if (targets.length === 0) continue;
       for (const t of targets) {
         actions.push({ ...base, targets: [t], targetName: t.name, needsTargets: true, isAuraSpell: true });
+      }
+      continue;
+    }
+
+    // KICKER (CR 702.33) — a creature with a modeled kicker (clean single cost + an enters-with-counters
+    // kicked payoff, parseKickerCounterCreature). Emit the NORMAL cast (kicked:false) and — when the kicker
+    // mana is ALSO affordable on top of the base cost — a KICKED cast (kicked:true) whose `cost` folds in the
+    // kicker pips, so the dispatcher's normal mana plan pays the whole thing. The dispatcher threads `kicked`
+    // onto the PERMANENT_ETB payload and the resolver adds the kicked +1/+1 counters AS the creature enters.
+    // These kicker creatures have no effect target (the body is keyword-only), so we own the emission here and
+    // `continue`. A free-cast (Discover, CR 601.2b) is cast WITHOUT paying — kicker isn't paid (no kicked
+    // option), so only the normal cast is offered (a safe limitation; the base body still resolves).
+    const kickerSpec = parseKickerCounterCreature(card, isKeywordOnly);
+    if (kickerSpec) {
+      actions.push({ ...base, targets: [], needsTargets: false, kicked: false });
+      if (!freeCast) {
+        const kickerCost = parseManaCost(kickerSpec.kickerCost);
+        const kickedCost = mergeManaCost(cost, kickerCost); // base (already taxed/reduced) + the kicker pips
+        if (canAfford(player.manaPool, manaSources(state, playerId), kickedCost)) {
+          actions.push({
+            ...base,
+            cost: kickedCost,
+            cmc: printedCmc + totalCmc(kickerCost), // CR 202.3b — mana value counts the additional kicker cost paid
+            targets: [],
+            needsTargets: false,
+            kicked: true,
+            kickedName: `kicked (+${kickerSpec.kicked.counters} +1/+1)`,
+          });
+        }
       }
       continue;
     }

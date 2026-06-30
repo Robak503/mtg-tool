@@ -182,6 +182,16 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
     if (actions[0].isAuraSpell) continue;
     const effect = actions[0].effect;
     let chosen = actions[0];
+    // KICKER (CR 702.33): a kicker creature is emitted as a normal cast plus — when the kicker mana is also
+    // affordable — a `kicked:true` cast (legalChoices only offers the kicked option when payable). For the
+    // modeled kicked payoff (enters with extra +1/+1 counters) the kicked creature is strictly bigger with
+    // the identical body, so paying the kicker is always the higher-value play — prefer it when offered. This
+    // is the AI's "decide yes/no by value": pay when affordable (the kicked action exists), else cast normally.
+    const kickedAction = actions.find(a => a.kicked === true);
+    if (kickedAction) {
+      scored.push({ action: kickedAction, score: scoreCastAction(kickedAction, card, archetype), cmc: kickedAction.cmc || 0 });
+      continue;
+    }
     // δ-1b hand disruption (Duress / Thoughtseize / …): the target is an OPPONENT (a player), and the
     // card to strip is chosen at RESOLUTION (hand-blind at cast — the faithful flow). The targets are
     // opponents only by construction, so no self-target risk; the AI picks the opponent with the most

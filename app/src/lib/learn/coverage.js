@@ -59,6 +59,7 @@ import { parseAnnihilator } from "./annihilator.js"; // KW-ANNIHILATOR (CR 702.8
 import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runtime hook lives in gameEngine (applySeedbornUntap)
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
+import { parseKickerCounterCreature } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked enters-with-counters payoff; runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -1042,6 +1043,19 @@ function classifyWolverine(card) {
   return residue.length > 0 ? null : "native-mixed";
 }
 registerCoverageClassifier((card) => classifyWolverine(card));
+
+// ─── KICKER (CR 702.33) — creature kicker whose kicked payoff is enters-with-+1/+1-counters ──────────────────
+// A CREATURE with a clean single "Kicker {cost}" optional cast cost and the modeled kicked payoff
+// "If this creature was kicked, it enters with N +1/+1 counters on it" — whose base body (Kicker line +
+// kicked sentence stripped) is vanilla/keyword-only — classifies native-body. Both halves are modeled
+// atoms: the base body is the existing keyword-only native-body, and the kicked counters reuse the SAME
+// enters-with-+1/+1-counters replacement (resolvers.enterPermanent), now GATED on the was-kicked flag.
+// The runtime makes it genuinely work: legalChoices emits a kicked cast (when the kicker cost is also
+// affordable), actionDispatcher pays the folded cost + threads `kicked`, the resolver adds the counters.
+// parseKickerCounterCreature is all-or-nothing (multikicker / variable cost / a non-counter kicked payoff /
+// any extra unmodeled body clause → null), so the credit is honest — exactly the cards the engine plays.
+// isKeywordOnly is passed in (the same predicate the dispatch body uses) to keep kicker.js a leaf module.
+registerCoverageClassifier((card) => (parseKickerCounterCreature(card, isKeywordOnly) ? "native-body" : null));
 
 // ─── CHOSEN-TYPE COUNT-ANTHEM — Banner of Kinship / Door of Destinies (cross-deck) ──────────────────────────
 // A choose-a-creature-type artifact whose payoff is a counter-scaled anthem on the chosen-type creatures the

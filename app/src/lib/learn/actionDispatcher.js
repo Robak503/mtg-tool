@@ -425,6 +425,11 @@ function applyCastSpell(state, action) {
     // (it enters at its real P/T, not a 0/0 that dies to the SBA).
     const params = { card: castCard, controller: action.playerId };
     if (action.xValue != null) params.xValue = action.xValue;
+    // KICKER (CR 702.33b/e): a kicked cast threads the was-kicked flag so PERMANENT_ETB adds the kicked
+    // "enters with N +1/+1 counters" replacement (resolvers.enterPermanent reads opts.kicked). The kicker
+    // mana was already folded into action.cost and paid by the mana plan above — this only records that it
+    // was paid. Omitted (undefined) on a normal cast, so the base body enters with no extra counters.
+    if (action.kicked) params.kicked = true;
     payload = { resolver: RESOLVER_KEYS.PERMANENT_ETB, params };
   } else {
     payload = { resolver: RESOLVER_KEYS.SPELL_NOOP, params: { cardName: castCard.name, reason: "instant-or-sorcery (no recognized effect)" } };
