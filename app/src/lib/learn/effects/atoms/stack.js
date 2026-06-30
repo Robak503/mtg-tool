@@ -326,6 +326,27 @@ export function massFilteredDamageClauseParser(clause) {
 }
 
 /**
+ * CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon, CR 510 + 119) — the SYNTHETIC effect a combat-damage-to-a-player
+ * trigger carries: "<source> deals that much damage to each creature that player controls." "That much" is the
+ * combat-damage amount the trigger just dealt (ctx.combatDamageAmount); "that player" is the player just dealt
+ * that combat damage (ctx.damagedPlayerId) — BOTH are the trigger's referents (set by triggers.checkCombat-
+ * DamageTriggers as triggeringContext = {damagedPlayerId, combatDamageAmount}), NOT chosen targets. So the atom
+ * is NON-targeted (targetType:null → programNeedsChosenTarget=false → it routes natively on the trigger flush)
+ * and a clean no-op outside a combat-damage trigger (no ctx.damagedPlayerId / combatDamageAmount → 0 / skip,
+ * never a fabricated wipe). Whole-clause anchored (^…$, the `^.+? deals?` prefix consumes the source ref "it
+ * deals" / "this creature deals" / "Balefire Dragon deals" exactly like massFilteredDamageClauseParser) — any
+ * trailing rider fails the `$` → low → Arbiter (CREED FN-safe). The damage is dealt by the source (the Dragon),
+ * threaded as source.id so a source-scoped doubler / infect / wither applies through the shared primitive.
+ */
+export function cdmgMassToDamagedPlayerClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "").trim();
+  if (/^.+? deals? that much damage to each creature that player controls$/.test(t)) {
+    return { op: "cdmg-mass-to-damaged-player", countContext: "combatDamageAmount", targetType: null };
+  }
+  return null;
+}
+
+/**
  * STORM (CR 702.40) clause parser — the SYNTHETIC effect clause triggers.detectTriggers emits for the Storm
  * KEYWORD ("copy this spell for each spell cast before it this turn"). It is NOT printed oracle text — Storm's
  * real trigger lives in stripped reminder parens — so this matcher is anchored EXACTLY to the synthesized
@@ -574,8 +595,33 @@ function applyCopySpell(state, atom, ctx) {
   return logEvent(next, { kind: "spell-effect", effect: "storm-copy", count: made, requested: n, controller: ctx.controller, cardName: sourceCard?.name });
 }
 
+/**
+ * ===== CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) ===== the SOURCE deals `ctx.combatDamageAmount` damage to
+ * each creature the just-damaged player (`ctx.damagedPlayerId`) controls. Mirrors applySourcePowerFanout's
+ * structure (build the target list, then ONE applyDamageEffect with source:{id}) but scoped to a SINGLE player's
+ * creatures and with the amount read from the combat-damage referent. Both referents come from the trigger ctx;
+ * a missing referent (a spell / non-combat trigger → no ctx.damagedPlayerId or combatDamageAmount) is a clean
+ * no-op (empty target list / 0 amount), never a fabricated wipe. source.id (ctx.sourceId — the Dragon) threads
+ * the source-scoped damage-replacement / infect / wither hook, identical to every other deal-damage atom.
+ */
+function applyCdmgMassToDamagedPlayer(state, atom, ctx) {
+  const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
+  const pid = ctx.damagedPlayerId;
+  if (amount <= 0 || !pid || !state.players?.[pid]) {
+    return logEvent(state, { kind: "spell-effect", effect: "cdmg-mass-to-damaged-player", controller: ctx.controller, amount: 0 });
+  }
+  const targets = (state.players[pid].battlefield || [])
+    .filter((perm) => isCreatureCard(perm.card))
+    .map((perm) => ({ type: "creature", id: perm.id }));
+  if (targets.length === 0) {
+    return logEvent(state, { kind: "spell-effect", effect: "cdmg-mass-to-damaged-player", controller: ctx.controller, amount });
+  }
+  return applyDamageEffect(state, { controller: ctx.controller, amount, targets, source: { id: ctx.sourceId } });
+}
+
 export const stackResolvers = {
   "copy-spell": applyCopySpell, // STORM (CR 702.40) — copy the storm spell N times (N = spells cast before it this turn)
+  "cdmg-mass-to-damaged-player": applyCdmgMassToDamagedPlayer, // CDMG-MASS-TO-DAMAGED-PLAYER (Balefire Dragon) — deal the combat-damage amount to each creature the damaged player controls
   "optional-mana-payment": applyOptionalManaPayment, // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. if you do, <effect>"
   "optional-sac-payment": applyOptionalSacPayment, // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. if you do, <effect>"
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent
