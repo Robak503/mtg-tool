@@ -16,7 +16,7 @@
  * Pure builtins + local imports; corpus loads via MTG_APP_ROOT.
  */
 import { publicCard, allCards } from "../src/lib/server/cardIndex.js";
-import { classifyCard } from "../src/lib/learn/coverage.js";
+import { classifyCard, isNativeTier } from "../src/lib/learn/coverage.js";
 
 function isRealCard(c) {
   const t = c.type || "";
@@ -24,12 +24,28 @@ function isRealCard(c) {
   return !/\b(Token|Emblem|Scheme|Plane|Phenomenon|Vanguard|Dungeon|Conspiracy|Sticker|Attraction|Card)\b/.test(t);
 }
 
-const out = [];
+// Dedupe to ONE deterministic tier per card NAME. classifyCard is deterministic for a fixed card
+// object, BUT a few names carry MULTIPLE printings whose oracle text differs and therefore classify
+// to different tiers (Everythingamajig, Red Herring, Unquenchable Fury). Emitting one line per
+// printing made a name's tier depend on index iteration order, which polluted flip-diffs with
+// phantom GAINED/LOST. Collapse each name to a single tier: native-wins (a name counts native if
+// ANY printing plays natively), ties broken by sorted tier name — fully order-independent, so two
+// runs (and a baseline-vs-candidate flip-diff) always agree on a name's tier.
+const tiersByName = new Map();
 for (const raw of allCards()) {
   let c;
   try { c = publicCard(raw); } catch { continue; }
   if (!isRealCard(c)) continue;
-  out.push(`${c.name}\t${classifyCard(c)}`);
+  let set = tiersByName.get(c.name);
+  if (!set) { set = new Set(); tiersByName.set(c.name, set); }
+  set.add(classifyCard(c));
 }
+function pickTier(tiers) {
+  const all = [...tiers].sort();
+  const native = all.filter(isNativeTier);
+  return (native.length ? native : all)[0];
+}
+const out = [];
+for (const [name, tiers] of tiersByName) out.push(`${name}\t${pickTier(tiers)}`);
 out.sort();
 process.stdout.write(out.join("\n") + "\n");
