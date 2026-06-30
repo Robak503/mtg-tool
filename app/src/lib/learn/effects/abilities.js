@@ -29,6 +29,22 @@ function stripReminder(text) {
 }
 
 /**
+ * Strip a trailing "Activate only as a sorcery" timing restriction (CR 602.5i) from an activated ability's
+ * EFFECT clause before it's parsed. The restriction governs WHEN the ability may be activated, never WHAT it
+ * does — and the runtime ALREADY enforces sorcery speed for every activated ability (legalChoices.actions-
+ * ActivateAbility offers them only at step==="main"), so dropping the sentence can NEVER let the engine play
+ * an ability faster than the card allows (THE CREED — a strict, safe simplification, exactly like the
+ * cost-only keyword strips). Without this, the trailing sentence is swept into the effect program and drags
+ * an otherwise-HIGH effect ("Put two +1/+1 counters on each creature you control. Activate only as a
+ * sorcery.") to LOW, silently parking a fully-modelable ability. Both printed forms are handled ("Activate
+ * only as a sorcery." and "Activate this ability only as a sorcery."). Single-sourced here so the parser and
+ * the coverage metric strip identically.
+ */
+function stripSorcerySpeedRider(clause) {
+  return String(clause || "").replace(/\.?\s*Activate (?:this ability )?only as a sorcery\.?\s*$/i, "").trim();
+}
+
+/**
  * Self-name normalization (CR 201.4 — a card referring to itself by name means THIS object). An activated
  * effect like "Regenerate Wolverine." means "Regenerate this permanent" — the engine's effect parser anchors
  * the self-regen / self-pump atoms on "this creature"/"this permanent", so map the card's OWN name (full and
@@ -79,6 +95,7 @@ export function parseAbilityCost(costStr) {
   let payLife = 0;
   let sacSelf = false;
   let sacOther = null;
+  let sacCount = null;
   let exileSelf = false;
   let removeCounter = null;
   for (const item of items) {
@@ -120,13 +137,35 @@ export function parseAbilityCost(costStr) {
     // phrase ("a creature or planeswalker") never matches → null (deferred), preserving the all-or-nothing gate.
     const sacSubM = /^[Ss]acrifice (a|an|another) ([A-Z][a-z]+)$/.exec(item);
     if (sacSubM) { sacOther = { type: "permanent", subtype: sacSubM[2].toLowerCase(), another: /^another$/i.test(sacSubM[1]) }; continue; }
+    // γ1d — SAC-N-SUBTYPE: "Sacrifice <N> <Subtype>s" (a COUNT ≥ 2 of a FUNGIBLE value-TOKEN subtype —
+    // "Sacrifice three Treasures" / "Sacrifice two Foods", Ruthless Knave / Savvy Hunter / Olivia / Magda).
+    // Scoped DELIBERATELY to the fungible value-token subtypes (Treasure/Clue/Food/Gold/Blood/Map/Powerstone/
+    // Incubator) — those are interchangeable tokens, so paying N of them is a NO-DECISION cost (any N satisfy
+    // it identically, CR 701.16); the runtime auto-picks N matching permanents. A COUNT-sac of a DISTINGUISHABLE
+    // class ("two artifacts", "two creatures", "two other artifacts and/or creatures") is a REAL choice (which
+    // value permanents to give up) the auto-pick can't make faithfully — those stay UNMODELED → Arbiter (a safe
+    // false-negative, never a mis-paid cost). type:"permanent" + the subtype filter reuses sacTypeMatches exactly
+    // like the single-subtype branch; count is the parsed integer the legalChoices victim-gather and the
+    // dispatcher payment both read. Word-numbers two–five and digits 2–5 only (a higher fixed count is rare and
+    // still routes to the Arbiter). Singular/plural tolerated on the subtype noun ("Foods"/"Food").
+    const sacNM = /^[Ss]acrifice (two|three|four|five|2|3|4|5) ([A-Z][a-z]+?)s?$/.exec(item);
+    if (sacNM) {
+      const FUNGIBLE = new Set(["treasure", "clue", "food", "gold", "blood", "map", "powerstone", "incubator"]);
+      const sub = sacNM[2].toLowerCase();
+      if (FUNGIBLE.has(sub)) {
+        const words = { two: 2, three: 3, four: 4, five: 5 };
+        sacCount = { type: "permanent", subtype: sub, count: words[sacNM[1]] ?? parseInt(sacNM[1], 10) };
+        continue;
+      }
+      return null; // a fixed-count sac of a non-fungible/unknown subtype → unmodeled (deferred)
+    }
     const pips = [...item.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]);
     if (pips.length === 0) return null;                          // a wordy item we don't model → unmodeled
     if (item.replace(/\{[^}]+\}/g, "").trim() !== "") return null; // leftover text around the pips → unmodeled
     if (!pips.every(pipIsMana)) return null;                      // {X}/{Q}/{S}/… → unmodeled
     manaPips += pips.map((p) => `{${p.trim().toUpperCase()}}`).join("");
   }
-  return { manaPips, tapSelf, payLife, sacSelf, sacOther, exileSelf, removeCounter };
+  return { manaPips, tapSelf, payLife, sacSelf, sacOther, sacCount, exileSelf, removeCounter };
 }
 
 /** True when an ability's EFFECT is a mana ability ("Add …") — those use the no-stack path. */
@@ -292,7 +331,10 @@ export function parseActivatedAbilities(card) {
     const ci = line.indexOf(":");
     if (ci === -1) continue;
     const costStr = line.slice(0, ci).trim();
-    const effectClause = line.slice(ci + 1).trim();
+    // Strip a trailing "Activate only as a sorcery" timing rider (CR 602.5i) — a WHEN restriction the runtime
+    // already enforces (activated abilities are offered only at main / sorcery speed), never a WHAT, so the
+    // effect parses on its real payload instead of being dragged LOW by the trailing sentence.
+    const effectClause = stripSorcerySpeedRider(line.slice(ci + 1).trim());
     if (!costStr || !effectClause) continue;
 
     const cost = parseAbilityCost(costStr);
@@ -328,6 +370,7 @@ export function parseActivatedAbilities(card) {
       payLife: cost?.payLife ?? 0,     // γ1 — "Pay N life" cost item (the runtime deducts it)
       sacSelf: cost?.sacSelf ?? false, // γ1 — "Sacrifice this" cost item (the runtime sacs the source)
       sacOther: cost?.sacOther ?? null, // γ1b — "Sacrifice a/another <type>": legalChoices picks the victim
+      sacCount: cost?.sacCount ?? null, // γ1d — "Sacrifice N <fungible subtype>": legalChoices auto-picks N victims
       exileSelf: cost?.exileSelf ?? false,     // γ1c — "Exile this": exile the source from the battlefield
       removeCounter: cost?.removeCounter ?? null, // γ1c — "Remove a <type> counter from this"
       costModeled: !!cost,

@@ -1070,9 +1070,33 @@ function actionsActivateAbility(state, playerId) {
       // γ1c — a "Remove a <type> counter from this" cost needs the source to actually HAVE such a
       // counter; otherwise it's unpayable (never offer a cost we can't pay).
       if (ab.removeCounter && !((perm.counters?.[ab.removeCounter.type] || 0) >= 1)) continue;
+      // γ1d — a "Sacrifice N <fungible subtype>" cost (Ruthless Knave "Sacrifice three Treasures", Olivia
+      // "Sacrifice two Treasures"). The subtype is a FUNGIBLE value token (Treasure/Food/…), so the N victims
+      // are interchangeable — no meaningful choice among them (CR 701.16). Gather every legal victim of the
+      // subtype (excluding any that would silently drop its own leave-trigger — the single-sac fail-safe; a
+      // value token has none, so it's a belt-and-suspenders no-op), and require ≥ N to exist. The N to-be-
+      // sacrificed victims must NOT also tap for mana (a Treasure cracked for the cost can't ALSO pay the
+      // {mana} part — that double-spend crashed the dispatcher), so they're excluded from the mana sources
+      // below. Computed BEFORE the affordability gate so the cost is judged against the mana sources that
+      // actually remain after paying the sac.
+      let sacCountPool = null;
+      if (ab.sacCount) {
+        sacCountPool = player.battlefield.filter((v) =>
+          sacTypeMatches(v.card, ab.sacCount.type, ab.sacCount.subtype || null) &&
+          !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""),
+        );
+        if (sacCountPool.length < ab.sacCount.count) continue; // can't pay the sac → not offered
+      }
+      // The set of permanents consumed BY the sac is always exactly N members of the fungible pool, whichever
+      // N — so for the offer-time affordability check, excluding the first N from the mana sources is correct
+      // (a different per-choice pick, forced by target overlap below, removes an equally-non-mana member).
+      const sacCountManaExcluded = new Set(ab.sacCount ? sacCountPool.slice(0, ab.sacCount.count).map((v) => v.id) : []);
       // A source paying part of its OWN cost by tapping ({T}), being sacrificed, or being exiled can't
-      // ALSO tap for mana — drop it from the available mana sources for the affordability + payment.
-      const sources = manaSources(state, playerId).filter((s) => !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id));
+      // ALSO tap for mana — drop it from the available mana sources for the affordability + payment. The
+      // γ1d sac-N victims are dropped too (a sacrificed Treasure can't also be cracked for mana).
+      const sources = manaSources(state, playerId).filter((s) =>
+        !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) &&
+        !sacCountManaExcluded.has(s.permanentId));
       if (!canAfford(player.manaPool, sources, cost)) continue;
 
       // Equip {cost}: target a creature YOU control (CR 702.6e). Equip is SORCERY-SPEED
@@ -1120,6 +1144,16 @@ function actionsActivateAbility(state, playerId) {
           // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).
           // A clean no-op, but a pointless self-defeating action; drop it from the choice list.
           if (victim && ch.targets.some((t) => t.id === victim.id)) continue;
+          // γ1d — pick the N fungible victims for a "Sacrifice N <subtype>" cost, EXCLUDING any that the
+          // effect targets (same no-op guard). If the targets consume so many of the pool that fewer than N
+          // remain, this choice can't pay the cost → skip it (a different target combo may still be legal).
+          let sacCountIds = null;
+          if (ab.sacCount) {
+            const targetIds = new Set(ch.targets.map((t) => t.id));
+            const pick = sacCountPool.filter((v) => !targetIds.has(v.id)).slice(0, ab.sacCount.count);
+            if (pick.length < ab.sacCount.count) continue;
+            sacCountIds = pick.map((v) => v.id);
+          }
           actions.push({
             kind: "activate-ability",
             playerId,
@@ -1135,12 +1169,15 @@ function actionsActivateAbility(state, playerId) {
             removeCounter: ab.removeCounter || null,     // γ1c — remove a counter of this type from the source
             sacCreatureId: victim?.id ?? null,           // γ1b — the chosen victim to sacrifice (cost)
             sacCreatureName: victim?.card?.name ?? null,
+            sacCountIds,                                  // γ1d — the N fungible victims to sacrifice (cost)
             program: ab.program,
             targets: ch.targets,
             chosenMode: ch.chosenMode ?? null,
             needsTargets: ch.targets.length > 0,
             targetName: ch.targets.map((t) => t.name).filter(Boolean).join(", ") || undefined,
-            abilityText: victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause,
+            abilityText: ab.sacCount
+              ? `Sacrifice ${ab.sacCount.count} ${ab.sacCount.subtype}s: ${ab.effectClause}`
+              : victim ? `Sacrifice ${victim.card?.name}: ${ab.effectClause}` : ab.effectClause,
           });
         }
       }

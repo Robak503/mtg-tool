@@ -598,8 +598,14 @@ function applyActivateAbility(state, action) {
 
   // Plan + commit mana payment. A source paying its own cost by tapping ({T}), being sacrificed, OR being
   // exiled can't ALSO tap for mana — exclude it from the available sources (matches legalChoices exactly).
+  // γ1d — the N fungible victims sacrificed for a "Sacrifice N <subtype>" cost are likewise excluded: a
+  // Treasure cracked to pay the sac can't ALSO be cracked for the {mana} part (the double-spend that would
+  // otherwise leave the victim already gone when the sac runs below).
   const pool = player.manaPool;
-  const sources = manaSources(state, action.playerId).filter(s => !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId));
+  const sacCountExcluded = new Set(action.sacCountIds || []);
+  const sources = manaSources(state, action.playerId).filter(s =>
+    !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId) &&
+    !sacCountExcluded.has(s.permanentId));
   const plan = planPayment(pool, sources, action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 
@@ -625,6 +631,17 @@ function applyActivateAbility(state, action) {
     const victim = working.players[action.playerId]?.battlefield.find((p) => p.id === action.sacCreatureId);
     if (!victim) throw new DispatcherError(`Sacrifice victim ${action.sacCreatureId} not on battlefield`, "PERM_NOT_FOUND");
     working = sacrificePermanentForCost(working, action.playerId, victim);
+  }
+  // γ1d — pay a "Sacrifice N <fungible subtype>" cost: sacrifice each of the N chosen victims (battlefield →
+  // graveyard, firing their dies + sacrifice watchers via sacrificePermanentForCost — cracking value tokens is
+  // a real sacrifice, CR 701.21). Each id is re-resolved against the LIVE battlefield as the prior sacrifices
+  // mutate it; a missing victim (already gone) is a hard error so we never silently under-pay the cost.
+  if (action.sacCountIds?.length) {
+    for (const vid of action.sacCountIds) {
+      const v = working.players[action.playerId]?.battlefield.find((p) => p.id === vid);
+      if (!v) throw new DispatcherError(`Sacrifice victim ${vid} not on battlefield`, "PERM_NOT_FOUND");
+      working = sacrificePermanentForCost(working, action.playerId, v);
+    }
   }
   if (action.exileSelf) {
     // Exile the source from the battlefield (CR 406). Exile is NOT "dies" (CR 700.4 — dies = to the
