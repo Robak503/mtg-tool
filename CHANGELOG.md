@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.72.0] - 2026-06-30
+
+### Improved
+- **Emerge + subtype-batch combat triggers (+12 native).** The Emerge alt-cast (Wretched Gryff, Decimator of the
+  Provinces, Vexing Scuttler…) and "whenever one or more [outlaws / artifact creatures / …] you control deal combat
+  damage" triggers — which flips **Olivia, Opulent Outlaw** native (Vihaan deck 83→84%). Flip-diffed both directions
+  (12 gained, 0 lost), full gate (6,017 tests) green, 0 false positives.
+
 ## [0.71.0] - 2026-06-30
 
 ### Improved
