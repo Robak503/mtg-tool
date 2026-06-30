@@ -8,6 +8,14 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.73.0] - 2026-06-30
+
+### Improved
+- **Cascade + kicker kicked-ETB-triggers (+45 native).** The Cascade keyword (on cast, dig to the first cheaper
+  nonland card and cast it free — 18 cards) and kicker payoffs that fire an ETB trigger when kicked (Heartstabber
+  Mosquito, Torch Slinger, Goblin Bushwhacker, Kor Sanctifiers, Nullpriest of Oblivion… — 27 cards). Flip-diffed
+  both directions (45 gained, 0 lost), full gate (6,070 tests) green, 0 false positives.
+
 ## [0.72.0] - 2026-06-30
 
 ### Improved
