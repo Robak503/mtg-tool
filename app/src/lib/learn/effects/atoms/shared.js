@@ -280,6 +280,23 @@ export function countForSpec(state, ctx, spec) {
     if (!lk || !/\bCreature\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) return 0;
     return Math.max(0, stat.read(lk.permanent, state));
   }
+  // ===== TARGET-STAT (DRAW-BY-TARGET-POWER) ===== a count read off the CHOSEN CREATURE TARGET'S layer-aware
+  // power/toughness AT RESOLUTION (CR 608.2h) — "draw cards equal to the power of TARGET creature you control"
+  // (Soul's Majesty). The referent is the atom's own chosen creature target (ctx.targets, the role-untagged
+  // single creature for a one-target draw — exactly the same target the draw atom enumerated via its
+  // targetType:"creature"). creaturePower/creatureToughness are layer-aware (counters + anthems count) and read
+  // at resolution. The target having LEFT the battlefield between cast and resolution (CR 608.2b — the spell
+  // would actually be countered with its only target gone, but if it somehow resolves) or a NON-creature in the
+  // slot → 0 (a clean no-op, never a fabricated count). Distinct from the SOURCE-STAT block above: that reads
+  // ctx.sourceId/triggeringPermanentId (an ability's own / triggering permanent); this reads the chosen target.
+  const TARGET_STAT = { targetCreaturePower: creaturePower, targetCreatureToughness: creatureToughness };
+  const targetRead = TARGET_STAT[spec.kind];
+  if (targetRead) {
+    const tgt = (ctx?.targets || []).find((t) => t.type === "creature");
+    const lk = tgt ? findPermanent(state, tgt.id) : null;
+    if (!lk || !/\bCreature\b/.test(String(lk.permanent.card?.type || lk.permanent.card?.type_line || ""))) return 0;
+    return Math.max(0, targetRead(lk.permanent, state));
+  }
   // ===== COUNTERS-ON-SOURCE (DOUBLE-COUNTERS) ===== the number of counters of a given kind CURRENTLY on
   // the ability's OWN permanent (ctx.sourceId), read AT RESOLUTION off the live counter bag. Feeds "double
   // the number of +1/+1 counters on this creature" (Voracious Hydra's modal ETB): an add-counter atom that

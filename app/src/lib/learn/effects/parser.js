@@ -2095,6 +2095,14 @@ export function atomTargetIntent(atom) {
       // "target player draws N cards" (Saltwater Stalwart: combatDamage → target player draws) —
       // beneficial draw, own-side: the controller always targets themselves to draw.
       if (tt === "player") return "own";
+      // DRAW-BY-TARGET-POWER ("draw cards equal to the power of target creature you control" — Soul's
+      // Majesty): the chosen CREATURE is the controller's own (the "you control" restriction) and the draw
+      // is beneficial, so the target side is unambiguously "own" — mirroring the tap / add-counter "you
+      // control" overrides. This future-proofs the trigger-flush chooser (no such card is a trigger today;
+      // the cast path picks interactively / the AI aims at its own biggest creature). The BARE "target
+      // creature" form (no restriction, none in the corpus) stays "ambiguous" → Arbiter on a trigger, a safe
+      // FN: which creature's power you'd want is genuinely board-dependent without the own-side restriction.
+      if (tt === "creature" && atom.restrictions?.some(r => r.kind === "controller" && r.who === "you")) return "own";
       return "ambiguous";
     case "regenerate":
       // "Regenerate target creature" (Horizon Seed: cast Spirit/Arcane → regenerate target creature) —

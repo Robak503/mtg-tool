@@ -190,6 +190,23 @@ export function drawEachPlayerClauseParser(clause) {
  */
 export function drawForEachClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // DRAW-BY-TARGET-POWER — "draw cards equal to the power|toughness of target creature[ you control]" (Soul's
+  // Majesty: "Draw cards equal to the power of target creature you control."). A CHOSEN single creature target
+  // (targetType:"creature", optional controller:you restriction) whose layer-aware power/toughness AT RESOLUTION
+  // (CR 608.2h, via the TARGET-STAT countForSpec branch reading ctx.targets) is the draw count. Whole-clause
+  // anchored ($) — a rider ("…, then discard"), a filtered target ("nonland creature"), or a non-target board
+  // form leaves residue → no match → low → Arbiter (CREED — never an over/under-count or a mis-targeted draw).
+  // The bare "target creature" (no "you control") form is referent-identical and trivially correct if a card
+  // ever prints it (none in the corpus today) — a safe FN-free generalization sharing the same resolver path.
+  const mtp = t.match(/^(?:you )?draw cards equal to the (power|toughness) of target creature( you control)?$/);
+  if (mtp) {
+    const kind = mtp[1] === "power" ? "targetCreaturePower" : "targetCreatureToughness";
+    return {
+      op: "draw", targetType: "creature",
+      ...(mtp[2] ? { restrictions: [{ kind: "controller", who: "you" }] } : {}),
+      amountCount: { kind, per: 1 },
+    };
+  }
   let mfe = t.match(/^(?:you )?draw cards equal to the (greatest (?:power|toughness) among .+)$/);
   if (mfe) {
     const src = parseCountSource(mfe[1]);
