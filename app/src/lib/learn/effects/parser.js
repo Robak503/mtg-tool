@@ -45,6 +45,7 @@ import { counterClausesParser } from "./atoms/counterClauses.js";
 import { tokenCopyParser } from "./atoms/tokenCopy.js";
 import { createNamedTokenClauseParser, createTokenClauseParser } from "./atoms/tokens.js"; // seam batch 18 (create-named-token) + 20 (create-token vanilla creature tokens)
 import { sacrificeEdictClauseParser, destroyExileClauseParser } from "./atoms/removal.js"; // seam batch 21 (sacrifice edicts) + 27 (destroy⇄exile, rider-folding)
+import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { SMALL_NUM, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); SMALL_NUM (cdmg rad) + parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; NUM_WORD/parseCountSource now only inside migrated clause parsers (batch 23/26)
@@ -1757,6 +1758,15 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (omp && KNOWN.has(omp.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [omp.atom], xSpell: false, unparsedTail: null });
   }
+  // DESTROY-TOKEN-RIDER — "Destroy target creature. [It can't be regenerated.] (Its|That creature's) controller
+  // creates a N/N <color> <subtype> creature token." (Pongify, Rapid Hybridization). A creature-destroy lead +
+  // an intervening can't-be-regenerated sentence + a multi-word-subtype token rider — three shapes the shared
+  // RIDER-REMOVAL matcher below can't fold. Emits the SAME { op:"destroy", controllerRider:{kind:"createToken"} }
+  // atom that applyRemovalWithRider already resolves end-to-end, so no new resolver. Tried FIRST (its anchor is
+  // strictly narrower — a creature lead with the exact token rider — so it can only claim cards the shared
+  // matcher misses; anything else falls through to matchRemovalControllerRider unchanged).
+  const dtr = parseDestroyTokenRider(oracle);
+  if (dtr) return collapsed({ atom: dtr, rest: "" });
   // RIDER-REMOVAL — "Exile/Destroy target X. Its controller <rider>." parses to ONE removal atom carrying
   // a `controllerRider` (resolved to the target's controller). The two sentences span the clause splitter,
   // so it's matched up front like the other collapsed templates.

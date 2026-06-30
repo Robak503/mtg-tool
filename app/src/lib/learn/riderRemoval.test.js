@@ -126,7 +126,11 @@ describe("coverage — RIDER-REMOVAL staples flip native; the unmodeled riders b
 
   it("CREED: unmodeled-rider removal stays Arbiter-routed", () => {
     expect(classifyCard(C("Instant", "Destroy target creature. Its controller loses 2 life.", "Sip of Hemlock"))).toBe("arbiter-spell");
-    expect(classifyCard(C("Sorcery", "Destroy target creature. It can't be regenerated. Its controller creates a 3/3 green Ape creature token.", "Pongify"))).toBe("arbiter-spell"); // the "can't be regenerated" clause (meaningful since REGEN shipped) keeps the lead from matching → Arbiter
+    // Pongify / Rapid Hybridization (destroy creature + can't-be-regenerated + that controller makes a token)
+    // are now NATIVE via DESTROY-TOKEN-RIDER (effects/atoms/destroyTokenRider.js) — the can't-be-regenerated
+    // sentence is carried as cannotRegenerate (applyDestroyEffect honors it), so the flip is correct, not an FP.
+    // See destroyTokenRider.test.js for the parser + end-to-end runtime + CREED pins.
+    expect(classifyCard(C("Sorcery", "Destroy target creature. It can't be regenerated. Its controller creates a 3/3 green Ape creature token.", "Pongify"))).toBe("native-spell");
     expect(classifyCard(C("Instant", "Destroy target creature. Its controller discards a card.", "Assassin's Strike"))).toBe("arbiter-spell"); // discard rider
     expect(classifyCard(C("Sorcery", "Destroy target artifact or enchantment. Its controller gains 4 life.", "Nature's Claim"))).toBe("arbiter-spell"); // fixed gain-life (not "equal to its power")
   });
