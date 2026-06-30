@@ -70,6 +70,15 @@ function subtypeFilterMatches(card, filter) {
 function isCreaturePerm(perm) {
   return /Creature/.test(typeStr(perm?.card));
 }
+// PLANESWALKER look-back gate (CR 700.4 / 704.5i) — used by the creatureOrPwYouControl dies scope so a
+// dead PLANESWALKER (fed to the dies dispatch via checkPlaneswalkerDiesTriggers) matches a "a creature or
+// planeswalker you control dies" watcher (Cruel Celebrant). Reads the look-back card's type line, like
+// isCreaturePerm. A creature-front DFC with a PW back face is a CREATURE on the battlefield (it dies as a
+// creature), so the broad /Planeswalker/ test here is only ever reached for a TRUE planeswalker dead-entry
+// (checkPlaneswalkerDiesTriggers is fed only destroyZeroLoyaltyPlaneswalkers' output) — no DFC mis-gate.
+function isPlaneswalkerPerm(perm) {
+  return /Planeswalker/.test(typeStr(perm?.card));
+}
 
 // CHOSEN-TYPE membership (Kindred Discovery's "of the chosen type") — does `card` carry the chosen creature
 // type? True when its type line includes the subtype word-bounded (CR 205.3 — subtypes live after the "—")
@@ -379,6 +388,25 @@ function classifyCondition(condRaw, cardName, cardType) {
     }
   }
 
+  // ===== DEATH-DRAIN — creature-OR-PLANESWALKER union (Cruel Celebrant) ===== "this creature or another
+  // creature OR PLANESWALKER you control dies" is the union { self } ∪ { other creatures you control } ∪
+  // { planeswalkers you control }. The self ("this creature") is itself a creature you control, so the union
+  // reduces EXACTLY to { a creature you control } ∪ { a planeswalker you control } — the new
+  // creatureOrPwYouControl scope, which a creature death (checkDiesTriggers) AND a planeswalker death
+  // (checkPlaneswalkerDiesTriggers) both route through. The drain EFFECT ("each opponent loses 1 life and you
+  // gain 1 life") already parses HIGH (Bastion / Zulaport are native), so detecting the condition is the only
+  // missing piece. CREED — anchored EXACTLY: the subject must be the bare creature+planeswalker union scoped
+  // "you control"; ANY further type ("or artifact"), keyword, power, named/with/while/during/token restriction,
+  // or a MISSING "you control" (an unscoped "or planeswalker" would need an each-PW scope we don't model)
+  // fails the anchor → falls through to the rejects below → Arbiter (SAFE false-negative). Dies only.
+  if (selfRef && /\bdies\b/.test(c) && /\bor another creature or planeswalker\b/.test(c)) {
+    const subj = subjectBefore(c, "dies");
+    if (/^(?:this [a-z]+|[a-z0-9',. -]+?) or another creature or planeswalker you control$/.test(subj)
+        && !/\b(?:or artifact|or enchantment|or land|named|with|while|during|token|nontoken|that)\b/.test(subj)) {
+      return { event: "dies", scope: "creatureOrPwYouControl", whose: "any" };
+    }
+  }
+
   // ===== SUBTYPE-ETB-SELF (Pantlaza family) — "NAME or another SUBTYPE you control enters" =====
   // "Pantlaza, Sun's Vanguard or another Dinosaur you control enters the battlefield" = the union
   // { self } ∪ { other SUBTYPEs you control } where self IS always a SUBTYPE (Pantlaza is a Dinosaur).
@@ -559,13 +587,52 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^an enchantment you control enters(?: the battlefield)?$/.test(c)) {
     return { event: "permanentEnters", permanentFilter: "enchantment", scope: "enchantmentYouControl", whose: "any" };
   }
-  // "Leaves the battlefield" (LTB) is intentionally NOT detected: the engine fires only etb / dies /
-  // step / attacks events (triggersForEvent has no "ltb" caller), so an ltb trigger detected here would
-  // be classified native yet NEVER fire — a false positive (the whole ability silently does nothing,
-  // e.g. City Pigeon / Featherbrained Filcher's "When this leaves the battlefield, create a Food token").
-  // Leave it UNDETECTED → the card routes to the Arbiter (safe) until the engine fires LTB on every
-  // zone-change (dies + exile + bounce). NOTE: the self-sac fail-safe (abilities.sacrificeDropsTrigger)
-  // independently detects "leaves the battlefield" to keep self-sac costs safe — that path is unaffected.
+  // ===== LTB / PiG WATCHER (CR 700.4 / 603.6e) — "a <filter> you control is put into a graveyard from the
+  // battlefield" / "a token you control leaves the battlefield" ===== The aristocrats LTB drains (Marionette
+  // Apprentice / Master, Nadier's Nightblade). The leaving permanent is the TRIGGERING permanent; the WATCHER
+  // (source) drains. checkLeavesTriggers fires the event off the gameState `pendingLeaveEvents` look-back
+  // (recorded at the single moveCardToZone chokepoint, so EVERY battlefield exit — death/sac/destroy/bounce —
+  // is seen). Each scope below is controller-gated ("you control"); a no-controller form (an opponent's, or a
+  // bare "a creature is put into a graveyard") stays UNDETECTED → Arbiter (the engine can't faithfully scope
+  // it), mirroring the dies/etb controller-only discipline. The SELF form ("when THIS is put into a graveyard"
+  // — Rancor's Aura self-PiG-return) is detected separately by the selfReturn.js registry detector, NOT here,
+  // so these watcher shapes never collide with it. CREED: each is END-anchored; any rider / extra type / power
+  // restriction beyond the modeled shapes leaves residue → null → Arbiter (a SAFE false-negative).
+  //
+  // PiG (graveyard-only): "is put into a graveyard from the battlefield". The drain EFFECT ("each opponent
+  // loses 1 life", "target opponent loses life equal to this creature's power") already parses HIGH.
+  if (/\bis put into a graveyard from the battlefield$/.test(c)) {
+    const pigSubj = c.replace(/\s+is put into a graveyard from the battlefield$/, "").trim();
+    // Marionette Apprentice — "another creature or artifact you control" (the "another" excludes the source).
+    if (pigSubj === "another creature or artifact you control")
+      return { event: "permanentLeaves", scope: "creatureOrArtifactYouControlPiG", whose: "any" };
+    // The non-"another" union (no live corpus card, but the symmetric form) — "a creature or artifact you control".
+    if (pigSubj === "a creature or artifact you control")
+      return { event: "permanentLeaves", scope: "creatureOrArtifactYouControlPiG", whose: "any", includeSelf: true };
+    // Marionette Master — "an artifact you control" (the source is a creature, never an artifact → never self-fires).
+    if (pigSubj === "an artifact you control")
+      return { event: "permanentLeaves", scope: "artifactYouControlPiG", whose: "any" };
+    // "another artifact you control" — the source-excluding artifact form (Disciple of the Vault-style).
+    if (pigSubj === "another artifact you control")
+      return { event: "permanentLeaves", scope: "artifactYouControlPiG", whose: "any", excludeSelf: true };
+    // "a creature you control" PiG (the dies-equivalent LTB wording — fires on a graveyard exit only).
+    if (pigSubj === "a creature you control")
+      return { event: "permanentLeaves", scope: "creatureYouControlPiG", whose: "any" };
+  }
+  // LEAVES (any zone): "a token you control leaves the battlefield" (Nadier's Nightblade) — fires on a token's
+  // exit to ANY zone (death, sac, bounce, exile), CR 111.7. The token gate is on the leaving permanent's
+  // card.token flag (set by the token factory), so a NONTOKEN leaving never fires (no over-fire).
+  if (/\bleaves the battlefield$/.test(c)) {
+    const ltbSubj = c.replace(/\s+leaves the battlefield$/, "").trim();
+    if (ltbSubj === "a token you control")
+      return { event: "permanentLeaves", scope: "tokenYouControlLeaves", whose: "any" };
+  }
+  // "Leaves the battlefield" (LTB) for OTHER subjects is intentionally NOT detected here: a self-LTB / un-scoped
+  // form whose effect the engine can't fire would be a false positive (the whole ability silently does nothing,
+  // e.g. City Pigeon's "When this leaves the battlefield, create a Food token"). Those stay UNDETECTED → Arbiter.
+  // The self-PiG Aura-return (Rancor) is handled by the selfReturn.js registry detector. NOTE: the self-sac
+  // fail-safe (abilities.sacrificeDropsTrigger) independently detects "leaves the battlefield" to keep self-sac
+  // costs safe — that path is unaffected.
 
   if (/beginning of (your|each) (upkeep|end step|draw step)/.test(c)) {
     const whose = /\beach\b/.test(c) ? "any" : "yours";
@@ -1505,6 +1572,46 @@ function scopeMatches(descriptor, sourcePermanent, triggeringPermanent, state) {
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
     case "otherCreatureYouControl":
       return !!triggeringPermanent && triggeringPermanent.id !== sourcePermanent.id && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller === sourcePermanent.controller;
+    case "creatureOrPwYouControl":
+      // CREATURE-OR-PLANESWALKER dies (Cruel Celebrant — "this creature or another creature OR PLANESWALKER you
+      // control dies"). The subject union is { a creature you control } ∪ { a planeswalker you control } (the
+      // self "this creature" is subsumed by the creature half — Cruel Celebrant IS a creature it controls). A
+      // creature death arrives via checkDiesTriggers; a planeswalker death via checkPlaneswalkerDiesTriggers —
+      // BOTH route through this one scope. Fires when the dead permanent is a creature OR a planeswalker AND was
+      // controlled by the source's controller. isCreaturePerm / isPlaneswalkerPerm read the CR-603.10a look-back
+      // type line. A non-controlled or wrong-type death does NOT match (no over-fire); an opponent's PW dying
+      // never fires this (controller gate), matching CR 603.6e.
+      return !!triggeringPermanent
+        && (isCreaturePerm(triggeringPermanent) || isPlaneswalkerPerm(triggeringPermanent))
+        && triggeringPermanent.controller === sourcePermanent.controller;
+    // ===== LTB / PiG WATCHER scopes (CR 700.4 / 603.6e) ===== The triggeringPermanent is the LEAVING permanent
+    // (a CR-603.10a look-back from checkLeavesTriggers, carrying `leftToGraveyard`). All are controller-gated.
+    // The PiG scopes require a GRAVEYARD exit (leftToGraveyard); the LEAVES scope fires on any exit.
+    case "creatureOrArtifactYouControlPiG":
+      // Marionette Apprentice — "another creature or artifact you control is put into a graveyard". Excludes the
+      // source (the "another") UNLESS includeSelf is set (the symmetric non-"another" form). Graveyard exit only.
+      return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && (descriptor.includeSelf || triggeringPermanent.id !== sourcePermanent.id)
+        && (isCreaturePerm(triggeringPermanent) || /Artifact/.test(typeStr(triggeringPermanent.card)));
+    case "artifactYouControlPiG":
+      // Marionette Master — "an artifact you control is put into a graveyard". The "another"-form sets excludeSelf
+      // (Disciple-of-the-Vault style); the bare form's source is a creature (never an artifact), so self never matches.
+      return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && (!descriptor.excludeSelf || triggeringPermanent.id !== sourcePermanent.id)
+        && /Artifact/.test(typeStr(triggeringPermanent.card));
+    case "creatureYouControlPiG":
+      // "a creature you control is put into a graveyard from the battlefield" — the dies-equivalent LTB wording,
+      // graveyard exit only (CR 700.4). isCreaturePerm + controller gate, mirroring creatureYouControl (dies).
+      return !!triggeringPermanent && triggeringPermanent.leftToGraveyard
+        && triggeringPermanent.controller === sourcePermanent.controller
+        && isCreaturePerm(triggeringPermanent);
+    case "tokenYouControlLeaves":
+      // Nadier's Nightblade — "a token you control leaves the battlefield". ANY exit (no graveyard gate), CR 111.7.
+      // The token gate is the leaving permanent's card.token flag (the token-factory convention); a nontoken never fires.
+      return !!triggeringPermanent && !!triggeringPermanent.card?.token
+        && triggeringPermanent.controller === sourcePermanent.controller;
     case "creatureOpponentControls":
       return !!triggeringPermanent && isCreaturePerm(triggeringPermanent) && triggeringPermanent.controller !== sourcePermanent.controller;
     case "landYouControl":
@@ -1865,6 +1972,41 @@ export function checkDiesTriggers(state, dead) {
 }
 
 /**
+ * PLANESWALKER-DIES (CR 700.4 / 704.5i) — fire "dies" triggers for a batch of PLANESWALKERS that just went
+ * to a graveyard (destroyZeroLoyaltyPlaneswalkers' `dead` look-back, shape `{ id, controller, name, card }`).
+ * A planeswalker "dies" in the CR-700.4 sense (it's put into a graveyard from the battlefield); the ONLY
+ * modeled watcher that responds is the creatureOrPwYouControl scope (Cruel Celebrant — "a creature OR
+ * PLANESWALKER you control dies"). Every creature-only dies scope (creatureYouControl / eachCreature /
+ * subtypeYouControl / self) correctly SKIPS a planeswalker triggering-permanent (its isCreaturePerm /
+ * subtype / id check is false for a PW), so reusing the generic dies event here can NOT mis-fire a
+ * creature-death watcher — the new scope is the sole path a PW death reaches. A planeswalker's OWN
+ * "when this dies" self-trigger would fire here too (CR-correct), but no native PW carries one (the two
+ * corpus PWs with a dies trigger watch CREATURES and are arbiter-pw tier anyway), so this is collateral-free.
+ *
+ * Deliberately does NOT drain pendingLeaveEvents (unlike checkDiesTriggers) — the creature death pass at the
+ * same SBA already drained it; draining again here is a harmless no-op but the separation keeps the two
+ * dispatches independent. No dyingPower ctx (a planeswalker has no power → an amount-scaled payoff would read
+ * 0, but the only modeled watcher is the flat each-opponent drain). Pure — appends to pendingTriggers.
+ */
+export function checkPlaneswalkerDiesTriggers(state, deadPw) {
+  if (!deadPw || !deadPw.length) return state;
+  let fired = [];
+  for (const d of deadPw) {
+    if (!d?.card) continue;
+    const lookBack = { id: d.id, controller: d.controller, card: d.card };
+    // self ("when this planeswalker dies") + every surviving watcher ("a creature or planeswalker you control dies")
+    fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+    for (const pid of Object.keys(state.players)) {
+      for (const watcher of triggerSourcesOf(state, pid)) {
+        fired = fired.concat(triggersForEvent(state, { event: "dies", sourcePermanent: watcher, triggeringPermanent: lookBack }));
+      }
+    }
+  }
+  if (!fired.length) return state;
+  return { ...state, pendingTriggers: [...(state.pendingTriggers || []), ...fired] };
+}
+
+/**
  * SELF-LTB (Wave 4) — fire "leaves the battlefield" (LTB / put-into-a-graveyard) triggers for the
  * permanents gameState.detachPermanentFromAll recorded on `state.pendingLeaveEvents` (a plain-JSON look-back
  * list: `{ id, controller, card, toGraveyard }`, CR 603.6e/603.10a), then ALWAYS CLEAR the queue (idempotent
@@ -1887,15 +2029,34 @@ export function checkLeavesTriggers(state) {
   let fired = [];
   for (const e of events) {
     if (!e?.card) continue;
-    // The ONLY "ltb" trigger modeled today is the Aura self-PiG-return (Rancor), whose printed condition is
-    // "is put INTO A GRAVEYARD from the battlefield" (CR 700.4 — NOT a bounce/exile). So fire "ltb" only for a
-    // graveyard exit; a bounce/exile leave is recorded (so the queue is generic + Wave-5-ready) but not fired
-    // here — it matches no current detector, and firing it would WRONGLY return a bounced Aura (a false
-    // positive). A future generic "leaves the battlefield" consumer (Ozolith) keys on the recorded events
-    // regardless of toGraveyard via its own handling.
-    if (!e.toGraveyard) continue;
-    const lookBack = { id: e.id, controller: e.controller, card: e.card };
-    fired = fired.concat(triggersForEvent(cleared, { event: "ltb", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+    // The look-back carries `leftToGraveyard` so the PiG watcher scopes (graveyard-only) can distinguish a
+    // graveyard exit from a bounce/exile; the LEAVES watcher (Nadier's token-leaves) ignores it (fires on any exit).
+    const lookBack = { id: e.id, controller: e.controller, card: e.card, leftToGraveyard: !!e.toGraveyard };
+    // SELF-PiG ("ltb") — the Aura self-PiG-return (Rancor), printed "is put INTO A GRAVEYARD from the
+    // battlefield" (CR 700.4 — NOT a bounce/exile). Fire "ltb" ONLY for a graveyard exit; a bounce/exile leave
+    // is recorded but not fired here (firing would WRONGLY return a bounced Aura — a false positive). The self
+    // scope reads sourcePermanent === triggeringPermanent (the look-back is both).
+    if (e.toGraveyard) {
+      fired = fired.concat(triggersForEvent(cleared, { event: "ltb", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+    }
+    // WATCHER LTB / PiG ("permanentLeaves") — the aristocrats LTB drains (Marionette Apprentice/Master,
+    // Nadier's Nightblade, Tablet of Epityr). scopeMatches' permanentLeaves scopes gate on the leaving
+    // permanent's type / controller / token-ness / graveyard-ness. A bounce/exile leave is passed too — only
+    // the tokenYouControlLeaves scope (any exit) responds; the PiG scopes require leftToGraveyard, so a
+    // bounced creature/artifact never fires a PiG drain.
+    //
+    // SELF-source FIRST (the look-back as BOTH source and triggering) — a permanent whose OWN
+    // "an artifact you control is put into a graveyard" watcher should fire when IT dies (Tablet of Epityr,
+    // Marionette Master): by the time this runs the permanent is already in the graveyard, so it is NOT in
+    // triggerSourcesOf (the battlefield scan) below. The bare ("an artifact you control") scope self-matches;
+    // an "another …" scope (excludeSelf) skips itself via the id check, so a self-excluding watcher never
+    // mis-fires on its own death. The battlefield scan below then covers every OTHER (surviving) watcher.
+    fired = fired.concat(triggersForEvent(cleared, { event: "permanentLeaves", sourcePermanent: lookBack, triggeringPermanent: lookBack }));
+    for (const pid of Object.keys(cleared.players)) {
+      for (const watcher of triggerSourcesOf(cleared, pid)) {
+        fired = fired.concat(triggersForEvent(cleared, { event: "permanentLeaves", sourcePermanent: watcher, triggeringPermanent: lookBack }));
+      }
+    }
   }
   if (!fired.length) return cleared;
   return { ...cleared, pendingTriggers: [...(cleared.pendingTriggers || []), ...fired] };

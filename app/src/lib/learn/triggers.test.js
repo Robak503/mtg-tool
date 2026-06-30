@@ -162,9 +162,17 @@ describe("classifyCondition — TRIG-DMG-TO-OPPONENT (Vedalken Heretic / Thievin
 // deathDrainTriggers.test.js) — no over-correction in either direction.
 describe("classifyCondition — restricted / alternate-subject guard (FIX-TRIG-CONDITION)", () => {
   const zero = (name, oracle) => expect(detectTriggers(creature(name, oracle))).toHaveLength(0);
-  it("does NOT detect a TYPE/PLANESWALKER-filtered 'or another' union (Rotlung Cleric / Cruel Celebrant planeswalker) — only the clean creature union is modeled (DEATH-DRAIN)", () => {
+  it("does NOT detect a SUBTYPE-filtered 'or another' union (Rotlung Cleric) — only the clean creature union is modeled (DEATH-DRAIN)", () => {
     zero("Rotlung Reanimator", "Whenever Rotlung Reanimator or another Cleric dies, create a 2/2 black Zombie creature token.");
-    zero("Cruel Celebrant", "Whenever Cruel Celebrant or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life.");
+  });
+  it("NOW detects the creature-OR-PLANESWALKER union (Cruel Celebrant) → creatureOrPwYouControl (DEATH-DRAIN PW carve-out)", () => {
+    const det = detectTriggers(creature("Cruel Celebrant", "Whenever Cruel Celebrant or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life."));
+    expect(det.map((t) => t.event)).toEqual(["dies"]);
+    expect(det[0].scope).toBe("creatureOrPwYouControl");
+    // CREED — the union must be scoped "you control"; an UNSCOPED "or planeswalker" stays UNDETECTED (no each-PW scope modeled).
+    zero("X", "Whenever this creature or another creature or planeswalker dies, each opponent loses 1 life.");
+    // CREED — a FURTHER extra type ("or artifact") beyond creature+planeswalker stays UNDETECTED.
+    zero("Y", "Whenever this creature or another creature or planeswalker or artifact you control dies, each opponent loses 1 life.");
   });
   it("does NOT detect a 'dealt damage by this' restriction (Sengir Vampire) — broad selfRef mis-read it as a bare self-dies", () => {
     zero("Sengir Vampire", "Whenever a creature dealt damage by Sengir Vampire this turn dies, put a +1/+1 counter on Sengir Vampire.");

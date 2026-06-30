@@ -154,7 +154,7 @@ describe("VIHAAN-TREASURE — CREED: unmodeled cards stay body-only (no over-cla
   it("Professional Face-Breaker stays body-only — 'Sacrifice a Treasure: Exile top, may play' is unmodeled", () => {
     expect(classifyCard({ name: "Professional Face-Breaker", type: "Creature — Human Warrior", mana: "{2}{R}", oracle: "Menace\nWhenever one or more creatures you control deal combat damage to a player, create a Treasure token.\nSacrifice a Treasure: Exile the top card of your library. You may play that card this turn." })).toBe("body-only");
   });
-  it("Cruel Celebrant stays body-only — the 'or planeswalker' death-drain union is unmodeled (CREED carve-out)", () => {
-    expect(classifyCard({ name: "Cruel Celebrant", type: "Creature — Vampire", mana: "{W}{B}", oracle: "Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life." })).toBe("body-only");
+  it("Cruel Celebrant is now native — the creature-OR-PLANESWALKER death-drain union is modeled (PW deaths fed to the dies dispatch)", () => {
+    expect(classifyCard({ name: "Cruel Celebrant", type: "Creature — Vampire", mana: "{W}{B}", oracle: "Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life." })).toMatch(/^native/);
   });
 });

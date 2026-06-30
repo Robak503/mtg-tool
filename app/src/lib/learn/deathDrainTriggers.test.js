@@ -8,9 +8,11 @@
  * Erebos already resolve (Zulaport Cutthroat, Butcher of Malakir, Warteye Witch). Plus "each other player
  * sacrifices a creature" ≡ "each opponent sacrifices" (Grave Pact / Butcher death-edict).
  *
- * CREED — deferred to a follow-up slice, must stay LOW: an extra subject type ("or planeswalker" — Cruel
- * Celebrant), a TARGETED drain ("target player loses N life" — Blood Artist), or a non-dies wording ("is put
- * into a graveyard" — Marionette). Never a partial fire.
+ * The creature-OR-PLANESWALKER union ("or planeswalker you control" — Cruel Celebrant) is now modeled too
+ * (creatureOrPwYouControl scope + PW deaths fed to the dies dispatch; see deathDispatchLtb.test.js). The
+ * TARGETED drain ("target player loses N life" — Blood Artist) is in deathDrainTargeted.test.js. The LTB/PiG
+ * wording ("is put into a graveyard" — Marionette, Tablet of Epityr) is in deathDispatchLtb.test.js. CREED —
+ * an UNSCOPED or FURTHER-typed union stays LOW (a partial fire is forbidden).
  */
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -44,11 +46,17 @@ describe("DEATH-DRAIN — the compound self-subject is the creature union", () =
   it("'<name> or another creature you control dies' → creatureYouControl", () => {
     expect(dies("Whenever Butcher or another creature you control dies, each opponent sacrifices a creature of their choice.", "Butcher")).toMatchObject({ event: "dies", scope: "creatureYouControl" });
   });
-  it("CREED: an extra subject type ('or planeswalker') stays UNDETECTED → Arbiter", () => {
-    expect(dies("Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life.")).toBeUndefined();
+  it("creature-OR-PLANESWALKER union ('or planeswalker you control') → creatureOrPwYouControl (Cruel Celebrant)", () => {
+    expect(dies("Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life.")).toMatchObject({ event: "dies", scope: "creatureOrPwYouControl" });
+  });
+  it("CREED: an UNSCOPED creature-or-planeswalker union (no 'you control') stays UNDETECTED → Arbiter", () => {
+    expect(dies("Whenever this creature or another creature or planeswalker dies, each opponent loses 1 life.")).toBeUndefined();
   });
   it("CREED: a mixed-type union ('or another artifact') stays UNDETECTED", () => {
     expect(dies("Whenever this creature or another artifact you control dies, each opponent loses 1 life.")).toBeUndefined();
+  });
+  it("CREED: a FURTHER extra type beyond creature+planeswalker ('or artifact') stays UNDETECTED", () => {
+    expect(dies("Whenever this creature or another creature or planeswalker or artifact you control dies, each opponent loses 1 life.")).toBeUndefined();
   });
 });
 
@@ -69,11 +77,11 @@ describe("DEATH-DRAIN — coverage flips (synthetic cards, real oracle text)", (
   it("the each-other-player death-edict flips native (Grave Pact)", () => {
     expect(classifyCard({ type: "Enchantment", name: "Grave Pact", mana: "{1}{B}{B}", oracle: "Whenever a creature you control dies, each other player sacrifices a creature of their choice." })).toMatch(/^native/);
   });
-  it("CREED — the 'or planeswalker' union (Cruel Celebrant) stays body-only (the targeted-drain Blood Artist now flips — see deathDrainTargeted.test.js)", () => {
+  it("the targeted-drain (Blood Artist) and the creature-OR-PLANESWALKER union (Cruel Celebrant) both flip native", () => {
     // Blood Artist's "target player loses N life" landed in DEATH-DRAIN-TARGETED; it is now native.
     expect(classifyCard({ type: "Creature — Vampire", name: "Blood Artist", mana: "{1}{B}", oracle: "Whenever this creature or another creature dies, target player loses 1 life and you gain 1 life." })).toMatch(/^native/);
-    // Cruel Celebrant's "or planeswalker" is an extra subject type the creature-only carve-out still rejects.
-    expect(classifyCard({ type: "Creature — Vampire", name: "Cruel Celebrant", mana: "{1}{B}", oracle: "Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life." })).toBe("body-only");
+    // Cruel Celebrant's "or planeswalker" now routes via the creatureOrPwYouControl scope (PW deaths fed in).
+    expect(classifyCard({ type: "Creature — Vampire", name: "Cruel Celebrant", mana: "{1}{B}", oracle: "Whenever this creature or another creature or planeswalker you control dies, each opponent loses 1 life and you gain 1 life." })).toMatch(/^native/);
   });
 });
 

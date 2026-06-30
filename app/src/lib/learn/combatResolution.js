@@ -49,7 +49,7 @@ import { permanentHasKeyword, permanentColors, permanentProtectionColors } from 
 import { protectionApplies } from "./protection.js";
 import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 import { armDamageToCreatureFlag, marksDamageToCreature } from "./wolverine.js";
-import { checkDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCombatDamageTriggers, checkCombatDamageToCreatureTriggers, checkBatchCombatDamageTriggers, checkLifegainTriggers, checkDealtDamageTriggers } from "./triggers.js";
 
 // KW-POISON (toxic — CR 702.180a): the toxic VALUE N. The keyword reminder text spells the number
 // out ("Toxic 3"); the Scryfall keywords array only carries the bare word "Toxic", so N is read from
@@ -434,6 +434,10 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   // snapshot. They land in pendingTriggers; flushTriggers puts them on the stack
   // at the next priority-grant checkpoint.
   next = checkDiesTriggers(next, dead);
+  // PLANESWALKER-DIES (CR 700.4) — a planeswalker driven to 0 loyalty by combat damage also "dies"; fire its
+  // dies-watchers off the deadPw look-back so a creature-or-planeswalker drain (Cruel Celebrant) fires. Only
+  // the creatureOrPwYouControl scope responds to a PW death; creature-only scopes skip it (see the function).
+  next = checkPlaneswalkerDiesTriggers(next, deadPw);
 
   return next;
 }

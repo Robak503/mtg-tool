@@ -52,7 +52,7 @@ import { isAuraCard, isNativeAura, isNativeManaAura, entersTapped } from "./stat
 import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
-import { checkCastTriggers, checkDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers } from "./triggers.js";
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -788,7 +788,12 @@ function applyActivateLoyalty(state, action) {
   // SBA (CR 704.5i): paying a −N cost down to 0 puts the walker into the graveyard. The ability is
   // already on the stack (above) and still resolves — putting it there before the sweep is what
   // preserves that ordering.
-  next = destroyZeroLoyaltyPlaneswalkers(next).state;
+  const pwSba = destroyZeroLoyaltyPlaneswalkers(next);
+  next = pwSba.state;
+  // PLANESWALKER-DIES (CR 700.4) — a walker that paid itself to 0 loyalty also "dies"; fire its dies-watchers
+  // so a creature-or-planeswalker drain (Cruel Celebrant) fires. creatureOrPwYouControl is the only scope that
+  // responds; creature-only scopes skip a PW death.
+  next = checkPlaneswalkerDiesTriggers(next, pwSba.dead);
   // A loyalty ability uses the stack — restart the priority loop at the active player (CR 117.1c).
   return { ...next, priorityHolder: state.activePlayer, consecutivePasses: 0 };
 }

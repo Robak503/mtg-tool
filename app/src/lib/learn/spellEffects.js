@@ -33,10 +33,11 @@ import {
   regeneratePermanent,
   adjustLoyalty,
   destroyZeroLoyaltyPlaneswalkers,
+  isPlaneswalker,
   addCounter,
   addPoison,
 } from "./gameState.js";
-import { checkDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkCardDrawnTriggers, checkDealtDamageTriggers } from "./triggers.js";
 import { uncounterableSubtypesOnBattlefield } from "./staticAbilityParser.js";
 import { permanentHasKeyword, permanentProtectionColors } from "./layers.js";
 import { protectionApplies } from "./protection.js";
@@ -666,6 +667,7 @@ export function applyDrawEffect(state, { controller, amount }) {
 export function applyDestroyEffect(state, { controller, targets = [], cannotRegenerate = false }) {
   let next = state;
   const dead = [];
+  const deadPw = []; // PLANESWALKER-DIES (CR 700.4) — a destroyed walker also "dies"; collected for its dies-watchers
   const prevented = [];
   for (const t of targets) {
     // "creature" (the dedicated creature path / mass wipe), "permanent" (targeted non-creature
@@ -701,10 +703,15 @@ export function applyDestroyEffect(state, { controller, targets = [], cannotRege
       // a "<payoff> equal to its power" dies-trigger the real on-board power (mirrors destroyLethalCreatures).
       const pw = creaturePower(lk.permanent, next);
       dead.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card, power: Number.isFinite(pw) ? pw : null });
+    } else if (isPlaneswalker(lk.permanent.card)) {
+      // A destroyed planeswalker "dies" (CR 700.4); capture its look-back (no power — the only modeled
+      // PW-death watcher is Cruel Celebrant's flat creature-or-planeswalker drain).
+      deadPw.push({ id: t.id, controller: lk.controller, name: lk.permanent.card?.name, card: lk.permanent.card });
     }
     next = moveCardToZone(next, { playerId: lk.controller, fromZone: "battlefield", toZone: "graveyard", cardId: t.id });
   }
   next = checkDiesTriggers(next, dead);
+  next = checkPlaneswalkerDiesTriggers(next, deadPw);
   return logEvent(next, { kind: "spell-effect", effect: "destroy", controller, targets: targets.map(t => t.id), prevented });
 }
 
@@ -812,7 +819,10 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   const dmgResult = destroyLethalCreatures(next);
   next = checkDiesTriggers(dmgResult.state, dmgResult.dead);
   // PW-6: a planeswalker driven to 0 loyalty by the damage is put into the graveyard (CR 704.5i).
-  next = destroyZeroLoyaltyPlaneswalkers(next).state;
+  const pwSba = destroyZeroLoyaltyPlaneswalkers(next);
+  next = pwSba.state;
+  // PLANESWALKER-DIES (CR 700.4) — fire the dead walker's dies-watchers (Cruel Celebrant's creature-or-PW drain).
+  next = checkPlaneswalkerDiesTriggers(next, pwSba.dead);
   return logEvent(next, { kind: "spell-effect", effect: "damage", controller, amount, targets: targets.map(t => t.id) });
 }
 
