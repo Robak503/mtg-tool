@@ -297,7 +297,13 @@ function applyCastSpell(state, action) {
     // is pool-first, so a pre-filled pool pays with zero taps (preserving the
     // old behavior + tests); otherwise we auto-tap lands/rocks/dorks to cover.
     const pool = state.players[action.playerId].manaPool;
-    const plan = planPayment(pool, manaSources(state, action.playerId), action.cost);
+    // EMERGE (CR 702.97): the creature being SACRIFICED to emerge can't ALSO tap for mana to pay the reduced
+    // cost — exclude it from the sources (the γ1 double-spend guard, matching legalChoices' affordability
+    // check and the activated-ability sac path). Plain casts (no emerge) keep every source.
+    const castSources = action.emerge && action.sacCreatureId
+      ? manaSources(state, action.playerId).filter((s) => s.permanentId !== action.sacCreatureId)
+      : manaSources(state, action.playerId);
+    const plan = planPayment(pool, castSources, action.cost);
     if (!plan) {
       throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
     }
@@ -349,6 +355,20 @@ function applyCastSpell(state, action) {
     } else {
       throw new DispatcherError(`Unsupported additional cost kind: ${ac.kind}`, "ADDCOST_UNSUPPORTED");
     }
+  }
+
+  // 2c. EMERGE (CR 702.97a) — the alt-cast's REQUIRED sacrifice (a creature, or an artifact for "Emerge from
+  // artifact"), paid at cast before the spell goes on the stack (CR 601.2h). The reduced mana was already paid
+  // above with the victim excluded from the sources, so the victim is still untapped here. sacrificePermanent-
+  // ForCost moves it battlefield→graveyard and fires its dies + sacrifice watchers. FAIL-FAST: an emerge cast
+  // with no chosen victim is an upstream bug — THROW rather than cast for free (silently skipping the sacrifice
+  // is the cardinal false-positive failure, CLAUDE.md §1.2). The emerge keyword carries no effect-program, so
+  // this is NOT folded into the additionalCosts loop above (that loop is for parser-attached spell costs).
+  if (action.emerge) {
+    if (!action.sacCreatureId) throw new DispatcherError("Emerge cast requires a sacrifice but no victim was chosen", "EMERGE_UNPAID");
+    const victim = working.players[action.playerId]?.battlefield.find((p) => p.id === action.sacCreatureId);
+    if (!victim) throw new DispatcherError(`Emerge sacrifice victim ${action.sacCreatureId} not on battlefield`, "PERM_NOT_FOUND");
+    working = sacrificePermanentForCost(working, action.playerId, victim);
   }
 
   // 3. Move the card out of its source zone (hand, or the command zone for CMD-CAST). We splice

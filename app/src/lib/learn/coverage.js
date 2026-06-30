@@ -60,6 +60,7 @@ import { isSeedbornUntap } from "./seedbornUntap.js"; // SEEDBORN-UNTAP — runt
 import { parseStaticAbilities } from "./staticAbilityParser.js"; // for the eminence cost-reduction marker (Ur-Dragon classifier)
 import { parseAdventureCard, faceViews } from "./adventure.js"; // ADVENTURE (CR 715) — split the creature/adventure halves; pure shape module (no back-import, acyclic)
 import { parseKickerCounterCreature } from "./kicker.js"; // KICKER (CR 702.33) — optional cast cost + a was-kicked enters-with-counters payoff; runtime hooks in legalChoices/actionDispatcher/resolvers. Leaf (no back-import, acyclic).
+import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — alt cast cost (sac a creature/artifact, pay the emerge cost reduced by its MV); runtime hooks in legalChoices/actionDispatcher. Leaf (no back-import, acyclic).
 
 // Keywords a keyword-only body counts native on — TWO classes, per Colton's
 // "enforce, don't drop" policy (2026-06-18, docs/orchestration/retired-fp-ledger.md):
@@ -1056,6 +1057,24 @@ registerCoverageClassifier((card) => classifyWolverine(card));
 // any extra unmodeled body clause → null), so the credit is honest — exactly the cards the engine plays.
 // isKeywordOnly is passed in (the same predicate the dispatch body uses) to keep kicker.js a leaf module.
 registerCoverageClassifier((card) => (parseKickerCounterCreature(card, isKeywordOnly) ? "native-body" : null));
+
+// ─── EMERGE (CR 702.97) — Eldrazi alternative cast cost (sac a creature/artifact, pay reduced) ───────────────
+// An Eldrazi/creature with a clean "Emerge {cost}" (or "Emerge from artifact {cost}") line whose BODY — the
+// Emerge keyword line stripped — is ALREADY native under the existing cascade (a keyword-only body, or a body
+// whose only non-keyword text is a modeled self-cast / ETB trigger). Emerge changes ONLY how/what you pay,
+// never the printed text — the SAME shape Plot / Warp / Bestow already model. parseEmergeCard strips the line
+// and RE-CLASSIFIES the bare body via classifyCard (injected → emerge.js stays a leaf), crediting the card the
+// SAME tier its body earns. The recursion is bounded: the stripped body has no Emerge line, so this classifier
+// returns null on the inner call (mirrors classifyAdventure's bounded self-recursion). The runtime makes it
+// genuinely work: legalChoices emits an emerge cast per legal sacrifice victim (cost reduced by the victim's
+// MV), actionDispatcher sacrifices the victim (excluded from the mana sources) + pays the reduced mana, and
+// the body's self-cast / ETB trigger fires through the normal checkCastTriggers / PERMANENT_ETB path.
+// All-or-nothing (CREED): an unmodeled body clause → the stripped body isn't native → null → body-only, so the
+// credit is honest (exactly the Emerge cards the engine plays). isNativeTier gates the body tier.
+registerCoverageClassifier((card) => {
+  const spec = parseEmergeCard(card, classifyCard, isNativeTier);
+  return spec ? spec.bodyTier : null;
+});
 
 // ─── CHOSEN-TYPE COUNT-ANTHEM — Banner of Kinship / Door of Destinies (cross-deck) ──────────────────────────
 // A choose-a-creature-type artifact whose payoff is a counter-scaled anthem on the chosen-type creatures the

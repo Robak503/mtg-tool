@@ -21,10 +21,12 @@
  * Eldrazi creature token"). Its only text IS the self-cast trigger, and create-token parses HIGH.
  * (Hydroid Krasis — the half-X cross-deck flip — has its own runtime suite in zaxaraHydras.test.js.)
  *
- * CREED anti-FP pins: every OTHER self-cast card carries an UNMODELED sibling clause (Emerge / Rebound /
- * Annihilator + the Kozilek graveyard-shuffle trigger) and stays body-only — the self-cast detector flips ONLY
- * cards whose whole text is modeled. A battlefield cast WATCHER ("Whenever you cast an artifact spell, …") is
- * untouched (it's not "this spell"). Real oracle text (verified vs the bundled local index), verbatim.
+ * CREED anti-FP pins: every OTHER self-cast card carries an UNMODELED sibling clause (Rebound / Annihilator +
+ * the Kozilek graveyard-shuffle trigger) and stays body-only — the self-cast detector flips ONLY cards whose
+ * whole text is modeled. (EMERGE is now MODELED — emerge.js + emerge.test.js — so an Emerge card whose BODY is
+ * native, e.g. Wretched Gryff = Flying + this self-cast draw trigger, flips native-trigger; it's no longer a
+ * parked pin here.) A battlefield cast WATCHER ("Whenever you cast an artifact spell, …") is untouched (it's
+ * not "this spell"). Real oracle text (verified vs the bundled local index), verbatim.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { classifyCard } from "./coverage.js";
@@ -95,15 +97,8 @@ describe("SELF-CAST — Desolation Twin classifies + resolves native", () => {
 // ── CREED anti-FP pins — a self-cast card with an UNMODELED sibling clause stays body-only ──
 describe("SELF-CAST — PARKED: a self-cast card with an unmodeled sibling clause stays body-only", () => {
   const parked = {
-    // Emerge (CR 702.97) is an unmodeled alternative cast cost → the whole card stays non-native.
-    "Wretched Gryff (Emerge alt-cost unmodeled)": {
-      name: "Wretched Gryff", type: "Creature — Eldrazi Hippogriff", mana: "{7}", power: 3, toughness: 4,
-      oracle: "Emerge {5}{U} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, draw a card.\nFlying",
-    },
-    "It of the Horrid Swarm (Emerge alt-cost unmodeled)": {
-      name: "It of the Horrid Swarm", type: "Creature — Eldrazi Insect", mana: "{8}", power: 4, toughness: 4,
-      oracle: "Emerge {6}{G} (You may cast this spell by sacrificing a creature and paying the emerge cost reduced by that creature's mana value.)\nWhen you cast this spell, create two 1/1 green Insect creature tokens.",
-    },
+    // (Wretched Gryff / It of the Horrid Swarm — both Emerge — USED to park here; Emerge is now modeled
+    // (emerge.js), so their native-trigger flip + the full emerge cast path are covered in emerge.test.js.)
     // Rebound (CR 702.88) — an unmodeled cast-from-exile keyword.
     "Jeskai Baller (Rebound unmodeled)": {
       name: "Jeskai Baller", type: "Creature — Human Athlete", mana: "{2}{W}", power: 2, toughness: 2,

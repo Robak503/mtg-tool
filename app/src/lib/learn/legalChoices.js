@@ -49,6 +49,7 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
 import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly } from "./coverage.js";
 import { parseKickerCounterCreature } from "./kicker.js"; // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable
+import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
 
 // GROUP-ACTIVATED grant (queue 1) — register the modeled-body gate so the runtime path (a SIM that imports
 // legalChoices but not coverage) still emits + enumerates group-activated grants. Idempotent with coverage.js's
@@ -623,7 +624,15 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
     // covers the cost — the dispatcher auto-taps to pay. (Pool-only would
     // never be castable since nothing pre-fills it.) A free-cast skips this (no mana paid).
     const affordable = freeCast || canAfford(player.manaPool, manaSources(state, playerId), cost);
-    if (!affordable) continue;
+    // EMERGE (CR 702.97): the whole POINT of emerge is casting the Eldrazi when the FULL printed cost is out
+    // of reach — sacrificing a creature cuts the cost by its mana value. So when the normal cast is NOT
+    // affordable, do NOT skip the card outright (the old `if (!affordable) continue`): an emerge cast may
+    // still be payable. Compute the emerge spec here (gated on a native body — the SAME gate coverage uses,
+    // so the metric and the runtime can't drift) and only `continue` past the card when neither the normal
+    // cast NOR any emerge cast is possible. A free-cast pays nothing, so emerge (which needs a sacrifice +
+    // reduced mana) isn't offered then.
+    const emergeSpec = freeCast ? null : parseEmergeCard(card, classifyCard, isNativeTier);
+    if (!affordable && !emergeSpec) continue;
 
     const effect = parseSpellEffect(card);
     const program = parseEffectProgram(card);
@@ -895,6 +904,58 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       }
       continue;
     }
+
+    // EMERGE (CR 702.97) — a creature with a clean "Emerge {cost}" (or "Emerge from artifact {cost}") line
+    // whose BODY is native (parseEmergeCard re-classifies the keyword-line-stripped body — the SAME gate the
+    // coverage classifier uses, so the metric and the runtime can't drift). For each legal sacrifice victim
+    // of the emerge sac-type, emit an EMERGE cast whose `cost` is the emerge cost with its GENERIC portion
+    // reduced by that victim's mana value (floored at {0}; the colored pips are never reduced — mirrors the
+    // static-cost-reduction floor above). The cast carries `sacCreatureId` (the victim) + `emerge:true`; the
+    // dispatcher sacrifices the victim (excluded from the mana sources, so a sacrificed dork can't also tap)
+    // and pays the reduced mana, then the body's self-cast / ETB trigger fires through the normal cast path.
+    // This block does NOT `continue` — the normal hard-cast (full printed cost, gated on `affordable`) still
+    // falls through below, so BOTH the emerge cast and the normal cast are offered (Emerge is an ALTERNATIVE,
+    // not a replacement). `emergeSpec` was computed at the affordability gate above (so an unaffordable normal
+    // cost didn't skip the card). A free-cast pays nothing, so emergeSpec is null then (the base body still
+    // resolves via the free-cast).
+    if (emergeSpec) {
+      const emergeCost = parseManaCost(emergeSpec.pips);
+      const victims = player.battlefield.filter((v) => {
+        const vType = String(v.card?.type || v.card?.type_line || "");
+        if (!new RegExp(`\\b${emergeSpec.sacType}\\b`, "i").test(vType)) return false;
+        // Exclude a victim whose own leave-trigger the dies path can't fire (mirrors the additional-cost
+        // sacrifice filter), so we never offer an emerge we can't cleanly complete (CREED).
+        return !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || "");
+      });
+      for (const victim of victims) {
+        // CR 702.97a — the emerge cost is reduced by the sacrificed creature's MANA VALUE (generic only,
+        // floored at {0}); the colored pips stay. parseManaCost returns a fresh object, but build a new one
+        // per victim so each emerge cast carries its own reduced cost.
+        const reducedGeneric = Math.max(0, (emergeCost.generic || 0) - manaValueOf(victim.card));
+        const reducedCost = { ...emergeCost, generic: reducedGeneric };
+        // Affordability EXCLUDES the victim from the mana sources — a sacrificed mana dork can't also tap to
+        // pay (the γ1 double-spend guard; the dispatcher applies the identical exclusion).
+        const sources = manaSources(state, playerId).filter((s) => s.permanentId !== victim.id);
+        if (!canAfford(player.manaPool, sources, reducedCost)) continue;
+        actions.push({
+          ...base,
+          cost: reducedCost,
+          cmc: printedCmc, // CR 202.3b — mana value reads the card's PRINTED cost, unaffected by the alt-cast
+          targets: [],
+          needsTargets: false,
+          emerge: true,
+          sacCreatureId: victim.id,
+          sacCreatureName: victim.card?.name ?? null,
+          emergeName: victim.card?.name ? `emerge (sacrifice ${victim.card.name})` : "emerge",
+        });
+      }
+      // fall through — the normal creature-mode hard-cast is still pushed below (only when affordable)
+    }
+
+    // EMERGE: when the normal printed cost is NOT affordable, only the emerge cast(s) emitted above are
+    // offered — skip the normal-cast emission below (we got here past the affordability gate ONLY because an
+    // emerge cast was viable). For every normal (affordable) cast this is a no-op (affordable === true).
+    if (!affordable) continue;
 
     if (effectNeedsTarget(effect)) {
       // Targeted spell: one cast action per legal target (the action-expansion
