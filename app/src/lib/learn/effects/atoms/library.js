@@ -87,8 +87,18 @@ export function cardMatchesTutorFilter(card, filter) {
       }
     }
   }
+  // PERMANENT-CARD gate (bfx — Wargate "a permanent card with mana value X or less"): a "permanent card" is
+  // any card whose FRONT face is a permanent type (CR 110.4a — artifact / creature / enchantment / land /
+  // planeswalker / battle), i.e. NOT an instant or sorcery. We require a POSITIVE permanent-type match (not
+  // merely "not instant/sorcery") so any non-permanent card type stays out of the pool (FN-safe — never a
+  // fabricated match). The front-face split mirrors the groups gate below (an MDFC matches on its front type).
+  if (filter.permanentOnly) {
+    const frontType = String(card?.type || card?.type_line || "").toLowerCase().split(" // ")[0];
+    const isPermanentType = /\b(?:artifact|creature|enchantment|land|planeswalker|battle)\b/.test(frontType);
+    if (!isPermanentType) return false;
+  }
   const groups = Array.isArray(filter.groups) ? filter.groups : [];
-  if (groups.length === 0) return true; // type-unfiltered (null filter handled above; MV-only filter falls here)
+  if (groups.length === 0) return true; // type-unfiltered (null filter handled above; MV-only / permanentOnly fall here)
   // Match the FRONT face only: a library card has just its front-face characteristics
   // (CR 712.4a), but the enriched type line is the COMBINED "Front // Back" for an MDFC —
   // so a [artifact] tutor must NOT match a card whose FRONT is a land and back an artifact.
@@ -132,8 +142,18 @@ export function applyTutor(state, atom, ctx) {
   // LAND-FROM-HAND — `sourceZone:"hand"` gathers candidates from the HAND instead of the library (Growth
   // Spiral); every other tutor searches the library (the default). The choice/picker/auto-pick are identical.
   const sourceZone = atom.sourceZone === "hand" ? "hand" : "library";
+  // SEARCH→BATTLEFIELD MV-CAPPED-BY-X (bfx) — a `mvCapX` filter resolves its MV cap from the CHOSEN X at
+  // resolution (Wargate / Nature's Rhythm "mana value X or less", X bound at cast per CR 601.2b / 202.3b).
+  // `?? 0` (not `|| 0`) so an explicit X=0 caps at 0 (fetch only MV-0 — a legal, conservative search), and a
+  // missing xValue (never happens for an xSpell, but defensive) is treated as 0, never as "uncapped" — the
+  // cardinal CREED guarantee that the cap is never silently dropped. The resolved filter (with a concrete
+  // `mv:{max}`) is used for BOTH the candidate pre-filter AND threaded into the pendingChoice so the auto-pick's
+  // defensive re-gate and any chained pick keep the same cap.
+  const effFilter = atom.filter?.mvCapX
+    ? { ...atom.filter, mv: { max: Math.max(0, ctx.xValue ?? 0) } }
+    : atom.filter;
   const candidates = (player[sourceZone] || [])
-    .filter((c) => cardMatchesTutorFilter(c, atom.filter))
+    .filter((c) => cardMatchesTutorFilter(c, effFilter))
     .map((c) => ({ id: c.id, name: c.name }));
   return setPendingTutorChoice(state, {
     controller,
@@ -142,7 +162,9 @@ export function applyTutor(state, atom, ctx) {
     sourceName: ctx.cardName || null,
     filterLabel: atom.filterLabel || null,
     // WAVE-2b TUTOR — thread the structured filter so the auto-pick can defensively re-apply the type/MV gate.
-    filter: atom.filter || null,
+    // bfx — thread the RESOLVED filter (concrete mv:{max} from the chosen X), not the symbolic mvCapX one, so
+    // the auto-pick's defensive re-gate and chained picks use the same concrete cap (never re-reads xValue).
+    filter: effFilter || null,
     // RAMP-1 — destination "battlefield" (+ entersTapped) puts the fetched card onto the battlefield instead
     // of the hand (Rampant Growth / Farhaven Elf). WAVE-2b FETCH-TO-TOP adds "top" (shuffle-then-place-on-top
     // — Vampiric/Mystical Tutor). Defaults to "hand" (the P3.2 tutor); setPendingTutorChoice coerces.
@@ -490,8 +512,41 @@ export function millClauseParser(clause) {
  * Pure (no parser.js import — cycle-safe); helpers (parseTutorFilter/parseTutorMv/BASIC_LAND_SUBTYPES/
  * UP_TO_N_WORD) come from the parseHelpers leaf. Registered via registerClauseParser in parser.js.
  */
-export function tutorClauseParser(clause) {
+export function tutorClauseParser(clause, ctx = {}) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // bfx — SEARCH→BATTLEFIELD, MV-CAPPED-BY-X (LIBRARY-TUTOR-TO-BATTLEFIELD): "search your library for a
+  // <creature|permanent> card with mana value X or less, put it onto the battlefield, then shuffle" on an
+  // {X}-cost spell (Wargate "permanent card", Nature's Rhythm "creature card"). Distinct from bfm (which is
+  // LAND-only, guaranteed by the land-guard): here the SAFETY is the MV cap itself — the fetched card's mana
+  // value must be <= the chosen X (bound at cast, read at resolution via ctx.xValue). `mvCapX:true` (a) tells
+  // applyTutor to build filter.mv = { max: xValue } at resolution and (b) makes the program derive xSpell:true
+  // so the cast path enumerates affordable X. CREED: the X cap is NEVER dropped — without a real cap this
+  // would fetch ANY creature/permanent (a forbidden FP), so this branch ONLY fires for an {X}-cost spell
+  // (ctx.hasX) carrying the literal "mana value x or less", and parseTutorFilter validates the type word.
+  // Tried BEFORE bfm so the MV-X shape is claimed here (bfm's regex wouldn't match the "with mana value …"
+  // text anyway, but the explicit ordering documents the precedence). A non-creature/permanent type, a fixed
+  // numeric cap (that's the tm to-HAND path, not battlefield), or a "graveyard"/rider variant won't match the
+  // anchor → falls through → low → Arbiter (Finale's library-and/or-graveyard + X≥10 pump rider stays LOW).
+  if (ctx.hasX) {
+    const bfx = t.match(/^search your library for an? (creature|permanent) cards? with mana value x or less,?(?: reveal (?:it|that card),?)?(?: and)? put (?:it|that card) onto the battlefield( tapped)?(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
+    if (bfx) {
+      const phrase = bfx[1];
+      // "creature" → a type-group filter (matches `\bcreature\b` in the type line). "permanent" → no type
+      // group (every type matches) PLUS the permanentOnly gate (front-face must be a permanent type, never an
+      // instant/sorcery) — "permanent" is intentionally NOT in TUTOR_FILTER_WORDS because `\bpermanent\b`
+      // never appears in a real type line, so a group match would be vacuous; the permanentOnly gate is correct.
+      const base = phrase === "permanent" ? { groups: [], permanentOnly: true } : parseTutorFilter(phrase);
+      if (!base) return null; // defensive (the regex already constrains to the two allowed words)
+      return {
+        op: "tutor",
+        filter: { ...base, mvCapX: true }, // mv resolved to { max: ctx.xValue } in applyTutor (CR 202.3b)
+        filterLabel: `${phrase} card with mana value X or less`,
+        destination: "battlefield",
+        entersTapped: !!bfx[2],
+        targetType: null,
+      };
+    }
+  }
   // tm — fetch-to-HAND single card.
   const tm = t.match(/^search your library for an? (?:([a-z][a-z ]*?) )?cards?(?: with mana value (\d+(?: or less)?))?,?(?: reveal (?:it|that card|the card),?)?(?: and)? put (?:it|that card|the card) into your hand(?:,? (?:then |and )?shuffle(?: your library)?)?\.?$/);
   if (tm) {

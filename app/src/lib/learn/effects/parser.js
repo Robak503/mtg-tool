@@ -1690,7 +1690,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
       atoms.push(a);
     }
     if (atoms.every(a => KNOWN.has(a.op)) && optionalsFormSuffix(atoms)) {
-      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX), unparsedTail: null });
+      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX || a.filter?.mvCapX), unparsedTail: null });
     }
     return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
   };
@@ -1843,7 +1843,9 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     // already shuffles after its search, CR 701.19e) — some cards template the shuffle as
     // its own sentence, which would otherwise shuffle twice. P3.2 review cleanup.
     const seq = atoms.filter((a, i) => !(a.op === "shuffle" && atoms[i - 1]?.op === "tutor"));
-    const xSpell = seq.some(a => a.amountX || a.countX);
+    // `mvCapX` (a search→battlefield tutor whose MV cap IS the spell's X — Wargate, Nature's Rhythm) also makes
+    // this an X-spell: the cast path must enumerate affordable X so ctx.xValue reaches applyTutor's cap resolve.
+    const xSpell = seq.some(a => a.amountX || a.countX || a.filter?.mvCapX);
     return makeProgram({ confidence: "high", atoms: seq, xSpell, unparsedTail: null });
   }
 
