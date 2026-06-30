@@ -42,6 +42,13 @@ import { triggerRoutesNatively, isModeledGroupTriggeredBody } from "./triggerRou
 import { isNativeGroupWard } from "./groupWard.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities } from "./manaModel.js";
+// OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
+// name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
+// descriptor), _registry is cardEffects.REGISTRY (the green-mana retention descriptor). Both are leaf
+// modules (layers imports staticAbilityParser/keywords/protection; cardEffects imports nothing) and
+// neither imports coverage.js, so these edges are acyclic.
+import { staticEffectsOf } from "./layers.js";
+import { _registry as cardEffectsRegistry } from "./cardEffects.js";
 import { isPureDoubler, doublerProfile, stripModeledDoublerClauses } from "./replacementEffects.js"; // counter/token doublers → native (full-card)
 import { marksDamageToCreature, ENDSTEP_COUNTER } from "./wolverine.js"; // Wave-5a: Wolverine whole-card runtime hook
 import { parseDamageReplacements, stripDamageReplacementClauses } from "./damageReplacements.js"; // Wave-5a: source-scoped damage doubler parser + clause stripper
@@ -1243,3 +1250,63 @@ function classifyVihaan(card) {
   return "native-mixed";                                        // outlaw anthem static + begin-combat animate trigger
 }
 registerCoverageClassifier((card) => classifyVihaan(card));
+
+// ─── OMNATH, LOCUS OF MANA — the TIER-2 mono-green ramp commander ─────────────────────────────────────────
+// "You don't lose unspent green mana as steps and phases end.  Omnath gets +1/+1 for each unspent green mana
+//  you have."
+// TWO STATIC abilities, BOTH genuinely resolving at runtime through registries the engine already consults:
+//   • GREEN-MANA RETENTION (CR 500.4) — cardEffects.REGISTRY["Omnath, Locus of Mana"].manaDoesNotEmpty = ["G"];
+//     gameEngine.emptyManaPools (the single step/phase-end chokepoint, routed through advanceStep) keeps the
+//     controller's green and empties everything else, controller-scoped (manaDoesNotEmpty reads only that
+//     player's battlefield — a NON-controller's green still empties). Proven in cardEffects.test.js.
+//   • DYNAMIC +1/+1-PER-GREEN (CR 613, layer 7c) — layers.STATIC_REGISTRY emits a { layerOp:"ptModifyDynamic",
+//     fn:"omnathGreen" } self descriptor; DYNAMIC_PT_FNS.omnathGreen reads the controller's live unspent green
+//     (state.players[controller].manaPool.G ?? 0) every P/T computation, so Omnath is a live X/X that grows as
+//     green is floated and SHRINKS as it's spent — recursion-safe (a plain pool read, never deriveCharacteristics).
+//     Proven both directions + in combat in cardEffects.test.js / layers.test.js.
+// The general oracle parser can't route either clause (retention is a pool-emptying override with no atom; the
+// P/T half is a live mana-pool-derived value), so this classifier credits EXACTLY what the engine already plays
+// — the additive-seam single-card pattern (the classifyWolverine / classifyUrDragon / classifyVihaan #353/#356
+// precedent: returns null unless EVERY clause matches AND no residue remains, so it can never cause collateral).
+// GROUNDED on the two RUNTIME registries (not name-only): the retention descriptor must carry "G" AND the layer-7c
+// dynamic descriptor must be present — so the credit tracks the engine, and would self-disable if either half were
+// ever removed (the failure mode that killed an earlier build).
+//
+// CREED — whole card, both clauses modeled:
+//   • retention: cardEffects.REGISTRY[name].manaDoesNotEmpty includes "G";
+//   • dynamic P/T: layers.staticEffectsOf emits a ptModifyDynamic (omnathGreen) descriptor.
+// All-or-nothing: BOTH sentences must be present on THIS card; both registries must back them; NO trigger or
+// activated ability may remain; and the residue after stripping both sentences must be keyword-only (Omnath's
+// body is vanilla, so the residue must be EMPTY). Returns native-static (two static abilities) or null.
+const OMNATH_RETENTION_SENTENCE_RE =
+  /you don't lose unspent green mana as steps and phases end\.?/i;
+const OMNATH_DYNAMIC_PT_SENTENCE_RE =
+  /[a-z, ]+ gets \+1\/\+1 for each unspent green mana you have\.?/i;
+function classifyOmnathLocus(card) {
+  const type = String(card?.type ?? card?.type_line ?? "").toLowerCase();
+  // Both halves read the source's controller (P/T) / the controller's battlefield (retention) — only a creature
+  // (the commander is a Legendary Creature) qualifies. Gate defensively so this never claims a non-creature.
+  if (!/creature/.test(type)) return null;
+  const oracle = stripReminder(String(card?.oracle ?? card?.oracle_text ?? ""));
+  // Both sentence shapes must actually be present on THIS card (mechanism-keyed, not name-only).
+  if (!OMNATH_RETENTION_SENTENCE_RE.test(oracle)) return null;
+  if (!OMNATH_DYNAMIC_PT_SENTENCE_RE.test(oracle)) return null;
+  // GROUND the retention half on the runtime registry the engine consults (cardEffects.manaDoesNotEmpty).
+  if (!cardEffectsRegistry[card?.name]?.manaDoesNotEmpty?.includes("G")) return null;
+  // GROUND the dynamic-P/T half on the layer engine (staticEffectsOf reads layers.STATIC_REGISTRY) — there must
+  // be a layer-7c ptModifyDynamic descriptor (omnathGreen). Synthetic permanent (no state needed for the registry
+  // lookup); staticEffectsOf is pure and returns [] for an unregistered card.
+  const statics = staticEffectsOf(null, { card });
+  if (!statics.some((e) => e?.op?.layerOp === "ptModifyDynamic" && e.op.fn === "omnathGreen")) return null;
+  // Neither ability is a trigger or activated ability — a detected one would be unmodeled residue the runtime
+  // won't play through this tier (a FORBIDDEN dropped-ability FP, CREED). Belt-and-suspenders.
+  if (detectTriggers(card).length > 0) return null;
+  if (parseActivatedAbilities(card).length > 0) return null;
+  // Strip both modeled sentences; the remainder must be keyword-only (Omnath is a vanilla body, so EMPTY).
+  const residue = oracle
+    .replace(OMNATH_RETENTION_SENTENCE_RE, " ")
+    .replace(OMNATH_DYNAMIC_PT_SENTENCE_RE, " ");
+  if (!isKeywordOnly(residue, card?.name)) return null;         // any non-keyword static/text residue → Arbiter
+  return "native-static";                                       // green-mana retention + dynamic +1/+1-per-green
+}
+registerCoverageClassifier((card) => classifyOmnathLocus(card));
