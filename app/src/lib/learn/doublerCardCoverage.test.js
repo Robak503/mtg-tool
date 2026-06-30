@@ -38,6 +38,9 @@ describe("doubler full-card coverage — honest flips to native", () => {
     expect(classifyCard(card("corpsejack"))).toBe("native-static");   // vanilla 4/4 + ×2 counter doubler
     expect(classifyCard(card("vorinclex"))).toBe("native-static");    // trample,haste + doubler + opp-halve (both modeled)
     expect(classifyCard(card("adrix"))).toBe("native-static");        // Ward {2} + ×2 token doubler
+    // Loading Zone = ×2 counter doubler whose ONLY other text is a WARP line — vacuous for the normal cast (the
+    // permanent is hard-cast and behaves as printed), stripped by classifyCard's warp preprocessing → native-static.
+    expect(classifyCard(card("loadingZone"))).toBe("native-static");
   });
   it("keeps pure doublers native-static (no regression)", () => {
     expect(classifyCard(card("doublingSeason"))).toBe("native-static");
@@ -56,7 +59,6 @@ describe("doubler full-card coverage — honest flips to native", () => {
 describe("doubler full-card coverage — CREED FN-safe non-flips (body-only)", () => {
   it("does NOT flip a doubler whose OTHER text isn't modeled", () => {
     expect(classifyCard(card("windingConstrictor"))).toBe("body-only"); // 2nd clause = player-counter doubling (unmodeled)
-    expect(classifyCard(card("loadingZone"))).toBe("body-only");        // Warp (alt-cast) unmodeled
     expect(classifyCard(card("highScore"))).toBe("body-only");          // end-step intervening-if draw not covered
     expect(classifyCard(card("mondrak"))).toBe("body-only");            // activated indestructible-counter ability
     expect(classifyCard(card("halvingSeason"))).toBe("body-only");      // token-HALVE not modeled (tokenMultiplier has no halve)

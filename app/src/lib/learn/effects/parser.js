@@ -192,7 +192,15 @@ function stripNoMaxHandSizeRider(text) {
 // "Awaken the Blood Avatar - Sorcery". DELIBERATELY EXCLUDES kicker (its kicked effect lives in the body →
 // the card self-gates anyway), spree (modal additional costs that ADD effects), and bestow/dash/evoke/blitz
 // (those add a kept effect / change the card's mode → NOT vacuous).
-const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*\{|jump-start\b|retrace\b|escape\s*[—–-]|spectacle\s*\{|prowl\s*\{|surge\s*\{|miracle\s*\{|awaken\s+\d+\s*[—–-])[^\n]*$/gim;
+// OVERLOAD (CR 702.96) — "Overload {cost}": cast for the overload cost and change every "target" in the
+// spell's text to "each". The PRINTED (non-overload) mode IS the single-target text; a NORMAL cast resolves
+// it exactly as written (the runtime hard-casts at the normal cost with normal targeting and never offers the
+// overload mode), so the line is vacuous for the normal cast — JOINING the family. The only unmodeled part is
+// the optional overload "each" rewrite, which can never mis-resolve a normal cast (THE CREED, the same
+// alternative-cost trade as spectacle/prowl). Anchored to a line-leading "overload {", so a prose mention or an
+// "overload" TRIGGER (never line-leading with a brace cost) is untouched. Damn ("Destroy target creature. …"),
+// Cyclonic Rift, Mizzium Mortars, Vandalblast, Electrickery, etc. flip native-spell on their printed mode.
+const CAST_KEYWORD_LINE = /^[ \t]*(?:foretell\s*\{|suspend\s+\d+\s*[—–-]|splice onto arcane\s*\{|recover\s*\{|harmonize\s*\{|basic landcycling\s*\{|cycling\s*\{|flashback\s*\{|jump-start\b|retrace\b|escape\s*[—–-]|spectacle\s*\{|prowl\s*\{|surge\s*\{|miracle\s*\{|overload\s*\{|awaken\s+\d+\s*[—–-])[^\n]*$/gim;
 // MADNESS_LINE needs a TIGHTER anchor than the others: a madness line can be COMPOUND
 // ("Madness {R}, cycling {1}{R}, kicker {2}{R}, buyback {4}{R}" — Blast from the Past), and buyback's
 // kept "return to hand as it resolves" effect lives ONLY on that line. A greedy `[^\n]*$` strip would drop

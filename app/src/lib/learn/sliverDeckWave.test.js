@@ -182,7 +182,9 @@ describe("Lifecrafter's Bestiary — OPTIONAL-MANA-PAYMENT (CR 603.7c) → nativ
 describe("Slivers PARK pins — these remain non-native until their blocker subsystem ships", () => {
   const cases = [
     ["Bident of Thassa", "Legendary Enchantment Artifact", "{2}{U}{U}", "Whenever a creature you control deals combat damage to a player, you may draw a card.\n{1}{U}, {T}: Creatures your opponents control attack this turn if able.", "body-only"], // force-attack-opponents activated = goad-class, unmodeled
-    ["Damn", "Sorcery", "{B}{B}", "Destroy target creature. A creature destroyed this way can't be regenerated.\nOverload {2}{W}{W} (You may cast this spell for its overload cost. If you do, change \"target\" in its text to \"each.\")", "arbiter-spell"], // Overload modal cast (target→each), unmodeled
+    // NOTE: Damn FLIPPED to native-spell (OVERLOAD now in the parser's CAST_KEYWORD_LINE family) — its printed
+    // single-target mode ("Destroy target creature. …") is the one the engine casts; the "each" overload rewrite
+    // is vacuous for the normal cast. The positive pin lives in warpOverloadCoverage.test.js.
     // NOTE: Lifecrafter's Bestiary FLIPPED to native-trigger (OPTIONAL-MANA-PAYMENT, CR 603.7c) — its upkeep
     // scry was already native; modeling "you may pay {G}. If you do, draw a card." flips the WHOLE card. The
     // positive pin moved to the "Slivers native" block below.

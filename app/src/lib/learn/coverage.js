@@ -31,7 +31,7 @@
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { stripCostOnlyKeywordLines } from "./effects/parseHelpers.js"; // CONVOKE/AFFINITY = cost-only keywords (strip before parse; runtime hard-casts at full cost — CREED-safe per Ninjutsu precedent)
 import { detectTriggers, stripTriggerAbilityLabel, parseGrantedTriggeredAbilities } from "./triggers.js";
-import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, foldModalBulletLines } from "./effects/abilities.js";
+import { parseActivatedAbilities, parseAbilityCost, parseGrantedActivatedAbilities, isModeledGroupActivatedBody, parsePlotCost, parseWarpCost, foldModalBulletLines } from "./effects/abilities.js";
 import { staticAbilitiesCoverCard, clauseProducesStatic, isLevelGatedOracle, parseEquipmentBonus, equipmentAbilityClauses, isAuraCard, isNativeAura, isNativeManaAura, isNativeManaGrantAura, entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, selfCostReductionMetric, registerGroupActivatedBodyValidator, registerGroupTriggeredBodyValidator } from "./staticAbilityParser.js";
 import { isCloneCard } from "./cloneCopy.js";
 import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
@@ -201,7 +201,9 @@ export function spellIsNative(card) {
   // on its own. The runtime hard-casts at full printed cost and resolves the body identically — the unmodeled
   // discount can never mis-resolve (THE CREED, mirroring the Ninjutsu/Cycling cost gates). Harmonized Crescendo
   // ("Convoke\nChoose a creature type. Draw a card for each permanent you control of that type.") then parses
-  // HIGH on its chosen-type count-draw atom → native-spell.
+  // HIGH on its chosen-type count-draw atom → native-spell. (OVERLOAD is stripped EARLIER by the parser's
+  // CAST_KEYWORD_LINE family — its printed single-target mode is the one the engine casts, so the "each"
+  // rewrite is vacuous for a normal cast — so Damn/Cyclonic Rift/etc. parse HIGH here on their printed body.)
   const oracle = stripCostOnlyKeywordLines(plotStripped);
   const program = parseEffectProgram({ type: card.type, oracle, mana: card.mana, name: card.name });
   if (!program || programConfidence(program) !== "high") return false;
@@ -749,13 +751,24 @@ export function classifyCard(card) {
   const plotStrippedRaw = parsePlotCost(card)
     ? oracle.replace(/(?:^|\n)[^\n]*\bplot\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n")
     : oracle;
+  // WARP (CR 702.176) — "Warp {cost}" is an alternative cast cost from hand (cast cheaper, exile at the next
+  // end step, recast from exile later). Like Plot it changes ONLY how/when the card is cast, never the
+  // permanent's printed abilities; the runtime hard-casts at full cost and the body resolves identically (the
+  // "exile at end step" rider applies ONLY to a warp cast the engine never offers). Strip the whole "Warp
+  // {cost} (reminder…)" line (line-anchored, reminder parens and all) when parseWarpCost confirms a clean
+  // modeled cost, so a card whose only other text is modeled (Exalted Sunborn = Flying, lifelink + a token
+  // doubler) reaches the downstream gates on its bare body and classifies native — exactly the card the
+  // runtime plays. parseWarpCost is null for a "when/whenever … warp" trigger, so that's never stripped (CREED).
+  const warpStrippedRaw = parseWarpCost(card)
+    ? plotStrippedRaw.replace(/(?:^|\n)[^\n]*\bwarp\s+(?:\{[^}]+\})+[^\n]*(?=\n|$)/i, "\n")
+    : plotStrippedRaw;
   // CONVOKE / AFFINITY on a PERMANENT spell (Thrumming Hivepool — "Affinity for Slivers"): strip the cost-only
   // keyword line so the downstream trigger/static/mixed gates see the body alone. Affinity changes only the
   // cast cost (the artifact ALSO has a printed {6}); the runtime hard-casts at full cost and the permanent's
   // abilities resolve identically — the unmodeled scaler can never mis-resolve (THE CREED, Ninjutsu precedent).
   // Without this, the bare "Affinity for Slivers" line is unmodeled residue → body-only despite the group-keyword
   // grant + upkeep token trigger both being fully modeled (→ native-mixed once stripped).
-  const costOnlyStrippedOracle = stripCostOnlyKeywordLines(plotStrippedRaw);
+  const costOnlyStrippedOracle = stripCostOnlyKeywordLines(warpStrippedRaw);
   // SELF-COST-REDUCTION (CR 601.2f) — "This spell costs {X} less to cast, where X is …" is a CAST-cost modifier
   // the runtime applies at the cast site (selfCostReductionMetric → the legalChoices cost path) regardless of
   // the card's coverage tier, EXACTLY like the Affinity/Convoke cost-only keywords stripped above. Strip the

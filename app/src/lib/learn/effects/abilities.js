@@ -210,6 +210,30 @@ export function parsePlotCost(card) {
 }
 
 /**
+ * WARP (CR 702.176, Edge of Eternities) — "Warp {cost}" is an ALTERNATIVE cast cost from hand: you may cast
+ * the card for its warp cost, then exile it at the beginning of the next end step, and may cast it from exile
+ * on a later turn. It changes ONLY how/when the card is cast — never WHAT the card does on resolution or what
+ * the permanent's printed abilities are. Every card carrying Warp ALSO has a normal printed mana cost, so the
+ * engine hard-casts it at full price and resolves its body 100% CORRECTLY; the only unmodeled part is the
+ * optional cheaper/temporary cast, which can NEVER mis-resolve / mis-count / drop a payoff clause / fabricate
+ * (THE CREED — the SAME safe trade the Plot/Convoke/Spectacle cost gates make). A hard-cast permanent simply
+ * stays on the battlefield exactly as printed (the "exile at end step" rider only applies to a WARP cast,
+ * which the engine never offers), so crediting its body is faithful to what the runtime actually plays.
+ *
+ * Returns the warp mana-cost STRING, or null when warp isn't a clean modeled alternative for this card.
+ * GATES (a false-negative is SAFE; a fabricated/partial credit is FORBIDDEN — CLAUDE.md §1.2), mirroring
+ * parsePlotCost: only a printed "Warp {cost}" LINE (line-anchored, mana-only cost), and any "when/whenever …
+ * warp" TRIGGER (a future "whenever you cast a spell for its warp cost" watcher) gates the whole card to null.
+ */
+export function parseWarpCost(card) {
+  const oracle = String(card?.oracle || card?.oracle_text || "");
+  // Any "When/Whenever … warp" trigger within a clause is an unmodeled warp trigger — gate the card.
+  if (/\b(?:when|whenever)\b[^.]*\bwarp/i.test(oracle)) return null;
+  const m = oracle.match(/(?:^|\n)\s*warp\s+((?:\{[^}]+\})+)/i);
+  return m ? m[1] : null;
+}
+
+/**
  * All activated-ability lines on a permanent, as serializable descriptors. Each entry:
  *   { index, raw, costStr, effectClause, manaPips, tapSelf, costModeled, isManaEffect,
  *     program, modeled, needsTarget }
