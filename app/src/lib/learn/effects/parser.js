@@ -439,6 +439,12 @@ function splitClauses(oracle) {
     // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence
     // as one clause so parseExtendedAtom binds the pump + grant to the SAME target.
     if (/^target creature (?:(?:you control|an opponent controls) )?(?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn(?: and untap it)?$/i.test(sentence)) { clauses.push(sentence); continue; }
+    // CAUSATIVE pump + keyword grant ("have target creature get +2/+0 and gain deathtouch until end of turn" —
+    // Painsmith, the inner of "you may have …"): the " and " joins the P/T bump to the grant within ONE causative
+    // instruction, not a top-level boundary. Keep it whole so pumpClauseParser binds the pump + grant to the SAME
+    // target (mirrors the spell-voice "gets … and gains" rule above). The bare causative pump has no " and " so
+    // it never reaches this split path; this rule only protects the +keyword causative shape.
+    if (/^(?:you may )?have target creature get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // Overrun-style TEAM pump + keyword grant ("Creatures you control get +3/+3 and gain
     // trample until end of turn"): the " and " between the P/T bump and the grant is INTERNAL
     // to one team-pump instruction, not a top-level effect boundary. Keep the whole sentence so

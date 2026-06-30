@@ -645,6 +645,22 @@ export function pumpClauseParser(clause) {
     const base = pumpClauseParser(um[1]);
     return base && base.op === "pump" ? { ...base, untap: true } : null;
   }
+  // CAUSATIVE single-target pump (CR 608) — "have target creature get ±N/±N [and gain KW] until end of turn".
+  // The inner of "you may have target creature get …" after α2 (parser.js) peels the "you may" wrapper and
+  // stamps optional:true — Fourth Bridge Prowler / Undead Executioner / Battle-Rattle Shaman / Blightcaster /
+  // Caustic Crawler / Dreamspoiler Witches / Painsmith etc. (a triggered-ability family the bare "target
+  // creature gets …" spell form — parseSpellEffect — never covered, because a creature trigger's effect uses
+  // the causative "have … get", not the spell-voice "… gets"). Resolves through the SAME applyPumpEffect
+  // target-id path (atomTargets → ctx.targets, targetType:"creature") as Giant Growth / Festering Goblin, so
+  // no resolver change. Whole-clause anchored ($); a mana-spent conditional prefix ("If {B} was spent, …" —
+  // Cankerous Thirst) or any rider leaves residue → fails the anchor → null → low → Arbiter (CREED, FN-safe).
+  let cg = t.match(/^have target creature get ([+-]\d+)\/([+-]\d+) and gain (.+) until end of turn$/);
+  if (cg) {
+    const kws = parseGrantedKeywords(cg[3]);
+    return kws ? { op: "pump", targetType: "creature", ptDelta: { p: parseInt(cg[1], 10), t: parseInt(cg[2], 10) }, grantKeywords: kws } : null;
+  }
+  cg = t.match(/^have target creature get ([+-]\d+)\/([+-]\d+) until end of turn$/);
+  if (cg) return { op: "pump", targetType: "creature", ptDelta: { p: parseInt(cg[1], 10), t: parseInt(cg[2], 10) } };
   let pg = t.match(/^target creature gets ([+-]\d+)\/([+-]\d+) and gains (.+) until end of turn$/);
   if (pg) {
     const kws = parseGrantedKeywords(pg[3]);
