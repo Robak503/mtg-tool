@@ -46,7 +46,7 @@ import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { featurizeState } from "./gameFeatures.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -506,6 +506,16 @@ function settleSoftCounterChoice(state, pay) {
 // settleSoftCounterChoice / settleOptionalChoice.
 function settleOptionalManaPaymentChoice(state, pay) {
   const next = resolveOptionalManaPaymentChoice(state, pay);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — settle the "you may sacrifice a <subtype>. If you do, <effect>" sac-or-
+// decline: resolveOptionalSacChoice pitches one matching permanent + runs the payoff (or skips it if declined /
+// none available — sacrificeCreatureEffect never fabricates a sac), then resumes — which may itself set ANOTHER
+// choice, so guard pendingChoice before flushing — then finalizeStackResolution flushes any triggers the sac /
+// payoff enqueued (CR 603.3). Mirrors settleOptionalManaPaymentChoice.
+function settleOptionalSacChoice(state, doSac) {
+  const next = resolveOptionalSacChoice(state, doSac);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -1163,6 +1173,23 @@ export function advanceUntilDecision(
         current = { ...current, state: settleOptionalManaPaymentChoice(current.state, picked.value) };
         continue;
       }
+      // ===== REFLEXIVE-SAC-BY-SUBTYPE ===== (CR 603.7c) — "you may sacrifice a <subtype>. If you do, <effect>"
+      // (The Goose Mother, Wedding Security). pc.controller owns the trigger/ability (sacs + decides), so `pause`
+      // pauses a human and auto-decides an AI (sac-if-able — the modeled payoffs outvalue a fungible token).
+      // `available` (computed at suspend time) tells the picker whether a matching permanent exists to give up;
+      // resolving sacs-or-skips then finalizes the stack.
+      if (pc.kind === "optional-sac-payment") {
+        if (pause) {
+          return { session: current, decision: { kind: "optional-sac-payment", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalSac(current.state, pc) },
+        });
+        current = { ...current, state: settleOptionalSacChoice(current.state, picked.value) };
+        continue;
+      }
       // Tutor library search. A pilot may fetch a different legal candidate (or find nothing — CR
       // 701.19f); default = the auto-pick (highest-MV), byte-identical.
       if (pause) {
@@ -1651,6 +1678,41 @@ export function applyOptionalManaPaymentChoice(session, choice) {
 }
 
 /**
+ * ===== REFLEXIVE-SAC-BY-SUBTYPE ===== (CR 603.7c) — the player chose to sacrifice a matching-subtype permanent
+ * (and run the payoff) or not, for a "you may sacrifice a <subtype>. If you do, <effect>" (The Goose Mother /
+ * Wedding Security). `choice.sac` is the yes/no. resolveOptionalSacChoice pitches one matching permanent + runs
+ * the payoff (or skips it if declined / none available — sacrificeCreatureEffect never fabricates a sac), then
+ * resumes + re-derives. A double-submit (nothing pending) re-derives. Mirrors applyOptionalManaPaymentChoice.
+ */
+export function applyOptionalSacChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "optional-sac-payment") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const sac = choice?.sac === true || choice === true;
+  let newState;
+  try {
+    newState = settleOptionalSacChoice(session.state, sac);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "optional-sac-payment-choice", sacrificed: sac },
+    auto: false,
+    reasoning: "user-chose-optional-sac-payment",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
  * The player resolved an `optional-effect` decision ("you may <effect>", α2). `choice.take` is the
  * yes/no. Runs-or-skips the paused atom, resumes the program, then re-derives the next decision.
  * Returns { session, decision } like advanceUntilDecision.
@@ -1930,6 +1992,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "divide-damage") return applyDivideChoice(session, choice);
   if (kind === "soft-counter") return applySoftCounterChoice(session, choice);
   if (kind === "optional-mana-payment") return applyOptionalManaPaymentChoice(session, choice);
+  if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice);
   return applyTutorChoice(session, choice);
 }
 

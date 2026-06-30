@@ -26,7 +26,7 @@
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
 import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, loseLife } from "../gameState.js";
-import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone } from "./effectAtoms.js";
+import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
 
@@ -604,6 +604,20 @@ export function autoPickOptionalManaPayment(state, pc) {
 }
 
 /**
+ * ===== REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) ===== — decide whether an AI / Expert (no picker) takes the
+ * optional "you may sacrifice a <subtype>. If you do, <effect>" sacrifice. Heuristic: SAC IF ABLE (the modeled
+ * payoffs — draw a card, +1/+1 counter — outvalue a fungible Food/Treasure/Blood token, so cashing one in is the
+ * sensible default; the goose's Food made it, the value is the draw). `available` is computed at suspend time
+ * (the controller controls ≥1 matching permanent), so autoPick and the settle never disagree. A board-aware
+ * "hold the Treasure for mana" refinement is a future enhancement; sac-if-able is always a LEGAL choice (CR 601),
+ * never a rules error. Returns false when the controller is gone or has no matching permanent to sacrifice.
+ */
+export function autoPickOptionalSac(state, pc) {
+  if (!state.players?.[pc?.controller]) return false;
+  return !!pc?.available; // sac iff a matching permanent exists (you can't sacrifice what you don't control)
+}
+
+/**
  * ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== — settle a "you may pay {cost}. If you do, <effect>" pay-or-
  * decline decision: if `pay` AND the controller can afford the cost, charge the mana (payManaCost — taps their
  * sources, full colored shape) and RUN the payoff atoms (the parser validated them HIGH + targetless); else do
@@ -641,6 +655,56 @@ export function resolveOptionalManaPaymentChoice(state, pay) {
       // etc.) re-enters via resumeAfterChoice; we re-run the rest of the payoff once it returns is NOT needed
       // here because the chained resume points at the PROGRAM continuation (nextAtomIndex), and the draw-family
       // payoffs are single-atom — a multi-atom payoff with a mid-pause is not in the corpus yet (a SAFE gap).
+      if (next.pendingChoice && !next.pendingChoice.resume) {
+        return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
+      }
+    }
+  }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) ===== — settle a "you may sacrifice a <subtype>. If you do,
+ * <effect>" sac-or-decline decision: if `doSac` AND the controller still controls a matching-subtype permanent,
+ * SACRIFICE one (sacrificeCreatureEffect — moves it to the graveyard, fires its dies + TRIG-SACRIFICE watchers,
+ * CR 701.21) and RUN the payoff atoms (the parser validated them HIGH + targetless); else do NOTHING (declined,
+ * or none available — sacrificeCreatureEffect never fabricates a sacrifice, so the payoff never runs on a non-
+ * sac, the cardinal CREED guarantee). Then RESUME the suspended program. The board is re-scanned HERE (not trusted
+ * from the suspend-time `available`) so a matching permanent removed during the pause can't be sacrificed — and a
+ * stale "decline" can't suppress an payoff (there is none on decline anyway). A payoff atom that itself sets a
+ * choice chains its resume onto ours (mirrors resolveOptionalManaPaymentChoice). Eliminated-controller guard
+ * (the pause can outlive the SBA that removes them, CR 800.4a). Logged either way.
+ */
+export function resolveOptionalSacChoice(state, doSac) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "optional-sac-payment") return state;
+  let next = clearPendingChoice(state);
+  const player = next.players?.[pc.controller];
+  if (!player) return next; // controller eliminated mid-pause → bail, no resume
+  // Re-scan the board NOW (CR 603.6e) — a matching permanent may have left during the pause.
+  const victim = doSac ? (player.battlefield || []).find((p) => controllerSacSubtypeMatch(p, pc.subtype)) : null;
+  let sacrificed = false;
+  if (victim) {
+    next = sacrificeCreatureEffect(next, pc.controller, victim.id); // pitch it + fire dies/TRIG-SACRIFICE watchers
+    sacrificed = true;
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "optional-sac-payment", controller: pc.controller, subtype: pc.subtype, sacrificed, sourceName: pc.sourceName || null });
+  if (sacrificed) {
+    // Run the payoff atoms in printed order. Each is HIGH + targetless (parser-validated), so an empty targets
+    // list is correct; thread the resume's context/sourceId so a context/self-dependent payoff resolves (e.g.
+    // "put a +1/+1 counter on this creature" → ctx.sourceId is the attacking source permanent).
+    const r = pc.resume || {};
+    const atoms = pc.effectAtoms || [];
+    for (let i = 0; i < atoms.length; i++) {
+      const ctx = { ...(r.context || {}), controller: pc.controller, targets: [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
+      const after = resolveAtom(next, atoms[i], ctx);
+      if (after == null) {
+        return markPendingArbiter(next, { source: { name: pc.sourceName }, payload: { params: r } }, `optional-sac-payment payoff atom "${atoms[i]?.op}" had no resolver`);
+      }
+      next = after;
+      // A payoff atom set a resolution-time choice (scry/surveil) — chain its resume onto the program's so the
+      // remaining payoff atoms AND the program after this choice both run (mirrors the mana-payment path; the
+      // chained resume points at the PROGRAM continuation, and the modeled payoffs are single-effect today).
       if (next.pendingChoice && !next.pendingChoice.resume) {
         return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
       }

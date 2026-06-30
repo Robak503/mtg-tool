@@ -1623,6 +1623,61 @@ function matchOptionalManaPayment(oracle, cardType) {
   return { atom: { op: "optional-mana-payment", cost: { kind: "mana", mana }, effectAtoms: inner, targetType: null } };
 }
 
+// REFLEXIVE-SAC-BY-SUBTYPE — the artifact/blood TOKEN subtypes a "you may sacrifice a <X>. If you do, …" gate
+// names. Tight allowlist (CR 205.3 subtypes that appear on fungible value tokens): the runtime sacrifices ONE
+// matching permanent the controller already owns (sacBySubtypeRuntime word-bounds the SAME type line as
+// sacScopeMatches), so the sac genuinely happens before the payoff. A creature-subtype sac ("a Goblin" — a
+// non-fungible permanent with its own dies fallout + board-eval) is deliberately OUT of scope → stays LOW →
+// Arbiter (a SAFE false-negative). Capitalized canonical forms; the matcher capitalizes the captured word.
+const SAC_TOKEN_SUBTYPES = new Set(["Food", "Treasure", "Clue", "Blood", "Gold", "Map", "Powerstone", "Junk", "Incubator"]);
+
+/**
+ * ===== REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) ===== "You may sacrifice a <subtype>. If you do, <effect>." — an
+ * OPTIONAL sacrifice of a named-subtype permanent (a Food / Treasure / Blood …) whose payoff resolves ONLY if
+ * the controller actually sacrifices one (The Goose Mother "you may sacrifice a Food. If you do, draw a card.";
+ * Wedding Security "sacrifice a Blood token. If you do, put a +1/+1 counter on this creature and draw a card.").
+ * Structurally identical to OPTIONAL-MANA-PAYMENT — the COST is a subtype-permanent sacrifice instead of mana —
+ * so it's collapsed up front (the two sentences span the clause splitter: "you may sacrifice a Food" parses LOW
+ * as a bare clause — there's no subtype-sac atom — and "if you do, <effect>" is a meaningless back-reference)
+ * into ONE `optional-sac-payment` atom whose resolver SUSPENDS on a real sac/decline choice
+ * (runProgram.resolveOptionalSacChoice — sac → pitch one matching permanent via sacrificeCreatureEffect [firing
+ * its dies + TRIG-SACRIFICE watchers, CR 701.21] then run the payoff atoms; decline / NONE available → nothing).
+ *
+ * CREED (CLAUDE.md §1.2) — collapse ONLY when EVERY guard holds, else null → the clause stays unmodeled → LOW
+ * → Arbiter (a SAFE false-negative). The decline / no-matching-permanent path runs NO payoff (sacrificeCreatureEffect
+ * never fabricates a sacrifice), the cardinal guarantee:
+ *  - The SUBTYPE is a fungible value-TOKEN subtype (SAC_TOKEN_SUBTYPES). A creature subtype / a card-type word
+ *    is OUT of scope → null. Optional " token"/"tokens" suffix tolerated (Wedding Security "a Blood token").
+ *  - COUNT is exactly one (a/an). "two Blood tokens" (Strefan) → null (multi-sac + its complex payoff are out).
+ *  - The PAYOFF parses HIGH + NON-MODAL on its own, every atom KNOWN, NOT an xSpell, and SELF-CONTAINED (no
+ *    chosen-target atom — programNeedsChosenTarget false) — the same gate OPTIONAL-MANA-PAYMENT uses (a targeted
+ *    payoff would need its target threaded through the sac-choice this slice doesn't build). So draw / counter-
+ *    on-this / lifegain payoffs register; "attacking creatures get +1/+1" (Provisions Merchant — team pump),
+ *    "it gets +2/+2" (Bloodcrazed Socialite — unbound referent), and "Otherwise, …" (Insatiable Appetite — the
+ *    else-branch survives in the payoff text → fails HIGH) all stay LOW → Arbiter.
+ * Whole-string anchored ^…$ on the single "you may sacrifice a <subtype>. if you do, …" shape — any rider / a
+ * second "if you do" leaves residue → no match. Returns { atom } or null.
+ */
+function matchOptionalSacBySubtype(oracle, cardType) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  // "you may sacrifice a/an <Subtype>[ token]. if you do, <effect>" — single permanent only (a/an).
+  const m = s.match(/^you may sacrifice (?:a|an) ([A-Za-z]+)(?:\s+tokens?)?\.\s*if you do,?\s+(.+)$/i);
+  if (!m) return null;
+  const subtype = m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase();
+  if (!SAC_TOKEN_SUBTYPES.has(subtype)) return null;                 // not a fungible value-token subtype → unmodeled
+  const payoffText = m[2].trim();
+  if (/\bif you do\b/i.test(payoffText)) return null;                // a SECOND "if you do" — not modeled
+  if (/\botherwise\b/i.test(payoffText)) return null;               // an else-branch (Insatiable Appetite) — out of scope
+  const payoff = parseEffectClauseImpl(payoffText, cardType, { hasX: false });
+  if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
+  const inner = payoff.atoms || [];
+  if (inner.length === 0 || !inner.every((a) => KNOWN.has(a.op))) return null;
+  // SELF-CONTAINED gate (CREED): a chosen-target payoff would need its target threaded through the sac-choice
+  // (unbuilt) → keep it LOW. The draw / counter-on-this / lifegain payoffs are targetless / self-scoped.
+  if (programNeedsChosenTarget(payoff)) return null;
+  return { atom: { op: "optional-sac-payment", subtype, effectAtoms: inner, targetType: null } };
+}
+
 /**
  * ===== REFLEXIVE TRIGGER (CR 603.7) ===== "<primary>. When you do[ this/so], <reflexive>." — a reflexive
  * triggered ability set up by the resolution of the primary effect, triggering off the event that resolution
@@ -1795,6 +1850,17 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const omp = matchOptionalManaPayment(oracle, cardType);
   if (omp && KNOWN.has(omp.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [omp.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) ===== "You may sacrifice a <subtype>. If you do, <effect>." → ONE
+  // optional-sac-payment atom (the resolver suspends on a real sac/decline; sacrificeCreatureEffect pitches one
+  // matching permanent + fires its dies/TRIG-SACRIFICE watchers, the payoff atoms run only on a real sac).
+  // Checked before the clause splitter (which would shatter the two sentences: "you may sacrifice a Food" parses
+  // LOW as a bare clause, "if you do, <effect>" is a standalone-meaningless back-reference). matchOptionalSacBySubtype
+  // applies every CREED guard (fungible value-token subtype, single permanent, HIGH non-modal targetless payoff,
+  // no else-branch); a match returns the single atom (op KNOWN → HIGH), else null → the clause stays LOW → Arbiter.
+  const osp = matchOptionalSacBySubtype(oracle, cardType);
+  if (osp && KNOWN.has(osp.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [osp.atom], xSpell: false, unparsedTail: null });
   }
   // DESTROY-TOKEN-RIDER — "Destroy target creature. [It can't be regenerated.] (Its|That creature's) controller
   // creates a N/N <color> <subtype> creature token." (Pongify, Rapid Hybridization). A creature-destroy lead +

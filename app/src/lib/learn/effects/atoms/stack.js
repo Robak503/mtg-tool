@@ -5,7 +5,7 @@
 
 import { applyDamageEffect } from "../../spellEffects.js";
 import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf } from "../../gameState.js";
-import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice } from "../../pendingChoice.js";
+import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
@@ -378,8 +378,36 @@ function applyOptionalManaPayment(state, atom, ctx) {
   });
 }
 
+// REFLEXIVE-SAC-BY-SUBTYPE — true iff `player` controls ≥1 permanent whose TYPE LINE carries `subtype`
+// word-bounded (CR 205.3). The SAME match sacScopeMatches uses for the watcher side, so the "can I sacrifice
+// one?" test and the "did this sac fire a Treasure watcher?" test never drift. A Food token's type line is
+// "Token Artifact — Food" → matches; word-bounded so "Food" never matches a longer word.
+export function controllerSacSubtypeMatch(perm, subtype) {
+  const ts = String(perm?.card?.type || perm?.card?.type_line || "");
+  const esc = String(subtype).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${esc}\\b`).test(ts);
+}
+
+// REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. if you do, <effect>". Suspend on the
+// sac/decline choice, recording whether the controller actually has a matching permanent to give up (a false-
+// `available` pause still surfaces — the player/AI must "decline" since you can't sacrifice what you don't have,
+// and resolveOptionalSacChoice runs NO payoff). The payoff atoms ride on the pause for the settle.
+function applyOptionalSacPayment(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time (belt-and-braces; setter re-guards)
+  const player = state.players?.[ctx.controller];
+  const available = !!(player?.battlefield || []).some((p) => controllerSacSubtypeMatch(p, atom.subtype));
+  return setPendingOptionalSacBySubtypeChoice(state, {
+    controller: ctx.controller,
+    subtype: atom.subtype,
+    available,
+    effectAtoms: atom.effectAtoms || [],
+    sourceName: ctx.cardName || null,
+  });
+}
+
 export const stackResolvers = {
   "optional-mana-payment": applyOptionalManaPayment, // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. if you do, <effect>"
+  "optional-sac-payment": applyOptionalSacPayment, // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. if you do, <effect>"
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent
   "deal-damage": (state, atom, ctx) =>
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an

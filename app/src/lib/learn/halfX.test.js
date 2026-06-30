@@ -23,8 +23,9 @@
  *   • Wan Shi Tong, Librarian — its ETB half-X draw would resolve, BUT its 2nd trigger ("Whenever an opponent
  *     searches their library, …") is UNDETECTED, so allTriggerSentencesModeled fails (detected≠shaped). Also,
  *     an ETB trigger doesn't thread the cast's {X} (checkEnterTriggers carries no xValue) — a second gap.
- *   • The Goose Mother — ETB half-X Food would resolve, BUT its attack trigger ("you may sacrifice a Food. If
- *     you do, draw a card") is a reflexive sac-by-subtype rider that does NOT route → body-only regardless.
+ *   • The Goose Mother — its attack trigger ("you may sacrifice a Food. If you do, draw a card") NOW routes
+ *     natively (REFLEXIVE-SAC-BY-SUBTYPE), BUT the "create half X Food tokens" ETB is an unmodeled half-X
+ *     create-token clause (a separate subsystem) → the card stays body-only on THAT blocker.
  *   • Banshee — its damage is on an ACTIVATED ability with an {X} cost; activated {X} costs are unmodeled
  *     (parseActivatedAbilities drops any non-mana pip), so the whole ability is unparsed. (Not half-X.)
  *   • Eternal Flame — "half X … where X is the number of Mountains you control" is a COUNT-based X plus a
@@ -159,7 +160,7 @@ describe("HALF-X — PARKED: the other 'half X' cards stay non-native (the build
       name: "Wan Shi Tong, Librarian", type: "Legendary Creature — Bird Spirit", mana: "{X}{U}{U}", power: 0, toughness: 0,
       oracle: "Flash\nFlying, vigilance\nWhen Wan Shi Tong enters, put X +1/+1 counters on him. Then draw half X cards, rounded down.\nWhenever an opponent searches their library, put a +1/+1 counter on Wan Shi Tong and draw a card.",
     },
-    "The Goose Mother (attack reflexive sac-Food rider unmodeled)": {
+    "The Goose Mother (half-X-Food ETB unmodeled; attack sac-Food trigger now native via REFLEXIVE-SAC-BY-SUBTYPE)": {
       name: "The Goose Mother", type: "Legendary Creature — Bird Hydra", mana: "{X}{G}{U}", power: 2, toughness: 2,
       oracle: "Flying\nThe Goose Mother enters with X +1/+1 counters on it.\nWhen The Goose Mother enters, create half X Food tokens, rounded up.\nWhenever The Goose Mother attacks, you may sacrifice a Food. If you do, draw a card.",
     },

@@ -290,6 +290,32 @@ export function setPendingOptionalManaPaymentChoice(state, { controller, cost, e
   };
 }
 
+/**
+ * ===== REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) ===== — suspend on a "you may sacrifice a <subtype>. If you do,
+ * <effect>" sac-or-decline decision. The driver pauses a human and auto-decides an AI (sac-if-able — the modeled
+ * payoffs are beneficial). `subtype` is the capitalized token subtype the controller may sacrifice one of (a
+ * Food / Treasure / Blood …); `available` is true iff the controller actually controls ≥1 matching permanent at
+ * the time the atom resolves (a false-`available` pause has only the "decline" line — you can't sacrifice what
+ * you don't have, and the payoff never runs). `effectAtoms` is the parsed payoff program's atoms (plain JSON),
+ * run by resolveOptionalSacChoice ONLY if the controller sacrifices (sacrificeCreatureEffect never fabricates a
+ * sacrifice). The continuation rides on `pendingChoice.resume` (attached by runProgram). FIFO: one choice at a time.
+ */
+export function setPendingOptionalSacBySubtypeChoice(state, { controller, subtype, available, effectAtoms = [], sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "optional-sac-payment-pending", controller, subtype, available, sourceName });
+  return {
+    ...next,
+    pendingChoice: {
+      kind: "optional-sac-payment",
+      controller,
+      subtype,
+      available: !!available,
+      effectAtoms,
+      sourceName,
+    },
+  };
+}
+
 /** A short human number for a structured ward cost, for the pending-choice log banner. */
 function wardCostHeadline(cost) {
   if (cost?.kind === "life") return cost.life;

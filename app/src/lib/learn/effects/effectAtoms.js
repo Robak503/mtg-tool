@@ -41,7 +41,7 @@ export { enterCardFromZone } from "./atoms/zones.js";
 export { sacrificeCreatureEffect, advanceSacrificeChain } from "./atoms/removal.js";
 export { applyProliferate } from "./atoms/counters.js";
 export { applyEarthbend } from "./atoms/combat.js";
-export { counterSpellById } from "./atoms/stack.js";
+export { counterSpellById, controllerSacSubtypeMatch } from "./atoms/stack.js";
 export { tutorManaValue, cardMatchesTutorFilter, shuffleControllerLibrary } from "./atoms/library.js";
 export { advanceDiscardChain } from "./atoms/hand.js";
 export { applyDivideDamage } from "./atoms/misc.js";
