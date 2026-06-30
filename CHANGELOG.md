@@ -8,6 +8,22 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-06-29
+
+### Added
+- **Both TIER-2 commanders now play natively.** Vihaan, Goldwaker (begin-combat mass-animate of your Treasures into
+  3/3 creatures + an outlaw anthem) and Omnath, Locus of Mana (green mana doesn't empty as steps/phases end +
+  Omnath grows +1/+1 for each unspent green) — the two commanders parked in 0.53 are now fully modeled.
+- **New engine subsystems** (unblock cards across every deck): **free-cast** ("cast a spell from your hand without
+  paying its mana cost" — the Expertise cycle, Omnispell Adept), **put-from-hand-onto-battlefield** (Ghalta, Last
+  March of the Ents, Elvish Piper, Quicksilver Amulet, Dramatic Entrance…), **landfall-composite** (cards mixing a
+  landfall trigger with a static or activated ability — Bristly Bill, Aesi, Storm-Kiln Artist, Archon of Sun's
+  Grace…), and **board-wide +1/+1 counter doubling** (Kalonian Hydra).
+
+### Improved
+- **+22 cards native this release**, including the two commanders. Every wave flip-diffed both directions for 0
+  regressions, full gate (5,425 tests) green, zero false positives.
+
 ## [0.53.0] - 2026-06-29
 
 ### Improved
