@@ -8,6 +8,18 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-06-29
+
+### Improved
+- **TIER-2 decks more native** (toward the next self-play pod): Vihaan 74%→76% and Omnath 63%→66%, plus
+  cross-corpus gains — Cavern-Hoard Dragon, Smaug the Magnificent (a "first-word self-reference" fix for
+  legendary `<Name> the <Epithet>` cards), Arbor Elf, Surrak and Goreclaw, Avenger of Zendikar, and more.
+  +13 cards native this release, every wave flip-diffed for 0 regressions + gated, zero false positives.
+
+### Notes
+- The Vihaan and Omnath commanders are parked pending engine subsystems (animate-Treasures / mana-retention +
+  characteristic-defining-ability) — a prioritization decision; the rest of each deck plays natively.
+
 ## [0.52.0] - 2026-06-29
 
 ### Added
