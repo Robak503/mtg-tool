@@ -29,6 +29,8 @@
  *   "an opponent controls more <lands|creatures|artifacts|enchantments> than you" (Knight of the White
  *      Orchid, Loyal Warhound, Ticket Tortoise, Linvala) — an existential board-count compare vs each
  *      opponent (CR 104.3a); and "an opponent has more <life|cards in hand> than you" (Linvala).
+ *   "you have N or {less|fewer|more} life" (Convalescent Care "5 or less", Convalescence "10 or less") — the
+ *      controller's own life vs a fixed threshold; a pure player.life compare (≤ for less/fewer, ≥ for more).
  *   "you control another <Subtype>" (Dwynen's Elite "another Elf", Ghitu Journeymage "another Wizard",
  *      Apothecary Geist "another Spirit", Resistance Squad "another Human") — a CURATED creature subtype,
  *      excluding the entering permanent (CR 113.7), keyed on ctx.triggeringPermanentId like SAME-NAME ETB.
@@ -139,6 +141,15 @@ function opponentIds(state, controllerId) {
 // Strictly LAYER-IRRELEVANT (a pure count/total compare), so it's read identically at flush AND resolution.
 const OPP_CONTROLS_MORE_RE = /^an opponent controls more (lands|creatures|artifacts|enchantments) than you$/;
 const OPP_HAS_MORE_RE = /^an opponent has more (life|cards in hand) than you$/;
+
+// ===== CONTROLLER LIFE THRESHOLD (CR 603.4 board query — the "low-on-life payoff" family) ==================
+// "you have N or {less|fewer|more} life" — a pure player.life numeric compare for the CONTROLLER (NOT an
+// opponent existential like OPP_HAS_MORE). "N or less"/"N or fewer" → life ≤ N (Convalescent Care "5 or less",
+// Convalescence "10 or less"); "N or more" → life ≥ N. Life is a single integer the live state exposes
+// directly (player.life), strictly LAYER-IRRELEVANT, so it reads identically at flush AND resolution like
+// every other board-count condition. CREED: a deterministic numeric compare, never fail-open — a malformed
+// or out-of-vocabulary life phrase falls through to the final `return null` → Arbiter (false-negative SAFE).
+const CTRL_LIFE_THRESHOLD_RE = /^you have (\d+) or (less|fewer|more) life$/;
 
 function controllerMetric(state, controllerId, kind) {
   const player = state?.players?.[controllerId];
@@ -263,6 +274,16 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
   if (m) {
     const mine = controllerMetric(state, controllerId, m[1]);
     return opponentIds(state, controllerId).some((oid) => controllerMetric(state, oid, m[1]) > mine);
+  }
+
+  // "you have N or {less|fewer|more} life" — the controller's own life vs a fixed threshold (Convalescent
+  // Care, Convalescence). Pure player.life compare (CR 603.4), layer-irrelevant, read identically at flush
+  // AND resolution. "less"/"fewer" → ≤ N; "more" → ≥ N.
+  m = c.match(CTRL_LIFE_THRESHOLD_RE);
+  if (m) {
+    const threshold = parseInt(m[1], 10);
+    const life = controllerMetric(state, controllerId, "life");
+    return m[2] === "more" ? life >= threshold : life <= threshold;
   }
 
   // ===== TURN-EVENT HISTORY (CR 700.4) ===== "[a creature | N or more creatures] died this turn" — read off

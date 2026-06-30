@@ -94,6 +94,10 @@ describe("evaluateInterveningIf — strict null for unmodeled conditions (CREED)
     // a DESIGNATION read as a type would silently count 0 → must be rejected as unparseable
     expect(evaluateInterveningIf(withBoard([]), "you control a commander", "user")).toBe(null);
     expect(evaluateInterveningIf(withBoard([]), "you control a blue permanent", "user")).toBe(null);
+    // a MALFORMED life phrase (no number, or a per-opponent variant) stays null (only "you have N or less/more
+    // life" is modeled — a "that player has N … life" / bare "you have life" is out of vocabulary, CREED)
+    expect(evaluateInterveningIf(withBoard([]), "you have life", "user")).toBe(null);
+    expect(evaluateInterveningIf(withBoard([]), "that player has 5 or less life", "user")).toBe(null);
   });
   it("a missing controller → false (condition unmet, never a throw)", () => {
     expect(evaluateInterveningIf(withBoard([]), "you control an artifact", "ghost")).toBe(false);
@@ -104,7 +108,8 @@ describe("interveningIfParseable — shape gate", () => {
   it("true for board queries, false for unmodeled shapes", () => {
     for (const c of ["you control an artifact", "you control two or more Gates", "you control no untapped lands",
       "you control three or more tokens", "there are three or more creature cards in your graveyard",
-      "you control a creature with power 4 or greater", "you control two or more creatures with power 5 or more"]) {
+      "you control a creature with power 4 or greater", "you control two or more creatures with power 5 or more",
+      "you have 5 or less life", "you have 10 or less life", "you have 25 or more life"]) {
       expect(interveningIfParseable(c)).toBe(true);
     }
     for (const c of ["you control a commander", "you control a blue permanent",
@@ -157,6 +162,18 @@ describe("evaluateInterveningIf — opponent-comparison (an opponent <X> more th
     expect(evaluateInterveningIf(withOpp({ user: { life: 20 }, ai: { life: 25 } }), "an opponent has more life than you", "user")).toBe(true);
     expect(evaluateInterveningIf(withOpp({ user: { life: 25 }, ai: { life: 20 } }), "an opponent has more life than you", "user")).toBe(false);
     expect(evaluateInterveningIf(withOpp({ user: { hand: [card("h1", "X")] }, ai: { hand: [card("a1", "X"), card("a2", "X")] } }), "an opponent has more cards in hand than you", "user")).toBe(true);
+  });
+  it("'you have N or {less|fewer|more} life' — controller's own life vs a fixed threshold", () => {
+    // "or less"/"or fewer" → life ≤ N (inclusive). Convalescent Care "5 or less", Convalescence "10 or less".
+    expect(evaluateInterveningIf(withOpp({ user: { life: 5 } }), "you have 5 or less life", "user")).toBe(true);
+    expect(evaluateInterveningIf(withOpp({ user: { life: 4 } }), "you have 5 or less life", "user")).toBe(true);
+    expect(evaluateInterveningIf(withOpp({ user: { life: 6 } }), "you have 5 or less life", "user")).toBe(false);
+    expect(evaluateInterveningIf(withOpp({ user: { life: 10 } }), "you have 10 or less life", "user")).toBe(true);
+    expect(evaluateInterveningIf(withOpp({ user: { life: 11 } }), "you have 10 or less life", "user")).toBe(false);
+    expect(evaluateInterveningIf(withOpp({ user: { life: 4 } }), "you have 5 or fewer life", "user")).toBe(true);
+    // "or more" → life ≥ N (inclusive)
+    expect(evaluateInterveningIf(withOpp({ user: { life: 25 } }), "you have 25 or more life", "user")).toBe(true);
+    expect(evaluateInterveningIf(withOpp({ user: { life: 24 } }), "you have 25 or more life", "user")).toBe(false);
   });
   it("'controls more creatures than you' counts only creatures (a Land doesn't inflate)", () => {
     const COND = "an opponent controls more creatures than you";
@@ -219,6 +236,11 @@ describe("intervening-if — coverage: conditional triggers flip native-trigger"
     // the cardinal-threshold LEADING-if form ("if three or more creatures died this turn, …")
     expect(classifyCard(C("Threshold Draw", "At the beginning of your end step, if three or more creatures died this turn, draw a card."))).toBe("native-trigger");
   });
+  it("CONTROLLER-LIFE-THRESHOLD upkeep conditional → native-trigger (Convalescent Care, Convalescence)", () => {
+    // real cards: low-on-life payoffs gated on "you have N or less life" + a modeled effect (gain life / draw).
+    expect(classifyCard(C("Convalescent Care", "At the beginning of your upkeep, if you have 5 or less life, you gain 3 life and draw a card.", "Enchantment"))).toBe("native-trigger");
+    expect(classifyCard(C("Convalescence", "At the beginning of your upkeep, if you have 10 or less life, you gain 1 life.", "Enchantment"))).toBe("native-trigger");
+  });
 });
 
 describe("intervening-if — CREED: unparseable conditions stay body-only", () => {
@@ -264,6 +286,25 @@ describe("intervening-if — runtime: condition gates the trigger (CR 603.4)", (
   it("POWER condition NOT met (only a 2/2) → never goes on the stack (no draw)", () => {
     const small = perm("sm", "Creature — Bird", { card: { id: "sm", name: "Bird", type: "Creature — Bird", power: "2", toughness: "2" } });
     expect(runConditionalDraw({ board: [small], condition: "you control a creature with power 4 or greater" })).toBe(0);
+  });
+  // CONTROLLER-LIFE-THRESHOLD runtime (Convalescent Care): the upkeep gain-life trigger fires only when life ≤ N.
+  function runLifeGatedGain({ life, condition = "you have 5 or less life" }) {
+    let st = createGameState({ userDeck: [], aiDeck: [] });
+    st = { ...st, players: { ...st.players, user: { ...st.players.user, battlefield: [], hand: [], life } } };
+    st = { ...st, pendingTriggers: [{
+      event: "upkeep", source: { name: "Convalescence", permanentId: "src" }, controller: "user",
+      descriptor: { event: "upkeep", scope: "you", whose: "yours", effectClause: "you gain 1 life", interveningIf: condition },
+      context: {}, targets: [], payload: {},
+    }] };
+    let out = flushTriggers(st, { chooseTargets: chooseTriggerTargets });
+    while (out.stack.length) out = resolveTopOfStack(out);
+    return out.players.user.life;
+  }
+  it("life-threshold MET (life ≤ 5) → the upkeep gain fires (5 → 6)", () => {
+    expect(runLifeGatedGain({ life: 5 })).toBe(6);
+  });
+  it("life-threshold NOT met (life > 5) → never goes on the stack (20 stays 20)", () => {
+    expect(runLifeGatedGain({ life: 20 })).toBe(20);
   });
 });
 
