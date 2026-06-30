@@ -1399,9 +1399,26 @@ function parseCreatureSelector(c) {
       if (COLOR_WORDS[word]) {
         return { mode: "dynamic", selector: { controllerScope, cardTypes: ["Creature"], colors: [COLOR_WORDS[word]], excludeSelf } };
       }
+      // CARD-TYPE-qualified creature anthem: "(all|other|each) <Artifact|Enchantment|Land> creatures you
+      // control …". The qualifier reads on the LEFT of the type-line em-dash, so it's a card-TYPE filter
+      // (NOT a subtype). matchesSelector's cardTypes gate is AND-semantics over the candidate's effective
+      // (printed ∪ layer-4-animated) types, so cardTypes:["Creature", X] selects exactly the permanents that
+      // are BOTH a Creature and an X — e.g. an earthbended/animated Land that became a 0/0 creature, or an
+      // Artifact creature. Runtime-honored (effectiveTypeIdentity unions animation grants), so this is NOT a
+      // metric-only flip. "permanent(s)" maps to [] (no extra type) and would degenerate to the generic
+      // "creatures you control" anthem, so it's excluded here and falls through to the generic path below.
+      const detTypeFilter = PERMANENT_TYPE_CARD_TYPES[word];
+      if (detTypeFilter && detTypeFilter.length === 1) {
+        return {
+          mode: "dynamic",
+          selector: { controllerScope, cardTypes: ["Creature", ...detTypeFilter], excludeSelf },
+        };
+      }
       // A board-STATE / supertype / card-type qualifier (tapped/nontoken/colorless/artifact/…) is NOT a
       // tribal lord — never fabricate a subtype grant that selects nobody yet flips the card native (a
       // CREED FP: Boartusk Liege, Adept Watershaper, Thraben Watcher…). Fall through → clause unmodeled.
+      // (Card-TYPE qualifiers Artifact/Enchantment/Land are handled by the card-type branch just above; the
+      // rest of NON_SUBTYPE_ANTHEM_WORDS — board state, supertypes, qualities — stay unmodeled.)
       if (NON_SUBTYPE_ANTHEM_WORDS.has(word)) return null;
       // Tribal lord: "(all|other|each) <Subtype>s [creatures] [you control] …".
       return {
@@ -1431,6 +1448,23 @@ function parseCreatureSelector(c) {
         colors: [COLOR_WORDS[m[1]]],
       },
     };
+  }
+
+  // No-determiner CARD-TYPE creature anthem: "<Artifact|Enchantment|Land> creatures you control
+  // get|gain|has|have …" — the bare card-type-qualified anthem ("Land creatures you control have vigilance"
+  // — Earthbending Student; "Artifact creatures you control get +1/+1" — Tempered Steel). The qualifier is a
+  // card-TYPE filter (LEFT of the em-dash), modeled as cardTypes:["Creature", X] (AND-semantics in
+  // matchesSelector over the candidate's effective printed∪animated types). Checked BEFORE the subtype
+  // anthem below (which would reject these via NON_SUBTYPE_ANTHEM_WORDS). Runtime-honored, not metric-only.
+  m = c.match(/^([a-z]+)\s+creatures?\s+you control\s+(?:gets?|gains?|has|have)\b/);
+  if (m) {
+    const typeFilter = PERMANENT_TYPE_CARD_TYPES[m[1]];
+    if (typeFilter && typeFilter.length === 1) {
+      return {
+        mode: "dynamic",
+        selector: { controllerScope: "you", cardTypes: ["Creature", ...typeFilter] },
+      };
+    }
   }
 
   // No-determiner tribal anthem: "<Subtype> creatures you control get|gain|has|have …" — the modern

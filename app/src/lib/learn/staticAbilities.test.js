@@ -224,10 +224,18 @@ describe("parseStaticAbilities — NO-DETERMINER tribal anthem ('<Subtype> creat
     expect(parseStaticAbilities(card("B", "Nontoken creatures you control have riot.", "Enchantment"))).toHaveLength(0);
     expect(parseStaticAbilities(card("C", "Colorless creatures you control get +1/+1.", "Enchantment"))).toHaveLength(0);
   });
-  // CARD-TYPE words read on the LEFT of the em-dash → a card-type filter, not a subtype. Treating
-  // "Artifact"/"Commander" as a subtype would select zero creatures yet flip the card native (FP).
-  it("does NOT treat a CARD TYPE as a subtype ('Artifact creatures you control get +2/+2' — Tempered Steel)", () => {
-    expect(parseStaticAbilities(card("Tempered Steel", "Artifact creatures you control get +2/+2.", "Enchantment"))).toHaveLength(0);
+  // CARD-TYPE words read on the LEFT of the em-dash → a card-TYPE filter, NOT a subtype. The modeled card
+  // types (Artifact/Enchantment/Land) now emit a cardTypes:["Creature", X] selector (AND-semantics in
+  // matchesSelector) — they select exactly the permanents that are BOTH a Creature and an X, never zero. A
+  // word that is NEITHER a subtype NOR a modeled card type ("Commander") still selects nobody, so it stays
+  // unmodeled (a SAFE false-negative — flipping it native would be a CREED FP).
+  it("models a CARD-TYPE anthem as a cardTypes selector ('Artifact creatures you control get +2/+2' — Tempered Steel)", () => {
+    const d = parseStaticAbilities(card("Tempered Steel", "Artifact creatures you control get +2/+2.", "Enchantment"));
+    expect(d).toHaveLength(1);
+    expect(d[0].affects.selector.cardTypes).toEqual(["Creature", "Artifact"]);
+    expect(d[0].affects.selector.subtypes).toBeUndefined();
+  });
+  it("does NOT model a non-card-type, non-subtype qualifier ('Commander creatures …' — Bastion Protector)", () => {
     expect(parseStaticAbilities(card("Bastion Protector", "Commander creatures you control get +2/+2 and have indestructible.", "Creature — Human Soldier"))).toHaveLength(0);
   });
 });
