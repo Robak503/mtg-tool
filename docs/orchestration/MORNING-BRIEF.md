@@ -12,19 +12,23 @@ Grinding the priority decks toward **100% native** (your confirmed target) all n
 | v0.57 | Aristocrats death-trigger + copy-rider subsystems (+5) |
 | v0.58 | Deck cleanup: destroy-token-rider + Seedborn untap (+3) |
 | v0.59 | Deck cleanup: sac-land-ramp + Neriv damage-doubler (+5) |
-| v0.60 | _(in progress)_ Pantlaza permanent-edict + library-tutor-to-battlefield + subtype-targeting |
+| v0.60 | Cross-deck: permanent-edict + library-tutor-to-battlefield + subtype-targeting (+18) |
+| v0.61 | Double-X cost + CDA-P/T-by-board-count (+17) |
+| v0.62 | One-shot extra-land + half-X (+5) |
 
-## 📊 DECK STANDINGS (native %, realism gate — as of v0.59)
+## 📊 DECK STANDINGS (native %, realism gate — as of v0.62)
 | Deck | Start of session | Now |
 |---|---|---|
 | Sliver Hivelord | 91 | **92** |
 | Vihaan, Goldwaker | 76 | **81** |
 | Koma, Cosmos Serpent | 74 | **81** |
-| Zaxara, the Exemplary | 73 | **75** |
-| Omnath, Locus of Mana | 66 | **72** |
+| Zaxara, the Exemplary | 73 | **77** |
+| Omnath, Locus of Mana | 66 | **73** |
 | The Ur-Dragon | 70 | **71** |
-| Toph, Earthbending Master | 65 | **69** |
-| Pantlaza, Sun-Favored | 62 | **66** |
+| Toph, Earthbending Master | 65 | **70** |
+| Pantlaza, Sun-Favored | 62 | **67** |
+
+**Aggregate: 1000/1500 deck-slots native (67%, up from 64% at session start). Corpus north-star: 24.4% native (8347 real cards, +~110 overnight).**
 
 Reality check: cheap per-deck wins are mostly done; further climb comes from **cross-deck subsystems** (each lifts several decks). Practical ceilings land ~85-88% with targeted builds; the last ~10-15% is genuine hard-tail (modal/double-X/opponent-choice) — building toward 100% means grinding those too, per your call.
 

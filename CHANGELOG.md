@@ -8,6 +8,13 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.63.0] - 2026-06-30
+
+### Improved
+- **God-devotion + self-cast-trigger subsystems (+7 native).** The Theros Gods' devotion creature-gate (Nylea,
+  Heliod, Purphoros, Thassa, Karametra) and "when you cast this spell" triggers (Hydroid Krasis, Desolation Twin).
+  Flip-diffed both directions, 0 regressions, full gate (5,684 tests) green, 0 false positives.
+
 ## [0.62.0] - 2026-06-30
 
 ### Improved
