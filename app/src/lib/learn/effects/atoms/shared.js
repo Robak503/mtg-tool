@@ -174,9 +174,24 @@ export function triggeringTargets(state, ctx) {
   return lk && isCreatureCard(lk.permanent.card) ? [{ type: "creature", id, controller: lk.controller }] : [];
 }
 
+// ===== HALF-X (CR 107.3 — "half X, rounded down/up") ===== a HALVING post-transform applied to an already-
+// resolved magnitude. `atom.halve` is "floor" (rounded down) or "ceil" (rounded up); any other value is a
+// no-op (the raw amount passes through). Floors at 0 (a negative input can't arise — every amount source is
+// already non-negative — but the Math.max is belt-and-suspenders so a half-of-0 stays 0, never NaN). Composes
+// uniformly with amountX / amountCount / countContext because it wraps the RESOLVED value, so "draw half X
+// cards" (half of ctx.xValue), "create half X tokens" (half of the X count), and a future "half (a board
+// count)" (Eternal Flame's half-of-Mountains) all use the SAME mechanism — one rounding rule, no per-atom drift.
+export function halveAmount(value, mode) {
+  const v = Math.max(0, value || 0);
+  if (mode === "floor") return Math.floor(v / 2);
+  if (mode === "ceil") return Math.ceil(v / 2);
+  return v;
+}
+
 // An X-amount atom (`amountX:true`, set by the parser for an {X}-cost spell) reads
 // the chosen X (ctx.xValue, bound at cast time) instead of a printed numeric amount.
-export const effectiveAmount = (atom, ctx) => (atom.amountX ? ctx.xValue || 0 : atom.amount);
+// HALF-X: `atom.halve` ("floor"/"ceil") halves the result with CR-correct rounding.
+export const effectiveAmount = (atom, ctx) => halveAmount(atom.amountX ? ctx.xValue || 0 : atom.amount, atom.halve);
 
 // ===== DMG-SCALE ===== (WALT-DMG-SCALE) a board-count amount (`amountCount`, set by parseCountSource)
 // is computed AT RESOLUTION from the CONTROLLER's current board/hand (CR 608.2h — a count-derived value
@@ -427,7 +442,11 @@ function devotionPips(card, color) {
 // (`amountCount`) × a per-unit value (FOR-EACH "gain 2 life for each X" → per 2; DMG-SCALE damage = the
 // count itself → per defaults to 1), computed at resolution; else the X-amount (`amountX` → ctx.xValue) or
 // the printed numeric amount.
+// HALF-X: every branch is wrapped by halveAmount(…, atom.halve) so "half (a context magnitude)" / "half (a
+// board count)" round correctly too — a no-op (passes the raw value) when atom.halve is unset, so every
+// existing caller is byte-identical. effectiveAmount already halves internally; halving its (already-halved)
+// output would be wrong, so the X/printed branch is NOT re-wrapped here — it's the leaf that owns the halve.
 export const resolveScaledAmount = (state, atom, ctx) =>
-  atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
-    : atom.amountCount ? countForSpec(state, ctx, atom.amountCount) * (atom.amountCount.per ?? 1)
+  atom.countContext ? halveAmount(ctx[atom.countContext] || 0, atom.halve)
+    : atom.amountCount ? halveAmount(countForSpec(state, ctx, atom.amountCount) * (atom.amountCount.per ?? 1), atom.halve)
       : effectiveAmount(atom, ctx);

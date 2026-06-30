@@ -5,7 +5,7 @@
 import { logEvent, destroyLethalCreatures, opponentsOf, findPermanent, addCounter, addPoison, addExperience, addRadCounters } from "../../gameState.js";
 import { checkDiesTriggers, checkCounterPlacedTriggers } from "../../triggers.js";
 import { applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): mirror the actual placed amount for the COUNTERS-PLACED watcher count
-import { atomTargets, isCreatureCard, countForSpec } from "./shared.js";
+import { atomTargets, isCreatureCard, countForSpec, resolveScaledAmount } from "./shared.js";
 import { SMALL_NUM, parseCountSource, COUNT_SUBTYPE } from "../parseHelpers.js"; // seam batch 3: shared number-word map (leaf, cycle-free) + DYNAMIC-COUNT board-count source + curated MTG-subtype allowlist (filtered mass-counter scope)
 
 /**
@@ -37,9 +37,12 @@ function triggeringCreatureTargets(state, ctx) {
  * fabricated grant or a wrong recipient. */
 export function applyRad(state, atom, ctx) {
   let next = state;
-  const amount = atom.countContext
-    ? Math.max(0, ctx[atom.countContext] || 0) // CDMG-PLAYER-PAYOFF — "that many" = combatDamageAmount, floor 0
-    : Math.max(0, atom.amount || 0);
+  // resolveScaledAmount unifies every amount source: countContext (CDMG-PLAYER-PAYOFF "that many" =
+  // combatDamageAmount), amountCount (a board count × per), amountX (the cast {X}), and HALF-X (atom.halve
+  // floors/ceils the result — Contaminated Drink "you get half X rad counters, rounded up"). Behavior-
+  // identical for the existing fixed-N + countContext rad cards (no rad card uses amountCount today), and
+  // newly correct for the X / half-X forms. Floored at 0 (a 0 amount is a clean no-op below).
+  const amount = Math.max(0, resolveScaledAmount(state, atom, ctx) || 0);
   if (amount === 0) return next;
   if (atom.who === "eachPlayer") {
     for (const pid of Object.keys(next.players)) {
@@ -215,6 +218,14 @@ export function gainExperienceClauseParser(clause) {
  */
 export function radClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // ===== HALF-X (CR 107.3) ===== "you get half X rad counters, rounded up/down" — the count is HALF the cast
+  // {X} with CR-correct rounding (Contaminated Drink: "Draw X cards, then you get half X rad counters, rounded
+  // up"). amountX:true → applyRad reads ctx.xValue via resolveScaledAmount; halve:"ceil"/"floor" applies the
+  // rounding. The ", rounded up/down" suffix is MANDATORY in the corpus wording (a bare "half X rad counters"
+  // with no stated rounding has no corpus card and is ambiguous → not matched → Arbiter, FN-safe). Only the
+  // controller "you get" form exists for half-X rad; an each-player/target half-X variant has no corpus card.
+  const radHalfXM = t.match(/^you get half x rad counters, rounded (up|down)$/);
+  if (radHalfXM) return { op: "rad", amountX: true, halve: radHalfXM[1] === "up" ? "ceil" : "floor", who: "controller", targetType: null };
   const radEachM = t.match(/^each (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
   if (radEachM) return { op: "rad", amount: SMALL_NUM[radEachM[2]] ?? parseInt(radEachM[2], 10), who: radEachM[1] === "opponent" ? "eachOpponent" : "eachPlayer", targetType: null };
   const radYouM = t.match(/^you get (\d+|a|an|one|two|three|four|five) rad counters?$/);
