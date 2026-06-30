@@ -69,6 +69,60 @@ function subtypeFilterMatches(card, filter) {
   return Array.isArray(filter) ? filter.some((s) => ts.includes(s)) : ts.includes(filter);
 }
 
+// OUTLAW META-TYPE (CR 203.4c — "outlaw" is the umbrella for these five creature subtypes; NOT a type-line
+// word). Mirrors layers.js's OUTLAW_SUBTYPES (kept local to avoid coupling triggers→layers beyond the existing
+// import surface). Capitalized so it composes with subtypeFilterMatches' type-line substring check.
+const OUTLAW_SUBTYPE_LIST = ["Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"];
+
+/**
+ * SUBTYPE/PROPERTY-FILTERED BATCH combat-damage subject → a descriptor fragment the runtime can faithfully
+ * gate on, or null (→ the trigger stays Arbiter, a SAFE false-negative). The subject is the text between
+ * "one or more" and "you control" in a batch combat-damage condition. Returns AT MOST ONE of:
+ *   - { subtypeFilter }      a creature SUBTYPE or list — "outlaws" expands to its five constituents (CR 203.4c);
+ *                            a single/plural subtype word ("Goblins", "Dinosaur") → that capitalized subtype.
+ *   - { batchArtifact: true }  "artifact creatures" — checked via "Artifact" in the type line (CR 205.2).
+ *   - { batchEnchantment: true } "enchantment creatures" — checked via "Enchantment" in the type line.
+ *   - { batchNontoken: true }  "(other) nontoken creatures" — checked via !card.token.
+ * REJECTS (→ null) anything the engine can't reliably check: a color qualifier ("colorless creatures" — no
+ * per-permanent color), a token qualifier ("creature tokens" — the connecting-creature set isn't tracked by
+ * token-ness in the batch gate), or any unrecognized phrase. Pure; case-insensitive on the leading qualifier.
+ */
+function parseBatchSubjectFilter(subjectRaw) {
+  const s = String(subjectRaw || "").trim().toLowerCase();
+  // ARTIFACT / ENCHANTMENT creature batches (type-line containment, like the artifactYouControl ETB scope).
+  if (s === "artifact creatures") return { batchArtifact: true };
+  if (s === "enchantment creatures") return { batchEnchantment: true };
+  // NONTOKEN creature batch (Rooftop Bypass; "other nontoken creatures" — Vodalian — the "other" is a no-op
+  // for the batch gate since the source's own connection still satisfies "one or more"). Gated on !card.token.
+  if (s === "nontoken creatures" || s === "other nontoken creatures") return { batchNontoken: true };
+  // OUTLAW meta-type (Olivia) — expand to the five constituent subtypes (OR semantics via subtypeFilterMatches).
+  if (s === "outlaws" || s === "outlaw") return { subtypeFilter: OUTLAW_SUBTYPE_LIST };
+  // BARE creature SUBTYPE(S) — a single word ("goblins"/"dinosaur") or a comma/or list, de-pluralized. Reuses
+  // parseSubtypeList (which rejects card-TYPE words like "creatures" so the bare-creatures form never reaches
+  // here — it's matched by the dedicated regex above). Singularize a trailing 's' per word so "goblins" →
+  // "Goblin"; parseSubtypeList re-capitalizes and validates. A multi-word qualifier the regex below can't shape
+  // (e.g. "colorless creatures", "creature tokens", "tapped creatures") falls through to null → Arbiter.
+  if (/^[a-z]+(?:s)?(?:(?:,| or | and )[a-z]+(?:s)?)*$/.test(s)) {
+    const depluralized = s.replace(/\b([a-z]{3,})s\b/g, "$1");
+    const filter = parseSubtypeList(depluralized);
+    if (filter) return { subtypeFilter: filter };
+  }
+  return null;
+}
+
+// Does a CONNECTING creature (a batch combat-damage dealer) match a subtype/property-filtered batch descriptor?
+// `descriptor` carries exactly one of subtypeFilter / batchArtifact / batchEnchantment / batchNontoken (see
+// parseBatchSubjectFilter). A bare batch descriptor (none of these set) matches ANY creature — the unfiltered
+// "one or more creatures you control" form. Pure; reads only the dealer permanent's card.
+function batchDealerMatches(descriptor, dealerPerm) {
+  if (!dealerPerm?.card) return false;
+  if (descriptor.subtypeFilter) return subtypeFilterMatches(dealerPerm.card, descriptor.subtypeFilter);
+  if (descriptor.batchArtifact) return /Artifact/.test(typeStr(dealerPerm.card));
+  if (descriptor.batchEnchantment) return /Enchantment/.test(typeStr(dealerPerm.card));
+  if (descriptor.batchNontoken) return !dealerPerm.card.token;
+  return true; // unfiltered bare batch — any connecting creature qualifies
+}
+
 // QUALIFIED-ETB KEYWORD-FILTER (Dragon Tempest "a creature you control with flying enters"; Waterkin Shaman;
 // Arcades "with defender") — the SET of keywords the ETB filter may gate on. Restricted to keywords whose
 // presence on the entering creature is RELIABLY checkable via permanentHasKeyword (printed at an ability-word
@@ -847,6 +901,26 @@ function classifyCondition(condRaw, cardName, cardType) {
   if (/^one or more creatures you control deal combat damage to a player$/.test(c)) {
     return { event: "combatDamageBatch", scope: "you", whose: "any" };
   }
+  // SUBTYPE/PROPERTY-FILTERED BATCH combat-damage (CR 510.4) — "Whenever one or more <FILTER> you control
+  // deal combat damage to a player/an opponent, <effect>" where <FILTER> is a creature SUBTYPE (Olivia,
+  // Opulent Outlaw — "outlaws"; a tribal "Goblins"/"Dinosaurs"), an ARTIFACT-creature qualifier (Thopter Spy
+  // Network), an ENCHANTMENT-creature qualifier, or a NONTOKEN qualifier (Rooftop Bypass). Like the bare batch
+  // it fires ONCE per combat per controller — but ONLY when at least one CONNECTING creature that controller
+  // controls matches the FILTER (checkBatchCombatDamageTriggers gates on the actual dealers, so a non-matching
+  // attacker connecting alone never fires it — CREED: no over-fire). The "an opponent" object is equivalent to
+  // "a player" here: you only ever deal combat damage to opponents, and a combat-damage-player event's defender
+  // is always an opponent of the attacking player (CR 509.1a). Anchored to the bare FILTER + bare effect-object
+  // only; a qualified object ("…to a player or planeswalker") or any rider leaves residue → undetected →
+  // Arbiter (a SAFE false-negative, never an over-fire). A color filter ("colorless creatures" — Glitch
+  // Interpreter) is NOT modeled (the engine has no reliable per-permanent color), so parseBatchSubjectFilter
+  // returns null for it → that card stays body-only (CREED FP-safe).
+  {
+    const batchM = c.match(/^one or more (.+?) you control deal combat damage to (?:a player|an opponent)$/);
+    if (batchM) {
+      const f = parseBatchSubjectFilter(batchM[1]);
+      if (f) return { event: "combatDamageBatch", scope: "you", whose: "any", ...f };
+    }
+  }
   // TRIG-DMG-TO-OPPONENT — "Whenever <self> deals damage to a player / an opponent" without "combat".
   // Cards like Vedalken Heretic, Thieving Magpie, Reef Pirates: in the simulator all creature damage
   // is combat damage, so the combatDamageToPlayer event fires correctly when this creature attacks and
@@ -1507,7 +1581,10 @@ export function detectTriggers(card) {
         spellFilter: cls.spellFilter,         // cast triggers only (undefined otherwise)
         nth: cls.nth,                         // TRIG-CASTNTH: 1|2|3 ("cast your Nth spell each turn"); else undefined
         permanentFilter: cls.permanentFilter, // PERM-ENTERS: "artifact"|"enchantment" (permanentEnters triggers only)
-        subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF only (e.g. "Dinosaur" for Pantlaza)
+        subtypeFilter: cls.subtypeFilter,     // SUBTYPE-ETB-SELF + SUBTYPE/outlaw BATCH combat-damage (e.g. "Dinosaur" for Pantlaza; outlaw list for Olivia)
+        batchArtifact: cls.batchArtifact,     // SUBTYPE/PROPERTY BATCH combat-damage only — "artifact creatures" (Thopter Spy Network)
+        batchEnchantment: cls.batchEnchantment, // SUBTYPE/PROPERTY BATCH combat-damage only — "enchantment creatures"
+        batchNontoken: cls.batchNontoken,     // SUBTYPE/PROPERTY BATCH combat-damage only — "(other) nontoken creatures" (Rooftop Bypass)
         itsController: cls.itsController,      // GLOBAL SUBTYPE combat-damage only ("its controller may …") — beneficiary = dealer's controller
         destroyThatCreature: cls.destroyThatCreature, // GLOBAL SUBTYPE combat-damage-to-CREATURE only (Toxin) — "destroy that creature"
         nontokenFilter: cls.nontokenFilter,   // NONTOKEN-SUBJECT dies/enters only (Lazotep Sliver) — gate on !card.token
@@ -1883,7 +1960,7 @@ function grantedTriggersForGroup(state, perm) {
  * self-triggers) and any event extras (e.g. { defenderId }). Pure — returns data,
  * does not enqueue.
  */
-export function triggersForEvent(state, { event, sourcePermanent, triggeringPermanent = null, triggeringContext = {}, beneficiary = null, scopeFilter = null }) {
+export function triggersForEvent(state, { event, sourcePermanent, triggeringPermanent = null, triggeringContext = {}, beneficiary = null, scopeFilter = null, descriptorFilter = null }) {
   if (!sourcePermanent?.card) return [];
   const printed = detectTriggers(sourcePermanent.card).filter(d => d.event === event);
   // GRANTED-TRIGGERED (subsystem 1 phase 1c): an Aura/Equipment on this permanent confers a triggered
@@ -1899,6 +1976,12 @@ export function triggersForEvent(state, { event, sourcePermanent, triggeringPerm
   // INCLUDES only subtypeGlobal — so a global watcher controlled by the attacking player fires exactly
   // once (via the global scan, with the dealer-controller beneficiary), never twice. Inert when unset.
   if (typeof scopeFilter === "function") descriptors = descriptors.filter(d => scopeFilter(d.scope));
+  // DESCRIPTOR FILTER (subtype/property BATCH combat-damage): checkBatchCombatDamageTriggers passes a predicate
+  // that keeps a filtered-batch descriptor ONLY when at least one CONNECTING creature matched its subtype/
+  // property filter this combat (a bare unfiltered batch descriptor always passes). Inert when unset, so every
+  // other event path is untouched. This is the load-bearing CREED gate: a non-matching attacker connecting alone
+  // (e.g. a non-outlaw beside Olivia) must NOT fire the filtered batch — no over-fire.
+  if (typeof descriptorFilter === "function") descriptors = descriptors.filter(descriptorFilter);
   if (!descriptors.length) return [];
   const out = [];
   for (const d of descriptors) {
@@ -2412,20 +2495,41 @@ export function checkDealtDamageTriggers(state, events) {
 }
 
 /**
- * BATCH combat-damage (CR 510.4) — "Whenever one or more creatures you control deal combat damage to a
- * player" fires ONCE per combat per controller who connected, NOT once per attacker. From the same
- * `playerEvents` checkCombatDamageTriggers reads, collect the distinct set of attacking players who dealt
- * player damage this step, then fire each "combatDamageBatch" watcher that player controls exactly once
- * (triggeringPermanent is null — it's a batch event, not a single creature). Pure — appends to
- * pendingTriggers; the effect rides the normal flush → EffectProgram path (Treasure/Food/investigate/…).
+ * BATCH combat-damage (CR 510.4) — "Whenever one or more [<FILTER>] creatures you control deal combat damage
+ * to a player" fires ONCE per combat per controller who connected, NOT once per attacker. From the same
+ * `playerEvents` checkCombatDamageTriggers reads, collect each attacking player's CONNECTING attacker
+ * permanents, then fire each "combatDamageBatch" watcher that player controls exactly once (triggeringPermanent
+ * is null — it's a batch event, not a single creature). A SUBTYPE/PROPERTY-FILTERED batch (Olivia — "outlaws";
+ * Thopter Spy Network — "artifact creatures"; Rooftop Bypass — "nontoken creatures") fires ONLY when at least
+ * one of that controller's connecting creatures matches the filter (batchDealerMatches on the real dealers — a
+ * non-matching attacker connecting alone never fires it, CREED). The bare unfiltered batch fires on any
+ * connection. Pure — appends to pendingTriggers; the effect rides the normal flush → EffectProgram path
+ * (Treasure/Food/investigate/draw/…).
  */
 export function checkBatchCombatDamageTriggers(state, playerEvents) {
-  const dealers = new Set((playerEvents || []).filter((e) => e.kind === "combat-damage-player" && e.amount > 0).map((e) => e.attackingPlayer));
-  if (!dealers.size) return state;
+  const hits = (playerEvents || []).filter((e) => e.kind === "combat-damage-player" && e.amount > 0);
+  if (!hits.length) return state;
+  // Per attacking player, the set of THEIR attacker permanents that CONNECTED this combat (dealt player damage).
+  // A SUBTYPE/PROPERTY-FILTERED batch descriptor (Olivia — "outlaws"; Thopter — "artifact creatures") fires for
+  // a controller ONLY when at least one of these connecting permanents matches its filter. The bare unfiltered
+  // batch (Grim Hireling) fires whenever the set is non-empty (any connection). This is the load-bearing CREED
+  // gate: a non-matching attacker connecting alone (a non-outlaw beside Olivia, all else blocked) must NOT fire
+  // the filtered batch — the filter is checked on the actual DEALERS, never assumed.
+  const connectingByPlayer = new Map();
+  for (const e of hits) {
+    const lk = findPermanent(state, e.attackerId);
+    if (!lk) continue; // a trading attacker already gone before this fire — can't bind its card; skip for the gate
+    if (!connectingByPlayer.has(e.attackingPlayer)) connectingByPlayer.set(e.attackingPlayer, []);
+    connectingByPlayer.get(e.attackingPlayer).push(lk.permanent);
+  }
   let fired = [];
-  for (const pid of dealers) {
+  for (const [pid, connecting] of connectingByPlayer) {
+    // The descriptor gate: a filtered batch keeps only if SOME connecting creature matches; a bare batch (no
+    // filter fields) always passes via batchDealerMatches's any-creature fall-through. detectTriggers caches
+    // descriptors, so this is cheap per watcher.
+    const descriptorFilter = (d) => connecting.some((perm) => batchDealerMatches(d, perm));
     for (const watcher of triggerSourcesOf(state, pid)) {
-      fired = fired.concat(triggersForEvent(state, { event: "combatDamageBatch", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: { batchController: pid } }));
+      fired = fired.concat(triggersForEvent(state, { event: "combatDamageBatch", sourcePermanent: watcher, triggeringPermanent: null, triggeringContext: { batchController: pid }, descriptorFilter }));
     }
   }
   if (!fired.length) return state;

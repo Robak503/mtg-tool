@@ -127,6 +127,156 @@ describe("BATCH combat-damage trigger (one or more creatures …)", () => {
   });
 });
 
+// SUBTYPE/PROPERTY-FILTERED BATCH combat-damage (CR 510.4 + a creature-SUBTYPE / artifact / nontoken filter) —
+// "Whenever one or more <FILTER> you control deal combat damage to a player, <effect>". PRIMARY TARGET: Olivia,
+// Opulent Outlaw (Vihaan deck — "outlaws" = the {Assassin, Mercenary, Pirate, Rogue, Warlock} meta-type, CR
+// 203.4c). Fires ONCE per combat per controller, but ONLY when at least one CONNECTING creature matches the
+// filter — a non-matching attacker connecting alone must NOT fire it (CREED: no over-fire). The "outlaw" word
+// is NOT a type-line subtype, so it's expanded to its five constituents and matched via type-line containment.
+describe("SUBTYPE/PROPERTY-filtered BATCH combat-damage (Olivia + corpus)", () => {
+  const cdBatch = (oracle, type = "Creature") => detectTriggers({ name: "X", type, oracle }).filter((d) => d.event === "combatDamageBatch");
+  const OLIVIA = "Whenever one or more outlaws you control deal combat damage to a player, create a Treasure token. (Assassins, Mercenaries, Pirates, Rogues, and Warlocks are outlaws.)";
+  const THOPTER = "Whenever one or more artifact creatures you control deal combat damage to a player, draw a card.";
+  const ROOFTOP = "Whenever one or more nontoken creatures you control deal combat damage to a player, create a 1/1 black Assassin creature token with menace.";
+  // helpers
+  const cp = (id, type, oracle, extra = {}) => createPermanent({ id, card: { id: `c-${id}`, name: id, type, power: 2, toughness: 2, oracle, ...extra }, controller: "user", summoningSick: false });
+  const assassinTokenCount = (s) => s.players.user.battlefield.filter((pm) => /Assassin/.test(pm.card?.type || "") && pm.card?.token).length;
+
+  describe("detection", () => {
+    it("Olivia ('outlaws') → combatDamageBatch with the five outlaw subtypes expanded (CR 203.4c)", () => {
+      expect(cdBatch(OLIVIA, "Legendary Creature — Vampire Assassin")[0]).toMatchObject({
+        event: "combatDamageBatch", scope: "you",
+        subtypeFilter: ["Assassin", "Mercenary", "Pirate", "Rogue", "Warlock"],
+      });
+    });
+    it("artifact / nontoken creature filters flag their property (Thopter, Rooftop)", () => {
+      expect(cdBatch(THOPTER, "Enchantment")[0]).toMatchObject({ event: "combatDamageBatch", batchArtifact: true });
+      expect(cdBatch(ROOFTOP, "Enchantment")[0]).toMatchObject({ event: "combatDamageBatch", batchNontoken: true });
+      // "to an opponent" is equivalent to "to a player" (you only deal combat damage to opponents)
+      expect(cdBatch("Whenever one or more artifact creatures you control deal combat damage to an opponent, draw a card.", "Creature")[0])
+        .toMatchObject({ event: "combatDamageBatch", batchArtifact: true });
+    });
+    it("a bare tribal subtype ('Goblins') expands to that capitalized subtype", () => {
+      expect(cdBatch("Whenever one or more Goblins you control deal combat damage to a player, draw a card.", "Creature — Goblin")[0])
+        .toMatchObject({ event: "combatDamageBatch", subtypeFilter: "Goblin" });
+    });
+    it("an UNCHECKABLE / qualified filter stays UNDETECTED → Arbiter (safe false-negative)", () => {
+      // colorless — no reliable per-permanent color in the engine (Glitch Interpreter)
+      expect(cdBatch("Whenever one or more colorless creatures you control deal combat damage to a player, draw a card.")).toHaveLength(0);
+      // creature tokens — not in the checkable batch set
+      expect(cdBatch("Whenever one or more creature tokens you control deal combat damage to a player, draw a card.")).toHaveLength(0);
+      // qualified object → undetected
+      expect(cdBatch("Whenever one or more outlaws you control deal combat damage to a player or planeswalker, draw a card.")).toHaveLength(0);
+    });
+    it("the BARE 'creatures' batch is unchanged (no filter fields) — no regression", () => {
+      const d = cdBatch("Whenever one or more creatures you control deal combat damage to a player, create two Treasure tokens.")[0];
+      expect(d).toMatchObject({ event: "combatDamageBatch", scope: "you" });
+      expect(d.subtypeFilter).toBeUndefined();
+      expect(d.batchArtifact).toBeUndefined();
+      expect(d.batchNontoken).toBeUndefined();
+    });
+  });
+
+  describe("classification flips whole-card-clean targets to native", () => {
+    it("Olivia, Opulent Outlaw → native (the combat-damage trigger was its SOLE remaining blocker)", () => {
+      // the activated ability ({3}, Sacrifice two Treasures: …) + Flying/lifelink are already native;
+      // this trigger completes the card.
+      expect(classifyCard({
+        name: "Olivia, Opulent Outlaw", type: "Legendary Creature — Vampire Assassin", mana: "{2}{R}{W}", power: "4", toughness: "4",
+        oracle: `Flying, lifelink\n${OLIVIA}\n{3}, Sacrifice two Treasures: Put two +1/+1 counters on each creature you control. Activate only as a sorcery.`,
+      })).not.toBe("body-only");
+    });
+    it("Thopter Spy Network, Rooftop Bypass, Wistful Puppeteer flip native-trigger", () => {
+      expect(classifyCard({ name: "Thopter Spy Network", type: "Enchantment", mana: "{3}{U}",
+        oracle: `At the beginning of your upkeep, if you control an artifact, create a 1/1 colorless Thopter artifact creature token with flying.\n${THOPTER}` })).toBe("native-trigger");
+      expect(classifyCard({ name: "Rooftop Bypass", type: "Enchantment", mana: "{2}{B}",
+        oracle: `${ROOFTOP} (It can't be blocked except by two or more creatures.)` })).toBe("native-trigger");
+      expect(classifyCard({ name: "Wistful Puppeteer", type: "Creature — Human Artificer", mana: "{2}{U}", power: "2", toughness: "2",
+        oracle: "Whenever one or more artifact creatures you control deal combat damage to an opponent, draw a card." })).toBe("native-trigger");
+    });
+    it("an uncheckable-filter card (Glitch Interpreter — colorless) stays body-only (PARK, CREED FP-safe)", () => {
+      expect(classifyCard({ name: "Glitch Interpreter", type: "Creature — Human Wizard", mana: "{1}{U}", power: "1", toughness: "3",
+        oracle: "When this creature enters, draw a card, then discard a card.\nWhenever one or more colorless creatures you control deal combat damage to a player, draw a card." })).toBe("body-only");
+    });
+  });
+
+  describe("runtime: fires exactly once when a matching creature connects, never on a non-match", () => {
+    const olivia = (id) => cp(id, "Legendary Creature — Vampire Assassin", OLIVIA);
+
+    it("Olivia (an Assassin = outlaw) connecting alone → ONE Treasure", () => {
+      let s = st([olivia("ol")], [], [{ permanentId: "ol", attackingPlayer: "user", defender: "ai" }], []);
+      s = resolveCombatDamage(s);
+      expect(s.players.ai.life).toBe(38);
+      s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+      expect(treasureCount(s, "user")).toBe(1);
+    });
+
+    it("Olivia + a non-outlaw both connect → still ONE Treasure (batch fires once, not per-creature)", () => {
+      const beast = cp("bs", "Creature — Beast", "");
+      let s = st([olivia("ol"), beast], [],
+        [{ permanentId: "ol", attackingPlayer: "user", defender: "ai" }, { permanentId: "bs", attackingPlayer: "user", defender: "ai" }], []);
+      s = resolveCombatDamage(s);
+      s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+      expect(treasureCount(s, "user")).toBe(1);
+    });
+
+    it("CREED anti-FP: only a NON-outlaw connects (Olivia blocked) → ZERO Treasures", () => {
+      const beast = cp("bs", "Creature — Beast", "");
+      const wall = createPermanent({ id: "w", card: { id: "cw", name: "Wall", type: "Creature — Wall", power: 0, toughness: 6, oracle: "" }, controller: "ai", summoningSick: false });
+      let s = st([olivia("ol"), beast], [wall],
+        [{ permanentId: "bs", attackingPlayer: "user", defender: "ai" }, { permanentId: "ol", attackingPlayer: "user", defender: "ai" }],
+        [{ blockerId: "w", blockingPlayer: "ai", attackerId: "ol" }]);
+      s = resolveCombatDamage(s);
+      s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+      expect(treasureCount(s, "user")).toBe(0);    // a non-outlaw dealt the damage → the outlaw batch must NOT fire
+    });
+
+    it("a DIFFERENT outlaw subtype (a Pirate) fires Olivia's watcher — the meta-type expansion is OR over all five", () => {
+      const pirateOutlaw = cp("pi", "Creature — Human Pirate", "");
+      let s = st([olivia("ol"), pirateOutlaw], [], [{ permanentId: "pi", attackingPlayer: "user", defender: "ai" }], []);
+      s = resolveCombatDamage(s);
+      s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+      expect(treasureCount(s, "user")).toBe(1);
+    });
+
+    it("Thopter (artifact creatures → draw): an artifact creature draws; a non-artifact does NOT", () => {
+      const thopter = cp("th", "Enchantment", THOPTER);
+      const artCreature = cp("ac", "Artifact Creature — Construct", "");
+      let s = st([thopter, artCreature], [], [{ permanentId: "ac", attackingPlayer: "user", defender: "ai" }], []);
+      s = { ...s, players: { ...s.players, user: { ...s.players.user, library: [{ id: "L1", name: "Drawn", type: "Instant", oracle: "" }] } } };
+      s = resolveCombatDamage(s);
+      s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+      expect(s.players.user.hand.some((c) => c.id === "L1")).toBe(true);
+
+      // anti-FP: only a plain (non-artifact) creature connects → no draw
+      const thopter2 = cp("th2", "Enchantment", THOPTER);
+      const bear = cp("br", "Creature — Bear", "");
+      let s2 = st([thopter2, bear], [], [{ permanentId: "br", attackingPlayer: "user", defender: "ai" }], []);
+      s2 = { ...s2, players: { ...s2.players, user: { ...s2.players.user, library: [{ id: "L2", name: "Nope", type: "Instant", oracle: "" }] } } };
+      s2 = resolveCombatDamage(s2);
+      s2 = resolveAll(flushTriggers(s2, { chooseTargets: chooseTriggerTargets }));
+      expect(s2.players.user.hand.some((c) => c.id === "L2")).toBe(false);
+    });
+
+    it("Rooftop Bypass (nontoken creatures): a nontoken makes an Assassin token; a token-only connect does NOT", () => {
+      const rooftop = cp("rb", "Enchantment", ROOFTOP);
+      const nontoken = cp("nt", "Creature — Human", "");
+      let s = st([rooftop, nontoken], [], [{ permanentId: "nt", attackingPlayer: "user", defender: "ai" }], []);
+      s = resolveCombatDamage(s);
+      s = resolveAll(flushTriggers(s, { chooseTargets: chooseTriggerTargets }));
+      expect(assassinTokenCount(s)).toBe(1);
+
+      // anti-FP: only a TOKEN creature connects → the nontoken batch must NOT fire
+      const rooftop2 = cp("rb2", "Enchantment", ROOFTOP);
+      const tokenCreature = createPermanent({ id: "tk", card: { id: "ctk", name: "Soldier", type: "Creature — Soldier", power: 1, toughness: 1, oracle: "", token: true }, controller: "user", summoningSick: false });
+      let s2 = st([rooftop2, tokenCreature], [], [{ permanentId: "tk", attackingPlayer: "user", defender: "ai" }], []);
+      s2 = resolveCombatDamage(s2);
+      s2 = resolveAll(flushTriggers(s2, { chooseTargets: chooseTriggerTargets }));
+      expect(assassinTokenCount(s2)).toBe(0);
+    });
+  });
+});
+
 // SHARED-SCOPE SELF-FIRE GUARD (Hans, cycle 42→43): the subtypeYouControl scope is shared across ETB-SELF
 // (#330 Pantlaza), combat-damage (#333), and attacks/dies (#335). Its self-inclusion clause must be gated
 // on the SOURCE carrying the subtype, else a non-SUBTYPE creature whose trigger watches a SUBTYPE fires on
