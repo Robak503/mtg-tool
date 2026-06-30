@@ -8,6 +8,16 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.82.0] - 2026-06-30
+
+### Improved
+- **Mana-value-filtered exile/destroy removal (+13 native).** "Exile/destroy target <type> with mana value N or
+  greater/less" (Despark, Eliminate, Epic Downfall, Smother, Tyrant's Scorn, Fragmentize, Natural State…), with the
+  MV/restriction filter now enforced at target enumeration (only legal-MV targets are offered). Base exile-removal +
+  Swords/Path-style riders were already native. Flip-diffed both directions (13 gained, 0 lost), full gate (6,311
+  tests) green, 0 false positives.
+
+
 ## [0.81.0] - 2026-06-30
 
 ### Improved
