@@ -234,6 +234,29 @@ export function colorsOf(card) {
   return COLOR_PIPS.filter(c => cost.includes(`{${c}}`));
 }
 
+// GOD-DEVOTION (CR 700.5) — count the mana-symbol pips of any color in `colors` (a WUBRG-letter array) among
+// the mana costs of EVERY permanent the controller controls (the source God itself counts — it's on the
+// battlefield with its own cost). A hybrid/Phyrexian pip ({G/W}, {G/P}) whose split-content includes one of
+// the wanted colors counts ONCE (CR 700.5 — the pip contributes to devotion to each of its colors), so a
+// two-color clause that lists both halves of a hybrid pip would count it for each, exactly as the rules say.
+// Local to layers.js (a plain mana-cost string scan — recursion-safe, never deriveCharacteristics) so this
+// stays a leaf of gameState and never imports the atoms' devotionPips (which would couple the layer engine to
+// the effects tree). Mirrors that helper's pip math so the classifier-side count and the runtime count agree.
+function devotionToColors(state, controller, colors) {
+  const wanted = new Set((colors || []).map(String));
+  if (wanted.size === 0) return 0;
+  const bf = state?.players?.[controller]?.battlefield || [];
+  let n = 0;
+  for (const perm of bf) {
+    const cost = String(perm?.card?.mana || perm?.card?.mana_cost || "");
+    for (const pip of cost.match(/\{[^}]+\}/g) || []) {
+      const parts = pip.slice(1, -1).split("/");
+      if (parts.some(p => wanted.has(p))) n += 1;
+    }
+  }
+  return n;
+}
+
 // ─── Effect collection (board-level: static + resolution effects) ───────────────
 
 const _boardMemo = new WeakMap();
@@ -364,13 +387,26 @@ export function collectContinuousEffects(state) {
 // — that would reintroduce the recursion — so it's a SAFE under-read, never an over-match. The `types` are
 // kept original-case (the cardTypes check uses substring inclusion like the printed path); subtypes lowercased.
 function effectiveTypeIdentity(candidate, state) {
-  const types = cardTypesOf(candidate.card);
+  let types = cardTypesOf(candidate.card);
   const subtypes = subtypesOf(candidate.card).map(s => s.toLowerCase());
   if (!state) return { types, subtypes };
   const board = collectContinuousEffects(state);
   if (!board.length) return { types, subtypes };
   for (const e of board) {
     if (e.layer !== 4) continue;
+    // GOD-DEVOTION self-removal: a God below its devotion threshold is NOT a creature, so another source's
+    // "creatures you control …" selector (matchesSelector cardTypes:["Creature"]) must NOT match it. The
+    // effect is SELF-affecting (permanentId resolved at collection to the God's id), and the devotion read is
+    // a plain mana-cost board scan — recursion-safe, no deriveCharacteristics — so it's honored here without
+    // reintroducing the cycle the fixed-only rule otherwise avoids. Removing "Creature" from the candidate's
+    // identity means an anthem/lord skips a God whose devotion is too low, exactly as the rules require.
+    if (e.op?.layerOp === "removeTypeWhileDevotionBelow") {
+      if (e.affects?.mode === "self" && e.affects.permanentId === candidate.id &&
+          devotionToColors(state, candidate.controller, e.op.colors) < (e.op.atLeast || 0)) {
+        types = types.filter(t => t !== e.op.removeType);
+      }
+      continue;
+    }
     if (e.affects?.mode !== "fixed" || !e.affects.permanentIds?.includes(candidate.id)) continue;
     for (const t of e.op?.types || []) if (!types.includes(t)) types.push(t);
     for (const st of e.op?.subtypes || []) subtypes.push(String(st).toLowerCase());
@@ -638,7 +674,7 @@ export function deriveCharacteristics(state, permanentId) {
       basePower: pt.basePower,
       baseToughness: pt.baseToughness,
       keywords: keywordSet(perm, l6, state),
-      ...applyTypeColorLayers(perm, l4, l5),
+      ...applyTypeColorLayers(perm, l4, l5, state),
       appliedEffects: selfEffects.map(e => ({
         id: e.id, layer: e.layer, sublayer: e.sublayer || null,
         op: e.op, sourceCardName: e.source?.cardName || null,
@@ -657,11 +693,21 @@ function cardTypesOf(card) {
   return head.trim().split(/\s+/).filter(w => w && w[0] === w[0].toUpperCase());
 }
 
-/** Layer 4 (type) + layer 5 (color), additive in Phase 1. */
-function applyTypeColorLayers(perm, l4, l5) {
+/** Layer 4 (type) + layer 5 (color). Type effects ADD types (animate) or, for the GOD-DEVOTION gate,
+ * conditionally REMOVE the Creature type while devotion is below the threshold (CR 613.1d). */
+function applyTypeColorLayers(perm, l4, l5, state) {
   const types = new Set(cardTypesOf(perm.card));
   const subtypes = new Set(subtypesOf(perm.card));
   for (const e of l4) {
+    // GOD-DEVOTION conditional type-removal: while the controller's devotion to the listed color(s) is BELOW
+    // the threshold, strip the named type (Creature) — re-evaluated live every derive, so the 5th green pip
+    // entering the battlefield flips the God back into a creature (and the 5th leaving flips it back off).
+    // The removal is timestamp-immaterial (it's the God's own printed static, no other type effect contends),
+    // so it commutes with any ADD in the same layer; applied here in the same pass.
+    if (e.op?.layerOp === "removeTypeWhileDevotionBelow") {
+      if (devotionToColors(state, perm.controller, e.op.colors) < (e.op.atLeast || 0)) types.delete(e.op.removeType);
+      continue;
+    }
     for (const t of e.op.types || []) types.add(t);
     for (const st of e.op.subtypes || []) subtypes.add(st);
   }

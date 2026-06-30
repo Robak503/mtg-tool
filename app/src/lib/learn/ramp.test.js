@@ -206,8 +206,11 @@ describe("coverage — typed-basic ramp flips native; the rider-shelled cards bo
   it("CREED: typed-ramp cards wrapped in an unmodeled clause stay out of native", () => {
     // Quandrix Cultivator — ambiguous-basic union → the clause itself drops to Arbiter.
     expect(classifyCard(C("Creature — Turtle Druid", "When this creature enters, you may search your library for a basic Forest or Island card, put it onto the battlefield, then shuffle.", "Quandrix Cultivator"))).not.toBe("native-trigger");
-    // Karametra — a devotion-based static ("isn't a creature") the engine doesn't model.
-    expect(classifyCard(C("Legendary Enchantment Creature — God", "Indestructible\nAs long as your devotion to green and white is less than seven, Karametra isn't a creature.\nWhenever you cast a creature spell, you may search your library for a Forest or Plains card, put it onto the battlefield tapped, then shuffle.", "Karametra, God of Harvests"))).not.toBe("native-trigger");
+    // Karametra — the devotion gate ("isn't a creature") is NOW modeled (GOD-DEVOTION subsystem, a layer-4
+    // conditional type-removal), and its Forest/Plains tutor trigger is modeled too, so the WHOLE card is
+    // native — but as native-MIXED (gate static + tutor trigger together), never the single-mechanism
+    // native-trigger tier. The original FN-guard intent (this isn't a clean trigger-only native) still holds.
+    expect(classifyCard(C("Legendary Enchantment Creature — God", "Indestructible\nAs long as your devotion to green and white is less than seven, Karametra isn't a creature.\nWhenever you cast a creature spell, you may search your library for a Forest or Plains card, put it onto the battlefield tapped, then shuffle.", "Karametra, God of Harvests"))).toBe("native-mixed");
     // Aerial Surveyor — a Crew ability + an intervening-if attack trigger; not a clean native.
     expect(classifyCard(C("Artifact — Vehicle", "Flying\nWhenever this Vehicle attacks, if defending player controls more lands than you, search your library for a basic Plains card, put it onto the battlefield tapped, then shuffle.\nCrew 2", "Aerial Surveyor"))).not.toBe("native-trigger");
   });

@@ -1136,6 +1136,41 @@ function parseClause(clause, out, selfName) {
     }
   }
 
+  // ── GOD-DEVOTION conditional creature-type gate (layer 4, CR 613.1d type-changing; CR 700.5 devotion) ──
+  // "As long as your devotion to <color>[ and <color>] is less than N, [this God] isn't a creature." (the
+  // Theros Gods — Nylea, Heliod, Purphoros, Thassa, Karametra, …). Devotion to a color = the number of mana
+  // symbols of that color among the mana costs of the permanents the controller controls (CR 700.5); a
+  // two-color clause sums BOTH colors' symbols. While that count is BELOW the threshold the God loses its
+  // Creature type (a layer-4 REMOVAL — it stays an Enchantment but isn't a creature, so it can't attack/block
+  // and isn't a valid creature target); at/above the threshold it's a creature again. The reminder text "(Each
+  // {G} … counts toward your devotion …)" was already dropped by abilityClauses (paren-aware). The self-subject
+  // is matched as EITHER the selfNormalizeOracle-rewritten "this creature" OR the printed God's own bare name (a
+  // lowercased name-like run, optional comma-clauses for "Nylea, God of the Hunt") — because the composite
+  // residue check (coverage.permanentFullyCovered) re-parses the RAW, un-normalized oracle, so the subject there
+  // is still the literal name (e.g. "nylea"). The devotion-gate template is only ever printed on a God referring
+  // to ITSELF (no card uses "as long as your devotion … X isn't a creature" about a DIFFERENT permanent), so
+  // accepting any name-like subject is CREED-safe — it can never fabricate a gate on the wrong permanent.
+  // Emitted as a SELF-affecting layer-4 descriptor; layers.applyTypeColorLayers / effectiveTypeIdentity remove
+  // "Creature" when the live devotion (a board scan of the controller's permanents' pips) is < atLeast. This is
+  // a genuine model of the whole clause (NOT a drop), so it must run BEFORE the "as long as" static-only guard
+  // below (which would otherwise bail on the conditional). A non-devotion "as long as" clause doesn't match
+  // here and still falls through to that guard (CREED: a miss is a safe body-only, never a fabricated gate).
+  const devoM = c.match(/^as long as your devotion to (white|blue|black|red|green)(?: and (white|blue|black|red|green))? is less than (one|two|three|four|five|six|seven|eight|nine|ten|\d+), (?:this creature|[a-z][a-z' -]*(?:, [a-z][a-z' -]*)*) isn't a creature$/);
+  if (devoM) {
+    const colors = [COLOR_WORDS[devoM[1]]];
+    if (devoM[2]) colors.push(COLOR_WORDS[devoM[2]]);
+    const atLeast = GY_NUMWORD[devoM[3]] ?? (parseInt(devoM[3], 10) || 0);
+    if (atLeast > 0) {
+      out.push({
+        layer: 4,
+        op: { layerOp: "removeTypeWhileDevotionBelow", removeType: "Creature", colors, atLeast },
+        affects: { mode: "self" },
+        duration: { kind: "permanent" },
+      });
+    }
+    return; // the devotion gate is fully modeled (or, on a malformed threshold, a safe body-only) — handled
+  }
+
   // ── STATIC-ONLY GUARD (CLAUDE.md §1.2: a miss is safe; a false grant is forbidden) ──
   // A continuous effect is created only by a STATIC ability. Bail on any marker of a
   // triggered / activated / one-shot / variable / conditional ability so we never
