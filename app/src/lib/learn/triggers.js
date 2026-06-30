@@ -1964,9 +1964,17 @@ export function checkEnterTriggers(state, enteredPerm) {
   // double-fire coordination note if the guard ever learns this disjunction.
   const s = applyMothmanRadOnEnter(state, enteredPerm);
   let fired = [];
+  // ETB-XVALUE THREADING (HALF-X-CREATE-TOKENS): the entering permanent's own "when this enters" trigger
+  // (sourcePermanent === enteredPerm) is the ONLY ETB trigger that owns the entering object's paid {X} — so
+  // thread enteredPerm.xValue into THAT trigger's context (and nowhere else: a bystander "whenever a creature
+  // enters" watcher's effect must NOT read the entering creature's X). buildTriggerStack reads context.xValue
+  // into params.xValue, so a "create half X Food tokens, rounded up" ETB resolves at the real X. Undefined for
+  // a non-X entry → the {} spread adds nothing → every existing ETB trigger is byte-identical.
+  const etbSelfContext = enteredPerm.xValue > 0 ? { xValue: enteredPerm.xValue } : {};
   for (const pid of Object.keys(s.players)) {
     for (const watcher of triggerSourcesOf(s, pid)) {
-      fired = fired.concat(triggersForEvent(s, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm }));
+      const selfCtx = watcher.id === enteredPerm.id ? etbSelfContext : {};
+      fired = fired.concat(triggersForEvent(s, { event: "etb", sourcePermanent: watcher, triggeringPermanent: enteredPerm, triggeringContext: selfCtx }));
       // CHOSEN-TYPE (Kindred Discovery) — the "enters" half of its "of the chosen type enters or attacks"
       // trigger. The entering permanent is the triggering creature; the chosenTypeYouControl scope gates on
       // the watcher's stored chosenType + the entering creature's subtype/changeling. Same ETB chokepoint

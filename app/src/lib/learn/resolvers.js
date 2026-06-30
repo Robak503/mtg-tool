@@ -248,6 +248,13 @@ export function enterPermanent(state, card, controller, opts = {}) {
     const n = (player.battlefield || []).filter((p) => cardHasChosenType(p.card, perm.chosenType)).length;
     if (n > 0) perm.counters = { ...perm.counters, [chosenCtr.counterType]: (perm.counters[chosenCtr.counterType] || 0) + applyCounterDoubling(state, controller, chosenCtr.counterType, n) };
   }
+  // ETB-XVALUE THREADING (HALF-X-CREATE-TOKENS): durably store the chosen {X} paid for this permanent's
+  // {X} cost (opts.xValue, threaded from the cast — same source the enters-with-X-counters write above reads)
+  // on the permanent itself, mirroring chosenType. A plain number, so it serializes via the JSON pass-through.
+  // Read back by checkEnterTriggers below, which threads it into the SELF-ETB trigger's context (CR 608.2h —
+  // a {X} value is locked at resolution) so a "create half X Food tokens" ETB resolves at the real X. Only a
+  // positive paid X is stamped (a non-X permanent has xValue undefined → the FIXED/for-each resolvers, intact).
+  if (opts.xValue > 0) perm.xValue = opts.xValue;
   let next = {
     ...s3,
     players: {

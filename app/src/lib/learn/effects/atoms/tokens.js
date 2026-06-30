@@ -6,7 +6,7 @@ import { logEvent, destroyLethalCreatures, findPermanent, createPermanent, mintI
 import { tokenMultiplier, applyCounterDoubling } from "../../replacementEffects.js"; // Wave-3 doubler (leaf): token count + enters-with-counters bypass addCounter
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers, checkTokenCreatedTriggers } from "../../triggers.js";
 import { snapshotCopiedCard } from "../../cloneCopy.js"; // leaf (imports only gameState) — CR 707.2 copiable-values snapshot
-import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec } from "./shared.js";
+import { TOKEN_COLOR_WORDS, TOKEN_SUPERTYPE_WORDS, TOKEN_CARDTYPE_WORDS, cap, countForSpec, halveAmount } from "./shared.js";
 import { SMALL_NUM, NUM_WORD, parseCountSource, parseTokenManaAbility, parseTokenKeywords } from "../parseHelpers.js"; // seam batch 18/19: shared parse helpers (leaf, cycle-free) for create-named-token + create-token clause parsers
 
 /**
@@ -175,9 +175,13 @@ export function applyCreateNamedToken(state, atom, ctx) {
   // {X} (ctx.xValue); `countContext` reads a trigger-context number (Old Gnawbone "that many" =
   // ctx.combatDamageAmount, carried by the combat-damage trigger). A 0 dynamic count mints ZERO tokens
   // (CR 107.3 — a clean no-op, NOT forced to 1); a FIXED count is floored at 1.
+  // HALF-X-CREATE-TOKENS (CR 107.3): the countX path optionally HALVES the chosen {X} with the shared
+  // rounding primitive (atom.halve "floor"|"ceil" — The Goose Mother's "create half X Food tokens, rounded
+  // up"). halveAmount is a no-op pass-through when atom.halve is unset, so every existing countX caller
+  // (Dockside et al never set halve) is byte-identical — the unset case returns the raw (un-halved) X.
   const baseCount = atom.countFor
     ? Math.max(0, countForSpec(next, ctx, atom.countFor))
-    : atom.countX ? Math.max(0, ctx.xValue || 0)
+    : atom.countX ? Math.max(0, halveAmount(ctx.xValue || 0, atom.halve))
       : atom.countContext ? Math.max(0, ctx[atom.countContext] || 0)
         : Math.max(1, atom.count || 1);
   // Wave-3 token doubler (CR 616): a "create one or more tokens" doubler (Doubling Season / Parallel Lives /
@@ -328,6 +332,12 @@ export function createNamedTokenClauseParser(clause) {
     const countFor = parseCountSource(m[2], { allowScopes: true });
     return countFor ? { op: "create-named-token", token: m[1], countFor, targetType: null } : null;
   }
+  // HALF-X-CREATE-TOKENS (CR 107.3) — "create half X <tok> tokens, rounded up/down" (The Goose Mother's ETB:
+  // "create half X Food tokens, rounded up"). The count is the chosen {X} HALVED with stated rounding (countX
+  // + halve), resolved at ETB via ctx.xValue. CREED: the rounding MUST be stated — a bare "create half X Food
+  // tokens" with no "rounded up/down" is ambiguous and stays unmatched → Arbiter (mirrors radClauseParser).
+  m = t.match(/^create half x (treasure|clue|food|gold) tokens, rounded (up|down)$/);
+  if (m) return { op: "create-named-token", token: m[1], countX: true, halve: m[2] === "up" ? "ceil" : "floor", targetType: null };
   m = t.match(/^create that many (treasure|clue|food|gold) tokens$/);
   if (m) return { op: "create-named-token", token: m[1], countContext: "combatDamageAmount", targetType: null };
   m = t.match(/^create a number of (tapped )?(treasure|clue|food|gold) tokens equal to its power$/);

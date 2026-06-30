@@ -10,10 +10,10 @@
  * BUILT (cross-deck):
  *   - Wedding Security (Creature, attack trigger) — "you may sacrifice a Blood token. If you do, put a +1/+1
  *     counter on this creature and draw a card." → native-trigger (the WHOLE card flips).
- *   - The Goose Mother's ATTACK trigger ("you may sacrifice a Food. If you do, draw a card.") models natively;
- *     the CARD stays PARKED on an UNRELATED blocker (the "create half X Food tokens" ETB — the half-X create-
- *     token clause is a separate unmodeled subsystem), so it's pinned non-native here (CREED — a real card the
- *     subsystem does NOT fully cover must not be claimed).
+ *   - The Goose Mother (Zaxara) — its ATTACK trigger ("you may sacrifice a Food. If you do, draw a card.")
+ *     models natively via THIS subsystem; its last blocker — the "create half X Food tokens, rounded up" ETB —
+ *     is now ALSO built (HALF-X-CREATE-TOKENS, see halfX.test.js), so the WHOLE card flips to native-trigger.
+ *     The pin below now asserts native (the formerly-parked half is covered; both halves resolve at runtime).
  *
  * CREED (CLAUDE.md §1.2) — the cardinal guarantee is that NO payoff fires unless a matching permanent was
  * really sacrificed (decline / none available → nothing). The gate parks every shape the engine can't model
@@ -48,10 +48,10 @@ describe("REFLEXIVE-SAC-BY-SUBTYPE — classification", () => {
     expect(classifyCard(WEDDING)).toBe("native-trigger");
   });
 
-  it("The Goose Mother stays non-native — PARKED on the half-X-Food ETB, NOT the sac trigger (CREED)", () => {
-    // The attack trigger models (proven below), but "create half X Food tokens" is an unmodeled separate
-    // subsystem → the WHOLE card isn't covered → must not be claimed native.
-    expect(classifyCard(GOOSE)).not.toMatch(/^native/);
+  it("The Goose Mother → native-trigger (WHOLE card: sac-Food attack here + half-X-Food ETB now built)", () => {
+    // Both halves model: the attack reflexive-sac via THIS subsystem, and the "create half X Food tokens,
+    // rounded up" ETB via HALF-X-CREATE-TOKENS (halfX.test.js). The whole card is covered → native (CREED-clean).
+    expect(classifyCard(GOOSE)).toBe("native-trigger");
   });
 });
 

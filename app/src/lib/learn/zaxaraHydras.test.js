@@ -18,7 +18,7 @@ import { createGameState, _resetIdsForTests, createPermanent } from "./gameState
 import { permanentPower, permanentToughness } from "./layers.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction } from "./actionDispatcher.js";
-import { resolveTopOfStack } from "./gameEngine.js";
+import { resolveTopOfStack, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
 
 // ── the four CREED-clean flips (every clause beyond enters-with-X is independently modeled) ──
 const MISTCUTTER = {
@@ -200,15 +200,62 @@ describe("ZAXARA-HYDRAS — SELF-CAST trigger (CR 603.2): Hydroid Krasis flips n
   });
 });
 
+describe("ZAXARA-HYDRAS — HALF-X-CREATE-TOKENS: The Goose Mother flips native (ETB half-X Food + attack sac-Food draw)", () => {
+  // The LAST blocker on this Zaxara card — the "create half X Food tokens, rounded up" ETB — is now modeled
+  // (HALF-X-CREATE-TOKENS: a half-X create-named-token whose count is the chosen {X} halved, threaded into the
+  // ETB trigger via perm.xValue). Its attack reflexive-sac half was already native (REFLEXIVE-SAC-BY-SUBTYPE),
+  // so the WHOLE card is CREED-clean. Full parser/runtime coverage lives in halfX.test.js; this pins the flip.
+  const GOOSE = {
+    name: "The Goose Mother", type: "Legendary Creature — Bird Hydra", mana: "{X}{G}{U}", power: 2, toughness: 2,
+    oracle: "Flying\nThe Goose Mother enters with X +1/+1 counters on it.\nWhen The Goose Mother enters, create half X Food tokens, rounded up.\nWhenever The Goose Mother attacks, you may sacrifice a Food. If you do, draw a card.",
+  };
+  it("classifies native-trigger (half-X-Food ETB + enters-with-X + attack reflexive-sac all modeled)", () => {
+    expect(classifyCard(GOOSE)).toBe("native-trigger");
+  });
+
+  // RUNTIME — cast for X: the creature enters as a real X/X (enters-with-X counters) AND its ETB mints
+  // ceil(X/2) Food tokens (the threaded {X}, halved up).
+  const castForX = (X) => {
+    _resetIdsForTests();
+    let s = createGameState({ userDeck: [], aiDeck: [] });
+    const card = { ...GOOSE, id: "gm" };
+    s = {
+      ...s,
+      phase: "precombat-main", step: "main", activePlayer: "user", priorityHolder: "user", consecutivePasses: 0,
+      players: { ...s.players, user: { ...s.players.user, hand: [card], manaPool: { ...s.players.user.manaPool, G: 1, U: 1, C: 20 } } },
+    };
+    const cast = legalActionsForPlayer(s, "user").find((a) => a.kind === "cast-spell" && a.cardId === "gm" && a.xValue === X);
+    expect(cast, `an X=${X} cast was offered`).toBeTruthy();
+    s = dispatchAction(s, cast);
+    s = resolveTopOfStack(s); // the Goose enters; its ETB trigger lands in pendingTriggers
+    let guard = 0;
+    while (((s.stack || []).length || (s.pendingTriggers || []).length) && guard++ < 30) {
+      if ((s.pendingTriggers || []).length) { s = flushTriggers(s, { chooseTargets: chooseTriggerTargets }); continue; }
+      if ((s.stack || []).length) { s = resolveTopOfStack(s); continue; }
+      break;
+    }
+    const perm = s.players.user.battlefield.find((p) => p.card.id === "gm");
+    const foods = s.players.user.battlefield.filter((p) => p.card?.name === "Food");
+    return { s, perm, foods };
+  };
+
+  it("X=6 (even): enters a 6/6 AND mints ceil(6/2)=3 Food", () => {
+    const { s, perm, foods } = castForX(6);
+    expect(perm.counters["+1/+1"]).toBe(6);
+    expect(permanentPower(s, perm.id)).toBe(8); // base 2/2 + 6 counters
+    expect(foods.length).toBe(3);
+  });
+  it("X=5 (odd, rounds UP): enters a 5/5 AND mints ceil(5/2)=3 Food", () => {
+    const { s, perm, foods } = castForX(5);
+    expect(permanentPower(s, perm.id)).toBe(7); // base 2/2 + 5 counters
+    expect(foods.length).toBe(3);
+  });
+});
 describe("ZAXARA-HYDRAS — PARKED: hydras with an unmodeled rider stay body-only (the strip never masks it)", () => {
   const parked = {
     "Hungering Hydra (can't-be-blocked-by->1 + dealt-damage→counters)": {
       type: "Creature — Hydra", mana: "{X}{G}",
       oracle: "This creature enters with X +1/+1 counters on it.\nThis creature can't be blocked by more than one creature.\nWhenever this creature is dealt damage, put that many +1/+1 counters on it.",
-    },
-    "The Goose Mother (ETB half-X Food + attack→sac-Food draw)": {
-      type: "Legendary Creature — Bird Hydra", mana: "{X}{G}{U}",
-      oracle: "Flying\nThe Goose Mother enters with X +1/+1 counters on it.\nWhen The Goose Mother enters, create half X Food tokens, rounded up.\nWhenever The Goose Mother attacks, you may sacrifice a Food. If you do, draw a card.",
     },
     "Benevolent Hydra ({T},remove-counter: move a counter)": {
       type: "Creature — Hydra", mana: "{X}{G}{G}",
