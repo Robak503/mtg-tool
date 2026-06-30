@@ -845,6 +845,24 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
       delete atom.count;
       return atom;
     }
+    // ===== TOKENS ===== T3 X/X create-token (DOUBLE-X subsystem) — the token's POWER/TOUGHNESS is the spell's
+    // {X} too: "Create X X/X <descriptor> creature tokens" (count=X AND P/T=X — Gelatinous Genesis {X}{X}{G})
+    // or "Create an X/X <descriptor> creature token" (count=1, P/T=X — Slime Molding {X}{G}). Rewrite the X/X
+    // P/T (and a leading "create x" count) to the sentinel "1/1" so the FULL create-token atom parses
+    // (descriptor / keywords verbatim), then stamp ptX:true (the resolver substitutes ctx.xValue for the
+    // token's P/T) plus countX when the count itself is X. CREED GUARD: a "…, where X is <board metric>" P/T
+    // (Spoils of Blood / Miming Slime / Shark Typhoon) is a BOARD-derived X, NOT the cast {X} — reject it
+    // outright (`where`), so its P/T is never mis-read as the chosen X. The $-anchored create-token regex
+    // would already null on the trailing ", where X is …" tail; the explicit `where` bail is belt-and-suspenders.
+    if (/^create (?:x|a|an|one) x\/x /i.test(s) && !/\bwhere\b/i.test(s)) {
+      const countIsX = /^create x /i.test(s);
+      const sentinel = s.replace(/^create x /i, "create one ").replace(/\bx\/x\b/i, "1/1");
+      const base = parseClauseToAtom(cardType, sentinel, false);
+      if (!base || base.op !== "create-token") return null;
+      const atom = { ...base, ptX: true };
+      if (countIsX) { atom.countX = true; delete atom.count; }
+      return atom;
+    }
     const rw = rewriteAmountX(s);
     if (rw) {
       const rewritten = rw.clause;
@@ -1690,7 +1708,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
       atoms.push(a);
     }
     if (atoms.every(a => KNOWN.has(a.op)) && optionalsFormSuffix(atoms)) {
-      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX || a.filter?.mvCapX), unparsedTail: null });
+      return makeProgram({ confidence: "high", atoms, xSpell: atoms.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX), unparsedTail: null });
     }
     return makeProgram({ confidence: "low", atoms: [], unparsedTail: oracle });
   };
@@ -1788,7 +1806,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
     if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms))) {
-      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX));
+      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.ptX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
     return makeProgram({ confidence: "low", structure: "modal", atoms: [], modal: null, unparsedTail: oracle });
@@ -1845,7 +1863,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
     const seq = atoms.filter((a, i) => !(a.op === "shuffle" && atoms[i - 1]?.op === "tutor"));
     // `mvCapX` (a search→battlefield tutor whose MV cap IS the spell's X — Wargate, Nature's Rhythm) also makes
     // this an X-spell: the cast path must enumerate affordable X so ctx.xValue reaches applyTutor's cap resolve.
-    const xSpell = seq.some(a => a.amountX || a.countX || a.filter?.mvCapX);
+    const xSpell = seq.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX);
     return makeProgram({ confidence: "high", atoms: seq, xSpell, unparsedTail: null });
   }
 

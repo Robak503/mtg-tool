@@ -5,8 +5,8 @@
  * native instead of body-only. The X→counters subsystem (entersWithX.test.js) and the dies-payoff resolution
  * (effects/atoms/diesTriggerPayoffs.test.js) are proven elsewhere; this file pins:
  *   1. the four CREED-clean flips classify native + actually enter at X/X via the real cast→resolve flow;
- *   2. the MULTI-X guard keeps {X}{X} (Walking Ballista) body-only — parseManaCost/legalChoices treat every
- *      {X} as a single X, so a double-X card underpays; crediting it would be a forbidden FP;
+ *   2. DOUBLE-X (CR 107.3): {X}{X} (Walking Ballista) now pays 2X (parseManaCost.xCount → legalChoices.xResolvedCost)
+ *      and flips native — the cast no longer underpays (the old MULTI-X guard is retired; see doubleXCost.test.js);
  *   3. the unmodeled-rider hydras (Hungering / Goose Mother / Benevolent / Primordial / Hydroid /
  *      Nyxborn) stay body-only — the strip never masks an unmodeled second clause. (Voracious / Mossborn /
  *      Kalonian have since flipped via the counter-doubler levers — see modalDeckModes / kalonianDouble.)
@@ -121,18 +121,19 @@ describe("ZAXARA-HYDRAS — Steelbane's activated ability resolves end-to-end (t
   });
 });
 
-describe("ZAXARA-HYDRAS — MULTI-X guard: a {X}{X} enters-with-X card stays body-only (CR 107.3 double-X underpay)", () => {
-  // Walking Ballista's {X}{X} cost is mis-paid by the shared X-cost machinery (parseManaCost sets hasX but
-  // doesn't count the pips; legalChoices pays cost.generic + X, i.e. X not 2X). Crediting it native would be a
-  // forbidden FP (the cast underpays). PARKED until a double-X cost subsystem lands.
+describe("ZAXARA-HYDRAS — DOUBLE-X cost (CR 107.3): a {X}{X} enters-with-X card now pays 2X and flips native", () => {
+  // Walking Ballista's {X}{X} cost is now paid CORRECTLY by the shared X-cost machinery (parseManaCost counts
+  // the X pips into xCount; legalChoices.xResolvedCost pays cost.generic + xCount*X, i.e. 2X). The X→counters
+  // resolver still threads the SINGLE chosen X into the counters (count = X, cost = 2X). Crediting it native is
+  // now SOUND — the cast no longer underpays. (Runtime 2X-payment is pinned in doubleXCost.test.js.)
   const BALLISTA = {
     name: "Walking Ballista", type: "Creature Artifact — Construct", mana: "{X}{X}", power: 0, toughness: 0,
     oracle: "This creature enters with X +1/+1 counters on it.\n{4}: Put a +1/+1 counter on this creature.\nRemove a +1/+1 counter from this creature: It deals 1 damage to any target.",
   };
-  it("Walking Ballista ({X}{X}) is body-only even though every clause is individually modeled", () => {
-    expect(classifyCard(BALLISTA)).toBe("body-only");
+  it("Walking Ballista ({X}{X}) is native-activated — every clause modeled AND the 2X cost is paid", () => {
+    expect(classifyCard(BALLISTA)).toBe("native-activated");
   });
-  it("a single-{X} hydra with the SAME activated abilities WOULD flip — proving the guard keys on the X-pip count, not the abilities", () => {
+  it("the single-{X} variant still flips too — the credit no longer keys on the X-pip count", () => {
     const singleX = { ...BALLISTA, mana: "{X}" }; // a hypothetical single-X variant — abilities unchanged
     expect(classifyCard(singleX)).toBe("native-activated");
   });

@@ -108,11 +108,16 @@ export function applyCreateToken(state, atom, ctx) {
   const ewc = atom.entersWithCounters;
   const counterBase = ewc ? Math.max(0, ewc.countX ? (ctx.xValue || 0) : (ewc.amount || 0)) : 0;
   const counterN = counterBase > 0 ? applyCounterDoubling(next, ctx.controller, ewc.type || "+1/+1", counterBase) : 0;
+  // X/X P/T (DOUBLE-X subsystem): a token whose printed P/T is the spell's {X} (Gelatinous Genesis "X X/X",
+  // Slime Molding "an X/X") mints at xValue/xValue. CR 107.3 — an X of 0 makes a 0/0 that dies to the lethal
+  // SBA below (the countX path already mints zero tokens at X=0, so this only bites a fixed-count X/X token).
+  const tokPower = atom.ptX ? Math.max(0, ctx.xValue || 0) : atom.power;
+  const tokToughness = atom.ptX ? Math.max(0, ctx.xValue || 0) : atom.toughness;
   const mintedIds = [];
   for (let i = 0; i < count; i++) {
     const minted = mintId(next, "tok");
     next = minted.state;
-    const card = { id: `tok-${minted.id}`, name, type, power: atom.power, toughness: atom.toughness, oracle, keywords, token: true };
+    const card = { id: `tok-${minted.id}`, name, type, power: tokPower, toughness: tokToughness, oracle, keywords, token: true };
     let perm = createPermanent({ id: minted.id, card, controller: ctx.controller });
     if (counterN > 0) perm = { ...perm, counters: { ...perm.counters, [ewc.type || "+1/+1"]: (perm.counters?.[ewc.type || "+1/+1"] || 0) + counterN } };
     const player = next.players[ctx.controller];

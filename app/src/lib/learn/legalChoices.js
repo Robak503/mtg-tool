@@ -63,14 +63,17 @@ const SINGLE_COLORS = new Set(["W", "U", "B", "R", "G"]);
 
 /**
  * Parse a mana cost string like "{2}{U}{U}" into a structured object:
- *   { generic: 2, W: 0, U: 2, B: 0, R: 0, G: 0, C: 0, hasX: false,
+ *   { generic: 2, W: 0, U: 2, B: 0, R: 0, G: 0, C: 0, hasX: false, xCount: 0,
  *     hybrid: [], phyrexian: [], anyColor: 0 }
  *
  * Conventions:
  *   - Plain digits → generic (treated as a single chunk; "{10}" → 10)
  *   - W/U/B/R/G  → that color's pip
  *   - C          → colorless (distinct from generic — only colorless mana works)
- *   - X/Y/Z      → hasX flag (caller picks value; 0 used in can-afford check)
+ *   - X/Y/Z      → hasX flag + xCount++ (caller picks ONE value for X; the
+ *                  TOTAL mana owed is xCount * X — a {X}{X} cost owes 2X, CR 107.3).
+ *                  All variable pips in a printed cost are the SAME letter in
+ *                  practice ({X}{X}), so a single chosen X drives every pip.
  *   - Hybrid {W/U} or {2/U} or {U/P} (phyrexian) → tracked in arrays; the
  *     can-afford check uses the cheaper option per pip (a rough but
  *     workable heuristic for v1)
@@ -85,6 +88,7 @@ export function parseManaCost(costString) {
     generic: 0,
     W: 0, U: 0, B: 0, R: 0, G: 0, C: 0,
     hasX: false,
+    xCount: 0,      // number of {X}/{Y}/{Z} pips — the cost owes xCount * chosenX (CR 107.3: {X}{X} = 2X)
     hybrid: [],     // [["W","U"], ...]
     phyrexian: [],  // ["U","B",...] — can be paid with 2 life
     anyColor: 0,    // count of "any color" pips (rare)
@@ -100,9 +104,10 @@ export function parseManaCost(costString) {
       cost.generic += parseInt(pip, 10);
       continue;
     }
-    // X / Y / Z
+    // X / Y / Z — each variable pip adds to xCount; the total owed is xCount * chosenX.
     if (pip === "X" || pip === "Y" || pip === "Z") {
       cost.hasX = true;
+      cost.xCount += 1;
       continue;
     }
     // Single color
@@ -349,11 +354,24 @@ function affordableXValues(state, playerId, cost) {
   const ceiling = Math.min(poolTotal + sourceTotal, X_CHOICE_CAP);
   const out = [];
   for (let x = 1; x <= ceiling; x++) {
-    const xCost = { ...cost, generic: (cost.generic || 0) + x };
+    const xCost = xResolvedCost(cost, x);
     if (!canAfford(player.manaPool, sources, xCost)) break; // monotonic in X
     out.push(x);
   }
   return out;
+}
+
+/**
+ * Resolve a parsed cost at a chosen X: fold the X mana into the generic portion.
+ * The amount owed is `xCount * X` (CR 107.3) — a {X}{X} cost charges 2X, not X.
+ * `xCount` defaults to 1 (a single {X}) for any cost parsed before this field
+ * existed, so the single-X path is byte-identical to the old `generic + x`.
+ * Pure: returns a new cost; the chosen X is NOT the effect magnitude (the action
+ * still carries `xValue: x`, which resolution uses for counters/tokens/damage).
+ */
+export function xResolvedCost(cost, x) {
+  const pips = cost.xCount ?? (cost.hasX ? 1 : 0);
+  return { ...cost, generic: (cost.generic || 0) + pips * x };
 }
 
 function actionsCastSpell(state, playerId) {
@@ -660,8 +678,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       const combos = expandCastChoices(state, playerId, program, colorsOf(card));
       if (combos.length === 0) continue;
       for (const x of xValues) {
-        const xCost = { ...cost, generic: (cost.generic || 0) + x };
-        const xCmc = printedCmc + x; // mana value = printed + chosen X (CR 202.3b); the commander tax doesn't count
+        const xCost = xResolvedCost(cost, x); // DOUBLE-X (CR 107.3): a {X}{X} spell owes 2X; xValue stays X for the effect
+        const xCmc = printedCmc + (cost.xCount ?? 1) * x; // mana value = printed + total X paid (CR 202.3b); commander tax doesn't count
         // AI safety: parseSpellEffect returns null for the literal "X", so base.effect
         // is null and pickCastAction would skip its enemy-only target filter. Re-attach
         // a synthetic legacy effect for a single-atom X-damage program so the AI still
@@ -732,8 +750,8 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       for (const x of xValues) {
         actions.push({
           ...base,
-          cost: { ...cost, generic: (cost.generic || 0) + x },
-          cmc: printedCmc + x,
+          cost: xResolvedCost(cost, x), // DOUBLE-X (CR 107.3): {X}{X} (Walking Ballista) owes 2X; xValue stays X for the counters
+          cmc: printedCmc + (cost.xCount ?? 1) * x,
           xValue: x,
           targets: [],
           needsTargets: false,

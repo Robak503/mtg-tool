@@ -733,11 +733,12 @@ export function classifyCard(card) {
   // entersWithMetricCounters confirmed one of its two exact shapes, so a card whose only non-keyword text is the
   // metric enters-with clause classifies native-body (Squad Captain = Vigilance + metric → native-body). Cards
   // with extra unmodeled text (Sheriff's Plot; Zegana's draw trigger) keep their other clauses → not stripped here.
-  // MULTI-X GUARD (CR 107.3): a cost with more than one {X} pip ({X}{X} — Walking Ballista) is NOT modeled —
-  // the cost machinery (parseManaCost.hasX + the legalChoices xCost = generic + X path) treats every {X} as a
-  // SINGLE X, so a {X}{X} card underpays (pays X, owes 2X). The X→counters resolver assumes one X feeds the
-  // counters. So only credit enters-with-X when the cost has EXACTLY one X pip; a multi-X card stays body-only
-  // (Arbiter) until the double-X cost subsystem lands. CREED: a miss is safe, an underpaid cast is forbidden.
+  // DOUBLE-X (CR 107.3): a {X}{X} cost (Walking Ballista, Cryptic Trilobite) owes 2X — the cost machinery now
+  // counts the X pips (parseManaCost.xCount → legalChoices.xResolvedCost pays generic + xCount*X), so a multi-X
+  // card is paid CORRECTLY (2X, not the old underpaying X). The X→counters resolver still threads the single
+  // chosen X (xValue) into the counters — the count is X, the cost is 2X. So enters-with-X is credited for ANY
+  // X-pip count (xPipCount >= 1). xPipCount is still read because a card with NO {X} pip but the enters-with-X
+  // text (none in the real corpus) must not be credited — the X must be a real cost pip the player pays.
   const xPipCount = (String(card?.mana || card?.mana_cost || "").match(/\{[XYZ]\}/gi) || []).length;
   // PLOT (CR 702.171): "Plot {cost}" is a modeled alternate cast-timing special action (the runtime
   // exiles the card at sorcery speed for the plot cost, then casts it FREE from exile on a later turn —
@@ -783,7 +784,7 @@ export function classifyCard(card) {
     : costOnlyStrippedOracle;
   const baseOracle = entersWithPlusCounters(card) > 0
     ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with (?:a|an|one|two|three|four|five|\d+) \+1\/\+1 counters? on it[^.]*\.?/i, " ")
-    : entersWithXCounters(card) && xPipCount === 1
+    : entersWithXCounters(card) && xPipCount >= 1
       ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with x \+1\/\+1 counters? on it[^.]*\.?/i, " ")
       : entersWithMetricCounters(card)
         ? plotStrippedOracle.replace(/[^.]*enters (?:the battlefield )?with [^.]*\+1\/\+1 counters?[^.]*\.?/i, " ")
