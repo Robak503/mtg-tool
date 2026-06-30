@@ -8,6 +8,15 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.74.0] - 2026-06-30
+
+### Improved
+- **Destroy-target permanent atoms + kicked-spell-effects (+23 native).** "Destroy target nonbasic land / noncreature
+  permanent" (Sinkhole, Fulminator Mage, Bramblecrush…) — which also completes the kicker land-destroyers (Goblin
+  Ruinblaster, Mold Shambler) — plus kicked payoffs on instants/sorceries (Runic Shot, Blink of an Eye, Dismantling
+  Blow, Phyrexian Espionage…). Flip-diffed both directions (23 gained, 0 lost), full gate (6,109 tests) green, 0
+  false positives.
+
 ## [0.73.0] - 2026-06-30
 
 ### Improved
