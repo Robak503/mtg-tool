@@ -59,6 +59,7 @@ import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } fro
 import { lifeClauseParser } from "./atoms/life.js"; // seam batch 17 (gain-life ⇄ lose-life, scaled + fixed-N)
 import { staticAbilitiesCoverCard, parseStaticAbilities } from "../staticAbilityParser.js";
 import { detectTriggers, registerTriggerDetector } from "../triggers.js";
+import { parseKickerCost } from "../kicker.js"; // KICKED-SPELL-EFFECT — a clean single-mana Kicker cost (no multikicker / and-or / {X}); kicker.js → parseHelpers.js → keywords.js is acyclic (parser already imports parseHelpers)
 
 /**
  * The atom ops the interpreter can resolve natively — DERIVED from the resolver
@@ -1411,9 +1412,114 @@ function stripStormKeywordLine(oracle) {
     : oracle;
 }
 
+/**
+ * ===== KICKED-SPELL-EFFECT (CR 702.33e) ===== an instant/sorcery with a clean single Kicker cost whose
+ * kicked payoff is an ADDITIVE extra effect — "<base>. If this spell was kicked, <extra>." (Runic Shot
+ * "Destroy target tapped creature. If this spell was kicked, scry 2.", Blink of an Eye, Dismantling Blow,
+ * Phyrexian Espionage …). The base atom(s) ALWAYS run; the kicked atom(s) run ONLY when the spell was cast
+ * kicked (params.kicked, threaded through actionDispatcher → runEffectProgram, which skips `kickedOnly` atoms
+ * when not kicked).
+ *
+ * Returns `{ atoms }` (base atoms in printed order, then the kicked atoms each stamped `kickedOnly: true`),
+ * or null. The whole card is modeled or it isn't (THE CREED): null when ANY of —
+ *   • the kicker cost isn't a clean single mana cost (parseKickerCost rejects multikicker / "and/or" / {X} /
+ *     a non-mana kicker — those scale or need cost machinery we don't fold here);
+ *   • the kicked clause is REPLACEMENT ("instead" / "rather than") or back-references the base result
+ *     ("that creature gets … instead", "it deals … instead") — those rewrite the base, not add to it;
+ *   • the base body parses LOW or modal, OR the kicked effect parses LOW or modal;
+ *   • the kicked effect needs its OWN chosen target — the cast path enumerates ONE target set shared by both
+ *     the normal + kicked casts, so a kicked-only target (none in the corpus) would need conditional target
+ *     enumeration we don't model → defer (FN-safe).
+ * — so a deferred shape stays a single LOW program → arbiter-spell, never a fabricated native credit.
+ *
+ * Detection normalizes a printed self-name ("If Runic Shot was kicked, …") to "this spell" (mirroring
+ * kicker.js's entersWithKickedCounters name-normalization), then peels the kicked sentence out of the body.
+ * The remaining base body (kicker line + kicked sentence removed) and the kicked effect are each re-parsed
+ * through the FULL clause pipeline (parseEffectClause), so both inherit the entire P2.x atom family.
+ */
+function matchKickedSpellEffect(card, cardType, oracle) {
+  // Gate 1 — a clean single mana Kicker cost (the kicker.js source of truth: rejects multikicker, "and/or",
+  // {X}, a non-mana "Kicker—Sacrifice…" cost). A non-mana / scaling kicker isn't foldable here.
+  const kickerCost = parseKickerCost({ oracle, oracle_text: oracle });
+  if (!kickerCost) return null;
+
+  // Normalize a printed self-name to "this spell" so "If <CardName> was kicked, …" also matches (mirrors
+  // entersWithKickedCounters). Reminder text is stripped so the regex sees a clean body.
+  let t = stripReminder(oracle);
+  const nm = String(card?.name || "").trim();
+  if (nm) {
+    const esc = nm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    t = t.replace(new RegExp(`\\b${esc}\\b`, "g"), "this spell");
+  }
+
+  // Gate 2 — exactly ONE "If this spell was kicked, <effect>." sentence, and extract it. Anchored to the
+  // "this spell was kicked," lead (a generic "it was kicked" is ambiguous about the subject → not matched
+  // here, FN-safe). The effect runs to the sentence end (the next ". " / ";" / end-of-text).
+  const KICKED_SENTENCE_RE = /if this spell was kicked,\s*([^.;]+)(?:[.;]|$)/i;
+  const km = t.match(KICKED_SENTENCE_RE);
+  if (!km) return null;
+  // A SECOND kicked sentence (or a "with its {…} kicker" multi-kicker selector — Illuminate) is out of scope.
+  if (t.replace(KICKED_SENTENCE_RE, " ").match(/\bwas kicked\b/i)) return null;
+  const kickedEffect = km[1].trim();
+  if (!kickedEffect) return null;
+
+  // SUFFIX GUARD — the kicked sentence must be a printed SUFFIX (the LAST sentence of the body), so the base
+  // atoms run in printed order BEFORE the kicked tail. We model the kicked tail as `[...base, ...kicked]`; if
+  // the kicked clause were printed FIRST (Fires of Victory "If this spell was kicked, draw a card. <name> deals
+  // damage equal to the number of cards in your hand."), reordering it to LAST would change a base atom that
+  // reads a resource the kicked atom mutates (the hand size) — a forbidden mis-resolution (CREED). Requiring a
+  // suffix (mirrors optionalsFormSuffix) makes the reorder a no-op → always correct. A kicked-FIRST card is a
+  // SAFE false-negative (stays arbiter-spell). Nothing but trailing whitespace/period may follow the kicked text.
+  const afterKicked = t.slice(km.index + km[0].length).replace(/[\s.;]+/g, "");
+  if (afterKicked) return null;
+
+  // Gate 3 — the kicked clause must be ADDITIVE, not a replacement / back-reference rewrite of the base.
+  // "instead" / "rather than" REPLACE the base effect (a conditional-replacement model we don't have); a
+  // back-reference ("that creature", "those creatures", "that player", "that spell", "that permanent",
+  // "that card", "that damage", "it deals", "an additional") SCALES or redirects the base result. Either way
+  // the kicked clause isn't a clean SEPARATE extra effect → defer the whole card.
+  if (/\b(?:instead|rather than)\b/i.test(kickedEffect)) return null;
+  if (/\b(?:that creature|those creatures|that player|that spell|that permanent|that card|that damage|it deals|an additional)\b/i.test(kickedEffect)) return null;
+
+  // The BASE body = oracle with the "Kicker {cost}" keyword+pips and the kicked sentence removed. `t` is the
+  // name-normalized, reminder-stripped, whitespace-COLLAPSED text (so the kicker keyword sits inline with the
+  // body on one line) — strip just the "Kicker {pips}" token (not a line) so the base effect survives, then
+  // re-parse. The {pips}+ matches a clean mana kicker (parseKickerCost already vetted it above).
+  const base = t
+    .replace(/\bkicker\s+(?:\{[^}]+\})+\s*/i, " ")          // drop the "Kicker {cost}" keyword + pips
+    .replace(KICKED_SENTENCE_RE, " ")                       // drop the kicked sentence
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!base) return null;
+
+  const baseProgram = parseEffectClause(base, cardType, { hasX: false });
+  if (!baseProgram || programConfidence(baseProgram) !== "high" || baseProgram.structure === "modal" || baseProgram.xSpell) return null;
+
+  const kickedProgram = parseEffectClause(kickedEffect, cardType, { hasX: false });
+  if (!kickedProgram || programConfidence(kickedProgram) !== "high" || kickedProgram.structure === "modal" || kickedProgram.xSpell) return null;
+
+  // Gate 4 — the kicked atoms must be TARGETLESS (no chosen target). The cast path enumerates a single
+  // target set shared by the normal + kicked casts; a kicked-only chosen target would need conditional
+  // enumeration we don't model. (Also: an `optional`/`oncePerTurn` kicked atom or a kicked additional-cost
+  // is out of scope — keep the kicked tail a plain additive sequence.)
+  if (programNeedsChosenTarget(kickedProgram)) return null;
+  if (Array.isArray(kickedProgram.additionalCosts) && kickedProgram.additionalCosts.length) return null;
+  if (kickedProgram.atoms.some((a) => a.optional)) return null;
+
+  const kickedAtoms = kickedProgram.atoms.map((a) => ({ ...a, kickedOnly: true }));
+  return { atoms: [...baseProgram.atoms, ...kickedAtoms] };
+}
+
 export function parseEffectProgram(card) {
   if (!isInstantOrSorcery(card) || !oracleOf(card)) return null;
   const oracle = stripStormKeywordLine(stripSelfCostReduction(oracleOf(card)));
+  // KICKED-SPELL-EFFECT (CR 702.33e) — "<base>. If this spell was kicked, <extra>." The kicked atom(s) are
+  // appended stamped `kickedOnly` and run ONLY on a kicked cast (runEffectProgram skips them otherwise). The
+  // kicker line + kicked sentence keep the NORMAL parse LOW, so this MUST run first. Whole-card-or-null (CREED).
+  const kicked = matchKickedSpellEffect(card, typeOf(card), oracle);
+  if (kicked && kicked.atoms.every((a) => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: kicked.atoms, xSpell: false, unparsedTail: null });
+  }
   const { costs, rest } = extractAdditionalCosts(oracle);
   // A spell that is BOTH an X-spell AND carries an additional cost is a compound we defer — the cast-path
   // X-value expansion and the victim expansion don't yet compose — so parse the FULL oracle and let the

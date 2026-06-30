@@ -48,7 +48,7 @@ import { parseActivatedAbilities, parseGrantedActivatedAbilities, sacrificeDrops
 // cards flip natively (no duplicated native-determination to drift). coverage.js does NOT import legalChoices
 // (verified — metric-only, zero runtime consumers), so this import introduces no cycle.
 import { classifyCard, isNativeTier, isNativeBestow, isKeywordOnly } from "./coverage.js";
-import { parseKickerCounterCreature, parseKickerEtbCreature } from "./kicker.js"; // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant too
+import { parseKickerCounterCreature, parseKickerEtbCreature, parseKickerCost } from "./kicker.js"; // KICKER (CR 702.33) — emit a normal + a kicked cast (kicker mana folded into the cost) when the kicker is affordable; ETB-trigger payoff variant (creatures) + kicked-SPELL-effect (instants/sorceries) too
 import { parseEmergeCard } from "./emerge.js"; // EMERGE (CR 702.97) — emit a normal hard-cast + an emerge cast per legal sacrifice victim (cost reduced by the victim's MV)
 
 // GROUP-ACTIVATED grant (queue 1) — register the modeled-body gate so the runtime path (a SIM that imports
@@ -671,6 +671,27 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
 
     const isHigh = program && programConfidence(program) === "high";
 
+    // ===== KICKED-SPELL-EFFECT (CR 702.33e) ===== a HIGH instant/sorcery program carrying a `kickedOnly` atom
+    // (the "If this spell was kicked, <extra>" additive payoff, parseEffectProgram) can be cast NORMALLY or
+    // KICKED. The kicked atoms are TARGETLESS (the parser gate guarantees it), so the per-atom target combos are
+    // IDENTICAL for both casts — the kicked variant just folds the kicker pips into the cost and stamps
+    // `kicked:true`. The dispatcher threads `kicked` onto the EFFECT_PROGRAM payload; runEffectProgram runs the
+    // kickedOnly atoms only on the kicked cast. We compute the kicker cost here (parseKickerCost = the kicker.js
+    // source of truth) + whether it's affordable on TOP of the base; the multi-atom emission below crosses each
+    // target combo with {kicked:false} and (when affordable) {kicked:true}. A free-cast (Discover) pays nothing,
+    // so the kicker is never paid (only the normal cast offered — the base still resolves; a SAFE limitation).
+    const kickedSpell = isHigh && (program.atoms || []).some((a) => a.kickedOnly);
+    let kickedSpellCost = null, kickedSpellCmc = null, kickedSpellAffordable = false;
+    if (kickedSpell && !freeCast) {
+      const kStr = parseKickerCost(card); // clean single mana cost (kicker.js gate); the program only carries kickedOnly atoms when this is non-null
+      if (kStr) {
+        const kCost = parseManaCost(kStr);
+        kickedSpellCost = mergeManaCost(cost, kCost);       // base (already taxed/reduced) + the kicker pips
+        kickedSpellCmc = printedCmc + totalCmc(kCost);      // CR 202.3b — mana value counts the kicker paid
+        kickedSpellAffordable = canAfford(player.manaPool, manaSources(state, playerId), kickedSpellCost);
+      }
+    }
+
     // ===== ADDITIONAL COSTS (cast-path, CR 601.2f) ===== a spell carrying a parser-attached additional
     // cost (`program.additionalCosts`) is paid AT CAST. Expand one cast per legal way-to-pay × the program's
     // legal target/mode combos. GATE: no legal way to pay → uncastable (continue; never offer a cast we
@@ -781,14 +802,22 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
       const choices = expandCastChoices(state, playerId, program, colorsOf(card));
       if (choices.length === 0) continue; // no legal cast (a required target is missing)
       for (const ch of choices) {
-        actions.push({
+        const common = {
           ...base,
           targets: ch.targets,
           chosenMode: ch.chosenMode ?? null,
           needsTargets: ch.targets.length > 0,
           targetName: ch.targets.map(t => t.name).filter(Boolean).join(", ") || undefined,
           modeName: ch.label || undefined,
-        });
+        };
+        // KICKED-SPELL-EFFECT: the NORMAL cast (kicked atoms skipped at resolution). For a kicked-spell, stamp
+        // kicked:false explicitly so the dispatcher/AI distinguish it from the kicked variant.
+        actions.push(kickedSpell ? { ...common, kicked: false } : common);
+        // The KICKED cast — kicker pips folded into the cost — when affordable on top of the base. Same target
+        // combo (the kicked atoms are targetless), kicked:true → runEffectProgram runs the kickedOnly tail.
+        if (kickedSpell && kickedSpellAffordable) {
+          actions.push({ ...common, cost: kickedSpellCost, cmc: kickedSpellCmc, kicked: true, kickedName: "kicked" });
+        }
       }
       continue;
     }

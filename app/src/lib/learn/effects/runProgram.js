@@ -59,7 +59,7 @@ function programAtoms(program, chosenMode) {
 
 export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
   const params = stackObject?.payload?.params || {};
-  const { program, controller, targets = [], xValue = null, sourceId = null, context = {} } = params;
+  const { program, controller, targets = [], xValue = null, sourceId = null, context = {}, kicked = false } = params;
 
   // Low confidence (or absent program) → ZERO atoms, route to the Arbiter seam.
   if (programConfidence(program) === "low") {
@@ -72,6 +72,11 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
   const cardName = stackObject?.source?.name || null;
   for (let i = startIndex; i < atoms.length; i++) {
     const atom = atoms[i];
+    // KICKED-SPELL-EFFECT (CR 702.33e) — a `kickedOnly` atom (the "If this spell was kicked, <extra>" payoff)
+    // runs ONLY when the spell was cast kicked (params.kicked). On a normal cast it's SKIPPED — never resolved,
+    // never a fabricated effect (the cardinal CREED guarantee for the not-kicked path). The base atoms (no
+    // `kickedOnly`) always run. On a kicked cast it falls through and resolves like any other atom.
+    if (atom.kickedOnly && !kicked) continue;
     // α2 — an OPTIONAL atom ("you may <effect>"): suspend so the controller decides whether to take
     // it (a real player yes/no, or AI/Expert auto-decide). resolveOptionalChoice runs-or-skips this
     // atom then resumes. Mirror the tutor/scry pause — plain JSON, serialize-safe; never resolve a
@@ -83,7 +88,8 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
           kind: "optional-effect", controller, atomIndex: i, effectOp: atom.op, cardName,
           // `context` MUST ride along — a context-dependent atom (discover X = the triggering creature's
           // toughness, via ctx.triggeringPermanentId) loses its trigger context on resume otherwise → X=0.
-          resume: { program, controller, targets, xValue, sourceId, context, chosenMode: params.chosenMode ?? null, nextAtomIndex: i, cardName },
+          // `kicked` rides along so a kicked spell whose BASE atom paused (scry/tutor) still runs its kickedOnly tail on resume.
+          resume: { program, controller, targets, xValue, sourceId, context, kicked, chosenMode: params.chosenMode ?? null, nextAtomIndex: i, cardName },
         },
       };
     }
@@ -104,7 +110,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
         ...next,
         pendingChoice: {
           ...next.pendingChoice,
-          resume: { program, controller, targets, xValue, sourceId, context, chosenMode: params.chosenMode ?? null, nextAtomIndex: i + 1, cardName },
+          resume: { program, controller, targets, xValue, sourceId, context, kicked, chosenMode: params.chosenMode ?? null, nextAtomIndex: i + 1, cardName },
         },
       };
     }
@@ -723,7 +729,7 @@ function resumeAfterChoice(state, pc) {
   if (r?.program && Array.isArray(programAtoms(r.program, r.chosenMode)) && r.nextAtomIndex < programAtoms(r.program, r.chosenMode).length) {
     const obj = {
       source: { name: r.cardName ?? pc.sourceName ?? null },
-      payload: { params: { program: r.program, controller: r.controller, targets: r.targets, xValue: r.xValue, sourceId: r.sourceId, context: r.context, chosenMode: r.chosenMode } },
+      payload: { params: { program: r.program, controller: r.controller, targets: r.targets, xValue: r.xValue, sourceId: r.sourceId, context: r.context, kicked: r.kicked ?? false, chosenMode: r.chosenMode } },
     };
     return runEffectProgram(state, obj, { startIndex: r.nextAtomIndex });
   }

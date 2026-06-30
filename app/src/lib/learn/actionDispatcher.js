@@ -434,6 +434,10 @@ function applyCastSpell(state, action) {
     const params = { program, controller: action.playerId, targets, cardId: card.id };
     if (action.chosenMode != null) params.chosenMode = action.chosenMode;
     if (action.xValue != null) params.xValue = action.xValue;
+    // KICKED-SPELL-EFFECT (CR 702.33e): a kicked cast threads the was-kicked flag so runEffectProgram runs the
+    // `kickedOnly` atoms (the "If this spell was kicked, <extra>" payoff). A normal cast leaves it unset and the
+    // kicked atoms are skipped (base-only). The kicker mana is already folded into action.cost by legalChoices.
+    if (action.kicked) params.kicked = true;
     // ADVENTURE (CR 715.3d): after the adventure spell's effect resolves, the card is EXILED (not put into
     // the graveyard like a normal instant/sorcery). Stash the FULL card + its owner on the payload so the
     // EFFECT_PROGRAM resolver appends it to exile flagged `_onAdventure` (the creature half is then castable

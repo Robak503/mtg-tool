@@ -155,8 +155,8 @@ describe("KICKER coverage — CREED anti-FP: deferred shapes stay body-only / ar
     // (programTriggerTargetsResolvable false), so triggerRoutesNatively rejects it → body-only (FN-safe CREED).
     expect(classifyCard({ name: "Gatekeeper of Malakir", type: "Creature — Vampire Warrior", mana: "{B}{B}", oracle: "Kicker {B}\nWhen this creature enters, if it was kicked, target player sacrifices a creature of their choice." })).toBe("body-only");
   });
-  it("a kicker SPELL with a kicked effect stays arbiter-spell (the spell-effect kicked pipeline is PARKED — this slice ships only the ETB-trigger payoff)", () => {
-    expect(classifyCard({ name: "Runic Shot", type: "Sorcery", mana: "{W}", oracle: "Kicker {U}\nDestroy target tapped creature. If this spell was kicked, scry 2." })).toBe("arbiter-spell");
+  it("a kicker SPELL with an ADDITIVE kicked effect is now native-spell (v0.74.0 KICKED-SPELL-EFFECT slice — destroy + scry 2)", () => {
+    expect(classifyCard({ name: "Runic Shot", type: "Sorcery", mana: "{W}", oracle: "Kicker {U}\nDestroy target tapped creature. If this spell was kicked, scry 2." })).toBe("native-spell");
   });
   it("the ETB-kicker gate does NOT claim the enters-with-counters payoff (that's parseKickerCounterCreature's) — no double-claim", () => {
     expect(parseKickerEtbCreature({ name: "Ardent Soldier", type: "Creature — Human Soldier", mana: "{1}{W}",
