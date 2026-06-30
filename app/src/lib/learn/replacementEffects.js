@@ -227,3 +227,80 @@ export function tokenMultiplier(state, recipientControllerId) {
   }
   return mult;
 }
+
+// ─── MANA-MULTIPLIER — "If you tap a permanent for mana, it produces N times as much" (CR 605.1b/616) ──────
+//
+// A REPLACEMENT effect on mana PRODUCTION: when the controller TAPS a permanent for mana, the amount of that
+// mana is multiplied. Mana Reflection ("twice as much", ×2) and Nyxbloom Ancient ("three times as much", ×3)
+// are the only two real cards with this exact template. Detection is by ANCHORED clause (not card name) so a
+// functional reprint is covered. A LEAF helper (this whole module imports nothing from the engine), consumed
+// by manaModel.manaSources at the tap site.
+//
+// SCOPE — "If YOU tap a permanent for mana": the effect belongs to the doubler's CONTROLLER and multiplies
+// the mana THEY produce by tapping. So manaMultiplier(state, playerId) is the product of every factor over
+// the multiplier permanents PLAYER controls — never an opponent's (the forbidden FP). Two stack
+// multiplicatively (Mana Reflection + Nyxbloom = ×6), exactly like two token doublers.
+//
+// TAP-ONLY (CR 605 ruling, Gatherer): the effect replaces mana from "tapping a permanent for mana". A
+// sac-for-mana source (Treasure / Gold / Eldrazi Spawn — "Sacrifice this: Add …", NO {T}) is NOT tapped for
+// mana, so it is NOT multiplied. manaModel applies this only to a source whose ability requires tapping
+// (`requiresTap`), never to a `sacrifices` one-shot. FN-safe: a non-tap source is under-counted (its base
+// amount), never over-produced.
+
+/**
+ * The mana-multiplier factor a card contributes, or null. Returns `{ factor }`:
+ *   "If you tap a permanent for mana, it produces twice as much of that mana instead."  → { factor: 2 }
+ *   "… it produces three times as much of that mana instead."                            → { factor: 3 }
+ * Anchored to the exact "tap a permanent for mana" + "N times as much" template. "you" scope is intrinsic to
+ * the template ("If YOU tap …"), so there's no global/opponent variant to model. Any other multiplier word
+ * (none appears on a real card) → null (FN-safe: an unrecognized factor is never fabricated).
+ */
+const MANA_MULT_WORD = { twice: 2, "two times": 2, "three times": 3, "four times": 4 };
+export function manaMultiplierProfile(card) {
+  const o = oracleOf(card);
+  if (!o) return null;
+  // Must be the controller-scoped tap-for-mana replacement: "if you tap a permanent for mana, it produces
+  // <N> as much of that mana instead". Capture the multiplier word and map it; an unmapped word → null.
+  const m = o.match(/if you tap a permanent for mana, it produces (twice|two times|three times|four times) as much of that mana instead/);
+  if (!m) return null;
+  const factor = MANA_MULT_WORD[m[1]];
+  return factor ? { factor } : null;
+}
+
+/**
+ * The TAP-for-mana multiplier for mana `controllerId` produces by tapping: the product of every
+ * manaMultiplierProfile factor over the permanents `controllerId` controls (×1 with none, ×2 Mana
+ * Reflection, ×3 Nyxbloom, ×6 both). Controller-scoped — an opponent's Mana Reflection never multiplies
+ * `controllerId`'s mana. Pure; applied ONCE to a source's produced amount at the tap site (manaSources).
+ */
+export function manaMultiplier(state, controllerId) {
+  let mult = 1;
+  for (const perm of state?.players?.[controllerId]?.battlefield || []) {
+    const p = manaMultiplierProfile(perm.card);
+    if (p) mult *= p.factor;
+  }
+  return mult;
+}
+
+/**
+ * COVERAGE (whole-card residue): is sentence `s` (already lowercased) the MODELED mana-multiplier clause?
+ * SINGLE SOURCE OF TRUTH shared with the coverage residue-strip (mirrors isModeledDoublerSentence) so "what
+ * we strip for the whole-card check" can't drift from "what the runtime applies". Only the exact
+ * controller-scoped tap-for-mana template the runtime multiplies returns true.
+ */
+export function isModeledManaMultiplierSentence(s) {
+  return /if you tap a permanent for mana, it produces (?:twice|two times|three times|four times) as much of that mana instead/.test(s);
+}
+
+/**
+ * Strip the MODELED mana-multiplier sentence from `oracle` for the coverage whole-card residue check (mirrors
+ * stripModeledDoublerClauses). Removes ONLY that sentence, preserving everything else (incl. reminder-text
+ * parentheticals). An unmodeled multiplier-shaped clause survives as residue → keeps its card off the native
+ * tier (CREED).
+ */
+export function stripModeledManaMultiplierClauses(oracle) {
+  return String(oracle || "").replace(
+    /(^|[\n.]\s*)([^.\n]*\.)/g,
+    (m, sep, sentence) => (isModeledManaMultiplierSentence(sentence.trim().toLowerCase()) ? sep : m),
+  );
+}

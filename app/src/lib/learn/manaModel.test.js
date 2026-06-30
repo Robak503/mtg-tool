@@ -544,3 +544,84 @@ describe("planPayment / canAfford", () => {
     }
   });
 });
+
+// ─── MANA-MULTIPLIER — tap-for-mana ×N replacement applied LIVE at the tap site (manaSources) ──────
+// Mana Reflection (×2) / Nyxbloom Ancient (×3) multiply the mana a TAP source produces, controller-scoped.
+// A non-tap source (a {2} filter, a non-tap sac like an Eldrazi Spawn) and an OPPONENT's multiplier are
+// never applied (CREED anti-FP). Detection/factor math live in replacementEffects.test.js.
+describe("manaSources — MANA-MULTIPLIER (tap-for-mana ×N, controller-scoped)", () => {
+  const lib = (card) => ({ id: card.id || `c-${card.name}`, ...card });
+  const perm = (card, { id, tapped = false, summoningSick = false } = {}) =>
+    ({ id: id || `perm-${card.name}`, card: lib(card), tapped, summoningSick });
+  const st = (mine, theirs = []) => ({ players: { user: { battlefield: mine }, opp: { battlefield: theirs } } });
+  const find = (state, id, who = "user") => manaSources(state, who).find((s) => s.permanentId === id);
+
+  const REFLECTION = "If you tap a permanent for mana, it produces twice as much of that mana instead.";
+  const NYXBLOOM = "Trample\nIf you tap a permanent for mana, it produces three times as much of that mana instead.";
+  const forest = (id) => perm({ name: "Forest", type: "Basic Land — Forest" }, { id });
+  const solRing = (id) => perm({ name: "Sol Ring", type: "Artifact", oracle: "{T}: Add {C}{C}." }, { id });
+  const ref = (id) => perm({ name: "Mana Reflection", type: "Enchantment", oracle: REFLECTION }, { id });
+  const nyx = (id) => perm({ name: "Nyxbloom Ancient", type: "Enchantment Creature — Elemental", oracle: NYXBLOOM, power: "5", toughness: "5" }, { id });
+
+  it("a basic land tapped under Mana Reflection produces 2 (NOT 1)", () => {
+    expect(find(st([forest("f"), ref("r")]), "f")).toMatchObject({ permanentId: "f", colors: ["G"], amount: 2 });
+  });
+
+  it("a basic land tapped under Nyxbloom Ancient produces 3 (NOT 1)", () => {
+    expect(find(st([forest("f"), nyx("n")]), "f")).toMatchObject({ permanentId: "f", colors: ["G"], amount: 3 });
+  });
+
+  it("Sol Ring under Mana Reflection produces 4 (its 2, doubled)", () => {
+    expect(find(st([solRing("s"), ref("r")]), "s")).toMatchObject({ permanentId: "s", amount: 4 });
+  });
+
+  it("two multipliers stack multiplicatively (Forest under Reflection + Nyxbloom → 6)", () => {
+    expect(find(st([forest("f"), ref("r"), nyx("n")]), "f")).toMatchObject({ permanentId: "f", amount: 6 });
+  });
+
+  it("no multiplier on board → unchanged base amount (no-op)", () => {
+    expect(find(st([forest("f")]), "f")).toMatchObject({ permanentId: "f", amount: 1 });
+  });
+
+  it("FP guard: an OPPONENT's Mana Reflection never multiplies this player's land", () => {
+    const state = st([forest("f")], [ref("ro")]);
+    expect(find(state, "f", "user")).toMatchObject({ permanentId: "f", amount: 1 });
+    // …but the opponent's OWN land would be multiplied (controller-scoped, not global).
+    const state2 = st([ref("ro"), forest("of")].map((p) => p), []);
+    expect(manaSources({ players: { opp: { battlefield: [ref("ro"), forest("of")] } } }, "opp").find((s) => s.permanentId === "of"))
+      .toMatchObject({ amount: 2 });
+    void state2;
+  });
+
+  it("FP guard: a NON-TAP sac source (Eldrazi Spawn) is NOT multiplied — it isn't tapped for mana", () => {
+    const spawn = perm({ name: "Eldrazi Spawn", type: "Token Creature — Eldrazi Spawn", oracle: "Sacrifice this token: Add {C}.", token: true }, { id: "sp", summoningSick: true });
+    // requiresTap:false + sacrifices → usable while sick, base amount, NOT tripled by Nyxbloom.
+    expect(find(st([spawn, nyx("n")]), "sp")).toMatchObject({ permanentId: "sp", amount: 1, sacrifices: true });
+  });
+
+  it("FP guard: a NON-TAP mana filter (Prismite '{2}: Add …') is NOT multiplied", () => {
+    const prismite = perm({ name: "Prismite", type: "Artifact Creature — Golem", oracle: "{2}: Add one mana of any color." }, { id: "p" });
+    expect(find(st([prismite, nyx("n")]), "p")).toMatchObject({ permanentId: "p", amount: 1 });
+  });
+
+  it("a {T}-cost Treasure IS multiplied (it taps for mana — CR 605 ruling)", () => {
+    const treasure = perm({ name: "Treasure", type: "Token Artifact — Treasure", oracle: "{T}, Sacrifice this token: Add one mana of any color.", token: true }, { id: "t" });
+    expect(find(st([treasure, nyx("n")]), "t")).toMatchObject({ permanentId: "t", amount: 3, sacrifices: true });
+  });
+
+  it("end-to-end: multiplied mana actually pays a spell (canAfford / planPayment)", () => {
+    const sources = manaSources(st([forest("f"), nyx("n")]), "user"); // 1 Forest ×3 = 3 green
+    expect(canAfford(EMPTY_POOL, sources, parseManaCost("{2}{G}"))).toBe(true);  // cost 3 — payable
+    expect(canAfford(EMPTY_POOL, sources, parseManaCost("{3}{G}"))).toBe(false); // cost 4 — not payable from 3
+    const plan = planPayment(EMPTY_POOL, sources, parseManaCost("{2}{G}"));
+    expect(plan.taps).toEqual([{ permanentId: "f", color: "G", amount: 3 }]);
+  });
+
+  it("a variable count source (Gaea's Cradle) is multiplied AFTER the live count resolves", () => {
+    const cradle = perm({ name: "Gaea's Cradle", type: "Legendary Land", oracle: "{T}: Add {G} for each creature you control." }, { id: "cr" });
+    const bear = (id) => perm({ name: "Bear", type: "Creature — Bear", oracle: "", power: "2", toughness: "2" }, { id });
+    // 2 creatures → count 2, then ×2 (Mana Reflection) = 4. (Nyxbloom is itself a creature here too.)
+    const state = st([cradle, bear("b1"), bear("b2"), ref("r")]);
+    expect(find(state, "cr")).toMatchObject({ permanentId: "cr", colors: ["G"], amount: 4 });
+  });
+});

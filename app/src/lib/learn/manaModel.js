@@ -35,6 +35,7 @@ import { checkSacrificeTriggers } from "./triggers.js"; // SAC-TREASURE: a crack
 import { permanentHasKeyword, grantedManaSpecsFor } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { parseAuraLandManaBonus } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST: extra mana from a "tapped for mana" aura (leaf: static parser → keywords only)
+import { manaMultiplier } from "./replacementEffects.js"; // MANA-MULTIPLIER: ×N tap-for-mana replacement (Mana Reflection/Nyxbloom; leaf, no cycle)
 
 // ─── Card → mana production ────────────────────────────────────────────────────
 
@@ -509,6 +510,11 @@ export function applyAuraManaGrantSupplement(state, perm, prod) {
 export function manaSources(state, playerId) {
   const player = state?.players?.[playerId];
   if (!player) return [];
+  // MANA-MULTIPLIER (×N tap-for-mana replacement): the product of every Mana Reflection (×2) / Nyxbloom
+  // Ancient (×3) THIS player controls — controller-scoped, computed ONCE per call (CR 605.1b/616). Applied
+  // below to TAP sources only (a sac-for-mana Treasure/Spawn is not "tapped for mana" → never multiplied).
+  // ×1 with none, so the common case is a no-op.
+  const manaMult = manaMultiplier(state, playerId);
   const sources = [];
   for (const perm of player.battlefield) {
     if (perm.tapped) continue;
@@ -544,9 +550,16 @@ export function manaSources(state, playerId) {
     // excludeSelf metric ("greatest … among OTHER creatures") drops it. A repeatable tap source with
     // a resolved amount of 0 still appears (it's a legal-but-pointless tap); the action layer
     // (actionsTapForMana) skips offering a 0-mana tap.
-    const amount = prod.amountSpec
+    const baseAmount = prod.amountSpec
       ? Math.max(0, countForSpec(state, { controller: playerId, source: perm }, prod.amountSpec))
       : prod.amount;
+    // MANA-MULTIPLIER: multiply mana from TAPPING a permanent (Mana Reflection ×2 / Nyxbloom ×3). A source
+    // is "tapped for mana" unless its ability EXPLICITLY doesn't tap (`requiresTap === false` — a pure-mana
+    // filter like Prismite "{2}: Add …", or a non-tap sac like an Eldrazi Spawn "Sacrifice this: Add {C}").
+    // Lands / basics / iconic rocks carry no `requiresTap` key (undefined) and DO tap, so they multiply; a
+    // {T}-cost Treasure (requiresTap:true) is tapped-for-mana too, so it multiplies (CR 605 ruling). The
+    // factor is ×1 when the player controls no multiplier, so this is a no-op in the common case.
+    const amount = prod.requiresTap === false ? baseAmount : baseAmount * manaMult;
     // AURA-LAND-MANA-BOOST: a LAND carrying a mana-boost Aura yields extra mana inline on tap. Only
     // lands enchant-eligible for these auras, but the helper is a no-op for non-lands (no attachments
     // parse to a land-mana bonus), so it's cheap + safe to call unconditionally.

@@ -7,7 +7,7 @@
  * bypass site (resolvers.js), all doubled; a no-doubler board is a byte-for-byte no-op (regression guard).
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { doublerProfile, isPureDoubler, applyCounterDoubling, tokenMultiplier } from "./replacementEffects.js";
+import { doublerProfile, isPureDoubler, applyCounterDoubling, tokenMultiplier, manaMultiplierProfile, manaMultiplier, stripModeledManaMultiplierClauses } from "./replacementEffects.js";
 import { _resetIdsForTests, createGameState, createPermanent, addCounter, findPermanent } from "./gameState.js";
 import { applyCreateToken } from "./effects/atoms/tokens.js";
 import { enterPermanent } from "./resolvers.js";
@@ -163,5 +163,57 @@ describe("integration — the doubling actually fires through the engine", () =>
     const out = enterPermanent(s, card, "user");
     const entered = out.players.user.battlefield.find((p) => p.card?.name === "Counter Bear");
     expect(entered.counters["+1/+1"]).toBe(4); // 2 doubled
+  });
+});
+
+// ─── MANA-MULTIPLIER — "If you tap a permanent for mana, it produces N times as much" ─────────────
+// Detection (manaMultiplierProfile) over the REAL oracle text of the only two cards with this template, the
+// controller-scoped product (manaMultiplier), and the coverage residue-strip. Runtime tap-site application is
+// tested in manaModel.test.js; the native-static classification in coverage.test.js.
+
+describe("MANA-MULTIPLIER detection + factor (manaMultiplierProfile / manaMultiplier)", () => {
+  const REFLECTION = "If you tap a permanent for mana, it produces twice as much of that mana instead.";
+  const NYXBLOOM = "Trample\nIf you tap a permanent for mana, it produces three times as much of that mana instead.";
+
+  it("Mana Reflection → factor 2; Nyxbloom Ancient → factor 3 (real oracle text)", () => {
+    expect(manaMultiplierProfile({ name: "Mana Reflection", type: "Enchantment", oracle: REFLECTION })).toEqual({ factor: 2 });
+    expect(manaMultiplierProfile({ name: "Nyxbloom Ancient", type: "Enchantment Creature — Elemental", oracle: NYXBLOOM })).toEqual({ factor: 3 });
+  });
+
+  it("non-multiplier mana cards are NOT detected (FP guard) — null profile", () => {
+    // Caged Sun / Gauntlet — "add an additional one mana" (not a multiply), plus a choose-color + anthem rider.
+    expect(manaMultiplierProfile({ name: "Caged Sun", type: "Artifact", oracle: "As this artifact enters, choose a color.\nCreatures you control of the chosen color get +1/+1.\nWhenever a land's ability causes you to add one or more mana of the chosen color, add an additional one mana of that color." })).toBeNull();
+    // Mana Flare family — triggered "adds one mana of any type that land produced" (all players, additive).
+    expect(manaMultiplierProfile({ name: "Mana Flare", type: "Enchantment", oracle: "Whenever a player taps a land for mana, that player adds one mana of any type that land produced." })).toBeNull();
+    // Doubling Cube — doubles the unspent POOL, not production (an activated ability).
+    expect(manaMultiplierProfile({ name: "Doubling Cube", type: "Artifact", oracle: "{3}, {T}: Double the amount of each type of unspent mana you have." })).toBeNull();
+    // a counter doubler ("twice that many counters") must not read as a mana multiplier.
+    expect(manaMultiplierProfile({ name: "Doubling Season", type: "Enchantment", oracle: "If an effect would put one or more counters on a permanent you control, it puts twice that many of those counters on that permanent instead." })).toBeNull();
+  });
+
+  it("manaMultiplier(state, player) is the controller-scoped product of factors", () => {
+    const lib = (c) => ({ id: c.id || `c-${c.name}`, ...c });
+    const perm = (c, id) => ({ id, card: lib(c), tapped: false });
+    const ref = (id) => perm({ name: "Mana Reflection", type: "Enchantment", oracle: REFLECTION }, id);
+    const nyx = (id) => perm({ name: "Nyxbloom Ancient", type: "Enchantment Creature — Elemental", oracle: NYXBLOOM }, id);
+    const st = (mine, theirs = []) => ({ players: { user: { battlefield: mine }, opp: { battlefield: theirs } } });
+
+    expect(manaMultiplier(st([]), "user")).toBe(1);                       // none → ×1
+    expect(manaMultiplier(st([ref("r")]), "user")).toBe(2);              // Mana Reflection → ×2
+    expect(manaMultiplier(st([nyx("n")]), "user")).toBe(3);             // Nyxbloom → ×3
+    expect(manaMultiplier(st([ref("r"), nyx("n")]), "user")).toBe(6);   // both stack multiplicatively → ×6
+    // FP guard: an OPPONENT's multiplier never affects this player.
+    expect(manaMultiplier(st([], [ref("ro")]), "user")).toBe(1);
+    expect(manaMultiplier(st([], [ref("ro")]), "opp")).toBe(2);
+  });
+
+  it("coverage residue-strip removes ONLY the modeled multiplier sentence", () => {
+    // Nyxbloom: Trample survives, the multiplier sentence is excised → keyword-only residue.
+    const stripped = stripModeledManaMultiplierClauses(NYXBLOOM);
+    expect(stripped).toContain("Trample");
+    expect(stripped).not.toMatch(/three times as much/);
+    // an unmodeled multiplier-shaped clause is NOT stripped (CREED: survives as residue).
+    expect(stripModeledManaMultiplierClauses("Whenever a player taps a land for mana, that player adds one mana of any type that land produced."))
+      .toMatch(/adds one mana/);
   });
 });

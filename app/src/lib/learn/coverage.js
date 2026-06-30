@@ -49,7 +49,7 @@ import { stripCreatedTokenAbilities } from "./manaModel.js";
 // neither imports coverage.js, so these edges are acyclic.
 import { staticEffectsOf } from "./layers.js";
 import { _registry as cardEffectsRegistry } from "./cardEffects.js";
-import { isPureDoubler, doublerProfile, stripModeledDoublerClauses } from "./replacementEffects.js"; // counter/token doublers → native (full-card)
+import { isPureDoubler, doublerProfile, stripModeledDoublerClauses, manaMultiplierProfile, stripModeledManaMultiplierClauses } from "./replacementEffects.js"; // counter/token doublers + mana multipliers → native (full-card)
 import { marksDamageToCreature, ENDSTEP_COUNTER } from "./wolverine.js"; // Wave-5a: Wolverine whole-card runtime hook
 import { parseDamageReplacements, stripDamageReplacementClauses } from "./damageReplacements.js"; // Wave-5a: source-scoped damage doubler parser + clause stripper
 import { parseXCastTokenTrigger } from "./xCastToken.js"; // X-CAST-TOKEN commander (Zaxara) — runtime hook lives in actionDispatcher (applyXCastTokenTriggers)
@@ -931,6 +931,23 @@ function doublerCardTier(card) {
   return null;
 }
 registerCoverageClassifier(doublerCardTier);
+
+// ─── MANA-MULTIPLIER — full-card coverage (mirrors doublerCardTier) ──────────────────────────────
+// A card carrying a runtime-modeled mana multiplier (manaMultiplierProfile → manaModel.manaMultiplier,
+// consulted at every tap-for-mana) is native when its NON-multiplier text is fully modeled too (CREED
+// whole-card). Two cases — neither has any activated/triggered body, so the mixed case can't arise:
+//   • pure replacement Enchantment (Mana Reflection — "If you tap a permanent for mana, it produces twice
+//     as much …") → native-static.
+//   • multiplier on a vanilla/keyword body (Nyxbloom Ancient — Trample + the ×3 replacement) → native-static.
+// ANY unmodeled residue → null → stays Arbiter/body-only. Registered via the additive WAVE-0 seam (after
+// single-mechanism tiers, before the composite catch-all), so the existing classification order is untouched.
+function manaMultiplierCardTier(card) {
+  if (!manaMultiplierProfile(card)) return null;
+  const strippedOracle = stripModeledManaMultiplierClauses(card?.oracle || "");
+  if (isKeywordOnly(strippedOracle, card?.name)) return "native-static"; // multiplier + vanilla/keyword body
+  return null;
+}
+registerCoverageClassifier(manaMultiplierCardTier);
 
 // GROUP-ACTIVATED grant (queue 1) — inject the modeled-body gate into staticAbilityParser's group-grant
 // emission (it can't import parseActivatedAbilities directly — a load-time cycle through the atoms registry).

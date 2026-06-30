@@ -364,3 +364,19 @@ describe("coverageSummary", () => {
     expect(Object.values(s.gap).reduce((a, b) => a + b, 0)).toBe(2); // conditional anthem + mill
   });
 });
+
+// MANA-MULTIPLIER full-card coverage: a card whose only non-keyword text is the modeled tap-for-mana ×N
+// replacement (Mana Reflection / Nyxbloom Ancient) is native-static; the runtime (manaModel.manaMultiplier)
+// already applies it. A non-multiplier mana card with riders (Caged Sun's choose-color + anthem, etc.) stays
+// off the native tier (CREED whole-card).
+describe("classifyCard — MANA-MULTIPLIER (native-static)", () => {
+  it("Mana Reflection (pure replacement Enchantment) → native-static", () => {
+    expect(classifyCard({ name: "Mana Reflection", type: "Enchantment", oracle: "If you tap a permanent for mana, it produces twice as much of that mana instead." })).toBe("native-static");
+  });
+  it("Nyxbloom Ancient (Trample + ×3 replacement, keyword body) → native-static", () => {
+    expect(classifyCard({ name: "Nyxbloom Ancient", type: "Enchantment Creature — Elemental", power: "5", toughness: "5", oracle: "Trample\nIf you tap a permanent for mana, it produces three times as much of that mana instead." })).toBe("native-static");
+  });
+  it("Caged Sun (choose-color + anthem + add-extra) stays body-only (PARK — riders unmodeled)", () => {
+    expect(classifyCard({ name: "Caged Sun", type: "Artifact", oracle: "As this artifact enters, choose a color.\nCreatures you control of the chosen color get +1/+1.\nWhenever a land's ability causes you to add one or more mana of the chosen color, add an additional one mana of that color." })).toBe("body-only");
+  });
+});
