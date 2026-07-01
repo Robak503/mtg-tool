@@ -2,6 +2,21 @@
 
 > master `3a4a622`, **v0.83.0 shipped** (CI building). State CLEAN + pushed · 0 agent worktrees · 0 false positives all session · every wave flip-diffed both directions for 0 regressions. Grind PAUSED at Colton's request — loop NOT re-armed.
 
+## ➡️ NEXT SESSION'S FIRST WORK — FABLE 5 CONSOLIDATION PASS
+Fable 5 is now available (temporary, premium). Before anything else, the next session runs a
+one-time **consolidation pass on Fable 5** — set `/model claude-fable-5`, then paste the master
+prompt at **docs/orchestration/FABLE5-CONSOLIDATION-PROMPT.md**. Phases: (1) full-codebase scan →
+(2) repairs → (3) write two distilled-wisdom scaffolds — `PROJECT-SCAFFOLD.md` + `ENGINE-SCAFFOLD.md`
+(so post-Fable-5 sessions can navigate/extend without it) → (4) whole-project housekeeping/rework →
+release + refresh this handoff. THEN resume the grind under the MODEL SPLIT below.
+
+## 🤖 MODEL SPLIT (decided 2026-07-01)
+Orchestrator = **Opus 4.8 @ xhigh** (judgment: CREED, integration, releases, strategy). Background
+build/verify `Agent()` workers spawn with **`model: "sonnet"`** (Sonnet 5) — omitting `model` silently
+inherits the orchestrator's model (Opus = ~1.67x cost, no gain; the flip-diff+gate verify every
+worker regardless of tier). Baked into memory/orders/clyde-13deck-grind.md. **Exception:** the Fable 5
+consolidation pass above runs its scan/scaffold workers on `model: "fable"` — one-time only.
+
 ## 📈 SESSION ARC
 - **Corpus: 8235 → 8680 native (+445)** — 24.0% → 25.4%.
 - **30 releases** (v0.54 → v0.83), all signed / auto-updating, 0 FPs.
