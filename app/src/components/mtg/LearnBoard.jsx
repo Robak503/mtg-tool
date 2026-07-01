@@ -40,8 +40,12 @@ function stackPermanents(perms) {
   return out;
 }
 
-function progressionLabel(step, stackLen, passOption, options) {
-  if (!passOption && !options.length) return null;
+function progressionLabel(step, stackLen, passOption) {
+  // No pass-priority option → no progression button (U-F15). It previously
+  // rendered with a pass-style label and dispatched options[last] — an
+  // arbitrary unrelated action. Non-pass choices stay reachable via the
+  // fallback action row and the hand/board click paths.
+  if (!passOption) return null;
   if (stackLen > 0) return "Let it resolve ▶";
   switch (step) {
     case "main": return "Pass → next phase ▶";
@@ -87,7 +91,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   const manaTapEnabled = manualMana && focused.isUser && options.some(o => o.kind === "tap-for-mana");
   const passOption = options.find(o => o.kind === "pass-priority");
   const stackLen = (board?.stack || []).length;
-  const progLabel = progressionLabel(step, stackLen, passOption, options);
+  const progLabel = progressionLabel(step, stackLen, passOption);
   const legalTargetIds = targeting ? new Set(targeting.options.flatMap(o => (o.targets || []).map(t => t.id))) : null;
   // A stacked tile's own .id is just its FIRST member's id, but the engine may
   // offer a LATER copy as the legal target — check every member and remember
@@ -123,7 +127,6 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   };
   const clickProgress = () => {
     if (passOption) onAction(passOption);
-    else if (options.length) onAction(options[options.length - 1]);
   };
 
   return (
