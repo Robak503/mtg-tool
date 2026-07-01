@@ -100,9 +100,16 @@ function streamModelPull(model) {
         }
       };
 
+      // Resolve the absolute binary path the same way GET/health do: right
+      // after a fresh winget install the running Node process's PATH does NOT
+      // yet include the new install dir, so a bare "ollama" spawn ENOENTs
+      // even though the binary is on disk — exactly the moment this route
+      // exists for. Fall back to a PATH lookup only when the well-known
+      // install locations turn up nothing.
+      const ollamaBin = findOllamaBinary() || "ollama";
       let proc;
       try {
-        proc = spawn("ollama", ["pull", model], { windowsHide: true, shell: false });
+        proc = spawn(ollamaBin, ["pull", model], { windowsHide: true, shell: false });
       } catch (e) {
         send({ error: `Failed to spawn ollama: ${e.message || e}` });
         send({ done: true, exitCode: -1 });

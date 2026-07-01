@@ -102,3 +102,86 @@ describe("/api/install-ollama", () => {
     }
   });
 });
+
+describe("pull-model binary resolution (S-P3)", () => {
+  it("spawns the absolute Ollama path from findOllamaBinary, not bare 'ollama'", async () => {
+    const original = process.platform;
+    Object.defineProperty(process, "platform", { value: "win32", configurable: true });
+    const spawnCalls = [];
+    try {
+      vi.resetModules();
+      vi.doMock("../../../lib/server/ollamaBinary.js", () => ({
+        findOllamaBinary: () => "C:\Fake\Ollama\ollama.exe",
+      }));
+      vi.doMock("node:child_process", () => ({
+        spawn: (cmd, args, opts) => {
+          spawnCalls.push({ cmd, args, opts });
+          // Minimal fake child process: emits close immediately.
+          return {
+            stdout: { on: () => {} },
+            stderr: { on: () => {} },
+            on: (event, cb) => {
+              if (event === "close") setTimeout(() => cb(0), 0);
+            },
+          };
+        },
+      }));
+      const mod = await import("./route.js");
+      const req = new Request("http://localhost/api/install-ollama", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "pull-model", model: "qwen2.5:14b" }),
+      });
+      const resp = await mod.POST(req);
+      expect(resp.status).toBe(200);
+      // Drain the SSE stream so the fake child's close event flushes through.
+      await resp.text();
+      expect(spawnCalls).toHaveLength(1);
+      expect(spawnCalls[0].cmd).toBe("C:\Fake\Ollama\ollama.exe");
+      expect(spawnCalls[0].args).toEqual(["pull", "qwen2.5:14b"]);
+    } finally {
+      Object.defineProperty(process, "platform", { value: original, configurable: true });
+      vi.doUnmock("node:child_process");
+      vi.doUnmock("../../../lib/server/ollamaBinary.js");
+      vi.resetModules();
+    }
+  });
+
+  it("falls back to bare 'ollama' when no install location is found", async () => {
+    const original = process.platform;
+    Object.defineProperty(process, "platform", { value: "win32", configurable: true });
+    const spawnCalls = [];
+    try {
+      vi.resetModules();
+      vi.doMock("../../../lib/server/ollamaBinary.js", () => ({
+        findOllamaBinary: () => null,
+      }));
+      vi.doMock("node:child_process", () => ({
+        spawn: (cmd, args) => {
+          spawnCalls.push({ cmd, args });
+          return {
+            stdout: { on: () => {} },
+            stderr: { on: () => {} },
+            on: (event, cb) => {
+              if (event === "close") setTimeout(() => cb(0), 0);
+            },
+          };
+        },
+      }));
+      const mod = await import("./route.js");
+      const req = new Request("http://localhost/api/install-ollama", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "pull-model", model: "qwen2.5:14b" }),
+      });
+      const resp = await mod.POST(req);
+      await resp.text();
+      expect(spawnCalls[0].cmd).toBe("ollama");
+    } finally {
+      Object.defineProperty(process, "platform", { value: original, configurable: true });
+      vi.doUnmock("node:child_process");
+      vi.doUnmock("../../../lib/server/ollamaBinary.js");
+      vi.resetModules();
+    }
+  });
+});
