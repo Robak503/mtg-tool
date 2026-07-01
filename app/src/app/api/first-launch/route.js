@@ -10,10 +10,9 @@
  * "Fresh install" is detected by the absence of a marker file
  * (.first-launch-marker.json). That marker is written when the user
  * either imports successfully or explicitly dismisses the prompt.
- * We don't check for decks.local.json because /api/decks auto-creates
- * it from a built-in seed on first GET — so any "does decks exist"
- * check is racy: the wizard may or may not appear depending on which
- * endpoint the browser calls first.
+ * We deliberately do NOT infer freshness from decks.local.json existing:
+ * the file is created lazily on first save (no seeding exists), so its
+ * absence only means "no decks yet", not "fresh install".
  *
  * GET:  returns { needsBootstrap, currentDataDir, suggestedSource }
  * POST { sourcePath }: copies *.local.json + feedback/ + games/ +

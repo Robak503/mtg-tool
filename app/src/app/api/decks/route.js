@@ -33,8 +33,9 @@ async function readDeckFile() {
     return Array.isArray(decks) ? decks.map(normalizeDeck) : [];
   } catch {
     // Corrupted JSON (interrupted write, disk glitch). Back up the broken
-    // file and start empty rather than 500-ing every deck read forever; the
-    // seed decks re-merge on this same request, so the user isn't left blank.
+    // file and start empty rather than 500-ing every deck read forever.
+    // Nothing re-seeds the library (the old starter-deck seed is gone): the
+    // user recovers via the renamed .broken-* copy or a saved backup.
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     try {
       await fs.rename(target, profilePath(`decks.local.broken-${stamp}.json`));
@@ -46,9 +47,9 @@ async function readDeckFile() {
   }
 }
 
-// Serialize writes through a promise chain so a debounced client save can't
-// interleave with the GET-triggered seed-merge write and silently clobber it
-// (read-modify-write race). One failed write must not poison the next.
+// Serialize writes through a promise chain so two concurrent saves (e.g. a
+// debounced client save racing an import's save) can't interleave and
+// silently clobber each other. One failed write must not poison the next.
 let writeChain = Promise.resolve();
 
 async function writeDeckFile(decks) {
@@ -117,8 +118,8 @@ export async function POST(request) {
       return Response.json({ error: "Request body must include a decks array." }, { status: 400 });
     }
 
-    // Save exactly what the client sends — no seed re-merge (that would re-add
-    // the shared seed library to whatever profile is active).
+    // Save exactly what the client sends — no server-side merging of any kind
+    // (deck seeding no longer exists; the client owns the full library state).
     const decks = body.decks.map(normalizeDeck);
     const backupPath = body.createBackup ? await createBackup(body.reason || "manual") : null;
     const saved = await writeDeckFile(decks);
