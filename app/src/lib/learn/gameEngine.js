@@ -36,6 +36,7 @@ import {
   resetCreatureDeathsAllPlayers,
   untapAll,
   clearCombatDamage,
+  clearRemovedFromCombatFlags,
   logEvent,
   mintId,
   opponentsOf,
@@ -263,10 +264,12 @@ export function runStepActions(state) {
       break;
 
     case "beginning-of-combat":
-      // Start each combat from a clean slate (ensureCombat never resets, and
-      // clearCombat was never wired in — combat assignments would otherwise leak
-      // across turns and pile onto the next attack).
+      // Start each combat from a clean slate (ensureCombat never resets —
+      // combat assignments would otherwise leak across turns and pile onto the
+      // next attack). Defensively drop any stale removedFromCombat flags too
+      // (end-of-combat is the real clearing point; this guards odd paths).
       next = { ...next, combat: { ...EMPTY_COMBAT } };
+      next = clearRemovedFromCombatFlags(next);
       next = logEvent(next, { kind: "step", phase: "combat", step: "beginning-of-combat", player: state.activePlayer });
       break;
 
@@ -289,6 +292,9 @@ export function runStepActions(state) {
 
     case "end-of-combat":
       next = { ...next, combat: { ...EMPTY_COMBAT } };
+      // REGEN (CR 701.15a): removal-from-combat lasts only this combat — clear the per-permanent
+      // removedFromCombat flag here so combatResolution stops skipping the creature in later combats.
+      next = clearRemovedFromCombatFlags(next);
       next = logEvent(next, { kind: "step", phase: "combat", step: "end-of-combat", player: state.activePlayer });
       break;
 

@@ -11,6 +11,7 @@ import { parseEffectClause } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
 import { applyDestroyEffect, parseSpellEffect } from "./spellEffects.js";
 import { resolveCombatDamage } from "./combatResolution.js";
+import { runStepActions } from "./gameEngine.js";
 import { clearCombat } from "./actionDispatcher.js";
 import { _resetIdsForTests, createGameState, createPermanent, destroyLethalCreatures, clearCombatDamage, findPermanent } from "./gameState.js";
 
@@ -177,5 +178,31 @@ describe("REGEN — CR 701.15a: a regenerated creature is REMOVED FROM COMBAT (n
     const afterFS = resolveCombatDamage(fsCombat(), { firstStrikeStep: true });
     expect(findPermanent(afterFS, "att").permanent.removedFromCombat).toBe(true);
     expect(findPermanent(clearCombat(afterFS), "att").permanent.removedFromCombat).toBe(false);
+  });
+
+  it("PRODUCTION path: the engine's end-of-combat reset clears the flag, so the NEXT combat deals damage again", () => {
+    // The engine resets combat via runStepActions (clearCombat is test-only) — before the fix the flag
+    // survived every end-of-combat and the creature attacked/tapped but dealt 0 for the rest of the game.
+    const afterFS = resolveCombatDamage(fsCombat(), { firstStrikeStep: true });
+    expect(findPermanent(afterFS, "att").permanent.removedFromCombat).toBe(true);
+
+    const atEoc = runStepActions({ ...afterFS, phase: "combat", step: "end-of-combat", activePlayer: "user" });
+    expect(findPermanent(atEoc, "att").permanent.removedFromCombat).toBe(false);
+    expect(atEoc.combat.attackers).toEqual([]);
+
+    // NEXT combat: the regenerated creature attacks unblocked — it must deal its 5 damage again.
+    const nextCombat = {
+      ...atEoc,
+      players: { ...atEoc.players, user: { ...atEoc.players.user, battlefield: atEoc.players.user.battlefield.map(p => ({ ...p, tapped: false })) } },
+      combat: { attackers: [{ permanentId: "att", attackingPlayer: "user", defender: "ai" }], blockers: [] },
+    };
+    const afterNext = resolveCombatDamage(nextCombat, { firstStrikeStep: false });
+    expect(afterNext.players.ai.life).toBe(35); // 40 - 5 (the bug left this at 40 forever)
+  });
+
+  it("beginning-of-combat defensively drops a stale removed-from-combat flag too", () => {
+    const afterFS = resolveCombatDamage(fsCombat(), { firstStrikeStep: true });
+    const atBoc = runStepActions({ ...afterFS, phase: "combat", step: "beginning-of-combat", activePlayer: "user" });
+    expect(findPermanent(atBoc, "att").permanent.removedFromCombat).toBe(false);
   });
 });

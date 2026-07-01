@@ -916,8 +916,9 @@ export function addRegenShield(state, permanentId) {
  * battlefield, never entering the dead set). The `removedFromCombat` flag — set only while a combat is active —
  * makes combatResolution skip the creature as both a damage dealer and receiver in any LATER damage step this
  * combat, so a creature regenerated in the first-strike sub-step can't deal/take damage again in the regular
- * sub-step. The flag is transient: clearCombat wipes it at end of combat so it attacks/blocks normally next
- * time. (Outside combat — e.g. a Destroy spell in a main phase — no flag is set: there's no combat to leave.) */
+ * sub-step. The flag is transient: the engine wipes it via clearRemovedFromCombatFlags when combat ends (and
+ * defensively at beginning-of-combat), so it attacks/blocks normally next time. (Outside combat — e.g. a
+ * Destroy spell in a main phase — no flag is set: there's no combat to leave.) */
 export function regeneratePermanent(state, permanentId) {
   const inCombat = (state.combat?.attackers?.length || 0) > 0;
   return updatePermanent(state, permanentId, p => ({
@@ -927,6 +928,25 @@ export function regeneratePermanent(state, permanentId) {
     tapped: true,
     ...(inCombat ? { removedFromCombat: true } : {}),
   }));
+}
+
+/** Clear the transient `removedFromCombat` flag on every permanent (CR 701.15a — removal from combat lasts
+ * only for the combat it happened in). Called by the engine when it resets combat at end-of-combat (and
+ * defensively at beginning-of-combat) and by actionDispatcher.clearCombat, so a creature regenerated
+ * mid-combat deals/takes damage normally in every later combat. Cheap: only rebuilds a player whose board
+ * actually carries the flag; returns the same state object when no flag is set anywhere. */
+export function clearRemovedFromCombatFlags(state) {
+  let changed = false;
+  const players = {};
+  for (const [pid, player] of Object.entries(state.players)) {
+    if (player.battlefield?.some(p => p.removedFromCombat)) {
+      changed = true;
+      players[pid] = { ...player, battlefield: player.battlefield.map(p => (p.removedFromCombat ? { ...p, removedFromCombat: false } : p)) };
+    } else {
+      players[pid] = player;
+    }
+  }
+  return changed ? { ...state, players } : state;
 }
 
 /**
