@@ -1,6 +1,6 @@
 # Phase 7 — Maximal-Fidelity Engine Rebuild + Persistence
 
-**Status:** PLANNED (roadmap locked 2026-06-06). Implementation not yet started.
+**Status:** IN PROGRESS / largely SHIPPED (as of 2026-07-01). Phase 1 landed through v0.25.0; Phase 2+ (triggers, activated/static abilities, CR 613 layers, the coverage grind) shipped through v0.83+. This doc is the original design record — see CHANGELOG.md + docs/orchestration/ENGINE-SCAFFOLD.md for current reality.
 **Owner:** Colton.
 **Supersedes / absorbs:** the remaining open Phase-6 PRs — PR 12 (Expert post-game
 analysis) and PR 13 (learn-session persistence) land inside this plan's **Phase 3**.

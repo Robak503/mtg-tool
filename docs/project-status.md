@@ -1,3 +1,5 @@
+> ⚠️ **SUPERSEDED / HISTORICAL (2026-07-01).** This document is many releases behind. Resume from **docs/orchestration/WAKE-REPORT.md** and the architecture scaffolds (**docs/orchestration/PROJECT-SCAFFOLD.md**, **docs/orchestration/ENGINE-SCAFFOLD.md**); **CHANGELOG.md** is authoritative for shipped state. Kept for history — the Shipped/Open snapshot is ~50 releases stale.
+
 <!-- Relocated from CLAUDE.md §9 on 2026-06-24 to keep the always-loaded operating manual lean.
      This is the canonical copy; CLAUDE.md §9 links here. Load on demand. -->
 

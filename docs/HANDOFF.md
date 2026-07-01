@@ -1,3 +1,5 @@
+> ⚠️ **SUPERSEDED / HISTORICAL (2026-07-01).** This document is many releases behind. Resume from **docs/orchestration/WAKE-REPORT.md** and the architecture scaffolds (**docs/orchestration/PROJECT-SCAFFOLD.md**, **docs/orchestration/ENGINE-SCAFFOLD.md**); **CHANGELOG.md** is authoritative for shipped state. Kept for history — its "next steps" (counter-target-spell etc.) shipped across v0.55–v0.83.
+
 # MTG Tool — Project Handoff & Next Steps
 
 > **Tactical "where we are / what's next" doc.** Start any new chat by reading

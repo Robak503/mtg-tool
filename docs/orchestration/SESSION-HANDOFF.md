@@ -1,3 +1,5 @@
+> ⚠️ **SUPERSEDED / HISTORICAL (2026-07-01).** This document is many releases behind. Resume from **docs/orchestration/WAKE-REPORT.md** and the architecture scaffolds (**docs/orchestration/PROJECT-SCAFFOLD.md**, **docs/orchestration/ENGINE-SCAFFOLD.md**); **CHANGELOG.md** is authoritative for shipped state. Kept for history — it was the 2026-06-28 pause anchor and its "Read this FIRST" line no longer applies.
+
 # SESSION HANDOFF — Clyde deck-focus run (paused 2026-06-28)
 
 > **Read this FIRST in the new chat.** Colton paused this loop to start a fresh chat (the old one got too long).
