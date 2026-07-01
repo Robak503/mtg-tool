@@ -429,6 +429,14 @@ function applyTimePressure(state, cfg) {
  * would risk spinning — so we force a pass instead. Uses DISTINCT combat
  * permanent counts (not raw lengths) so a re-declare-style loop, which would
  * grow a raw length, is still caught as no-progress.
+ *
+ * The mid-resolution pending windows (free-cast / cascade / discover) are part
+ * of the signature: RESOLVING one (e.g. a free-cast DECLINE, which may change
+ * nothing else) IS progress — without these bits the latch would roll a decline
+ * back to a force-pass on the pre-decline state, resurrecting the pending flag
+ * forever (the livelock this guards against). A pending flag is one-way per
+ * window (cleared by exactly one action, re-set only by a new spell that also
+ * changes the stack), so it can never make a genuine no-op loop look live.
  */
 function progressSignature(state) {
   const active = state.players[state.activePlayer];
@@ -437,10 +445,11 @@ function progressSignature(state) {
   const bfCount = Object.values(state.players).reduce((sum, p) => sum + p.battlefield.length, 0);
   const distinctAttackers = new Set((state.combat?.attackers || []).map(a => a.permanentId)).size;
   const distinctBlockers = new Set((state.combat?.blockers || []).map(b => b.blockerId)).size;
+  const pendings = (state.pendingFreeCast ? 1 : 0) + (state.pendingCascade ? 2 : 0) + (state.pendingDiscover ? 4 : 0);
   return [
     state.turn, state.phase, state.step,
     distinctAttackers, distinctBlockers, state.stack.length,
-    handCount, poolTotal, bfCount,
+    handCount, poolTotal, bfCount, pendings,
   ].join("|");
 }
 
@@ -1248,9 +1257,16 @@ export function advanceUntilDecision(
 
     // Auto-decided — apply and continue.
     if (!decision.action) {
-      // No legal action and no auto-pick — defensively pass.
+      // No legal action and no auto-pick — defensively pass. BUT: a mid-resolution pending
+      // window (free-cast / cascade / discover) offers NO pass-priority, and force-passing
+      // would leave the pending flag set forever — legalChoices keeps returning only that
+      // window and the game wedges (a timePressure drain would then mint a fake W/L from a
+      // wedged game). If the offered set carries the window's safe non-cast resolution
+      // (decline / to-hand), dispatch THAT instead: it clears the flag and play proceeds.
+      const declineKinds = new Set(["free-cast-decline", "cascade-decline", "discover-to-hand"]);
+      const fallback = actions.find(a => declineKinds.has(a.kind)) || { kind: "pass-priority", playerId: actor };
       try {
-        current = { ...current, state: dispatchAction(state, { kind: "pass-priority", playerId: actor }) };
+        current = { ...current, state: dispatchAction(state, fallback) };
       } catch {
         return {
           session: current,

@@ -403,6 +403,18 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null } = {}
     return pick || actions.find(a => a.kind === "cascade-decline") || actions[0] || null;
   }
 
+  // FREE-CAST (CR 601.2b) — a pending free-cast decision short-circuits everything (legalChoices offers ONLY
+  // the free-cast candidates + a decline; there is NO pass-priority in this window). Cast the best candidate
+  // free when pickCastAction likes one; when EVERY offered candidate is a held type (a counterspell, a wipe,
+  // a fog, an Aura) or scores badly, take the DECLINE. Returning null here would make the session driver
+  // force-pass WITHOUT clearing pendingFreeCast — legalChoices would keep offering only this window and the
+  // game would wedge for good. Mirrors the discover / cascade branches above.
+  if (state.pendingFreeCast && state.pendingFreeCast.controller === aiPlayerId) {
+    const castOpts = filterActions(actions, "cast-spell");
+    const pick = castOpts.length ? pickCastAction(state, aiPlayerId, castOpts, archetype) : null;
+    return pick || actions.find(a => a.kind === "free-cast-decline") || actions[0] || null;
+  }
+
   // Combat is a batch decision, but the driver applies one action per tick.
   // We compute the plan and return its first still-legal choice; declared
   // attackers/blockers are excluded from the legal set next tick (attackers

@@ -27,6 +27,7 @@ import { parseEffectClause, parseEffectProgram, programConfidence } from "./effe
 import { freeCastClauseParser, freeCastEligible } from "./effects/atoms/freeCast.js";
 import { classifyCard } from "./coverage.js";
 import { pickAction } from "./opponentAI.js";
+import { createLearnSession, advanceUntilDecision } from "./learnSession.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -198,5 +199,41 @@ describe("free-cast action layer — the cast-or-decline decision (CR 601.2b)", 
     const acts = legalActionsForPlayer(st, "user"); // pf.controller is "user" in this fixture
     const action = pickAction(st, "user", acts);
     expect(action).toBeTruthy(); // an action is always available (cast-free or decline) — the AI never wedges
+  });
+
+  it("the AI DECLINES (not null) when every free-cast candidate is a HELD type — no livelock", () => {
+    // A symmetric wipe IS enumerable in the window but pickCastAction HOLDS it (programContainsMassRemoval).
+    // Before the fix pickAction fell through to `find pass-priority` → undefined (this window has no pass),
+    // the driver force-passed WITHOUT clearing pendingFreeCast, and the game wedged in this window forever.
+    const wipe = { id: "w1", name: "Day of Judgment", type: "Sorcery", oracle: "Destroy all creatures.", mana: "{2}{W}{W}" };
+    const st = midFreeCast([wipe]);
+    const acts = legalActionsForPlayer(st, "user");
+    expect(filterActions(acts, "cast-spell").length).toBeGreaterThan(0); // the wipe IS offered…
+    const action = pickAction(st, "user", acts);
+    expect(action?.kind).toBe("free-cast-decline"); // …but the AI takes the decline, never null
+    const after = dispatchAction(st, action);
+    expect(after.pendingFreeCast).toBeFalsy(); // flag cleared — the game proceeds
+    expect(after.players.user.hand.map((c) => c.id)).toEqual(["w1"]); // declined, not cast
+  });
+
+  it("DRIVER: an AI-seat pending free-cast with only held candidates resolves via decline — the game does not wedge", () => {
+    const forest = (i) => ({ id: `f-${i}`, name: "Forest", type: "Basic Land — Forest", oracle: "{T}: Add {G}.", mana: "" });
+    const deck = (p) => Array.from({ length: 30 }, (_, i) => forest(`${p}-${i}`));
+    let session = createLearnSession({ userDeck: deck("u"), opponentDeck: deck("a"), difficulty: "beginner" });
+    const wipe = { id: "w9", name: "Day of Judgment", type: "Sorcery", oracle: "Destroy all creatures.", mana: "{2}{W}{W}" };
+    session = {
+      ...session,
+      state: {
+        ...session.state,
+        activePlayer: "ai", phase: "precombat-main", step: "main", priorityHolder: "ai", consecutivePasses: 0,
+        players: { ...session.state.players, ai: { ...session.state.players.ai, hand: [...session.state.players.ai.hand, wipe] } },
+        pendingFreeCast: { controller: "ai", candidateIds: ["w9"], maxMv: 5, typeFilter: null, sourceName: "Expertise" },
+      },
+    };
+    const { session: after, decision } = advanceUntilDecision(session);
+    expect(after.state.pendingFreeCast).toBeFalsy();                              // the window resolved
+    expect(decision.kind).not.toBe("engine-stuck");
+    expect(after.status).toBe("active");                                          // not a drained / wedged game
+    expect(after.state.players.ai.hand.some((c) => c.id === "w9")).toBe(true);    // declined, not cast
   });
 });
