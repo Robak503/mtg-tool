@@ -96,7 +96,7 @@ You must:
 Run verification after big changes or batches of small changes — not
 after every edit. Verification means:
 
-- `npm test` in `app/` passes (currently ~350 vitest cases)
+- `npm test` in `app/` passes (currently ~6,300 vitest cases)
 - `cargo check --release` in `app/src-tauri/` passes
 - For UI changes: `npm run dev` in `app/` boots cleanly at
   http://localhost:3000
@@ -168,7 +168,7 @@ mtg-tool.exe                              ← Rust Tauri shell
 | `<install>\resources\node\node.exe` | Bundled Node 22 (~79 MB) | No |
 | `<install>\resources\server\` | Next.js standalone bundle | No |
 | `<install>\resources\knowledge\mtg-judge\` | Rules codex (CR JSON + RulesGuru cases) | No |
-| `<install>\resources\knowledge\mtg-engine\` | Rule layer markdown (96 files) | No |
+| `<install>\resources\knowledge\mtg-engine\` | Rule layer markdown (~92 files) | No |
 | `<install>\resources\data\` | Bundled reference data snapshot | No |
 | `<install>\resources\scripts\` | Sync scripts (Scryfall, Spellbook, salt) | No |
 | `<install>\resources\frontend-placeholder\` | Loading screen | No |
@@ -336,14 +336,14 @@ MTG-TOOL/
 │  │  │  │  ├─ first-launch/           ← Import wizard
 │  │  │  │  ├─ install-ollama/         ← Ollama + model winget install
 │  │  │  │  ├─ sync-data/              ← In-app data refresh
-│  │  │  │  └─ ...                     ← (~16 routes total)
+│  │  │  │  └─ ...                     ← (~37 route dirs total)
 │  │  ├─ components/
 │  │  │  ├─ MTGAssistant.jsx           ← Main shell (banners, modal wiring)
-│  │  │  ├─ UpdatesModal.jsx           ← Updates panel
+│  │  │  │  └─ mtg/UpdatesModal.jsx    ← Updates panel (under components/mtg/)
 │  │  │  └─ mtg/                       ← Per-feature components
 │  │  ├─ lib/
 │  │  │  ├─ agents.js                  ← Jace/Karn/Tibalt/Arbiter prompts
-│  │  │  ├─ deckMemory.js              ← Deck parsing + storage
+│  │  │  ├─ deck/deckMemory.js         ← Deck parsing + storage (under lib/deck/)
 │  │  │  ├─ server/
 │  │  │  │  ├─ paths.js                ← THE path resolution module
 │  │  │  │  ├─ cardIndex.js            ← Scryfall card lookups
@@ -375,7 +375,7 @@ MTG-TOOL/
 │  ├─ mtg-judge/                       ← Rules codex (CR JSON + test corpus; clones gitignored)
 │  │  ├─ META_test_cases_rulesguru.md  ← RulesGuru test cases
 │  │  └─ data/cr/cr_current.json       ← Comprehensive Rules JSON
-│  └─ mtg-engine/                      ← Rule layer markdown (96 files)
+│  └─ mtg-engine/                      ← Rule layer markdown (~92 files)
 ├─ scripts/finish-p0.ps1               ← One-shot repo+secrets setup (now consumed)
 ├─ CLAUDE.md                           ← This file
 ├─ README.md
@@ -493,7 +493,7 @@ These are absolute. Violating any of these is a failure mode.
 
 ## 9. PROJECT STATUS (LIVING SNAPSHOT)
 
-> The Shipped / Open / Declined snapshot moved to [docs/project-status.md](docs/project-status.md). Actionable next steps + copy-paste "what's next" prompts live in [docs/HANDOFF.md](docs/HANDOFF.md) — start a new chat by reading it.
+> **Start a new chat by reading [docs/orchestration/WAKE-REPORT.md](docs/orchestration/WAKE-REPORT.md)** (the live resume anchor) plus the two architecture scaffolds — [docs/orchestration/PROJECT-SCAFFOLD.md](docs/orchestration/PROJECT-SCAFFOLD.md) (whole system) and [docs/orchestration/ENGINE-SCAFFOLD.md](docs/orchestration/ENGINE-SCAFFOLD.md) (the rules engine + how to add a mechanic). `CHANGELOG.md` is authoritative for shipped state. (The older `docs/HANDOFF.md` and `docs/project-status.md` are historical — many releases behind.)
 
 ## 10. THE PRIME DIRECTIVE (RESTATED)
 
