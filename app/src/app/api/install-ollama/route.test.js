@@ -111,7 +111,7 @@ describe("pull-model binary resolution (S-P3)", () => {
     try {
       vi.resetModules();
       vi.doMock("../../../lib/server/ollamaBinary.js", () => ({
-        findOllamaBinary: () => "C:\Fake\Ollama\ollama.exe",
+        findOllamaBinary: () => "C:\\Fake\\Ollama\\ollama.exe",
       }));
       vi.doMock("node:child_process", () => ({
         spawn: (cmd, args, opts) => {
@@ -137,7 +137,7 @@ describe("pull-model binary resolution (S-P3)", () => {
       // Drain the SSE stream so the fake child's close event flushes through.
       await resp.text();
       expect(spawnCalls).toHaveLength(1);
-      expect(spawnCalls[0].cmd).toBe("C:\Fake\Ollama\ollama.exe");
+      expect(spawnCalls[0].cmd).toBe("C:\\Fake\\Ollama\\ollama.exe");
       expect(spawnCalls[0].args).toEqual(["pull", "qwen2.5:14b"]);
     } finally {
       Object.defineProperty(process, "platform", { value: original, configurable: true });
