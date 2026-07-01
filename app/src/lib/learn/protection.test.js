@@ -114,7 +114,21 @@ describe("KW-PROTECTION — DAMAGE in combat (CR 702.16e)", () => {
     expect(permByName(out, "ai", "Paladin").damageMarked).toBe(3); // not prevented (blue ≠ red)
   });
 
-  it("a red attacker with trample blocked by a protection-from-red creature tramples its FULL power (702.19e)", () => {
+  it("trample vs a protected blocker: lethal is still ASSIGNED to it (CR 510.1c-d / 702.19d) — only the EXCESS tramples", () => {
+    // The canonical case: a 5/5 red trampler blocked by a 2/2 pro-red. Assignment ignores prevention,
+    // so 2 is assigned to the blocker (dealt 0 — prevented) and only 3 tramples through.
+    const redAtt = creature("Trampler", 5, 5, "user", { colors: ["R"], oracle: "Trample" });
+    const blk = creature("Guard", 2, 2, "ai", { colors: ["W"], oracle: "Protection from red" });
+    const out = resolveCombatDamage(combatState({ userBf: [redAtt], aiBf: [blk] }, {
+      attackers: [{ permanentId: redAtt.id, attackingPlayer: "user", defender: "ai" }],
+      blockers: [{ blockerId: blk.id, blockingPlayer: "ai", attackerId: redAtt.id }],
+    }));
+    expect(permByName(out, "ai", "Guard").damageMarked || 0).toBe(0); // prevented — takes nothing
+    expect(out.players.ai.life).toBe(37); // 5 power - 2 assigned lethal = 3 tramples (NOT the full 5)
+  });
+
+  it("trample vs a protected blocker whose lethal need EXCEEDS the power: nothing tramples", () => {
+    // A 0/6 pro-red wall soaks the whole 5-power assignment (lethal need 6 > 5) — 0 to the player.
     const redAtt = creature("Trampler", 5, 5, "user", { colors: ["R"], oracle: "Trample" });
     const blk = creature("Wall", 0, 6, "ai", { colors: ["W"], oracle: "Protection from red" });
     const out = resolveCombatDamage(combatState({ userBf: [redAtt], aiBf: [blk] }, {
@@ -122,7 +136,7 @@ describe("KW-PROTECTION — DAMAGE in combat (CR 702.16e)", () => {
       blockers: [{ blockerId: blk.id, blockingPlayer: "ai", attackerId: redAtt.id }],
     }));
     expect(permByName(out, "ai", "Wall").damageMarked || 0).toBe(0); // prevented
-    expect(out.players.ai.life).toBe(35); // 5 power assigned 0 to the protected blocker → full 5 tramples
+    expect(out.players.ai.life).toBe(40); // fully absorbed by the required assignment
   });
 
   it("is behavior-neutral for a normal (no-protection) creature", () => {

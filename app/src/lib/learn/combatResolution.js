@@ -278,12 +278,18 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     if (liveBlockers.length > 0) {
       let remaining = power;
       for (const blk of liveBlockers) {
-        // KW-PROTECTION (CR 702.16e + 702.19e): a blocker with protection from the attacker's color is
-        // assigned NO damage — it takes 0, and (for trample) absorbs nothing, so the full power tramples.
-        if (protectionPrevents(blk.permanent.id, attackerColors)) continue;
         const already = blk.permanent.damageMarked || 0;
         // Deathtouch makes 1 damage lethal; otherwise lethal = remaining toughness.
         const lethalNeed = deathtouch ? 1 : Math.max(1, creatureToughness(blk.permanent, state) - already);
+        // KW-PROTECTION (CR 702.16e): a blocker with protection from the attacker's color has the damage
+        // PREVENTED — it is dealt 0. But damage ASSIGNMENT ignores prevention (CR 510.1c-d / 702.19d:
+        // "not any abilities or effects that might change the amount of lethal damage"), so the blocker
+        // still absorbs its lethal share before anything can trample past it: a 5/5 red trampler blocked
+        // by a 2/2 pro-red deals 3 to the player, not 5.
+        if (protectionPrevents(blk.permanent.id, attackerColors)) {
+          remaining -= Math.min(remaining, lethalNeed);
+          continue;
+        }
         const give = Math.min(remaining, lethalNeed);
         // DAMAGE-REPLACEMENT (CR 614 + 702.19e): the attacker ASSIGNS lethal off normal toughness, then each
         // assigned chunk is doubled as it's DEALT — so `remaining` decrements by the un-doubled `give` (the
