@@ -85,14 +85,26 @@ export default function UpdatesModal({ open, onClose, initialUpdate, colors, fon
   const [logLines, setLogLines] = useState([]);
   const logRef = useRef(null);
   const abortRef = useRef(null);
-  // App-update state — only meaningful inside the Tauri WebView. If
-  // the parent already ran the background check on mount, prepopulate
-  // so the user doesn't have to click "Check for updates" again.
-  const [appUpdate, setAppUpdate] = useState(() => initialUpdate ? {
+  // App-update state — only meaningful inside the Tauri WebView. If the
+  // parent already ran the background check, prepopulate so the user doesn't
+  // have to click "Check for updates" again.
+  const availableStateFrom = (info) => ({
     status: "available",
-    message: `v${initialUpdate.version} available (you have v${initialUpdate.current})${initialUpdate.body ? " — " + initialUpdate.body.slice(0, 200) : ""}`,
-    update: initialUpdate.update,
-  } : { status: "idle", message: "" });
+    message: `v${info.version} available (you have v${info.current})${info.body ? " — " + info.body.slice(0, 200) : ""}`,
+    update: info.update,
+  });
+  const [appUpdate, setAppUpdate] = useState(() => initialUpdate
+    ? availableStateFrom(initialUpdate)
+    : { status: "idle", message: "" });
+  // The modal is permanently mounted (open just toggles visibility), so the
+  // background check's result usually lands AFTER the useState initializer
+  // ran — apply it via effect or it is never shown (U-F6). Skips the
+  // zero-touch silent-install state: that flow is already installing and the
+  // shell banner covers it.
+  useEffect(() => {
+    if (!initialUpdate || initialUpdate.installing) return;
+    setAppUpdate(availableStateFrom(initialUpdate));
+  }, [initialUpdate]);
   const [appUpdateBusy, setAppUpdateBusy] = useState(false);
   const [dataMsg, setDataMsg] = useState("");
   const restoreInputRef = useRef(null);
