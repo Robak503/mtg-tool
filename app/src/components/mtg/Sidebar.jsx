@@ -15,7 +15,6 @@ export default function Sidebar({
   savedDecks,
   setAgent,
   setCenterView,
-  setDeckData,
   setActiveDeckId,
   setMobileTab,
   deleteDeck,
@@ -170,7 +169,7 @@ export default function Sidebar({
           <div key={d.id} style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
             <button
               style={{flex:1,padding:"6px 8px",borderRadius:5,border:`1px solid ${d.id===activeDeckId?cfg.border:LINE}`,background:d.id===activeDeckId?cfg.dim:"transparent",color:d.id===activeDeckId?cfg.color:TEXT,cursor:"pointer",fontSize:11,fontFamily,textAlign:"left",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}
-              onClick={()=>{setActiveDeckId(d.id);setDeckData({});if(mobile)setMobileTab("chat");}}
+              onClick={()=>{setActiveDeckId(d.id);if(mobile)setMobileTab("chat");}}
             >
               <span style={{display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.name}</span>
               <span style={{display:"block",fontSize:9,color:cfg.color,marginTop:2}}>{d.memory?.owner || "Colton"}</span>

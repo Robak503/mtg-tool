@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { buildColors, buildCurve, calcPrice, checkLegal, colorIdentityIssues } from "../lib/deck/deckAnalytics";
 import {
@@ -92,10 +92,19 @@ export default function useDeckStore(activeProfileName) {
     if (activeProfileName) setDeckOwner(prev => prev || activeProfileName);
   }, [activeProfileName]);
 
-  // Combos are deck-specific and fetched on demand; drop the cached result when
-  // the active deck changes so the Combos tab never shows the previous deck's
-  // combos before a reload.
-  useEffect(() => { setComboData(null); }, [activeDeckId]);
+  // Everything deck-scoped clears when the active deck changes, in ONE place
+  // (U-F2). Previously only comboData was dropped here while deckData relied on
+  // callers remembering a manual setDeckData({}) — the deck-confirm modal path
+  // didn't, so deck B's analytics (curve/legality/goldfish) could be computed
+  // against deck A's hydration map. The epoch ref also invalidates any
+  // in-flight loadDeckData fetch so a slow response for the previous deck
+  // can't land as the new deck's data.
+  const deckDataEpoch = useRef(0);
+  useEffect(() => {
+    deckDataEpoch.current += 1;
+    setComboData(null);
+    setDeckData({});
+  }, [activeDeckId]);
 
   const activeDeck = useMemo(
     () => savedDecks.find(deck => deck.id === activeDeckId),
@@ -129,11 +138,19 @@ export default function useDeckStore(activeProfileName) {
     if (!deckCards.length) return {};
     if (hasData) return deckData;
     if (deckDataLoad) return deckData;
+    const epoch = deckDataEpoch.current;
     setDeckDataLoad(true);
-    const loaded = await fetchDeckData(deckCards);
-    setDeckData(loaded);
-    setDeckDataLoad(false);
-    return loaded;
+    try {
+      const loaded = await fetchDeckData(deckCards);
+      // The active deck changed while this fetch was in flight — drop the
+      // now-stale result instead of installing it as the new deck's data.
+      if (epoch === deckDataEpoch.current) setDeckData(loaded);
+      return loaded;
+    } finally {
+      // try/finally (U-F10): a throw in fetchDeckData must not leave
+      // deckDataLoad latched true (it disables the goldfish/stats buttons).
+      setDeckDataLoad(false);
+    }
   };
 
   // Find Commander Spellbook combos in the deck (and ones a single card away).

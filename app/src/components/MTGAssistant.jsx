@@ -654,36 +654,41 @@ export default function MTGAssistant() {
   const runGoldfish = async (count = 1) => {
     if (!activeDeck || goldfishRunning) return;
     setGoldfishRunning(true);
-    const hydratedData = hasData ? deckData : await loadDeckData();
-    const result = count > 1
-      ? runGoldfishBatch(activeDeck, hydratedData || {}, count)
-      : runGoldfishSimulation(activeDeck, hydratedData || {});
-    setGoldfishResult(result);
-    const notes = count > 1 ? formatGoldfishBatchNotes(result) : formatGoldfishNotes(result);
-    const archetypeTag = result.archetype ? ` [${result.archetype}]` : "";
-    const gameEntry = {
-      id: `goldfish-${result.id}`,
-      date: new Date().toLocaleDateString(),
-      result: "Goldfish",
-      opponents: count > 1 ? `Garfield v2 ${count}-run batch${archetypeTag}` : `Garfield v2 solo run${archetypeTag}`,
-      notes,
-    };
+    // try/finally (U-F10): a throw anywhere in the run (data hydration, the
+    // simulation itself) must not leave goldfishRunning latched true — that
+    // permanently disables the goldfish buttons for the session.
+    try {
+      const hydratedData = hasData ? deckData : await loadDeckData();
+      const result = count > 1
+        ? runGoldfishBatch(activeDeck, hydratedData || {}, count)
+        : runGoldfishSimulation(activeDeck, hydratedData || {});
+      setGoldfishResult(result);
+      const notes = count > 1 ? formatGoldfishBatchNotes(result) : formatGoldfishNotes(result);
+      const archetypeTag = result.archetype ? ` [${result.archetype}]` : "";
+      const gameEntry = {
+        id: `goldfish-${result.id}`,
+        date: new Date().toLocaleDateString(),
+        result: "Goldfish",
+        opponents: count > 1 ? `Garfield v2 ${count}-run batch${archetypeTag}` : `Garfield v2 solo run${archetypeTag}`,
+        notes,
+      };
 
-    updateActiveMemory({
-      goldfishRuns: [result, ...(deckMemory.goldfishRuns || [])].slice(0, 20),
-      games: [gameEntry, ...(deckMemory.games || [])].slice(0, 50),
-    });
+      updateActiveMemory({
+        goldfishRuns: [result, ...(deckMemory.goldfishRuns || [])].slice(0, 20),
+        games: [gameEntry, ...(deckMemory.games || [])].slice(0, 50),
+      });
 
-    // Persist to data/games/ for cross-session trend analysis. Fire-and-forget;
-    // never block the UI on the network round-trip.
-    if (count > 1) {
-      // Save each run in the batch individually so per-run trends are queryable.
-      Promise.all((result.runs || []).map(run => saveGameRecord(run))).catch(() => {});
-    } else {
-      saveGameRecord(result).catch(() => {});
+      // Persist to data/games/ for cross-session trend analysis. Fire-and-forget;
+      // never block the UI on the network round-trip.
+      if (count > 1) {
+        // Save each run in the batch individually so per-run trends are queryable.
+        Promise.all((result.runs || []).map(run => saveGameRecord(run))).catch(() => {});
+      } else {
+        saveGameRecord(result).catch(() => {});
+      }
+    } finally {
+      setGoldfishRunning(false);
     }
-
-    setGoldfishRunning(false);
   };
 
   const importDeck=()=>{
@@ -1155,7 +1160,6 @@ export default function MTGAssistant() {
             savedDecks={savedDecks}
             setAgent={setAgent}
             setCenterView={setCenterView}
-            setDeckData={setDeckData}
             setActiveDeckId={setActiveDeckId}
             setMobileTab={setMobileTab}
             deleteDeck={deleteDeck}
