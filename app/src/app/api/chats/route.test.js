@@ -466,3 +466,30 @@ describe("pruneSessions", () => {
     expect(ids).not.toContain("s-old");
   });
 });
+
+describe("v1 response shim removal (S-P2-5)", () => {
+  it("GET returns sessions only — no histories/locks projection", async () => {
+    await writeChatFile({
+      version: 2,
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      sessions: [
+        {
+          id: "s-1",
+          agent: "jace",
+          name: "Chat",
+          lockedDeck: null,
+          messages: [{ role: "user", content: "hi" }],
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          archived: false,
+        },
+      ],
+    });
+    const res = await route.GET();
+    const body = await res.json();
+    expect(body.version).toBe(2);
+    expect(body.sessions).toHaveLength(1);
+    expect(body).not.toHaveProperty("histories");
+    expect(body).not.toHaveProperty("locks");
+  });
+});

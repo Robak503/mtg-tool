@@ -237,49 +237,19 @@ async function writeChatFile({ sessions }) {
   return payload;
 }
 
-// ─── Backward-compat shim (delete with T20 after PR2 UI ships) ────────────────
-
-/**
- * Project v2 sessions back into the v1 { histories, locks } shape that the
- * current useChatAgents.js still expects. Takes the most recent (highest
- * updatedAt) session per agent so users do not lose visible history when
- * v1 → v2 migration runs on first load.
- */
-function shimV2ToV1(sessions) {
-  const histories = { jace: [], karn: [], tibalt: [], arbiter: [] };
-  const locks = { jace: null, karn: null, tibalt: null, arbiter: null };
-
-  const latestPerAgent = new Map();
-  for (const session of sessions) {
-    if (!AGENT_KEYS.includes(session.agent)) continue;
-    const current = latestPerAgent.get(session.agent);
-    if (!current || String(session.updatedAt) > String(current.updatedAt)) {
-      latestPerAgent.set(session.agent, session);
-    }
-  }
-
-  for (const [agent, session] of latestPerAgent) {
-    histories[agent] = session.messages;
-    locks[agent] = session.lockedDeck || null;
-  }
-
-  return { histories, locks };
-}
-
 // ─── HTTP handlers ────────────────────────────────────────────────────────────
 
 export async function GET() {
   try {
     const state = await readChatFile();
     const exists = state.sessions.length > 0 || Boolean(state.updatedAt);
-    const { histories, locks } = shimV2ToV1(state.sessions);
 
+    // v2 sessions only. The v1 { histories, locks } response projection was
+    // removed with its last consumer (useChatAgents.js); clients derive any
+    // per-agent view from sessions themselves (see MTGAssistant.jsx).
     return Response.json({
       version: 2,
       sessions: state.sessions,
-      // Backward-compat shim for useChatAgents.js. Removed after PR2 ships.
-      histories,
-      locks,
       exists,
       path: CHAT_FILE(),
     });
