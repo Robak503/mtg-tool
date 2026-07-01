@@ -429,6 +429,28 @@ export default function useChatSessions({
     setSending(true);
 
     try {
+      // Jace's canned rules primer needs only the user's text — answer
+      // instantly, before any context assembly. Previously this check sat
+      // AFTER the deck-oracle fetch, power rank, engine retrieval, and the
+      // Arbiter trace, so the "instant" canned answer waited tens of seconds
+      // for context it never used (U-F5).
+      const primerReply = targetAgent === "jace" ? localJaceRulesPrimer(prompt) : "";
+      if (primerReply) {
+        const primerMeta = {
+          factReceipt: buildFactReceipt({
+            provider: "ollama", model: "local-primer", modelTier: "local-primer", fallbackUsed: false,
+            deckLock, cardContext: "", deckOracleContext: "", karnScryfallContext: "", engineContext: "", responseMeta: {},
+          }),
+        };
+        updateSession(originSessionId, s => ({
+          ...s,
+          messages: [...baseMessages, { role: "assistant", content: primerReply, ...primerMeta }],
+          updatedAt: new Date().toISOString(),
+        }));
+        setSending(false);
+        return;
+      }
+
       const useDeckScopedContext = Boolean(deckLock && shouldUseDeckScopedContext(targetAgent, prompt));
       let systemPrompt = targetAgent === "arbiter" && fastMode
         ? ARBITER_PROMPT_FAST
@@ -664,22 +686,6 @@ export default function useChatSessions({
         }
       }
 
-      const primerReply = targetAgent === "jace" ? localJaceRulesPrimer(prompt) : "";
-      if (primerReply) {
-        responseMeta.factReceipt = buildFactReceipt({
-          provider: "ollama", model: "local-primer", modelTier: "local-primer", fallbackUsed: false,
-          deckLock, cardContext, deckOracleContext, karnScryfallContext, engineContext, responseMeta,
-        });
-
-        updateSession(originSessionId, s => ({
-          ...s,
-          messages: [...baseMessages, { role: "assistant", content: primerReply, ...responseMeta }],
-          updatedAt: new Date().toISOString(),
-        }));
-        setSending(false);
-        return;
-      }
-
       // Depth 0 swaps the visible prompt for the context-augmented version as
       // the final user turn. A retry appends its enriched prompt (deck/card
       // context + the auto-retry ask) as a NEW user turn after the fresh
@@ -802,8 +808,6 @@ export default function useChatSessions({
       };
 
       let reply = streamedText || "No response received.";
-      const localPrimer = targetAgent === "jace" ? localJaceRulesPrimer(prompt) : "";
-      if (localPrimer) reply = localPrimer;
 
       if (["karn", "tibalt"].includes(targetAgent) && deckOracleNames.length) {
         reply = bracketKnownCardNames(reply, deckOracleNames);
