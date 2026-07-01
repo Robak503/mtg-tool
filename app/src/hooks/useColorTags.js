@@ -3,11 +3,14 @@
 /**
  * useColorTags — the user's custom card color-tag set (Archidekt-style labels).
  *
- * A single global set of tags { id, name, color } that can be applied to cards
+ * A per-profile set of tags { id, name, color } that can be applied to cards
  * across decks and the Vault. Seeded with the familiar acquisition tags
  * (Have / Getting / Don't Have / Have wrong printing) plus an unset Default;
  * the user can create, rename, recolor, and delete their own. Persisted to
- * localStorage (local-first — no server round-trip).
+ * localStorage (local-first — no server round-trip), namespaced by the active
+ * profile id (U-F4): per-card assignments live per-profile on the server, so
+ * the definitions they reference must survive a profile switch too. STOPGAP —
+ * the durable fix is server-side per-profile tag storage.
  *
  * Per-card assignment (which card has which tag) is stored separately on the
  * card/deck data; this hook only owns the tag definitions.
@@ -15,7 +18,22 @@
 
 import { useEffect, useState } from "react";
 
-const STORAGE_KEY = "mtg-color-tags-v1";
+// Legacy (pre-profiles) global key — kept as the migration source and as the
+// fallback namespace when no active-profile pointer exists.
+const LEGACY_STORAGE_KEY = "mtg-color-tags-v1";
+// Written by useProfiles (on load and on switch) so this module can resolve
+// the active profile synchronously without a server round-trip.
+const ACTIVE_PROFILE_KEY = "mtg-active-profile-id";
+
+function storageKey() {
+  if (typeof window === "undefined") return LEGACY_STORAGE_KEY;
+  try {
+    const profileId = window.localStorage.getItem(ACTIVE_PROFILE_KEY);
+    return profileId ? `${LEGACY_STORAGE_KEY}:${profileId}` : LEGACY_STORAGE_KEY;
+  } catch {
+    return LEGACY_STORAGE_KEY;
+  }
+}
 
 // A tag can carry a BEHAVIOR — what happens to a card when you apply the tag.
 // This is what turns color tags into a workflow (own it / want it / swap it)
@@ -47,7 +65,19 @@ export const DEFAULT_COLOR_TAGS = [
 function loadTags() {
   if (typeof window === "undefined") return DEFAULT_COLOR_TAGS;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const key = storageKey();
+    let raw = window.localStorage.getItem(key);
+    // One-time migration: definitions used to live under the single global
+    // key. Seed this profile's namespace from it; the legacy key is left in
+    // place so every other profile inherits the same starting set the first
+    // time it loads (their per-card assignments reference these same ids).
+    if (!raw && key !== LEGACY_STORAGE_KEY) {
+      const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacy) {
+        window.localStorage.setItem(key, legacy);
+        raw = legacy;
+      }
+    }
     if (!raw) return DEFAULT_COLOR_TAGS;
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) && parsed.length ? parsed : DEFAULT_COLOR_TAGS;
@@ -86,7 +116,7 @@ export default function useColorTags() {
   useEffect(() => {
     if (!loaded) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tags));
+      window.localStorage.setItem(storageKey(), JSON.stringify(tags));
     } catch {
       // localStorage failures must not break the app.
     }

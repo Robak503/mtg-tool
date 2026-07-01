@@ -27,6 +27,11 @@ export default function useProfiles() {
       if (!resp.ok) throw new Error(body.error || "Failed to load profiles");
       setProfiles(body.profiles || []);
       setActiveId(body.activeProfileId || null);
+      // Mirror the active profile id into localStorage so synchronous client
+      // stores (useColorTags) can namespace per profile without a fetch.
+      if (typeof window !== "undefined" && body.activeProfileId) {
+        try { window.localStorage.setItem("mtg-active-profile-id", body.activeProfileId); } catch { /* non-fatal */ }
+      }
       setStatus("ready");
       setError(null);
       return body;
@@ -76,9 +81,12 @@ export default function useProfiles() {
   //
   // localStorage is domain-global, NOT profile-scoped — so before reloading we
   // must drop the keys that hold per-user data, or the new profile would
-  // silently hydrate the previous profile's last-open chat and custom color
-  // tags. Global preferences (model tier, update banner, feedback panel pos)
-  // are intentionally left alone so they follow the user across profiles.
+  // silently hydrate the previous profile's last-open chat. Color-tag
+  // DEFINITIONS are per-profile-namespaced (mtg-color-tags-v1:<id>, see
+  // useColorTags) and must NOT be deleted — wiping them destroyed the custom
+  // tags that per-profile card assignments still reference (U-F4). Global
+  // preferences (model tier, update banner, feedback panel pos) are
+  // intentionally left alone so they follow the user across profiles.
   const switchTo = useCallback(async (id, reload = () => window.location.reload()) => {
     const resp = await fetch("/api/profiles/active", {
       method: "PUT",
@@ -90,9 +98,11 @@ export default function useProfiles() {
     if (typeof window !== "undefined") {
       try {
         window.localStorage.removeItem("mtg-active-session-ids");
-        window.localStorage.removeItem("mtg-color-tags-v1");
         window.localStorage.removeItem("mtg-decks-v3");
         window.localStorage.removeItem("mtg-decks-v2");
+        // Point the synchronous profile mirror at the new profile BEFORE the
+        // reload so early readers (useColorTags) resolve the right namespace.
+        window.localStorage.setItem("mtg-active-profile-id", id);
       } catch { /* private mode / disabled storage — reload still corrects the server data */ }
     }
     reload();
