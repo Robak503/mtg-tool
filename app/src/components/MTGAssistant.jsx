@@ -651,12 +651,6 @@ export default function MTGAssistant() {
     }
   };
 
-  const _explainWithJace=(ruling)=>{
-    // Pass the full Arbiter ruling (up to ~2500 chars) so Jace can explain each section
-    const excerpt=ruling.length>2500?ruling.slice(0,2500)+"\n[...]":ruling;
-    send(`The Arbiter engine returned this ruling. Translate it into plain English for a player at the table. Explain what's happening, why the rules apply this way, and what the practical takeaway is. Stay accurate; don't soften the verdict. Reference the same rules in your explanation.\n\n---\n\n${excerpt}`,"jace");
-  };
-
   const runGoldfish = async (count = 1) => {
     if (!activeDeck || goldfishRunning) return;
     setGoldfishRunning(true);

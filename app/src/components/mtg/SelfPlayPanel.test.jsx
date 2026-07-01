@@ -1,26 +1,23 @@
 /**
- * Render/smoke test for SelfPlayPanel.
+ * Render tests for the shared self-play presentational pieces.
  *
  * The vitest env here is "node" (no jsdom / React Testing Library, and the
  * project bans new heavy deps), so we render with React 19's own
- * react-dom/server `renderToStaticMarkup` — a real, node-safe import. Under
- * static SSR, useState initial values render but effects/async fetch don't
- * re-render, which is exactly enough to assert the panel's initial mount: it
- * lists the decks, shows the run button, and that button is DISABLED until
- * enough decks are picked (the initial state).
+ * react-dom/server `renderToStaticMarkup` — a real, node-safe import.
  *
- * The result view is data-driven by the live /api/self-play response, so we
- * exercise the exported pure presentational pieces (BreakageTable,
- * OutcomeSummary) directly with a MOCKED API-shaped payload — the same shape
- * the route returns (breakageReport.aggregateBreakages().cards + outcomes).
- * CREED: the mock mirrors the real response shape; nothing is fabricated about
- * what the engine reports.
+ * The interactive SelfPlayPanel default export was removed as dead code
+ * (SimCenter superseded it and imports only these named pieces), so this file
+ * exercises BreakageTable and OutcomeSummary directly with a MOCKED API-shaped
+ * payload — the same shape /api/self-play returns
+ * (breakageReport.aggregateBreakages().cards + outcomes). CREED: the mock
+ * mirrors the real response shape; nothing is fabricated about what the
+ * engine reports.
  */
 
 import { describe, it, expect } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import SelfPlayPanel, { BreakageTable, OutcomeSummary } from "./SelfPlayPanel.jsx";
+import { BreakageTable, OutcomeSummary } from "./SelfPlayPanel.jsx";
 
 const COLORS = {
   BG: "#0c0b0a",
@@ -31,13 +28,6 @@ const COLORS = {
   MUTED: "#9d98b8",
   GOLD: "#8b6f3d",
 };
-const CFG = { color: "#5fd0d0", border: "#3a7a7a", dim: "rgba(95,208,208,0.12)", glow: "#5fd0d0" };
-
-const DECKS = [
-  { id: "a", name: "Vihaan", cards: [] },
-  { id: "b", name: "Koma", cards: [] },
-  { id: "c", name: "Slivers", cards: [] },
-];
 
 // Mirrors the /api/self-play JSON: breakages = aggregateBreakages().cards.
 const MOCK_RESULT = {
@@ -73,41 +63,12 @@ const MOCK_RESULT = {
       sampleTurn: null,
     },
   ],
-  report: "===\nMTG Tool — Self-Play Stress Test\n===",
-  file: "self-play-2026-06-28T00-00-00Z-abc123.txt",
 };
 
-describe("SelfPlayPanel", () => {
-  it("mounts and lists every saved deck", () => {
-    const html = renderToStaticMarkup(
-      <SelfPlayPanel savedDecks={DECKS} cfg={CFG} colors={COLORS} fontFamily="Inter" />
-    );
-    expect(html).toContain("Self-Play Stress Test");
-    for (const d of DECKS) expect(html).toContain(d.name);
-  });
-
-  it("renders the run button, disabled until enough decks are selected", () => {
-    const html = renderToStaticMarkup(
-      <SelfPlayPanel savedDecks={DECKS} cfg={CFG} colors={COLORS} fontFamily="Inter" />
-    );
-    expect(html).toContain("Run stress test");
-    // Initial state: 0 selected < 4 (commander) → the button is rendered disabled.
-    expect(html).toMatch(/Run stress test<\/button>/);
-    expect(html).toContain("disabled");
-    // And it tells the user this runs offline.
-    expect(html).toContain("offline");
-  });
-
-  it("shows an empty-state when there are no saved decks", () => {
-    const html = renderToStaticMarkup(
-      <SelfPlayPanel savedDecks={[]} cfg={CFG} colors={COLORS} fontFamily="Inter" />
-    );
-    expect(html).toContain("No saved decks yet");
-  });
-
+describe("self-play result pieces (SelfPlayPanel named exports)", () => {
   it("renders the ranked breakage table from a mocked API response", () => {
     const html = renderToStaticMarkup(
-      <BreakageTable cards={MOCK_RESULT.breakages} colors={COLORS} fontFamily="Inter" />
+      <BreakageTable cards={MOCK_RESULT.breakages} colors={COLORS} />
     );
     expect(html).toContain("Smothering Tithe");
     expect(html).toContain("Dockside Extortionist");
@@ -119,7 +80,7 @@ describe("SelfPlayPanel", () => {
 
   it("renders the clean-bill-of-health state when there are no breakages", () => {
     const html = renderToStaticMarkup(
-      <BreakageTable cards={[]} colors={COLORS} fontFamily="Inter" />
+      <BreakageTable cards={[]} colors={COLORS} />
     );
     expect(html).toContain("No unmodeled / broken cards");
   });
