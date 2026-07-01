@@ -420,7 +420,7 @@ describe("runSelfPlayGame startSeat (CR 103.7a — who is on the play)", () => {
     expect(game.onThePlay).toBeNull();
   });
 
-  it("commander: a non-default pod seat (ai2) is on the play and skips its first draw", () => {
+  it("commander: a non-default pod seat (ai2) is on the play and DRAWS on turn 1 (CR 103.8c — multiplayer doesn't skip)", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const game = runSelfPlayGame({
@@ -435,7 +435,8 @@ describe("runSelfPlayGame startSeat (CR 103.7a — who is on the play)", () => {
     expect(game.onThePlay).toBe("ai2");
     const firstDraw = game.log.find((e) => e.kind === "step" && e.step === "draw");
     expect(firstDraw.player).toBe("ai2");
-    expect(firstDraw.skipped).toBe("first-turn-draw");
+    // Only TWO-player games skip the first draw (CR 103.8a); the 4-seat pod's starting player draws.
+    expect(firstDraw.skipped).toBeUndefined();
   });
 
   it("exposes winnerSeat at the top level, consistent with decisionTrajectory (Omnath FYI #1)", () => {
