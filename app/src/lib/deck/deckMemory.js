@@ -142,21 +142,6 @@ export function serializeDeckMemory(deck) {
   return lines.join("\n");
 }
 
-export function buildSeedDeck(seed) {
-  return normalizeDeck({
-    id: seed.id,
-    name: seed.name,
-    cards: parseDeck(seed.raw),
-    memory: {
-      ...defaultDeckMemory(),
-      owner: seed.owner || "Colton",
-      tags: seed.tags || "Colton, Personal",
-      notes: seed.notes || "Colton personal deck.",
-      updatedAt: new Date().toISOString(),
-    },
-  });
-}
-
 export function suspiciousDeckEntries(cards) {
   return cards
     .filter(c => c.section === "Tokens")
