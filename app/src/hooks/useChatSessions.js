@@ -33,6 +33,10 @@ import {
 } from "../lib/scryfall";
 
 const API_HISTORY_LIMIT = 8;
+// Abort a chat stream after this long with NO bytes received (U-F7). Local
+// models can be slow to first token, but two minutes of total silence means
+// the request is wedged, not thinking.
+const STREAM_INACTIVITY_TIMEOUT_MS = 120_000;
 const DECK_LOCK_AGENTS = new Set(["jace", "karn", "tibalt", "arbiter"]);
 // Last-active session ID per agent — stored in localStorage so the user
 // returns to whichever conversation they last viewed when reopening the app.
@@ -120,6 +124,10 @@ export default function useChatSessions({
   const primeInput = (text) => { pendingInputRef.current = String(text ?? ""); };
   const [sending, setSending] = useState(false);
   const [knowledgeStatus, setKnowledgeStatus] = useState(null);
+  // The in-flight chat-stream's AbortController (U-F7). Unmounting aborts it
+  // so a wedged request can't keep streaming into a dead UI.
+  const activeStreamAbortRef = useRef(null);
+  useEffect(() => () => { activeStreamAbortRef.current?.abort(); }, []);
 
   // ─── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -428,6 +436,20 @@ export default function useChatSessions({
 
     setSending(true);
 
+    // Abort/timeout plumbing for the streaming request (U-F7). A wedged
+    // Ollama previously left `sending` true forever — composer disabled until
+    // reload — because nothing could cancel the fetch or the read loop. The
+    // watchdog aborts after STREAM_INACTIVITY_TIMEOUT_MS without a chunk; the
+    // AbortError surfaces through the catch below as the existing
+    // "Request timed out" message (that branch was unreachable before).
+    const streamController = new AbortController();
+    activeStreamAbortRef.current = streamController;
+    let streamWatchdog = null;
+    const armStreamWatchdog = () => {
+      if (streamWatchdog) clearTimeout(streamWatchdog);
+      streamWatchdog = setTimeout(() => streamController.abort(), STREAM_INACTIVITY_TIMEOUT_MS);
+    };
+
     try {
       // Jace's canned rules primer needs only the user's text — answer
       // instantly, before any context assembly. Previously this check sat
@@ -699,9 +721,11 @@ export default function useChatSessions({
           : trimApiHistory(baseMessages);
       const useFastLocalModel = Boolean(isLocalProvider && requestedTier === "fast");
 
+      armStreamWatchdog();
       const response = await fetch("/api/chat-stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: streamController.signal,
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           provider: effectiveProvider,
@@ -748,6 +772,7 @@ export default function useChatSessions({
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        armStreamWatchdog();
         buf += dec.decode(value, { stream: true });
         const lines = buf.split("\n");
         buf = lines.pop();
@@ -886,6 +911,8 @@ export default function useChatSessions({
         updatedAt: new Date().toISOString(),
       }));
     } finally {
+      if (streamWatchdog) clearTimeout(streamWatchdog);
+      if (activeStreamAbortRef.current === streamController) activeStreamAbortRef.current = null;
       setSending(false);
     }
   };
