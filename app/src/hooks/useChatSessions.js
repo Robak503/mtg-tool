@@ -809,6 +809,7 @@ export default function useChatSessions({
             ...s,
             messages: s.messages.map(m =>
               m.id === streamingMsgId ? {
+                id: m.id,
                 role: "assistant",
                 content: streamError.error || "Model returned an error.",
                 isError: true,
@@ -889,7 +890,10 @@ export default function useChatSessions({
         return {
           ...s,
           messages: s.messages.map(m =>
-            m.id === streamingMsgId ? { role: "assistant", content: reply, ...responseMeta } : m
+            // Preserve the id: dropping it made the finished message key by
+            // list index, letting reactions visually migrate when the list
+            // is later sliced (e.g. retryWithFallback) (U-F16).
+            m.id === streamingMsgId ? { id: m.id, role: "assistant", content: reply, ...responseMeta } : m
           ),
           updatedAt: new Date().toISOString(),
         };
