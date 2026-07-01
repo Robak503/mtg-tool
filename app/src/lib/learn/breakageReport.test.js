@@ -78,6 +78,19 @@ describe("aggregateBreakages", () => {
     expect(agg.outcomes.draws).toBe(0); // a stuck game is NOT a draw
   });
 
+  it("a timePressure TIMEOUT lands in its own labeled bucket — not 'unexpected'", () => {
+    const games = [
+      game({ result: "timeout", turns: 60, reason: "timeout" }),
+      game({ result: "user-wins", turns: 9 }),
+    ];
+    const agg = aggregateBreakages(games);
+    expect(agg.outcomes.timeouts).toBe(1);
+    expect(agg.outcomes.unexpected).toBe(0); // no longer miscounted as an unknown result
+    expect(agg.outcomes.completed).toBe(1);  // a timeout is honestly a non-completion
+    const txt = formatBreakageTxt(agg, { deckNames: ["A", "B"] });
+    expect(txt).toContain("timeout:         1"); // surfaced in the NON-COMPLETIONS section
+  });
+
   it("handles a clean batch with zero breakages", () => {
     const agg = aggregateBreakages([game({ result: "user-wins", turns: 6, log: [] })]);
     expect(agg.cards).toEqual([]);

@@ -34,7 +34,7 @@ const UNKNOWN_CARD = "(unknown card)";
  * @param {Array<object>} games  runSelfPlayGame results (each has .log, .result, .turns, .meta)
  * @returns {{
  *   cards: Array<{ card, count, kinds, sampleReason, sampleTurn }>,  // ranked, most frequent first
- *   outcomes: { total, completed, userWins, aiWins, draws, engineStuck, dispatchError, setupError, unexpected },
+ *   outcomes: { total, completed, userWins, aiWins, draws, timeouts, engineStuck, dispatchError, setupError, unexpected },
  *   avgTurns: number,        // mean final turn across games that produced a turn count
  *   totalBreakages: number,  // total per-card breakage log entries counted
  *   games: Array,            // pass-through (for per-game one-liners in the txt)
@@ -53,6 +53,7 @@ export function aggregateBreakages(games) {
     userWins: 0,
     aiWins: 0,
     draws: 0,
+    timeouts: 0,
     engineStuck: 0,
     dispatchError: 0,
     setupError: 0,
@@ -68,6 +69,9 @@ export function aggregateBreakages(games) {
       case "user-wins": outcomes.userWins++; outcomes.completed++; break;
       case "ai-wins": outcomes.aiWins++; outcomes.completed++; break;
       case "draw": outcomes.draws++; outcomes.completed++; break;
+      // A timePressure game that hit the turn cap: honestly a timeout (no fabricated W/L, trainingWeight 0
+      // downstream) — its OWN labeled bucket, not "unexpected" noise in the honesty report.
+      case "timeout": outcomes.timeouts++; break;
       case "engine-stuck": outcomes.engineStuck++; break;
       case "dispatch-error": outcomes.dispatchError++; break;
       case "setup-error": outcomes.setupError++; break;
@@ -106,10 +110,11 @@ export function aggregateBreakages(games) {
     }
   }
 
-  // Rank: most frequent first, then alphabetic for a stable, deterministic order.
+  // Rank: most frequent first, then a CODEPOINT tiebreak — the engine's replay-stable idiom
+  // (localeCompare is environment/ICU-dependent, so identical runs could rank differently).
   const cards = [...byCard.values()].sort((a, b) => {
     if (b.count !== a.count) return b.count - a.count;
-    return a.card.localeCompare(b.card);
+    return a.card < b.card ? -1 : a.card > b.card ? 1 : 0;
   });
 
   const avgTurns = turnGames > 0 ? turnSum / turnGames : 0;
@@ -179,10 +184,11 @@ export function formatBreakageTxt(aggregate, opts = {}) {
   lines.push(`  Opponent wins:    ${o.aiWins ?? 0}`);
   lines.push(`  Draws:            ${o.draws ?? 0}`);
   lines.push(`  Avg turns/game:   ${agg.avgTurns ? agg.avgTurns.toFixed(1) : "0"}`);
-  const nonCompletions = (o.engineStuck ?? 0) + (o.dispatchError ?? 0) + (o.setupError ?? 0) + (o.unexpected ?? 0);
+  const nonCompletions = (o.timeouts ?? 0) + (o.engineStuck ?? 0) + (o.dispatchError ?? 0) + (o.setupError ?? 0) + (o.unexpected ?? 0);
   if (nonCompletions > 0) {
     lines.push("");
     lines.push("  NON-COMPLETIONS (engine could not finish — reported honestly):");
+    if (o.timeouts) lines.push(`    timeout:         ${o.timeouts}`);
     if (o.engineStuck) lines.push(`    engine-stuck:    ${o.engineStuck}`);
     if (o.dispatchError) lines.push(`    dispatch-error:  ${o.dispatchError}`);
     if (o.setupError) lines.push(`    setup-error:     ${o.setupError}`);
