@@ -159,7 +159,7 @@ describe("runStepActions — automatic effects per step", () => {
     expect(after.priorityHolder).toBe("user"); // priority granted
   });
 
-  it("draw step on turn 1 for the starting player: skips the draw", () => {
+  it("draw step on turn 1 for the starting player: skips the draw (two-player game, CR 103.8a)", () => {
     let state = baseState();
     state = { ...state, phase: "beginning", step: "draw" }; // turn 1, user is starting
     const initialLibrary = state.players.user.library.length;
@@ -167,6 +167,20 @@ describe("runStepActions — automatic effects per step", () => {
     expect(after.players.user.library).toHaveLength(initialLibrary); // no draw
     const skippedLog = after.log.find(l => l.skipped === "first-turn-draw");
     expect(skippedLog).toBeDefined();
+  });
+
+  it("draw step on turn 1 in a MULTIPLAYER pod: the starting player DOES draw (CR 103.8c)", () => {
+    let state = createGameState({
+      mode: "commander",
+      userDeck: makeDeck(60, "U"),
+      opponentDecks: [makeDeck(60, "A"), makeDeck(60, "B"), makeDeck(60, "D")],
+    });
+    state = { ...state, startingPlayer: "user", phase: "beginning", step: "draw" }; // turn 1, user is starting
+    const initialLibrary = state.players.user.library.length;
+    const after = runStepActions(state);
+    expect(after.players.user.library).toHaveLength(initialLibrary - 1); // drew
+    expect(after.players.user.hand).toHaveLength(1);
+    expect(after.log.find(l => l.skipped === "first-turn-draw")).toBeUndefined();
   });
 
   it("cleanup step empties everyone's mana pool", () => {

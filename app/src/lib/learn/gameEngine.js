@@ -235,10 +235,11 @@ export function runStepActions(state) {
       break;
 
     case "draw":
-      // Per CR 103.7a, the player whose turn it is the very first turn
-      // skips their draw step. We track that via turn === 1 and the
-      // active player being whoever started.
-      if (next.turn === 1 && state.activePlayer === state.startingPlayer) {
+      // CR 103.8a: in a TWO-player game the starting player skips the draw step
+      // of their first turn. CR 103.8c: MULTIPLAYER games don't skip — the 4-seat
+      // Commander pod's starting player draws normally. Gate on turnOrder length
+      // so only true 1v1 (Standard, or a 2-player duel) applies the skip.
+      if (next.turn === 1 && state.activePlayer === state.startingPlayer && (state.turnOrder?.length || 0) === 2) {
         next = logEvent(next, { kind: "step", phase: "beginning", step: "draw", player: state.activePlayer, skipped: "first-turn-draw" });
       } else {
         const drawnBefore = next.players[state.activePlayer].cardsDrawnThisTurn;
