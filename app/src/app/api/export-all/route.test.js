@@ -63,3 +63,39 @@ describe("/api/export-all", () => {
     expect(body.sections.feedback).toHaveLength(1);
   });
 });
+
+describe("/api/export-all sectionStatus (S-P2-2)", () => {
+  it("marks absent sections ok and readable sections ok", async () => {
+    await fs.writeFile(
+      path.join(tmpDir, "data", "decks.local.json"),
+      JSON.stringify({ version: 1, decks: [] }),
+      "utf8",
+    );
+    const route = await loadRoute();
+    const body = await (await route.GET()).json();
+    expect(body.sectionStatus.decks).toEqual({ ok: true });
+    expect(body.sectionStatus.collection).toEqual({ ok: true, absent: true });
+    expect(body.sectionStatus.feedback).toEqual({ ok: true, absent: true });
+  });
+
+  it("flags an unreadable section instead of silently omitting it", async () => {
+    await fs.writeFile(path.join(tmpDir, "data", "chats.local.json"), "{ not json", "utf8");
+    await fs.mkdir(path.join(tmpDir, "data", "feedback"), { recursive: true });
+    await fs.writeFile(path.join(tmpDir, "data", "feedback", "ok.json"), JSON.stringify({ id: "f1" }), "utf8");
+    await fs.writeFile(path.join(tmpDir, "data", "feedback", "bad.json"), "nope", "utf8");
+
+    const route = await loadRoute();
+    const res = await route.GET();
+    expect(res.status).toBe(200); // the backup still downloads
+    const body = await res.json();
+    // Data shape unchanged: the broken section is null/partial as before...
+    expect(body.sections.chats).toBeNull();
+    expect(body.sections.feedback).toHaveLength(1);
+    // ...but the failure is now detectable in the bundle metadata.
+    expect(body.sectionStatus.chats.ok).toBe(false);
+    expect(body.sectionStatus.chats.error).toBeTruthy();
+    expect(body.sectionStatus.feedback.ok).toBe(false);
+    expect(body.sectionStatus.feedback.error).toMatch(/bad\.json/);
+    expect(body.sectionStatus.decks).toEqual({ ok: true, absent: true });
+  });
+});
