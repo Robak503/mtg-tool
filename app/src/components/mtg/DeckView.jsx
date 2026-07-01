@@ -134,7 +134,7 @@ export default function DeckView({
     sel === "current" ? (activeDeck?.cards || []) : cardsFromEntry(snapshots.find(s => s.id === sel));
   const compareDiff = useMemo(() => {
     if (!compareOpen) return null;
-    const from = cmpFrom || snapshots[snapshots.length - 1]?.id;
+    const from = cmpFrom || snapshots[0]?.id;
     if (!from) return null;
     return diffDeckCards(cardsForSel(from), cardsForSel(cmpTo));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -455,7 +455,7 @@ export default function DeckView({
               <div style={{ border: `1px solid var(--hairline)`, borderRadius: 6, padding: 8, marginBottom: 10, background: "var(--surface-container-lowest)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 10, color: MUTED }}>
                   <span>From</span>
-                  <select value={cmpFrom || snapshots[snapshots.length - 1]?.id || ""} onChange={e => setCmpFrom(e.target.value)} style={{ background: BG, color: TEXT, border: `1px solid var(--hairline)`, borderRadius: 4, fontSize: 10, padding: "3px 5px", fontFamily: F, maxWidth: 150 }}>
+                  <select value={cmpFrom || snapshots[0]?.id || ""} onChange={e => setCmpFrom(e.target.value)} style={{ background: BG, color: TEXT, border: `1px solid var(--hairline)`, borderRadius: 4, fontSize: 10, padding: "3px 5px", fontFamily: F, maxWidth: 150 }}>
                     {snapshots.map(s => (<option key={s.id} value={s.id}>{versionLabel(s)}</option>))}
                   </select>
                   <span>→</span>
