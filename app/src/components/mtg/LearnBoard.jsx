@@ -89,6 +89,14 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   const stackLen = (board?.stack || []).length;
   const progLabel = progressionLabel(step, stackLen, passOption, options);
   const legalTargetIds = targeting ? new Set(targeting.options.flatMap(o => (o.targets || []).map(t => t.id))) : null;
+  // A stacked tile's own .id is just its FIRST member's id, but the engine may
+  // offer a LATER copy as the legal target — check every member and remember
+  // which one matched so the click dispatches the right option (U-F11).
+  const tileTargetId = (tile) => {
+    if (!legalTargetIds) return null;
+    for (const id of (tile.ids || [tile.id])) { if (legalTargetIds.has(id)) return id; }
+    return null;
+  };
 
   const clickLand = (tile) => {
     if (manaTapEnabled) {
@@ -106,8 +114,9 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
     setTargeting({ card, options: opts });                  // pick a target
   };
   const clickPermanent = (perm) => {
-    if (targeting && legalTargetIds?.has(perm.id)) {
-      const opt = targeting.options.find(o => (o.targets || []).some(t => t.id === perm.id));
+    const targetId = targeting ? tileTargetId(perm) : null;
+    if (targetId) {
+      const opt = targeting.options.find(o => (o.targets || []).some(t => t.id === targetId));
       if (opt) { onAction(opt); setTargeting(null); return; }
     }
     setEnlarged(perm);
@@ -181,7 +190,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             <div className="lb-row">
               {stackPermanents(focused.permanents).map(p => (
                 <Card key={p.ids[0]} card={p} count={p.count > 1 ? p.count : null}
-                  tappable target={!!legalTargetIds?.has(p.id)}
+                  tappable target={!!tileTargetId(p)}
                   onClick={() => clickPermanent(p)} />
               ))}
               {!focused.permanents.length && <div className="lb-empty">no permanents</div>}
