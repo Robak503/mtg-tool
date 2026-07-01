@@ -222,3 +222,93 @@ describe("registry CRUD", () => {
     expect(await exists(path.join("profiles", bob.id))).toBe(false);
   });
 });
+
+describe("registry recovery (torn/lost profiles.json)", () => {
+  async function migrateTwoOwners() {
+    await seedDecks([
+      { id: "d1", name: "Sliver", memory: { owner: "Colton" } },
+      { id: "d2", name: "Omnath", memory: { owner: "Colton" } },
+      { id: "d3", name: "Kinnan", memory: { owner: "Joe" } },
+    ]);
+    const { ensureMigrated } = await loadProfiles();
+    ensureMigrated();
+    return readJson("profiles.json");
+  }
+
+  it("rebuilds the registry from existing prof_* folders when profiles.json is corrupt", async () => {
+    const before = await migrateTwoOwners();
+    // Simulate the torn write the old bare writeFileSync could leave behind.
+    await fs.writeFile(path.join(workDir, "data", "profiles.json"), "{ torn registr");
+
+    const { ensureMigrated, listProfiles } = await loadProfiles();
+    ensureMigrated();
+
+    const rebuilt = await readJson("profiles.json");
+    expect(rebuilt.profiles.map(p => p.id).sort()).toEqual(before.profiles.map(p => p.id).sort());
+    // Names recovered from each folder's deck owners.
+    expect(rebuilt.profiles.map(p => p.name).sort()).toEqual(["Colton", "Joe"]);
+    expect(rebuilt.profiles.some(p => p.id === rebuilt.activeProfileId)).toBe(true);
+    // Nothing was orphaned: the per-profile decks are still where they were.
+    const colton = rebuilt.profiles.find(p => p.name === "Colton");
+    const coltonDecks = await readJson(path.join("profiles", colton.id, "decks.local.json"));
+    expect(coltonDecks.decks.map(d => d.id).sort()).toEqual(["d1", "d2"]);
+    // And the API-facing entry point works again.
+    expect(listProfiles().profiles).toHaveLength(2);
+  });
+
+  it("rebuilds when profiles.json is missing but profile folders exist (no re-migration)", async () => {
+    const before = await migrateTwoOwners();
+    await fs.rm(path.join(workDir, "data", "profiles.json"));
+
+    const { listProfiles } = await loadProfiles();
+    const { profiles } = listProfiles(); // ensureMigrated runs inside
+
+    expect(profiles.map(p => p.id).sort()).toEqual(before.profiles.map(p => p.id).sort());
+    expect(profiles.map(p => p.name).sort()).toEqual(["Colton", "Joe"]);
+  });
+
+  it("falls back to a plain fresh migration when the registry is corrupt and no profile folders exist", async () => {
+    await fs.writeFile(path.join(workDir, "data", "profiles.json"), "not json at all");
+    const { listProfiles } = await loadProfiles();
+    const { profiles } = listProfiles();
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0].name).toBe("Player 1");
+    const reg = await readJson("profiles.json"); // overwritten with a valid registry
+    expect(reg.activeProfileId).toBe(profiles[0].id);
+  });
+
+  it("uses 'Recovered profile N' when a folder has no owned decks to name it from", async () => {
+    const { listProfiles, createProfile } = await loadProfiles();
+    listProfiles();
+    const bob = createProfile("Bob");
+    await fs.rm(path.join(workDir, "data", "profiles.json"));
+
+    const fresh = await loadProfiles();
+    const { profiles } = fresh.listProfiles();
+    expect(profiles.map(p => p.id)).toContain(bob.id);
+    // Bob's folder is empty and the default profile owns no decks — both fall
+    // back to the placeholder rather than inventing names.
+    expect(profiles.every(p => /^Recovered profile \d+$/.test(p.name))).toBe(true);
+  });
+});
+
+describe("registry write + createProfile hygiene", () => {
+  it("writes the registry atomically (valid JSON, no lingering temp files)", async () => {
+    const { listProfiles, createProfile } = await loadProfiles();
+    listProfiles();
+    createProfile("Bob");
+    const names = await fs.readdir(path.join(workDir, "data"));
+    expect(names.some(n => n.includes(".tmp."))).toBe(false);
+    const reg = await readJson("profiles.json");
+    expect(Array.isArray(reg.profiles)).toBe(true);
+    expect(reg.profiles.some(p => p.name === "Bob")).toBe(true);
+  });
+
+  it("createProfile seeds no files — a new profile folder starts empty", async () => {
+    const { listProfiles, createProfile } = await loadProfiles();
+    listProfiles();
+    const bob = createProfile("Bob");
+    const entries = await fs.readdir(path.join(workDir, "data", "profiles", bob.id));
+    expect(entries).toEqual([]);
+  });
+});

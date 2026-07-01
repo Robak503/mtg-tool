@@ -83,7 +83,14 @@ export function readRegistry() {
 
 function writeRegistry(reg) {
   mkdirSync(dataRoot(), { recursive: true });
-  writeFileSync(profilesRegistryPath(), JSON.stringify(reg, null, 2));
+  const target = profilesRegistryPath();
+  // Atomic temp + rename (the atomicJson.js idiom, sync flavor). The registry
+  // is the root pointer to EVERY profile folder — a torn in-place write here
+  // orphans all per-profile data at once, so it must never truncate the live
+  // file. Unique tmp name keeps two concurrent writers off one temp file.
+  const tmp = `${target}.tmp.${process.pid}.${Date.now()}`;
+  writeFileSync(tmp, JSON.stringify(reg, null, 2));
+  renameSync(tmp, target);
 }
 
 /** List profiles (running migration first if needed). */
@@ -99,13 +106,10 @@ export function createProfile(name) {
   const clean = (name || "").trim() || "New profile";
   const id = newId();
   mkdirSync(profileDir(id), { recursive: true });
-  // Write an empty deck file so the profile starts blank — a present-but-empty
-  // file stops /api/decks from seeding it with the bundled starter library
-  // (only a genuinely missing file gets seeded).
-  writeFileSync(
-    path.join(profileDir(id), "decks.local.json"),
-    JSON.stringify({ version: 1, updatedAt: nowIso(), decks: [] }, null, 2),
-  );
+  // No files are seeded into the new folder: /api/decks (and every other
+  // per-profile store) treats a missing file as empty and lazily creates it on
+  // first write. The old "write an empty decks file to block seeding" guard
+  // dated from a since-removed starter-library seed.
   const profile = { id, name: clean, createdAt: nowIso() };
   reg.profiles.push(profile);
   writeRegistry(reg);
@@ -195,9 +199,69 @@ function cleanupLegacyFlatDecks() {
 }
 
 /**
+ * Best-effort profile-name recovery for a rebuilt registry entry. A profile's
+ * decks usually carry the profile's name in deck.memory.owner — that is how
+ * the original migration grouped decks into profiles in the first place. Take
+ * the most common owner; null when the folder has no readable decks file or
+ * no owned decks.
+ */
+function recoverProfileName(id) {
+  try {
+    const raw = JSON.parse(readFileSync(path.join(profileDir(id), "decks.local.json"), "utf8"));
+    const decks = Array.isArray(raw) ? raw : Array.isArray(raw?.decks) ? raw.decks : [];
+    const counts = new Map();
+    for (const deck of decks) {
+      const owner = ownerOf(deck);
+      if (owner) counts.set(owner, (counts.get(owner) || 0) + 1);
+    }
+    let best = null;
+    for (const [owner, count] of counts) {
+      if (!best || count > best.count) best = { owner, count };
+    }
+    return best ? best.owner : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Rebuild the registry from the data/profiles/prof_* folders that already
+ * exist on disk. Covers a registry lost to a pre-atomic torn write, a disk
+ * glitch, or a hand-deleted/hand-mangled profiles.json AFTER the original
+ * migration moved all user data under profiles/<id>/. Ids come from the
+ * folder names (server-generated, validated); names are recovered from each
+ * folder's deck owners where possible. Returns true when a registry was
+ * rebuilt and written.
+ */
+function rebuildRegistryFromDirs() {
+  let entries;
+  try {
+    entries = readdirSync(profilesRoot(), { withFileTypes: true });
+  } catch {
+    return false; // no profiles/ dir at all — nothing to recover
+  }
+  const ids = entries
+    .filter(entry => entry.isDirectory() && isValidProfileId(entry.name))
+    .map(entry => entry.name)
+    .sort();
+  if (ids.length === 0) return false;
+
+  const profiles = ids.map((id, index) => ({
+    id,
+    name: recoverProfileName(id) || `Recovered profile ${index + 1}`,
+    createdAt: nowIso(),
+  }));
+  writeRegistry({ version: 1, profiles, activeProfileId: profiles[0].id });
+  return true;
+}
+
+/**
  * One-time migration: legacy flat data/ -> data/profiles/<id>/.
- * Idempotent: a no-op once data/profiles.json exists (beyond self-healing a
- * stale legacy flat decks file the original migration couldn't delete).
+ * Idempotent: a no-op once a READABLE data/profiles.json exists (beyond
+ * self-healing a stale legacy flat decks file the original migration couldn't
+ * delete). A missing or corrupt registry with existing profile folders is
+ * rebuilt from those folders (see rebuildRegistryFromDirs) — never re-migrated
+ * into a fresh empty registry, which would orphan every real profile.
  *
  * - Groups existing decks by deck.memory.owner into one profile per owner.
  * - The "primary" profile (most decks; "Colton" wins ties when present) also
@@ -205,10 +269,19 @@ function cleanupLegacyFlatDecks() {
  * - Backs the moved originals up to data/.pre-profiles-backup/ first.
  */
 export function ensureMigrated() {
-  if (existsSync(profilesRegistryPath())) {
+  if (readRegistry()) {
     cleanupLegacyFlatDecks();
     return;
   }
+  // Missing OR corrupt registry from here on. If per-profile folders already
+  // exist, the original migration has run and the flat root holds nothing to
+  // migrate — rebuild the registry FROM the folders. Re-running the legacy
+  // migration here would mint an empty registry and permanently orphan every
+  // profiles/prof_* folder (profilePath() only resolves ids the registry
+  // lists). We deliberately do NOT touch a flat decks.local.json in this
+  // path: routes may have fallen back to the flat root while the registry was
+  // unreadable, and that file is the user's recovery copy.
+  if (rebuildRegistryFromDirs()) return;
   mkdirSync(profilesRoot(), { recursive: true });
 
   const decksFile = readDecksFile();
