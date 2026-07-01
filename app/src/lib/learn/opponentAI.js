@@ -131,10 +131,11 @@ function cardFromHand(state, playerId, cardId) {
  */
 function pickLandAction(state, aiPlayerId, landActions) {
   if (landActions.length === 0) return null;
-  // For now, deterministic alphabetical pick. Mana-color-gap logic
-  // would need to read the AI's commanders / hand colors which we
-  // can revisit when archetype detection sees the full deck context.
-  const sorted = [...landActions].sort((a, b) => a.name.localeCompare(b.name));
+  // For now, a deterministic pick by CODEPOINT order (the engine's replay-stable
+  // idiom — localeCompare is environment/ICU-dependent). Mana-color-gap logic
+  // would need to read the AI's commanders / hand colors which we can revisit
+  // when archetype detection sees the full deck context.
+  const sorted = [...landActions].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   return sorted[0];
 }
 
