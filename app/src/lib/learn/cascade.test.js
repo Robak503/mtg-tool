@@ -189,6 +189,19 @@ describe("cascade decision — the found card is cast FREE or declined to the BO
     expect(picked).toBeTruthy();
     expect(["cast-spell", "cascade-decline"]).toContain(picked.kind);
   });
+
+  it("the AI actually CASTS a castable found creature from EXILE — cardFromHand sees the exile zone", () => {
+    // Before the fix the card lookup searched hand+command only, so every fromZone:"exile" candidate
+    // (cascade / discover free-casts, plotted cards, adventure halves from exile) hit `if (!card)
+    // continue` and was silently dropped — cascade ALWAYS declined its hit, contradicting the pure-upside
+    // intent documented on the cascade branch.
+    const st = midCascade(creature("f1", "Found Beast", 2));
+    const picked = pickAction(st, "user", legalActionsForPlayer(st, "user"));
+    expect(picked.kind).toBe("cast-spell");
+    expect(picked.freeCast).toBe(true);
+    expect(picked.fromZone).toBe("exile");
+    expect(picked.cardId).toBe("f1");
+  });
 });
 
 // ── END-TO-END: cast a cascade spell, the trigger fires above it, dig + free-cast ──────

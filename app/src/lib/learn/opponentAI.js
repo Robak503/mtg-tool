@@ -103,15 +103,19 @@ function scoreCastAction(action, card, archetype) {
 // ─── Card lookup ─────────────────────────────────────────────────────────────
 
 /**
- * Resolve a card by ID from the AI player's hand. Used to look up
+ * Resolve a card by ID from the AI player's castable zones. Used to look up
  * full card data (oracle, type, mana) from the action's cardId.
  */
 function cardFromHand(state, playerId, cardId) {
   const player = state.players[playerId];
   // CMD-CAST: a commander cast action (fromZone:"command") references a card in the command zone, not
   // the hand — check both so the AI can actually cast its commander (CR 903.8), not sit on it all game.
+  // EXILE: cascade / discover free-cast candidates, plotted cards, and adventure creature-halves cast
+  // from exile all carry fromZone:"exile" — without this lookup every such action was silently dropped
+  // (`if (!card) continue`), so cascade ALWAYS declined and plotted cards were never cast.
   return player?.hand.find(c => c.id === cardId)
     || player?.command?.find(c => c.id === cardId)
+    || player?.exile?.find(c => c.id === cardId)
     || null;
 }
 
@@ -152,7 +156,10 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
 
   const scored = [];
   for (const [cardId, actions] of byCard) {
-    const card = cardFromHand(state, aiPlayerId, cardId);
+    // ADVENTURE: an adventure action projects the half actually being cast as `faceCard`
+    // (creature half from hand/exile, or the Adventure spell half) — score THAT face, not
+    // the combined card, so the pick reflects what will really resolve.
+    const card = actions[0].faceCard || cardFromHand(state, aiPlayerId, cardId);
     if (!card) continue; // card vanished
     // The AI HOLDS any counter spell (deferred seam — it doesn't evaluate response
     // windows and must never counter its OWN spell). Explicit rather than relying on the
