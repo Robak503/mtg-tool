@@ -154,10 +154,14 @@ export async function POST() {
     });
 
     if (!result.ok) {
+      // Provider failures carry their message at result.data.error (see
+      // providerError in modelProvider.js) — there is no top-level
+      // result.error on that shape, so reading it first masked every real
+      // reason (model not pulled, timeout, ...) behind the generic line.
       return Response.json(
         {
-          error: result.error || "Tibalt is unreachable. Is Ollama running?",
-          provider: result.provider,
+          error: result.data?.error || "Tibalt is unreachable. Is Ollama running?",
+          provider: result.data?.provider || result.provider,
         },
         { status: 503 },
       );

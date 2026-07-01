@@ -113,3 +113,50 @@ describe("POST /api/tibalt/roast-collection", () => {
     expect(parsed.roasts[0].stats.totalCards).toBe(4);
   });
 });
+
+describe("provider failure surfacing (S-P2-3)", () => {
+  async function loadRouteWithFailure() {
+    vi.resetModules();
+    vi.doMock("../../../../lib/server/modelProvider.js", () => ({
+      // Real failure shape: providerError() nests everything under data.
+      callModelMessages: vi.fn(async () => ({
+        ok: false,
+        status: 502,
+        data: {
+          error: 'Ollama model "qwen2.5:14b" is not pulled. Run: ollama pull qwen2.5:14b',
+          provider: "ollama",
+          modelMissing: true,
+        },
+      })),
+    }));
+    return import("./route.js");
+  }
+
+  it("surfaces result.data.error instead of the generic unreachable line", async () => {
+    await fs.writeFile(
+      path.join(tmpDir, "data", "collection.json"),
+      JSON.stringify({
+        version: 1,
+        updatedAt: "x",
+        cards: [
+          {
+            scryfallId: "a",
+            oracleId: "oracle-a",
+            name: "Sol Ring",
+            stacks: [{ finish: "nonfoil", quantity: 4 }],
+            prices: { usd: "3.50" },
+            wishlist: false,
+          },
+        ],
+      }),
+      "utf8",
+    );
+    route = await loadRouteWithFailure();
+    const resp = await route.POST(new Request("http://localhost/api/tibalt/roast-collection", { method: "POST" }));
+    expect(resp.status).toBe(503);
+    const body = await resp.json();
+    expect(body.error).toMatch(/not pulled/);
+    expect(body.error).not.toMatch(/unreachable/i);
+    expect(body.provider).toBe("ollama");
+  });
+});
