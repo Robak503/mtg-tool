@@ -32,8 +32,6 @@ export default function useDeckStore(activeProfileName) {
   // it once the profile name resolves (profiles load async after mount) so a
   // deck imported by Joe is attributed to Joe, not the old hardcoded "Colton".
   const [deckOwner, setDeckOwner] = useState("");
-  const [projectSearch, setProjectSearch] = useState("");
-  const [projectRequested, setProjectRequested] = useState(false);
   const [gameResult, setGameResult] = useState("Win");
   const [gameOpponents, setGameOpponents] = useState("");
   const [gameNotes, setGameNotes] = useState("");
@@ -256,7 +254,7 @@ export default function useDeckStore(activeProfileName) {
     const cards = parseDeck(raw);
     if (!cards.length) return null;
 
-    const name = deckName.trim() || projectSearch.trim() || "My Deck";
+    const name = deckName.trim() || "My Deck";
     const deck = normalizeDeck({
       id: Date.now().toString(),
       name,
@@ -272,8 +270,6 @@ export default function useDeckStore(activeProfileName) {
     setDeckData({});
     setDeckRaw("");
     setDeckName("My Deck");
-    setProjectSearch("");
-    setProjectRequested(false);
 
     return deck;
   };
@@ -305,25 +301,6 @@ export default function useDeckStore(activeProfileName) {
     setActiveDeckId(deck.id);
     setDeckData({});
     return deck;
-  };
-
-  const loadFromProject = () => {
-    const name = projectSearch.trim();
-    if (!name) return;
-
-    const prompt = `[DECK_REQUEST] ${name}
-
-Retrieve the deck file from this project's knowledge matching the commander name above. Return the deck contents wrapped in sentinel markers per META_deck_format.md:
-
-<<<DECK_BEGIN: ${name}>>>
-[raw decklist content verbatim from the file]
-<<<DECK_END>>>
-
-If no matching file exists, list the available deck files. If multiple variants exist, ask which to load.`;
-
-    if (typeof window.sendPrompt === "function") window.sendPrompt(prompt);
-    setProjectRequested(true);
-    setDeckName(name);
   };
 
   const deleteDeck = (id) => {
@@ -431,12 +408,9 @@ If no matching file exists, list the available deck files. If multiple variants 
     legalIssues,
     loadCombos,
     loadDeckData,
-    loadFromProject,
     mainCount,
     persistDecks,
     priceInfo,
-    projectRequested,
-    projectSearch,
     recordGame,
     savedDecks,
     setActiveDeckId,
@@ -447,8 +421,6 @@ If no matching file exists, list the available deck files. If multiple variants 
     setGameNotes,
     setGameOpponents,
     setGameResult,
-    setProjectRequested,
-    setProjectSearch,
     tokenCatalogReady,
     tokenCount,
     tokenEntries,

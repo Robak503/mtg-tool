@@ -1,7 +1,7 @@
 /**
- * ImportDeckView — the deck-import view: import from a Moxfield/Archidekt URL,
- * paste a decklist, or pull one from the project; name it + owner it, and save
- * it into the local deck library.
+ * ImportDeckView — the deck-import view: import from a Moxfield/Archidekt URL
+ * or paste a decklist; name it + owner it, and save it into the local deck
+ * library.
  */
 import { useRef, useState } from "react";
 
@@ -12,11 +12,6 @@ export default function ImportDeckView({
   pb,
   colors,
   fontFamily,
-  projectSearch,
-  setProjectSearch,
-  projectRequested,
-  setProjectRequested,
-  loadFromProject,
   deckName,
   setDeckName,
   deckOwner,
@@ -136,34 +131,6 @@ export default function ImportDeckView({
           )}
         </div>
 
-        <div style={{background:BG3,border:`1px solid ${cfg.border}`,borderRadius:8,padding:14,marginBottom:18}}>
-          <div style={{fontSize:13,fontWeight:700,color:cfg.color,fontFamily,marginBottom:4}}>Load from Project</div>
-          <div style={{fontSize:11,color:MUTED,marginBottom:10,lineHeight:1.65}}>
-            If you've uploaded deck files to this project named by commander, enter the commander name and Claude will retrieve it automatically.
-          </div>
-          <div style={{display:"flex",gap:8,marginBottom: projectRequested?10:0}}>
-            <input
-              value={projectSearch}
-              onChange={e=>{setProjectSearch(e.target.value);setProjectRequested(false);}}
-              onKeyDown={e=>{if(e.key==="Enter")loadFromProject();}}
-              placeholder="e.g. Atraxa, Praetors' Voice"
-              style={{flex:1,padding:"7px 10px",background:BG,border:`1px solid ${LINE}`,borderRadius:5,color:TEXT,fontSize:13,fontFamily}}
-            />
-            <button
-              onClick={loadFromProject}
-              disabled={!projectSearch.trim()}
-              style={{...pb(true,true),opacity:projectSearch.trim()?1:.45,whiteSpace:"nowrap"}}
-            >
-              Request Deck
-            </button>
-          </div>
-          {projectRequested&&(
-            <div style={{padding:"10px 12px",borderRadius:6,background:cfg.dim,border:`1px solid ${cfg.border}`,fontSize:12,color:cfg.color,lineHeight:1.6}}>
-              Sent to chat. Copy Claude's full response and paste it below, then click Import.
-            </div>
-          )}
-        </div>
-
         <div style={{fontSize:11,color:MUTED,marginBottom:6,fontFamily}}>Or paste a deck list manually:</div>
         <input
           value={deckName}
@@ -193,7 +160,7 @@ export default function ImportDeckView({
         />
         <div style={{display:"flex",gap:8,marginTop:10}}>
           <button onClick={importDeck} disabled={!deckRaw.trim()} style={{...pb(true),opacity:deckRaw.trim()?1:.45}}>Import Deck</button>
-          <button onClick={()=>{setCenterView("chat");setProjectRequested(false);}} style={pb(false)}>Cancel</button>
+          <button onClick={()=>setCenterView("chat")} style={pb(false)}>Cancel</button>
         </div>
       </div>
     </div>

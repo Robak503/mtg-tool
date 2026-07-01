@@ -179,11 +179,8 @@ export default function MTGAssistant() {
     legalIssues,
     loadCombos,
     loadDeckData,
-    loadFromProject,
     mainCount,
     priceInfo,
-    projectRequested,
-    projectSearch,
     recordGame,
     savedDecks,
     setActiveDeckId,
@@ -194,8 +191,6 @@ export default function MTGAssistant() {
     setGameNotes,
     setGameOpponents,
     setGameResult,
-    setProjectRequested,
-    setProjectSearch,
     tokenCatalogReady,
     tokenCount,
     tokenEntries,
@@ -1237,11 +1232,6 @@ export default function MTGAssistant() {
                 pb={pb}
                 colors={{BG, BG3, LINE, TEXT, MUTED, GOLD}}
                 fontFamily={F}
-                projectSearch={projectSearch}
-                setProjectSearch={setProjectSearch}
-                projectRequested={projectRequested}
-                setProjectRequested={setProjectRequested}
-                loadFromProject={loadFromProject}
                 deckName={deckName}
                 setDeckName={setDeckName}
                 deckOwner={deckOwner}
