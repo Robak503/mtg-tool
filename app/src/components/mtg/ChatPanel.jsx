@@ -423,6 +423,7 @@ export default function ChatPanel({
   retryWithFallback,
   send,
   sending,
+  sendingSessionId,
   setCenterView,
   setInput,
   unloadDeck,
@@ -436,10 +437,15 @@ export default function ChatPanel({
   const { BG2, BG3, LINE, TEXT, MUTED } = colors;
   const quickPrompts = QUICK[agent] || [];
   const sessionMessages = currentSession?.messages || [];
+  // The global `sending` flag scoped to THIS session (U-F8): the busy UI
+  // (thinking bubble, disabled composer) only applies when the in-flight send
+  // is writing to the session being viewed. Other sessions render normally —
+  // though send() itself stays single-flight across the app.
+  const sendingHere = sending && Boolean(currentSession) && sendingSessionId === currentSession.id;
   // Pre-first-token window: a streaming placeholder exists but no text has landed
   // yet. Drives the "reasoning…" state (B1) so local-model first-token lag reads
   // as thinking, not frozen.
-  const awaitingFirstToken = sending && !sessionMessages.find(m => m.streaming)?.content;
+  const awaitingFirstToken = sendingHere && !sessionMessages.find(m => m.streaming)?.content;
   const sessionLockedDeck = currentSession?.lockedDeck || null;
   // A pending lock (confirmed === false) means the user hasn't verified which
   // deck this chat is bound to: show the confirm bar and block sending. A
@@ -460,14 +466,14 @@ export default function ChatPanel({
     Boolean(activeDeck) &&
     activeDeck.id !== sessionLockedDeck.id;
 
-  // Wait counter while streaming.
+  // Wait counter while streaming (scoped to this session's send).
   const [waitSeconds, setWaitSeconds] = useState(0);
   useEffect(() => {
-    if (!sending) { setWaitSeconds(0); return; }
+    if (!sendingHere) { setWaitSeconds(0); return; }
     setWaitSeconds(0);
     const timer = setInterval(() => setWaitSeconds(s => s + 1), 1000);
     return () => clearInterval(timer);
-  }, [sending]);
+  }, [sendingHere]);
 
   return (
     <>
@@ -823,7 +829,7 @@ export default function ChatPanel({
           )
         ))}
 
-        {sending && (
+        {sendingHere && (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 3 }}>
             <span style={{ fontSize: 10, color: cfg.color, marginLeft: 2 }}>{cfg.name}</span>
             <div
@@ -924,7 +930,7 @@ export default function ChatPanel({
                 : "Confirm the deck above to start chatting…")
             : cfg.placeholder}
           rows={2}
-          disabled={sending || deckGateOpen}
+          disabled={sendingHere || deckGateOpen}
           style={{
             flex: 1,
             padding: "10px 13px",
@@ -941,7 +947,7 @@ export default function ChatPanel({
         />
         <button
           onClick={() => send()}
-          disabled={!input.trim() || sending || deckGateOpen}
+          disabled={!input.trim() || sendingHere || deckGateOpen}
           style={{
             minWidth: 58,
             height: 42,
@@ -956,7 +962,7 @@ export default function ChatPanel({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            opacity: !input.trim() || sending || deckGateOpen ? 0.4 : 1,
+            opacity: !input.trim() || sendingHere || deckGateOpen ? 0.4 : 1,
             fontFamily,
           }}
         >

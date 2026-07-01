@@ -220,6 +220,7 @@ export default function MTGAssistant() {
     retryWithFallback,
     send,
     sending,
+    sendingSessionId,
     setInput,
     primeInput,
   } = useChatSessions({
@@ -1327,6 +1328,7 @@ export default function MTGAssistant() {
                 retryWithFallback={retryWithFallback}
                 send={send}
                 sending={sending}
+                sendingSessionId={sendingSessionId}
                 setCenterView={setCenterView}
                 setInput={setInput}
                 unloadDeck={unloadActiveDeck}

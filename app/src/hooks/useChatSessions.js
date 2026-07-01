@@ -123,6 +123,11 @@ export default function useChatSessions({
   const pendingInputRef = useRef(null);
   const primeInput = (text) => { pendingInputRef.current = String(text ?? ""); };
   const [sending, setSending] = useState(false);
+  // Which session the in-flight send is writing to (U-F8). `sending` alone is
+  // global, which made every OTHER session show "X is reasoning…" with a
+  // disabled composer; consumers scope the busy UI to this session id while
+  // send() itself stays single-flight.
+  const [sendingSessionId, setSendingSessionId] = useState(null);
   const [knowledgeStatus, setKnowledgeStatus] = useState(null);
   // The in-flight chat-stream's AbortController (U-F7). Unmounting aborts it
   // so a wedged request can't keep streaming into a dead UI.
@@ -435,6 +440,7 @@ export default function useChatSessions({
     }
 
     setSending(true);
+    setSendingSessionId(originSessionId);
 
     // Abort/timeout plumbing for the streaming request (U-F7). A wedged
     // Ollama previously left `sending` true forever — composer disabled until
@@ -918,6 +924,7 @@ export default function useChatSessions({
       if (streamWatchdog) clearTimeout(streamWatchdog);
       if (activeStreamAbortRef.current === streamController) activeStreamAbortRef.current = null;
       setSending(false);
+      setSendingSessionId(null);
     }
   };
 
@@ -972,7 +979,7 @@ export default function useChatSessions({
     unlockSessionDeck,
     confirmSessionDeck,
     // Chat I/O
-    input, setInput, primeInput, sending,
+    input, setInput, primeInput, sending, sendingSessionId,
     send, retryWithFallback,
     exportChat, clearChat,
     // Knowledge
