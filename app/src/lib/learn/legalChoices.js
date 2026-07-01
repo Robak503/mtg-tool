@@ -610,6 +610,16 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
   for (const card of cards) {
     if (isLand(card)) continue;
 
+    // ADVENTURE (CR 715): the COMBINED card is never castable as-is — each half is cast separately via the
+    // dedicated adventure generators (adventure half / creature half), which project a single face and re-enter
+    // this builder (a projected face has no "//" in its type, so it doesn't trip this gate). Without the skip,
+    // a combined type line like "Creature — Giant // Instant — Adventure" reads as containing "Instant" →
+    // isSorcerySpeed false → the combined card was offered at INSTANT speed (illegal timing for the creature)
+    // at a SUMMED both-halves cost, alongside the correct per-half actions. Skipping is CREED-safe in every
+    // zone this builder serves (hand / command / exile / free-cast): a missing offer is a safe FN; the
+    // combined-card cast is a false positive.
+    if (isAdventureCard(card)) continue;
+
     const sorcerySpeed = isSorcerySpeed(card);
     const timingOk = sorcerySpeed
       ? canCastSorcerySpeed(state, playerId)
@@ -1417,6 +1427,31 @@ function actionsCastAdventureFromHand(state, playerId) {
 }
 
 /**
+ * ADVENTURE step 1b — cast the CREATURE half directly from HAND. CR 715.2b: everywhere except the stack, an
+ * adventurer card has only its creature characteristics — a normal cast from hand casts the CREATURE at the
+ * creature half's own cost and timing. Before this generator existed the combined card rode the generic hand
+ * enumerator (summed cost, instant timing when the ADVENTURE half is an Instant) — castActionsFromZone now
+ * skips combined adventure cards, and this projects the creature face exactly like the exile generator below.
+ * NOT tier-gated (unlike the adventure-half generator): entering as the printed creature body is the same
+ * posture as every body-only creature in the trunk — the projected face enters via `faceCard`, so even a card
+ * with an unmodeled ADVENTURE half is castable as its creature (strictly more faithful than the old combined
+ * cast). The adventure HALF stays gated on both halves being modeled (THE CREED — its effect must resolve).
+ */
+function actionsCastCreatureFromHand(state, playerId) {
+  const player = state.players[playerId];
+  const actions = [];
+  for (const card of player.hand) {
+    if (!isAdventureCard(card)) continue;
+    const face = creatureFaceCard(card);                        // project onto the creature half
+    if (!face) continue;
+    for (const a of castActionsFromZone(state, playerId, [face], "hand", null)) {
+      actions.push({ ...a, faceCard: face });
+    }
+  }
+  return actions;
+}
+
+/**
  * ADVENTURE step 2 — cast the CREATURE HALF from adventure-exile (CR 715.3e). After the adventure spell
  * resolved, the card sits in exile flagged `_onAdventure`; while it's there the owner may cast the creature
  * half at its OWN mana cost (NOT free — unlike plot/discover). We project the card onto its CREATURE face
@@ -1733,6 +1768,7 @@ export function legalActionsForPlayer(state, playerId, { declaredAttackers } = {
     actions.push(...actionsCastCommander(state, playerId)); // CMD-CAST: cast from the command zone (CR 903.8)
     actions.push(...actionsCastPlottedFromExile(state, playerId)); // PLOT step 2 (CR 702.171b): cast a plotted card free
     actions.push(...actionsCastAdventureFromHand(state, playerId)); // ADVENTURE step 1 (CR 715.3): cast the adventure (instant/sorcery) half
+    actions.push(...actionsCastCreatureFromHand(state, playerId)); // ADVENTURE step 1b (CR 715.2b): cast the creature half from hand at its own cost
     actions.push(...actionsCastCreatureFromAdventureExile(state, playerId)); // ADVENTURE step 2 (CR 715.3e): cast the creature half from exile
   }
   actions.push(...actionsCompanion(state, playerId));     // CMD-COMPANION: {3} → put the companion into hand (not a cast)

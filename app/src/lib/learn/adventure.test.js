@@ -163,6 +163,54 @@ describe("ADVENTURE step 1 — cast the adventure (instant/sorcery) half from ha
   });
 });
 
+describe("ADVENTURE — the COMBINED card is never offered (CR 715.2b); each half casts separately", () => {
+  it("an adventure card in hand yields ONLY adventureCast + creature-half actions — never a combined-card cast", () => {
+    // FOULMIRE's combined type contains "Instant" → the old generic hand enumerator offered the COMBINED
+    // card (summed {B}+{2}{B} cost, instant timing) alongside the correct per-half actions.
+    const s = advState({ hand: [FOULMIRE], battlefield: [swamp("s1"), swamp("s2"), swamp("s3")] });
+    const casts = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").filter(a => a.cardId === "foul1");
+    expect(casts).toHaveLength(2);
+    expect(casts.every(a => a.faceCard)).toBe(true);                     // every cast is a projected HALF
+    const names = casts.map(a => a.name).sort();
+    expect(names).toEqual(["Foulmire Knight", "Profane Insight"]);       // creature half + adventure half
+    expect(casts.some(a => String(a.name).includes("//"))).toBe(false);  // the combined card is gone
+  });
+
+  it("the creature half casts from hand at ITS OWN cost and enters as the creature (CR 715.2b)", () => {
+    let s = advState({ hand: [FOULMIRE], battlefield: [swamp("s1")] }); // ONLY {B} available — combined/summed would be unaffordable
+    const casts = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").filter(a => a.cardId === "foul1");
+    expect(casts).toHaveLength(1); // the {2}{B} adventure half is unaffordable; the {B} creature half is castable
+    expect(casts[0].name).toBe("Foulmire Knight");
+    s = dispatchAction(s, casts[0]);
+    s = resolveTopOfStack(s);
+    const perm = s.players.user.battlefield.find(p => p.card.id === "foul1");
+    expect(perm.card.name).toBe("Foulmire Knight");                      // entered as the CREATURE face
+    expect(perm.card.type).toBe("Creature — Zombie Knight");
+    expect(s.players.user.hand).toHaveLength(0);
+  });
+
+  it("at INSTANT speed only the Instant adventure half is offered — the creature half (and combined card) are not", () => {
+    // Opponent's turn: the old combined offer leaked an instant-speed CREATURE cast (illegal timing).
+    const base = advState({ hand: [FOULMIRE], battlefield: [swamp("s1"), swamp("s2"), swamp("s3")] });
+    const s = { ...base, activePlayer: "ai", priorityHolder: "user" };
+    const casts = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").filter(a => a.cardId === "foul1");
+    expect(casts.map(a => a.name)).toEqual(["Profane Insight"]);         // the Instant half is legal at instant speed
+    expect(casts[0].adventureCast).toBe(true);
+  });
+
+  it("a card with an UNMODELED adventure half is still castable as its CREATURE body (trunk posture)", () => {
+    // MERFOLK: adventure half (mill) unmodeled → no adventureCast (CREED-gated), but the vanilla 0/4
+    // creature half is exactly a body-only trunk creature — offered at {U}, entering as the Merfolk.
+    const island = createPermanent({ id: "i1", card: { name: "Island", type: "Basic Land — Island", oracle: "{T}: Add {U}." }, controller: "user", summoningSick: false });
+    let s = advState({ hand: [MERFOLK], battlefield: [island] });
+    const casts = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").filter(a => a.cardId === "mer1");
+    expect(casts.map(a => a.name)).toEqual(["Merfolk Secretkeeper"]);    // creature half only, no combined, no adventure
+    s = dispatchAction(s, casts[0]);
+    s = resolveTopOfStack(s);
+    expect(s.players.user.battlefield.some(p => p.card.name === "Merfolk Secretkeeper")).toBe(true);
+  });
+});
+
 describe("ADVENTURE step 2 — cast the creature half from adventure-exile (CR 715.3e)", () => {
   // Cast Gift of the Fae (targeting a bear) so Faerie Guidemother lands in adventure-exile, then untap.
   function onAdventureThenUntap() {
