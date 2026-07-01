@@ -8,6 +8,53 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.84.0] - 2026-07-01
+
+### Fixed
+- **Consolidation pass (Fable 5): 5 phantom-mana false-positive classes removed.** A quoted *group-grant* mana
+  ability ("Creatures you control have `{T}: Add …`") was credited as the granter's OWN mana — the engine tapped
+  Cryptolith Rite, Chromatic Lantern, Goldspan Dragon, Paradise Mantle, and the Eldrazi-Scion makers for fabricated
+  mana every turn. Now stripped unless the card self-includes in the grant scope (Gemhide still self-produces).
+  Mana Vault's unmodeled "doesn't untap" restriction routes it out of the standing mana model. "Permanents you
+  control have <keyword>" now grants to every permanent (was a dead selector that granted to nobody — Privileged
+  Position). Irregular/invariant plural subtypes (Pegasus/Mice/Detectives) and invariant basic-land intervening-ifs
+  ("two or more Plains") now resolve correctly. Corpus native 8673→8650 (−23 FPs = accuracy correction); flip-diff
+  LOST=23 / GAINED=0.
+- **Engine runtime: 9 real bugs.** A creature regenerated mid-combat was silently removed from ALL future combats
+  (phantom combatant); the starting player wrongly skipped their first draw in 4-player games (CR 103.8c); a human's
+  chosen action could dispatch as a *different* legal action (wrong attack target); a stuck `pendingFreeCast` could
+  livelock a game and mint a fake win/loss under time pressure; the AI never cast from exile (cascade always
+  declined); trample over a protection-prevented blocker let full power through (CR 510.1c-d); adventure cards were
+  double-offered as a combined card at instant speed; timeouts were mis-bucketed in the breakage report; two
+  locale-dependent tie-breaks could diverge across machines.
+- **Server / .exe: 10 fixes.** Card/rules index paths were captured at module load so an in-app sync silently no-op'd
+  in the packaged .exe (now resolved per call); the profiles registry wrote non-atomically and could orphan ALL user
+  data on a torn write (now atomic + rebuilds from the profile folders on loss); added an Origin guard against
+  localhost drive-by writes; removed a hardcoded developer path; export-all now records per-section readability;
+  tibalt surfaces the real provider error; the Ollama model pull resolves an absolute binary path; deleted the dead
+  `/api/spellbook` route, the superseded symbolic-engine trio, the chats v1 shim, and buildSeedDeck.
+- **Client: 15 fixes.** The Arbiter auto-retry rebuilt the chat from a stale closure and *destroyed* the user's
+  question + first reply (now threads fresh state); switching decks left the previous deck's analytics live; the dead
+  "Load from Project" flow fabricated success; a profile switch destroyed custom color tags; Jace's canned rules
+  primer waited on the full Arbiter pipeline; the chat stream had no abort/timeout (a wedged model disabled the
+  composer forever); the background update-check result never surfaced; the busy state bled across sessions; plus
+  stacked-tile targeting, card-search race, snapshot-compare default, message-id, and dead-code fixes.
+- **Release pipeline.** ~68 releases had shipped with ZERO Commander Spellbook combos (the refdata cache handoff never
+  worked cross-OS/cross-tag) — restored a bounded, resumable combo sync + a strict bundle guard that refuses to ship a
+  gutted .exe; bundled the missing cardkingdom-prices sync script; switched the release caches to restore-only to stop
+  ~840 MB/release of quota churn; made the sync scripts write atomically; fixed a build-rules-index crash path and the
+  RELEASE.md rollback procedure.
+
+### Added
+- **Architecture scaffolds.** `docs/orchestration/PROJECT-SCAFFOLD.md` (the whole system) and
+  `docs/orchestration/ENGINE-SCAFFOLD.md` (the rules engine + a "how to safely add a new mechanic" recipe) — durable
+  maps written during the consolidation pass so future sessions can navigate the project without re-deriving it.
+
+### Changed
+- Archived two build-status docs that were being served as rules content; refreshed CLAUDE.md's stale paths/numbers
+  and resume pointer; bannered superseded handoff docs. Full gate 6,371 tests green, lint clean.
+
+
 ## [0.83.0] - 2026-06-30
 
 ### Improved
