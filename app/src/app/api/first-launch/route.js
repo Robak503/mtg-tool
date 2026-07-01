@@ -27,6 +27,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { dataPath, profilePath } from "../../../lib/server/paths";
 import { ensureMigrated } from "../../../lib/server/profiles";
+import { atomicWriteJson } from "../../../lib/server/atomicJson";
 
 const KEY_DECK_FILE = "decks.local.json";
 const MARKER_FILE = ".first-launch-marker.json";
@@ -87,14 +88,15 @@ function suggestSourcePath() {
 }
 
 async function writeMarker(reason, extra = {}) {
-  const dir = dataPath();
-  await fs.mkdir(dir, { recursive: true });
   const payload = {
     completedAt: new Date().toISOString(),
     reason, // "import" | "dismiss"
     ...extra,
   };
-  await fs.writeFile(path.join(dir, MARKER_FILE), JSON.stringify(payload, null, 2));
+  // Temp + rename: the marker gates the first-launch wizard, so a crash
+  // mid-write must leave either no marker (wizard re-offers) or a complete
+  // one — never a torn file. atomicWriteJson creates the parent dir.
+  await atomicWriteJson(path.join(dataPath(), MARKER_FILE), payload);
 }
 
 export async function GET() {

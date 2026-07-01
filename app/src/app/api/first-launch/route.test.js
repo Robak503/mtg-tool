@@ -246,3 +246,20 @@ describe("POST /api/first-launch — import happy path", () => {
     expect(stat.isDirectory()).toBe(true);
   });
 });
+
+describe("marker write hygiene (S-P3)", () => {
+  it("dismiss writes a complete, parseable marker with no lingering temp files", async () => {
+    route = await loadRoute();
+    const resp = await route.POST(postRequest({ action: "dismiss" }));
+    expect(resp.status).toBe(200);
+
+    const marker = JSON.parse(
+      await fs.readFile(path.join(tmpDir, "data", ".first-launch-marker.json"), "utf8"),
+    );
+    expect(marker.reason).toBe("dismiss");
+    expect(marker.completedAt).toBeTruthy();
+
+    const names = await fs.readdir(path.join(tmpDir, "data"));
+    expect(names.filter(n => n.includes(".tmp."))).toEqual([]);
+  });
+});
