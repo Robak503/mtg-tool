@@ -343,18 +343,28 @@ export default function useChatSessions({
 
     if (!prompt || sending) return;
 
+    // A depth>0 auto-retry recurses synchronously inside THIS closure, where
+    // `sessions` / `activeSessionIds` are still the values from the render
+    // that started the depth-0 send. Reading them here would resolve a session
+    // snapshot that's missing the user's question and the just-written reply —
+    // or, if depth 0 created the session, no session at all (spawning a
+    // duplicate). Depth 0 therefore threads the fresh values the retry needs
+    // through opts.retry: { originSessionId, baseMessages, deckLock } (U-F1).
+    const retryCtx = retryDepth > 0 && opts.retry ? opts.retry : null;
+
     // Resolve which session this send writes to. Prefer the active session
     // for the target agent; create one on-demand if none exists. Capture the
     // id NOW so streaming tokens always land in the originating session even
     // if the user switches sessions mid-stream.
-    let originSessionId = activeSessionIds[targetAgent]
+    let originSessionId = retryCtx?.originSessionId
+      || activeSessionIds[targetAgent]
       || sessions
         .filter(s => s.agent === targetAgent && !s.archived)
         .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))[0]?.id
       || null;
 
     let originSession = originSessionId ? sessions.find(s => s.id === originSessionId) : null;
-    if (!originSession || originSession.archived || originSession.agent !== targetAgent) {
+    if (!retryCtx && (!originSession || originSession.archived || originSession.agent !== targetAgent)) {
       originSession = createSession(targetAgent, {
         name: autoNameFromPrompt(prompt),
       });
@@ -363,9 +373,12 @@ export default function useChatSessions({
 
     const lockingAgent = DECK_LOCK_AGENTS.has(targetAgent);
     const deckRequiredAgent = DECK_REQUIRED_AGENTS.has(targetAgent);
-    let deckLock = lockingAgent ? originSession.lockedDeck : null;
+    // A retry reuses depth 0's fully-resolved lock (the stale closure session
+    // may predate it — and originSession can be null if depth 0 created the
+    // session). Depth 0 resolves it from the session as before.
+    let deckLock = retryCtx ? (retryCtx.deckLock ?? null) : (lockingAgent ? originSession.lockedDeck : null);
     let deckLockJustCreated = false;
-    if (lockingAgent && !deckLock && activeDeck && !originSession.deckDeclined) {
+    if (!retryCtx && lockingAgent && !deckLock && activeDeck && !originSession.deckDeclined) {
       deckLock = createDeckLock(activeDeck, knowledgeStatus);
       deckLockJustCreated = true;
       updateSession(originSessionId, s => ({ ...s, lockedDeck: deckLock }));
@@ -377,7 +390,7 @@ export default function useChatSessions({
     // deck-selection pop-out is already showing so the user resolves it there.
     // autoConfirmDeck (deck-view briefings) always targets the active deck, so
     // it bypasses this gate.
-    if (deckRequiredAgent && !deckLock && !originSession.deckDeclined && !autoConfirmDeck) {
+    if (!retryCtx && deckRequiredAgent && !deckLock && !originSession.deckDeclined && !autoConfirmDeck) {
       return;
     }
 
@@ -394,9 +407,11 @@ export default function useChatSessions({
       }
     }
 
-    const baseMessages = retryDepth === 0
-      ? [...originSession.messages, { role: "user", content: prompt }]
-      : [...originSession.messages];
+    const baseMessages = retryCtx
+      ? [...retryCtx.baseMessages]
+      : retryDepth === 0
+        ? [...originSession.messages, { role: "user", content: prompt }]
+        : [...originSession.messages];
 
     if (retryDepth === 0) {
       // Name newly-empty sessions from their first user message.
@@ -665,9 +680,17 @@ export default function useChatSessions({
         return;
       }
 
-      const apiMessages = retryDepth === 0
-        ? trimApiHistory([...originSession.messages, { role: "user", content: augmentedContent }])
-        : trimApiHistory(baseMessages);
+      // Depth 0 swaps the visible prompt for the context-augmented version as
+      // the final user turn. A retry appends its enriched prompt (deck/card
+      // context + the auto-retry ask) as a NEW user turn after the fresh
+      // history — baseMessages already ends with the UNRESOLVED assistant
+      // reply, and without this turn the model would receive no question and
+      // none of the Oracle text the retry exists to attach (U-F1).
+      const apiMessages = retryCtx
+        ? trimApiHistory([...baseMessages, { role: "user", content: augmentedContent }])
+        : retryDepth === 0
+          ? trimApiHistory([...originSession.messages, { role: "user", content: augmentedContent }])
+          : trimApiHistory(baseMessages);
       const useFastLocalModel = Boolean(isLocalProvider && requestedTier === "fast");
 
       const response = await fetch("/api/chat-stream", {
@@ -792,15 +815,25 @@ export default function useChatSessions({
           const replyCards = [...reply.matchAll(/\[\[([^\]]+)\]\]/g)].map(match => match[1]);
           if (replyCards.length) {
             const enrichedText = prompt + "\n\n[Auto-retry: include Oracle text for " + replyCards.join(", ") + "]";
+            // Compute the post-write thread deterministically and thread it
+            // to the retry — the recursion runs inside this same render
+            // closure, so it must not re-read `sessions` (stale: missing the
+            // user's question and this reply; its streaming write would then
+            // replace the session's real messages with that stale snapshot).
+            const retryBaseMessages = [
+              ...baseMessages,
+              { role: "assistant", content: reply + "\n\nAuto-retrying with explicit card context." },
+            ];
             updateSession(originSessionId, s => ({
               ...s,
-              messages: [
-                ...baseMessages,
-                { role: "assistant", content: reply + "\n\nAuto-retrying with explicit card context." },
-              ],
+              messages: retryBaseMessages,
               updatedAt: new Date().toISOString(),
             }));
-            return send(enrichedText, targetAgent, 1);
+            // Awaited so this pass's finally (setSending(false)) cannot
+            // re-enable the composer while the retry is still streaming.
+            return await send(enrichedText, targetAgent, 1, null, {
+              retry: { originSessionId, baseMessages: retryBaseMessages, deckLock },
+            });
           }
         }
       }
