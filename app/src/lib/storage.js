@@ -1,10 +1,8 @@
+// Thin async JSON wrappers over localStorage. Async is kept so callers can
+// stay agnostic about the backing store (a future Tauri store could be
+// awaited here without touching call sites).
 export async function loadJson(key) {
   try {
-    if (window.storage?.get) {
-      const result = await window.storage.get(key);
-      return result ? JSON.parse(result.value) : null;
-    }
-
     const raw = window.localStorage?.getItem(key);
     return raw ? JSON.parse(raw) : null;
   } catch {
@@ -14,12 +12,6 @@ export async function loadJson(key) {
 
 export async function saveJson(key, value) {
   try {
-    const serialized = JSON.stringify(value);
-    if (window.storage?.set) {
-      await window.storage.set(key, serialized);
-      return;
-    }
-
-    window.localStorage?.setItem(key, serialized);
+    window.localStorage?.setItem(key, JSON.stringify(value));
   } catch {}
 }

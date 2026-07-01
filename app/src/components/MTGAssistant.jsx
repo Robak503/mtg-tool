@@ -520,9 +520,14 @@ export default function MTGAssistant() {
     };
   },[]);
 
-  // T3 — refresh cost counter after each send completes
+  // T3 — refresh the cost counter when a send COMPLETES (true → false).
+  // Gating on the transition instead of plain !sending stops this effect
+  // from double-fetching /api/model-calls on mount, where sending starts
+  // false and the interval effect above already did the initial load (U-F17).
+  const prevSendingRef = useRef(false);
   useEffect(()=>{
-    if (!sending) refreshModelStatusRef.current?.();
+    if (prevSendingRef.current && !sending) refreshModelStatusRef.current?.();
+    prevSendingRef.current = sending;
   },[sending]);
 
   const cfg       = AGENTS[agent];

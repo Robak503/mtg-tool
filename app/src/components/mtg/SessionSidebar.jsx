@@ -51,10 +51,8 @@ export default function SessionSidebar({
 
   // Group sessions by agent. The active agent's group renders first so the
   // user's own sessions are always at the top; other agents follow in the
-  // AGENTS dict order. Groups with no sessions are dropped EXCEPT the active
-  // agent (we still show that header so the empty state reads correctly when
-  // there's no "+ New chat" button visible above — but only in the archived
-  // view, where the button is hidden).
+  // AGENTS dict order. Groups with no sessions are dropped — the active
+  // agent's included (the final filter keeps only non-empty groups).
   const grouped = useMemo(() => {
     const byAgent = new Map();
     for (const session of visible) {
