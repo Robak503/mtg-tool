@@ -247,6 +247,44 @@ describe("resolveChoice", () => {
   it("returns null for null choice", () => {
     expect(resolveChoice([{ kind: "pass-priority" }], null)).toBeNull();
   });
+
+  it("CANONICAL: two declare-attacker options differing only in defenderId — the chosen one wins", () => {
+    // The old field-subset match ignored defenderId and returned the FIRST option, so picking
+    // "attack ai2" dispatched "attack ai1". The full round-tripped option must match exactly.
+    const actions = [
+      { kind: "declare-attacker", playerId: "user", permanentId: "p1", name: "Bear", defenderId: "ai1" },
+      { kind: "declare-attacker", playerId: "user", permanentId: "p1", name: "Bear", defenderId: "ai2" },
+    ];
+    // JSON round-trip (UI → API → applyChoice) with scrambled key order still matches canonically.
+    const choice = JSON.parse(JSON.stringify({ defenderId: "ai2", name: "Bear", permanentId: "p1", playerId: "user", kind: "declare-attacker" }));
+    expect(resolveChoice(actions, choice)).toBe(actions[1]);
+  });
+
+  it("CANONICAL: options differing only in a collapsed field (xValue / chosenMode / later targets) resolve exactly", () => {
+    const xActions = [
+      { kind: "cast-spell", cardId: "c1", xValue: 2 },
+      { kind: "cast-spell", cardId: "c1", xValue: 5 },
+    ];
+    expect(resolveChoice(xActions, { kind: "cast-spell", cardId: "c1", xValue: 5 })).toBe(xActions[1]);
+    const multiTarget = [
+      { kind: "cast-spell", cardId: "c2", targets: [{ id: "t1" }, { id: "t2" }] },
+      { kind: "cast-spell", cardId: "c2", targets: [{ id: "t1" }, { id: "t3" }] },
+    ];
+    expect(resolveChoice(multiTarget, { kind: "cast-spell", cardId: "c2", targets: [{ id: "t1" }, { id: "t3" }] })).toBe(multiTarget[1]);
+  });
+
+  it("LEGACY partial choice still matches when unambiguous, but an AMBIGUOUS partial returns null", () => {
+    const actions = [
+      { kind: "declare-attacker", playerId: "user", permanentId: "p1", name: "Bear", defenderId: "ai1" },
+      { kind: "declare-attacker", playerId: "user", permanentId: "p1", name: "Bear", defenderId: "ai2" },
+      { kind: "cast-spell", cardId: "c9", name: "Bolt" },
+    ];
+    // Unambiguous partial (only one cast-spell with that cardId) → matched.
+    expect(resolveChoice(actions, { kind: "cast-spell", cardId: "c9" })).toBe(actions[2]);
+    // Ambiguous partial (fits BOTH attack options — the legacy fields can't tell them apart) → null,
+    // never a guess (dispatching an action the user didn't pick is a runtime false positive).
+    expect(resolveChoice(actions, { kind: "declare-attacker", permanentId: "p1" })).toBeNull();
+  });
 });
 
 describe("narrator — narrateStep", () => {

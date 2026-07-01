@@ -44,6 +44,7 @@ import {
 } from "./gameEngine.js";
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { makeDecision, resolveChoice } from "./decisionGate.js";
+import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { featurizeState } from "./gameFeatures.js";
 import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice } from "./effects/runProgram.js";
@@ -658,8 +659,8 @@ export function defaultDecide({ fallbackAction = null } = {}) {
  * Set-membership validation for a pilot's returned action against the OFFERED set
  * (the exact `legalActions` array handed to `decide` this window — not a recomputed
  * set, so it matches precisely what the pilot saw). Uses the same canonical-key deep
- * compare gameApi.isLegalAction uses, kept local to avoid a learnSession↔gameApi import
- * cycle. Returns true iff `action` is structurally identical to one offered action.
+ * compare gameApi.isLegalAction uses (shared via actionKey.js — importing gameApi here
+ * would be a cycle). Returns true iff `action` is structurally identical to one offered action.
  */
 function actionInOfferedSet(action, offered) {
   if (!action || typeof action !== "object") return false;
@@ -668,22 +669,6 @@ function actionInOfferedSet(action, offered) {
     if (_stableActionKey(cand) === target) return true;
   }
   return false;
-}
-
-/** JSON.stringify with object keys sorted recursively (arrays keep order) — a canonical
- *  key so two structurally-equal action objects compare equal regardless of key order.
- *  Mirrors gameApi.js's stableStringify; duplicated (not imported) to avoid the cycle. */
-function _stableActionKey(value) {
-  // undefined is not valid JSON: JSON.stringify(undefined) returns the JS value `undefined`, which
-  // interpolated into the string below would emit the literal text `undefined` → JSON.parse chokes
-  // ("Unexpected token 'u'"). Engine legalActions routinely carry undefined fields (e.g. targetName:
-  // undefined on a non-targeted action), so mirror JSON.stringify's real behavior: array-undefined → null,
-  // and OMIT undefined-valued object keys (below) — keeping the result JSON.parse-safe.
-  if (value === undefined) return "null";
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(_stableActionKey).join(",")}]`;
-  const keys = Object.keys(value).filter((k) => value[k] !== undefined).sort();
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${_stableActionKey(value[k])}`).join(",")}}`;
 }
 
 /**

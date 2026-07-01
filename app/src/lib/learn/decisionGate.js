@@ -27,6 +27,7 @@
  */
 
 import { filterActions } from "./legalChoices.js";
+import { stableActionKey } from "./actionKey.js";
 import { pickAction } from "./opponentAI.js";
 import { narrateDecision, narrateAttackTrap } from "./narrator.js";
 import { detectAttackTraps } from "./trapDetector.js";
@@ -230,15 +231,28 @@ export function makeDecision(state, playerId, actions, options = {}) {
  * Convenience: validate that a user's chosen action is one of the
  * legal options. Returns the matching action (so callers can rely
  * on object identity downstream) or null if the choice is invalid.
+ *
+ * CANONICAL pass first: the UI round-trips the FULL action object from
+ * decision.options, so an exact structural match (key-order- and
+ * undefined-insensitive, via stableActionKey) identifies precisely the action
+ * the user picked. The old field-subset match collapsed options that differ
+ * only in a field it didn't compare (defenderId, xValue, kicked, chosenMode,
+ * sacCountIds, fromZone, targets beyond the first, …) and returned the FIRST —
+ * dispatching an action the user never chose (e.g. attacking ai1 when they
+ * picked ai2).
+ *
+ * LEGACY fallback second (compat: a partial choice carrying only the
+ * distinguishing fields, e.g. { kind, cardId }): kept, but it must now be
+ * UNAMBIGUOUS — if the partial fields fit two or more legal actions we return
+ * null (invalid choice, surfaced to the caller) rather than guessing.
  */
 export function resolveChoice(actions, choice) {
   if (!choice) return null;
-  // Match by all distinguishing fields. cardId+kind is usually enough, but
-  // combat actions share kind+permanentId, a dual mana source emits two
-  // tap-for-mana actions differing only by color, and a targeted spell emits
-  // one cast action per target — so include color and the chosen target too.
+  const choiceKey = stableActionKey(choice);
+  const exact = actions.find(a => stableActionKey(a) === choiceKey);
+  if (exact) return exact;
   const targetId = (x) => x?.targets?.[0]?.id ?? null;
-  return actions.find(a =>
+  const legacy = actions.filter(a =>
     a.kind === choice.kind &&
     (a.cardId === choice.cardId || (a.cardId == null && choice.cardId == null)) &&
     (a.permanentId === choice.permanentId || (a.permanentId == null && choice.permanentId == null)) &&
@@ -248,5 +262,6 @@ export function resolveChoice(actions, choice) {
     // two abilities sharing kind+permanentId+target don't collapse to the same choice.
     (a.abilityIndex === choice.abilityIndex || (a.abilityIndex == null && choice.abilityIndex == null)) &&
     targetId(a) === targetId(choice)
-  ) || null;
+  );
+  return legacy.length === 1 ? legacy[0] : null;
 }
