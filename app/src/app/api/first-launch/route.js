@@ -79,7 +79,6 @@ function suggestSourcePath() {
     home && path.join(home, "Documents", "MTG-TOOL", "app", "data"),
     home && path.join(home, "Documents", "Projects", "MTG-TOOL", "app", "data"),
     home && path.join(home, "MTG-TOOL", "app", "data"),
-    "C:\\Users\\colto\\Documents\\Claude\\Projects\\MTG-TOOL\\app\\data",
   ].filter(Boolean);
 
   for (const c of candidates) {
