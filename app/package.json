@@ -20,7 +20,6 @@
     "check:decks": "node scripts/check-deck-library.cjs",
     "check:oracle": "node scripts/check-local-oracle.cjs",
     "check:engine": "node scripts/check-engine-library.cjs",
-    "check:symbolic-engine": "node scripts/check-symbolic-engine.cjs",
     "build:rules-index": "node scripts/build-rules-index.cjs",
     "generate:arbiter-suite": "node scripts/generate-arbiter-expanded-suite.cjs",
     "import:rulesguru": "node scripts/import-rulesguru-suite.cjs",
