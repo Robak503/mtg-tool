@@ -11,7 +11,14 @@ import { retrieveRulesGuruPrecedents, resetRulesGuruRetrievalForTests } from "./
 
 import { dataPath } from "./paths.js";
 import { readJsonOrNull } from "./jsonFile.js";
-const RULES_INDEX_FILE = dataPath("rules-index.json");
+// Resolved PER CALL (not captured at module load) so dataPath()'s writable-
+// root-then-bundle fallback reflects the current on-disk state: in the
+// packaged .exe an in-app sync writes a fresher rules-index.json to %APPDATA%
+// and the next reload must read it, not the path frozen at import. Mirrors
+// printingIndex.js / spellbook.js / cardIndex.js.
+function rulesIndexFile() {
+  return dataPath("rules-index.json");
+}
 const DEFAULT_LIMIT = 5;
 
 let rulesIndex = null;
@@ -37,13 +44,14 @@ function ruleSort(a, b) {
 
 function loadRulesIndex() {
   if (rulesIndex && rulesByNumber) return { rules: rulesIndex, byNumber: rulesByNumber };
-  if (!fs.existsSync(RULES_INDEX_FILE)) {
+  const file = rulesIndexFile();
+  if (!fs.existsSync(file)) {
     throw new Error("Missing app/data/rules-index.json. Run npm.cmd run build:rules-index first.");
   }
 
   // Missing index still throws above (actionable hint). A corrupt index
   // degrades to empty (no rule hints) instead of 500-ing every rules query.
-  const parsed = readJsonOrNull(RULES_INDEX_FILE, { fallback: [], label: "rules-index" });
+  const parsed = readJsonOrNull(file, { fallback: [], label: "rules-index" });
   rulesIndex = Array.isArray(parsed) ? parsed : [];
   rulesByNumber = new Map(rulesIndex.map(rule => [rule.ruleNumber, rule]));
   return { rules: rulesIndex, byNumber: rulesByNumber };

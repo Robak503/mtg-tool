@@ -3,13 +3,32 @@ import fs from "node:fs";
 import { dataPath } from "./paths.js";
 import { readJsonOrNull } from "./jsonFile.js";
 
-// Slim pre-built index (~10-20MB) — preferred when present. Build via
+// Source files, resolved PER CALL (not captured at module load): dataPath()
+// prefers the writable app root and only falls back to the read-only bundle
+// (MTG_REFERENCE_DIR) while the app-root copy does not exist. In the packaged
+// .exe a fresh install resolves to the bundle; an in-app sync then writes the
+// %APPDATA% copy, and the next (re)build must pick THAT up — a path captured
+// once at import would keep re-reading the frozen bundled file even after
+// invalidateCachesFor() drops the in-memory index. Mirrors printingIndex.js
+// and the same fix note in spellbook.js.
+//
+// The slim pre-built index (~10-20MB) is preferred when present. Build via
 // `npm run build:oracle-index` after every oracle_cards.json refresh.
-const ORACLE_INDEX_FILE = dataPath("scryfall-bulk", "oracle-index.json");
-const ORACLE_FILE = dataPath("scryfall-bulk", "oracle_cards.json");
-const LEGACY_ORACLE_FILE = dataPath("scryfall.oracle.local.json");
-const RULINGS_FILE = dataPath("scryfall-bulk", "rulings.json");
-const LEGACY_RULINGS_FILE = dataPath("scryfall.rulings.local.json");
+function oracleIndexFile() {
+  return dataPath("scryfall-bulk", "oracle-index.json");
+}
+function oracleFile() {
+  return dataPath("scryfall-bulk", "oracle_cards.json");
+}
+function legacyOracleFile() {
+  return dataPath("scryfall.oracle.local.json");
+}
+function rulingsFile() {
+  return dataPath("scryfall-bulk", "rulings.json");
+}
+function legacyRulingsFile() {
+  return dataPath("scryfall.rulings.local.json");
+}
 
 let cardIndex = null;
 let rulingsIndex = null;
@@ -94,14 +113,15 @@ function buildCardIndex() {
   // full oracle file instead of 500-ing; a missing/corrupt full file is fatal.
   let file;
   let parsed = null;
-  if (fs.existsSync(ORACLE_INDEX_FILE)) {
-    parsed = readJsonOrNull(ORACLE_INDEX_FILE, { label: "oracle-index" });
-    if (parsed != null) file = ORACLE_INDEX_FILE;
+  const oracleIndex = oracleIndexFile();
+  if (fs.existsSync(oracleIndex)) {
+    parsed = readJsonOrNull(oracleIndex, { label: "oracle-index" });
+    if (parsed != null) file = oracleIndex;
   }
   if (parsed == null) {
     ({ file, parsed } = readJson(
-      ORACLE_FILE,
-      LEGACY_ORACLE_FILE,
+      oracleFile(),
+      legacyOracleFile(),
       "Local Oracle repository missing. Run npm.cmd run sync:oracle from the app folder.",
     ));
   }
@@ -152,7 +172,7 @@ export function allCards() {
 
 function buildRulingsIndex() {
   try {
-    const { file, parsed } = readJson(RULINGS_FILE, LEGACY_RULINGS_FILE, "Local rulings repository missing.");
+    const { file, parsed } = readJson(rulingsFile(), legacyRulingsFile(), "Local rulings repository missing.");
     const rulings = Array.isArray(parsed) ? parsed : parsed.rulings;
     const byOracleId = new Map();
 
