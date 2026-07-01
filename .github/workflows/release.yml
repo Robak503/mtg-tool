@@ -18,6 +18,11 @@ jobs:
     # is known-good here.
     runs-on: windows-2025
     timeout-minutes: 60
+    # A manual workflow_dispatch runs on a branch (ref_type=branch), where
+    # github.ref_name is 'master' -> the version-sync step would write "master"
+    # into tauri.conf.json and fail the build ~15 min in. Only ever build on a
+    # real tag; a branch dispatch skips cleanly.
+    if: github.ref_type == 'tag'
 
     steps:
       - name: Checkout
@@ -26,8 +31,13 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache cargo
-        uses: actions/cache@v5
+      # RESTORE-ONLY (was actions/cache@v5, restore+save). A tag-scoped save is
+      # unreadable by any future tag run, so every release used to write ~700 MB
+      # of dead cargo cache that nothing could ever restore — churning the repo's
+      # 10 GB quota and evicting the master-scoped caches (npm, weekly Spellbook)
+      # that ARE useful. Restore what a master build (rust.yml) warmed; never save.
+      - name: Restore cargo cache
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/.cargo/registry/index/
@@ -68,8 +78,14 @@ jobs:
           $conf | ConvertTo-Json -Depth 10 | Set-Content $confPath -Encoding utf8
           Write-Host "Wrote $confPath"
 
-      - name: Cache reference data
-        uses: actions/cache@v5
+      # RESTORE-ONLY (was actions/cache@v5). Same rationale as the cargo cache:
+      # a refdata- save keyed by github.run_id was never restorable by a later
+      # release, so it only churned quota. Restore whatever the weekly
+      # sync-spellbook workflow (master-scoped, plain refdata- key) last saved;
+      # the release re-syncs Scryfall/EDHREC fresh regardless, and the bounded
+      # Spellbook step below refreshes combos. Never save from the release job.
+      - name: Restore reference data cache
+        uses: actions/cache/restore@v5
         with:
           path: app/data
           key: refdata-${{ github.run_id }}
@@ -114,14 +130,20 @@ jobs:
         continue-on-error: true
         run: node scripts/sync-cardkingdom-prices.cjs
 
-      # NOTE: Commander Spellbook combo sync used to live here as a
-      # `continue-on-error` step. It's been moved to its own scheduled
-      # workflow (.github/workflows/sync-spellbook.yml) because its
-      # rate-limit-driven failures were noise inside the release flow
-      # and the data doesn't actually need to be release-time fresh.
-      # The `refdata-` cache restored above already holds whatever
-      # snapshot the most recent sync-spellbook run produced, so the
-      # bundle ships with current combos either way.
+      # Commander Spellbook combos. The claim that "the refdata- cache holds the
+      # weekly snapshot" was FALSE in practice — the weekly workflow saves from
+      # ubuntu under a master scope, which a windows tag-run restore can't read
+      # (cross-OS cache-version + branch-scope mismatch) — so ~68 releases shipped
+      # with ZERO combos. Sync fresh here, bounded + resumable so a rate-limit
+      # can't stall the release. continue-on-error: if Spellbook is down AND the
+      # restore above brought nothing, the strict bundle guard (prepare-tauri-
+      # resources --strict / CI=true) decides whether an empty combos file blocks
+      # the release, rather than silently shipping a gutted .exe.
+      - name: Sync Commander Spellbook combos (bounded, resumable)
+        working-directory: app
+        continue-on-error: true
+        timeout-minutes: 12
+        run: node scripts/sync-spellbook.cjs --combos-only
 
       - name: Build signed Tauri release
         working-directory: app

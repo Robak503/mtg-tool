@@ -9,6 +9,14 @@ const APP_ROOT = (process.env.MTG_APP_ROOT && process.env.MTG_APP_ROOT.trim())
   : process.cwd();
 const DATA_DIR = path.join(APP_ROOT, "data");
 const OUT_FILE = path.join(DATA_DIR, "edhrec-salt.local.json");
+
+// Atomic write (tmp+rename) — a Job-Object kill mid-write must not leave a truncated file that
+// paths.js then prefers over the bundled snapshot.
+function writeFileAtomic(filePath, body) {
+  const tmp = `${filePath}.tmp.${process.pid}`;
+  fs.writeFileSync(tmp, body);
+  fs.renameSync(tmp, filePath);
+}
 const META_FILE = path.join(DATA_DIR, "edhrec-salt-meta.local.json");
 const BASE_URL = "https://json.edhrec.com/pages/";
 const START_PATH = "top/salt.json";
@@ -106,8 +114,8 @@ async function fetchJson(pathName) {
     pathName = nextPathFromPayload(payload);
     entries.sort((a, b) => (b.salt || 0) - (a.salt || 0));
     entries.forEach((entry, index) => { entry.rank = index + 1; });
-    fs.writeFileSync(OUT_FILE, JSON.stringify(entries, null, 2));
-    fs.writeFileSync(META_FILE, JSON.stringify({
+    writeFileAtomic(OUT_FILE, JSON.stringify(entries, null, 2));
+    writeFileAtomic(META_FILE, JSON.stringify({
       source: "https://json.edhrec.com/pages/top/salt.json",
       syncedAt: new Date().toISOString(),
       count: entries.length,
@@ -122,8 +130,8 @@ async function fetchJson(pathName) {
   entries.sort((a, b) => (b.salt || 0) - (a.salt || 0));
   entries.forEach((entry, index) => { entry.rank = index + 1; });
 
-  fs.writeFileSync(OUT_FILE, JSON.stringify(entries, null, 2));
-  fs.writeFileSync(META_FILE, JSON.stringify({
+  writeFileAtomic(OUT_FILE, JSON.stringify(entries, null, 2));
+  writeFileAtomic(META_FILE, JSON.stringify({
     source: "https://json.edhrec.com/pages/top/salt.json",
     syncedAt: new Date().toISOString(),
     count: entries.length,

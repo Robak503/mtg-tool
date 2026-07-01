@@ -65,7 +65,11 @@ async function readJson(filePath, fallback) {
 }
 
 async function writeJson(filePath, value, pretty = false) {
-  await fs.writeFile(filePath, JSON.stringify(value, null, pretty ? 2 : 0));
+  // Atomic: write a temp file then rename (atomic on one volume) so a mid-write kill (the Tauri
+  // Job-Object KILL_ON_JOB_CLOSE on app quit) can never leave a truncated file that paths.js prefers.
+  const tmp = `${filePath}.tmp.${process.pid}`;
+  await fs.writeFile(tmp, JSON.stringify(value, null, pretty ? 2 : 0));
+  await fs.rename(tmp, filePath);
 }
 
 function normalizeName(name) {

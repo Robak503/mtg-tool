@@ -160,11 +160,25 @@ const dataFiles = [
   ["data/collection-prices.jsonl",             "seed price history — day-1 Finance baseline"],
 ];
 
+// STRICT MODE (CI or --strict): a bundle missing any of these ships a gutted .exe with a GREEN build —
+// this is exactly how the Commander Spellbook combos silently vanished from dozens of releases. Warn-only
+// stays the default for local/dev builds (where these are legitimately absent before a first sync).
+const STRICT = process.env.CI === "true" || process.argv.includes("--strict");
+const REQUIRED_DATA = new Set([
+  "data/scryfall-bulk/oracle-index.json",
+  "data/scryfall-bulk/oracle_cards.json",
+  "data/scryfall-bulk/printings-index.json",
+  "data/rules-index.json",
+  "data/spellbook-combos.local.json",
+  "data/edhrec-salt.local.json",
+]);
+const missingRequired = [];
 let bundledBytes = 0;
 let bundledCount = 0;
 for (const [rel, label] of dataFiles) {
   const src = path.join(APP_ROOT, rel);
   if (!fs.existsSync(src)) {
+    if (REQUIRED_DATA.has(rel)) missingRequired.push(rel);
     console.warn(`  - ${rel} (missing in dev tree — ${label})`);
     continue;
   }
@@ -176,6 +190,13 @@ for (const [rel, label] of dataFiles) {
   console.log(`  + ${rel} (${mb} MB — ${label})`);
 }
 console.log(`  Total: ${bundledCount} files, ${(bundledBytes / 1024 / 1024).toFixed(1)} MB`);
+if (STRICT && missingRequired.length) {
+  throw new Error(
+    "prepare-tauri-resources: STRICT build is missing REQUIRED bundle data — refusing to ship a gutted .exe:\n" +
+      missingRequired.map((r) => "  - " + r).join("\n") +
+      "\n(run the sync/index steps first, or drop --strict for a dev build)",
+  );
+}
 
 // 4. Bundle the sync + index-rebuild scripts. /api/sync-data spawns
 // these at runtime to refresh card / combo / salt data and rebuild
@@ -191,6 +212,7 @@ const syncScripts = [
   "build-oracle-index.cjs",
   "build-collection-printings-index.cjs",
   "build-rules-index.cjs",
+  "sync-cardkingdom-prices.cjs",   // /api/sync-data step 6 ("cardkingdom-prices"); was omitted → Refresh-all failed in the .exe
 ];
 for (const name of syncScripts) {
   const src = path.join(APP_ROOT, "scripts", name);

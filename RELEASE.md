@@ -98,10 +98,17 @@ install the new build once. So rotate sparingly.
 GitHub release pages don't have a one-click "rollback" button. If a
 bad version ships:
 
-1. Delete the release at https://github.com/Robak503/mtg-tool/releases
-2. Delete the `latest.json` asset from the previous good release (so
-   `releases/latest` resolves to the *previous* good one)
-3. Or: tag a v0.X.Y+1 immediately with the fix
+1. **Delete — or mark as draft/prerelease — the bad release** at
+   https://github.com/Robak503/mtg-tool/releases. That alone re-points
+   `releases/latest` back to the previous good release, whose
+   `latest.json` is still intact.
+2. **Do NOT delete `latest.json` (or the `.exe`/`.exe.sig`) from the
+   good release** — `releases/latest/download/latest.json` reads that
+   asset; removing it 404s the updater for every installed copy. Just
+   verify the good release still has all three assets.
+3. **Preferred: tag `v0.X.Y+1` with the fix immediately.** Auto-update
+   is forward-only (no downgrade), so shipping the fix faster is almost
+   always better than rolling back.
 
 Auto-update is forward-only — there's no "downgrade" mechanism. The
 right answer to a bad release is always "ship the fix faster," not

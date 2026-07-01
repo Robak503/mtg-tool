@@ -67,7 +67,7 @@ function ruleSort(a, b) {
 
 function main() {
   if (!fs.existsSync(CR_FILE)) {
-    throw new Error(`Missing Comprehensive Rules JSON: ${path.relative(TOOL_ROOT, CR_FILE)}`);
+    throw new Error(`Missing Comprehensive Rules JSON: ${CR_FILE}`);
   }
 
   const raw = JSON.parse(fs.readFileSync(CR_FILE, "utf8"));
