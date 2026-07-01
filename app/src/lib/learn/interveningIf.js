@@ -109,6 +109,14 @@ function parseFilter(phrase) {
   if (pm) return { kind: "type", word: "Creature", state, powerAtLeast: parseInt(pm[1], 10) };
   // must be a single word now (no riders like "you control", "named ...", or an unmodeled power/toughness rider)
   if (!/^[a-z]+$/.test(p)) return null;
+  // INVARIANT BASIC-LAND TYPES (CR 205.3i): "Plains" is spelled the same singular and plural — a naive
+  // trailing-s strip yields "Plain", whose Plain type-line scan matches NOTHING, so an intervening-if
+  // like "you control two or more Plains" would evaluate FALSE forever while interveningIfParseable still
+  // returns true → a native-classified trigger that can never fire (Gwyllion / Duergar Hedge-Mage). Keep the
+  // basic land types verbatim. (Island/Swamp/Mountain/Forest singularize correctly, but pinning all five is
+  // the clearest guard.)
+  const BASIC_LAND_TYPES = { plains:"Plains", island:"Island", swamp:"Swamp", mountain:"Mountain", forest:"Forest", wastes:"Wastes" };
+  if (BASIC_LAND_TYPES[p]) return { kind: "type", word: BASIC_LAND_TYPES[p], state };
   const singular = p.replace(/s$/, "");
   if (NON_TYPE_WORDS.has(singular) || NON_TYPE_WORDS.has(p)) return null; // a designation, not a type → Arbiter
   if (singular === "permanent") return { kind: "all", state };

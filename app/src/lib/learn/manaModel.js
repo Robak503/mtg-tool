@@ -55,8 +55,12 @@ const BASIC_LAND_MANA = {
 // ("{T}: Add {C}{C}" etc.); this is the safety net for the iconic ones.
 const KNOWN_ROCKS = {
   "Sol Ring": { colors: ["C"], amount: 2 },
+  // Mana Crypt's {C}{C} is real every turn; the upkeep coin-flip damage is an UNMODELED DRAWBACK
+  // (parked — biases data toward the controller, but the mana itself is never phantom).
+  // Mana Vault is deliberately ABSENT: "doesn't untap during your untap step" is unmodeled (untapAll
+  // frees everything), so a standing-source entry fabricated a free repeatable 3-mana rock every turn —
+  // the oracle path below routes such cards out via the untap-restriction gate instead.
   "Mana Crypt": { colors: ["C"], amount: 2 },
-  "Mana Vault": { colors: ["C"], amount: 3 },
   "Mind Stone": { colors: ["C"], amount: 1 },
   "Arcane Signet": { colors: ["W", "U", "B", "R", "G"], amount: 1 },
   "Fellwar Stone": { colors: ["W", "U", "B", "R", "G"], amount: 1 },
@@ -362,6 +366,40 @@ export function stripCreatedTokenAbilities(text) {
 }
 
 /**
+ * Strip a QUOTED ability this card GRANTS to a GROUP ("Creatures you control have "{T}: Add one mana of
+ * any color."" — Cryptolith Rite; "Lands you control have …" — Chromatic Lantern; "Enchanted creature
+ * has …" — Multani's Harmony) UNLESS the card provably SELF-INCLUDES in the grant's subject scope
+ * (Gemhide/Manaweft Sliver — "All Slivers have …" on a Sliver — legitimately self-produces, test-pinned).
+ * Without this the GRANTER itself read its quoted "Add" as its OWN mana ability and became a phantom
+ * standing source (the engine tapped Cryptolith Rite — an Enchantment — for fabricated mana). Recipients
+ * get the ability through the real grant channel (layers.grantedManaSpecsFor → manaSources), so stripping
+ * here never drops real production. Membership: a subject noun (singularized; -ves→-f, invariant -us
+ * kept) must appear in the card's OWN type line; "other …" and attachment subjects ("enchanted/equipped/
+ * fortified …") never self-include; "permanents" always does (every battlefield card is a permanent).
+ * No typeLine → conservative strip — an under-count, never a phantom (CREED). Generalizes the old
+ * Aura-only quoted-grant guard; shared with coverage.hasManaAbility so classifier and metric agree.
+ */
+export function stripNonSelfQuotedGrants(text, typeLine) {
+  const tl = String(typeLine || "").toLowerCase();
+  return String(text || "").replace(
+    /([^.\n"\u201c]*?\bha(?:ve|s))\s+(["\u201c][^"\u201d]*["\u201d])/gi,
+    (whole, subject) => {
+      const sub = subject.toLowerCase();
+      if (/\bother\b/.test(sub) || /\b(?:enchanted|equipped|fortified)\b/.test(sub)) return subject + " ";
+      if (!tl) return subject + " ";
+      if (/\bpermanents?\b/.test(sub)) return whole;
+      for (const w of sub.match(/[a-z]+/g) || []) {
+        let sing = w;
+        if (/ves$/.test(sing)) sing = sing.slice(0, -3) + "f";
+        else if (!/us$/.test(sing) && sing.endsWith("s")) sing = sing.slice(0, -1);
+        if (sing.length >= 3 && new RegExp("\\b" + sing + "\\b", "i").test(tl)) return whole;
+      }
+      return subject + " ";
+    },
+  );
+}
+
+/**
  * What mana can this card's mana ability produce? Returns `{ colors, amount[, sacrifices] }`
  * or null if it isn't a mana source. Resolution order: basic-land name → known-rock table →
  * oracle "Add" parse → land fallback (colorless). `sacrifices:true` marks a one-shot source the
@@ -412,7 +450,16 @@ export function manaProduction(card) {
   // grant for Aura-type cards so the Aura is never its own source. AURA-SCOPED: a CREATURE that self-includes
   // via its own quoted text (Gemhide/Manaweft Sliver "All Slivers have \"{T}: Add …\"") legitimately
   // self-produces and is left intact (Gemhide is a Creature, not an Aura — test-pinned).
-  if (/\bAura\b/.test(typeLineOf(card))) oracleForAdd = oracleForAdd.replace(/["“][^"”]*["”]/g, " ");
+  // GROUP/AURA GRANT GUARD (generalizes the old Aura-only strip): a quoted granted ability belongs to
+  // the RECIPIENTS (delivered at runtime via layers.grantedManaSpecsFor → manaSources), never to the
+  // granter's own production — unless the granter self-includes in the grant scope (Gemhide). Lands stay
+  // exempt with the rest of the raw-oracle land path above.
+  if (!isLandCard) oracleForAdd = stripNonSelfQuotedGrants(oracleForAdd, typeLineOf(card));
+  // UNMODELED UNTAP RESTRICTION (CREED): "doesn't untap during your untap step" is not modeled (untapAll
+  // frees everything each untap step), so a standing source carrying it produces PHANTOM repeatable mana —
+  // Mana Vault read as a free 3-mana rock every turn. Route such non-lands out of the mana model entirely
+  // (a safe under-count: the card still casts and resolves; it just never auto-taps for mana).
+  if (!isLandCard && /doesn't untap during your (?:next )?untap step/i.test(oracleForAdd)) return null;
   // A NON-LAND repeatable mana source must have an ACTIVATED mana ability ("<cost>: Add …"). A triggered/ETB/
   // landfall/upkeep/death or spell-effect "Add …" (no colon) is a ONE-SHOT and must NOT mint a standing source
   // (the Hidden Herbalists phantom-mana FP — manaSources tapped it every turn for free). GATE on the existence

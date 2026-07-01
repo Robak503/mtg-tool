@@ -117,15 +117,23 @@ function signed(str) {
  * case-insensitive downstream, but the canonical case keeps descriptors readable
  * for the explain panel.
  */
+// Creature subtypes whose plural is IRREGULAR or INVARIANT — a naive trailing-"s" strip mangles them
+// (Pegasus→"Pegasu", Mice→"Mice", Heroes→"Heroe", Detectives→"Detectif"), producing a selector that matches
+// NO creature (the buff silently applies to nobody while the card may still count native). Keyed by the
+// lowercased plural as it appears in oracle text → canonical singular subtype.
+const IRREGULAR_SUBTYPE_PLURALS = {
+  allies: "Ally",
+  mice: "Mouse", oxen: "Ox", heroes: "Hero", detectives: "Detective",
+  // invariant "-us" subtypes (singular === plural): a trailing-s strip would wrongly cut them
+  pegasus: "Pegasus", fungus: "Fungus", homunculus: "Homunculus", locus: "Locus", jellyfish: "Jellyfish",
+};
 function normalizeSubtype(word) {
   let w = word.trim();
-  // Irregular plurals (else the parsed subtype matches no creature and the buff applies to nobody):
+  const lc = w.toLowerCase();
+  if (IRREGULAR_SUBTYPE_PLURALS[lc]) return IRREGULAR_SUBTYPE_PLURALS[lc];
   //   "-ves" → "-f"  (Elves→Elf, Wolves→Wolf, Dwarves→Dwarf);
-  //   "Allies" → "Ally"  (the only "-y → -ies" creature subtype; a blanket -ies→y would wrongly turn
-  //   Zombies→Zomby / Faeries→Faery, so it's special-cased).
-  // Plain "-s" strips to singular (Slivers→Sliver).
-  if (/^allies$/i.test(w)) w = "ally";
-  else if (/ves$/i.test(w)) w = w.slice(0, -3) + "f";
+  //   Plain "-s" strips to singular (Slivers→Sliver); invariant "-us" nouns are handled above.
+  if (/ves$/i.test(w)) w = w.slice(0, -3) + "f";
   else if (w.endsWith("s")) w = w.slice(0, -1);
   return w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w;
 }
@@ -142,6 +150,8 @@ const NON_SUBTYPE_ANTHEM_WORDS = new Set([
   // supertype / quality qualifiers
   "token", "nontoken", "legendary", "nonlegendary", "colorless", "multicolored", "monocolored",
   "nonland", "snow", "monstrous", "modified",
+  // colour qualifiers ("Nonblack creatures you control …" — Angel of Jubilation): not subtypes
+  "nonwhite", "nonblue", "nonblack", "nonred", "nongreen",
   // CARD TYPES — "Artifact/Enchantment/Land/Commander creatures you control …" reads on the LEFT of the
   // em-dash, so it's a card-TYPE filter, NOT a subtype (subtypesOf reads only the right side). Treating
   // it as a subtype selects ZERO creatures while flipping the card native — a CREED false positive
@@ -1413,6 +1423,16 @@ function parseCreatureSelector(c) {
           mode: "dynamic",
           selector: { controllerScope, cardTypes: ["Creature", ...detTypeFilter], excludeSelf },
         };
+      }
+      // ALL-PERMANENTS anthem ("(all|other|each) permanents you control have …" — Privileged Position's
+      // hexproof grant, Sigarda's). PERMANENT_TYPE_CARD_TYPES["permanent(s)"] is [] — no card-TYPE filter, so
+      // the grant reaches EVERY permanent the controller owns (creatures AND non-creatures). cardTypes:[]
+      // passes matchesSelector's vacuous every()-gate and a granted keyword is read layer-aware by
+      // permanentHasKeyword regardless of type (verified end-to-end). This word was previously mis-routed to
+      // the tribal-lord branch → subtypes:["Permanent"], which matched NOBODY while the card still counted
+      // native — a test-certified CREED false positive, now corrected.
+      if (detTypeFilter && detTypeFilter.length === 0) {
+        return { mode: "dynamic", selector: { controllerScope, cardTypes: [], excludeSelf } };
       }
       // A board-STATE / supertype / card-type qualifier (tapped/nontoken/colorless/artifact/…) is NOT a
       // tribal lord — never fabricate a subtype grant that selects nobody yet flips the card native (a

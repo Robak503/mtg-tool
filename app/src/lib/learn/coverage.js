@@ -41,7 +41,7 @@ import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 import { triggerRoutesNatively, isModeledGroupTriggeredBody } from "./triggerRouting.js";
 import { isNativeGroupWard } from "./groupWard.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
-import { stripCreatedTokenAbilities, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
+import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
 // OMNATH — ground the classifier on the two RUNTIME registries the engine actually consults (never a
 // name-only credit): staticEffectsOf reads layers.STATIC_REGISTRY (the layer-7c dynamic +1/+1-per-green
 // descriptor), _registry is cardEffects.REGISTRY (the green-mana retention descriptor). Both are leaf
@@ -194,12 +194,16 @@ const reCyclingCost = /^cycling (?:\{[^}]+\})+$/;
  * text, so stripping the reminder never drops a real rock/dork (matches the parser, which
  * strips reminders before matching).
  */
-export function hasManaAbility(oracle) {
+export function hasManaAbility(oracle, typeLine) {
   // Strip a created token's quoted ability before reading the card's OWN mana — a token's "…Add …"
   // belongs to the token, not the card (mirrors manaModel.manaProduction, so the classifier and runtime
   // agree). Without this, an Eldrazi Spawn-maker is mis-tiered native-mana before its real trigger is
   // even checked (this tier is read at line ~341, ahead of permanentTriggersCovered).
-  const t = stripCreatedTokenAbilities(stripReminder(oracle));
+  // Then strip a GROUP-GRANT's quoted ability unless the card self-includes in the grant scope
+  // (stripNonSelfQuotedGrants — the Cryptolith Rite phantom-granter fix, mirrored from manaProduction so
+  // the metric and the runtime mana model agree). Callers that can't supply a type line get the
+  // conservative strip — an under-count, never an over-claim.
+  const t = stripNonSelfQuotedGrants(stripCreatedTokenAbilities(stripReminder(oracle)), typeLine);
   return /\badd \{[wubrgcx]/i.test(t) ||
     /\badd (one|two|three|four|five|that much|an amount|\{)/i.test(t);
 }
@@ -956,7 +960,7 @@ export function classifyCard(card) {
   // VARIABLE-X MANA: the "Add X mana … where X is <modeled metric>" form (Sanctum Weaver) is admitted via
   // hasModeledVariableXMana — gated on manaProduction returning a runtime amountSpec, so an unmodeled-metric
   // X source (Wirewood Channeler) stays body-only (no over-claim). The same residue gate then applies.
-  if ((hasManaAbility(oracle) || hasModeledVariableXMana(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
+  if ((hasManaAbility(oracle, String(etCard?.type ?? etCard?.type_line ?? "")) || hasModeledVariableXMana(etCard)) && manaCardResidueModeled(etCard, etOracle)) return "native-mana";
   // Single-mechanism tiers first (the informative labels), then the composite catch-all for
   // multi-ability creatures whose pieces are each modeled but span types.
   if (permanentTriggersCovered(etCard)) return "native-trigger";   // P2.8: body + only-routing triggers
