@@ -249,7 +249,11 @@ claim native for a trigger the runtime would drop.
 `RESOLVERS` maps a resolver key → a `(state, params) => state` function.
 `PERMANENT_ETB` runs `enterPermanent` (enters-with-counters replacements, clone
 pause, tribute, chosen-type); `AURA_ETB` re-checks its target; `SPELL_NOOP` →
-`markPendingArbiter`. The `EFFECT_PROGRAM` resolver runs `runProgram` — an
+`markPendingArbiter`. (STRUCTURE wave: the dead Phase-1 lanes are gone —
+`SPELL_EFFECT`/`ACTIVATED_EFFECT` deleted outright, zero emitters ever;
+`TRIGGER_EFFECT` is a deprecated key resolving as `manual`, kept one release for
+serialized saves — triggers now emit a manual payload that `buildTriggerStack`
+upgrades to `EFFECT_PROGRAM` when faithfully resolvable.) The `EFFECT_PROGRAM` resolver runs `runProgram` — an
 **all-or-nothing atom interpreter**: it executes atoms in order and, when an atom
 needs a player choice (tutor, scry, edict, mode, divide damage…), it **pauses**
 onto `state.pendingChoice` with a `resume` continuation. The driver

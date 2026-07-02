@@ -171,8 +171,7 @@ export function parseSpellEffect(card) {
   // Pump: "target creature gets +X/+Y until end of turn" (Giant Growth family).
   // Anchored to the whole clause so a rider/restriction variant doesn't match here;
   // the EffectProgram clean-clause gate is the second line of defense. Resolution
-  // is the P2.3 `pump` atom (a CR 613.4c layer-7c effect), not the legacy
-  // resolveSpellEffect (which has no pump branch and is no longer the cast path).
+  // is the P2.3 `pump` atom (a CR 613.4c layer-7c effect).
   m = oracle.match(/target creature gets ([+-]\d+)\/([+-]\d+)\s+until end of turn/i);
   if (m) {
     return { kind: "pump", targetType: "creature", ptDelta: { p: parseInt(m[1], 10), t: parseInt(m[2], 10) }, duration: "endOfTurn" };
@@ -715,10 +714,9 @@ export function chooseAITarget(state, aiPlayerId, effect, targets) {
 
 /**
  * Per-effect resolution helpers — the single source of truth for each effect's
- * state mutation. `resolveSpellEffect` (the legacy `spell.effect` resolver) AND
- * the Phase-2 EffectProgram atoms (`effects/effectAtoms.js`) both call these, so
- * the interpreter's atoms are byte-for-byte equivalent to the legacy path by
- * construction — there is no second implementation to drift.
+ * state mutation. The Phase-2 EffectProgram atoms (`effects/effectAtoms.js`)
+ * call these directly — there is no second implementation to drift (W5 deleted
+ * the legacy spell.effect resolver that used to share them).
  */
 export function applyDrawEffect(state, { controller, amount }) {
   // `amount ?? 1` (NOT `|| 1`): a no-amount call defaults to drawing 1, but a count- or X-derived amount
@@ -894,17 +892,8 @@ export function applyDamageEffect(state, { controller, amount: rawAmount, target
   return logEvent(next, { kind: "spell-effect", effect: "damage", controller, amount, targets: targets.map(t => t.id) });
 }
 
-/**
- * Apply a parsed effect on resolution. Returns a new state. Damage runs the
- * shared lethal SBA so creatures it kills hit the graveyard. Delegates to the
- * per-effect helpers above (which the EffectProgram atoms also use).
- */
-export function resolveSpellEffect(state, { effect, controller, targets = [] }) {
-  if (!effect) return state;
-  if (effect.kind === "draw") return applyDrawEffect(state, { controller, amount: effect.amount });
-  if (effect.kind === "destroy") return applyDestroyEffect(state, { controller, targets, cannotRegenerate: effect.cannotRegenerate }); // MTG-001
-  if (effect.kind === "damage") {
-    return applyDamageEffect(state, { controller, amount: effect.amount, targetType: effect.targetType, targets });
-  }
-  return state;
-}
+// W5: `resolveSpellEffect` (the legacy "spell.effect" resolver's thin dispatcher over the primitives
+// above) was DELETED with the dead SPELL_EFFECT registry lane — zero production emitters existed.
+// The primitives (applyDrawEffect / applyDestroyEffect / applyDamageEffect / …) ARE the resolution
+// truth; the EffectProgram atoms call them directly. (parseSpellEffect — the PARSE half — stays live:
+// legalChoices' AI scorer and the parser's legacyToAtom fallback consume it.)

@@ -5,10 +5,9 @@
  * resolver. `ctx = { controller, targets }` (the cast-time choices frozen onto the
  * stack object). This is the mechanism that replaces the legacy closure.
  *
- * Parity by construction: the keystone atoms delegate to the SAME per-effect helpers the
- * legacy `resolveSpellEffect` uses (`spellEffects.applyDamageEffect` etc.), so an EffectProgram
- * of these atoms is byte-for-byte equivalent to the old path — there is no second implementation
- * to drift.
+ * Parity by construction: the keystone atoms delegate to the shared per-effect helpers
+ * (`spellEffects.applyDamageEffect` etc.) — the single resolution truth (W5 deleted the legacy
+ * resolveSpellEffect that used to share them), so there is no second implementation to drift.
  *
  * STRUCTURE (WAVE 0 split): this file is now a thin BARREL. Each atom FAMILY lives in its own
  * module under ./atoms/, exporting a partial op→resolver map plus the named functions that are

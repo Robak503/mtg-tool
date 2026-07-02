@@ -41,12 +41,13 @@ beforeEach(() => {
 describe("RESOLVER_KEYS contract", () => {
   it("is frozen and exposes the canonical key set", () => {
     expect(Object.isFrozen(RESOLVER_KEYS)).toBe(true);
-    expect(RESOLVER_KEYS.SPELL_EFFECT).toBe("spell.effect");
     expect(RESOLVER_KEYS.PERMANENT_ETB).toBe("spell.permanent");
     expect(RESOLVER_KEYS.SPELL_NOOP).toBe("spell.noop");
-    expect(RESOLVER_KEYS.TRIGGER_EFFECT).toBe("trigger.effect");
-    expect(RESOLVER_KEYS.ACTIVATED_EFFECT).toBe("activated.effect");
+    expect(RESOLVER_KEYS.TRIGGER_EFFECT).toBe("trigger.effect"); // deprecated (W4) — kept for serialized saves
     expect(RESOLVER_KEYS.MANUAL).toBe("manual");
+    // W5: SPELL_EFFECT + ACTIVATED_EFFECT were deleted (zero production emitters).
+    expect(RESOLVER_KEYS.SPELL_EFFECT).toBeUndefined();
+    expect(RESOLVER_KEYS.ACTIVATED_EFFECT).toBeUndefined();
     expect(RESOLVER_KEYS.EFFECT_PROGRAM).toBe("effect-program"); // reserved for Phase 2
   });
 
@@ -62,7 +63,7 @@ describe("RESOLVER_KEYS contract", () => {
 
 describe("getResolver / registerResolver precedence", () => {
   it("returns the built-in for a known key and null for an unknown key", () => {
-    expect(getResolver(RESOLVER_KEYS.SPELL_EFFECT)).toBe(RESOLVERS[RESOLVER_KEYS.SPELL_EFFECT]);
+    expect(getResolver(RESOLVER_KEYS.PERMANENT_ETB)).toBe(RESOLVERS[RESOLVER_KEYS.PERMANENT_ETB]);
     expect(getResolver("does-not-exist")).toBeNull();
     expect(getResolver(undefined)).toBeNull();
   });
@@ -92,21 +93,8 @@ describe("getResolver / registerResolver precedence", () => {
 });
 
 describe("built-in resolvers", () => {
-  it("spell.effect resolves a parsed effect (draw)", () => {
-    const state = freshState();
-    const before = state.players.user.hand.length;
-    const out = RESOLVERS[RESOLVER_KEYS.SPELL_EFFECT](
-      state,
-      stk({ effect: { kind: "draw", amount: 1, targetType: null }, controller: "user", targets: [] }),
-    );
-    expect(out.players.user.hand.length).toBe(before + 1);
-  });
-
-  it("spell.effect with no effect falls through to the manual log (Arbiter escape)", () => {
-    const state = freshState();
-    const out = RESOLVERS[RESOLVER_KEYS.SPELL_EFFECT](state, stk({ controller: "user" }, { id: "stk-9", source: { name: "Mystery" } }));
-    expect(out.log.some(l => l.kind === "stack-resolve" && l.manual === true)).toBe(true);
-  });
+  // W5: the spell.effect lane tests were deleted with the lane (zero production emitters);
+  // the shared primitives keep their own pins in spellEffects.test.js.
 
   it("spell.permanent puts a permanent on the battlefield with a deterministic id", () => {
     const state = freshState();
@@ -156,9 +144,9 @@ describe("built-in resolvers", () => {
     expect(entry.source).toBe("Weird Card");
   });
 
-  it("activated.effect is a stub that resolves through the manual path (Phase 2)", () => {
+  it("the deprecated trigger.effect key resolves through the manual path (serialized-save safety)", () => {
     const state = freshState();
-    const out = RESOLVERS[RESOLVER_KEYS.ACTIVATED_EFFECT](state, stk({}, { id: "stk-7", kind: "activated-ability" }));
+    const out = RESOLVERS[RESOLVER_KEYS.TRIGGER_EFFECT](state, stk({}, { id: "stk-7", kind: "triggered-ability" }));
     expect(out.log.some(l => l.kind === "stack-resolve" && l.manual === true)).toBe(true);
   });
 });

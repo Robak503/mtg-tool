@@ -10,7 +10,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { checkDiesTriggers } from "./triggers.js";
-import { resolveSpellEffect } from "./spellEffects.js";
+import { applyDamageEffect, applyDestroyEffect } from "./spellEffects.js"; // W5: the primitives (resolveSpellEffect deleted)
 import { resolveCombatDamage } from "./combatResolution.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
@@ -61,9 +61,10 @@ describe("dies triggers wired into resolution", () => {
   it("a damage spell that kills a creature fires its dies trigger", () => {
     const dying = creature("Doomed", "When Doomed dies, each opponent loses 2 life.", { id: "card-doomed", toughness: 1 });
     const state = placePerms(stateWith(), [permObj(dying, "ai1", "perm-doomed")]);
-    const out = resolveSpellEffect(state, {
-      effect: { kind: "damage", amount: 3, targetType: "creature" },
+    const out = applyDamageEffect(state, {
       controller: "user",
+      amount: 3,
+      targetType: "creature",
       targets: [{ type: "creature", id: "perm-doomed" }],
     });
     expect(out.players.ai1.battlefield).toHaveLength(0); // it died
@@ -75,8 +76,7 @@ describe("dies triggers wired into resolution", () => {
   it("a destroy spell fires the destroyed creature's dies trigger", () => {
     const dying = creature("Doomed", "When Doomed dies, draw a card.", { id: "card-d2" });
     const state = placePerms(stateWith(), [permObj(dying, "user", "perm-d2")]);
-    const out = resolveSpellEffect(state, {
-      effect: { kind: "destroy", targetType: "creature" },
+    const out = applyDestroyEffect(state, {
       controller: "user",
       targets: [{ type: "creature", id: "perm-d2" }],
     });

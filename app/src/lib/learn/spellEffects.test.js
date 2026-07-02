@@ -9,7 +9,9 @@ import {
   effectNeedsTarget,
   enumerateTargets,
   chooseAITarget,
-  resolveSpellEffect,
+  applyDamageEffect,
+  applyDestroyEffect,
+  applyDrawEffect,
   parseCreatureTargetRestrictions,
 } from "./spellEffects.js";
 
@@ -167,25 +169,27 @@ describe("chooseAITarget", () => {
   });
 });
 
-describe("resolveSpellEffect", () => {
+// W5: the resolveSpellEffect dispatcher was deleted with the dead SPELL_EFFECT lane — these pins
+// exercise the shared PRIMITIVES directly (the single resolution truth the EffectProgram atoms call).
+describe("shared effect primitives (applyDamageEffect / applyDestroyEffect / applyDrawEffect)", () => {
   it("damage to a creature kills it via the lethal SBA", () => {
     const state = st({ aiBf: [cr("Victim", "v", "ai", { power: 3, toughness: 3 })] });
-    const after = resolveSpellEffect(state, { effect: { kind: "damage", amount: 3, targetType: "creature" }, controller: "user", targets: [{ type: "creature", id: "v" }] });
+    const after = applyDamageEffect(state, { controller: "user", amount: 3, targetType: "creature", targets: [{ type: "creature", id: "v" }] });
     expect(after.players.ai.graveyard.map(c => c.name)).toEqual(["Victim"]);
   });
   it("damage to a player loses life", () => {
     const state = st({ aiLife: 40 });
-    const after = resolveSpellEffect(state, { effect: { kind: "damage", amount: 3, targetType: "player" }, controller: "user", targets: [{ type: "player", id: "ai" }] });
+    const after = applyDamageEffect(state, { controller: "user", amount: 3, targetType: "player", targets: [{ type: "player", id: "ai" }] });
     expect(after.players.ai.life).toBe(37);
   });
   it("each-opponent damage hits every opponent", () => {
     const state = st({ aiLife: 40 });
-    const after = resolveSpellEffect(state, { effect: { kind: "damage", amount: 2, targetType: "eachOpponent" }, controller: "user", targets: [] });
+    const after = applyDamageEffect(state, { controller: "user", amount: 2, targetType: "eachOpponent", targets: [] });
     expect(after.players.ai.life).toBe(38);
   });
   it("destroy moves the target creature to its graveyard", () => {
     const state = st({ aiBf: [cr("Doomed", "d", "ai", { power: 5, toughness: 5 })] });
-    const after = resolveSpellEffect(state, { effect: { kind: "destroy", targetType: "creature" }, controller: "user", targets: [{ type: "creature", id: "d" }] });
+    const after = applyDestroyEffect(state, { controller: "user", targets: [{ type: "creature", id: "d" }] });
     expect(after.players.ai.graveyard.map(c => c.name)).toEqual(["Doomed"]);
     expect(after.players.ai.battlefield).toHaveLength(0);
   });
@@ -193,7 +197,7 @@ describe("resolveSpellEffect", () => {
     let state = st();
     // Give the user a library to draw from.
     state = { ...state, players: { ...state.players, user: { ...state.players.user, library: [{ id: "l1", name: "L1" }, { id: "l2", name: "L2" }] } } };
-    const after = resolveSpellEffect(state, { effect: { kind: "draw", amount: 2, targetType: null }, controller: "user", targets: [] });
+    const after = applyDrawEffect(state, { controller: "user", amount: 2 });
     expect(after.players.user.hand.map(c => c.name)).toEqual(["L1", "L2"]);
   });
 });

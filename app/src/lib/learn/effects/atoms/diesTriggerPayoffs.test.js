@@ -21,7 +21,7 @@ import { resolveAtom } from "../effectAtoms.js";
 import { parseEffectProgram, programConfidence, programNeedsChosenTarget } from "../parser.js";
 import { _resetIdsForTests, createGameState, createPermanent, destroyLethalCreatures } from "../../gameState.js";
 import { sacrificeCreatureEffect } from "./removal.js";
-import { resolveSpellEffect } from "../../spellEffects.js";
+import { applyDestroyEffect } from "../../spellEffects.js"; // W5: the primitive (resolveSpellEffect deleted)
 import { resolveCombatDamage } from "../../combatResolution.js";
 import { flushTriggers, resolveTopOfStack, chooseTriggerTargets } from "../../gameEngine.js";
 
@@ -171,7 +171,7 @@ describe("DIES-TRIGGER-RESOURCE-PAYOFFS — END-TO-END via the real dies-trigger
   it("Goldvein destroyed → mints (effective power) tapped Treasures; the dies trigger fires ONCE", () => {
     const gold = payoffPerm("gold", "Goldvein Hydra", GOLDVEIN, 5); // a 5/5
     let s = podState({ user: [gold] });
-    s = resolveSpellEffect(s, { effect: { kind: "destroy", targetType: "creature" }, controller: "ai1", targets: [{ type: "creature", id: "gold" }] });
+    s = applyDestroyEffect(s, { controller: "ai1", targets: [{ type: "creature", id: "gold" }] });
     expect(s.players.user.battlefield.some((p) => p.id === "gold")).toBe(false); // it died
     expect((s.pendingTriggers || []).length).toBe(1); // fires exactly once
     s = flushResolve(s);
@@ -223,7 +223,7 @@ describe("DIES-TRIGGER-RESOURCE-PAYOFFS — END-TO-END via the real dies-trigger
   it("a printed-power Goldvein (no counters) mints its PRINTED power in Treasures (the simple base case)", () => {
     const gold = createPermanent({ id: "g2", card: { id: "c-g2", name: "Goldvein Hydra", type: "Creature — Hydra", power: 3, toughness: 3, oracle: GOLDVEIN }, controller: "user", summoningSick: false });
     let s = podState({ user: [gold] });
-    s = resolveSpellEffect(s, { effect: { kind: "destroy", targetType: "creature" }, controller: "ai1", targets: [{ type: "creature", id: "g2" }] });
+    s = applyDestroyEffect(s, { controller: "ai1", targets: [{ type: "creature", id: "g2" }] });
     s = flushResolve(s);
     expect(treasuresOf(s)).toHaveLength(3);
   });

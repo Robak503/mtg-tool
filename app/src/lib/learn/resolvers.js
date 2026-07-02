@@ -21,7 +21,6 @@
  */
 
 import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf } from "./gameState.js";
-import { resolveSpellEffect } from "./spellEffects.js";
 import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "./triggers.js";
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js";
@@ -43,18 +42,19 @@ export { markPendingArbiter } from "./pendingArbiter.js";
 /**
  * The canonical resolver-key contract. Frozen + exported so every producer
  * (cast path, triggers, effect interpreter) references the same strings.
- * Phase-1 wires spell.effect / spell.permanent / spell.noop; trigger.effect,
- * activated.effect, manual, and effect-program are reserved named slots the
- * later subsystems fill without re-touching the dispatcher.
+ * W5: the dead Phase-1 lanes were DELETED — SPELL_EFFECT ("spell.effect", the
+ * single-descriptor legacy spell resolver) and ACTIVATED_EFFECT
+ * ("activated.effect", a never-emitted stub) had ZERO production emitters;
+ * everything live resolves via EFFECT_PROGRAM / PERMANENT_ETB / AURA_ETB /
+ * ATTACH / SPELL_NOOP / MANUAL. (parseSpellEffect — the PARSE half — stays: the
+ * AI scorer and the parser's legacyToAtom fallback still consume it.)
  */
 export const RESOLVER_KEYS = Object.freeze({
-  SPELL_EFFECT: "spell.effect",         // a parsed instant/sorcery effect (single SpellEffect descriptor)
   PERMANENT_ETB: "spell.permanent",     // a permanent spell entering the battlefield
   SPELL_NOOP: "spell.noop",             // a recognized-but-unhandled instant/sorcery — log + pop
   TRIGGER_EFFECT: "trigger.effect",     // DEPRECATED (W4): retired zombie lane — resolves as manual; key kept for serialized saves
-  ACTIVATED_EFFECT: "activated.effect", // an activated ability's effect (Phase 2)
   MANUAL: "manual",                     // Arbiter escape valve — surfaces an "unresolved" log
-  EFFECT_PROGRAM: "effect-program",     // RESERVED for Phase-2's multi-atom interpreter
+  EFFECT_PROGRAM: "effect-program",     // the P2.2 multi-atom interpreter (the live spell/trigger/ability lane)
   ATTACH: "attach",                     // Equip/Aura attach — sets attachedTo + attachments
   AURA_ETB: "spell.aura",               // an Aura spell resolving: enter + attach to its target
 });
@@ -462,11 +462,6 @@ function resolveManual(state, obj) {
  * only `stackObject.payload.params` + `state`; never closes over cast-time data.
  */
 export const RESOLVERS = Object.freeze({
-  [RESOLVER_KEYS.SPELL_EFFECT]: (state, obj) => {
-    const { effect, controller, targets = [] } = obj.payload?.params || {};
-    if (!effect) return resolveManual(state, obj);
-    return resolveSpellEffect(state, { effect, controller, targets });
-  },
 
   [RESOLVER_KEYS.PERMANENT_ETB]: (state, obj) => {
     const { card, controller, xValue, kicked } = obj.payload?.params || {};
@@ -542,13 +537,9 @@ export const RESOLVERS = Object.freeze({
   // stray legacy payload) still resolves SAFELY as the Arbiter no-op instead of crashing the registry.
   [RESOLVER_KEYS.TRIGGER_EFFECT]: (state, obj) => resolveManual(state, obj),
 
-  // STUB in PR-1: activated abilities are Phase 2.
-  [RESOLVER_KEYS.ACTIVATED_EFFECT]: (state, obj) => resolveManual(state, obj),
-
-  // P2.2: the EffectProgram interpreter. Runs an ordered Atom[] in printed order
-  // when the program is high-confidence; a low-confidence (unmodeled) program runs
-  // ZERO atoms and routes to the Arbiter seam (all-or-nothing). Additive — never
-  // overloads spell.effect.
+  // P2.2: the EffectProgram interpreter — THE live resolution lane. Runs an ordered
+  // Atom[] in printed order when the program is high-confidence; a low-confidence
+  // (unmodeled) program runs ZERO atoms and routes to the Arbiter seam (all-or-nothing).
   //
   // INTERVENING-IF (CR 603.4 resolution re-check) — a conditional trigger bound its interveningIf onto
   // `params.condition` (gameEngine.buildTriggerStack, the general board-query path). Re-evaluate it HERE at
