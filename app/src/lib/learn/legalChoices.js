@@ -30,7 +30,7 @@
  */
 
 import { getZone, opponentOf, opponentsOf, totalAvailableMana, findPermanent, creaturePower } from "./gameState.js";
-import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement } from "./manaModel.js";
+import { canAfford, manaSources, manaProduction, landAuraManaBonus, globalTapManaAugment, applyAuraManaGrantSupplement, sourcesExcludingOneShotVictim } from "./manaModel.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived tap-for-mana amount
 import { hasKeyword } from "./keywords.js";
 import { permanentHasKeyword, permanentIsCreature, colorsOf, grantedManaSpecsFor, grantedActivatedQuotedFor } from "./layers.js";
@@ -758,11 +758,17 @@ function castActionsFromZone(state, playerId, cards, fromZone, taxFn, freeCast =
           sacTypeMatches(v.card, addCost.sacType) &&
           !sacrificeDropsTrigger(v.card?.oracle || v.card?.oracle_text || ""));
         if (victims.length === 0) continue;               // no legal victim → unpayable → uncastable
-        for (const victim of victims) for (const ch of combos) {
+        for (const victim of victims) {
+          // W3 (two-sites invariant): a ONE-SHOT mana source (Treasure/Gold/Spawn) chosen as THE victim
+          // can't also be cracked to pay the mana cost — re-check affordability with it excluded, per
+          // victim (another victim or source may still afford). A repeatable victim taps first legally.
+          if (!freeCast && !canAfford(player.manaPool, sourcesExcludingOneShotVictim(manaSources(state, playerId), victim.id), cost)) continue;
+          for (const ch of combos) {
           // Don't sacrifice the very permanent the effect targets — paid as a cost (gone before the spell
           // resolves) → the target would fizzle (CR 608.2b). Pointless self-defeating action; drop it.
           if (ch.targets.some(t => t.id === victim.id)) continue;
           emit(ch, { sacCreatureId: victim.id, sacCreatureName: victim.card?.name ?? null, sacName: victim.card?.name ? `sacrifice ${victim.card.name}` : undefined });
+          }
         }
       } else if (addCost.kind === "payLife") {
         // No choice — just deduct N at cast. CR 119.4: you can't pay life you don't have (paying to exactly
@@ -1256,7 +1262,10 @@ function actionsActivateAbility(state, playerId) {
       const sources = manaSources(state, playerId).filter((s) =>
         !((ab.tapSelf || ab.sacSelf || ab.exileSelf) && s.permanentId === perm.id) &&
         !sacCountManaExcluded.has(s.permanentId));
-      if (!canAfford(player.manaPool, sources, cost)) continue;
+      // W3: a γ1b sacOther ability's affordability is PER-VICTIM (a one-shot mana victim can't also
+      // be cracked for the {mana} part) — checked inside the victim loop below; non-sac abilities
+      // keep this fast path.
+      if (!ab.sacOther && !canAfford(player.manaPool, sources, cost)) continue;
 
       // Equip {cost}: target a creature YOU control (CR 702.6e). Equip is SORCERY-SPEED
       // (CR 702.6f) — unlike other activated abilities (instant-speed, conservatively
@@ -1298,6 +1307,9 @@ function actionsActivateAbility(state, playerId) {
       const choices = expandCastChoices(state, playerId, ab.program);
       if (choices.length === 0) continue; // a required target has no legal pick → uncastable
       for (const victim of sacVictims) {
+        // W3 (two-sites invariant): exclude a ONE-SHOT mana victim from the sources for THIS victim's
+        // affordability — mirrors the dispatcher's payment filter exactly.
+        if (ab.sacOther && !canAfford(player.manaPool, sourcesExcludingOneShotVictim(sources, victim?.id), cost)) continue;
         for (const ch of choices) {
           // Don't offer sacrificing the very permanent the effect targets — the victim is paid as a
           // cost (gone before the ability resolves), so the effect would fizzle to a no-op (CR 608.2b).

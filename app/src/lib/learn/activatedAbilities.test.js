@@ -295,3 +295,37 @@ describe("activated abilities — γ1c exile-self + remove-counter costs", () =>
     expect(activateActions(s).filter((a) => a.removeCounter)).toHaveLength(0);
   });
 });
+
+// ═══ W3 (overhaul pass) — γ1b one-shot mana victim exclusion ═══════════════════════════════
+// "{1}, Sacrifice a creature: …" where the chosen victim is an Eldrazi-Spawn-style ONE-SHOT
+// mana source and ALSO the only way to pay the {1}: the action must not be offered (planPayment
+// would crack the victim, then the sacrifice re-find would throw on an offered action).
+describe("γ1b — one-shot mana victim exclusion (W3)", () => {
+  it("does NOT offer the ability when the only mana route is cracking the chosen victim", () => {
+    const outlet = createPermanent({ id: "perm-o", card: creature("Altar", "{1}, Sacrifice a creature: Draw a card.", { type: "Artifact" }), controller: "user", summoningSick: false });
+    const spawn = createPermanent({
+      id: "perm-s",
+      card: { id: "card-s", name: "Eldrazi Spawn", type: "Token Creature — Eldrazi Spawn", power: 0, toughness: 1, oracle: "Sacrifice this token: Add {C}." },
+      controller: "user", summoningSick: false,
+    });
+    const s = withBattlefield(mainState(), "user", [outlet, spawn]);
+    const offers = legalActionsForPlayer(s, "user").filter((a) => a.kind === "activate-ability" && a.permanentId === "perm-o" && a.sacCreatureId === "perm-s");
+    expect(offers).toHaveLength(0);
+  });
+
+  it("offers it when a land can pay the {1}; the spawn is sacrificed for the COST", () => {
+    const outlet = createPermanent({ id: "perm-o", card: creature("Altar", "{1}, Sacrifice a creature: Draw a card.", { type: "Artifact" }), controller: "user", summoningSick: false });
+    const spawn = createPermanent({
+      id: "perm-s",
+      card: { id: "card-s", name: "Eldrazi Spawn", type: "Token Creature — Eldrazi Spawn", power: 0, toughness: 1, oracle: "Sacrifice this token: Add {C}." },
+      controller: "user", summoningSick: false,
+    });
+    const land = createPermanent({ id: "perm-l", card: { id: "card-l", name: "Wastes", type: "Basic Land", oracle: "{T}: Add {C}." }, controller: "user", summoningSick: false });
+    let s = withBattlefield(mainState(), "user", [outlet, spawn, land]);
+    const offers = legalActionsForPlayer(s, "user").filter((a) => a.kind === "activate-ability" && a.permanentId === "perm-o" && a.sacCreatureId === "perm-s");
+    expect(offers.length).toBeGreaterThan(0);
+    s = dispatchAction(s, offers[0]);
+    expect(s.players.user.battlefield.some((p) => p.id === "perm-s")).toBe(false); // sacrificed for the cost
+    expect(s.players.user.battlefield.find((p) => p.id === "perm-l").tapped).toBe(true); // the land paid the {1}
+  });
+});

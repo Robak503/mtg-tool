@@ -46,7 +46,7 @@ import {
   clearRemovedFromCombatFlags,
 } from "./gameState.js";
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
-import { manaSources, planPayment } from "./manaModel.js";
+import { manaSources, planPayment, sourcesExcludingOneShotVictim } from "./manaModel.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura, isNativeManaAura, entersTapped } from "./staticAbilityParser.js";
@@ -301,9 +301,16 @@ function applyCastSpell(state, action) {
     // EMERGE (CR 702.97): the creature being SACRIFICED to emerge can't ALSO tap for mana to pay the reduced
     // cost — exclude it from the sources (the γ1 double-spend guard, matching legalChoices' affordability
     // check and the activated-ability sac path). Plain casts (no emerge) keep every source.
-    const castSources = action.emerge && action.sacCreatureId
-      ? manaSources(state, action.playerId).filter((s) => s.permanentId !== action.sacCreatureId)
-      : manaSources(state, action.playerId);
+    // W3 (two-sites invariant): an additional-cost sacrifice victim that is a ONE-SHOT mana source
+    // (Treasure/Gold/Spawn) is likewise excluded — planPayment must never crack the very permanent the
+    // cost sacrifice below re-finds (PERM_NOT_FOUND on an offered action). Emerge keeps its stricter
+    // always-exclude (documented conservative FN); a repeatable victim still taps first legally.
+    const castSources = sourcesExcludingOneShotVictim(
+      action.emerge && action.sacCreatureId
+        ? manaSources(state, action.playerId).filter((s) => s.permanentId !== action.sacCreatureId)
+        : manaSources(state, action.playerId),
+      action.sacCreatureId,
+    );
     const plan = planPayment(pool, castSources, action.cost);
     if (!plan) {
       throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
@@ -628,9 +635,14 @@ function applyActivateAbility(state, action) {
   // otherwise leave the victim already gone when the sac runs below).
   const pool = player.manaPool;
   const sacCountExcluded = new Set(action.sacCountIds || []);
-  const sources = manaSources(state, action.playerId).filter(s =>
-    !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId) &&
-    !sacCountExcluded.has(s.permanentId));
+  // W3: the γ1b chosen victim, when a ONE-SHOT mana source, is excluded exactly like legalChoices'
+  // per-victim affordability (the two-sites invariant — offered ⇒ payable without cracking the victim).
+  const sources = sourcesExcludingOneShotVictim(
+    manaSources(state, action.playerId).filter(s =>
+      !((action.tapSelf || action.sacSelf || action.exileSelf) && s.permanentId === action.permanentId) &&
+      !sacCountExcluded.has(s.permanentId)),
+    action.sacCreatureId,
+  );
   const plan = planPayment(pool, sources, action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 

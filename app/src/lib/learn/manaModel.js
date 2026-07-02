@@ -704,6 +704,20 @@ export function manaSources(state, playerId) {
   return sources;
 }
 
+/**
+ * W3 (overhaul pass, the γ1b/addCost double-spend guard): a ONE-SHOT mana source (a source the
+ * commit path SACRIFICES on use — Treasure/Gold/Eldrazi Spawn) that is ALSO the chosen sacrifice
+ * victim of the very cost being paid cannot be cracked for that cost's mana: planPayment would
+ * consume it and the dispatcher's victim re-find would throw PERM_NOT_FOUND on an OFFERED action.
+ * A REPEATABLE victim stays available — tap-then-sacrifice is legal (the dispatcher taps before
+ * sacrificing). Shared by legalChoices (affordability) and actionDispatcher (payment) so the
+ * offered set and the executed payment can never diverge. Pure.
+ */
+export function sourcesExcludingOneShotVictim(sources, victimId) {
+  if (!victimId) return sources;
+  return sources.filter((s) => !(s.sacrifices && s.permanentId === victimId));
+}
+
 // ─── Payment planning ──────────────────────────────────────────────────────────
 
 /**

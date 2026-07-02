@@ -170,3 +170,51 @@ describe("ADDCOST-2 — discard-a-card cost", () => {
     expect(() => dispatchAction(s, unpaid)).toThrow(/discard cost/i);
   });
 });
+
+// ═══ W3 (overhaul pass) — the one-shot-victim double-spend guard ═══════════════════════════
+// A Treasure chosen as the "sacrifice an artifact" victim must not ALSO be the mana that pays
+// the spell: planPayment would crack it and the dispatcher's victim re-find would throw
+// PERM_NOT_FOUND on an OFFERED action. A repeatable artifact victim taps first legally.
+describe("ADDCOST — one-shot mana victim exclusion (W3)", () => {
+  const SAC_ARTIFACT = "As an additional cost to cast this spell, sacrifice an artifact.\nDestroy target creature.";
+  const treasure = (id) => createPermanent({
+    id,
+    card: { id: `card-${id}`, name: "Treasure", type: "Token Artifact — Treasure", oracle: "{T}, Sacrifice this artifact: Add one mana of any color." },
+    controller: "user", summoningSick: false,
+  });
+  const swamp = (id) => createPermanent({ id, card: { id: `card-${id}`, name: "Swamp", type: "Basic Land — Swamp", oracle: "{T}: Add {B}." }, controller: "user", summoningSick: false });
+  const sacSpell = { id: "card-shatter", name: "Costly Shatter", type: "Sorcery", mana: "{B}", oracle: SAC_ARTIFACT };
+
+  it("does NOT offer the cast when the only mana route is cracking the chosen victim", () => {
+    const t = treasure("perm-t");
+    const enemy = createPermanent({ id: "perm-e", card: creature("Their Goblin"), controller: "ai", summoningSick: false });
+    const s = setup({ userPerms: [t], aiPerms: [enemy], hand: [sacSpell] });
+    // Treasure is the ONLY artifact (victim) AND the only mana source — casting is impossible.
+    expect(casts(s).filter((a) => a.cardId === "card-shatter")).toHaveLength(0);
+  });
+
+  it("offers + dispatches when another source pays: the victim is sacrificed for the COST, not for mana", () => {
+    const t = treasure("perm-t");
+    const land = swamp("perm-l");
+    const enemy = createPermanent({ id: "perm-e", card: creature("Their Goblin"), controller: "ai", summoningSick: false });
+    let s = setup({ userPerms: [t, land], aiPerms: [enemy], hand: [sacSpell] });
+    const offered = casts(s).filter((a) => a.cardId === "card-shatter" && a.sacCreatureId === "perm-t");
+    expect(offered.length).toBeGreaterThan(0);
+    s = dispatchAction(s, offered[0]);
+    // The Treasure left play as the COST (not cracked for mana); the Swamp paid the {B}.
+    expect(s.players.user.battlefield.some((p) => p.id === "perm-t")).toBe(false);
+    expect(s.players.user.battlefield.find((p) => p.id === "perm-l").tapped).toBe(true);
+    expect(s.stack.length).toBe(1); // the spell made it onto the stack — no PERM_NOT_FOUND throw
+  });
+
+  it("a REPEATABLE artifact victim still casts by tapping first, then being sacrificed", () => {
+    const rock = createPermanent({ id: "perm-r", card: { id: "card-rock", name: "Charcoal Diamond", type: "Artifact", oracle: "{T}: Add {B}." }, controller: "user", summoningSick: false });
+    const enemy = createPermanent({ id: "perm-e", card: creature("Their Goblin"), controller: "ai", summoningSick: false });
+    let s = setup({ userPerms: [rock], aiPerms: [enemy], hand: [sacSpell] });
+    const offered = casts(s).filter((a) => a.cardId === "card-shatter" && a.sacCreatureId === "perm-r");
+    expect(offered.length).toBeGreaterThan(0); // tap-then-sac is legal
+    s = dispatchAction(s, offered[0]);
+    expect(s.players.user.battlefield.some((p) => p.id === "perm-r")).toBe(false); // sacrificed after tapping
+    expect(s.stack.length).toBe(1);
+  });
+});
