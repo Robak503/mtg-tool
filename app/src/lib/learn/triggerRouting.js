@@ -42,8 +42,22 @@ const COMBAT_DAMAGE_AMOUNT_EVENTS = new Set(["combatDamageToPlayer", "dealtDamag
 // attacks trigger. ("Whenever this creature attacks, defending player loses 2 life" — Silent Skimmer; the
 // "…and you gain N life" half is a separate who:"controller" atom that resolves on any event.)
 const DEFENDING_PLAYER_EVENTS = new Set(["attacks"]);
+
+/**
+ * Every atom a combat-referent gate must inspect — MODAL programs keep their atoms in
+ * modal.modes[].atoms with atoms:[] at top level, so a top-level-only iteration silently
+ * passed a mode-level referent (overhaul hardening; the flatten pattern from
+ * parser.programNeedsChosenTarget). Zero corpus impact today — pure future-proofing.
+ * Shared by the trigger gate below AND coverage's two spell-path referent loops, so the
+ * metric and the runtime read the same atom set.
+ */
+export function programCombatReferentAtoms(program) {
+  if (program?.structure === "modal") return (program.modal?.modes || []).flatMap((m) => m.atoms || []);
+  return program?.atoms || [];
+}
+
 export function combatDamageReferentSatisfied(program, event) {
-  for (const a of program?.atoms || []) {
+  for (const a of programCombatReferentAtoms(program)) {
     if (a?.who === "damagedPlayer" && !DAMAGED_PLAYER_EVENTS.has(event)) return false;
     if (a?.countContext === "combatDamageAmount" && !COMBAT_DAMAGE_AMOUNT_EVENTS.has(event)) return false;
     if (a?.who === "defendingPlayer" && !DEFENDING_PLAYER_EVENTS.has(event)) return false;

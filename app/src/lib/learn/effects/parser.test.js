@@ -1358,7 +1358,26 @@ describe("programConfidence — pure shape function", () => {
     expect(programConfidence({ atoms: [] })).toBe("low");
     expect(programConfidence({ atoms: [{ op: "draw" }] })).toBe("high");
     expect(programConfidence({ atoms: [{ op: "draw" }, { op: "counter-spell" }] })).toBe("low"); // one unknown → low
-    KNOWN_ATOM_OPS.forEach((op) => expect(programConfidence({ atoms: [{ op }] })).toBe("high"));
+    // Every known op alone is HIGH — EXCEPT roll-d20, whose sequence gate (now enforced inside
+    // programConfidence, overhaul hardening) demands a diceResult payoff follow it: a trailing roll
+    // with an unmodeled outcome is exactly the dropped-clause FP the gate exists to stop.
+    KNOWN_ATOM_OPS.filter((op) => op !== "roll-d20").forEach((op) => expect(programConfidence({ atoms: [{ op }] })).toBe("high"));
+  });
+
+  it("enforces the dice-roll and reveal-top SEQUENCE invariants (collapsed()-bypass hardening)", () => {
+    // A lone/trailing roll with no payoff, and a payoff with no preceding setup, are LOW even when
+    // the program object arrives stamped confidence:"high" (the collapsed()-shaped bypass).
+    expect(programConfidence({ atoms: [{ op: "roll-d20" }], confidence: "high" })).toBe("low");
+    expect(programConfidence({ atoms: [{ op: "draw", amountCount: { kind: "diceResult" } }], confidence: "high" })).toBe("low");
+    expect(programConfidence({ atoms: [{ op: "lose-life", countFor: { kind: "revealedCardMV" } }], confidence: "high" })).toBe("low");
+    // The properly-sequenced forms stay HIGH (positive controls).
+    expect(programConfidence({ atoms: [{ op: "roll-d20" }, { op: "draw", amountCount: { kind: "diceResult" } }] })).toBe("high");
+    expect(programConfidence({ atoms: [{ op: "reveal-top-to-hand" }, { op: "lose-life", countFor: { kind: "revealedCardMV" } }] })).toBe("high");
+    // Modal: a mode violating a sequence forces the whole program LOW (all-or-nothing across modes).
+    expect(programConfidence({ structure: "modal", modal: { modes: [
+      { atoms: [{ op: "draw" }] },
+      { atoms: [{ op: "draw", amountCount: { kind: "diceResult" } }] },
+    ] } })).toBe("low");
   });
   // ADDCOST — a program may carry parser-attached `additionalCosts`. HIGH requires every cost be a kind the
   // cast path can actually pay (sacrifice / payLife / discard); an unsupported kind forces LOW even with

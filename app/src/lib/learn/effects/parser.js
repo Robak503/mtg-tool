@@ -2145,7 +2145,7 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const modal = parseModal(cardType, oracle, hasX);
   if (modal) {
     if (modal.modes && modal.modes.every(mode => mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms))) {
-      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.ptX));
+      const xSpell = modal.modes.some(mode => mode.atoms.some(a => a.amountX || a.countX || a.ptX || a.filter?.mvCapX));
       return makeProgram({ confidence: "high", structure: "modal", atoms: [], modal, xSpell, unparsedTail: null });
     }
     return makeProgram({ confidence: "low", structure: "modal", atoms: [], modal: null, unparsedTail: oracle });
@@ -2267,7 +2267,7 @@ export function programConfidence(program) {
   if (program.structure === "modal") {
     const modes = program.modal?.modes;
     if (!Array.isArray(modes) || modes.length < 2) return "low";
-    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms))
+    return modes.every(mode => Array.isArray(mode.atoms) && mode.atoms.length > 0 && mode.atoms.every(a => KNOWN.has(a.op)) && !fightAtomMisplaced(mode.atoms) && diceRollSequenceOk(mode.atoms) && revealTopSequenceOk(mode.atoms))
       ? "high" : "low";
   }
   if (!Array.isArray(program.atoms) || program.atoms.length === 0) return "low";
@@ -2288,6 +2288,11 @@ export function programConfidence(program) {
   const ci = program.atoms.findIndex(a => a.op === "cascade");
   if (ci !== -1 && ci !== program.atoms.length - 1) return "low";
   if (fightAtomMisplaced(program.atoms)) return "low";
+  // SEQUENCE GATES (overhaul hardening): dice-roll and reveal-top payoffs must follow their setup atom.
+  // These lived only at the two ASSEMBLY sites, so a program built through collapsed() / the reflexive
+  // fold / any future early-return template bypassed them. programConfidence is the single authoritative
+  // gate every consumer recomputes — hoisting the invariants here means every path inherits them.
+  if (!diceRollSequenceOk(program.atoms) || !revealTopSequenceOk(program.atoms)) return "low";
   return program.atoms.every(a => KNOWN.has(a.op)) ? "high" : "low";
 }
 

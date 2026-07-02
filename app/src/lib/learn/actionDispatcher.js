@@ -53,7 +53,7 @@ import { isAuraCard, isNativeAura, isNativeManaAura, entersTapped } from "./stat
 import { landDropAllowance } from "./legalChoices.js"; // EXTRA-LAND-DROPS: shared per-turn land allowance (CR 305.2/505.5b) — same reader the action gate uses
 import { planeswalkerPlayable } from "./effects/loyaltyAbilities.js";
 import { permanentHasKeyword } from "./layers.js";
-import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers } from "./triggers.js";
+import { checkCastTriggers, checkDiesTriggers, checkPlaneswalkerDiesTriggers, checkSacrificeTriggers, checkLandfallTriggers, checkEnterTriggers, checkLeavesTriggers } from "./triggers.js";
 import { setPendingSoftCounterChoice } from "./pendingChoice.js";
 import { wardTaxForSpell, wardTaxForStackObject } from "./ward.js";
 import { groupWardTaxForSpell, groupWardTaxForStackObject } from "./groupWard.js";
@@ -167,6 +167,10 @@ function commitManaTaps(state, playerId, taps) {
       working = moveCardToZone(working, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
       // SAC-TREASURE: a sacrificed one-shot mana source fires "whenever you sacrifice an artifact/permanent".
       if (sacPerm) working = checkSacrificeTriggers(working, playerId, { id: sacPerm.id, controller: playerId, card: sacPerm.card });
+      // LEAVE-DRAIN (CR 603.3b): the crack is a battlefield EXIT — drain the pending leave event NOW so
+      // permanentLeaves watchers (Marionette Master class) stack in cost order, not at the NEXT stack
+      // resolution against a battlefield that may have changed (the stale-scan FP window).
+      working = checkLeavesTriggers(working);
     } else {
       working = tapPermanent(working, tap.permanentId);
     }
@@ -577,6 +581,9 @@ function applyTapForMana(state, action) {
     // SAC-TREASURE: cracking a one-shot Treasure/Gold for mana IS a sacrifice (CR 701.21) → fire
     // "whenever you sacrifice an artifact/permanent" (Korvold, Mayhem Devil…). `perm` was captured pre-move.
     next = checkSacrificeTriggers(next, action.playerId, { id: perm.id, controller: action.playerId, card: perm.card });
+    // LEAVE-DRAIN (CR 603.3b): same as the auto-pay crack — the exit's leave event drains at cost time
+    // (no stack push here, so the trigger waits in pendingTriggers for the next priority flush, CR 603.3a).
+    next = checkLeavesTriggers(next);
   } else {
     next = tapPermanent(next, action.permanentId);
   }
@@ -612,6 +619,11 @@ function sacrificePermanentForCost(state, playerId, permObj) {
   let next = moveCardToZone(state, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: permObj.id });
   if (/Creature/.test(typeLine)) {
     next = checkDiesTriggers(next, [{ controller: playerId, id: permObj.id, name: permObj.card?.name || "creature", card: permObj.card }]);
+  } else {
+    // LEAVE-DRAIN (CR 603.3b): a NON-creature cost sacrifice (Blood/Clue/artifact) has no dies path —
+    // drain its leave event now so permanentLeaves watchers stack above the ability (the creature
+    // branch drains via checkDiesTriggers' own first-line drain; re-draining is an idempotent no-op).
+    next = checkLeavesTriggers(next);
   }
   // TRIG-SACRIFICE: a sac-as-cost is a sacrifice → fire "Whenever you sacrifice a <permanent|creature|
   // artifact>" for the sacrificing player (the perm has left, so its type rides on the lookBack card).
@@ -685,6 +697,9 @@ function applyActivateAbility(state, action) {
     // graveyard), so NO dies triggers fire; the offer-gate's leave-trigger fail-safe already excluded a
     // source with an LTB/exile trigger we couldn't fire, so nothing is silently dropped here.
     working = moveCardToZone(working, { playerId: action.playerId, fromZone: "battlefield", toZone: "exile", cardId: perm.id });
+    // LEAVE-DRAIN (CR 603.3b): the self-exile is a battlefield EXIT — drain at cost time (see the
+    // sacrifice sites above; exile is not "dies", so only the leave watchers fire).
+    working = checkLeavesTriggers(working);
   }
   if (action.removeCounter) {
     working = removeCounter(working, { permanentId: action.permanentId, type: action.removeCounter.type, amount: 1 });

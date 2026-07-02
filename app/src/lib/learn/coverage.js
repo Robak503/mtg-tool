@@ -38,7 +38,7 @@ import { planeswalkerNativelyCovered, planeswalkerPlayable } from "./effects/loy
 import { castsAsPlaneswalker, isPlaneswalker } from "./gameState.js";
 // triggerRoutesNatively (+ the group-triggered-grant validator) extracted to triggerRouting.js — its
 // transitive deps (parseEffectClause / program* / winConditionParseable / interveningIfParseable) live there.
-import { triggerRoutesNatively, isModeledGroupTriggeredBody } from "./triggerRouting.js";
+import { triggerRoutesNatively, isModeledGroupTriggeredBody, programCombatReferentAtoms } from "./triggerRouting.js";
 import { isNativeGroupWard } from "./groupWard.js";
 import { isEnforcedEvasionClause } from "./combatEvasion.js";
 import { stripCreatedTokenAbilities, stripNonSelfQuotedGrants, manaProduction } from "./manaModel.js"; // manaProduction: the runtime mana-amount source — consulted for the variable-X "Add X mana … where X is …" tier so the metric credits ONLY what the engine actually produces (no over-claim)
@@ -297,7 +297,8 @@ export function spellIsNative(card) {
     const bodyProgram = parseEffectProgram({ type: card.type, oracle: stripCostOnlyKeywordLines(cascadeStripped), mana: card.mana, name: card.name });
     if (!bodyProgram || programConfidence(bodyProgram) !== "high") return false;
     // Same combat-referent guard as the normal spell path (a spell never supplies the combat-damage referent).
-    for (const a of bodyProgram.atoms || []) {
+    // Flattened via programCombatReferentAtoms so a MODAL mode-level referent can't slip through.
+    for (const a of programCombatReferentAtoms(bodyProgram)) {
       if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount" || a?.who === "defendingPlayer") return false;
     }
     return true;
@@ -329,7 +330,7 @@ export function spellIsNative(card) {
   // the spell path: a "That player discards a card" follow-on after a counter (Frightful Delusion) or a
   // damage spell (Ozai's Cruelty) — where "that player" is a back-reference to the countered-spell controller
   // / damaged target, NOT the combat referent — keeps the whole spell on the Arbiter (a SAFE false-negative).
-  for (const a of program.atoms || []) {
+  for (const a of programCombatReferentAtoms(program)) {
     if (a?.who === "damagedPlayer" || a?.countContext === "combatDamageAmount") return false;
     // who:"defendingPlayer" (CR 509.1a) is the ATTACKS-event referent (ctx.defenderId) — a spell never supplies
     // it, so such an atom would silently drop. Keep the spell on the Arbiter (a SAFE false-negative).
