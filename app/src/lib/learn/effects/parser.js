@@ -28,7 +28,7 @@
 
 import { parseSpellEffect, parseCreatureTargetRestrictions } from "../spellEffects.js"; // parseGraveyardFilter moved to atoms/zones.graveyardReturnClauseParser (seam batch 16)
 import { isNonChosenTargetType } from "../targetTypes.js";
-import { ATOM_RESOLVERS } from "./effectAtoms.js";
+import { ATOM_RESOLVERS, PAUSING_ATOM_OPS } from "./effectAtoms.js"; // PAUSING_ATOM_OPS (WI-3) — ops whose resolver can set pendingChoice; gates optional-payment payoffs
 // WAVE 1 — clause parsers for the new-module atoms. Imported here (not self-registered from the atoms
 // module) because effects/atoms/*.js must NOT import parser.js: parser.js → effectAtoms.js → atoms/*.js is
 // a one-way edge, and an atoms-module importing parser.js back would TDZ-crash at load (registerClauseParser
@@ -1861,6 +1861,13 @@ function matchOptionalManaPayment(oracle, cardType) {
   // SELF-CONTAINED gate (CREED): a chosen-target payoff would need its target threaded through the pay-choice
   // (unbuilt) → keep it LOW. The draw-family payoffs are targetless (programNeedsChosenTarget false).
   if (programNeedsChosenTarget(payoff)) return null;
+  // WI-3 PAYOFF-PAUSE gate (CREED): a NON-LAST payoff atom whose resolver can itself pause (set
+  // pendingChoice — PAUSING_ATOM_OPS, declared beside ATOM_RESOLVERS) would DROP every payoff atom
+  // after it at settle time: the settler (runProgram.resolveOptionalManaPaymentChoice) chains a mid-
+  // payoff pause onto the PROGRAM continuation, not the payoff tail. "pay {1}. If you do, scry 1,
+  // then draw a card" would scry but never draw — a dropped-atom FP. Reject → LOW → Arbiter (SAFE
+  // FN). A LAST-position pausing payoff is fine (nothing follows to drop).
+  if (inner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null;
   return { atom: { op: "optional-mana-payment", cost: { kind: "mana", mana }, effectAtoms: inner, targetType: null } };
 }
 
@@ -1916,6 +1923,12 @@ function matchOptionalSacBySubtype(oracle, cardType) {
   // SELF-CONTAINED gate (CREED): a chosen-target payoff would need its target threaded through the sac-choice
   // (unbuilt) → keep it LOW. The draw / counter-on-this / lifegain payoffs are targetless / self-scoped.
   if (programNeedsChosenTarget(payoff)) return null;
+  // WI-3 PAYOFF-PAUSE gate (CREED): a NON-LAST payoff atom whose resolver can itself pause (set
+  // pendingChoice — PAUSING_ATOM_OPS, declared beside ATOM_RESOLVERS) would DROP every payoff atom
+  // after it at settle time: the settler (runProgram.resolveOptionalSacChoice) chains a mid-payoff
+  // pause onto the PROGRAM continuation, not the payoff tail. Reject → LOW → Arbiter (SAFE FN). A
+  // LAST-position pausing payoff is fine (nothing follows to drop). Mirrors matchOptionalManaPayment.
+  if (inner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null;
   return { atom: { op: "optional-sac-payment", subtype, effectAtoms: inner, targetType: null } };
 }
 

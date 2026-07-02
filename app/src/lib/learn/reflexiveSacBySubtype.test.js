@@ -101,6 +101,9 @@ describe("REFLEXIVE-SAC-BY-SUBTYPE — CREED anti-FP (must stay LOW)", () => {
     "permanent subject (a card-type word)": "you may sacrifice a permanent. If you do, draw a card.",
     "chosen-target payoff (would need target threading)": "you may sacrifice a Treasure. If you do, draw a card. Target creature gets +1/+1.",
     "a SECOND 'if you do'": "you may sacrifice a Food. If you do, you may pay {1}. If you do, draw a card.",
+    // WI-3 PAYOFF-PAUSE gate: a NON-LAST pausing payoff atom (the scry suspends; the settler's chained
+    // resume skips the payoff tail → the draw would be dropped, a forbidden FP) → LOW → Arbiter.
+    "NON-LAST pausing payoff atom (scry before draw — WI-3)": "you may sacrifice a Food. If you do, scry 1, then draw a card.",
   };
   for (const [label, oracle] of Object.entries(lowCases)) {
     it(`${label} → LOW`, () => {
@@ -155,6 +158,29 @@ describe("REFLEXIVE-SAC-BY-SUBTYPE — runtime (resolveOptionalSacChoice)", () =
     expect(autoPickOptionalSac(s, s.pendingChoice)).toBe(false); // the AI declines (can't sacrifice what it lacks)
     const after = resolveOptionalSacChoice(s, true);             // even forced "sac" → no fabrication
     expect(after.players.user.hand).toHaveLength(0);             // NO draw (no Food was sacrificed)
+  });
+
+  it("WI-3 belt-and-braces — a mid-payoff pause routes to the Arbiter instead of dropping the payoff tail", () => {
+    // The parser gate (PAUSING_ATOM_OPS — pinned LOW above) makes this pendingChoice shape unreachable for
+    // native programs; hand-craft it to pin the runtime guard: the settler must NEVER chain past a NON-LAST
+    // pausing payoff atom (the chained resume points at the PROGRAM continuation → the trailing draw would
+    // be dropped). It clears the inner scry choice and routes to the Arbiter (CREED-safe FN). The sac itself
+    // already happened (a real cost) — the honest hand-off covers the payoff, not the cost.
+    const s = stateWithFood(true);
+    const paused = {
+      ...s,
+      pendingChoice: {
+        kind: "optional-sac-payment", controller: "user", subtype: "Food", sourceName: "The Goose Mother",
+        effectAtoms: [{ op: "scry", amount: 1, targetType: null }, { op: "draw", amount: 1, targetType: null }],
+        resume: { program: null, controller: "user", targets: [], nextAtomIndex: 0, cardName: "The Goose Mother" },
+      },
+    };
+    const settled = resolveOptionalSacChoice(paused, true);
+    expect(settled.players.user.graveyard.some((c) => c.id === "cf")).toBe(true); // the sac (the cost) really happened
+    expect(settled.pendingArbiter).toBeTruthy();                                  // honest hand-off, never half-resolved
+    expect(settled.pendingArbiter.reason).toMatch(/paused mid-payoff/);
+    expect(settled.pendingChoice).toBeFalsy();                                    // the inner scry choice was cleared — no wedge
+    expect(settled.players.user.hand).toHaveLength(0);                            // the trailing draw did NOT silently run
   });
 
   it("the sacrifice fires TRIG-SACRIFICE watchers (Korvold draws on the Food crack — a REAL sacrifice, CR 701.21)", () => {

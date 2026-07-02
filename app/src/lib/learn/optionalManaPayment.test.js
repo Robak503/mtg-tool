@@ -53,6 +53,15 @@ describe("parser — optional-mana-payment atom (you may pay {cost}. If you do, 
     // a chosen target threaded through the pay-choice this slice does not build → LOW → Arbiter (a SAFE FN).
     expect(isHigh("you may pay {R}. If you do, target creature can't block this turn")).toBe(false);
   });
+
+  it("WI-3 CREED — a NON-LAST pausing payoff atom stays LOW; a LAST-position pause is fine", () => {
+    // "scry 1, then draw a card" → [scry, draw]: the scry PAUSES (setPendingScryChoice) and the settler's
+    // chained resume points at the PROGRAM continuation, not the payoff tail — the draw would be silently
+    // dropped (a forbidden dropped-atom FP). The PAUSING_ATOM_OPS gate rejects it → LOW → Arbiter (SAFE FN).
+    expect(isHigh("you may pay {1}. If you do, scry 1, then draw a card")).toBe(false);
+    // A pausing payoff atom in LAST position drops nothing (nothing follows it) — stays HIGH.
+    expect(isHigh("you may pay {1}. If you do, draw a card, then scry 1")).toBe(true);
+  });
 });
 
 // ─── shared runtime harness ─────────────────────────────────────────────────────
@@ -162,5 +171,31 @@ describe("coverage — Lifecrafter's Bestiary / Inheritance flip native; CREED a
     // chosen target / a non-mana cost keeps the trigger LOW → the permanent classifies body-only, never native.
     expect(classifyCard({ name: "Fake X Payoff", type: "Enchantment", oracle: "Whenever you cast a spell, you may pay {X}. If you do, draw X cards." })).toBe("body-only");
     expect(classifyCard({ name: "Fake Targeted Payoff", type: "Enchantment", oracle: "Whenever you cast a spell, you may pay {R}. If you do, target creature can't block this turn." })).toBe("body-only");
+  });
+});
+
+// ─── 6. WI-3 belt-and-braces — a mid-payoff pause routes to the Arbiter, never a silent drop ──────
+describe("WI-3 belt-and-braces — a NON-LAST payoff atom that pauses routes to the Arbiter", () => {
+  it("hand-crafted 2-atom payoff whose FIRST atom pauses (scry) → pendingArbiter, inner choice cleared, no dropped draw", () => {
+    // The parser gate (pinned in §1) makes this pendingChoice shape unreachable for native programs;
+    // hand-craft it to pin the runtime guard: the settler must NEVER chain past a mid-payoff pause
+    // (the chained resume points at the PROGRAM continuation, so the trailing draw would be dropped) —
+    // it clears the inner scry choice and routes to the Arbiter with an honest reason (CREED-safe FN).
+    const s = tableWith({ forests: 1, library: [{ id: "a", name: "A", type: "Land" }, { id: "b", name: "B", type: "Land" }] });
+    const paused = {
+      ...s,
+      pendingChoice: {
+        kind: "optional-mana-payment", controller: "user", sourceName: "Test Source",
+        cost: { kind: "mana", mana: { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 1, C: 0, hybrid: [] } },
+        effectAtoms: [{ op: "scry", amount: 1, targetType: null }, { op: "draw", amount: 1, targetType: null }],
+        resume: { program: null, controller: "user", targets: [], nextAtomIndex: 0, cardName: "Test Source" },
+      },
+    };
+    const settled = resolveOptionalManaPaymentChoice(paused, true);
+    expect(settled.pendingArbiter).toBeTruthy();                          // honest hand-off, never half-resolved
+    expect(settled.pendingArbiter.reason).toMatch(/paused mid-payoff/);
+    expect(settled.pendingChoice).toBeFalsy();                            // the inner scry choice was cleared — no wedge
+    expect(settled.players.user.hand).toHaveLength(0);                    // the trailing draw did NOT silently run
+    expect(settled.players.user.library).toHaveLength(2);                 // …and nothing left the library
   });
 });

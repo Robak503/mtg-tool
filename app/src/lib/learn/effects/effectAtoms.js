@@ -67,6 +67,40 @@ export const ATOM_RESOLVERS = Object.freeze({
 });
 
 /**
+ * WI-3 (payoff-pause seam) — the atom ops whose RESOLVER can SUSPEND resolution by setting
+ * `state.pendingChoice` (a resolution-time player choice) instead of finishing in one call.
+ * Declared HERE, beside ATOM_RESOLVERS, so the pause list lives next to the registry it
+ * describes; every entry is validated against the registry at module load, so a typo or a
+ * renamed op THROWS instead of silently drifting. A NEW pausing resolver must be added here
+ * (the op comments below name each setter so the audit is greppable).
+ *
+ * Consumer: parser.js' optional-payment matchers (matchOptionalManaPayment /
+ * matchOptionalSacBySubtype) reject a payoff whose NON-LAST atom is in this set — the payoff
+ * settlers (runProgram.resolveOptionalManaPaymentChoice / resolveOptionalSacChoice) chain a
+ * mid-payoff pause onto the PROGRAM continuation, so any payoff atoms after the pausing one
+ * would be silently dropped (a forbidden dropped-atom FP). A LAST-position pausing payoff is
+ * fine — nothing follows it to drop.
+ */
+const PAUSING_OPS_LIST = [
+  "tutor", // library.js applyTutor → setPendingTutorChoice
+  "scry", // library.js applyScrySurveilAtom → setPendingScryChoice
+  "surveil", // library.js applyScrySurveilAtom → setPendingScryChoice (mode "surveil")
+  "impulse-dig", // library.js applyImpulseDigAtom → setPendingImpulseDigChoice
+  "discard-chosen", // hand.js applyDiscardChosen → setPendingHandDiscardChoice
+  "discard", // hand.js applyDiscard → advanceDiscardChain → setPendingDiscardChoice
+  "sacrifice", // removal.js applySacrifice → advanceSacrificeChain → setPendingSacrificeChoice
+  "sacrifice-land", // sacLand.js applySacrificeLand → setPendingSacrificeChoice
+  "divide-damage", // misc.js applyDivideDamage → setPendingDivideChoice
+  "counter", // stack.js applyCounter (soft counter / unlessPay) → setPendingSoftCounterChoice
+  "optional-mana-payment", // stack.js applyOptionalManaPayment → setPendingOptionalManaPaymentChoice
+  "optional-sac-payment", // stack.js applyOptionalSacPayment → setPendingOptionalSacBySubtypeChoice
+];
+for (const op of PAUSING_OPS_LIST) {
+  if (!ATOM_RESOLVERS[op]) throw new Error(`PAUSING_ATOM_OPS drift: "${op}" is not a registered atom op`);
+}
+export const PAUSING_ATOM_OPS = Object.freeze(new Set(PAUSING_OPS_LIST));
+
+/**
  * Resolve a single atom. Returns the new state, or null when there is no resolver
  * for the atom's op — the caller (runEffectProgram) treats null as "can't model
  * this" and routes to the Arbiter seam rather than fabricating an effect.

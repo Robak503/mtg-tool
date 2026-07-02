@@ -685,11 +685,20 @@ export function resolveOptionalManaPaymentChoice(state, pay) {
       }
       next = after;
       // A payoff atom set a resolution-time choice (scry/surveil) — chain its resume onto the program's, so
-      // the remaining payoff atoms AND the program after this choice both run. The settler (resolveScryChoice
-      // etc.) re-enters via resumeAfterChoice; we re-run the rest of the payoff once it returns is NOT needed
-      // here because the chained resume points at the PROGRAM continuation (nextAtomIndex), and the draw-family
-      // payoffs are single-atom — a multi-atom payoff with a mid-pause is not in the corpus yet (a SAFE gap).
+      // the choice settles into the PROGRAM continuation (nextAtomIndex). That chain is only correct for the
+      // LAST payoff atom: a mid-payoff pause would drop atoms i+1.. (the chained resume skips the payoff tail).
       if (next.pendingChoice && !next.pendingChoice.resume) {
+        // WI-3 belt-and-braces: the parser gate (PAUSING_ATOM_OPS in matchOptionalManaPayment) makes a
+        // NON-LAST pausing payoff unreachable for native programs — if one pauses anyway, NEVER drop the
+        // remaining payoff atoms. Clear the inner choice and route to the Arbiter with an honest reason
+        // (CREED-safe FN: the card is handed off rather than half-resolved).
+        if (i < atoms.length - 1) {
+          return markPendingArbiter(
+            clearPendingChoice(next),
+            { source: { name: pc.sourceName }, payload: { params: r } },
+            `optional-mana-payment payoff atom "${atoms[i]?.op}" paused mid-payoff — resuming would drop ${atoms.length - 1 - i} remaining payoff atom(s)`,
+          );
+        }
         return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
       }
     }
@@ -737,9 +746,20 @@ export function resolveOptionalSacChoice(state, doSac) {
       }
       next = after;
       // A payoff atom set a resolution-time choice (scry/surveil) — chain its resume onto the program's so the
-      // remaining payoff atoms AND the program after this choice both run (mirrors the mana-payment path; the
-      // chained resume points at the PROGRAM continuation, and the modeled payoffs are single-effect today).
+      // choice settles into the PROGRAM continuation (mirrors the mana-payment path). Only correct for the
+      // LAST payoff atom: a mid-payoff pause would drop atoms i+1.. (the chained resume skips the payoff tail).
       if (next.pendingChoice && !next.pendingChoice.resume) {
+        // WI-3 belt-and-braces: the parser gate (PAUSING_ATOM_OPS in matchOptionalSacBySubtype) makes a
+        // NON-LAST pausing payoff unreachable for native programs — if one pauses anyway, NEVER drop the
+        // remaining payoff atoms. Clear the inner choice and route to the Arbiter with an honest reason
+        // (CREED-safe FN: the card is handed off rather than half-resolved).
+        if (i < atoms.length - 1) {
+          return markPendingArbiter(
+            clearPendingChoice(next),
+            { source: { name: pc.sourceName }, payload: { params: r } },
+            `optional-sac-payment payoff atom "${atoms[i]?.op}" paused mid-payoff — resuming would drop ${atoms.length - 1 - i} remaining payoff atom(s)`,
+          );
+        }
         return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
       }
     }
