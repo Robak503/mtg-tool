@@ -472,6 +472,85 @@ describe("pickBlockPlan — W3 block plan v2 (value / lethal-chump / decline)", 
   });
 });
 
+describe("pickCastAction — W5 X-spell sizing (via pickAction)", () => {
+  const pass = { kind: "pass-priority", playerId: "ai" };
+  const enemyPerm = ({ id, name, power, toughness }) => ({
+    id, card: { name, type: "Creature — Wall", power, toughness },
+    controller: "user", tapped: false, summoningSick: false, counters: {}, attachments: [], attachedTo: null,
+  });
+  // One cast action per (X, target) — the shape legalChoices emits for an xSpell
+  // program (per-X synthetic damage `effect`, xValue on the action).
+  function fireballActions(card, maxX, targets) {
+    const out = [];
+    for (let x = 1; x <= maxX; x++) {
+      for (const t of targets) {
+        out.push({
+          kind: "cast-spell", playerId: "ai", cardId: card.id, name: card.name,
+          cost: { generic: 1 + x, R: 1 }, cmc: 1 + x, xValue: x,
+          effect: { kind: "damage", amount: x, targetType: "any" },
+          targets: [t], needsTargets: true,
+        });
+      }
+    }
+    return out;
+  }
+  const fireball = () => makeCard({ id: "c-fb", name: "Fireball", type: "Sorcery", mana: "{X}{R}", oracle: "This spell deals X damage to any target." });
+
+  it("kills the biggest enemy creature with the MINIMUM lethal X (not X=1, no overpay)", () => {
+    const card = fireball();
+    const wall = enemyPerm({ id: "e-wall", name: "Wall", power: 5, toughness: 4 });
+    const state = makeState({ hand: [card], opponentBattlefield: [wall] });
+    const targets = [
+      { type: "creature", id: "e-wall", controller: "user", name: "Wall" },
+      { type: "player", id: "user", name: "user" },
+    ];
+    const choice = pickAction(state, "ai", [...fireballActions(card, 8, targets), pass]);
+    expect(choice).toMatchObject({ kind: "cast-spell", xValue: 4 });
+    expect(choice.targets[0].id).toBe("e-wall");
+  });
+
+  it("with no killable creature, aims the MAX affordable X at the enemy player", () => {
+    const card = fireball();
+    const state = makeState({ hand: [card] });
+    const targets = [{ type: "player", id: "user", name: "user" }];
+    const choice = pickAction(state, "ai", [...fireballActions(card, 8, targets), pass]);
+    expect(choice).toMatchObject({ kind: "cast-spell", xValue: 8 });
+    expect(choice.targets[0]).toMatchObject({ type: "player", id: "user" });
+  });
+
+  it("an untargeted enters-with-X hydra is cast at the MAX offered X", () => {
+    const card = makeCard({ id: "c-hyd", name: "Hungering Hydra", type: "Creature — Hydra", mana: "{X}{G}", oracle: "This creature enters with X +1/+1 counters on it." });
+    const state = makeState({ hand: [card] });
+    const actions = [1, 2, 3, 4, 5].map((x) => ({
+      kind: "cast-spell", playerId: "ai", cardId: card.id, name: card.name,
+      cost: { generic: x, G: 1 }, cmc: 1 + x, xValue: x, targets: [], needsTargets: false,
+    }));
+    const choice = pickAction(state, "ai", [...actions, pass]);
+    expect(choice).toMatchObject({ kind: "cast-spell", xValue: 5 });
+  });
+
+  it("policy 'v1' recovers the legacy actions[0] (X=1) pick", () => {
+    const card = fireball();
+    const state = makeState({ hand: [card] });
+    const targets = [{ type: "player", id: "user", name: "user" }];
+    const choice = pickAction(state, "ai", [...fireballActions(card, 8, targets), pass], { policy: "v1" });
+    expect(choice).toMatchObject({ kind: "cast-spell", xValue: 1 });
+  });
+
+  it("HOLDS an unscorable targeted X spell (no synthetic damage effect) — parity with the legacy hold", () => {
+    const card = makeCard({ id: "c-xw", name: "Weird X Spell", type: "Sorcery", mana: "{X}{U}", oracle: "Return X target cards." });
+    const wall = enemyPerm({ id: "e-wall", name: "Wall", power: 2, toughness: 2 });
+    const state = makeState({ hand: [card], opponentBattlefield: [wall] });
+    const actions = [1, 2].map((x) => ({
+      kind: "cast-spell", playerId: "ai", cardId: card.id, name: card.name,
+      cost: { generic: x, U: 1 }, cmc: 1 + x, xValue: x, effect: null,
+      targets: [{ type: "creature", id: "e-wall", controller: "user", name: "Wall" }], needsTargets: true,
+    }));
+    const choice = pickAction(state, "ai", [...actions, pass]);
+    expect(choice).toMatchObject({ kind: "pass-priority" });
+  });
+});
+
 describe("deriveDeckRepresentation", () => {
   it("flattens all zones into a card list shape detectArchetype can read", () => {
     const state = createGameState({

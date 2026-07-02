@@ -218,13 +218,69 @@ function pickLandAction(state, aiPlayerId, landActions, pol = {}) {
 }
 
 /**
+ * W5 — choose WHICH X to cast from an X-spell's offered action group (one action
+ * per affordable X × target combo; the list is affordability-exact via the real
+ * canAfford planner, so every candidate is payable).
+ *   - UNTARGETED X (enters-with-X hydras, X tokens/draw/team-pump): take the MAX
+ *     offered X — the biggest body/payoff the mana buys.
+ *   - TARGETED X-damage (the synthetic per-X `effect` legalChoices attaches):
+ *     kill the biggest enemy creature with the MINIMUM lethal X (no overpay);
+ *     with no killable creature, aim the MAX X at the lowest-life enemy player
+ *     when the program allows player targets; otherwise HOLD.
+ *   - Any other targeted X program is unscorable → HOLD (parity with the legacy
+ *     targeted-spell hold — never aim an unknown effect).
+ * Returns the chosen action or null (hold). Deterministic (stable action order +
+ * strict-improvement comparisons with id tiebreaks).
+ */
+function pickXCast(state, aiPlayerId, actions) {
+  const xOf = (a) => a.xValue ?? 0;
+  const targeted = actions.some((a) => (a.targets?.length || 0) > 0);
+  if (!targeted) {
+    return actions.reduce((best, a) => (xOf(a) > xOf(best) ? a : best), actions[0]);
+  }
+  let enemies;
+  try { enemies = new Set(opponentsOf(state, aiPlayerId)); } catch { return null; }
+  let bestKill = null; // biggest-threat enemy creature, minimum lethal X
+  let bestFace = null; // lowest-life enemy player, maximum X
+  for (const a of actions) {
+    if (a.effect?.kind !== "damage") continue; // unscorable targeted X → contributes nothing
+    const t = a.targets?.[0];
+    if (!t) continue;
+    if (t.type === "player") {
+      if (!enemies.has(t.id)) continue;
+      const life = state.players?.[t.id]?.life ?? 0;
+      if (!bestFace || life < bestFace.life || (life === bestFace.life && xOf(a) > bestFace.x)) {
+        bestFace = { action: a, life, x: xOf(a) };
+      }
+      continue;
+    }
+    if (!enemies.has(t.controller)) continue;
+    let pow, tou;
+    try {
+      pow = Math.max(0, permanentPower(state, t.id));
+      tou = permanentToughness(state, t.id);
+    } catch { continue; }
+    if (tou <= 0 || xOf(a) < tou) continue; // this X doesn't kill it
+    if (!bestKill
+      || pow > bestKill.pow
+      || (pow === bestKill.pow && xOf(a) < bestKill.x)
+      || (pow === bestKill.pow && xOf(a) === bestKill.x && String(t.id) < String(bestKill.targetId))) {
+      bestKill = { action: a, pow, x: xOf(a), targetId: t.id };
+    }
+  }
+  if (bestKill) return bestKill.action;
+  if (bestFace) return bestFace.action;
+  return null;
+}
+
+/**
  * Pick the best cast-spell action via archetype-aware scoring. A targeted
  * spell appears once per legal target; we group by card, score each spell
  * once, and for targeted spells choose the AI's best enemy target — skipping
  * a targeted spell entirely when there's no good target (so the AI never
  * burns/destroys its own creatures). Returns null if nothing worth casting.
  */
-function pickCastAction(state, aiPlayerId, castActions, archetype) {
+function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
   if (castActions.length === 0) return null;
 
   const byCard = new Map();
@@ -266,6 +322,18 @@ function pickCastAction(state, aiPlayerId, castActions, archetype) {
     // opponent. The player casts Auras normally; the AI passes. (Belt-and-suspenders — these
     // also have a null `effect`, so the targeted branch below would hold them anyway.)
     if (actions[0].isAuraSpell) continue;
+    // W5 — X-SPELL SIZING: an X card is offered once per affordable X (× target
+    // combo). The legacy path fell through to actions[0] — always X=1 — burning
+    // near-total value on every X card. Choose the right X via pickXCast; hold
+    // when it has no on-side use. Sort-key parity: score/cmc still come from the
+    // group's first action (the smallest X), so sizing changes WHICH X is cast,
+    // never where the card ranks against the rest of the hand.
+    if (pol.xSizing !== "v1" && actions.some((a) => a.xValue != null)) {
+      const xChosen = pickXCast(state, aiPlayerId, actions);
+      if (!xChosen) continue; // no killable threat / no legal face → hold
+      scored.push({ action: xChosen, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });
+      continue;
+    }
     const effect = actions[0].effect;
     let chosen = actions[0];
     // KICKER (CR 702.33): a kicker creature is emitted as a normal cast plus — when the kicker mana is also
@@ -606,7 +674,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   // self-harmful cast → fall through to taking the card to hand. Never returns null (there is no pass here).
   if (state.pendingDiscover && state.pendingDiscover.controller === aiPlayerId) {
     const castOpts = filterActions(actions, "cast-spell");
-    const pick = castOpts.length ? pickCastAction(state, aiPlayerId, castOpts, archetype) : null;
+    const pick = castOpts.length ? pickCastAction(state, aiPlayerId, castOpts, archetype, pol) : null;
     return pick || actions.find(a => a.kind === "discover-to-hand") || actions[0] || null;
   }
 
@@ -617,7 +685,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   // (found card → bottom). Never returns null (there is no pass mid-resolution). Mirrors the discover branch.
   if (state.pendingCascade && state.pendingCascade.controller === aiPlayerId) {
     const castOpts = filterActions(actions, "cast-spell");
-    const pick = castOpts.length ? pickCastAction(state, aiPlayerId, castOpts, archetype) : null;
+    const pick = castOpts.length ? pickCastAction(state, aiPlayerId, castOpts, archetype, pol) : null;
     return pick || actions.find(a => a.kind === "cascade-decline") || actions[0] || null;
   }
 
@@ -629,7 +697,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   // game would wedge for good. Mirrors the discover / cascade branches above.
   if (state.pendingFreeCast && state.pendingFreeCast.controller === aiPlayerId) {
     const castOpts = filterActions(actions, "cast-spell");
-    const pick = castOpts.length ? pickCastAction(state, aiPlayerId, castOpts, archetype) : null;
+    const pick = castOpts.length ? pickCastAction(state, aiPlayerId, castOpts, archetype, pol) : null;
     return pick || actions.find(a => a.kind === "free-cast-decline") || actions[0] || null;
   }
 
@@ -669,7 +737,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     // window is wasteful.
     const aiDeck = { cards: deriveDeckRepresentation(state, aiPlayerId) };
     const detected = archetype || detectArchetype(aiDeck, {}).archetype;
-    const cast = pickCastAction(state, aiPlayerId, casts, detected);
+    const cast = pickCastAction(state, aiPlayerId, casts, detected, pol);
     if (cast) return cast;
   }
 
