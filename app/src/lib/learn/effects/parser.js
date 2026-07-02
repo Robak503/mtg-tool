@@ -1765,6 +1765,23 @@ function matchReflexiveTrigger(oracle, cardType, hasX) {
   return { atoms };
 }
 
+// INSPIRING CALL — "Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain
+// <grantable keyword[s]> until end of turn." The "those creatures" anaphora binds the group grant to the SAME
+// +1/+1-counter-filtered set the draw just counted; the two sentences span the clause splitter, so it's matched
+// up front as [draw (requiresCounter count-source), grant-keywords-group (requiresCounter filter)]. FP-safe: the
+// grant keyword runs through the grantable-keyword allowlist (an un-grantable keyword → the grant clause returns
+// null → the whole card stays LOW), the exact "for each creature you control with a +1/+1 counter" anchor can't
+// over-match, and BOTH atoms must be KNOWN (draw + grant-keywords-group) or it's LOW (no partial — CREED).
+function matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX) {
+  const t = stripReminder(oracle).toLowerCase().replace(/[’]/g, "'").trim();
+  const m = t.match(/^draw a card for each creature you control with a \+1\/\+1 counter on it\. those creatures gain (.+) until end of turn\.$/);
+  if (!m) return null;
+  const drawAtom = parseClauseToAtom(cardType, "draw a card for each creature you control with a +1/+1 counter on it", hasX);
+  const grantAtom = parseClauseToAtom(cardType, `creatures you control gain ${m[1]} until end of turn`, hasX);
+  if (!drawAtom || !grantAtom || grantAtom.op !== "grant-keywords-group") return null;
+  return { atoms: [drawAtom, { ...grantAtom, requiresCounter: "+1/+1" }] };
+}
+
 function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   if (!oracle) return null;
   // MTG-001 — strip the "can't be regenerated" rider from the PARSE TEXT only, so the lead effect (the
@@ -1836,6 +1853,12 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const dgd = matchDiesGainDrawByPower(oracle);
   if (dgd && dgd.atoms.every(a => KNOWN.has(a.op))) {
     return makeProgram({ confidence: "high", atoms: dgd.atoms, xSpell: false, unparsedTail: null });
+  }
+  // ===== INSPIRING CALL ===== draw-for-each-counter-creature + "those creatures gain <kw>" — see
+  // matchDrawCounterCreaturesThenGrant. Emits [draw, grant] directly; HIGH iff both KNOWN (they are).
+  const dcg = matchDrawCounterCreaturesThenGrant(oracle, cardType, hasX);
+  if (dcg && dcg.atoms.every(a => KNOWN.has(a.op))) {
+    return makeProgram({ confidence: "high", atoms: dcg.atoms, xSpell: false, unparsedTail: null });
   }
   // ===== DRAIN-X (Exsanguinate) ===== "Each opponent loses X life. You gain life equal to the life lost this
   // way." → ONE drain-each-opponent atom (the lifegain is the actual total drained, computed at resolution).

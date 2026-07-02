@@ -494,9 +494,14 @@ export function applyGrantKeywordsGroup(state, atom, ctx) {
   const ctrl = ctx.controller;
   if (!ctrl || !state.players?.[ctrl]) return state;
   const bf = state.players[ctrl].battlefield || [];
-  const ids = atom.scope === "permanentsYouControl"
-    ? bf.map((p) => p.id)                                            // ALL your permanents (Heroic Intervention)
-    : bf.filter((p) => permanentIsCreature(state, p.id)).map((p) => p.id); // creaturesYouControl
+  let sel = atom.scope === "permanentsYouControl"
+    ? bf                                                             // ALL your permanents (Heroic Intervention)
+    : bf.filter((p) => permanentIsCreature(state, p.id));           // creaturesYouControl
+  // COUNTER-FILTERED ("those creatures" — the +1/+1-counter creatures the preceding draw counted; Inspiring
+  // Call). Read at resolution off the live counter bag (CR 611.2c snapshot), so a creature that loses its
+  // counter before this resolves is excluded — faithful. Absent → no filter (the plain group grant).
+  if (atom.requiresCounter) sel = sel.filter((p) => (p.counters?.[atom.requiresCounter] || 0) > 0);
+  const ids = sel.map((p) => p.id);
   let next = state;
   const src = { kind: "resolution", permanentId: ctx.sourceId || null, cardName: ctx.cardName || null };
   const dur = { kind: "endOfTurn", turn: next.turn };

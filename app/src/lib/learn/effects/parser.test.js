@@ -1513,6 +1513,28 @@ describe("parseEffectProgram — printed alt-cost strip (free / pitch / exile / 
   });
 });
 
+// ===== INSPIRING CALL — draw-for-each-counter-creature + "those creatures gain <kw>" (cross-clause template) =====
+// The "those creatures" anaphora binds a group grant to the SAME +1/+1-counter-filtered set the preceding draw
+// counted (both resolve atomically, so the set is stable). Matched up front as [draw(requiresCounter),
+// grant-keywords-group(requiresCounter)]; an un-grantable keyword / a rider / a bare "those creatures" → LOW.
+describe("parseEffectProgram — Inspiring Call (counter-draw then grant to those creatures)", () => {
+  it("MUST STAY HIGH: emits [draw(requiresCounter), grant-keywords-group(requiresCounter=+1/+1)]", () => {
+    const p = parseEffectProgram(I("Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain indestructible until end of turn."));
+    expect(programConfidence(p)).toBe("high");
+    expect(p.atoms.map((a) => a.op)).toEqual(["draw", "grant-keywords-group"]);
+    expect(p.atoms[0].amountCount).toMatchObject({ kind: "permanentsYouControl", cardType: "creature", requiresCounter: "+1/+1" });
+    expect(p.atoms[1]).toMatchObject({ op: "grant-keywords-group", scope: "creaturesYouControl", grantKeywords: ["Indestructible"], requiresCounter: "+1/+1" });
+  });
+  it("MUST DROP TO LOW: an un-grantable keyword / a trailing rider / a bare 'those creatures' → Arbiter", () => {
+    // 'shadow' is not in the group-grant allowlist → the grant clause returns null → the whole card stays LOW.
+    expect(programConfidence(parseEffectProgram(I("Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain shadow until end of turn.")))).toBe("low");
+    // A trailing rider breaks the anchored two-sentence match → the split fragments don't recombine → LOW.
+    expect(programConfidence(parseEffectProgram(I("Draw a card for each creature you control with a +1/+1 counter on it. Those creatures gain indestructible until end of turn. Draw a card.")))).toBe("low");
+    // 'those creatures' with no counter-draw lead has no referent → LOW (a bare group grant can't say 'those').
+    expect(programConfidence(parseEffectProgram(I("Those creatures gain indestructible until end of turn.")))).toBe("low");
+  });
+});
+
 // ===== ACT-KW-GRANT — self keyword-grant (activated/trigger effect, via parseEffectClause) =====
 // "This creature [gets +N/+N and ]gains <KW> until end of turn" grants the SOURCE (CR 113.7) the
 // keyword(s) for the turn, reusing the combat-trick GRANTABLE_COMBAT_KEYWORDS allowlist (the enforced,
