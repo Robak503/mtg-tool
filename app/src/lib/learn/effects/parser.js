@@ -49,8 +49,8 @@ import { sacrificeLandClauseParser } from "./atoms/sacLand.js"; // SAC-LAND-RAMP
 import { parseDestroyTokenRider } from "./atoms/destroyTokenRider.js"; // DESTROY-TOKEN-RIDER — Pongify / Rapid Hybridization (destroy creature + can't-regen + that controller makes a token)
 import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tutorClauseParser, cascadeClauseParser } from "./atoms/library.js"; // seam batch 1 (explore) + 6 (discover/shuffle/scry/surveil) + 11 (mill) + 12e (tutor) + CASCADE (CR 702.85, synthesized keyword sentinel)
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
-import { SMALL_NUM, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); SMALL_NUM (cdmg rad) + parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; NUM_WORD/parseCountSource now only inside migrated clause parsers (batch 23/26)
-import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
+import { parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; SMALL_NUM left with the S2 cdmg-payoff drain (atoms/counters)
+import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
@@ -437,7 +437,7 @@ function splitClauses(oracle) {
     // A combat trick that pumps AND grants a keyword ("Target creature gets +2/+2 and gains
     // trample until end of turn"), or grants several keywords ("gains flying and vigilance"),
     // joins its parts with " and " — NOT a top-level effect boundary. Keep the whole sentence
-    // as one clause so parseExtendedAtom binds the pump + grant to the SAME target.
+    // as one clause so the clause parse binds the pump + grant to the SAME target.
     if (/^target creature (?:(?:you control|an opponent controls) )?(?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn(?: and untap it)?$/i.test(sentence)) { clauses.push(sentence); continue; }
     // CAUSATIVE pump + keyword grant ("have target creature get +2/+0 and gain deathtouch until end of turn" —
     // Painsmith, the inner of "you may have …"): the " and " joins the P/T bump to the grant within ONE causative
@@ -448,7 +448,7 @@ function splitClauses(oracle) {
     // Overrun-style TEAM pump + keyword grant ("Creatures you control get +3/+3 and gain
     // trample until end of turn"): the " and " between the P/T bump and the grant is INTERNAL
     // to one team-pump instruction, not a top-level effect boundary. Keep the whole sentence so
-    // parseExtendedAtom binds the controller-scoped pump + grant together (plural subject →
+    // the clause parse binds the controller-scoped pump + grant together (plural subject →
     // "gain", no trailing s).
     if (/^creatures you control get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TEAM-PUMP-SCOPE — the "other creatures" (excludes the source) and "<Subtype>s you control [other than
@@ -456,7 +456,7 @@ function splitClauses(oracle) {
     // creatures you control get +2/+2 and gain trample until end of turn" — End-Raze Forerunners; "Dinosaurs
     // you control other than this creature get +1/+1 and gain flying until end of turn" — Triceraton Commander).
     // The " and gain …" is INTERNAL to the one team-pump instruction (same as the unfiltered form above), NOT a
-    // top-level boundary — keep the whole sentence so parseExtendedAtom binds the scoped pump + grant together.
+    // top-level boundary — keep the whole sentence so the clause parse binds the scoped pump + grant together.
     if (/^(?:other creatures|[a-z]+s) you control (?:other than this creature )?get [+-]\d+\/[+-]\d+ and gain\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // GROUP-KEYWORD-GRANT — "(Creatures|Permanents) you control gain <kw> and <kw> until end of turn"
     // (Heroic Intervention "hexproof and indestructible"): the " and " joins a KEYWORD LIST, INTERNAL to
@@ -471,18 +471,18 @@ function splitClauses(oracle) {
     // SELF pump + keyword grant ("This creature gets +1/+0 and gains trample until end of turn" / "This
     // creature gains flying and vigilance until end of turn") — the " and " is INTERNAL to the one
     // self-grant instruction (CR 113.7 "this creature" = the source), NOT a top-level effect boundary.
-    // Keep the whole sentence so parseExtendedAtom binds the self pump + every granted keyword together
+    // Keep the whole sentence so the clause parse binds the self pump + every granted keyword together
     // (ACT-KW-GRANT). All-or-nothing anchored, so an un-grantable keyword just fails to match → low.
     if (/^this creature (?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // TRIG-PRONOUN-IT — the NON-SELF triggering-permanent analogue of the self pump+grant above: the
     // detectTriggers sentinel "the triggering creature gets +P/+T and gains KW until end of turn". Same
     // INTERNAL " and " (one pump+grant instruction on the triggering creature), so keep the whole sentence
-    // for parseExtendedAtom. All-or-nothing anchored; a sentinel-only phrase, never produced by a spell.
+    // for the clause parse. All-or-nothing anchored; a sentinel-only phrase, never produced by a spell.
     if (/^the triggering creature (?:gets [+-]\d+\/[+-]\d+ and )?gains\b.*\buntil end of turn$/i.test(sentence)) { clauses.push(sentence); continue; }
     // ===== TOKENS ===== a keyword token minted with several keywords ("Create a 4/4 white Angel
     // creature token with flying and vigilance") joins them with " and " — INTERNAL to the one
     // create-token instruction, not a top-level effect boundary. Keep the whole sentence so
-    // parseExtendedAtom binds every keyword to the same token. The token matcher is all-or-nothing
+    // the clause parse binds every keyword to the same token. The token matcher is all-or-nothing
     // anchored, so keeping too much together can only fail to match (→ low → Arbiter), never a
     // confident wrong partial — e.g. "… with flying and a 1/1 Snake token" / "… with flying and you
     // gain 2 life" both fail the keyword allowlist and drop to low (safe), they don't half-resolve.
@@ -494,7 +494,7 @@ function splitClauses(oracle) {
     // is the number of artifacts and enchantments your opponents control" — Dockside; "Create a Treasure
     // token for each artifact that player controls" — Cavern-Hoard) carries an internal " and " (the
     // "artifacts and enchantments" union) and a ", where X is …" count tail that are INTERNAL to the one
-    // create-token instruction, NOT a top-level effect boundary. Keep the whole sentence so parseExtendedAtom
+    // create-token instruction, NOT a top-level effect boundary. Keep the whole sentence so the clause parse
     // binds the count source to the token. All-or-nothing anchored downstream (an unmodeled count source →
     // null → low → Arbiter), so keeping too much together can only fail to match, never a wrong partial.
     if (/^create (?:x|a|an|one) (?:treasure|clue|food|gold) tokens?(?:,? where x is | for each ).+$/i.test(sentence)) { clauses.push(sentence); continue; }
@@ -509,14 +509,14 @@ function splitClauses(oracle) {
     // ===== WALT-ANIMATE ===== "[Until end of turn,] target land becomes a N/N [subtype] creature [with
     // KW[ and KW]] [until end of turn]" — the " and " inside a multi-keyword rider ("with reach and haste")
     // is INTERNAL to the one animate instruction, not a top-level boundary. Keep the whole sentence so
-    // parseExtendedAtom binds the P/T-set + every granted keyword to the same animate atom (all-or-nothing
+    // the clause parse binds the P/T-set + every granted keyword to the same animate atom (all-or-nothing
     // anchored — an un-grantable keyword / color-set / permanent duration just fails to match → low → Arbiter).
     if (/^(?:until end of turn, )?(?:target|this) land becomes a \d+\/\d+\b.*\bcreature\b/i.test(sentence)) { clauses.push(sentence); continue; }
     // OVERRUN-X — a COUNT-SCALED team pump ("[Until end of turn,] creatures you control gain trample and
     // get +X/+X[ until end of turn], where X is the greatest power among / the number of creatures you
     // control" — Overwhelming Stampede, Craterhoof Behemoth's ETB). The " and " between the keyword grant
     // and the +X/+X bump, plus the trailing ", where X is …" count clause, are INTERNAL to one team-pump
-    // instruction — keep the whole sentence so parseExtendedAtom binds grant + scaled pump + count source
+    // instruction — keep the whole sentence so the clause parse binds grant + scaled pump + count source
     // together. All-or-nothing anchored downstream (un-grantable keyword / unmodeled count source → low).
     if (/^(?:until end of turn, )?creatures you control gain .+ get \+x\/\+x.* where x is /i.test(sentence)) { clauses.push(sentence); continue; }
     // SYMBURN-1 symmetric burn ("<source> deals N damage to each creature and each player" — Inferno,
@@ -582,13 +582,12 @@ function splitClauses(oracle) {
   return clauses;
 }
 
-/**
- * P2.7 extended atoms — recognized by ANCHORED `^…$` matchers. Anchoring is the
- * ALLOWLIST discipline: the clause must reduce EXACTLY to the modeled shape, so a
- * match is clean by construction (any extra/unmodeled text fails the anchor → low).
- * Currently the NON-TARGETED life atoms; targeted ones (tap/bounce/exile/counters)
- * land in a later sub-step alongside the targeting wiring.
- */
+// ===== parseExtendedAtom: DELETED (seam batch S2) ===== The P2.7 anchored-matcher chain is fully drained:
+// every op family migrated to a registered CLAUSE_PARSERS module (see the registration tombstones at the
+// bottom of this file), and the final residue — the CDMG-PLAYER-PAYOFF / COUNTERS-PLACED / DIES-RAD sentinel
+// family — now lives in atoms/counters.cdmgPayoffClauseParser (lifted as ONE unit; the matchers shared no
+// local state). The ext dispatch step in parseClauseToAtom and the 5 rider-dispatch parseExtendedAtom()||X
+// leads (provably dead — a removal/counter lead can never match a draw/rad sentinel) went with it.
 // SMALL_NUM + NUM_WORD moved to ./parseHelpers.js (seam batch 2 — a leaf the matcher modules can import
 // without the parser.js TDZ cycle). Imported at the top of this file.
 
@@ -633,206 +632,12 @@ function splitClauses(oracle) {
 // (seam batch 4 — the self-contained count-source cluster + its COUNT_* maps live in the leaf now, so the
 // matcher modules can import parseCountSource cycle-free). Imported at the top of this file.
 
-function parseExtendedAtom(s) {
-  const t = s.toLowerCase().replace(/[’]/g, "'"); // normalize curly apostrophe
-
-  // ===== PROLIFERATE ===== migrated to atoms/counters.proliferateClauseParser (seam batch 3).
-
-  // ===== EARTHBEND ===== migrated to atoms/combat.earthbendClauseParser (seam batch 5).
-
-  // ===== EXPLORE ===== migrated to atoms/library.exploreClauseParser (seam batch 1 — registered via
-  // registerClauseParser at file bottom; the CLAUSE_PARSERS dispatch is behavior-identical here because the
-  // explore clauses are whole-clause-anchored and match no other matcher — proven by program-fingerprint).
-
-  // ===== GAIN-EXPERIENCE ===== migrated to atoms/counters.gainExperienceClauseParser (seam batch 3).
-
-  // ===== RAD (player-grant) ===== migrated to atoms/counters.radClauseParser (seam batch 13 / Wave C). The
-  // contiguous player-grant block (each player/opponent / you / target player/opponent "gets N rad counters",
-  // fixed-N, SMALL_NUM leaf). The combat-damage / dies rad variants (who:"damagedPlayer" / power-scaled) stay
-  // below with the CDMG-PLAYER-PAYOFF family — they share that family's ctx referents, not this clean block.
-
-  // ===== CDMG-PLAYER-PAYOFF ===== combat-damage-to-a-player payoffs whose ACTOR/COUNT is the trigger
-  // referent the combat-damage trigger carries in ctx ({damagedPlayerId, combatDamageAmount} — set by
-  // triggers.checkCombatDamageTriggers, flushed into baseParams.context by gameEngine.buildTriggerStack,
-  // the SAME path Wave-1's treasure "create that many tokens" used). These are NON-targeted (the damaged
-  // player is the trigger's referent, not a chosen target) so they carry targetType:null and route natively
-  // on the trigger flush (programNeedsChosenTarget → false) AND clean-no-op as a spell (no ctx.damagedPlayerId
-  // / combatDamageAmount → 0). All anchored ^…$ — any trailing rider ("…, then discard a card" / "…if they
-  // don't have any rad counters" / "…or planeswalker") leaves text past the anchor → low → Arbiter (CREED:
-  // never a dropped clause). NON-combat referents resolve to 0 / a clean skip, never a fabricated count.
-  //   (a) "draw that many cards" (Starwinder/Cold-Eyed Selkie "you may"-wrapped, Fear of Failed Tests /
-  //       Glint-Eye Nephilim bare): the count is the triggering combat-damage amount. The leading "you may"
-  //       wrapper is peeled by parseClauseToAtom's α2 (stamping optional:true); the inner bare form lands
-  //       here. Keep the optional anchor too so a raw "you may draw that many cards" passed directly still
-  //       stamps optional (the parser is also called clause-first in tests). Anchored — "draw that many
-  //       cards, then discard a card" (April) keeps its tail and fails the $ → low.
-  const cdmgDrawM = t.match(/^(you may )?draw that many cards$/);
-  if (cdmgDrawM) return { op: "draw", countContext: "combatDamageAmount", optional: !!cdmgDrawM[1], targetType: null };
-  // ===== COUNTERS-PLACED PAYOFF ===== "draw that many counters-placed cards" / "gain that much counters-placed
-  // life" — the event-specific sentinels detectTriggers rewrites a counters-placed trigger's "draw that many
-  // cards" / "gain that much life" to (gated to the countersPlaced event). The count is the number of +1/+1
-  // counters placed in that event (ctx.countersPlaced), read via countContext (resolveScaledAmount / the draw
-  // resolver's countContext branch). NON-targeted (targetType:null → routes natively on the trigger flush) and
-  // a clean no-op as a spell (no ctx.countersPlaced → 0, never a fabricated count). The leading "you may" is
-  // peeled by parseClauseToAtom's α2 (stamping optional:true); the inner bare sentinel lands here. The
-  // once-per-turn rider ("Do this only once each turn.", Terrasymbiosis / Earth Kingdom General) is handled by
-  // the ONCE-PER-TURN wrapper above — draw + gain-life are in ONCE_PER_TURN_HONORED, so the latch is honored.
-  const cpDrawM = t.match(/^(you may )?draw that many counters-placed cards$/);
-  if (cpDrawM) return { op: "draw", countContext: "countersPlaced", optional: !!cpDrawM[1], targetType: null };
-  const cpLifeM = t.match(/^(you may )?gain that much counters-placed life$/);
-  if (cpLifeM) return { op: "gain-life", countContext: "countersPlaced", optional: !!cpLifeM[1], targetType: null };
-  //   (b) "they get N rad counters" (Glowing One) / "that player gets N rad counters" — a FIXED-N rad grant
-  //       to the just-damaged player. who:"damagedPlayer" reads ctx.damagedPlayerId (absent → clean no-op).
-  //       A trailing intervening-if ("…if they don't have any rad counters", Vexing Radgull) keeps its tail
-  //       and fails the $ → low → Arbiter (the conditional branch stays UNMODELED — never half-resolved).
-  const cdmgRadFixedM = t.match(/^(?:they|that player) gets? (\d+|a|an|one|two|three|four|five) rad counters?$/);
-  if (cdmgRadFixedM) return { op: "rad", who: "damagedPlayer", amount: SMALL_NUM[cdmgRadFixedM[1]] ?? parseInt(cdmgRadFixedM[1], 10), targetType: null };
-  //   (c) "they get that many rad counters" (Infesting Radroach) — the count IS the combat-damage amount.
-  const cdmgRadDynM = t.match(/^(?:they|that player) gets? that many rad counters$/);
-  if (cdmgRadDynM) return { op: "rad", who: "damagedPlayer", countContext: "combatDamageAmount", targetType: null };
-
-  // ===== DIES-TRIGGER-RESOURCE-PAYOFFS ===== power-scaled dies-trigger payoffs whose COUNT is the dying
-  // creature's last-known power (CR 603.6e), carried as ctx.dyingPower by checkDiesTriggers (captured at the
-  // SBA/destroy/sacrifice look-back BEFORE the permanent left the battlefield). NON-targeted (the dying
-  // creature is the trigger referent, not a chosen target → targetType:null → routes natively on the trigger
-  // flush, programNeedsChosenTarget → false), and a clean no-op outside a dies-trigger (no ctx.dyingPower → 0,
-  // never a fabricated count). All anchored ^…$ — any trailing rider leaves text past the anchor → low →
-  // Arbiter (CREED: never a dropped clause). The fixed dies-payoffs already resolve; these are the DYNAMIC
-  // "equal to its power" forms only. Mirrors the combatDamageAmount countContext path verbatim.
-  //   (a) "each opponent gets a number of rad counters equal to its power" (Feral Ghoul). who:"eachOpponent".
-  //       UNAMBIGUOUS: only a dies-trigger prints "each opponent gets … rad counters equal to its power"
-  //       (corpus-verified to exactly Feral Ghoul), and "its" = the dying creature, so binding ctx.dyingPower
-  //       here is always correct. (The draw/gain-life halves are NOT generic clause matchers — "draw cards
-  //       equal to its power" also appears on ETB/combat-damage cards where "its power" is the LIVE source,
-  //       not a dying creature; those are handled ONLY inside the dies-specific matchDiesGainDrawByPower
-  //       collapsed template, never as a context-free clause, so an ETB Prime Speaker Zegana / a combat-damage
-  //       Gregor is NOT mis-flipped to read an absent dyingPower → 0.)
-  if (/^each opponent gets a number of rad counters equal to its power$/.test(t)) {
-    return { op: "rad", who: "eachOpponent", countContext: "dyingPower", targetType: null };
-  }
-
-  // ===== DMG-SCALE ===== migrated to atoms/stack.dealDamageScaledClauseParser (seam batch 15 / Wave C). The
-  // count-scaled "<source> deals damage to <target> equal to the number of <count source>" form (Massive Raid /
-  // Spitting Earth / Outnumber); the printed "N damage" form stays on legacyToAtom. Uses parseCountSource (leaf).
-
-  // ===== DRAW (for-each / count-scaled) ===== migrated to atoms/misc.drawForEachClauseParser (seam batch 26 /
-  // Wave C). The non-targeted controller-DRAW count-scaled cluster — "draw cards equal to the greatest
-  // power/toughness among X" (DRAW-METRIC, checked first) + "draw N cards for each X" + "draw cards equal to the
-  // number of X". Now a clean contiguous lift (the life for-each siblings migrated in batch 17). parseCountSource leaf.
-  // ===== LIFE (scaled for-each: gain-life ⇄ lose-life) ===== co-extracted to atoms/life.lifeClauseParser
-  // (seam batch 17 / Wave C), with the fixed-N life cluster below. The draw for-each branches above STAY inline
-  // (disjoint "draw …" anchor). Uses parseCountSource (leaf).
-
-  // ===== TUTOR ===== migrated to atoms/library.tutorClauseParser (seam batch 12e / Wave B2b). Six contiguous
-  // ordered blocks (tm fetch-to-hand / ttm fetch-to-top / bfm ramp-1 / mf ramp-multi / spm ramp-split /
-  // lfh land-from-hand). FIRST-MATCH ORDER is load-bearing and preserved inside the clause parser; helpers
-  // (parseTutorFilter/parseTutorMv/BASIC_LAND_SUBTYPES/UP_TO_N_WORD) now live in the parseHelpers leaf (B2a).
-  // ===== DISCOVER + SHUFFLE ===== migrated to atoms/library.libraryKeywordClauseParser (seam batch 6 / Wave A1).
-  // ===== LIFE (fixed-N: gain-life ⇄ lose-life) ===== co-extracted to atoms/life.lifeClauseParser (seam batch 17
-  // / Wave C), with the scaled for-each life cluster above. Covers "you gain/lose N life", "each opponent/player
-  // loses N life", and the DEATH-DRAIN-TARGETED "target player|opponent loses N life" (who:"target", offensive —
-  // atomTargetIntent → enemy). First-match order preserved inside the clause parser. Numeric N only (rider → Arbiter).
-  // (the `let m` scratch var is gone — its last consumers, the life fixed-N / add-counter / draw / discard / MASS
-  // matchers, all migrated to clause parsers; the remaining counter matchers below use their own mv/sc/scx vars.)
-  // ===== COUNTER (target spell) ===== migrated to atoms/stack.counterClauseParser (seam batch 28 / Wave C,
-  // RIDER-FOLDING): the bare hard counters (any/noncreature/creature/enchantment-instant-sorcery/artifact-
-  // creature-planeswalker) + CNT-MV-EXACT + the soft counters (unlessPay {N} / unlessPayX {X}). The rider
-  // dispatch matchCounterControllerRider + matchCounterExileInstead resolve their rider-stripped lead via
-  // parseExtendedAtom() || counterClauseParser, so Strix Serenade / Swan Song / An Offer / Deny Existence fold.
-  // ===== GRAVEYARD-RETURN (return-from-graveyard ⇄ reanimate) ===== co-extracted to
-  // atoms/zones.graveyardReturnClauseParser (seam batch 16 / Wave C). The coupling pair sharing the
-  // `^return target … from your graveyard` prefix — to-hand (return-from-graveyard, parseGraveyardFilter) +
-  // to-battlefield (reanimate, creature-only), order preserved. parseGraveyardFilter now imported there.
-  // ===== TAP + UNTAP ===== migrated to atoms/combat.combatKeywordClauseParser (seam batch 7 / Wave A2).
-  // ===== BOUNCE (target creature + β-3 non-creature permanent) ===== migrated to atoms/zones.bounceClauseParser
-  // (seam batch 24 / Wave C; co-located with self + triggering bounce). NOT rider-folding-entangled (the rider
-  // dispatch is exile/destroy-only), so this lifts cleanly.
-  // ===== TUCK ===== migrated to atoms/zones.tuckClauseParser (seam batch 10 / Wave A5).
-  // ===== DESTROY ⇄ EXILE ===== migrated to atoms/removal.destroyExileClauseParser (seam batch 27 / Wave C,
-  // RIDER-FOLDING): exile-target-creature + the shared `(destroy|exile) target <typelist>[ <control>]` (rm,
-  // singles + permanent-TYPE unions + PW-7) + the MASS wipes (below). matchRemovalControllerRider resolves its
-  // rider-stripped lead via parseExtendedAtom() || destroyExileClauseParser, so the "Its controller …" cards
-  // (Beast Within / Generous Gift / Assassin's Trophy / Swords / Buy Your Silence …) still fold their rider.
-  // ===== SELF-ATTACH + ATTACH-TO-SELF ===== migrated to atoms/stack.attachClauseParser (seam batch 9 / Wave A4).
-  // Combat-trick pump + keyword grant: "target creature gets +N/+N and gains KW[, KW][ and KW]
-  // until end of turn" — a layer-7c P/T bump AND layer-6 keyword grant(s), both endOfTurn. The
-  // granted keywords must ALL be in the enforced+layer-aware GRANTABLE set (parseGrantedKeywords),
-  // else the whole clause is unmodeled → low → Arbiter (no fake/partial grant).
-  // ===== PUMP (target creature) ===== migrated to atoms/combat.pumpClauseParser (seam batch 12c / Wave B1b).
-  // ===== CANT-BLOCK ===== migrated to atoms/combat.combatKeywordClauseParser (seam batch 7 / Wave A2).
-  // ===== PUMP (target creature you control / an opponent controls) ===== migrated to pumpClauseParser (batch 12c).
-  // ===== WALT-ANIMATE + MAN-LAND self-animate ===== migrated to atoms/combat.animateClauseParser (seam batch
-  // 14 / Wave C). Two adjacent blocks (anm "target land becomes a N/N … creature" + anmSelf "this land becomes
-  // a N/N <colors/subtypes/types> creature") — layer-4 type-add + layer-7b P/T-set + layer-6 grants, endOfTurn
-  // only; the inline COLOR_WORDS/COLOR_MAP/capHyphen helpers travel with them. Uses parseGrantedKeywords (leaf).
-  // ===== DESTROY ⇄ EXILE (MASS wipes) ===== migrated to atoms/removal.destroyExileClauseParser (seam batch 27 /
-  // Wave C): "destroy/exile all creatures" + typed non-creature wipes ("destroy all artifacts|enchantments|
-  // lands|artifacts and enchantments"), UNFILTERED only. The cannotRegenerate re-stamp is in the parseEffectClause wrapper (unchanged).
-  // ===== PUMP (each creature mass) ===== migrated to pumpClauseParser (batch 12c).
-  // ===== PUMP (TEAM — creatures you control) ===== migrated to pumpClauseParser (batch 12c).
-  // ===== PUMP (OVERRUN-X count-scaled team) ===== migrated to pumpClauseParser (batch 12c).
-  // ===== PUMP (self / "this creature") ===== migrated to pumpClauseParser (batch 12c).
-  // SELF-BOUNCE — "return this creature to its owner's hand" (the ability source, CR 113.7). Non-targeted
-  // (target:"self", no targetType): atomTargets → selfTargets → ctx.sourceId. applyZoneMove handles
-  // target:"self" through atomTargets/selfTargets; the controller serves as the owner proxy (zones.js
-  // line 24 — consistent with the targeted-bounce form). Never a fabricated move: if ctx.sourceId is
-  // absent or the permanent left the battlefield, selfTargets returns [] → the loop is a no-op.
-  // ===== BOUNCE (self) ===== "return this creature to its owner's hand" migrated to atoms/zones.bounceClauseParser (seam batch 24 / Wave C).
-  // ===== SELF-SACRIFICE ===== "sacrifice this creature" migrated to atoms/removal.sacrificeEdictClauseParser
-  // (seam batch 22 / Wave C — co-located with the triggering + edict sac forms).
-  // ===== TRIG-PRONOUN-IT ===== — the NON-SELF triggering-permanent referent: the analogue of the SELF
-  // forms above for a "Whenever a creature you control attacks/…, it gets/gains … / sacrifice it / return
-  // it" trigger (CR 608.2c — the pronoun is the TRIGGERING permanent, NOT the source). detectTriggers
-  // (triggers.js) rewrites the non-self pronoun → the canonical sentinel "the triggering creature" — a
-  // phrase in ZERO printed oracle text — gated to the non-self triggering scopes, so a SPELL's anaphoric
-  // "it" (Big Play / Puncture Bolt / Miraculous Recovery) NEVER reaches these matchers and stays LOW →
-  // Arbiter (CREED — sentinel gate). target:"thatCreature" (no targetType → non-targeted): atomTargets →
-  // triggeringTargets → ctx.triggeringPermanentId. The COUNTER form ("…on the triggering creature") is
-  // served by WAVE-3b's counterClausesParser — NOT duplicated here.
-  // ===== PUMP (triggering creature) ===== migrated to pumpClauseParser (batch 12c).
-  // ===== BOUNCE (triggering) ===== "return the triggering creature to its owner's hand" migrated to atoms/zones.bounceClauseParser (seam batch 24 / Wave C).
-  // ===== SACRIFICE (triggering) ===== "sacrifice the triggering creature" migrated to
-  // atoms/removal.sacrificeEdictClauseParser (seam batch 22 / Wave C).
-  // ===== ADD-COUNTER (±1/+1 on target/own/self/up-to-one) ===== migrated to atoms/counters.addCounterClauseParser
-  // (seam batch 25 / Wave C; co-located with the each-creature-you-control team form below). SMALL_NUM leaf.
-  // ===== REGEN (CR 701.15) ===== "Regenerate this creature/permanent" (the SOURCE — the activated
-  // "{cost}: Regenerate ~" that dominates the corpus, or a one-shot) sets up a regeneration shield; "Regenerate
-  // target creature" shields the chosen creature. The shield replaces the NEXT destruction this turn
-  // (gameState.destroyLethalCreatures + spellEffects.applyDestroyEffect consume it, clear damage, tap). Bare
-  // anchored forms ONLY — a filtered/conditional regen ("…you control", "if …", "all creatures") fails `$` →
-  // low → Arbiter, never a fabricated shield. No magnitude to get wrong: a shield is a shield.
-  // ===== REGENERATE ===== migrated to atoms/combat.combatKeywordClauseParser (seam batch 7 / Wave A2).
-  // ===== ADD-COUNTER (±1/+1 TEAM — each creature you control) ===== migrated to
-  // atoms/counters.addCounterClauseParser (seam batch 25 / Wave C; scope:"youControl", non-targeted). SMALL_NUM leaf.
-  // ===== CREATE-NAMED-TOKEN (Treasure/Clue/Food/Gold) ===== migrated to atoms/tokens.createNamedTokenClauseParser
-  // (seam batch 18 / Wave C). The contiguous named-artifact-token family — dynamic-X / for-each / that-many /
-  // dies-power / fixed-N / investigate, original first-match order, parseCountSource+SMALL_NUM+NUM_WORD leaf.
-  // The vanilla creature-token family (create-token) below STAYS inline (disjoint "create N P/T … creature token"
-  // anchor; its parseTokenManaAbility/parseTokenKeywords deps are parser.js-local → a later helper-leaf batch).
-  // ===== CREATE-TOKEN (vanilla typed creature tokens) ===== migrated to atoms/tokens.createTokenClauseParser
-  // (seam batch 20 / Wave C). for-each (mtf) + fixed-N (m, with the optional quoted-mana-ability / keyword
-  // "with" slot), original order; toughness<1 + land guards + the quote-vs-keyword disambiguation travel.
-  // Uses parseCountSource/SMALL_NUM/parseTokenManaAbility/parseTokenKeywords from the leaf.
-  // ===== SCRY + SURVEIL ===== migrated to atoms/library.libraryKeywordClauseParser (seam batch 6 / Wave A1).
-  // ===== MILL ===== migrated to atoms/library.millClauseParser (seam batch 11 / Wave A6).
-  // ===== DRAW (each-player slice) ===== migrated to atoms/misc.drawEachPlayerClauseParser (seam batch 23 / Wave
-  // C) — "each player draws N cards" + "target player draws N cards" only; the controller-only / combat-damage /
-  // for-each / dying-power draw forms stay (legacy path + their own inline matchers). NUM_WORD leaf.
-  // ===== DISCARD ===== migrated to atoms/hand.discardClauseParser (seam batch 23 / Wave C) — the full who-scoped
-  // discard family (target / each player / each opponent / controller "discards N cards"), numeric N only, NUM_WORD
-  // leaf; the discarding player chooses (CR 701.8 → the discard chain). Coupled with the draw slice above.
-  // ===== SACRIFICE-EDICTS ===== migrated to atoms/removal.sacrificeEdictClauseParser (seam batch 21 / Wave C).
-  // The contiguous edict block (target player/opponent / each player / each opponent "sacrifices a creature"),
-  // ALL-OR-NOTHING bare "a creature", original order. The self + triggering sac matchers stay inline above
-  // (separate non-contiguous region — a later batch). sacrifice-as-a-COST is γ1/γ1b in abilities.js, untouched.
-  // ===== FOG + DIVIDE-DAMAGE ===== migrated to atoms/misc.miscClauseParser (seam batch 8 / Wave A3).
-  return null;
-}
+// (function parseExtendedAtom — deleted in seam batch S2; see the drain note above.)
 
 // ADDITIVE registry seam (WAVE 0): module-level list of extra clause parsers. A parser is
-// `(clause, ctx) => Atom | null` (ctx = { cardType, hasX }) consulted by parseClauseToAtom AFTER
-// parseExtendedAtom returns null and BEFORE the legacy parse (the inline paths keep priority). Empty
-// by default — a no-op until a slice registers one — so existing clause parsing is untouched.
+// `(clause, ctx) => Atom | null` (ctx = { cardType, hasX }) consulted by parseClauseToAtom BEFORE the
+// legacy parse, in registration order (the first truthy atom wins). Since seam batch S2 drained
+// parseExtendedAtom entirely, this registry IS the whole anchored-matcher dispatch.
 const CLAUSE_PARSERS = [];
 export function registerClauseParser(fn) {
   if (typeof fn !== "function") throw new Error("clause parser must be a function");
@@ -953,15 +758,11 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
   // matches the draw/rad sentinels — the inline(pre-ext) → CLAUSE_PARSERS(post-ext) move is program-
   // fingerprint-verified byte-identical.
 
-  // Extended atoms (anchored ALLOWLIST) before the legacy parse.
-  const ext = parseExtendedAtom(s);
-  if (ext && KNOWN.has(ext.op)) return ext;
-
   // ADDITIVE registry seam (WAVE 0): a future slice registers a clause parser instead of editing this
   // dispatch body. Each parser is `(clause, ctx) => Atom | null` (ctx = { cardType, hasX }) and runs
-  // ONLY after parseExtendedAtom returns null and BEFORE the legacy parse — so the existing extended
-  // and legacy paths keep priority. The first parser to return a truthy atom wins. Empty by default,
-  // an exact no-op (the loop body never runs), so existing parsing is untouched.
+  // BEFORE the legacy parse. (parseExtendedAtom, which used to run first here, is fully drained — seam
+  // batch S2; its final sentinels live in atoms/counters.cdmgPayoffClauseParser.) Registration order is
+  // the priority order; the first parser to return a truthy atom wins.
   for (const p of CLAUSE_PARSERS) {
     const a = p(s, { cardType, hasX });
     if (a) return a;
@@ -1160,11 +961,10 @@ function parseControllerRider(t) {
 function matchRemovalControllerRider(oracle) {
   const m = stripReminder(oracle).trim().match(/^((?:exile|destroy) target .+?)\.\s+its controller (.+?)\.?$/i);
   if (!m) return null;
-  // The bare destroy/exile lead now lives in atoms/removal.destroyExileClauseParser (seam batch 27), so resolve
-  // the rider-stripped lead via parseExtendedAtom() OR that clause parser — keeping the controllerRider fold
-  // byte-identical even though the matchers left parseExtendedAtom. (matchRemovalControllerRider only ever sees a
-  // destroy/exile lead, so the direct call is exactly right.)
-  const lead = parseExtendedAtom(m[1].trim()) || destroyExileClauseParser(m[1].trim());
+  // The bare destroy/exile lead lives in atoms/removal.destroyExileClauseParser (seam batch 27), so resolve
+  // the rider-stripped lead via that clause parser directly. (The old parseExtendedAtom() || fallback was
+  // provably dead — a destroy/exile lead can never match the draw/rad sentinels — and went with the S2 drain.)
+  const lead = destroyExileClauseParser(m[1].trim());
   if (!lead || (lead.op !== "exile" && lead.op !== "destroy")) return null; // lead must be a modeled removal
   const rider = parseControllerRider(m[2].trim().toLowerCase());
   if (!rider) return null;                                                   // unmodeled rider → low → Arbiter
@@ -1200,7 +1000,7 @@ function matchRemovalDamageRider(oracle) {
   // condition can't pass even though the outer .+? captured it).
   const m = stripReminder(oracle).trim().replace(/[’]/g, "'").match(/^(destroy target .+?)\.\s+(.+? deals \d+ damage to (?:that|the) (?:artifact|creature|enchantment|permanent|land)(?:'s)? controller)\.?$/i);
   if (!m) return null;
-  const lead = parseExtendedAtom(m[1].trim()) || destroyExileClauseParser(m[1].trim());
+  const lead = destroyExileClauseParser(m[1].trim());
   if (!lead || lead.op !== "destroy") return null;                           // DESTROY lead only (no exile form in the corpus)
   const dm = m[2].trim().match(DAMAGE_RIDER_RE);
   if (!dm) return null;                                                       // an unmodeled condition / shape → low → Arbiter
@@ -1223,7 +1023,7 @@ function matchCounterControllerRider(oracle) {
   // The filter words are OPTIONAL ((?:.+? )?) so the bare "Counter target spell" form (Dream Fracture) matches too.
   const m = stripReminder(oracle).trim().match(/^(counter target (?:.+? )?spell)\.\s+its controller ([^.]+?)\.(.*)$/i);
   if (!m) return null;
-  const lead = parseExtendedAtom(m[1].trim()) || counterClauseParser(m[1].trim()); // counter matchers moved to a clause parser (batch 28)
+  const lead = counterClauseParser(m[1].trim()); // counter matchers moved to a clause parser (batch 28)
   if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only (defer soft+rider)
   const rider = parseControllerRider(m[2].trim().toLowerCase());
   if (!rider) return null;                                                    // unmodeled rider → low → Arbiter
@@ -1239,7 +1039,7 @@ function matchCounterControllerRider(oracle) {
 function matchCounterExileInstead(oracle) {
   const m = stripReminder(oracle).trim().match(/^(counter target (?:.+? )?spell)\. if that spell is countered this way, exile it instead of putting it into its owner's graveyard\.?$/i);
   if (!m) return null;
-  const lead = parseExtendedAtom(m[1].trim()) || counterClauseParser(m[1].trim()); // counter matchers moved to a clause parser (batch 28)
+  const lead = counterClauseParser(m[1].trim()); // counter matchers moved to a clause parser (batch 28)
   if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only
   return { atom: { ...lead, exileInstead: true }, rest: "" };
 }
@@ -1256,7 +1056,7 @@ function matchCounterExileInstead(oracle) {
 function matchCounterZoneRedirect(oracle) {
   const m = stripReminder(oracle).trim().match(/^(counter target (?:.+? )?spell)\. if that spell is countered this way, put it (into its owner's hand|on top of its owner's library) instead of into that player's graveyard\.(.*)$/i);
   if (!m) return null;
-  const lead = parseExtendedAtom(m[1].trim()) || counterClauseParser(m[1].trim());
+  const lead = counterClauseParser(m[1].trim());
   if (!lead || lead.op !== "counter" || lead.unlessPay != null || lead.unlessPayX) return null; // hard counter only
   const counterDest = /hand/i.test(m[2]) ? "hand" : "library-top";
   return { atom: { ...lead, counterDest }, rest: (m[3] || "").trim() };
@@ -2547,6 +2347,13 @@ registerClauseParser(gainExperienceClauseParser);
 // parseExtendedAtom branch — the cdmg rad variants require "they"/"that player", a disjoint anchor — so the
 // inline→CLAUSE_PARSERS move is behavior-identical. program-diff = 0 (gate-verified).
 registerClauseParser(radClauseParser);
+// CDMG-PLAYER-PAYOFF + COUNTERS-PLACED + DIES-RAD (seam batch S2 — the FINAL parseExtendedAtom drain) — the
+// 5 sentinel matchers (combat-damage "draw that many cards", the counters-placed draw/life sentinels, the
+// damaged-player rad pair, Feral Ghoul dies-rad) migrated as ONE unit to atoms/counters.cdmgPayoffClauseParser
+// (they shared no local state). Anchors are disjoint from every other registered parser (radClauseParser is
+// each/you/target-lead vs they/that-player here; the misc.js draw parsers anchor numeric/for-each forms only)
+// → position-independent, program-fingerprint-verified byte-identical. parseExtendedAtom itself is DELETED.
+registerClauseParser(cdmgPayoffClauseParser);
 // EARTHBEND (seam batch 5) — migrated to atoms/combat.earthbendClauseParser (whole-clause-anchored; uses the
 // SMALL_NUM + parseCountSource parseHelpers leaf). program-fingerprint byte-identical.
 registerClauseParser(earthbendClauseParser);

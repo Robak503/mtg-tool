@@ -213,8 +213,9 @@ export function gainExperienceClauseParser(clause) {
  * targetType:null (resolve the same on spell or trigger); the targeted form rides who:"target" + a player
  * targetType (offensive only — atomTargetIntent → "enemy"). A "for each"/X/scaled/"you may"/conditional variant
  * fails the `$` anchor → low → Arbiter (FN-safe). The combat-damage / dies rad variants ("they/that player gets
- * N rad counters", who:"damagedPlayer"; "each opponent gets … equal to its power", who:"eachOpponent") stay in
- * parseExtendedAtom with the rest of the CDMG-PLAYER-PAYOFF family. Pure; uses the shared SMALL_NUM leaf map.
+ * N rad counters", who:"damagedPlayer"; "each opponent gets … equal to its power", who:"eachOpponent") live in
+ * cdmgPayoffClauseParser below (seam batch S2 — the whole CDMG-PLAYER-PAYOFF family lifted together; disjoint
+ * they/that-player anchors, so the two parsers can never both match a clause). Pure; SMALL_NUM leaf map.
  */
 export function radClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
@@ -232,6 +233,66 @@ export function radClauseParser(clause) {
   if (radYouM) return { op: "rad", amount: SMALL_NUM[radYouM[1]] ?? parseInt(radYouM[1], 10), who: "controller", targetType: null };
   const radTgtM = t.match(/^target (player|opponent) gets (\d+|a|an|one|two|three|four|five) rad counters?$/);
   if (radTgtM) return { op: "rad", amount: SMALL_NUM[radTgtM[2]] ?? parseInt(radTgtM[2], 10), who: "target", targetType: radTgtM[1] };
+  return null;
+}
+
+/**
+ * CDMG-PLAYER-PAYOFF + COUNTERS-PLACED + DIES-RAD clause parser (seam batch S2 — the FINAL parseExtendedAtom
+ * drain: these 5 sentinel matchers were all that remained; the function is deleted). Combat-damage-to-a-player
+ * payoffs whose ACTOR/COUNT is the trigger referent the combat-damage trigger carries in ctx
+ * ({damagedPlayerId, combatDamageAmount} — set by triggers.checkCombatDamageTriggers, flushed into
+ * baseParams.context by gameEngine.buildTriggerStack), plus the counters-placed sentinels and the dies-rad
+ * power-scaled form. All are NON-targeted (the damaged player / dying creature is the trigger's referent, not
+ * a chosen target) so they carry targetType:null and route natively on the trigger flush
+ * (programNeedsChosenTarget → false) AND clean-no-op as a spell (no ctx referent → 0, never a fabricated
+ * count). All anchored ^…$ — any trailing rider ("…, then discard a card" / "…if they don't have any rad
+ * counters" / "…or planeswalker") leaves text past the anchor → low → Arbiter (CREED: never a dropped clause).
+ * First-match order preserved from parseExtendedAtom (a → cp → b → c → dies-rad):
+ *   (a) "draw that many cards" (Starwinder/Cold-Eyed Selkie "you may"-wrapped, Fear of Failed Tests /
+ *       Glint-Eye Nephilim bare): the count is the triggering combat-damage amount. The leading "you may"
+ *       wrapper is peeled by parseClauseToAtom's α2 (stamping optional:true); the inner bare form lands
+ *       here. Keep the optional anchor too so a raw "you may draw that many cards" passed directly still
+ *       stamps optional (the parser is also called clause-first in tests).
+ *   (cp) COUNTERS-PLACED — "draw that many counters-placed cards" / "gain that much counters-placed life":
+ *       the event-specific sentinels detectTriggers rewrites a counters-placed trigger's payoff to (gated to
+ *       the countersPlaced event; a phrase in ZERO printed oracle text). The count is the +1/+1 counters
+ *       placed in that event (ctx.countersPlaced). The once-per-turn rider (Terrasymbiosis / Earth Kingdom
+ *       General) is handled by parser.js' ONCE-PER-TURN wrapper — draw + gain-life honor the latch.
+ *   (b) "they/that player gets N rad counters" (Glowing One) — FIXED-N rad to the just-damaged player.
+ *       who:"damagedPlayer" reads ctx.damagedPlayerId (absent → clean no-op). A trailing intervening-if
+ *       (Vexing Radgull) keeps its tail and fails the $ → low → Arbiter.
+ *   (c) "they/that player gets that many rad counters" (Infesting Radroach) — count = combat-damage amount.
+ *   (dies-rad) "each opponent gets a number of rad counters equal to its power" (Feral Ghoul — corpus-verified
+ *       unique): a DIES-trigger payoff; "its" = the dying creature, count = ctx.dyingPower (captured at the
+ *       look-back BEFORE the permanent left, CR 603.6e). who:"eachOpponent"; absent referent → 0, no-op.
+ *       (The draw/gain-life "equal to its power" halves are NOT generic clause matchers — they appear on
+ *       ETB/combat-damage cards where "its" is a LIVE source; those parse ONLY inside the dies-specific
+ *       matchDiesGainDrawByPower collapsed template, so Prime Speaker Zegana / Gregor are never mis-flipped
+ *       to read an absent dyingPower → 0.)
+ * Disjoint from radClauseParser above (each/you/target vs they/that-player leads) and from the draw parsers in
+ * atoms/misc.js (numeric / for-each / equal-to-number forms — none anchor "that many cards" bare). Pure;
+ * SMALL_NUM leaf. Precedent: atoms/hand.js hosts the identical-shape CDMG-DISCARD-SCALED sentinel.
+ */
+export function cdmgPayoffClauseParser(clause) {
+  const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // (a) combat-damage draw — "draw that many cards"
+  const cdmgDrawM = t.match(/^(you may )?draw that many cards$/);
+  if (cdmgDrawM) return { op: "draw", countContext: "combatDamageAmount", optional: !!cdmgDrawM[1], targetType: null };
+  // (cp) counters-placed sentinels — "draw that many counters-placed cards" / "gain that much counters-placed life"
+  const cpDrawM = t.match(/^(you may )?draw that many counters-placed cards$/);
+  if (cpDrawM) return { op: "draw", countContext: "countersPlaced", optional: !!cpDrawM[1], targetType: null };
+  const cpLifeM = t.match(/^(you may )?gain that much counters-placed life$/);
+  if (cpLifeM) return { op: "gain-life", countContext: "countersPlaced", optional: !!cpLifeM[1], targetType: null };
+  // (b) fixed-N rad to the damaged player — "they/that player gets N rad counters"
+  const cdmgRadFixedM = t.match(/^(?:they|that player) gets? (\d+|a|an|one|two|three|four|five) rad counters?$/);
+  if (cdmgRadFixedM) return { op: "rad", who: "damagedPlayer", amount: SMALL_NUM[cdmgRadFixedM[1]] ?? parseInt(cdmgRadFixedM[1], 10), targetType: null };
+  // (c) damage-scaled rad — "they/that player gets that many rad counters"
+  const cdmgRadDynM = t.match(/^(?:they|that player) gets? that many rad counters$/);
+  if (cdmgRadDynM) return { op: "rad", who: "damagedPlayer", countContext: "combatDamageAmount", targetType: null };
+  // (dies-rad) power-scaled dies payoff — Feral Ghoul
+  if (/^each opponent gets a number of rad counters equal to its power$/.test(t)) {
+    return { op: "rad", who: "eachOpponent", countContext: "dyingPower", targetType: null };
+  }
   return null;
 }
 
