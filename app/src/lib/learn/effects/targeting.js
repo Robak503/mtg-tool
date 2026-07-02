@@ -50,6 +50,27 @@ function kCombinations(n, k) {
   return out;
 }
 
+// MULTI-COUNT TARGET (CR 601.2c "up to N target …") — every target-subset of size [minK..maxK] drawn from `tagged`
+// (each subset an array of atomIndex-tagged targets). Includes the EMPTY subset when minK is 0 (choosing zero is a
+// legal "up to" cast, CR 601.2c). Bounded by MAX_CAST_EXPANSIONS so a large graveyard/board can't DoS the cast list
+// (a subset of the legal combos is still offered — never a dropped clause, only fewer target-choices). Returns null
+// iff no subset of the required minimum size exists (n < minK → the spell is uncastable, e.g. an exact "N target").
+function targetSubsets(tagged, minK, maxK) {
+  const n = tagged.length;
+  const lo = Math.max(0, minK);
+  const hi = Math.min(maxK, n);
+  if (n < lo) return null; // can't meet the required minimum
+  const out = [];
+  for (let k = lo; k <= hi; k++) {
+    if (k === 0) { out.push([]); continue; } // choose zero — a legal "up to" cast
+    for (const combo of kCombinations(n, k)) {
+      out.push(combo.map((ix) => tagged[ix]));
+      if (out.length >= MAX_CAST_EXPANSIONS) return out; // cap the option blow-up (backstop)
+    }
+  }
+  return out.length ? out : null;
+}
+
 /** An effect-like target spec for one atom, or null when the atom is non-targeted. */
 function atomTargetSpec(atom) {
   const tt = atom?.targetType;
@@ -119,6 +140,16 @@ function expandAtoms(state, controllerId, atoms, sourceColors = []) {
     const atom = atoms[i];
     const tagged = atomTargets(state, controllerId, atom, i, sourceColors);
     if (tagged === null) continue;            // non-targeted atom
+    // MULTI-COUNT TARGET ("up to N target …"): this atom chooses a SUBSET of [minTargets..maxTargets] distinct legal
+    // targets (all tagged atomIndex i). Push the subsets as this atom's options; the combine loop SPREADS a subset
+    // (an array) into the combo. Gated on maxTargets>1 — every single-target atom takes the unchanged path below, so
+    // existing casts are byte-identical (the flip-diff proves LOST=0). A multi-count atom has no secondary/pair.
+    if (atom.maxTargets > 1) {
+      const subsets = targetSubsets(tagged, atom.minTargets ?? 0, atom.maxTargets);
+      if (subsets === null) return null;      // a required minimum can't be met → uncastable
+      perAtom.push(subsets);
+      continue;
+    }
     if (atom.optionalTarget) {
       // "up to one target …": MAY take a target or none. Offer each legal target PLUS a decline
       // option — so the cast is legal even with zero legal targets, and real targets come BEFORE
@@ -147,7 +178,8 @@ function expandAtoms(state, controllerId, atoms, sourceColors = []) {
     const next = [];
     for (const combo of combos) {
       for (const opt of options) {
-        next.push(opt === DECLINE ? [...combo] : [...combo, opt]);
+        // opt is: DECLINE (add nothing) | a MULTI-COUNT subset (an array — spread its targets) | a single target.
+        next.push(opt === DECLINE ? [...combo] : Array.isArray(opt) ? [...combo, ...opt] : [...combo, opt]);
         if (next.length >= MAX_CAST_EXPANSIONS) break;
       }
       if (next.length >= MAX_CAST_EXPANSIONS) break;

@@ -7,6 +7,7 @@ import { logEvent, findPermanent, createPermanent, mintId, moveCardToZone } from
 import { checkEnterTriggers, checkLandfallTriggers, checkPermanentEntersTriggers } from "../../triggers.js";
 import { atomTargets } from "./shared.js";
 import { parseGraveyardFilter } from "../../spellEffects.js"; // seam batch 16: graveyard card-type filter (leaf-safe, same as stack.js's spellEffects import) for graveyardReturnClauseParser
+import { SMALL_NUM } from "../parseHelpers.js"; // MULTI-COUNT: number-word → int for "up to N target … cards" (leaf, cycle-free)
 
 /** Move creature(s) battlefield → hand (bounce), → exile, or → library (TUCK — top via toTop, else
  * bottom) — chosen targets, or ALL creatures for a mass `exile all creatures` (targetType "eachCreature"). */
@@ -198,6 +199,16 @@ export function tuckClauseParser(clause) {
  */
 export function graveyardReturnClauseParser(clause) {
   const t = String(clause || "").toLowerCase().replace(/[’]/g, "'");
+  // MULTI-COUNT (CR 601.2c "up to N") — "return up to <N> target <filter> cards from your graveyard to your hand"
+  // (Morbid Plunder, March of the Returned, Soul Salvage, Dutiful Return). The SAME return-from-graveyard resolver
+  // (applyReturnFromGraveyard already loops over every ctx.target); `maxTargets` tells targeting.expandAtoms to
+  // offer each subset of 0..N legal own-graveyard cards. `minTargets:0` — "up to" permits choosing zero (CR 601.2c).
+  const multiM = /^return up to (two|three|four|five) target (.*?)cards from your graveyard to your hand$/.exec(t);
+  if (multiM) {
+    const n = SMALL_NUM[multiM[1]];
+    const cardFilter = parseGraveyardFilter(multiM[2]);
+    if (n >= 2 && cardFilter) return { op: "return-from-graveyard", targetType: "graveyardCard", cardFilter, maxTargets: n, minTargets: 0 };
+  }
   const gm = /^return target (.*?)card from your graveyard to your hand$/.exec(t);
   if (gm) {
     const cardFilter = parseGraveyardFilter(gm[1]);

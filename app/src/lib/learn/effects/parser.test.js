@@ -906,7 +906,8 @@ const MUST_DROP_TO_LOW = [
   // (see gyRecursion.test.js for those HIGH pins). A NON-type filter (subtype / color / negation /
   // intersection), another graveyard, multi-card cardinality, or a battlefield (reanimation) destination
   // must stay LOW → Arbiter, so we never mis-target the graveyard or silently drop a rider. ──
-  "Return up to two target creature cards from your graveyard to your hand.",       // "up to two" cardinality
+  // NOTE: "Return up to two target creature cards …" is now NATIVE (MULTI-COUNT slice A — real runtime via
+  // targeting.expandAtoms subset enumeration + the multi-target-ready resolver). Pinned HIGH in multiCountTarget.test.js.
   "Return target goblin card from your graveyard to your hand.",                    // creature SUBTYPE — unmodeled (REG-1 models types, not subtypes)
   "Return target nonland permanent card from your graveyard to your hand.",         // negation — unmodeled
   "Return target artifact creature card from your graveyard to your hand.",         // INTERSECTION (both), not a union — unmodeled
