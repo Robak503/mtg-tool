@@ -17,6 +17,28 @@ Two durable lessons: (1) the "parse payoff under literal Instant" trick is MANDA
 
 ---
 
+## 🎯 NEXT MARQUEE LEVER — MULTI-COUNT CHOSEN TARGETS ("up to N target …") · ~352 corpus cards · MEDIUM
+**Scouted 2026-07-02 (Clyde), post-buildspec. This is the single biggest remaining corpus lever — far bigger than any fold.**
+
+Census (`clause-frontier.mjs` + a direct count): **352 non-native corpus cards** carry an "up to N target" clause the parser rejects. Top shapes: `up to two target creatures` (111), `up to two target creature cards` (32, the GY-return family, corpus-wide + deck cards Morbid Plunder/Dead Revels/March of the Returned/Soul Salvage/Dutiful Return), `up to two target cards` (21), `up to three target cards` (14), `up to three target creatures` (14), `up to four target cards` (9)…
+
+**Why it's MEDIUM not L — the pipeline is already 90% there:**
+- **Resolvers ALREADY loop over all targets.** `runProgram.targetsForAtom(targets, i)` returns `targets.filter(t => t.atomIndex === i)` — ALL targets tagged with the atom's index, not one. `applyReturnFromGraveyard` (atoms/zones.js:40) already `for (const t of ctx.targets)`. So the resolver side needs ZERO changes for atoms that already loop.
+- **kCombinations already exists + is used** (targeting.js:42, used at :200 for modal "choose two"). The subset enumerator is written.
+- **The gap is concentrated in TWO places:**
+  1. **parser** — recognize "up to N target <filter>" / "N target <filter>" and emit a target-count on the atom (e.g. `maxTargets:N, minTargets:0` for "up to", `=N` for exact). Today the single-target clause parsers `$`-anchor-REJECT "up to N"/plural (see graveyardReturnClauseParser zones.js:195, and the GY-EXILE/reanimate siblings).
+  2. **targeting.expandAtoms** (targeting.js:113-167) — today pushes ONE option-list per atom (one chosen target). For a maxTargets>1 atom, push the k-combinations (k=min..max) of `tagged` as multi-target options (each option = a LIST of targets all tagged atomIndex i); adjust the combine loop (:145-156) to SPREAD a multi-target option into the combo. Bound by MAX_CAST_EXPANSIONS (combinatorial blow-up is the #1 risk — C(n,k) per atom × cartesian).
+
+**RECOMMENDED BUILD ORDER (scoped-first, de-risks the infra change):**
+1. **Slice A — prove the mechanism on `return-from-graveyard`** ("up to N / N target <filter> card(s) from your graveyard to your hand"): the SAFEST atom (own graveyard, no opponent interaction, resolver already loops, own-GY re-check already no-ops departed cards zones.js:46). Flips ~32 corpus + the deck GY-return cards. This proves the parser-count + expandAtoms subset-enum end-to-end with minimal blast radius.
+2. **Slice B+ — generalize** to damage / destroy / bounce / tap / pump "up to two target creatures" (111) once the mechanism is proven. Each atom family needs its own parser-count recognition + a per-resolver partial-legality check (most already loop).
+
+**CREED / FP edge cases to nail (design these adversarially before building):** combinatorial bound (MAX_CAST_EXPANSIONS — must LOG when truncated, never silently cap coverage); "up to N" allows 0 targets (a legal cast with an empty target set — the whole spell still resolves, atoms no-op); exact "N target" (uncastable if < N legal targets, CR 601.2c — must gate LOW-or-uncastable correctly, NOT partial); distinctness (targets must be distinct — mirror the fight-pair Set check :159); AI count-choice quality (beneficial→max, harmful→context; each combo is already a distinct cast action the pilot ranks); resolution-time partial legality (CR 608.2b — a subset going illegal doesn't fizzle the rest). Atoms that DON'T already loop over ctx.targets must be audited before inclusion.
+
+**Deck-tail scout (workflow wf_3b68b7df-513, 2026-07-02):** the 13-deck non-native long tail is 84 single-clause + 423 total; biggest cluster is copy-NON-creature-permanent (~8: Phyrexian Metamorph/Copy Artifact/Copy Enchantment/Clever Impersonator/Sculpting Steel/Masterwork/Sakashima's Student/Phantasmal Image) — but `cloneCopy.js` is CREATURE-ONLY BY DESIGN (rejects non-creature copies + rider triggers), so that's an L subsystem extension, not a fold. Other weak clusters: rhystic-tax-draw (Rhystic Study/Mystic Remora/Esper Sentinel — opponent-pays-to-deny), ninjutsu (Skullsnatcher/Mistblade Shinobi), landfall-mana (Lotus Cobra/Tifa), X-effect variants (Braingeyser/Pull from Tomorrow/Biomass Mutation/Gelatinous Genesis). See the workflow synthesis for verified specs.
+
+---
+
 ## 2. `optional-discard-payment` · 32 flips · **BUILD-CLEAN** (refute: CLEAN, all 4 vectors held)
 Mirror `optional-sac-payment` (matchOptionalSacBySubtype @ parser.js:1689 + dispatch @ ~1918; applyOptionalSacPayment @ stack.js:514; setPendingOptionalSacBySubtypeChoice @ pendingChoice.js:349; autoPickOptionalSac @ runProgram.js:692 + resolveOptionalSacChoice @ 764; learnSession settle:533 / driver:1190 / apply:1801 / dispatch:2123).
 - **parser.js ~1689** — `matchOptionalDiscardPayment(oracle, cardType)`. Regex `^you may discard a card\.\s*if you do,?\s+(.+)$/i`; reject a 2nd `if you do` / `otherwise`; parse payoff `parseEffectClauseImpl(payoffText, cardType, {hasX:false})`; require HIGH + non-modal + not-xSpell + every atom KNOWN + `!programNeedsChosenTarget`. **32-flip guard:** `if (inner.some(a => PAUSING_ATOM_OPS.has(a.op))) return null;`. Emit `{op:"optional-discard-payment", effectAtoms:inner, targetType:null}`.
