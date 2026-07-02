@@ -8,6 +8,59 @@ summarizes the notable changes.
 
 ## [Unreleased]
 
+## [0.85.0] - 2026-07-02
+
+### Improved
+- **Engine overhaul (Fable 5 pass): ~6× self-play throughput on identical behavior.** The CR-613 layer
+  engine and mana model now memoize per card/state (static-ability parses, permanent/keyword indexes,
+  manaProduction): the standard 3-game Commander pod batch went 7.0s → ~1.1s with byte-identical
+  decisions (trajectory-hash proven), and the corpus classify sweep is unchanged. parseExtendedAtom was
+  fully drained into the CLAUSE_PARSERS registry and deleted; the three duplicated mana-commit
+  implementations became one (`commitPaymentPlan`), unifying a real drift between them.
+- **The practice AI plays measurably better.** Land sequencing (untapped-first, color-aware), a real
+  block plan (value/trade/lethal-chump/decline — no more reflexive chump-blocking), legality-aware
+  attacks (no more suiciding into deathtouch or holding evasive attackers), right-sized X-spells, an
+  opt-in mulligan, and casting held counterspells at threatening enemy spells. Measured head-to-head
+  over 120 seeded games: the new policy wins **59.2% vs 40.8%** against the old one, with dead turns
+  down 0.68 → 0.03 per game.
+- **Commander Spellbook: the FULL combo dataset ships (95,001 combos).** The sync is bulk-first against
+  Spellbook's official nightly export (stream-parsed in seconds) with the old paged crawl as fallback —
+  releases had been capped at ~10% of the dataset by API rate limits. The strict bundle guard now also
+  requires the combo index and card flags, so a gutted combo feature can never ship green.
+
+### Fixed
+- **Mirror commanders no longer share a 21-damage tracker.** Two seats running the same commander
+  collapsed into one entry (11+10 across two mirror commanders was a false death, and eliminating one
+  twin erased the live twin's progress) — damage is now keyed per seat instance (CR 903.10a).
+- **Resolved instants/sorceries now reach the graveyard** (CR 608.2m) — they used to vanish, so
+  graveyard counts, thresholds, and reanimation targets under-read; storm copies correctly cease to
+  exist, fizzled Auras are binned (CR 608.3b), and a countered adventure puts the full card in the
+  graveyard (CR 715.4).
+- **Adventure commanders (e.g. Kellan, the Fae-Blooded) are castable from the command zone again** —
+  each half casts separately with the commander tax (CR 715.2b + 903.8).
+- **The Academy no longer soft-locks** on optional mana/sacrifice payment choices (the panels existed
+  server-side but had no UI), and any future unhandled choice kind reports engine-stuck honestly
+  instead of spinning.
+- **11 phantom mana sources removed** (Equipment/conditional/spend-restricted quoted grants —
+  Summoning Materia, Rishkar, Battery Bearer class) and 5 over-counted classifications corrected
+  (corpus 8,650 → 8,645 native = accuracy up); a chosen sacrifice victim can no longer be cracked for
+  the very mana paying its own cost; cost-time battlefield exits fire their leave-triggers in the
+  right order (CR 603.3b); mandatory clones can no longer be declined (CR 707.9).
+- **Pod games read like pod games:** correct grammar and per-seat names in narration ("Opponent 2",
+  never a raw engine id), combat choices name the defender/attacker, non-combat deaths and
+  commander damage (with the lethal-21 warning) are logged, and stale rule citations were corrected
+  against the bundled Comprehensive Rules.
+
+### Added
+- **The play-API v1** (`gameApi.js`, versioned) — external pilots can drive complete games including
+  every resolution-time choice; the contract is locked in `docs/orchestration/PLAY-API-CONTRACT.md`
+  with an in-gate canary, and `self-play.mjs --export-trajectories` emits trust-gated, pilot-tagged
+  training data (the engine→Omnath hook).
+- **Method docs for future sessions:** OVERHAUL-PLAYBOOK.md (verification recipes + proof levels),
+  OVERHAUL-SESSION-NARRATIVE.md (the full pass, written to be mimicked), and the overhaul evidence
+  ledger. Full gate: 6,587 tests green.
+
+
 ## [0.84.0] - 2026-07-01
 
 ### Fixed

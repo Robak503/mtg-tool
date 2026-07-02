@@ -1,6 +1,8 @@
 [package]
 name = "mtg-tool"
-version = "0.3.0"
+# Kept in lockstep with tauri.conf.json (the bundle authority — CI syncs THAT from the tag;
+# this one is informational for cargo metadata). Drifted 0.3.0→aligned in the overhaul pass.
+version = "0.85.0"
 description = "MTG Tool — local-first Commander assistant"
 authors = ["Colton"]
 # Source-available, not open source (see repo LICENSE). NOT MIT — this crate is
