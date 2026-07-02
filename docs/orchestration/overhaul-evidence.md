@@ -210,3 +210,52 @@ set-membership-guarded injection so an illegal action is impossible):
    2 games → 3,697 rows, 2 trusted.
 4. **Other wins for the flywheel:** the mirror commander-damage fix (was poisoning padded-pod
    labels), GY-aware features, honest engine-stuck failsafe, kind-echo wire validation.
+
+### Wave 10 — parser-seam batch (commits 3cbbbc6/9ad9167/462c463) — SEAM + CREED guard
+WI-3 payoff-pause atom-drop closed (PAUSING_ATOM_OPS load-validated beside ATOM_RESOLVERS —
+truthfully derived, 12 ops incl. 2 the recon missed; parser gate + runtime markPendingArbiter
+belt-and-braces; zero corpus rows — pure anti-FP insurance) · S1 fight family →
+atoms/combat.fightClauseParser · S2 parseExtendedAtom DRAINED AND DELETED (cdmgPayoffClauseParser;
+parser.js 2,762 → 2,496 lines; the CLAUSE_PARSERS registry is now the entire anchored-matcher
+dispatch). Gate: program+tier fingerprints byte-identical end-to-end · integrated at 6,586 green ·
+trajectory unchanged. S3/S4/S5 (COLLAPSED/splitClauses registries) deliberately out — cut-first items.
+
+### Wave 11 — structure wave (commits e1cca41…6900827 integration) — STRUCTURE + CREED
+W1 single mana-commit (commitManaTap/commitPaymentPlan replace 3 duplicated commit paths + 5
+spend-deduction loops; caught + unified a REAL pre-existing drift: payManaCost lacked the cost-time
+leave-drain) · W2 dead pool-only heuristics deleted · W4 TRIGGER_EFFECT zombie lane retired
+(descriptor.effectClause = single truth; RESOLVER_KEYS.TRIGGER_EFFECT kept one release for old
+saves) · W5 SPELL_EFFECT/ACTIVATED_EFFECT dead lanes deleted · WI-2 clone mandatory-ness enforced
+end-to-end (a live 0/0-misplay CREED FP closed; old saves keep declinable behavior).
+Agent-side trajectory gate: byte-identical at EVERY checkpoint. Integration battery: 6,585 green ·
+lint clean · 3 fingerprints 0-diff · trajectory hash unchanged (68e0de13). Parked: W6
+permanent-entry unification (high-risk two-step, designed in p2-recon).
+
+---
+
+## ⏸️ PAUSED HERE (Colton, 2026-07-01 ~23:00) — all in-flight work integrated, nothing dangling
+
+**State:** branch `claude/silly-jackson-5a1822` @ 6900827 — 42 commits over master c7ce3eb, NOT
+yet merged to master, NOT released. Full battery green at head: **6,585 tests / 442 files · lint
+clean · tier/program/runtime fingerprints stable (corpus 8,645 native = 8,650 − 5 named FP
+removals) · trajectory anchor 68e0de13 (5,953 decisions / 3 seeded pod games, deterministic ×2)**.
+All agent worktrees junction-safe removed; main tree clean on master; fingerprint baselines +
+probes in the session scratchpad (recreate from OVERHAUL-PLAYBOOK §2 if lost).
+
+**Done:** P0 ✓ · P1 ✓ · P2 ✓ (11 waves; parked: W6 entry-unification, S3-S5 registries, W7b-e/W8
+AI slices, N3 log feed, spend-restricted LANDS class) · P3 ✓ (contracts on COMMS "Clyde 9") ·
+P4 finders ✓ (23 verified findings → p4-findings.json; FIXES NOT APPLIED — paused) ·
+P5 playbook ✓ (scaffold/CLAUDE.md/orders updates NOT applied) · P6 not started.
+
+**Resume queue (in order):**
+1. P4 P1 fixes: Spellbook BULK sync (design ready in p4-findings.json — replaces the ~9.4k/run
+   paged crawl; bundled snapshot meanwhile at 38,600/~95k via 4 resume-chain dispatches — dispatch
+   more if the bulk switch waits) · pod combat naming raw-seat-id fallback · RELEASE.md BOM runbook.
+   Then triage the 8 P2s (empty-deck guard on /api/self-play route is the quick one).
+2. P5 finish: apply the docs-config finder's enumerated corrections (both scaffolds, CLAUDE.md
+   §3.4, RELEASE.md, gotchas additions incl. the Bash-backslash trap) + update
+   memory/orders/omnath-fable5-overhaul.md to the locked contracts (deltas enumerated in
+   p4-findings.json docs-config).
+3. P6: bump versions (incl. Cargo.toml 0.3.0 drift) · dated CHANGELOG · merge/FF master · tag →
+   CI · VERIFY the run log (strict guard, Spellbook count, artifacts) · refresh WAKE-REPORT/
+   MORNING-BRIEF/CONTINUITY/MEMORY.
