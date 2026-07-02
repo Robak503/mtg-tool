@@ -1599,14 +1599,21 @@ function actionsDeclareAttacker(state, playerId) {
   const actions = [];
   for (const p of attackers) {
     for (const t of targets) {
-      const defenderName = state.players[t.defenderId]?.command?.[0]?.name || t.defenderId;
+      // POD NAMING (P4 fix): the command zone is EMPTY while the commander is on the battlefield,
+      // so the old command-zone-or-raw-id lookup leaked engine seat ids ("ai1") into narration and
+      // board buttons for most of a pod game. Resolve across zones; when unknown, emit NO field so
+      // the narrator's seatLabel fallback supplies the human name ("Opponent 1").
+      const defenderSeat = state.players[t.defenderId];
+      const defenderName = defenderSeat?.command?.[0]?.name
+        || defenderSeat?.battlefield?.find((p) => p.card?.isCommander)?.card?.name
+        || null;
       actions.push({
         kind: "declare-attacker",
         playerId,
         permanentId: p.id,
         name: p.card.name,
         defenderId: t.defenderId,
-        defenderName,
+        ...(defenderName ? { defenderName } : {}),
         ...(t.defenderPlaneswalkerId ? { defenderPlaneswalkerId: t.defenderPlaneswalkerId, targetName: t.pwName } : {}),
       });
     }

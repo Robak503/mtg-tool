@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   _resetIdsForTests,
   createGameState,
+  createPermanent,
 } from "./gameState.js";
 import {
   parseManaCost,
@@ -455,5 +456,46 @@ describe("manaCostOf — DFC front-face fallback (free-cast guard)", () => {
     // A suspend-only spell / token has no cost anywhere; "" is the right answer.
     expect(manaCostOf({ mana_cost: "", card_faces: [] })).toBe("");
     expect(manaCostOf({ name: "Ancestral Vision" })).toBe("");
+  });
+});
+
+// ═══ POD NAMING (P4 fix) — declare-attacker defenderName resolves across zones ═══════════════
+// The command zone is EMPTY while the commander is on the battlefield; the old lookup fell back
+// to the raw seat id ("ai1"), leaking engine ids into narration/board buttons for most of a pod
+// game. Now: command zone → battlefield commander → NO field (narrator's seatLabel says
+// "Opponent 1").
+describe("declare-attacker defenderName (pod naming)", () => {
+  function podState(defenderPatch) {
+    const s = createGameState({
+      mode: "commander",
+      userDeck: [{ id: "u-f", name: "Forest", type: "Basic Land — Forest", oracle: "{T}: Add {G}." }],
+      opponentDecks: [[{ id: "a-f", name: "Forest", type: "Basic Land — Forest", oracle: "{T}: Add {G}." }], [{ id: "b-f", name: "Forest", type: "Basic Land — Forest", oracle: "{T}: Add {G}." }], [{ id: "c-f", name: "Forest", type: "Basic Land — Forest", oracle: "{T}: Add {G}." }]],
+      userCommanders: [], opponentCommanders: [[], [], []],
+    });
+    const bear = createPermanent({ id: "perm-bear", card: { id: "card-bear", name: "Grizzly Bears", type: "Creature — Bear", power: 2, toughness: 2, oracle: "" }, controller: "user", summoningSick: false });
+    return {
+      ...s,
+      activePlayer: "user", priorityHolder: "user", phase: "combat", step: "declare-attackers",
+      players: {
+        ...s.players,
+        user: { ...s.players.user, battlefield: [bear] },
+        ai1: { ...s.players.ai1, ...defenderPatch },
+      },
+    };
+  }
+  const KOMA = { id: "cmd-k", name: "Koma, Cosmos Serpent", type: "Legendary Creature — Serpent", power: 6, toughness: 6, isCommander: true, oracle: "" };
+
+  it("uses the BATTLEFIELD commander's name once the commander has been cast", () => {
+    const s = podState({ command: [], battlefield: [createPermanent({ id: "perm-k", card: KOMA, controller: "ai1", summoningSick: false })] });
+    const atk = legalActionsForPlayer(s, "user").filter((a) => a.kind === "declare-attacker" && a.defenderId === "ai1");
+    expect(atk.length).toBeGreaterThan(0);
+    expect(atk[0].defenderName).toBe("Koma, Cosmos Serpent");
+  });
+
+  it("emits NO defenderName when the seat has no visible commander (narrator supplies 'Opponent 1')", () => {
+    const s = podState({ command: [], battlefield: [] });
+    const atk = legalActionsForPlayer(s, "user").filter((a) => a.kind === "declare-attacker" && a.defenderId === "ai1");
+    expect(atk.length).toBeGreaterThan(0);
+    expect(atk[0].defenderName).toBeUndefined(); // never a raw seat id
   });
 });

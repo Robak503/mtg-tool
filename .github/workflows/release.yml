@@ -143,7 +143,9 @@ jobs:
         working-directory: app
         continue-on-error: true
         timeout-minutes: 12
-        run: node scripts/sync-spellbook.cjs --combos-only
+        # Bulk-first combos complete in seconds (variants.json.gz), freeing the budget for the
+        # paged /cards sync (bracket data) inside the same 12-minute bound.
+        run: node scripts/sync-spellbook.cjs
 
       - name: Build signed Tauri release
         working-directory: app

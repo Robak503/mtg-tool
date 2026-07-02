@@ -170,6 +170,12 @@ const REQUIRED_DATA = new Set([
   "data/scryfall-bulk/printings-index.json",
   "data/rules-index.json",
   "data/spellbook-combos.local.json",
+  // P4 hardening: combos are UNLOADABLE without the lookup index (written in the same sync), and
+  // bracket estimation is dead without the cards file — a cache-evicted release must not pass
+  // strict while shipping gutted combo features. (Cards sync fits the release budget now that the
+  // combos come from the bulk export in seconds.)
+  "data/spellbook-index.local.json",
+  "data/spellbook-cards.local.json",
   "data/edhrec-salt.local.json",
 ]);
 const missingRequired = [];

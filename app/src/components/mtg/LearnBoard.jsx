@@ -23,6 +23,9 @@ import { useState } from "react";
 import { reasonToOutcome } from "../../lib/learn/learnOutcome.js";
 
 // Full Magic card image (frame/border/text) — immersion. Cached local-first.
+// Human seat labels (mirrors LearnView SEAT_LABELS) — a raw engine seat id must never render.
+const BOARD_SEAT_LABELS = { user: "You", ai: "Opponent", ai1: "Opponent 1", ai2: "Opponent 2", ai3: "Opponent 3" };
+
 const ART = (name) => `/api/card-image?name=${encodeURIComponent(name || "")}`;
 const MANA_PIPS = [["W", "#f5f0d8"], ["U", "#a9d2f0"], ["B", "#b9a7c0"], ["R", "#f0a98f"], ["G", "#9fd0a3"], ["C", "#cfd0dd"]];
 const TONE_COLOR = { win: "#85d18a", loss: "#e0a89a", draw: "#d8c98a", neutral: "#c9cad8" };
@@ -278,7 +281,7 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             <button key={i} className="lb-act" onClick={() => onAction(o)} title={o.kind}>
               {o.kind === "cast-spell" ? `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}`
                 : o.kind === "play-land" ? `Play ${o.name}`
-                  : o.kind === "declare-attacker" ? `Attack ${o.targetName || o.defenderName || o.defenderId || ""} with ${o.name}`
+                  : o.kind === "declare-attacker" ? `Attack ${o.targetName || o.defenderName || BOARD_SEAT_LABELS[o.defenderId] || ""} with ${o.name}`
                     : o.kind === "declare-blocker" ? `Block ${o.attackerName || "attacker"} with ${o.name}`
                       : o.kind.replace(/-/g, " ")}
             </button>

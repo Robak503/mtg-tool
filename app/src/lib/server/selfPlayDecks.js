@@ -132,6 +132,19 @@ export async function loadAllProfileDecks() {
 }
 
 /**
+ * EMPTY-DECK GUARD (overhaul P4): split enriched runner decks into playable vs empty — an
+ * empty/unenrichable deck ("Test Deck", a failed import) seeded into a 4-player pod can only
+ * setup-error the whole table. Shared by the CLI sweep AND /api/self-play so the two callers
+ * can't drift (this module's charter: the deck→runner transformation lives in exactly one place).
+ */
+export function partitionPlayableRunnerDecks(runnerDecks) {
+  const playable = [];
+  const empty = [];
+  for (const d of runnerDecks || []) (d.cards.length > 0 ? playable : empty).push(d);
+  return { playable, empty };
+}
+
+/**
  * Cross-profile deck PICKER list — every deck across every profile reduced to the
  * minimal shape the Sim Center's deck selector needs: `{ id, name, profile }`,
  * where `profile` is the owning profile's display NAME (not its id). Built by

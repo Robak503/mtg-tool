@@ -52,6 +52,7 @@ import { atomicWriteJson } from "../../../lib/server/atomicJson.js";
 import { sanitiseId } from "../../../lib/server/sanitiseId.js";
 import {
   toRunnerDeck,
+  partitionPlayableRunnerDecks,
   loadAllProfileDecks,
   listAllProfileDecks,
   selectDecksByIds,
@@ -140,8 +141,18 @@ export async function POST(request) {
     // We still proceed (the runner pads + flags it) — just note it in the report.
   }
 
-  // Enrich every deck from the local oracle index.
-  const runnerDecks = rawDecks.map(toRunnerDeck);
+  // Enrich every deck from the local oracle index, then drop EMPTY/unenrichable decks (the CLI
+  // sweep's guard, shared) — an empty deck seeded into a pod can only setup-error the table.
+  // Skipped names ride the response so the Sim Center can show them honestly.
+  const { playable, empty: skippedDeckObjs } = partitionPlayableRunnerDecks(rawDecks.map(toRunnerDeck));
+  const skippedDecks = skippedDeckObjs.map((d) => d.name);
+  if (playable.length === 0) {
+    return Response.json(
+      { error: "Every selected deck is empty or failed to enrich — nothing playable.", skippedDecks },
+      { status: 400 }
+    );
+  }
+  const runnerDecks = playable;
   const deckNames = runnerDecks.map((d) => d.name);
 
   // Run the batch (offline, no network) and aggregate the engine's honest signals.
@@ -188,6 +199,7 @@ export async function POST(request) {
         generatedAt,
         mode,
         deckNames,
+        ...(skippedDecks.length ? { skippedDecks } : {}),
         deckIds,
         breakageCount: aggregate.cards.length,
         ...aggregate,
@@ -202,6 +214,7 @@ export async function POST(request) {
       ok: true,
       mode,
       deckNames,
+      ...(skippedDecks.length ? { skippedDecks } : {}),
       games: aggregate.outcomes.total,
       outcomes: aggregate.outcomes,
       avgTurns: aggregate.avgTurns,
@@ -219,6 +232,7 @@ export async function POST(request) {
     ok: true,
     mode,
     deckNames,
+    ...(skippedDecks.length ? { skippedDecks } : {}),
     games: aggregate.outcomes.total,
     outcomes: aggregate.outcomes,
     avgTurns: aggregate.avgTurns,

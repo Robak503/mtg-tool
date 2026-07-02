@@ -22,8 +22,16 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const zlib = require("node:zlib");
+const { Readable } = require("node:stream");
 
 const BASE_URL = "https://backend.commanderspellbook.com";
+// BULK EXPORT (overhaul P4): Commander Spellbook publishes the FULL dataset nightly as a single
+// gzipped JSON (S3+CloudFront; the official site + CubeCobra consume it). One download replaces
+// the 429-throttled paged crawl that capped runs at ~10% of the dataset. LOAD-BEARING: the
+// DECOMPRESSED document (~540 MB) exceeds Node's max string length (2^29-24 bytes), so this file
+// must be STREAM-parsed record-by-record — never fs.readFile + JSON.parse.
+const BULK_URL = "https://json.commanderspellbook.com/variants.json.gz";
 // Writes land in the dev tree by default, but the bundled .exe sets
 // MTG_APP_ROOT to %APPDATA%\com.colton.mtg-tool\ so synced files end
 // up in the writable user data dir there instead.
@@ -40,6 +48,7 @@ const args = process.argv.slice(2);
 const COMBOS_ONLY = args.includes("--combos-only");
 const CARDS_ONLY = args.includes("--cards-only");
 const FRESH = args.includes("--fresh");
+const PAGED = args.includes("--paged"); // force the legacy paged crawl (skip the bulk export)
 const PAGE_SIZE = numberArg("--page-size", 100);
 const DELAY_MS = numberArg("--delay-ms", CARDS_ONLY ? 1000 : 750);
 const RETRY_LIMIT = numberArg("--retries", 10);
@@ -214,6 +223,105 @@ function normalizeCardMap(rawCards) {
   return cards;
 }
 
+/**
+ * Stream the bulk export: fetch → gunzip → a brace/bracket-depth record splitter that yields each
+ * depth-3 object (a variant record inside the top-level "variants"/"aliases" arrays) as its own
+ * ~6 KB JSON string for a normal JSON.parse. Alias stubs ({id, variant:null}) and non-"OK"
+ * variants are dropped by SHAPE (rec.uses must be an array), so the splitter doesn't need to know
+ * which array it is in. The doc header's timestamp/version are captured from the raw text before
+ * the first array opens. Accumulates STRIPPED variants only (~95k × ~600 B ≈ 50 MB — fine), then
+ * writes ONCE via the existing atomic writeJson. Throws on any failure — main() falls back to the
+ * paged crawl.
+ */
+async function downloadVariantsBulk() {
+  console.log(`Downloading the Spellbook BULK export (${BULK_URL})...`);
+  const started = Date.now();
+  const res = await fetch(BULK_URL, { headers: { "accept-encoding": "identity" } });
+  if (!res.ok || !res.body) throw new Error(`bulk fetch failed: HTTP ${res.status}`);
+
+  // CloudFront serves the .gz with Content-Encoding: gzip, so Node's fetch AUTO-decompresses it
+  // (feeding an explicit gunzip then dies with "incorrect header check"); a raw S3 serving hands us
+  // gzip bytes. Detect by the gzip magic (1f 8b) on the first chunk and route accordingly.
+  const nodeStream = Readable.fromWeb(res.body);
+  const it = nodeStream[Symbol.asyncIterator]();
+  const first = await it.next();
+  if (first.done) throw new Error("bulk fetch: empty body");
+  const firstChunk = Buffer.isBuffer(first.value) ? first.value : Buffer.from(first.value);
+  const isGzip = firstChunk.length >= 2 && firstChunk[0] === 0x1f && firstChunk[1] === 0x8b;
+  async function* rawChunks() {
+    yield firstChunk;
+    while (true) {
+      const r = await it.next();
+      if (r.done) return;
+      yield r.value;
+    }
+  }
+  const stream = isGzip ? Readable.from(rawChunks()).pipe(zlib.createGunzip()) : Readable.from(rawChunks());
+  console.log(`  (transfer: ${isGzip ? "raw gzip — local gunzip" : "server-decompressed JSON stream"})`);
+  const decoder = new TextDecoder("utf-8");
+
+  const byId = new Map();
+  let header = "";          // raw pre-array text — carries {"timestamp": "...", "version": "..."}
+  let headerDone = false;
+  let depth = 0;            // counts { } and [ ] together; records are objects opening at depth 2→3
+  let inString = false;
+  let escaped = false;
+  let record = null;        // accumulating record text when non-null
+  let seen = 0;
+
+  const feed = (text) => {
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (!headerDone && header.length < 4096) header += ch; // raw capture incl. string contents
+      if (record !== null) record += ch;
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (ch === "\\") escaped = true;
+        else if (ch === '"') inString = false;
+        continue;
+      }
+      if (ch === '"') { inString = true; continue; }
+      if (ch === "{" || ch === "[") {
+        depth += 1;
+        if (ch === "{" && depth === 3 && record === null) record = "{";
+        if (ch === "[" && depth === 2) headerDone = true;
+        continue;
+      }
+      if (ch === "}" || ch === "]") {
+        depth -= 1;
+        if (ch === "}" && depth === 2 && record !== null) {
+          seen += 1;
+          let rec;
+          try { rec = JSON.parse(record); } catch { rec = null; }
+          record = null;
+          if (rec === null) throw new Error(`bulk parse: record ${seen} is not valid JSON`);
+          // Shape filter: alias stubs have no uses[]; anything not status OK is skipped.
+          if (Array.isArray(rec.uses) && rec.status === "OK") {
+            const v = stripVariant(rec);
+            byId.set(v.id, v);
+          }
+          if (seen % 10000 === 0) {
+            process.stdout.write(`\r  ${byId.size.toLocaleString()} variants parsed (${seen.toLocaleString()} records, ${((Date.now() - started) / 1000).toFixed(1)}s)   `);
+          }
+        }
+      }
+    }
+  };
+
+  for await (const chunk of stream) feed(decoder.decode(chunk, { stream: true }));
+  feed(decoder.decode());
+
+  if (byId.size === 0) throw new Error("bulk parse yielded zero variants");
+  const bulkTimestamp = (header.match(/"timestamp":\s*"([^"]+)"/) || [])[1] || null;
+  const bulkVersion = (header.match(/"version":\s*"([^"]+)"/) || [])[1] || null;
+
+  const variants = Array.from(byId.values());
+  await writeJson(COMBOS_FILE, variants);
+  await writeJson(INDEX_FILE, buildIndex(variants));
+  process.stdout.write(`\r  ${variants.length.toLocaleString()} variants saved from the bulk export (${((Date.now() - started) / 1000).toFixed(1)}s)              \n`);
+  return { variants, bulkTimestamp, bulkVersion };
+}
+
 async function downloadVariants() {
   console.log(`Downloading variants from Commander Spellbook (${FRESH ? "fresh" : "resume"}, delay ${DELAY_MS}ms)...`);
 
@@ -289,7 +397,7 @@ async function downloadCards() {
   return cards;
 }
 
-async function writeMeta() {
+async function writeMeta(bulkInfo = null) {
   const combos = await readJson(COMBOS_FILE, []);
   const cards = await readJson(CARDS_FILE, {});
   const uniqueCardIds = new Set(
@@ -302,9 +410,11 @@ async function writeMeta() {
     syncedAt: new Date().toISOString(),
     variants: Array.isArray(combos) ? combos.length : 0,
     cards: uniqueCardIds.size,
-    source: BASE_URL,
+    // Additive keys only (getSpellbookMeta consumers read syncedAt/variants/cards).
+    source: bulkInfo ? BULK_URL : BASE_URL,
     pageSize: PAGE_SIZE,
     delayMs: DELAY_MS,
+    ...(bulkInfo ? { bulkTimestamp: bulkInfo.bulkTimestamp, bulkVersion: bulkInfo.bulkVersion } : {}),
   };
 
   await writeJson(META_FILE, meta, true);
@@ -314,15 +424,28 @@ async function writeMeta() {
 async function main() {
   await fs.mkdir(DATA_DIR, { recursive: true });
 
+  let bulkInfo = null;
   if (!CARDS_ONLY) {
-    await downloadVariants();
+    if (PAGED) {
+      await downloadVariants();
+    } else {
+      // BULK-FIRST: one CloudFront download gets the complete dataset in ~2 min. Any failure is
+      // logged honestly and falls back to the legacy resumable paged crawl (which still checkpoints
+      // per page), so a bulk outage can never make the sync WORSE than before.
+      try {
+        bulkInfo = await downloadVariantsBulk();
+      } catch (err) {
+        console.warn(`\nBulk export failed (${err.message}) — falling back to the paged crawl.`);
+        await downloadVariants();
+      }
+    }
   }
 
   if (!COMBOS_ONLY) {
     await downloadCards();
   }
 
-  const meta = await writeMeta();
+  const meta = await writeMeta(bulkInfo);
   console.log("\nDone.");
   console.log(`  Variants: ${meta.variants.toLocaleString()}`);
   console.log(`  Cards: ${meta.cards.toLocaleString()}`);

@@ -80,8 +80,12 @@ If the private key leaks or you need to rotate:
 # 1. Generate a new key
 npx tauri signer generate -w $env:USERPROFILE\.tauri\mtg-tool.key -f --password (new password)
 
-# 2. Update the secrets
-Get-Content $env:USERPROFILE\.tauri\mtg-tool.key -Raw | gh secret set TAURI_SIGNING_PRIVATE_KEY --repo Robak503/mtg-tool
+# 2. Update the secrets — use cmd /c with < redirect, NEVER a PowerShell pipe:
+#    Get-Content | gh secret set injects a UTF-8 BOM into the secret (gotcha #12 /
+#    CLAUDE.md §3.5) and CI signing then fails with a corrupted key.
+cmd /c "gh secret set TAURI_SIGNING_PRIVATE_KEY --repo Robak503/mtg-tool < %USERPROFILE%\.tauri\mtg-tool.key"
+# The password secret must rotate WITH the key (a new key has a new password):
+cmd /c "gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --repo Robak503/mtg-tool < %USERPROFILE%\.tauri\mtg-tool.password"
 
 # 3. Replace the pubkey in app/src-tauri/tauri.conf.json with the
 #    contents of mtg-tool.key.pub
