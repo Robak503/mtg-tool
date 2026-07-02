@@ -5,7 +5,13 @@
 > clean (23 phantom-mana FP removals / 0 gained). 34 findings repaired across engine · runtime · server ·
 > UI · pipeline · docs. The 13-deck / corpus grind resumes next under the MODEL SPLIT.
 
-## ➡️ NEXT SESSION — read these FIRST (no Fable 5 anymore)
+## ➡️ NEXT SESSION — FIRST WORK = the /goal ENGINE OVERHAUL pass (Fable 5, one more time)
+Colton decided (2026-07-01, after this pass shipped): ONE more Fable 5 ultracode session runs the ENGINE
+OVERHAUL — quality + runtime perf + play quality + the Omnath engine-side seams. Launch: set /model
+claude-fable-5, enter plan mode, type **/goal** (mission = docs/orchestration/FABLE5-OVERHAUL-PROMPT.md).
+THEN the 13-deck/corpus grind resumes under the MODEL SPLIT below.
+
+## 📚 Read these FIRST (in any session)
 1. **docs/orchestration/PROJECT-SCAFFOLD.md** — the whole system (runtime, build, routes, docs/memory, orchestration).
 2. **docs/orchestration/ENGINE-SCAFFOLD.md** — the rules engine deep-dive + **"HOW TO SAFELY ADD A NEW MECHANIC"**.
 3. This file (parked judgment calls below) + `git log origin/master` + CHANGELOG.md.
