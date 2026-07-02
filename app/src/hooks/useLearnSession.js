@@ -421,6 +421,88 @@ export default function useLearnSession() {
     }
   }, [state.sessionId]);
 
+  // OPTIONAL-MANA-PAYMENT (CR 603.7c) — answer "you may pay {cost}. If you do, <effect>" (Lifecrafter's
+  // Bestiary / Mind's Eye / Inheritance / …). `pay` true charges the cost + runs the payoff, false skips it.
+  // Mirrors applySoftCounterChoice.
+  const applyOptionalManaPaymentChoice = useCallback(async (pay) => {
+    if (inFlightRef.current || !state.sessionId) return null;
+    inFlightRef.current = true;
+
+    try {
+      const response = await fetch("/api/learn/choose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { pay: pay === true } }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+        return null;
+      }
+      const isOver = data.decision?.kind === "game-over";
+      setState(prev => ({
+        ...prev,
+        decision: data.decision,
+        status: isOver ? "ended" : "active",
+        difficulty: data.difficulty ?? prev.difficulty,
+        turn: data.turn,
+        activePlayer: data.activePlayer,
+        step: data.step,
+        table: data.table || prev.table,
+        board: data.board || prev.board,
+        decisionLogTail: data.decisionLogTail || [],
+        error: null,
+      }));
+      return data.decision;
+    } catch (error) {
+      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
+      return null;
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [state.sessionId]);
+
+  // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — answer "you may sacrifice a <subtype>. If you do, <effect>"
+  // (The Goose Mother / Wedding Security). `sac` true pitches one matching permanent + runs the payoff,
+  // false declines. Mirrors applySoftCounterChoice.
+  const applyOptionalSacChoice = useCallback(async (sac) => {
+    if (inFlightRef.current || !state.sessionId) return null;
+    inFlightRef.current = true;
+
+    try {
+      const response = await fetch("/api/learn/choose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { sac: sac === true } }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState(prev => ({ ...prev, status: "error", error: data.error || `Choose failed: ${response.status}` }));
+        return null;
+      }
+      const isOver = data.decision?.kind === "game-over";
+      setState(prev => ({
+        ...prev,
+        decision: data.decision,
+        status: isOver ? "ended" : "active",
+        difficulty: data.difficulty ?? prev.difficulty,
+        turn: data.turn,
+        activePlayer: data.activePlayer,
+        step: data.step,
+        table: data.table || prev.table,
+        board: data.board || prev.board,
+        decisionLogTail: data.decisionLogTail || [],
+        error: null,
+      }));
+      return data.decision;
+    } catch (error) {
+      setState(prev => ({ ...prev, status: "error", error: error.message || "network error" }));
+      return null;
+    } finally {
+      inFlightRef.current = false;
+    }
+  }, [state.sessionId]);
+
   // CMD-RETURN (CR 903.9) — answer the "return your commander to the command zone?" yes/no. `doReturn`
   // true sends it back (recastable, taxed), false leaves it in the graveyard. Mirrors applySoftCounterChoice.
   const applyCommanderReturnChoice = useCallback(async (doReturn) => {
@@ -754,6 +836,8 @@ export default function useLearnSession() {
     applyDiscardChoice,
     applyDivideChoice,
     applySoftCounterChoice,
+    applyOptionalManaPaymentChoice,
+    applyOptionalSacChoice,
     applyCommanderReturnChoice,
     reset,
     listSaves,

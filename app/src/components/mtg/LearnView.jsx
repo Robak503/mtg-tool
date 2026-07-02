@@ -28,6 +28,32 @@ import LearnBoard from "./LearnBoard";
 import StabilityBadge from "./StabilityBadge";
 import { fetchArbiterTrace } from "../../lib/arbiterUtils";
 
+/**
+ * A short human-readable pip string for a KW-WARD-PR2 STRUCTURED cost descriptor
+ * ({kind:"mana",mana} | {kind:"life",life}), for decision panels that pay a cost (soft-counter,
+ * optional-mana-payment). Mirrors the server's pendingChoice.js wardCostHeadline number, but renders
+ * actual pips instead of collapsing everything to a generic count — a colored/hybrid ward cost like
+ * {1}{W/U} previously rendered as "Pay {2}" (wrong pips) via decision.amount alone. Falls back to
+ * decision.amount (the legacy fixed-generic path — Force Spike / Mana Leak) when no structured cost
+ * is present.
+ */
+function wardCostLabel(decision) {
+  const cost = decision?.cost;
+  if (cost?.kind === "life") return `Pay ${cost.life} life`;
+  if (cost?.kind === "mana") {
+    const m = cost.mana || {};
+    const pips = [];
+    if (m.generic) pips.push(`{${m.generic}}`);
+    for (const c of ["W", "U", "B", "R", "G", "C"]) {
+      for (let i = 0; i < (m[c] || 0); i++) pips.push(`{${c}}`);
+    }
+    for (const h of m.hybrid || []) pips.push(`{${(Array.isArray(h) ? h : [h]).join("/")}}`);
+    return pips.length ? `Pay ${pips.join("")}` : "Pay the cost";
+  }
+  const amount = decision?.amount || 0;
+  return `Pay {${amount}}`;
+}
+
 const DIFFICULTY_OPTIONS = [
   { value: "beginner", label: "Beginner", blurb: "Ask every decision with full narration." },
   { value: "intermediate", label: "Intermediate", blurb: "Auto-play lands; surface real choices." },
@@ -400,6 +426,9 @@ export default function LearnView({
             onDiscardChoose={session.applyDiscardChoice}
             onDivideChoose={session.applyDivideChoice}
             onSoftCounterChoose={session.applySoftCounterChoice}
+            onOptionalManaPaymentChoose={session.applyOptionalManaPaymentChoice}
+            onOptionalSacChoose={session.applyOptionalSacChoice}
+            onCommanderReturnChoose={session.applyCommanderReturnChoice}
           />
         </main>
 
@@ -524,6 +553,20 @@ export default function LearnView({
       {session.board && decision?.kind === "soft-counter" && (
         <div style={tutorSheetStyle(LINE, BG2)}>
           <SoftCounterPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applySoftCounterChoice} />
+        </div>
+      )}
+      {/* OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. If you do, <effect>" (Lifecrafter's
+          Bestiary / Mind's Eye / Inheritance / …) → pay or decline. Same side-sheet. */}
+      {session.board && decision?.kind === "optional-mana-payment" && (
+        <div style={tutorSheetStyle(LINE, BG2)}>
+          <OptionalManaPaymentPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyOptionalManaPaymentChoice} />
+        </div>
+      )}
+      {/* REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. If you do, <effect>"
+          (The Goose Mother / Wedding Security) → sac or decline. Same side-sheet. */}
+      {session.board && decision?.kind === "optional-sac-payment" && (
+        <div style={tutorSheetStyle(LINE, BG2)}>
+          <OptionalSacPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={session.applyOptionalSacChoice} />
         </div>
       )}
       {/* Engine OR transport error as a floating banner over the board (never drops
@@ -704,7 +747,7 @@ function TableStrip({ table, activePlayer, cfg, colors }) {
 
 // ─── Decision prompt ─────────────────────────────────────────────────────────
 
-function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose }) {
+function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinue, onTutorChoose, onCloneChoose, onScryChoose, onOptionalChoose, onHandDiscardChoose, onImpulseDigChoose, onSacrificeChoose, onDiscardChoose, onDivideChoose, onSoftCounterChoose, onOptionalManaPaymentChoose, onOptionalSacChoose, onCommanderReturnChoose }) {
   const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
 
   if (!decision) {
@@ -742,6 +785,15 @@ function DecisionPrompt({ decision, cfg, colors, fontFamily, onChoose, onContinu
   }
   if (decision.kind === "soft-counter") {
     return <SoftCounterPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onSoftCounterChoose} />;
+  }
+  if (decision.kind === "optional-mana-payment") {
+    return <OptionalManaPaymentPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onOptionalManaPaymentChoose} />;
+  }
+  if (decision.kind === "optional-sac-payment") {
+    return <OptionalSacPanel decision={decision} cfg={cfg} colors={colors} fontFamily={fontFamily} onChoose={onOptionalSacChoose} />;
+  }
+  if (decision.kind === "commander-return") {
+    return <CommanderReturnPanel decision={decision} colors={colors} fontFamily={fontFamily} onChoose={onCommanderReturnChoose} />;
   }
   if (decision.kind === "dispatch-error") {
     return (
@@ -1266,7 +1318,7 @@ function DivideDamagePanel({ decision, cfg, colors, fontFamily, onChoose }) {
 function SoftCounterPanel({ decision, cfg, colors, fontFamily, onChoose }) {
   const { BG3, LINE, TEXT, GOLD } = colors || {};
   const accent = cfg?.color || GOLD;
-  const amount = decision.amount || 0;
+  const costLabel = wardCostLabel(decision);
   const affordable = decision.affordable !== false;
   const [submitting, setSubmitting] = useState(false);
 
@@ -1285,19 +1337,115 @@ function SoftCounterPanel({ decision, cfg, colors, fontFamily, onChoose }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
       <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
-          🛡️ Pay {`{${amount}}`} or be countered{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+          🛡️ {costLabel} or be countered{decision.sourceName ? ` — ${decision.sourceName}` : ""}
         </div>
         <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
-          {decision.spellName ? <b>{decision.spellName}</b> : "Your spell"} will be countered unless you pay {`{${amount}}`}.
-          {!affordable && <span style={{ color: "#e0a030" }}> You don’t have {`{${amount}}`} available.</span>}
+          {decision.spellName ? <b>{decision.spellName}</b> : "Your spell"} will be countered unless you {costLabel.toLowerCase()}.
+          {!affordable && <span style={{ color: "#e0a030" }}> You don’t have that available.</span>}
         </div>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <button onClick={() => submit(true)} disabled={submitting || !affordable} style={btn(accent, submitting || !affordable)}>
-          Pay {`{${amount}}`}
+          {costLabel}
         </button>
         <button onClick={() => submit(false)} disabled={submitting} style={btn(LINE, submitting)}>
           Let it be countered
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * ===== OPTIONAL-MANA-PAYMENT ===== (CR 603.7c) — "you may pay {cost}. If you do, <effect>" picker
+ * (Lifecrafter's Bestiary / Mind's Eye / Inheritance / …). Shown to the controller of the trigger/ability:
+ * pay the cost to run the payoff, or decline. "Pay" is disabled when `decision.affordable` is false (not
+ * enough untapped mana — the driver enriches this at pause time). Submits the boolean via
+ * applyOptionalManaPaymentChoice. Structurally a SoftCounterPanel variant (same yes/no shape).
+ */
+function OptionalManaPaymentPanel({ decision, cfg, colors, fontFamily, onChoose }) {
+  const { BG3, LINE, TEXT, GOLD } = colors || {};
+  const accent = cfg?.color || GOLD;
+  const costLabel = wardCostLabel(decision);
+  const affordable = decision.affordable !== false;
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (pay) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try { await onChoose?.(pay); } finally { setSubmitting(false); }
+  };
+
+  const btn = (bg, disabled) => ({
+    flex: 1, padding: "10px 14px", background: bg, color: "#fff", border: "none", borderRadius: 6,
+    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontSize: 13, fontWeight: 600, fontFamily,
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+          ✨ You may {costLabel.toLowerCase()}{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+          You may {costLabel.toLowerCase()}. If you do, the effect resolves.
+          {!affordable && <span style={{ color: "#e0a030" }}> You don’t have that available.</span>}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => submit(true)} disabled={submitting || !affordable} style={btn(accent, submitting || !affordable)}>
+          {costLabel}
+        </button>
+        <button onClick={() => submit(false)} disabled={submitting} style={btn(LINE, submitting)}>
+          Decline
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * ===== REFLEXIVE-SAC-BY-SUBTYPE ===== (CR 603.7c) — "you may sacrifice a <subtype>. If you do, <effect>"
+ * picker (The Goose Mother / Wedding Security). Shown to the controller of the trigger/ability: sacrifice
+ * one matching permanent to run the payoff, or decline. "Sacrifice" is disabled when `decision.available`
+ * is false (no matching permanent to give up — set at suspend time, pendingChoice.js). Submits the boolean
+ * via applyOptionalSacChoice. Structurally a SoftCounterPanel variant (same yes/no shape).
+ */
+function OptionalSacPanel({ decision, cfg, colors, fontFamily, onChoose }) {
+  const { BG3, LINE, TEXT, GOLD } = colors || {};
+  const accent = cfg?.color || GOLD;
+  const subtype = decision.subtype || "permanent";
+  const available = decision.available !== false;
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async (sac) => {
+    if (submitting) return;
+    setSubmitting(true);
+    try { await onChoose?.(sac); } finally { setSubmitting(false); }
+  };
+
+  const btn = (bg, disabled) => ({
+    flex: 1, padding: "10px 14px", background: bg, color: "#fff", border: "none", borderRadius: 6,
+    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1, fontSize: 13, fontWeight: 600, fontFamily,
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, height: "100%" }}>
+      <div style={{ padding: "12px 14px", background: BG3, border: `1px solid ${accent}`, borderRadius: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: accent }}>
+          💀 You may sacrifice a {subtype}{decision.sourceName ? ` — ${decision.sourceName}` : ""}
+        </div>
+        <div style={{ fontSize: 12.5, color: TEXT, lineHeight: 1.5, marginTop: 4 }}>
+          You may sacrifice a {subtype}. If you do, the effect resolves.
+          {!available && <span style={{ color: "#e0a030" }}> You don’t control a {subtype} to sacrifice.</span>}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={() => submit(true)} disabled={submitting || !available} style={btn(accent, submitting || !available)}>
+          Sacrifice a {subtype}
+        </button>
+        <button onClick={() => submit(false)} disabled={submitting} style={btn(LINE, submitting)}>
+          Decline
         </button>
       </div>
     </div>
