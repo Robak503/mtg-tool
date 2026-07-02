@@ -184,6 +184,20 @@ describe("manaProduction", () => {
     // A self-granting lord (Gemhide IS a Sliver) is NOT a create-token clause → left intact (real source).
     expect(manaProduction({ name: "Gemhide Sliver", type: "Creature — Sliver", oracle: "All Sliver creatures have \"{T}: Add one mana of any color.\"" })).toMatchObject({ colors: ["W", "U", "B", "R", "G"], amount: 1 });
   });
+
+  // ===== AURA BLANKET STRIP ===== an Aura NEVER self-produces via quoted text — its quotes confer to
+  // the HOST (grantedManaSpecsFor). The has/have-anchored guard alone missed non-has introducers
+  // ("is a Treasure artifact with …") and conjunction-chained quotes ("has \"…\" and \"…\""), minting
+  // the Aura itself as a phantom standing source (P0-verify regression class, all 5 pinned; real oracle).
+  it("never mints an AURA as its own mana source from any quoted-grant shape", () => {
+    expect(manaProduction({ name: "Minimus Containment", type: "Enchantment — Aura", oracle: "Enchant nonland permanent\nEnchanted permanent is a Treasure artifact with \"{T}, Sacrifice this artifact: Add one mana of any color,\" and it loses all other abilities. (If it was a creature, it's no longer a creature.)" })).toBeNull();
+    expect(manaProduction({ name: "Honest Work", type: "Enchantment — Aura", oracle: "Enchant creature an opponent controls\nWhen this Aura enters, tap enchanted creature and remove all counters from it.\nEnchanted creature loses all abilities and is a Citizen with base power and toughness 1/1 and \"{T}: Add {C}\" named Humble Merchant. (It loses all other creature types and names.)" })).toBeNull();
+    expect(manaProduction({ name: "Imprisoned in the Moon", type: "Enchantment — Aura", oracle: "Enchant creature, land, or planeswalker\nEnchanted permanent is a colorless land with \"{T}: Add {C}\" and loses all other card types and abilities." })).toBeNull();
+    expect(manaProduction({ name: "Careful Cultivation", type: "Enchantment — Aura", oracle: "Enchant artifact or creature\nAs long as enchanted permanent is a creature, it gets +1/+3 and has reach and \"{T}: Add {G}{G}.\"\nChannel — {1}{G}, Discard this card: Create a 1/1 green Human Monk creature token with \"{T}: Add {G}.\"" })).toBeNull();
+    expect(manaProduction({ name: "Lithoform Blight", type: "Enchantment — Aura", oracle: "Enchant land\nWhen this Aura enters, draw a card.\nEnchanted land loses all land types and abilities and has \"{T}: Add {C}\" and \"{T}, Pay 1 life: Add one mana of any color.\"" })).toBeNull();
+    // The classic has-anchored Aura grant stays stripped too (was already covered by the general guard).
+    expect(manaProduction({ name: "Multani's Harmony", type: "Enchantment — Aura", oracle: "Enchant creature\nEnchanted creature has \"{T}: Add one mana of any color.\"" })).toBeNull();
+  });
 });
 
 // ─── MANA-VARIABLE (wave2a) — count-derived tap-for-mana amount ────────────────

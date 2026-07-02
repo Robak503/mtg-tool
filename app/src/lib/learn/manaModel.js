@@ -381,6 +381,16 @@ export function stripCreatedTokenAbilities(text) {
  */
 export function stripNonSelfQuotedGrants(text, typeLine) {
   const tl = String(typeLine || "").toLowerCase();
+  // AURA BLANKET STRIP (restored — the pre-generalization guard): an Aura NEVER self-produces via
+  // quoted text — its quotes always describe an ability conferred to the HOST (delivered at runtime
+  // via layers.grantedManaSpecsFor). The has/have-anchored guard below misses non-has introducers
+  // ("is a Treasure artifact with \"{T}: …\"" — Minimus Containment) and conjunction-chained quotes
+  // ("has \"{T}: Add {C}\" and \"{T}, Pay 1 life: …\"" — Lithoform Blight), which minted the Aura
+  // itself as a phantom standing source. Stripping ALL quoted segments for Auras is safe: at worst
+  // an under-count (CREED), never a phantom.
+  if (/\baura\b/.test(tl)) {
+    return String(text || "").replace(/["“][^"”]*["”]/g, " ");
+  }
   return String(text || "").replace(
     /([^.\n"\u201c]*?\bha(?:ve|s))\s+(["\u201c][^"\u201d]*["\u201d])/gi,
     (whole, subject) => {
