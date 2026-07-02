@@ -89,8 +89,8 @@ monolith by ~1,100 lines of new inline matchers. Fresh census required before P2
 → **Wave 1 (perf): per-card WeakMap caching for the static-ability parse family** (parseStaticAbilities + parseGlobalTapManaAugment + friends), then re-profile before touching layers proper.
 
 **Data repairs made during P1 (dev data root, not code):**
--  failed the  path-guard → the WHOLE profile system silently ignored Colton's 6 personal decks (SimCenter/self-play/decks API). Renamed → , registered in profiles.json ('Colton — personal decks'). loadAllProfileDecks now sees **16 decks**. Posted to COMMS (Omnath tools may reference the old folder name).
-- Deleted empty stray  folder.
+- `prof_colton-personal-decks` failed the `/^prof_[0-9a-f-]{36}$/` path-guard → the WHOLE profile system silently ignored Colton's 6 personal decks (SimCenter/self-play/decks API). Renamed → `prof_65a43f93-993b-458a-9485-a6b4a2eab910`, registered in profiles.json ('Colton — personal decks'). loadAllProfileDecks now sees **16 decks**. Posted to COMMS (Omnath tools may reference the old folder name).
+- Deleted empty stray `prof_b4c8b575-40fa-4a99-93b4-c59245d0ec9a` folder.
 - Known runner hazard for pods: an EMPTY deck (Test Deck) seeds pods → guaranteed setup-error games. → P2/P4 fix: runner skips empty/unenrichable decks with a warning.
 
 **Spellbook resume-chain status (during pass):** dispatch 28563655412 restored the prior checkpoint and reached **18,800 cumulative combos** (each run adds ~9.4k then 429s). Continue spaced dispatches through the pass; P4 evaluates a bulk-export switch.
