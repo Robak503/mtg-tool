@@ -295,49 +295,129 @@ describe("pickAttackPlan — competent racer profitability", () => {
   });
 });
 
-describe("pickBlockPlan", () => {
-  function makePerm({ id, power = 1, toughness = 1 }) {
+describe("pickBlockPlan — W3 block plan v2 (value / lethal-chump / decline)", () => {
+  function makePerm({ id, power = 1, toughness = 1, controller = "user", keywords }) {
     return {
       id,
-      card: { name: id, type: "Creature — Beast", power, toughness },
-      controller: "user",
+      card: { name: id, type: "Creature — Beast", power, toughness, ...(keywords ? { keywords } : {}) },
+      controller,
       tapped: false,
       summoningSick: false,
       counters: {}, attachments: [], attachedTo: null,
     };
   }
 
-  it("assigns at most one blocker per attacker, preferring smallest-power", () => {
-    const state = makeState({
-      battlefield: [
-        makePerm({ id: "perm-small", power: 1 }),
-        makePerm({ id: "perm-big", power: 5 }),
+  // Declare-blockers state: user attacking the ai seat.
+  function blockState({ aiCreatures, userAttackers, aiLife = 40 }) {
+    const base = createGameState({ userDeck: [], aiDeck: [] });
+    return {
+      ...base,
+      activePlayer: "user", phase: "combat", step: "declare-blockers", priorityHolder: "ai",
+      combat: {
+        attackers: userAttackers.map(p => ({ permanentId: p.id, attackingPlayer: "user", defender: "ai" })),
+        blockers: [],
+      },
+      players: {
+        user: { ...base.players.user, battlefield: userAttackers },
+        ai: { ...base.players.ai, life: aiLife, battlefield: aiCreatures },
+      },
+    };
+  }
+  const blk = (blockerId, attackerId) => ({ kind: "declare-blocker", permanentId: blockerId, attackerId, name: blockerId });
+
+  it("VALUE-blocks with the creature that kills and survives — not the legacy smallest chump", () => {
+    // Incoming 2/2; we hold a 1/1 and a 3/3. v1 chumped the 1/1 (dies, kills
+    // nothing); v2 blocks with the 3/3 (kills the 2/2 and survives).
+    const state = blockState({
+      aiCreatures: [
+        makePerm({ id: "b-small", power: 1, toughness: 1, controller: "ai" }),
+        makePerm({ id: "b-big", power: 3, toughness: 3, controller: "ai" }),
+      ],
+      userAttackers: [makePerm({ id: "a-bear", power: 2, toughness: 2 })],
+    });
+    const plan = pickBlockPlan(state, "ai", [blk("b-small", "a-bear"), blk("b-big", "a-bear")]);
+    expect(plan).toHaveLength(1);
+    expect(plan[0].permanentId).toBe("b-big");
+  });
+
+  it("declines to block at high life instead of chump-feeding the lone 8/8", () => {
+    const state = blockState({
+      aiCreatures: [makePerm({ id: "b-small", power: 1, toughness: 1, controller: "ai" })],
+      userAttackers: [makePerm({ id: "a-fat", power: 8, toughness: 8 })],
+      aiLife: 40,
+    });
+    expect(pickBlockPlan(state, "ai", [blk("b-small", "a-fat")])).toEqual([]);
+  });
+
+  it("chump-blocks the same 8/8 when the unblocked swing is lethal", () => {
+    const state = blockState({
+      aiCreatures: [makePerm({ id: "b-small", power: 1, toughness: 1, controller: "ai" })],
+      userAttackers: [makePerm({ id: "a-fat", power: 8, toughness: 8 })],
+      aiLife: 6,
+    });
+    const plan = pickBlockPlan(state, "ai", [blk("b-small", "a-fat")]);
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toMatchObject({ permanentId: "b-small", attackerId: "a-fat" });
+  });
+
+  it("takes the TRADE up: a 1/1 deathtouch blocker eats the 7/7", () => {
+    const state = blockState({
+      aiCreatures: [makePerm({ id: "b-dt", power: 1, toughness: 1, controller: "ai", keywords: ["Deathtouch"] })],
+      userAttackers: [makePerm({ id: "a-fat", power: 7, toughness: 7 })],
+    });
+    const plan = pickBlockPlan(state, "ai", [blk("b-dt", "a-fat")]);
+    expect(plan).toHaveLength(1);
+    expect(plan[0].permanentId).toBe("b-dt");
+  });
+
+  it("refuses to trade DOWN: a 5/2 doesn't block a 2/2 at high life", () => {
+    // The 5/2 kills the 2/2 but dies back (2 >= 2) — trading a 5/2 for a 2/2
+    // loses material, and at 40 life there's no pressure to do it.
+    const state = blockState({
+      aiCreatures: [makePerm({ id: "b-glass", power: 5, toughness: 2, controller: "ai" })],
+      userAttackers: [makePerm({ id: "a-bear", power: 2, toughness: 2 })],
+    });
+    expect(pickBlockPlan(state, "ai", [blk("b-glass", "a-bear")])).toEqual([]);
+  });
+
+  it("a first-strike blocker VALUE-blocks an equal vanilla it kills untouched", () => {
+    // 3/3 first strike vs vanilla 3/3: the blocker kills in the first-strike step
+    // and never takes damage back — a value block, not a trade.
+    const state = blockState({
+      aiCreatures: [makePerm({ id: "b-fs", power: 3, toughness: 3, controller: "ai", keywords: ["First strike"] })],
+      userAttackers: [makePerm({ id: "a-van", power: 3, toughness: 3 })],
+    });
+    const plan = pickBlockPlan(state, "ai", [blk("b-fs", "a-van")]);
+    expect(plan).toHaveLength(1);
+    expect(plan[0].permanentId).toBe("b-fs");
+  });
+
+  it("never wastes a single blocker on a MENACE attacker (one blocker resolves as unblocked)", () => {
+    const state = blockState({
+      aiCreatures: [makePerm({ id: "b-big", power: 5, toughness: 5, controller: "ai" })],
+      userAttackers: [makePerm({ id: "a-men", power: 3, toughness: 3, keywords: ["Menace"] })],
+    });
+    expect(pickBlockPlan(state, "ai", [blk("b-big", "a-men")])).toEqual([]);
+  });
+
+  it("policy 'v1' recovers the legacy chump-every-attacker-with-the-smallest plan", () => {
+    const state = blockState({
+      aiCreatures: [
+        makePerm({ id: "b-small", power: 1, toughness: 1, controller: "ai" }),
+        makePerm({ id: "b-big", power: 5, toughness: 5, controller: "ai" }),
+      ],
+      userAttackers: [
+        makePerm({ id: "a1", power: 4, toughness: 4 }),
+        makePerm({ id: "a2", power: 4, toughness: 4 }),
       ],
     });
     const blockerActions = [
-      { kind: "declare-blocker", permanentId: "perm-small", attackerId: "a1", name: "small" },
-      { kind: "declare-blocker", permanentId: "perm-big", attackerId: "a1", name: "big" },
-      { kind: "declare-blocker", permanentId: "perm-small", attackerId: "a2", name: "small" },
+      blk("b-small", "a1"), blk("b-big", "a1"), blk("b-small", "a2"),
     ];
-    // Note: in this setup, "small" is in user's battlefield (defender)
-    // because we set opponentBattlefield via the "battlefield" key in
-    // makeState's user perspective. The picker reads ai's permanents,
-    // not user's, so swap:
-    const swapped = {
-      ...state,
-      players: {
-        ...state.players,
-        ai: { ...state.players.ai, battlefield: state.players.user.battlefield },
-        user: { ...state.players.user, battlefield: [] },
-      },
-    };
-    const plan = pickBlockPlan(swapped, "ai", blockerActions);
+    const plan = pickBlockPlan(state, "ai", blockerActions, { policy: "v1" });
     expect(plan).toHaveLength(2);
-    // Each attacker assigned at most one blocker.
-    const attackers = plan.map(p => p.attackerId);
-    expect(new Set(attackers).size).toBe(2);
-    // The "small" blocker is preferred (lower power = better chump).
-    expect(plan.some(p => p.permanentId === "perm-small")).toBe(true);
+    expect(new Set(plan.map(p => p.attackerId)).size).toBe(2);
+    expect(plan.some(p => p.permanentId === "b-small")).toBe(true);
   });
 
   it("returns empty when no block actions exist", () => {

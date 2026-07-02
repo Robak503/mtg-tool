@@ -99,11 +99,13 @@ describe("pickAction — combat-aware", () => {
   });
 
   it("returns a declare-blocker during the declare-blockers step", () => {
+    // W3 re-anchor: the attacker must be a REAL permanent (the block plan reads its
+    // derived stats to judge profitability — an even 2/2-for-2/2 trade is taken).
     const state = buildState({
       step: "declare-blockers",
       activePlayer: "user",
       priorityHolder: "ai",
-      userBf: [],
+      userBf: [creature("Attacker", "att", "user", { tapped: true })],
       aiBf: [creature("Blocker", "blk", "ai")],
       combat: { attackers: [{ permanentId: "att", attackingPlayer: "user", defender: "ai" }], blockers: [] },
     });

@@ -31,6 +31,7 @@ import { opponentsOf, findPermanent } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
+import { attackerHasMenace } from "./combatEvasion.js";
 import { programContainsCounter, programContainsMassRemoval, programContainsTeamPump, programContainsFog, atomTargetIntent } from "./effects/parser.js";
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
@@ -367,32 +368,163 @@ function pickAllAttackers(attackerActions) {
   return attackerActions;
 }
 
+// ─── Combat policy math (shared by the block plan + the attack filter) ────────
+
+/** Deathtouch on a permanent (layer-aware), guarded against bad ids. */
+function hasDeathtouch(state, permanentId) {
+  try { return permanentHasKeyword(state, permanentId, "Deathtouch"); } catch { return false; }
+}
+
+/** Menace on an attacker (layer-aware via combatEvasion), guarded against bad ids. */
+function hasMenace(state, permanentId) {
+  try { return attackerHasMenace(state, permanentId); } catch { return false; }
+}
+
+/** Derived combat stats of a live permanent, or null when it can't be resolved. */
+function combatStatsOf(state, permanentId) {
+  try {
+    if (!findPermanent(state, permanentId)?.permanent) return null;
+    return {
+      id: permanentId,
+      power: Math.max(0, permanentPower(state, permanentId)),
+      toughness: permanentToughness(state, permanentId),
+      firstStrike: hasFirstStrike(state, permanentId),
+      deathtouch: hasDeathtouch(state, permanentId),
+    };
+  } catch { return null; }
+}
+
 /**
- * Pick blocking assignments. v1 policy: block only when the AI has
- * a higher-toughness creature than the attacker's power (no trades,
- * just chumps when forced). For PR4 we keep this minimal — pick one
- * blocker per attacker, preferring the smallest legal blocker.
- * Returns an array of declare-blocker actions.
+ * Outcome of one attacker/blocker duel (POLICY math, not rules execution — the
+ * real combat step stays combatResolution.js; this only RANKS offered actions).
+ * Honors first/double-strike asymmetry (the lone first-striker kills before
+ * taking damage back, CR 510.5) and deathtouch (any nonzero hit is lethal,
+ * CR 702.2b). Both stat objects come from combatStatsOf (derived, layer-aware).
  */
-function pickBlockers(blockerActions, state) {
+function combatDuel(att, blk) {
+  const aHit = (att.deathtouch && att.power > 0) || (blk.toughness > 0 && att.power >= blk.toughness);
+  const bHit = (blk.deathtouch && blk.power > 0) || (att.toughness > 0 && blk.power >= att.toughness);
+  if (blk.firstStrike && !att.firstStrike) {
+    const attackerDies = bHit;
+    return { attackerDies, blockerDies: attackerDies ? false : aHit };
+  }
+  if (att.firstStrike && !blk.firstStrike) {
+    const blockerDies = aHit;
+    return { attackerDies: blockerDies ? false : bHit, blockerDies };
+  }
+  return { attackerDies: bHit, blockerDies: aHit };
+}
+
+/**
+ * Pick blocking assignments (W3 — block plan v2). Per attacker, in threat order
+ * (power desc), with one blocker per attacker (the per-tick driver drains one
+ * block per tick and excludes already-blocked attackers):
+ *   1. VALUE block — a blocker that kills it AND survives → smallest such blocker;
+ *   2. TRADE block — kills it but dies: taken only when trading up or even
+ *      (attacker power ≥ blocker power — never feed a bigger body to a smaller one);
+ *   3. CHUMP — ONLY under lethal pressure (total unblocked incoming face damage
+ *      ≥ our life): soak the biggest attackers with the smallest spare blockers;
+ *   4. otherwise NO BLOCK — take the damage. (The legacy policy chump-blocked
+ *      EVERY attacker with its smallest creature, feeding the whole board away
+ *      one 1/1 at a time; `pol.block === "v1"` recovers it for the A/B probe.)
+ * A MENACE attacker is never single-blocked: one blocker resolves as unblocked
+ * (CR 509.1c — combatResolution treats it as unblocked), so the block would be a
+ * pure no-op. (Double-block support is a parked follow-on — the per-tick driver
+ * currently assigns at most one blocker per attacker.)
+ * Legality is entirely the offered set's (legalChoices already ran
+ * canBlockAttacker); this function only ranks what was offered. Deterministic:
+ * attackers by power desc then id; blockers by power asc then id.
+ */
+function pickBlockers(blockerActions, state, aiPlayerId, pol = {}) {
   if (blockerActions.length === 0) return [];
 
-  // Group by attackerId so each gets at most one blocker.
-  const assigned = new Map();
-  const sorted = [...blockerActions].sort((a, b) => {
-    // Prefer smaller creatures (cheaper-to-lose chump blockers). DERIVED power
-    // (anthems/lords applied), so the AI chumps with what's actually smallest (F7a).
-    const aPow = Math.max(0, permanentPower(state, a.permanentId));
-    const bPow = Math.max(0, permanentPower(state, b.permanentId));
-    return aPow - bPow;
-  });
+  if (pol.block === "v1") {
+    // BLOCK-V1 (legacy, probe-only): chump EVERY attacker with the smallest blocker.
+    const assigned = new Map();
+    const sorted = [...blockerActions].sort((a, b) => {
+      const aPow = Math.max(0, permanentPower(state, a.permanentId));
+      const bPow = Math.max(0, permanentPower(state, b.permanentId));
+      return aPow - bPow;
+    });
+    for (const action of sorted) {
+      if (!assigned.has(action.attackerId)) assigned.set(action.attackerId, action);
+    }
+    return [...assigned.values()];
+  }
 
-  for (const action of sorted) {
-    if (!assigned.has(action.attackerId)) {
-      assigned.set(action.attackerId, action);
+  // Group the offered blocks per attacker; resolve stats once per participant.
+  const byAttacker = new Map();
+  for (const action of blockerActions) {
+    if (!byAttacker.has(action.attackerId)) byAttacker.set(action.attackerId, []);
+    byAttacker.get(action.attackerId).push(action);
+  }
+  const blockerStats = new Map();
+  for (const action of blockerActions) {
+    if (!blockerStats.has(action.permanentId)) blockerStats.set(action.permanentId, combatStatsOf(state, action.permanentId));
+  }
+
+  const byId = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
+  const plan = [];
+  const usedBlockers = new Set();
+  const blockedAttackers = new Set();
+  const candidatesFor = (attackerId) => (byAttacker.get(attackerId) || [])
+    .map((action) => ({ action, stats: blockerStats.get(action.permanentId) }))
+    .filter((c) => c.stats && !usedBlockers.has(c.action.permanentId))
+    .sort((x, y) => (x.stats.power - y.stats.power) || byId(x.stats.id, y.stats.id));
+  const take = (pick, attackerId) => {
+    plan.push(pick.action);
+    usedBlockers.add(pick.action.permanentId);
+    blockedAttackers.add(attackerId);
+  };
+
+  // Attackers in threat order. An attacker we can't resolve (bare/corrupt state —
+  // real boards always resolve) is skipped: blocks are optional, and with no stats
+  // a block can't be judged profitable.
+  const attackers = [...byAttacker.keys()]
+    .map((id) => combatStatsOf(state, id))
+    .filter(Boolean)
+    .sort((a, b) => (b.power - a.power) || byId(a.id, b.id));
+
+  for (const att of attackers) {
+    if (hasMenace(state, att.id)) continue; // a single block on menace is a no-op
+    const candidates = candidatesFor(att.id);
+    let pick = candidates.find(({ stats }) => {
+      const { attackerDies, blockerDies } = combatDuel(att, stats);
+      return attackerDies && !blockerDies; // VALUE: kills it, survives it
+    });
+    if (!pick) {
+      pick = candidates.find(({ stats }) => {
+        const { attackerDies, blockerDies } = combatDuel(att, stats);
+        return attackerDies && blockerDies && att.power >= stats.power; // TRADE up/even
+      });
+    }
+    if (pick) take(pick, att.id);
+  }
+
+  // CHUMP stage — only when the remaining unblocked FACE damage is lethal.
+  // Walker-directed attacks don't hit our life total; already-declared blocks
+  // (state.combat.blockers — earlier ticks) and this plan's blocks are excluded.
+  const alreadyBlocked = new Set((state.combat?.blockers || []).map((b) => b.attackerId));
+  const faceAttackers = (state.combat?.attackers || [])
+    .filter((a) => a.attackingPlayer !== aiPlayerId && a.defender === aiPlayerId && !a.defenderPlaneswalkerId)
+    .map((a) => combatStatsOf(state, a.permanentId))
+    .filter(Boolean);
+  const unblockedFace = () => faceAttackers.filter((a) => !alreadyBlocked.has(a.id) && !blockedAttackers.has(a.id));
+  let incoming = unblockedFace().reduce((s, a) => s + a.power, 0);
+  const life = state.players?.[aiPlayerId]?.life ?? 0;
+  if (life > 0 && incoming >= life) {
+    const targets = unblockedFace().sort((a, b) => (b.power - a.power) || byId(a.id, b.id));
+    for (const t of targets) {
+      if (incoming < life) break;
+      if (hasMenace(state, t.id)) continue; // a lone chump on menace absorbs nothing
+      const candidates = candidatesFor(t.id);
+      if (candidates.length === 0) continue;
+      take(candidates[0], t.id); // smallest spare blocker soaks the biggest attacker
+      incoming -= t.power;
     }
   }
-  return [...assigned.values()];
+
+  return plan;
 }
 
 // ─── Loyalty-ability piloting (PW-3) ────────────────────────────────────────────
@@ -519,7 +651,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
     const blocked = new Set((state.combat?.blockers || []).map(b => b.attackerId));
     const blockerActions = filterActions(actions, "declare-blocker").filter(a => !blocked.has(a.attackerId));
     if (blockerActions.length > 0) {
-      const plan = pickBlockPlan(state, aiPlayerId, blockerActions);
+      const plan = pickBlockPlan(state, aiPlayerId, blockerActions, { policy: pol });
       if (plan.length > 0) return plan[0];
     }
   }
@@ -775,12 +907,12 @@ function chooseWalkerToKill(state, aiPlayerId, attackerActions, targetPlayer, ch
 }
 
 /**
- * Batch-decision picker for declare-blockers.
+ * Batch-decision picker for declare-blockers. `aiPlayerId` (the defending seat)
+ * feeds the W3 facing-lethal pressure check; `policy` selects the probe's legacy
+ * block plan ("v1" = the old chump-everything policy).
  */
-export function pickBlockPlan(state, _aiPlayerId, blockerActions) {
-  // _aiPlayerId kept for the stable positional API; block sizing now reads
-  // derived power straight off `state` (F7a), so the owner id isn't needed.
-  return pickBlockers(blockerActions, state);
+export function pickBlockPlan(state, aiPlayerId, blockerActions, { policy = null } = {}) {
+  return pickBlockers(blockerActions, state, aiPlayerId, normalizePolicy(policy));
 }
 
 // ─── Deck-context helper ──────────────────────────────────────────────────────
