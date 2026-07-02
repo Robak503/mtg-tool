@@ -1,5 +1,14 @@
 # ALT-COST casting subsystem — build-ready design (2026-07-02, Clyde)
 
+> **STATUS (2026-07-02): the COVERAGE half shipped a simpler way; the OFFER subsystem below is DEFERRED.**
+> All 16 alt-cost cards flipped native via a pure **parser strip** (waves 3a/3b/3c on PR #383) — the alt-cost
+> sentence is removed like the flashback/jump-start `CAST_KEYWORD_LINE` strips, the effect body parses, and the
+> card is native because its effect is modeled + it's castable at its PRINTED mana cost (the alt-cost is recorded
+> as `program.altCost` metadata, forward-compatible). That is COVERAGE. Everything below — the legalChoices
+> dual-OFFER, the actionDispatcher alt-PAYMENT, the AI decision — is the PLAY-QUALITY layer (so the AI actually
+> pays life/exiles/sacs to cast for the alt cost). It is **ON HOLD** per Colton (AI play-quality slices wait on
+> the Omnath pass). When built, it consumes the `program.altCost` metadata the strip already attaches.
+
 > The 13-deck ceiling-breaker: 10 cards blocked SOLELY by a printed alternative casting cost, whose
 > base effect ALREADY parses `native-spell` HIGH once the alt-cost sentence (always line 0) is stripped.
 > Grounded per-card via live `parseEffectProgram`/`classifyCard` probes. Build behind the flip-diff,

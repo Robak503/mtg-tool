@@ -2,23 +2,27 @@
 
 > Live grind session on top of v0.85.0. Integrating via **PR [#383](https://github.com/Robak503/mtg-tool/pull/383)** (rolling branch `claude/clever-liskov-6e04be`) — direct ff-push to master is blocked by the auto-mode classifier (as the CREED discipline documents: master push is PR-only), so waves stack as individually-verified commits on the PR. **Merge #383 when ready, or add a Bash permission rule to authorize direct-to-master pushes for the faster ff-grind.**
 
-## Fresh census (realism gate, main-tree oracle)
-Corpus **25.3% native** (8652/34160). Per-deck laggards→leaders: Yuriko 53 · Rog/Thras 54 · Kellan/Cap 55 · Wolverine 56 · Mothman 58 · Kinnan 60 · Pantlaza 68 · Toph 71 · Ur-Dragon 72 · Omnath 76 · Zaxara 79 · Koma 82 · Vihaan 83 · Sliver 92. Aggregate 68% (1014/1500).
+## Census (realism gate, main-tree oracle) — after the alt-cost waves
+Corpus **25.4% native** (8669/34160, +17 this session). Per-deck (▲ = moved this session):
+Wolverine 56 · Kellan 56▲ · Cap 57▲ · **Rog/Thras 58▲(+4)** · Mothman 58 · **Yuriko 61▲(+8)** · **Kinnan 63▲(+3)** · Pantlaza 68 · Toph 71 · Ur-Dragon 72 · Omnath 77▲ · Zaxara 79 · Koma 82 · Vihaan 83 · Sliver 92. **Aggregate 68→69%** (1014→1033/1500). The three worst laggards (Yuriko/Rog-Thras/Kinnan) got the biggest boosts — the alt-cost lever landed exactly where intended.
 
-## ★ META-FINDING (5-agent recon): the clean mechanic-levers are mostly ALREADY MODELED post-overhaul
-Token-on-trigger (incl. Treasure/Food — even the token-ETB-trigger gap is fixed), enters-with-X counters, and most +1/+1-counter infra are already native. The remaining deck gap is **(A) one big clean lever (alt-cost casting) + (B) a scatter of small 1-2-card slices.**
+## ★ META-FINDINGS
+1. **(5-agent recon)** post-overhaul the clean mechanic-levers are mostly ALREADY MODELED (token-on-trigger incl. Treasure/Food, enters-with-X counters, most +1/+1-counter infra). Remaining deck gap = alt-cost (now DONE) + a scatter of small 1-2-card slices + the genuine Arbiter tail (tutors/wheels/storm/redirect).
+2. **★ ALT-COST = a PARSER-STRIP, not an offer subsystem.** A printed alternative casting cost ("… rather than pay this spell's mana cost" / "you may cast without paying its mana cost") is stripped EXACTLY like the flashback/jump-start/overload `CAST_KEYWORD_LINE` strips (Cyclonic Rift / Firebolt are native today by this logic): remove the alt-cast sentence, the effect body parses, the card is native because its effect is modeled + it's castable at its PRINTED mana cost. The alt-cost is recorded as `program.altCost` metadata but NOT yet OFFERED — a safe FN on an optional discount (the card never plays wrong). **This is COVERAGE work; OFFERING the alt-cost (AI pays life/exiles/sacs) is the deferred play-quality follow-up** (the full offer subsystem in [alt-cost-design.md](alt-cost-design.md) — that doc describes the OFFER; only the strip shipped).
 
-## SHIPPED (on PR #383)
-- **Wave 1 — COUNTER-QUALIFIED count-source** (+1 native: Armorcraft Judge). `parseCountSource` + `countForSpec` gain a `+1/+1`-counter-qualified creature count. vitest 6589 · lint clean · flip-diff LOST=0 GAINED=1 · program-fp 1 row. Prereq for Inspiring Call.
-- **Alt-cost subsystem DESIGN complete** → [alt-cost-design.md](alt-cost-design.md) (build-ready, grounded per-card; all 10 base bodies confirmed native-spell HIGH). NOT YET BUILT.
+## SHIPPED (on PR #383, all battery-verified: vitest green no-MTG_APP_ROOT · lint · tier flip-diff LOST=0 · program-fp audited · runtime-consistent via parseEffectProgram)
+- **Wave 1 — COUNTER-QUALIFIED count-source** (+1: Armorcraft Judge). `parseCountSource`+`countForSpec` gain a `+1/+1`-counter-qualified creature count. Prereq for Inspiring Call.
+- **Wave 3a — ALT-COST free-if-commander strip** (+3: Fierce Guardianship [×5 decks], Deadly Rollick, Flawless Maneuver).
+- **Wave 3b/3c — ALT-COST all shapes** (+13: the 7 targets [Force of Will/Negation, Flare of Denial/Cultivation, Gush, Snuff Out, Submerge] + 6 corpus [Cave-In, Pyrokinesis, Rouse, Snapback, Thwart, Unmask]). Matcher list: free / pay-life+exile pitch / exile-color / sac-creature / pay-life / return-lands. Each GAINED audited (body fully parsed, modeled atom, castable at printed cost); FP canaries stay arbiter (Foil/Misdirection/Commandeer/Disrupting Shoal/Deflecting Swat).
 
-## ▶️ EXACT NEXT STEP (for the next /loop fire)
-**Build alt-cost Wave 3a (free-if-commander)** per [alt-cost-design.md](alt-cost-design.md) §"Sub-waves". Flips Fierce Guardianship (×5 decks!), Deadly Rollick, Flawless Maneuver. Files: parser.js (extractAltCost + wiring + `SUPPORTED_ALT_COST_KINDS` gate, mirroring extractAdditionalCosts @ parser.js:1160-1203/1343-1352/1982) + legalChoices.js (free dual-offer + `altCostConditionHolds` controlCommander gate, mirroring the additionalCosts dual-offer) + opponentAI.js (prefer-free). actionDispatcher needs NO new code for the free kind (reuses `action.freeCast` skip @ :208). SAFE BUILD ORDER: wire everything with `SUPPORTED_ALT_COST_KINDS` empty (cards stay LOW/safe), verify each piece, then add `"free"` to the set LAST + run the full battery. **Battery incl. trajectory-hash RE-ANCHOR + play-quality probe** (cast-path change; 3a is trivially non-negative since free ≤ paid). Then 3b (pitch/exile) → 3c (sac/return). Foil MUST stay arbiter (the FP canary).
-
-## RANKED PLAN (grinding in order)
-1. ✅ Wave 1 (above).
-2. **Wave 2 — ALT-COST casting subsystem** (the big lever, ACTIVE — design in progress): 10 cards blocked SOLELY by a printed alt-cost rider, base effect already native-spell once stripped — Fierce Guardianship, Force of Will/Negation, Flare of Denial/Cultivation, Submerge, Gush, Deadly Rollick, Snuff Out, Flawless Maneuver. 19 occ / 6 decks (Yuriko 8, Rog/Thras 4, Kinnan 3, Cap 2, Omnath 1, Kellan 1). **M-sized, buildable** (dual cast-offer branch parallel to kicker/additionalCosts; `action.freeCast` skip-payment primitive exists; manaModel unchanged) but touches central cast files (legalChoices/actionDispatcher/parser) → dedicated, carefully-verified wave, likely sub-waved (3a free-if-commander → 3b pitch/exile → 3c sac/return). **The ceiling-breaker for the cEDH laggards.**
-3. **Wave 3+ (fan-out, disjoint files, each ~1-2 cards / M-ish):** distribute-N-counters atom + pendingChoice (Earth Crystal x2 Toph/Wolverine), `becomes tapped` trigger event + runtime hook (Tale of Katara/Toph x2), Inspiring Call targeted 2-sentence template (cross-clause "those creatures" referent; 1 card / x4 decks; FP-safe exact template), Hungering Hydra dmg→counter referent (1 card).
+## ▶️ NEXT (for the next /loop fire) — the alt-cost lever is fully mined
+Re-run the realism gate (board moved), then pick the top remaining slice. Candidates (each ~1-2 cards, M-ish, DISJOINT files):
+- **distribute-N-counters atom + pendingChoice** → The Earth Crystal (Toph+Wolverine x2).
+- **`becomes tapped` trigger event + runtime hook** → Tale of Katara and Toph (Toph+Wolverine x2).
+- **Inspiring Call targeted 2-sentence template** (cross-clause "those creatures" referent → grant to the counter-filtered set; x4 decks; FP-safe exact template; builds on Wave 1's requiresCounter).
+- **Hungering Hydra** dmg-amount→counter referent (1 card).
+- OR a fresh census-driven lever hunt — the remaining laggard gaps (Yuriko/Rog-Thras 39-42 cards) are now largely the genuine Arbiter tail (tutors/wheels/storm/redirect/cumulative-upkeep/opponent-draws — see PARKED).
+- **Deferred play-quality (ON HOLD per Colton — Omnath pass):** the alt-cost OFFER subsystem (legalChoices dual-offer + actionDispatcher alt-payment + AI) so the AI actually USES the alt-costs. Full design in alt-cost-design.md.
 
 ## PARKED (recon-determined — need judgment / bigger design; NOT clean levers)
 - **Tax-on-opponent-cast** ("unless they pay {N}"): only ~2 clean cards (Rhystic Study, Esper Sentinel); needs an opponent-pay pendingChoice subsystem (clonable from soft-counter) for poor ROI. Rhystic Study family otherwise blocked by cumulative upkeep / an unmodeled **opponent-draws** trigger event.
