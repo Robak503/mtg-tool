@@ -11,7 +11,7 @@
  * later slices generalize to "up to two target creatures" (damage/destroy/bounce/pump, 111 cards).
  */
 import { describe, it, expect, beforeEach } from "vitest";
-import { createGameState, _resetIdsForTests } from "../gameState.js";
+import { createGameState, createPermanent, _resetIdsForTests } from "../gameState.js";
 import { parseEffectProgram } from "./parser.js";
 import { expandCastChoices } from "./targeting.js";
 import { runEffectProgram } from "./runProgram.js";
@@ -88,5 +88,56 @@ describe("multi-count — runtime (resolver already loops)", () => {
     const out = runEffectProgram(s, { source: { name: "Morbid Plunder" }, payload: { params: { program: p, controller: "user", targets: [] } } });
     expect(out.players.user.hand).toHaveLength(0);
     expect(out.players.user.graveyard).toHaveLength(3);
+  });
+});
+
+// ─── Slice B: battlefield atoms (bounce / tap) — same infra, generic over `tagged` ───────────────
+const battlefield = (specs) => {
+  const s = createGameState({ userDeck: [], aiDeck: [] });
+  const mk = (pid) => (o) => createPermanent({ id: o.id, card: { id: `c-${o.id}`, name: o.id, type: o.type || "Creature — Bear", oracle: "" }, controller: pid, summoningSick: false });
+  const next = { ...s, players: { ...s.players } };
+  for (const [pid, list] of Object.entries(specs)) next.players[pid] = { ...next.players[pid], battlefield: list.map(mk(pid)), hand: [] };
+  return next;
+};
+
+describe("multi-count — bounce (return N to owners' hands)", () => {
+  it("parses 'return up to two target creatures to their owners' hands' → maxTargets:2", () => {
+    const a = prog("Return up to two target creatures to their owners' hands.").atoms[0];
+    expect(a).toMatchObject({ op: "bounce", targetType: "creature", maxTargets: 2, minTargets: 0 });
+  });
+
+  it("single-target bounce is untouched (no maxTargets)", () => {
+    expect(prog("Return target creature to its owner's hand.").atoms[0].maxTargets).toBeUndefined();
+  });
+
+  it("resolving two chosen targets bounces BOTH to hand", () => {
+    const s = battlefield({ user: [{ id: "a" }, { id: "b" }], ai: [{ id: "x" }] });
+    const p = prog("Return up to two target creatures to their owners' hands.");
+    const targets = [{ type: "creature", id: "a", controller: "user", atomIndex: 0 }, { type: "creature", id: "x", controller: "ai", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Into the Void" }, payload: { params: { program: p, controller: "user", targets } } });
+    expect(out.players.user.battlefield.map((pm) => pm.id)).toEqual(["b"]); // a bounced
+    expect(out.players.ai.battlefield).toHaveLength(0);                     // x bounced
+    expect(out.players.user.hand.map((c) => c.id)).toContain("c-a");        // to its OWN owner's hand
+    expect(out.players.ai.hand.map((c) => c.id)).toContain("c-x");
+  });
+});
+
+describe("multi-count — tap (tap up to N target creatures)", () => {
+  it("parses 'tap up to two target creatures' → maxTargets:2", () => {
+    expect(prog("Tap up to two target creatures.").atoms[0]).toMatchObject({ op: "tap", targetType: "creature", maxTargets: 2, minTargets: 0 });
+  });
+
+  it("a FILTERED multi-tap stays LOW → Arbiter (FN-safe, deferred)", () => {
+    const p = prog("Tap up to two target creatures you control.");
+    expect(p.atoms).toHaveLength(0);
+  });
+
+  it("resolving two chosen targets taps BOTH", () => {
+    const s = battlefield({ ai: [{ id: "x" }, { id: "y" }, { id: "z" }] });
+    const p = prog("Tap up to two target creatures.");
+    const targets = [{ type: "creature", id: "x", controller: "ai", atomIndex: 0 }, { type: "creature", id: "z", controller: "ai", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Feeling of Dread" }, payload: { params: { program: p, controller: "user", targets } } });
+    const tapped = new Set(out.players.ai.battlefield.filter((pm) => pm.tapped).map((pm) => pm.id));
+    expect(tapped).toEqual(new Set(["x", "z"])); // y untouched
   });
 });

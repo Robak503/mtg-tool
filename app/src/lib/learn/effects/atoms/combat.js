@@ -553,6 +553,15 @@ export function combatKeywordClauseParser(clause) {
   // rider falls through → low → Arbiter (CREED: model the whole clause or nothing).
   // The bare form OR the lock rider (splitClauses folds Koma's ". Its activated abilities can't be activated
   // this turn." into "… and its activated abilities can't be activated this turn", so it arrives as one clause).
+  // MULTI-COUNT (CR 601.2c "up to N") — "tap up to <N> target creatures|permanents" (each tapped; applyTapEffect
+  // already loops ctx.targets). Same tap resolver + a maxTargets count → targeting.expandAtoms offers each 0..N
+  // subset. BARE forms only — a per-target restriction ("… you control") stays LOW → Arbiter (FN-safe; the
+  // restriction would need wiring the single-target path has but this slice keeps minimal). minTargets:0.
+  const multiTapM = t.match(/^tap up to (two|three|four|five) target (creatures|permanents)$/);
+  if (multiTapM) {
+    const n = SMALL_NUM[multiTapM[1]];
+    if (n >= 2) return { op: "tap", targetType: multiTapM[2] === "creatures" ? "creature" : "permanent", restrictions: [], maxTargets: n, minTargets: 0 };
+  }
   const tapPermM = t.match(/^tap target permanent( and its activated abilities can't be activated this turn)?\.?$/);
   if (tapPermM) {
     return { op: "tap", targetType: "permanent", restrictions: [], ...(tapPermM[1] ? { lockActivated: true } : {}) };
