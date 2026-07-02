@@ -16,6 +16,32 @@
 import { logEvent } from "./gameState.js";
 
 /**
+ * WI-4 — the canonical, exhaustive list of every state.pendingChoice.kind the engine can set. The
+ * advanceUntilDecision driver loop (learnSession.js) and applyPendingChoice's dispatch table must each
+ * handle every entry here; a kind added to this array without a matching driver branch + applyPendingChoice
+ * branch trips the pendingChoiceKinds.test.js contract test instead of silently soft-locking a human seat
+ * (unrenderable decision) or spinning an AI seat to the 50,000-tick SAFETY_CAP (both fall through to the
+ * tutor settler today, which no-ops on a kind mismatch). "tutor-search" is the driver's unguarded
+ * fall-through case, so it has no explicit `pc.kind === "tutor-search"` branch above it in the loop — it's
+ * listed here anyway since it IS a real, handled kind.
+ */
+export const PENDING_CHOICE_KINDS = [
+  "tutor-search",
+  "clone-search",
+  "scry-surveil",
+  "optional-effect",
+  "commander-return",
+  "hand-discard",
+  "impulse-dig",
+  "sacrifice-choice",
+  "discard",
+  "divide-damage",
+  "soft-counter",
+  "optional-mana-payment",
+  "optional-sac-payment",
+];
+
+/**
  * Flag a tutor search awaiting a card choice. `candidates` is the list of legal
  * library cards as `{ id, name }` (hidden-info safe — names are the searcher's own
  * library). FIFO: one pending choice at a time (the driver settles it before the

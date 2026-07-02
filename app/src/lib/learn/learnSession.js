@@ -1186,16 +1186,34 @@ export function advanceUntilDecision(
       }
       // Tutor library search. A pilot may fetch a different legal candidate (or find nothing — CR
       // 701.19f); default = the auto-pick (highest-MV), byte-identical.
-      if (pause) {
-        return { session: current, decision: { kind: "tutor-search", ...pc } };
+      if (pc.kind === "tutor-search") {
+        if (pause) {
+          return { session: current, decision: { kind: "tutor-search", ...pc } };
+        }
+        const tutorPick = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingPickActions(pc, { allowDecline: true }),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickTutorCandidate(current.state, pc) },
+        });
+        current = { ...current, state: settleTutorChoice(current.state, tutorPick.candidateId) };
+        continue;
       }
-      const tutorPick = decidePendingChoice({
-        decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
-        buildOffered: () => pendingPickActions(pc, { allowDecline: true }),
-        fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickTutorCandidate(current.state, pc) },
-      });
-      current = { ...current, state: settleTutorChoice(current.state, tutorPick.candidateId) };
-      continue;
+      // WI-4 FAILSAFE — an unhandled pendingChoice.kind (a future kind added to PENDING_CHOICE_KINDS
+      // without a driver branch above, or state corruption). Previously this silently fell through to
+      // the tutor settler, which no-ops on a kind mismatch — an AI seat would spin every tick to the
+      // 50,000-tick SAFETY_CAP ("engine-stuck"), and a human seat would surface an unrenderable decision.
+      // Fail honestly instead: log it, clear the choice so the driver isn't stuck, and surface a real
+      // engine-stuck decision immediately (no spin, no silent no-op).
+      {
+        const loggedState = logEvent(current.state, {
+          kind: "pending-choice-unhandled", choiceKind: pc.kind, controller: pc.controller ?? null,
+        });
+        current = { ...current, state: clearPendingChoice(loggedState) };
+        return {
+          session: current,
+          decision: { kind: "engine-stuck", reason: `no driver branch for pendingChoice kind "${pc.kind}"` },
+        };
+      }
     }
 
     // Turn-limit stalemate: end with diagnostics, not a scary "engine stuck". A dev
@@ -1994,7 +2012,13 @@ export function applyPendingChoice(session, choice) {
   if (kind === "soft-counter") return applySoftCounterChoice(session, choice);
   if (kind === "optional-mana-payment") return applyOptionalManaPaymentChoice(session, choice);
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice);
-  return applyTutorChoice(session, choice);
+  if (kind === "tutor-search") return applyTutorChoice(session, choice);
+  // WI-4 FAILSAFE — no pendingChoice at all (nothing to answer) re-derives, byte-identical to every
+  // apply* function's own "double-submit" guard. A REAL unhandled kind never reaches applyTutorChoice's
+  // settler silently — advanceUntilDecision re-derives and its own WI-4 failsafe (the pendingChoice
+  // branch's unguarded tail) logs + clears + reports engine-stuck honestly instead of misinterpreting
+  // the submitted choice as a tutor pick.
+  return advanceUntilDecision(session);
 }
 
 // ─── Termination ─────────────────────────────────────────────────────────────
