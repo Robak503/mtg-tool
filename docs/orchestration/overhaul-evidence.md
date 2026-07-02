@@ -179,3 +179,34 @@ Two parallel worktree agents, cherry-picked + conflict-resolved (kept instance k
   needs source-name payload enrichment first (parked, documented).
 Integration gate: **6,539 green** · lint clean · 3×0-diff · trajectory re-anchor 639058 → 684fb0a3
 (additive defenderName on attack actions), deterministic ×2. Agent worktrees junction-safe removed.
+
+### Wave 9 — opponentAI play-quality overhaul (agent branch, commits …c763ad7) — PLAY QUALITY
+7 gate-green commits off the P2 recon designs, every one probe-evidenced (the committed
+scripts/play-quality-probe.mjs A/B harness — seeded mirrors over the real 16-deck profile set,
+set-membership-guarded injection so an illegal action is impossible):
+- W1 land sequencing (untapped-first + color-gap) · W3 block plan v2 (value/trade/lethal-chump/
+  decline — kills always-chump; blocks 6.95→1.80, blocker deaths −0.50/game) · W4 attack filter v2
+  (legality-aware via canBlockAttacker; **dead turns 0.62→0.05**, attacks +7.80) · W5 X-sizing
+  (avg X 1.00→4.14, win +6.7pt) · W2 opt-in AI mulligan · W7a counters (casts held counters at
+  threatening ENEMY spells).
+- **Cumulative: 120 games all-legacy vs all-new — NEW 59.2% vs 40.8% (+18.3pt, ≈4σ); dead turns
+  0.68→0.03; avg X 1.00→3.29.** Old policy kept reachable as policy:"v1" for probes.
+- Integration gate: 6,582 green · 3 fingerprints 0-diff · trajectory re-anchor 684fb0a3→68e0de13
+  (INTENTIONAL policy change; rows 6,306→5,953 — smarter AI ends games sooner; pod batch 1.7s/3
+  games, 3/3 decisive). Parked: W6 equip/activated (high-risk), W7b-e held-class slices, W8.
+
+---
+
+## P3 — Omnath engine-side seams (COMPLETE; contracts on COMMS as "Clyde 9")
+
+1. **Play-API v1** (commit 4999bdd predecessor) — gameApi session layer: createGame/nextDecision/
+   act drive a COMPLETE game incl. all 13 pendingChoice kinds + arbiter acks; out-of-set answers
+   rejected with an unchanged session; PLAY_API_VERSION=1.0.0 (semver, breaking ⇒ MAJOR + COMMS).
+2. **Consultation hardening** — the supported import table WRITTEN (PLAY-API-CONTRACT.md §2);
+   omnathSeam.test.js = the in-gate canary with Omnath's own golden cards (engine churn that
+   would break omnath-tools now fails Clyde's gate first).
+3. **Engine→brain data hook** — self-play.mjs --export-trajectories → omnath-trajectory-v1 JSONL
+   (pilot-TAGGED rows, TRUST-GATED by the runner's honest trainingWeight). Smoke: Tier-1 pod,
+   2 games → 3,697 rows, 2 trusted.
+4. **Other wins for the flywheel:** the mirror commander-damage fix (was poisoning padded-pod
+   labels), GY-aware features, honest engine-stuck failsafe, kind-echo wire validation.
