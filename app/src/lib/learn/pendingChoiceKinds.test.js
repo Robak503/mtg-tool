@@ -32,6 +32,7 @@ import {
   setPendingSoftCounterChoice,
   setPendingOptionalManaPaymentChoice,
   setPendingOptionalSacBySubtypeChoice,
+  setPendingOptionalDrawDiscardChoice,
   setPendingCommanderReturnChoice,
 } from "./pendingChoice.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
@@ -84,6 +85,7 @@ const FIXTURES = {
     controller: "ai", cost: { kind: "mana", mana: { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } }, effectAtoms: [],
   }),
   "optional-sac-payment": (s) => setPendingOptionalSacBySubtypeChoice(s, { controller: "ai", subtype: "Food", available: false, effectAtoms: [] }),
+  "optional-draw-discard": (s) => setPendingOptionalDrawDiscardChoice(s, { controller: "ai", effectAtoms: [] }),
 };
 
 describe("PENDING_CHOICE_KINDS is exhaustive against the FIXTURES map (this test file itself)", () => {

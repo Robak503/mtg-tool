@@ -1713,6 +1713,32 @@ function matchOptionalSacBySubtype(oracle, cardType) {
 }
 
 /**
+ * ===== OPTIONAL DRAW-THEN-DISCARD (reverse Looter, CR 603.7c-shaped) ===== "You may draw a card. If you do,
+ * discard a card." (Riddlesmith, Murder of Crows, Skyswimmer Koi) — a net-neutral optional loot. Structurally an
+ * optional-payment with NO cost: pause on the "may draw" yes/no; on YES run the [draw, discard] sequence (the
+ * discard is the LAST atom, so its which-card pause chains cleanly onto the program continuation via the shared
+ * payoff loop); on NO / decline, nothing changes (the cardinal CREED guarantee — hand & library untouched).
+ * The mandatory "Draw a card, then discard a card" already composes (the ", then" splitter); only this OPTIONAL
+ * wrapper is added. Whole-string ^…$ anchored — a rider / once-per-turn qualifier / "each opponent discards" /
+ * "discard your hand" leaves residue → no match → LOW → Arbiter (SAFE FN).
+ */
+function matchOptionalDrawDiscard(oracle) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  const m = s.match(/^you may draw (a card|\w+ cards?)\.\s*if you do,?\s+(discard (?:a|an|one|two|three|four|five|\w+) cards?)$/i);
+  if (!m) return null;
+  // LOAD-BEARING: compose + parse the payoff under LITERAL "Instant", NOT cardType — the draw atom's legacy gate
+  // returns HIGH only for Instant/Sorcery; passing the card's own type (creature/artifact) → LOW → zero flips.
+  const payoff = parseEffectClauseImpl(`draw ${m[1]}, then ${m[2].trim()}`, "Instant", { hasX: false });
+  if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
+  const inner = payoff.atoms || [];
+  if (inner.length !== 2 || inner[0].op !== "draw" || inner[1].op !== "discard") return null;   // exactly [draw, discard]
+  if (!(inner[1].who == null || inner[1].who === "controller")) return null;                     // "each opponent discards" → out
+  if (!inner.every((a) => KNOWN.has(a.op)) || programNeedsChosenTarget(payoff)) return null;
+  if (inner.slice(0, -1).some((a) => PAUSING_ATOM_OPS.has(a.op))) return null;                    // only the LAST (discard) may pause
+  return { atom: { op: "optional-draw-discard", effectAtoms: inner, targetType: null } };
+}
+
+/**
  * ===== REFLEXIVE TRIGGER (CR 603.7) ===== "<primary>. When you do[ this/so], <reflexive>." — a reflexive
  * triggered ability set up by the resolution of the primary effect, triggering off the event that resolution
  * causes ("when you do" = "when the immediately-preceding instruction's action happens"). Per CR 603.7 the
@@ -1918,6 +1944,13 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const osp = matchOptionalSacBySubtype(oracle, cardType);
   if (osp && KNOWN.has(osp.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [osp.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== OPTIONAL DRAW-THEN-DISCARD ===== "you may draw a card. If you do, discard a card." → ONE
+  // optional-draw-discard atom (resolver runs [draw, discard] only on yes; the discard's which-card pause chains
+  // onto the program continuation). Checked before the clause splitter (the two sentences would shatter).
+  const odd = matchOptionalDrawDiscard(oracle);
+  if (odd && KNOWN.has(odd.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [odd.atom], xSpell: false, unparsedTail: null });
   }
   // DESTROY-TOKEN-RIDER — "Destroy target creature. [It can't be regenerated.] (Its|That creature's) controller
   // creates a N/N <color> <subtype> creature token." (Pongify, Rapid Hybridization). A creature-destroy lead +

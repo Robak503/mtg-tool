@@ -811,6 +811,51 @@ export function resolveOptionalSacChoice(state, doSac) {
 }
 
 /**
+ * ===== OPTIONAL DRAW-THEN-DISCARD ===== — auto-pick for self-play: DRAW (a net-neutral loot is card-selection
+ * upside — you trade your worst card for a fresh look). Returns false only when the controller is gone.
+ */
+export function autoPickOptionalDrawDiscard(state, pc) {
+  return !!state.players?.[pc?.controller];
+}
+
+/**
+ * ===== OPTIONAL DRAW-THEN-DISCARD ===== — settle "you may draw a card. If you do, discard a card.": on `doDraw`
+ * run the [draw, discard] payoff in order (parser-validated HIGH + targetless); on decline do NOTHING (hand &
+ * library untouched — the cardinal CREED guarantee). The discard is the LAST atom, so its which-card pause chains
+ * onto the program continuation (mirrors resolveOptionalSacChoice's payoff loop; no cost to pay). Eliminated-
+ * controller guard (the pause can outlive the SBA that removes them, CR 800.4a).
+ */
+export function resolveOptionalDrawDiscardChoice(state, doDraw) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "optional-draw-discard") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail, no resume
+  next = logEvent(next, { kind: "spell-effect", effect: "optional-draw-discard", controller: pc.controller, drew: !!doDraw, sourceName: pc.sourceName || null });
+  if (doDraw) {
+    const r = pc.resume || {};
+    const atoms = pc.effectAtoms || [];
+    for (let i = 0; i < atoms.length; i++) {
+      const ctx = { ...(r.context || {}), controller: pc.controller, targets: [], cardName: r.cardName ?? pc.sourceName ?? null, xValue: r.xValue ?? null, sourceId: r.sourceId ?? null };
+      const after = resolveAtom(next, atoms[i], ctx);
+      if (after == null) {
+        return markPendingArbiter(next, { source: { name: pc.sourceName }, payload: { params: r } }, `optional-draw-discard payoff atom "${atoms[i]?.op}" had no resolver`);
+      }
+      next = after;
+      // The discard (last atom) sets a which-card pendingChoice — chain its resume onto the program continuation.
+      // A NON-LAST pause is unreachable per the parser gate, but WI-3 belt-and-braces routes to the Arbiter
+      // rather than dropping the payoff tail if one ever occurs (CREED-safe FN).
+      if (next.pendingChoice && !next.pendingChoice.resume) {
+        if (i < atoms.length - 1) {
+          return markPendingArbiter(clearPendingChoice(next), { source: { name: pc.sourceName }, payload: { params: r } }, `optional-draw-discard payoff atom "${atoms[i]?.op}" paused mid-payoff — resuming would drop ${atoms.length - 1 - i} remaining atom(s)`);
+        }
+        return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
+      }
+    }
+  }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
  * Resume a suspended effect program after a resolution-time choice settled (shared by the tutor +
  * scry/surveil + optional paths): re-enter the program at the recorded `nextAtomIndex` so the atoms
  * AFTER the choice run (e.g. the "draw a card" in "Scry 1, then draw a card").

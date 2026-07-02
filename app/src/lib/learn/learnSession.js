@@ -47,7 +47,7 @@ import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { featurizeState } from "./gameFeatures.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -532,6 +532,13 @@ function settleOptionalManaPaymentChoice(state, pay) {
 // payoff enqueued (CR 603.3). Mirrors settleOptionalManaPaymentChoice.
 function settleOptionalSacChoice(state, doSac) {
   const next = resolveOptionalSacChoice(state, doSac);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// OPTIONAL DRAW-THEN-DISCARD — settle "you may draw a card. If you do, discard a card." On draw, the [draw,
+// discard] runs (the discard's which-card pause may still be pending, so guard before flushing). Mirrors settleOptionalSacChoice.
+function settleOptionalDrawDiscardChoice(state, doDraw) {
+  const next = resolveOptionalDrawDiscardChoice(state, doDraw);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -1199,6 +1206,18 @@ export function advanceUntilDecision(
         current = { ...current, state: settleOptionalSacChoice(current.state, picked.value) };
         continue;
       }
+      if (pc.kind === "optional-draw-discard") {
+        if (pause) {
+          return { session: current, decision: { kind: "optional-draw-discard", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalDrawDiscard(current.state, pc) },
+        });
+        current = { ...current, state: settleOptionalDrawDiscardChoice(current.state, picked.value) };
+        continue;
+      }
       // Tutor library search. A pilot may fetch a different legal candidate (or find nothing — CR
       // 701.19f); default = the auto-pick (highest-MV), byte-identical.
       //
@@ -1827,6 +1846,39 @@ export function applyOptionalSacChoice(session, choice) {
 }
 
 /**
+ * ===== OPTIONAL DRAW-THEN-DISCARD ===== — the player chose to draw (and then discard) or not, for a "you may
+ * draw a card. If you do, discard a card." `choice.draw` is the yes/no. resolveOptionalDrawDiscardChoice runs the
+ * [draw, discard] on yes (or nothing on decline), then resumes + re-derives. Mirrors applyOptionalSacChoice.
+ */
+export function applyOptionalDrawDiscardChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "optional-draw-discard") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const doDraw = choice?.draw === true || choice === true;
+  let newState;
+  try {
+    newState = settleOptionalDrawDiscardChoice(session.state, doDraw);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "optional-draw-discard-choice", drew: doDraw },
+    auto: false,
+    reasoning: "user-chose-optional-draw-discard",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
  * The player resolved an `optional-effect` decision ("you may <effect>", α2). `choice.take` is the
  * yes/no. Runs-or-skips the paused atom, resumes the program, then re-derives the next decision.
  * Returns { session, decision } like advanceUntilDecision.
@@ -2121,6 +2173,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "soft-counter") return applySoftCounterChoice(session, choice);
   if (kind === "optional-mana-payment") return applyOptionalManaPaymentChoice(session, choice);
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice);
+  if (kind === "optional-draw-discard") return applyOptionalDrawDiscardChoice(session, choice);
   if (kind === "tutor-search") return applyTutorChoice(session, choice);
   // WI-4 FAILSAFE — no pendingChoice at all (nothing to answer) re-derives, byte-identical to every
   // apply* function's own "double-submit" guard. A REAL unhandled kind never reaches applyTutorChoice's

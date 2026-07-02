@@ -96,6 +96,7 @@ const PAUSING_OPS_LIST = [
   "counter", // stack.js applyCounter (soft counter / unlessPay) → setPendingSoftCounterChoice
   "optional-mana-payment", // stack.js applyOptionalManaPayment → setPendingOptionalManaPaymentChoice
   "optional-sac-payment", // stack.js applyOptionalSacPayment → setPendingOptionalSacBySubtypeChoice
+  "optional-draw-discard", // stack.js applyOptionalDrawDiscard → setPendingOptionalDrawDiscardChoice
 ];
 for (const op of PAUSING_OPS_LIST) {
   if (!ATOM_RESOLVERS[op]) throw new Error(`PAUSING_ATOM_OPS drift: "${op}" is not a registered atom op`);

@@ -40,6 +40,7 @@ export const PENDING_CHOICE_KINDS = [
   "soft-counter",
   "optional-mana-payment",
   "optional-sac-payment",
+  "optional-draw-discard",
 ];
 
 /**
@@ -359,6 +360,21 @@ export function setPendingOptionalSacBySubtypeChoice(state, { controller, subtyp
       effectAtoms,
       sourceName,
     },
+  };
+}
+
+/**
+ * ===== OPTIONAL DRAW-THEN-DISCARD ===== — suspend on a "you may draw a card. If you do, discard a card."
+ * yes/no. The driver pauses a human and auto-decides an AI (draw — a net-neutral loot is card-selection upside).
+ * `effectAtoms` is the [draw, discard] program, run by resolveOptionalDrawDiscardChoice ONLY on yes (the discard's
+ * which-card pause chains onto the program continuation). No cost — the yes/no IS the whole gate. FIFO.
+ */
+export function setPendingOptionalDrawDiscardChoice(state, { controller, effectAtoms = [], sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "optional-draw-discard-pending", controller, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "optional-draw-discard", controller, effectAtoms, sourceName },
   };
 }
 
