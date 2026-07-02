@@ -93,7 +93,7 @@ describe("DEATH-DRAIN — engine: the union scope fires correctly (CREED — pro
     const onMine = checkDiesTriggers(state, [{ id: "perm-x", controller: "user", name: "Bear", card: creature("Bear", "", { id: "card-b1" }) }]);
     const drain = (onMine.pendingTriggers || []).find((t) => t.controller === "user");
     expect(drain).toBeTruthy();
-    expect(drain.payload.params.effect).toMatchObject({ kind: "loseLife", who: "eachOpponent", amount: 1 });
+    expect(drain.descriptor.effectClause).toMatch(/each opponent loses 1 life/i); // W4: the clause is what the flush stage parses
     // a creature an OPPONENT controls dies → the controller-scoped watcher does NOT fire
     const onTheirs = checkDiesTriggers(state, [{ id: "perm-y", controller: "ai1", name: "Bear", card: creature("Bear", "", { id: "card-b2" }) }]);
     expect((onTheirs.pendingTriggers || []).some((t) => t.controller === "user")).toBe(false);
@@ -104,6 +104,6 @@ describe("DEATH-DRAIN — engine: the union scope fires correctly (CREED — pro
     const onTheirs = checkDiesTriggers(state, [{ id: "perm-y", controller: "ai1", name: "Bear", card: creature("Bear", "", { id: "card-b3" }) }]);
     const fired = (onTheirs.pendingTriggers || []).find((t) => t.controller === "user");
     expect(fired).toBeTruthy();
-    expect(fired.payload.params.effect).toMatchObject({ kind: "gainLife", who: "controller" });
+    expect(fired.descriptor.effectClause).toMatch(/you gain 1 life/i);
   });
 });

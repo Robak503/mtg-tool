@@ -1,7 +1,7 @@
 /**
  * Tests for triggers.js + the N-seat APNAP flushTriggers (Phase-7 PR-5).
  *
- * PR-5 ships detection + matching + effect application + the APNAP ordering
+ * PR-5 ships detection + matching + the APNAP ordering
  * generalization. Nothing is enqueued by a real game yet (PR-6..8 wire the
  * hooks), so these exercise the pieces in isolation.
  */
@@ -12,16 +12,12 @@ import {
   hasTriggerFor,
   triggersForEvent,
   checkInterveningIf,
-  applyTriggerEffect,
 } from "./triggers.js";
 import { flushTriggers } from "./gameEngine.js";
 import { _resetIdsForTests, createGameState } from "./gameState.js";
 
 beforeEach(() => _resetIdsForTests());
 
-function makeDeck(n, p = "C") {
-  return Array.from({ length: n }, (_, i) => ({ id: `card-${p}-${i}`, name: `${p} ${i}` }));
-}
 function creature(name, oracle, extra = {}) {
   return { id: `card-${name}`, name, type: "Creature — Bear", power: 2, toughness: 2, oracle, ...extra };
 }
@@ -33,22 +29,26 @@ describe("detectTriggers", () => {
   it("detects a self ETB draw trigger", () => {
     const t = detectTriggers(creature("Elvish Visionary", "When Elvish Visionary enters, draw a card."));
     expect(t).toHaveLength(1);
-    expect(t[0]).toMatchObject({ event: "etb", scope: "self", effect: { kind: "draw", amount: 1 } });
+    expect(t[0]).toMatchObject({ event: "etb", scope: "self" });
+    expect(t[0].effectClause).toMatch(/draw a card/i); // W4: descriptors carry the clause; the flush stage parses it
   });
 
   it("detects an 'another creature enters' watcher (Soul Warden style)", () => {
     const t = detectTriggers(creature("Soul Warden", "Whenever another creature enters the battlefield, you gain 1 life."));
-    expect(t[0]).toMatchObject({ event: "etb", scope: "eachOtherCreature", effect: { kind: "gainLife", amount: 1 } });
+    expect(t[0]).toMatchObject({ event: "etb", scope: "eachOtherCreature" });
+    expect(t[0].effectClause).toMatch(/you gain 1 life/i);
   });
 
   it("detects a dies drain (Blood Artist style)", () => {
     const t = detectTriggers(creature("Bummer", "Whenever a creature dies, each opponent loses 1 life."));
-    expect(t[0]).toMatchObject({ event: "dies", scope: "eachCreature", effect: { kind: "loseLife", who: "eachOpponent", amount: 1 } });
+    expect(t[0]).toMatchObject({ event: "dies", scope: "eachCreature" });
+    expect(t[0].effectClause).toMatch(/each opponent loses 1 life/i);
   });
 
   it("detects an upkeep draw gated to 'your' upkeep", () => {
     const t = detectTriggers(creature("Howler", "At the beginning of your upkeep, draw a card."));
-    expect(t[0]).toMatchObject({ event: "upkeep", scope: "you", whose: "yours", effect: { kind: "draw" } });
+    expect(t[0]).toMatchObject({ event: "upkeep", scope: "you", whose: "yours" });
+    expect(t[0].effectClause).toMatch(/draw a card/i);
     expect(hasTriggerFor(t[0] && creature("Howler", "At the beginning of your upkeep, draw a card."), "upkeep")).toBe(true);
   });
 
@@ -59,13 +59,14 @@ describe("detectTriggers", () => {
   it("extracts an intervening-if clause", () => {
     const t = detectTriggers(creature("Felidar", "At the beginning of your upkeep, if you have 40 or more life, draw a card."));
     expect(t[0].interveningIf).toMatch(/40 or more life/);
-    expect(t[0].effect).toMatchObject({ kind: "draw" });
+    expect(t[0].effectClause).toMatch(/draw a card/i);
   });
 
-  it("returns effect:null for an out-of-vocabulary effect (fail-safe, never fabricated)", () => {
+  it("carries the raw clause for an out-of-vocabulary effect (fail-safe: unmodeled parses LOW at flush → manual/Arbiter, never fabricated)", () => {
     const t = detectTriggers(creature("Weird", "When Weird enters, surveil 2 then proliferate."));
     expect(t).toHaveLength(1);
-    expect(t[0].effect).toBeNull();
+    expect(t[0].effectClause).toMatch(/surveil 2 then proliferate/i);
+    expect(t[0].payload?.resolver ?? "manual").toBe("manual");
   });
 
   it("ignores a mid-sentence 'when' (anchored matching)", () => {
@@ -200,8 +201,11 @@ describe("triggersForEvent", () => {
     const src = perm(visionary, "user", "perm-1");
     const fired = triggersForEvent(state, { event: "etb", sourcePermanent: src, triggeringPermanent: src });
     expect(fired).toHaveLength(1);
-    expect(fired[0].payload.resolver).toBe("trigger.effect");
-    expect(fired[0].payload.params.effect).toMatchObject({ kind: "draw" });
+    // W4: the default payload is the Arbiter-safe manual no-op; the flush stage
+    // (buildTriggerStack) parses the effectClause into a rich EffectProgram and
+    // upgrades every faithfully-resolvable trigger.
+    expect(fired[0].payload.resolver).toBe("manual");
+    expect(fired[0].descriptor.effectClause).toMatch(/draw a card/i);
   });
 
   it("does NOT fire a self trigger for another permanent's event", () => {
@@ -242,30 +246,8 @@ describe("checkInterveningIf", () => {
   });
 });
 
-describe("applyTriggerEffect", () => {
-  it("gainLife adds life to the controller", () => {
-    const s = { ...createGameState({ userDeck: [], aiDeck: [] }), activePlayer: "user" };
-    const out = applyTriggerEffect(s, { effect: { kind: "gainLife", amount: 3, who: "controller" }, controller: "user" });
-    expect(out.players.user.life).toBe(43);
-  });
-  it("loseLife (eachOpponent) drains every opponent", () => {
-    const s = { ...createGameState({ mode: "commander", userDeck: [], opponentDecks: [[], [], []] }), activePlayer: "user" };
-    const out = applyTriggerEffect(s, { effect: { kind: "loseLife", amount: 2, who: "eachOpponent" }, controller: "user" });
-    expect(out.players.ai1.life).toBe(38);
-    expect(out.players.ai2.life).toBe(38);
-    expect(out.players.ai3.life).toBe(38);
-    expect(out.players.user.life).toBe(40);
-  });
-  it("draw draws for the controller", () => {
-    const s = { ...createGameState({ userDeck: makeDeck(3, "U"), aiDeck: [] }), activePlayer: "user" };
-    const out = applyTriggerEffect(s, { effect: { kind: "draw", amount: 2, who: "controller" }, controller: "user" });
-    expect(out.players.user.hand).toHaveLength(2);
-  });
-  it("a null effect is a safe no-op", () => {
-    const s = createGameState({ userDeck: [], aiDeck: [] });
-    expect(applyTriggerEffect(s, { effect: null, controller: "user" })).toBe(s);
-  });
-});
+// W4: the applyTriggerEffect describe was deleted with the naive Phase-1 lane — live trigger
+// resolution goes through the EFFECT_PROGRAM interpreter (covered by the trigger wiring suites).
 
 describe("flushTriggers — N-seat APNAP (CR 603.3b)", () => {
   it("orders triggers active-player-first across a 4-seat pod, FIFO within a seat", () => {
@@ -290,13 +272,13 @@ describe("flushTriggers — N-seat APNAP (CR 603.3b)", () => {
       ...createGameState({ userDeck: [], aiDeck: [] }),
       activePlayer: "user",
       pendingTriggers: [
-        { controller: "user", source: { name: "x" }, payload: { resolver: "trigger.effect", params: { effect: { kind: "draw", amount: 1 } } } },
+        { controller: "user", source: { name: "x" }, payload: { resolver: "manual", params: { controller: "user", targets: [] } } },
       ],
     };
     const out = flushTriggers(state);
     expect(out.stack[0].id).toBe("stk-1");
     expect(out.idSeq).toBe(1);
-    expect(out.stack[0].payload.resolver).toBe("trigger.effect");
+    expect(out.stack[0].payload.resolver).toBe("manual");
   });
 });
 

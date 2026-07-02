@@ -39,7 +39,7 @@ describe("checkDiesTriggers (unit)", () => {
     const card = creature("Doomed", "When Doomed dies, draw a card.", { id: "card-d" });
     const out = checkDiesTriggers(stateWith(), [{ id: "perm-dead", controller: "user", name: "Doomed", card }]);
     expect(out.pendingTriggers).toHaveLength(1);
-    expect(out.pendingTriggers[0].payload.params.effect).toMatchObject({ kind: "draw" });
+    expect(out.pendingTriggers[0].descriptor.effectClause).toMatch(/draw a card/i); // W4: the clause is what the flush stage parses
   });
 
   it("fires a surviving Blood-Artist-style watcher for another creature's death", () => {
@@ -47,7 +47,7 @@ describe("checkDiesTriggers (unit)", () => {
     const state = placePerms(stateWith(), [permObj(artist, "user", "perm-ba")]);
     const out = checkDiesTriggers(state, [{ id: "perm-x", controller: "ai1", name: "Bear", card: creature("Bear", "", { id: "card-bear" }) }]);
     expect(out.pendingTriggers).toHaveLength(1);
-    expect(out.pendingTriggers[0].payload.params.effect).toMatchObject({ kind: "loseLife", who: "eachOpponent", amount: 1 });
+    expect(out.pendingTriggers[0].descriptor.effectClause).toMatch(/each opponent loses 1 life/i);
     expect(out.pendingTriggers[0].controller).toBe("user");
   });
 
@@ -69,7 +69,7 @@ describe("dies triggers wired into resolution", () => {
     expect(out.players.ai1.battlefield).toHaveLength(0); // it died
     expect(out.pendingTriggers).toHaveLength(1);
     expect(out.pendingTriggers[0].controller).toBe("ai1"); // the dead creature's controller
-    expect(out.pendingTriggers[0].payload.params.effect).toMatchObject({ kind: "loseLife", who: "eachOpponent", amount: 2 });
+    expect(out.pendingTriggers[0].descriptor.effectClause).toMatch(/each opponent loses 2 life/i);
   });
 
   it("a destroy spell fires the destroyed creature's dies trigger", () => {
@@ -82,7 +82,7 @@ describe("dies triggers wired into resolution", () => {
     });
     expect(out.players.user.battlefield).toHaveLength(0);
     expect(out.pendingTriggers).toHaveLength(1);
-    expect(out.pendingTriggers[0].payload.params.effect).toMatchObject({ kind: "draw" });
+    expect(out.pendingTriggers[0].descriptor.effectClause).toMatch(/draw a card/i);
   });
 
   it("a creature dying in combat fires its dies trigger", () => {
@@ -97,7 +97,7 @@ describe("dies triggers wired into resolution", () => {
     state = placePerms(state, [attacker, blocker]);
     const out = resolveCombatDamage(state, { firstStrikeStep: false });
     expect(out.players.ai1.battlefield).toHaveLength(0); // blocker died to 3 damage
-    const drain = (out.pendingTriggers || []).find(t => t.payload.params.effect?.kind === "loseLife");
+    const drain = (out.pendingTriggers || []).find(t => /each opponent loses 1 life/i.test(t.descriptor?.effectClause || ""));
     expect(drain).toBeTruthy();
     expect(drain.controller).toBe("ai1");
   });

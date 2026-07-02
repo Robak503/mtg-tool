@@ -69,7 +69,7 @@ describe("ETB tutor trigger — flush auto-resolves (non-targeted, harmless auto
     const trigger = {
       event: "etb", source: { name: "Trophy Mage", permanentId: "perm-mage" }, controller: "user",
       descriptor: { event: "etb", scope: "self", whose: "any", effectClause: "search your library for an artifact card, reveal it, put it into your hand, then shuffle", interveningIf: null },
-      context: {}, targets: [], payload: { resolver: "trigger.effect", params: { effect: null, controller: "user", targets: [], context: {} } },
+      context: {}, targets: [], payload: { resolver: "manual", params: { controller: "user", targets: [], context: {} } }, // W4: the manual default makePendingTrigger emits
     };
     let s = {
       ...base, activePlayer: "user", priorityHolder: "user", phase: "precombat-main", step: "main",

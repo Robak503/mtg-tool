@@ -44,7 +44,7 @@ function modalTrigger(clause, over = {}) {
     descriptor: { event: "etb", scope: "self", whose: "any", effectClause: clause, interveningIf: null },
     context: {},
     targets: [],
-    payload: { resolver: "trigger.effect", params: { effect: null, controller: "user", targets: [], context: {} } },
+    payload: { resolver: "manual", params: { controller: "user", targets: [], context: {} } }, // W4: the manual default makePendingTrigger emits
     ...over,
   };
 }

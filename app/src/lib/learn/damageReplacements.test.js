@@ -3,7 +3,6 @@ import { describe, it, expect } from "vitest";
 import { createPermanent } from "./gameState.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 import { applyDamageEffect } from "./spellEffects.js";
-import { applyTriggerEffect } from "./triggers.js";
 import { applyLoseLife } from "./effects/atoms/life.js";
 import { applyWolverineEndStep, clearWolverineTurnFlags, armDamageToCreatureFlag } from "./wolverine.js";
 import {
@@ -306,22 +305,25 @@ describe("0-damage guard (CR 120.8)", () => {
 });
 
 // ─── Trigger-damage path (MUST-FIX 3) ───────────────────────────────────────────────
-describe("trigger-damage path", () => {
-  it("a non-Wolverine eachOpponent trigger is byte-identical (no doubler on board)", () => {
+// W4: the naive trigger.effect lane was retired — a trigger's "deals N damage to each opponent"
+// resolves through the SAME shared primitive the effect-program damage atom calls (applyDamageEffect,
+// source = the ability's own permanent), so the consult is pinned on the LIVE path.
+describe("trigger-damage path (the shared applyDamageEffect primitive)", () => {
+  it("a non-Wolverine eachOpponent damage is byte-identical with/without a source (no doubler on board)", () => {
     const bear = vanilla("Bear", 2, 2, "user");
     const s = makeState({ userBf: [bear] });
-    const baseline = applyTriggerEffect(s, { effect: { kind: "damage", targetType: "eachOpponent", amount: 3 }, controller: "user" });
-    const withSource = applyTriggerEffect(s, { effect: { kind: "damage", targetType: "eachOpponent", amount: 3 }, controller: "user", sourcePermanentId: bear.id });
+    const baseline = applyDamageEffect(s, { controller: "user", amount: 3, targetType: "eachOpponent", source: null });
+    const withSource = applyDamageEffect(s, { controller: "user", amount: 3, targetType: "eachOpponent", source: bear });
     expect(baseline.players.ai.life).toBe(37); // 40 - 3, un-doubled
-    // CREED proof (MUST-FIX 3): with no doubler on the board, threading sourcePermanentId must change NOTHING.
+    // CREED proof (MUST-FIX 3): with no doubler on the board, threading the source must change NOTHING.
     // Full state+log equality between the two runs — not a single-field spot-check.
     expect(withSource).toStrictEqual(baseline);
   });
 
-  it("a Wolverine-sourced eachOpponent trigger doubles the damage to each opponent", () => {
+  it("a Wolverine-sourced eachOpponent damage doubles the damage to each opponent", () => {
     const w = wolverine("user", 3, 3);
     const s = makeState({ userBf: [w] });
-    const out = applyTriggerEffect(s, { effect: { kind: "damage", targetType: "eachOpponent", amount: 3 }, controller: "user", sourcePermanentId: w.id });
+    const out = applyDamageEffect(s, { controller: "user", amount: 3, targetType: "eachOpponent", source: w });
     expect(out.players.ai.life).toBe(40 - 6); // 3 doubled
   });
 });
@@ -343,12 +345,6 @@ describe("life loss is NEVER doubled (the landmine — guards 1 & 4)", () => {
     expect(out.players.ai.life).toBe(15); // 20 - 5, NOT 20 - 10
   });
 
-  it("a 'loseLife' trigger effect (life loss, not damage) is never doubled", () => {
-    const w = wolverine("user", 3, 3);
-    const s = makeState({ userBf: [w], aiLife: 20 });
-    const out = applyTriggerEffect(s, { effect: { kind: "loseLife", who: "eachOpponent", amount: 3 }, controller: "user", sourcePermanentId: w.id });
-    expect(out.players.ai.life).toBe(17); // 20 - 3, life loss path never consults
-  });
 });
 
 // ─── THE CREED PROOF: byte-identical on a board with NO damage-replacement ───────────

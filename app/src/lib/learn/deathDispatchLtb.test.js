@@ -60,7 +60,7 @@ describe("PW-DEATH — engine: a planeswalker death fires the creature-or-PW dra
     const next = checkPlaneswalkerDiesTriggers(sba.state, sba.dead);
     const fired = (next.pendingTriggers || []).filter((t) => t.controller === "user");
     expect(fired).toHaveLength(1);
-    expect(fired[0].payload.params.effect).toMatchObject({ kind: "loseLife", who: "eachOpponent", amount: 1 });
+    expect(fired[0].descriptor.effectClause).toMatch(/each opponent loses 1 life/i); // W4: the clause is what the flush stage parses
   });
 
   it("CREED: an OPPONENT's planeswalker dying does NOT fire your Cruel Celebrant (controller gate)", () => {
@@ -83,7 +83,7 @@ describe("PW-DEATH — engine: a planeswalker death fires the creature-or-PW dra
     const next = checkDiesTriggers(state, [{ id: "perm-x", controller: "user", name: "Bear", card: creature("Bear", "", { id: "card-bx" }), power: 2 }]);
     const fired = (next.pendingTriggers || []).filter((t) => t.controller === "user");
     expect(fired).toHaveLength(1);
-    expect(fired[0].payload.params.effect).toMatchObject({ kind: "loseLife", who: "eachOpponent", amount: 1 });
+    expect(fired[0].descriptor.effectClause).toMatch(/each opponent loses 1 life/i); // W4: the clause is what the flush stage parses
   });
 });
 
@@ -134,7 +134,7 @@ describe("LTB/PiG — engine: the watcher fires for the right exit (CREED — pr
     s = checkLeavesTriggers(s);
     const fired = (s.pendingTriggers || []).filter((t) => t.controller === "user");
     expect(fired).toHaveLength(1);
-    expect(fired[0].payload.params.effect).toMatchObject({ kind: "loseLife", who: "eachOpponent", amount: 1 });
+    expect(fired[0].descriptor.effectClause).toMatch(/each opponent loses 1 life/i); // W4: the clause is what the flush stage parses
   });
 
   it("CREED: a token BOUNCED to hand fires Nadier (any leave) but NOT the PiG watcher (PiG requires a graveyard exit)", () => {

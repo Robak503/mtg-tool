@@ -39,7 +39,7 @@ describe("checkStepTriggers (unit)", () => {
     const state = placePerms(stateWith({ activePlayer: "user" }), [permObj(howler, "user", "perm-h")]);
     const out = checkStepTriggers(state, "upkeep");
     expect(out.pendingTriggers).toHaveLength(1);
-    expect(out.pendingTriggers[0].payload.params.effect).toMatchObject({ kind: "draw" });
+    expect(out.pendingTriggers[0].descriptor.effectClause).toMatch(/draw a card/i); // W4: the clause is what the flush stage parses
   });
 
   it("does NOT fire a 'your upkeep' trigger on an opponent's turn", () => {
@@ -57,7 +57,7 @@ describe("checkAttackTriggers (unit)", () => {
     );
     const out = checkAttackTriggers(state);
     expect(out.pendingTriggers).toHaveLength(1);
-    expect(out.pendingTriggers[0].payload.params.effect).toMatchObject({ kind: "gainLife", amount: 1 });
+    expect(out.pendingTriggers[0].descriptor.effectClause).toMatch(/you gain 1 life/i);
     expect(out.pendingTriggers[0].payload.params.context.defenderId).toBe("ai");
   });
 

@@ -220,11 +220,10 @@ describe("regression: Koma 'each upkeep' (whose:any) unaffected", () => {
 // ─── 7. RESOLUTION-LEVEL correctness — the CREED FP guard ─────────────────────────
 // Emitting a phase trigger is only half the story: it must RESOLVE faithfully. A trigger whose effect
 // we can't fully model (an intervening-if we don't evaluate at the live resolution path, or a "may …
-// if you do" rider) must route to the Arbiter no-op — NEVER fabricate via the legacy naive
-// `trigger.effect` payload (parseTriggerEffect substring-matches a small draw/loseLife/gainLife and
-// applies it UNCONDITIONALLY). This is the FP the adversarial review caught (Boundary Lands Ranger drew
-// a card with no power-4 creature). buildTriggerStack now routes a clause-bearing naive-payload trigger
-// to resolver "manual". These tests RESOLVE the stack and assert the OUTCOME, not just the emission.
+// if you do" rider) must route to the Arbiter no-op — NEVER fabricate (the legacy naive trigger.effect
+// vocabulary that substring-matched a small draw/loseLife/gainLife and applied it UNCONDITIONALLY was
+// the FP the adversarial review caught — Boundary Lands Ranger drew a card with no power-4 creature —
+// and was DELETED in W4; unmodeled triggers keep the manual payload). These tests RESOLVE the stack and assert the OUTCOME, not just the emission.
 describe("resolution: conditional phase triggers must NOT fabricate (CREED)", () => {
   // An intervening-if combat-begin draw whose condition is OUTSIDE the modeled board-query vocabulary (a
   // turn-event — "if you gained life this turn"), so the trigger must route to the Arbiter no-op rather than

@@ -2,13 +2,13 @@
  * triggers.js — triggered-ability detection + resolution (Phase-7 PR-5).
  *
  * Leaf module: imports ONLY gameState reads, so gameEngine/combat can import it
- * without a cycle (resolvers.js imports applyTriggerEffect from here in PR-6, so
- * this file must never import resolvers.js back). Detects triggered abilities
- * from a card's oracle text (the When/Whenever/At grammar, CR 603.1), matches
- * them to game events, and applies a small, FAIL-SAFE Phase-1 effect vocabulary
- * (gain/lose life, draw, damage-to-each-opponent). Anything it doesn't recognize
- * yields effect:null → the engine resolves it through the no-op/Arbiter path,
- * never a fabricated effect (CLAUDE.md §1.2).
+ * without a cycle (this file must never import resolvers.js back). Detects
+ * triggered abilities from a card's oracle text (the When/Whenever/At grammar,
+ * CR 603.1) and matches them to game events; the flush stage (gameEngine.
+ * buildTriggerStack) parses each descriptor's effectClause into a rich
+ * EffectProgram. Anything unmodeled keeps the manual payload → the engine
+ * resolves it through the no-op/Arbiter path, never a fabricated effect
+ * (CLAUDE.md §1.2). (W4: the old Phase-1 naive effect vocabulary was deleted.)
  *
  * PR-5 ships detection + matching + application, all unit-tested, but NOTHING is
  * enqueued in a real game yet — the ETB/dies/step/attack hooks that call
@@ -16,26 +16,15 @@
  */
 
 import {
-  loseLife,
-  gainLife,
-  drawCards,
   opponentsOf,
   findPermanent,
   creaturePower,
-  logEvent,
   recordCreatureDeaths,
 } from "./gameState.js";
 import { hasKeyword, COMBAT_KEYWORDS } from "./keywords.js";
 import { grantedTriggeredQuotedFor, permanentHasKeyword } from "./layers.js";
 import { applyMothmanRadOnEnter } from "./mothmanRad.js";
-import { boardHasDamageReplacement, consultDamageAmount } from "./damageReplacements.js";
 
-const NUM_WORDS = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7 };
-function parseCount(word) {
-  if (word == null) return 1;
-  const w = String(word).toLowerCase();
-  return NUM_WORDS[w] ?? (parseInt(w, 10) || 1);
-}
 function oracleOf(card) {
   return String(card?.oracle || card?.oracle_text || "");
 }
@@ -1107,24 +1096,11 @@ function castSpellFilter(text) {
   return null; // color / multi-word non-type / denylisted category → unmodeled
 }
 
-/**
- * Parse a Phase-1 trigger effect clause into a TriggerEffect, or null when it's
- * outside the bounded vocabulary (→ fail-safe no-op/Arbiter, never fabricated).
- */
-function parseTriggerEffect(clauseRaw) {
-  const c = clauseRaw.toLowerCase().trim();
-  let m = c.match(/\bdraws?\s+(a|an|one|two|three|four|five|\d+)\s+cards?\b/);
-  if (m) return { kind: "draw", amount: parseCount(m[1]), who: "controller" };
-  m = c.match(/each opponent loses?\s+(\d+)\s+life/);
-  if (m) return { kind: "loseLife", amount: parseInt(m[1], 10), who: "eachOpponent" };
-  m = c.match(/deals?\s+(\d+)\s+damage to each opponent/);
-  if (m) return { kind: "damage", amount: parseInt(m[1], 10), targetType: "eachOpponent" };
-  m = c.match(/\bgains?\s+(\d+)\s+life/);
-  if (m) return { kind: "gainLife", amount: parseInt(m[1], 10), who: "controller" };
-  m = c.match(/\bloses?\s+(\d+)\s+life/);
-  if (m) return { kind: "loseLife", amount: parseInt(m[1], 10), who: "controller" };
-  return null;
-}
+// W4: the Phase-1 `parseTriggerEffect` naive substring vocabulary was DELETED with the TRIGGER_EFFECT
+// zombie lane. Trigger effects resolve ONLY through the rich effect-program pipeline (gameEngine.
+// buildTriggerStack parses descriptor.effectClause → EFFECT_PROGRAM) or fall to the Arbiter no-op —
+// the naive lane drew without firing draw-triggers and resolved damage as plain loseLife (no infect/
+// wither/enrage/replacement), so reviving it would be a CREED false-positive factory.
 
 const _detectCache = new WeakMap();
 
@@ -1607,7 +1583,6 @@ export function detectTriggers(card) {
         milledFilter: cls.milledFilter,       // MILL-ON-EVENT: "nonland" | null (which milled cards count)
         optional: /\bmay\b/.test(effectClause.toLowerCase()),
         interveningIf: split.interveningIf,
-        effect: parseTriggerEffect(effectClause),
         // SELF-CAST (CR 603.2): an {X}-cost spell's "When you cast this spell" trigger pays off the cast's X
         // (Hydroid Krasis "gain half X life and draw half X cards"). The effect-clause parsers gate X-amount
         // shapes on hasX (an {X} cost), but the trigger-effect parse sites (triggerRoutesNatively + the flush
@@ -1896,7 +1871,7 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
   // BENEFICIARY OVERRIDE (subtypeGlobal — Synapse/Brood Sliver "its controller may …"): the effect resolves
   // for the DEALING creature's controller, NOT the watcher's controller. The `controller` field is what
   // buildTriggerStack threads into the effect program's `controller` (the "you" the rewritten effect binds
-  // to) AND what applyTriggerEffect uses for "who:controller" — so overriding it here makes "its controller
+  // to) — so overriding it here makes "its controller
   // may draw" / "its controller may create" resolve for the dealer's controller. Defaults to the source's
   // controller (every other scope), so this is a no-op except where checkCombatDamageTriggers passes one.
   const controller = beneficiary || sourcePermanent.controller;
@@ -1919,14 +1894,16 @@ function makePendingTrigger(descriptor, sourcePermanent, triggeringPermanent, tr
     context,
     targets: [],
     optional: descriptor.optional,
-    // Serializable payload for flushTriggers -> stack. `resolver` MUST equal
-    // RESOLVER_KEYS.TRIGGER_EFFECT — written as a literal so triggers.js stays a
-    // leaf (resolvers.js imports applyTriggerEffect from here in PR-6).
+    // Serializable payload for flushTriggers -> stack. W4: the DEFAULT is the Arbiter-safe manual no-op
+    // (RESOLVER_KEYS.MANUAL, written as a literal so triggers.js stays a leaf) — the flush stage
+    // (gameEngine.buildTriggerStack) parses descriptor.effectClause into a rich EffectProgram and
+    // OVERRIDES this payload for every faithfully-resolvable trigger; anything it can't model keeps
+    // the manual payload (false-negative SAFE, never the old naive substring vocabulary).
+    // MUST-FIX 3: sourcePermanentId threads the SOURCE permanent (the ability's own permanent — the one
+    // DEALING damage) so a damage trigger can route through the damage-replacement consult source-scoped.
     payload: {
-      resolver: "trigger.effect",
-      // MUST-FIX 3: thread the SOURCE permanent (the ability's own permanent — the one DEALING the damage) so
-      // a damage trigger can route through the damage-replacement consult source-scoped. Serializable id only.
-      params: { effect: descriptor.effect, controller, targets: [], context, sourcePermanentId: sourcePermanent.id },
+      resolver: "manual",
+      params: { controller, targets: [], context, sourcePermanentId: sourcePermanent.id },
     },
   };
 }
@@ -3019,59 +2996,11 @@ export function checkInterveningIf(state, pendingTrigger) {
 }
 
 // ─── Resolution ─────────────────────────────────────────────────────────────────
-
-/**
- * Apply a Phase-1 TriggerEffect on resolution. Returns new state. Mirrors
- * spellEffects.resolveSpellEffect's structure (gain/lose life, draw,
- * damage-to-each-opponent). Targeted damage triggers are Phase-2 and resolve as
- * an honest "unresolved" log, never fabricated.
- */
-export function applyTriggerEffect(state, { effect, controller, targets = [], sourcePermanentId = null }) {
-  // `context` (the look-back snapshot) is accepted by callers but unused by the
-  // Phase-1 effect vocabulary; targeted/contextual effects in Phase 2 will read it.
-  if (!effect) return state; // fail-safe: unrecognized → no-op
-  const amt = Math.max(0, effect.amount || 0);
-  let next = state;
-  // DAMAGE-REPLACEMENT (CR 614, MUST-FIX 3): a triggered DAMAGE effect's source is the ability's own permanent
-  // (`sourcePermanentId`, threaded by the resolver). Finalize the per-opponent amount through the consult,
-  // source-scoped. Gated on the board carrying a replacement so a non-Wolverine eachOpponent trigger is
-  // byte-identical (consult returns the raw amount → the same loseLife with the same number). This is the ONLY
-  // damage path here; "loseLife"/"gainLife" are life CHANGES, not damage, and never consult (guard 4).
-  const dmgConsult = (raw, targetId) => {
-    if (raw <= 0 || !boardHasDamageReplacement(next)) return raw;
-    const src = sourcePermanentId ? findPermanent(next, sourcePermanentId) : null;
-    return consultDamageAmount(next, {
-      sourceId: sourcePermanentId,
-      sourceController: src?.controller ?? controller,
-      amount: raw, targetKind: "player", targetId, isCombat: false,
-    });
-  };
-  switch (effect.kind) {
-    case "gainLife":
-      if (next.players[controller]) next = gainLife(next, { playerId: controller, amount: amt });
-      return logEvent(next, { kind: "trigger-effect", effect: "gainLife", controller, amount: amt });
-    case "loseLife":
-      if (effect.who === "eachOpponent") {
-        for (const opp of opponentsOf(next, controller)) if (next.players[opp]) next = loseLife(next, { playerId: opp, amount: amt });
-      } else if (next.players[controller]) {
-        next = loseLife(next, { playerId: controller, amount: amt });
-      }
-      return logEvent(next, { kind: "trigger-effect", effect: "loseLife", controller, who: effect.who, amount: amt });
-    case "draw":
-      if (next.players[controller]) next = drawCards(next, { playerId: controller, count: Math.max(0, effect.amount || 1) });
-      return logEvent(next, { kind: "trigger-effect", effect: "draw", controller, amount: effect.amount });
-    case "damage":
-      if (effect.targetType === "eachOpponent") {
-        for (const opp of opponentsOf(next, controller)) {
-          if (next.players[opp]) next = loseLife(next, { playerId: opp, amount: dmgConsult(amt, opp) });
-        }
-        return logEvent(next, { kind: "trigger-effect", effect: "damage", controller, targetType: "eachOpponent", amount: amt });
-      }
-      return logEvent(next, { kind: "trigger-effect-unresolved", controller, effect, targets });
-    default:
-      return logEvent(next, { kind: "trigger-effect-unresolved", controller, effect });
-  }
-}
+// W4: `applyTriggerEffect` (the Phase-1 naive resolution lane) was DELETED. It duplicated the shared
+// effect primitives WITH DRIFT — drew via drawCards without firing "whenever you draw" triggers, and
+// resolved eachOpponent "damage" as plain loseLife (no infect/wither/enrage/replacement handling). Every
+// live trigger resolves through the EFFECT_PROGRAM interpreter (whose atoms call the shared
+// spellEffects primitives) or the manual/Arbiter no-op.
 
 // ─── CHOSEN-TYPE-ENTERS-OR-ATTACKS detector (Kindred Discovery) ─────────────────
 // "Whenever a creature you control of the chosen type enters or attacks, draw a card." — a COMPOUND-event

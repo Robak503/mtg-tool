@@ -151,7 +151,7 @@ describe("dies triggers — a sacrificed creature's 'when this dies' fires (shar
     expect(out.players.ai.battlefield).toHaveLength(0);
     expect(out.players.ai.graveyard.map((c) => c.id)).toEqual(["a1"]);
     expect(out.pendingTriggers).toHaveLength(1);
-    expect(out.pendingTriggers[0].payload.params.effect).toMatchObject({ kind: "draw" });
+    expect(out.pendingTriggers[0].descriptor.effectClause).toMatch(/draw a card/i); // W4: the clause is what the flush stage parses
   });
   it("a stale id (creature already gone) is a clean no-op, not a throw", () => {
     const s = state({ aiBf: [] });

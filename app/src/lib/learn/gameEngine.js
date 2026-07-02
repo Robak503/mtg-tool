@@ -627,9 +627,9 @@ export const NO_SAFE_TARGET = Symbol("no-safe-trigger-target");
  *    on the stack). No legal target → DROP; else the chooser picks (default first-legal)
  *    and the atomIndex-tagged targets ride onto the EFFECT_PROGRAM payload, so the
  *    interpreter binds each chosen target to its clause.
- *  - everything else (MODAL — would silently pick a mode; INTERVENING-IF — condition
- *    unevaluated at flush; unparseable) → the small `trigger.effect` fallback (→ the
- *    Phase-1 vocab or the Arbiter), never a fabricated effect (CLAUDE.md §1.2).
+ *  - everything else (MODAL fallthrough; INTERVENING-IF outside the strict evaluators;
+ *    unparseable) → the manual/Arbiter no-op payload the trigger already carries
+ *    (W4: the naive Phase-1 vocab is deleted), never a fabricated effect (CLAUDE.md §1.2).
  */
 function buildTriggerStack(state, trigger, chooseTargets) {
   const clause = trigger.descriptor?.effectClause;
@@ -796,19 +796,13 @@ function buildTriggerStack(state, trigger, chooseTargets) {
       return { payload: { resolver: "manual" }, targets: [] };
     }
   }
-  // CREED (CLAUDE.md §1.2 — never fabricate): a trigger that reaches here WITH an effect clause but
-  // carrying the legacy naive `trigger.effect` payload is one we could NOT faithfully resolve — it has an
-  // intervening-if (the `clause && !interveningIf` guard above skipped the rich path) or is a HIGH modal
-  // (excluded from both rich-path returns). The naive payload applies a substring-matched small effect
-  // (parseTriggerEffect → applyTriggerEffect: draw/loseLife/gainLife) UNCONDITIONALLY: checkInterveningIf
-  // is NOT wired into the live resolution path, so the condition is IGNORED, and any "may"/"if you do"
-  // rider is dropped. That fabricates an effect the card doesn't have (e.g. Boundary Lands Ranger drawing
-  // a card with no power-4 creature; an "each opponent's upkeep, if that player has ≤1 card, they lose 4
-  // life" draining unconditionally). Route such a trigger to the Arbiter no-op (false-negative SAFE).
-  // (Wiring checkInterveningIf to fire the 3 modeled condition shapes natively is a tracked enhancement;
-  // until then the WHOLE conditional trigger stays non-native rather than mis-resolve.) A genuinely
-  // clause-less trigger, or one with a non-naive faithful payload, keeps its pre-set payload.
-  if (clause && trigger.payload?.resolver === "trigger.effect") {
+  // W4: the naive TRIGGER_EFFECT lane is retired — makePendingTrigger emits a manual payload directly,
+  // so a trigger the rich paths above could NOT faithfully resolve (intervening-if outside the strict
+  // evaluators, HIGH modal fallthrough, LOW/unparseable clause) falls through here already carrying the
+  // Arbiter-safe manual no-op (false-negative SAFE, CLAUDE.md §1.2). DEFENSIVE: a stray legacy
+  // "trigger.effect" payload (an old serialized game restored mid-stack) is normalized to manual rather
+  // than resolved through a deleted vocabulary.
+  if (trigger.payload?.resolver === "trigger.effect") {
     return { payload: { resolver: "manual" }, targets: [] };
   }
   return { payload: trigger.payload || {}, targets: trigger.targets || [] };

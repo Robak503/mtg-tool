@@ -22,7 +22,7 @@
 
 import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, destroyLethalCreatures, castsAsPlaneswalker, startingLoyalty, opponentsOf } from "./gameState.js";
 import { resolveSpellEffect } from "./spellEffects.js";
-import { applyTriggerEffect, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "./triggers.js";
+import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "./triggers.js";
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js";
 import { evaluateInterveningIf } from "./interveningIf.js";
@@ -51,7 +51,7 @@ export const RESOLVER_KEYS = Object.freeze({
   SPELL_EFFECT: "spell.effect",         // a parsed instant/sorcery effect (single SpellEffect descriptor)
   PERMANENT_ETB: "spell.permanent",     // a permanent spell entering the battlefield
   SPELL_NOOP: "spell.noop",             // a recognized-but-unhandled instant/sorcery — log + pop
-  TRIGGER_EFFECT: "trigger.effect",     // a triggered ability's effect (Phase-1 triggers emit this)
+  TRIGGER_EFFECT: "trigger.effect",     // DEPRECATED (W4): retired zombie lane — resolves as manual; key kept for serialized saves
   ACTIVATED_EFFECT: "activated.effect", // an activated ability's effect (Phase 2)
   MANUAL: "manual",                     // Arbiter escape valve — surfaces an "unresolved" log
   EFFECT_PROGRAM: "effect-program",     // RESERVED for Phase-2's multi-atom interpreter
@@ -535,15 +535,12 @@ export const RESOLVERS = Object.freeze({
     return markPendingArbiter(state, obj, reason || "instant-or-sorcery (no recognized effect)");
   },
 
-  // PR-6: a triggered ability resolves through applyTriggerEffect (the
-  // TriggerEffect vocabulary: gain/lose life, draw, damage-to-each-opponent).
-  // An unrecognized effect (null) routes to the manual/Arbiter log, never faked.
-  [RESOLVER_KEYS.TRIGGER_EFFECT]: (state, obj) => {
-    const { effect, controller, targets = [], context, sourcePermanentId } = obj.payload?.params || {};
-    if (!effect) return resolveManual(state, obj);
-    // MUST-FIX 3: thread the source permanent so a damage trigger routes through the damage-replacement consult.
-    return applyTriggerEffect(state, { effect, controller, context, targets, sourcePermanentId });
-  },
+  // W4 (DEPRECATED lane — retired): the naive TRIGGER_EFFECT vocabulary was deleted (it drew without
+  // firing draw-triggers and resolved damage as plain loseLife — CREED-divergent from the atoms).
+  // makePendingTrigger now emits a manual payload directly and the flush stage upgrades faithful
+  // triggers to EFFECT_PROGRAM. The key is KEPT for one release so a serialized mid-stack save (or a
+  // stray legacy payload) still resolves SAFELY as the Arbiter no-op instead of crashing the registry.
+  [RESOLVER_KEYS.TRIGGER_EFFECT]: (state, obj) => resolveManual(state, obj),
 
   // STUB in PR-1: activated abilities are Phase 2.
   [RESOLVER_KEYS.ACTIVATED_EFFECT]: (state, obj) => resolveManual(state, obj),

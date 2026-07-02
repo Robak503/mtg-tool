@@ -2,9 +2,9 @@
  * Tests for ETB triggers firing end-to-end (Phase-7 PR-6).
  *
  * enterPermanent now enqueues ETB triggers (self + watchers); resolveTopOfStack's
- * flushTriggers puts them on the stack, and the trigger.effect resolver applies
- * them. Vanilla cards (the existing fixtures) have no triggers, so nothing else
- * changes.
+ * flushTriggers puts them on the stack, and buildTriggerStack routes each to the
+ * EFFECT_PROGRAM interpreter (or the manual/Arbiter no-op). Vanilla cards (the
+ * existing fixtures) have no triggers, so nothing else changes.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -32,7 +32,7 @@ describe("ETB triggers fire (Phase-7 PR-6)", () => {
     const out = enterPermanent(s, visionary, "user");
     expect(out.players.user.battlefield).toHaveLength(1);
     expect(out.pendingTriggers).toHaveLength(1);
-    expect(out.pendingTriggers[0].payload.params.effect).toMatchObject({ kind: "draw" });
+    expect(out.pendingTriggers[0].descriptor.effectClause).toMatch(/draw a card/i); // W4: the clause is what the flush stage parses
   });
 
   it("a watcher fires when ANOTHER creature enters, not on its own ETB", () => {
@@ -41,7 +41,7 @@ describe("ETB triggers fire (Phase-7 PR-6)", () => {
     expect(s.pendingTriggers || []).toHaveLength(0); // no self-trigger on its own entry
     const out = enterPermanent(s, creature("Bear", "", { id: "card-bear" }), "user");
     expect(out.pendingTriggers).toHaveLength(1);
-    expect(out.pendingTriggers[0].payload.params.effect).toMatchObject({ kind: "gainLife", amount: 1 });
+    expect(out.pendingTriggers[0].descriptor.effectClause).toMatch(/you gain 1 life/i);
   });
 
   it("'enters tapped' does NOT enqueue a trigger (CR 603.6d)", () => {
