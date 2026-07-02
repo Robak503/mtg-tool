@@ -37,12 +37,12 @@
 ## ⚠️ PARKED — judgment calls / designed-not-built (carry forward)
 1. **Colton's standing items (unchanged from v0.84.0):** land-tier unconditional (metric-only) ·
    fail-CLOSED Spellbook guard trade-off (much less likely to bite now — bulk sync) · U-F4 color-tag
-   stopgap · 6 dirty pre-existing worktrees (master-rev, wave2a-rev, WAVE4-dex, qa-report-1, wave5b,
-   wave5d) await force-remove approval · ~230 local/~130 remote squash-merged branches.
+   stopgap · ~230 local/~130 remote squash-merged branches. (The 6 dirty worktrees: Colton approved
+   2026-07-02 → all removed junction-safe, main tree verified intact; their branches keep the commits.)
    (v0.84.0 parked #4 gameApi + #5 GY-accounting are RESOLVED this pass; #6 Cargo.toml bumped.)
 2. **Designed, parked with analysis (see p2-recon/p4-findings JSON + the evidence ledger):**
-   W6 permanent-entry unification (high-risk two-step) · opponentAI W7b-e held-class slices + W8
-   archetype caching · N3 narrated game-log feed (needs source-name payload enrichment first) ·
+   W6 permanent-entry unification (high-risk two-step) · opponentAI W6-equip/W7b-e/W8 slices —
+   **ON HOLD per Colton (2026-07-02): do not pick up until he has run Omnath through its Fable pass** · N3 narrated game-log feed (needs source-name payload enrichment first) ·
    parser-seam S3/S4 anti-regrowth registries + S5 · the unquoted spend-restricted LANDS mana class
    (Ancient Ziggurat/Cavern — needs restricted-mana modeling in planPayment, touches real decks) ·
    tutor mandatory-search decline soft spot · remaining P4 P3s (LearnBoard raw-seat-id spots,
