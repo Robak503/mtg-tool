@@ -412,7 +412,11 @@ export function resolveDivideChoice(state, distribution) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "divide-damage") return state;
   let next = clearPendingChoice(state);
-  if (!next.players?.[pc.controller]) return resumeAfterChoice(next, pc); // caster eliminated mid-pause → no damage
+  // WI-6 — bail WITHOUT resuming when the caster is eliminated mid-pause (CR 800.4a): a dead caster's
+  // riders shouldn't run. Mirrors resolveHandDiscardChoice / resolveScryChoice / resolveImpulseDigChoice's
+  // guard (previously this called resumeAfterChoice, the odd one out — harmless today since no divide-
+  // damage program carries a rider past the pause, but inconsistent with the shared seam).
+  if (!next.players?.[pc.controller]) return next; // caster eliminated mid-pause → no damage, no resume
   const validIds = new Set((pc.candidates || []).map((c) => c.id));
   let spent = 0;
   for (const d of distribution || []) {

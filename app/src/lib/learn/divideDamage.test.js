@@ -91,6 +91,23 @@ describe("MT-1 resolveDivideChoice — applies the split through the deal-damage
     const out = resolveDivideChoice(s, [{ id: "not-a-target", type: "player", amount: 4 }]);
     expect(out.players.ai.life).toBe(40); // nothing applied
   });
+  // WI-6 — an eliminated caster mid-pause bails WITHOUT resuming (CR 800.4a: their riders shouldn't run),
+  // mirroring resolveHandDiscardChoice / resolveScryChoice / resolveImpulseDigChoice's guard shape. No
+  // divide-damage program carries a resumable rider today (setPendingDivideChoice takes no `resume`), so
+  // this pins the STRUCTURE of the bail (clean no-crash return, no damage applied, no pendingChoice left
+  // dangling) rather than an externally-observable resume/no-resume difference.
+  it("an eliminated caster mid-pause bails cleanly — no damage applied, no dangling pendingChoice", () => {
+    const s0 = state({ aiBf: [creature("Bear", 2, 2, "ai")] });
+    const s = applyDivideDamage(s0, { op: "divide-damage", amount: 5, group: "anyTarget" }, { controller: "user" });
+    // Simulate the caster being eliminated between the pause and the settle (CR 800.4a).
+    const { user: _gone, ...remainingPlayers } = s.players;
+    const eliminated = { ...s, players: remainingPlayers };
+    const bear = s.players.ai.battlefield.find((p) => p.card.name === "Bear");
+    const out = resolveDivideChoice(eliminated, [{ id: bear.id, type: "creature", amount: 2 }]);
+    expect(out.players.user).toBeUndefined(); // still gone
+    expect(out.players.ai.battlefield.find((p) => p.card.name === "Bear")).toBeDefined(); // no damage — the eliminated caster's split never applied
+    expect(out.pendingChoice).toBeUndefined(); // cleared, not left dangling
+  });
 });
 
 describe("MT-1 parser + coverage — divide-damage is native (the card-name prefix is tolerated)", () => {

@@ -535,6 +535,13 @@ function applyCastSpell(state, action) {
   // pay-or-be-countered machinery (the pendingChoice decision + AI settle + UI + counter already exist),
   // raised "above" the spell after the cast triggers. Skipped if a trigger already set a pendingChoice
   // (setPendingSoftCounterChoice no-ops on an occupied slot — a safe FN for that rare overlap).
+  // WI-6 REACHABILITY NOTE: state.pendingChoice is FIFO-guarded and the advanceUntilDecision driver
+  // settles any pending choice BEFORE the next priority window (a pause blocks dispatchAction from being
+  // called again until it clears), so within a single driver-run game this "occupied slot" branch is
+  // ~unreachable — a normal cast-triggers flush can't itself already be paused when this code runs on the
+  // SAME dispatch. It's real defense against a hand-built/malformed state (a test fixture, a future
+  // caller invoking applyCastSpell directly with a pre-existing pendingChoice) rather than a live gap in
+  // driver-run play. Documented rather than silently relied upon (§6-style).
   const wardTax = wardTaxForSpell(next, stackObject);
   if (wardTax) {
     next = setPendingSoftCounterChoice(next, {
@@ -549,6 +556,9 @@ function applyCastSpell(state, action) {
   // Diffusion controller controls raises the SAME pay-{2}-or-be-countered soft-counter (groupWard.js).
   // setPendingSoftCounterChoice no-ops on an occupied slot, so a ward tax already raised above takes
   // precedence (the rarer overlap under-applies one tax — a safe FN). No-op when no Diffusion is in play.
+  // This IS reachable within a single dispatch (the ward tax above may already have occupied the slot on
+  // the SAME call) — the FN is real, just rare (both a printed ward AND a controlled Diffusion Sliver
+  // simultaneously targeted by one spell).
   const diffusionTax = groupWardTaxForSpell(next, stackObject);
   if (diffusionTax) {
     next = setPendingSoftCounterChoice(next, {
@@ -763,6 +773,10 @@ function applyActivateAbility(state, action) {
   // countered choice as the cast path. An Equip ability targets the activator's OWN creature (controller
   // == caster), so wardTaxForStackObject returns null there — no false ward on equipping your own creature.
   // Skipped if a trigger above already set a pendingChoice (no-ops on an occupied slot — safe FN).
+  // WI-6 REACHABILITY NOTE: same as the cast path above — advanceUntilDecision settles any pendingChoice
+  // before the next dispatch, so a pre-existing occupied slot from an EARLIER action is ~unreachable
+  // within driver-run play; the real (rarer) overlap is ward + Diffusion Sliver on the SAME dispatch (see
+  // below), not a stale leftover choice from a prior turn.
   const abilityWardTax = wardTaxForStackObject(next, stackObject);
   if (abilityWardTax) {
     next = setPendingSoftCounterChoice(next, {
