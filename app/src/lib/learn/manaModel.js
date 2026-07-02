@@ -31,7 +31,7 @@
  */
 
 import { MANA_COLORS, addMana, moveCardToZone, tapPermanent, findPermanent } from "./gameState.js";
-import { checkSacrificeTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice
+import { checkSacrificeTriggers, checkLeavesTriggers } from "./triggers.js"; // SAC-TREASURE: a cracked one-shot mana source is a sacrifice; LEAVE-DRAIN: its exit drains at cost time (CR 603.3b)
 import { permanentHasKeyword, grantedManaSpecsFor } from "./layers.js";
 import { countForSpec } from "./effects/atoms/shared.js"; // MANA-VARIABLE: resolve a count-derived mana amount (leaf-safe: shared → gameState only)
 import { parseAuraLandManaBonus, parseGlobalTapManaAugment } from "./staticAbilityParser.js"; // AURA-LAND-MANA-BOOST + GLOBAL-TAP-AUGMENT: extra mana from a "tapped for mana" boost (leaf: static parser → keywords only)
@@ -776,7 +776,7 @@ export function planPayment(pool, sources, cost) {
   // Tap a source, assigning `wantColor` (if given) from whichever component can make it, then crediting
   // every other component greedily to a STILL-NEEDED color (cost minus spend minus working), else its
   // first color. Records the chosen primary `color` + `bonus` picks on the tap so the commit path
-  // (commitManaTaps / payGenericMana) adds the identical mana — no planner/commit divergence. Returns
+  // (commitPaymentPlan / commitManaTap) adds the identical mana — no planner/commit divergence. Returns
   // the assigned `wantColor` (or the primary's chosen color for a generic tap). Every choice is a legal
   // mana the source genuinely produces — never fabricated; surplus floats.
   const tapSource = (s, wantColor) => {
@@ -889,15 +889,61 @@ export function canAfford(pool, sources, cost) {
 }
 
 /**
+ * W1 — THE single mana-tap commit (one tap of a payment plan, or one explicit tap-for-mana action; both
+ * carry the same `{ color, amount, bonus, sacrifices, permanentId }` shape). Add the source's mana to the
+ * pool (plus any inline boost-Aura bonus — the Aura is NOT tapped/consumed, CR 605.1b), then either TAP a
+ * repeatable land/rock/dork or — for a one-shot sacrifice-for-mana source (Treasure / Gold / Lotus Petal,
+ * `tap.sacrifices`) — SACRIFICE it (battlefield → graveyard) so it can't ramp again (the TOK-2 correctness
+ * invariant). Those sources are non-creatures, so no dies trigger fires; routing the removal through
+ * moveCardToZone keeps it on the one shared zone-move path. The crack fires "whenever you sacrifice an
+ * artifact/permanent" (SAC-TREASURE, CR 701.21) and drains the pending leave event NOW (LEAVE-DRAIN,
+ * CR 603.3b) so permanentLeaves watchers stack in cost order, not at the NEXT stack resolution against a
+ * battlefield that may have changed (the stale-scan FP window). Shared by every payment path — the
+ * dispatcher's plan commits, applyTapForMana's explicit tap, and payManaCost's resolution-layer payment —
+ * so the commit semantics can't drift.
+ */
+export function commitManaTap(state, playerId, tap) {
+  let next = addMana(state, { playerId, color: tap.color, amount: tap.amount ?? 1 });
+  for (const b of tap.bonus || []) next = addMana(next, { playerId, color: b.color, amount: b.amount });
+  if (tap.sacrifices) {
+    const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
+    next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
+    if (sacPerm) next = checkSacrificeTriggers(next, playerId, { id: sacPerm.id, controller: playerId, card: sacPerm.card });
+    next = checkLeavesTriggers(next);
+  } else {
+    next = tapPermanent(next, tap.permanentId);
+  }
+  return next;
+}
+
+/**
+ * W1 — THE single payment-plan commit: execute every tap of a `planPayment` plan via `commitManaTap`,
+ * then deduct EXACTLY what the plan spent from the topped-up pool. Using the plan's own breakdown (not a
+ * second payment heuristic) guarantees the deduction always succeeds — no divergence that could strand a
+ * hybrid pip after the cast was already deemed affordable. Any surplus from an over-producing source
+ * (Sol Ring on a single generic) floats — the floating-mana behavior we want. Lives here (a leaf) so BOTH
+ * the dispatcher's five pay-at-cost paths (cast / activate / cycle / companion / plot) and the resolution
+ * layer's payManaCost commit through one implementation — the 3-way copy-paste this replaced is the exact
+ * seam where tap-for-mana semantics used to drift.
+ */
+export function commitPaymentPlan(state, playerId, plan) {
+  let next = state;
+  for (const tap of plan?.taps || []) next = commitManaTap(next, playerId, tap);
+  const topped = next.players[playerId].manaPool;
+  const nextPool = {};
+  for (const col of Object.keys(topped)) nextPool[col] = (topped[col] || 0) - (plan?.spend?.[col] || 0);
+  return { ...next, players: { ...next.players, [playerId]: { ...next.players[playerId], manaPool: nextPool } } };
+}
+
+/**
  * SOFT-CNT — pay a FIXED generic cost of `amount` from `playerId`'s pool + untapped mana sources
  * (the "unless its controller pays {N}" escape on Force Spike / Mana Leak / …). Plans the payment with
  * `planPayment` (the SAME planner the cast path uses, so "affordable" == "actually paid" — no second
- * heuristic that could strand mana), commits the taps — add each source's mana then TAP it, or SACRIFICE
- * a one-shot Treasure/Gold (`tap.sacrifices`) — then subtracts the spend. Returns `{ state, paid }`:
- * `paid:false` with state UNCHANGED when the player can't afford it (the caller then counters the spell),
- * never fabricated mana. `amount <= 0` is a trivial `paid:true` no-op. Mirrors actionDispatcher's
- * `commitManaTaps` + spend-deduction; kept here (a leaf) so the resolution layer can pay without importing
- * the dispatcher (which would cycle).
+ * heuristic that could strand mana), commits via `commitPaymentPlan` (the SAME committer the cast path
+ * uses). Returns `{ state, paid }`: `paid:false` with state UNCHANGED when the player can't afford it
+ * (the caller then counters the spell), never fabricated mana. `amount <= 0` is a trivial `paid:true`
+ * no-op. Kept here (a leaf) so the resolution layer can pay without importing the dispatcher (which
+ * would cycle).
  */
 export function payGenericMana(state, playerId, amount) {
   const n = Math.max(0, Math.trunc(Number(amount) || 0));
@@ -926,27 +972,7 @@ export function payManaCost(state, playerId, cost) {
   if (!player) return { state, paid: false };
   const plan = planPayment(player.manaPool, manaSources(state, playerId), c);
   if (!plan) return { state, paid: false };
-  let next = state;
-  for (const tap of plan.taps) {
-    next = addMana(next, { playerId, color: tap.color, amount: tap.amount });
-    // AURA-LAND-MANA-BOOST: float the boost-Aura mana that appears inline when this land taps (the
-    // Aura is NOT tapped/consumed). The planner already chose the bonus color(s) and counted them in
-    // `spend`, so adding them here keeps the topped pool == what the plan spent.
-    for (const b of tap.bonus || []) next = addMana(next, { playerId, color: b.color, amount: b.amount });
-    if (tap.sacrifices) {
-      const sacPerm = next.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
-      next = moveCardToZone(next, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
-      // SAC-TREASURE: cracking a one-shot Treasure/Gold to pay mana fires "whenever you sacrifice an artifact/permanent".
-      if (sacPerm) next = checkSacrificeTriggers(next, playerId, { id: sacPerm.id, controller: playerId, card: sacPerm.card });
-    } else {
-      next = tapPermanent(next, tap.permanentId);
-    }
-  }
-  const topped = next.players[playerId].manaPool;
-  const nextPool = {};
-  for (const col of Object.keys(topped)) nextPool[col] = (topped[col] || 0) - (plan.spend?.[col] || 0);
-  next = { ...next, players: { ...next.players, [playerId]: { ...next.players[playerId], manaPool: nextPool } } };
-  return { state: next, paid: true };
+  return { state: commitPaymentPlan(state, playerId, plan), paid: true };
 }
 
 // Internal exports for tests.

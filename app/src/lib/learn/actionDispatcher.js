@@ -31,7 +31,6 @@ import {
   logEvent,
   opponentsOf,
   tapPermanent,
-  addMana,
   loseLife,
   removeCounter,
   addCounter,
@@ -46,7 +45,7 @@ import {
   clearRemovedFromCombatFlags,
 } from "./gameState.js";
 import { passPriority, flushTriggers, chooseTriggerTargets } from "./gameEngine.js";
-import { manaSources, planPayment, sourcesExcludingOneShotVictim } from "./manaModel.js";
+import { manaSources, planPayment, sourcesExcludingOneShotVictim, commitPaymentPlan, commitManaTap } from "./manaModel.js";
 import { parseEffectProgram } from "./effects/parser.js";
 import { RESOLVER_KEYS, isPermanentSpell } from "./resolvers.js";
 import { isAuraCard, isNativeAura, isNativeManaAura, entersTapped } from "./staticAbilityParser.js";
@@ -146,37 +145,10 @@ function deductManaCost(manaPool, cost) {
   return pool;
 }
 
-/**
- * Commit a payment plan's mana taps (manaModel.planPayment). For each tapped source: add its mana to
- * the pool, then either TAP it (a repeatable land/rock/dork) or — for a one-shot sacrifice-for-mana
- * source (Treasure / Gold / Lotus Petal, `tap.sacrifices`) — SACRIFICE it (battlefield → graveyard) so
- * it can't ramp again (the TOK-2 correctness invariant). Those sources are non-creatures, so no dies
- * trigger fires; routing the removal through moveCardToZone keeps it on the one shared zone-move path.
- * Shared by the cast-spell + activate-ability auto-pay loops so the two can't drift.
- */
-function commitManaTaps(state, playerId, taps) {
-  let working = state;
-  for (const tap of taps || []) {
-    working = addMana(working, { playerId, color: tap.color, amount: tap.amount });
-    // AURA-LAND-MANA-BOOST: the boost-Aura mana that appears INLINE when this land taps (the Aura is
-    // NOT tapped/consumed). planPayment chose the bonus color(s) and counted them in plan.spend, so
-    // adding them here keeps the topped pool == the plan's spend (no divergence → no stranded mana).
-    for (const b of tap.bonus || []) working = addMana(working, { playerId, color: b.color, amount: b.amount });
-    if (tap.sacrifices) {
-      const sacPerm = working.players[playerId]?.battlefield?.find(p => p.id === tap.permanentId); // capture pre-move (for the type)
-      working = moveCardToZone(working, { playerId, fromZone: "battlefield", toZone: "graveyard", cardId: tap.permanentId });
-      // SAC-TREASURE: a sacrificed one-shot mana source fires "whenever you sacrifice an artifact/permanent".
-      if (sacPerm) working = checkSacrificeTriggers(working, playerId, { id: sacPerm.id, controller: playerId, card: sacPerm.card });
-      // LEAVE-DRAIN (CR 603.3b): the crack is a battlefield EXIT — drain the pending leave event NOW so
-      // permanentLeaves watchers (Marionette Master class) stack in cost order, not at the NEXT stack
-      // resolution against a battlefield that may have changed (the stale-scan FP window).
-      working = checkLeavesTriggers(working);
-    } else {
-      working = tapPermanent(working, tap.permanentId);
-    }
-  }
-  return working;
-}
+// W1: the mana-commit implementation (tap loop + plan spend-deduction) lives in ONE place —
+// manaModel.commitPaymentPlan / commitManaTap — shared with payManaCost (the resolution layer's
+// payment) and applyTapForMana, so tap-for-mana semantics (one-shot Treasure cracks, sacrifice
+// triggers, the CR 603.3b leave-drain, boost-Aura bonus mana) can never drift between paths.
 
 // ─── Combat-state helper ──────────────────────────────────────────────────────
 
@@ -293,10 +265,9 @@ function applyCastSpell(state, action) {
   // DISCOVER / free-cast (CR 601.2b — "cast without paying its mana cost"): skip the mana plan + payment
   // entirely when `action.freeCast` is set. ONLY the mana cost is waived — the ADDITIONAL costs below
   // (sacrifice / pay-life / discard) still apply, exactly as CR requires. Otherwise pay normally.
-  let working, nextPool;
+  let working;
   if (action.freeCast) {
     working = state;
-    nextPool = { ...state.players[action.playerId].manaPool };
   } else {
     // Plan payment from the current pool PLUS untapped mana sources. planPayment
     // is pool-first, so a pre-filled pool pays with zero taps (preserving the
@@ -320,20 +291,10 @@ function applyCastSpell(state, action) {
       throw new DispatcherError("Cannot pay the spell's mana cost", "MANA_SHORT");
     }
 
-    // 1. Commit the taps: add each source's mana to the pool and tap it — OR sacrifice a one-shot
-    // Treasure/Gold (commitManaTaps). Any surplus from an over-producing source (Sol Ring on a single
-    // generic) floats — the floating-mana behavior we want.
-    working = commitManaTaps(state, action.playerId, plan.taps);
-
-    // 2. Deduct EXACTLY what the plan spent. Using the plan's own breakdown (not
-    // a second payment heuristic) guarantees the deduction always succeeds — no
-    // divergence that could strand a hybrid pip and throw MANA_SHORT after the
-    // spell was already deemed castable.
-    const toppedPool = working.players[action.playerId].manaPool;
-    nextPool = {};
-    for (const c of Object.keys(toppedPool)) {
-      nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
-    }
+    // Commit the plan (manaModel.commitPaymentPlan): add each source's mana and tap it — OR sacrifice
+    // a one-shot Treasure/Gold — then deduct EXACTLY what the plan spent. Any surplus from an
+    // over-producing source (Sol Ring on a single generic) floats — the floating-mana behavior we want.
+    working = commitPaymentPlan(state, action.playerId, plan);
   }
 
   // 2b. Pay any ADDITIONAL COSTS (CR 601.2f) — paid at cast, before the spell finishes going on the stack.
@@ -505,9 +466,8 @@ function applyCastSpell(state, action) {
     players: {
       ...working2.players,
       [action.playerId]: {
-        ...player,
+        ...player, // W1: `player` re-reads `working` AFTER commitPaymentPlan, so it already carries the deducted pool
         [fromZone]: nextSrc,
-        manaPool: nextPool,
         ...bumpCount,
       },
     },
@@ -591,23 +551,13 @@ function applyTapForMana(state, action) {
   if (!perm) throw new DispatcherError(`Permanent ${action.permanentId} not on battlefield`, "PERM_NOT_FOUND");
   if (perm.tapped) throw new DispatcherError("Mana source is already tapped", "ALREADY_TAPPED");
 
-  // Add the mana, then TAP a repeatable source or SACRIFICE a one-shot Treasure/Gold (action.sacrifices,
-  // set by legalChoices.actionsTapForMana) — the same one-shot discipline as the auto-pay commit path.
-  let next = addMana(state, { playerId: action.playerId, color: action.color, amount: action.amount || 1 });
-  // AURA-LAND-MANA-BOOST: float the boost-Aura mana that appears INLINE when this land taps (CR 605.1b)
-  // — the Aura is NOT tapped/consumed. action.bonus is set by legalChoices.actionsTapForMana.
-  for (const b of action.bonus || []) next = addMana(next, { playerId: action.playerId, color: b.color, amount: b.amount });
-  if (action.sacrifices) {
-    next = moveCardToZone(next, { playerId: action.playerId, fromZone: "battlefield", toZone: "graveyard", cardId: action.permanentId });
-    // SAC-TREASURE: cracking a one-shot Treasure/Gold for mana IS a sacrifice (CR 701.21) → fire
-    // "whenever you sacrifice an artifact/permanent" (Korvold, Mayhem Devil…). `perm` was captured pre-move.
-    next = checkSacrificeTriggers(next, action.playerId, { id: perm.id, controller: action.playerId, card: perm.card });
-    // LEAVE-DRAIN (CR 603.3b): same as the auto-pay crack — the exit's leave event drains at cost time
-    // (no stack push here, so the trigger waits in pendingTriggers for the next priority flush, CR 603.3a).
-    next = checkLeavesTriggers(next);
-  } else {
-    next = tapPermanent(next, action.permanentId);
-  }
+  // W1: commit through the ONE shared tap implementation (manaModel.commitManaTap) — add the mana (plus
+  // any inline boost-Aura bonus, CR 605.1b), then TAP a repeatable source or SACRIFICE a one-shot
+  // Treasure/Gold (action.sacrifices, set by legalChoices.actionsTapForMana; the crack fires sacrifice
+  // watchers, CR 701.21, and drains its leave event at cost time, CR 603.3b — no stack push here, so the
+  // trigger waits in pendingTriggers for the next priority flush, CR 603.3a). The action carries the same
+  // { color, amount, bonus, sacrifices, permanentId } shape a payment-plan tap does.
+  let next = commitManaTap(state, action.playerId, action);
   next = logEvent(next, {
     kind: "tap-for-mana",
     playerId: action.playerId,
@@ -679,14 +629,7 @@ function applyActivateAbility(state, action) {
   const plan = planPayment(pool, sources, action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the ability's mana cost", "MANA_SHORT");
 
-  let working = commitManaTaps(state, action.playerId, plan.taps);
-  const toppedPool = working.players[action.playerId].manaPool;
-  const nextPool = {};
-  for (const c of Object.keys(toppedPool)) nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
-  working = {
-    ...working,
-    players: { ...working.players, [action.playerId]: { ...working.players[action.playerId], manaPool: nextPool } },
-  };
+  let working = commitPaymentPlan(state, action.playerId, plan);
 
   // Pay the `{T}` part of the cost by tapping the source (after the mana taps, so the
   // source was already excluded from the mana plan above and can't be double-tapped).
@@ -822,11 +765,7 @@ function applyCycle(state, action) {
   // Pay the cycling MANA cost (CR 602.2b — before the ability is on the stack).
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the cycling cost", "MANA_SHORT");
-  let working = commitManaTaps(state, action.playerId, plan.taps);
-  const toppedPool = working.players[action.playerId].manaPool;
-  const nextPool = {};
-  for (const c of Object.keys(toppedPool)) nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
-  working = { ...working, players: { ...working.players, [action.playerId]: { ...working.players[action.playerId], manaPool: nextPool } } };
+  let working = commitPaymentPlan(state, action.playerId, plan);
 
   // Pay the DISCARD part of the cost — the card itself, hand → graveyard.
   working = moveCardToZone(working, { playerId: action.playerId, fromZone: "hand", toZone: "graveyard", cardId: action.cardId });
@@ -997,14 +936,11 @@ function applyCompanionToHand(state, action) {
   }
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay {3} for the companion", "MANA_SHORT");
-  let working = commitManaTaps(state, action.playerId, plan.taps);
-  const toppedPool = working.players[action.playerId].manaPool;
-  const nextPool = {};
-  for (const c of Object.keys(toppedPool)) nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
-  const w = working.players[action.playerId];
+  let working = commitPaymentPlan(state, action.playerId, plan);
+  const w = working.players[action.playerId]; // already carries the deducted pool (W1)
   let next = {
     ...working,
-    players: { ...working.players, [action.playerId]: { ...w, manaPool: nextPool, hand: [...w.hand, companion], companion: null } },
+    players: { ...working.players, [action.playerId]: { ...w, hand: [...w.hand, companion], companion: null } },
   };
   next = logEvent(next, { kind: "companion-to-hand", playerId: action.playerId, cardName: companion.name });
   // The actor keeps priority and the pass-in-succession chain resets: a special action doesn't pass
@@ -1097,11 +1033,7 @@ function applyPlot(state, action) {
   // Pay the plot MANA cost (CR 702.171a — the plot cost is paid as the special action is taken).
   const plan = planPayment(player.manaPool, manaSources(state, action.playerId), action.cost);
   if (!plan) throw new DispatcherError("Cannot pay the plot cost", "MANA_SHORT");
-  let working = commitManaTaps(state, action.playerId, plan.taps);
-  const toppedPool = working.players[action.playerId].manaPool;
-  const nextPool = {};
-  for (const c of Object.keys(toppedPool)) nextPool[c] = (toppedPool[c] || 0) - (plan.spend?.[c] || 0);
-  working = { ...working, players: { ...working.players, [action.playerId]: { ...working.players[action.playerId], manaPool: nextPool } } };
+  let working = commitPaymentPlan(state, action.playerId, plan);
 
   // Exile the card face-up (hand → exile), then stamp the plotted markers onto the exiled copy. The turn
   // stamp is what enforces "not the turn it was plotted" — legalChoices.actionsCastPlottedFromExile compares
