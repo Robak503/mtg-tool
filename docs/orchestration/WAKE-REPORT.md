@@ -1,3 +1,31 @@
+# 🔄 COVERAGE GRIND — 2026-07-02 (post-v0.85.0 relaunch, Clyde)
+
+> Live grind session on top of v0.85.0. Integrating via **PR [#383](https://github.com/Robak503/mtg-tool/pull/383)** (rolling branch `claude/clever-liskov-6e04be`) — direct ff-push to master is blocked by the auto-mode classifier (as the CREED discipline documents: master push is PR-only), so waves stack as individually-verified commits on the PR. **Merge #383 when ready, or add a Bash permission rule to authorize direct-to-master pushes for the faster ff-grind.**
+
+## Fresh census (realism gate, main-tree oracle)
+Corpus **25.3% native** (8652/34160). Per-deck laggards→leaders: Yuriko 53 · Rog/Thras 54 · Kellan/Cap 55 · Wolverine 56 · Mothman 58 · Kinnan 60 · Pantlaza 68 · Toph 71 · Ur-Dragon 72 · Omnath 76 · Zaxara 79 · Koma 82 · Vihaan 83 · Sliver 92. Aggregate 68% (1014/1500).
+
+## ★ META-FINDING (5-agent recon): the clean mechanic-levers are mostly ALREADY MODELED post-overhaul
+Token-on-trigger (incl. Treasure/Food — even the token-ETB-trigger gap is fixed), enters-with-X counters, and most +1/+1-counter infra are already native. The remaining deck gap is **(A) one big clean lever (alt-cost casting) + (B) a scatter of small 1-2-card slices.**
+
+## SHIPPED (on PR #383)
+- **Wave 1 — COUNTER-QUALIFIED count-source** (+1 native: Armorcraft Judge). `parseCountSource` + `countForSpec` gain a `+1/+1`-counter-qualified creature count. vitest 6589 · lint clean · flip-diff LOST=0 GAINED=1 · program-fp 1 row. Prereq for Inspiring Call.
+
+## RANKED PLAN (grinding in order)
+1. ✅ Wave 1 (above).
+2. **Wave 2 — `thoseCreatures` filtered-set referent → Inspiring Call** (x4 decks: Zaxara·Toph·Mothman·Wolverine). Builds on wave 1.
+3. **Wave 3 — ALT-COST casting subsystem** (the big lever): 10 cards blocked SOLELY by a printed alt-cost rider, base effect already native-spell once stripped — Fierce Guardianship, Force of Will/Negation, Flare of Denial/Cultivation, Submerge, Gush, Deadly Rollick, Snuff Out, Flawless Maneuver. 19 occ / 6 decks (Yuriko 8, Rog/Thras 4, Kinnan 3, Cap 2, Omnath 1, Kellan 1). **M-sized, buildable** (dual cast-offer branch parallel to kicker/additionalCosts; `action.freeCast` skip-payment primitive exists; manaModel unchanged) but touches central cast files (legalChoices/actionDispatcher/parser) → dedicated, carefully-verified wave. **This is the ceiling-breaker for the cEDH laggards.**
+4. **Wave 4+ (fan-out, disjoint files):** distribute-N-counters atom (Earth Crystal x2 Toph/Wolverine), `becomes tapped` trigger event (Tale of Katara/Toph x2), Hungering Hydra dmg→counter referent, etc.
+
+## PARKED (recon-determined — need judgment / bigger design; NOT clean levers)
+- **Tax-on-opponent-cast** ("unless they pay {N}"): only ~2 clean cards (Rhystic Study, Esper Sentinel); needs an opponent-pay pendingChoice subsystem (clonable from soft-counter) for poor ROI. Rhystic Study family otherwise blocked by cumulative upkeep / an unmodeled **opponent-draws** trigger event.
+- **Alt-cost SECOND-tier cards** (need separate redirect/exile-any-number/edict work, NOT alt-cost): Deflecting Swat, Mindbreak Trap, Misdirection, Commandeer, Flare of Duplication/Malice, Contagion, Force of Despair. Even a full alt-cost build leaves Yuriko ~8 short → **Rog/Thras, Kinnan, Yuriko cannot reach 100% native this session** (documented ceiling).
+- **Enters-with-X hydras**: lever already wired (20/90 corpus native); the 5 named hydras are 5 unrelated 1-card builds (counter-redirect replacement, dmg-amount referent, Aura-self-counter static, budget-capped destroy, opponent-searches trigger).
+- **Ozolith counter-migration** (M: new creature-leaves scope + migrate-counters resolver family).
+- Chain of Vapor stays a named Arbiter carve-out (untouched).
+
+---
+
 # 🌅 RESUME HANDOFF — 2026-07-02 (Fable 5 ENGINE-OVERHAUL pass COMPLETE)
 
 > master → **v0.85.0** (the overhaul pass, 49 commits), tag pushed → CI (run verified below by the
