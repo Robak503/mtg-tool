@@ -40,7 +40,10 @@ permissions:
 
 jobs:
   sync:
-    runs-on: ubuntu-latest
+    # windows-2025, NOT ubuntu: actions/cache computes an OS-scoped version, so a cache saved from
+    # ubuntu is INVISIBLE to the windows release runner — that mismatch (plus quota eviction) is how
+    # ~68 releases shipped with zero combos. Same OS as release.yml = restorable snapshot.
+    runs-on: windows-2025
     timeout-minutes: 90
     # The Spellbook script handles 429s by sleeping + retrying, but a
     # long enough block can still abort the run. continue-on-error
