@@ -1600,19 +1600,39 @@ function isLevelGated(oracle) {
     /:\s*Level \d/i.test(oracle);              // Class "{cost}: Level N"
 }
 
+// ─── Per-card parse memoization (overhaul perf wave 1) ────────────────────────
+// A card object's oracle/type/name are immutable for its lifetime (the engine
+// never mutates `card` — clones/adventures project NEW card objects; runtime
+// flags live on the PERMANENT). The CR-613 layer derive re-runs per state, so
+// every action re-parsed every battlefield permanent's statics from scratch —
+// ~30% of self-play CPU (P1 profile). Cache each parse per CARD OBJECT (WeakMap,
+// the detectTriggers pattern). Results are treated as read-only by every
+// consumer (staticEffectsOf copies before stamping; verified no-mutation).
+const _cardParseCache = new WeakMap(); // card -> { [slotKey]: parseResult }
+function _cardSlot(card) {
+  if (typeof card !== "object" || card === null) return null; // WeakMap keys must be objects
+  let slot = _cardParseCache.get(card);
+  if (!slot) { slot = {}; _cardParseCache.set(card, slot); }
+  return slot;
+}
+
 /**
  * Parse a permanent's oracle into static continuous-effect descriptors (partial:
  * no id/timestamp/source). Bounded — recognizes the anthem/lord grammar above;
- * everything else yields []. Pure.
+ * everything else yields []. Pure; memoized per card object (results read-only).
  */
 export function parseStaticAbilities(card) {
+  const slot = _cardSlot(card);
+  if (slot && "statics" in slot) return slot.statics;
   const rawOracle = String(card?.oracle || card?.oracle_text || "");
-  if (!rawOracle || isLevelGated(rawOracle)) return [];
-  const oracle = selfNormalizeOracle(rawOracle, card?.name, card?.type || card?.type_line); // TRUNK-SELFBUFF: name-based self-ref → "this creature"
-  const out = [];
-  for (const clause of abilityClauses(oracle)) {
-    parseClause(clause, out, card?.name); // name → EMINENCE excludeSelf sourceName
+  let out = [];
+  if (rawOracle && !isLevelGated(rawOracle)) {
+    const oracle = selfNormalizeOracle(rawOracle, card?.name, card?.type || card?.type_line); // TRUNK-SELFBUFF: name-based self-ref → "this creature"
+    for (const clause of abilityClauses(oracle)) {
+      parseClause(clause, out, card?.name); // name → EMINENCE excludeSelf sourceName
+    }
   }
+  if (slot) slot.statics = out;
   return out;
 }
 
@@ -1913,6 +1933,9 @@ function touchesAttachedCreature(c, subject) {
 export function parseAttachedBonus(card, subjectOverride) {
   const oracle = String(card?.oracle || card?.oracle_text || "");
   const subject = subjectOverride || (/enchanted creature/i.test(oracle) ? "enchanted" : "equipped");
+  const slot = _cardSlot(card);
+  const slotKey = "attached:" + subject;
+  if (slot && slotKey in slot) return slot[slotKey];
   const out = [];
   let saw = false;
   for (const clause of abilityClauses(oracle)) {
@@ -1934,11 +1957,13 @@ export function parseAttachedBonus(card, subjectOverride) {
     if (subject === "equipped" && /^(?:when|whenever|at)\b/.test(c.trim())) continue;
     if (!touchesAttachedCreature(c, subject)) continue;          // the card's own body — ignore
     const parsed = c.startsWith(`${subject} creature`) ? parseAttachedClause(c, subject) : null;
-    if (!parsed) return [];                                       // a creature clause we can't fully model
+    if (!parsed) { if (slot) slot[slotKey] = []; return []; }     // a creature clause we can't fully model
     out.push(...parsed);
     saw = true;
   }
-  return saw ? out : [];
+  const result = saw ? out : [];
+  if (slot) slot[slotKey] = result;
+  return result;
 }
 
 /** Back-compat alias — the equipment bonus is the attached bonus with the "equipped" subject. */
@@ -2149,6 +2174,14 @@ const TAP_AUGMENT_COLOR_LETTERS = new Set(["W", "U", "B", "R", "G", "C"]);
  * (coverage) can inspect it; the all-or-nothing residue gate lives in isGlobalTapManaAugment.
  */
 export function parseGlobalTapManaAugment(card) {
+  const slot = _cardSlot(card);
+  if (slot && "tapAugment" in slot) return slot.tapAugment;
+  const result = parseGlobalTapManaAugmentImpl(card);
+  if (slot) slot.tapAugment = result;
+  return result;
+}
+
+function parseGlobalTapManaAugmentImpl(card) {
   // An Aura describes effects on its enchanted permanent, not a self-controlled "you tap" augment, so it's
   // never this card (its boost is parseAuraLandManaBonus). Excluding it keeps the two parsers disjoint.
   if (isAuraCard(card)) return null;
@@ -2234,6 +2267,14 @@ export function isEnchantmentCreature(card) {
  *     genuinely-distinct aura ability, never to a group grant (Gemhide self-include must not double-tap).
  */
 export function parseAuraGrantedManaAbility(card) {
+  const slot = _cardSlot(card);
+  if (slot && "auraGrantMana" in slot) return slot.auraGrantMana;
+  const result = parseAuraGrantedManaAbilityImpl(card);
+  if (slot) slot.auraGrantMana = result;
+  return result;
+}
+
+function parseAuraGrantedManaAbilityImpl(card) {
   if (!isAuraCard(card)) return null;
   const subj = auraEnchantSubject(card);
   if (subj !== "creature" && subj !== "land") return null;
