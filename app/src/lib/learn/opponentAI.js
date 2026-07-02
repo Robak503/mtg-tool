@@ -30,7 +30,34 @@ import { filterActions } from "./legalChoices.js";
 import { opponentsOf, findPermanent } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
+import { manaProduction } from "./manaModel.js";
 import { programContainsCounter, programContainsMassRemoval, programContainsTeamPump, programContainsFog, atomTargetIntent } from "./effects/parser.js";
+
+// ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
+
+/**
+ * Policy flags select between the CURRENT (default) decision heuristics and the
+ * LEGACY ("v1") ones they replaced. `scripts/play-quality-probe.mjs` uses them to
+ * run seeded head-to-head A/B batches (old policy vs new) over the real profile
+ * decks — the evidence instrument for every opponent-AI play-quality change.
+ *
+ * Accepted shapes:
+ *   null / undefined                        → all-current (the shipping behavior)
+ *   "v1"                                    → every subsystem legacy
+ *   { land|block|attack|xSizing: "v1" }     → per-subsystem legacy
+ *
+ * The DEFAULT is always the new behavior (the Academy and self-play improve
+ * automatically); "v1" exists only so the probe can measure old-vs-new inside one
+ * seeded run. Policies only ever re-rank actions already offered by legalChoices —
+ * never gate legality on a policy flag (THE CREED: the engine's chokepoints, not
+ * private heuristics, decide what is legal).
+ */
+const POLICY_KEYS = ["land", "block", "attack", "xSizing"];
+function normalizePolicy(policy) {
+  if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
+  if (policy && typeof policy === "object") return policy;
+  return {};
+}
 
 // ─── Cast priority by archetype ──────────────────────────────────────────────
 
@@ -122,21 +149,71 @@ function cardFromHand(state, playerId, cardId) {
 // ─── Sub-pickers ──────────────────────────────────────────────────────────────
 
 /**
- * Pick the best play-land action. Preference order:
- *   1. Lands that produce colors the AI needs (vs already has 2+ of)
- *   2. Otherwise: first land in hand alphabetically (stable)
- *
- * v1 doesn't do anything smart about basics-vs-duals or sequencing
- * tap-lands. That's PR8+ territory.
+ * Does this land's own text say it enters the battlefield tapped? CONSERVATIVE:
+ * the conditional forms ("… enters tapped unless …", "… you may pay 2 life. If
+ * you don't, it enters tapped.") also count as TAPPED, so a conditionally-tapped
+ * land ranks below an always-untapped one. Ranking-only, never legality — a
+ * mis-rank costs tempo at worst; the pick is always one of the OFFERED land drops.
  */
-function pickLandAction(state, aiPlayerId, landActions) {
+function landEntersTapped(card) {
+  return /\benters(?: the battlefield)? tapped\b/i.test(String(card?.oracle || card?.oracle_text || ""));
+}
+
+/**
+ * Colored pips in a mana cost string ({W}{U}{B}{R}{G}; each half of a hybrid pip
+ * counts as needing that color — a payable-either-way pip is a soft need).
+ */
+function coloredPips(mana) {
+  const out = [];
+  for (const m of String(mana || "").matchAll(/\{([^}]+)\}/g)) {
+    for (const ch of m[1].toUpperCase()) if ("WUBRG".includes(ch)) out.push(ch);
+  }
+  return out;
+}
+
+/**
+ * Pick the best play-land action (W1 — land sequencing). Rank by:
+ *   1. enters UNTAPPED first — an enters-tapped land costs a mana turn;
+ *   2. fills a COLOR GAP — produces a color that hand/command-zone pips need and
+ *      no battlefield source can already make. Colors come from `manaProduction`
+ *      (the shared mana gate), so the ranking can never disagree with what the
+ *      engine will actually tap the land for;
+ *   3. codepoint name order (the engine's replay-stable tiebreak —
+ *      localeCompare is environment/ICU-dependent).
+ * Deterministic + read-only over state. `pol.land === "v1"` recovers the legacy
+ * pure-alphabetical pick (the A/B probe's OLD side).
+ */
+function pickLandAction(state, aiPlayerId, landActions, pol = {}) {
   if (landActions.length === 0) return null;
-  // For now, a deterministic pick by CODEPOINT order (the engine's replay-stable
-  // idiom — localeCompare is environment/ICU-dependent). Mana-color-gap logic
-  // would need to read the AI's commanders / hand colors which we can revisit
-  // when archetype detection sees the full deck context.
-  const sorted = [...landActions].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-  return sorted[0];
+  const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+  // LAND-V1 (legacy, probe-only): pure codepoint-alphabetical pick.
+  if (pol.land === "v1") return [...landActions].sort(byName)[0];
+
+  const player = state.players?.[aiPlayerId];
+  // Colors the AI's battlefield can already produce (any owned source, tapped or
+  // not — the gap question is "do I own a source of this color at all").
+  const producible = new Set();
+  for (const perm of player?.battlefield || []) {
+    for (const c of manaProduction(perm?.card)?.colors || []) producible.add(c);
+  }
+  // Colors its hand + command zone still need but can't produce yet.
+  const needed = new Set();
+  for (const card of [...(player?.hand || []), ...(player?.command || [])]) {
+    for (const pip of coloredPips(card?.mana || card?.mana_cost)) {
+      if (!producible.has(pip)) needed.add(pip);
+    }
+  }
+
+  const ranked = landActions.map((action) => {
+    const card = cardFromHand(state, aiPlayerId, action.cardId);
+    return {
+      action,
+      untapped: card && !landEntersTapped(card) ? 1 : 0,
+      fillsGap: (manaProduction(card)?.colors || []).some((c) => needed.has(c)) ? 1 : 0,
+    };
+  });
+  ranked.sort((a, b) => (b.untapped - a.untapped) || (b.fillsGap - a.fillsGap) || byName(a.action, b.action));
+  return ranked[0].action;
 }
 
 /**
@@ -387,8 +464,9 @@ export function pickLoyaltyAction(state, aiPlayerId, loyaltyActions) {
  * For attacks and blocks (which are batch decisions), use the
  * specialized pickers below.
  */
-export function pickAction(state, aiPlayerId, actions, { archetype = null } = {}) {
+export function pickAction(state, aiPlayerId, actions, { archetype = null, policy = null } = {}) {
   if (!Array.isArray(actions) || actions.length === 0) return null;
+  const pol = normalizePolicy(policy);
 
   // DISCOVER (LCI) — a pending discover decision short-circuits everything (legalChoices offers ONLY the
   // free-cast options + put-to-hand). Cast the found card free if pickCastAction likes a cast (a free
@@ -448,7 +526,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null } = {}
 
   const lands = filterActions(actions, "play-land");
   if (lands.length > 0) {
-    const land = pickLandAction(state, aiPlayerId, lands);
+    const land = pickLandAction(state, aiPlayerId, lands, pol);
     if (land) return land;
   }
 

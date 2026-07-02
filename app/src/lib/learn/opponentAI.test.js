@@ -366,6 +366,61 @@ describe("deriveDeckRepresentation", () => {
   });
 });
 
+describe("pickLandAction — W1 land sequencing (via pickAction)", () => {
+  const landAction = (card) => ({ kind: "play-land", playerId: "ai", cardId: card.id, name: card.name });
+  const pass = { kind: "pass-priority", playerId: "ai" };
+  const landPerm = (card) => ({
+    id: `perm-${card.id}`, card, controller: "ai",
+    tapped: false, summoningSick: false, counters: {}, attachments: [], attachedTo: null,
+  });
+
+  it("prefers an untapped land over an enters-tapped land that sorts first", () => {
+    // "Aetherbog" sorts before "Swamp" — the legacy alphabetical pick would take
+    // the tapland and lose a mana turn. W1 ranks untapped first.
+    const tapland = makeCard({ id: "l-bog", name: "Aetherbog", type: "Land", oracle: "This land enters the battlefield tapped.\n{T}: Add {B}." });
+    const swamp = makeCard({ id: "l-swamp", name: "Swamp", type: "Basic Land — Swamp" });
+    const state = makeState({ hand: [tapland, swamp] });
+    const choice = pickAction(state, "ai", [landAction(tapland), landAction(swamp), pass]);
+    expect(choice).toMatchObject({ kind: "play-land", name: "Swamp" });
+  });
+
+  it("policy 'v1' recovers the legacy pure-alphabetical pick (the probe's OLD side)", () => {
+    const tapland = makeCard({ id: "l-bog", name: "Aetherbog", type: "Land", oracle: "This land enters the battlefield tapped.\n{T}: Add {B}." });
+    const swamp = makeCard({ id: "l-swamp", name: "Swamp", type: "Basic Land — Swamp" });
+    const state = makeState({ hand: [tapland, swamp] });
+    const choice = pickAction(state, "ai", [landAction(tapland), landAction(swamp), pass], { policy: "v1" });
+    expect(choice).toMatchObject({ kind: "play-land", name: "Aetherbog" });
+  });
+
+  it("prefers the land that fills a color gap over one whose color the board already makes", () => {
+    // Board already produces U (an Island in play); the hand needs B for Doom Blade.
+    // "Island" sorts before "Swamp", so only the color-gap rank can pick Swamp.
+    const island = makeCard({ id: "l-isl", name: "Island", type: "Basic Land — Island" });
+    const swamp = makeCard({ id: "l-swp", name: "Swamp", type: "Basic Land — Swamp" });
+    const blackSpell = makeCard({ id: "c-db", name: "Doom Blade", type: "Instant", mana: "{1}{B}", oracle: "Destroy target nonblack creature." });
+    const boardIsland = makeCard({ id: "l-isl-2", name: "Island", type: "Basic Land — Island" });
+    const state = makeState({ hand: [island, swamp, blackSpell], battlefield: [landPerm(boardIsland)] });
+    const choice = pickAction(state, "ai", [landAction(island), landAction(swamp), pass]);
+    expect(choice).toMatchObject({ kind: "play-land", name: "Swamp" });
+  });
+
+  it("still returns a land (never null) when every candidate enters tapped", () => {
+    const bogA = makeCard({ id: "l-a", name: "Bogland A", type: "Land", oracle: "This land enters the battlefield tapped." });
+    const bogB = makeCard({ id: "l-b", name: "Bogland B", type: "Land", oracle: "This land enters the battlefield tapped." });
+    const state = makeState({ hand: [bogA, bogB] });
+    const choice = pickAction(state, "ai", [landAction(bogB), landAction(bogA), pass]);
+    expect(choice).toMatchObject({ kind: "play-land", name: "Bogland A" });
+  });
+
+  it("is deterministic — the same state picks the same land twice", () => {
+    const tapland = makeCard({ id: "l-bog", name: "Aetherbog", type: "Land", oracle: "This land enters the battlefield tapped.\n{T}: Add {B}." });
+    const swamp = makeCard({ id: "l-swamp", name: "Swamp", type: "Basic Land — Swamp" });
+    const state = makeState({ hand: [tapland, swamp] });
+    const actions = [landAction(tapland), landAction(swamp), pass];
+    expect(pickAction(state, "ai", actions)).toBe(pickAction(state, "ai", actions));
+  });
+});
+
 describe("pickAction with auto-archetype-detection", () => {
   it("falls back to detecting archetype from the AI's known zones when not supplied", () => {
     // Stack the AI's hand with combo-shape stuff so the detector
