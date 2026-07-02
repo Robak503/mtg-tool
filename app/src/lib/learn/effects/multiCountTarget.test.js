@@ -141,3 +141,23 @@ describe("multi-count — tap (tap up to N target creatures)", () => {
     expect(tapped).toEqual(new Set(["x", "z"])); // y untouched
   });
 });
+
+describe("multi-count — counters (put a +1/+1 counter on each of up to N target creatures)", () => {
+  it("parses 'put a +1/+1 counter on each of up to two target creatures' → maxTargets:2", () => {
+    expect(prog("Put a +1/+1 counter on each of up to two target creatures.").atoms[0]).toMatchObject({ op: "add-counter", counterType: "+1/+1", amount: 1, targetType: "creature", maxTargets: 2, minTargets: 0 });
+  });
+
+  it("'you control' narrows the targetType; single-target counter is untouched", () => {
+    expect(prog("Put a +1/+1 counter on each of up to three target creatures you control.").atoms[0].targetType).toBe("creatureYouControl");
+    expect(prog("Put a +1/+1 counter on target creature.").atoms[0].maxTargets).toBeUndefined();
+  });
+
+  it("resolving two chosen targets puts a +1/+1 counter on EACH", () => {
+    const s = battlefield({ user: [{ id: "a" }, { id: "b" }, { id: "c" }] });
+    const p = prog("Put a +1/+1 counter on each of up to two target creatures.");
+    const targets = [{ type: "creature", id: "a", controller: "user", atomIndex: 0 }, { type: "creature", id: "c", controller: "user", atomIndex: 0 }];
+    const out = runEffectProgram(s, { source: { name: "Gird for Battle" }, payload: { params: { program: p, controller: "user", targets } } });
+    const counters = Object.fromEntries(out.players.user.battlefield.map((pm) => [pm.id, pm.counters?.["+1/+1"] || 0]));
+    expect(counters).toEqual({ a: 1, b: 0, c: 1 }); // a & c buffed, b untouched
+  });
+});
