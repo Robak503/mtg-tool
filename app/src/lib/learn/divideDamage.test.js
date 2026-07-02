@@ -16,6 +16,7 @@ import { applyDivideDamage } from "./effects/effectAtoms.js";
 import { autoPickDivideDistribution, resolveDivideChoice } from "./effects/runProgram.js";
 import { parseEffectProgram, programConfidence } from "./effects/parser.js";
 import { classifyCard } from "./coverage.js";
+import { applyDivideChoice } from "./learnSession.js";
 
 beforeEach(() => _resetIdsForTests());
 
@@ -149,5 +150,53 @@ describe("DIVIDE-BOUNDED — native when amount ≤ the printed target cap (reus
     expect(dmg("A")).toBe(1);
     expect(dmg("B")).toBe(1);
     expect(dmg("C")).toBe(0); // capped — the 3rd target got 0, so only 2 effective targets (≤ the "one or two" bound)
+  });
+});
+
+// ===== WI-5 FULL-ASSIGNMENT GUARD ===== (CR 601.2d) — applyDivideChoice (the /api/learn/choose-facing
+// layer, ABOVE resolveDivideChoice) must reject an under-assigned distribution when the candidate set can
+// absorb the full amount, re-surfacing the SAME pending choice instead of silently settling a partial
+// spend. The LearnView picker already gates its submit button the same way (remaining === 0); this pins
+// the server-side equivalent for non-UI clients.
+describe("WI-5 applyDivideChoice — CR 601.2d full-assignment guard at the API layer", () => {
+  function sessionWithPendingDivide(aiBf) {
+    const s0 = state({ aiBf });
+    const s = applyDivideDamage(s0, { op: "divide-damage", amount: 5, group: "anyTarget" }, { controller: "user" });
+    return { status: "active", state: s, difficulty: "beginner", decisionLog: [] };
+  }
+
+  it("under-assigned distribution (candidates CAN absorb the full amount) is rejected — re-surfaces the same pending choice", () => {
+    const session = sessionWithPendingDivide([creature("Bear", 2, 2, "ai")]);
+    const bear = session.state.players.ai.battlefield.find((p) => p.card.name === "Bear");
+    const { session: after, decision } = applyDivideChoice(session, { distribution: [{ id: bear.id, type: "creature", amount: 2 }] }); // only 2 of 5 assigned
+    expect(decision.kind).toBe("divide-damage");
+    expect(decision.amount).toBe(5);
+    expect(after.state.pendingChoice?.kind).toBe("divide-damage"); // unresolved — never settled
+    expect(after.state.players.ai.battlefield.find((p) => p.card.name === "Bear")).toBeDefined(); // no damage applied yet
+  });
+
+  it("exact full-assignment settles normally (byte-identical to today)", () => {
+    const session = sessionWithPendingDivide([creature("Bear", 2, 2, "ai")]);
+    const bear = session.state.players.ai.battlefield.find((p) => p.card.name === "Bear");
+    const { session: after } = applyDivideChoice(session, {
+      distribution: [{ id: bear.id, type: "creature", amount: 2 }, { id: "ai", type: "player", amount: 3 }],
+    });
+    expect(after.state.pendingChoice).toBeUndefined();
+    expect(after.state.players.ai.life).toBe(40 - 3);
+  });
+
+  it("empty candidate set (nothing to assign to) still settles a 0-distribution — no candidates to under-assign against", () => {
+    const s0 = state({ aiBf: [] });
+    const s = applyDivideDamage(s0, { op: "divide-damage", amount: 0, group: "creatures" }, { controller: "user" });
+    // amount 0 never pauses (see the "0 amount is a logged no-op" test above) — nothing pending to submit against.
+    expect(s.pendingChoice).toBeUndefined();
+  });
+
+  it("over-assigned distribution (candidates can absorb, submit exceeds pc.amount) still settles — resolveDivideChoice's own cap applies (unchanged behavior)", () => {
+    const session = sessionWithPendingDivide([creature("Bear", 2, 2, "ai")]);
+    const bear = session.state.players.ai.battlefield.find((p) => p.card.name === "Bear");
+    const { session: after } = applyDivideChoice(session, { distribution: [{ id: bear.id, type: "creature", amount: 99 }] });
+    expect(after.state.pendingChoice).toBeUndefined(); // capped sum (5, the full amount) >= pc.amount → passes the guard, settles
+    expect(after.state.players.ai.battlefield.find((p) => p.card.name === "Bear")).toBeUndefined(); // lethal
   });
 });

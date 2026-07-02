@@ -1186,6 +1186,18 @@ export function advanceUntilDecision(
       }
       // Tutor library search. A pilot may fetch a different legal candidate (or find nothing — CR
       // 701.19f); default = the auto-pick (highest-MV), byte-identical.
+      //
+      // WI-5 KNOWN SOFT SPOT (documented, not fixed): `allowDecline: true` here unconditionally offers a
+      // "find nothing" action for EVERY tutor, including an unfiltered ("search your library for A CARD")
+      // mandatory search. CR 701.19d requires a mandatory search to find a card IF one is available — the
+      // engine can't currently tell "no legal candidates" (a true miss) apart from "candidates exist but
+      // the picker declined" (an illegal pass on a mandatory search). pc.candidates is already the FULL
+      // legal set at the moment the atom paused, so an empty array is the only case CR-honestly permits a
+      // no-find; a non-empty candidates + decline on a NON-"you may" tutor is technically off-CR but
+      // currently unenforced (the human picker and the AI/pilot decline path both allow it). Left as a
+      // soft gap rather than removing the decline entirely, since some tutors ARE genuinely optional
+      // ("you may search...") and share this same code path — pc doesn't yet carry an `optional` flag for
+      // tutors the way clone-search does (see WI-2 in the recon).
       if (pc.kind === "tutor-search") {
         if (pause) {
           return { session: current, decision: { kind: "tutor-search", ...pc } };
@@ -1598,6 +1610,15 @@ export function applyScryChoice(session, choice) {
  * ===== DIVIDE ===== (MT-1) — the player assigned a divide-damage division. `choice.distribution` is
  * `[{ id, type, amount }]`; resolveDivideChoice validates it against the candidates + caps the running
  * total, so a malformed UI submit can never fabricate damage or hit a non-target. Settles + re-derives.
+ *
+ * WI-5 FULL-ASSIGNMENT GUARD (CR 601.2d — "the source's controller announces the division... the total
+ * ... must be assigned"): the LearnView picker already gates its submit button on `remaining === 0`
+ * (DivideDamagePanel), but the raw API had no server-side equivalent — a non-UI client (or a client bug)
+ * could submit a partial distribution and the engine would silently accept it as the final division. When
+ * the candidate set CAN absorb the full amount (≥1 candidate exists) and the submitted distribution's
+ * capped sum falls short, reject: re-surface the SAME pending choice (unresolved) instead of settling a
+ * partial spend. An empty candidate set (nothing to assign to) still settles at 0 — resolveDivideChoice's
+ * own cap already handles that no-op correctly.
  */
 export function applyDivideChoice(session, choice) {
   if (session.status !== "active") {
@@ -1608,6 +1629,16 @@ export function applyDivideChoice(session, choice) {
     return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
   }
   const distribution = Array.isArray(choice?.distribution) ? choice.distribution : [];
+  if ((pc.candidates || []).length > 0) {
+    const validIds = new Set(pc.candidates.map((c) => c.id));
+    const cappedSum = distribution.reduce((spent, d) => {
+      if (!validIds.has(d?.id) || (d.type !== "creature" && d.type !== "player")) return spent;
+      return spent + Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent));
+    }, 0);
+    if (cappedSum < (pc.amount || 0)) {
+      return { session, decision: { kind: "divide-damage", ...pc } }; // under-assigned — re-surface the picker
+    }
+  }
   let newState;
   try {
     newState = settleDivideChoice(session.state, distribution);
@@ -2000,6 +2031,19 @@ export function applyDiscardChoice(session, choice) {
  */
 export function applyPendingChoice(session, choice) {
   const kind = session.state?.pendingChoice?.kind;
+  // WI-5 KIND ECHO-CHECK — every useLearnSession apply* method stamps its own choice payload with
+  // `kind: "<expected-kind>"` (added alongside this guard). A stale/cross-kind submit — e.g. a
+  // double-click race that lands a soft-counter's `{pay:false}` after the server already advanced to a
+  // DIFFERENT pending choice (say a tutor search) — would otherwise be silently misinterpreted by
+  // whichever settler happens to be live now (a `{pay:false}` read as a tutor decline, or worse, a
+  // structurally-compatible field misread as consent to something the player never saw). When the
+  // submitted choice carries a kind that doesn't match the CURRENT pendingChoice, re-derive instead of
+  // dispatching — the client's stale request is silently dropped and the real current decision is
+  // returned so the UI can re-sync. Legacy/absent `choice.kind` (e.g. a raw API client, or a body with
+  // no kind field) is unaffected — this is purely additive.
+  if (choice && typeof choice.kind === "string" && kind && choice.kind !== kind) {
+    return advanceUntilDecision(session);
+  }
   if (kind === "clone-search") return applyCloneChoice(session, choice);
   if (kind === "scry-surveil") return applyScryChoice(session, choice);
   if (kind === "optional-effect") return applyOptionalChoice(session, choice);

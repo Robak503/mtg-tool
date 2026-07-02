@@ -219,7 +219,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { cardId: cardId ?? null } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "tutor-search", cardId: cardId ?? null } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -262,7 +262,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { permId: permId ?? null } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "clone-search", permId: permId ?? null } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -305,7 +305,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { keep: Array.isArray(keep) ? keep : [] } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "scry-surveil", keep: Array.isArray(keep) ? keep : [] } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -348,7 +348,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { distribution: Array.isArray(distribution) ? distribution : [] } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "divide-damage", distribution: Array.isArray(distribution) ? distribution : [] } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -391,7 +391,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { pay: pay === true } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "soft-counter", pay: pay === true } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -432,7 +432,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { pay: pay === true } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "optional-mana-payment", pay: pay === true } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -473,7 +473,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { sac: sac === true } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "optional-sac-payment", sac: sac === true } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -513,7 +513,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { return: doReturn === true } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "commander-return", return: doReturn === true } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -556,7 +556,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { cardId: cardId ?? null } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "hand-discard", cardId: cardId ?? null } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -599,7 +599,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { cardId: cardId ?? null } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "impulse-dig", cardId: cardId ?? null } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -642,7 +642,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { cardId: cardId ?? null } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "sacrifice-choice", cardId: cardId ?? null } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -686,7 +686,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { cardId: cardId ?? null } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "discard", cardId: cardId ?? null } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -725,7 +725,7 @@ export default function useLearnSession() {
       const response = await fetch("/api/learn/choose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, choice: { take: take === true } }),
+        body: JSON.stringify({ sessionId: state.sessionId, choice: { kind: "optional-effect", take: take === true } }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
