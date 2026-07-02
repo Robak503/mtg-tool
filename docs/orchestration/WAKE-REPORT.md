@@ -1,82 +1,63 @@
-# 🌅 RESUME HANDOFF — 2026-07-01 (Fable 5 consolidation pass COMPLETE)
+# 🌅 RESUME HANDOFF — 2026-07-02 (Fable 5 ENGINE-OVERHAUL pass COMPLETE)
 
-> master → **v0.84.0** (consolidation pass), CI building. Tree clean + pushed · **Fable 5 is now GONE** —
-> the two scaffold docs below are its durable output. Full gate green (**6,371 vitest tests**), flip-diff
-> clean (23 phantom-mana FP removals / 0 gained). 34 findings repaired across engine · runtime · server ·
-> UI · pipeline · docs. The 13-deck / corpus grind resumes next under the MODEL SPLIT.
+> master → **v0.85.0** (the overhaul pass, 49 commits), tag pushed → CI (run verified below by the
+> completion loop). Full gate **6,587 vitest green**, lint clean, corpus **8,645 native** (8,650 − 5
+> documented FP removals — accuracy up, zero coverage claims added). **Fable 5 is GONE after this
+> pass** — its durable outputs: [OVERHAUL-PLAYBOOK.md](OVERHAUL-PLAYBOOK.md) (the method),
+> [OVERHAUL-SESSION-NARRATIVE.md](OVERHAUL-SESSION-NARRATIVE.md) (the mimicry guide, Colton-ordered),
+> [overhaul-evidence.md](overhaul-evidence.md) (every number), [PLAY-API-CONTRACT.md](PLAY-API-CONTRACT.md)
+> (the locked Omnath seams), + both scaffolds refreshed to post-overhaul reality.
 
-## ➡️ NEXT SESSION — FIRST WORK = the /goal ENGINE OVERHAUL pass (Fable 5, one more time)
-Colton decided (2026-07-01, after this pass shipped): ONE more Fable 5 ultracode session runs the ENGINE
-OVERHAUL — quality + runtime perf + play quality + the Omnath engine-side seams. Launch: set /model
-claude-fable-5, enter plan mode, type **/goal** (mission = docs/orchestration/FABLE5-OVERHAUL-PROMPT.md).
-THEN the 13-deck/corpus grind resumes under the MODEL SPLIT below.
+## 📚 Read these FIRST (any session)
+1. **PROJECT-SCAFFOLD.md** + **ENGINE-SCAFFOLD.md** — the maps (current as of v0.85.0).
+2. **OVERHAUL-PLAYBOOK.md §2–3** — the verification recipes + proof-level table. NEVER skip the
+   battery: suite (no MTG_APP_ROOT!) · lint · tier/program/runtime fingerprints · trajectory hash
+   (refactors) · play-quality A/B probe (AI changes).
+3. This file · `git log origin/master` · CHANGELOG.md (v0.85.0 = authoritative shipped state).
+4. memory/COMMS.md top (the Omnath channel — contracts live at "Clyde 9"/"Clyde 10").
 
-## 📚 Read these FIRST (in any session)
-1. **docs/orchestration/PROJECT-SCAFFOLD.md** — the whole system (runtime, build, routes, docs/memory, orchestration).
-2. **docs/orchestration/ENGINE-SCAFFOLD.md** — the rules engine deep-dive + **"HOW TO SAFELY ADD A NEW MECHANIC"**.
-3. This file (parked judgment calls below) + `git log origin/master` + CHANGELOG.md.
-4. Then resume the grind: `memory/orders/clyde-13deck-grind.md` (MODEL SPLIT: orchestrator Opus 4.8 @ xhigh,
-   workers `model: "sonnet"`).
+## ✅ WHAT THE OVERHAUL SHIPPED (v0.85.0 — all gate+fingerprint-proven; details in the evidence ledger)
+- **Perf:** ~6× self-play throughput on byte-identical decisions (static-parse/per-state/mana memos);
+  pod batch 7.0s → ~1.1s; no engine function >2% CPU afterward.
+- **Correctness:** mirror commander-damage instance keying (false deaths were poisoning self-play
+  labels) · GY zone accounting (CR 608.2m/608.3b/715.4, storm-copy guard) · adventure commanders
+  castable (Kellan!) · one-shot sac-victim payment guard · cost-time leave drains (603.3b) ·
+  mandatory clones enforced (707.9) · 11 phantom mana sources + 5 metric FPs removed (named) ·
+  Academy soft-lock fixed + engine-stuck failsafe.
+- **Play quality:** AI policy overhaul — new-vs-old 59.2%/40.8% over 120 seeded games, dead turns
+  0.68→0.03; pod-aware narration + named combat choices; old policy reachable as `policy:"v1"`.
+- **Structure:** parseExtendedAtom deleted (registry = the whole dispatch); single mana-commit
+  (`commitPaymentPlan`); TRIGGER_EFFECT/SPELL_EFFECT/ACTIVATED_EFFECT lanes retired.
+- **Pipeline:** **Spellbook bulk-first sync — the FULL 95,001-combo dataset in ~9s** (was ~10% via
+  429-capped paging); strict guard now requires combos+index+cards; release step syncs cards too.
+- **Omnath seams (P3, contracts on COMMS):** play-API v1 session layer (drives complete games incl.
+  all 13 pendingChoice kinds) · the supported-import table + in-gate canary (omnathSeam.test.js) ·
+  `self-play.mjs --export-trajectories` → trust-gated omnath-trajectory-v1 JSONL.
 
-## 🤖 MODEL SPLIT (unchanged, decided 2026-07-01)
-Orchestrator = Opus 4.8 @ xhigh (judgment). Background build/verify `Agent()` workers = `model: "sonnet"`
-(the flip-diff + gate verify every worker regardless of tier). Always pass `model` — omitting it inherits
-the orchestrator tier. Fable 5 was the one-time exception for this pass; it's gone now.
-
-## ✅ WHAT THE CONSOLIDATION PASS SHIPPED (v0.84.0, all flip-diffed / gate-green)
-- **Engine classification (5 phantom-mana FP classes):** quoted group-grant mana no longer credited as the
-  granter's own (Cryptolith Rite / Chromatic Lantern / Goldspan / Paradise Mantle / Eldrazi-Scion makers);
-  Mana Vault untap-restriction; dead "permanents you control have <kw>" selector (Privileged Position now
-  grants correctly); irregular plural subtypes; invariant basic-land intervening-ifs. Corpus 8673→8650
-  native (−23 FPs = accuracy up).
-- **Engine runtime (9 bugs):** regenerated-in-combat creature = phantom combatant forever; 4P first-draw
-  skip (CR 103.8c); resolveChoice wrong-action dispatch; pendingFreeCast livelock → fake W/L; AI can't cast
-  from exile; trample-over-protection; adventure double-offer; breakage timeout bucket; localeCompare
-  determinism. (+ 2 beyond-audit catches: a 3rd livelock arm in the anti-loop latch; a missing
-  creature-half-from-hand generator.)
-- **Server/.exe (10):** module-scope path capture (in-app sync no-op'd in .exe); non-atomic profiles
-  registry (could orphan ALL user data — now atomic + folder-rebuild recovery); Origin/CSRF guard;
-  hardcoded dev path; export-all section status; tibalt error surfacing; Ollama absolute-path pull; deleted
-  dead /api/spellbook + symbolic-engine trio + chats v1 shim + buildSeedDeck.
-- **Client (15):** Arbiter auto-retry destroying chat messages (stale closure); stale deckData on switch;
-  dead "Load from Project"; color-tag destruction on profile switch; primer latency; SSE abort/timeout;
-  UpdatesModal background result; cross-session busy bleed; stacked-tile targeting; search race; compare
-  default; message id; dead-code removals.
-- **Pipeline (P0):** ~68 releases shipped ZERO Spellbook combos — restored a bounded resumable combo sync +
-  a strict bundle guard; bundled cardkingdom sync; caches → restore-only (stopped ~840 MB/release churn);
-  atomic sync writes; build-rules-index crash-path + RELEASE.md rollback fixes.
-- **Docs:** the two scaffolds; CLAUDE.md stale paths/numbers/pointer; archived 2 build-status docs that were
-  served as rules content; bannered superseded handoffs; deleted a 0-byte stray.
-
-## ⚠️ PARKED — Colton judgment calls (surfaced by the audit, NOT acted on)
-1. **land tier is unconditional** (coverage.js) — any "Land" type line counts native regardless of unmodeled
-   activated abilities (Mystifying Maze etc.). A `land-partial` tier would tighten the metric. Metric-only.
-2. **Strict bundle guard is fail-CLOSED on Spellbook combos** — if Spellbook is down AND the cache is empty,
-   a release now HARD-FAILS rather than shipping empty combos. Correct default (never ship gutted), but it
-   couples release availability to Spellbook uptime. Loosen (drop combos from the REQUIRED set in
-   prepare-tauri-resources.cjs) if an outage ever blocks a release you need.
-3. **U-F4 color tags = stopgap** — per-profile tag definitions are namespaced in localStorage now; the
-   durable fix is server-side per-profile tag storage (deferred).
-4. **gameApi.js pilot seam** is documented-but-unsafe (can't settle pendingChoice/pendingArbiter) and unused
-   except gameStatus — either make it real (surface pending-choice actions) or keep it doc-only. Coordinate
-   with Omnath (COMMS) since the pilots target this seam.
-5. **Resolved instants/sorceries never reach a graveyard** (resolvers.js) — under-counts GY thresholds
-   (safe direction). An eventual engine-design fix, not a quick patch.
-6. **Cargo.toml version = 0.3.0** (drift from tauri.conf 0.84.0) — cosmetic (tauri.conf drives the bundle);
-   bump or comment if it ever confuses.
-7. **6 stale DIRTY worktrees** (master-rev, wave2a-rev, WAVE4-dex, qa-report-1, wave5b, wave5d) still await
-   your force-remove approval (they hold uncommitted prior-session work; branches retain the commits).
-8. **~230 local / ~130 remote branches** — most are squash-merged faculty/wave branches, safe to prune with
-   a squash-aware check, but deferred per your earlier "avoid work loss" call.
+## ⚠️ PARKED — judgment calls / designed-not-built (carry forward)
+1. **Colton's standing items (unchanged from v0.84.0):** land-tier unconditional (metric-only) ·
+   fail-CLOSED Spellbook guard trade-off (much less likely to bite now — bulk sync) · U-F4 color-tag
+   stopgap · 6 dirty pre-existing worktrees (master-rev, wave2a-rev, WAVE4-dex, qa-report-1, wave5b,
+   wave5d) await force-remove approval · ~230 local/~130 remote squash-merged branches.
+   (v0.84.0 parked #4 gameApi + #5 GY-accounting are RESOLVED this pass; #6 Cargo.toml bumped.)
+2. **Designed, parked with analysis (see p2-recon/p4-findings JSON + the evidence ledger):**
+   W6 permanent-entry unification (high-risk two-step) · opponentAI W7b-e held-class slices + W8
+   archetype caching · N3 narrated game-log feed (needs source-name payload enrichment first) ·
+   parser-seam S3/S4 anti-regrowth registries + S5 · the unquoted spend-restricted LANDS mana class
+   (Ancient Ziggurat/Cavern — needs restricted-mana modeling in planPayment, touches real decks) ·
+   tutor mandatory-search decline soft spot · remaining P4 P3s (LearnBoard raw-seat-id spots,
+   wardCostLabel casing, board-mode 6-button cap, pendingChoice resume leak on the wire,
+   wait_for_port foreign-listener, SmartScreen).
+3. **Data note:** Colton's personal decks live under profile `prof_65a43f93-993b-458a-9485-a6b4a2eab910`
+   ("Colton — personal decks") — renamed from the invalid `prof_colton-personal-decks` (Omnath notified).
 
 ## 🔁 IN FLIGHT
-None. 0 agent worktrees (the 3 fix-agent worktrees were integrated + removed). Clean stop.
+None at handoff. The v0.85.0 CI run's verification (strict guard, 95k Spellbook, 5 assets) is the
+completion loop's final act — its verdict is appended to memory/CONTINUITY.md + COMMS.
 
-## ▶️ HOW TO RESUME
-State clean + pushed (master v0.84.0). Read the two scaffolds, then `/loop` with
-`memory/orders/clyde-13deck-grind.md`. Integration pattern: worktree agents → cherry-pick onto branch →
-flip-diff both directions (awk `$2=="land"||$2~/^native-/` | sort -u; main tree = baseline; expect LOST=0)
-+ gate WITHOUT MTG_APP_ROOT → push branch + FF master → remove worktree. Cut releases via Bash edits (the
-Edit/Write env-bug can misroute to the main tree — verify `git -C <main> status` clean after every tool
-edit). Check `memory/COMMS.md` top. INTERACTION remains the productive coverage frontier
-(Stifle/ability-counter, "can't be countered", bounce, more removal).
+## ▶️ HOW TO RESUME (the grind, under the MODEL SPLIT)
+Orchestrator Opus 4.8 @ xhigh; workers `model:"sonnet"`; the battery verifies everyone. Read the
+PLAYBOOK, then `memory/orders/clyde-13deck-grind.md`. INTERACTION remains the productive coverage
+frontier. Integration pattern unchanged (worktree agents → cherry-pick → battery → ff-only), now
+with the NARRATIVE's agent-contract shapes as the template. The overhaul branch worktree
+(`silly-jackson-5a1822`) is merged == master; remove it junction-safe when its session closes.
