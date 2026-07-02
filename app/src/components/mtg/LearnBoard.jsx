@@ -267,7 +267,9 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
             <button key={i} className="lb-act" onClick={() => onAction(o)} title={o.kind}>
               {o.kind === "cast-spell" ? `Cast ${o.name}${o.targetName ? ` → ${o.targetName}` : ""}`
                 : o.kind === "play-land" ? `Play ${o.name}`
-                  : o.kind.replace(/-/g, " ")}
+                  : o.kind === "declare-attacker" ? `Attack ${o.targetName || o.defenderName || o.defenderId || ""} with ${o.name}`
+                    : o.kind === "declare-blocker" ? `Block ${o.attackerName || "attacker"} with ${o.name}`
+                      : o.kind.replace(/-/g, " ")}
             </button>
           ))}
         </div>

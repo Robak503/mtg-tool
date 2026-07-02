@@ -1637,15 +1637,19 @@ function actionsDeclareAttacker(state, playerId) {
 
   // Multiple targets (Commander, OR any game with an enemy planeswalker): each attacker contributes
   // one action per legal target (CR 506.2) — the player picks who/what each creature swings at.
+  // N2: attach a human-readable defenderName (the defending seat's commander, falling back to the
+  // seat id) so a pod's combat menu doesn't render N byte-identical "Attack with [[X]]." lines.
   const actions = [];
   for (const p of attackers) {
     for (const t of targets) {
+      const defenderName = state.players[t.defenderId]?.command?.[0]?.name || t.defenderId;
       actions.push({
         kind: "declare-attacker",
         playerId,
         permanentId: p.id,
         name: p.card.name,
         defenderId: t.defenderId,
+        defenderName,
         ...(t.defenderPlaneswalkerId ? { defenderPlaneswalkerId: t.defenderPlaneswalkerId, targetName: t.pwName } : {}),
       });
     }
@@ -1686,11 +1690,15 @@ function actionsDeclareBlocker(state, playerId, declaredAttackers = []) {
       const eligible = eligibleByAttacker[attackerId];
       if (!eligible.includes(blocker)) continue;                                  // pairwise illegal
       if (attackerHasMenace(state, attackerId) && eligible.length < 2) continue;  // can't form a legal ≥2 menace block
+      // N2: attach the attacker's name — without it, blocking among several attackers in a pod
+      // renders as N byte-identical "Block the attacker with [[X]]." lines.
+      const attackerName = findPermanent(state, attackerId)?.permanent?.card?.name || null;
       actions.push({
         kind: "declare-blocker",
         playerId,
         permanentId: blocker.id,
         attackerId,
+        attackerName,
         name: blocker.card.name,
       });
     }

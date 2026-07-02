@@ -317,7 +317,7 @@ describe("narrator — narrateStep", () => {
   it("describes draw step on subsequent turns without skip", () => {
     const state = makeState({ phase: "beginning", step: "draw", turn: 3, activePlayer: "user" });
     const text = narrateStep(state, { difficulty: "beginner" });
-    expect(text).toContain("draws one card");
+    expect(text).toContain("draw one card");
     expect(text).not.toContain("skipped");
   });
 });

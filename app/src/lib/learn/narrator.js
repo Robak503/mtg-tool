@@ -21,38 +21,101 @@
  * v1 is template-driven and deterministic, which is good for tests.
  */
 
+// ─── Pod-aware subject helpers ────────────────────────────────────────────────
+
+/**
+ * Default opponent seat labels, mirroring LearnView's SEAT_LABELS. A caller
+ * (decisionGate → narrateDecision) can override via options.seatLabel for a
+ * richer label (e.g. a commander name); this is only the fallback so v1
+ * ships with zero route changes.
+ */
+const DEFAULT_SEAT_LABELS = { user: "You", ai: "Opponent", ai1: "Opponent 1", ai2: "Opponent 2", ai3: "Opponent 3" };
+
+function defaultSeatLabel(id) {
+  return DEFAULT_SEAT_LABELS[id] || id;
+}
+
+/**
+ * Build a grammatically-correct subject descriptor for `playerId` so
+ * templates never have to interpolate "You" into a third-person slot.
+ * Second person (the user): name="you", poss="your", is="are", verb(v)=v.
+ * Third person (any AI seat): name=<seat label>, poss="<label>'s" (or
+ * "their" mid-sentence), is="is", verb(v)=v+"s" (drops/adds for the couple
+ * of irregular verbs the step templates use).
+ */
+function subjectFor(state, playerId, { seatLabel = defaultSeatLabel } = {}) {
+  if (playerId === "user") {
+    return {
+      id: playerId,
+      name: "you",
+      Name: "You",
+      poss: "your",
+      Poss: "Your",
+      is: "are",
+      verb: (base) => base,
+    };
+  }
+  const label = seatLabel(playerId) || "Opponent";
+  return {
+    id: playerId,
+    name: label,
+    Name: label,
+    poss: `${label}'s`,
+    Poss: `${label}'s`,
+    is: "is",
+    verb: (base) => conjugateThirdPerson(base),
+  };
+}
+
+function conjugateThirdPerson(base) {
+  if (base === "have") return "has";
+  if (/(s|sh|ch|x|z)$/.test(base)) return `${base}es`;
+  if (/[^aeiou]y$/.test(base)) return `${base.slice(0, -1)}ies`;
+  return `${base}s`;
+}
+
+function cap(text) {
+  return text.length ? text[0].toUpperCase() + text.slice(1) : text;
+}
+
+/** Is this a multiplayer pod (3+ seats) rather than 1v1? */
+function isPod(state) {
+  const order = state.turnOrder || Object.keys(state.players || {});
+  return order.length > 2;
+}
+
 // ─── Phase / step narration ──────────────────────────────────────────────────
 
 const STEP_TEMPLATES = {
-  untap: ({ activeName, turn }) =>
-    `Turn ${turn}. ${activeName} untap step: all of ${activeName}'s tapped permanents untap, ` +
-    `and creatures that have been under ${activeName}'s control since the start of their turn ` +
+  untap: ({ subj, turn }) =>
+    `Turn ${turn}. ${cap(subj.poss)} untap step: all of ${subj.poss} tapped permanents untap, ` +
+    `and creatures that have been under ${subj.poss} control since the start of their turn ` +
     `lose summoning sickness. No player gets priority during untap (rule 117.3a).`,
 
-  upkeep: ({ activeName }) =>
-    `${activeName} upkeep. Any "at the beginning of your upkeep" triggers go on the stack now. ` +
-    `Once they're on the stack, players get priority — ${activeName} first.`,
+  upkeep: ({ subj }) =>
+    `${cap(subj.poss)} upkeep. Any "at the beginning of your upkeep" triggers go on the stack now. ` +
+    `Once they're on the stack, players get priority — ${subj.name} first.`,
 
-  draw: ({ activeName, isFirstTurnSkip }) =>
+  draw: ({ subj, isFirstTurnSkip }) =>
     isFirstTurnSkip
-      ? `${activeName} draw step (skipped — in a two-player game, the player who goes first doesn't draw on turn 1, rule 103.8a).`
-      : `${activeName} draw step. ${activeName} draws one card, then both players get priority.`,
+      ? `${cap(subj.poss)} draw step (skipped — in a two-player game, the player who goes first doesn't draw on turn 1, rule 103.8a).`
+      : `${cap(subj.poss)} draw step. ${cap(subj.name)} ${subj.verb("draw")} one card, then each player gets priority.`,
 
-  main: ({ activeName, phase }) =>
-    `${activeName} ${phase === "precombat-main" ? "pre-combat" : "post-combat"} main phase. ` +
-    `${activeName} can play lands (one per turn), cast sorcery-speed spells, ` +
-    `and activate abilities. Both players can respond at instant speed.`,
+  main: ({ subj, phase, pod }) =>
+    `${cap(subj.poss)} ${phase === "precombat-main" ? "pre-combat" : "post-combat"} main phase. ` +
+    `${cap(subj.name)} can play lands (one per turn), cast sorcery-speed spells, ` +
+    `and activate abilities. ${pod ? "Any opponent" : "Both players"} can respond at instant speed.`,
 
-  "beginning-of-combat": ({ activeName }) =>
-    `Beginning of ${activeName}'s combat phase. ${activeName} chooses an opponent to attack ` +
-    `(in 1v1, that's the only opponent). Triggers like "at the beginning of combat" go on the stack now.`,
+  "beginning-of-combat": ({ subj, pod }) =>
+    `Beginning of ${subj.poss} combat phase. ${cap(subj.name)} ${subj.verb("choose")} ${pod ? "an opponent" : "the opponent"} to attack. ` +
+    `Triggers like "at the beginning of combat" go on the stack now.`,
 
-  "declare-attackers": ({ activeName }) =>
-    `${activeName}'s declare-attackers step. ${activeName} chooses which untapped, non-sick creatures attack. ` +
+  "declare-attackers": ({ subj }) =>
+    `${cap(subj.poss)} declare-attackers step. ${cap(subj.name)} ${subj.verb("choose")} which untapped, non-sick creatures attack. ` +
     `Attacking creatures become tapped (unless they have vigilance, rule 702.20).`,
 
-  "declare-blockers": ({ defenderName }) =>
-    `Declare-blockers step. ${defenderName} chooses which of their untapped creatures block which attackers. ` +
+  "declare-blockers": ({ subj, pod }) =>
+    `Declare-blockers step. ${pod ? "Each defending player" : cap(subj.name)} ${pod ? "chooses" : subj.verb("choose")} which of their untapped creatures block which attackers. ` +
     `Each attacker can be blocked by any number of blockers; each blocker can only block one attacker (rule 509.1).`,
 
   "first-strike-damage": () =>
@@ -63,14 +126,14 @@ const STEP_TEMPLATES = {
     `Combat-damage step. All other attacking and blocking creatures deal damage simultaneously. ` +
     `Damage assignment follows the order chosen during the declare-blockers step.`,
 
-  "end-of-combat": ({ activeName }) =>
-    `End of ${activeName}'s combat phase. "Until end of combat" effects end now.`,
+  "end-of-combat": ({ subj }) =>
+    `End of ${subj.poss} combat phase. "Until end of combat" effects end now.`,
 
-  end: ({ activeName }) =>
-    `${activeName} end step. "At the beginning of the end step" triggers go on the stack.`,
+  end: ({ subj }) =>
+    `${cap(subj.poss)} end step. "At the beginning of the end step" triggers go on the stack.`,
 
-  cleanup: ({ activeName }) =>
-    `${activeName} cleanup step. ${activeName} discards down to their maximum hand size (7 by default). ` +
+  cleanup: ({ subj }) =>
+    `${cap(subj.poss)} cleanup step. ${cap(subj.name)} ${subj.verb("discard")} down to their maximum hand size (7 by default). ` +
     `All damage on permanents is removed. "Until end of turn" effects end. ` +
     `No priority is granted unless something triggers (rule 514.3).`,
 };
@@ -79,15 +142,18 @@ const STEP_TEMPLATES = {
  * Generate a narration string for the current (phase, step). Returns
  * empty string when the step has no template (defensive — shouldn't
  * happen in practice).
+ *
+ * options.seatLabel(id) → string, optional override for AI-seat display
+ * names (default: "Opponent"/"Opponent N"). Always pod-aware — a 3+ seat
+ * game never says "both players"/"The opponent".
  */
-export function narrateStep(state, { difficulty = "beginner" } = {}) {
+export function narrateStep(state, { difficulty = "beginner", seatLabel } = {}) {
   if (difficulty === "expert") return "";
 
   const template = STEP_TEMPLATES[state.step];
   if (!template) return "";
 
-  const activeName = state.activePlayer === "user" ? "You" : "The opponent";
-  const defenderName = state.activePlayer === "user" ? "The opponent" : "You";
+  const subj = subjectFor(state, state.activePlayer, { seatLabel });
   // Mirrors the engine draw-skip gate (gameEngine runStepActions): CR 103.8a is TWO-PLAYER only;
   // in a multiplayer pod no seat skips (CR 103.8c) — the narration must not claim a skip the
   // engine no longer performs.
@@ -97,11 +163,11 @@ export function narrateStep(state, { difficulty = "beginner" } = {}) {
     (state.turnOrder?.length || 0) === 2;
 
   const full = template({
-    activeName,
-    defenderName,
+    subj,
     turn: state.turn,
     phase: state.phase,
     isFirstTurnSkip,
+    pod: isPod(state),
   });
 
   if (difficulty === "intermediate") {
@@ -118,11 +184,11 @@ export function narrateStep(state, { difficulty = "beginner" } = {}) {
  * the decision menu so the user sees not just "Cast Lightning Bolt"
  * but "Cast [[Lightning Bolt]] for {R}: deal 3 damage to any target."
  */
-export function narrateAction(action, state, { card = null, difficulty = "beginner" } = {}) {
+export function narrateAction(action, state, { card = null, difficulty = "beginner", seatLabel = defaultSeatLabel } = {}) {
   switch (action.kind) {
     case "pass-priority":
       return difficulty === "beginner"
-        ? "Pass priority. If both players pass with the stack empty, the step ends."
+        ? "Pass priority. If everyone passes with the stack empty, the step ends."
         : "Pass priority.";
 
     case "play-land": {
@@ -141,7 +207,7 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
       const tgt = action.targets?.[0];
       const targeting = tgt
         ? (tgt.type === "player"
-          ? ` targeting ${tgt.id === "user" ? "you" : "the opponent"}`
+          ? ` targeting ${tgt.id === "user" ? "you" : seatLabel(tgt.id)}`
           : ` targeting [[${tgt.name || "a creature"}]]`)
         : "";
       // Front-face planeswalker? (a creature-front DFC casts as its creature side, so check face 0).
@@ -158,22 +224,37 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
     case "declare-attacker": {
       const name = action.name || "the creature";
       const atWalker = action.defenderPlaneswalkerId ? (action.targetName || "an enemy planeswalker") : null;
+      // N2: name the defending PLAYER too — in a pod, "Attack with [[X]]." repeated per
+      // opponent is a blind choice. defenderName falls back to a seat label when the
+      // action doesn't carry a friendlier one (e.g. a commander name) from legalChoices.
+      const defenderName = action.defenderName || (action.defenderId ? seatLabel(action.defenderId) : null);
       if (difficulty === "beginner") {
         if (atWalker) {
           // The combat-redirection misconception: you attack a planeswalker DIRECTLY now (PW-4).
           return `Attack [[${atWalker}]] with [[${name}]]. You declare attacks against a planeswalker directly (the old "redirect" rule is gone) — combat damage to it removes that many loyalty counters (rule 120.3c), not life from its controller. The defending player can still block to protect it.`;
         }
+        if (defenderName) {
+          return `Attack ${defenderName} with [[${name}]]. It becomes tapped (unless it has vigilance) and deals damage equal to its power during the combat-damage step.`;
+        }
         return `Attack with [[${name}]]. It becomes tapped (unless it has vigilance) and deals damage equal to its power during the combat-damage step.`;
       }
-      return atWalker ? `Attack [[${atWalker}]] with [[${name}]].` : `Attack with [[${name}]].`;
+      if (atWalker) return `Attack [[${atWalker}]] with [[${name}]].`;
+      if (defenderName) return `Attack ${defenderName} with [[${name}]].`;
+      return `Attack with [[${name}]].`;
     }
 
     case "declare-blocker": {
       const name = action.name || "the creature";
+      // N2: name the ATTACKER being blocked — without it, N identical attackers in a pod
+      // render as byte-identical "Block the attacker with [[X]]." lines.
+      const attackerName = action.attackerName || null;
       if (difficulty === "beginner") {
+        if (attackerName) {
+          return `Block [[${attackerName}]] with [[${name}]]. Both creatures deal damage to each other simultaneously during the combat-damage step.`;
+        }
         return `Block the attacker with [[${name}]]. Both creatures deal damage to each other simultaneously during the combat-damage step.`;
       }
-      return `Block with [[${name}]].`;
+      return attackerName ? `Block [[${attackerName}]] with [[${name}]].` : `Block with [[${name}]].`;
     }
 
     case "tap-for-mana": {
@@ -247,10 +328,10 @@ function truncate(text, max) {
  * narration + per-action descriptions. Intermediate gets a terse
  * summary. Expert never sees this — decisionGate auto-decides.
  */
-export function narrateDecision(state, actions, { difficulty = "beginner", cardLookup = () => null } = {}) {
+export function narrateDecision(state, actions, { difficulty = "beginner", cardLookup = () => null, seatLabel = defaultSeatLabel } = {}) {
   if (difficulty === "expert") return "";
 
-  const stepLine = narrateStep(state, { difficulty });
+  const stepLine = narrateStep(state, { difficulty, seatLabel });
   const header = difficulty === "beginner"
     ? `${stepLine}\n\nYour legal actions right now:`
     : stepLine;
@@ -259,7 +340,7 @@ export function narrateDecision(state, actions, { difficulty = "beginner", cardL
 
   const lines = actions.map((action, i) => {
     const card = action.cardId ? cardLookup(action.cardId) : null;
-    const description = narrateAction(action, state, { card, difficulty });
+    const description = narrateAction(action, state, { card, difficulty, seatLabel });
     return `${i + 1}. ${description}`;
   });
 
