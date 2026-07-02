@@ -35,7 +35,7 @@ const STEP_TEMPLATES = {
 
   draw: ({ activeName, isFirstTurnSkip }) =>
     isFirstTurnSkip
-      ? `${activeName} draw step (skipped — the player who goes first doesn't draw on turn 1, rule 103.7a).`
+      ? `${activeName} draw step (skipped — in a two-player game, the player who goes first doesn't draw on turn 1, rule 103.8a).`
       : `${activeName} draw step. ${activeName} draws one card, then both players get priority.`,
 
   main: ({ activeName, phase }) =>
@@ -88,7 +88,13 @@ export function narrateStep(state, { difficulty = "beginner" } = {}) {
 
   const activeName = state.activePlayer === "user" ? "You" : "The opponent";
   const defenderName = state.activePlayer === "user" ? "The opponent" : "You";
-  const isFirstTurnSkip = state.turn === 1 && state.activePlayer === state.startingPlayer;
+  // Mirrors the engine draw-skip gate (gameEngine runStepActions): CR 103.8a is TWO-PLAYER only;
+  // in a multiplayer pod no seat skips (CR 103.8c) — the narration must not claim a skip the
+  // engine no longer performs.
+  const isFirstTurnSkip =
+    state.turn === 1 &&
+    state.activePlayer === state.startingPlayer &&
+    (state.turnOrder?.length || 0) === 2;
 
   const full = template({
     activeName,

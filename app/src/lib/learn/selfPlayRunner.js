@@ -79,10 +79,10 @@ export function outcomeLabelForSeat(seatId, result) {
  *   different seeds ⇒ different game). runSelfPlayBatch passes a distinct seed per
  *   game so gamesPer>1 yields genuinely different games (real repeat coverage).
  * @param {string} [args.startSeat]  OPT-IN: which engine seat is ON THE PLAY (the
- *   first turn, skipping its first draw per CR 103.7a). Omitted/null (default) ⇒ "user"
+ *   first turn, skipping its first draw per CR 103.8a). Omitted/null (default) ⇒ "user"
  *   is on the play — BYTE-IDENTICAL to the pre-slice engine (Academy / human play / the
  *   whole corpus rely on user-first). Provided ⇒ that seat is stamped as state.activePlayer,
- *   so startGame stamps it as startingPlayer and the CR 103.7a first-turn draw-skip follows
+ *   so startGame stamps it as startingPlayer and the CR 103.8a first-turn draw-skip follows
  *   it automatically (the engine keys the skip off state.startingPlayer, not a hardcoded
  *   "user"). The seat must be a real engine seat for the mode ("user"/"ai" for Standard;
  *   "user"/"ai1"/"ai2"/"ai3" for Commander); an unknown id falls through to createLearnSession's
@@ -116,7 +116,7 @@ export function outcomeLabelForSeat(seatId, result) {
  *            | "dispatch-error" | "setup-error" (the report treats stuck/error as
  *            non-completions; `timeout` is an honest, separately-counted non-result)
  *   onThePlay — the engine seat that was ON THE PLAY (went first, skipped its first draw
- *            per CR 103.7a). "user" by default; whatever `startSeat` requested otherwise.
+ *            per CR 103.8a). "user" by default; whatever `startSeat` requested otherwise.
  *            Read off the stamped state.startingPlayer (the engine's own source of truth),
  *            so analysis/training can account for position bias. null only on setup-error.
  *   status — the raw session.status (active/user-wins/ai-wins/draw/timeout)
@@ -219,7 +219,7 @@ export function runSelfPlayGame({
       difficulty: "expert",
       mode,
       seed,
-      // Starting seat (CR 103.7a). When null we omit it so createLearnSession's "user" default
+      // Starting seat (CR 103.8a). When null we omit it so createLearnSession's "user" default
       // applies — BYTE-IDENTICAL game start. When set, that seat becomes state.activePlayer, so
       // startGame stamps it as startingPlayer and the first-turn draw-skip follows it.
       ...(startSeat != null ? { activePlayer: startSeat } : {}),
@@ -379,7 +379,7 @@ export function runSelfPlayGame({
     trainingWeight,
     // The winning engine seat (or null) — top-level so callers don't have to dig into decisionTrajectory.
     winnerSeat,
-    // The seat that was ON THE PLAY (CR 103.7a). Read off the engine's stamped startingPlayer —
+    // The seat that was ON THE PLAY (CR 103.8a). Read off the engine's stamped startingPlayer —
     // its own source of truth — so training/analysis can account for the position edge. "user"
     // on the default path; whatever startSeat requested otherwise.
     onThePlay: out.state?.startingPlayer ?? null,
@@ -539,7 +539,7 @@ export function startSeatForGame(mode, index) {
  *     (policy) trajectory for every game (passes through to runSelfPlayGame.recordDecisions).
  *     Each game's `.decisionTrajectory` is tagged with `deckIds`/`seatNames` for attribution.
  * @param {boolean} [opts.alternateStart]  DEFAULT TRUE for batches — rotate which SEAT is
- *     ON THE PLAY (CR 103.7a) across the batch so the position edge isn't pinned to one seat.
+ *     ON THE PLAY (CR 103.8a) across the batch so the position edge isn't pinned to one seat.
  *     Without it, "user" is always on the play and, in a mirror, that seat's first-turn /
  *     untap-then-act tempo edge makes it win every game ⇒ seat-position-BIASED training data.
  *     ON, game k's starting seat is startSeatForGame(mode, k) — a deterministic round-robin
@@ -553,7 +553,7 @@ export function startSeatForGame(mode, index) {
  * @returns {{ games: object[], deckList: object[], mode, pairings }}
  *     games — one runSelfPlayGame result per game, each tagged with .meta
  *             { mode, deckNames, seatNames, userDeckName, startSeat } and a trainingWeight,
- *             plus an `onThePlay` field naming the seat that led (CR 103.7a)
+ *             plus an `onThePlay` field naming the seat that led (CR 103.8a)
  */
 export function runSelfPlayBatch(deckList, { mode = "commander", gamesPer = 1, baseSeed = 1, record = false, timePressure = true, pilots = {}, recordDecisions = false, alternateStart = true } = {}) {
   const decks = Array.isArray(deckList) ? deckList : [];

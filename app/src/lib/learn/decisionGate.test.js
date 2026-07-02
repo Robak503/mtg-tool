@@ -311,7 +311,7 @@ describe("narrator — narrateStep", () => {
     const state = makeState({ phase: "beginning", step: "draw", turn: 1, activePlayer: "user", startingPlayer: "user" });
     const text = narrateStep(state, { difficulty: "beginner" });
     expect(text).toContain("skipped");
-    expect(text).toContain("103.7a");
+    expect(text).toContain("103.8a"); // CR renumbered: two-player first-draw skip is 103.8a (103.7a no longer exists)
   });
 
   it("describes draw step on subsequent turns without skip", () => {
