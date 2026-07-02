@@ -133,3 +133,49 @@ now skipped with a warning; 15-deck full sweep = 4 pods, 4/4 decisive).
 Cavern-class "Spend this mana only to cast …" is dropped → general-purpose credit). The fix is
 restricted-mana modeling in planPayment (or a color-identity downgrade), touching many real tribal
 decks — do not strip blindly.
+
+### Wave 4 — commander instance keying (commit a0b6f29) — CORRECTNESS (flywheel-poisoning)
+Mirror commanders shared ONE 21-rule tracker key (both deck builders mint card ids from deck id +
+name; self-play PADS PODS BY WRAPPING, so mirrors are routine) → an 11+10 split was a FALSE DEATH,
+and eliminating one twin erased the live twin's damage. Per-seat `commanderInstanceId`
+("<seat>::<cardId>") stamped at seat build; damage/strip/tax keyed instance-with-fallback (old
+saves + fixtures byte-identical); tableSnapshot disambiguates mirror display. Docs corrected: the
+TAX never collapsed. Gate: 6,387 green (+6 mirror pins) · 3×0-diff · trajectory unchanged.
+
+### Wave 5 — one-shot sac-victim payment guard (commit 20e7d54) — CORRECTNESS
+The chosen sacrifice victim (cast addCost + γ1b) was not excluded from mana sources — planPayment
+could crack a Treasure victim, then the dispatcher's re-find threw PERM_NOT_FOUND on an OFFERED
+action. Shared sourcesExcludingOneShotVictim at all 4 legality/payment sites (two-sites invariant);
+repeatable victims still tap-then-sac. Gate: 6,392 green (+5 pins) · 3×0-diff · trajectory unchanged.
+
+### Wave 6 — small-seams hardening (commit a72f3c4) — CORRECTNESS/structure
+Cost-time leave-event drains at 4 chokepoints (CR 603.3b ordering; closed the stale-scan FP
+window) · modal combat-referent flatten via shared programCombatReferentAtoms (zero corpus impact,
+future-proofing) · dice/reveal sequence gates hoisted into programConfidence (closes the
+collapsed()-bypass class; a lone roll-d20 is now correctly LOW). Gate: 6,398 green · 3×0-diff ·
+trajectory unchanged.
+
+### Wave 7 — GY zone accounting (commit 464c106) — CORRECTNESS (CR 608.2m / 608.3b / 715.4)
+Resolved instants/sorceries now reach their owner's graveyard via a payload disposition applied at
+the two program-completion points (after ALL atoms — no self-count; threads through every
+pendingChoice suspension). Storm copies DELETE the param at clone (no duplicate card objects,
+CR 707.10a); Arbiter-routed spells keep vanishing (documented FN); AURA_ETB fizzle bins the card;
+countered adventure casts bin the FULL card. 13 vanish-encoding pins audited + updated, 3 new.
+Gate: 6,398 green · 3×0-diff · **trajectory re-anchor b3970105 → 639058** (same games, same 6,306
+decisions; features now see real GY contents), deterministic ×2.
+
+### Wave 8 — agent-branch integration: pending-choice client + narrator (commits 267ae85…ec384cc)
+Two parallel worktree agents, cherry-picked + conflict-resolved (kept instance keying + the
+2-player draw-skip gate through the narrator rework):
+- **Academy soft-lock fixed** (WI-1): optional-mana-payment / optional-sac-payment had NO UI —
+  panels + hook methods wired; exhaustive-kind failsafe (WI-4) reports engine-stuck honestly for
+  any future unhandled kind; /api/learn/choose kind-echo validation (WI-5); settler consistency
+  (WI-6).
+- **Narrator wave** (N1/N2/N4/N5/N6): grammar + pod-awareness (no more "You draws" / every AI seat
+  as "The opponent"); combat options name the defender/attacker (no more blind pod combat); logs
+  for non-combat deaths + commander-damage accrual w/ lethal-21 warning; narrateAction for 6 more
+  kinds (+ 2 more stale-cite fixes verified vs the bundled CR: plot 702.170, cascade 702.85a);
+  noise-cut decisionLogTail + clickable beginner narration. N3 (narrated log feed) DEFERRED —
+  needs source-name payload enrichment first (parked, documented).
+Integration gate: **6,539 green** · lint clean · 3×0-diff · trajectory re-anchor 639058 → 684fb0a3
+(additive defenderName on attack actions), deterministic ×2. Agent worktrees junction-safe removed.
