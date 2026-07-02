@@ -2,9 +2,9 @@
 
 > Live grind session on top of v0.85.0. Integrating via **PR [#383](https://github.com/Robak503/mtg-tool/pull/383)** (rolling branch `claude/clever-liskov-6e04be`) — direct ff-push to master is blocked by the auto-mode classifier (as the CREED discipline documents: master push is PR-only), so waves stack as individually-verified commits on the PR. **Merge #383 when ready, or add a Bash permission rule to authorize direct-to-master pushes for the faster ff-grind.**
 
-## Census (realism gate, main-tree oracle) — after the alt-cost waves
-Corpus **25.4% native** (8669/34160, +17 this session). Per-deck (▲ = moved this session):
-Wolverine 56 · Kellan 56▲ · Cap 57▲ · **Rog/Thras 58▲(+4)** · Mothman 58 · **Yuriko 61▲(+8)** · **Kinnan 63▲(+3)** · Pantlaza 68 · Toph 71 · Ur-Dragon 72 · Omnath 77▲ · Zaxara 79 · Koma 82 · Vihaan 83 · Sliver 92. **Aggregate 68→69%** (1014→1033/1500). The three worst laggards (Yuriko/Rog-Thras/Kinnan) got the biggest boosts — the alt-cost lever landed exactly where intended.
+## Census (realism gate, main-tree oracle) — after the alt-cost + Inspiring Call waves
+Corpus **25.4% native** (8670/34160, **+18 this session**). Per-deck (▲ = moved this session):
+Wolverine 57▲ · Kellan 56▲ · Cap 57▲ · **Rog/Thras 58▲(+4)** · Mothman 59▲ · **Yuriko 61▲(+8)** · **Kinnan 63▲(+3)** · Pantlaza 68 · Toph 72▲ · Ur-Dragon 72 · Omnath 77▲ · Zaxara 80▲ · Koma 82 · Vihaan 83 · Sliver 92. **Aggregate 68→69%** (1014→~1037/1500). The three worst laggards (Yuriko/Rog-Thras/Kinnan) got the biggest boosts — the alt-cost lever landed exactly where intended; Inspiring Call added the +1/+1-counter decks (Zaxara/Toph/Mothman/Wolverine).
 
 ## ★ META-FINDINGS
 1. **(5-agent recon)** post-overhaul the clean mechanic-levers are mostly ALREADY MODELED (token-on-trigger incl. Treasure/Food, enters-with-X counters, most +1/+1-counter infra). Remaining deck gap = alt-cost (now DONE) + a scatter of small 1-2-card slices + the genuine Arbiter tail (tutors/wheels/storm/redirect).
@@ -14,13 +14,14 @@ Wolverine 56 · Kellan 56▲ · Cap 57▲ · **Rog/Thras 58▲(+4)** · Mothman 
 - **Wave 1 — COUNTER-QUALIFIED count-source** (+1: Armorcraft Judge). `parseCountSource`+`countForSpec` gain a `+1/+1`-counter-qualified creature count. Prereq for Inspiring Call.
 - **Wave 3a — ALT-COST free-if-commander strip** (+3: Fierce Guardianship [×5 decks], Deadly Rollick, Flawless Maneuver).
 - **Wave 3b/3c — ALT-COST all shapes** (+13: the 7 targets [Force of Will/Negation, Flare of Denial/Cultivation, Gush, Snuff Out, Submerge] + 6 corpus [Cave-In, Pyrokinesis, Rouse, Snapback, Thwart, Unmask]). Matcher list: free / pay-life+exile pitch / exile-color / sac-creature / pay-life / return-lands. Each GAINED audited (body fully parsed, modeled atom, castable at printed cost); FP canaries stay arbiter (Foil/Misdirection/Commandeer/Disrupting Shoal/Deflecting Swat).
+- **Inspiring Call** (+1, x4 decks: Zaxara/Toph/Mothman/Wolverine → each +1) — the cross-clause "Draw a card for each creature with a +1/+1 counter. Those creatures gain indestructible." as a collapsed 2-sentence template: [draw(requiresCounter), grant-keywords-group(requiresCounter)]. New `requiresCounter` filter on the grant resolver (grants only to countered creatures). Builds on Wave 1. flip-diff LOST=0 GAINED=1; program-fp = Armorcraft Judge + Inspiring Call; runtime test pins the counter-filtered grant.
 
-## ▶️ NEXT (for the next /loop fire) — the alt-cost lever is fully mined
-Re-run the realism gate (board moved), then pick the top remaining slice. Candidates (each ~1-2 cards, M-ish, DISJOINT files):
-- **distribute-N-counters atom + pendingChoice** → The Earth Crystal (Toph+Wolverine x2).
-- **`becomes tapped` trigger event + runtime hook** → Tale of Katara and Toph (Toph+Wolverine x2).
-- **Inspiring Call targeted 2-sentence template** (cross-clause "those creatures" referent → grant to the counter-filtered set; x4 decks; FP-safe exact template; builds on Wave 1's requiresCounter).
-- **Hungering Hydra** dmg-amount→counter referent (1 card).
+## ▶️ NEXT (for the next /loop fire) — alt-cost + Inspiring Call done; the +1/+1-COUNTER CLUSTER (Toph+Wolverine) is the frontier
+Re-run the realism gate (`scratchpad/current-levers.mjs` regenerates the cross-deck lever view with worktree code), then pick the top slice. Toph (72) + Wolverine (57) share the counter cluster — each candidate is ~2 deck-slots + corpus, DISJOINT files:
+- **`becomes tapped [first time each turn]` trigger event + runtime hook** → **Tale of Katara and Toph** (Toph+Wolverine x2). Effect ("put a +1/+1 counter") already modeled; needs a new trigger EVENT in triggers.js + a runtime hook that fires when a permanent taps + per-turn first-tap tracking. M (runtime).
+- **distribute-N-counters atom + pendingChoice** → **The Earth Crystal** (Toph+Wolverine x2; its other 2 clauses — green cost-reduction + counter-doubler — already modeled). "Distribute two +1/+1 counters among one or two target creatures you control" needs a choice-carrying atom (like divide-damage). M.
+- **The Ozolith** (Toph+Wolverine x2) — counter-migration-on-LTB (needs a generic creature-leaves scope + a migrate-counters resolver family). M, 2 new mechanics.
+- **Hungering Hydra** dmg-amount→counter referent (1 card, Zaxara). S (single countContext key, analog in hand.js).
 - OR a fresh census-driven lever hunt — the remaining laggard gaps (Yuriko/Rog-Thras 39-42 cards) are now largely the genuine Arbiter tail (tutors/wheels/storm/redirect/cumulative-upkeep/opponent-draws — see PARKED).
 - **Deferred play-quality (ON HOLD per Colton — Omnath pass):** the alt-cost OFFER subsystem (legalChoices dual-offer + actionDispatcher alt-payment + AI) so the AI actually USES the alt-costs. Full design in alt-cost-design.md.
 
