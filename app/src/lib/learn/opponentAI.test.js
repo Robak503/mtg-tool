@@ -13,6 +13,7 @@ import {
   pickAttackPlan,
   pickBlockPlan,
   deriveDeckRepresentation,
+  decideMulliganForAI,
 } from "./opponentAI.js";
 
 function makeCard({ id, name, type, mana = "", oracle = "", power, toughness }) {
@@ -624,6 +625,61 @@ describe("pickLandAction — W1 land sequencing (via pickAction)", () => {
     const state = makeState({ hand: [tapland, swamp] });
     const actions = [landAction(tapland), landAction(swamp), pass];
     expect(pickAction(state, "ai", actions)).toBe(pickAction(state, "ai", actions));
+  });
+});
+
+describe("decideMulliganForAI — W2 (opt-in London keep/ship heuristic)", () => {
+  const KEEP = { kind: "mulligan-keep" };
+  const SHIP = { kind: "mulligan-ship" };
+  const offered = [KEEP, SHIP];
+  const land = (i) => makeCard({ id: `l-${i}`, name: `Forest ${i}`, type: "Basic Land — Forest" });
+  const spell = (i) => makeCard({ id: `s-${i}`, name: `Spell ${i}`, type: "Instant", mana: "{G}" });
+  const handOf = (lands) => [
+    ...Array.from({ length: lands }, (_, i) => land(i)),
+    ...Array.from({ length: 7 - lands }, (_, i) => spell(i)),
+  ];
+  const mullState = (lands, ships = 0) => ({
+    players: { ai: { hand: handOf(lands) } },
+    log: Array.from({ length: ships }, (_, i) => ({ kind: "mulligan-ship", player: "ai", mulligans: i + 1 })),
+  });
+
+  it("ships a 0-land hand", () => {
+    expect(decideMulliganForAI({ state: mullState(0), legalActions: offered, seat: "ai" })).toBe(SHIP);
+  });
+
+  it("ships a 1-land hand", () => {
+    expect(decideMulliganForAI({ state: mullState(1), legalActions: offered, seat: "ai" })).toBe(SHIP);
+  });
+
+  it("keeps a 3-land hand", () => {
+    expect(decideMulliganForAI({ state: mullState(3), legalActions: offered, seat: "ai" })).toBe(KEEP);
+  });
+
+  it("ships a 7-land hand (flooded)", () => {
+    expect(decideMulliganForAI({ state: mullState(7), legalActions: offered, seat: "ai" })).toBe(SHIP);
+  });
+
+  it("keeps ANY hand after 2 prior ships (never below an effective 5-card keep)", () => {
+    expect(decideMulliganForAI({ state: mullState(0, 2), legalActions: offered, seat: "ai" })).toBe(KEEP);
+  });
+
+  it("only counts the deciding seat's prior ships", () => {
+    const state = mullState(0);
+    state.log = [
+      { kind: "mulligan-ship", player: "user", mulligans: 1 },
+      { kind: "mulligan-ship", player: "user", mulligans: 2 },
+    ];
+    expect(decideMulliganForAI({ state, legalActions: offered, seat: "ai" })).toBe(SHIP);
+  });
+
+  it("returns the OFFERED keep action when no ship action is offered", () => {
+    expect(decideMulliganForAI({ state: mullState(0), legalActions: [KEEP], seat: "ai" })).toBe(KEEP);
+  });
+
+  it("is deterministic", () => {
+    const state = mullState(1);
+    expect(decideMulliganForAI({ state, legalActions: offered, seat: "ai" }))
+      .toBe(decideMulliganForAI({ state, legalActions: offered, seat: "ai" }));
   });
 });
 

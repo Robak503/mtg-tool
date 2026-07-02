@@ -1084,6 +1084,34 @@ export function pickBlockPlan(state, aiPlayerId, blockerActions, { policy = null
   return pickBlockers(blockerActions, state, aiPlayerId, normalizePolicy(policy));
 }
 
+// ─── Mulligan heuristic (W2 — OPT-IN via the pilot seam) ─────────────────────
+
+/**
+ * London-mulligan keep/ship heuristic for an AI seat (CR 103.5). SHIP when the
+ * hand is unkeepable on lands — fewer than 2 or more than 5 of the 7 — and the
+ * seat has shipped fewer than 2 times (never mulligan below an effective
+ * 5-card keep); otherwise KEEP. Prior ships are recounted from the engine's own
+ * `mulligan-ship` log events (the loop doesn't stamp players[seat].mulligans
+ * until the keep), so the decider stays a pure read of the offered state.
+ *
+ * OPT-IN, never default: the engine only runs a mulligan phase for a seat whose
+ * pilot supplies `decideMulligan` (runMulliganPhaseForSeat — gameEngine.js), so
+ * the Academy / existing self-play stay byte-identical until a caller wires
+ * this in (the probe's --mull flag; a pilot scaffold can adopt it later).
+ * Returns one of the OFFERED actions; anything else is treated as KEEP by the
+ * engine (the safe default), so this can never over-mulligan or strand setup.
+ */
+export function decideMulliganForAI({ state, legalActions, seat }) {
+  const offered = Array.isArray(legalActions) ? legalActions : [];
+  const keep = offered.find((a) => a?.kind === "mulligan-keep") || { kind: "mulligan-keep" };
+  const ship = offered.find((a) => a?.kind === "mulligan-ship");
+  if (!ship) return keep;
+  const hand = state?.players?.[seat]?.hand || [];
+  const lands = hand.filter((c) => String(c?.type || c?.type_line || "").includes("Land")).length;
+  const ships = (state?.log || []).filter((e) => e?.kind === "mulligan-ship" && e?.player === seat).length;
+  return (lands < 2 || lands > 5) && ships < 2 ? ship : keep;
+}
+
 // ─── Deck-context helper ──────────────────────────────────────────────────────
 
 /**
