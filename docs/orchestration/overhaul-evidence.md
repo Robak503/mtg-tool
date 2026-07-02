@@ -67,4 +67,30 @@ rolling reference (differs from baseline ONLY by the 5 documented Aura FP remova
 seam-map census (post-batch-28) recorded 1,673; the v0.78–0.83 coverage waves regrew the
 monolith by ~1,100 lines of new inline matchers. Fresh census required before P2 seam batches.
 
-*(self-play games/sec, breakage census, decisions/sec, CPU profile — recorded below as they run)*
+**Self-play / play-quality baselines (post-P0 code, same machine, uncontended):**
+
+| Metric | Value |
+|---|---|
+| Tier-1 pod batch (Slivers·Koma·Zaxara·Ur-Dragon, 4P commander, games-per=3) | 3 games / 7.0s = **0.43 games/s** (~2.3s per game), 3/3 decisive |
+| Training 8-deck batch (2 pods, games-per=2) | 4 games / 5.5s = **0.73 games/s**, 4/4 decisive |
+| Decisions probe (Tier-1 pod, 2 games, recordDecisions) | 3,817 decisions / ~4s = **~964 decisions/s** · **91.6% forced pass-priority** · avg 35 turns |
+| Dead-end/livelock census | 0 timeouts / 0 draws / 0 engine-stuck across all baseline games (time pressure ON) |
+| Breakage reports | p1-tier1pod-baseline.txt / p1-training8-baseline.txt (scratchpad; spell-unresolved = expected Arbiter-tier tails) |
+
+**CPU profile (3-game Tier-1 pod batch, 7.8s sampled — the P2 wave ranking):**
+
+| Rank | Cost | What |
+|---|---|---|
+| 1 | **~30% self-time** | RUNTIME STATIC-ABILITY RE-PARSING — parseClause 10.8% + parseGlobalTapManaAugment 5.9% + selfNormalizeOracle 4.7% + abilityClauses 3.3% + parseStaticAbilities 3.1% + uncounterable/selector parses ~2%. Layers memoizes per STATE object; every action creates a new state → re-derives → re-parses every battlefield permanent's oracle. detectTriggers already has the per-CARD WeakMap cache pattern; staticAbilityParser has none. |
+| 2 | **8.6%** | globalTapManaAugment (manaModel.js:542) — rescans the battlefield + calls the static parser on every manaSources call. |
+| 3 | **~12%** | layers derivation machinery (effectAffects 3.9%, layers.js:809 anon 2.7%, collectContinuousEffects 2.1%, staticEffectsOf 1.9%, matchesSelector 1.9%). Partly collapses once parse results are cached. |
+| 4 | ~7% | card-index startup (readJson/readFileUtf8/buildCardIndex) — one-time, amortizes in batches; matters for CLI cold-start only. |
+
+→ **Wave 1 (perf): per-card WeakMap caching for the static-ability parse family** (parseStaticAbilities + parseGlobalTapManaAugment + friends), then re-profile before touching layers proper.
+
+**Data repairs made during P1 (dev data root, not code):**
+-  failed the  path-guard → the WHOLE profile system silently ignored Colton's 6 personal decks (SimCenter/self-play/decks API). Renamed → , registered in profiles.json ('Colton — personal decks'). loadAllProfileDecks now sees **16 decks**. Posted to COMMS (Omnath tools may reference the old folder name).
+- Deleted empty stray  folder.
+- Known runner hazard for pods: an EMPTY deck (Test Deck) seeds pods → guaranteed setup-error games. → P2/P4 fix: runner skips empty/unenrichable decks with a warning.
+
+**Spellbook resume-chain status (during pass):** dispatch 28563655412 restored the prior checkpoint and reached **18,800 cumulative combos** (each run adds ~9.4k then 429s). Continue spaced dispatches through the pass; P4 evaluates a bulk-export switch.
