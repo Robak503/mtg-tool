@@ -380,6 +380,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     cardsDrawnThisTurn: 0,
     spellsCastThisTurn: 0,    // TRIG-CAST2: "cast your second spell each turn" — incremented at the cast chokepoint, reset for all seats at untap
     creaturesDiedThisTurn: 0, // DEATHS-THIS-TURN (CR 700.4): creatures that DIED (battlefield→graveyard) under this player's control this turn — incremented at the death chokepoint (checkDiesTriggers via recordCreatureDeaths), reset for all seats at untap. Read by "for each creature that died [under your control] this turn" (Mahadi sums all seats / Body Count reads the controller) + the "if a creature died this turn" intervening-if.
+    attackedThisTurn: false, // RAID (CR 508.1): set true when this player declares an attacker (actionDispatcher.applyDeclareAttacker), reset for ALL seats at untap. Read by the "you attacked this turn" intervening-if.
     hasMulliganed: false,
   };
 }
@@ -1368,6 +1369,19 @@ export function resetCreatureDeathsAllPlayers(state) {
   const players = {};
   for (const id of Object.keys(state.players)) {
     players[id] = { ...state.players[id], creaturesDiedThisTurn: 0 };
+  }
+  return { ...state, players };
+}
+
+/**
+ * RAID (CR 508.1) — clear every seat's `attackedThisTurn` flag at untap. ALL-seats (not active-only): a Raid
+ * ETB can fire off-turn (blink/reanimate at instant speed on another player's turn), so a stale flag from a
+ * seat's own last combat must be cleared each turn, not just the active player's — closes a stale-read FP.
+ */
+export function resetAttackedThisTurnAllPlayers(state) {
+  const players = {};
+  for (const id of Object.keys(state.players)) {
+    players[id] = { ...state.players[id], attackedThisTurn: false };
   }
   return { ...state, players };
 }

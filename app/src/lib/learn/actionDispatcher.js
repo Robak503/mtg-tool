@@ -828,6 +828,9 @@ function applyDeclareAttacker(state, action) {
   };
   return {
     ...next,
+    // RAID (CR 508.1): stamp the attacking player's per-turn attack flag — the sole attack chokepoint, idempotent
+    // across multiple declared attackers. Read by the "you attacked this turn" intervening-if; reset at untap.
+    players: { ...next.players, [action.playerId]: { ...next.players[action.playerId], attackedThisTurn: true } },
     combat: {
       ...next.combat,
       attackers: [...next.combat.attackers, attackerEntry],

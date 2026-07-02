@@ -374,6 +374,12 @@ export function evaluateInterveningIf(state, condition, controllerId, context = 
     return deathsThisTurnTotal(state) >= n;
   }
 
+  // ===== ATTACKED-THIS-TURN (RAID, CR 508.1) ===== "you attacked this turn" — read off the controller's
+  // per-turn attackedThisTurn flag (stamped when they declare an attacker in actionDispatcher.applyDeclareAttacker,
+  // reset for all seats at untap). A per-CREATURE variant ("this creature attacked this turn"), a "with a
+  // creature" qualifier, or a negated form fails the anchor → null → Arbiter (CREED — never a mis-scoped Raid read).
+  if (/^you attacked this turn$/.test(c)) return state?.players?.[controllerId]?.attackedThisTurn === true;
+
   // "you control another <Subtype>" — a curated creature subtype, OTHER THAN the entering permanent (CR 113.7)
   m = c.match(CTRL_ANOTHER_SUBTYPE_RE);
   if (m) {
