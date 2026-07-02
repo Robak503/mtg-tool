@@ -21,6 +21,12 @@
  *     --games-per=N               repeat each pairing N times (distinct seeds → varied games)
  *     --no-time-pressure          disable the opt-in "game clock" (recovers old draw-at-cap;
  *                                 default is ON so stalling games end decisively W/L)
+ *     --export-trajectories=<path>  ENGINE→BRAIN DATA HOOK (Omnath seam, P3): also record every
+ *                                 decision and write one JSONL line per game —
+ *                                 schema "omnath-trajectory-v1", tagged by pilot identity and
+ *                                 TRUST-GATED by the runner's honest trainingWeight (timeout/
+ *                                 non-completion = 0, never a fabricated label) — so self-play
+ *                                 feeds the Omnath case store without scraping engine internals.
  *
  * MTG_APP_ROOT must point at a data root that has BOTH the profiles (decks) AND the
  * bundled scryfall-bulk/oracle-index.json (so cards enrich locally — zero network).
@@ -39,7 +45,7 @@ import { runSelfPlayBatch } from "../src/lib/learn/selfPlayRunner.js";
 import { aggregateBreakages, formatBreakageTxt } from "../src/lib/learn/breakageReport.js";
 
 function parseArgs(argv) {
-  const args = { mode: "commander", ids: null, out: null, max: null, gamesPer: 1, timePressure: true };
+  const args = { mode: "commander", ids: null, out: null, max: null, gamesPer: 1, timePressure: true, exportTrajectories: null };
   for (const a of argv) {
     if (a.startsWith("--mode=")) args.mode = a.slice(7) === "standard" ? "standard" : "commander";
     else if (a.startsWith("--ids=")) args.ids = a.slice(6).split(",").map((s) => s.trim()).filter(Boolean);
@@ -47,6 +53,7 @@ function parseArgs(argv) {
     else if (a.startsWith("--max=")) args.max = Math.max(1, parseInt(a.slice(6), 10) || 0) || null;
     else if (a.startsWith("--games-per=")) args.gamesPer = Math.max(1, parseInt(a.slice(12), 10) || 1);
     else if (a === "--no-time-pressure") args.timePressure = false; // recover the old draw-at-cap behavior
+    else if (a.startsWith("--export-trajectories=")) args.exportTrajectories = a.slice(22);
   }
   return args;
 }
@@ -98,7 +105,12 @@ async function main() {
   console.log(`[self-play] running self-play batch…`);
   // Time pressure is ON by default for batches (decisive endings → clean W/L training
   // labels). Pass --no-time-pressure to recover the old draw-at-cap behavior.
-  const batch = runSelfPlayBatch(runnerDecks, { mode: args.mode, gamesPer: args.gamesPer, timePressure: args.timePressure });
+  const batch = runSelfPlayBatch(runnerDecks, {
+    mode: args.mode,
+    gamesPer: args.gamesPer,
+    timePressure: args.timePressure,
+    recordDecisions: !!args.exportTrajectories, // the export needs the per-decision rows
+  });
   const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
   console.log(`[self-play] ${batch.games.length} game(s) completed in ${elapsed}s`);
 
@@ -135,6 +147,33 @@ async function main() {
   await fs.rename(tmp, outPath);
 
   console.log(`[self-play] report written: ${outPath}`);
+
+  // ENGINE→BRAIN DATA HOOK (omnath-trajectory-v1): one JSONL line per game. TAGGED (pilot identity
+  // rides every row from the recorder) + TRUST-GATED (trainingWeight is the runner's HONEST label —
+  // 0 for timeout/error/non-completion, so the brain's distiller can hard-filter untrusted games
+  // without re-deriving trust). Atomic write (tmp+rename). The schema is part of the Omnath seam
+  // contract (docs/orchestration/PLAY-API-CONTRACT.md §4) — additive changes only within v1.
+  if (args.exportTrajectories) {
+    const lines = batch.games.map((g) => JSON.stringify({
+      schema: "omnath-trajectory-v1",
+      generatedAt,
+      mode: args.mode,
+      result: g.result ?? null,
+      winnerSeat: g.winnerSeat ?? null,
+      onThePlay: g.onThePlay ?? null,
+      turns: g.turns ?? null,
+      trainingWeight: g.trainingWeight ?? 0,
+      meta: g.meta ?? null,
+      rows: g.decisionTrajectory?.rows ?? [],
+    }));
+    const exportPath = path.resolve(args.exportTrajectories);
+    await fs.mkdir(path.dirname(exportPath), { recursive: true });
+    const etmp = `${exportPath}.tmp.${process.pid}.${Date.now()}`;
+    await fs.writeFile(etmp, lines.join("\n") + "\n", "utf8");
+    await fs.rename(etmp, exportPath);
+    const trusted = batch.games.filter((g) => (g.trainingWeight ?? 0) > 0).length;
+    console.log(`[self-play] trajectories exported: ${exportPath} (${batch.games.length} games, ${trusted} trusted, ${batch.games.reduce((a, g) => a + (g.decisionTrajectory?.rows?.length || 0), 0)} rows)`);
+  }
   console.log("");
   console.log("───────── REPORT (first 30 lines) ─────────");
   console.log(report.split("\n").slice(0, 30).join("\n"));
