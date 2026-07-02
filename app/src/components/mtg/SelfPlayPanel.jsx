@@ -98,7 +98,8 @@ export function OutcomeSummary({ outcomes, avgTurns, games, colors }) {
   const { BG3, LINE, TEXT, MUTED, GOLD } = colors || {};
   const o = outcomes || {};
   const nonCompletions =
-    (o.engineStuck || 0) + (o.dispatchError || 0) + (o.setupError || 0) + (o.unexpected || 0);
+    (o.engineStuck || 0) + (o.dispatchError || 0) + (o.setupError || 0) + (o.unexpected || 0) +
+    (o.timeouts || 0);
 
   const stat = (label, value, accent) => (
     <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 78 }}>
@@ -125,6 +126,7 @@ export function OutcomeSummary({ outcomes, avgTurns, games, colors }) {
             o.dispatchError ? `dispatch-error ×${o.dispatchError}` : null,
             o.setupError ? `setup-error ×${o.setupError}` : null,
             o.unexpected ? `unexpected ×${o.unexpected}` : null,
+            o.timeouts ? `timeout ×${o.timeouts}` : null,
           ]
             .filter(Boolean)
             .join(", ")}
