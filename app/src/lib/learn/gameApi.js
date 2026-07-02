@@ -45,7 +45,16 @@
 
 import { legalActionsForPlayer } from "./legalChoices.js";
 import { dispatchAction, DispatcherError } from "./actionDispatcher.js";
-import { isPlayerDead, hasWonGame } from "./learnSession.js";
+import {
+  isPlayerDead,
+  hasWonGame,
+  createLearnSession,
+  advanceUntilDecision,
+  applyChoice,
+  applyPendingChoice,
+  continueFromArbiter,
+} from "./learnSession.js";
+import { PENDING_CHOICE_KINDS } from "./pendingChoice.js";
 
 /**
  * The legal actions seat `seat` may take in `state` right now — the set of
@@ -217,6 +226,81 @@ export function gameStatus(state) {
 export function observe(state, seat) {
   void seat; // v1: perfect information; seat reserved for the Tweak-4 scoped view
   return state;
+}
+
+// ─── v1 SESSION API (the FULL play seam — settles pending choices) ──────────────
+//
+// The pure v0 functions above (legalActions/applyAction/gameStatus/observe) cannot settle
+// state.pendingChoice / state.pendingArbiter — a raw applyAction loop WEDGES the moment a
+// tutor/scry/optional pauses resolution (the parked WAKE-REPORT seam). The v1 session API is
+// the real end-to-end seam: it wraps the SAME learnSession driver the Academy and the
+// self-play runner use, so an external pilot can drive a complete game — priority windows,
+// mulligans, every pendingChoice kind, arbiter acknowledgements — with nothing else imported.
+//
+// THE DRIVE LOOP (the locked Omnath contract, PLAY-API-CONTRACT.md):
+//
+//     let { session, decision } = nextDecision(createGame({ userDeck, opponentDecks, mode: "commander" }));
+//     while (decision.kind !== "game-over") {
+//       const answer = pilotAnswer(decision);            // ∈ decision.options
+//       ({ session, decision } = act(session, decision, answer));
+//     }
+//     const verdict = gameStatus(session.state);
+//
+// DECISION VOCABULARY (decision.kind):
+//   "ask"                    — a priority window: choose one of decision.options (answer = the action).
+//   one of PENDING_CHOICE_KINDS — a resolution-time choice; answer shape per kind (echo answer.kind —
+//                              the wire validates it; see applyPendingChoice).
+//   "unresolved"             — an Arbiter ruling to acknowledge (answer ignored).
+//   "game-over"              — terminal; session.status holds the verdict.
+//   "dispatch-error" / "engine-stuck" — surfaced honestly, never swallowed; the session is unchanged
+//                              (pick a different answer) or honestly stuck (stop).
+//
+// VERSIONING: PLAY_API_VERSION is semver. The exported names + decision vocabulary + answer shapes
+// are the contract surface — breaking any of them bumps the MAJOR and is announced on memory/COMMS.md
+// before release. Additive fields are MINOR and safe to ignore.
+
+export const PLAY_API_VERSION = "1.0.0";
+
+/**
+ * Build a fresh game session. Thin, versioned wrapper over createLearnSession — see its JSDoc for
+ * the full option set. The load-bearing options for a pilot driver:
+ *   { userDeck, opponentDeck | opponentDecks[3], mode: "standard"|"commander", difficulty: "expert",
+ *     userCommanders/opponentCommanders, seed, pilots: { [seat]: { decide, decideMulligan?, ... } } }
+ * difficulty "expert" makes AI seats self-decide inside nextDecision; pass pilots to route every
+ * seat's decisions through your own decide instead (the selfPlayRunner adapter).
+ */
+export function createGame(options) {
+  return createLearnSession(options);
+}
+
+/**
+ * Advance the game to the NEXT decision point (or game over): runs SBAs, eliminations, AI-seat
+ * turns, trigger flushes, and pending-* settlement exactly like the Academy driver, then returns
+ * { session, decision }. Options pass through to advanceUntilDecision (decide/pilot/recordDecision/
+ * timePressure — the self-play instrumentation seam).
+ */
+export function nextDecision(session, options = {}) {
+  return advanceUntilDecision(session, options);
+}
+
+/**
+ * Answer the current decision and advance to the next one. Routes by decision.kind:
+ * "ask" → the priority-action path (validated against the live legal set — an out-of-set answer
+ * returns a "dispatch-error" decision and an UNCHANGED session, never a fabricated move);
+ * a PENDING_CHOICE_KINDS member → the kind-echo-validated settler; "unresolved" → the Arbiter
+ * acknowledgement. Terminal/no-op kinds return the session unchanged with the same decision.
+ * Always returns { session, decision } — the same shape as nextDecision.
+ */
+export function act(session, decision, answer) {
+  const kind = decision?.kind;
+  if (kind === "ask") return applyChoice(session, answer);
+  if (kind === "unresolved") return continueFromArbiter(session);
+  if (PENDING_CHOICE_KINDS.includes(kind)) return applyPendingChoice(session, answer);
+  if (kind === "game-over" || kind === "dispatch-error" || kind === "engine-stuck") {
+    return { session, decision };
+  }
+  // An unknown kind is a contract break — surface it honestly (mirrors the driver's failsafe).
+  return { session, decision: { kind: "dispatch-error", reason: `act(): unknown decision kind "${kind}"`, code: "UNKNOWN_DECISION_KIND" } };
 }
 
 // ─── internals ───────────────────────────────────────────────────────────────
