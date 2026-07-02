@@ -36,6 +36,7 @@ export const PENDING_CHOICE_KINDS = [
   "sacrifice-choice",
   "discard",
   "divide-damage",
+  "distribute-counters",
   "soft-counter",
   "optional-mana-payment",
   "optional-sac-payment",
@@ -229,6 +230,21 @@ export function setPendingDivideChoice(state, { controller, amount, candidates, 
   return {
     ...next,
     pendingChoice: { kind: "divide-damage", controller, amount, candidates, group, sourceName },
+  };
+}
+
+/**
+ * Flag a DISTRIBUTE-COUNTERS choice (The Earth Crystal): the controller allots `amount` +1/+1 counters among
+ * up to `maxTargets` of their own creatures (`candidates`), each chosen target getting ≥1 (CR 121.5-shaped,
+ * same full-assignment rule as divide-damage). resolveDistributeChoice applies each via the add-counter atom
+ * so the controller's counter doublers compose (CR 616). Mirrors setPendingDivideChoice exactly.
+ */
+export function setPendingDistributeChoice(state, { controller, amount, counterType = "+1/+1", maxTargets = null, candidates, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "distribute-counters-pending", controller, amount, counterType, count: candidates.length, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "distribute-counters", controller, amount, counterType, maxTargets, candidates, sourceName },
   };
 }
 

@@ -27,6 +27,7 @@ import {
   setPendingImpulseDigChoice,
   setPendingSacrificeChoice,
   setPendingDivideChoice,
+  setPendingDistributeChoice,
   setPendingDiscardChoice,
   setPendingSoftCounterChoice,
   setPendingOptionalManaPaymentChoice,
@@ -77,6 +78,7 @@ const FIXTURES = {
   "sacrifice-choice": (s) => setPendingSacrificeChoice(s, { controller: "ai", candidates: [] }),
   "discard": (s) => setPendingDiscardChoice(s, { controller: "ai", remaining: 0, candidates: [], queue: [] }),
   "divide-damage": (s) => setPendingDivideChoice(s, { controller: "ai", amount: 0, candidates: [], group: [] }),
+  "distribute-counters": (s) => setPendingDistributeChoice(s, { controller: "ai", amount: 0, counterType: "+1/+1", maxTargets: 2, candidates: [] }),
   "soft-counter": (s) => setPendingSoftCounterChoice(s, { controller: "ai", amount: 1, spellId: "nonexistent" }),
   "optional-mana-payment": (s) => setPendingOptionalManaPaymentChoice(s, {
     controller: "ai", cost: { kind: "mana", mana: { generic: 0, W: 0, U: 0, B: 0, R: 0, G: 0, C: 0, hybrid: [] } }, effectAtoms: [],

@@ -27,6 +27,7 @@ import { combatResolvers } from "./atoms/combat.js";
 import { handResolvers } from "./atoms/hand.js";
 import { stackResolvers } from "./atoms/stack.js";
 import { miscResolvers } from "./atoms/misc.js";
+import { distributeCountersResolvers } from "./atoms/distributeCounters.js";
 import { manifestResolvers } from "./atoms/manifest.js";
 import { amassResolvers } from "./atoms/amass.js";
 import { selfReturnResolvers } from "./atoms/selfReturn.js";
@@ -50,6 +51,7 @@ export const ATOM_RESOLVERS = Object.freeze({
   ...removalResolvers, // destroy, exile, sacrifice
   ...sacLandResolvers, // sacrifice-land (SAC-LAND-RAMP) — "Sacrifice a land." controller self-sac (Roiling Regrowth / Cycle of Renewal)
   ...miscResolvers,    // draw, fog, create-emblem, divide-damage
+  ...distributeCountersResolvers, // distribute-counters (The Earth Crystal) — pendingChoice, mirrors divide-damage
   ...combatResolvers,  // pump, animate, earthbend, regenerate, tap, untap
   ...lifeResolvers,    // gain-life, lose-life
   ...zoneResolvers,    // bounce, tuck, return-from-graveyard, reanimate
@@ -90,6 +92,7 @@ const PAUSING_OPS_LIST = [
   "sacrifice", // removal.js applySacrifice → advanceSacrificeChain → setPendingSacrificeChoice
   "sacrifice-land", // sacLand.js applySacrificeLand → setPendingSacrificeChoice
   "divide-damage", // misc.js applyDivideDamage → setPendingDivideChoice
+  "distribute-counters", // distributeCounters.js applyDistributeCounters → setPendingDistributeChoice
   "counter", // stack.js applyCounter (soft counter / unlessPay) → setPendingSoftCounterChoice
   "optional-mana-payment", // stack.js applyOptionalManaPayment → setPendingOptionalManaPaymentChoice
   "optional-sac-payment", // stack.js applyOptionalSacPayment → setPendingOptionalSacBySubtypeChoice

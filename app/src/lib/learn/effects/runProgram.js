@@ -25,7 +25,7 @@
 
 import { markPendingArbiter } from "../pendingArbiter.js";
 import { clearPendingChoice, setPendingTutorChoice } from "../pendingChoice.js";
-import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, loseLife } from "../gameState.js";
+import { moveCardToZone, logEvent, applyScrySurveil, applyImpulseDig, findPermanent, creatureToughness, creaturePower, loseLife } from "../gameState.js";
 import { resolveAtom, shuffleControllerLibrary, tutorManaValue, cardMatchesTutorFilter, sacrificeCreatureEffect, advanceDiscardChain, advanceSacrificeChain, counterSpellById, enterCardFromZone, controllerSacSubtypeMatch } from "./effectAtoms.js";
 import { programConfidence } from "./parser.js";
 import { canAfford, manaSources, payGenericMana, payManaCost } from "../manaModel.js";
@@ -427,6 +427,49 @@ export function resolveDivideChoice(state, distribution) {
     spent += amt;
   }
   next = logEvent(next, { kind: "spell-effect", effect: "divide-damage", controller: pc.controller, amount: pc.amount, spent });
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== DISTRIBUTE ===== auto-pick a beneficial +1/+1-counter distribution for self-play (no human): spread
+ * `pc.amount` counters 1-at-a-time (round-robin) across the top `min(maxTargets, amount)` of the controller's
+ * OWN creatures by power — a simple, no-waste default (every counter lands on a real candidate, strictly
+ * beneficial, never fabricated). Not provably optimal (a later heuristic can refine). Mirrors autoPickDivideDistribution.
+ */
+export function autoPickDistributeCounters(state, pc) {
+  const amount = pc.amount || 0;
+  const pool = (pc.candidates || [])
+    .map((c) => ({ c, p: creaturePower(findPermanent(state, c.id)?.permanent, state) || 0 }))
+    .sort((a, b) => b.p - a.p || (a.c.id < b.c.id ? -1 : 1));
+  if (pool.length === 0 || amount <= 0) return [];
+  const n = Math.max(1, Math.min(pc.maxTargets || amount, pool.length, amount));
+  const dist = pool.slice(0, n).map(({ c }) => ({ id: c.id, type: "creature", amount: 0 }));
+  for (let i = 0; i < amount; i++) dist[i % n].amount += 1;    // 1 at a time — the total is exactly `amount`
+  return dist.filter((d) => d.amount > 0);
+}
+
+/**
+ * ===== DISTRIBUTE ===== settle a distribute-counters division: apply `distribution` ([{id,type,amount}], from
+ * the human picker or autoPickDistributeCounters) as add-counter events through the SAME registered add-counter
+ * atom — so the controller's +1/+1 doublers compose (CR 616) exactly like any counter placement. Guards mirror
+ * resolveDivideChoice: only candidate ids count, the running sum is capped at pc.amount (never fabricated), an
+ * eliminated controller skips the counters and just resumes.
+ */
+export function resolveDistributeChoice(state, distribution) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "distribute-counters") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next;             // controller eliminated mid-pause → no counters, no resume
+  const validIds = new Set((pc.candidates || []).map((c) => c.id));
+  let spent = 0;
+  for (const d of distribution || []) {
+    if (!validIds.has(d.id) || spent >= (pc.amount || 0)) continue;
+    const amt = Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent));
+    if (amt <= 0) continue;
+    next = resolveAtom(next, { op: "add-counter", counterType: pc.counterType || "+1/+1", amount: amt }, { controller: pc.controller, targets: [{ type: "creature", id: d.id }] });
+    spent += amt;
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "distribute-counters", controller: pc.controller, amount: pc.amount, spent });
   return resumeAfterChoice(next, pc);
 }
 

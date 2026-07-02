@@ -53,6 +53,7 @@ import { parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // sea
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, cdmgPayoffClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
 import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
+import { distributeCountersClauseParser } from "./atoms/distributeCounters.js"; // distribute-counters (The Earth Crystal) — mirrors divide-bounded
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
 import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell)
 import { tuckClauseParser, graveyardReturnClauseParser, bounceClauseParser } from "./atoms/zones.js"; // seam batch 10 (tuck) + 16 (return-from-graveyard ⇄ reanimate) + 24 (bounce)
@@ -2570,6 +2571,7 @@ registerClauseParser(discardClauseParser);
 // (whole-clause-anchored; divide-damage was already the last inline branch = lowest priority, so the
 // CLAUSE_PARSERS position preserves order). program-diff = 0.
 registerClauseParser(miscClauseParser);
+registerClauseParser(distributeCountersClauseParser);
 // EQUIP-ATTACH (seam batch 9 / Wave A4) — self-attach + attach-to-self migrated to atoms/stack.attachClauseParser
 // (whole-clause-anchored; attach-to-self returns null when its self-destination guard declines, preserving the
 // inline fall-through). program-diff = 0.

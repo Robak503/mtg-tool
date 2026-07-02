@@ -47,7 +47,7 @@ import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { featurizeState } from "./gameFeatures.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -497,6 +497,12 @@ function settleScryChoice(state, keepIds) {
 // dies-triggers from the damage, continue resolution). Mirrors settleScryChoice.
 function settleDivideChoice(state, distribution) {
   const next = resolveDivideChoice(state, distribution);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// ===== DISTRIBUTE ===== settle a distribute-counters division then finalize the stack. Mirrors settleDivideChoice.
+function settleDistributeChoice(state, distribution) {
+  const next = resolveDistributeChoice(state, distribution);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -1126,6 +1132,13 @@ export function advanceUntilDecision(
         current = { ...current, state: settleDivideChoice(current.state, autoPickDivideDistribution(current.state, pc)) };
         continue;
       }
+      if (pc.kind === "distribute-counters") {
+        if (pause) {
+          return { session: current, decision: { kind: "distribute-counters", ...pc } };
+        }
+        current = { ...current, state: settleDistributeChoice(current.state, autoPickDistributeCounters(current.state, pc)) };
+        continue;
+      }
       // ===== SOFT-CNT ===== — soft counter "unless its controller pays {N}" (Force Spike / Mana Leak /
       // Spell Pierce). pc.controller is the TARGETED SPELL'S controller (who decides), so `pause` pauses a
       // human whose spell is under threat (pay/decline) and auto-decides for an AI (pays if it can afford
@@ -1666,6 +1679,50 @@ export function applyDivideChoice(session, choice) {
 }
 
 /**
+ * ===== DISTRIBUTE ===== — the player assigned a distribute-counters division (The Earth Crystal).
+ * `choice.distribution` is `[{ id, type, amount }]`; resolveDistributeChoice validates it against the
+ * candidates + caps the running sum at pc.amount. Same WI-5 full-assignment guard: a short distribution
+ * re-surfaces the picker (CR 601.2d — the whole amount must be assigned). Mirrors applyDivideChoice.
+ */
+export function applyDistributeChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "distribute-counters") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const distribution = Array.isArray(choice?.distribution) ? choice.distribution : [];
+  if ((pc.candidates || []).length > 0) {
+    const validIds = new Set(pc.candidates.map((c) => c.id));
+    const cappedSum = distribution.reduce((spent, d) => {
+      if (!validIds.has(d?.id)) return spent;
+      return spent + Math.max(0, Math.min(d.amount || 0, (pc.amount || 0) - spent));
+    }, 0);
+    if (cappedSum < (pc.amount || 0)) {
+      return { session, decision: { kind: "distribute-counters", ...pc } }; // under-assigned — re-surface the picker
+    }
+  }
+  let newState;
+  try {
+    newState = settleDistributeChoice(session.state, distribution);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "distribute-choice", amount: pc.amount, targets: distribution.length },
+    auto: false,
+    reasoning: "user-assigned-distribute",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
  * ===== SOFT-CNT ===== — the player (whose spell is under a soft counter) chose to pay {N} or not.
  * `choice.pay` is the yes/no. resolveSoftCounterChoice charges the mana + saves the spell (or counters it
  * if declined / unaffordable — payGenericMana never fabricates mana), then resumes + re-derives. A
@@ -2060,6 +2117,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "sacrifice-choice") return applySacrificeChoice(session, choice);
   if (kind === "discard") return applyDiscardChoice(session, choice);
   if (kind === "divide-damage") return applyDivideChoice(session, choice);
+  if (kind === "distribute-counters") return applyDistributeChoice(session, choice);
   if (kind === "soft-counter") return applySoftCounterChoice(session, choice);
   if (kind === "optional-mana-payment") return applyOptionalManaPaymentChoice(session, choice);
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice);
