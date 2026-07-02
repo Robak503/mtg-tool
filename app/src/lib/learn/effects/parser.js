@@ -51,7 +51,7 @@ import { exploreClauseParser, libraryKeywordClauseParser, millClauseParser, tuto
 import { putFromHandClauseParser } from "./atoms/putFromHand.js"; // PUT-FROM-HAND — "put a/N/any number of creature|permanent card(s) from your hand onto the battlefield" (reuses the tutor sourceZone:"hand"→battlefield seam)
 import { SMALL_NUM, parseTutorFilter, parseTokenKeywords } from "./parseHelpers.js"; // seam batch 2/4/19: shared parse helpers in a leaf (matchers import cycle-free); SMALL_NUM (cdmg rad) + parseTutorFilter (rd block) + parseTokenKeywords (token-keyword matcher) still used here; NUM_WORD/parseCountSource now only inside migrated clause parsers (batch 23/26)
 import { proliferateClauseParser, gainExperienceClauseParser, radClauseParser, addCounterClauseParser, addNamedCounterSelfClauseParser } from "./atoms/counters.js"; // seam batch 3 (proliferate/gain-experience) + 13 (rad) + 25 (add-counter ±1/+1) + CHOSEN-TYPE (named counter on self artifact)
-import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
+import { earthbendClauseParser, combatKeywordClauseParser, pumpClauseParser, animateClauseParser, groupGrantClauseParser, setBasePtTeamClauseParser, fightClauseParser } from "./atoms/combat.js"; // seam batch 5 (earthbend) + 7 (tap/untap/cant-block/regenerate) + 12c (pump) + 14 (animate) + GROUP-KEYWORD-GRANT + SET-BASE-PT-TEAM (Biomass Mutation)
 import { miscClauseParser, drawEachPlayerClauseParser, drawForEachClauseParser, selfCastHalfXClauseParser } from "./atoms/misc.js"; // seam batch 8 (fog/divide-damage) + 23 (draw each-player slice) + 26 (draw for-each/count-scaled) + SELF-CAST half-X gain/draw (Hydroid Krasis)
 import { discardClauseParser } from "./atoms/hand.js"; // seam batch 23 (discard family)
 import { attachClauseParser, dealDamageScaledClauseParser, counterClauseParser, massFilteredDamageClauseParser, cdmgMassToDamagedPlayerClauseParser, copySpellClauseParser } from "./atoms/stack.js"; // seam batch 9 (self-attach/attach-to-self) + 15 (deal-damage scaled board-count) + 28 (counter, rider-folding) + MASS-FILTERED-DAMAGE + CDMG-MASS-TO-DAMAGED-PLAYER (Balefire) + STORM (copy-spell)
@@ -944,111 +944,14 @@ function parseClauseToAtom(cardType, clause, hasX = false) {
     }
   }
 
-  // ===== ETB-FIGHT (CR 701.12) ===== "[this creature|it] fights (up to one) target creature you don't
-  // control" (Kogla, Apex Altisaur, Kogla and Yidaro modal). The SOURCE creature and the chosen creature
-  // each deal damage equal to their power to the other, simultaneously (resolver fightCreature). The head
-  // is accepted DIRECTLY here ("it" / "this creature") — triggers.js' it→this-creature rewrite is NOT
-  // touched. ANCHORED to the bare "creature you don't control" form: "another target creature" (Ulvenwald
-  // Tracker — needs a SECOND chosen creature, not the source), a "target creature you control" (Prey
-  // Upon's own-side half), or any rider leaves residue → fails the `$` anchor → low → Arbiter, never a
-  // mis-wired one-sided fight. restrictions:{controller:opponent} so atomTargets/enumeration only offers
-  // an enemy creature; optionalTarget for "up to one" (0-or-1, declinable → clean no-op).
-  {
-    const fm = s.toLowerCase().replace(/[’]/g, "'")
-      .match(/^(?:this creature|it) fights (up to one )?target creature you don't control$/);
-    if (fm) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: !!fm[1] };
-  }
-
-  // ===== ETB-FIGHT — SOURCE-BOUND "ANOTHER" (CR 701.12) ===== "[this creature|it] fights another target
-  // creature" (Brash Taunter's activated ability, Territorial Allosaurus' kicked-ETB, Atzocan Archer's
-  // "you may have it fight …", Nessian Wilds Ravager's tribute if-not). DISTINCT shape from the fight-pair
-  // forms above: the subject is the SOURCE ("this creature"|"it" → fighter = ctx.sourceId, resolver
-  // fightCreature), NOT a chosen "target creature you control" (the fight-pair (d) Ulvenwald Tracker case,
-  // which starts with "target creature" and can never reach this source-anchored head). "another" (CR
-  // 701.12) means the dealee must be DISTINCT from the source — modeled by restrictions:{controller:opponent}
-  // (the source is the controller's, so an opponent-only enumeration EXCLUDES it; the cast/flush chooser
-  // also aims an enemy via atomTargetIntent→"enemy"). Narrowing the dealee to enemies is a SAFE
-  // false-negative vs the strict CR "any other creature" (you'd never choose to fight your own creature),
-  // and fightCreature additionally skips a source==target id (defense in depth). The causative head
-  // "have [this creature|it] fight another target creature" is the inner of "you may have it fight …" after
-  // α2 peels the "you may" wrapper (parseClauseToAtom recurses; α2 then stamps optional:true) — Atzocan
-  // Archer / Nessian Wilds Ravager. Whole-clause anchored ($) so any rider leaves residue → low → Arbiter;
-  // fightAtomMisplaced still forces the WHOLE program LOW unless this fight is the SOLE atom (no half-resolve).
-  {
-    const fa = s.toLowerCase().replace(/[’]/g, "'")
-      .match(/^(?:have (?:this creature|it) fight|(?:this creature|it) fights) another target creature$/);
-    if (fa) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: false, distinct: true };
-  }
-
-  // ===== FIGHT-PAIR / DAMAGE-TARGET-POWER (CR 701.12 / 119) ===== the TWO-CHOSEN-TARGET forms — the
-  // SPELL/activated shape where the FIGHTER (the dealer) is itself a chosen target, NOT the source:
-  //   "Target creature you control fights target creature you don't control"            (Prey Upon, Pounce)
-  //   "Target creature you control deals damage equal to its power to target creature you don't control"
-  //                                                                                       (Aggressive Instinct, Rabid Bite)
-  //   "Target creature fights another target creature"  (any-side, distinct)             (Clash of Titans, Blood Feud)
-  // The atom carries TWO target specs: the PRIMARY (the enemy "you don't control" — role "target") plus a
-  // `secondaryTargetType`/`secondaryRestrictions`/`secondaryRole:"fighter"` for the dealer ("you control").
-  // expandAtoms enumerates BOTH (cartesian, DISTINCT ids), the AI cast-path aims a real fighter at a killable
-  // enemy, and the resolver (applyFightPair / applyDamageTargetPower) reads the fighter from the role-tagged
-  // target. ANCHORED whole-clause (`$`) so any rider ("…If it has trample…", a pump prefix, the planeswalker
-  // "creature or planeswalker") leaves residue → no match → low → Arbiter (CREED, never a half-resolve).
-  {
-    const t = s.toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "");
-    // The enemy half is worded "you don't control" OR the equivalent "an opponent controls" — both pin the
-    // target to an opponent's creature (CR 109.5 / 702 — same controller restriction). One alternation, one
-    // restriction. (Anything else after — "or planeswalker", a trample/excess rider — fails the `$` → Arbiter.)
-    const ENEMY = "target creature (?:you don't control|an opponent controls)";
-    // (a) "target creature you control fights [up to one] target creature you don't control / an opponent
-    // controls" (two-way). The optional "up to one" (Smell Fear: "Target creature you control fights up to one
-    // target creature you don't control.") makes the ENEMY a 0-or-1 target (CR 115.1b) — the controller's
-    // creature (the secondary fighter) is still mandatory. optionalTarget flags the PRIMARY (enemy) target;
-    // expandAtoms offers a decline option for it while still enumerating the mandatory fighter, and applyFightPair
-    // treats a declined enemy as a clean no-op (a creature with no opponent to fight does nothing — no fabricated
-    // self-fight). Anchored `$` so any rider still fails → Arbiter.
-    let m = t.match(new RegExp(`^target creature you control fights (up to one )?${ENEMY}$`));
-    if (m) return {
-      op: "fight-pair", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
-      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
-      ...(m[1] ? { optionalTarget: true } : {}),
-    };
-    // (b) "target creature you control deals damage equal to its power to target creature you don't control" (one-way)
-    m = t.match(new RegExp(`^target creature you control deals damage equal to its power to ${ENEMY}$`));
-    if (m) return {
-      op: "damage-target-power", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
-      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
-    };
-    // (c) "target creature fights another target creature"  (any-side, the two must be DISTINCT — CR 701.12)
-    m = t.match(/^target creature fights another target creature$/);
-    if (m) return {
-      op: "fight-pair", targetType: "creature", restrictions: [], role: "target",
-      secondaryTargetType: "creature", secondaryRestrictions: [], secondaryRole: "fighter", distinct: true,
-    };
-    // (d) "target creature you control fights another target creature" (Ulvenwald Tracker) — the FIGHTER is
-    // yours; the dealee is ANY OTHER creature ("another" → distinct, CR 701.12). The dealee carries no
-    // controller restriction (it may legally be your own), but the cast-path AI still aims it at an enemy
-    // (its two-target chooser only offers the enemy as the `target` role) and a human picks interactively.
-    m = t.match(/^target creature you control fights another target creature$/);
-    if (m) return {
-      op: "fight-pair", targetType: "creature", restrictions: [], role: "target",
-      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter", distinct: true,
-    };
-  }
-
-  // ===== SOURCE-POWER-FANOUT (Chandra's Ignition) ===== "Target creature you control deals damage equal to
-  // its power to each other creature and each opponent." The CHOSEN target creature (you control) is the
-  // damage SOURCE; the amount is THAT creature's layer-aware power at resolution; the damage fans out to every
-  // OTHER creature on every battlefield (excluding the source — "each other creature") AND every opponent (CR
-  // — "each opponent"). One chosen target (the source) + an auto fan-out, so targetType:"creature" (a chosen
-  // target) with the controller:you restriction; the resolver reads the chosen creature's power and hits the
-  // rest. Whole-clause anchored ($) — a "creature you control" only (Chandra targets your own creature); a
-  // rider / a different scope ("each other creature and each player", "any target") leaves residue → no match
-  // → low → Arbiter (CREED — never a mis-scoped or fixed-amount fan-out).
-  {
-    const fo = s.toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "");
-    if (/^target creature you control deals damage equal to its power to each other creature and each opponent$/.test(fo)) {
-      return { op: "source-power-fanout", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
-    }
-  }
+  // ===== FIGHT FAMILY (ETB-FIGHT / FIGHT-ANOTHER / FIGHT-PAIR / DAMAGE-TARGET-POWER / SOURCE-POWER-FANOUT) =====
+  // migrated to atoms/combat.fightClauseParser (seam batch S1) — the 4 inline dispatch blocks moved verbatim
+  // next to their resolvers (fightCreature / applyFightPair / applyDamageTargetPower; the source-power-fanout
+  // resolver stays in atoms/stack.js). FIRST-MATCH ORDER preserved inside the clause parser (bare → another →
+  // pair a/b/c/d → fanout); registered after animateClauseParser. Order-safe: no earlier registered parser
+  // matches a "fights" / "deals damage equal to its power to" clause, and parseExtendedAtom's residue only
+  // matches the draw/rad sentinels — the inline(pre-ext) → CLAUSE_PARSERS(post-ext) move is program-
+  // fingerprint-verified byte-identical.
 
   // Extended atoms (anchored ALLOWLIST) before the legacy parse.
   const ext = parseExtendedAtom(s);
@@ -2664,6 +2567,12 @@ registerClauseParser(setBasePtTeamClauseParser); // SET-BASE-PT-TEAM (Biomass Mu
 // parseGrantedKeywords leaf). The "land becomes a N/N … creature" clauses match no earlier registered parser
 // and (verified) no later parseExtendedAtom branch → the inline→CLAUSE_PARSERS move is behavior-identical.
 registerClauseParser(animateClauseParser);
+// FIGHT FAMILY (seam batch S1) — the ETB-fight / fight-another / fight-pair / damage-target-power /
+// source-power-fanout inline dispatch blocks migrated to atoms/combat.fightClauseParser (first-match order
+// preserved). The "fights" / "deals damage equal to its power to" anchors match no earlier registered parser
+// and no parseExtendedAtom residue → the inline(pre-ext)→CLAUSE_PARSERS(post-ext) move is behavior-identical
+// (program-fingerprint-verified). program-diff = 0.
+registerClauseParser(fightClauseParser);
 // DMG-SCALE (seam batch 15 / Wave C) — the count-scaled deal-damage form migrated to
 // atoms/stack.dealDamageScaledClauseParser (parseCountSource leaf). It anchors on "… deals damage to … equal
 // to the number of …", which no earlier registered parser matches and (verified) no later parseExtendedAtom

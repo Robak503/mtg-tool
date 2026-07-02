@@ -931,6 +931,120 @@ export function setBasePtTeamClauseParser(clause, ctx = {}) {
   return null;
 }
 
+/**
+ * FIGHT-FAMILY clause parser (seam batch S1 — migrated verbatim out of parseClauseToAtom's inline dispatch;
+ * the resolvers fightCreature / applyFightPair / applyDamageTargetPower / applyDamageSelfPower already live in
+ * THIS module). FIRST-MATCH ORDER preserved from the inline blocks: bare source-bound → source-bound "another"
+ * → the two-chosen-target fight-pair forms (a/b/c/d) → source-power-fanout. Each form is whole-clause anchored
+ * (`$`) so any rider leaves residue → null → low → Arbiter (CREED — never a mis-wired or half-modeled fight).
+ *
+ * ===== ETB-FIGHT (CR 701.12) ===== "[this creature|it] fights (up to one) target creature you don't
+ * control" (Kogla, Apex Altisaur, Kogla and Yidaro modal). The SOURCE creature and the chosen creature
+ * each deal damage equal to their power to the other, simultaneously (resolver fightCreature). The head
+ * is accepted DIRECTLY here ("it" / "this creature") — triggers.js' it→this-creature rewrite is NOT
+ * touched. ANCHORED to the bare "creature you don't control" form: "another target creature" (Ulvenwald
+ * Tracker — needs a SECOND chosen creature, not the source), a "target creature you control" (Prey
+ * Upon's own-side half), or any rider leaves residue → fails the `$` anchor → low → Arbiter, never a
+ * mis-wired one-sided fight. restrictions:{controller:opponent} so atomTargets/enumeration only offers
+ * an enemy creature; optionalTarget for "up to one" (0-or-1, declinable → clean no-op).
+ *
+ * ===== ETB-FIGHT — SOURCE-BOUND "ANOTHER" (CR 701.12) ===== "[this creature|it] fights another target
+ * creature" (Brash Taunter's activated ability, Territorial Allosaurus' kicked-ETB, Atzocan Archer's
+ * "you may have it fight …", Nessian Wilds Ravager's tribute if-not). DISTINCT shape from the fight-pair
+ * forms: the subject is the SOURCE ("this creature"|"it" → fighter = ctx.sourceId, resolver
+ * fightCreature), NOT a chosen "target creature you control" (the fight-pair (d) Ulvenwald Tracker case,
+ * which starts with "target creature" and can never reach this source-anchored head). "another" (CR
+ * 701.12) means the dealee must be DISTINCT from the source — modeled by restrictions:{controller:opponent}
+ * (the source is the controller's, so an opponent-only enumeration EXCLUDES it; the cast/flush chooser
+ * also aims an enemy via atomTargetIntent→"enemy"). Narrowing the dealee to enemies is a SAFE
+ * false-negative vs the strict CR "any other creature" (you'd never choose to fight your own creature),
+ * and fightCreature additionally skips a source==target id (defense in depth). The causative head
+ * "have [this creature|it] fight another target creature" is the inner of "you may have it fight …" after
+ * α2 peels the "you may" wrapper (parseClauseToAtom recurses; α2 then stamps optional:true) — Atzocan
+ * Archer / Nessian Wilds Ravager. fightAtomMisplaced still forces the WHOLE program LOW unless this fight
+ * is the SOLE atom (no half-resolve).
+ *
+ * ===== FIGHT-PAIR / DAMAGE-TARGET-POWER (CR 701.12 / 119) ===== the TWO-CHOSEN-TARGET forms — the
+ * SPELL/activated shape where the FIGHTER (the dealer) is itself a chosen target, NOT the source:
+ *   "Target creature you control fights target creature you don't control"            (Prey Upon, Pounce)
+ *   "Target creature you control deals damage equal to its power to target creature you don't control"
+ *                                                                                       (Aggressive Instinct, Rabid Bite)
+ *   "Target creature fights another target creature"  (any-side, distinct)             (Clash of Titans, Blood Feud)
+ * The atom carries TWO target specs: the PRIMARY (the enemy "you don't control" — role "target") plus a
+ * `secondaryTargetType`/`secondaryRestrictions`/`secondaryRole:"fighter"` for the dealer ("you control").
+ * expandAtoms enumerates BOTH (cartesian, DISTINCT ids), the AI cast-path aims a real fighter at a killable
+ * enemy, and the resolver (applyFightPair / applyDamageTargetPower) reads the fighter from the role-tagged
+ * target. The enemy half is worded "you don't control" OR the equivalent "an opponent controls" — both pin
+ * the target to an opponent's creature (CR 109.5 / 702 — same controller restriction). The optional "up to
+ * one" (Smell Fear) makes the ENEMY a 0-or-1 target (CR 115.1b) — the controller's creature (the secondary
+ * fighter) is still mandatory; applyFightPair treats a declined enemy as a clean no-op.
+ *
+ * ===== SOURCE-POWER-FANOUT (Chandra's Ignition) ===== "Target creature you control deals damage equal to
+ * its power to each other creature and each opponent." The CHOSEN target creature (you control) is the
+ * damage SOURCE; the amount is THAT creature's layer-aware power at resolution; the damage fans out to every
+ * OTHER creature on every battlefield (excluding the source — "each other creature") AND every opponent (CR
+ * — "each opponent"). One chosen target (the source) + an auto fan-out, so targetType:"creature" (a chosen
+ * target) with the controller:you restriction; the resolver reads the chosen creature's power and hits the
+ * rest. A rider / a different scope ("each other creature and each player", "any target") leaves residue →
+ * no match → low → Arbiter (CREED — never a mis-scoped or fixed-amount fan-out).
+ */
+export function fightClauseParser(clause) {
+  const s = String(clause || "");
+  // (1) bare source-bound: "[this creature|it] fights (up to one) target creature you don't control"
+  {
+    const fm = s.toLowerCase().replace(/[’]/g, "'")
+      .match(/^(?:this creature|it) fights (up to one )?target creature you don't control$/);
+    if (fm) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: !!fm[1] };
+  }
+  // (2) source-bound "another": "[have ]?[this creature|it] fight(s) another target creature"
+  {
+    const fa = s.toLowerCase().replace(/[’]/g, "'")
+      .match(/^(?:have (?:this creature|it) fight|(?:this creature|it) fights) another target creature$/);
+    if (fa) return { op: "fight", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], optionalTarget: false, distinct: true };
+  }
+  // (3) the two-chosen-target forms (a/b/c/d — first-match order preserved from the inline dispatch)
+  {
+    const t = s.toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "");
+    const ENEMY = "target creature (?:you don't control|an opponent controls)";
+    // (a) "target creature you control fights [up to one] target creature you don't control / an opponent controls"
+    let m = t.match(new RegExp(`^target creature you control fights (up to one )?${ENEMY}$`));
+    if (m) return {
+      op: "fight-pair", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
+      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
+      ...(m[1] ? { optionalTarget: true } : {}),
+    };
+    // (b) "target creature you control deals damage equal to its power to target creature you don't control" (one-way)
+    m = t.match(new RegExp(`^target creature you control deals damage equal to its power to ${ENEMY}$`));
+    if (m) return {
+      op: "damage-target-power", targetType: "creature", restrictions: [{ kind: "controller", who: "opponent" }], role: "target",
+      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter",
+    };
+    // (c) "target creature fights another target creature"  (any-side, the two must be DISTINCT — CR 701.12)
+    m = t.match(/^target creature fights another target creature$/);
+    if (m) return {
+      op: "fight-pair", targetType: "creature", restrictions: [], role: "target",
+      secondaryTargetType: "creature", secondaryRestrictions: [], secondaryRole: "fighter", distinct: true,
+    };
+    // (d) "target creature you control fights another target creature" (Ulvenwald Tracker) — the FIGHTER is
+    // yours; the dealee is ANY OTHER creature ("another" → distinct, CR 701.12). The dealee carries no
+    // controller restriction (it may legally be your own), but the cast-path AI still aims it at an enemy
+    // (its two-target chooser only offers the enemy as the `target` role) and a human picks interactively.
+    m = t.match(/^target creature you control fights another target creature$/);
+    if (m) return {
+      op: "fight-pair", targetType: "creature", restrictions: [], role: "target",
+      secondaryTargetType: "creature", secondaryRestrictions: [{ kind: "controller", who: "you" }], secondaryRole: "fighter", distinct: true,
+    };
+  }
+  // (4) source-power-fanout: "target creature you control deals damage equal to its power to each other creature and each opponent"
+  {
+    const fo = s.toLowerCase().replace(/[’]/g, "'").replace(/\.$/, "");
+    if (/^target creature you control deals damage equal to its power to each other creature and each opponent$/.test(fo)) {
+      return { op: "source-power-fanout", targetType: "creature", restrictions: [{ kind: "controller", who: "you" }] };
+    }
+  }
+  return null;
+}
+
 export const combatResolvers = {
   "fight": fightCreature, // ETB-FIGHT (CR 701.12) — source + target creature deal damage = power to each other, simultaneously
   "set-base-pt-team": applySetBasePtTeam, // SET-BASE-PT-TEAM (Biomass Mutation) — team layer-7b base-P/T set to X/X until end of turn
