@@ -252,10 +252,11 @@ P5 playbook ✓ (scaffold/CLAUDE.md/orders updates NOT applied) · P6 not starte
    paged crawl; bundled snapshot meanwhile at 38,600/~95k via 4 resume-chain dispatches — dispatch
    more if the bulk switch waits) · pod combat naming raw-seat-id fallback · RELEASE.md BOM runbook.
    Then triage the 8 P2s (empty-deck guard on /api/self-play route is the quick one).
-2. P5 finish: apply the docs-config finder's enumerated corrections (both scaffolds, CLAUDE.md
+2. P5 finish — TWO deliverables (Colton, 2026-07-01 ~23:05): (a) **docs/orchestration/OVERHAUL-SESSION-NARRATIVE.md** — the FULL detailed account of this pass for non-Fable agents to mimic: the chronological path (grounding → P0 skeptics → P1 evidence → each P2 wave → P3 contracts → P4 → pause → resume), WHY each call was made (inline vs delegated, wave ordering, proof-level choices), the failures + course-corrections (Bash backslash mangling → Write-tool patch scripts; the wrong recon fixture assumption; fixture/land-count test misses), and the agent/workflow PROMPT SHAPES that worked (skeptic, recon, file-disjoint builder w/ rebase+junction+gate contract, finder) — written to be handed to a future non-Fable session as a how-to-be-me guide, with the PLAYBOOK as its mechanics appendix; (b) apply the docs-config finder's enumerated corrections (both scaffolds, CLAUDE.md
    §3.4, RELEASE.md, gotchas additions incl. the Bash-backslash trap) + update
    memory/orders/omnath-fable5-overhaul.md to the locked contracts (deltas enumerated in
    p4-findings.json docs-config).
 3. P6: bump versions (incl. Cargo.toml 0.3.0 drift) · dated CHANGELOG · merge/FF master · tag →
    CI · VERIFY the run log (strict guard, Spellbook count, artifacts) · refresh WAKE-REPORT/
    MORNING-BRIEF/CONTINUITY/MEMORY.
+s
