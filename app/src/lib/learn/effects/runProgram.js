@@ -819,6 +819,17 @@ export function autoPickOptionalDrawDiscard(state, pc) {
 }
 
 /**
+ * ===== OPTIONAL-DISCARD-PAYMENT ===== — auto-pick for self-play: PAY (discard) iff a non-token card is available.
+ * Trading one card for a draw/token/pump payoff is card-neutral-or-better filtering; a board-aware "hold the card"
+ * refinement is a future enhancement, and discard-if-able is always a LEGAL choice (CR 601). Returns false when the
+ * controller is gone or has no non-token card to pitch (mirrors autoPickOptionalSac's available-gate).
+ */
+export function autoPickOptionalDiscard(state, pc) {
+  if (!state.players?.[pc?.controller]) return false;
+  return !!pc?.available;
+}
+
+/**
  * ===== OPTIONAL DRAW-THEN-DISCARD ===== — settle "you may draw a card. If you do, discard a card.": on `doDraw`
  * run the [draw, discard] payoff in order (parser-validated HIGH + targetless); on decline do NOTHING (hand &
  * library untouched — the cardinal CREED guarantee). The discard is the LAST atom, so its which-card pause chains
@@ -851,6 +862,41 @@ export function resolveOptionalDrawDiscardChoice(state, doDraw) {
         return { ...next, pendingChoice: { ...next.pendingChoice, resume: pc.resume } };
       }
     }
+  }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== OPTIONAL-DISCARD-PAYMENT ===== — settle "you may discard a card. If you do, <effect>": on `doDiscard` AND a
+ * non-token card in hand (re-scanned NOW, CR 603.6e — the hand may have emptied during the pause), run the synthetic
+ * program [discard-a-card, ...payoff]. The cost-discard is a PAUSING atom, so runEffectProgram sets up its which-card
+ * choice and stores the resume; the payoff (parser-gated NON-pausing) runs as the program continuation once the
+ * discard settles (via resolveDiscardChoice's resumeAfterChoice), then finishSpellResolution closes the spell with
+ * the threaded spellToGraveyard. On decline / empty hand do NOTHING — the payoff NEVER runs without a paid cost (the
+ * cardinal CREED guarantee: no fabricated draw). Eliminated-controller guard (CR 800.4a). Logged either way.
+ */
+export function resolveOptionalDiscardPaymentChoice(state, doDiscard) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "optional-discard-payment") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail, no resume
+  const canPay = !!doDiscard && (next.players[pc.controller].hand || []).some((c) => !c.token);
+  next = logEvent(next, { kind: "spell-effect", effect: "optional-discard-payment", controller: pc.controller, discarded: canPay, sourceName: pc.sourceName || null });
+  if (canPay) {
+    const r = pc.resume || {};
+    // [cost-discard, ...payoff] as ONE program: the discard pauses (which-card), the payoff runs on resume. The
+    // discard atom is the canonical controller-discard shape (hand.js discardClauseParser). Availability was gated
+    // above, so the discard ALWAYS pitches exactly one card → the payoff runs iff (and only iff) the cost was paid.
+    const program = { atoms: [{ op: "discard", amount: 1, who: "controller", targetType: null }, ...(pc.effectAtoms || [])] };
+    const obj = {
+      source: { name: pc.sourceName ?? null },
+      payload: { params: {
+        program, controller: pc.controller, targets: [],
+        xValue: r.xValue ?? null, sourceId: r.sourceId ?? null, context: r.context || {},
+        kicked: r.kicked ?? false, chosenMode: null, spellToGraveyard: r.spellToGraveyard ?? null,
+      } },
+    };
+    return runEffectProgram(next, obj);
   }
   return resumeAfterChoice(next, pc);
 }

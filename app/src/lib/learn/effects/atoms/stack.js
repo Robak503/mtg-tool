@@ -5,7 +5,7 @@
 
 import { applyDamageEffect } from "../../spellEffects.js";
 import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject } from "../../gameState.js";
-import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice } from "../../pendingChoice.js";
+import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
@@ -535,6 +535,22 @@ function applyOptionalDrawDiscard(state, atom, ctx) {
   });
 }
 
+// OPTIONAL-DISCARD-PAYMENT — "you may discard a card. If you do, <effect>." The discard is the pausing COST; record
+// whether the controller holds a non-token card to pitch (a false-`available` pause still surfaces — the player/AI
+// must decline, and resolveOptionalDiscardPaymentChoice runs NO payoff). The payoff atoms ride on the pause for the
+// settle. Token filter mirrors hand.js discardControllerCandidates (a token in hand is not a real card, CR 111.7).
+function applyOptionalDiscardPayment(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  const player = state.players?.[ctx.controller];
+  const available = !!(player?.hand || []).some((c) => !c.token);
+  return setPendingOptionalDiscardPaymentChoice(state, {
+    controller: ctx.controller,
+    available,
+    effectAtoms: atom.effectAtoms || [],
+    sourceName: ctx.cardName || null,
+  });
+}
+
 // STORM-COPY-TARGET — the enemy/own SIDE of a chosen target, for the per-copy new-target chooser (CR 707.10c).
 // Mirrors gameEngine.chooseTriggerTargets' `sideOf` but is replicated inline so atoms/stack.js stays clear of the
 // stack→gameEngine→parser cycle (gameEngine + parser both transitively import this file). A target carries no
@@ -720,6 +736,7 @@ export const stackResolvers = {
   "optional-mana-payment": applyOptionalManaPayment, // OPTIONAL-MANA-PAYMENT (CR 603.7c) — "you may pay {cost}. if you do, <effect>"
   "optional-sac-payment": applyOptionalSacPayment, // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. if you do, <effect>"
   "optional-draw-discard": applyOptionalDrawDiscard, // OPTIONAL DRAW-THEN-DISCARD — "you may draw a card. if you do, discard a card."
+  "optional-discard-payment": applyOptionalDiscardPayment, // OPTIONAL-DISCARD-PAYMENT (CR 603.7c) — "you may discard a card. if you do, <effect>"
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent
   "deal-damage": (state, atom, ctx) =>
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an

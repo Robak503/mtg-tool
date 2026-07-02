@@ -47,7 +47,7 @@ import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { featurizeState } from "./gameFeatures.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -539,6 +539,13 @@ function settleOptionalSacChoice(state, doSac) {
 // discard] runs (the discard's which-card pause may still be pending, so guard before flushing). Mirrors settleOptionalSacChoice.
 function settleOptionalDrawDiscardChoice(state, doDraw) {
   const next = resolveOptionalDrawDiscardChoice(state, doDraw);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// OPTIONAL-DISCARD-PAYMENT — settle "you may discard a card. If you do, <effect>." On pay, the [discard, ...payoff]
+// runs (the cost-discard's which-card pause may still be pending, so guard before flushing). Mirrors settleOptionalSacChoice.
+function settleOptionalDiscardChoice(state, doDiscard) {
+  const next = resolveOptionalDiscardPaymentChoice(state, doDiscard);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -1218,6 +1225,18 @@ export function advanceUntilDecision(
         current = { ...current, state: settleOptionalDrawDiscardChoice(current.state, picked.value) };
         continue;
       }
+      if (pc.kind === "optional-discard-payment") {
+        if (pause) {
+          return { session: current, decision: { kind: "optional-discard-payment", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalDiscard(current.state, pc) },
+        });
+        current = { ...current, state: settleOptionalDiscardChoice(current.state, picked.value) };
+        continue;
+      }
       // Tutor library search. A pilot may fetch a different legal candidate (or find nothing — CR
       // 701.19f); default = the auto-pick (highest-MV), byte-identical.
       //
@@ -1879,6 +1898,39 @@ export function applyOptionalDrawDiscardChoice(session, choice) {
 }
 
 /**
+ * ===== OPTIONAL-DISCARD-PAYMENT ===== — the player chose to pay (discard a card) or not, for a "you may discard a
+ * card. If you do, <effect>." `choice.discard` is the yes/no. resolveOptionalDiscardPaymentChoice runs the [discard,
+ * ...payoff] on yes (or nothing on decline / empty hand), then resumes + re-derives. Mirrors applyOptionalDrawDiscardChoice.
+ */
+export function applyOptionalDiscardPaymentChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "optional-discard-payment") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const doDiscard = choice?.discard === true || choice === true;
+  let newState;
+  try {
+    newState = settleOptionalDiscardChoice(session.state, doDiscard);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "optional-discard-payment-choice", discarded: doDiscard },
+    auto: false,
+    reasoning: "user-chose-optional-discard-payment",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
  * The player resolved an `optional-effect` decision ("you may <effect>", α2). `choice.take` is the
  * yes/no. Runs-or-skips the paused atom, resumes the program, then re-derives the next decision.
  * Returns { session, decision } like advanceUntilDecision.
@@ -2174,6 +2226,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "optional-mana-payment") return applyOptionalManaPaymentChoice(session, choice);
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice);
   if (kind === "optional-draw-discard") return applyOptionalDrawDiscardChoice(session, choice);
+  if (kind === "optional-discard-payment") return applyOptionalDiscardPaymentChoice(session, choice);
   if (kind === "tutor-search") return applyTutorChoice(session, choice);
   // WI-4 FAILSAFE — no pendingChoice at all (nothing to answer) re-derives, byte-identical to every
   // apply* function's own "double-submit" guard. A REAL unhandled kind never reaches applyTutorChoice's

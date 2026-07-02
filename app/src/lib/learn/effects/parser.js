@@ -1739,6 +1739,32 @@ function matchOptionalDrawDiscard(oracle) {
 }
 
 /**
+ * ===== OPTIONAL-DISCARD-PAYMENT (CR 603.7c) ===== "you may discard a card. If you do, <effect>." — the discard is
+ * the pausing COST (a which-card choice), the payoff runs ONLY after a real discard settles. DISTINCT from draw-then-
+ * discard (there the discard is the coupled effect, LAST-position; here it's the leading cost). The cost owns the one
+ * pause slot, so the payoff MUST be non-pausing (else the two pauses would interleave and drop atoms — the 32-flip
+ * guard). CREED guards: HIGH + non-modal + not-xSpell + every atom KNOWN + targetless; reject a chained 2nd reflexive
+ * or an else-branch. Match → the single atom, else null (the clause stays LOW → Arbiter).
+ */
+function matchOptionalDiscardPayment(oracle) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  const m = s.match(/^you may discard a card\.\s*if you do,?\s+(.+)$/i);
+  if (!m) return null;
+  const payoffText = m[1].trim();
+  if (/\bif you do\b/i.test(payoffText) || /\botherwise\b/i.test(payoffText)) return null; // 2nd reflexive / else-branch — not modeled
+  // LOAD-BEARING (mirrors matchOptionalDrawDiscard FIX A): parse the payoff under LITERAL "Instant", NOT the card's
+  // own type — the draw atom's legacy gate returns HIGH only for Instant/Sorcery, and 30 of the 32 flips are creatures
+  // whose payoff is "draw a card". Passing cardType (Creature/Artifact) → LOW → the draw flips vanish. The payoff
+  // atoms (draw/token/pump) resolve type-agnostically, so "Instant" is behavior-identical and correct.
+  const payoff = parseEffectClauseImpl(payoffText, "Instant", { hasX: false });
+  if (!payoff || programConfidence(payoff) !== "high" || payoff.structure === "modal" || payoff.xSpell) return null;
+  const inner = payoff.atoms || [];
+  if (!inner.length || !inner.every((a) => KNOWN.has(a.op)) || programNeedsChosenTarget(payoff)) return null;
+  if (inner.some((a) => PAUSING_ATOM_OPS.has(a.op))) return null; // the cost-discard owns the only pause slot — a pausing payoff would interleave
+  return { atom: { op: "optional-discard-payment", effectAtoms: inner, targetType: null } };
+}
+
+/**
  * ===== REFLEXIVE TRIGGER (CR 603.7) ===== "<primary>. When you do[ this/so], <reflexive>." — a reflexive
  * triggered ability set up by the resolution of the primary effect, triggering off the event that resolution
  * causes ("when you do" = "when the immediately-preceding instruction's action happens"). Per CR 603.7 the
@@ -1951,6 +1977,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const odd = matchOptionalDrawDiscard(oracle);
   if (odd && KNOWN.has(odd.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [odd.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== OPTIONAL-DISCARD-PAYMENT ===== "you may discard a card. If you do, <effect>." → ONE optional-discard-payment
+  // atom (the discard is the pausing COST; the payoff runs only after a real discard settles — resolveOptionalDiscard-
+  // PaymentChoice runs the [discard, ...payoff] program on yes). Checked before the clause splitter (the two sentences
+  // would shatter). Mirrors the sac/mana/draw-discard optional-payment folds.
+  const odp = matchOptionalDiscardPayment(oracle);
+  if (odp && KNOWN.has(odp.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [odp.atom], xSpell: false, unparsedTail: null });
   }
   // DESTROY-TOKEN-RIDER — "Destroy target creature. [It can't be regenerated.] (Its|That creature's) controller
   // creates a N/N <color> <subtype> creature token." (Pongify, Rapid Hybridization). A creature-destroy lead +

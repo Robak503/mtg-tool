@@ -41,6 +41,7 @@ export const PENDING_CHOICE_KINDS = [
   "optional-mana-payment",
   "optional-sac-payment",
   "optional-draw-discard",
+  "optional-discard-payment",
 ];
 
 /**
@@ -375,6 +376,21 @@ export function setPendingOptionalDrawDiscardChoice(state, { controller, effectA
   return {
     ...next,
     pendingChoice: { kind: "optional-draw-discard", controller, effectAtoms, sourceName },
+  };
+}
+
+/**
+ * OPTIONAL-DISCARD-PAYMENT (CR 603.7c) — "you may discard a card. If you do, <effect>". The driver pauses a human
+ * and auto-decides an AI (pay iff `available`). Unlike draw-then-discard, the DISCARD is the COST (it pauses on a
+ * which-card choice); `effectAtoms` is the NON-pausing payoff, run by resolveOptionalDiscardPaymentChoice ONLY after
+ * a real discard settles. `available` = the controller holds ≥1 non-token card to pitch. FIFO.
+ */
+export function setPendingOptionalDiscardPaymentChoice(state, { controller, available, effectAtoms = [], sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "optional-discard-payment-pending", controller, available, sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "optional-discard-payment", controller, available, effectAtoms, sourceName },
   };
 }
 
