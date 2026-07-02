@@ -120,11 +120,11 @@ the full breakdown of WHAT was done and HOW — wave anatomy (evidence → desig
 integrate), the verification recipes as copy-paste commands, how perf work was measured, how refactors were
 proven behavior-safe, what a non-Fable session must never skip. Update ENGINE-SCAFFOLD.md +
 PROJECT-SCAFFOLD.md to post-overhaul reality (they must never go stale in the same release that changes the
-architecture). **Then write the companion prompt: `memory/orders/omnath-fable5-overhaul.md`** — a Fable 5
+architecture). **The companion Omnath prompt ALREADY EXISTS at `memory/orders/omnath-fable5-overhaul.md` (written 2026-07-01, may already be running in parallel) — UPDATE it** — a Fable 5
 ultracode master prompt doing THIS SAME KIND of pass from the **Omnath side and point of view** (the brain:
 memory architecture, recall quality, pilots, engine-consultation seams from the consumer end, self-play
-data quality, omnath-tools/) — written for Colton to paste into an Omnath Fable 5 session; post a pointer
-in COMMS.
+data quality, omnath-tools/) — keep it aligned with your locked P3 contracts — post the contracts to COMMS the moment P3 locks them; the
+Omnath session consumes them from there.
 
 **P6 — RELEASE + HANDOFF.** Bump versions, dated CHANGELOG section, tag → CI. Refresh WAKE-REPORT (point
 at the PLAYBOOK; carry forward parked items), MORNING-BRIEF, memory/CONTINUITY.md + MEMORY.md. Leave the
