@@ -17,7 +17,7 @@
 
 export const runtime = "nodejs";
 
-import { applyChoice, isComplete } from "../../../../lib/learn/learnSession.js";
+import { applyChoice, isComplete, filteredDecisionLogTail } from "../../../../lib/learn/learnSession.js";
 import { tableSnapshot } from "../../../../lib/learn/tableSnapshot.js";
 import { boardSnapshot } from "../../../../lib/learn/boardSnapshot.js";
 import { enrichUnresolvedDecision } from "../../../../lib/learn/arbiterSeam.js";
@@ -81,7 +81,7 @@ export async function POST(request) {
     turn: stepped.state.turn,
     activePlayer: stepped.state.activePlayer,
     step: stepped.state.step,
-    decisionLogTail: stepped.decisionLog.slice(-5),
+    decisionLogTail: filteredDecisionLogTail(stepped),
     table: tableSnapshot(stepped.state),
     board: boardSnapshot(stepped.state),
   });

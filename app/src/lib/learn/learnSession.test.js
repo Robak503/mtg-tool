@@ -19,6 +19,7 @@ import {
   continueFromArbiter,
   abandon,
   isComplete,
+  filteredDecisionLogTail,
   _forceLifeForTests,
   _loseLifeForTests,
 } from "./learnSession.js";
@@ -417,5 +418,60 @@ describe("abandon + isComplete", () => {
 describe("_loseLifeForTests is the same as gameState.loseLife", () => {
   it("re-exports the helper for tests to reach for", () => {
     expect(typeof _loseLifeForTests).toBe("function");
+  });
+});
+
+describe("N6 — filteredDecisionLogTail cuts auto-decided noise, keeps meaningful activity", () => {
+  const entry = (over) => ({ ts: 0, turn: 1, phase: "precombat-main", step: "main", actor: "user", auto: true, ...over });
+
+  it("drops auto-decided pass-priority and tap-for-mana entries", () => {
+    const session = {
+      decisionLog: [
+        entry({ action: { kind: "pass-priority" } }),
+        entry({ action: { kind: "tap-for-mana", color: "G" } }),
+        entry({ action: { kind: "play-land", name: "Forest" } }),
+      ],
+    };
+    const tail = filteredDecisionLogTail(session);
+    expect(tail.map(e => e.action.kind)).toEqual(["play-land"]);
+  });
+
+  it("keeps a USER-chosen pass-priority — a deliberate choice is never noise", () => {
+    const session = {
+      decisionLog: [
+        entry({ action: { kind: "pass-priority" }, auto: false, reasoning: "user-chose" }),
+      ],
+    };
+    const tail = filteredDecisionLogTail(session);
+    expect(tail).toHaveLength(1);
+  });
+
+  it("after several auto-passes, the tail contains no pass-priority entries but still contains the user's cast", () => {
+    const session = {
+      decisionLog: [
+        entry({ action: { kind: "pass-priority" } }),
+        entry({ action: { kind: "cast-spell", name: "Grizzly Bears" }, auto: false, reasoning: "user-chose" }),
+        entry({ action: { kind: "pass-priority" } }),
+        entry({ action: { kind: "pass-priority" } }),
+        entry({ action: { kind: "tap-for-mana", color: "G" } }),
+      ],
+    };
+    const tail = filteredDecisionLogTail(session);
+    expect(tail.some(e => e.action.kind === "pass-priority")).toBe(false);
+    expect(tail.some(e => e.action.kind === "cast-spell")).toBe(true);
+  });
+
+  it("still respects the limit after filtering", () => {
+    const session = {
+      decisionLog: Array.from({ length: 10 }, (_, i) => entry({ action: { kind: "play-land", name: `Land ${i}` } })),
+    };
+    const tail = filteredDecisionLogTail(session, 3);
+    expect(tail).toHaveLength(3);
+    expect(tail.map(e => e.action.name)).toEqual(["Land 7", "Land 8", "Land 9"]);
+  });
+
+  it("handles a missing/empty decisionLog safely", () => {
+    expect(filteredDecisionLogTail({})).toEqual([]);
+    expect(filteredDecisionLogTail(null)).toEqual([]);
   });
 });

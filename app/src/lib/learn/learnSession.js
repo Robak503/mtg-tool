@@ -2081,6 +2081,25 @@ export function isComplete(session) {
   return session?.status !== "active";
 }
 
+// N6: kinds an AUTO-DECIDED decisionLog entry can carry that are pure bookkeeping noise — every
+// auto-decided action gets appended unconditionally (see advanceUntilDecision's logEntry push above),
+// so a "recent activity" tail is frequently dominated by consecutive "(auto) pass-priority" rows with
+// zero narrative value. A USER's own choice is never filtered, even if it happens to be a pass — that's
+// a deliberate decision worth showing, not noise.
+const NOISY_AUTO_ACTION_KINDS = new Set(["pass-priority", "tap-for-mana"]);
+
+/**
+ * Filter `session.decisionLog` down to the entries worth showing in a "recent activity" strip, then
+ * take the last `limit`. Drops auto-decided pass-priority/tap-for-mana bookkeeping; keeps every
+ * user-chosen entry (auto === false) regardless of kind, and every other auto-decided kind (a land
+ * drop, a cast, a block) since those ARE meaningful even when the engine picked them for the user.
+ */
+export function filteredDecisionLogTail(session, limit = 5) {
+  const log = session?.decisionLog || [];
+  const interesting = log.filter((entry) => !entry.auto || !NOISY_AUTO_ACTION_KINDS.has(entry.action?.kind));
+  return interesting.slice(-limit);
+}
+
 // ─── Reusable SBA primitives (for the play-API seam) ─────────────────────────
 // gameApi.js's gameStatus() derives the over/winner/draw verdict from the SAME
 // loss/win rules the session driver uses — so the two can't drift. These are the

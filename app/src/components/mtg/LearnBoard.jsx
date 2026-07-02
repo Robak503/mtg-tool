@@ -65,6 +65,11 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
   const [manualMana, setManualMana] = useState(difficulty === "beginner"); // Beginner default ON
   const [manaPick, setManaPick] = useState(null); // dual land color choice: { name, options }
   const [peek, setPeek] = useState(false);        // game-over "Review board" peek
+  // N6: the beginner-mode full narration (numbered per-action explanations from narrateDecision) is
+  // built server-side into decision.prompt but board mode only ever showed its first line. Clicking
+  // the narration strip expands a small panel with the rest — collapsed by default so intermediate/
+  // expert play isn't cluttered, but the teaching content becomes reachable in the UI that ships.
+  const [narrExpanded, setNarrExpanded] = useState(false);
 
   const GOLD = colors.GOLD || "#c9a14e";
   const players = board?.players || [];
@@ -261,7 +266,13 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
       {/* BOTTOM BAR — narration + progression + every legal action (fallback) */}
       <div className="lb-bar">
         <span className="lb-turn">Turn {turn} · {step}</span>
-        <span className="lb-narr">{(decision?.prompt || "").split("\n")[0]}</span>
+        <span
+          className={`lb-narr ${decision?.prompt ? "lb-narr-click" : ""}`}
+          onClick={() => { if (decision?.prompt) setNarrExpanded(v => !v); }}
+          title={decision?.prompt ? (narrExpanded ? "Click to collapse" : "Click for the full explanation") : undefined}
+        >
+          {(decision?.prompt || "").split("\n")[0]}{decision?.prompt && decision.prompt.includes("\n") ? (narrExpanded ? " ▲" : " ▼") : ""}
+        </span>
         <div className="lb-actions">
           {options.filter(o => o.kind !== "pass-priority" && o.kind !== "tap-for-mana").slice(0, 6).map((o, i) => (
             <button key={i} className="lb-act" onClick={() => onAction(o)} title={o.kind}>
@@ -281,6 +292,15 @@ export default function LearnBoard({ board, decision, onAction, logTail = [], tu
         )}
         {progLabel && <button className="lb-prog" onClick={clickProgress}>{progLabel}</button>}
       </div>
+
+      {narrExpanded && decision?.prompt && (
+        <div className="lb-narrpanel" onClick={() => setNarrExpanded(false)}>
+          <div className="lb-narrbody" onClick={e => e.stopPropagation()}>
+            {decision.prompt.split("\n").map((line, i) => <p key={i}>{line || " "}</p>)}
+            <button className="lb-narrclose" onClick={() => setNarrExpanded(false)}>Close</button>
+          </div>
+        </div>
+      )}
 
       {enlarged && (
         <div className="lb-overlay" onClick={() => setEnlarged(null)}>
@@ -410,10 +430,16 @@ const LB_CSS = `
 .lb-bar{height:46px;display:flex;align-items:center;gap:12px;background:linear-gradient(#171a28,#10121c);border-top:1px solid #272a3c;padding:0 14px;position:relative;z-index:31;}
 .lb-bar .lb-turn{font-size:12px;color:var(--gold);font-weight:700;white-space:nowrap;}
 .lb-bar .lb-narr{flex:1;font-size:12px;color:#c9cad8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lb-bar .lb-narr-click{cursor:pointer;} .lb-bar .lb-narr-click:hover{color:var(--gold);}
 .lb-actions{display:flex;gap:6px;overflow-x:auto;max-width:42%;}
 .lb-act{background:#1d2030;color:#d6d7e2;border:1px solid #383c54;border-radius:6px;padding:5px 9px;font-size:11px;white-space:nowrap;cursor:pointer;} .lb-act:hover{border-color:var(--gold);color:var(--gold);}
 .lb-prog{background:linear-gradient(var(--gold),#a9863b);color:#1a1206;font-weight:800;font-size:13px;border:none;border-radius:7px;padding:9px 18px;cursor:pointer;white-space:nowrap;}
 .lb-overlay{position:absolute;inset:0;background:#000b;z-index:50;display:flex;align-items:center;justify-content:center;}
+.lb-narrpanel{position:absolute;inset:0;background:#000b;z-index:52;display:flex;align-items:center;justify-content:center;padding:24px;}
+.lb-narrbody{background:#14162200;background:linear-gradient(#181b28,#101220);border:1px solid #383c54;border-radius:12px;padding:20px 24px;max-width:560px;max-height:70vh;overflow-y:auto;box-shadow:0 24px 70px #000;}
+.lb-narrbody p{font-size:13px;line-height:1.5;color:#d6d7e2;margin:0 0 8px;}
+.lb-narrbody p:empty{display:none;}
+.lb-narrclose{margin-top:8px;background:#1d2030;color:#d6d7e2;border:1px solid #383c54;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;} .lb-narrclose:hover{border-color:var(--gold);color:var(--gold);}
 .lb-close{position:absolute;top:18px;right:26px;color:#fff;font-size:24px;cursor:pointer;}
 .lb-bigimg{width:auto;height:80vh;max-height:680px;border-radius:18px;box-shadow:0 24px 70px #000;cursor:default;}
 .lb-bigpt{position:absolute;bottom:9%;left:50%;transform:translateX(-50%);font-size:20px;font-weight:800;color:#fff;background:#000d;border:1px solid var(--gold);border-radius:6px;padding:3px 14px;}
