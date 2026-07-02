@@ -27,7 +27,12 @@ the Clyde side. Document the METHOD so future non-Fable agents can repeat it. De
 - **Speed focus: runtime performance + play quality.** Games/sec for self-play batches (the Omnath
   flywheel), Academy step latency, hot paths (layers, manaSources, legalChoices, trigger detection) — AND
   how well the engine plays: smarter legal-action offers, better AI decisions, fewer dead-end states.
-  (Dev-velocity work like the parser.js split is allowed when it serves those, but it is not a goal.)
+  Dev velocity is a BOUNDED third priority (Colton, 2026-07-01): continue the parser.js →
+  CLAUSE_PARSERS/atoms seam migration (docs/orchestration/seam-migration-map.md) as an explicit P2
+  workstream — it is the single highest-leverage post-Fable SAFETY investment (Sonnet-era sessions edit
+  small seam files, not the 200KB monolith), and Fable 5 is the right model to do it. Constraints:
+  program-fingerprint 0-diff per batch; priority BELOW perf + play quality; the FIRST thing cut if the
+  pass runs long; never at the expense of the Omnath seams or the playbook.
 - **Omnath integration (engine side — Omnath owns the brain/pilots side): ALL of:**
   1. **Make the play-API real** — `gameApi.js` today cannot settle pendingChoice/pendingArbiter (parked in
      WAKE-REPORT). Make it a stable, versioned seam a pilot can drive end-to-end; lock the contract and
@@ -92,6 +97,8 @@ leverage — candidates (validate against P1 evidence, don't assume):
 - **Perf:** layers derivation/memoization on hot reads; legalChoices enumeration cost; manaSources/
   planPayment; trigger detection caching; state-copy costs in the immutable update paths; suite/fingerprint
   tooling speed as a side effect.
+- **Seam continuation (bounded, 3rd priority):** migrate more parser.js matcher families into
+  effects/atoms/* per seam-migration-map.md — program-fingerprint 0-diff per batch, cut first if long.
 - **Quality/structure:** the duplicated mana-commit implementations; runProgram/resolvers seam
   consistency; the parser.js chokepoint IF it serves perf/quality; kill the remaining known seams from
   ENGINE-SCAFFOLD §6 that are fixable without coverage growth (GY zone accounting for resolved spells,
