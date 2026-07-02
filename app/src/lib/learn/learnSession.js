@@ -214,7 +214,7 @@ function removePlayerFromGame(state, playerId) {
   for (const zone of ["command", "battlefield", "graveyard", "exile", "hand", "library"]) {
     for (const entry of (_gone?.[zone] || [])) {
       const card = entry?.card || entry; // battlefield holds permanents (entry.card); other zones hold cards
-      if (card?.isCommander) goneCommanderIds.add(card.id);
+      if (card?.isCommander) goneCommanderIds.add(card.commanderInstanceId || card.id);
     }
   }
   for (const id of turnOrder) {

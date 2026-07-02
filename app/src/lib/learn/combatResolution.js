@@ -267,7 +267,7 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
         // CMD-DAMAGE (CR 903.10a): if the attacker is a commander, tag the event with its card id so the
         // post-combat step accrues 21-rule commander damage to the defender (keyed per-commander).
         const attCard = lookup.permanent?.card;
-        const commanderId = attCard?.isCommander ? attCard.id : null;
+        const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCard.id) : null;
         playerEvents.push({ kind: "combat-damage-player", turn: state.turn, attackerId: att.permanentId, attackingPlayer: att.attackingPlayer, defender, amount, ...(commanderId ? { commanderId } : {}), ...(trampleFlag ? { trample: true } : {}) });
         return amount;
       }

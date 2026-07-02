@@ -284,7 +284,7 @@ function addSubtypeToLine(line, subtype) {
 export function snapshotCopiedCard(sourcePerm, cloneCard, riders = []) {
   // A copy of a commander is NOT a commander (CR 903.3 — the designation is on the original card, not a
   // characteristic that copies). Strip isCommander like token, so a clone never inherits the designation.
-  let card = { ...sourcePerm.card, id: cloneCard?.id, token: false, isCommander: false };
+  let card = { ...sourcePerm.card, id: cloneCard?.id, token: false, isCommander: false, commanderInstanceId: undefined };
   for (const r of riders || []) {
     if (r.kind === "addType") {
       card = { ...card, type: addSubtypeToLine(card.type || card.type_line, r.subtype) };

@@ -361,8 +361,9 @@ silently match zero.
 
 Other live seams (documented, mostly benign, listed so you don't rediscover them):
 the `land` tier is unconditional (§2.1); resolved instants/sorceries don't reach a
-graveyard yet (under-counts GY thresholds — safe direction); commander damage/tax
-is keyed by card id (same-commander mirrors collapse); the modal combat-referent
+graveyard yet (under-counts GY thresholds — safe direction); commander damage
+is keyed by a per-seat commanderInstanceId stamped at seat build (mirror collapse FIXED in the
+overhaul pass; the tax never collapsed — it lives per-player); the modal combat-referent
 gates iterate top-level atoms only (nil corpus impact today). Full list:
 `docs/orchestration/WAKE-REPORT.md` and the per-subsystem scan notes.
 

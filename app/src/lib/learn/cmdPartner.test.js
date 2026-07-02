@@ -41,7 +41,7 @@ describe("CMD-PARTNER — two commanders in the command zone", () => {
   it("the {2} tax is PER-COMMANDER — casting one doesn't tax the other (CR 903.8)", () => {
     let s = podWithPartners();
     s = dispatchAction(s, cmdCasts(s).find(a => a.cardId === "pa"));
-    expect(s.players.user.commanderCastCount).toEqual({ pa: 1 });   // only A's cast count bumped
+    expect(s.players.user.commanderCastCount).toEqual({ "user::pa": 1 });   // only A's cast count bumped (instance-keyed)
     expect(s.players.user.command.map(c => c.id)).toEqual(["pb"]);  // A left the zone; B still there
     s = resolveTopOfStack(s);                                        // A is on the stack — sorcery-speed B needs it empty
     const castB = cmdCasts(s).find(a => a.cardId === "pb");

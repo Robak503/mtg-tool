@@ -13,13 +13,20 @@ export function tableSnapshot(state) {
   if (!state || !state.players) return [];
   // CMD-DAMAGE: `commanderDamageFrom` is keyed by the source commander's CARD id — build an id→name map
   // across every zone so the UI shows "cmdr dmg <Commander> N", not a raw card id.
-  const commanderName = {};
+  const commanderName = {};   // tracker key -> { name, seat }
+  const nameSeen = {};         // name -> count of DISTINCT tracker keys (mirror detection)
   for (const pid of Object.keys(state.players)) {
     const pl = state.players[pid];
     for (const zone of ["command", "battlefield", "graveyard", "exile", "hand"]) {
       for (const entry of (pl?.[zone] || [])) {
         const card = entry?.card || entry;
-        if (card?.isCommander && card.id) commanderName[card.id] = card.name || card.id;
+        if (!card?.isCommander || !card.id) continue;
+        const key = card.commanderInstanceId || card.id;
+        if (!commanderName[key]) {
+          const name = card.name || key;
+          commanderName[key] = { name, seat: pid };
+          nameSeen[name] = (nameSeen[name] || 0) + 1;
+        }
       }
     }
   }
@@ -32,7 +39,11 @@ export function tableSnapshot(state) {
       const p = state.players[id];
       const commanderDamage = {};
       for (const [cmdId, n] of Object.entries(p.commanderDamageFrom || {})) {
-        commanderDamage[commanderName[cmdId] || cmdId] = n; // key by commander name for display
+        const info = commanderName[cmdId];
+        // MIRROR display: two live tracker keys sharing one name get seat-suffixed labels so the
+        // rows don't last-write-win into one; the non-mirror label is byte-identical to before.
+        const label = info ? (nameSeen[info.name] > 1 ? `${info.name} (${info.seat})` : info.name) : cmdId;
+        commanderDamage[label] = n;
       }
       return {
         id,

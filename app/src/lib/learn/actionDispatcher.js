@@ -476,7 +476,7 @@ function applyCastSpell(state, action) {
   // CMD-CAST: a cast FROM the command zone bumps the commander's cast count → the {2} tax grows on each
   // recast (CR 903.8 counts casts from the zone, so the cast counts even if it's later countered).
   const bumpCount = fromZone === "command"
-    ? { commanderCastCount: { ...(player.commanderCastCount || {}), [action.cardId]: (player.commanderCastCount?.[action.cardId] || 0) + 1 } }
+    ? { commanderCastCount: { ...(player.commanderCastCount || {}), [card.commanderInstanceId || action.cardId]: (player.commanderCastCount?.[card.commanderInstanceId || action.cardId] || 0) + 1 } }
     : {};
   let next = {
     ...working2,

@@ -475,7 +475,7 @@ function actionsCastCommander(state, playerId) {
   const command = player.command || [];
   if (command.length === 0) return [];
   const counts = player.commanderCastCount || {};
-  const taxFn = (card) => 2 * (counts[card.id] || 0);
+  const taxFn = (card) => 2 * (counts[card.commanderInstanceId || card.id] || 0);
   const actions = castActionsFromZone(state, playerId, command, "command", taxFn);
   // ADVENTURE commander (CR 715 + 903.8): the shared builder skips a COMBINED adventure card (CR 715.2b),
   // which silently made an adventure commander (Kellan, the Fae-Blooded / Beluna Grandsquall) uncastable

@@ -348,7 +348,7 @@ export function createStackObject({ id, kind, source, controller, targets = [], 
  * Create a fresh player state. Pass a library (array of card objects)
  * which becomes the deck; everything else starts empty/zero.
  */
-export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER, commanderCards = [], companionCard = null } = {}) {
+export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER, commanderCards = [], companionCard = null, seatId = null } = {}) {
   return {
     life,
     poison: 0,
@@ -366,7 +366,12 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
     companion: companionCard ? { ...companionCard } : null,
     // CR 903.3 — "commander" is a designation on the CARD itself that rides across zones (not a
     // characteristic). Tag each so isCommander travels card → battlefield permanent → (PR2) back to the zone.
-    command: commanderCards.map((c) => (c ? { ...c, isCommander: true } : c)),
+    // CMD-MIRROR (CR 903.10a): stamp a per-SEAT commander instance id — two seats running the SAME
+    // commander card (a mirror; self-play pads pods by wrapping the deck list, so mirrors are routine)
+    // must track 21-rule damage separately. The id rides the card across zones exactly like the
+    // isCommander designation; every reader falls back to card.id, so unstamped fixtures/old saves
+    // behave byte-identically.
+    command: commanderCards.map((c) => (c ? { ...c, isCommander: true, ...(seatId ? { commanderInstanceId: `${seatId}::${c.id}` } : {}) } : c)),
     emblems: [],              // PW-5: emblems this player owns (objects with a continuous/triggered ability)
     experience: 0,
     radCounters: 0,           // RAD (CR 728): rad counters a player has; the inherent radiation ability (applyRadiation) mills + drains at their precombat main
@@ -452,8 +457,8 @@ function buildStandardSeats({ userDeck, aiDeck, userCommanders, aiCommanders, us
   return {
     turnOrder: ["user", "ai"],
     players: {
-      user: createPlayerState({ library: userDeck, life: startingLife, commanderCards: userCommanders, companionCard: userCompanion }),
-      ai: createPlayerState({ library: aiDeck, life: startingLife, commanderCards: aiCommanders, companionCard: aiCompanion }),
+      user: createPlayerState({ library: userDeck, life: startingLife, commanderCards: userCommanders, companionCard: userCompanion, seatId: "user" }),
+      ai: createPlayerState({ library: aiDeck, life: startingLife, commanderCards: aiCommanders, companionCard: aiCompanion, seatId: "ai" }),
     },
   };
 }
@@ -466,7 +471,7 @@ function buildCommanderSeats({ userDeck, userCommanders, opponentDecks, opponent
     throw new Error("createGameState: commander mode requires opponentDecks to be an array of exactly 3 decks (the pod)");
   }
   const players = {
-    user: createPlayerState({ library: userDeck, life: startingLife, commanderCards: userCommanders, companionCard: userCompanion }),
+    user: createPlayerState({ library: userDeck, life: startingLife, commanderCards: userCommanders, companionCard: userCompanion, seatId: "user" }),
   };
   const turnOrder = ["user"];
   opponentDecks.forEach((deck, i) => {
@@ -476,6 +481,7 @@ function buildCommanderSeats({ userDeck, userCommanders, opponentDecks, opponent
       life: startingLife,
       commanderCards: (Array.isArray(opponentCommanders) && opponentCommanders[i]) || [],
       companionCard: (Array.isArray(opponentCompanions) && opponentCompanions[i]) || null,
+      seatId: seat,
     });
     turnOrder.push(seat);
   });
@@ -1238,10 +1244,11 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
  * (different cards) tracks each separately. `isPlayerDead` reads `commanderDamageFrom` for the 21-loss SBA.
  * A copy of a commander is not a commander, so only a real `isCommander` source ever supplies a `commanderId`.
  *
- * LIMITATION (tracked follow-up): the key is the commander's CARD id — correct in that it persists across
- * re-cast (CR 704.6c), but SHARED if two pod seats run the SAME commander card (a same-commander mirror),
- * collapsing their damage (and the CMD-CAST tax, same keying) into one entry. Rare; the true fix mints a
- * per-instance commander id at setup, keying tax + damage by that instead of the raw card id.
+ * KEYING (overhaul pass): the key is the commander's per-seat INSTANCE id (card.commanderInstanceId,
+ * stamped at seat build — "<seatId>::<cardId>"), falling back to the raw card id for unstamped
+ * fixtures/old saves. Persists across re-cast (CR 704.6c) AND keeps a same-commander MIRROR's two
+ * instances separate (11+10 split across two seats is NOT a 21-rule death). The CMD-CAST tax never
+ * collapsed (it lives in a per-player map); it now uses the same key purely for uniformity.
  */
 export function addCommanderDamage(state, { commanderId, toPlayer, amount }) {
   assertPlayer(toPlayer);

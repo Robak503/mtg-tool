@@ -26,7 +26,7 @@ function cmdState({ mana = { G: 6 }, castCount = 0, command } = {}) {
       user: {
         ...base.players.user,
         manaPool: { ...base.players.user.manaPool, ...mana },
-        commanderCastCount: { cmdr1: castCount },
+        commanderCastCount: { "user::cmdr1": castCount }, // stamped-card key-space (instance id)
         ...(command !== undefined ? { command } : {}),
       },
     },
@@ -68,7 +68,7 @@ describe("CMD-CAST — dispatch (cast from the zone + bump the count)", () => {
     let s = cmdState({ mana: { G: 4 } });
     s = dispatchAction(s, cmdCast(s));
     expect(s.players.user.command.find((c) => c.id === "cmdr1")).toBeUndefined(); // left the command zone
-    expect(s.players.user.commanderCastCount.cmdr1).toBe(1);                       // tax counter bumped
+    expect(s.players.user.commanderCastCount["user::cmdr1"]).toBe(1);              // tax counter bumped (instance-keyed)
     expect(s.stack.some((o) => o.kind === "spell")).toBe(true);                    // on the stack
 
     s = resolveTopOfStack(s);
@@ -80,7 +80,7 @@ describe("CMD-CAST — dispatch (cast from the zone + bump the count)", () => {
   it("recast costs more: a second cast after a return would be taxed (count escalates)", () => {
     let s = cmdState({ mana: { G: 4 } });
     s = dispatchAction(s, cmdCast(s));
-    expect(s.players.user.commanderCastCount.cmdr1).toBe(1); // next cast from the zone would be +{2}
+    expect(s.players.user.commanderCastCount["user::cmdr1"]).toBe(1); // next cast from the zone would be +{2}
   });
 });
 
@@ -92,7 +92,7 @@ describe("CMD-CAST — the AI casts its commander (4b P1 regression)", () => {
     return {
       ...base,
       phase: "precombat-main", step: "main", activePlayer: "ai", priorityHolder: "ai", consecutivePasses: 0,
-      players: { ...base.players, ai: { ...base.players.ai, manaPool: { ...base.players.ai.manaPool, G: 4 }, commanderCastCount: { cmdr1: 0 } } },
+      players: { ...base.players, ai: { ...base.players.ai, manaPool: { ...base.players.ai.manaPool, G: 4 }, commanderCastCount: { "ai::cmdr1": 0 } } },
     };
   }
   it("pickAction chooses the command-zone cast when the AI can afford its commander", () => {
