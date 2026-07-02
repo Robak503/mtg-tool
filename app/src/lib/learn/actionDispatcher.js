@@ -454,7 +454,18 @@ function applyCastSpell(state, action) {
     // the graveyard like a normal instant/sorcery). Stash the FULL card + its owner on the payload so the
     // EFFECT_PROGRAM resolver appends it to exile flagged `_onAdventure` (the creature half is then castable
     // from exile). Only set on an adventure cast — a normal spell carries no adventureExile and is unaffected.
-    if (action.adventureCast) params.adventureExile = { playerId: action.playerId, card };
+    if (action.adventureCast) {
+      params.adventureExile = { playerId: action.playerId, card };
+    } else if (/\b(?:Instant|Sorcery)\b/.test(String(castCard?.type || castCard?.type_line || "").split(" // ")[0])) {
+      // GY-1 (CR 608.2m): a natively-resolved instant/sorcery goes to its owner's GRAVEYARD as the
+      // final resolution step — previously the card just vanished off the stack (every GY-count
+      // consumer under-read). The disposition rides the payload; runEffectProgram applies it at its
+      // two program-completion points (after ALL atoms — a spell never counts ITSELF in its graveyard).
+      // Arbiter-routed spells (SPELL_NOOP / low-confidence) keep vanishing — the Arbiter owns their
+      // disposition (a blanket GY would FP on unparsed self-exile riders). Storm copies strip the
+      // param at clone (applyCopySpell) — a copy ceases to exist instead (CR 707.10a).
+      params.spellToGraveyard = { playerId: action.playerId, card };
+    }
     payload = { resolver: RESOLVER_KEYS.EFFECT_PROGRAM, params };
   } else if (isPermanentSpell(castCard)) {
     // ENTERS-WITH-X: a hydra cast for {X} threads its chosen X so PERMANENT_ETB adds X +1/+1 counters

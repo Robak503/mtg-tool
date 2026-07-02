@@ -24,7 +24,7 @@ import { createPermanent, mintId, logEvent, findPermanent, attachPermanent, dest
 import { resolveSpellEffect } from "./spellEffects.js";
 import { applyTriggerEffect, checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } from "./triggers.js";
 import { markPendingArbiter } from "./pendingArbiter.js";
-import { runEffectProgram } from "./effects/runProgram.js";
+import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js";
 import { evaluateInterveningIf } from "./interveningIf.js";
 import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
@@ -518,7 +518,8 @@ export const RESOLVERS = Object.freeze({
       // BESTOW (CR 702.103g): a bestow spell whose creature target is gone at resolution doesn't enter as
       // an unattached Aura — it isn't put onto the battlefield at all → owner's graveyard. Same fizzle as
       // a printed Aura (the spell never resolves into a permanent), so no special case is needed here.
-      return logEvent(state, { kind: "spell-fizzle", source: card?.name, reason: "aura target illegal", controller });
+      // GY-2 (CR 608.3b): the fizzled Aura CARD reaches its owner's graveyard (it used to vanish).
+      return logEvent(finishSpellResolution(state, { playerId: controller, card }), { kind: "spell-fizzle", source: card?.name, reason: "aura target illegal", controller });
     }
     // BESTOW: thread `bestowed` so enterPermanent flags the permanent (layer-4 Creature-type removal while
     // attached + the falls-off SBA exemption). A printed Aura passes bestowed=undefined → identical path.

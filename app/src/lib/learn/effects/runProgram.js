@@ -57,6 +57,28 @@ function programAtoms(program, chosenMode) {
   return modes[chosenMode]?.atoms || [];
 }
 
+/**
+ * GY-1 (CR 608.2m): as the FINAL step of a natively-resolved instant/sorcery, put the spell card
+ * into its owner's graveyard. `disposition` = { playerId, card } threaded from applyCastSpell via
+ * the payload (and via pendingChoice.resume across suspensions). Guards: no disposition -> no-op;
+ * a token/copy card ceases to exist instead (CR 707.10a); an eliminated owner (CR 800.4a) -> no-op.
+ * The card is ZONELESS here (it left its zone at cast), so this is a direct append like
+ * placeCounteredCard — moveCardToZone can't move a card that is in no zone.
+ */
+export function finishSpellResolution(state, disposition) {
+  const playerId = disposition?.playerId;
+  const card = disposition?.card;
+  if (!playerId || !card) return state;
+  if (card.token || card.isCopy) return state;
+  const player = state.players?.[playerId];
+  if (!player) return state;
+  const next = {
+    ...state,
+    players: { ...state.players, [playerId]: { ...player, graveyard: [...(player.graveyard || []), card] } },
+  };
+  return logEvent(next, { kind: "spell-to-graveyard", playerId, cardName: card.name || null });
+}
+
 export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
   const params = stackObject?.payload?.params || {};
   const { program, controller, targets = [], xValue = null, sourceId = null, context = {}, kicked = false } = params;
@@ -89,7 +111,7 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
           // `context` MUST ride along — a context-dependent atom (discover X = the triggering creature's
           // toughness, via ctx.triggeringPermanentId) loses its trigger context on resume otherwise → X=0.
           // `kicked` rides along so a kicked spell whose BASE atom paused (scry/tutor) still runs its kickedOnly tail on resume.
-          resume: { program, controller, targets, xValue, sourceId, context, kicked, chosenMode: params.chosenMode ?? null, nextAtomIndex: i, cardName },
+          resume: { program, controller, targets, xValue, sourceId, context, kicked, chosenMode: params.chosenMode ?? null, nextAtomIndex: i, cardName, spellToGraveyard: params.spellToGraveyard ?? null },
         },
       };
     }
@@ -110,12 +132,14 @@ export function runEffectProgram(state, stackObject, { startIndex = 0 } = {}) {
         ...next,
         pendingChoice: {
           ...next.pendingChoice,
-          resume: { program, controller, targets, xValue, sourceId, context, kicked, chosenMode: params.chosenMode ?? null, nextAtomIndex: i + 1, cardName },
+          resume: { program, controller, targets, xValue, sourceId, context, kicked, chosenMode: params.chosenMode ?? null, nextAtomIndex: i + 1, cardName, spellToGraveyard: params.spellToGraveyard ?? null },
         },
       };
     }
   }
-  return next;
+  // GY-1: program complete — every atom ran; the spell card reaches its owner's graveyard NOW
+  // (after the last atom, before finalizeStackResolution's trigger flush — CR 608.2m).
+  return finishSpellResolution(next, params.spellToGraveyard);
 }
 
 /**
@@ -729,9 +753,11 @@ function resumeAfterChoice(state, pc) {
   if (r?.program && Array.isArray(programAtoms(r.program, r.chosenMode)) && r.nextAtomIndex < programAtoms(r.program, r.chosenMode).length) {
     const obj = {
       source: { name: r.cardName ?? pc.sourceName ?? null },
-      payload: { params: { program: r.program, controller: r.controller, targets: r.targets, xValue: r.xValue, sourceId: r.sourceId, context: r.context, kicked: r.kicked ?? false, chosenMode: r.chosenMode } },
+      payload: { params: { program: r.program, controller: r.controller, targets: r.targets, xValue: r.xValue, sourceId: r.sourceId, context: r.context, kicked: r.kicked ?? false, chosenMode: r.chosenMode, spellToGraveyard: r.spellToGraveyard ?? null } },
     };
     return runEffectProgram(state, obj, { startIndex: r.nextAtomIndex });
   }
-  return state;
+  // GY-1 terminal: no atoms remain after the settle — the re-entered program can't finish the spell,
+  // so finish it here (the two completion points are mutually exclusive per settle: exactly one fires).
+  return finishSpellResolution(state, pc?.resume?.spellToGraveyard);
 }

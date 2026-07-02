@@ -132,7 +132,7 @@ describe("resolution — the discarder chooses; the N>1 / each-player chain; the
     const after = castAndAutoResolve(s, "ds"); // no target — each player
     expect(after.players.user.hand.map((c) => c.id)).toEqual(["u4"]);                 // user discarded its 3 cheapest
     expect(after.players.ai.hand.map((c) => c.id)).toEqual(["a4"]);                   // ai discarded its 3 cheapest
-    expect(after.players.user.graveyard).toHaveLength(3);
+    expect(after.players.user.graveyard).toHaveLength(4); // 3 discards + the resolved spell (CR 608.2m)
     expect(after.players.ai.graveyard).toHaveLength(3);
   });
   it("compound (Fill with Fright): the discard chain settles, THEN the program resumes into the caster's Scry 2", () => {

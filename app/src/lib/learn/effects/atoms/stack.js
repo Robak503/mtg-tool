@@ -112,7 +112,10 @@ export function counterSpellById(state, spellId, { via = null, exileInstead = fa
   const idx = (state.stack || []).findIndex((o) => o.id === spellId);
   if (idx === -1) return logEvent(state, { kind: "spell-effect", effect: "counter-fizzle", targetId: spellId });
   const targetObj = state.stack[idx];
-  const card = targetObj.source;
+  // GY-3 (CR 715.4): a countered ADVENTURE cast puts the FULL combined card into the graveyard, not
+  // the face projection riding as `source` (same id, face-typed). The full card is on the payload
+  // only for adventure casts; every other spell is byte-identical.
+  const card = targetObj.payload?.params?.adventureExile?.card || targetObj.source;
   const controller = targetObj.controller;
   const isSpell = targetObj.kind === "spell"; // an ability is not a card → no zone change on counter
   const newStack = [...state.stack.slice(0, idx), ...state.stack.slice(idx + 1)];
@@ -656,7 +659,12 @@ function applyCopySpell(state, atom, ctx) {
     // Clone the frozen payload so the copy resolves the SAME program independently of the original, then OVERWRITE
     // params.targets with this copy's freshly-chosen targets (CR 707.10c) so the interpreter binds them per clause.
     const clonedPayload = JSON.parse(JSON.stringify(sourcePayload));
-    if (clonedPayload?.params) clonedPayload.params.targets = copyTargets;
+    if (clonedPayload?.params) {
+      clonedPayload.params.targets = copyTargets;
+      // GY-1 anti-duplicate guard (CR 707.10a): a COPY ceases to exist on resolution — it must never
+      // append another card object (same id!) to the graveyard. Only the ORIGINAL keeps its disposition.
+      delete clonedPayload.params.spellToGraveyard;
+    }
     const copyObj = createStackObject({
       id,
       kind: "spell",

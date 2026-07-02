@@ -68,7 +68,7 @@ describe("surveil resolution — moved cards go to the graveyard, and the progra
     s = castToChoice(s, "c-sd");
     expect(s.pendingChoice).toMatchObject({ kind: "scry-surveil", mode: "surveil" });
     s = resolveScryChoice(s, []); // bin A
-    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["a"]);
+    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["a", "c-sd"]); // binned A, then the resolved spell (CR 608.2m)
     // The suspended "Draw a card" resumed → B drawn; library now [C].
     expect(s.players.user.hand.some((c) => c.id === "b")).toBe(true);
     expect(libIds(s)).toEqual(["c"]);
@@ -79,7 +79,7 @@ describe("surveil resolution — moved cards go to the graveyard, and the progra
     let s = boardState({ hand: [SURVEIL_DRAW], library: lib("A", "B", "C") });
     s = castToChoice(s, "c-sd");
     s = resolveScryChoice(s, ["a"]); // keep A on top
-    expect(s.players.user.graveyard).toHaveLength(0);
+    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["c-sd"]); // just the resolved spell (CR 608.2m)
     expect(s.players.user.hand.some((c) => c.id === "a")).toBe(true); // drew the kept A
     expect(libIds(s)).toEqual(["b", "c"]);
   });

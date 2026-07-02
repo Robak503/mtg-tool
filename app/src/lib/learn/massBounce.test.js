@@ -98,8 +98,8 @@ describe("resolution — every creature returns to its OWN owner's hand", () => 
     // Each non-token creature returns to its OWN owner's hand (CR — bounce uses the controller as owner proxy).
     expect(s.players.user.hand.some((c) => c.name === "Ours")).toBe(true);
     expect(s.players.ai.hand.map((c) => c.name).sort()).toEqual(["Other", "Theirs"]);
-    // Bounce is NOT a death — graveyards stay empty.
-    expect(s.players.user.graveyard.length + s.players.ai.graveyard.length).toBe(0);
+    // Bounce is NOT a death — the only graveyard card is the resolved spell itself (CR 608.2m).
+    expect(s.players.user.graveyard.length + s.players.ai.graveyard.length).toBe(1);
   });
 
   it("Whelming Wave returns every non-sea-monster creature but SPARES Krakens/Leviathans/Octopuses/Serpents", () => {

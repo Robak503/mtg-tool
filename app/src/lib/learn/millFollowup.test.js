@@ -96,7 +96,7 @@ describe("runtime — clean mill triggers fire; a rider trigger no-ops (safe)", 
   it("an ETB 'mill three cards' mills the caster's top 3", () => {
     let s = board(null, lib("A", "B", "C", "D"));
     s = resolveAll(flushTriggers(enterPermanent(s, { name: "Miller", type: "Creature — Beast", power: 1, toughness: 1, oracle: "When this creature enters, mill three cards." }, "user")));
-    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["a", "b", "c"]);
+    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["a", "b", "c"]); // a TRIGGER program has no spell card to bin
   });
   it("Loafing Giant (mill + mandatory rider) no-ops — no mill, no life (no partial)", () => {
     const lg = createPermanent({ id: "lg", card: { name: "Loafing Giant", type: "Creature — Giant", power: 5, toughness: 5, oracle: "Whenever this creature attacks, mill a card. If a land card was milled this way, you gain 2 life." }, controller: "user", summoningSick: false });
@@ -119,9 +119,9 @@ describe("mill spell resolution", () => {
   const cast = (s, id) => { const a = filterActions(legalActionsForPlayer(s, "user"), "cast-spell").find((x) => x.cardId === id); return resolveTopOfStack(dispatchAction(s, a)); };
   it("you mill 3 → top 3 to your graveyard; each opponent mills 2 → opponent only", () => {
     let s = cast(bs([MILL3], lib("A", "B", "C", "D")), "c-m");
-    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["a", "b", "c"]);
+    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["a", "b", "c", "c-m"]); // milled 3 + the resolved spell (CR 608.2m)
     s = cast(bs([MILLOPP], lib("U1"), lib("X", "Y", "Z")), "c-mo");
     expect(s.players.ai.graveyard.map((c) => c.id)).toEqual(["x", "y"]);
-    expect(s.players.user.graveyard).toHaveLength(0);
+    expect(s.players.user.graveyard.map((c) => c.id)).toEqual(["c-mo"]); // the caster binned only the resolved spell (CR 608.2m)
   });
 });

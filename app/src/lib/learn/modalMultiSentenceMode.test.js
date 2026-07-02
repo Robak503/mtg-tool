@@ -134,7 +134,7 @@ describe("executor — the chosen multi-sentence mode resolves; the unchosen doe
     while (st.pendingChoice?.kind === "impulse-dig") st = resolveImpulseDigChoice(st, autoPickTutorCandidate(st, st.pendingChoice));
     while (st.stack.length) st = resolveTopOfStack(st);
     expect(st.players.user.hand).toHaveLength(1);            // one card kept to hand
-    expect(st.players.user.graveyard).toHaveLength(2);        // the rest went to GY
+    expect(st.players.user.graveyard).toHaveLength(3);        // the rest went to GY + the resolved spell (CR 608.2m)
     expect(st.players.user.life).toBe(40);                    // the GAIN-LIFE mode did NOT fire
   });
 
