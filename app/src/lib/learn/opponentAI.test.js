@@ -267,6 +267,53 @@ describe("pickAttackPlan — competent racer profitability", () => {
     expect(plan.map(p => p.permanentId).sort()).toEqual(["a2", "a3"]);
   });
 
+  it("W4: a FLYER swings past a bigger ground blocker (legality-aware); legacy v1 held it", () => {
+    // 5/5 flying vs a 6/6 ground wall: the wall may not legally block it
+    // (canBlockAttacker), so the swing is free damage. v1's legality-blind model
+    // read the 6/6 as a free kill and held the flyer forever.
+    const state = raceState({
+      attackers: [atkPerm({ id: "flyer", power: 5, toughness: 5, keywords: ["Flying"] })],
+      blockers: [atkPerm({ id: "wall", power: 6, toughness: 6, controller: "user" })],
+    });
+    expect(pickAttackPlan(state, "ai", [atk("flyer")]).map(p => p.permanentId)).toEqual(["flyer"]);
+    expect(pickAttackPlan(state, "ai", [atk("flyer")], { policy: "v1" })).toEqual([]);
+  });
+
+  it("W4: a 5/5 no longer suicides into a 1/1 DEATHTOUCH wall; legacy v1 traded it away", () => {
+    // The deathtouch block kills the 5/5 for a 1/1 — a terrible trade. v1's model
+    // ('power 1 < toughness 5 → can't kill it') attacked into it every turn.
+    const state = raceState({
+      attackers: [atkPerm({ id: "fatty", power: 5, toughness: 5 })],
+      blockers: [atkPerm({ id: "dt-wall", power: 1, toughness: 1, controller: "user", keywords: ["Deathtouch"] })],
+    });
+    expect(pickAttackPlan(state, "ai", [atk("fatty")])).toEqual([]);
+    expect(pickAttackPlan(state, "ai", [atk("fatty")], { policy: "v1" }).map(p => p.permanentId)).toEqual(["fatty"]);
+  });
+
+  it("W4: an EVEN deathtouch trade is still taken (2/2 into a 2/2 deathtouch blocker)", () => {
+    const state = raceState({
+      attackers: [atkPerm({ id: "bear", power: 2, toughness: 2 })],
+      blockers: [atkPerm({ id: "dt-bear", power: 2, toughness: 2, controller: "user", keywords: ["Deathtouch"] })],
+    });
+    expect(pickAttackPlan(state, "ai", [atk("bear")]).map(p => p.permanentId)).toEqual(["bear"]);
+  });
+
+  it("W4: a MENACE attacker facing a single eligible blocker is unstoppable — and lethal is seen", () => {
+    // Two menace 3/3s vs ONE 6/6 wall at 6 life: menace needs 2 blockers, so no
+    // block is ever offered — 6 unavoidable damage is exactly lethal. v1 held
+    // both ('the wall kills them for nothing') and never saw the kill.
+    const state = raceState({
+      defenderLife: 6,
+      attackers: [
+        atkPerm({ id: "m1", power: 3, toughness: 3, keywords: ["Menace"] }),
+        atkPerm({ id: "m2", power: 3, toughness: 3, keywords: ["Menace"] }),
+      ],
+      blockers: [atkPerm({ id: "wall", power: 6, toughness: 6, controller: "user" })],
+    });
+    expect(pickAttackPlan(state, "ai", [atk("m1"), atk("m2")]).map(p => p.permanentId).sort()).toEqual(["m1", "m2"]);
+    expect(pickAttackPlan(state, "ai", [atk("m1"), atk("m2")], { policy: "v1" })).toEqual([]);
+  });
+
   it("Commander: focuses the chosen defender and drops unprofitable attackers", () => {
     const base = createGameState({ userDeck: [], aiDeck: [] });
     const state = {

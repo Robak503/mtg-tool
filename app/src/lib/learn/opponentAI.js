@@ -31,7 +31,7 @@ import { opponentsOf, findPermanent } from "./gameState.js";
 import { permanentPower, permanentToughness, permanentHasKeyword, permanentIsCreature } from "./layers.js";
 import { chooseAITarget } from "./spellEffects.js";
 import { manaProduction } from "./manaModel.js";
-import { attackerHasMenace } from "./combatEvasion.js";
+import { attackerHasMenace, canBlockAttacker } from "./combatEvasion.js";
 import { programContainsCounter, programContainsMassRemoval, programContainsTeamPump, programContainsFog, atomTargetIntent } from "./effects/parser.js";
 
 // ─── Play-policy flags (the A/B probe seam) ──────────────────────────────────
@@ -641,7 +641,7 @@ export function pickAction(state, aiPlayerId, actions, { archetype = null, polic
   if (state.step === "declare-attackers") {
     const attackerActions = filterActions(actions, "declare-attacker");
     if (attackerActions.length > 0) {
-      const plan = pickAttackPlan(state, aiPlayerId, attackerActions);
+      const plan = pickAttackPlan(state, aiPlayerId, attackerActions, { policy: pol });
       if (plan.length > 0) return plan[0];
     }
   }
@@ -718,16 +718,77 @@ function hasFirstStrike(state, permanentId) {
   } catch { return false; }
 }
 
-/** Derived P/T (+ first-strike) of a player's UNTAPPED creatures — its blockers. */
+/** Derived combat stats of a player's UNTAPPED creatures — its potential blockers. */
 function untappedDefenderBlockers(state, defenderId) {
   const bf = state.players?.[defenderId]?.battlefield || [];
   return bf
     .filter(p => permanentIsCreature(state, p.id) && !p.tapped)  // layer-aware (animated man-lands)
     .map(p => ({
+      id: p.id,
       power: Math.max(0, permanentPower(state, p.id)),
       toughness: permanentToughness(state, p.id),
       firstStrike: hasFirstStrike(state, p.id),
+      deathtouch: hasDeathtouch(state, p.id),
     }));
+}
+
+/**
+ * The defender's untapped creatures that may LEGALLY block this attacker —
+ * filtered through `canBlockAttacker` (combatEvasion), the SAME chokepoint the
+ * block enumeration uses, so the attack model can never disagree with block
+ * legality (a flyer over ground blockers, protection, fear, landwalk, …).
+ * An unresolvable check counts as "can block" — the cautious direction.
+ */
+function eligibleBlockersFor(state, defenderId, attackerId, defenderBlockers) {
+  return defenderBlockers.filter((b) => {
+    try { return canBlockAttacker(state, b.id, attackerId, defenderId); } catch { return true; }
+  });
+}
+
+/**
+ * W4 — would this attacker die "for nothing" into its ELIGIBLE blockers? Uses
+ * the shared duel math (first/double strike, deathtouch on BOTH sides). A block
+ * that kills the attacker without dying is a free kill for the defender; a
+ * mutual kill is a real trade UNLESS the blocker is a small deathtouch wall
+ * eating a clearly bigger body (the 5/5-into-1/1-deathtouch suicide).
+ */
+function attackerDiesForNothingV2(att, eligibleBlockers) {
+  return eligibleBlockers.some((b) => {
+    const { attackerDies, blockerDies } = combatDuel(att, b);
+    if (!attackerDies) return false;
+    if (!blockerDies) return true;                 // dies and kills nothing back
+    if (b.deathtouch && att.power + att.toughness > b.power + b.toughness) return true;
+    return false;                                  // mutual kill — a real trade
+  });
+}
+
+/**
+ * W4 lethality: unavoidable damage if the defender blocks optimally, judged with
+ * block LEGALITY + menace. An attacker with zero eligible blockers (or menace
+ * with fewer than 2 — the declaration gate never offers that block) always
+ * connects; a blockable menace attacker consumes TWO blockers from the budget
+ * (CR 509.1c). The defender chumps the biggest blockable attackers first.
+ * Approximation: eligibility is per-attacker but the budget is the global
+ * untapped-creature count (exact optimal assignment is a matching problem);
+ * trample-through damage is ignored (a safe underestimate of the swing).
+ * `attackers`: [{ power, menace, eligibleCount }].
+ */
+function swingIsLethalV2(attackers, blockerCount, defenderLife) {
+  if (defenderLife <= 0) return false;
+  let budget = blockerCount;
+  let unavoidable = 0;
+  const blockable = [];
+  for (const a of attackers) {
+    if (a.eligibleCount >= (a.menace ? 2 : 1)) blockable.push(a);
+    else unavoidable += a.power;
+  }
+  blockable.sort((x, y) => y.power - x.power);
+  for (const a of blockable) {
+    const cost = a.menace ? 2 : 1;
+    if (budget >= cost) budget -= cost;
+    else unavoidable += a.power;
+  }
+  return unavoidable >= defenderLife;
 }
 
 /**
@@ -776,29 +837,69 @@ function swingIsLethal(attackerPowers, blockerCount, defenderLife) {
  * status after the first attacker taps and the rest would (correctly, for a
  * non-lethal swing) be held — fizzling the kill. (Found in adversarial review.)
  */
-function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderId) {
+function selectProfitableAttackers(state, aiPlayerId, attackerActions, defenderId, pol = {}) {
   if (!defenderId || !state.players?.[defenderId]) return null;
   const blockers = untappedDefenderBlockers(state, defenderId);
   const defenderLife = state.players[defenderId].life ?? 0;
-
   const permIds = [...new Set(attackerActions.map(a => a.permanentId))];
-  const stats = new Map(permIds.map(id => [id, {
-    power: Math.max(0, permanentPower(state, id)),
-    toughness: permanentToughness(state, id),
-    firstStrike: hasFirstStrike(state, id),
-  }]));
 
-  // Powers of attackers ALREADY committed this combat against this same defender.
-  const committedPowers = (state.combat?.attackers || [])
+  if (pol.attack === "v1") {
+    // ATTACK-V1 (legacy, probe-only): a GLOBAL blocker list with no block-legality,
+    // deathtouch, or menace awareness — suicides into deathtouch walls and holds
+    // back evasive attackers a ground blocker "kills for nothing".
+    const stats = new Map(permIds.map(id => [id, {
+      power: Math.max(0, permanentPower(state, id)),
+      toughness: permanentToughness(state, id),
+      firstStrike: hasFirstStrike(state, id),
+    }]));
+    const committedPowers = (state.combat?.attackers || [])
+      .filter(a => a.attackingPlayer === aiPlayerId && a.defender === defenderId)
+      .map(a => Math.max(0, permanentPower(state, a.permanentId)));
+    const candidatePowers = [...stats.values()].map(s => s.power);
+    const lethal = swingIsLethal([...committedPowers, ...candidatePowers], blockers.length, defenderLife);
+    const chosen = new Set();
+    for (const id of permIds) {
+      const { power, toughness, firstStrike } = stats.get(id);
+      if (lethal || blockers.length === 0 || !attackerDiesForNothing(power, toughness, blockers, firstStrike)) {
+        chosen.add(id);
+      }
+    }
+    return chosen;
+  }
+
+  // W4 — legality-aware profitability. Each attacker is judged against the
+  // blockers that may LEGALLY block it (canBlockAttacker — the block
+  // enumeration's own chokepoint), with deathtouch on both sides and menace in
+  // the lethality budget. A stat we can't resolve (bare test state) keeps the
+  // legacy swing-with-it default — never freeze on an unevaluable board.
+  const describe = (id) => {
+    const s = combatStatsOf(state, id);
+    if (!s) return null;
+    const eligible = eligibleBlockersFor(state, defenderId, id, blockers);
+    return { ...s, menace: hasMenace(state, id), eligible, eligibleCount: eligible.length };
+  };
+  const stats = new Map(permIds.map((id) => [id, describe(id)]));
+
+  // Attackers ALREADY committed this combat vs this defender fold into the
+  // lethality sum (the per-tick driver declares one attacker per tick — without
+  // this the alpha strike loses lethal status after the first declaration).
+  const committed = (state.combat?.attackers || [])
     .filter(a => a.attackingPlayer === aiPlayerId && a.defender === defenderId)
-    .map(a => Math.max(0, permanentPower(state, a.permanentId)));
-  const candidatePowers = [...stats.values()].map(s => s.power);
-  const lethal = swingIsLethal([...committedPowers, ...candidatePowers], blockers.length, defenderLife);
+    .map(a => describe(a.permanentId))
+    .filter(Boolean);
+  const candidates = [...stats.values()].filter(Boolean);
+  const lethal = swingIsLethalV2(
+    [...committed, ...candidates].map(s => ({ power: s.power, menace: s.menace, eligibleCount: s.eligibleCount })),
+    blockers.length,
+    defenderLife,
+  );
 
   const chosen = new Set();
   for (const id of permIds) {
-    const { power, toughness, firstStrike } = stats.get(id);
-    if (lethal || blockers.length === 0 || !attackerDiesForNothing(power, toughness, blockers, firstStrike)) {
+    const s = stats.get(id);
+    if (!s) { chosen.add(id); continue; } // unresolvable candidate → legacy swing-all default
+    const unstoppable = s.eligibleCount < (s.menace ? 2 : 1); // menace + <2 eligible = never offered a block
+    if (lethal || unstoppable || !attackerDiesForNothingV2(s, s.eligible)) {
       chosen.add(id);
     }
   }
@@ -828,11 +929,11 @@ function selfMustAttack(card) {
   return /\bthis creature attacks each (?:combat|turn) if able\b/i.test(t);
 }
 
-export function pickAttackPlan(state, aiPlayerId, attackerActions) {
+export function pickAttackPlan(state, aiPlayerId, attackerActions, { policy = null } = {}) {
   if (!Array.isArray(attackerActions) || attackerActions.length === 0) return [];
   const hasDefenderChoice = attackerActions.some(a => a.defenderId);
   const target = chooseDefender(state, aiPlayerId);
-  const chosen = selectProfitableAttackers(state, aiPlayerId, attackerActions, target);
+  const chosen = selectProfitableAttackers(state, aiPlayerId, attackerActions, target, normalizePolicy(policy));
   // MUST-ATTACK (subsystem 4, CR 508.1a) — a creature that "attacks each combat/turn if able" MUST be
   // declared if it can. It's already in attackerActions (the eligible set, i.e. "able"), so force-include
   // it regardless of the profitability filter (the racer would otherwise illegally hold back an
