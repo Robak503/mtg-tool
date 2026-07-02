@@ -138,53 +138,10 @@ export function parseManaCost(costString) {
   return cost;
 }
 
-/**
- * Check whether a player's current mana pool can pay a parsed cost.
- * Conservative: hybrid pips check whether either option is payable
- * (preferring the colored side when both are color pips); phyrexian
- * pips are NOT counted toward the mana cost in v1 (the caller can
- * opt to pay 2 life — surfaced via canAffordWithPhyrexian).
- *
- * Returns true/false. No "how would you pay" plan — that's PR4.
- */
-export function canPayManaCost(manaPool, cost) {
-  if (!cost) return true;
-  let remaining = { ...manaPool };
-  const subtract = (color, amount) => {
-    if ((remaining[color] || 0) < amount) return false;
-    remaining = { ...remaining, [color]: (remaining[color] || 0) - amount };
-    return true;
-  };
-
-  // Colored pips first (they're hardest to pay).
-  for (const color of ["W", "U", "B", "R", "G", "C"]) {
-    if ((cost[color] || 0) > 0 && !subtract(color, cost[color])) return false;
-  }
-  // Hybrid pips: try the cheapest payable side.
-  for (const options of cost.hybrid) {
-    let paid = false;
-    for (const opt of options) {
-      if (/^\d+$/.test(opt)) {
-        // Numeric side of a {2/W} pip — would pay 2 generic. Skip for
-        // now and rely on the colored side; if that fails we'll see
-        // can-afford = false. Engineering simplicity > completeness in v1.
-        continue;
-      }
-      if ((remaining[opt] || 0) > 0) {
-        remaining = { ...remaining, [opt]: remaining[opt] - 1 };
-        paid = true;
-        break;
-      }
-    }
-    if (!paid) return false;
-  }
-  // Generic — any mana works (colored counts as generic).
-  if (cost.generic > 0) {
-    const totalRemaining = Object.values(remaining).reduce((s, v) => s + v, 0);
-    if (totalRemaining < cost.generic) return false;
-  }
-  return true;
-}
+// W2: the old pool-only `canPayManaCost` heuristic was DELETED — it diverged from the live planner
+// (skipped the numeric side of {2/W}, ignored phyrexian) and had zero production callers. Every
+// affordability check routes through manaModel.canAfford (planPayment !== null); a pool-only check
+// is simply `canAfford(pool, [], cost)`.
 
 /**
  * Total mana value (CMC) from a parsed cost. Used for sort hints and

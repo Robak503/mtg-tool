@@ -14,8 +14,8 @@ import {
   dispatchAction,
   clearCombat,
   DispatcherError,
-  _deductManaCostForTests,
 } from "./actionDispatcher.js";
+import { planPayment, commitPaymentPlan } from "./manaModel.js";
 import { parseManaCost } from "./legalChoices.js";
 import { resolveTopOfStack } from "./gameEngine.js";
 import { RESOLVER_KEYS } from "./resolvers.js";
@@ -331,51 +331,44 @@ describe("clearCombat", () => {
   });
 });
 
-describe("_deductManaCostForTests — mana arithmetic", () => {
+describe("mana payment arithmetic — planPayment + commitPaymentPlan (the live pipeline)", () => {
+  // W2: the dead pool-only `deductManaCost` heuristic (test-only export) was deleted. These pins
+  // re-assert the pool arithmetic through the LIVE planner + committer every production payment
+  // uses. Where the dead heuristic's choices diverged (C-first generic, smaller-pool-side hybrid),
+  // the pins below assert the planner's REAL choices instead — the behavior games actually see.
+  const payFromPool = (pool, cost) => {
+    const plan = planPayment(pool, [], cost);
+    if (!plan) return null;
+    const state = { players: { user: { manaPool: pool } } };
+    return commitPaymentPlan(state, "user", plan).players.user.manaPool;
+  };
+
   it("drains colored pips exactly", () => {
-    const after = _deductManaCostForTests(
-      { W: 0, U: 2, B: 0, R: 0, G: 0, C: 0 },
-      parseManaCost("{U}{U}"),
-    );
+    const after = payFromPool({ W: 0, U: 2, B: 0, R: 0, G: 0, C: 0 }, parseManaCost("{U}{U}"));
     expect(after.U).toBe(0);
   });
 
-  it("spends C before colored for generic costs (preserves colored mana)", () => {
-    const after = _deductManaCostForTests(
-      { W: 0, U: 0, B: 0, R: 0, G: 2, C: 2 },
-      parseManaCost("{2}"),
-    );
-    expect(after.C).toBe(0);
-    expect(after.G).toBe(2);  // colored preserved
+  it("pays generic from the pool in W→U→B→R→G→C order (pool-first, no taps)", () => {
+    const after = payFromPool({ W: 0, U: 0, B: 0, R: 0, G: 2, C: 2 }, parseManaCost("{2}"));
+    // The planner spends pool colors in MANA_COLORS order — G before C here.
+    expect(after.G).toBe(0);
+    expect(after.C).toBe(2);
   });
 
-  it("falls through to colored mana when C runs out", () => {
-    const after = _deductManaCostForTests(
-      { W: 0, U: 0, B: 0, R: 0, G: 3, C: 1 },
-      parseManaCost("{3}"),
-    );
-    expect(after.C).toBe(0);
-    expect(after.G).toBe(1);  // 3 - 1(C) - 2(G) = 0
+  it("spans colors when generic exceeds one color's pool", () => {
+    const after = payFromPool({ W: 0, U: 0, B: 0, R: 0, G: 3, C: 1 }, parseManaCost("{3}"));
+    expect(after.G).toBe(0);
+    expect(after.C).toBe(1);
   });
 
-  it("hybrid pip pays from the smaller side first to preserve flexibility", () => {
-    const after = _deductManaCostForTests(
-      { W: 3, U: 1, B: 0, R: 0, G: 0, C: 0 },
-      parseManaCost("{W/U}"),
-    );
-    // Smaller side is U (1) — should drain U first.
-    expect(after.U).toBe(0);
-    expect(after.W).toBe(3);
+  it("hybrid pip pays the first listed payable side from the pool", () => {
+    const after = payFromPool({ W: 3, U: 1, B: 0, R: 0, G: 0, C: 0 }, parseManaCost("{W/U}"));
+    // {W/U} lists W first and the pool has W — the planner spends W.
+    expect(after.W).toBe(2);
+    expect(after.U).toBe(1);
   });
 
-  it("throws MANA_SHORT when the cost can't be paid", () => {
-    try {
-      _deductManaCostForTests(
-        { W: 0, U: 1, B: 0, R: 0, G: 0, C: 0 },
-        parseManaCost("{U}{U}"),
-      );
-    } catch (error) {
-      expect(error.code).toBe("MANA_SHORT");
-    }
+  it("returns null (no plan) when the cost can't be paid — nothing is deducted", () => {
+    expect(payFromPool({ W: 0, U: 1, B: 0, R: 0, G: 0, C: 0 }, parseManaCost("{U}{U}"))).toBeNull();
   });
 });

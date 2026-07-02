@@ -735,8 +735,8 @@ export function sourcesExcludingOneShotVictim(sources, victimId) {
  * Greedy: colored pips are paid SCARCEST-COLOR-FIRST (fewest producing sources
  * first) from the most-constrained source, so the sole source of a color isn't
  * wasted on a more-flexible pip. Hybrid pips pay the cheapest colored side;
- * phyrexian pips are assumed paid with life (not mana, matching
- * legalChoices.canPayManaCost); X counts as 0. Pathological multicolor costs
+ * phyrexian pips are assumed paid with life (not mana); X counts as 0.
+ * Pathological multicolor costs
  * fall to "can't afford" (null) — never to fabricated mana.
  */
 export function planPayment(pool, sources, cost) {

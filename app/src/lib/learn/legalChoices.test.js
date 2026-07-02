@@ -1,7 +1,7 @@
 /**
  * Tests for Phase 6 PR3 — legalChoices.js.
  *
- * Covers parseManaCost / canPayManaCost / totalCmc, plus the action
+ * Covers parseManaCost / pool-only affordability / totalCmc, plus the action
  * generators: pass-priority, play-land, cast-spell, declare-attacker,
  * declare-blocker. Tests are timing-rule heavy because that's where
  * MTG legality lives.
@@ -14,13 +14,13 @@ import {
 } from "./gameState.js";
 import {
   parseManaCost,
-  canPayManaCost,
   totalCmc,
   legalActionsForPlayer,
   groupActionsByKind,
   filterActions,
   _internals,
 } from "./legalChoices.js";
+import { canAfford } from "./manaModel.js";
 
 function makeCard({ id, name, type, mana, keywords = [] }) {
   return { id: id || `card-${name}`, name, type, mana, keywords };
@@ -95,38 +95,41 @@ describe("parseManaCost", () => {
   });
 });
 
-describe("canPayManaCost", () => {
+describe("pool-only affordability — canAfford(pool, [], cost)", () => {
+  // W2: the dead pool-only `canPayManaCost` heuristic was deleted. Production legality always ran
+  // manaModel.canAfford (planPayment !== null); a pool-only check is canAfford with NO tappable
+  // sources. These pins are the old heuristic's cases re-asserted through the LIVE planner.
   it("returns true when pool exactly matches cost", () => {
     const cost = parseManaCost("{2}{U}");
-    expect(canPayManaCost({ W: 0, U: 1, B: 0, R: 0, G: 0, C: 2 }, cost)).toBe(true);
+    expect(canAfford({ W: 0, U: 1, B: 0, R: 0, G: 0, C: 2 }, [], cost)).toBe(true);
   });
 
   it("returns false when colored pip is missing", () => {
     const cost = parseManaCost("{U}{U}");
-    expect(canPayManaCost({ W: 0, U: 1, B: 0, R: 0, G: 0, C: 0 }, cost)).toBe(false);
+    expect(canAfford({ W: 0, U: 1, B: 0, R: 0, G: 0, C: 0 }, [], cost)).toBe(false);
   });
 
   it("returns false when generic is short", () => {
     const cost = parseManaCost("{3}");
-    expect(canPayManaCost({ W: 0, U: 0, B: 0, R: 0, G: 2, C: 0 }, cost)).toBe(false);
+    expect(canAfford({ W: 0, U: 0, B: 0, R: 0, G: 2, C: 0 }, [], cost)).toBe(false);
   });
 
   it("treats colored mana as substitutable for generic", () => {
     const cost = parseManaCost("{3}");
     // 1 W + 1 U + 1 R + 1 G = 4 total mana ≥ 3 generic.
-    expect(canPayManaCost({ W: 1, U: 1, B: 0, R: 1, G: 1, C: 0 }, cost)).toBe(true);
+    expect(canAfford({ W: 1, U: 1, B: 0, R: 1, G: 1, C: 0 }, [], cost)).toBe(true);
   });
 
   it("hybrid pips pay from whichever color is available", () => {
     const cost = parseManaCost("{W/U}{W/U}");
-    expect(canPayManaCost({ W: 2, U: 0, B: 0, R: 0, G: 0, C: 0 }, cost)).toBe(true);
-    expect(canPayManaCost({ W: 1, U: 1, B: 0, R: 0, G: 0, C: 0 }, cost)).toBe(true);
-    expect(canPayManaCost({ W: 0, U: 2, B: 0, R: 0, G: 0, C: 0 }, cost)).toBe(true);
-    expect(canPayManaCost({ W: 0, U: 1, B: 0, R: 0, G: 0, C: 0 }, cost)).toBe(false);
+    expect(canAfford({ W: 2, U: 0, B: 0, R: 0, G: 0, C: 0 }, [], cost)).toBe(true);
+    expect(canAfford({ W: 1, U: 1, B: 0, R: 0, G: 0, C: 0 }, [], cost)).toBe(true);
+    expect(canAfford({ W: 0, U: 2, B: 0, R: 0, G: 0, C: 0 }, [], cost)).toBe(true);
+    expect(canAfford({ W: 0, U: 1, B: 0, R: 0, G: 0, C: 0 }, [], cost)).toBe(false);
   });
 
   it("returns true for an empty cost regardless of pool", () => {
-    expect(canPayManaCost({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }, parseManaCost(""))).toBe(true);
+    expect(canAfford({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }, [], parseManaCost(""))).toBe(true);
   });
 });
 

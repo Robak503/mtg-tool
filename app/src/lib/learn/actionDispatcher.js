@@ -79,71 +79,10 @@ function findCreatureOnBattlefield(state, playerId, permanentId) {
   return player?.battlefield.find(p => p.id === permanentId) || null;
 }
 
-/**
- * Subtract the parsed cost from the player's mana pool. Mirrors the
- * affordability check in legalChoices.canPayManaCost: colored pips
- * first, then hybrid (prefer cheapest payable side), then generic
- * from whatever's left. Throws if the cost can't be paid — callers
- * must have already validated via canPayManaCost.
- */
-function deductManaCost(manaPool, cost) {
-  let pool = { ...manaPool };
-
-  for (const color of ["W", "U", "B", "R", "G", "C"]) {
-    const need = cost[color] || 0;
-    if (need > 0) {
-      if (pool[color] < need) {
-        throw new DispatcherError(`Cannot deduct ${need} ${color} (pool has ${pool[color]})`, "MANA_SHORT");
-      }
-      pool = { ...pool, [color]: pool[color] - need };
-    }
-  }
-
-  // Hybrid pips: pay from whichever side is available, preferring the
-  // smaller pool (so we don't drain a color we might need later).
-  for (const options of cost.hybrid || []) {
-    const colored = options.filter(o => !/^\d+$/.test(o));
-    let paid = false;
-    // Prefer the option where the pool has the LEAST mana (preserves
-    // flexibility for future casts).
-    colored.sort((a, b) => (pool[a] || 0) - (pool[b] || 0));
-    for (const opt of colored) {
-      if ((pool[opt] || 0) > 0) {
-        pool = { ...pool, [opt]: pool[opt] - 1 };
-        paid = true;
-        break;
-      }
-    }
-    if (!paid) throw new DispatcherError("Cannot pay hybrid pip", "MANA_SHORT");
-  }
-
-  // Generic: drain remaining pool. Spend C first (it can only pay
-  // generic), then the colors with the most available so we don't
-  // strand a color we needed elsewhere.
-  if ((cost.generic || 0) > 0) {
-    let need = cost.generic;
-    const order = ["C", "W", "U", "B", "R", "G"];
-    order.sort((a, b) => (pool[b] || 0) - (pool[a] || 0));  // most-available first for the colored fallback
-    // But always spend C before colored.
-    if (pool.C > 0) {
-      const take = Math.min(pool.C, need);
-      pool = { ...pool, C: pool.C - take };
-      need -= take;
-    }
-    for (const color of order) {
-      if (color === "C") continue;
-      if (need <= 0) break;
-      const take = Math.min(pool[color], need);
-      pool = { ...pool, [color]: pool[color] - take };
-      need -= take;
-    }
-    if (need > 0) {
-      throw new DispatcherError(`Not enough mana for ${cost.generic} generic`, "MANA_SHORT");
-    }
-  }
-
-  return pool;
-}
+// W2: the old pool-only `deductManaCost` heuristic was DELETED — it diverged from the live planner
+// (C-first generic, smaller-pool-side hybrid) and had zero production callers (test-only export).
+// Every payment routes through manaModel.planPayment + commitPaymentPlan (the plan's own spend
+// breakdown IS the deduction, so "affordable" and "actually paid" can never disagree).
 
 // W1: the mana-commit implementation (tap loop + plan spend-deduction) lives in ONE place —
 // manaModel.commitPaymentPlan / commitManaTap — shared with payManaCost (the resolution layer's
@@ -1101,7 +1040,3 @@ export function clearCombat(state) {
   // ends, so it attacks/blocks normally next combat. Shared helper — the engine's end-of-combat reset uses it too.
   return { ...clearRemovedFromCombatFlags(state), combat: { attackers: [], blockers: [] } };
 }
-
-// Re-export deductManaCost for tests that want to assert mana
-// arithmetic directly without going through dispatchAction.
-export { deductManaCost as _deductManaCostForTests };
