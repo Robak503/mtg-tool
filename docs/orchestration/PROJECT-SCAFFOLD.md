@@ -76,7 +76,7 @@ install and never sees a later sync — resolve per-call. See WAKE-REPORT.)
 
 ### 2.1 Server (`app/src/app/api/*`, `app/src/lib/server/*`)
 
-~37 route directories. Groups:
+~34 top-level route directories. Groups:
 - **LLM seam**: `chat-stream` (SSE), `arbiter` (Ollama-**pinned**), `tibalt`,
   `learn/ask`, `model-calls`. All go through `lib/server/modelProvider.js` — the
   single provider gate: `{anthropic, api}` → cloud; `auto` → Ollama-then-cloud
@@ -94,7 +94,7 @@ install and never sees a later sync — resolve per-call. See WAKE-REPORT.)
 - **Sync**: `sync-data` (spawns bundled sync scripts, SSE progress),
   `install-ollama`, `ollama-health`.
 - **Engine wrappers**: `learn/*` (drives the game engine), `self-play`,
-  `power-rank`, `pod-balance`, `recommend`, `deck-report`, `combos`, `spellbook`.
+  `power-rank`, `pod-balance`, `recommend`, `deck-report`, `combos`.
 
 **Storage discipline:** all user-facing writes are atomic (tmp+rename via
 `atomicJson.js` or a local equivalent) with corruption recovery. External fetches
@@ -166,7 +166,9 @@ repo secrets — never committed. Full flow + key rotation + rollback: [RELEASE.
 `measure-coverage.mjs` (coverage dashboard), `tier-fingerprint.mjs` (the flip-diff
 gate), `program-fingerprint.mjs` (parser-seam gate), `runtime-fingerprint.mjs`
 (mana drift), `qa-sweep.mjs`, `allowlist-guard.mjs` (self-certification tamper
-guard), `clause-frontier.mjs`, `play-ranked-backlog.mjs`, `self-play.mjs`. These
+guard), `clause-frontier.mjs`, `play-ranked-backlog.mjs`, `self-play.mjs`
+(`--export-trajectories` = the omnath-trajectory-v1 engine→brain hook),
+`play-quality-probe.mjs` (seeded A/B for AI-policy changes). These
 are how the engine work is verified — see ENGINE-SCAFFOLD §7.
 
 ---
@@ -195,7 +197,10 @@ are how the engine work is verified — see ENGINE-SCAFFOLD §7.
 - **Live anchors** (read these to resume): `docs/orchestration/WAKE-REPORT.md` (the
   single resume anchor — state, findings, parked items), this scaffold pair,
   `CHANGELOG.md` (authoritative version history), `docs/gotchas.md` (build-pipeline
-  landmines — read before touching the build or the Rust shell), `RELEASE.md`.
+  landmines — read before touching the build or the Rust shell), `RELEASE.md`,
+  [PLAY-API-CONTRACT.md](PLAY-API-CONTRACT.md) (the locked Omnath seam contract),
+  [overhaul-evidence.md](overhaul-evidence.md) + [OVERHAUL-PLAYBOOK.md](OVERHAUL-PLAYBOOK.md)
+  (the overhaul pass's evidence ledger + method).
 - **Orchestration**: `coverage-run.md` (the operating spec for the coverage grind),
   `play-ranked-backlog.md`, the FP ledgers (`fp-watch.md`, `retired-fp-ledger.md`),
   `agents/clyde.md` + `agents/omnath.md` (the two live roles).

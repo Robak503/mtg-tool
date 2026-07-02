@@ -111,8 +111,8 @@ it over-counts a handful of utility lands. Documented, not yet tightened (a
      → hasManaAbility + residue gate       → native-mana
      → single-mechanism gates: permanentTriggersCovered / permanentActivatedCovered
        / staticAbilitiesCoverCard / equipment + grant gates
-     → COVERAGE_CLASSIFIERS registry (24 registered classifiers, consulted in
-       registration order) — doubler, mana-multiplier, kicker, tribute, emerge,
+     → COVERAGE_CLASSIFIERS registry (consulted in registration order — count with
+       grep -c registerCoverageClassifier) — doubler, mana-multiplier, kicker, tribute, emerge,
        chosen-type, commander hooks, annihilator, bestow, …
      → permanentFullyCovered               → native-mixed
      → else                                → body-only
@@ -166,7 +166,7 @@ bullet guard → splitClauses (split on sentences / ";" / top-level " and ", wit
 
 ### 3.3 The CLAUSE_PARSERS registry (the atom seam)
 
-`effects/atoms/*.js` (42 modules) each export **pure clause parsers** — functions
+`effects/atoms/*.js` (22 modules + colocated tests) each export **pure clause parsers** — functions
 that take a clause string and return an atom (or null). They register into
 `CLAUSE_PARSERS` at the bottom of `parser.js`. **Critical architectural rule: an
 atom module NEVER imports `parser.js` back** — the dependency is one-way
@@ -299,7 +299,8 @@ the keyword soup (trample/deathtouch/lifelink/infect/toxic/protection/menace),
 consults damage replacements, applies commander damage, then SBAs + dies triggers.
 `decide({state, legalActions, seat, pilot})` is the **pilot injection point** for
 self-play (Omnath's pilots drive it); it validates the returned action against the
-offered set with a canonical-key deep compare (`actionInOfferedSet`).
+offered set with a canonical-key deep compare (`actionInOfferedSet`). A pilot's
+optional `decideMulligan` (same shape) fires at keep/ship windows.
 
 ### 4.9 Self-play (`selfPlayRunner.js`, `learnSession.js`, `gameApi.js`)
 
@@ -308,10 +309,14 @@ eliminations → pending-* settlement → turn cap → priority window → `make
 → `dispatchAction`, with a progress-signature anti-loop latch). `selfPlayRunner`
 builds seeded batches (rotated start seat, optional time pressure) and labels
 outcomes **honestly** — a timeout/non-completion gets a `null` label and
-`trainingWeight 0`, never a fabricated win. `gameApi.js`
-(`legalActions/applyAction/gameStatus/observe`) is the *documented* stable seam,
-but today only `gameStatus` has a production consumer (see the parked seam note in
-WAKE-REPORT).
+`trainingWeight 0`, never a fabricated win. `gameApi.js` is the
+**play-API v1** (`PLAY_API_VERSION "1.0.0"`): the pure layer
+(`legalActions/isLegalAction/applyAction/gameStatus/observe`) plus a SESSION layer
+(`createGame/nextDecision/act`) that drives COMPLETE games including
+pendingChoice/pendingArbiter settlement. The contract is locked in
+[PLAY-API-CONTRACT.md](PLAY-API-CONTRACT.md); `omnathSeam.test.js` is the in-gate
+tripwire; `scripts/self-play.mjs --export-trajectories` emits the
+omnath-trajectory-v1 engine→brain hook.
 
 ---
 
@@ -383,7 +388,7 @@ Three mechanisms, run from `app/`. **Never claim a change is safe without them.*
 ```bash
 # from app/ — CRITICAL: do NOT set MTG_APP_ROOT (it redirects paths.js and causes
 # ~176 filesystem-test failures that are NOT real). Read "Tests N passed".
-npx vitest run          # expect the full suite green (6300+ cases)
+npx vitest run          # expect the full suite green (6,500+ cases)
 npm run lint            # eslint --max-warnings 0
 ```
 

@@ -21,7 +21,7 @@
  *   GET  /api/self-play?action=reports   → { reports: [{ file, savedAt, deckNames, games, breakages, mode }] }
  *   GET  /api/self-play?action=report&file=… → { file, report }
  *   GET  /api/self-play?action=stats     → { games, rows, files }
- *   POST /api/self-play                  → run; body { deckIds, mode, gamesPer, allProfiles, record }
+ *   POST /api/self-play                  → run; body { deckIds, mode, gamesPer, allProfiles, record, scope }
  *
  * Props mirror the other center views' theme contract:
  *   colors      — { BG, BG2, BG3, LINE, TEXT, MUTED, GOLD }

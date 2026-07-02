@@ -352,7 +352,7 @@ export function createPlayerState({ library = [], life = STARTING_LIFE_COMMANDER
   return {
     life,
     poison: 0,
-    commanderDamageFrom: {},  // CR 903.10a — { commanderCardId: combatDamage } (per-commander, 21 = a loss)
+    commanderDamageFrom: {},  // CR 903.10a — { commanderInstanceId (fallback: cardId): combatDamage } (per-commander, 21 = a loss)
     commanderCastCount: {},   // CMD-CAST (CR 903.8): { commanderCardId: timesCastFromCommandZone } — drives the {2} tax
     manaPool: emptyManaPool(),
     library: [...library],

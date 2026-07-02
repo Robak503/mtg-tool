@@ -96,7 +96,7 @@ You must:
 Run verification after big changes or batches of small changes — not
 after every edit. Verification means:
 
-- `npm test` in `app/` passes (currently ~6,300 vitest cases)
+- `npm test` in `app/` passes (currently ~6,580 vitest cases)
 - `cargo check --release` in `app/src-tauri/` passes
 - For UI changes: `npm run dev` in `app/` boots cleanly at
   http://localhost:3000

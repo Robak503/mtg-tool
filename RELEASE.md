@@ -122,25 +122,29 @@ roll back.
 
 `.github/workflows/release.yml` on push of `v*`:
 
-1. Checkout
-2. Install Rust stable
-3. Cache cargo registry + `app/src-tauri/target/`
-4. Install Node 22
-5. `npm ci` in `app/`
-6. `npm run tauri:build:release` with secrets piped in
-   - This runs `scripts/build-signed-release.cjs` which calls
-     `npx tauri build --config '{"bundle":{"createUpdaterArtifacts":true}}'`
-     with the signing env vars set
-   - Produces `.exe`, `.exe.sig`, plus the standalone Next.js bundle
-     inside it
-7. PowerShell build step constructs `latest.json` with version, notes,
-   pub_date, and the signature blob from the `.sig` file
-8. `softprops/action-gh-release` creates the GitHub Release and
-   uploads the three artifacts as assets
+1. Checkout · Rust stable · Node 22 · `npm ci` in `app/`
+2. **Test gate** — the full vitest suite must pass before anything builds
+3. Sync `tauri.conf.json`'s version from the tag
+4. Restore the `refdata-` cache (restore-only — releases never save it)
+5. Data syncs: Scryfall bulk → oracle index → printings index → price
+   seed (best-effort) → rules index → EDHREC salt → Card Kingdom
+   (best-effort) → **Spellbook bulk-first sync** (variants.json.gz —
+   the full ~95k combo dataset in seconds, paged-crawl fallback;
+   continue-on-error with a 12-minute bound)
+6. `npm run tauri:build:release` with secrets injected — runs
+   `scripts/build-signed-release.cjs` (tempfile `--config` flips
+   `createUpdaterArtifacts`) under the **strict bundle guard**
+   (`prepare-tauri-resources.cjs --strict` hard-fails on any missing
+   REQUIRED data file, incl. the Spellbook combos/index/cards trio)
+7. PowerShell step constructs `latest.json` (version, notes, pub_date,
+   the signature blob) + a stable-name `MTG-Tool-Setup.exe` copy (the
+   never-changing pod link `releases/latest/download/MTG-Tool-Setup.exe`)
+8. `softprops/action-gh-release` publishes **five assets**:
+   `MTG.Tool_x.y.z_x64-setup.exe` + `.sig`, `MTG-Tool-Setup.exe` +
+   `.sig`, and `latest.json`
 
-Total runtime: ~30-40 min including the data sync. Subsequent releases
-reuse the cached `app/data/` folder (refdata- cache key), but Spellbook
-+ EDHREC syncs still take 10-15 min for fresh combo/salt data.
+Total runtime: ~30-40 min (the Scryfall sync dominates when the cache
+misses; the Spellbook step is seconds since the bulk switch).
 
 ## Known gap: Windows SmartScreen on first install
 

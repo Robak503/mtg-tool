@@ -106,5 +106,14 @@ pipeline or the Rust shell.
     with `Win32_Security` enabled — `CreateJobObjectW`'s signature
     references `SECURITY_ATTRIBUTES`, so it won't resolve without it.
 
+19. **Windows session-tooling traps** (cost the overhaul pass real time):
+    (a) the Bash tool eats one backslash level even inside quoted heredocs and
+    evaluates backtick spans — write patch/doc content via the **Write tool +
+    `node script.cjs`**, never a heredoc carrying backslashes/backticks;
+    (b) NEVER set `MTG_APP_ROOT` when running vitest (~176 phantom filesystem
+    failures); (c) after ANY Edit/Write, verify the file landed in YOUR worktree
+    and `git -C <main-tree> status` is clean (the Edit-misroute env bug).
+    Full recipes: docs/orchestration/OVERHAUL-PLAYBOOK.md §2/§4.
+
 ---
 
