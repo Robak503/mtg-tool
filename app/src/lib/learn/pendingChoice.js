@@ -42,6 +42,7 @@ export const PENDING_CHOICE_KINDS = [
   "optional-sac-payment",
   "optional-draw-discard",
   "optional-discard-payment",
+  "sac-unless-pay",
 ];
 
 /**
@@ -391,6 +392,22 @@ export function setPendingOptionalDiscardPaymentChoice(state, { controller, avai
   return {
     ...next,
     pendingChoice: { kind: "optional-discard-payment", controller, available, effectAtoms, sourceName },
+  };
+}
+
+/**
+ * UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword, CR 603.7c) — "Sacrifice this <noun> unless you pay {cost}." The
+ * driver pauses a human and auto-decides an AI (pay iff affordable — keep the permanent). INVERTED polarity vs
+ * optional-mana-payment: resolveSacUnlessPayChoice charges the mana on a pay-and-afford and the permanent survives;
+ * a decline or an unaffordable pay SACRIFICES the source (via `sourceId` = ctx.sourceId, the permanent whose upkeep
+ * trigger this is). FIFO.
+ */
+export function setPendingSacUnlessPayChoice(state, { controller, cost, sourceId = null, sourceName = null }) {
+  if (state.pendingChoice) return state;
+  const next = logEvent(state, { kind: "sac-unless-pay-pending", controller, amount: wardCostHeadline(cost), sourceName });
+  return {
+    ...next,
+    pendingChoice: { kind: "sac-unless-pay", controller, cost, sourceId, sourceName },
   };
 }
 

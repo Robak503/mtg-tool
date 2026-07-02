@@ -5,7 +5,7 @@
 
 import { applyDamageEffect } from "../../spellEffects.js";
 import { logEvent, attachPermanent, findPermanent, creaturePower, opponentsOf, mintId, createStackObject } from "../../gameState.js";
-import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice } from "../../pendingChoice.js";
+import { setPendingSoftCounterChoice, setPendingOptionalManaPaymentChoice, setPendingOptionalSacBySubtypeChoice, setPendingOptionalDrawDiscardChoice, setPendingOptionalDiscardPaymentChoice, setPendingSacUnlessPayChoice } from "../../pendingChoice.js";
 import { resolveScaledAmount, countForSpec, isCreatureCard } from "./shared.js";
 import { applyControllerRider } from "./removal.js";
 import { parseCountSource } from "../parseHelpers.js"; // seam batch 15: shared count-source parser (leaf, cycle-free) for dealDamageScaledClauseParser
@@ -551,6 +551,20 @@ function applyOptionalDiscardPayment(state, atom, ctx) {
   });
 }
 
+// UPKEEP-SAC-UNLESS-PAY — "Sacrifice this <noun> unless you pay {cost}." Suspend on the pay/decline choice, carrying
+// the mana cost AND `sourceId` (the source permanent, ctx.sourceId — the same binding the self-sac edict atom uses)
+// so resolveSacUnlessPayChoice can sacrifice THIS permanent on a decline / unaffordable pay. INVERTED polarity: pay
+// keeps it, don't-pay sacrifices it.
+function applyUpkeepSacUnlessPay(state, atom, ctx) {
+  if (state.pendingChoice) return state; // FIFO — one choice at a time
+  return setPendingSacUnlessPayChoice(state, {
+    controller: ctx.controller,
+    cost: atom.cost,
+    sourceId: ctx.sourceId ?? null,
+    sourceName: ctx.cardName || null,
+  });
+}
+
 // STORM-COPY-TARGET — the enemy/own SIDE of a chosen target, for the per-copy new-target chooser (CR 707.10c).
 // Mirrors gameEngine.chooseTriggerTargets' `sideOf` but is replicated inline so atoms/stack.js stays clear of the
 // stack→gameEngine→parser cycle (gameEngine + parser both transitively import this file). A target carries no
@@ -737,6 +751,7 @@ export const stackResolvers = {
   "optional-sac-payment": applyOptionalSacPayment, // REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) — "you may sacrifice a <subtype>. if you do, <effect>"
   "optional-draw-discard": applyOptionalDrawDiscard, // OPTIONAL DRAW-THEN-DISCARD — "you may draw a card. if you do, discard a card."
   "optional-discard-payment": applyOptionalDiscardPayment, // OPTIONAL-DISCARD-PAYMENT (CR 603.7c) — "you may discard a card. if you do, <effect>"
+  "sac-unless-pay": applyUpkeepSacUnlessPay, // UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword) — "sacrifice this <noun> unless you pay {cost}"
   "source-power-fanout": applySourcePowerFanout, // SOURCE-POWER-FANOUT (Chandra's Ignition) — chosen creature deals its power to each other creature + each opponent
   "deal-damage": (state, atom, ctx) =>
     // KW-POISON: thread the SOURCE permanent (ctx.sourceId, set for activated/triggered abilities) so an

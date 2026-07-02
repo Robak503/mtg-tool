@@ -1663,8 +1663,15 @@ describe("parseEffectProgram — SELF-SACRIFICE self-referential sacrifice atom"
     expect(a).toMatchObject({ op: "sacrifice", target: "self" });
     expect(a?.targetType).toBeUndefined();
   });
+  it("'sacrifice this creature unless you pay {N}' → HIGH (UPKEEP-SAC-UNLESS-PAY fold)", () => {
+    // Deliberate, reviewed widening: the upkeep-tax body (Whipstitched Zombie / Drifting Djinn, and the
+    // Kataki/Pendrell-Mists granted self-sac) folds to ONE pausing sac-unless-pay atom — pay keeps it,
+    // decline/can't-afford sacrifices the source. Pinned HIGH here so a future refactor can't silently drop it.
+    hi("sacrifice this creature unless you pay {2}");
+    expect(atomOf("sacrifice this creature unless you pay {2}")).toMatchObject({ op: "sac-unless-pay" });
+  });
   it("MUST STAY LOW: forms with riders or conditions (FP-GUARD)", () => {
-    lo("sacrifice this creature unless you pay {2}"); // conditional, complex
+    lo("sacrifice this creature unless you pay {X}"); // {X} cost — parseFixedManaPips → null → unmodeled
     lo("sacrifice this creature at the beginning of the next end step"); // deferred trigger
   });
 });

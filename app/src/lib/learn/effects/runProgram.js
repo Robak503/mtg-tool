@@ -830,6 +830,18 @@ export function autoPickOptionalDiscard(state, pc) {
 }
 
 /**
+ * ===== UPKEEP-SAC-UNLESS-PAY ===== — auto-pick for self-play: PAY iff the controller can afford the cost (keep the
+ * permanent — the sensible default; a board-aware "let it die" refinement is future). Returns false (→ sacrifice)
+ * when the controller is gone or can't afford. CRASH-FIX: canAfford's arity is (pool, sources, cost) — the design's
+ * two-arg call threw `sources.map is not a function` on every AI-resolved instance. Mirrors autoPickSoftCounterPay.
+ */
+export function autoPickSacUnlessPay(state, pc) {
+  const player = state.players?.[pc?.controller];
+  if (!player) return false; // controller gone → can't pay → sacrificed
+  return canAfford(player.manaPool, manaSources(state, pc.controller), pc.cost?.mana || {});
+}
+
+/**
  * ===== OPTIONAL DRAW-THEN-DISCARD ===== — settle "you may draw a card. If you do, discard a card.": on `doDraw`
  * run the [draw, discard] payoff in order (parser-validated HIGH + targetless); on decline do NOTHING (hand &
  * library untouched — the cardinal CREED guarantee). The discard is the LAST atom, so its which-card pause chains
@@ -897,6 +909,32 @@ export function resolveOptionalDiscardPaymentChoice(state, doDiscard) {
       } },
     };
     return runEffectProgram(next, obj);
+  }
+  return resumeAfterChoice(next, pc);
+}
+
+/**
+ * ===== UPKEEP-SAC-UNLESS-PAY ===== — settle "sacrifice this <noun> unless you pay {cost}": INVERTED polarity vs
+ * optional-mana-payment. If `pay` AND the controller can afford it, charge the mana (payManaCost — taps their sources)
+ * and the permanent SURVIVES; otherwise (declined, OR an unaffordable pay — payManaCost never fabricates mana, CR 119,
+ * so `paid` is false) SACRIFICE the source permanent (sacrificeCreatureEffect via pc.sourceId — fires its dies +
+ * TRIG-SACRIFICE watchers). A stale/absent sourceId is a clean no-op inside sacrificeCreatureEffect (never a
+ * fabrication). Then RESUME the suspended program. Eliminated-controller guard (CR 800.4a). Logged either way.
+ */
+export function resolveSacUnlessPayChoice(state, pay) {
+  const pc = state.pendingChoice;
+  if (!pc || pc.kind !== "sac-unless-pay") return state;
+  let next = clearPendingChoice(state);
+  if (!next.players?.[pc.controller]) return next; // controller eliminated mid-pause → bail, no resume
+  let paid = false;
+  if (pay && pc.cost?.kind === "mana") {
+    const r = payManaCost(next, pc.controller, pc.cost.mana || {});
+    next = r.state;
+    paid = r.paid;
+  }
+  next = logEvent(next, { kind: "spell-effect", effect: "sac-unless-pay", controller: pc.controller, paid, sourceName: pc.sourceName || null });
+  if (!paid) {
+    next = sacrificeCreatureEffect(next, pc.controller, pc.sourceId); // couldn't/wouldn't pay → the source sacrifices itself
   }
   return resumeAfterChoice(next, pc);
 }

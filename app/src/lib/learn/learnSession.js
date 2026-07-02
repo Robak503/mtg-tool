@@ -47,7 +47,7 @@ import { makeDecision, resolveChoice } from "./decisionGate.js";
 import { stableActionKey as _stableActionKey } from "./actionKey.js";
 import { dispatchAction } from "./actionDispatcher.js";
 import { featurizeState } from "./gameFeatures.js";
-import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice } from "./effects/runProgram.js";
+import { autoPickTutorCandidate, resolveTutorChoice, resolveScryChoice, resolveOptionalChoice, autoPickHandDiscardCandidate, resolveHandDiscardChoice, resolveImpulseDigChoice, autoPickSacrificeCandidate, resolveSacrificeChoice, autoPickDiscardCandidate, resolveDiscardChoice, autoPickDivideDistribution, resolveDivideChoice, autoPickDistributeCounters, resolveDistributeChoice, autoPickSoftCounterPay, resolveSoftCounterChoice, autoPickOptionalManaPayment, resolveOptionalManaPaymentChoice, autoPickOptionalSac, resolveOptionalSacChoice, autoPickOptionalDrawDiscard, resolveOptionalDrawDiscardChoice, autoPickOptionalDiscard, resolveOptionalDiscardPaymentChoice, autoPickSacUnlessPay, resolveSacUnlessPayChoice } from "./effects/runProgram.js";
 import { resolveCloneChoice } from "./resolvers.js";
 import { autoPickCloneCandidate } from "./cloneCopy.js";
 
@@ -546,6 +546,13 @@ function settleOptionalDrawDiscardChoice(state, doDraw) {
 // runs (the cost-discard's which-card pause may still be pending, so guard before flushing). Mirrors settleOptionalSacChoice.
 function settleOptionalDiscardChoice(state, doDiscard) {
   const next = resolveOptionalDiscardPaymentChoice(state, doDiscard);
+  return next.pendingChoice ? next : finalizeStackResolution(next);
+}
+
+// UPKEEP-SAC-UNLESS-PAY — settle "sacrifice this <noun> unless you pay {cost}." Pay+afford keeps it; else the source
+// sacrifices itself. Neither branch pauses (payManaCost/sacrificeCreatureEffect resolve in one call), so flush.
+function settleSacUnlessPayChoice(state, pay) {
+  const next = resolveSacUnlessPayChoice(state, pay);
   return next.pendingChoice ? next : finalizeStackResolution(next);
 }
 
@@ -1235,6 +1242,18 @@ export function advanceUntilDecision(
           fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickOptionalDiscard(current.state, pc) },
         });
         current = { ...current, state: settleOptionalDiscardChoice(current.state, picked.value) };
+        continue;
+      }
+      if (pc.kind === "sac-unless-pay") {
+        if (pause) {
+          return { session: current, decision: { kind: "sac-unless-pay", ...pc } };
+        }
+        const picked = decidePendingChoice({
+          decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
+          buildOffered: () => pendingYesNoActions(pc),
+          fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, value: autoPickSacUnlessPay(current.state, pc) },
+        });
+        current = { ...current, state: settleSacUnlessPayChoice(current.state, picked.value) };
         continue;
       }
       // Tutor library search. A pilot may fetch a different legal candidate (or find nothing — CR
@@ -1931,6 +1950,39 @@ export function applyOptionalDiscardPaymentChoice(session, choice) {
 }
 
 /**
+ * ===== UPKEEP-SAC-UNLESS-PAY ===== — the player chose to pay (keep the permanent) or not (sacrifice it), for a
+ * "sacrifice this <noun> unless you pay {cost}." `choice.pay` is the yes/no. resolveSacUnlessPayChoice charges the
+ * mana + keeps it on a pay-and-afford, else sacrifices the source, then resumes + re-derives. Mirrors applyOptionalSacChoice.
+ */
+export function applySacUnlessPayChoice(session, choice) {
+  if (session.status !== "active") {
+    return { session, decision: { kind: "game-over", reason: session.status } };
+  }
+  const pc = session.state.pendingChoice;
+  if (!pc || pc.kind !== "sac-unless-pay") {
+    return advanceUntilDecision(session); // nothing pending (double-submit) — re-derive.
+  }
+  const pay = choice?.pay === true || choice === true;
+  let newState;
+  try {
+    newState = settleSacUnlessPayChoice(session.state, pay);
+  } catch (error) {
+    return { session, decision: { kind: "dispatch-error", reason: error.message, code: error.code } };
+  }
+  const logEntry = {
+    ts: Date.now(),
+    turn: session.state.turn,
+    phase: session.state.phase,
+    step: session.state.step,
+    actor: "user",
+    action: { kind: "sac-unless-pay-choice", paid: pay },
+    auto: false,
+    reasoning: "user-chose-sac-unless-pay",
+  };
+  return advanceUntilDecision({ ...session, state: newState, decisionLog: [...session.decisionLog, logEntry] });
+}
+
+/**
  * The player resolved an `optional-effect` decision ("you may <effect>", α2). `choice.take` is the
  * yes/no. Runs-or-skips the paused atom, resumes the program, then re-derives the next decision.
  * Returns { session, decision } like advanceUntilDecision.
@@ -2227,6 +2279,7 @@ export function applyPendingChoice(session, choice) {
   if (kind === "optional-sac-payment") return applyOptionalSacChoice(session, choice);
   if (kind === "optional-draw-discard") return applyOptionalDrawDiscardChoice(session, choice);
   if (kind === "optional-discard-payment") return applyOptionalDiscardPaymentChoice(session, choice);
+  if (kind === "sac-unless-pay") return applySacUnlessPayChoice(session, choice);
   if (kind === "tutor-search") return applyTutorChoice(session, choice);
   // WI-4 FAILSAFE — no pendingChoice at all (nothing to answer) re-derives, byte-identical to every
   // apply* function's own "double-submit" guard. A REAL unhandled kind never reaches applyTutorChoice's

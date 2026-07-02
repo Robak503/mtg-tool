@@ -1598,6 +1598,32 @@ function parseFixedManaPips(pipStrings) {
   return cost;
 }
 
+// UPKEEP-SAC-UNLESS-PAY noun allowlist — the printed permanent-type nouns for which "sacrifice this <noun>" means
+// "sacrifice the source permanent" unambiguously. An unrecognized noun → no match (safe FN → Arbiter). The sac target
+// is always the source (ctx.sourceId) regardless of noun; the allowlist just gates out garbage.
+const SAC_UNLESS_PAY_NOUNS = new Set(["creature", "artifact", "enchantment", "land", "permanent", "token"]);
+
+/**
+ * ===== UPKEEP-SAC-UNLESS-PAY (echo-without-the-keyword, CR 603.7c) ===== "Sacrifice this <noun> unless you pay
+ * {cost}." — the upkeep-tax body of a cumulative/echo-style permanent (the effectClause of "At the beginning of your
+ * upkeep, …"): a mana-payment choice with INVERTED polarity vs optional-mana-payment (PAY+afford keeps the permanent;
+ * DECLINE or CAN'T-afford sacrifices the source). MUST be matched WHOLE, pre-splitter: a bare "sacrifice this creature"
+ * left over hits sacrificeEdictClauseParser → an UNCONDITIONAL self-sac that silently DROPS the pay-escape (a cardinal
+ * FP). CREED guards: FIXED mana cost (parseFixedManaPips → null on {X}), an allowlisted permanent noun; anchored ^…$
+ * (a rider leaves residue → LOW → Arbiter). Emit the { op:"sac-unless-pay", cost } pausing atom, or null.
+ */
+function matchUpkeepSacUnlessPay(oracle) {
+  const s = stripReminder(oracle).trim().replace(/[’]/g, "'").replace(/\.$/, "");
+  const m = s.match(/^sacrifice this(?:\s+([a-z]+))?\s+unless you pay\s+(\{[^}]+\}(?:\{[^}]+\})*)$/i);
+  if (!m) return null;
+  if (m[1] && !SAC_UNLESS_PAY_NOUNS.has(m[1].toLowerCase())) return null; // an unrecognized noun → unmodeled (safe FN)
+  const pips = (m[2].match(/\{([^}]+)\}/g) || []).map((p) => p.slice(1, -1));
+  if (!pips.length) return null;
+  const mana = parseFixedManaPips(pips);
+  if (!mana) return null; // {X} / unknown symbol → unmodeled cost
+  return { atom: { op: "sac-unless-pay", cost: { kind: "mana", mana }, targetType: null } };
+}
+
 /**
  * ===== OPTIONAL-MANA-PAYMENT (CR 603.7c) ===== "You may pay {cost}. If you do, <effect>." — an OPTIONAL mana
  * payment whose payoff resolves ONLY if the controller pays (Lifecrafter's Bestiary "you may pay {G}. If you
@@ -1959,6 +1985,14 @@ function parseEffectClauseImpl(oracle, cardType = "", { hasX = false } = {}) {
   const omp = matchOptionalManaPayment(oracle, cardType);
   if (omp && KNOWN.has(omp.atom.op)) {
     return makeProgram({ confidence: "high", atoms: [omp.atom], xSpell: false, unparsedTail: null });
+  }
+  // ===== UPKEEP-SAC-UNLESS-PAY ===== "Sacrifice this <noun> unless you pay {cost}." → ONE sac-unless-pay atom (pay
+  // keeps it, decline/can't-afford sacrifices the source). MUST be matched WHOLE here, PRE-SPLITTER — a leftover bare
+  // "sacrifice this creature" would hit sacrificeEdictClauseParser → an unconditional self-sac that drops the pay-
+  // escape (cardinal FP). Disjoint anchor from the other folds ("sacrifice this…" vs "you may…"), so order-free.
+  const sup = matchUpkeepSacUnlessPay(oracle);
+  if (sup && KNOWN.has(sup.atom.op)) {
+    return makeProgram({ confidence: "high", atoms: [sup.atom], xSpell: false, unparsedTail: null });
   }
   // ===== REFLEXIVE-SAC-BY-SUBTYPE (CR 603.7c) ===== "You may sacrifice a <subtype>. If you do, <effect>." → ONE
   // optional-sac-payment atom (the resolver suspends on a real sac/decline; sacrificeCreatureEffect pitches one
