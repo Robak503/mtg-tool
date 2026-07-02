@@ -1217,27 +1217,62 @@ function extractAdditionalCosts(oracle) {
 // Maneuver — the "free if you control a commander" cycle); pitch/sac/return kinds + other conditions land next.
 // Anchored to a whole sentence at oracle start or after a newline; the condition capture forbids commas /
 // periods / newlines so it can never span into the effect body.
-const ALT_FREE_RE = /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may cast this spell without paying its mana cost\.\s*/i;
-const SUPPORTED_ALT_COST_KINDS = new Set(["free"]);
+const SUPPORTED_ALT_COST_KINDS = new Set(["free", "payLifeExilePitch", "exileColorCard", "sacrificeCreature", "payLife", "returnLandsToHand"]);
 
-// Map a captured alt-cost condition phrase → a small enum. Unrecognized (or, in wave 3a, absent) → null,
-// which REJECTS the whole alt-cost so the card stays LOW — we never credit a gate the cast path can't
-// evaluate. Grows per wave (notYourTurn / controlLand / submergeGate in 3b/3c).
+// Map a captured "if <cond>," phrase → a condition enum (a STRING — inert metadata today, since the alt-cost is
+// recorded but not yet OFFERED; the future cast-path offer will evaluate it). An UNRECOGNIZED condition → null,
+// which rejects the whole alt-cost so the card stays LOW (never credit a gate we can't name). Absent → "always".
 function parseAltCostCondition(phrase) {
-  if (phrase == null) return null;                       // 3a: no unconditional-free modeled yet
+  if (phrase == null) return "always";
   const p = phrase.trim().toLowerCase();
   if (p === "you control a commander") return "controlCommander";
+  if (p === "it's not your turn") return "notYourTurn";
+  if (p === "an opponent controls a forest and you control an island") return "submergeGate"; // Submerge
+  const land = p.match(/^you control an? (\w+)$/);
+  if (land) {
+    const sub = land[1][0].toUpperCase() + land[1].slice(1);
+    if (["Swamp", "Island", "Forest", "Mountain", "Plains"].includes(sub)) return "controlLand:" + sub;
+  }
   return null;                                            // unmodeled condition → reject → stays LOW
 }
 
+// The modeled printed-alt-cost sentence shapes. Each: an anchored regex (a whole sentence at oracle start or
+// after a newline; the captures can never span into the effect body) + a builder → an altCost descriptor, or
+// null to REJECT (leave the sentence in → the card stays LOW). Tried in order; the first that both matches AND
+// builds non-null wins. Only the FREE kind waives mana entirely (a future offer reuses action.freeCast); the
+// pitch/sac/return kinds pay their own printed cost. All are recorded as metadata only for now (§ extractAltCost).
+const ALT_COST_MATCHERS = [
+  // FREE — "[if <cond>, ]you may cast this spell without paying its mana cost." (Fierce Guardianship, Submerge).
+  { re: /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may cast this spell without paying its mana cost\.\s*/i,
+    build: (m) => { const c = parseAltCostCondition(m[1]); return c && { kind: "free", condition: c }; } },
+  // PITCH-LIFE-EXILE — "you may pay N life and exile a <color> card from your hand rather than pay this spell's mana cost." (Force of Will).
+  { re: /(?:^|\n)\s*you may pay (\d+) life and exile an? (\w+) card from your hand rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => ({ kind: "payLifeExilePitch", amount: Number(m[1]), color: m[2].toLowerCase(), condition: "always" }) },
+  // EXILE-COLOR — "[if it's not your turn, ]you may exile a <color> card from your hand rather than pay this spell's mana cost." (Force of Negation, Misdirection).
+  { re: /(?:^|\n)\s*(if it's not your turn, )?you may exile an? (\w+) card from your hand rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => ({ kind: "exileColorCard", color: m[2].toLowerCase(), condition: m[1] ? "notYourTurn" : "always" }) },
+  // SAC-CREATURE — "you may sacrifice a [nontoken ]<color> creature rather than pay this spell's mana cost." (Flare of Denial / Cultivation).
+  { re: /(?:^|\n)\s*you may sacrifice a (nontoken )?(\w+) creature rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => ({ kind: "sacrificeCreature", nontoken: !!m[1], color: m[2].toLowerCase(), condition: "always" }) },
+  // PAYLIFE — "[if <cond>, ]you may pay N life rather than pay this spell's mana cost." (Snuff Out — controlLand Swamp).
+  { re: /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may pay (\d+) life rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => { const c = parseAltCostCondition(m[1]); return c && { kind: "payLife", amount: Number(m[2]), condition: c }; } },
+  // RETURN-LANDS — "you may return two <Subtype>s you control to their owner's hand rather than pay this spell's mana cost." (Gush).
+  { re: /(?:^|\n)\s*you may return (two|three) (\w+)s you control to their owner's hand rather than pay this spell's mana cost\.\s*/i,
+    build: (m) => ({ kind: "returnLandsToHand", count: m[1] === "two" ? 2 : 3, subtype: m[2][0].toUpperCase() + m[2].slice(1), condition: "always" }) },
+];
+
 function extractAltCost(oracle) {
-  const m = ALT_FREE_RE.exec(oracle);
-  if (!m) return { altCost: null, rest: oracle };
-  const condition = parseAltCostCondition(m[1]);
-  if (condition === null) return { altCost: null, rest: oracle };   // unmodeled condition → leave the sentence in → LOW
-  const rest = (oracle.slice(0, m.index) + oracle.slice(m.index + m[0].length)).trim();
-  if (!rest) return { altCost: null, rest: oracle };                // no effect body left → nothing to model
-  return { altCost: { kind: "free", condition }, rest };
+  for (const { re, build } of ALT_COST_MATCHERS) {
+    const m = re.exec(oracle);
+    if (!m) continue;
+    const altCost = build(m);
+    if (!altCost) continue;                                          // matched shape but unmodeled detail (bad condition) → leave LOW
+    const rest = (oracle.slice(0, m.index) + oracle.slice(m.index + m[0].length)).trim();
+    if (!rest) continue;                                             // no effect body left → nothing to model
+    return { altCost, rest };
+  }
+  return { altCost: null, rest: oracle };
 }
 
 // SELF-COST-REDUCTION sentence (CR 601.2f) — "This spell costs {N} less to cast …" reduces the spell's CAST

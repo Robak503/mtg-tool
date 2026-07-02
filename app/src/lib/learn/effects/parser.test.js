@@ -1471,32 +1471,44 @@ describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + AD
 // compatible) but not yet OFFERED — a safe FN on an optional discount. The gate (SUPPORTED_ALT_COST_KINDS)
 // keeps un-vetted kinds LOW; the all-or-nothing body parse keeps a card LOW when its remaining effect is
 // unmodeled (Deflecting Swat's redirect). These pins are the merge gate for this slice's false-positive class.
-describe("parseEffectProgram — printed alt-cost (free-if-commander, wave 3a)", () => {
-  it("gates an un-vetted alt-cost kind to low (CREED — never claim a strip we haven't corpus-swept)", () => {
+describe("parseEffectProgram — printed alt-cost strip (free / pitch / exile / sac / payLife / return)", () => {
+  it("gates an un-vetted alt-cost kind to low (CREED — a kind flips only once its strip is corpus-swept clean)", () => {
     expect(programConfidence({ atoms: [{ op: "draw" }], altCost: { kind: "free", condition: "controlCommander" } })).toBe("high");
-    expect(programConfidence({ atoms: [{ op: "draw" }], altCost: { kind: "sacrificeCreature", condition: "always" } })).toBe("low"); // 3c, not yet vetted
-    expect(programConfidence({ atoms: [{ op: "draw" }], altCost: { kind: "payLifeExilePitch", condition: "always" } })).toBe("low"); // 3b, not yet vetted
+    expect(programConfidence({ atoms: [{ op: "draw" }], altCost: { kind: "convokePitch", condition: "always" } })).toBe("low"); // a hypothetical un-vetted kind
   });
-  it("MUST STAY HIGH: free-if-commander strips + attaches altCost + the body parses (Fierce Guardianship / Deadly Rollick / Flawless Maneuver)", () => {
+  it("MUST STAY HIGH: each modeled alt-cost shape strips + attaches its descriptor + the body parses", () => {
     const fg = parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nCounter target noncreature spell."));
     expect(programConfidence(fg)).toBe("high");
     expect(fg.altCost).toEqual({ kind: "free", condition: "controlCommander" });
     expect(fg.atoms.map((a) => a.op)).toEqual(["counter"]);
-    const dr = parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature."));
-    expect(programConfidence(dr)).toBe("high");
-    expect(dr.altCost).toEqual({ kind: "free", condition: "controlCommander" });
+    const fow = parseEffectProgram(I("You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target spell."));
+    expect(programConfidence(fow)).toBe("high");
+    expect(fow.altCost).toEqual({ kind: "payLifeExilePitch", amount: 1, color: "blue", condition: "always" });
+    const fon = parseEffectProgram(I("If it's not your turn, you may exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target noncreature spell."));
+    expect(programConfidence(fon)).toBe("high");
+    expect(fon.altCost).toEqual({ kind: "exileColorCard", color: "blue", condition: "notYourTurn" });
+    const flare = parseEffectProgram(I("You may sacrifice a nontoken blue creature rather than pay this spell's mana cost.\nCounter target spell."));
+    expect(programConfidence(flare)).toBe("high");
+    expect(flare.altCost).toEqual({ kind: "sacrificeCreature", nontoken: true, color: "blue", condition: "always" });
+    const snuff = parseEffectProgram(I("If you control a Swamp, you may pay 4 life rather than pay this spell's mana cost.\nDestroy target nonblack creature. It can't be regenerated."));
+    expect(programConfidence(snuff)).toBe("high");
+    expect(snuff.altCost).toEqual({ kind: "payLife", amount: 4, condition: "controlLand:Swamp" });
+    const gush = parseEffectProgram(I("You may return two Islands you control to their owner's hand rather than pay this spell's mana cost.\nDraw two cards."));
+    expect(programConfidence(gush)).toBe("high");
+    expect(gush.altCost).toEqual({ kind: "returnLandsToHand", count: 2, subtype: "Island", condition: "always" });
   });
-  it("MUST DROP TO LOW: the alt-cost strips but the REMAINING effect is unmodeled (Deflecting Swat redirect — all-or-nothing)", () => {
-    const swat = parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nYou may choose new targets for target spell or ability."));
-    expect(programConfidence(swat)).toBe("low");
+  it("MUST DROP TO LOW: the alt-cost strips but the REMAINING effect is unmodeled (all-or-nothing)", () => {
+    // Deflecting Swat — free-if-commander, but 'choose new targets' (redirect) is unmodeled.
+    expect(programConfidence(parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nYou may choose new targets for target spell or ability.")))).toBe("low");
+    // Misdirection — exile-pitch, but 'change the target' (redirect) is unmodeled.
+    expect(programConfidence(parseEffectProgram(I("You may exile a blue card from your hand rather than pay this spell's mana cost.\nChange the target of target spell with a single target.")))).toBe("low");
   });
-  it("MUST DROP TO LOW: an un-vetted alt-cost KIND (pitch / sac) is NOT stripped — the sentence keeps the card LOW", () => {
-    // Force of Will (pitch — 3b): body 'Counter target spell.' is HIGH, but the pitch sentence isn't a 3a shape → residue → LOW.
-    expect(programConfidence(parseEffectProgram(I("You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target spell.")))).toBe("low");
-    // Flare of Denial (sac — 3c).
-    expect(programConfidence(parseEffectProgram(I("You may sacrifice a nontoken blue creature rather than pay this spell's mana cost.\nCounter target spell.")))).toBe("low");
-  });
-  it("MUST DROP TO LOW: an unmodeled free-cast CONDITION is rejected (only 'you control a commander' vetted in 3a)", () => {
+  it("MUST DROP TO LOW: an un-modeled alt-cost SHAPE / CONDITION is NOT stripped (the sentence keeps the card LOW)", () => {
+    // Foil — a COMPOUND discard cost (discard an Island AND another card), not a modeled shape → not stripped.
+    expect(programConfidence(parseEffectProgram(I("You may discard an Island card and another card rather than pay this spell's mana cost.\nCounter target spell.")))).toBe("low");
+    // Commandeer — exile TWO blue cards (plural), not the singular shape → not stripped.
+    expect(programConfidence(parseEffectProgram(I("You may exile two blue cards from your hand rather than pay this spell's mana cost.\nGain control of target spell.")))).toBe("low");
+    // An unrecognized free-cast CONDITION → rejected → not stripped.
     expect(programConfidence(parseEffectProgram(I("If you control three or more artifacts, you may cast this spell without paying its mana cost.\nCounter target spell.")))).toBe("low");
   });
 });
