@@ -78,12 +78,25 @@ const OUTLAW_SUBTYPES = ["assassin", "mercenary", "pirate", "rogue", "warlock"];
 
 // ─── Local board helpers (no gameState import → no cycle) ────────────────────────
 
-function findPerm(state, permanentId) {
+// Per-state permanent index (overhaul wave 2): battlefield membership is immutable per state
+// object, and findPerm was a linear all-battlefields scan on EVERY characteristic/keyword read.
+// One id→permanent Map per state (WeakMap — GCs with the state). First-match order across
+// players is preserved by insertion order + the has() guard (ids are unique regardless).
+const _permIndexMemo = new WeakMap();
+function permIndexOf(state) {
+  let m = _permIndexMemo.get(state);
+  if (m) return m;
+  m = new Map();
   for (const pid of Object.keys(state?.players || {})) {
-    const found = (state.players[pid].battlefield || []).find(p => p.id === permanentId);
-    if (found) return found;
+    for (const p of state.players[pid].battlefield || []) if (!m.has(p.id)) m.set(p.id, p);
   }
-  return null;
+  _permIndexMemo.set(state, m);
+  return m;
+}
+
+function findPerm(state, permanentId) {
+  if (!state || typeof state !== "object") return null;
+  return permIndexOf(state).get(permanentId) ?? null;
 }
 
 function eachPermanent(state) {
@@ -531,6 +544,34 @@ function byTimestamp(a, b) {
   return (a.timestamp || 0) - (b.timestamp || 0);
 }
 
+// Per-state layer-6 keyword/protection index (overhaul wave 2): permanentHasKeyword is the
+// combat/legality hot path and re-filtered + re-sorted the ENTIRE board per query. Only
+// add/removeKeyword effects naming the QUERIED keyword can change the verdict (every other
+// effect was a skipped no-op in the old loop), and timestamp order within that subset is
+// preserved — so consulting the index is evaluation-order-identical to the old filter+sort.
+const _l6IndexMemo = new WeakMap();
+function l6IndexOf(state) {
+  let idx = _l6IndexMemo.get(state);
+  if (idx) return idx;
+  const byKeyword = new Map();
+  const protection = [];
+  for (const e of collectContinuousEffects(state)) {
+    if (e.layer !== 6) continue;
+    const op = e.op || {};
+    if (op.layerOp === "addProtection") { protection.push(e); continue; }
+    if (op.layerOp !== "addKeyword" && op.layerOp !== "removeKeyword") continue;
+    const kw = String(op.keyword || "").toLowerCase();
+    if (!kw) continue;
+    let list = byKeyword.get(kw);
+    if (!list) { list = []; byKeyword.set(kw, list); }
+    list.push(e);
+  }
+  for (const list of byKeyword.values()) list.sort(byTimestamp);
+  idx = { byKeyword, protection };
+  _l6IndexMemo.set(state, idx);
+  return idx;
+}
+
 // ─── Per-permanent derive ───────────────────────────────────────────────────────
 
 const _charMemo = new WeakMap();
@@ -804,13 +845,11 @@ export function permanentHasKeyword(state, permanentId, keyword) {
   const kwLower = String(keyword).toLowerCase();
   const printed = hasKeyword(perm.card, keyword);
   const fromCounter = (perm.counters?.[kwLower] || 0) > 0;
-  const board = collectContinuousEffects(state);
-  if (board.length === 0) return printed || fromCounter;
-  const l6 = board.filter(e => e.layer === 6 && effectAffects(e, perm, state)).sort(byTimestamp);
-  if (l6.length === 0) return printed || fromCounter;
+  const grants = l6IndexOf(state).byKeyword.get(kwLower);
+  if (!grants || grants.length === 0) return printed || fromCounter;
   let has = printed || fromCounter;
-  for (const e of l6) {
-    if (String(e.op.keyword || "").toLowerCase() !== kwLower) continue;
+  for (const e of grants) {
+    if (!effectAffects(e, perm, state)) continue;
     if (e.op.gate && !gateMet(state, perm, e.op.gate)) continue; // GATED-KEYWORD: gate closed → no grant
     if (e.op.layerOp === "addKeyword") has = true;
     else if (e.op.layerOp === "removeKeyword") has = false;
@@ -834,10 +873,11 @@ export function permanentProtectionColors(state, permanentId) {
   const perm = findPerm(state, permanentId);
   if (!perm) return new Set();
   const set = new Set(parseProtectionColors(perm.card));
-  const board = collectContinuousEffects(state);
-  if (board.length === 0) return set;
-  const l6 = board.filter(e => e.layer === 6 && e.op?.layerOp === "addProtection" && effectAffects(e, perm, state));
-  for (const e of l6) for (const c of e.op.colors || []) set.add(String(c).toUpperCase());
+  const l6 = l6IndexOf(state).protection;
+  for (const e of l6) {
+    if (!effectAffects(e, perm, state)) continue;
+    for (const c of e.op.colors || []) set.add(String(c).toUpperCase());
+  }
   return set;
 }
 

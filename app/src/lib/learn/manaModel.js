@@ -428,7 +428,23 @@ export function stripNonSelfQuotedGrants(text, typeLine) {
  *     source in `manaSources`. A genuine rock/dork states its ability in MAIN text, so stripping never
  *     drops a real source. (Matches the coverage.hasManaAbility reminder fix; CR 207.2.)
  */
+// Per-card memo (overhaul wave 2): manaProduction is pure per card object and was re-parsed on
+// every manaSources enumeration (the stripNonSelfQuotedGrants regex alone was ~3% of self-play
+// CPU). Results are shared + treated read-only by every caller (verified: records copy or spread
+// before any modification). WeakMap — GCs with the card.
+const _prodMemo = new WeakMap();
 export function manaProduction(card) {
+  if (!card) return null;
+  if (typeof card === "object") {
+    if (_prodMemo.has(card)) return _prodMemo.get(card);
+    const result = manaProductionImpl(card);
+    _prodMemo.set(card, result);
+    return result;
+  }
+  return manaProductionImpl(card);
+}
+
+function manaProductionImpl(card) {
   if (!card) return null;
 
   const name = String(card.name || "");
