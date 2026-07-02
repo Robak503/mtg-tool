@@ -475,7 +475,36 @@ function actionsCastCommander(state, playerId) {
   const command = player.command || [];
   if (command.length === 0) return [];
   const counts = player.commanderCastCount || {};
-  return castActionsFromZone(state, playerId, command, "command", (card) => 2 * (counts[card.id] || 0));
+  const taxFn = (card) => 2 * (counts[card.id] || 0);
+  const actions = castActionsFromZone(state, playerId, command, "command", taxFn);
+  // ADVENTURE commander (CR 715 + 903.8): the shared builder skips a COMBINED adventure card (CR 715.2b),
+  // which silently made an adventure commander (Kellan, the Fae-Blooded / Beluna Grandsquall) uncastable
+  // from the command zone at all. Mirror the two hand generators: project each half onto its face and run
+  // it through the SAME builder with the SAME tax (casting either half from the command zone is casting
+  // the commander — the dispatcher bumps commanderCastCount on fromZone "command" for both).
+  for (const card of command) {
+    if (!isAdventureCard(card)) continue;
+    // Creature half — like hand step 1b: NOT tier-gated (entering as the printed creature body is the
+    // same posture as every body-only creature; strictly more faithful than an uncastable commander).
+    const creature = creatureFaceCard(card);
+    if (creature) {
+      for (const a of castActionsFromZone(state, playerId, [creature], "command", taxFn)) {
+        actions.push({ ...a, faceCard: creature });
+      }
+    }
+    // Adventure half — like hand step 1: gated on BOTH halves modeled (THE CREED — the adventure
+    // spell's effect must resolve natively). It resolves, then exiles the card _onAdventure; the
+    // creature half later casts from exile TAX-FREE (CR 903.8 taxes only command-zone casts).
+    if (isNativeTier(classifyCard(card))) {
+      const face = adventureFaceCard(card);
+      if (face) {
+        for (const a of castActionsFromZone(state, playerId, [face], "command", taxFn)) {
+          actions.push({ ...a, adventureCast: true, faceCard: face });
+        }
+      }
+    }
+  }
+  return actions;
 }
 
 // CMD-COMPANION (CR 702.139) — the once-per-game "{3}: put this card from outside the game into your hand"

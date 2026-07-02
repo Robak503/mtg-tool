@@ -280,3 +280,79 @@ describe("ADVENTURE — full lifecycle (Curious Pair: Food token, then the creat
     expect(s.players.user.exile.some(c => c.id === "cur1")).toBe(false);
   });
 });
+
+describe("ADVENTURE commander — each half casts from the COMMAND zone (CR 715.2b + 903.8)", () => {
+  // P0-verify repair: castActionsFromZone's combined-card skip (correct) made an adventure COMMANDER
+  // (Kellan, the Fae-Blooded / Beluna Grandsquall) entirely uncastable from the command zone — no
+  // command-zone half-projection existed. actionsCastCommander now mirrors the two hand generators.
+  function cmdState({ count = 0, commander = FAERIE, battlefield } = {}) {
+    const s = advState({ hand: [], battlefield: battlefield ?? [plains("p1"), plains("p2"), bear("b1")] });
+    return {
+      ...s,
+      mode: "commander",
+      players: {
+        ...s.players,
+        user: { ...s.players.user, command: [commander], commanderCastCount: { [commander.id]: count } },
+      },
+    };
+  }
+
+  it("offers BOTH projected halves from the command zone — never the combined card", () => {
+    const casts = filterActions(legalActionsForPlayer(cmdState(), "user"), "cast-spell")
+      .filter(a => a.fromZone === "command");
+    expect(casts.map(a => a.name).sort()).toEqual(["Faerie Guidemother", "Gift of the Fae"]);
+    expect(casts.every(a => a.faceCard)).toBe(true);                     // every offer is a projected HALF
+    expect(casts.some(a => String(a.name).includes("//"))).toBe(false);  // the combined card stays gone
+    expect(casts.find(a => a.name === "Gift of the Fae").adventureCast).toBe(true);
+  });
+
+  it("commander tax lands on a half cast from the command zone (CR 903.8)", () => {
+    const pick = (s) => filterActions(legalActionsForPlayer(s, "user"), "cast-spell")
+      .filter(a => a.fromZone === "command" && a.name === "Faerie Guidemother")[0];
+    const lands = [plains("p1"), plains("p2"), plains("p3"), plains("p4")]; // enough for {W}+{2} tax
+    const free = pick(cmdState({ count: 0, battlefield: lands }));
+    const taxed = pick(cmdState({ count: 1, battlefield: lands }));
+    expect(free).toBeTruthy();
+    expect(taxed).toBeTruthy();
+    expect(taxed.cost.generic || 0).toBe((free.cost.generic || 0) + 2);
+  });
+
+  it("casting the CREATURE half from command enters the creature face and bumps the tax count", () => {
+    let s = cmdState();
+    const cast = filterActions(legalActionsForPlayer(s, "user"), "cast-spell")
+      .filter(a => a.fromZone === "command" && a.name === "Faerie Guidemother")[0];
+    s = dispatchAction(s, cast);
+    expect(s.players.user.command).toHaveLength(0);                       // left the command zone
+    expect(s.players.user.commanderCastCount.fae1).toBe(1);               // the tax count advanced
+    s = resolveTopOfStack(s);
+    const perm = s.players.user.battlefield.find(p => p.card?.id === "fae1");
+    expect(perm).toBeTruthy();
+    expect(perm.card.name).toBe("Faerie Guidemother");                    // entered as the CREATURE face
+    expect(perm.card.type).toBe("Creature — Faerie");
+  });
+
+  it("casting the ADVENTURE half from command counts as a commander cast, exiles _onAdventure, then the creature casts from exile TAX-FREE", () => {
+    let s = cmdState();
+    const adv = filterActions(legalActionsForPlayer(s, "user"), "cast-spell")
+      .filter(a => a.fromZone === "command" && a.adventureCast)[0];
+    s = dispatchAction(s, adv);
+    expect(s.players.user.commanderCastCount.fae1).toBe(1);               // a command-zone cast IS a commander cast
+    while (s.stack.length) s = resolveTopOfStack(s);
+    const exiled = s.players.user.exile.find(c => c.id === "fae1");
+    expect(exiled?._onAdventure).toBe(true);                              // CR 715.3d — exiled on adventure
+    s = untapAll(s);
+    const fromExile = filterActions(legalActionsForPlayer(s, "user"), "cast-spell")
+      .filter(a => a.fromZone === "exile");
+    expect(fromExile).toHaveLength(1);
+    expect(fromExile[0].name).toBe("Faerie Guidemother");
+    expect(fromExile[0].cost.generic || 0).toBe(0);                       // exile is not the command zone — no tax (CR 903.8)
+  });
+
+  it("CREED: an adventure commander with an unmodeled adventure half offers ONLY the creature half from command", () => {
+    const island = createPermanent({ id: "i1", card: { name: "Island", type: "Basic Land — Island", oracle: "{T}: Add {U}." }, controller: "user", summoningSick: false });
+    const casts = filterActions(legalActionsForPlayer(cmdState({ commander: MERFOLK, battlefield: [island] }), "user"), "cast-spell")
+      .filter(a => a.fromZone === "command");
+    expect(casts.map(a => a.name)).toEqual(["Merfolk Secretkeeper"]);     // creature body only
+    expect(casts[0].adventureCast).toBeUndefined();                       // the unmodeled half is never offered
+  });
+});
