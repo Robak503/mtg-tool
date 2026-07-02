@@ -10,6 +10,10 @@ Token-on-trigger (incl. Treasure/Food — even the token-ETB-trigger gap is fixe
 
 ## SHIPPED (on PR #383)
 - **Wave 1 — COUNTER-QUALIFIED count-source** (+1 native: Armorcraft Judge). `parseCountSource` + `countForSpec` gain a `+1/+1`-counter-qualified creature count. vitest 6589 · lint clean · flip-diff LOST=0 GAINED=1 · program-fp 1 row. Prereq for Inspiring Call.
+- **Alt-cost subsystem DESIGN complete** → [alt-cost-design.md](alt-cost-design.md) (build-ready, grounded per-card; all 10 base bodies confirmed native-spell HIGH). NOT YET BUILT.
+
+## ▶️ EXACT NEXT STEP (for the next /loop fire)
+**Build alt-cost Wave 3a (free-if-commander)** per [alt-cost-design.md](alt-cost-design.md) §"Sub-waves". Flips Fierce Guardianship (×5 decks!), Deadly Rollick, Flawless Maneuver. Files: parser.js (extractAltCost + wiring + `SUPPORTED_ALT_COST_KINDS` gate, mirroring extractAdditionalCosts @ parser.js:1160-1203/1343-1352/1982) + legalChoices.js (free dual-offer + `altCostConditionHolds` controlCommander gate, mirroring the additionalCosts dual-offer) + opponentAI.js (prefer-free). actionDispatcher needs NO new code for the free kind (reuses `action.freeCast` skip @ :208). SAFE BUILD ORDER: wire everything with `SUPPORTED_ALT_COST_KINDS` empty (cards stay LOW/safe), verify each piece, then add `"free"` to the set LAST + run the full battery. **Battery incl. trajectory-hash RE-ANCHOR + play-quality probe** (cast-path change; 3a is trivially non-negative since free ≤ paid). Then 3b (pitch/exile) → 3c (sac/return). Foil MUST stay arbiter (the FP canary).
 
 ## RANKED PLAN (grinding in order)
 1. ✅ Wave 1 (above).
