@@ -628,6 +628,83 @@ describe("pickLandAction — W1 land sequencing (via pickAction)", () => {
   });
 });
 
+describe("pickCastAction — W7a counters (cast at threatening ENEMY spells only)", () => {
+  const pass = { kind: "pass-priority", playerId: "ai" };
+  const COUNTER_PROGRAM = { atoms: [{ op: "counter", targetType: "spell" }], confidence: "high" };
+  const counterCard = () => makeCard({ id: "c-cs", name: "Cancel", type: "Instant", mana: "{1}{U}{U}", oracle: "Counter target spell." });
+  // A spell sitting on the stack — controller + the PAID cost drive the gate.
+  const stackSpell = (id, controller, cost, name = `Spell ${id}`) => ({
+    id, kind: "spell", controller, targets: [], cost,
+    source: { id: `card-${id}`, name, type: "Sorcery", oracle: "" },
+    payload: { resolver: "SPELL_NOOP", params: {} },
+  });
+  const counterAction = (card, targetId, targetName) => ({
+    kind: "cast-spell", playerId: "ai", cardId: card.id, name: card.name,
+    cost: { generic: 1, U: 2 }, cmc: 3, program: COUNTER_PROGRAM,
+    targets: [{ type: "spell", id: targetId, name: targetName }], needsTargets: true,
+  });
+  const withStack = (state, stack) => ({ ...state, stack });
+
+  it("counters a threatening (5-mana) ENEMY spell", () => {
+    const card = counterCard();
+    const state = withStack(makeState({ hand: [card] }), [stackSpell("s1", "user", { generic: 3, B: 2 })]);
+    const choice = pickAction(state, "ai", [counterAction(card, "s1"), pass]);
+    expect(choice).toMatchObject({ kind: "cast-spell", cardId: "c-cs" });
+    expect(choice.targets[0].id).toBe("s1");
+  });
+
+  it("NEVER counters its own spell (ownership resolved via state.stack)", () => {
+    const card = counterCard();
+    const state = withStack(makeState({ hand: [card] }), [stackSpell("s1", "ai", { generic: 6, G: 2 })]);
+    const choice = pickAction(state, "ai", [counterAction(card, "s1"), pass]);
+    expect(choice).toMatchObject({ kind: "pass-priority" });
+  });
+
+  it("holds vs a cheap enemy cantrip (below the 3-mana threat gate)", () => {
+    const card = counterCard();
+    const state = withStack(makeState({ hand: [card] }), [stackSpell("s1", "user", { U: 1 })]);
+    const choice = pickAction(state, "ai", [counterAction(card, "s1"), pass]);
+    expect(choice).toMatchObject({ kind: "pass-priority" });
+  });
+
+  it("holds when the target spell's cost is unknown (null cost reads 0 — the safe direction)", () => {
+    const card = counterCard();
+    const state = withStack(makeState({ hand: [card] }), [stackSpell("s1", "user", null)]);
+    const choice = pickAction(state, "ai", [counterAction(card, "s1"), pass]);
+    expect(choice).toMatchObject({ kind: "pass-priority" });
+  });
+
+  it("holds a multi-target counter+rider combo (the extra target isn't evaluated)", () => {
+    const card = makeCard({ id: "c-sb", name: "Suffocating Blast", type: "Instant", mana: "{2}{U}{U}{R}", oracle: "Counter target spell and this deals 3 damage to target creature." });
+    const state = withStack(makeState({ hand: [card] }), [stackSpell("s1", "user", { generic: 4, W: 2 })]);
+    const action = {
+      kind: "cast-spell", playerId: "ai", cardId: card.id, name: card.name,
+      cost: { generic: 2, U: 2, R: 1 }, cmc: 5,
+      program: { atoms: [{ op: "counter", targetType: "spell" }, { op: "deal-damage", targetType: "creature" }], confidence: "high" },
+      targets: [{ type: "spell", id: "s1" }, { type: "creature", id: "e1", controller: "user" }], needsTargets: true,
+    };
+    const choice = pickAction(state, "ai", [action, pass]);
+    expect(choice).toMatchObject({ kind: "pass-priority" });
+  });
+
+  it("counters the MOST EXPENSIVE of several qualifying enemy spells", () => {
+    const card = counterCard();
+    const state = withStack(makeState({ hand: [card] }), [
+      stackSpell("s-cheap", "user", { generic: 2, R: 1 }),
+      stackSpell("s-big", "user", { generic: 5, B: 2 }),
+    ]);
+    const choice = pickAction(state, "ai", [counterAction(card, "s-cheap"), counterAction(card, "s-big"), pass]);
+    expect(choice.targets[0].id).toBe("s-big");
+  });
+
+  it("policy 'v1' recovers the legacy hold-everything", () => {
+    const card = counterCard();
+    const state = withStack(makeState({ hand: [card] }), [stackSpell("s1", "user", { generic: 3, B: 2 })]);
+    const choice = pickAction(state, "ai", [counterAction(card, "s1"), pass], { policy: "v1" });
+    expect(choice).toMatchObject({ kind: "pass-priority" });
+  });
+});
+
 describe("decideMulliganForAI — W2 (opt-in London keep/ship heuristic)", () => {
   const KEEP = { kind: "mulligan-keep" };
   const SHIP = { kind: "mulligan-ship" };

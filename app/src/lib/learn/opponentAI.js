@@ -53,7 +53,7 @@ import { programContainsCounter, programContainsMassRemoval, programContainsTeam
  * never gate legality on a policy flag (THE CREED: the engine's chokepoints, not
  * private heuristics, decide what is legal).
  */
-const POLICY_KEYS = ["land", "block", "attack", "xSizing"];
+const POLICY_KEYS = ["land", "block", "attack", "xSizing", "counter"];
 function normalizePolicy(policy) {
   if (policy === "v1") return Object.fromEntries(POLICY_KEYS.map((k) => [k, "v1"]));
   if (policy && typeof policy === "object") return policy;
@@ -274,6 +274,46 @@ function pickXCast(state, aiPlayerId, actions) {
 }
 
 /**
+ * W7a — should the AI cast a held COUNTER, and at which stack spell? Only a
+ * PURE single-target counter cast is taken (a multi-target counter+rider combo
+ * — Suffocating Blast — stays held: the extra target isn't evaluated yet). The
+ * target spell's CONTROLLER is resolved from state.stack (the target descriptor
+ * carries only {type:'spell', id, name}); the AI NEVER counters its own spell —
+ * the ownership check is the FP guard the old blanket hold existed for.
+ * Threat gate: the target's PAID cost (the stack object's parsed cost — X and
+ * commander tax already folded in) totals ≥ 3 mana; a cheap cantrip isn't worth
+ * the card, and an unknown/null cost reads 0 → hold (the safe direction).
+ * Among qualifying enemy spells, counter the most expensive (id tiebreak).
+ * Returns the chosen action or null (keep holding). Deterministic.
+ */
+const COUNTER_THREAT_MIN_COST = 3;
+function castCostTotal(cost) {
+  if (!cost || typeof cost !== "object") return 0;
+  let total = cost.generic || 0;
+  for (const c of ["W", "U", "B", "R", "G", "C"]) total += cost[c] || 0;
+  return total;
+}
+function pickCounterCast(state, aiPlayerId, actions) {
+  let enemies;
+  try { enemies = new Set(opponentsOf(state, aiPlayerId)); } catch { return null; }
+  const spellById = new Map((state.stack || []).filter((o) => o?.kind === "spell").map((o) => [o.id, o]));
+  let best = null;
+  for (const a of actions) {
+    if ((a.targets?.length || 0) !== 1) continue;       // pure single-target counters only
+    const t = a.targets[0];
+    if (!t || t.type !== "spell") continue;
+    const obj = spellById.get(t.id);
+    if (!obj || !enemies.has(obj.controller)) continue; // unknown stack object or OUR OWN spell → never
+    const cost = castCostTotal(obj.cost);
+    if (cost < COUNTER_THREAT_MIN_COST) continue;       // a cantrip isn't worth the counter
+    if (!best || cost > best.cost || (cost === best.cost && String(t.id) < String(best.targetId))) {
+      best = { action: a, cost, targetId: t.id };
+    }
+  }
+  return best?.action || null;
+}
+
+/**
  * Pick the best cast-spell action via archetype-aware scoring. A targeted
  * spell appears once per legal target; we group by card, score each spell
  * once, and for targeted spells choose the AI's best enemy target — skipping
@@ -296,12 +336,19 @@ function pickCastAction(state, aiPlayerId, castActions, archetype, pol = {}) {
     // the combined card, so the pick reflects what will really resolve.
     const card = actions[0].faceCard || cardFromHand(state, aiPlayerId, cardId);
     if (!card) continue; // card vanished
-    // The AI HOLDS any counter spell (deferred seam — it doesn't evaluate response
-    // windows and must never counter its OWN spell). Explicit rather than relying on the
-    // coincidence that a counter atom sorts its spell target first (P3.1 review finding:
-    // counter+damage like Suffocating Blast held only by atom ordering). The player can
-    // still cast counters normally; the AI simply passes.
-    if (programContainsCounter(actions[0].program)) continue;
+    // W7a — COUNTERS: cast a held counter at a threatening ENEMY spell on the
+    // stack (ownership resolved via state.stack — the AI never counters its OWN
+    // spell, the FP guard the old blanket hold existed for). Only pure
+    // single-target counters fire; counter+rider multi-target combos
+    // (Suffocating Blast) and sub-threshold/unknown-cost targets stay held.
+    // policy 'v1' recovers the legacy hold-everything for the A/B probe.
+    if (programContainsCounter(actions[0].program)) {
+      if (pol.counter === "v1") continue;
+      const counterPick = pickCounterCast(state, aiPlayerId, actions);
+      if (!counterPick) continue; // no on-side threatening target → keep holding
+      scored.push({ action: counterPick, score: scoreCastAction(actions[0], card, archetype), cmc: actions[0].cmc || 0 });
+      continue;
+    }
     // The AI HOLDS a symmetric board wipe (destroy/exile/-X-X all creatures): it can't yet
     // weigh whether the wipe nets out in its favor, and an indiscriminate Wrath into its own
     // board plays terribly. The player casts wipes normally. (Deferred board-state heuristic.)
