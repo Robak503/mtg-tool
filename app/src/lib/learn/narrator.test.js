@@ -195,7 +195,52 @@ describe("N2 — declare-blocker names the attacker", () => {
   });
 });
 
-describe("narrateAction default fallback", () => {
+describe("N5 — narrateAction covers previously-unhandled action kinds", () => {
+  it("activate-ability never falls through to the generic default", () => {
+    const state = makeState();
+    const action = { kind: "activate-ability", name: "Sol Ring", abilityText: "{T}: Add {C}{C}." };
+    const text = narrateAction(action, state, { difficulty: "beginner" });
+    expect(text).not.toMatch(/^Take action:/);
+    expect(text).toContain("Sol Ring");
+  });
+
+  it("cycle never falls through to the generic default", () => {
+    const state = makeState();
+    const action = { kind: "cycle", name: "Krosan Tusker", cost: { generic: 2 } };
+    const text = narrateAction(action, state, { difficulty: "beginner" });
+    expect(text).not.toMatch(/^Take action:/);
+    expect(text).toContain("Krosan Tusker");
+  });
+
+  it("plot never falls through to the generic default", () => {
+    const state = makeState();
+    const action = { kind: "plot", name: "Fable of the Mirror-Breaker" };
+    const text = narrateAction(action, state, { difficulty: "beginner" });
+    expect(text).not.toMatch(/^Take action:/);
+    expect(text).toContain("Fable of the Mirror-Breaker");
+  });
+
+  it("discover-to-hand never falls through to the generic default", () => {
+    const state = makeState();
+    const action = { kind: "discover-to-hand", name: "Lightning Bolt" };
+    const text = narrateAction(action, state, { difficulty: "beginner" });
+    expect(text).not.toMatch(/^Take action:/);
+  });
+
+  it("free-cast-decline never falls through to the generic default", () => {
+    const state = makeState();
+    const action = { kind: "free-cast-decline", name: "Fury" };
+    const text = narrateAction(action, state, { difficulty: "beginner" });
+    expect(text).not.toMatch(/^Take action:/);
+  });
+
+  it("cascade-decline never falls through to the generic default", () => {
+    const state = makeState();
+    const action = { kind: "cascade-decline", name: "Bloodbraid Elf" };
+    const text = narrateAction(action, state, { difficulty: "beginner" });
+    expect(text).not.toMatch(/^Take action:/);
+  });
+
   it("an unknown kind still safely falls to the default (never throws)", () => {
     const state = makeState();
     const text = narrateAction({ kind: "totally-unknown-kind", name: "Whatever" }, state, { difficulty: "beginner" });

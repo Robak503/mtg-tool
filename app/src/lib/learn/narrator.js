@@ -298,6 +298,68 @@ export function narrateAction(action, state, { card = null, difficulty = "beginn
       return `Pay {3}: put [[${name}]] (companion) into your hand.`;
     }
 
+    case "activate-ability": {
+      // N5: the common Commander action (Sol Ring, mana rocks, utility lands, equip, etc.) had zero
+      // narration before this — every activation fell to the generic default.
+      const name = action.name || card?.name || "the permanent";
+      const abilityText = action.abilityText || "its ability";
+      if (difficulty === "beginner") {
+        return `Activate [[${name}]]: ${abilityText}. The ability goes on the stack and opponents can respond before it resolves (mana abilities are the exception — they resolve immediately, no stack, rule 605.3a).`;
+      }
+      return `Activate [[${name}]]: ${abilityText}.`;
+    }
+
+    case "cycle": {
+      // CYCLING (CR 702.29a): an activated ability from hand — discard this card, draw a card.
+      const name = action.name || card?.name || "the card";
+      const costString = formatCost(action.cost);
+      if (difficulty === "beginner") {
+        return `Cycle [[${name}]] for ${costString}: discard it and draw a card. Cycling is an activated ability that uses the stack (rule 702.29a) — it can be responded to, though the draw itself can't be stopped once it resolves.`;
+      }
+      return `Cycle [[${name}]] for ${costString}.`;
+    }
+
+    case "plot": {
+      // PLOT (CR 702.170a-b): a special action (no stack) — exile this card from hand and pay its plot
+      // cost now; next turn you may cast it from exile without paying its mana cost.
+      const name = action.name || card?.name || "the card";
+      const costString = formatCost(action.cost);
+      if (difficulty === "beginner") {
+        return `Plot [[${name}]] for ${costString}: exile it from your hand now. Plotting is a special action — it doesn't use the stack and can't be responded to (rule 702.170b). Starting your next turn, you may cast it from exile without paying its mana cost.`;
+      }
+      return `Plot [[${name}]] for ${costString}.`;
+    }
+
+    case "discover-to-hand": {
+      // DISCOVER (CR 701.57a, a keyword ACTION, not an ability): the revealed card missed discover's
+      // mana-value-or-less free-cast window — put it into your hand instead.
+      const name = action.name || card?.name || "the card";
+      if (difficulty === "beginner") {
+        return `Put [[${name}]] into your hand instead of casting it. Discover lets you cast a revealed nonland card whose mana value is at most the discover number for free, or put it into your hand if you don't (or can't) cast it (rule 701.57a).`;
+      }
+      return `Put [[${name}]] into your hand.`;
+    }
+
+    case "free-cast-decline": {
+      // FREE-CAST: an engine-generic "you may cast this without paying its mana cost" window (impulse/
+      // foretell/discover-style effects) — no single CR number covers the family, each granting effect
+      // cites its own. Decline lets the window close with no cast.
+      if (difficulty === "beginner") {
+        return `Decline the free cast. None of the offered cards get cast this way — the window closes and play continues.`;
+      }
+      return `Decline the free cast.`;
+    }
+
+    case "cascade-decline": {
+      // CASCADE (CR 702.85a): decline the free cast off the top of the exiled cards — it goes to the
+      // bottom of your library instead.
+      const name = action.name || card?.name || "the card";
+      if (difficulty === "beginner") {
+        return `Decline to cast [[${name}]] for free. Cascade lets you cast the first nonland card revealed with a lower mana value for free; if you don't (or can't), it goes to the bottom of your library instead (rule 702.85a).`;
+      }
+      return `Decline to cast [[${name}]].`;
+    }
+
     default:
       return action.name ? `Take action: ${action.name}` : "Take action";
   }
