@@ -181,6 +181,16 @@ function baseCountSource(phrase, { allowTarget = false, allowScopes = false } = 
   if ((m = p.match(/^creatures? you control with power (\d+) or (?:greater|more)$/))) {
     return withExclude({ kind: "permanentsYouControl", cardType: "creature", powerAtLeast: Number(m[1]) });
   }
+  // ===== COUNTER-QUALIFIED CREATURE COUNT ===== "creatures you control with a +1/+1 counter on it" — the
+  // count of the controller's creatures that CURRENTLY have ≥1 +1/+1 counter (Inspiring Call, Armorcraft
+  // Judge, Hamza). The presence test is read AT RESOLUTION off the live counter bag in countForSpec (CR
+  // 608.2h — a count-derived value locks as the effect resolves), not the type-line-only countMatches. Only
+  // the exact "+1/+1 counter on it/them" form is admitted; any other counter kind or qualifier ("a counter",
+  // "two or more +1/+1 counters") fails the `^…$` anchor → null → low → Arbiter (CREED — never an unmodeled
+  // filter silently counted). Mirrors the power-qualified branch above (spec carries a filter; countForSpec applies it).
+  if (/^creatures? you control with a \+1\/\+1 counter on (?:it|them)$/.test(p)) {
+    return withExclude({ kind: "permanentsYouControl", cardType: "creature", requiresCounter: "+1/+1" });
+  }
   if ((m = p.match(/^(mountains?|forests?|islands?|swamps?|plains) you control$/))) {
     return withExclude({ kind: "permanentsYouControl", subtype: COUNT_BASIC_SUBTYPE[m[1]] });
   }

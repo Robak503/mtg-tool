@@ -355,12 +355,18 @@ describe("parseEffectProgram — count-scaled draw / life (FOR-EACH)", () => {
       .toMatchObject({ op: "draw", amountCount: { kind: "permanentsYouControl", cardType: "artifact", per: 1 } });
     expect(atom0("You gain life equal to the number of creatures you control."))
       .toMatchObject({ op: "gain-life", amountCount: { kind: "permanentsYouControl", cardType: "creature", per: 1 } });
+    // COUNTER-QUALIFIED creature count (Armorcraft Judge / Inspiring Call): only creatures with a +1/+1 counter.
+    expect(atom0("Draw a card for each creature you control with a +1/+1 counter on it."))
+      .toMatchObject({ op: "draw", amountCount: { kind: "permanentsYouControl", cardType: "creature", requiresCounter: "+1/+1", per: 1 } });
   });
   it("MUST_DROP_TO_LOW: opponent-scoped / subtype / 'don't control' / other-graveyard sources → Arbiter", () => {
     expect(conf("Draw a card for each creature target opponent controls.")).toBe("low");   // opponent-scoped
     expect(conf("Draw a card for each creature you don't control.")).toBe("low");           // negated control
     expect(conf("Draw a card for each creature card in their graveyard.")).toBe("low");     // not YOUR graveyard
     expect(conf("Draw a card for each Arcane card in your graveyard.")).toBe("low");         // spell subtype — deferred
+    // COUNTER-QUALIFIED near-misses: only the exact "a +1/+1 counter on it/them" form is admitted (CREED anchor).
+    expect(conf("Draw a card for each creature you control with a counter on it.")).toBe("low");          // generic counter — unmodeled
+    expect(conf("Draw a card for each creature you control with two +1/+1 counters on it.")).toBe("low"); // qualified count — unmodeled
   });
 });
 
