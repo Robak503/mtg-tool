@@ -5,13 +5,15 @@
 > (shared files: parser.js / pendingChoice.js / effectAtoms.js / runProgram.js / learnSession.js / atoms/stack.js).
 > All mirror the shipped `optional-mana-payment` / `optional-sac-payment` / `matchOptionalSacBySubtype` siblings.
 
-## STATUS
-- ✅ **attacked-this-turn-interveningif** — SHIPPED (commit 69071b3, +12 native). Done.
-- ⏳ **optional-discard-payment** (n≈32) — verified BUILD-CLEAN, next.
-- ⏳ **draw-then-discard-reflexive** (n=9) — verified BUILD-CLEAN, 2 build-completeness fixes.
-- ⏳ **upkeep-sac-unless-pay** (n=15) — BUILD-WITH-FIX (a confirmed crash to fix first).
+## STATUS — ALL SHIPPED ✅ (batch complete, PR #383, 2026-07-02)
+- ✅ **attacked-this-turn-interveningif** — SHIPPED (commit 69071b3, +12 native).
+- ✅ **draw-then-discard-reflexive** — SHIPPED (a715b6e, **+11** native, spec said 9). FIX A (parse payoff under literal "Instant") was load-bearing exactly as flagged.
+- ✅ **optional-discard-payment** — SHIPPED (65ea409, **+15** native, spec est. 32; the rest were already native or have non-draw/token payoffs). ⚠️ **SPEC DEFECT the refute panel missed:** §2 said parse the payoff under `cardType` — that drops all 30 draw-payoff flips (the draw atom's legacy gate is Instant/Sorcery-only). Fixed to literal "Instant" (same as draw-discard FIX A). Any future "payoff-under-cardType" spec for a draw payoff has this bug.
+- ✅ **upkeep-sac-unless-pay** — SHIPPED (98a8022, **+20** native, spec said 15; incl. 5 granted-ability cards — Kataki/Aura Flux/Energy Flux/Pendrell Mists/Magus of the Tabernacle — each affected permanent sacs ITSELF via ctx.sourceId). The canAfford-arity crash fix applied as specified + pinned by an autoPick unit test. Required updating a parser.test.js FP-guard (the "sacrifice this creature unless you pay {2}" MUST-STAY-LOW pin → now a MUST-BE-HIGH pin).
 
-Build order (count × cleanliness): optional-discard → draw-then-discard → upkeep-sac.
+**Session total (post-overhaul grind, 2026-07-02): +46 native across the 3 levers, LOST=0 each, all on PR #383.**
+
+Two durable lessons: (1) the "parse payoff under literal Instant" trick is MANDATORY for any optional-payment fold whose payoff can be `draw` — mirror matchOptionalDrawDiscard/matchOptionalDiscardPayment. (2) refute panels can miss a cardType/Instant gating bug because the token-payoff sample passes while the draw-payoff sample (the bulk) fails — always probe a DRAW payoff on a creature cardType when reviewing these specs.
 
 ---
 
