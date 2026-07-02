@@ -639,3 +639,43 @@ describe("manaSources — MANA-MULTIPLIER (tap-for-mana ×N, controller-scoped)"
     expect(find(state, "cr")).toMatchObject({ permanentId: "cr", colors: ["G"], amount: 4 });
   });
 });
+
+// ===== P0-RESIDUAL PHANTOM-GRANT WAVE ===== (overhaul pass) — real-oracle pins for the four strip
+// classes: attachment blanket (Equipment), conditional subjects (as-long-as / restrictive-with,
+// incl. the conjunction-chained form), spend-restricted quotes, and LEVEL-banded oracles. Every
+// card here was a LIVE phantom standing mana source before the wave (runtime-fingerprint audited).
+describe("manaProduction — phantom-grant FP wave (P0 residuals)", () => {
+  it("never credits an EQUIPMENT for its host-conferred quoted mana", () => {
+    expect(manaProduction({ name: "Summoning Materia", type: "Artifact — Equipment", oracle: `You may look at the top card of your library any time.
+As long as this Equipment is attached to a creature, you may cast creature spells from the top of your library.
+Equipped creature gets +2/+2 and has vigilance and "{T}: Add {G}."
+Equip {2}` })).toBeNull();
+    expect(manaProduction({ name: "Lotus Ring", type: "Artifact — Equipment", oracle: `Indestructible
+Equipped creature gets +3/+3 and has vigilance and "{T}, Sacrifice this creature: Add three mana of any one color."
+Equip {3}` })).toBeNull();
+  });
+  it("never credits a CONDITIONAL quoted self-grant the stateless model cannot evaluate", () => {
+    expect(manaProduction({ name: "Rishkar, Peema Renegade", type: "Legendary Creature — Elf Druid", oracle: `When Rishkar enters, put a +1/+1 counter on each of up to two target creatures.
+Each creature you control with a counter on it has "{T}: Add {G}."` })).toBeNull();
+    expect(manaProduction({ name: "Honored Hierarch", type: "Creature — Human Druid", oracle: `Renown 1
+As long as this creature is renowned, it has vigilance and "{T}: Add one mana of any color."` })).toBeNull();
+    expect(manaProduction({ name: "Mul Daya Channelers", type: "Creature — Elf Druid Shaman", oracle: `Play with the top card of your library revealed.
+As long as the top card of your library is a creature card, this creature gets +3/+3.
+As long as the top card of your library is a land card, this creature has "{T}: Add two mana of any one color."` })).toBeNull();
+  });
+  it("never credits a SPEND-RESTRICTED quoted grant as general-purpose mana", () => {
+    expect(manaProduction({ name: "Battery Bearer", type: "Creature — Human Artificer", oracle: `Creatures you control have "{T}: Add {C}. This mana can't be spent to cast a nonartifact spell."
+Whenever you cast an artifact spell with mana value 6 or greater, draw a card.` })).toBeNull();
+    expect(manaProduction({ name: "Inga and Esika", type: "Legendary Creature — Human God", oracle: `Creatures you control have vigilance and "{T}: Add one mana of any color. Spend this mana only to cast a creature spell."
+Whenever you cast a creature spell, if three or more mana from creatures was spent to cast it, draw a card.` })).toBeNull();
+  });
+  it("routes a LEVEL-banded card out of the standing mana model (band-scoped abilities)", () => {
+    expect(manaProduction({ name: "Joraga Treespeaker", type: "Creature — Elf Druid", oracle: `Level up {1}{G}
+LEVEL 1-4
+1/2
+{T}: Add {G}{G}.
+LEVEL 5+
+1/4
+Elves you control have "{T}: Add {G}{G}."` })).toBeNull();
+  });
+});

@@ -80,7 +80,14 @@ async function main() {
   console.log(`[self-play] ${allDecks.length} deck(s): ${allDecks.map((d) => d.name).join(", ")}`);
   console.log(`[self-play] mode: ${args.mode}; enriching from local oracle index…`);
 
-  const runnerDecks = allDecks.map(toRunnerDeck);
+  let runnerDecks = allDecks.map(toRunnerDeck);
+  // EMPTY-DECK GUARD (overhaul pass): an empty/unenrichable deck ("Test Deck", a failed import)
+  // seeded 4-player pods that could only setup-error — 2 of 3 pods in a 10-deck sweep died on it.
+  // Skip such decks up front with an honest warning; explicitly-requested --ids are NOT exempt
+  // (an empty deck can never play a game either way).
+  const empty = runnerDecks.filter((d) => d.cards.length === 0);
+  for (const d of empty) console.warn(`[self-play]   SKIPPING ${d.name}: 0 mainboard cards (empty or unenrichable deck)`);
+  runnerDecks = runnerDecks.filter((d) => d.cards.length > 0);
   // Honest sanity line: how many cards actually enriched (got a type) per deck.
   for (const d of runnerDecks) {
     const enriched = d.cards.filter((c) => c.type && String(c.type).length).length;

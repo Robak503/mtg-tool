@@ -387,15 +387,35 @@ export function stripNonSelfQuotedGrants(text, typeLine) {
   // ("is a Treasure artifact with \"{T}: …\"" — Minimus Containment) and conjunction-chained quotes
   // ("has \"{T}: Add {C}\" and \"{T}, Pay 1 life: …\"" — Lithoform Blight), which minted the Aura
   // itself as a phantom standing source. Stripping ALL quoted segments for Auras is safe: at worst
-  // an under-count (CREED), never a phantom.
-  if (/\baura\b/.test(tl)) {
+  // an under-count (CREED), never a phantom. EXTENDED (P0-residual FP wave) to Equipment /
+  // Fortification: an attachment's quotes likewise always confer to the host ("Equipped creature
+  // gets +2/+2 and has vigilance and "{T}: Add {G}"" — Summoning Materia / Lotus Ring credited
+  // the EQUIPMENT itself as a standing source).
+  if (/\b(?:aura|equipment|fortification)\b/.test(tl)) {
     return String(text || "").replace(/["“][^"”]*["”]/g, " ");
   }
   return String(text || "").replace(
-    /([^.\n"\u201c]*?\bha(?:ve|s))\s+(["\u201c][^"\u201d]*["\u201d])/gi,
-    (whole, subject) => {
+    // The matcher spans CONJUNCTION-CHAINED grants: "...has vigilance and "{T}: Add ..."" (Honored
+    // Hierarch — keyword words between has/have and the quote) and "...has "A" and "B"" (chained
+    // quotes captured as ONE group, kept/stripped together — a partial keep of a chain is never
+    // correct, so the whole chain shares one verdict).
+    /([^.\n"\u201c]*?\bha(?:ve|s)\b[^.\n"\u201c]*?)((?:["\u201c][^"\u201d]*["\u201d])(?:\s*,?\s*(?:and\s+)?["\u201c][^"\u201d]*["\u201d])*)/gi,
+    (whole, subject, quote) => {
       const sub = subject.toLowerCase();
       if (/\bother\b/.test(sub) || /\b(?:enchanted|equipped|fortified)\b/.test(sub)) return subject + " ";
+      // CONDITIONAL GRANT (P0-residual FP wave): a grant whose membership this card-level, stateless
+      // model cannot evaluate must never credit the granter's own standing production —
+      //   • "As long as <condition>, this creature has …" (Honored Hierarch renown / Mul Daya top-card)
+      //   • a restrictive "with …" subject ("Each creature you control WITH A COUNTER ON IT has …"
+      //     — Rishkar, Peema Renegade).
+      // Strip → FN-safe: the runtime under-counts a live Rishkar-with-counter rather than
+      // fabricating a dead one.
+      if (/\bas long as\b/.test(sub) || /\bwith\b/.test(sub)) return subject + " ";
+      // SPEND-RESTRICTED GRANT: quoted mana carrying an unmodeled spend restriction ("{T}: Add {C}.
+      // This mana can't be spent to cast a nonartifact spell." — Battery Bearer) must not become
+      // general-purpose standing mana even for a legit self-includer: the payment planner has no
+      // restricted-mana concept → route out (FN-safe).
+      if (/can't be spent|spend this mana only/i.test(String(quote || ""))) return subject + " ";
       if (!tl) return subject + " ";
       if (/\bpermanents?\b/.test(sub)) return whole;
       for (const w of sub.match(/[a-z]+/g) || []) {
@@ -486,6 +506,11 @@ function manaProductionImpl(card) {
   // Mana Vault read as a free 3-mana rock every turn. Route such non-lands out of the mana model entirely
   // (a safe under-count: the card still casts and resolves; it just never auto-taps for mana).
   if (!isLandCard && /doesn't untap during your (?:next )?untap step/i.test(oracleForAdd)) return null;
+  // LEVEL-BANDED CARD (P0-residual FP wave): a leveler's abilities are scoped to level bands the
+  // flat oracle parse cannot see — Joraga Treespeaker's "{T}: Add {G}{G}" belongs to LEVEL 1-4,
+  // but the parser credited it at level 0. No static credit is possible → route out (FN-safe;
+  // mirrors staticAbilityParser.isLevelGated).
+  if (!isLandCard && (/\blevel up\b/i.test(oracleForAdd) || /\bLEVEL \d/.test(oracleForAdd))) return null;
   // A NON-LAND repeatable mana source must have an ACTIVATED mana ability ("<cost>: Add …"). A triggered/ETB/
   // landfall/upkeep/death or spell-effect "Add …" (no colon) is a ONE-SHOT and must NOT mint a standing source
   // (the Hidden Herbalists phantom-mana FP — manaSources tapped it every turn for free). GATE on the existence

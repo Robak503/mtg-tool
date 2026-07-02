@@ -94,3 +94,42 @@ monolith by ~1,100 lines of new inline matchers. Fresh census required before P2
 - Known runner hazard for pods: an EMPTY deck (Test Deck) seeds pods → guaranteed setup-error games. → P2/P4 fix: runner skips empty/unenrichable decks with a warning.
 
 **Spellbook resume-chain status (during pass):** dispatch 28563655412 restored the prior checkpoint and reached **18,800 cumulative combos** (each run adds ~9.4k then 429s). Continue spaced dispatches through the pass; P4 evaluates a bulk-export switch.
+
+---
+
+## P2 — Engine deep overhaul (waves, each gate-proven)
+
+### Wave 1 — static-parse per-card cache (commit f89cf1c) — PERF, behavior-preserving
+parseStaticAbilities / parseAttachedBonus / parseGlobalTapManaAugment / parseAuraGrantedManaAbility
+memoized per CARD object (WeakMap, detectTriggers pattern). **Tier-1 pod 3-game batch 7.0s → 2.4s
+(2.9×); decisions/s 964 → 1,996.** Gate: 6,377 green · lint clean · tier/program/runtime 0-diff.
+
+### Wave 2 — per-state indexes + manaProduction memo (commit 8535c9c) — PERF, behavior-preserving
+findPerm → per-state id→perm Map; permanentHasKeyword/ProtectionColors → per-state layer-6
+keyword/protection index (evaluation-order-identical); manaProduction → per-card memo.
+**Batch 2.4s → 1.1s (cumulative 6.4×); decisions/s → 2,909 (3.0×).** Gate: 6,377 green · lint clean ·
+3 fingerprints 0-diff · **trajectory hash byte-identical** (b3970105…, 3 games / 6,306 decisions —
+the new runtime-behavior gate for refactors; probe: scratchpad/trajectory-hash.mjs).
+
+### Wave 3 — phantom-grant FP wave (P0 residuals) — CLASSIFICATION+RUNTIME, documented removals
+Four strip classes in the shared quoted-grant guard (stripNonSelfQuotedGrants) + a LEVEL-band gate:
+attachment blanket extended to Equipment/Fortification · conditional subjects ("as long as …",
+restrictive "with …") · spend-restricted quotes ("can't be spent…"/"spend this mana only…") ·
+conjunction-chained matcher widen (has/have + intervening words + quote chains) · LEVEL-banded
+oracles routed out of manaProduction.
+**Runtime-fingerprint: exactly 11 phantom standing sources removed, each audited by real oracle:**
+Summoning Materia · Lotus Ring (Equipment self-credit) · Rishkar, Peema Renegade (with-counter) ·
+Honored Hierarch (renown, chained) · Mul Daya Channelers (top-card) · Joraga Treespeaker (LEVEL) ·
+Battery Bearer · Clement, the Worrywort · The Charitable Drafter · Inga and Esika (spend
+restrictions) · Preston Garvey, Minuteman (token-granted nested quote).
+**Tier flip-diff: LOST=5 / GAINED=0** — Summoning Materia, Lotus Ring, Honored Hierarch, Mul Daya
+Channelers, Tazri, Stalwart Survivor (all were native-mana while producing PHANTOM mana → metric
+accuracy up; corpus native 8,650 → 8,645). Program 0-diff · suite 6,381 green (+4 pins) · lint
+clean · trajectory hash unchanged (no pod deck runs the 11).
+Also: self-play sweep EMPTY-DECK GUARD (an empty deck seeded pods → guaranteed setup-errors;
+now skipped with a warning; 15-deck full sweep = 4 pods, 4/4 decisive).
+
+**Parked (needs its own designed wave):** unquoted spend-restriction LANDS (Ancient Ziggurat /
+Cavern-class "Spend this mana only to cast …" is dropped → general-purpose credit). The fix is
+restricted-mana modeling in planPayment (or a color-identity downgrade), touching many real tribal
+decks — do not strip blindly.
