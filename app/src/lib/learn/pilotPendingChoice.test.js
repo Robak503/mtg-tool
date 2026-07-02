@@ -310,3 +310,34 @@ describe("YES/NO-UNIFY — combinatorial kinds stay on auto-pick (scry-surveil d
     expect(offeredScryChoice).toBe(false);       // the scry choice was never routed through decide (deferred)
   });
 });
+
+// ── WI-2 — a MANDATORY clone (CR 707.9) never offers pilots the illegal decline ───────────────
+describe("WI-2 — clone-search offered set honors mandatory-ness", () => {
+  function cloneScenario(optional) {
+    const st = baseState({ aiBf: [creaPerm("cb1", "Bear", "ai")] });
+    const cloneCard = { id: "cl1", name: "Dupe Machine", type: "Creature — Shapeshifter", mana: "{3}{U}", power: 0, toughness: 0, oracle: "" };
+    return {
+      ...st,
+      pendingChoice: {
+        kind: "clone-search",
+        controller: "ai",
+        candidates: [{ id: "cb1", name: "Bear" }],
+        sourceName: cloneCard.name,
+        optional,
+        resume: { cloneCard, controller: "ai", riders: [], optional },
+      },
+    };
+  }
+
+  it("mandatory (optional:false): the offered set contains NO null-candidate action", () => {
+    const offered = firstChoiceOffered(() => cloneScenario(false), "clone-search");
+    expect(offered).toBeTruthy();
+    expect(offered.length).toBeGreaterThan(0);
+    expect(offered.some((a) => a.candidateId === null)).toBe(false);
+  });
+
+  it("optional (you may): the decline action stays offered (behavior preserved)", () => {
+    const offered = firstChoiceOffered(() => cloneScenario(true), "clone-search");
+    expect(offered.some((a) => a.candidateId === null)).toBe(true);
+  });
+});

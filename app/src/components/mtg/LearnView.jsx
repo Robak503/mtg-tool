@@ -1669,7 +1669,9 @@ function CommanderReturnPanel({ decision, colors, fontFamily, onChoose }) {
 /**
  * Interactive clone copy-pick (CR 707) — the player browses the creatures on the battlefield
  * (real art via /api/art-crop?name=) and picks which one their clone enters as a copy of, or
- * declines (a "you may" clone then enters as a 0/0 and dies). Finishes the entry server-side via
+ * declines (a "you may" clone then enters as a 0/0 and dies). WI-2: the MANDATORY form
+ * ("~ enters as a copy of …", optional === false) hides the decline button — the copy choice
+ * must be made (a null submit is server-rejected too). Finishes the entry server-side via
  * session.applyCloneChoice. Same non-blocking side-sheet as the tutor picker.
  */
 function CloneCopyPanel({ decision, cfg, colors, fontFamily, onChoose }) {
@@ -1678,6 +1680,7 @@ function CloneCopyPanel({ decision, cfg, colors, fontFamily, onChoose }) {
   const [selected, setSelected] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const candidates = decision.candidates || [];
+  const mandatory = (decision.optional ?? decision.resume?.optional) === false; // WI-2 (CR 707.9)
 
   const candidateKey = candidates.map((c) => c.id).join("|");
   useEffect(() => { setSelected(null); }, [candidateKey]);
@@ -1742,17 +1745,19 @@ function CloneCopyPanel({ decision, cfg, colors, fontFamily, onChoose }) {
         >
           {submitting ? "…" : "Enter as copy"}
         </button>
-        <button
-          onClick={() => submit(null)}
-          disabled={submitting}
-          style={{
-            padding: "9px 14px", background: "transparent", color: MUTED, border: `1px solid ${LINE}`,
-            borderRadius: 6, cursor: submitting ? "not-allowed" : "pointer", fontSize: 13, fontFamily,
-          }}
-          title="Enter as itself (a 0/0 that dies)"
-        >
-          Don&apos;t copy
-        </button>
+        {!mandatory && (
+          <button
+            onClick={() => submit(null)}
+            disabled={submitting}
+            style={{
+              padding: "9px 14px", background: "transparent", color: MUTED, border: `1px solid ${LINE}`,
+              borderRadius: 6, cursor: submitting ? "not-allowed" : "pointer", fontSize: 13, fontFamily,
+            }}
+            title="Enter as itself (a 0/0 that dies)"
+          >
+            Don&apos;t copy
+          </button>
+        )}
       </div>
     </div>
   );

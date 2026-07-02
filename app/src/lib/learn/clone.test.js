@@ -440,3 +440,63 @@ describe("Spark Double — runtime: the copy enters with its conditional counter
     expect(JSON.parse(JSON.stringify(s))).toEqual(s);
   });
 });
+
+// ── WI-2 — mandatory clones cannot be declined (CR 707.9) ────────────────────────────────────────
+describe("WI-2 — mandatory-ness is parsed, threaded, and ENFORCED (CR 707.9)", () => {
+  // The mandatory form: "~ enters as a copy of …" with NO "you may".
+  const MANDATORY = { id: "c-mand", name: "Dupe Machine", type: "Creature — Shapeshifter", mana: "{3}{U}", power: 0, toughness: 0, oracle: "This creature enters as a copy of any creature on the battlefield." };
+
+  it("parses the mandatory form (optional:false) and the pendingChoice carries it (top-level + resume)", () => {
+    expect(parseCloneSpec(MANDATORY)).toEqual({ optional: false, scope: "any", mvLimit: false, riders: [] });
+    let s = boardState({
+      ai: [createPermanent({ id: "a1", card: creature("Big", 4, 4), controller: "ai", summoningSick: false })],
+      hand: [MANDATORY],
+    });
+    s = castToChoice(s, "c-mand");
+    expect(s.pendingChoice).toMatchObject({ kind: "clone-search", controller: "user", optional: false });
+    expect(s.pendingChoice.resume.optional).toBe(false);
+    // An optional ("you may") clone still flags declinable — the UI keeps its decline button.
+    let o = boardState({
+      ai: [createPermanent({ id: "a1", card: creature("Big", 4, 4), controller: "ai", summoningSick: false })],
+      hand: [CLONE],
+    });
+    o = castToChoice(o, "c-clone");
+    expect(o.pendingChoice).toMatchObject({ kind: "clone-search", optional: true });
+    expect(o.pendingChoice.resume.optional).toBe(true);
+  });
+
+  it("a null submit on a mandatory clone with live candidates AUTO-PICKS instead of misplaying a 0/0", () => {
+    let s = boardState({
+      ai: [
+        createPermanent({ id: "a1", card: creature("Small", 1, 1), controller: "ai", summoningSick: false }),
+        createPermanent({ id: "a2", card: creature("Big", 4, 4), controller: "ai", summoningSick: false }),
+      ],
+      hand: [MANDATORY],
+    });
+    s = castToChoice(s, "c-mand");
+    s = finalizeStackResolution(resolveCloneChoice(s, null)); // a decline/garbage submit
+    const cl = s.players.user.battlefield.find((p) => p.printedCard?.name === "Dupe Machine");
+    expect(cl).toBeTruthy();                         // entered AS A COPY — never a dying 0/0
+    expect(cl.card.name).toBe("Big");                // the deterministic auto-pick (highest P/T)
+    expect(s.players.user.graveyard).toHaveLength(0);
+  });
+
+  it("a mandatory clone with NO candidates still enters as itself and dies (CR 707.9c — nothing to copy)", () => {
+    let s = boardState({ hand: [MANDATORY] });
+    s = castToChoice(s, "c-mand");
+    expect(s.pendingChoice).toBeUndefined();         // no candidates → no pause
+    expect(s.players.user.battlefield).toHaveLength(0);
+    expect(s.players.user.graveyard.map((c) => c.name)).toEqual(["Dupe Machine"]);
+  });
+
+  it("an OPTIONAL clone's null submit still declines (enters as itself and dies) — behavior preserved", () => {
+    let s = boardState({
+      ai: [createPermanent({ id: "a1", card: creature("Bear", 2, 2), controller: "ai", summoningSick: false })],
+      hand: [CLONE],
+    });
+    s = castToChoice(s, "c-clone");
+    s = finalizeStackResolution(resolveCloneChoice(s, null));
+    expect(s.players.user.battlefield).toHaveLength(0);
+    expect(s.players.user.graveyard.map((c) => c.name)).toEqual(["Clone"]);
+  });
+});

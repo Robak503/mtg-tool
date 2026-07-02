@@ -1000,7 +1000,9 @@ export function advanceUntilDecision(
         }
         const picked = decidePendingChoice({
           decide, state: current.state, seat: choiceSeat, pilot, recordDecision,
-          buildOffered: () => pendingPickActions(pc, { allowDecline: true }),
+          // WI-2 (CR 707.9): a MANDATORY clone (optional === false) is never offered the illegal
+          // null/decline action — pilots can only pick a real copy target.
+          buildOffered: () => pendingPickActions(pc, { allowDecline: pc.resume?.optional !== false }),
           fallbackAction: { kind: "pending-choice", choiceKind: pc.kind, candidateId: autoPickCloneCandidate(current.state, pc) },
         });
         current = { ...current, state: settleCloneChoice(current.state, picked.candidateId) };
@@ -1535,6 +1537,11 @@ export function applyCloneChoice(session, choice) {
   const permId = choice?.permId ?? null;
   if (permId !== null && !pc.candidates.some((c) => c.id === permId)) {
     return advanceUntilDecision(session); // illegal/stale pick → re-surface the same picker.
+  }
+  // WI-2 (CREED — CR 707.9): a MANDATORY clone cannot be declined — a null submit re-surfaces the
+  // picker (the hand-discard null-reject pattern) instead of misplaying the copy as a 0/0.
+  if (permId === null && pc.resume?.optional === false) {
+    return advanceUntilDecision(session);
   }
 
   let newState;

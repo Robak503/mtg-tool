@@ -100,7 +100,7 @@ export function setPendingTutorChoice(state, { controller, candidates, sourceNam
  * controller + whether the choice is optional (a "you may" clone can decline → enter as itself).
  * Public info (the candidates are visible permanents). FIFO like the tutor choice.
  */
-export function setPendingCloneChoice(state, { controller, candidates, sourceName = null, resume }) {
+export function setPendingCloneChoice(state, { controller, candidates, sourceName = null, optional = true, resume }) {
   if (state.pendingChoice) return state;
   const next = logEvent(state, { kind: "clone-choice-pending", controller, count: candidates.length, sourceName });
   return {
@@ -110,6 +110,10 @@ export function setPendingCloneChoice(state, { controller, candidates, sourceNam
       controller,
       candidates,
       sourceName,
+      // WI-2 (CR 707.9): false = the MANDATORY "~ enters as a copy of …" form — the UI hides the
+      // decline button and the settle path auto-picks instead of accepting a decline. Defaults true
+      // (declinable) so an old serialized save without the field keeps its historical behavior.
+      optional,
       resume,
     },
   };

@@ -25,7 +25,7 @@ import { checkDiesTriggers, checkEnterTriggers, checkPermanentEntersTriggers } f
 import { markPendingArbiter } from "./pendingArbiter.js";
 import { runEffectProgram, finishSpellResolution } from "./effects/runProgram.js";
 import { evaluateInterveningIf } from "./interveningIf.js";
-import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard } from "./cloneCopy.js";
+import { isCloneCard, parseCloneSpec, cloneCandidates, cloneMvCap, snapshotCopiedCard, autoPickCloneCandidate } from "./cloneCopy.js";
 import { setPendingCloneChoice, clearPendingChoice } from "./pendingChoice.js";
 import { entersWithPlusCounters, entersWithXCounters, entersWithMetricCounters, entersTapped, isNativeManaAura } from "./staticAbilityParser.js"; // TRUNK-ENTERSCOUNTERS (CR 614.1c + 122.6a) + TRUNK-ENTERSTAPPED (CR 614.1c) + ENTERS-WITH-X + ETB-XCOUNTERS-FROM-METRIC + AURA-LAND-MANA-BOOST
 import { entersWithFadeCounters } from "./fading.js"; // KW-FADING / KW-VANISHING — enters with N fade/time counters
@@ -389,17 +389,28 @@ export function applyAdventureExile(state, { playerId, card }) {
 export function resolveCloneChoice(state, chosenPermId) {
   const pc = state.pendingChoice;
   if (!pc || pc.kind !== "clone-search") return state;
-  const { cloneCard, controller, riders = [] } = pc.resume || {};
+  const { cloneCard, controller, riders = [], optional } = pc.resume || {};
   let next = clearPendingChoice(state);
   if (!cloneCard || !controller) return next;
 
-  const chosen = chosenPermId ? findPermanent(next, chosenPermId) : null;
   // A clone with the "creature or planeswalker" scope (Spark Double) may copy a PLANESWALKER too (front-face,
   // CR 712.4a). A copied planeswalker enters with its starting loyalty via enterPermanent's castsAsPlaneswalker
   // path, so it's a real, non-dying permanent (NOT a 0/0). Front-face only: a creature-front DFC copies as its
   // creature side. (creature-clones still copy creatures; this only WIDENS what a PW-scope clone accepts.)
-  const chosenFrontType = String(chosen?.permanent?.card?.type || chosen?.permanent?.card?.type_line || "").split(" // ")[0];
-  const chosenIsCopiable = chosen && /Creature|Planeswalker/.test(chosenFrontType);
+  const copiable = (c) =>
+    c && /Creature|Planeswalker/.test(String(c?.permanent?.card?.type || c?.permanent?.card?.type_line || "").split(" // ")[0]);
+  let chosen = chosenPermId ? findPermanent(next, chosenPermId) : null;
+  // WI-2 (CREED — CR 707.9): a MANDATORY clone ("~ enters as a copy of …", no "you may") cannot
+  // decline. A null/stale submit while at least one OFFERED candidate is still on the battlefield
+  // falls back to the deterministic auto-pick — entering a mandatory clone as an illegal 0/0 would
+  // be playing the card wrong (a forbidden FP). Genuinely-empty candidates keep the enters-as-itself
+  // path below (CR 707.9c: nothing to copy). `optional === false` only — an old serialized save
+  // (no `optional` on the resume) keeps the historical declinable behavior.
+  if (optional === false && !copiable(chosen)) {
+    const fallbackId = autoPickCloneCandidate(next, pc);
+    if (fallbackId) chosen = findPermanent(next, fallbackId);
+  }
+  const chosenIsCopiable = copiable(chosen);
   if (chosen && chosenIsCopiable) {
     // Snapshot the copiable values + apply the CARD-LEVEL "except …" copy modifications (CR 707.9): added
     // subtype, granted keyword, set P/T, conditional vanishing all bake into the copy's card. The
@@ -479,11 +490,16 @@ export const RESOLVERS = Object.freeze({
       const mvCap = cloneMvCap(card, spec, xValue);
       const candidates = cloneCandidates(state, controller, spec.scope, mvCap);
       if (candidates.length > 0) {
+        // WI-2 (CR 707.9): thread the parsed mandatory-ness. `optional:false` ("~ enters as a copy
+        // of …", no "you may") means the copy choice CANNOT be declined — the pilot seam drops the
+        // null action, the UI hides the decline button, and resolveCloneChoice auto-picks on a
+        // null/stale submit. Top-level for the UI panel; on the resume for the settle path.
         return setPendingCloneChoice(state, {
           controller,
           candidates,
           sourceName: card?.name || null,
-          resume: { cloneCard: card, controller, riders: spec.riders },
+          optional: spec.optional,
+          resume: { cloneCard: card, controller, riders: spec.riders, optional: spec.optional },
         });
       }
       // No creature to copy: the clone enters as itself (a 0/0) and dies (CR 704.5f).
