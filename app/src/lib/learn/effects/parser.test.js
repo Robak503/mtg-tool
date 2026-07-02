@@ -1463,6 +1463,44 @@ describe("parseEffectProgram — additional cast costs (ADDCOST-1 sacrifice + AD
   });
 });
 
+// ===== ALT-COST (CR 601.2b / 118.9) — a printed ALTERNATIVE casting cost, wave 3a (FREE / controlCommander) =====
+// "[If <cond>, ]you may cast this spell without paying its mana cost." is stripped like the flashback /
+// jump-start / overload keyword lines: the body parses through the all-or-nothing pipeline and the card is
+// native because its EFFECT is modeled + it's castable at its PRINTED mana cost (Cyclonic Rift / Firebolt are
+// native today by exactly this logic). The alt-cost is recorded as `program.altCost` metadata (forward-
+// compatible) but not yet OFFERED — a safe FN on an optional discount. The gate (SUPPORTED_ALT_COST_KINDS)
+// keeps un-vetted kinds LOW; the all-or-nothing body parse keeps a card LOW when its remaining effect is
+// unmodeled (Deflecting Swat's redirect). These pins are the merge gate for this slice's false-positive class.
+describe("parseEffectProgram — printed alt-cost (free-if-commander, wave 3a)", () => {
+  it("gates an un-vetted alt-cost kind to low (CREED — never claim a strip we haven't corpus-swept)", () => {
+    expect(programConfidence({ atoms: [{ op: "draw" }], altCost: { kind: "free", condition: "controlCommander" } })).toBe("high");
+    expect(programConfidence({ atoms: [{ op: "draw" }], altCost: { kind: "sacrificeCreature", condition: "always" } })).toBe("low"); // 3c, not yet vetted
+    expect(programConfidence({ atoms: [{ op: "draw" }], altCost: { kind: "payLifeExilePitch", condition: "always" } })).toBe("low"); // 3b, not yet vetted
+  });
+  it("MUST STAY HIGH: free-if-commander strips + attaches altCost + the body parses (Fierce Guardianship / Deadly Rollick / Flawless Maneuver)", () => {
+    const fg = parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nCounter target noncreature spell."));
+    expect(programConfidence(fg)).toBe("high");
+    expect(fg.altCost).toEqual({ kind: "free", condition: "controlCommander" });
+    expect(fg.atoms.map((a) => a.op)).toEqual(["counter"]);
+    const dr = parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nExile target creature."));
+    expect(programConfidence(dr)).toBe("high");
+    expect(dr.altCost).toEqual({ kind: "free", condition: "controlCommander" });
+  });
+  it("MUST DROP TO LOW: the alt-cost strips but the REMAINING effect is unmodeled (Deflecting Swat redirect — all-or-nothing)", () => {
+    const swat = parseEffectProgram(I("If you control a commander, you may cast this spell without paying its mana cost.\nYou may choose new targets for target spell or ability."));
+    expect(programConfidence(swat)).toBe("low");
+  });
+  it("MUST DROP TO LOW: an un-vetted alt-cost KIND (pitch / sac) is NOT stripped — the sentence keeps the card LOW", () => {
+    // Force of Will (pitch — 3b): body 'Counter target spell.' is HIGH, but the pitch sentence isn't a 3a shape → residue → LOW.
+    expect(programConfidence(parseEffectProgram(I("You may pay 1 life and exile a blue card from your hand rather than pay this spell's mana cost.\nCounter target spell.")))).toBe("low");
+    // Flare of Denial (sac — 3c).
+    expect(programConfidence(parseEffectProgram(I("You may sacrifice a nontoken blue creature rather than pay this spell's mana cost.\nCounter target spell.")))).toBe("low");
+  });
+  it("MUST DROP TO LOW: an unmodeled free-cast CONDITION is rejected (only 'you control a commander' vetted in 3a)", () => {
+    expect(programConfidence(parseEffectProgram(I("If you control three or more artifacts, you may cast this spell without paying its mana cost.\nCounter target spell.")))).toBe("low");
+  });
+});
+
 // ===== ACT-KW-GRANT — self keyword-grant (activated/trigger effect, via parseEffectClause) =====
 // "This creature [gets +N/+N and ]gains <KW> until end of turn" grants the SOURCE (CR 113.7) the
 // keyword(s) for the turn, reusing the combat-trick GRANTABLE_COMBAT_KEYWORDS allowlist (the enforced,

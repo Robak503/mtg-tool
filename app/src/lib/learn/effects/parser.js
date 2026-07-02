@@ -1202,6 +1202,44 @@ function extractAdditionalCosts(oracle) {
   return { costs: [cost], rest };
 }
 
+// ===== ALT-COST (CR 601.2b / 118.9) — a PRINTED alternative casting cost ("… rather than pay this spell's
+// mana cost" / "you may cast this spell without paying its mana cost"). Treated EXACTLY like the
+// CAST_KEYWORD_LINE strips (flashback / jump-start / overload — see stripStormKeywordLine & friends): strip
+// the alternative-casting sentence, parse the REMAINING effect through the normal all-or-nothing pipeline,
+// and attach `altCost` metadata to the program. The card becomes native because its EFFECT is fully modeled
+// AND it is castable at its PRINTED mana cost (Cyclonic Rift / Firebolt / Chemister's Insight are all
+// native-spell today by exactly this logic). The alt-cost is an OPTIONAL alternative the engine RECORDS
+// (program.altCost, forward-compatible) but does not yet OFFER — a safe false-NEGATIVE on an optional
+// cost-reduction: the card never plays WRONG, it only forgoes a legal discount. Actually OFFERING the alt-cost
+// at the cast path (so the AI pays life/exiles/sacs to cast it) is separate play-quality work. CONSERVATIVE:
+// only a MODELED {kind,condition} strips; anything else leaves the sentence in place → the card stays LOW.
+// Wave 3a models the FREE kind, condition controlCommander only (Fierce Guardianship, Deadly Rollick, Flawless
+// Maneuver — the "free if you control a commander" cycle); pitch/sac/return kinds + other conditions land next.
+// Anchored to a whole sentence at oracle start or after a newline; the condition capture forbids commas /
+// periods / newlines so it can never span into the effect body.
+const ALT_FREE_RE = /(?:^|\n)\s*(?:if ([^,.\n]+), )?you may cast this spell without paying its mana cost\.\s*/i;
+const SUPPORTED_ALT_COST_KINDS = new Set(["free"]);
+
+// Map a captured alt-cost condition phrase → a small enum. Unrecognized (or, in wave 3a, absent) → null,
+// which REJECTS the whole alt-cost so the card stays LOW — we never credit a gate the cast path can't
+// evaluate. Grows per wave (notYourTurn / controlLand / submergeGate in 3b/3c).
+function parseAltCostCondition(phrase) {
+  if (phrase == null) return null;                       // 3a: no unconditional-free modeled yet
+  const p = phrase.trim().toLowerCase();
+  if (p === "you control a commander") return "controlCommander";
+  return null;                                            // unmodeled condition → reject → stays LOW
+}
+
+function extractAltCost(oracle) {
+  const m = ALT_FREE_RE.exec(oracle);
+  if (!m) return { altCost: null, rest: oracle };
+  const condition = parseAltCostCondition(m[1]);
+  if (condition === null) return { altCost: null, rest: oracle };   // unmodeled condition → leave the sentence in → LOW
+  const rest = (oracle.slice(0, m.index) + oracle.slice(m.index + m[0].length)).trim();
+  if (!rest) return { altCost: null, rest: oracle };                // no effect body left → nothing to model
+  return { altCost: { kind: "free", condition }, rest };
+}
+
 // SELF-COST-REDUCTION sentence (CR 601.2f) — "This spell costs {N} less to cast …" reduces the spell's CAST
 // cost only; it is NEVER a resolution effect (the mana value and the on-stack effect are untouched, CR 202.3).
 // So for the EFFECT program it is pure residue — strip it before parsing so an otherwise-modeled spell isn't
@@ -1341,14 +1379,17 @@ export function parseEffectProgram(card) {
     return makeProgram({ confidence: "high", atoms: kicked.atoms, xSpell: false, unparsedTail: null });
   }
   const { costs, rest } = extractAdditionalCosts(oracle);
-  // A spell that is BOTH an X-spell AND carries an additional cost is a compound we defer — the cast-path
-  // X-value expansion and the victim expansion don't yet compose — so parse the FULL oracle and let the
+  const { altCost, rest: altRest } = extractAltCost(costs ? rest : oracle);
+  // A spell that is BOTH an X-spell AND carries an additional/alt cost is a compound we defer — the cast-path
+  // X-value expansion and the cost expansion don't yet compose — so parse the FULL oracle and let the
   // un-stripped cost sentence keep it LOW. No clean printed card needs both today.
-  if (costs && hasXCost(card)) return parseEffectClause(oracle, typeOf(card), { hasX: true });
+  if ((costs || altCost) && hasXCost(card)) return parseEffectClause(oracle, typeOf(card), { hasX: true });
   // {X}-cost spell (no additional cost): the parser may stamp `amountX` on a damage/draw/pump atom whose
   // amount is the chosen X, bound at cast time (CR 601.2b) and read at resolution.
-  const program = parseEffectClause(costs ? rest : oracle, typeOf(card), { hasX: hasXCost(card) });
+  const bodyOracle = altCost ? altRest : (costs ? rest : oracle);
+  const program = parseEffectClause(bodyOracle, typeOf(card), { hasX: hasXCost(card) });
   if (costs && program) program.additionalCosts = costs;
+  if (altCost && program) program.altCost = altCost;
   return program;
 }
 
@@ -1980,6 +2021,11 @@ export function programConfidence(program) {
   // "sacrifice" cost, enforced in actionDispatcher.applyCastSpell; this gate future-proofs the invariant —
   // any unsupported cost kind forces LOW until its cast-path enforcement exists.
   if (Array.isArray(program.additionalCosts) && program.additionalCosts.some(c => !SUPPORTED_ADDITIONAL_COST_KINDS.has(c.kind))) return "low";
+  // Same LOW-until-vetted invariant for a printed alt-cost: a kind whose strip hasn't been corpus-swept
+  // FP-clean stays LOW (the sentence was stripped for parsing, so without this gate the body could falsely
+  // read HIGH). A kind enters SUPPORTED_ALT_COST_KINDS only once its strip is vetted. The all-or-nothing body
+  // parse still bites regardless — Deflecting Swat's free-cost strips but its redirect body is unmodeled → LOW.
+  if (program.altCost && !SUPPORTED_ALT_COST_KINDS.has(program.altCost.kind)) return "low";
   if (program.structure === "modal") {
     const modes = program.modal?.modes;
     if (!Array.isArray(modes) || modes.length < 2) return "low";
