@@ -35,6 +35,18 @@ Census (`clause-frontier.mjs` + a direct count): **352 non-native corpus cards**
 
 **CREED / FP edge cases to nail (design these adversarially before building):** combinatorial bound (MAX_CAST_EXPANSIONS — must LOG when truncated, never silently cap coverage); "up to N" allows 0 targets (a legal cast with an empty target set — the whole spell still resolves, atoms no-op); exact "N target" (uncastable if < N legal targets, CR 601.2c — must gate LOW-or-uncastable correctly, NOT partial); distinctness (targets must be distinct — mirror the fight-pair Set check :159); AI count-choice quality (beneficial→max, harmful→context; each combo is already a distinct cast action the pilot ranks); resolution-time partial legality (CR 608.2b — a subset going illegal doesn't fizzle the rest). Atoms that DON'T already loop over ctx.targets must be audited before inclusion.
 
+### 📊 MULTI-COUNT PROGRESS (session 2026-07-02): Slices A+B+C shipped = +49 native
+- ✅ **A** (45ce1d1, +19) — return-from-graveyard "up to N target <filter> cards … to your hand".
+- ✅ **B** (b651957, +22) — bounce "return up to N target <type> to their owners' hands" + tap "tap up to N target creatures|permanents".
+- ✅ **C** (b1bcebd, +8) — counters "put <N> ±1/±1 counter(s) on each of up to K target creatures[ you control]".
+
+### 🔜 SLICE D — the remaining multi-count families (each has a wrinkle; NOT clean mirrors):
+- **exile-from-graveyard (27)** — the MAJORITY say "exile up to N target cards from **a single graveyard**" (19/27), which requires a same-graveyard target constraint the generic subset enumeration LACKS → an FP if matched blind. ONLY "from graveyards" (unconstrained, ~6) is a clean fit; the "single graveyard" form needs a per-subset same-owner check in expandAtoms (or a dedicated matcher). Resolver (`applyExileFromGraveyard`) already loops.
+- **deal-damage (11)** — "deal N damage TO up to two target creatures" (N to EACH) is clean (applyDamageEffect per-target), BUT must NOT match "deal N damage **DIVIDED among** up to two" — that's the EXISTING `divide-damage` atom (a distinct pendingChoice). Anchor the matcher to exclude "divided".
+- **destroy-creature (11)** — bare "creature" is NOT in the destroy `rm` typelist (removal.js:351); "destroy target creature" parses via a different path. The `rm` non-creature types (artifact/enchantment/permanent/land) ARE directly extendable for "destroy up to N target <type>".
+- **counters "each of up to N target creatures you control" variants** + non-creature-permanent counter targets — small tails.
+- **CROSS-CUTTING:** consider raising MAX_CAST_EXPANSIONS (64) or a smarter subset sampler for the creature families — a big board truncates combos (play-quality limit, not an FP, but log it).
+
 ### ✅ SLICE A SHIPPED (commit 45ce1d1, +19 native) — the infra is LIVE
 `atoms/zones.js` graveyardReturnClauseParser emits `maxTargets`/`minTargets`; `targeting.js` has `targetSubsets()` + the gated `maxTargets>1` branch in expandAtoms + the Array-spread in the combine loop. LOST=0 (single-target casts byte-identical). Flips: Dead Revels, March of the Returned, Morbid Plunder, Soul Salvage, Macabre Waltz, Wander in Death, Unmake the Graves, Baloth Null, Fight On!, … Tests in `effects/multiCountTarget.test.js`.
 
