@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { createPermanent } from "./gameState.js";
+import { createPermanent, createGameState, destroyLethalCreatures, _resetIdsForTests } from "./gameState.js";
 import { resolveCombatDamage } from "./combatResolution.js";
 
 // Minimal hand-built state — the resolver only needs players[*].battlefield /
@@ -143,5 +143,57 @@ describe("resolveCombatDamage", () => {
     const summary = out.log.find(e => e.kind === "combat-damage");
     expect(summary.deaths.sort()).toEqual(["Bear", "Grizzly"]);
     expect(out.log.some(e => e.kind === "creature-dies")).toBe(true);
+  });
+
+  it("N4: combat deaths log creature-dies with cause 'combat' (byte-identical shape to before the chokepoint move)", () => {
+    const att = creature("Grizzly", 2, 2, "user");
+    const blk = creature("Bear", 2, 2, "ai");
+    const s = makeState({ userBf: [att], aiBf: [blk] }, {
+      attackers: [{ permanentId: att.id, attackingPlayer: "user", defender: "ai" }],
+      blockers: [{ blockerId: blk.id, blockingPlayer: "ai", attackerId: att.id }],
+    });
+    const out = resolveCombatDamage(s);
+    const dies = out.log.filter(e => e.kind === "creature-dies");
+    expect(dies).toHaveLength(2);
+    expect(dies.every(e => e.cause === "combat")).toBe(true);
+    expect(dies.map(e => e.cardName).sort()).toEqual(["Bear", "Grizzly"]);
+  });
+});
+
+describe("N4 — destroyLethalCreatures logs every death at its own chokepoint (combat AND non-combat)", () => {
+  const onBoard = (perm, controller = "user") => {
+    _resetIdsForTests();
+    const s = createGameState({ userDeck: [], aiDeck: [] });
+    return { ...s, players: { ...s.players, [controller]: { ...s.players[controller], battlefield: [perm] } } };
+  };
+
+  it("a non-combat 0-toughness death (a -X/-X wipe or a 0/0 token) logs creature-dies with cause 'sba' by default", () => {
+    const zero = createPermanent({ card: { id: "c-zero", name: "Shrunk Bear", type: "Creature", power: 0, toughness: 0 }, controller: "user" });
+    const s = onBoard(zero);
+    const { state: out, dead } = destroyLethalCreatures(s);
+    expect(dead).toHaveLength(1);
+    const entry = out.log.find(e => e.kind === "creature-dies");
+    expect(entry).toBeTruthy();
+    expect(entry.cardName).toBe("Shrunk Bear");
+    expect(entry.cause).toBe("sba");
+    expect(entry.controller).toBe("user");
+  });
+
+  it("a lethal-damage destruction also logs creature-dies with cause 'sba' outside of combat", () => {
+    const bear = { ...createPermanent({ card: { id: "c-bear2", name: "Marked Bear", type: "Creature", power: 2, toughness: 2 }, controller: "user" }), damageMarked: 2 };
+    const s = onBoard(bear);
+    const { state: out, dead } = destroyLethalCreatures(s);
+    expect(dead).toHaveLength(1);
+    const entry = out.log.find(e => e.kind === "creature-dies");
+    expect(entry.cardName).toBe("Marked Bear");
+    expect(entry.cause).toBe("sba");
+  });
+
+  it("an explicit cause overrides the default (combat's call site passes 'combat')", () => {
+    const zero = createPermanent({ card: { id: "c-zero2", name: "Shrunk Bear 2", type: "Creature", power: 0, toughness: 0 }, controller: "user" });
+    const s = onBoard(zero);
+    const { state: out } = destroyLethalCreatures(s, new Set(), "combat");
+    const entry = out.log.find(e => e.kind === "creature-dies");
+    expect(entry.cause).toBe("combat");
   });
 });

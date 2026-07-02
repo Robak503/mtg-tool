@@ -264,11 +264,12 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
           lifeLoss[defender] = (lifeLoss[defender] || 0) + amount;
           if (attackerToxicN > 0) poisonGain[defender] = (poisonGain[defender] || 0) + attackerToxicN;
         }
-        // CMD-DAMAGE (CR 903.10a): if the attacker is a commander, tag the event with its card id so the
-        // post-combat step accrues 21-rule commander damage to the defender (keyed per-commander).
+        // CMD-DAMAGE (CR 903.10a): if the attacker is a commander, tag the event with its card id (+ name,
+        // for N4's log line) so the post-combat step accrues 21-rule commander damage to the defender
+        // (keyed per-commander).
         const attCard = lookup.permanent?.card;
-        const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCard.id) : null;
-        playerEvents.push({ kind: "combat-damage-player", turn: state.turn, attackerId: att.permanentId, attackingPlayer: att.attackingPlayer, defender, amount, ...(commanderId ? { commanderId } : {}), ...(trampleFlag ? { trample: true } : {}) });
+const commanderId = attCard?.isCommander ? (attCard.commanderInstanceId || attCard.id) : null;
+        playerEvents.push({ kind: "combat-damage-player", turn: state.turn, attackerId: att.permanentId, attackingPlayer: att.attackingPlayer, defender, amount, ...(commanderId ? { commanderId, commanderName: attCard.name } : {}), ...(trampleFlag ? { trample: true } : {}) });
         return amount;
       }
       return 0;
@@ -366,6 +367,20 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   for (const ev of playerEvents) {
     if (ev.kind === "combat-damage-player" && ev.commanderId && ev.amount > 0) {
       next = addCommanderDamage(next, { commanderId: ev.commanderId, toPlayer: ev.defender, amount: ev.amount });
+      // N4: log the accrual itself — previously silent (a board-visible progression toward the 21-rule
+      // loss with zero explanation). total is read back off the tracker post-accrual so the log always
+      // reflects the real running total, not just this hit's amount.
+      const total = next.players[ev.defender]?.commanderDamageFrom?.[ev.commanderId] || ev.amount;
+      next = logEvent(next, {
+        kind: "commander-damage",
+        turn: next.turn,
+        commanderId: ev.commanderId,
+        commanderName: ev.commanderName || "a commander",
+        attackingPlayer: ev.attackingPlayer,
+        defender: ev.defender,
+        amount: ev.amount,
+        total,
+      });
     }
   }
   for (const [pid, amount] of Object.entries(lifeGain)) {
@@ -413,7 +428,9 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
   next = checkDealtDamageTriggers(next, Object.entries(dealtDamageTotals).map(([creatureId, amount]) => ({ creatureId, amount })));
 
   // ── SBA: lethal damage (or ANY deathtouch damage) destroys creatures ──
-  const { state: afterDeaths, dead } = destroyLethalCreatures(next, deathtouched);
+  // N4: destroyLethalCreatures itself now logs each creature-dies (cause "combat" here, so the shape
+  // is byte-identical to what this call site used to emit) — no separate emission loop needed below.
+  const { state: afterDeaths, dead } = destroyLethalCreatures(next, deathtouched, "combat");
   next = afterDeaths;
   // ── SBA: a planeswalker at 0 loyalty is put into its owner's graveyard (CR 704.5i) ──
   const { state: afterPwDeaths, dead: deadPw } = destroyZeroLoyaltyPlaneswalkers(next);
@@ -429,9 +446,6 @@ export function resolveCombatDamage(state, { firstStrikeStep = false } = {}) {
     lifeGain,
   });
   for (const ev of playerEvents) next = logEvent(next, ev);
-  for (const d of dead) {
-    next = logEvent(next, { kind: "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause: "combat" });
-  }
   for (const d of deadPw) {
     next = logEvent(next, { kind: "planeswalker-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause: "combat" });
   }

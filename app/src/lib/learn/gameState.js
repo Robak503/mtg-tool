@@ -1166,7 +1166,7 @@ export function clearCombatDamage(state) {
  * Shared by combat damage and direct-damage spells so the lethality rule lives in one
  * place. Returns `{ state, dead }`.
  */
-export function destroyLethalCreatures(state, deathtouched = new Set()) {
+export function destroyLethalCreatures(state, deathtouched = new Set(), cause = "sba") {
   const dead = [];
   const regenerated = []; // REGEN (CR 701.15) — creatures whose destruction a regen shield replaces this SBA
   // Look-back snapshot (CR 603.10a): by the time dies-triggers are checked the permanent is
@@ -1233,6 +1233,11 @@ export function destroyLethalCreatures(state, deathtouched = new Set()) {
     // replacement effect; "exile it instead" of the graveyard). All other deaths go to the graveyard.
     const toZone = d.exileInstead ? "exile" : "graveyard";
     next = moveCardToZone(next, { playerId: d.controller, fromZone: "battlefield", toZone, cardId: d.id });
+    // N4: log every death at this single chokepoint (combat AND non-combat — a -X/-X wipe, a 0/0 token,
+    // a direct-damage spell) so the board-visible "a creature just died" event is never silent. `cause`
+    // defaults to "sba" (the generic SBA path); combatResolution.js passes "combat" explicitly so its
+    // own (now-removed) duplicate emission collapses into this one without changing the log shape.
+    next = logEvent(next, { kind: "creature-dies", turn: next.turn, cardName: d.name, controller: d.controller, cause });
   }
   for (const pid of regenerated) next = regeneratePermanent(next, pid); // CR 701.15a — clear damage + tap, survive
   return { state: next, dead };

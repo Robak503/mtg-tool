@@ -65,6 +65,37 @@ describe("CMD-DAMAGE — combat feeds the per-commander 21-rule tracker", () => 
     expect(s.players.ai.commanderDamageFrom["Beater-card"]).toBe(21); // 7×3 — isPlayerDead(...,"ai") would now be true
   });
 
+  it("N4: an unblocked commander hit logs a commander-damage event whose total matches the tracker", () => {
+    const omnath = commander("Omnath", 5, "user");
+    const out = resolveCombatDamage(makeState({ userBf: [omnath] }, attackAi(omnath.id)));
+    const entry = out.log.find(e => e.kind === "commander-damage");
+    expect(entry).toBeTruthy();
+    expect(entry.commanderId).toBe("Omnath-card");
+    expect(entry.commanderName).toBe("Omnath");
+    expect(entry.defender).toBe("ai");
+    expect(entry.amount).toBe(5);
+    expect(entry.total).toBe(out.players.ai.commanderDamageFrom["Omnath-card"]); // total tracks the live tracker
+  });
+
+  it("N4: repeated hits log a growing running total, culminating at the lethal 21", () => {
+    const cmdr = commander("Beater", 7, "user");
+    let s = makeState({ userBf: [cmdr] }, attackAi(cmdr.id));
+    const totals = [];
+    for (let i = 0; i < 3; i++) {
+      s = resolveCombatDamage(s);
+      const entry = s.log.filter(e => e.kind === "commander-damage").at(-1);
+      totals.push(entry.total);
+      s = { ...s, combat: attackAi(cmdr.id) };
+    }
+    expect(totals).toEqual([7, 14, 21]); // running total reaches the 903.10a lethal threshold
+  });
+
+  it("a NON-commander attacker logs no commander-damage event", () => {
+    const bear = creature("Bear", 3, 3, "user");
+    const out = resolveCombatDamage(makeState({ userBf: [bear] }, attackAi(bear.id)));
+    expect(out.log.some(e => e.kind === "commander-damage")).toBe(false);
+  });
+
   it("a commander that DIES trading still records the trample damage it dealt (event-based accrual)", () => {
     // 5-power commander with trample, blocked by a 4/1: 1 lethal to the blocker, 4 trample to the player;
     // the commander takes 4 back (survives here) — point is the trample-to-player accrues commander damage.
